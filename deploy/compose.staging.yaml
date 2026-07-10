@@ -1,0 +1,139 @@
+name: partsignal-staging
+
+x-backend: &backend
+  image: ${PARTSIGNAL_BACKEND_IMAGE:-partsignal-backend}:${PARTSIGNAL_VERSION:?必须指定 PARTSIGNAL_VERSION}
+  build:
+    context: ../backend
+  env_file:
+    - ../.env.staging
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks: [partsignal-staging-internal, partsignal-staging-egress]
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,noexec,nosuid
+  logging: &logging
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    env_file: [../.env.staging]
+    volumes:
+      - ${PARTSIGNAL_DATA_ROOT:-/root/partsignal-data}/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.75
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [partsignal-staging-internal]
+    logging: *logging
+
+  redis:
+    image: redis:7.4-alpine
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 96mb, --maxmemory-policy, noeviction]
+    volumes:
+      - ${PARTSIGNAL_DATA_ROOT:-/root/partsignal-data}/redis:/data
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [partsignal-staging-internal]
+    logging: *logging
+
+  fake-oss:
+    image: ${PARTSIGNAL_BACKEND_IMAGE:-partsignal-backend}:${PARTSIGNAL_VERSION}
+    build:
+      context: ../backend
+    command: [python, -m, app.files.fake_server]
+    env_file: [../.env.staging]
+    ports:
+      - 127.0.0.1:19001:9000
+    volumes:
+      - ${PARTSIGNAL_DATA_ROOT:-/root/partsignal-data}/objects:/data
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    mem_limit: 192m
+    cpus: 0.25
+    networks: [partsignal-staging-internal, partsignal-staging-edge]
+    logging: *logging
+
+  migrate:
+    <<: *backend
+    command: [alembic, upgrade, head]
+    restart: 'no'
+
+  api:
+    <<: *backend
+    command: [uvicorn, 'app.main:app', --host, 0.0.0.0, --port, '8000', --workers, '1']
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      fake-oss:
+        condition: service_started
+    ports:
+      - 127.0.0.1:19000:8000
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.75
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/live')"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  worker:
+    <<: *backend
+    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1]
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.75
+
+  scheduler:
+    <<: *backend
+    command: [celery, -A, 'app.worker:celery_app', beat, --loglevel=INFO, --schedule, /tmp/partsignal-celerybeat]
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+
+  frontend:
+    image: ${PARTSIGNAL_FRONTEND_IMAGE:-partsignal-frontend}:${PARTSIGNAL_VERSION}
+    build:
+      context: ../frontend
+    ports:
+      - 127.0.0.1:19080:80
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=16m,noexec,nosuid
+      - /var/run:size=4m,noexec,nosuid
+    mem_limit: 96m
+    cpus: 0.25
+    networks: [partsignal-staging-edge]
+    logging: *logging
+
+networks:
+  partsignal-staging-internal:
+    name: partsignal-staging-internal
+    internal: true
+  partsignal-staging-egress:
+    name: partsignal-staging-egress
+  partsignal-staging-edge:
+    name: partsignal-staging-edge

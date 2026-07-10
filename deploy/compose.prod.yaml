@@ -1,0 +1,93 @@
+name: partsignal
+
+x-backend: &backend
+  image: ${PARTSIGNAL_BACKEND_IMAGE}:${PARTSIGNAL_VERSION}
+  env_file:
+    - ../.env
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks: [partsignal-internal, partsignal-egress]
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,noexec,nosuid
+  logging: &logging
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+
+services:
+  migrate:
+    <<: *backend
+    command: [alembic, upgrade, head]
+    restart: 'no'
+
+  api:
+    <<: *backend
+    command: [uvicorn, 'app.main:app', --host, 0.0.0.0, --port, '8000', --workers, '2']
+    ports:
+      - 127.0.0.1:19000:8000
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/live')"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    <<: *backend
+    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1]
+    restart: unless-stopped
+    mem_limit: 1g
+    cpus: 1.5
+
+  scheduler:
+    <<: *backend
+    command: [celery, -A, 'app.worker:celery_app', beat, --loglevel=INFO, --schedule, /tmp/partsignal-celerybeat]
+    restart: unless-stopped
+    mem_limit: 192m
+    cpus: 0.25
+
+  postgres:
+    image: postgres:16-alpine
+    env_file: [../.env]
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    mem_limit: 768m
+    cpus: 1.0
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [partsignal-internal]
+    logging: *logging
+
+  redis:
+    image: redis:7.4-alpine
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 96mb, --maxmemory-policy, noeviction]
+    volumes:
+      - ./data/redis:/data
+    restart: unless-stopped
+    mem_limit: 128m
+    cpus: 0.25
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [partsignal-internal]
+    logging: *logging
+
+networks:
+  partsignal-internal:
+    name: partsignal-internal
+    internal: true
+  partsignal-egress:
+    name: partsignal-egress

@@ -1,0 +1,58 @@
+upstream partsignal_staging_api {
+    server 127.0.0.1:19000;
+    keepalive 8;
+}
+
+upstream partsignal_staging_frontend {
+    server 127.0.0.1:19080;
+    keepalive 8;
+}
+
+upstream partsignal_staging_storage {
+    server 127.0.0.1:19001;
+    keepalive 4;
+}
+
+server {
+    listen <HOSTDZIRE_WG_ADDRESS>:80 proxy_protocol;
+    server_name geo.962850.xyz;
+
+    include /etc/nginx/snippets/acme-challenge.conf;
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen <HOSTDZIRE_WG_ADDRESS>:443 ssl proxy_protocol;
+    http2 on;
+    server_name geo.962850.xyz;
+
+    include /etc/nginx/snippets/cert-962850.xyz.conf;
+    include /etc/nginx/snippets/ssl-common.conf;
+    include /etc/nginx/snippets/security-headers-web.conf;
+
+    client_max_body_size 10m;
+
+    location ^~ /api/ {
+        include /etc/nginx/snippets/proxy-common.conf;
+        proxy_set_header Connection "";
+        proxy_next_upstream off;
+        proxy_pass http://partsignal_staging_api;
+    }
+
+    # 开发对象存储只用于预发布验收，前缀在转发时被移除。
+    location ^~ /object-storage/ {
+        include /etc/nginx/snippets/proxy-common.conf;
+        proxy_set_header Connection "";
+        proxy_next_upstream off;
+        proxy_pass http://partsignal_staging_storage/;
+    }
+
+    location / {
+        include /etc/nginx/snippets/proxy-common.conf;
+        proxy_set_header Connection "";
+        proxy_pass http://partsignal_staging_frontend;
+    }
+}

@@ -1,0 +1,74 @@
+/* PartSignal 以工程纸张、深绿控制台和橙色信号构成统一视觉语言。 */
+:root {
+  font-family: 'Avenir Next', 'PingFang SC', sans-serif;
+  color: #17342e;
+  background: #f4f0e8;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #f4f0e8; }
+a { color: #b74320; }
+.app-shell { min-height: 100vh; background: #f4f0e8; }
+.app-sider { position: sticky !important; top: 0; height: 100vh; overflow: hidden; }
+.brand-mark { height: 76px; display: flex; align-items: center; gap: 12px; padding: 0 20px; color: #fff; letter-spacing: .02em; }
+.brand-mark span { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #ef8b63; color: #ef8b63; font: 500 13px 'SFMono-Regular', monospace; transform: rotate(-3deg); }
+.brand-mark strong { font-size: 18px; }
+.sider-note { position: absolute; bottom: 24px; left: 22px; right: 22px; color: #76988e; font-size: 12px; line-height: 1.8; border-top: 1px solid #254a42; padding-top: 16px; }
+.app-header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; border-bottom: 1px solid #ddd5c8; }
+.user-block { display: flex; flex-direction: column; line-height: 1.2; }
+.user-block .ant-typography:last-child { font-size: 12px; }
+.app-content { padding: 30px; background-color: #f4f0e8; background-image: linear-gradient(rgba(11,45,37,.028) 1px, transparent 1px), linear-gradient(90deg, rgba(11,45,37,.028) 1px, transparent 1px); background-size: 32px 32px; }
+.page-stack { display: flex; flex-direction: column; gap: 20px; max-width: 1500px; margin: 0 auto; animation: page-in .35s ease-out; }
+.page-heading, .page-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 8px 0 12px; }
+.page-heading h1, .page-hero h1 { margin: 5px 0 4px !important; font-size: clamp(30px, 4vw, 48px) !important; letter-spacing: -.045em; }
+.page-heading p, .page-hero p { margin: 0; max-width: 720px; }
+.page-hero { padding: 28px; border: 1px solid #cfc7ba; background: linear-gradient(115deg, #fffdf8 0 70%, #e5d8c6 70%); }
+.eyebrow { color: #b74320 !important; font: 500 12px 'SFMono-Regular', monospace; letter-spacing: .14em; }
+.ant-card { border-color: #d8d1c6; box-shadow: 0 8px 26px rgba(23,52,46,.04); }
+.ant-table-wrapper { overflow-x: auto; }
+.table-search { max-width: 360px; margin-bottom: 18px; }
+.section-card { margin-bottom: 16px; background: #fffdf9; }
+.dynamic-row, .dynamic-block { width: 100%; margin-bottom: 12px; padding: 14px; border: 1px dashed #c7bfb2; background: #faf7f1; }
+.form-alert { margin-bottom: 16px; }
+.command-bar { margin: 20px 0; }
+.markdown-source { font: 14px/1.65 'SFMono-Regular', monospace; }
+.snapshot-json { max-height: 52vh; overflow: auto; padding: 16px; border-radius: 8px; background: #f1eee6; font: 12px/1.55 'SFMono-Regular', monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.markdown-preview { min-height: 300px; line-height: 1.8; overflow-wrap: anywhere; }
+.markdown-preview.compact { min-height: auto; padding: 16px; margin: 12px 0; border-left: 3px solid #d85f36; background: #f8f4ed; }
+.markdown-preview img { max-width: 100%; }
+.markdown-preview pre { overflow: auto; padding: 14px; background: #0b2d25; color: #e6eee9; }
+.markdown-preview table { border-collapse: collapse; width: 100%; }
+.markdown-preview th, .markdown-preview td { padding: 7px 10px; border: 1px solid #d4cdc2; }
+.diff-view { min-height: 180px; font: 13px/1.7 'SFMono-Regular', monospace; }
+.diff-line { display: grid; grid-template-columns: 42px 42px 1fr; border-bottom: 1px solid #eee8df; }
+.diff-line > span { color: #978d80; text-align: right; padding-right: 9px; user-select: none; }
+.diff-line code { white-space: pre-wrap; padding-left: 8px; }
+.diff-add { background: #e9f6ed; color: #155d32; }
+.diff-delete { background: #fdecea; color: #9e2f25; }
+.login-page { min-height: 100vh; display: grid; grid-template-columns: minmax(320px, 1fr) minmax(380px, 520px); align-items: center; gap: 8vw; padding: clamp(30px, 8vw, 120px); background: radial-gradient(circle at 18% 20%, #1b5145 0, #0b2d25 36%, #071f1a 70%); color: #fff; overflow: hidden; }
+.login-page::before { content: ''; position: fixed; width: 480px; height: 480px; border: 1px solid #2e6256; border-radius: 50%; top: -180px; left: 22%; box-shadow: 0 0 0 70px rgba(46,98,86,.2), 0 0 0 140px rgba(46,98,86,.1); }
+.login-intro { position: relative; z-index: 1; max-width: 700px; }
+.login-intro h1 { color: #fff !important; font-size: clamp(44px, 6vw, 76px) !important; line-height: 1.12 !important; letter-spacing: -.055em; }
+.login-intro p { color: #a9c4bc; font-size: 18px; max-width: 620px; }
+.login-card { position: relative; z-index: 2; padding: 20px 12px; box-shadow: 0 24px 80px rgba(0,0,0,.25); }
+.centered { max-width: 680px; margin: 20vh auto; padding: 30px; }
+.upload-label { cursor: pointer; }
+.upload-label input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.mobile-drawer .ant-drawer-body { padding: 0; background: #0b2d25; }
+.mobile-drawer .ant-drawer-header { background: #0b2d25; border-color: #254a42; }
+.mobile-drawer .ant-drawer-close { color: #fff; }
+
+@keyframes page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 767px) {
+  .app-content { padding: 18px 12px; }
+  .app-header { padding: 0 10px; }
+  .user-block { display: none; }
+  .page-heading, .page-hero { align-items: flex-start; flex-direction: column; }
+  .page-hero { background: #fffdf8; }
+  .login-page { grid-template-columns: 1fr; padding: 28px 18px; }
+  .login-intro h1 { font-size: 40px !important; }
+  .login-card { padding: 8px 2px; }
+  .dynamic-row, .dynamic-block { padding: 9px; }
+}

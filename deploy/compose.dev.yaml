@@ -1,0 +1,121 @@
+name: partsignal-dev
+
+x-backend: &backend
+  build:
+    context: ../backend
+  env_file:
+    - ../.env
+  volumes:
+    - ../backend:/app
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  networks: [partsignal-internal]
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - 127.0.0.1:55432:5432
+    volumes:
+      - partsignal-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [partsignal-internal]
+
+  redis:
+    image: redis:7.4-alpine
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 96mb, --maxmemory-policy, noeviction]
+    ports:
+      - 127.0.0.1:56379:6379
+    volumes:
+      - partsignal-redis:/data
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [partsignal-internal]
+
+  migrate:
+    <<: *backend
+    command: [uv, run, alembic, upgrade, head]
+    restart: 'no'
+
+  api:
+    <<: *backend
+    command: [uv, run, uvicorn, 'app.main:app', --host, 0.0.0.0, --port, '8000', --reload]
+    ports:
+      - 127.0.0.1:18000:8000
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/live')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    <<: *backend
+    command: [uv, run, celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1]
+
+  scheduler:
+    <<: *backend
+    command: [uv, run, celery, -A, 'app.worker:celery_app', beat, --loglevel=INFO, --schedule, /tmp/partsignal-celerybeat]
+
+  fake-oss:
+    <<: *backend
+    command: [uv, run, python, -m, app.files.fake_server]
+    ports:
+      - 127.0.0.1:19001:9000
+    volumes:
+      - ../backend:/app
+      - partsignal-fake-oss:/data
+    depends_on: {}
+
+  frontend:
+    build:
+      context: ../frontend
+      target: development
+    environment:
+      VITE_API_BASE_URL: ''
+      VITE_API_PROXY_TARGET: http://api:8000
+    volumes:
+      - ../frontend:/app
+      - partsignal-node-modules:/app/node_modules
+    ports:
+      - 127.0.0.1:5173:5173
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [partsignal-internal]
+
+  backend-test:
+    <<: *backend
+    environment:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://partsignal:partsignal_dev@postgres:5432/partsignal
+      REDIS_URL: redis://redis:6379/15
+      SESSION_SECRET: test-session-secret-at-least-32-bytes
+      CONTENT_GENERATOR: deterministic
+      OBJECT_STORAGE_BACKEND: development
+      OBJECT_STORAGE_ENDPOINT: http://fake-oss:9000
+    command: [uv, run, pytest, tests/integration]
+    profiles: [test]
+
+networks:
+  partsignal-internal:
+    name: partsignal-internal
+
+volumes:
+  partsignal-postgres:
+  partsignal-redis:
+  partsignal-fake-oss:
+  partsignal-node-modules:

@@ -1,0 +1,46 @@
+upstream partsignal_api_backend {
+    server 127.0.0.1:19000;
+    keepalive 16;
+}
+
+server {
+    listen <HOSTDZIRE_WG_ADDRESS>:80 proxy_protocol;
+    server_name geo.962850.xyz;
+
+    include /etc/nginx/snippets/acme-challenge.conf;
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen <HOSTDZIRE_WG_ADDRESS>:443 ssl proxy_protocol;
+    http2 on;
+    server_name geo.962850.xyz;
+
+    include /etc/nginx/snippets/cert-962850.xyz.conf;
+    include /etc/nginx/snippets/ssl-common.conf;
+    include /etc/nginx/snippets/security-headers-web.conf;
+
+    root /var/www/partsignal-frontend/current;
+    index index.html;
+    client_max_body_size 10m;
+
+    location ^~ /api/ {
+        include /etc/nginx/snippets/proxy-common.conf;
+        proxy_set_header Connection "";
+        proxy_next_upstream off;
+        proxy_pass http://partsignal_api_backend;
+    }
+
+    location /assets/ {
+        try_files $uri =404;
+        access_log off;
+        expires 7d;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

@@ -11,6 +11,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .venv/
+.cache/
 dist/
 build/
 *.egg-info/
@@ -19,7 +20,11 @@ build/
 node_modules/
 coverage/
 frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
 *.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 
 # 编辑器与系统文件
 .idea/

@@ -26,7 +26,33 @@ PartSignal（元件信号）是面向电子元器件国产替代业务的多平�
 - [项目会话归档](./docs/GEO项目会话归档.md)
 - [产品与业务方案](./docs/GEO多平台内容运营系统方案设计.md)
 - [前后端技术与部署方案](./docs/GEO系统前后端技术与部署方案.md)
+- [实现架构](./docs/architecture.md)
+- [本地开发](./docs/development.md)
+- [测试策略](./docs/testing.md)
+- [部署与运维](./docs/operations.md)
 
 ## 状态
 
-项目处于 MVP 设计与工程初始化阶段。
+MVP 纵向闭环已实现，采用契约优先的前后端并行开发。默认开发配置只使用虚构数据、确定性生成器和独立开发对象存储；真实模型、生产 OSS、生产 VPS 与跨平台自动发布均未启用。
+
+## 开发入口
+
+```bash
+make bootstrap
+make dev
+```
+
+常用质量检查：
+
+```bash
+make contract-check
+make lint
+make typecheck
+make test-unit
+make test-integration
+make e2e
+make build
+make verify
+```
+
+HTTP 契约位于 `contracts/openapi.yaml`，数据库和状态机契约位于 `contracts/database.md`。本地默认使用确定性内容生成器和会真实校验上传内容的开发对象存储，不连接真实大模型或生产 OSS；生产 OSS 适配器只有在显式配置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 时启用。

@@ -1,0 +1,69 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: partsignal_test
+          POSTGRES_USER: partsignal
+          POSTGRES_PASSWORD: partsignal_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U partsignal -d partsignal_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://partsignal:partsignal_test@localhost:5432/partsignal_test
+      REDIS_URL: redis://localhost:6379/15
+      SESSION_SECRET: ci-session-secret-at-least-32-bytes
+      CONTENT_GENERATOR: deterministic
+      OBJECT_STORAGE_BACKEND: development
+      OBJECT_STORAGE_ENDPOINT: http://127.0.0.1:19001
+      PARTSIGNAL_SEED_ADMIN_PASSWORD: partsignal-admin-dev
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: uv sync --project backend --all-extras
+      - run: npm ci --prefix frontend
+      - run: cp .env.example .env
+      - run: uv run --project backend alembic -c backend/alembic.ini upgrade head
+      - run: make contract-check
+      - run: make lint
+      - run: make typecheck
+      - run: make test-unit
+      - run: uv run --project backend pytest backend/tests/integration
+      - run: make build
+      - run: npm --prefix frontend exec -- playwright install --with-deps chromium
+      - run: deploy/scripts/e2e-local.sh
+      - run: docker compose --env-file .env.example -f deploy/compose.dev.yaml config --quiet
+      - run: docker compose --env-file .env.example -f deploy/compose.prod.yaml config --quiet
+        env:
+          PARTSIGNAL_BACKEND_IMAGE: partsignal-backend
+          PARTSIGNAL_VERSION: test

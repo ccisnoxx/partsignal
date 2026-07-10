@@ -1,0 +1,3 @@
+{"file":"docs/GEO多平台内容运营系统方案设计.md","reason":"业务边界、状态机、实体和 MVP 验收来源"}
+{"file":"docs/GEO系统前后端技术与部署方案.md","reason":"技术栈、部署、Celery、OSS 与安全约束来源"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"契约优先跨层数据流检查"}

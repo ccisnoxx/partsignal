@@ -38,3 +38,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: 精简初始账号与管理员改密入口
+
+**Date**: 2026-07-11
+**Task**: 精简初始账号与管理员改密入口
+**Branch**: `agent/mvp`
+
+### Summary
+
+完成旧版账号事务清理、双账号独立初始化、自助改密入口、停用账号过滤及全量验证。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cebb0d0` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

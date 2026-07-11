@@ -18,13 +18,15 @@
 
 API 只绑定 `127.0.0.1:19000`，PostgreSQL、Redis 和 Worker 不暴露宿主机端口。宿主机 Nginx 提供静态文件并代理 `/api/`。
 
-PostgreSQL 与 Redis 只加入 `partsignal-internal` 隔离网络。API、迁移任务和 Worker 同时加入 `partsignal-egress`，用于 OSS 元数据校验和后续经批准的大模型调用；不得把数据库或 Redis 加入出站网络。
+PostgreSQL 与 Redis 只加入 `partsignal-internal` 隔离网络。API、迁移任务和 Worker 同时加入 `partsignal-egress`，用于 OSS 元数据校验和 OpenAI-compatible 模型调用；不得把数据库或 Redis 加入出站网络。应用层 DNS 校验不能替代出站防火墙，生产环境仍应只允许必要的供应商地址。
+
+生产部署必须设置随机且备份验证过的 `AI_CREDENTIAL_ENCRYPTION_KEY`（Base64 编码的 32 字节密钥）、`CONTENT_GENERATOR=openai-compatible` 和 `AI_ALLOW_LOCAL_HTTP=false`。主密钥丢失后数据库密文无法恢复；轮换前必须显式重新加密或重新录入全部渠道 API Key 与敏感 Header。日志、审计和作业快照不得包含这些明文。
 
 生产文件存储必须显式设置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 并注入 OSS 凭据。部署前应使用非生产前缀验证浏览器预签名直传、后端 HEAD 校验、短期下载 URL 和 CORS 白名单，配置错误不得回退到开发存储。
 
 ## Hostdzire 预发布
 
-`compose.staging.yaml` 是独立的 MVP 验收环境，不是生产配置。它使用真实 PostgreSQL、Redis 和 Celery，但只启用确定性内容生成器与显式开发对象存储；不得向该环境注入生产 OSS 或真实模型凭据。
+`compose.staging.yaml` 是独立的 MVP 验收环境，不是生产配置。它使用真实 PostgreSQL、Redis 和 Celery，可显式选择确定性生成器或专用低权限模型测试渠道；不得向该环境注入生产 OSS 或生产模型凭据。
 
 预发布栈使用 `partsignal-staging-*` 容器网络，业务端口只绑定宿主机回环地址：API `19000`、开发对象存储 `19001`、前端 `19080`。持久数据统一位于 `PARTSIGNAL_DATA_ROOT`，默认 `/root/partsignal-data`，避免随发布目录切换而丢失。
 
@@ -35,6 +37,8 @@ APP_ENV=staging
 APP_BASE_URL=https://geo.962850.xyz
 SESSION_COOKIE_SECURE=true
 CONTENT_GENERATOR=deterministic
+AI_CREDENTIAL_ENCRYPTION_KEY=<Base64 编码的 32 字节预发布专用密钥>
+AI_ALLOW_LOCAL_HTTP=false
 OBJECT_STORAGE_BACKEND=development
 OBJECT_STORAGE_ENDPOINT=http://fake-oss:9000
 OBJECT_STORAGE_PUBLIC_ENDPOINT=https://geo.962850.xyz/object-storage
@@ -52,7 +56,7 @@ PARTSIGNAL_VERSION=<release-id> ./scripts/deploy-staging.sh
 
 ## 回滚
 
-前端通过软链接切换上一版本。API 和 Worker 使用上一镜像标签重启。数据库迁移优先向后兼容，破坏性迁移前必须备份，不自动执行未验证的降级迁移。
+前端通过软链接切换上一版本。API 和 Worker 使用上一镜像标签重启。本次账号类型映射和内容追溯列删除是有损迁移：迁移前必须备份 PostgreSQL 和 AI 凭据主密钥；需要回退到旧应用时恢复完整迁移前数据库，不执行 `0009` 的有损降级。仅回退同一数据库契约内的应用版本时，先停用全部 AI 渠道。
 
 ## 备份
 

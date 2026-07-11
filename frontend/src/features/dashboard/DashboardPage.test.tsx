@@ -7,7 +7,7 @@ import { mockFetch } from '../../test/fetchMock';
 
 const user = {
   id: '10000000-0000-4000-8000-000000000001', username: 'reviewer', display_name: '审核员',
-  roles: ['PRODUCT_REVIEWER', 'CONTENT_REVIEWER'], is_active: true, revision: 1, created_at: '2026-07-10T00:00:00Z',
+  account_type: 'ENGINEER', is_active: true, must_change_password: false, revision: 1, created_at: '2026-07-10T00:00:00Z',
 } satisfies Schema<'User'>;
 
 test('展示服务端待办和 GEO 指标', async () => {

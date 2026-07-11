@@ -99,15 +99,21 @@ services:
 
   backend-test:
     <<: *backend
+    build:
+      context: ../backend
+      target: test
     environment:
       APP_ENV: test
       DATABASE_URL: postgresql+psycopg://partsignal:partsignal_dev@postgres:5432/partsignal
       REDIS_URL: redis://redis:6379/15
       SESSION_SECRET: test-session-secret-at-least-32-bytes
       CONTENT_GENERATOR: deterministic
+      AI_CREDENTIAL_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      AI_ALLOW_LOCAL_HTTP: 'true'
       OBJECT_STORAGE_BACKEND: development
       OBJECT_STORAGE_ENDPOINT: http://fake-oss:9000
-    command: [uv, run, pytest, tests/integration]
+    # 测试依赖已固化在 test 镜像，避免 bind mount 后 `uv run` 将环境同步回生产依赖。
+    command: [pytest, tests/integration]
     profiles: [test]
 
 networks:

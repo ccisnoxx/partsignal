@@ -24,9 +24,9 @@ PostgreSQL 是业务状态权威来源。Redis 只传递 Celery 消息，Worker 
 
 ## Security And External Services
 
-内部账号使用 Argon2、PostgreSQL 服务端会话、Secure/HttpOnly/SameSite Cookie 和 CSRF Header。角色可以叠加，但创建者不能审核自己的事实或内容。
+内部账号使用 Argon2、PostgreSQL 服务端会话、Secure/HttpOnly/SameSite Cookie 和 CSRF Header。账号类型收敛为 `ADMIN` 与 `ENGINEER`；创建者可以显式批准自己的事实或内容，但其他证据、质量、状态和审计约束保持不变。
 
-开发生成器依据批准事实构造确定性草稿，未知事实直接失败。开发对象存储提供与上传意图一致的直传和 HEAD 校验，不伪装成生产 OSS。真实适配器需要后续单独批准和凭据。
+真实生成通过配置中心选择 OpenAI-compatible 渠道、模型和平台 Prompt，作业冻结完整非敏感输入快照；开发生成器只用于本地和自动化测试。开发对象存储提供与上传意图一致的直传和 HEAD 校验，不伪装成生产 OSS。
 
 ## Delivery Boundaries
 

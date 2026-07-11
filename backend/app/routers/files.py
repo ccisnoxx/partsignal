@@ -6,18 +6,16 @@ import mimetypes
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Request, status
 
 from app.audit import append_audit
 from app.config import settings
-from app.deps import CsrfProtected, CurrentUser, DbSession, require_roles
+from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
 from app.errors import AppError, not_found
-from app.models import FileRecord, User
+from app.models import FileRecord
 from app.schemas import (
     FileRecordOut,
-    RoleName,
     SignedUrl,
     UploadInstruction,
     UploadIntent,
@@ -26,17 +24,7 @@ from app.schemas import (
 from app.services.storage import StorageObjectMissing, StorageUnavailable, get_evidence_storage
 
 router = APIRouter(prefix="/api/v1", tags=["files"])
-UploadUser = Annotated[
-    User,
-    Depends(
-        require_roles(
-            RoleName.PRODUCT_EDITOR,
-            RoleName.CONTENT_EDITOR,
-            RoleName.ANALYST,
-            RoleName.SYSTEM_ADMIN,
-        )
-    ),
-]
+UploadUser = EngineerUser
 
 MAX_SIZES = {
     "EVIDENCE": 50 * 1024 * 1024,
@@ -52,21 +40,6 @@ ALLOWED_TYPES = {
 
 def file_out(file: FileRecord) -> FileRecordOut:
     return FileRecordOut.model_validate(file)
-
-
-def authorize_file(user: User, file: FileRecord) -> None:
-    """受限文件只允许相关业务角色读取，上传者始终可读取。"""
-    if file.access_level != "RESTRICTED" or file.uploader_id == user.id:
-        return
-    roles = {role.name for role in user.roles}
-    allowed = {
-        "SYSTEM_ADMIN",
-        "PRODUCT_EDITOR",
-        "PRODUCT_REVIEWER",
-        "CONTENT_REVIEWER",
-    }
-    if not roles.intersection(allowed):
-        raise AppError("PERMISSION_DENIED", "没有读取受限文件的权限", 403)
 
 
 @router.post(
@@ -188,11 +161,10 @@ def complete_file_upload(
 
 
 @router.get("/files/{file_id}", response_model=FileRecordOut, operation_id="getFileRecord")
-def get_file_record(file_id: uuid.UUID, db: DbSession, user: CurrentUser) -> FileRecordOut:
+def get_file_record(file_id: uuid.UUID, db: DbSession, _user: CurrentUser) -> FileRecordOut:
     file = db.get(FileRecord, file_id)
     if file is None:
         raise not_found("文件记录")
-    authorize_file(user, file)
     return file_out(file)
 
 
@@ -227,11 +199,10 @@ def abort_file_upload(
 @router.get(
     "/files/{file_id}/download-url", response_model=SignedUrl, operation_id="getFileDownloadUrl"
 )
-def get_file_download_url(file_id: uuid.UUID, db: DbSession, user: CurrentUser) -> SignedUrl:
+def get_file_download_url(file_id: uuid.UUID, db: DbSession, _user: CurrentUser) -> SignedUrl:
     file = db.get(FileRecord, file_id)
     if file is None:
         raise not_found("文件记录")
-    authorize_file(user, file)
     if file.status != "VERIFIED":
         raise AppError("FILE_INTEGRITY_FAILED", "只有 VERIFIED 文件可以下载", 409)
     expires_at = datetime.now(UTC) + timedelta(seconds=settings.download_url_ttl_seconds)

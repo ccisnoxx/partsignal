@@ -16,7 +16,7 @@
 
 `users`, `roles`, `user_roles`, `sessions`, `audit_logs`.
 
-Roles are fixed application constants: `SYSTEM_ADMIN`, `PRODUCT_EDITOR`, `PRODUCT_REVIEWER`, `CONTENT_EDITOR`, `CONTENT_REVIEWER`, `ANALYST`. `SYSTEM_ADMIN` manages identities and configuration but does not implicitly receive review permissions.
+This historical revision created six fixed roles. Revision `0009` migrates them to the current two-account-type model and removes `roles` and `user_roles`.
 
 ### 0002 Product Facts
 
@@ -40,7 +40,7 @@ Roles are fixed application constants: `SYSTEM_ADMIN`, `PRODUCT_EDITOR`, `PRODUC
 
 `content_review_records` plus immutability and task-version constraints.
 
-Approving a new version and superseding the previous approved version happen in one transaction. Reviewers cannot approve content they created.
+Approving a new version and superseding the previous approved version happen in one transaction. Creators may approve their own fact or content versions; all state, evidence, and quality gates still apply.
 
 ### 0006 Publication
 
@@ -59,6 +59,16 @@ Observations are immutable. Corrections create another observation with `superse
 `file_records`, `publication_attachments`, `geo_observation_attachments`, plus `evidences.file_record_id`.
 
 Only `VERIFIED` files may be linked. Referenced objects cannot be deleted through the application.
+
+### 0009 Configuration Center And AI Generation
+
+`users` gains `account_type` (`ADMIN | ENGINEER`) and `must_change_password`. Existing users with `SYSTEM_ADMIN` become `ADMIN`; all other existing users become `ENGINEER`. After the mapping, `roles` and `user_roles` are removed so `users.account_type` is the only permission source. Users remain non-deletable business identities. Disabling a user or resetting a password revokes all active sessions. A transaction may not disable or demote the last active `ADMIN`.
+
+`platform_types` owns a unique category `slug`; `platform_prompts` stores at most one mutable Markdown system Prompt per type. `platform_profiles.platform_type_id` is nullable only for migrated profiles and uses `RESTRICT` on delete. New profiles and new content tasks require an explicit type. `content_tasks.platform_type_snapshot` freezes the selected type identity while `user_prompt_markdown` remains an editable task draft protected by `revision`.
+
+`ai_channels` owns an encrypted API key, timeout, and connection state. `ai_channel_headers` belongs only to a channel, normalizes names case-insensitively, and stores exactly one of a plain or encrypted value. `ai_models` belongs to a channel and stores the provider `model_id`, display name, exact JSON request parameters, and model-level test state. Channels and models default disabled. Connection, credential, or Header changes disable the channel and invalidate every child model test; model ID or parameter changes disable and invalidate that model.
+
+`generation_jobs` gains nullable `ai_channel_id` and `ai_model_id` foreign keys using `SET NULL`, provider request metadata, and nullable token usage. `input_snapshot` is the authoritative immutable generation input and retains channel/model identity, non-sensitive connection data, model parameters, system/user messages, approved fact values, and task requirements after current configuration is deleted. Credentials and sensitive Header values never enter the snapshot. `content_versions` removes model-reported fact, evidence, and disclosure ID arrays; traceability comes from `fact_version_id`, `source_job_id`, and the job snapshot.
 
 ## State Machines
 
@@ -90,7 +100,13 @@ State changes not shown above are invalid. `CHANGES_REQUESTED` records are histo
 - Product or content-task owner rows are locked while allocating the next version number.
 - Approved fact snapshots permit status-only transition to `RETIRED`; all other columns are immutable.
 - Content versions permit only valid status transitions; publishable fields are immutable.
-- A fact or content reviewer must differ from the version creator.
+- `users.account_type` is the only permission source. `ADMIN` includes all `ENGINEER` abilities and exclusively manages users and configuration.
+- At least one active `ADMIN` must remain after every user account-type or active-state update.
+- Sensitive AI values are encrypted with the deployment master key and never returned, audited, logged, or copied into generation snapshots.
+- A platform type referenced by a platform profile cannot be deleted; deleting an unreferenced type cascades only to its current Prompt.
+- Channel deletion cascades to Headers and models. Historical job foreign keys become null while their immutable snapshots remain readable.
+- A model can be enabled only after its own successful test. A channel can be enabled only when at least one child model has passed testing.
+- A generation job performs at most one provider call. Expired worker leases fail explicitly; retries create a new job and preserve the original non-sensitive snapshot.
 - A publication can reference only an approved content version whose fact is not retired at creation time.
 - `PUBLISHED` and `VERIFIED` publications require a valid HTTP(S) URL matching the configured platform domain.
 - Observation accuracy `UNJUDGEABLE` is excluded from the accuracy-rate denominator.

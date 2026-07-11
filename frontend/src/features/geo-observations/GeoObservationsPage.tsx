@@ -7,21 +7,19 @@ import { queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
 import type { FileRecord, GeoObservation, Schema } from '../../shared/api/types';
 import { DirectUpload } from '../../shared/components/DirectUpload';
-import { useAuth } from '../auth/AuthProvider';
 
 export function GeoObservationsPage() {
-  const auth = useAuth();
   const [open, setOpen] = useState(false);
   const metrics = useQuery({ queryKey: ['geo-metrics'], queryFn: async () => unwrap(await api.GET('/api/v1/geo-metrics')) });
   const observations = useQuery({ queryKey: ['geo-observations'], queryFn: async () => unwrap(await api.GET('/api/v1/geo-observations')) });
   const rate = (value: number | null | undefined) => Math.round((value ?? 0) * 100);
-  return <div className="page-stack"><header className="page-heading"><div><Typography.Text className="eyebrow">MEASUREMENT LOG</Typography.Text><Typography.Title>GEO 观测</Typography.Title><Typography.Paragraph>只记录实际测试结果；更正会追加新记录，不覆盖历史。</Typography.Paragraph></div>{auth.hasRole('ANALYST') && <Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>登记观测</Button>}</header>
+  return <div className="page-stack"><header className="page-heading"><div><Typography.Text className="eyebrow">MEASUREMENT LOG</Typography.Text><Typography.Title>GEO 观测</Typography.Title><Typography.Paragraph>只记录实际测试结果；更正会追加新记录，不覆盖历史。</Typography.Paragraph></div><Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>登记观测</Button></header>
     {(metrics.error || observations.error) && <Alert type="error" message={errorMessage(metrics.error ?? observations.error)} />}
     <Row gutter={[16, 16]}>{[['提及率', metrics.data?.mention_rate], ['推荐率', metrics.data?.recommendation_rate], ['引用率', metrics.data?.citation_rate], ['准确率', metrics.data?.accuracy_rate]].map(([label, value]) => <Col xs={12} lg={6} key={String(label)}><Card><Typography.Text type="secondary">{label}</Typography.Text><Progress percent={rate(value as number | null)} strokeColor="#d85f36" /></Card></Col>)}</Row>
     <Card title={`原始观测（${metrics.data?.sample_count ?? 0} 个指标样本）`}><Table<GeoObservation> rowKey="id" loading={observations.isLoading} dataSource={observations.data?.items} expandable={{ expandedRowRender: (row) => <Space direction="vertical"><Typography.Paragraph><strong>实际提示：</strong>{row.actual_prompt}</Typography.Paragraph><Typography.Paragraph><strong>回答摘要：</strong>{row.answer_summary}</Typography.Paragraph><Typography.Paragraph><strong>引用：</strong>{row.citations.map((item) => item.url).join('；') || '无'}</Typography.Paragraph></Space> }} columns={[
       { title: '测试时间', dataIndex: 'tested_at', render: (value) => new Date(value).toLocaleString('zh-CN') }, { title: '模型', render: (_, row) => `${row.model_name}${row.model_version ? ` / ${row.model_version}` : ''}` },
       { title: '提及', dataIndex: 'mentioned', render: (value) => value ? '是' : '否' }, { title: '推荐', dataIndex: 'recommendation' }, { title: '准确性', dataIndex: 'accuracy' }, { title: '引用数', dataIndex: 'citations', render: (items: Schema<'GeoCitation'>[]) => items.length },
-    ]} /></Card>{auth.hasRole('ANALYST') && <ObservationModal open={open} onClose={() => setOpen(false)} />}</div>;
+    ]} /></Card><ObservationModal open={open} onClose={() => setOpen(false)} /></div>;
 }
 
 function ObservationModal({ open, onClose }: { open: boolean; onClose: () => void }) {

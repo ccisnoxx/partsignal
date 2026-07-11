@@ -16,7 +16,25 @@ SENSITIVE_KEYS = {
     "session_token",
     "access_key",
     "model_key",
+    "api_key",
+    "temporary_password",
+    "old_password",
+    "new_password",
+    "encrypted_value",
+    "plain_value",
 }
+
+
+def contains_sensitive_key(value: Any) -> bool:
+    """递归检查审计详情，防止敏感字段藏在嵌套对象中。"""
+    if isinstance(value, dict):
+        return any(
+            str(key).casefold() in SENSITIVE_KEYS or contains_sensitive_key(item)
+            for key, item in value.items()
+        )
+    if isinstance(value, list):
+        return any(contains_sensitive_key(item) for item in value)
+    return False
 
 
 def append_audit(
@@ -31,7 +49,7 @@ def append_audit(
 ) -> None:
     """在当前业务事务内追加不含敏感信息的审计记录。"""
     safe_details = details or {}
-    if SENSITIVE_KEYS.intersection(key.lower() for key in safe_details):
+    if contains_sensitive_key(safe_details):
         raise ValueError("审计详情包含禁止保存的敏感字段")
     db.add(
         AuditLog(

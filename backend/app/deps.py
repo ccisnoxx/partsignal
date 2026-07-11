@@ -16,7 +16,7 @@ from app.config import settings
 from app.db import get_db
 from app.errors import AppError
 from app.models import SessionRecord, User
-from app.schemas import RoleName
+from app.schemas import AccountType
 from app.security import hash_token
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -27,6 +27,7 @@ session_cookie_scheme = APIKeyCookie(
 
 def get_current_session(
     db: DbSession,
+    request: Request,
     session_token: Annotated[str | None, Security(session_cookie_scheme)] = None,
 ) -> SessionRecord:
     """从服务端会话表解析当前用户，过期或撤销会话立即拒绝。"""
@@ -40,6 +41,16 @@ def get_current_session(
         raise AppError("AUTH_REQUIRED", "登录会话无效或已过期", 401)
     if not record.user.is_active:
         raise AppError("AUTH_REQUIRED", "账号已停用", 401)
+    allowed_while_changing_password = {
+        ("GET", "/api/v1/auth/me"),
+        ("GET", "/api/v1/auth/csrf"),
+        ("POST", "/api/v1/auth/change-password"),
+        ("POST", "/api/v1/auth/logout"),
+    }
+    if record.user.must_change_password and (
+        request.method, request.url.path
+    ) not in allowed_while_changing_password:
+        raise AppError("PASSWORD_CHANGE_REQUIRED", "必须先修改临时密码", 403)
     record.last_seen_at = now
     return record
 
@@ -67,16 +78,21 @@ def require_csrf(
 CsrfProtected = Annotated[None, Depends(require_csrf)]
 
 
-def require_roles(*allowed: RoleName) -> Callable[[User], User]:
-    """创建角色依赖；SYSTEM_ADMIN 不会隐式获得事实或内容审核权。"""
+def require_account_types(*allowed: AccountType) -> Callable[[User], User]:
+    """创建账号类型依赖，所有权限判断只读取用户账号类型。"""
 
     def check(user: CurrentUser) -> User:
-        role_names = {role.name for role in user.roles}
-        if not role_names.intersection(role.value for role in allowed):
+        if user.account_type not in {account_type.value for account_type in allowed}:
             raise AppError("PERMISSION_DENIED", "当前账号没有执行此操作的权限", 403)
         return user
 
     return check
+
+
+AdminUser = Annotated[User, Depends(require_account_types(AccountType.ADMIN))]
+EngineerUser = Annotated[
+    User, Depends(require_account_types(AccountType.ADMIN, AccountType.ENGINEER))
+]
 
 
 def request_id(request: Request) -> str:

@@ -5,23 +5,24 @@ from __future__ import annotations
 import hmac
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, Query, Request, Response, status
+from sqlalchemy import func, select, text
+from sqlalchemy import update as sa_update
 
 from app.audit import append_audit
 from app.config import settings
-from app.deps import CsrfProtected, CurrentSession, CurrentUser, DbSession, require_roles
+from app.deps import AdminUser, CsrfProtected, CurrentSession, CurrentUser, DbSession
 from app.errors import AppError, not_found
-from app.models import AuditLog, Role, SessionRecord, User
+from app.models import AuditLog, SessionRecord, User
 from app.schemas import (
     AuditLogList,
     AuditLogOut,
     AuthSession,
+    ChangePasswordRequest,
     CsrfToken,
     LoginRequest,
-    RoleName,
+    ResetPasswordRequest,
     UserCreate,
     UserList,
     UserOut,
@@ -33,13 +34,14 @@ router = APIRouter(prefix="/api/v1", tags=["auth", "identity"])
 
 
 def present_user(user: User) -> UserOut:
-    """将 ORM 角色对象投影为稳定角色字符串。"""
+    """将内部账号投影为不含密码信息的契约对象。"""
     return UserOut(
         id=user.id,
         username=user.username,
         display_name=user.display_name,
-        roles=[RoleName(role.name) for role in user.roles],
+        account_type=user.account_type,
         is_active=user.is_active,
+        must_change_password=user.must_change_password,
         revision=user.revision,
         created_at=user.created_at,
     )
@@ -103,7 +105,7 @@ def logout(
 
 @router.get("/auth/me", response_model=UserOut, operation_id="getCurrentUser")
 def get_current_user(user: CurrentUser) -> UserOut:
-    """返回当前内部账号及角色。"""
+    """返回当前内部账号及账号类型。"""
     return present_user(user)
 
 
@@ -116,7 +118,43 @@ def get_csrf_token(current: CurrentSession, request: Request) -> CsrfToken:
     return CsrfToken(csrf_token=csrf_token)
 
 
-AdminUser = Annotated[User, Depends(require_roles(RoleName.SYSTEM_ADMIN))]
+@router.post(
+    "/auth/change-password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="changePassword",
+)
+def change_password(
+    payload: ChangePasswordRequest,
+    request: Request,
+    db: DbSession,
+    current: CurrentSession,
+    _csrf: CsrfProtected,
+) -> None:
+    """验证旧密码后更新自身密码，并撤销当前会话以外的会话。"""
+    user = db.scalar(select(User).where(User.id == current.user_id).with_for_update())
+    if user is None or not verify_password(user.password_hash, payload.old_password):
+        raise AppError("AUTH_REQUIRED", "旧密码错误", 401)
+    user.password_hash = hash_password(payload.new_password)
+    user.must_change_password = False
+    user.revision += 1
+    db.execute(
+        sa_update(SessionRecord)
+        .where(
+            SessionRecord.user_id == user.id,
+            SessionRecord.id != current.id,
+            SessionRecord.revoked_at.is_(None),
+        )
+        .values(revoked_at=datetime.now(UTC))
+    )
+    append_audit(
+        db,
+        actor_id=user.id,
+        action="user.password_changed",
+        target_type="User",
+        target_id=user.id,
+        request_id=request.state.request_id,
+    )
+    db.commit()
 
 
 @router.get("/users", response_model=UserList, operation_id="listUsers")
@@ -138,20 +176,15 @@ def create_user(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> UserOut:
-    """创建内部账号并仅赋予契约允许的固定角色。"""
+    """创建明确账号类型的内部用户。"""
     username = payload.username.strip().lower()
     if db.scalar(select(User.id).where(User.username == username)) is not None:
         raise AppError("REVISION_CONFLICT", "用户名已存在", 409)
-    roles = list(
-        db.scalars(select(Role).where(Role.name.in_([role.value for role in payload.roles])))
-    )
-    if len(roles) != len(set(payload.roles)):
-        raise AppError("VALIDATION_ERROR", "包含未知角色", 422)
     user = User(
         username=username,
         display_name=payload.display_name.strip(),
         password_hash=hash_password(payload.password),
-        roles=roles,
+        account_type=payload.account_type.value,
     )
     db.add(user)
     db.flush()
@@ -162,7 +195,7 @@ def create_user(
         target_type="User",
         target_id=user.id,
         request_id=request.state.request_id,
-        details={"roles": [role.value for role in payload.roles]},
+        details={"account_type": payload.account_type.value},
     )
     db.commit()
     return present_user(user)
@@ -177,19 +210,29 @@ def update_user(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> UserOut:
-    """以乐观锁更新角色和启用状态。"""
+    """以事务锁保护最后管理员并更新账号状态。"""
+    db.execute(text("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE"))
     user = db.scalar(select(User).where(User.id == user_id).with_for_update())
     if user is None:
         raise not_found("用户")
     if user.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "用户已被其他请求修改", 409)
-    roles = list(
-        db.scalars(select(Role).where(Role.name.in_([role.value for role in payload.roles])))
+    removes_active_admin = user.account_type == "ADMIN" and user.is_active and (
+        payload.account_type.value != "ADMIN" or not payload.is_active
     )
-    if len(roles) != len(set(payload.roles)):
-        raise AppError("VALIDATION_ERROR", "包含未知角色", 422)
+    if removes_active_admin:
+        active_admins = int(
+            db.scalar(
+                select(func.count()).select_from(User).where(
+                    User.account_type == "ADMIN", User.is_active.is_(True)
+                )
+            )
+            or 0
+        )
+        if active_admins <= 1:
+            raise AppError("LAST_ADMIN_REQUIRED", "系统必须保留至少一个有效管理员", 409)
     user.display_name = payload.display_name.strip()
-    user.roles = roles
+    user.account_type = payload.account_type.value
     user.is_active = payload.is_active
     user.revision += 1
     append_audit(
@@ -199,10 +242,54 @@ def update_user(
         target_type="User",
         target_id=user.id,
         request_id=request.state.request_id,
-        details={"is_active": user.is_active, "roles": [role.name for role in roles]},
+        details={"is_active": user.is_active, "account_type": user.account_type},
     )
+    if not user.is_active:
+        db.execute(
+            sa_update(SessionRecord)
+            .where(SessionRecord.user_id == user.id, SessionRecord.revoked_at.is_(None))
+            .values(revoked_at=datetime.now(UTC))
+        )
     db.commit()
     return present_user(user)
+
+
+@router.post(
+    "/users/{user_id}/reset-password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="resetUserPassword",
+)
+def reset_user_password(
+    user_id: uuid.UUID,
+    payload: ResetPasswordRequest,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
+) -> None:
+    """为其他用户设置临时密码，并立即撤销其全部会话。"""
+    if user_id == admin.id:
+        raise AppError("VALIDATION_ERROR", "管理员必须通过自助改密修改自己的密码", 422)
+    user = db.scalar(select(User).where(User.id == user_id).with_for_update())
+    if user is None:
+        raise not_found("用户")
+    user.password_hash = hash_password(payload.temporary_password)
+    user.must_change_password = True
+    user.revision += 1
+    db.execute(
+        sa_update(SessionRecord)
+        .where(SessionRecord.user_id == user.id, SessionRecord.revoked_at.is_(None))
+        .values(revoked_at=datetime.now(UTC))
+    )
+    append_audit(
+        db,
+        actor_id=admin.id,
+        action="user.password_reset",
+        target_type="User",
+        target_id=user.id,
+        request_id=request.state.request_id,
+    )
+    db.commit()
 
 
 @router.get("/audit-logs", response_model=AuditLogList, operation_id="listAuditLogs")

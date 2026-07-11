@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from functools import lru_cache
 
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEVELOPMENT_SESSION_SECRET = "development-only-change-me-32-bytes"
+DEVELOPMENT_AI_CREDENTIAL_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 
 
 class Settings(BaseSettings):
@@ -77,14 +80,42 @@ class Settings(BaseSettings):
     download_url_ttl_seconds: int = 300
     generation_eager: bool = False
     generation_lease_seconds: int = 600
+    content_generator: str = Field(
+        "deterministic", validation_alias=AliasChoices("CONTENT_GENERATOR")
+    )
+    ai_credential_encryption_key: str = Field(
+        DEVELOPMENT_AI_CREDENTIAL_KEY,
+        validation_alias=AliasChoices("AI_CREDENTIAL_ENCRYPTION_KEY"),
+    )
+    ai_allow_local_http: bool = Field(
+        False, validation_alias=AliasChoices("AI_ALLOW_LOCAL_HTTP")
+    )
 
     @model_validator(mode="after")
     def validate_production_boundaries(self) -> Settings:
         """生产环境禁止开发密钥、非安全 Cookie 和开发对象存储。"""
+        if self.content_generator not in {"deterministic", "openai-compatible"}:
+            raise ValueError("CONTENT_GENERATOR 仅支持 deterministic 或 openai-compatible")
+        try:
+            credential_key = base64.b64decode(
+                self.ai_credential_encryption_key, validate=True
+            )
+        except (binascii.Error, ValueError) as error:
+            raise ValueError("AI_CREDENTIAL_ENCRYPTION_KEY 必须是 Base64") from error
+        if len(credential_key) != 32:
+            raise ValueError("AI_CREDENTIAL_ENCRYPTION_KEY 解码后必须为 32 字节")
+        if self.ai_allow_local_http and self.environment not in {"development", "test"}:
+            raise ValueError("AI_ALLOW_LOCAL_HTTP 仅允许在 development 或 test 环境启用")
         if self.environment != "production":
             return self
         if self.session_secret == DEVELOPMENT_SESSION_SECRET:
             raise ValueError("生产环境必须设置独立 SESSION_SECRET")
+        if self.ai_credential_encryption_key == DEVELOPMENT_AI_CREDENTIAL_KEY:
+            raise ValueError("生产环境必须设置独立 AI_CREDENTIAL_ENCRYPTION_KEY")
+        if self.ai_allow_local_http:
+            raise ValueError("生产环境不能启用 AI_ALLOW_LOCAL_HTTP")
+        if self.content_generator != "openai-compatible":
+            raise ValueError("生产环境 CONTENT_GENERATOR 必须为 openai-compatible")
         if not self.cookie_secure:
             raise ValueError("生产环境必须启用 SESSION_COOKIE_SECURE")
         if self.object_storage_backend != "aliyun_oss":

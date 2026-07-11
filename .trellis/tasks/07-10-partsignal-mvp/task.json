@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "07-11-config-center"
+  ],
   "parent": null,
   "relatedFiles": [],
   "notes": "",

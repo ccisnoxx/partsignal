@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import uuid
 from collections.abc import Hashable
 from datetime import datetime
@@ -24,21 +25,18 @@ class ContractModel(BaseModel):
     model_config = ConfigDict(extra="forbid", from_attributes=True)
 
 
-class RoleName(StrEnum):
-    SYSTEM_ADMIN = "SYSTEM_ADMIN"
-    PRODUCT_EDITOR = "PRODUCT_EDITOR"
-    PRODUCT_REVIEWER = "PRODUCT_REVIEWER"
-    CONTENT_EDITOR = "CONTENT_EDITOR"
-    CONTENT_REVIEWER = "CONTENT_REVIEWER"
-    ANALYST = "ANALYST"
+class AccountType(StrEnum):
+    ADMIN = "ADMIN"
+    ENGINEER = "ENGINEER"
 
 
 class UserOut(ContractModel):
     id: uuid.UUID
     username: str
     display_name: str
-    roles: list[RoleName]
+    account_type: AccountType
     is_active: bool
+    must_change_password: bool
     revision: int
     created_at: datetime
 
@@ -68,18 +66,23 @@ class UserCreate(ContractModel):
     username: str = Field(min_length=3)
     display_name: str = Field(min_length=1)
     password: str = Field(min_length=12)
-    roles: Annotated[list[RoleName], AfterValidator(require_unique_items)] = Field(
-        min_length=1, json_schema_extra={"uniqueItems": True}
-    )
+    account_type: AccountType
 
 
 class UserUpdate(ContractModel):
     expected_revision: int = Field(ge=0)
     display_name: str = Field(min_length=1)
-    roles: Annotated[list[RoleName], AfterValidator(require_unique_items)] = Field(
-        min_length=1, json_schema_extra={"uniqueItems": True}
-    )
+    account_type: AccountType
     is_active: bool
+
+
+class ResetPasswordRequest(ContractModel):
+    temporary_password: str = Field(min_length=12)
+
+
+class ChangePasswordRequest(ContractModel):
+    old_password: str = Field(min_length=8)
+    new_password: str = Field(min_length=12)
 
 
 class AuditLogOut(ContractModel):
@@ -108,6 +111,10 @@ class HealthResponse(ContractModel):
 class CommandRequest(ContractModel):
     expected_revision: int = Field(ge=0)
     comment: str
+
+
+class RevisionRequest(ContractModel):
+    expected_revision: int = Field(ge=0)
 
 
 class ProductStatus(StrEnum):
@@ -362,7 +369,17 @@ class PlatformProfileCreate(ContractModel):
     allowed_domains: Annotated[list[str], AfterValidator(require_unique_items)] = Field(
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
+    platform_type_id: uuid.UUID
     rules: PlatformRules
+
+
+class PlatformProfileUpdate(ContractModel):
+    expected_revision: int = Field(ge=0)
+    name: str = Field(min_length=1)
+    allowed_domains: Annotated[list[str], AfterValidator(require_unique_items)] = Field(
+        min_length=1, json_schema_extra={"uniqueItems": True}
+    )
+    platform_type_id: uuid.UUID
 
 
 class PlatformProfileVersionCreate(ContractModel):
@@ -387,11 +404,165 @@ class PlatformProfileOut(ContractModel):
     name: str
     slug: str
     allowed_domains: list[str]
+    platform_type_id: uuid.UUID | None
+    revision: int
     active_version: PlatformProfileVersionOut
 
 
 class PlatformProfileList(ContractModel):
     items: list[PlatformProfileOut]
+
+
+class PlatformTypeCreate(ContractModel):
+    name: str = Field(min_length=1)
+    slug: str = Field(pattern=r"^[a-z0-9-]+$")
+
+
+class PlatformTypeUpdate(PlatformTypeCreate):
+    expected_revision: int = Field(ge=0)
+
+
+class PlatformTypeOut(PlatformTypeCreate):
+    id: uuid.UUID
+    revision: int
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class PlatformTypeList(ContractModel):
+    items: list[PlatformTypeOut]
+
+
+class PlatformPromptPut(ContractModel):
+    template_markdown: str = Field(min_length=1)
+    expected_revision: int | None = Field(ge=0)
+
+
+class PlatformPromptOut(ContractModel):
+    platform_type_id: uuid.UUID
+    template_markdown: str
+    revision: int
+    updated_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class AIChannelHeaderOut(ContractModel):
+    id: uuid.UUID
+    name: str
+    is_sensitive: bool
+    is_configured: bool
+    value: str | None = None
+
+
+class AIChannelHeaderCreate(ContractModel):
+    expected_channel_revision: int = Field(ge=0)
+    name: str = Field(min_length=1)
+    value: str = Field(min_length=1)
+    is_sensitive: bool
+
+
+class AIChannelHeaderUpdate(AIChannelHeaderCreate):
+    pass
+
+
+class AIChannelCreate(ContractModel):
+    name: str = Field(min_length=1)
+    base_url: HttpUrl
+    api_key: str = Field(min_length=1)
+    timeout_seconds: int = Field(ge=10, le=600)
+
+
+class AIChannelUpdate(ContractModel):
+    expected_revision: int = Field(ge=0)
+    name: str = Field(min_length=1)
+    base_url: HttpUrl
+    timeout_seconds: int = Field(ge=10, le=600)
+
+
+class AIChannelApiKeyReplace(ContractModel):
+    expected_revision: int = Field(ge=0)
+    api_key: str = Field(min_length=1)
+
+
+class AIChannelOut(ContractModel):
+    id: uuid.UUID
+    name: str
+    base_url: HttpUrl
+    timeout_seconds: int
+    is_enabled: bool
+    api_key_configured: bool
+    api_key_updated_at: datetime
+    headers: list[AIChannelHeaderOut]
+    revision: int
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class AIChannelList(ContractModel):
+    items: list[AIChannelOut]
+
+
+RESERVED_MODEL_PARAMETERS = {"model", "messages", "stream"}
+
+
+class AIModelCreate(ContractModel):
+    display_name: str = Field(min_length=1)
+    model_id: str = Field(min_length=1)
+    request_parameters: dict[str, Any]
+
+    @model_validator(mode="after")
+    def reject_reserved_parameters(self) -> AIModelCreate:
+        """系统字段只能由正式请求构造器写入。"""
+        reserved = RESERVED_MODEL_PARAMETERS.intersection(self.request_parameters)
+        if reserved:
+            raise ValueError(f"模型参数包含系统保留字段：{', '.join(sorted(reserved))}")
+        if self.model_id != self.model_id.strip() or any(
+            ord(character) < 32 or ord(character) == 127 for character in self.model_id
+        ):
+            raise ValueError("model_id 不能包含首尾空白或控制字符")
+        try:
+            json.dumps(self.request_parameters, allow_nan=False)
+        except (TypeError, ValueError) as error:
+            raise ValueError("模型参数必须是标准 JSON 值") from error
+        return self
+
+
+class AIModelUpdate(AIModelCreate):
+    expected_revision: int = Field(ge=0)
+
+
+class AIModelTestStatus(StrEnum):
+    UNTESTED = "UNTESTED"
+    PASSED = "PASSED"
+    FAILED = "FAILED"
+
+
+class AIModelOut(AIModelCreate):
+    id: uuid.UUID
+    channel_id: uuid.UUID
+    is_enabled: bool
+    test_status: AIModelTestStatus
+    last_tested_at: datetime | None = None
+    last_test_error_summary: str | None = None
+    revision: int
+    created_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class AIModelList(ContractModel):
+    items: list[AIModelOut]
+
+
+class DiscoveredModel(ContractModel):
+    model_id: str
+
+
+class DiscoveredModelList(ContractModel):
+    items: list[DiscoveredModel]
 
 
 class ContentTaskCreate(ContractModel):
@@ -416,6 +587,9 @@ class ContentTaskCreate(ContractModel):
 
 class ContentTaskOut(ContentTaskCreate):
     id: uuid.UUID
+    platform_type_id: uuid.UUID | None
+    platform_type_snapshot: dict[str, Any] | None
+    user_prompt_markdown: str
     status: Literal["OPEN", "COMPLETED", "CANCELLED"]
     revision: int
     created_by: uuid.UUID
@@ -424,6 +598,33 @@ class ContentTaskOut(ContentTaskCreate):
 
 class ContentTaskList(ContractModel):
     items: list[ContentTaskOut]
+
+
+class ContentTaskUserPromptUpdate(ContractModel):
+    expected_revision: int = Field(ge=0)
+    user_prompt_markdown: str
+
+
+class GenerationOptionModel(ContractModel):
+    id: uuid.UUID
+    channel_id: uuid.UUID
+    channel_name: str
+    display_name: str
+    model_id: str
+
+
+class GenerationOptions(ContractModel):
+    platform_profile_version_id: uuid.UUID
+    platform_profile_name: str
+    platform_type_id: uuid.UUID
+    platform_type_name: str
+    platform_type_slug: str
+    system_prompt_markdown: str
+    models: list[GenerationOptionModel]
+
+
+class GenerationJobCreate(ContractModel):
+    ai_model_id: uuid.UUID
 
 
 class GenerationJobOut(ContractModel):
@@ -435,6 +636,11 @@ class GenerationJobOut(ContractModel):
     retry_of_id: uuid.UUID | None = None
     error_code: str | None = None
     error_summary: str | None = None
+    provider_request_id: str | None = None
+    response_duration_ms: int | None = Field(default=None, ge=0)
+    prompt_tokens: int | None = Field(default=None, ge=0)
+    completion_tokens: int | None = Field(default=None, ge=0)
+    total_tokens: int | None = Field(default=None, ge=0)
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
@@ -442,6 +648,23 @@ class GenerationJobOut(ContractModel):
 
 class GenerationJobList(ContractModel):
     items: list[GenerationJobOut]
+
+
+class GenerationSnapshot(ContractModel):
+    adapter_name: str
+    contract_version: str
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    platform_type: dict[str, Any]
+    system_message: str
+    user_prompt_markdown: str
+    approved_facts: dict[str, Any]
+    task_requirements: dict[str, Any]
+    user_message: str
+
+
+class GenerationJobDetail(GenerationJobOut):
+    input_snapshot: GenerationSnapshot
 
 
 class QualityIssue(ContractModel):
@@ -454,14 +677,14 @@ class ContentVersionOut(ContractModel):
     id: uuid.UUID
     task_id: uuid.UUID
     fact_version_id: uuid.UUID
+    source_job_id: uuid.UUID | None
+    based_on_id: uuid.UUID | None
     version: int
     source_type: Literal["AI", "HUMAN"]
     title: str
     summary: str
     body_markdown: str
     tags: list[str]
-    used_fact_ids: list[str] = Field(default_factory=list)
-    used_evidence_ids: list[str] = Field(default_factory=list)
     content_hash: str
     status: Literal["DRAFT", "PENDING_REVIEW", "CHANGES_REQUESTED", "APPROVED", "SUPERSEDED"]
     revision: int
@@ -676,16 +899,21 @@ class SignedUrl(ContractModel):
 
 
 class GeneratedDraft(ContractModel):
-    """开发生成器也必须遵循真实适配器的结构化输出边界。"""
+    """开发与真实模型共同遵循的严格四字段输出边界。"""
 
     title: str = Field(min_length=1)
     summary: str = Field(min_length=1)
     body_markdown: str = Field(min_length=1)
-    tags: list[str]
-    used_fact_ids: list[str]
-    used_evidence_ids: list[str]
-    required_disclosure_ids: list[str]
-    review_warnings: list[str]
+    tags: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def reject_blank_output(self) -> GeneratedDraft:
+        """拒绝仅由空白组成的正文或标签，不替模型修复内容。"""
+        if not self.title.strip() or not self.summary.strip() or not self.body_markdown.strip():
+            raise ValueError("模型输出字段不能为空白")
+        if any(not item.strip() for item in self.tags):
+            raise ValueError("模型输出标签不能为空白")
+        return self
 
 
 JsonObject = dict[str, Any]

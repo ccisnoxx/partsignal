@@ -10,7 +10,6 @@ import type { FactVersion, Schema } from '../../shared/api/types';
 import { QueryLoading } from '../../shared/components/AsyncState';
 import { DirectUpload } from '../../shared/components/DirectUpload';
 import { StatusTag } from '../../shared/components/StatusTag';
-import { useAuth } from '../auth/AuthProvider';
 
 const replacementOptions: Array<{ label: string; value: Schema<'ReplacementLevel'> }> = [
   { label: '功能相近', value: 'FUNCTIONALLY_SIMILAR' }, { label: '参数兼容', value: 'PARAMETER_COMPATIBLE' },
@@ -20,9 +19,8 @@ const replacementOptions: Array<{ label: string; value: Schema<'ReplacementLevel
 ];
 
 export function ProductFactsPage() {
-  const auth = useAuth();
-  const canEdit = auth.hasRole('PRODUCT_EDITOR');
-  const canReview = auth.hasRole('PRODUCT_REVIEWER');
+  const canEdit = true;
+  const canReview = true;
   const { productId = '' } = useParams();
   const [snapshotOpen, setSnapshotOpen] = useState(false);
   const [snapshotTarget, setSnapshotTarget] = useState<FactVersion>();
@@ -70,7 +68,7 @@ export function ProductFactsPage() {
       ]} />
       <Modal title="创建事实快照" open={snapshotOpen} footer={null} onCancel={() => setSnapshotOpen(false)} destroyOnHidden><Form<Schema<'CreateVersionRequest'>> layout="vertical" onFinish={(body) => createVersion.mutate(body)}><Form.Item name="change_summary" label="变更说明" rules={[{ required: true }]}><Input.TextArea rows={3} /></Form.Item><Button type="primary" htmlType="submit" loading={createVersion.isPending}>创建快照</Button></Form></Modal>
       <Modal title={`事实快照 V${snapshotTarget?.version ?? ''}`} open={!!snapshotTarget} footer={null} onCancel={() => setSnapshotTarget(undefined)} width={900}><FactSnapshot version={snapshotTarget} /></Modal>
-      <Modal title="确认状态操作" open={!!commandTarget} footer={null} onCancel={() => setCommandTarget(null)} width={commandTarget?.command === 'approve' ? 900 : undefined} destroyOnHidden><Typography.Paragraph type="secondary">审核者不能审核自己创建的版本，服务端会最终校验身份和状态。</Typography.Paragraph>{commandTarget?.command === 'approve' && <><Alert type="warning" showIcon message="批准前必须核对下方不可变快照，而不是当前事实工作区。" /><FactSnapshot version={commandTarget.version} /></>}<Form<Schema<'CommandRequest'>> layout="vertical" initialValues={{ expected_revision: commandTarget?.version.revision, comment: '' }} onFinish={(body) => commandTarget && command.mutate({ target: commandTarget, body })}><Form.Item name="expected_revision" hidden><InputNumber /></Form.Item><Form.Item name="comment" label="审核意见"><Input.TextArea rows={3} /></Form.Item><Button type="primary" htmlType="submit" loading={command.isPending}>确认</Button></Form></Modal>
+      <Modal title="确认状态操作" open={!!commandTarget} footer={null} onCancel={() => setCommandTarget(null)} width={commandTarget?.command === 'approve' ? 900 : undefined} destroyOnHidden><Typography.Paragraph type="secondary">允许创建者自行批准；服务端仍会校验证据、状态和修订号。</Typography.Paragraph>{commandTarget?.command === 'approve' && <><Alert type="warning" showIcon message="批准前必须核对下方不可变快照，而不是当前事实工作区。" /><FactSnapshot version={commandTarget.version} /></>}<Form<Schema<'CommandRequest'>> layout="vertical" initialValues={{ expected_revision: commandTarget?.version.revision, comment: '' }} onFinish={(body) => commandTarget && command.mutate({ target: commandTarget, body })}><Form.Item name="expected_revision" hidden><InputNumber /></Form.Item><Form.Item name="comment" label="审核意见"><Input.TextArea rows={3} /></Form.Item><Button type="primary" htmlType="submit" loading={command.isPending}>确认</Button></Form></Modal>
     </div>
   );
 }

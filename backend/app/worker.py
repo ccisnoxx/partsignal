@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 
 from celery import Celery
-from sqlalchemy import select
+from sqlalchemy import update
 
 from app.config import settings
 from app.db import SessionLocal
@@ -37,15 +37,19 @@ def generate_content(job_id: str) -> None:
 
 @celery_app.task(name="partsignal.recover_expired_generation_jobs")  # type: ignore[untyped-decorator]
 def recover_expired_generation_jobs() -> None:
-    """从 PostgreSQL 查找过期租约并重新投递，避免 Worker 崩溃后永久卡住。"""
-    with SessionLocal() as db:
-        job_ids = list(
-            db.scalars(
-                select(GenerationJob.id).where(
-                    GenerationJob.status == "RUNNING",
-                    GenerationJob.lease_expires_at <= datetime.now(UTC),
-                )
+    """把过期租约标记失败，禁止同一作业自动发起第二次外部调用。"""
+    with SessionLocal.begin() as db:
+        db.execute(
+            update(GenerationJob)
+            .where(
+                GenerationJob.status == "RUNNING",
+                GenerationJob.lease_expires_at <= datetime.now(UTC),
+            )
+            .values(
+                status="FAILED",
+                error_code="WORKER_LOST",
+                error_summary="Worker 租约过期，需显式创建重试作业",
+                finished_at=datetime.now(UTC),
+                lease_expires_at=None,
             )
         )
-    for job_id in job_ids:
-        generate_content.delay(str(job_id))

@@ -5,6 +5,7 @@ import zhCN from 'antd/locale/zh_CN';
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from '../features/auth/LoginPage';
+import { ChangePasswordPage } from '../features/auth/ChangePasswordPage';
 import { AuthProvider } from '../features/auth/AuthProvider';
 import { QueryLoading } from '../shared/components/AsyncState';
 import { AppLayout } from './AppLayout';
@@ -19,6 +20,8 @@ const ContentEditorPage = lazy(() => import('../features/content-editor/ContentE
 const PublicationsPage = lazy(() => import('../features/publications/PublicationsPage').then((module) => ({ default: module.PublicationsPage })));
 const GeoObservationsPage = lazy(() => import('../features/geo-observations/GeoObservationsPage').then((module) => ({ default: module.GeoObservationsPage })));
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage').then((module) => ({ default: module.SettingsPage })));
+const UserManagementPage = lazy(() => import('../features/users/UserManagementPage').then((module) => ({ default: module.UserManagementPage })));
+const ConfigurationPage = lazy(() => import('../features/configuration/ConfigurationPage').then((module) => ({ default: module.ConfigurationPage })));
 
 export function App() {
   return (
@@ -33,6 +36,7 @@ export function App() {
               <Suspense fallback={<main className="centered"><QueryLoading /></main>}><Routes>
                 <Route path="/login" element={<LoginPage />} />
                 <Route element={<ProtectedRoute />}>
+                  <Route path="change-password" element={<ChangePasswordPage />} />
                   <Route element={<AppLayout />}>
                     <Route index element={<DashboardPage />} />
                     <Route path="products" element={<ProductsPage />} />
@@ -43,6 +47,8 @@ export function App() {
                     <Route path="publications" element={<PublicationsPage />} />
                     <Route path="observations" element={<GeoObservationsPage />} />
                     <Route path="settings" element={<SettingsPage />} />
+                    <Route path="users" element={<UserManagementPage />} />
+                    <Route path="configuration" element={<ConfigurationPage />} />
                   </Route>
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

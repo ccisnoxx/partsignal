@@ -3,28 +3,28 @@
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Request, status
 from sqlalchemy import func, select
 
 from app.audit import append_audit
-from app.deps import CsrfProtected, CurrentUser, DbSession, require_roles
+from app.deps import AdminUser, CsrfProtected, CurrentUser, DbSession, EngineerUser
 from app.errors import AppError, not_found
 from app.models import (
     ContentTask,
     FactVersion,
     PlatformProfile,
     PlatformProfileVersion,
+    PlatformType,
     Product,
     QueryTopic,
-    User,
 )
 from app.schemas import (
     CommandRequest,
     ContentTaskCreate,
     ContentTaskList,
     ContentTaskOut,
+    ContentTaskUserPromptUpdate,
     PlatformProfileCreate,
     PlatformProfileList,
     PlatformProfileOut,
@@ -35,13 +35,12 @@ from app.schemas import (
     QueryTopicList,
     QueryTopicOut,
     QueryTopicUpdate,
-    RoleName,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["planning"])
 
-ContentEditor = Annotated[User, Depends(require_roles(RoleName.CONTENT_EDITOR))]
-SystemAdmin = Annotated[User, Depends(require_roles(RoleName.SYSTEM_ADMIN))]
+ContentEditor = EngineerUser
+SystemAdmin = AdminUser
 
 
 def query_topic_out(topic: QueryTopic) -> QueryTopicOut:
@@ -80,6 +79,8 @@ def platform_profile_out(db: DbSession, profile: PlatformProfile) -> PlatformPro
         name=profile.name,
         slug=profile.slug,
         allowed_domains=profile.allowed_domains,
+        platform_type_id=profile.platform_type_id,
+        revision=profile.revision,
         active_version=platform_version_out(active),
     )
 
@@ -178,10 +179,13 @@ def create_platform_profile(
     admin: SystemAdmin,
     _csrf: CsrfProtected,
 ) -> PlatformProfileOut:
+    if db.get(PlatformType, payload.platform_type_id) is None:
+        raise not_found("平台类型")
     profile = PlatformProfile(
         name=payload.name.strip(),
         slug=payload.slug,
         allowed_domains=[domain.casefold().strip(".") for domain in payload.allowed_domains],
+        platform_type_id=payload.platform_type_id,
     )
     db.add(profile)
     db.flush()
@@ -403,9 +407,22 @@ def create_content_task(
     platform_version = db.get(PlatformProfileVersion, payload.platform_profile_version_id)
     if platform_version is None or platform_version.status != "ACTIVE":
         raise AppError("INVALID_STATE_TRANSITION", "内容任务只能绑定 ACTIVE 平台规则", 409)
+    profile = db.get(PlatformProfile, platform_version.platform_profile_id)
+    if profile is None or profile.platform_type_id is None:
+        raise AppError("PLATFORM_TYPE_MISSING", "所选平台尚未归类，不能创建内容任务", 409)
+    platform_type = db.get(PlatformType, profile.platform_type_id)
+    if platform_type is None:
+        raise AppError("PLATFORM_TYPE_MISSING", "所选平台类型不存在", 409)
     task = ContentTask(
         **payload.model_dump(mode="python", exclude={"canonical_url"}),
         canonical_url=str(payload.canonical_url),
+        platform_type_id=platform_type.id,
+        platform_type_snapshot={
+            "id": str(platform_type.id),
+            "name": platform_type.name,
+            "slug": platform_type.slug,
+        },
+        user_prompt_markdown="",
         created_by=editor.id,
     )
     db.add(task)
@@ -434,6 +451,44 @@ def get_content_task(
     task = db.get(ContentTask, content_task_id)
     if task is None:
         raise not_found("内容任务")
+    return ContentTaskOut.model_validate(task)
+
+
+@router.patch(
+    "/content-tasks/{content_task_id}/user-prompt",
+    response_model=ContentTaskOut,
+    operation_id="updateContentTaskUserPrompt",
+)
+def update_content_task_user_prompt(
+    content_task_id: uuid.UUID,
+    payload: ContentTaskUserPromptUpdate,
+    request: Request,
+    db: DbSession,
+    editor: ContentEditor,
+    _csrf: CsrfProtected,
+) -> ContentTaskOut:
+    """使用任务修订号保存工程师可编辑的 Markdown Prompt。"""
+    task = db.scalar(
+        select(ContentTask).where(ContentTask.id == content_task_id).with_for_update()
+    )
+    if task is None:
+        raise not_found("内容任务")
+    if task.revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "内容任务已被其他请求修改", 409)
+    if task.status != "OPEN":
+        raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能修改 Prompt", 409)
+    task.user_prompt_markdown = payload.user_prompt_markdown
+    task.revision += 1
+    append_audit(
+        db,
+        actor_id=editor.id,
+        action="content_task.user_prompt_updated",
+        target_type="ContentTask",
+        target_id=task.id,
+        request_id=request.state.request_id,
+        details={"revision": task.revision},
+    )
+    db.commit()
     return ContentTaskOut.model_validate(task)
 
 

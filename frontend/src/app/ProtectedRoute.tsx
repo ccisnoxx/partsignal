@@ -9,5 +9,8 @@ export function ProtectedRoute() {
   if (auth.isLoading) return <main className="centered"><QueryLoading /></main>;
   if (auth.user && auth.error) return <main className="centered"><QueryFailure error={auth.error} /></main>;
   if (!auth.isAuthenticated) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (auth.user?.must_change_password && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />;
+  }
   return <Outlet />;
 }

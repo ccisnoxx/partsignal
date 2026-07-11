@@ -100,6 +100,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -130,6 +146,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["updateUser"];
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resetUserPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/audit-logs": {
@@ -396,6 +428,278 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform-profiles/{platform_profile_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updatePlatformProfile"];
+        trace?: never;
+    };
+    "/api/v1/platform-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformTypes"];
+        put?: never;
+        post: operations["createPlatformType"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-types/{platform_type_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deletePlatformType"];
+        options?: never;
+        head?: never;
+        patch: operations["updatePlatformType"];
+        trace?: never;
+    };
+    "/api/v1/platform-types/{platform_type_id}/prompt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlatformPrompt"];
+        put: operations["putPlatformPrompt"];
+        post?: never;
+        delete: operations["deletePlatformPrompt"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAIChannels"];
+        put?: never;
+        post: operations["createAIChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-channels/{channel_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAIChannel"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteAIChannel"];
+        options?: never;
+        head?: never;
+        patch: operations["updateAIChannel"];
+        trace?: never;
+    };
+    "/api/v1/ai-channels/{channel_id}/api-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["replaceAIChannelApiKey"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-channels/{channel_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enableAIChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-channels/{channel_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["disableAIChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-channels/{channel_id}/discover-models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["discoverAIChannelModels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-channels/{channel_id}/headers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createAIChannelHeader"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-channel-headers/{header_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAIChannelHeader"];
+        options?: never;
+        head?: never;
+        patch: operations["updateAIChannelHeader"];
+        trace?: never;
+    };
+    "/api/v1/ai-channels/{channel_id}/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAIModels"];
+        put?: never;
+        post: operations["createAIModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-models/{model_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAIModel"];
+        options?: never;
+        head?: never;
+        patch: operations["updateAIModel"];
+        trace?: never;
+    };
+    "/api/v1/ai-models/{model_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["testAIModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-models/{model_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enableAIModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-models/{model_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["disableAIModel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content-tasks": {
         parameters: {
             query?: never;
@@ -422,6 +726,38 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getContentTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-tasks/{content_task_id}/user-prompt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateContentTaskUserPrompt"];
+        trace?: never;
+    };
+    "/api/v1/content-tasks/{content_task_id}/generation-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getContentTaskGenerationOptions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -902,14 +1238,15 @@ export interface components {
             csrf_token: string;
         };
         /** @enum {string} */
-        Role: "SYSTEM_ADMIN" | "PRODUCT_EDITOR" | "PRODUCT_REVIEWER" | "CONTENT_EDITOR" | "CONTENT_REVIEWER" | "ANALYST";
+        AccountType: "ADMIN" | "ENGINEER";
         User: {
             /** Format: uuid */
             id: string;
             username: string;
             display_name: string;
-            roles: components["schemas"]["Role"][];
+            account_type: components["schemas"]["AccountType"];
             is_active: boolean;
+            must_change_password: boolean;
             revision: number;
             /** Format: date-time */
             created_at: string;
@@ -918,13 +1255,20 @@ export interface components {
             username: string;
             display_name: string;
             password: string;
-            roles: components["schemas"]["Role"][];
+            account_type: components["schemas"]["AccountType"];
         };
         UserUpdate: {
             expected_revision: number;
             display_name: string;
-            roles: components["schemas"]["Role"][];
+            account_type: components["schemas"]["AccountType"];
             is_active: boolean;
+        };
+        ResetPasswordRequest: {
+            temporary_password: string;
+        };
+        ChangePasswordRequest: {
+            old_password: string;
+            new_password: string;
         };
         UserList: {
             items: components["schemas"]["User"][];
@@ -1068,6 +1412,9 @@ export interface components {
             expected_revision: number;
             comment: string;
         };
+        RevisionRequest: {
+            expected_revision: number;
+        };
         FactVersion: {
             /** Format: uuid */
             id: string;
@@ -1117,7 +1464,16 @@ export interface components {
             name: string;
             slug: string;
             allowed_domains: string[];
+            /** Format: uuid */
+            platform_type_id: string;
             rules: components["schemas"]["PlatformRules"];
+        };
+        PlatformProfileUpdate: {
+            expected_revision: number;
+            name: string;
+            allowed_domains: string[];
+            /** Format: uuid */
+            platform_type_id: string;
         };
         PlatformProfileVersionCreate: {
             rules: components["schemas"]["PlatformRules"];
@@ -1160,10 +1516,164 @@ export interface components {
             name: string;
             slug: string;
             allowed_domains: string[];
+            /** Format: uuid */
+            platform_type_id: string | null;
+            revision: number;
             active_version: components["schemas"]["PlatformProfileVersion"];
         };
         PlatformProfileList: {
             items: components["schemas"]["PlatformProfile"][];
+        };
+        PlatformTypeCreate: {
+            name: string;
+            slug: string;
+        };
+        PlatformTypeUpdate: {
+            expected_revision: number;
+            name: string;
+            slug: string;
+        };
+        PlatformType: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+            revision: number;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        PlatformTypeList: {
+            items: components["schemas"]["PlatformType"][];
+        };
+        PlatformPromptPut: {
+            template_markdown: string;
+            expected_revision: number | null;
+        };
+        PlatformPrompt: {
+            /** Format: uuid */
+            platform_type_id: string;
+            template_markdown: string;
+            revision: number;
+            /** Format: uuid */
+            updated_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AIChannelHeader: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            is_sensitive: boolean;
+            is_configured: boolean;
+            value?: string | null;
+        };
+        AIChannelHeaderCreate: {
+            expected_channel_revision: number;
+            name: string;
+            value: string;
+            is_sensitive: boolean;
+        };
+        AIChannelHeaderUpdate: {
+            expected_channel_revision: number;
+            name: string;
+            value: string;
+            is_sensitive: boolean;
+        };
+        AIChannelCreate: {
+            name: string;
+            /** Format: uri */
+            base_url: string;
+            api_key: string;
+            timeout_seconds: number;
+        };
+        AIChannelUpdate: {
+            expected_revision: number;
+            name: string;
+            /** Format: uri */
+            base_url: string;
+            timeout_seconds: number;
+        };
+        AIChannelApiKeyReplace: {
+            expected_revision: number;
+            api_key: string;
+        };
+        AIChannel: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uri */
+            base_url: string;
+            timeout_seconds: number;
+            is_enabled: boolean;
+            api_key_configured: boolean;
+            /** Format: date-time */
+            api_key_updated_at: string;
+            headers: components["schemas"]["AIChannelHeader"][];
+            revision: number;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AIChannelList: {
+            items: components["schemas"]["AIChannel"][];
+        };
+        AIModelCreate: {
+            display_name: string;
+            model_id: string;
+            request_parameters: {
+                [key: string]: unknown;
+            };
+        };
+        AIModelUpdate: {
+            expected_revision: number;
+            display_name: string;
+            model_id: string;
+            request_parameters: {
+                [key: string]: unknown;
+            };
+        };
+        /** @enum {string} */
+        AIModelTestStatus: "UNTESTED" | "PASSED" | "FAILED";
+        AIModel: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            channel_id: string;
+            display_name: string;
+            model_id: string;
+            request_parameters: {
+                [key: string]: unknown;
+            };
+            is_enabled: boolean;
+            test_status: components["schemas"]["AIModelTestStatus"];
+            /** Format: date-time */
+            last_tested_at?: string | null;
+            last_test_error_summary?: string | null;
+            revision: number;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AIModelList: {
+            items: components["schemas"]["AIModel"][];
+        };
+        DiscoveredModel: {
+            model_id: string;
+        };
+        DiscoveredModelList: {
+            items: components["schemas"]["DiscoveredModel"][];
         };
         /** @enum {string} */
         ContentTaskStatus: "OPEN" | "COMPLETED" | "CANCELLED";
@@ -1188,6 +1698,12 @@ export interface components {
         ContentTask: components["schemas"]["ContentTaskCreate"] & {
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            platform_type_id: string | null;
+            platform_type_snapshot: {
+                [key: string]: unknown;
+            } | null;
+            user_prompt_markdown: string;
             status: components["schemas"]["ContentTaskStatus"];
             revision: number;
             /** Format: uuid */
@@ -1197,6 +1713,34 @@ export interface components {
         };
         ContentTaskList: {
             items: components["schemas"]["ContentTask"][];
+        };
+        ContentTaskUserPromptUpdate: {
+            expected_revision: number;
+            user_prompt_markdown: string;
+        };
+        GenerationOptionModel: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            channel_id: string;
+            channel_name: string;
+            display_name: string;
+            model_id: string;
+        };
+        GenerationOptions: {
+            /** Format: uuid */
+            platform_profile_version_id: string;
+            platform_profile_name: string;
+            /** Format: uuid */
+            platform_type_id: string;
+            platform_type_name: string;
+            platform_type_slug: string;
+            system_prompt_markdown: string;
+            models: components["schemas"]["GenerationOptionModel"][];
+        };
+        GenerationJobCreate: {
+            /** Format: uuid */
+            ai_model_id: string;
         };
         /** @enum {string} */
         GenerationJobStatus: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
@@ -1213,12 +1757,42 @@ export interface components {
             retry_of_id?: string | null;
             error_code?: string | null;
             error_summary?: string | null;
+            provider_request_id?: string | null;
+            response_duration_ms?: number | null;
+            prompt_tokens?: number | null;
+            completion_tokens?: number | null;
+            total_tokens?: number | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
             started_at?: string | null;
             /** Format: date-time */
             finished_at?: string | null;
+        };
+        GenerationJobDetail: components["schemas"]["GenerationJob"] & {
+            input_snapshot: components["schemas"]["GenerationSnapshot"];
+        };
+        GenerationSnapshot: {
+            adapter_name: string;
+            contract_version: string;
+            channel: {
+                [key: string]: unknown;
+            };
+            model: {
+                [key: string]: unknown;
+            };
+            platform_type: {
+                [key: string]: unknown;
+            };
+            system_message: string;
+            user_prompt_markdown: string;
+            approved_facts: {
+                [key: string]: unknown;
+            };
+            task_requirements: {
+                [key: string]: unknown;
+            };
+            user_message: string;
         };
         GenerationJobList: {
             items: components["schemas"]["GenerationJob"][];
@@ -1238,6 +1812,10 @@ export interface components {
             task_id: string;
             /** Format: uuid */
             fact_version_id: string;
+            /** Format: uuid */
+            source_job_id: string | null;
+            /** Format: uuid */
+            based_on_id: string | null;
             version: number;
             /** @enum {string} */
             source_type: "AI" | "HUMAN";
@@ -1245,8 +1823,6 @@ export interface components {
             summary: string;
             body_markdown: string;
             tags: string[];
-            used_fact_ids?: string[];
-            used_evidence_ids?: string[];
             content_hash: string;
             status: components["schemas"]["ContentVersionStatus"];
             revision: number;
@@ -1515,6 +2091,10 @@ export interface components {
         FactVersionId: string;
         PlatformProfileId: string;
         PlatformProfileVersionId: string;
+        PlatformTypeId: string;
+        AIChannelId: string;
+        AIChannelHeaderId: string;
+        AIModelId: string;
         ContentTaskId: string;
         GenerationJobId: string;
         ContentVersionId: string;
@@ -1525,6 +2105,11 @@ export interface components {
         CommandRequest: {
             content: {
                 "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        RevisionRequest: {
+            content: {
+                "application/json": components["schemas"]["RevisionRequest"];
             };
         };
     };
@@ -1662,6 +2247,31 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
         };
     };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description 密码已修改且其他会话已撤销 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+        };
+    };
     listUsers: {
         parameters: {
             query?: never;
@@ -1726,7 +2336,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 已更新用户角色或启用状态 */
+            /** @description 已更新用户账号类型或启用状态 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1734,6 +2344,33 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["User"];
                 };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    resetUserPassword: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description 已设置临时密码并撤销目标用户会话 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             409: components["responses"]["ErrorResponse"];
         };
@@ -2276,6 +2913,680 @@ export interface operations {
             };
         };
     };
+    updatePlatformProfile: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_profile_id: components["parameters"]["PlatformProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformProfileUpdate"];
+            };
+        };
+        responses: {
+            /** @description 已更新平台身份或类型归属 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformProfile"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPlatformTypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 平台类型列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformTypeList"];
+                };
+            };
+        };
+    };
+    createPlatformType: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformTypeCreate"];
+            };
+        };
+        responses: {
+            /** @description 已创建平台类型 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformType"];
+                };
+            };
+        };
+    };
+    deletePlatformType: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_type_id: components["parameters"]["PlatformTypeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除未被引用的平台类型及当前 Prompt */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePlatformType: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_type_id: components["parameters"]["PlatformTypeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformTypeUpdate"];
+            };
+        };
+        responses: {
+            /** @description 已更新平台类型 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformType"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformPrompt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform_type_id: components["parameters"]["PlatformTypeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前平台 Prompt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPrompt"];
+                };
+            };
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    putPlatformPrompt: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_type_id: components["parameters"]["PlatformTypeId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformPromptPut"];
+            };
+        };
+        responses: {
+            /** @description 已创建或原地更新当前 Prompt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPrompt"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    deletePlatformPrompt: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_type_id: components["parameters"]["PlatformTypeId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除当前 Prompt */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listAIChannels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description AI 渠道列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIChannelList"];
+                };
+            };
+        };
+    };
+    createAIChannel: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIChannelCreate"];
+            };
+        };
+        responses: {
+            /** @description 已创建默认停用的渠道 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIChannel"];
+                };
+            };
+        };
+    };
+    getAIChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 渠道详情和非敏感 Header */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIChannel"];
+                };
+            };
+        };
+    };
+    deleteAIChannel: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已物理删除渠道、Header 和模型 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateAIChannel: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIChannelUpdate"];
+            };
+        };
+        responses: {
+            /** @description 已更新渠道，连接变化会重置测试状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIChannel"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    replaceAIChannelApiKey: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIChannelApiKeyReplace"];
+            };
+        };
+        responses: {
+            /** @description 已替换密钥并重置渠道模型测试 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIChannel"];
+                };
+            };
+        };
+    };
+    enableAIChannel: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RevisionRequest"];
+        responses: {
+            /** @description 已启用至少存在一个通过测试模型的渠道 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIChannel"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    disableAIChannel: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RevisionRequest"];
+        responses: {
+            /** @description 已停用渠道 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIChannel"];
+                };
+            };
+        };
+    };
+    discoverAIChannelModels: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 远端模型标识，仅供选择且不落库 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveredModelList"];
+                };
+            };
+            502: components["responses"]["ErrorResponse"];
+            504: components["responses"]["ErrorResponse"];
+        };
+    };
+    createAIChannelHeader: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIChannelHeaderCreate"];
+            };
+        };
+        responses: {
+            /** @description 已创建渠道 Header 并重置测试状态 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIChannel"];
+                };
+            };
+        };
+    };
+    deleteAIChannelHeader: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                header_id: components["parameters"]["AIChannelHeaderId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除 Header 并重置测试状态 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateAIChannelHeader: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                header_id: components["parameters"]["AIChannelHeaderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIChannelHeaderUpdate"];
+            };
+        };
+        responses: {
+            /** @description 已更新 Header 并重置测试状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIChannel"];
+                };
+            };
+        };
+    };
+    listAIModels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 渠道模型列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModelList"];
+                };
+            };
+        };
+    };
+    createAIModel: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIModelCreate"];
+            };
+        };
+        responses: {
+            /** @description 已创建默认停用且未测试的模型 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModel"];
+                };
+            };
+        };
+    };
+    deleteAIModel: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                model_id: components["parameters"]["AIModelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已物理删除模型 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    updateAIModel: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                model_id: components["parameters"]["AIModelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AIModelUpdate"];
+            };
+        };
+        responses: {
+            /** @description 已更新模型，调用配置变化会重置测试 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModel"];
+                };
+            };
+        };
+    };
+    testAIModel: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                model_id: components["parameters"]["AIModelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已执行不含业务数据的模型测试 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModel"];
+                };
+            };
+        };
+    };
+    enableAIModel: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                model_id: components["parameters"]["AIModelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RevisionRequest"];
+        responses: {
+            /** @description 已启用通过测试的模型 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModel"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    disableAIModel: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                model_id: components["parameters"]["AIModelId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RevisionRequest"];
+        responses: {
+            /** @description 已停用模型 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIModel"];
+                };
+            };
+        };
+    };
     listContentTasks: {
         parameters: {
             query?: never;
@@ -2343,6 +3654,58 @@ export interface operations {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+        };
+    };
+    updateContentTaskUserPrompt: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                content_task_id: components["parameters"]["ContentTaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentTaskUserPromptUpdate"];
+            };
+        };
+        responses: {
+            /** @description 已保存任务级工程师 Prompt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTask"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    getContentTaskGenerationOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                content_task_id: components["parameters"]["ContentTaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 锁定平台、只读 Prompt 和当前可用模型 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationOptions"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
         };
     };
     completeContentTask: {
@@ -2429,7 +3792,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerationJobCreate"];
+            };
+        };
         responses: {
             /** @description 已创建或返回幂等作业 */
             202: {
@@ -2482,7 +3849,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GenerationJob"];
+                    "application/json": components["schemas"]["GenerationJobDetail"];
                 };
             };
         };

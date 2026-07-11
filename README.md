@@ -30,6 +30,7 @@ PartSignal（元件信号）是面向电子元器件国产替代业务的多平�
 - [本地开发](./docs/development.md)
 - [测试策略](./docs/testing.md)
 - [部署与运维](./docs/operations.md)
+- [Hostdzire 部署上线 Runbook](./docs/Hostdzire部署上线流程.md)
 
 ## 状态
 
@@ -55,4 +56,4 @@ make build
 make verify
 ```
 
-HTTP 契约位于 `contracts/openapi.yaml`，数据库和状态机契约位于 `contracts/database.md`。本地默认使用确定性内容生成器和会真实校验上传内容的开发对象存储，不连接真实大模型或生产 OSS；生产 OSS 适配器只有在显式配置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 时启用。
+HTTP 契约位于 `contracts/openapi.yaml`，数据库和状态机契约位于 `contracts/database.md`。生产内容生成固定使用管理员配置的 OpenAI-compatible Chat Completions 渠道；API Key 与敏感 Header 由 `AI_CREDENTIAL_ENCRYPTION_KEY` 加密，作业只保存非敏感快照。本地和自动化测试可以显式使用确定性生成器，但不会在真实调用失败时自动回退。生产 OSS 仍只有在显式配置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 时启用。

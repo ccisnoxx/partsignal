@@ -3,14 +3,14 @@ import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '../../app/queryClient';
 import { api, setCsrfToken, unwrap } from '../../shared/api/client';
-import type { Role, User } from '../../shared/api/types';
+import type { User } from '../../shared/api/types';
 
 type AuthContextValue = {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   error: unknown;
-  hasRole: (...roles: Role[]) => boolean;
+  isAdmin: boolean;
   refresh: () => Promise<unknown>;
 };
 
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading: currentUser.isLoading || (currentUser.isSuccess && csrf.isLoading),
       isAuthenticated: user !== null,
       error: currentUser.error ?? csrf.error,
-      hasRole: (...roles) => user?.roles.some((role) => roles.includes(role)) ?? false,
+      isAdmin: user?.account_type === 'ADMIN',
       refresh: currentUser.refetch,
     }}>
       {children}

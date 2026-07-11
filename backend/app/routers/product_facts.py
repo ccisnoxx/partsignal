@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Query, Request, status
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
-from app.deps import CsrfProtected, CurrentUser, DbSession, require_roles
+from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
 from app.errors import AppError, not_found
 from app.models import (
     ClaimEvidenceLink,
@@ -45,13 +44,12 @@ from app.schemas import (
     ProductUpdate,
     ReferencePartData,
     ReplacementRelationData,
-    RoleName,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["product-facts", "review"])
 
-ProductEditor = Annotated[User, Depends(require_roles(RoleName.PRODUCT_EDITOR))]
-ProductReviewer = Annotated[User, Depends(require_roles(RoleName.PRODUCT_REVIEWER))]
+ProductEditor = EngineerUser
+ProductReviewer = EngineerUser
 
 
 def normalize_identity(value: str) -> str:
@@ -617,7 +615,7 @@ def transition_fact_version(
     request_id: str,
     action: str,
 ) -> FactVersionOut:
-    """集中执行事实版本状态机、乐观锁和禁止自审规则。"""
+    """集中执行事实版本状态机、证据门禁、乐观锁和审计。"""
     if version.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "事实版本已被其他请求修改", 409)
     transitions = {
@@ -631,8 +629,6 @@ def transition_fact_version(
         raise AppError(
             "INVALID_STATE_TRANSITION", f"事实版本不能从 {version.status} 执行 {action}", 409
         )
-    if action in {"approve", "request-changes"} and version.created_by == actor.id:
-        raise AppError("SELF_REVIEW_FORBIDDEN", "事实版本创建者不能审核自己的版本", 403)
     version.status = target
     version.revision += 1
     if action == "approve":

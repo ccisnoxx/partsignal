@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime, timedelta
-from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Request, status
 from sqlalchemy import exists, func, select
 from sqlalchemy.orm import aliased
 
 from app.audit import append_audit
-from app.deps import CsrfProtected, CurrentUser, DbSession, require_roles
+from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
 from app.errors import AppError, not_found
 from app.models import (
     ContentVersion,
@@ -23,7 +22,6 @@ from app.models import (
     Product,
     PublicationRecord,
     QueryTopic,
-    User,
 )
 from app.routers.publication import verified_files
 from app.schemas import (
@@ -33,11 +31,10 @@ from app.schemas import (
     GeoObservationCreate,
     GeoObservationList,
     GeoObservationOut,
-    RoleName,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["observation"])
-Analyst = Annotated[User, Depends(require_roles(RoleName.ANALYST))]
+Analyst = EngineerUser
 
 
 def observation_out(db: DbSession, observation: GeoObservation) -> GeoObservationOut:

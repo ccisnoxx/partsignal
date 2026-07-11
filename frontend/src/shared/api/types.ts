@@ -3,7 +3,7 @@ import type { components } from './schema';
 
 export type Schema<Name extends keyof components['schemas']> = components['schemas'][Name];
 export type User = Schema<'User'>;
-export type Role = Schema<'Role'>;
+export type AccountType = Schema<'AccountType'>;
 export type Product = Schema<'Product'>;
 export type ProductFactsDraft = Schema<'ProductFactsDraft'>;
 export type FactVersion = Schema<'FactVersion'>;
@@ -11,6 +11,9 @@ export type QueryTopic = Schema<'QueryTopic'>;
 export type PlatformProfile = Schema<'PlatformProfile'>;
 export type ContentTask = Schema<'ContentTask'>;
 export type GenerationJob = Schema<'GenerationJob'>;
+export type AIChannel = Schema<'AIChannel'>;
+export type AIModel = Schema<'AIModel'>;
+export type PlatformType = Schema<'PlatformType'>;
 export type ContentVersion = Schema<'ContentVersion'>;
 export type PublicationRecord = Schema<'PublicationRecord'>;
 export type GeoObservation = Schema<'GeoObservation'>;

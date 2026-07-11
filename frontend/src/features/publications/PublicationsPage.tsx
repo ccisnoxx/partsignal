@@ -8,13 +8,11 @@ import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../
 import type { ContentVersion, FileRecord, PublicationRecord, Schema } from '../../shared/api/types';
 import { DirectUpload } from '../../shared/components/DirectUpload';
 import { StatusTag } from '../../shared/components/StatusTag';
-import { useAuth } from '../auth/AuthProvider';
 
 type PublicationStatus = Schema<'PublicationStatus'>;
 
 export function PublicationsPage() {
-  const auth = useAuth();
-  const canEdit = auth.hasRole('CONTENT_EDITOR');
+  const canEdit = true;
   const [candidate, setCandidate] = useState<ContentVersion>();
   const [selected, setSelected] = useState<PublicationRecord>();
   const candidates = useQuery({ queryKey: ['publication-candidates'], queryFn: async () => unwrap(await api.GET('/api/v1/publication-candidates')) });

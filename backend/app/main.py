@@ -21,6 +21,7 @@ from app.errors import (
     integrity_error_handler,
     validation_error_handler,
 )
+from app.routers.configuration import router as configuration_router
 from app.routers.files import router as files_router
 from app.routers.identity import router as identity_router
 from app.routers.observation import router as observation_router
@@ -97,6 +98,7 @@ def ready_health() -> HealthResponse:
 
 
 app.include_router(identity_router)
+app.include_router(configuration_router)
 app.include_router(product_facts_router)
 app.include_router(planning_router)
 app.include_router(production_router)

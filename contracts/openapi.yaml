@@ -18,6 +18,7 @@ tags:
   - name: publication
   - name: observation
   - name: files
+  - name: configuration
 paths:
   /api/health/live:
     get:
@@ -89,6 +90,19 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/CsrfToken'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/auth/change-password:
+    post:
+      tags: [auth]
+      operationId: changePassword
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ChangePasswordRequest'}
+      responses:
+        '204': {description: 密码已修改且其他会话已撤销}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/users:
     get:
       tags: [identity]
@@ -132,10 +146,28 @@ paths:
             schema: {$ref: '#/components/schemas/UserUpdate'}
       responses:
         '200':
-          description: 已更新用户角色或启用状态
+          description: 已更新用户账号类型或启用状态
           content:
             application/json:
               schema: {$ref: '#/components/schemas/User'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/users/{user_id}/reset-password:
+    post:
+      tags: [identity]
+      operationId: resetUserPassword
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ResetPasswordRequest'}
+      responses:
+        '204': {description: 已设置临时密码并撤销目标用户会话}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/audit-logs:
     get:
@@ -446,6 +478,380 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfileVersion'}
+  /api/v1/platform-profiles/{platform_profile_id}:
+    patch:
+      tags: [configuration]
+      operationId: updatePlatformProfile
+      parameters:
+        - {$ref: '#/components/parameters/PlatformProfileId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlatformProfileUpdate'}
+      responses:
+        '200':
+          description: 已更新平台身份或类型归属
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformProfile'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/platform-types:
+    get:
+      tags: [configuration]
+      operationId: listPlatformTypes
+      responses:
+        '200':
+          description: 平台类型列表
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformTypeList'}
+    post:
+      tags: [configuration]
+      operationId: createPlatformType
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlatformTypeCreate'}
+      responses:
+        '201':
+          description: 已创建平台类型
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformType'}
+  /api/v1/platform-types/{platform_type_id}:
+    patch:
+      tags: [configuration]
+      operationId: updatePlatformType
+      parameters:
+        - {$ref: '#/components/parameters/PlatformTypeId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlatformTypeUpdate'}
+      responses:
+        '200':
+          description: 已更新平台类型
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformType'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+    delete:
+      tags: [configuration]
+      operationId: deletePlatformType
+      parameters:
+        - {$ref: '#/components/parameters/PlatformTypeId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 已删除未被引用的平台类型及当前 Prompt}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/platform-types/{platform_type_id}/prompt:
+    get:
+      tags: [configuration]
+      operationId: getPlatformPrompt
+      parameters: [{$ref: '#/components/parameters/PlatformTypeId'}]
+      responses:
+        '200':
+          description: 当前平台 Prompt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformPrompt'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+    put:
+      tags: [configuration]
+      operationId: putPlatformPrompt
+      parameters:
+        - {$ref: '#/components/parameters/PlatformTypeId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlatformPromptPut'}
+      responses:
+        '200':
+          description: 已创建或原地更新当前 Prompt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformPrompt'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+    delete:
+      tags: [configuration]
+      operationId: deletePlatformPrompt
+      parameters:
+        - {$ref: '#/components/parameters/PlatformTypeId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 已删除当前 Prompt}
+  /api/v1/ai-channels:
+    get:
+      tags: [configuration]
+      operationId: listAIChannels
+      responses:
+        '200':
+          description: AI 渠道列表
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIChannelList'}
+    post:
+      tags: [configuration]
+      operationId: createAIChannel
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AIChannelCreate'}
+      responses:
+        '201':
+          description: 已创建默认停用的渠道
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIChannel'}
+  /api/v1/ai-channels/{channel_id}:
+    get:
+      tags: [configuration]
+      operationId: getAIChannel
+      parameters: [{$ref: '#/components/parameters/AIChannelId'}]
+      responses:
+        '200':
+          description: 渠道详情和非敏感 Header
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIChannel'}
+    patch:
+      tags: [configuration]
+      operationId: updateAIChannel
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AIChannelUpdate'}
+      responses:
+        '200':
+          description: 已更新渠道，连接变化会重置测试状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIChannel'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+    delete:
+      tags: [configuration]
+      operationId: deleteAIChannel
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 已物理删除渠道、Header 和模型}
+  /api/v1/ai-channels/{channel_id}/api-key:
+    put:
+      tags: [configuration]
+      operationId: replaceAIChannelApiKey
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AIChannelApiKeyReplace'}
+      responses:
+        '200':
+          description: 已替换密钥并重置渠道模型测试
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIChannel'}
+  /api/v1/ai-channels/{channel_id}/enable:
+    post:
+      tags: [configuration]
+      operationId: enableAIChannel
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
+      responses:
+        '200':
+          description: 已启用至少存在一个通过测试模型的渠道
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIChannel'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/ai-channels/{channel_id}/disable:
+    post:
+      tags: [configuration]
+      operationId: disableAIChannel
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
+      responses:
+        '200':
+          description: 已停用渠道
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIChannel'}
+  /api/v1/ai-channels/{channel_id}/discover-models:
+    post:
+      tags: [configuration]
+      operationId: discoverAIChannelModels
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '200':
+          description: 远端模型标识，仅供选择且不落库
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DiscoveredModelList'}
+        '502': {$ref: '#/components/responses/ErrorResponse'}
+        '504': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/ai-channels/{channel_id}/headers:
+    post:
+      tags: [configuration]
+      operationId: createAIChannelHeader
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AIChannelHeaderCreate'}
+      responses:
+        '201':
+          description: 已创建渠道 Header 并重置测试状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIChannel'}
+  /api/v1/ai-channel-headers/{header_id}:
+    patch:
+      tags: [configuration]
+      operationId: updateAIChannelHeader
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelHeaderId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AIChannelHeaderUpdate'}
+      responses:
+        '200':
+          description: 已更新 Header 并重置测试状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIChannel'}
+    delete:
+      tags: [configuration]
+      operationId: deleteAIChannelHeader
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelHeaderId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 已删除 Header 并重置测试状态}
+  /api/v1/ai-channels/{channel_id}/models:
+    get:
+      tags: [configuration]
+      operationId: listAIModels
+      parameters: [{$ref: '#/components/parameters/AIChannelId'}]
+      responses:
+        '200':
+          description: 渠道模型列表
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIModelList'}
+    post:
+      tags: [configuration]
+      operationId: createAIModel
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AIModelCreate'}
+      responses:
+        '201':
+          description: 已创建默认停用且未测试的模型
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIModel'}
+  /api/v1/ai-models/{model_id}:
+    patch:
+      tags: [configuration]
+      operationId: updateAIModel
+      parameters:
+        - {$ref: '#/components/parameters/AIModelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/AIModelUpdate'}
+      responses:
+        '200':
+          description: 已更新模型，调用配置变化会重置测试
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIModel'}
+    delete:
+      tags: [configuration]
+      operationId: deleteAIModel
+      parameters:
+        - {$ref: '#/components/parameters/AIModelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 已物理删除模型}
+  /api/v1/ai-models/{model_id}/test:
+    post:
+      tags: [configuration]
+      operationId: testAIModel
+      parameters:
+        - {$ref: '#/components/parameters/AIModelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '200':
+          description: 已执行不含业务数据的模型测试
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIModel'}
+  /api/v1/ai-models/{model_id}/enable:
+    post:
+      tags: [configuration]
+      operationId: enableAIModel
+      parameters:
+        - {$ref: '#/components/parameters/AIModelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
+      responses:
+        '200':
+          description: 已启用通过测试的模型
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIModel'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/ai-models/{model_id}/disable:
+    post:
+      tags: [configuration]
+      operationId: disableAIModel
+      parameters:
+        - {$ref: '#/components/parameters/AIModelId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
+      responses:
+        '200':
+          description: 已停用模型
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIModel'}
   /api/v1/content-tasks:
     get:
       tags: [planning]
@@ -483,6 +889,37 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
+  /api/v1/content-tasks/{content_task_id}/user-prompt:
+    patch:
+      tags: [planning]
+      operationId: updateContentTaskUserPrompt
+      parameters:
+        - {$ref: '#/components/parameters/ContentTaskId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ContentTaskUserPromptUpdate'}
+      responses:
+        '200':
+          description: 已保存任务级工程师 Prompt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentTask'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/content-tasks/{content_task_id}/generation-options:
+    get:
+      tags: [production]
+      operationId: getContentTaskGenerationOptions
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      responses:
+        '200':
+          description: 锁定平台、只读 Prompt 和当前可用模型
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GenerationOptions'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/complete:
     post:
       tags: [planning]
@@ -531,6 +968,11 @@ paths:
         - {$ref: '#/components/parameters/ContentTaskId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
         - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GenerationJobCreate'}
       responses:
         '202':
           description: 已创建或返回幂等作业
@@ -559,7 +1001,7 @@ paths:
           description: 生成作业
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/GenerationJob'}
+              schema: {$ref: '#/components/schemas/GenerationJobDetail'}
   /api/v1/generation-jobs/{generation_job_id}/retry:
     post:
       tags: [production]
@@ -913,6 +1355,10 @@ components:
     FactVersionId: {name: fact_version_id, in: path, required: true, schema: {type: string, format: uuid}}
     PlatformProfileId: {name: platform_profile_id, in: path, required: true, schema: {type: string, format: uuid}}
     PlatformProfileVersionId: {name: platform_profile_version_id, in: path, required: true, schema: {type: string, format: uuid}}
+    PlatformTypeId: {name: platform_type_id, in: path, required: true, schema: {type: string, format: uuid}}
+    AIChannelId: {name: channel_id, in: path, required: true, schema: {type: string, format: uuid}}
+    AIChannelHeaderId: {name: header_id, in: path, required: true, schema: {type: string, format: uuid}}
+    AIModelId: {name: model_id, in: path, required: true, schema: {type: string, format: uuid}}
     ContentTaskId: {name: content_task_id, in: path, required: true, schema: {type: string, format: uuid}}
     GenerationJobId: {name: generation_job_id, in: path, required: true, schema: {type: string, format: uuid}}
     ContentVersionId: {name: content_version_id, in: path, required: true, schema: {type: string, format: uuid}}
@@ -924,6 +1370,11 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/CommandRequest'}
+    RevisionRequest:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/RevisionRequest'}
   responses:
     ErrorResponse:
       description: 业务或校验错误
@@ -991,39 +1442,53 @@ components:
       required: [csrf_token]
       properties:
         csrf_token: {type: string}
-    Role:
+    AccountType:
       type: string
-      enum: [SYSTEM_ADMIN, PRODUCT_EDITOR, PRODUCT_REVIEWER, CONTENT_EDITOR, CONTENT_REVIEWER, ANALYST]
+      enum: [ADMIN, ENGINEER]
     User:
       type: object
       additionalProperties: false
-      required: [id, username, display_name, roles, is_active, revision, created_at]
+      required: [id, username, display_name, account_type, is_active, must_change_password, revision, created_at]
       properties:
         id: {type: string, format: uuid}
         username: {type: string}
         display_name: {type: string}
-        roles: {type: array, items: {$ref: '#/components/schemas/Role'}}
+        account_type: {$ref: '#/components/schemas/AccountType'}
         is_active: {type: boolean}
+        must_change_password: {type: boolean}
         revision: {type: integer}
         created_at: {type: string, format: date-time}
     UserCreate:
       type: object
       additionalProperties: false
-      required: [username, display_name, password, roles]
+      required: [username, display_name, password, account_type]
       properties:
         username: {type: string, minLength: 3}
         display_name: {type: string, minLength: 1}
         password: {type: string, minLength: 12}
-        roles: {type: array, minItems: 1, uniqueItems: true, items: {$ref: '#/components/schemas/Role'}}
+        account_type: {$ref: '#/components/schemas/AccountType'}
     UserUpdate:
       type: object
       additionalProperties: false
-      required: [expected_revision, display_name, roles, is_active]
+      required: [expected_revision, display_name, account_type, is_active]
       properties:
         expected_revision: {type: integer, minimum: 0}
         display_name: {type: string, minLength: 1}
-        roles: {type: array, minItems: 1, uniqueItems: true, items: {$ref: '#/components/schemas/Role'}}
+        account_type: {$ref: '#/components/schemas/AccountType'}
         is_active: {type: boolean}
+    ResetPasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [temporary_password]
+      properties:
+        temporary_password: {type: string, minLength: 12}
+    ChangePasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [old_password, new_password]
+      properties:
+        old_password: {type: string, minLength: 8}
+        new_password: {type: string, minLength: 12}
     UserList:
       type: object
       additionalProperties: false
@@ -1201,6 +1666,12 @@ components:
       properties:
         expected_revision: {type: integer, minimum: 0}
         comment: {type: string}
+    RevisionRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_revision]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
     FactVersion:
       type: object
       additionalProperties: false
@@ -1259,12 +1730,22 @@ components:
     PlatformProfileCreate:
       type: object
       additionalProperties: false
-      required: [name, slug, allowed_domains, rules]
+      required: [name, slug, allowed_domains, platform_type_id, rules]
       properties:
         name: {type: string}
         slug: {type: string, pattern: '^[a-z0-9-]+$'}
         allowed_domains: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
+        platform_type_id: {type: string, format: uuid}
         rules: {$ref: '#/components/schemas/PlatformRules'}
+    PlatformProfileUpdate:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, name, allowed_domains, platform_type_id]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
+        name: {type: string, minLength: 1}
+        allowed_domains: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
+        platform_type_id: {type: string, format: uuid}
     PlatformProfileVersionCreate:
       type: object
       additionalProperties: false
@@ -1314,12 +1795,14 @@ components:
     PlatformProfile:
       type: object
       additionalProperties: false
-      required: [id, name, slug, allowed_domains, active_version]
+      required: [id, name, slug, allowed_domains, platform_type_id, revision, active_version]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
         slug: {type: string}
         allowed_domains: {type: array, items: {type: string}}
+        platform_type_id: {type: [string, 'null'], format: uuid}
+        revision: {type: integer}
         active_version: {$ref: '#/components/schemas/PlatformProfileVersion'}
     PlatformProfileList:
       type: object
@@ -1327,6 +1810,187 @@ components:
       required: [items]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/PlatformProfile'}}
+    PlatformTypeCreate:
+      type: object
+      additionalProperties: false
+      required: [name, slug]
+      properties:
+        name: {type: string, minLength: 1}
+        slug: {type: string, pattern: '^[a-z0-9-]+$'}
+    PlatformTypeUpdate:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, name, slug]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
+        name: {type: string, minLength: 1}
+        slug: {type: string, pattern: '^[a-z0-9-]+$'}
+    PlatformType:
+      type: object
+      additionalProperties: false
+      required: [id, name, slug, revision, created_by, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, minLength: 1}
+        slug: {type: string, pattern: '^[a-z0-9-]+$'}
+        revision: {type: integer}
+        created_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    PlatformTypeList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/PlatformType'}}
+    PlatformPromptPut:
+      type: object
+      additionalProperties: false
+      required: [template_markdown, expected_revision]
+      properties:
+        template_markdown: {type: string, minLength: 1}
+        expected_revision: {type: [integer, 'null'], minimum: 0}
+    PlatformPrompt:
+      type: object
+      additionalProperties: false
+      required: [platform_type_id, template_markdown, revision, updated_by, created_at, updated_at]
+      properties:
+        platform_type_id: {type: string, format: uuid}
+        template_markdown: {type: string}
+        revision: {type: integer}
+        updated_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    AIChannelHeader:
+      type: object
+      additionalProperties: false
+      required: [id, name, is_sensitive, is_configured]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        is_sensitive: {type: boolean}
+        is_configured: {type: boolean}
+        value: {type: [string, 'null']}
+    AIChannelHeaderCreate:
+      type: object
+      additionalProperties: false
+      required: [expected_channel_revision, name, value, is_sensitive]
+      properties:
+        expected_channel_revision: {type: integer, minimum: 0}
+        name: {type: string, minLength: 1}
+        value: {type: string, minLength: 1}
+        is_sensitive: {type: boolean}
+    AIChannelHeaderUpdate:
+      type: object
+      additionalProperties: false
+      required: [expected_channel_revision, name, value, is_sensitive]
+      properties:
+        expected_channel_revision: {type: integer, minimum: 0}
+        name: {type: string, minLength: 1}
+        value: {type: string, minLength: 1}
+        is_sensitive: {type: boolean}
+    AIChannelCreate:
+      type: object
+      additionalProperties: false
+      required: [name, base_url, api_key, timeout_seconds]
+      properties:
+        name: {type: string, minLength: 1}
+        base_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+        api_key: {type: string, minLength: 1}
+        timeout_seconds: {type: integer, minimum: 10, maximum: 600}
+    AIChannelUpdate:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, name, base_url, timeout_seconds]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
+        name: {type: string, minLength: 1}
+        base_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+        timeout_seconds: {type: integer, minimum: 10, maximum: 600}
+    AIChannelApiKeyReplace:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, api_key]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
+        api_key: {type: string, minLength: 1}
+    AIChannel:
+      type: object
+      additionalProperties: false
+      required: [id, name, base_url, timeout_seconds, is_enabled, api_key_configured, api_key_updated_at, headers, revision, created_by, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        base_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+        timeout_seconds: {type: integer}
+        is_enabled: {type: boolean}
+        api_key_configured: {type: boolean}
+        api_key_updated_at: {type: string, format: date-time}
+        headers: {type: array, items: {$ref: '#/components/schemas/AIChannelHeader'}}
+        revision: {type: integer}
+        created_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    AIChannelList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/AIChannel'}}
+    AIModelCreate:
+      type: object
+      additionalProperties: false
+      required: [display_name, model_id, request_parameters]
+      properties:
+        display_name: {type: string, minLength: 1}
+        model_id: {type: string, minLength: 1}
+        request_parameters: {type: object, additionalProperties: true}
+    AIModelUpdate:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, display_name, model_id, request_parameters]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
+        display_name: {type: string, minLength: 1}
+        model_id: {type: string, minLength: 1}
+        request_parameters: {type: object, additionalProperties: true}
+    AIModelTestStatus: {type: string, enum: [UNTESTED, PASSED, FAILED]}
+    AIModel:
+      type: object
+      additionalProperties: false
+      required: [id, channel_id, display_name, model_id, request_parameters, is_enabled, test_status, revision, created_by, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        channel_id: {type: string, format: uuid}
+        display_name: {type: string, minLength: 1}
+        model_id: {type: string, minLength: 1}
+        request_parameters: {type: object, additionalProperties: true}
+        is_enabled: {type: boolean}
+        test_status: {$ref: '#/components/schemas/AIModelTestStatus'}
+        last_tested_at: {type: [string, 'null'], format: date-time}
+        last_test_error_summary: {type: [string, 'null']}
+        revision: {type: integer}
+        created_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+    AIModelList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/AIModel'}}
+    DiscoveredModel:
+      type: object
+      additionalProperties: false
+      required: [model_id]
+      properties:
+        model_id: {type: string}
+    DiscoveredModelList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/DiscoveredModel'}}
     ContentTaskStatus: {type: string, enum: [OPEN, COMPLETED, CANCELLED]}
     ContentTaskCreate:
       type: object
@@ -1348,9 +2012,12 @@ components:
       allOf:
         - {$ref: '#/components/schemas/ContentTaskCreate'}
         - type: object
-          required: [id, status, revision, created_by, created_at]
+          required: [id, platform_type_id, platform_type_snapshot, user_prompt_markdown, status, revision, created_by, created_at]
           properties:
             id: {type: string, format: uuid}
+            platform_type_id: {type: [string, 'null'], format: uuid}
+            platform_type_snapshot: {type: [object, 'null'], additionalProperties: true}
+            user_prompt_markdown: {type: string}
             status: {$ref: '#/components/schemas/ContentTaskStatus'}
             revision: {type: integer}
             created_by: {type: string, format: uuid}
@@ -1361,6 +2028,41 @@ components:
       required: [items]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/ContentTask'}}
+    ContentTaskUserPromptUpdate:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, user_prompt_markdown]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
+        user_prompt_markdown: {type: string}
+    GenerationOptionModel:
+      type: object
+      additionalProperties: false
+      required: [id, channel_id, channel_name, display_name, model_id]
+      properties:
+        id: {type: string, format: uuid}
+        channel_id: {type: string, format: uuid}
+        channel_name: {type: string}
+        display_name: {type: string}
+        model_id: {type: string}
+    GenerationOptions:
+      type: object
+      additionalProperties: false
+      required: [platform_profile_version_id, platform_profile_name, platform_type_id, platform_type_name, platform_type_slug, system_prompt_markdown, models]
+      properties:
+        platform_profile_version_id: {type: string, format: uuid}
+        platform_profile_name: {type: string}
+        platform_type_id: {type: string, format: uuid}
+        platform_type_name: {type: string}
+        platform_type_slug: {type: string}
+        system_prompt_markdown: {type: string}
+        models: {type: array, items: {$ref: '#/components/schemas/GenerationOptionModel'}}
+    GenerationJobCreate:
+      type: object
+      additionalProperties: false
+      required: [ai_model_id]
+      properties:
+        ai_model_id: {type: string, format: uuid}
     GenerationJobStatus: {type: string, enum: [PENDING, RUNNING, SUCCEEDED, FAILED]}
     GenerationJob:
       type: object
@@ -1375,9 +2077,36 @@ components:
         retry_of_id: {type: [string, 'null'], format: uuid}
         error_code: {type: [string, 'null']}
         error_summary: {type: [string, 'null']}
+        provider_request_id: {type: [string, 'null']}
+        response_duration_ms: {type: [integer, 'null'], minimum: 0}
+        prompt_tokens: {type: [integer, 'null'], minimum: 0}
+        completion_tokens: {type: [integer, 'null'], minimum: 0}
+        total_tokens: {type: [integer, 'null'], minimum: 0}
         created_at: {type: string, format: date-time}
         started_at: {type: [string, 'null'], format: date-time}
         finished_at: {type: [string, 'null'], format: date-time}
+    GenerationJobDetail:
+      allOf:
+        - {$ref: '#/components/schemas/GenerationJob'}
+        - type: object
+          required: [input_snapshot]
+          properties:
+            input_snapshot: {$ref: '#/components/schemas/GenerationSnapshot'}
+    GenerationSnapshot:
+      type: object
+      additionalProperties: false
+      required: [adapter_name, contract_version, channel, model, platform_type, system_message, user_prompt_markdown, approved_facts, task_requirements, user_message]
+      properties:
+        adapter_name: {type: string}
+        contract_version: {type: string}
+        channel: {type: object, additionalProperties: true}
+        model: {type: object, additionalProperties: true}
+        platform_type: {type: object, additionalProperties: true}
+        system_message: {type: string}
+        user_prompt_markdown: {type: string}
+        approved_facts: {type: object, additionalProperties: true}
+        task_requirements: {type: object, additionalProperties: true}
+        user_message: {type: string}
     GenerationJobList:
       type: object
       additionalProperties: false
@@ -1396,19 +2125,19 @@ components:
     ContentVersion:
       type: object
       additionalProperties: false
-      required: [id, task_id, fact_version_id, version, source_type, title, summary, body_markdown, tags, content_hash, status, revision, quality_issues, created_by, created_at]
+      required: [id, task_id, fact_version_id, source_job_id, based_on_id, version, source_type, title, summary, body_markdown, tags, content_hash, status, revision, quality_issues, created_by, created_at]
       properties:
         id: {type: string, format: uuid}
         task_id: {type: string, format: uuid}
         fact_version_id: {type: string, format: uuid}
+        source_job_id: {type: [string, 'null'], format: uuid}
+        based_on_id: {type: [string, 'null'], format: uuid}
         version: {type: integer}
         source_type: {type: string, enum: [AI, HUMAN]}
         title: {type: string}
         summary: {type: string}
         body_markdown: {type: string}
         tags: {type: array, items: {type: string}}
-        used_fact_ids: {type: array, items: {type: string}}
-        used_evidence_ids: {type: array, items: {type: string}}
         content_hash: {type: string}
         status: {$ref: '#/components/schemas/ContentVersionStatus'}
         revision: {type: integer}

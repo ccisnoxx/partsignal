@@ -10,11 +10,11 @@ from urllib.parse import urlparse
 
 import bleach
 import markdown
-from fastapi import APIRouter, Depends, Header, Query, Request, status
+from fastapi import APIRouter, Header, Query, Request, status
 from sqlalchemy import func, select, text
 
 from app.audit import append_audit
-from app.deps import CsrfProtected, CurrentUser, DbSession, require_roles
+from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
 from app.errors import AppError, not_found
 from app.models import (
     ContentTask,
@@ -26,7 +26,6 @@ from app.models import (
     PublicationAttachment,
     PublicationRecord,
     PublicationStatusEvent,
-    User,
 )
 from app.routers.production import content_version_out
 from app.schemas import (
@@ -42,11 +41,10 @@ from app.schemas import (
     PublicationRecordList,
     PublicationRecordOut,
     PublicationStatus,
-    RoleName,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["publication"])
-ContentEditor = Annotated[User, Depends(require_roles(RoleName.CONTENT_EDITOR))]
+ContentEditor = EngineerUser
 PublicationCommandName = Literal[
     "mark-platform-review",
     "mark-published",

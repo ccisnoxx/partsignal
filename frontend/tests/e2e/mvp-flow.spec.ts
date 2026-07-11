@@ -26,6 +26,7 @@ async function login(page: Page, username: string, loginPassword = password): Pr
 test('账号类型、最后管理员、临时密码和停用会话由服务端强制执行', async ({ page, browser }) => {
   const suffix = randomUUID().slice(0, 8);
   const csrf = await login(page, 'admin');
+  await expect(page.getByRole('button', { name: '修改密码' })).toBeVisible();
   const users = await body<{ items: Array<{ id: string; username: string; display_name: string; account_type: 'ADMIN' | 'ENGINEER'; is_active: boolean; revision: number }> }>(await page.request.get('/api/v1/users'));
   const admin = users.items.find((item) => item.username === 'admin');
   expect(admin).toBeTruthy();
@@ -68,26 +69,67 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   await engineerPage.getByRole('button', { name: '更新密码' }).click();
   await expect(engineerPage).toHaveURL(/\/$/);
   await expect(engineerPage.getByRole('menuitem', { name: '配置中心' })).toHaveCount(0);
+  await expect(engineerPage.getByRole('button', { name: '修改密码' })).toBeVisible();
   expect((await engineerPage.request.get('/api/v1/users')).status()).toBe(403);
   const engineerCsrf = await body<{ csrf_token: string }>(await engineerPage.request.get('/api/v1/auth/csrf'));
   expect((await engineerPage.request.post('/api/v1/platform-types', {
     headers: { 'X-CSRF-Token': engineerCsrf.csrf_token },
     data: { name: '越权类型', slug: `forbidden-${suffix}` },
   })).status()).toBe(403);
+  await engineerPage.getByRole('button', { name: '修改密码' }).click();
+  await expect(engineerPage).toHaveURL(/\/change-password$/);
+
+  const adminUsername = `admin-${suffix}`;
+  const adminInitialPassword = 'temporary-admin-initial';
+  const adminNewPassword = 'temporary-admin-updated';
+  const createdAdmin = await body<{ id: string }>(await page.request.post('/api/v1/users', {
+    headers: { 'X-CSRF-Token': csrf },
+    data: { username: adminUsername, display_name: `管理员 ${suffix}`, password: adminInitialPassword, account_type: 'ADMIN' },
+  }));
+  const adminContext = await browser.newContext({
+    baseURL: process.env.PARTSIGNAL_E2E_BASE_URL ?? 'http://127.0.0.1:5173',
+  });
+  const otherAdminContext = await browser.newContext({
+    baseURL: process.env.PARTSIGNAL_E2E_BASE_URL ?? 'http://127.0.0.1:5173',
+  });
+  const adminPage = await adminContext.newPage();
+  const otherAdminPage = await otherAdminContext.newPage();
+  const adminCsrf = await login(adminPage, adminUsername, adminInitialPassword);
+  await login(otherAdminPage, adminUsername, adminInitialPassword);
+  expect((await adminPage.request.post(`/api/v1/users/${createdAdmin.id}/reset-password`, {
+    headers: { 'X-CSRF-Token': adminCsrf },
+    data: { temporary_password: 'self-reset-must-fail' },
+  })).status()).toBe(422);
+  await adminPage.getByRole('button', { name: '修改密码' }).click();
+  await adminPage.getByLabel('当前密码').fill(adminInitialPassword);
+  await adminPage.getByLabel('新密码').fill(adminNewPassword);
+  await adminPage.getByRole('button', { name: '更新密码' }).click();
+  await expect(adminPage).toHaveURL(/\/$/);
+  expect((await adminPage.request.get('/api/v1/auth/me')).status()).toBe(200);
+  expect((await otherAdminPage.request.get('/api/v1/auth/me')).status()).toBe(401);
 
   const refreshedUsers = await body<{ items: Array<{ id: string; username: string; display_name: string; account_type: 'ADMIN' | 'ENGINEER'; is_active: boolean; revision: number }> }>(await page.request.get('/api/v1/users'));
   const engineer = refreshedUsers.items.find((item) => item.id === created.id);
+  const temporaryAdmin = refreshedUsers.items.find((item) => item.id === createdAdmin.id);
   expect(engineer).toBeTruthy();
+  expect(temporaryAdmin).toBeTruthy();
   const disabled = await page.request.patch(`/api/v1/users/${engineer!.id}`, {
     headers: { 'X-CSRF-Token': csrf },
     data: { expected_revision: engineer!.revision, display_name: engineer!.display_name, account_type: 'ENGINEER', is_active: false },
   });
   expect(disabled.ok()).toBeTruthy();
+  const disabledAdmin = await page.request.patch(`/api/v1/users/${temporaryAdmin!.id}`, {
+    headers: { 'X-CSRF-Token': csrf },
+    data: { expected_revision: temporaryAdmin!.revision, display_name: temporaryAdmin!.display_name, account_type: 'ADMIN', is_active: false },
+  });
+  expect(disabledAdmin.ok()).toBeTruthy();
   expect((await engineerPage.request.get('/api/v1/auth/me')).status()).toBe(401);
   const auditText = await (await page.request.get('/api/v1/audit-logs?page=1&page_size=100')).text();
-  for (const secret of ['initial-password-only', temporaryPassword, 'engineer-new-password']) {
+  for (const secret of ['initial-password-only', temporaryPassword, 'engineer-new-password', adminInitialPassword, adminNewPassword, 'self-reset-must-fail']) {
     expect(auditText).not.toContain(secret);
   }
+  await adminContext.close();
+  await otherAdminContext.close();
   await engineerContext.close();
 });
 

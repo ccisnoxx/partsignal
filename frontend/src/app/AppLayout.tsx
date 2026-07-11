@@ -1,6 +1,6 @@
 /** 内部工作台框架，在桌面和移动端提供同一套路由导航。 */
 import {
-  BarChartOutlined, DatabaseOutlined, FileTextOutlined, MenuFoldOutlined,
+  BarChartOutlined, DatabaseOutlined, FileTextOutlined, LockOutlined, MenuFoldOutlined,
   MenuUnfoldOutlined, RocketOutlined, SettingOutlined, TeamOutlined, ToolOutlined,
 } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
@@ -61,6 +61,7 @@ export function AppLayout() {
           <Space size="middle">
             <Avatar>{auth.user?.display_name.slice(0, 1)}</Avatar>
             <div className="user-block"><Typography.Text strong>{auth.user?.display_name}</Typography.Text><Typography.Text type="secondary">{auth.user?.username}</Typography.Text></div>
+            <Button type="text" aria-label="修改密码" icon={<LockOutlined />} onClick={() => navigate('/change-password')}>修改密码</Button>
             <Button type="text" loading={logout.isPending} onClick={() => logout.mutate()}>退出</Button>
           </Space>
         </Layout.Header>

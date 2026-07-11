@@ -4,6 +4,7 @@ set -eu
 : "${DATABASE_URL:?必须设置本地或 CI PostgreSQL DATABASE_URL}"
 : "${REDIS_URL:?必须设置本地或 CI Redis REDIS_URL}"
 : "${PARTSIGNAL_SEED_ADMIN_PASSWORD:=partsignal-admin-dev}"
+: "${PARTSIGNAL_SEED_ENGINEER_PASSWORD:=partsignal-engineer-dev}"
 
 # E2E 明确使用本机协议替身，不继承操作者可能存在的生产 AI 配置。
 export APP_ENV=test
@@ -33,6 +34,7 @@ trap cleanup EXIT INT TERM
 cd "$root"
 backend/.venv/bin/alembic -c backend/alembic.ini upgrade head
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
+PARTSIGNAL_SEED_ENGINEER_PASSWORD=$PARTSIGNAL_SEED_ENGINEER_PASSWORD \
   backend/.venv/bin/python -m app.cli seed-demo
 
 OBJECT_STORAGE_ENDPOINT=http://127.0.0.1:9000 \

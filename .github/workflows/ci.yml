@@ -39,6 +39,7 @@ jobs:
       OBJECT_STORAGE_BACKEND: development
       OBJECT_STORAGE_ENDPOINT: http://127.0.0.1:19001
       PARTSIGNAL_SEED_ADMIN_PASSWORD: partsignal-admin-dev
+      PARTSIGNAL_SEED_ENGINEER_PASSWORD: partsignal-engineer-dev
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6

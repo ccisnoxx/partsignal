@@ -62,13 +62,19 @@ Only `VERIFIED` files may be linked. Referenced objects cannot be deleted throug
 
 ### 0009 Configuration Center And AI Generation
 
-`users` gains `account_type` (`ADMIN | ENGINEER`) and `must_change_password`. Existing users with `SYSTEM_ADMIN` become `ADMIN`; all other existing users become `ENGINEER`. After the mapping, `roles` and `user_roles` are removed so `users.account_type` is the only permission source. Users remain non-deletable business identities. Disabling a user or resetting a password revokes all active sessions. A transaction may not disable or demote the last active `ADMIN`.
+`users` gains `account_type` (`ADMIN | ENGINEER`) and `must_change_password`. Existing users with `SYSTEM_ADMIN` become `ADMIN`; all other existing users become `ENGINEER`. After the mapping, `roles` and `user_roles` are removed so `users.account_type` is the only permission source. Application users remain non-deletable business identities. Disabling a user or resetting a password revokes all active sessions. A transaction may not disable or demote the last active `ADMIN`.
 
 `platform_types` owns a unique category `slug`; `platform_prompts` stores at most one mutable Markdown system Prompt per type. `platform_profiles.platform_type_id` is nullable only for migrated profiles and uses `RESTRICT` on delete. New profiles and new content tasks require an explicit type. `content_tasks.platform_type_snapshot` freezes the selected type identity while `user_prompt_markdown` remains an editable task draft protected by `revision`.
 
 `ai_channels` owns an encrypted API key, timeout, and connection state. `ai_channel_headers` belongs only to a channel, normalizes names case-insensitively, and stores exactly one of a plain or encrypted value. `ai_models` belongs to a channel and stores the provider `model_id`, display name, exact JSON request parameters, and model-level test state. Channels and models default disabled. Connection, credential, or Header changes disable the channel and invalidate every child model test; model ID or parameter changes disable and invalidate that model.
 
 `generation_jobs` gains nullable `ai_channel_id` and `ai_model_id` foreign keys using `SET NULL`, provider request metadata, and nullable token usage. `input_snapshot` is the authoritative immutable generation input and retains channel/model identity, non-sensitive connection data, model parameters, system/user messages, approved fact values, and task requirements after current configuration is deleted. Credentials and sensitive Header values never enter the snapshot. `content_versions` removes model-reported fact, evidence, and disclosure ID arrays; traceability comes from `fact_version_id`, `source_job_id`, and the job snapshot.
+
+### 0010 Legacy User Cleanup
+
+This irreversible data migration recognizes only `product_editor`, `product_reviewer`, `content_reviewer`, and `analyst`. It locks all matching users and checks every user-owned business or audit foreign key before deleting any row. Any reference aborts the complete migration and reports the username plus referring table and column; ownership is never reassigned and historical data is never deleted. When no references exist, sessions for the four users are removed before the users. An existing `content_editor` keeps its password, account type, active state, and profile but receives `must_change_password=true` with an incremented revision.
+
+After migration, `seed-demo` idempotently ensures only `admin` and `content_editor`. Their initial passwords come from `PARTSIGNAL_SEED_ADMIN_PASSWORD` and `PARTSIGNAL_SEED_ENGINEER_PASSWORD`; existing accounts are never overwritten. A newly created `content_editor` has account type `ENGINEER` and must change its initial password. The one-time migration is the only physical user-deletion exception and does not add an application deletion API.
 
 ## State Machines
 

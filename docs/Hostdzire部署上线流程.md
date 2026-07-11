@@ -180,6 +180,7 @@ if [ ! -f "$ENV_FILE" ]; then
   SESSION_SECRET=$(openssl rand -hex 48)
   UPLOAD_SECRET=$(openssl rand -hex 48)
   ADMIN_PASSWORD=$(openssl rand -hex 18)
+  ENGINEER_PASSWORD=$(openssl rand -hex 18)
   AI_KEY=$(openssl rand 32 | openssl base64 -A)
 
   printf '%s\n' \
@@ -195,6 +196,7 @@ if [ ! -f "$ENV_FILE" ]; then
     "SESSION_SECRET=${SESSION_SECRET}" \
     'SESSION_COOKIE_SECURE=true' \
     "PARTSIGNAL_SEED_ADMIN_PASSWORD=${ADMIN_PASSWORD}" \
+    "PARTSIGNAL_SEED_ENGINEER_PASSWORD=${ENGINEER_PASSWORD}" \
     'CELERY_CONCURRENCY=1' \
     'CONTENT_GENERATOR=deterministic' \
     "AI_CREDENTIAL_ENCRYPTION_KEY=${AI_KEY}" \
@@ -363,13 +365,13 @@ readlink /root/partsignal/current
 
 ## 12. 登录账号
 
-部署脚本会幂等创建验收账号。账号类型和具体账号名以当前 `backend/app/cli.py` 为准，初始密码只保存在：
+部署脚本会幂等确保 `admin` 管理员和 `content_editor` 工程师。两个账号使用独立初始密码，重复部署不会覆盖任一账号已经修改过的密码。初始密码只保存在：
 
 ```text
 /root/partsignal/shared/.env.staging
 ```
 
-读取时只提取 `PARTSIGNAL_SEED_ADMIN_PASSWORD`，不要输出整个环境文件。密码不得写入仓库或本 Runbook。
+按需只提取 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 或 `PARTSIGNAL_SEED_ENGINEER_PASSWORD`，不要输出整个环境文件。`content_editor` 首次登录必须修改密码；密码不得写入仓库或本 Runbook。
 
 ## 13. 回滚
 

@@ -30,7 +30,7 @@ PostgreSQL 与 Redis 只加入 `partsignal-internal` 隔离网络。API、迁移
 
 预发布栈使用 `partsignal-staging-*` 容器网络，业务端口只绑定宿主机回环地址：API `19000`、开发对象存储 `19001`、前端 `19080`。持久数据统一位于 `PARTSIGNAL_DATA_ROOT`，默认 `/root/partsignal-data`，避免随发布目录切换而丢失。
 
-部署前在仓库根目录创建权限为 `0600` 的 `.env.staging`，至少设置随机 `POSTGRES_PASSWORD`、`SESSION_SECRET`、`UPLOAD_SIGNING_SECRET`、`PARTSIGNAL_SEED_ADMIN_PASSWORD`，并固定以下边界：
+部署前在仓库根目录创建权限为 `0600` 的 `.env.staging`，至少设置随机 `POSTGRES_PASSWORD`、`SESSION_SECRET`、`UPLOAD_SIGNING_SECRET`、`PARTSIGNAL_SEED_ADMIN_PASSWORD`、`PARTSIGNAL_SEED_ENGINEER_PASSWORD`。两个初始账号密码必须独立生成；重复部署必须复用原环境文件，初始化命令不会覆盖账号已经修改过的密码。
 
 ```dotenv
 APP_ENV=staging
@@ -54,9 +54,11 @@ PARTSIGNAL_VERSION=<release-id> ./scripts/deploy-staging.sh
 
 预发布回滚只切换上一发布目录与镜像标签，不删除 `/root/partsignal-data`。停止栈使用 `docker compose --env-file ../.env.staging -f compose.staging.yaml down`，默认保留持久数据。
 
+`0010_user_cleanup` 执行前必须备份 PostgreSQL。若迁移报告旧版初始化账号仍被业务表或审计记录引用，迁移会整体回滚；不得绕过外键、清空历史或把归属猜测迁移给其他用户。开发验收数据可在确认无保留价值后整体重建，否则应保留数据库并重新规划账号处置。
+
 ## 回滚
 
-前端通过软链接切换上一版本。API 和 Worker 使用上一镜像标签重启。本次账号类型映射和内容追溯列删除是有损迁移：迁移前必须备份 PostgreSQL 和 AI 凭据主密钥；需要回退到旧应用时恢复完整迁移前数据库，不执行 `0009` 的有损降级。仅回退同一数据库契约内的应用版本时，先停用全部 AI 渠道。
+前端通过软链接切换上一版本。API 和 Worker 使用上一镜像标签重启。本次账号类型映射、内容追溯列删除和旧账号清理均为有损迁移：迁移前必须备份 PostgreSQL 和 AI 凭据主密钥；需要回退到旧应用时恢复完整迁移前数据库，不执行 `0009` 或 `0010` 的有损降级。仅回退同一数据库契约内的应用版本时，先停用全部 AI 渠道。
 
 ## 备份
 

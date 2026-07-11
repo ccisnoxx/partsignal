@@ -15,7 +15,7 @@ This directory contains guidelines for backend development. Fill in each file wi
 | Guide | Description | Status |
 |-------|-------------|--------|
 | [Directory Structure](./directory-structure.md) | Module organization and file layout | To fill |
-| [Database Guidelines](./database-guidelines.md) | ORM patterns, queries, migrations | To fill |
+| [数据库开发规范](./database-guidelines.md) | PostgreSQL 迁移、一次性数据清理与初始化契约 | Active |
 | [Error Handling](./error-handling.md) | Error types, handling strategies | To fill |
 | [Quality Guidelines](./quality-guidelines.md) | Code standards, forbidden patterns | To fill |
 | [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |

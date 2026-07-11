@@ -13,22 +13,35 @@ from app.models import User
 from app.security import hash_password
 
 
-def seed_demo(password: str) -> None:
-    """幂等创建明确的本地开发管理员账号。"""
-    if len(password) < 12:
-        raise ValueError("开发账号密码至少需要 12 个字符")
+def seed_demo(admin_password: str, engineer_password: str) -> None:
+    """幂等创建管理员和内容工程师，不覆盖任何既有账号。"""
+    if len(admin_password) < 12:
+        raise ValueError("管理员初始密码至少需要 12 个字符")
+    if len(engineer_password) < 12:
+        raise ValueError("工程师初始密码至少需要 12 个字符")
     with SessionLocal.begin() as db:
-        user = db.scalar(select(User).where(User.username == "admin"))
-        if user is None:
+        admin = db.scalar(select(User).where(User.username == "admin"))
+        if admin is None:
             db.add(
                 User(
                     username="admin",
                     display_name="系统管理员",
-                    password_hash=hash_password(password),
+                    password_hash=hash_password(admin_password),
                     account_type="ADMIN",
                 )
             )
-    print("已创建或确认本地开发管理员账号。")
+        content_editor = db.scalar(select(User).where(User.username == "content_editor"))
+        if content_editor is None:
+            db.add(
+                User(
+                    username="content_editor",
+                    display_name="内容运营",
+                    password_hash=hash_password(engineer_password),
+                    account_type="ENGINEER",
+                    must_change_password=True,
+                )
+            )
+    print("已创建或确认本地开发管理员和内容工程师账号。")
 
 
 def main() -> None:
@@ -39,14 +52,25 @@ def main() -> None:
     seed_parser.add_argument(
         "--password",
         default=os.getenv("PARTSIGNAL_SEED_ADMIN_PASSWORD"),
-        help="开发账号共用初始密码，也可通过 PARTSIGNAL_SEED_ADMIN_PASSWORD 提供",
+        help="管理员初始密码，也可通过 PARTSIGNAL_SEED_ADMIN_PASSWORD 提供",
+    )
+    seed_parser.add_argument(
+        "--engineer-password",
+        default=os.getenv("PARTSIGNAL_SEED_ENGINEER_PASSWORD"),
+        help="内容工程师初始密码，也可通过 PARTSIGNAL_SEED_ENGINEER_PASSWORD 提供",
     )
     args = parser.parse_args()
     if args.command == "seed-demo":
         if not args.password:
-            print("缺少开发账号密码，请设置 PARTSIGNAL_SEED_ADMIN_PASSWORD。", file=sys.stderr)
+            print("缺少管理员初始密码，请设置 PARTSIGNAL_SEED_ADMIN_PASSWORD。", file=sys.stderr)
             raise SystemExit(2)
-        seed_demo(args.password)
+        if not args.engineer_password:
+            print(
+                "缺少工程师初始密码，请设置 PARTSIGNAL_SEED_ENGINEER_PASSWORD。",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        seed_demo(args.password, args.engineer_password)
 
 
 if __name__ == "__main__":

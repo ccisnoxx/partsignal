@@ -107,6 +107,8 @@ services:
       DATABASE_URL: postgresql+psycopg://partsignal:partsignal_dev@postgres:5432/partsignal
       REDIS_URL: redis://redis:6379/15
       SESSION_SECRET: test-session-secret-at-least-32-bytes
+      PARTSIGNAL_SEED_ADMIN_PASSWORD: partsignal-admin-dev
+      PARTSIGNAL_SEED_ENGINEER_PASSWORD: partsignal-engineer-dev
       CONTENT_GENERATOR: deterministic
       AI_CREDENTIAL_ENCRYPTION_KEY: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       AI_ALLOW_LOCAL_HTTP: 'true'

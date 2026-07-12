@@ -4,11 +4,12 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button, Card, Col, Progress, Row, Space, Statistic, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import { api, unwrap } from '../../shared/api/client';
+import { queryKeys } from '../../shared/api/queryKeys';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 
 export function DashboardPage() {
-  const summary = useQuery({ queryKey: ['dashboard'], queryFn: async () => unwrap(await api.GET('/api/v1/dashboard/summary')) });
-  const metrics = useQuery({ queryKey: ['geo-metrics'], queryFn: async () => unwrap(await api.GET('/api/v1/geo-metrics')) });
+  const summary = useQuery({ queryKey: queryKeys.dashboard, queryFn: async () => unwrap(await api.GET('/api/v1/dashboard/summary')) });
+  const metrics = useQuery({ queryKey: queryKeys.geo.metrics, queryFn: async () => unwrap(await api.GET('/api/v1/geo-metrics')) });
   if (summary.isLoading || metrics.isLoading) return <QueryLoading />;
   if (summary.error || metrics.error) return <QueryFailure error={summary.error ?? metrics.error} />;
   const rate = (value: number | null | undefined) => Math.round((value ?? 0) * 100);
@@ -24,7 +25,7 @@ export function DashboardPage() {
         <Col xs={12} lg={6}><Card><Statistic title="待审事实" value={summary.data?.pending_fact_reviews ?? 0} /></Card></Col>
         <Col xs={12} lg={6}><Card><Statistic title="待审内容" value={summary.data?.pending_content_reviews ?? 0} /></Card></Col>
         <Col xs={12} lg={6}><Card><Statistic title="待人工发布" value={summary.data?.pending_publications ?? 0} /></Card></Col>
-        <Col xs={12} lg={6}><Card><Statistic title="发布需关注" value={summary.data?.publication_attention ?? 0} valueStyle={{ color: summary.data?.publication_attention ? '#b42318' : undefined }} /></Card></Col>
+        <Col xs={12} lg={6}><Link to="/publications"><Card><Statistic title="发布需关注" value={summary.data?.publication_attention ?? 0} valueStyle={{ color: summary.data?.publication_attention ? '#b42318' : undefined }} /></Card></Link></Col>
       </Row>
       <Card title="GEO 信号" extra={<Link to="/observations">查看观测明细</Link>}>
         <Row gutter={[32, 24]}>

@@ -1,11 +1,12 @@
 /** 产品事实工作区：维护证据化事实、创建不可变快照并执行人工审核。 */
 import { ArrowLeftOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Checkbox, Divider, Form, Input, InputNumber, Modal, Select, Space, Table, Tabs, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Descriptions, Divider, Form, Input, InputNumber, List, Modal, Select, Space, Table, Tabs, Timeline, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
+import { queryKeys } from '../../shared/api/queryKeys';
 import type { FactVersion, Schema } from '../../shared/api/types';
 import { QueryLoading } from '../../shared/components/AsyncState';
 import { DirectUpload } from '../../shared/components/DirectUpload';
@@ -20,21 +21,22 @@ const replacementOptions: Array<{ label: string; value: Schema<'ReplacementLevel
 
 export function ProductFactsPage() {
   const canEdit = true;
-  const canReview = true;
   const { productId = '' } = useParams();
   const [snapshotOpen, setSnapshotOpen] = useState(false);
   const [snapshotTarget, setSnapshotTarget] = useState<FactVersion>();
+  const [reviewTarget, setReviewTarget] = useState<FactVersion>();
   const [commandTarget, setCommandTarget] = useState<{ version: FactVersion; command: 'submit' | 'approve' | 'request-changes' | 'retire' } | null>(null);
-  const product = useQuery({ queryKey: ['product', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}', { params: { path: { product_id: productId } } })) });
-  const draft = useQuery({ queryKey: ['facts-draft', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId } } })) });
-  const versions = useQuery({ queryKey: ['fact-versions', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId } } })) });
+  const product = useQuery({ queryKey: queryKeys.products.detail(productId), queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}', { params: { path: { product_id: productId } } })) });
+  const draft = useQuery({ queryKey: queryKeys.products.draft(productId), queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId } } })) });
+  const versions = useQuery({ queryKey: queryKeys.products.factVersions(productId), queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId } } })) });
+  const reviewContext = useQuery({ queryKey: queryKeys.products.factReview(reviewTarget?.id), queryFn: async () => unwrap(await api.GET('/api/v1/fact-versions/{fact_version_id}/review-context', { params: { path: { fact_version_id: reviewTarget?.id ?? '' } } })), enabled: !!reviewTarget });
   const save = useMutation({
     mutationFn: async (values: Schema<'ProductFactsDraftUpdate'>) => unwrap(await api.PUT('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId }, header: csrfHeader() }, body: values })),
-    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['facts-draft', productId] }),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: queryKeys.products.draft(productId) }),
   });
   const createVersion = useMutation({
     mutationFn: async (body: Schema<'CreateVersionRequest'>) => unwrap(await api.POST('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId }, header: csrfHeader() }, body })),
-    onSuccess: async () => { setSnapshotOpen(false); await queryClient.invalidateQueries({ queryKey: ['fact-versions', productId] }); },
+    onSuccess: async () => { setSnapshotOpen(false); await queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) }); },
   });
   const command = useMutation({
     mutationFn: async ({ target, body }: { target: NonNullable<typeof commandTarget>; body: Schema<'CommandRequest'> }) => {
@@ -44,7 +46,7 @@ export function ProductFactsPage() {
         : '/api/v1/fact-versions/{fact_version_id}/retire' as const;
       return unwrap(await api.POST(path, { params: { path: { fact_version_id: target.version.id }, header: csrfHeader() }, body }));
     },
-    onSuccess: async () => { setCommandTarget(null); await queryClient.invalidateQueries({ queryKey: ['fact-versions', productId] }); },
+    onSuccess: async () => { const targetId = commandTarget?.version.id; setCommandTarget(null); await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) }), queryClient.invalidateQueries({ queryKey: queryKeys.products.factReview(targetId) })]); },
   });
 
   if (product.isLoading || draft.isLoading || versions.isLoading) return <QueryLoading />;
@@ -60,15 +62,14 @@ export function ProductFactsPage() {
           { title: '变更说明', dataIndex: 'change_summary' }, { title: '创建时间', dataIndex: 'created_at', render: (v) => new Date(v).toLocaleString('zh-CN') },
           { title: '审核操作', render: (_, version) => <Space wrap>
             <Button size="small" onClick={() => setSnapshotTarget(version)}>查看快照</Button>
-            {canEdit && version.status === 'DRAFT' && <Button size="small" onClick={() => setCommandTarget({ version, command: 'submit' })}>提交</Button>}
-            {canReview && version.status === 'PENDING_REVIEW' && <><Button size="small" type="primary" onClick={() => setCommandTarget({ version, command: 'approve' })}>批准</Button><Button size="small" danger onClick={() => setCommandTarget({ version, command: 'request-changes' })}>退回</Button></>}
-            {canReview && version.status === 'APPROVED' && <Button size="small" onClick={() => setCommandTarget({ version, command: 'retire' })}>停用</Button>}
+            <Button size="small" type="primary" onClick={() => setReviewTarget(version)}>审核证据与历史</Button>
           </Space> },
         ]} /></Card> },
       ]} />
       <Modal title="创建事实快照" open={snapshotOpen} footer={null} onCancel={() => setSnapshotOpen(false)} destroyOnHidden><Form<Schema<'CreateVersionRequest'>> layout="vertical" onFinish={(body) => createVersion.mutate(body)}><Form.Item name="change_summary" label="变更说明" rules={[{ required: true }]}><Input.TextArea rows={3} /></Form.Item><Button type="primary" htmlType="submit" loading={createVersion.isPending}>创建快照</Button></Form></Modal>
       <Modal title={`事实快照 V${snapshotTarget?.version ?? ''}`} open={!!snapshotTarget} footer={null} onCancel={() => setSnapshotTarget(undefined)} width={900}><FactSnapshot version={snapshotTarget} /></Modal>
-      <Modal title="确认状态操作" open={!!commandTarget} footer={null} onCancel={() => setCommandTarget(null)} width={commandTarget?.command === 'approve' ? 900 : undefined} destroyOnHidden><Typography.Paragraph type="secondary">允许创建者自行批准；服务端仍会校验证据、状态和修订号。</Typography.Paragraph>{commandTarget?.command === 'approve' && <><Alert type="warning" showIcon message="批准前必须核对下方不可变快照，而不是当前事实工作区。" /><FactSnapshot version={commandTarget.version} /></>}<Form<Schema<'CommandRequest'>> layout="vertical" initialValues={{ expected_revision: commandTarget?.version.revision, comment: '' }} onFinish={(body) => commandTarget && command.mutate({ target: commandTarget, body })}><Form.Item name="expected_revision" hidden><InputNumber /></Form.Item><Form.Item name="comment" label="审核意见"><Input.TextArea rows={3} /></Form.Item><Button type="primary" htmlType="submit" loading={command.isPending}>确认</Button></Form></Modal>
+      <Modal title={`事实审核证据 V${reviewTarget?.version ?? ''}`} open={!!reviewTarget} footer={null} onCancel={() => setReviewTarget(undefined)} width={960}>{reviewContext.isLoading && <QueryLoading />}{reviewContext.error && <Alert type="error" message={errorMessage(reviewContext.error)} />}{reviewContext.data && <FactReviewPanel context={reviewContext.data} onAction={(action) => { const commandName = action === 'SUBMIT' ? 'submit' : action === 'APPROVE' ? 'approve' : action === 'REQUEST_CHANGES' ? 'request-changes' : 'retire'; setCommandTarget({ version: reviewContext.data.fact_version, command: commandName }); }} />}</Modal>
+      <Modal title="确认状态操作" open={!!commandTarget} footer={null} onCancel={() => setCommandTarget(null)} width={commandTarget?.command === 'approve' ? 900 : undefined} destroyOnHidden><Typography.Paragraph type="secondary">服务端会校验证据、状态和修订号。</Typography.Paragraph>{commandTarget?.command === 'approve' && <><Alert type="warning" showIcon message="请显式确认：批准依据是下方不可变快照，而不是当前事实工作区。" /><FactSnapshot version={commandTarget.version} /></>}<Form<Schema<'CommandRequest'>> layout="vertical" initialValues={{ expected_revision: commandTarget?.version.revision, comment: '' }} onFinish={(body) => commandTarget && command.mutate({ target: commandTarget, body })}><Form.Item name="expected_revision" hidden><InputNumber /></Form.Item><Form.Item name="comment" label="审核意见" rules={commandTarget?.command === 'request-changes' ? [{ required: true, whitespace: true, message: '退回必须填写意见' }] : []}><Input.TextArea rows={3} /></Form.Item><Button type="primary" htmlType="submit" loading={command.isPending}>{commandTarget?.command === 'approve' ? '确认批准' : '确认'}</Button></Form></Modal>
     </div>
   );
 }
@@ -76,6 +77,16 @@ export function ProductFactsPage() {
 function FactSnapshot({ version }: { version?: FactVersion }) {
   if (!version) return null;
   return <Card size="small" title={`V${version.version} · ${version.change_summary}`} className="section-card"><Typography.Paragraph type="secondary">以下 JSON 是服务端保存的完整只读快照，包含参数、替代关系、证据和声明关联。</Typography.Paragraph><pre className="snapshot-json">{JSON.stringify(version.snapshot, null, 2)}</pre></Card>;
+}
+
+function FactReviewPanel({ context, onAction }: { context: Schema<'FactReviewContext'>; onAction: (action: Schema<'FactReviewAction'>) => void }) {
+  const statuses = new Map(context.evidence_statuses.map((item) => [item.client_key, item.file_status]));
+  return <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Descriptions column={1} items={[{ label: '状态', children: <StatusTag status={context.fact_version.status} /> }, { label: '变更说明', children: context.fact_version.change_summary }, { label: '事实版本 ID', children: context.fact_version.id }]} />
+    <Card size="small" title="冻结证据"><List dataSource={context.fact_version.snapshot.evidences} locale={{ emptyText: '该事实快照没有证据' }} renderItem={(item) => <List.Item><Space direction="vertical"><Space><strong>{item.title}</strong><StatusTag status={item.confidentiality} /><StatusTag status={statuses.get(item.client_key) ?? 'URL_ONLY'} /></Space><Typography.Text type="secondary">{item.type} · {item.version} · {item.source_url ?? '无公开 URL'}</Typography.Text></Space></List.Item>} /></Card>
+    <Card size="small" title="追加式审核历史"><Timeline items={context.review_history.map((item) => ({ children: <><Space><StatusTag status={item.action} /><strong>{item.actor.display_name}</strong><Typography.Text type="secondary">V{item.target_version}</Typography.Text></Space><Typography.Paragraph>{item.comment || '未填写意见'}</Typography.Paragraph><Typography.Text type="secondary">{new Date(item.created_at).toLocaleString('zh-CN')}</Typography.Text></> }))} /></Card>
+    <Space wrap>{context.available_actions.map((action) => <Button key={action} type={action === 'APPROVE' ? 'primary' : 'default'} danger={action === 'REQUEST_CHANGES'} onClick={() => onAction(action)}>{action === 'SUBMIT' ? '提交审核' : action === 'APPROVE' ? '批准' : action === 'REQUEST_CHANGES' ? '退回修改' : '停用'}</Button>)}</Space>
+  </Space>;
 }
 
 function FactsForm({ draft, saving, disabled, onSave }: { draft: Schema<'ProductFactsDraft'>; saving: boolean; disabled: boolean; onSave: (value: Schema<'ProductFactsDraftUpdate'>) => void }) {

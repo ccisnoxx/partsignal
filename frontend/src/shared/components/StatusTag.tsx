@@ -9,6 +9,9 @@ const statusLabels: Record<string, string> = {
   PENDING_MANUAL_PUBLISH: '待人工发布', PLATFORM_REVIEW: '平台审核中',
   PUBLISHED: '已发布', VERIFIED: '已验证', REJECTED: '已拒绝', REMOVED: '已下线',
   VERIFICATION_FAILED: '验证失败', ABORTED: '已中止',
+  RESOLVED: '已解决',
+  submit: '提交审核', 'submit-review': '提交审核', approve: '批准',
+  'request-changes': '退回修改', retire: '停用',
 };
 
 const statusColors: Record<string, string> = {
@@ -17,6 +20,9 @@ const statusColors: Record<string, string> = {
   RUNNING: 'blue', PUBLISHED: 'blue', OPEN: 'blue', DRAFT: 'default',
   FAILED: 'red', REJECTED: 'red', VERIFICATION_FAILED: 'red', CHANGES_REQUESTED: 'orange',
   RETIRED: 'default', SUPERSEDED: 'default', CANCELLED: 'default', REMOVED: 'default', ABORTED: 'default',
+  RESOLVED: 'green',
+  submit: 'blue', 'submit-review': 'blue', approve: 'green',
+  'request-changes': 'orange', retire: 'default',
 };
 
 export function StatusTag({ status }: { status: string }) {

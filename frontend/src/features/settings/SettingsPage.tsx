@@ -5,6 +5,7 @@ import { Alert, Button, Card, Checkbox, Form, Input, InputNumber, Modal, Select,
 import { useState } from 'react';
 import { queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
+import { queryKeys } from '../../shared/api/queryKeys';
 import type { PlatformProfile, QueryTopic, Schema } from '../../shared/api/types';
 import { StatusTag } from '../../shared/components/StatusTag';
 
@@ -19,8 +20,8 @@ export function SettingsPage() {
 
 function TopicsPanel() {
   const [open, setOpen] = useState(false);
-  const topics = useQuery({ queryKey: ['query-topics'], queryFn: async () => unwrap(await api.GET('/api/v1/query-topics')) });
-  const create = useMutation({ mutationFn: async (body: Schema<'QueryTopicCreate'>) => unwrap(await api.POST('/api/v1/query-topics', { params: { header: csrfHeader() }, body })), onSuccess: async () => { setOpen(false); await queryClient.invalidateQueries({ queryKey: ['query-topics'] }); } });
+  const topics = useQuery({ queryKey: queryKeys.queryTopics, queryFn: async () => unwrap(await api.GET('/api/v1/query-topics')) });
+  const create = useMutation({ mutationFn: async (body: Schema<'QueryTopicCreate'>) => unwrap(await api.POST('/api/v1/query-topics', { params: { header: csrfHeader() }, body })), onSuccess: async () => { setOpen(false); await queryClient.invalidateQueries({ queryKey: queryKeys.queryTopics }); } });
   return <Card extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新增问题</Button>}>
     {topics.error && <Alert type="error" message={errorMessage(topics.error)} />}
     <Table<QueryTopic> rowKey="id" loading={topics.isLoading} dataSource={topics.data?.items} columns={[{ title: '标准问题', dataIndex: 'canonical_question' }, { title: '意图', dataIndex: 'intent_type' }, { title: '变体', dataIndex: 'variants', render: (items: string[]) => items.join(' / ') }]} />
@@ -34,12 +35,12 @@ export function PlatformsPanel() {
   const [manageProfile, setManageProfile] = useState<PlatformProfile | null>(null);
   const [editProfile, setEditProfile] = useState<PlatformProfile | null>(null);
   const [pendingVersion, setPendingVersion] = useState<Schema<'PlatformProfileVersion'>>();
-  const platforms = useQuery({ queryKey: ['platform-profiles'], queryFn: async () => unwrap(await api.GET('/api/v1/platform-profiles')) });
-  const versions = useQuery({ queryKey: ['platform-profile-versions', manageProfile?.id], queryFn: async () => unwrap(await api.GET('/api/v1/platform-profiles/{platform_profile_id}/versions', { params: { path: { platform_profile_id: manageProfile?.id ?? '' } } })), enabled: !!manageProfile });
-  const create = useMutation({ mutationFn: async (body: Schema<'PlatformProfileCreate'>) => unwrap(await api.POST('/api/v1/platform-profiles', { params: { header: csrfHeader() }, body })), onSuccess: async () => { setOpen(false); await queryClient.invalidateQueries({ queryKey: ['platform-profiles'] }); } });
-  const updateProfile = useMutation({ mutationFn: async (body: Schema<'PlatformProfileUpdate'>) => { if (!editProfile) throw new Error('未选择平台'); return unwrap(await api.PATCH('/api/v1/platform-profiles/{platform_profile_id}', { params: { path: { platform_profile_id: editProfile.id }, header: csrfHeader() }, body })); }, onSuccess: async () => { setEditProfile(null); await queryClient.invalidateQueries({ queryKey: ['platform-profiles'] }); } });
-  const createVersion = useMutation({ mutationFn: async (body: Schema<'PlatformProfileVersionCreate'>) => { if (!versionProfile) throw new Error('未选择平台'); return unwrap(await api.POST('/api/v1/platform-profiles/{platform_profile_id}/versions', { params: { path: { platform_profile_id: versionProfile.id }, header: csrfHeader() }, body })); }, onSuccess: async (created) => { setVersionProfile(null); setPendingVersion(created); await queryClient.invalidateQueries({ queryKey: ['platform-profiles'] }); } });
-  const versionCommand = useMutation({ mutationFn: async ({ version, command }: { version: Schema<'PlatformProfileVersion'>; command: 'activate' | 'retire' }) => { const path = command === 'activate' ? '/api/v1/platform-profile-versions/{platform_profile_version_id}/activate' as const : '/api/v1/platform-profile-versions/{platform_profile_version_id}/retire' as const; return unwrap(await api.POST(path, { params: { path: { platform_profile_version_id: version.id }, header: csrfHeader() }, body: { expected_revision: version.revision, comment: command === 'activate' ? '激活平台规则版本' : '停用平台规则版本' } })); }, onSuccess: async () => { setPendingVersion(undefined); await Promise.all([queryClient.invalidateQueries({ queryKey: ['platform-profiles'] }), queryClient.invalidateQueries({ queryKey: ['platform-profile-versions', manageProfile?.id] })]); } });
+  const platforms = useQuery({ queryKey: queryKeys.platformProfiles.all, queryFn: async () => unwrap(await api.GET('/api/v1/platform-profiles')) });
+  const versions = useQuery({ queryKey: queryKeys.platformProfiles.versions(manageProfile?.id), queryFn: async () => unwrap(await api.GET('/api/v1/platform-profiles/{platform_profile_id}/versions', { params: { path: { platform_profile_id: manageProfile?.id ?? '' } } })), enabled: !!manageProfile });
+  const create = useMutation({ mutationFn: async (body: Schema<'PlatformProfileCreate'>) => unwrap(await api.POST('/api/v1/platform-profiles', { params: { header: csrfHeader() }, body })), onSuccess: async () => { setOpen(false); await queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }); } });
+  const updateProfile = useMutation({ mutationFn: async (body: Schema<'PlatformProfileUpdate'>) => { if (!editProfile) throw new Error('未选择平台'); return unwrap(await api.PATCH('/api/v1/platform-profiles/{platform_profile_id}', { params: { path: { platform_profile_id: editProfile.id }, header: csrfHeader() }, body })); }, onSuccess: async () => { setEditProfile(null); await queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }); } });
+  const createVersion = useMutation({ mutationFn: async (body: Schema<'PlatformProfileVersionCreate'>) => { if (!versionProfile) throw new Error('未选择平台'); return unwrap(await api.POST('/api/v1/platform-profiles/{platform_profile_id}/versions', { params: { path: { platform_profile_id: versionProfile.id }, header: csrfHeader() }, body })); }, onSuccess: async (created) => { setVersionProfile(null); setPendingVersion(created); await queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }); } });
+  const versionCommand = useMutation({ mutationFn: async ({ version, command }: { version: Schema<'PlatformProfileVersion'>; command: 'activate' | 'retire' }) => { const path = command === 'activate' ? '/api/v1/platform-profile-versions/{platform_profile_version_id}/activate' as const : '/api/v1/platform-profile-versions/{platform_profile_version_id}/retire' as const; return unwrap(await api.POST(path, { params: { path: { platform_profile_version_id: version.id }, header: csrfHeader() }, body: { expected_revision: version.revision, comment: command === 'activate' ? '激活平台规则版本' : '停用平台规则版本' } })); }, onSuccess: async () => { setPendingVersion(undefined); await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }), queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.versions(manageProfile?.id) })]); } });
   return <Card extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新增平台</Button>}>
     {(platforms.error || versions.error || create.error || updateProfile.error || createVersion.error || versionCommand.error) && <Alert type="error" message={errorMessage(platforms.error ?? versions.error ?? create.error ?? updateProfile.error ?? createVersion.error ?? versionCommand.error)} />}
     <Table<PlatformProfile> rowKey="id" loading={platforms.isLoading} dataSource={platforms.data?.items} columns={[
@@ -57,19 +58,19 @@ export function PlatformsPanel() {
 
 function PlatformAccountsPanel() {
   const [open, setOpen] = useState(false);
-  const accounts = useQuery({ queryKey: ['platform-accounts'], queryFn: async () => unwrap(await api.GET('/api/v1/platform-accounts')) });
-  const platforms = useQuery({ queryKey: ['platform-profiles'], queryFn: async () => unwrap(await api.GET('/api/v1/platform-profiles')) });
-  const create = useMutation({ mutationFn: async (body: Schema<'PlatformAccountCreate'>) => unwrap(await api.POST('/api/v1/platform-accounts', { params: { header: csrfHeader() }, body })), onSuccess: async () => { setOpen(false); await queryClient.invalidateQueries({ queryKey: ['platform-accounts'] }); } });
+  const accounts = useQuery({ queryKey: queryKeys.platformAccounts, queryFn: async () => unwrap(await api.GET('/api/v1/platform-accounts')) });
+  const platforms = useQuery({ queryKey: queryKeys.platformProfiles.all, queryFn: async () => unwrap(await api.GET('/api/v1/platform-profiles')) });
+  const create = useMutation({ mutationFn: async (body: Schema<'PlatformAccountCreate'>) => unwrap(await api.POST('/api/v1/platform-accounts', { params: { header: csrfHeader() }, body })), onSuccess: async () => { setOpen(false); await queryClient.invalidateQueries({ queryKey: queryKeys.platformAccounts }); } });
   return <Card extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新增账号标识</Button>}><Alert type="info" showIcon message="这里只保存业务标签和公开账号标识，不保存密码、Cookie 或令牌。" /><Table<Schema<'PlatformAccount'>> rowKey="id" loading={accounts.isLoading} dataSource={accounts.data?.items} columns={[{ title: '标签', dataIndex: 'label' }, { title: '账号标识', dataIndex: 'account_identifier' }, { title: '状态', dataIndex: 'is_active', render: (active) => <StatusTag status={active ? 'ACTIVE' : 'RETIRED'} /> }]} /><Modal title="新增平台账号标识" open={open} onCancel={() => setOpen(false)} footer={null} destroyOnHidden><Form<Schema<'PlatformAccountCreate'>> layout="vertical" onFinish={(body) => create.mutate(body)}><Form.Item name="platform_profile_id" label="平台" rules={[{ required: true }]}><Select options={platforms.data?.items.map((item) => ({ value: item.id, label: item.name }))} /></Form.Item><Form.Item name="label" label="业务标签" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="account_identifier" label="公开账号标识" rules={[{ required: true }]}><Input /></Form.Item><Button type="primary" htmlType="submit" loading={create.isPending}>创建</Button></Form></Modal></Card>;
 }
 
 function PlatformForm({ loading, onSubmit }: { loading: boolean; onSubmit: (value: Schema<'PlatformProfileCreate'>) => void }) {
-  const types = useQuery({ queryKey: ['platform-types'], queryFn: async () => unwrap(await api.GET('/api/v1/platform-types')) });
+  const types = useQuery({ queryKey: queryKeys.platformTypes.all, queryFn: async () => unwrap(await api.GET('/api/v1/platform-types')) });
   return <Form<Schema<'PlatformProfileCreate'>> layout="vertical" onFinish={onSubmit}><Space align="start" wrap><Form.Item name="name" label="平台名称" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="slug" label="Slug" rules={[{ required: true, pattern: /^[a-z0-9-]+$/ }]}><Input /></Form.Item><Form.Item name="platform_type_id" label="平台类型" rules={[{ required: true }]}><Select options={types.data?.items.map((item) => ({ value: item.id, label: item.name }))} /></Form.Item><Form.Item name="allowed_domains" label="允许域名" rules={[{ required: true }]}><Select mode="tags" /></Form.Item></Space><RulesFields prefix="rules" /><Button type="primary" htmlType="submit" loading={loading}>创建并激活首版</Button></Form>;
 }
 
 function PlatformIdentityForm({ profile, loading, onSubmit }: { profile: PlatformProfile; loading: boolean; onSubmit: (value: Schema<'PlatformProfileUpdate'>) => void }) {
-  const types = useQuery({ queryKey: ['platform-types'], queryFn: async () => unwrap(await api.GET('/api/v1/platform-types')) });
+  const types = useQuery({ queryKey: queryKeys.platformTypes.all, queryFn: async () => unwrap(await api.GET('/api/v1/platform-types')) });
   return <Form<Schema<'PlatformProfileUpdate'>> layout="vertical" initialValues={{ expected_revision: profile.revision, name: profile.name, allowed_domains: profile.allowed_domains, platform_type_id: profile.platform_type_id ?? undefined }} onFinish={onSubmit}><Form.Item name="expected_revision" hidden><InputNumber /></Form.Item><Form.Item name="name" label="平台名称" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="platform_type_id" label="平台类型" rules={[{ required: true }]}><Select options={types.data?.items.map((item) => ({ value: item.id, label: item.name }))} /></Form.Item><Form.Item name="allowed_domains" label="允许域名" rules={[{ required: true }]}><Select mode="tags" /></Form.Item><Button type="primary" htmlType="submit" loading={loading}>保存归类</Button></Form>;
 }
 
@@ -82,6 +83,6 @@ function RulesFields({ prefix }: { prefix: 'rules' }) {
 }
 
 export function AuditPanel() {
-  const audit = useQuery({ queryKey: ['audit-logs'], queryFn: async () => unwrap(await api.GET('/api/v1/audit-logs', { params: { query: { page: 1, page_size: 100 } } })) });
+  const audit = useQuery({ queryKey: queryKeys.auditLogs, queryFn: async () => unwrap(await api.GET('/api/v1/audit-logs', { params: { query: { page: 1, page_size: 100 } } })) });
   return <Card>{audit.error && <Alert type="error" message={errorMessage(audit.error)} />}<Table<Schema<'AuditLog'>> rowKey="id" loading={audit.isLoading} dataSource={audit.data?.items} columns={[{ title: '时间', dataIndex: 'created_at', render: (value) => new Date(value).toLocaleString('zh-CN') }, { title: '动作', dataIndex: 'action' }, { title: '对象', render: (_, row) => `${row.target_type} / ${row.target_id}` }, { title: '请求 ID', dataIndex: 'request_id' }]} /></Card>;
 }

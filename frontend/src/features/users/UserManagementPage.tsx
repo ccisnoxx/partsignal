@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, ensureSuccess, unwrap } from '../../shared/api/client';
+import { queryKeys } from '../../shared/api/queryKeys';
 import type { Schema, User } from '../../shared/api/types';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { useAuth } from '../auth/AuthProvider';
@@ -21,8 +22,8 @@ export function UserManagementPage() {
   const [editing, setEditing] = useState<User>();
   const [resetting, setResetting] = useState<User>();
   const [showInactive, setShowInactive] = useState(false);
-  const users = useQuery({ queryKey: ['users'], queryFn: async () => unwrap(await api.GET('/api/v1/users')) });
-  const refresh = async () => queryClient.invalidateQueries({ queryKey: ['users'] });
+  const users = useQuery({ queryKey: queryKeys.users, queryFn: async () => unwrap(await api.GET('/api/v1/users')) });
+  const refresh = async () => queryClient.invalidateQueries({ queryKey: queryKeys.users });
   const create = useMutation({ mutationFn: async (body: Schema<'UserCreate'>) => unwrap(await api.POST('/api/v1/users', { params: { header: csrfHeader() }, body })), onSuccess: async () => { setCreateOpen(false); await refresh(); } });
   const update = useMutation({ mutationFn: async (body: Schema<'UserUpdate'>) => { if (!editing) throw new Error('未选择用户'); return unwrap(await api.PATCH('/api/v1/users/{user_id}', { params: { path: { user_id: editing.id }, header: csrfHeader() }, body })); }, onSuccess: async () => { setEditing(undefined); await refresh(); } });
   const reset = useMutation({ mutationFn: async (body: Schema<'ResetPasswordRequest'>) => { if (!resetting) throw new Error('未选择用户'); return ensureSuccess(await api.POST('/api/v1/users/{user_id}/reset-password', { params: { path: { user_id: resetting.id }, header: csrfHeader() }, body })); }, onSuccess: async () => { setResetting(undefined); await refresh(); } });

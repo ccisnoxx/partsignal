@@ -14,8 +14,11 @@ test -f "$env_file" || {
 docker compose --env-file "$env_file" -f "$compose_file" config --quiet
 docker compose --env-file "$env_file" -f "$compose_file" build api fake-oss frontend
 docker compose --env-file "$env_file" -f "$compose_file" up -d postgres redis fake-oss
+docker compose --env-file "$env_file" -f "$compose_file" run --rm api \
+  python -m app.cli preflight-integrity
 docker compose --env-file "$env_file" -f "$compose_file" run --rm migrate
-docker compose --env-file "$env_file" -f "$compose_file" up -d api worker scheduler frontend
+docker compose --env-file "$env_file" -f "$compose_file" up -d --wait worker scheduler
+docker compose --env-file "$env_file" -f "$compose_file" up -d --wait api frontend
 docker compose --env-file "$env_file" -f "$compose_file" run --rm api python -m app.cli seed-demo
 docker compose --env-file "$env_file" -f "$compose_file" ps
 
@@ -24,4 +27,3 @@ curl --fail --silent --show-error --retry 12 --retry-delay 2 \
 curl --fail --silent --show-error --retry 12 --retry-delay 2 \
   http://127.0.0.1:19080/ >/dev/null
 printf '%s\n' "PartSignal ${PARTSIGNAL_VERSION} 预发布栈部署完成"
-

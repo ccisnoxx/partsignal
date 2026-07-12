@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { queryClient } from '../../app/queryClient';
 import { api, setCsrfToken, unwrap } from '../../shared/api/client';
+import { queryKeys } from '../../shared/api/queryKeys';
 import type { User } from '../../shared/api/types';
 
 type AuthContextValue = {
@@ -18,13 +19,13 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const currentUser = useQuery({
-    queryKey: ['auth', 'me'],
+    queryKey: queryKeys.auth.me,
     queryFn: async () => unwrap(await api.GET('/api/v1/auth/me')),
     retry: false,
   });
 
   const csrf = useQuery({
-    queryKey: ['auth', 'csrf'],
+    queryKey: queryKeys.auth.csrf,
     queryFn: async () => unwrap(await api.GET('/api/v1/auth/csrf')),
     enabled: currentUser.isSuccess,
     retry: false,
@@ -33,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const expire = () => {
       setCsrfToken(null);
-      queryClient.removeQueries({ queryKey: ['auth'] });
+      queryClient.removeQueries({ queryKey: queryKeys.auth.all });
       void refreshCurrentUser();
     };
     globalThis.addEventListener('partsignal:auth-expired', expire);

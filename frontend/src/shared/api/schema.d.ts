@@ -268,6 +268,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/fact-versions/{fact_version_id}/review-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getFactReviewContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fact-versions/{fact_version_id}/submit": {
         parameters: {
             query?: never;
@@ -766,22 +782,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/content-tasks/{content_task_id}/complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["completeContentTask"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/content-tasks/{content_task_id}/cancel": {
         parameters: {
             query?: never;
@@ -870,6 +870,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getContentVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-versions/{content_version_id}/review-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getContentReviewContext"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1064,6 +1080,86 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["commandPublicationRecord"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/publication-attentions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPublicationAttentions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/publication-attentions/{attention_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPublicationAttention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/publication-attentions/{attention_id}/repair-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPublicationRepairContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/publication-attentions/{attention_id}/repair-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createPublicationRepairTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/publication-attentions/{attention_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resolvePublicationAttention"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1412,6 +1508,10 @@ export interface components {
             expected_revision: number;
             comment: string;
         };
+        RequestChangesCommand: {
+            expected_revision: number;
+            comment: string;
+        };
         RevisionRequest: {
             expected_revision: number;
         };
@@ -1704,6 +1804,14 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             user_prompt_markdown: string;
+            generation_data_classification: components["schemas"]["Confidentiality"] | null;
+            /** Format: uuid */
+            generation_data_classified_by: string | null;
+            /** Format: date-time */
+            generation_data_classified_at: string | null;
+            /** Format: uuid */
+            source_publication_attention_id: string | null;
+            available_actions: "CANCEL"[];
             status: components["schemas"]["ContentTaskStatus"];
             revision: number;
             /** Format: uuid */
@@ -1717,6 +1825,7 @@ export interface components {
         ContentTaskUserPromptUpdate: {
             expected_revision: number;
             user_prompt_markdown: string;
+            generation_data_classification: components["schemas"]["Confidentiality"];
         };
         GenerationOptionModel: {
             /** Format: uuid */
@@ -1786,6 +1895,11 @@ export interface components {
             };
             system_message: string;
             user_prompt_markdown: string;
+            generation_data_classification?: components["schemas"]["Confidentiality"];
+            /** Format: uuid */
+            generation_data_classified_by?: string;
+            /** Format: date-time */
+            generation_data_classified_at?: string;
             approved_facts: {
                 [key: string]: unknown;
             };
@@ -1856,6 +1970,55 @@ export interface components {
             right_id: string;
             lines: components["schemas"]["DiffLine"][];
         };
+        ActorSummary: {
+            /** Format: uuid */
+            id: string;
+            username: string;
+            display_name: string;
+        };
+        ReviewRecord: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            target_id: string;
+            target_version: number;
+            action: string;
+            comment: string;
+            actor: components["schemas"]["ActorSummary"];
+            /** Format: date-time */
+            created_at: string;
+        };
+        ReviewEvidenceStatus: {
+            client_key: string;
+            /** Format: uuid */
+            file_id: string | null;
+            file_status: ("PENDING" | "VERIFIED" | "FAILED" | "ABORTED") | null;
+        };
+        /** @enum {string} */
+        FactReviewAction: "SUBMIT" | "APPROVE" | "REQUEST_CHANGES" | "RETIRE";
+        /** @enum {string} */
+        ContentReviewAction: "SUBMIT_REVIEW" | "APPROVE" | "REQUEST_CHANGES";
+        FactReviewContext: {
+            fact_version: components["schemas"]["FactVersion"];
+            evidence_statuses: components["schemas"]["ReviewEvidenceStatus"][];
+            available_actions: components["schemas"]["FactReviewAction"][];
+            review_history: components["schemas"]["ReviewRecord"][];
+        };
+        GenerationTrace: {
+            /** Format: uuid */
+            job_id: string;
+            input_snapshot: components["schemas"]["GenerationSnapshot"];
+        };
+        ContentReviewContext: {
+            content: components["schemas"]["ContentVersion"];
+            task: components["schemas"]["ContentTask"];
+            fact_version: components["schemas"]["FactVersion"];
+            evidence_statuses: components["schemas"]["ReviewEvidenceStatus"][];
+            diff: components["schemas"]["ContentDiff"] | null;
+            generation_trace: components["schemas"]["GenerationTrace"] | null;
+            available_actions: components["schemas"]["ContentReviewAction"][];
+            review_history: components["schemas"]["ReviewRecord"][];
+        };
         PublicationPackage: {
             /** Format: uuid */
             content_version_id: string;
@@ -1910,6 +2073,8 @@ export interface components {
             /** Format: uuid */
             content_version_id: string;
             /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
             platform_account_id: string;
             /** Format: uri */
             section_url: string;
@@ -1926,6 +2091,7 @@ export interface components {
             created_at: string;
             status_events: components["schemas"]["PublicationEvent"][];
             attachments: components["schemas"]["FileRecord"][];
+            available_actions: ("mark-platform-review" | "mark-published" | "verify" | "reject" | "remove" | "mark-verification-failed")[];
         };
         PublicationRecordList: {
             items: components["schemas"]["PublicationRecord"][];
@@ -1940,6 +2106,114 @@ export interface components {
             actor_id: string;
             /** Format: date-time */
             created_at: string;
+        };
+        PublicationCandidate: {
+            content_version: components["schemas"]["ContentVersion"];
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            platform_profile_id: string;
+            platform_profile_name: string;
+            /** Format: uuid */
+            platform_profile_version_id: string;
+            platform_profile_version: number;
+            matching_accounts: components["schemas"]["PlatformAccount"][];
+        };
+        PublicationCandidateList: {
+            items: components["schemas"]["PublicationCandidate"][];
+        };
+        /** @enum {string} */
+        PublicationAttentionStatus: "OPEN" | "RESOLVED";
+        /** @enum {string} */
+        PublicationAttentionAction: "CREATE_REPAIR_TASK" | "RESOLVE";
+        PublicationAttention: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            publication_record_id: string;
+            /** Format: uuid */
+            original_task_id: string;
+            /** @enum {string} */
+            trigger_status: "REMOVED" | "VERIFICATION_FAILED";
+            status: components["schemas"]["PublicationAttentionStatus"];
+            revision: number;
+            /** Format: date-time */
+            opened_at: string;
+            /** Format: date-time */
+            resolved_at: string | null;
+            /** Format: uuid */
+            resolved_by: string | null;
+            resolution_comment: string | null;
+            /** Format: uuid */
+            repair_task_id: string | null;
+            available_actions: components["schemas"]["PublicationAttentionAction"][];
+        };
+        PublicationAttentionList: {
+            items: components["schemas"]["PublicationAttention"][];
+        };
+        VersionChange: {
+            field: string;
+            before: unknown;
+            after: unknown;
+        };
+        VersionDifference: {
+            /** Format: uuid */
+            from_id: string;
+            /** Format: uuid */
+            to_id: string;
+            changes: components["schemas"]["VersionChange"][];
+        };
+        FactVersionCandidate: {
+            version: components["schemas"]["FactVersion"];
+            difference: components["schemas"]["VersionDifference"];
+        };
+        PlatformVersionCandidate: {
+            version: components["schemas"]["PlatformProfileVersion"];
+            difference: components["schemas"]["VersionDifference"];
+        };
+        PublicationRepairDefaults: {
+            target_audience: string;
+            content_angle: string;
+            conversion_goal: string;
+            desired_format: string;
+            desired_length_min: number;
+            desired_length_max: number;
+            /** Format: uri */
+            canonical_url: string;
+        };
+        PublicationRepairContext: {
+            attention: components["schemas"]["PublicationAttention"];
+            publication: components["schemas"]["PublicationRecord"];
+            original_task: components["schemas"]["ContentTask"];
+            product: components["schemas"]["Product"];
+            query_topic: components["schemas"]["QueryTopic"];
+            /** Format: uuid */
+            platform_profile_id: string;
+            platform_profile_name: string;
+            original_fact_version: components["schemas"]["FactVersion"];
+            fact_candidates: components["schemas"]["FactVersionCandidate"][];
+            original_platform_version: components["schemas"]["PlatformProfileVersion"];
+            platform_candidates: components["schemas"]["PlatformVersionCandidate"][];
+            defaults: components["schemas"]["PublicationRepairDefaults"];
+        };
+        PublicationRepairTaskCreate: {
+            expected_attention_revision: number;
+            /** Format: uuid */
+            fact_version_id: string;
+            /** Format: uuid */
+            platform_profile_version_id: string;
+            target_audience: string;
+            content_angle: string;
+            conversion_goal: string;
+            desired_format: string;
+            desired_length_min: number;
+            desired_length_max: number;
+            /** Format: uri */
+            canonical_url: string;
+        };
+        ResolvePublicationAttentionRequest: {
+            expected_revision: number;
+            resolution_comment: string;
         };
         /** @enum {string} */
         RecommendationStatus: "NONE" | "CANDIDATE" | "RECOMMENDED";
@@ -2099,12 +2373,18 @@ export interface components {
         GenerationJobId: string;
         ContentVersionId: string;
         PublicationId: string;
+        PublicationAttentionId: string;
         FileId: string;
     };
     requestBodies: {
         CommandRequest: {
             content: {
                 "application/json": components["schemas"]["CommandRequest"];
+            };
+        };
+        RequestChangesCommand: {
+            content: {
+                "application/json": components["schemas"]["RequestChangesCommand"];
             };
         };
         RevisionRequest: {
@@ -2626,6 +2906,28 @@ export interface operations {
             };
         };
     };
+    getFactReviewContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fact_version_id: components["parameters"]["FactVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 不可变事实快照与完整审核历史 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactReviewContext"];
+                };
+            };
+        };
+    };
     submitFactVersion: {
         parameters: {
             query?: never;
@@ -2672,7 +2974,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["CommandRequest"];
+        requestBody: components["requestBodies"]["RequestChangesCommand"];
         responses: {
             200: components["responses"]["FactVersionResponse"];
         };
@@ -3708,31 +4010,6 @@ export interface operations {
             409: components["responses"]["ErrorResponse"];
         };
     };
-    completeContentTask: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                content_task_id: components["parameters"]["ContentTaskId"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CommandRequest"];
-        responses: {
-            /** @description 已完成内容任务 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ContentTask"];
-                };
-            };
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
     cancelContentTask: {
         parameters: {
             query?: never;
@@ -3901,6 +4178,29 @@ export interface operations {
             };
         };
     };
+    getContentReviewContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                content_version_id: components["parameters"]["ContentVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前正文、冻结事实、差异、追溯与完整审核历史 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReviewContext"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
     createContentRevision: {
         parameters: {
             query?: never;
@@ -3974,7 +4274,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["CommandRequest"];
+        requestBody: components["requestBodies"]["RequestChangesCommand"];
         responses: {
             200: components["responses"]["ContentVersionResponse"];
         };
@@ -4040,7 +4340,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ContentVersionList"];
+                    "application/json": components["schemas"]["PublicationCandidateList"];
                 };
             };
         };
@@ -4190,6 +4490,131 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationRecord"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPublicationAttentions: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["PublicationAttentionStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 发布异常待办 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationAttentionList"];
+                };
+            };
+        };
+    };
+    getPublicationAttention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attention_id: components["parameters"]["PublicationAttentionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 发布异常待办详情 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationAttention"];
+                };
+            };
+        };
+    };
+    getPublicationRepairContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                attention_id: components["parameters"]["PublicationAttentionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 固定原上下文、当前候选和规范化差异 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationRepairContext"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    createPublicationRepairTask: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                attention_id: components["parameters"]["PublicationAttentionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationRepairTaskCreate"];
+            };
+        };
+        responses: {
+            /** @description 已创建标准内容修复任务，待办保持 OPEN */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTask"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    resolvePublicationAttention: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                attention_id: components["parameters"]["PublicationAttentionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolvePublicationAttentionRequest"];
+            };
+        };
+        responses: {
+            /** @description 已显式解决待办 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationAttention"];
                 };
             };
             409: components["responses"]["ErrorResponse"];

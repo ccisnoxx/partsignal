@@ -2,6 +2,9 @@ name: visual-baselines
 
 on:
   workflow_dispatch:
+  push:
+    branches: [agent/mvp]
+    paths: [.github/workflows/visual-baselines.yml]
 
 jobs:
   generate-linux:

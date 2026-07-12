@@ -20,7 +20,29 @@
 
 DMIT 当前把普通 Web SNI 默认转发到 Hostdzire，常规部署不修改 DMIT Nginx。Hostdzire 必须存在精确匹配 `geo.962850.xyz` 的虚拟主机，否则请求会落到默认站点，看起来像 Sub2API。
 
-SSH 连接信息位于本机受保护清单 `/Users/sc/work_file/bak_file/VPS.txt` 的 `hostdzire` profile。只能按清单规则将私钥临时写入 `/private/tmp` 并设置 `0600`；不得把清单内容、私钥或生成的环境变量输出到日志、对话或仓库。
+DMIT 与 Hostdzire 共用公网地址 `154.21.86.86`，但不是同一个 SSH 入口：
+
+| 主机 | SSH 入口 | 身份文件 |
+| --- | --- | --- |
+| DMIT 前置机 | `root@154.21.86.86:22` | DMIT 对应私钥 |
+| Hostdzire 应用机 | `root@154.21.86.86:2222` | Hostdzire 对应独立 RSA 私钥 |
+
+部署只能连接 Hostdzire 的 `2222` 端口。连接 `22` 端口实际到达 DMIT；使用本机默认公钥或 Hostdzire 私钥访问 DMIT 都可能得到 `Permission denied (publickey)`，这不表示 Hostdzire 拒绝了密钥。
+
+SSH 连接信息位于本机受保护清单 `/Users/sc/work_file/bak_file/VPS.txt` 的 `hostdzire` profile。只能按清单规则将 Hostdzire 私钥临时写入 `/private/tmp` 并设置 `0600`；不得把清单内容、私钥或生成的环境变量输出到日志、对话或仓库。所有 SSH/SCP 命令必须显式指定端口、私钥和 `IdentitiesOnly=yes`，不要依赖 `~/.ssh/config`、SSH Agent 或默认身份文件：
+
+```sh
+SSH_HOST=154.21.86.86
+SSH_PORT=2222
+SSH_USER=root
+SSH_KEY=/private/tmp/partsignal-hostdzire-deploy-key
+
+chmod 600 "$SSH_KEY"
+ssh -i "$SSH_KEY" -o IdentitiesOnly=yes -p "$SSH_PORT" \
+  "$SSH_USER@$SSH_HOST" 'hostname; id; pwd'
+```
+
+首次只运行上面的只读探测。确认目标确实是 Hostdzire 后再上传或执行部署命令；任务结束立即删除临时私钥文件。
 
 ## 2. 权威文件
 
@@ -146,8 +168,8 @@ shasum -a 256 "$ARCHIVE"
 下面的 `<SSH_USER>`、`<SSH_HOST>`、`<SSH_PORT>` 和 `<SSH_KEY>` 从 `hostdzire` profile 读取，不写入仓库：
 
 ```sh
-scp -i <SSH_KEY> -P <SSH_PORT> "$ARCHIVE" \
-  <SSH_USER>@<SSH_HOST>:/tmp/
+scp -i "$SSH_KEY" -o IdentitiesOnly=yes -P "$SSH_PORT" "$ARCHIVE" \
+  "$SSH_USER@$SSH_HOST:/tmp/"
 ```
 
 在 Hostdzire 创建全新版本目录，不覆盖旧版本：
@@ -316,31 +338,34 @@ curl --fail --silent --show-error \
   https://geo.962850.xyz/api/health/ready
 ```
 
-### 10.2 完整 Playwright E2E
+### 10.2 公网视觉与无障碍回归
 
 Playwright 镜像版本必须与 `frontend/package-lock.json` 中的 `@playwright/test` 一致。以下示例版本仅是本次验证值；依赖升级后同步修改：
 
 ```sh
-E2E_ENV=/tmp/partsignal-e2e.env
-grep '^PARTSIGNAL_SEED_ADMIN_PASSWORD=' \
-  /root/partsignal/shared/.env.staging >"$E2E_ENV"
-chmod 600 "$E2E_ENV"
-
 docker run --rm \
-  --env-file "$E2E_ENV" \
   -e PARTSIGNAL_E2E_BASE_URL=https://geo.962850.xyz \
-  --mount type=bind,src="$RELEASE_DIR/frontend",dst=/work,readonly \
-  --mount type=volume,dst=/work/node_modules \
-  --mount type=tmpfs,dst=/work/test-results \
-  --mount type=tmpfs,dst=/work/playwright-report \
+  --mount type=bind,src="$RELEASE_DIR/frontend",dst=/src,readonly \
+  --mount type=volume,dst=/work \
   -w /work \
   mcr.microsoft.com/playwright:v1.61.1-noble \
-  sh -c 'npm ci && npm run e2e'
+  sh -c 'cp -a /src/. /work/ && npm ci && npm run e2e -- tests/e2e/visual-regression.spec.ts'
 ```
 
-E2E 必须覆盖事实快照审核、Celery 生成、内容审核、对象直传、人工发布登记和 GEO 观测。执行完立即删除只含验收密码的临时环境文件。
+这里使用一次性 Docker volume 作为可执行工作目录，容器退出后自动删除，不写入版本目录。视觉测试通过路由夹具验证页面、四档响应式基线和严重级无障碍问题，不创建生产业务数据。
 
-### 10.3 现有服务回归
+不要采用以下挂载方式：
+
+- 不要把整个 `/work` 只读绑定后再向 `/work/test-results`、`/work/playwright-report` 挂载子目录。Docker 需要先在只读根挂载中创建挂载点，会报 `read-only file system`。
+- 不要把整个 `/work` 挂载为 `tmpfs`。当前宿主机的该挂载不可执行，`npm ci` 校验 `esbuild` 时会报 `spawnSync ... EACCES`。
+
+### 10.3 纵向业务 E2E 的环境边界
+
+`tests/e2e/mvp-flow.spec.ts` 会创建 AI 渠道并访问 `http://127.0.0.1:9001` 的开发 Mock Provider。生产式预发布环境固定 `AI_ALLOW_LOCAL_HTTP=false`，服务端必须返回 `AI_URL_FORBIDDEN`；因此不得在公网环境直接执行整套 `npm run e2e`，也不得为让测试通过而放宽该安全策略。
+
+事实快照审核、Celery 生成、内容审核、对象直传、人工发布登记和 GEO 观测的完整纵向 E2E，应在发布前的本地或 CI 隔离环境运行。该环境必须显式启动 Mock Provider，并使用真实 PostgreSQL、Redis 和 Celery。公网发布后的验收范围是健康检查、视觉与无障碍回归、容器状态及相邻服务回归。
+
+### 10.4 现有服务回归
 
 ```sh
 docker ps --format '{{.Names}}|{{.Status}}' | \
@@ -410,6 +435,11 @@ ln -sfn "releases/${PREVIOUS_RELEASE}" /root/partsignal/current
 | API 重建后短暂 reset | Uvicorn 尚未完成启动 | 使用有限次数的 `--retry-all-errors`，随后检查 API 日志 |
 | 生成作业不推进 | Worker/Beat 未运行、Redis 不通或租约恢复失败 | 检查 `worker`、`scheduler` 日志和 PostgreSQL 作业状态；Redis 只排查 Broker，不把它当业务状态源 |
 | AI 凭据无法解密 | `AI_CREDENTIAL_ENCRYPTION_KEY` 变化或密文损坏 | 恢复匹配的主密钥，或显式重新录入渠道凭据；不得静默回退 |
+| SSH 报 `Permission denied (publickey)` | 使用 `154.21.86.86:22` 实际连接到 DMIT，或 SSH Agent 发送了错误身份 | Hostdzire 固定使用端口 `2222`、独立 RSA 私钥和 `IdentitiesOnly=yes`；先执行只读 `hostname` 探测 |
+| Playwright 容器创建挂载点失败 | 整个 `/work` 是只读 bind，Docker 无法创建测试输出子挂载点 | 源码只读挂到 `/src`，用一次性 volume 挂到 `/work`，先复制再测试 |
+| `npm ci` 校验 `esbuild` 报 `EACCES` | `/work` 使用了不可执行的 `tmpfs` | 改用一次性 Docker volume，不要放宽宿主机安全挂载选项 |
+| 公网纵向 E2E 创建 AI 渠道返回 `AI_URL_FORBIDDEN` | 测试依赖回环 HTTP Mock Provider，但预发布环境正确禁止本地 HTTP AI 出站 | 在本地/CI 隔离环境执行纵向 E2E；公网只跑视觉/无障碍和冒烟，不得修改 `AI_ALLOW_LOCAL_HTTP=false` |
+| 单项 GEO 截图在完整 E2E 失败后出现差异 | 前序业务测试中断后继续执行整套用例，验收上下文不再等同于独立视觉回归 | 修复前序环境问题后单独运行 `visual-regression.spec.ts`；不要直接更新基线掩盖差异 |
 
 ## 15. 本次验证记录
 
@@ -420,3 +450,13 @@ ln -sfn "releases/${PREVIOUS_RELEASE}" /root/partsignal/current
 - 数据库：从空库迁移成功；后续版本仍必须以当前 Alembic `head` 为准。
 - 验收：真实 HTTPS 域名、真实 PostgreSQL/Redis/Celery 的 Playwright 纵向 E2E 通过。
 - 隔离：`api.962850.xyz` 的 Sub2API 及 md2word、Vaultwarden、CLIProxy 未受影响。
+
+### 2026-07-12 发布记录
+
+- 发布版本：`mvp-20260712-1a18cb2`，Git 提交 `1a18cb2`。
+- SSH：确认 `154.21.86.86:22` 是 DMIT，Hostdzire 必须使用 `154.21.86.86:2222` 和独立 RSA 私钥；显式设置 `IdentitiesOnly=yes` 后连接成功。
+- 备份：迁移前生成并确认 `/root/partsignal/backups/partsignal-20260712T115453Z.sql.gz` 非空。
+- 部署：Compose 构建、Alembic `0013_publication_closure`、API/Worker/Scheduler/Frontend 启动成功，发布指针切换到 `releases/mvp-20260712-1a18cb2`。
+- 公网：live、ready、PartSignal 首页和 Sub2API 首页验证通过；PostgreSQL、Redis、Nginx 及相邻服务正常。
+- CI：发布提交的契约、单元、集成、构建、E2E 和 Linux 视觉基线检查全部通过。
+- 公网 Playwright：错误尝试整套测试得到 `8/10`；纵向用例因生产安全策略拒绝回环 HTTP Mock Provider，后续明确改为公网只执行隔离的视觉与无障碍用例。

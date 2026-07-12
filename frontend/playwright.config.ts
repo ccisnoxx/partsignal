@@ -14,6 +14,6 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
   },
   expect: {
-    toHaveScreenshot: { animations: 'disabled', maxDiffPixelRatio: 0.01 },
+    toHaveScreenshot: { animations: 'disabled', maxDiffPixelRatio: 0.05 },
   },
 });

@@ -9,7 +9,15 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    field_validator,
+    model_validator,
+)
 
 
 def require_unique_items[UniqueItem: Hashable](values: list[UniqueItem]) -> list[UniqueItem]:
@@ -111,6 +119,21 @@ class HealthResponse(ContractModel):
 class CommandRequest(ContractModel):
     expected_revision: int = Field(ge=0)
     comment: str
+
+
+class RequestChangesCommand(ContractModel):
+    """退回命令必须携带可读意见，不能只提交空白字符。"""
+
+    expected_revision: int = Field(ge=0)
+    comment: str = Field(min_length=1)
+
+    @field_validator("comment")
+    @classmethod
+    def validate_comment(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("退回意见不能为空")
+        return trimmed
 
 
 class RevisionRequest(ContractModel):
@@ -590,6 +613,11 @@ class ContentTaskOut(ContentTaskCreate):
     platform_type_id: uuid.UUID | None
     platform_type_snapshot: dict[str, Any] | None
     user_prompt_markdown: str
+    generation_data_classification: Confidentiality | None
+    generation_data_classified_by: uuid.UUID | None
+    generation_data_classified_at: datetime | None
+    source_publication_attention_id: uuid.UUID | None
+    available_actions: list[Literal["CANCEL"]]
     status: Literal["OPEN", "COMPLETED", "CANCELLED"]
     revision: int
     created_by: uuid.UUID
@@ -603,6 +631,7 @@ class ContentTaskList(ContractModel):
 class ContentTaskUserPromptUpdate(ContractModel):
     expected_revision: int = Field(ge=0)
     user_prompt_markdown: str
+    generation_data_classification: Confidentiality
 
 
 class GenerationOptionModel(ContractModel):
@@ -658,6 +687,10 @@ class GenerationSnapshot(ContractModel):
     platform_type: dict[str, Any]
     system_message: str
     user_prompt_markdown: str
+    # 0012 之前的不可变历史快照没有分级字段；新建或重试第三方作业必须显式校验。
+    generation_data_classification: Confidentiality | None = None
+    generation_data_classified_by: uuid.UUID | None = None
+    generation_data_classified_at: datetime | None = None
     approved_facts: dict[str, Any]
     task_requirements: dict[str, Any]
     user_message: str
@@ -716,6 +749,51 @@ class ContentDiff(ContractModel):
     left_id: uuid.UUID
     right_id: uuid.UUID
     lines: list[DiffLine]
+
+
+class ActorSummary(ContractModel):
+    id: uuid.UUID
+    username: str
+    display_name: str
+
+
+class ReviewRecord(ContractModel):
+    id: uuid.UUID
+    target_id: uuid.UUID
+    target_version: int
+    action: str
+    comment: str
+    actor: ActorSummary
+    created_at: datetime
+
+
+class ReviewEvidenceStatus(ContractModel):
+    client_key: str
+    file_id: uuid.UUID | None
+    file_status: Literal["PENDING", "VERIFIED", "FAILED", "ABORTED"] | None
+
+
+class FactReviewContext(ContractModel):
+    fact_version: FactVersionOut
+    evidence_statuses: list[ReviewEvidenceStatus]
+    available_actions: list[Literal["SUBMIT", "APPROVE", "REQUEST_CHANGES", "RETIRE"]]
+    review_history: list[ReviewRecord]
+
+
+class GenerationTrace(ContractModel):
+    job_id: uuid.UUID
+    input_snapshot: GenerationSnapshot
+
+
+class ContentReviewContext(ContractModel):
+    content: ContentVersionOut
+    task: ContentTaskOut
+    fact_version: FactVersionOut
+    evidence_statuses: list[ReviewEvidenceStatus]
+    diff: ContentDiff | None
+    generation_trace: GenerationTrace | None
+    available_actions: list[Literal["SUBMIT_REVIEW", "APPROVE", "REQUEST_CHANGES"]]
+    review_history: list[ReviewRecord]
 
 
 class PublicationPackage(ContractModel):
@@ -796,6 +874,7 @@ class FileRecordOut(ContractModel):
 class PublicationRecordOut(ContractModel):
     id: uuid.UUID
     content_version_id: uuid.UUID
+    task_id: uuid.UUID
     platform_account_id: uuid.UUID
     section_url: HttpUrl
     actual_title: str | None = None
@@ -807,6 +886,16 @@ class PublicationRecordOut(ContractModel):
     created_at: datetime
     status_events: list[PublicationEvent]
     attachments: list[FileRecordOut]
+    available_actions: list[
+        Literal[
+            "mark-platform-review",
+            "mark-published",
+            "verify",
+            "reject",
+            "remove",
+            "mark-verification-failed",
+        ]
+    ]
 
 
 class PublicationRecordList(ContractModel):
@@ -814,6 +903,123 @@ class PublicationRecordList(ContractModel):
     page: int
     page_size: int
     total: int
+
+
+class PublicationCandidate(ContractModel):
+    content_version: ContentVersionOut
+    task_id: uuid.UUID
+    platform_profile_id: uuid.UUID
+    platform_profile_name: str
+    platform_profile_version_id: uuid.UUID
+    platform_profile_version: int
+    matching_accounts: list[PlatformAccountOut]
+
+
+class PublicationCandidateList(ContractModel):
+    items: list[PublicationCandidate]
+
+
+class PublicationAttentionStatus(StrEnum):
+    OPEN = "OPEN"
+    RESOLVED = "RESOLVED"
+
+
+class PublicationAttentionOut(ContractModel):
+    id: uuid.UUID
+    publication_record_id: uuid.UUID
+    original_task_id: uuid.UUID
+    trigger_status: Literal["REMOVED", "VERIFICATION_FAILED"]
+    status: PublicationAttentionStatus
+    revision: int
+    opened_at: datetime
+    resolved_at: datetime | None
+    resolved_by: uuid.UUID | None
+    resolution_comment: str | None
+    repair_task_id: uuid.UUID | None
+    available_actions: list[Literal["CREATE_REPAIR_TASK", "RESOLVE"]]
+
+
+class PublicationAttentionList(ContractModel):
+    items: list[PublicationAttentionOut]
+
+
+class VersionChange(ContractModel):
+    field: str
+    before: Any
+    after: Any
+
+
+class VersionDifference(ContractModel):
+    from_id: uuid.UUID
+    to_id: uuid.UUID
+    changes: list[VersionChange]
+
+
+class FactVersionCandidate(ContractModel):
+    version: FactVersionOut
+    difference: VersionDifference
+
+
+class PlatformVersionCandidate(ContractModel):
+    version: PlatformProfileVersionOut
+    difference: VersionDifference
+
+
+class PublicationRepairDefaults(ContractModel):
+    target_audience: str
+    content_angle: str
+    conversion_goal: str
+    desired_format: str
+    desired_length_min: int
+    desired_length_max: int
+    canonical_url: HttpUrl
+
+
+class PublicationRepairContext(ContractModel):
+    attention: PublicationAttentionOut
+    publication: PublicationRecordOut
+    original_task: ContentTaskOut
+    product: ProductOut
+    query_topic: QueryTopicOut
+    platform_profile_id: uuid.UUID
+    platform_profile_name: str
+    original_fact_version: FactVersionOut
+    fact_candidates: list[FactVersionCandidate]
+    original_platform_version: PlatformProfileVersionOut
+    platform_candidates: list[PlatformVersionCandidate]
+    defaults: PublicationRepairDefaults
+
+
+class PublicationRepairTaskCreate(ContractModel):
+    expected_attention_revision: int = Field(ge=0)
+    fact_version_id: uuid.UUID
+    platform_profile_version_id: uuid.UUID
+    target_audience: str = Field(min_length=1)
+    content_angle: str = Field(min_length=1)
+    conversion_goal: str = Field(min_length=1)
+    desired_format: str = Field(min_length=1)
+    desired_length_min: int = Field(ge=1)
+    desired_length_max: int = Field(ge=1)
+    canonical_url: HttpUrl
+
+    @model_validator(mode="after")
+    def validate_length(self) -> PublicationRepairTaskCreate:
+        if self.desired_length_min > self.desired_length_max:
+            raise ValueError("期望正文最小长度不能大于最大长度")
+        return self
+
+
+class ResolvePublicationAttentionRequest(ContractModel):
+    expected_revision: int = Field(ge=0)
+    resolution_comment: str = Field(min_length=1)
+
+    @field_validator("resolution_comment")
+    @classmethod
+    def validate_resolution_comment(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("处置说明不能为空")
+        return trimmed
 
 
 class GeoCitation(ContractModel):

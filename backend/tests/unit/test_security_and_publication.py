@@ -4,9 +4,10 @@ import pytest
 from pydantic import ValidationError
 
 from app.config import Settings
-from app.routers.publication import domain_allowed, render_markdown
+from app.routers.publication import render_markdown
 from app.schemas import PartParameterData, QueryTopicCreate
 from app.security import generate_token, hash_password, hash_token, verify_password
+from app.services.publication import domain_allowed
 
 
 def test_password_and_token_are_not_stored_as_plaintext() -> None:
@@ -72,3 +73,20 @@ def test_production_rejects_development_session_secret() -> None:
             OSS_ACCESS_KEY_ID="test-key",
             OSS_ACCESS_KEY_SECRET="test-secret",
         )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("GENERATION_PENDING_REDISPATCH_SECONDS", 0),
+        ("GENERATION_FINALIZE_GRACE_SECONDS", 0),
+        ("GENERATION_RECOVERY_BATCH_SIZE", 0),
+        ("GENERATION_RECOVERY_SCAN_SECONDS", 4),
+    ],
+)
+def test_generation_recovery_configuration_requires_positive_bounds(
+    field: str,
+    value: int,
+) -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **{field: value})

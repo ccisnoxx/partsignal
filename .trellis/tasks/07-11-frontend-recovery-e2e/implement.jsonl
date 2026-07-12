@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "路由、查询缓存、OpenAPI DTO 和页面状态跨层验证"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "共享状态原语和 query key 只抽取稳定重复逻辑"}

@@ -7,8 +7,10 @@ set -eu
 compose_file=${COMPOSE_FILE:-compose.prod.yaml}
 
 docker compose -f "$compose_file" pull api worker scheduler
+docker compose -f "$compose_file" run --rm api python -m app.cli preflight-integrity
 docker compose -f "$compose_file" run --rm migrate
-docker compose -f "$compose_file" up -d api worker scheduler postgres redis
+docker compose -f "$compose_file" up -d --wait worker scheduler postgres redis
+docker compose -f "$compose_file" up -d --wait api
 docker compose -f "$compose_file" ps
 
 curl --fail --silent --show-error http://127.0.0.1:19000/api/health/ready >/dev/null

@@ -1,0 +1,24 @@
+/** 紧凑指标卡只负责呈现服务端指标，不计算业务口径。 */
+import { Card, Progress, Typography } from 'antd';
+import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+
+export function MetricTile({ label, value, unit, meta, percent, tone = 'default', to }: {
+  label: ReactNode;
+  value: ReactNode;
+  unit?: ReactNode;
+  meta?: ReactNode;
+  percent?: number | null;
+  tone?: 'default' | 'signal' | 'danger' | 'success';
+  to?: string;
+}) {
+  const card = (
+    <Card className={`metric-tile metric-${tone}`} size="small">
+      <Typography.Text className="metric-label">{label}</Typography.Text>
+      <div className="metric-value"><strong>{value}</strong>{unit && <span>{unit}</span>}</div>
+      {percent !== undefined && percent !== null && <Progress aria-label={`${String(label)} ${percent}%`} percent={percent} showInfo={false} strokeColor="#b74320" railColor="#e2dbd0" />}
+      {meta && <Typography.Text className="metric-meta">{meta}</Typography.Text>}
+    </Card>
+  );
+  return to ? <Link className="metric-link" to={to}>{card}</Link> : card;
+}

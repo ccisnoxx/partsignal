@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -107,6 +108,168 @@ def seed_accounts(
     )
 
 
+def generation_job_columns(test_url: str) -> set[str]:
+    """读取生成作业列集合，用于证明 0011 只做 expand 迁移。"""
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = 'generation_jobs'"
+        )
+        return {row[0] for row in cursor.fetchall()}
+
+
+def content_task_columns(test_url: str) -> set[str]:
+    """读取内容任务列集合，用于证明 0012 不改写历史任务。"""
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = 'content_tasks'"
+        )
+        return {row[0] for row in cursor.fetchall()}
+
+
+def seed_legacy_content_task(test_url: str) -> uuid.UUID:
+    """在 0012 之前写入最小合法任务，验证升级不会猜测数据分级。"""
+    ids = {name: uuid.uuid4() for name in (
+        "user",
+        "product",
+        "fact",
+        "topic",
+        "platform_type",
+        "profile",
+        "profile_version",
+        "task",
+    )}
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO users "
+            "(id, username, display_name, password_hash, account_type, is_active, "
+            "must_change_password, revision) "
+            "VALUES (%s, %s, '迁移用户', 'hash', 'ENGINEER', true, false, 0)",
+            (ids["user"], f"migration-{ids['user'].hex[:12]}"),
+        )
+        cursor.execute(
+            "INSERT INTO products "
+            "(id, part_number, normalized_part_number, brand, normalized_brand, category, "
+            "status, revision, facts_revision) "
+            "VALUES (%s, %s, %s, 'TEST', 'test', 'TEST', 'ACTIVE', 0, 0)",
+            (ids["product"], f"MIG-{ids['product'].hex[:12]}", ids["product"].hex),
+        )
+        cursor.execute(
+            "INSERT INTO fact_versions "
+            "(id, product_id, version, status, snapshot_json, change_summary, revision, "
+            "created_by, approved_by, approved_at) "
+            "VALUES (%s, %s, 1, 'APPROVED', '{}'::jsonb, '迁移事实', 0, %s, %s, now())",
+            (ids["fact"], ids["product"], ids["user"], ids["user"]),
+        )
+        cursor.execute(
+            "INSERT INTO query_topics "
+            "(id, canonical_question, intent_type, variants, revision) "
+            "VALUES (%s, '迁移问题', 'TEST', ARRAY['迁移'], 0)",
+            (ids["topic"],),
+        )
+        cursor.execute(
+            "INSERT INTO platform_types (id, name, slug, revision, created_by) "
+            "VALUES (%s, '迁移平台', %s, 0, %s)",
+            (ids["platform_type"], f"migration-{ids['platform_type'].hex[:12]}", ids["user"]),
+        )
+        cursor.execute(
+            "INSERT INTO platform_profiles "
+            "(id, name, slug, allowed_domains, platform_type_id, revision) "
+            "VALUES (%s, '迁移平台', %s, ARRAY['example.invalid'], %s, 0)",
+            (ids["profile"], f"profile-{ids['profile'].hex[:12]}", ids["platform_type"]),
+        )
+        cursor.execute(
+            "INSERT INTO platform_profile_versions "
+            "(id, platform_profile_id, version, status, rules, revision) "
+            "VALUES (%s, %s, 1, 'ACTIVE', '{}'::jsonb, 0)",
+            (ids["profile_version"], ids["profile"]),
+        )
+        cursor.execute(
+            "INSERT INTO content_tasks "
+            "(id, query_topic_id, product_id, fact_version_id, platform_profile_version_id, "
+            "platform_type_id, platform_type_snapshot, user_prompt_markdown, target_audience, "
+            "content_angle, conversion_goal, desired_format, desired_length_min, "
+            "desired_length_max, canonical_url, status, revision, created_by) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, '历史 Prompt', '测试', '迁移', "
+            "'迁移', 'MARKDOWN', 1, 100, 'https://example.invalid', 'OPEN', 0, %s)",
+            (
+                ids["task"],
+                ids["topic"],
+                ids["product"],
+                ids["fact"],
+                ids["profile_version"],
+                ids["platform_type"],
+                '{"name":"迁移平台","slug":"migration"}',
+                ids["user"],
+            ),
+        )
+        connection.commit()
+    return ids["task"]
+
+
+def seed_legacy_publication(
+    test_url: str,
+    task_id: uuid.UUID,
+    *,
+    cross_platform: bool,
+    status: str = "PENDING_MANUAL_PUBLISH",
+) -> uuid.UUID:
+    """在 0012 Schema 写入发布记录，用于验证 0013 历史门禁与触发器。"""
+    ids = {name: uuid.uuid4() for name in ("content", "profile", "account", "publication")}
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT content_tasks.fact_version_id, content_tasks.created_by, "
+            "platform_profile_versions.platform_profile_id, content_tasks.platform_type_id "
+            "FROM content_tasks JOIN platform_profile_versions ON "
+            "platform_profile_versions.id = content_tasks.platform_profile_version_id "
+            "WHERE content_tasks.id = %s",
+            (task_id,),
+        )
+        fact_id, user_id, task_profile_id, platform_type_id = cursor.fetchone()
+        account_profile_id = task_profile_id
+        if cross_platform:
+            cursor.execute(
+                "INSERT INTO platform_profiles "
+                "(id, name, slug, allowed_domains, platform_type_id, revision) "
+                "VALUES (%s, '跨平台迁移测试', %s, ARRAY['other.example.invalid'], %s, 0)",
+                (ids["profile"], f"cross-{ids['profile'].hex[:12]}", platform_type_id),
+            )
+            account_profile_id = ids["profile"]
+        cursor.execute(
+            "INSERT INTO platform_accounts "
+            "(id, platform_profile_id, label, account_identifier, is_active) "
+            "VALUES (%s, %s, '迁移发布账号', %s, true)",
+            (ids["account"], account_profile_id, f"account-{ids['account'].hex[:12]}"),
+        )
+        cursor.execute(
+            "INSERT INTO content_versions "
+            "(id, task_id, fact_version_id, version, source_type, title, summary, "
+            "body_markdown, tags, content_hash, status, revision, quality_issues, "
+            "change_summary, created_by) "
+            "VALUES (%s, %s, %s, 1, 'HUMAN', '迁移内容', '迁移摘要', '迁移正文', "
+            "ARRAY['migration'], %s, 'APPROVED', 0, '[]'::jsonb, '迁移测试', %s)",
+            (ids["content"], task_id, fact_id, "a" * 64, user_id),
+        )
+        cursor.execute(
+            "INSERT INTO publication_records "
+            "(id, idempotency_key, content_version_id, platform_account_id, section_url, "
+            "status, content_hash, created_by) "
+            "VALUES (%s, %s, %s, %s, 'https://example.invalid/section', %s, %s, %s)",
+            (
+                ids["publication"],
+                f"migration-{ids['publication'].hex}",
+                ids["content"],
+                ids["account"],
+                status,
+                "a" * 64,
+                user_id,
+            ),
+        )
+        connection.commit()
+    return ids["publication"]
+
+
 @pytest.mark.integration
 def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
     """空库初始化两个独立账号，重复部署不得覆盖既有账号。"""
@@ -129,6 +292,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
                         "ai_channels",
                         "ai_channel_headers",
                         "ai_models",
+                        "generation_jobs",
                     ],
                 ),
             )
@@ -142,7 +306,28 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
                 "ai_channels",
                 "ai_channel_headers",
                 "ai_models",
+                "generation_jobs",
             }
+            cursor.execute(
+                "SELECT column_name, is_nullable, column_default "
+                "FROM information_schema.columns "
+                "WHERE table_name = 'generation_jobs' "
+                "AND column_name = ANY(%s) ORDER BY column_name",
+                (["dispatch_attempt_count", "last_dispatch_attempt_at"],),
+            )
+            assert cursor.fetchall() == [
+                ("dispatch_attempt_count", "NO", "0"),
+                ("last_dispatch_attempt_at", "YES", None),
+            ]
+            cursor.execute(
+                "SELECT indexdef FROM pg_indexes "
+                "WHERE tablename = 'generation_jobs' "
+                "AND indexname = 'ix_generation_jobs_pending_dispatch_due'"
+            )
+            index_definition = cursor.fetchone()
+            assert index_definition is not None
+            assert "COALESCE(last_dispatch_attempt_at, created_at)" in index_definition[0]
+            assert "WHERE ((status)::text = 'PENDING'::text)" in index_definition[0]
             cursor.execute(
                 "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname = ANY(%s)",
                 (
@@ -196,6 +381,269 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
                 "AND tablename IN ('roles', 'user_roles')"
             )
             assert cursor.fetchone() == (0,)
+
+
+@pytest.mark.integration
+def test_generation_reliability_migration_is_additive_and_reversible() -> None:
+    """0011 不改变旧列，降级仅移除可重建的投递诊断元数据。"""
+    with temporary_database("partsignal_generation_migration") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0010_user_cleanup")
+        before = generation_job_columns(test_url)
+
+        run_alembic(env, backend_dir, "head")
+        after = generation_job_columns(test_url)
+        assert after - before == {
+            "last_dispatch_attempt_at",
+            "dispatch_attempt_count",
+        }
+        assert before <= after
+
+        subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0010_user_cleanup"],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        assert generation_job_columns(test_url) == before
+
+
+@pytest.mark.integration
+def test_ai_data_classification_migration_keeps_history_unclassified_and_reversible() -> None:
+    """0012 只扩展分级字段，历史任务保持 NULL 且非法组合由数据库阻断。"""
+    with temporary_database("partsignal_classification_migration") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0011_generation_reliability")
+        task_id = seed_legacy_content_task(test_url)
+        before = content_task_columns(test_url)
+
+        run_alembic(env, backend_dir, "0012_ai_data_classification")
+        after = content_task_columns(test_url)
+        assert after - before == {
+            "generation_data_classification",
+            "generation_data_classified_by",
+            "generation_data_classified_at",
+        }
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT generation_data_classification, generation_data_classified_by, "
+                "generation_data_classified_at FROM content_tasks WHERE id = %s",
+                (task_id,),
+            )
+            assert cursor.fetchone() == (None, None, None)
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "UPDATE content_tasks SET generation_data_classification = 'PUBLIC' "
+                    "WHERE id = %s",
+                    (task_id,),
+                )
+            connection.rollback()
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0011_generation_reliability",
+            ],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        assert content_task_columns(test_url) == before
+
+
+@pytest.mark.integration
+def test_publication_closure_migration_blocks_ambiguous_history() -> None:
+    """0013 必须稳定报告旧完成态和跨平台发布，并保持迁移原子。"""
+    with temporary_database("partsignal_publication_preflight") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0012_ai_data_classification")
+        task_id = seed_legacy_content_task(test_url)
+        publication_id = seed_legacy_publication(
+            test_url,
+            task_id,
+            cross_platform=True,
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE content_tasks SET status = 'COMPLETED' WHERE id = %s",
+                (task_id,),
+            )
+            connection.commit()
+
+        preflight = subprocess.run(
+            [sys.executable, "-m", "app.cli", "preflight-integrity"],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert preflight.returncode == 1
+        issues = json.loads(preflight.stdout)
+        assert [(item["record_id"], item["reason_code"]) for item in issues] == [
+            (str(task_id), "COMPLETED_WITHOUT_VERIFIED_PUBLICATION"),
+            (str(publication_id), "PUBLICATION_PLATFORM_MISMATCH"),
+        ]
+
+        result = run_alembic(env, backend_dir, "head", check=False)
+        assert result.returncode != 0
+        migration_output = result.stdout + result.stderr
+        assert "completed_without_verified" in migration_output
+        assert str(task_id) in migration_output
+        assert "cross_platform_publications" in migration_output
+        assert str(publication_id) in migration_output
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0012_ai_data_classification",)
+            cursor.execute("SELECT to_regclass('public.publication_attentions')")
+            assert cursor.fetchone() == (None,)
+
+
+@pytest.mark.integration
+def test_publication_closure_migration_enforces_platform_and_forward_only_history() -> None:
+    """0013 允许合法历史升级，数据库拒绝错绑且新待办阻止有损降级。"""
+    with temporary_database("partsignal_publication_guard") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0012_ai_data_classification")
+        task_id = seed_legacy_content_task(test_url)
+        publication_id = seed_legacy_publication(
+            test_url,
+            task_id,
+            cross_platform=True,
+            status="REMOVED",
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT created_by FROM publication_records WHERE id = %s",
+                (publication_id,),
+            )
+            (actor_id,) = cursor.fetchone()
+            cursor.execute(
+                "INSERT INTO publication_status_events "
+                "(id, publication_id, status, comment, actor_id) "
+                "VALUES (%s, %s, 'VERIFIED', '历史验证成功', %s)",
+                (uuid.uuid4(), publication_id, actor_id),
+            )
+            cursor.execute(
+                "UPDATE content_tasks SET status = 'COMPLETED' WHERE id = %s",
+                (task_id,),
+            )
+            connection.commit()
+        run_alembic(env, backend_dir, "head")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT content_versions.id, publication_records.created_by, "
+                "content_tasks.platform_type_id "
+                "FROM publication_records "
+                "JOIN content_versions ON content_versions.id = "
+                "publication_records.content_version_id "
+                "JOIN content_tasks ON content_tasks.id = content_versions.task_id "
+                "WHERE publication_records.id = %s",
+                (publication_id,),
+            )
+            content_id, user_id, platform_type_id = cursor.fetchone()
+            other_profile_id = uuid.uuid4()
+            other_account_id = uuid.uuid4()
+            cursor.execute(
+                "INSERT INTO platform_profiles "
+                "(id, name, slug, allowed_domains, platform_type_id, revision) "
+                "VALUES (%s, '数据库错绑测试', %s, ARRAY['wrong.example.invalid'], %s, 0)",
+                (
+                    other_profile_id,
+                    f"wrong-{other_profile_id.hex[:12]}",
+                    platform_type_id,
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO platform_accounts "
+                "(id, platform_profile_id, label, account_identifier, is_active) "
+                "VALUES (%s, %s, '错绑账号', %s, true)",
+                (
+                    other_account_id,
+                    other_profile_id,
+                    f"wrong-{other_account_id.hex[:12]}",
+                ),
+            )
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "INSERT INTO publication_records "
+                    "(id, idempotency_key, content_version_id, platform_account_id, section_url, "
+                    "status, content_hash, created_by) "
+                    "VALUES (%s, %s, %s, %s, 'https://wrong.example.invalid', "
+                    "'PENDING_MANUAL_PUBLISH', %s, %s)",
+                    (
+                        uuid.uuid4(),
+                        f"wrong-{uuid.uuid4().hex}",
+                        content_id,
+                        other_account_id,
+                        "a" * 64,
+                        user_id,
+                    ),
+                )
+            connection.rollback()
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "INSERT INTO publication_attentions "
+                    "(id, publication_record_id, trigger_status, status, revision, "
+                    "resolved_at, resolved_by, resolution_comment) "
+                    "VALUES (%s, %s, 'REMOVED', 'RESOLVED', 1, now(), %s, '绕过显式命令')",
+                    (uuid.uuid4(), publication_id, user_id),
+                )
+            connection.rollback()
+            attention_id = uuid.uuid4()
+            cursor.execute(
+                "INSERT INTO publication_attentions "
+                "(id, publication_record_id, trigger_status, status, revision) "
+                "VALUES (%s, %s, 'REMOVED', 'OPEN', 0)",
+                (attention_id, publication_id),
+            )
+            connection.commit()
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "DELETE FROM publication_attentions WHERE id = %s",
+                    (attention_id,),
+                )
+            connection.rollback()
+
+        downgrade = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0012_ai_data_classification",
+            ],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "只允许前滚" in downgrade.stdout + downgrade.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0013_publication_closure",)
+            cursor.execute(
+                "SELECT status FROM publication_attentions WHERE id = %s",
+                (attention_id,),
+            )
+            assert cursor.fetchone() == ("OPEN",)
 
 
 @pytest.mark.integration

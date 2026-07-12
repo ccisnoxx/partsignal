@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request, status
 from sqlalchemy import func, select
@@ -36,6 +37,8 @@ from app.schemas import (
     QueryTopicOut,
     QueryTopicUpdate,
 )
+from app.services.projections import content_task_out
+from app.services.publication import cancel_content_task as cancel_content_task_service
 
 router = APIRouter(prefix="/api/v1", tags=["planning"])
 
@@ -378,7 +381,7 @@ def retire_platform_profile_version(
 @router.get("/content-tasks", response_model=ContentTaskList, operation_id="listContentTasks")
 def list_content_tasks(db: DbSession, _user: CurrentUser) -> ContentTaskList:
     tasks = list(db.scalars(select(ContentTask).order_by(ContentTask.created_at.desc())))
-    return ContentTaskList(items=[ContentTaskOut.model_validate(task) for task in tasks])
+    return ContentTaskList(items=[content_task_out(db, task) for task in tasks])
 
 
 @router.post(
@@ -437,7 +440,7 @@ def create_content_task(
         details={"fact_version_id": str(task.fact_version_id)},
     )
     db.commit()
-    return ContentTaskOut.model_validate(task)
+    return content_task_out(db, task)
 
 
 @router.get(
@@ -451,7 +454,7 @@ def get_content_task(
     task = db.get(ContentTask, content_task_id)
     if task is None:
         raise not_found("内容任务")
-    return ContentTaskOut.model_validate(task)
+    return content_task_out(db, task)
 
 
 @router.patch(
@@ -467,7 +470,7 @@ def update_content_task_user_prompt(
     editor: ContentEditor,
     _csrf: CsrfProtected,
 ) -> ContentTaskOut:
-    """使用任务修订号保存工程师可编辑的 Markdown Prompt。"""
+    """使用任务修订号同时保存 Prompt 和本次完整生成输入分级。"""
     task = db.scalar(
         select(ContentTask).where(ContentTask.id == content_task_id).with_for_update()
     )
@@ -478,6 +481,9 @@ def update_content_task_user_prompt(
     if task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能修改 Prompt", 409)
     task.user_prompt_markdown = payload.user_prompt_markdown
+    task.generation_data_classification = payload.generation_data_classification.value
+    task.generation_data_classified_by = editor.id
+    task.generation_data_classified_at = datetime.now(UTC)
     task.revision += 1
     append_audit(
         db,
@@ -486,59 +492,13 @@ def update_content_task_user_prompt(
         target_type="ContentTask",
         target_id=task.id,
         request_id=request.state.request_id,
-        details={"revision": task.revision},
+        details={
+            "revision": task.revision,
+            "generation_data_classification": payload.generation_data_classification.value,
+        },
     )
     db.commit()
-    return ContentTaskOut.model_validate(task)
-
-
-def transition_content_task(
-    content_task_id: uuid.UUID,
-    payload: CommandRequest,
-    request: Request,
-    db: DbSession,
-    editor: ContentEditor,
-    target: str,
-) -> ContentTaskOut:
-    """内容任务只允许从 OPEN 进入一个终态。"""
-    task = db.scalar(
-        select(ContentTask).where(ContentTask.id == content_task_id).with_for_update()
-    )
-    if task is None:
-        raise not_found("内容任务")
-    if task.revision != payload.expected_revision:
-        raise AppError("REVISION_CONFLICT", "内容任务已被其他请求修改", 409)
-    if task.status != "OPEN":
-        raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能再次变更状态", 409)
-    task.status = target
-    task.revision += 1
-    append_audit(
-        db,
-        actor_id=editor.id,
-        action=f"content_task.{target.casefold()}",
-        target_type="ContentTask",
-        target_id=task.id,
-        request_id=request.state.request_id,
-        details={"comment": payload.comment, "revision": task.revision},
-    )
-    db.commit()
-    return ContentTaskOut.model_validate(task)
-
-
-@router.post(
-    "/content-tasks/{content_task_id}/complete",
-    response_model=ContentTaskOut,
-    operation_id="completeContentTask",
-)
-def complete_content_task(
-    content_task_id: uuid.UUID,
-    payload: CommandRequest,
-    request: Request,
-    db: DbSession,
-    editor: ContentEditor,
-    _csrf: CsrfProtected,
-) -> ContentTaskOut:
-    return transition_content_task(content_task_id, payload, request, db, editor, "COMPLETED")
+    return content_task_out(db, task)
 
 
 @router.post(
@@ -554,4 +514,12 @@ def cancel_content_task(
     editor: ContentEditor,
     _csrf: CsrfProtected,
 ) -> ContentTaskOut:
-    return transition_content_task(content_task_id, payload, request, db, editor, "CANCELLED")
+    task = cancel_content_task_service(
+        db=db,
+        task_id=content_task_id,
+        expected_revision=payload.expected_revision,
+        comment=payload.comment,
+        actor=editor,
+        request_id=request.state.request_id,
+    )
+    return content_task_out(db, task)

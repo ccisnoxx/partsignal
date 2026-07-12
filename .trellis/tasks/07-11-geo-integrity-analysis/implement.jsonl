@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "GEO 更正唯一约束和追加式历史迁移"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "列表、指标、工作台和前端筛选共享语义"}

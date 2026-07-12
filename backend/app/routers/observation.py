@@ -23,7 +23,6 @@ from app.models import (
     PublicationRecord,
     QueryTopic,
 )
-from app.routers.publication import verified_files
 from app.schemas import (
     DashboardSummary,
     GeoCitation,
@@ -32,6 +31,7 @@ from app.schemas import (
     GeoObservationList,
     GeoObservationOut,
 )
+from app.services.publication import open_attention_count, verified_files
 
 router = APIRouter(prefix="/api/v1", tags=["observation"])
 Analyst = EngineerUser
@@ -294,14 +294,7 @@ def get_dashboard_summary(db: DbSession, _user: CurrentUser) -> DashboardSummary
             )
             or 0
         ),
-        publication_attention=int(
-            db.scalar(
-                select(func.count())
-                .select_from(PublicationRecord)
-                .where(PublicationRecord.status.in_(["REJECTED", "REMOVED", "VERIFICATION_FAILED"]))
-            )
-            or 0
-        ),
+        publication_attention=open_attention_count(db),
         recent_accuracy_errors=int(
             db.scalar(
                 select(func.count())

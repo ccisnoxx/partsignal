@@ -11,6 +11,7 @@ import { QueryLoading } from '../shared/components/AsyncState';
 import { AppLayout } from './AppLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 import { queryClient } from './queryClient';
+import { appTheme } from './theme';
 
 const DashboardPage = lazy(() => import('../features/dashboard/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const ProductsPage = lazy(() => import('../features/product-facts/ProductsPage').then((module) => ({ default: module.ProductsPage })));
@@ -25,10 +26,7 @@ const ConfigurationPage = lazy(() => import('../features/configuration/Configura
 
 export function App() {
   return (
-    <ConfigProvider locale={zhCN} theme={{
-      token: { colorPrimary: '#d85f36', borderRadius: 8, colorText: '#17342e', fontFamily: '"Noto Sans SC", "PingFang SC", sans-serif' },
-      components: { Layout: { siderBg: '#0b2d25', headerBg: '#f4f0e8' }, Button: { primaryShadow: 'none' } },
-    }}>
+    <ConfigProvider locale={zhCN} theme={appTheme}>
       <AntApp>
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
@@ -45,6 +43,9 @@ export function App() {
                     <Route path="tasks/:taskId" element={<ContentTasksPage />} />
                     <Route path="content/:contentVersionId" element={<ContentEditorPage />} />
                     <Route path="publications" element={<PublicationsPage />} />
+                    <Route path="publications/:publicationId" element={<PublicationsPage />} />
+                    <Route path="publication-attentions/:attentionId" element={<PublicationsPage />} />
+                    <Route path="publication-attentions/:attentionId/repair" element={<PublicationsPage />} />
                     <Route path="observations" element={<GeoObservationsPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="users" element={<UserManagementPage />} />

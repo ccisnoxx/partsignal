@@ -1,8 +1,9 @@
-"""本地开发数据初始化命令。"""
+"""账号初始化与生成诊断等后端维护命令。"""
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 
@@ -11,6 +12,8 @@ from sqlalchemy import select
 from app.db import SessionLocal
 from app.models import User
 from app.security import hash_password
+from app.services.generation_dispatch import generation_diagnostics
+from app.services.integrity import publication_integrity_issues
 
 
 def seed_demo(admin_password: str, engineer_password: str) -> None:
@@ -59,6 +62,14 @@ def main() -> None:
         default=os.getenv("PARTSIGNAL_SEED_ENGINEER_PASSWORD"),
         help="内容工程师初始密码，也可通过 PARTSIGNAL_SEED_ENGINEER_PASSWORD 提供",
     )
+    subparsers.add_parser(
+        "generation-diagnostics",
+        help="输出生成作业积压、近期失败和供应商耗时摘要",
+    )
+    subparsers.add_parser(
+        "preflight-integrity",
+        help="只读检查阻断上线的历史业务完整性问题",
+    )
     args = parser.parse_args()
     if args.command == "seed-demo":
         if not args.password:
@@ -71,6 +82,14 @@ def main() -> None:
             )
             raise SystemExit(2)
         seed_demo(args.password, args.engineer_password)
+    elif args.command == "generation-diagnostics":
+        print(json.dumps(generation_diagnostics(), ensure_ascii=False, sort_keys=True))
+    elif args.command == "preflight-integrity":
+        with SessionLocal() as db:
+            issues = publication_integrity_issues(db)
+        print(json.dumps(issues, ensure_ascii=False, sort_keys=True))
+        if issues:
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":

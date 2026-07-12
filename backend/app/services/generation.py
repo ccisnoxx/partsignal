@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, Protocol
 
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -26,7 +27,7 @@ from app.models import (
     GenerationJob,
     Product,
 )
-from app.schemas import GeneratedDraft, GenerationSnapshot, QualityIssue
+from app.schemas import GeneratedDraft, GenerationSnapshot, ProductFactsBody, QualityIssue
 from app.services.ai_configuration import build_snapshot_request_headers, request_credentials
 from app.services.openai_client import CompletionResult, OpenAICompatibleClient
 
@@ -39,6 +40,54 @@ NUMBER_PATTERN = re.compile(r"(?<![\w])[-+]?\d+(?:\.\d+)?")
 URL_PATTERN = re.compile(r"https?://\S+")
 TEXT_CHARACTER_PATTERN = re.compile(r"[\W_]+", re.UNICODE)
 NEAR_DUPLICATE_THRESHOLD = 0.85
+
+
+def ensure_third_party_egress_allowed(
+    generation_input: dict[str, Any],
+) -> GenerationSnapshot:
+    """第三方模型只接收已完整标记为 PUBLIC 的任务和事实证据。"""
+    try:
+        snapshot = GenerationSnapshot.model_validate(generation_input)
+    except ValidationError as error:
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "生成作业快照结构无效", 409) from error
+    if snapshot.adapter_name != "openai-compatible-chat-completions":
+        return snapshot
+    evidence_classifications = snapshot.approved_facts.get(
+        "evidence_confidentialities"
+    )
+    task_is_public = (
+        snapshot.generation_data_classification is not None
+        and snapshot.generation_data_classification.value == "PUBLIC"
+        and snapshot.generation_data_classified_by is not None
+        and snapshot.generation_data_classified_at is not None
+    )
+    evidence_is_public = isinstance(evidence_classifications, list) and all(
+        classification == "PUBLIC" for classification in evidence_classifications
+    )
+    if not task_is_public or not evidence_is_public:
+        raise AppError(
+            "AI_DATA_CLASSIFICATION_FORBIDDEN",
+            "第三方模型只允许处理已明确分级为 PUBLIC 的完整生成输入",
+            409,
+        )
+    return snapshot
+
+
+def ensure_generation_sources_public(
+    task: ContentTask, facts: ProductFactsBody
+) -> None:
+    """在创建第三方作业前校验 PostgreSQL 任务分级和事实快照证据分级。"""
+    if (
+        task.generation_data_classification != "PUBLIC"
+        or task.generation_data_classified_by is None
+        or task.generation_data_classified_at is None
+        or any(evidence.confidentiality.value != "PUBLIC" for evidence in facts.evidences)
+    ):
+        raise AppError(
+            "AI_DATA_CLASSIFICATION_FORBIDDEN",
+            "第三方模型只允许处理已明确分级为 PUBLIC 的完整生成输入",
+            409,
+        )
 
 
 def number_tokens(text: str) -> set[str]:
@@ -307,7 +356,7 @@ def generate_for_job(
     generator: ContentGenerator | None,
 ) -> tuple[GeneratedDraft, CompletionResult | None]:
     """按作业冻结的适配器执行，不允许重试时切换生成方式。"""
-    snapshot = GenerationSnapshot.model_validate(generation_input)
+    snapshot = ensure_third_party_egress_allowed(generation_input)
     if generator is not None:
         return generator.generate(generation_input), None
     if snapshot.adapter_name == DevelopmentContentGenerator.name:
@@ -348,6 +397,22 @@ def generate_for_job(
     return result.draft, result
 
 
+def generation_timeout_seconds(generation_input: dict[str, Any]) -> int:
+    """从不可变快照读取合法供应商超时，不使用进程级固定租约。"""
+    try:
+        snapshot = GenerationSnapshot.model_validate(generation_input)
+    except ValidationError as error:
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "生成作业快照结构无效", 409) from error
+    timeout_seconds = snapshot.channel.get("timeout_seconds")
+    if (
+        not isinstance(timeout_seconds, int)
+        or isinstance(timeout_seconds, bool)
+        or not 10 <= timeout_seconds <= 600
+    ):
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "生成作业快照超时无效", 409)
+    return timeout_seconds
+
+
 def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None = None) -> None:
     """执行一个数据库作业；重复投递不会创建第二个内容版本。"""
     with SessionLocal() as db:
@@ -371,10 +436,23 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             job.lease_expires_at = None
             db.commit()
             return
+        try:
+            timeout_seconds = generation_timeout_seconds(job.input_snapshot)
+        except AppError as error:
+            job.status = "FAILED"
+            job.error_code = error.code
+            job.error_summary = error.message
+            job.finished_at = now
+            job.lease_expires_at = None
+            db.commit()
+            logger.error("生成作业快照无效 job_id=%s error_code=%s", job.id, error.code)
+            return
         job.status = "RUNNING"
         job.attempt_count += 1
         job.started_at = now
-        job.lease_expires_at = now + timedelta(seconds=settings.generation_lease_seconds)
+        job.lease_expires_at = now + timedelta(
+            seconds=timeout_seconds + settings.generation_finalize_grace_seconds
+        )
         db.commit()
         try:
             generation_input = job.input_snapshot
@@ -438,7 +516,13 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
                 job.completion_tokens = completion.completion_tokens
                 job.total_tokens = completion.total_tokens
             db.commit()
-            logger.info("生成作业完成 job_id=%s content_version_id=%s", job.id, content.id)
+            logger.info(
+                "生成作业完成 job_id=%s status=SUCCEEDED content_version_id=%s "
+                "provider_duration_ms=%s",
+                job.id,
+                content.id,
+                job.response_duration_ms,
+            )
         except Exception as error:
             db.rollback()
             failed = db.get(GenerationJob, job_id)
@@ -453,4 +537,9 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
                 failed.finished_at = datetime.now(UTC)
                 failed.lease_expires_at = None
                 db.commit()
-            logger.error("生成作业失败 job_id=%s error_type=%s", job_id, type(error).__name__)
+            logger.error(
+                "生成作业失败 job_id=%s status=FAILED error_code=%s error_type=%s",
+                job_id,
+                failed.error_code if failed is not None else "GENERATION_FAILED",
+                type(error).__name__,
+            )

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Query, Request, status
 from sqlalchemy import delete, func, or_, select
@@ -16,7 +15,6 @@ from app.models import (
     ClaimEvidenceLink,
     Evidence,
     FactClaim,
-    FactReviewRecord,
     FactVersion,
     FileRecord,
     ParameterEvidenceLink,
@@ -25,13 +23,13 @@ from app.models import (
     ReferencePart,
     ReplacementEvidenceLink,
     ReplacementRelation,
-    User,
 )
 from app.schemas import (
     CommandRequest,
     CreateVersionRequest,
     EvidenceData,
     FactClaimData,
+    FactReviewContext,
     FactVersionList,
     FactVersionOut,
     PartParameterData,
@@ -44,7 +42,10 @@ from app.schemas import (
     ProductUpdate,
     ReferencePartData,
     ReplacementRelationData,
+    RequestChangesCommand,
 )
+from app.services.projections import fact_version_out
+from app.services.review import get_fact_review_context, transition_fact_version
 
 router = APIRouter(prefix="/api/v1", tags=["product-facts", "review"])
 
@@ -61,23 +62,6 @@ def ensure_unique(values: list[str], label: str) -> None:
     """客户端键必须在所属集合内唯一。"""
     if len(values) != len(set(values)):
         raise AppError("VALIDATION_ERROR", f"{label}包含重复 client_key", 422)
-
-
-def fact_version_out(version: FactVersion) -> FactVersionOut:
-    """将冻结 JSON 快照投影为契约响应。"""
-    return FactVersionOut(
-        id=version.id,
-        product_id=version.product_id,
-        version=version.version,
-        status=version.status,
-        snapshot=ProductFactsBody.model_validate(version.snapshot_json),
-        change_summary=version.change_summary,
-        revision=version.revision,
-        created_by=version.created_by,
-        approved_by=version.approved_by,
-        created_at=version.created_at,
-        approved_at=version.approved_at,
-    )
 
 
 def load_fact_body(db: Session, product: Product) -> ProductFactsBody:
@@ -606,53 +590,16 @@ def get_fact_version(
     return fact_version_out(version)
 
 
-def transition_fact_version(
-    *,
-    db: Session,
-    version: FactVersion,
-    payload: CommandRequest,
-    actor: User,
-    request_id: str,
-    action: str,
-) -> FactVersionOut:
-    """集中执行事实版本状态机、证据门禁、乐观锁和审计。"""
-    if version.revision != payload.expected_revision:
-        raise AppError("REVISION_CONFLICT", "事实版本已被其他请求修改", 409)
-    transitions = {
-        "submit": ("DRAFT", "PENDING_REVIEW"),
-        "approve": ("PENDING_REVIEW", "APPROVED"),
-        "request-changes": ("PENDING_REVIEW", "CHANGES_REQUESTED"),
-        "retire": ("APPROVED", "RETIRED"),
-    }
-    expected, target = transitions[action]
-    if version.status != expected:
-        raise AppError(
-            "INVALID_STATE_TRANSITION", f"事实版本不能从 {version.status} 执行 {action}", 409
-        )
-    version.status = target
-    version.revision += 1
-    if action == "approve":
-        version.approved_by = actor.id
-        version.approved_at = datetime.now(UTC)
-    db.add(
-        FactReviewRecord(
-            fact_version_id=version.id,
-            action=action,
-            comment=payload.comment,
-            actor_id=actor.id,
-        )
-    )
-    append_audit(
-        db,
-        actor_id=actor.id,
-        action=f"fact_version.{action}",
-        target_type="FactVersion",
-        target_id=version.id,
-        request_id=request_id,
-        details={"status": target, "revision": version.revision},
-    )
-    db.commit()
-    return fact_version_out(version)
+@router.get(
+    "/fact-versions/{fact_version_id}/review-context",
+    response_model=FactReviewContext,
+    operation_id="getFactReviewContext",
+)
+def fact_review_context(
+    fact_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
+) -> FactReviewContext:
+    """返回冻结事实证据和追加式审核历史。"""
+    return get_fact_review_context(db, fact_version_id)
 
 
 @router.post(
@@ -668,15 +615,11 @@ def submit_fact_version(
     editor: ProductEditor,
     _csrf: CsrfProtected,
 ) -> FactVersionOut:
-    version = db.scalar(
-        select(FactVersion).where(FactVersion.id == fact_version_id).with_for_update()
-    )
-    if version is None:
-        raise not_found("事实版本")
     return transition_fact_version(
         db=db,
-        version=version,
-        payload=payload,
+        fact_version_id=fact_version_id,
+        expected_revision=payload.expected_revision,
+        comment=payload.comment,
         actor=editor,
         request_id=request.state.request_id,
         action="submit",
@@ -696,15 +639,11 @@ def approve_fact_version(
     reviewer: ProductReviewer,
     _csrf: CsrfProtected,
 ) -> FactVersionOut:
-    version = db.scalar(
-        select(FactVersion).where(FactVersion.id == fact_version_id).with_for_update()
-    )
-    if version is None:
-        raise not_found("事实版本")
     return transition_fact_version(
         db=db,
-        version=version,
-        payload=payload,
+        fact_version_id=fact_version_id,
+        expected_revision=payload.expected_revision,
+        comment=payload.comment,
         actor=reviewer,
         request_id=request.state.request_id,
         action="approve",
@@ -718,21 +657,17 @@ def approve_fact_version(
 )
 def request_fact_changes(
     fact_version_id: uuid.UUID,
-    payload: CommandRequest,
+    payload: RequestChangesCommand,
     request: Request,
     db: DbSession,
     reviewer: ProductReviewer,
     _csrf: CsrfProtected,
 ) -> FactVersionOut:
-    version = db.scalar(
-        select(FactVersion).where(FactVersion.id == fact_version_id).with_for_update()
-    )
-    if version is None:
-        raise not_found("事实版本")
     return transition_fact_version(
         db=db,
-        version=version,
-        payload=payload,
+        fact_version_id=fact_version_id,
+        expected_revision=payload.expected_revision,
+        comment=payload.comment,
         actor=reviewer,
         request_id=request.state.request_id,
         action="request-changes",
@@ -752,15 +687,11 @@ def retire_fact_version(
     reviewer: ProductReviewer,
     _csrf: CsrfProtected,
 ) -> FactVersionOut:
-    version = db.scalar(
-        select(FactVersion).where(FactVersion.id == fact_version_id).with_for_update()
-    )
-    if version is None:
-        raise not_found("事实版本")
     return transition_fact_version(
         db=db,
-        version=version,
-        payload=payload,
+        fact_version_id=fact_version_id,
+        expected_revision=payload.expected_revision,
+        comment=payload.comment,
         actor=reviewer,
         request_id=request.state.request_id,
         action="retire",

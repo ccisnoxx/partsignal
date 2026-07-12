@@ -41,17 +41,27 @@ services:
 
   worker:
     <<: *backend
-    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1]
+    command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1, --pidfile=/tmp/partsignal-worker.pid]
     restart: unless-stopped
     mem_limit: 1g
     cpus: 1.5
+    healthcheck:
+      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-worker.pid').read_text()), 0)"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
 
   scheduler:
     <<: *backend
-    command: [celery, -A, 'app.worker:celery_app', beat, --loglevel=INFO, --schedule, /tmp/partsignal-celerybeat]
+    command: [celery, -A, 'app.worker:celery_app', beat, --loglevel=INFO, --schedule, /tmp/partsignal-celerybeat, --pidfile=/tmp/partsignal-beat.pid]
     restart: unless-stopped
     mem_limit: 192m
     cpus: 0.25
+    healthcheck:
+      test: [CMD, python, -c, "import os, pathlib; os.kill(int(pathlib.Path('/tmp/partsignal-beat.pid').read_text()), 0)"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
 
   postgres:
     image: postgres:16-alpine

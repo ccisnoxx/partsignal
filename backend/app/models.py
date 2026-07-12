@@ -22,6 +22,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -413,6 +414,22 @@ class ContentTask(Base):
     """锁定事实和平台规则版本的内容生产任务。"""
 
     __tablename__ = "content_tasks"
+    __table_args__ = (
+        CheckConstraint(
+            "generation_data_classification IS NULL OR "
+            "generation_data_classification IN ('PUBLIC', 'INTERNAL', 'RESTRICTED')",
+            name="ck_content_tasks_generation_data_classification",
+        ),
+        CheckConstraint(
+            "(generation_data_classification IS NULL "
+            "AND generation_data_classified_by IS NULL "
+            "AND generation_data_classified_at IS NULL) OR "
+            "(generation_data_classification IS NOT NULL "
+            "AND generation_data_classified_by IS NOT NULL "
+            "AND generation_data_classified_at IS NOT NULL)",
+            name="ck_content_tasks_generation_data_classification_complete",
+        ),
+    )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     query_topic_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("query_topics.id", ondelete="RESTRICT"), nullable=False
@@ -433,6 +450,19 @@ class ContentTask(Base):
     )
     platform_type_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     user_prompt_markdown: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    generation_data_classification: Mapped[str | None] = mapped_column(String(16))
+    generation_data_classified_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+    )
+    generation_data_classified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    source_publication_attention_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("publication_attentions.id", ondelete="RESTRICT"),
+        unique=True,
+    )
     target_audience: Mapped[str] = mapped_column(Text, nullable=False)
     content_angle: Mapped[str] = mapped_column(Text, nullable=False)
     conversion_goal: Mapped[str] = mapped_column(Text, nullable=False)
@@ -561,6 +591,15 @@ class GenerationJob(Base):
             "total_tokens IS NULL OR total_tokens >= 0",
             name="ck_generation_jobs_total_tokens_nonnegative",
         ),
+        CheckConstraint(
+            "dispatch_attempt_count >= 0",
+            name="ck_generation_jobs_dispatch_attempt_count_nonnegative",
+        ),
+        Index(
+            "ix_generation_jobs_pending_dispatch_due",
+            text("COALESCE(last_dispatch_attempt_at, created_at)"),
+            postgresql_where=text("status = 'PENDING'"),
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     content_task_id: Mapped[uuid.UUID] = mapped_column(
@@ -579,6 +618,8 @@ class GenerationJob(Base):
     prompt_template_version: Mapped[str] = mapped_column(String(40), nullable=False)
     prompt_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_dispatch_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    dispatch_attempt_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     content_version_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey(
@@ -732,6 +773,51 @@ class PublicationStatusEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class PublicationAttention(Base):
+    """发布失效后唯一、可显式处置的业务待办。"""
+
+    __tablename__ = "publication_attentions"
+    __table_args__ = (
+        CheckConstraint(
+            "trigger_status IN ('REMOVED', 'VERIFICATION_FAILED')",
+            name="ck_publication_attentions_trigger_status",
+        ),
+        CheckConstraint(
+            "status IN ('OPEN', 'RESOLVED')",
+            name="ck_publication_attentions_status",
+        ),
+        CheckConstraint(
+            "revision >= 0",
+            name="ck_publication_attentions_revision_nonnegative",
+        ),
+        CheckConstraint(
+            "(status = 'OPEN' AND resolved_at IS NULL AND resolved_by IS NULL "
+            "AND resolution_comment IS NULL) OR "
+            "(status = 'RESOLVED' AND resolved_at IS NOT NULL AND resolved_by IS NOT NULL "
+            "AND length(btrim(resolution_comment)) > 0)",
+            name="ck_publication_attentions_resolution_complete",
+        ),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
+    publication_record_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("publication_records.id", ondelete="RESTRICT"),
+        unique=True,
+        nullable=False,
+    )
+    trigger_status: Mapped[str] = mapped_column(String(40), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="OPEN")
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    opened_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+    resolution_comment: Mapped[str | None] = mapped_column(Text)
 
 
 class GeoObservation(Base):

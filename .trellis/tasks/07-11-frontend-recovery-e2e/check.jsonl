@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "最终 E2E 检查业务流程与服务端状态一致"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "检查没有重复状态组件和查询键"}

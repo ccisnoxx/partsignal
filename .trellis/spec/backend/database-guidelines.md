@@ -53,3 +53,29 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 错误做法：直接删除用户并依赖首个外键错误，或把历史归属转移给管理员。这会产生不完整诊断，甚至破坏历史责任链。
 
 正确做法：在同一事务中锁定全部目标用户，按冻结引用清单收集所有阻断位置；只有预检结果为空时才删除会话和用户，任何异常由 Alembic 事务整体回滚。
+
+## 场景：生成作业补投递与租约恢复
+
+- 数据库 revision：`0011_generation_reliability`，`down_revision = "0010_user_cleanup"`。
+- `generation_jobs.status` 是执行权威；Redis 消息、投递次数和时间只负责唤醒与诊断，不能形成第二状态机。
+- 超龄 `PENDING` 扫描必须使用有限批次与 `FOR UPDATE SKIP LOCKED`；只有原子声明为 `RUNNING` 的 Worker 可以发起供应商调用。
+- 租约取不可变快照中的供应商超时再加正数收尾裕量。过期 `RUNNING` 只能显式失败，自动补投递不得覆盖到该状态。
+- 迁移只增加可向后读取的列、检查约束和部分索引；历史迁移与 `migration_schema_v1.py` 保持冻结。
+- PostgreSQL 集成测试必须覆盖多恢复器、重复消息、租约竞态、迟到响应和迁移前后旧列读取，不能用 SQLite 替代行锁语义。
+
+## 场景：第三方模型数据分级
+
+- 数据库 revision：`0012_ai_data_classification`，`down_revision = "0011_generation_reliability"`。
+- `content_tasks` 的分级、分类人和分类时间必须全空或全有；历史任务保持全空，不得迁移猜测为 `PUBLIC`。
+- Prompt 与整份生成输入分级在同一个任务修订事务中更新，PostgreSQL 是当前分类唯一来源。
+- 第三方作业快照冻结分类结论和事实 Evidence 分级；Redis 不保存或推断分类。
+- 降级只移除分级元数据。回滚到不识别 0012 的应用前必须先停用全部 AI 渠道，避免旧应用绕过新门禁。
+
+## 场景：发布闭环历史门禁与异常状态
+
+- 数据库 revision：`0013_publication_closure`，`down_revision = "0012_ai_data_classification"`。
+- `COMPLETED` 表示任务曾完成发布闭环。完整性门禁必须读取追加式 `publication_status_events` 中的 `VERIFIED` 事实，不能只看发布记录当前状态；后来 `REMOVED` 或 `VERIFICATION_FAILED` 不得把合法完成历史误报为脏数据。
+- 跨平台错绑只在尚未进入 `REJECTED`、`REMOVED` 或 `VERIFICATION_FAILED` 时阻断。已显式终态处置的旧记录继续保留，不通过改绑、删除或隐藏 allowlist 清理历史。
+- 新发布的平台等值由应用服务给出业务错误，并由 PostgreSQL 插入触发器最终保护。测试必须同时覆盖 API 与直接数据库写入。
+- `PublicationAttention` 只能以 revision 0 的 `OPEN` 初态插入，绑定与打开时间不可变，历史不可删除；唯一允许的状态变化是带非空说明和单次 revision 递增的 `OPEN -> RESOLVED`。
+- 修复任务来源字段一旦写入不可改绑。异常或修复来源产生后，迁移只允许前滚，downgrade 不得删除业务历史。

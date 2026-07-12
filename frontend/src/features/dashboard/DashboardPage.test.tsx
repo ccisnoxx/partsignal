@@ -26,8 +26,10 @@ test('展示服务端待办和 GEO 指标', async () => {
   expect(await screen.findByRole('heading', { name: '今天的内容链路' })).toBeInTheDocument();
   expect(screen.getByText('待审事实')).toBeInTheDocument();
   expect(screen.getByText('3')).toBeInTheDocument();
+  expect(screen.getByText('近期准确性问题')).toBeInTheDocument();
   expect(screen.getByText('当前样本 10 条；无法判断的样本不进入准确率分母。')).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: '修改密码' }));
+  await userEvent.click(screen.getByRole('button', { name: '打开用户操作菜单' }));
+  await userEvent.click(await screen.findByRole('menuitem', { name: /修改密码/ }));
   expect(await screen.findByRole('heading', { name: '修改密码' })).toBeInTheDocument();
   expect(screen.getByLabelText('当前密码')).toBeInTheDocument();
 });

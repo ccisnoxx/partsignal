@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import difflib
 import hashlib
 import json
 import uuid
-from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Header, Request, status
@@ -19,7 +17,6 @@ from app.errors import AppError, not_found
 from app.models import (
     AIChannel,
     AIModel,
-    ContentReviewRecord,
     ContentTask,
     ContentVersion,
     FactVersion,
@@ -34,10 +31,10 @@ from app.models import (
 from app.schemas import (
     CommandRequest,
     ContentDiff,
+    ContentReviewContext,
     ContentRevisionCreate,
     ContentVersionList,
     ContentVersionOut,
-    DiffLine,
     GeneratedDraft,
     GenerationJobCreate,
     GenerationJobDetail,
@@ -47,6 +44,7 @@ from app.schemas import (
     GenerationOptions,
     GenerationSnapshot,
     ProductFactsBody,
+    RequestChangesCommand,
 )
 from app.services.generation import (
     FIXED_SYSTEM_CONTRACT,
@@ -54,19 +52,20 @@ from app.services.generation import (
     DevelopmentContentGenerator,
     add_near_duplicate_warning,
     content_hash,
+    ensure_generation_sources_public,
+    ensure_third_party_egress_allowed,
     process_generation_job,
     run_quality_checks,
 )
+from app.services.generation_dispatch import dispatch_generation_job
+from app.services.projections import content_diff, content_version_out
+from app.services.review import get_content_review_context, transition_content_version
 from app.worker import generate_content
 
 router = APIRouter(prefix="/api/v1", tags=["production", "review"])
 
 ContentEditor = EngineerUser
 ContentReviewer = EngineerUser
-
-
-def content_version_out(content: ContentVersion) -> ContentVersionOut:
-    return ContentVersionOut.model_validate(content)
 
 
 def generation_job_out(job: GenerationJob) -> GenerationJobOut:
@@ -124,6 +123,13 @@ def build_generation_input(
     if not task.user_prompt_markdown.strip():
         raise AppError("USER_PROMPT_REQUIRED", "生成前必须填写工程师 Prompt", 409)
     facts = ProductFactsBody.model_validate(fact.snapshot_json)
+    adapter_name = (
+        DevelopmentContentGenerator.name
+        if settings.content_generator == "deterministic"
+        else "openai-compatible-chat-completions"
+    )
+    if adapter_name == "openai-compatible-chat-completions":
+        ensure_generation_sources_public(task, facts)
     approved_facts = {
         "fact_version_id": str(fact.id),
         "reference_parts": [item.model_dump(mode="json") for item in facts.reference_parts],
@@ -136,6 +142,9 @@ def build_generation_input(
         ],
         "claims": [
             {"type": item.type.value, "text": item.text} for item in facts.claims
+        ],
+        "evidence_confidentialities": [
+            evidence.confidentiality.value for evidence in facts.evidences
         ],
     }
     requirements = {
@@ -172,11 +181,6 @@ def build_generation_input(
             "## 任务要求\n" + json.dumps(requirements, ensure_ascii=False, sort_keys=True),
         ]
     )
-    adapter_name = (
-        DevelopmentContentGenerator.name
-        if settings.content_generator == "deterministic"
-        else "openai-compatible-chat-completions"
-    )
     return GenerationSnapshot(
         adapter_name=adapter_name,
         contract_version=GENERATION_CONTRACT_VERSION,
@@ -203,6 +207,9 @@ def build_generation_input(
         platform_type=dict(task.platform_type_snapshot),
         system_message=system_message,
         user_prompt_markdown=task.user_prompt_markdown,
+        generation_data_classification=task.generation_data_classification,
+        generation_data_classified_by=task.generation_data_classified_by,
+        generation_data_classified_at=task.generation_data_classified_at,
         approved_facts=approved_facts,
         task_requirements=requirements,
         user_message=user_message,
@@ -237,6 +244,7 @@ def create_job(
         if channel is None or retry_model is None:
             raise AppError("AI_CONFIGURATION_DELETED", "原作业渠道或模型已删除", 409)
         generation_input = retry_of.input_snapshot
+        ensure_third_party_egress_allowed(generation_input)
         selected_model = retry_model
     else:
         if model is None:
@@ -263,20 +271,12 @@ def create_job(
     return job, True
 
 
-def dispatch_job(job: GenerationJob, db: DbSession) -> None:
-    """提交后投递 UUID；投递失败显式标记数据库作业失败。"""
+def dispatch_job(job: GenerationJob) -> None:
+    """提交后尝试投递 UUID；Broker 故障由 PENDING 补投递恢复。"""
     if settings.generation_eager:
         process_generation_job(job.id)
         return
-    try:
-        generate_content.delay(str(job.id))
-    except Exception as error:
-        job.status = "FAILED"
-        job.error_code = "BROKER_UNAVAILABLE"
-        job.error_summary = "Redis Broker 不可用"
-        job.finished_at = datetime.now(UTC)
-        db.commit()
-        raise AppError("GENERATION_FAILED", "生成作业无法投递到 Worker", 503) from error
+    dispatch_generation_job(job.id, generate_content.delay)
 
 
 @router.get(
@@ -372,7 +372,7 @@ def create_generation_job(
             request_id=request.state.request_id,
         )
         db.commit()
-        dispatch_job(job, db)
+        dispatch_job(job)
         db.refresh(job)
     return generation_job_out(job)
 
@@ -450,7 +450,7 @@ def retry_generation_job(
             details={"retry_of_id": str(previous.id)},
         )
         db.commit()
-        dispatch_job(job, db)
+        dispatch_job(job)
         db.refresh(job)
     return generation_job_out(job)
 
@@ -487,6 +487,18 @@ def get_content_version(
     if content is None:
         raise not_found("内容版本")
     return content_version_out(content)
+
+
+@router.get(
+    "/content-versions/{content_version_id}/review-context",
+    response_model=ContentReviewContext,
+    operation_id="getContentReviewContext",
+)
+def content_review_context(
+    content_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
+) -> ContentReviewContext:
+    """返回不可变内容、锁定事实、证据、差异和追加式审核历史。"""
+    return get_content_review_context(db, content_version_id)
 
 
 @router.post(
@@ -563,70 +575,6 @@ def create_content_revision(
     return content_version_out(content)
 
 
-def transition_content_version(
-    *,
-    content: ContentVersion,
-    payload: CommandRequest,
-    request: Request,
-    db: DbSession,
-    actor: User,
-    action: str,
-) -> ContentVersionOut:
-    """集中执行内容审核状态机、质量门禁和审计。"""
-    if content.revision != payload.expected_revision:
-        raise AppError("REVISION_CONFLICT", "内容版本已被其他请求修改", 409)
-    transitions = {
-        "submit-review": ("DRAFT", "PENDING_REVIEW"),
-        "approve": ("PENDING_REVIEW", "APPROVED"),
-        "request-changes": ("PENDING_REVIEW", "CHANGES_REQUESTED"),
-    }
-    expected, target = transitions[action]
-    if content.status != expected:
-        raise AppError(
-            "INVALID_STATE_TRANSITION", f"内容版本不能从 {content.status} 执行 {action}", 409
-        )
-    if action == "submit-review" and any(
-        issue.get("severity") == "BLOCKING" for issue in content.quality_issues
-    ):
-        raise AppError("INVALID_STATE_TRANSITION", "内容存在阻断质量问题，不能提交审核", 409)
-    if action == "approve":
-        fact = db.get(FactVersion, content.fact_version_id)
-        if fact is None or fact.status != "APPROVED":
-            raise AppError("FACT_NOT_APPROVED", "内容绑定的事实版本不再处于批准状态", 409)
-        previous = db.scalar(
-            select(ContentVersion).where(
-                ContentVersion.task_id == content.task_id,
-                ContentVersion.status == "APPROVED",
-                ContentVersion.id != content.id,
-            )
-        )
-        if previous is not None:
-            previous.status = "SUPERSEDED"
-            previous.revision += 1
-            db.flush()
-    content.status = target
-    content.revision += 1
-    db.add(
-        ContentReviewRecord(
-            content_version_id=content.id,
-            action=action,
-            comment=payload.comment,
-            actor_id=actor.id,
-        )
-    )
-    append_audit(
-        db,
-        actor_id=actor.id,
-        action=f"content_version.{action}",
-        target_type="ContentVersion",
-        target_id=content.id,
-        request_id=request.state.request_id,
-        details={"status": target, "revision": content.revision},
-    )
-    db.commit()
-    return content_version_out(content)
-
-
 @router.post(
     "/content-versions/{content_version_id}/submit-review",
     response_model=ContentVersionOut,
@@ -640,17 +588,13 @@ def submit_content_version(
     editor: ContentEditor,
     _csrf: CsrfProtected,
 ) -> ContentVersionOut:
-    content = db.scalar(
-        select(ContentVersion).where(ContentVersion.id == content_version_id).with_for_update()
-    )
-    if content is None:
-        raise not_found("内容版本")
     return transition_content_version(
-        content=content,
-        payload=payload,
-        request=request,
         db=db,
+        content_version_id=content_version_id,
+        expected_revision=payload.expected_revision,
+        comment=payload.comment,
         actor=editor,
+        request_id=request.state.request_id,
         action="submit-review",
     )
 
@@ -668,13 +612,14 @@ def approve_content_version(
     reviewer: ContentReviewer,
     _csrf: CsrfProtected,
 ) -> ContentVersionOut:
-    content = db.scalar(
-        select(ContentVersion).where(ContentVersion.id == content_version_id).with_for_update()
-    )
-    if content is None:
-        raise not_found("内容版本")
     return transition_content_version(
-        content=content, payload=payload, request=request, db=db, actor=reviewer, action="approve"
+        db=db,
+        content_version_id=content_version_id,
+        expected_revision=payload.expected_revision,
+        comment=payload.comment,
+        actor=reviewer,
+        request_id=request.state.request_id,
+        action="approve",
     )
 
 
@@ -685,23 +630,19 @@ def approve_content_version(
 )
 def request_content_changes(
     content_version_id: uuid.UUID,
-    payload: CommandRequest,
+    payload: RequestChangesCommand,
     request: Request,
     db: DbSession,
     reviewer: ContentReviewer,
     _csrf: CsrfProtected,
 ) -> ContentVersionOut:
-    content = db.scalar(
-        select(ContentVersion).where(ContentVersion.id == content_version_id).with_for_update()
-    )
-    if content is None:
-        raise not_found("内容版本")
     return transition_content_version(
-        content=content,
-        payload=payload,
-        request=request,
         db=db,
+        content_version_id=content_version_id,
+        expected_revision=payload.expected_revision,
+        comment=payload.comment,
         actor=reviewer,
+        request_id=request.state.request_id,
         action="request-changes",
     )
 
@@ -720,25 +661,4 @@ def compare_content_versions(
         raise not_found("内容版本")
     if left.task_id != right.task_id:
         raise AppError("VALIDATION_ERROR", "只能比较同一任务的内容版本", 422)
-    left_lines = left.body_markdown.splitlines()
-    right_lines = right.body_markdown.splitlines()
-    matcher = difflib.SequenceMatcher(a=left_lines, b=right_lines, autojunk=False)
-    lines: list[DiffLine] = []
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "equal":
-            lines.extend(
-                DiffLine(kind="EQUAL", old_line=i + 1, new_line=j + 1, text=left_lines[i])
-                for i, j in zip(range(i1, i2), range(j1, j2), strict=True)
-            )
-        else:
-            if tag in {"delete", "replace"}:
-                lines.extend(
-                    DiffLine(kind="DELETE", old_line=i + 1, new_line=None, text=left_lines[i])
-                    for i in range(i1, i2)
-                )
-            if tag in {"insert", "replace"}:
-                lines.extend(
-                    DiffLine(kind="ADD", old_line=None, new_line=j + 1, text=right_lines[j])
-                    for j in range(j1, j2)
-                )
-    return ContentDiff(left_id=left.id, right_id=right.id, lines=lines)
+    return content_diff(left, right)

@@ -1,5 +1,5 @@
 /** 按上传意图将文件直接传到对象存储，再由 API 完成完整性确认。 */
-import { UploadOutlined } from '@ant-design/icons';
+import { LoadingOutlined, UploadOutlined } from '@ant-design/icons';
 import { Alert, Button, Space, Typography } from 'antd';
 import { useState } from 'react';
 import { ApiError, api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../api/client';
@@ -50,5 +50,5 @@ export function DirectUpload({ category, accessLevel = 'INTERNAL', disabled = fa
       await complete(intent.file.id);
     } catch (cause) { setError(cause); } finally { setUploading(false); }
   };
-  return <Space direction="vertical"><Space wrap><Button disabled={disabled} loading={uploading} icon={<UploadOutlined />}><label className="upload-label">{uploading ? '上传并校验中' : '选择文件'}<input type="file" disabled={disabled || uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} /></label></Button>{pendingFileId && <Button disabled={disabled} loading={uploading} onClick={() => void complete(pendingFileId)}>重试完整性校验</Button>}</Space>{error ? <Alert type="error" message={errorMessage(error)} /> : <Typography.Text type="secondary">文件不会经过 FastAPI，由浏览器直接上传对象存储。</Typography.Text>}</Space>;
+  return <Space orientation="vertical"><Space wrap><label className={`upload-control${disabled || uploading ? ' is-disabled' : ''}`}>{uploading ? <LoadingOutlined spin /> : <UploadOutlined />}<span>{uploading ? '上传并校验中' : '选择文件'}</span><input aria-label="选择文件" type="file" disabled={disabled || uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} /></label>{pendingFileId && <Button disabled={disabled} loading={uploading} onClick={() => void complete(pendingFileId)}>重试完整性校验</Button>}</Space>{error ? <Alert role="alert" type="error" showIcon message={errorMessage(error)} /> : <Typography.Text type="secondary">文件不会经过 FastAPI，由浏览器直接上传对象存储。</Typography.Text>}</Space>;
 }

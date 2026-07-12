@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "检查约束迁移、历史处置和事务完整性"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "检查 OpenAPI、服务端投影与前端消费一致"}

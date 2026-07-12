@@ -23,10 +23,15 @@ async function login(page: Page, username: string, loginPassword = password): Pr
   return token.csrf_token;
 }
 
+async function openPasswordPage(page: Page): Promise<void> {
+  await page.getByRole('button', { name: '打开用户操作菜单' }).click();
+  await page.getByRole('menuitem', { name: /修改密码/ }).click();
+}
+
 test('账号类型、最后管理员、临时密码和停用会话由服务端强制执行', async ({ page, browser }) => {
   const suffix = randomUUID().slice(0, 8);
   const csrf = await login(page, 'admin');
-  await expect(page.getByRole('button', { name: '修改密码' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '打开用户操作菜单' })).toBeVisible();
   const users = await body<{ items: Array<{ id: string; username: string; display_name: string; account_type: 'ADMIN' | 'ENGINEER'; is_active: boolean; revision: number }> }>(await page.request.get('/api/v1/users'));
   const admin = users.items.find((item) => item.username === 'admin');
   expect(admin).toBeTruthy();
@@ -69,14 +74,14 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   await engineerPage.getByRole('button', { name: '更新密码' }).click();
   await expect(engineerPage).toHaveURL(/\/$/);
   await expect(engineerPage.getByRole('menuitem', { name: '配置中心' })).toHaveCount(0);
-  await expect(engineerPage.getByRole('button', { name: '修改密码' })).toBeVisible();
+  await expect(engineerPage.getByRole('button', { name: '打开用户操作菜单' })).toBeVisible();
   expect((await engineerPage.request.get('/api/v1/users')).status()).toBe(403);
   const engineerCsrf = await body<{ csrf_token: string }>(await engineerPage.request.get('/api/v1/auth/csrf'));
   expect((await engineerPage.request.post('/api/v1/platform-types', {
     headers: { 'X-CSRF-Token': engineerCsrf.csrf_token },
     data: { name: '越权类型', slug: `forbidden-${suffix}` },
   })).status()).toBe(403);
-  await engineerPage.getByRole('button', { name: '修改密码' }).click();
+  await openPasswordPage(engineerPage);
   await expect(engineerPage).toHaveURL(/\/change-password$/);
 
   const adminUsername = `admin-${suffix}`;
@@ -100,7 +105,7 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
     headers: { 'X-CSRF-Token': adminCsrf },
     data: { temporary_password: 'self-reset-must-fail' },
   })).status()).toBe(422);
-  await adminPage.getByRole('button', { name: '修改密码' }).click();
+  await openPasswordPage(adminPage);
   await adminPage.getByLabel('当前密码').fill(adminInitialPassword);
   await adminPage.getByLabel('新密码').fill(adminNewPassword);
   await adminPage.getByRole('button', { name: '更新密码' }).click();
@@ -140,6 +145,17 @@ async function command(page: Page, path: string, csrf: string, data: unknown) {
   }));
 }
 
+async function expectTextInPaginatedTable(page: Page, text: string) {
+  const target = page.getByText(text, { exact: true });
+  for (let pageNumber = 1; pageNumber <= 10; pageNumber += 1) {
+    if (await target.isVisible()) return;
+    const next = page.getByRole('button', { name: 'right' });
+    if (!(await next.isEnabled())) break;
+    await next.click();
+  }
+  await expect(target).toBeVisible();
+}
+
 test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ page }) => {
   const suffix = randomUUID().slice(0, 8);
   const csrf = await login(page, 'admin');
@@ -150,7 +166,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.getByLabel('品牌').fill('DEMO');
   await page.getByLabel('类别').fill('TEST');
   await page.getByRole('button', { name: '创建事实工作区' }).click();
-  await expect(page.getByText(`DEMO-${suffix}`)).toBeVisible();
+  await expectTextInPaginatedTable(page, `DEMO-${suffix}`);
 
   const products = await body<{ items: Array<{ id: string; part_number: string }> }>(
     await page.request.get(`/api/v1/products?page=1&page_size=100&search=DEMO-${suffix}`),
@@ -182,11 +198,12 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
 
   await page.goto(`/products/${product!.id}`);
   await page.getByRole('tab', { name: /事实版本/ }).click();
-  await page.getByRole('button', { name: /批\s*准/ }).click();
-  await expect(page.getByText('批准前必须核对下方不可变快照，而不是当前事实工作区。')).toBeVisible();
+  await page.getByRole('button', { name: '审核证据与历史' }).click();
+  await page.getByRole('button', { name: /批\s*准/, exact: true }).click();
+  await expect(page.getByText('请显式确认：批准依据是下方不可变快照，而不是当前事实工作区。')).toBeVisible();
   await page.getByLabel('审核意见').fill('批准虚构事实');
-  await page.getByRole('button', { name: /确\s*认/ }).click();
-  await expect(page.getByText('已批准', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '确认批准' }).click();
+  await expect(page.getByText('已批准', { exact: true }).first()).toBeVisible();
 
   const platformType = await command(page, '/api/v1/platform-types', csrf, { name: `E2E 论坛类型 ${suffix}`, slug: `e2e-type-${suffix}` });
   const platformPrompt = await body<{ revision: number }>(await page.request.put(`/api/v1/platform-types/${platformType.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: '使用技术说明语气，只依据输入事实。', expected_revision: null } }));
@@ -224,11 +241,15 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const enabledSecondChannel = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/enable`, csrf, { expected_revision: secondSensitiveHeader.revision });
   await page.goto('/configuration');
   await page.getByRole('tab', { name: '具体平台规则' }).click();
-  await expect(page.getByText(`E2E 论坛 ${suffix}`)).toBeVisible();
+  await expectTextInPaginatedTable(page, `E2E 论坛 ${suffix}`);
 
   const topic = await command(page, '/api/v1/query-topics', csrf, { canonical_question: `${product!.part_number} 如何替代？`, intent_type: 'REPLACEMENT', variants: [`${product!.part_number} 替代方案`] });
   const task = await command(page, '/api/v1/content-tasks', csrf, { query_topic_id: topic.id, product_id: product!.id, fact_version_id: factVersion.id, platform_profile_version_id: (profile.active_version as { id: string }).id, target_audience: '测试工程师', content_angle: '虚构参数与替代边界', conversion_goal: '查看虚构资料', desired_format: '工程说明', desired_length_min: 1, desired_length_max: 5000, canonical_url: `https://example.invalid/products/${product!.part_number}` });
-  const promptedTask = await body<{ revision: number }>(await page.request.patch(`/api/v1/content-tasks/${task.id as string}/user-prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: task.revision, user_prompt_markdown: `请说明 ${product!.part_number} 的 5 V 参数和替代边界。` } }));
+  const internalTask = await body<{ revision: number }>(await page.request.patch(`/api/v1/content-tasks/${task.id as string}/user-prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: task.revision, user_prompt_markdown: `请说明 ${product!.part_number} 的 5 V 参数和替代边界。`, generation_data_classification: 'INTERNAL' } }));
+  const forbiddenGeneration = await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-classification-forbidden-${suffix}` }, data: { ai_model_id: model.id } });
+  expect(forbiddenGeneration.status()).toBe(409);
+  expect(await forbiddenGeneration.json()).toMatchObject({ error: { code: 'AI_DATA_CLASSIFICATION_FORBIDDEN' } });
+  const promptedTask = await body<{ revision: number }>(await page.request.patch(`/api/v1/content-tasks/${task.id as string}/user-prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: internalTask.revision, user_prompt_markdown: `请说明 ${product!.part_number} 的 5 V 参数和替代边界。`, generation_data_classification: 'PUBLIC' } }));
   const job = await body<{ id: string }>(await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-${suffix}` }, data: { ai_model_id: model.id } }));
   await expect.poll(async () => (await body<{ status: string; content_version_id: string | null }>(await page.request.get(`/api/v1/generation-jobs/${job.id}`))).status, { timeout: 30_000 }).toBe('SUCCEEDED');
   const completedJob = await body<{ content_version_id: string; provider_request_id: string | null; response_duration_ms: number | null; prompt_tokens: number | null; completion_tokens: number | null; total_tokens: number | null; input_snapshot: { system_message: string; user_prompt_markdown: string } }>(await page.request.get(`/api/v1/generation-jobs/${job.id}`));
@@ -244,7 +265,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     expect(providerPayload).not.toContain(forbidden);
   }
   await body(await page.request.put(`/api/v1/platform-types/${platformType.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: '使用更新后的技术说明语气，只依据输入事实。', expected_revision: platformPrompt.revision } }));
-  await body(await page.request.patch(`/api/v1/content-tasks/${task.id as string}/user-prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: promptedTask.revision, user_prompt_markdown: `第二次生成仍只说明 ${product!.part_number} 的 5 V 已批准事实。` } }));
+  await body(await page.request.patch(`/api/v1/content-tasks/${task.id as string}/user-prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: promptedTask.revision, user_prompt_markdown: `第二次生成仍只说明 ${product!.part_number} 的 5 V 已批准事实。`, generation_data_classification: 'PUBLIC' } }));
   const secondJob = await body<{ id: string }>(await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-second-${suffix}` }, data: { ai_model_id: model.id } }));
   await expect.poll(async () => (await body<{ status: string }>(await page.request.get(`/api/v1/generation-jobs/${secondJob.id}`))).status, { timeout: 30_000 }).toBe('SUCCEEDED');
   const secondJobDetail = await body<{ input_snapshot: { system_message: string; user_prompt_markdown: string } }>(await page.request.get(`/api/v1/generation-jobs/${secondJob.id}`));
@@ -288,13 +309,13 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.getByRole('button', { name: '提交审核' }).click();
   await page.getByLabel('审核意见').fill('提交内容审核');
   await page.getByRole('button', { name: /确\s*认/ }).click();
-  await expect(page.getByText('待审核')).toBeVisible();
+  await expect(page.getByLabel('审核摘要').getByText('待审核', { exact: true })).toBeVisible();
 
   await page.goto(`/content/${submittedId}`);
   await page.getByRole('button', { name: /批\s*准/ }).click();
   await page.getByLabel('审核意见').fill('批准虚构内容');
   await page.getByRole('button', { name: /确\s*认/ }).click();
-  await expect(page.getByText('已批准', { exact: true })).toBeVisible();
+  await expect(page.getByLabel('审核摘要').getByText('已批准', { exact: true })).toBeVisible();
 
   const account = await command(page, '/api/v1/platform-accounts', csrf, { platform_profile_id: profile.id, label: `E2E 账号 ${suffix}`, account_identifier: `e2e-${suffix}` });
   const bytes = Buffer.from(`PartSignal E2E screenshot ${suffix}`);
@@ -311,7 +332,10 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await command(page, `/api/v1/publication-records/${publication.id}/mark-platform-review`, csrf, { comment: '平台审核中' });
   await command(page, `/api/v1/publication-records/${publication.id}/mark-published`, csrf, { actual_title: `E2E ${suffix}`, final_url: `https://forum.example.invalid/posts/${suffix}`, published_at: new Date().toISOString(), content_matches: null, comment: '人工发布完成' });
   await command(page, `/api/v1/publication-records/${publication.id}/verify`, csrf, { actual_title: null, final_url: null, published_at: null, content_matches: true, comment: '人工核对一致' });
+  const completedTask = await body<{ status: string }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`));
+  expect(completedTask.status).toBe('COMPLETED');
   await page.goto('/publications');
+  await page.getByRole('tab', { name: '发布记录' }).click();
   await expect(page.locator(`a[href="https://forum.example.invalid/posts/${suffix}"]`)).toBeVisible();
 
   await command(page, '/api/v1/geo-observations', csrf, { query_topic_id: topic.id, product_id: product!.id, actual_prompt: `${product!.part_number} 如何替代？`, model_name: 'E2E-DETERMINISTIC', model_version: 'v1', tested_at: new Date().toISOString(), web_search_enabled: true, answer_summary: '虚构 E2E 回答摘要', mentioned: true, recommendation: 'RECOMMENDED', accuracy: 'ACCURATE', citations: [{ url: `https://forum.example.invalid/posts/${suffix}`, source_type: 'EXTERNAL_COMPANY', publication_record_id: publication.id }], publication_record_ids: [publication.id], attachment_file_ids: [file.id], notes: '仅用于自动化验收', supersedes_id: null });
@@ -320,6 +344,32 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect(metrics.mention_rate).toBe(1);
   await page.goto('/observations');
   await expect(page.getByText('E2E-DETERMINISTIC').first()).toBeVisible();
+
+  await page.goto(`/publications/${publication.id}`);
+  await page.getByRole('button', { name: /标\s*记\s*已\s*移\s*除/ }).click();
+  await page.getByLabel('说明').fill('E2E 页面已下线');
+  await page.getByRole('button', { name: /确\s*认/, exact: true }).click();
+  await expect(page.getByText('已移除').first()).toBeVisible();
+  expect((await body<{ status: string }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`))).status).toBe('COMPLETED');
+  const attentionList = await body<{ items: Array<{ id: string; publication_record_id: string; status: string; repair_task_id: string | null }> }>(await page.request.get('/api/v1/publication-attentions?status=OPEN'));
+  const attention = attentionList.items.find((item) => item.publication_record_id === publication.id);
+  expect(attention).toBeTruthy();
+  await page.goto(`/publication-attentions/${attention!.id}`);
+  await page.getByRole('button', { name: /创\s*建\s*修\s*复\s*任\s*务/ }).click();
+  await page.getByRole('combobox', { name: '当前已批准事实版本' }).click();
+  await page.getByText(/^V1 ·/).last().click();
+  await page.getByRole('combobox', { name: '当前 ACTIVE 平台规则' }).click();
+  await page.getByText(/^V1 ·/).last().click();
+  await page.getByRole('button', { name: /创\s*建\s*修\s*复\s*任\s*务/ }).click();
+  await expect(page.getByRole('heading', { name: '虚构参数与替代边界' })).toBeVisible();
+  const attentionWithRepair = await body<{ status: string; repair_task_id: string | null }>(await page.request.get(`/api/v1/publication-attentions/${attention!.id}`));
+  expect(attentionWithRepair.status).toBe('OPEN');
+  expect(attentionWithRepair.repair_task_id).not.toBeNull();
+  await page.goto(`/publication-attentions/${attention!.id}`);
+  await page.getByRole('button', { name: /显\s*式\s*解\s*决/ }).click();
+  await page.getByLabel('处置说明').fill('E2E 已创建并确认修复任务');
+  await page.getByRole('button', { name: /确\s*认\s*解\s*决/ }).click();
+  await expect(page.getByText('已解决').first()).toBeVisible();
   expect((await page.request.delete(`/api/v1/ai-channels/${channel.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.delete(`/api/v1/ai-channels/${secondChannel.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.post(`/api/v1/generation-jobs/${timeoutJob.id}/retry`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-timeout-deleted-${suffix}` } })).status()).toBe(409);

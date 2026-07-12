@@ -35,8 +35,8 @@ export function LoginPage() {
       <Card className="login-card" variant="borderless">
         <Typography.Title level={2}>进入工作台</Typography.Title>
         <Typography.Paragraph type="secondary">使用内部账号登录。所有审核与发布操作均记录审计轨迹。</Typography.Paragraph>
-        {login.error && <Alert type="error" showIcon message={errorMessage(login.error)} className="form-alert" />}
-        <Form<Schema<'LoginRequest'>> layout="vertical" onFinish={(values) => login.mutate(values)} requiredMark={false}>
+        {login.error && <Alert role="alert" type="error" showIcon message={errorMessage(login.error)} className="form-alert" />}
+        <Form<Schema<'LoginRequest'>> layout="vertical" scrollToFirstError onFinish={(values) => login.mutate(values)} requiredMark={false}>
           <Form.Item name="username" label="账号" rules={[{ required: true, message: '请输入账号' }]}>
             <Input size="large" prefix={<UserOutlined />} autoComplete="username" />
           </Form.Item>

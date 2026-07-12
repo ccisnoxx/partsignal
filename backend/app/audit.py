@@ -7,7 +7,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog
+from app.models.identity import AuditLog
 
 SENSITIVE_KEYS = {
     "password",

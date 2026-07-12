@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
 from celery import Celery
-from sqlalchemy import update
 
 from app.config import settings
-from app.db import SessionLocal
-from app.models import GenerationJob
 from app.services.generation import process_generation_job
+from app.services.generation_dispatch import (
+    fail_expired_generation_jobs,
+    redispatch_pending_generation_jobs,
+)
 
 celery_app = Celery("partsignal", broker=settings.redis_url)
 celery_app.conf.update(
@@ -23,8 +23,12 @@ celery_app.conf.update(
     beat_schedule={
         "recover-expired-generation-leases": {
             "task": "partsignal.recover_expired_generation_jobs",
-            "schedule": 60.0,
-        }
+            "schedule": float(settings.generation_recovery_scan_seconds),
+        },
+        "redispatch-pending-generation-jobs": {
+            "task": "partsignal.redispatch_pending_generation_jobs",
+            "schedule": float(settings.generation_recovery_scan_seconds),
+        },
     },
 )
 
@@ -38,18 +42,10 @@ def generate_content(job_id: str) -> None:
 @celery_app.task(name="partsignal.recover_expired_generation_jobs")  # type: ignore[untyped-decorator]
 def recover_expired_generation_jobs() -> None:
     """把过期租约标记失败，禁止同一作业自动发起第二次外部调用。"""
-    with SessionLocal.begin() as db:
-        db.execute(
-            update(GenerationJob)
-            .where(
-                GenerationJob.status == "RUNNING",
-                GenerationJob.lease_expires_at <= datetime.now(UTC),
-            )
-            .values(
-                status="FAILED",
-                error_code="WORKER_LOST",
-                error_summary="Worker 租约过期，需显式创建重试作业",
-                finished_at=datetime.now(UTC),
-                lease_expires_at=None,
-            )
-        )
+    fail_expired_generation_jobs()
+
+
+@celery_app.task(name="partsignal.redispatch_pending_generation_jobs")  # type: ignore[untyped-decorator]
+def redispatch_pending_jobs() -> None:
+    """仅补投递超龄 PENDING Job，Redis 消息继续只携带 UUID。"""
+    redispatch_pending_generation_jobs(generate_content.delay)

@@ -1,0 +1,373 @@
+"""事实与内容审核状态机及冻结证据读取投影。"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime
+from typing import Literal
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.audit import append_audit
+from app.errors import AppError, not_found
+from app.models.ai_generation import GenerationJob
+from app.models.content import (
+    ContentReviewRecord,
+    ContentTask,
+    ContentVersion,
+)
+from app.models.geo_files import FileRecord
+from app.models.identity import User
+from app.models.product_facts import (
+    FactReviewRecord,
+    FactVersion,
+)
+from app.schemas.content import (
+    ActorSummary,
+    ContentReviewContext,
+    ContentVersionOut,
+    FactReviewContext,
+    GenerationSnapshot,
+    GenerationTrace,
+    ReviewEvidenceStatus,
+    ReviewRecord,
+)
+from app.schemas.product_facts import FactVersionOut
+from app.services.projections import (
+    content_diff,
+    content_task_out,
+    content_version_out,
+    fact_version_out,
+)
+
+FactAction = Literal["submit", "approve", "request-changes", "retire"]
+ContentAction = Literal["submit-review", "approve", "request-changes"]
+FactReviewAction = Literal["SUBMIT", "APPROVE", "REQUEST_CHANGES", "RETIRE"]
+ContentReviewAction = Literal["SUBMIT_REVIEW", "APPROVE", "REQUEST_CHANGES"]
+
+FACT_TRANSITIONS: dict[FactAction, tuple[frozenset[str], str]] = {
+    "submit": (frozenset({"DRAFT", "CHANGES_REQUESTED"}), "PENDING_REVIEW"),
+    "approve": (frozenset({"PENDING_REVIEW"}), "APPROVED"),
+    "request-changes": (frozenset({"PENDING_REVIEW"}), "CHANGES_REQUESTED"),
+    "retire": (frozenset({"APPROVED"}), "RETIRED"),
+}
+FACT_REVIEW_ACTIONS: dict[FactAction, FactReviewAction] = {
+    "submit": "SUBMIT",
+    "approve": "APPROVE",
+    "request-changes": "REQUEST_CHANGES",
+    "retire": "RETIRE",
+}
+CONTENT_TRANSITIONS: dict[ContentAction, tuple[frozenset[str], str]] = {
+    "submit-review": (frozenset({"DRAFT", "CHANGES_REQUESTED"}), "PENDING_REVIEW"),
+    "approve": (frozenset({"PENDING_REVIEW"}), "APPROVED"),
+    "request-changes": (frozenset({"PENDING_REVIEW"}), "CHANGES_REQUESTED"),
+}
+CONTENT_REVIEW_ACTIONS: dict[ContentAction, ContentReviewAction] = {
+    "submit-review": "SUBMIT_REVIEW",
+    "approve": "APPROVE",
+    "request-changes": "REQUEST_CHANGES",
+}
+
+
+def _evidence_statuses(db: Session, fact: FactVersion) -> list[ReviewEvidenceStatus]:
+    """读取快照绑定文件的不可变状态，不用当前事实工作区补缺。"""
+    snapshot = fact_version_out(fact).snapshot
+    file_ids = [evidence.file_id for evidence in snapshot.evidences if evidence.file_id]
+    files = {
+        file.id: file
+        for file in db.scalars(select(FileRecord).where(FileRecord.id.in_(file_ids)))
+    }
+    missing = sorted(str(file_id) for file_id in file_ids if file_id not in files)
+    if missing:
+        raise AppError(
+            "REVIEW_CONTEXT_INCOMPLETE",
+            "事实快照绑定的证据文件不存在",
+            409,
+            {"file_ids": missing},
+        )
+    return [
+        ReviewEvidenceStatus(
+            client_key=evidence.client_key,
+            file_id=evidence.file_id,
+            file_status=files[evidence.file_id].status if evidence.file_id else None,
+        )
+        for evidence in snapshot.evidences
+    ]
+
+
+def _fact_history(db: Session, fact: FactVersion) -> list[ReviewRecord]:
+    rows = db.execute(
+        select(FactReviewRecord, FactVersion.version, User)
+        .join(FactVersion, FactVersion.id == FactReviewRecord.fact_version_id)
+        .join(User, User.id == FactReviewRecord.actor_id)
+        .where(
+            FactVersion.product_id == fact.product_id,
+            FactVersion.version <= fact.version,
+        )
+        .order_by(FactReviewRecord.created_at, FactReviewRecord.id)
+    ).all()
+    return [
+        ReviewRecord(
+            id=record.id,
+            target_id=record.fact_version_id,
+            target_version=version,
+            action=record.action,
+            comment=record.comment,
+            actor=ActorSummary(
+                id=actor.id,
+                username=actor.username,
+                display_name=actor.display_name,
+            ),
+            created_at=record.created_at,
+        )
+        for record, version, actor in rows
+    ]
+
+
+def _content_history(db: Session, content: ContentVersion) -> list[ReviewRecord]:
+    rows = db.execute(
+        select(ContentReviewRecord, ContentVersion.version, User)
+        .join(ContentVersion, ContentVersion.id == ContentReviewRecord.content_version_id)
+        .join(User, User.id == ContentReviewRecord.actor_id)
+        .where(
+            ContentVersion.task_id == content.task_id,
+            ContentVersion.version <= content.version,
+        )
+        .order_by(ContentReviewRecord.created_at, ContentReviewRecord.id)
+    ).all()
+    return [
+        ReviewRecord(
+            id=record.id,
+            target_id=record.content_version_id,
+            target_version=version,
+            action=record.action,
+            comment=record.comment,
+            actor=ActorSummary(
+                id=actor.id,
+                username=actor.username,
+                display_name=actor.display_name,
+            ),
+            created_at=record.created_at,
+        )
+        for record, version, actor in rows
+    ]
+
+
+def _fact_actions(
+    fact: FactVersion,
+) -> list[FactReviewAction]:
+    return [
+        FACT_REVIEW_ACTIONS[action]
+        for action, (sources, _target) in FACT_TRANSITIONS.items()
+        if fact.status in sources
+    ]
+
+
+def _content_actions(
+    content: ContentVersion,
+    fact: FactVersion,
+) -> list[ContentReviewAction]:
+    blocking = any(issue.get("severity") == "BLOCKING" for issue in content.quality_issues)
+    actions = [
+        CONTENT_REVIEW_ACTIONS[action]
+        for action, (sources, _target) in CONTENT_TRANSITIONS.items()
+        if content.status in sources
+    ]
+    if blocking:
+        actions = [action for action in actions if action == "REQUEST_CHANGES"]
+    if fact.status != "APPROVED":
+        actions = [action for action in actions if action != "APPROVE"]
+    return actions
+
+
+def get_fact_review_context(db: Session, fact_version_id: uuid.UUID) -> FactReviewContext:
+    """返回目标事实版本及同产品截至该版本的完整审核时间线。"""
+    fact = db.get(FactVersion, fact_version_id)
+    if fact is None:
+        raise not_found("事实版本")
+    return FactReviewContext(
+        fact_version=fact_version_out(fact),
+        evidence_statuses=_evidence_statuses(db, fact),
+        available_actions=_fact_actions(fact),
+        review_history=_fact_history(db, fact),
+    )
+
+
+def _source_generation_trace(
+    db: Session, content: ContentVersion
+) -> GenerationTrace | None:
+    current = content
+    while current.source_job_id is None and current.based_on_id is not None:
+        parent = db.get(ContentVersion, current.based_on_id)
+        if parent is None:
+            raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容版本修订链不完整", 409)
+        current = parent
+    if current.source_job_id is None:
+        return None
+    job = db.get(GenerationJob, current.source_job_id)
+    if job is None:
+        raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容源生成作业不存在", 409)
+    try:
+        snapshot = GenerationSnapshot.model_validate(job.input_snapshot)
+    except ValueError as error:
+        raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容源生成快照无效", 409) from error
+    return GenerationTrace(job_id=job.id, input_snapshot=snapshot)
+
+
+def get_content_review_context(
+    db: Session, content_version_id: uuid.UUID
+) -> ContentReviewContext:
+    """从不可变内容、任务事实和生成快照装配一次审核读取投影。"""
+    content = db.get(ContentVersion, content_version_id)
+    if content is None:
+        raise not_found("内容版本")
+    task = db.get(ContentTask, content.task_id)
+    fact = db.get(FactVersion, content.fact_version_id)
+    if task is None or fact is None or task.fact_version_id != fact.id:
+        raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容审核绑定的任务或事实不完整", 409)
+    comparison = None
+    comparison_source = (
+        db.get(ContentVersion, content.based_on_id) if content.based_on_id else None
+    )
+    if comparison_source is None:
+        comparison_source = db.scalar(
+            select(ContentVersion)
+            .where(
+                ContentVersion.task_id == content.task_id,
+                ContentVersion.version < content.version,
+            )
+            .order_by(ContentVersion.version.desc())
+            .limit(1)
+        )
+    if comparison_source is not None:
+        comparison = content_diff(comparison_source, content)
+    return ContentReviewContext(
+        content=content_version_out(content),
+        task=content_task_out(db, task),
+        fact_version=fact_version_out(fact),
+        evidence_statuses=_evidence_statuses(db, fact),
+        diff=comparison,
+        generation_trace=_source_generation_trace(db, content),
+        available_actions=_content_actions(content, fact),
+        review_history=_content_history(db, content),
+    )
+
+
+def transition_fact_version(
+    *,
+    db: Session,
+    fact_version_id: uuid.UUID,
+    expected_revision: int,
+    comment: str,
+    actor: User,
+    request_id: str,
+    action: FactAction,
+) -> FactVersionOut:
+    """事务化执行事实状态转换并追加审核与审计记录。"""
+    version = db.scalar(
+        select(FactVersion).where(FactVersion.id == fact_version_id).with_for_update()
+    )
+    if version is None:
+        raise not_found("事实版本")
+    if version.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "事实版本已被其他请求修改", 409)
+    expected, target = FACT_TRANSITIONS[action]
+    if version.status not in expected:
+        raise AppError(
+            "INVALID_STATE_TRANSITION", f"事实版本不能从 {version.status} 执行 {action}", 409
+        )
+    if action == "request-changes" and not comment.strip():
+        raise AppError("REVIEW_COMMENT_REQUIRED", "退回意见不能为空", 422)
+    version.status = target
+    version.revision += 1
+    if action == "approve":
+        version.approved_by = actor.id
+        version.approved_at = datetime.now(UTC)
+    db.add(
+        FactReviewRecord(
+            fact_version_id=version.id,
+            action=action,
+            comment=comment.strip() if action == "request-changes" else comment,
+            actor_id=actor.id,
+        )
+    )
+    append_audit(
+        db,
+        actor_id=actor.id,
+        action=f"fact_version.{action}",
+        target_type="FactVersion",
+        target_id=version.id,
+        request_id=request_id,
+        details={"status": target, "revision": version.revision},
+    )
+    db.commit()
+    return fact_version_out(version)
+
+
+def transition_content_version(
+    *,
+    db: Session,
+    content_version_id: uuid.UUID,
+    expected_revision: int,
+    comment: str,
+    actor: User,
+    request_id: str,
+    action: ContentAction,
+) -> ContentVersionOut:
+    """事务化执行内容审核状态机和最终质量门禁。"""
+    content = db.scalar(
+        select(ContentVersion)
+        .where(ContentVersion.id == content_version_id)
+        .with_for_update()
+    )
+    if content is None:
+        raise not_found("内容版本")
+    if content.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "内容版本已被其他请求修改", 409)
+    expected, target = CONTENT_TRANSITIONS[action]
+    if content.status not in expected:
+        raise AppError(
+            "INVALID_STATE_TRANSITION", f"内容版本不能从 {content.status} 执行 {action}", 409
+        )
+    if action == "request-changes" and not comment.strip():
+        raise AppError("REVIEW_COMMENT_REQUIRED", "退回意见不能为空", 422)
+    blocking = any(issue.get("severity") == "BLOCKING" for issue in content.quality_issues)
+    if action in {"submit-review", "approve"} and blocking:
+        raise AppError("INVALID_STATE_TRANSITION", "内容存在阻断质量问题，不能审核通过", 409)
+    if action == "approve":
+        fact = db.get(FactVersion, content.fact_version_id)
+        if fact is None or fact.status != "APPROVED":
+            raise AppError("FACT_NOT_APPROVED", "内容绑定的事实版本不再处于批准状态", 409)
+        previous = db.scalar(
+            select(ContentVersion).where(
+                ContentVersion.task_id == content.task_id,
+                ContentVersion.status == "APPROVED",
+                ContentVersion.id != content.id,
+            )
+        )
+        if previous is not None:
+            previous.status = "SUPERSEDED"
+            previous.revision += 1
+            db.flush()
+    content.status = target
+    content.revision += 1
+    db.add(
+        ContentReviewRecord(
+            content_version_id=content.id,
+            action=action,
+            comment=comment.strip() if action == "request-changes" else comment,
+            actor_id=actor.id,
+        )
+    )
+    append_audit(
+        db,
+        actor_id=actor.id,
+        action=f"content_version.{action}",
+        target_type="ContentVersion",
+        target_id=content.id,
+        request_id=request_id,
+        details={"status": target, "revision": content.revision},
+    )
+    db.commit()
+    return content_version_out(content)

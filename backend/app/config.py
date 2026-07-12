@@ -79,7 +79,30 @@ class Settings(BaseSettings):
     upload_intent_ttl_seconds: int = 600
     download_url_ttl_seconds: int = 300
     generation_eager: bool = False
-    generation_lease_seconds: int = 600
+    generation_pending_redispatch_seconds: int = Field(
+        default=120,
+        gt=0,
+        le=86_400,
+        validation_alias=AliasChoices("GENERATION_PENDING_REDISPATCH_SECONDS"),
+    )
+    generation_finalize_grace_seconds: int = Field(
+        default=120,
+        gt=0,
+        le=3_600,
+        validation_alias=AliasChoices("GENERATION_FINALIZE_GRACE_SECONDS"),
+    )
+    generation_recovery_batch_size: int = Field(
+        default=100,
+        ge=1,
+        le=1_000,
+        validation_alias=AliasChoices("GENERATION_RECOVERY_BATCH_SIZE"),
+    )
+    generation_recovery_scan_seconds: int = Field(
+        default=60,
+        ge=5,
+        le=3_600,
+        validation_alias=AliasChoices("GENERATION_RECOVERY_SCAN_SECONDS"),
+    )
     content_generator: str = Field(
         "deterministic", validation_alias=AliasChoices("CONTENT_GENERATOR")
     )

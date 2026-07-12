@@ -306,6 +306,17 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactVersion'}
+  /api/v1/fact-versions/{fact_version_id}/review-context:
+    get:
+      tags: [review]
+      operationId: getFactReviewContext
+      parameters: [{$ref: '#/components/parameters/FactVersionId'}]
+      responses:
+        '200':
+          description: 不可变事实快照与完整审核历史
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/FactReviewContext'}
   /api/v1/fact-versions/{fact_version_id}/submit:
     post:
       tags: [review]
@@ -336,7 +347,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/FactVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
+      requestBody: {$ref: '#/components/requestBodies/RequestChangesCommand'}
       responses:
         '200': {$ref: '#/components/responses/FactVersionResponse'}
   /api/v1/fact-versions/{fact_version_id}/retire:
@@ -920,21 +931,6 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/GenerationOptions'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/content-tasks/{content_task_id}/complete:
-    post:
-      tags: [planning]
-      operationId: completeContentTask
-      parameters:
-        - {$ref: '#/components/parameters/ContentTaskId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
-      responses:
-        '200':
-          description: 已完成内容任务
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/ContentTask'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/cancel:
     post:
       tags: [planning]
@@ -1027,6 +1023,18 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentVersion'}
+  /api/v1/content-versions/{content_version_id}/review-context:
+    get:
+      tags: [review]
+      operationId: getContentReviewContext
+      parameters: [{$ref: '#/components/parameters/ContentVersionId'}]
+      responses:
+        '200':
+          description: 当前正文、冻结事实、差异、追溯与完整审核历史
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentReviewContext'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/revisions:
     post:
       tags: [production]
@@ -1074,7 +1082,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ContentVersionId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
+      requestBody: {$ref: '#/components/requestBodies/RequestChangesCommand'}
       responses:
         '200': {$ref: '#/components/responses/ContentVersionResponse'}
   /api/v1/content-versions/{content_version_id}/compare/{other_version_id}:
@@ -1114,7 +1122,7 @@ paths:
           description: 可人工发布的批准内容
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/ContentVersionList'}
+              schema: {$ref: '#/components/schemas/PublicationCandidateList'}
   /api/v1/platform-accounts:
     get:
       tags: [publication]
@@ -1208,6 +1216,79 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PublicationRecord'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/publication-attentions:
+    get:
+      tags: [publication]
+      operationId: listPublicationAttentions
+      parameters:
+        - {name: status, in: query, schema: {$ref: '#/components/schemas/PublicationAttentionStatus'}}
+      responses:
+        '200':
+          description: 发布异常待办
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublicationAttentionList'}
+  /api/v1/publication-attentions/{attention_id}:
+    get:
+      tags: [publication]
+      operationId: getPublicationAttention
+      parameters: [{$ref: '#/components/parameters/PublicationAttentionId'}]
+      responses:
+        '200':
+          description: 发布异常待办详情
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublicationAttention'}
+  /api/v1/publication-attentions/{attention_id}/repair-context:
+    get:
+      tags: [publication]
+      operationId: getPublicationRepairContext
+      parameters: [{$ref: '#/components/parameters/PublicationAttentionId'}]
+      responses:
+        '200':
+          description: 固定原上下文、当前候选和规范化差异
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublicationRepairContext'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/publication-attentions/{attention_id}/repair-task:
+    post:
+      tags: [publication]
+      operationId: createPublicationRepairTask
+      parameters:
+        - {$ref: '#/components/parameters/PublicationAttentionId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PublicationRepairTaskCreate'}
+      responses:
+        '201':
+          description: 已创建标准内容修复任务，待办保持 OPEN
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentTask'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/publication-attentions/{attention_id}/resolve:
+    post:
+      tags: [publication]
+      operationId: resolvePublicationAttention
+      parameters:
+        - {$ref: '#/components/parameters/PublicationAttentionId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ResolvePublicationAttentionRequest'}
+      responses:
+        '200':
+          description: 已显式解决待办
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublicationAttention'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-observations:
     get:
@@ -1363,6 +1444,7 @@ components:
     GenerationJobId: {name: generation_job_id, in: path, required: true, schema: {type: string, format: uuid}}
     ContentVersionId: {name: content_version_id, in: path, required: true, schema: {type: string, format: uuid}}
     PublicationId: {name: publication_id, in: path, required: true, schema: {type: string, format: uuid}}
+    PublicationAttentionId: {name: attention_id, in: path, required: true, schema: {type: string, format: uuid}}
     FileId: {name: file_id, in: path, required: true, schema: {type: string, format: uuid}}
   requestBodies:
     CommandRequest:
@@ -1370,6 +1452,11 @@ components:
       content:
         application/json:
           schema: {$ref: '#/components/schemas/CommandRequest'}
+    RequestChangesCommand:
+      required: true
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/RequestChangesCommand'}
     RevisionRequest:
       required: true
       content:
@@ -1666,6 +1753,13 @@ components:
       properties:
         expected_revision: {type: integer, minimum: 0}
         comment: {type: string}
+    RequestChangesCommand:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, comment]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
+        comment: {type: string, minLength: 1}
     RevisionRequest:
       type: object
       additionalProperties: false
@@ -2012,12 +2106,22 @@ components:
       allOf:
         - {$ref: '#/components/schemas/ContentTaskCreate'}
         - type: object
-          required: [id, platform_type_id, platform_type_snapshot, user_prompt_markdown, status, revision, created_by, created_at]
+          required: [id, platform_type_id, platform_type_snapshot, user_prompt_markdown, generation_data_classification, generation_data_classified_by, generation_data_classified_at, source_publication_attention_id, available_actions, status, revision, created_by, created_at]
           properties:
             id: {type: string, format: uuid}
             platform_type_id: {type: [string, 'null'], format: uuid}
             platform_type_snapshot: {type: [object, 'null'], additionalProperties: true}
             user_prompt_markdown: {type: string}
+            generation_data_classification:
+              anyOf:
+                - {$ref: '#/components/schemas/Confidentiality'}
+                - {type: 'null'}
+            generation_data_classified_by: {type: [string, 'null'], format: uuid}
+            generation_data_classified_at: {type: [string, 'null'], format: date-time}
+            source_publication_attention_id: {type: [string, 'null'], format: uuid}
+            available_actions:
+              type: array
+              items: {type: string, enum: [CANCEL]}
             status: {$ref: '#/components/schemas/ContentTaskStatus'}
             revision: {type: integer}
             created_by: {type: string, format: uuid}
@@ -2031,10 +2135,11 @@ components:
     ContentTaskUserPromptUpdate:
       type: object
       additionalProperties: false
-      required: [expected_revision, user_prompt_markdown]
+      required: [expected_revision, user_prompt_markdown, generation_data_classification]
       properties:
         expected_revision: {type: integer, minimum: 0}
         user_prompt_markdown: {type: string}
+        generation_data_classification: {$ref: '#/components/schemas/Confidentiality'}
     GenerationOptionModel:
       type: object
       additionalProperties: false
@@ -2104,6 +2209,9 @@ components:
         platform_type: {type: object, additionalProperties: true}
         system_message: {type: string}
         user_prompt_markdown: {type: string}
+        generation_data_classification: {$ref: '#/components/schemas/Confidentiality'}
+        generation_data_classified_by: {type: string, format: uuid}
+        generation_data_classified_at: {type: string, format: date-time}
         approved_facts: {type: object, additionalProperties: true}
         task_requirements: {type: object, additionalProperties: true}
         user_message: {type: string}
@@ -2177,6 +2285,74 @@ components:
         left_id: {type: string, format: uuid}
         right_id: {type: string, format: uuid}
         lines: {type: array, items: {$ref: '#/components/schemas/DiffLine'}}
+    ActorSummary:
+      type: object
+      additionalProperties: false
+      required: [id, username, display_name]
+      properties:
+        id: {type: string, format: uuid}
+        username: {type: string}
+        display_name: {type: string}
+    ReviewRecord:
+      type: object
+      additionalProperties: false
+      required: [id, target_id, target_version, action, comment, actor, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        target_id: {type: string, format: uuid}
+        target_version: {type: integer}
+        action: {type: string}
+        comment: {type: string}
+        actor: {$ref: '#/components/schemas/ActorSummary'}
+        created_at: {type: string, format: date-time}
+    ReviewEvidenceStatus:
+      type: object
+      additionalProperties: false
+      required: [client_key, file_id, file_status]
+      properties:
+        client_key: {type: string}
+        file_id: {type: [string, 'null'], format: uuid}
+        file_status:
+          anyOf:
+            - {type: string, enum: [PENDING, VERIFIED, FAILED, ABORTED]}
+            - {type: 'null'}
+    FactReviewAction: {type: string, enum: [SUBMIT, APPROVE, REQUEST_CHANGES, RETIRE]}
+    ContentReviewAction: {type: string, enum: [SUBMIT_REVIEW, APPROVE, REQUEST_CHANGES]}
+    FactReviewContext:
+      type: object
+      additionalProperties: false
+      required: [fact_version, evidence_statuses, available_actions, review_history]
+      properties:
+        fact_version: {$ref: '#/components/schemas/FactVersion'}
+        evidence_statuses: {type: array, items: {$ref: '#/components/schemas/ReviewEvidenceStatus'}}
+        available_actions: {type: array, items: {$ref: '#/components/schemas/FactReviewAction'}}
+        review_history: {type: array, items: {$ref: '#/components/schemas/ReviewRecord'}}
+    GenerationTrace:
+      type: object
+      additionalProperties: false
+      required: [job_id, input_snapshot]
+      properties:
+        job_id: {type: string, format: uuid}
+        input_snapshot: {$ref: '#/components/schemas/GenerationSnapshot'}
+    ContentReviewContext:
+      type: object
+      additionalProperties: false
+      required: [content, task, fact_version, evidence_statuses, diff, generation_trace, available_actions, review_history]
+      properties:
+        content: {$ref: '#/components/schemas/ContentVersion'}
+        task: {$ref: '#/components/schemas/ContentTask'}
+        fact_version: {$ref: '#/components/schemas/FactVersion'}
+        evidence_statuses: {type: array, items: {$ref: '#/components/schemas/ReviewEvidenceStatus'}}
+        diff:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentDiff'}
+            - {type: 'null'}
+        generation_trace:
+          anyOf:
+            - {$ref: '#/components/schemas/GenerationTrace'}
+            - {type: 'null'}
+        available_actions: {type: array, items: {$ref: '#/components/schemas/ContentReviewAction'}}
+        review_history: {type: array, items: {$ref: '#/components/schemas/ReviewRecord'}}
     PublicationPackage:
       type: object
       additionalProperties: false
@@ -2238,10 +2414,11 @@ components:
     PublicationRecord:
       type: object
       additionalProperties: false
-      required: [id, content_version_id, platform_account_id, section_url, status, content_hash, created_by, created_at, status_events, attachments]
+      required: [id, content_version_id, task_id, platform_account_id, section_url, status, content_hash, created_by, created_at, status_events, attachments, available_actions]
       properties:
         id: {type: string, format: uuid}
         content_version_id: {type: string, format: uuid}
+        task_id: {type: string, format: uuid}
         platform_account_id: {type: string, format: uuid}
         section_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
         actual_title: {type: [string, 'null']}
@@ -2253,6 +2430,11 @@ components:
         created_at: {type: string, format: date-time}
         status_events: {type: array, items: {$ref: '#/components/schemas/PublicationEvent'}}
         attachments: {type: array, items: {$ref: '#/components/schemas/FileRecord'}}
+        available_actions:
+          type: array
+          items:
+            type: string
+            enum: [mark-platform-review, mark-published, verify, reject, remove, mark-verification-failed]
     PublicationRecordList:
       type: object
       additionalProperties: false
@@ -2271,6 +2453,130 @@ components:
         comment: {type: string}
         actor_id: {type: string, format: uuid}
         created_at: {type: string, format: date-time}
+    PublicationCandidate:
+      type: object
+      additionalProperties: false
+      required: [content_version, task_id, platform_profile_id, platform_profile_name, platform_profile_version_id, platform_profile_version, matching_accounts]
+      properties:
+        content_version: {$ref: '#/components/schemas/ContentVersion'}
+        task_id: {type: string, format: uuid}
+        platform_profile_id: {type: string, format: uuid}
+        platform_profile_name: {type: string}
+        platform_profile_version_id: {type: string, format: uuid}
+        platform_profile_version: {type: integer}
+        matching_accounts: {type: array, items: {$ref: '#/components/schemas/PlatformAccount'}}
+    PublicationCandidateList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/PublicationCandidate'}}
+    PublicationAttentionStatus: {type: string, enum: [OPEN, RESOLVED]}
+    PublicationAttentionAction: {type: string, enum: [CREATE_REPAIR_TASK, RESOLVE]}
+    PublicationAttention:
+      type: object
+      additionalProperties: false
+      required: [id, publication_record_id, original_task_id, trigger_status, status, revision, opened_at, resolved_at, resolved_by, resolution_comment, repair_task_id, available_actions]
+      properties:
+        id: {type: string, format: uuid}
+        publication_record_id: {type: string, format: uuid}
+        original_task_id: {type: string, format: uuid}
+        trigger_status: {type: string, enum: [REMOVED, VERIFICATION_FAILED]}
+        status: {$ref: '#/components/schemas/PublicationAttentionStatus'}
+        revision: {type: integer}
+        opened_at: {type: string, format: date-time}
+        resolved_at: {type: [string, 'null'], format: date-time}
+        resolved_by: {type: [string, 'null'], format: uuid}
+        resolution_comment: {type: [string, 'null']}
+        repair_task_id: {type: [string, 'null'], format: uuid}
+        available_actions: {type: array, items: {$ref: '#/components/schemas/PublicationAttentionAction'}}
+    PublicationAttentionList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/PublicationAttention'}}
+    VersionChange:
+      type: object
+      additionalProperties: false
+      required: [field, before, after]
+      properties:
+        field: {type: string}
+        before: {}
+        after: {}
+    VersionDifference:
+      type: object
+      additionalProperties: false
+      required: [from_id, to_id, changes]
+      properties:
+        from_id: {type: string, format: uuid}
+        to_id: {type: string, format: uuid}
+        changes: {type: array, items: {$ref: '#/components/schemas/VersionChange'}}
+    FactVersionCandidate:
+      type: object
+      additionalProperties: false
+      required: [version, difference]
+      properties:
+        version: {$ref: '#/components/schemas/FactVersion'}
+        difference: {$ref: '#/components/schemas/VersionDifference'}
+    PlatformVersionCandidate:
+      type: object
+      additionalProperties: false
+      required: [version, difference]
+      properties:
+        version: {$ref: '#/components/schemas/PlatformProfileVersion'}
+        difference: {$ref: '#/components/schemas/VersionDifference'}
+    PublicationRepairDefaults:
+      type: object
+      additionalProperties: false
+      required: [target_audience, content_angle, conversion_goal, desired_format, desired_length_min, desired_length_max, canonical_url]
+      properties:
+        target_audience: {type: string}
+        content_angle: {type: string}
+        conversion_goal: {type: string}
+        desired_format: {type: string}
+        desired_length_min: {type: integer}
+        desired_length_max: {type: integer}
+        canonical_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+    PublicationRepairContext:
+      type: object
+      additionalProperties: false
+      required: [attention, publication, original_task, product, query_topic, platform_profile_id, platform_profile_name, original_fact_version, fact_candidates, original_platform_version, platform_candidates, defaults]
+      properties:
+        attention: {$ref: '#/components/schemas/PublicationAttention'}
+        publication: {$ref: '#/components/schemas/PublicationRecord'}
+        original_task: {$ref: '#/components/schemas/ContentTask'}
+        product: {$ref: '#/components/schemas/Product'}
+        query_topic: {$ref: '#/components/schemas/QueryTopic'}
+        platform_profile_id: {type: string, format: uuid}
+        platform_profile_name: {type: string}
+        original_fact_version: {$ref: '#/components/schemas/FactVersion'}
+        fact_candidates: {type: array, items: {$ref: '#/components/schemas/FactVersionCandidate'}}
+        original_platform_version: {$ref: '#/components/schemas/PlatformProfileVersion'}
+        platform_candidates: {type: array, items: {$ref: '#/components/schemas/PlatformVersionCandidate'}}
+        defaults: {$ref: '#/components/schemas/PublicationRepairDefaults'}
+    PublicationRepairTaskCreate:
+      type: object
+      additionalProperties: false
+      required: [expected_attention_revision, fact_version_id, platform_profile_version_id, target_audience, content_angle, conversion_goal, desired_format, desired_length_min, desired_length_max, canonical_url]
+      properties:
+        expected_attention_revision: {type: integer, minimum: 0}
+        fact_version_id: {type: string, format: uuid}
+        platform_profile_version_id: {type: string, format: uuid}
+        target_audience: {type: string, minLength: 1}
+        content_angle: {type: string, minLength: 1}
+        conversion_goal: {type: string, minLength: 1}
+        desired_format: {type: string, minLength: 1}
+        desired_length_min: {type: integer, minimum: 1}
+        desired_length_max: {type: integer, minimum: 1}
+        canonical_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+    ResolvePublicationAttentionRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, resolution_comment]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
+        resolution_comment: {type: string, minLength: 1}
     RecommendationStatus: {type: string, enum: [NONE, CANDIDATE, RECOMMENDED]}
     AccuracyStatus: {type: string, enum: [ACCURATE, PARTIAL, INCORRECT, UNJUDGEABLE]}
     CitationSourceType: {type: string, enum: [OFFICIAL, EXTERNAL_COMPANY, OTHER]}

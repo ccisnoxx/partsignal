@@ -5,11 +5,19 @@ from typing import cast
 import pytest
 
 from app.errors import AppError
-from app.models import ContentTask, FactVersion, Product
-from app.schemas import GeneratedDraft
+from app.models.content import ContentTask
+from app.models.product_facts import (
+    FactVersion,
+    Product,
+)
+from app.schemas.geo_files import GeneratedDraft
+from app.schemas.product_facts import Confidentiality, ProductFactsBody
 from app.services.generation import (
     DevelopmentContentGenerator,
     ensure_generation_eligible,
+    ensure_generation_sources_public,
+    ensure_third_party_egress_allowed,
+    generation_timeout_seconds,
     run_quality_checks,
     text_similarity,
 )
@@ -157,3 +165,91 @@ def test_worker_rejects_fact_retired_after_job_was_queued() -> None:
 
     with pytest.raises(AppError, match="事实或产品已失效"):
         ensure_generation_eligible(task, fact, product, str(fact.id))
+
+
+def test_generation_sources_require_public_task_and_every_evidence() -> None:
+    task = cast(
+        ContentTask,
+        type(
+            "Task",
+            (),
+            {
+                "generation_data_classification": "PUBLIC",
+                "generation_data_classified_by": "actor",
+                "generation_data_classified_at": "time",
+            },
+        )(),
+    )
+    public_facts = cast(
+        ProductFactsBody,
+        type(
+            "Facts",
+            (),
+            {
+                "evidences": [
+                    type("Evidence", (), {"confidentiality": Confidentiality.PUBLIC})()
+                ]
+            },
+        )(),
+    )
+    ensure_generation_sources_public(task, public_facts)
+
+    public_facts.evidences[0].confidentiality = Confidentiality.INTERNAL
+    with pytest.raises(AppError) as captured:
+        ensure_generation_sources_public(task, public_facts)
+    assert captured.value.code == "AI_DATA_CLASSIFICATION_FORBIDDEN"
+
+
+def test_generation_lease_timeout_comes_from_immutable_snapshot() -> None:
+    input_data = generation_input()
+    input_data["channel"] = {"id": "channel", "timeout_seconds": 600}
+
+    assert generation_timeout_seconds(input_data) == 600
+
+
+def test_third_party_egress_requires_public_task_and_evidence_classification() -> None:
+    input_data = generation_input()
+    input_data["adapter_name"] = "openai-compatible-chat-completions"
+    input_data["generation_data_classification"] = "PUBLIC"
+    input_data["generation_data_classified_by"] = (
+        "00000000-0000-0000-0000-000000000002"
+    )
+    input_data["generation_data_classified_at"] = "2026-07-11T00:00:00Z"
+    approved_facts = cast(dict[str, object], input_data["approved_facts"])
+    approved_facts["evidence_confidentialities"] = ["PUBLIC"]
+
+    snapshot = ensure_third_party_egress_allowed(input_data)
+    assert snapshot.generation_data_classification is not None
+    assert snapshot.generation_data_classification.value == "PUBLIC"
+
+
+@pytest.mark.parametrize(
+    ("classification", "evidence_classifications"),
+    [(None, ["PUBLIC"]), ("INTERNAL", ["PUBLIC"]), ("PUBLIC", ["RESTRICTED"]), ("PUBLIC", None)],
+)
+def test_third_party_egress_rejects_missing_or_non_public_classification(
+    classification: object, evidence_classifications: object
+) -> None:
+    input_data = generation_input()
+    input_data["adapter_name"] = "openai-compatible-chat-completions"
+    input_data["generation_data_classification"] = classification
+    input_data["generation_data_classified_by"] = (
+        "00000000-0000-0000-0000-000000000002"
+    )
+    input_data["generation_data_classified_at"] = "2026-07-11T00:00:00Z"
+    approved_facts = cast(dict[str, object], input_data["approved_facts"])
+    if evidence_classifications is not None:
+        approved_facts["evidence_confidentialities"] = evidence_classifications
+
+    with pytest.raises(AppError) as captured:
+        ensure_third_party_egress_allowed(input_data)
+    assert captured.value.code == "AI_DATA_CLASSIFICATION_FORBIDDEN"
+
+
+@pytest.mark.parametrize("timeout", [True, 9, 601, "30", None])
+def test_generation_lease_rejects_invalid_snapshot_timeout(timeout: object) -> None:
+    input_data = generation_input()
+    input_data["channel"] = {"id": "channel", "timeout_seconds": timeout}
+
+    with pytest.raises(AppError, match="快照超时无效"):
+        generation_timeout_seconds(input_data)

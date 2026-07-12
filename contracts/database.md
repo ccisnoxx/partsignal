@@ -76,16 +76,43 @@ This irreversible data migration recognizes only `product_editor`, `product_revi
 
 After migration, `seed-demo` idempotently ensures only `admin` and `content_editor`. Their initial passwords come from `PARTSIGNAL_SEED_ADMIN_PASSWORD` and `PARTSIGNAL_SEED_ENGINEER_PASSWORD`; existing accounts are never overwritten. A newly created `content_editor` has account type `ENGINEER` and must change its initial password. The one-time migration is the only physical user-deletion exception and does not add an application deletion API.
 
+### 0011 Generation Reliability
+
+`generation_jobs` gains nullable `last_dispatch_attempt_at` and non-negative `dispatch_attempt_count` fields plus a partial due-time index for `PENDING` rows. These fields are diagnostic metadata inside the existing Job aggregate; `generation_jobs.status` remains the only execution authority and Redis continues to carry only the Job UUID.
+
+After the API commits a new Job, Broker dispatch failure leaves it `PENDING`. Celery Beat redispatches only rows whose `COALESCE(last_dispatch_attempt_at, created_at)` is older than the configured threshold, using PostgreSQL row locks and a bounded batch. Only a Worker that atomically changes `PENDING` to `RUNNING` may call the provider, so accepted-but-unrecorded Broker messages and concurrent recovery remain harmless duplicates.
+
+The execution lease is calculated from the immutable snapshot as `started_at + input_snapshot.channel.timeout_seconds + GENERATION_FINALIZE_GRACE_SECONDS`; the grace must be positive. Expired `RUNNING` Jobs become `FAILED/WORKER_LOST` and are never automatically dispatched again. If the provider accepted a request before the Worker lost its result, only an explicit retry may create a new traceable Job.
+
+### 0012 AI Data Classification
+
+`content_tasks` gains nullable `generation_data_classification`, `generation_data_classified_by`, and `generation_data_classified_at`. The three fields are either all `NULL` or all present, classification is limited to `PUBLIC | INTERNAL | RESTRICTED`, and the classifier foreign key uses `RESTRICT`. Historical tasks remain unclassified; the migration never infers or backfills `PUBLIC`.
+
+Saving a task Prompt replaces the complete generation-input classification and records the actor and UTC time in the same revisioned update. A third-party model Job may be created or retried only when the task input is explicitly `PUBLIC` and every Evidence in the bound immutable fact snapshot is `PUBLIC`. The Job snapshot freezes the classification evidence used for that decision. PostgreSQL remains the classification source of truth; Redis carries no classification state.
+
+### 0013 Publication And Review Closure
+
+`publication_attentions` is the authoritative business queue for a publication that reaches `REMOVED` or `VERIFICATION_FAILED`. One publication can create at most one attention. An attention must be inserted as revision-zero `OPEN`, may only become `RESOLVED`, cannot be deleted, and resolution requires an actor, UTC time, and non-blank comment. `content_tasks.source_publication_attention_id` is nullable and unique, so one attention creates at most one repair task without introducing a second task model. Both the attention binding and a non-null repair source are immutable.
+
+Every new `publication_record` must use an active account whose `platform_profile_id` equals the profile of the task's locked `platform_profile_version_id`. The application service validates account activity and platform equality with explicit errors; the PostgreSQL insert trigger is the final protection for the cross-table platform equality. The first related publication that reaches `VERIFIED` changes an `OPEN` task to `COMPLETED` in the same transaction. A later publication loss never reopens or cancels that task; it creates the unique attention instead. A task with `PENDING_MANUAL_PUBLISH`, `PLATFORM_REVIEW`, or `PUBLISHED` publication state cannot be cancelled.
+
+The repair command fixes product, query topic, and platform from the original task. It must explicitly select an `APPROVED` fact version for the same product and the current `ACTIVE` version for the same platform profile. The remaining planning fields are copied as editable defaults. Creating the repair task does not resolve the attention.
+
+Fact and content review records remain append-only. `request-changes` requires a non-blank comment, while submit and approve comments remain optional. Revision `0013` extends both database status guards so `CHANGES_REQUESTED -> PENDING_REVIEW` is valid without changing the immutable version payload. Review contexts are read projections over the locked fact/content versions, evidence file status, generation snapshot, deterministic version diff, actor summary, and stable review history; they do not persist a second copy.
+
+Before `0013`, `python -m app.cli preflight-integrity` must return an empty JSON array. It reports stable IDs for `COMPLETED_WITHOUT_VERIFIED_PUBLICATION` when a completed task has no append-only `VERIFIED` publication status event, and for non-terminal `PUBLICATION_PLATFORM_MISMATCH`; a publication that was verified and later removed remains valid completion history, while an explicitly `REJECTED`, `REMOVED`, or `VERIFICATION_FAILED` mismatch remains traceable but no longer blocks deployment. The command exits non-zero when any issue exists and never changes history. The migration repeats the critical check so direct Alembic execution cannot bypass the deployment gate. Once any attention or repair source exists, downgrade is refused and deployment must move forward.
+
 ## State Machines
 
 ```text
 FactVersion: DRAFT -> PENDING_REVIEW -> APPROVED -> RETIRED
-                               \-> CHANGES_REQUESTED
+                               \-> CHANGES_REQUESTED -> PENDING_REVIEW
 
 ContentVersion: DRAFT -> PENDING_REVIEW -> APPROVED -> SUPERSEDED
-                                  \-> CHANGES_REQUESTED
+                                  \-> CHANGES_REQUESTED -> PENDING_REVIEW
 
-ContentTask: OPEN -> COMPLETED | CANCELLED
+ContentTask: OPEN -> CANCELLED
+             OPEN -- first related PublicationRecord.VERIFIED --> COMPLETED
 
 GenerationJob: PENDING -> RUNNING -> SUCCEEDED | FAILED
 
@@ -93,11 +120,14 @@ PublicationRecord:
 PENDING_MANUAL_PUBLISH -> PLATFORM_REVIEW -> PUBLISHED -> VERIFIED
                        -> REJECTED
 PUBLISHED -> REMOVED | VERIFICATION_FAILED
+VERIFIED -> REMOVED | VERIFICATION_FAILED
+
+PublicationAttention: OPEN -> RESOLVED
 
 FileRecord: PENDING -> VERIFIED | FAILED | ABORTED
 ```
 
-State changes not shown above are invalid. `CHANGES_REQUESTED` records are historical; corrected facts or content create a new version rather than rewriting the rejected version.
+State changes not shown above are invalid. A rejected immutable fact or content version may be resubmitted after its editable source/workflow has been corrected, but its frozen payload is never rewritten. Content body changes still create a new immutable content version.
 
 ## Required Constraints
 
@@ -113,7 +143,13 @@ State changes not shown above are invalid. `CHANGES_REQUESTED` records are histo
 - Channel deletion cascades to Headers and models. Historical job foreign keys become null while their immutable snapshots remain readable.
 - A model can be enabled only after its own successful test. A channel can be enabled only when at least one child model has passed testing.
 - A generation job performs at most one provider call. Expired worker leases fail explicitly; retries create a new job and preserve the original non-sensitive snapshot.
+- Automatic recovery dispatches only overdue `PENDING` jobs. Dispatch counters, queue ages, failure codes, and provider duration diagnostics must never contain prompts, response bodies, credentials, or sensitive Headers.
+- Third-party AI egress requires an explicit complete `PUBLIC` task classification and only `PUBLIC` Evidence in the bound fact snapshot. Missing historical classification is a hard denial, never a compatibility default.
 - A publication can reference only an approved content version whose fact is not retired at creation time.
+- A publication account profile must equal the content task's locked platform profile; both the application service and PostgreSQL enforce it.
 - `PUBLISHED` and `VERIFIED` publications require a valid HTTP(S) URL matching the configured platform domain.
+- Task completion has no public manual command. The first verified publication completes an open task atomically; completed tasks never revert.
+- Open publication attention is the only publication-loss todo source. Repair-task creation and attention resolution are separate explicit commands.
+- Fact and content review records are append-only, and every request-changes command requires a non-blank comment.
 - Observation accuracy `UNJUDGEABLE` is excluded from the accuracy-rate denominator.
 - Audit log details must not contain passwords, session cookies, AccessKeys, model keys, or unpublished source documents.

@@ -1,12 +1,34 @@
-"""认证原语、参数边界和发布派生测试。"""
+"""认证原语、参数边界和跨模块投影的行为特征测试。"""
+
+import uuid
+from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.routers.publication import domain_allowed, render_markdown
-from app.schemas import PartParameterData, QueryTopicCreate
+from app.errors import AppError
+from app.models.configuration import PlatformProfileVersion
+from app.models.geo_files import FileRecord
+from app.schemas.configuration import QueryTopicCreate
+from app.schemas.product_facts import PartParameterData
 from app.security import generate_token, hash_password, hash_token, verify_password
+from app.services.file_records import verified_files
+from app.services.projections import platform_version_out
+from app.services.publication import domain_allowed
+from app.services.publication_queries import render_markdown
+
+
+class FileQuerySession:
+    """为文件完整性特征测试保留当前查询返回语义。"""
+
+    def __init__(self, files: list[FileRecord]) -> None:
+        self.files = files
+
+    def scalars(self, _statement: object) -> list[FileRecord]:
+        return self.files
 
 
 def test_password_and_token_are_not_stored_as_plaintext() -> None:
@@ -60,6 +82,50 @@ def test_publication_domain_requires_http_and_real_domain_boundary() -> None:
     assert not domain_allowed("javascript:alert(1)", ["example.com"])
 
 
+def test_verified_files_rejects_duplicate_or_unverified_attachments() -> None:
+    file_id = uuid.uuid4()
+    session = cast(Session, FileQuerySession([]))
+    with pytest.raises(AppError, match="附件文件 ID 重复"):
+        verified_files(session, [file_id, file_id])
+
+    unverified = FileRecord(id=file_id, status="PENDING")
+    session = cast(Session, FileQuerySession([unverified]))
+    with pytest.raises(AppError, match="附件必须全部处于 VERIFIED 状态"):
+        verified_files(session, [file_id])
+
+
+def test_platform_version_projection_preserves_frozen_http_shape() -> None:
+    rules = {
+        "target_audience": "工程师",
+        "title_min": 1,
+        "title_max": 120,
+        "body_min": 1,
+        "body_max": 2000,
+        "tone": "技术说明",
+        "allow_external_links": True,
+        "allow_tables": True,
+        "allow_contact": False,
+        "prohibited_phrases": [],
+        "sections": [],
+    }
+    version = PlatformProfileVersion(
+        id=uuid.uuid4(),
+        version=3,
+        status="ACTIVE",
+        rules=rules,
+        revision=7,
+        created_at=datetime(2026, 7, 12, tzinfo=UTC),
+    )
+    projected = platform_version_out(version)
+    assert projected.model_dump(exclude={"created_at"}) == {
+        "id": version.id,
+        "version": 3,
+        "status": "ACTIVE",
+        "rules": rules,
+        "revision": 7,
+    }
+
+
 def test_production_rejects_development_session_secret() -> None:
     with pytest.raises(ValidationError, match="独立 SESSION_SECRET"):
         Settings(
@@ -72,3 +138,20 @@ def test_production_rejects_development_session_secret() -> None:
             OSS_ACCESS_KEY_ID="test-key",
             OSS_ACCESS_KEY_SECRET="test-secret",
         )
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("GENERATION_PENDING_REDISPATCH_SECONDS", 0),
+        ("GENERATION_FINALIZE_GRACE_SECONDS", 0),
+        ("GENERATION_RECOVERY_BATCH_SIZE", 0),
+        ("GENERATION_RECOVERY_SCAN_SECONDS", 4),
+    ],
+)
+def test_generation_recovery_configuration_requires_positive_bounds(
+    field: str,
+    value: int,
+) -> None:
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **{field: value})

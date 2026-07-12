@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  snapshotPathTemplate: '{testDir}/{testFilePath}-snapshots/{arg}{ext}',
+  snapshotPathTemplate: '{testDir}/{testFilePath}-snapshots/{arg}-{platform}{ext}',
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
@@ -14,6 +14,6 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
   },
   expect: {
-    toHaveScreenshot: { animations: 'disabled', maxDiffPixelRatio: 0.05 },
+    toHaveScreenshot: { animations: 'disabled', maxDiffPixelRatio: 0.01 },
   },
 });

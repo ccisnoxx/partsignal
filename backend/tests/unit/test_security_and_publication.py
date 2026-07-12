@@ -66,7 +66,10 @@ def test_production_rejects_development_session_secret() -> None:
         Settings(
             _env_file=None,
             APP_ENV="production",
+            SESSION_SECRET="development-only-change-me-32-bytes",
             SESSION_COOKIE_SECURE=True,
+            CONTENT_GENERATOR="openai-compatible",
+            AI_CREDENTIAL_ENCRYPTION_KEY="BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=",
             OBJECT_STORAGE_BACKEND="aliyun_oss",
             OSS_ENDPOINT="https://oss.example.invalid",
             OSS_BUCKET="test",

@@ -25,11 +25,19 @@
 - 作业快照冻结普通 Header、敏感 Header 名称、模型参数、system/user message、批准事实和任务要求；执行或重试时只读取快照所列敏感 Header 的当前值。后来新增的敏感 Header 不得进入旧作业，快照所列 Header 已删除或改为普通 Header 时必须失败。
 - Chat Completions 正文必须直接解析为仅含 `title`、`summary`、`body_markdown`、`tags` 的非空 JSON 对象，不做提取、修复或补值。
 - 模型写操作按“渠道行 -> 模型行”顺序加锁。模型测试在读取配置后释放行锁，外部调用结束再按渠道和模型修订号回写；测试期间配置变化返回 `REVISION_CONFLICT`。
+- API 提交 Job 后的 Broker 故障不得把业务作业改为失败；Beat 只补投递超龄 `PENDING`，Worker 只有完成原子 `PENDING -> RUNNING` 声明后才能调用供应商。
+- `RUNNING` 租约必须按冻结快照的 `timeout_seconds + GENERATION_FINALIZE_GRACE_SECONDS` 计算；租约过期形成 `FAILED/WORKER_LOST`，不得自动再次调用供应商。
+- 每次真实请求只解析一次完整 A/AAAA 集合并整体校验，只连接该集合中的 `sockaddr`；实际 TCP peer 必须在发送 Authorization 或敏感 Header 前属于批准集合。HTTPS 始终用原 hostname 完成 SNI、证书身份和 Host。
+- 同一次请求开始发送 HTTP 字节后不得切换地址或自动重试；响应正文必须受固定大小上限保护。不得恢复“先校验 URL、再由通用客户端按 hostname 二次解析”的 TOCTOU 路径。
+- Prompt 保存必须同时记录整份生成输入的分级、分类人和时间。只有任务分级与绑定事实快照的全部 Evidence 均为 `PUBLIC` 时才能调用第三方模型；历史空分级、`INTERNAL` 或 `RESTRICTED` 一律拒绝。
 
 ### 4. 校验与错误矩阵
 
 - 非公网 HTTPS 或非回环 HTTP -> `AI_URL_FORBIDDEN`。
 - HTTP 重定向 -> `AI_REDIRECT_FORBIDDEN`，不得跟随。
+- 实际 TCP peer 不在本次批准集合 -> `AI_URL_FORBIDDEN`，且敏感 Header 尚未发送。
+- 任务或事实证据未全部明确为 `PUBLIC` -> `AI_DATA_CLASSIFICATION_FORBIDDEN`。
+- 响应超过固定上限 -> `AI_RESPONSE_TOO_LARGE`，不得继续读取或改走其他地址。
 - 保留 Header、非法 token 或控制字符 -> `INVALID_HEADER`。
 - 密钥、密文格式或关联数据错误 -> `CREDENTIAL_DECRYPTION_FAILED`。
 - `model`、`messages`、`stream` 出现在自定义参数 -> 请求校验失败。
@@ -46,6 +54,7 @@
 - 错误：模型响应包含代码块、附加字段或正文外说明时，整个调用失败，不创建内容版本。
 - 错误：作业租约已被恢复器标记失败后，迟到响应不得覆盖终态或创建内容版本。
 - 错误：旧作业创建后新增敏感 Header 时，执行或重试不得把该 Header 带入请求；旧作业所需敏感 Header 不再存在时显式失败。
+- 错误：0012 之前的历史 Job 快照缺少分级时不得重试到第三方模型；用户必须在当前任务重新保存 Prompt 与分级并创建新作业。
 
 ### 6. 必需测试
 
@@ -54,8 +63,11 @@
 - 契约测试：`make contract-check` 验证 FastAPI/OpenAPI 语义和前端生成类型无漂移。
 - 端到端测试：真实 HTTP 测试替身完成模型发现、测试和生成；确定性生成器只用于明确的单元/开发场景，不能伪装成真实云端成功。
 - 并发断言：任务 Prompt 保存与作业创建使用同一任务行锁；过期租约后的迟到响应不能写入成功结果。
+- 恢复断言：首次投递缺失、Broker 已接受但元数据未提交、重复消息和并发恢复均至多产生一次供应商调用和一个内容版本。
 - 模型测试并发断言：外部调用期间配置可更新，但旧测试结果不得覆盖更新后的 `UNTESTED` 状态。
 - 快照 Header 断言：只发送快照锁定的普通 Header 和敏感 Header 名称；敏感值取当前配置，新增名称被忽略，缺失名称返回 `AI_CONFIGURATION_DELETED`。
+- 固定地址断言：混合公网/私网解析整体拒绝；连接只能使用首次解析集合；peer 越界时零 HTTP 字节；真实本地 CA/HTTPS 替身验证 SNI、证书 hostname 和 Host。
+- 分类断言：迁移后历史任务保持 `NULL`；第三方创建、重试和 Worker 执行都拒绝缺失或非 PUBLIC 分级以及任一非 PUBLIC Evidence。
 
 ### 7. 错误与正确写法
 

@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/ai-configuration-guidelines.md", "reason": "生成作业快照、单次供应商调用、租约和失败边界"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "PostgreSQL 迁移和业务状态唯一来源约束"}

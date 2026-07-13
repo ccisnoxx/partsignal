@@ -11,27 +11,29 @@ from sqlalchemy.orm import Session
 
 from app.audit import append_audit
 from app.errors import AppError, not_found
-from app.models import (
+from app.models.ai_generation import GenerationJob
+from app.models.content import (
     ContentReviewRecord,
     ContentTask,
     ContentVersion,
+)
+from app.models.geo_files import FileRecord
+from app.models.identity import User
+from app.models.product_facts import (
     FactReviewRecord,
     FactVersion,
-    FileRecord,
-    GenerationJob,
-    User,
 )
-from app.schemas import (
+from app.schemas.content import (
     ActorSummary,
     ContentReviewContext,
     ContentVersionOut,
     FactReviewContext,
-    FactVersionOut,
     GenerationSnapshot,
     GenerationTrace,
     ReviewEvidenceStatus,
     ReviewRecord,
 )
+from app.schemas.product_facts import FactVersionOut
 from app.services.projections import (
     content_diff,
     content_task_out,

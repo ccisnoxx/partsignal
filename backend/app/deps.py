@@ -15,8 +15,11 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import get_db
 from app.errors import AppError
-from app.models import SessionRecord, User
-from app.schemas import AccountType
+from app.models.identity import (
+    SessionRecord,
+    User,
+)
+from app.schemas.common import AccountType
 from app.security import hash_token
 
 DbSession = Annotated[Session, Depends(get_db)]

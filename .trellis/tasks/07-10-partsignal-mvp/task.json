@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "07-11-config-center",
-    "07-11-user-cleanup"
+    "07-11-user-cleanup",
+    "07-12-behavior-preserving-structure"
   ],
   "parent": null,
   "relatedFiles": [],

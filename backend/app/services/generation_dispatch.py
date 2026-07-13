@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 
 from app.config import settings
 from app.db import SessionLocal
-from app.models import GenerationJob
+from app.models.ai_generation import GenerationJob
 
 logger = logging.getLogger("partsignal.worker")
 GenerationJobSender = Callable[[str], object]

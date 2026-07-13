@@ -9,7 +9,7 @@ import pytest
 
 from app.audit import contains_sensitive_key
 from app.errors import AppError
-from app.schemas import AIModelCreate
+from app.schemas.configuration import AIModelCreate
 from app.services.ai_configuration import build_snapshot_request_headers
 from app.services.credentials import CredentialCipher
 from app.services.openai_client import (

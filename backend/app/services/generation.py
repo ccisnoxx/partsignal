@@ -18,16 +18,22 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import SessionLocal
 from app.errors import AppError
-from app.models import (
+from app.models.ai_generation import (
     AIChannel,
     AIModel,
+    GenerationJob,
+)
+from app.models.content import (
     ContentTask,
     ContentVersion,
+)
+from app.models.product_facts import (
     FactVersion,
-    GenerationJob,
     Product,
 )
-from app.schemas import GeneratedDraft, GenerationSnapshot, ProductFactsBody, QualityIssue
+from app.schemas.content import GenerationSnapshot, QualityIssue
+from app.schemas.geo_files import GeneratedDraft
+from app.schemas.product_facts import ProductFactsBody
 from app.services.ai_configuration import build_snapshot_request_headers, request_credentials
 from app.services.openai_client import CompletionResult, OpenAICompatibleClient
 

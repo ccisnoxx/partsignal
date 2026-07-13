@@ -27,23 +27,29 @@ from app.db import get_db
 from app.deps import get_current_session
 from app.errors import AppError
 from app.main import app
-from app.models import (
-    ContentReviewRecord,
-    ContentTask,
-    ContentVersion,
-    FactReviewRecord,
-    FactVersion,
-    PlatformAccount,
+from app.models.configuration import (
     PlatformProfile,
     PlatformProfileVersion,
     PlatformType,
+    QueryTopic,
+)
+from app.models.content import (
+    ContentReviewRecord,
+    ContentTask,
+    ContentVersion,
+)
+from app.models.identity import User
+from app.models.product_facts import (
+    FactReviewRecord,
+    FactVersion,
     Product,
+)
+from app.models.publication import (
+    PlatformAccount,
     PublicationAttention,
     PublicationRecord,
-    QueryTopic,
-    User,
 )
-from app.schemas import (
+from app.schemas.publication import (
     ManualPublicationCreate,
     PublicationCommand,
     PublicationRepairTaskCreate,
@@ -56,9 +62,9 @@ from app.services.publication import (
     command_publication,
     create_manual_publication,
     create_repair_task,
-    get_repair_context,
     resolve_attention,
 )
+from app.services.publication_queries import get_repair_context
 from app.services.review import (
     get_content_review_context,
     get_fact_review_context,

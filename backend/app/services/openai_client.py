@@ -11,7 +11,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.errors import AppError
-from app.schemas import GeneratedDraft
+from app.schemas.geo_files import GeneratedDraft
 from app.services.pinned_http import HTTPTransport, PinnedHTTPTransport, PinnedResponse
 
 HEADER_NAME_PATTERN = re.compile(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")

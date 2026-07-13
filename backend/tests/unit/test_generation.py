@@ -5,8 +5,13 @@ from typing import cast
 import pytest
 
 from app.errors import AppError
-from app.models import ContentTask, FactVersion, Product
-from app.schemas import Confidentiality, GeneratedDraft, ProductFactsBody
+from app.models.content import ContentTask
+from app.models.product_facts import (
+    FactVersion,
+    Product,
+)
+from app.schemas.geo_files import GeneratedDraft
+from app.schemas.product_facts import Confidentiality, ProductFactsBody
 from app.services.generation import (
     DevelopmentContentGenerator,
     ensure_generation_eligible,

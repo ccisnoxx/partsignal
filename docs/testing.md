@@ -7,6 +7,7 @@
 - 前端使用 Vitest 和 Testing Library 覆盖表单、权限、错误和状态交互。
 - Playwright 覆盖批准事实到发布登记和 GEO 观测的主流程，并通过 Redis、真实 Celery Worker 与本机 OpenAI-compatible HTTP 替身执行生成；不得使用 eager 模式或确定性生成器绕过消息链路。
 - 契约检查比较提交 OpenAPI、FastAPI 运行时 Schema 和前端生成类型。
+- 结构重构还需比较 ORM metadata 表集合、mapper 数、Alembic head、迁移历史和生产 preflight 输出，证明物理移动未改变数据库语义。
 
 ## 命令
 
@@ -37,3 +38,5 @@ REDIS_URL=redis://127.0.0.1:56379/0 make e2e
 ```
 
 真实 OSS、真实模型和生产网络不属于普通测试门禁。可选真实模型 smoke test 必须使用专用低权限 Key，缺少 Key 时明确跳过，不能把固定成功替身表述为真实云端成功。
+
+行为保持重构必须先运行基线，再按独立切片执行定向回归，最终运行完整契约、lint、typecheck、单元、PostgreSQL 集成、前端组件、构建和 Playwright 流。最终差异审计还要确认 Router 不含事务或实体写入、Schema 与 ORM 调用方均直接导入权威领域模块、React Query 键没有页面内第二来源，并确认迁移和公共契约相对重构前无新增差异。

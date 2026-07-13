@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import hmac
 import uuid
-from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Query, Request, Response, status
-from sqlalchemy import func, select, text
-from sqlalchemy import update as sa_update
+from sqlalchemy import func, select
 
-from app.audit import append_audit
 from app.config import settings
 from app.deps import AdminUser, CsrfProtected, CurrentSession, CurrentUser, DbSession
-from app.errors import AppError, not_found
-from app.models import AuditLog, SessionRecord, User
-from app.schemas import (
+from app.errors import AppError
+from app.models.identity import (
+    AuditLog,
+    User,
+)
+from app.schemas.common import (
     AuditLogList,
     AuditLogOut,
     AuthSession,
@@ -28,7 +28,25 @@ from app.schemas import (
     UserOut,
     UserUpdate,
 )
-from app.security import generate_token, hash_password, hash_token, verify_password
+from app.security import hash_token
+from app.services.identity import (
+    change_password as change_password_command,
+)
+from app.services.identity import (
+    create_user as create_user_command,
+)
+from app.services.identity import (
+    login as login_command,
+)
+from app.services.identity import (
+    logout as logout_command,
+)
+from app.services.identity import (
+    reset_user_password as reset_user_password_command,
+)
+from app.services.identity import (
+    update_user as update_user_command,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["auth", "identity"])
 
@@ -49,25 +67,7 @@ def present_user(user: User) -> UserOut:
 
 @router.post("/auth/login", response_model=AuthSession, operation_id="login")
 def login(payload: LoginRequest, response: Response, db: DbSession) -> AuthSession:
-    """校验内部账号并创建可撤销的 PostgreSQL 会话。"""
-    user = db.scalar(select(User).where(User.username == payload.username.strip().lower()))
-    if (
-        user is None
-        or not user.is_active
-        or not verify_password(user.password_hash, payload.password)
-    ):
-        raise AppError("AUTH_REQUIRED", "用户名或密码错误", 401)
-    session_token = generate_token()
-    csrf_token = generate_token()
-    db.add(
-        SessionRecord(
-            token_hash=hash_token(session_token),
-            csrf_hash=hash_token(csrf_token),
-            user_id=user.id,
-            expires_at=datetime.now(UTC) + timedelta(seconds=settings.session_ttl_seconds),
-        )
-    )
-    db.commit()
+    user, session_token, csrf_token = login_command(db, payload)
     response.set_cookie(
         settings.session_cookie_name,
         session_token,
@@ -96,9 +96,7 @@ def logout(
     current: CurrentSession,
     _csrf: CsrfProtected,
 ) -> None:
-    """撤销当前会话并删除浏览器 Cookie。"""
-    current.revoked_at = datetime.now(UTC)
-    db.commit()
+    logout_command(db, current)
     response.delete_cookie(settings.session_cookie_name, path="/")
     response.delete_cookie(settings.csrf_cookie_name, path="/")
 
@@ -130,31 +128,9 @@ def change_password(
     current: CurrentSession,
     _csrf: CsrfProtected,
 ) -> None:
-    """验证旧密码后更新自身密码，并撤销当前会话以外的会话。"""
-    user = db.scalar(select(User).where(User.id == current.user_id).with_for_update())
-    if user is None or not verify_password(user.password_hash, payload.old_password):
-        raise AppError("AUTH_REQUIRED", "旧密码错误", 401)
-    user.password_hash = hash_password(payload.new_password)
-    user.must_change_password = False
-    user.revision += 1
-    db.execute(
-        sa_update(SessionRecord)
-        .where(
-            SessionRecord.user_id == user.id,
-            SessionRecord.id != current.id,
-            SessionRecord.revoked_at.is_(None),
-        )
-        .values(revoked_at=datetime.now(UTC))
+    change_password_command(
+        db=db, current=current, payload=payload, request_id=request.state.request_id
     )
-    append_audit(
-        db,
-        actor_id=user.id,
-        action="user.password_changed",
-        target_type="User",
-        target_id=user.id,
-        request_id=request.state.request_id,
-    )
-    db.commit()
 
 
 @router.get("/users", response_model=UserList, operation_id="listUsers")
@@ -176,28 +152,9 @@ def create_user(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> UserOut:
-    """创建明确账号类型的内部用户。"""
-    username = payload.username.strip().lower()
-    if db.scalar(select(User.id).where(User.username == username)) is not None:
-        raise AppError("REVISION_CONFLICT", "用户名已存在", 409)
-    user = User(
-        username=username,
-        display_name=payload.display_name.strip(),
-        password_hash=hash_password(payload.password),
-        account_type=payload.account_type.value,
+    user = create_user_command(
+        db=db, payload=payload, actor=admin, request_id=request.state.request_id
     )
-    db.add(user)
-    db.flush()
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="user.created",
-        target_type="User",
-        target_id=user.id,
-        request_id=request.state.request_id,
-        details={"account_type": payload.account_type.value},
-    )
-    db.commit()
     return present_user(user)
 
 
@@ -210,47 +167,13 @@ def update_user(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> UserOut:
-    """以事务锁保护最后管理员并更新账号状态。"""
-    db.execute(text("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE"))
-    user = db.scalar(select(User).where(User.id == user_id).with_for_update())
-    if user is None:
-        raise not_found("用户")
-    if user.revision != payload.expected_revision:
-        raise AppError("REVISION_CONFLICT", "用户已被其他请求修改", 409)
-    removes_active_admin = user.account_type == "ADMIN" and user.is_active and (
-        payload.account_type.value != "ADMIN" or not payload.is_active
-    )
-    if removes_active_admin:
-        active_admins = int(
-            db.scalar(
-                select(func.count()).select_from(User).where(
-                    User.account_type == "ADMIN", User.is_active.is_(True)
-                )
-            )
-            or 0
-        )
-        if active_admins <= 1:
-            raise AppError("LAST_ADMIN_REQUIRED", "系统必须保留至少一个有效管理员", 409)
-    user.display_name = payload.display_name.strip()
-    user.account_type = payload.account_type.value
-    user.is_active = payload.is_active
-    user.revision += 1
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="user.updated",
-        target_type="User",
-        target_id=user.id,
+    user = update_user_command(
+        db=db,
+        user_id=user_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
-        details={"is_active": user.is_active, "account_type": user.account_type},
     )
-    if not user.is_active:
-        db.execute(
-            sa_update(SessionRecord)
-            .where(SessionRecord.user_id == user.id, SessionRecord.revoked_at.is_(None))
-            .values(revoked_at=datetime.now(UTC))
-        )
-    db.commit()
     return present_user(user)
 
 
@@ -267,29 +190,13 @@ def reset_user_password(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> None:
-    """为其他用户设置临时密码，并立即撤销其全部会话。"""
-    if user_id == admin.id:
-        raise AppError("VALIDATION_ERROR", "管理员必须通过自助改密修改自己的密码", 422)
-    user = db.scalar(select(User).where(User.id == user_id).with_for_update())
-    if user is None:
-        raise not_found("用户")
-    user.password_hash = hash_password(payload.temporary_password)
-    user.must_change_password = True
-    user.revision += 1
-    db.execute(
-        sa_update(SessionRecord)
-        .where(SessionRecord.user_id == user.id, SessionRecord.revoked_at.is_(None))
-        .values(revoked_at=datetime.now(UTC))
-    )
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="user.password_reset",
-        target_type="User",
-        target_id=user.id,
+    reset_user_password_command(
+        db=db,
+        user_id=user_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
     )
-    db.commit()
 
 
 @router.get("/audit-logs", response_model=AuditLogList, operation_id="listAuditLogs")

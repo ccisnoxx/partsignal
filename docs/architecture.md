@@ -6,6 +6,14 @@ PartSignal 是前后端分离的模块化单体。HTTP 契约位于 `contracts/o
 
 后端模块分别拥有产品事实、内容策划、内容生产、AI 与平台配置、审核、发布、GEO 观测、文件、身份和审计。跨模块通过应用服务和稳定 ID 协作，不直接修改其他模块的数据。`users.account_type` 是 `ADMIN` / `ENGINEER` 权限唯一来源；管理员包含全部工程师能力。
 
+## 内部代码边界
+
+FastAPI Router 只负责 HTTP 参数、认证与权限依赖、响应投影和业务错误映射；事务、行锁、乐观锁复核、状态转换、跨实体协调与审计由领域应用服务拥有。简单读取和无共享业务不变量的局部操作可直接留在 Router，不为分层形式增加只转发调用的 Service 或 Repository。发布域因命令协调和查询投影均有独立复杂度而分为 `publication` 与 `publication_queries`，其他领域不强制套用读写分离模板。
+
+Pydantic Schema 按接口领域放在 `app.schemas` 子模块，调用方直接导入所属模块，包入口不维护兼容性重导出。SQLAlchemy 映射按稳定数据领域放在 `app.models` 子模块，全部继承同一个 `app.db.Base`，跨域外键继续使用字符串表名；`app.models.__init__` 只导入模块以完成 mapper 和 metadata 注册。该物理拆分不改变表名、约束、枚举、迁移图或公共 Schema。
+
+前端页面在职责已稳定混合时拆为路由容器、领域面板或表单，例如配置中心、发布流程和内容修订；简单页面仍保持单文件。所有 API 数据类型继续来自 OpenAPI 生成产物，React Query 键由 `shared/api/queryKeys.ts` 唯一登记并保持原数组前缀语义，不建立第二套接口或业务状态机。
+
 ## 数据所有权
 
 PostgreSQL 保存全部业务状态。Redis 只传递 Celery 消息，消息只包含 `generation_job_id`。对象存储保存文件字节，数据库保存文件元数据、哈希和业务引用。

@@ -3,25 +3,20 @@
 from __future__ import annotations
 
 import uuid
-from html.parser import HTMLParser
 from typing import Annotated, Literal
 
-import bleach
-import markdown
 from fastapi import APIRouter, Header, Query, Request, status
 from sqlalchemy import func, select
 
-from app.audit import append_audit
 from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
 from app.errors import not_found
-from app.models import (
-    ContentTask,
+from app.models.content import ContentTask
+from app.models.publication import (
     PlatformAccount,
-    PlatformProfile,
     PublicationRecord,
 )
-from app.schemas import (
-    ContentTaskOut,
+from app.schemas.content import ContentTaskOut
+from app.schemas.publication import (
     ManualPublicationCreate,
     PlatformAccountCreate,
     PlatformAccountList,
@@ -43,10 +38,6 @@ from app.services.projections import content_task_out
 from app.services.publication import (
     command_publication,
     create_repair_task,
-    get_attention,
-    get_repair_context,
-    list_attentions,
-    publication_out,
     require_publishable,
     resolve_attention,
 )
@@ -54,6 +45,16 @@ from app.services.publication import (
     create_manual_publication as create_manual_publication_service,
 )
 from app.services.publication import (
+    create_platform_account as create_platform_account_command,
+)
+from app.services.publication_queries import (
+    get_attention,
+    get_repair_context,
+    list_attentions,
+    publication_out,
+    render_markdown,
+)
+from app.services.publication_queries import (
     list_publication_candidates as list_publication_candidates_service,
 )
 
@@ -67,58 +68,6 @@ PublicationCommandName = Literal[
     "remove",
     "mark-verification-failed",
 ]
-
-ALLOWED_HTML_TAGS = [
-    "p",
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "ul",
-    "ol",
-    "li",
-    "strong",
-    "em",
-    "code",
-    "pre",
-    "blockquote",
-    "a",
-    "table",
-    "thead",
-    "tbody",
-    "tr",
-    "th",
-    "td",
-    "br",
-]
-
-
-class _TextExtractor(HTMLParser):
-    """从已清理 HTML 派生不可编辑纯文本。"""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.parts: list[str] = []
-
-    def handle_data(self, data: str) -> None:
-        if data.strip():
-            self.parts.append(data.strip())
-
-
-def render_markdown(body_markdown: str) -> tuple[str, str]:
-    """实时派生安全 HTML 与纯文本，不保存第二份正文。"""
-    raw_html = markdown.markdown(body_markdown, extensions=["tables", "fenced_code"])
-    safe_html = bleach.clean(
-        raw_html,
-        tags=ALLOWED_HTML_TAGS,
-        attributes={"a": ["href", "title", "rel"]},
-        protocols=["http", "https"],
-        strip=True,
-    )
-    extractor = _TextExtractor()
-    extractor.feed(safe_html)
-    return safe_html, "\n".join(extractor.parts)
-
 
 @router.get(
     "/content-versions/{content_version_id}/publication-package",
@@ -180,20 +129,9 @@ def create_platform_account(
     editor: ContentEditor,
     _csrf: CsrfProtected,
 ) -> PlatformAccountOut:
-    if db.get(PlatformProfile, payload.platform_profile_id) is None:
-        raise not_found("平台配置")
-    account = PlatformAccount(**payload.model_dump())
-    db.add(account)
-    db.flush()
-    append_audit(
-        db,
-        actor_id=editor.id,
-        action="platform_account.created",
-        target_type="PlatformAccount",
-        target_id=account.id,
-        request_id=request.state.request_id,
+    account = create_platform_account_command(
+        db=db, payload=payload, actor=editor, request_id=request.state.request_id
     )
-    db.commit()
     return PlatformAccountOut.model_validate(account)
 
 

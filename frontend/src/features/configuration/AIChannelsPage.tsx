@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
+import { queryKeys } from '../../shared/api/queryKeys';
 import type { AIChannel, Schema } from '../../shared/api/types';
 import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
@@ -14,11 +15,11 @@ import { StatusTag } from '../../shared/components/StatusTag';
 export function AIChannelsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const channels = useQuery({
-    queryKey: ['ai-channels'],
+    queryKey: queryKeys.aiChannels.all,
     queryFn: async () => unwrap(await api.GET('/api/v1/ai-channels')),
     staleTime: QUERY_STALE_TIME.configuration,
   });
-  const refresh = async () => queryClient.invalidateQueries({ queryKey: ['ai-channels'] });
+  const refresh = async () => queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.all });
   const create = useMutation({
     mutationFn: async (body: Schema<'AIChannelCreate'>) => unwrap(await api.POST('/api/v1/ai-channels', { params: { header: csrfHeader() }, body })),
     onSuccess: async () => { setCreateOpen(false); await refresh(); },

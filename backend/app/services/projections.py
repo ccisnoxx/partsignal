@@ -7,21 +7,28 @@ import difflib
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import (
+from app.errors import AppError
+from app.models.configuration import (
+    PlatformProfile,
+    PlatformProfileVersion,
+)
+from app.models.content import (
     ContentTask,
     ContentVersion,
-    FactVersion,
-    PlatformProfileVersion,
-    PublicationRecord,
 )
-from app.schemas import (
+from app.models.product_facts import FactVersion
+from app.models.publication import PublicationRecord
+from app.schemas.configuration import (
+    PlatformProfileOut,
+    PlatformProfileVersionOut,
+)
+from app.schemas.content import (
     ContentDiff,
     ContentTaskOut,
     ContentVersionOut,
     DiffLine,
-    FactVersionOut,
-    PlatformProfileVersionOut,
 )
+from app.schemas.product_facts import FactVersionOut
 
 IN_FLIGHT_PUBLICATION_STATUSES = (
     "PENDING_MANUAL_PUBLISH",
@@ -84,6 +91,27 @@ def platform_version_out(version: PlatformProfileVersion) -> PlatformProfileVers
         rules=version.rules,
         revision=version.revision,
         created_at=version.created_at,
+    )
+
+
+def platform_profile_out(db: Session, profile: PlatformProfile) -> PlatformProfileOut:
+    """投影平台及其唯一 ACTIVE 规则版本。"""
+    active = db.scalar(
+        select(PlatformProfileVersion).where(
+            PlatformProfileVersion.platform_profile_id == profile.id,
+            PlatformProfileVersion.status == "ACTIVE",
+        )
+    )
+    if active is None:
+        raise AppError("INVALID_STATE_TRANSITION", "平台配置缺少 ACTIVE 版本", 409)
+    return PlatformProfileOut(
+        id=profile.id,
+        name=profile.name,
+        slug=profile.slug,
+        allowed_domains=profile.allowed_domains,
+        platform_type_id=profile.platform_type_id,
+        revision=profile.revision,
+        active_version=platform_version_out(active),
     )
 
 

@@ -10,7 +10,7 @@ import sys
 from sqlalchemy import select
 
 from app.db import SessionLocal
-from app.models import User
+from app.models.identity import User
 from app.security import hash_password
 from app.services.generation_dispatch import generation_diagnostics
 from app.services.integrity import publication_integrity_issues

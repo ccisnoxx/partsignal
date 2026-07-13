@@ -1,5 +1,5 @@
 /** 内容审核页只消费服务端冻结审核上下文，Markdown 仍是唯一可编辑正文源。 */
-import { ArrowLeftOutlined, CheckOutlined, SaveOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, CheckOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Alert,
@@ -13,21 +13,22 @@ import {
   List,
   Modal,
   Row,
-  Select,
   Space,
   Timeline,
   Typography,
 } from 'antd';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { useDeferredValue, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
-import type { ContentVersion, Schema } from '../../shared/api/types';
+import { queryKeys } from '../../shared/api/queryKeys';
+import type { Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { RevisionForm } from './RevisionForm';
 
 type ReviewAction = Schema<'ContentReviewAction'>;
 type ReviewCommand = Pick<Schema<'CommandRequest'>, 'expected_revision' | 'comment'>;
@@ -42,7 +43,7 @@ export function ContentEditorPage() {
   const { contentVersionId = '' } = useParams();
   const [action, setAction] = useState<ReviewAction>();
   const context = useQuery({
-    queryKey: ['content-review-context', contentVersionId],
+    queryKey: queryKeys.contentVersions.review(contentVersionId),
     queryFn: async () =>
       unwrap(
         await api.GET('/api/v1/content-versions/{content_version_id}/review-context', {
@@ -60,7 +61,7 @@ export function ContentEditorPage() {
         }),
       ),
     onSuccess: async (created) => {
-      await queryClient.invalidateQueries({ queryKey: ['content-versions', created.task_id] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.versions(created.task_id) });
       window.location.assign(`/content/${created.id}`);
     },
   });
@@ -93,8 +94,8 @@ export function ContentEditorPage() {
     onSuccess: async () => {
       setAction(undefined);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['content-review-context', contentVersionId] }),
-        queryClient.invalidateQueries({ queryKey: ['content-version', contentVersionId] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentVersions.review(contentVersionId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentVersions.detail(contentVersionId) }),
       ]);
     },
   });
@@ -320,50 +321,5 @@ export function ContentEditorPage() {
         </Form>
       </Modal>
     </div>
-  );
-}
-
-function RevisionForm({
-  content,
-  loading,
-  onSubmit,
-}: {
-  content: ContentVersion;
-  loading: boolean;
-  onSubmit: (body: Schema<'ContentRevisionCreate'>) => void;
-}) {
-  const [markdown, setMarkdown] = useState(content.body_markdown);
-  const deferredMarkdown = useDeferredValue(markdown);
-  // 长正文预览让位于输入更新；解析结果只在 deferred 值变化时重新计算。
-  const preview = useMemo(
-    () => DOMPurify.sanitize(marked.parse(deferredMarkdown) as string),
-    [deferredMarkdown],
-  );
-  return (
-    <Form<Schema<'ContentRevisionCreate'>>
-      layout="vertical"
-      initialValues={{
-        title: content.title,
-        summary: content.summary,
-        body_markdown: content.body_markdown,
-        tags: content.tags,
-      }}
-      onFinish={onSubmit}
-    >
-      <Form.Item name="title" label="标题" rules={[{ required: true }]}><Input /></Form.Item>
-      <Form.Item name="summary" label="摘要" rules={[{ required: true }]}><Input.TextArea rows={3} /></Form.Item>
-      <Form.Item name="body_markdown" label="Markdown 正文" rules={[{ required: true }]}>
-        <Input.TextArea rows={18} className="markdown-source" onChange={(event) => setMarkdown(event.target.value)} />
-      </Form.Item>
-      <Form.Item name="tags" label="标签"><Select mode="tags" /></Form.Item>
-      <Form.Item name="change_summary" label="变更说明" rules={[{ required: true }]}><Input /></Form.Item>
-      <details>
-        <summary>预览本次修订</summary>
-        <article className="markdown-preview compact" dangerouslySetInnerHTML={{ __html: preview }} />
-      </details>
-      <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={loading}>
-        创建新版本
-      </Button>
-    </Form>
   );
 }

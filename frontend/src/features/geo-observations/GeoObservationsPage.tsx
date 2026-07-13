@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
 import { geoMetricsQueryOptions, productsQueryOptions, publicationRecordsQueryOptions, queryTopicsQueryOptions } from '../../shared/api/queryOptions';
+import { queryKeys } from '../../shared/api/queryKeys';
 import type { FileRecord, GeoObservation, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { DirectUpload } from '../../shared/components/DirectUpload';
@@ -17,7 +18,7 @@ import { TableRegion } from '../../shared/components/TableRegion';
 export function GeoObservationsPage() {
   const [open, setOpen] = useState(false);
   const metrics = useQuery(geoMetricsQueryOptions());
-  const observations = useQuery({ queryKey: ['geo-observations'], queryFn: async () => unwrap(await api.GET('/api/v1/geo-observations')), staleTime: QUERY_STALE_TIME.businessList });
+  const observations = useQuery({ queryKey: queryKeys.geo.observations, queryFn: async () => unwrap(await api.GET('/api/v1/geo-observations')), staleTime: QUERY_STALE_TIME.businessList });
   if (metrics.isLoading || observations.isLoading) return <QueryLoading label="正在加载 GEO 观测工作台" />;
   if (metrics.error || observations.error) return <QueryFailure error={metrics.error ?? observations.error} onRetry={() => { void metrics.refetch(); void observations.refetch(); }} />;
   const rate = (value: number | null | undefined) => value == null ? null : Math.round(value * 100);
@@ -67,7 +68,7 @@ function ObservationModal({ open, onClose }: { open: boolean; onClose: () => voi
     mutationFn: async (values: Schema<'GeoObservationCreate'>) => unwrap(await api.POST('/api/v1/geo-observations', { params: { header: csrfHeader() }, body: { ...values, attachment_file_ids: attachments.map((item) => item.id) } })),
     onSuccess: async () => {
       close();
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ['geo-observations'] }), queryClient.invalidateQueries({ queryKey: ['geo-metrics'] }), queryClient.invalidateQueries({ queryKey: ['dashboard'] })]);
+      await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.geo.observations }), queryClient.invalidateQueries({ queryKey: queryKeys.geo.metrics }), queryClient.invalidateQueries({ queryKey: queryKeys.dashboard })]);
     },
   });
   const dependencyError = products.error ?? topics.error ?? publications.error;

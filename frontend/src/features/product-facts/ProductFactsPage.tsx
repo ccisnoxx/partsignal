@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
+import { queryKeys } from '../../shared/api/queryKeys';
 import type { FactVersion, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { DirectUpload } from '../../shared/components/DirectUpload';
@@ -27,17 +28,17 @@ export function ProductFactsPage() {
   const [snapshotTarget, setSnapshotTarget] = useState<FactVersion>();
   const [reviewTarget, setReviewTarget] = useState<FactVersion>();
   const [commandTarget, setCommandTarget] = useState<{ version: FactVersion; command: 'submit' | 'approve' | 'request-changes' | 'retire' } | null>(null);
-  const product = useQuery({ queryKey: ['product', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
-  const draft = useQuery({ queryKey: ['facts-draft', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
-  const versions = useQuery({ queryKey: ['fact-versions', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
-  const reviewContext = useQuery({ queryKey: ['fact-review-context', reviewTarget?.id], queryFn: async () => unwrap(await api.GET('/api/v1/fact-versions/{fact_version_id}/review-context', { params: { path: { fact_version_id: reviewTarget?.id ?? '' } } })), enabled: !!reviewTarget, staleTime: QUERY_STALE_TIME.detail });
+  const product = useQuery({ queryKey: queryKeys.products.detail(productId), queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
+  const draft = useQuery({ queryKey: queryKeys.products.draft(productId), queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
+  const versions = useQuery({ queryKey: queryKeys.products.factVersions(productId), queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
+  const reviewContext = useQuery({ queryKey: queryKeys.products.factReview(reviewTarget?.id), queryFn: async () => unwrap(await api.GET('/api/v1/fact-versions/{fact_version_id}/review-context', { params: { path: { fact_version_id: reviewTarget?.id ?? '' } } })), enabled: !!reviewTarget, staleTime: QUERY_STALE_TIME.detail });
   const save = useMutation({
     mutationFn: async (values: Schema<'ProductFactsDraftUpdate'>) => unwrap(await api.PUT('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId }, header: csrfHeader() }, body: values })),
-    onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['facts-draft', productId] }),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: queryKeys.products.draft(productId) }),
   });
   const createVersion = useMutation({
     mutationFn: async (body: Schema<'CreateVersionRequest'>) => unwrap(await api.POST('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId }, header: csrfHeader() }, body })),
-    onSuccess: async () => { setSnapshotOpen(false); await queryClient.invalidateQueries({ queryKey: ['fact-versions', productId] }); },
+    onSuccess: async () => { setSnapshotOpen(false); await queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) }); },
   });
   const command = useMutation({
     mutationFn: async ({ target, body }: { target: NonNullable<typeof commandTarget>; body: Schema<'CommandRequest'> }) => {
@@ -47,7 +48,7 @@ export function ProductFactsPage() {
         : '/api/v1/fact-versions/{fact_version_id}/retire' as const;
       return unwrap(await api.POST(path, { params: { path: { fact_version_id: target.version.id }, header: csrfHeader() }, body }));
     },
-    onSuccess: async () => { const targetId = commandTarget?.version.id; setCommandTarget(null); await Promise.all([queryClient.invalidateQueries({ queryKey: ['fact-versions', productId] }), queryClient.invalidateQueries({ queryKey: ['fact-review-context', targetId] })]); },
+    onSuccess: async () => { const targetId = commandTarget?.version.id; setCommandTarget(null); await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) }), queryClient.invalidateQueries({ queryKey: queryKeys.products.factReview(targetId) })]); },
   });
 
   if (product.isLoading || draft.isLoading || versions.isLoading) return <QueryLoading />;

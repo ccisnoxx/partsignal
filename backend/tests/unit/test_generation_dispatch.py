@@ -10,7 +10,7 @@ from typing import Any, cast
 
 import pytest
 
-from app.models import GenerationJob
+from app.models.ai_generation import GenerationJob
 from app.services import generation_dispatch
 
 

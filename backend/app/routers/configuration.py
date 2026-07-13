@@ -3,25 +3,23 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 
-from app.audit import append_audit
 from app.config import settings
 from app.deps import AdminUser, CsrfProtected, DbSession
-from app.errors import AppError, not_found
-from app.models import (
+from app.errors import not_found
+from app.models.ai_generation import (
     AIChannel,
-    AIChannelHeader,
     AIModel,
-    PlatformProfile,
+)
+from app.models.configuration import (
     PlatformPrompt,
     PlatformType,
-    new_uuid,
 )
-from app.schemas import (
+from app.schemas.common import RevisionRequest
+from app.schemas.configuration import (
     AIChannelApiKeyReplace,
     AIChannelCreate,
     AIChannelHeaderCreate,
@@ -44,18 +42,63 @@ from app.schemas import (
     PlatformTypeList,
     PlatformTypeOut,
     PlatformTypeUpdate,
-    RevisionRequest,
 )
-from app.services.ai_configuration import request_credentials
-from app.services.credentials import CredentialCipher
-from app.services.openai_client import OpenAICompatibleClient, validate_base_url, validate_header
+from app.services.ai_configuration import create_ai_channel as create_ai_channel_command
+from app.services.ai_configuration import (
+    create_ai_channel_header as create_ai_channel_header_command,
+)
+from app.services.ai_configuration import create_ai_model as create_ai_model_command
+from app.services.ai_configuration import delete_ai_channel as delete_ai_channel_command
+from app.services.ai_configuration import (
+    delete_ai_channel_header as delete_ai_channel_header_command,
+)
+from app.services.ai_configuration import delete_ai_model as delete_ai_model_command
+from app.services.ai_configuration import (
+    replace_ai_channel_api_key as replace_ai_channel_api_key_command,
+)
+from app.services.ai_configuration import (
+    request_credentials,
+)
+from app.services.ai_configuration import (
+    set_channel_enabled as set_channel_enabled_command,
+)
+from app.services.ai_configuration import (
+    set_model_enabled as set_model_enabled_command,
+)
+from app.services.ai_configuration import (
+    test_ai_model as test_ai_model_command,
+)
+from app.services.ai_configuration import (
+    update_ai_channel as update_ai_channel_command,
+)
+from app.services.ai_configuration import (
+    update_ai_channel_header as update_ai_channel_header_command,
+)
+from app.services.ai_configuration import (
+    update_ai_model as update_ai_model_command,
+)
+from app.services.openai_client import OpenAICompatibleClient
+from app.services.platform_configuration import (
+    create_platform_type as create_platform_type_command,
+)
+from app.services.platform_configuration import (
+    delete_platform_prompt as delete_platform_prompt_command,
+)
+from app.services.platform_configuration import (
+    delete_platform_type as delete_platform_type_command,
+)
+from app.services.platform_configuration import (
+    put_platform_prompt as put_platform_prompt_command,
+)
+from app.services.platform_configuration import (
+    update_platform_profile as update_platform_profile_command,
+)
+from app.services.platform_configuration import (
+    update_platform_type as update_platform_type_command,
+)
+from app.services.projections import platform_profile_out
 
 router = APIRouter(prefix="/api/v1", tags=["configuration"])
-
-
-def cipher() -> CredentialCipher:
-    """按进程配置创建无状态凭据加密器。"""
-    return CredentialCipher(settings.ai_credential_encryption_key)
 
 
 def channel_out(channel: AIChannel) -> AIChannelOut:
@@ -97,34 +140,6 @@ def platform_prompt_out(prompt: PlatformPrompt) -> PlatformPromptOut:
     return PlatformPromptOut.model_validate(prompt)
 
 
-def invalidate_channel_models(db: DbSession, channel: AIChannel) -> None:
-    """连接级配置变化会停用渠道和全部子模型。"""
-    channel.is_enabled = False
-    channel.revision += 1
-    for model in db.scalars(select(AIModel).where(AIModel.channel_id == channel.id)):
-        model.is_enabled = False
-        model.test_status = "UNTESTED"
-        model.last_tested_at = None
-        model.last_test_error_summary = None
-        model.revision += 1
-
-
-def lock_model_configuration(
-    db: DbSession, model_id: uuid.UUID
-) -> tuple[AIModel, AIChannel]:
-    """按渠道后模型的固定顺序加锁，避免配置更新与渠道门禁竞态。"""
-    channel_id = db.scalar(select(AIModel.channel_id).where(AIModel.id == model_id))
-    if channel_id is None:
-        raise not_found("AI 模型")
-    channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
-    if channel is None:
-        raise not_found("AI 渠道")
-    model = db.scalar(select(AIModel).where(AIModel.id == model_id).with_for_update())
-    if model is None:
-        raise not_found("AI 模型")
-    return model, channel
-
-
 @router.get("/platform-types", response_model=PlatformTypeList, operation_id="listPlatformTypes")
 def list_platform_types(db: DbSession, _admin: AdminUser) -> PlatformTypeList:
     items = list(db.scalars(select(PlatformType).order_by(PlatformType.created_at)))
@@ -144,20 +159,12 @@ def create_platform_type(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> PlatformTypeOut:
-    item = PlatformType(
-        name=payload.name.strip(), slug=payload.slug, created_by=admin.id
-    )
-    db.add(item)
-    db.flush()
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="platform_type.created",
-        target_type="PlatformType",
-        target_id=item.id,
+    item = create_platform_type_command(
+        db=db,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
     )
-    db.commit()
     return platform_type_out(item)
 
 
@@ -174,26 +181,13 @@ def update_platform_type(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> PlatformTypeOut:
-    item = db.scalar(
-        select(PlatformType).where(PlatformType.id == platform_type_id).with_for_update()
-    )
-    if item is None:
-        raise not_found("平台类型")
-    if item.revision != payload.expected_revision:
-        raise AppError("REVISION_CONFLICT", "平台类型已被其他请求修改", 409)
-    item.name = payload.name.strip()
-    item.slug = payload.slug
-    item.revision += 1
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="platform_type.updated",
-        target_type="PlatformType",
-        target_id=item.id,
+    item = update_platform_type_command(
+        db=db,
+        platform_type_id=platform_type_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
-        details={"revision": item.revision},
     )
-    db.commit()
     return platform_type_out(item)
 
 
@@ -209,25 +203,12 @@ def delete_platform_type(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> None:
-    item = db.get(PlatformType, platform_type_id)
-    if item is None:
-        raise not_found("平台类型")
-    if db.scalar(
-        select(func.count()).select_from(PlatformProfile).where(
-            PlatformProfile.platform_type_id == item.id
-        )
-    ):
-        raise AppError("PLATFORM_TYPE_IN_USE", "平台类型仍被具体平台引用", 409)
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="platform_type.deleted",
-        target_type="PlatformType",
-        target_id=item.id,
+    delete_platform_type_command(
+        db=db,
+        platform_type_id=platform_type_id,
+        actor=admin,
         request_id=request.state.request_id,
     )
-    db.delete(item)
-    db.commit()
 
 
 @router.get(
@@ -257,42 +238,13 @@ def put_platform_prompt(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> PlatformPromptOut:
-    if db.get(PlatformType, platform_type_id) is None:
-        raise not_found("平台类型")
-    prompt = db.scalar(
-        select(PlatformPrompt)
-        .where(PlatformPrompt.platform_type_id == platform_type_id)
-        .with_for_update()
-    )
-    markdown = payload.template_markdown.strip()
-    if not markdown:
-        raise AppError("VALIDATION_ERROR", "平台 Prompt 不能为空", 422)
-    if prompt is None:
-        if payload.expected_revision is not None:
-            raise AppError("REVISION_CONFLICT", "平台 Prompt 尚不存在", 409)
-        prompt = PlatformPrompt(
-            platform_type_id=platform_type_id,
-            template_markdown=markdown,
-            updated_by=admin.id,
-        )
-        db.add(prompt)
-    else:
-        if payload.expected_revision != prompt.revision:
-            raise AppError("REVISION_CONFLICT", "平台 Prompt 已被其他请求修改", 409)
-        prompt.template_markdown = markdown
-        prompt.updated_by = admin.id
-        prompt.revision += 1
-    db.flush()
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="platform_prompt.saved",
-        target_type="PlatformType",
-        target_id=platform_type_id,
+    prompt = put_platform_prompt_command(
+        db=db,
+        platform_type_id=platform_type_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
-        details={"revision": prompt.revision},
     )
-    db.commit()
     return platform_prompt_out(prompt)
 
 
@@ -308,19 +260,12 @@ def delete_platform_prompt(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> None:
-    prompt = db.get(PlatformPrompt, platform_type_id)
-    if prompt is None:
-        raise not_found("平台 Prompt")
-    db.delete(prompt)
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="platform_prompt.deleted",
-        target_type="PlatformType",
-        target_id=platform_type_id,
+    delete_platform_prompt_command(
+        db=db,
+        platform_type_id=platform_type_id,
+        actor=admin,
         request_id=request.state.request_id,
     )
-    db.commit()
 
 
 @router.patch(
@@ -336,31 +281,13 @@ def update_platform_profile(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> PlatformProfileOut:
-    from app.routers.planning import platform_profile_out
-
-    profile = db.scalar(
-        select(PlatformProfile).where(PlatformProfile.id == platform_profile_id).with_for_update()
-    )
-    if profile is None:
-        raise not_found("平台")
-    if profile.revision != payload.expected_revision:
-        raise AppError("REVISION_CONFLICT", "平台已被其他请求修改", 409)
-    if db.get(PlatformType, payload.platform_type_id) is None:
-        raise not_found("平台类型")
-    profile.name = payload.name.strip()
-    profile.allowed_domains = payload.allowed_domains
-    profile.platform_type_id = payload.platform_type_id
-    profile.revision += 1
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="platform_profile.updated",
-        target_type="PlatformProfile",
-        target_id=profile.id,
+    profile = update_platform_profile_command(
+        db=db,
+        platform_profile_id=platform_profile_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
-        details={"platform_type_id": str(profile.platform_type_id), "revision": profile.revision},
     )
-    db.commit()
     return platform_profile_out(db, profile)
 
 
@@ -383,32 +310,9 @@ def create_ai_channel(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> AIChannelOut:
-    channel_id = new_uuid()
-    base_url = validate_base_url(
-        str(payload.base_url), allow_local_http=settings.ai_allow_local_http
+    channel = create_ai_channel_command(
+        db=db, payload=payload, actor=admin, request_id=request.state.request_id
     )
-    channel = AIChannel(
-        id=channel_id,
-        name=payload.name.strip(),
-        base_url=base_url,
-        api_key_ciphertext=cipher().encrypt(
-            payload.api_key, associated_data=f"ai_channel:{channel_id}:api_key"
-        ),
-        api_key_updated_at=datetime.now(UTC),
-        timeout_seconds=payload.timeout_seconds,
-        created_by=admin.id,
-    )
-    db.add(channel)
-    db.flush()
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="ai_channel.created",
-        target_type="AIChannel",
-        target_id=channel.id,
-        request_id=request.state.request_id,
-    )
-    db.commit()
     return channel_out(channel)
 
 
@@ -433,34 +337,13 @@ def update_ai_channel(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> AIChannelOut:
-    channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
-    if channel is None:
-        raise not_found("AI 渠道")
-    if channel.revision != payload.expected_revision:
-        raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
-    base_url = validate_base_url(
-        str(payload.base_url), allow_local_http=settings.ai_allow_local_http
-    )
-    connection_changed = (
-        channel.base_url != base_url or channel.timeout_seconds != payload.timeout_seconds
-    )
-    channel.name = payload.name.strip()
-    channel.base_url = base_url
-    channel.timeout_seconds = payload.timeout_seconds
-    if connection_changed:
-        invalidate_channel_models(db, channel)
-    else:
-        channel.revision += 1
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="ai_channel.updated",
-        target_type="AIChannel",
-        target_id=channel.id,
+    channel = update_ai_channel_command(
+        db=db,
+        channel_id=channel_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
-        details={"revision": channel.revision},
     )
-    db.commit()
     return channel_out(channel)
 
 
@@ -477,25 +360,13 @@ def replace_ai_channel_api_key(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> AIChannelOut:
-    channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
-    if channel is None:
-        raise not_found("AI 渠道")
-    if channel.revision != payload.expected_revision:
-        raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
-    channel.api_key_ciphertext = cipher().encrypt(
-        payload.api_key, associated_data=f"ai_channel:{channel.id}:api_key"
-    )
-    channel.api_key_updated_at = datetime.now(UTC)
-    invalidate_channel_models(db, channel)
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="ai_channel.api_key_replaced",
-        target_type="AIChannel",
-        target_id=channel.id,
+    channel = replace_ai_channel_api_key_command(
+        db=db,
+        channel_id=channel_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
     )
-    db.commit()
     return channel_out(channel)
 
 
@@ -507,28 +378,14 @@ def set_channel_enabled(
     admin: AdminUser,
     enabled: bool,
 ) -> AIChannelOut:
-    channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
-    if channel is None:
-        raise not_found("AI 渠道")
-    if channel.revision != payload.expected_revision:
-        raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
-    if enabled and not db.scalar(
-        select(AIModel.id).where(
-            AIModel.channel_id == channel.id, AIModel.test_status == "PASSED"
-        ).limit(1)
-    ):
-        raise AppError("AI_MODEL_NOT_TESTED", "渠道至少需要一个测试通过的模型", 409)
-    channel.is_enabled = enabled
-    channel.revision += 1
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action=f"ai_channel.{'enabled' if enabled else 'disabled'}",
-        target_type="AIChannel",
-        target_id=channel.id,
+    channel = set_channel_enabled_command(
+        db=db,
+        channel_id=channel_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
+        enabled=enabled,
     )
-    db.commit()
     return channel_out(channel)
 
 
@@ -576,19 +433,9 @@ def delete_ai_channel(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> None:
-    channel = db.get(AIChannel, channel_id)
-    if channel is None:
-        raise not_found("AI 渠道")
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="ai_channel.deleted",
-        target_type="AIChannel",
-        target_id=channel.id,
-        request_id=request.state.request_id,
+    delete_ai_channel_command(
+        db=db, channel_id=channel_id, actor=admin, request_id=request.state.request_id
     )
-    db.delete(channel)
-    db.commit()
 
 
 @router.post(
@@ -628,40 +475,13 @@ def create_ai_channel_header(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> AIChannelOut:
-    channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
-    if channel is None:
-        raise not_found("AI 渠道")
-    if channel.revision != payload.expected_channel_revision:
-        raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
-    normalized = validate_header(payload.name, payload.value)
-    header_id = new_uuid()
-    header = AIChannelHeader(
-        id=header_id,
-        channel_id=channel.id,
-        name=payload.name,
-        normalized_name=normalized,
-        is_sensitive=payload.is_sensitive,
-        plain_value=None if payload.is_sensitive else payload.value,
-        encrypted_value=(
-            cipher().encrypt(
-                payload.value, associated_data=f"ai_channel_header:{header_id}:value"
-            )
-            if payload.is_sensitive
-            else None
-        ),
-    )
-    channel.headers.append(header)
-    invalidate_channel_models(db, channel)
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="ai_channel_header.created",
-        target_type="AIChannel",
-        target_id=channel.id,
+    channel = create_ai_channel_header_command(
+        db=db,
+        channel_id=channel_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
-        details={"header_name": payload.name, "is_sensitive": payload.is_sensitive},
     )
-    db.commit()
     return channel_out(channel)
 
 
@@ -678,41 +498,13 @@ def update_ai_channel_header(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> AIChannelOut:
-    header = db.scalar(
-        select(AIChannelHeader).where(AIChannelHeader.id == header_id).with_for_update()
-    )
-    if header is None:
-        raise not_found("渠道 Header")
-    channel = db.scalar(
-        select(AIChannel).where(AIChannel.id == header.channel_id).with_for_update()
-    )
-    if channel is None:
-        raise not_found("AI 渠道")
-    if channel.revision != payload.expected_channel_revision:
-        raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
-    header.name = payload.name
-    header.normalized_name = validate_header(payload.name, payload.value)
-    header.is_sensitive = payload.is_sensitive
-    header.plain_value = None if payload.is_sensitive else payload.value
-    header.encrypted_value = (
-        cipher().encrypt(
-            payload.value, associated_data=f"ai_channel_header:{header.id}:value"
-        )
-        if payload.is_sensitive
-        else None
-    )
-    invalidate_channel_models(db, channel)
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="ai_channel_header.updated",
-        target_type="AIChannel",
-        target_id=channel.id,
+    channel = update_ai_channel_header_command(
+        db=db,
+        header_id=header_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
-        details={"header_name": payload.name, "is_sensitive": payload.is_sensitive},
     )
-    db.commit()
-    db.refresh(channel)
     return channel_out(channel)
 
 
@@ -728,26 +520,9 @@ def delete_ai_channel_header(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> None:
-    header = db.get(AIChannelHeader, header_id)
-    if header is None:
-        raise not_found("渠道 Header")
-    channel = db.scalar(
-        select(AIChannel).where(AIChannel.id == header.channel_id).with_for_update()
+    delete_ai_channel_header_command(
+        db=db, header_id=header_id, actor=admin, request_id=request.state.request_id
     )
-    if channel is None:
-        raise not_found("AI 渠道")
-    db.delete(header)
-    invalidate_channel_models(db, channel)
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="ai_channel_header.deleted",
-        target_type="AIChannel",
-        target_id=channel.id,
-        request_id=request.state.request_id,
-        details={"header_name": header.name},
-    )
-    db.commit()
 
 
 @router.get(
@@ -780,26 +555,13 @@ def create_ai_model(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> AIModelOut:
-    if db.get(AIChannel, channel_id) is None:
-        raise not_found("AI 渠道")
-    model = AIModel(
+    model = create_ai_model_command(
+        db=db,
         channel_id=channel_id,
-        display_name=payload.display_name.strip(),
-        model_id=payload.model_id.strip(),
-        request_parameters=payload.request_parameters,
-        created_by=admin.id,
-    )
-    db.add(model)
-    db.flush()
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="ai_model.created",
-        target_type="AIModel",
-        target_id=model.id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
     )
-    db.commit()
     return model_out(model)
 
 
@@ -812,32 +574,13 @@ def update_ai_model(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> AIModelOut:
-    model, _channel = lock_model_configuration(db, model_id)
-    if model.revision != payload.expected_revision:
-        raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
-    changed = (
-        model.model_id != payload.model_id.strip()
-        or model.request_parameters != payload.request_parameters
-    )
-    model.display_name = payload.display_name.strip()
-    model.model_id = payload.model_id.strip()
-    model.request_parameters = payload.request_parameters
-    if changed:
-        model.is_enabled = False
-        model.test_status = "UNTESTED"
-        model.last_tested_at = None
-        model.last_test_error_summary = None
-    model.revision += 1
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="ai_model.updated",
-        target_type="AIModel",
-        target_id=model.id,
+    model = update_ai_model_command(
+        db=db,
+        model_id=model_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
-        details={"revision": model.revision},
     )
-    db.commit()
     return model_out(model)
 
 
@@ -845,45 +588,7 @@ def update_ai_model(
 def test_ai_model(
     model_id: uuid.UUID, db: DbSession, _admin: AdminUser, _csrf: CsrfProtected
 ) -> AIModelOut:
-    model, channel = lock_model_configuration(db, model_id)
-    model_revision = model.revision
-    channel_revision = channel.revision
-    api_key, headers = request_credentials(db, channel)
-    base_url = channel.base_url
-    timeout_seconds = channel.timeout_seconds
-    provider_model_id = model.model_id
-    request_parameters = dict(model.request_parameters)
-    # 外部调用最长可达 600 秒，释放行锁后再调用；回写时重新校验两级修订号。
-    db.commit()
-    test_status: str
-    error_summary: str | None
-    try:
-        OpenAICompatibleClient(allow_local_http=settings.ai_allow_local_http).complete(
-            base_url=base_url,
-            api_key=api_key,
-            headers=headers,
-            timeout_seconds=timeout_seconds,
-            model_id=provider_model_id,
-            request_parameters=request_parameters,
-            system_message="Return one JSON object with title, summary, body_markdown, and tags.",
-            user_message="Return a short non-business connectivity test response.",
-        )
-    except AppError as error:
-        test_status = "FAILED"
-        error_summary = error.message[:500]
-    else:
-        test_status = "PASSED"
-        error_summary = None
-    model, channel = lock_model_configuration(db, model_id)
-    if model.revision != model_revision or channel.revision != channel_revision:
-        raise AppError("REVISION_CONFLICT", "测试期间 AI 配置已变更，请重新测试", 409)
-    model.test_status = test_status
-    model.last_test_error_summary = error_summary
-    model.last_tested_at = datetime.now(UTC)
-    model.is_enabled = False
-    model.revision += 1
-    db.commit()
-    return model_out(model)
+    return model_out(test_ai_model_command(db, model_id))
 
 
 def set_model_enabled(
@@ -894,22 +599,14 @@ def set_model_enabled(
     admin: AdminUser,
     enabled: bool,
 ) -> AIModelOut:
-    model, _channel = lock_model_configuration(db, model_id)
-    if model.revision != payload.expected_revision:
-        raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
-    if enabled and model.test_status != "PASSED":
-        raise AppError("AI_MODEL_NOT_TESTED", "模型必须先通过完整测试", 409)
-    model.is_enabled = enabled
-    model.revision += 1
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action=f"ai_model.{'enabled' if enabled else 'disabled'}",
-        target_type="AIModel",
-        target_id=model.id,
+    model = set_model_enabled_command(
+        db=db,
+        model_id=model_id,
+        payload=payload,
+        actor=admin,
         request_id=request.state.request_id,
+        enabled=enabled,
     )
-    db.commit()
     return model_out(model)
 
 
@@ -953,14 +650,6 @@ def delete_ai_model(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> None:
-    model, _channel = lock_model_configuration(db, model_id)
-    append_audit(
-        db,
-        actor_id=admin.id,
-        action="ai_model.deleted",
-        target_type="AIModel",
-        target_id=model.id,
-        request_id=request.state.request_id,
+    delete_ai_model_command(
+        db=db, model_id=model_id, actor=admin, request_id=request.state.request_id
     )
-    db.delete(model)
-    db.commit()

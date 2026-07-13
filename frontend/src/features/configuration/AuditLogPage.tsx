@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, Table } from 'antd';
 import { QUERY_STALE_TIME } from '../../app/queryClient';
 import { api, unwrap } from '../../shared/api/client';
+import { queryKeys } from '../../shared/api/queryKeys';
 import type { Schema } from '../../shared/api/types';
 import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
@@ -10,7 +11,7 @@ import { TableRegion } from '../../shared/components/TableRegion';
 
 export function AuditLogPage() {
   const audit = useQuery({
-    queryKey: ['audit-logs'],
+    queryKey: queryKeys.auditLogs,
     queryFn: async () => unwrap(await api.GET('/api/v1/audit-logs', { params: { query: { page: 1, page_size: 100 } } })),
     staleTime: QUERY_STALE_TIME.configuration,
   });

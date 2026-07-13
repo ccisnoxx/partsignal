@@ -187,7 +187,8 @@ a:hover { color: var(--ps-action-primary-hover); }
 .configuration-connection-form > .ant-btn { margin-bottom: 24px; }
 .configuration-credential-panel { display: flex; justify-content: space-between; gap: 24px; align-items: center; padding-top: 20px; border-top: 1px solid var(--ps-border-subtle); }
 .configuration-credential-panel .ant-typography { margin-bottom: 0; }
-.configuration-discovered-models { display: flex; flex-wrap: wrap; gap: 8px; min-height: 32px; margin-bottom: 18px; }
+.configuration-model-discovery { width: 100%; }
+.configuration-model-discovery-toolbar { width: 100%; justify-content: space-between; }
 .configuration-break-text { overflow-wrap: anywhere; word-break: break-word; }
 .password-card { width: min(100%, 440px); margin: 0 auto; }
 

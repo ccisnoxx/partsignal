@@ -436,15 +436,13 @@ def test_ai_model(db: Session, model_id: uuid.UUID) -> AIModel:
     request_parameters = dict(model.request_parameters)
     db.commit()
     try:
-        OpenAICompatibleClient(allow_local_http=settings.ai_allow_local_http).complete(
+        OpenAICompatibleClient(allow_local_http=settings.ai_allow_local_http).test_connection(
             base_url=base_url,
             api_key=api_key,
             headers=headers,
             timeout_seconds=timeout_seconds,
             model_id=provider_model_id,
             request_parameters=request_parameters,
-            system_message="Return one JSON object with title, summary, body_markdown, and tags.",
-            user_message="Return a short non-business connectivity test response.",
         )
     except AppError as error:
         test_status = "FAILED"
@@ -473,12 +471,12 @@ def set_model_enabled(
     request_id: str,
     enabled: bool,
 ) -> AIModel:
-    """校验测试结论后切换模型启用状态。"""
+    """校验连接测试结论后切换模型启用状态。"""
     model, _channel = lock_model_configuration(db, model_id)
     if model.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
     if enabled and model.test_status != "PASSED":
-        raise AppError("AI_MODEL_NOT_TESTED", "模型必须先通过完整测试", 409)
+        raise AppError("AI_MODEL_NOT_TESTED", "模型必须先通过连接测试", 409)
     model.is_enabled = enabled
     model.revision += 1
     append_audit(

@@ -5,7 +5,7 @@
   "description": "将配置中心拆为二级路由，重构 AI 渠道详情、Header 与模型管理展示",
   "status": "in_progress",
   "dev_type": null,
-  "scope": "frontend/src/app/, frontend/src/features/configuration/, frontend/src/features/settings/SettingsPage.tsx, frontend/src/styles/global.css, frontend/tests/e2e/",
+  "scope": "frontend/src/app/, frontend/src/features/configuration/, frontend/src/features/settings/SettingsPage.tsx, frontend/src/styles/global.css, frontend/tests/e2e/, backend/app/services/, backend/tests/unit/, .trellis/spec/backend/ai-configuration-guidelines.md, docs/GEO多平台内容运营系统方案设计.md, docs/GEO系统前后端技术与部署方案.md",
   "package": null,
   "priority": "P1",
   "creator": "777",

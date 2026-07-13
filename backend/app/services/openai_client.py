@@ -142,6 +142,38 @@ class OpenAICompatibleClient:
             raise AppError("AI_RESPONSE_INVALID", "模型列表包含无效 model_id", 502)
         return list(dict.fromkeys(model_ids))
 
+    def test_connection(
+        self,
+        *,
+        base_url: str,
+        api_key: str,
+        headers: dict[str, str],
+        timeout_seconds: int,
+        model_id: str,
+        request_parameters: dict[str, Any],
+    ) -> None:
+        """发送最小消息验证模型连接，不套用业务草稿 Schema。"""
+        response = self._request(
+            "POST",
+            base_url,
+            "chat/completions",
+            api_key,
+            headers,
+            timeout_seconds,
+            {
+                "model": model_id,
+                "messages": [{"role": "user", "content": "hi"}],
+                "stream": False,
+                **request_parameters,
+            },
+        )
+        try:
+            content = json.loads(response.body)["choices"][0]["message"]["content"]
+            if not isinstance(content, str):
+                raise TypeError
+        except (ValueError, KeyError, IndexError, TypeError) as error:
+            raise AppError("AI_RESPONSE_INVALID", "连接测试响应结构无效", 502) from error
+
     def complete(
         self,
         *,

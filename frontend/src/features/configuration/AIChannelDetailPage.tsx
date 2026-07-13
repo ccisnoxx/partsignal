@@ -12,6 +12,7 @@ import { NoData, QueryFailure, QueryLoading } from '../../shared/components/Asyn
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { ModelDiscoveryModal } from './ModelDiscoveryModal';
 
 type Header = Schema<'AIChannelHeader'>;
 type ModelFormValues = { display_name: string; model_id: string; request_parameters_json: string };
@@ -36,10 +37,10 @@ export function AIChannelDetailPage() {
   const navigate = useNavigate();
   const [headerOpen, setHeaderOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
+  const [discoveryOpen, setDiscoveryOpen] = useState(false);
   const [editingHeader, setEditingHeader] = useState<Header>();
   const [editingModel, setEditingModel] = useState<AIModel>();
   const [discovered, setDiscovered] = useState<string[]>([]);
-  const [discoveredModelId, setDiscoveredModelId] = useState<string>();
   const [modal, modalContext] = Modal.useModal();
   const channel = useQuery({
     queryKey: queryKeys.aiChannels.detail(channelId),
@@ -106,9 +107,13 @@ export function AIChannelDetailPage() {
     mutationFn: async () => unwrap(await api.POST('/api/v1/ai-channels/{channel_id}/discover-models', { params: { path: { channel_id: channelId }, header: csrfHeader() } })),
     onSuccess: (data) => setDiscovered(data.items.map((item) => item.model_id)),
   });
+  const createDiscoveredModel = useMutation({
+    mutationFn: async (modelId: string) => unwrap(await api.POST('/api/v1/ai-channels/{channel_id}/models', { params: { path: { channel_id: channelId }, header: csrfHeader() }, body: { display_name: modelId, model_id: modelId, request_parameters: {} } })),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.models(channelId) }),
+  });
   const createModel = useMutation({
     mutationFn: async (values: ModelFormValues) => unwrap(await api.POST('/api/v1/ai-channels/{channel_id}/models', { params: { path: { channel_id: channelId }, header: csrfHeader() }, body: { display_name: values.display_name, model_id: values.model_id, request_parameters: parseRequestParameters(values.request_parameters_json) } })),
-    onSuccess: async () => { setModelOpen(false); setDiscoveredModelId(undefined); await queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.models(channelId) }); },
+    onSuccess: async () => { setModelOpen(false); await queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.models(channelId) }); },
   });
   const updateModel = useMutation({
     mutationFn: async (values: ModelFormValues) => {
@@ -133,7 +138,7 @@ export function AIChannelDetailPage() {
   if (!channel.data) return null;
   const connectionError = updateChannel.error ?? replaceKey.error ?? toggleChannel.error ?? deleteChannel.error;
   const headerError = addHeader.error ?? updateHeader.error ?? deleteHeader.error;
-  const modelError = models.error ?? discover.error ?? createModel.error ?? updateModel.error ?? testModel.error ?? toggleModel.error ?? deleteModel.error;
+  const modelError = models.error ?? createModel.error ?? updateModel.error ?? testModel.error ?? toggleModel.error ?? deleteModel.error;
 
   const confirmDeleteModel = (model: AIModel) => modal.confirm({
     title: `删除模型“${model.display_name}”？`,
@@ -167,10 +172,8 @@ export function AIChannelDetailPage() {
         { title: '操作', render: (_, row) => <Space><Button size="small" onClick={() => setEditingHeader(row)}>编辑</Button><Popconfirm title={`删除 Header“${row.name}”？`} okText="删除" cancelText="取消" onConfirm={() => deleteHeader.mutate(row.id)}><Button size="small" danger>删除</Button></Popconfirm></Space> },
       ]} /></TableRegion>}
     </Card>
-    <Card title="模型" className="configuration-section-card" extra={<Space><Button onClick={() => discover.mutate()} loading={discover.isPending}>发现模型</Button><Button type="primary" onClick={() => { setDiscoveredModelId(undefined); setModelOpen(true); }}>手工添加</Button></Space>}>
+    <Card title="模型" className="configuration-section-card" extra={<Space><Button onClick={() => { setDiscoveryOpen(true); setDiscovered([]); discover.reset(); createDiscoveredModel.reset(); discover.mutate(); }}>获取模型</Button><Button type="primary" onClick={() => setModelOpen(true)}>手动添加</Button></Space>}>
       {modelError && <Alert role="alert" type="error" showIcon message={errorMessage(modelError)} />}
-      <Typography.Paragraph type="secondary">远端发现结果不会自动创建模型，请选择后确认保存。</Typography.Paragraph>
-      <div className="configuration-discovered-models" aria-label="模型发现结果">{discovered.length > 0 ? discovered.map((modelId) => <Button size="small" key={modelId} onClick={() => { setDiscoveredModelId(modelId); setModelOpen(true); }}>{modelId}</Button>) : <Typography.Text type="secondary">尚未发现模型</Typography.Text>}</div>
       {models.isLoading ? <QueryLoading label="正在加载模型" /> : models.data?.items.length === 0 ? <NoData description="尚未配置模型" /> : <TableRegion label="模型列表"><Table<AIModel> rowKey="id" dataSource={models.data?.items} scroll={{ x: 1120 }} columns={[
         { title: '显示名', dataIndex: 'display_name' },
         { title: 'model_id', dataIndex: 'model_id', render: (value) => <span className="data-code configuration-break-text">{value}</span> },
@@ -178,11 +181,12 @@ export function AIChannelDetailPage() {
         { title: '启停状态', dataIndex: 'is_enabled', render: (value) => <StatusTag status={value ? 'ACTIVE' : 'RETIRED'} /> },
         { title: '最近测试', render: (_, row) => row.last_tested_at ? <Space direction="vertical" size={0}><span>{new Date(row.last_tested_at).toLocaleString('zh-CN')}</span>{row.last_test_error_summary && <Typography.Text type="danger">{row.last_test_error_summary}</Typography.Text>}</Space> : '尚未测试' },
         { title: '请求参数', dataIndex: 'request_parameters', render: (value: Record<string, unknown>) => Object.keys(value).length ? `${Object.keys(value).slice(0, 3).join('、')}${Object.keys(value).length > 3 ? ` 等 ${Object.keys(value).length} 项` : ''}` : '无自定义参数' },
-        { title: '操作', fixed: 'right', width: 260, render: (_, row) => <Space><Button size="small" loading={testModel.isPending && testModel.variables?.id === row.id} onClick={() => testModel.mutate(row)}>测试</Button><Button size="small" loading={toggleModel.isPending && toggleModel.variables?.id === row.id} onClick={() => toggleModel.mutate(row)}>{row.is_enabled ? '停用' : '启用'}</Button><Dropdown menu={{ items: [{ key: 'edit', label: '编辑' }, { key: 'delete', label: '删除', danger: true }], onClick: ({ key }) => key === 'edit' ? setEditingModel(row) : confirmDeleteModel(row) }}><Button size="small">更多 <DownOutlined /></Button></Dropdown></Space> },
+        { title: '操作', fixed: 'right', width: 290, render: (_, row) => <Space><Button size="small" loading={testModel.isPending && testModel.variables?.id === row.id} onClick={() => testModel.mutate(row)}>测试连接</Button><Button size="small" loading={toggleModel.isPending && toggleModel.variables?.id === row.id} onClick={() => toggleModel.mutate(row)}>{row.is_enabled ? '停用' : '启用'}</Button><Dropdown menu={{ items: [{ key: 'edit', label: '编辑' }, { key: 'delete', label: '删除', danger: true }], onClick: ({ key }) => key === 'edit' ? setEditingModel(row) : confirmDeleteModel(row) }}><Button size="small">更多 <DownOutlined /></Button></Dropdown></Space> },
       ]} /></TableRegion>}
     </Card>
+    <ModelDiscoveryModal open={discoveryOpen} modelIds={discovered} configuredModelIds={models.data?.items.map((item) => item.model_id) ?? []} loading={discover.isPending} addingModelId={createDiscoveredModel.isPending ? createDiscoveredModel.variables : undefined} fetchError={discover.error ? errorMessage(discover.error) : undefined} addError={createDiscoveredModel.error ? errorMessage(createDiscoveredModel.error) : undefined} onCancel={() => setDiscoveryOpen(false)} onRefresh={() => { setDiscovered([]); discover.reset(); discover.mutate(); }} onAdd={(modelId) => createDiscoveredModel.mutate(modelId)} />
     <HeaderModal open={headerOpen || !!editingHeader} editing={editingHeader} loading={addHeader.isPending || updateHeader.isPending} onCancel={() => { setHeaderOpen(false); setEditingHeader(undefined); }} onSubmit={(body) => editingHeader ? updateHeader.mutate(body) : addHeader.mutate(body)} />
-    <ModelModal open={modelOpen || !!editingModel} editing={editingModel} discoveredModelId={discoveredModelId} loading={createModel.isPending || updateModel.isPending} onCancel={() => { setModelOpen(false); setEditingModel(undefined); setDiscoveredModelId(undefined); }} onSubmit={(body) => editingModel ? updateModel.mutate(body) : createModel.mutate(body)} />
+    <ModelModal open={modelOpen || !!editingModel} editing={editingModel} loading={createModel.isPending || updateModel.isPending} onCancel={() => { setModelOpen(false); setEditingModel(undefined); }} onSubmit={(body) => editingModel ? updateModel.mutate(body) : createModel.mutate(body)} />
   </div>;
 }
 
@@ -190,6 +194,6 @@ function HeaderModal({ open, editing, loading, onCancel, onSubmit }: { open: boo
   return <Modal title={editing ? '编辑 Header' : '新增 Header'} open={open} onCancel={onCancel} footer={null} destroyOnHidden><Form key={editing?.id ?? 'new'} layout="vertical" initialValues={{ name: editing?.name, value: editing?.value ?? '', is_sensitive: editing?.is_sensitive ?? false }} onFinish={onSubmit}><Form.Item name="name" label="Header 名" rules={[{ required: true }]}><Input autoFocus /></Form.Item><Form.Item name="value" label="值" rules={[{ required: true }]}><Input.Password placeholder={editing?.is_sensitive ? '敏感值不会回显，请输入替换值' : undefined} /></Form.Item><Form.Item name="is_sensitive" label="类型"><Select options={[{ value: false, label: '普通' }, { value: true, label: '敏感且永不回显' }]} /></Form.Item><Button type="primary" htmlType="submit" loading={loading}>保存</Button></Form></Modal>;
 }
 
-function ModelModal({ open, editing, discoveredModelId, loading, onCancel, onSubmit }: { open: boolean; editing?: AIModel; discoveredModelId?: string; loading: boolean; onCancel: () => void; onSubmit: (body: ModelFormValues) => void }) {
-  return <Modal title={editing ? '编辑模型' : '添加模型'} open={open} onCancel={onCancel} footer={null} destroyOnHidden><Form<ModelFormValues> key={editing?.id ?? discoveredModelId ?? 'new'} layout="vertical" initialValues={{ display_name: editing?.display_name ?? discoveredModelId, model_id: editing?.model_id ?? discoveredModelId, request_parameters_json: JSON.stringify(editing?.request_parameters ?? {}, null, 2) }} onFinish={onSubmit}><Form.Item name="display_name" label="显示名" rules={[{ required: true }]}><Input autoFocus /></Form.Item><Form.Item name="model_id" label="model_id" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="request_parameters_json" label="自定义请求参数 JSON"><Input.TextArea rows={6} className="markdown-source" /></Form.Item><Button type="primary" htmlType="submit" loading={loading}>保存</Button></Form></Modal>;
+function ModelModal({ open, editing, loading, onCancel, onSubmit }: { open: boolean; editing?: AIModel; loading: boolean; onCancel: () => void; onSubmit: (body: ModelFormValues) => void }) {
+  return <Modal title={editing ? '编辑模型' : '添加模型'} open={open} onCancel={onCancel} footer={null} destroyOnHidden><Form<ModelFormValues> key={editing?.id ?? 'new'} layout="vertical" initialValues={{ display_name: editing?.display_name, model_id: editing?.model_id, request_parameters_json: JSON.stringify(editing?.request_parameters ?? {}, null, 2) }} onFinish={onSubmit}><Form.Item name="display_name" label="显示名" rules={[{ required: true }]}><Input autoFocus /></Form.Item><Form.Item name="model_id" label="model_id" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="request_parameters_json" label="自定义请求参数 JSON"><Input.TextArea rows={6} className="markdown-source" /></Form.Item><Button type="primary" htmlType="submit" loading={loading}>保存</Button></Form></Modal>;
 }

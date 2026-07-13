@@ -227,6 +227,8 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const discovered = await body<{ items: Array<{ model_id: string }> }>(await page.request.post(`/api/v1/ai-channels/${channel.id as string}/discover-models`, { headers: { 'X-CSRF-Token': csrf } }));
   expect(discovered.items).toContainEqual({ model_id: 'e2e-model' });
   const testedModel = await command(page, `/api/v1/ai-models/${model.id as string}/test`, csrf, undefined);
+  const connectionRequest = await body<{ messages: Array<{ role: string; content: string }> }>(await page.request.get('http://127.0.0.1:9001/e2e/payloads/e2e-model'));
+  expect(connectionRequest.messages).toEqual([{ role: 'user', content: 'hi' }]);
   await command(page, `/api/v1/ai-models/${model.id as string}/enable`, csrf, { expected_revision: testedModel.revision });
   const enabledChannel = await command(page, `/api/v1/ai-channels/${channel.id as string}/enable`, csrf, { expected_revision: sensitiveHeaderChannel.revision });
   const plainHeader = projectedHeaders.find((item) => item.name === 'X-E2E-Region');

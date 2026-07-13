@@ -1,6 +1,7 @@
 /** 锁定渠道卡片和详情页的安全展示与查询边界。 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
@@ -52,6 +53,11 @@ beforeEach(() => {
     if (path === '/api/v1/ai-channels/{channel_id}/models') return result({ items: [model] });
     throw new Error(`未声明测试请求：${path}`);
   });
+  apiMocks.POST.mockImplementation((path: string) => {
+    if (path === '/api/v1/ai-channels/{channel_id}/discover-models') return result({ items: [{ model_id: 'model-controlled' }, { model_id: 'model-new' }] });
+    if (path === '/api/v1/ai-channels/{channel_id}/models') return result({ ...model, id: 'model-2', display_name: 'model-new', model_id: 'model-new' });
+    throw new Error(`未声明测试请求：${path}`);
+  });
 });
 
 test('渠道首页以卡片展示契约字段且不触发模型 N+1 查询', async () => {
@@ -73,5 +79,23 @@ test('渠道详情展示三个区块、模型测试信息且不回显敏感 Head
   expect(screen.getByText('public-value')).toBeInTheDocument();
   expect(screen.queryByText('header-secret')).not.toBeInTheDocument();
   expect(screen.getByText('temperature')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '测试连接' })).toBeInTheDocument();
   expect(apiMocks.GET).toHaveBeenCalledTimes(2);
+});
+
+test('获取模型在弹窗中列出远端结果并可直接添加未配置模型', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(<Routes><Route path="/configuration/ai/channels/:channelId" element={<AIChannelDetailPage />} /></Routes>, ['/configuration/ai/channels/channel-1']);
+  await screen.findByText('内容生成模型');
+
+  await user.click(screen.getByRole('button', { name: '获取模型' }));
+  expect(await screen.findByRole('dialog', { name: '获取模型' })).toBeInTheDocument();
+  expect(await screen.findByText('model-new')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '已添加' })).toBeDisabled();
+
+  await user.click(screen.getByRole('button', { name: '添加' }));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/ai-channels/{channel_id}/models',
+    expect.objectContaining({ body: { display_name: 'model-new', model_id: 'model-new', request_parameters: {} } }),
+  ));
 });

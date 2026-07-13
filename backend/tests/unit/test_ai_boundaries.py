@@ -216,6 +216,36 @@ def test_redirect_is_not_followed() -> None:
         )
 
 
+def test_connection_sends_minimal_hi_message() -> None:
+    transport = StubTransport(
+        PinnedResponse(
+            status_code=200,
+            headers={},
+            body=json.dumps(
+                {"choices": [{"message": {"content": "hello"}}]}
+            ).encode(),
+        )
+    )
+    OpenAICompatibleClient(
+        allow_local_http=False, transport=transport
+    ).test_connection(
+        base_url="https://provider.invalid/v1",
+        api_key="key",
+        headers={"X-Title": "PartSignal"},
+        timeout_seconds=10,
+        model_id="model-a",
+        request_parameters={"temperature": 0},
+    )
+    request = transport.requests[0]
+    assert request["suffix"] == "chat/completions"
+    assert json.loads(request["body"]) == {  # type: ignore[arg-type]
+        "model": "model-a",
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": False,
+        "temperature": 0,
+    }
+
+
 def test_provider_timeout_is_not_retried() -> None:
     transport = StubTransport(error=AppError("AI_PROVIDER_TIMEOUT", "AI 渠道请求超时", 504))
     with pytest.raises(AppError, match="请求超时"):

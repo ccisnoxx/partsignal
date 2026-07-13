@@ -67,4 +67,4 @@ until curl --fail --silent http://127.0.0.1:8000/api/health/ready >/dev/null \
 done
 
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
-  npm --prefix frontend run e2e
+  npm --prefix frontend run e2e -- "$@"

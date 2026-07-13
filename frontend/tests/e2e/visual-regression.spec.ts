@@ -82,10 +82,23 @@ async function capture(page: Page, scenario: Scenario, path: string, readyText: 
     for (const viewport of selectedViewports) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       const separator = path.includes('?') ? '&' : '?';
+      // 顶部栏标题会早于懒加载页面出现；关键接口完成后才允许记录业务完成态。
+      const readyApiPaths = scenario === 'geo'
+        ? ['/api/v1/geo-metrics', '/api/v1/geo-observations']
+        : scenario === 'publications' || scenario === 'publication-empty'
+          ? ['/api/v1/publication-candidates', '/api/v1/publication-records', '/api/v1/publication-attentions']
+          : [];
+      const readyResponses = readyApiPaths.map((apiPath) => page.waitForResponse((response) => new URL(response.url()).pathname === apiPath));
       await page.goto(`${path}${separator}visual-theme=${visualTheme}`);
-      await expect(page.getByText(readyText, { exact: false }).first()).toBeVisible();
+      await Promise.all(readyResponses);
+      const readyContent = scenario === 'login' ? page : page.locator('.app-content');
+      await expect(readyContent.getByText(readyText, { exact: false }).first()).toBeVisible();
+      await expect(page.locator('.route-loading')).toHaveCount(0);
+      await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+      await expect(page.locator('.ant-spin-spinning')).toHaveCount(0);
       await expect(page.locator('html')).toHaveAttribute('data-theme', visualTheme);
       await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
       const snapshot = visualTheme === 'light' ? `${scenario}-${viewport.name}.png` : `${scenario}-dark-${viewport.name}.png`;
       await expect(page).toHaveScreenshot(snapshot, { fullPage: true });
       if (viewport.width === 1440) {

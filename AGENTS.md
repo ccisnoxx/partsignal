@@ -72,6 +72,10 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 ### Git
 
+- 当前开发阶段采用 `main` 单分支流程。除非用户明确要求，不得创建 `codex/*`、`agent/*`、`feature/*` 或其他开发分支；日常变更直接提交到主工作目录的 `main`。
+- 平台自动创建的 detached worktree 只用于隔离执行，不作为最终交付分支。完成后必须把已验证变更提交到主工作目录的 `main`，不得把成果遗留在临时分支或旧 worktree。
+- 开始新工作前先确认主工作目录位于 `main` 且工作区干净；需要同步远端时只允许在干净工作区执行 `git pull --ff-only origin main`。
+- 如果用户明确批准临时分支，完成并合入 `main` 后应删除对应本地和远端分支，避免形成第二条开发线。
 - Do not run `git reset --hard`, `git checkout -- <file>`, history rewrites, or broad deletion unless the user explicitly requests and confirms it.
 - Before committing work code, present a commit plan and get user confirmation.
 - Do not include unrecognized dirty files in commits.

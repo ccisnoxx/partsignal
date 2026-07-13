@@ -46,7 +46,7 @@ ssh -i "$SSH_KEY" -o IdentitiesOnly=yes -p "$SSH_PORT" \
 
 ## 2. 权威文件
 
-部署前必须以当前分支中的以下文件为准，不从旧会话复制 Compose 或 Nginx 内容：
+部署前必须以已推送到 `origin/main` 的以下文件为准，不从旧会话、临时 worktree 或其他分支复制 Compose 或 Nginx 内容：
 
 - `deploy/compose.staging.yaml`
 - `deploy/scripts/deploy-staging.sh`
@@ -61,14 +61,18 @@ ssh -i "$SSH_KEY" -o IdentitiesOnly=yes -p "$SSH_PORT" \
 
 ### 3.1 本地仓库
 
-确认分支、提交和变更范围。标准上线只部署已提交且已审核的版本：
+当前开发阶段采用 `main` 单分支流程。标准上线只部署已经提交、通过质量门并推送到 `origin/main` 的版本；不得从 `codex/*`、`agent/*`、功能分支、detached worktree 或未提交工作树直接上线。
 
 ```sh
-git branch --show-current
-git status --short
+test "$(git branch --show-current)" = main
+test -z "$(git status --porcelain)"
+git fetch origin
+test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
 git log -1 --oneline
 git diff --check
 ```
+
+任一断言失败都必须停止部署：先回到主工作目录处理未提交变更，或按第 3.2 节完成 `main` 同步和推送。不能为了继续上线而改用临时分支的提交。
 
 执行质量门：
 
@@ -82,7 +86,40 @@ npm --prefix frontend run build
 
 涉及数据库或异步生成时，还必须执行真实 PostgreSQL/Redis 集成测试和 Playwright E2E。不能用 SQLite、Celery eager 或固定成功响应替代。
 
-### 3.2 DNS 与现有站点
+### 3.2 提交与推送流程
+
+开始新工作前，从主工作目录同步 `main`。工作区不干净时不得执行 pull，也不得另开分支绕过现有变更：
+
+```sh
+git switch main
+test -z "$(git status --porcelain)"
+git pull --ff-only origin main
+```
+
+完成修改后，先核对范围并运行与改动匹配的质量门。暂存时显式列出本次文件，不得把无法识别的并行改动一起提交：
+
+```sh
+git status --short
+git diff --check
+
+git add -- <本次文件...>
+git diff --cached --check
+git diff --cached --stat
+git commit -m "<type>: <中文摘要>"
+```
+
+提交前仍须按项目规则向用户展示提交计划并获得确认。推送属于远端写操作，也必须获得用户明确授权；授权后直接推送 `main`，不创建中转分支或 Pull Request：
+
+```sh
+git push origin main
+git fetch origin
+test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+git status --short --branch
+```
+
+正常结果应为 `main...origin/main` 且工作区为空。如果平台自动提供 detached worktree，它只用于隔离执行；最终提交仍必须落到主工作目录的 `main`。只有用户明确要求并行分支或以后启用受保护分支/PR 制度时，才调整此流程；临时分支合入后应删除本地和远端引用。
+
+### 3.3 DNS 与现有站点
 
 DNS 只以公共解析器结果为准，不使用本机缓存判断：
 
@@ -100,7 +137,7 @@ curl --fail --silent --show-error https://geo.962850.xyz/api/health/ready || tru
 
 `api.962850.xyz` 应继续返回 Sub2API。不要把 `geo.962850.xyz` 当前显示为 Sub2API 误判为 DNS 错误；这通常表示 Hostdzire 缺少精确 `server_name`。
 
-### 3.3 Hostdzire 资源与冲突
+### 3.4 Hostdzire 资源与冲突
 
 通过 SSH 只读确认：
 
@@ -125,10 +162,12 @@ RELEASE_ID="mvp-$(date +%Y%m%d-%H%M)"
 ARCHIVE="/private/tmp/partsignal-${RELEASE_ID}.tar.gz"
 ```
 
-### 4.1 标准方式：已提交版本
+### 4.1 标准方式：已推送到 main 的版本
 
 ```sh
-git archive --format=tar.gz --output="$ARCHIVE" HEAD
+DEPLOY_COMMIT=$(git rev-parse origin/main)
+test "$(git rev-parse HEAD)" = "$DEPLOY_COMMIT"
+git archive --format=tar.gz --output="$ARCHIVE" "$DEPLOY_COMMIT"
 ```
 
 ### 4.2 仅限明确批准：未提交验收版本

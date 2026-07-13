@@ -3,8 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0b2d25" />
+    <meta name="theme-color" content="#F3F6FA" />
+    <meta name="color-scheme" content="light dark" />
     <title>PartSignal · GEO 内容运营</title>
+    <script>
+      (() => {
+        const storageKey = 'partsignal.theme-mode';
+        const validModes = ['light', 'dark', 'system'];
+        let mode = 'system';
+        try {
+          const stored = localStorage.getItem(storageKey);
+          if (validModes.includes(stored)) mode = stored;
+          else if (stored !== null) localStorage.removeItem(storageKey);
+        } catch (error) {
+          console.warn('无法读取主题偏好，本次会话将跟随系统主题。', error);
+        }
+        const resolved = mode === 'system'
+          ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : mode;
+        const canvas = resolved === 'dark' ? '#081426' : '#F3F6FA';
+        document.documentElement.dataset.themeMode = mode;
+        document.documentElement.dataset.theme = resolved;
+        document.documentElement.style.colorScheme = resolved;
+        document.documentElement.style.backgroundColor = canvas;
+        document.querySelector('meta[name="theme-color"]').content = canvas;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

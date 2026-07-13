@@ -74,6 +74,8 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   await engineerPage.getByRole('button', { name: '更新密码' }).click();
   await expect(engineerPage).toHaveURL(/\/$/);
   await expect(engineerPage.getByRole('menuitem', { name: '配置中心' })).toHaveCount(0);
+  await engineerPage.goto('/configuration/audit');
+  await expect(engineerPage).toHaveURL(/\/$/);
   await expect(engineerPage.getByRole('button', { name: '打开用户操作菜单' })).toBeVisible();
   expect((await engineerPage.request.get('/api/v1/users')).status()).toBe(403);
   const engineerCsrf = await body<{ csrf_token: string }>(await engineerPage.request.get('/api/v1/auth/csrf'));
@@ -147,6 +149,8 @@ async function command(page: Page, path: string, csrf: string, data: unknown) {
 
 async function expectTextInPaginatedTable(page: Page, text: string) {
   const target = page.getByText(text, { exact: true });
+  await expect(page.locator('.ant-table-wrapper').last()).toBeVisible();
+  await expect(page.locator('.ant-table-wrapper .ant-spin-spinning')).toHaveCount(0);
   for (let pageNumber = 1; pageNumber <= 10; pageNumber += 1) {
     if (await target.isVisible()) return;
     const next = page.getByRole('button', { name: 'right' });
@@ -240,7 +244,12 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await command(page, `/api/v1/ai-models/${timeoutModel.id as string}/enable`, csrf, { expected_revision: testedTimeoutModel.revision });
   const enabledSecondChannel = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/enable`, csrf, { expected_revision: secondSensitiveHeader.revision });
   await page.goto('/configuration');
-  await page.getByRole('tab', { name: '具体平台规则' }).click();
+  await expect(page).toHaveURL(/\/configuration\/ai$/);
+  await page.getByRole('link', { name: `查看 E2E 渠道 ${suffix} 配置` }).click();
+  await expect(page).toHaveURL(new RegExp(`/configuration/ai/channels/${channel.id as string}$`));
+  await expect(page.getByRole('region', { name: '请求 Header 列表' })).toBeVisible();
+  await expect(page.getByText('E2E 模型', { exact: true })).toBeVisible();
+  await page.goto('/configuration/platforms');
   await expectTextInPaginatedTable(page, `E2E 论坛 ${suffix}`);
 
   const topic = await command(page, '/api/v1/query-topics', csrf, { canonical_question: `${product!.part_number} 如何替代？`, intent_type: 'REPLACEMENT', variants: [`${product!.part_number} 替代方案`] });

@@ -15,15 +15,14 @@ import {
   Row,
   Select,
   Space,
-  Tag,
   Timeline,
   Typography,
 } from 'antd';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { queryClient } from '../../app/queryClient';
+import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
 import type { ContentVersion, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
@@ -50,6 +49,7 @@ export function ContentEditorPage() {
           params: { path: { content_version_id: contentVersionId } },
         }),
       ),
+    staleTime: QUERY_STALE_TIME.detail,
   });
   const revise = useMutation({
     mutationFn: async (body: Schema<'ContentRevisionCreate'>) =>
@@ -161,7 +161,7 @@ export function ContentEditorPage() {
             ]} />
             <Typography.Title level={5}>质量问题</Typography.Title>
             {current.quality_issues.length === 0 ? <Alert type="success" showIcon message="当前版本没有质量问题" /> : (
-              <List dataSource={current.quality_issues} renderItem={(issue) => <List.Item><Space align="start"><Tag color={issue.severity === 'BLOCKING' ? 'red' : 'gold'}>{issue.severity === 'BLOCKING' ? '阻断' : '警告'}</Tag><div><Typography.Text code>{issue.code}</Typography.Text><Typography.Paragraph>{issue.message}</Typography.Paragraph></div></Space></List.Item>} />
+              <List dataSource={current.quality_issues} renderItem={(issue) => <List.Item><Space align="start"><StatusTag status={issue.severity} /><div><Typography.Text code>{issue.code}</Typography.Text><Typography.Paragraph>{issue.message}</Typography.Paragraph></div></Space></List.Item>} />
             )}
           </Card>
         </Col>
@@ -333,7 +333,12 @@ function RevisionForm({
   onSubmit: (body: Schema<'ContentRevisionCreate'>) => void;
 }) {
   const [markdown, setMarkdown] = useState(content.body_markdown);
-  const preview = DOMPurify.sanitize(marked.parse(markdown) as string);
+  const deferredMarkdown = useDeferredValue(markdown);
+  // 长正文预览让位于输入更新；解析结果只在 deferred 值变化时重新计算。
+  const preview = useMemo(
+    () => DOMPurify.sanitize(marked.parse(deferredMarkdown) as string),
+    [deferredMarkdown],
+  );
   return (
     <Form<Schema<'ContentRevisionCreate'>>
       layout="vertical"

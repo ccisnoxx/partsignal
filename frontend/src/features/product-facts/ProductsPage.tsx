@@ -5,6 +5,7 @@ import { Alert, Button, Card, Form, Input, Modal, Space, Table } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
+import { productsQueryOptions } from '../../shared/api/queryOptions';
 import type { Product, Schema } from '../../shared/api/types';
 import { QueryFailure } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
@@ -15,10 +16,7 @@ import { queryClient } from '../../app/queryClient';
 export function ProductsPage() {
   const [search, setSearch] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const products = useQuery({
-    queryKey: ['products', search],
-    queryFn: async () => unwrap(await api.GET('/api/v1/products', { params: { query: { page: 1, page_size: 100, ...(search ? { search } : {}) } } })),
-  });
+  const products = useQuery(productsQueryOptions(search));
   const create = useMutation({
     mutationFn: async (body: Schema<'ProductCreate'>) => unwrap(await api.POST('/api/v1/products', { params: { header: csrfHeader() }, body })),
     onSuccess: async () => { setCreateOpen(false); await queryClient.invalidateQueries({ queryKey: ['products'] }); },

@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Alert, Button, Card, Form, Input, Modal, Select, Space, Switch, Table, Typography } from 'antd';
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { queryClient } from '../../app/queryClient';
+import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, ensureSuccess, unwrap } from '../../shared/api/client';
 import type { Schema, User } from '../../shared/api/types';
 import { PageHeader } from '../../shared/components/PageHeader';
@@ -23,7 +23,7 @@ export function UserManagementPage() {
   const [editing, setEditing] = useState<User>();
   const [resetting, setResetting] = useState<User>();
   const [showInactive, setShowInactive] = useState(false);
-  const users = useQuery({ queryKey: ['users'], queryFn: async () => unwrap(await api.GET('/api/v1/users')) });
+  const users = useQuery({ queryKey: ['users'], queryFn: async () => unwrap(await api.GET('/api/v1/users')), staleTime: QUERY_STALE_TIME.businessList });
   const refresh = async () => queryClient.invalidateQueries({ queryKey: ['users'] });
   const create = useMutation({ mutationFn: async (body: Schema<'UserCreate'>) => unwrap(await api.POST('/api/v1/users', { params: { header: csrfHeader() }, body })), onSuccess: async () => { setCreateOpen(false); await refresh(); } });
   const update = useMutation({ mutationFn: async (body: Schema<'UserUpdate'>) => { if (!editing) throw new Error('未选择用户'); return unwrap(await api.PATCH('/api/v1/users/{user_id}', { params: { path: { user_id: editing.id }, header: csrfHeader() }, body })); }, onSuccess: async () => { setEditing(undefined); await refresh(); } });

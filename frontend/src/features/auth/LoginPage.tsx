@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Alert, Button, Card, Form, Input, Typography } from 'antd';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Schema } from '../../shared/api/types';
+import { ThemeModeControl } from '../../shared/components/ThemeModeControl';
 import { api, errorMessage, setCsrfToken, unwrap } from '../../shared/api/client';
 import { useAuth } from './AuthProvider';
 
@@ -27,6 +28,7 @@ export function LoginPage() {
 
   return (
     <main className="login-page">
+      <div className="login-theme-control"><ThemeModeControl /></div>
       <section className="login-intro">
         <Typography.Text className="eyebrow">PARTSIGNAL / GEO OPERATIONS</Typography.Text>
         <Typography.Title>让每条替代结论<br />都有证据可循。</Typography.Title>

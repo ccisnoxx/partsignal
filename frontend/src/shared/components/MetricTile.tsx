@@ -9,14 +9,14 @@ export function MetricTile({ label, value, unit, meta, percent, tone = 'default'
   unit?: ReactNode;
   meta?: ReactNode;
   percent?: number | null;
-  tone?: 'default' | 'signal' | 'danger' | 'success';
+  tone?: 'default' | 'data' | 'warning' | 'danger' | 'success';
   to?: string;
 }) {
   const card = (
     <Card className={`metric-tile metric-${tone}`} size="small">
       <Typography.Text className="metric-label">{label}</Typography.Text>
       <div className="metric-value"><strong>{value}</strong>{unit && <span>{unit}</span>}</div>
-      {percent !== undefined && percent !== null && <Progress aria-label={`${String(label)} ${percent}%`} percent={percent} showInfo={false} strokeColor="#b74320" railColor="#e2dbd0" />}
+      {percent !== undefined && percent !== null && <Progress aria-label={`${String(label)} ${percent}%`} percent={percent} showInfo={false} />}
       {meta && <Typography.Text className="metric-meta">{meta}</Typography.Text>}
     </Card>
   );

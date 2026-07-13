@@ -3,8 +3,9 @@ import { PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Alert, Button, Card, Checkbox, Form, Input, Modal, Select, Space, Table, Typography } from 'antd';
 import { useState } from 'react';
-import { queryClient } from '../../app/queryClient';
+import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
+import { geoMetricsQueryOptions, productsQueryOptions, publicationRecordsQueryOptions, queryTopicsQueryOptions } from '../../shared/api/queryOptions';
 import type { FileRecord, GeoObservation, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { DirectUpload } from '../../shared/components/DirectUpload';
@@ -15,8 +16,8 @@ import { TableRegion } from '../../shared/components/TableRegion';
 
 export function GeoObservationsPage() {
   const [open, setOpen] = useState(false);
-  const metrics = useQuery({ queryKey: ['geo-metrics'], queryFn: async () => unwrap(await api.GET('/api/v1/geo-metrics')) });
-  const observations = useQuery({ queryKey: ['geo-observations'], queryFn: async () => unwrap(await api.GET('/api/v1/geo-observations')) });
+  const metrics = useQuery(geoMetricsQueryOptions());
+  const observations = useQuery({ queryKey: ['geo-observations'], queryFn: async () => unwrap(await api.GET('/api/v1/geo-observations')), staleTime: QUERY_STALE_TIME.businessList });
   if (metrics.isLoading || observations.isLoading) return <QueryLoading label="正在加载 GEO 观测工作台" />;
   if (metrics.error || observations.error) return <QueryFailure error={metrics.error ?? observations.error} onRetry={() => { void metrics.refetch(); void observations.refetch(); }} />;
   const rate = (value: number | null | undefined) => value == null ? null : Math.round(value * 100);
@@ -58,9 +59,9 @@ export function GeoObservationsPage() {
 
 function ObservationModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [attachments, setAttachments] = useState<FileRecord[]>([]);
-  const products = useQuery({ queryKey: ['products'], queryFn: async () => unwrap(await api.GET('/api/v1/products', { params: { query: { page: 1, page_size: 100 } } })), enabled: open });
-  const topics = useQuery({ queryKey: ['query-topics'], queryFn: async () => unwrap(await api.GET('/api/v1/query-topics')), enabled: open });
-  const publications = useQuery({ queryKey: ['publication-records'], queryFn: async () => unwrap(await api.GET('/api/v1/publication-records', { params: { query: { page: 1, page_size: 100 } } })), enabled: open });
+  const products = useQuery({ ...productsQueryOptions(), enabled: open });
+  const topics = useQuery({ ...queryTopicsQueryOptions(), enabled: open });
+  const publications = useQuery({ ...publicationRecordsQueryOptions(), enabled: open });
   const close = () => { setAttachments([]); onClose(); };
   const create = useMutation({
     mutationFn: async (values: Schema<'GeoObservationCreate'>) => unwrap(await api.POST('/api/v1/geo-observations', { params: { header: csrfHeader() }, body: { ...values, attachment_file_ids: attachments.map((item) => item.id) } })),

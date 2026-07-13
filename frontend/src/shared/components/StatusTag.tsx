@@ -1,5 +1,7 @@
-/** 将后端状态枚举映射为统一的中文视觉标签。 */
+/** 将后端状态枚举映射为统一的中文标签与语义色阶。 */
+import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Tag } from 'antd';
+import type { ReactNode } from 'react';
 
 const statusLabels: Record<string, string> = {
   ACTIVE: '启用', RETIRED: '已停用', DRAFT: '草稿', PENDING_REVIEW: '待审核',
@@ -8,11 +10,9 @@ const statusLabels: Record<string, string> = {
   PENDING: '排队中', RUNNING: '生成中', SUCCEEDED: '成功', FAILED: '失败',
   PENDING_MANUAL_PUBLISH: '待人工发布', PLATFORM_REVIEW: '平台审核中',
   PUBLISHED: '已发布', VERIFIED: '已验证', REJECTED: '已拒绝', REMOVED: '已下线',
-  VERIFICATION_FAILED: '验证失败', ABORTED: '已中止',
-  RESOLVED: '已解决',
+  VERIFICATION_FAILED: '验证失败', ABORTED: '已中止', RESOLVED: '已解决',
   submit: '提交审核', 'submit-review': '提交审核', approve: '批准',
-  'request-changes': '退回修改', retire: '停用',
-  ADMIN: '管理员', ENGINEER: '工程师',
+  'request-changes': '退回修改', retire: '停用', ADMIN: '管理员', ENGINEER: '工程师',
   PUBLIC: '公开', INTERNAL: '内部', RESTRICTED: '受限', URL_ONLY: '仅 URL',
   UNTESTED: '未测试', PASSED: '已通过', WARNING: '警告', BLOCKING: '阻断',
   NONE: '未推荐', CANDIDATE: '候选', RECOMMENDED: '已推荐',
@@ -22,24 +22,22 @@ const statusLabels: Record<string, string> = {
   SUBMIT: '提交审核', SUBMIT_REVIEW: '提交审核', APPROVE: '批准', REQUEST_CHANGES: '退回修改', RETIRE: '停用',
 };
 
-const statusColors: Record<string, string> = {
-  ACTIVE: 'green', APPROVED: 'green', VERIFIED: 'green', SUCCEEDED: 'green',
-  PENDING_REVIEW: 'gold', PENDING: 'gold', PENDING_MANUAL_PUBLISH: 'gold', PLATFORM_REVIEW: 'gold',
-  RUNNING: 'blue', PUBLISHED: 'blue', OPEN: 'blue', DRAFT: 'default',
-  FAILED: 'red', REJECTED: 'red', VERIFICATION_FAILED: 'red', CHANGES_REQUESTED: 'orange',
-  RETIRED: 'default', SUPERSEDED: 'default', CANCELLED: 'default', REMOVED: 'default', ABORTED: 'default',
-  RESOLVED: 'green',
-  submit: 'blue', 'submit-review': 'blue', approve: 'green',
-  'request-changes': 'orange', retire: 'default',
-  PUBLIC: 'green', INTERNAL: 'blue', RESTRICTED: 'red', URL_ONLY: 'default',
-  PASSED: 'green', UNTESTED: 'default', WARNING: 'gold', BLOCKING: 'red',
-  NONE: 'default', CANDIDATE: 'gold', RECOMMENDED: 'green',
-  ACCURATE: 'green', PARTIAL: 'gold', INCORRECT: 'red', UNJUDGEABLE: 'default',
-  ADMIN: 'blue', ENGINEER: 'default', SUBMIT: 'blue', SUBMIT_REVIEW: 'blue',
-  APPROVE: 'green', REQUEST_CHANGES: 'orange', RETIRE: 'default',
+type StatusTone = 'success' | 'info' | 'warning' | 'danger' | 'neutral';
+
+const statusTones: Record<string, StatusTone> = {
+  ACTIVE: 'success', APPROVED: 'success', VERIFIED: 'success', SUCCEEDED: 'success', RESOLVED: 'success', COMPLETED: 'success',
+  PASSED: 'success', RECOMMENDED: 'success', ACCURATE: 'success', approve: 'success', APPROVE: 'success', PUBLIC: 'success',
+  RUNNING: 'info', PUBLISHED: 'info', OPEN: 'info', INTERNAL: 'info', ADMIN: 'info', submit: 'info', 'submit-review': 'info', SUBMIT: 'info', SUBMIT_REVIEW: 'info',
+  PENDING_REVIEW: 'warning', PENDING: 'warning', PENDING_MANUAL_PUBLISH: 'warning', PLATFORM_REVIEW: 'warning', WARNING: 'warning',
+  CANDIDATE: 'warning', PARTIAL: 'warning', CHANGES_REQUESTED: 'warning', 'request-changes': 'warning', REQUEST_CHANGES: 'warning',
+  FAILED: 'danger', REJECTED: 'danger', VERIFICATION_FAILED: 'danger', RESTRICTED: 'danger', BLOCKING: 'danger', INCORRECT: 'danger',
+};
+
+const toneIcons: Partial<Record<StatusTone, ReactNode>> = {
+  success: <CheckCircleOutlined />, info: <InfoCircleOutlined />, warning: <ExclamationCircleOutlined />, danger: <CloseCircleOutlined />,
 };
 
 export function StatusTag({ status }: { status: string }) {
-  const color = statusColors[status];
-  return color ? <Tag className="status-tag" color={color}>{statusLabels[status] ?? status}</Tag> : <Tag className="status-tag">{statusLabels[status] ?? status}</Tag>;
+  const tone = statusTones[status] ?? 'neutral';
+  return <Tag className={`status-tag status-tag-${tone}`} icon={toneIcons[tone]}>{statusLabels[status] ?? status}</Tag>;
 }

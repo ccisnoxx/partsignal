@@ -3,15 +3,15 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { Button, Card, Typography } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
-import { api, unwrap } from '../../shared/api/client';
+import { dashboardSummaryQueryOptions, geoMetricsQueryOptions } from '../../shared/api/queryOptions';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const summary = useQuery({ queryKey: ['dashboard'], queryFn: async () => unwrap(await api.GET('/api/v1/dashboard/summary')) });
-  const metrics = useQuery({ queryKey: ['geo-metrics'], queryFn: async () => unwrap(await api.GET('/api/v1/geo-metrics')) });
+  const summary = useQuery(dashboardSummaryQueryOptions());
+  const metrics = useQuery(geoMetricsQueryOptions());
   if (summary.isLoading || metrics.isLoading) return <QueryLoading label="正在加载工作台" />;
   if (summary.error || metrics.error) return <QueryFailure error={summary.error ?? metrics.error} onRetry={() => { void summary.refetch(); void metrics.refetch(); }} />;
   const rate = (value: number | null | undefined) => value == null ? null : Math.round(value * 100);
@@ -25,6 +25,7 @@ export function DashboardPage() {
   return (
     <div className="page-stack">
       <PageHeader
+        variant="hero"
         eyebrow="OPERATIONS PULSE"
         title="今天的内容链路"
         description="从待审事实到公开引用，每一步都由真实业务状态驱动。"
@@ -33,7 +34,7 @@ export function DashboardPage() {
       <section className="metric-grid" aria-label="需要行动的工作项">
         <MetricTile label="待审事实" value={summary.data?.pending_fact_reviews ?? 0} to="/products" />
         <MetricTile label="待审内容" value={summary.data?.pending_content_reviews ?? 0} to="/tasks" />
-        <MetricTile label="待人工发布" value={summary.data?.pending_publications ?? 0} tone="signal" to="/publications" />
+        <MetricTile label="待人工发布" value={summary.data?.pending_publications ?? 0} tone="data" to="/publications" />
         <MetricTile label="发布需关注" value={summary.data?.publication_attention ?? 0} tone={summary.data?.publication_attention ? 'danger' : 'default'} to="/publications" />
         <MetricTile label="近期准确性问题" value={summary.data?.recent_accuracy_errors ?? 0} tone={summary.data?.recent_accuracy_errors ? 'danger' : 'default'} to="/observations" />
       </section>

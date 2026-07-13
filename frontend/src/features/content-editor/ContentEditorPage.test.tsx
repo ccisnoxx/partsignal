@@ -117,6 +117,23 @@ test('审核上下文失败时不渲染状态操作', async () => {
   expect(screen.queryByRole('button', { name: /退回修改/ })).not.toBeInTheDocument();
 });
 
+test('人工修订输入后异步更新安全 Markdown 预览', async () => {
+  window.history.pushState({}, '', `/content/${content.id}`);
+  mockFetch((request) => {
+    const path = new URL(request.url).pathname;
+    if (path.endsWith('/auth/me')) return { body: { id: content.created_by, username: 'editor', display_name: '编辑', account_type: 'ENGINEER', is_active: true, must_change_password: false, revision: 1, created_at: content.created_at } satisfies Schema<'User'> };
+    if (path.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
+    if (path.endsWith('/review-context')) return { body: { ...context, content: { ...content, status: 'CHANGES_REQUESTED' } } satisfies Schema<'ContentReviewContext'> };
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+  const { container } = render(<App />);
+  const editor = await screen.findByRole('textbox', { name: 'Markdown 正文' });
+  await userEvent.clear(editor);
+  await userEvent.type(editor, '## 修订预览\n\n<img src="x" onerror="alert(1)">');
+  await waitFor(() => expect(container.querySelector('.markdown-preview.compact h2')).toHaveTextContent('修订预览'));
+  expect(container.querySelector('.markdown-preview.compact img')).not.toHaveAttribute('onerror');
+});
+
 test('真实空证据下退回必须填写意见且可以重新提交', async () => {
   let status: 'PENDING_REVIEW' | 'CHANGES_REQUESTED' = 'PENDING_REVIEW';
   let revision = 1;

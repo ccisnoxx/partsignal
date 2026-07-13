@@ -1,8 +1,8 @@
 # GEO 系统前后端技术与部署方案
 
-> 文档版本：V1.0
-> 编制日期：2026-07-10
-> 当前阶段：MVP 技术设计
+> 文档版本：V1.1
+> 编制日期：2026-07-13
+> 当前阶段：MVP 已实现，产品事实与两级平台规则契约待迁移
 > 业务方案：[多平台 GEO 内容运营系统方案设计](./GEO多平台内容运营系统方案设计.md)
 > 会话背景：[GEO 项目会话归档](./GEO项目会话归档.md)
 
@@ -11,6 +11,8 @@
 本文记录多平台 GEO 内容运营系统已经确认的前后端技术选型、应用架构、数据与文件存储、AI 后台任务、双 VPS 网络拓扑、Docker Compose 部署、Nginx 接入、备份、监控和发布策略。
 
 本文是业务方案的技术实现补充。业务规则、领域模型和 MVP 功能范围以《多平台 GEO 内容运营系统方案设计》为准。
+
+2026-07-13 确认的固定五类任务和具体平台规则层会改变 OpenAPI、数据库与页面流程，当前代码尚未完成迁移。本文件描述目标技术方案，不代表相关契约已经实现。
 
 本文不包含 SSH 私钥、AccessKey、主机公网地址、白名单地址或其他敏感信息。部署时通过服务器上的受控配置注入这些信息。
 
@@ -28,6 +30,10 @@
 | 后台任务 | Celery + 独立 Redis |
 | 文件存储 | 阿里云 OSS |
 | 正文格式 | Markdown 为唯一可编辑正文源 |
+| 产品事实 | 覆盖参数、特性、认证、应用和测试；替代关系可选 |
+| 平台类型 | 固定为公司官网、行业媒体、工程论坛、问答平台和 B2B 平台五种 |
+| 平台规则 | 类型 Prompt 提供基线，`PlatformProfileVersion` 保存具体平台不可变规则 |
+| 内容任务 | 默认生成五类 `TYPE_BASE` 内容，具体平台生成 `PLATFORM` 内容 |
 | 发布方式 | MVP 人工发布并登记结果 |
 | 部署方式 | Hostdzire VPS 上使用 Docker Compose |
 | 公网入口 | DMIT Nginx Stream 前置转发 |
@@ -47,6 +53,7 @@
 6. 在 `4C / 6G / 100G` 的项目机资源内稳定运行。
 7. 保持部署和运维简单，不引入 Kubernetes、微服务或多余中间件。
 8. 为未来增加按平台自动发布保留稳定接口，但不预先实现自动化框架。
+9. 保证类型 Prompt、具体平台规则和模型配置变化不改变历史生成作业的解释结果。
 
 ## 4. 非目标
 
@@ -59,6 +66,7 @@
 - 不在第一阶段实现 WebSocket；生成任务状态使用轮询。
 - 不把 Markdown、HTML 和编辑器 JSON 同时作为可编辑正文源。
 - 不自动发布未经人工审核的内容。
+- 不允许 `TYPE_BASE` 类型内容绕过具体平台规则直接进入发布流程。
 
 ## 5. 总体架构
 
@@ -183,7 +191,15 @@ HTML、纯文本和平台发布格式均由 Markdown 派生，不作为第二份
 
 如果所选 WYSIWYG 编辑器无法稳定无损地回写 Markdown，MVP 应优先采用 Markdown 编辑与独立预览，而不是维护编辑器私有 JSON。
 
-### 6.5 前端目录边界
+### 6.5 五类内容与平台版本交互
+
+- 创建内容任务时不选择具体平台，任务页固定展示五个平台类型。
+- 五种 `TYPE_BASE` 生成作业独立轮询和展示状态；单类失败不隐藏其他类型的成功结果。
+- 编辑器以平台类型为一级切换，以知乎、电子发烧友等具体平台版本为二级切换。
+- 选择具体平台前先展示其 `ACTIVE PlatformProfileVersion`；没有有效版本时禁用生成并显示明确原因。
+- 待发布列表只查询已批准的 `PLATFORM` 内容，前端不得提供发布 `TYPE_BASE` 内容的入口。
+
+### 6.6 前端目录边界
 
 建议按业务能力组织：
 
@@ -207,7 +223,7 @@ frontend/src/
 
 不要按 `pages/components/hooks/services` 建立大量全局目录后让业务代码互相穿插。共享组件只有在确实跨业务复用时才进入 `shared`。
 
-### 6.6 API 客户端
+### 6.7 API 客户端
 
 FastAPI 输出 OpenAPI 文档，前端根据 OpenAPI 生成 TypeScript 请求和响应类型：
 
@@ -245,14 +261,15 @@ Pydantic Schema
 backend/app/
 ├── main.py
 ├── core/                    配置、数据库、权限和通用错误
-├── product_facts/           产品、参数、证据和事实版本
-├── content_planning/        目标问题、平台配置和任务
-├── content_production/      生成、内容版本和质量检查
+├── product_facts/           产品事实、可选替代关系、证据和事实版本
+├── content_planning/        目标问题、具体平台规则和任务
+├── configuration/           固定平台类型、类型 Prompt、AI 渠道和模型
+├── content_production/      两级生成作业、内容版本和质量检查
 ├── review/                  事实审核和内容审核
 ├── publication/             人工发布登记和验证
 ├── geo_observation/         模型测试和效果指标
 ├── files/                   文件元数据和访问授权
-├── identity/                用户、会话和角色
+├── identity/                用户、会话、账号状态和管理员能力
 ├── audit/                   审计日志
 └── integrations/
     ├── llm/                 模型适配器
@@ -275,9 +292,12 @@ backend/app/
 ```text
 POST /api/v1/fact-versions/{id}/submit
 POST /api/v1/fact-versions/{id}/approve
-POST /api/v1/content-tasks/{id}/generate
+POST /api/v1/content-tasks/{id}/generate-type-bases
+POST /api/v1/content-versions/{id}/adapt-to-platform
 POST /api/v1/content-versions/{id}/submit-review
 POST /api/v1/content-versions/{id}/approve
+POST /api/v1/platform-profiles/{id}/versions
+POST /api/v1/platform-profile-versions/{id}/activate
 POST /api/v1/publications/manual
 POST /api/v1/geo-observations
 ```
@@ -286,6 +306,9 @@ POST /api/v1/geo-observations
 
 - 事实版本批准、内容版本批准和发布登记分别使用数据库事务。
 - 已批准版本更新使用数据库约束和服务层双重阻止。
+- 五种 `TYPE_BASE` 作业使用同一批次 ID，但每个作业独立提交和失败；不得用一个长事务包住外部模型调用。
+- `PlatformProfileVersion` 从 `DRAFT` 激活时锁定规则内容，并在数据库层保证每个具体平台最多一个 `ACTIVE` 版本。
+- 创建 `PLATFORM` 作业时校验来源内容已批准、平台类型一致和规则版本为 `ACTIVE`；创建发布记录时再次校验内容范围为 `PLATFORM`。
 - 需要防止重复生成或重复提交的操作使用幂等键。
 - 并发编辑使用版本号或 `updated_at` 进行乐观锁校验。
 - 不使用分布式锁解决单机数据库事务能够解决的问题。
@@ -297,10 +320,10 @@ MVP 建议使用内部账号、密码哈希和服务端会话：
 - 浏览器只保存 `HttpOnly`、`Secure`、`SameSite=Lax` 会话 Cookie。
 - 会话记录保存在 PostgreSQL，可撤销并记录设备和最后活动时间。
 - 写操作使用 CSRF 防护。
-- 权限采用业务方案中定义的 RBAC。
+- 账号类型只使用 `ADMIN` 和 `ENGINEER`；平台 Prompt、具体平台规则、AI 渠道和模型写操作仅允许管理员。
 - 不把长期 JWT 存在 `localStorage`。
 
-如果公司已有 OIDC/SSO，后续用身份适配器替换登录入口，业务角色仍保存在本系统。
+如果公司已有 OIDC/SSO，后续用身份适配器替换登录入口，管理员标识和账号启停状态仍保存在本系统。
 
 该项属于推荐方案，进入认证模块开发前需要业务方确认。
 
@@ -312,13 +335,18 @@ MVP 的生成过程是确定的流水线：
 
 ```text
 加载已批准 FactVersion
-→ 构造事实包
-→ 应用平台和提示模板
-→ 调用模型
-→ Pydantic 校验结构化输出
-→ 运行确定性质量检查
-→ 创建 DRAFT ContentVersion
+→ 遍历五种固定 PlatformType
+→ 分别应用当前 PlatformPrompt
+→ 创建五个 TYPE_BASE GenerationJob
+→ 调用模型并创建五类 DRAFT ContentVersion
+→ 人工编辑并批准 TYPE_BASE 内容
+→ 选择具体 PlatformProfileVersion
+→ 合并来源类型 Prompt 快照与平台差异规则
+→ 创建 PLATFORM GenerationJob 和 DRAFT ContentVersion
+→ 人工编辑并批准后进入发布流程
 ```
+
+产品事实包只包含任务实际拥有的已批准参数、特性、认证、应用和测试结论。参考型号和替代关系是可选输入；平台 Prompt 或平台规则不得要求模型补充不存在的替代事实。
 
 使用项目自有的最小同步 HTTP/1.1 传输实现 `ContentGenerator` 适配器：单次解析完整 A/AAAA、只连接批准地址、发送敏感 Header 前校验 peer，并以原 hostname 完成 SNI、证书校验和 Host。不得使用会按 hostname 二次解析的通用默认传输，也不增加 LangChain、Agent 框架或图编排系统。
 
@@ -333,17 +361,17 @@ sequenceDiagram
     participant W as Celery Worker
     participant L as LLM
 
-    UI->>API: 创建生成任务
-    API->>DB: 写入 GenerationJob(PENDING)
-    API->>R: 投递 job_id
-    API-->>UI: 返回 job_id
-    W->>R: 获取任务
+    UI->>API: 请求生成五类 TYPE_BASE 内容
+    API->>DB: 事务写入 5 个 GenerationJob(PENDING)
+    API->>R: 分别投递 5 个 job_id
+    API-->>UI: 返回批次和 job_id 列表
+    W->>R: 获取单个任务
     W->>DB: 标记 RUNNING
     W->>L: 调用模型
     L-->>W: 结构化结果
-    W->>DB: 保存草稿并标记 SUCCEEDED
-    UI->>API: 轮询任务状态
-    API-->>UI: 返回状态和内容版本
+    W->>DB: 保存对应范围草稿并标记 SUCCEEDED
+    UI->>API: 按批次轮询任务状态
+    API-->>UI: 返回五类独立状态和内容版本
 ```
 
 ### 8.3 任务数据所有权
@@ -352,7 +380,11 @@ PostgreSQL 中的 `generation_jobs` 是任务状态的权威来源，Redis 只�
 
 ```text
 id
-job_type
+batch_id
+scope
+platform_type_id
+platform_profile_version_id
+source_content_version_id
 idempotency_key
 status
 input_snapshot
@@ -365,6 +397,8 @@ started_at
 finished_at
 ```
 
+`TYPE_BASE` 作业必须且只能引用一个固定平台类型；`PLATFORM` 作业必须引用已批准的同类型来源内容和一个 `ACTIVE PlatformProfileVersion`。`input_snapshot` 冻结类型 Prompt、具体平台规则、最终 system/user message、事实、模型和参数，配置变化不得重新解释历史作业。
+
 Worker 启动、成功和失败都更新 PostgreSQL。不得把关键结果只保存在 Celery Result Backend。
 
 ### 8.4 重试规则
@@ -374,6 +408,8 @@ Worker 启动、成功和失败都更新 PostgreSQL。不得把关键结果只�
 - 用户重试创建关联原 Job 的新 Job 并复用不可变快照，不覆盖原失败记录。
 - 模型返回不符合结构时记录失败，不通过重试掩盖提示或契约问题。
 - 同一幂等键只能生成一个有效任务。
+- 五类作业共享批次但不共享成功状态；某个平台类型缺少 Prompt 或生成失败时只标记对应作业失败。
+- 具体平台没有 `ACTIVE` 规则版本或与来源类型不一致时，平台级作业在入队前失败，不自动选择其他平台或规则。
 - 只有任务输入与全部事实 Evidence 都明确为 `PUBLIC` 时才允许第三方模型调用；历史空分级不得默认放行。
 - 错误日志不保存模型密钥、Prompt、响应正文、未公开资料全文或个人敏感信息。
 
@@ -408,7 +444,19 @@ GEO 项目使用独立 PostgreSQL 和独立 Redis 容器，不复用当前其他
 - 对型号、状态、关联 ID、发布时间和测试时间建立必要索引。
 - MVP 使用 PostgreSQL 自带全文能力，不引入 Elasticsearch。
 
-### 9.3 Redis
+### 9.3 业务契约与迁移要求
+
+本次平台模型调整至少涉及以下数据库契约：
+
+- `platform_types.slug` 只允许五个固定值，迁移负责幂等初始化；普通 API 不提供新增和删除。
+- `platform_profiles` 保存具体平台官网和所属类型，`platform_profile_versions` 继续保存 `DRAFT / ACTIVE / RETIRED` 不可变规则。
+- `content_tasks` 移除对具体平台规则版本的直接所有权，改为共享产品、事实版本、目标问题和工程师输入。
+- `generation_jobs` 增加 `batch_id`、`scope`、`platform_type_id`、`platform_profile_version_id` 和 `source_content_version_id`。
+- `content_versions` 增加 `scope` 和 `source_version_id`；发布记录只允许引用 `PLATFORM` 内容。
+
+迁移必须采用先扩展、迁移数据、切换代码、再收缩的顺序。既有任务已锁定具体平台，但没有五类 `TYPE_BASE` 来源，不能自动伪造来源版本或回填批准记录；实施前必须统计真实数据并形成单独迁移方案。没有业务数据时可以重建开发数据；存在业务数据时必须保留原任务、生成快照、内容、审核和发布历史，并通过迁移后只读一致性检查。
+
+### 9.4 Redis
 
 - 只在 Docker 内部网络暴露。
 - 开启 AOF 持久化，降低服务器重启时队列丢失风险。
@@ -799,7 +847,7 @@ GET /api/health/ready
 - API 和 Worker 输出结构化日志到标准输出。
 - Docker 配置日志轮转，避免耗尽磁盘。
 - 请求日志包含请求 ID、用户 ID、接口、状态和耗时。
-- AI 任务日志包含任务 ID、模型适配器、尝试次数和错误码。
+- AI 任务日志包含批次 ID、作业 ID、`scope`、平台类型、平台规则版本、模型适配器、尝试次数和错误码。
 - 不记录密码、Cookie、AccessKey、完整模型密钥和未公开资料全文。
 - 业务审计日志写入 PostgreSQL，与运行日志分离。
 
@@ -825,6 +873,7 @@ MVP 不部署完整 Prometheus/Grafana，先监测最关键指标：
 - 容器重启次数和 OOM。
 - OSS 上传失败率。
 - AI 生成任务成功率、耗时和重试次数。
+- 五类 `TYPE_BASE` 作业的分类型失败率，以及 `PLATFORM` 作业的平台规则不匹配次数。
 
 可先使用现有外部可用性检测或轻量定时脚本；达到实际监控需求后再引入完整指标系统。
 
@@ -858,7 +907,7 @@ MVP 不部署完整 Prometheus/Grafana，先监测最关键指标：
 → 运行只读一致性检查
 → 启动 API
 → 启动 Worker
-→ 验证事实、内容版本和发布记录
+→ 验证事实、五种平台类型、平台规则版本、生成作业快照、内容版本和发布记录
 ```
 
 ## 19. 安全设计
@@ -884,6 +933,7 @@ MVP 不部署完整 Prometheus/Grafana，先监测最关键指标：
 ### 19.3 数据与 AI
 
 - 只有已批准事实进入正式生成上下文。
+- 只有已批准的同类型 `TYPE_BASE` 内容才能作为 `PLATFORM` 作业来源，只有已批准的 `PLATFORM` 内容才能发布。
 - 对资料标记公开、内部和受限等级。
 - 未授权的客户资料和测试数据不得发送给第三方模型。
 - 模型输出必须经过结构校验、事实检查和人工审核。
@@ -931,11 +981,11 @@ MVP 先维持现有路由，监测 AI 请求耗时、OSS 请求耗时和 DMIT �
 
 | 层级 | 工具 | 重点 |
 |---|---|---|
-| 后端单元测试 | pytest | 状态机、版本不变量、权限和校验 |
-| 后端集成测试 | pytest + PostgreSQL | 事务、迁移、任务和 OSS 适配器 |
-| 前端单元测试 | Vitest + Testing Library | 表单、审核、编辑和异常状态 |
+| 后端单元测试 | pytest | 五类平台枚举、两级规则、状态机、版本不变量、权限和校验 |
+| 后端集成测试 | pytest + PostgreSQL | 契约迁移、五类批量作业、平台级作业、发布约束和 OSS 适配器 |
+| 前端单元测试 | Vitest + Testing Library | 五类状态、平台版本切换、表单、审核、编辑和异常状态 |
 | API 契约测试 | OpenAPI 客户端构建 | 前后端类型一致性 |
-| 端到端测试 | Playwright | 产品事实到人工发布登记完整流程 |
+| 端到端测试 | Playwright | 产品事实、五类 `TYPE_BASE`、具体平台 `PLATFORM` 到人工发布登记完整流程 |
 | AI 质量评估 | 固定评估集 | 事实命中、禁止结论和平台差异化 |
 
 外部 OSS 和模型测试需要预算与环境隔离，普通单元测试使用明确的适配器替身，不伪造业务成功状态。
@@ -978,9 +1028,10 @@ geo-platform/
 
 ### 阶段三：核心业务
 
-- 产品事实和证据。
+- 产品事实、可选替代关系和证据。
 - 事实版本和审核。
-- 内容任务、AI 生成和内容版本。
+- 五种固定平台类型、类型 Prompt、具体平台规则版本。
+- 默认五类内容任务、平台级 AI 生成和内容版本。
 - 人工发布登记和 GEO 观测。
 
 ### 阶段四：运维闭环
@@ -1016,6 +1067,10 @@ geo-platform/
 - [ ] Redis AOF 生效。
 - [ ] OSS 上传、下载和权限验证通过。
 - [ ] AI 失败和重试可在 `generation_jobs` 中追踪。
+- [ ] 五种固定平台类型已幂等初始化，普通 API 无法新增或删除。
+- [ ] 五类 `TYPE_BASE` 作业可独立成功或失败，批次状态可追踪。
+- [ ] 具体平台使用明确的 `ACTIVE PlatformProfileVersion` 生成 `PLATFORM` 内容。
+- [ ] `TYPE_BASE` 内容无法创建发布记录，历史作业规则快照不随配置变化。
 - [ ] 审核和发布业务不变量测试通过。
 
 ### 25.4 安全和备份

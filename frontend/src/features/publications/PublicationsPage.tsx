@@ -21,8 +21,9 @@ import {
 } from 'antd';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { queryClient } from '../../app/queryClient';
+import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
+import { publicationRecordsQueryOptions } from '../../shared/api/queryOptions';
 import type { FileRecord, PublicationRecord, Schema } from '../../shared/api/types';
 import { DirectUpload } from '../../shared/components/DirectUpload';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
@@ -63,16 +64,9 @@ function PublicationWorkspace() {
   const candidates = useQuery({
     queryKey: ['publication-candidates'],
     queryFn: async () => unwrap(await api.GET('/api/v1/publication-candidates')),
+    staleTime: QUERY_STALE_TIME.businessList,
   });
-  const records = useQuery({
-    queryKey: ['publication-records'],
-    queryFn: async () =>
-      unwrap(
-        await api.GET('/api/v1/publication-records', {
-          params: { query: { page: 1, page_size: 100 } },
-        }),
-      ),
-  });
+  const records = useQuery(publicationRecordsQueryOptions());
   const attentions = useQuery({
     queryKey: ['publication-attentions', 'OPEN'],
     queryFn: async () =>
@@ -81,6 +75,7 @@ function PublicationWorkspace() {
           params: { query: { status: 'OPEN' } },
         }),
       ),
+    staleTime: QUERY_STALE_TIME.businessList,
   });
   const error = candidates.error ?? records.error ?? attentions.error;
   return (
@@ -199,6 +194,7 @@ function PublicationCreateModal({
           params: { path: { content_version_id: content.id } },
         }),
       ),
+    staleTime: QUERY_STALE_TIME.detail,
   });
   const create = useMutation({
     mutationFn: async (values: Schema<'ManualPublicationCreate'>) =>
@@ -290,6 +286,7 @@ function PublicationDetailPage({ publicationId }: { publicationId: string }) {
           params: { path: { publication_id: publicationId } },
         }),
       ),
+    staleTime: QUERY_STALE_TIME.detail,
   });
   const mutate = useMutation({
     mutationFn: async (body: Schema<'PublicationCommand'>) => {
@@ -385,6 +382,7 @@ function PublicationAttentionPage({ attentionId }: { attentionId: string }) {
           params: { path: { attention_id: attentionId } },
         }),
       ),
+    staleTime: QUERY_STALE_TIME.detail,
   });
   const resolveMutation = useMutation({
     mutationFn: async (body: Schema<'ResolvePublicationAttentionRequest'>) =>
@@ -461,6 +459,7 @@ function PublicationRepairPage({ attentionId }: { attentionId: string }) {
           params: { path: { attention_id: attentionId } },
         }),
       ),
+    staleTime: QUERY_STALE_TIME.detail,
   });
   const create = useMutation({
     mutationFn: async (body: Schema<'PublicationRepairTaskCreate'>) =>

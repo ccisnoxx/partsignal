@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Alert, Button, Card, Checkbox, Descriptions, Divider, Form, Input, InputNumber, List, Modal, Select, Space, Table, Tabs, Timeline, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { queryClient } from '../../app/queryClient';
+import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
 import type { FactVersion, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
@@ -27,10 +27,10 @@ export function ProductFactsPage() {
   const [snapshotTarget, setSnapshotTarget] = useState<FactVersion>();
   const [reviewTarget, setReviewTarget] = useState<FactVersion>();
   const [commandTarget, setCommandTarget] = useState<{ version: FactVersion; command: 'submit' | 'approve' | 'request-changes' | 'retire' } | null>(null);
-  const product = useQuery({ queryKey: ['product', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}', { params: { path: { product_id: productId } } })) });
-  const draft = useQuery({ queryKey: ['facts-draft', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId } } })) });
-  const versions = useQuery({ queryKey: ['fact-versions', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId } } })) });
-  const reviewContext = useQuery({ queryKey: ['fact-review-context', reviewTarget?.id], queryFn: async () => unwrap(await api.GET('/api/v1/fact-versions/{fact_version_id}/review-context', { params: { path: { fact_version_id: reviewTarget?.id ?? '' } } })), enabled: !!reviewTarget });
+  const product = useQuery({ queryKey: ['product', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
+  const draft = useQuery({ queryKey: ['facts-draft', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
+  const versions = useQuery({ queryKey: ['fact-versions', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
+  const reviewContext = useQuery({ queryKey: ['fact-review-context', reviewTarget?.id], queryFn: async () => unwrap(await api.GET('/api/v1/fact-versions/{fact_version_id}/review-context', { params: { path: { fact_version_id: reviewTarget?.id ?? '' } } })), enabled: !!reviewTarget, staleTime: QUERY_STALE_TIME.detail });
   const save = useMutation({
     mutationFn: async (values: Schema<'ProductFactsDraftUpdate'>) => unwrap(await api.PUT('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId }, header: csrfHeader() }, body: values })),
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['facts-draft', productId] }),

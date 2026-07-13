@@ -4,8 +4,9 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Alert, Button, Card, Descriptions, Form, Input, InputNumber, Modal, Select, Space, Table, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { queryClient } from '../../app/queryClient';
+import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
+import { platformProfilesQueryOptions, productsQueryOptions, queryTopicsQueryOptions } from '../../shared/api/queryOptions';
 import type { ContentTask, ContentVersion, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
@@ -19,7 +20,7 @@ export function ContentTasksPage() {
 
 function TaskList() {
   const [open, setOpen] = useState(false);
-  const tasks = useQuery({ queryKey: ['content-tasks'], queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks')) });
+  const tasks = useQuery({ queryKey: ['content-tasks'], queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks')), staleTime: QUERY_STALE_TIME.businessList });
   return <div className="page-stack"><PageHeader eyebrow="CONTENT PIPELINE" title="内容任务" description="任务锁定事实版本和平台规则，后续更新不会静默漂移。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>创建任务</Button>} />
     <Card>{tasks.error ? <QueryFailure error={tasks.error} onRetry={() => void tasks.refetch()} /> : <TableRegion label="内容任务列表"><Table<ContentTask> rowKey="id" loading={tasks.isLoading} dataSource={tasks.data?.items} scroll={{ x: 760 }} columns={[
       { title: '内容角度', dataIndex: 'content_angle', render: (value, row) => <Link to={`/tasks/${row.id}`}><strong>{value}</strong></Link> },
@@ -32,10 +33,10 @@ function TaskList() {
 function TaskCreateModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [productId, setProductId] = useState<string>();
   const [form] = Form.useForm<Schema<'ContentTaskCreate'>>();
-  const topics = useQuery({ queryKey: ['query-topics'], queryFn: async () => unwrap(await api.GET('/api/v1/query-topics')), enabled: open });
-  const products = useQuery({ queryKey: ['products'], queryFn: async () => unwrap(await api.GET('/api/v1/products', { params: { query: { page: 1, page_size: 100 } } })), enabled: open });
-  const platforms = useQuery({ queryKey: ['platform-profiles'], queryFn: async () => unwrap(await api.GET('/api/v1/platform-profiles')), enabled: open });
-  const facts = useQuery({ queryKey: ['fact-versions', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId ?? '' } } })), enabled: open && !!productId });
+  const topics = useQuery({ ...queryTopicsQueryOptions(), enabled: open });
+  const products = useQuery({ ...productsQueryOptions(), enabled: open });
+  const platforms = useQuery({ ...platformProfilesQueryOptions(), enabled: open });
+  const facts = useQuery({ queryKey: ['fact-versions', productId], queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId ?? '' } } })), enabled: open && !!productId, staleTime: QUERY_STALE_TIME.detail });
   const create = useMutation({ mutationFn: async (body: Schema<'ContentTaskCreate'>) => unwrap(await api.POST('/api/v1/content-tasks', { params: { header: csrfHeader() }, body })), onSuccess: async () => { onClose(); await queryClient.invalidateQueries({ queryKey: ['content-tasks'] }); } });
   const dependencyError = topics.error ?? products.error ?? platforms.error ?? facts.error;
   const dependenciesLoading = topics.isLoading || products.isLoading || platforms.isLoading || (!!productId && facts.isLoading);
@@ -51,16 +52,16 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const navigate = useNavigate();
   const [cancelOpen, setCancelOpen] = useState(false);
   const [modelId, setModelId] = useState<string>();
-  const task = useQuery({ queryKey: ['content-task', taskId], queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}', { params: { path: { content_task_id: taskId } } })) });
-  const versions = useQuery({ queryKey: ['content-versions', taskId], queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/content-versions', { params: { path: { content_task_id: taskId } } })) });
-  const jobs = useQuery({ queryKey: ['generation-jobs', taskId], queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/generation-jobs', { params: { path: { content_task_id: taskId } } })), refetchInterval: (query) => query.state.data?.items.some((job) => ['PENDING', 'RUNNING'].includes(job.status)) ? 2000 : false });
-  const options = useQuery({ queryKey: ['generation-options', taskId], queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/generation-options', { params: { path: { content_task_id: taskId } } })), retry: false });
+  const task = useQuery({ queryKey: ['content-task', taskId], queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}', { params: { path: { content_task_id: taskId } } })), staleTime: QUERY_STALE_TIME.detail });
+  const versions = useQuery({ queryKey: ['content-versions', taskId], queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/content-versions', { params: { path: { content_task_id: taskId } } })), staleTime: QUERY_STALE_TIME.detail });
+  const jobs = useQuery({ queryKey: ['generation-jobs', taskId], queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/generation-jobs', { params: { path: { content_task_id: taskId } } })), staleTime: QUERY_STALE_TIME.workbench, refetchInterval: (query) => query.state.data?.items.some((job) => ['PENDING', 'RUNNING'].includes(job.status)) ? 2000 : false });
+  const options = useQuery({ queryKey: ['generation-options', taskId], queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/generation-options', { params: { path: { content_task_id: taskId } } })), staleTime: QUERY_STALE_TIME.configuration, retry: false });
   const savePrompt = useMutation({ mutationFn: async ({ userPrompt, classification }: { userPrompt: string; classification: Schema<'Confidentiality'> }) => { if (!task.data) throw new Error('任务未加载'); return unwrap(await api.PATCH('/api/v1/content-tasks/{content_task_id}/user-prompt', { params: { path: { content_task_id: taskId }, header: csrfHeader() }, body: { expected_revision: task.data.revision, user_prompt_markdown: userPrompt, generation_data_classification: classification } })); }, onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['content-task', taskId] }) });
   const createJob = useMutation({ mutationFn: async () => { if (!modelId) throw new Error('请选择模型'); return unwrap(await api.POST('/api/v1/content-tasks/{content_task_id}/generation-jobs', { params: { path: { content_task_id: taskId }, header: { ...csrfHeader(), 'Idempotency-Key': newIdempotencyKey() } }, body: { ai_model_id: modelId } })); }, onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['generation-jobs', taskId] }) });
   const retryJob = useMutation({ mutationFn: async (jobId: string) => unwrap(await api.POST('/api/v1/generation-jobs/{generation_job_id}/retry', { params: { path: { generation_job_id: jobId }, header: { ...csrfHeader(), 'Idempotency-Key': newIdempotencyKey() } } })), onSuccess: async () => queryClient.invalidateQueries({ queryKey: ['generation-jobs', taskId] }) });
   const taskCommand = useMutation({ mutationFn: async (body: Schema<'CommandRequest'>) => unwrap(await api.POST('/api/v1/content-tasks/{content_task_id}/cancel', { params: { path: { content_task_id: taskId }, header: csrfHeader() }, body })), onSuccess: async () => { setCancelOpen(false); await Promise.all([queryClient.invalidateQueries({ queryKey: ['content-task', taskId] }), queryClient.invalidateQueries({ queryKey: ['content-tasks'] })]); } });
   const latestJob = jobs.data?.items[0];
-  const jobDetail = useQuery({ queryKey: ['generation-job', latestJob?.id], queryFn: async () => unwrap(await api.GET('/api/v1/generation-jobs/{generation_job_id}', { params: { path: { generation_job_id: latestJob?.id ?? '' } } })), enabled: !!latestJob });
+  const jobDetail = useQuery({ queryKey: ['generation-job', latestJob?.id], queryFn: async () => unwrap(await api.GET('/api/v1/generation-jobs/{generation_job_id}', { params: { path: { generation_job_id: latestJob?.id ?? '' } } })), enabled: !!latestJob, staleTime: QUERY_STALE_TIME.detail });
   useEffect(() => {
     if (latestJob?.status === 'SUCCEEDED') void queryClient.invalidateQueries({ queryKey: ['content-versions', taskId] });
   }, [latestJob?.status, taskId]);

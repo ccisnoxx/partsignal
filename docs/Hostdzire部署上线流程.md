@@ -310,6 +310,20 @@ nginx -t
 systemctl reload nginx
 ```
 
+前端资源策略变更时，必须在 reload 前使用当前前端镜像和渲染后的站点配置分别执行 `nginx -t`。reload 后通过公网域名检查响应头，不得只检查状态码：
+
+```sh
+ASSET_PATH=$(curl --fail --silent https://geo.962850.xyz/ | sed -n 's#.*src="\(/assets/[^"]*\.js\)".*#\1#p')
+curl --fail --silent --show-error --compressed -D - -o /dev/null \
+  "https://geo.962850.xyz${ASSET_PATH}"
+curl --fail --silent --show-error --compressed -D - -o /dev/null \
+  https://geo.962850.xyz/index.html
+curl --fail --silent --show-error --compressed -D - -o /dev/null \
+  https://geo.962850.xyz/products/route-fallback-check
+```
+
+带哈希的 `/assets/` 必须返回 gzip、`Vary: Accept-Encoding` 和 `Cache-Control: public, max-age=31536000, immutable`；`index.html` 与 SPA fallback 必须返回 `Cache-Control: no-cache`。WOFF2 不应返回 `Content-Encoding: gzip`。
+
 Hostdzire 的 `80/443` 监听使用 `proxy_protocol`。不要直接对 `10.0.0.2:443` 做普通 `curl`，因为缺少 PROXY Header 会被重置；应始终通过公网域名验证。
 
 ## 10. 上线验证

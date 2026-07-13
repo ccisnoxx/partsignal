@@ -35,6 +35,13 @@ server {
 
     client_max_body_size 10m;
 
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_comp_level 6;
+    gzip_proxied any;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+
     location ^~ /api/ {
         include /etc/nginx/snippets/proxy-common.conf;
         proxy_set_header Connection "";
@@ -50,9 +57,19 @@ server {
         proxy_pass http://partsignal_staging_storage/;
     }
 
+    location /assets/ {
+        include /etc/nginx/snippets/proxy-common.conf;
+        proxy_set_header Connection "";
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        proxy_pass http://partsignal_staging_frontend;
+    }
+
     location / {
         include /etc/nginx/snippets/proxy-common.conf;
         proxy_set_header Connection "";
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-cache" always;
         proxy_pass http://partsignal_staging_frontend;
     }
 }

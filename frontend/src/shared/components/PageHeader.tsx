@@ -2,15 +2,16 @@
 import { Breadcrumb, Space, Typography, type BreadcrumbProps } from 'antd';
 import type { ReactNode } from 'react';
 
-export function PageHeader({ eyebrow, title, description, breadcrumbs, actions }: {
+export function PageHeader({ eyebrow, title, description, breadcrumbs, actions, variant = 'default' }: {
   eyebrow?: ReactNode;
   title: ReactNode;
   description?: ReactNode;
   breadcrumbs?: BreadcrumbProps['items'];
   actions?: ReactNode;
+  variant?: 'default' | 'hero';
 }) {
   return (
-    <header className="page-header">
+    <header className={`page-header${variant === 'hero' ? ' page-hero' : ''}`}>
       <div className="page-header-copy">
         {breadcrumbs && <Breadcrumb items={breadcrumbs} className="page-breadcrumb" />}
         {eyebrow && <Typography.Text className="eyebrow">{eyebrow}</Typography.Text>}

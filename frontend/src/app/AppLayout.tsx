@@ -5,14 +5,16 @@ import {
   TeamOutlined, ToolOutlined,
 } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
-import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, Space, Typography, type MenuProps } from 'antd';
-import { useState, type ReactNode } from 'react';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthProvider';
 import { api, csrfHeader, ensureSuccess, setCsrfToken } from '../shared/api/client';
+import { ThemeModeControl } from '../shared/components/ThemeModeControl';
 import { queryClient } from './queryClient';
+import { prefetchNavigation, scheduleIdleRoutePrefetch } from './routePrefetch';
 
-type NavigationItem = { key: string; icon: ReactNode; label: string; adminOnly?: boolean };
+type NavigationItem = { key: string; icon?: ReactNode; label: string; adminOnly?: boolean; children?: NavigationItem[] };
 
 const workflowNavigation: NavigationItem[] = [
   { key: '/', icon: <BarChartOutlined />, label: '工作台' },
@@ -25,8 +27,33 @@ const workflowNavigation: NavigationItem[] = [
 const systemNavigation: NavigationItem[] = [
   { key: '/settings', icon: <SettingOutlined />, label: '业务设置' },
   { key: '/users', icon: <TeamOutlined />, label: '用户管理', adminOnly: true },
-  { key: '/configuration', icon: <ToolOutlined />, label: '配置中心', adminOnly: true },
+  {
+    key: '/configuration', icon: <ToolOutlined />, label: '配置中心', adminOnly: true,
+    children: [
+      { key: '/configuration/ai', label: 'AI 配置' },
+      { key: '/configuration/platform-types', label: '平台类型与 Prompt' },
+      { key: '/configuration/platforms', label: '具体平台规则' },
+      { key: '/configuration/audit', label: '审计日志' },
+    ],
+  },
 ];
+
+function filterNavigation(items: NavigationItem[], isAdmin: boolean): NavigationItem[] {
+  return items.flatMap((item) => {
+    if (item.adminOnly && !isAdmin) return [];
+    return [{ ...item, children: item.children ? filterNavigation(item.children, isAdmin) : undefined }];
+  });
+}
+
+function navigationLeaves(items: NavigationItem[], parentKey?: string): Array<NavigationItem & { parentKey?: string }> {
+  return items.flatMap((item) => item.children?.length
+    ? navigationLeaves(item.children, item.key)
+    : [{ ...item, parentKey }]);
+}
+
+function matchesRoute(pathname: string, key: string): boolean {
+  return key === '/' ? pathname === '/' : pathname === key || pathname.startsWith(`${key}/`);
+}
 
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
@@ -35,10 +62,10 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const auth = useAuth();
-  const filterNavigation = (items: NavigationItem[]) => items.filter((item) => !item.adminOnly || auth.isAdmin);
-  const workflowItems = filterNavigation(workflowNavigation);
-  const systemItems = filterNavigation(systemNavigation);
-  const visibleNavigation = [...workflowItems, ...systemItems];
+  const workflowItems = filterNavigation(workflowNavigation, auth.isAdmin);
+  const systemItems = filterNavigation(systemNavigation, auth.isAdmin);
+  const visibleLeaves = navigationLeaves([...workflowItems, ...systemItems]);
+  useEffect(() => scheduleIdleRoutePrefetch(), []);
   const logout = useMutation({
     mutationFn: async () => ensureSuccess(await api.POST('/api/v1/auth/logout', { params: { header: csrfHeader() } })),
     onSuccess: async () => {
@@ -48,19 +75,37 @@ export function AppLayout() {
       navigate('/login', { replace: true });
     },
   });
-  const selectedKey = visibleNavigation.find((item) => item.key !== '/' && location.pathname.startsWith(item.key))?.key ?? '/';
-  const currentSection = visibleNavigation.find((item) => item.key === selectedKey)?.label ?? '工作台';
+  const selected = visibleLeaves
+    .filter((item) => matchesRoute(location.pathname, item.key))
+    .sort((left, right) => right.key.length - left.key.length)[0] ?? visibleLeaves.find((item) => item.key === '/');
+  const selectedKey = selected?.key ?? '/';
+  const currentSection = selected?.label ?? '工作台';
+  const toMenuItems = (items: NavigationItem[]): MenuProps['items'] => items.map((item) => ({
+    key: item.key,
+    icon: item.icon,
+    children: item.children ? toMenuItems(item.children) : undefined,
+    label: item.children ? (
+      <span onMouseEnter={() => void prefetchNavigation(item.key)} onFocus={() => void prefetchNavigation(item.key)}>{item.label}</span>
+    ) : (
+      <Link
+        to={item.key}
+        onMouseEnter={() => void prefetchNavigation(item.key)}
+        onFocus={() => void prefetchNavigation(item.key)}
+        onClick={() => setDrawerOpen(false)}
+      >{item.label}</Link>
+    ),
+  }));
   const menuItems: MenuProps['items'] = [
-    { type: 'group', label: '内容工作流', children: workflowItems },
-    { type: 'group', label: '系统管理', children: systemItems },
+    { type: 'group', label: '内容工作流', children: toMenuItems(workflowItems) },
+    { type: 'group', label: '系统管理', children: toMenuItems(systemItems) },
   ];
-  const menu = <Menu theme="dark" mode="inline" items={menuItems} selectedKeys={[selectedKey]} onClick={({ key }) => { navigate(key); setDrawerOpen(false); }} />;
+  const menu = <Menu key={location.pathname} mode="inline" items={menuItems} selectedKeys={[selectedKey]} defaultOpenKeys={selected?.parentKey ? [selected.parentKey] : []} />;
   const desktopSider = !!screens.lg;
 
   return (
     <Layout className="app-shell">
       {desktopSider ? (
-        <Layout.Sider width={232} collapsedWidth={72} collapsed={collapsed} className="app-sider">
+        <Layout.Sider theme="light" width={232} collapsedWidth={72} collapsed={collapsed} className="app-sider">
           <div className="brand-mark"><span>PS</span>{!collapsed && <strong>PartSignal</strong>}</div>
           {menu}
           {!collapsed && <div className="sider-note">事实可信 · 人工审核 · 历史可溯</div>}
@@ -76,25 +121,32 @@ export function AppLayout() {
             <Button type="text" aria-label="切换导航" icon={desktopSider ? (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />) : <MenuUnfoldOutlined />} onClick={() => desktopSider ? setCollapsed((value) => !value) : setDrawerOpen(true)} />
             <div><Typography.Text className="header-kicker">PARTSIGNAL</Typography.Text><Typography.Text strong>{currentSection}</Typography.Text></div>
           </Space>
-          <Dropdown
-            trigger={['click']}
-            menu={{
-              items: [
-                { key: 'password', icon: <LockOutlined />, label: '修改密码' },
-                { type: 'divider' },
-                { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', disabled: logout.isPending },
-              ],
-              onClick: ({ key }) => key === 'password' ? navigate('/change-password') : logout.mutate(),
-            }}
-          >
-            <Button type="text" className="user-trigger" aria-label="打开用户操作菜单">
-              <Avatar>{auth.user?.display_name.slice(0, 1)}</Avatar>
-              <span className="user-block"><strong>{auth.user?.display_name}</strong><small>{auth.user?.username}</small></span>
-              <DownOutlined />
-            </Button>
-          </Dropdown>
+          <Space size="small" className="header-actions">
+            <ThemeModeControl compact={!screens.md} />
+            <Dropdown
+              trigger={['click']}
+              menu={{
+                items: [
+                  { key: 'password', icon: <LockOutlined />, label: '修改密码' },
+                  { type: 'divider' },
+                  { key: 'logout', icon: <LogoutOutlined />, label: '退出登录', disabled: logout.isPending },
+                ],
+                onClick: ({ key }) => key === 'password' ? navigate('/change-password') : logout.mutate(),
+              }}
+            >
+              <Button type="text" className="user-trigger" aria-label="打开用户操作菜单">
+                <Avatar>{auth.user?.display_name.slice(0, 1)}</Avatar>
+                <span className="user-block"><strong>{auth.user?.display_name}</strong><small>{auth.user?.username}</small></span>
+                <DownOutlined />
+              </Button>
+            </Dropdown>
+          </Space>
         </Layout.Header>
-        <Layout.Content className="app-content"><Outlet /></Layout.Content>
+        <Layout.Content className="app-content">
+          <Suspense fallback={<section className="route-loading" role="status" aria-label="页面加载中"><Skeleton active paragraph={{ rows: 6 }} /></section>}>
+            <Outlet />
+          </Suspense>
+        </Layout.Content>
       </Layout>
     </Layout>
   );

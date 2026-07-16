@@ -14,6 +14,7 @@ const statusLabels: Record<string, string> = {
   submit: '提交审核', 'submit-review': '提交审核', approve: '批准',
   'request-changes': '退回修改', retire: '停用', ADMIN: '管理员', ENGINEER: '工程师',
   PUBLIC: '公开', INTERNAL: '内部', RESTRICTED: '受限', URL_ONLY: '仅 URL',
+  AI: 'AI 生成', HUMAN: '人工编辑',
   UNTESTED: '未测试', PASSED: '已通过', WARNING: '警告', BLOCKING: '阻断',
   NONE: '未推荐', CANDIDATE: '候选', RECOMMENDED: '已推荐',
   ACCURATE: '准确', PARTIAL: '部分准确', INCORRECT: '不准确', UNJUDGEABLE: '无法判断',

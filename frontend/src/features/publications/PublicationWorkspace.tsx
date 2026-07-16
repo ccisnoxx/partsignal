@@ -40,7 +40,7 @@ export function PublicationWorkspace() {
   const error = candidates.error ?? records.error ?? attentions.error;
   return (
     <div className="page-stack">
-      <PageHeader eyebrow="HUMAN PUBLISHING" title="人工发布" description="系统只准备发布包并记录结果，不登录或操作外部平台。" />
+      <PageHeader eyebrow="人工发布" title="人工发布" description="系统只准备发布包并记录结果，不登录或操作外部平台。" />
       {error && <QueryFailure error={error} onRetry={() => { void candidates.refetch(); void records.refetch(); void attentions.refetch(); }} />}
       <section className="workspace-summary" aria-label="人工发布摘要">
         <div><span>待发布候选</span><strong className="data-code">{candidates.data?.items.length ?? 0}</strong></div>

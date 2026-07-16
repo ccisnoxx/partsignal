@@ -26,7 +26,7 @@ export function DashboardPage() {
     <div className="page-stack">
       <PageHeader
         variant="hero"
-        eyebrow="OPERATIONS PULSE"
+        eyebrow="运营脉搏"
         title="今天的内容链路"
         description="从待审事实到公开引用，每一步都由真实业务状态驱动。"
         actions={<Button type="primary" size="large" icon={<ArrowRightOutlined />} onClick={() => navigate('/tasks')}>创建内容任务</Button>}

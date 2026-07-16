@@ -37,7 +37,7 @@ class QueryTopic(Base):
 
 
 class PlatformType(Base):
-    """平台类别以及平台 Prompt 的稳定归属。"""
+    """管理员维护的平台分类。"""
 
     __tablename__ = "platform_types"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
@@ -56,12 +56,12 @@ class PlatformType(Base):
 
 
 class PlatformPrompt(Base):
-    """平台类型当前唯一的可编辑 Markdown system Prompt。"""
+    """具体平台当前唯一的可编辑 Markdown system Prompt。"""
 
     __tablename__ = "platform_prompts"
-    platform_type_id: Mapped[uuid.UUID] = mapped_column(
+    platform_profile_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("platform_types.id", ondelete="CASCADE"),
+        ForeignKey("platform_profiles.id", ondelete="CASCADE"),
         primary_key=True,
     )
     template_markdown: Mapped[str] = mapped_column(Text, nullable=False)

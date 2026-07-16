@@ -26,6 +26,7 @@ from app.schemas.configuration import (
     AIChannelHeaderOut,
     AIChannelHeaderUpdate,
     AIChannelList,
+    AIChannelModelSummary,
     AIChannelOut,
     AIChannelUpdate,
     AIModelCreate,
@@ -82,6 +83,12 @@ from app.services.platform_configuration import (
     create_platform_type as create_platform_type_command,
 )
 from app.services.platform_configuration import (
+    delete_platform_profile as delete_platform_profile_command,
+)
+from app.services.platform_configuration import (
+    delete_platform_profile_version as delete_platform_profile_version_command,
+)
+from app.services.platform_configuration import (
     delete_platform_prompt as delete_platform_prompt_command,
 )
 from app.services.platform_configuration import (
@@ -120,6 +127,11 @@ def channel_out(channel: AIChannel) -> AIChannelOut:
                 value=None if item.is_sensitive else item.plain_value,
             )
             for item in sorted(channel.headers, key=lambda value: value.normalized_name)
+        ],
+        enabled_models=[
+            AIChannelModelSummary(display_name=model.display_name, model_id=model.model_id)
+            for model in sorted(channel.models, key=lambda value: value.display_name)
+            if model.is_enabled
         ],
         revision=channel.revision,
         created_by=channel.created_by,
@@ -212,26 +224,26 @@ def delete_platform_type(
 
 
 @router.get(
-    "/platform-types/{platform_type_id}/prompt",
+    "/platform-profiles/{platform_profile_id}/prompt",
     response_model=PlatformPromptOut,
     operation_id="getPlatformPrompt",
 )
 def get_platform_prompt(
-    platform_type_id: uuid.UUID, db: DbSession, _admin: AdminUser
+    platform_profile_id: uuid.UUID, db: DbSession, _admin: AdminUser
 ) -> PlatformPromptOut:
-    prompt = db.get(PlatformPrompt, platform_type_id)
+    prompt = db.get(PlatformPrompt, platform_profile_id)
     if prompt is None:
         raise not_found("平台 Prompt")
     return platform_prompt_out(prompt)
 
 
 @router.put(
-    "/platform-types/{platform_type_id}/prompt",
+    "/platform-profiles/{platform_profile_id}/prompt",
     response_model=PlatformPromptOut,
     operation_id="putPlatformPrompt",
 )
 def put_platform_prompt(
-    platform_type_id: uuid.UUID,
+    platform_profile_id: uuid.UUID,
     payload: PlatformPromptPut,
     request: Request,
     db: DbSession,
@@ -240,7 +252,7 @@ def put_platform_prompt(
 ) -> PlatformPromptOut:
     prompt = put_platform_prompt_command(
         db=db,
-        platform_type_id=platform_type_id,
+        platform_profile_id=platform_profile_id,
         payload=payload,
         actor=admin,
         request_id=request.state.request_id,
@@ -249,12 +261,12 @@ def put_platform_prompt(
 
 
 @router.delete(
-    "/platform-types/{platform_type_id}/prompt",
+    "/platform-profiles/{platform_profile_id}/prompt",
     status_code=status.HTTP_204_NO_CONTENT,
     operation_id="deletePlatformPrompt",
 )
 def delete_platform_prompt(
-    platform_type_id: uuid.UUID,
+    platform_profile_id: uuid.UUID,
     request: Request,
     db: DbSession,
     admin: AdminUser,
@@ -262,7 +274,7 @@ def delete_platform_prompt(
 ) -> None:
     delete_platform_prompt_command(
         db=db,
-        platform_type_id=platform_type_id,
+        platform_profile_id=platform_profile_id,
         actor=admin,
         request_id=request.state.request_id,
     )
@@ -291,6 +303,46 @@ def update_platform_profile(
     return platform_profile_out(db, profile)
 
 
+@router.delete(
+    "/platform-profiles/{platform_profile_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deletePlatformProfile",
+)
+def delete_platform_profile(
+    platform_profile_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
+) -> None:
+    delete_platform_profile_command(
+        db=db,
+        platform_profile_id=platform_profile_id,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
+
+
+@router.delete(
+    "/platform-profile-versions/{platform_profile_version_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deletePlatformProfileVersion",
+)
+def delete_platform_profile_version(
+    platform_profile_version_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
+) -> None:
+    delete_platform_profile_version_command(
+        db=db,
+        platform_profile_version_id=platform_profile_version_id,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
+
+
 @router.get("/ai-channels", response_model=AIChannelList, operation_id="listAIChannels")
 def list_ai_channels(db: DbSession, _admin: AdminUser) -> AIChannelList:
     channels = list(db.scalars(select(AIChannel).order_by(AIChannel.created_at)))
@@ -316,9 +368,7 @@ def create_ai_channel(
     return channel_out(channel)
 
 
-@router.get(
-    "/ai-channels/{channel_id}", response_model=AIChannelOut, operation_id="getAIChannel"
-)
+@router.get("/ai-channels/{channel_id}", response_model=AIChannelOut, operation_id="getAIChannel")
 def get_ai_channel(channel_id: uuid.UUID, db: DbSession, _admin: AdminUser) -> AIChannelOut:
     channel = db.get(AIChannel, channel_id)
     if channel is None:
@@ -533,9 +583,7 @@ def list_ai_models(channel_id: uuid.UUID, db: DbSession, _admin: AdminUser) -> A
         raise not_found("AI 渠道")
     models = list(
         db.scalars(
-            select(AIModel)
-            .where(AIModel.channel_id == channel_id)
-            .order_by(AIModel.created_at)
+            select(AIModel).where(AIModel.channel_id == channel_id).order_by(AIModel.created_at)
         )
     )
     return AIModelList(items=[model_out(item) for item in models])

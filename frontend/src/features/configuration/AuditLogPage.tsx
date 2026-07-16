@@ -17,7 +17,7 @@ export function AuditLogPage() {
   });
   const items = audit.data?.items ?? [];
   return <div className="page-stack">
-    <PageHeader eyebrow="GOVERNANCE" title="审计日志" description="查看配置与管理操作留下的审计记录。" />
+    <PageHeader eyebrow="治理记录" title="审计日志" description="查看配置与管理操作留下的审计记录。" />
     <Card>{audit.isLoading ? <QueryLoading label="正在加载审计日志" /> : audit.error ? <QueryFailure error={audit.error} onRetry={() => void audit.refetch()} /> : items.length === 0 ? <NoData description="暂无审计记录" /> : <TableRegion label="审计日志"><Table<Schema<'AuditLog'>> rowKey="id" dataSource={items} scroll={{ x: 900 }} columns={[
       { title: '时间', dataIndex: 'created_at', render: (value) => <span className="data-code">{new Date(value).toLocaleString('zh-CN')}</span> },
       { title: '动作', dataIndex: 'action' },

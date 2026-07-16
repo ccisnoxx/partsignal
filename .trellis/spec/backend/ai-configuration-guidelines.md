@@ -31,6 +31,8 @@
 - 每次真实请求只解析一次完整 A/AAAA 集合并整体校验，只连接该集合中的 `sockaddr`；实际 TCP peer 必须在发送 Authorization 或敏感 Header 前属于批准集合。HTTPS 始终用原 hostname 完成 SNI、证书身份和 Host。
 - 同一次请求开始发送 HTTP 字节后不得切换地址或自动重试；响应正文必须受固定大小上限保护。不得恢复“先校验 URL、再由通用客户端按 hostname 二次解析”的 TOCTOU 路径。
 - Prompt 保存必须同时记录整份生成输入的分级、分类人和时间。只有任务分级与绑定事实快照的全部 Evidence 均为 `PUBLIC` 时才能调用第三方模型；历史空分级、`INTERNAL` 或 `RESTRICTED` 一律拒绝。
+- 当前平台 Prompt 的唯一所有者是 `PlatformProfile`：`GET/PUT/DELETE /api/v1/platform-profiles/{platform_profile_id}/prompt`。不得恢复类型级 Prompt API、双读、默认 Prompt 或兼容回退。
+- 内容任务仍提交具体 `platform_profile_version_id`。服务端必须同时校验版本为 `ACTIVE` 且所属平台存在当前 Prompt；新作业快照必须写入具体平台身份和最终 system/user message，旧快照缺少平台对象只允许只读。
 
 ### 4. 校验与错误矩阵
 
@@ -38,6 +40,7 @@
 - HTTP 重定向 -> `AI_REDIRECT_FORBIDDEN`，不得跟随。
 - 实际 TCP peer 不在本次批准集合 -> `AI_URL_FORBIDDEN`，且敏感 Header 尚未发送。
 - 任务或事实证据未全部明确为 `PUBLIC` -> `AI_DATA_CLASSIFICATION_FORBIDDEN`。
+- 具体平台没有当前 Prompt -> `PLATFORM_PROMPT_MISSING`；不得回退到平台类型或其他平台 Prompt。
 - 响应超过固定上限 -> `AI_RESPONSE_TOO_LARGE`，不得继续读取或改走其他地址。
 - 保留 Header、非法 token 或控制字符 -> `INVALID_HEADER`。
 - 密钥、密文格式或关联数据错误 -> `CREDENTIAL_DECRYPTION_FAILED`。

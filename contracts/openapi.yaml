@@ -241,6 +241,16 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/Product'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+    delete:
+      tags: [product-facts]
+      operationId: deleteProduct
+      parameters:
+        - {$ref: '#/components/parameters/ProductId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 已删除未被历史引用的产品及当前事实工作区}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}/facts:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     get:
@@ -508,6 +518,63 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfile'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+    delete:
+      tags: [configuration]
+      operationId: deletePlatformProfile
+      parameters:
+        - {$ref: '#/components/parameters/PlatformProfileId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 已删除未被规则版本或平台账号引用的平台}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/platform-profile-versions/{platform_profile_version_id}:
+    delete:
+      tags: [configuration]
+      operationId: deletePlatformProfileVersion
+      parameters:
+        - {$ref: '#/components/parameters/PlatformProfileVersionId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 已删除未被内容任务引用的平台规则版本}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/platform-profiles/{platform_profile_id}/prompt:
+    get:
+      tags: [configuration]
+      operationId: getPlatformPrompt
+      parameters: [{$ref: '#/components/parameters/PlatformProfileId'}]
+      responses:
+        '200':
+          description: 当前平台 Prompt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformPrompt'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+    put:
+      tags: [configuration]
+      operationId: putPlatformPrompt
+      parameters:
+        - {$ref: '#/components/parameters/PlatformProfileId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlatformPromptPut'}
+      responses:
+        '200':
+          description: 已创建或原地更新当前 Prompt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformPrompt'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+    delete:
+      tags: [configuration]
+      operationId: deletePlatformPrompt
+      parameters:
+        - {$ref: '#/components/parameters/PlatformProfileId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 已删除当前 Prompt}
   /api/v1/platform-types:
     get:
       tags: [configuration]
@@ -559,46 +626,8 @@ paths:
         - {$ref: '#/components/parameters/PlatformTypeId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
-        '204': {description: 已删除未被引用的平台类型及当前 Prompt}
+        '204': {description: 已删除未被引用的平台类型}
         '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/platform-types/{platform_type_id}/prompt:
-    get:
-      tags: [configuration]
-      operationId: getPlatformPrompt
-      parameters: [{$ref: '#/components/parameters/PlatformTypeId'}]
-      responses:
-        '200':
-          description: 当前平台 Prompt
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformPrompt'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
-    put:
-      tags: [configuration]
-      operationId: putPlatformPrompt
-      parameters:
-        - {$ref: '#/components/parameters/PlatformTypeId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/PlatformPromptPut'}
-      responses:
-        '200':
-          description: 已创建或原地更新当前 Prompt
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformPrompt'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-    delete:
-      tags: [configuration]
-      operationId: deletePlatformPrompt
-      parameters:
-        - {$ref: '#/components/parameters/PlatformTypeId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      responses:
-        '204': {description: 已删除当前 Prompt}
   /api/v1/ai-channels:
     get:
       tags: [configuration]
@@ -1148,6 +1177,16 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformAccount'}
+  /api/v1/platform-accounts/{platform_account_id}:
+    delete:
+      tags: [publication]
+      operationId: deletePlatformAccount
+      parameters:
+        - {name: platform_account_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 已删除未被发布记录引用的平台账号}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-records/manual:
     post:
       tags: [publication]
@@ -1889,7 +1928,7 @@ components:
     PlatformProfile:
       type: object
       additionalProperties: false
-      required: [id, name, slug, allowed_domains, platform_type_id, revision, active_version]
+      required: [id, name, slug, allowed_domains, platform_type_id, revision, active_version, prompt_configured]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
@@ -1897,7 +1936,11 @@ components:
         allowed_domains: {type: array, items: {type: string}}
         platform_type_id: {type: [string, 'null'], format: uuid}
         revision: {type: integer}
-        active_version: {$ref: '#/components/schemas/PlatformProfileVersion'}
+        active_version:
+          anyOf:
+            - {$ref: '#/components/schemas/PlatformProfileVersion'}
+            - {type: 'null'}
+        prompt_configured: {type: boolean}
     PlatformProfileList:
       type: object
       additionalProperties: false
@@ -1947,9 +1990,9 @@ components:
     PlatformPrompt:
       type: object
       additionalProperties: false
-      required: [platform_type_id, template_markdown, revision, updated_by, created_at, updated_at]
+      required: [platform_profile_id, template_markdown, revision, updated_by, created_at, updated_at]
       properties:
-        platform_type_id: {type: string, format: uuid}
+        platform_profile_id: {type: string, format: uuid}
         template_markdown: {type: string}
         revision: {type: integer}
         updated_by: {type: string, format: uuid}
@@ -2011,7 +2054,7 @@ components:
     AIChannel:
       type: object
       additionalProperties: false
-      required: [id, name, base_url, timeout_seconds, is_enabled, api_key_configured, api_key_updated_at, headers, revision, created_by, created_at, updated_at]
+      required: [id, name, base_url, timeout_seconds, is_enabled, api_key_configured, api_key_updated_at, headers, enabled_models, revision, created_by, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
@@ -2021,6 +2064,7 @@ components:
         api_key_configured: {type: boolean}
         api_key_updated_at: {type: string, format: date-time}
         headers: {type: array, items: {$ref: '#/components/schemas/AIChannelHeader'}}
+        enabled_models: {type: array, items: {$ref: '#/components/schemas/AIChannelModelSummary'}}
         revision: {type: integer}
         created_by: {type: string, format: uuid}
         created_at: {type: string, format: date-time}
@@ -2031,6 +2075,13 @@ components:
       required: [items]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/AIChannel'}}
+    AIChannelModelSummary:
+      type: object
+      additionalProperties: false
+      required: [display_name, model_id]
+      properties:
+        display_name: {type: string}
+        model_id: {type: string}
     AIModelCreate:
       type: object
       additionalProperties: false
@@ -2207,6 +2258,7 @@ components:
         channel: {type: object, additionalProperties: true}
         model: {type: object, additionalProperties: true}
         platform_type: {type: object, additionalProperties: true}
+        platform_profile: {type: [object, 'null'], additionalProperties: true}
         system_message: {type: string}
         user_prompt_markdown: {type: string}
         generation_data_classification: {$ref: '#/components/schemas/Confidentiality'}

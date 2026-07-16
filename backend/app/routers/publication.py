@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Header, Query, Request, status
 from sqlalchemy import func, select
 
-from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
+from app.deps import AdminUser, CsrfProtected, CurrentUser, DbSession, EngineerUser
 from app.errors import not_found
 from app.models.content import ContentTask
 from app.models.publication import (
@@ -47,6 +47,7 @@ from app.services.publication import (
 from app.services.publication import (
     create_platform_account as create_platform_account_command,
 )
+from app.services.publication import delete_platform_account as delete_platform_account_command
 from app.services.publication_queries import (
     get_attention,
     get_repair_context,
@@ -68,6 +69,7 @@ PublicationCommandName = Literal[
     "remove",
     "mark-verification-failed",
 ]
+
 
 @router.get(
     "/content-versions/{content_version_id}/publication-package",
@@ -100,9 +102,7 @@ def get_publication_package(
     response_model=PublicationCandidateList,
     operation_id="listPublicationCandidates",
 )
-def list_publication_candidates(
-    db: DbSession, _user: CurrentUser
-) -> PublicationCandidateList:
+def list_publication_candidates(db: DbSession, _user: CurrentUser) -> PublicationCandidateList:
     return list_publication_candidates_service(db)
 
 
@@ -133,6 +133,26 @@ def create_platform_account(
         db=db, payload=payload, actor=editor, request_id=request.state.request_id
     )
     return PlatformAccountOut.model_validate(account)
+
+
+@router.delete(
+    "/platform-accounts/{platform_account_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deletePlatformAccount",
+)
+def delete_platform_account(
+    platform_account_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
+) -> None:
+    delete_platform_account_command(
+        db=db,
+        platform_account_id=platform_account_id,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
 
 
 @router.post(

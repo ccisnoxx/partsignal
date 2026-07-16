@@ -8,8 +8,9 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
-from app.errors import AppError, not_found
-from app.models.geo_files import FileRecord
+from app.errors import AppError, in_use, not_found
+from app.models.content import ContentTask
+from app.models.geo_files import FileRecord, GeoObservation
 from app.models.identity import User
 from app.models.product_facts import (
     ClaimEvidenceLink,
@@ -204,9 +205,7 @@ def validate_fact_graph(db: Session, payload: ProductFactsBody, require_complete
             raise AppError("VALIDATION_ERROR", "已批准表达和必要披露必须关联证据", 422)
 
 
-def create_product(
-    *, db: Session, payload: ProductCreate, actor: User, request_id: str
-) -> Product:
+def create_product(*, db: Session, payload: ProductCreate, actor: User, request_id: str) -> Product:
     """创建公司产品，不推断任何产品参数。"""
     product = Product(
         part_number=payload.part_number.strip(),
@@ -279,6 +278,63 @@ def update_product(
     )
     db.commit()
     return product
+
+
+def delete_product(*, db: Session, product_id: uuid.UUID, actor: User, request_id: str) -> None:
+    """仅删除没有历史引用的产品及其当前事实工作区。"""
+    product = db.scalar(select(Product).where(Product.id == product_id).with_for_update())
+    if product is None:
+        raise not_found("产品")
+    references = [
+        (
+            "FACT_VERSION",
+            "事实版本",
+            int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(FactVersion)
+                    .where(FactVersion.product_id == product.id)
+                )
+                or 0
+            ),
+        ),
+        (
+            "CONTENT_TASK",
+            "内容任务",
+            int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(ContentTask)
+                    .where(ContentTask.product_id == product.id)
+                )
+                or 0
+            ),
+        ),
+        (
+            "GEO_OBSERVATION",
+            "GEO 观测",
+            int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(GeoObservation)
+                    .where(GeoObservation.product_id == product.id)
+                )
+                or 0
+            ),
+        ),
+    ]
+    if any(count for _, _, count in references):
+        raise in_use("PRODUCT_IN_USE", "产品", references)
+    append_audit(
+        db,
+        actor_id=actor.id,
+        action="product.deleted",
+        target_type="Product",
+        target_id=product.id,
+        request_id=request_id,
+    )
+    db.delete(product)
+    db.commit()
 
 
 def replace_product_facts(
@@ -390,9 +446,7 @@ def replace_product_facts(
         db.add(relation_model)
         db.flush()
         db.add_all(
-            ReplacementEvidenceLink(
-                replacement_id=relation_model.id, evidence_id=evidences[key].id
-            )
+            ReplacementEvidenceLink(replacement_id=relation_model.id, evidence_id=evidences[key].id)
             for key in relation_data.evidence_keys
         )
     for claim_data in body.claims:

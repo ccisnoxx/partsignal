@@ -53,6 +53,7 @@ class AIChannel(Base):
     headers: Mapped[list[AIChannelHeader]] = relationship(
         cascade="all, delete-orphan", lazy="selectin"
     )
+    models: Mapped[list[AIModel]] = relationship(cascade="all, delete-orphan", lazy="selectin")
 
 
 class AIChannelHeader(Base):

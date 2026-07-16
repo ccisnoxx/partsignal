@@ -19,6 +19,7 @@ from app.models.ai_generation import (
     GenerationJob,
 )
 from app.models.configuration import (
+    PlatformProfile,
     PlatformProfileVersion,
     PlatformPrompt,
     QueryTopic,
@@ -90,9 +91,12 @@ def build_generation_input(
         raise not_found("目标问题")
     if task.platform_type_id is None or task.platform_type_snapshot is None:
         raise AppError("PLATFORM_TYPE_MISSING", "内容任务没有锁定平台类型", 409)
-    prompt = db.get(PlatformPrompt, task.platform_type_id)
+    profile = db.get(PlatformProfile, platform.platform_profile_id)
+    if profile is None:
+        raise AppError("INVALID_STATE_TRANSITION", "任务绑定的平台不存在", 409)
+    prompt = db.get(PlatformPrompt, profile.id)
     if prompt is None:
-        raise AppError("PLATFORM_PROMPT_MISSING", "任务平台类型缺少当前 Prompt", 409)
+        raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少当前 Prompt", 409)
     channel = db.get(AIChannel, model.channel_id)
     if channel is None or not channel.is_enabled:
         raise AppError("AI_CONFIGURATION_DISABLED", "所选 AI 渠道当前不可用", 409)
@@ -179,6 +183,13 @@ def build_generation_input(
             "request_parameters": model.request_parameters,
         },
         platform_type=dict(task.platform_type_snapshot),
+        platform_profile={
+            "id": str(profile.id),
+            "name": profile.name,
+            "slug": profile.slug,
+            "platform_profile_version_id": str(platform.id),
+            "platform_profile_version": platform.version,
+        },
         system_message=system_message,
         user_prompt_markdown=task.user_prompt_markdown,
         generation_data_classification=task.generation_data_classification,

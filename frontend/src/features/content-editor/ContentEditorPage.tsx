@@ -28,6 +28,7 @@ import type { Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { evidenceTypeLabel } from '../../shared/components/enumLabels';
 import { RevisionForm } from './RevisionForm';
 
 type ReviewAction = Schema<'ContentReviewAction'>;
@@ -114,7 +115,7 @@ export function ContentEditorPage() {
     <div className="page-stack">
       <Link className="back-link" to={`/tasks/${current.task_id}`}><ArrowLeftOutlined /> 返回内容任务</Link>
       <PageHeader
-        eyebrow={`CONTENT VERSION / V${current.version}`}
+        eyebrow={`内容版本 / V${current.version}`}
         title={current.title}
         description={<>{current.source_type === 'AI' ? 'AI 草稿' : '人工修订'} · 哈希 <span className="data-code">{current.content_hash.slice(0, 12)}</span></>}
         breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: `V${current.version} 审核` }]}
@@ -239,7 +240,7 @@ export function ContentEditorPage() {
                   <StatusTag status={evidenceStatus.get(item.client_key) ?? 'URL_ONLY'} />
                 </Space>
                 <Typography.Text type="secondary">
-                  {item.type} · {item.version} · {item.source_url ?? '无公开 URL'}
+                  {evidenceTypeLabel(item.type)} · {item.version} · {item.source_url ?? '无公开 URL'}
                 </Typography.Text>
               </Space>
             </List.Item>

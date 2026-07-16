@@ -64,7 +64,7 @@ Only `VERIFIED` files may be linked. Referenced objects cannot be deleted throug
 
 `users` gains `account_type` (`ADMIN | ENGINEER`) and `must_change_password`. Existing users with `SYSTEM_ADMIN` become `ADMIN`; all other existing users become `ENGINEER`. After the mapping, `roles` and `user_roles` are removed so `users.account_type` is the only permission source. Application users remain non-deletable business identities. Disabling a user or resetting a password revokes all active sessions. A transaction may not disable or demote the last active `ADMIN`.
 
-`platform_types` owns a unique category `slug`; `platform_prompts` stores at most one mutable Markdown system Prompt per type. `platform_profiles.platform_type_id` is nullable only for migrated profiles and uses `RESTRICT` on delete. New profiles and new content tasks require an explicit type. `content_tasks.platform_type_snapshot` freezes the selected type identity while `user_prompt_markdown` remains an editable task draft protected by `revision`.
+`platform_types` owns a unique category `slug`. Revision `0009` initially placed one mutable Markdown system Prompt under each type; revision `0014` replaces that ownership with one current Prompt per concrete platform. `platform_profiles.platform_type_id` is nullable only for migrated profiles and uses `RESTRICT` on delete. New profiles and new content tasks require an explicit type. `content_tasks.platform_type_snapshot` freezes the selected type identity while `user_prompt_markdown` remains an editable task draft protected by `revision`.
 
 `ai_channels` owns an encrypted API key, timeout, and connection state. `ai_channel_headers` belongs only to a channel, normalizes names case-insensitively, and stores exactly one of a plain or encrypted value. `ai_models` belongs to a channel and stores the provider `model_id`, display name, exact JSON request parameters, and model-level test state. Channels and models default disabled. Connection, credential, or Header changes disable the channel and invalidate every child model test; model ID or parameter changes disable and invalidate that model.
 
@@ -101,6 +101,14 @@ The repair command fixes product, query topic, and platform from the original ta
 Fact and content review records remain append-only. `request-changes` requires a non-blank comment, while submit and approve comments remain optional. Revision `0013` extends both database status guards so `CHANGES_REQUESTED -> PENDING_REVIEW` is valid without changing the immutable version payload. Review contexts are read projections over the locked fact/content versions, evidence file status, generation snapshot, deterministic version diff, actor summary, and stable review history; they do not persist a second copy.
 
 Before `0013`, `python -m app.cli preflight-integrity` must return an empty JSON array. It reports stable IDs for `COMPLETED_WITHOUT_VERIFIED_PUBLICATION` when a completed task has no append-only `VERIFIED` publication status event, and for non-terminal `PUBLICATION_PLATFORM_MISMATCH`; a publication that was verified and later removed remains valid completion history, while an explicitly `REJECTED`, `REMOVED`, or `VERIFICATION_FAILED` mismatch remains traceable but no longer blocks deployment. The command exits non-zero when any issue exists and never changes history. The migration repeats the critical check so direct Alembic execution cannot bypass the deployment gate. Once any attention or repair source exists, downgrade is refused and deployment must move forward.
+
+### 0014 Platform Prompt Ownership
+
+`platform_prompts.platform_profile_id` is the primary key and references `platform_profiles.id` with `ON DELETE CASCADE`; each concrete platform owns zero or one current Markdown Prompt. The migration creates a replacement table and copies each legacy type Prompt to every existing profile of that type. A legacy Prompt whose type has no concrete platform produces no row. The old table and `platform_type_id` column are removed; there is no dual read, dual write, type-level compatibility endpoint, or fallback Prompt.
+
+A concrete platform may exist without an `ACTIVE platform_profile_version` or without a current Prompt. Administrators can still classify the platform, create and activate new immutable rule versions, and maintain its Prompt. Engineers may create a content task only with an `ACTIVE` rule version whose concrete platform currently has a Prompt. Deleting an unreferenced `ACTIVE` rule version leaves the profile in the explicit “no effective rule” state and never activates another version automatically.
+
+New generation snapshots include the concrete platform identity and continue freezing the final system/user messages. Old immutable snapshots may omit the concrete-platform object only for historical reads; new writes must include it. Platform Prompts can diverge after migration, so `0014` does not guess how to merge them on downgrade; rollback requires the pre-migration PostgreSQL backup.
 
 ## State Machines
 
@@ -139,7 +147,10 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - `users.account_type` is the only permission source. `ADMIN` includes all `ENGINEER` abilities and exclusively manages users and configuration.
 - At least one active `ADMIN` must remain after every user account-type or active-state update.
 - Sensitive AI values are encrypted with the deployment master key and never returned, audited, logged, or copied into generation snapshots.
-- A platform type referenced by a platform profile cannot be deleted; deleting an unreferenced type cascades only to its current Prompt.
+- A platform type referenced by a platform profile cannot be deleted. Platform types do not own Prompts after `0014`.
+- A concrete platform owns zero or one current Prompt. Deleting the current Prompt or an unreferenced `ACTIVE` rule version keeps the platform manageable but removes it from the engineer-selectable set until both an `ACTIVE` rule and current Prompt exist.
+- Product, platform profile/version, platform account, and platform type physical deletion is admin-only. Services lock the target, count direct references, and return structured `409 details.references`; they never cascade, reassign, or rewrite immutable business history.
+- A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform rule version requires no `ContentTask`; a platform profile requires no rule versions or platform accounts; a platform account requires no `PublicationRecord`; a platform type requires no platform profiles.
 - Channel deletion cascades to Headers and models. Historical job foreign keys become null while their immutable snapshots remain readable.
 - A model can be enabled only after its own successful test. A channel can be enabled only when at least one child model has passed testing.
 - A generation job performs at most one provider call. Expired worker leases fail explicitly; retries create a new job and preserve the original non-sensitive snapshot.

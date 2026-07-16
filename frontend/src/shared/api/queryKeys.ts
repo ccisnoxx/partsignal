@@ -12,12 +12,12 @@ export const queryKeys = {
   },
   platformTypes: {
     all: ['platform-types'] as const,
-    prompt: (id: string | undefined) => ['platform-prompt', id] as const,
   },
   queryTopics: ['query-topics'] as const,
   platformProfiles: {
     all: ['platform-profiles'] as const,
     versions: (id: string | undefined) => ['platform-profile-versions', id] as const,
+    prompt: (id: string | undefined) => ['platform-prompt', id] as const,
   },
   platformAccounts: ['platform-accounts'] as const,
   auditLogs: ['audit-logs'] as const,

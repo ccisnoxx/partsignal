@@ -81,9 +81,6 @@ def get_generation_options(
         raise not_found("内容任务")
     if task.platform_type_id is None or task.platform_type_snapshot is None:
         raise AppError("PLATFORM_TYPE_MISSING", "内容任务没有锁定平台类型", 409)
-    prompt = db.get(PlatformPrompt, task.platform_type_id)
-    if prompt is None:
-        raise AppError("PLATFORM_PROMPT_MISSING", "任务平台类型缺少当前 Prompt", 409)
     platform_version = db.get(PlatformProfileVersion, task.platform_profile_version_id)
     platform_profile = (
         db.get(PlatformProfile, platform_version.platform_profile_id)
@@ -92,6 +89,9 @@ def get_generation_options(
     )
     if platform_profile is None:
         raise AppError("INVALID_STATE_TRANSITION", "内容任务锁定的平台不存在", 409)
+    prompt = db.get(PlatformPrompt, platform_profile.id)
+    if prompt is None:
+        raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少当前 Prompt", 409)
     rows = db.execute(
         select(AIModel, AIChannel)
         .join(AIChannel, AIChannel.id == AIModel.channel_id)

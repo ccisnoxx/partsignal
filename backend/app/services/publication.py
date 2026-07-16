@@ -7,11 +7,11 @@ import uuid
 from datetime import UTC, datetime
 from urllib.parse import urlparse
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
-from app.errors import AppError, not_found
+from app.errors import AppError, in_use, not_found
 from app.models.configuration import (
     PlatformProfile,
     PlatformProfileVersion,
@@ -68,9 +68,7 @@ def require_publishable(db: Session, content_id: uuid.UUID) -> ContentVersion:
     if content is None:
         raise not_found("内容版本")
     fact = db.get(FactVersion, content.fact_version_id)
-    task = db.scalar(
-        select(ContentTask).where(ContentTask.id == content.task_id).with_for_update()
-    )
+    task = db.scalar(select(ContentTask).where(ContentTask.id == content.task_id).with_for_update())
     if content.status != "APPROVED" or fact is None or fact.status != "APPROVED":
         raise AppError("CONTENT_NOT_APPROVED", "只有绑定有效批准事实的批准内容可以发布", 409)
     if task is None or task.status != "OPEN":
@@ -97,6 +95,41 @@ def create_platform_account(
     )
     db.commit()
     return account
+
+
+def delete_platform_account(
+    *, db: Session, platform_account_id: uuid.UUID, actor: User, request_id: str
+) -> None:
+    """仅删除没有发布记录引用的平台账号标识。"""
+    account = db.scalar(
+        select(PlatformAccount).where(PlatformAccount.id == platform_account_id).with_for_update()
+    )
+    if account is None:
+        raise not_found("平台账号")
+    publication_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(PublicationRecord)
+            .where(PublicationRecord.platform_account_id == account.id)
+        )
+        or 0
+    )
+    if publication_count:
+        raise in_use(
+            "PLATFORM_ACCOUNT_IN_USE",
+            "平台账号",
+            [("PUBLICATION_RECORD", "发布记录", publication_count)],
+        )
+    append_audit(
+        db,
+        actor_id=actor.id,
+        action="platform_account.deleted",
+        target_type="PlatformAccount",
+        target_id=account.id,
+        request_id=request_id,
+    )
+    db.delete(account)
+    db.commit()
 
 
 def create_manual_publication(
@@ -197,9 +230,7 @@ def command_publication(
 ) -> PublicationRecordOut:
     """锁定发布与任务后原子执行发布状态、任务终态和异常待办。"""
     publication = db.scalar(
-        select(PublicationRecord)
-        .where(PublicationRecord.id == publication_id)
-        .with_for_update()
+        select(PublicationRecord).where(PublicationRecord.id == publication_id).with_for_update()
     )
     if publication is None:
         raise not_found("发布记录")
@@ -381,9 +412,7 @@ def create_repair_task(
         .where(PlatformProfileVersion.id == payload.platform_profile_version_id)
         .with_for_update()
     )
-    original_platform = db.get(
-        PlatformProfileVersion, original_task.platform_profile_version_id
-    )
+    original_platform = db.get(PlatformProfileVersion, original_task.platform_profile_version_id)
     if fact is None or fact.status != "APPROVED" or fact.product_id != original_task.product_id:
         raise AppError("FACT_NOT_APPROVED", "修复任务必须选择当前已批准的同产品事实版本", 409)
     if (

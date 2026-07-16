@@ -48,7 +48,7 @@ export function PublicationAttentionPage({ attentionId }: { attentionId: string 
   return (
     <div className="page-stack">
       <Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布工作台</Button>
-      <PageHeader eyebrow="PUBLICATION ATTENTION" title="发布异常待办" description="异常待办保留原发布上下文，创建修复任务不会自动关闭待办。" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: '异常待办' }]} actions={<StatusTag status={attention.status} />} />
+      <PageHeader eyebrow="发布异常" title="发布异常待办" description="异常待办保留原发布上下文，创建修复任务不会自动关闭待办。" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: '异常待办' }]} actions={<StatusTag status={attention.status} />} />
       <Card title="异常上下文" className="workspace-panel">
         <Descriptions
           column={1}

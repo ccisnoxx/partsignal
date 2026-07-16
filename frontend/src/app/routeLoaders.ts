@@ -16,6 +16,7 @@ export const routeLoaders = {
   aiChannelDetail: () => import('../features/configuration/AIChannelDetailPage'),
   platformTypes: () => import('../features/configuration/PlatformTypesPage'),
   platforms: () => import('../features/configuration/PlatformsPage'),
+  platformPrompts: () => import('../features/configuration/PlatformPromptsPage'),
   auditLog: () => import('../features/configuration/AuditLogPage'),
 } as const;
 
@@ -35,4 +36,5 @@ export const AIChannelsPage = lazy(async () => ({ default: (await routeLoaders.a
 export const AIChannelDetailPage = lazy(async () => ({ default: (await routeLoaders.aiChannelDetail()).AIChannelDetailPage }));
 export const PlatformTypesPage = lazy(async () => ({ default: (await routeLoaders.platformTypes()).PlatformTypesPage }));
 export const PlatformsPage = lazy(async () => ({ default: (await routeLoaders.platforms()).PlatformsPage }));
+export const PlatformPromptsPage = lazy(async () => ({ default: (await routeLoaders.platformPrompts()).PlatformPromptsPage }));
 export const AuditLogPage = lazy(async () => ({ default: (await routeLoaders.auditLog()).AuditLogPage }));

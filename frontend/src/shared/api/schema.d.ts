@@ -208,7 +208,7 @@ export interface paths {
         get: operations["getProduct"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deleteProduct"];
         options?: never;
         head?: never;
         patch: operations["updateProduct"];
@@ -454,10 +454,42 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deletePlatformProfile"];
         options?: never;
         head?: never;
         patch: operations["updatePlatformProfile"];
+        trace?: never;
+    };
+    "/api/v1/platform-profile-versions/{platform_profile_version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deletePlatformProfileVersion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-profiles/{platform_profile_id}/prompt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlatformPrompt"];
+        put: operations["putPlatformPrompt"];
+        post?: never;
+        delete: operations["deletePlatformPrompt"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/platform-types": {
@@ -490,22 +522,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["updatePlatformType"];
-        trace?: never;
-    };
-    "/api/v1/platform-types/{platform_type_id}/prompt": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getPlatformPrompt"];
-        put: operations["putPlatformPrompt"];
-        post?: never;
-        delete: operations["deletePlatformPrompt"];
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/v1/ai-channels": {
@@ -1017,6 +1033,22 @@ export interface paths {
         put?: never;
         post: operations["createPlatformAccount"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-accounts/{platform_account_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deletePlatformAccount"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1619,7 +1651,8 @@ export interface components {
             /** Format: uuid */
             platform_type_id: string | null;
             revision: number;
-            active_version: components["schemas"]["PlatformProfileVersion"];
+            active_version: components["schemas"]["PlatformProfileVersion"] | null;
+            prompt_configured: boolean;
         };
         PlatformProfileList: {
             items: components["schemas"]["PlatformProfile"][];
@@ -1655,7 +1688,7 @@ export interface components {
         };
         PlatformPrompt: {
             /** Format: uuid */
-            platform_type_id: string;
+            platform_profile_id: string;
             template_markdown: string;
             revision: number;
             /** Format: uuid */
@@ -1715,6 +1748,7 @@ export interface components {
             /** Format: date-time */
             api_key_updated_at: string;
             headers: components["schemas"]["AIChannelHeader"][];
+            enabled_models: components["schemas"]["AIChannelModelSummary"][];
             revision: number;
             /** Format: uuid */
             created_by: string;
@@ -1725,6 +1759,10 @@ export interface components {
         };
         AIChannelList: {
             items: components["schemas"]["AIChannel"][];
+        };
+        AIChannelModelSummary: {
+            display_name: string;
+            model_id: string;
         };
         AIModelCreate: {
             display_name: string;
@@ -1893,6 +1931,9 @@ export interface components {
             platform_type: {
                 [key: string]: unknown;
             };
+            platform_profile?: {
+                [key: string]: unknown;
+            } | null;
             system_message: string;
             user_prompt_markdown: string;
             generation_data_classification?: components["schemas"]["Confidentiality"];
@@ -2753,6 +2794,30 @@ export interface operations {
             404: components["responses"]["ErrorResponse"];
         };
     };
+    deleteProduct: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                product_id: components["parameters"]["ProductId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除未被历史引用的产品及当前事实工作区 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
     updateProduct: {
         parameters: {
             query?: never;
@@ -3215,6 +3280,29 @@ export interface operations {
             };
         };
     };
+    deletePlatformProfile: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_profile_id: components["parameters"]["PlatformProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除未被规则版本或平台账号引用的平台 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
     updatePlatformProfile: {
         parameters: {
             query?: never;
@@ -3242,6 +3330,103 @@ export interface operations {
                 };
             };
             409: components["responses"]["ErrorResponse"];
+        };
+    };
+    deletePlatformProfileVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_profile_version_id: components["parameters"]["PlatformProfileVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除未被内容任务引用的平台规则版本 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformPrompt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform_profile_id: components["parameters"]["PlatformProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前平台 Prompt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPrompt"];
+                };
+            };
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    putPlatformPrompt: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_profile_id: components["parameters"]["PlatformProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformPromptPut"];
+            };
+        };
+        responses: {
+            /** @description 已创建或原地更新当前 Prompt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPrompt"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    deletePlatformPrompt: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_profile_id: components["parameters"]["PlatformProfileId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除当前 Prompt */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     listPlatformTypes: {
@@ -3303,7 +3488,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 已删除未被引用的平台类型及当前 Prompt */
+            /** @description 已删除未被引用的平台类型 */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -3340,80 +3525,6 @@ export interface operations {
                 };
             };
             409: components["responses"]["ErrorResponse"];
-        };
-    };
-    getPlatformPrompt: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform_type_id: components["parameters"]["PlatformTypeId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 当前平台 Prompt */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformPrompt"];
-                };
-            };
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    putPlatformPrompt: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                platform_type_id: components["parameters"]["PlatformTypeId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlatformPromptPut"];
-            };
-        };
-        responses: {
-            /** @description 已创建或原地更新当前 Prompt */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformPrompt"];
-                };
-            };
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
-    deletePlatformPrompt: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                platform_type_id: components["parameters"]["PlatformTypeId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 已删除当前 Prompt */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     listAIChannels: {
@@ -4389,6 +4500,29 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformAccount"];
                 };
             };
+        };
+    };
+    deletePlatformAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除未被发布记录引用的平台账号 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            409: components["responses"]["ErrorResponse"];
         };
     };
     createManualPublication: {

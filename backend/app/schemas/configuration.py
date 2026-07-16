@@ -113,7 +113,8 @@ class PlatformProfileOut(ContractModel):
     allowed_domains: list[str]
     platform_type_id: uuid.UUID | None
     revision: int
-    active_version: PlatformProfileVersionOut
+    active_version: PlatformProfileVersionOut | None
+    prompt_configured: bool
 
 
 class PlatformProfileList(ContractModel):
@@ -147,7 +148,7 @@ class PlatformPromptPut(ContractModel):
 
 
 class PlatformPromptOut(ContractModel):
-    platform_type_id: uuid.UUID
+    platform_profile_id: uuid.UUID
     template_markdown: str
     revision: int
     updated_by: uuid.UUID
@@ -193,6 +194,11 @@ class AIChannelApiKeyReplace(ContractModel):
     api_key: str = Field(min_length=1)
 
 
+class AIChannelModelSummary(ContractModel):
+    display_name: str
+    model_id: str
+
+
 class AIChannelOut(ContractModel):
     id: uuid.UUID
     name: str
@@ -202,6 +208,7 @@ class AIChannelOut(ContractModel):
     api_key_configured: bool
     api_key_updated_at: datetime
     headers: list[AIChannelHeaderOut]
+    enabled_models: list[AIChannelModelSummary]
     revision: int
     created_by: uuid.UUID
     created_at: datetime

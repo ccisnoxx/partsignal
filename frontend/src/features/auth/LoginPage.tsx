@@ -30,7 +30,7 @@ export function LoginPage() {
     <main className="login-page">
       <div className="login-theme-control"><ThemeModeControl /></div>
       <section className="login-intro">
-        <Typography.Text className="eyebrow">PARTSIGNAL / GEO OPERATIONS</Typography.Text>
+        <Typography.Text className="eyebrow">PARTSIGNAL / GEO 运营</Typography.Text>
         <Typography.Title>让每条替代结论<br />都有证据可循。</Typography.Title>
         <Typography.Paragraph>从产品事实到内容审核、人工发布与 GEO 观测，在同一条可追溯链路上协作。</Typography.Paragraph>
       </section>

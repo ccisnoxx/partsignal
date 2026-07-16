@@ -9,6 +9,7 @@ export class ApiError extends Error {
     message: string,
     readonly code: string,
     readonly requestId?: string,
+    readonly details: Record<string, unknown> = {},
   ) {
     super(message);
     this.name = 'ApiError';
@@ -48,18 +49,18 @@ export const api = createClient<paths>({
 
 api.use(csrfMiddleware);
 
-type ErrorPayload = { error?: { code?: string; message?: string; request_id?: string } };
+type ErrorPayload = { error?: { code?: string; message?: string; request_id?: string; details?: Record<string, unknown> } };
 
 export function unwrap<T>(result: { data?: T; error?: ErrorPayload; response: Response }): T {
   if (result.data !== undefined) return result.data;
   const detail = result.error?.error;
-  throw new ApiError(detail?.message ?? `请求失败（HTTP ${result.response.status}）`, detail?.code ?? 'HTTP_ERROR', detail?.request_id);
+  throw new ApiError(detail?.message ?? `请求失败（HTTP ${result.response.status}）`, detail?.code ?? 'HTTP_ERROR', detail?.request_id, detail?.details);
 }
 
 export function ensureSuccess(result: { error?: ErrorPayload; response: Response }): void {
   if (result.response.ok) return;
   const detail = result.error?.error;
-  throw new ApiError(detail?.message ?? `请求失败（HTTP ${result.response.status}）`, detail?.code ?? 'HTTP_ERROR', detail?.request_id);
+  throw new ApiError(detail?.message ?? `请求失败（HTTP ${result.response.status}）`, detail?.code ?? 'HTTP_ERROR', detail?.request_id, detail?.details);
 }
 
 export function errorMessage(error: unknown): string {

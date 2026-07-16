@@ -18,6 +18,7 @@ import {
   GeoObservationsPage,
   PlatformTypesPage,
   PlatformsPage,
+  PlatformPromptsPage,
   ProductFactsPage,
   ProductsPage,
   PublicationsPage,
@@ -56,6 +57,7 @@ export function App() {
                       <Route path="ai/channels/:channelId" element={<AIChannelDetailPage />} />
                       <Route path="platform-types" element={<PlatformTypesPage />} />
                       <Route path="platforms" element={<PlatformsPage />} />
+                      <Route path="prompts" element={<PlatformPromptsPage />} />
                       <Route path="audit" element={<AuditLogPage />} />
                     </Route>
                   </Route>

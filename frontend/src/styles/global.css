@@ -180,6 +180,9 @@ a:hover { color: var(--ps-action-primary-hover); }
 .configuration-channel-facts dt { color: var(--ps-text-secondary); }
 .configuration-channel-facts dd { min-width: 0; margin: 0; text-align: right; }
 .configuration-channel-cta { display: inline-block; margin-top: 22px; color: var(--ps-link); font-weight: 600; }
+.configuration-channel-models { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--ps-border-subtle); }
+.configuration-channel-models > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.configuration-model-tag { display: inline-flex; max-width: 100%; flex-direction: column; gap: 2px; margin: 0; padding: 5px 8px; white-space: normal; overflow-wrap: anywhere; }
 .configuration-channel-card .ant-btn-dangerous { color: var(--ps-danger-text) !important; font-weight: 600; }
 .configuration-section-card .ant-alert { margin-bottom: 16px; }
 .configuration-connection-form { display: grid; grid-template-columns: minmax(160px, .7fr) minmax(280px, 2fr) minmax(120px, .5fr) auto; gap: 16px; align-items: end; }

@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, Query, Request, status
 from sqlalchemy import func, or_, select
 
-from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
+from app.deps import AdminUser, CsrfProtected, CurrentUser, DbSession, EngineerUser
 from app.errors import not_found
 from app.models.product_facts import (
     FactVersion,
@@ -35,6 +35,7 @@ from app.services.product_facts import (
 from app.services.product_facts import (
     create_product as create_product_command,
 )
+from app.services.product_facts import delete_product as delete_product_command
 from app.services.product_facts import (
     load_fact_body,
 )
@@ -127,6 +128,21 @@ def update_product(
         request_id=request.state.request_id,
     )
     return ProductOut.model_validate(product)
+
+
+@router.delete(
+    "/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT, operation_id="deleteProduct"
+)
+def delete_product(
+    product_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
+) -> None:
+    delete_product_command(
+        db=db, product_id=product_id, actor=admin, request_id=request.state.request_id
+    )
 
 
 @router.get(

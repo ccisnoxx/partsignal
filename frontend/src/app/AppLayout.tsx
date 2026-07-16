@@ -31,8 +31,9 @@ const systemNavigation: NavigationItem[] = [
     key: '/configuration', icon: <ToolOutlined />, label: '配置中心', adminOnly: true,
     children: [
       { key: '/configuration/ai', label: 'AI 配置' },
-      { key: '/configuration/platform-types', label: '平台类型与 Prompt' },
-      { key: '/configuration/platforms', label: '具体平台规则' },
+      { key: '/configuration/platform-types', label: '平台类型' },
+      { key: '/configuration/platforms', label: '平台管理' },
+      { key: '/configuration/prompts', label: 'Prompt 管理' },
       { key: '/configuration/audit', label: '审计日志' },
     ],
   },

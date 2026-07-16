@@ -79,3 +79,50 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 - 新发布的平台等值由应用服务给出业务错误，并由 PostgreSQL 插入触发器最终保护。测试必须同时覆盖 API 与直接数据库写入。
 - `PublicationAttention` 只能以 revision 0 的 `OPEN` 初态插入，绑定与打开时间不可变，历史不可删除；唯一允许的状态变化是带非空说明和单次 revision 递增的 `OPEN -> RESOLVED`。
 - 修复任务来源字段一旦写入不可改绑。异常或修复来源产生后，迁移只允许前滚，downgrade 不得删除业务历史。
+
+## 场景：平台级 Prompt 与受约束物理删除
+
+### 1. 范围与触发条件
+
+- 修改平台 Prompt 所有权、平台可用性、产品或平台配置删除时适用。
+- 当前配置可以物理删除；不可变事实、任务、内容、发布和观测历史不得级联、改绑或自动清理。
+
+### 2. 签名
+
+- 数据库 revision：`0014_platform_prompt_ownership`，`down_revision = "0013_publication_closure"`。
+- Prompt 主键：`platform_prompts.platform_profile_id -> platform_profiles.id ON DELETE CASCADE`。
+- 删除接口：`DELETE /products/{id}`、`/platform-profile-versions/{id}`、`/platform-profiles/{id}`、`/platform-accounts/{id}`、`/platform-types/{id}`。
+
+### 3. 契约
+
+- 一个具体平台拥有零或一个当前 Prompt；类型级 Prompt 字段、接口、双读和默认值全部禁止。
+- 平台可没有 `ACTIVE` 规则。管理员仍可配置；工程师只有在 `ACTIVE` 规则和当前 Prompt 同时存在时才能创建任务。
+- 删除服务在同一事务锁定目标并统计直接引用。冲突响应使用 `details.references[{type,count}]`，只报告真实直接引用。
+
+### 4. 校验与错误矩阵
+
+| 删除对象 | 直接阻断引用 | 成功结果 |
+|---|---|---|
+| `Product` | `FactVersion`、`ContentTask`、`GeoObservation` | 删除产品和当前事实工作区 |
+| `PlatformProfileVersion` | `ContentTask` | 删除版本；若为 `ACTIVE`，平台进入无有效规则状态 |
+| `PlatformProfile` | 规则版本、平台账号 | 删除平台及其当前 Prompt |
+| `PlatformAccount` | `PublicationRecord` | 删除公开账号标识 |
+| `PlatformType` | 具体平台 | 删除分类 |
+
+### 5. 正常、基础与失败案例
+
+- 正常：删除未引用的 `ACTIVE` 规则后，平台保留，`active_version=null`，工程师不可选。
+- 基础：管理员为该平台激活新版本且当前 Prompt 存在后，平台重新进入可选集合。
+- 失败：任一直接引用存在时返回结构化 `409`，所有目标和历史记录保持不变。
+
+### 6. 必需测试
+
+- PostgreSQL 迁移测试覆盖类型 Prompt 一对多复制、孤立 Prompt 丢弃、平台主键唯一约束和不可降级策略。
+- API 集成测试覆盖每类直接引用、管理员权限、无引用成功删除，以及删除 `ACTIVE` 规则后的可用性变化。
+- E2E 验证冲突引用中文展示、Prompt 缺失/无有效规则禁选和重新激活后的恢复。
+
+### 7. 错误与正确示例
+
+错误做法：捕获首个外键异常、级联删除历史，或删除 `ACTIVE` 版本后自动挑选旧版本。
+
+正确做法：锁定目标，显式统计权威引用并返回稳定类型；只有引用为空才删除当前配置，平台可用性由当前 `ACTIVE` 规则与 Prompt 共同推导。

@@ -109,6 +109,8 @@ class GenerationSnapshot(ContractModel):
     channel: dict[str, Any]
     model: dict[str, Any]
     platform_type: dict[str, Any]
+    # 0014 之前的不可变历史快照没有具体平台字段；新作业必须写入。
+    platform_profile: dict[str, Any] | None = None
     system_message: str
     user_prompt_markdown: str
     # 0012 之前的不可变历史快照没有分级字段；新建或重试第三方作业必须显式校验。

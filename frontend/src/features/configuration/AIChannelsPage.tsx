@@ -1,7 +1,7 @@
 /** 管理 AI 渠道集合，并提供稳定详情路由入口。 */
 import { DeleteOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Space, Typography } from 'antd';
+import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Space, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
@@ -38,7 +38,7 @@ export function AIChannelsPage() {
   const mutationError = create.error ?? toggle.error ?? remove.error;
 
   return <div className="page-stack">
-    <PageHeader eyebrow="MODEL GOVERNANCE" title="AI 配置" description="管理 OpenAI-compatible 渠道、凭据、请求 Header 与模型。敏感凭据永不回显。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新增渠道</Button>} />
+    <PageHeader eyebrow="模型治理" title="AI 配置" description="管理 OpenAI-compatible 渠道、凭据、请求 Header 与模型。敏感凭据永不回显。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新增渠道</Button>} />
     {mutationError && <Alert role="alert" type="error" showIcon message={errorMessage(mutationError)} />}
     {channels.isLoading ? <QueryLoading label="正在加载 AI 渠道" /> : channels.error ? <QueryFailure error={channels.error} onRetry={() => void channels.refetch()} /> : (channels.data?.items.length ?? 0) === 0 ? <NoData description="暂无 AI 渠道" /> : (
       <section className="configuration-channel-grid" aria-label="AI 渠道列表">
@@ -76,6 +76,7 @@ function ChannelCard({ channel, onToggle, onDelete, toggling, deleting }: {
         <div><dt>API Key</dt><dd>{channel.api_key_configured ? `已配置 · ${new Date(channel.api_key_updated_at).toLocaleString('zh-CN')}` : '未配置'}</dd></div>
         <div><dt>请求 Header</dt><dd>{channel.headers.length} 个</dd></div>
       </dl>
+      <section className="configuration-channel-models" aria-label="已启用模型"><Typography.Text type="secondary">已启用模型</Typography.Text><div>{channel.enabled_models.length === 0 ? <span>暂无启用模型</span> : channel.enabled_models.map((model) => <Tag key={model.model_id} className="configuration-model-tag"><strong>{model.display_name}</strong><span className="data-code">{model.model_id}</span></Tag>)}</div></section>
       <span className="configuration-channel-cta">查看配置</span>
     </Link>
   </Card>;

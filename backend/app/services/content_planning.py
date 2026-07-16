@@ -13,6 +13,7 @@ from app.errors import AppError, not_found
 from app.models.configuration import (
     PlatformProfile,
     PlatformProfileVersion,
+    PlatformPrompt,
     PlatformType,
     QueryTopic,
 )
@@ -279,6 +280,8 @@ def create_content_task(
     platform_type = db.get(PlatformType, profile.platform_type_id)
     if platform_type is None:
         raise AppError("PLATFORM_TYPE_MISSING", "所选平台类型不存在", 409)
+    if db.get(PlatformPrompt, profile.id) is None:
+        raise AppError("PLATFORM_PROMPT_MISSING", "所选平台尚未配置当前 Prompt", 409)
     task = ContentTask(
         **payload.model_dump(mode="python", exclude={"canonical_url"}),
         canonical_url=str(payload.canonical_url),

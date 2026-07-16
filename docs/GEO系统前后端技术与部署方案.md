@@ -1,8 +1,8 @@
 # GEO 系统前后端技术与部署方案
 
-> 文档版本：V1.2
-> 编制日期：2026-07-13
-> 当前阶段：MVP 已实现，产品事实与两级平台规则契约待迁移
+> 文档版本：V1.3
+> 编制日期：2026-07-16
+> 当前阶段：MVP 已实现，平台配置治理与受约束清理能力已完成
 > 业务方案：[多平台 GEO 内容运营系统方案设计](./GEO多平台内容运营系统方案设计.md)
 > 会话背景：[GEO 项目会话归档](./GEO项目会话归档.md)
 
@@ -12,7 +12,7 @@
 
 本文是业务方案的技术实现补充。业务规则、领域模型和 MVP 功能范围以《多平台 GEO 内容运营系统方案设计》为准。
 
-2026-07-13 确认的固定五类任务和具体平台规则层会改变 OpenAPI、数据库与页面流程，当前代码尚未完成迁移。本文件描述目标技术方案，不代表相关契约已经实现。
+2026-07-16 已完成平台级 Prompt、具体平台可用性、受约束物理删除和运营界面中文化。本文件按当前实现描述动态平台分类与具体平台单次生成契约。
 
 本文不包含 SSH 私钥、AccessKey、主机公网地址、白名单地址或其他敏感信息。部署时通过服务器上的受控配置注入这些信息。
 
@@ -31,9 +31,9 @@
 | 文件存储 | 阿里云 OSS |
 | 正文格式 | Markdown 为唯一可编辑正文源 |
 | 产品事实 | 覆盖参数、特性、认证、应用和测试；替代关系可选 |
-| 平台类型 | 固定为公司官网、行业媒体、工程论坛、问答平台和 B2B 平台五种 |
-| 平台规则 | 类型 Prompt 提供基线，`PlatformProfileVersion` 保存具体平台不可变规则 |
-| 内容任务 | 默认生成五类 `TYPE_BASE` 内容，具体平台生成 `PLATFORM` 内容 |
+| 平台类型 | 管理员按业务需要维护的动态分类 |
+| 平台规则 | 具体平台拥有当前 Prompt，`PlatformProfileVersion` 保存不可变规则 |
+| 内容任务 | 创建时锁定具体平台的 `ACTIVE PlatformProfileVersion`，单次生成完整内容 |
 | AI 配置 | “获取模型”使用弹窗逐个添加；模型连接测试发送唯一用户消息 `hi`，不复用业务草稿解析 |
 | 发布方式 | MVP 人工发布并登记结果 |
 | 部署方式 | Hostdzire VPS 上使用 Docker Compose |
@@ -54,7 +54,7 @@
 6. 在 `4C / 6G / 100G` 的项目机资源内稳定运行。
 7. 保持部署和运维简单，不引入 Kubernetes、微服务或多余中间件。
 8. 为未来增加按平台自动发布保留稳定接口，但不预先实现自动化框架。
-9. 保证类型 Prompt、具体平台规则和模型配置变化不改变历史生成作业的解释结果。
+9. 保证具体平台 Prompt、平台规则和模型配置变化不改变历史生成作业的解释结果。
 
 ## 4. 非目标
 
@@ -67,7 +67,7 @@
 - 不在第一阶段实现 WebSocket；生成任务状态使用轮询。
 - 不把 Markdown、HTML 和编辑器 JSON 同时作为可编辑正文源。
 - 不自动发布未经人工审核的内容。
-- 不允许 `TYPE_BASE` 类型内容绕过具体平台规则直接进入发布流程。
+- 不允许缺少具体平台有效规则或当前 Prompt 的任务进入生成流程。
 
 ## 5. 总体架构
 
@@ -192,13 +192,16 @@ HTML、纯文本和平台发布格式均由 Markdown 派生，不作为第二份
 
 如果所选 WYSIWYG 编辑器无法稳定无损地回写 Markdown，MVP 应优先采用 Markdown 编辑与独立预览，而不是维护编辑器私有 JSON。
 
-### 6.5 五类内容与平台版本交互
+### 6.5 具体平台内容交互
 
-- 创建内容任务时不选择具体平台，任务页固定展示五个平台类型。
-- 五种 `TYPE_BASE` 生成作业独立轮询和展示状态；单类失败不隐藏其他类型的成功结果。
-- 编辑器以平台类型为一级切换，以知乎、电子发烧友等具体平台版本为二级切换。
-- 选择具体平台前先展示其 `ACTIVE PlatformProfileVersion`；没有有效版本时禁用生成并显示明确原因。
-- 待发布列表只查询已批准的 `PLATFORM` 内容，前端不得提供发布 `TYPE_BASE` 内容的入口。
+- 创建内容任务时选择具体平台的当前 `ACTIVE PlatformProfileVersion`。
+- 平台缺少有效规则或当前 Prompt 时从工程师可选集合排除，并显示明确原因。
+- 编辑器展示任务锁定的具体平台、规则版本和当前 Prompt。
+- 管理员可继续配置没有有效规则的平台；激活新规则且 Prompt 存在后恢复工程师可选。
+- 待发布列表只查询已批准内容，服务端复核平台账号与任务锁定平台一致。
+- 配置中心保留并列的“平台类型”“平台管理”“Prompt 管理”路由；平台类型只做分类，Prompt 页面按具体平台维护当前 Markdown。
+- 全站用户可见业务文本使用中文，枚举的显示 label 与提交 value 分离；`model_id`、API Key、URL、Markdown、JSON、Header、Prompt 和机器值保持原样。
+- AI 渠道列表响应一次性包含全部已启用模型摘要，卡片完整展示显示名和 `model_id`；前端不得逐渠道请求模型列表。
 
 ### 6.6 前端目录边界
 
@@ -264,7 +267,7 @@ backend/app/
 ├── core/                    配置、数据库、权限和通用错误
 ├── product_facts/           产品事实、可选替代关系、证据和事实版本
 ├── content_planning/        目标问题、具体平台规则和任务
-├── configuration/           固定平台类型、类型 Prompt、AI 渠道和模型
+├── configuration/           平台类型、具体平台 Prompt、AI 渠道和模型
 ├── content_production/      两级生成作业、内容版本和质量检查
 ├── review/                  事实审核和内容审核
 ├── publication/             人工发布登记和验证
@@ -293,8 +296,8 @@ backend/app/
 ```text
 POST /api/v1/fact-versions/{id}/submit
 POST /api/v1/fact-versions/{id}/approve
-POST /api/v1/content-tasks/{id}/generate-type-bases
-POST /api/v1/content-versions/{id}/adapt-to-platform
+POST /api/v1/content-tasks/{id}/generation-jobs
+POST /api/v1/generation-jobs/{id}/retry
 POST /api/v1/content-versions/{id}/submit-review
 POST /api/v1/content-versions/{id}/approve
 POST /api/v1/platform-profiles/{id}/versions
@@ -307,9 +310,9 @@ POST /api/v1/geo-observations
 
 - 事实版本批准、内容版本批准和发布登记分别使用数据库事务。
 - 已批准版本更新使用数据库约束和服务层双重阻止。
-- 五种 `TYPE_BASE` 作业使用同一批次 ID，但每个作业独立提交和失败；不得用一个长事务包住外部模型调用。
+- 生成作业在短事务中创建并独立执行；不得用一个长事务包住外部模型调用。
 - `PlatformProfileVersion` 从 `DRAFT` 激活时锁定规则内容，并在数据库层保证每个具体平台最多一个 `ACTIVE` 版本。
-- 创建 `PLATFORM` 作业时校验来源内容已批准、平台类型一致和规则版本为 `ACTIVE`；创建发布记录时再次校验内容范围为 `PLATFORM`。
+- 创建任务和作业时校验规则版本为 `ACTIVE` 且所属平台存在当前 Prompt；创建发布记录时校验平台账号属于任务锁定平台。
 - 需要防止重复生成或重复提交的操作使用幂等键。
 - 并发编辑使用版本号或 `updated_at` 进行乐观锁校验。
 - 不使用分布式锁解决单机数据库事务能够解决的问题。
@@ -336,15 +339,15 @@ MVP 的生成过程是确定的流水线：
 
 ```text
 加载已批准 FactVersion
-→ 遍历五种固定 PlatformType
-→ 分别应用当前 PlatformPrompt
-→ 创建五个 TYPE_BASE GenerationJob
-→ 调用模型并创建五类 DRAFT ContentVersion
-→ 人工编辑并批准 TYPE_BASE 内容
-→ 选择具体 PlatformProfileVersion
-→ 合并来源类型 Prompt 快照与平台差异规则
-→ 创建 PLATFORM GenerationJob 和 DRAFT ContentVersion
-→ 人工编辑并批准后进入发布流程
+→ 加载任务锁定的 ACTIVE PlatformProfileVersion
+→ 加载所属具体平台当前 PlatformPrompt
+→ 创建一个 GenerationJob
+→ 调用模型并创建 DRAFT ContentVersion
+→ 人工编辑并批准内容
+→ 发布前复核具体平台与账号
+→ 使用不可变作业快照追溯生成输入
+→ 创建标准 PublicationRecord
+→ 发布状态与 GEO 观测继续追加历史
 ```
 
 产品事实包只包含任务实际拥有的已批准参数、特性、认证、应用和测试结论。参考型号和替代关系是可选输入；平台 Prompt 或平台规则不得要求模型补充不存在的替代事实。
@@ -364,17 +367,17 @@ sequenceDiagram
     participant W as Celery Worker
     participant L as LLM
 
-    UI->>API: 请求生成五类 TYPE_BASE 内容
-    API->>DB: 事务写入 5 个 GenerationJob(PENDING)
-    API->>R: 分别投递 5 个 job_id
-    API-->>UI: 返回批次和 job_id 列表
+    UI->>API: 请求为当前内容任务生成草稿
+    API->>DB: 事务写入 GenerationJob(PENDING)
+    API->>R: 投递 job_id
+    API-->>UI: 返回 GenerationJob
     W->>R: 获取单个任务
     W->>DB: 标记 RUNNING
     W->>L: 调用模型
     L-->>W: 结构化结果
-    W->>DB: 保存对应范围草稿并标记 SUCCEEDED
-    UI->>API: 按批次轮询任务状态
-    API-->>UI: 返回五类独立状态和内容版本
+    W->>DB: 保存草稿并标记 SUCCEEDED
+    UI->>API: 按任务轮询作业状态
+    API-->>UI: 返回作业状态和内容版本
 ```
 
 ### 8.3 任务数据所有权
@@ -383,16 +386,17 @@ PostgreSQL 中的 `generation_jobs` 是任务状态的权威来源，Redis 只�
 
 ```text
 id
-batch_id
-scope
-platform_type_id
-platform_profile_version_id
-source_content_version_id
+content_task_id
 idempotency_key
 status
 input_snapshot
-celery_task_id
+ai_channel_id
+ai_model_id
+adapter_name
 attempt_count
+dispatch_attempt_count
+content_version_id
+retry_of_id
 error_code
 error_summary
 created_at
@@ -400,7 +404,7 @@ started_at
 finished_at
 ```
 
-`TYPE_BASE` 作业必须且只能引用一个固定平台类型；`PLATFORM` 作业必须引用已批准的同类型来源内容和一个 `ACTIVE PlatformProfileVersion`。`input_snapshot` 冻结类型 Prompt、具体平台规则、最终 system/user message、事实、模型和参数，配置变化不得重新解释历史作业。
+内容任务锁定一个 `ACTIVE PlatformProfileVersion`；作业从该版本解析具体平台并读取当前 Prompt。`input_snapshot` 冻结具体平台身份、平台规则、最终 system/user message、事实、模型和参数，配置变化不得重新解释历史作业。
 
 Worker 启动、成功和失败都更新 PostgreSQL。不得把关键结果只保存在 Celery Result Backend。
 
@@ -411,8 +415,8 @@ Worker 启动、成功和失败都更新 PostgreSQL。不得把关键结果只�
 - 用户重试创建关联原 Job 的新 Job 并复用不可变快照，不覆盖原失败记录。
 - 模型返回不符合结构时记录失败，不通过重试掩盖提示或契约问题。
 - 同一幂等键只能生成一个有效任务。
-- 五类作业共享批次但不共享成功状态；某个平台类型缺少 Prompt 或生成失败时只标记对应作业失败。
-- 具体平台没有 `ACTIVE` 规则版本或与来源类型不一致时，平台级作业在入队前失败，不自动选择其他平台或规则。
+- 具体平台缺少当前 Prompt 时拒绝创建作业；不得回退到类型级或其他平台 Prompt。
+- 规则版本不是 `ACTIVE` 时在入队前失败，不自动选择其他平台或历史规则。
 - 只有任务输入与全部事实 Evidence 都明确为 `PUBLIC` 时才允许第三方模型调用；历史空分级不得默认放行。
 - 错误日志不保存模型密钥、Prompt、响应正文、未公开资料全文或个人敏感信息。
 
@@ -451,13 +455,15 @@ GEO 项目使用独立 PostgreSQL 和独立 Redis 容器，不复用当前其他
 
 本次平台模型调整至少涉及以下数据库契约：
 
-- `platform_types.slug` 只允许五个固定值，迁移负责幂等初始化；普通 API 不提供新增和删除。
-- `platform_profiles` 保存具体平台官网和所属类型，`platform_profile_versions` 继续保存 `DRAFT / ACTIVE / RETIRED` 不可变规则。
-- `content_tasks` 移除对具体平台规则版本的直接所有权，改为共享产品、事实版本、目标问题和工程师输入。
-- `generation_jobs` 增加 `batch_id`、`scope`、`platform_type_id`、`platform_profile_version_id` 和 `source_content_version_id`。
-- `content_versions` 增加 `scope` 和 `source_version_id`；发布记录只允许引用 `PLATFORM` 内容。
+- `platform_types.slug` 保持唯一；管理员可增删改查，删除被具体平台引用的类型时返回结构化冲突。
+- `platform_profiles` 保存具体平台和所属类型，并拥有零或一份当前 Prompt；`platform_profile_versions` 保存 `DRAFT / ACTIVE / RETIRED` 不可变规则。
+- `content_tasks` 继续直接锁定具体 `platform_profile_version_id`，以及产品、事实版本、目标问题和工程师输入。
+- `generation_jobs.input_snapshot` 新写入具体平台身份，并继续冻结规则、最终消息、事实、渠道和模型。
+- `content_versions` 保持单一内容版本模型；发布记录只允许引用已批准内容。
 
-迁移必须采用先扩展、迁移数据、切换代码、再收缩的顺序。既有任务已锁定具体平台，但没有五类 `TYPE_BASE` 来源，不能自动伪造来源版本或回填批准记录；实施前必须统计真实数据并形成单独迁移方案。没有业务数据时可以重建开发数据；存在业务数据时必须保留原任务、生成快照、内容、审核和发布历史，并通过迁移后只读一致性检查。
+`0014_platform_prompt_ownership` 用新表把旧类型 Prompt 复制给该类型下每个具体平台，孤立 Prompt 不保留，然后移除旧表和旧字段。平台 Prompt 分化后无法可靠合并，降级依赖迁移前 PostgreSQL 备份。既有任务、生成快照、内容、审核和发布历史保持只读一致。
+
+管理员删除当前开发数据时，服务先锁定目标并统计直接引用，冲突统一返回 `409 details.references[{type,count}]`：产品检查事实版本、内容任务和 GEO 观测；规则版本检查内容任务；具体平台检查规则版本和平台账号；平台账号检查发布记录；平台类型检查具体平台。删除不级联或改写业务历史。未引用的 `ACTIVE` 规则允许删除，平台保留且 `active_version=null`；只有激活新规则并存在当前 Prompt 后，工程师才能再次选择。
 
 ### 9.4 Redis
 
@@ -850,7 +856,7 @@ GET /api/health/ready
 - API 和 Worker 输出结构化日志到标准输出。
 - Docker 配置日志轮转，避免耗尽磁盘。
 - 请求日志包含请求 ID、用户 ID、接口、状态和耗时。
-- AI 任务日志包含批次 ID、作业 ID、`scope`、平台类型、平台规则版本、模型适配器、尝试次数和错误码。
+- AI 任务日志包含作业 ID、具体平台、平台规则版本、模型适配器、尝试次数和错误码。
 - 不记录密码、Cookie、AccessKey、完整模型密钥和未公开资料全文。
 - 业务审计日志写入 PostgreSQL，与运行日志分离。
 
@@ -876,7 +882,7 @@ MVP 不部署完整 Prometheus/Grafana，先监测最关键指标：
 - 容器重启次数和 OOM。
 - OSS 上传失败率。
 - AI 生成任务成功率、耗时和重试次数。
-- 五类 `TYPE_BASE` 作业的分类型失败率，以及 `PLATFORM` 作业的平台规则不匹配次数。
+- 平台 Prompt 缺失、无有效规则和平台规则不匹配次数。
 
 可先使用现有外部可用性检测或轻量定时脚本；达到实际监控需求后再引入完整指标系统。
 
@@ -910,7 +916,7 @@ MVP 不部署完整 Prometheus/Grafana，先监测最关键指标：
 → 运行只读一致性检查
 → 启动 API
 → 启动 Worker
-→ 验证事实、五种平台类型、平台规则版本、生成作业快照、内容版本和发布记录
+→ 验证事实、平台类型、具体平台 Prompt、规则版本、生成作业快照、内容版本和发布记录
 ```
 
 ## 19. 安全设计
@@ -936,7 +942,7 @@ MVP 不部署完整 Prometheus/Grafana，先监测最关键指标：
 ### 19.3 数据与 AI
 
 - 只有已批准事实进入正式生成上下文。
-- 只有已批准的同类型 `TYPE_BASE` 内容才能作为 `PLATFORM` 作业来源，只有已批准的 `PLATFORM` 内容才能发布。
+- 只有锁定具体平台有效规则并经过批准的内容才能发布。
 - 对资料标记公开、内部和受限等级。
 - 未授权的客户资料和测试数据不得发送给第三方模型。
 - 模型输出必须经过结构校验、事实检查和人工审核。
@@ -984,11 +990,11 @@ MVP 先维持现有路由，监测 AI 请求耗时、OSS 请求耗时和 DMIT �
 
 | 层级 | 工具 | 重点 |
 |---|---|---|
-| 后端单元测试 | pytest | 五类平台枚举、两级规则、状态机、版本不变量、权限和校验 |
-| 后端集成测试 | pytest + PostgreSQL | 契约迁移、五类批量作业、平台级作业、发布约束和 OSS 适配器 |
-| 前端单元测试 | Vitest + Testing Library | 五类状态、平台版本切换、表单、审核、编辑和异常状态 |
+| 后端单元测试 | pytest | 平台可用性、规则状态机、版本不变量、权限和校验 |
+| 后端集成测试 | pytest + PostgreSQL | Prompt 所有权迁移、受约束删除、生成作业、发布约束和 OSS 适配器 |
+| 前端单元测试 | Vitest + Testing Library | 平台可用性、中文枚举、表单、审核、编辑和异常状态 |
 | API 契约测试 | OpenAPI 客户端构建 | 前后端类型一致性 |
-| 端到端测试 | Playwright | 产品事实、五类 `TYPE_BASE`、具体平台 `PLATFORM` 到人工发布登记完整流程 |
+| 端到端测试 | Playwright | 产品事实、具体平台生成到人工发布登记完整流程 |
 | AI 质量评估 | 固定评估集 | 事实命中、禁止结论和平台差异化 |
 
 外部 OSS 和模型测试需要预算与环境隔离，普通单元测试使用明确的适配器替身，不伪造业务成功状态。
@@ -1033,8 +1039,8 @@ geo-platform/
 
 - 产品事实、可选替代关系和证据。
 - 事实版本和审核。
-- 五种固定平台类型、类型 Prompt、具体平台规则版本。
-- 默认五类内容任务、平台级 AI 生成和内容版本。
+- 动态平台类型、具体平台 Prompt 和规则版本。
+- 具体平台内容任务、AI 生成和内容版本。
 - 人工发布登记和 GEO 观测。
 
 ### 阶段四：运维闭环
@@ -1070,10 +1076,10 @@ geo-platform/
 - [ ] Redis AOF 生效。
 - [ ] OSS 上传、下载和权限验证通过。
 - [ ] AI 失败和重试可在 `generation_jobs` 中追踪。
-- [ ] 五种固定平台类型已幂等初始化，普通 API 无法新增或删除。
-- [ ] 五类 `TYPE_BASE` 作业可独立成功或失败，批次状态可追踪。
-- [ ] 具体平台使用明确的 `ACTIVE PlatformProfileVersion` 生成 `PLATFORM` 内容。
-- [ ] `TYPE_BASE` 内容无法创建发布记录，历史作业规则快照不随配置变化。
+- [ ] 平台类型可由管理员维护，被具体平台引用时删除返回结构化冲突。
+- [ ] 具体平台缺少有效规则或当前 Prompt 时工程师不可选择，服务端同样拒绝。
+- [ ] 内容任务使用明确的 `ACTIVE PlatformProfileVersion` 和所属平台当前 Prompt 生成内容。
+- [ ] 历史作业的平台、规则和 Prompt 结果快照不随当前配置变化。
 - [ ] 审核和发布业务不变量测试通过。
 
 ### 25.4 安全和备份

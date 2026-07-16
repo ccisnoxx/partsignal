@@ -9,6 +9,7 @@ import uuid
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -30,6 +31,7 @@ from app.main import app
 from app.models.configuration import (
     PlatformProfile,
     PlatformProfileVersion,
+    PlatformPrompt,
     PlatformType,
     QueryTopic,
 )
@@ -38,7 +40,8 @@ from app.models.content import (
     ContentTask,
     ContentVersion,
 )
-from app.models.identity import User
+from app.models.geo_files import GeoObservation
+from app.models.identity import AuditLog, User
 from app.models.product_facts import (
     FactReviewRecord,
     FactVersion,
@@ -49,6 +52,7 @@ from app.models.publication import (
     PublicationAttention,
     PublicationRecord,
 )
+from app.schemas.content import ContentTaskCreate
 from app.schemas.publication import (
     ManualPublicationCreate,
     PublicationCommand,
@@ -56,12 +60,22 @@ from app.schemas.publication import (
     ResolvePublicationAttentionRequest,
 )
 from app.security import hash_token
+from app.services.content_planning import create_content_task
 from app.services.integrity import publication_integrity_issues
+from app.services.platform_configuration import (
+    delete_platform_profile,
+    delete_platform_profile_version,
+    delete_platform_prompt,
+    delete_platform_type,
+)
+from app.services.product_facts import delete_product
+from app.services.projections import platform_profile_out
 from app.services.publication import (
     cancel_content_task,
     command_publication,
     create_manual_publication,
     create_repair_task,
+    delete_platform_account,
     resolve_attention,
 )
 from app.services.publication_queries import get_repair_context
@@ -515,11 +529,14 @@ def test_publication_api_database_task_and_attention_closure() -> None:
         with session_factory() as db:
             task = db.get(ContentTask, task_id)
             assert task is not None and task.status == "COMPLETED"
-            assert db.scalar(
-                select(func.count())
-                .select_from(PublicationAttention)
-                .where(PublicationAttention.publication_record_id == first_id)
-            ) == 1
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(PublicationAttention)
+                    .where(PublicationAttention.publication_record_id == first_id)
+                )
+                == 1
+            )
             attention = db.scalar(
                 select(PublicationAttention).where(
                     PublicationAttention.publication_record_id == first_id
@@ -528,6 +545,221 @@ def test_publication_api_database_task_and_attention_closure() -> None:
             assert attention is not None and attention.status == "OPEN"
             assert db.get(PublicationRecord, second_id) is not None
             assert publication_integrity_issues(db) == []
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_controlled_deletion_reports_direct_references_and_allows_clean_targets() -> None:
+    """删除服务汇总直接引用；清理后的对象可在同一公开流程中重试。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine) as db:
+            graph = seed_graph(db)
+            actor = graph["user"]
+            db.add(
+                GeoObservation(
+                    query_topic_id=graph["topic"].id,
+                    product_id=graph["product"].id,
+                    actual_prompt="测试问题",
+                    model_name="测试模型",
+                    model_version=None,
+                    tested_at=datetime.now(UTC),
+                    web_search_enabled=False,
+                    answer_summary="测试回答",
+                    mentioned=True,
+                    recommendation="CANDIDATE",
+                    accuracy="UNJUDGEABLE",
+                    notes="测试观测",
+                    tested_by=actor.id,
+                )
+            )
+            db.commit()
+
+            with pytest.raises(AppError) as product_conflict:
+                delete_product(
+                    db=db, product_id=graph["product"].id, actor=actor, request_id="delete-product"
+                )
+            assert product_conflict.value.code == "PRODUCT_IN_USE"
+            assert {item["type"] for item in product_conflict.value.details["references"]} == {
+                "FACT_VERSION",
+                "CONTENT_TASK",
+                "GEO_OBSERVATION",
+            }
+            db.rollback()
+
+            with pytest.raises(AppError) as version_conflict:
+                delete_platform_profile_version(
+                    db=db,
+                    platform_profile_version_id=graph["profile_version"].id,
+                    actor=actor,
+                    request_id="delete-version",
+                )
+            assert version_conflict.value.details["references"] == [
+                {"type": "CONTENT_TASK", "count": 1}
+            ]
+            db.rollback()
+
+            with pytest.raises(AppError) as profile_conflict:
+                delete_platform_profile(
+                    db=db,
+                    platform_profile_id=graph["profile"].id,
+                    actor=actor,
+                    request_id="delete-profile",
+                )
+            assert {item["type"] for item in profile_conflict.value.details["references"]} == {
+                "PLATFORM_PROFILE_VERSION",
+                "PLATFORM_ACCOUNT",
+            }
+            db.rollback()
+
+            publication = create_manual_publication(
+                db=db,
+                payload=publication_payload(graph["content"].id, graph["same_account"].id),
+                actor=actor,
+                request_id="create-publication-before-delete",
+                idempotency_key=f"delete-test-{uuid.uuid4()}",
+            )
+            with pytest.raises(AppError) as account_conflict:
+                delete_platform_account(
+                    db=db,
+                    platform_account_id=graph["same_account"].id,
+                    actor=actor,
+                    request_id="delete-account",
+                )
+            assert account_conflict.value.details["references"] == [
+                {"type": "PUBLICATION_RECORD", "count": 1}
+            ]
+            assert publication.id is not None
+            db.rollback()
+
+            clean_product = Product(
+                part_number=f"CLEAN-{uuid.uuid4().hex[:8]}",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"clean-{uuid.uuid4().hex[:8]}",
+                category="TEST",
+            )
+            clean_type = PlatformType(
+                name="可清理类型",
+                slug=f"clean-type-{uuid.uuid4().hex[:8]}",
+                created_by=actor.id,
+            )
+            db.add_all([clean_product, clean_type])
+            db.commit()
+            clean_product_id, clean_type_id = clean_product.id, clean_type.id
+            delete_product(
+                db=db, product_id=clean_product_id, actor=actor, request_id="delete-clean-product"
+            )
+            prompt = PlatformPrompt(
+                platform_profile_id=graph["profile"].id,
+                template_markdown="仅使用已批准事实。",
+                updated_by=actor.id,
+            )
+            db.add(prompt)
+            db.commit()
+            delete_platform_prompt(
+                db=db,
+                platform_profile_id=graph["profile"].id,
+                actor=actor,
+                request_id="delete-clean-prompt",
+            )
+            delete_platform_account(
+                db=db,
+                platform_account_id=graph["other_account"].id,
+                actor=actor,
+                request_id="delete-clean-account",
+            )
+            clean_profile = PlatformProfile(
+                name="无引用平台",
+                slug=f"clean-profile-{uuid.uuid4().hex[:8]}",
+                allowed_domains=["clean.example.invalid"],
+                platform_type_id=clean_type_id,
+            )
+            db.add(clean_profile)
+            db.flush()
+            active_version = PlatformProfileVersion(
+                platform_profile_id=clean_profile.id,
+                version=1,
+                status="ACTIVE",
+                rules=platform_rules(),
+            )
+            clean_prompt = PlatformPrompt(
+                platform_profile_id=clean_profile.id,
+                template_markdown="仅使用已批准事实。",
+                updated_by=actor.id,
+            )
+            db.add_all([active_version, clean_prompt])
+            db.commit()
+            deleted_version_id = active_version.id
+            delete_platform_profile_version(
+                db=db,
+                platform_profile_version_id=deleted_version_id,
+                actor=actor,
+                request_id="delete-active-version",
+            )
+            assert platform_profile_out(db, clean_profile).active_version is None
+            task_payload = ContentTaskCreate(
+                query_topic_id=graph["topic"].id,
+                product_id=graph["product"].id,
+                fact_version_id=graph["fact"].id,
+                platform_profile_version_id=deleted_version_id,
+                target_audience="测试工程师",
+                content_angle="规则恢复验证",
+                conversion_goal="查看资料",
+                desired_format="工程说明",
+                desired_length_min=1,
+                desired_length_max=500,
+                canonical_url="https://product.example.invalid/recovery",
+            )
+            with pytest.raises(AppError) as unavailable:
+                create_content_task(
+                    db=db,
+                    payload=task_payload,
+                    actor=actor,
+                    request_id="create-without-active-rule",
+                )
+            assert unavailable.value.code == "INVALID_STATE_TRANSITION"
+            db.rollback()
+            replacement_version = PlatformProfileVersion(
+                platform_profile_id=clean_profile.id,
+                version=2,
+                status="ACTIVE",
+                rules=platform_rules(),
+            )
+            db.add(replacement_version)
+            db.commit()
+            recovered_task = create_content_task(
+                db=db,
+                payload=task_payload.model_copy(
+                    update={"platform_profile_version_id": replacement_version.id}
+                ),
+                actor=actor,
+                request_id="create-after-rule-recovery",
+            )
+            db.delete(recovered_task)
+            db.flush()
+            db.delete(replacement_version)
+            db.commit()
+            delete_platform_profile(
+                db=db,
+                platform_profile_id=clean_profile.id,
+                actor=actor,
+                request_id="delete-clean-profile",
+            )
+            delete_platform_type(
+                db=db, platform_type_id=clean_type_id, actor=actor, request_id="delete-clean-type"
+            )
+            assert db.get(Product, clean_product_id) is None
+            assert db.get(PlatformType, clean_type_id) is None
+            actions = set(db.scalars(select(AuditLog.action)))
+            assert {
+                "product.deleted",
+                "platform_prompt.deleted",
+                "platform_account.deleted",
+                "platform_profile_version.deleted",
+                "platform_profile.deleted",
+                "platform_type.deleted",
+            } <= actions
         engine.dispose()
 
 
@@ -842,9 +1074,7 @@ def test_repair_context_resolution_and_review_history_are_immutable() -> None:
                 tags=[],
                 content_hash="c" * 64,
                 status="PENDING_REVIEW",
-                quality_issues=[
-                    {"code": "BLOCKED", "severity": "BLOCKING", "message": "阻断问题"}
-                ],
+                quality_issues=[{"code": "BLOCKED", "severity": "BLOCKING", "message": "阻断问题"}],
                 change_summary="阻断测试",
                 created_by=user_id,
             )

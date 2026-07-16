@@ -68,3 +68,15 @@ async def integrity_error_handler(request: Request, error: IntegrityError) -> JS
 def not_found(resource: str) -> AppError:
     """生成一致的资源不存在错误。"""
     return AppError("NOT_FOUND", f"{resource}不存在", 404)
+
+
+def in_use(code: str, resource: str, references: list[tuple[str, str, int]]) -> AppError:
+    """用稳定机器类型和真实数量报告全部直接阻断引用。"""
+    existing = [(type_name, label, count) for type_name, label, count in references if count]
+    summary = "、".join(f"{label}（{count}）" for _, label, count in existing)
+    return AppError(
+        code,
+        f"{resource}仍被以下对象引用：{summary}",
+        409,
+        {"references": [{"type": type_name, "count": count} for type_name, _, count in existing]},
+    )

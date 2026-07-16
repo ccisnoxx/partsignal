@@ -58,7 +58,12 @@ from app.services.content_planning import (
 from app.services.content_planning import (
     update_query_topic as update_query_topic_command,
 )
-from app.services.projections import content_task_out, platform_profile_out, platform_version_out
+from app.services.projections import (
+    content_task_out,
+    platform_profile_out,
+    platform_profiles_out,
+    platform_version_out,
+)
 from app.services.publication import cancel_content_task as cancel_content_task_service
 
 router = APIRouter(prefix="/api/v1", tags=["planning"])
@@ -131,7 +136,7 @@ def update_query_topic(
 )
 def list_platform_profiles(db: DbSession, _user: CurrentUser) -> PlatformProfileList:
     profiles = list(db.scalars(select(PlatformProfile).order_by(PlatformProfile.name)))
-    return PlatformProfileList(items=[platform_profile_out(db, profile) for profile in profiles])
+    return PlatformProfileList(items=platform_profiles_out(db, profiles))
 
 
 @router.post(

@@ -7,10 +7,10 @@ import difflib
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.errors import AppError
 from app.models.configuration import (
     PlatformProfile,
     PlatformProfileVersion,
+    PlatformPrompt,
 )
 from app.models.content import (
     ContentTask,
@@ -102,8 +102,6 @@ def platform_profile_out(db: Session, profile: PlatformProfile) -> PlatformProfi
             PlatformProfileVersion.status == "ACTIVE",
         )
     )
-    if active is None:
-        raise AppError("INVALID_STATE_TRANSITION", "平台配置缺少 ACTIVE 版本", 409)
     return PlatformProfileOut(
         id=profile.id,
         name=profile.name,
@@ -111,8 +109,49 @@ def platform_profile_out(db: Session, profile: PlatformProfile) -> PlatformProfi
         allowed_domains=profile.allowed_domains,
         platform_type_id=profile.platform_type_id,
         revision=profile.revision,
-        active_version=platform_version_out(active),
+        active_version=platform_version_out(active) if active is not None else None,
+        prompt_configured=db.get(PlatformPrompt, profile.id) is not None,
     )
+
+
+def platform_profiles_out(
+    db: Session, profiles: list[PlatformProfile]
+) -> list[PlatformProfileOut]:
+    """批量投影平台，避免列表按平台重复读取规则和 Prompt。"""
+    profile_ids = [profile.id for profile in profiles]
+    active_by_profile = {
+        version.platform_profile_id: version
+        for version in db.scalars(
+            select(PlatformProfileVersion).where(
+                PlatformProfileVersion.platform_profile_id.in_(profile_ids),
+                PlatformProfileVersion.status == "ACTIVE",
+            )
+        )
+    }
+    prompt_profiles = set(
+        db.scalars(
+            select(PlatformPrompt.platform_profile_id).where(
+                PlatformPrompt.platform_profile_id.in_(profile_ids)
+            )
+        )
+    )
+    return [
+        PlatformProfileOut(
+            id=profile.id,
+            name=profile.name,
+            slug=profile.slug,
+            allowed_domains=profile.allowed_domains,
+            platform_type_id=profile.platform_type_id,
+            revision=profile.revision,
+            active_version=(
+                platform_version_out(active_by_profile[profile.id])
+                if profile.id in active_by_profile
+                else None
+            ),
+            prompt_configured=profile.id in prompt_profiles,
+        )
+        for profile in profiles
+    ]
 
 
 def content_diff(left: ContentVersion, right: ContentVersion) -> ContentDiff:

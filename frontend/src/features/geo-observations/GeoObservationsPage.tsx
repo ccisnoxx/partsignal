@@ -15,6 +15,18 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 
+const recommendationOptions: Array<{ label: string; value: Schema<'RecommendationStatus'> }> = [
+  { label: '未推荐', value: 'NONE' }, { label: '候选', value: 'CANDIDATE' }, { label: '已推荐', value: 'RECOMMENDED' },
+];
+const accuracyOptions: Array<{ label: string; value: Schema<'AccuracyStatus'> }> = [
+  { label: '准确', value: 'ACCURATE' }, { label: '部分准确', value: 'PARTIAL' },
+  { label: '不准确', value: 'INCORRECT' }, { label: '无法判断', value: 'UNJUDGEABLE' },
+];
+const citationSourceOptions: Array<{ label: string; value: Schema<'CitationSourceType'> }> = [
+  { label: '官方来源', value: 'OFFICIAL' }, { label: '外部企业', value: 'EXTERNAL_COMPANY' },
+  { label: '其他', value: 'OTHER' },
+];
+
 export function GeoObservationsPage() {
   const [open, setOpen] = useState(false);
   const metrics = useQuery(geoMetricsQueryOptions());
@@ -31,7 +43,7 @@ export function GeoObservationsPage() {
 
   return (
     <div className="page-stack">
-      <PageHeader eyebrow="MEASUREMENT LOG" title="GEO 观测" description="只记录实际测试结果；更正会追加新记录，不覆盖历史。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>登记观测</Button>} />
+      <PageHeader eyebrow="观测记录" title="GEO 观测" description="只记录实际测试结果；更正会追加新记录，不覆盖历史。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>登记观测</Button>} />
       <section className="geo-metric-grid" aria-label="GEO 指标">
         {metricItems.map((item) => <MetricTile key={item.label} label={item.label} value={item.value ?? '—'} unit={item.value == null ? undefined : '%'} percent={item.value} meta={item.value == null ? '无可判断样本' : `${metrics.data?.sample_count ?? 0} 个当前样本`} />)}
       </section>
@@ -101,10 +113,10 @@ function ObservationModal({ open, onClose }: { open: boolean; onClose: () => voi
         <Space align="start" wrap className="form-grid">
           <Form.Item name="web_search_enabled" valuePropName="checked"><Checkbox>启用联网搜索</Checkbox></Form.Item>
           <Form.Item name="mentioned" valuePropName="checked"><Checkbox>提及产品</Checkbox></Form.Item>
-          <Form.Item name="recommendation" label="推荐状态"><Select options={['NONE','CANDIDATE','RECOMMENDED'].map((value) => ({ value }))} /></Form.Item>
-          <Form.Item name="accuracy" label="准确性"><Select options={['ACCURATE','PARTIAL','INCORRECT','UNJUDGEABLE'].map((value) => ({ value }))} /></Form.Item>
+          <Form.Item name="recommendation" label="推荐状态"><Select options={recommendationOptions} /></Form.Item>
+          <Form.Item name="accuracy" label="准确性"><Select options={accuracyOptions} /></Form.Item>
         </Space>
-        <Form.List name="citations">{(fields, { add, remove }) => <><Typography.Title level={5}>引用来源</Typography.Title>{fields.map(({ key, name, ...field }) => <Space key={key} align="start" wrap className="dynamic-row"><Form.Item {...field} name={[name, 'url']} label="URL" rules={[{ required: true, type: 'url' }]}><Input type="url" /></Form.Item><Form.Item {...field} name={[name, 'source_type']} label="来源类型" rules={[{ required: true }]}><Select options={['OFFICIAL','EXTERNAL_COMPANY','OTHER'].map((value) => ({ value }))} /></Form.Item><Form.Item {...field} name={[name, 'publication_record_id']} label="关联发布"><Select allowClear options={publications.data?.items.map((item) => ({ value: item.id, label: item.final_url ?? item.id }))} /></Form.Item><Button danger onClick={() => remove(name)}>删除</Button></Space>)}<Button icon={<PlusOutlined />} onClick={() => add({ source_type: 'OTHER' })}>添加引用</Button></>}</Form.List>
+        <Form.List name="citations">{(fields, { add, remove }) => <><Typography.Title level={5}>引用来源</Typography.Title>{fields.map(({ key, name, ...field }) => <Space key={key} align="start" wrap className="dynamic-row"><Form.Item {...field} name={[name, 'url']} label="URL" rules={[{ required: true, type: 'url' }]}><Input type="url" /></Form.Item><Form.Item {...field} name={[name, 'source_type']} label="来源类型" rules={[{ required: true }]}><Select options={citationSourceOptions} /></Form.Item><Form.Item {...field} name={[name, 'publication_record_id']} label="关联发布"><Select allowClear options={publications.data?.items.map((item) => ({ value: item.id, label: item.final_url ?? item.id }))} /></Form.Item><Button danger onClick={() => remove(name)}>删除</Button></Space>)}<Button icon={<PlusOutlined />} onClick={() => add({ source_type: 'OTHER' })}>添加引用</Button></>}</Form.List>
         <Form.Item name="publication_record_ids" label="相关发布记录"><Select mode="multiple" options={publications.data?.items.map((item) => ({ value: item.id, label: item.final_url ?? item.id }))} /></Form.Item>
         <Form.Item label="测试截图"><DirectUpload category="OPERATION_SCREENSHOT" onUploaded={(file) => setAttachments((items) => [...items, file])} /><Space wrap>{attachments.map((file) => <StatusTag key={file.id} status={file.status} />)}</Space></Form.Item>
         <Form.Item name="supersedes_id" label="被更正观测 ID"><Input className="data-code" /></Form.Item>

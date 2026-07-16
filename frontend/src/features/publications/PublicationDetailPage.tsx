@@ -54,7 +54,7 @@ export function PublicationDetailPage({ publicationId }: { publicationId: string
   return (
     <div className="page-stack">
       <Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布工作台</Button>
-      <PageHeader eyebrow="PUBLICATION RECORD" title="发布记录" description={<>记录 ID <span className="data-code">{record.id}</span></>} breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: '发布记录' }]} actions={<StatusTag status={record.status} />} />
+      <PageHeader eyebrow="发布记录" title="发布记录" description={<>记录 ID <span className="data-code">{record.id}</span></>} breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: '发布记录' }]} actions={<StatusTag status={record.status} />} />
       <Card title="发布上下文" className="workspace-panel">
         <Descriptions
           column={1}

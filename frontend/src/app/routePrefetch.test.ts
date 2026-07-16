@@ -17,11 +17,12 @@ describe('canIdlePrefetch', () => {
 });
 
 describe('navigationLoaderKey', () => {
-  it('将配置父入口和四个叶子路由映射到各自 loader', () => {
+  it('将配置父入口和五个叶子路由映射到各自 loader', () => {
     expect(navigationLoaderKey('/configuration')).toBe('aiChannels');
     expect(navigationLoaderKey('/configuration/ai')).toBe('aiChannels');
     expect(navigationLoaderKey('/configuration/platform-types')).toBe('platformTypes');
     expect(navigationLoaderKey('/configuration/platforms')).toBe('platforms');
+    expect(navigationLoaderKey('/configuration/prompts')).toBe('platformPrompts');
     expect(navigationLoaderKey('/configuration/audit')).toBe('auditLog');
   });
 

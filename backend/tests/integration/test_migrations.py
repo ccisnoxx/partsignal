@@ -394,7 +394,7 @@ def test_generation_reliability_migration_is_additive_and_reversible() -> None:
         run_alembic(env, backend_dir, "0010_user_cleanup")
         before = generation_job_columns(test_url)
 
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0011_generation_reliability")
         after = generation_job_columns(test_url)
         assert after - before == {
             "last_dispatch_attempt_at",
@@ -544,7 +544,7 @@ def test_publication_closure_migration_enforces_platform_and_forward_only_histor
                 (task_id,),
             )
             connection.commit()
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0013_publication_closure")
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute(
                 "SELECT content_versions.id, publication_records.created_by, "
@@ -838,3 +838,66 @@ def test_referenced_legacy_users_abort_the_complete_cleanup() -> None:
             assert cursor.fetchone() == (1,)
             cursor.execute("SELECT count(*) FROM audit_logs")
             assert cursor.fetchone() == (1,)
+
+
+@pytest.mark.integration
+def test_platform_prompts_move_from_type_to_each_profile() -> None:
+    """0014 为每个具体平台复制当前 Prompt，并丢弃没有平台的孤立 Prompt。"""
+    with temporary_database("partsignal_prompt_ownership") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0013_publication_closure")
+        seed_accounts(env, backend_dir)
+        owner_type, orphan_type = uuid.uuid4(), uuid.uuid4()
+        first_profile, second_profile = uuid.uuid4(), uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+            admin_id = cursor.fetchone()[0]
+            cursor.executemany(
+                "INSERT INTO platform_types (id, name, slug, created_by) VALUES (%s, %s, %s, %s)",
+                [
+                    (owner_type, "技术社区", "technical-community", admin_id),
+                    (orphan_type, "孤立类型", "orphan-type", admin_id),
+                ],
+            )
+            cursor.executemany(
+                "INSERT INTO platform_profiles "
+                "(id, name, slug, allowed_domains, platform_type_id) "
+                "VALUES (%s, %s, %s, %s, %s)",
+                [
+                    (first_profile, "平台甲", "platform-a", ["a.example"], owner_type),
+                    (second_profile, "平台乙", "platform-b", ["b.example"], owner_type),
+                ],
+            )
+            cursor.executemany(
+                "INSERT INTO platform_prompts "
+                "(platform_type_id, template_markdown, updated_by) VALUES (%s, %s, %s)",
+                [
+                    (owner_type, "共享旧 Prompt", admin_id),
+                    (orphan_type, "应删除的孤立 Prompt", admin_id),
+                ],
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "head")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT platform_profile_id, template_markdown FROM platform_prompts "
+                "ORDER BY platform_profile_id"
+            )
+            assert set(cursor.fetchall()) == {
+                (first_profile, "共享旧 Prompt"),
+                (second_profile, "共享旧 Prompt"),
+            }
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'platform_prompts' ORDER BY column_name"
+            )
+            columns = {row[0] for row in cursor.fetchall()}
+            assert "platform_profile_id" in columns
+            assert "platform_type_id" not in columns
+            with pytest.raises(psycopg.errors.UniqueViolation):
+                cursor.execute(
+                    "INSERT INTO platform_prompts "
+                    "(platform_profile_id, template_markdown, updated_by) VALUES (%s, %s, %s)",
+                    (first_profile, "重复 Prompt", admin_id),
+                )
+            connection.rollback()

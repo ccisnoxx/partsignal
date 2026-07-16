@@ -3,7 +3,7 @@
   "name": "ai-egress-security",
   "title": "AI 出站安全",
   "description": "",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": null,
   "scope": "backend",
   "package": null,
@@ -11,9 +11,9 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-07-11",
-  "completedAt": null,
+  "completedAt": "2026-07-17",
   "branch": null,
-  "base_branch": "agent/mvp",
+  "base_branch": "main",
   "worktree_path": null,
   "commit": null,
   "pr_url": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": "07-11-multi-role-product-design",
   "relatedFiles": [],
-  "notes": "Goal 1 实现与验证已完成；按用户要求未提交、未归档，等待后续明确操作。",
+  "notes": "Goal 1 已在当前 main 重新核对并通过完整验证；仅补强安全回归测试，等待用户批准提交与归档。",
   "meta": {}
 }

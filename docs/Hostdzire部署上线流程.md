@@ -282,6 +282,8 @@ chmod 600 "$ENV_FILE"
 ln -sfn "$ENV_FILE" "$RELEASE_DIR/.env.staging"
 ```
 
+`PARTSIGNAL_SEED_ADMIN_PASSWORD` 与 `PARTSIGNAL_SEED_ENGINEER_PASSWORD` 只在对应账号不存在时用于创建账号；账号创建后，当前有效密码仍以 PostgreSQL 中的密码哈希为准，修改环境变量不会改变登录密码。为支持 Codex 本地浏览器执行登录后验收，可由运维人员在修改 admin 密码后手工同步 `PARTSIGNAL_SEED_ADMIN_PASSWORD`，但必须把它视为现用生产凭据并继续保持环境文件权限为 `0600`。
+
 预发布保持 `CONTENT_GENERATOR=deterministic`，除非已明确批准并在配置中心录入专用低权限测试渠道。真实调用失败时不得自动回退到确定性生成器。
 
 ## 7. 升级前备份
@@ -396,11 +398,11 @@ curl --fail --silent --show-error \
 至少验证以下内容：
 
 1. 页面最终进入 `/login`，标题为 `PartSignal · GEO 内容运营`，登录页正文正常渲染而不是停留在加载态或空白页。
-2. 账号输入框、密码输入框和登录按钮存在且可用；不得在自动化日志中读取或输出线上密码。
-3. 未登录时直接访问一个受保护路由，例如 `/configuration/ai`，最终应回到 `/login`。
-4. 浏览器控制台没有应用级 `error` 或 `warning`。静态资源失败、脚本异常或路由错误均视为验收失败。
+2. 从 `hostdzire` 的 `.env.staging` 只读取 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 到浏览器自动化的内存中，以 admin 登录；不得把变量值输出到命令结果、日志、对话或临时文件。
+3. 登录后确认工作台正常渲染，再进入 `/configuration/ai`，确认配置中心导航、AI 配置页面和已有渠道列表可读。
+4. 登录前后浏览器控制台均没有应用级 `error` 或 `warning`。静态资源失败、脚本异常、登录失败或路由错误均视为验收失败。
 
-该检查只做只读 UI 冒烟，不登录、不创建业务数据、不修改线上配置。若本地浏览器控制能力不可用，必须明确记录“UI 未验证”，不能用 `curl` 成功代替浏览器渲染成功；恢复浏览器能力后再完成验收。
+该检查只做只读 UI 冒烟，不创建业务数据、不修改线上配置。密码填入表单后不得抓取登录页 DOM 快照或截图，因为自动化输出可能包含密码字段值；提交登录后再读取页面状态。验收结束必须退出登录、关闭标签页并清除自动化运行时中的凭据引用。若本地浏览器控制能力不可用，必须明确记录“UI 未验证”，不能用 `curl` 成功代替浏览器渲染成功；恢复浏览器能力后再完成验收。
 
 ### 10.3 纵向业务 E2E 的环境边界
 
@@ -430,13 +432,13 @@ readlink /root/partsignal/current
 
 ## 12. 登录账号
 
-部署脚本会幂等确保 `admin` 管理员和 `content_editor` 工程师。两个账号使用独立初始密码，重复部署不会覆盖任一账号已经修改过的密码。初始密码只保存在：
+部署脚本会幂等确保 `admin` 管理员和 `content_editor` 工程师。`PARTSIGNAL_SEED_ADMIN_PASSWORD` 与 `PARTSIGNAL_SEED_ENGINEER_PASSWORD` 在账号不存在时用于首次创建；账号存在时，重复部署不会读取它们覆盖已有密码。
 
 ```text
 /root/partsignal/shared/.env.staging
 ```
 
-按需只提取 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 或 `PARTSIGNAL_SEED_ENGINEER_PASSWORD`，不要输出整个环境文件。`content_editor` 首次登录必须修改密码；密码不得写入仓库或本 Runbook。
+当前有效密码以 PostgreSQL 中的密码哈希为准，更新种子变量本身不会修改账号密码。为了让 Codex 本地浏览器进行登录后验收，运维人员可在修改 admin 密码后手工将 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 同步为当前密码；后续自动化只能读取该单一变量到内存，不能输出整个环境文件或密码值。`content_editor` 首次登录必须修改密码；任何现用密码都不得写入仓库、本 Runbook、临时文件或部署日志。
 
 ## 13. 回滚
 

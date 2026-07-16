@@ -53,7 +53,7 @@ docker compose -f compose.prod.yaml run --rm api python -m app.cli preflight-int
 
 预发布栈使用 `partsignal-staging-*` 容器网络，业务端口只绑定宿主机回环地址：API `19000`、开发对象存储 `19001`、前端 `19080`。持久数据统一位于 `PARTSIGNAL_DATA_ROOT`，默认 `/root/partsignal-data`，避免随发布目录切换而丢失。
 
-部署前在仓库根目录创建权限为 `0600` 的 `.env.staging`，至少设置随机 `POSTGRES_PASSWORD`、`SESSION_SECRET`、`UPLOAD_SIGNING_SECRET`、`PARTSIGNAL_SEED_ADMIN_PASSWORD`、`PARTSIGNAL_SEED_ENGINEER_PASSWORD`。两个初始账号密码必须独立生成；重复部署必须复用原环境文件，初始化命令不会覆盖账号已经修改过的密码。
+部署前在仓库根目录创建权限为 `0600` 的 `.env.staging`，至少设置随机 `POSTGRES_PASSWORD`、`SESSION_SECRET`、`UPLOAD_SIGNING_SECRET`、`PARTSIGNAL_SEED_ADMIN_PASSWORD`、`PARTSIGNAL_SEED_ENGINEER_PASSWORD`。两个账号种子值必须独立生成，只在账号不存在时用于首次创建；账号创建后，当前有效密码以 PostgreSQL 密码哈希为准，重复部署不会覆盖已修改的密码。为支持 Codex 本地浏览器执行登录后验收，运维人员可手工将 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 同步为当前 admin 密码；该变量必须按现用凭据保护，自动化不得输出或持久化其值。
 
 ```dotenv
 APP_ENV=staging
@@ -68,7 +68,7 @@ OBJECT_STORAGE_PUBLIC_ENDPOINT=https://geo.962850.xyz/object-storage
 CORS_ALLOWED_ORIGINS=https://geo.962850.xyz
 ```
 
-Hostdzire Nginx 使用 `nginx/partsignal.staging.conf.template` 维护 `geo.962850.xyz` 独立虚拟主机。配置生效前必须通过 `8.8.8.8` 确认 DNS A 记录指向公网入口，并依次执行 `nginx -t`、HTTPS 健康检查、缓存响应头和容器状态验收。命令行检查通过后，使用 Codex 控制本地浏览器确认登录页真实渲染、表单控件可用、未登录访问受保护路由会回到登录页，且浏览器控制台无应用错误。
+Hostdzire Nginx 使用 `nginx/partsignal.staging.conf.template` 维护 `geo.962850.xyz` 独立虚拟主机。配置生效前必须通过 `8.8.8.8` 确认 DNS A 记录指向公网入口，并依次执行 `nginx -t`、HTTPS 健康检查、缓存响应头和容器状态验收。命令行检查通过后，使用 Codex 控制本地浏览器以 admin 登录，确认工作台、配置中心及浏览器控制台正常；只做只读验收，不创建数据或修改配置。
 
 部署上线不运行视觉基线截图，也不在服务器或容器内安装浏览器测试环境。视觉差异不能证明线上链路可用，容器内截图还容易受字体和渲染环境影响；上线 UI 验收统一使用真实公网域名和 Codex 本地浏览器，只做不写入生产数据的冒烟检查。
 

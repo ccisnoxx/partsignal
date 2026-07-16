@@ -15,7 +15,7 @@
 → 启动 API
 → 检查 live/ready 与生成诊断
 → 原子切换前端静态目录
-→ 执行冒烟测试
+→ 执行命令行冒烟与 Codex 本地浏览器 UI 冒烟
 ```
 
 API 只绑定 `127.0.0.1:19000`，PostgreSQL、Redis 和 Worker 不暴露宿主机端口。宿主机 Nginx 提供静态文件并代理 `/api/`。
@@ -68,7 +68,9 @@ OBJECT_STORAGE_PUBLIC_ENDPOINT=https://geo.962850.xyz/object-storage
 CORS_ALLOWED_ORIGINS=https://geo.962850.xyz
 ```
 
-Hostdzire Nginx 使用 `nginx/partsignal.staging.conf.template` 新增 `geo.962850.xyz` 独立虚拟主机；`api.962850.xyz` 等已有站点不得修改。配置生效前必须通过 `8.8.8.8` 确认 DNS A 记录指向公网入口，并依次执行 `nginx -t`、HTTPS 冒烟和公网 E2E。
+Hostdzire Nginx 使用 `nginx/partsignal.staging.conf.template` 维护 `geo.962850.xyz` 独立虚拟主机。配置生效前必须通过 `8.8.8.8` 确认 DNS A 记录指向公网入口，并依次执行 `nginx -t`、HTTPS 健康检查、缓存响应头和容器状态验收。命令行检查通过后，使用 Codex 控制本地浏览器确认登录页真实渲染、表单控件可用、未登录访问受保护路由会回到登录页，且浏览器控制台无应用错误。
+
+部署上线不运行视觉基线截图，也不在服务器或容器内安装浏览器测试环境。视觉差异不能证明线上链路可用，容器内截图还容易受字体和渲染环境影响；上线 UI 验收统一使用真实公网域名和 Codex 本地浏览器，只做不写入生产数据的冒烟检查。
 
 ```sh
 cd deploy

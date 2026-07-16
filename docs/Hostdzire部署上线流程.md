@@ -1,13 +1,12 @@
 # PartSignal Hostdzire 部署上线 Runbook
 
-本文档归档 PartSignal 在 Hostdzire 的已验证部署流程，供后续会话直接执行。通用部署原则见 [部署与运维](./operations.md)，本 Runbook 只描述 `geo.962850.xyz` 预发布环境的具体操作。
+本文档描述 PartSignal 在 Hostdzire 上可重复执行的部署流程、验收边界、停止条件和回滚注意事项，供后续会话直接执行。通用部署原则见 [部署与运维](./operations.md)，本 Runbook 只描述 `geo.962850.xyz` 预发布环境，不记录逐次发布流水。
 
 ## 1. 已确认的基础设施边界
 
 | 项目 | 值或约束 |
 | --- | --- |
 | 对外域名 | `https://geo.962850.xyz` |
-| Sub2API 域名 | `https://api.962850.xyz`，不得修改 |
 | 公网入口 | DMIT，只做四层 SNI/端口转发和 `proxy_protocol` |
 | 应用主机 | Hostdzire，运行 Docker Compose 和宿主机 Nginx |
 | WireGuard 地址 | DMIT `10.0.0.1`，Hostdzire `10.0.0.2` |
@@ -18,31 +17,21 @@
 | Compose 项目 | `partsignal-staging` |
 | 回环端口 | API `19000`、开发对象存储 `19001`、前端 `19080` |
 
-DMIT 当前把普通 Web SNI 默认转发到 Hostdzire，常规部署不修改 DMIT Nginx。Hostdzire 必须存在精确匹配 `geo.962850.xyz` 的虚拟主机，否则请求会落到默认站点，看起来像 Sub2API。
+DMIT 当前把普通 Web SNI 默认转发到 Hostdzire，常规部署不修改 DMIT Nginx。Hostdzire 必须存在精确匹配 `geo.962850.xyz` 的虚拟主机。
 
-DMIT 与 Hostdzire 共用公网地址 `154.21.86.86`，但不是同一个 SSH 入口：
+服务器连接统一使用本机 `~/.ssh/config` 中已经验证的 alias：
 
-| 主机 | SSH 入口 | 身份文件 |
+| Alias | 用途 | 约束 |
 | --- | --- | --- |
-| DMIT 前置机 | `root@154.21.86.86:22` | DMIT 对应私钥 |
-| Hostdzire 应用机 | `root@154.21.86.86:2222` | Hostdzire 对应独立 RSA 私钥 |
+| `hostdzire` | PartSignal 应用机 | 常规部署、上传和运维只使用该 alias |
+| `dmit` | 公网前置机 | 仅在入口链路异常时只读探测，常规部署不修改 |
+| `aaitr` | 独立服务器 | 与本部署无关，仅在任务明确要求时访问 |
 
-部署只能连接 Hostdzire 的 `2222` 端口。连接 `22` 端口实际到达 DMIT；使用本机默认公钥或 Hostdzire 私钥访问 DMIT 都可能得到 `Permission denied (publickey)`，这不表示 Hostdzire 拒绝了密钥。
-
-SSH 连接信息位于本机受保护清单 `/Users/sc/work_file/bak_file/VPS.txt` 的 `hostdzire` profile。只能按清单规则将 Hostdzire 私钥临时写入 `/private/tmp` 并设置 `0600`；不得把清单内容、私钥或生成的环境变量输出到日志、对话或仓库。所有 SSH/SCP 命令必须显式指定端口、私钥和 `IdentitiesOnly=yes`，不要依赖 `~/.ssh/config`、SSH Agent 或默认身份文件：
+由 OpenSSH 配置管理主机、端口、身份文件、主机密钥验证和连接复用；部署命令不得读取、复制或输出私钥。首次只执行身份探测，确认目标为 Hostdzire 后再上传或写入：
 
 ```sh
-SSH_HOST=154.21.86.86
-SSH_PORT=2222
-SSH_USER=root
-SSH_KEY=/private/tmp/partsignal-hostdzire-deploy-key
-
-chmod 600 "$SSH_KEY"
-ssh -i "$SSH_KEY" -o IdentitiesOnly=yes -p "$SSH_PORT" \
-  "$SSH_USER@$SSH_HOST" 'hostname; id; pwd'
+ssh hostdzire 'hostname; id; pwd'
 ```
-
-首次只运行上面的只读探测。确认目标确实是 Hostdzire 后再上传或执行部署命令；任务结束立即删除临时私钥文件。
 
 ## 2. 权威文件
 
@@ -84,7 +73,7 @@ make test-unit
 npm --prefix frontend run build
 ```
 
-涉及数据库或异步生成时，还必须执行真实 PostgreSQL/Redis 集成测试和 Playwright E2E。不能用 SQLite、Celery eager 或固定成功响应替代。
+涉及数据库或异步生成时，还必须执行真实 PostgreSQL/Redis 集成测试和业务 E2E。不能用 SQLite、Celery eager 或固定成功响应替代。视觉基线截图不属于上线质量门：它不验证真实线上链路，在容器内执行还容易受字体、渲染器和运行环境影响而产生无效失败。
 
 ### 3.2 提交与推送流程
 
@@ -125,17 +114,13 @@ DNS 只以公共解析器结果为准，不使用本机缓存判断：
 
 ```sh
 dig +short @8.8.8.8 geo.962850.xyz A
-dig +short @8.8.8.8 api.962850.xyz A
 ```
 
-两者应指向同一公网入口。上线前记录现有站点状态：
+结果应指向既有公网入口。上线前记录 PartSignal 状态：
 
 ```sh
-curl --fail --silent --show-error https://api.962850.xyz/ | grep -o '<title>[^<]*' | head -1
 curl --fail --silent --show-error https://geo.962850.xyz/api/health/ready || true
 ```
-
-`api.962850.xyz` 应继续返回 Sub2API。不要把 `geo.962850.xyz` 当前显示为 Sub2API 误判为 DNS 错误；这通常表示 Hostdzire 缺少精确 `server_name`。
 
 ### 3.4 Hostdzire 资源与冲突
 
@@ -152,6 +137,17 @@ docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 ```
 
 不得占用现有服务端口。PartSignal 只允许绑定 `127.0.0.1:19000`、`127.0.0.1:19001` 和 `127.0.0.1:19080`；PostgreSQL 与 Redis 不发布宿主机端口。
+
+### 3.5 必须停止部署的情况
+
+出现以下任一情况时停止，不得用跳过检查、放宽安全配置或覆盖旧版本的方式继续：
+
+- 本地主工作目录不是干净的 `main`，或 `HEAD` 与 `origin/main` 不一致。
+- SSH 主机密钥冲突、`hostdzire` alias 到达的主机身份不符合预期。
+- 发布包包含 `.env`、私钥、AppleDouble 文件，或缺少 `.env.example`。
+- 数据库备份为空、`preflight-integrity` 非空、迁移失败或 Alembic 版本不符合预期。
+- Compose 容器不健康、ready 持续失败、Nginx 配置校验失败或对象存储代理返回网关错误。
+- Codex 本地浏览器无法渲染登录页、认证路由守卫失效，或控制台出现应用错误。
 
 ## 4. 制作发布包
 
@@ -198,17 +194,21 @@ COPYFILE_DISABLE=1 tar -czf "$ARCHIVE" \
 验证包中没有密钥、环境文件或 AppleDouble 文件：
 
 ```sh
-tar -tzf "$ARCHIVE" | grep -E '(^|/)\._|(^|/)\.env($|\.)|private.*key' && exit 1 || true
+BAD=$(tar -tzf "$ARCHIVE" | \
+  grep -E '(^|/)\._|(^|/)\.env($|\.)|private.*key' | \
+  grep -vE '(^|/)\.env\.example$' || true)
+test -z "$BAD" || { printf '%s\n' "$BAD"; exit 1; }
 shasum -a 256 "$ARCHIVE"
 ```
 
+`.env.example` 是发布包的权威配置模板，必须保留；其他 `.env` 文件仍应阻断。
+
 ## 5. 上传并准备版本目录
 
-下面的 `<SSH_USER>`、`<SSH_HOST>`、`<SSH_PORT>` 和 `<SSH_KEY>` 从 `hostdzire` profile 读取，不写入仓库：
+上传只使用 `hostdzire` alias：
 
 ```sh
-scp -i "$SSH_KEY" -o IdentitiesOnly=yes -P "$SSH_PORT" "$ARCHIVE" \
-  "$SSH_USER@$SSH_HOST:/tmp/"
+scp "$ARCHIVE" hostdzire:/tmp/
 ```
 
 在 Hostdzire 创建全新版本目录，不覆盖旧版本：
@@ -337,7 +337,7 @@ docker compose --env-file ../.env.staging -f compose.staging.yaml \
 
 ## 9. 安装或更新 Hostdzire Nginx
 
-只修改 PartSignal 独立站点，不修改 `api.962850.xyz`。模板中的监听地址由 Hostdzire WireGuard 地址替换：
+只修改 PartSignal 独立站点。模板中的监听地址由 Hostdzire WireGuard 地址替换：
 
 ```sh
 TEMPLATE="$RELEASE_DIR/deploy/nginx/partsignal.staging.conf.template"
@@ -374,14 +374,12 @@ dig +short @8.8.8.8 geo.962850.xyz A
 curl --fail --silent --show-error https://geo.962850.xyz/api/health/live
 curl --fail --silent --show-error https://geo.962850.xyz/api/health/ready
 curl --fail --silent --show-error https://geo.962850.xyz/ | grep -o '<title>[^<]*'
-curl --fail --silent --show-error https://api.962850.xyz/ | grep -o '<title>[^<]*' | head -1
 ```
 
 预期结果：
 
 - `geo.962850.xyz` 标题为 PartSignal。
 - ready 检查中 PostgreSQL 与 Redis 均为 `ok`。
-- `api.962850.xyz` 仍为 Sub2API。
 
 API 或容器刚重建时可能短暂出现 `connection reset by peer`，使用有上限的重试，不得把持续失败忽略为成功：
 
@@ -391,48 +389,37 @@ curl --fail --silent --show-error \
   https://geo.962850.xyz/api/health/ready
 ```
 
-### 10.2 公网视觉与无障碍回归
+### 10.2 Codex 本地浏览器 UI 冒烟
 
-Playwright 镜像版本必须与 `frontend/package-lock.json` 中的 `@playwright/test` 一致。以下示例版本仅是本次验证值；依赖升级后同步修改：
+命令行健康检查通过后，使用 Codex 控制本机浏览器访问 `https://geo.962850.xyz/`。这一步使用真实公网入口、本机浏览器引擎和线上静态资源，不在服务器或容器内安装 Playwright，也不截图或比较视觉基线。
 
-```sh
-docker run --rm \
-  -e PARTSIGNAL_E2E_BASE_URL=https://geo.962850.xyz \
-  --mount type=bind,src="$RELEASE_DIR/frontend",dst=/src,readonly \
-  --mount type=volume,dst=/work \
-  -w /work \
-  mcr.microsoft.com/playwright:v1.61.1-noble \
-  sh -c 'cp -a /src/. /work/ && npm ci && npm run e2e -- tests/e2e/visual-regression.spec.ts'
-```
+至少验证以下内容：
 
-这里使用一次性 Docker volume 作为可执行工作目录，容器退出后自动删除，不写入版本目录。视觉测试通过路由夹具验证页面、四档响应式基线和严重级无障碍问题，不创建生产业务数据。
+1. 页面最终进入 `/login`，标题为 `PartSignal · GEO 内容运营`，登录页正文正常渲染而不是停留在加载态或空白页。
+2. 账号输入框、密码输入框和登录按钮存在且可用；不得在自动化日志中读取或输出线上密码。
+3. 未登录时直接访问一个受保护路由，例如 `/configuration/ai`，最终应回到 `/login`。
+4. 浏览器控制台没有应用级 `error` 或 `warning`。静态资源失败、脚本异常或路由错误均视为验收失败。
 
-不要采用以下挂载方式：
-
-- 不要把整个 `/work` 只读绑定后再向 `/work/test-results`、`/work/playwright-report` 挂载子目录。Docker 需要先在只读根挂载中创建挂载点，会报 `read-only file system`。
-- 不要把整个 `/work` 挂载为 `tmpfs`。当前宿主机的该挂载不可执行，`npm ci` 校验 `esbuild` 时会报 `spawnSync ... EACCES`。
+该检查只做只读 UI 冒烟，不登录、不创建业务数据、不修改线上配置。若本地浏览器控制能力不可用，必须明确记录“UI 未验证”，不能用 `curl` 成功代替浏览器渲染成功；恢复浏览器能力后再完成验收。
 
 ### 10.3 纵向业务 E2E 的环境边界
 
 `tests/e2e/mvp-flow.spec.ts` 会创建 AI 渠道并访问 `http://127.0.0.1:9001` 的开发 Mock Provider。生产式预发布环境固定 `AI_ALLOW_LOCAL_HTTP=false`，服务端必须返回 `AI_URL_FORBIDDEN`；因此不得在公网环境直接执行整套 `npm run e2e`，也不得为让测试通过而放宽该安全策略。
 
-事实快照审核、Celery 生成、内容审核、对象直传、人工发布登记和 GEO 观测的完整纵向 E2E，应在发布前的本地或 CI 隔离环境运行。该环境必须显式启动 Mock Provider，并使用真实 PostgreSQL、Redis 和 Celery。公网发布后的验收范围是健康检查、视觉与无障碍回归、容器状态及相邻服务回归。
+事实快照审核、Celery 生成、内容审核、对象直传、人工发布登记和 GEO 观测的完整纵向 E2E，应在发布前的本地或 CI 隔离环境运行。该环境必须显式启动 Mock Provider，并使用真实 PostgreSQL、Redis 和 Celery。公网发布后的验收范围是健康检查、缓存响应头、对象存储代理、Codex 本地浏览器 UI 冒烟、容器状态和主机资源。
 
-### 10.4 现有服务回归
+### 10.4 主机资源复核
 
 ```sh
-docker ps --format '{{.Names}}|{{.Status}}' | \
-  grep -E '^(partsignal-staging|md2word|vaultwarden|sub2api|cliproxy)' | sort
+docker ps --format '{{.Names}}|{{.Status}}' | grep '^partsignal-staging-' | sort
 nginx -t
 free -h
 df -h /
 ```
 
-md2word、Vaultwarden、Sub2API 和 CLIProxy 的状态必须与部署前一致。
-
 ## 11. 切换发布指针
 
-所有验证通过后才切换：
+命令行验收、Codex 本地浏览器 UI 冒烟和主机资源复核全部通过后才切换：
 
 ```sh
 ln -sfn "releases/${RELEASE_ID}" /root/partsignal/current
@@ -469,7 +456,7 @@ PARTSIGNAL_VERSION="$PREVIOUS_RELEASE" \
 ln -sfn "releases/${PREVIOUS_RELEASE}" /root/partsignal/current
 ```
 
-随后重新执行 ready、Nginx、公网首页和现有服务回归检查。
+随后重新执行 ready、Nginx、公网首页、Codex 本地浏览器 UI 冒烟和主机资源复核。
 
 ### 13.2 数据库回滚
 
@@ -482,34 +469,10 @@ ln -sfn "releases/${PREVIOUS_RELEASE}" /root/partsignal/current
 | 现象 | 已验证原因 | 处理 |
 | --- | --- | --- |
 | Alembic 报源码含空字节 | macOS `._*.py` 被打入发布包 | 使用 `COPYFILE_DISABLE=1`，排除并检查 `._*`，重新制作新版本包 |
-| `geo.962850.xyz` 显示 Sub2API | Hostdzire 缺少精确 `server_name`，请求落入默认站点 | 安装 PartSignal 独立 Nginx 配置，先 `nginx -t` 再 reload；不要修改 `api.962850.xyz` |
 | `/object-storage/` 返回 `502` | `fake-oss` 只有 internal 网络，宿主机端口未发布 | 保持 `fake-oss` 同时连接 internal 与 edge 网络并重建容器 |
 | 直接访问 WireGuard HTTPS 被重置 | Hostdzire Nginx 监听要求 `proxy_protocol` | 通过公网域名和 DMIT 入口验证 |
 | API 重建后短暂 reset | Uvicorn 尚未完成启动 | 使用有限次数的 `--retry-all-errors`，随后检查 API 日志 |
 | 生成作业不推进 | Worker/Beat 未运行、Redis 不通或租约恢复失败 | 检查 `worker`、`scheduler` 日志和 PostgreSQL 作业状态；Redis 只排查 Broker，不把它当业务状态源 |
 | AI 凭据无法解密 | `AI_CREDENTIAL_ENCRYPTION_KEY` 变化或密文损坏 | 恢复匹配的主密钥，或显式重新录入渠道凭据；不得静默回退 |
-| SSH 报 `Permission denied (publickey)` | 使用 `154.21.86.86:22` 实际连接到 DMIT，或 SSH Agent 发送了错误身份 | Hostdzire 固定使用端口 `2222`、独立 RSA 私钥和 `IdentitiesOnly=yes`；先执行只读 `hostname` 探测 |
-| Playwright 容器创建挂载点失败 | 整个 `/work` 是只读 bind，Docker 无法创建测试输出子挂载点 | 源码只读挂到 `/src`，用一次性 volume 挂到 `/work`，先复制再测试 |
-| `npm ci` 校验 `esbuild` 报 `EACCES` | `/work` 使用了不可执行的 `tmpfs` | 改用一次性 Docker volume，不要放宽宿主机安全挂载选项 |
-| 公网纵向 E2E 创建 AI 渠道返回 `AI_URL_FORBIDDEN` | 测试依赖回环 HTTP Mock Provider，但预发布环境正确禁止本地 HTTP AI 出站 | 在本地/CI 隔离环境执行纵向 E2E；公网只跑视觉/无障碍和冒烟，不得修改 `AI_ALLOW_LOCAL_HTTP=false` |
-| 单项 GEO 截图在完整 E2E 失败后出现差异 | 前序业务测试中断后继续执行整套用例，验收上下文不再等同于独立视觉回归 | 修复前序环境问题后单独运行 `visual-regression.spec.ts`；不要直接更新基线掩盖差异 |
-
-## 15. 本次验证记录
-
-- 验证日期：`2026-07-10` 至 `2026-07-11`。
-- 验证版本：`mvp-20260710-2135`。
-- DNS：通过 `8.8.8.8` 确认 `geo.962850.xyz` 指向公网入口。
-- 运行时：PostgreSQL、Redis、Celery Worker、Celery Beat、FastAPI、前端 Nginx 和开发对象存储均正常。
-- 数据库：从空库迁移成功；后续版本仍必须以当前 Alembic `head` 为准。
-- 验收：真实 HTTPS 域名、真实 PostgreSQL/Redis/Celery 的 Playwright 纵向 E2E 通过。
-- 隔离：`api.962850.xyz` 的 Sub2API 及 md2word、Vaultwarden、CLIProxy 未受影响。
-
-### 2026-07-12 发布记录
-
-- 发布版本：`mvp-20260712-1a18cb2`，Git 提交 `1a18cb2`。
-- SSH：确认 `154.21.86.86:22` 是 DMIT，Hostdzire 必须使用 `154.21.86.86:2222` 和独立 RSA 私钥；显式设置 `IdentitiesOnly=yes` 后连接成功。
-- 备份：迁移前生成并确认 `/root/partsignal/backups/partsignal-20260712T115453Z.sql.gz` 非空。
-- 部署：Compose 构建、Alembic `0013_publication_closure`、API/Worker/Scheduler/Frontend 启动成功，发布指针切换到 `releases/mvp-20260712-1a18cb2`。
-- 公网：live、ready、PartSignal 首页和 Sub2API 首页验证通过；PostgreSQL、Redis、Nginx 及相邻服务正常。
-- CI：发布提交的契约、单元、集成、构建、E2E 和 Linux 视觉基线检查全部通过。
-- 公网 Playwright：错误尝试整套测试得到 `8/10`；纵向用例因生产安全策略拒绝回环 HTTP Mock Provider，后续明确改为公网只执行隔离的视觉与无障碍用例。
+| SSH 报 `Permission denied (publickey)` | 使用了错误 alias，或本机 OpenSSH 配置/身份不可用 | 固定使用 `ssh hostdzire` 先执行只读 `hostname` 探测；不要绕过 `~/.ssh/config` 手工拼接身份参数 |
+| 公网纵向 E2E 创建 AI 渠道返回 `AI_URL_FORBIDDEN` | 测试依赖回环 HTTP Mock Provider，但预发布环境正确禁止本地 HTTP AI 出站 | 只在本地/CI 隔离环境执行纵向 E2E；不得修改 `AI_ALLOW_LOCAL_HTTP=false` |

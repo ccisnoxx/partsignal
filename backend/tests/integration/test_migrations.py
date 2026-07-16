@@ -901,3 +901,248 @@ def test_platform_prompts_move_from_type_to_each_profile() -> None:
                     (first_profile, "重复 Prompt", admin_id),
                 )
             connection.rollback()
+
+
+@pytest.mark.integration
+def test_platform_rule_draft_editing_guard() -> None:
+    """0015 仅允许 DRAFT 原地更新规则，并可恢复旧触发器。"""
+    with temporary_database("partsignal_rule_draft") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0014_platform_prompt_ownership")
+        seed_accounts(env, backend_dir)
+        platform_type_id = uuid.uuid4()
+        profile_id, other_profile_id = uuid.uuid4(), uuid.uuid4()
+        draft_id, active_id, retired_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+            admin_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO platform_types (id, name, slug, created_by) "
+                "VALUES (%s, '规则迁移类型', 'rule-migration', %s)",
+                (platform_type_id, admin_id),
+            )
+            cursor.executemany(
+                "INSERT INTO platform_profiles "
+                "(id, name, slug, allowed_domains, platform_type_id) "
+                "VALUES (%s, %s, %s, ARRAY['example.invalid'], %s)",
+                [
+                    (profile_id, "规则迁移平台", "rule-migration", platform_type_id),
+                    (other_profile_id, "其他平台", "rule-migration-other", platform_type_id),
+                ],
+            )
+            cursor.executemany(
+                "INSERT INTO platform_profile_versions "
+                "(id, platform_profile_id, version, status, rules, revision) "
+                "VALUES (%s, %s, %s, %s, %s::jsonb, 0)",
+                [
+                    (draft_id, profile_id, 1, "DRAFT", '{"body_max":100}'),
+                    (active_id, profile_id, 2, "ACTIVE", '{"body_max":200}'),
+                    (retired_id, profile_id, 3, "RETIRED", '{"body_max":300}'),
+                ],
+            )
+            connection.commit()
+
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE platform_profile_versions SET rules = '{\"body_max\":150}'::jsonb "
+                    "WHERE id = %s",
+                    (draft_id,),
+                )
+            connection.rollback()
+
+        run_alembic(env, backend_dir, "head")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE platform_profile_versions "
+                "SET rules = '{\"body_max\":150}'::jsonb, revision = revision + 1 "
+                "WHERE id = %s",
+                (draft_id,),
+            )
+            connection.commit()
+            cursor.execute(
+                "SELECT rules ->> 'body_max', revision FROM platform_profile_versions "
+                "WHERE id = %s",
+                (draft_id,),
+            )
+            assert cursor.fetchone() == ("150", 1)
+
+            for frozen_id in (active_id, retired_id):
+                with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                    cursor.execute(
+                        "UPDATE platform_profile_versions "
+                        "SET rules = '{\"body_max\":999}'::jsonb WHERE id = %s",
+                        (frozen_id,),
+                    )
+                connection.rollback()
+
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE platform_profile_versions "
+                    "SET platform_profile_id = %s, version = 9, created_at = now() "
+                    "WHERE id = %s",
+                    (other_profile_id, draft_id),
+                )
+            connection.rollback()
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE platform_profile_versions "
+                    "SET status = 'ACTIVE', rules = '{\"body_max\":400}'::jsonb "
+                    "WHERE id = %s",
+                    (draft_id,),
+                )
+            connection.rollback()
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0014_platform_prompt_ownership",
+            ],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE platform_profile_versions SET rules = '{\"body_max\":175}'::jsonb "
+                    "WHERE id = %s",
+                    (draft_id,),
+                )
+            connection.rollback()
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0014_platform_prompt_ownership",)
+
+
+@pytest.mark.integration
+def test_fact_review_cleanup_guard() -> None:
+    """0016 仅按事务本地父版本 ID 放行从属审核记录删除。"""
+    with temporary_database("partsignal_fact_review_cleanup") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0015_platform_rule_draft_editing")
+        seed_accounts(env, backend_dir)
+        product_id = uuid.uuid4()
+        first_fact_id, second_fact_id = uuid.uuid4(), uuid.uuid4()
+        first_review_id, second_review_id = uuid.uuid4(), uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+            admin_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO products "
+                "(id, part_number, normalized_part_number, brand, normalized_brand, category, "
+                "status, revision, facts_revision) "
+                "VALUES (%s, 'REVIEW-CLEANUP', 'review-cleanup', 'TEST', 'test', 'TEST', "
+                "'ACTIVE', 0, 0)",
+                (product_id,),
+            )
+            cursor.executemany(
+                "INSERT INTO fact_versions "
+                "(id, product_id, version, status, snapshot_json, change_summary, revision, "
+                "created_by) "
+                "VALUES (%s, %s, %s, 'DRAFT', '{}'::jsonb, '迁移测试', 0, %s)",
+                [
+                    (first_fact_id, product_id, 1, admin_id),
+                    (second_fact_id, product_id, 2, admin_id),
+                ],
+            )
+            cursor.executemany(
+                "INSERT INTO fact_review_records "
+                "(id, fact_version_id, action, comment, actor_id) "
+                "VALUES (%s, %s, 'TEST', '迁移测试审核', %s)",
+                [
+                    (first_review_id, first_fact_id, admin_id),
+                    (second_review_id, second_fact_id, admin_id),
+                ],
+            )
+            connection.commit()
+
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "DELETE FROM fact_review_records WHERE id = %s",
+                    (first_review_id,),
+                )
+            connection.rollback()
+
+        run_alembic(env, backend_dir, "head")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "DELETE FROM fact_review_records WHERE id = %s",
+                    (first_review_id,),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.fact_version_delete_id', %s, true)",
+                (str(first_fact_id),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "DELETE FROM fact_review_records WHERE id = %s",
+                    (second_review_id,),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.fact_version_delete_id', %s, true)",
+                (str(first_fact_id),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE fact_review_records SET comment = '禁止修改' WHERE id = %s",
+                    (first_review_id,),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.fact_version_delete_id', %s, true)",
+                (str(first_fact_id),),
+            )
+            cursor.execute(
+                "DELETE FROM fact_review_records WHERE id = %s",
+                (first_review_id,),
+            )
+            connection.commit()
+            cursor.execute(
+                "SELECT count(*) FROM fact_review_records WHERE id = %s",
+                (first_review_id,),
+            )
+            assert cursor.fetchone() == (0,)
+            replacement_review_id = uuid.uuid4()
+            cursor.execute(
+                "INSERT INTO fact_review_records "
+                "(id, fact_version_id, action, comment, actor_id) "
+                "VALUES (%s, %s, 'TEST', '降级验证审核', %s)",
+                (replacement_review_id, first_fact_id, admin_id),
+            )
+            connection.commit()
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0015_platform_rule_draft_editing",
+            ],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT set_config('partsignal.fact_version_delete_id', %s, true)",
+                (str(first_fact_id),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "DELETE FROM fact_review_records WHERE id = %s",
+                    (replacement_review_id,),
+                )
+            connection.rollback()
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0015_platform_rule_draft_editing",)

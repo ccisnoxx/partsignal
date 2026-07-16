@@ -81,3 +81,10 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 - Do not include unrecognized dirty files in commits.
 - Do not push automatically.
 - Before running `task.py archive` or `add_session.py`, explain if it may create Trellis bookkeeping commits.
+
+### Documentation Maintenance
+
+- 当功能、业务规则、权限、数据模型、API、配置或部署行为发生变化时，必须在同一任务中更新对应的权威文档。
+- 方案文档只描述当前已实现或已明确批准的设计；删除或改写已失效、与实现冲突的旧方案，决策过程保留在已归档的 Trellis 任务中。
+- 避免重复维护同一事实：API 以 `contracts/openapi.yaml` 为准，数据库以 `contracts/database.md` 为准，稳定开发约束写入 `.trellis/spec/`，业务与系统关系写入 `docs/` 方案文档。
+- 任务完成或归档前检查代码、契约、测试和方案文档是否一致；无需更新文档时，在收尾说明中明确原因。

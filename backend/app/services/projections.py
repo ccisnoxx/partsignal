@@ -83,9 +83,10 @@ def fact_version_out(version: FactVersion) -> FactVersionOut:
 
 
 def platform_version_out(version: PlatformProfileVersion) -> PlatformProfileVersionOut:
-    """将不可变平台规则版本映射为 HTTP 契约。"""
+    """将平台规则版本映射为 HTTP 契约。"""
     return PlatformProfileVersionOut(
         id=version.id,
+        platform_profile_id=version.platform_profile_id,
         version=version.version,
         status=version.status,
         rules=version.rules,

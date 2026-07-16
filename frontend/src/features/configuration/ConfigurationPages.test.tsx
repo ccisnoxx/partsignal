@@ -1,15 +1,17 @@
 /** 锁定配置页面的层级、Prompt 和渠道查询边界。 */
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { queryClient } from '../../app/queryClient';
 import { queryKeys } from '../../shared/api/queryKeys';
+import type { Schema } from '../../shared/api/types';
 import { AIChannelDetailPage } from './AIChannelDetailPage';
 import { AIChannelsPage } from './AIChannelsPage';
 import { PlatformPromptsPage } from './PlatformPromptsPage';
+import { PlatformRulesPage } from './PlatformRulesPage';
 import { PlatformsPage } from './PlatformsPage';
 
 const apiMocks = vi.hoisted(() => ({ GET: vi.fn(), POST: vi.fn(), PATCH: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() }));
@@ -46,8 +48,13 @@ const platforms = [
   { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, revision: 0, active_version: null, prompt_configured: false },
   { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, revision: 1, active_version: { id: 'version-1', platform_profile_id: 'profile-ready', version: 1, status: 'ACTIVE', rules: platformRules, revision: 0, created_at: channel.created_at }, prompt_configured: true },
 ];
+const ruleVersions = [
+  platforms[1]!.active_version,
+  { id: 'version-2', platform_profile_id: 'profile-ready', version: 2, status: 'DRAFT', rules: { ...platformRules, body_max: 6000 }, revision: 3, created_at: channel.created_at },
+].filter((version) => version !== null);
 const platformPrompt = { platform_profile_id: 'profile-ready', template_markdown: '仅使用已批准事实。', revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
 let platformItems = platforms;
+let platformRuleItems = ruleVersions;
 
 function result(data: unknown) {
   return Promise.resolve({ data, response: new Response(null, { status: 200 }) });
@@ -60,12 +67,14 @@ function renderWithQuery(ui: ReactNode, initialEntries: string[]) {
 beforeEach(() => {
   queryClient.clear();
   platformItems = platforms;
+  platformRuleItems = ruleVersions;
   Object.values(apiMocks).forEach((mock) => mock.mockReset());
   apiMocks.GET.mockImplementation((path: string) => {
     if (path === '/api/v1/ai-channels') return result({ items: [channel] });
     if (path === '/api/v1/ai-channels/{channel_id}') return result(channel);
     if (path === '/api/v1/ai-channels/{channel_id}/models') return result({ items: [model] });
     if (path === '/api/v1/platform-profiles') return result({ items: platformItems });
+    if (path === '/api/v1/platform-profile-versions') return result({ items: platformRuleItems });
     if (path === '/api/v1/platform-types') return result({ items: [platformType] });
     if (path === '/api/v1/platform-profiles/{platform_profile_id}/prompt') return result(platformPrompt);
     throw new Error(`未声明测试请求：${path}`);
@@ -74,14 +83,22 @@ beforeEach(() => {
     if (path === '/api/v1/ai-channels/{channel_id}/discover-models') return result({ items: [{ model_id: 'model-controlled' }, { model_id: 'model-new' }] });
     if (path === '/api/v1/ai-channels/{channel_id}/models') return result({ ...model, id: 'model-2', display_name: 'model-new', model_id: 'model-new' });
     if (path === '/api/v1/ai-models/{model_id}/disable') return result({ ...model, is_enabled: false, revision: model.revision + 1 });
+    if (path === '/api/v1/platform-profiles') return result({ ...platforms[0], id: 'profile-new', active_version: null });
+    if (path === '/api/v1/platform-profiles/{platform_profile_id}/versions') return result({ id: 'version-new', platform_profile_id: 'profile-empty', version: 1, status: 'DRAFT', rules: platformRules, revision: 0, created_at: channel.created_at });
+    if (path === '/api/v1/platform-profile-versions/{platform_profile_version_id}/activate') return result({ ...platformRuleItems[1], status: 'ACTIVE', revision: 4 });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  apiMocks.PATCH.mockImplementation((path: string) => {
+    if (path === '/api/v1/platform-profile-versions/{platform_profile_version_id}') return result({ ...platformRuleItems[1], rules: { ...platformRules, body_max: 7000 }, revision: 4 });
     throw new Error(`未声明测试请求：${path}`);
   });
   apiMocks.PUT.mockImplementation((path: string) => {
     if (path === '/api/v1/platform-profiles/{platform_profile_id}/prompt') return result({ ...platformPrompt, revision: 2 });
     throw new Error(`未声明测试请求：${path}`);
   });
-  apiMocks.DELETE.mockImplementation((path: string) => {
+  apiMocks.DELETE.mockImplementation((path: string, options?: { params?: { path?: Record<string, string> } }) => {
     if (path === '/api/v1/platform-profiles/{platform_profile_id}/prompt') platformItems = platformItems.map((item) => item.id === 'profile-ready' ? { ...item, prompt_configured: false } : item);
+    if (path === '/api/v1/platform-profile-versions/{platform_profile_version_id}') platformRuleItems = platformRuleItems.filter((item) => item?.id !== options?.params?.path?.platform_profile_version_id);
     return Promise.resolve({ response: new Response(null, { status: 204 }) });
   });
 });
@@ -90,6 +107,97 @@ test('平台列表明确展示无有效规则和缺少 Prompt', async () => {
   renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
   expect(await screen.findByText('无有效规则')).toBeInTheDocument();
   expect(screen.getByText('未配置 Prompt')).toBeInTheDocument();
+});
+
+test('新增平台只提交身份字段且保持无当前规则', async () => {
+  const payload = { name: '新平台', slug: 'new-platform', platform_type_id: platformType.id, allowed_domains: ['new.example.invalid'] } satisfies Schema<'PlatformProfileCreate'>;
+  renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
+  await screen.findByText('待配置平台');
+  expect(screen.getByRole('button', { name: /新增平台$/ })).toBeInTheDocument();
+  expect(payload).not.toHaveProperty('rules');
+  expect(screen.queryByLabelText('目标受众')).not.toBeInTheDocument();
+});
+
+test('独立规则页只展示真实版本并支持创建和编辑草稿', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(<PlatformRulesPage />, ['/configuration/platform-rules']);
+  expect(await screen.findByText('V1')).toBeInTheDocument();
+  expect(screen.getByText('V2')).toBeInTheDocument();
+  expect(screen.getAllByText('工程师社区')).toHaveLength(2);
+  expect(screen.queryByText('待配置平台')).not.toBeInTheDocument();
+
+  const createRuleButton = screen.getByRole('button', { name: /新增规则草稿$/ });
+  fireEvent.click(createRuleButton);
+  expect(createRuleButton).toHaveAttribute('aria-expanded', 'true');
+  const createDialog = await screen.findByRole('dialog', { name: '新增规则草稿' });
+  await user.click(within(createDialog).getByRole('combobox', { name: '所属平台' }));
+  await user.click(await screen.findByTitle('待配置平台'));
+  await user.type(within(createDialog).getByRole('textbox', { name: '目标受众' }), '采购工程师');
+  await user.type(within(createDialog).getByRole('textbox', { name: '语气' }), '技术说明');
+  for (const [label, value] of [['标题最短', '1'], ['标题最长', '100'], ['正文最短', '10'], ['正文最长', '3000']] as const) {
+    await user.type(within(createDialog).getByRole('spinbutton', { name: label }), value);
+  }
+  await user.click(within(createDialog).getByRole('button', { name: '创建草稿版本' }));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/platform-profiles/{platform_profile_id}/versions',
+    expect.objectContaining({
+      params: expect.objectContaining({ path: { platform_profile_id: 'profile-empty' } }),
+      body: expect.objectContaining({ rules: expect.objectContaining({ target_audience: '采购工程师', body_max: 3000 }) }),
+    }),
+  ));
+
+  await user.click(screen.getByRole('button', { name: '编辑草稿' }));
+  const editDialog = await screen.findByRole('dialog', { name: '编辑 工程师社区 V2 草稿' });
+  const bodyMax = within(editDialog).getByRole('spinbutton', { name: '正文最长' });
+  await user.clear(bodyMax);
+  await user.type(bodyMax, '7000');
+  await user.click(within(editDialog).getByRole('button', { name: '保存草稿' }));
+  await waitFor(() => expect(apiMocks.PATCH).toHaveBeenCalledWith(
+    '/api/v1/platform-profile-versions/{platform_profile_version_id}',
+    expect.objectContaining({
+      params: expect.objectContaining({ path: { platform_profile_version_id: 'version-2' } }),
+      body: expect.objectContaining({ expected_revision: 3, rules: expect.objectContaining({ body_max: 7000 }) }),
+    }),
+  ));
+});
+
+test('平台当前规则只列本平台草稿并复用激活命令', async () => {
+  const user = userEvent.setup();
+  platformRuleItems = [...ruleVersions, { id: 'version-cross', platform_profile_id: 'profile-empty', version: 9, status: 'DRAFT', rules: platformRules, revision: 0, created_at: channel.created_at }];
+  const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+  renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
+  const selector = await screen.findByRole('combobox', { name: '选择 工程师社区 当前规则' });
+  await user.click(selector);
+  expect(await screen.findByRole('option', { name: 'V2 · DRAFT' })).toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: 'V9 · DRAFT' })).not.toBeInTheDocument();
+  await user.click(screen.getByTitle('V2 · DRAFT'));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/platform-profile-versions/{platform_profile_version_id}/activate',
+    expect.objectContaining({
+      params: expect.objectContaining({ path: { platform_profile_version_id: 'version-2' } }),
+      body: { expected_revision: 3, comment: '选择为平台当前规则' },
+    }),
+  ));
+  await waitFor(() => {
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.platformProfiles.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.platformProfileVersions.all });
+  });
+  invalidateQueries.mockRestore();
+});
+
+test('删除规则后移除真实行并失效平台与规则查询', async () => {
+  const user = userEvent.setup();
+  const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+  renderWithQuery(<PlatformRulesPage />, ['/configuration/platform-rules']);
+  const draftRow = (await screen.findByText('V2')).closest('tr');
+  expect(draftRow).not.toBeNull();
+  await user.click(within(draftRow!).getByRole('button', { name: /删\s*除/ }));
+  await screen.findByText('物理删除规则版本 V2？');
+  await user.click(screen.getAllByRole('button', { name: /删\s*除/ }).at(-1)!);
+  await waitFor(() => expect(screen.queryByText('V2')).not.toBeInTheDocument());
+  expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.platformProfiles.all });
+  expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.platformProfileVersions.all });
+  invalidateQueries.mockRestore();
 });
 
 test('Prompt 页面只展示真实 Prompt，新增时只能选择未配置平台', async () => {

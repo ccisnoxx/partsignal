@@ -27,6 +27,7 @@ from app.schemas.common import CommandRequest
 from app.schemas.configuration import (
     PlatformProfileCreate,
     PlatformProfileVersionCreate,
+    PlatformProfileVersionUpdate,
     QueryTopicCreate,
     QueryTopicUpdate,
 )
@@ -93,7 +94,7 @@ def update_query_topic(
 def create_platform_profile(
     *, db: Session, payload: PlatformProfileCreate, actor: User, request_id: str
 ) -> PlatformProfile:
-    """创建平台及其首个 ACTIVE 规则版本。"""
+    """创建平台身份，规则版本由独立流程维护。"""
     if db.get(PlatformType, payload.platform_type_id) is None:
         raise not_found("平台类型")
     profile = PlatformProfile(
@@ -104,14 +105,6 @@ def create_platform_profile(
     )
     db.add(profile)
     db.flush()
-    db.add(
-        PlatformProfileVersion(
-            platform_profile_id=profile.id,
-            version=1,
-            status="ACTIVE",
-            rules=payload.rules.model_dump(mode="json"),
-        )
-    )
     append_audit(
         db,
         actor_id=actor.id,
@@ -169,6 +162,41 @@ def create_platform_profile_version(
     return version
 
 
+def update_platform_profile_version(
+    *,
+    db: Session,
+    platform_profile_version_id: uuid.UUID,
+    payload: PlatformProfileVersionUpdate,
+    actor: User,
+    request_id: str,
+) -> PlatformProfileVersion:
+    """以 revision 更新 DRAFT 规则，已激活或退役版本保持冻结。"""
+    version = db.scalar(
+        select(PlatformProfileVersion)
+        .where(PlatformProfileVersion.id == platform_profile_version_id)
+        .with_for_update()
+    )
+    if version is None:
+        raise not_found("平台规则版本")
+    if version.revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "平台规则版本已被其他请求修改", 409)
+    if version.status != "DRAFT":
+        raise AppError("INVALID_STATE_TRANSITION", "只有 DRAFT 平台规则可以编辑", 409)
+    version.rules = payload.rules.model_dump(mode="json")
+    version.revision += 1
+    append_audit(
+        db,
+        actor_id=actor.id,
+        action="platform_profile_version.updated",
+        target_type="PlatformProfileVersion",
+        target_id=version.id,
+        request_id=request_id,
+        details={"revision": version.revision},
+    )
+    db.commit()
+    return version
+
+
 def activate_platform_profile_version(
     *,
     db: Session,
@@ -203,6 +231,8 @@ def activate_platform_profile_version(
     if current is not None:
         current.status = "RETIRED"
         current.revision += 1
+        # 先释放部分唯一索引中的 ACTIVE 槽位，再激活替代版本。
+        db.flush()
     version.status = "ACTIVE"
     version.revision += 1
     append_audit(

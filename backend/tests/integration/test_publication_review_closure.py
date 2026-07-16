@@ -52,6 +52,12 @@ from app.models.publication import (
     PublicationAttention,
     PublicationRecord,
 )
+from app.schemas.common import CommandRequest
+from app.schemas.configuration import (
+    PlatformProfileCreate,
+    PlatformProfileVersionCreate,
+    PlatformProfileVersionUpdate,
+)
 from app.schemas.content import ContentTaskCreate
 from app.schemas.publication import (
     ManualPublicationCreate,
@@ -60,7 +66,14 @@ from app.schemas.publication import (
     ResolvePublicationAttentionRequest,
 )
 from app.security import hash_token
-from app.services.content_planning import create_content_task
+from app.services.content_planning import (
+    activate_platform_profile_version,
+    create_content_task,
+    create_platform_profile,
+    create_platform_profile_version,
+    retire_platform_profile_version,
+    update_platform_profile_version,
+)
 from app.services.integrity import publication_integrity_issues
 from app.services.platform_configuration import (
     delete_platform_profile,
@@ -68,7 +81,7 @@ from app.services.platform_configuration import (
     delete_platform_prompt,
     delete_platform_type,
 )
-from app.services.product_facts import delete_product
+from app.services.product_facts import delete_fact_version, delete_product
 from app.services.projections import platform_profile_out
 from app.services.publication import (
     cancel_content_task,
@@ -760,6 +773,362 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
                 "platform_profile.deleted",
                 "platform_type.deleted",
             } <= actions
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_platform_rule_lifecycle_and_fact_version_deletion() -> None:
+    """平台规则独立维护；事实版本仅在无内容引用时连同审核记录删除。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine) as db:
+            graph = seed_graph(db)
+            actor = graph["user"]
+            actor.account_type = "ADMIN"
+            db.commit()
+
+            alpha = create_platform_profile(
+                db=db,
+                payload=PlatformProfileCreate(
+                    name="Alpha 平台",
+                    slug=f"alpha-{uuid.uuid4().hex[:8]}",
+                    allowed_domains=["alpha.example.invalid"],
+                    platform_type_id=graph["platform_type"].id,
+                ),
+                actor=actor,
+                request_id="create-alpha-platform",
+            )
+            zeta = create_platform_profile(
+                db=db,
+                payload=PlatformProfileCreate(
+                    name="Zeta 平台",
+                    slug=f"zeta-{uuid.uuid4().hex[:8]}",
+                    allowed_domains=["zeta.example.invalid"],
+                    platform_type_id=graph["platform_type"].id,
+                ),
+                actor=actor,
+                request_id="create-zeta-platform",
+            )
+            assert platform_profile_out(db, alpha).active_version is None
+            assert not db.scalars(
+                select(PlatformProfileVersion).where(
+                    PlatformProfileVersion.platform_profile_id.in_([alpha.id, zeta.id])
+                )
+            ).all()
+
+            alpha_version = create_platform_profile_version(
+                db=db,
+                platform_profile_id=alpha.id,
+                payload=PlatformProfileVersionCreate(rules=platform_rules()),
+                actor=actor,
+                request_id="create-alpha-rule",
+            )
+            zeta_version = create_platform_profile_version(
+                db=db,
+                platform_profile_id=zeta.id,
+                payload=PlatformProfileVersionCreate(rules=platform_rules()),
+                actor=actor,
+                request_id="create-zeta-rule",
+            )
+            updated = update_platform_profile_version(
+                db=db,
+                platform_profile_version_id=alpha_version.id,
+                payload=PlatformProfileVersionUpdate(
+                    expected_revision=0,
+                    rules=platform_rules(2500),
+                ),
+                actor=actor,
+                request_id="update-alpha-rule",
+            )
+            assert updated.rules["body_max"] == 2500
+            assert updated.revision == 1
+            with pytest.raises(AppError) as revision_conflict:
+                update_platform_profile_version(
+                    db=db,
+                    platform_profile_version_id=alpha_version.id,
+                    payload=PlatformProfileVersionUpdate(
+                        expected_revision=0,
+                        rules=platform_rules(2600),
+                    ),
+                    actor=actor,
+                    request_id="update-alpha-rule-with-stale-revision",
+                )
+            assert revision_conflict.value.code == "REVISION_CONFLICT"
+            db.rollback()
+            activated = activate_platform_profile_version(
+                db=db,
+                platform_profile_version_id=alpha_version.id,
+                payload=CommandRequest(expected_revision=1, comment="启用规则"),
+                actor=actor,
+                request_id="activate-alpha-rule",
+            )
+            assert activated.status == "ACTIVE"
+            with pytest.raises(AppError) as immutable:
+                update_platform_profile_version(
+                    db=db,
+                    platform_profile_version_id=alpha_version.id,
+                    payload=PlatformProfileVersionUpdate(
+                        expected_revision=2,
+                        rules=platform_rules(3000),
+                    ),
+                    actor=actor,
+                    request_id="update-active-rule",
+                )
+            assert immutable.value.code == "INVALID_STATE_TRANSITION"
+            db.rollback()
+
+            replacement = create_platform_profile_version(
+                db=db,
+                platform_profile_id=alpha.id,
+                payload=PlatformProfileVersionCreate(rules=platform_rules(2600)),
+                actor=actor,
+                request_id="create-alpha-replacement-rule",
+            )
+            replacement = activate_platform_profile_version(
+                db=db,
+                platform_profile_version_id=replacement.id,
+                payload=CommandRequest(expected_revision=0, comment="替换当前规则"),
+                actor=actor,
+                request_id="activate-alpha-replacement-rule",
+            )
+            db.refresh(alpha_version)
+            assert replacement.status == "ACTIVE"
+            assert alpha_version.status == "RETIRED"
+            with pytest.raises(AppError) as retired_immutable:
+                update_platform_profile_version(
+                    db=db,
+                    platform_profile_version_id=alpha_version.id,
+                    payload=PlatformProfileVersionUpdate(
+                        expected_revision=alpha_version.revision,
+                        rules=platform_rules(2700),
+                    ),
+                    actor=actor,
+                    request_id="update-retired-rule",
+                )
+            assert retired_immutable.value.code == "INVALID_STATE_TRANSITION"
+            db.rollback()
+
+            retired_draft = create_platform_profile_version(
+                db=db,
+                platform_profile_id=zeta.id,
+                payload=PlatformProfileVersionCreate(rules=platform_rules(2800)),
+                actor=actor,
+                request_id="create-zeta-retired-rule",
+            )
+            retired_draft = retire_platform_profile_version(
+                db=db,
+                platform_profile_version_id=retired_draft.id,
+                payload=CommandRequest(expected_revision=0, comment="不再使用"),
+                actor=actor,
+                request_id="retire-zeta-rule",
+            )
+            with pytest.raises(AppError) as explicitly_retired_immutable:
+                update_platform_profile_version(
+                    db=db,
+                    platform_profile_version_id=retired_draft.id,
+                    payload=PlatformProfileVersionUpdate(
+                        expected_revision=retired_draft.revision,
+                        rules=platform_rules(2900),
+                    ),
+                    actor=actor,
+                    request_id="update-explicitly-retired-rule",
+                )
+            assert explicitly_retired_immutable.value.code == "INVALID_STATE_TRANSITION"
+            db.rollback()
+            ordered_versions = list(
+                db.scalars(
+                    select(PlatformProfileVersion)
+                    .join(PlatformProfile)
+                    .where(
+                        PlatformProfileVersion.id.in_(
+                            [alpha_version.id, replacement.id, zeta_version.id]
+                        )
+                    )
+                    .order_by(PlatformProfile.name, PlatformProfileVersion.version.desc())
+                )
+            )
+            assert [(item.platform_profile_id, item.version) for item in ordered_versions] == [
+                (alpha.id, 2),
+                (alpha.id, 1),
+                (zeta.id, 1),
+            ]
+
+            with pytest.raises(AppError) as referenced:
+                delete_fact_version(
+                    db=db,
+                    fact_version_id=graph["fact"].id,
+                    actor=actor,
+                    request_id="delete-referenced-fact",
+                )
+            assert referenced.value.code == "FACT_VERSION_IN_USE"
+            assert {item["type"] for item in referenced.value.details["references"]} == {
+                "CONTENT_TASK",
+                "CONTENT_VERSION",
+            }
+            db.rollback()
+
+            disposable_statuses = [
+                "DRAFT",
+                "PENDING_REVIEW",
+                "CHANGES_REQUESTED",
+                "APPROVED",
+                "RETIRED",
+            ]
+            disposable_ids: list[uuid.UUID] = []
+            review_ids: list[uuid.UUID] = []
+            for version_number, status in enumerate(disposable_statuses, start=2):
+                disposable = FactVersion(
+                    product_id=graph["product"].id,
+                    version=version_number,
+                    status=status,
+                    snapshot_json=fact_snapshot(float(version_number)),
+                    change_summary=f"待物理删除的 {status} 事实",
+                    created_by=actor.id,
+                    approved_by=actor.id if status == "APPROVED" else None,
+                )
+                db.add(disposable)
+                db.flush()
+                review = FactReviewRecord(
+                    fact_version_id=disposable.id,
+                    action="TEST_RECORD",
+                    comment=f"{status} 测试审核记录",
+                    actor_id=actor.id,
+                )
+                db.add(review)
+                db.flush()
+                disposable_ids.append(disposable.id)
+                review_ids.append(review.id)
+            db.commit()
+
+            for status, disposable_id in zip(
+                disposable_statuses, disposable_ids, strict=True
+            ):
+                delete_fact_version(
+                    db=db,
+                    fact_version_id=disposable_id,
+                    actor=actor,
+                    request_id=f"delete-{status.lower()}-fact",
+                )
+                audit = db.scalar(
+                    select(AuditLog).where(
+                        AuditLog.action == "fact_version.deleted",
+                        AuditLog.target_id == str(disposable_id),
+                    )
+                )
+                assert audit is not None
+                assert audit.details == {
+                    "product_id": str(graph["product"].id),
+                    "version": disposable_statuses.index(status) + 2,
+                    "status": status,
+                    "review_record_count": 1,
+                }
+            assert not db.scalars(
+                select(FactVersion).where(FactVersion.id.in_(disposable_ids))
+            ).all()
+            assert not db.scalars(
+                select(FactReviewRecord).where(FactReviewRecord.id.in_(review_ids))
+            ).all()
+
+            clean_product = Product(
+                part_number=f"FACT-CLEAN-{uuid.uuid4().hex[:8]}",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"fact-clean-{uuid.uuid4().hex[:8]}",
+                category="TEST",
+            )
+            db.add(clean_product)
+            db.flush()
+            clean_fact = FactVersion(
+                product_id=clean_product.id,
+                version=1,
+                status="DRAFT",
+                snapshot_json=fact_snapshot(9.9),
+                change_summary="删除后允许清理产品",
+                created_by=actor.id,
+            )
+            db.add(clean_fact)
+            db.commit()
+            clean_product_id = clean_product.id
+            delete_fact_version(
+                db=db,
+                fact_version_id=clean_fact.id,
+                actor=actor,
+                request_id="delete-clean-product-fact",
+            )
+            delete_product(
+                db=db,
+                product_id=clean_product_id,
+                actor=actor,
+                request_id="delete-product-after-facts",
+            )
+            assert db.get(Product, clean_product_id) is None
+
+            engineer = User(
+                username=f"fact-engineer-{uuid.uuid4().hex[:8]}",
+                display_name="事实删除权限测试工程师",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            api_product = Product(
+                part_number=f"FACT-API-{uuid.uuid4().hex[:8]}",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"fact-api-{uuid.uuid4().hex[:8]}",
+                category="TEST",
+            )
+            db.add_all([engineer, api_product])
+            db.flush()
+            api_fact = FactVersion(
+                product_id=api_product.id,
+                version=1,
+                status="DRAFT",
+                snapshot_json=fact_snapshot(12.0),
+                change_summary="API 权限验证事实",
+                created_by=actor.id,
+            )
+            db.add(api_fact)
+            db.commit()
+            admin_id, engineer_id = actor.id, engineer.id
+            api_product_id, api_fact_id = api_product.id, api_fact.id
+
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        csrf_token = "fact-delete-csrf-token-with-more-than-32-characters"
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        with session_factory() as db:
+            admin_user = db.get(User, admin_id)
+            engineer_user = db.get(User, engineer_id)
+            assert admin_user is not None
+            assert engineer_user is not None
+        current_session = SimpleNamespace(
+            user=engineer_user,
+            csrf_hash=hash_token(csrf_token),
+            last_seen_at=None,
+        )
+        app.dependency_overrides[get_db] = override_db
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        client = TestClient(app)
+        try:
+            denied = client.delete(
+                f"/api/v1/fact-versions/{api_fact_id}",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert denied.status_code == 403
+            current_session.user = admin_user
+            deleted = client.delete(
+                f"/api/v1/fact-versions/{api_fact_id}",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert deleted.status_code == 204
+        finally:
+            app.dependency_overrides.clear()
+
+        with session_factory() as db:
+            assert db.get(FactVersion, api_fact_id) is None
+            assert db.get(Product, api_product_id) is not None
         engine.dispose()
 
 

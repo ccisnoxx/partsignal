@@ -316,6 +316,15 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactVersion'}
+    delete:
+      tags: [product-facts]
+      operationId: deleteFactVersion
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      responses:
+        '204': {description: 已删除事实版本及其从属审核记录}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/fact-versions/{fact_version_id}/review-context:
     get:
       tags: [review]
@@ -438,10 +447,20 @@ paths:
             schema: {$ref: '#/components/schemas/PlatformProfileCreate'}
       responses:
         '201':
-          description: 已创建平台和首个 ACTIVE 版本
+          description: 已创建平台，当前规则为空
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfile'}
+  /api/v1/platform-profile-versions:
+    get:
+      tags: [planning]
+      operationId: listAllPlatformProfileVersions
+      responses:
+        '200':
+          description: 全部平台规则版本
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformProfileVersionList'}
   /api/v1/platform-profiles/{platform_profile_id}/versions:
     get:
       tags: [planning]
@@ -528,6 +547,24 @@ paths:
         '204': {description: 已删除未被规则版本或平台账号引用的平台}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profile-versions/{platform_profile_version_id}:
+    patch:
+      tags: [planning]
+      operationId: updatePlatformProfileVersion
+      parameters:
+        - {$ref: '#/components/parameters/PlatformProfileVersionId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlatformProfileVersionUpdate'}
+      responses:
+        '200':
+          description: 已更新 DRAFT 平台规则版本
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformProfileVersion'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deletePlatformProfileVersion
@@ -1863,13 +1900,12 @@ components:
     PlatformProfileCreate:
       type: object
       additionalProperties: false
-      required: [name, slug, allowed_domains, platform_type_id, rules]
+      required: [name, slug, allowed_domains, platform_type_id]
       properties:
         name: {type: string}
         slug: {type: string, pattern: '^[a-z0-9-]+$'}
         allowed_domains: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
         platform_type_id: {type: string, format: uuid}
-        rules: {$ref: '#/components/schemas/PlatformRules'}
     PlatformProfileUpdate:
       type: object
       additionalProperties: false
@@ -1884,6 +1920,13 @@ components:
       additionalProperties: false
       required: [rules]
       properties:
+        rules: {$ref: '#/components/schemas/PlatformRules'}
+    PlatformProfileVersionUpdate:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, rules]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
         rules: {$ref: '#/components/schemas/PlatformRules'}
     PlatformRules:
       type: object
@@ -1911,9 +1954,10 @@ components:
     PlatformProfileVersion:
       type: object
       additionalProperties: false
-      required: [id, version, status, rules, revision, created_at]
+      required: [id, platform_profile_id, version, status, rules, revision, created_at]
       properties:
         id: {type: string, format: uuid}
+        platform_profile_id: {type: string, format: uuid}
         version: {type: integer}
         status: {type: string, enum: [DRAFT, ACTIVE, RETIRED]}
         rules: {$ref: '#/components/schemas/PlatformRules'}

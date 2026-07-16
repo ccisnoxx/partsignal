@@ -110,6 +110,7 @@ def test_platform_version_projection_preserves_frozen_http_shape() -> None:
     }
     version = PlatformProfileVersion(
         id=uuid.uuid4(),
+        platform_profile_id=uuid.uuid4(),
         version=3,
         status="ACTIVE",
         rules=rules,
@@ -119,6 +120,7 @@ def test_platform_version_projection_preserves_frozen_http_shape() -> None:
     projected = platform_version_out(version)
     assert projected.model_dump(exclude={"created_at"}) == {
         "id": version.id,
+        "platform_profile_id": version.platform_profile_id,
         "version": 3,
         "status": "ACTIVE",
         "rules": rules,

@@ -21,6 +21,7 @@ const navigationLoaders: Record<string, RouteLoaderKey> = {
   '/configuration/ai': 'aiChannels',
   '/configuration/platform-types': 'platformTypes',
   '/configuration/platforms': 'platforms',
+  '/configuration/platform-rules': 'platformRules',
   '/configuration/prompts': 'platformPrompts',
   '/configuration/audit': 'auditLog',
 };

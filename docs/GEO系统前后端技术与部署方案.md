@@ -32,7 +32,7 @@
 | 正文格式 | Markdown 为唯一可编辑正文源 |
 | 产品事实 | 覆盖参数、特性、认证、应用和测试；替代关系可选 |
 | 平台类型 | 管理员按业务需要维护的动态分类 |
-| 平台规则 | 具体平台拥有当前 Prompt，`PlatformProfileVersion` 保存不可变规则 |
+| 平台规则 | 具体平台拥有当前 Prompt；`PlatformProfileVersion` 的 DRAFT 可编辑，ACTIVE/RETIRED 冻结 |
 | 内容任务 | 创建时锁定具体平台的 `ACTIVE PlatformProfileVersion`，单次生成完整内容 |
 | AI 配置 | “获取模型”使用弹窗逐个添加；模型连接测试发送唯一用户消息 `hi`，不复用业务草稿解析 |
 | 发布方式 | MVP 人工发布并登记结果 |
@@ -199,7 +199,7 @@ HTML、纯文本和平台发布格式均由 Markdown 派生，不作为第二份
 - 编辑器展示任务锁定的具体平台、规则版本和当前 Prompt。
 - 管理员可继续配置没有有效规则的平台；激活新规则且 Prompt 存在后恢复工程师可选。
 - 待发布列表只查询已批准内容，服务端复核平台账号与任务锁定平台一致。
-- 配置中心保留并列的“平台类型”“平台管理”“Prompt 管理”路由；平台类型只做分类，Prompt 页面按具体平台维护当前 Markdown。
+- 配置中心保留并列的“平台类型”“平台管理”“平台规则管理”“Prompt 管理”路由；平台管理只维护身份、归类、域名和当前规则选择，规则页独立创建、编辑和删除真实版本，Prompt 页面按具体平台维护当前 Markdown。
 - 全站用户可见业务文本使用中文，枚举的显示 label 与提交 value 分离；`model_id`、API Key、URL、Markdown、JSON、Header、Prompt 和机器值保持原样。
 - AI 渠道列表响应一次性包含全部已启用模型摘要，卡片完整展示显示名和 `model_id`；前端不得逐渠道请求模型列表。
 
@@ -456,14 +456,18 @@ GEO 项目使用独立 PostgreSQL 和独立 Redis 容器，不复用当前其他
 本次平台模型调整至少涉及以下数据库契约：
 
 - `platform_types.slug` 保持唯一；管理员可增删改查，删除被具体平台引用的类型时返回结构化冲突。
-- `platform_profiles` 保存具体平台和所属类型，并拥有零或一份当前 Prompt；`platform_profile_versions` 保存 `DRAFT / ACTIVE / RETIRED` 不可变规则。
+- `platform_profiles` 保存具体平台和所属类型，并拥有零或一份当前 Prompt；创建平台不隐式创建规则。`platform_profile_versions` 保存 `DRAFT / ACTIVE / RETIRED` 规则，只有 `DRAFT` 可按修订号编辑，当前规则由同平台唯一 `ACTIVE` 版本推导。
 - `content_tasks` 继续直接锁定具体 `platform_profile_version_id`，以及产品、事实版本、目标问题和工程师输入。
 - `generation_jobs.input_snapshot` 新写入具体平台身份，并继续冻结规则、最终消息、事实、渠道和模型。
 - `content_versions` 保持单一内容版本模型；发布记录只允许引用已批准内容。
 
 `0014_platform_prompt_ownership` 用新表把旧类型 Prompt 复制给该类型下每个具体平台，孤立 Prompt 不保留，然后移除旧表和旧字段。平台 Prompt 分化后无法可靠合并，降级依赖迁移前 PostgreSQL 备份。既有任务、生成快照、内容、审核和发布历史保持只读一致。
 
-管理员删除当前开发数据时，服务先锁定目标并统计直接引用，冲突统一返回 `409 details.references[{type,count}]`：产品检查事实版本、内容任务和 GEO 观测；规则版本检查内容任务；具体平台检查规则版本和平台账号；平台账号检查发布记录；平台类型检查具体平台。删除不级联或改写业务历史。未引用的 `ACTIVE` 规则允许删除，平台保留且 `active_version=null`；只有激活新规则并存在当前 Prompt 后，工程师才能再次选择。
+`0015_platform_rule_draft_editing` 不新增表或字段，只替换既有规则版本触发器：更新前后均为 `DRAFT` 时允许修改 `rules`，身份字段及 `ACTIVE`、`RETIRED` 正文继续由 PostgreSQL 冻结。迁移不改写业务行；显式降级只恢复原有全状态不可编辑门禁。
+
+`0016_fact_review_cleanup` 只给 `fact_review_records` 替换专用触发器：服务锁定父事实版本并确认无内容引用后，在当前事务声明父版本 ID；只有归属完全匹配的审核记录可删除，UPDATE、未声明或错配 ID 的删除继续拒绝。其他追加式历史表、`RESTRICT` 外键和显式删除顺序不变，降级恢复原通用触发器。
+
+管理员删除当前开发数据时，服务先锁定目标并统计直接引用，冲突统一返回 `409 details.references[{type,count}]`：产品检查事实版本、内容任务和 GEO 观测；事实版本检查内容任务和内容版本；规则版本检查内容任务；具体平台检查规则版本和平台账号；平台账号检查发布记录；平台类型检查具体平台。无引用事实版本可在任意状态删除，其从属事实审核记录在同一事务显式清理并保留安全审计摘要；产品删除不会自动删除事实版本。其他删除不级联或改写业务历史。未引用的 `ACTIVE` 规则允许删除，平台保留且 `active_version=null`；只有激活新规则并存在当前 Prompt 后，工程师才能再次选择。
 
 ### 9.4 Redis
 
@@ -991,7 +995,7 @@ MVP 先维持现有路由，监测 AI 请求耗时、OSS 请求耗时和 DMIT �
 | 层级 | 工具 | 重点 |
 |---|---|---|
 | 后端单元测试 | pytest | 平台可用性、规则状态机、版本不变量、权限和校验 |
-| 后端集成测试 | pytest + PostgreSQL | Prompt 所有权迁移、受约束删除、生成作业、发布约束和 OSS 适配器 |
+| 后端集成测试 | pytest + PostgreSQL | Prompt 所有权迁移、规则草稿与事实审核清理触发器、受约束删除、生成作业、发布约束和 OSS 适配器 |
 | 前端单元测试 | Vitest + Testing Library | 平台可用性、中文枚举、表单、审核、编辑和异常状态 |
 | API 契约测试 | OpenAPI 客户端构建 | 前后端类型一致性 |
 | 端到端测试 | Playwright | 产品事实、具体平台生成到人工发布登记完整流程 |

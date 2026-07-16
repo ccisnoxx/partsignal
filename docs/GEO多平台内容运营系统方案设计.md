@@ -102,7 +102,7 @@
 - **事实优先**：AI 负责表达，不负责创造产品事实。
 - **一个事实源**：产品参数、特性、认证、应用、测试结论和可选替代关系只能由产品事实模块维护。
 - **先统一、后差异化**：先锁定统一事实快照，再生成平台版本。
-- **平台级配置**：平台类型只负责分类，具体平台拥有当前 Prompt 和不可变规则版本。
+- **平台级配置**：平台类型只负责分类，具体平台拥有当前 Prompt；规则草稿可编辑，激活或退役后冻结。
 - **人工把关**：所有外发内容必须经过明确审核。
 - **版本可追溯**：发布记录必须指向具体内容版本和事实版本。
 - **发布方式解耦**：人工发布和未来自动发布共用同一发布结果模型。
@@ -232,7 +232,7 @@ flowchart TD
 | `FactVersion` | 事实版本 | 冻结一次已审核的产品事实及可选替代事实 |
 | `QueryTopic` | 目标问题 | 保存用户问题、意图分类和关键词变体 |
 | `PlatformProfile` | 具体平台 | 保存知乎、电子发烧友等平台官网身份、业务分类和当前 Prompt |
-| `PlatformProfileVersion` | 平台规则版本 | 不可变地保存具体平台的内容约束和发布栏目 |
+| `PlatformProfileVersion` | 平台规则版本 | DRAFT 可按修订号编辑，激活或退役后冻结具体平台的内容约束和发布栏目 |
 | `PlatformType` | 平台类型 | 管理员维护的具体平台业务分类 |
 | `PlatformPrompt` | 平台 Prompt | 保存某具体平台当前唯一的 Markdown `system_prompt` |
 | `AIChannel` | AI 渠道 | 保存 OpenAI-compatible 根地址、加密凭据、超时和渠道 Header |
@@ -313,9 +313,11 @@ canonical_url: https://company.example/products/product-xxx
 
 `PlatformType` 是管理员维护的业务分类，只保存名称和唯一 `slug`，不拥有 Prompt，也不限制为固定枚举。被具体平台引用的类型不能删除；无引用类型可由管理员物理删除。
 
-`PlatformProfile` 表示知乎或电子发烧友等具体平台，保存名称、唯一 `slug`、允许域名和所属类型。每个平台最多拥有一条当前 `PlatformPrompt`，正文是普通 Markdown，不支持变量、循环、条件或 Prompt 编排。管理员可以覆盖或删除当前 Prompt；历史含义由生成作业的最终 system message 冻结。
+`PlatformProfile` 表示知乎或电子发烧友等具体平台，保存名称、唯一 `slug`、允许域名和所属类型。创建平台只创建身份，不隐式创建规则版本，因此新平台可以处于“无有效规则”。每个平台最多拥有一条当前 `PlatformPrompt`，正文是普通 Markdown，不支持变量、循环、条件或 Prompt 编排。管理员可以覆盖或删除当前 Prompt；历史含义由生成作业的最终 system message 冻结。
 
-`PlatformProfileVersion` 保存标题长度、正文结构、链接、表格、标签、品牌露出、联系方式、禁用表达、栏目及发布地址等平台规则。规则版本使用 `DRAFT → ACTIVE → RETIRED` 生命周期；`ACTIVE` 后不可编辑，每个平台同时最多一个 `ACTIVE` 版本。
+`PlatformProfileVersion` 保存标题长度、正文结构、链接、表格、标签、品牌露出、联系方式、禁用表达、栏目及发布地址等平台规则。规则版本使用 `DRAFT → ACTIVE → RETIRED` 生命周期；`DRAFT` 按 `revision` 并发控制编辑，`ACTIVE` 或 `RETIRED` 后不可编辑。每个平台同时最多一个 `ACTIVE` 版本，平台当前规则始终由该唯一版本推导，不保存第二个当前规则字段。
+
+数据库迁移 `0015_platform_rule_draft_editing` 只调整既有触发器：仅 `DRAFT → DRAFT` 可修改规则正文，规则归属、版本号、创建时间以及 `ACTIVE`、`RETIRED` 正文继续由 PostgreSQL 强制冻结；迁移不改写任何规则数据。
 
 平台允许暂时没有当前 Prompt 或 `ACTIVE` 规则。管理员页面仍展示并允许配置该平台；工程师只有在两者同时存在时才能选择平台创建内容任务。删除未引用的 `ACTIVE` 版本不会自动激活旧版本，平台进入“无有效规则”状态。平台规则更新不迁移旧任务或改写历史内容。
 
@@ -627,12 +629,13 @@ MVP 只实现可确定的检查，不建设复杂规则引擎：
 | 删除对象 | 直接阻断引用 | 成功后的边界 |
 |---|---|---|
 | 产品 | 事实版本、内容任务、GEO 观测 | 删除产品和当前事实工作区，不删除历史 |
+| 事实版本 | 内容任务、内容版本 | 任意状态均可删；同事务显式清理该版本的从属事实审核记录 |
 | 平台规则版本 | 内容任务 | `ACTIVE` 版本可删；平台保留并进入“无有效规则” |
 | 具体平台 | 规则版本、平台账号 | 当前 Prompt 随平台删除，业务历史不变 |
 | 平台账号 | 发布记录 | 只删除未用于发布的公开账号标识 |
 | 平台类型 | 具体平台 | 不自动删除具体平台 |
 
-平台当前 Prompt 可直接删除，因为历史作业已冻结最终消息。任何删除都不得自动级联事实版本、任务、内容、审核、发布、文件或观测历史；清理引用后由管理员显式重试。
+平台当前 Prompt 可直接删除，因为历史作业已冻结最终消息。事实审核记录通常保持追加式；管理员删除无内容引用的事实版本时，其从属审核记录是唯一随父版本显式清理的例外，并保留不含快照正文或审核意见的删除审计摘要。`0016_fact_review_cleanup` 通过事务本地父版本 ID 只放行该次清理，审核记录 UPDATE、未声明或错配父版本的 DELETE 仍由 PostgreSQL 拒绝；其他追加式历史表不受影响。其他删除不得自动级联事实版本、任务、内容、审核、发布、文件或观测历史；产品删除不会代替管理员逐个确认事实版本，清理引用后由管理员显式重试。
 
 ## 13. GEO 监测与分析
 
@@ -788,7 +791,7 @@ MVP 实现前两个能力；`Publisher` 只作为未来扩展边界记录在设�
 | `fact_versions` | `id`, `product_id`, `version`, `snapshot_json`, `status`, `approved_by` |
 | `query_topics` | `id`, `canonical_question`, `intent_type`, `variants_json`, `status` |
 | `platform_types` | `id`, `name`, `slug`, `revision`, `created_by` |
-| `platform_prompts` | `platform_type_id`, `template_markdown`, `revision`, `updated_by` |
+| `platform_prompts` | `platform_profile_id`, `template_markdown`, `revision`, `updated_by` |
 | `platform_profiles` | `id`, `platform_type_id`, `name`, `slug`, `official_url`, `allowed_domains`, `revision` |
 | `platform_profile_versions` | `id`, `platform_profile_id`, `version`, `status`, `rules`, `revision` |
 | `ai_channels` | `id`, `name`, `base_url`, `api_key_ciphertext`, `timeout_seconds`, `is_enabled`, `revision` |
@@ -830,7 +833,7 @@ MVP 实现前两个能力；`Publisher` 只作为未来扩展边界记录在设�
 
 - 创建内容任务。
 - 普通用户保存任务级 Markdown `user_prompt`，只读查看所选具体平台当前完整 Prompt。
-- 管理员维护动态平台类型、具体平台当前 Prompt、不可变规则版本、AI 渠道、渠道 Header 和模型。
+- 管理员维护动态平台类型、具体平台当前 Prompt、可编辑规则草稿及冻结的激活/退役版本、AI 渠道、渠道 Header 和模型。
 - 管理员通过“获取模型”弹窗或手动方式添加模型，完成最小 `hi` 连接测试并启停渠道和模型。
 - 普通用户选择一个已启用模型，基于事实版本、工程师输入、所选平台当前 Prompt 和规则创建生成作业。
 - 普通用户创建任务时选择具体平台的 `ACTIVE` 规则版本；缺少有效规则或当前 Prompt 时服务端拒绝。
@@ -882,7 +885,8 @@ GEO 监测
 └── 效果分析
 系统设置
 ├── 平台类型
-├── 平台管理与规则版本
+├── 平台管理
+├── 平台规则管理
 ├── Prompt 管理
 ├── AI 渠道与模型
 ├── 用户管理
@@ -1057,7 +1061,7 @@ MVP 功能：
 
 1. 产品事实管理，以及按需维护参考型号和替代关系。
 2. 证据上传和事实版本审核。
-3. 目标问题、动态平台类型、具体平台 Prompt 和不可变规则版本管理。
+3. 目标问题、动态平台类型、具体平台 Prompt，以及独立的平台规则草稿与生命周期管理。
 4. 具体平台内容任务、生成输入快照、AI 生成、Markdown 人工编辑和版本管理。
 5. 内容审核和审核记录。
 6. 待人工发布工作台、复制发布包和发布登记。

@@ -262,7 +262,7 @@ export interface paths {
         get: operations["getFactVersion"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deleteFactVersion"];
         options?: never;
         head?: never;
         patch?: never;
@@ -396,6 +396,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform-profile-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAllPlatformProfileVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform-profiles/{platform_profile_id}/versions": {
         parameters: {
             query?: never;
@@ -473,7 +489,7 @@ export interface paths {
         delete: operations["deletePlatformProfileVersion"];
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["updatePlatformProfileVersion"];
         trace?: never;
     };
     "/api/v1/platform-profiles/{platform_profile_id}/prompt": {
@@ -1598,7 +1614,6 @@ export interface components {
             allowed_domains: string[];
             /** Format: uuid */
             platform_type_id: string;
-            rules: components["schemas"]["PlatformRules"];
         };
         PlatformProfileUpdate: {
             expected_revision: number;
@@ -1608,6 +1623,10 @@ export interface components {
             platform_type_id: string;
         };
         PlatformProfileVersionCreate: {
+            rules: components["schemas"]["PlatformRules"];
+        };
+        PlatformProfileVersionUpdate: {
+            expected_revision: number;
             rules: components["schemas"]["PlatformRules"];
         };
         PlatformRules: {
@@ -1631,6 +1650,8 @@ export interface components {
         PlatformProfileVersion: {
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            platform_profile_id: string;
             version: number;
             /** @enum {string} */
             status: "DRAFT" | "ACTIVE" | "RETIRED";
@@ -2971,6 +2992,31 @@ export interface operations {
             };
         };
     };
+    deleteFactVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                fact_version_id: components["parameters"]["FactVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除事实版本及其从属审核记录 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
     getFactReviewContext: {
         parameters: {
             query?: never;
@@ -3170,13 +3216,33 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 已创建平台和首个 ACTIVE 版本 */
+            /** @description 已创建平台，当前规则为空 */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["PlatformProfile"];
+                };
+            };
+        };
+    };
+    listAllPlatformProfileVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 全部平台规则版本 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformProfileVersionList"];
                 };
             };
         };
@@ -3351,6 +3417,35 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePlatformProfileVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_profile_version_id: components["parameters"]["PlatformProfileVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformProfileVersionUpdate"];
+            };
+        };
+        responses: {
+            /** @description 已更新 DRAFT 平台规则版本 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformProfileVersion"];
+                };
             };
             409: components["responses"]["ErrorResponse"];
         };

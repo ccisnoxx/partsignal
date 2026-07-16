@@ -23,6 +23,7 @@ from app.schemas.configuration import (
     PlatformProfileVersionCreate,
     PlatformProfileVersionList,
     PlatformProfileVersionOut,
+    PlatformProfileVersionUpdate,
     QueryTopicCreate,
     QueryTopicList,
     QueryTopicOut,
@@ -54,6 +55,9 @@ from app.services.content_planning import (
 )
 from app.services.content_planning import (
     update_content_task_user_prompt as update_content_task_user_prompt_command,
+)
+from app.services.content_planning import (
+    update_platform_profile_version as update_platform_profile_version_command,
 )
 from app.services.content_planning import (
     update_query_topic as update_query_topic_command,
@@ -183,6 +187,25 @@ def create_platform_profile_version(
 
 
 @router.get(
+    "/platform-profile-versions",
+    response_model=PlatformProfileVersionList,
+    operation_id="listAllPlatformProfileVersions",
+)
+def list_all_platform_profile_versions(
+    db: DbSession, _user: CurrentUser
+) -> PlatformProfileVersionList:
+    """按平台名称和版本倒序返回全局规则清单。"""
+    versions = list(
+        db.scalars(
+            select(PlatformProfileVersion)
+            .join(PlatformProfile)
+            .order_by(PlatformProfile.name, PlatformProfileVersion.version.desc())
+        )
+    )
+    return PlatformProfileVersionList(items=[platform_version_out(item) for item in versions])
+
+
+@router.get(
     "/platform-profiles/{platform_profile_id}/versions",
     response_model=PlatformProfileVersionList,
     operation_id="listPlatformProfileVersions",
@@ -201,6 +224,29 @@ def list_platform_profile_versions(
         )
     )
     return PlatformProfileVersionList(items=[platform_version_out(item) for item in versions])
+
+
+@router.patch(
+    "/platform-profile-versions/{platform_profile_version_id}",
+    response_model=PlatformProfileVersionOut,
+    operation_id="updatePlatformProfileVersion",
+)
+def update_platform_profile_version(
+    platform_profile_version_id: uuid.UUID,
+    payload: PlatformProfileVersionUpdate,
+    request: Request,
+    db: DbSession,
+    admin: SystemAdmin,
+    _csrf: CsrfProtected,
+) -> PlatformProfileVersionOut:
+    version = update_platform_profile_version_command(
+        db=db,
+        platform_profile_version_id=platform_profile_version_id,
+        payload=payload,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
+    return platform_version_out(version)
 
 
 @router.post(

@@ -77,7 +77,6 @@ class PlatformProfileCreate(ContractModel):
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
     platform_type_id: uuid.UUID
-    rules: PlatformRules
 
 
 class PlatformProfileUpdate(ContractModel):
@@ -93,8 +92,14 @@ class PlatformProfileVersionCreate(ContractModel):
     rules: PlatformRules
 
 
+class PlatformProfileVersionUpdate(ContractModel):
+    expected_revision: int = Field(ge=0)
+    rules: PlatformRules
+
+
 class PlatformProfileVersionOut(ContractModel):
     id: uuid.UUID
+    platform_profile_id: uuid.UUID
     version: int
     status: Literal["DRAFT", "ACTIVE", "RETIRED"]
     rules: PlatformRules

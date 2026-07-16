@@ -87,6 +87,7 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
     `/api/v1/platform-profiles/${nonexistentId}/prompt`,
     `/api/v1/platform-profile-versions/${nonexistentId}`,
     `/api/v1/platform-accounts/${nonexistentId}`,
+    `/api/v1/fact-versions/${nonexistentId}`,
   ]) {
     expect((await engineerPage.request.delete(path, { headers: { 'X-CSRF-Token': engineerCsrf.csrf_token } })).status()).toBe(403);
   }
@@ -184,6 +185,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     `/api/v1/platform-profiles/${nonexistentId}/prompt`,
     `/api/v1/platform-profile-versions/${nonexistentId}`,
     `/api/v1/platform-accounts/${nonexistentId}`,
+    `/api/v1/fact-versions/${nonexistentId}`,
   ]) {
     const response = await page.request.delete(path, { headers: { 'X-CSRF-Token': csrf } });
     expect(response.status()).toBe(404);
@@ -235,10 +237,34 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.getByRole('button', { name: '确认批准' }).click();
   await expect(page.getByText('已批准', { exact: true }).first()).toBeVisible();
 
+  const disposableFact = await command(page, `/api/v1/products/${product!.id}/fact-versions`, csrf, { change_summary: 'E2E 待物理删除事实快照' });
+  expect((await page.request.delete(`/api/v1/fact-versions/${disposableFact.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  expect((await page.request.get(`/api/v1/fact-versions/${disposableFact.id as string}`)).status()).toBe(404);
+
   const platformType = await command(page, '/api/v1/platform-types', csrf, { name: `E2E 论坛类型 ${suffix}`, slug: `e2e-type-${suffix}` });
-  const profile = await command(page, '/api/v1/platform-profiles', csrf, { name: `E2E 论坛 ${suffix}`, slug: `e2e-forum-${suffix}`, allowed_domains: ['forum.example.invalid'], platform_type_id: platformType.id, rules: { target_audience: '测试工程师', title_min: 1, title_max: 120, body_min: 1, body_max: 5000, tone: '技术说明', allow_external_links: true, allow_tables: true, allow_contact: false, prohibited_phrases: ['绝对领先'], sections: [{ name: '测试栏目', url: 'https://forum.example.invalid/board' }] } });
+  const profile = await command(page, '/api/v1/platform-profiles', csrf, { name: `E2E 论坛 ${suffix}`, slug: `e2e-forum-${suffix}`, allowed_domains: ['forum.example.invalid'], platform_type_id: platformType.id });
+  expect(profile.active_version).toBeNull();
+  const rules = { target_audience: '测试工程师', title_min: 1, title_max: 120, body_min: 1, body_max: 5000, tone: '技术说明', allow_external_links: true, allow_tables: true, allow_contact: false, prohibited_phrases: ['绝对领先'], sections: [{ name: '测试栏目', url: 'https://forum.example.invalid/board' }] };
+  const draftRule = await command(page, `/api/v1/platform-profiles/${profile.id as string}/versions`, csrf, { rules });
+  const editedDraftRule = await body<{ id: string; revision: number }>(await page.request.patch(`/api/v1/platform-profile-versions/${draftRule.id as string}`, {
+    headers: { 'X-CSRF-Token': csrf },
+    data: { expected_revision: draftRule.revision, rules: { ...rules, body_max: 5500 } },
+  }));
+  expect(editedDraftRule.revision).toBe(1);
+  await page.goto('/configuration/platform-rules');
+  await expectTextInPaginatedTable(page, `E2E 论坛 ${suffix}`);
+  await page.goto('/configuration/platforms');
+  await expectTextInPaginatedTable(page, `E2E 论坛 ${suffix}`);
+  await page.getByRole('combobox', { name: `选择 E2E 论坛 ${suffix} 当前规则` }).click();
+  await page.getByText('V1 · DRAFT', { exact: true }).last().click();
+  let activeRuleId: string | null = null;
+  await expect.poll(async () => {
+    const profiles = await body<{ items: Array<{ id: string; active_version: { id: string } | null }> }>(await page.request.get('/api/v1/platform-profiles'));
+    activeRuleId = profiles.items.find((item) => item.id === profile.id)?.active_version?.id ?? null;
+    return activeRuleId;
+  }).toBe(editedDraftRule.id);
   const topic = await command(page, '/api/v1/query-topics', csrf, { canonical_question: `${product!.part_number} 如何替代？`, intent_type: 'REPLACEMENT', variants: [`${product!.part_number} 替代方案`] });
-  const taskPayload = { query_topic_id: topic.id, product_id: product!.id, fact_version_id: factVersion.id, platform_profile_version_id: (profile.active_version as { id: string }).id, target_audience: '测试工程师', content_angle: '虚构参数与替代边界', conversion_goal: '查看虚构资料', desired_format: '工程说明', desired_length_min: 1, desired_length_max: 5000, canonical_url: `https://example.invalid/products/${product!.part_number}` };
+  const taskPayload = { query_topic_id: topic.id, product_id: product!.id, fact_version_id: factVersion.id, platform_profile_version_id: activeRuleId, target_audience: '测试工程师', content_angle: '虚构参数与替代边界', conversion_goal: '查看虚构资料', desired_format: '工程说明', desired_length_min: 1, desired_length_max: 5000, canonical_url: `https://example.invalid/products/${product!.part_number}` };
   const missingPromptTask = await page.request.post('/api/v1/content-tasks', { headers: { 'X-CSRF-Token': csrf }, data: taskPayload });
   expect(missingPromptTask.status()).toBe(409);
   expect(await missingPromptTask.json()).toMatchObject({ error: { code: 'PLATFORM_PROMPT_MISSING' } });
@@ -280,7 +306,11 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const enabledSecondChannel = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/enable`, csrf, { expected_revision: secondSensitiveHeader.revision });
   await page.goto('/configuration');
   await expect(page).toHaveURL(/\/configuration\/ai$/);
-  await page.getByRole('link', { name: `查看 E2E 渠道 ${suffix} 配置` }).click();
+  const channelCard = page.getByRole('link', { name: `查看 E2E 渠道 ${suffix} 配置` });
+  const enabledModelSummary = channelCard.getByRole('region', { name: '已启用模型' });
+  await expect(enabledModelSummary.getByText('e2e-model', { exact: true })).toBeVisible();
+  await expect(enabledModelSummary.getByText('e2e-manual-model', { exact: true })).toHaveCount(0);
+  await channelCard.click();
   await expect(page).toHaveURL(new RegExp(`/configuration/ai/channels/${channel.id as string}$`));
   await expect(page.getByRole('region', { name: '请求 Header 列表' })).toBeVisible();
   await expect(page.getByText('E2E 模型', { exact: true })).toBeVisible();
@@ -298,6 +328,19 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const completedJob = await body<{ content_version_id: string; provider_request_id: string | null; response_duration_ms: number | null; prompt_tokens: number | null; completion_tokens: number | null; total_tokens: number | null; input_snapshot: { system_message: string; user_prompt_markdown: string } }>(await page.request.get(`/api/v1/generation-jobs/${job.id}`));
   const generatedContentId = completedJob.content_version_id;
   expect(await body<{ source_type: string; status: string }>(await page.request.get(`/api/v1/content-versions/${generatedContentId}`))).toMatchObject({ source_type: 'AI', status: 'DRAFT' });
+  const inUseFactDelete = await page.request.delete(`/api/v1/fact-versions/${factVersion.id as string}`, { headers: { 'X-CSRF-Token': csrf } });
+  expect(inUseFactDelete.status()).toBe(409);
+  expect(await inUseFactDelete.json()).toMatchObject({
+    error: {
+      code: 'FACT_VERSION_IN_USE',
+      details: {
+        references: expect.arrayContaining([
+          expect.objectContaining({ type: 'CONTENT_TASK' }),
+          expect.objectContaining({ type: 'CONTENT_VERSION' }),
+        ]),
+      },
+    },
+  });
   expect(completedJob).toMatchObject({ provider_request_id: 'e2e-provider-request', prompt_tokens: 1, completion_tokens: 1, total_tokens: null });
   expect(completedJob.response_duration_ms).not.toBeNull();
   const providerRequest = await body<Record<string, unknown>>(await page.request.get('http://127.0.0.1:9001/e2e/payloads/e2e-model'));

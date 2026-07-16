@@ -82,6 +82,7 @@ test('管理员在渠道详情路由看到展开的配置子菜单和 AI 配置�
   expect(await screen.findByRole('menuitem', { name: /配置中心/ })).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByRole('menuitem', { name: 'AI 配置' })).toHaveClass('ant-menu-item-selected');
   expect(screen.getAllByText('AI 配置').length).toBeGreaterThan(1);
+  expect(screen.getByRole('menuitem', { name: '平台规则' })).toBeInTheDocument();
   expect(screen.queryByText('事实可信 · 人工审核 · 历史可溯')).not.toBeInTheDocument();
 });
 

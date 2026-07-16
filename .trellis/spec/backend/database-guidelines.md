@@ -126,3 +126,72 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 错误做法：捕获首个外键异常、级联删除历史，或删除 `ACTIVE` 版本后自动挑选旧版本。
 
 正确做法：锁定目标，显式统计权威引用并返回稳定类型；只有引用为空才删除当前配置，平台可用性由当前 `ACTIVE` 规则与 Prompt 共同推导。
+
+## 场景：平台规则草稿编辑与事实版本受限物理删除
+
+### 1. 范围与触发条件
+
+- 平台身份与平台规则必须独立管理：创建平台不隐式创建规则，规则版本继续由 `PlatformProfileVersion` 单一模型承载。
+- 管理员编辑 `DRAFT` 规则、替换平台当前规则，或物理删除任意状态的事实版本时适用。
+- 已被内容任务或内容版本引用的事实版本仍是历史依赖，不得删除；审核记录只允许作为被删除事实版本的严格从属记录在同一事务清理。
+
+### 2. 签名
+
+- 数据库 revision：`0015_platform_rule_draft_editing`，`down_revision = "0014_platform_prompt_ownership"`；`0016_fact_review_cleanup`，`down_revision = "0015_platform_rule_draft_editing"`。
+- 平台规则接口：`GET /platform-profile-versions`、`PATCH /platform-profile-versions/{id}`、`POST /platform-profile-versions/{id}/activate`。
+- 草稿更新体：`{expected_revision: integer >= 0, rules: PlatformRules}`；返回体必须含 `platform_profile_id`。
+- 事实版本删除接口：`DELETE /fact-versions/{id}`，仅管理员可调用，成功返回 `204`。
+- 事务门禁：`set_config('partsignal.fact_version_delete_id', <fact_version_id>, true)`；第三个参数必须为 `true`，确保值只在当前事务有效。
+
+### 3. 契约
+
+- `platform_profile_versions.rules` 只允许在更新前后状态均为 `DRAFT` 时修改；`ACTIVE`、`RETIRED` 正文不可变，`platform_profile_id`、`version`、`created_at` 在所有状态不可变。
+- 草稿更新使用 `expected_revision` 乐观锁并只递增一次 revision。激活时必须锁定平台，先把旧 `ACTIVE` 更新并刷新为 `RETIRED`，释放部分唯一索引槽位后再把目标 `DRAFT` 设为 `ACTIVE`；任一步失败时整个事务回滚。
+- 删除事实版本前必须锁定目标，分别统计 `ContentTask.fact_version_id` 与 `ContentVersion.fact_version_id`。任一计数非零时返回 `FACT_VERSION_IN_USE`，不得清理任何审核记录。
+- 引用为空时，先写 `fact_version.deleted` 审计（含产品、版本、状态和审核记录数量），再以事务本地父版本 ID 放行并显式删除该父版本的 `FactReviewRecord`，最后删除 `FactVersion`。
+- `fact_review_records` 的 `UPDATE` 始终拒绝；`DELETE` 只有在事务本地 ID 与该行 `fact_version_id` 精确相等时允许。不得放宽通用追加式触发器、增加级联删除或自动删除产品。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 结果 |
+|---|---|
+| 创建平台但未创建规则 | 创建成功，规则列表为空且 `active_version=null` |
+| 更新目标不是 `DRAFT` | `409 INVALID_STATE_TRANSITION`，正文和 revision 不变 |
+| `expected_revision` 过期 | `409 REVISION_CONFLICT`，正文和 revision 不变 |
+| 用新草稿替换已有 `ACTIVE` | 旧版本先变为 `RETIRED`，新版本成为唯一 `ACTIVE` |
+| 非管理员删除事实版本 | `403`，事实版本、审核记录和审计均不变 |
+| 事实版本不存在 | `404` |
+| 存在内容任务或内容版本引用 | `409 FACT_VERSION_IN_USE`，`details.references` 只含真实非零引用 |
+| 无内容引用，事实版本处于任意状态 | 删除事实版本及其从属审核记录，保留安全审计 |
+| 直接更新审核记录，或未设置/设置错误的事务本地 ID 后删除 | PostgreSQL `55000` 拒绝 |
+
+### 5. 正常、基础与失败案例
+
+- 正常：管理员创建平台后另建草稿，多次按 revision 编辑，再激活为平台当前规则；旧 `ACTIVE` 原子退役。
+- 基础：事实版本没有内容引用但有多条审核记录，管理员删除后父版本与这些从属记录消失，产品和审计保留。
+- 失败：事实版本同时被内容任务和内容版本引用，响应分别给出两个非零计数，数据库没有部分删除。
+
+### 6. 必需测试
+
+- PostgreSQL 迁移测试验证 `0015` 只放开 `DRAFT -> DRAFT` 正文更新，`ACTIVE`/`RETIRED` 与身份字段仍受触发器保护，downgrade 恢复旧门禁。
+- PostgreSQL 迁移测试验证 `0016` 在无设置、错误父 ID 和 `UPDATE` 时拒绝，在正确事务本地父 ID 时只删除对应审核记录，downgrade 恢复通用追加式门禁。
+- API 集成测试覆盖平台空规则初态、revision 冲突、不可变状态、已有 `ACTIVE` 的原子替换，以及事实版本全部业务状态、双引用冲突、管理员权限、审核清理和审计字段。
+- E2E 验证独立平台规则页面的草稿编辑与当前规则选择，以及事实版本冲突提示和管理员删除入口。
+
+### 7. 错误与正确示例
+
+错误做法：在同一次 ORM flush 中同时提交“新版本激活、旧版本退役”，依赖未承诺的 UPDATE 顺序；或为删除事实版本而全局放开 `fact_review_records` 删除。
+
+正确做法：
+
+```python
+current.status = "RETIRED"
+db.flush()  # 先释放唯一 ACTIVE 槽位
+draft.status = "ACTIVE"
+
+db.scalar(select(func.set_config("partsignal.fact_version_delete_id", str(version.id), True)))
+db.execute(delete(FactReviewRecord).where(FactReviewRecord.fact_version_id == version.id))
+db.delete(version)
+```
+
+两组操作都必须位于各自的单一数据库事务内；刷新只固定约束检查顺序，不提前提交。

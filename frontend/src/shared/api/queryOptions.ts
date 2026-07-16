@@ -36,6 +36,12 @@ export const platformProfilesQueryOptions = () => queryOptions({
   staleTime: QUERY_STALE_TIME.configuration,
 });
 
+export const platformProfileVersionsQueryOptions = () => queryOptions({
+  queryKey: queryKeys.platformProfileVersions.all,
+  queryFn: async () => unwrap(await api.GET('/api/v1/platform-profile-versions')),
+  staleTime: QUERY_STALE_TIME.configuration,
+});
+
 export const platformTypesQueryOptions = () => queryOptions({
   queryKey: queryKeys.platformTypes.all,
   queryFn: async () => unwrap(await api.GET('/api/v1/platform-types')),

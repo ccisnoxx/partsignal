@@ -1,19 +1,21 @@
 /** 产品事实工作区：维护证据化事实、创建不可变快照并执行人工审核。 */
-import { ArrowLeftOutlined, PlusOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Checkbox, Descriptions, Divider, Form, Input, InputNumber, List, Modal, Select, Space, Table, Tabs, Timeline, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Descriptions, Divider, Form, Input, InputNumber, List, Modal, Popconfirm, Select, Space, Table, Tabs, Timeline, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
-import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
+import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { FactVersion, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
+import { DeletionError } from '../../shared/components/DeletionError';
 import { DirectUpload } from '../../shared/components/DirectUpload';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { evidenceTypeLabel, evidenceTypeOptions } from '../../shared/components/enumLabels';
+import { useAuth } from '../auth/AuthProvider';
 
 const replacementOptions: Array<{ label: string; value: Schema<'ReplacementLevel'> }> = [
   { label: '功能相近', value: 'FUNCTIONALLY_SIMILAR' }, { label: '参数兼容', value: 'PARAMETER_COMPATIBLE' },
@@ -35,6 +37,7 @@ const claimTypeOptions: Array<{ label: string; value: Schema<'ClaimType'> }> = [
 
 export function ProductFactsPage() {
   const canEdit = true;
+  const auth = useAuth();
   const { productId = '' } = useParams();
   const [snapshotOpen, setSnapshotOpen] = useState(false);
   const [snapshotTarget, setSnapshotTarget] = useState<FactVersion>();
@@ -62,6 +65,10 @@ export function ProductFactsPage() {
     },
     onSuccess: async () => { const targetId = commandTarget?.version.id; setCommandTarget(null); await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) }), queryClient.invalidateQueries({ queryKey: queryKeys.products.factReview(targetId) })]); },
   });
+  const remove = useMutation({
+    mutationFn: async (version: FactVersion) => ensureSuccess(await api.DELETE('/api/v1/fact-versions/{fact_version_id}', { params: { path: { fact_version_id: version.id }, header: csrfHeader() } })),
+    onSuccess: async () => queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) }),
+  });
 
   if (product.isLoading || draft.isLoading || versions.isLoading) return <QueryLoading />;
   if (product.error || draft.error || versions.error || !product.data || !draft.data) return <QueryFailure error={product.error ?? draft.error ?? versions.error ?? new Error('产品事实工作区不存在')} onRetry={() => { void product.refetch(); void draft.refetch(); void versions.refetch(); }} />;
@@ -70,6 +77,7 @@ export function ProductFactsPage() {
       <Link className="back-link" to="/products"><ArrowLeftOutlined /> 返回产品列表</Link>
       <PageHeader eyebrow="产品事实工作区" title={<span className="data-code">{product.data.part_number}</span>} description={`${product.data.brand} · ${product.data.category} · 工作区修订 ${draft.data.revision}`} breadcrumbs={[{ title: <Link to="/products">产品事实</Link> }, { title: product.data.part_number }]} actions={<StatusTag status={product.data.status} />} />
       {(save.error || createVersion.error || command.error) && <Alert type="error" showIcon message={errorMessage(save.error ?? createVersion.error ?? command.error)} />}
+      {remove.error && <DeletionError error={remove.error} />}
       <Tabs items={[
         { key: 'workspace', label: '事实工作区', children: draft.data && <FactsForm draft={draft.data} saving={save.isPending} disabled={!canEdit} onSave={(values) => save.mutate(values)} /> },
         { key: 'versions', label: `事实版本（${versions.data?.items.length ?? 0}）`, children: <Card extra={canEdit && <Button type="primary" onClick={() => setSnapshotOpen(true)}>创建不可变快照</Button>}><TableRegion label="事实版本列表"><Table<FactVersion> rowKey="id" dataSource={versions.data?.items} scroll={{ x: 760 }} columns={[
@@ -78,6 +86,7 @@ export function ProductFactsPage() {
           { title: '审核操作', render: (_, version) => <Space wrap>
             <Button size="small" onClick={() => setSnapshotTarget(version)}>查看快照</Button>
             <Button size="small" type="primary" onClick={() => setReviewTarget(version)}>审核证据与历史</Button>
+            {auth.isAdmin && <Popconfirm title={`物理删除事实版本 V${version.version}？`} description="该版本及其审核记录会一并删除；存在内容任务或内容版本引用时服务端会拒绝。此操作不可恢复。" okText="删除" cancelText="取消" onConfirm={() => remove.mutate(version)}><Button size="small" danger icon={<DeleteOutlined />} loading={remove.isPending && remove.variables?.id === version.id}>删除</Button></Popconfirm>}
           </Space> },
         ]} /></TableRegion></Card> },
       ]} />

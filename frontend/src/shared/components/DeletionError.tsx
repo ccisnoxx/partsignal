@@ -5,6 +5,7 @@ import { ApiError, errorMessage } from '../api/client';
 const referenceLabels: Record<string, string> = {
   FACT_VERSION: '事实版本',
   CONTENT_TASK: '内容任务',
+  CONTENT_VERSION: '内容版本',
   GEO_OBSERVATION: 'GEO 观测',
   PLATFORM_PROFILE_VERSION: '平台规则版本',
   PLATFORM_PROFILE: '具体平台',

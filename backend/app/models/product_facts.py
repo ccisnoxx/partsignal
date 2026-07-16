@@ -211,7 +211,7 @@ class ClaimEvidenceLink(Base):
 
 
 class FactVersion(Base):
-    """服务端构造的不可变产品事实快照。"""
+    """服务端构造的冻结事实快照；管理员可在无业务引用时物理删除。"""
 
     __tablename__ = "fact_versions"
     __table_args__ = (UniqueConstraint("product_id", "version"),)
@@ -237,7 +237,7 @@ class FactVersion(Base):
 
 
 class FactReviewRecord(Base):
-    """追加式事实审核命令记录。"""
+    """追加式事实审核命令记录，随管理员删除父事实版本而清理。"""
 
     __tablename__ = "fact_review_records"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)

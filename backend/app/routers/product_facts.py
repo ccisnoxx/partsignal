@@ -35,6 +35,7 @@ from app.services.product_facts import (
 from app.services.product_facts import (
     create_product as create_product_command,
 )
+from app.services.product_facts import delete_fact_version as delete_fact_version_command
 from app.services.product_facts import delete_product as delete_product_command
 from app.services.product_facts import (
     load_fact_body,
@@ -238,6 +239,26 @@ def get_fact_version(
     if version is None:
         raise not_found("事实版本")
     return fact_version_out(version)
+
+
+@router.delete(
+    "/fact-versions/{fact_version_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deleteFactVersion",
+)
+def delete_fact_version(
+    fact_version_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
+) -> None:
+    delete_fact_version_command(
+        db=db,
+        fact_version_id=fact_version_id,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
 
 
 @router.get(

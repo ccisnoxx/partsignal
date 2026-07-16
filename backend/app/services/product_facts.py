@@ -9,13 +9,14 @@ from sqlalchemy.orm import Session
 
 from app.audit import append_audit
 from app.errors import AppError, in_use, not_found
-from app.models.content import ContentTask
+from app.models.content import ContentTask, ContentVersion
 from app.models.geo_files import FileRecord, GeoObservation
 from app.models.identity import User
 from app.models.product_facts import (
     ClaimEvidenceLink,
     Evidence,
     FactClaim,
+    FactReviewRecord,
     FactVersion,
     ParameterEvidenceLink,
     PartParameter,
@@ -334,6 +335,80 @@ def delete_product(*, db: Session, product_id: uuid.UUID, actor: User, request_i
         request_id=request_id,
     )
     db.delete(product)
+    db.commit()
+
+
+def delete_fact_version(
+    *, db: Session, fact_version_id: uuid.UUID, actor: User, request_id: str
+) -> None:
+    """删除无内容引用的事实版本，并在同一事务清理其审核记录。"""
+    version = db.scalar(
+        select(FactVersion).where(FactVersion.id == fact_version_id).with_for_update()
+    )
+    if version is None:
+        raise not_found("事实版本")
+    references = [
+        (
+            "CONTENT_TASK",
+            "内容任务",
+            int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(ContentTask)
+                    .where(ContentTask.fact_version_id == version.id)
+                )
+                or 0
+            ),
+        ),
+        (
+            "CONTENT_VERSION",
+            "内容版本",
+            int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(ContentVersion)
+                    .where(ContentVersion.fact_version_id == version.id)
+                )
+                or 0
+            ),
+        ),
+    ]
+    if any(count for _, _, count in references):
+        raise in_use("FACT_VERSION_IN_USE", "事实版本", references)
+    review_record_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(FactReviewRecord)
+            .where(FactReviewRecord.fact_version_id == version.id)
+        )
+        or 0
+    )
+    append_audit(
+        db,
+        actor_id=actor.id,
+        action="fact_version.deleted",
+        target_type="FactVersion",
+        target_id=version.id,
+        request_id=request_id,
+        details={
+            "product_id": str(version.product_id),
+            "version": version.version,
+            "status": version.status,
+            "review_record_count": review_record_count,
+        },
+    )
+    # 专用触发器只在本事务内放行当前父版本的从属审核记录，提交或回滚后自动清除。
+    db.scalar(
+        select(
+            func.set_config(
+                "partsignal.fact_version_delete_id", str(version.id), True
+            )
+        )
+    )
+    db.execute(
+        delete(FactReviewRecord).where(FactReviewRecord.fact_version_id == version.id)
+    )
+    db.delete(version)
     db.commit()
 
 

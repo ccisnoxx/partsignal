@@ -33,6 +33,7 @@ const systemNavigation: NavigationItem[] = [
       { key: '/configuration/ai', label: 'AI 配置' },
       { key: '/configuration/platform-types', label: '平台类型' },
       { key: '/configuration/platforms', label: '平台管理' },
+      { key: '/configuration/platform-rules', label: '平台规则' },
       { key: '/configuration/prompts', label: 'Prompt 管理' },
       { key: '/configuration/audit', label: '审计日志' },
     ],

@@ -92,7 +92,7 @@ class PlatformProfile(Base):
 
 
 class PlatformProfileVersion(Base):
-    """不可变的平台内容规则版本。"""
+    """DRAFT 可编辑，激活或退役后冻结的平台内容规则版本。"""
 
     __tablename__ = "platform_profile_versions"
     __table_args__ = (UniqueConstraint("platform_profile_id", "version"),)

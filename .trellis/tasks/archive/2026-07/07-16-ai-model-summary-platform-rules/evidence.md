@@ -90,3 +90,14 @@ DeletionError-DtmnRoDq.js
 首次登录、普通刷新和退出后重新登录三次观察中，DOM、渠道摘要和模型明细的已启用模型集合完全一致，均为 `deepseek-v4-flash`；实际资源指纹也保持一致。没有模型业务逻辑、Query 缓存或部署资源错误的可复现失败证据，按门禁选择“不修改模型业务逻辑，只保留自动化回归和部署验收证据”。不把清缓存作为修复，也不增加前端二次过滤或模型 N+1 查询。
 
 模型新增、测试、启用、停用和删除的一致性由受控本地 E2E 覆盖，未在正式环境执行写路径验收。
+
+## 部署后只读复核
+
+- 复核时间：2026-07-16 20:28:38 CST（北京时间）。
+- 发布版本：`mvp-20260716-2022-bd31116`，提交 `bd31116b1db31769d184fd9dfe728ad24cb5fcd4`。
+- 数据库：`alembic_version = 0016_fact_review_cleanup`；升级前 `preflight-integrity` 返回 `[]`。
+- 公网健康：live、ready、首页、SPA fallback、缓存响应头、对象存储代理和主机资源检查通过。
+- 页面资源：入口由 `index-o6FkeKTg.js` 更新为 `index-DOm1xExF.js`，渠道页资源由 `AIChannelsPage-D_SnulfT.js` 更新为 `AIChannelsPage-Q8W6VWDn.js`。
+- 管理员登录态渠道卡片 DOM、`GET /api/v1/ai-channels` 与 `GET /api/v1/ai-channels/5f664cef-d1f3-4a97-ae96-af0179191ced/models` 仍一致，只包含 `deepseek-v4-flash`，状态仍为 `is_enabled=true`、`test_status=PASSED`。
+- `/configuration/platform-rules` 正常渲染，`GET /api/v1/platform-profile-versions` 与 `GET /api/v1/platform-profiles` 均返回 `200`；控制台无应用错误或警告。
+- 验收全程未创建、修改或删除正式业务数据；完成后已退出管理员会话。

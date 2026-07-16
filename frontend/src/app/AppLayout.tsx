@@ -107,7 +107,7 @@ export function AppLayout() {
   return (
     <Layout className="app-shell">
       {desktopSider ? (
-        <Layout.Sider theme="light" width={232} collapsedWidth={72} collapsed={collapsed} className="app-sider">
+        <Layout.Sider theme="light" width={248} collapsedWidth={76} collapsed={collapsed} className="app-sider">
           <div className="brand-mark"><span>PS</span>{!collapsed && <strong>PartSignal</strong>}</div>
           {menu}
         </Layout.Sider>

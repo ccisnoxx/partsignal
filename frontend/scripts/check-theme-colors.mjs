@@ -1,4 +1,4 @@
-/** 阻止业务代码重新引入绕过 Midnight Signal Token 的主题颜色。 */
+/** 阻止业务代码重新引入绕过项目语义主题 Token 的颜色。 */
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 

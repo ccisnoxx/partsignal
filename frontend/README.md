@@ -24,11 +24,13 @@ npm run perf:production
 
 ## 界面与无障碍验收
 
-界面采用 Midnight Signal：Data-Dense Dashboard、现代冷色表面和克制的蓝/Cyan Aurora。浅色、深色和跟随系统三种模式由 `src/app/ThemeProvider.tsx` 统一管理，用户选择保存在 `partsignal.theme-mode`，首屏脚本会在 React 挂载前解析主题，避免明显闪烁。正文优先使用平台系统中文字体，避免冷缓存下载完整 CJK Web Font；型号、哈希、版本和数据使用等宽字体。
+界面采用 macOS 一体式工作区双主题：中性画布、系统蓝操作色、接近不透明的业务表面，以及用于侧栏、工具栏、移动抽屉、弹窗、下拉层和悬浮操作条的有限磨砂玻璃。Card、Table、Form、Markdown、审核区和配置区不使用逐块模糊，浏览器不支持 `backdrop-filter` 时回退为高不透明表面和可见边框。
 
-`src/app/theme.ts` 是颜色的唯一来源：Ant Design Token 负责组件内部状态，项目 CSS 自定义变量负责布局、Markdown、Diff、状态标签和数据可视化。`npm run lint` 会同时执行主题颜色守卫，业务 TSX/CSS 不得重新硬编码主题颜色。页面动效限定在 150–280ms，并在 `prefers-reduced-motion` 下关闭。
+浅色、深色和跟随系统三种模式由 `src/app/ThemeProvider.tsx` 统一管理，用户选择保存在 `partsignal.theme-mode`，首屏脚本只在 React 挂载前镜像浅/深画布色以避免明显闪烁。正文使用系统字体栈，不下载 Web Font；型号、哈希、版本和数据使用等宽字体。
 
-人工验收还需覆盖键盘顺序、可见焦点、表格横向滚动、错误重试、加载与空状态，以及浏览器缩放至 `200%` 后不丢失操作能力。
+`src/app/theme.ts` 是颜色的唯一来源：Ant Design Token 负责组件内部状态，项目 CSS 自定义变量负责布局、Markdown、Diff、状态标签和数据可视化。`npm run lint` 会同时执行主题颜色守卫，业务 TSX/CSS 不得重新硬编码主题颜色。页面动效限定在 150–220ms，并在 `prefers-reduced-motion` 下关闭。
+
+人工验收覆盖登录页、工作台和高密度配置页的浅/深主题，并在 375、768、1024、1440px 视口检查移动抽屉、侧栏、表格横向滚动、长表单和悬浮操作条。还需检查键盘顺序、可见焦点、错误重试、加载与空状态、`prefers-reduced-motion`、禁用模糊后的可读性，以及浏览器缩放至 `200%` 后不丢失操作能力。
 
 ## 生产性能验收
 

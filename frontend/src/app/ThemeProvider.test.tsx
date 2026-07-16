@@ -2,7 +2,7 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useThemeMode, ThemeProvider } from './ThemeProvider';
-import { THEME_STORAGE_KEY } from './theme';
+import { projectThemes, THEME_STORAGE_KEY } from './theme';
 
 type MediaListener = (event: MediaQueryListEvent) => void;
 
@@ -38,7 +38,7 @@ function installMatchMedia(initial: { dark: boolean; reduced?: boolean }) {
 
 function Probe() {
   const theme = useThemeMode();
-  return <><span>{theme.mode}/{theme.resolvedTheme}</span><button onClick={() => theme.setMode('light')}>使用浅色</button></>;
+  return <><span>{theme.mode}/{theme.resolvedTheme}</span><button onClick={() => theme.setMode('light')}>使用浅色</button><button onClick={() => theme.setMode('dark')}>使用深色</button></>;
 }
 
 beforeEach(() => {
@@ -78,4 +78,20 @@ test('无效持久化值被清理并回到跟随系统', () => {
   render(<ThemeProvider><Probe /></ThemeProvider>);
   expect(screen.getByText('system/light')).toBeInTheDocument();
   expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
+});
+
+test('浅深模式同步更新画布与玻璃材质变量', async () => {
+  installMatchMedia({ dark: false });
+  render(<ThemeProvider><Probe /></ThemeProvider>);
+  const root = document.documentElement;
+  const lightCanvas = root.style.backgroundColor;
+  expect(root.style.getPropertyValue('--ps-bg-canvas')).toBe(projectThemes.light.bgCanvas);
+  expect(root.style.getPropertyValue('--ps-glass-surface')).toBe(projectThemes.light.glassSurface);
+  expect(root.style.getPropertyValue('--ps-glass-backdrop')).toBe(projectThemes.light.glassBackdrop);
+
+  await userEvent.click(screen.getByRole('button', { name: '使用深色' }));
+  expect(root.style.backgroundColor).not.toBe(lightCanvas);
+  expect(root.style.getPropertyValue('--ps-bg-canvas')).toBe(projectThemes.dark.bgCanvas);
+  expect(root.style.getPropertyValue('--ps-glass-surface')).toBe(projectThemes.dark.glassSurface);
+  expect(root.style.getPropertyValue('--ps-glass-backdrop')).toBe(projectThemes.dark.glassBackdrop);
 });

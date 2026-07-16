@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+umask 077
 
 : "${BACKUP_DIR:?必须指定 BACKUP_DIR}"
 : "${POSTGRES_DB:?必须指定 POSTGRES_DB}"

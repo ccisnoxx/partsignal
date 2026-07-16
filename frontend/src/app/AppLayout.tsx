@@ -109,7 +109,6 @@ export function AppLayout() {
         <Layout.Sider theme="light" width={232} collapsedWidth={72} collapsed={collapsed} className="app-sider">
           <div className="brand-mark"><span>PS</span>{!collapsed && <strong>PartSignal</strong>}</div>
           {menu}
-          {!collapsed && <div className="sider-note">事实可信 · 人工审核 · 历史可溯</div>}
         </Layout.Sider>
       ) : (
         <Drawer placement="left" open={drawerOpen} onClose={() => setDrawerOpen(false)} size={280} className="mobile-drawer">

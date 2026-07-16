@@ -1,10 +1,12 @@
 /** 锁定配置页面的层级、Prompt 和渠道查询边界。 */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
+import { queryClient } from '../../app/queryClient';
+import { queryKeys } from '../../shared/api/queryKeys';
 import { AIChannelDetailPage } from './AIChannelDetailPage';
 import { AIChannelsPage } from './AIChannelsPage';
 import { PlatformPromptsPage } from './PlatformPromptsPage';
@@ -45,23 +47,25 @@ const platforms = [
   { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, revision: 1, active_version: { id: 'version-1', platform_profile_id: 'profile-ready', version: 1, status: 'ACTIVE', rules: platformRules, revision: 0, created_at: channel.created_at }, prompt_configured: true },
 ];
 const platformPrompt = { platform_profile_id: 'profile-ready', template_markdown: '仅使用已批准事实。', revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
+let platformItems = platforms;
 
 function result(data: unknown) {
   return Promise.resolve({ data, response: new Response(null, { status: 200 }) });
 }
 
 function renderWithQuery(ui: ReactNode, initialEntries: string[]) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider>);
+  return render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider>);
 }
 
 beforeEach(() => {
+  queryClient.clear();
+  platformItems = platforms;
   Object.values(apiMocks).forEach((mock) => mock.mockReset());
   apiMocks.GET.mockImplementation((path: string) => {
     if (path === '/api/v1/ai-channels') return result({ items: [channel] });
     if (path === '/api/v1/ai-channels/{channel_id}') return result(channel);
     if (path === '/api/v1/ai-channels/{channel_id}/models') return result({ items: [model] });
-    if (path === '/api/v1/platform-profiles') return result({ items: platforms });
+    if (path === '/api/v1/platform-profiles') return result({ items: platformItems });
     if (path === '/api/v1/platform-types') return result({ items: [platformType] });
     if (path === '/api/v1/platform-profiles/{platform_profile_id}/prompt') return result(platformPrompt);
     throw new Error(`未声明测试请求：${path}`);
@@ -69,13 +73,17 @@ beforeEach(() => {
   apiMocks.POST.mockImplementation((path: string) => {
     if (path === '/api/v1/ai-channels/{channel_id}/discover-models') return result({ items: [{ model_id: 'model-controlled' }, { model_id: 'model-new' }] });
     if (path === '/api/v1/ai-channels/{channel_id}/models') return result({ ...model, id: 'model-2', display_name: 'model-new', model_id: 'model-new' });
+    if (path === '/api/v1/ai-models/{model_id}/disable') return result({ ...model, is_enabled: false, revision: model.revision + 1 });
     throw new Error(`未声明测试请求：${path}`);
   });
   apiMocks.PUT.mockImplementation((path: string) => {
     if (path === '/api/v1/platform-profiles/{platform_profile_id}/prompt') return result({ ...platformPrompt, revision: 2 });
     throw new Error(`未声明测试请求：${path}`);
   });
-  apiMocks.DELETE.mockResolvedValue({ response: new Response(null, { status: 204 }) });
+  apiMocks.DELETE.mockImplementation((path: string) => {
+    if (path === '/api/v1/platform-profiles/{platform_profile_id}/prompt') platformItems = platformItems.map((item) => item.id === 'profile-ready' ? { ...item, prompt_configured: false } : item);
+    return Promise.resolve({ response: new Response(null, { status: 204 }) });
+  });
 });
 
 test('平台列表明确展示无有效规则和缺少 Prompt', async () => {
@@ -84,12 +92,37 @@ test('平台列表明确展示无有效规则和缺少 Prompt', async () => {
   expect(screen.getByText('未配置 Prompt')).toBeInTheDocument();
 });
 
-test('Prompt 页面按具体平台读取、覆盖和删除当前 Markdown', async () => {
+test('Prompt 页面只展示真实 Prompt，新增时只能选择未配置平台', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts']);
+  expect(await screen.findByText('工程师社区')).toBeInTheDocument();
+  expect(screen.queryByText('待配置平台')).not.toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: /新增 Prompt$/ }));
+  const dialog = await screen.findByRole('dialog', { name: '新增 Prompt' });
+  const platformSelect = within(dialog).getByRole('combobox', { name: '所属平台' });
+  await user.click(platformSelect);
+  expect(await screen.findByRole('option', { name: '待配置平台' })).toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: '工程师社区' })).not.toBeInTheDocument();
+  await user.click(await screen.findByTitle('待配置平台'));
+  expect(within(dialog).getAllByText('待配置平台')).not.toHaveLength(0);
+  await user.type(within(dialog).getByRole('textbox', { name: 'Prompt Markdown' }), '新平台 Prompt。');
+  await user.click(within(dialog).getByRole('button', { name: '创建 Prompt' }));
+  await waitFor(() => expect(apiMocks.PUT).toHaveBeenCalledWith(
+    '/api/v1/platform-profiles/{platform_profile_id}/prompt',
+    expect.objectContaining({
+      params: expect.objectContaining({ path: { platform_profile_id: 'profile-empty' } }),
+      body: { template_markdown: '新平台 Prompt。', expected_revision: null },
+    }),
+  ));
+});
+
+test('Prompt 页面按具体平台覆盖并在物理删除后移除该行', async () => {
   const user = userEvent.setup();
   renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts']);
   const row = (await screen.findByText('工程师社区')).closest('tr');
   expect(row).not.toBeNull();
-  await user.click(within(row!).getByRole('button', { name: '维护 Prompt' }));
+  await user.click(within(row!).getByRole('button', { name: '编辑 Prompt' }));
   const editor = await screen.findByRole('textbox', { name: 'Prompt Markdown' });
   expect(editor).toHaveValue('仅使用已批准事实。');
   await user.clear(editor);
@@ -106,6 +139,8 @@ test('Prompt 页面按具体平台读取、覆盖和删除当前 Markdown', asyn
     '/api/v1/platform-profiles/{platform_profile_id}/prompt',
     expect.objectContaining({ params: expect.objectContaining({ path: { platform_profile_id: 'profile-ready' } }) }),
   ));
+  expect(await screen.findByText('暂无 Prompt')).toBeInTheDocument();
+  expect(screen.queryByText('工程师社区')).not.toBeInTheDocument();
 });
 
 test('渠道首页以卡片展示契约字段且不触发模型 N+1 查询', async () => {
@@ -130,6 +165,26 @@ test('渠道详情展示三个区块、模型测试信息且不回显敏感 Head
   expect(screen.getByText('temperature')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '测试连接' })).toBeInTheDocument();
   expect(apiMocks.GET).toHaveBeenCalledTimes(2);
+});
+
+test('模型状态变更后同步失效渠道摘要和模型列表缓存', async () => {
+  const user = userEvent.setup();
+  const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+  renderWithQuery(<Routes><Route path="/configuration/ai/channels/:channelId" element={<AIChannelDetailPage />} /></Routes>, ['/configuration/ai/channels/channel-1']);
+  const row = (await screen.findByText('内容生成模型')).closest('tr');
+  expect(row).not.toBeNull();
+
+  await user.click(within(row!).getByRole('button', { name: /停\s*用/ }));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/ai-models/{model_id}/disable',
+    expect.objectContaining({ body: { expected_revision: model.revision } }),
+  ));
+  await waitFor(() => {
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.aiChannels.detail(channel.id) });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.aiChannels.all });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.aiChannels.models(channel.id) });
+  });
+  invalidateQueries.mockRestore();
 });
 
 test('获取模型在弹窗中列出远端结果并可直接添加未配置模型', async () => {

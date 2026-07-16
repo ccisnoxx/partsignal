@@ -29,7 +29,6 @@ a:hover { color: var(--ps-action-primary-hover); }
 .brand-mark { height: 72px; display: flex; align-items: center; gap: 12px; padding: 0 19px; color: var(--ps-nav-text); background: var(--ps-nav-bg); letter-spacing: .01em; }
 .brand-mark span { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border: 1px solid var(--ps-data-cyan); border-radius: var(--ps-radius-md); color: var(--ps-data-cyan-strong); background: var(--ps-data-cyan-soft); font: 600 12px var(--ps-font-mono); }
 .brand-mark strong { font-size: 17px; }
-.sider-note { position: absolute; bottom: 24px; left: 20px; right: 20px; color: var(--ps-nav-text-muted); font-size: 12px; line-height: 1.8; border-top: 1px solid var(--ps-border-subtle); padding-top: 16px; }
 .app-header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; height: 64px; padding: 0 24px; border-bottom: 1px solid var(--ps-border-subtle); background: var(--ps-bg-surface) !important; }
 .header-context > div { display: flex; flex-direction: column; line-height: 1.12; }
 .header-kicker { color: var(--ps-data-cyan-strong) !important; font: 600 9px/1 var(--ps-font-mono); letter-spacing: .16em; }

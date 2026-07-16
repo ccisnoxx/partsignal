@@ -109,28 +109,28 @@ export function AIChannelDetailPage() {
   });
   const createDiscoveredModel = useMutation({
     mutationFn: async (modelId: string) => unwrap(await api.POST('/api/v1/ai-channels/{channel_id}/models', { params: { path: { channel_id: channelId }, header: csrfHeader() }, body: { display_name: modelId, model_id: modelId, request_parameters: {} } })),
-    onSuccess: async () => queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.models(channelId) }),
+    onSuccess: async () => invalidateChannel(channelId, true),
   });
   const createModel = useMutation({
     mutationFn: async (values: ModelFormValues) => unwrap(await api.POST('/api/v1/ai-channels/{channel_id}/models', { params: { path: { channel_id: channelId }, header: csrfHeader() }, body: { display_name: values.display_name, model_id: values.model_id, request_parameters: parseRequestParameters(values.request_parameters_json) } })),
-    onSuccess: async () => { setModelOpen(false); await queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.models(channelId) }); },
+    onSuccess: async () => { setModelOpen(false); await invalidateChannel(channelId, true); },
   });
   const updateModel = useMutation({
     mutationFn: async (values: ModelFormValues) => {
       if (!editingModel) throw new Error('模型未加载');
       return unwrap(await api.PATCH('/api/v1/ai-models/{model_id}', { params: { path: { model_id: editingModel.id }, header: csrfHeader() }, body: { expected_revision: editingModel.revision, display_name: values.display_name, model_id: values.model_id, request_parameters: parseRequestParameters(values.request_parameters_json) } }));
     },
-    onSuccess: async () => { setEditingModel(undefined); await queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.models(channelId) }); },
+    onSuccess: async () => { setEditingModel(undefined); await invalidateChannel(channelId, true); },
   });
-  const testModel = useMutation({ mutationFn: async (model: AIModel) => unwrap(await api.POST('/api/v1/ai-models/{model_id}/test', { params: { path: { model_id: model.id }, header: csrfHeader() } })), onSuccess: async () => queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.models(channelId) }) });
+  const testModel = useMutation({ mutationFn: async (model: AIModel) => unwrap(await api.POST('/api/v1/ai-models/{model_id}/test', { params: { path: { model_id: model.id }, header: csrfHeader() } })), onSuccess: async () => invalidateChannel(channelId, true) });
   const toggleModel = useMutation({
     mutationFn: async (model: AIModel) => {
       const path = model.is_enabled ? '/api/v1/ai-models/{model_id}/disable' as const : '/api/v1/ai-models/{model_id}/enable' as const;
       return unwrap(await api.POST(path, { params: { path: { model_id: model.id }, header: csrfHeader() }, body: { expected_revision: model.revision } }));
     },
-    onSuccess: async () => queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.models(channelId) }),
+    onSuccess: async () => invalidateChannel(channelId, true),
   });
-  const deleteModel = useMutation({ mutationFn: async (model: AIModel) => ensureSuccess(await api.DELETE('/api/v1/ai-models/{model_id}', { params: { path: { model_id: model.id }, header: csrfHeader() } })), onSuccess: async () => queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.models(channelId) }) });
+  const deleteModel = useMutation({ mutationFn: async (model: AIModel) => ensureSuccess(await api.DELETE('/api/v1/ai-models/{model_id}', { params: { path: { model_id: model.id }, header: csrfHeader() } })), onSuccess: async () => invalidateChannel(channelId, true) });
 
   if (!channelId) return <div className="page-stack"><QueryFailure error={new Error('缺少渠道 ID')} /></div>;
   if (channel.isLoading) return <div className="page-stack"><QueryLoading label="正在加载 AI 渠道详情" /></div>;

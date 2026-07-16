@@ -118,7 +118,7 @@ frontend/src/features/configuration/
 
 - 当前工作副本中的 `routeLoaders.ts`、`routePrefetch.ts`、AppLayout Suspense 和 ThemeProvider 属于现有性能/主题工作，本任务必须在其上扩展。
 - `routeLoaders.ts` 继续是动态 import 唯一所有者；拆页后每个配置页面有独立 loader。
-- 不更新无关视觉截图。若新增配置页面视觉测试，使用独立场景和快照名称。
+- 截图式视觉基线已移除，不再为配置页面新增快照场景；响应式和无障碍验收使用功能测试与人工检查。
 - `/configuration` 重定向保留旧入口，不保留旧 Tabs 查询参数。
 
 ## 测试设计
@@ -129,7 +129,7 @@ frontend/src/features/configuration/
 - 后端单测：连接测试发送唯一 `hi` 用户消息并携带模型参数；通用 Chat Completions 结构有效即可通过，业务草稿严格解析保持原测试覆盖。
 - 路由预取单测：配置子路由映射到正确 loader，父入口只预取默认页。
 - E2E：管理员从侧栏进入 AI 配置、打开渠道详情并看到 Header/模型；普通用户仍看不到配置中心。
-- 视觉与 axe：至少覆盖 AI 配置列表和渠道详情的 375/1440、浅色/深色，不覆盖既有业务快照。
+- 响应式与无障碍：使用功能 E2E 和人工检查覆盖 AI 配置列表及渠道详情的 375/1440、浅色/深色，不生成截图快照。
 
 ## 回滚
 

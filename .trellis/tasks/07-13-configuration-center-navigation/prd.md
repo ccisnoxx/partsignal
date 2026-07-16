@@ -10,7 +10,7 @@
 - AI 渠道列表把“Header 与模型”放在操作列，并通过 960px Modal 展示渠道详情（`frontend/src/features/configuration/ConfigurationPage.tsx:31`、`:33`）。
 - 渠道详情同时承载连接、API Key、Header、模型发现、模型测试和模型启停，内容密度已经超过临时弹窗的合理边界（`frontend/src/features/configuration/ConfigurationPage.tsx:37`）。
 - 全局侧栏目前只把配置中心作为单个叶子菜单，路由也只有 `/configuration`（`frontend/src/app/AppLayout.tsx:28`、`frontend/src/app/App.tsx:48`）。
-- 当前工作副本已有主题、路由懒加载、预取和视觉测试改动；本任务必须基于这些改动增量实现，不覆盖或回退。
+- 当前工作副本已有主题、路由懒加载和预取改动；截图式视觉基线链路已由独立任务移除，本任务不得恢复。
 
 ## 需求
 
@@ -81,14 +81,14 @@
 - [ ] 桌面折叠侧栏、移动 Drawer、浅色和深色主题均可正常导航，无严重级可访问性问题。
 - [ ] 路由加载与预取仍通过唯一 loader/queryOptions 定义，不增加重复 import 或 query key。
 - [ ] 新增或更新的单元测试、相关 E2E、`npm run lint`、`npm run typecheck`、`npm test`、`npm run build` 通过。
-- [ ] 最终 diff 未覆盖任务开始前已有的主题、性能、测试和视觉截图改动。
+- [ ] 最终 diff 未覆盖任务开始前已有的主题、性能和测试改动。
 
 ## 非目标
 
 - 不修改 OpenAPI、接口路径、响应结构、权限契约或数据库；只调整模型测试接口内部的供应商请求语义。
 - 不在本任务实现固定五种平台类型和两级内容任务的新业务契约。
 - 不把业务设置、用户管理合并进配置中心。
-- 不更新无关视觉回归基线，不执行部署、提交或推送。
+- 不恢复截图式视觉基线，不执行部署、提交或推送。
 
 ## 开放问题
 

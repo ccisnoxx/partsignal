@@ -324,3 +324,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 10: 完成 AI 出站安全验收
+
+**Date**: 2026-07-17
+**Task**: 完成 AI 出站安全验收
+**Branch**: `main`
+
+### Summary
+
+重新核对固定地址 AI Transport 与三条调用链，补强 DNS rebinding、混合 A/AAAA 和 peer 零发送回归断言；完成专项、集成、构建与 E2E 验证并归档任务。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1c7fb53` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -58,7 +58,7 @@ export function PlatformRulesPage() {
     <PageHeader eyebrow="配置治理" title="平台规则" description="独立创建和维护规则草稿；激活后规则冻结，并由平台管理页选择为当前规则。" actions={<Button type="primary" icon={<PlusOutlined />} aria-haspopup="dialog" aria-expanded={createOpen} onClick={() => setCreateOpen(true)}>新增规则草稿</Button>} />
     {mutationError && <Alert role="alert" type="error" showIcon message={errorMessage(mutationError)} />}
     {remove.error && <DeletionError error={remove.error} />}
-    <Card>{profiles.isLoading || versions.isLoading ? <QueryLoading label="正在加载平台规则" /> : queryError ? <QueryFailure error={queryError} onRetry={() => { void profiles.refetch(); void versions.refetch(); }} /> : versionItems.length === 0 ? <NoData description="暂无平台规则版本" /> : <TableRegion label="平台规则版本列表"><Table<RuleVersion> rowKey="id" dataSource={versionItems} scroll={{ x: 820 }} columns={[
+    <Card className="collection-panel">{profiles.isLoading || versions.isLoading ? <QueryLoading label="正在加载平台规则" /> : queryError ? <QueryFailure error={queryError} onRetry={() => { void profiles.refetch(); void versions.refetch(); }} /> : versionItems.length === 0 ? <NoData description="暂无平台规则版本" /> : <TableRegion label="平台规则版本列表"><Table<RuleVersion> rowKey="id" dataSource={versionItems} scroll={{ x: 820 }} columns={[
       { title: '所属平台', render: (_, version) => profileById.get(version.platform_profile_id)?.name ?? version.platform_profile_id },
       { title: '版本', dataIndex: 'version', render: (value) => `V${value}` },
       { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> },

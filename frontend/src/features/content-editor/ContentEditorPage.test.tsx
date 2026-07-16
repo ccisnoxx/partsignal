@@ -1,5 +1,5 @@
 /** 验证内容审核页清理 HTML、展示冻结证据和历史，并要求显式批准。 */
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../../app/App';
 import type { Schema } from '../../shared/api/types';
@@ -96,6 +96,13 @@ test('展示冻结审核证据并要求显式批准', async () => {
   expect(screen.getByText('请调整标题')).toBeInTheDocument();
   expect(screen.getByText('工作电压')).toBeInTheDocument();
   expect(screen.getByText('公开数据手册')).toBeInTheDocument();
+  const navigation = screen.getByRole('navigation', { name: '内容审核章节' });
+  for (const [name, target] of [['正文与预览', 'review-content'], ['版本差异', 'review-diff'], ['锁定事实', 'review-facts'], ['审核历史', 'review-history'], ['人工修订', 'review-revision']] as const) {
+    expect(within(navigation).getByRole('link', { name })).toHaveAttribute('href', `#${target}`);
+    expect(document.getElementById(target)).toBeInTheDocument();
+  }
+  expect(within(navigation).queryByRole('link', { name: '生成追溯' })).not.toBeInTheDocument();
+  expect(screen.getAllByRole('button', { name: /批准内容/ })).toHaveLength(1);
   await userEvent.click(screen.getByRole('button', { name: /批准内容/ }));
   expect(await screen.findByText('请显式确认批准')).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: '确认批准' }));

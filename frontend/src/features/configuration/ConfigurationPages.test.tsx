@@ -80,6 +80,7 @@ beforeEach(() => {
     throw new Error(`未声明测试请求：${path}`);
   });
   apiMocks.POST.mockImplementation((path: string) => {
+    if (path === '/api/v1/ai-channels/{channel_id}/disable') return result({ ...channel, is_enabled: false, revision: channel.revision + 1 });
     if (path === '/api/v1/ai-channels/{channel_id}/discover-models') return result({ items: [{ model_id: 'model-controlled' }, { model_id: 'model-new' }] });
     if (path === '/api/v1/ai-channels/{channel_id}/models') return result({ ...model, id: 'model-2', display_name: 'model-new', model_id: 'model-new' });
     if (path === '/api/v1/ai-models/{model_id}/disable') return result({ ...model, is_enabled: false, revision: model.revision + 1 });
@@ -251,21 +252,40 @@ test('Prompt 页面按具体平台覆盖并在物理删除后移除该行', asyn
   expect(screen.queryByText('工程师社区')).not.toBeInTheDocument();
 });
 
-test('渠道首页以卡片展示契约字段且不触发模型 N+1 查询', async () => {
+test('渠道首页以表格展示完整契约字段、操作且不触发模型 N+1 查询', async () => {
+  const user = userEvent.setup();
   renderWithQuery(<AIChannelsPage />, ['/configuration/ai']);
-  expect(await screen.findByRole('link', { name: '查看 受控模型渠道 配置' })).toHaveAttribute('href', '/configuration/ai/channels/channel-1');
-  expect(screen.getByText('https://provider.example.invalid/v1')).toBeInTheDocument();
-  expect(screen.getByText('2 个')).toBeInTheDocument();
-  expect(screen.getByText('model-controlled')).toBeInTheDocument();
+  const detailLink = await screen.findByRole('link', { name: '查看 受控模型渠道 配置' });
+  expect(detailLink).toHaveAttribute('href', '/configuration/ai/channels/channel-1');
+  const row = detailLink.closest('tr');
+  expect(row).not.toBeNull();
+  expect(within(row!).getByText('https://provider.example.invalid/v1')).toBeInTheDocument();
+  expect(within(row!).getByText('60 秒')).toBeInTheDocument();
+  expect(within(row!).getByText(/已配置/)).toBeInTheDocument();
+  expect(within(row!).getByText('2 个')).toBeInTheDocument();
+  expect(within(row!).getByText('model-controlled')).toBeInTheDocument();
+  expect(within(row!).getByRole('link', { name: '查看详情' })).toHaveAttribute('href', '/configuration/ai/channels/channel-1');
+  expect(within(row!).getByRole('button', { name: /删\s*除/ })).toBeInTheDocument();
   await waitFor(() => expect(apiMocks.GET).toHaveBeenCalledTimes(1));
   expect(apiMocks.GET).toHaveBeenCalledWith('/api/v1/ai-channels');
+
+  await user.click(within(row!).getByRole('button', { name: /停\s*用/ }));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/ai-channels/{channel_id}/disable',
+    expect.objectContaining({
+      params: expect.objectContaining({ path: { channel_id: channel.id } }),
+      body: { expected_revision: channel.revision },
+    }),
+  ));
 });
 
-test('渠道详情展示三个区块、模型测试信息且不回显敏感 Header', async () => {
+test('渠道详情展示可达章节导航、模型测试信息且不回显敏感 Header', async () => {
   renderWithQuery(<Routes><Route path="/configuration/ai/channels/:channelId" element={<AIChannelDetailPage />} /></Routes>, ['/configuration/ai/channels/channel-1']);
-  expect(await screen.findByText('连接与凭据')).toBeInTheDocument();
-  expect(screen.getByText('请求 Header')).toBeInTheDocument();
-  expect(screen.getByText('模型')).toBeInTheDocument();
+  const navigation = await screen.findByRole('navigation', { name: 'AI 渠道配置章节' });
+  for (const [name, target] of [['连接与凭据', 'channel-connection'], ['请求 Header', 'channel-headers'], ['模型', 'channel-models']] as const) {
+    expect(within(navigation).getByRole('link', { name })).toHaveAttribute('href', `#${target}`);
+    expect(document.getElementById(target)).toBeInTheDocument();
+  }
   expect(await screen.findByText('内容生成模型')).toBeInTheDocument();
   expect(screen.getByText('已配置且不回显')).toBeInTheDocument();
   expect(screen.getByText('public-value')).toBeInTheDocument();

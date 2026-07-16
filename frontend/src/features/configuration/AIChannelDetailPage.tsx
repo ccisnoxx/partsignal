@@ -152,7 +152,8 @@ export function AIChannelDetailPage() {
   return <div className="page-stack">
     {modalContext}
     <PageHeader eyebrow="模型治理" title={channel.data.name} description="渠道凭据和敏感 Header 永不回显；连接变更会重置模型测试状态。" breadcrumbs={[{ title: <Link to="/configuration/ai">AI 配置</Link> }, { title: channel.data.name }]} actions={<Space wrap><StatusTag status={channel.data.is_enabled ? 'ACTIVE' : 'RETIRED'} /><Button loading={toggleChannel.isPending} onClick={() => toggleChannel.mutate()}>{channel.data.is_enabled ? '停用渠道' : '启用渠道'}</Button><Popconfirm title="删除此 AI 渠道？" description="渠道、Header 与模型配置将被删除，此操作不可撤销。" okText="删除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => deleteChannel.mutate()}><Button danger icon={<DeleteOutlined />} loading={deleteChannel.isPending}>删除渠道</Button></Popconfirm></Space>} />
-    <Card title="连接与凭据" className="configuration-section-card">
+    <nav className="form-section-nav" aria-label="AI 渠道配置章节"><a href="#channel-connection">连接与凭据</a><a href="#channel-headers">请求 Header</a><a href="#channel-models">模型</a></nav>
+    <Card id="channel-connection" title="连接与凭据" className="configuration-section-card workspace-section">
       {connectionError && <Alert role="alert" type="error" showIcon message={errorMessage(connectionError)} />}
       <Form key={channel.data.revision} layout="vertical" className="configuration-connection-form" initialValues={{ name: channel.data.name, base_url: channel.data.base_url, timeout_seconds: channel.data.timeout_seconds }} onFinish={(body) => updateChannel.mutate(body)}>
         <Form.Item name="name" label="名称" rules={[{ required: true }]}><Input /></Form.Item>
@@ -162,7 +163,7 @@ export function AIChannelDetailPage() {
       </Form>
       <div className="configuration-credential-panel"><div><Typography.Text strong>API Key</Typography.Text><Typography.Paragraph type="secondary">{channel.data.api_key_configured ? `已配置，最近更新于 ${new Date(channel.data.api_key_updated_at).toLocaleString('zh-CN')}` : '未配置'}。原值不会回显。</Typography.Paragraph></div><Form<{ api_key: string }> layout="inline" onFinish={(body) => replaceKey.mutate(body)}><Form.Item name="api_key" rules={[{ required: true, message: '请输入新的 API Key' }]}><Input.Password aria-label="新的 API Key" placeholder="输入新的 API Key" /></Form.Item><Button htmlType="submit" loading={replaceKey.isPending}>替换并重置测试</Button></Form></div>
     </Card>
-    <Card title="请求 Header" className="configuration-section-card" extra={<Button icon={<PlusOutlined />} onClick={() => setHeaderOpen(true)}>新增 Header</Button>}>
+    <Card id="channel-headers" title="请求 Header" className="configuration-section-card workspace-section" extra={<Button icon={<PlusOutlined />} onClick={() => setHeaderOpen(true)}>新增 Header</Button>}>
       {headerError && <Alert role="alert" type="error" showIcon message={errorMessage(headerError)} />}
       {channel.data.headers.length === 0 ? <NoData description="尚未配置请求 Header" /> : <TableRegion label="请求 Header 列表"><Table<Header> rowKey="id" dataSource={channel.data.headers} pagination={false} scroll={{ x: 680 }} columns={[
         { title: '名称', dataIndex: 'name', render: (value) => <span className="data-code configuration-break-text">{value}</span> },
@@ -172,7 +173,7 @@ export function AIChannelDetailPage() {
         { title: '操作', render: (_, row) => <Space><Button size="small" onClick={() => setEditingHeader(row)}>编辑</Button><Popconfirm title={`删除 Header“${row.name}”？`} okText="删除" cancelText="取消" onConfirm={() => deleteHeader.mutate(row.id)}><Button size="small" danger>删除</Button></Popconfirm></Space> },
       ]} /></TableRegion>}
     </Card>
-    <Card title="模型" className="configuration-section-card" extra={<Space><Button onClick={() => { setDiscoveryOpen(true); setDiscovered([]); discover.reset(); createDiscoveredModel.reset(); discover.mutate(); }}>获取模型</Button><Button type="primary" onClick={() => setModelOpen(true)}>手动添加</Button></Space>}>
+    <Card id="channel-models" title="模型" className="configuration-section-card workspace-section" extra={<Space><Button onClick={() => { setDiscoveryOpen(true); setDiscovered([]); discover.reset(); createDiscoveredModel.reset(); discover.mutate(); }}>获取模型</Button><Button type="primary" onClick={() => setModelOpen(true)}>手动添加</Button></Space>}>
       {modelError && <Alert role="alert" type="error" showIcon message={errorMessage(modelError)} />}
       {models.isLoading ? <QueryLoading label="正在加载模型" /> : models.data?.items.length === 0 ? <NoData description="尚未配置模型" /> : <TableRegion label="模型列表"><Table<AIModel> rowKey="id" dataSource={models.data?.items} scroll={{ x: 1120 }} columns={[
         { title: '显示名', dataIndex: 'display_name' },

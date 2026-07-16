@@ -5,14 +5,12 @@ import {
   Alert,
   Button,
   Card,
-  Col,
   Descriptions,
   Form,
   Input,
   InputNumber,
   List,
   Modal,
-  Row,
   Space,
   Timeline,
   Typography,
@@ -106,6 +104,7 @@ export function ContentEditorPage() {
   }
   const review = context.data;
   const current = review.content;
+  const canRevise = current.status !== 'APPROVED' && current.status !== 'SUPERSEDED';
   const fact = review.fact_version.snapshot;
   const evidenceStatus = new Map(
     review.evidence_statuses.map((item) => [item.client_key, item.file_status]),
@@ -119,8 +118,27 @@ export function ContentEditorPage() {
         title={current.title}
         description={<>{current.source_type === 'AI' ? 'AI 草稿' : '人工修订'} · 哈希 <span className="data-code">{current.content_hash.slice(0, 12)}</span></>}
         breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: `V${current.version} 审核` }]}
-        actions={<>
-          <StatusTag status={current.status} />
+        actions={<StatusTag status={current.status} />}
+      />
+      {(revise.error || command.error) && (
+        <Alert role="alert" type="error" showIcon message={errorMessage(revise.error ?? command.error)} />
+      )}
+      <section className="review-summary" aria-label="审核摘要">
+        <div><span>状态</span><strong><StatusTag status={current.status} /></strong></div>
+        <div><span>质量问题</span><strong className="data-code">{current.quality_issues.length}</strong></div>
+        <div><span>冻结事实</span><strong className="data-code">V{review.fact_version.version}</strong></div>
+        <div><span>审核记录</span><strong className="data-code">{review.review_history.length}</strong></div>
+      </section>
+      <div className="review-toolbar">
+        <nav className="form-section-nav" aria-label="内容审核章节">
+          <a href="#review-content">正文与预览</a>
+          <a href="#review-diff">版本差异</a>
+          <a href="#review-facts">锁定事实</a>
+          {review.generation_trace && <a href="#review-trace">生成追溯</a>}
+          <a href="#review-history">审核历史</a>
+          {canRevise && <a href="#review-revision">人工修订</a>}
+        </nav>
+        <Space wrap className="review-actions">
           {review.available_actions.map((item) => (
             <Button
               key={item}
@@ -132,43 +150,28 @@ export function ContentEditorPage() {
               {actionLabels[item]}
             </Button>
           ))}
-        </>}
-      />
-      {(revise.error || command.error) && (
-        <Alert role="alert" type="error" showIcon message={errorMessage(revise.error ?? command.error)} />
-      )}
-      <section className="review-summary" aria-label="审核摘要">
-        <div><span>状态</span><strong><StatusTag status={current.status} /></strong></div>
-        <div><span>质量问题</span><strong className="data-code">{current.quality_issues.length}</strong></div>
-        <div><span>冻结事实</span><strong className="data-code">V{review.fact_version.version}</strong></div>
-        <div><span>审核记录</span><strong className="data-code">{review.review_history.length}</strong></div>
+        </Space>
+      </div>
+      <section id="review-content" className="review-workspace-grid workspace-section" aria-label="内容审核工作区">
+        <Card title="当前 Markdown 正文" className="review-document-card">
+          <Input.TextArea aria-label="当前 Markdown 正文" rows={18} readOnly value={current.body_markdown} className="markdown-source" />
+        </Card>
+        <Card title="安全预览" className="review-document-card">
+          <article className="markdown-preview" dangerouslySetInnerHTML={{ __html: safeHtml }} />
+        </Card>
+        <Card title="审核决策依据" className="decision-rail">
+          <Descriptions size="small" column={1} items={[
+            { label: '事实版本', children: <span className="data-code">V{review.fact_version.version}</span> },
+            { label: '证据数量', children: <span className="data-code">{fact.evidences.length}</span> },
+            { label: '内容哈希', children: <span className="data-code">{current.content_hash.slice(0, 12)}</span> },
+          ]} />
+          <Typography.Title level={5}>质量问题</Typography.Title>
+          {current.quality_issues.length === 0 ? <Alert type="success" showIcon message="当前版本没有质量问题" /> : (
+            <List dataSource={current.quality_issues} renderItem={(issue) => <List.Item><Space align="start"><StatusTag status={issue.severity} /><div><Typography.Text code>{issue.code}</Typography.Text><Typography.Paragraph>{issue.message}</Typography.Paragraph></div></Space></List.Item>} />
+          )}
+        </Card>
       </section>
-      <Row gutter={[16, 16]} className="review-cockpit">
-        <Col xs={24} xl={16}>
-          <div className="review-document-grid">
-            <Card title="当前 Markdown 正文" className="review-document-card">
-              <Input.TextArea aria-label="当前 Markdown 正文" rows={18} readOnly value={current.body_markdown} className="markdown-source" />
-            </Card>
-            <Card title="安全预览" className="review-document-card">
-              <article className="markdown-preview" dangerouslySetInnerHTML={{ __html: safeHtml }} />
-            </Card>
-          </div>
-        </Col>
-        <Col xs={24} xl={8}>
-          <Card title="审核决策依据" className="decision-rail">
-            <Descriptions size="small" column={1} items={[
-              { label: '事实版本', children: <span className="data-code">V{review.fact_version.version}</span> },
-              { label: '证据数量', children: <span className="data-code">{fact.evidences.length}</span> },
-              { label: '内容哈希', children: <span className="data-code">{current.content_hash.slice(0, 12)}</span> },
-            ]} />
-            <Typography.Title level={5}>质量问题</Typography.Title>
-            {current.quality_issues.length === 0 ? <Alert type="success" showIcon message="当前版本没有质量问题" /> : (
-              <List dataSource={current.quality_issues} renderItem={(issue) => <List.Item><Space align="start"><StatusTag status={issue.severity} /><div><Typography.Text code>{issue.code}</Typography.Text><Typography.Paragraph>{issue.message}</Typography.Paragraph></div></Space></List.Item>} />
-            )}
-          </Card>
-        </Col>
-      </Row>
-      <Card title="相对源版本的 Markdown 差异" className="workspace-panel">
+      <Card id="review-diff" title="相对源版本的 Markdown 差异" className="workspace-panel workspace-section">
         {review.diff ? (
           <div className="diff-view">
             {review.diff.lines.map((line, index) => (
@@ -183,7 +186,7 @@ export function ContentEditorPage() {
           <Typography.Text type="secondary">首个版本没有可比较的源版本。</Typography.Text>
         )}
       </Card>
-      <Card title={`任务锁定事实 V${review.fact_version.version}`} className="workspace-panel">
+      <Card id="review-facts" title={`任务锁定事实 V${review.fact_version.version}`} className="workspace-panel workspace-section">
         <Descriptions
           column={1}
           items={[
@@ -248,7 +251,7 @@ export function ContentEditorPage() {
         />
       </Card>
       {review.generation_trace && (
-        <Card title="生成追溯" className="workspace-panel">
+        <Card id="review-trace" title="生成追溯" className="workspace-panel workspace-section">
           <Descriptions
             column={1}
             items={[
@@ -260,7 +263,7 @@ export function ContentEditorPage() {
           />
         </Card>
       )}
-      <Card title="完整审核历史" className="workspace-panel">
+      <Card id="review-history" title="完整审核历史" className="workspace-panel workspace-section">
         <Timeline
           items={review.review_history.map((item) => ({
             children: (
@@ -279,8 +282,8 @@ export function ContentEditorPage() {
           }))}
         />
       </Card>
-      {current.status !== 'APPROVED' && current.status !== 'SUPERSEDED' && (
-        <Card title="创建人工修订">
+      {canRevise && (
+        <Card id="review-revision" title="创建人工修订" className="workspace-section">
           <RevisionForm
             content={current}
             loading={revise.isPending}

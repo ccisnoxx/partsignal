@@ -1,7 +1,7 @@
 /** 管理 AI 渠道集合，并提供稳定详情路由入口。 */
-import { DeleteOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Space, Table, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
@@ -11,6 +11,7 @@ import type { AIChannel, Schema } from '../../shared/api/types';
 import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableRegion } from '../../shared/components/TableRegion';
 
 export function AIChannelsPage() {
   const [createOpen, setCreateOpen] = useState(false);
@@ -40,11 +41,73 @@ export function AIChannelsPage() {
   return <div className="page-stack">
     <PageHeader eyebrow="模型治理" title="AI 配置" description="管理 OpenAI-compatible 渠道、凭据、请求 Header 与模型。敏感凭据永不回显。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新增渠道</Button>} />
     {mutationError && <Alert role="alert" type="error" showIcon message={errorMessage(mutationError)} />}
-    {channels.isLoading ? <QueryLoading label="正在加载 AI 渠道" /> : channels.error ? <QueryFailure error={channels.error} onRetry={() => void channels.refetch()} /> : (channels.data?.items.length ?? 0) === 0 ? <NoData description="暂无 AI 渠道" /> : (
-      <section className="configuration-channel-grid" aria-label="AI 渠道列表">
-        {channels.data?.items.map((channel) => <ChannelCard key={channel.id} channel={channel} onToggle={() => toggle.mutate(channel)} onDelete={() => remove.mutate(channel)} toggling={toggle.isPending && toggle.variables?.id === channel.id} deleting={remove.isPending && remove.variables?.id === channel.id} />)}
-      </section>
-    )}
+    <Card className="collection-panel">
+      {channels.isLoading ? <QueryLoading label="正在加载 AI 渠道" /> : channels.error ? <QueryFailure error={channels.error} onRetry={() => void channels.refetch()} /> : (channels.data?.items.length ?? 0) === 0 ? <NoData description="暂无 AI 渠道" /> : <TableRegion label="AI 渠道列表">
+        <Table<AIChannel>
+          className="configuration-channel-table"
+          rowKey="id"
+          dataSource={channels.data?.items}
+          pagination={false}
+          scroll={{ x: 1480 }}
+          columns={[
+            {
+              title: '渠道名称',
+              dataIndex: 'name',
+              width: 170,
+              render: (_, channel) => <Link to={`/configuration/ai/channels/${channel.id}`} aria-label={`查看 ${channel.name} 配置`}>{channel.name}</Link>,
+            },
+            {
+              title: '状态',
+              dataIndex: 'is_enabled',
+              width: 90,
+              render: (enabled: boolean) => <StatusTag status={enabled ? 'ACTIVE' : 'RETIRED'} />,
+            },
+            {
+              title: 'API 根地址',
+              dataIndex: 'base_url',
+              width: 260,
+              render: (baseUrl: string) => <Typography.Text className="data-code configuration-break-text" title={baseUrl}>{baseUrl}</Typography.Text>,
+            },
+            {
+              title: '请求超时',
+              dataIndex: 'timeout_seconds',
+              width: 100,
+              render: (seconds: number) => `${seconds} 秒`,
+            },
+            {
+              title: 'API Key',
+              dataIndex: 'api_key_configured',
+              width: 190,
+              render: (configured: boolean, channel) => configured ? `已配置 · ${new Date(channel.api_key_updated_at).toLocaleString('zh-CN')}` : '未配置',
+            },
+            {
+              title: '请求 Header',
+              dataIndex: 'headers',
+              width: 110,
+              render: (headers: AIChannel['headers']) => `${headers.length} 个`,
+            },
+            {
+              title: '已启用模型',
+              dataIndex: 'enabled_models',
+              width: 300,
+              render: (models: AIChannel['enabled_models'], channel) => <div className="configuration-channel-models-cell" role="region" aria-label={`${channel.name} 已启用模型`}>
+                {models.length === 0 ? <span>暂无启用模型</span> : models.map((model) => <Tag key={model.model_id} className="configuration-model-tag"><strong>{model.display_name}</strong><span className="data-code">{model.model_id}</span></Tag>)}
+              </div>,
+            },
+            {
+              title: '操作',
+              key: 'actions',
+              width: 250,
+              render: (_, channel) => <Space wrap>
+                <Link to={`/configuration/ai/channels/${channel.id}`}>查看详情</Link>
+                <Button type="link" loading={toggle.isPending && toggle.variables?.id === channel.id} onClick={() => toggle.mutate(channel)}>{channel.is_enabled ? '停用' : '启用'}</Button>
+                <Popconfirm title="删除此 AI 渠道？" description="渠道、Header 与模型配置将被删除，此操作不可撤销。" okText="删除" cancelText="取消" okButtonProps={{ danger: true, loading: remove.isPending && remove.variables?.id === channel.id }} onConfirm={() => remove.mutate(channel)}><Button type="link" danger icon={<DeleteOutlined />} loading={remove.isPending && remove.variables?.id === channel.id}>删除</Button></Popconfirm>
+              </Space>,
+            },
+          ]}
+        />
+      </TableRegion>}
+    </Card>
     <Modal title="新增 AI 渠道" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null} destroyOnHidden>
       <Form<Schema<'AIChannelCreate'>> layout="vertical" initialValues={{ timeout_seconds: 60 }} onFinish={(body) => create.mutate(body)}>
         <Form.Item name="name" label="渠道名称" rules={[{ required: true }]}><Input autoFocus /></Form.Item>
@@ -55,29 +118,4 @@ export function AIChannelsPage() {
       </Form>
     </Modal>
   </div>;
-}
-
-function ChannelCard({ channel, onToggle, onDelete, toggling, deleting }: {
-  channel: AIChannel;
-  onToggle: () => void;
-  onDelete: () => void;
-  toggling: boolean;
-  deleting: boolean;
-}) {
-  return <Card className="configuration-channel-card" actions={[
-    <Button key="toggle" type="text" loading={toggling} onClick={onToggle}>{channel.is_enabled ? '停用' : '启用'}</Button>,
-    <Popconfirm key="delete" title="删除此 AI 渠道？" description="渠道、Header 与模型配置将被删除，此操作不可撤销。" okText="删除" cancelText="取消" okButtonProps={{ danger: true, loading: deleting }} onConfirm={onDelete}><Button type="text" danger icon={<DeleteOutlined />}>删除</Button></Popconfirm>,
-  ]}>
-    <Link className="configuration-channel-link" to={`/configuration/ai/channels/${channel.id}`} aria-label={`查看 ${channel.name} 配置`}>
-      <Space className="configuration-channel-title" align="start"><SettingOutlined /><span><Typography.Title level={3}>{channel.name}</Typography.Title><StatusTag status={channel.is_enabled ? 'ACTIVE' : 'RETIRED'} /></span></Space>
-      <dl className="configuration-channel-facts">
-        <div><dt>API 根地址</dt><dd className="data-code configuration-break-text" title={channel.base_url}>{channel.base_url}</dd></div>
-        <div><dt>请求超时</dt><dd>{channel.timeout_seconds} 秒</dd></div>
-        <div><dt>API Key</dt><dd>{channel.api_key_configured ? `已配置 · ${new Date(channel.api_key_updated_at).toLocaleString('zh-CN')}` : '未配置'}</dd></div>
-        <div><dt>请求 Header</dt><dd>{channel.headers.length} 个</dd></div>
-      </dl>
-      <section className="configuration-channel-models" aria-label="已启用模型"><Typography.Text type="secondary">已启用模型</Typography.Text><div>{channel.enabled_models.length === 0 ? <span>暂无启用模型</span> : channel.enabled_models.map((model) => <Tag key={model.model_id} className="configuration-model-tag"><strong>{model.display_name}</strong><span className="data-code">{model.model_id}</span></Tag>)}</div></section>
-      <span className="configuration-channel-cta">查看配置</span>
-    </Link>
-  </Card>;
 }

@@ -47,7 +47,7 @@ export function GeoObservationsPage() {
       <section className="geo-metric-grid" aria-label="GEO 指标">
         {metricItems.map((item) => <MetricTile key={item.label} label={item.label} value={item.value ?? '—'} unit={item.value == null ? undefined : '%'} percent={item.value} meta={item.value == null ? '无可判断样本' : `${metrics.data?.sample_count ?? 0} 个当前样本`} />)}
       </section>
-      <Card title={`原始观测（${metrics.data?.sample_count ?? 0} 个指标样本）`} className="workspace-panel">
+      <Card title={`原始观测（${metrics.data?.sample_count ?? 0} 个指标样本）`} className="workspace-panel collection-panel">
         <TableRegion label="GEO 原始观测列表">
           <Table<GeoObservation>
             rowKey="id"

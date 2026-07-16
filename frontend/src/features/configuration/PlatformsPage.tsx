@@ -58,7 +58,7 @@ export function PlatformsPage() {
     <PageHeader eyebrow="配置治理" title="平台管理" description="维护具体平台身份、归类、允许域名和当前生效规则。" actions={<Button type="primary" icon={<PlusOutlined />} aria-haspopup="dialog" aria-expanded={createOpen} onClick={() => setCreateOpen(true)}>新增平台</Button>} />
     {error && <Alert role="alert" type="error" showIcon message={errorMessage(error)} />}
     {removeProfile.error && <DeletionError error={removeProfile.error} />}
-    <Card>{platforms.isLoading || versions.isLoading ? <QueryLoading label="正在加载平台" /> : queryError ? <QueryFailure error={queryError} onRetry={() => { void platforms.refetch(); void versions.refetch(); }} /> : platformItems.length === 0 ? <NoData description="暂无具体平台" /> : <TableRegion label="平台列表"><Table<PlatformProfile> rowKey="id" dataSource={platformItems} scroll={{ x: 980 }} columns={[
+    <Card className="collection-panel">{platforms.isLoading || versions.isLoading ? <QueryLoading label="正在加载平台" /> : queryError ? <QueryFailure error={queryError} onRetry={() => { void platforms.refetch(); void versions.refetch(); }} /> : platformItems.length === 0 ? <NoData description="暂无具体平台" /> : <TableRegion label="平台列表"><Table<PlatformProfile> rowKey="id" dataSource={platformItems} scroll={{ x: 980 }} columns={[
       { title: '平台', dataIndex: 'name' },
       { title: '唯一标识（slug）', dataIndex: 'slug', render: (value) => <span className="data-code">{value}</span> },
       { title: '允许域名', dataIndex: 'allowed_domains', render: (items: string[]) => items.join(', ') },

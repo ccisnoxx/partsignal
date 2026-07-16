@@ -30,7 +30,7 @@ export function ProductsPage() {
   return (
     <div className="page-stack">
       <PageHeader eyebrow="事实基础" title="产品事实" description="先建立可审核、带证据的事实，再进入内容生成。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新增产品</Button>} />
-      <Card>
+      <Card className="collection-panel">
         {remove.error && <DeletionError error={remove.error} />}
         <Input.Search aria-label="搜索产品" prefix={<SearchOutlined />} allowClear placeholder="搜索型号或品牌" onSearch={setSearch} className="table-search" />
         {products.error ? <QueryFailure error={products.error} onRetry={() => void products.refetch()} /> : <TableRegion label="产品事实列表"><Table<Product> rowKey="id" loading={products.isLoading} dataSource={products.data?.items} pagination={{ pageSize: 20 }} scroll={{ x: 680 }} columns={[

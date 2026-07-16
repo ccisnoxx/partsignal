@@ -48,7 +48,7 @@ export function PublicationWorkspace() {
         <div><span>当前记录</span><strong className="data-code">{records.data?.items.length ?? 0}</strong></div>
       </section>
       <Tabs className="workspace-tabs" defaultActiveKey={attentions.data?.items.length ? 'attentions' : 'candidates'} items={[
-        { key: 'candidates', label: '待发布候选', children: <Card className="workspace-panel"><TableRegion label="待发布候选列表"><Table<PublicationCandidate>
+        { key: 'candidates', label: '待发布候选', children: <Card className="workspace-panel collection-panel"><TableRegion label="待发布候选列表"><Table<PublicationCandidate>
           rowKey={(row) => row.content_version.id}
           loading={candidates.isLoading}
           dataSource={candidates.data?.items}
@@ -75,7 +75,7 @@ export function PublicationWorkspace() {
             },
           ]}
         /></TableRegion></Card> },
-        { key: 'attentions', label: '发布异常待办', children: <Card className="workspace-panel"><TableRegion label="发布异常待办列表"><Table<PublicationAttention>
+        { key: 'attentions', label: '发布异常待办', children: <Card className="workspace-panel collection-panel"><TableRegion label="发布异常待办列表"><Table<PublicationAttention>
           rowKey="id"
           loading={attentions.isLoading}
           dataSource={attentions.data?.items}
@@ -96,7 +96,7 @@ export function PublicationWorkspace() {
             },
           ]}
         /></TableRegion></Card> },
-        { key: 'records', label: '发布记录', children: <Card className="workspace-panel"><TableRegion label="发布记录列表"><Table<PublicationRecord>
+        { key: 'records', label: '发布记录', children: <Card className="workspace-panel collection-panel"><TableRegion label="发布记录列表"><Table<PublicationRecord>
           rowKey="id"
           loading={records.isLoading}
           dataSource={records.data?.items}

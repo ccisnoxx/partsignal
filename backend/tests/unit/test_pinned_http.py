@@ -91,9 +91,10 @@ def test_public_https_keeps_original_sni_host_and_uses_resolved_sockaddr() -> No
     assert b"Authorization: Bearer secret\r\n" in wire
 
 
-def test_request_never_resolves_hostname_a_second_time() -> None:
+def test_request_uses_first_resolved_sockaddr_when_dns_would_rebind() -> None:
     fake = FakeSocket(peer_ip="93.184.216.34", response=ok_response())
     resolutions = 0
+    connected: list[ResolvedAddress] = []
 
     def resolve(_host: str, port: int, **_kwargs: object):
         nonlocal resolutions
@@ -101,10 +102,14 @@ def test_request_never_resolves_hostname_a_second_time() -> None:
         ip = "93.184.216.34" if resolutions == 1 else "10.0.0.8"
         return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (ip, port))]
 
+    def connect(address: ResolvedAddress, _timeout: float):
+        connected.append(address)
+        return fake  # type: ignore[return-value]
+
     transport = PinnedHTTPTransport(
         allow_local_http=False,
         resolver=resolve,
-        connector=lambda _address, _timeout: fake,  # type: ignore[arg-type,return-value]
+        connector=connect,
         tls_wrapper=lambda connection, _hostname: connection,
     )
     transport.request(
@@ -116,11 +121,18 @@ def test_request_never_resolves_hostname_a_second_time() -> None:
         body=None,
     )
     assert resolutions == 1
+    assert [address.sockaddr for address in connected] == [("93.184.216.34", 443)]
     assert len(fake.sent) == 1
 
 
-def test_mixed_public_and_private_resolution_is_rejected_before_connect() -> None:
+def test_mixed_public_a_and_private_aaaa_resolution_is_rejected_before_connect() -> None:
     connected = False
+
+    def resolve(_host: str, port: int, **_kwargs: object):
+        return [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port)),
+            (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("fd00::8", port, 0, 0)),
+        ]
 
     def connect(_address: ResolvedAddress, _timeout: float):
         nonlocal connected
@@ -129,10 +141,10 @@ def test_mixed_public_and_private_resolution_is_rejected_before_connect() -> Non
 
     transport = PinnedHTTPTransport(
         allow_local_http=False,
-        resolver=resolver_for("93.184.216.34", "10.0.0.8"),
+        resolver=resolve,
         connector=connect,
     )
-    with pytest.raises(AppError, match="非公网"):
+    with pytest.raises(AppError, match="非公网") as exc_info:
         transport.request(
             method="GET",
             base_url="https://provider.invalid/v1",
@@ -141,6 +153,7 @@ def test_mixed_public_and_private_resolution_is_rejected_before_connect() -> Non
             timeout_seconds=10,
             body=None,
         )
+    assert exc_info.value.code == "AI_URL_FORBIDDEN"
     assert not connected
 
 
@@ -151,7 +164,7 @@ def test_peer_mismatch_blocks_authorization_before_any_http_byte() -> None:
         resolver=resolver_for("93.184.216.34"),
         connector=lambda _address, _timeout: fake,  # type: ignore[arg-type,return-value]
     )
-    with pytest.raises(AppError, match="不在批准集合"):
+    with pytest.raises(AppError, match="不在批准集合") as exc_info:
         transport.request(
             method="GET",
             base_url="https://provider.invalid/v1",
@@ -160,7 +173,9 @@ def test_peer_mismatch_blocks_authorization_before_any_http_byte() -> None:
             timeout_seconds=10,
             body=None,
         )
+    assert exc_info.value.code == "AI_URL_FORBIDDEN"
     assert fake.sent == []
+    assert fake.closed
 
 
 def test_connect_may_try_next_approved_ip_only_before_http_send() -> None:

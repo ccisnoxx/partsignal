@@ -57,7 +57,9 @@
 
 ### Main Changes
 
-(Add details)
+- 删除视觉基线 CI、Playwright 视觉测试、196 个 PNG 和本地测试产物。
+- 删除 `test:visual`、截图专用配置与 `@axe-core/playwright`，同步 README 和锁文件。
+- 清理两个活跃 Trellis 任务中的视觉基线待办，归档历史与业务快照保持不变。
 
 ### Git Commits
 
@@ -67,7 +69,10 @@
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] Playwright 用例发现：2 个文件、5 个功能 E2E 用例
+- [OK] 前端单元测试：35/35
+- [OK] lint、typecheck 和 build 通过
+- [OK] 残余引用、活跃任务待办、归档差异和 `git diff --check` 审计通过
 
 ### Status
 
@@ -166,6 +171,40 @@
 |------|---------|
 | `b2132be` | (see git log) |
 | `ae3487b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 6: 移除前端视觉基线链路
+
+**Date**: 2026-07-16
+**Task**: 移除前端视觉基线链路
+**Branch**: `main`
+
+### Summary
+
+删除截图式视觉回归测试、196 个 PNG、CI 工作流、专用依赖与配置，并清理活跃 Trellis 任务中的视觉基线待办；业务事实与生成快照保持不变。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3292ff9` | (see git log) |
+| `68ed9e3` | (see git log) |
 
 ### Testing
 

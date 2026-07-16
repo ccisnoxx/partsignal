@@ -95,7 +95,9 @@
 
 ### Main Changes
 
-(Add details)
+- 重建浅色、深色与 `system` 主题 token，并同步首屏画布色与 Ant Design 组件映射。
+- 仅在侧栏、工具栏、抽屉、弹层和悬浮操作条使用共享玻璃材质，业务表面保持不透明。
+- 完成 375/768/1024/1440、原生 200% 缩放、键盘、减少动画、玻璃降级和性能验收。
 
 ### Git Commits
 
@@ -107,7 +109,8 @@
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] `api:check`、lint、typecheck、43 项单元测试、build 和 4 项主题 E2E 通过。
+- [OK] 真实浏览器浅深主题、响应式、原生 200% 缩放与 Tab/Shift+Tab 验收通过；性能五样本未记录 Long Task。
 
 ### Status
 
@@ -238,6 +241,39 @@
 | Hash | Message |
 |------|---------|
 | `bd31116` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 8: 完成 macOS 双主题磨砂玻璃前端改造
+
+**Date**: 2026-07-16
+**Task**: 完成 macOS 双主题磨砂玻璃前端改造
+**Branch**: `main`
+
+### Summary
+
+完成浅色、深色与 system 主题重塑，限定共享玻璃材质边界，并通过前端门禁、真实浏览器响应式、原生 200% 缩放、键盘和性能验收。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7468838` | (see git log) |
 
 ### Testing
 

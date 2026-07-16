@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 7
+- **Total Sessions**: 8
 - **Last Active**: 2026-07-16
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~252 | Active |
+| `journal-1.md` | ~285 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 8 | 2026-07-16 | 完成 macOS 双主题磨砂玻璃前端改造 | `7468838` | `main` |
 | 7 | 2026-07-16 | 独立平台规则与事实版本清理上线 | `bd31116` | `main` |
 | 6 | 2026-07-16 | 移除前端视觉基线链路 | `3292ff9`, `68ed9e3` | `main` |
 | 5 | 2026-07-16 | 完成配置中心模型与 Prompt 绑定修复 | `b2132be`, `ae3487b` | `main` |

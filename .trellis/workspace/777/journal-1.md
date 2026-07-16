@@ -286,3 +286,41 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: 前端业务工作区布局重塑
+
+**Date**: 2026-07-17
+**Task**: 前端业务工作区布局重塑
+**Branch**: `main`
+
+### Summary
+
+完成集合与配置页紧凑数据表面、AI 渠道表格、内容审核响应式工作区和长页章节导航；AC1–AC10、全量测试、构建、E2E 与真实浏览器矩阵均已验证。
+
+### Main Changes
+
+- 集合与配置页统一使用紧凑页头和 `.collection-panel`，AI 渠道集合由卡片网格改为单一 Ant Table。
+- 内容审核工作区按 375/768/1024/1440 断点重排，并将章节导航与审核操作合并为唯一粘性工具条。
+- 内容任务、AI 渠道和产品事实长页补齐可达锚点，相关单测、E2E 和前端 README 同步更新。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fa9d930` | `feat(frontend): 重塑业务工作区布局` |
+
+### Testing
+
+- [OK] `npm run api:check`、`npm run lint`、`npm run typecheck`、`npm run build`
+- [OK] Vitest 14/14 个测试文件、43/43 个测试
+- [OK] Playwright E2E 6/6 个测试
+- [OK] 真实浏览器 5 个代表页面 × 4 个视口 × 浅/深主题，并完成 200% 等效重排复查
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

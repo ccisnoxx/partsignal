@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 4
+- **Total Sessions**: 5
 - **Last Active**: 2026-07-16
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~141 | Active |
+| `journal-1.md` | ~175 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 5 | 2026-07-16 | 完成配置中心模型与 Prompt 绑定修复 | `b2132be`, `ae3487b` | `main` |
 | 4 | 2026-07-16 | 完成运营配置与内容治理重构 | `603a264` | `main` |
 | 3 | 2026-07-12 | 阶段一至阶段五实现、验收与部署准备 | `ab75d2a`, `6354cf5`, `0c902d9` | `codex/stage-five-structure` |
 | 2 | 2026-07-11 | 精简初始账号与管理员改密入口 | `cebb0d0` | `agent/mvp` |

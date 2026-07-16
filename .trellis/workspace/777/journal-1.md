@@ -19,7 +19,9 @@
 
 ### Main Changes
 
-(Add details)
+- 模型变更成功后统一刷新渠道详情、渠道列表和模型列表缓存。
+- Prompt 管理只展示已配置项，新增时仅提供未配置平台，删除后刷新列表。
+- 移除侧栏说明及其样式，并补充对应前端测试。
 
 ### Git Commits
 
@@ -29,7 +31,10 @@
 
 ### Testing
 
-- [OK] (Add test results)
+- [OK] 目标测试：2 个文件、11 项通过
+- [OK] 前端全量测试：13 个文件、35 项通过
+- [OK] lint、typecheck 和 build 通过
+- [OK] 桌面端、移动端和暗色模式浏览器检查通过
 
 ### Status
 
@@ -127,6 +132,40 @@
 | Hash | Message |
 |------|---------|
 | `603a264` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 5: 完成配置中心模型与 Prompt 绑定修复
+
+**Date**: 2026-07-16
+**Task**: 完成配置中心模型与 Prompt 绑定修复
+**Branch**: `main`
+
+### Summary
+
+修复模型变更后的渠道摘要缓存同步，完善 Prompt 新增与删除交互，并移除侧栏说明；目标测试、全量测试、lint、typecheck、build 和浏览器检查均通过。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b2132be` | (see git log) |
+| `ae3487b` | (see git log) |
 
 ### Testing
 

@@ -57,10 +57,17 @@ npm run build
 
 - [x] 本地 E2E 环境可用时运行现有 `tests/e2e/mvp-flow.spec.ts`；不可用则记录阻塞与替代验证。
 - [x] 运行 `trellis-check`，审计 diff 没有后端、契约、数据库、依赖、权限和业务状态变化。
-- [ ] 使用 `playwright-cli` 在 1440/1024/768/375px 验证 AI 列设置、操作列、平台 Select、平台规则列宽和 `/audit` 权限；结束后退出登录并清理会话。
+- [x] 使用 `playwright-cli` 在 1440/1024/768/375px 验证 AI 列设置、操作列、平台 Select、平台规则列宽和 `/audit` 权限；结束后退出登录并清理会话。
 
 ## 6. 提交与部署门禁
 
 - [x] 汇报验证结果和精确提交文件，获得用户提交确认后才提交到 `main`。
-- [ ] 获得用户推送/部署确认后推送 `origin/main`，按现有发布脚本重新部署。
-- [ ] 部署后检查健康状态、当前版本指针、关键 API 和 Playwright 管理员/工程师验收。
+- [x] 获得用户推送/部署确认后推送 `origin/main`，按现有发布脚本重新部署。
+- [x] 部署后检查健康状态、当前版本指针、关键 API 和 Playwright 管理员/工程师验收。
+
+## 7. 完成记录
+
+- 工作提交：`bd9be18 fix(frontend): 优化配置表格与审计导航`
+- 发布版本：`mvp-20260717-161044`
+- 迁移前备份：`/root/partsignal/backups/partsignal-20260717T081130Z.sql.gz`
+- 线上验收：PostgreSQL/Redis ready、Nginx、静态资源缓存、四视口布局、管理员审计入口和浏览器控制台均通过；管理员已退出并删除自动化会话数据。

@@ -315,6 +315,11 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page).toHaveURL(/\/configuration\/ai$/);
   const channelLink = page.getByRole('link', { name: `查看 E2E 渠道 ${suffix} 配置` });
   const channelRow = page.getByRole('row').filter({ has: channelLink });
+  const headerBox = await page.locator('.ant-table-sticky-holder').boundingBox();
+  const rowBox = await channelRow.boundingBox();
+  expect(headerBox).not.toBeNull();
+  expect(rowBox).not.toBeNull();
+  expect(headerBox!.y + headerBox!.height).toBeLessThanOrEqual(rowBox!.y + 1);
   const enabledModelSummary = channelRow.getByRole('region', { name: `E2E 渠道 ${suffix} 已启用模型` });
   await expect(enabledModelSummary.getByText('e2e-model', { exact: true })).toBeVisible();
   await expect(enabledModelSummary.getByText('e2e-manual-model', { exact: true })).toHaveCount(0);

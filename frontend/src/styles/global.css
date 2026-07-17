@@ -81,7 +81,7 @@ a:hover { color: var(--ps-action-primary-hover); }
 .review-summary > div:last-child { border-right: 0; }
 .review-summary span { color: var(--ps-text-secondary); font-size: 12px; }
 .review-summary strong { font-size: 20px; }
-.collection-panel { overflow: hidden; box-shadow: none; }
+.collection-panel { box-shadow: none; }
 .collection-panel > .ant-card-head { min-height: 44px; }
 .collection-panel > .ant-card-body { padding: 16px; }
 .review-workspace-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
@@ -130,7 +130,8 @@ a:hover { color: var(--ps-action-primary-hover); }
 .metric-meta { display: block; min-height: 18px; color: var(--ps-text-tertiary) !important; font-size: 11px; }
 .metric-tile .ant-progress-bg { transform-origin: left; animation: chart-reveal var(--ps-motion-slow) var(--ps-ease-enter); }
 
-.table-region { max-width: 100%; overflow-x: auto; border-radius: var(--ps-radius-md); }
+/* 横向滚动由 Ant Table 的 scroll.x 持有；外层 overflow 会破坏 sticky 表头定位。 */
+.table-region { max-width: 100%; border-radius: var(--ps-radius-md); }
 .table-region:focus-visible { outline-offset: -3px; }
 .table-search { width: min(100%, 360px); margin-bottom: 16px; }
 .section-card { margin-bottom: 14px; background: var(--ps-bg-surface); }

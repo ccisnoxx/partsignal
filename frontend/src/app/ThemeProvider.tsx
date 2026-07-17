@@ -86,6 +86,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setMode = useCallback((nextMode: ThemeMode) => {
     const commit = () => {
+      if (nextMode === 'system') setSystemResolved(systemTheme());
       setModeState(nextMode);
       try {
         localStorage.setItem(THEME_STORAGE_KEY, nextMode);

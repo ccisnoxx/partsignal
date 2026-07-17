@@ -6,7 +6,7 @@ import {
 } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
 import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
-import { Suspense, useEffect, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthProvider';
 import { api, csrfHeader, ensureSuccess, setCsrfToken } from '../shared/api/client';
@@ -63,11 +63,15 @@ export function AppLayout() {
   const screens = Grid.useBreakpoint();
   const navigate = useNavigate();
   const location = useLocation();
+  const contentRef = useRef<HTMLElement>(null);
   const auth = useAuth();
   const workflowItems = filterNavigation(workflowNavigation, auth.isAdmin);
   const systemItems = filterNavigation(systemNavigation, auth.isAdmin);
   const visibleLeaves = navigationLeaves([...workflowItems, ...systemItems]);
   useEffect(() => scheduleIdleRoutePrefetch(), []);
+  useEffect(() => {
+    contentRef.current?.focus({ preventScroll: true });
+  }, [location.pathname]);
   const logout = useMutation({
     mutationFn: async () => ensureSuccess(await api.POST('/api/v1/auth/logout', { params: { header: csrfHeader() } })),
     onSuccess: async () => {
@@ -143,7 +147,7 @@ export function AppLayout() {
             </Dropdown>
           </Space>
         </Layout.Header>
-        <Layout.Content className="app-content">
+        <Layout.Content ref={contentRef} tabIndex={-1} className="app-content">
           <Suspense fallback={<section className="route-loading" role="status" aria-label="页面加载中"><Skeleton active paragraph={{ rows: 6 }} /></section>}>
             <Outlet />
           </Suspense>

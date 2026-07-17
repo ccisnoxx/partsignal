@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { queryClient } from '../../app/queryClient';
+import { ThemeProvider } from '../../app/ThemeProvider';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { Schema } from '../../shared/api/types';
 import { AIChannelDetailPage } from './AIChannelDetailPage';
@@ -61,7 +62,7 @@ function result(data: unknown) {
 }
 
 function renderWithQuery(ui: ReactNode, initialEntries: string[]) {
-  return render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider>);
+  return render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider></ThemeProvider>);
 }
 
 beforeEach(() => {
@@ -192,8 +193,9 @@ test('删除规则后移除真实行并失效平台与规则查询', async () =>
   renderWithQuery(<PlatformRulesPage />, ['/configuration/platform-rules']);
   const draftRow = (await screen.findByText('V2')).closest('tr');
   expect(draftRow).not.toBeNull();
-  await user.click(within(draftRow!).getByRole('button', { name: /删\s*除/ }));
-  await screen.findByText('物理删除规则版本 V2？');
+  await user.click(within(draftRow!).getByRole('button', { name: '更多操作：规则版本 V2' }));
+  await user.click(await screen.findByRole('menuitem', { name: '删除' }));
+  await screen.findByRole('dialog', { name: '物理删除规则版本 V2？' });
   await user.click(screen.getAllByRole('button', { name: /删\s*除/ }).at(-1)!);
   await waitFor(() => expect(screen.queryByText('V2')).not.toBeInTheDocument());
   expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.platformProfiles.all });
@@ -264,12 +266,13 @@ test('渠道首页以表格展示完整契约字段、操作且不触发模型 N
   expect(within(row!).getByText(/已配置/)).toBeInTheDocument();
   expect(within(row!).getByText('2 个')).toBeInTheDocument();
   expect(within(row!).getByText('model-controlled')).toBeInTheDocument();
-  expect(within(row!).getByRole('link', { name: '查看详情' })).toHaveAttribute('href', '/configuration/ai/channels/channel-1');
-  expect(within(row!).getByRole('button', { name: /删\s*除/ })).toBeInTheDocument();
+  expect(within(row!).getByRole('button', { name: '更多操作：受控模型渠道' })).toBeInTheDocument();
+  expect(within(row!).queryByRole('button', { name: /删\s*除/ })).not.toBeInTheDocument();
   await waitFor(() => expect(apiMocks.GET).toHaveBeenCalledTimes(1));
   expect(apiMocks.GET).toHaveBeenCalledWith('/api/v1/ai-channels');
 
-  await user.click(within(row!).getByRole('button', { name: /停\s*用/ }));
+  await user.click(within(row!).getByRole('button', { name: '更多操作：受控模型渠道' }));
+  await user.click(await screen.findByRole('menuitem', { name: '停用' }));
   await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
     '/api/v1/ai-channels/{channel_id}/disable',
     expect.objectContaining({
@@ -302,7 +305,8 @@ test('模型状态变更后同步失效渠道摘要和模型列表缓存', async
   const row = (await screen.findByText('内容生成模型')).closest('tr');
   expect(row).not.toBeNull();
 
-  await user.click(within(row!).getByRole('button', { name: /停\s*用/ }));
+  await user.click(within(row!).getByRole('button', { name: '更多操作：模型 内容生成模型' }));
+  await user.click(await screen.findByRole('menuitem', { name: '停用' }));
   await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
     '/api/v1/ai-models/{model_id}/disable',
     expect.objectContaining({ body: { expected_revision: model.revision } }),

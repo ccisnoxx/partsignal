@@ -3,6 +3,7 @@ import { ArrowLeftOutlined, CheckOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Alert,
+  App,
   Button,
   Card,
   Descriptions,
@@ -27,6 +28,7 @@ import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { evidenceTypeLabel } from '../../shared/components/enumLabels';
+import { useActiveSection } from '../../shared/hooks/useActiveSection';
 import { RevisionForm } from './RevisionForm';
 
 type ReviewAction = Schema<'ContentReviewAction'>;
@@ -40,6 +42,7 @@ const actionLabels: Record<ReviewAction, string> = {
 
 export function ContentEditorPage() {
   const { contentVersionId = '' } = useParams();
+  const { message } = App.useApp();
   const [action, setAction] = useState<ReviewAction>();
   const context = useQuery({
     queryKey: queryKeys.contentVersions.review(contentVersionId),
@@ -51,6 +54,17 @@ export function ContentEditorPage() {
       ),
     staleTime: QUERY_STALE_TIME.detail,
   });
+  const reviewSectionIds = [
+    'review-content',
+    'review-diff',
+    'review-facts',
+    ...(context.data?.generation_trace ? ['review-trace'] : []),
+    'review-history',
+    ...(context.data && context.data.content.status !== 'APPROVED' && context.data.content.status !== 'SUPERSEDED'
+      ? ['review-revision']
+      : []),
+  ];
+  const activeSection = useActiveSection(reviewSectionIds);
   const revise = useMutation({
     mutationFn: async (body: Schema<'ContentRevisionCreate'>) =>
       unwrap(
@@ -91,6 +105,7 @@ export function ContentEditorPage() {
       );
     },
     onSuccess: async () => {
+      message.success(action ? `${actionLabels[action]}已完成` : '内容状态已更新');
       setAction(undefined);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.contentVersions.review(contentVersionId) }),
@@ -100,7 +115,7 @@ export function ContentEditorPage() {
   });
   if (context.isLoading) return <QueryLoading />;
   if (context.error || !context.data) {
-    return <QueryFailure error={context.error ?? new Error('内容审核上下文不存在')} />;
+    return <div className="page-stack"><Link className="back-link" to="/tasks"><ArrowLeftOutlined /> 返回任务列表</Link><PageHeader title="内容审核" breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: '内容审核' }]} /><QueryFailure error={context.error ?? new Error('内容审核上下文不存在')} onRetry={() => void context.refetch()} /></div>;
   }
   const review = context.data;
   const current = review.content;
@@ -131,12 +146,12 @@ export function ContentEditorPage() {
       </section>
       <div className="review-toolbar">
         <nav className="form-section-nav" aria-label="内容审核章节">
-          <a href="#review-content">正文与预览</a>
-          <a href="#review-diff">版本差异</a>
-          <a href="#review-facts">锁定事实</a>
-          {review.generation_trace && <a href="#review-trace">生成追溯</a>}
-          <a href="#review-history">审核历史</a>
-          {canRevise && <a href="#review-revision">人工修订</a>}
+          <a href="#review-content" aria-current={activeSection === 'review-content' ? 'location' : undefined}>正文与预览</a>
+          <a href="#review-diff" aria-current={activeSection === 'review-diff' ? 'location' : undefined}>版本差异</a>
+          <a href="#review-facts" aria-current={activeSection === 'review-facts' ? 'location' : undefined}>锁定事实</a>
+          {review.generation_trace && <a href="#review-trace" aria-current={activeSection === 'review-trace' ? 'location' : undefined}>生成追溯</a>}
+          <a href="#review-history" aria-current={activeSection === 'review-history' ? 'location' : undefined}>审核历史</a>
+          {canRevise && <a href="#review-revision" aria-current={activeSection === 'review-revision' ? 'location' : undefined}>人工修订</a>}
         </nav>
         <Space wrap className="review-actions">
           {review.available_actions.map((item) => (

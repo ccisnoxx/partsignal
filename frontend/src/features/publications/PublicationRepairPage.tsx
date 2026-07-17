@@ -41,7 +41,7 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
     },
   });
   if (context.isLoading) return <QueryLoading />;
-  if (context.error || !context.data) return <QueryFailure error={context.error ?? new Error('修复上下文不存在')} />;
+  if (context.error || !context.data) return <div className="page-stack"><Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/publication-attentions/${attentionId}`)}>返回异常详情</Button><PageHeader title="创建发布修复任务" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: <Link to={`/publication-attentions/${attentionId}`}>异常待办</Link> }, { title: '创建修复任务' }]} /><QueryFailure error={context.error ?? new Error('修复上下文不存在')} onRetry={() => void context.refetch()} /></div>;
   const data = context.data;
   const missingFactCandidate = data.fact_candidates.length === 0;
   const missingPlatformCandidate = data.platform_candidates.length === 0;

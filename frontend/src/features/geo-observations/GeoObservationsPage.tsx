@@ -2,7 +2,8 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Alert, Button, Card, Checkbox, Form, Input, Modal, Select, Space, Table, Typography } from 'antd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
 import { geoMetricsQueryOptions, productsQueryOptions, publicationRecordsQueryOptions, queryTopicsQueryOptions } from '../../shared/api/queryOptions';
@@ -29,10 +30,25 @@ const citationSourceOptions: Array<{ label: string; value: Schema<'CitationSourc
 
 export function GeoObservationsPage() {
   const [open, setOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawPage = searchParams.get('page');
+  const page = rawPage && /^[1-9]\d*$/.test(rawPage) ? Number(rawPage) : 1;
   const metrics = useQuery(geoMetricsQueryOptions());
   const observations = useQuery({ queryKey: queryKeys.geo.observations, queryFn: async () => unwrap(await api.GET('/api/v1/geo-observations')), staleTime: QUERY_STALE_TIME.businessList });
+  useEffect(() => {
+    if ((rawPage !== null && !/^[1-9]\d*$/.test(rawPage)) || (observations.data && page > Math.max(1, Math.ceil(observations.data.items.length / 10)))) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('page');
+      setSearchParams(next, { replace: true });
+    }
+  }, [observations.data, page, rawPage, searchParams, setSearchParams]);
+  const setPage = (nextPage: number) => {
+    const next = new URLSearchParams(searchParams);
+    if (nextPage === 1) next.delete('page'); else next.set('page', String(nextPage));
+    setSearchParams(next);
+  };
   if (metrics.isLoading || observations.isLoading) return <QueryLoading label="正在加载 GEO 观测工作台" />;
-  if (metrics.error || observations.error) return <QueryFailure error={metrics.error ?? observations.error} onRetry={() => { void metrics.refetch(); void observations.refetch(); }} />;
+  if (metrics.error || observations.error) return <div className="page-stack"><PageHeader eyebrow="观测记录" title="GEO 观测" description="只记录实际测试结果；更正会追加新记录，不覆盖历史。" /><QueryFailure error={metrics.error ?? observations.error} onRetry={() => { void metrics.refetch(); void observations.refetch(); }} /></div>;
   const rate = (value: number | null | undefined) => value == null ? null : Math.round(value * 100);
   const metricItems = [
     { label: '提及率', value: rate(metrics.data?.mention_rate) },
@@ -52,6 +68,8 @@ export function GeoObservationsPage() {
           <Table<GeoObservation>
             rowKey="id"
             dataSource={observations.data?.items}
+            pagination={{ current: page, pageSize: 10, showSizeChanger: false, onChange: setPage }}
+            sticky={{ offsetHeader: 72 }}
             scroll={{ x: 960 }}
             expandable={{ expandedRowRender: (row) => <Space orientation="vertical"><Typography.Paragraph><strong>实际提示：</strong>{row.actual_prompt}</Typography.Paragraph><Typography.Paragraph><strong>回答摘要：</strong>{row.answer_summary}</Typography.Paragraph><Typography.Paragraph><strong>引用：</strong>{row.citations.map((item) => item.url).join('；') || '无'}</Typography.Paragraph></Space> }}
             columns={[

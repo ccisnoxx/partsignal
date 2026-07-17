@@ -198,6 +198,9 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.getByLabel('品牌').fill('DEMO');
   await page.getByLabel('类别').fill('TEST');
   await page.getByRole('button', { name: '创建事实工作区' }).click();
+  await page.getByRole('searchbox', { name: '搜索产品' }).fill(`DEMO-${suffix}`);
+  await page.getByRole('searchbox', { name: '搜索产品' }).press('Enter');
+  await expect(page).toHaveURL(new RegExp(`q=DEMO-${suffix}`));
   await expectTextInPaginatedTable(page, `DEMO-${suffix}`);
 
   const products = await body<{ items: Array<{ id: string; part_number: string }> }>(
@@ -229,7 +232,11 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await command(page, `/api/v1/fact-versions/${factVersion.id as string}/submit`, csrf, { expected_revision: 0, comment: '提交审核' });
 
   await page.goto(`/products/${product!.id}`);
+  const factNavigation = page.getByRole('navigation', { name: '事实表单章节' });
+  await expect(factNavigation.getByRole('link', { name: '参考型号' })).toHaveAttribute('aria-current', 'location');
+  await expect(page.getByText('参考型号 1')).toBeVisible();
   await page.getByRole('tab', { name: /事实版本/ }).click();
+  await expect(page.getByRole('button', { name: '更多操作：事实版本 V1' })).toBeVisible();
   await page.getByRole('button', { name: '审核证据与历史' }).click();
   await page.getByRole('button', { name: /批\s*准/, exact: true }).click();
   await expect(page.getByText('请显式确认：批准依据是下方不可变快照，而不是当前事实工作区。')).toBeVisible();
@@ -311,6 +318,12 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const enabledModelSummary = channelRow.getByRole('region', { name: `E2E 渠道 ${suffix} 已启用模型` });
   await expect(enabledModelSummary.getByText('e2e-model', { exact: true })).toBeVisible();
   await expect(enabledModelSummary.getByText('e2e-manual-model', { exact: true })).toHaveCount(0);
+  const channelMore = channelRow.getByRole('button', { name: `更多操作：E2E 渠道 ${suffix}` });
+  await channelMore.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('menuitem', { name: '停用' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(channelMore).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await channelLink.click();
   await expect(page).toHaveURL(new RegExp(`/configuration/ai/channels/${channel.id as string}$`));
@@ -393,6 +406,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const submittedId = manualRevision.id;
   await page.goto(`/tasks/${task.id as string}`);
   const taskNavigation = page.getByRole('navigation', { name: '内容任务章节' });
+  await expect(taskNavigation.getByRole('link', { name: '任务约束' })).toHaveAttribute('aria-current', 'location');
   await expect(taskNavigation.getByRole('link', { name: '任务约束' })).toHaveAttribute('href', '#task-constraints');
   await expect(taskNavigation.getByRole('link', { name: '生成输入' })).toHaveAttribute('href', '#task-generation');
   await expect(taskNavigation.getByRole('link', { name: '内容版本' })).toHaveAttribute('href', '#task-versions');
@@ -405,6 +419,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page.getByRole('link', { name: 'V1' })).toBeVisible();
   await page.goto(`/content/${submittedId}`);
   const reviewNavigation = page.getByRole('navigation', { name: '内容审核章节' });
+  await expect(reviewNavigation.getByRole('link', { name: '正文与预览' })).toHaveAttribute('aria-current', 'location');
   await expect(reviewNavigation.getByRole('link', { name: '正文与预览' })).toHaveAttribute('href', '#review-content');
   await expect(reviewNavigation.getByRole('link', { name: '审核历史' })).toHaveAttribute('href', '#review-history');
   await expect(page.locator('#review-content')).toBeVisible();
@@ -440,6 +455,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect(completedTask.status).toBe('COMPLETED');
   await page.goto('/publications');
   await page.getByRole('tab', { name: '发布记录' }).click();
+  await expect(page).toHaveURL(/tab=records/);
   await expect(page.locator(`a[href="https://forum.example.invalid/posts/${suffix}"]`)).toBeVisible();
 
   await command(page, '/api/v1/geo-observations', csrf, { query_topic_id: topic.id, product_id: product!.id, actual_prompt: `${product!.part_number} 如何替代？`, model_name: 'E2E-DETERMINISTIC', model_version: 'v1', tested_at: new Date().toISOString(), web_search_enabled: true, answer_summary: '虚构 E2E 回答摘要', mentioned: true, recommendation: 'RECOMMENDED', accuracy: 'ACCURATE', citations: [{ url: `https://forum.example.invalid/posts/${suffix}`, source_type: 'EXTERNAL_COMPANY', publication_record_id: publication.id }], publication_record_ids: [publication.id], attachment_file_ids: [file.id], notes: '仅用于自动化验收', supersedes_id: null });

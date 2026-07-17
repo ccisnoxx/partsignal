@@ -34,4 +34,5 @@ test('默认隐藏停用账号，并允许管理员显式查看', async () => {
 
   await userEvent.click(screen.getByRole('switch', { name: '显示停用账号' }));
   expect(await screen.findByText('inactive-engineer')).toBeInTheDocument();
+  expect(window.location.search).toBe('?inactive=1');
 });

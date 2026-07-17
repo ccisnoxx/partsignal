@@ -1,7 +1,7 @@
 /** 管理 AI 渠道集合，并提供稳定详情路由入口。 */
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DownOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Space, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Dropdown, Form, Input, InputNumber, Modal, Table, Tag, Typography } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
@@ -15,6 +15,8 @@ import { TableRegion } from '../../shared/components/TableRegion';
 
 export function AIChannelsPage() {
   const [createOpen, setCreateOpen] = useState(false);
+  const [modal, modalContext] = Modal.useModal();
+  const { message } = App.useApp();
   const channels = useQuery({
     queryKey: queryKeys.aiChannels.all,
     queryFn: async () => unwrap(await api.GET('/api/v1/ai-channels')),
@@ -30,15 +32,17 @@ export function AIChannelsPage() {
       const path = channel.is_enabled ? '/api/v1/ai-channels/{channel_id}/disable' as const : '/api/v1/ai-channels/{channel_id}/enable' as const;
       return unwrap(await api.POST(path, { params: { path: { channel_id: channel.id }, header: csrfHeader() }, body: { expected_revision: channel.revision } }));
     },
-    onSuccess: refresh,
+    onSuccess: async (_, channel) => { message.success(channel.is_enabled ? '渠道已停用' : '渠道已启用'); await refresh(); },
   });
   const remove = useMutation({
     mutationFn: async (channel: AIChannel) => ensureSuccess(await api.DELETE('/api/v1/ai-channels/{channel_id}', { params: { path: { channel_id: channel.id }, header: csrfHeader() } })),
-    onSuccess: refresh,
+    onSuccess: async () => { message.success('AI 渠道已删除'); await refresh(); },
   });
   const mutationError = create.error ?? toggle.error ?? remove.error;
+  const confirmDelete = (channel: AIChannel) => modal.confirm({ title: '删除此 AI 渠道？', content: '渠道、Header 与模型配置将被删除，此操作不可撤销。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => remove.mutate(channel) });
 
   return <div className="page-stack">
+    {modalContext}
     <PageHeader eyebrow="模型治理" title="AI 配置" description="管理 OpenAI-compatible 渠道、凭据、请求 Header 与模型。敏感凭据永不回显。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新增渠道</Button>} />
     {mutationError && <Alert role="alert" type="error" showIcon message={errorMessage(mutationError)} />}
     <Card className="collection-panel">
@@ -48,6 +52,7 @@ export function AIChannelsPage() {
           rowKey="id"
           dataSource={channels.data?.items}
           pagination={false}
+          sticky={{ offsetHeader: 72 }}
           scroll={{ x: 1480 }}
           columns={[
             {
@@ -97,12 +102,8 @@ export function AIChannelsPage() {
             {
               title: '操作',
               key: 'actions',
-              width: 250,
-              render: (_, channel) => <Space wrap>
-                <Link to={`/configuration/ai/channels/${channel.id}`}>查看详情</Link>
-                <Button type="link" loading={toggle.isPending && toggle.variables?.id === channel.id} onClick={() => toggle.mutate(channel)}>{channel.is_enabled ? '停用' : '启用'}</Button>
-                <Popconfirm title="删除此 AI 渠道？" description="渠道、Header 与模型配置将被删除，此操作不可撤销。" okText="删除" cancelText="取消" okButtonProps={{ danger: true, loading: remove.isPending && remove.variables?.id === channel.id }} onConfirm={() => remove.mutate(channel)}><Button type="link" danger icon={<DeleteOutlined />} loading={remove.isPending && remove.variables?.id === channel.id}>删除</Button></Popconfirm>
-              </Space>,
+              width: 120,
+              render: (_, channel) => <Dropdown trigger={['click']} menu={{ items: [{ key: 'toggle', label: channel.is_enabled ? '停用' : '启用' }, { key: 'delete', label: '删除', danger: true }], onClick: ({ key }) => key === 'toggle' ? toggle.mutate(channel) : confirmDelete(channel) }}><Button size="small" aria-label={`更多操作：${channel.name}`} loading={(toggle.isPending && toggle.variables?.id === channel.id) || (remove.isPending && remove.variables?.id === channel.id)}>更多 <DownOutlined /></Button></Dropdown>,
             },
           ]}
         />

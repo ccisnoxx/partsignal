@@ -32,9 +32,9 @@ export function DashboardPage() {
         actions={<Button type="primary" size="large" icon={<ArrowRightOutlined />} onClick={() => navigate('/tasks')}>创建内容任务</Button>}
       />
       <section className="metric-grid" aria-label="需要行动的工作项">
-        <MetricTile label="待审事实" value={summary.data?.pending_fact_reviews ?? 0} to="/products" />
-        <MetricTile label="待审内容" value={summary.data?.pending_content_reviews ?? 0} to="/tasks" />
-        <MetricTile label="待人工发布" value={summary.data?.pending_publications ?? 0} tone="data" to="/publications" />
+        <MetricTile label="待审事实" value={summary.data?.pending_fact_reviews ?? 0} tone={summary.data?.pending_fact_reviews ? 'warning' : 'default'} to="/products" />
+        <MetricTile label="待审内容" value={summary.data?.pending_content_reviews ?? 0} tone={summary.data?.pending_content_reviews ? 'warning' : 'default'} to="/tasks" />
+        <MetricTile label="待人工发布" value={summary.data?.pending_publications ?? 0} tone={summary.data?.pending_publications ? 'data' : 'default'} to="/publications" />
         <MetricTile label="发布需关注" value={summary.data?.publication_attention ?? 0} tone={summary.data?.publication_attention ? 'danger' : 'default'} to="/publications" />
         <MetricTile label="近期准确性问题" value={summary.data?.recent_accuracy_errors ?? 0} tone={summary.data?.recent_accuracy_errors ? 'danger' : 'default'} to="/observations" />
       </section>

@@ -1,7 +1,7 @@
 /** 按具体平台维护当前唯一的 Markdown Prompt。 */
 import { PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Table } from 'antd';
+import { Alert, App, Button, Card, Form, Input, Modal, Popconfirm, Select, Space, Table } from 'antd';
 import { useState } from 'react';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
@@ -13,6 +13,7 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { TableRegion } from '../../shared/components/TableRegion';
 
 export function PlatformPromptsPage() {
+  const { message } = App.useApp();
   const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<PlatformProfile>();
   const platforms = useQuery(platformProfilesQueryOptions());
@@ -20,8 +21,8 @@ export function PlatformPromptsPage() {
   const prompt = useQuery({ queryKey: queryKeys.platformProfiles.prompt(selected?.id), queryFn: async () => unwrap(await api.GET('/api/v1/platform-profiles/{platform_profile_id}/prompt', { params: { path: { platform_profile_id: selected?.id ?? '' } } })), enabled: !!selected, staleTime: QUERY_STALE_TIME.configuration, retry: false });
   const refresh = async (platformId: string) => Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.prompt(platformId) }), queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all })]);
   const create = useMutation({ mutationFn: async (body: { platform_profile_id: string; template_markdown: string }) => unwrap(await api.PUT('/api/v1/platform-profiles/{platform_profile_id}/prompt', { params: { path: { platform_profile_id: body.platform_profile_id }, header: csrfHeader() }, body: { template_markdown: body.template_markdown, expected_revision: null } })), onSuccess: async (_, body) => { setCreating(false); await refresh(body.platform_profile_id); } });
-  const save = useMutation({ mutationFn: async (body: { template_markdown: string }) => { if (!selected) throw new Error('未选择平台'); return unwrap(await api.PUT('/api/v1/platform-profiles/{platform_profile_id}/prompt', { params: { path: { platform_profile_id: selected.id }, header: csrfHeader() }, body: { template_markdown: body.template_markdown, expected_revision: prompt.data?.revision ?? null } })); }, onSuccess: async () => { if (selected) await refresh(selected.id); } });
-  const remove = useMutation({ mutationFn: async () => { if (!selected) throw new Error('未选择平台'); return ensureSuccess(await api.DELETE('/api/v1/platform-profiles/{platform_profile_id}/prompt', { params: { path: { platform_profile_id: selected.id }, header: csrfHeader() } })); }, onSuccess: async () => { const platformId = selected?.id; setSelected(undefined); if (platformId) await refresh(platformId); } });
+  const save = useMutation({ mutationFn: async (body: { template_markdown: string }) => { if (!selected) throw new Error('未选择平台'); return unwrap(await api.PUT('/api/v1/platform-profiles/{platform_profile_id}/prompt', { params: { path: { platform_profile_id: selected.id }, header: csrfHeader() }, body: { template_markdown: body.template_markdown, expected_revision: prompt.data?.revision ?? null } })); }, onSuccess: async () => { message.success('Prompt 已保存'); if (selected) await refresh(selected.id); } });
+  const remove = useMutation({ mutationFn: async () => { if (!selected) throw new Error('未选择平台'); return ensureSuccess(await api.DELETE('/api/v1/platform-profiles/{platform_profile_id}/prompt', { params: { path: { platform_profile_id: selected.id }, header: csrfHeader() } })); }, onSuccess: async () => { const platformId = selected?.id; setSelected(undefined); message.success('Prompt 已删除'); if (platformId) await refresh(platformId); } });
   const typeNames = new Map(types.data?.items.map((item) => [item.id, item.name]));
   const items = platforms.data?.items ?? [];
   const configuredItems = items.filter((item) => item.prompt_configured);

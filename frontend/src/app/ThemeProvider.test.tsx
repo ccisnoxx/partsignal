@@ -38,7 +38,7 @@ function installMatchMedia(initial: { dark: boolean; reduced?: boolean }) {
 
 function Probe() {
   const theme = useThemeMode();
-  return <><span>{theme.mode}/{theme.resolvedTheme}</span><button onClick={() => theme.setMode('light')}>使用浅色</button><button onClick={() => theme.setMode('dark')}>使用深色</button></>;
+  return <><span>{theme.mode}/{theme.resolvedTheme}</span><button onClick={() => theme.setMode('light')}>使用浅色</button><button onClick={() => theme.setMode('dark')}>使用深色</button><button onClick={() => theme.setMode('system')}>跟随系统</button></>;
 }
 
 beforeEach(() => {
@@ -63,6 +63,16 @@ test('仅跟随系统模式响应系统主题变化', () => {
   expect(screen.getByText('system/light')).toBeInTheDocument();
   act(() => media.setDark(true));
   expect(screen.getByText('system/dark')).toBeInTheDocument();
+});
+
+test('从显式主题切回系统时立即读取当前系统配色', async () => {
+  installMatchMedia({ dark: false });
+  localStorage.setItem(THEME_STORAGE_KEY, 'dark');
+  render(<ThemeProvider><Probe /></ThemeProvider>);
+  expect(screen.getByText('dark/dark')).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole('button', { name: '跟随系统' }));
+  expect(screen.getByText('system/light')).toBeInTheDocument();
 });
 
 test('跨标签页主题变化同步到当前页面', () => {

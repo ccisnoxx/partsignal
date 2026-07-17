@@ -109,3 +109,31 @@ test('异常待办只能填写非空说明后显式解决', async () => {
   await userEvent.click(screen.getByRole('button', { name: '确认解决' }));
   await waitFor(() => expect(resolveCalls).toBe(1));
 });
+
+test('发布工作台从 URL 恢复页签和独立分页', async () => {
+  const records = Array.from({ length: 11 }, (_, index) => ({
+    id: `record-${index + 1}`,
+    content_version_id: `content-${index + 1}`,
+    status: 'PENDING_MANUAL',
+    final_url: null,
+    created_at: user.created_at,
+  }));
+  window.history.pushState({}, '', '/publications?tab=records&records_page=2');
+  mockFetch((request) => {
+    const path = new URL(request.url).pathname;
+    if (path.endsWith('/auth/me')) return { body: user };
+    if (path.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
+    if (path.endsWith('/publication-candidates')) return { body: { items: [] } };
+    if (path.endsWith('/publication-records')) return { body: { items: records, page: 1, page_size: 100, total: records.length } };
+    if (path.endsWith('/publication-attentions')) return { body: { items: [] } };
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+
+  render(<App />);
+  const recordsTab = await screen.findByRole('tab', { name: '发布记录' });
+  expect(recordsTab).toHaveAttribute('aria-selected', 'true');
+  expect(await screen.findByText('content-11')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('tab', { name: '待发布候选' }));
+  await waitFor(() => expect(window.location.search).toContain('tab=candidates'));
+  expect(window.location.search).toContain('records_page=2');
+});

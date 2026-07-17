@@ -1,9 +1,9 @@
 /** 验证懒路由只替换内容区，导航框架与预取交互保持可用。 */
 import { QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { lazy, type ComponentType } from 'react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { AppLayout } from './AppLayout';
 import { queryClient } from './queryClient';
@@ -93,4 +93,19 @@ test('普通用户看不到配置中心及其子菜单', () => {
   );
   expect(screen.queryByRole('menuitem', { name: /配置中心/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: 'AI 配置' })).not.toBeInTheDocument();
+});
+
+test('路径变化聚焦主内容，但查询参数变化不抢焦点', async () => {
+  const user = userEvent.setup();
+  const Page = () => <><h1>焦点测试</h1><Link to="?page=2">切换分页</Link><Link to="/next">打开下一页</Link></>;
+  render(
+    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter><Routes><Route element={<AppLayout />}><Route path="*" element={<Page />} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
+  );
+  const content = document.querySelector<HTMLElement>('.app-content');
+  await waitFor(() => expect(document.activeElement).toBe(content));
+  const paginationLink = screen.getByRole('link', { name: '切换分页' });
+  await user.click(paginationLink);
+  expect(document.activeElement).toBe(paginationLink);
+  await user.click(screen.getByRole('link', { name: '打开下一页' }));
+  await waitFor(() => expect(document.activeElement).toBe(content));
 });

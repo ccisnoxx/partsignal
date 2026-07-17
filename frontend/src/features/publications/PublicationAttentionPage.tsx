@@ -1,7 +1,7 @@
 /** 发布异常详情负责显式修复入口与显式解决命令。 */
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Descriptions, Form, Input, InputNumber, Modal, Space } from 'antd';
+import { Alert, App, Button, Card, Descriptions, Form, Input, InputNumber, Modal, Space } from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
@@ -14,6 +14,7 @@ import { StatusTag } from '../../shared/components/StatusTag';
 
 export function PublicationAttentionPage({ attentionId }: { attentionId: string }) {
   const navigate = useNavigate();
+  const { message } = App.useApp();
   const [resolveOpen, setResolveOpen] = useState(false);
   const detail = useQuery({
     queryKey: queryKeys.publications.attention(attentionId),
@@ -35,6 +36,7 @@ export function PublicationAttentionPage({ attentionId }: { attentionId: string 
       ),
     onSuccess: async () => {
       setResolveOpen(false);
+      message.success('发布异常已解决');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.publications.attention(attentionId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.publications.attentions }),
@@ -43,7 +45,7 @@ export function PublicationAttentionPage({ attentionId }: { attentionId: string 
     },
   });
   if (detail.isLoading) return <QueryLoading />;
-  if (detail.error || !detail.data) return <QueryFailure error={detail.error ?? new Error('发布异常不存在')} />;
+  if (detail.error || !detail.data) return <div className="page-stack"><Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布工作台</Button><PageHeader title="发布异常待办" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: '异常待办' }]} /><QueryFailure error={detail.error ?? new Error('发布异常不存在')} onRetry={() => void detail.refetch()} /></div>;
   const attention = detail.data;
   return (
     <div className="page-stack">

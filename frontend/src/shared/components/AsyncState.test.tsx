@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/client';
-import { QueryFailure, QueryLoading } from './AsyncState';
+import { NoData, QueryFailure, QueryLoading } from './AsyncState';
 
 describe('AsyncState', () => {
   it('展示服务端错误码和请求 ID，并允许重试', async () => {
@@ -21,5 +21,15 @@ describe('AsyncState', () => {
     render(<QueryLoading label="正在加载发布记录" />);
 
     expect(screen.getByLabelText('正在加载发布记录')).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('允许业务页面补充恢复动作和空态下一步', async () => {
+    const onBack = vi.fn();
+    render(<><QueryFailure error={new Error('详情不存在')} actions={<button onClick={onBack}>返回列表</button>} /><NoData description={<span>尚无记录</span>} action={<button>创建记录</button>} /></>);
+
+    await userEvent.click(screen.getByRole('button', { name: '返回列表' }));
+    expect(onBack).toHaveBeenCalledOnce();
+    expect(screen.getByText('尚无记录')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '创建记录' })).toBeInTheDocument();
   });
 });

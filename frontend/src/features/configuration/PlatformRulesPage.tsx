@@ -1,7 +1,7 @@
 /** 独立管理平台规则版本；平台当前规则仍由唯一 ACTIVE 版本推导。 */
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DownOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Checkbox, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table } from 'antd';
+import { Alert, App, Button, Card, Checkbox, Dropdown, Form, Input, InputNumber, Modal, Select, Space, Table } from 'antd';
 import { useState } from 'react';
 import { queryClient } from '../../app/queryClient';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
@@ -19,6 +19,8 @@ type RuleVersion = Schema<'PlatformProfileVersion'>;
 export function PlatformRulesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editVersion, setEditVersion] = useState<RuleVersion>();
+  const [modal, modalContext] = Modal.useModal();
+  const { message } = App.useApp();
   const profiles = useQuery(platformProfilesQueryOptions());
   const versions = useQuery(platformProfileVersionsQueryOptions());
   const invalidateRules = async () => Promise.all([
@@ -40,32 +42,34 @@ export function PlatformRulesPage() {
         body: { expected_revision: editVersion.revision, rules },
       }));
     },
-    onSuccess: async () => { setEditVersion(undefined); await invalidateRules(); },
+    onSuccess: async () => { setEditVersion(undefined); message.success('规则草稿已保存'); await invalidateRules(); },
   });
   const remove = useMutation({
     mutationFn: async (version: RuleVersion) => ensureSuccess(await api.DELETE('/api/v1/platform-profile-versions/{platform_profile_version_id}', {
       params: { path: { platform_profile_version_id: version.id }, header: csrfHeader() },
     })),
-    onSuccess: invalidateRules,
+    onSuccess: async () => { message.success('规则版本已删除'); await invalidateRules(); },
   });
   const profileItems = profiles.data?.items ?? [];
   const versionItems = versions.data?.items ?? [];
   const profileById = new Map(profileItems.map((profile) => [profile.id, profile]));
   const queryError = profiles.error ?? versions.error;
   const mutationError = create.error ?? update.error;
+  const confirmDelete = (version: RuleVersion) => modal.confirm({ title: `物理删除规则版本 V${version.version}？`, content: version.status === 'ACTIVE' ? '删除后所属平台将进入“无有效规则”状态；存在内容任务引用时服务端会拒绝。' : '存在内容任务引用时服务端会拒绝。此操作不可恢复。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => remove.mutate(version) });
 
   return <div className="page-stack">
+    {modalContext}
     <PageHeader eyebrow="配置治理" title="平台规则" description="独立创建和维护规则草稿；激活后规则冻结，并由平台管理页选择为当前规则。" actions={<Button type="primary" icon={<PlusOutlined />} aria-haspopup="dialog" aria-expanded={createOpen} onClick={() => setCreateOpen(true)}>新增规则草稿</Button>} />
     {mutationError && <Alert role="alert" type="error" showIcon message={errorMessage(mutationError)} />}
     {remove.error && <DeletionError error={remove.error} />}
-    <Card className="collection-panel">{profiles.isLoading || versions.isLoading ? <QueryLoading label="正在加载平台规则" /> : queryError ? <QueryFailure error={queryError} onRetry={() => { void profiles.refetch(); void versions.refetch(); }} /> : versionItems.length === 0 ? <NoData description="暂无平台规则版本" /> : <TableRegion label="平台规则版本列表"><Table<RuleVersion> rowKey="id" dataSource={versionItems} scroll={{ x: 820 }} columns={[
+    <Card className="collection-panel">{profiles.isLoading || versions.isLoading ? <QueryLoading label="正在加载平台规则" /> : queryError ? <QueryFailure error={queryError} onRetry={() => { void profiles.refetch(); void versions.refetch(); }} /> : versionItems.length === 0 ? <NoData description="暂无平台规则版本" /> : <TableRegion label="平台规则版本列表"><Table<RuleVersion> rowKey="id" dataSource={versionItems} sticky={{ offsetHeader: 72 }} scroll={{ x: 820 }} columns={[
       { title: '所属平台', render: (_, version) => profileById.get(version.platform_profile_id)?.name ?? version.platform_profile_id },
       { title: '版本', dataIndex: 'version', render: (value) => `V${value}` },
       { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> },
       { title: '目标受众', render: (_, version) => version.rules.target_audience },
       { title: '正文范围', render: (_, version) => `${version.rules.body_min}–${version.rules.body_max}` },
       { title: '创建时间', dataIndex: 'created_at', render: (value) => new Date(value).toLocaleString('zh-CN') },
-      { title: '操作', render: (_, version) => <Space wrap>{version.status === 'DRAFT' && <Button size="small" onClick={() => setEditVersion(version)}>编辑草稿</Button>}<Popconfirm title={`物理删除规则版本 V${version.version}？`} description={version.status === 'ACTIVE' ? '删除后所属平台将进入“无有效规则”状态；存在内容任务引用时服务端会拒绝。' : '存在内容任务引用时服务端会拒绝。此操作不可恢复。'} okText="删除" cancelText="取消" onConfirm={() => remove.mutate(version)}><Button size="small" danger icon={<DeleteOutlined />} loading={remove.isPending && remove.variables?.id === version.id}>删除</Button></Popconfirm></Space> },
+      { title: '操作', render: (_, version) => <Space wrap>{version.status === 'DRAFT' && <Button size="small" onClick={() => setEditVersion(version)}>编辑草稿</Button>}<Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(version) }}><Button size="small" aria-label={`更多操作：规则版本 V${version.version}`} loading={remove.isPending && remove.variables?.id === version.id}>更多 <DownOutlined /></Button></Dropdown></Space> },
     ]} /></TableRegion>}</Card>
     <Modal title="新增规则草稿" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null} width={760} destroyOnHidden><RuleEditor profiles={profileItems} loading={create.isPending} submitLabel="创建草稿版本" onSubmit={(rules, platformProfileId) => platformProfileId && create.mutate({ platformProfileId, rules })} /></Modal>
     <Modal title={`编辑 ${profileById.get(editVersion?.platform_profile_id ?? '')?.name ?? ''} V${editVersion?.version ?? ''} 草稿`} open={!!editVersion} onCancel={() => setEditVersion(undefined)} footer={null} width={760} destroyOnHidden>{editVersion && <RuleEditor initial={editVersion.rules} loading={update.isPending} submitLabel="保存草稿" onSubmit={(rules) => update.mutate(rules)} />}</Modal>

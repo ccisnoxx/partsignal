@@ -1,9 +1,9 @@
 /** 发布工作台负责候选、记录、待办列表和人工发布登记。 */
 import { CopyOutlined, LinkOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Form, Input, Modal, Select, Space, Table, Tabs, Typography, message } from 'antd';
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Alert, App, Button, Card, Form, Input, Modal, Select, Space, Table, Tabs, Typography } from 'antd';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { publicationRecordsQueryOptions } from '../../shared/api/queryOptions';
@@ -17,9 +17,16 @@ import { TableRegion } from '../../shared/components/TableRegion';
 
 type PublicationCandidate = Schema<'PublicationCandidate'>;
 type PublicationAttention = Schema<'PublicationAttention'>;
+const publicationTabs = new Set(['candidates', 'attentions', 'records']);
+
+function pageParam(params: URLSearchParams, key: string) {
+  const raw = params.get(key);
+  return raw && /^[1-9]\d*$/.test(raw) ? Number(raw) : 1;
+}
 
 export function PublicationWorkspace() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [candidate, setCandidate] = useState<PublicationCandidate>();
   const candidates = useQuery({
     queryKey: queryKeys.publications.candidates,
@@ -37,6 +44,34 @@ export function PublicationWorkspace() {
       ),
     staleTime: QUERY_STALE_TIME.businessList,
   });
+  const defaultTab = attentions.data?.items.length ? 'attentions' : 'candidates';
+  const rawTab = searchParams.get('tab');
+  const activeTab = rawTab && publicationTabs.has(rawTab) ? rawTab : defaultTab;
+  const candidatesPage = pageParam(searchParams, 'candidates_page');
+  const attentionsPage = pageParam(searchParams, 'attentions_page');
+  const recordsPage = pageParam(searchParams, 'records_page');
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    let changed = false;
+    if (rawTab !== null && !publicationTabs.has(rawTab)) { next.delete('tab'); changed = true; }
+    for (const [key, page, count] of [
+      ['candidates_page', candidatesPage, candidates.data?.items.length],
+      ['attentions_page', attentionsPage, attentions.data?.items.length],
+      ['records_page', recordsPage, records.data?.items.length],
+    ] as const) {
+      const raw = searchParams.get(key);
+      if ((raw !== null && !/^[1-9]\d*$/.test(raw)) || (count !== undefined && page > Math.max(1, Math.ceil(count / 10)))) {
+        next.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) setSearchParams(next, { replace: true });
+  }, [activeTab, attentions.data, attentionsPage, candidates.data, candidatesPage, rawTab, records.data, recordsPage, searchParams, setSearchParams]);
+  const setView = (key: string, value: string | number) => {
+    const next = new URLSearchParams(searchParams);
+    if (typeof value === 'number' && value === 1) next.delete(key); else next.set(key, String(value));
+    setSearchParams(next);
+  };
   const error = candidates.error ?? records.error ?? attentions.error;
   return (
     <div className="page-stack">
@@ -47,11 +82,13 @@ export function PublicationWorkspace() {
         <div><span>开放异常</span><strong className="data-code">{attentions.data?.items.length ?? 0}</strong></div>
         <div><span>当前记录</span><strong className="data-code">{records.data?.items.length ?? 0}</strong></div>
       </section>
-      <Tabs className="workspace-tabs" defaultActiveKey={attentions.data?.items.length ? 'attentions' : 'candidates'} items={[
+      <Tabs className="workspace-tabs" activeKey={activeTab} onChange={(key) => setView('tab', key)} items={[
         { key: 'candidates', label: '待发布候选', children: <Card className="workspace-panel collection-panel"><TableRegion label="待发布候选列表"><Table<PublicationCandidate>
           rowKey={(row) => row.content_version.id}
           loading={candidates.isLoading}
           dataSource={candidates.data?.items}
+          pagination={{ current: candidatesPage, pageSize: 10, showSizeChanger: false, onChange: (page) => setView('candidates_page', page) }}
+          sticky={{ offsetHeader: 72 }}
           scroll={{ x: 760 }}
           columns={[
             { title: '标题', render: (_, row) => row.content_version.title },
@@ -79,6 +116,8 @@ export function PublicationWorkspace() {
           rowKey="id"
           loading={attentions.isLoading}
           dataSource={attentions.data?.items}
+          pagination={{ current: attentionsPage, pageSize: 10, showSizeChanger: false, onChange: (page) => setView('attentions_page', page) }}
+          sticky={{ offsetHeader: 72 }}
           scroll={{ x: 680 }}
           columns={[
             {
@@ -100,6 +139,8 @@ export function PublicationWorkspace() {
           rowKey="id"
           loading={records.isLoading}
           dataSource={records.data?.items}
+          pagination={{ current: recordsPage, pageSize: 10, showSizeChanger: false, onChange: (page) => setView('records_page', page) }}
+          sticky={{ offsetHeader: 72 }}
           scroll={{ x: 960 }}
           columns={[
             {
@@ -144,6 +185,7 @@ function PublicationCreateModal({
   candidate: PublicationCandidate;
   onClose: () => void;
 }) {
+  const { message } = App.useApp();
   const [attachments, setAttachments] = useState<FileRecord[]>([]);
   const content = candidate.content_version;
   const packageQuery = useQuery({
@@ -168,6 +210,7 @@ function PublicationCreateModal({
       ),
     onSuccess: async (created) => {
       onClose();
+      message.success('人工发布记录已登记');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.publications.records }),
         queryClient.invalidateQueries({ queryKey: queryKeys.publications.candidates }),
@@ -179,7 +222,7 @@ function PublicationCreateModal({
   });
   const copy = async (value: string, label: string) => {
     await navigator.clipboard.writeText(value);
-    void message.success(`${label}已复制`);
+    message.success(`${label}已复制`);
   };
   return (
     <Modal title="准备人工发布" open footer={null} onCancel={onClose} width={800} destroyOnHidden>

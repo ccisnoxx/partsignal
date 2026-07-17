@@ -1,7 +1,7 @@
 /** 发布详情只消费服务端 available_actions，不复制状态机。 */
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Descriptions, Form, Input, Modal, Select, Space, Timeline, Typography } from 'antd';
+import { Alert, App, Button, Card, Descriptions, Form, Input, Modal, Select, Space, Timeline, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
@@ -15,6 +15,7 @@ import { actionLabels, type PublicationAction } from './publicationTypes';
 
 export function PublicationDetailPage({ publicationId }: { publicationId: string }) {
   const navigate = useNavigate();
+  const { message } = App.useApp();
   const [action, setAction] = useState<PublicationAction>();
   const detail = useQuery({
     queryKey: queryKeys.publications.record(publicationId),
@@ -37,6 +38,7 @@ export function PublicationDetailPage({ publicationId }: { publicationId: string
       );
     },
     onSuccess: async (updated) => {
+      message.success(action ? `${actionLabels[action]}已完成` : '发布状态已更新');
       setAction(undefined);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.publications.record(publicationId) }),
@@ -49,7 +51,7 @@ export function PublicationDetailPage({ publicationId }: { publicationId: string
     },
   });
   if (detail.isLoading) return <QueryLoading />;
-  if (detail.error || !detail.data) return <QueryFailure error={detail.error ?? new Error('发布记录不存在')} />;
+  if (detail.error || !detail.data) return <div className="page-stack"><Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布工作台</Button><PageHeader title="发布记录" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: '发布记录' }]} /><QueryFailure error={detail.error ?? new Error('发布记录不存在')} onRetry={() => void detail.refetch()} /></div>;
   const record = detail.data;
   return (
     <div className="page-stack">

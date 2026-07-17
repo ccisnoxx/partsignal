@@ -1,7 +1,7 @@
 /** 在稳定路由中管理单个 AI 渠道的连接、Header 与模型。 */
 import { DeleteOutlined, DownOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Dropdown, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography } from 'antd';
+import { Alert, App, Button, Card, Dropdown, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Typography } from 'antd';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
@@ -12,10 +12,12 @@ import { NoData, QueryFailure, QueryLoading } from '../../shared/components/Asyn
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useActiveSection } from '../../shared/hooks/useActiveSection';
 import { ModelDiscoveryModal } from './ModelDiscoveryModal';
 
 type Header = Schema<'AIChannelHeader'>;
 type ModelFormValues = { display_name: string; model_id: string; request_parameters_json: string };
+const channelSectionIds = ['channel-connection', 'channel-headers', 'channel-models'];
 
 async function invalidateChannel(channelId: string, includeModels: boolean) {
   const invalidations = [
@@ -34,6 +36,8 @@ function parseRequestParameters(value: string): Record<string, unknown> {
 
 export function AIChannelDetailPage() {
   const { channelId = '' } = useParams();
+  const { message } = App.useApp();
+  const activeSection = useActiveSection(channelSectionIds);
   const navigate = useNavigate();
   const [headerOpen, setHeaderOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
@@ -59,14 +63,14 @@ export function AIChannelDetailPage() {
       if (!channel.data) throw new Error('渠道未加载');
       return unwrap(await api.PATCH('/api/v1/ai-channels/{channel_id}', { params: { path: { channel_id: channelId }, header: csrfHeader() }, body: { ...body, expected_revision: channel.data.revision } }));
     },
-    onSuccess: async () => invalidateChannel(channelId, true),
+    onSuccess: async () => { message.success('渠道连接已保存'); await invalidateChannel(channelId, true); },
   });
   const replaceKey = useMutation({
     mutationFn: async (body: { api_key: string }) => {
       if (!channel.data) throw new Error('渠道未加载');
       return unwrap(await api.PUT('/api/v1/ai-channels/{channel_id}/api-key', { params: { path: { channel_id: channelId }, header: csrfHeader() }, body: { ...body, expected_revision: channel.data.revision } }));
     },
-    onSuccess: async () => invalidateChannel(channelId, true),
+    onSuccess: async () => { message.success('API Key 已替换'); await invalidateChannel(channelId, true); },
   });
   const toggleChannel = useMutation({
     mutationFn: async () => {
@@ -74,11 +78,12 @@ export function AIChannelDetailPage() {
       const path = channel.data.is_enabled ? '/api/v1/ai-channels/{channel_id}/disable' as const : '/api/v1/ai-channels/{channel_id}/enable' as const;
       return unwrap(await api.POST(path, { params: { path: { channel_id: channelId }, header: csrfHeader() }, body: { expected_revision: channel.data.revision } }));
     },
-    onSuccess: async () => invalidateChannel(channelId, false),
+    onSuccess: async () => { message.success(channel.data?.is_enabled ? '渠道已停用' : '渠道已启用'); await invalidateChannel(channelId, false); },
   });
   const deleteChannel = useMutation({
     mutationFn: async () => ensureSuccess(await api.DELETE('/api/v1/ai-channels/{channel_id}', { params: { path: { channel_id: channelId }, header: csrfHeader() } })),
     onSuccess: async () => {
+      message.success('AI 渠道已删除');
       queryClient.removeQueries({ queryKey: queryKeys.aiChannels.detail(channelId) });
       queryClient.removeQueries({ queryKey: queryKeys.aiChannels.models(channelId) });
       await queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.all });
@@ -97,11 +102,11 @@ export function AIChannelDetailPage() {
       if (!channel.data || !editingHeader) throw new Error('Header 未加载');
       return unwrap(await api.PATCH('/api/v1/ai-channel-headers/{header_id}', { params: { path: { header_id: editingHeader.id }, header: csrfHeader() }, body: { ...body, expected_channel_revision: channel.data.revision } }));
     },
-    onSuccess: async () => { setEditingHeader(undefined); await invalidateChannel(channelId, true); },
+    onSuccess: async () => { setEditingHeader(undefined); message.success('Header 已保存'); await invalidateChannel(channelId, true); },
   });
   const deleteHeader = useMutation({
     mutationFn: async (headerId: string) => ensureSuccess(await api.DELETE('/api/v1/ai-channel-headers/{header_id}', { params: { path: { header_id: headerId }, header: csrfHeader() } })),
-    onSuccess: async () => invalidateChannel(channelId, true),
+    onSuccess: async () => { message.success('Header 已删除'); await invalidateChannel(channelId, true); },
   });
   const discover = useMutation({
     mutationFn: async () => unwrap(await api.POST('/api/v1/ai-channels/{channel_id}/discover-models', { params: { path: { channel_id: channelId }, header: csrfHeader() } })),
@@ -120,17 +125,17 @@ export function AIChannelDetailPage() {
       if (!editingModel) throw new Error('模型未加载');
       return unwrap(await api.PATCH('/api/v1/ai-models/{model_id}', { params: { path: { model_id: editingModel.id }, header: csrfHeader() }, body: { expected_revision: editingModel.revision, display_name: values.display_name, model_id: values.model_id, request_parameters: parseRequestParameters(values.request_parameters_json) } }));
     },
-    onSuccess: async () => { setEditingModel(undefined); await invalidateChannel(channelId, true); },
+    onSuccess: async () => { setEditingModel(undefined); message.success('模型配置已保存'); await invalidateChannel(channelId, true); },
   });
-  const testModel = useMutation({ mutationFn: async (model: AIModel) => unwrap(await api.POST('/api/v1/ai-models/{model_id}/test', { params: { path: { model_id: model.id }, header: csrfHeader() } })), onSuccess: async () => invalidateChannel(channelId, true) });
+  const testModel = useMutation({ mutationFn: async (model: AIModel) => unwrap(await api.POST('/api/v1/ai-models/{model_id}/test', { params: { path: { model_id: model.id }, header: csrfHeader() } })), onSuccess: async () => { message.success('模型连接测试已完成'); await invalidateChannel(channelId, true); } });
   const toggleModel = useMutation({
     mutationFn: async (model: AIModel) => {
       const path = model.is_enabled ? '/api/v1/ai-models/{model_id}/disable' as const : '/api/v1/ai-models/{model_id}/enable' as const;
       return unwrap(await api.POST(path, { params: { path: { model_id: model.id }, header: csrfHeader() }, body: { expected_revision: model.revision } }));
     },
-    onSuccess: async () => invalidateChannel(channelId, true),
+    onSuccess: async (_, model) => { message.success(model.is_enabled ? '模型已停用' : '模型已启用'); await invalidateChannel(channelId, true); },
   });
-  const deleteModel = useMutation({ mutationFn: async (model: AIModel) => ensureSuccess(await api.DELETE('/api/v1/ai-models/{model_id}', { params: { path: { model_id: model.id }, header: csrfHeader() } })), onSuccess: async () => invalidateChannel(channelId, true) });
+  const deleteModel = useMutation({ mutationFn: async (model: AIModel) => ensureSuccess(await api.DELETE('/api/v1/ai-models/{model_id}', { params: { path: { model_id: model.id }, header: csrfHeader() } })), onSuccess: async () => { message.success('模型已删除'); await invalidateChannel(channelId, true); } });
 
   if (!channelId) return <div className="page-stack"><QueryFailure error={new Error('缺少渠道 ID')} /></div>;
   if (channel.isLoading) return <div className="page-stack"><QueryLoading label="正在加载 AI 渠道详情" /></div>;
@@ -138,7 +143,7 @@ export function AIChannelDetailPage() {
   if (!channel.data) return null;
   const connectionError = updateChannel.error ?? replaceKey.error ?? toggleChannel.error ?? deleteChannel.error;
   const headerError = addHeader.error ?? updateHeader.error ?? deleteHeader.error;
-  const modelError = models.error ?? createModel.error ?? updateModel.error ?? testModel.error ?? toggleModel.error ?? deleteModel.error;
+  const modelError = createModel.error ?? updateModel.error ?? testModel.error ?? toggleModel.error ?? deleteModel.error;
 
   const confirmDeleteModel = (model: AIModel) => modal.confirm({
     title: `删除模型“${model.display_name}”？`,
@@ -148,11 +153,18 @@ export function AIChannelDetailPage() {
     okButtonProps: { danger: true },
     onOk: () => deleteModel.mutateAsync(model),
   });
+  const confirmDeleteHeader = (header: Header) => modal.confirm({
+    title: `删除 Header“${header.name}”？`,
+    okText: '删除',
+    cancelText: '取消',
+    okButtonProps: { danger: true },
+    onOk: () => deleteHeader.mutate(header.id),
+  });
 
   return <div className="page-stack">
     {modalContext}
     <PageHeader eyebrow="模型治理" title={channel.data.name} description="渠道凭据和敏感 Header 永不回显；连接变更会重置模型测试状态。" breadcrumbs={[{ title: <Link to="/configuration/ai">AI 配置</Link> }, { title: channel.data.name }]} actions={<Space wrap><StatusTag status={channel.data.is_enabled ? 'ACTIVE' : 'RETIRED'} /><Button loading={toggleChannel.isPending} onClick={() => toggleChannel.mutate()}>{channel.data.is_enabled ? '停用渠道' : '启用渠道'}</Button><Popconfirm title="删除此 AI 渠道？" description="渠道、Header 与模型配置将被删除，此操作不可撤销。" okText="删除" cancelText="取消" okButtonProps={{ danger: true }} onConfirm={() => deleteChannel.mutate()}><Button danger icon={<DeleteOutlined />} loading={deleteChannel.isPending}>删除渠道</Button></Popconfirm></Space>} />
-    <nav className="form-section-nav" aria-label="AI 渠道配置章节"><a href="#channel-connection">连接与凭据</a><a href="#channel-headers">请求 Header</a><a href="#channel-models">模型</a></nav>
+    <nav className="form-section-nav" aria-label="AI 渠道配置章节"><a href="#channel-connection" aria-current={activeSection === 'channel-connection' ? 'location' : undefined}>连接与凭据</a><a href="#channel-headers" aria-current={activeSection === 'channel-headers' ? 'location' : undefined}>请求 Header</a><a href="#channel-models" aria-current={activeSection === 'channel-models' ? 'location' : undefined}>模型</a></nav>
     <Card id="channel-connection" title="连接与凭据" className="configuration-section-card workspace-section">
       {connectionError && <Alert role="alert" type="error" showIcon message={errorMessage(connectionError)} />}
       <Form key={channel.data.revision} layout="vertical" className="configuration-connection-form" initialValues={{ name: channel.data.name, base_url: channel.data.base_url, timeout_seconds: channel.data.timeout_seconds }} onFinish={(body) => updateChannel.mutate(body)}>
@@ -170,19 +182,19 @@ export function AIChannelDetailPage() {
         { title: '敏感性', dataIndex: 'is_sensitive', render: (value) => value ? '敏感' : '普通' },
         { title: '配置状态', dataIndex: 'is_configured', render: (value) => value ? '已配置' : '未配置' },
         { title: '可见值', dataIndex: 'value', render: (value, row) => row.is_sensitive ? '已配置且不回显' : (value ?? '—') },
-        { title: '操作', render: (_, row) => <Space><Button size="small" onClick={() => setEditingHeader(row)}>编辑</Button><Popconfirm title={`删除 Header“${row.name}”？`} okText="删除" cancelText="取消" onConfirm={() => deleteHeader.mutate(row.id)}><Button size="small" danger>删除</Button></Popconfirm></Space> },
+        { title: '操作', render: (_, row) => <Space><Button size="small" onClick={() => setEditingHeader(row)}>编辑</Button><Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDeleteHeader(row) }}><Button size="small" aria-label={`更多操作：Header ${row.name}`} loading={deleteHeader.isPending && deleteHeader.variables === row.id}>更多 <DownOutlined /></Button></Dropdown></Space> },
       ]} /></TableRegion>}
     </Card>
     <Card id="channel-models" title="模型" className="configuration-section-card workspace-section" extra={<Space><Button onClick={() => { setDiscoveryOpen(true); setDiscovered([]); discover.reset(); createDiscoveredModel.reset(); discover.mutate(); }}>获取模型</Button><Button type="primary" onClick={() => setModelOpen(true)}>手动添加</Button></Space>}>
       {modelError && <Alert role="alert" type="error" showIcon message={errorMessage(modelError)} />}
-      {models.isLoading ? <QueryLoading label="正在加载模型" /> : models.data?.items.length === 0 ? <NoData description="尚未配置模型" /> : <TableRegion label="模型列表"><Table<AIModel> rowKey="id" dataSource={models.data?.items} scroll={{ x: 1120 }} columns={[
+      {models.isLoading ? <QueryLoading label="正在加载模型" /> : models.error || !models.data ? <QueryFailure error={models.error ?? new Error('模型列表不存在')} onRetry={() => void models.refetch()} /> : models.data.items.length === 0 ? <NoData description="尚未配置模型" /> : <TableRegion label="模型列表"><Table<AIModel> rowKey="id" dataSource={models.data.items} scroll={{ x: 1120 }} columns={[
         { title: '显示名', dataIndex: 'display_name' },
         { title: 'model_id', dataIndex: 'model_id', render: (value) => <span className="data-code configuration-break-text">{value}</span> },
         { title: '测试状态', dataIndex: 'test_status', render: (value) => <StatusTag status={value} /> },
         { title: '启停状态', dataIndex: 'is_enabled', render: (value) => <StatusTag status={value ? 'ACTIVE' : 'RETIRED'} /> },
         { title: '最近测试', render: (_, row) => row.last_tested_at ? <Space direction="vertical" size={0}><span>{new Date(row.last_tested_at).toLocaleString('zh-CN')}</span>{row.last_test_error_summary && <Typography.Text type="danger">{row.last_test_error_summary}</Typography.Text>}</Space> : '尚未测试' },
         { title: '请求参数', dataIndex: 'request_parameters', render: (value: Record<string, unknown>) => Object.keys(value).length ? `${Object.keys(value).slice(0, 3).join('、')}${Object.keys(value).length > 3 ? ` 等 ${Object.keys(value).length} 项` : ''}` : '无自定义参数' },
-        { title: '操作', fixed: 'right', width: 290, render: (_, row) => <Space><Button size="small" loading={testModel.isPending && testModel.variables?.id === row.id} onClick={() => testModel.mutate(row)}>测试连接</Button><Button size="small" loading={toggleModel.isPending && toggleModel.variables?.id === row.id} onClick={() => toggleModel.mutate(row)}>{row.is_enabled ? '停用' : '启用'}</Button><Dropdown menu={{ items: [{ key: 'edit', label: '编辑' }, { key: 'delete', label: '删除', danger: true }], onClick: ({ key }) => key === 'edit' ? setEditingModel(row) : confirmDeleteModel(row) }}><Button size="small">更多 <DownOutlined /></Button></Dropdown></Space> },
+        { title: '操作', fixed: 'right', width: 230, render: (_, row) => <Space><Button size="small" loading={testModel.isPending && testModel.variables?.id === row.id} onClick={() => testModel.mutate(row)}>测试连接</Button><Dropdown trigger={['click']} menu={{ items: [{ key: 'toggle', label: row.is_enabled ? '停用' : '启用' }, { key: 'edit', label: '编辑' }, { key: 'delete', label: '删除', danger: true }], onClick: ({ key }) => key === 'toggle' ? toggleModel.mutate(row) : key === 'edit' ? setEditingModel(row) : confirmDeleteModel(row) }}><Button size="small" aria-label={`更多操作：模型 ${row.display_name}`} loading={(toggleModel.isPending && toggleModel.variables?.id === row.id) || (deleteModel.isPending && deleteModel.variables?.id === row.id)}>更多 <DownOutlined /></Button></Dropdown></Space> },
       ]} /></TableRegion>}
     </Card>
     <ModelDiscoveryModal open={discoveryOpen} modelIds={discovered} configuredModelIds={models.data?.items.map((item) => item.model_id) ?? []} loading={discover.isPending} addingModelId={createDiscoveredModel.isPending ? createDiscoveredModel.variables : undefined} fetchError={discover.error ? errorMessage(discover.error) : undefined} addError={createDiscoveredModel.error ? errorMessage(createDiscoveredModel.error) : undefined} onCancel={() => setDiscoveryOpen(false)} onRefresh={() => { setDiscovered([]); discover.reset(); discover.mutate(); }} onAdd={(modelId) => createDiscoveredModel.mutate(modelId)} />

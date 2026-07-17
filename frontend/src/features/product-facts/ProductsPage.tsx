@@ -57,11 +57,11 @@ export function ProductsPage() {
       <Card className="collection-panel">
         {remove.error && <DeletionError error={remove.error} />}
         <Input.Search key={search} aria-label="搜索产品" prefix={<SearchOutlined />} allowClear placeholder="搜索型号或品牌" defaultValue={search} onSearch={(value) => setView({ q: value.trim(), page: 1 })} className="table-search" />
-        {products.error ? <QueryFailure error={products.error} onRetry={() => void products.refetch()} /> : <TableRegion label="产品事实列表"><Table<Product> rowKey="id" loading={products.isLoading} dataSource={products.data?.items} pagination={{ current: page, pageSize: 20, showSizeChanger: false, onChange: (nextPage) => setView({ page: nextPage }) }} sticky={{ offsetHeader: 72 }} scroll={{ x: 680 }} columns={[
+        {products.error ? <QueryFailure error={products.error} onRetry={() => void products.refetch()} /> : <TableRegion label="产品事实列表"><Table<Product> rowKey="id" loading={products.isLoading} dataSource={products.data?.items} pagination={{ current: page, pageSize: 20, showSizeChanger: false, onChange: (nextPage) => setView({ page: nextPage }) }} sticky={{ offsetHeader: 72 }} scroll={{ x: 760 }} columns={[
           { title: '型号', dataIndex: 'part_number', render: (value, item) => <Link className="data-code" to={`/products/${item.id}`}><strong>{value}</strong></Link> },
-          { title: '品牌', dataIndex: 'brand' }, { title: '类别', dataIndex: 'category' },
-          { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> },
-          { title: '操作', render: (_, item) => auth.isAdmin ? <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(item) }}><Button size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown> : '—' },
+          { title: '品牌', dataIndex: 'brand', width: 180 }, { title: '类别', dataIndex: 'category', width: 180 },
+          { title: '状态', dataIndex: 'status', width: 110, render: (value) => <StatusTag status={value} /> },
+          { title: '操作', fixed: 'right', width: 110, render: (_, item) => auth.isAdmin ? <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(item) }}><Button size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown> : '—' },
         ]} /></TableRegion>}
       </Card>
       <Modal title="新增产品" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null} destroyOnHidden>

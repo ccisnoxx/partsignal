@@ -262,12 +262,15 @@ test('渠道首页以表格展示完整契约字段、操作且不触发模型 N
   const row = detailLink.closest('tr');
   expect(row).not.toBeNull();
   expect(within(row!).getByText('https://provider.example.invalid/v1')).toBeInTheDocument();
-  expect(within(row!).getByText('60 秒')).toBeInTheDocument();
   expect(within(row!).getByText(/已配置/)).toBeInTheDocument();
-  expect(within(row!).getByText('2 个')).toBeInTheDocument();
   expect(within(row!).getByText('model-controlled')).toBeInTheDocument();
   expect(within(row!).getByRole('button', { name: '更多操作：受控模型渠道' })).toBeInTheDocument();
   expect(within(row!).queryByRole('button', { name: /删\s*除/ })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '列设置' }));
+  await user.click(await screen.findByRole('menuitem', { name: '请求超时' }));
+  await user.click(await screen.findByRole('menuitem', { name: '请求 Header' }));
+  expect(screen.getByText('60 秒')).toBeInTheDocument();
+  expect(screen.getByText('2 个')).toBeInTheDocument();
   await waitFor(() => expect(apiMocks.GET).toHaveBeenCalledTimes(1));
   expect(apiMocks.GET).toHaveBeenCalledWith('/api/v1/ai-channels');
 
@@ -280,6 +283,35 @@ test('渠道首页以表格展示完整契约字段、操作且不触发模型 N
       body: { expected_revision: channel.revision },
     }),
   ));
+});
+
+test('渠道首页默认隐藏次要列并避免重复显示相同的模型名称与 ID', async () => {
+  const user = userEvent.setup();
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/ai-channels') return result({
+      items: [{
+        ...channel,
+        enabled_models: [
+          { display_name: 'same-model', model_id: 'same-model' },
+          { display_name: '展示名称', model_id: 'provider-model' },
+        ],
+      }],
+    });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+
+  renderWithQuery(<AIChannelsPage />, ['/configuration/ai']);
+  await screen.findByRole('link', { name: '查看 受控模型渠道 配置' });
+  expect(screen.getByRole('columnheader', { name: 'API Key' })).toBeInTheDocument();
+  expect(screen.queryByRole('columnheader', { name: '请求超时' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('columnheader', { name: '请求 Header' })).not.toBeInTheDocument();
+  expect(screen.getAllByText('same-model')).toHaveLength(1);
+  expect(screen.getByText('展示名称')).toBeInTheDocument();
+  expect(screen.getByText('provider-model')).toBeInTheDocument();
+
+  await user.click(screen.getByRole('button', { name: '列设置' }));
+  await user.click(await screen.findByRole('menuitem', { name: '请求超时' }));
+  expect(screen.getByRole('columnheader', { name: '请求超时' })).toBeInTheDocument();
 });
 
 test('渠道详情展示可达章节导航、模型测试信息且不回显敏感 Header', async () => {

@@ -92,14 +92,17 @@ export function PublicationWorkspace() {
           scroll={{ x: 760 }}
           columns={[
             { title: '标题', render: (_, row) => row.content_version.title },
-            { title: '版本', render: (_, row) => `V${row.content_version.version}` },
+            { title: '版本', width: 80, render: (_, row) => `V${row.content_version.version}` },
             {
               title: '锁定平台',
+              width: 200,
               render: (_, row) => `${row.platform_profile_name} / 规则 V${row.platform_profile_version}`,
             },
-            { title: '可用账号', render: (_, row) => row.matching_accounts.length },
+            { title: '可用账号', width: 100, render: (_, row) => row.matching_accounts.length },
             {
               title: '操作',
+              fixed: 'right',
+              width: 180,
               render: (_, row) => (
                 <Button
                   type="primary"
@@ -123,12 +126,15 @@ export function PublicationWorkspace() {
             {
               title: '打开时间',
               dataIndex: 'opened_at',
+              width: 190,
               render: (value: string) => new Date(value).toLocaleString('zh-CN'),
             },
-            { title: '触发状态', dataIndex: 'trigger_status', render: (value) => <StatusTag status={value} /> },
-            { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> },
+            { title: '触发状态', dataIndex: 'trigger_status', width: 140, render: (value) => <StatusTag status={value} /> },
+            { title: '状态', dataIndex: 'status', width: 120, render: (value) => <StatusTag status={value} /> },
             {
               title: '操作',
+              fixed: 'right',
+              width: 100,
               render: (_, row) => (
                 <Button onClick={() => navigate(`/publication-attentions/${row.id}`)}>处理</Button>
               ),
@@ -146,13 +152,15 @@ export function PublicationWorkspace() {
             {
               title: '创建时间',
               dataIndex: 'created_at',
+              width: 190,
               render: (value: string) => new Date(value).toLocaleString('zh-CN'),
             },
             { title: '内容版本', dataIndex: 'content_version_id' },
-            { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> },
+            { title: '状态', dataIndex: 'status', width: 130, render: (value) => <StatusTag status={value} /> },
             {
               title: '最终 URL',
               dataIndex: 'final_url',
+              width: 130,
               render: (url: string | null) =>
                 url ? (
                   <a href={url} target="_blank" rel="noreferrer">
@@ -164,6 +172,8 @@ export function PublicationWorkspace() {
             },
             {
               title: '操作',
+              fixed: 'right',
+              width: 140,
               render: (_, row) => (
                 <Button onClick={() => navigate(`/publications/${row.id}`)}>查看与更新</Button>
               ),

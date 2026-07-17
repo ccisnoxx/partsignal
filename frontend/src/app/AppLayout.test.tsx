@@ -83,16 +83,19 @@ test('管理员在渠道详情路由看到展开的配置子菜单和 AI 配置�
   expect(screen.getByRole('menuitem', { name: 'AI 配置' })).toHaveClass('ant-menu-item-selected');
   expect(screen.getAllByText('AI 配置').length).toBeGreaterThan(1);
   expect(screen.getByRole('menuitem', { name: '平台规则' })).toBeInTheDocument();
+  expect(screen.getAllByRole('menuitem', { name: /审计日志/ })).toHaveLength(1);
+  expect(screen.getByRole('link', { name: '审计日志' })).toHaveAttribute('href', '/audit');
   expect(screen.queryByText('事实可信 · 人工审核 · 历史可溯')).not.toBeInTheDocument();
 });
 
-test('普通用户看不到配置中心及其子菜单', () => {
+test('普通用户看不到配置中心、审计日志及配置子菜单', () => {
   authState.isAdmin = false;
   render(
     <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter><Routes><Route element={<AppLayout />}><Route index element={<h1>工作台</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
   );
   expect(screen.queryByRole('menuitem', { name: /配置中心/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: 'AI 配置' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('menuitem', { name: /审计日志/ })).not.toBeInTheDocument();
 });
 
 test('路径变化聚焦主内容，但查询参数变化不抢焦点', async () => {

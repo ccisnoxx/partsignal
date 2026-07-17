@@ -17,14 +17,15 @@ describe('canIdlePrefetch', () => {
 });
 
 describe('navigationLoaderKey', () => {
-  it('将配置父入口和六个叶子路由映射到各自 loader', () => {
+  it('将管理员入口和配置路由映射到各自 loader', () => {
+    expect(navigationLoaderKey('/audit')).toBe('auditLog');
     expect(navigationLoaderKey('/configuration')).toBe('aiChannels');
     expect(navigationLoaderKey('/configuration/ai')).toBe('aiChannels');
     expect(navigationLoaderKey('/configuration/platform-types')).toBe('platformTypes');
     expect(navigationLoaderKey('/configuration/platforms')).toBe('platforms');
     expect(navigationLoaderKey('/configuration/platform-rules')).toBe('platformRules');
     expect(navigationLoaderKey('/configuration/prompts')).toBe('platformPrompts');
-    expect(navigationLoaderKey('/configuration/audit')).toBe('auditLog');
+    expect(navigationLoaderKey('/configuration/audit')).toBeUndefined();
   });
 
   it('渠道详情只映射详情 loader，未知路径不预取', () => {

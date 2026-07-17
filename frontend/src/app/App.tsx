@@ -52,6 +52,7 @@ export function App() {
                     <Route path="observations" element={<GeoObservationsPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="users" element={<UserManagementPage />} />
+                    <Route path="audit" element={<AuditLogPage />} />
                     <Route path="configuration" element={<ConfigurationLayout />}>
                       <Route index element={<Navigate to="ai" replace />} />
                       <Route path="ai" element={<AIChannelsPage />} />
@@ -60,7 +61,6 @@ export function App() {
                       <Route path="platforms" element={<PlatformsPage />} />
                       <Route path="platform-rules" element={<PlatformRulesPage />} />
                       <Route path="prompts" element={<PlatformPromptsPage />} />
-                      <Route path="audit" element={<AuditLogPage />} />
                     </Route>
                   </Route>
                 </Route>

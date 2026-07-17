@@ -17,13 +17,13 @@ const navigationLoaders: Record<string, RouteLoaderKey> = {
   '/observations': 'geoObservations',
   '/settings': 'settings',
   '/users': 'users',
+  '/audit': 'auditLog',
   '/configuration': 'aiChannels',
   '/configuration/ai': 'aiChannels',
   '/configuration/platform-types': 'platformTypes',
   '/configuration/platforms': 'platforms',
   '/configuration/platform-rules': 'platformRules',
   '/configuration/prompts': 'platformPrompts',
-  '/configuration/audit': 'auditLog',
 };
 
 function connectionInfo(): ConnectionInfo | undefined {

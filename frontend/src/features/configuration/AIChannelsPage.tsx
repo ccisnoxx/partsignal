@@ -1,7 +1,7 @@
 /** 管理 AI 渠道集合，并提供稳定详情路由入口。 */
-import { DownOutlined, PlusOutlined } from '@ant-design/icons';
+import { DownOutlined, PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, App, Button, Card, Dropdown, Form, Input, InputNumber, Modal, Table, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Dropdown, Form, Input, InputNumber, Modal, Space, Table, Tag, Typography, type TableColumnsType } from 'antd';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
@@ -13,8 +13,24 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 
+const optionalColumnWidths = {
+  base_url: 250,
+  timeout_seconds: 110,
+  api_key_configured: 200,
+  headers: 110,
+} as const;
+type OptionalColumnKey = keyof typeof optionalColumnWidths;
+const defaultOptionalColumns: OptionalColumnKey[] = ['base_url', 'api_key_configured'];
+const optionalColumnItems: Array<{ key: OptionalColumnKey; label: string }> = [
+  { key: 'base_url', label: 'API 根地址' },
+  { key: 'timeout_seconds', label: '请求超时' },
+  { key: 'api_key_configured', label: 'API Key' },
+  { key: 'headers', label: '请求 Header' },
+];
+
 export function AIChannelsPage() {
   const [createOpen, setCreateOpen] = useState(false);
+  const [visibleOptionalColumns, setVisibleOptionalColumns] = useState<OptionalColumnKey[]>(defaultOptionalColumns);
   const [modal, modalContext] = Modal.useModal();
   const { message } = App.useApp();
   const channels = useQuery({
@@ -40,10 +56,72 @@ export function AIChannelsPage() {
   });
   const mutationError = create.error ?? toggle.error ?? remove.error;
   const confirmDelete = (channel: AIChannel) => modal.confirm({ title: '删除此 AI 渠道？', content: '渠道、Header 与模型配置将被删除，此操作不可撤销。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => remove.mutate(channel) });
+  const visibleColumnKeys = new Set<string>(visibleOptionalColumns);
+  const columns: TableColumnsType<AIChannel> = [
+    {
+      title: '渠道名称',
+      key: 'name',
+      dataIndex: 'name',
+      width: 150,
+      render: (_, channel) => <Link to={`/configuration/ai/channels/${channel.id}`} aria-label={`查看 ${channel.name} 配置`}>{channel.name}</Link>,
+    },
+    {
+      title: '状态',
+      key: 'status',
+      dataIndex: 'is_enabled',
+      width: 90,
+      render: (enabled: boolean) => <StatusTag status={enabled ? 'ACTIVE' : 'RETIRED'} />,
+    },
+    {
+      title: 'API 根地址',
+      key: 'base_url',
+      dataIndex: 'base_url',
+      width: optionalColumnWidths.base_url,
+      render: (baseUrl: string) => <Typography.Text className="data-code configuration-break-text" title={baseUrl}>{baseUrl}</Typography.Text>,
+    },
+    {
+      title: '请求超时',
+      key: 'timeout_seconds',
+      dataIndex: 'timeout_seconds',
+      width: optionalColumnWidths.timeout_seconds,
+      render: (seconds: number) => `${seconds} 秒`,
+    },
+    {
+      title: 'API Key',
+      key: 'api_key_configured',
+      dataIndex: 'api_key_configured',
+      width: optionalColumnWidths.api_key_configured,
+      render: (configured: boolean, channel) => configured ? `已配置 · ${new Date(channel.api_key_updated_at).toLocaleString('zh-CN')}` : '未配置',
+    },
+    {
+      title: '请求 Header',
+      key: 'headers',
+      dataIndex: 'headers',
+      width: optionalColumnWidths.headers,
+      render: (headers: AIChannel['headers']) => `${headers.length} 个`,
+    },
+    {
+      title: '已启用模型',
+      key: 'enabled_models',
+      dataIndex: 'enabled_models',
+      width: 260,
+      render: (models: AIChannel['enabled_models'], channel) => <div className="configuration-channel-models-cell" role="region" aria-label={`${channel.name} 已启用模型`}>
+        {models.length === 0 ? <span>暂无启用模型</span> : models.map((model) => <Tag key={model.model_id} className="configuration-model-tag"><strong>{model.display_name}</strong>{model.display_name !== model.model_id && <span className="data-code">{model.model_id}</span>}</Tag>)}
+      </div>,
+    },
+    {
+      title: '操作',
+      key: 'actions',
+      fixed: 'right',
+      width: 110,
+      render: (_, channel) => <Dropdown trigger={['click']} menu={{ items: [{ key: 'toggle', label: channel.is_enabled ? '停用' : '启用' }, { key: 'delete', label: '删除', danger: true }], onClick: ({ key }) => key === 'toggle' ? toggle.mutate(channel) : confirmDelete(channel) }}><Button size="small" aria-label={`更多操作：${channel.name}`} loading={(toggle.isPending && toggle.variables?.id === channel.id) || (remove.isPending && remove.variables?.id === channel.id)}>更多 <DownOutlined /></Button></Dropdown>,
+    },
+  ];
+  const tableScrollWidth = 610 + visibleOptionalColumns.reduce((width, key) => width + optionalColumnWidths[key], 0);
 
   return <div className="page-stack">
     {modalContext}
-    <PageHeader eyebrow="模型治理" title="AI 配置" description="管理 OpenAI-compatible 渠道、凭据、请求 Header 与模型。敏感凭据永不回显。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新增渠道</Button>} />
+    <PageHeader eyebrow="模型治理" title="AI 配置" description="管理 OpenAI-compatible 渠道、凭据、请求 Header 与模型。敏感凭据永不回显。" actions={<Space wrap><Dropdown trigger={['click']} menu={{ items: optionalColumnItems, selectable: true, multiple: true, selectedKeys: visibleOptionalColumns, onSelect: ({ selectedKeys }) => setVisibleOptionalColumns(selectedKeys as OptionalColumnKey[]), onDeselect: ({ selectedKeys }) => setVisibleOptionalColumns(selectedKeys as OptionalColumnKey[]) }}><Button icon={<SettingOutlined />} aria-label="列设置">列设置</Button></Dropdown><Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新增渠道</Button></Space>} />
     {mutationError && <Alert role="alert" type="error" showIcon message={errorMessage(mutationError)} />}
     <Card className="collection-panel">
       {channels.isLoading ? <QueryLoading label="正在加载 AI 渠道" /> : channels.error ? <QueryFailure error={channels.error} onRetry={() => void channels.refetch()} /> : (channels.data?.items.length ?? 0) === 0 ? <NoData description="暂无 AI 渠道" /> : <TableRegion label="AI 渠道列表">
@@ -53,59 +131,8 @@ export function AIChannelsPage() {
           dataSource={channels.data?.items}
           pagination={false}
           sticky={{ offsetHeader: 72 }}
-          scroll={{ x: 1480 }}
-          columns={[
-            {
-              title: '渠道名称',
-              dataIndex: 'name',
-              width: 170,
-              render: (_, channel) => <Link to={`/configuration/ai/channels/${channel.id}`} aria-label={`查看 ${channel.name} 配置`}>{channel.name}</Link>,
-            },
-            {
-              title: '状态',
-              dataIndex: 'is_enabled',
-              width: 90,
-              render: (enabled: boolean) => <StatusTag status={enabled ? 'ACTIVE' : 'RETIRED'} />,
-            },
-            {
-              title: 'API 根地址',
-              dataIndex: 'base_url',
-              width: 260,
-              render: (baseUrl: string) => <Typography.Text className="data-code configuration-break-text" title={baseUrl}>{baseUrl}</Typography.Text>,
-            },
-            {
-              title: '请求超时',
-              dataIndex: 'timeout_seconds',
-              width: 100,
-              render: (seconds: number) => `${seconds} 秒`,
-            },
-            {
-              title: 'API Key',
-              dataIndex: 'api_key_configured',
-              width: 190,
-              render: (configured: boolean, channel) => configured ? `已配置 · ${new Date(channel.api_key_updated_at).toLocaleString('zh-CN')}` : '未配置',
-            },
-            {
-              title: '请求 Header',
-              dataIndex: 'headers',
-              width: 110,
-              render: (headers: AIChannel['headers']) => `${headers.length} 个`,
-            },
-            {
-              title: '已启用模型',
-              dataIndex: 'enabled_models',
-              width: 300,
-              render: (models: AIChannel['enabled_models'], channel) => <div className="configuration-channel-models-cell" role="region" aria-label={`${channel.name} 已启用模型`}>
-                {models.length === 0 ? <span>暂无启用模型</span> : models.map((model) => <Tag key={model.model_id} className="configuration-model-tag"><strong>{model.display_name}</strong><span className="data-code">{model.model_id}</span></Tag>)}
-              </div>,
-            },
-            {
-              title: '操作',
-              key: 'actions',
-              width: 120,
-              render: (_, channel) => <Dropdown trigger={['click']} menu={{ items: [{ key: 'toggle', label: channel.is_enabled ? '停用' : '启用' }, { key: 'delete', label: '删除', danger: true }], onClick: ({ key }) => key === 'toggle' ? toggle.mutate(channel) : confirmDelete(channel) }}><Button size="small" aria-label={`更多操作：${channel.name}`} loading={(toggle.isPending && toggle.variables?.id === channel.id) || (remove.isPending && remove.variables?.id === channel.id)}>更多 <DownOutlined /></Button></Dropdown>,
-            },
-          ]}
+          scroll={{ x: tableScrollWidth }}
+          columns={columns.filter((column) => !Object.hasOwn(optionalColumnWidths, String(column.key)) || visibleColumnKeys.has(String(column.key)))}
         />
       </TableRegion>}
     </Card>

@@ -2,7 +2,7 @@
 import {
   BarChartOutlined, DatabaseOutlined, DownOutlined, FileTextOutlined, LockOutlined,
   LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, RocketOutlined, SettingOutlined,
-  TeamOutlined, ToolOutlined,
+  SafetyCertificateOutlined, TeamOutlined, ToolOutlined,
 } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
 import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
@@ -27,6 +27,7 @@ const workflowNavigation: NavigationItem[] = [
 const systemNavigation: NavigationItem[] = [
   { key: '/settings', icon: <SettingOutlined />, label: '业务设置' },
   { key: '/users', icon: <TeamOutlined />, label: '用户管理', adminOnly: true },
+  { key: '/audit', icon: <SafetyCertificateOutlined />, label: '审计日志', adminOnly: true },
   {
     key: '/configuration', icon: <ToolOutlined />, label: '配置中心', adminOnly: true,
     children: [
@@ -35,7 +36,6 @@ const systemNavigation: NavigationItem[] = [
       { key: '/configuration/platforms', label: '平台管理' },
       { key: '/configuration/platform-rules', label: '平台规则' },
       { key: '/configuration/prompts', label: 'Prompt 管理' },
-      { key: '/configuration/audit', label: '审计日志' },
     ],
   },
 ];

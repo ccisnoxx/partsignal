@@ -43,9 +43,9 @@ function TaskList() {
   return <div className="page-stack"><PageHeader eyebrow="内容链路" title="内容任务" description="任务锁定事实版本和平台规则，后续更新不会静默漂移。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>创建任务</Button>} />
     <Card className="collection-panel">{tasks.error ? <QueryFailure error={tasks.error} onRetry={() => void tasks.refetch()} /> : <TableRegion label="内容任务列表"><Table<ContentTask> rowKey="id" loading={tasks.isLoading} dataSource={tasks.data?.items} pagination={{ current: page, pageSize: 10, showSizeChanger: false, onChange: setPage }} sticky={{ offsetHeader: 72 }} scroll={{ x: 760 }} columns={[
       { title: '内容角度', dataIndex: 'content_angle', render: (value, row) => <Link to={`/tasks/${row.id}`}><strong>{value}</strong></Link> },
-      { title: '目标受众', dataIndex: 'target_audience' }, { title: '格式', dataIndex: 'desired_format' },
-      { title: '长度', render: (_, row) => `${row.desired_length_min}–${row.desired_length_max}` },
-      { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> },
+      { title: '目标受众', dataIndex: 'target_audience', width: 220 }, { title: '格式', dataIndex: 'desired_format', width: 160 },
+      { title: '长度', width: 110, render: (_, row) => `${row.desired_length_min}–${row.desired_length_max}` },
+      { title: '状态', dataIndex: 'status', width: 120, render: (value) => <StatusTag status={value} /> },
     ]} /></TableRegion>}</Card><TaskCreateModal open={open} onClose={() => setOpen(false)} /></div>;
 }
 

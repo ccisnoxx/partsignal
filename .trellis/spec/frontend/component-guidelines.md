@@ -36,6 +36,23 @@ Questions to answer:
 - 空结果使用 `NoData({ description?: ReactNode, action?: ReactNode })`。同屏已有等价主操作时不重复传 `action`。
 - 表格宽列必须位于 `TableRegion` 内，通过 Table 自身 `scroll.x` 局部滚动，不允许制造页面级横向滚动。
 
+### 表格列宽约定
+
+按字段内容角色分配宽度：状态、版本、数量和操作等有明确上限的字段使用紧凑 `width`，名称、标题或其他长文本至少保留一列不设置 `width`，由它吸收桌面剩余空间。只有列的最小可用宽度超过容器时才设置 `scroll.x`；横向滚动的关键宽表将操作列设为 `fixed: 'right'`，保证移动端仍可直接操作。
+
+```tsx
+<Table
+  scroll={{ x: 760 }}
+  columns={[
+    { title: '型号', dataIndex: 'part_number' },
+    { title: '状态', dataIndex: 'status', width: 110 },
+    { title: '操作', key: 'actions', width: 110, fixed: 'right' },
+  ]}
+/>
+```
+
+不要给所有列分配相同或近似固定宽度；Ant Table 会把桌面剩余空间机械摊到这些列，造成短字段和操作列异常放大。表格内的 Select 等控件必须受单元格宽度约束，使用明确宽度配合 `maxWidth: '100%'`，不得用大于单元格的 `minWidth` 撑破页面。
+
 ---
 
 ## Styling Patterns

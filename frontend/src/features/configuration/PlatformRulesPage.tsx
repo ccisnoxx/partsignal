@@ -62,14 +62,14 @@ export function PlatformRulesPage() {
     <PageHeader eyebrow="配置治理" title="平台规则" description="独立创建和维护规则草稿；激活后规则冻结，并由平台管理页选择为当前规则。" actions={<Button type="primary" icon={<PlusOutlined />} aria-haspopup="dialog" aria-expanded={createOpen} onClick={() => setCreateOpen(true)}>新增规则草稿</Button>} />
     {mutationError && <Alert role="alert" type="error" showIcon message={errorMessage(mutationError)} />}
     {remove.error && <DeletionError error={remove.error} />}
-    <Card className="collection-panel">{profiles.isLoading || versions.isLoading ? <QueryLoading label="正在加载平台规则" /> : queryError ? <QueryFailure error={queryError} onRetry={() => { void profiles.refetch(); void versions.refetch(); }} /> : versionItems.length === 0 ? <NoData description="暂无平台规则版本" /> : <TableRegion label="平台规则版本列表"><Table<RuleVersion> rowKey="id" dataSource={versionItems} sticky={{ offsetHeader: 72 }} scroll={{ x: 820 }} columns={[
-      { title: '所属平台', render: (_, version) => profileById.get(version.platform_profile_id)?.name ?? version.platform_profile_id },
-      { title: '版本', dataIndex: 'version', render: (value) => `V${value}` },
-      { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> },
+    <Card className="collection-panel">{profiles.isLoading || versions.isLoading ? <QueryLoading label="正在加载平台规则" /> : queryError ? <QueryFailure error={queryError} onRetry={() => { void profiles.refetch(); void versions.refetch(); }} /> : versionItems.length === 0 ? <NoData description="暂无平台规则版本" /> : <TableRegion label="平台规则版本列表"><Table<RuleVersion> rowKey="id" dataSource={versionItems} sticky={{ offsetHeader: 72 }} scroll={{ x: 1020 }} columns={[
+      { title: '所属平台', width: 180, render: (_, version) => profileById.get(version.platform_profile_id)?.name ?? version.platform_profile_id },
+      { title: '版本', dataIndex: 'version', width: 80, render: (value) => `V${value}` },
+      { title: '状态', dataIndex: 'status', width: 100, render: (value) => <StatusTag status={value} /> },
       { title: '目标受众', render: (_, version) => version.rules.target_audience },
-      { title: '正文范围', render: (_, version) => `${version.rules.body_min}–${version.rules.body_max}` },
-      { title: '创建时间', dataIndex: 'created_at', render: (value) => new Date(value).toLocaleString('zh-CN') },
-      { title: '操作', render: (_, version) => <Space wrap>{version.status === 'DRAFT' && <Button size="small" onClick={() => setEditVersion(version)}>编辑草稿</Button>}<Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(version) }}><Button size="small" aria-label={`更多操作：规则版本 V${version.version}`} loading={remove.isPending && remove.variables?.id === version.id}>更多 <DownOutlined /></Button></Dropdown></Space> },
+      { title: '正文范围', width: 120, render: (_, version) => `${version.rules.body_min}–${version.rules.body_max}` },
+      { title: '创建时间', dataIndex: 'created_at', width: 190, render: (value) => new Date(value).toLocaleString('zh-CN') },
+      { title: '操作', fixed: 'right', width: 200, render: (_, version) => <Space>{version.status === 'DRAFT' && <Button size="small" onClick={() => setEditVersion(version)}>编辑草稿</Button>}<Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(version) }}><Button size="small" aria-label={`更多操作：规则版本 V${version.version}`} loading={remove.isPending && remove.variables?.id === version.id}>更多 <DownOutlined /></Button></Dropdown></Space> },
     ]} /></TableRegion>}</Card>
     <Modal title="新增规则草稿" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null} width={760} destroyOnHidden><RuleEditor profiles={profileItems} loading={create.isPending} submitLabel="创建草稿版本" onSubmit={(rules, platformProfileId) => platformProfileId && create.mutate({ platformProfileId, rules })} /></Modal>
     <Modal title={`编辑 ${profileById.get(editVersion?.platform_profile_id ?? '')?.name ?? ''} V${editVersion?.version ?? ''} 草稿`} open={!!editVersion} onCancel={() => setEditVersion(undefined)} footer={null} width={760} destroyOnHidden>{editVersion && <RuleEditor initial={editVersion.rules} loading={update.isPending} submitLabel="保存草稿" onSubmit={(rules) => update.mutate(rules)} />}</Modal>

@@ -21,7 +21,7 @@ test('管理员可以进入任意配置子路由', () => {
 
 test('普通用户直接访问配置子路由会被重定向到首页', () => {
   authState.isAdmin = false;
-  renderRoute('/configuration/audit');
+  renderRoute('/configuration/platforms');
   expect(screen.getByRole('heading', { name: '工作台' })).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: '管理员配置' })).not.toBeInTheDocument();
 });

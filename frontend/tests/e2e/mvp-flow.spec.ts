@@ -32,6 +32,8 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   const suffix = randomUUID().slice(0, 8);
   const csrf = await login(page, 'admin');
   await expect(page.getByRole('button', { name: '打开用户操作菜单' })).toBeVisible();
+  await page.goto('/audit');
+  await expect(page.getByRole('heading', { name: '审计日志' })).toBeVisible();
   const users = await body<{ items: Array<{ id: string; username: string; display_name: string; account_type: 'ADMIN' | 'ENGINEER'; is_active: boolean; revision: number }> }>(await page.request.get('/api/v1/users'));
   const admin = users.items.find((item) => item.username === 'admin');
   expect(admin).toBeTruthy();
@@ -74,7 +76,8 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   await engineerPage.getByRole('button', { name: '更新密码' }).click();
   await expect(engineerPage).toHaveURL(/\/$/);
   await expect(engineerPage.getByRole('menuitem', { name: '配置中心' })).toHaveCount(0);
-  await engineerPage.goto('/configuration/audit');
+  await expect(engineerPage.getByRole('menuitem', { name: /审计日志/ })).toHaveCount(0);
+  await engineerPage.goto('/audit');
   await expect(engineerPage).toHaveURL(/\/$/);
   await expect(engineerPage.getByRole('button', { name: '打开用户操作菜单' })).toBeVisible();
   expect((await engineerPage.request.get('/api/v1/users')).status()).toBe(403);
@@ -199,7 +202,16 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.getByLabel('类别').fill('TEST');
   await page.getByRole('button', { name: '创建事实工作区' }).click();
   await page.getByRole('searchbox', { name: '搜索产品' }).fill(`DEMO-${suffix}`);
-  await page.getByRole('searchbox', { name: '搜索产品' }).press('Enter');
+  const filteredProductsLoaded = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.ok()
+      && url.pathname === '/api/v1/products'
+      && url.searchParams.get('search') === `DEMO-${suffix}`;
+  });
+  await Promise.all([
+    filteredProductsLoaded,
+    page.getByRole('searchbox', { name: '搜索产品' }).press('Enter'),
+  ]);
   await expect(page).toHaveURL(new RegExp(`q=DEMO-${suffix}`));
   await expectTextInPaginatedTable(page, `DEMO-${suffix}`);
 
@@ -262,7 +274,13 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expectTextInPaginatedTable(page, `E2E 论坛 ${suffix}`);
   await page.goto('/configuration/platforms');
   await expectTextInPaginatedTable(page, `E2E 论坛 ${suffix}`);
-  await page.getByRole('combobox', { name: `选择 E2E 论坛 ${suffix} 当前规则` }).click();
+  const currentRuleSelect = page.getByRole('combobox', { name: `选择 E2E 论坛 ${suffix} 当前规则` });
+  expect(await currentRuleSelect.evaluate((element) => {
+    const select = element.closest('.ant-select')?.getBoundingClientRect();
+    const cell = element.closest('td')?.getBoundingClientRect();
+    return !!select && !!cell && select.left >= cell.left && select.right <= cell.right;
+  })).toBe(true);
+  await currentRuleSelect.click();
   await page.getByText('V1 · DRAFT', { exact: true }).last().click();
   let activeRuleId: string | null = null;
   await expect.poll(async () => {
@@ -323,7 +341,16 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const enabledModelSummary = channelRow.getByRole('region', { name: `E2E 渠道 ${suffix} 已启用模型` });
   await expect(enabledModelSummary.getByText('e2e-model', { exact: true })).toBeVisible();
   await expect(enabledModelSummary.getByText('e2e-manual-model', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: 'API Key' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: '请求超时' })).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: '请求 Header' })).toHaveCount(0);
   const channelMore = channelRow.getByRole('button', { name: `更多操作：E2E 渠道 ${suffix}` });
+  await expect(channelMore).toBeVisible();
+  await page.getByRole('button', { name: '列设置' }).click();
+  await page.getByRole('menuitem', { name: '请求超时' }).click();
+  await expect(page.getByRole('columnheader', { name: '请求超时' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(channelMore).toBeVisible();
   await channelMore.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('menuitem', { name: '停用' })).toBeVisible();

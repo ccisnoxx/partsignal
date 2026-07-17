@@ -62,21 +62,21 @@ export function PlatformsPage() {
     <PageHeader eyebrow="配置治理" title="平台管理" description="维护具体平台身份、归类、允许域名和当前生效规则。" actions={<Button type="primary" icon={<PlusOutlined />} aria-haspopup="dialog" aria-expanded={createOpen} onClick={() => setCreateOpen(true)}>新增平台</Button>} />
     {error && <Alert role="alert" type="error" showIcon message={errorMessage(error)} />}
     {removeProfile.error && <DeletionError error={removeProfile.error} />}
-    <Card className="collection-panel">{platforms.isLoading || versions.isLoading ? <QueryLoading label="正在加载平台" /> : queryError ? <QueryFailure error={queryError} onRetry={() => { void platforms.refetch(); void versions.refetch(); }} /> : platformItems.length === 0 ? <NoData description="暂无具体平台" /> : <TableRegion label="平台列表"><Table<PlatformProfile> rowKey="id" dataSource={platformItems} sticky={{ offsetHeader: 72 }} scroll={{ x: 980 }} columns={[
-      { title: '平台', dataIndex: 'name' },
-      { title: '唯一标识（slug）', dataIndex: 'slug', render: (value) => <span className="data-code">{value}</span> },
+    <Card className="collection-panel">{platforms.isLoading || versions.isLoading ? <QueryLoading label="正在加载平台" /> : queryError ? <QueryFailure error={queryError} onRetry={() => { void platforms.refetch(); void versions.refetch(); }} /> : platformItems.length === 0 ? <NoData description="暂无具体平台" /> : <TableRegion label="平台列表"><Table<PlatformProfile> rowKey="id" dataSource={platformItems} sticky={{ offsetHeader: 72 }} scroll={{ x: 1060 }} columns={[
+      { title: '平台', dataIndex: 'name', width: 140 },
+      { title: '唯一标识（slug）', dataIndex: 'slug', width: 170, render: (value) => <span className="data-code">{value}</span> },
       { title: '允许域名', dataIndex: 'allowed_domains', render: (items: string[]) => items.join(', ') },
-      { title: '当前规则', render: (_, profile) => {
+      { title: '当前规则', width: 250, render: (_, profile) => {
         const drafts = versionItems.filter((version) => version.platform_profile_id === profile.id && version.status === 'DRAFT');
         const options = [
           ...(profile.active_version ? [{ value: profile.active_version.id, label: `V${profile.active_version.version} · 当前 ACTIVE`, disabled: true }] : []),
           ...drafts.map((version) => ({ value: version.id, label: `V${version.version} · DRAFT` })),
         ];
         if (drafts.length === 0) return <Space wrap>{profile.active_version ? <Space><span>V{profile.active_version.version}</span><StatusTag status={profile.active_version.status} /></Space> : <Tag color="warning">无有效规则</Tag>}<Link to="/configuration/platform-rules">管理规则</Link></Space>;
-        return <Space wrap><Select aria-label={`选择 ${profile.name} 当前规则`} value={profile.active_version?.id} placeholder="选择规则草稿" options={options} loading={activate.isPending} onChange={(versionId) => { const version = drafts.find((item) => item.id === versionId); if (version) activate.mutate(version); }} style={{ minWidth: 190 }} /><Link to="/configuration/platform-rules">管理规则</Link></Space>;
+        return <Space wrap style={{ width: '100%' }}><Select aria-label={`选择 ${profile.name} 当前规则`} value={profile.active_version?.id} placeholder="选择规则草稿" options={options} loading={activate.isPending} onChange={(versionId) => { const version = drafts.find((item) => item.id === versionId); if (version) activate.mutate(version); }} style={{ width: 180, maxWidth: '100%' }} /><Link to="/configuration/platform-rules">管理规则</Link></Space>;
       } },
-      { title: 'Prompt', render: (_, profile) => profile.prompt_configured ? <Tag color="success">已配置</Tag> : <Tag>未配置 Prompt</Tag> },
-      { title: '操作', render: (_, profile) => <Space><Button size="small" onClick={() => setEditProfile(profile)}>编辑归类</Button><Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除平台', danger: true }], onClick: () => confirmDelete(profile) }}><Button size="small" aria-label={`更多操作：${profile.name}`} loading={removeProfile.isPending && removeProfile.variables?.id === profile.id}>更多 <DownOutlined /></Button></Dropdown></Space> },
+      { title: 'Prompt', width: 120, render: (_, profile) => profile.prompt_configured ? <Tag color="success">已配置</Tag> : <Tag>未配置 Prompt</Tag> },
+      { title: '操作', fixed: 'right', width: 200, render: (_, profile) => <Space><Button size="small" onClick={() => setEditProfile(profile)}>编辑归类</Button><Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除平台', danger: true }], onClick: () => confirmDelete(profile) }}><Button size="small" aria-label={`更多操作：${profile.name}`} loading={removeProfile.isPending && removeProfile.variables?.id === profile.id}>更多 <DownOutlined /></Button></Dropdown></Space> },
     ]} /></TableRegion>}</Card>
     <Modal title="新增平台" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null} destroyOnHidden><PlatformForm typeOptions={platformTypeOptions} loading={create.isPending} onSubmit={(values) => create.mutate(values)} /></Modal>
     <Modal title={`编辑 ${editProfile?.name ?? ''} 的身份与归类`} open={!!editProfile} onCancel={() => setEditProfile(null)} footer={null} destroyOnHidden>{editProfile && <PlatformIdentityForm profile={editProfile} typeOptions={platformTypeOptions} loading={updateProfile.isPending} onSubmit={(values) => updateProfile.mutate(values)} />}</Modal>

@@ -357,3 +357,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 11: 配置表格与审计导航上线
+
+**Date**: 2026-07-17
+**Task**: 配置表格与审计导航上线
+**Branch**: `main`
+
+### Summary
+
+完成 AI 配置列设置与启用模型显示修正，按内容角色优化主要表格列宽，将审计日志迁移到管理员一级入口；通过前端质量门、本地 Playwright E2E 和线上四视口验收，发布 mvp-20260717-161044。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bd9be18` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

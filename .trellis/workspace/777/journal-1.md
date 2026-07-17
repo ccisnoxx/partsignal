@@ -390,3 +390,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 12: 完成可选文章自然化修订
+
+**Date**: 2026-07-17
+**Task**: 完成可选文章自然化修订
+**Branch**: `main`
+
+### Summary
+
+实现管理员全局自然化 Prompt、按 AI 版本选择模型的自然化作业、不可变版本链与审核追溯，并完成契约、迁移、前后端、测试和文档验证。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `138a88d` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

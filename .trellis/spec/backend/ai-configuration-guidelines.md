@@ -32,6 +32,9 @@
 - 同一次请求开始发送 HTTP 字节后不得切换地址或自动重试；响应正文必须受固定大小上限保护。不得恢复“先校验 URL、再由通用客户端按 hostname 二次解析”的 TOCTOU 路径。
 - Prompt 保存必须同时记录整份生成输入的分级、分类人和时间。只有任务分级与绑定事实快照的全部 Evidence 均为 `PUBLIC` 时才能调用第三方模型；历史空分级、`INTERNAL` 或 `RESTRICTED` 一律拒绝。
 - 当前平台 Prompt 的唯一所有者是 `PlatformProfile`：`GET/PUT/DELETE /api/v1/platform-profiles/{platform_profile_id}/prompt`。不得恢复类型级 Prompt API、双读、默认 Prompt 或兼容回退。
+- 文章自然化只使用 `content_humanization_prompts.id=1` 的全局当前 Prompt。迁移不得种子默认值；管理员通过 `GET/PUT /api/v1/content-humanization-prompt` 首次创建或按 revision 更新，不提供删除、平台副本、用户临时 Prompt 或代码回退。
+- 原始生成和自然化共用 `generation_jobs` 与一个 Celery UUID 消息。`job_type=GENERATE` 使用 `GenerationSnapshot`，`job_type=HUMANIZE` 使用 `HumanizationSnapshot`；必须按类型严格解析，不得候选解析或建立第二套队列、重试和指标来源。
+- 自然化快照冻结源版本完整正文与哈希、全局 Prompt Markdown/revision、用户选择的渠道/模型、原始批准事实、PUBLIC 分类、任务要求和最终消息。重试只复制原快照，不读取当前 Prompt 或更换模型。
 - 内容任务仍提交具体 `platform_profile_version_id`。服务端必须同时校验版本为 `ACTIVE` 且所属平台存在当前 Prompt；新作业快照必须写入具体平台身份和最终 system/user message，旧快照缺少平台对象只允许只读。
 
 ### 4. 校验与错误矩阵
@@ -41,6 +44,8 @@
 - 实际 TCP peer 不在本次批准集合 -> `AI_URL_FORBIDDEN`，且敏感 Header 尚未发送。
 - 任务或事实证据未全部明确为 `PUBLIC` -> `AI_DATA_CLASSIFICATION_FORBIDDEN`。
 - 具体平台没有当前 Prompt -> `PLATFORM_PROMPT_MISSING`；不得回退到平台类型或其他平台 Prompt。
+- 全局自然化 Prompt 未配置 -> `HUMANIZATION_PROMPT_MISSING`；不得使用文档建议模板或代码常量代替。
+- 自然化源不是 `OPEN` 任务中的 `AI DRAFT | CHANGES_REQUESTED`，或冻结身份/哈希失效 -> `HUMANIZATION_SOURCE_INVALID`；同源已有活动作业 -> `HUMANIZATION_ALREADY_ACTIVE`。
 - 响应超过固定上限 -> `AI_RESPONSE_TOO_LARGE`，不得继续读取或改走其他地址。
 - 保留 Header、非法 token 或控制字符 -> `INVALID_HEADER`。
 - 密钥、密文格式或关联数据错误 -> `CREDENTIAL_DECRYPTION_FAILED`。
@@ -59,6 +64,8 @@
 - 错误：模型响应包含代码块、附加字段或正文外说明时，整个调用失败，不创建内容版本。
 - 错误：作业租约已被恢复器标记失败后，迟到响应不得覆盖终态或创建内容版本。
 - 错误：旧作业创建后新增敏感 Header 时，执行或重试不得把该 Header 带入请求；旧作业所需敏感 Header 不再存在时显式失败。
+- 错误：把 Humanizer-zh 当作后端 Skill 运行时，或在原始生成成功后自动串行调用自然化。
+- 正常：用户对具体合格 AI 版本选择当前可用模型，独立自然化作业创建一个 `based_on_id` 指向源版本的新 AI 草稿，源正文和状态保持不变。
 - 错误：0012 之前的历史 Job 快照缺少分级时不得重试到第三方模型；用户必须在当前任务重新保存 Prompt 与分级并创建新作业。
 
 ### 6. 必需测试

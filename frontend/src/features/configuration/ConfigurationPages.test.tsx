@@ -18,6 +18,7 @@ import { PlatformsPage } from './PlatformsPage';
 const apiMocks = vi.hoisted(() => ({ GET: vi.fn(), POST: vi.fn(), PATCH: vi.fn(), PUT: vi.fn(), DELETE: vi.fn() }));
 
 vi.mock('../../shared/api/client', () => ({
+  ApiError: class ApiError extends Error { code = 'HTTP_ERROR'; },
   api: apiMocks,
   csrfHeader: () => ({ 'X-CSRF-Token': 'test' }),
   ensureSuccess: (result: { response: Response }) => { if (!result.response.ok) throw new Error('请求失败'); },
@@ -54,6 +55,7 @@ const ruleVersions = [
   { id: 'version-2', platform_profile_id: 'profile-ready', version: 2, status: 'DRAFT', rules: { ...platformRules, body_max: 6000 }, revision: 3, created_at: channel.created_at },
 ].filter((version) => version !== null);
 const platformPrompt = { platform_profile_id: 'profile-ready', template_markdown: '仅使用已批准事实。', revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
+const humanizationPrompt = { template_markdown: '保持事实，只改善表达。', revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
 let platformItems = platforms;
 let platformRuleItems = ruleVersions;
 
@@ -78,6 +80,7 @@ beforeEach(() => {
     if (path === '/api/v1/platform-profile-versions') return result({ items: platformRuleItems });
     if (path === '/api/v1/platform-types') return result({ items: [platformType] });
     if (path === '/api/v1/platform-profiles/{platform_profile_id}/prompt') return result(platformPrompt);
+    if (path === '/api/v1/content-humanization-prompt') return result(humanizationPrompt);
     throw new Error(`未声明测试请求：${path}`);
   });
   apiMocks.POST.mockImplementation((path: string) => {
@@ -96,6 +99,7 @@ beforeEach(() => {
   });
   apiMocks.PUT.mockImplementation((path: string) => {
     if (path === '/api/v1/platform-profiles/{platform_profile_id}/prompt') return result({ ...platformPrompt, revision: 2 });
+    if (path === '/api/v1/content-humanization-prompt') return result({ ...humanizationPrompt, revision: 2 });
     throw new Error(`未声明测试请求：${path}`);
   });
   apiMocks.DELETE.mockImplementation((path: string, options?: { params?: { path?: Record<string, string> } }) => {
@@ -224,6 +228,22 @@ test('Prompt 页面只展示真实 Prompt，新增时只能选择未配置平台
     expect.objectContaining({
       params: expect.objectContaining({ path: { platform_profile_id: 'profile-empty' } }),
       body: { template_markdown: '新平台 Prompt。', expected_revision: null },
+    }),
+  ));
+});
+
+test('管理员按 revision 保存全局自然化 Prompt', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts']);
+  const editor = await screen.findByRole('textbox', { name: '自然化 Prompt Markdown' });
+  expect(editor).toHaveValue('保持事实，只改善表达。');
+  await user.clear(editor);
+  await user.type(editor, '保留批准事实，重写机械表达。');
+  await user.click(screen.getByRole('button', { name: '按 revision 保存' }));
+  await waitFor(() => expect(apiMocks.PUT).toHaveBeenCalledWith(
+    '/api/v1/content-humanization-prompt',
+    expect.objectContaining({
+      body: { template_markdown: '保留批准事实，重写机械表达。', expected_revision: 1 },
     }),
   ));
 });

@@ -73,6 +73,7 @@ class GenerationOptions(ContractModel):
     platform_type_name: str
     platform_type_slug: str
     system_prompt_markdown: str
+    humanization_prompt_configured: bool
     models: list[GenerationOptionModel]
 
 
@@ -83,6 +84,8 @@ class GenerationJobCreate(ContractModel):
 class GenerationJobOut(ContractModel):
     id: uuid.UUID
     content_task_id: uuid.UUID
+    job_type: Literal["GENERATE", "HUMANIZE"]
+    source_content_version_id: uuid.UUID | None
     status: Literal["PENDING", "RUNNING", "SUCCEEDED", "FAILED"]
     attempt_count: int
     content_version_id: uuid.UUID | None = None
@@ -122,8 +125,55 @@ class GenerationSnapshot(ContractModel):
     user_message: str
 
 
+class HumanizationPromptSnapshot(ContractModel):
+    revision: int = Field(ge=0)
+    template_markdown: str = Field(min_length=1)
+
+
+class HumanizationSourceContent(ContractModel):
+    id: uuid.UUID
+    task_id: uuid.UUID
+    fact_version_id: uuid.UUID
+    version: int = Field(ge=1)
+    content_hash: str
+    title: str
+    summary: str
+    body_markdown: str
+    tags: list[str]
+
+
+class HumanizationSnapshot(ContractModel):
+    """一次自然化调用的完整不可变输入。"""
+
+    adapter_name: Literal["openai-compatible-chat-completions"]
+    contract_version: Literal["humanization-json-v1"]
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    humanization_prompt: HumanizationPromptSnapshot
+    source_content: HumanizationSourceContent
+    source_generation_job_id: uuid.UUID
+    user_prompt_markdown: str
+    generation_data_classification: Confidentiality
+    generation_data_classified_by: uuid.UUID
+    generation_data_classified_at: datetime
+    approved_facts: dict[str, Any]
+    task_requirements: dict[str, Any]
+    system_message: str
+    user_message: str
+
+
 class GenerationJobDetail(GenerationJobOut):
-    input_snapshot: GenerationSnapshot
+    input_snapshot: GenerationSnapshot | HumanizationSnapshot
+
+    @model_validator(mode="after")
+    def validate_snapshot_type(self) -> GenerationJobDetail:
+        if self.job_type == "GENERATE" and not isinstance(self.input_snapshot, GenerationSnapshot):
+            raise ValueError("原始生成作业必须使用 GenerationSnapshot")
+        if self.job_type == "HUMANIZE" and not isinstance(
+            self.input_snapshot, HumanizationSnapshot
+        ):
+            raise ValueError("自然化作业必须使用 HumanizationSnapshot")
+        return self
 
 
 class QualityIssue(ContractModel):
@@ -211,6 +261,12 @@ class GenerationTrace(ContractModel):
     input_snapshot: GenerationSnapshot
 
 
+class HumanizationTrace(ContractModel):
+    job_id: uuid.UUID
+    source_content_version_id: uuid.UUID
+    input_snapshot: HumanizationSnapshot
+
+
 class ContentReviewContext(ContractModel):
     content: ContentVersionOut
     task: ContentTaskOut
@@ -218,5 +274,6 @@ class ContentReviewContext(ContractModel):
     evidence_statuses: list[ReviewEvidenceStatus]
     diff: ContentDiff | None
     generation_trace: GenerationTrace | None
+    humanization_traces: list[HumanizationTrace]
     available_actions: list[Literal["SUBMIT_REVIEW", "APPROVE", "REQUEST_CHANGES"]]
     review_history: list[ReviewRecord]

@@ -16,6 +16,7 @@ from app.models.ai_generation import (
     GenerationJob,
 )
 from app.models.configuration import (
+    ContentHumanizationPrompt,
     PlatformProfile,
     PlatformProfileVersion,
     PlatformPrompt,
@@ -46,6 +47,9 @@ from app.services.content_production import (
 )
 from app.services.content_production import (
     create_generation_job as create_generation_job_command,
+)
+from app.services.content_production import (
+    create_humanization_job as create_humanization_job_command,
 )
 from app.services.content_production import (
     retry_generation_job as retry_generation_job_command,
@@ -109,6 +113,7 @@ def get_generation_options(
         platform_type_name=str(task.platform_type_snapshot["name"]),
         platform_type_slug=str(task.platform_type_snapshot["slug"]),
         system_prompt_markdown=prompt.template_markdown,
+        humanization_prompt_configured=db.get(ContentHumanizationPrompt, 1) is not None,
         models=[
             GenerationOptionModel(
                 id=model.id,
@@ -140,6 +145,33 @@ def create_generation_job(
     job = create_generation_job_command(
         db=db,
         content_task_id=content_task_id,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+        idempotency_key=idempotency_key,
+    )
+    return generation_job_out(job)
+
+
+@router.post(
+    "/content-versions/{content_version_id}/humanization-jobs",
+    response_model=GenerationJobOut,
+    status_code=status.HTTP_202_ACCEPTED,
+    operation_id="createHumanizationJob",
+)
+def create_humanization_job(
+    content_version_id: uuid.UUID,
+    payload: GenerationJobCreate,
+    request: Request,
+    db: DbSession,
+    editor: ContentEditor,
+    _csrf: CsrfProtected,
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
+) -> GenerationJobOut:
+    """对具体 AI 内容版本创建一次可追溯的自然化作业。"""
+    job = create_humanization_job_command(
+        db=db,
+        content_version_id=content_version_id,
         payload=payload,
         actor=editor,
         request_id=request.state.request_id,

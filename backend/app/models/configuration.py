@@ -7,9 +7,11 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     ForeignKey,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
@@ -64,6 +66,25 @@ class PlatformPrompt(Base):
         ForeignKey("platform_profiles.id", ondelete="CASCADE"),
         primary_key=True,
     )
+    template_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class ContentHumanizationPrompt(Base):
+    """管理员显式维护的全局唯一自然化 Prompt。"""
+
+    __tablename__ = "content_humanization_prompts"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_content_humanization_prompts_singleton"),)
+    id: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
     template_markdown: Mapped[str] = mapped_column(Text, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     updated_by: Mapped[uuid.UUID] = mapped_column(

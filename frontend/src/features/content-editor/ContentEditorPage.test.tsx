@@ -75,6 +75,7 @@ const context = {
   evidence_statuses: [{ client_key: 'datasheet', file_id: null, file_status: null }],
   diff: null,
   generation_trace: null,
+  humanization_traces: [],
   available_actions: ['APPROVE', 'REQUEST_CHANGES'],
   review_history: [{ id: '60000000-0000-4000-8000-000000000001', target_id: content.id, target_version: 1, action: 'request-changes', comment: '请调整标题', actor: { id: content.created_by, username: 'editor', display_name: '内容编辑' }, created_at: content.created_at }],
 } satisfies Schema<'ContentReviewContext'>;

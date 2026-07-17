@@ -37,7 +37,7 @@ jobs:
       SESSION_SECRET: ci-session-secret-at-least-32-bytes
       CONTENT_GENERATOR: deterministic
       OBJECT_STORAGE_BACKEND: development
-      OBJECT_STORAGE_ENDPOINT: http://127.0.0.1:19001
+      OBJECT_STORAGE_ENDPOINT: http://127.0.0.1:19009
       PARTSIGNAL_SEED_ADMIN_PASSWORD: partsignal-admin-dev
       PARTSIGNAL_SEED_ENGINEER_PASSWORD: partsignal-engineer-dev
     steps:

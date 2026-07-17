@@ -508,6 +508,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content-humanization-prompt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getContentHumanizationPrompt"];
+        put: operations["putContentHumanizationPrompt"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform-types": {
         parameters: {
             query?: never;
@@ -856,6 +872,22 @@ export interface paths {
         get: operations["listContentTaskVersions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-versions/{content_version_id}/humanization-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createHumanizationJob"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1719,6 +1751,20 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        ContentHumanizationPromptPut: {
+            template_markdown: string;
+            expected_revision: number | null;
+        };
+        ContentHumanizationPrompt: {
+            template_markdown: string;
+            revision: number;
+            /** Format: uuid */
+            updated_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
         AIChannelHeader: {
             /** Format: uuid */
             id: string;
@@ -1904,6 +1950,7 @@ export interface components {
             platform_type_name: string;
             platform_type_slug: string;
             system_prompt_markdown: string;
+            humanization_prompt_configured: boolean;
             models: components["schemas"]["GenerationOptionModel"][];
         };
         GenerationJobCreate: {
@@ -1912,11 +1959,16 @@ export interface components {
         };
         /** @enum {string} */
         GenerationJobStatus: "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED";
+        /** @enum {string} */
+        GenerationJobType: "GENERATE" | "HUMANIZE";
         GenerationJob: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             content_task_id: string;
+            job_type: components["schemas"]["GenerationJobType"];
+            /** Format: uuid */
+            source_content_version_id: string | null;
             status: components["schemas"]["GenerationJobStatus"];
             attempt_count: number;
             /** Format: uuid */
@@ -1938,7 +1990,7 @@ export interface components {
             finished_at?: string | null;
         };
         GenerationJobDetail: components["schemas"]["GenerationJob"] & {
-            input_snapshot: components["schemas"]["GenerationSnapshot"];
+            input_snapshot: components["schemas"]["GenerationSnapshot"] | components["schemas"]["HumanizationSnapshot"];
         };
         GenerationSnapshot: {
             adapter_name: string;
@@ -1968,6 +2020,54 @@ export interface components {
             task_requirements: {
                 [key: string]: unknown;
             };
+            user_message: string;
+        };
+        HumanizationPromptSnapshot: {
+            revision: number;
+            template_markdown: string;
+        };
+        HumanizationSourceContent: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            fact_version_id: string;
+            version: number;
+            content_hash: string;
+            title: string;
+            summary: string;
+            body_markdown: string;
+            tags: string[];
+        };
+        HumanizationSnapshot: {
+            /** @constant */
+            adapter_name: "openai-compatible-chat-completions";
+            /** @constant */
+            contract_version: "humanization-json-v1";
+            channel: {
+                [key: string]: unknown;
+            };
+            model: {
+                [key: string]: unknown;
+            };
+            humanization_prompt: components["schemas"]["HumanizationPromptSnapshot"];
+            source_content: components["schemas"]["HumanizationSourceContent"];
+            /** Format: uuid */
+            source_generation_job_id: string;
+            user_prompt_markdown: string;
+            generation_data_classification: components["schemas"]["Confidentiality"];
+            /** Format: uuid */
+            generation_data_classified_by: string;
+            /** Format: date-time */
+            generation_data_classified_at: string;
+            approved_facts: {
+                [key: string]: unknown;
+            };
+            task_requirements: {
+                [key: string]: unknown;
+            };
+            system_message: string;
             user_message: string;
         };
         GenerationJobList: {
@@ -2071,6 +2171,13 @@ export interface components {
             job_id: string;
             input_snapshot: components["schemas"]["GenerationSnapshot"];
         };
+        HumanizationTrace: {
+            /** Format: uuid */
+            job_id: string;
+            /** Format: uuid */
+            source_content_version_id: string;
+            input_snapshot: components["schemas"]["HumanizationSnapshot"];
+        };
         ContentReviewContext: {
             content: components["schemas"]["ContentVersion"];
             task: components["schemas"]["ContentTask"];
@@ -2078,6 +2185,7 @@ export interface components {
             evidence_statuses: components["schemas"]["ReviewEvidenceStatus"][];
             diff: components["schemas"]["ContentDiff"] | null;
             generation_trace: components["schemas"]["GenerationTrace"] | null;
+            humanization_traces: components["schemas"]["HumanizationTrace"][];
             available_actions: components["schemas"]["ContentReviewAction"][];
             review_history: components["schemas"]["ReviewRecord"][];
         };
@@ -3524,6 +3632,54 @@ export interface operations {
             };
         };
     };
+    getContentHumanizationPrompt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前全局自然化 Prompt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentHumanizationPrompt"];
+                };
+            };
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    putContentHumanizationPrompt: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentHumanizationPromptPut"];
+            };
+        };
+        responses: {
+            /** @description 已首次创建或按修订号更新自然化 Prompt */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentHumanizationPrompt"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
     listPlatformTypes: {
         parameters: {
             query?: never;
@@ -4313,6 +4469,36 @@ export interface operations {
                     "application/json": components["schemas"]["ContentVersionList"];
                 };
             };
+        };
+    };
+    createHumanizationJob: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                content_version_id: components["parameters"]["ContentVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerationJobCreate"];
+            };
+        };
+        responses: {
+            /** @description 已创建或返回幂等自然化作业 */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerationJob"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
         };
     };
     getGenerationJob: {

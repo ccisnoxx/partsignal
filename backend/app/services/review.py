@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 
 from app.audit import append_audit
 from app.errors import AppError, not_found
-from app.models.ai_generation import GenerationJob
 from app.models.content import (
     ContentReviewRecord,
     ContentTask,
@@ -28,12 +27,13 @@ from app.schemas.content import (
     ContentReviewContext,
     ContentVersionOut,
     FactReviewContext,
-    GenerationSnapshot,
     GenerationTrace,
+    HumanizationTrace,
     ReviewEvidenceStatus,
     ReviewRecord,
 )
 from app.schemas.product_facts import FactVersionOut
+from app.services.content_lineage import ContentAILineage, resolve_content_ai_lineage
 from app.services.projections import (
     content_diff,
     content_task_out,
@@ -75,8 +75,7 @@ def _evidence_statuses(db: Session, fact: FactVersion) -> list[ReviewEvidenceSta
     snapshot = fact_version_out(fact).snapshot
     file_ids = [evidence.file_id for evidence in snapshot.evidences if evidence.file_id]
     files = {
-        file.id: file
-        for file in db.scalars(select(FileRecord).where(FileRecord.id.in_(file_ids)))
+        file.id: file for file in db.scalars(select(FileRecord).where(FileRecord.id.in_(file_ids)))
     }
     missing = sorted(str(file_id) for file_id in file_ids if file_id not in files)
     if missing:
@@ -194,30 +193,15 @@ def get_fact_review_context(db: Session, fact_version_id: uuid.UUID) -> FactRevi
     )
 
 
-def _source_generation_trace(
-    db: Session, content: ContentVersion
-) -> GenerationTrace | None:
-    current = content
-    while current.source_job_id is None and current.based_on_id is not None:
-        parent = db.get(ContentVersion, current.based_on_id)
-        if parent is None:
-            raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容版本修订链不完整", 409)
-        current = parent
-    if current.source_job_id is None:
-        return None
-    job = db.get(GenerationJob, current.source_job_id)
-    if job is None:
-        raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容源生成作业不存在", 409)
+def _source_ai_lineage(db: Session, content: ContentVersion) -> ContentAILineage | None:
+    """将统一版本链解析错误映射为审核上下文错误。"""
     try:
-        snapshot = GenerationSnapshot.model_validate(job.input_snapshot)
-    except ValueError as error:
-        raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容源生成快照无效", 409) from error
-    return GenerationTrace(job_id=job.id, input_snapshot=snapshot)
+        return resolve_content_ai_lineage(db, content)
+    except AppError as error:
+        raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容 AI 追溯链不完整", 409) from error
 
 
-def get_content_review_context(
-    db: Session, content_version_id: uuid.UUID
-) -> ContentReviewContext:
+def get_content_review_context(db: Session, content_version_id: uuid.UUID) -> ContentReviewContext:
     """从不可变内容、任务事实和生成快照装配一次审核读取投影。"""
     content = db.get(ContentVersion, content_version_id)
     if content is None:
@@ -227,9 +211,7 @@ def get_content_review_context(
     if task is None or fact is None or task.fact_version_id != fact.id:
         raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容审核绑定的任务或事实不完整", 409)
     comparison = None
-    comparison_source = (
-        db.get(ContentVersion, content.based_on_id) if content.based_on_id else None
-    )
+    comparison_source = db.get(ContentVersion, content.based_on_id) if content.based_on_id else None
     if comparison_source is None:
         comparison_source = db.scalar(
             select(ContentVersion)
@@ -242,13 +224,29 @@ def get_content_review_context(
         )
     if comparison_source is not None:
         comparison = content_diff(comparison_source, content)
+    lineage = _source_ai_lineage(db, content)
     return ContentReviewContext(
         content=content_version_out(content),
         task=content_task_out(db, task),
         fact_version=fact_version_out(fact),
         evidence_statuses=_evidence_statuses(db, fact),
         diff=comparison,
-        generation_trace=_source_generation_trace(db, content),
+        generation_trace=(
+            GenerationTrace(
+                job_id=lineage.generation_job.id,
+                input_snapshot=lineage.generation_snapshot,
+            )
+            if lineage is not None
+            else None
+        ),
+        humanization_traces=[
+            HumanizationTrace(
+                job_id=item.job.id,
+                source_content_version_id=item.snapshot.source_content.id,
+                input_snapshot=item.snapshot,
+            )
+            for item in (lineage.humanizations if lineage is not None else ())
+        ],
         available_actions=_content_actions(content, fact),
         review_history=_content_history(db, content),
     )
@@ -317,9 +315,7 @@ def transition_content_version(
 ) -> ContentVersionOut:
     """事务化执行内容审核状态机和最终质量门禁。"""
     content = db.scalar(
-        select(ContentVersion)
-        .where(ContentVersion.id == content_version_id)
-        .with_for_update()
+        select(ContentVersion).where(ContentVersion.id == content_version_id).with_for_update()
     )
     if content is None:
         raise not_found("内容版本")

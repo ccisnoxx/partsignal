@@ -5,6 +5,7 @@ set -eu
 : "${REDIS_URL:?必须设置本地或 CI Redis REDIS_URL}"
 : "${PARTSIGNAL_SEED_ADMIN_PASSWORD:=partsignal-admin-dev}"
 : "${PARTSIGNAL_SEED_ENGINEER_PASSWORD:=partsignal-engineer-dev}"
+: "${PARTSIGNAL_E2E_STORAGE_PORT:=19009}"
 
 # E2E 明确使用本机协议替身，不继承操作者可能存在的生产 AI 配置。
 export APP_ENV=test
@@ -14,6 +15,7 @@ export AI_CREDENTIAL_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 
 root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 storage_dir=${OBJECT_STORAGE_PATH:-/tmp/partsignal-e2e-storage}
+storage_endpoint=http://127.0.0.1:$PARTSIGNAL_E2E_STORAGE_PORT
 api_pid=
 storage_pid=
 worker_pid=
@@ -37,11 +39,12 @@ PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
 PARTSIGNAL_SEED_ENGINEER_PASSWORD=$PARTSIGNAL_SEED_ENGINEER_PASSWORD \
   backend/.venv/bin/python -m app.cli seed-demo
 
-OBJECT_STORAGE_ENDPOINT=http://127.0.0.1:9000 \
-OBJECT_STORAGE_PUBLIC_ENDPOINT=http://127.0.0.1:9000 OBJECT_STORAGE_PATH="$storage_dir" \
+OBJECT_STORAGE_ENDPOINT="$storage_endpoint" \
+OBJECT_STORAGE_PUBLIC_ENDPOINT="$storage_endpoint" OBJECT_STORAGE_PATH="$storage_dir" \
   backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 &
 api_pid=$!
-OBJECT_STORAGE_PATH="$storage_dir" backend/.venv/bin/python -m app.files.fake_server &
+OBJECT_STORAGE_PATH="$storage_dir" backend/.venv/bin/uvicorn app.dev_storage:app \
+  --host 127.0.0.1 --port "$PARTSIGNAL_E2E_STORAGE_PORT" &
 storage_pid=$!
 backend/.venv/bin/uvicorn app.ai_fake_server:app --host 127.0.0.1 --port 9001 &
 ai_pid=$!

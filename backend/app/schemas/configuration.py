@@ -161,6 +161,23 @@ class PlatformPromptOut(ContractModel):
     updated_at: datetime
 
 
+class ContentHumanizationPromptPut(ContractModel):
+    """首次创建或按修订号更新全局自然化 Prompt。"""
+
+    template_markdown: str = Field(min_length=1)
+    expected_revision: int | None = Field(ge=0)
+
+
+class ContentHumanizationPromptOut(ContractModel):
+    """全局自然化 Prompt 当前配置。"""
+
+    template_markdown: str
+    revision: int
+    updated_by: uuid.UUID
+    created_at: datetime
+    updated_at: datetime
+
+
 class AIChannelHeaderOut(ContractModel):
     id: uuid.UUID
     name: str

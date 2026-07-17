@@ -142,10 +142,25 @@ class GenerationJob(Base):
             "dispatch_attempt_count >= 0",
             name="ck_generation_jobs_dispatch_attempt_count_nonnegative",
         ),
+        CheckConstraint(
+            "job_type IN ('GENERATE', 'HUMANIZE')",
+            name="ck_generation_jobs_job_type",
+        ),
+        CheckConstraint(
+            "(job_type = 'GENERATE' AND source_content_version_id IS NULL) OR "
+            "(job_type = 'HUMANIZE' AND source_content_version_id IS NOT NULL)",
+            name="ck_generation_jobs_job_type_source",
+        ),
         Index(
             "ix_generation_jobs_pending_dispatch_due",
             text("COALESCE(last_dispatch_attempt_at, created_at)"),
             postgresql_where=text("status = 'PENDING'"),
+        ),
+        Index(
+            "uq_generation_jobs_active_humanization_source",
+            "source_content_version_id",
+            unique=True,
+            postgresql_where=text("job_type = 'HUMANIZE' AND status IN ('PENDING', 'RUNNING')"),
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
@@ -153,6 +168,10 @@ class GenerationJob(Base):
         UUID(as_uuid=True), ForeignKey("content_tasks.id", ondelete="RESTRICT"), nullable=False
     )
     idempotency_key: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    job_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    source_content_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("content_versions.id", ondelete="RESTRICT")
+    )
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="PENDING")
     input_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     ai_channel_id: Mapped[uuid.UUID | None] = mapped_column(

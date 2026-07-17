@@ -58,7 +58,7 @@ export function ContentEditorPage() {
     'review-content',
     'review-diff',
     'review-facts',
-    ...(context.data?.generation_trace ? ['review-trace'] : []),
+    ...(context.data?.generation_trace || context.data?.humanization_traces.length ? ['review-trace'] : []),
     'review-history',
     ...(context.data && context.data.content.status !== 'APPROVED' && context.data.content.status !== 'SUPERSEDED'
       ? ['review-revision']
@@ -149,7 +149,7 @@ export function ContentEditorPage() {
           <a href="#review-content" aria-current={activeSection === 'review-content' ? 'location' : undefined}>正文与预览</a>
           <a href="#review-diff" aria-current={activeSection === 'review-diff' ? 'location' : undefined}>版本差异</a>
           <a href="#review-facts" aria-current={activeSection === 'review-facts' ? 'location' : undefined}>锁定事实</a>
-          {review.generation_trace && <a href="#review-trace" aria-current={activeSection === 'review-trace' ? 'location' : undefined}>生成追溯</a>}
+          {(review.generation_trace || review.humanization_traces.length > 0) && <a href="#review-trace" aria-current={activeSection === 'review-trace' ? 'location' : undefined}>AI 追溯</a>}
           <a href="#review-history" aria-current={activeSection === 'review-history' ? 'location' : undefined}>审核历史</a>
           {canRevise && <a href="#review-revision" aria-current={activeSection === 'review-revision' ? 'location' : undefined}>人工修订</a>}
         </nav>
@@ -265,8 +265,9 @@ export function ContentEditorPage() {
           )}
         />
       </Card>
-      {review.generation_trace && (
-        <Card id="review-trace" title="生成追溯" className="workspace-panel workspace-section">
+      {(review.generation_trace || review.humanization_traces.length > 0) && (
+        <Card id="review-trace" title="AI 追溯" className="workspace-panel workspace-section">
+          {review.generation_trace && (
           <Descriptions
             column={1}
             items={[
@@ -276,6 +277,20 @@ export function ContentEditorPage() {
               { label: '冻结事实版本', children: String(review.generation_trace.input_snapshot.approved_facts.fact_version_id) },
             ]}
           />
+          )}
+          {review.humanization_traces.map((trace, index) => (
+            <Descriptions
+              key={trace.job_id}
+              title={`自然化 ${index + 1}`}
+              column={1}
+              items={[
+                { label: '自然化作业', children: trace.job_id },
+                { label: '源版本', children: trace.source_content_version_id },
+                { label: '模型', children: String(trace.input_snapshot.model.model_id) },
+                { label: 'Prompt revision', children: trace.input_snapshot.humanization_prompt.revision },
+              ]}
+            />
+          ))}
         </Card>
       )}
       <Card id="review-history" title="完整审核历史" className="workspace-panel workspace-section">

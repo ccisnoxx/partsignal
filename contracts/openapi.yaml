@@ -612,6 +612,33 @@ paths:
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已删除当前 Prompt}
+  /api/v1/content-humanization-prompt:
+    get:
+      tags: [configuration]
+      operationId: getContentHumanizationPrompt
+      responses:
+        '200':
+          description: 当前全局自然化 Prompt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentHumanizationPrompt'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+    put:
+      tags: [configuration]
+      operationId: putContentHumanizationPrompt
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ContentHumanizationPromptPut'}
+      responses:
+        '200':
+          description: 已首次创建或按修订号更新自然化 Prompt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentHumanizationPrompt'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-types:
     get:
       tags: [configuration]
@@ -1053,6 +1080,26 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentVersionList'}
+  /api/v1/content-versions/{content_version_id}/humanization-jobs:
+    post:
+      tags: [production]
+      operationId: createHumanizationJob
+      parameters:
+        - {$ref: '#/components/parameters/ContentVersionId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GenerationJobCreate'}
+      responses:
+        '202':
+          description: 已创建或返回幂等自然化作业
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GenerationJob'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/generation-jobs/{generation_job_id}:
     get:
       tags: [production]
@@ -2042,6 +2089,23 @@ components:
         updated_by: {type: string, format: uuid}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
+    ContentHumanizationPromptPut:
+      type: object
+      additionalProperties: false
+      required: [template_markdown, expected_revision]
+      properties:
+        template_markdown: {type: string, minLength: 1}
+        expected_revision: {type: [integer, 'null'], minimum: 0}
+    ContentHumanizationPrompt:
+      type: object
+      additionalProperties: false
+      required: [template_markdown, revision, updated_by, created_at, updated_at]
+      properties:
+        template_markdown: {type: string}
+        revision: {type: integer}
+        updated_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
     AIChannelHeader:
       type: object
       additionalProperties: false
@@ -2248,7 +2312,7 @@ components:
     GenerationOptions:
       type: object
       additionalProperties: false
-      required: [platform_profile_version_id, platform_profile_name, platform_type_id, platform_type_name, platform_type_slug, system_prompt_markdown, models]
+      required: [platform_profile_version_id, platform_profile_name, platform_type_id, platform_type_name, platform_type_slug, system_prompt_markdown, humanization_prompt_configured, models]
       properties:
         platform_profile_version_id: {type: string, format: uuid}
         platform_profile_name: {type: string}
@@ -2256,6 +2320,7 @@ components:
         platform_type_name: {type: string}
         platform_type_slug: {type: string}
         system_prompt_markdown: {type: string}
+        humanization_prompt_configured: {type: boolean}
         models: {type: array, items: {$ref: '#/components/schemas/GenerationOptionModel'}}
     GenerationJobCreate:
       type: object
@@ -2264,13 +2329,16 @@ components:
       properties:
         ai_model_id: {type: string, format: uuid}
     GenerationJobStatus: {type: string, enum: [PENDING, RUNNING, SUCCEEDED, FAILED]}
+    GenerationJobType: {type: string, enum: [GENERATE, HUMANIZE]}
     GenerationJob:
       type: object
       additionalProperties: false
-      required: [id, content_task_id, status, attempt_count, created_at]
+      required: [id, content_task_id, job_type, source_content_version_id, status, attempt_count, created_at]
       properties:
         id: {type: string, format: uuid}
         content_task_id: {type: string, format: uuid}
+        job_type: {$ref: '#/components/schemas/GenerationJobType'}
+        source_content_version_id: {type: [string, 'null'], format: uuid}
         status: {$ref: '#/components/schemas/GenerationJobStatus'}
         attempt_count: {type: integer}
         content_version_id: {type: [string, 'null'], format: uuid}
@@ -2291,7 +2359,10 @@ components:
         - type: object
           required: [input_snapshot]
           properties:
-            input_snapshot: {$ref: '#/components/schemas/GenerationSnapshot'}
+            input_snapshot:
+              oneOf:
+                - {$ref: '#/components/schemas/GenerationSnapshot'}
+                - {$ref: '#/components/schemas/HumanizationSnapshot'}
     GenerationSnapshot:
       type: object
       additionalProperties: false
@@ -2310,6 +2381,47 @@ components:
         generation_data_classified_at: {type: string, format: date-time}
         approved_facts: {type: object, additionalProperties: true}
         task_requirements: {type: object, additionalProperties: true}
+        user_message: {type: string}
+    HumanizationPromptSnapshot:
+      type: object
+      additionalProperties: false
+      required: [revision, template_markdown]
+      properties:
+        revision: {type: integer, minimum: 0}
+        template_markdown: {type: string, minLength: 1}
+    HumanizationSourceContent:
+      type: object
+      additionalProperties: false
+      required: [id, task_id, fact_version_id, version, content_hash, title, summary, body_markdown, tags]
+      properties:
+        id: {type: string, format: uuid}
+        task_id: {type: string, format: uuid}
+        fact_version_id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        content_hash: {type: string}
+        title: {type: string}
+        summary: {type: string}
+        body_markdown: {type: string}
+        tags: {type: array, items: {type: string}}
+    HumanizationSnapshot:
+      type: object
+      additionalProperties: false
+      required: [adapter_name, contract_version, channel, model, humanization_prompt, source_content, source_generation_job_id, user_prompt_markdown, generation_data_classification, generation_data_classified_by, generation_data_classified_at, approved_facts, task_requirements, system_message, user_message]
+      properties:
+        adapter_name: {type: string, const: openai-compatible-chat-completions}
+        contract_version: {type: string, const: humanization-json-v1}
+        channel: {type: object, additionalProperties: true}
+        model: {type: object, additionalProperties: true}
+        humanization_prompt: {$ref: '#/components/schemas/HumanizationPromptSnapshot'}
+        source_content: {$ref: '#/components/schemas/HumanizationSourceContent'}
+        source_generation_job_id: {type: string, format: uuid}
+        user_prompt_markdown: {type: string}
+        generation_data_classification: {$ref: '#/components/schemas/Confidentiality'}
+        generation_data_classified_by: {type: string, format: uuid}
+        generation_data_classified_at: {type: string, format: date-time}
+        approved_facts: {type: object, additionalProperties: true}
+        task_requirements: {type: object, additionalProperties: true}
+        system_message: {type: string}
         user_message: {type: string}
     GenerationJobList:
       type: object
@@ -2430,10 +2542,18 @@ components:
       properties:
         job_id: {type: string, format: uuid}
         input_snapshot: {$ref: '#/components/schemas/GenerationSnapshot'}
+    HumanizationTrace:
+      type: object
+      additionalProperties: false
+      required: [job_id, source_content_version_id, input_snapshot]
+      properties:
+        job_id: {type: string, format: uuid}
+        source_content_version_id: {type: string, format: uuid}
+        input_snapshot: {$ref: '#/components/schemas/HumanizationSnapshot'}
     ContentReviewContext:
       type: object
       additionalProperties: false
-      required: [content, task, fact_version, evidence_statuses, diff, generation_trace, available_actions, review_history]
+      required: [content, task, fact_version, evidence_statuses, diff, generation_trace, humanization_traces, available_actions, review_history]
       properties:
         content: {$ref: '#/components/schemas/ContentVersion'}
         task: {$ref: '#/components/schemas/ContentTask'}
@@ -2447,6 +2567,9 @@ components:
           anyOf:
             - {$ref: '#/components/schemas/GenerationTrace'}
             - {type: 'null'}
+        humanization_traces:
+          type: array
+          items: {$ref: '#/components/schemas/HumanizationTrace'}
         available_actions: {type: array, items: {$ref: '#/components/schemas/ContentReviewAction'}}
         review_history: {type: array, items: {$ref: '#/components/schemas/ReviewRecord'}}
     PublicationPackage:

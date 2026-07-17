@@ -27,6 +27,7 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
+from app.schemas.content import HumanizationSnapshot
 from app.services import generation, generation_dispatch
 from app.services.credentials import CredentialCipher
 
@@ -80,6 +81,7 @@ class FakeAIState:
 
     def __init__(self, *, blocked: bool, status_code: int) -> None:
         self.calls = 0
+        self.requests: list[dict[str, Any]] = []
         self.status_code = status_code
         self.lock = threading.Lock()
         self.received = threading.Event()
@@ -100,9 +102,10 @@ def fake_ai_server(
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self) -> None:  # noqa: N802 - 标准库回调名称固定
             length = int(self.headers.get("content-length", "0"))
-            json.loads(self.rfile.read(length))
+            request_body = json.loads(self.rfile.read(length))
             with state.lock:
                 state.calls += 1
+                state.requests.append(request_body)
             state.received.set()
             if not state.release.wait(timeout=10):
                 self.send_error(504)
@@ -227,19 +230,22 @@ def seed_generation_job(
     created_at: datetime | None = None,
 ) -> uuid.UUID:
     """写入满足全部数据库触发器的最小生成聚合。"""
-    ids = {name: uuid.uuid4() for name in (
-        "user",
-        "product",
-        "fact",
-        "topic",
-        "platform_type",
-        "profile",
-        "profile_version",
-        "task",
-        "channel",
-        "model",
-        "job",
-    )}
+    ids = {
+        name: uuid.uuid4()
+        for name in (
+            "user",
+            "product",
+            "fact",
+            "topic",
+            "platform_type",
+            "profile",
+            "profile_version",
+            "task",
+            "channel",
+            "model",
+            "job",
+        )
+    }
     snapshot = generation_snapshot(
         channel_id=ids["channel"],
         model_id=ids["model"],
@@ -277,7 +283,22 @@ def seed_generation_job(
             (
                 ids["fact"],
                 ids["product"],
-                Jsonb(snapshot["approved_facts"]),
+                Jsonb(
+                    {
+                        "reference_parts": [],
+                        "parameters": [],
+                        "replacement_relations": [],
+                        "evidences": [],
+                        "claims": [
+                            {
+                                "client_key": "approved-claim",
+                                "type": "APPROVED",
+                                "text": "正文只包含已批准事实。",
+                                "evidence_keys": [],
+                            }
+                        ],
+                    }
+                ),
                 ids["user"],
                 ids["user"],
             ),
@@ -356,10 +377,11 @@ def seed_generation_job(
         )
         cursor.execute(
             "INSERT INTO generation_jobs "
-            "(id, content_task_id, idempotency_key, status, input_snapshot, ai_channel_id, "
+            "(id, content_task_id, idempotency_key, job_type, status, input_snapshot, "
+            "ai_channel_id, "
             "ai_model_id, adapter_name, prompt_template_version, prompt_hash, attempt_count, "
             "created_by, created_at) "
-            "VALUES (%s, %s, %s, 'PENDING', %s, %s, %s, "
+            "VALUES (%s, %s, %s, 'GENERATE', 'PENDING', %s, %s, %s, "
             "'openai-compatible-chat-completions', 'chat-json-v1', %s, 0, %s, %s)",
             (
                 ids["job"],
@@ -399,16 +421,92 @@ def clone_retry_job(test_url: str, original_id: uuid.UUID) -> uuid.UUID:
     with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
         cursor.execute(
             "INSERT INTO generation_jobs "
-            "(id, content_task_id, idempotency_key, status, input_snapshot, ai_channel_id, "
+            "(id, content_task_id, idempotency_key, job_type, status, input_snapshot, "
+            "ai_channel_id, "
             "ai_model_id, adapter_name, prompt_template_version, prompt_hash, attempt_count, "
             "retry_of_id, created_by) "
-            "SELECT %s, content_task_id, %s, 'PENDING', input_snapshot, ai_channel_id, "
+            "SELECT %s, content_task_id, %s, job_type, 'PENDING', input_snapshot, ai_channel_id, "
             "ai_model_id, adapter_name, prompt_template_version, prompt_hash, 0, id, created_by "
             "FROM generation_jobs WHERE id = %s",
             (retry_id, f"retry-{retry_id.hex}", original_id),
         )
         connection.commit()
     return retry_id
+
+
+def seed_humanization_job(
+    test_url: str,
+    original_generation_job_id: uuid.UUID,
+    source_content_id: uuid.UUID,
+) -> uuid.UUID:
+    """基于真实生成结果写入严格自然化快照，供 Worker HTTP 集成验证。"""
+    job_id = uuid.uuid4()
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT content_task_id, ai_channel_id, ai_model_id, input_snapshot, created_by "
+            "FROM generation_jobs WHERE id = %s",
+            (original_generation_job_id,),
+        )
+        task_id, channel_id, model_id, original, created_by = cursor.fetchone()
+        cursor.execute(
+            "SELECT id, task_id, fact_version_id, version, content_hash, title, summary, "
+            "body_markdown, tags FROM content_versions WHERE id = %s",
+            (source_content_id,),
+        )
+        source = cursor.fetchone()
+        source_payload = {
+            "id": str(source[0]),
+            "task_id": str(source[1]),
+            "fact_version_id": str(source[2]),
+            "version": source[3],
+            "content_hash": source[4],
+            "title": source[5],
+            "summary": source[6],
+            "body_markdown": source[7],
+            "tags": source[8],
+        }
+        snapshot = {
+            "adapter_name": "openai-compatible-chat-completions",
+            "contract_version": "humanization-json-v1",
+            "channel": original["channel"],
+            "model": original["model"],
+            "humanization_prompt": {
+                "revision": 1,
+                "template_markdown": "保持批准事实，只改善表达。",
+            },
+            "source_content": source_payload,
+            "source_generation_job_id": str(original_generation_job_id),
+            "user_prompt_markdown": original["user_prompt_markdown"],
+            "generation_data_classification": original["generation_data_classification"],
+            "generation_data_classified_by": original["generation_data_classified_by"],
+            "generation_data_classified_at": original["generation_data_classified_at"],
+            "approved_facts": original["approved_facts"],
+            "task_requirements": original["task_requirements"],
+            "system_message": "只改写表达并返回严格 JSON。",
+            "user_message": "待自然化源文章\n" + json.dumps(source_payload, ensure_ascii=False),
+        }
+        HumanizationSnapshot.model_validate(snapshot)
+        cursor.execute(
+            "INSERT INTO generation_jobs "
+            "(id, content_task_id, idempotency_key, job_type, source_content_version_id, "
+            "status, input_snapshot, ai_channel_id, ai_model_id, adapter_name, "
+            "prompt_template_version, prompt_hash, attempt_count, created_by) "
+            "VALUES (%s, %s, %s, 'HUMANIZE', %s, 'PENDING', %s, %s, %s, "
+            "'openai-compatible-chat-completions', 'humanization-json-v1', %s, 0, %s)",
+            (
+                job_id,
+                task_id,
+                f"humanize-{job_id.hex}",
+                source_content_id,
+                Jsonb(snapshot),
+                channel_id,
+                model_id,
+                "5" * 64,
+                created_by,
+            ),
+        )
+        connection.commit()
+    return job_id
 
 
 @pytest.mark.integration
@@ -429,10 +527,7 @@ def test_duplicate_workers_use_one_real_provider_call_and_one_content_version(
             patched_sessions(monkeypatch, sqlalchemy_url),
             ThreadPoolExecutor(max_workers=2) as executor,
         ):
-            futures = [
-                executor.submit(generation.process_generation_job, job_id)
-                for _ in range(2)
-            ]
+            futures = [executor.submit(generation.process_generation_job, job_id) for _ in range(2)]
             for future in futures:
                 future.result(timeout=15)
             generation.process_generation_job(job_id)
@@ -457,6 +552,71 @@ def test_duplicate_workers_use_one_real_provider_call_and_one_content_version(
 
 
 @pytest.mark.integration
+def test_humanization_uses_real_http_and_creates_repeatable_immutable_versions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """自然化复用真实 HTTP 边界，重复消息和再次自然化都保持版本关系。"""
+    with (
+        temporary_database("partsignal_humanization_http") as (
+            test_url,
+            sqlalchemy_url,
+            _,
+        ),
+        fake_ai_server() as (base_url, state),
+    ):
+        original_job_id = seed_generation_job(test_url, base_url=base_url)
+        with patched_sessions(monkeypatch, sqlalchemy_url):
+            generation.process_generation_job(original_job_id)
+            with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT content_version_id FROM generation_jobs WHERE id = %s",
+                    (original_job_id,),
+                )
+                source_id = cursor.fetchone()[0]
+            first_humanization_id = seed_humanization_job(test_url, original_job_id, source_id)
+            generation.process_generation_job(first_humanization_id)
+            generation.process_generation_job(first_humanization_id)
+            with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT content_version_id FROM generation_jobs WHERE id = %s",
+                    (first_humanization_id,),
+                )
+                first_result_id = cursor.fetchone()[0]
+            second_humanization_id = seed_humanization_job(
+                test_url, original_job_id, first_result_id
+            )
+            generation.process_generation_job(second_humanization_id)
+
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT status, content_version_id FROM generation_jobs "
+                "WHERE id = ANY(%s) ORDER BY created_at",
+                ([first_humanization_id, second_humanization_id],),
+            )
+            humanization_rows = cursor.fetchall()
+            assert all(row[0] == "SUCCEEDED" for row in humanization_rows)
+            cursor.execute(
+                "SELECT based_on_id, source_type, status FROM content_versions "
+                "WHERE source_job_id = %s",
+                (first_humanization_id,),
+            )
+            assert cursor.fetchone() == (source_id, "AI", "DRAFT")
+            cursor.execute(
+                "SELECT based_on_id, source_type, status FROM content_versions "
+                "WHERE source_job_id = %s",
+                (second_humanization_id,),
+            )
+            assert cursor.fetchone() == (first_result_id, "AI", "DRAFT")
+            cursor.execute(
+                "SELECT status FROM content_versions WHERE id = %s",
+                (source_id,),
+            )
+            assert cursor.fetchone() == ("DRAFT",)
+        assert state.calls == 3
+        assert "待自然化源文章" in state.requests[1]["messages"][1]["content"]
+
+
+@pytest.mark.integration
 def test_max_timeout_is_not_killed_early_and_late_response_cannot_win(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -478,20 +638,25 @@ def test_max_timeout_is_not_killed_early_and_late_response_cannot_win(
             assert state.received.wait(timeout=10)
             with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
                 cursor.execute(
-                    "SELECT started_at, lease_expires_at "
-                    "FROM generation_jobs WHERE id = %s",
+                    "SELECT started_at, lease_expires_at FROM generation_jobs WHERE id = %s",
                     (job_id,),
                 )
                 started_at, lease_expires_at = cursor.fetchone()
             assert lease_expires_at - started_at == timedelta(
                 seconds=600 + settings.generation_finalize_grace_seconds
             )
-            assert generation_dispatch.fail_expired_generation_jobs(
-                now=started_at + timedelta(seconds=600)
-            ) == 0
-            assert generation_dispatch.fail_expired_generation_jobs(
-                now=lease_expires_at + timedelta(seconds=1)
-            ) == 1
+            assert (
+                generation_dispatch.fail_expired_generation_jobs(
+                    now=started_at + timedelta(seconds=600)
+                )
+                == 0
+            )
+            assert (
+                generation_dispatch.fail_expired_generation_jobs(
+                    now=lease_expires_at + timedelta(seconds=1)
+                )
+                == 1
+            )
             state.release.set()
             future.result(timeout=15)
 
@@ -536,6 +701,7 @@ def test_accepted_broker_message_with_lost_metadata_is_safely_redispatched(
             created_at=datetime.now(UTC) - timedelta(minutes=10),
         )
         with patched_sessions(monkeypatch, sqlalchemy_url):
+
             def sender(value: str) -> object:
                 return broker.send_task(
                     "partsignal.generate_content",
@@ -598,18 +764,18 @@ def test_concurrent_pending_recovery_skips_locked_job(
             patched_sessions(monkeypatch, sqlalchemy_url),
             ThreadPoolExecutor(max_workers=2) as executor,
         ):
-                first = executor.submit(
-                    generation_dispatch.redispatch_pending_generation_jobs,
-                    blocking_sender,
-                )
-                assert entered.wait(timeout=10)
-                second = executor.submit(
-                    generation_dispatch.redispatch_pending_generation_jobs,
-                    blocking_sender,
-                )
-                second_result = second.result(timeout=10)
-                release.set()
-                first_result = first.result(timeout=10)
+            first = executor.submit(
+                generation_dispatch.redispatch_pending_generation_jobs,
+                blocking_sender,
+            )
+            assert entered.wait(timeout=10)
+            second = executor.submit(
+                generation_dispatch.redispatch_pending_generation_jobs,
+                blocking_sender,
+            )
+            second_result = second.result(timeout=10)
+            release.set()
+            first_result = first.result(timeout=10)
 
         assert first_result.selected == 1
         assert first_result.dispatched == 1
@@ -670,8 +836,7 @@ def test_provider_failure_has_safe_diagnostic_code(
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute(
-                "SELECT status, error_code, error_summary "
-                "FROM generation_jobs WHERE id = %s",
+                "SELECT status, error_code, error_summary FROM generation_jobs WHERE id = %s",
                 (job_id,),
             )
             status, error_code, error_summary = cursor.fetchone()

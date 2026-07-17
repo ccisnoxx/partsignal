@@ -15,6 +15,7 @@ from app.models.ai_generation import (
     AIModel,
 )
 from app.models.configuration import (
+    ContentHumanizationPrompt,
     PlatformPrompt,
     PlatformType,
 )
@@ -33,6 +34,8 @@ from app.schemas.configuration import (
     AIModelList,
     AIModelOut,
     AIModelUpdate,
+    ContentHumanizationPromptOut,
+    ContentHumanizationPromptPut,
     DiscoveredModel,
     DiscoveredModelList,
     PlatformProfileOut,
@@ -95,6 +98,9 @@ from app.services.platform_configuration import (
     delete_platform_type as delete_platform_type_command,
 )
 from app.services.platform_configuration import (
+    put_content_humanization_prompt as put_content_humanization_prompt_command,
+)
+from app.services.platform_configuration import (
     put_platform_prompt as put_platform_prompt_command,
 )
 from app.services.platform_configuration import (
@@ -150,6 +156,47 @@ def platform_type_out(platform_type: PlatformType) -> PlatformTypeOut:
 
 def platform_prompt_out(prompt: PlatformPrompt) -> PlatformPromptOut:
     return PlatformPromptOut.model_validate(prompt)
+
+
+def content_humanization_prompt_out(
+    prompt: ContentHumanizationPrompt,
+) -> ContentHumanizationPromptOut:
+    return ContentHumanizationPromptOut.model_validate(prompt)
+
+
+@router.get(
+    "/content-humanization-prompt",
+    response_model=ContentHumanizationPromptOut,
+    operation_id="getContentHumanizationPrompt",
+)
+def get_content_humanization_prompt(
+    db: DbSession, _admin: AdminUser
+) -> ContentHumanizationPromptOut:
+    prompt = db.get(ContentHumanizationPrompt, 1)
+    if prompt is None:
+        raise not_found("自然化 Prompt")
+    return content_humanization_prompt_out(prompt)
+
+
+@router.put(
+    "/content-humanization-prompt",
+    response_model=ContentHumanizationPromptOut,
+    operation_id="putContentHumanizationPrompt",
+)
+def put_content_humanization_prompt(
+    payload: ContentHumanizationPromptPut,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
+) -> ContentHumanizationPromptOut:
+    prompt = put_content_humanization_prompt_command(
+        db=db,
+        payload=payload,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
+    return content_humanization_prompt_out(prompt)
 
 
 @router.get("/platform-types", response_model=PlatformTypeList, operation_id="listPlatformTypes")

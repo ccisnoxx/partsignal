@@ -180,6 +180,9 @@ async function expectTextInPaginatedTable(page: Page, text: string) {
 test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ page }) => {
   const suffix = randomUUID().slice(0, 8);
   const csrf = await login(page, 'admin');
+  const initialHumanizationPrompt = await page.request.get('/api/v1/content-humanization-prompt');
+  expect([200, 404]).toContain(initialHumanizationPrompt.status());
+  const humanizationPromptWasConfigured = initialHumanizationPrompt.ok();
   const nonexistentId = randomUUID();
   for (const path of [
     `/api/v1/products/${nonexistentId}`,
@@ -373,11 +376,26 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect(forbiddenGeneration.status()).toBe(409);
   expect(await forbiddenGeneration.json()).toMatchObject({ error: { code: 'AI_DATA_CLASSIFICATION_FORBIDDEN' } });
   const promptedTask = await body<{ revision: number }>(await page.request.patch(`/api/v1/content-tasks/${task.id as string}/user-prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: internalTask.revision, user_prompt_markdown: `请说明 ${product!.part_number} 的 5 V 参数和替代边界。`, generation_data_classification: 'PUBLIC' } }));
-  const job = await body<{ id: string }>(await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-${suffix}` }, data: { ai_model_id: model.id } }));
-  await expect.poll(async () => (await body<{ status: string; content_version_id: string | null }>(await page.request.get(`/api/v1/generation-jobs/${job.id}`))).status, { timeout: 30_000 }).toBe('SUCCEEDED');
+  await page.goto(`/tasks/${task.id as string}`);
+  if (!humanizationPromptWasConfigured) {
+    await expect(page.getByText('管理员尚未配置全局自然化 Prompt；现有草稿生成不受影响，自然化入口暂不可用。')).toBeVisible();
+  }
+  await page.getByLabel('生成模型').fill(`E2E 渠道 ${suffix}`);
+  await page.getByLabel('生成模型').press('Enter');
+  await page.getByRole('button', { name: '生成草稿' }).click();
+  let generatedJobId: string | undefined;
+  await expect.poll(async () => {
+    const aiJobs = await body<{ items: Array<{ id: string; job_type: string; status: string }> }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}/generation-jobs`));
+    const originalJob = aiJobs.items.find((item) => item.job_type === 'GENERATE');
+    generatedJobId = originalJob?.id;
+    return originalJob?.status;
+  }, { timeout: 30_000 }).toBe('SUCCEEDED');
+  expect(generatedJobId).toBeTruthy();
+  const job = { id: generatedJobId! };
   const completedJob = await body<{ content_version_id: string; provider_request_id: string | null; response_duration_ms: number | null; prompt_tokens: number | null; completion_tokens: number | null; total_tokens: number | null; input_snapshot: { system_message: string; user_prompt_markdown: string } }>(await page.request.get(`/api/v1/generation-jobs/${job.id}`));
   const generatedContentId = completedJob.content_version_id;
-  expect(await body<{ source_type: string; status: string }>(await page.request.get(`/api/v1/content-versions/${generatedContentId}`))).toMatchObject({ source_type: 'AI', status: 'DRAFT' });
+  const generatedContentBeforeHumanization = await body<{ id: string; title: string; summary: string; body_markdown: string; tags: string[]; content_hash: string; source_type: string; status: string }>(await page.request.get(`/api/v1/content-versions/${generatedContentId}`));
+  expect(generatedContentBeforeHumanization).toMatchObject({ source_type: 'AI', status: 'DRAFT' });
   const inUseFactDelete = await page.request.delete(`/api/v1/fact-versions/${factVersion.id as string}`, { headers: { 'X-CSRF-Token': csrf } });
   expect(inUseFactDelete.status()).toBe(409);
   expect(await inUseFactDelete.json()).toMatchObject({
@@ -400,6 +418,52 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   for (const forbidden of ['datasheet.pdf', 'e2e-only-key', 'header-secret', 'evidence_keys', 'source_url', 'file_id']) {
     expect(providerPayload).not.toContain(forbidden);
   }
+  const sourceVersionRow = page.getByRole('region', { name: '内容版本列表' }).getByRole('row').filter({ has: page.getByRole('link', { name: 'V1', exact: true }) });
+  if (!humanizationPromptWasConfigured) {
+    await expect(sourceVersionRow.getByRole('button', { name: '自然化' })).toBeDisabled();
+    const missingPromptHumanization = await page.request.post(`/api/v1/content-versions/${generatedContentId}/humanization-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-humanization-no-prompt-${suffix}` }, data: { ai_model_id: model.id } });
+    expect(missingPromptHumanization.status()).toBe(409);
+    expect(await missingPromptHumanization.json()).toMatchObject({ error: { code: 'HUMANIZATION_PROMPT_MISSING' } });
+  }
+  await page.goto('/configuration/prompts');
+  await expect(page.getByRole('heading', { name: 'Prompt 管理' })).toBeVisible();
+  const e2eHumanizationPrompt = '保留批准事实与必要披露，减少机械衔接，使用自然、克制的中文表达。';
+  await page.getByLabel('自然化 Prompt Markdown').fill(e2eHumanizationPrompt);
+  const humanizationSaveResponse = page.waitForResponse((response) => response.url().endsWith('/api/v1/content-humanization-prompt') && response.request().method() === 'PUT');
+  await page.getByRole('button', { name: humanizationPromptWasConfigured ? '按 revision 保存' : '首次保存并启用' }).click();
+  expect((await humanizationSaveResponse).ok()).toBeTruthy();
+  await expect(page.getByText('自然化 Prompt 已保存')).toBeVisible();
+
+  await page.goto(`/tasks/${task.id as string}`);
+  const refreshedSourceRow = page.getByRole('region', { name: '内容版本列表' }).getByRole('row').filter({ has: page.getByRole('link', { name: 'V1', exact: true }) });
+  await expect(refreshedSourceRow.getByRole('button', { name: '自然化' })).toBeEnabled();
+  const modelCallsBeforeHumanization = await body<{ count: number }>(await page.request.get('http://127.0.0.1:9001/e2e/calls/e2e-model'));
+  await refreshedSourceRow.getByRole('button', { name: '自然化' }).click();
+  const humanizationDialog = page.getByRole('dialog', { name: '自然化 V1' });
+  await expect(humanizationDialog).toBeVisible();
+  await humanizationDialog.getByLabel('自然化模型').fill(`E2E 渠道 ${suffix}`);
+  await humanizationDialog.getByLabel('自然化模型').press('Enter');
+  await humanizationDialog.getByRole('button', { name: '创建自然化作业' }).click();
+  let humanizationJobId: string | undefined;
+  let humanizedContentId: string | null | undefined;
+  await expect.poll(async () => {
+    const aiJobs = await body<{ items: Array<{ id: string; job_type: string; status: string; content_version_id: string | null }> }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}/generation-jobs`));
+    const humanizationJob = aiJobs.items.find((item) => item.job_type === 'HUMANIZE');
+    humanizationJobId = humanizationJob?.id;
+    humanizedContentId = humanizationJob?.content_version_id;
+    return humanizationJob?.status;
+  }, { timeout: 30_000 }).toBe('SUCCEEDED');
+  expect(humanizationJobId).toBeTruthy();
+  expect(humanizedContentId).toBeTruthy();
+  expect(await body<{ count: number }>(await page.request.get('http://127.0.0.1:9001/e2e/calls/e2e-model'))).toEqual({ count: modelCallsBeforeHumanization.count + 1 });
+  const humanizationDetail = await body<{ job_type: string; source_content_version_id: string; input_snapshot: { humanization_prompt: { template_markdown: string }; model: { id: string }; source_content: { id: string; content_hash: string } } }>(await page.request.get(`/api/v1/generation-jobs/${humanizationJobId!}`));
+  expect(humanizationDetail).toMatchObject({ job_type: 'HUMANIZE', source_content_version_id: generatedContentId, input_snapshot: { humanization_prompt: { template_markdown: e2eHumanizationPrompt }, model: { id: model.id }, source_content: { id: generatedContentId, content_hash: generatedContentBeforeHumanization.content_hash } } });
+  const generatedContentAfterHumanization = await body<typeof generatedContentBeforeHumanization>(await page.request.get(`/api/v1/content-versions/${generatedContentId}`));
+  expect(generatedContentAfterHumanization).toEqual(generatedContentBeforeHumanization);
+  expect(await body<{ source_type: string; status: string; source_job_id: string; based_on_id: string }>(await page.request.get(`/api/v1/content-versions/${humanizedContentId!}`))).toMatchObject({ source_type: 'AI', status: 'DRAFT', source_job_id: humanizationJobId, based_on_id: generatedContentId });
+  await page.goto(`/content/${humanizedContentId!}`);
+  await expect(page.locator('#review-diff')).toBeVisible();
+  await expect(page.locator('#review-trace').getByText('自然化 1', { exact: true })).toBeVisible();
   await body(await page.request.put(`/api/v1/platform-profiles/${profile.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: '使用更新后的技术说明语气，只依据输入事实。', expected_revision: platformPrompt.revision } }));
   await body(await page.request.patch(`/api/v1/content-tasks/${task.id as string}/user-prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: promptedTask.revision, user_prompt_markdown: `第二次生成仍只说明 ${product!.part_number} 的 5 V 已批准事实。`, generation_data_classification: 'PUBLIC' } }));
   const secondJob = await body<{ id: string }>(await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-second-${suffix}` }, data: { ai_model_id: model.id } }));
@@ -446,7 +510,8 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page.locator('#task-generation')).toBeVisible();
   await expect(page.locator('#task-versions')).toBeVisible();
   await expect(page.getByText('成功').first()).toBeVisible();
-  await expect(page.getByText('Token 数：不可用')).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: '耗时 / Token' })).toBeVisible();
+  await expect(page.getByText(/ms \/ —/).first()).toBeVisible();
   await expect(page.getByText(`E2E 论坛 ${suffix}`, { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'V1' })).toBeVisible();
   await page.goto(`/content/${submittedId}`);

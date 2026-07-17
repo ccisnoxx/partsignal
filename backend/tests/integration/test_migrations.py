@@ -130,16 +130,19 @@ def content_task_columns(test_url: str) -> set[str]:
 
 def seed_legacy_content_task(test_url: str) -> uuid.UUID:
     """在 0012 之前写入最小合法任务，验证升级不会猜测数据分级。"""
-    ids = {name: uuid.uuid4() for name in (
-        "user",
-        "product",
-        "fact",
-        "topic",
-        "platform_type",
-        "profile",
-        "profile_version",
-        "task",
-    )}
+    ids = {
+        name: uuid.uuid4()
+        for name in (
+            "user",
+            "product",
+            "fact",
+            "topic",
+            "platform_type",
+            "profile",
+            "profile_version",
+            "task",
+        )
+    }
     with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
         cursor.execute(
             "INSERT INTO users "
@@ -289,6 +292,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
                         "geo_observations",
                         "platform_types",
                         "platform_prompts",
+                        "content_humanization_prompts",
                         "ai_channels",
                         "ai_channel_headers",
                         "ai_models",
@@ -303,6 +307,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
                 "geo_observations",
                 "platform_types",
                 "platform_prompts",
+                "content_humanization_prompts",
                 "ai_channels",
                 "ai_channel_headers",
                 "ai_models",
@@ -328,6 +333,8 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
             assert index_definition is not None
             assert "COALESCE(last_dispatch_attempt_at, created_at)" in index_definition[0]
             assert "WHERE ((status)::text = 'PENDING'::text)" in index_definition[0]
+            cursor.execute("SELECT count(*) FROM content_humanization_prompts")
+            assert cursor.fetchone() == (0,)
             cursor.execute(
                 "SELECT tgname FROM pg_trigger WHERE NOT tgisinternal AND tgname = ANY(%s)",
                 (
@@ -695,8 +702,7 @@ def test_legacy_seed_users_are_cleaned_with_sessions() -> None:
     """六个旧初始化账号升级后只保留管理员和内容工程师。"""
     with temporary_database("partsignal_cleanup") as (test_url, env, backend_dir):
         user_ids = {
-            username: uuid.uuid4()
-            for username in ("admin", "content_editor", *CLEANUP_USERNAMES)
+            username: uuid.uuid4() for username in ("admin", "content_editor", *CLEANUP_USERNAMES)
         }
         roles = {
             "admin": "SYSTEM_ADMIN",
@@ -767,8 +773,7 @@ def test_referenced_legacy_users_abort_the_complete_cleanup() -> None:
     """业务或审计引用必须汇总报错，并回滚全部账号与强制改密变更。"""
     with temporary_database("partsignal_cleanup_blocked") as (test_url, env, backend_dir):
         user_ids = {
-            username: uuid.uuid4()
-            for username in ("admin", "content_editor", *CLEANUP_USERNAMES)
+            username: uuid.uuid4() for username in ("admin", "content_editor", *CLEANUP_USERNAMES)
         }
         run_alembic(env, backend_dir, "0009_config_center")
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
@@ -1146,3 +1151,135 @@ def test_fact_review_cleanup_guard() -> None:
             connection.rollback()
             cursor.execute("SELECT version_num FROM alembic_version")
             assert cursor.fetchone() == ("0015_platform_rule_draft_editing",)
+
+
+@pytest.mark.integration
+def test_content_humanization_migration_constraints_and_forward_only_history() -> None:
+    """0017 不预置 Prompt，并保护作业类型、活动唯一性和历史可读性。"""
+    with temporary_database("partsignal_humanization") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0016_fact_review_cleanup")
+        task_id = seed_legacy_content_task(test_url)
+        generation_job_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT created_by FROM content_tasks WHERE id = %s", (task_id,))
+            user_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO generation_jobs "
+                "(id, content_task_id, idempotency_key, status, input_snapshot, adapter_name, "
+                "prompt_template_version, prompt_hash, attempt_count, created_by) "
+                "VALUES (%s, %s, %s, 'SUCCEEDED', '{}'::jsonb, 'legacy', 'legacy', %s, 1, %s)",
+                (generation_job_id, task_id, f"legacy-{generation_job_id.hex}", "0" * 64, user_id),
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "head")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM content_humanization_prompts")
+            assert cursor.fetchone() == (0,)
+            cursor.execute(
+                "SELECT job_type, source_content_version_id FROM generation_jobs WHERE id = %s",
+                (generation_job_id,),
+            )
+            assert cursor.fetchone() == ("GENERATE", None)
+            cursor.execute(
+                "SELECT column_default FROM information_schema.columns "
+                "WHERE table_name = 'generation_jobs' AND column_name = 'job_type'"
+            )
+            assert cursor.fetchone() == (None,)
+
+        subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0016_fact_review_cleanup"],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        run_alembic(env, backend_dir, "head")
+
+        source_id = uuid.uuid4()
+        humanization_job_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT fact_version_id, created_by FROM content_tasks WHERE id = %s",
+                (task_id,),
+            )
+            fact_id, user_id = cursor.fetchone()
+            cursor.execute(
+                "INSERT INTO content_versions "
+                "(id, task_id, fact_version_id, source_job_id, version, source_type, title, "
+                "summary, body_markdown, tags, content_hash, status, revision, quality_issues, "
+                "change_summary, created_by) "
+                "VALUES (%s, %s, %s, %s, 1, 'AI', '源文章', '摘要', '正文', ARRAY['test'], "
+                "%s, 'DRAFT', 0, '[]'::jsonb, '原始生成', %s)",
+                (source_id, task_id, fact_id, generation_job_id, "1" * 64, user_id),
+            )
+            cursor.execute(
+                "UPDATE generation_jobs SET content_version_id = %s WHERE id = %s",
+                (source_id, generation_job_id),
+            )
+            cursor.execute(
+                "INSERT INTO generation_jobs "
+                "(id, content_task_id, idempotency_key, job_type, source_content_version_id, "
+                "status, input_snapshot, adapter_name, prompt_template_version, prompt_hash, "
+                "attempt_count, created_by) "
+                "VALUES (%s, %s, %s, 'HUMANIZE', %s, 'PENDING', '{}'::jsonb, 'test', "
+                "'humanization-json-v1', %s, 0, %s)",
+                (
+                    humanization_job_id,
+                    task_id,
+                    f"humanize-{humanization_job_id.hex}",
+                    source_id,
+                    "2" * 64,
+                    user_id,
+                ),
+            )
+            connection.commit()
+
+            with pytest.raises(psycopg.errors.UniqueViolation):
+                cursor.execute(
+                    "INSERT INTO generation_jobs "
+                    "(id, content_task_id, idempotency_key, job_type, source_content_version_id, "
+                    "status, input_snapshot, adapter_name, prompt_template_version, prompt_hash, "
+                    "attempt_count, created_by) "
+                    "VALUES (%s, %s, %s, 'HUMANIZE', %s, 'RUNNING', '{}'::jsonb, 'test', "
+                    "'humanization-json-v1', %s, 0, %s)",
+                    (
+                        uuid.uuid4(),
+                        task_id,
+                        f"duplicate-{uuid.uuid4().hex}",
+                        source_id,
+                        "3" * 64,
+                        user_id,
+                    ),
+                )
+            connection.rollback()
+
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "INSERT INTO generation_jobs "
+                    "(id, content_task_id, idempotency_key, job_type, status, input_snapshot, "
+                    "adapter_name, prompt_template_version, prompt_hash, attempt_count, "
+                    "created_by) "
+                    "VALUES (%s, %s, %s, 'HUMANIZE', 'FAILED', '{}'::jsonb, 'test', "
+                    "'humanization-json-v1', %s, 0, %s)",
+                    (uuid.uuid4(), task_id, f"invalid-{uuid.uuid4().hex}", "4" * 64, user_id),
+                )
+            connection.rollback()
+
+        downgrade = subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0016_fact_review_cleanup"],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "content humanization history exists" in downgrade.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0017_content_humanization",)
+            cursor.execute(
+                "SELECT job_type FROM generation_jobs WHERE id = %s",
+                (humanization_job_id,),
+            )
+            assert cursor.fetchone() == ("HUMANIZE",)

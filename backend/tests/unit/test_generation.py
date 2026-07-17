@@ -16,11 +16,46 @@ from app.services.generation import (
     DevelopmentContentGenerator,
     ensure_generation_eligible,
     ensure_generation_sources_public,
+    ensure_humanization_egress_allowed,
     ensure_third_party_egress_allowed,
     generation_timeout_seconds,
     run_quality_checks,
     text_similarity,
 )
+
+
+def humanization_input() -> dict[str, object]:
+    """构造与生产自然化快照一致的最小输入。"""
+    original = generation_input()
+    approved_facts = cast(dict[str, object], original["approved_facts"])
+    approved_facts["evidence_confidentialities"] = ["PUBLIC"]
+    return {
+        "adapter_name": "openai-compatible-chat-completions",
+        "contract_version": "humanization-json-v1",
+        "channel": {"id": "channel", "timeout_seconds": 30},
+        "model": {"id": "model", "model_id": "demo", "request_parameters": {}},
+        "humanization_prompt": {"revision": 3, "template_markdown": "改善表达。"},
+        "source_content": {
+            "id": "00000000-0000-0000-0000-000000000010",
+            "task_id": "00000000-0000-0000-0000-000000000011",
+            "fact_version_id": "00000000-0000-0000-0000-000000000001",
+            "version": 1,
+            "content_hash": "a" * 64,
+            "title": "DEMO-001",
+            "summary": "摘要",
+            "body_markdown": "使用前必须核对具体应用条件。",
+            "tags": ["DEMO-001"],
+        },
+        "source_generation_job_id": "00000000-0000-0000-0000-000000000012",
+        "user_prompt_markdown": original["user_prompt_markdown"],
+        "generation_data_classification": "PUBLIC",
+        "generation_data_classified_by": "00000000-0000-0000-0000-000000000002",
+        "generation_data_classified_at": "2026-07-17T00:00:00Z",
+        "approved_facts": approved_facts,
+        "task_requirements": original["task_requirements"],
+        "system_message": "只改写表达并返回严格 JSON",
+        "user_message": "源文章、批准事实与任务要求",
+    }
 
 
 def generation_input() -> dict[str, object]:
@@ -185,11 +220,7 @@ def test_generation_sources_require_public_task_and_every_evidence() -> None:
         type(
             "Facts",
             (),
-            {
-                "evidences": [
-                    type("Evidence", (), {"confidentiality": Confidentiality.PUBLIC})()
-                ]
-            },
+            {"evidences": [type("Evidence", (), {"confidentiality": Confidentiality.PUBLIC})()]},
         )(),
     )
     ensure_generation_sources_public(task, public_facts)
@@ -207,13 +238,34 @@ def test_generation_lease_timeout_comes_from_immutable_snapshot() -> None:
     assert generation_timeout_seconds(input_data) == 600
 
 
+def test_humanization_snapshot_reuses_public_and_quality_boundaries() -> None:
+    input_data = humanization_input()
+    snapshot = ensure_humanization_egress_allowed(input_data)
+    assert snapshot.humanization_prompt.revision == 3
+    draft = GeneratedDraft(
+        title="DEMO-001",
+        summary="摘要",
+        body_markdown="参数为 99 V。使用前必须核对具体应用条件。",
+        tags=["DEMO-001"],
+    )
+    issues = run_quality_checks(draft, input_data, job_type="HUMANIZE")
+    assert any(issue["code"] == "UNKNOWN_NUMERIC_FACT" for issue in issues)
+    assert generation_timeout_seconds(input_data, job_type="HUMANIZE") == 30
+
+
+def test_humanization_snapshot_rejects_non_public_history() -> None:
+    input_data = humanization_input()
+    input_data["generation_data_classification"] = "INTERNAL"
+    with pytest.raises(AppError) as captured:
+        ensure_humanization_egress_allowed(input_data)
+    assert captured.value.code == "AI_DATA_CLASSIFICATION_FORBIDDEN"
+
+
 def test_third_party_egress_requires_public_task_and_evidence_classification() -> None:
     input_data = generation_input()
     input_data["adapter_name"] = "openai-compatible-chat-completions"
     input_data["generation_data_classification"] = "PUBLIC"
-    input_data["generation_data_classified_by"] = (
-        "00000000-0000-0000-0000-000000000002"
-    )
+    input_data["generation_data_classified_by"] = "00000000-0000-0000-0000-000000000002"
     input_data["generation_data_classified_at"] = "2026-07-11T00:00:00Z"
     approved_facts = cast(dict[str, object], input_data["approved_facts"])
     approved_facts["evidence_confidentialities"] = ["PUBLIC"]
@@ -233,9 +285,7 @@ def test_third_party_egress_rejects_missing_or_non_public_classification(
     input_data = generation_input()
     input_data["adapter_name"] = "openai-compatible-chat-completions"
     input_data["generation_data_classification"] = classification
-    input_data["generation_data_classified_by"] = (
-        "00000000-0000-0000-0000-000000000002"
-    )
+    input_data["generation_data_classified_by"] = "00000000-0000-0000-0000-000000000002"
     input_data["generation_data_classified_at"] = "2026-07-11T00:00:00Z"
     approved_facts = cast(dict[str, object], input_data["approved_facts"])
     if evidence_classifications is not None:

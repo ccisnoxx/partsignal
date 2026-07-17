@@ -195,3 +195,10 @@ db.delete(version)
 ```
 
 两组操作都必须位于各自的单一数据库事务内；刷新只固定约束检查顺序，不提前提交。
+
+### 8. 自然化单例配置与活动作业
+
+- `content_humanization_prompts` 只允许 `id=1`，迁移后保持空表，`updated_by` 必须引用真实管理员。历史作业自己冻结 Prompt，因此不得增加 Prompt 历史表或第二来源。
+- `generation_jobs.job_type` 只允许 `GENERATE | HUMANIZE`；前者的 `source_content_version_id` 必须为空，后者必须非空并 `RESTRICT` 引用源版本。
+- 同一源版本只允许一个 `PENDING | RUNNING` 自然化作业，使用 PostgreSQL 部分唯一索引处理并发竞态；服务端校验用于返回稳定业务错误，不替代数据库约束。
+- 自然化成功只新增 `ContentVersion(source_type=AI, source_job_id=job.id, based_on_id=source.id)`，禁止更新源版本。存在任一 `HUMANIZE` 历史后，0017 downgrade 必须在删除任何结构前失败。

@@ -8,6 +8,7 @@ import uuid
 from typing import Any
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
@@ -19,6 +20,7 @@ from app.models.ai_generation import (
     GenerationJob,
 )
 from app.models.configuration import (
+    ContentHumanizationPrompt,
     PlatformProfile,
     PlatformProfileVersion,
     PlatformPrompt,
@@ -37,16 +39,21 @@ from app.schemas.content import (
     ContentRevisionCreate,
     GenerationJobCreate,
     GenerationSnapshot,
+    HumanizationSnapshot,
 )
 from app.schemas.geo_files import GeneratedDraft
 from app.schemas.product_facts import ProductFactsBody
+from app.services.content_lineage import resolve_content_ai_lineage
 from app.services.generation import (
     FIXED_SYSTEM_CONTRACT,
     GENERATION_CONTRACT_VERSION,
+    HUMANIZATION_CONTRACT_VERSION,
+    HUMANIZATION_FIXED_CONTRACT,
     DevelopmentContentGenerator,
     add_near_duplicate_warning,
     content_hash,
     ensure_generation_sources_public,
+    ensure_humanization_egress_allowed,
     ensure_third_party_egress_allowed,
     process_generation_job,
     run_quality_checks,
@@ -57,25 +64,49 @@ from app.worker import generate_content
 
 def source_generation_input(db: Session, content: ContentVersion) -> dict[str, Any]:
     """沿不可变修订链定位原始生成快照，避免读取漂移后的当前配置。"""
-    current = content
-    while True:
-        if current.source_job_id is not None:
-            job = db.get(GenerationJob, current.source_job_id)
-            if job is None:
-                raise AppError("GENERATION_SNAPSHOT_INVALID", "内容源作业不存在", 409)
-            GenerationSnapshot.model_validate(job.input_snapshot)
-            return job.input_snapshot
-        if current.based_on_id is None:
-            raise AppError("GENERATION_SNAPSHOT_INVALID", "内容版本缺少源生成快照", 409)
-        parent = db.get(ContentVersion, current.based_on_id)
-        if parent is None:
-            raise AppError("GENERATION_SNAPSHOT_INVALID", "内容修订链不完整", 409)
-        current = parent
+    lineage = resolve_content_ai_lineage(db, content)
+    if lineage is None:
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "内容版本缺少原始生成快照", 409)
+    return lineage.generation_snapshot.model_dump(mode="json")
 
 
-def build_generation_input(
-    db: Session, task: ContentTask, model: AIModel
-) -> dict[str, Any]:
+def _channel_snapshot(channel: AIChannel) -> dict[str, Any]:
+    """冻结连接所需非敏感配置和敏感 Header 名称。"""
+    return {
+        "id": str(channel.id),
+        "name": channel.name,
+        "base_url": channel.base_url,
+        "timeout_seconds": channel.timeout_seconds,
+        "plain_headers": {
+            item.name: item.plain_value
+            for item in channel.headers
+            if not item.is_sensitive and item.plain_value is not None
+        },
+        "sensitive_header_names": [item.name for item in channel.headers if item.is_sensitive],
+    }
+
+
+def _model_snapshot(model: AIModel) -> dict[str, Any]:
+    """冻结供应商模型身份与请求参数。"""
+    return {
+        "id": str(model.id),
+        "display_name": model.display_name,
+        "model_id": model.model_id,
+        "request_parameters": model.request_parameters,
+    }
+
+
+def _enabled_channel(db: Session, model: AIModel) -> AIChannel:
+    """校验用户选择的模型当前可以真实调用。"""
+    channel = db.get(AIChannel, model.channel_id)
+    if channel is None or not channel.is_enabled:
+        raise AppError("AI_CONFIGURATION_DISABLED", "所选 AI 渠道当前不可用", 409)
+    if not model.is_enabled or model.test_status != "PASSED":
+        raise AppError("AI_MODEL_NOT_TESTED", "所选 AI 模型未启用或未通过测试", 409)
+    return channel
+
+
+def build_generation_input(db: Session, task: ContentTask, model: AIModel) -> dict[str, Any]:
     """从服务端权威数据构造不含凭据和证据文档的不可变快照。"""
     fact = db.get(FactVersion, task.fact_version_id)
     if fact is None or fact.status != "APPROVED":
@@ -97,11 +128,7 @@ def build_generation_input(
     prompt = db.get(PlatformPrompt, profile.id)
     if prompt is None:
         raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少当前 Prompt", 409)
-    channel = db.get(AIChannel, model.channel_id)
-    if channel is None or not channel.is_enabled:
-        raise AppError("AI_CONFIGURATION_DISABLED", "所选 AI 渠道当前不可用", 409)
-    if not model.is_enabled or model.test_status != "PASSED":
-        raise AppError("AI_MODEL_NOT_TESTED", "所选 AI 模型未启用或未通过测试", 409)
+    channel = _enabled_channel(db, model)
     if not task.user_prompt_markdown.strip():
         raise AppError("USER_PROMPT_REQUIRED", "生成前必须填写工程师 Prompt", 409)
     facts = ProductFactsBody.model_validate(fact.snapshot_json)
@@ -164,24 +191,8 @@ def build_generation_input(
     return GenerationSnapshot(
         adapter_name=adapter_name,
         contract_version=GENERATION_CONTRACT_VERSION,
-        channel={
-            "id": str(channel.id),
-            "name": channel.name,
-            "base_url": channel.base_url,
-            "timeout_seconds": channel.timeout_seconds,
-            "plain_headers": {
-                item.name: item.plain_value
-                for item in channel.headers
-                if not item.is_sensitive and item.plain_value is not None
-            },
-            "sensitive_header_names": [item.name for item in channel.headers if item.is_sensitive],
-        },
-        model={
-            "id": str(model.id),
-            "display_name": model.display_name,
-            "model_id": model.model_id,
-            "request_parameters": model.request_parameters,
-        },
+        channel=_channel_snapshot(channel),
+        model=_model_snapshot(model),
         platform_type=dict(task.platform_type_snapshot),
         platform_profile={
             "id": str(profile.id),
@@ -201,6 +212,89 @@ def build_generation_input(
     ).model_dump(mode="json")
 
 
+def _validate_humanization_source(task: ContentTask, source: ContentVersion) -> None:
+    """自然化只接受 OPEN 任务中的 AI 草稿或退回稿。"""
+    if task.status != "OPEN":
+        raise AppError("HUMANIZATION_SOURCE_INVALID", "终态任务不能自然化内容", 409)
+    if (
+        source.task_id != task.id
+        or source.fact_version_id != task.fact_version_id
+        or source.source_type != "AI"
+        or source.status not in {"DRAFT", "CHANGES_REQUESTED"}
+    ):
+        raise AppError("HUMANIZATION_SOURCE_INVALID", "只能自然化当前任务中的 AI 草稿或退回稿", 409)
+    actual_hash = content_hash(source.title, source.summary, source.body_markdown, source.tags)
+    if actual_hash != source.content_hash:
+        raise AppError("HUMANIZATION_SOURCE_INVALID", "自然化源版本正文哈希无效", 409)
+
+
+def build_humanization_input(
+    db: Session, task: ContentTask, source: ContentVersion, model: AIModel
+) -> dict[str, Any]:
+    """冻结源正文、全局 Prompt、模型和原始批准事实。"""
+    _validate_humanization_source(task, source)
+    lineage = resolve_content_ai_lineage(db, source)
+    if lineage is None:
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "内容版本缺少原始生成快照", 409)
+    original = ensure_third_party_egress_allowed(
+        lineage.generation_snapshot.model_dump(mode="json")
+    )
+    fact = db.get(FactVersion, task.fact_version_id)
+    product = db.get(Product, task.product_id)
+    if fact is None or fact.status != "APPROVED" or product is None or product.status != "ACTIVE":
+        raise AppError("FACT_NOT_APPROVED", "自然化作业绑定的事实或产品已失效", 409)
+    ensure_generation_sources_public(task, ProductFactsBody.model_validate(fact.snapshot_json))
+    prompt = db.get(ContentHumanizationPrompt, 1)
+    if prompt is None:
+        raise AppError("HUMANIZATION_PROMPT_MISSING", "管理员尚未配置自然化 Prompt", 409)
+    channel = _enabled_channel(db, model)
+    source_payload = {
+        "id": str(source.id),
+        "task_id": str(source.task_id),
+        "fact_version_id": str(source.fact_version_id),
+        "version": source.version,
+        "content_hash": source.content_hash,
+        "title": source.title,
+        "summary": source.summary,
+        "body_markdown": source.body_markdown,
+        "tags": source.tags,
+    }
+    system_message = "\n\n".join(
+        (FIXED_SYSTEM_CONTRACT, HUMANIZATION_FIXED_CONTRACT, prompt.template_markdown)
+    )
+    user_message = "\n\n".join(
+        [
+            "## 待自然化源文章（只读）\n"
+            + json.dumps(source_payload, ensure_ascii=False, sort_keys=True),
+            "## 已批准事实（只读）\n"
+            + json.dumps(original.approved_facts, ensure_ascii=False, sort_keys=True),
+            "## 任务要求（只读）\n"
+            + json.dumps(original.task_requirements, ensure_ascii=False, sort_keys=True),
+        ]
+    )
+    snapshot = HumanizationSnapshot(
+        adapter_name="openai-compatible-chat-completions",
+        contract_version=HUMANIZATION_CONTRACT_VERSION,
+        channel=_channel_snapshot(channel),
+        model=_model_snapshot(model),
+        humanization_prompt={
+            "revision": prompt.revision,
+            "template_markdown": prompt.template_markdown,
+        },
+        source_content=source_payload,
+        source_generation_job_id=lineage.generation_job.id,
+        user_prompt_markdown=original.user_prompt_markdown,
+        generation_data_classification=original.generation_data_classification,
+        generation_data_classified_by=original.generation_data_classified_by,
+        generation_data_classified_at=original.generation_data_classified_at,
+        approved_facts=original.approved_facts,
+        task_requirements=original.task_requirements,
+        system_message=system_message,
+        user_message=user_message,
+    )
+    return snapshot.model_dump(mode="json")
+
+
 def _create_job(
     *,
     db: Session,
@@ -208,6 +302,7 @@ def _create_job(
     idempotency_key: str,
     actor: User,
     model: AIModel | None = None,
+    source: ContentVersion | None = None,
     retry_of: GenerationJob | None = None,
 ) -> tuple[GenerationJob, bool]:
     """创建幂等作业；同一键不能被另一业务请求复用。"""
@@ -216,10 +311,18 @@ def _create_job(
     )
     if existing is not None:
         expected_model_id = retry_of.ai_model_id if retry_of else (model.id if model else None)
+        expected_job_type = (
+            retry_of.job_type if retry_of else ("HUMANIZE" if source else "GENERATE")
+        )
+        expected_source_id = (
+            retry_of.source_content_version_id if retry_of else (source.id if source else None)
+        )
         if (
             existing.content_task_id != task.id
             or existing.retry_of_id != (retry_of.id if retry_of else None)
             or existing.ai_model_id != expected_model_id
+            or existing.job_type != expected_job_type
+            or existing.source_content_version_id != expected_source_id
         ):
             raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409)
         return existing, False
@@ -230,13 +333,21 @@ def _create_job(
         retry_model = db.get(AIModel, retry_of.ai_model_id)
         if channel is None or retry_model is None:
             raise AppError("AI_CONFIGURATION_DELETED", "原作业渠道或模型已删除", 409)
+        _enabled_channel(db, retry_model)
         generation_input = retry_of.input_snapshot
-        ensure_third_party_egress_allowed(generation_input)
+        if retry_of.job_type == "GENERATE":
+            ensure_third_party_egress_allowed(generation_input)
+        else:
+            ensure_humanization_egress_allowed(generation_input)
         selected_model = retry_model
     else:
         if model is None:
             raise AppError("AI_MODEL_REQUIRED", "必须选择 AI 模型", 422)
-        generation_input = build_generation_input(db, task, model)
+        generation_input = (
+            build_humanization_input(db, task, source, model)
+            if source is not None
+            else build_generation_input(db, task, model)
+        )
         selected_model = model
     prompt_hash = hashlib.sha256(
         json.dumps(generation_input, ensure_ascii=False, sort_keys=True).encode("utf-8")
@@ -244,6 +355,10 @@ def _create_job(
     job = GenerationJob(
         content_task_id=task.id,
         idempotency_key=idempotency_key,
+        job_type=retry_of.job_type if retry_of else ("HUMANIZE" if source else "GENERATE"),
+        source_content_version_id=(
+            retry_of.source_content_version_id if retry_of else (source.id if source else None)
+        ),
         input_snapshot=generation_input,
         ai_channel_id=selected_model.channel_id,
         ai_model_id=selected_model.id,
@@ -302,6 +417,94 @@ def create_generation_job(
     return job
 
 
+def create_humanization_job(
+    *,
+    db: Session,
+    content_version_id: uuid.UUID,
+    payload: GenerationJobCreate,
+    actor: User,
+    request_id: str,
+    idempotency_key: str,
+) -> GenerationJob:
+    """对一个合格 AI 版本幂等创建独立自然化作业。"""
+    source_identity = db.get(ContentVersion, content_version_id)
+    if source_identity is None:
+        raise not_found("内容版本")
+    task = db.scalar(
+        select(ContentTask).where(ContentTask.id == source_identity.task_id).with_for_update()
+    )
+    source = db.scalar(
+        select(ContentVersion).where(ContentVersion.id == content_version_id).with_for_update()
+    )
+    if task is None or source is None:
+        raise not_found("内容版本")
+    model = db.get(AIModel, payload.ai_model_id)
+    if model is None:
+        raise not_found("AI 模型")
+    if (
+        db.scalar(select(GenerationJob.id).where(GenerationJob.idempotency_key == idempotency_key))
+        is not None
+    ):
+        existing, _created = _create_job(
+            db=db,
+            task=task,
+            idempotency_key=idempotency_key,
+            actor=actor,
+            model=model,
+            source=source,
+        )
+        return existing
+    _validate_humanization_source(task, source)
+    active = db.scalar(
+        select(GenerationJob.id).where(
+            GenerationJob.job_type == "HUMANIZE",
+            GenerationJob.source_content_version_id == source.id,
+            GenerationJob.status.in_(("PENDING", "RUNNING")),
+        )
+    )
+    if active is not None:
+        raise AppError("HUMANIZATION_ALREADY_ACTIVE", "该源版本已有活动自然化作业", 409)
+    try:
+        job, created = _create_job(
+            db=db,
+            task=task,
+            idempotency_key=idempotency_key,
+            actor=actor,
+            model=model,
+            source=source,
+        )
+    except IntegrityError as error:
+        db.rollback()
+        raced_existing = db.scalar(
+            select(GenerationJob).where(GenerationJob.idempotency_key == idempotency_key)
+        )
+        if raced_existing is not None:
+            if (
+                raced_existing.content_task_id == task.id
+                and raced_existing.job_type == "HUMANIZE"
+                and raced_existing.source_content_version_id == source.id
+                and raced_existing.ai_model_id == model.id
+                and raced_existing.retry_of_id is None
+            ):
+                return raced_existing
+            raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409) from error
+        raise AppError("HUMANIZATION_ALREADY_ACTIVE", "该源版本已有活动自然化作业", 409) from error
+    if created:
+        append_audit(
+            db,
+            actor_id=actor.id,
+            action="humanization_job.created",
+            target_type="GenerationJob",
+            target_id=job.id,
+            request_id=request_id,
+            details={"source_content_version_id": str(source.id)},
+        )
+        db.commit()
+        _dispatch_job(job)
+        db.refresh(job)
+    return job
+
+
 def retry_generation_job(
     *,
     db: Session,
@@ -321,6 +524,41 @@ def retry_generation_job(
     )
     if task is None or task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "内容任务不可再生成", 409)
+    if (
+        db.scalar(select(GenerationJob.id).where(GenerationJob.idempotency_key == idempotency_key))
+        is not None
+    ):
+        existing, _created = _create_job(
+            db=db,
+            task=task,
+            idempotency_key=idempotency_key,
+            actor=actor,
+            retry_of=previous,
+        )
+        return existing
+    if previous.job_type == "HUMANIZE":
+        snapshot = ensure_humanization_egress_allowed(previous.input_snapshot)
+        if previous.source_content_version_id is None:
+            raise AppError("GENERATION_SNAPSHOT_INVALID", "自然化作业缺少源版本", 409)
+        source = db.scalar(
+            select(ContentVersion)
+            .where(ContentVersion.id == previous.source_content_version_id)
+            .with_for_update()
+        )
+        if source is None:
+            raise AppError("HUMANIZATION_SOURCE_INVALID", "自然化源版本不存在", 409)
+        _validate_humanization_source(task, source)
+        if source.content_hash != snapshot.source_content.content_hash:
+            raise AppError("HUMANIZATION_SOURCE_INVALID", "自然化源版本与原快照不一致", 409)
+        active = db.scalar(
+            select(GenerationJob.id).where(
+                GenerationJob.job_type == "HUMANIZE",
+                GenerationJob.source_content_version_id == source.id,
+                GenerationJob.status.in_(("PENDING", "RUNNING")),
+            )
+        )
+        if active is not None:
+            raise AppError("HUMANIZATION_ALREADY_ACTIVE", "该源版本已有活动自然化作业", 409)
     job, created = _create_job(
         db=db, task=task, idempotency_key=idempotency_key, actor=actor, retry_of=previous
     )

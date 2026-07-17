@@ -18,6 +18,7 @@ export const queryKeys = {
     all: ['platform-profiles'] as const,
     prompt: (id: string | undefined) => ['platform-prompt', id] as const,
   },
+  contentHumanizationPrompt: ['content-humanization-prompt'] as const,
   platformProfileVersions: {
     all: ['platform-profile-versions'] as const,
   },
@@ -25,6 +26,7 @@ export const queryKeys = {
   auditLogs: ['audit-logs'] as const,
   contentTasks: {
     all: ['content-tasks'] as const,
+    optionsAll: ['generation-options'] as const,
     detail: (id: string) => ['content-task', id] as const,
     versions: (id: string) => ['content-versions', id] as const,
     jobs: (id: string) => ['generation-jobs', id] as const,

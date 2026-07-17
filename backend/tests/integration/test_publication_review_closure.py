@@ -29,6 +29,7 @@ from app.deps import get_current_session
 from app.errors import AppError
 from app.main import app
 from app.models.configuration import (
+    ContentHumanizationPrompt,
     PlatformProfile,
     PlatformProfileVersion,
     PlatformPrompt,
@@ -355,6 +356,113 @@ def publication_payload(content_id: uuid.UUID, account_id: uuid.UUID) -> ManualP
         section_url="https://community.example.invalid/section",
         attachment_file_ids=[],
     )
+
+
+@pytest.mark.integration
+def test_content_humanization_prompt_api_lifecycle_and_audit() -> None:
+    """全局自然化 Prompt 必须由管理员首次创建，并按修订号更新且不泄露正文。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            admin = User(
+                username=f"humanization-admin-{uuid.uuid4().hex[:8]}",
+                display_name="自然化配置管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            engineer = User(
+                username=f"humanization-engineer-{uuid.uuid4().hex[:8]}",
+                display_name="自然化配置工程师",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            db.add_all([admin, engineer])
+            db.commit()
+
+        csrf_token = "humanization-csrf-token-with-more-than-32-characters"
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        current_session = SimpleNamespace(
+            user=engineer,
+            csrf_hash=hash_token(csrf_token),
+            last_seen_at=None,
+        )
+        app.dependency_overrides[get_db] = override_db
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        client = TestClient(app)
+        try:
+            denied = client.get("/api/v1/content-humanization-prompt")
+            assert denied.status_code == 403
+
+            current_session.user = admin
+            missing = client.get("/api/v1/content-humanization-prompt")
+            assert missing.status_code == 404
+
+            blank = client.put(
+                "/api/v1/content-humanization-prompt",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"template_markdown": "   ", "expected_revision": None},
+            )
+            assert blank.status_code == 422
+            assert blank.json()["error"]["code"] == "VALIDATION_ERROR"
+
+            created = client.put(
+                "/api/v1/content-humanization-prompt",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"template_markdown": "  保留事实，只优化表达。  ", "expected_revision": None},
+            )
+            assert created.status_code == 200
+            assert created.json()["template_markdown"] == "保留事实，只优化表达。"
+            assert created.json()["revision"] == 0
+
+            repeated_create = client.put(
+                "/api/v1/content-humanization-prompt",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"template_markdown": "重复首次创建", "expected_revision": None},
+            )
+            assert repeated_create.status_code == 409
+            assert repeated_create.json()["error"]["code"] == "REVISION_CONFLICT"
+
+            updated = client.put(
+                "/api/v1/content-humanization-prompt",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"template_markdown": "更新后的自然化规则", "expected_revision": 0},
+            )
+            assert updated.status_code == 200
+            assert updated.json()["revision"] == 1
+
+            stale = client.put(
+                "/api/v1/content-humanization-prompt",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"template_markdown": "过期写入", "expected_revision": 0},
+            )
+            assert stale.status_code == 409
+            assert stale.json()["error"]["code"] == "REVISION_CONFLICT"
+
+            loaded = client.get("/api/v1/content-humanization-prompt")
+            assert loaded.status_code == 200
+            assert loaded.json()["template_markdown"] == "更新后的自然化规则"
+            assert loaded.json()["revision"] == 1
+        finally:
+            app.dependency_overrides.clear()
+
+        with session_factory() as db:
+            prompt = db.get(ContentHumanizationPrompt, 1)
+            assert prompt is not None
+            assert prompt.updated_by == admin.id
+            audits = list(
+                db.scalars(
+                    select(AuditLog)
+                    .where(AuditLog.action == "content_humanization_prompt.saved")
+                    .order_by(AuditLog.created_at)
+                )
+            )
+            assert [audit.details for audit in audits] == [{"revision": 0}, {"revision": 1}]
+        engine.dispose()
 
 
 @pytest.mark.integration

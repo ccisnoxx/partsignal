@@ -31,17 +31,23 @@ from app.models.product_facts import (
     FactVersion,
     Product,
 )
-from app.schemas.content import GenerationSnapshot, QualityIssue
+from app.schemas.content import GenerationSnapshot, HumanizationSnapshot, QualityIssue
 from app.schemas.geo_files import GeneratedDraft
 from app.schemas.product_facts import ProductFactsBody
 from app.services.ai_configuration import build_snapshot_request_headers, request_credentials
+from app.services.content_lineage import resolve_content_ai_lineage
 from app.services.openai_client import CompletionResult, OpenAICompatibleClient
 
 logger = logging.getLogger("partsignal.worker")
 GENERATION_CONTRACT_VERSION = "chat-json-v1"
+HUMANIZATION_CONTRACT_VERSION = "humanization-json-v1"
 FIXED_SYSTEM_CONTRACT = """批准事实优先于工程师输入。不得使用输入之外的产品事实。
 只返回一个 JSON 对象，不得使用代码块或附加说明。JSON 必须且只能包含非空字段：
 title: 字符串；summary: 字符串；body_markdown: 完整 Markdown 正文；tags: 非空字符串数组。"""
+HUMANIZATION_FIXED_CONTRACT = """你只能改写给定源文章，使表达更自然。
+必须保留原意、必要披露和产品事实。
+不得新增、猜测或暗示任何型号、参数、数据、引用、用户反馈、专家观点或第一人称经历。
+不得输出修改说明、评价或 JSON 之外的任何内容。"""
 NUMBER_PATTERN = re.compile(r"(?<![\w])[-+]?\d+(?:\.\d+)?")
 URL_PATTERN = re.compile(r"https?://\S+")
 TEXT_CHARACTER_PATTERN = re.compile(r"[\W_]+", re.UNICODE)
@@ -58,9 +64,7 @@ def ensure_third_party_egress_allowed(
         raise AppError("GENERATION_SNAPSHOT_INVALID", "生成作业快照结构无效", 409) from error
     if snapshot.adapter_name != "openai-compatible-chat-completions":
         return snapshot
-    evidence_classifications = snapshot.approved_facts.get(
-        "evidence_confidentialities"
-    )
+    evidence_classifications = snapshot.approved_facts.get("evidence_confidentialities")
     task_is_public = (
         snapshot.generation_data_classification is not None
         and snapshot.generation_data_classification.value == "PUBLIC"
@@ -79,9 +83,29 @@ def ensure_third_party_egress_allowed(
     return snapshot
 
 
-def ensure_generation_sources_public(
-    task: ContentTask, facts: ProductFactsBody
-) -> None:
+def ensure_humanization_egress_allowed(
+    humanization_input: dict[str, Any],
+) -> HumanizationSnapshot:
+    """自然化快照必须保留完整且明确的 PUBLIC 出站依据。"""
+    try:
+        snapshot = HumanizationSnapshot.model_validate(humanization_input)
+    except ValidationError as error:
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "自然化作业快照结构无效", 409) from error
+    evidence_classifications = snapshot.approved_facts.get("evidence_confidentialities")
+    if (
+        snapshot.generation_data_classification.value != "PUBLIC"
+        or not isinstance(evidence_classifications, list)
+        or not all(value == "PUBLIC" for value in evidence_classifications)
+    ):
+        raise AppError(
+            "AI_DATA_CLASSIFICATION_FORBIDDEN",
+            "第三方模型只允许处理已明确分级为 PUBLIC 的完整生成输入",
+            409,
+        )
+    return snapshot
+
+
+def ensure_generation_sources_public(task: ContentTask, facts: ProductFactsBody) -> None:
     """在创建第三方作业前校验 PostgreSQL 任务分级和事实快照证据分级。"""
     if (
         task.generation_data_classification != "PUBLIC"
@@ -258,6 +282,46 @@ def validate_generation_context(
         raise AppError("INVALID_STATE_TRANSITION", "生成作业关联的内容任务不可执行", 409)
     fact = db.get(FactVersion, task.fact_version_id)
     product = db.get(Product, task.product_id)
+    if job.job_type == "HUMANIZE":
+        snapshot = ensure_humanization_egress_allowed(job.input_snapshot)
+        ensure_generation_eligible(
+            task,
+            fact,
+            product,
+            str(snapshot.approved_facts.get("fact_version_id")),
+        )
+        if fact is None:
+            raise AppError("FACT_NOT_APPROVED", "自然化作业绑定的事实已失效", 409)
+        ensure_generation_sources_public(task, ProductFactsBody.model_validate(fact.snapshot_json))
+        source_query = select(ContentVersion).where(
+            ContentVersion.id == job.source_content_version_id
+        )
+        if lock_task:
+            source_query = source_query.with_for_update()
+        source = db.scalar(source_query)
+        if (
+            source is None
+            or source.id != snapshot.source_content.id
+            or source.task_id != task.id
+            or source.fact_version_id != task.fact_version_id
+            or source.source_type != "AI"
+            or source.status not in {"DRAFT", "CHANGES_REQUESTED"}
+            or source.content_hash != snapshot.source_content.content_hash
+            or source.version != snapshot.source_content.version
+            or source.title != snapshot.source_content.title
+            or source.summary != snapshot.source_content.summary
+            or source.body_markdown != snapshot.source_content.body_markdown
+            or source.tags != snapshot.source_content.tags
+            or content_hash(source.title, source.summary, source.body_markdown, source.tags)
+            != source.content_hash
+        ):
+            raise AppError("HUMANIZATION_SOURCE_INVALID", "自然化源版本已失效或发生变化", 409)
+        lineage = resolve_content_ai_lineage(db, source)
+        if lineage is None or lineage.generation_job.id != snapshot.source_generation_job_id:
+            raise AppError("GENERATION_SNAPSHOT_INVALID", "自然化快照的原始生成追溯不一致", 409)
+        return task
+    if job.job_type != "GENERATE":
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "AI 作业类型无效", 409)
     ensure_generation_eligible(
         task,
         fact,
@@ -287,11 +351,20 @@ def ensure_generation_eligible(
 
 
 def run_quality_checks(
-    draft: GeneratedDraft, generation_input: dict[str, Any]
+    draft: GeneratedDraft,
+    generation_input: dict[str, Any],
+    *,
+    job_type: str = "GENERATE",
 ) -> list[dict[str, str]]:
     """执行确定性、可解释且不依赖模型判断的质量规则。"""
     issues: list[QualityIssue] = []
-    snapshot = GenerationSnapshot.model_validate(generation_input)
+    snapshot: GenerationSnapshot | HumanizationSnapshot
+    if job_type == "GENERATE":
+        snapshot = GenerationSnapshot.model_validate(generation_input)
+    elif job_type == "HUMANIZE":
+        snapshot = HumanizationSnapshot.model_validate(generation_input)
+    else:
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "AI 作业类型无效", 409)
     rules = snapshot.task_requirements["platform_rules"]
     if not rules["title_min"] <= len(draft.title) <= rules["title_max"]:
         issues.append(
@@ -362,10 +435,19 @@ def generate_for_job(
     generator: ContentGenerator | None,
 ) -> tuple[GeneratedDraft, CompletionResult | None]:
     """按作业冻结的适配器执行，不允许重试时切换生成方式。"""
-    snapshot = ensure_third_party_egress_allowed(generation_input)
+    if job.job_type == "GENERATE":
+        snapshot: GenerationSnapshot | HumanizationSnapshot = ensure_third_party_egress_allowed(
+            generation_input
+        )
+    elif job.job_type == "HUMANIZE":
+        snapshot = ensure_humanization_egress_allowed(generation_input)
+    else:
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "AI 作业类型无效", 409)
     if generator is not None:
+        if job.job_type != "GENERATE":
+            raise AppError("GENERATION_ADAPTER_FORBIDDEN", "自然化作业不支持开发生成器", 409)
         return generator.generate(generation_input), None
-    if snapshot.adapter_name == DevelopmentContentGenerator.name:
+    if job.job_type == "GENERATE" and snapshot.adapter_name == DevelopmentContentGenerator.name:
         if settings.environment == "production":
             raise AppError("GENERATION_ADAPTER_FORBIDDEN", "生产环境禁止开发生成器", 409)
         return DevelopmentContentGenerator().generate(generation_input), None
@@ -403,10 +485,18 @@ def generate_for_job(
     return result.draft, result
 
 
-def generation_timeout_seconds(generation_input: dict[str, Any]) -> int:
+def generation_timeout_seconds(
+    generation_input: dict[str, Any], *, job_type: str = "GENERATE"
+) -> int:
     """从不可变快照读取合法供应商超时，不使用进程级固定租约。"""
     try:
-        snapshot = GenerationSnapshot.model_validate(generation_input)
+        snapshot: GenerationSnapshot | HumanizationSnapshot
+        if job_type == "GENERATE":
+            snapshot = GenerationSnapshot.model_validate(generation_input)
+        elif job_type == "HUMANIZE":
+            snapshot = HumanizationSnapshot.model_validate(generation_input)
+        else:
+            raise AppError("GENERATION_SNAPSHOT_INVALID", "AI 作业类型无效", 409)
     except ValidationError as error:
         raise AppError("GENERATION_SNAPSHOT_INVALID", "生成作业快照结构无效", 409) from error
     timeout_seconds = snapshot.channel.get("timeout_seconds")
@@ -443,7 +533,7 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             db.commit()
             return
         try:
-            timeout_seconds = generation_timeout_seconds(job.input_snapshot)
+            timeout_seconds = generation_timeout_seconds(job.input_snapshot, job_type=job.job_type)
         except AppError as error:
             job.status = "FAILED"
             job.error_code = error.code
@@ -465,7 +555,7 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             validate_generation_context(db, job)
             db.commit()
             draft, completion = generate_for_job(db, job, generation_input, generator)
-            quality_issues = run_quality_checks(draft, generation_input)
+            quality_issues = run_quality_checks(draft, generation_input, job_type=job.job_type)
             db.expire_all()
             job = db.scalar(
                 select(GenerationJob).where(GenerationJob.id == job_id).with_for_update()
@@ -478,6 +568,14 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             # 锁定任务后再次校验，防止模型调用期间事实被停用或并发分配相同版本号。
             task = validate_generation_context(db, job, lock_task=True)
             add_near_duplicate_warning(db, task, draft, quality_issues)
+            source_version_id: uuid.UUID | None = None
+            fact_version_id = uuid.UUID(generation_input["approved_facts"]["fact_version_id"])
+            change_summary = "AI 生成作业创建的草稿"
+            if job.job_type == "HUMANIZE":
+                humanization_snapshot = HumanizationSnapshot.model_validate(generation_input)
+                source_version_id = humanization_snapshot.source_content.id
+                fact_version_id = humanization_snapshot.source_content.fact_version_id
+                change_summary = "AI 自然化作业创建的草稿"
             next_version = (
                 int(
                     db.scalar(
@@ -491,8 +589,9 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             )
             content = ContentVersion(
                 task_id=job.content_task_id,
-                fact_version_id=uuid.UUID(generation_input["approved_facts"]["fact_version_id"]),
+                fact_version_id=fact_version_id,
                 source_job_id=job.id,
+                based_on_id=source_version_id,
                 version=next_version,
                 source_type="AI",
                 title=draft.title,
@@ -504,7 +603,7 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
                 ),
                 status="DRAFT",
                 quality_issues=quality_issues,
-                change_summary="AI 生成作业创建的草稿",
+                change_summary=change_summary,
                 created_by=job.created_by,
             )
             db.add(content)
@@ -523,9 +622,11 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
                 job.total_tokens = completion.total_tokens
             db.commit()
             logger.info(
-                "生成作业完成 job_id=%s status=SUCCEEDED content_version_id=%s "
-                "provider_duration_ms=%s",
+                "AI 作业完成 job_id=%s job_type=%s source_content_version_id=%s "
+                "status=SUCCEEDED content_version_id=%s provider_duration_ms=%s",
                 job.id,
+                job.job_type,
+                job.source_content_version_id,
                 content.id,
                 job.response_duration_ms,
             )
@@ -544,8 +645,11 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
                 failed.lease_expires_at = None
                 db.commit()
             logger.error(
-                "生成作业失败 job_id=%s status=FAILED error_code=%s error_type=%s",
+                "AI 作业失败 job_id=%s job_type=%s source_content_version_id=%s "
+                "status=FAILED error_code=%s error_type=%s",
                 job_id,
+                failed.job_type if failed is not None else "UNKNOWN",
+                failed.source_content_version_id if failed is not None else None,
                 failed.error_code if failed is not None else "GENERATION_FAILED",
                 type(error).__name__,
             )

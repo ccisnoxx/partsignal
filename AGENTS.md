@@ -70,6 +70,17 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 - For Trellis tasks, validate according to `implement.md` and the relevant spec quality gates.
 - If heavier checks are skipped, state the reason, the substitute checks, and the remaining risk.
 
+### Browser Automation
+
+- Use the project-installed `playwright-cli` skill for local UI debugging, repeatable browser workflows, and post-deployment validation.
+- Prefer existing Playwright tests or project scripts before creating an ad hoc browser flow.
+- Use snapshots, `find`, or a known selector to inspect and target elements; take screenshots only when visual evidence is needed.
+- Use `playwright-cli console`, `requests`, and tracing for ordinary frontend diagnostics.
+- For authenticated deployed checks, use a named persistent session or saved storage state, and keep authentication state files untracked.
+- Turn a verified browser flow into a Playwright test when it will be repeated or used as a regression check.
+- Use Chrome DevTools CLI only when Playwright CLI does not cover the required diagnostic, such as Lighthouse, deep performance profiling, or heap snapshots.
+- Use `@Chrome` only when the user explicitly requests it or the interaction depends on visual browser state that Playwright cannot represent reliably.
+
 ### Git
 
 - 当前开发阶段采用 `main` 单分支流程。除非用户明确要求，不得创建 `codex/*`、`agent/*`、`feature/*` 或其他开发分支；日常变更直接提交到主工作目录的 `main`。

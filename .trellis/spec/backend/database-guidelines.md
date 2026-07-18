@@ -265,3 +265,72 @@ if submitted_ids != candidate_ids:
 ```
 
 文章 URL 始终从 `PublicationRecord.final_url` 读取，前端不得提交或覆盖该值。
+
+## 场景：产品驱动内容任务与历史目标问题关联
+
+### 1. 范围与触发条件
+
+- 新建内容任务、创建生成作业、读取发布修复上下文或从发布异常创建修复任务时适用。
+- `QueryTopic` 只服务旧内容任务和 `LEGACY_MODEL_RESULT` 观测；不得重新成为普通内容任务的创建前置条件。
+
+### 2. 签名
+
+- 数据库 revision：`0019_product_driven_tasks`，`down_revision = "0018_manual_geo_observation"`。
+- 数据库列：`content_tasks.query_topic_id uuid NULL REFERENCES query_topics(id) ON DELETE RESTRICT`。
+- 创建接口：`POST /api/v1/content-tasks`；`ContentTaskCreate` 不接受 `query_topic_id`。
+- 内容任务响应：`ContentTask.query_topic_id: uuid | null`，用于显式区分新任务和历史任务。
+- 修复上下文响应：`PublicationRepairContext.query_topic: QueryTopic | null`。
+
+### 3. 契约
+
+- 新任务由产品、该产品的 `APPROVED` 事实版本、具体平台的 `ACTIVE` 规则版本、平台当前 Prompt 和任务要求字段共同定义；服务端必须写入 `query_topic_id=NULL`。
+- 生成新任务时，`GenerationSnapshot.task_requirements` 必须完全省略 `query_topic`，不得写入 `null`、空对象或根据产品名猜测问题；确定性开发生成器以 `content_angle` 生成摘要，标签只含产品型号。
+- 历史任务保留真实非空外键。创建新生成作业时仍解析并冻结该目标问题；外键值存在但目标记录缺失时必须显式失败。
+- 修复任务固定继承原任务的产品和可空 `query_topic_id`。修复上下文只在历史关联存在时返回问题投影，新任务返回 `query_topic=null`。
+- 0019 upgrade 只放宽列空值，不改写历史任务；存在任一空关联任务时 downgrade 必须在恢复 `NOT NULL` 前以 PostgreSQL `55000` 失败并整体回滚。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 结果 |
+|---|---|
+| 创建载荷包含 `query_topic_id` | OpenAPI/Pydantic 额外字段校验拒绝，不提供兼容双写 |
+| 产品、事实版本或平台规则版本不存在 | 返回对应 `404`，不创建任务 |
+| 事实版本不属于产品、未批准，或平台规则不是当前可用规则 | `409 INVALID_STATE_TRANSITION` |
+| 平台缺少当前 Prompt | `409 PLATFORM_PROMPT_MISSING` |
+| 新任务创建成功 | `query_topic_id=null`，生成快照省略 `query_topic` |
+| 历史任务外键非空但目标问题缺失 | 生成或修复上下文显式失败，不降级为新任务语义 |
+| 新任务历史存在时执行 0019 downgrade | PostgreSQL `55000`，revision 和全部任务数据保持不变 |
+
+### 5. 正常、基础与失败案例
+
+- 正常：工程师选择一个产品、批准事实和可用平台创建任务；请求和后续生成输入均没有目标问题，文章围绕 `content_angle` 生产。
+- 基础：升级前任务继续返回原 `query_topic_id`，重新生成和修复时继续冻结、继承该真实问题。
+- 失败：为了满足旧 `NOT NULL` 约束给新任务伪造通用问题，或生成时用产品名自动补一个问题；这会制造不存在的业务事实并污染分析。
+
+### 6. 必需测试
+
+- 契约测试断言 `ContentTaskCreate` 没有 `query_topic_id`，任务响应字段可空，修复上下文问题投影可空，生成类型与 OpenAPI 一致。
+- PostgreSQL 迁移测试断言历史 UUID 不变、新任务可写 `NULL`，以及有损 downgrade 失败后 revision 和两类任务均不变。
+- 后端单元/集成测试断言新生成快照不含 `query_topic`、开发生成器不输出“目标问题”、普通任务写空关联，旧/新修复任务分别继承 UUID/`NULL`。
+- 前端组件和 E2E 测试断言创建弹窗不展示或请求目标问题，创建载荷不含该字段，完整生成链路不向模型发送 `query_topic` 或“目标问题”。
+
+### 7. 错误与正确示例
+
+错误做法：把兼容责任推给新任务，写入空对象或伪造问题。
+
+```python
+requirements["query_topic"] = {"canonical_question": f"如何选择 {product.part_number}？"}
+```
+
+正确做法：只在权威历史外键真实存在时冻结问题，否则完全省略该键。
+
+```python
+if task.query_topic_id is not None:
+    topic = db.get(QueryTopic, task.query_topic_id)
+    if topic is None:
+        raise not_found("目标问题")
+    requirements["query_topic"] = {
+        "canonical_question": topic.canonical_question,
+        "intent_type": topic.intent_type,
+    }
+```

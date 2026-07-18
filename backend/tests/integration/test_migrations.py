@@ -1277,7 +1277,7 @@ def test_content_humanization_migration_constraints_and_forward_only_history() -
         assert "content humanization history exists" in downgrade.stderr
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0018_manual_geo_observation",)
+            assert cursor.fetchone() == ("0019_product_driven_tasks",)
             cursor.execute(
                 "SELECT job_type FROM generation_jobs WHERE id = %s",
                 (humanization_job_id,),
@@ -1340,9 +1340,77 @@ def test_manual_geo_migration_preserves_legacy_history_and_blocks_lossy_downgrad
         assert "manual GEO observation history exists" in downgrade.stderr
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0018_manual_geo_observation",)
+            assert cursor.fetchone() == ("0019_product_driven_tasks",)
             cursor.execute(
                 "SELECT count(*) FROM geo_observations WHERE id IN (%s, %s)",
                 (legacy_observation_id, manual_observation_id),
             )
             assert cursor.fetchone() == (2,)
+
+
+@pytest.mark.integration
+def test_product_driven_task_migration_preserves_history_and_blocks_lossy_downgrade() -> None:
+    """0019 保留历史关联，并在新任务存在时拒绝恢复目标问题必填。"""
+    with temporary_database("partsignal_product_tasks") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0018_manual_geo_observation")
+        legacy_task_id = seed_legacy_content_task(test_url)
+        run_alembic(env, backend_dir, "head")
+
+        product_task_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT query_topic_id, product_id, fact_version_id, "
+                "platform_profile_version_id, platform_type_id, platform_type_snapshot, "
+                "created_by FROM content_tasks WHERE id = %s",
+                (legacy_task_id,),
+            )
+            (
+                legacy_topic_id,
+                product_id,
+                fact_id,
+                platform_version_id,
+                platform_type_id,
+                platform_type_snapshot,
+                user_id,
+            ) = cursor.fetchone()
+            assert legacy_topic_id is not None
+            cursor.execute(
+                "INSERT INTO content_tasks "
+                "(id, query_topic_id, product_id, fact_version_id, platform_profile_version_id, "
+                "platform_type_id, platform_type_snapshot, user_prompt_markdown, target_audience, "
+                "content_angle, conversion_goal, desired_format, desired_length_min, "
+                "desired_length_max, canonical_url, status, revision, created_by) "
+                "VALUES (%s, NULL, %s, %s, %s, %s, %s::jsonb, '', '产品工程师', '产品说明', "
+                "'查看资料', 'MARKDOWN', 1, 100, 'https://example.invalid/product', "
+                "'OPEN', 0, %s)",
+                (
+                    product_task_id,
+                    product_id,
+                    fact_id,
+                    platform_version_id,
+                    platform_type_id,
+                    json.dumps(platform_type_snapshot),
+                    user_id,
+                ),
+            )
+            connection.commit()
+
+        downgrade = subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0018_manual_geo_observation"],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "product-driven content task history exists" in downgrade.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0019_product_driven_tasks",)
+            cursor.execute(
+                "SELECT query_topic_id FROM content_tasks WHERE id IN (%s, %s) ORDER BY id",
+                (legacy_task_id, product_task_id),
+            )
+            values = {row[0] for row in cursor.fetchall()}
+            assert values == {legacy_topic_id, None}

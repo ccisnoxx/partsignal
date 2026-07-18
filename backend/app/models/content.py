@@ -45,8 +45,8 @@ class ContentTask(Base):
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
-    query_topic_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("query_topics.id", ondelete="RESTRICT"), nullable=False
+    query_topic_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("query_topics.id", ondelete="RESTRICT")
     )
     product_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False

@@ -299,8 +299,6 @@ def create_content_task(
     product = db.get(Product, payload.product_id)
     if product is None or product.status != "ACTIVE":
         raise AppError("FACT_NOT_APPROVED", "已停用产品不能创建新任务", 409)
-    if db.get(QueryTopic, payload.query_topic_id) is None:
-        raise not_found("目标问题")
     platform_version = db.get(PlatformProfileVersion, payload.platform_profile_version_id)
     if platform_version is None or platform_version.status != "ACTIVE":
         raise AppError("INVALID_STATE_TRANSITION", "内容任务只能绑定 ACTIVE 平台规则", 409)

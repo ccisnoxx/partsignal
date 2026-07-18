@@ -2265,9 +2265,8 @@ components:
     ContentTaskCreate:
       type: object
       additionalProperties: false
-      required: [query_topic_id, product_id, fact_version_id, platform_profile_version_id, target_audience, content_angle, conversion_goal, desired_format, desired_length_min, desired_length_max, canonical_url]
+      required: [product_id, fact_version_id, platform_profile_version_id, target_audience, content_angle, conversion_goal, desired_format, desired_length_min, desired_length_max, canonical_url]
       properties:
-        query_topic_id: {type: string, format: uuid}
         product_id: {type: string, format: uuid}
         fact_version_id: {type: string, format: uuid}
         platform_profile_version_id: {type: string, format: uuid}
@@ -2282,9 +2281,10 @@ components:
       allOf:
         - {$ref: '#/components/schemas/ContentTaskCreate'}
         - type: object
-          required: [id, platform_type_id, platform_type_snapshot, user_prompt_markdown, generation_data_classification, generation_data_classified_by, generation_data_classified_at, source_publication_attention_id, available_actions, status, revision, created_by, created_at]
+          required: [id, query_topic_id, platform_type_id, platform_type_snapshot, user_prompt_markdown, generation_data_classification, generation_data_classified_by, generation_data_classified_at, source_publication_attention_id, available_actions, status, revision, created_by, created_at]
           properties:
             id: {type: string, format: uuid}
+            query_topic_id: {type: [string, 'null'], format: uuid}
             platform_type_id: {type: [string, 'null'], format: uuid}
             platform_type_snapshot: {type: [object, 'null'], additionalProperties: true}
             user_prompt_markdown: {type: string}
@@ -2783,7 +2783,10 @@ components:
         publication: {$ref: '#/components/schemas/PublicationRecord'}
         original_task: {$ref: '#/components/schemas/ContentTask'}
         product: {$ref: '#/components/schemas/Product'}
-        query_topic: {$ref: '#/components/schemas/QueryTopic'}
+        query_topic:
+          anyOf:
+            - {$ref: '#/components/schemas/QueryTopic'}
+            - {type: 'null'}
         platform_profile_id: {type: string, format: uuid}
         platform_profile_name: {type: string}
         original_fact_version: {$ref: '#/components/schemas/FactVersion'}

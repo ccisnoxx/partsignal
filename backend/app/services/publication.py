@@ -402,7 +402,10 @@ def create_repair_task(
     product = db.get(Product, original_task.product_id)
     if product is None or product.status != "ACTIVE":
         raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能创建修复任务", 409)
-    if db.get(QueryTopic, original_task.query_topic_id) is None:
+    if (
+        original_task.query_topic_id is not None
+        and db.get(QueryTopic, original_task.query_topic_id) is None
+    ):
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "原任务目标问题不存在", 409)
     fact = db.scalar(
         select(FactVersion).where(FactVersion.id == payload.fact_version_id).with_for_update()

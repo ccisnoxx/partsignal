@@ -199,7 +199,7 @@ class PublicationRepairContext(ContractModel):
     publication: PublicationRecordOut
     original_task: ContentTaskOut
     product: ProductOut
-    query_topic: QueryTopicOut
+    query_topic: QueryTopicOut | None
     platform_profile_id: uuid.UUID
     platform_profile_name: str
     original_fact_version: FactVersionOut

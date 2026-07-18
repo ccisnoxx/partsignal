@@ -829,7 +829,6 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
             )
             assert platform_profile_out(db, clean_profile).active_version is None
             task_payload = ContentTaskCreate(
-                query_topic_id=graph["topic"].id,
                 product_id=graph["product"].id,
                 fact_version_id=graph["fact"].id,
                 platform_profile_version_id=deleted_version_id,
@@ -866,6 +865,7 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
                 actor=actor,
                 request_id="create-after-rule-recovery",
             )
+            assert recovered_task.query_topic_id is None
             db.delete(recovered_task)
             db.flush()
             db.delete(replacement_version)
@@ -1406,13 +1406,19 @@ def test_platform_rule_lifecycle_and_fact_version_deletion() -> None:
 
 
 @pytest.mark.integration
-def test_repair_context_resolution_and_review_history_are_immutable() -> None:
+@pytest.mark.parametrize("with_query_topic", [True, False])
+def test_repair_context_resolution_and_review_history_are_immutable(
+    with_query_topic: bool,
+) -> None:
     """修复任务固定上下文，审核历史读取冻结事实且拒绝空退回意见。"""
     with temporary_database() as database_url:
         engine = create_engine(database_url)
         session_factory = sessionmaker(bind=engine, expire_on_commit=False)
         with session_factory() as db:
             graph = seed_graph(db)
+            if not with_query_topic:
+                graph["task"].query_topic_id = None
+                db.commit()
             user_id = graph["user"].id
             task_id = graph["task"].id
             content_id = graph["content"].id
@@ -1477,6 +1483,7 @@ def test_repair_context_resolution_and_review_history_are_immutable() -> None:
             db.add_all([new_fact, new_platform])
             db.commit()
             context = get_repair_context(db, attention.id)
+            assert (context.query_topic is not None) is with_query_topic
             assert [item.version.id for item in context.fact_candidates] == [
                 new_fact.id,
                 graph["fact"].id,
@@ -1502,7 +1509,7 @@ def test_repair_context_resolution_and_review_history_are_immutable() -> None:
                 request_id="repair-task",
             )
             assert repair.product_id == graph["product"].id
-            assert repair.query_topic_id == graph["topic"].id
+            assert repair.query_topic_id == (graph["topic"].id if with_query_topic else None)
             assert repair.fact_version_id == new_fact.id
             assert repair.platform_profile_version_id == new_platform.id
             assert repair.target_audience == "维修工程师"

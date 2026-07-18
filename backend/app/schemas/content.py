@@ -13,7 +13,6 @@ from app.schemas.product_facts import Confidentiality, FactVersionOut
 
 
 class ContentTaskCreate(ContractModel):
-    query_topic_id: uuid.UUID
     product_id: uuid.UUID
     fact_version_id: uuid.UUID
     platform_profile_version_id: uuid.UUID
@@ -34,6 +33,7 @@ class ContentTaskCreate(ContractModel):
 
 class ContentTaskOut(ContentTaskCreate):
     id: uuid.UUID
+    query_topic_id: uuid.UUID | None
     platform_type_id: uuid.UUID | None
     platform_type_snapshot: dict[str, Any] | None
     user_prompt_markdown: str

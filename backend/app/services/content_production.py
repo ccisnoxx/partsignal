@@ -117,8 +117,8 @@ def build_generation_input(db: Session, task: ContentTask, model: AIModel) -> di
     platform = db.get(PlatformProfileVersion, task.platform_profile_version_id)
     if platform is None or platform.status not in {"ACTIVE", "RETIRED"}:
         raise AppError("INVALID_STATE_TRANSITION", "任务绑定的平台规则不是已激活版本", 409)
-    topic = db.get(QueryTopic, task.query_topic_id)
-    if topic is None:
+    topic = db.get(QueryTopic, task.query_topic_id) if task.query_topic_id is not None else None
+    if task.query_topic_id is not None and topic is None:
         raise not_found("目标问题")
     if task.platform_type_id is None or task.platform_type_snapshot is None:
         raise AppError("PLATFORM_TYPE_MISSING", "内容任务没有锁定平台类型", 409)
@@ -154,18 +154,12 @@ def build_generation_input(db: Session, task: ContentTask, model: AIModel) -> di
             evidence.confidentiality.value for evidence in facts.evidences
         ],
     }
-    requirements = {
+    requirements: dict[str, Any] = {
         "product": {
             "id": str(product.id),
             "part_number": product.part_number,
             "brand": product.brand,
             "category": product.category,
-        },
-        "query_topic": {
-            "id": str(topic.id),
-            "canonical_question": topic.canonical_question,
-            "intent_type": topic.intent_type,
-            "variants": topic.variants,
         },
         "platform_rules": platform.rules,
         "task": {
@@ -179,6 +173,13 @@ def build_generation_input(db: Session, task: ContentTask, model: AIModel) -> di
             "canonical_url": task.canonical_url,
         },
     }
+    if topic is not None:
+        requirements["query_topic"] = {
+            "id": str(topic.id),
+            "canonical_question": topic.canonical_question,
+            "intent_type": topic.intent_type,
+            "variants": topic.variants,
+        }
     system_message = f"{FIXED_SYSTEM_CONTRACT}\n\n{prompt.template_markdown}"
     user_message = "\n\n".join(
         [

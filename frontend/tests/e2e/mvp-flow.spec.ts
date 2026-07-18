@@ -291,8 +291,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     activeRuleId = profiles.items.find((item) => item.id === profile.id)?.active_version?.id ?? null;
     return activeRuleId;
   }).toBe(editedDraftRule.id);
-  const topic = await command(page, '/api/v1/query-topics', csrf, { canonical_question: `${product!.part_number} 如何替代？`, intent_type: 'REPLACEMENT', variants: [`${product!.part_number} 替代方案`] });
-  const taskPayload = { query_topic_id: topic.id, product_id: product!.id, fact_version_id: factVersion.id, platform_profile_version_id: activeRuleId, target_audience: '测试工程师', content_angle: '虚构参数与替代边界', conversion_goal: '查看虚构资料', desired_format: '工程说明', desired_length_min: 1, desired_length_max: 5000, canonical_url: `https://example.invalid/products/${product!.part_number}` };
+  const taskPayload = { product_id: product!.id, fact_version_id: factVersion.id, platform_profile_version_id: activeRuleId, target_audience: '测试工程师', content_angle: '虚构参数与替代边界', conversion_goal: '查看虚构资料', desired_format: '工程说明', desired_length_min: 1, desired_length_max: 5000, canonical_url: `https://example.invalid/products/${product!.part_number}` };
   const missingPromptTask = await page.request.post('/api/v1/content-tasks', { headers: { 'X-CSRF-Token': csrf }, data: taskPayload });
   expect(missingPromptTask.status()).toBe(409);
   expect(await missingPromptTask.json()).toMatchObject({ error: { code: 'PLATFORM_PROMPT_MISSING' } });
@@ -392,7 +391,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   }, { timeout: 30_000 }).toBe('SUCCEEDED');
   expect(generatedJobId).toBeTruthy();
   const job = { id: generatedJobId! };
-  const completedJob = await body<{ content_version_id: string; provider_request_id: string | null; response_duration_ms: number | null; prompt_tokens: number | null; completion_tokens: number | null; total_tokens: number | null; input_snapshot: { system_message: string; user_prompt_markdown: string } }>(await page.request.get(`/api/v1/generation-jobs/${job.id}`));
+  const completedJob = await body<{ content_version_id: string; provider_request_id: string | null; response_duration_ms: number | null; prompt_tokens: number | null; completion_tokens: number | null; total_tokens: number | null; input_snapshot: { system_message: string; user_prompt_markdown: string; task_requirements: Record<string, unknown> } }>(await page.request.get(`/api/v1/generation-jobs/${job.id}`));
   const generatedContentId = completedJob.content_version_id;
   const generatedContentBeforeHumanization = await body<{ id: string; title: string; summary: string; body_markdown: string; tags: string[]; content_hash: string; source_type: string; status: string }>(await page.request.get(`/api/v1/content-versions/${generatedContentId}`));
   expect(generatedContentBeforeHumanization).toMatchObject({ source_type: 'AI', status: 'DRAFT' });
@@ -411,11 +410,12 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   });
   expect(completedJob).toMatchObject({ provider_request_id: 'e2e-provider-request', prompt_tokens: 1, completion_tokens: 1, total_tokens: null });
   expect(completedJob.response_duration_ms).not.toBeNull();
+  expect(completedJob.input_snapshot.task_requirements).not.toHaveProperty('query_topic');
   const providerRequest = await body<Record<string, unknown>>(await page.request.get('http://127.0.0.1:9001/e2e/payloads/e2e-model'));
   expect(providerRequest).toMatchObject({ model: 'e2e-model', temperature: 0, stream: false });
   const providerPayload = JSON.stringify(providerRequest);
   expect(providerPayload).toContain(product!.part_number);
-  for (const forbidden of ['datasheet.pdf', 'e2e-only-key', 'header-secret', 'evidence_keys', 'source_url', 'file_id']) {
+  for (const forbidden of ['datasheet.pdf', 'e2e-only-key', 'header-secret', 'evidence_keys', 'source_url', 'file_id', 'query_topic', '目标问题']) {
     expect(providerPayload).not.toContain(forbidden);
   }
   const sourceVersionRow = page.getByRole('region', { name: '内容版本列表' }).getByRole('row').filter({ has: page.getByRole('link', { name: 'V1', exact: true }) });

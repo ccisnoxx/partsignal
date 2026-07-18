@@ -130,6 +130,17 @@ def test_development_generator_only_uses_approved_fact_values() -> None:
     assert draft.tags
 
 
+def test_product_driven_generation_does_not_invent_query_topic() -> None:
+    input_data = generation_input()
+    requirements = cast(dict[str, object], input_data["task_requirements"])
+    requirements.pop("query_topic")
+
+    draft = DevelopmentContentGenerator().generate(input_data)
+
+    assert "目标问题" not in draft.body_markdown
+    assert "DEMO-001：已批准参数说明" in draft.body_markdown
+
+
 def test_development_generator_rejects_empty_fact_snapshot() -> None:
     input_data = generation_input()
     input_data["approved_facts"] = {

@@ -50,13 +50,13 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
       <Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/publication-attentions/${attentionId}`)}>
         返回异常详情
       </Button>
-      <PageHeader eyebrow="修复任务" title="创建发布修复任务" description="固定继承原产品、目标问题和平台，并显式选择当前事实与规则版本。" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: <Link to={`/publication-attentions/${attentionId}`}>异常待办</Link> }, { title: '创建修复任务' }]} />
+      <PageHeader eyebrow="修复任务" title="创建发布修复任务" description="固定继承原产品和平台，并显式选择当前事实与规则版本。" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: <Link to={`/publication-attentions/${attentionId}`}>异常待办</Link> }, { title: '创建修复任务' }]} />
       <Card title="固定修复上下文" className="workspace-panel">
         <Descriptions
           column={1}
           items={[
             { label: '产品', children: `${data.product.brand} ${data.product.part_number}` },
-            { label: '目标问题', children: data.query_topic.canonical_question },
+            ...(data.query_topic ? [{ label: '历史目标问题', children: data.query_topic.canonical_question }] : []),
             { label: '平台', children: data.platform_profile_name },
             { label: '原事实版本', children: `V${data.original_fact_version.version}` },
             { label: '原平台规则', children: `V${data.original_platform_version.version}` },

@@ -299,7 +299,7 @@ def get_repair_context(db: Session, attention_id: uuid.UUID) -> PublicationRepai
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "异常待办关联的发布记录不存在", 409)
     task = task_for_publication(db, publication)
     product = db.get(Product, task.product_id)
-    topic = db.get(QueryTopic, task.query_topic_id)
+    topic = db.get(QueryTopic, task.query_topic_id) if task.query_topic_id is not None else None
     original_fact = db.get(FactVersion, task.fact_version_id)
     original_platform = db.get(PlatformProfileVersion, task.platform_profile_version_id)
     profile = (
@@ -307,10 +307,11 @@ def get_repair_context(db: Session, attention_id: uuid.UUID) -> PublicationRepai
         if original_platform is not None
         else None
     )
-    if any(item is None for item in (product, topic, original_fact, original_platform, profile)):
+    if any(item is None for item in (product, original_fact, original_platform, profile)) or (
+        task.query_topic_id is not None and topic is None
+    ):
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布修复上下文不完整", 409)
     assert product is not None
-    assert topic is not None
     assert original_fact is not None
     assert original_platform is not None
     assert profile is not None
@@ -340,7 +341,7 @@ def get_repair_context(db: Session, attention_id: uuid.UUID) -> PublicationRepai
         publication=publication_out(db, publication),
         original_task=content_task_out(db, task),
         product=ProductOut.model_validate(product),
-        query_topic=QueryTopicOut.model_validate(topic),
+        query_topic=QueryTopicOut.model_validate(topic) if topic is not None else None,
         platform_profile_id=profile.id,
         platform_profile_name=profile.name,
         original_fact_version=original_fact_out,

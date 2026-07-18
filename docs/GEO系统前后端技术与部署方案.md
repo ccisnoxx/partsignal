@@ -266,12 +266,12 @@ backend/app/
 ├── main.py
 ├── core/                    配置、数据库、权限和通用错误
 ├── product_facts/           产品事实、可选替代关系、证据和事实版本
-├── content_planning/        目标问题、具体平台规则和任务
+├── content_planning/        历史目标问题、具体平台规则和产品驱动任务
 ├── configuration/           平台类型、具体平台 Prompt、AI 渠道和模型
 ├── content_production/      两级生成作业、内容版本和质量检查
 ├── review/                  事实审核和内容审核
 ├── publication/             人工发布登记和验证
-├── geo_observation/         模型测试和效果指标
+├── geo_observation/         人工文章搜索、历史模型观测和效果指标
 ├── files/                   文件元数据和访问授权
 ├── identity/                用户、会话、账号状态和管理员能力
 ├── audit/                   审计日志
@@ -457,7 +457,7 @@ GEO 项目使用独立 PostgreSQL 和独立 Redis 容器，不复用当前其他
 
 - `platform_types.slug` 保持唯一；管理员可增删改查，删除被具体平台引用的类型时返回结构化冲突。
 - `platform_profiles` 保存具体平台和所属类型，并拥有零或一份当前 Prompt；创建平台不隐式创建规则。`platform_profile_versions` 保存 `DRAFT / ACTIVE / RETIRED` 规则，只有 `DRAFT` 可按修订号编辑，当前规则由同平台唯一 `ACTIVE` 版本推导。
-- `content_tasks` 继续直接锁定具体 `platform_profile_version_id`，以及产品、事实版本、目标问题和工程师输入。
+- `content_tasks` 继续直接锁定具体 `platform_profile_version_id`、产品、事实版本和工程师输入；`query_topic_id` 只为历史任务保留并允许为空，新任务不再选择目标问题。
 - `generation_jobs.input_snapshot` 新写入具体平台身份，并继续冻结规则、最终消息、事实、渠道和模型。
 - `content_versions` 保持单一内容版本模型；发布记录只允许引用已批准内容。
 

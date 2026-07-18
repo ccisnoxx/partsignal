@@ -150,12 +150,10 @@ class DevelopmentContentGenerator:
         relations = facts["replacement_relations"]
         if not parameters and not relations and not approved_claims:
             raise AppError("GENERATION_FAILED", "批准事实快照没有可用于生成的事实", 422)
-        sections = [
-            f"# {product['part_number']}：{task['content_angle']}",
-            "",
-            f"目标问题：{snapshot.task_requirements['query_topic']['canonical_question']}",
-            "",
-        ]
+        sections = [f"# {product['part_number']}：{task['content_angle']}", ""]
+        query_topic = snapshot.task_requirements.get("query_topic")
+        if query_topic is not None:
+            sections.extend([f"目标问题：{query_topic['canonical_question']}", ""])
         if parameters:
             sections.extend(["## 已批准参数", ""])
             for parameter in parameters:
@@ -197,13 +195,19 @@ class DevelopmentContentGenerator:
         sections.extend(["", f"详情：{task['canonical_url']}"])
         body = "\n".join(sections)
         title = f"{product['part_number']} {task['content_angle']}"
-        question = snapshot.task_requirements["query_topic"]["canonical_question"]
-        summary = f"围绕“{question}”整理已批准事实和替代边界。"
+        subject = (
+            query_topic["canonical_question"]
+            if query_topic is not None
+            else task["content_angle"]
+        )
+        tags = [product["part_number"]]
+        if query_topic is not None:
+            tags.append(query_topic["intent_type"])
         return GeneratedDraft(
             title=title,
-            summary=summary,
+            summary=f"围绕“{subject}”整理已批准事实和替代边界。",
             body_markdown=body,
-            tags=[product["part_number"], snapshot.task_requirements["query_topic"]["intent_type"]],
+            tags=tags,
         )
 
 

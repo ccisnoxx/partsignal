@@ -96,7 +96,7 @@ Saving a task Prompt replaces the complete generation-input classification and r
 
 Every new `publication_record` must use an active account whose `platform_profile_id` equals the profile of the task's locked `platform_profile_version_id`. The application service validates account activity and platform equality with explicit errors; the PostgreSQL insert trigger is the final protection for the cross-table platform equality. The first related publication that reaches `VERIFIED` changes an `OPEN` task to `COMPLETED` in the same transaction. A later publication loss never reopens or cancels that task; it creates the unique attention instead. A task with `PENDING_MANUAL_PUBLISH`, `PLATFORM_REVIEW`, or `PUBLISHED` publication state cannot be cancelled.
 
-The repair command fixes product, query topic, and platform from the original task. It must explicitly select an `APPROVED` fact version for the same product and the current `ACTIVE` version for the same platform profile. The remaining planning fields are copied as editable defaults. Creating the repair task does not resolve the attention.
+The repair command fixes product and platform from the original task. Historical tasks also retain their real query-topic link; product-driven tasks keep that link null. It must explicitly select an `APPROVED` fact version for the same product and the current `ACTIVE` version for the same platform profile. The remaining planning fields are copied as editable defaults. Creating the repair task does not resolve the attention.
 
 Fact and content review records remain append-only. `request-changes` requires a non-blank comment, while submit and approve comments remain optional. Revision `0013` extends both database status guards so `CHANGES_REQUESTED -> PENDING_REVIEW` is valid without changing the immutable version payload. Review contexts are read projections over the locked fact/content versions, evidence file status, generation snapshot, deterministic version diff, actor summary, and stable review history; they do not persist a second copy.
 
@@ -135,6 +135,14 @@ New generation snapshots include the concrete platform identity and continue fre
 The create service locks the product and all current eligible publication rows, then requires the request to cover that exact publication ID set. Every manual observation includes at least one verified `OPERATION_SCREENSHOT`. Article titles, platform identity, links, and publication status remain projections of their existing owners and are not duplicated in GEO storage. Metrics are derived from current correction-chain tails; legacy model metrics and manual per-article recommendation metrics have separate denominators.
 
 Manual GEO history is forward-only. Once a `MANUAL_ARTICLE_SEARCH` row exists, revision `0018` refuses downgrade because removing the discriminator, search fields, or article results would destroy immutable business meaning.
+
+### 0019 Product-Driven Content Tasks
+
+`content_tasks.query_topic_id` becomes nullable while retaining its `RESTRICT` foreign key. Existing tasks are not rewritten and keep their real query-topic UUID; new ordinary tasks and repair tasks originating from them store `NULL`. The product, its selected `APPROVED fact_version`, the concrete platform's `ACTIVE platform_profile_version`, the current platform Prompt, and the existing task requirement fields are sufficient to create a new task.
+
+`ContentTaskCreate` no longer accepts a query topic. New generation snapshots omit the `query_topic` object entirely rather than storing null, an empty object, or an invented question. Historical tasks still resolve and freeze their real query topic when creating a new generation job. Repair tasks inherit the original task's nullable link, and repair context returns a nullable query-topic projection for explicit new/legacy handling.
+
+Revision `0019` rewrites no task or immutable job snapshot. It refuses downgrade before restoring `NOT NULL` when any product-driven task exists; rollback after new writes requires a forward fix or the pre-migration PostgreSQL backup, never a placeholder query topic.
 
 ## State Machines
 

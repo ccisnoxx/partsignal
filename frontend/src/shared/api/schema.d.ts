@@ -1900,8 +1900,6 @@ export interface components {
         ContentTaskStatus: "OPEN" | "COMPLETED" | "CANCELLED";
         ContentTaskCreate: {
             /** Format: uuid */
-            query_topic_id: string;
-            /** Format: uuid */
             product_id: string;
             /** Format: uuid */
             fact_version_id: string;
@@ -1919,6 +1917,8 @@ export interface components {
         ContentTask: components["schemas"]["ContentTaskCreate"] & {
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            query_topic_id: string | null;
             /** Format: uuid */
             platform_type_id: string | null;
             platform_type_snapshot: {
@@ -2372,7 +2372,7 @@ export interface components {
             publication: components["schemas"]["PublicationRecord"];
             original_task: components["schemas"]["ContentTask"];
             product: components["schemas"]["Product"];
-            query_topic: components["schemas"]["QueryTopic"];
+            query_topic: components["schemas"]["QueryTopic"] | null;
             /** Format: uuid */
             platform_profile_id: string;
             platform_profile_name: string;

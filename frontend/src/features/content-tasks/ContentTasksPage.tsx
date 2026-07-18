@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
-import { platformProfilesQueryOptions, productsQueryOptions, queryTopicsQueryOptions } from '../../shared/api/queryOptions';
+import { platformProfilesQueryOptions, productsQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { ContentTask, ContentVersion, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
@@ -52,15 +52,13 @@ function TaskList() {
 function TaskCreateModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [productId, setProductId] = useState<string>();
   const [form] = Form.useForm<Schema<'ContentTaskCreate'>>();
-  const topics = useQuery({ ...queryTopicsQueryOptions(), enabled: open });
   const products = useQuery({ ...productsQueryOptions(), enabled: open });
   const platforms = useQuery({ ...platformProfilesQueryOptions(), enabled: open });
   const facts = useQuery({ queryKey: queryKeys.products.factVersions(productId), queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId ?? '' } } })), enabled: open && !!productId, staleTime: QUERY_STALE_TIME.detail });
   const create = useMutation({ mutationFn: async (body: Schema<'ContentTaskCreate'>) => unwrap(await api.POST('/api/v1/content-tasks', { params: { header: csrfHeader() }, body })), onSuccess: async () => { onClose(); await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }); } });
-  const dependencyError = topics.error ?? products.error ?? platforms.error ?? facts.error;
-  const dependenciesLoading = topics.isLoading || products.isLoading || platforms.isLoading || (!!productId && facts.isLoading);
-  return <Modal title="创建内容任务" open={open} onCancel={onClose} footer={null} width={760} destroyOnHidden>{create.error && <Alert role="alert" className="form-alert" type="error" message={errorMessage(create.error)} />}{dependencyError && <QueryFailure error={dependencyError} onRetry={() => { void topics.refetch(); void products.refetch(); void platforms.refetch(); if (productId) void facts.refetch(); }} />}{dependenciesLoading && <QueryLoading label="正在加载任务前置数据" />}<Form<Schema<'ContentTaskCreate'>> form={form} layout="vertical" disabled={!!dependencyError || dependenciesLoading} scrollToFirstError onFinish={(body) => create.mutate(body)}><Space align="start" wrap className="form-grid">
-    <Form.Item name="query_topic_id" label="目标问题" rules={[{ required: true }]}><Select showSearch optionFilterProp="label" options={topics.data?.items.map((item) => ({ value: item.id, label: item.canonical_question }))} /></Form.Item>
+  const dependencyError = products.error ?? platforms.error ?? facts.error;
+  const dependenciesLoading = products.isLoading || platforms.isLoading || (!!productId && facts.isLoading);
+  return <Modal title="创建内容任务" open={open} onCancel={onClose} footer={null} width={760} destroyOnHidden>{create.error && <Alert role="alert" className="form-alert" type="error" message={errorMessage(create.error)} />}{dependencyError && <QueryFailure error={dependencyError} onRetry={() => { void products.refetch(); void platforms.refetch(); if (productId) void facts.refetch(); }} />}{dependenciesLoading && <QueryLoading label="正在加载任务前置数据" />}<Form<Schema<'ContentTaskCreate'>> form={form} layout="vertical" disabled={!!dependencyError || dependenciesLoading} scrollToFirstError onFinish={(body) => create.mutate(body)}><Space align="start" wrap className="form-grid">
     <Form.Item name="product_id" label="产品" rules={[{ required: true }]}><Select showSearch onChange={(value) => { setProductId(value); form.setFieldValue('fact_version_id', undefined); }} options={products.data?.items.map((item) => ({ value: item.id, label: `${item.brand} ${item.part_number}` }))} /></Form.Item>
     <Form.Item name="fact_version_id" label="已批准事实版本" rules={[{ required: true }]}><Select disabled={!productId} options={facts.data?.items.filter((item) => item.status === 'APPROVED').map((item) => ({ value: item.id, label: `V${item.version} · ${item.change_summary}` }))} /></Form.Item>
     <Form.Item name="platform_profile_version_id" label="可用平台" rules={[{ required: true }]}><Select placeholder="仅显示已有有效规则和当前 Prompt 的平台" options={platforms.data?.items.flatMap((item) => item.platform_type_id && item.active_version && item.prompt_configured ? [{ value: item.active_version.id, label: `${item.name} V${item.active_version.version}` }] : [])} /></Form.Item>

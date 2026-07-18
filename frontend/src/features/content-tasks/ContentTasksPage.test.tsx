@@ -66,6 +66,22 @@ test('次级查询失败不遮蔽任务身份、约束和返回入口', async ()
   expect(screen.getByRole('navigation', { name: '内容任务章节' })).toBeInTheDocument();
 });
 
+test('创建内容任务只加载产品和平台，不再展示或请求目标问题', async () => {
+  const user = userEvent.setup();
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks') return result({ items: [] });
+    if (path === '/api/v1/products') return result({ items: [], page: 1, page_size: 100, total: 0 });
+    if (path === '/api/v1/platform-profiles') return result({ items: [] });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks']}><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+
+  await user.click(screen.getByRole('button', { name: /创建任务$/ }));
+  expect(await screen.findByRole('dialog', { name: '创建内容任务' })).toBeInTheDocument();
+  expect(screen.queryByLabelText('目标问题')).not.toBeInTheDocument();
+  expect(apiMocks.GET).not.toHaveBeenCalledWith('/api/v1/query-topics');
+});
+
 test('对合格 AI 版本选择模型并创建自然化作业', async () => {
   const user = userEvent.setup();
   const source = {

@@ -1,12 +1,12 @@
-/** GEO 观测页追加人工测试事实，并从原始观测展示可复算指标。 */
+/** GEO 观测页登记站外人工搜索结果，并逐篇记录产品文章是否被推荐。 */
 import { PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Checkbox, Form, Input, Modal, Select, Space, Table, Typography } from 'antd';
+import { Alert, Button, Card, Form, Input, Modal, Select, Space, Table, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
-import { geoMetricsQueryOptions, productsQueryOptions, publicationRecordsQueryOptions, queryTopicsQueryOptions } from '../../shared/api/queryOptions';
+import { geoMetricsQueryOptions, geoPublicationCandidatesQueryOptions, productsQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { FileRecord, GeoObservation, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
@@ -16,17 +16,37 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 
-const recommendationOptions: Array<{ label: string; value: Schema<'RecommendationStatus'> }> = [
-  { label: '未推荐', value: 'NONE' }, { label: '候选', value: 'CANDIDATE' }, { label: '已推荐', value: 'RECOMMENDED' },
+const articleRecommendationOptions: Array<{ label: string; value: Schema<'GeoArticleResultCreate'>['recommendation_status'] }> = [
+  { label: '已推荐', value: 'RECOMMENDED' },
+  { label: '未推荐', value: 'NOT_RECOMMENDED' },
 ];
-const accuracyOptions: Array<{ label: string; value: Schema<'AccuracyStatus'> }> = [
-  { label: '准确', value: 'ACCURATE' }, { label: '部分准确', value: 'PARTIAL' },
-  { label: '不准确', value: 'INCORRECT' }, { label: '无法判断', value: 'UNJUDGEABLE' },
-];
-const citationSourceOptions: Array<{ label: string; value: Schema<'CitationSourceType'> }> = [
-  { label: '官方来源', value: 'OFFICIAL' }, { label: '外部企业', value: 'EXTERNAL_COMPANY' },
-  { label: '其他', value: 'OTHER' },
-];
+
+function observationDetails(row: GeoObservation) {
+  if (row.observation_kind === 'MANUAL_ARTICLE_SEARCH') {
+    return (
+      <Space orientation="vertical" size="small">
+        <Typography.Paragraph><strong>实际搜索词：</strong>{row.search_query}</Typography.Paragraph>
+        <Typography.Text><strong>搜索结果截图：</strong>{row.attachment_file_ids.length} 张</Typography.Text>
+        <ul>
+          {row.article_results.map((item) => (
+            <li key={item.publication_record_id}>
+              <a href={item.final_url} target="_blank" rel="noreferrer">{item.title}</a>
+              {' · '}{item.platform_name}{' · '}
+              <StatusTag status={item.recommendation_status} />
+            </li>
+          ))}
+        </ul>
+      </Space>
+    );
+  }
+  return (
+    <Space orientation="vertical">
+      <Typography.Paragraph><strong>历史实际提示：</strong>{row.actual_prompt}</Typography.Paragraph>
+      <Typography.Paragraph><strong>历史回答摘要：</strong>{row.answer_summary}</Typography.Paragraph>
+      <Typography.Paragraph><strong>历史引用：</strong>{row.citations.map((item) => item.url).join('；') || '无'}</Typography.Paragraph>
+    </Space>
+  );
+}
 
 export function GeoObservationsPage() {
   const [open, setOpen] = useState(false);
@@ -48,37 +68,33 @@ export function GeoObservationsPage() {
     setSearchParams(next);
   };
   if (metrics.isLoading || observations.isLoading) return <QueryLoading label="正在加载 GEO 观测工作台" />;
-  if (metrics.error || observations.error) return <div className="page-stack"><PageHeader eyebrow="观测记录" title="GEO 观测" description="只记录实际测试结果；更正会追加新记录，不覆盖历史。" /><QueryFailure error={metrics.error ?? observations.error} onRetry={() => { void metrics.refetch(); void observations.refetch(); }} /></div>;
-  const rate = (value: number | null | undefined) => value == null ? null : Math.round(value * 100);
-  const metricItems = [
-    { label: '提及率', value: rate(metrics.data?.mention_rate) },
-    { label: '推荐率', value: rate(metrics.data?.recommendation_rate) },
-    { label: '引用率', value: rate(metrics.data?.citation_rate) },
-    { label: '准确率', value: rate(metrics.data?.accuracy_rate) },
-  ];
+  if (metrics.error || observations.error) return <div className="page-stack"><PageHeader eyebrow="观测记录" title="GEO 观测" description="记录站外人工搜索证据和逐篇文章推荐结果。" /><QueryFailure error={metrics.error ?? observations.error} onRetry={() => { void metrics.refetch(); void observations.refetch(); }} /></div>;
+  const recommendationRate = metrics.data?.article_recommendation_rate == null ? null : Math.round(metrics.data.article_recommendation_rate * 100);
 
   return (
     <div className="page-stack">
-      <PageHeader eyebrow="观测记录" title="GEO 观测" description="只记录实际测试结果；更正会追加新记录，不覆盖历史。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>登记观测</Button>} />
-      <section className="geo-metric-grid" aria-label="GEO 指标">
-        {metricItems.map((item) => <MetricTile key={item.label} label={item.label} value={item.value ?? '—'} unit={item.value == null ? undefined : '%'} percent={item.value} meta={item.value == null ? '无可判断样本' : `${metrics.data?.sample_count ?? 0} 个当前样本`} />)}
+      <PageHeader eyebrow="观测记录" title="GEO 观测" description="人工在搜索网站核对产品文章；系统只登记真实结果，不调用模型联网搜索。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>登记观测</Button>} />
+      <section className="geo-metric-grid" aria-label="GEO 人工文章指标">
+        <MetricTile label="人工观测" value={metrics.data?.manual_observation_count ?? 0} meta="当前有效记录" />
+        <MetricTile label="文章结果" value={metrics.data?.article_result_count ?? 0} meta="逐篇人工判断" />
+        <MetricTile label="已推荐文章" value={metrics.data?.recommended_article_count ?? 0} meta={`未推荐 ${metrics.data?.not_recommended_article_count ?? 0} 篇`} />
+        <MetricTile label="文章推荐率" value={recommendationRate ?? '—'} unit={recommendationRate == null ? undefined : '%'} percent={recommendationRate} meta={recommendationRate == null ? '暂无文章结果' : '已推荐 / 全部文章结果'} />
       </section>
-      <Card title={`原始观测（${metrics.data?.sample_count ?? 0} 个指标样本）`} className="workspace-panel collection-panel">
-        <TableRegion label="GEO 原始观测列表">
+      <Card title={`观测记录（${observations.data?.items.length ?? 0} 条）`} className="workspace-panel collection-panel">
+        <TableRegion label="GEO 观测列表">
           <Table<GeoObservation>
             rowKey="id"
             dataSource={observations.data?.items}
             pagination={{ current: page, pageSize: 10, showSizeChanger: false, onChange: setPage }}
             sticky={{ offsetHeader: 72 }}
-            scroll={{ x: 960 }}
-            expandable={{ expandedRowRender: (row) => <Space orientation="vertical"><Typography.Paragraph><strong>实际提示：</strong>{row.actual_prompt}</Typography.Paragraph><Typography.Paragraph><strong>回答摘要：</strong>{row.answer_summary}</Typography.Paragraph><Typography.Paragraph><strong>引用：</strong>{row.citations.map((item) => item.url).join('；') || '无'}</Typography.Paragraph></Space> }}
+            scroll={{ x: 760 }}
+            expandable={{ expandedRowRender: observationDetails }}
             columns={[
-              { title: '测试时间', dataIndex: 'tested_at', width: 190, render: (value) => <span className="data-code">{new Date(value).toLocaleString('zh-CN')}</span> },
-              { title: '模型', width: 200, render: (_, row) => <span className="data-code">{row.model_name}{row.model_version ? ` / ${row.model_version}` : ''}</span> },
-              { title: '提及', dataIndex: 'mentioned', width: 80, render: (value) => value ? '是' : '否' },
-              { title: '推荐', dataIndex: 'recommendation', width: 120, render: (value) => <StatusTag status={value} /> },
-              { title: '准确性', dataIndex: 'accuracy', width: 120, render: (value) => <StatusTag status={value} /> },
-              { title: '引用数', dataIndex: 'citations', width: 90, render: (items: Schema<'GeoCitation'>[]) => <span className="data-code">{items.length}</span> },
+              { title: '观测时间', dataIndex: 'tested_at', width: 190, render: (value) => <span className="data-code">{new Date(value).toLocaleString('zh-CN')}</span> },
+              { title: '类型', width: 130, render: (_, row) => row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? '人工文章搜索' : '历史模型观测' },
+              { title: '搜索平台 / 模型', render: (_, row) => <span className="data-code">{row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.search_platform : row.model_name}</span> },
+              { title: '文章结果', width: 100, render: (_, row) => row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.article_results.length : '—' },
+              { title: '已推荐', width: 90, render: (_, row) => row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.article_results.filter((item) => item.recommendation_status === 'RECOMMENDED').length : '—' },
             ]}
           />
         </TableRegion>
@@ -89,11 +105,21 @@ export function GeoObservationsPage() {
 }
 
 function ObservationModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [form] = Form.useForm<Schema<'GeoObservationCreate'>>();
   const [attachments, setAttachments] = useState<FileRecord[]>([]);
+  const productId = Form.useWatch('product_id', form);
   const products = useQuery({ ...productsQueryOptions(), enabled: open });
-  const topics = useQuery({ ...queryTopicsQueryOptions(), enabled: open });
-  const publications = useQuery({ ...publicationRecordsQueryOptions(), enabled: open });
-  const close = () => { setAttachments([]); onClose(); };
+  const publications = useQuery({ ...geoPublicationCandidatesQueryOptions(productId), enabled: open && !!productId });
+  useEffect(() => {
+    if (publications.data?.items.length && !form.getFieldValue('article_results')?.length) {
+      form.setFieldValue('article_results', publications.data.items.map((item) => ({ publication_record_id: item.publication_record_id })));
+    }
+  }, [form, publications.data]);
+  const close = () => {
+    form.resetFields();
+    setAttachments([]);
+    onClose();
+  };
   const create = useMutation({
     mutationFn: async (values: Schema<'GeoObservationCreate'>) => unwrap(await api.POST('/api/v1/geo-observations', { params: { header: csrfHeader() }, body: { ...values, attachment_file_ids: attachments.map((item) => item.id) } })),
     onSuccess: async () => {
@@ -101,45 +127,59 @@ function ObservationModal({ open, onClose }: { open: boolean; onClose: () => voi
       await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.geo.observations }), queryClient.invalidateQueries({ queryKey: queryKeys.geo.metrics }), queryClient.invalidateQueries({ queryKey: queryKeys.dashboard })]);
     },
   });
-  const dependencyError = products.error ?? topics.error ?? publications.error;
-  const dependenciesLoading = products.isLoading || topics.isLoading || publications.isLoading;
-  const missingPrerequisite = !products.data?.items.length || !topics.data?.items.length;
+  const missingProducts = !products.data?.items.length;
+  const missingPublications = !!productId && !publications.isLoading && !publications.error && !publications.data?.items.length;
 
   return (
     <Modal title="登记 GEO 观测" open={open} footer={null} onCancel={close} width={900} destroyOnHidden>
-      {create.error && <Alert role="alert" className="form-alert" type="error" showIcon message={errorMessage(create.error)} />}
-      {dependencyError && <QueryFailure error={dependencyError} onRetry={() => { void products.refetch(); void topics.refetch(); void publications.refetch(); }} />}
-      {dependenciesLoading && <QueryLoading label="正在加载观测前置数据" />}
-      {!dependenciesLoading && !dependencyError && missingPrerequisite && <Alert className="form-alert" type="warning" showIcon message="登记观测前需要至少一个产品和目标问题。" />}
+      {create.error && <Alert role="alert" className="form-alert" type="error" showIcon title={errorMessage(create.error)} />}
+      {products.error && <QueryFailure error={products.error} onRetry={() => { void products.refetch(); }} />}
+      {products.isLoading && <QueryLoading label="正在加载产品" />}
+      {!products.isLoading && !products.error && missingProducts && <Alert className="form-alert" type="warning" showIcon title="登记观测前需要至少一个产品。" />}
       <Form<Schema<'GeoObservationCreate'>>
+        form={form}
         layout="vertical"
         className="observation-form"
-        disabled={dependenciesLoading || !!dependencyError}
+        disabled={products.isLoading || !!products.error}
         scrollToFirstError
-        initialValues={{ web_search_enabled: true, mentioned: false, recommendation: 'NONE', accuracy: 'UNJUDGEABLE', citations: [], publication_record_ids: [], notes: '', attachment_file_ids: [] }}
+        initialValues={{ tested_at: new Date().toISOString(), article_results: [], notes: '' }}
         onFinish={(body) => create.mutate(body)}
       >
         <Space align="start" wrap className="form-grid">
-          <Form.Item name="query_topic_id" label="目标问题" rules={[{ required: true }]}><Select options={topics.data?.items.map((item) => ({ value: item.id, label: item.canonical_question }))} /></Form.Item>
-          <Form.Item name="product_id" label="产品" rules={[{ required: true }]}><Select options={products.data?.items.map((item) => ({ value: item.id, label: `${item.brand} ${item.part_number}` }))} /></Form.Item>
-          <Form.Item name="model_name" label="模型名称" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="model_version" label="可见版本"><Input /></Form.Item>
-          <Form.Item name="tested_at" label="测试时间（RFC3339）" rules={[{ required: true }]}><Input placeholder="2026-07-10T10:00:00+08:00" /></Form.Item>
+          <Form.Item name="product_id" label="产品" rules={[{ required: true }]}><Select showSearch optionFilterProp="label" onChange={() => form.setFieldValue('article_results', [])} options={products.data?.items.map((item) => ({ value: item.id, label: `${item.brand} ${item.part_number}` }))} /></Form.Item>
+          <Form.Item name="search_platform" label="人工搜索平台" rules={[{ required: true, whitespace: true }]}><Input placeholder="豆包、DeepSeek、元宝等" /></Form.Item>
+          <Form.Item name="tested_at" label="观测时间（RFC3339）" rules={[{ required: true }]}><Input /></Form.Item>
         </Space>
-        <Form.Item name="actual_prompt" label="实际提示词" rules={[{ required: true }]}><Input.TextArea rows={4} /></Form.Item>
-        <Form.Item name="answer_summary" label="回答摘要" rules={[{ required: true }]}><Input.TextArea rows={5} /></Form.Item>
-        <Space align="start" wrap className="form-grid">
-          <Form.Item name="web_search_enabled" valuePropName="checked"><Checkbox>启用联网搜索</Checkbox></Form.Item>
-          <Form.Item name="mentioned" valuePropName="checked"><Checkbox>提及产品</Checkbox></Form.Item>
-          <Form.Item name="recommendation" label="推荐状态"><Select options={recommendationOptions} /></Form.Item>
-          <Form.Item name="accuracy" label="准确性"><Select options={accuracyOptions} /></Form.Item>
-        </Space>
-        <Form.List name="citations">{(fields, { add, remove }) => <><Typography.Title level={5}>引用来源</Typography.Title>{fields.map(({ key, name, ...field }) => <Space key={key} align="start" wrap className="dynamic-row"><Form.Item {...field} name={[name, 'url']} label="URL" rules={[{ required: true, type: 'url' }]}><Input type="url" /></Form.Item><Form.Item {...field} name={[name, 'source_type']} label="来源类型" rules={[{ required: true }]}><Select options={citationSourceOptions} /></Form.Item><Form.Item {...field} name={[name, 'publication_record_id']} label="关联发布"><Select allowClear options={publications.data?.items.map((item) => ({ value: item.id, label: item.final_url ?? item.id }))} /></Form.Item><Button danger onClick={() => remove(name)}>删除</Button></Space>)}<Button icon={<PlusOutlined />} onClick={() => add({ source_type: 'OTHER' })}>添加引用</Button></>}</Form.List>
-        <Form.Item name="publication_record_ids" label="相关发布记录"><Select mode="multiple" options={publications.data?.items.map((item) => ({ value: item.id, label: item.final_url ?? item.id }))} /></Form.Item>
-        <Form.Item label="测试截图"><DirectUpload category="OPERATION_SCREENSHOT" onUploaded={(file) => setAttachments((items) => [...items, file])} /><Space wrap>{attachments.map((file) => <StatusTag key={file.id} status={file.status} />)}</Space></Form.Item>
-        <Form.Item name="supersedes_id" label="被更正观测 ID"><Input className="data-code" /></Form.Item>
+        <Form.Item name="search_query" label="实际搜索词" rules={[{ required: true, whitespace: true }]}><Input.TextArea rows={3} placeholder="填写在站外搜索网站中实际提交的内容" /></Form.Item>
+
+        <Typography.Title level={5}>产品已发布文章</Typography.Title>
+        {!productId && <Alert className="form-alert" type="info" showIcon title="请先选择产品，再逐篇核对搜索结果。" />}
+        {publications.isLoading && <QueryLoading label="正在加载产品文章" />}
+        {publications.error && <QueryFailure error={publications.error} onRetry={() => { void publications.refetch(); }} />}
+        {missingPublications && <Alert className="form-alert" type="warning" showIcon title="该产品暂无具有公开链接的已发布文章，请先完成发布登记。" />}
+        {!!publications.data?.items.length && (
+          <TableRegion label="产品文章推荐结果">
+            <Table<Schema<'GeoPublicationCandidate'>>
+              rowKey="publication_record_id"
+              dataSource={publications.data.items}
+              pagination={false}
+              scroll={{ x: 700 }}
+              columns={[
+                { title: '文章', dataIndex: 'title' },
+                { title: '平台', dataIndex: 'platform_name', width: 150 },
+                { title: '链接', dataIndex: 'final_url', width: 120, render: (url) => <a href={url} target="_blank" rel="noreferrer">查看文章</a> },
+                { title: '搜索结果', width: 160, render: (_, item, index) => <><Form.Item name={['article_results', index, 'publication_record_id']} hidden><Input /></Form.Item><Form.Item name={['article_results', index, 'recommendation_status']} rules={[{ required: true, message: '请选择推荐结果' }]} style={{ margin: 0 }}><Select aria-label={`文章推荐结果：${item.title}`} placeholder="请选择" options={articleRecommendationOptions} /></Form.Item></> },
+              ]}
+            />
+          </TableRegion>
+        )}
+
+        <Form.Item label="搜索结果截图" required extra="至少上传一张真实搜索结果截图；系统不会自动解析或联网复查。">
+          <DirectUpload category="OPERATION_SCREENSHOT" onUploaded={(file) => setAttachments((items) => [...items, file])} />
+          <Space wrap>{attachments.map((file) => <Typography.Text key={file.id}>{file.original_filename} <StatusTag status={file.status} /></Typography.Text>)}</Space>
+        </Form.Item>
         <Form.Item name="notes" label="备注"><Input.TextArea /></Form.Item>
-        <Button type="primary" htmlType="submit" loading={create.isPending} disabled={missingPrerequisite}>追加观测</Button>
+        <Button type="primary" htmlType="submit" loading={create.isPending} disabled={missingProducts || missingPublications || !publications.data?.items.length || !attachments.length}>追加观测</Button>
       </Form>
     </Modal>
   );

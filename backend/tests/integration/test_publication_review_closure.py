@@ -41,7 +41,12 @@ from app.models.content import (
     ContentTask,
     ContentVersion,
 )
-from app.models.geo_files import GeoObservation
+from app.models.geo_files import (
+    FileRecord,
+    GeoObservation,
+    GeoObservationAttachment,
+    GeoObservationPublication,
+)
 from app.models.identity import AuditLog, User
 from app.models.product_facts import (
     FactReviewRecord,
@@ -53,6 +58,7 @@ from app.models.publication import (
     PublicationAttention,
     PublicationRecord,
 )
+from app.routers.observation import get_geo_metrics
 from app.schemas.common import CommandRequest
 from app.schemas.configuration import (
     PlatformProfileCreate,
@@ -60,6 +66,7 @@ from app.schemas.configuration import (
     PlatformProfileVersionUpdate,
 )
 from app.schemas.content import ContentTaskCreate
+from app.schemas.geo_files import GeoArticleResultCreate, GeoObservationCreate
 from app.schemas.publication import (
     ManualPublicationCreate,
     PublicationCommand,
@@ -75,6 +82,7 @@ from app.services.content_planning import (
     retire_platform_profile_version,
     update_platform_profile_version,
 )
+from app.services.geo_observation import create_geo_observation, geo_publication_candidates
 from app.services.integrity import publication_integrity_issues
 from app.services.platform_configuration import (
     delete_platform_profile,
@@ -679,6 +687,7 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
             actor = graph["user"]
             db.add(
                 GeoObservation(
+                    observation_kind="LEGACY_MODEL_RESULT",
                     query_topic_id=graph["topic"].id,
                     product_id=graph["product"].id,
                     actual_prompt="测试问题",
@@ -881,6 +890,164 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
                 "platform_profile.deleted",
                 "platform_type.deleted",
             } <= actions
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> None:
+    """人工观测必须覆盖产品全部公开文章，并保存逐篇结果和截图证据。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine) as db:
+            graph = seed_graph(db)
+            publications = [
+                create_manual_publication(
+                    db=db,
+                    payload=publication_payload(graph["content"].id, account.id),
+                    actor=graph["user"],
+                    request_id=f"geo-publication-{index}",
+                    idempotency_key=f"geo-publication-{index}-{uuid.uuid4()}",
+                )
+                for index, account in enumerate(
+                    (graph["same_account"], graph["same_account_b"]), start=1
+                )
+            ]
+            for index, publication in enumerate(publications, start=1):
+                command_publication(
+                    db=db,
+                    publication_id=publication.id,
+                    command="mark-platform-review",
+                    payload=PublicationCommand(comment="平台审核"),
+                    actor=graph["user"],
+                    request_id=f"geo-review-{index}",
+                )
+                command_publication(
+                    db=db,
+                    publication_id=publication.id,
+                    command="mark-published",
+                    payload=PublicationCommand(
+                        actual_title=f"GEO 文章 {index}",
+                        final_url=f"https://community.example.invalid/geo/{index}",
+                        published_at="2026-07-18T00:00:00Z",
+                        comment="人工发布完成",
+                    ),
+                    actor=graph["user"],
+                    request_id=f"geo-published-{index}",
+                )
+            screenshot = FileRecord(
+                category="OPERATION_SCREENSHOT",
+                original_filename="geo-result.png",
+                object_key=f"test/geo/{uuid.uuid4()}.png",
+                content_type="image/png",
+                size=128,
+                sha256="d" * 64,
+                access_level="INTERNAL",
+                status="VERIFIED",
+                uploader_id=graph["user"].id,
+                upload_expires_at=datetime.now(UTC),
+                verified_at=datetime.now(UTC),
+            )
+            evidence = FileRecord(
+                category="EVIDENCE",
+                original_filename="product-evidence.png",
+                object_key=f"test/geo/{uuid.uuid4()}.png",
+                content_type="image/png",
+                size=128,
+                sha256="e" * 64,
+                access_level="INTERNAL",
+                status="VERIFIED",
+                uploader_id=graph["user"].id,
+                upload_expires_at=datetime.now(UTC),
+                verified_at=datetime.now(UTC),
+            )
+            db.add_all([screenshot, evidence])
+            db.commit()
+
+            candidates = geo_publication_candidates(db, graph["product"].id)
+            assert {item.publication_record_id for item in candidates} == {
+                item.id for item in publications
+            }
+            incomplete = GeoObservationCreate(
+                product_id=graph["product"].id,
+                search_platform="DeepSeek",
+                search_query=graph["product"].part_number,
+                tested_at=datetime.now(UTC),
+                article_results=[
+                    GeoArticleResultCreate(
+                        publication_record_id=publications[0].id,
+                        recommendation_status="RECOMMENDED",
+                    )
+                ],
+                attachment_file_ids=[screenshot.id],
+                notes="人工搜索",
+            )
+            with pytest.raises(AppError) as changed:
+                create_geo_observation(
+                    db=db,
+                    payload=incomplete,
+                    actor=graph["user"],
+                    request_id="geo-incomplete",
+                )
+            assert changed.value.code == "GEO_PUBLICATIONS_CHANGED"
+            db.rollback()
+
+            complete = incomplete.model_copy(
+                update={
+                    "article_results": [
+                        GeoArticleResultCreate(
+                            publication_record_id=publication.id,
+                            recommendation_status=(
+                                "RECOMMENDED" if index == 0 else "NOT_RECOMMENDED"
+                            ),
+                        )
+                        for index, publication in enumerate(publications)
+                    ]
+                }
+            )
+            with pytest.raises(AppError) as invalid_attachment:
+                create_geo_observation(
+                    db=db,
+                    payload=complete.model_copy(update={"attachment_file_ids": [evidence.id]}),
+                    actor=graph["user"],
+                    request_id="geo-invalid-attachment",
+                )
+            assert invalid_attachment.value.code == "VALIDATION_ERROR"
+            db.rollback()
+
+            observation = create_geo_observation(
+                db=db,
+                payload=complete,
+                actor=graph["user"],
+                request_id="geo-complete",
+            )
+            results = list(
+                db.scalars(
+                    select(GeoObservationPublication)
+                    .where(GeoObservationPublication.observation_id == observation.id)
+                    .order_by(GeoObservationPublication.publication_record_id)
+                )
+            )
+            assert observation.observation_kind == "MANUAL_ARTICLE_SEARCH"
+            assert {item.recommendation_status for item in results} == {
+                "RECOMMENDED",
+                "NOT_RECOMMENDED",
+            }
+            assert (
+                db.scalar(
+                    select(GeoObservationAttachment.file_id).where(
+                        GeoObservationAttachment.observation_id == observation.id
+                    )
+                )
+                == screenshot.id
+            )
+            metrics = get_geo_metrics(
+                db=db,
+                _user=graph["user"],
+                product_id=graph["product"].id,
+            )
+            assert metrics.manual_observation_count == 1
+            assert metrics.article_result_count == 2
+            assert metrics.article_recommendation_rate == 0.5
         engine.dispose()
 
 
@@ -1108,9 +1275,7 @@ def test_platform_rule_lifecycle_and_fact_version_deletion() -> None:
                 review_ids.append(review.id)
             db.commit()
 
-            for status, disposable_id in zip(
-                disposable_statuses, disposable_ids, strict=True
-            ):
+            for status, disposable_id in zip(disposable_statuses, disposable_ids, strict=True):
                 delete_fact_version(
                     db=db,
                     fact_version_id=disposable_id,

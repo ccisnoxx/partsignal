@@ -202,7 +202,7 @@ a:hover { color: var(--ps-action-primary-hover); }
 .mobile-drawer .ant-drawer-close { color: var(--ps-nav-text); }
 .ant-modal { top: 0; margin: 0 auto; padding-block: 24px; }
 .ant-modal-container { max-height: calc(100dvh - 48px); overflow-y: auto; border: 1px solid var(--ps-glass-border) !important; background: var(--ps-glass-surface-strong) !important; -webkit-backdrop-filter: var(--ps-glass-backdrop); backdrop-filter: var(--ps-glass-backdrop); }
-.ant-modal-header { position: sticky; top: 0; z-index: 2; padding-bottom: 12px; background: transparent !important; }
+.ant-modal-header { padding-bottom: 12px; background: transparent !important; }
 .ant-dropdown-menu { border: 1px solid var(--ps-glass-border); background: var(--ps-glass-surface-strong) !important; box-shadow: var(--ps-shadow-md) !important; -webkit-backdrop-filter: var(--ps-glass-backdrop); backdrop-filter: var(--ps-glass-backdrop); }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {

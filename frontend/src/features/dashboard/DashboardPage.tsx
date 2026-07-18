@@ -1,4 +1,4 @@
-/** 工作台展示待办、生成失败与 GEO 基础指标的即时概览。 */
+/** 工作台展示待办与人工 GEO 文章观测的即时概览。 */
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { Button, Card, Typography } from 'antd';
@@ -15,12 +15,7 @@ export function DashboardPage() {
   if (summary.isLoading || metrics.isLoading) return <QueryLoading label="正在加载工作台" />;
   if (summary.error || metrics.error) return <QueryFailure error={summary.error ?? metrics.error} onRetry={() => { void summary.refetch(); void metrics.refetch(); }} />;
   const rate = (value: number | null | undefined) => value == null ? null : Math.round(value * 100);
-  const geoMetrics = [
-    { label: '提及率', value: rate(metrics.data?.mention_rate) },
-    { label: '推荐率', value: rate(metrics.data?.recommendation_rate) },
-    { label: '引用率', value: rate(metrics.data?.citation_rate) },
-    { label: '准确率', value: rate(metrics.data?.accuracy_rate) },
-  ];
+  const articleRecommendationRate = rate(metrics.data?.article_recommendation_rate);
 
   return (
     <div className="page-stack">
@@ -36,13 +31,16 @@ export function DashboardPage() {
         <MetricTile label="待审内容" value={summary.data?.pending_content_reviews ?? 0} tone={summary.data?.pending_content_reviews ? 'warning' : 'default'} to="/tasks" />
         <MetricTile label="待人工发布" value={summary.data?.pending_publications ?? 0} tone={summary.data?.pending_publications ? 'data' : 'default'} to="/publications" />
         <MetricTile label="发布需关注" value={summary.data?.publication_attention ?? 0} tone={summary.data?.publication_attention ? 'danger' : 'default'} to="/publications" />
-        <MetricTile label="近期准确性问题" value={summary.data?.recent_accuracy_errors ?? 0} tone={summary.data?.recent_accuracy_errors ? 'danger' : 'default'} to="/observations" />
+        <MetricTile label="未推荐文章" value={metrics.data?.not_recommended_article_count ?? 0} tone={metrics.data?.not_recommended_article_count ? 'warning' : 'default'} to="/observations" />
       </section>
       <Card title="GEO 信号" extra={<Link to="/observations">查看观测明细</Link>} className="workspace-panel">
         <div className="geo-metric-grid">
-          {geoMetrics.map((item) => <MetricTile key={item.label} label={item.label} value={item.value ?? '—'} unit={item.value == null ? undefined : '%'} percent={item.value} meta={item.value == null ? '无可判断样本' : '当前样本口径'} />)}
+          <MetricTile label="人工观测" value={metrics.data?.manual_observation_count ?? 0} meta="当前有效记录" />
+          <MetricTile label="文章结果" value={metrics.data?.article_result_count ?? 0} meta="逐篇人工判断" />
+          <MetricTile label="已推荐文章" value={metrics.data?.recommended_article_count ?? 0} meta={`未推荐 ${metrics.data?.not_recommended_article_count ?? 0} 篇`} />
+          <MetricTile label="文章推荐率" value={articleRecommendationRate ?? '—'} unit={articleRecommendationRate == null ? undefined : '%'} percent={articleRecommendationRate} meta={articleRecommendationRate == null ? '暂无文章结果' : '已推荐 / 全部文章结果'} />
         </div>
-        <Typography.Text type="secondary" className="sample-note">当前样本 {metrics.data?.sample_count ?? 0} 条；无法判断的样本不进入准确率分母。</Typography.Text>
+        <Typography.Text type="secondary" className="sample-note">当前人工观测 {metrics.data?.manual_observation_count ?? 0} 条；文章链接与发布状态以发布记录为准。</Typography.Text>
       </Card>
     </div>
   );

@@ -6,7 +6,14 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, Field, HttpUrl, model_validator
+from pydantic import (
+    AfterValidator,
+    Field,
+    HttpUrl,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from app.schemas.base import ContractModel, require_unique_items
 from app.schemas.product_facts import Confidentiality
@@ -19,7 +26,11 @@ class GeoCitation(ContractModel):
     publication_record_id: uuid.UUID | None = None
 
 
-class GeoObservationCreate(ContractModel):
+class LegacyGeoObservationOut(ContractModel):
+    """迁移前模型观测的只读投影，不再接受新写入。"""
+
+    observation_kind: Literal["LEGACY_MODEL_RESULT"]
+    id: uuid.UUID
     query_topic_id: uuid.UUID
     product_id: uuid.UUID
     actual_prompt: str
@@ -32,20 +43,91 @@ class GeoObservationCreate(ContractModel):
     recommendation: Literal["NONE", "CANDIDATE", "RECOMMENDED"]
     accuracy: Literal["ACCURATE", "PARTIAL", "INCORRECT", "UNJUDGEABLE"]
     citations: list[GeoCitation]
-    publication_record_ids: Annotated[
-        list[uuid.UUID], AfterValidator(require_unique_items)
-    ] = Field(json_schema_extra={"uniqueItems": True})
-    attachment_file_ids: Annotated[
-        list[uuid.UUID], AfterValidator(require_unique_items)
-    ] = Field(default_factory=list, json_schema_extra={"uniqueItems": True})
+    publication_record_ids: Annotated[list[uuid.UUID], AfterValidator(require_unique_items)] = (
+        Field(json_schema_extra={"uniqueItems": True})
+    )
+    attachment_file_ids: Annotated[list[uuid.UUID], AfterValidator(require_unique_items)] = Field(
+        json_schema_extra={"uniqueItems": True}
+    )
+    notes: str
+    supersedes_id: uuid.UUID | None = None
+    tested_by: uuid.UUID
+    created_at: datetime
+
+
+RecommendationStatus = Literal["RECOMMENDED", "NOT_RECOMMENDED"]
+NonBlankText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+SearchPlatform = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)
+]
+
+
+class GeoArticleResultCreate(ContractModel):
+    publication_record_id: uuid.UUID
+    recommendation_status: RecommendationStatus
+
+
+class GeoArticleResultOut(GeoArticleResultCreate):
+    title: str
+    platform_name: str
+    final_url: HttpUrl
+
+
+class GeoPublicationCandidate(ContractModel):
+    publication_record_id: uuid.UUID
+    title: str
+    platform_name: str
+    final_url: HttpUrl
+    status: Literal["PUBLISHED", "VERIFIED"]
+
+
+class GeoPublicationCandidateList(ContractModel):
+    items: list[GeoPublicationCandidate]
+
+
+class GeoObservationCreate(ContractModel):
+    product_id: uuid.UUID
+    search_platform: SearchPlatform
+    search_query: NonBlankText
+    tested_at: datetime
+    article_results: list[GeoArticleResultCreate] = Field(min_length=1)
+    attachment_file_ids: Annotated[list[uuid.UUID], AfterValidator(require_unique_items)] = Field(
+        min_length=1, json_schema_extra={"uniqueItems": True}
+    )
     notes: str
     supersedes_id: uuid.UUID | None = None
 
+    @field_validator("article_results")
+    @classmethod
+    def require_unique_publications(
+        cls, values: list[GeoArticleResultCreate]
+    ) -> list[GeoArticleResultCreate]:
+        """一次观测只能对同一发布记录给出一个结论。"""
+        publication_ids = [item.publication_record_id for item in values]
+        if len(publication_ids) != len(set(publication_ids)):
+            raise ValueError("文章结果不得重复")
+        return values
 
-class GeoObservationOut(GeoObservationCreate):
+
+class ManualGeoObservationOut(ContractModel):
+    observation_kind: Literal["MANUAL_ARTICLE_SEARCH"]
     id: uuid.UUID
+    product_id: uuid.UUID
+    search_platform: str
+    search_query: str
+    tested_at: datetime
+    article_results: list[GeoArticleResultOut]
+    attachment_file_ids: list[uuid.UUID]
+    notes: str
+    supersedes_id: uuid.UUID | None
     tested_by: uuid.UUID
     created_at: datetime
+
+
+GeoObservationOut = Annotated[
+    LegacyGeoObservationOut | ManualGeoObservationOut,
+    Field(discriminator="observation_kind"),
+]
 
 
 class GeoObservationList(ContractModel):
@@ -58,6 +140,11 @@ class GeoMetrics(ContractModel):
     recommendation_rate: float = Field(ge=0, le=1)
     citation_rate: float = Field(ge=0, le=1)
     accuracy_rate: float | None = Field(ge=0, le=1)
+    manual_observation_count: int = Field(ge=0)
+    article_result_count: int = Field(ge=0)
+    recommended_article_count: int = Field(ge=0)
+    not_recommended_article_count: int = Field(ge=0)
+    article_recommendation_rate: float | None = Field(ge=0, le=1)
 
 
 class DashboardSummary(ContractModel):

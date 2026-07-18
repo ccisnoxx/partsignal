@@ -22,25 +22,28 @@ from app.models.base import new_uuid
 
 
 class GeoObservation(Base):
-    """追加式单次 GEO 人工观测。"""
+    """追加式 GEO 观测根，承载只读旧记录与人工文章搜索记录。"""
 
     __tablename__ = "geo_observations"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
-    query_topic_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("query_topics.id", ondelete="RESTRICT"), nullable=False
+    observation_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    query_topic_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("query_topics.id", ondelete="RESTRICT")
     )
     product_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False
     )
-    actual_prompt: Mapped[str] = mapped_column(Text, nullable=False)
-    model_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    actual_prompt: Mapped[str | None] = mapped_column(Text)
+    model_name: Mapped[str | None] = mapped_column(String(160))
     model_version: Mapped[str | None] = mapped_column(String(160))
+    search_platform: Mapped[str | None] = mapped_column(String(160))
+    search_query: Mapped[str | None] = mapped_column(Text)
     tested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    web_search_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    answer_summary: Mapped[str] = mapped_column(Text, nullable=False)
-    mentioned: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    recommendation: Mapped[str] = mapped_column(String(32), nullable=False)
-    accuracy: Mapped[str] = mapped_column(String(32), nullable=False)
+    web_search_enabled: Mapped[bool | None] = mapped_column(Boolean)
+    answer_summary: Mapped[str | None] = mapped_column(Text)
+    mentioned: Mapped[bool | None] = mapped_column(Boolean)
+    recommendation: Mapped[str | None] = mapped_column(String(32))
+    accuracy: Mapped[str | None] = mapped_column(String(32))
     notes: Mapped[str] = mapped_column(Text, nullable=False)
     supersedes_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("geo_observations.id", ondelete="RESTRICT")
@@ -69,7 +72,7 @@ class GeoObservationCitation(Base):
 
 
 class GeoObservationPublication(Base):
-    """观测与可能产生影响的发布记录关联。"""
+    """旧观测发布关联，或人工观测中的逐篇推荐结果。"""
 
     __tablename__ = "geo_observation_publications"
     observation_id: Mapped[uuid.UUID] = mapped_column(
@@ -80,6 +83,7 @@ class GeoObservationPublication(Base):
         ForeignKey("publication_records.id", ondelete="RESTRICT"),
         primary_key=True,
     )
+    recommendation_status: Mapped[str | None] = mapped_column(String(24))
 
 
 class FileRecord(Base):

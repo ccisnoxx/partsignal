@@ -555,12 +555,12 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page).toHaveURL(/tab=records/);
   await expect(page.locator(`a[href="https://forum.example.invalid/posts/${suffix}"]`)).toBeVisible();
 
-  await command(page, '/api/v1/geo-observations', csrf, { query_topic_id: topic.id, product_id: product!.id, actual_prompt: `${product!.part_number} 如何替代？`, model_name: 'E2E-DETERMINISTIC', model_version: 'v1', tested_at: new Date().toISOString(), web_search_enabled: true, answer_summary: '虚构 E2E 回答摘要', mentioned: true, recommendation: 'RECOMMENDED', accuracy: 'ACCURATE', citations: [{ url: `https://forum.example.invalid/posts/${suffix}`, source_type: 'EXTERNAL_COMPANY', publication_record_id: publication.id }], publication_record_ids: [publication.id], attachment_file_ids: [file.id], notes: '仅用于自动化验收', supersedes_id: null });
-  const metrics = await body<{ sample_count: number; mention_rate: number }>(await page.request.get(`/api/v1/geo-metrics?product_id=${product!.id}`));
-  expect(metrics.sample_count).toBe(1);
-  expect(metrics.mention_rate).toBe(1);
+  await command(page, '/api/v1/geo-observations', csrf, { product_id: product!.id, search_platform: 'DeepSeek E2E', search_query: `${product!.part_number} 如何替代？`, tested_at: new Date().toISOString(), article_results: [{ publication_record_id: publication.id, recommendation_status: 'RECOMMENDED' }], attachment_file_ids: [file.id], notes: '仅用于自动化验收', supersedes_id: null });
+  const metrics = await body<{ manual_observation_count: number; article_recommendation_rate: number | null }>(await page.request.get(`/api/v1/geo-metrics?product_id=${product!.id}`));
+  expect(metrics.manual_observation_count).toBe(1);
+  expect(metrics.article_recommendation_rate).toBe(1);
   await page.goto('/observations');
-  await expect(page.getByText('E2E-DETERMINISTIC').first()).toBeVisible();
+  await expect(page.getByText('DeepSeek E2E').first()).toBeVisible();
 
   await page.goto(`/publications/${publication.id}`);
   await page.getByRole('button', { name: /标\s*记\s*已\s*移\s*除/ }).click();

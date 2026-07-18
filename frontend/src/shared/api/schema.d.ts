@@ -1246,6 +1246,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/geo-observation-publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGeoObservationPublications"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/geo-observations": {
         parameters: {
             query?: never;
@@ -2398,7 +2414,52 @@ export interface components {
             /** Format: uuid */
             publication_record_id?: string | null;
         };
+        GeoArticleResultCreate: {
+            /** Format: uuid */
+            publication_record_id: string;
+            /** @enum {string} */
+            recommendation_status: "RECOMMENDED" | "NOT_RECOMMENDED";
+        };
+        GeoArticleResult: components["schemas"]["GeoArticleResultCreate"] & {
+            title: string;
+            platform_name: string;
+            /** Format: uri */
+            final_url: string;
+        };
+        GeoPublicationCandidate: {
+            /** Format: uuid */
+            publication_record_id: string;
+            title: string;
+            platform_name: string;
+            /** Format: uri */
+            final_url: string;
+            /** @enum {string} */
+            status: "PUBLISHED" | "VERIFIED";
+        };
+        GeoPublicationCandidateList: {
+            items: components["schemas"]["GeoPublicationCandidate"][];
+        };
         GeoObservationCreate: {
+            /** Format: uuid */
+            product_id: string;
+            search_platform: string;
+            search_query: string;
+            /** Format: date-time */
+            tested_at: string;
+            article_results: components["schemas"]["GeoArticleResultCreate"][];
+            attachment_file_ids: string[];
+            notes: string;
+            /** Format: uuid */
+            supersedes_id?: string | null;
+        };
+        LegacyGeoObservation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            observation_kind: "LEGACY_MODEL_RESULT";
+            /** Format: uuid */
+            id: string;
             /** Format: uuid */
             query_topic_id: string;
             /** Format: uuid */
@@ -2415,19 +2476,40 @@ export interface components {
             accuracy: components["schemas"]["AccuracyStatus"];
             citations: components["schemas"]["GeoCitation"][];
             publication_record_ids: string[];
-            attachment_file_ids?: string[];
+            attachment_file_ids: string[];
             notes: string;
             /** Format: uuid */
             supersedes_id?: string | null;
-        };
-        GeoObservation: components["schemas"]["GeoObservationCreate"] & {
-            /** Format: uuid */
-            id: string;
             /** Format: uuid */
             tested_by: string;
             /** Format: date-time */
             created_at: string;
         };
+        ManualGeoObservation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            observation_kind: "MANUAL_ARTICLE_SEARCH";
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            product_id: string;
+            search_platform: string;
+            search_query: string;
+            /** Format: date-time */
+            tested_at: string;
+            article_results: components["schemas"]["GeoArticleResult"][];
+            attachment_file_ids: string[];
+            notes: string;
+            /** Format: uuid */
+            supersedes_id: string | null;
+            /** Format: uuid */
+            tested_by: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        GeoObservation: components["schemas"]["LegacyGeoObservation"] | components["schemas"]["ManualGeoObservation"];
         GeoObservationList: {
             items: components["schemas"]["GeoObservation"][];
         };
@@ -2437,6 +2519,11 @@ export interface components {
             recommendation_rate: number;
             citation_rate: number;
             accuracy_rate: number | null;
+            manual_observation_count: number;
+            article_result_count: number;
+            recommended_article_count: number;
+            not_recommended_article_count: number;
+            article_recommendation_rate: number | null;
         };
         DashboardSummary: {
             pending_fact_reviews: number;
@@ -5035,6 +5122,29 @@ export interface operations {
             409: components["responses"]["ErrorResponse"];
         };
     };
+    listGeoObservationPublications: {
+        parameters: {
+            query: {
+                product_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 产品当前全部可观测公开文章 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoPublicationCandidateList"];
+                };
+            };
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
     listGeoObservations: {
         parameters: {
             query?: never;
@@ -5087,6 +5197,7 @@ export interface operations {
                 product_id?: string;
                 query_topic_id?: string;
                 model_name?: string;
+                search_platform?: string;
                 date_from?: string;
                 date_to?: string;
             };

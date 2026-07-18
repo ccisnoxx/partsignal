@@ -1413,6 +1413,22 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/PublicationAttention'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/geo-observation-publications:
+    get:
+      tags: [observation]
+      operationId: listGeoObservationPublications
+      parameters:
+        - name: product_id
+          in: query
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: 产品当前全部可观测公开文章
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GeoPublicationCandidateList'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-observations:
     get:
       tags: [observation]
@@ -1446,6 +1462,7 @@ paths:
         - {name: product_id, in: query, schema: {type: string, format: uuid}}
         - {name: query_topic_id, in: query, schema: {type: string, format: uuid}}
         - {name: model_name, in: query, schema: {type: string}}
+        - {name: search_platform, in: query, schema: {type: string}}
         - {name: date_from, in: query, schema: {type: string, format: date}}
         - {name: date_to, in: query, schema: {type: string, format: date}}
       responses:
@@ -2807,11 +2824,58 @@ components:
         url: {type: string, format: uri, minLength: 1, maxLength: 2083}
         source_type: {$ref: '#/components/schemas/CitationSourceType'}
         publication_record_id: {type: [string, 'null'], format: uuid}
+    GeoArticleResultCreate:
+      type: object
+      additionalProperties: false
+      required: [publication_record_id, recommendation_status]
+      properties:
+        publication_record_id: {type: string, format: uuid}
+        recommendation_status: {type: string, enum: [RECOMMENDED, NOT_RECOMMENDED]}
+    GeoArticleResult:
+      allOf:
+        - {$ref: '#/components/schemas/GeoArticleResultCreate'}
+        - type: object
+          required: [title, platform_name, final_url]
+          properties:
+            title: {type: string}
+            platform_name: {type: string}
+            final_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+    GeoPublicationCandidate:
+      type: object
+      additionalProperties: false
+      required: [publication_record_id, title, platform_name, final_url, status]
+      properties:
+        publication_record_id: {type: string, format: uuid}
+        title: {type: string}
+        platform_name: {type: string}
+        final_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+        status: {type: string, enum: [PUBLISHED, VERIFIED]}
+    GeoPublicationCandidateList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/GeoPublicationCandidate'}}
     GeoObservationCreate:
       type: object
       additionalProperties: false
-      required: [query_topic_id, product_id, actual_prompt, model_name, tested_at, web_search_enabled, answer_summary, mentioned, recommendation, accuracy, citations, publication_record_ids, notes]
+      required: [product_id, search_platform, search_query, tested_at, article_results, attachment_file_ids, notes]
       properties:
+        product_id: {type: string, format: uuid}
+        search_platform: {type: string, minLength: 1, maxLength: 160}
+        search_query: {type: string, minLength: 1}
+        tested_at: {type: string, format: date-time}
+        article_results: {type: array, minItems: 1, items: {$ref: '#/components/schemas/GeoArticleResultCreate'}}
+        attachment_file_ids: {type: array, minItems: 1, uniqueItems: true, items: {type: string, format: uuid}}
+        notes: {type: string}
+        supersedes_id: {type: [string, 'null'], format: uuid}
+    LegacyGeoObservation:
+      type: object
+      additionalProperties: false
+      required: [observation_kind, id, query_topic_id, product_id, actual_prompt, model_name, tested_at, web_search_enabled, answer_summary, mentioned, recommendation, accuracy, citations, publication_record_ids, attachment_file_ids, notes, tested_by, created_at]
+      properties:
+        observation_kind: {type: string, const: LEGACY_MODEL_RESULT}
+        id: {type: string, format: uuid}
         query_topic_id: {type: string, format: uuid}
         product_id: {type: string, format: uuid}
         actual_prompt: {type: string}
@@ -2828,15 +2892,34 @@ components:
         attachment_file_ids: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
         notes: {type: string}
         supersedes_id: {type: [string, 'null'], format: uuid}
+        tested_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+    ManualGeoObservation:
+      type: object
+      additionalProperties: false
+      required: [observation_kind, id, product_id, search_platform, search_query, tested_at, article_results, attachment_file_ids, notes, supersedes_id, tested_by, created_at]
+      properties:
+        observation_kind: {type: string, const: MANUAL_ARTICLE_SEARCH}
+        id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        search_platform: {type: string}
+        search_query: {type: string}
+        tested_at: {type: string, format: date-time}
+        article_results: {type: array, items: {$ref: '#/components/schemas/GeoArticleResult'}}
+        attachment_file_ids: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
+        notes: {type: string}
+        supersedes_id: {type: [string, 'null'], format: uuid}
+        tested_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
     GeoObservation:
-      allOf:
-        - {$ref: '#/components/schemas/GeoObservationCreate'}
-        - type: object
-          required: [id, tested_by, created_at]
-          properties:
-            id: {type: string, format: uuid}
-            tested_by: {type: string, format: uuid}
-            created_at: {type: string, format: date-time}
+      oneOf:
+        - {$ref: '#/components/schemas/LegacyGeoObservation'}
+        - {$ref: '#/components/schemas/ManualGeoObservation'}
+      discriminator:
+        propertyName: observation_kind
+        mapping:
+          LEGACY_MODEL_RESULT: '#/components/schemas/LegacyGeoObservation'
+          MANUAL_ARTICLE_SEARCH: '#/components/schemas/ManualGeoObservation'
     GeoObservationList:
       type: object
       additionalProperties: false
@@ -2846,13 +2929,18 @@ components:
     GeoMetrics:
       type: object
       additionalProperties: false
-      required: [sample_count, mention_rate, recommendation_rate, citation_rate, accuracy_rate]
+      required: [sample_count, mention_rate, recommendation_rate, citation_rate, accuracy_rate, manual_observation_count, article_result_count, recommended_article_count, not_recommended_article_count, article_recommendation_rate]
       properties:
         sample_count: {type: integer}
         mention_rate: {type: number, minimum: 0, maximum: 1}
         recommendation_rate: {type: number, minimum: 0, maximum: 1}
         citation_rate: {type: number, minimum: 0, maximum: 1}
         accuracy_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
+        manual_observation_count: {type: integer, minimum: 0}
+        article_result_count: {type: integer, minimum: 0}
+        recommended_article_count: {type: integer, minimum: 0}
+        not_recommended_article_count: {type: integer, minimum: 0}
+        article_recommendation_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
     DashboardSummary:
       type: object
       additionalProperties: false

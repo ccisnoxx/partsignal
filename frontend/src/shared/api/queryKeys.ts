@@ -59,6 +59,7 @@ export const queryKeys = {
   geo: {
     metrics: ['geo-metrics'] as const,
     observations: ['geo-observations'] as const,
+    publications: (productId: string | undefined) => ['geo-observation-publications', productId] as const,
   },
   users: ['users'] as const,
 };

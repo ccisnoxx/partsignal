@@ -1277,9 +1277,72 @@ def test_content_humanization_migration_constraints_and_forward_only_history() -
         assert "content humanization history exists" in downgrade.stderr
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0017_content_humanization",)
+            assert cursor.fetchone() == ("0018_manual_geo_observation",)
             cursor.execute(
                 "SELECT job_type FROM generation_jobs WHERE id = %s",
                 (humanization_job_id,),
             )
             assert cursor.fetchone() == ("HUMANIZE",)
+
+
+@pytest.mark.integration
+def test_manual_geo_migration_preserves_legacy_history_and_blocks_lossy_downgrade() -> None:
+    """0018 只标记旧观测；产生人工观测后整个降级事务必须回滚。"""
+    with temporary_database("partsignal_manual_geo") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0017_content_humanization")
+        task_id = seed_legacy_content_task(test_url)
+        legacy_observation_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT product_id, query_topic_id, created_by FROM content_tasks WHERE id = %s",
+                (task_id,),
+            )
+            product_id, query_topic_id, user_id = cursor.fetchone()
+            cursor.execute(
+                "INSERT INTO geo_observations "
+                "(id, query_topic_id, product_id, actual_prompt, model_name, tested_at, "
+                "web_search_enabled, answer_summary, mentioned, recommendation, accuracy, "
+                "notes, tested_by) "
+                "VALUES (%s, %s, %s, '旧观测问题', 'legacy-model', now(), true, "
+                "'旧回答', true, 'RECOMMENDED', 'ACCURATE', '历史记录', %s)",
+                (legacy_observation_id, query_topic_id, product_id, user_id),
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "head")
+        manual_observation_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT observation_kind, search_platform, search_query "
+                "FROM geo_observations WHERE id = %s",
+                (legacy_observation_id,),
+            )
+            assert cursor.fetchone() == ("LEGACY_MODEL_RESULT", None, None)
+            cursor.execute(
+                "INSERT INTO geo_observations "
+                "(id, observation_kind, product_id, search_platform, search_query, tested_at, "
+                "notes, tested_by) "
+                "VALUES (%s, 'MANUAL_ARTICLE_SEARCH', %s, 'DeepSeek', '人工搜索词', "
+                "now(), '人工观测', %s)",
+                (manual_observation_id, product_id, user_id),
+            )
+            connection.commit()
+
+        downgrade = subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0017_content_humanization"],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "manual GEO observation history exists" in downgrade.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0018_manual_geo_observation",)
+            cursor.execute(
+                "SELECT count(*) FROM geo_observations WHERE id IN (%s, %s)",
+                (legacy_observation_id, manual_observation_id),
+            )
+            assert cursor.fetchone() == (2,)

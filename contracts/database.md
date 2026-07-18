@@ -126,6 +126,16 @@ The API and Worker both require an `OPEN` task, an `AI` source in `DRAFT | CHANG
 
 New generation snapshots include the concrete platform identity and continue freezing the final system/user messages. Old immutable snapshots may omit the concrete-platform object only for historical reads; new writes must include it. Platform Prompts can diverge after migration, so `0014` does not guess how to merge them on downgrade; rollback requires the pre-migration PostgreSQL backup.
 
+### 0018 Manual GEO Article Observation
+
+`geo_observations.observation_kind` explicitly separates historical `LEGACY_MODEL_RESULT` rows from new `MANUAL_ARTICLE_SEARCH` rows. The migration assigns the legacy discriminator without changing any historical business field. Legacy query/model/answer fields and new `search_platform/search_query` fields are mutually exclusive under a database check; new writes have no target question, model call, web-search flag, answer summary, citation, accuracy, or observation-level recommendation.
+
+`geo_observation_publications.recommendation_status` is the authoritative per-article result for manual observations and is limited to `RECOMMENDED | NOT_RECOMMENDED`. Historical associations remain `NULL` and mean “not assessed per article”; the migration never infers a status from old citations, possible-influence links, or observation-level recommendation. An insert trigger verifies that every new result belongs to the observation product through `PublicationRecord -> ContentVersion -> ContentTask`, the publication is currently `PUBLISHED | VERIFIED`, and `final_url` is present.
+
+The create service locks the product and all current eligible publication rows, then requires the request to cover that exact publication ID set. Every manual observation includes at least one verified `OPERATION_SCREENSHOT`. Article titles, platform identity, links, and publication status remain projections of their existing owners and are not duplicated in GEO storage. Metrics are derived from current correction-chain tails; legacy model metrics and manual per-article recommendation metrics have separate denominators.
+
+Manual GEO history is forward-only. Once a `MANUAL_ARTICLE_SEARCH` row exists, revision `0018` refuses downgrade because removing the discriminator, search fields, or article results would destroy immutable business meaning.
+
 ## State Machines
 
 ```text
@@ -180,4 +190,6 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - Open publication attention is the only publication-loss todo source. Repair-task creation and attention resolution are separate explicit commands.
 - Fact and content review records are append-only, and every request-changes command requires a non-blank comment.
 - Observation accuracy `UNJUDGEABLE` is excluded from the accuracy-rate denominator.
+- Manual GEO observations cover every currently `PUBLISHED | VERIFIED` article for one product, use exactly one binary recommendation result per article, and include at least one verified operation screenshot.
+- Historical GEO publication associations with a null per-article result remain explicitly unassessed and never enter manual article recommendation metrics.
 - Audit log details must not contain passwords, session cookies, AccessKeys, model keys, or unpublished source documents.

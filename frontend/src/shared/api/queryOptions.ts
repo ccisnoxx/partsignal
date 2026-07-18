@@ -16,6 +16,15 @@ export const geoMetricsQueryOptions = () => queryOptions({
   staleTime: QUERY_STALE_TIME.workbench,
 });
 
+export const geoPublicationCandidatesQueryOptions = (productId: string | undefined) => queryOptions({
+  queryKey: queryKeys.geo.publications(productId),
+  queryFn: async () => unwrap(await api.GET('/api/v1/geo-observation-publications', {
+    params: { query: { product_id: productId! } },
+  })),
+  enabled: !!productId,
+  staleTime: QUERY_STALE_TIME.businessList,
+});
+
 export const productsQueryOptions = (search = '') => queryOptions({
   queryKey: queryKeys.products.list(search),
   queryFn: async () => unwrap(await api.GET('/api/v1/products', {

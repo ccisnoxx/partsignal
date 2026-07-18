@@ -202,3 +202,66 @@ db.delete(version)
 - `generation_jobs.job_type` 只允许 `GENERATE | HUMANIZE`；前者的 `source_content_version_id` 必须为空，后者必须非空并 `RESTRICT` 引用源版本。
 - 同一源版本只允许一个 `PENDING | RUNNING` 自然化作业，使用 PostgreSQL 部分唯一索引处理并发竞态；服务端校验用于返回稳定业务错误，不替代数据库约束。
 - 自然化成功只新增 `ContentVersion(source_type=AI, source_job_id=job.id, based_on_id=source.id)`，禁止更新源版本。存在任一 `HUMANIZE` 历史后，0017 downgrade 必须在删除任何结构前失败。
+
+## 场景：产品级人工 GEO 文章观测
+
+### 1. 范围与触发条件
+
+- 新建、读取或更正 GEO 人工搜索记录，以及修改产品文章候选或推荐率统计时适用。
+- 用户在外部搜索网站人工核对结果；本系统只保存可复核证据，不调用模型、搜索供应商或截图解析服务。
+
+### 2. 签名
+
+- 数据库 revision：`0018_manual_geo_observation`，`down_revision = "0017_content_humanization"`。
+- 候选接口：`GET /api/v1/geo-observation-publications?product_id=<uuid>`。
+- 创建接口：`POST /api/v1/geo-observations`，接收 `product_id`、`search_platform`、`search_query`、`tested_at`、`article_results[]`、`attachment_file_ids[]`、可选 `notes/supersedes_id`。
+- 明细结果：`geo_observation_publications.recommendation_status`，仅允许 `RECOMMENDED | NOT_RECOMMENDED`。
+
+### 3. 契约
+
+- `PublicationRecord` 是公开文章的唯一身份，标题、平台、`final_url` 和状态均由发布链投影；GEO 不复制文章或链接字段。
+- 一次人工观测必须覆盖该产品在提交事务中全部 `PUBLISHED | VERIFIED` 且 `final_url` 非空的发布记录；服务端锁定候选后比较精确 ID 集合。
+- 每篇候选只能有一个二态结果。至少关联一个已验证的 `OPERATION_SCREENSHOT`，附件不能重复。
+- `LEGACY_MODEL_RESULT` 继续保存旧目标问题、模型结果和引用；其文章关联状态保持 `NULL`，不得从旧观测级结论推断逐篇结果。
+- `MANUAL_ARTICLE_SEARCH` 的旧模型字段必须全空；更正只能追加同产品、同类型且尚无后继的完整新记录。
+- 人工文章指标只统计没有后继更正的人工观测，并由明细实时派生；无明细时推荐率为 `NULL`。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 结果 |
+|---|---|
+| 产品不存在 | `404 PRODUCT_NOT_FOUND` |
+| 请求文章集合与当前候选不完全相等 | `409 GEO_PUBLICATIONS_CHANGED`，不得部分写入 |
+| 文章跨产品、状态不可观测或缺少 `final_url` | 服务端拒绝；数据库触发器最终拒绝直接写入 |
+| 结果重复、不是二态值或结果为空 | 请求校验失败 |
+| 截图为空、重复、未验证或类别不是 `OPERATION_SCREENSHOT` | 请求校验或服务端校验失败 |
+| 更正来源不是同产品人工观测，或已有后继 | `409`，来源历史保持不变 |
+| 存在任一人工观测后降级 | revision 在删除新语义前失败，要求前滚或恢复备份 |
+
+### 5. 正常、基础与失败案例
+
+- 正常：产品有两篇已发布文章，人工在 DeepSeek 搜索后逐篇标记一篇已推荐、一篇未推荐，并关联真实结果截图，事务一次追加全部明细。
+- 基础：历史模型观测迁移后只增加 `LEGACY_MODEL_RESULT` 判别值，旧字段、引用和发布关联保持原义。
+- 失败：用户填写期间新增一篇符合条件的发布记录，提交集合已过期，返回 `GEO_PUBLICATIONS_CHANGED`，不自动补成“未推荐”。
+
+### 6. 必需测试
+
+- PostgreSQL 迁移测试验证空库升级到 head、历史观测判别值、类型字段约束、文章归属触发器和存在人工历史后的不可降级策略。
+- 集成测试至少用两篇当前文章断言完整集合成功、漏标失败、截图类别门禁、逐篇状态落库，以及推荐数加未推荐数等于文章结果数。
+- 契约测试验证 OpenAPI、Pydantic 与前端生成类型一致；前端测试验证产品选择后再请求候选，且新载荷不含旧模型联网字段。
+- E2E 验证人工观测主流程与历史模型观测只读展示；不得把固定成功的搜索或模型替身作为人工结果证据。
+
+### 7. 错误与正确示例
+
+错误做法：信任前端只提交命中的文章，或按提交时缺少的 ID 自动补“未推荐”。这会把遗漏和并发变化伪装成真实搜索结论。
+
+正确做法：在同一事务锁定产品及权威候选，精确比较集合后再追加明细：
+
+```python
+candidate_ids = {publication.id for publication in locked_candidates}
+submitted_ids = {result.publication_record_id for result in request.article_results}
+if submitted_ids != candidate_ids:
+    raise ConflictError("GEO_PUBLICATIONS_CHANGED")
+```
+
+文章 URL 始终从 `PublicationRecord.final_url` 读取，前端不得提交或覆盖该值。

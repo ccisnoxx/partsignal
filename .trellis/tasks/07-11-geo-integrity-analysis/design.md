@@ -1,99 +1,131 @@
-# GEO 数据完整性与分析闭环设计
+# GEO 数据完整性与人工文章观测设计
 
-## 核心不变量
+## 最小可行设计
 
-1. `GeoObservationPublication` 表示可能影响本次结果的发布，不是引用证据。
-2. 每条 `GeoCitation` 都表示模型实际引用；绑定 `PublicationRecord` 时才执行发布一致性校验。
-3. 所有关联发布在观测创建时必须属于同一产品且状态至少为 `PUBLISHED`。
-4. 绑定发布的 Citation URL 必须与发布最终 URL 经过确定性规范化后相等。
-5. 观测不可修改；更正创建新观测并通过 `supersedes_id` 形成单向链。
-6. 默认列表、指标和近期错误只统计没有后继更正的当前有效记录。
-7. 列表、指标和工作台计数复用同一筛选谓词。
+复用 `GeoObservation` 作为追加式观测根，复用 `Product`、`PublicationRecord` 和 `FileRecord` 的现有身份；只扩展观测类型和文章关联结果，不创建第二套文章、发布或截图模型。
 
-## URL 一致性
+```text
+人工访问搜索网站
+  -> 选择 Product
+  -> 服务端按 Product 投影当前 PublicationRecord 候选
+  -> 用户逐篇标记并上传结果截图
+  -> POST GeoObservationCreate
+  -> 服务端锁定并复核完整候选集合
+  -> 追加 GeoObservation + ArticleResult + Attachment
+  -> 列表和指标从 PostgreSQL 实时读取
+```
 
-使用一个服务端 URL 值对象执行确定性比较：
+## 权威归属
 
-- scheme 和 IDNA host 小写。
-- 移除默认端口。
-- 保留规范化 path 和完整 query，不删除未知追踪参数。
-- fragment 不参与页面资源身份比较。
+- 产品身份：`products`。
+- 文章正文和标题来源：`content_versions`；展示优先使用发布时 `actual_title`，为空时使用内容版本标题。
+- 公开文章链接和发布状态：`publication_records.final_url/status`。
+- 单次搜索中逐篇推荐结果：`geo_observation_publications.recommendation_status`。
+- 搜索结果截图：`file_records` 与 `geo_observation_attachments`。
+- 汇总指标：查询时派生，不新增汇总表或缓存。
 
-不做域名相似、路径前缀、重定向跟随或模糊匹配。不一致时要求用户修正引用或发布记录。
+前端只提交发布记录 ID 与推荐结果，不提交文章 URL、标题、产品归属或发布状态，避免第二来源。
 
-## 创建观测事务
+## 历史兼容边界
 
-1. 锁定/读取产品、目标问题和所有关联发布。
-2. 对“可能影响”发布校验同产品及 `PUBLISHED | VERIFIED`。
-3. 对每个绑定发布的 Citation 额外校验 URL 一致性。
-4. 更正时锁定被更正记录，校验同产品、同问题且尚无直接后继。
-5. 写入 Observation、Citations、影响关系和附件并提交。
+现有观测与新观测语义不同，使用显式判别字段区分：
 
-数据库增加 `supersedes_id` 唯一约束，消除并发创建两个直接后继的竞态。历史链不删除。
+- `LEGACY_MODEL_RESULT`：现有目标问题、模型回答、引用、准确性语义；迁移只加判别值，不改写业务字段。
+- `MANUAL_ARTICLE_SEARCH`：新的产品级人工搜索语义；旧模型字段必须为空。
 
-## 指标口径
+`geo_observation_publications.recommendation_status` 对旧关联保持 `NULL`，明确表示历史未逐篇评估；新人工观测只允许 `RECOMMENDED | NOT_RECOMMENDED`。不从旧的观测级 `recommendation`、Citation 或“可能影响”关系推断逐篇状态。
 
-先建立当前有效观测查询，再应用产品、问题、模型和 `tested_at` 日期过滤：
+## 数据库变更
 
-- `sample_count`：当前有效样本数。
-- `mention_rate`：`mentioned=true` / 样本数。
-- `recommendation_rate`：`RECOMMENDED` / 样本数。
-- `citation_rate`：至少一条 `source_type in {OFFICIAL, EXTERNAL_COMPANY}` Citation 的样本数 / 样本数。
-- `accuracy_rate`：`ACCURATE` / 非 `UNJUDGEABLE` 样本数；无可判断样本时为 `null`。
+新增 revision `0018_manual_geo_observation`：
 
-`OTHER` Citation 和“可能影响”发布不进入公司引用率。官网引用不要求存在 `PublicationRecord`。
+1. `geo_observations` 增加非空 `observation_kind`，历史行通过列默认值成为 `LEGACY_MODEL_RESULT`，随后移除写入默认值。
+2. 增加可空 `search_platform`、`search_query`；旧模型字段改为可空。
+3. 增加检查约束：旧类型必须具有完整旧字段且没有人工搜索字段；新类型必须具有非空白搜索平台/搜索词且旧字段全部为空。
+4. `geo_observation_publications` 增加可空 `recommendation_status` 和二态检查约束；历史 `NULL` 只允许属于旧观测。
+5. 插入触发器最终校验人工观测文章结果非空状态、文章与观测同产品、发布状态为 `PUBLISHED | VERIFIED` 且 `final_url` 非空。
+6. 保留现有追加式触发器、附件关联和更正唯一索引。
 
-## OpenAPI 设计
+若已经存在任一 `MANUAL_ARTICLE_SEARCH`，downgrade 必须在删除新语义前失败；回滚使用前滚修复或迁移前备份，不能丢弃观测历史。
 
-### 列表与历史
-
-扩展 `GET /geo-observations`：
-
-- `product_id`
-- `query_topic_id`
-- `model_name`
-- `date_from` / `date_to`，按 `tested_at`
-- `accuracy`
-- `include_history=false`
-
-默认只返回当前有效链尾。新增 `GET /geo-observations/{id}/history`，按根到链尾返回完整更正链。
+## API 契约
 
 ### 发布候选
 
-新增按 `product_id` 查询的 GEO 发布候选投影，只返回 `PUBLISHED | VERIFIED`，包含发布 ID、平台、最终 URL、标题和状态。前端不再拉取前 100 条全局发布后自行过滤。
+新增：
 
-### 创建与更正
+```http
+GET /api/v1/geo-observation-publications?product_id=<uuid>
+```
 
-保持 `publication_record_ids` 与 `citations[].publication_record_id` 分离。更正 UI 从行操作进入，产品、问题和 `supersedes_id` 只读；其余字段作为新的完整替代值提交。
+返回 `PUBLISHED | VERIFIED` 且 `final_url` 非空的全部记录：
 
-## 前端设计
+```json
+{
+  "items": [{
+    "publication_record_id": "uuid",
+    "title": "文章标题",
+    "platform_name": "平台名称",
+    "final_url": "https://example.com/article",
+    "status": "VERIFIED"
+  }]
+}
+```
 
-- `/observations` 的筛选完全来自 `useSearchParams`，规范化参数同时进入 query key。
-- 工作台近期准确性错误链接到同一 URL 筛选语义。
-- 更正入口固定使用 `/observations/:observationId/correct`，提交后保留原筛选。
-- 默认表只显示当前有效记录，行内可查看历史；“包含历史”是显式筛选且不影响指标卡。
-- 空样本显示无可判断样本，不把 `accuracy_rate=null` 显示为 0%。
+该投影只用于候选展示，不复制持久化文章数据。
 
-## 历史完整性
+### 创建人工观测
 
-只读检查只检查当前有效链尾，输出：
+`POST /api/v1/geo-observations` 的新写入契约：
 
-- 跨产品的影响或引用发布。
-- 状态低于 `PUBLISHED` 的关联发布。
-- 绑定发布但 Citation URL 不一致。
+```json
+{
+  "product_id": "uuid",
+  "search_platform": "DeepSeek",
+  "search_query": "产品型号",
+  "tested_at": "2026-07-18T10:00:00+08:00",
+  "article_results": [
+    {"publication_record_id": "uuid", "recommendation_status": "RECOMMENDED"}
+  ],
+  "attachment_file_ids": ["uuid"],
+  "notes": "",
+  "supersedes_id": null
+}
+```
 
-任何未处置记录阻断上线。用户通过追加式更正创建合法链尾，原观测和关系保留历史；不修改或删除原记录。
+请求边界拒绝空白平台/搜索词、重复文章、空结果和空截图。输出使用 `observation_kind` 判别联合类型，使旧记录仍可读且新记录没有伪造的旧字段。
 
-## 依赖与回滚
+### 列表与指标
 
-依赖发布子任务先冻结平台一致性、发布状态和异常语义。`0007` 已存在更正唯一约束，`0014_geo_integrity_indexes` 只补共享筛选和 Citation 查询所需索引；随后部署读取/写入逻辑，最后前端。
+- `GET /geo-observations` 返回新旧判别联合列表，默认仍按观测时间倒序。
+- `GET /geo-metrics` 保留旧指标字段用于历史兼容，并增加 `manual_observation_count`、`article_result_count`、`recommended_article_count`、`not_recommended_article_count` 和可空 `article_recommendation_rate`。
+- 新文章指标只统计没有后继更正的 `MANUAL_ARTICLE_SEARCH`；旧观测不进入分母。
 
-新更正记录不可通过回滚删除。若指标或列表口径出现问题，停止 GEO 写入并修复共享查询，不恢复前端本地过滤或持久化汇总。
+## 创建事务
 
-## 最终确认的查询所有权
+1. 锁定并确认产品存在。
+2. 查询并锁定该产品全部当前可观测发布记录。
+3. 比较服务端候选 ID 集合与请求结果 ID 集合；不相等时返回 `409 GEO_PUBLICATIONS_CHANGED`。
+4. 校验每个结果二态、发布状态、最终链接和产品归属。
+5. 校验至少一个附件，全部为 `VERIFIED OPERATION_SCREENSHOT`。
+6. 更正时锁定来源观测，要求来源为人工观测、同产品且尚无后继。
+7. 追加观测、逐篇结果、附件和审计后一次提交；任一步失败不产生部分记录。
 
-- 一个服务端链尾基础查询统一拥有“当前有效观测”定义；列表、指标、Dashboard 和历史 preflight 均复用，不得复制 `NOT EXISTS` 条件。
-- 筛选参数在服务端统一规范化；前端 URL 和 query key 使用同一规范化结果。
-- `accuracy` 支持组合值，Dashboard 近期错误深链使用 `PARTIAL` 与 `INCORRECT` 的同一筛选语义。
-- 更正 UI 从观测行进入，产品、问题和来源记录不可编辑；服务端锁定来源并复核尚无后继。
-- URL 值对象只执行 scheme/host/默认端口/path/query/fragment 的确定性规则，不访问网络。
+## 前端交互
+
+- 弹窗打开只加载产品；选定产品后以产品 ID 作为 TanStack Query key 加载文章候选。
+- 产品变化时清空旧文章标记，避免跨产品表单残留。
+- 文章以表格展示标题、平台、外链和二态 Select；所有候选默认未选择，必须逐篇明确判断。
+- 截图上传沿用 `DirectUpload(category="OPERATION_SCREENSHOT")`，提交按钮在候选为空或截图为空时禁用，服务端仍是最终权威。
+- 弹窗继续滚动 `.ant-modal-container`，删除全局 Header sticky 定位，使标题自然滚动。
+- 列表展开区展示新观测的搜索词、逐篇结果和截图数量；旧观测继续展示原提示、回答与引用。
+
+## 无联网边界
+
+新流程只访问 PartSignal 的产品、候选、文件和观测 API。后端不依赖 `ai_channels`、`ai_models`、Celery 或任何搜索供应商；搜索网站操作完全由用户在站外手工完成。
+
+## 复杂度控制
+
+- 不新增 Article 模型：发布记录已经是可观测公开文章的稳定身份。
+- 不新增搜索平台配置：当前只需保存人工输入的站点名称，固定枚举会阻碍新增网站。
+- 不自动抓取、比对 URL 或解析截图：这些能力没有可靠契约，且会重新引入与用户真实搜索结果不一致的问题。

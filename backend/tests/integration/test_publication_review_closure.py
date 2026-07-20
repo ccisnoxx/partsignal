@@ -20,7 +20,7 @@ import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
 from pydantic import ValidationError
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, event, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -55,6 +55,7 @@ from app.models.product_facts import (
 )
 from app.models.publication import (
     PlatformAccount,
+    PublicationAttachment,
     PublicationAttention,
     PublicationRecord,
 )
@@ -100,7 +101,13 @@ from app.services.publication import (
     delete_platform_account,
     resolve_attention,
 )
-from app.services.publication_queries import get_repair_context
+from app.services.publication_queries import (
+    get_repair_context,
+    list_attentions,
+    list_publication_candidates,
+    list_publication_records,
+    publication_workbench_summary,
+)
 from app.services.review import (
     get_content_review_context,
     get_fact_review_context,
@@ -674,6 +681,290 @@ def test_publication_api_database_task_and_attention_closure() -> None:
             assert attention is not None and attention.status == "OPEN"
             assert db.get(PublicationRecord, second_id) is not None
             assert publication_integrity_issues(db) == []
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_publication_workbench_projection_and_atomic_result_evidence() -> None:
+    """工作台聚合使用状态事件，结果证据与登记已发布在同一事务中落库。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine) as db:
+            graph = seed_graph(db)
+            actor = graph["user"]
+            prepared_file = FileRecord(
+                category="OPERATION_SCREENSHOT",
+                original_filename="prepared.png",
+                object_key=f"test/publication/{uuid.uuid4()}.png",
+                content_type="image/png",
+                size=64,
+                sha256="a" * 64,
+                access_level="INTERNAL",
+                status="VERIFIED",
+                uploader_id=actor.id,
+                upload_expires_at=datetime.now(UTC),
+                verified_at=datetime.now(UTC),
+            )
+            result_file = FileRecord(
+                category="OPERATION_SCREENSHOT",
+                original_filename="result.png",
+                object_key=f"test/publication/{uuid.uuid4()}.png",
+                content_type="image/png",
+                size=64,
+                sha256="b" * 64,
+                access_level="INTERNAL",
+                status="VERIFIED",
+                uploader_id=actor.id,
+                upload_expires_at=datetime.now(UTC),
+                verified_at=datetime.now(UTC),
+            )
+            pending_file = FileRecord(
+                category="OPERATION_SCREENSHOT",
+                original_filename="pending.png",
+                object_key=f"test/publication/{uuid.uuid4()}.png",
+                content_type="image/png",
+                size=64,
+                sha256="c" * 64,
+                access_level="INTERNAL",
+                status="PENDING",
+                uploader_id=actor.id,
+                upload_expires_at=datetime.now(UTC),
+            )
+            wrong_category_file = FileRecord(
+                category="EVIDENCE",
+                original_filename="logo.png",
+                object_key=f"test/publication/{uuid.uuid4()}.png",
+                content_type="image/png",
+                size=64,
+                sha256="d" * 64,
+                access_level="PUBLIC",
+                status="VERIFIED",
+                uploader_id=actor.id,
+                upload_expires_at=datetime.now(UTC),
+                verified_at=datetime.now(UTC),
+            )
+            db.add_all([prepared_file, result_file, pending_file, wrong_category_file])
+            db.commit()
+
+            candidate_statement_count = 0
+
+            def count_candidate_statement(*_args: object) -> None:
+                nonlocal candidate_statement_count
+                candidate_statement_count += 1
+
+            event.listen(engine, "before_cursor_execute", count_candidate_statement)
+            try:
+                candidates = list_publication_candidates(db)
+            finally:
+                event.remove(engine, "before_cursor_execute", count_candidate_statement)
+            assert len(candidates.items) == 1
+            assert len(candidates.items[0].matching_accounts) == 2
+            assert candidate_statement_count == 2
+
+            empty_summary = publication_workbench_summary(db, 7)
+            assert empty_summary.period.registered_published_count == 0
+            assert empty_summary.period.verified_count == 0
+            assert empty_summary.period.verification_rate is None
+
+            with pytest.raises(AppError) as invalid_prepared_evidence:
+                create_manual_publication(
+                    db=db,
+                    payload=publication_payload(
+                        graph["content"].id, graph["same_account"].id
+                    ).model_copy(update={"attachment_file_ids": [wrong_category_file.id]}),
+                    actor=actor,
+                    request_id="workbench-create-invalid-evidence",
+                    idempotency_key=f"workbench-invalid-evidence-{uuid.uuid4()}",
+                )
+            assert invalid_prepared_evidence.value.code == "VALIDATION_ERROR"
+            db.rollback()
+            assert db.scalar(select(func.count()).select_from(PublicationRecord)) == 0
+
+            successful = create_manual_publication(
+                db=db,
+                payload=publication_payload(
+                    graph["content"].id, graph["same_account"].id
+                ).model_copy(update={"attachment_file_ids": [prepared_file.id]}),
+                actor=actor,
+                request_id="workbench-create-success",
+                idempotency_key=f"workbench-success-{uuid.uuid4()}",
+            )
+            assert successful.content_title == graph["content"].title
+            assert successful.content_version == graph["content"].version
+            assert successful.platform_profile_id == graph["profile"].id
+            assert successful.platform_profile_name == graph["profile"].name
+            assert successful.platform_account_label == graph["same_account"].label
+            assert successful.account_identifier == graph["same_account"].account_identifier
+            failed = create_manual_publication(
+                db=db,
+                payload=publication_payload(graph["content"].id, graph["same_account_b"].id),
+                actor=actor,
+                request_id="workbench-create-failed",
+                idempotency_key=f"workbench-failed-{uuid.uuid4()}",
+            )
+            for publication in (successful, failed):
+                command_publication(
+                    db=db,
+                    publication_id=publication.id,
+                    command="mark-platform-review",
+                    payload=PublicationCommand(comment="平台处理中"),
+                    actor=actor,
+                    request_id=f"workbench-review-{publication.id}",
+                )
+
+            with pytest.raises(AppError) as incomplete_evidence:
+                command_publication(
+                    db=db,
+                    publication_id=failed.id,
+                    command="mark-published",
+                    payload=PublicationCommand(
+                        actual_title="失败发布",
+                        final_url="https://community.example.invalid/posts/failed",
+                        published_at=datetime.now(UTC),
+                        comment="不应提交",
+                        attachment_file_ids=[pending_file.id],
+                    ),
+                    actor=actor,
+                    request_id="workbench-published-failed",
+                )
+            assert incomplete_evidence.value.code == "FILE_INTEGRITY_FAILED"
+            db.rollback()
+            failed_record = db.get(PublicationRecord, failed.id)
+            assert failed_record is not None
+            assert failed_record.status == "PLATFORM_REVIEW"
+            assert failed_record.actual_title is None
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(PublicationAttachment)
+                    .where(PublicationAttachment.publication_id == failed.id)
+                )
+                == 0
+            )
+
+            with pytest.raises(AppError) as invalid_result_evidence:
+                command_publication(
+                    db=db,
+                    publication_id=failed.id,
+                    command="mark-published",
+                    payload=PublicationCommand(
+                        actual_title="错误类别证据",
+                        final_url="https://community.example.invalid/posts/wrong-category",
+                        published_at=datetime.now(UTC),
+                        comment="不应提交",
+                        attachment_file_ids=[wrong_category_file.id],
+                    ),
+                    actor=actor,
+                    request_id="workbench-published-invalid-category",
+                )
+            assert invalid_result_evidence.value.code == "VALIDATION_ERROR"
+            db.rollback()
+            failed_record = db.get(PublicationRecord, failed.id)
+            assert failed_record is not None
+            assert failed_record.status == "PLATFORM_REVIEW"
+            assert failed_record.actual_title is None
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(PublicationAttachment)
+                    .where(PublicationAttachment.publication_id == failed.id)
+                )
+                == 0
+            )
+
+            command_publication(
+                db=db,
+                publication_id=successful.id,
+                command="mark-published",
+                payload=PublicationCommand(
+                    actual_title="真实发布标题",
+                    final_url="https://community.example.invalid/posts/success",
+                    published_at=datetime.now(UTC),
+                    comment="人工发布完成",
+                    attachment_file_ids=[result_file.id],
+                ),
+                actor=actor,
+                request_id="workbench-published-success",
+            )
+            command_publication(
+                db=db,
+                publication_id=successful.id,
+                command="verify",
+                payload=PublicationCommand(content_matches=True, comment="页面正文一致"),
+                actor=actor,
+                request_id="workbench-verified",
+            )
+            command_publication(
+                db=db,
+                publication_id=successful.id,
+                command="mark-verification-failed",
+                payload=PublicationCommand(comment="页面内容后来发生变化"),
+                actor=actor,
+                request_id="workbench-verification-failed",
+            )
+
+            attachment_ids = set(
+                db.scalars(
+                    select(PublicationAttachment.file_id).where(
+                        PublicationAttachment.publication_id == successful.id
+                    )
+                )
+            )
+            assert attachment_ids == {prepared_file.id, result_file.id}
+            summary_7 = publication_workbench_summary(db, 7)
+            summary_30 = publication_workbench_summary(db, 30)
+            assert summary_7.current_status_counts.VERIFICATION_FAILED == 1
+            assert summary_7.current_status_counts.PLATFORM_REVIEW == 1
+            assert summary_7.period.registered_published_count == 1
+            assert summary_7.period.verified_count == 1
+            assert summary_7.period.verification_rate == 1
+            assert summary_7.period.new_exception_count == 1
+            assert summary_7.period.current_unresolved_attention_count == 1
+            assert summary_7.exception_counts.verification_failed_open == 1
+            assert summary_30.window_days == 30
+            assert summary_7.recent_activity[0].publication_id == successful.id
+
+            failed_records = list_publication_records(
+                db, page=1, page_size=10, status_filter="VERIFICATION_FAILED"
+            )
+            assert failed_records.total == 1
+            assert failed_records.items[0].content_title == graph["content"].title
+            assert failed_records.items[0].available_actions == []
+            review_records = list_publication_records(
+                db, page=1, page_size=10, status_filter="PLATFORM_REVIEW"
+            )
+            assert review_records.total == 1
+            assert review_records.items[0].id == failed.id
+            attentions = list_attentions(db, "OPEN")
+            assert len(attentions.items) == 1
+            assert attentions.items[0].publication_record_id == successful.id
+            assert attentions.items[0].content_title == graph["content"].title
+
+            statement_count = 0
+
+            def count_statement(*_args: object) -> None:
+                nonlocal statement_count
+                statement_count += 1
+
+            event.listen(engine, "before_cursor_execute", count_statement)
+            try:
+                before = statement_count
+                list_publication_records(db, page=1, page_size=10, status_filter=None)
+                record_statements = statement_count - before
+
+                before = statement_count
+                list_attentions(db, "OPEN")
+                attention_statements = statement_count - before
+
+                before = statement_count
+                publication_workbench_summary(db, 7)
+                summary_statements = statement_count - before
+            finally:
+                event.remove(engine, "before_cursor_execute", count_statement)
+
+            assert record_statements == 2
+            assert attention_statements == 1
+            assert summary_statements == 2
         engine.dispose()
 
 

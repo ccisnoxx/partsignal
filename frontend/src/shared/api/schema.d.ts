@@ -1070,6 +1070,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/publication-workbench-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPublicationWorkbenchSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform-accounts": {
         parameters: {
             query?: never;
@@ -2240,6 +2256,7 @@ export interface components {
             platform_account_id: string;
             /** Format: uri */
             section_url: string;
+            /** @description 候选创建阶段关联的文件，必须全部为 VERIFIED OPERATION_SCREENSHOT。 */
             attachment_file_ids?: string[];
         };
         /** @enum {string} */
@@ -2252,7 +2269,11 @@ export interface components {
             published_at?: string | null;
             content_matches?: boolean | null;
             comment: string;
+            /** @description 仅 mark-published 接受；文件必须全部为 VERIFIED OPERATION_SCREENSHOT。 */
+            attachment_file_ids?: string[];
         };
+        /** @enum {string} */
+        PublicationAction: "mark-platform-review" | "mark-published" | "verify" | "reject" | "remove" | "mark-verification-failed";
         PublicationRecord: {
             /** Format: uuid */
             id: string;
@@ -2260,8 +2281,15 @@ export interface components {
             content_version_id: string;
             /** Format: uuid */
             task_id: string;
+            content_title: string;
+            content_version: number;
+            /** Format: uuid */
+            platform_profile_id: string;
+            platform_profile_name: string;
             /** Format: uuid */
             platform_account_id: string;
+            platform_account_label: string;
+            account_identifier: string;
             /** Format: uri */
             section_url: string;
             actual_title?: string | null;
@@ -2277,10 +2305,38 @@ export interface components {
             created_at: string;
             status_events: components["schemas"]["PublicationEvent"][];
             attachments: components["schemas"]["FileRecord"][];
-            available_actions: ("mark-platform-review" | "mark-published" | "verify" | "reject" | "remove" | "mark-verification-failed")[];
+            available_actions: components["schemas"]["PublicationAction"][];
+        };
+        PublicationRecordListItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            content_version_id: string;
+            content_title: string;
+            content_version: number;
+            /** Format: uuid */
+            platform_profile_id: string;
+            platform_profile_name: string;
+            /** Format: uuid */
+            platform_account_id: string;
+            platform_account_label: string;
+            account_identifier: string;
+            status: components["schemas"]["PublicationStatus"];
+            actual_title: string | null;
+            /** Format: uri */
+            final_url: string | null;
+            /** Format: date-time */
+            published_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_verification_at: string | null;
+            available_actions: components["schemas"]["PublicationAction"][];
         };
         PublicationRecordList: {
-            items: components["schemas"]["PublicationRecord"][];
+            items: components["schemas"]["PublicationRecordListItem"][];
             page: number;
             page_size: number;
             total: number;
@@ -2335,8 +2391,87 @@ export interface components {
             available_actions: components["schemas"]["PublicationAttentionAction"][];
         };
         PublicationAttentionList: {
-            items: components["schemas"]["PublicationAttention"][];
+            items: components["schemas"]["PublicationAttentionListItem"][];
         };
+        PublicationAttentionListItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            publication_record_id: string;
+            /** Format: uuid */
+            original_task_id: string;
+            content_title: string;
+            content_version: number;
+            /** Format: uuid */
+            platform_profile_id: string;
+            platform_profile_name: string;
+            platform_account_label: string;
+            /** Format: uri */
+            final_url: string | null;
+            /** @enum {string} */
+            trigger_status: "REMOVED" | "VERIFICATION_FAILED";
+            status: components["schemas"]["PublicationAttentionStatus"];
+            revision: number;
+            /** Format: date-time */
+            opened_at: string;
+            /** Format: date-time */
+            resolved_at: string | null;
+            /** Format: uuid */
+            resolved_by: string | null;
+            resolution_comment: string | null;
+            /** Format: uuid */
+            repair_task_id: string | null;
+            available_actions: components["schemas"]["PublicationAttentionAction"][];
+        };
+        PublicationStatusCounts: {
+            PENDING_MANUAL_PUBLISH: number;
+            PLATFORM_REVIEW: number;
+            PUBLISHED: number;
+            VERIFIED: number;
+            REJECTED: number;
+            REMOVED: number;
+            VERIFICATION_FAILED: number;
+        };
+        PublicationPeriodMetrics: {
+            registered_published_count: number;
+            verified_count: number;
+            verification_rate: number | null;
+            new_exception_count: number;
+            current_unresolved_attention_count: number;
+        };
+        PublicationExceptionCounts: {
+            rejected: number;
+            removed_open: number;
+            verification_failed_open: number;
+        };
+        PublicationRecentActivity: {
+            /** Format: uuid */
+            publication_id: string;
+            content_title: string;
+            content_version: number;
+            platform_profile_name: string;
+            status: components["schemas"]["PublicationStatus"];
+            /** Format: date-time */
+            occurred_at: string;
+        };
+        PublicationWorkbenchSummary: {
+            /** Format: date-time */
+            as_of: string;
+            /** Format: date-time */
+            window_start: string;
+            /** @enum {integer} */
+            window_days: 7 | 30;
+            current_status_counts: components["schemas"]["PublicationStatusCounts"];
+            open_attention_count: number;
+            period: components["schemas"]["PublicationPeriodMetrics"];
+            exception_counts: components["schemas"]["PublicationExceptionCounts"];
+            recent_activity: components["schemas"]["PublicationRecentActivity"][];
+        };
+        /**
+         * @description 发布工作台允许的滚动统计周期。
+         * @enum {integer}
+         */
+        PublicationWindowDays: 7 | 30;
         VersionChange: {
             field: string;
             before: unknown;
@@ -4820,6 +4955,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationCandidateList"];
+                };
+            };
+        };
+    };
+    getPublicationWorkbenchSummary: {
+        parameters: {
+            query?: {
+                window_days?: components["schemas"]["PublicationWindowDays"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 发布工作台全量状态、周期指标和最近动态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationWorkbenchSummary"];
                 };
             };
         };

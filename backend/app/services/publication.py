@@ -22,6 +22,7 @@ from app.models.content import (
     ContentTask,
     ContentVersion,
 )
+from app.models.geo_files import FileRecord
 from app.models.identity import User
 from app.models.product_facts import (
     FactVersion,
@@ -51,6 +52,14 @@ from app.services.publication_queries import (
     publication_out,
     task_for_publication,
 )
+
+
+def _publication_evidence_files(db: Session, file_ids: list[uuid.UUID]) -> list[FileRecord]:
+    """返回可关联发布记录的已校验操作截图。"""
+    files = verified_files(db, file_ids)
+    if any(file.category != "OPERATION_SCREENSHOT" for file in files):
+        raise AppError("VALIDATION_ERROR", "发布证据必须使用 OPERATION_SCREENSHOT 类别", 422)
+    return files
 
 
 def domain_allowed(url: str, allowed_domains: list[str]) -> bool:
@@ -183,7 +192,7 @@ def create_manual_publication(
     profile = db.get(PlatformProfile, account.platform_profile_id)
     if profile is None or not domain_allowed(str(payload.section_url), profile.allowed_domains):
         raise AppError("VALIDATION_ERROR", "栏目 URL 不属于平台允许域名", 422)
-    files = verified_files(db, payload.attachment_file_ids)
+    files = _publication_evidence_files(db, payload.attachment_file_ids)
     publication = PublicationRecord(
         idempotency_key=idempotency_key,
         content_version_id=content.id,
@@ -241,6 +250,8 @@ def command_publication(
             f"发布记录不能从 {publication.status} 执行 {command}",
             409,
         )
+    if payload.attachment_file_ids and command != "mark-published":
+        raise AppError("VALIDATION_ERROR", "只有登记已发布可以追加结果证据", 422)
     task = db.scalar(
         select(ContentTask)
         .join(ContentVersion, ContentVersion.task_id == ContentTask.id)
@@ -264,6 +275,20 @@ def command_publication(
         profile = db.get(PlatformProfile, account.platform_profile_id) if account else None
         if profile is None or not domain_allowed(str(payload.final_url), profile.allowed_domains):
             raise AppError("VALIDATION_ERROR", "最终 URL 不属于平台允许域名", 422)
+        files = _publication_evidence_files(db, payload.attachment_file_ids)
+        if files:
+            existing_file_id = db.scalar(
+                select(PublicationAttachment.file_id).where(
+                    PublicationAttachment.publication_id == publication.id,
+                    PublicationAttachment.file_id.in_([file.id for file in files]),
+                )
+            )
+            if existing_file_id is not None:
+                raise AppError("PUBLICATION_ATTACHMENT_EXISTS", "结果证据已关联该发布记录", 409)
+            db.add_all(
+                PublicationAttachment(publication_id=publication.id, file_id=file.id)
+                for file in files
+            )
         publication.actual_title = payload.actual_title
         publication.final_url = str(payload.final_url)
         publication.published_at = payload.published_at

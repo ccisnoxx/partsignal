@@ -1,39 +1,81 @@
-/** 发布工作台负责候选、记录、待办列表和人工发布登记。 */
-import { CopyOutlined, LinkOutlined } from '@ant-design/icons';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, App, Button, Card, Form, Input, Modal, Select, Space, Table, Tabs, Typography } from 'antd';
-import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
-import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
+/** 发布管理工作台只展示真实候选、发布记录、关注事项和服务端聚合统计。 */
+import {
+  ArrowRightOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  ExclamationCircleOutlined,
+  LinkOutlined,
+  SearchOutlined,
+  SendOutlined,
+} from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
+import {
+  Button,
+  Card,
+  Empty,
+  Input,
+  Progress,
+  Segmented,
+  Select,
+  Table,
+  Tabs,
+  Typography,
+} from 'antd';
+import { useEffect, useMemo } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { QUERY_STALE_TIME } from '../../app/queryClient';
+import { api, unwrap } from '../../shared/api/client';
 import { publicationRecordsQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
-import type { FileRecord, PublicationRecord, Schema } from '../../shared/api/types';
+import type { Schema } from '../../shared/api/types';
 import { QueryFailure } from '../../shared/components/AsyncState';
-import { DirectUpload } from '../../shared/components/DirectUpload';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { PublicationDrawer } from './PublicationDrawer';
+import { actionLabels } from './publicationTypes';
 
 type PublicationCandidate = Schema<'PublicationCandidate'>;
-type PublicationAttention = Schema<'PublicationAttention'>;
-const publicationTabs = new Set(['candidates', 'attentions', 'records']);
+type PublicationAttention = Schema<'PublicationAttentionListItem'>;
+type PublicationRecord = Schema<'PublicationRecordListItem'>;
+type PublicationStatus = Schema<'PublicationStatus'>;
+type PublicationStatusCounts = Schema<'PublicationStatusCounts'>;
+type AttentionTrigger = PublicationAttention['trigger_status'];
+
+const PAGE_SIZE = 10;
+const publicationTabs = new Set(['candidates', 'records', 'attentions']);
 
 function pageParam(params: URLSearchParams, key: string) {
   const raw = params.get(key);
   return raw && /^[1-9]\d*$/.test(raw) ? Number(raw) : 1;
 }
 
+function includesString<T extends string>(values: readonly T[], value: string): value is T {
+  return values.some((item) => item === value);
+}
+
 export function PublicationWorkspace() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [candidate, setCandidate] = useState<PublicationCandidate>();
+  const rawTab = searchParams.get('tab');
+  const activeTab = rawTab && publicationTabs.has(rawTab) ? rawTab : 'candidates';
+  const rawWindow = searchParams.get('window_days');
+  const windowDays: 7 | 30 = rawWindow === '30' ? 30 : 7;
+  const candidatesPage = pageParam(searchParams, 'candidates_page');
+  const attentionsPage = pageParam(searchParams, 'attentions_page');
+  const recordsPage = pageParam(searchParams, 'records_page');
+  const rawRecordStatus = searchParams.get('record_status');
+  const rawAttentionTrigger = searchParams.get('attention_trigger');
+  const candidatePlatform = searchParams.get('candidate_platform') ?? undefined;
+  const candidateSearch = searchParams.get('candidate_search')?.trim() ?? '';
+  const selectedCandidateId = searchParams.get('candidate') ?? undefined;
+  const selectedPublicationId = searchParams.get('record') ?? undefined;
+
   const candidates = useQuery({
     queryKey: queryKeys.publications.candidates,
     queryFn: async () => unwrap(await api.GET('/api/v1/publication-candidates')),
     staleTime: QUERY_STALE_TIME.businessList,
   });
-  const records = useQuery(publicationRecordsQueryOptions());
   const attentions = useQuery({
     queryKey: queryKeys.publications.attentionList('OPEN'),
     queryFn: async () =>
@@ -44,246 +86,505 @@ export function PublicationWorkspace() {
       ),
     staleTime: QUERY_STALE_TIME.businessList,
   });
-  const defaultTab = attentions.data?.items.length ? 'attentions' : 'candidates';
-  const rawTab = searchParams.get('tab');
-  const activeTab = rawTab && publicationTabs.has(rawTab) ? rawTab : defaultTab;
-  const candidatesPage = pageParam(searchParams, 'candidates_page');
-  const attentionsPage = pageParam(searchParams, 'attentions_page');
-  const recordsPage = pageParam(searchParams, 'records_page');
+  const summary = useQuery({
+    queryKey: queryKeys.publications.summary(windowDays),
+    queryFn: async () =>
+      unwrap(
+        await api.GET('/api/v1/publication-workbench-summary', {
+          params: { query: { window_days: windowDays } },
+        }),
+      ),
+    staleTime: QUERY_STALE_TIME.workbench,
+  });
+  const publicationStatuses = useMemo(
+    () => summary.data
+      ? Object.keys(summary.data.current_status_counts) as Array<keyof PublicationStatusCounts>
+      : [],
+    [summary.data],
+  );
+  const recordStatus = rawRecordStatus && includesString(publicationStatuses, rawRecordStatus)
+    ? rawRecordStatus
+    : undefined;
+  const attentionTriggers = useMemo(
+    () => [...new Set((attentions.data?.items ?? []).map((item) => item.trigger_status))],
+    [attentions.data],
+  );
+  const attentionTrigger = rawAttentionTrigger && includesString(attentionTriggers, rawAttentionTrigger)
+    ? rawAttentionTrigger
+    : undefined;
+  const records = useQuery({
+    ...publicationRecordsQueryOptions(recordsPage, PAGE_SIZE, recordStatus),
+    enabled: rawRecordStatus === null || recordStatus !== undefined,
+  });
+
+  const platformOptions = useMemo(() => {
+    const names = new Map<string, string>();
+    for (const item of candidates.data?.items ?? []) names.set(item.platform_profile_id, item.platform_profile_name);
+    return [...names].map(([value, label]) => ({ value, label }));
+  }, [candidates.data]);
+  const filteredCandidates = useMemo(
+    () => (candidates.data?.items ?? []).filter((item) =>
+      (!candidatePlatform || item.platform_profile_id === candidatePlatform)
+      && (!candidateSearch || item.content_version.title.toLocaleLowerCase('zh-CN').includes(candidateSearch.toLocaleLowerCase('zh-CN')))),
+    [candidatePlatform, candidateSearch, candidates.data],
+  );
+  const filteredAttentions = useMemo(
+    () => (attentions.data?.items ?? []).filter((item) => !attentionTrigger || item.trigger_status === attentionTrigger),
+    [attentionTrigger, attentions.data],
+  );
+  const selectedCandidate = candidates.data?.items.find((item) => item.content_version.id === selectedCandidateId);
+
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
     let changed = false;
-    if (rawTab !== null && !publicationTabs.has(rawTab)) { next.delete('tab'); changed = true; }
-    for (const [key, page, count] of [
-      ['candidates_page', candidatesPage, candidates.data?.items.length],
-      ['attentions_page', attentionsPage, attentions.data?.items.length],
-      ['records_page', recordsPage, records.data?.items.length],
-    ] as const) {
-      const raw = searchParams.get(key);
-      if ((raw !== null && !/^[1-9]\d*$/.test(raw)) || (count !== undefined && page > Math.max(1, Math.ceil(count / 10)))) {
-        next.delete(key);
-        changed = true;
-      }
+    const remove = (key: string) => { next.delete(key); changed = true; };
+    if (rawTab !== null && !publicationTabs.has(rawTab)) remove('tab');
+    if (rawWindow !== null && rawWindow !== '7' && rawWindow !== '30') remove('window_days');
+    if (summary.isSuccess && rawRecordStatus !== null && !recordStatus) remove('record_status');
+    if (attentions.isSuccess && rawAttentionTrigger !== null && !attentionTrigger) remove('attention_trigger');
+    for (const key of ['candidates_page', 'records_page', 'attentions_page']) {
+      const value = searchParams.get(key);
+      if (value !== null && !/^[1-9]\d*$/.test(value)) remove(key);
     }
+    if (selectedCandidateId && selectedPublicationId) remove('candidate');
+    if (candidates.isSuccess && selectedCandidateId && !selectedCandidate) remove('candidate');
+    if (candidates.isSuccess && candidatePlatform && !platformOptions.some((item) => item.value === candidatePlatform)) remove('candidate_platform');
+    const maxCandidatePage = Math.max(1, Math.ceil(filteredCandidates.length / PAGE_SIZE));
+    const maxAttentionPage = Math.max(1, Math.ceil(filteredAttentions.length / PAGE_SIZE));
+    if (searchParams.has('candidates_page') && candidatesPage > maxCandidatePage) remove('candidates_page');
+    if (searchParams.has('attentions_page') && attentionsPage > maxAttentionPage) remove('attentions_page');
+    if (searchParams.has('records_page') && records.data && recordsPage > Math.max(1, Math.ceil(records.data.total / PAGE_SIZE))) remove('records_page');
     if (changed) setSearchParams(next, { replace: true });
-  }, [activeTab, attentions.data, attentionsPage, candidates.data, candidatesPage, rawTab, records.data, recordsPage, searchParams, setSearchParams]);
-  const setView = (key: string, value: string | number) => {
+  }, [
+    activeTab,
+    attentionTrigger,
+    attentions.isSuccess,
+    attentionsPage,
+    candidatePlatform,
+    candidates.isSuccess,
+    candidatesPage,
+    filteredAttentions.length,
+    filteredCandidates.length,
+    platformOptions,
+    rawAttentionTrigger,
+    rawRecordStatus,
+    rawTab,
+    rawWindow,
+    recordStatus,
+    records.data,
+    recordsPage,
+    searchParams,
+    selectedCandidate,
+    selectedCandidateId,
+    selectedPublicationId,
+    setSearchParams,
+    summary.isSuccess,
+  ]);
+
+  const setView = (values: Record<string, string | number | undefined>, replace = false) => {
     const next = new URLSearchParams(searchParams);
-    if (typeof value === 'number' && value === 1) next.delete(key); else next.set(key, String(value));
-    setSearchParams(next);
+    for (const [key, value] of Object.entries(values)) {
+      if (value === undefined || value === '' || (typeof value === 'number' && value === 1)) next.delete(key);
+      else next.set(key, String(value));
+    }
+    setSearchParams(next, { replace });
   };
-  const error = candidates.error ?? records.error ?? attentions.error;
+  const openCandidate = (item: PublicationCandidate) => setView({ candidate: item.content_version.id, record: undefined });
+  const openRecord = (publicationId: string) => setView({ record: publicationId, candidate: undefined });
+  const closeDrawer = () => setView({ record: undefined, candidate: undefined });
+  const showRecordStatus = (status: PublicationStatus) => setView({ tab: 'records', record_status: status, records_page: undefined });
+  const showAttention = (trigger?: AttentionTrigger) => setView({ tab: 'attentions', attention_trigger: trigger, attentions_page: undefined });
+  const error = candidates.error ?? records.error ?? attentions.error ?? summary.error;
+
   return (
-    <div className="page-stack">
-      <PageHeader eyebrow="人工发布" title="人工发布" description="系统只准备发布包并记录结果，不登录或操作外部平台。" />
-      {error && <QueryFailure error={error} onRetry={() => { void candidates.refetch(); void records.refetch(); void attentions.refetch(); }} />}
-      <section className="workspace-summary" aria-label="人工发布摘要">
-        <div><span>待发布候选</span><strong className="data-code">{candidates.data?.items.length ?? 0}</strong></div>
-        <div><span>开放异常</span><strong className="data-code">{attentions.data?.items.length ?? 0}</strong></div>
-        <div><span>当前记录</span><strong className="data-code">{records.data?.items.length ?? 0}</strong></div>
-      </section>
-      <Tabs className="workspace-tabs" activeKey={activeTab} onChange={(key) => setView('tab', key)} items={[
-        { key: 'candidates', label: '待发布候选', children: <Card className="workspace-panel collection-panel"><TableRegion label="待发布候选列表"><Table<PublicationCandidate>
-          rowKey={(row) => row.content_version.id}
-          loading={candidates.isLoading}
-          dataSource={candidates.data?.items}
-          pagination={{ current: candidatesPage, pageSize: 10, showSizeChanger: false, onChange: (page) => setView('candidates_page', page) }}
-          sticky={{ offsetHeader: 72 }}
-          scroll={{ x: 760 }}
-          columns={[
-            { title: '标题', render: (_, row) => row.content_version.title },
-            { title: '版本', width: 80, render: (_, row) => `V${row.content_version.version}` },
-            {
-              title: '锁定平台',
-              width: 200,
-              render: (_, row) => `${row.platform_profile_name} / 规则 V${row.platform_profile_version}`,
-            },
-            { title: '可用账号', width: 100, render: (_, row) => row.matching_accounts.length },
-            {
-              title: '操作',
-              fixed: 'right',
-              width: 180,
-              render: (_, row) => (
-                <Button
-                  type="primary"
-                  disabled={row.matching_accounts.length === 0}
-                  onClick={() => setCandidate(row)}
-                >
-                  准备人工发布
-                </Button>
-              ),
-            },
-          ]}
-        /></TableRegion></Card> },
-        { key: 'attentions', label: '发布异常待办', children: <Card className="workspace-panel collection-panel"><TableRegion label="发布异常待办列表"><Table<PublicationAttention>
-          rowKey="id"
-          loading={attentions.isLoading}
-          dataSource={attentions.data?.items}
-          pagination={{ current: attentionsPage, pageSize: 10, showSizeChanger: false, onChange: (page) => setView('attentions_page', page) }}
-          sticky={{ offsetHeader: 72 }}
-          scroll={{ x: 680 }}
-          columns={[
-            {
-              title: '打开时间',
-              dataIndex: 'opened_at',
-              width: 190,
-              render: (value: string) => new Date(value).toLocaleString('zh-CN'),
-            },
-            { title: '触发状态', dataIndex: 'trigger_status', width: 140, render: (value) => <StatusTag status={value} /> },
-            { title: '状态', dataIndex: 'status', width: 120, render: (value) => <StatusTag status={value} /> },
-            {
-              title: '操作',
-              fixed: 'right',
-              width: 100,
-              render: (_, row) => (
-                <Button onClick={() => navigate(`/publication-attentions/${row.id}`)}>处理</Button>
-              ),
-            },
-          ]}
-        /></TableRegion></Card> },
-        { key: 'records', label: '发布记录', children: <Card className="workspace-panel collection-panel"><TableRegion label="发布记录列表"><Table<PublicationRecord>
-          rowKey="id"
-          loading={records.isLoading}
-          dataSource={records.data?.items}
-          pagination={{ current: recordsPage, pageSize: 10, showSizeChanger: false, onChange: (page) => setView('records_page', page) }}
-          sticky={{ offsetHeader: 72 }}
-          scroll={{ x: 960 }}
-          columns={[
-            {
-              title: '创建时间',
-              dataIndex: 'created_at',
-              width: 190,
-              render: (value: string) => new Date(value).toLocaleString('zh-CN'),
-            },
-            { title: '内容版本', dataIndex: 'content_version_id' },
-            { title: '状态', dataIndex: 'status', width: 130, render: (value) => <StatusTag status={value} /> },
-            {
-              title: '最终 URL',
-              dataIndex: 'final_url',
-              width: 130,
-              render: (url: string | null) =>
-                url ? (
-                  <a href={url} target="_blank" rel="noreferrer">
-                    打开 <LinkOutlined />
-                  </a>
-                ) : (
-                  '—'
-                ),
-            },
-            {
-              title: '操作',
-              fixed: 'right',
-              width: 140,
-              render: (_, row) => (
-                <Button onClick={() => navigate(`/publications/${row.id}`)}>查看与更新</Button>
-              ),
-            },
-          ]}
-        /></TableRegion></Card> },
-      ]} />
-      {candidate && (
-        <PublicationCreateModal candidate={candidate} onClose={() => setCandidate(undefined)} />
+    <div className="page-stack publication-workbench">
+      <PageHeader
+        eyebrow="人工发布工作台"
+        title="发布管理"
+        description="复制已批准内容到锁定平台人工发布，登记结果、验证页面，并显式处理发布异常。"
+      />
+      {error && (
+        <QueryFailure
+          error={error}
+          onRetry={() => {
+            void candidates.refetch();
+            void records.refetch();
+            void attentions.refetch();
+            void summary.refetch();
+          }}
+        />
       )}
+      <PublicationFlow
+        loading={summary.isLoading}
+        summary={summary.data}
+        onRecordStatus={showRecordStatus}
+        onAttention={() => showAttention()}
+      />
+      <Card className="publication-glass-panel publication-list-panel">
+        <Tabs
+          className="publication-tabs"
+          activeKey={activeTab}
+          onChange={(tab) => setView({ tab })}
+          items={[
+            {
+              key: 'candidates',
+              label: <TabLabel label="待发布候选" count={candidates.data?.items.length} />,
+              children: (
+                <CandidateList
+                  items={filteredCandidates}
+                  loading={candidates.isLoading}
+                  page={candidatesPage}
+                  platform={candidatePlatform}
+                  platformOptions={platformOptions}
+                  search={candidateSearch}
+                  onView={setView}
+                  onOpen={openCandidate}
+                />
+              ),
+            },
+            {
+              key: 'records',
+              label: <TabLabel label="发布记录" count={records.data?.total} />,
+              children: (
+                <RecordList
+                  items={records.data?.items ?? []}
+                  loading={records.isLoading}
+                  page={recordsPage}
+                  total={records.data?.total ?? 0}
+                  status={recordStatus}
+                  statusOptions={publicationStatuses}
+                  onView={setView}
+                  onOpen={openRecord}
+                />
+              ),
+            },
+            {
+              key: 'attentions',
+              label: <TabLabel label="发布需关注" count={summary.data?.open_attention_count} danger />,
+              children: (
+                <AttentionList
+                  items={filteredAttentions}
+                  loading={attentions.isLoading}
+                  page={attentionsPage}
+                  trigger={attentionTrigger}
+                  triggerOptions={attentionTriggers}
+                  onView={setView}
+                  onOpen={(attentionId) => navigate(`/publication-attentions/${attentionId}`)}
+                />
+              ),
+            },
+          ]}
+        />
+      </Card>
+      <PublicationInsights
+        summary={summary.data}
+        loading={summary.isLoading}
+        windowDays={windowDays}
+        onWindowChange={(days) => setView({ window_days: days === 7 ? undefined : days }, true)}
+        onRecordStatus={showRecordStatus}
+        onAttention={showAttention}
+        onOpenRecord={openRecord}
+      />
+      <PublicationDrawer
+        key={selectedCandidateId ?? selectedPublicationId ?? 'closed'}
+        candidate={selectedCandidate}
+        publicationId={selectedPublicationId}
+        onClose={closeDrawer}
+        onCreated={(publicationId) => setView({ tab: 'records', record: publicationId, candidate: undefined })}
+      />
     </div>
   );
 }
 
-function PublicationCreateModal({
-  candidate,
-  onClose,
+function PublicationFlow({
+  loading,
+  summary,
+  onRecordStatus,
+  onAttention,
 }: {
-  candidate: PublicationCandidate;
-  onClose: () => void;
+  loading: boolean;
+  summary?: Schema<'PublicationWorkbenchSummary'>;
+  onRecordStatus: (status: PublicationStatus) => void;
+  onAttention: () => void;
 }) {
-  const { message } = App.useApp();
-  const [attachments, setAttachments] = useState<FileRecord[]>([]);
-  const content = candidate.content_version;
-  const packageQuery = useQuery({
-    queryKey: queryKeys.publications.package(content.id),
-    queryFn: async () =>
-      unwrap(
-        await api.GET('/api/v1/content-versions/{content_version_id}/publication-package', {
-          params: { path: { content_version_id: content.id } },
-        }),
-      ),
-    staleTime: QUERY_STALE_TIME.detail,
-  });
-  const create = useMutation({
-    mutationFn: async (values: Schema<'ManualPublicationCreate'>) =>
-      unwrap(
-        await api.POST('/api/v1/publication-records/manual', {
-          params: {
-            header: { ...csrfHeader(), 'Idempotency-Key': newIdempotencyKey() },
-          },
-          body: { ...values, attachment_file_ids: attachments.map((item) => item.id) },
-        }),
-      ),
-    onSuccess: async (created) => {
-      onClose();
-      message.success('人工发布记录已登记');
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.publications.records }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.publications.candidates }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.detail(created.task_id) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
-      ]);
-    },
-  });
-  const copy = async (value: string, label: string) => {
-    await navigator.clipboard.writeText(value);
-    message.success(`${label}已复制`);
-  };
+  const items: Array<{ label: string; status?: PublicationStatus; count: number; icon: React.ReactNode; attention?: boolean }> = [
+    { label: '待人工发布', status: 'PENDING_MANUAL_PUBLISH', count: summary?.current_status_counts.PENDING_MANUAL_PUBLISH ?? 0, icon: <SendOutlined /> },
+    { label: '平台审核中', status: 'PLATFORM_REVIEW', count: summary?.current_status_counts.PLATFORM_REVIEW ?? 0, icon: <ClockCircleOutlined /> },
+    { label: '已发布', status: 'PUBLISHED', count: summary?.current_status_counts.PUBLISHED ?? 0, icon: <LinkOutlined /> },
+    { label: '已验证', status: 'VERIFIED', count: summary?.current_status_counts.VERIFIED ?? 0, icon: <CheckCircleOutlined /> },
+    { label: '发布需关注', count: summary?.open_attention_count ?? 0, icon: <ExclamationCircleOutlined />, attention: true },
+  ];
   return (
-    <Modal title="准备人工发布" open footer={null} onCancel={onClose} width={800} destroyOnHidden>
-      {create.error && <Alert type="error" message={errorMessage(create.error)} />}
-      <Card size="small" title={packageQuery.data?.title ?? content.title} loading={packageQuery.isLoading}>
-        <Typography.Paragraph>
-          锁定平台：{candidate.platform_profile_name} / 规则 V{candidate.platform_profile_version}
-        </Typography.Paragraph>
-        <Space wrap>
-          <Button icon={<CopyOutlined />} onClick={() => packageQuery.data && void copy(packageQuery.data.title, '标题')}>
-            复制标题
-          </Button>
-          <Button icon={<CopyOutlined />} onClick={() => packageQuery.data && void copy(packageQuery.data.body_markdown, 'Markdown')}>
-            复制 Markdown
-          </Button>
-          <Button icon={<CopyOutlined />} onClick={() => packageQuery.data && void copy(packageQuery.data.body_text, '纯文本')}>
-            复制纯文本
-          </Button>
-        </Space>
-        <Typography.Paragraph type="secondary">
-          内容哈希：{packageQuery.data?.content_hash}
-        </Typography.Paragraph>
-      </Card>
-      <Form<Schema<'ManualPublicationCreate'>>
-        layout="vertical"
-        initialValues={{ content_version_id: content.id, attachment_file_ids: [] }}
-        onFinish={(body) => create.mutate(body)}
-      >
-        <Form.Item name="content_version_id" hidden><Input /></Form.Item>
-        <Form.Item name="platform_account_id" label="匹配平台账号" rules={[{ required: true }]}>
-          <Select
-            options={candidate.matching_accounts.map((item) => ({
-              value: item.id,
-              label: `${item.label} / ${item.account_identifier}`,
-            }))}
-          />
-        </Form.Item>
-        <Form.Item name="section_url" label="目标栏目 URL" rules={[{ required: true, type: 'url' }]}>
-          <Input type="url" />
-        </Form.Item>
-        <Form.Item label="发布截图（可选）">
-          <DirectUpload
-            category="OPERATION_SCREENSHOT"
-            onUploaded={(file) => setAttachments((items) => [...items, file])}
-          />
-          {attachments.map((file) => <StatusTag key={file.id} status={file.status} />)}
-        </Form.Item>
-        <Button type="primary" htmlType="submit" loading={create.isPending}>
-          登记待人工发布
-        </Button>
-      </Form>
-    </Modal>
+    <section className="publication-flow publication-glass-panel" aria-label="发布流程概览" aria-busy={loading}>
+      <header><Typography.Title level={5}>发布流程概览</Typography.Title><Typography.Text type="secondary">全量当前状态</Typography.Text></header>
+      <div className="publication-flow-grid">
+        {items.map((item, index) => (
+          <div className={`publication-flow-step${item.attention ? ' is-attention' : ''}`} key={item.label}>
+            <button type="button" onClick={() => item.attention ? onAttention() : onRecordStatus(item.status!)}>
+              <span className="publication-flow-icon">{item.icon}</span>
+              <span><small>{item.label}</small><strong>{item.count}</strong></span>
+            </button>
+            {index < items.length - 1 && <ArrowRightOutlined className="publication-flow-arrow" aria-hidden />}
+          </div>
+        ))}
+      </div>
+    </section>
   );
+}
+
+function CandidateList({
+  items,
+  loading,
+  page,
+  platform,
+  platformOptions,
+  search,
+  onView,
+  onOpen,
+}: {
+  items: PublicationCandidate[];
+  loading: boolean;
+  page: number;
+  platform?: string;
+  platformOptions: Array<{ value: string; label: string }>;
+  search: string;
+  onView: (values: Record<string, string | number | undefined>, replace?: boolean) => void;
+  onOpen: (item: PublicationCandidate) => void;
+}) {
+  return (
+    <>
+      <div className="publication-filter-bar">
+        <Input.Search
+          key={search}
+          aria-label="搜索候选标题"
+          allowClear
+          defaultValue={search}
+          prefix={<SearchOutlined />}
+          placeholder="搜索内容标题"
+          onSearch={(value) => onView({ candidate_search: value.trim(), candidates_page: undefined })}
+        />
+        <Select
+          aria-label="筛选候选平台"
+          allowClear
+          value={platform}
+          placeholder="全部目标平台"
+          options={platformOptions}
+          onChange={(value) => onView({ candidate_platform: value, candidates_page: undefined })}
+        />
+      </div>
+      <TableRegion label="待发布候选列表">
+        <Table<PublicationCandidate>
+          rowKey={(row) => row.content_version.id}
+          loading={loading}
+          dataSource={items}
+          pagination={{ current: page, pageSize: PAGE_SIZE, total: items.length, showSizeChanger: false, showTotal: (total) => `共 ${total} 条`, onChange: (next) => onView({ candidates_page: next }) }}
+          sticky={{ offsetHeader: 72 }}
+          scroll={{ x: 820 }}
+          columns={[
+            { title: '内容标题', render: (_, row) => <div className="publication-title-cell"><strong>{row.content_version.title}</strong><small className="data-code">{row.content_version.id.slice(0, 8)}</small></div> },
+            { title: '版本', width: 80, render: (_, row) => `V${row.content_version.version}` },
+            { title: '目标平台', dataIndex: 'platform_profile_name', width: 170 },
+            {
+              title: '发布账号',
+              width: 190,
+              render: (_, row) => row.matching_accounts.length
+                ? row.matching_accounts.map((account) => account.label).join('、')
+                : <div className="publication-title-cell"><Typography.Text type="danger">无匹配账号</Typography.Text><Link to="/settings">前往业务设置</Link></div>,
+            },
+            { title: '内容状态', width: 120, render: (_, row) => <StatusTag status={row.content_version.status} /> },
+            { title: '操作', fixed: 'right', width: 150, render: (_, row) => <Button type="primary" disabled={row.matching_accounts.length === 0} onClick={() => onOpen(row)}>准备人工发布</Button> },
+          ]}
+        />
+      </TableRegion>
+    </>
+  );
+}
+
+function RecordList({
+  items,
+  loading,
+  page,
+  total,
+  status,
+  statusOptions,
+  onView,
+  onOpen,
+}: {
+  items: PublicationRecord[];
+  loading: boolean;
+  page: number;
+  total: number;
+  status?: PublicationStatus;
+  statusOptions: PublicationStatus[];
+  onView: (values: Record<string, string | number | undefined>, replace?: boolean) => void;
+  onOpen: (publicationId: string) => void;
+}) {
+  return (
+    <>
+      <div className="publication-filter-bar is-compact">
+        <Select
+          aria-label="筛选发布状态"
+          allowClear
+          value={status}
+          placeholder="全部发布状态"
+          options={statusOptions.map((value) => ({ value, label: <StatusTag status={value} /> }))}
+          onChange={(value) => onView({ record_status: value, records_page: undefined })}
+        />
+      </div>
+      <TableRegion label="发布记录列表">
+        <Table<PublicationRecord>
+          rowKey="id"
+          loading={loading}
+          dataSource={items}
+          pagination={{ current: page, pageSize: PAGE_SIZE, total, showSizeChanger: false, showTotal: (count) => `共 ${count} 条`, onChange: (next) => onView({ records_page: next }) }}
+          sticky={{ offsetHeader: 72 }}
+          scroll={{ x: 1300 }}
+          columns={[
+            { title: '内容标题', render: (_, row) => <div className="publication-title-cell"><strong>{row.content_title}</strong><small>V{row.content_version}</small></div> },
+            { title: '实际标题', dataIndex: 'actual_title', width: 190, render: (value: string | null) => value ?? '—' },
+            { title: '目标平台', dataIndex: 'platform_profile_name', width: 150 },
+            { title: '发布账号', width: 170, render: (_, row) => <div className="publication-title-cell"><span>{row.platform_account_label}</span><small>{row.account_identifier}</small></div> },
+            { title: '发布状态', dataIndex: 'status', width: 130, render: (value) => <StatusTag status={value} /> },
+            { title: '最终 URL', dataIndex: 'final_url', width: 120, render: (url: string | null) => url ? <a href={url} target="_blank" rel="noreferrer">打开 <LinkOutlined /></a> : '—' },
+            { title: '发布时间', dataIndex: 'published_at', width: 170, render: (value: string | null) => value ? formatDateTime(value) : '—' },
+            { title: '最后验证', dataIndex: 'last_verification_at', width: 170, render: (value: string | null) => value ? formatDateTime(value) : '—' },
+            { title: '操作', fixed: 'right', width: 150, render: (_, row) => <Button type={row.available_actions.includes('mark-published') ? 'primary' : 'default'} onClick={() => onOpen(row.id)}>{row.available_actions[0] ? actionLabels[row.available_actions[0]] : '查看记录'}</Button> },
+          ]}
+        />
+      </TableRegion>
+    </>
+  );
+}
+
+function AttentionList({
+  items,
+  loading,
+  page,
+  trigger,
+  triggerOptions,
+  onView,
+  onOpen,
+}: {
+  items: PublicationAttention[];
+  loading: boolean;
+  page: number;
+  trigger?: AttentionTrigger;
+  triggerOptions: AttentionTrigger[];
+  onView: (values: Record<string, string | number | undefined>, replace?: boolean) => void;
+  onOpen: (attentionId: string) => void;
+}) {
+  return (
+    <>
+      <div className="publication-filter-bar is-compact">
+        <Select
+          aria-label="筛选异常类型"
+          allowClear
+          value={trigger}
+          placeholder="全部异常类型"
+          options={triggerOptions.map((value) => ({ value, label: <StatusTag status={value} /> }))}
+          onChange={(value) => onView({ attention_trigger: value, attentions_page: undefined })}
+        />
+      </div>
+      <TableRegion label="发布需关注列表">
+        <Table<PublicationAttention>
+          rowKey="id"
+          loading={loading}
+          dataSource={items}
+          pagination={{ current: page, pageSize: PAGE_SIZE, total: items.length, showSizeChanger: false, showTotal: (total) => `共 ${total} 条`, onChange: (next) => onView({ attentions_page: next }) }}
+          sticky={{ offsetHeader: 72 }}
+          scroll={{ x: 920 }}
+          columns={[
+            { title: '内容标题', render: (_, row) => <div className="publication-title-cell"><strong>{row.content_title}</strong><small>V{row.content_version}</small></div> },
+            { title: '目标平台', dataIndex: 'platform_profile_name', width: 150 },
+            { title: '发布账号', dataIndex: 'platform_account_label', width: 150 },
+            { title: '异常类型', dataIndex: 'trigger_status', width: 150, render: (value) => <StatusTag status={value} /> },
+            { title: '打开时间', dataIndex: 'opened_at', width: 180, render: formatDateTime },
+            { title: '修复任务', dataIndex: 'repair_task_id', width: 120, render: (value: string | null) => value ? '已创建' : '未创建' },
+            { title: '操作', fixed: 'right', width: 110, render: (_, row) => <Button onClick={() => onOpen(row.id)}>{row.available_actions.length ? '处理异常' : '查看'}</Button> },
+          ]}
+        />
+      </TableRegion>
+    </>
+  );
+}
+
+function PublicationInsights({
+  summary,
+  loading,
+  windowDays,
+  onWindowChange,
+  onRecordStatus,
+  onAttention,
+  onOpenRecord,
+}: {
+  summary?: Schema<'PublicationWorkbenchSummary'>;
+  loading: boolean;
+  windowDays: 7 | 30;
+  onWindowChange: (days: 7 | 30) => void;
+  onRecordStatus: (status: PublicationStatus) => void;
+  onAttention: (trigger?: AttentionTrigger) => void;
+  onOpenRecord: (publicationId: string) => void;
+}) {
+  const period = summary?.period;
+  const rate = period?.verification_rate == null ? null : Math.round(period.verification_rate * 1000) / 10;
+  return (
+    <section className="publication-insights" aria-label="发布辅助信息">
+      <Card title="发布指引" className="publication-glass-panel publication-guide-card">
+        <ol>
+          <li><span>1</span><div><strong>复制已批准内容</strong><small>始终使用候选抽屉里的锁定版本。</small></div></li>
+          <li><span>2</span><div><strong>在目标平台人工发布</strong><small>使用锁定平台下的匹配账号。</small></div></li>
+          <li><span>3</span><div><strong>登记最终结果与证据</strong><small>填写最终 URL、发布时间和真实平台状态。</small></div></li>
+          <li><span>4</span><div><strong>完成人工页面验证</strong><small>确认页面可访问，且正文与锁定版本一致。</small></div></li>
+          <li><span>5</span><div><strong>显式处理发布异常</strong><small>验证失败或下线后进入关注和修复流程。</small></div></li>
+        </ol>
+      </Card>
+      <Card title="最近发布动态" className="publication-glass-panel publication-activity-card" loading={loading}>
+        {summary?.recent_activity.length ? (
+          <ul>
+            {summary.recent_activity.map((item) => (
+              <li key={`${item.publication_id}-${item.status}-${item.occurred_at}`}>
+                <button type="button" onClick={() => onOpenRecord(item.publication_id)}>
+                  <span><strong>{item.content_title}</strong><small>{item.platform_profile_name} · V{item.content_version}</small></span>
+                  <span><StatusTag status={item.status} /><time>{formatDateTime(item.occurred_at)}</time></span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无权威发布动态" />}
+      </Card>
+      <Card title="常见异常类型" className="publication-glass-panel publication-exception-card" loading={loading}>
+        <button type="button" onClick={() => onRecordStatus('REJECTED')}><span>平台拒绝</span><strong>{summary?.exception_counts.rejected ?? 0}</strong></button>
+        <button type="button" onClick={() => onAttention('VERIFICATION_FAILED')}><span>页面验证失败</span><strong>{summary?.exception_counts.verification_failed_open ?? 0}</strong></button>
+        <button type="button" onClick={() => onAttention('REMOVED')}><span>页面已下线</span><strong>{summary?.exception_counts.removed_open ?? 0}</strong></button>
+        <Typography.Paragraph type="secondary">异常类型来自发布状态与开放的 PublicationAttention，不解析错误文案。</Typography.Paragraph>
+      </Card>
+      <Card
+        title="发布数据概览"
+        extra={<Segmented<7 | 30> aria-label="统计周期" value={windowDays} options={[{ value: 7, label: '近 7 天' }, { value: 30, label: '近 30 天' }]} onChange={onWindowChange} />}
+        className="publication-glass-panel publication-metrics-card"
+        loading={loading}
+      >
+        <div className="publication-metric-grid">
+          <Metric label="登记发布数" value={period?.registered_published_count ?? 0} />
+          <Metric label="验证通过数" value={period?.verified_count ?? 0} />
+          <Metric label="验证通过率" value={rate == null ? '—' : `${rate}%`} progress={rate ?? undefined} />
+          <Metric label="新增异常数" value={period?.new_exception_count ?? 0} />
+          <Metric label="当前未解决异常" value={period?.current_unresolved_attention_count ?? 0} />
+        </div>
+        {summary && <Typography.Text type="secondary">窗口：{formatDateTime(summary.window_start)} 至 {formatDateTime(summary.as_of)}</Typography.Text>}
+      </Card>
+    </section>
+  );
+}
+
+function Metric({ label, value, progress }: { label: string; value: string | number; progress?: number }) {
+  return <div className="publication-metric"><span>{label}</span><strong>{value}</strong>{progress !== undefined && <Progress percent={progress} showInfo={false} size="small" />}</div>;
+}
+
+function TabLabel({ label, count, danger = false }: { label: string; count?: number; danger?: boolean }) {
+  return <span>{label}<b className={danger ? 'is-danger' : undefined}>{count ?? 0}</b></span>;
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString('zh-CN');
 }

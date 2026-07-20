@@ -25,7 +25,7 @@ Questions to answer:
 <!-- Local state, global state, server state, URL state -->
 
 - **服务端状态**：使用既有 query key、stale time 和显式失效规则。
-- **URL 视图状态**：搜索、Tab、分页和“显示停用账号”等可恢复视图写入查询参数。当前参数包括产品 `q/page`、任务与观测 `page`、人工发布 `tab/candidates_page/attentions_page/records_page`、用户 `inactive/page`。
+- **URL 视图状态**：搜索、Tab、分页和“显示停用账号”等可恢复视图写入查询参数。当前参数包括产品 `q/page`、任务与观测 `page`、人工发布 `tab/candidates_page/attentions_page/records_page/window_days/record_status/attention_trigger/candidate_platform/candidate_search/candidate/record`、用户 `inactive/page`。人工发布状态筛选必须从摘要响应的真实状态键和 OPEN attention 触发值派生，不能在页面维护第二份运行时枚举。
 - **页面本地状态**：Modal、Dropdown 目标、Ant Form 实例、dirty/error section 和尚未提交的输入。
 - **主题状态**：只由 `ThemeProvider` 维护，禁止页面复制主题状态。从显式主题切回 `system` 时立即重新读取当前 `matchMedia` 结果，不沿用离开系统模式前的解析值。
 

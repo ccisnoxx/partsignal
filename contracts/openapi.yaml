@@ -1236,6 +1236,22 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PublicationCandidateList'}
+  /api/v1/publication-workbench-summary:
+    get:
+      tags: [publication]
+      operationId: getPublicationWorkbenchSummary
+      parameters:
+        - name: window_days
+          in: query
+          schema:
+            $ref: '#/components/schemas/PublicationWindowDays'
+            default: 7
+      responses:
+        '200':
+          description: 发布工作台全量状态、周期指标和最近动态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublicationWorkbenchSummary'}
   /api/v1/platform-accounts:
     get:
       tags: [publication]
@@ -2633,7 +2649,11 @@ components:
         content_version_id: {type: string, format: uuid}
         platform_account_id: {type: string, format: uuid}
         section_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
-        attachment_file_ids: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
+        attachment_file_ids:
+          type: array
+          uniqueItems: true
+          description: 候选创建阶段关联的文件，必须全部为 VERIFIED OPERATION_SCREENSHOT。
+          items: {type: string, format: uuid}
     PublicationStatus:
       type: string
       enum: [PENDING_MANUAL_PUBLISH, PLATFORM_REVIEW, PUBLISHED, VERIFIED, REJECTED, REMOVED, VERIFICATION_FAILED]
@@ -2647,15 +2667,29 @@ components:
         published_at: {type: [string, 'null'], format: date-time}
         content_matches: {type: [boolean, 'null']}
         comment: {type: string}
+        attachment_file_ids:
+          type: array
+          uniqueItems: true
+          description: 仅 mark-published 接受；文件必须全部为 VERIFIED OPERATION_SCREENSHOT。
+          items: {type: string, format: uuid}
+    PublicationAction:
+      type: string
+      enum: [mark-platform-review, mark-published, verify, reject, remove, mark-verification-failed]
     PublicationRecord:
       type: object
       additionalProperties: false
-      required: [id, content_version_id, task_id, platform_account_id, section_url, status, content_hash, created_by, created_at, status_events, attachments, available_actions]
+      required: [id, content_version_id, task_id, content_title, content_version, platform_profile_id, platform_profile_name, platform_account_id, platform_account_label, account_identifier, section_url, status, content_hash, created_by, created_at, status_events, attachments, available_actions]
       properties:
         id: {type: string, format: uuid}
         content_version_id: {type: string, format: uuid}
         task_id: {type: string, format: uuid}
+        content_title: {type: string}
+        content_version: {type: integer}
+        platform_profile_id: {type: string, format: uuid}
+        platform_profile_name: {type: string}
         platform_account_id: {type: string, format: uuid}
+        platform_account_label: {type: string}
+        account_identifier: {type: string}
         section_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
         actual_title: {type: [string, 'null']}
         final_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
@@ -2666,17 +2700,35 @@ components:
         created_at: {type: string, format: date-time}
         status_events: {type: array, items: {$ref: '#/components/schemas/PublicationEvent'}}
         attachments: {type: array, items: {$ref: '#/components/schemas/FileRecord'}}
-        available_actions:
-          type: array
-          items:
-            type: string
-            enum: [mark-platform-review, mark-published, verify, reject, remove, mark-verification-failed]
+        available_actions: {type: array, items: {$ref: '#/components/schemas/PublicationAction'}}
+    PublicationRecordListItem:
+      type: object
+      additionalProperties: false
+      required: [id, task_id, content_version_id, content_title, content_version, platform_profile_id, platform_profile_name, platform_account_id, platform_account_label, account_identifier, status, actual_title, final_url, published_at, created_at, last_verification_at, available_actions]
+      properties:
+        id: {type: string, format: uuid}
+        task_id: {type: string, format: uuid}
+        content_version_id: {type: string, format: uuid}
+        content_title: {type: string}
+        content_version: {type: integer}
+        platform_profile_id: {type: string, format: uuid}
+        platform_profile_name: {type: string}
+        platform_account_id: {type: string, format: uuid}
+        platform_account_label: {type: string}
+        account_identifier: {type: string}
+        status: {$ref: '#/components/schemas/PublicationStatus'}
+        actual_title: {type: [string, 'null']}
+        final_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
+        published_at: {type: [string, 'null'], format: date-time}
+        created_at: {type: string, format: date-time}
+        last_verification_at: {type: [string, 'null'], format: date-time}
+        available_actions: {type: array, items: {$ref: '#/components/schemas/PublicationAction'}}
     PublicationRecordList:
       type: object
       additionalProperties: false
       required: [items, page, page_size, total]
       properties:
-        items: {type: array, items: {$ref: '#/components/schemas/PublicationRecord'}}
+        items: {type: array, items: {$ref: '#/components/schemas/PublicationRecordListItem'}}
         page: {type: integer}
         page_size: {type: integer}
         total: {type: integer}
@@ -2731,7 +2783,91 @@ components:
       additionalProperties: false
       required: [items]
       properties:
-        items: {type: array, items: {$ref: '#/components/schemas/PublicationAttention'}}
+        items: {type: array, items: {$ref: '#/components/schemas/PublicationAttentionListItem'}}
+    PublicationAttentionListItem:
+      type: object
+      additionalProperties: false
+      required: [id, publication_record_id, original_task_id, content_title, content_version, platform_profile_id, platform_profile_name, platform_account_label, final_url, trigger_status, status, revision, opened_at, resolved_at, resolved_by, resolution_comment, repair_task_id, available_actions]
+      properties:
+        id: {type: string, format: uuid}
+        publication_record_id: {type: string, format: uuid}
+        original_task_id: {type: string, format: uuid}
+        content_title: {type: string}
+        content_version: {type: integer}
+        platform_profile_id: {type: string, format: uuid}
+        platform_profile_name: {type: string}
+        platform_account_label: {type: string}
+        final_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
+        trigger_status: {type: string, enum: [REMOVED, VERIFICATION_FAILED]}
+        status: {$ref: '#/components/schemas/PublicationAttentionStatus'}
+        revision: {type: integer}
+        opened_at: {type: string, format: date-time}
+        resolved_at: {type: [string, 'null'], format: date-time}
+        resolved_by: {type: [string, 'null'], format: uuid}
+        resolution_comment: {type: [string, 'null']}
+        repair_task_id: {type: [string, 'null'], format: uuid}
+        available_actions: {type: array, items: {$ref: '#/components/schemas/PublicationAttentionAction'}}
+    PublicationStatusCounts:
+      type: object
+      additionalProperties: false
+      required: [PENDING_MANUAL_PUBLISH, PLATFORM_REVIEW, PUBLISHED, VERIFIED, REJECTED, REMOVED, VERIFICATION_FAILED]
+      properties:
+        PENDING_MANUAL_PUBLISH: {type: integer, minimum: 0}
+        PLATFORM_REVIEW: {type: integer, minimum: 0}
+        PUBLISHED: {type: integer, minimum: 0}
+        VERIFIED: {type: integer, minimum: 0}
+        REJECTED: {type: integer, minimum: 0}
+        REMOVED: {type: integer, minimum: 0}
+        VERIFICATION_FAILED: {type: integer, minimum: 0}
+    PublicationPeriodMetrics:
+      type: object
+      additionalProperties: false
+      required: [registered_published_count, verified_count, verification_rate, new_exception_count, current_unresolved_attention_count]
+      properties:
+        registered_published_count: {type: integer, minimum: 0}
+        verified_count: {type: integer, minimum: 0}
+        verification_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
+        new_exception_count: {type: integer, minimum: 0}
+        current_unresolved_attention_count: {type: integer, minimum: 0}
+    PublicationExceptionCounts:
+      type: object
+      additionalProperties: false
+      required: [rejected, removed_open, verification_failed_open]
+      properties:
+        rejected: {type: integer, minimum: 0}
+        removed_open: {type: integer, minimum: 0}
+        verification_failed_open: {type: integer, minimum: 0}
+    PublicationRecentActivity:
+      type: object
+      additionalProperties: false
+      required: [publication_id, content_title, content_version, platform_profile_name, status, occurred_at]
+      properties:
+        publication_id: {type: string, format: uuid}
+        content_title: {type: string}
+        content_version: {type: integer}
+        platform_profile_name: {type: string}
+        status: {$ref: '#/components/schemas/PublicationStatus'}
+        occurred_at: {type: string, format: date-time}
+    PublicationWorkbenchSummary:
+      type: object
+      additionalProperties: false
+      required: [as_of, window_start, window_days, current_status_counts, open_attention_count, period, exception_counts, recent_activity]
+      properties:
+        as_of: {type: string, format: date-time}
+        window_start: {type: string, format: date-time}
+        window_days: {type: integer, enum: [7, 30]}
+        current_status_counts: {$ref: '#/components/schemas/PublicationStatusCounts'}
+        open_attention_count: {type: integer, minimum: 0}
+        period: {$ref: '#/components/schemas/PublicationPeriodMetrics'}
+        exception_counts: {$ref: '#/components/schemas/PublicationExceptionCounts'}
+        recent_activity:
+          type: array
+          maxItems: 5
+          items: {$ref: '#/components/schemas/PublicationRecentActivity'}
+    PublicationWindowDays:
+      type: integer
+      enum: [7, 30]
+      description: 发布工作台允许的滚动统计周期。
     VersionChange:
       type: object
       additionalProperties: false

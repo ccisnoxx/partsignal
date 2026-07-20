@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import uuid
+from enum import IntEnum
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Header, Query, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from app.deps import AdminUser, CsrfProtected, CurrentUser, DbSession, EngineerUser
 from app.errors import not_found
@@ -32,6 +33,7 @@ from app.schemas.publication import (
     PublicationRepairContext,
     PublicationRepairTaskCreate,
     PublicationStatus,
+    PublicationWorkbenchSummary,
     ResolvePublicationAttentionRequest,
 )
 from app.services.projections import content_task_out
@@ -53,10 +55,14 @@ from app.services.publication_queries import (
     get_repair_context,
     list_attentions,
     publication_out,
+    publication_workbench_summary,
     render_markdown,
 )
 from app.services.publication_queries import (
     list_publication_candidates as list_publication_candidates_service,
+)
+from app.services.publication_queries import (
+    list_publication_records as list_publication_records_service,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["publication"])
@@ -69,6 +75,19 @@ PublicationCommandName = Literal[
     "remove",
     "mark-verification-failed",
 ]
+
+
+class PublicationWindowDays(IntEnum):
+    """发布工作台允许的滚动统计周期。"""
+
+    SEVEN = 7
+    THIRTY = 30
+
+
+PUBLICATION_WINDOW_DAY_VALUES: dict[PublicationWindowDays, Literal[7, 30]] = {
+    PublicationWindowDays.SEVEN: 7,
+    PublicationWindowDays.THIRTY: 30,
+}
 
 
 @router.get(
@@ -104,6 +123,19 @@ def get_publication_package(
 )
 def list_publication_candidates(db: DbSession, _user: CurrentUser) -> PublicationCandidateList:
     return list_publication_candidates_service(db)
+
+
+@router.get(
+    "/publication-workbench-summary",
+    response_model=PublicationWorkbenchSummary,
+    operation_id="getPublicationWorkbenchSummary",
+)
+def get_publication_workbench_summary(
+    db: DbSession,
+    _user: CurrentUser,
+    window_days: Annotated[PublicationWindowDays, Query()] = PublicationWindowDays.SEVEN,
+) -> PublicationWorkbenchSummary:
+    return publication_workbench_summary(db, PUBLICATION_WINDOW_DAY_VALUES[window_days])
 
 
 @router.get(
@@ -190,24 +222,11 @@ def list_publication_records(
     page_size: int = Query(20, ge=1, le=100),
     status_filter: Annotated[PublicationStatus | None, Query(alias="status")] = None,
 ) -> PublicationRecordList:
-    query = select(PublicationRecord)
-    count_query = select(func.count()).select_from(PublicationRecord)
-    if status_filter:
-        query = query.where(PublicationRecord.status == status_filter.value)
-        count_query = count_query.where(PublicationRecord.status == status_filter.value)
-    total = int(db.scalar(count_query) or 0)
-    records = list(
-        db.scalars(
-            query.order_by(PublicationRecord.created_at.desc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
-        )
-    )
-    return PublicationRecordList(
-        items=[publication_out(db, item) for item in records],
+    return list_publication_records_service(
+        db,
         page=page,
         page_size=page_size,
-        total=total,
+        status_filter=status_filter.value if status_filter is not None else None,
     )
 
 

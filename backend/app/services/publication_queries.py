@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import uuid
+from collections import defaultdict
+from datetime import UTC, datetime, timedelta
 from html.parser import HTMLParser
+from typing import Literal
 
 import bleach
 import markdown
@@ -40,13 +43,22 @@ from app.schemas.publication import (
     PlatformAccountOut,
     PlatformVersionCandidate,
     PublicationAttentionList,
+    PublicationAttentionListItem,
     PublicationAttentionOut,
     PublicationCandidate,
     PublicationCandidateList,
     PublicationEvent,
+    PublicationExceptionCounts,
+    PublicationPeriodMetrics,
+    PublicationRecentActivity,
+    PublicationRecordList,
+    PublicationRecordListItem,
     PublicationRecordOut,
     PublicationRepairContext,
     PublicationRepairDefaults,
+    PublicationStatus,
+    PublicationStatusCounts,
+    PublicationWorkbenchSummary,
     VersionChange,
     VersionDifference,
 )
@@ -68,6 +80,23 @@ PUBLICATION_TRANSITIONS = {
     ("VERIFIED", "remove"): "REMOVED",
     ("VERIFIED", "mark-verification-failed"): "VERIFICATION_FAILED",
 }
+
+
+def publication_actions(status: str) -> list[str]:
+    """返回某一发布状态允许执行的服务端命令。"""
+    return [
+        command
+        for (source, command), _target in PUBLICATION_TRANSITIONS.items()
+        if source == status
+    ]
+
+
+def attention_actions(status: str, repair_task_id: uuid.UUID | None) -> list[str]:
+    """返回关注事项当前允许的显式动作。"""
+    if status != "OPEN":
+        return []
+    return (["CREATE_REPAIR_TASK"] if repair_task_id is None else []) + ["RESOLVE"]
+
 
 ALLOWED_HTML_TAGS = [
     "p",
@@ -135,7 +164,20 @@ def task_for_publication(db: Session, publication: PublicationRecord) -> Content
 
 def publication_out(db: Session, publication: PublicationRecord) -> PublicationRecordOut:
     """投影发布详情及服务端允许动作。"""
-    task = task_for_publication(db, publication)
+    context = db.execute(
+        select(ContentTask, ContentVersion, PlatformProfile, PlatformAccount)
+        .join(ContentVersion, ContentVersion.task_id == ContentTask.id)
+        .join(
+            PlatformProfileVersion,
+            PlatformProfileVersion.id == ContentTask.platform_profile_version_id,
+        )
+        .join(PlatformProfile, PlatformProfile.id == PlatformProfileVersion.platform_profile_id)
+        .join(PlatformAccount, PlatformAccount.id == publication.platform_account_id)
+        .where(ContentVersion.id == publication.content_version_id)
+    ).one_or_none()
+    if context is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布记录锁定上下文不完整", 409)
+    task, content, profile, account = context
     events = list(
         db.scalars(
             select(PublicationStatusEvent)
@@ -155,7 +197,13 @@ def publication_out(db: Session, publication: PublicationRecord) -> PublicationR
         id=publication.id,
         content_version_id=publication.content_version_id,
         task_id=task.id,
+        content_title=content.title,
+        content_version=content.version,
+        platform_profile_id=profile.id,
+        platform_profile_name=profile.name,
         platform_account_id=publication.platform_account_id,
+        platform_account_label=account.label,
+        account_identifier=account.account_identifier,
         section_url=publication.section_url,
         actual_title=publication.actual_title,
         final_url=publication.final_url,
@@ -174,11 +222,7 @@ def publication_out(db: Session, publication: PublicationRecord) -> PublicationR
             for event in events
         ],
         attachments=[FileRecordOut.model_validate(file) for file in files],
-        available_actions=[
-            command
-            for (source, command), _target in PUBLICATION_TRANSITIONS.items()
-            if source == publication.status
-        ],
+        available_actions=publication_actions(publication.status),
     )
 
 
@@ -200,19 +244,20 @@ def list_publication_candidates(db: Session) -> PublicationCandidateList:
         )
         .order_by(ContentVersion.created_at.desc(), ContentVersion.id)
     ).all()
-    candidates: list[PublicationCandidate] = []
-    for content, task, platform_version, profile in rows:
-        accounts = list(
-            db.scalars(
-                select(PlatformAccount)
-                .where(
-                    PlatformAccount.platform_profile_id == profile.id,
-                    PlatformAccount.is_active.is_(True),
-                )
-                .order_by(PlatformAccount.label, PlatformAccount.id)
+    accounts_by_profile: defaultdict[uuid.UUID, list[PlatformAccount]] = defaultdict(list)
+    profile_ids = {profile.id for _content, _task, _version, profile in rows}
+    if profile_ids:
+        for account in db.scalars(
+            select(PlatformAccount)
+            .where(
+                PlatformAccount.platform_profile_id.in_(profile_ids),
+                PlatformAccount.is_active.is_(True),
             )
-        )
-        candidates.append(
+            .order_by(PlatformAccount.label, PlatformAccount.id)
+        ):
+            accounts_by_profile[account.platform_profile_id].append(account)
+    return PublicationCandidateList(
+        items=[
             PublicationCandidate(
                 content_version=content_version_out(content),
                 task_id=task.id,
@@ -220,10 +265,98 @@ def list_publication_candidates(db: Session) -> PublicationCandidateList:
                 platform_profile_name=profile.name,
                 platform_profile_version_id=platform_version.id,
                 platform_profile_version=platform_version.version,
-                matching_accounts=[PlatformAccountOut.model_validate(item) for item in accounts],
+                matching_accounts=[
+                    PlatformAccountOut.model_validate(item)
+                    for item in accounts_by_profile[profile.id]
+                ],
+            )
+            for content, task, platform_version, profile in rows
+        ]
+    )
+
+
+def list_publication_records(
+    db: Session,
+    *,
+    page: int,
+    page_size: int,
+    status_filter: str | None,
+) -> PublicationRecordList:
+    """分页返回发布列表投影，不为每一行加载完整详情。"""
+    last_verification = (
+        select(
+            PublicationStatusEvent.publication_id,
+            func.max(PublicationStatusEvent.created_at).label("last_verification_at"),
+        )
+        .where(PublicationStatusEvent.status.in_(("VERIFIED", "VERIFICATION_FAILED")))
+        .group_by(PublicationStatusEvent.publication_id)
+        .subquery()
+    )
+    query = (
+        select(
+            PublicationRecord,
+            ContentTask.id.label("task_id"),
+            ContentVersion.title.label("content_title"),
+            ContentVersion.version.label("content_version"),
+            PlatformProfile.id.label("platform_profile_id"),
+            PlatformProfile.name.label("platform_profile_name"),
+            PlatformAccount.label.label("platform_account_label"),
+            PlatformAccount.account_identifier,
+            last_verification.c.last_verification_at,
+        )
+        .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
+        .join(ContentTask, ContentTask.id == ContentVersion.task_id)
+        .join(
+            PlatformProfileVersion,
+            PlatformProfileVersion.id == ContentTask.platform_profile_version_id,
+        )
+        .join(PlatformProfile, PlatformProfile.id == PlatformProfileVersion.platform_profile_id)
+        .join(PlatformAccount, PlatformAccount.id == PublicationRecord.platform_account_id)
+        .outerjoin(
+            last_verification,
+            last_verification.c.publication_id == PublicationRecord.id,
+        )
+    )
+    count_query = select(func.count()).select_from(PublicationRecord)
+    if status_filter is not None:
+        query = query.where(PublicationRecord.status == status_filter)
+        count_query = count_query.where(PublicationRecord.status == status_filter)
+    total = int(db.scalar(count_query) or 0)
+    rows = db.execute(
+        query.order_by(PublicationRecord.created_at.desc(), PublicationRecord.id)
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+    ).all()
+    items: list[PublicationRecordListItem] = []
+    for row in rows:
+        publication = row[0]
+        items.append(
+            PublicationRecordListItem(
+                id=publication.id,
+                task_id=row.task_id,
+                content_version_id=publication.content_version_id,
+                content_title=row.content_title,
+                content_version=row.content_version,
+                platform_profile_id=row.platform_profile_id,
+                platform_profile_name=row.platform_profile_name,
+                platform_account_id=publication.platform_account_id,
+                platform_account_label=row.platform_account_label,
+                account_identifier=row.account_identifier,
+                status=publication.status,
+                actual_title=publication.actual_title,
+                final_url=publication.final_url,
+                published_at=publication.published_at,
+                created_at=publication.created_at,
+                last_verification_at=row.last_verification_at,
+                available_actions=publication_actions(publication.status),
             )
         )
-    return PublicationCandidateList(items=candidates)
+    return PublicationRecordList(
+        items=items,
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 def attention_out(db: Session, attention: PublicationAttention) -> PublicationAttentionOut:
@@ -235,11 +368,6 @@ def attention_out(db: Session, attention: PublicationAttention) -> PublicationAt
     repair_task_id = db.scalar(
         select(ContentTask.id).where(ContentTask.source_publication_attention_id == attention.id)
     )
-    actions: list[str] = []
-    if attention.status == "OPEN":
-        if repair_task_id is None:
-            actions.append("CREATE_REPAIR_TASK")
-        actions.append("RESOLVE")
     return PublicationAttentionOut(
         id=attention.id,
         publication_record_id=attention.publication_record_id,
@@ -252,19 +380,212 @@ def attention_out(db: Session, attention: PublicationAttention) -> PublicationAt
         resolved_by=attention.resolved_by,
         resolution_comment=attention.resolution_comment,
         repair_task_id=repair_task_id,
-        available_actions=actions,
+        available_actions=attention_actions(attention.status, repair_task_id),
     )
 
 
 def list_attentions(db: Session, status_filter: str | None) -> PublicationAttentionList:
-    """按状态返回发布异常待办。"""
-    query = select(PublicationAttention)
+    """按状态批量返回带发布上下文的异常待办。"""
+    repair_task = (
+        select(
+            ContentTask.source_publication_attention_id.label("attention_id"),
+            ContentTask.id.label("repair_task_id"),
+        )
+        .where(ContentTask.source_publication_attention_id.is_not(None))
+        .subquery()
+    )
+    query = (
+        select(
+            PublicationAttention,
+            PublicationRecord,
+            ContentTask.id.label("original_task_id"),
+            ContentVersion.title.label("content_title"),
+            ContentVersion.version.label("content_version"),
+            PlatformProfile.id.label("platform_profile_id"),
+            PlatformProfile.name.label("platform_profile_name"),
+            PlatformAccount.label.label("platform_account_label"),
+            repair_task.c.repair_task_id,
+        )
+        .join(
+            PublicationRecord,
+            PublicationRecord.id == PublicationAttention.publication_record_id,
+        )
+        .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
+        .join(ContentTask, ContentTask.id == ContentVersion.task_id)
+        .join(
+            PlatformProfileVersion,
+            PlatformProfileVersion.id == ContentTask.platform_profile_version_id,
+        )
+        .join(PlatformProfile, PlatformProfile.id == PlatformProfileVersion.platform_profile_id)
+        .join(PlatformAccount, PlatformAccount.id == PublicationRecord.platform_account_id)
+        .outerjoin(repair_task, repair_task.c.attention_id == PublicationAttention.id)
+    )
     if status_filter is not None:
         query = query.where(PublicationAttention.status == status_filter)
-    attentions = list(
-        db.scalars(query.order_by(PublicationAttention.opened_at.desc(), PublicationAttention.id))
+    rows = db.execute(
+        query.order_by(PublicationAttention.opened_at.desc(), PublicationAttention.id)
+    ).all()
+    items: list[PublicationAttentionListItem] = []
+    for row in rows:
+        attention, publication = row[0], row[1]
+        items.append(
+            PublicationAttentionListItem(
+                id=attention.id,
+                publication_record_id=attention.publication_record_id,
+                original_task_id=row.original_task_id,
+                content_title=row.content_title,
+                content_version=row.content_version,
+                platform_profile_id=row.platform_profile_id,
+                platform_profile_name=row.platform_profile_name,
+                platform_account_label=row.platform_account_label,
+                final_url=publication.final_url,
+                trigger_status=attention.trigger_status,
+                status=attention.status,
+                revision=attention.revision,
+                opened_at=attention.opened_at,
+                resolved_at=attention.resolved_at,
+                resolved_by=attention.resolved_by,
+                resolution_comment=attention.resolution_comment,
+                repair_task_id=row.repair_task_id,
+                available_actions=attention_actions(attention.status, row.repair_task_id),
+            )
+        )
+    return PublicationAttentionList(items=items)
+
+
+def publication_workbench_summary(
+    db: Session, window_days: Literal[7, 30]
+) -> PublicationWorkbenchSummary:
+    """以发布事件和关注事项聚合工作台当前快照与周期指标。"""
+    as_of = datetime.now(UTC)
+    window_start = as_of - timedelta(days=window_days)
+    published_cohort = (
+        select(PublicationStatusEvent.publication_id.label("publication_id"))
+        .where(
+            PublicationStatusEvent.status == "PUBLISHED",
+            PublicationStatusEvent.created_at >= window_start,
+            PublicationStatusEvent.created_at < as_of,
+        )
+        .distinct()
+        .subquery()
     )
-    return PublicationAttentionList(items=[attention_out(db, item) for item in attentions])
+    aggregate = db.execute(
+        select(
+            *[
+                select(func.count())
+                .select_from(PublicationRecord)
+                .where(PublicationRecord.status == status.value)
+                .scalar_subquery()
+                .label(status.value)
+                for status in PublicationStatus
+            ],
+            select(func.count())
+            .select_from(PublicationAttention)
+            .where(
+                PublicationAttention.status == "OPEN",
+                PublicationAttention.trigger_status == "REMOVED",
+            )
+            .scalar_subquery()
+            .label("removed_open"),
+            select(func.count())
+            .select_from(PublicationAttention)
+            .where(
+                PublicationAttention.status == "OPEN",
+                PublicationAttention.trigger_status == "VERIFICATION_FAILED",
+            )
+            .scalar_subquery()
+            .label("verification_failed_open"),
+            select(func.count())
+            .select_from(published_cohort)
+            .scalar_subquery()
+            .label("registered_count"),
+            select(func.count())
+            .select_from(published_cohort)
+            .where(
+                select(PublicationStatusEvent.id)
+                .where(
+                    PublicationStatusEvent.publication_id == published_cohort.c.publication_id,
+                    PublicationStatusEvent.status == "VERIFIED",
+                    PublicationStatusEvent.created_at < as_of,
+                )
+                .exists()
+            )
+            .scalar_subquery()
+            .label("verified_count"),
+            select(func.count(func.distinct(PublicationStatusEvent.publication_id)))
+            .where(
+                PublicationStatusEvent.status.in_(("REJECTED", "REMOVED", "VERIFICATION_FAILED")),
+                PublicationStatusEvent.created_at >= window_start,
+                PublicationStatusEvent.created_at < as_of,
+            )
+            .scalar_subquery()
+            .label("new_exception_count"),
+        )
+    ).one()
+    status_counts = {
+        status.value: int(getattr(aggregate, status.value) or 0) for status in PublicationStatus
+    }
+    attention_counts = {
+        "REMOVED": int(aggregate.removed_open or 0),
+        "VERIFICATION_FAILED": int(aggregate.verification_failed_open or 0),
+    }
+    open_attention_count = sum(attention_counts.values())
+    registered_count = int(aggregate.registered_count or 0)
+    verified_count = int(aggregate.verified_count or 0)
+    recent_rows = db.execute(
+        select(
+            PublicationStatusEvent.publication_id,
+            ContentVersion.title.label("content_title"),
+            ContentVersion.version.label("content_version"),
+            PlatformProfile.name.label("platform_profile_name"),
+            PublicationStatusEvent.status,
+            PublicationStatusEvent.created_at.label("occurred_at"),
+        )
+        .join(
+            PublicationRecord,
+            PublicationRecord.id == PublicationStatusEvent.publication_id,
+        )
+        .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
+        .join(ContentTask, ContentTask.id == ContentVersion.task_id)
+        .join(
+            PlatformProfileVersion,
+            PlatformProfileVersion.id == ContentTask.platform_profile_version_id,
+        )
+        .join(PlatformProfile, PlatformProfile.id == PlatformProfileVersion.platform_profile_id)
+        .where(PublicationStatusEvent.created_at < as_of)
+        .order_by(PublicationStatusEvent.created_at.desc(), PublicationStatusEvent.id.desc())
+        .limit(5)
+    ).all()
+    return PublicationWorkbenchSummary(
+        as_of=as_of,
+        window_start=window_start,
+        window_days=window_days,
+        current_status_counts=PublicationStatusCounts(**status_counts),
+        open_attention_count=open_attention_count,
+        period=PublicationPeriodMetrics(
+            registered_published_count=registered_count,
+            verified_count=verified_count,
+            verification_rate=(verified_count / registered_count if registered_count else None),
+            new_exception_count=int(aggregate.new_exception_count or 0),
+            current_unresolved_attention_count=open_attention_count,
+        ),
+        exception_counts=PublicationExceptionCounts(
+            rejected=status_counts["REJECTED"],
+            removed_open=attention_counts.get("REMOVED", 0),
+            verification_failed_open=attention_counts.get("VERIFICATION_FAILED", 0),
+        ),
+        recent_activity=[
+            PublicationRecentActivity(
+                publication_id=row.publication_id,
+                content_title=row.content_title,
+                content_version=row.content_version,
+                platform_profile_name=row.platform_profile_name,
+                status=row.status,
+                occurred_at=row.occurred_at,
+            )
+            for row in recent_rows
+        ],
+    )
 
 
 def get_attention(db: Session, attention_id: uuid.UUID) -> PublicationAttentionOut:

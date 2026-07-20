@@ -48,6 +48,9 @@ export const queryKeys = {
   publications: {
     candidates: ['publication-candidates'] as const,
     records: ['publication-records'] as const,
+    recordList: (page: number, pageSize: number, status?: string) =>
+      ['publication-records', { page, pageSize, status }] as const,
+    summary: (windowDays: 7 | 30) => ['publication-workbench-summary', windowDays] as const,
     package: (id: string) => ['publication-package', id] as const,
     record: (id: string) => ['publication-record', id] as const,
     attentions: ['publication-attentions'] as const,

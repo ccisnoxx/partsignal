@@ -164,6 +164,16 @@ async function command(page: Page, path: string, csrf: string, data: unknown) {
   }));
 }
 
+async function uploadOperationScreenshot(page: Page, csrf: string, filename: string, text: string) {
+  const bytes = Buffer.from(text);
+  const digest = createHash('sha256').update(bytes).digest('hex');
+  const upload = await command(page, '/api/v1/files/upload-intents', csrf, { category: 'OPERATION_SCREENSHOT', original_filename: filename, content_type: 'image/png', size: bytes.length, sha256: digest, access_level: 'INTERNAL' });
+  const instruction = upload.upload as { url: string; headers: Record<string, string> };
+  const response = await page.request.put(instruction.url, { headers: instruction.headers, data: bytes });
+  expect(response.status()).toBe(204);
+  return command(page, `/api/v1/files/${(upload.file as { id: string }).id}/complete`, csrf, undefined);
+}
+
 async function expectTextInPaginatedTable(page: Page, text: string) {
   const target = page.getByText(text, { exact: true });
   await expect(page.locator('.ant-table-wrapper').last()).toBeVisible();
@@ -534,26 +544,100 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page.getByLabel('审核摘要').getByText('已批准', { exact: true })).toBeVisible();
 
   const account = await command(page, '/api/v1/platform-accounts', csrf, { platform_profile_id: profile.id, label: `E2E 账号 ${suffix}`, account_identifier: `e2e-${suffix}` });
-  const bytes = Buffer.from(`PartSignal E2E screenshot ${suffix}`);
-  const digest = createHash('sha256').update(bytes).digest('hex');
-  const upload = await command(page, '/api/v1/files/upload-intents', csrf, { category: 'OPERATION_SCREENSHOT', original_filename: 'e2e.txt.png', content_type: 'image/png', size: bytes.length, sha256: digest, access_level: 'INTERNAL' });
-  const uploadInstruction = upload.upload as { url: string; headers: Record<string, string> };
-  const uploadResponse = await page.request.put(uploadInstruction.url, {
-    headers: uploadInstruction.headers,
-    data: bytes,
+  const file = await uploadOperationScreenshot(page, csrf, 'e2e-prepared.png', `PartSignal E2E prepared screenshot ${suffix}`);
+  const resultFile = await uploadOperationScreenshot(page, csrf, 'e2e-result.png', `PartSignal E2E result screenshot ${suffix}`);
+
+  const candidatesPattern = '**/api/v1/publication-candidates';
+  await page.route(candidatesPattern, async (route) => {
+    const response = await route.fetch();
+    const candidates = await response.json() as {
+      items: Array<{ content_version: { id: string }; matching_accounts: unknown[] }>;
+    };
+    const target = candidates.items.find((item) => item.content_version.id === submittedId);
+    if (target) target.matching_accounts = [];
+    await route.fulfill({ response, json: candidates });
   });
-  expect(uploadResponse.status()).toBe(204);
-  const file = await command(page, `/api/v1/files/${(upload.file as { id: string }).id}/complete`, csrf, undefined);
+  await page.goto('/publications');
+  const candidateWithoutAccount = page.getByRole('row').filter({ hasText: `人工核对 ${product!.part_number}` });
+  await expect(candidateWithoutAccount.getByText('无匹配账号')).toBeVisible();
+  await expect(candidateWithoutAccount.getByRole('link', { name: '前往业务设置' })).toHaveAttribute('href', '/settings');
+  await expect(candidateWithoutAccount.getByRole('button', { name: '准备人工发布' })).toBeDisabled();
+  await page.unroute(candidatesPattern);
+
+  const packagePattern = `**/api/v1/content-versions/${submittedId}/publication-package`;
+  await page.route(packagePattern, async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      json: {
+        error: {
+          code: 'PUBLICATION_PACKAGE_FAILED',
+          message: '发布包加载失败',
+          request_id: `e2e-package-${suffix}`,
+        },
+      },
+    });
+  });
+  await page.reload();
+  const candidateWithPackageFailure = page.getByRole('row').filter({ hasText: `人工核对 ${product!.part_number}` });
+  await candidateWithPackageFailure.getByRole('button', { name: '准备人工发布' }).click();
+  const failedPackageDrawer = page.getByRole('dialog', { name: '准备人工发布' });
+  await expect(failedPackageDrawer.getByText('发布包加载失败')).toBeVisible();
+  await expect(failedPackageDrawer.getByRole('button', { name: '登记待人工发布' })).toBeDisabled();
+  await expect(failedPackageDrawer.locator('input[type="file"]')).toBeDisabled();
+  await failedPackageDrawer.getByRole('button', { name: '关闭' }).click();
+  await page.unroute(packagePattern);
+
   const publication = await body<{ id: string }>(await page.request.post('/api/v1/publication-records/manual', { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-publication-${suffix}` }, data: { content_version_id: submittedId, platform_account_id: account.id, section_url: 'https://forum.example.invalid/board', attachment_file_ids: [file.id] } }));
   await command(page, `/api/v1/publication-records/${publication.id}/mark-platform-review`, csrf, { comment: '平台审核中' });
-  await command(page, `/api/v1/publication-records/${publication.id}/mark-published`, csrf, { actual_title: `E2E ${suffix}`, final_url: `https://forum.example.invalid/posts/${suffix}`, published_at: new Date().toISOString(), content_matches: null, comment: '人工发布完成' });
+  await command(page, `/api/v1/publication-records/${publication.id}/mark-published`, csrf, { actual_title: `E2E ${suffix}`, final_url: `https://forum.example.invalid/posts/${suffix}`, published_at: new Date().toISOString(), content_matches: null, comment: '人工发布完成', attachment_file_ids: [resultFile.id] });
   await command(page, `/api/v1/publication-records/${publication.id}/verify`, csrf, { actual_title: null, final_url: null, published_at: null, content_matches: true, comment: '人工核对一致' });
   const completedTask = await body<{ status: string }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`));
   expect(completedTask.status).toBe('COMPLETED');
   await page.goto('/publications');
-  await page.getByRole('tab', { name: '发布记录' }).click();
+  for (const viewport of [{ width: 1536, height: 1024 }, { width: 1024, height: 768 }, { width: 375, height: 812 }]) {
+    await page.setViewportSize(viewport);
+    await expect(page.getByRole('heading', { name: '发布管理' })).toBeVisible();
+    await expect.poll(
+      () => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+      { message: `${viewport.width}×${viewport.height} 不应产生页面级横向滚动` },
+    ).toBeTruthy();
+  }
+  await page.setViewportSize({ width: 1536, height: 1024 });
+  for (const mode of ['light', 'dark', 'system'] as const) {
+    await page.evaluate((value) => localStorage.setItem('partsignal.theme-mode', value), mode);
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('data-theme-mode', mode);
+    await expect(page.getByRole('heading', { name: '发布管理' })).toBeVisible();
+  }
+  await expect(page.getByRole('radio', { name: '近 7 天' })).toBeChecked();
+  await page.getByText('近 30 天').click();
+  await expect(page).toHaveURL(/window_days=30/);
+  await page.getByRole('tab', { name: /发布记录/ }).click();
   await expect(page).toHaveURL(/tab=records/);
-  await expect(page.locator(`a[href="https://forum.example.invalid/posts/${suffix}"]`)).toBeVisible();
+  const publicationRow = page.getByRole('row').filter({
+    has: page.locator(`a[href="https://forum.example.invalid/posts/${suffix}"]`),
+  });
+  await expect(publicationRow).toBeVisible();
+  await expect(publicationRow.getByText(`E2E ${suffix}`, { exact: true })).toBeVisible();
+  await publicationRow.getByRole('button', { name: '标记已移除' }).click();
+  const publicationDrawer = page.getByRole('dialog', { name: '发布结果登记' });
+  await expect(publicationDrawer).toBeVisible();
+  await expect(publicationDrawer.getByText(new RegExp(`人工核对 ${product!.part_number} · V\\d+`))).toBeVisible();
+  await expect(publicationDrawer.getByText(`E2E 论坛 ${suffix}`, { exact: true })).toBeVisible();
+  await expect(publicationDrawer.getByText(`E2E 账号 ${suffix} / e2e-${suffix}`, { exact: true })).toBeVisible();
+  await expect(publicationDrawer.getByText(/内容哈希/)).toBeVisible();
+  await expect(publicationDrawer.getByText('e2e-prepared.png')).toBeVisible();
+  await expect(publicationDrawer.getByText('e2e-result.png')).toBeVisible();
+  await publicationDrawer.getByRole('button', { name: '关闭' }).click();
+
+  await page.goto(`/publications/${publication.id}`);
+  await expect(page.getByRole('button', { name: '在工作台处理' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '标记已移除' })).toHaveCount(0);
+  await page.getByRole('button', { name: '在工作台处理' }).click();
+  await expect(page).toHaveURL(new RegExp(`/publications\\?record=${publication.id}`));
+  await expect(page.getByRole('dialog', { name: '发布结果登记' })).toBeVisible();
+  await page.getByRole('dialog', { name: '发布结果登记' }).getByRole('button', { name: '关闭' }).click();
 
   await command(page, '/api/v1/geo-observations', csrf, { product_id: product!.id, search_platform: 'DeepSeek E2E', search_query: `${product!.part_number} 如何替代？`, tested_at: new Date().toISOString(), article_results: [{ publication_record_id: publication.id, recommendation_status: 'RECOMMENDED' }], attachment_file_ids: [file.id], notes: '仅用于自动化验收', supersedes_id: null });
   const metrics = await body<{ manual_observation_count: number; article_recommendation_rate: number | null }>(await page.request.get(`/api/v1/geo-metrics?product_id=${product!.id}`));
@@ -562,11 +646,12 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.goto('/observations');
   await expect(page.getByText('DeepSeek E2E').first()).toBeVisible();
 
-  await page.goto(`/publications/${publication.id}`);
-  await page.getByRole('button', { name: /标\s*记\s*已\s*移\s*除/ }).click();
-  await page.getByLabel('说明').fill('E2E 页面已下线');
-  await page.getByRole('button', { name: /确\s*认/, exact: true }).click();
-  await expect(page.getByText('已移除').first()).toBeVisible();
+  await page.goto(`/publications?tab=records&record=${publication.id}`);
+  const removalDrawer = page.getByRole('dialog', { name: '发布结果登记' });
+  await removalDrawer.getByRole('button', { name: '标记已移除' }).click();
+  await removalDrawer.getByRole('textbox', { name: '操作说明' }).fill('E2E 页面已下线');
+  await removalDrawer.getByRole('button', { name: '确认提交' }).click();
+  await expect(removalDrawer.getByText('已下线').first()).toBeVisible();
   expect((await body<{ status: string }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`))).status).toBe('COMPLETED');
   const attentionList = await body<{ items: Array<{ id: string; publication_record_id: string; status: string; repair_task_id: string | null }> }>(await page.request.get('/api/v1/publication-attentions?status=OPEN'));
   const attention = attentionList.items.find((item) => item.publication_record_id === publication.id);

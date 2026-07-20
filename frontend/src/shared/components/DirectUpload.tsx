@@ -10,7 +10,7 @@ async function sha256(file: File): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export function DirectUpload({ category, accessLevel = 'INTERNAL', disabled = false, onUploaded }: { category: Schema<'FileCategory'>; accessLevel?: Schema<'Confidentiality'>; disabled?: boolean; onUploaded: (file: FileRecord) => void }) {
+export function DirectUpload({ category, accessLevel = 'INTERNAL', accept, disabled = false, onUploaded }: { category: Schema<'FileCategory'>; accessLevel?: Schema<'Confidentiality'>; accept?: string; disabled?: boolean; onUploaded: (file: FileRecord) => void }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<unknown>();
   const [pendingFileId, setPendingFileId] = useState<string>();
@@ -50,5 +50,5 @@ export function DirectUpload({ category, accessLevel = 'INTERNAL', disabled = fa
       await complete(intent.file.id);
     } catch (cause) { setError(cause); } finally { setUploading(false); }
   };
-  return <Space orientation="vertical"><Space wrap><label className={`upload-control${disabled || uploading ? ' is-disabled' : ''}`}>{uploading ? <LoadingOutlined spin /> : <UploadOutlined />}<span>{uploading ? '上传并校验中' : '选择文件'}</span><input aria-label="选择文件" type="file" disabled={disabled || uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} /></label>{pendingFileId && <Button disabled={disabled} loading={uploading} onClick={() => void complete(pendingFileId)}>重试完整性校验</Button>}</Space>{error ? <Alert role="alert" type="error" showIcon message={errorMessage(error)} /> : <Typography.Text type="secondary">文件不会经过 FastAPI，由浏览器直接上传对象存储。</Typography.Text>}</Space>;
+  return <Space orientation="vertical"><Space wrap><label className={`upload-control${disabled || uploading ? ' is-disabled' : ''}`}>{uploading ? <LoadingOutlined spin /> : <UploadOutlined />}<span>{uploading ? '上传并校验中' : '选择文件'}</span><input accept={accept} aria-label="选择文件" type="file" disabled={disabled || uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} /></label>{pendingFileId && <Button disabled={disabled} loading={uploading} onClick={() => void complete(pendingFileId)}>重试完整性校验</Button>}</Space>{error ? <Alert role="alert" type="error" showIcon message={errorMessage(error)} /> : <Typography.Text type="secondary">文件不会经过 FastAPI，由浏览器直接上传对象存储。</Typography.Text>}</Space>;
 }

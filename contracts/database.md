@@ -48,6 +48,8 @@ Approving a new version and superseding the previous approved version happen in 
 
 Platform accounts contain labels only, never credentials. A publication permanently binds one approved content version. Reuse of an idempotency key must match content, account, section URL, and attachment IDs; concurrent requests are serialized with a PostgreSQL transaction advisory lock. After `PUBLISHED`, URL and content binding cannot change.
 
+Current-state counts come from `publication_records.status`. Period publication metrics and recent activity come from append-only `publication_status_events`: a rolling window cohort is the distinct records whose `PUBLISHED` event falls inside `[window_start, as_of)`, verification count is the cohort subset with any later `VERIFIED` event by `as_of`, and exception count is the distinct records receiving `REJECTED`, `REMOVED`, or `VERIFICATION_FAILED` inside the same window. A later removal never removes the historical publication from its original cohort.
+
 ### 0007 GEO Observation
 
 `geo_observations`, `geo_observation_citations`, `geo_observation_publications`.
@@ -58,7 +60,7 @@ Observations are immutable. Corrections create another observation with `superse
 
 `file_records`, `publication_attachments`, `geo_observation_attachments`, plus `evidences.file_record_id`.
 
-Only `VERIFIED` files may be linked. Referenced objects cannot be deleted through the application.
+Only `VERIFIED` files may be linked. Publication attachments additionally require `category=OPERATION_SCREENSHOT` in both candidate creation and `mark-published`; other modules enforce their own category contracts at their service boundaries. `publication_attachments` is one append-only evidence relation used in both publication phases, with no mutable phase or replacement field. Referenced objects cannot be deleted through the application.
 
 ### 0009 Configuration Center And AI Generation
 
@@ -194,6 +196,7 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A publication can reference only an approved content version whose fact is not retired at creation time.
 - A publication account profile must equal the content task's locked platform profile; both the application service and PostgreSQL enforce it.
 - `PUBLISHED` and `VERIFIED` publications require a valid HTTP(S) URL matching the configured platform domain.
+- Candidate evidence and `mark-published` result evidence must be verified `OPERATION_SCREENSHOT` files and share the append-only `publication_attachments` relation. Result evidence, final URL, publication time, status event, and audit record commit or fail together.
 - Task completion has no public manual command. The first verified publication completes an open task atomically; completed tasks never revert.
 - Open publication attention is the only publication-loss todo source. Repair-task creation and attention resolution are separate explicit commands.
 - Fact and content review records are append-only, and every request-changes command requires a non-blank comment.

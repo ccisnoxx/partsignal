@@ -28,6 +28,7 @@ from app.db import get_db
 from app.deps import get_current_session
 from app.errors import AppError
 from app.main import app
+from app.models.ai_generation import GenerationJob
 from app.models.configuration import (
     ContentHumanizationPrompt,
     PlatformProfile,
@@ -92,7 +93,7 @@ from app.services.platform_configuration import (
     delete_platform_type,
 )
 from app.services.product_facts import delete_fact_version, delete_product
-from app.services.projections import platform_profile_out
+from app.services.projections import content_tasks_out, platform_profile_out
 from app.services.publication import (
     cancel_content_task,
     command_publication,
@@ -1339,6 +1340,96 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
             assert metrics.manual_observation_count == 1
             assert metrics.article_result_count == 2
             assert metrics.article_recommendation_rate == 0.5
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_content_task_list_uses_current_platform_and_latest_generate_only() -> None:
+    """列表批量展示当前品牌，且只按确定顺序读取最新 GENERATE。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine) as db:
+            graph = seed_graph(db)
+            profile = graph["profile"]
+            profile.website_url = "https://community.example.invalid/platform"
+            profile.logo_external_url = "https://cdn.example.invalid/community.webp"
+            db.commit()
+
+            without_jobs = content_tasks_out(db, [graph["task"]])[0]
+            assert without_jobs.latest_generation_status is None
+
+            newer_humanize = GenerationJob(
+                content_task_id=graph["task"].id,
+                idempotency_key=f"humanize-newer-{uuid.uuid4()}",
+                job_type="HUMANIZE",
+                source_content_version_id=graph["content"].id,
+                status="SUCCEEDED",
+                input_snapshot={},
+                adapter_name="test",
+                prompt_template_version="v1",
+                prompt_hash="c" * 64,
+                created_by=graph["user"].id,
+                created_at=datetime(2026, 7, 19, 10, tzinfo=UTC),
+            )
+            db.add(newer_humanize)
+            db.commit()
+            humanize_only = content_tasks_out(db, [graph["task"]])[0]
+            assert humanize_only.latest_generation_status is None
+
+            tied_at = datetime(2026, 7, 19, 9, tzinfo=UTC)
+            old_generate = GenerationJob(
+                id=uuid.UUID(int=1),
+                content_task_id=graph["task"].id,
+                idempotency_key=f"generate-old-{uuid.uuid4()}",
+                job_type="GENERATE",
+                status="FAILED",
+                input_snapshot={},
+                adapter_name="test",
+                prompt_template_version="v1",
+                prompt_hash="a" * 64,
+                created_by=graph["user"].id,
+                created_at=tied_at,
+            )
+            latest_generate = GenerationJob(
+                id=uuid.UUID(int=2),
+                content_task_id=graph["task"].id,
+                idempotency_key=f"generate-latest-{uuid.uuid4()}",
+                job_type="GENERATE",
+                status="RUNNING",
+                input_snapshot={},
+                adapter_name="test",
+                prompt_template_version="v1",
+                prompt_hash="b" * 64,
+                created_by=graph["user"].id,
+                created_at=tied_at,
+            )
+            db.add_all([old_generate, latest_generate])
+            db.commit()
+
+            item = content_tasks_out(db, [graph["task"]])[0]
+            assert item.latest_generation_status == "RUNNING"
+            assert item.product.part_number == graph["product"].part_number
+            assert item.platform.name == profile.name
+            assert str(item.platform.website_url) == profile.website_url
+            assert item.platform.logo is not None
+            assert item.platform.logo.source == "EXTERNAL"
+
+            statement_count = 0
+
+            def count_statement(*_args: object) -> None:
+                nonlocal statement_count
+                statement_count += 1
+
+            event.listen(engine, "before_cursor_execute", count_statement)
+            try:
+                content_tasks_out(db, [graph["task"]])
+                single_count = statement_count
+                statement_count = 0
+                repeated = content_tasks_out(db, [graph["task"]] * 20)
+                assert len(repeated) == 20
+                assert statement_count == single_count
+            finally:
+                event.remove(engine, "before_cursor_execute", count_statement)
         engine.dispose()
 
 

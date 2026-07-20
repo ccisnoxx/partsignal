@@ -64,6 +64,7 @@ from app.services.content_planning import (
 )
 from app.services.projections import (
     content_task_out,
+    content_tasks_out,
     platform_profile_out,
     platform_profiles_out,
     platform_version_out,
@@ -298,7 +299,7 @@ def retire_platform_profile_version(
 @router.get("/content-tasks", response_model=ContentTaskList, operation_id="listContentTasks")
 def list_content_tasks(db: DbSession, _user: CurrentUser) -> ContentTaskList:
     tasks = list(db.scalars(select(ContentTask).order_by(ContentTask.created_at.desc())))
-    return ContentTaskList(items=[content_task_out(db, task) for task in tasks])
+    return ContentTaskList(items=content_tasks_out(db, tasks))
 
 
 @router.post(

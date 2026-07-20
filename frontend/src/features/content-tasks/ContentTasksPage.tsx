@@ -1,21 +1,48 @@
 /** 内容任务页串联批准事实、平台规则、异步生成和内容版本入口。 */
-import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  CloseCircleOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  RightOutlined,
+  SearchOutlined,
+  ThunderboltOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, App, Button, Card, Descriptions, Form, Input, InputNumber, Modal, Select, Space, Table, Typography } from 'antd';
+import { Alert, App, Button, Card, Descriptions, Form, Input, InputNumber, Modal, Select, Space, Table, Tabs, Tag, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { platformProfilesQueryOptions, productsQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
-import type { ContentTask, ContentVersion, Schema } from '../../shared/api/types';
-import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
+import type { ContentTaskListItem, ContentVersion, Schema } from '../../shared/api/types';
+import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
+import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
+import { PlatformAvatar } from '../../shared/components/PlatformAvatar';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { useActiveSection } from '../../shared/hooks/useActiveSection';
 
 const taskSectionIds = ['task-constraints', 'task-generation', 'task-versions'];
+const taskPageSize = 10;
+type TaskStatus = Schema<'ContentTaskStatus'>;
+type TaskStatusFilter = 'ALL' | TaskStatus;
+const taskStatusOptions: ReadonlyArray<{ value: TaskStatus; label: string }> = [
+  { value: 'OPEN', label: '进行中' },
+  { value: 'COMPLETED', label: '已完成' },
+  { value: 'CANCELLED', label: '已取消' },
+];
+const taskDateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+});
+
+function isTaskStatus(value: string): value is TaskStatus {
+  return taskStatusOptions.some((option) => option.value === value);
+}
 
 export function ContentTasksPage() {
   const { taskId } = useParams();
@@ -26,27 +53,134 @@ function TaskList() {
   const [open, setOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const rawPage = searchParams.get('page');
+  const rawStatus = searchParams.get('status');
   const page = rawPage && /^[1-9]\d*$/.test(rawPage) ? Number(rawPage) : 1;
+  const keyword = searchParams.get('q') ?? '';
+  const status: TaskStatusFilter = rawStatus && isTaskStatus(rawStatus) ? rawStatus : 'ALL';
+  const desiredFormat = searchParams.get('format') ?? '';
   const tasks = useQuery({ queryKey: queryKeys.contentTasks.all, queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks')), staleTime: QUERY_STALE_TIME.businessList });
+  const items = tasks.data?.items ?? [];
+  const normalizedKeyword = keyword.trim().toLocaleLowerCase('zh-CN');
+  const filteredTasks = items.filter((task) => {
+    const matchesKeyword = !normalizedKeyword || [task.product.brand, task.product.part_number, task.platform.name, task.content_angle, task.target_audience, task.desired_format, task.conversion_goal]
+      .some((value) => value.toLocaleLowerCase('zh-CN').includes(normalizedKeyword));
+    return matchesKeyword && (status === 'ALL' || task.status === status) && (!desiredFormat || task.desired_format === desiredFormat);
+  });
+  const formatOptions = [...new Set(items.map((task) => task.desired_format))]
+    .sort((left, right) => left.localeCompare(right, 'zh-CN'))
+    .map((value) => ({ value, label: value }));
+  const statusCounts = Object.fromEntries(taskStatusOptions.map((option) => [option.value, items.filter((task) => task.status === option.value).length])) as Record<TaskStatus, number>;
+  const maxPage = Math.max(1, Math.ceil(filteredTasks.length / taskPageSize));
   useEffect(() => {
-    if ((rawPage !== null && !/^[1-9]\d*$/.test(rawPage)) || (tasks.data && page > Math.max(1, Math.ceil(tasks.data.items.length / 10)))) {
+    if ((rawPage !== null && !/^[1-9]\d*$/.test(rawPage)) || (rawStatus !== null && !isTaskStatus(rawStatus)) || (tasks.data && page > maxPage)) {
       const next = new URLSearchParams(searchParams);
       next.delete('page');
+      if (rawStatus !== null && !isTaskStatus(rawStatus)) next.delete('status');
       setSearchParams(next, { replace: true });
     }
-  }, [page, rawPage, searchParams, setSearchParams, tasks.data]);
+  }, [maxPage, page, rawPage, rawStatus, searchParams, setSearchParams, tasks.data]);
+  const setFilter = (key: 'q' | 'status' | 'format', value?: string, replace = false) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value); else next.delete(key);
+    next.delete('page');
+    setSearchParams(next, { replace });
+  };
   const setPage = (nextPage: number) => {
     const next = new URLSearchParams(searchParams);
     if (nextPage === 1) next.delete('page'); else next.set('page', String(nextPage));
     setSearchParams(next);
   };
-  return <div className="page-stack"><PageHeader eyebrow="内容链路" title="内容任务" description="任务锁定事实版本和平台规则，后续更新不会静默漂移。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>创建任务</Button>} />
-    <Card className="collection-panel">{tasks.error ? <QueryFailure error={tasks.error} onRetry={() => void tasks.refetch()} /> : <TableRegion label="内容任务列表"><Table<ContentTask> rowKey="id" loading={tasks.isLoading} dataSource={tasks.data?.items} pagination={{ current: page, pageSize: 10, showSizeChanger: false, onChange: setPage }} sticky={{ offsetHeader: 72 }} scroll={{ x: 760 }} columns={[
-      { title: '内容角度', dataIndex: 'content_angle', render: (value, row) => <Link to={`/tasks/${row.id}`}><strong>{value}</strong></Link> },
-      { title: '目标受众', dataIndex: 'target_audience', width: 220 }, { title: '格式', dataIndex: 'desired_format', width: 160 },
-      { title: '长度', width: 110, render: (_, row) => `${row.desired_length_min}–${row.desired_length_max}` },
-      { title: '状态', dataIndex: 'status', width: 120, render: (value) => <StatusTag status={value} /> },
-    ]} /></TableRegion>}</Card><TaskCreateModal open={open} onClose={() => setOpen(false)} /></div>;
+  const resetFilters = () => {
+    const next = new URLSearchParams(searchParams);
+    ['q', 'status', 'format', 'page'].forEach((key) => next.delete(key));
+    setSearchParams(next);
+  };
+
+  return <div className="page-stack tasks-workbench">
+    <PageHeader
+      eyebrow="内容工作流"
+      title="内容任务台"
+      description="集中查看内容任务约束、处理状态与创建时间，任务事实版本和平台规则始终按服务端记录锁定。"
+      actions={<Button aria-label="新建内容任务" aria-haspopup="dialog" aria-expanded={open} className="tasks-primary-action" type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新建内容任务</Button>}
+    />
+
+    <Card className="tasks-glass-panel tasks-filter-panel" variant="borderless">
+      <div className="tasks-filter-grid" role="search" aria-label="内容任务筛选">
+        <Input
+          allowClear
+          aria-label="搜索内容任务"
+          type="search"
+          prefix={<SearchOutlined />}
+          placeholder="搜索产品、平台、内容角度或任务要求"
+          value={keyword}
+          onChange={(event) => setFilter('q', event.target.value, true)}
+        />
+        <Select
+          allowClear
+          aria-label="筛选内容形式"
+          placeholder="全部内容形式"
+          value={desiredFormat || undefined}
+          options={formatOptions}
+          onChange={(value) => setFilter('format', value)}
+        />
+        <Button aria-label="重置筛选" icon={<ReloadOutlined />} disabled={!keyword && status === 'ALL' && !desiredFormat} onClick={resetFilters}>重置筛选</Button>
+      </div>
+      <Tabs
+        className="tasks-status-tabs"
+        activeKey={status}
+        onChange={(value) => setFilter('status', value === 'ALL' ? undefined : value)}
+        items={[
+          { key: 'ALL', label: <span>全部 <b>{items.length}</b></span> },
+          ...taskStatusOptions.map((option) => ({ key: option.value, label: <span>{option.label} <b>{statusCounts[option.value]}</b></span> })),
+        ]}
+      />
+    </Card>
+
+    <section className="tasks-metric-grid" aria-label="内容任务摘要">
+      <div className="tasks-metric-cell"><span className="tasks-metric-icon tasks-metric-all" aria-hidden="true"><UnorderedListOutlined /></span><MetricTile label="全部任务" value={tasks.data ? items.length : '—'} meta="当前列表全部记录" /></div>
+      <div className="tasks-metric-cell"><span className="tasks-metric-icon tasks-metric-open" aria-hidden="true"><ClockCircleOutlined /></span><MetricTile label="进行中任务" value={tasks.data ? statusCounts.OPEN : '—'} meta="状态 OPEN" tone="data" /></div>
+      <div className="tasks-metric-cell"><span className="tasks-metric-icon tasks-metric-completed" aria-hidden="true"><CheckCircleOutlined /></span><MetricTile label="已完成任务" value={tasks.data ? statusCounts.COMPLETED : '—'} meta="状态 COMPLETED" tone="success" /></div>
+      <div className="tasks-metric-cell"><span className="tasks-metric-icon tasks-metric-cancelled" aria-hidden="true"><CloseCircleOutlined /></span><MetricTile label="已取消任务" value={tasks.data ? statusCounts.CANCELLED : '—'} meta="状态 CANCELLED" /></div>
+    </section>
+
+    <Card
+      className="tasks-glass-panel tasks-table-panel"
+      title="任务列表"
+      extra={<Typography.Text className="tasks-table-summary">显示 {filteredTasks.length} / {items.length} 条</Typography.Text>}
+    >
+      {tasks.error ? <QueryFailure error={tasks.error} onRetry={() => void tasks.refetch()} /> : <div aria-busy={tasks.isLoading}>
+        <TableRegion label="内容任务列表">
+          <Table<ContentTaskListItem>
+            rowKey="id"
+            loading={{ spinning: tasks.isLoading, description: '正在加载内容任务列表' }}
+            dataSource={filteredTasks}
+            pagination={{
+              current: page,
+              pageSize: taskPageSize,
+              showSizeChanger: false,
+              showTotal: (total, range) => `${range[0]}–${range[1]} / 共 ${total} 条`,
+              onChange: setPage,
+            }}
+            locale={{ emptyText: <NoData description={items.length ? '没有符合当前筛选条件的任务' : '暂无内容任务'} /> }}
+            rowClassName={(row) => row.latest_generation_status === 'FAILED' ? 'task-row-generation-failed' : ''}
+            scroll={{ x: 940 }}
+            columns={[
+              {
+                title: '产品名称',
+                render: (_, row) => <div className="task-title-cell"><strong title={`${row.product.brand} ${row.product.part_number}`}>{row.product.brand} <span className="data-code">{row.product.part_number}</span></strong><span title={row.content_angle}>{row.content_angle}</span></div>,
+              },
+              { title: '目标平台', width: 190, render: (_, row) => <div className="task-platform-cell"><PlatformAvatar name={row.platform.name} logo={row.platform.logo} />{row.platform.website_url ? <a href={row.platform.website_url} target="_blank" rel="noreferrer" title={row.platform.name}>{row.platform.name}</a> : <span title={row.platform.name}>{row.platform.name}</span>}</div> },
+              { title: '任务状态', dataIndex: 'status', width: 118, render: (value: TaskStatus) => <StatusTag status={value} /> },
+              { title: 'AI 生成状态', dataIndex: 'latest_generation_status', width: 132, render: (value: Schema<'GenerationJobStatus'> | null) => value ? <StatusTag status={value} /> : <Tag className="status-tag status-tag-neutral">尚未生成</Tag> },
+              { title: '创建时间', dataIndex: 'created_at', width: 170, render: (value: string) => <time dateTime={value}>{taskDateFormatter.format(new Date(value))}</time> },
+              { title: '快捷操作', key: 'actions', width: 112, fixed: 'right', render: (_, row) => <Link className="task-row-action" aria-label={`查看任务：${row.product.brand} ${row.product.part_number}`} to={`/tasks/${row.id}`}>查看详情 <RightOutlined /></Link> },
+            ]}
+          />
+        </TableRegion>
+      </div>}
+    </Card>
+    <TaskCreateModal open={open} onClose={() => setOpen(false)} />
+  </div>;
 }
 
 function TaskCreateModal({ open, onClose }: { open: boolean; onClose: () => void }) {

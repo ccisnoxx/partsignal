@@ -35,6 +35,7 @@ from app.schemas.content import (
     ContentTaskCreate,
     ContentTaskUserPromptUpdate,
 )
+from app.services.file_records import platform_logo_storage_values
 
 
 def create_query_topic(
@@ -97,11 +98,15 @@ def create_platform_profile(
     """创建平台身份，规则版本由独立流程维护。"""
     if db.get(PlatformType, payload.platform_type_id) is None:
         raise not_found("平台类型")
+    logo_file_id, logo_external_url = platform_logo_storage_values(db, payload.logo)
     profile = PlatformProfile(
         name=payload.name.strip(),
         slug=payload.slug,
         allowed_domains=[domain.casefold().strip(".") for domain in payload.allowed_domains],
         platform_type_id=payload.platform_type_id,
+        website_url=str(payload.website_url) if payload.website_url is not None else None,
+        logo_file_id=logo_file_id,
+        logo_external_url=logo_external_url,
     )
     db.add(profile)
     db.flush()
@@ -126,9 +131,14 @@ def create_platform_profile_version(
     request_id: str,
 ) -> PlatformProfileVersion:
     """锁定平台后分配单调递增的 DRAFT 规则版本号。"""
-    if db.scalar(
-        select(PlatformProfile).where(PlatformProfile.id == platform_profile_id).with_for_update()
-    ) is None:
+    if (
+        db.scalar(
+            select(PlatformProfile)
+            .where(PlatformProfile.id == platform_profile_id)
+            .with_for_update()
+        )
+        is None
+    ):
         raise not_found("平台配置")
     next_version = (
         int(

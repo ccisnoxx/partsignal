@@ -99,7 +99,7 @@ async function measureContext(browser, allowIdlePrefetch) {
   });
 
   await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 120_000 });
-  await page.getByRole('heading', { name: '今天的内容链路' }).waitFor({ timeout: 120_000 });
+  await page.getByRole('heading', { name: '总览' }).waitFor({ timeout: 120_000 });
   if (allowIdlePrefetch) await page.waitForTimeout(1_000);
 
   const navigationStart = await page.evaluate(() => performance.now());
@@ -109,7 +109,7 @@ async function measureContext(browser, allowIdlePrefetch) {
   const cold = performance.now() - coldStarted;
 
   await clickMenuItemWithoutHover(page, '工作台');
-  await page.getByRole('heading', { name: '今天的内容链路' }).waitFor({ timeout: 120_000 });
+  await page.getByRole('heading', { name: '总览' }).waitFor({ timeout: 120_000 });
   const warmStarted = performance.now();
   await clickMenuItemWithoutHover(page, '产品事实');
   await page.getByRole('heading', { name: '产品事实', exact: true }).waitFor({ timeout: 120_000 });

@@ -199,7 +199,7 @@ HTML、纯文本和平台发布格式均由 Markdown 派生，不作为第二份
 - 编辑器展示任务锁定的具体平台、规则版本和当前 Prompt。
 - 管理员可继续配置没有有效规则的平台；激活新规则且 Prompt 存在后恢复工程师可选。
 - 待发布列表只查询已批准内容，服务端复核平台账号与任务锁定平台一致。
-- 配置中心保留并列的“平台类型”“平台管理”“平台规则管理”“Prompt 管理”路由；平台管理只维护身份、归类、域名和当前规则选择，规则页独立创建、编辑和删除真实版本，Prompt 页面按具体平台维护当前 Markdown。
+- 配置中心保留并列的“平台类型”“平台管理”“平台规则管理”“Prompt 管理”路由；平台管理维护身份、归类、域名、官网、单一来源 Logo 和当前规则选择，规则页独立创建、编辑和删除真实版本，Prompt 页面按具体平台维护当前 Markdown。Logo 可选择公开直传文件或外部 URL，不保存对象存储签名地址，也不允许两种来源并存。
 - 全站用户可见业务文本使用中文，枚举的显示 label 与提交 value 分离；`model_id`、API Key、URL、Markdown、JSON、Header、Prompt 和机器值保持原样。
 - AI 渠道列表响应一次性包含全部已启用模型摘要，卡片完整展示显示名和 `model_id`；前端不得逐渠道请求模型列表。
 
@@ -406,6 +406,8 @@ finished_at
 
 内容任务锁定一个 `ACTIVE PlatformProfileVersion`；作业从该版本解析具体平台并读取当前 Prompt。`input_snapshot` 冻结具体平台身份、平台规则、最终 system/user message、事实、模型和参数，配置变化不得重新解释历史作业。
 
+内容任务列表使用独立只读聚合契约展示产品名称、任务锁定规则所属的单一目标平台、任务状态、创建时间和最新原始生成状态。平台名称、官网和 Logo 读取平台当前品牌信息；生成状态只取按 `created_at DESC, id DESC` 排序后的最新 `GENERATE` 作业，`HUMANIZE` 作为内容版本后处理不覆盖任务主体状态。产品、平台、Logo 文件、发布占用状态与作业状态均批量读取，不按任务追加请求。
+
 Worker 启动、成功和失败都更新 PostgreSQL。不得把关键结果只保存在 Celery Result Backend。
 
 ### 8.4 重试规则
@@ -457,6 +459,7 @@ GEO 项目使用独立 PostgreSQL 和独立 Redis 容器，不复用当前其他
 
 - `platform_types.slug` 保持唯一；管理员可增删改查，删除被具体平台引用的类型时返回结构化冲突。
 - `platform_profiles` 保存具体平台和所属类型，并拥有零或一份当前 Prompt；创建平台不隐式创建规则。`platform_profile_versions` 保存 `DRAFT / ACTIVE / RETIRED` 规则，只有 `DRAFT` 可按修订号编辑，当前规则由同平台唯一 `ACTIVE` 版本推导。
+- `platform_profiles.website_url` 保存可选官网；Logo 只能在 `logo_file_id` 与 `logo_external_url` 中选择一个。上传文件必须属于公开、已校验的 `PLATFORM_LOGO` 类别，下载地址由对象存储临时签发。
 - `content_tasks` 继续直接锁定具体 `platform_profile_version_id`、产品、事实版本和工程师输入；`query_topic_id` 只为历史任务保留并允许为空，新任务不再选择目标问题。
 - `generation_jobs.input_snapshot` 新写入具体平台身份，并继续冻结规则、最终消息、事实、渠道和模型。
 - `content_versions` 保持单一内容版本模型；发布记录只允许引用已批准内容。

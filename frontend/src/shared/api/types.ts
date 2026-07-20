@@ -10,6 +10,7 @@ export type FactVersion = Schema<'FactVersion'>;
 export type QueryTopic = Schema<'QueryTopic'>;
 export type PlatformProfile = Schema<'PlatformProfile'>;
 export type ContentTask = Schema<'ContentTask'>;
+export type ContentTaskListItem = Schema<'ContentTaskListItem'>;
 export type GenerationJob = Schema<'GenerationJob'>;
 export type AIChannel = Schema<'AIChannel'>;
 export type AIModel = Schema<'AIModel'>;

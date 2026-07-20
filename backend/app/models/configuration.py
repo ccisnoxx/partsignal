@@ -102,6 +102,12 @@ class PlatformProfile(Base):
     """平台稳定身份和允许域名集合。"""
 
     __tablename__ = "platform_profiles"
+    __table_args__ = (
+        CheckConstraint(
+            "logo_file_id IS NULL OR logo_external_url IS NULL",
+            name="ck_platform_profiles_logo_single_source",
+        ),
+    )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
@@ -109,6 +115,11 @@ class PlatformProfile(Base):
     platform_type_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platform_types.id", ondelete="RESTRICT")
     )
+    website_url: Mapped[str | None] = mapped_column(Text)
+    logo_file_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("file_records.id", ondelete="RESTRICT")
+    )
+    logo_external_url: Mapped[str | None] = mapped_column(Text)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 

@@ -1,5 +1,15 @@
 /** 内容审核页只消费服务端冻结审核上下文，Markdown 仍是唯一可编辑正文源。 */
-import { ArrowLeftOutlined, CheckOutlined } from '@ant-design/icons';
+import {
+  ArrowLeftOutlined,
+  CheckOutlined,
+  CodeOutlined,
+  EditOutlined,
+  EyeOutlined,
+  FileProtectOutlined,
+  FileTextOutlined,
+  HistoryOutlined,
+  WarningOutlined,
+} from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   Alert,
@@ -7,18 +17,20 @@ import {
   Button,
   Card,
   Descriptions,
+  Divider,
   Form,
   Input,
   InputNumber,
-  List,
   Modal,
   Space,
+  Tabs,
+  Tag,
   Timeline,
   Typography,
 } from 'antd';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
@@ -28,11 +40,12 @@ import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { evidenceTypeLabel } from '../../shared/components/enumLabels';
-import { useActiveSection } from '../../shared/hooks/useActiveSection';
 import { RevisionForm } from './RevisionForm';
 
 type ReviewAction = Schema<'ContentReviewAction'>;
 type ReviewCommand = Pick<Schema<'CommandRequest'>, 'expected_revision' | 'comment'>;
+type ReviewContext = Schema<'ContentReviewContext'>;
+type QualityIssue = Schema<'QualityIssue'>;
 
 const actionLabels: Record<ReviewAction, string> = {
   SUBMIT_REVIEW: '提交审核',
@@ -40,39 +53,227 @@ const actionLabels: Record<ReviewAction, string> = {
   REQUEST_CHANGES: '退回修改',
 };
 
+const formatDateTime = (value: string) => new Date(value).toLocaleString('zh-CN');
+
+function QualityIssueGroup({ title, severity, issues }: { title: string; severity: QualityIssue['severity']; issues: QualityIssue[] }) {
+  return (
+    <section className={`quality-issue-group quality-issue-${severity.toLowerCase()}`} aria-label={title}>
+      <header>
+        <Space size={8}><StatusTag status={severity} /><strong>{title}</strong></Space>
+        <span className="quality-issue-count data-code">{issues.length}</span>
+      </header>
+      {issues.length === 0 ? (
+        <Typography.Text type="secondary">当前没有此类问题。</Typography.Text>
+      ) : (
+        <ul className="review-data-list">
+          {issues.map((issue) => (
+            <li key={issue.code}>
+              <div className="quality-issue-copy">
+                <Typography.Text code>{issue.code}</Typography.Text>
+                <Typography.Paragraph>{issue.message}</Typography.Paragraph>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function FactEvidencePanel({ review }: { review: ReviewContext }) {
+  const fact = review.fact_version.snapshot;
+  const evidenceStatus = new Map(review.evidence_statuses.map((item) => [item.client_key, item.file_status]));
+  return (
+    <section id="review-facts" className="review-side-panel" aria-label="事实与审核证据">
+      <Descriptions
+        size="small"
+        column={1}
+        items={[
+          { label: '冻结事实', children: <span className="data-code">V{review.fact_version.version}</span> },
+          { label: '事实状态', children: <StatusTag status={review.fact_version.status} /> },
+          { label: '变更说明', children: review.fact_version.change_summary },
+        ]}
+      />
+      <Divider titlePlacement="left" plain>关键参数与测试条件</Divider>
+      {fact.parameters.length === 0 ? <Typography.Text type="secondary">冻结事实没有参数</Typography.Text> : (
+        <ul className="review-data-list">
+          {fact.parameters.map((item) => (
+            <li key={item.client_key}>
+            <Descriptions
+              size="small"
+              column={1}
+              items={[
+                { label: item.name, children: item.text_value ?? item.typical_value ?? `${item.min_value ?? '—'} ～ ${item.max_value ?? '—'} ${item.unit}` },
+                { label: '测试条件', children: item.test_conditions },
+                { label: '证据键', children: item.evidence_keys.join('、') || '无' },
+              ]}
+            />
+            </li>
+          ))}
+        </ul>
+      )}
+      <Divider titlePlacement="left" plain>适用与排除边界</Divider>
+      {fact.replacement_relations.length === 0 ? <Typography.Text type="secondary">没有替代关系</Typography.Text> : (
+        <ul className="review-data-list">
+          {fact.replacement_relations.map((item) => (
+            <li key={item.client_key}>
+            <Descriptions
+              size="small"
+              column={1}
+              items={[
+                { label: '替代等级', children: <StatusTag status={item.replacement_level} /> },
+                { label: '适用条件', children: item.conditions },
+                { label: '排除边界', children: item.exclusions },
+              ]}
+            />
+            </li>
+          ))}
+        </ul>
+      )}
+      <Divider titlePlacement="left" plain>绑定证据</Divider>
+      {fact.evidences.length === 0 ? <Typography.Text type="secondary">锁定事实没有证据</Typography.Text> : (
+        <ul className="review-data-list">
+          {fact.evidences.map((item) => {
+            const fileStatus = evidenceStatus.get(item.client_key);
+            return (
+            <li key={item.client_key}>
+            <Space orientation="vertical" size={4}>
+              <Space wrap size={6}>
+                <strong>{item.title}</strong>
+                <StatusTag status={item.confidentiality} />
+                {fileStatus ? <StatusTag status={fileStatus} /> : <Typography.Text type="danger">证据状态缺失</Typography.Text>}
+              </Space>
+              <Typography.Text type="secondary">
+                {evidenceTypeLabel(item.type)} · {item.version} · {item.source_url ?? '无公开 URL'}
+              </Typography.Text>
+            </Space>
+            </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function ReviewHistoryPanel({ review }: { review: ReviewContext }) {
+  return (
+    <section id="review-history" className="review-side-panel" aria-label="完整审核历史">
+      {review.review_history.length === 0 ? (
+        <Typography.Text type="secondary">当前版本链尚无审核记录。</Typography.Text>
+      ) : (
+        <Timeline
+          items={review.review_history.map((item) => ({
+            content: (
+              <div className="review-history-entry">
+                <Space wrap size={6}>
+                  <StatusTag status={item.action} />
+                  <strong>{item.actor.display_name}</strong>
+                  <Typography.Text type="secondary">V{item.target_version}</Typography.Text>
+                </Space>
+                <Typography.Paragraph>{item.comment || '未填写意见'}</Typography.Paragraph>
+                <Typography.Text type="secondary">{formatDateTime(item.created_at)}</Typography.Text>
+              </div>
+            ),
+          }))}
+        />
+      )}
+    </section>
+  );
+}
+
+function TraceContext({ review }: { review: ReviewContext }) {
+  if (!review.generation_trace && review.humanization_traces.length === 0) return null;
+  return (
+    <section id="review-trace" className="review-context-section" aria-label="AI 追溯">
+      <Typography.Title level={5}>AI 追溯</Typography.Title>
+      {review.generation_trace && (
+        <Descriptions
+          size="small"
+          column={1}
+          items={[
+            { label: '生成作业', children: <span className="data-code">{review.generation_trace.job_id.slice(0, 8)}</span> },
+            { label: '适配器', children: review.generation_trace.input_snapshot.adapter_name },
+            { label: '模型', children: String(review.generation_trace.input_snapshot.model.model_id) },
+          ]}
+        />
+      )}
+      {review.humanization_traces.map((trace, index) => (
+        <Descriptions
+          key={trace.job_id}
+          size="small"
+          column={1}
+          title={`自然化 ${index + 1}`}
+          items={[
+            { label: '自然化作业', children: <span className="data-code">{trace.job_id.slice(0, 8)}</span> },
+            { label: '源版本', children: <span className="data-code">{trace.source_content_version_id.slice(0, 8)}</span> },
+            { label: '模型', children: String(trace.input_snapshot.model.model_id) },
+            { label: 'Prompt revision', children: trace.input_snapshot.humanization_prompt.revision },
+          ]}
+        />
+      ))}
+    </section>
+  );
+}
+
+function DiffPanel({ review }: { review: ReviewContext }) {
+  return (
+    <section id="review-diff" aria-label="版本差异">
+      {review.diff ? (
+        <div className="diff-view">
+          {review.diff.lines.map((line, index) => (
+            <div className={`diff-line diff-${line.kind.toLowerCase()}`} key={`${line.kind}-${index}`}>
+              <span>{line.old_line ?? ''}</span>
+              <span>{line.new_line ?? ''}</span>
+              <code>{line.kind === 'ADD' ? '+' : line.kind === 'DELETE' ? '-' : ' '} {line.text}</code>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <Alert type="info" showIcon title="首个版本没有可比较的源版本" />
+      )}
+    </section>
+  );
+}
+
 export function ContentEditorPage() {
   const { contentVersionId = '' } = useParams();
   const { message } = App.useApp();
   const [action, setAction] = useState<ReviewAction>();
+  const [queueOpen, setQueueOpen] = useState(() => window.matchMedia('(min-width: 769px)').matches);
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 769px)');
+    const syncQueueDisclosure = () => setQueueOpen(media.matches);
+    media.addEventListener('change', syncQueueDisclosure);
+    return () => media.removeEventListener('change', syncQueueDisclosure);
+  }, []);
   const context = useQuery({
     queryKey: queryKeys.contentVersions.review(contentVersionId),
-    queryFn: async () =>
-      unwrap(
-        await api.GET('/api/v1/content-versions/{content_version_id}/review-context', {
-          params: { path: { content_version_id: contentVersionId } },
-        }),
-      ),
+    queryFn: async () => unwrap(await api.GET('/api/v1/content-versions/{content_version_id}/review-context', {
+      params: { path: { content_version_id: contentVersionId } },
+    })),
     staleTime: QUERY_STALE_TIME.detail,
   });
-  const reviewSectionIds = [
-    'review-content',
-    'review-diff',
-    'review-facts',
-    ...(context.data?.generation_trace || context.data?.humanization_traces.length ? ['review-trace'] : []),
-    'review-history',
-    ...(context.data && context.data.content.status !== 'APPROVED' && context.data.content.status !== 'SUPERSEDED'
-      ? ['review-revision']
-      : []),
-  ];
-  const activeSection = useActiveSection(reviewSectionIds);
+  const taskId = context.data?.content.task_id ?? '';
+  const versions = useQuery({
+    queryKey: queryKeys.contentTasks.versions(taskId),
+    queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/content-versions', {
+      params: { path: { content_task_id: taskId } },
+    })),
+    enabled: taskId !== '',
+    staleTime: QUERY_STALE_TIME.detail,
+  });
+  const tasks = useQuery({
+    queryKey: queryKeys.contentTasks.all,
+    queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks')),
+    enabled: taskId !== '',
+    staleTime: QUERY_STALE_TIME.businessList,
+  });
   const revise = useMutation({
-    mutationFn: async (body: Schema<'ContentRevisionCreate'>) =>
-      unwrap(
-        await api.POST('/api/v1/content-versions/{content_version_id}/revisions', {
-          params: { path: { content_version_id: contentVersionId }, header: csrfHeader() },
-          body,
-        }),
-      ),
+    mutationFn: async (body: Schema<'ContentRevisionCreate'>) => unwrap(await api.POST('/api/v1/content-versions/{content_version_id}/revisions', {
+      params: { path: { content_version_id: contentVersionId }, header: csrfHeader() },
+      body,
+    })),
     onSuccess: async (created) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.versions(created.task_id) });
       window.location.assign(`/content/${created.id}`);
@@ -82,27 +283,18 @@ export function ContentEditorPage() {
     mutationFn: async (body: ReviewCommand) => {
       if (!action) throw new Error('未选择审核操作');
       if (action === 'SUBMIT_REVIEW') {
-        return unwrap(
-          await api.POST('/api/v1/content-versions/{content_version_id}/submit-review', {
-            params: { path: { content_version_id: contentVersionId }, header: csrfHeader() },
-            body,
-          }),
-        );
+        return unwrap(await api.POST('/api/v1/content-versions/{content_version_id}/submit-review', {
+          params: { path: { content_version_id: contentVersionId }, header: csrfHeader() }, body,
+        }));
       }
       if (action === 'APPROVE') {
-        return unwrap(
-          await api.POST('/api/v1/content-versions/{content_version_id}/approve', {
-            params: { path: { content_version_id: contentVersionId }, header: csrfHeader() },
-            body,
-          }),
-        );
+        return unwrap(await api.POST('/api/v1/content-versions/{content_version_id}/approve', {
+          params: { path: { content_version_id: contentVersionId }, header: csrfHeader() }, body,
+        }));
       }
-      return unwrap(
-        await api.POST('/api/v1/content-versions/{content_version_id}/request-changes', {
-          params: { path: { content_version_id: contentVersionId }, header: csrfHeader() },
-          body,
-        }),
-      );
+      return unwrap(await api.POST('/api/v1/content-versions/{content_version_id}/request-changes', {
+        params: { path: { content_version_id: contentVersionId }, header: csrfHeader() }, body,
+      }));
     },
     onSuccess: async () => {
       message.success(action ? `${actionLabels[action]}已完成` : '内容状态已更新');
@@ -113,227 +305,223 @@ export function ContentEditorPage() {
       ]);
     },
   });
-  if (context.isLoading) return <QueryLoading />;
+  if (context.isLoading) return <QueryLoading label="正在加载内容审核上下文" />;
   if (context.error || !context.data) {
-    return <div className="page-stack"><Link className="back-link" to="/tasks"><ArrowLeftOutlined /> 返回任务列表</Link><PageHeader title="内容审核" breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: '内容审核' }]} /><QueryFailure error={context.error ?? new Error('内容审核上下文不存在')} onRetry={() => void context.refetch()} /></div>;
+    return (
+      <div className="page-stack">
+        <Link className="back-link" to="/tasks"><ArrowLeftOutlined aria-hidden /> 返回任务列表</Link>
+        <PageHeader title="内容审核" breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: '内容审核' }]} />
+        <QueryFailure error={context.error ?? new Error('内容审核上下文不存在')} onRetry={() => void context.refetch()} />
+      </div>
+    );
   }
+
   const review = context.data;
   const current = review.content;
-  const canRevise = current.status !== 'APPROVED' && current.status !== 'SUPERSEDED';
-  const fact = review.fact_version.snapshot;
-  const evidenceStatus = new Map(
-    review.evidence_statuses.map((item) => [item.client_key, item.file_status]),
-  );
+  const canRevise = review.task.status === 'OPEN' && current.status !== 'APPROVED' && current.status !== 'SUPERSEDED';
+  const blockingIssues = current.quality_issues.filter((issue) => issue.severity === 'BLOCKING');
+  const warningIssues = current.quality_issues.filter((issue) => issue.severity === 'WARNING');
   const safeHtml = DOMPurify.sanitize(marked.parse(current.body_markdown) as string);
-  return (
-    <div className="page-stack">
-      <Link className="back-link" to={`/tasks/${current.task_id}`}><ArrowLeftOutlined /> 返回内容任务</Link>
-      <PageHeader
-        eyebrow={`内容版本 / V${current.version}`}
-        title={current.title}
-        description={<>{current.source_type === 'AI' ? 'AI 草稿' : '人工修订'} · 哈希 <span className="data-code">{current.content_hash.slice(0, 12)}</span></>}
-        breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: `V${current.version} 审核` }]}
-        actions={<StatusTag status={current.status} />}
-      />
-      {(revise.error || command.error) && (
-        <Alert role="alert" type="error" showIcon message={errorMessage(revise.error ?? command.error)} />
-      )}
-      <section className="review-summary" aria-label="审核摘要">
-        <div><span>状态</span><strong><StatusTag status={current.status} /></strong></div>
-        <div><span>质量问题</span><strong className="data-code">{current.quality_issues.length}</strong></div>
-        <div><span>冻结事实</span><strong className="data-code">V{review.fact_version.version}</strong></div>
-        <div><span>审核记录</span><strong className="data-code">{review.review_history.length}</strong></div>
-      </section>
-      <div className="review-toolbar">
-        <nav className="form-section-nav" aria-label="内容审核章节">
-          <a href="#review-content" aria-current={activeSection === 'review-content' ? 'location' : undefined}>正文与预览</a>
-          <a href="#review-diff" aria-current={activeSection === 'review-diff' ? 'location' : undefined}>版本差异</a>
-          <a href="#review-facts" aria-current={activeSection === 'review-facts' ? 'location' : undefined}>锁定事实</a>
-          {(review.generation_trace || review.humanization_traces.length > 0) && <a href="#review-trace" aria-current={activeSection === 'review-trace' ? 'location' : undefined}>AI 追溯</a>}
-          <a href="#review-history" aria-current={activeSection === 'review-history' ? 'location' : undefined}>审核历史</a>
-          {canRevise && <a href="#review-revision" aria-current={activeSection === 'review-revision' ? 'location' : undefined}>人工修订</a>}
-        </nav>
-        <Space wrap className="review-actions">
-          {review.available_actions.map((item) => (
-            <Button
-              key={item}
-              type={item === 'APPROVE' ? 'primary' : 'default'}
-              danger={item === 'REQUEST_CHANGES'}
-              icon={item === 'APPROVE' ? <CheckOutlined /> : undefined}
-              onClick={() => setAction(item)}
-            >
-              {actionLabels[item]}
-            </Button>
-          ))}
-        </Space>
+  const taskSummary = tasks.data?.items.find((item) => item.id === current.task_id);
+  const actionPending = command.isPending || revise.isPending;
+  const documentOverview = (
+    <section className="review-document-overview" aria-label="内容摘要与标签">
+      <div>
+        <Typography.Text strong>摘要</Typography.Text>
+        <Typography.Paragraph>{current.summary}</Typography.Paragraph>
       </div>
-      <section id="review-content" className="review-workspace-grid workspace-section" aria-label="内容审核工作区">
-        <Card title="当前 Markdown 正文" className="review-document-card">
-          <Input.TextArea aria-label="当前 Markdown 正文" rows={18} readOnly value={current.body_markdown} className="markdown-source" />
-        </Card>
-        <Card title="安全预览" className="review-document-card">
-          <article className="markdown-preview" dangerouslySetInnerHTML={{ __html: safeHtml }} />
-        </Card>
-        <Card title="审核决策依据" className="decision-rail">
-          <Descriptions size="small" column={1} items={[
-            { label: '事实版本', children: <span className="data-code">V{review.fact_version.version}</span> },
-            { label: '证据数量', children: <span className="data-code">{fact.evidences.length}</span> },
-            { label: '内容哈希', children: <span className="data-code">{current.content_hash.slice(0, 12)}</span> },
-          ]} />
-          <Typography.Title level={5}>质量问题</Typography.Title>
-          {current.quality_issues.length === 0 ? <Alert type="success" showIcon message="当前版本没有质量问题" /> : (
-            <List dataSource={current.quality_issues} renderItem={(issue) => <List.Item><Space align="start"><StatusTag status={issue.severity} /><div><Typography.Text code>{issue.code}</Typography.Text><Typography.Paragraph>{issue.message}</Typography.Paragraph></div></Space></List.Item>} />
-          )}
-        </Card>
-      </section>
-      <Card id="review-diff" title="相对源版本的 Markdown 差异" className="workspace-panel workspace-section">
-        {review.diff ? (
-          <div className="diff-view">
-            {review.diff.lines.map((line, index) => (
-              <div className={`diff-line diff-${line.kind.toLowerCase()}`} key={`${line.kind}-${index}`}>
-                <span>{line.old_line ?? ''}</span>
-                <span>{line.new_line ?? ''}</span>
-                <code>{line.kind === 'ADD' ? '+' : line.kind === 'DELETE' ? '-' : ' '} {line.text}</code>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <Typography.Text type="secondary">首个版本没有可比较的源版本。</Typography.Text>
-        )}
-      </Card>
-      <Card id="review-facts" title={`任务锁定事实 V${review.fact_version.version}`} className="workspace-panel workspace-section">
-        <Descriptions
-          column={1}
-          items={[
-            { label: '事实版本 ID', children: review.fact_version.id },
-            { label: '变更说明', children: review.fact_version.change_summary },
-            { label: '事实状态', children: <StatusTag status={review.fact_version.status} /> },
-          ]}
-        />
-        <Typography.Title level={5}>关键参数与测试条件</Typography.Title>
-        <List
-          dataSource={fact.parameters}
-          renderItem={(item) => (
-            <List.Item>
-              <Descriptions
-                size="small"
-                column={1}
-                items={[
-                  { label: item.name, children: item.text_value ?? item.typical_value ?? `${item.min_value ?? '—'} ～ ${item.max_value ?? '—'} ${item.unit}` },
-                  { label: '测试条件', children: item.test_conditions },
-                  { label: '证据键', children: item.evidence_keys.join('、') || '无' },
-                ]}
-              />
-            </List.Item>
-          )}
-        />
-        <Typography.Title level={5}>替代等级、适用条件与排除边界</Typography.Title>
-        <List
-          dataSource={fact.replacement_relations}
-          locale={{ emptyText: '没有替代关系' }}
-          renderItem={(item) => (
-            <List.Item>
-              <Descriptions
-                size="small"
-                column={1}
-                items={[
-                  { label: '替代等级', children: <StatusTag status={item.replacement_level} /> },
-                  { label: '适用条件', children: item.conditions },
-                  { label: '排除边界', children: item.exclusions },
-                ]}
-              />
-            </List.Item>
-          )}
-        />
-        <Typography.Title level={5}>绑定证据及文件状态</Typography.Title>
-        <List
-          dataSource={fact.evidences}
-          locale={{ emptyText: '锁定事实没有证据' }}
-          renderItem={(item) => (
-            <List.Item>
-              <Space direction="vertical">
-                <Space>
-                  <strong>{item.title}</strong>
-                  <StatusTag status={item.confidentiality} />
-                  <StatusTag status={evidenceStatus.get(item.client_key) ?? 'URL_ONLY'} />
+      <div>
+        <Typography.Text strong>标签</Typography.Text>
+        <Space wrap>{current.tags.length ? current.tags.map((tag) => <Tag key={tag}>{tag}</Tag>) : <Typography.Text type="secondary">无标签</Typography.Text>}</Space>
+      </div>
+    </section>
+  );
+
+  return (
+    <div className="page-stack content-review-page">
+      <div className="content-review-topbar">
+        <Link className="back-link" to={`/tasks/${current.task_id}`}><ArrowLeftOutlined aria-hidden /> 返回内容任务</Link>
+        <span>内容编辑与审核</span>
+      </div>
+
+      <div className="content-review-layout">
+        <aside className="review-context-column" aria-label="内容队列">
+          <Card
+            size="small"
+            title={<Space size={8}><FileTextOutlined aria-hidden /><span>内容队列</span></Space>}
+            className="review-glass-panel review-queue-card"
+          >
+            <details
+              className="review-queue-details"
+              open={queueOpen}
+              onToggle={(event) => setQueueOpen(event.currentTarget.open)}
+            >
+              <summary>展开同任务内容版本{versions.data ? `（${versions.data.items.length}）` : ''}</summary>
+              {(versions.isLoading || tasks.isLoading) && <QueryLoading label="正在加载内容队列" />}
+              {(versions.error || tasks.error) && (
+                <QueryFailure
+                  error={versions.error ?? tasks.error}
+                  onRetry={() => {
+                    void versions.refetch();
+                    void tasks.refetch();
+                  }}
+                />
+              )}
+              {versions.data && tasks.data && !taskSummary && (
+                <Alert type="error" showIcon title="内容队列缺少当前任务的平台名称" />
+              )}
+              {versions.data && taskSummary && (
+                <nav className="review-queue-list" aria-label="同任务内容版本">
+                  {versions.data.items.map((item) => (
+                    <Link
+                      key={item.id}
+                      to={`/content/${item.id}`}
+                      className="review-queue-item"
+                      aria-current={item.id === current.id ? 'page' : undefined}
+                    >
+                      <strong>{item.title}</strong>
+                      <span className="review-queue-platform">{taskSummary.platform.name}</span>
+                      <span className="review-queue-meta">
+                        <span>任务 <span className="data-code">{item.task_id.slice(0, 8)}</span></span>
+                        <time dateTime={item.created_at}>{formatDateTime(item.created_at)}</time>
+                      </span>
+                    </Link>
+                  ))}
+                </nav>
+              )}
+            </details>
+          </Card>
+        </aside>
+
+        <main className="review-document-column">
+          <Card className="review-glass-panel review-document-workspace">
+            <PageHeader
+              eyebrow={<Space size={7}><FileProtectOutlined aria-hidden /><span>正文工作区 / Markdown · V{current.version}</span></Space>}
+              title={current.title}
+              description={(
+                <Space wrap size={[10, 4]} className="content-review-header-meta">
+                  <StatusTag status={current.source_type} />
+                  <span>任务 <span className="data-code">{current.task_id.slice(0, 8)}</span></span>
+                  <span>任务状态 <StatusTag status={review.task.status} /></span>
+                  {taskSummary && <span>平台 · {taskSummary.platform.name}</span>}
+                  <span title={current.created_by}>创建人 <span className="data-code">{current.created_by.slice(0, 8)}</span></span>
+                  <time dateTime={current.created_at}>{formatDateTime(current.created_at)}</time>
                 </Space>
-                <Typography.Text type="secondary">
-                  {evidenceTypeLabel(item.type)} · {item.version} · {item.source_url ?? '无公开 URL'}
-                </Typography.Text>
-              </Space>
-            </List.Item>
-          )}
-        />
-      </Card>
-      {(review.generation_trace || review.humanization_traces.length > 0) && (
-        <Card id="review-trace" title="AI 追溯" className="workspace-panel workspace-section">
-          {review.generation_trace && (
-          <Descriptions
-            column={1}
-            items={[
-              { label: '生成作业', children: review.generation_trace.job_id },
-              { label: '适配器', children: review.generation_trace.input_snapshot.adapter_name },
-              { label: '模型', children: String(review.generation_trace.input_snapshot.model.model_id) },
-              { label: '冻结事实版本', children: String(review.generation_trace.input_snapshot.approved_facts.fact_version_id) },
-            ]}
-          />
-          )}
-          {review.humanization_traces.map((trace, index) => (
-            <Descriptions
-              key={trace.job_id}
-              title={`自然化 ${index + 1}`}
-              column={1}
+              )}
+              actions={<StatusTag status={current.status} />}
+            />
+            <Tabs
+              className="review-document-tabs"
+              defaultActiveKey={canRevise ? 'revision' : 'preview'}
               items={[
-                { label: '自然化作业', children: trace.job_id },
-                { label: '源版本', children: trace.source_content_version_id },
-                { label: '模型', children: String(trace.input_snapshot.model.model_id) },
-                { label: 'Prompt revision', children: trace.input_snapshot.humanization_prompt.revision },
+                ...(canRevise ? [{
+                  key: 'revision',
+                  label: <Space size={6}><EditOutlined aria-hidden />编辑</Space>,
+                  children: <section id="review-revision" aria-label="创建人工修订"><RevisionForm content={current} loading={revise.isPending} error={revise.error} onSubmit={(body) => revise.mutate(body)} /></section>,
+                }] : []),
+                {
+                  key: 'preview',
+                  label: <Space size={6}><EyeOutlined aria-hidden />预览</Space>,
+                  children: (
+                    <>
+                      {documentOverview}
+                      <section id="review-content" className="review-editor-frame" aria-label="Markdown 安全预览">
+                        <header><span>Markdown 正文预览</span><Typography.Text type="secondary">由 Markdown 实时派生</Typography.Text></header>
+                        <article className="markdown-preview review-reading-surface" dangerouslySetInnerHTML={{ __html: safeHtml }} />
+                      </section>
+                    </>
+                  ),
+                },
+                {
+                  key: 'source',
+                  label: <Space size={6}><CodeOutlined aria-hidden />Markdown 源文</Space>,
+                  children: (
+                    <>
+                      {documentOverview}
+                      <section className="review-editor-frame" aria-label="当前 Markdown 源文">
+                        <header><span>Markdown 正文</span><Typography.Text type="secondary">当前版本只读</Typography.Text></header>
+                        <Input.TextArea aria-label="当前 Markdown 正文" rows={28} readOnly value={current.body_markdown} className="markdown-source review-current-source" />
+                      </section>
+                    </>
+                  ),
+                },
+                {
+                  key: 'diff',
+                  label: '版本差异',
+                  children: <DiffPanel review={review} />,
+                },
               ]}
             />
-          ))}
-        </Card>
-      )}
-      <Card id="review-history" title="完整审核历史" className="workspace-panel workspace-section">
-        <Timeline
-          items={review.review_history.map((item) => ({
-            children: (
-              <>
-                <Space>
-                  <StatusTag status={item.action} />
-                  <strong>{item.actor.display_name}</strong>
-                  <Typography.Text type="secondary">V{item.target_version}</Typography.Text>
-                </Space>
-                <Typography.Paragraph>{item.comment || '未填写意见'}</Typography.Paragraph>
-                <Typography.Text type="secondary">
-                  {new Date(item.created_at).toLocaleString('zh-CN')}
-                </Typography.Text>
-              </>
-            ),
-          }))}
-        />
-      </Card>
-      {canRevise && (
-        <Card id="review-revision" title="创建人工修订" className="workspace-section">
-          <RevisionForm
-            content={current}
-            loading={revise.isPending}
-            onSubmit={(body) => revise.mutate(body)}
-          />
-        </Card>
-      )}
+          </Card>
+        </main>
+
+        <aside className="review-decision-column" aria-label="质量检查与审核决策">
+          <Card
+            title={<Space size={8}><WarningOutlined aria-hidden /><span>质量与审核</span></Space>}
+            className="review-glass-panel review-decision-card"
+          >
+            <div className="review-quality-totals" aria-label="质量问题统计">
+              <div><span>阻断问题</span><strong className="data-code review-count-danger">{blockingIssues.length}</strong></div>
+              <div><span>优化建议</span><strong className="data-code review-count-warning">{warningIssues.length}</strong></div>
+            </div>
+            {blockingIssues.length > 0 && <Alert type="error" showIcon title={`${blockingIssues.length} 个阻断问题会阻止批准`} />}
+            <Tabs
+              className="review-decision-tabs"
+              defaultActiveKey="quality"
+              items={[
+                {
+                  key: 'quality',
+                  label: '质量检查',
+                  children: <section id="review-quality" className="review-side-panel" aria-label="质量检查"><QualityIssueGroup title="阻断问题" severity="BLOCKING" issues={blockingIssues} /><QualityIssueGroup title="优化建议" severity="WARNING" issues={warningIssues} /></section>,
+                },
+                { key: 'facts', label: '事实证据', children: <><FactEvidencePanel review={review} /><TraceContext review={review} /></> },
+                { key: 'history', label: <Space size={5}><HistoryOutlined aria-hidden />审核记录</Space>, children: <ReviewHistoryPanel review={review} /> },
+              ]}
+            />
+            {command.error && <Alert role="alert" type="error" showIcon title="审核操作失败" description={errorMessage(command.error)} />}
+            <div className="review-decision-actions">
+              <Typography.Text type="secondary">操作由服务端当前状态与权限决定</Typography.Text>
+              {review.available_actions.length === 0 ? (
+                <Alert type="info" showIcon title="当前状态没有可执行审核操作" />
+              ) : (
+                <div className="review-action-grid">
+                  {review.available_actions.map((item) => (
+                    <Button
+                      key={item}
+                      type={item === 'REQUEST_CHANGES' ? 'default' : 'primary'}
+                      danger={item === 'REQUEST_CHANGES'}
+                      className={item === 'APPROVE' ? 'review-approve-button' : undefined}
+                      icon={item === 'APPROVE' ? <CheckOutlined aria-hidden /> : undefined}
+                      loading={command.isPending && action === item}
+                      disabled={actionPending}
+                      onClick={() => setAction(item)}
+                    >
+                      {actionLabels[item]}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Card>
+        </aside>
+      </div>
+
       <Modal
         title={action ? actionLabels[action] : '审核操作'}
         open={!!action}
         footer={null}
-        onCancel={() => setAction(undefined)}
+        closable={!command.isPending}
+        keyboard={!command.isPending}
+        mask={{ closable: !command.isPending }}
+        onCancel={() => !command.isPending && setAction(undefined)}
         destroyOnHidden
       >
         {action === 'APPROVE' && (
           <Alert
             type="warning"
             showIcon
-            message="请显式确认批准"
-            description="批准后该不可变版本可进入人工发布；服务端仍会复核锁定事实和阻断质量问题。"
+            title="请显式确认批准"
+            description="批准后该不可变版本可进入人工发布；服务端仍会复核冻结事实和阻断质量问题。"
           />
         )}
         <Form<ReviewCommand>
@@ -345,11 +533,12 @@ export function ContentEditorPage() {
           <Form.Item
             name="comment"
             label="审核意见"
+            required={action === 'REQUEST_CHANGES'}
             rules={action === 'REQUEST_CHANGES' ? [{ required: true, whitespace: true, message: '退回必须填写意见' }] : []}
           >
-            <Input.TextArea rows={4} />
+            <Input.TextArea rows={5} />
           </Form.Item>
-          <Button type="primary" htmlType="submit" loading={command.isPending}>
+          <Button type="primary" danger={action === 'REQUEST_CHANGES'} htmlType="submit" loading={command.isPending}>
             {action === 'APPROVE' ? '确认批准' : '确认'}
           </Button>
         </Form>

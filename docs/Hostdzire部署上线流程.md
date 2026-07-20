@@ -19,7 +19,7 @@
 
 DMIT 当前把普通 Web SNI 默认转发到 Hostdzire，常规部署不修改 DMIT Nginx。Hostdzire 必须存在精确匹配 `geo.962850.xyz` 的虚拟主机。
 
-服务器连接统一使用本机 `~/.ssh/config` 中已经验证的 alias：
+服务器连接统一使用本机 `/Users/sc/.ssh/config` 中已经验证的 alias。Codex 在当前开发机执行部署命令时显式传入 `-F /Users/sc/.ssh/config`，不依赖调用进程的默认 SSH 配置发现行为：
 
 | Alias | 用途 | 约束 |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ DMIT 当前把普通 Web SNI 默认转发到 Hostdzire，常规部署不修改 D
 由 OpenSSH 配置管理主机、端口、身份文件、主机密钥验证和连接复用；部署命令不得读取、复制或输出私钥。首次只执行身份探测，确认目标为 Hostdzire 后再上传或写入：
 
 ```sh
-ssh hostdzire 'hostname; id; pwd'
+ssh -F /Users/sc/.ssh/config hostdzire 'hostname; id; pwd'
 ```
 
 ## 2. 权威文件
@@ -208,7 +208,7 @@ shasum -a 256 "$ARCHIVE"
 上传只使用 `hostdzire` alias：
 
 ```sh
-scp "$ARCHIVE" hostdzire:/tmp/
+scp -F /Users/sc/.ssh/config "$ARCHIVE" hostdzire:/tmp/
 ```
 
 在 Hostdzire 创建全新版本目录，不覆盖旧版本：
@@ -476,5 +476,5 @@ ln -sfn "releases/${PREVIOUS_RELEASE}" /root/partsignal/current
 | API 重建后短暂 reset | Uvicorn 尚未完成启动 | 使用有限次数的 `--retry-all-errors`，随后检查 API 日志 |
 | 生成作业不推进 | Worker/Beat 未运行、Redis 不通或租约恢复失败 | 检查 `worker`、`scheduler` 日志和 PostgreSQL 作业状态；Redis 只排查 Broker，不把它当业务状态源 |
 | AI 凭据无法解密 | `AI_CREDENTIAL_ENCRYPTION_KEY` 变化或密文损坏 | 恢复匹配的主密钥，或显式重新录入渠道凭据；不得静默回退 |
-| SSH 报 `Permission denied (publickey)` | 使用了错误 alias，或本机 OpenSSH 配置/身份不可用 | 固定使用 `ssh hostdzire` 先执行只读 `hostname` 探测；不要绕过 `~/.ssh/config` 手工拼接身份参数 |
+| SSH 报 `Permission denied (publickey)` | 使用了错误 alias，或本机 OpenSSH 配置/身份不可用 | 固定使用 `ssh -F /Users/sc/.ssh/config hostdzire` 先执行只读 `hostname` 探测；不要手工拼接主机、端口或身份参数 |
 | 公网纵向 E2E 创建 AI 渠道返回 `AI_URL_FORBIDDEN` | 测试依赖回环 HTTP Mock Provider，但预发布环境正确禁止本地 HTTP AI 出站 | 只在本地/CI 隔离环境执行纵向 E2E；不得修改 `AI_ALLOW_LOCAL_HTTP=false` |

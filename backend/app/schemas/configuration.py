@@ -44,6 +44,36 @@ class QueryTopicList(ContractModel):
     items: list[QueryTopicOut]
 
 
+class PlatformLogoUploadInput(ContractModel):
+    source: Literal["UPLOAD"]
+    file_id: uuid.UUID
+
+
+class PlatformLogoExternalInput(ContractModel):
+    source: Literal["EXTERNAL"]
+    url: HttpUrl
+
+
+PlatformLogoInput = Annotated[
+    PlatformLogoUploadInput | PlatformLogoExternalInput,
+    Field(discriminator="source"),
+]
+
+
+class PlatformLogoUploadOut(PlatformLogoUploadInput):
+    url: HttpUrl
+
+
+class PlatformLogoExternalOut(PlatformLogoExternalInput):
+    pass
+
+
+PlatformLogoOut = Annotated[
+    PlatformLogoUploadOut | PlatformLogoExternalOut,
+    Field(discriminator="source"),
+]
+
+
 class PlatformSection(ContractModel):
     name: str
     url: HttpUrl
@@ -77,6 +107,8 @@ class PlatformProfileCreate(ContractModel):
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
     platform_type_id: uuid.UUID
+    website_url: HttpUrl | None = None
+    logo: PlatformLogoInput | None = None
 
 
 class PlatformProfileUpdate(ContractModel):
@@ -86,6 +118,8 @@ class PlatformProfileUpdate(ContractModel):
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
     platform_type_id: uuid.UUID
+    website_url: HttpUrl | None
+    logo: PlatformLogoInput | None
 
 
 class PlatformProfileVersionCreate(ContractModel):
@@ -117,6 +151,8 @@ class PlatformProfileOut(ContractModel):
     slug: str
     allowed_domains: list[str]
     platform_type_id: uuid.UUID | None
+    website_url: HttpUrl | None
+    logo: PlatformLogoOut | None
     revision: int
     active_version: PlatformProfileVersionOut | None
     prompt_configured: bool

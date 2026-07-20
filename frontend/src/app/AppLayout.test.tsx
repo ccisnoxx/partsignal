@@ -98,6 +98,14 @@ test('普通用户看不到配置中心、审计日志及配置子菜单', () =>
   expect(screen.queryByRole('menuitem', { name: /审计日志/ })).not.toBeInTheDocument();
 });
 
+test('内容审核路由归属内容任务并显示审核标题', () => {
+  render(
+    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/content/version-1']}><Routes><Route element={<AppLayout />}><Route path="content/:id" element={<h1>内容正文</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
+  );
+  expect(screen.getByRole('menuitem', { name: /内容任务/ })).toHaveClass('ant-menu-item-selected');
+  expect(screen.getByText('内容审核', { selector: '.header-context strong' })).toBeInTheDocument();
+});
+
 test('路径变化聚焦主内容，但查询参数变化不抢焦点', async () => {
   const user = userEvent.setup();
   const Page = () => <><h1>焦点测试</h1><Link to="?page=2">切换分页</Link><Link to="/next">打开下一页</Link></>;

@@ -15,6 +15,7 @@ from app.config import settings
 from app.errors import AppError, not_found
 from app.models.geo_files import FileRecord
 from app.models.identity import User
+from app.schemas.configuration import PlatformLogoExternalInput, PlatformLogoInput
 from app.schemas.geo_files import UploadInstruction, UploadIntent, UploadIntentCreate
 from app.schemas.publication import FileRecordOut
 from app.services.storage import StorageObjectMissing, StorageUnavailable, get_evidence_storage
@@ -23,11 +24,19 @@ MAX_SIZES = {
     "EVIDENCE": 50 * 1024 * 1024,
     "OPERATION_SCREENSHOT": 10 * 1024 * 1024,
     "PUBLICATION_ASSET": 20 * 1024 * 1024,
+    "PLATFORM_LOGO": 2 * 1024 * 1024,
 }
 ALLOWED_TYPES = {
     "EVIDENCE": {"application/pdf", "image/png", "image/jpeg", "text/plain"},
     "OPERATION_SCREENSHOT": {"image/png", "image/jpeg", "image/webp"},
     "PUBLICATION_ASSET": {"image/png", "image/jpeg", "image/webp", "application/pdf"},
+    "PLATFORM_LOGO": {
+        "image/png",
+        "image/jpeg",
+        "image/webp",
+        "image/x-icon",
+        "image/vnd.microsoft.icon",
+    },
 }
 
 
@@ -162,10 +171,24 @@ def verified_files(db: Session, file_ids: list[uuid.UUID]) -> list[FileRecord]:
     if len(file_ids) != len(set(file_ids)):
         raise AppError("VALIDATION_ERROR", "附件文件 ID 重复", 422)
     files = (
-        list(db.scalars(select(FileRecord).where(FileRecord.id.in_(file_ids))))
-        if file_ids
-        else []
+        list(db.scalars(select(FileRecord).where(FileRecord.id.in_(file_ids)))) if file_ids else []
     )
     if len(files) != len(file_ids) or any(file.status != "VERIFIED" for file in files):
         raise AppError("FILE_INTEGRITY_FAILED", "附件必须全部处于 VERIFIED 状态", 422)
     return files
+
+
+def platform_logo_storage_values(
+    db: Session, logo: PlatformLogoInput | None
+) -> tuple[uuid.UUID | None, str | None]:
+    """把互斥 Logo 输入转换为平台表字段，并校验上传文件的公开可用性。"""
+    if logo is None:
+        return None, None
+    if isinstance(logo, PlatformLogoExternalInput):
+        return None, str(logo.url)
+    file = db.get(FileRecord, logo.file_id)
+    if file is None or file.status != "VERIFIED":
+        raise AppError("FILE_INTEGRITY_FAILED", "平台 Logo 必须是已校验文件", 422)
+    if file.category != "PLATFORM_LOGO" or file.access_level != "PUBLIC":
+        raise AppError("VALIDATION_ERROR", "平台 Logo 必须使用 PLATFORM_LOGO 类别并公开上传", 422)
+    return file.id, None

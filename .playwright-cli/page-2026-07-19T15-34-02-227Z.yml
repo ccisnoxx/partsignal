@@ -1,0 +1,283 @@
+- generic [ref=f1e16]:
+  - complementary [ref=f1e17]:
+    - generic [ref=f1e18]:
+      - generic [ref=f1e19]:
+        - generic [ref=f1e20]: PS
+        - strong [ref=f1e21]: PartSignal
+      - menu [ref=f1e22]:
+        - text: 内容工作流
+        - group [ref=f1e23]:
+          - menuitem [ref=f1e24] [cursor=pointer]:
+            - img "bar-chart" [ref=f1e25]
+            - link "工作台" [ref=f1e29]:
+              - /url: /
+          - menuitem [ref=f1e30] [cursor=pointer]:
+            - img "database" [ref=f1e31]
+            - link "产品事实" [ref=f1e35]:
+              - /url: /products
+          - menuitem [ref=f1e36] [cursor=pointer]:
+            - img "file-text" [ref=f1e37]
+            - link "内容任务" [ref=f1e41]:
+              - /url: /tasks
+          - menuitem [ref=f1e42] [cursor=pointer]:
+            - img "rocket" [ref=f1e43]
+            - link "人工发布" [ref=f1e47]:
+              - /url: /publications
+          - menuitem [ref=f1e48] [cursor=pointer]:
+            - img "bar-chart" [ref=f1e49]
+            - link "GEO 观测" [ref=f1e53]:
+              - /url: /observations
+        - text: 系统管理
+        - group [ref=f1e54]:
+          - menuitem [ref=f1e55] [cursor=pointer]:
+            - img "setting" [ref=f1e56]
+            - link "业务设置" [ref=f1e60]:
+              - /url: /settings
+          - menuitem [ref=f1e61] [cursor=pointer]:
+            - img "team" [ref=f1e62]
+            - link "用户管理" [ref=f1e66]:
+              - /url: /users
+          - menuitem [ref=f1e67] [cursor=pointer]:
+            - img "safety-certificate" [ref=f1e68]
+            - link "审计日志" [ref=f1e72]:
+              - /url: /audit
+          - menuitem "tool 配置中心" [ref=f1e73] [cursor=pointer]:
+            - img "tool" [ref=f1e74]
+            - generic [ref=f1e77]: 配置中心
+  - generic [ref=f1e78]:
+    - banner [ref=f1e79]:
+      - generic [ref=f1e80]:
+        - button "切换导航" [ref=f1e82] [cursor=pointer]:
+          - img "menu-fold" [ref=f1e84]
+        - generic [ref=f1e88]:
+          - text: PARTSIGNAL
+          - strong [ref=f1e90]: 工作台
+      - generic [ref=f1e91]:
+        - button "主题：深色" [ref=f1e449] [cursor=pointer]:
+          - img "moon" [ref=f1e450]
+          - generic [ref=f1e98]: 深色
+        - button "打开用户操作菜单" [ref=f1e100] [cursor=pointer]:
+          - generic [ref=f1e101]: 系
+          - generic [ref=f1e103]:
+            - strong [ref=f1e104]: 系统管理员
+            - generic [ref=f1e105]: admin
+          - img "down" [ref=f1e106]
+    - main [ref=f1e109]:
+      - generic [ref=f1e121]:
+        - link "返回内容任务" [ref=f1e122] [cursor=pointer]:
+          - /url: /tasks/a3271bd0-8431-4d28-a37c-286e5d172592
+        - generic [ref=f1e126]:
+          - generic [ref=f1e127]:
+            - navigation [ref=f1e128]:
+              - list [ref=f1e129]:
+                - listitem [ref=f1e130]:
+                  - link "内容任务" [ref=f1e132] [cursor=pointer]:
+                    - /url: /tasks
+                - listitem [ref=f1e133]: /
+                - listitem [ref=f1e134]:
+                  - link "任务详情" [ref=f1e136] [cursor=pointer]:
+                    - /url: /tasks/a3271bd0-8431-4d28-a37c-286e5d172592
+                - listitem [ref=f1e137]: /
+                - listitem [ref=f1e138]: V6 审核
+            - text: 内容版本 / V6
+            - heading "人工核对 DEMO-5f54a851" [level=1] [ref=f1e139]
+            - generic [ref=f1e141]:
+              - generic [ref=f1e142]: 人工编辑
+              - generic [ref=f1e144]: 任务 a3271bd0
+              - generic [ref=f1e146]: 平台类型 · E2E 论坛类型 5f54a851
+              - generic [ref=f1e148]: 2026/7/19 23:32:34
+          - generic [ref=f1e151]:
+            - img "check-circle" [ref=f1e152]
+            - generic [ref=f1e156]: 已批准
+        - region "审核摘要" [ref=f1e157]:
+          - generic [ref=f1e158]:
+            - generic [ref=f1e159]: 当前状态
+            - strong [ref=f1e160]:
+              - generic [ref=f1e161]:
+                - img "check-circle" [ref=f1e162]
+                - generic [ref=f1e166]: 已批准
+          - generic [ref=f1e167]:
+            - generic [ref=f1e168]: 内容版本
+            - strong [ref=f1e169]: V6
+          - generic [ref=f1e170]:
+            - generic [ref=f1e171]: 阻断问题
+            - strong [ref=f1e172]: "0"
+          - generic [ref=f1e173]:
+            - generic [ref=f1e174]: 优化建议
+            - strong [ref=f1e175]: "0"
+        - generic [ref=f1e176]:
+          - complementary "内容上下文" [ref=f1e177]:
+            - generic [ref=f1e178]:
+              - generic [ref=f1e179]: 内容上下文
+              - generic [ref=f1e182]:
+                - table [ref=f1e185]:
+                  - rowgroup [ref=f1e186]:
+                    - row [ref=f1e187]:
+                      - 'cell "所属任务 : a3271bd0" [ref=f1e188]':
+                        - generic [ref=f1e189]:
+                          - generic [ref=f1e190]: "所属任务 :"
+                          - link "a3271bd0" [ref=f1e192] [cursor=pointer]:
+                            - /url: /tasks/a3271bd0-8431-4d28-a37c-286e5d172592
+                    - row [ref=f1e193]:
+                      - 'cell "平台类型（冻结） : E2E 论坛类型 5f54a851" [ref=f1e194]':
+                        - generic [ref=f1e195]:
+                          - generic [ref=f1e196]: "平台类型（冻结） :"
+                          - generic [ref=f1e197]: E2E 论坛类型 5f54a851
+                    - row [ref=f1e198]:
+                      - 'cell "目标受众 : 测试工程师" [ref=f1e199]':
+                        - generic [ref=f1e200]:
+                          - generic [ref=f1e201]: "目标受众 :"
+                          - generic [ref=f1e202]: 测试工程师
+                    - row [ref=f1e203]:
+                      - 'cell "内容角度 : 虚构参数与替代边界" [ref=f1e204]':
+                        - generic [ref=f1e205]:
+                          - generic [ref=f1e206]: "内容角度 :"
+                          - generic [ref=f1e207]: 虚构参数与替代边界
+                    - row [ref=f1e208]:
+                      - 'cell "转化目标 : 查看虚构资料" [ref=f1e209]':
+                        - generic [ref=f1e210]:
+                          - generic [ref=f1e211]: "转化目标 :"
+                          - generic [ref=f1e212]: 查看虚构资料
+                    - row [ref=f1e213]:
+                      - 'cell "期望格式 : 工程说明" [ref=f1e214]':
+                        - generic [ref=f1e215]:
+                          - generic [ref=f1e216]: "期望格式 :"
+                          - generic [ref=f1e217]: 工程说明
+                    - row [ref=f1e218]:
+                      - 'cell "期望长度 : 1–5000" [ref=f1e219]':
+                        - generic [ref=f1e220]:
+                          - generic [ref=f1e221]: "期望长度 :"
+                          - generic [ref=f1e222]: 1–5000
+                - separator [ref=f1e223]
+                - generic [ref=f1e224]:
+                  - heading "版本元数据" [level=5] [ref=f1e225]
+                  - table [ref=f1e228]:
+                    - rowgroup [ref=f1e229]:
+                      - row [ref=f1e230]:
+                        - 'cell "来源 : 人工编辑" [ref=f1e231]':
+                          - generic [ref=f1e232]:
+                            - generic [ref=f1e233]: "来源 :"
+                            - generic [ref=f1e234]: 人工编辑
+                      - row [ref=f1e236]:
+                        - 'cell "创建人 ID : 96f64027-6402-4c58-9859-40186273fbc5" [ref=f1e237]':
+                          - generic [ref=f1e238]:
+                            - generic [ref=f1e239]: "创建人 ID :"
+                            - generic [ref=f1e240]: 96f64027-6402-4c58-9859-40186273fbc5
+                      - row [ref=f1e242]:
+                        - 'cell "创建时间 : 2026/7/19 23:32:34" [ref=f1e243]':
+                          - generic [ref=f1e244]:
+                            - generic [ref=f1e245]: "创建时间 :"
+                            - generic [ref=f1e246]: 2026/7/19 23:32:34
+                      - row [ref=f1e247]:
+                        - 'cell "内容哈希 : e1b4737b2630" [ref=f1e248]':
+                          - generic [ref=f1e249]:
+                            - generic [ref=f1e250]: "内容哈希 :"
+                            - generic "e1b4737b2630dc788f3d47a23ac3c6a1518de40bc073bcaf2fd7de5aca34e827" [ref=f1e252]: e1b4737b2630
+                - separator [ref=f1e253]
+                - generic [ref=f1e254]:
+                  - heading "冻结审核依据" [level=5] [ref=f1e255]
+                  - table [ref=f1e258]:
+                    - rowgroup [ref=f1e259]:
+                      - row [ref=f1e260]:
+                        - 'cell "事实版本 : V1" [ref=f1e261]':
+                          - generic [ref=f1e262]:
+                            - generic [ref=f1e263]: "事实版本 :"
+                            - generic [ref=f1e264]: V1
+                      - row [ref=f1e266]:
+                        - 'cell "事实状态 : check-circle 已批准" [ref=f1e267]':
+                          - generic [ref=f1e268]:
+                            - generic [ref=f1e269]: "事实状态 :"
+                            - generic [ref=f1e271]:
+                              - img "check-circle" [ref=f1e272]
+                              - generic [ref=f1e276]: 已批准
+                      - row [ref=f1e277]:
+                        - 'cell "绑定证据 : 1" [ref=f1e278]':
+                          - generic [ref=f1e279]:
+                            - generic [ref=f1e280]: "绑定证据 :"
+                            - generic [ref=f1e281]: "1"
+                      - row [ref=f1e283]:
+                        - 'cell "审核记录 : 2" [ref=f1e284]':
+                          - generic [ref=f1e285]:
+                            - generic [ref=f1e286]: "审核记录 :"
+                            - generic [ref=f1e287]: "2"
+                - region "AI 追溯" [ref=f1e289]:
+                  - heading "AI 追溯" [level=5] [ref=f1e290]
+                  - table [ref=f1e293]:
+                    - rowgroup [ref=f1e294]:
+                      - row [ref=f1e295]:
+                        - 'cell "生成作业 : 03cbd839" [ref=f1e296]':
+                          - generic [ref=f1e297]:
+                            - generic [ref=f1e298]: "生成作业 :"
+                            - generic [ref=f1e299]: 03cbd839
+                      - row [ref=f1e301]:
+                        - 'cell "适配器 : openai-compatible-chat-completions" [ref=f1e302]':
+                          - generic [ref=f1e303]:
+                            - generic [ref=f1e304]: "适配器 :"
+                            - generic [ref=f1e305]: openai-compatible-chat-completions
+                      - row [ref=f1e306]:
+                        - 'cell "模型 : e2e-model" [ref=f1e307]':
+                          - generic [ref=f1e308]:
+                            - generic [ref=f1e309]: "模型 :"
+                            - generic [ref=f1e310]: e2e-model
+          - main [ref=f1e311]:
+            - generic [ref=f1e312]:
+              - generic [ref=f1e314]:
+                - generic [ref=f1e315]: 正文工作区
+                - generic [ref=f1e322]: Markdown · V6
+              - generic [ref=f1e324]:
+                - generic [ref=f1e325]:
+                  - heading "人工核对 DEMO-5f54a851" [level=2] [ref=f1e326]
+                  - generic [ref=f1e327]: 工程师已核对生成草稿。
+                  - generic [ref=f1e328]: reviewed
+                - generic [ref=f1e331]:
+                  - tablist [ref=f1e332]:
+                    - generic [ref=f1e334]:
+                      - tab "预览" [selected] [ref=f1e336] [cursor=pointer]
+                      - tab "Markdown" [ref=f1e344] [cursor=pointer]
+                      - tab "版本差异" [ref=f1e352] [cursor=pointer]
+                  - tabpanel "预览" [ref=f1e355]:
+                    - region "Markdown 安全预览" [ref=f1e356]:
+                      - article [ref=f1e357]:
+                        - paragraph [ref=f1e358]: 不得将虚构验收数据用于真实选型。
+          - complementary "质量检查与审核决策" [ref=f1e359]:
+            - generic [ref=f1e360]:
+              - generic [ref=f1e361]: 质量与审核
+              - generic [ref=f1e370]:
+                - generic "质量问题统计" [ref=f1e371]:
+                  - generic [ref=f1e372]:
+                    - generic [ref=f1e373]: 阻断问题
+                    - strong [ref=f1e374]: "0"
+                  - generic [ref=f1e375]:
+                    - generic [ref=f1e376]: 优化建议
+                    - strong [ref=f1e377]: "0"
+                - generic [ref=f1e378]:
+                  - tablist [ref=f1e379]:
+                    - generic [ref=f1e381]:
+                      - tab "质量检查" [selected] [ref=f1e383] [cursor=pointer]
+                      - tab "事实证据" [ref=f1e385] [cursor=pointer]
+                      - tab "审核记录" [ref=f1e387] [cursor=pointer]
+                  - tabpanel "质量检查" [ref=f1e396]:
+                    - region "质量检查" [ref=f1e397]:
+                      - region "阻断问题" [ref=f1e398]:
+                        - generic [ref=f1e399]:
+                          - generic [ref=f1e400]:
+                            - generic [ref=f1e402]:
+                              - img "close-circle" [ref=f1e403]
+                              - generic [ref=f1e406]: 阻断
+                            - strong [ref=f1e408]: 阻断问题
+                          - generic [ref=f1e409]: "0"
+                        - text: 当前没有此类问题。
+                      - region "优化建议" [ref=f1e410]:
+                        - generic [ref=f1e411]:
+                          - generic [ref=f1e412]:
+                            - generic [ref=f1e414]:
+                              - img "exclamation-circle" [ref=f1e415]
+                              - generic [ref=f1e419]: 警告
+                            - strong [ref=f1e421]: 优化建议
+                          - generic [ref=f1e422]: "0"
+                        - text: 当前没有此类问题。
+                - generic [ref=f1e423]:
+                  - generic [ref=f1e424]: 操作由服务端当前状态与权限决定
+                  - alert [ref=f1e425]:
+                    - img "info-circle" [ref=f1e427]
+                    - generic [ref=f1e430]: 当前状态没有可执行审核操作

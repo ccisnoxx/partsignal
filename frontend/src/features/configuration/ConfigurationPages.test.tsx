@@ -47,8 +47,8 @@ const model = {
 const platformType = { id: 'type-1', name: '技术社区', slug: 'technical-community', revision: 0, created_by: 'user-1', created_at: channel.created_at };
 const platformRules = { target_audience: '工程师', title_min: 1, title_max: 120, body_min: 1, body_max: 5000, tone: '技术说明', allow_external_links: true, allow_tables: true, allow_contact: false, prohibited_phrases: [], sections: [] };
 const platforms = [
-  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, revision: 0, active_version: null, prompt_configured: false },
-  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, revision: 1, active_version: { id: 'version-1', platform_profile_id: 'profile-ready', version: 1, status: 'ACTIVE', rules: platformRules, revision: 0, created_at: channel.created_at }, prompt_configured: true },
+  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, website_url: null, logo: null, revision: 0, active_version: null, prompt_configured: false },
+  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, active_version: { id: 'version-1', platform_profile_id: 'profile-ready', version: 1, status: 'ACTIVE', rules: platformRules, revision: 0, created_at: channel.created_at }, prompt_configured: true },
 ];
 const ruleVersions = [
   platforms[1]!.active_version,
@@ -94,6 +94,7 @@ beforeEach(() => {
     throw new Error(`未声明测试请求：${path}`);
   });
   apiMocks.PATCH.mockImplementation((path: string) => {
+    if (path === '/api/v1/platform-profiles/{platform_profile_id}') return result({ ...platforms[1], revision: 2 });
     if (path === '/api/v1/platform-profile-versions/{platform_profile_version_id}') return result({ ...platformRuleItems[1], rules: { ...platformRules, body_max: 7000 }, revision: 4 });
     throw new Error(`未声明测试请求：${path}`);
   });
@@ -115,13 +116,68 @@ test('平台列表明确展示无有效规则和缺少 Prompt', async () => {
   expect(screen.getByText('未配置 Prompt')).toBeInTheDocument();
 });
 
-test('新增平台只提交身份字段且保持无当前规则', async () => {
-  const payload = { name: '新平台', slug: 'new-platform', platform_type_id: platformType.id, allowed_domains: ['new.example.invalid'] } satisfies Schema<'PlatformProfileCreate'>;
+test('新增平台品牌字段可选且保持无当前规则', async () => {
+  const payload = { name: '新平台', slug: 'new-platform', platform_type_id: platformType.id, allowed_domains: ['new.example.invalid'], website_url: null, logo: null } satisfies Schema<'PlatformProfileCreate'>;
   renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
   await screen.findByText('待配置平台');
   expect(screen.getByRole('button', { name: /新增平台$/ })).toBeInTheDocument();
   expect(payload).not.toHaveProperty('rules');
   expect(screen.queryByLabelText('目标受众')).not.toBeInTheDocument();
+});
+
+test('编辑平台可保存官网和外部 Logo URL', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
+  const row = (await screen.findByText('工程师社区')).closest('tr');
+  expect(row).not.toBeNull();
+  fireEvent.click(within(row!).getByRole('button', { name: '编辑平台：工程师社区' }));
+  const dialog = (await screen.findByText('编辑 工程师社区 的平台信息')).closest<HTMLElement>('[role="dialog"]');
+  expect(dialog).not.toBeNull();
+  const website = within(dialog!).getByRole('textbox', { name: '平台官网' });
+  await user.clear(website);
+  await user.type(website, 'https://new.example.invalid/platform');
+  const logoUrl = within(dialog!).getByRole('textbox', { name: '外部 Logo URL' });
+  await user.clear(logoUrl);
+  await user.type(logoUrl, 'https://cdn.example.invalid/new-logo.webp');
+  await user.click(within(dialog!).getByRole('button', { name: '保存平台' }));
+  await waitFor(() => expect(apiMocks.PATCH).toHaveBeenCalledWith(
+    '/api/v1/platform-profiles/{platform_profile_id}',
+    expect.objectContaining({
+      params: expect.objectContaining({ path: { platform_profile_id: 'profile-ready' } }),
+      body: expect.objectContaining({
+        website_url: 'https://new.example.invalid/platform',
+        logo: { source: 'EXTERNAL', url: 'https://cdn.example.invalid/new-logo.webp' },
+      }),
+    }),
+  ));
+});
+
+test('编辑平台可显式清空官网和 Logo', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
+  const row = (await screen.findByText('工程师社区')).closest('tr');
+  fireEvent.click(within(row!).getByRole('button', { name: '编辑平台：工程师社区' }));
+  const dialog = (await screen.findByText('编辑 工程师社区 的平台信息')).closest<HTMLElement>('[role="dialog"]');
+  expect(dialog).not.toBeNull();
+  await user.clear(within(dialog!).getByRole('textbox', { name: '平台官网' }));
+  await user.click(within(dialog!).getByRole('combobox', { name: /Logo 来源/ }));
+  await user.click(await screen.findByText('不设置 Logo'));
+  await user.click(within(dialog!).getByRole('button', { name: '保存平台' }));
+  await waitFor(() => expect(apiMocks.PATCH).toHaveBeenCalledWith(
+    '/api/v1/platform-profiles/{platform_profile_id}',
+    expect.objectContaining({ body: expect.objectContaining({ website_url: null, logo: null }) }),
+  ));
+});
+
+test('平台保存失败时保留可感知的服务端反馈', async () => {
+  const user = userEvent.setup();
+  apiMocks.PATCH.mockResolvedValueOnce({ response: new Response(null, { status: 503 }) });
+  renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
+  const row = (await screen.findByText('工程师社区')).closest('tr');
+  fireEvent.click(within(row!).getByRole('button', { name: '编辑平台：工程师社区' }));
+  const dialog = (await screen.findByText('编辑 工程师社区 的平台信息')).closest<HTMLElement>('[role="dialog"]');
+  await user.click(within(dialog!).getByRole('button', { name: '保存平台' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('请求失败（HTTP 503）');
 });
 
 test('独立规则页只展示真实版本并支持创建和编辑草稿', async () => {

@@ -1986,15 +1986,71 @@ components:
         slug: {type: string, pattern: '^[a-z0-9-]+$'}
         allowed_domains: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
         platform_type_id: {type: string, format: uuid}
+        website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
+        logo:
+          anyOf:
+            - {$ref: '#/components/schemas/PlatformLogoInput'}
+            - {type: 'null'}
     PlatformProfileUpdate:
       type: object
       additionalProperties: false
-      required: [expected_revision, name, allowed_domains, platform_type_id]
+      required: [expected_revision, name, allowed_domains, platform_type_id, website_url, logo]
       properties:
         expected_revision: {type: integer, minimum: 0}
         name: {type: string, minLength: 1}
         allowed_domains: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
         platform_type_id: {type: string, format: uuid}
+        website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
+        logo:
+          anyOf:
+            - {$ref: '#/components/schemas/PlatformLogoInput'}
+            - {type: 'null'}
+    PlatformLogoUploadInput:
+      type: object
+      additionalProperties: false
+      required: [source, file_id]
+      properties:
+        source: {type: string, const: UPLOAD}
+        file_id: {type: string, format: uuid}
+    PlatformLogoExternalInput:
+      type: object
+      additionalProperties: false
+      required: [source, url]
+      properties:
+        source: {type: string, const: EXTERNAL}
+        url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+    PlatformLogoInput:
+      oneOf:
+        - {$ref: '#/components/schemas/PlatformLogoUploadInput'}
+        - {$ref: '#/components/schemas/PlatformLogoExternalInput'}
+      discriminator:
+        propertyName: source
+        mapping:
+          UPLOAD: '#/components/schemas/PlatformLogoUploadInput'
+          EXTERNAL: '#/components/schemas/PlatformLogoExternalInput'
+    PlatformLogoUpload:
+      allOf:
+        - {$ref: '#/components/schemas/PlatformLogoUploadInput'}
+        - type: object
+          required: [url]
+          properties:
+            url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+    PlatformLogoExternal:
+      type: object
+      additionalProperties: false
+      required: [source, url]
+      properties:
+        source: {type: string, const: EXTERNAL}
+        url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+    PlatformLogo:
+      oneOf:
+        - {$ref: '#/components/schemas/PlatformLogoUpload'}
+        - {$ref: '#/components/schemas/PlatformLogoExternal'}
+      discriminator:
+        propertyName: source
+        mapping:
+          UPLOAD: '#/components/schemas/PlatformLogoUpload'
+          EXTERNAL: '#/components/schemas/PlatformLogoExternal'
     PlatformProfileVersionCreate:
       type: object
       additionalProperties: false
@@ -2052,13 +2108,18 @@ components:
     PlatformProfile:
       type: object
       additionalProperties: false
-      required: [id, name, slug, allowed_domains, platform_type_id, revision, active_version, prompt_configured]
+      required: [id, name, slug, allowed_domains, platform_type_id, website_url, logo, revision, active_version, prompt_configured]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
         slug: {type: string}
         allowed_domains: {type: array, items: {type: string}}
         platform_type_id: {type: [string, 'null'], format: uuid}
+        website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
+        logo:
+          anyOf:
+            - {$ref: '#/components/schemas/PlatformLogo'}
+            - {type: 'null'}
         revision: {type: integer}
         active_version:
           anyOf:
@@ -2323,7 +2384,39 @@ components:
       additionalProperties: false
       required: [items]
       properties:
-        items: {type: array, items: {$ref: '#/components/schemas/ContentTask'}}
+        items: {type: array, items: {$ref: '#/components/schemas/ContentTaskListItem'}}
+    ContentTaskProductSummary:
+      type: object
+      additionalProperties: false
+      required: [id, brand, part_number]
+      properties:
+        id: {type: string, format: uuid}
+        brand: {type: string}
+        part_number: {type: string}
+    ContentTaskPlatformSummary:
+      type: object
+      additionalProperties: false
+      required: [id, name, website_url, logo]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
+        logo:
+          anyOf:
+            - {$ref: '#/components/schemas/PlatformLogo'}
+            - {type: 'null'}
+    ContentTaskListItem:
+      allOf:
+        - {$ref: '#/components/schemas/ContentTask'}
+        - type: object
+          required: [product, platform, latest_generation_status]
+          properties:
+            product: {$ref: '#/components/schemas/ContentTaskProductSummary'}
+            platform: {$ref: '#/components/schemas/ContentTaskPlatformSummary'}
+            latest_generation_status:
+              anyOf:
+                - {$ref: '#/components/schemas/GenerationJobStatus'}
+                - {type: 'null'}
     ContentTaskUserPromptUpdate:
       type: object
       additionalProperties: false
@@ -3090,7 +3183,7 @@ components:
         pending_publications: {type: integer, minimum: 0}
         publication_attention: {type: integer, minimum: 0}
         recent_accuracy_errors: {type: integer, minimum: 0}
-    FileCategory: {type: string, enum: [EVIDENCE, OPERATION_SCREENSHOT, PUBLICATION_ASSET]}
+    FileCategory: {type: string, enum: [EVIDENCE, OPERATION_SCREENSHOT, PUBLICATION_ASSET, PLATFORM_LOGO]}
     UploadIntentCreate:
       type: object
       additionalProperties: false

@@ -472,7 +472,9 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect(generatedContentAfterHumanization).toEqual(generatedContentBeforeHumanization);
   expect(await body<{ source_type: string; status: string; source_job_id: string; based_on_id: string }>(await page.request.get(`/api/v1/content-versions/${humanizedContentId!}`))).toMatchObject({ source_type: 'AI', status: 'DRAFT', source_job_id: humanizationJobId, based_on_id: generatedContentId });
   await page.goto(`/content/${humanizedContentId!}`);
+  await page.getByRole('tab', { name: '版本差异' }).click();
   await expect(page.locator('#review-diff')).toBeVisible();
+  await page.getByRole('tab', { name: '事实证据' }).click();
   await expect(page.locator('#review-trace').getByText('自然化 1', { exact: true })).toBeVisible();
   await body(await page.request.put(`/api/v1/platform-profiles/${profile.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: '使用更新后的技术说明语气，只依据输入事实。', expected_revision: platformPrompt.revision } }));
   await body(await page.request.patch(`/api/v1/content-tasks/${task.id as string}/user-prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: promptedTask.revision, user_prompt_markdown: `第二次生成仍只说明 ${product!.part_number} 的 5 V 已批准事实。`, generation_data_classification: 'PUBLIC' } }));
@@ -525,23 +527,25 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page.getByText(`E2E 论坛 ${suffix}`, { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'V1' })).toBeVisible();
   await page.goto(`/content/${submittedId}`);
-  const reviewNavigation = page.getByRole('navigation', { name: '内容审核章节' });
-  await expect(reviewNavigation.getByRole('link', { name: '正文与预览' })).toHaveAttribute('aria-current', 'location');
-  await expect(reviewNavigation.getByRole('link', { name: '正文与预览' })).toHaveAttribute('href', '#review-content');
-  await expect(reviewNavigation.getByRole('link', { name: '审核历史' })).toHaveAttribute('href', '#review-history');
+  await page.getByRole('tab', { name: '预览', exact: true }).click();
+  await expect(page.getByRole('tab', { name: '预览', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('tab', { name: 'Markdown 源文' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: '版本差异' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: '编辑', exact: true })).toBeVisible();
   await expect(page.locator('#review-content')).toBeVisible();
+  await page.getByRole('tab', { name: '审核记录' }).click();
   await expect(page.locator('#review-history')).toBeVisible();
   await expect(page.getByRole('button', { name: '提交审核' })).toHaveCount(1);
   await page.getByRole('button', { name: '提交审核' }).click();
   await page.getByLabel('审核意见').fill('提交内容审核');
   await page.getByRole('button', { name: /确\s*认/ }).click();
-  await expect(page.getByLabel('审核摘要').getByText('待审核', { exact: true })).toBeVisible();
+  await expect(page.getByText('待审核', { exact: true })).toBeVisible();
 
   await page.goto(`/content/${submittedId}`);
   await page.getByRole('button', { name: /批\s*准/ }).click();
   await page.getByLabel('审核意见').fill('批准虚构内容');
   await page.getByRole('button', { name: /确\s*认/ }).click();
-  await expect(page.getByLabel('审核摘要').getByText('已批准', { exact: true })).toBeVisible();
+  await expect(page.getByText('已批准', { exact: true })).toBeVisible();
 
   const account = await command(page, '/api/v1/platform-accounts', csrf, { platform_profile_id: profile.id, label: `E2E 账号 ${suffix}`, account_identifier: `e2e-${suffix}` });
   const file = await uploadOperationScreenshot(page, csrf, 'e2e-prepared.png', `PartSignal E2E prepared screenshot ${suffix}`);
@@ -679,11 +683,21 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect(historicalJob.input_snapshot.model.model_id).toBe('e2e-model');
   expect(historicalJob.input_snapshot.system_message).toContain('使用技术说明语气');
   const replacementType = await command(page, '/api/v1/platform-types', csrf, { name: `E2E 新类型 ${suffix}`, slug: `e2e-reclassified-${suffix}` });
-  await body(await page.request.patch(`/api/v1/platform-profiles/${profile.id as string}`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: profile.revision, name: profile.name, allowed_domains: profile.allowed_domains, platform_type_id: replacementType.id } }));
+  await body(await page.request.patch(`/api/v1/platform-profiles/${profile.id as string}`, {
+    headers: { 'X-CSRF-Token': csrf },
+    data: {
+      expected_revision: profile.revision,
+      name: profile.name,
+      allowed_domains: profile.allowed_domains,
+      platform_type_id: replacementType.id,
+      website_url: null,
+      logo: null
+    }
+  }));
   expect((await page.request.delete(`/api/v1/platform-types/${platformType.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   const historicalTask = await body<{ platform_type_id: string | null; platform_type_snapshot: { name: string } }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`));
   expect(historicalTask.platform_type_id).toBeNull();
   expect(historicalTask.platform_type_snapshot.name).toBe(`E2E 论坛类型 ${suffix}`);
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: '今天的内容链路' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '总览' })).toBeVisible();
 });

@@ -146,6 +146,14 @@ Manual GEO history is forward-only. Once a `MANUAL_ARTICLE_SEARCH` row exists, r
 
 Revision `0019` rewrites no task or immutable job snapshot. It refuses downgrade before restoring `NOT NULL` when any product-driven task exists; rollback after new writes requires a forward fix or the pre-migration PostgreSQL backup, never a placeholder query topic.
 
+### 0020 Platform Branding And Task List Projection
+
+`platform_profiles` gains nullable `website_url`, `logo_file_id`, and `logo_external_url`. The uploaded Logo foreign key uses `RESTRICT`; the referenced `file_record` must be a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` object before the application accepts it. A database check permits at most one Logo source, so an uploaded file and an external URL are never stored together. Signed object-storage URLs are response projections and are never persisted.
+
+The content-task list remains a read projection and adds no task columns. It joins each task's product and the concrete platform owning its locked `platform_profile_version`, but displays the platform's current name, website, and Logo. The projected AI status is the latest `generation_job` whose `job_type = GENERATE`, ordered deterministically by `created_at DESC, id DESC`; `HUMANIZE` jobs are content-version post-processing and never replace the task's generation status. The projection batches products, platforms, Logo files, publication state, and generation status instead of issuing per-task queries.
+
+Revision `0020` refuses downgrade when any platform branding field is non-null. Removing populated branding requires a forward fix or a pre-migration backup rather than silent data loss.
+
 ## State Machines
 
 ```text
@@ -186,6 +194,7 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - Sensitive AI values are encrypted with the deployment master key and never returned, audited, logged, or copied into generation snapshots.
 - A platform type referenced by a platform profile cannot be deleted. Platform types do not own Prompts after `0014`.
 - A concrete platform owns zero or one current Prompt. Deleting the current Prompt or an unreferenced `ACTIVE` rule version keeps the platform manageable but removes it from the engineer-selectable set until both an `ACTIVE` rule and current Prompt exist.
+- A concrete platform stores at most one Logo source. Uploaded Logos must reference a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` file; external Logo URLs and website URLs remain explicit nullable URI fields.
 - Product, platform profile/version, platform account, and platform type physical deletion is admin-only. Services lock the target, count direct references, and return structured `409 details.references`; they never cascade, reassign, or rewrite immutable business history.
 - A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform rule version requires no `ContentTask`; a platform profile requires no rule versions or platform accounts; a platform account requires no `PublicationRecord`; a platform type requires no platform profiles.
 - Channel deletion cascades to Headers and models. Historical job foreign keys become null while their immutable snapshots remain readable.

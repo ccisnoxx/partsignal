@@ -1,8 +1,8 @@
 /** 验证内容任务身份与三个次级查询各自拥有错误边界。 */
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { queryClient } from '../../app/queryClient';
 import { ThemeProvider } from '../../app/ThemeProvider';
@@ -44,6 +44,29 @@ function result(data: unknown, status = 200) {
   return Promise.resolve({ data, response: new Response(null, { status }) });
 }
 
+function listTask(index: number, status: 'OPEN' | 'COMPLETED' | 'CANCELLED', overrides: Record<string, unknown> = {}) {
+  return {
+    ...task,
+    id: `task-${index}`,
+    content_angle: `内容主题 ${String(index).padStart(2, '0')}`,
+    target_audience: index % 2 ? '硬件工程师' : '采购团队',
+    desired_format: index % 2 ? '参数对比' : '选型指南',
+    desired_length_min: 800,
+    desired_length_max: 1200,
+    status,
+    conversion_goal: '查看产品资料',
+    created_at: `2026-07-${String(Math.min(index, 19)).padStart(2, '0')}T08:30:00Z`,
+    product: { id: `product-${index}`, brand: 'PartSignal', part_number: `PS-${String(index).padStart(2, '0')}` },
+    platform: { id: 'platform-1', name: '工程师社区', website_url: 'https://community.example.invalid', logo: null },
+    latest_generation_status: index % 2 ? 'RUNNING' : 'SUCCEEDED',
+    ...overrides,
+  };
+}
+
+function LocationProbe() {
+  return <output data-testid="location-search">{useLocation().search}</output>;
+}
+
 beforeEach(() => {
   queryClient.clear();
   Object.values(apiMocks).forEach((mock) => mock.mockReset());
@@ -67,7 +90,6 @@ test('次级查询失败不遮蔽任务身份、约束和返回入口', async ()
 });
 
 test('创建内容任务只加载产品和平台，不再展示或请求目标问题', async () => {
-  const user = userEvent.setup();
   apiMocks.GET.mockImplementation((path: string) => {
     if (path === '/api/v1/content-tasks') return result({ items: [] });
     if (path === '/api/v1/products') return result({ items: [], page: 1, page_size: 100, total: 0 });
@@ -76,10 +98,73 @@ test('创建内容任务只加载产品和平台，不再展示或请求目标�
   });
   render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks']}><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
 
-  await user.click(screen.getByRole('button', { name: /创建任务$/ }));
-  expect(await screen.findByRole('dialog', { name: '创建内容任务' })).toBeInTheDocument();
+  expect(await screen.findByText('暂无内容任务')).toBeInTheDocument();
+  const createButton = screen.getByRole('button', { name: '新建内容任务' });
+  fireEvent.click(createButton);
+  expect(createButton).toHaveAttribute('aria-expanded', 'true');
+  expect(await screen.findByText('创建内容任务')).toBeInTheDocument();
   expect(screen.queryByLabelText('目标问题')).not.toBeInTheDocument();
   expect(apiMocks.GET).not.toHaveBeenCalledWith('/api/v1/query-topics');
+});
+
+test('列表用真实任务状态生成摘要，并将客户端筛选写入 URL', async () => {
+  const user = userEvent.setup();
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks') return result({ items: [
+      listTask(1, 'OPEN'),
+      listTask(2, 'COMPLETED'),
+      listTask(3, 'CANCELLED', { content_angle: '停用产品迁移说明', latest_generation_status: 'FAILED' }),
+    ] });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks']}><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+
+  expect(await screen.findByTitle('PartSignal PS-01')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: '内容任务台' })).toBeInTheDocument();
+  expect(within(screen.getByText('全部任务').closest('.metric-tile') as HTMLElement).getByText('3')).toBeInTheDocument();
+  expect(within(screen.getByText('进行中任务').closest('.metric-tile') as HTMLElement).getByText('1')).toBeInTheDocument();
+  expect(screen.getByText('生成中').closest('.status-tag')).toHaveClass('status-tag-info');
+  expect(screen.getByText('失败').closest('tr')).toHaveClass('task-row-generation-failed');
+
+  await user.click(screen.getByRole('tab', { name: /已完成 1/ }));
+  expect(await screen.findByTitle('PartSignal PS-02')).toBeInTheDocument();
+  expect(screen.queryByTitle('PartSignal PS-01')).not.toBeInTheDocument();
+  expect(screen.getByTestId('location-search')).toHaveTextContent('status=COMPLETED');
+
+  await user.click(screen.getByRole('button', { name: '重置筛选' }));
+  await user.type(screen.getByRole('searchbox', { name: '搜索内容任务' }), '不存在的主题');
+  expect(await screen.findByText('没有符合当前筛选条件的任务')).toBeInTheDocument();
+  expect(screen.getByTestId('location-search')).toHaveTextContent('q=');
+});
+
+test('列表从 URL 恢复分页，筛选时回到第一页', async () => {
+  const user = userEvent.setup();
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks') return result({ items: Array.from({ length: 11 }, (_, index) => listTask(index + 1, 'OPEN')) });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks?page=2']}><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+
+  expect(await screen.findByTitle('PartSignal PS-11')).toBeInTheDocument();
+  expect(screen.queryByTitle('PartSignal PS-01')).not.toBeInTheDocument();
+  await user.type(screen.getByRole('searchbox', { name: '搜索内容任务' }), '内容主题 01');
+  expect(await screen.findByTitle('PartSignal PS-01')).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId('location-search')).not.toHaveTextContent('page='));
+});
+
+test('列表加载和失败状态保持可感知且可重试', async () => {
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks') return result(undefined, 503);
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks']}><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+
+  expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument();
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('加载失败');
+  const callsBeforeRetry = apiMocks.GET.mock.calls.length;
+  await userEvent.click(screen.getByRole('button', { name: /重\s*试/ }));
+  await waitFor(() => expect(apiMocks.GET.mock.calls.length).toBeGreaterThan(callsBeforeRetry));
 });
 
 test('对合格 AI 版本选择模型并创建自然化作业', async () => {

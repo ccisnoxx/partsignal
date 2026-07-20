@@ -54,6 +54,7 @@ function navigationLeaves(items: NavigationItem[], parentKey?: string): Array<Na
 }
 
 function matchesRoute(pathname: string, key: string): boolean {
+  if (key === '/tasks' && pathname.startsWith('/content/')) return true;
   return key === '/' ? pathname === '/' : pathname === key || pathname.startsWith(`${key}/`);
 }
 
@@ -85,7 +86,8 @@ export function AppLayout() {
     .filter((item) => matchesRoute(location.pathname, item.key))
     .sort((left, right) => right.key.length - left.key.length)[0] ?? visibleLeaves.find((item) => item.key === '/');
   const selectedKey = selected?.key ?? '/';
-  const currentSection = selected?.label ?? '工作台';
+  const currentSection = location.pathname.startsWith('/content/') ? '内容审核' : selected?.label ?? '工作台';
+  const isDashboard = location.pathname === '/';
   const toMenuItems = (items: NavigationItem[]): MenuProps['items'] => items.map((item) => ({
     key: item.key,
     icon: item.icon,
@@ -109,9 +111,9 @@ export function AppLayout() {
   const desktopSider = !!screens.lg;
 
   return (
-    <Layout className="app-shell">
+    <Layout className={`app-shell${isDashboard ? ' app-shell-dashboard' : ''}`}>
       {desktopSider ? (
-        <Layout.Sider theme="light" width={248} collapsedWidth={76} collapsed={collapsed} className="app-sider">
+        <Layout.Sider theme="light" width={isDashboard ? 192 : 248} collapsedWidth={76} collapsed={collapsed} className="app-sider">
           <div className="brand-mark"><span>PS</span>{!collapsed && <strong>PartSignal</strong>}</div>
           {menu}
         </Layout.Sider>

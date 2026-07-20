@@ -1678,6 +1678,9 @@ export interface components {
             allowed_domains: string[];
             /** Format: uuid */
             platform_type_id: string;
+            /** Format: uri */
+            website_url?: string | null;
+            logo?: components["schemas"]["PlatformLogoInput"] | null;
         };
         PlatformProfileUpdate: {
             expected_revision: number;
@@ -1685,7 +1688,49 @@ export interface components {
             allowed_domains: string[];
             /** Format: uuid */
             platform_type_id: string;
+            /** Format: uri */
+            website_url: string | null;
+            logo: components["schemas"]["PlatformLogoInput"] | null;
         };
+        PlatformLogoUploadInput: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source: "UPLOAD";
+            /** Format: uuid */
+            file_id: string;
+        };
+        PlatformLogoExternalInput: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source: "EXTERNAL";
+            /** Format: uri */
+            url: string;
+        };
+        PlatformLogoInput: components["schemas"]["PlatformLogoUploadInput"] | components["schemas"]["PlatformLogoExternalInput"];
+        PlatformLogoUpload: components["schemas"]["PlatformLogoUploadInput"] & {
+            /** Format: uri */
+            url: string;
+        } & {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source: "UPLOAD";
+        };
+        PlatformLogoExternal: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            source: "EXTERNAL";
+            /** Format: uri */
+            url: string;
+        };
+        PlatformLogo: components["schemas"]["PlatformLogoUpload"] | components["schemas"]["PlatformLogoExternal"];
         PlatformProfileVersionCreate: {
             rules: components["schemas"]["PlatformRules"];
         };
@@ -1735,6 +1780,9 @@ export interface components {
             allowed_domains: string[];
             /** Format: uuid */
             platform_type_id: string | null;
+            /** Format: uri */
+            website_url: string | null;
+            logo: components["schemas"]["PlatformLogo"] | null;
             revision: number;
             active_version: components["schemas"]["PlatformProfileVersion"] | null;
             prompt_configured: boolean;
@@ -1957,7 +2005,26 @@ export interface components {
             created_at: string;
         };
         ContentTaskList: {
-            items: components["schemas"]["ContentTask"][];
+            items: components["schemas"]["ContentTaskListItem"][];
+        };
+        ContentTaskProductSummary: {
+            /** Format: uuid */
+            id: string;
+            brand: string;
+            part_number: string;
+        };
+        ContentTaskPlatformSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uri */
+            website_url: string | null;
+            logo: components["schemas"]["PlatformLogo"] | null;
+        };
+        ContentTaskListItem: components["schemas"]["ContentTask"] & {
+            product: components["schemas"]["ContentTaskProductSummary"];
+            platform: components["schemas"]["ContentTaskPlatformSummary"];
+            latest_generation_status: components["schemas"]["GenerationJobStatus"] | null;
         };
         ContentTaskUserPromptUpdate: {
             expected_revision: number;
@@ -2668,7 +2735,7 @@ export interface components {
             recent_accuracy_errors: number;
         };
         /** @enum {string} */
-        FileCategory: "EVIDENCE" | "OPERATION_SCREENSHOT" | "PUBLICATION_ASSET";
+        FileCategory: "EVIDENCE" | "OPERATION_SCREENSHOT" | "PUBLICATION_ASSET" | "PLATFORM_LOGO";
         UploadIntentCreate: {
             category: components["schemas"]["FileCategory"];
             original_filename: string;

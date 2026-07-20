@@ -9,7 +9,10 @@ from typing import Any, Literal
 from pydantic import Field, HttpUrl, model_validator
 
 from app.schemas.base import ContractModel
+from app.schemas.configuration import PlatformLogoOut
 from app.schemas.product_facts import Confidentiality, FactVersionOut
+
+GenerationJobStatus = Literal["PENDING", "RUNNING", "SUCCEEDED", "FAILED"]
 
 
 class ContentTaskCreate(ContractModel):
@@ -48,8 +51,27 @@ class ContentTaskOut(ContentTaskCreate):
     created_at: datetime
 
 
+class ContentTaskProductSummary(ContractModel):
+    id: uuid.UUID
+    brand: str
+    part_number: str
+
+
+class ContentTaskPlatformSummary(ContractModel):
+    id: uuid.UUID
+    name: str
+    website_url: HttpUrl | None
+    logo: PlatformLogoOut | None
+
+
+class ContentTaskListItem(ContentTaskOut):
+    product: ContentTaskProductSummary
+    platform: ContentTaskPlatformSummary
+    latest_generation_status: GenerationJobStatus | None
+
+
 class ContentTaskList(ContractModel):
-    items: list[ContentTaskOut]
+    items: list[ContentTaskListItem]
 
 
 class ContentTaskUserPromptUpdate(ContractModel):
@@ -86,7 +108,7 @@ class GenerationJobOut(ContractModel):
     content_task_id: uuid.UUID
     job_type: Literal["GENERATE", "HUMANIZE"]
     source_content_version_id: uuid.UUID | None
-    status: Literal["PENDING", "RUNNING", "SUCCEEDED", "FAILED"]
+    status: GenerationJobStatus
     attempt_count: int
     content_version_id: uuid.UUID | None = None
     retry_of_id: uuid.UUID | None = None

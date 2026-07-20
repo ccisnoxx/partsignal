@@ -1414,3 +1414,57 @@ def test_product_driven_task_migration_preserves_history_and_blocks_lossy_downgr
             )
             values = {row[0] for row in cursor.fetchall()}
             assert values == {legacy_topic_id, None}
+
+
+@pytest.mark.integration
+def test_platform_branding_migration_enforces_single_source_and_blocks_lossy_downgrade() -> None:
+    """0020 约束 Logo 单一来源，并在品牌数据存在时拒绝删除字段。"""
+    with temporary_database("partsignal_platform_branding") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0019_product_driven_tasks")
+        seed_legacy_content_task(test_url)
+        run_alembic(env, backend_dir, "head")
+
+        logo_file_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT created_by FROM platform_types LIMIT 1")
+            uploader_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO file_records "
+                "(id, category, original_filename, object_key, content_type, size, sha256, "
+                "access_level, status, uploader_id, upload_expires_at) "
+                "VALUES (%s, 'PLATFORM_LOGO', 'logo.webp', %s, 'image/webp', 10, %s, "
+                "'PUBLIC', 'VERIFIED', %s, now())",
+                (logo_file_id, f"test/platform-logo/{logo_file_id}.webp", "a" * 64, uploader_id),
+            )
+            connection.commit()
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "UPDATE platform_profiles SET logo_file_id = %s, "
+                    "logo_external_url = 'https://cdn.example.invalid/logo.webp'",
+                    (logo_file_id,),
+                )
+            connection.rollback()
+            cursor.execute(
+                "UPDATE platform_profiles SET website_url = "
+                "'https://platform.example.invalid', logo_external_url = "
+                "'https://cdn.example.invalid/logo.webp'"
+            )
+            connection.commit()
+
+        downgrade = subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0019_product_driven_tasks"],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "platform branding data exists" in downgrade.stderr
+
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE platform_profiles SET website_url = NULL, logo_external_url = NULL"
+            )
+            connection.commit()
+        run_alembic(env, backend_dir, "0019_product_driven_tasks")

@@ -43,16 +43,15 @@ test('跟随系统模式实时响应系统配色变化', async ({ page }) => {
 test('减少动态效果时取消页面与主题过渡', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/login');
-  const animationName = await page.locator('.login-intro').evaluate((element) => getComputedStyle(element).animationName);
+  const animationName = await page.locator('.login-card').evaluate((element) => getComputedStyle(element).animationName);
   expect(animationName).toBe('none');
 });
 
-test('代表性玻璃下拉层禁用模糊后仍可辨识和操作', async ({ page }) => {
+test('登录页主题玻璃控件禁用模糊后仍可辨识和操作', async ({ page }) => {
   await page.goto('/login');
-  await page.getByRole('button', { name: /主题：/ }).click();
-  const menu = page.locator('.ant-dropdown-menu').last();
-  await expect(menu).toBeVisible();
-  const glass = await menu.evaluate((element) => {
+  const control = page.locator('.login-theme-control');
+  await expect(control).toBeVisible();
+  const glass = await control.evaluate((element) => {
     const style = getComputedStyle(element);
     return {
       backdrop: style.backdropFilter || style.getPropertyValue('-webkit-backdrop-filter'),
@@ -66,12 +65,12 @@ test('代表性玻璃下拉层禁用模糊后仍可辨识和操作', async ({ pa
   expect(glass.borderStyle).toBe('solid');
   expect(glass.borderWidth).toBe('1px');
 
-  await page.addStyleTag({ content: '.ant-dropdown-menu { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }' });
-  const disabledBackdrop = await menu.evaluate((element) => {
+  await page.addStyleTag({ content: '.login-theme-control { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }' });
+  const disabledBackdrop = await control.evaluate((element) => {
     const style = getComputedStyle(element);
     return style.backdropFilter || style.getPropertyValue('-webkit-backdrop-filter');
   });
   expect(disabledBackdrop).toBe('none');
-  await page.getByRole('menuitem', { name: '深色' }).click();
+  await page.getByText('深色', { exact: true }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });

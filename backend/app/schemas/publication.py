@@ -90,7 +90,7 @@ class PublicationEvent(ContractModel):
 
 class FileRecordOut(ContractModel):
     id: uuid.UUID
-    category: Literal["EVIDENCE", "OPERATION_SCREENSHOT", "PUBLICATION_ASSET"]
+    category: Literal["EVIDENCE", "OPERATION_SCREENSHOT", "PUBLICATION_ASSET", "PLATFORM_LOGO"]
     original_filename: str
     object_key: str
     content_type: str

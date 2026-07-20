@@ -1,0 +1,205 @@
+- generic [ref=f5e659]:
+  - banner [ref=f5e660]:
+    - generic [ref=f5e661]:
+      - button "切换导航" [ref=f5e663] [cursor=pointer]:
+        - img "menu-unfold" [ref=f5e991]
+      - generic [ref=f5e669]:
+        - text: PARTSIGNAL
+        - strong [ref=f5e671]: 内容审核
+    - generic [ref=f5e672]:
+      - button "主题：跟随系统" [ref=f5e674] [cursor=pointer]:
+        - img "desktop" [ref=f5e676]
+      - button "打开用户操作菜单" [ref=f5e681] [cursor=pointer]:
+        - generic [ref=f5e682]: 系
+        - img "down" [ref=f5e687]
+  - main [ref=f5e690]:
+    - generic [ref=f5e691]:
+      - generic [ref=f5e692]:
+        - link "返回内容任务" [ref=f5e693] [cursor=pointer]:
+          - /url: /tasks/df8dcdc6-066b-4e7d-b065-8648aebdecea
+        - generic [ref=f5e697]: 内容编辑与审核
+      - generic [ref=f5e698]:
+        - complementary "内容队列" [ref=f5e699]:
+          - generic [ref=f5e700]:
+            - generic [ref=f5e701]: 内容队列
+            - group [ref=f5e711]:
+              - generic "展开同任务内容版本（9）" [active] [ref=f5e994] [cursor=pointer]
+              - navigation "同任务内容版本" [ref=f5e712]:
+                - link "用于验证平台标题长度建议的工程内容审核页面高保真视觉验收记录与响应式布局说明 E2E 论坛 9a071864 任务 df8dcdc6 2026/7/19 23:43:40" [ref=f5e713] [cursor=pointer]:
+                  - /url: /content/b5f01504-899f-4113-831c-8bcaa1220e39
+                  - strong [ref=f5e714]: 用于验证平台标题长度建议的工程内容审核页面高保真视觉验收记录与响应式布局说明
+                  - generic [ref=f5e715]: E2E 论坛 9a071864
+                  - generic [ref=f5e716]:
+                    - generic [ref=f5e717]: 任务 df8dcdc6
+                    - time [ref=f5e718]: 2026/7/19 23:43:40
+                - link "用于验证平台标题长度建议的工程内容审核页面高保真视觉验收记录与响应式布局说明 E2E 论坛 9a071864 任务 df8dcdc6 2026/7/19 23:43:17" [ref=f5e719] [cursor=pointer]:
+                  - /url: /content/b77d2d73-f755-4413-b537-793adfaeecad
+                  - strong [ref=f5e720]: 用于验证平台标题长度建议的工程内容审核页面高保真视觉验收记录与响应式布局说明
+                  - generic [ref=f5e721]: E2E 论坛 9a071864
+                  - generic [ref=f5e722]:
+                    - generic [ref=f5e723]: 任务 df8dcdc6
+                    - time [ref=f5e724]: 2026/7/19 23:43:17
+                - link "用于验证平台标题长度建议的工程内容审核页面高保真视觉验收记录与响应式布局说明 E2E 论坛 9a071864 任务 df8dcdc6 2026/7/19 23:42:26" [ref=f5e725] [cursor=pointer]:
+                  - /url: /content/a38a8def-cdf5-43b6-956e-8157e6b8c583
+                  - strong [ref=f5e726]: 用于验证平台标题长度建议的工程内容审核页面高保真视觉验收记录与响应式布局说明
+                  - generic [ref=f5e727]: E2E 论坛 9a071864
+                  - generic [ref=f5e728]:
+                    - generic [ref=f5e729]: 任务 df8dcdc6
+                    - time [ref=f5e730]: 2026/7/19 23:42:26
+                - link "人工核对 DEMO-9a071864 E2E 论坛 9a071864 任务 df8dcdc6 2026/7/17 21:15:50" [ref=f5e731] [cursor=pointer]:
+                  - /url: /content/836ca5fa-9103-4cb4-83b8-b783d673bfa3
+                  - strong [ref=f5e732]: 人工核对 DEMO-9a071864
+                  - generic [ref=f5e733]: E2E 论坛 9a071864
+                  - generic [ref=f5e734]:
+                    - generic [ref=f5e735]: 任务 df8dcdc6
+                    - time [ref=f5e736]: 2026/7/17 21:15:50
+                - link "包含未知参数的草稿 E2E 论坛 9a071864 任务 df8dcdc6 2026/7/17 21:15:50" [ref=f5e737] [cursor=pointer]:
+                  - /url: /content/96be6d97-5353-4ea5-80fe-3b1c9bd47a42
+                  - strong [ref=f5e738]: 包含未知参数的草稿
+                  - generic [ref=f5e739]: E2E 论坛 9a071864
+                  - generic [ref=f5e740]:
+                    - generic [ref=f5e741]: 任务 df8dcdc6
+                    - time [ref=f5e742]: 2026/7/17 21:15:50
+                - link "连接测试 E2E 论坛 9a071864 任务 df8dcdc6 2026/7/17 21:15:50" [ref=f5e743] [cursor=pointer]:
+                  - /url: /content/88dd64f6-ae83-4252-8f59-8507abfcc8eb
+                  - strong [ref=f5e744]: 连接测试
+                  - generic [ref=f5e745]: E2E 论坛 9a071864
+                  - generic [ref=f5e746]:
+                    - generic [ref=f5e747]: 任务 df8dcdc6
+                    - time [ref=f5e748]: 2026/7/17 21:15:50
+                - link "连接测试 E2E 论坛 9a071864 任务 df8dcdc6 2026/7/17 21:15:39" [ref=f5e749] [cursor=pointer]:
+                  - /url: /content/57a60dc7-8189-4fcf-9178-c1100cedc4b5
+                  - strong [ref=f5e750]: 连接测试
+                  - generic [ref=f5e751]: E2E 论坛 9a071864
+                  - generic [ref=f5e752]:
+                    - generic [ref=f5e753]: 任务 df8dcdc6
+                    - time [ref=f5e754]: 2026/7/17 21:15:39
+                - link "连接测试 E2E 论坛 9a071864 任务 df8dcdc6 2026/7/17 21:15:38" [ref=f5e755] [cursor=pointer]:
+                  - /url: /content/0fc3c564-5492-4acc-a468-54a13e124020
+                  - strong [ref=f5e756]: 连接测试
+                  - generic [ref=f5e757]: E2E 论坛 9a071864
+                  - generic [ref=f5e758]:
+                    - generic [ref=f5e759]: 任务 df8dcdc6
+                    - time [ref=f5e760]: 2026/7/17 21:15:38
+                - link "连接测试 E2E 论坛 9a071864 任务 df8dcdc6 2026/7/17 21:15:36" [ref=f5e761] [cursor=pointer]:
+                  - /url: /content/b79f91dd-4185-4e07-b888-a8b31a701827
+                  - strong [ref=f5e762]: 连接测试
+                  - generic [ref=f5e763]: E2E 论坛 9a071864
+                  - generic [ref=f5e764]:
+                    - generic [ref=f5e765]: 任务 df8dcdc6
+                    - time [ref=f5e766]: 2026/7/17 21:15:36
+        - main [ref=f5e767]:
+          - generic [ref=f5e769]:
+            - generic [ref=f5e770]:
+              - generic [ref=f5e771]:
+                - generic [ref=f5e772]: 正文工作区 / Markdown · V9
+                - heading "用于验证平台标题长度建议的工程内容审核页面高保真视觉验收记录与响应式布局说明" [level=1] [ref=f5e780]
+                - generic [ref=f5e782]:
+                  - generic [ref=f5e783]: 人工编辑
+                  - generic [ref=f5e785]: 任务 df8dcdc6
+                  - generic [ref=f5e788]:
+                    - text: 任务状态
+                    - generic [ref=f5e789]:
+                      - img "info-circle" [ref=f5e790]
+                      - generic [ref=f5e794]: 进行中
+                  - generic [ref=f5e795]: 平台 · E2E 论坛 9a071864
+                  - generic "96f64027-6402-4c58-9859-40186273fbc5" [ref=f5e798]: 创建人 96f64027
+                  - time [ref=f5e800]: 2026/7/19 23:43:40
+              - generic [ref=f5e801]: 草稿
+            - generic [ref=f5e804]:
+              - tablist [ref=f5e805]:
+                - generic [ref=f5e807]:
+                  - tab "编辑" [selected] [ref=f5e809] [cursor=pointer]
+                  - tab "预览" [ref=f5e817] [cursor=pointer]
+                  - tab "Markdown 源文" [ref=f5e825] [cursor=pointer]
+                  - tab "版本差异" [ref=f5e833] [cursor=pointer]
+                - button [ref=f5e996]:
+                  - img "ellipsis" [ref=f5e997]
+              - tabpanel "编辑" [ref=f5e836]:
+                - region "创建人工修订" [ref=f5e837]:
+                  - generic [ref=f5e838]:
+                    - alert [ref=f5e839]:
+                      - img "info-circle" [ref=f5e841]
+                      - generic [ref=f5e844]: 人工修订会创建新的不可变内容版本，Markdown 仍是唯一可编辑正文源。
+                    - generic [ref=f5e846]:
+                      - tablist [ref=f5e847]:
+                        - generic [ref=f5e849]:
+                          - tab "编辑 Markdown" [selected] [ref=f5e851] [cursor=pointer]
+                          - tab "预览修订" [ref=f5e853] [cursor=pointer]
+                      - generic:
+                        - generic:
+                          - tabpanel "编辑 Markdown"
+                    - generic [ref=f5e854]:
+                      - generic [ref=f5e855]:
+                        - generic [ref=f5e857]:
+                          - generic "标题" [ref=f5e859]: "* 标题"
+                          - textbox "* 标题" [ref=f5e863]: 用于验证平台标题长度建议的工程内容审核页面高保真视觉验收记录与响应式布局说明
+                        - generic [ref=f5e865]:
+                          - generic "标签" [ref=f5e867]
+                          - generic [ref=f5e871]:
+                            - generic [ref=f5e872]:
+                              - generic "test" [ref=f5e874]
+                              - combobox "标签" [ref=f5e881]
+                            - img "down" [ref=f5e883]
+                        - generic [ref=f5e887]:
+                          - generic "摘要" [ref=f5e889]: "* 摘要"
+                          - textbox "* 摘要" [ref=f5e893]: 测试
+                      - generic [ref=f5e895]:
+                        - generic "Markdown 正文" [ref=f5e897]: "* Markdown 正文"
+                        - textbox "* Markdown 正文" [ref=f5e901]: "## 长正文验收 真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。真实审核内容保持 Markdown 唯一正文源。 不得将虚构验收数据用于真实选型。"
+                      - generic [ref=f5e903]:
+                        - generic "变更说明" [ref=f5e905]: "* 变更说明"
+                        - textbox "* 变更说明" [ref=f5e909]:
+                          - /placeholder: 说明为什么创建这个新版本
+                    - generic [ref=f5e910]:
+                      - generic [ref=f5e911]:
+                        - strong [ref=f5e913]: 尚未修改
+                        - generic [ref=f5e914]: 提交成功后将打开新版本，不会修改当前版本。
+                      - button "save 创建新版本" [disabled] [ref=f5e915]:
+                        - generic:
+                          - img "save"
+                        - generic: 创建新版本
+        - complementary "质量检查与审核决策" [ref=f5e916]:
+          - generic [ref=f5e917]:
+            - generic [ref=f5e918]: 质量与审核
+            - generic [ref=f5e927]:
+              - generic "质量问题统计" [ref=f5e928]:
+                - generic [ref=f5e929]:
+                  - generic [ref=f5e930]: 阻断问题
+                  - strong [ref=f5e931]: "0"
+                - generic [ref=f5e932]:
+                  - generic [ref=f5e933]: 优化建议
+                  - strong [ref=f5e934]: "1"
+              - generic [ref=f5e935]:
+                - tablist [ref=f5e936]:
+                  - generic [ref=f5e938]:
+                    - tab "质量检查" [selected] [ref=f5e940] [cursor=pointer]
+                    - tab "事实证据" [ref=f5e942] [cursor=pointer]
+                    - tab "审核记录" [ref=f5e944] [cursor=pointer]
+                - tabpanel "质量检查" [ref=f5e953]:
+                  - region "质量检查" [ref=f5e954]:
+                    - region "阻断问题" [ref=f5e955]:
+                      - generic [ref=f5e956]:
+                        - generic [ref=f5e957]:
+                          - generic [ref=f5e959]:
+                            - img "close-circle" [ref=f5e960]
+                            - generic [ref=f5e963]: 阻断
+                          - strong [ref=f5e965]: 阻断问题
+                        - generic [ref=f5e966]: "0"
+                      - text: 当前没有此类问题。
+                    - region "优化建议" [ref=f5e967]:
+                      - generic [ref=f5e968]:
+                        - generic [ref=f5e969]:
+                          - generic [ref=f5e971]:
+                            - img "exclamation-circle" [ref=f5e972]
+                            - generic [ref=f5e976]: 警告
+                          - strong [ref=f5e978]: 优化建议
+                        - generic [ref=f5e979]: "1"
+                      - list [ref=f5e980]:
+                        - listitem [ref=f5e981]:
+                          - generic [ref=f5e982]:
+                            - code [ref=f5e984]: BODY_LENGTH
+                            - generic [ref=f5e985]: 正文长度不符合平台建议
+              - generic [ref=f5e986]:
+                - generic [ref=f5e987]: 操作由服务端当前状态与权限决定
+                - button "提交审核" [ref=f5e989] [cursor=pointer]

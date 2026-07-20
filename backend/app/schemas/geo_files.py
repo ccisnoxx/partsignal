@@ -156,7 +156,7 @@ class DashboardSummary(ContractModel):
 
 
 class UploadIntentCreate(ContractModel):
-    category: Literal["EVIDENCE", "OPERATION_SCREENSHOT", "PUBLICATION_ASSET"]
+    category: Literal["EVIDENCE", "OPERATION_SCREENSHOT", "PUBLICATION_ASSET", "PLATFORM_LOGO"]
     original_filename: str
     content_type: str
     size: int = Field(ge=1)

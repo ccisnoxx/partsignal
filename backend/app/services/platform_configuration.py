@@ -26,6 +26,7 @@ from app.schemas.configuration import (
     PlatformTypeCreate,
     PlatformTypeUpdate,
 )
+from app.services.file_records import platform_logo_storage_values
 
 HUMANIZATION_PROMPT_SINGLETON_ID = 1
 
@@ -248,9 +249,13 @@ def update_platform_profile(
         raise AppError("REVISION_CONFLICT", "平台已被其他请求修改", 409)
     if db.get(PlatformType, payload.platform_type_id) is None:
         raise not_found("平台类型")
+    logo_file_id, logo_external_url = platform_logo_storage_values(db, payload.logo)
     profile.name = payload.name.strip()
     profile.allowed_domains = payload.allowed_domains
     profile.platform_type_id = payload.platform_type_id
+    profile.website_url = str(payload.website_url) if payload.website_url is not None else None
+    profile.logo_file_id = logo_file_id
+    profile.logo_external_url = logo_external_url
     profile.revision += 1
     append_audit(
         db,

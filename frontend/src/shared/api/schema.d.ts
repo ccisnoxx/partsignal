@@ -588,6 +588,38 @@ export interface paths {
         patch: operations["updateAIChannel"];
         trace?: never;
     };
+    "/api/v1/ai-channels/{channel_id}/usage-summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAIChannelUsageSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai-channels/{channel_id}/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAIChannelAuditLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ai-channels/{channel_id}/api-key": {
         parameters: {
             query?: never;
@@ -1867,6 +1899,9 @@ export interface components {
         };
         AIChannelCreate: {
             name: string;
+            description: string;
+            protocol_type: components["schemas"]["AIProtocolType"];
+            provider_brand: components["schemas"]["AIProviderBrand"];
             /** Format: uri */
             base_url: string;
             api_key: string;
@@ -1875,6 +1910,9 @@ export interface components {
         AIChannelUpdate: {
             expected_revision: number;
             name: string;
+            description: string;
+            protocol_type: components["schemas"]["AIProtocolType"];
+            provider_brand: components["schemas"]["AIProviderBrand"];
             /** Format: uri */
             base_url: string;
             timeout_seconds: number;
@@ -1887,6 +1925,9 @@ export interface components {
             /** Format: uuid */
             id: string;
             name: string;
+            description: string;
+            protocol_type: components["schemas"]["AIProtocolType"];
+            provider_brand: components["schemas"]["AIProviderBrand"];
             /** Format: uri */
             base_url: string;
             timeout_seconds: number;
@@ -1896,6 +1937,9 @@ export interface components {
             api_key_updated_at: string;
             headers: components["schemas"]["AIChannelHeader"][];
             enabled_models: components["schemas"]["AIChannelModelSummary"][];
+            latest_test_status: components["schemas"]["AIModelTestStatus"];
+            /** Format: date-time */
+            last_tested_at: string | null;
             revision: number;
             /** Format: uuid */
             created_by: string;
@@ -1904,8 +1948,68 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        /** @enum {string} */
+        AIProtocolType: "openai-compatible-chat-completions";
+        /** @enum {string} */
+        AIProviderBrand: "OPENAI" | "ANTHROPIC" | "GOOGLE" | "AZURE_OPENAI" | "ZHIPU" | "QWEN" | "CUSTOM";
+        /** @enum {string} */
+        AIChannelStatus: "ENABLED" | "DISABLED";
+        /**
+         * @default CREATED_DESC
+         * @enum {string}
+         */
+        AIChannelSort: "CREATED_DESC" | "NAME_ASC" | "NAME_DESC" | "UPDATED_DESC" | "LAST_TESTED_DESC";
+        AIChannelSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description: string;
+            protocol_type: components["schemas"]["AIProtocolType"];
+            provider_brand: components["schemas"]["AIProviderBrand"];
+            /** Format: uri */
+            base_url: string;
+            is_enabled: boolean;
+            api_key_configured: boolean;
+            header_count: number;
+            enabled_model_count: number;
+            latest_test_status: components["schemas"]["AIModelTestStatus"];
+            /** Format: date-time */
+            last_tested_at: string | null;
+            revision: number;
+        };
+        AIChannelCounts: {
+            all: number;
+            enabled: number;
+            disabled: number;
+        };
         AIChannelList: {
-            items: components["schemas"]["AIChannel"][];
+            items: components["schemas"]["AIChannelSummary"][];
+            page: number;
+            /** @enum {integer} */
+            page_size: 10 | 20 | 50;
+            total: number;
+            counts: components["schemas"]["AIChannelCounts"];
+        };
+        /** @enum {string} */
+        AIUsagePeriod: "7d" | "30d" | "90d" | "all";
+        AIChannelUsageSummary: {
+            /** Format: uuid */
+            channel_id: string;
+            period: components["schemas"]["AIUsagePeriod"];
+            /** Format: date-time */
+            period_started_at: string | null;
+            /** Format: date-time */
+            period_ended_at: string;
+            total_jobs: number;
+            succeeded_jobs: number;
+            failed_jobs: number;
+            success_rate: number | null;
+            average_response_duration_ms: number | null;
+            prompt_tokens: number | null;
+            completion_tokens: number | null;
+            total_tokens: number | null;
+            /** Format: date-time */
+            last_used_at: string | null;
         };
         AIChannelModelSummary: {
             display_name: string;
@@ -4069,14 +4173,21 @@ export interface operations {
     };
     listAIChannels: {
         parameters: {
-            query?: never;
+            query?: {
+                q?: string;
+                status?: components["schemas"]["AIChannelStatus"];
+                provider_brand?: components["schemas"]["AIProviderBrand"];
+                sort?: components["schemas"]["AIChannelSort"];
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description AI 渠道列表 */
+            /** @description 服务端筛选、排序和分页后的 AI 渠道摘要列表 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4085,6 +4196,8 @@ export interface operations {
                     "application/json": components["schemas"]["AIChannelList"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     createAIChannel: {
@@ -4111,6 +4224,8 @@ export interface operations {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     getAIChannel: {
@@ -4133,6 +4248,9 @@ export interface operations {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     deleteAIChannel: {
@@ -4155,6 +4273,9 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     updateAIChannel: {
@@ -4183,7 +4304,65 @@ export interface operations {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+        };
+    };
+    getAIChannelUsageSummary: {
+        parameters: {
+            query?: {
+                period?: "7d" | "30d" | "90d" | "all";
+            };
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 正式生成与自然化作业的渠道时间窗统计 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AIChannelUsageSummary"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
+    listAIChannelAuditLogs: {
+        parameters: {
+            query?: {
+                page?: components["parameters"]["Page"];
+                page_size?: components["parameters"]["PageSize"];
+            };
+            header?: never;
+            path: {
+                channel_id: components["parameters"]["AIChannelId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 渠道、Header 与关联模型的脱敏审计记录 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogList"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     replaceAIChannelApiKey: {
@@ -4212,6 +4391,10 @@ export interface operations {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     enableAIChannel: {
@@ -4236,6 +4419,9 @@ export interface operations {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
         };
     };
@@ -4261,6 +4447,10 @@ export interface operations {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     discoverAIChannelModels: {
@@ -4285,6 +4475,9 @@ export interface operations {
                     "application/json": components["schemas"]["DiscoveredModelList"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             502: components["responses"]["ErrorResponse"];
             504: components["responses"]["ErrorResponse"];
         };
@@ -4315,6 +4508,10 @@ export interface operations {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     deleteAIChannelHeader: {
@@ -4337,6 +4534,9 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     updateAIChannelHeader: {
@@ -4365,6 +4565,10 @@ export interface operations {
                     "application/json": components["schemas"]["AIChannel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     listAIModels: {
@@ -4387,6 +4591,9 @@ export interface operations {
                     "application/json": components["schemas"]["AIModelList"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     createAIModel: {
@@ -4415,6 +4622,9 @@ export interface operations {
                     "application/json": components["schemas"]["AIModel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     deleteAIModel: {
@@ -4437,6 +4647,9 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     updateAIModel: {
@@ -4465,6 +4678,10 @@ export interface operations {
                     "application/json": components["schemas"]["AIModel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     testAIModel: {
@@ -4489,6 +4706,12 @@ export interface operations {
                     "application/json": components["schemas"]["AIModel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            502: components["responses"]["ErrorResponse"];
+            504: components["responses"]["ErrorResponse"];
         };
     };
     enableAIModel: {
@@ -4513,6 +4736,9 @@ export interface operations {
                     "application/json": components["schemas"]["AIModel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
         };
     };
@@ -4538,6 +4764,10 @@ export interface operations {
                     "application/json": components["schemas"]["AIModel"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     listContentTasks: {

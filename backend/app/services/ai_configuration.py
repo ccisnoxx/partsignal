@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from typing import Any, Literal, cast
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.audit import append_audit
 from app.config import settings
@@ -16,25 +18,299 @@ from app.models.ai_generation import (
     AIChannel,
     AIChannelHeader,
     AIModel,
+    GenerationJob,
 )
 from app.models.base import new_uuid
-from app.models.identity import User
-from app.schemas.common import RevisionRequest
+from app.models.identity import AuditLog, User
+from app.schemas.common import AuditLogList, AuditLogOut, RevisionRequest
 from app.schemas.configuration import (
     AIChannelApiKeyReplace,
+    AIChannelCounts,
     AIChannelCreate,
     AIChannelHeaderCreate,
     AIChannelHeaderUpdate,
+    AIChannelList,
+    AIChannelSort,
+    AIChannelStatus,
+    AIChannelSummary,
     AIChannelUpdate,
+    AIChannelUsageSummary,
     AIModelCreate,
+    AIModelTestStatus,
     AIModelUpdate,
+    AIProtocolType,
+    AIProviderBrand,
+    AIUsagePeriod,
 )
 from app.services.credentials import CredentialCipher
 from app.services.openai_client import OpenAICompatibleClient, validate_base_url, validate_header
 
+SUPPORTED_BRAND_PROTOCOLS = frozenset(
+    (AIProtocolType.OPENAI_COMPATIBLE_CHAT_COMPLETIONS, brand) for brand in AIProviderBrand
+)
+
 
 def _cipher() -> CredentialCipher:
     return CredentialCipher(settings.ai_credential_encryption_key)
+
+
+def _validate_channel_identity(
+    protocol_type: AIProtocolType, provider_brand: AIProviderBrand
+) -> None:
+    """品牌不选择适配器；只接受契约中显式登记的品牌—协议组合。"""
+    if (protocol_type, provider_brand) not in SUPPORTED_BRAND_PROTOCOLS:
+        raise AppError("AI_PROTOCOL_BRAND_UNSUPPORTED", "供应商品牌与协议组合未登记", 422)
+
+
+def require_supported_protocol(
+    protocol_type: str,
+) -> Literal["openai-compatible-chat-completions"]:
+    """未知或尚未实现的原生协议必须明确失败，不能兼容回退。"""
+    if protocol_type != AIProtocolType.OPENAI_COMPATIBLE_CHAT_COMPLETIONS:
+        raise AppError("AI_PROTOCOL_UNSUPPORTED", "AI 渠道协议尚未实现", 422)
+    return "openai-compatible-chat-completions"
+
+
+def _search_conditions(q: str | None) -> list[ColumnElement[bool]]:
+    """把 SQL 通配符按普通字符匹配，并由 SQLAlchemy 参数化查询。"""
+    if q is None or not (term := q.strip()):
+        return []
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    pattern = f"%{escaped}%"
+    return [
+        or_(
+            AIChannel.name.ilike(pattern, escape="\\"),
+            AIChannel.description.ilike(pattern, escape="\\"),
+            AIChannel.base_url.ilike(pattern, escape="\\"),
+        )
+    ]
+
+
+def list_ai_channels(
+    *,
+    db: Session,
+    q: str | None,
+    channel_status: AIChannelStatus | None,
+    provider_brand: AIProviderBrand | None,
+    sort: AIChannelSort,
+    page: int,
+    page_size: Literal[10, 20, 50],
+) -> AIChannelList:
+    """在数据库一次完成渠道筛选、聚合、稳定排序与分页。"""
+    base_conditions = _search_conditions(q)
+    if provider_brand is not None:
+        base_conditions.append(AIChannel.provider_brand == provider_brand.value)
+
+    all_count, enabled_count, disabled_count = db.execute(
+        select(
+            func.count(AIChannel.id),
+            func.count(AIChannel.id).filter(AIChannel.is_enabled.is_(True)),
+            func.count(AIChannel.id).filter(AIChannel.is_enabled.is_(False)),
+        ).where(*base_conditions)
+    ).one()
+
+    filtered_conditions = list(base_conditions)
+    if channel_status is not None:
+        filtered_conditions.append(
+            AIChannel.is_enabled.is_(channel_status == AIChannelStatus.ENABLED)
+        )
+    total = int(
+        db.execute(select(func.count(AIChannel.id)).where(*filtered_conditions)).scalar_one()
+    )
+
+    header_count = (
+        select(func.count(AIChannelHeader.id))
+        .where(AIChannelHeader.channel_id == AIChannel.id)
+        .correlate(AIChannel)
+        .scalar_subquery()
+    )
+    enabled_model_count = (
+        select(func.count(AIModel.id))
+        .where(AIModel.channel_id == AIChannel.id, AIModel.is_enabled.is_(True))
+        .correlate(AIChannel)
+        .scalar_subquery()
+    )
+    latest_test_status = (
+        select(AIModel.test_status)
+        .where(AIModel.channel_id == AIChannel.id, AIModel.last_tested_at.is_not(None))
+        .order_by(AIModel.last_tested_at.desc(), AIModel.id.desc())
+        .limit(1)
+        .correlate(AIChannel)
+        .scalar_subquery()
+    )
+    last_tested_at = (
+        select(AIModel.last_tested_at)
+        .where(AIModel.channel_id == AIChannel.id, AIModel.last_tested_at.is_not(None))
+        .order_by(AIModel.last_tested_at.desc(), AIModel.id.desc())
+        .limit(1)
+        .correlate(AIChannel)
+        .scalar_subquery()
+    )
+    query = select(
+        AIChannel.id,
+        AIChannel.name,
+        AIChannel.description,
+        AIChannel.protocol_type,
+        AIChannel.provider_brand,
+        AIChannel.base_url,
+        AIChannel.is_enabled,
+        AIChannel.api_key_ciphertext,
+        AIChannel.revision,
+        header_count.label("header_count"),
+        enabled_model_count.label("enabled_model_count"),
+        latest_test_status.label("latest_test_status"),
+        last_tested_at.label("last_tested_at"),
+    ).where(*filtered_conditions)
+    order_by = cast(
+        tuple[ColumnElement[Any], ...],
+        {
+            AIChannelSort.CREATED_DESC: (AIChannel.created_at.desc(), AIChannel.id.asc()),
+            AIChannelSort.NAME_ASC: (AIChannel.name.asc(), AIChannel.id.asc()),
+            AIChannelSort.NAME_DESC: (AIChannel.name.desc(), AIChannel.id.asc()),
+            AIChannelSort.UPDATED_DESC: (AIChannel.updated_at.desc(), AIChannel.id.asc()),
+            AIChannelSort.LAST_TESTED_DESC: (
+                last_tested_at.desc().nulls_last(),
+                AIChannel.id.asc(),
+            ),
+        }[sort],
+    )
+    rows = db.execute(
+        query.order_by(*order_by).offset((page - 1) * page_size).limit(page_size)
+    ).all()
+    return AIChannelList(
+        items=[
+            AIChannelSummary(
+                id=row.id,
+                name=row.name,
+                description=row.description,
+                protocol_type=row.protocol_type,
+                provider_brand=row.provider_brand,
+                base_url=row.base_url,
+                is_enabled=row.is_enabled,
+                api_key_configured=bool(row.api_key_ciphertext),
+                header_count=row.header_count,
+                enabled_model_count=row.enabled_model_count,
+                latest_test_status=row.latest_test_status or AIModelTestStatus.UNTESTED,
+                last_tested_at=row.last_tested_at,
+                revision=row.revision,
+            )
+            for row in rows
+        ],
+        page=page,
+        page_size=page_size,
+        total=total,
+        counts=AIChannelCounts(
+            all=int(all_count or 0),
+            enabled=int(enabled_count or 0),
+            disabled=int(disabled_count or 0),
+        ),
+    )
+
+
+def get_ai_channel_usage_summary(
+    *, db: Session, channel_id: uuid.UUID, period: AIUsagePeriod
+) -> AIChannelUsageSummary:
+    """实时聚合正式业务作业；缺失耗时和用量保持为空。"""
+    if db.get(AIChannel, channel_id) is None:
+        raise not_found("AI 渠道")
+    period_ended_at = datetime.now(UTC)
+    days = {
+        AIUsagePeriod.SEVEN_DAYS: 7,
+        AIUsagePeriod.THIRTY_DAYS: 30,
+        AIUsagePeriod.NINETY_DAYS: 90,
+    }.get(period)
+    period_started_at = period_ended_at - timedelta(days=days) if days is not None else None
+    conditions = [GenerationJob.ai_channel_id == channel_id]
+    if period_started_at is not None:
+        conditions.append(GenerationJob.created_at >= period_started_at)
+    (
+        total_jobs,
+        succeeded_jobs,
+        failed_jobs,
+        average_duration,
+        prompt_tokens,
+        completion_tokens,
+        total_tokens,
+        last_used_at,
+    ) = db.execute(
+        select(
+            func.count(GenerationJob.id),
+            func.count(GenerationJob.id).filter(GenerationJob.status == "SUCCEEDED"),
+            func.count(GenerationJob.id).filter(GenerationJob.status == "FAILED"),
+            func.avg(GenerationJob.response_duration_ms),
+            func.sum(GenerationJob.prompt_tokens),
+            func.sum(GenerationJob.completion_tokens),
+            func.sum(GenerationJob.total_tokens),
+            func.max(GenerationJob.started_at),
+        ).where(*conditions)
+    ).one()
+    terminal_jobs = int(succeeded_jobs or 0) + int(failed_jobs or 0)
+    return AIChannelUsageSummary(
+        channel_id=channel_id,
+        period=period,
+        period_started_at=period_started_at,
+        period_ended_at=period_ended_at,
+        total_jobs=int(total_jobs or 0),
+        succeeded_jobs=int(succeeded_jobs or 0),
+        failed_jobs=int(failed_jobs or 0),
+        success_rate=(int(succeeded_jobs or 0) / terminal_jobs if terminal_jobs else None),
+        average_response_duration_ms=(
+            float(average_duration) if average_duration is not None else None
+        ),
+        prompt_tokens=int(prompt_tokens) if prompt_tokens is not None else None,
+        completion_tokens=(int(completion_tokens) if completion_tokens is not None else None),
+        total_tokens=int(total_tokens) if total_tokens is not None else None,
+        last_used_at=last_used_at,
+    )
+
+
+def list_ai_channel_audit_logs(
+    *, db: Session, channel_id: uuid.UUID, page: int, page_size: int
+) -> AuditLogList:
+    """从全局追加式审计表投影渠道及当前或显式关联的模型事件。"""
+    if db.get(AIChannel, channel_id) is None:
+        raise not_found("AI 渠道")
+    current_model_ids = [
+        str(model_id)
+        for model_id in db.scalars(select(AIModel.id).where(AIModel.channel_id == channel_id))
+    ]
+    model_conditions = [AuditLog.details["channel_id"].as_string() == str(channel_id)]
+    if current_model_ids:
+        model_conditions.append(AuditLog.target_id.in_(current_model_ids))
+    condition = or_(
+        (AuditLog.target_type == "AIChannel") & (AuditLog.target_id == str(channel_id)),
+        (AuditLog.target_type == "AIModel") & or_(*model_conditions),
+    )
+    base_query = select(AuditLog).where(condition, AuditLog.actor_id.is_not(None))
+    total = int(
+        db.scalar(select(func.count(AuditLog.id)).where(condition, AuditLog.actor_id.is_not(None)))
+        or 0
+    )
+    records = list(
+        db.scalars(
+            base_query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    )
+    return AuditLogList(
+        items=[
+            AuditLogOut(
+                id=record.id,
+                actor_id=cast(uuid.UUID, record.actor_id),
+                action=record.action,
+                target_type=record.target_type,
+                target_id=uuid.UUID(record.target_id),
+                change_summary=record.details,
+                request_id=record.request_id,
+                created_at=record.created_at,
+            )
+            for record in records
+        ],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 def invalidate_channel_models(db: Session, channel: AIChannel) -> None:
@@ -67,10 +343,17 @@ def create_ai_channel(
     *, db: Session, payload: AIChannelCreate, actor: User, request_id: str
 ) -> AIChannel:
     """加密凭据后创建默认停用的 AI 渠道。"""
+    _validate_channel_identity(payload.protocol_type, payload.provider_brand)
+    name = payload.name.strip()
+    if not name:
+        raise AppError("INVALID_AI_CHANNEL_NAME", "AI 渠道名称不能为空", 422)
     channel_id = new_uuid()
     channel = AIChannel(
         id=channel_id,
-        name=payload.name.strip(),
+        name=name,
+        description=payload.description,
+        protocol_type=payload.protocol_type.value,
+        provider_brand=payload.provider_brand.value,
         base_url=validate_base_url(
             str(payload.base_url), allow_local_http=settings.ai_allow_local_http
         ),
@@ -90,14 +373,16 @@ def create_ai_channel(
         target_type="AIChannel",
         target_id=channel.id,
         request_id=request_id,
+        details={
+            "protocol_type": payload.protocol_type.value,
+            "provider_brand": payload.provider_brand.value,
+        },
     )
     db.commit()
     return channel
 
 
-def delete_ai_channel(
-    *, db: Session, channel_id: uuid.UUID, actor: User, request_id: str
-) -> None:
+def delete_ai_channel(*, db: Session, channel_id: uuid.UUID, actor: User, request_id: str) -> None:
     """删除渠道及数据库约束定义的子配置。"""
     channel = db.get(AIChannel, channel_id)
     if channel is None:
@@ -138,9 +423,7 @@ def create_ai_channel_header(
         is_sensitive=payload.is_sensitive,
         plain_value=None if payload.is_sensitive else payload.value,
         encrypted_value=(
-            _cipher().encrypt(
-                payload.value, associated_data=f"ai_channel_header:{header_id}:value"
-            )
+            _cipher().encrypt(payload.value, associated_data=f"ai_channel_header:{header_id}:value")
             if payload.is_sensitive
             else None
         ),
@@ -258,16 +541,15 @@ def create_ai_model(
         target_type="AIModel",
         target_id=model.id,
         request_id=request_id,
+        details={"channel_id": str(channel_id)},
     )
     db.commit()
     return model
 
 
-def delete_ai_model(
-    *, db: Session, model_id: uuid.UUID, actor: User, request_id: str
-) -> None:
+def delete_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id: str) -> None:
     """按统一锁序删除模型并追加审计。"""
-    model, _channel = lock_model_configuration(db, model_id)
+    model, channel = lock_model_configuration(db, model_id)
     append_audit(
         db,
         actor_id=actor.id,
@@ -275,6 +557,7 @@ def delete_ai_model(
         target_type="AIModel",
         target_id=model.id,
         request_id=request_id,
+        details={"channel_id": str(channel.id)},
     )
     db.delete(model)
     db.commit()
@@ -294,13 +577,22 @@ def update_ai_channel(
         raise not_found("AI 渠道")
     if channel.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
+    _validate_channel_identity(payload.protocol_type, payload.provider_brand)
+    name = payload.name.strip()
+    if not name:
+        raise AppError("INVALID_AI_CHANNEL_NAME", "AI 渠道名称不能为空", 422)
     base_url = validate_base_url(
         str(payload.base_url), allow_local_http=settings.ai_allow_local_http
     )
     connection_changed = (
-        channel.base_url != base_url or channel.timeout_seconds != payload.timeout_seconds
+        channel.base_url != base_url
+        or channel.timeout_seconds != payload.timeout_seconds
+        or channel.protocol_type != payload.protocol_type.value
     )
-    channel.name = payload.name.strip()
+    channel.name = name
+    channel.description = payload.description
+    channel.protocol_type = payload.protocol_type.value
+    channel.provider_brand = payload.provider_brand.value
     channel.base_url = base_url
     channel.timeout_seconds = payload.timeout_seconds
     if connection_changed:
@@ -395,7 +687,7 @@ def update_ai_model(
     request_id: str,
 ) -> AIModel:
     """按固定锁序更新模型，并在调用参数变化时撤销测试结论。"""
-    model, _channel = lock_model_configuration(db, model_id)
+    model, channel = lock_model_configuration(db, model_id)
     if model.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
     changed = (
@@ -418,15 +710,16 @@ def update_ai_model(
         target_type="AIModel",
         target_id=model.id,
         request_id=request_id,
-        details={"revision": model.revision},
+        details={"channel_id": str(channel.id), "revision": model.revision},
     )
     db.commit()
     return model
 
 
-def test_ai_model(db: Session, model_id: uuid.UUID) -> AIModel:
-    """释放外部调用期间的行锁，并在回写前复核渠道和模型 revision。"""
+def test_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id: str) -> AIModel:
+    """真实测试后停用模型，并在同一回写事务追加脱敏审计。"""
     model, channel = lock_model_configuration(db, model_id)
+    require_supported_protocol(channel.protocol_type)
     model_revision = model.revision
     channel_revision = channel.revision
     api_key, headers = request_credentials(db, channel)
@@ -450,16 +743,83 @@ def test_ai_model(db: Session, model_id: uuid.UUID) -> AIModel:
     else:
         test_status = "PASSED"
         error_summary = None
+    # 外部调用期间配置可能被其他事务修改；当前会话不会在 commit 后自动过期对象。
+    db.expire_all()
     model, channel = lock_model_configuration(db, model_id)
     if model.revision != model_revision or channel.revision != channel_revision:
+        append_audit(
+            db,
+            actor_id=actor.id,
+            action="ai_model.tested",
+            target_type="AIModel",
+            target_id=model.id,
+            request_id=request_id,
+            details={
+                "channel_id": str(channel.id),
+                "error_code": "REVISION_CONFLICT",
+            },
+        )
+        db.commit()
         raise AppError("REVISION_CONFLICT", "测试期间 AI 配置已变更，请重新测试", 409)
     model.test_status = test_status
     model.last_test_error_summary = error_summary
     model.last_tested_at = datetime.now(UTC)
     model.is_enabled = False
     model.revision += 1
+    append_audit(
+        db,
+        actor_id=actor.id,
+        action="ai_model.tested",
+        target_type="AIModel",
+        target_id=model.id,
+        request_id=request_id,
+        details={"channel_id": str(channel.id), "test_status": test_status},
+    )
     db.commit()
     return model
+
+
+def discover_ai_channel_models(
+    *, db: Session, channel_id: uuid.UUID, actor: User, request_id: str
+) -> list[str]:
+    """使用渠道真实配置发现模型，并为成功或安全失败追加审计。"""
+    channel = db.get(AIChannel, channel_id)
+    if channel is None:
+        raise not_found("AI 渠道")
+    require_supported_protocol(channel.protocol_type)
+    api_key, headers = request_credentials(db, channel)
+    try:
+        model_ids = OpenAICompatibleClient(
+            allow_local_http=settings.ai_allow_local_http
+        ).discover_models(
+            base_url=channel.base_url,
+            api_key=api_key,
+            headers=headers,
+            timeout_seconds=channel.timeout_seconds,
+        )
+    except AppError as error:
+        append_audit(
+            db,
+            actor_id=actor.id,
+            action="ai_channel.models_discovered",
+            target_type="AIChannel",
+            target_id=channel.id,
+            request_id=request_id,
+            details={"error_code": error.code},
+        )
+        db.commit()
+        raise
+    append_audit(
+        db,
+        actor_id=actor.id,
+        action="ai_channel.models_discovered",
+        target_type="AIChannel",
+        target_id=channel.id,
+        request_id=request_id,
+        details={"model_count": len(model_ids)},
+    )
+    db.commit()
+    return model_ids
 
 
 def set_model_enabled(
@@ -472,7 +832,7 @@ def set_model_enabled(
     enabled: bool,
 ) -> AIModel:
     """校验连接测试结论后切换模型启用状态。"""
-    model, _channel = lock_model_configuration(db, model_id)
+    model, channel = lock_model_configuration(db, model_id)
     if model.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
     if enabled and model.test_status != "PASSED":
@@ -486,6 +846,7 @@ def set_model_enabled(
         target_type="AIModel",
         target_id=model.id,
         request_id=request_id,
+        details={"channel_id": str(channel.id)},
     )
     db.commit()
     return model

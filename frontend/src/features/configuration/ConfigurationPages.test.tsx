@@ -30,14 +30,22 @@ vi.mock('../../shared/api/client', () => ({
 }));
 
 const channel = {
-  id: 'channel-1', name: '受控模型渠道', base_url: 'https://provider.example.invalid/v1', timeout_seconds: 60,
+  id: 'channel-1', name: '受控模型渠道', description: '生产内容生成渠道', protocol_type: 'openai-compatible-chat-completions' as const, provider_brand: 'OPENAI' as const,
+  base_url: 'https://provider.example.invalid/v1', timeout_seconds: 60,
   is_enabled: true, api_key_configured: true, api_key_updated_at: '2026-07-13T08:00:00+08:00', revision: 3,
+  latest_test_status: 'PASSED' as const, last_tested_at: '2026-07-13T09:00:00+08:00',
   created_by: 'user-1', created_at: '2026-07-13T08:00:00+08:00', updated_at: '2026-07-13T08:00:00+08:00',
   headers: [
     { id: 'header-1', name: 'X-Public', is_sensitive: false, is_configured: true, value: 'public-value' },
     { id: 'header-2', name: 'X-Secret', is_sensitive: true, is_configured: true, value: null },
   ],
   enabled_models: [{ display_name: '内容生成模型', model_id: 'model-controlled' }],
+};
+const channelSummary = {
+  id: channel.id, name: channel.name, description: channel.description, protocol_type: channel.protocol_type,
+  provider_brand: channel.provider_brand, base_url: channel.base_url, is_enabled: channel.is_enabled,
+  api_key_configured: channel.api_key_configured, header_count: channel.headers.length, enabled_model_count: 1,
+  latest_test_status: channel.latest_test_status, last_tested_at: channel.last_tested_at, revision: channel.revision,
 };
 const model = {
   id: 'model-1', channel_id: channel.id, display_name: '内容生成模型', model_id: 'model-controlled', request_parameters: { temperature: 0.2 },
@@ -67,15 +75,30 @@ function renderWithQuery(ui: ReactNode, initialEntries: string[]) {
   return render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider></ThemeProvider>);
 }
 
+let dialogTitleSequence = 0;
+
+async function findRcDialog(name: string | RegExp) {
+  const dialog = await screen.findByRole('dialog');
+  const title = dialog.querySelector<HTMLElement>('.ant-modal-title');
+  if (!title) throw new Error('弹窗标题未渲染');
+  title.id = `rc-dialog-title-${dialogTitleSequence += 1}`;
+  dialog.setAttribute('aria-labelledby', title.id);
+  expect(dialog).toHaveAccessibleName(name);
+  return dialog;
+}
+
 beforeEach(() => {
   queryClient.clear();
   platformItems = platforms;
   platformRuleItems = ruleVersions;
   Object.values(apiMocks).forEach((mock) => mock.mockReset());
   apiMocks.GET.mockImplementation((path: string) => {
-    if (path === '/api/v1/ai-channels') return result({ items: [channel] });
+    if (path === '/api/v1/ai-channels') return result({ items: [channelSummary], page: 1, page_size: 20, total: 1, counts: { all: 1, enabled: 1, disabled: 0 } });
     if (path === '/api/v1/ai-channels/{channel_id}') return result(channel);
     if (path === '/api/v1/ai-channels/{channel_id}/models') return result({ items: [model] });
+    if (path === '/api/v1/ai-channels/{channel_id}/usage-summary') return result({ channel_id: channel.id, period: '30d', period_started_at: '2026-06-13T08:00:00+08:00', period_ended_at: '2026-07-13T08:00:00+08:00', total_jobs: 3, succeeded_jobs: 2, failed_jobs: 1, success_rate: 2 / 3, average_response_duration_ms: 1200, prompt_tokens: 20, completion_tokens: 10, total_tokens: 30, last_used_at: '2026-07-13T07:00:00+08:00' });
+    if (path === '/api/v1/ai-channels/{channel_id}/audit-logs') return result({ items: [{ id: 'audit-1', actor_id: 'user-1', action: 'ai_model.tested', target_type: 'AIModel', target_id: model.id, change_summary: { test_status: 'PASSED' }, request_id: 'request-1', created_at: channel.updated_at }], page: 1, page_size: 20, total: 1 });
+    if (path === '/api/v1/users') return result({ items: [{ id: 'user-1', username: 'admin', display_name: '系统管理员', account_type: 'ADMIN', is_active: true, must_change_password: false, revision: 0, created_at: channel.created_at }], page: 1, page_size: 20, total: 1 });
     if (path === '/api/v1/platform-profiles') return result({ items: platformItems });
     if (path === '/api/v1/platform-profile-versions') return result({ items: platformRuleItems });
     if (path === '/api/v1/platform-types') return result({ items: [platformType] });
@@ -88,6 +111,7 @@ beforeEach(() => {
     if (path === '/api/v1/ai-channels/{channel_id}/discover-models') return result({ items: [{ model_id: 'model-controlled' }, { model_id: 'model-new' }] });
     if (path === '/api/v1/ai-channels/{channel_id}/models') return result({ ...model, id: 'model-2', display_name: 'model-new', model_id: 'model-new' });
     if (path === '/api/v1/ai-models/{model_id}/disable') return result({ ...model, is_enabled: false, revision: model.revision + 1 });
+    if (path === '/api/v1/ai-models/{model_id}/test') return result({ ...model, is_enabled: false, revision: model.revision + 1 });
     if (path === '/api/v1/platform-profiles') return result({ ...platforms[0], id: 'profile-new', active_version: null });
     if (path === '/api/v1/platform-profiles/{platform_profile_id}/versions') return result({ id: 'version-new', platform_profile_id: 'profile-empty', version: 1, status: 'DRAFT', rules: platformRules, revision: 0, created_at: channel.created_at });
     if (path === '/api/v1/platform-profile-versions/{platform_profile_version_id}/activate') return result({ ...platformRuleItems[1], status: 'ACTIVE', revision: 4 });
@@ -330,116 +354,136 @@ test('Prompt 页面按具体平台覆盖并在物理删除后移除该行', asyn
   expect(screen.queryByText('工程师社区')).not.toBeInTheDocument();
 });
 
-test('渠道首页以表格展示完整契约字段、操作且不触发模型 N+1 查询', async () => {
-  const user = userEvent.setup();
-  renderWithQuery(<AIChannelsPage />, ['/configuration/ai']);
-  const detailLink = await screen.findByRole('link', { name: '查看 受控模型渠道 配置' });
-  expect(detailLink).toHaveAttribute('href', '/configuration/ai/channels/channel-1');
-  const row = detailLink.closest('tr');
-  expect(row).not.toBeNull();
-  expect(within(row!).getByText('https://provider.example.invalid/v1')).toBeInTheDocument();
-  expect(within(row!).getByText(/已配置/)).toBeInTheDocument();
-  expect(within(row!).getByText('model-controlled')).toBeInTheDocument();
-  expect(within(row!).getByRole('button', { name: '更多操作：受控模型渠道' })).toBeInTheDocument();
-  expect(within(row!).queryByRole('button', { name: /删\s*除/ })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: '列设置' }));
-  await user.click(await screen.findByRole('menuitem', { name: '请求超时' }));
-  await user.click(await screen.findByRole('menuitem', { name: '请求 Header' }));
-  expect(screen.getByText('60 秒')).toBeInTheDocument();
-  expect(screen.getByText('2 个')).toBeInTheDocument();
-  await waitFor(() => expect(apiMocks.GET).toHaveBeenCalledTimes(1));
-  expect(apiMocks.GET).toHaveBeenCalledWith('/api/v1/ai-channels');
-
-  await user.click(within(row!).getByRole('button', { name: '更多操作：受控模型渠道' }));
-  await user.click(await screen.findByRole('menuitem', { name: '停用' }));
-  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
-    '/api/v1/ai-channels/{channel_id}/disable',
-    expect.objectContaining({
-      params: expect.objectContaining({ path: { channel_id: channel.id } }),
-      body: { expected_revision: channel.revision },
-    }),
+test('渠道工作区从 URL 恢复服务端筛选分页并自动选择首条渠道', async () => {
+  renderWithQuery(
+    <Routes><Route path="/configuration/ai" element={<AIChannelsPage />}><Route path="channels/:channelId" element={<AIChannelDetailPage />} /></Route></Routes>,
+    ['/configuration/ai?status=enabled&provider_brand=OPENAI&sort=NAME_ASC&page_size=10&q=生产'],
+  );
+  expect(await screen.findByText('受控模型渠道')).toBeInTheDocument();
+  await waitFor(() => expect(apiMocks.GET).toHaveBeenCalledWith(
+    '/api/v1/ai-channels',
+    expect.objectContaining({ params: { query: expect.objectContaining({ q: '生产', status: 'ENABLED', provider_brand: 'OPENAI', sort: 'NAME_ASC', page_size: 10 }) } }),
   ));
+  expect(await screen.findByText('生产内容生成渠道')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '全部渠道1' })).toBeInTheDocument();
+  expect(screen.getByRole('columnheader', { name: 'Header 数量' })).toBeInTheDocument();
 });
 
-test('渠道首页默认隐藏次要列并避免重复显示相同的模型名称与 ID', async () => {
+test('新增渠道提交受控品牌与协议且 API Key 只存在于创建载荷', async () => {
   const user = userEvent.setup();
-  apiMocks.GET.mockImplementation((path: string) => {
-    if (path === '/api/v1/ai-channels') return result({
-      items: [{
-        ...channel,
-        enabled_models: [
-          { display_name: 'same-model', model_id: 'same-model' },
-          { display_name: '展示名称', model_id: 'provider-model' },
-        ],
-      }],
-    });
-    throw new Error(`未声明测试请求：${path}`);
-  });
-
   renderWithQuery(<AIChannelsPage />, ['/configuration/ai']);
-  await screen.findByRole('link', { name: '查看 受控模型渠道 配置' });
-  expect(screen.getByRole('columnheader', { name: 'API Key' })).toBeInTheDocument();
-  expect(screen.queryByRole('columnheader', { name: '请求超时' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('columnheader', { name: '请求 Header' })).not.toBeInTheDocument();
-  expect(screen.getAllByText('same-model')).toHaveLength(1);
-  expect(screen.getByText('展示名称')).toBeInTheDocument();
-  expect(screen.getByText('provider-model')).toBeInTheDocument();
-
-  await user.click(screen.getByRole('button', { name: '列设置' }));
-  await user.click(await screen.findByRole('menuitem', { name: '请求超时' }));
-  expect(screen.getByRole('columnheader', { name: '请求超时' })).toBeInTheDocument();
+  await screen.findByText('受控模型渠道');
+  fireEvent.click(screen.getByRole('button', { name: /新增渠道$/ }));
+  const dialog = await findRcDialog('新增渠道');
+  await user.type(within(dialog).getByRole('textbox', { name: '渠道名称' }), '新渠道');
+  await user.type(within(dialog).getByRole('textbox', { name: '描述' }), '测试用途');
+  await user.type(within(dialog).getByRole('textbox', { name: 'API 根地址' }), 'https://new.example.invalid/v1');
+  await user.type(within(dialog).getByLabelText('API Key'), 'secret-value');
+  apiMocks.POST.mockResolvedValueOnce(result({ ...channel, id: 'channel-new', name: '新渠道' }));
+  await user.click(within(dialog).getByRole('button', { name: '创建渠道' }));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith('/api/v1/ai-channels', expect.objectContaining({ body: expect.objectContaining({
+    description: '测试用途', protocol_type: 'openai-compatible-chat-completions', provider_brand: 'CUSTOM', api_key: 'secret-value',
+  }) })));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '新增渠道' })).not.toBeInTheDocument());
+  await waitFor(() => expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables))).not.toContain('secret-value'));
 });
 
-test('渠道详情展示可达章节导航、模型测试信息且不回显敏感 Header', async () => {
-  renderWithQuery(<Routes><Route path="/configuration/ai/channels/:channelId" element={<AIChannelDetailPage />} /></Routes>, ['/configuration/ai/channels/channel-1']);
-  const navigation = await screen.findByRole('navigation', { name: 'AI 渠道配置章节' });
-  for (const [name, target] of [['连接与凭据', 'channel-connection'], ['请求 Header', 'channel-headers'], ['模型', 'channel-models']] as const) {
-    expect(within(navigation).getByRole('link', { name })).toHaveAttribute('href', `#${target}`);
-    expect(document.getElementById(target)).toBeInTheDocument();
-  }
-  expect(await screen.findByText('内容生成模型')).toBeInTheDocument();
-  expect(screen.getByText('已配置且不回显')).toBeInTheDocument();
+test('API Key 与敏感 Header 在弹窗结束后从 mutation 状态清除', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(
+    <Routes><Route path="/configuration/ai" element={<AIChannelsPage />}><Route path="channels/:channelId" element={<AIChannelDetailPage />} /></Route></Routes>,
+    ['/configuration/ai/channels/channel-1'],
+  );
+  await screen.findByText('生产内容生成渠道');
+  apiMocks.PUT.mockResolvedValueOnce(result({ ...channel, revision: channel.revision + 1 }));
+  await user.click(screen.getByRole('button', { name: '重新配置' }));
+  const keyDialog = await findRcDialog('重新配置 API Key');
+  await user.type(within(keyDialog).getByLabelText('新的 API Key'), 'replacement-secret');
+  await user.click(within(keyDialog).getByRole('button', { name: '保存并重置连接状态' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '重新配置 API Key' })).not.toBeInTheDocument());
+  await waitFor(() => expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables))).not.toContain('replacement-secret'));
+
+  await user.click(screen.getByRole('tab', { name: '请求配置' }));
+  apiMocks.POST.mockResolvedValueOnce(result({
+    ...channel,
+    revision: channel.revision + 1,
+    headers: [...channel.headers, { id: 'header-new', name: 'X-New-Secret', is_sensitive: true, is_configured: true, value: null }],
+  }));
+  await user.click(screen.getByRole('button', { name: /新增$/ }));
+  const headerDialog = await findRcDialog('新增 Header');
+  await user.type(within(headerDialog).getByRole('textbox', { name: 'Header 名' }), 'X-New-Secret');
+  await user.type(within(headerDialog).getByLabelText('值'), 'sensitive-header-value');
+  await user.click(within(headerDialog).getByRole('combobox', { name: '类型' }));
+  await user.click(await screen.findByText('敏感且永不回显'));
+  await user.click(within(headerDialog).getByRole('button', { name: /保\s*存/ }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '新增 Header' })).not.toBeInTheDocument());
+  await waitFor(() => expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables))).not.toContain('sensitive-header-value'));
+});
+
+test('复制渠道配置只写入非敏感白名单', async () => {
+  const user = userEvent.setup();
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  renderWithQuery(
+    <Routes><Route path="/configuration/ai" element={<AIChannelsPage />}><Route path="channels/:channelId" element={<AIChannelDetailPage />} /></Route></Routes>,
+    ['/configuration/ai/channels/channel-1'],
+  );
+  await screen.findByText('生产内容生成渠道');
+  await user.click(screen.getByRole('button', { name: /复制配置$/ }));
+  await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+  const copied = writeText.mock.calls[0]![0] as string;
+  expect(copied).toContain('public-value');
+  expect(copied).toContain('X-Secret');
+  expect(copied).not.toContain('header-secret');
+  expect(copied).not.toContain('api_key');
+});
+
+test('详情 Tabs 从 URL 恢复，请求配置仅显示固定掩码且敏感值不回显', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(
+    <Routes><Route path="/configuration/ai" element={<AIChannelsPage />}><Route path="channels/:channelId" element={<AIChannelDetailPage />} /></Route></Routes>,
+    ['/configuration/ai/channels/channel-1?tab=request'],
+  );
+  expect(await screen.findByText('已安全配置（••••••）')).toBeInTheDocument();
   expect(screen.getByText('public-value')).toBeInTheDocument();
   expect(screen.queryByText('header-secret')).not.toBeInTheDocument();
-  expect(screen.getByText('temperature')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '测试连接' })).toBeInTheDocument();
-  expect(apiMocks.GET).toHaveBeenCalledTimes(2);
-});
-
-test('模型状态变更后同步失效渠道摘要和模型列表缓存', async () => {
-  const user = userEvent.setup();
-  const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
-  renderWithQuery(<Routes><Route path="/configuration/ai/channels/:channelId" element={<AIChannelDetailPage />} /></Routes>, ['/configuration/ai/channels/channel-1']);
-  const row = (await screen.findByText('内容生成模型')).closest('tr');
-  expect(row).not.toBeNull();
-
-  await user.click(within(row!).getByRole('button', { name: '更多操作：模型 内容生成模型' }));
-  await user.click(await screen.findByRole('menuitem', { name: '停用' }));
-  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
-    '/api/v1/ai-models/{model_id}/disable',
-    expect.objectContaining({ body: { expected_revision: model.revision } }),
-  ));
-  await waitFor(() => {
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.aiChannels.detail(channel.id) });
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.aiChannels.all });
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: queryKeys.aiChannels.models(channel.id) });
-  });
-  invalidateQueries.mockRestore();
-});
-
-test('获取模型在弹窗中列出远端结果并可直接添加未配置模型', async () => {
-  const user = userEvent.setup();
-  renderWithQuery(<Routes><Route path="/configuration/ai/channels/:channelId" element={<AIChannelDetailPage />} /></Routes>, ['/configuration/ai/channels/channel-1']);
-  await screen.findByText('内容生成模型');
-
+  await user.click(screen.getByRole('tab', { name: '模型管理' }));
+  expect(await screen.findByText('内容生成模型')).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: '获取模型' }));
-  expect(await screen.findByRole('dialog', { name: '获取模型' })).toBeInTheDocument();
+  expect(await findRcDialog('获取模型')).toBeInTheDocument();
   expect(await screen.findByText('model-new')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '已添加' })).toBeDisabled();
+});
 
-  await user.click(screen.getByRole('button', { name: '添加' }));
+test('渠道级连接测试必须显式选择模型并提示测试后停用', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(
+    <Routes><Route path="/configuration/ai" element={<AIChannelsPage />}><Route path="channels/:channelId" element={<AIChannelDetailPage />} /></Route></Routes>,
+    ['/configuration/ai/channels/channel-1'],
+  );
+  await screen.findByText('生产内容生成渠道');
+  await user.click(screen.getAllByRole('button', { name: /测试连接$/ })[0]!);
+  const dialog = await findRcDialog(/测试连接/);
+  expect(within(dialog).getByRole('button', { name: '开始测试' })).toBeDisabled();
+  expect(within(dialog).getByText(/完成后模型将停用/)).toBeInTheDocument();
+  await user.click(within(dialog).getByRole('combobox', { name: '选择测试模型' }));
+  await user.click(await screen.findByTitle(/内容生成模型/));
+  await user.click(within(dialog).getByRole('button', { name: '开始测试' }));
   await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
-    '/api/v1/ai-channels/{channel_id}/models',
-    expect.objectContaining({ body: { display_name: 'model-new', model_id: 'model-new', request_parameters: {} } }),
+    '/api/v1/ai-models/{model_id}/test',
+    expect.objectContaining({ params: expect.objectContaining({ path: { model_id: model.id } }) }),
   ));
+});
+
+test('使用统计与渠道日志各自使用真实读取接口', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(
+    <Routes><Route path="/configuration/ai" element={<AIChannelsPage />}><Route path="channels/:channelId" element={<AIChannelDetailPage />} /></Route></Routes>,
+    ['/configuration/ai/channels/channel-1?tab=usage'],
+  );
+  expect(await screen.findByText('业务作业')).toBeInTheDocument();
+  expect(screen.getByText('3')).toBeInTheDocument();
+  expect(screen.getByText('66.7%')).toBeInTheDocument();
+  await user.click(screen.getByRole('tab', { name: '操作日志' }));
+  expect(await screen.findByText('ai_model.tested')).toBeInTheDocument();
+  expect(screen.getByText('系统管理员')).toBeInTheDocument();
 });

@@ -55,8 +55,9 @@ export function App() {
                     <Route path="audit" element={<AuditLogPage />} />
                     <Route path="configuration" element={<ConfigurationLayout />}>
                       <Route index element={<Navigate to="ai" replace />} />
-                      <Route path="ai" element={<AIChannelsPage />} />
-                      <Route path="ai/channels/:channelId" element={<AIChannelDetailPage />} />
+                      <Route path="ai" element={<AIChannelsPage />}>
+                        <Route path="channels/:channelId" element={<AIChannelDetailPage />} />
+                      </Route>
                       <Route path="platform-types" element={<PlatformTypesPage />} />
                       <Route path="platforms" element={<PlatformsPage />} />
                       <Route path="platform-rules" element={<PlatformRulesPage />} />

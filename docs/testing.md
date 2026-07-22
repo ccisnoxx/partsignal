@@ -5,7 +5,7 @@
 - 后端单元测试覆盖状态机、账号类型、凭据加密、SSRF/Header 边界、严格模型响应、快照、生成质量规则、指标和文件校验。
 - 后端集成测试使用 PostgreSQL 和 Redis，不使用 SQLite 替代数据库约束。
 - 前端使用 Vitest 和 Testing Library 覆盖表单、权限、错误和状态交互。
-- Playwright 覆盖批准事实到发布登记和 GEO 观测的主流程，并通过 Redis、真实 Celery Worker 与本机 OpenAI-compatible HTTP 替身执行生成；不得使用 eager 模式或确定性生成器绕过消息链路。
+- Playwright 覆盖批准事实到发布登记、GEO 观测和 AI 渠道管理主流程，并通过 Redis、真实 Celery Worker 与本机 OpenAI-compatible HTTP 替身执行生成。AI 渠道页面在 1570×1001 桌面视口保存三栏验收产物，覆盖创建/编辑、换 Key、Header、模型发现、成功与失败测试、启停、筛选排序分页、统计审计、复制脱敏和删除；不得用 `page.route` 固定响应替代真实 API。
 - 契约检查比较提交 OpenAPI、FastAPI 运行时 Schema 和前端生成类型。
 - 结构重构还需比较 ORM metadata 表集合、mapper 数、Alembic head、迁移历史和生产 preflight 输出，证明物理移动未改变数据库语义。
 
@@ -23,6 +23,8 @@ make verify
 ```
 
 测试替身必须显式配置。确定性生成器不得补充输入事实中不存在的参数，fake OpenAI-compatible 服务必须走固定目的地址 HTTP 传输、固定路径和严格响应解析；本地 CA/HTTPS 测试必须验证 SNI、Host、证书 hostname、peer 越界零发送、重定向和响应上限。开发对象存储必须实际保存上传字节并执行 HEAD 元数据校验。
+
+AI 渠道管理测试必须区分协议和品牌：当前所有受控品牌都只允许登记 OpenAI-compatible 协议，品牌不能改变请求路径。PostgreSQL 集成测试覆盖旧渠道回填 `CUSTOM`、品牌—协议组合校验、服务端列表与分类数量、最近测试、正式业务作业统计和渠道审计；API Key 与敏感 Header 必须在响应、审计、复制结果、React Query mutation state、浏览器存储和截图中均不可恢复。连接测试发送后不自动重试，成功或失败都使具体模型保持停用并由管理员显式重新启用。
 
 自然化测试不得使用原文直返或固定“成功”适配器绕过供应商边界。PostgreSQL 集成测试必须让原始生成和自然化都经过本机 OpenAI-compatible HTTP 替身，断言每个作业至多一次调用、源版本不变、新版本 `source_job_id/based_on_id` 正确、成功结果可再次自然化、重复消息不重复落库，以及调用期间源资格失效时迟到结果不能提交。迁移测试还需覆盖 Prompt 初始空表、历史 `GENERATE` 回填、类型/来源成对检查、同源活动部分唯一索引和存在 `HUMANIZE` 历史后的禁止降级。
 

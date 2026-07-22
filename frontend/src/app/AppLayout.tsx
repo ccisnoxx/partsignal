@@ -2,10 +2,10 @@
 import {
   BarChartOutlined, DatabaseOutlined, DownOutlined, FileTextOutlined, LockOutlined,
   LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, RocketOutlined, SettingOutlined,
-  SafetyCertificateOutlined, TeamOutlined, ToolOutlined,
+  SearchOutlined, ToolOutlined,
 } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
-import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
+import { AutoComplete, Avatar, Button, Drawer, Dropdown, Grid, Input, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthProvider';
@@ -26,16 +26,15 @@ const workflowNavigation: NavigationItem[] = [
 
 const systemNavigation: NavigationItem[] = [
   { key: '/settings', icon: <SettingOutlined />, label: '业务设置' },
-  { key: '/users', icon: <TeamOutlined />, label: '用户管理', adminOnly: true },
-  { key: '/audit', icon: <SafetyCertificateOutlined />, label: '审计日志', adminOnly: true },
   {
     key: '/configuration', icon: <ToolOutlined />, label: '配置中心', adminOnly: true,
     children: [
-      { key: '/configuration/ai', label: 'AI 配置' },
-      { key: '/configuration/platform-types', label: '平台类型' },
-      { key: '/configuration/platforms', label: '平台管理' },
+      { key: '/configuration/platforms', label: '内容平台' },
       { key: '/configuration/platform-rules', label: '平台规则' },
-      { key: '/configuration/prompts', label: 'Prompt 管理' },
+      { key: '/configuration/prompts', label: '平台 Prompt' },
+      { key: '/configuration/ai', label: 'AI 渠道与模型' },
+      { key: '/users', label: '用户与权限' },
+      { key: '/audit', label: '审计日志' },
     ],
   },
 ];
@@ -61,6 +60,7 @@ function matchesRoute(pathname: string, key: string): boolean {
 export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState('');
   const screens = Grid.useBreakpoint();
   const navigate = useNavigate();
   const location = useLocation();
@@ -69,10 +69,24 @@ export function AppLayout() {
   const workflowItems = filterNavigation(workflowNavigation, auth.isAdmin);
   const systemItems = filterNavigation(systemNavigation, auth.isAdmin);
   const visibleLeaves = navigationLeaves([...workflowItems, ...systemItems]);
+  const searchableNavigation = [
+    ...visibleLeaves,
+    ...(auth.isAdmin ? [{ key: '/configuration/platform-types', label: '平台类型', parentKey: '/configuration' }] : []),
+  ];
   useEffect(() => scheduleIdleRoutePrefetch(), []);
   useEffect(() => {
     contentRef.current?.focus({ preventScroll: true });
   }, [location.pathname]);
+  useEffect(() => {
+    const focusGlobalSearch = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        document.querySelector<HTMLInputElement>('.global-navigation-search input')?.focus();
+      }
+    };
+    window.addEventListener('keydown', focusGlobalSearch);
+    return () => window.removeEventListener('keydown', focusGlobalSearch);
+  }, []);
   const logout = useMutation({
     mutationFn: async () => ensureSuccess(await api.POST('/api/v1/auth/logout', { params: { header: csrfHeader() } })),
     onSuccess: async () => {
@@ -88,6 +102,7 @@ export function AppLayout() {
   const selectedKey = selected?.key ?? '/';
   const currentSection = location.pathname.startsWith('/content/') ? '内容审核' : selected?.label ?? '工作台';
   const isDashboard = location.pathname === '/';
+  const isConfiguration = location.pathname.startsWith('/configuration') || location.pathname === '/users' || location.pathname === '/audit';
   const toMenuItems = (items: NavigationItem[]): MenuProps['items'] => items.map((item) => ({
     key: item.key,
     icon: item.icon,
@@ -99,7 +114,7 @@ export function AppLayout() {
         to={item.key}
         onMouseEnter={() => void prefetchNavigation(item.key)}
         onFocus={() => void prefetchNavigation(item.key)}
-        onClick={() => setDrawerOpen(false)}
+        onClick={() => { setDrawerOpen(false); setGlobalSearch(''); }}
       >{item.label}</Link>
     ),
   }));
@@ -111,25 +126,43 @@ export function AppLayout() {
   const desktopSider = !!screens.lg;
 
   return (
-    <Layout className={`app-shell${isDashboard ? ' app-shell-dashboard' : ''}`}>
+    <Layout className={`app-shell${isDashboard ? ' app-shell-dashboard' : ''}${isConfiguration ? ' app-shell-configuration' : ''}`}>
       {desktopSider ? (
-        <Layout.Sider theme="light" width={isDashboard ? 192 : 248} collapsedWidth={76} collapsed={collapsed} className="app-sider">
-          <div className="brand-mark"><span>PS</span>{!collapsed && <strong>PartSignal</strong>}</div>
+        <Layout.Sider theme="light" width={isConfiguration ? 220 : isDashboard ? 192 : 248} collapsedWidth={76} collapsed={collapsed} className="app-sider">
+          <div className="brand-mark">{isConfiguration ? <span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span> : <span>PS</span>}{!collapsed && <strong>PartSignal</strong>}</div>
           {menu}
+          {isConfiguration && <Button type="text" className="configuration-sider-collapse" aria-label={collapsed ? '展开导航' : '收起导航'} icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => setCollapsed((value) => !value)}>{!collapsed && '收起'}</Button>}
         </Layout.Sider>
       ) : (
         <Drawer placement="left" open={drawerOpen} onClose={() => setDrawerOpen(false)} size={280} className="mobile-drawer">
-          <div className="brand-mark"><span>PS</span><strong>PartSignal</strong></div>{menu}
+          <div className="brand-mark">{isConfiguration ? <span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span> : <span>PS</span>}<strong>PartSignal</strong></div>{menu}
         </Drawer>
       )}
       <Layout>
         <Layout.Header className="app-header">
           <Space size="middle" className="header-context">
-            <Button type="text" aria-label="切换导航" icon={desktopSider ? (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />) : <MenuUnfoldOutlined />} onClick={() => desktopSider ? setCollapsed((value) => !value) : setDrawerOpen(true)} />
-            <div><Typography.Text className="header-kicker">PARTSIGNAL</Typography.Text><Typography.Text strong>{currentSection}</Typography.Text></div>
+            {(!desktopSider || !isConfiguration) && <Button type="text" aria-label="切换导航" icon={desktopSider ? (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />) : <MenuUnfoldOutlined />} onClick={() => desktopSider ? setCollapsed((value) => !value) : setDrawerOpen(true)} />}
+            <div>{isConfiguration ? <><Typography.Text strong>配置中心</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : <><Typography.Text className="header-kicker">PARTSIGNAL</Typography.Text><Typography.Text strong>{currentSection}</Typography.Text></>}</div>
           </Space>
+          <AutoComplete
+            className="global-navigation-search"
+            value={globalSearch}
+            onChange={setGlobalSearch}
+            onSelect={(path) => { navigate(path); setGlobalSearch(''); }}
+            options={searchableNavigation
+              .filter((item) => !globalSearch || item.label.toLocaleLowerCase().includes(globalSearch.toLocaleLowerCase()))
+              .map((item) => ({ value: item.key, label: <span><strong>{item.label}</strong><small>{item.parentKey === '/configuration' ? '配置中心' : '页面导航'}</small></span> }))}
+          >
+            <Input
+              aria-label="全局页面搜索"
+              prefix={<SearchOutlined />}
+              placeholder="搜索页面与功能…"
+              suffix={<kbd>⌘K</kbd>}
+              allowClear
+            />
+          </AutoComplete>
           <Space size="small" className="header-actions">
-            <ThemeModeControl compact={!screens.md} />
+            <ThemeModeControl compact={isConfiguration || !screens.md} />
             <Dropdown
               trigger={['click']}
               menu={{

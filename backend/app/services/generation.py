@@ -9,7 +9,7 @@ import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import ValidationError
 from sqlalchemy import func, select
@@ -34,13 +34,17 @@ from app.models.product_facts import (
 from app.schemas.content import GenerationSnapshot, HumanizationSnapshot, QualityIssue
 from app.schemas.geo_files import GeneratedDraft
 from app.schemas.product_facts import ProductFactsBody
-from app.services.ai_configuration import build_snapshot_request_headers, request_credentials
+from app.services.ai_configuration import (
+    build_snapshot_request_headers,
+    request_credentials,
+    require_supported_protocol,
+)
 from app.services.content_lineage import resolve_content_ai_lineage
 from app.services.openai_client import CompletionResult, OpenAICompatibleClient
 
 logger = logging.getLogger("partsignal.worker")
-GENERATION_CONTRACT_VERSION = "chat-json-v1"
-HUMANIZATION_CONTRACT_VERSION = "humanization-json-v1"
+GENERATION_CONTRACT_VERSION: Literal["chat-json-v1"] = "chat-json-v1"
+HUMANIZATION_CONTRACT_VERSION: Literal["humanization-json-v1"] = "humanization-json-v1"
 FIXED_SYSTEM_CONTRACT = """批准事实优先于工程师输入。不得使用输入之外的产品事实。
 只返回一个 JSON 对象，不得使用代码块或附加说明。JSON 必须且只能包含非空字段：
 title: 字符串；summary: 字符串；body_markdown: 完整 Markdown 正文；tags: 非空字符串数组。"""
@@ -196,9 +200,7 @@ class DevelopmentContentGenerator:
         body = "\n".join(sections)
         title = f"{product['part_number']} {task['content_angle']}"
         subject = (
-            query_topic["canonical_question"]
-            if query_topic is not None
-            else task["content_angle"]
+            query_topic["canonical_question"] if query_topic is not None else task["content_angle"]
         )
         tags = [product["part_number"]]
         if query_topic is not None:
@@ -457,12 +459,17 @@ def generate_for_job(
         return DevelopmentContentGenerator().generate(generation_input), None
     if snapshot.adapter_name != "openai-compatible-chat-completions":
         raise AppError("GENERATION_ADAPTER_INVALID", "生成作业适配器无效", 409)
+    if job.adapter_name != snapshot.adapter_name:
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "作业适配器与快照不一致", 409)
     channel = db.get(AIChannel, job.ai_channel_id) if job.ai_channel_id else None
     model = db.get(AIModel, job.ai_model_id) if job.ai_model_id else None
     if channel is None or model is None:
         raise AppError("AI_CONFIGURATION_DELETED", "作业关联的渠道或模型已删除", 409)
     if not channel.is_enabled or not model.is_enabled or model.test_status != "PASSED":
         raise AppError("AI_CONFIGURATION_DISABLED", "作业关联的渠道或模型当前不可用", 409)
+    require_supported_protocol(channel.protocol_type)
+    if channel.protocol_type != snapshot.adapter_name:
+        raise AppError("AI_CONFIGURATION_CHANGED", "作业快照协议与当前渠道不一致", 409)
     if str(channel.id) != snapshot.channel.get("id") or str(model.id) != snapshot.model.get("id"):
         raise AppError("GENERATION_SNAPSHOT_INVALID", "作业配置引用与快照不一致", 409)
     sensitive_header_names = list(snapshot.channel.get("sensitive_header_names", []))

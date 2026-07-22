@@ -233,8 +233,48 @@ class AIChannelHeaderUpdate(AIChannelHeaderCreate):
     pass
 
 
+class AIProtocolType(StrEnum):
+    """决定真实请求构造方式的受控协议。"""
+
+    OPENAI_COMPATIBLE_CHAT_COMPLETIONS = "openai-compatible-chat-completions"
+
+
+class AIProviderBrand(StrEnum):
+    """仅用于管理端展示和筛选的供应商品牌。"""
+
+    OPENAI = "OPENAI"
+    ANTHROPIC = "ANTHROPIC"
+    GOOGLE = "GOOGLE"
+    AZURE_OPENAI = "AZURE_OPENAI"
+    ZHIPU = "ZHIPU"
+    QWEN = "QWEN"
+    CUSTOM = "CUSTOM"
+
+
+class AIChannelStatus(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
+
+
+class AIChannelSort(StrEnum):
+    CREATED_DESC = "CREATED_DESC"
+    NAME_ASC = "NAME_ASC"
+    NAME_DESC = "NAME_DESC"
+    UPDATED_DESC = "UPDATED_DESC"
+    LAST_TESTED_DESC = "LAST_TESTED_DESC"
+
+
+class AIModelTestStatus(StrEnum):
+    UNTESTED = "UNTESTED"
+    PASSED = "PASSED"
+    FAILED = "FAILED"
+
+
 class AIChannelCreate(ContractModel):
-    name: str = Field(min_length=1)
+    name: str = Field(min_length=1, max_length=160)
+    description: str = Field(max_length=500)
+    protocol_type: AIProtocolType
+    provider_brand: AIProviderBrand
     base_url: HttpUrl
     api_key: str = Field(min_length=1)
     timeout_seconds: int = Field(ge=10, le=600)
@@ -242,7 +282,10 @@ class AIChannelCreate(ContractModel):
 
 class AIChannelUpdate(ContractModel):
     expected_revision: int = Field(ge=0)
-    name: str = Field(min_length=1)
+    name: str = Field(min_length=1, max_length=160)
+    description: str = Field(max_length=500)
+    protocol_type: AIProtocolType
+    provider_brand: AIProviderBrand
     base_url: HttpUrl
     timeout_seconds: int = Field(ge=10, le=600)
 
@@ -260,6 +303,9 @@ class AIChannelModelSummary(ContractModel):
 class AIChannelOut(ContractModel):
     id: uuid.UUID
     name: str
+    description: str
+    protocol_type: AIProtocolType
+    provider_brand: AIProviderBrand
     base_url: HttpUrl
     timeout_seconds: int
     is_enabled: bool
@@ -267,14 +313,69 @@ class AIChannelOut(ContractModel):
     api_key_updated_at: datetime
     headers: list[AIChannelHeaderOut]
     enabled_models: list[AIChannelModelSummary]
+    latest_test_status: AIModelTestStatus
+    last_tested_at: datetime | None
     revision: int
     created_by: uuid.UUID
     created_at: datetime
     updated_at: datetime
 
 
+class AIChannelSummary(ContractModel):
+    """渠道表格专用投影，不携带 Header 值或模型数组。"""
+
+    id: uuid.UUID
+    name: str
+    description: str
+    protocol_type: AIProtocolType
+    provider_brand: AIProviderBrand
+    base_url: HttpUrl
+    is_enabled: bool
+    api_key_configured: bool
+    header_count: int = Field(ge=0)
+    enabled_model_count: int = Field(ge=0)
+    latest_test_status: AIModelTestStatus
+    last_tested_at: datetime | None
+    revision: int = Field(ge=0)
+
+
+class AIChannelCounts(ContractModel):
+    all: int = Field(ge=0)
+    enabled: int = Field(ge=0)
+    disabled: int = Field(ge=0)
+
+
 class AIChannelList(ContractModel):
-    items: list[AIChannelOut]
+    items: list[AIChannelSummary]
+    page: int = Field(ge=1)
+    page_size: Literal[10, 20, 50]
+    total: int = Field(ge=0)
+    counts: AIChannelCounts
+
+
+class AIUsagePeriod(StrEnum):
+    SEVEN_DAYS = "7d"
+    THIRTY_DAYS = "30d"
+    NINETY_DAYS = "90d"
+    ALL = "all"
+
+
+class AIChannelUsageSummary(ContractModel):
+    """从正式业务作业实时聚合的渠道使用统计。"""
+
+    channel_id: uuid.UUID
+    period: AIUsagePeriod
+    period_started_at: datetime | None
+    period_ended_at: datetime
+    total_jobs: int = Field(ge=0)
+    succeeded_jobs: int = Field(ge=0)
+    failed_jobs: int = Field(ge=0)
+    success_rate: float | None = Field(ge=0, le=1)
+    average_response_duration_ms: float | None = Field(ge=0)
+    prompt_tokens: int | None = Field(ge=0)
+    completion_tokens: int | None = Field(ge=0)
+    total_tokens: int | None = Field(ge=0)
+    last_used_at: datetime | None
 
 
 RESERVED_MODEL_PARAMETERS = {"model", "messages", "stream"}
@@ -304,12 +405,6 @@ class AIModelCreate(ContractModel):
 
 class AIModelUpdate(AIModelCreate):
     expected_revision: int = Field(ge=0)
-
-
-class AIModelTestStatus(StrEnum):
-    UNTESTED = "UNTESTED"
-    PASSED = "PASSED"
-    FAILED = "FAILED"
 
 
 class AIModelOut(AIModelCreate):

@@ -1,0 +1,12 @@
+{"file": ".trellis/tasks/07-22-ai-channel-model-management/research/current-state.md", "reason": "复核最终实现是否覆盖已确认缺口且未形成第二套配置来源"}
+{"file": ".trellis/spec/backend/ai-configuration-guidelines.md", "reason": "检查协议选择、AT_MOST_ONCE、真实连接测试、凭据和启停不变量"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "检查迁移、约束、分页聚合、审计关联和删除历史语义"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "检查未知能力、越权、并发和外部失败是否明确且可诊断"}
+{"file": ".trellis/spec/backend/logging-guidelines.md", "reason": "检查日志、错误和审计是否泄露密钥、Header 或供应商正文"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "执行并复核后端测试、类型、lint 与契约门禁"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "检查高保真布局、复用、交互反馈、键盘和弹窗可访问性"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "检查 URL、路由选择、服务端分页和 Query 失效不存在双状态"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "检查生成类型、枚举穷尽和 API 调用不存在手写兼容类型"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "执行并复核组件测试、typecheck、lint、build 与 Playwright 结果"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "检查字段从数据库到页面及权限审计的完整数据流"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "检查是否复用现有组件与服务并移除过时双实现"}

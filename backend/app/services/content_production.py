@@ -39,10 +39,13 @@ from app.schemas.content import (
     ContentRevisionCreate,
     GenerationJobCreate,
     GenerationSnapshot,
+    HumanizationPromptSnapshot,
     HumanizationSnapshot,
+    HumanizationSourceContent,
 )
 from app.schemas.geo_files import GeneratedDraft
-from app.schemas.product_facts import ProductFactsBody
+from app.schemas.product_facts import Confidentiality, ProductFactsBody
+from app.services.ai_configuration import require_supported_protocol
 from app.services.content_lineage import resolve_content_ai_lineage
 from app.services.generation import (
     FIXED_SYSTEM_CONTRACT,
@@ -75,6 +78,9 @@ def _channel_snapshot(channel: AIChannel) -> dict[str, Any]:
     return {
         "id": str(channel.id),
         "name": channel.name,
+        "description": channel.description,
+        "protocol_type": channel.protocol_type,
+        "provider_brand": channel.provider_brand,
         "base_url": channel.base_url,
         "timeout_seconds": channel.timeout_seconds,
         "plain_headers": {
@@ -135,9 +141,10 @@ def build_generation_input(db: Session, task: ContentTask, model: AIModel) -> di
     adapter_name = (
         DevelopmentContentGenerator.name
         if settings.content_generator == "deterministic"
-        else "openai-compatible-chat-completions"
+        else channel.protocol_type
     )
-    if adapter_name == "openai-compatible-chat-completions":
+    if adapter_name != DevelopmentContentGenerator.name:
+        require_supported_protocol(adapter_name)
         ensure_generation_sources_public(task, facts)
     approved_facts = {
         "fact_version_id": str(fact.id),
@@ -204,7 +211,11 @@ def build_generation_input(db: Session, task: ContentTask, model: AIModel) -> di
         },
         system_message=system_message,
         user_prompt_markdown=task.user_prompt_markdown,
-        generation_data_classification=task.generation_data_classification,
+        generation_data_classification=(
+            Confidentiality(task.generation_data_classification)
+            if task.generation_data_classification is not None
+            else None
+        ),
         generation_data_classified_by=task.generation_data_classified_by,
         generation_data_classified_at=task.generation_data_classified_at,
         approved_facts=approved_facts,
@@ -249,24 +260,37 @@ def build_humanization_input(
     if prompt is None:
         raise AppError("HUMANIZATION_PROMPT_MISSING", "管理员尚未配置自然化 Prompt", 409)
     channel = _enabled_channel(db, model)
-    source_payload = {
-        "id": str(source.id),
-        "task_id": str(source.task_id),
-        "fact_version_id": str(source.fact_version_id),
-        "version": source.version,
-        "content_hash": source.content_hash,
-        "title": source.title,
-        "summary": source.summary,
-        "body_markdown": source.body_markdown,
-        "tags": source.tags,
-    }
+    adapter_name = require_supported_protocol(channel.protocol_type)
+    if (
+        original.generation_data_classification != Confidentiality.PUBLIC
+        or original.generation_data_classified_by is None
+        or original.generation_data_classified_at is None
+    ):
+        raise AppError(
+            "AI_DATA_CLASSIFICATION_FORBIDDEN",
+            "自然化只允许处理已明确分级为 PUBLIC 的原始生成输入",
+            409,
+        )
+    source_payload = HumanizationSourceContent(
+        id=source.id,
+        task_id=source.task_id,
+        fact_version_id=source.fact_version_id,
+        version=source.version,
+        content_hash=source.content_hash,
+        title=source.title,
+        summary=source.summary,
+        body_markdown=source.body_markdown,
+        tags=source.tags,
+    )
     system_message = "\n\n".join(
         (FIXED_SYSTEM_CONTRACT, HUMANIZATION_FIXED_CONTRACT, prompt.template_markdown)
     )
     user_message = "\n\n".join(
         [
             "## 待自然化源文章（只读）\n"
-            + json.dumps(source_payload, ensure_ascii=False, sort_keys=True),
+            + json.dumps(
+                source_payload.model_dump(mode="json"), ensure_ascii=False, sort_keys=True
+            ),
             "## 已批准事实（只读）\n"
             + json.dumps(original.approved_facts, ensure_ascii=False, sort_keys=True),
             "## 任务要求（只读）\n"
@@ -274,14 +298,14 @@ def build_humanization_input(
         ]
     )
     snapshot = HumanizationSnapshot(
-        adapter_name="openai-compatible-chat-completions",
+        adapter_name=adapter_name,
         contract_version=HUMANIZATION_CONTRACT_VERSION,
         channel=_channel_snapshot(channel),
         model=_model_snapshot(model),
-        humanization_prompt={
-            "revision": prompt.revision,
-            "template_markdown": prompt.template_markdown,
-        },
+        humanization_prompt=HumanizationPromptSnapshot(
+            revision=prompt.revision,
+            template_markdown=prompt.template_markdown,
+        ),
         source_content=source_payload,
         source_generation_job_id=lineage.generation_job.id,
         user_prompt_markdown=original.user_prompt_markdown,
@@ -336,6 +360,8 @@ def _create_job(
             raise AppError("AI_CONFIGURATION_DELETED", "原作业渠道或模型已删除", 409)
         _enabled_channel(db, retry_model)
         generation_input = retry_of.input_snapshot
+        if retry_of.adapter_name != channel.protocol_type:
+            raise AppError("AI_CONFIGURATION_CHANGED", "原作业协议与当前渠道不一致", 409)
         if retry_of.job_type == "GENERATE":
             ensure_third_party_egress_allowed(generation_input)
         else:

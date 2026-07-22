@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import uuid
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Query, Request, status
+from pydantic import BeforeValidator, HttpUrl
 from sqlalchemy import select
 
-from app.config import settings
 from app.deps import AdminUser, CsrfProtected, DbSession
 from app.errors import not_found
 from app.models.ai_generation import (
@@ -19,7 +20,7 @@ from app.models.configuration import (
     PlatformPrompt,
     PlatformType,
 )
-from app.schemas.common import RevisionRequest
+from app.schemas.common import AuditLogList, RevisionRequest
 from app.schemas.configuration import (
     AIChannelApiKeyReplace,
     AIChannelCreate,
@@ -29,11 +30,18 @@ from app.schemas.configuration import (
     AIChannelList,
     AIChannelModelSummary,
     AIChannelOut,
+    AIChannelSort,
+    AIChannelStatus,
     AIChannelUpdate,
+    AIChannelUsageSummary,
     AIModelCreate,
     AIModelList,
     AIModelOut,
+    AIModelTestStatus,
     AIModelUpdate,
+    AIProtocolType,
+    AIProviderBrand,
+    AIUsagePeriod,
     ContentHumanizationPromptOut,
     ContentHumanizationPromptPut,
     DiscoveredModel,
@@ -58,10 +66,17 @@ from app.services.ai_configuration import (
 )
 from app.services.ai_configuration import delete_ai_model as delete_ai_model_command
 from app.services.ai_configuration import (
-    replace_ai_channel_api_key as replace_ai_channel_api_key_command,
+    discover_ai_channel_models as discover_ai_channel_models_command,
 )
 from app.services.ai_configuration import (
-    request_credentials,
+    get_ai_channel_usage_summary as get_ai_channel_usage_summary_query,
+)
+from app.services.ai_configuration import (
+    list_ai_channel_audit_logs as list_ai_channel_audit_logs_query,
+)
+from app.services.ai_configuration import list_ai_channels as list_ai_channels_query
+from app.services.ai_configuration import (
+    replace_ai_channel_api_key as replace_ai_channel_api_key_command,
 )
 from app.services.ai_configuration import (
     set_channel_enabled as set_channel_enabled_command,
@@ -81,7 +96,6 @@ from app.services.ai_configuration import (
 from app.services.ai_configuration import (
     update_ai_model as update_ai_model_command,
 )
-from app.services.openai_client import OpenAICompatibleClient
 from app.services.platform_configuration import (
     create_platform_type as create_platform_type_command,
 )
@@ -116,10 +130,18 @@ router = APIRouter(prefix="/api/v1", tags=["configuration"])
 
 def channel_out(channel: AIChannel) -> AIChannelOut:
     """投影渠道，敏感 Header 只返回配置状态。"""
+    latest_tested_model = max(
+        (model for model in channel.models if model.last_tested_at is not None),
+        key=lambda model: (model.last_tested_at, model.id),
+        default=None,
+    )
     return AIChannelOut(
         id=channel.id,
         name=channel.name,
-        base_url=channel.base_url,
+        description=channel.description,
+        protocol_type=AIProtocolType(channel.protocol_type),
+        provider_brand=AIProviderBrand(channel.provider_brand),
+        base_url=HttpUrl(channel.base_url),
         timeout_seconds=channel.timeout_seconds,
         is_enabled=channel.is_enabled,
         api_key_configured=bool(channel.api_key_ciphertext),
@@ -139,6 +161,10 @@ def channel_out(channel: AIChannel) -> AIChannelOut:
             for model in sorted(channel.models, key=lambda value: value.display_name)
             if model.is_enabled
         ],
+        latest_test_status=AIModelTestStatus(
+            latest_tested_model.test_status if latest_tested_model else "UNTESTED"
+        ),
+        last_tested_at=(latest_tested_model.last_tested_at if latest_tested_model else None),
         revision=channel.revision,
         created_by=channel.created_by,
         created_at=channel.created_at,
@@ -391,9 +417,25 @@ def delete_platform_profile_version(
 
 
 @router.get("/ai-channels", response_model=AIChannelList, operation_id="listAIChannels")
-def list_ai_channels(db: DbSession, _admin: AdminUser) -> AIChannelList:
-    channels = list(db.scalars(select(AIChannel).order_by(AIChannel.created_at)))
-    return AIChannelList(items=[channel_out(item) for item in channels])
+def list_ai_channels(
+    db: DbSession,
+    _admin: AdminUser,
+    q: str | None = Query(None, max_length=200),
+    channel_status: Annotated[AIChannelStatus | None, Query(alias="status")] = None,
+    provider_brand: AIProviderBrand | None = None,
+    sort: AIChannelSort = AIChannelSort.CREATED_DESC,
+    page: int = Query(1, ge=1),
+    page_size: Annotated[Literal[10, 20, 50], BeforeValidator(int), Query()] = 20,
+) -> AIChannelList:
+    return list_ai_channels_query(
+        db=db,
+        q=q,
+        channel_status=channel_status,
+        provider_brand=provider_brand,
+        sort=sort,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.post(
@@ -421,6 +463,37 @@ def get_ai_channel(channel_id: uuid.UUID, db: DbSession, _admin: AdminUser) -> A
     if channel is None:
         raise not_found("AI 渠道")
     return channel_out(channel)
+
+
+@router.get(
+    "/ai-channels/{channel_id}/usage-summary",
+    response_model=AIChannelUsageSummary,
+    operation_id="getAIChannelUsageSummary",
+)
+def get_ai_channel_usage_summary(
+    channel_id: uuid.UUID,
+    db: DbSession,
+    _admin: AdminUser,
+    period: AIUsagePeriod = AIUsagePeriod.THIRTY_DAYS,
+) -> AIChannelUsageSummary:
+    return get_ai_channel_usage_summary_query(db=db, channel_id=channel_id, period=period)
+
+
+@router.get(
+    "/ai-channels/{channel_id}/audit-logs",
+    response_model=AuditLogList,
+    operation_id="listAIChannelAuditLogs",
+)
+def list_ai_channel_audit_logs(
+    channel_id: uuid.UUID,
+    db: DbSession,
+    _admin: AdminUser,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+) -> AuditLogList:
+    return list_ai_channel_audit_logs_query(
+        db=db, channel_id=channel_id, page=page, page_size=page_size
+    )
 
 
 @router.patch(
@@ -541,19 +614,17 @@ def delete_ai_channel(
     operation_id="discoverAIChannelModels",
 )
 def discover_ai_channel_models(
-    channel_id: uuid.UUID, db: DbSession, _admin: AdminUser, _csrf: CsrfProtected
+    channel_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
 ) -> DiscoveredModelList:
-    channel = db.get(AIChannel, channel_id)
-    if channel is None:
-        raise not_found("AI 渠道")
-    api_key, headers = request_credentials(db, channel)
-    model_ids = OpenAICompatibleClient(
-        allow_local_http=settings.ai_allow_local_http
-    ).discover_models(
-        base_url=channel.base_url,
-        api_key=api_key,
-        headers=headers,
-        timeout_seconds=channel.timeout_seconds,
+    model_ids = discover_ai_channel_models_command(
+        db=db,
+        channel_id=channel_id,
+        actor=admin,
+        request_id=request.state.request_id,
     )
     return DiscoveredModelList(items=[DiscoveredModel(model_id=item) for item in model_ids])
 
@@ -681,9 +752,20 @@ def update_ai_model(
 
 @router.post("/ai-models/{model_id}/test", response_model=AIModelOut, operation_id="testAIModel")
 def test_ai_model(
-    model_id: uuid.UUID, db: DbSession, _admin: AdminUser, _csrf: CsrfProtected
+    model_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
 ) -> AIModelOut:
-    return model_out(test_ai_model_command(db, model_id))
+    return model_out(
+        test_ai_model_command(
+            db=db,
+            model_id=model_id,
+            actor=admin,
+            request_id=request.state.request_id,
+        )
+    )
 
 
 def set_model_enabled(

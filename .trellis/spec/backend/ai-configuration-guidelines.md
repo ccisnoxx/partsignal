@@ -5,6 +5,7 @@
 ### 1. 范围与触发条件
 
 - 当代码修改 AI 渠道、Header、模型、生成快照、外部模型调用或相关环境变量时，必须遵守本规范。
+- 当代码修改渠道集合搜索、分页、最近测试、使用统计或渠道操作日志时，也必须遵守本规范；这些读取投影不能成为第二套配置、统计或审计数据源。
 - PostgreSQL 保存当前配置和不可变作业快照；Redis 只传递 `GenerationJob.id`。
 - `contracts/openapi.yaml` 与 `contracts/database.md` 是跨层契约源，运行时 Schema 和前端类型必须从它们保持一致。
 
@@ -15,6 +16,8 @@
 - 重试作业：`POST /api/v1/generation-jobs/{generation_job_id}/retry`，复制原 `input_snapshot`。
 - 核心表：`ai_channels`、`ai_channel_headers`、`ai_models`、`generation_jobs`。
 - `generation_jobs.ai_channel_id` 和 `ai_model_id` 删除时 `SET NULL`；历史含义由 `input_snapshot` 保留。
+- 管理读取：`GET /api/v1/ai-channels?q=&status=&provider_brand=&sort=&page=&page_size=`、`GET /api/v1/ai-channels/{channel_id}/usage-summary?period=7d|30d|90d|all`、`GET /api/v1/ai-channels/{channel_id}/audit-logs?page=&page_size=`。
+- 渠道命令：创建/更新、`PUT .../api-key`、Header/模型命令、`POST .../discover-models`、具体模型 `POST .../test|enable|disable`、渠道 `POST .../enable|disable` 和删除；读取与写入均要求 `ADMIN`，写入还要求 CSRF。
 
 ### 3. 契约
 
@@ -22,6 +25,10 @@
 - 生产环境必须使用 `CONTENT_GENERATOR=openai-compatible` 和 `AI_ALLOW_LOCAL_HTTP=false`。
 - `AI_ALLOW_LOCAL_HTTP=true` 只允许 `development`/`test` 的回环 HTTP 地址；公网仍使用 HTTPS，私网、链路本地和混合解析结果均拒绝。
 - API Key 和敏感 Header 使用 AES-256-GCM 密文保存，关联数据绑定记录 ID；响应、日志、审计和作业快照不得包含明文。
+- `AIChannel.protocol_type` 决定真实调用协议，`provider_brand` 只决定管理端身份、筛选和本地图标。当前协议只有 `openai-compatible-chat-completions`；品牌目录为 `OPENAI | ANTHROPIC | GOOGLE | AZURE_OPENAI | ZHIPU | QWEN | CUSTOM`。未知值或未登记组合必须拒绝，品牌不得改写地址或选择另一个客户端。
+- 渠道集合只返回 `AIChannelSummary`，包含身份、状态、根地址、API Key 配置状态、Header 数、启用模型数、最近测试和修订号；不得返回 Header 值、模型数组或任何密钥片段。`counts` 应用 `q` 和 `provider_brand`，但不应用 `status`。
+- 使用统计只聚合该渠道正式 `GENERATE`/`HUMANIZE` 作业，默认最近 30 天；连接测试和模型发现只进入测试状态与审计。业务作业数为时间窗内全部正式作业，成功/失败只计对应终态；成功率分母为成功加失败，平均耗时只聚合非空耗时，Token 只求和已报告值，完全未报告时返回 `null` 而非 `0`。
+- 渠道操作日志继续读取 `audit_logs`。模型 CRUD、启停、测试和发现事件通过脱敏 `channel_id` 建立渠道投影；不得复制日志表，也不得为历史缺失关联的已删除模型猜测渠道。
 - 作业快照冻结普通 Header、敏感 Header 名称、模型参数、system/user message、批准事实和任务要求；执行或重试时只读取快照所列敏感 Header 的当前值。后来新增的敏感 Header 不得进入旧作业，快照所列 Header 已删除或改为普通 Header 时必须失败。
 - Chat Completions 正文必须直接解析为仅含 `title`、`summary`、`body_markdown`、`tags` 的非空 JSON 对象，不做提取、修复或补值。
 - 模型“测试连接”与正式生成必须使用不同解析边界：测试请求只发送一条内容为 `hi` 的用户消息，并仅验证标准 `choices[0].message.content` 字符串；不得用业务草稿四字段 Schema 判断连接是否可用。
@@ -30,6 +37,7 @@
 - `RUNNING` 租约必须按冻结快照的 `timeout_seconds + GENERATION_FINALIZE_GRACE_SECONDS` 计算；租约过期形成 `FAILED/WORKER_LOST`，不得自动再次调用供应商。
 - 每次真实请求只解析一次完整 A/AAAA 集合并整体校验，只连接该集合中的 `sockaddr`；实际 TCP peer 必须在发送 Authorization 或敏感 Header 前属于批准集合。HTTPS 始终用原 hostname 完成 SNI、证书身份和 Host。
 - 同一次请求开始发送 HTTP 字节后不得切换地址或自动重试；响应正文必须受固定大小上限保护。不得恢复“先校验 URL、再由通用客户端按 hostname 二次解析”的 TOCTOU 路径。
+- 渠道和生成页面统一展示 `AT_MOST_ONCE + 显式手动重试`。发送前可在同次已批准地址集合内建立连接；开始发送后不自动重放。用户重试必须创建带 `retry_of_id` 的新作业并复制原快照，不能增加“重试次数”渠道字段。
 - Prompt 保存必须同时记录整份生成输入的分级、分类人和时间。只有任务分级与绑定事实快照的全部 Evidence 均为 `PUBLIC` 时才能调用第三方模型；历史空分级、`INTERNAL` 或 `RESTRICTED` 一律拒绝。
 - 当前平台 Prompt 的唯一所有者是 `PlatformProfile`：`GET/PUT/DELETE /api/v1/platform-profiles/{platform_profile_id}/prompt`。不得恢复类型级 Prompt API、双读、默认 Prompt 或兼容回退。
 - 文章自然化只使用 `content_humanization_prompts.id=1` 的全局当前 Prompt。迁移不得种子默认值；管理员通过 `GET/PUT /api/v1/content-humanization-prompt` 首次创建或按 revision 更新，不提供删除、平台副本、用户临时 Prompt 或代码回退。
@@ -50,6 +58,8 @@
 - 保留 Header、非法 token 或控制字符 -> `INVALID_HEADER`。
 - 密钥、密文格式或关联数据错误 -> `CREDENTIAL_DECRYPTION_FAILED`。
 - `model`、`messages`、`stream` 出现在自定义参数 -> 请求校验失败。
+- 未知 `protocol_type`、未知 `provider_brand` 或未登记品牌—协议组合 -> 请求校验失败；不得按名称、URL 或品牌猜测协议。
+- 非法列表页码、`page_size` 不属于 `10|20|50`、未知排序或统计周期 -> 请求校验失败；不得静默改成默认值。
 - 渠道或模型未启用、模型未测试 -> `AI_CONFIGURATION_DISABLED` 或 `AI_MODEL_NOT_TESTED`。
 - 配置行已物理删除 -> `AI_CONFIGURATION_DELETED`，不得用快照中的非敏感信息猜测调用。
 - 快照所列敏感 Header 已删除或改为普通 Header -> `AI_CONFIGURATION_DELETED`，不得省略该 Header 或改用后来新增的 Header。
@@ -60,6 +70,9 @@
 - 正常：管理员保存公网 HTTPS 渠道，模型严格测试通过并启用；作业冻结快照后只调用一次供应商并创建一个 `DRAFT ContentVersion`。
 - 连接测试：管理员对具体模型发起测试，系统携带当前凭据、Header、模型 ID 和自定义参数发送 `hi`；普通文本响应可以通过，且不会进入内容版本。
 - 基础：供应商不返回 token 用量时，对应字段保存 `NULL`，不得补 `0`。
+- 管理：按描述搜索并筛选 `OPENAI` 时，列表 `total` 与 `counts` 来自同一服务端查询；切换状态只改变 `items/total`，分类数量仍保留同一搜索和品牌条件下的全部/启用/停用计数。
+- 管理：零业务作业时返回 `total_jobs=0`、成功/失败数为零，`success_rate`、平均耗时、Token 和最近使用均为 `null`；模型测试成功不改变这些统计。
+- 管理：复制配置只允许名称、描述、协议、品牌、根地址、超时、普通 Header 值、敏感 Header 名称/已配置状态和模型非敏感配置；不得复制 API Key 或敏感 Header 值。
 - 开发：显式开启本机 HTTP 后可连接 `127.0.0.1`/`::1` 测试服务，但不能连接 `10.0.0.0/8` 或公网 HTTP。
 - 错误：模型响应包含代码块、附加字段或正文外说明时，整个调用失败，不创建内容版本。
 - 错误：作业租约已被恢复器标记失败后，迟到响应不得覆盖终态或创建内容版本。
@@ -81,6 +94,9 @@
 - 快照 Header 断言：只发送快照锁定的普通 Header 和敏感 Header 名称；敏感值取当前配置，新增名称被忽略，缺失名称返回 `AI_CONFIGURATION_DELETED`。
 - 固定地址断言：混合公网/私网解析整体拒绝；连接只能使用首次解析集合；peer 越界时零 HTTP 字节；真实本地 CA/HTTPS 替身验证 SNI、证书 hostname 和 Host。
 - 分类断言：迁移后历史任务保持 `NULL`；第三方创建、重试和 Worker 执行都拒绝缺失或非 PUBLIC 分级以及任一非 PUBLIC Evidence。
+- 渠道管理断言：迁移把旧渠道协议回填为当前协议、品牌回填 `CUSTOM` 而不猜测，运行时无数据库默认；列表搜索/筛选/稳定排序/分页/分类数量、最近测试、统计可空口径和审计归属均由 PostgreSQL 集成测试覆盖。
+- 安全断言：普通用户读取返回 403，写请求缺少 CSRF 被拒绝；创建、换 Key、敏感 Header 表单关闭后 React Query mutation state 不保留明文，读取/审计/复制/浏览器存储均无明文。
+- 端到端断言：真实本机 HTTP 协议替身覆盖模型发现、成功与失败测试，确认测试后模型保持停用并需手动启用；替身不得用前端路由或固定成功响应代替服务端调用。
 
 ### 7. 错误与正确写法
 
@@ -114,4 +130,12 @@ headers = build_snapshot_request_headers(
     snapshot.channel["sensitive_header_names"],
     sensitive_headers,
 )
+```
+
+```python
+# 错误：根据供应商品牌隐式选择协议或为列表补兼容默认值。
+protocol = "anthropic-native" if channel.provider_brand == "ANTHROPIC" else "openai-compatible-chat-completions"
+
+# 正确：协议字段是唯一调用依据，品牌只参与已登记组合校验和管理投影。
+protocol = require_supported_protocol(channel.protocol_type)
 ```

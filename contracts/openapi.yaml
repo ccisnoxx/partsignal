@@ -696,12 +696,21 @@ paths:
     get:
       tags: [configuration]
       operationId: listAIChannels
+      parameters:
+        - {name: q, in: query, schema: {type: string, maxLength: 200}}
+        - {name: status, in: query, schema: {$ref: '#/components/schemas/AIChannelStatus'}}
+        - {name: provider_brand, in: query, schema: {$ref: '#/components/schemas/AIProviderBrand'}}
+        - {name: sort, in: query, schema: {$ref: '#/components/schemas/AIChannelSort'}}
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - {name: page_size, in: query, schema: {type: integer, enum: [10, 20, 50], default: 20}}
       responses:
         '200':
-          description: AI 渠道列表
+          description: 服务端筛选、排序和分页后的 AI 渠道摘要列表
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannelList'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [configuration]
       operationId: createAIChannel
@@ -717,6 +726,8 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}:
     get:
       tags: [configuration]
@@ -728,6 +739,9 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
     patch:
       tags: [configuration]
       operationId: updateAIChannel
@@ -745,6 +759,9 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
@@ -754,6 +771,47 @@ paths:
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已物理删除渠道、Header 和模型}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/ai-channels/{channel_id}/usage-summary:
+    get:
+      tags: [configuration]
+      operationId: getAIChannelUsageSummary
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelId'}
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [7d, 30d, 90d, all]
+            default: 30d
+      responses:
+        '200':
+          description: 正式生成与自然化作业的渠道时间窗统计
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AIChannelUsageSummary'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/ai-channels/{channel_id}/audit-logs:
+    get:
+      tags: [configuration]
+      operationId: listAIChannelAuditLogs
+      parameters:
+        - {$ref: '#/components/parameters/AIChannelId'}
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/PageSize'}
+      responses:
+        '200':
+          description: 渠道、Header 与关联模型的脱敏审计记录
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/AuditLogList'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/api-key:
     put:
       tags: [configuration]
@@ -772,6 +830,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/enable:
     post:
       tags: [configuration]
@@ -786,6 +848,9 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/disable:
     post:
@@ -801,6 +866,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/discover-models:
     post:
       tags: [configuration]
@@ -814,6 +883,9 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/DiscoveredModelList'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '502': {$ref: '#/components/responses/ErrorResponse'}
         '504': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/headers:
@@ -834,6 +906,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channel-headers/{header_id}:
     patch:
       tags: [configuration]
@@ -852,6 +928,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deleteAIChannelHeader
@@ -860,6 +940,9 @@ paths:
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已删除 Header 并重置测试状态}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/models:
     get:
       tags: [configuration]
@@ -871,6 +954,9 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModelList'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [configuration]
       operationId: createAIModel
@@ -888,6 +974,9 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-models/{model_id}:
     patch:
       tags: [configuration]
@@ -906,6 +995,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deleteAIModel
@@ -914,6 +1007,9 @@ paths:
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已物理删除模型}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-models/{model_id}/test:
     post:
       tags: [configuration]
@@ -927,6 +1023,12 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '502': {$ref: '#/components/responses/ErrorResponse'}
+        '504': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-models/{model_id}/enable:
     post:
       tags: [configuration]
@@ -941,6 +1043,9 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-models/{model_id}/disable:
     post:
@@ -956,6 +1061,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIModel'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks:
     get:
       tags: [planning]
@@ -2231,19 +2340,25 @@ components:
     AIChannelCreate:
       type: object
       additionalProperties: false
-      required: [name, base_url, api_key, timeout_seconds]
+      required: [name, description, protocol_type, provider_brand, base_url, api_key, timeout_seconds]
       properties:
-        name: {type: string, minLength: 1}
+        name: {type: string, minLength: 1, maxLength: 160}
+        description: {type: string, maxLength: 500}
+        protocol_type: {$ref: '#/components/schemas/AIProtocolType'}
+        provider_brand: {$ref: '#/components/schemas/AIProviderBrand'}
         base_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
         api_key: {type: string, minLength: 1}
         timeout_seconds: {type: integer, minimum: 10, maximum: 600}
     AIChannelUpdate:
       type: object
       additionalProperties: false
-      required: [expected_revision, name, base_url, timeout_seconds]
+      required: [expected_revision, name, description, protocol_type, provider_brand, base_url, timeout_seconds]
       properties:
         expected_revision: {type: integer, minimum: 0}
-        name: {type: string, minLength: 1}
+        name: {type: string, minLength: 1, maxLength: 160}
+        description: {type: string, maxLength: 500}
+        protocol_type: {$ref: '#/components/schemas/AIProtocolType'}
+        provider_brand: {$ref: '#/components/schemas/AIProviderBrand'}
         base_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
         timeout_seconds: {type: integer, minimum: 10, maximum: 600}
     AIChannelApiKeyReplace:
@@ -2256,10 +2371,13 @@ components:
     AIChannel:
       type: object
       additionalProperties: false
-      required: [id, name, base_url, timeout_seconds, is_enabled, api_key_configured, api_key_updated_at, headers, enabled_models, revision, created_by, created_at, updated_at]
+      required: [id, name, description, protocol_type, provider_brand, base_url, timeout_seconds, is_enabled, api_key_configured, api_key_updated_at, headers, enabled_models, latest_test_status, last_tested_at, revision, created_by, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
+        description: {type: string}
+        protocol_type: {$ref: '#/components/schemas/AIProtocolType'}
+        provider_brand: {$ref: '#/components/schemas/AIProviderBrand'}
         base_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
         timeout_seconds: {type: integer}
         is_enabled: {type: boolean}
@@ -2267,16 +2385,82 @@ components:
         api_key_updated_at: {type: string, format: date-time}
         headers: {type: array, items: {$ref: '#/components/schemas/AIChannelHeader'}}
         enabled_models: {type: array, items: {$ref: '#/components/schemas/AIChannelModelSummary'}}
+        latest_test_status: {$ref: '#/components/schemas/AIModelTestStatus'}
+        last_tested_at: {type: [string, 'null'], format: date-time}
         revision: {type: integer}
         created_by: {type: string, format: uuid}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
+    AIProtocolType:
+      type: string
+      enum: [openai-compatible-chat-completions]
+    AIProviderBrand:
+      type: string
+      enum: [OPENAI, ANTHROPIC, GOOGLE, AZURE_OPENAI, ZHIPU, QWEN, CUSTOM]
+    AIChannelStatus:
+      type: string
+      enum: [ENABLED, DISABLED]
+    AIChannelSort:
+      type: string
+      enum: [CREATED_DESC, NAME_ASC, NAME_DESC, UPDATED_DESC, LAST_TESTED_DESC]
+      default: CREATED_DESC
+    AIChannelSummary:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, protocol_type, provider_brand, base_url, is_enabled, api_key_configured, header_count, enabled_model_count, latest_test_status, last_tested_at, revision]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        description: {type: string}
+        protocol_type: {$ref: '#/components/schemas/AIProtocolType'}
+        provider_brand: {$ref: '#/components/schemas/AIProviderBrand'}
+        base_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+        is_enabled: {type: boolean}
+        api_key_configured: {type: boolean}
+        header_count: {type: integer, minimum: 0}
+        enabled_model_count: {type: integer, minimum: 0}
+        latest_test_status: {$ref: '#/components/schemas/AIModelTestStatus'}
+        last_tested_at: {type: [string, 'null'], format: date-time}
+        revision: {type: integer, minimum: 0}
+    AIChannelCounts:
+      type: object
+      additionalProperties: false
+      required: [all, enabled, disabled]
+      properties:
+        all: {type: integer, minimum: 0}
+        enabled: {type: integer, minimum: 0}
+        disabled: {type: integer, minimum: 0}
     AIChannelList:
       type: object
       additionalProperties: false
-      required: [items]
+      required: [items, page, page_size, total, counts]
       properties:
-        items: {type: array, items: {$ref: '#/components/schemas/AIChannel'}}
+        items: {type: array, items: {$ref: '#/components/schemas/AIChannelSummary'}}
+        page: {type: integer, minimum: 1}
+        page_size: {type: integer, enum: [10, 20, 50]}
+        total: {type: integer, minimum: 0}
+        counts: {$ref: '#/components/schemas/AIChannelCounts'}
+    AIUsagePeriod:
+      type: string
+      enum: [7d, 30d, 90d, all]
+    AIChannelUsageSummary:
+      type: object
+      additionalProperties: false
+      required: [channel_id, period, period_started_at, period_ended_at, total_jobs, succeeded_jobs, failed_jobs, success_rate, average_response_duration_ms, prompt_tokens, completion_tokens, total_tokens, last_used_at]
+      properties:
+        channel_id: {type: string, format: uuid}
+        period: {$ref: '#/components/schemas/AIUsagePeriod'}
+        period_started_at: {type: [string, 'null'], format: date-time}
+        period_ended_at: {type: string, format: date-time}
+        total_jobs: {type: integer, minimum: 0}
+        succeeded_jobs: {type: integer, minimum: 0}
+        failed_jobs: {type: integer, minimum: 0}
+        success_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
+        average_response_duration_ms: {type: [number, 'null'], minimum: 0}
+        prompt_tokens: {type: [integer, 'null'], minimum: 0}
+        completion_tokens: {type: [integer, 'null'], minimum: 0}
+        total_tokens: {type: [integer, 'null'], minimum: 0}
+        last_used_at: {type: [string, 'null'], format: date-time}
     AIChannelModelSummary:
       type: object
       additionalProperties: false

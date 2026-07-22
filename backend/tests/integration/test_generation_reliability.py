@@ -362,9 +362,11 @@ def seed_generation_job(
         )
         cursor.execute(
             "INSERT INTO ai_channels "
-            "(id, name, base_url, api_key_ciphertext, api_key_updated_at, timeout_seconds, "
-            "is_enabled, revision, created_by) "
-            "VALUES (%s, '可靠性替身', %s, %s, now(), %s, true, 0, %s)",
+            "(id, name, description, protocol_type, provider_brand, base_url, "
+            "api_key_ciphertext, api_key_updated_at, timeout_seconds, is_enabled, "
+            "revision, created_by) "
+            "VALUES (%s, '可靠性替身', '', 'openai-compatible-chat-completions', "
+            "'CUSTOM', %s, %s, now(), %s, true, 0, %s)",
             (ids["channel"], base_url, encrypted_key, timeout_seconds, ids["user"]),
         )
         cursor.execute(

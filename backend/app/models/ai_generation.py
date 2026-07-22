@@ -27,14 +27,26 @@ from app.models.base import new_uuid
 
 
 class AIChannel(Base):
-    """OpenAI-compatible 渠道及其加密凭据状态。"""
+    """按协议执行请求、按受控品牌展示的 AI 渠道。"""
 
     __tablename__ = "ai_channels"
     __table_args__ = (
         CheckConstraint("timeout_seconds BETWEEN 10 AND 600", name="ck_ai_channels_timeout"),
+        CheckConstraint(
+            "protocol_type IN ('openai-compatible-chat-completions')",
+            name="ck_ai_channels_protocol_type",
+        ),
+        CheckConstraint(
+            "provider_brand IN "
+            "('OPENAI', 'ANTHROPIC', 'GOOGLE', 'AZURE_OPENAI', 'ZHIPU', 'QWEN', 'CUSTOM')",
+            name="ck_ai_channels_provider_brand",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    protocol_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider_brand: Mapped[str] = mapped_column(String(32), nullable=False)
     base_url: Mapped[str] = mapped_column(Text, nullable=False)
     api_key_ciphertext: Mapped[str] = mapped_column(Text, nullable=False)
     api_key_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -162,6 +174,7 @@ class GenerationJob(Base):
             unique=True,
             postgresql_where=text("job_type = 'HUMANIZE' AND status IN ('PENDING', 'RUNNING')"),
         ),
+        Index("ix_generation_jobs_ai_channel_created_at", "ai_channel_id", "created_at"),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     content_task_id: Mapped[uuid.UUID] = mapped_column(

@@ -1,4 +1,6 @@
 /** React Query 键的唯一注册表；工厂返回值与既有数组语义完全一致。 */
+import type { AIChannelListQuery } from './types';
+
 export const queryKeys = {
   auth: {
     all: ['auth'] as const,
@@ -7,8 +9,12 @@ export const queryKeys = {
   },
   aiChannels: {
     all: ['ai-channels'] as const,
+    list: (query: AIChannelListQuery) => ['ai-channels', query] as const,
     detail: (id: string) => ['ai-channel', id] as const,
     models: (id: string) => ['ai-models', id] as const,
+    usage: (id: string, period: string) => ['ai-channel-usage', id, period] as const,
+    auditLogs: (id: string, page: number, pageSize: number) =>
+      ['ai-channel-audit-logs', id, page, pageSize] as const,
   },
   platformTypes: {
     all: ['platform-types'] as const,

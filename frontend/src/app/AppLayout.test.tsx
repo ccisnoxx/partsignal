@@ -75,13 +75,14 @@ test('侧栏链接在键盘 focus 时预取单个目标路由', async () => {
   expect(prefetchNavigation).toHaveBeenCalledWith('/products');
 });
 
-test('管理员在渠道详情路由看到展开的配置子菜单和 AI 配置选中态', async () => {
+test('管理员在渠道详情路由看到原型配置子菜单和 AI 渠道选中态', async () => {
   render(
     <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/configuration/ai/channels/channel-1']}><Routes><Route element={<AppLayout />}><Route path="*" element={<h1>渠道详情</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
   );
   expect(await screen.findByRole('menuitem', { name: /配置中心/ })).toHaveAttribute('aria-expanded', 'true');
-  expect(screen.getByRole('menuitem', { name: 'AI 配置' })).toHaveClass('ant-menu-item-selected');
-  expect(screen.getAllByText('AI 配置').length).toBeGreaterThan(1);
+  expect(screen.getByRole('menuitem', { name: 'AI 渠道与模型' })).toHaveClass('ant-menu-item-selected');
+  expect(screen.getAllByText('AI 渠道与模型').length).toBeGreaterThan(1);
+  expect(screen.getByRole('menuitem', { name: '内容平台' })).toBeInTheDocument();
   expect(screen.getByRole('menuitem', { name: '平台规则' })).toBeInTheDocument();
   expect(screen.getAllByRole('menuitem', { name: /审计日志/ })).toHaveLength(1);
   expect(screen.getByRole('link', { name: '审计日志' })).toHaveAttribute('href', '/audit');
@@ -94,8 +95,21 @@ test('普通用户看不到配置中心、审计日志及配置子菜单', () =>
     <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter><Routes><Route element={<AppLayout />}><Route index element={<h1>工作台</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
   );
   expect(screen.queryByRole('menuitem', { name: /配置中心/ })).not.toBeInTheDocument();
-  expect(screen.queryByRole('menuitem', { name: 'AI 配置' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('menuitem', { name: 'AI 渠道与模型' })).not.toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: /审计日志/ })).not.toBeInTheDocument();
+});
+
+test('全局搜索只提供获权页面导航并支持 Ctrl K 聚焦', async () => {
+  const user = userEvent.setup();
+  render(
+    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter><Routes><Route element={<AppLayout />}><Route index element={<h1>工作台</h1>} /><Route path="configuration/platform-types" element={<h1>平台类型页</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
+  );
+  await user.keyboard('{Control>}k{/Control}');
+  const search = screen.getByRole('combobox', { name: '全局页面搜索' });
+  expect(search).toHaveFocus();
+  await user.type(search, '平台类型');
+  await user.click(await screen.findByText('平台类型'));
+  expect(await screen.findByRole('heading', { name: '平台类型页' })).toBeInTheDocument();
 });
 
 test('内容审核路由归属内容任务并显示审核标题', () => {

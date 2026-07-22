@@ -1,5 +1,5 @@
 /** 为业务组件导出 OpenAPI Schema 的简短别名，不重新定义传输对象。 */
-import type { components } from './schema';
+import type { components, paths } from './schema';
 
 export type Schema<Name extends keyof components['schemas']> = components['schemas'][Name];
 export type User = Schema<'User'>;
@@ -13,9 +13,11 @@ export type ContentTask = Schema<'ContentTask'>;
 export type ContentTaskListItem = Schema<'ContentTaskListItem'>;
 export type GenerationJob = Schema<'GenerationJob'>;
 export type AIChannel = Schema<'AIChannel'>;
+export type AIChannelSummary = Schema<'AIChannelSummary'>;
 export type AIModel = Schema<'AIModel'>;
 export type PlatformType = Schema<'PlatformType'>;
 export type ContentVersion = Schema<'ContentVersion'>;
 export type PublicationRecord = Schema<'PublicationRecord'>;
 export type GeoObservation = Schema<'GeoObservation'>;
 export type FileRecord = Schema<'FileRecord'>;
+export type AIChannelListQuery = NonNullable<paths['/api/v1/ai-channels']['get']['parameters']['query']>;

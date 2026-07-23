@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/ai-configuration-guidelines.md", "reason": "检查生成作业并发、迟到响应和真实 HTTP 替身"}
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "检查 Alembic 与 PostgreSQL 集成测试"}

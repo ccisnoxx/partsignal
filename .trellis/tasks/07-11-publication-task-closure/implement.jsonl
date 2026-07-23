@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "发布异常、任务终态和迁移必须遵守 PostgreSQL 所有权"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "发布、任务、契约和前端路由跨层联动"}

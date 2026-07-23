@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/frontend/index.md", "reason": "前端规范入口与开发前检查"}
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "本任务唯一视觉与交互权威"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "表格、操作入口和可访问性边界"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "交互密度与验证要求"}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用现有组件并避免新增抽象"}

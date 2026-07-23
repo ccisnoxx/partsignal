@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "人工观测关系新增事实列、历史 NULL、约束与 Alembic 迁移必须遵守 PostgreSQL 权威和可回滚边界"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "数据库、OpenAPI、服务端聚合、生成类型、页面和导出共享同一筛选与指标契约"}
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用现有 GEO 筛选、链尾查询、状态组件和主题能力，避免第二套公式与客户端 DTO"}
-{"file": ".trellis/tasks/07-22-geo-observation-insights/research/current-state.md", "reason": "现有前后端能力、权威指标口径、数据缺口、可复用组件和受保护工作树基线"}

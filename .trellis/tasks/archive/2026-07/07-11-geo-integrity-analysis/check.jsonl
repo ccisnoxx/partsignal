@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "检查 PostgreSQL 关系门禁与并发更正"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "检查指标分子分母和各消费层一致"}

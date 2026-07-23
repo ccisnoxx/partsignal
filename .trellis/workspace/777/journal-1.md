@@ -527,3 +527,39 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: 归档首批列表工作台任务
+
+**Date**: 2026-07-23
+**Task**: 归档首批列表工作台任务
+**Branch**: `main`
+
+### Summary
+
+归档 GEO 观测记录、GEO 洞察、平台管理、审计日志、用户管理和数据列表工作台统一任务；保留规则、Prompt 与其他独立活动任务状态，恢复两处 Playwright 日志漂移。按用户要求未重新运行测试。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `23b8e54` | (see git log) |
+| `43fc078` | (see git log) |
+| `62631a3` | (see git log) |
+| `73ea858` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

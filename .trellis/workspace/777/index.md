@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 15
+- **Total Sessions**: 16
 - **Last Active**: 2026-07-23
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~529 | Active |
+| `journal-1.md` | ~565 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 16 | 2026-07-23 | 归档首批列表工作台任务 | `23b8e54`, `43fc078`, `62631a3`, `73ea858` | `main` |
 | 15 | 2026-07-23 | 前端唯一视觉规范固化 | `e90ce4c` | `main` |
 | 14 | 2026-07-18 | 内容任务改为产品驱动 | `057f6e9` | `main` |
 | 13 | 2026-07-18 | 产品级人工 GEO 观测 | `2305d37`, `e80eb84` | `main` |

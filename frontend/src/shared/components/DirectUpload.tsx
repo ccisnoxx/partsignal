@@ -36,6 +36,8 @@ export function DirectUpload({ category, accessLevel = 'INTERNAL', accept, disab
           await api.POST('/api/v1/files/{file_id}/abort', { params: { path: { file_id: intent.file.id }, header: csrfHeader() } }).then(ensureSuccess).catch(() => undefined);
           throw new Error(`对象存储上传失败（HTTP ${response.status}）`);
         }
+        // 确保浏览器完成响应流后再请求服务端校验，避免未消费的跨域连接被记为中止。
+        await response.arrayBuffer();
       } else {
         const form = new FormData();
         Object.entries(intent.upload.fields).forEach(([key, value]) => form.append(key, value));
@@ -45,6 +47,7 @@ export function DirectUpload({ category, accessLevel = 'INTERNAL', accept, disab
           await api.POST('/api/v1/files/{file_id}/abort', { params: { path: { file_id: intent.file.id }, header: csrfHeader() } }).then(ensureSuccess).catch(() => undefined);
           throw new Error(`对象存储上传失败（HTTP ${response.status}）`);
         }
+        await response.arrayBuffer();
       }
       setPendingFileId(intent.file.id);
       await complete(intent.file.id);

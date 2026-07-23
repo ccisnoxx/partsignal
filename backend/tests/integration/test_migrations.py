@@ -954,7 +954,7 @@ def test_platform_rule_draft_editing_guard() -> None:
                 )
             connection.rollback()
 
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0015_platform_rule_draft_editing")
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute(
                 "UPDATE platform_profile_versions "
@@ -1072,7 +1072,7 @@ def test_fact_review_cleanup_guard() -> None:
                 )
             connection.rollback()
 
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0016_fact_review_cleanup")
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
                 cursor.execute(
@@ -1172,7 +1172,7 @@ def test_content_humanization_migration_constraints_and_forward_only_history() -
             )
             connection.commit()
 
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0017_content_humanization")
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT count(*) FROM content_humanization_prompts")
             assert cursor.fetchone() == (0,)
@@ -1193,7 +1193,7 @@ def test_content_humanization_migration_constraints_and_forward_only_history() -
             env=env,
             cwd=backend_dir,
         )
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0019_product_driven_tasks")
 
         source_id = uuid.uuid4()
         humanization_job_id = uuid.uuid4()
@@ -1309,7 +1309,7 @@ def test_manual_geo_migration_preserves_legacy_history_and_blocks_lossy_downgrad
             )
             connection.commit()
 
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0018_manual_geo_observation")
         manual_observation_id = uuid.uuid4()
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute(
@@ -1340,7 +1340,7 @@ def test_manual_geo_migration_preserves_legacy_history_and_blocks_lossy_downgrad
         assert "manual GEO observation history exists" in downgrade.stderr
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0019_product_driven_tasks",)
+            assert cursor.fetchone() == ("0018_manual_geo_observation",)
             cursor.execute(
                 "SELECT count(*) FROM geo_observations WHERE id IN (%s, %s)",
                 (legacy_observation_id, manual_observation_id),
@@ -1349,12 +1349,133 @@ def test_manual_geo_migration_preserves_legacy_history_and_blocks_lossy_downgrad
 
 
 @pytest.mark.integration
+def test_geo_insight_migration_preserves_unknown_history_and_enforces_new_stages() -> None:
+    """0022 保留历史空值，并拒绝缺问题主题或违反累计阶段的新事实。"""
+    with temporary_database("partsignal_geo_insights") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0021_ai_channel_model_management")
+        task_id = seed_legacy_content_task(test_url)
+        publication_id = seed_legacy_publication(
+            test_url,
+            task_id,
+            cross_platform=False,
+        )
+        old_observation_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT product_id, query_topic_id, created_by FROM content_tasks WHERE id = %s",
+                (task_id,),
+            )
+            product_id, query_topic_id, user_id = cursor.fetchone()
+            cursor.execute(
+                "UPDATE publication_records SET status = 'PLATFORM_REVIEW' WHERE id = %s",
+                (publication_id,),
+            )
+            cursor.execute(
+                "UPDATE publication_records SET status = 'PUBLISHED', "
+                "actual_title = '历史 GEO 内容', "
+                "final_url = 'https://example.invalid/geo-history', published_at = now() "
+                "WHERE id = %s",
+                (publication_id,),
+            )
+            cursor.execute(
+                "INSERT INTO geo_observations "
+                "(id, observation_kind, product_id, search_platform, search_query, tested_at, "
+                "notes, tested_by) VALUES "
+                "(%s, 'MANUAL_ARTICLE_SEARCH', %s, 'DeepSeek', '历史人工搜索', now(), "
+                "'补采前历史', %s)",
+                (old_observation_id, product_id, user_id),
+            )
+            cursor.execute(
+                "INSERT INTO geo_observation_publications "
+                "(observation_id, publication_record_id, recommendation_status) "
+                "VALUES (%s, %s, 'NOT_RECOMMENDED')",
+                (old_observation_id, publication_id),
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "0022_geo_observation_insights")
+        new_observation_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0022_geo_observation_insights",)
+            cursor.execute(
+                "SELECT observation.query_topic_id, relation.discovered, relation.mentioned, "
+                "relation.cited, relation.accuracy "
+                "FROM geo_observations observation "
+                "JOIN geo_observation_publications relation "
+                "ON relation.observation_id = observation.id WHERE observation.id = %s",
+                (old_observation_id,),
+            )
+            assert cursor.fetchone() == (None, None, None, None, None)
+
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "INSERT INTO geo_observations "
+                    "(id, observation_kind, product_id, search_platform, search_query, "
+                    "tested_at, notes, tested_by) VALUES "
+                    "(%s, 'MANUAL_ARTICLE_SEARCH', %s, 'DeepSeek', '缺少问题主题', "
+                    "now(), '非法新观测', %s)",
+                    (uuid.uuid4(), product_id, user_id),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "INSERT INTO geo_observations "
+                "(id, observation_kind, query_topic_id, product_id, search_platform, "
+                "search_query, tested_at, notes, tested_by) VALUES "
+                "(%s, 'MANUAL_ARTICLE_SEARCH', %s, %s, 'DeepSeek', '完整新观测', "
+                "now(), '迁移后事实', %s)",
+                (new_observation_id, query_topic_id, product_id, user_id),
+            )
+            connection.commit()
+
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "INSERT INTO geo_observation_publications "
+                    "(observation_id, publication_record_id, recommendation_status, "
+                    "discovered, mentioned, cited, accuracy) VALUES "
+                    "(%s, %s, 'RECOMMENDED', true, false, false, 'UNJUDGEABLE')",
+                    (new_observation_id, publication_id),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "INSERT INTO geo_observation_publications "
+                "(observation_id, publication_record_id, recommendation_status, "
+                "discovered, mentioned, cited, accuracy) VALUES "
+                "(%s, %s, 'RECOMMENDED', true, true, true, 'ACCURATE')",
+                (new_observation_id, publication_id),
+            )
+            connection.commit()
+
+        downgrade = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0021_ai_channel_model_management",
+            ],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "GEO insight facts exist; downgrade is forbidden" in downgrade.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0022_geo_observation_insights",)
+
+
+@pytest.mark.integration
 def test_product_driven_task_migration_preserves_history_and_blocks_lossy_downgrade() -> None:
     """0019 保留历史关联，并在新任务存在时拒绝恢复目标问题必填。"""
     with temporary_database("partsignal_product_tasks") as (test_url, env, backend_dir):
         run_alembic(env, backend_dir, "0018_manual_geo_observation")
         legacy_task_id = seed_legacy_content_task(test_url)
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0019_product_driven_tasks")
 
         product_task_id = uuid.uuid4()
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
@@ -1422,7 +1543,7 @@ def test_platform_branding_migration_enforces_single_source_and_blocks_lossy_dow
     with temporary_database("partsignal_platform_branding") as (test_url, env, backend_dir):
         run_alembic(env, backend_dir, "0019_product_driven_tasks")
         seed_legacy_content_task(test_url)
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0020_platform_branding_task_list")
 
         logo_file_id = uuid.uuid4()
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
@@ -1468,3 +1589,227 @@ def test_platform_branding_migration_enforces_single_source_and_blocks_lossy_dow
             )
             connection.commit()
         run_alembic(env, backend_dir, "0019_product_driven_tasks")
+
+
+@pytest.mark.integration
+def test_platform_management_migration_backfills_status_indexes_and_downgrades() -> None:
+    """0023 回填启用状态并增加真实查询索引，降级会移除该状态。"""
+    with temporary_database("partsignal_platform_management") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0022_geo_observation_insights")
+        task_id = seed_legacy_content_task(test_url)
+
+        run_alembic(env, backend_dir, "0023_platform_management")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT profile.is_active FROM platform_profiles profile "
+                "JOIN platform_profile_versions version "
+                "ON version.platform_profile_id = profile.id "
+                "JOIN content_tasks task ON task.platform_profile_version_id = version.id "
+                "WHERE task.id = %s",
+                (task_id,),
+            )
+            assert cursor.fetchone() == (True,)
+            cursor.execute(
+                "SELECT indexname, indexdef FROM pg_indexes "
+                "WHERE indexname = ANY(%s) ORDER BY indexname",
+                (
+                    [
+                        "ix_audit_logs_target_created_at",
+                        "ix_content_tasks_platform_profile_version_created_at",
+                        "ix_platform_accounts_platform_profile_active",
+                    ],
+                ),
+            )
+            indexes = dict(cursor.fetchall())
+            assert set(indexes) == {
+                "ix_audit_logs_target_created_at",
+                "ix_content_tasks_platform_profile_version_created_at",
+                "ix_platform_accounts_platform_profile_active",
+            }
+            assert "created_at DESC" in indexes["ix_audit_logs_target_created_at"]
+
+        subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0022_geo_observation_insights"],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT count(*) FROM information_schema.columns "
+                "WHERE table_name = 'platform_profiles' AND column_name = 'is_active'"
+            )
+            assert cursor.fetchone() == (0,)
+
+
+@pytest.mark.integration
+def test_audit_outcome_migration_backfills_exact_results_and_blocks_lossy_downgrade() -> None:
+    """0024 精确分类历史结果，并在空对象标识存在时拒绝有损降级。"""
+    with temporary_database("partsignal_audit_outcome") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0023_platform_management")
+        seed_accounts(env, backend_dir)
+        audit_ids = [uuid.uuid4() for _ in range(6)]
+        target_ids = [uuid.uuid4() for _ in range(6)]
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+            actor_id = cursor.fetchone()[0]
+            cursor.executemany(
+                "INSERT INTO audit_logs "
+                "(id, actor_id, action, target_type, target_id, details, request_id) "
+                "VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s)",
+                [
+                    (
+                        audit_ids[0],
+                        actor_id,
+                        "user.updated",
+                        "User",
+                        str(target_ids[0]),
+                        "{}",
+                        "audit-success",
+                    ),
+                    (
+                        audit_ids[1],
+                        actor_id,
+                        "ai_model.tested",
+                        "AIModel",
+                        str(target_ids[1]),
+                        '{"test_status":"FAILED"}',
+                        "audit-model-failed",
+                    ),
+                    (
+                        audit_ids[2],
+                        actor_id,
+                        "ai_channel.models_discovered",
+                        "AIChannel",
+                        str(target_ids[2]),
+                        '{"error_code":"PROVIDER_UNAVAILABLE"}',
+                        "audit-discovery-failed",
+                    ),
+                    (
+                        audit_ids[3],
+                        actor_id,
+                        "platform_prompt.saved",
+                        "PlatformType",
+                        str(target_ids[3]),
+                        "{}",
+                        "audit-legacy-prompt-saved",
+                    ),
+                    (
+                        audit_ids[4],
+                        actor_id,
+                        "platform_prompt.deleted",
+                        "PlatformType",
+                        str(target_ids[4]),
+                        "{}",
+                        "audit-legacy-prompt-deleted",
+                    ),
+                    (
+                        audit_ids[5],
+                        actor_id,
+                        "publication.mark_platform_review",
+                        "PublicationRecord",
+                        str(target_ids[5]),
+                        "{}",
+                        "audit-platform-review",
+                    ),
+                ],
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "0024_audit_outcome")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT business_module, outcome, result_message, error_code "
+                "FROM audit_logs ORDER BY request_id"
+            )
+            assert cursor.fetchall() == [
+                (
+                    "CONFIGURATION",
+                    "FAILED",
+                    "AI 模型发现失败",
+                    "PROVIDER_UNAVAILABLE",
+                ),
+                ("CONFIGURATION", "SUCCESS", "操作已完成", None),
+                ("CONFIGURATION", "SUCCESS", "操作已完成", None),
+                (
+                    "CONFIGURATION",
+                    "FAILED",
+                    "AI 模型测试失败",
+                    "AI_MODEL_TEST_FAILED",
+                ),
+                ("PUBLICATION", "SUCCESS", "操作已完成", None),
+                ("IDENTITY", "SUCCESS", "操作已完成", None),
+            ]
+            cursor.execute(
+                "SELECT indexdef FROM pg_indexes WHERE indexname = 'ix_audit_logs_created_id'"
+            )
+            index_definition = cursor.fetchone()
+            assert index_definition is not None
+            assert "created_at DESC, id DESC" in index_definition[0]
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE audit_logs SET result_message = '禁止修改' WHERE id = %s",
+                    (audit_ids[0],),
+                )
+            connection.rollback()
+            cursor.execute(
+                "INSERT INTO audit_logs "
+                "(id, actor_id, business_module, action, target_type, target_id, outcome, "
+                "result_message, error_code, details, request_id) "
+                "VALUES (%s, %s, 'PUBLICATION', 'publication.created', "
+                "'PublicationRecord', NULL, 'FAILED', '发布登记创建失败', "
+                "'REVISION_CONFLICT', '{\"facts\":{}}'::jsonb, 'audit-null-target')",
+                (uuid.uuid4(), actor_id),
+            )
+            connection.commit()
+
+        downgrade = subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0023_platform_management"],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "nullable audit target history exists" in downgrade.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0024_audit_outcome",)
+            cursor.execute("SELECT outcome FROM audit_logs WHERE request_id = 'audit-null-target'")
+            assert cursor.fetchone() == ("FAILED",)
+
+
+@pytest.mark.integration
+def test_audit_outcome_migration_rejects_unknown_history_atomically() -> None:
+    """未分类 action/target 组合必须阻断 0024，不能写 OTHER 或留下半迁移列。"""
+    with temporary_database("partsignal_audit_unknown") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0023_platform_management")
+        seed_accounts(env, backend_dir)
+        unknown_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+            actor_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO audit_logs "
+                "(id, actor_id, action, target_type, target_id, details, request_id) "
+                "VALUES (%s, %s, 'unknown.action', 'UnknownTarget', %s, '{}', "
+                "'audit-unknown')",
+                (unknown_id, actor_id, str(uuid.uuid4())),
+            )
+            connection.commit()
+
+        result = run_alembic(env, backend_dir, "0024_audit_outcome", check=False)
+        assert result.returncode != 0
+        assert "unknown.action/UnknownTarget" in result.stdout + result.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0023_platform_management",)
+            cursor.execute(
+                "SELECT count(*) FROM information_schema.columns "
+                "WHERE table_name = 'audit_logs' "
+                "AND column_name IN ('business_module', 'outcome', 'result_message', 'error_code')"
+            )
+            assert cursor.fetchone() == (0,)
+            cursor.execute("SELECT action FROM audit_logs WHERE id = %s", (unknown_id,))
+            assert cursor.fetchone() == ("unknown.action",)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
@@ -55,7 +56,8 @@ async def validation_error_handler(request: Request, error: RequestValidationErr
             "VALIDATION_ERROR",
             "请求数据不符合接口契约",
             422,
-            {"errors": error.errors()},
+            # Pydantic 的校验上下文可能包含 ValueError 等非 JSON 对象。
+            jsonable_encoder({"errors": error.errors()}),
         ),
     )
 

@@ -1,0 +1,11 @@
+{"file":".trellis/tasks/07-23-business-settings-user-management/research/current-state.md","reason":"复核实现没有猜测角色、密码策略、删除能力或历史归属"}
+{"file":".trellis/tasks/07-23-business-settings-user-management/research/visual-spec.md","reason":"复核 1581×995 高保真、响应式、交互状态和有依据保留差异"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"检查用户状态唯一来源、最后管理员锁、会话撤销、审计和历史完整性"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"检查批量逐项失败、权限、CSRF 和并发冲突可诊断且无伪成功"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"运行后端身份目标测试、契约、类型与代码质量门禁"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"检查表格选择、表单、焦点、状态、移动布局和无障碍"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"检查 URL 与 React Query 所有权、筛选开关联动和精确失效"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"检查生成类型完整且无可选链默认值掩盖契约错误"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"运行前端组件、typecheck、lint、build 和 Browser/E2E 门禁"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"核对契约、服务、权限、前端、测试和权威文档闭环"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"检查没有平行用户页、重复状态规则、薄包装或不必要依赖"}

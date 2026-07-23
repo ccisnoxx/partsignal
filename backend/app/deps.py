@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hmac
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -50,9 +50,10 @@ def get_current_session(
         ("POST", "/api/v1/auth/change-password"),
         ("POST", "/api/v1/auth/logout"),
     }
-    if record.user.must_change_password and (
-        request.method, request.url.path
-    ) not in allowed_while_changing_password:
+    if (
+        record.user.must_change_password
+        and (request.method, request.url.path) not in allowed_while_changing_password
+    ):
         raise AppError("PASSWORD_CHANGE_REQUIRED", "必须先修改临时密码", 403)
     record.last_seen_at = now
     return record
@@ -81,12 +82,17 @@ def require_csrf(
 CsrfProtected = Annotated[None, Depends(require_csrf)]
 
 
+def assert_account_types(user: User, allowed: Collection[AccountType]) -> None:
+    """校验当前用户账号类型，供依赖和需记录拒绝结果的命令共同复用。"""
+    if user.account_type not in {account_type.value for account_type in allowed}:
+        raise AppError("PERMISSION_DENIED", "当前账号没有执行此操作的权限", 403)
+
+
 def require_account_types(*allowed: AccountType) -> Callable[[User], User]:
     """创建账号类型依赖，所有权限判断只读取用户账号类型。"""
 
     def check(user: CurrentUser) -> User:
-        if user.account_type not in {account_type.value for account_type in allowed}:
-            raise AppError("PERMISSION_DENIED", "当前账号没有执行此操作的权限", 403)
+        assert_account_types(user, allowed)
         return user
 
     return check

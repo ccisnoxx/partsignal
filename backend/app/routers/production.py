@@ -8,7 +8,15 @@ from typing import Annotated
 from fastapi import APIRouter, Header, Request, status
 from sqlalchemy import select
 
-from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
+from app.audit import commit_audit
+from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+from app.deps import (
+    CsrfProtected,
+    CurrentUser,
+    DbSession,
+    EngineerUser,
+    assert_account_types,
+)
 from app.errors import AppError, not_found
 from app.models.ai_generation import (
     AIChannel,
@@ -26,6 +34,7 @@ from app.models.content import (
     ContentVersion,
 )
 from app.schemas.common import (
+    AccountType,
     CommandRequest,
     RequestChangesCommand,
 )
@@ -60,7 +69,6 @@ from app.services.review import get_content_review_context, transition_content_v
 router = APIRouter(prefix="/api/v1", tags=["production", "review"])
 
 ContentEditor = EngineerUser
-ContentReviewer = EngineerUser
 
 
 def generation_job_out(job: GenerationJob) -> GenerationJobOut:
@@ -343,18 +351,40 @@ def approve_content_version(
     payload: CommandRequest,
     request: Request,
     db: DbSession,
-    reviewer: ContentReviewer,
+    reviewer: CurrentUser,
     _csrf: CsrfProtected,
 ) -> ContentVersionOut:
-    return transition_content_version(
-        db=db,
-        content_version_id=content_version_id,
-        expected_revision=payload.expected_revision,
-        comment=payload.comment,
-        actor=reviewer,
-        request_id=request.state.request_id,
-        action="approve",
-    )
+    actor_id = reviewer.id
+    command_request_id = request.state.request_id
+    try:
+        assert_account_types(reviewer, (AccountType.ADMIN, AccountType.ENGINEER))
+        return transition_content_version(
+            db=db,
+            content_version_id=content_version_id,
+            expected_revision=payload.expected_revision,
+            comment=payload.comment,
+            actor=reviewer,
+            request_id=command_request_id,
+            action="approve",
+        )
+    except AppError as error:
+        db.rollback()
+        denied = error.code == "PERMISSION_DENIED"
+        commit_audit(
+            db,
+            AuditEntry(
+                actor_id=actor_id,
+                business_module=AuditModule.CONTENT_REVIEW,
+                action="content_version.approve",
+                target_type="ContentVersion",
+                target_id=content_version_id,
+                request_id=command_request_id,
+                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
+                result_message="内容审核被拒绝" if denied else "内容审核未完成",
+                error_code=error.code,
+            )
+        )
+        raise
 
 
 @router.post(
@@ -367,18 +397,40 @@ def request_content_changes(
     payload: RequestChangesCommand,
     request: Request,
     db: DbSession,
-    reviewer: ContentReviewer,
+    reviewer: CurrentUser,
     _csrf: CsrfProtected,
 ) -> ContentVersionOut:
-    return transition_content_version(
-        db=db,
-        content_version_id=content_version_id,
-        expected_revision=payload.expected_revision,
-        comment=payload.comment,
-        actor=reviewer,
-        request_id=request.state.request_id,
-        action="request-changes",
-    )
+    actor_id = reviewer.id
+    command_request_id = request.state.request_id
+    try:
+        assert_account_types(reviewer, (AccountType.ADMIN, AccountType.ENGINEER))
+        return transition_content_version(
+            db=db,
+            content_version_id=content_version_id,
+            expected_revision=payload.expected_revision,
+            comment=payload.comment,
+            actor=reviewer,
+            request_id=command_request_id,
+            action="request-changes",
+        )
+    except AppError as error:
+        db.rollback()
+        denied = error.code == "PERMISSION_DENIED"
+        commit_audit(
+            db,
+            AuditEntry(
+                actor_id=actor_id,
+                business_module=AuditModule.CONTENT_REVIEW,
+                action="content_version.request-changes",
+                target_type="ContentVersion",
+                target_id=content_version_id,
+                request_id=command_request_id,
+                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
+                result_message="内容退回修改被拒绝" if denied else "内容退回修改未完成",
+                error_code=error.code,
+            )
+        )
+        raise
 
 
 @router.get(

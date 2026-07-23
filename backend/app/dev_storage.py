@@ -10,12 +10,21 @@ import json
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException, Query, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from app.config import settings
 from app.services.storage import storage_request_valid
 
 app = FastAPI(title="PartSignal Development Object Storage", version="0.1.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        origin.strip() for origin in settings.allowed_origins.split(",") if origin.strip()
+    ],
+    allow_methods=["GET", "HEAD", "PUT", "OPTIONS"],
+    allow_headers=["Content-Type", "x-meta-sha256"],
+)
 
 
 def resolve_object_path(object_key: str) -> Path:

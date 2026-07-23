@@ -18,6 +18,7 @@ from app.db import engine
 from app.errors import (
     AppError,
     app_error_handler,
+    error_response,
     integrity_error_handler,
     validation_error_handler,
 )
@@ -51,9 +52,26 @@ app.add_exception_handler(IntegrityError, integrity_error_handler)  # type: igno
 @app.middleware("http")
 async def request_context(request: Request, call_next):  # type: ignore[no-untyped-def]
     """为每个请求分配请求 ID，并输出不含敏感载荷的访问日志。"""
-    request.state.request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
     started = time.monotonic()
-    response = await call_next(request)
+    supplied_request_id = request.headers.get("X-Request-ID")
+    request.state.request_id = str(uuid.uuid4())
+    if supplied_request_id is not None and (
+        not 1 <= len(supplied_request_id) <= 100
+        or not supplied_request_id.isascii()
+        or not supplied_request_id.isprintable()
+    ):
+        response = error_response(
+            request,
+            AppError(
+                "VALIDATION_ERROR",
+                "X-Request-ID 必须是 1-100 个可打印 ASCII 字符",
+                400,
+            ),
+        )
+    else:
+        if supplied_request_id is not None:
+            request.state.request_id = supplied_request_id
+        response = await call_next(request)
     response.headers["X-Request-ID"] = request.state.request_id
     logger.info(
         "请求完成 request_id=%s method=%s path=%s status=%s elapsed_ms=%.1f",

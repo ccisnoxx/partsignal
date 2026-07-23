@@ -1,0 +1,856 @@
+- generic [ref=f1e16]:
+  - complementary [ref=f1e17]:
+    - generic [ref=f1e18]:
+      - strong [ref=f1e24]: PartSignal
+      - menu [ref=f1e25]:
+        - group [ref=f1e26]:
+          - menuitem [ref=f1e27] [cursor=pointer]:
+            - img "bar-chart" [ref=f1e28]
+            - link "工作台" [ref=f1e32]:
+              - /url: /
+          - menuitem [ref=f1e33] [cursor=pointer]:
+            - img "database" [ref=f1e34]
+            - link "产品事实" [ref=f1e38]:
+              - /url: /products
+          - menuitem [ref=f1e39] [cursor=pointer]:
+            - img "file-text" [ref=f1e40]
+            - link "内容任务" [ref=f1e44]:
+              - /url: /tasks
+          - menuitem [ref=f1e45] [cursor=pointer]:
+            - img "rocket" [ref=f1e46]
+            - link "人工发布" [ref=f1e50]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f1e51] [cursor=pointer]:
+            - img "bar-chart" [ref=f1e52]
+            - generic [ref=f1e55]: GEO 观测
+        - group [ref=f1e56]:
+          - menuitem [ref=f1e57] [cursor=pointer]:
+            - img "setting" [ref=f1e58]
+            - link "业务设置" [ref=f1e62]:
+              - /url: /settings
+          - menuitem "tool 配置中心" [expanded] [ref=f1e63] [cursor=pointer]:
+            - img "tool" [ref=f1e64]
+            - generic [ref=f1e67]: 配置中心
+          - menu [ref=f1e68]:
+            - menuitem [ref=f1e69] [cursor=pointer]:
+              - link "平台管理" [ref=f1e71]:
+                - /url: /configuration/platforms
+            - menuitem [ref=f1e72] [cursor=pointer]:
+              - link "平台规则" [ref=f1e74]:
+                - /url: /configuration/platform-rules
+            - menuitem [ref=f1e75] [cursor=pointer]:
+              - link "平台 Prompt" [ref=f1e77]:
+                - /url: /configuration/prompts
+            - menuitem [ref=f1e78] [cursor=pointer]:
+              - link "AI 渠道与模型" [ref=f1e80]:
+                - /url: /configuration/ai
+            - menuitem [ref=f1e81] [cursor=pointer]:
+              - link "用户与权限" [ref=f1e83]:
+                - /url: /users
+            - menuitem [ref=f1e84] [cursor=pointer]:
+              - link "审计日志" [ref=f1e86]:
+                - /url: /audit
+      - button "收起导航" [ref=f1e87] [cursor=pointer]:
+        - img "menu-fold" [ref=f1e89]
+        - generic [ref=f1e92]: 收起
+  - generic [ref=f1e93]:
+    - banner [ref=f1e94]:
+      - generic [ref=f1e97]:
+        - strong [ref=f1e99]: 配置中心
+        - text: /平台管理
+      - generic [ref=f1e102] [cursor=pointer]:
+        - img "search" [ref=f1e104]
+        - combobox "全局页面搜索" [ref=f1e107]
+        - generic [ref=f1e108]: ⌘K
+      - generic [ref=f1e110]:
+        - button "主题：跟随系统" [ref=f1e112] [cursor=pointer]:
+          - img "desktop" [ref=f1e114]
+        - button "打开用户操作菜单" [ref=f1e118] [cursor=pointer]:
+          - generic [ref=f1e119]: 系
+          - generic [ref=f1e121]:
+            - strong [ref=f1e122]: 系统管理员
+            - generic [ref=f1e123]: admin
+          - img "down" [ref=f1e124]
+    - main [ref=f1e127]:
+      - generic [ref=f1e139]:
+        - generic [ref=f1e140]:
+          - generic [ref=f1e141]:
+            - text: 平台治理
+            - heading "平台管理" [level=1] [ref=f1e142]
+            - generic [ref=f1e143]: 管理具体内容平台、所属类型、官网、允许域名及配置完整性。
+          - button "plus 新增平台" [ref=f1e146] [cursor=pointer]:
+            - img "plus" [ref=f1e148]
+            - generic [ref=f1e152]: 新增平台
+        - generic [ref=f1e153]:
+          - main [ref=f1e154]:
+            - region "平台实时统计" [ref=f1e155]:
+              - generic [ref=f1e162]:
+                - generic [ref=f1e163]: 平台总数
+                - strong [ref=f1e164]: "89"
+                - generic [ref=f1e165]: 暂无历史基线
+              - generic [ref=f1e173]:
+                - generic [ref=f1e174]: 已启用平台
+                - strong [ref=f1e175]: "89"
+                - generic [ref=f1e176]: 暂无历史基线
+              - generic [ref=f1e184]:
+                - generic [ref=f1e185]: 缺少 Prompt
+                - strong [ref=f1e186]: "19"
+                - generic [ref=f1e187]: 暂无历史基线
+              - generic [ref=f1e194]:
+                - generic [ref=f1e195]: 缺少有效规则
+                - strong [ref=f1e196]: "0"
+                - generic [ref=f1e197]: 暂无历史基线
+              - generic [ref=f1e204]:
+                - generic [ref=f1e205]: 配置完整平台
+                - strong [ref=f1e206]: "70"
+                - generic [ref=f1e207]: 暂无历史基线
+            - search "平台筛选" [ref=f1e210]:
+              - generic [ref=f1e211]:
+                - generic [ref=f1e212]:
+                  - img "search" [ref=f1e214]
+                  - searchbox "搜索平台名称或类型" [ref=f1e217]
+                - button [ref=f1e219] [cursor=pointer]:
+                  - img "search" [ref=f1e221]
+              - generic [ref=f1e224] [cursor=pointer]:
+                - generic [ref=f1e225]:
+                  - generic: 平台类型
+                  - combobox "筛选平台类型" [ref=f1e226]
+                - img "down" [ref=f1e228]
+              - generic [ref=f1e231] [cursor=pointer]:
+                - generic [ref=f1e232]:
+                  - generic: 状态
+                  - combobox "筛选平台状态" [ref=f1e233]
+                - img "down" [ref=f1e235]
+              - generic [ref=f1e238] [cursor=pointer]:
+                - generic [ref=f1e239]:
+                  - generic: 配置完整性
+                  - combobox "筛选配置完整性" [ref=f1e240]
+                - img "down" [ref=f1e242]
+              - button "reload 重置" [disabled] [ref=f1e245]:
+                - generic:
+                  - img "reload"
+                - generic: 重置
+              - generic [ref=f1e246]: 共 89 个平台
+              - button "export 导出列表" [ref=f1e247] [cursor=pointer]:
+                - img "export" [ref=f1e249]
+                - generic [ref=f1e252]: 导出列表
+            - region "平台列表" [ref=f1e255]:
+              - generic [ref=f1e258]:
+                - generic [ref=f1e260]:
+                  - table [ref=f1e262]:
+                    - rowgroup [ref=f1e274]:
+                      - row [ref=f1e275]:
+                        - columnheader "平台名称" [ref=f1e276]
+                        - columnheader "所属平台类型" [ref=f1e277]
+                        - columnheader "官方网站" [ref=f1e278]
+                        - columnheader "允许域名（数量）" [ref=f1e279]
+                        - columnheader "状态" [ref=f1e280]
+                        - columnheader "当前规则版本" [ref=f1e281]
+                        - columnheader "Prompt 配置状态" [ref=f1e282]
+                        - columnheader "发布账号数量" [ref=f1e283]
+                        - columnheader "更新时间" [ref=f1e284]
+                        - columnheader "操作" [ref=f1e285]
+                  - table [ref=f1e287]:
+                    - rowgroup [ref=f1e299]:
+                      - row [ref=f1e300]:
+                        - cell [ref=f1e301]:
+                          - generic [ref=f1e302]:
+                            - generic [ref=f1e303]: E
+                            - strong [ref=f1e305]: E2E 论坛 00e64c60
+                        - cell "E2E 论坛类型 00e64c60" [ref=f1e306]
+                        - cell "—" [ref=f1e307]
+                        - cell "forum.example.invalid" [ref=f1e308]
+                        - cell "check-circle 已启用" [ref=f1e309]:
+                          - generic [ref=f1e310]:
+                            - img "check-circle" [ref=f1e311]
+                            - generic [ref=f1e315]: 已启用
+                        - cell [ref=f1e316]:
+                          - generic [ref=f1e317] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e318]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 00e64c60 当前规则" [ref=f1e319]
+                            - img "down" [ref=f1e321]
+                        - cell "配置完整" [ref=f1e324]
+                        - cell "0" [ref=f1e326]
+                        - cell [ref=f1e327]:
+                          - time [ref=f1e328]: 2026/07/22 22:08
+                        - cell [ref=f1e329]:
+                          - generic [ref=f1e330]:
+                            - button "查看平台：E2E 论坛 00e64c60" [ref=f1e332] [cursor=pointer]:
+                              - img "eye" [ref=f1e334]
+                            - button "更多操作：E2E 论坛 00e64c60" [ref=f1e338] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e340]
+                      - row [ref=f1e343]:
+                        - cell [ref=f1e344]:
+                          - generic [ref=f1e345]:
+                            - generic [ref=f1e346]: E
+                            - strong [ref=f1e348]: E2E 论坛 0329380a
+                        - cell "E2E 新类型 0329380a" [ref=f1e349]
+                        - cell "—" [ref=f1e350]
+                        - cell "forum.example.invalid" [ref=f1e351]
+                        - cell "check-circle 已启用" [ref=f1e352]:
+                          - generic [ref=f1e353]:
+                            - img "check-circle" [ref=f1e354]
+                            - generic [ref=f1e358]: 已启用
+                        - cell [ref=f1e359]:
+                          - generic [ref=f1e360] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e361]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 0329380a 当前规则" [ref=f1e362]
+                            - img "down" [ref=f1e364]
+                        - cell "配置完整" [ref=f1e367]
+                        - cell "1" [ref=f1e369]
+                        - cell [ref=f1e370]:
+                          - time [ref=f1e371]: 2026/07/17 15:59
+                        - cell [ref=f1e372]:
+                          - generic [ref=f1e373]:
+                            - button "查看平台：E2E 论坛 0329380a" [ref=f1e375] [cursor=pointer]:
+                              - img "eye" [ref=f1e377]
+                            - button "更多操作：E2E 论坛 0329380a" [ref=f1e381] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e383]
+                      - row [ref=f1e386]:
+                        - cell [ref=f1e387]:
+                          - generic [ref=f1e388]:
+                            - generic [ref=f1e389]: E
+                            - strong [ref=f1e391]: E2E 论坛 098720f0
+                        - cell "E2E 新类型 098720f0" [ref=f1e392]
+                        - cell "—" [ref=f1e393]
+                        - cell "forum.example.invalid" [ref=f1e394]
+                        - cell "check-circle 已启用" [ref=f1e395]:
+                          - generic [ref=f1e396]:
+                            - img "check-circle" [ref=f1e397]
+                            - generic [ref=f1e401]: 已启用
+                        - cell [ref=f1e402]:
+                          - generic [ref=f1e403] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e404]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 098720f0 当前规则" [ref=f1e405]
+                            - img "down" [ref=f1e407]
+                        - cell "缺少 Prompt" [ref=f1e410]
+                        - cell "1" [ref=f1e412]
+                        - cell [ref=f1e413]:
+                          - time [ref=f1e414]: 2026/07/13 12:23
+                        - cell [ref=f1e415]:
+                          - generic [ref=f1e416]:
+                            - button "查看平台：E2E 论坛 098720f0" [ref=f1e418] [cursor=pointer]:
+                              - img "eye" [ref=f1e420]
+                            - button "更多操作：E2E 论坛 098720f0" [ref=f1e424] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e426]
+                      - row [ref=f1e429]:
+                        - cell [ref=f1e430]:
+                          - generic [ref=f1e431]:
+                            - generic [ref=f1e432]: E
+                            - strong [ref=f1e434]: E2E 论坛 1481367c
+                        - cell "E2E 论坛类型 1481367c" [ref=f1e435]
+                        - cell "—" [ref=f1e436]
+                        - cell "forum.example.invalid" [ref=f1e437]
+                        - cell "check-circle 已启用" [ref=f1e438]:
+                          - generic [ref=f1e439]:
+                            - img "check-circle" [ref=f1e440]
+                            - generic [ref=f1e444]: 已启用
+                        - cell [ref=f1e445]:
+                          - generic [ref=f1e446] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e447]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 1481367c 当前规则" [ref=f1e448]
+                            - img "down" [ref=f1e450]
+                        - cell "配置完整" [ref=f1e453]
+                        - cell "1" [ref=f1e455]
+                        - cell [ref=f1e456]:
+                          - time [ref=f1e457]: 2026/07/21 12:32
+                        - cell [ref=f1e458]:
+                          - generic [ref=f1e459]:
+                            - button "查看平台：E2E 论坛 1481367c" [ref=f1e461] [cursor=pointer]:
+                              - img "eye" [ref=f1e463]
+                            - button "更多操作：E2E 论坛 1481367c" [ref=f1e467] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e469]
+                      - row [ref=f1e472]:
+                        - cell [ref=f1e473]:
+                          - generic [ref=f1e474]:
+                            - generic [ref=f1e475]: E
+                            - strong [ref=f1e477]: E2E 论坛 156c11c9
+                        - cell "E2E 论坛类型 156c11c9" [ref=f1e478]
+                        - cell "—" [ref=f1e479]
+                        - cell "forum.example.invalid" [ref=f1e480]
+                        - cell "check-circle 已启用" [ref=f1e481]:
+                          - generic [ref=f1e482]:
+                            - img "check-circle" [ref=f1e483]
+                            - generic [ref=f1e487]: 已启用
+                        - cell [ref=f1e488]:
+                          - generic [ref=f1e489] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e490]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 156c11c9 当前规则" [ref=f1e491]
+                            - img "down" [ref=f1e493]
+                        - cell "配置完整" [ref=f1e496]
+                        - cell "1" [ref=f1e498]
+                        - cell [ref=f1e499]:
+                          - time [ref=f1e500]: 2026/07/21 12:49
+                        - cell [ref=f1e501]:
+                          - generic [ref=f1e502]:
+                            - button "查看平台：E2E 论坛 156c11c9" [ref=f1e504] [cursor=pointer]:
+                              - img "eye" [ref=f1e506]
+                            - button "更多操作：E2E 论坛 156c11c9" [ref=f1e510] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e512]
+                      - row [ref=f1e515]:
+                        - cell [ref=f1e516]:
+                          - generic [ref=f1e517]:
+                            - generic [ref=f1e518]: E
+                            - strong [ref=f1e520]: E2E 论坛 17245638
+                        - cell "E2E 论坛类型 17245638" [ref=f1e521]
+                        - cell "—" [ref=f1e522]
+                        - cell "forum.example.invalid" [ref=f1e523]
+                        - cell "check-circle 已启用" [ref=f1e524]:
+                          - generic [ref=f1e525]:
+                            - img "check-circle" [ref=f1e526]
+                            - generic [ref=f1e530]: 已启用
+                        - cell [ref=f1e531]:
+                          - generic [ref=f1e532] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e533]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 17245638 当前规则" [ref=f1e534]
+                            - img "down" [ref=f1e536]
+                        - cell "配置完整" [ref=f1e539]
+                        - cell "0" [ref=f1e541]
+                        - cell [ref=f1e542]:
+                          - time [ref=f1e543]: 2026/07/16 12:29
+                        - cell [ref=f1e544]:
+                          - generic [ref=f1e545]:
+                            - button "查看平台：E2E 论坛 17245638" [ref=f1e547] [cursor=pointer]:
+                              - img "eye" [ref=f1e549]
+                            - button "更多操作：E2E 论坛 17245638" [ref=f1e553] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e555]
+                      - row [ref=f1e558]:
+                        - cell [ref=f1e559]:
+                          - generic [ref=f1e560]:
+                            - generic [ref=f1e561]: E
+                            - strong [ref=f1e563]: E2E 论坛 1eeba657
+                        - cell "E2E 新类型 1eeba657" [ref=f1e564]
+                        - cell "—" [ref=f1e565]
+                        - cell "forum.example.invalid" [ref=f1e566]
+                        - cell "check-circle 已启用" [ref=f1e567]:
+                          - generic [ref=f1e568]:
+                            - img "check-circle" [ref=f1e569]
+                            - generic [ref=f1e573]: 已启用
+                        - cell [ref=f1e574]:
+                          - generic [ref=f1e575] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e576]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 1eeba657 当前规则" [ref=f1e577]
+                            - img "down" [ref=f1e579]
+                        - cell "缺少 Prompt" [ref=f1e582]
+                        - cell "1" [ref=f1e584]
+                        - cell [ref=f1e585]:
+                          - time [ref=f1e586]: 2026/07/11 16:13
+                        - cell [ref=f1e587]:
+                          - generic [ref=f1e588]:
+                            - button "查看平台：E2E 论坛 1eeba657" [ref=f1e590] [cursor=pointer]:
+                              - img "eye" [ref=f1e592]
+                            - button "更多操作：E2E 论坛 1eeba657" [ref=f1e596] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e598]
+                      - row [ref=f1e601]:
+                        - cell [ref=f1e602]:
+                          - generic [ref=f1e603]:
+                            - generic [ref=f1e604]: E
+                            - strong [ref=f1e606]: E2E 论坛 204d6c68
+                        - cell "E2E 新类型 204d6c68" [ref=f1e607]
+                        - cell "—" [ref=f1e608]
+                        - cell "forum.example.invalid" [ref=f1e609]
+                        - cell "check-circle 已启用" [ref=f1e610]:
+                          - generic [ref=f1e611]:
+                            - img "check-circle" [ref=f1e612]
+                            - generic [ref=f1e616]: 已启用
+                        - cell [ref=f1e617]:
+                          - generic [ref=f1e618] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e619]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 204d6c68 当前规则" [ref=f1e620]
+                            - img "down" [ref=f1e622]
+                        - cell "配置完整" [ref=f1e625]
+                        - cell "1" [ref=f1e627]
+                        - cell [ref=f1e628]:
+                          - time [ref=f1e629]: 2026/07/16 16:23
+                        - cell [ref=f1e630]:
+                          - generic [ref=f1e631]:
+                            - button "查看平台：E2E 论坛 204d6c68" [ref=f1e633] [cursor=pointer]:
+                              - img "eye" [ref=f1e635]
+                            - button "更多操作：E2E 论坛 204d6c68" [ref=f1e639] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e641]
+                      - row [ref=f1e644]:
+                        - cell [ref=f1e645]:
+                          - generic [ref=f1e646]:
+                            - generic [ref=f1e647]: E
+                            - strong [ref=f1e649]: E2E 论坛 210e5fa5
+                        - cell "E2E 新类型 210e5fa5" [ref=f1e650]
+                        - cell "—" [ref=f1e651]
+                        - cell "forum.example.invalid" [ref=f1e652]
+                        - cell "check-circle 已启用" [ref=f1e653]:
+                          - generic [ref=f1e654]:
+                            - img "check-circle" [ref=f1e655]
+                            - generic [ref=f1e659]: 已启用
+                        - cell [ref=f1e660]:
+                          - generic [ref=f1e661] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e662]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 210e5fa5 当前规则" [ref=f1e663]
+                            - img "down" [ref=f1e665]
+                        - cell "配置完整" [ref=f1e668]
+                        - cell "1" [ref=f1e670]
+                        - cell [ref=f1e671]:
+                          - time [ref=f1e672]: 2026/07/21 20:41
+                        - cell [ref=f1e673]:
+                          - generic [ref=f1e674]:
+                            - button "查看平台：E2E 论坛 210e5fa5" [ref=f1e676] [cursor=pointer]:
+                              - img "eye" [ref=f1e678]
+                            - button "更多操作：E2E 论坛 210e5fa5" [ref=f1e682] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e684]
+                      - row [ref=f1e687]:
+                        - cell [ref=f1e688]:
+                          - generic [ref=f1e689]:
+                            - generic [ref=f1e690]: E
+                            - strong [ref=f1e692]: E2E 论坛 231f35f2
+                        - cell "E2E 论坛类型 231f35f2" [ref=f1e693]
+                        - cell "—" [ref=f1e694]
+                        - cell "forum.example.invalid" [ref=f1e695]
+                        - cell "check-circle 已启用" [ref=f1e696]:
+                          - generic [ref=f1e697]:
+                            - img "check-circle" [ref=f1e698]
+                            - generic [ref=f1e702]: 已启用
+                        - cell [ref=f1e703]:
+                          - generic [ref=f1e704] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e705]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 231f35f2 当前规则" [ref=f1e706]
+                            - img "down" [ref=f1e708]
+                        - cell "配置完整" [ref=f1e711]
+                        - cell "1" [ref=f1e713]
+                        - cell [ref=f1e714]:
+                          - time [ref=f1e715]: 2026/07/21 12:37
+                        - cell [ref=f1e716]:
+                          - generic [ref=f1e717]:
+                            - button "查看平台：E2E 论坛 231f35f2" [ref=f1e719] [cursor=pointer]:
+                              - img "eye" [ref=f1e721]
+                            - button "更多操作：E2E 论坛 231f35f2" [ref=f1e725] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e727]
+                      - row [ref=f1e730]:
+                        - cell [ref=f1e731]:
+                          - generic [ref=f1e732]:
+                            - generic [ref=f1e733]: E
+                            - strong [ref=f1e735]: E2E 论坛 2438fa57
+                        - cell "E2E 论坛类型 2438fa57" [ref=f1e736]
+                        - cell "—" [ref=f1e737]
+                        - cell "forum.example.invalid" [ref=f1e738]
+                        - cell "check-circle 已启用" [ref=f1e739]:
+                          - generic [ref=f1e740]:
+                            - img "check-circle" [ref=f1e741]
+                            - generic [ref=f1e745]: 已启用
+                        - cell [ref=f1e746]:
+                          - generic [ref=f1e747] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e748]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 2438fa57 当前规则" [ref=f1e749]
+                            - img "down" [ref=f1e751]
+                        - cell "配置完整" [ref=f1e754]
+                        - cell "1" [ref=f1e756]
+                        - cell [ref=f1e757]:
+                          - time [ref=f1e758]: 2026/07/21 12:52
+                        - cell [ref=f1e759]:
+                          - generic [ref=f1e760]:
+                            - button "查看平台：E2E 论坛 2438fa57" [ref=f1e762] [cursor=pointer]:
+                              - img "eye" [ref=f1e764]
+                            - button "更多操作：E2E 论坛 2438fa57" [ref=f1e768] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e770]
+                      - row [ref=f1e773]:
+                        - cell [ref=f1e774]:
+                          - generic [ref=f1e775]:
+                            - generic [ref=f1e776]: E
+                            - strong [ref=f1e778]: E2E 论坛 25cace31
+                        - cell "E2E 论坛类型 25cace31" [ref=f1e779]
+                        - cell "—" [ref=f1e780]
+                        - cell "forum.example.invalid" [ref=f1e781]
+                        - cell "check-circle 已启用" [ref=f1e782]:
+                          - generic [ref=f1e783]:
+                            - img "check-circle" [ref=f1e784]
+                            - generic [ref=f1e788]: 已启用
+                        - cell [ref=f1e789]:
+                          - generic [ref=f1e790] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e791]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 25cace31 当前规则" [ref=f1e792]
+                            - img "down" [ref=f1e794]
+                        - cell "配置完整" [ref=f1e797]
+                        - cell "1" [ref=f1e799]
+                        - cell [ref=f1e800]:
+                          - time [ref=f1e801]: 2026/07/12 18:02
+                        - cell [ref=f1e802]:
+                          - generic [ref=f1e803]:
+                            - button "查看平台：E2E 论坛 25cace31" [ref=f1e805] [cursor=pointer]:
+                              - img "eye" [ref=f1e807]
+                            - button "更多操作：E2E 论坛 25cace31" [ref=f1e811] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e813]
+                      - row [ref=f1e816]:
+                        - cell [ref=f1e817]:
+                          - generic [ref=f1e818]:
+                            - generic [ref=f1e819]: E
+                            - strong [ref=f1e821]: E2E 论坛 277bdcbe
+                        - cell "E2E 新类型 277bdcbe" [ref=f1e822]
+                        - cell "—" [ref=f1e823]
+                        - cell "forum.example.invalid" [ref=f1e824]
+                        - cell "check-circle 已启用" [ref=f1e825]:
+                          - generic [ref=f1e826]:
+                            - img "check-circle" [ref=f1e827]
+                            - generic [ref=f1e831]: 已启用
+                        - cell [ref=f1e832]:
+                          - generic [ref=f1e833] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e834]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 277bdcbe 当前规则" [ref=f1e835]
+                            - img "down" [ref=f1e837]
+                        - cell "配置完整" [ref=f1e840]
+                        - cell "1" [ref=f1e842]
+                        - cell [ref=f1e843]:
+                          - time [ref=f1e844]: 2026/07/17 00:35
+                        - cell [ref=f1e845]:
+                          - generic [ref=f1e846]:
+                            - button "查看平台：E2E 论坛 277bdcbe" [ref=f1e848] [cursor=pointer]:
+                              - img "eye" [ref=f1e850]
+                            - button "更多操作：E2E 论坛 277bdcbe" [ref=f1e854] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e856]
+                      - row [ref=f1e859]:
+                        - cell [ref=f1e860]:
+                          - generic [ref=f1e861]:
+                            - generic [ref=f1e862]: E
+                            - strong [ref=f1e864]: E2E 论坛 2bbe76b6
+                        - cell "E2E 论坛类型 2bbe76b6" [ref=f1e865]
+                        - cell "—" [ref=f1e866]
+                        - cell "forum.example.invalid" [ref=f1e867]
+                        - cell "check-circle 已启用" [ref=f1e868]:
+                          - generic [ref=f1e869]:
+                            - img "check-circle" [ref=f1e870]
+                            - generic [ref=f1e874]: 已启用
+                        - cell [ref=f1e875]:
+                          - generic [ref=f1e876] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e877]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 2bbe76b6 当前规则" [ref=f1e878]
+                            - img "down" [ref=f1e880]
+                        - cell "配置完整" [ref=f1e883]
+                        - cell "0" [ref=f1e885]
+                        - cell [ref=f1e886]:
+                          - time [ref=f1e887]: 2026/07/17 21:14
+                        - cell [ref=f1e888]:
+                          - generic [ref=f1e889]:
+                            - button "查看平台：E2E 论坛 2bbe76b6" [ref=f1e891] [cursor=pointer]:
+                              - img "eye" [ref=f1e893]
+                            - button "更多操作：E2E 论坛 2bbe76b6" [ref=f1e897] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e899]
+                      - row [ref=f1e902]:
+                        - cell [ref=f1e903]:
+                          - generic [ref=f1e904]:
+                            - generic [ref=f1e905]: E
+                            - strong [ref=f1e907]: E2E 论坛 2d3ec34b
+                        - cell "E2E 论坛类型 2d3ec34b" [ref=f1e908]
+                        - cell "—" [ref=f1e909]
+                        - cell "forum.example.invalid" [ref=f1e910]
+                        - cell "check-circle 已启用" [ref=f1e911]:
+                          - generic [ref=f1e912]:
+                            - img "check-circle" [ref=f1e913]
+                            - generic [ref=f1e917]: 已启用
+                        - cell [ref=f1e918]:
+                          - generic [ref=f1e919] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e920]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 2d3ec34b 当前规则" [ref=f1e921]
+                            - img "down" [ref=f1e923]
+                        - cell "配置完整" [ref=f1e926]
+                        - cell "1" [ref=f1e928]
+                        - cell [ref=f1e929]:
+                          - time [ref=f1e930]: 2026/07/20 10:46
+                        - cell [ref=f1e931]:
+                          - generic [ref=f1e932]:
+                            - button "查看平台：E2E 论坛 2d3ec34b" [ref=f1e934] [cursor=pointer]:
+                              - img "eye" [ref=f1e936]
+                            - button "更多操作：E2E 论坛 2d3ec34b" [ref=f1e940] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e942]
+                      - row [ref=f1e945]:
+                        - cell [ref=f1e946]:
+                          - generic [ref=f1e947]:
+                            - generic [ref=f1e948]: E
+                            - strong [ref=f1e950]: E2E 论坛 2f564632
+                        - cell "E2E 论坛类型 2f564632" [ref=f1e951]
+                        - cell "—" [ref=f1e952]
+                        - cell "forum.example.invalid" [ref=f1e953]
+                        - cell "check-circle 已启用" [ref=f1e954]:
+                          - generic [ref=f1e955]:
+                            - img "check-circle" [ref=f1e956]
+                            - generic [ref=f1e960]: 已启用
+                        - cell [ref=f1e961]:
+                          - generic [ref=f1e962] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e963]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 2f564632 当前规则" [ref=f1e964]
+                            - img "down" [ref=f1e966]
+                        - cell "配置完整" [ref=f1e969]
+                        - cell "0" [ref=f1e971]
+                        - cell [ref=f1e972]:
+                          - time [ref=f1e973]: 2026/07/13 12:20
+                        - cell [ref=f1e974]:
+                          - generic [ref=f1e975]:
+                            - button "查看平台：E2E 论坛 2f564632" [ref=f1e977] [cursor=pointer]:
+                              - img "eye" [ref=f1e979]
+                            - button "更多操作：E2E 论坛 2f564632" [ref=f1e983] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e985]
+                      - row [ref=f1e988]:
+                        - cell [ref=f1e989]:
+                          - generic [ref=f1e990]:
+                            - generic [ref=f1e991]: E
+                            - strong [ref=f1e993]: E2E 论坛 33ab75a7
+                        - cell "E2E 新类型 33ab75a7" [ref=f1e994]
+                        - cell "—" [ref=f1e995]
+                        - cell "forum.example.invalid" [ref=f1e996]
+                        - cell "check-circle 已启用" [ref=f1e997]:
+                          - generic [ref=f1e998]:
+                            - img "check-circle" [ref=f1e999]
+                            - generic [ref=f1e1003]: 已启用
+                        - cell [ref=f1e1004]:
+                          - generic [ref=f1e1005] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e1006]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 33ab75a7 当前规则" [ref=f1e1007]
+                            - img "down" [ref=f1e1009]
+                        - cell "缺少 Prompt" [ref=f1e1012]
+                        - cell "1" [ref=f1e1014]
+                        - cell [ref=f1e1015]:
+                          - time [ref=f1e1016]: 2026/07/12 23:58
+                        - cell [ref=f1e1017]:
+                          - generic [ref=f1e1018]:
+                            - button "查看平台：E2E 论坛 33ab75a7" [ref=f1e1020] [cursor=pointer]:
+                              - img "eye" [ref=f1e1022]
+                            - button "更多操作：E2E 论坛 33ab75a7" [ref=f1e1026] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e1028]
+                      - row [ref=f1e1031]:
+                        - cell [ref=f1e1032]:
+                          - generic [ref=f1e1033]:
+                            - generic [ref=f1e1034]: E
+                            - strong [ref=f1e1036]: E2E 论坛 370fb68d
+                        - cell "E2E 新类型 370fb68d" [ref=f1e1037]
+                        - cell "—" [ref=f1e1038]
+                        - cell "forum.example.invalid" [ref=f1e1039]
+                        - cell "check-circle 已启用" [ref=f1e1040]:
+                          - generic [ref=f1e1041]:
+                            - img "check-circle" [ref=f1e1042]
+                            - generic [ref=f1e1046]: 已启用
+                        - cell [ref=f1e1047]:
+                          - generic [ref=f1e1048] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e1049]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 370fb68d 当前规则" [ref=f1e1050]
+                            - img "down" [ref=f1e1052]
+                        - cell "配置完整" [ref=f1e1055]
+                        - cell "1" [ref=f1e1057]
+                        - cell [ref=f1e1058]:
+                          - time [ref=f1e1059]: 2026/07/16 12:36
+                        - cell [ref=f1e1060]:
+                          - generic [ref=f1e1061]:
+                            - button "查看平台：E2E 论坛 370fb68d" [ref=f1e1063] [cursor=pointer]:
+                              - img "eye" [ref=f1e1065]
+                            - button "更多操作：E2E 论坛 370fb68d" [ref=f1e1069] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e1071]
+                      - row [ref=f1e1074]:
+                        - cell [ref=f1e1075]:
+                          - generic [ref=f1e1076]:
+                            - generic [ref=f1e1077]: E
+                            - strong [ref=f1e1079]: E2E 论坛 3a1cb42d
+                        - cell "E2E 新类型 3a1cb42d" [ref=f1e1080]
+                        - cell "—" [ref=f1e1081]
+                        - cell "forum.example.invalid" [ref=f1e1082]
+                        - cell "check-circle 已启用" [ref=f1e1083]:
+                          - generic [ref=f1e1084]:
+                            - img "check-circle" [ref=f1e1085]
+                            - generic [ref=f1e1089]: 已启用
+                        - cell [ref=f1e1090]:
+                          - generic [ref=f1e1091] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e1092]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 3a1cb42d 当前规则" [ref=f1e1093]
+                            - img "down" [ref=f1e1095]
+                        - cell "缺少 Prompt" [ref=f1e1098]
+                        - cell "1" [ref=f1e1100]
+                        - cell [ref=f1e1101]:
+                          - time [ref=f1e1102]: 2026/07/11 14:00
+                        - cell [ref=f1e1103]:
+                          - generic [ref=f1e1104]:
+                            - button "查看平台：E2E 论坛 3a1cb42d" [ref=f1e1106] [cursor=pointer]:
+                              - img "eye" [ref=f1e1108]
+                            - button "更多操作：E2E 论坛 3a1cb42d" [ref=f1e1112] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e1114]
+                      - row [ref=f1e1117]:
+                        - cell [ref=f1e1118]:
+                          - generic [ref=f1e1119]:
+                            - generic [ref=f1e1120]: E
+                            - strong [ref=f1e1122]: E2E 论坛 3d87ad34
+                        - cell "E2E 新类型 3d87ad34" [ref=f1e1123]
+                        - cell "—" [ref=f1e1124]
+                        - cell "forum.example.invalid" [ref=f1e1125]
+                        - cell "check-circle 已启用" [ref=f1e1126]:
+                          - generic [ref=f1e1127]:
+                            - img "check-circle" [ref=f1e1128]
+                            - generic [ref=f1e1132]: 已启用
+                        - cell [ref=f1e1133]:
+                          - generic [ref=f1e1134] [cursor=pointer]:
+                            - generic "V1 · 当前" [ref=f1e1135]:
+                              - text: V1 · 当前
+                              - combobox "选择 E2E 论坛 3d87ad34 当前规则" [ref=f1e1136]
+                            - img "down" [ref=f1e1138]
+                        - cell "缺少 Prompt" [ref=f1e1141]
+                        - cell "1" [ref=f1e1143]
+                        - cell [ref=f1e1144]:
+                          - time [ref=f1e1145]: 2026/07/11 20:00
+                        - cell [ref=f1e1146]:
+                          - generic [ref=f1e1147]:
+                            - button "查看平台：E2E 论坛 3d87ad34" [ref=f1e1149] [cursor=pointer]:
+                              - img "eye" [ref=f1e1151]
+                            - button "更多操作：E2E 论坛 3d87ad34" [ref=f1e1155] [cursor=pointer]:
+                              - img "ellipsis" [ref=f1e1157]
+                - list [ref=f1e1160]:
+                  - listitem "上一页" [ref=f1e1161]:
+                    - button [disabled] [ref=f1e1162]:
+                      - img "left" [ref=f1e1163]
+                  - listitem "1" [ref=f1e1166] [cursor=pointer]
+                  - listitem "2" [ref=f1e1168] [cursor=pointer]
+                  - listitem "3" [ref=f1e1170] [cursor=pointer]
+                  - listitem "4" [ref=f1e1172] [cursor=pointer]
+                  - listitem "5" [ref=f1e1174] [cursor=pointer]
+                  - listitem "下一页" [ref=f1e1176] [cursor=pointer]:
+                    - button [ref=f1e1177]:
+                      - img "right" [ref=f1e1178]
+                  - listitem [ref=f1e1181]:
+                    - generic [ref=f1e1182]:
+                      - generic "20 条/页" [ref=f1e1183]:
+                        - text: 20 条/页
+                        - combobox "页码" [ref=f1e1184]
+                      - img "down" [ref=f1e1186]
+                    - generic [ref=f1e1189]:
+                      - text: 跳至
+                      - textbox "页" [ref=f1e1190]
+                      - text: 页
+          - complementary "E2E 论坛 00e64c60 平台详情" [ref=f1e1191]:
+            - generic [ref=f1e1192]:
+              - heading "平台详情" [active] [level=4] [ref=f1e1193]
+              - button "关闭平台详情" [ref=f1e1194] [cursor=pointer]:
+                - img "close" [ref=f1e1196]
+            - generic [ref=f1e1199]:
+              - generic [ref=f1e1200]:
+                - generic [ref=f1e1201]: E
+                - strong [ref=f1e1203]: E2E 论坛 00e64c60
+                - generic [ref=f1e1204]:
+                  - img "check-circle" [ref=f1e1205]
+                  - generic [ref=f1e1209]: 已启用
+              - region [ref=f1e1210]:
+                - heading "基本信息" [level=5] [ref=f1e1211]
+                - table [ref=f1e1214]:
+                  - rowgroup [ref=f1e1215]:
+                    - row [ref=f1e1216]:
+                      - cell "所属平台类型 E2E 论坛类型 00e64c60" [ref=f1e1217]:
+                        - generic [ref=f1e1218]:
+                          - generic [ref=f1e1219]: 所属平台类型
+                          - generic [ref=f1e1220]: E2E 论坛类型 00e64c60
+                    - row [ref=f1e1221]:
+                      - cell "官方网站 —" [ref=f1e1222]:
+                        - generic [ref=f1e1223]:
+                          - generic [ref=f1e1224]: 官方网站
+                          - generic [ref=f1e1225]: —
+                    - row [ref=f1e1226]:
+                      - cell "允许域名 forum.example.invalid" [ref=f1e1227]:
+                        - generic [ref=f1e1228]:
+                          - generic [ref=f1e1229]: 允许域名
+                          - generic [ref=f1e1230]: forum.example.invalid
+              - region [ref=f1e1231]:
+                - heading "当前规则" [level=5] [ref=f1e1232]
+                - table [ref=f1e1235]:
+                  - rowgroup [ref=f1e1236]:
+                    - row [ref=f1e1237]:
+                      - cell "当前规则版本 V1" [ref=f1e1238]:
+                        - generic [ref=f1e1239]:
+                          - generic [ref=f1e1240]: 当前规则版本
+                          - generic [ref=f1e1241]: V1
+                    - row [ref=f1e1242]:
+                      - cell "发布状态 已发布" [ref=f1e1243]:
+                        - generic [ref=f1e1244]:
+                          - generic [ref=f1e1245]: 发布状态
+                          - generic [ref=f1e1246]: 已发布
+                    - row [ref=f1e1248]:
+                      - cell "最后更新时间 暂无记录" [ref=f1e1249]:
+                        - generic [ref=f1e1250]:
+                          - generic [ref=f1e1251]: 最后更新时间
+                          - generic [ref=f1e1252]: 暂无记录
+                - link [ref=f1e1253] [cursor=pointer]:
+                  - /url: /configuration/platform-rules?platform_profile_id=1136b6c5-9bd1-4837-8a74-e943f9f4940b
+                  - text: 查看规则详情
+                  - img "right" [ref=f1e1254]
+              - region [ref=f1e1257]:
+                - heading "Prompt 配置状态" [level=5] [ref=f1e1258]
+                - table [ref=f1e1261]:
+                  - rowgroup [ref=f1e1262]:
+                    - row [ref=f1e1263]:
+                      - cell "配置完整性 配置完整" [ref=f1e1264]:
+                        - generic [ref=f1e1265]:
+                          - generic [ref=f1e1266]: 配置完整性
+                          - generic [ref=f1e1267]: 配置完整
+                    - row [ref=f1e1269]:
+                      - cell "最后更新时间 2026/07/12 18:00" [ref=f1e1270]:
+                        - generic [ref=f1e1271]:
+                          - generic [ref=f1e1272]: 最后更新时间
+                          - generic [ref=f1e1273]: 2026/07/12 18:00
+                - link [ref=f1e1274] [cursor=pointer]:
+                  - /url: /configuration/prompts?platform_profile_id=1136b6c5-9bd1-4837-8a74-e943f9f4940b
+                  - text: 查看 Prompt 详情
+                  - img "right" [ref=f1e1275]
+              - region [ref=f1e1278]:
+                - heading "发布账号摘要" [level=5] [ref=f1e1279]
+                - table [ref=f1e1282]:
+                  - rowgroup [ref=f1e1283]:
+                    - row [ref=f1e1284]:
+                      - cell "发布账号数量 0 个" [ref=f1e1285]:
+                        - generic [ref=f1e1286]:
+                          - generic [ref=f1e1287]: 发布账号数量
+                          - generic [ref=f1e1288]: 0 个
+                    - row [ref=f1e1289]:
+                      - cell "启用账号 0 个" [ref=f1e1290]:
+                        - generic [ref=f1e1291]:
+                          - generic [ref=f1e1292]: 启用账号
+                          - generic [ref=f1e1293]: 0 个
+                    - row [ref=f1e1294]:
+                      - cell "停用账号 0 个" [ref=f1e1295]:
+                        - generic [ref=f1e1296]:
+                          - generic [ref=f1e1297]: 停用账号
+                          - generic [ref=f1e1298]: 0 个
+                - link [ref=f1e1299] [cursor=pointer]:
+                  - /url: /settings?tab=accounts&platform_profile_id=1136b6c5-9bd1-4837-8a74-e943f9f4940b
+                  - text: 查看账号列表
+                  - img "right" [ref=f1e1300]
+              - region [ref=f1e1303]:
+                - heading "关联引用情况" [level=5] [ref=f1e1304]
+                - table [ref=f1e1307]:
+                  - rowgroup [ref=f1e1308]:
+                    - row [ref=f1e1309]:
+                      - cell "被内容引用次数（近 30 天） 1" [ref=f1e1310]:
+                        - generic [ref=f1e1311]:
+                          - generic [ref=f1e1312]: 被内容引用次数（近 30 天）
+                          - generic [ref=f1e1313]: "1"
+                    - row [ref=f1e1314]:
+                      - cell "被内容引用次数（全部） 1" [ref=f1e1315]:
+                        - generic [ref=f1e1316]:
+                          - generic [ref=f1e1317]: 被内容引用次数（全部）
+                          - generic [ref=f1e1318]: "1"
+                - link [ref=f1e1319] [cursor=pointer]:
+                  - /url: /tasks?platform_profile_id=1136b6c5-9bd1-4837-8a74-e943f9f4940b
+                  - text: 查看引用分析
+                  - img "right" [ref=f1e1320]
+            - generic [ref=f1e1323]:
+              - generic [ref=f1e1324]:
+                - button "编辑平台" [ref=f1e1325] [cursor=pointer]
+                - button "停用平台" [ref=f1e1327] [cursor=pointer]
+                - button "删除平台" [ref=f1e1329] [cursor=pointer]
+              - alert [ref=f1e1331]:
+                - generic [ref=f1e1332]: 存在平台规则版本或发布账号时不能删除平台；如需停止新业务，请停用平台。

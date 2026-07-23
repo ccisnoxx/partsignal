@@ -3,14 +3,24 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Query, Request, status
+from fastapi import APIRouter, Query, Request, Response, status
 from pydantic import BeforeValidator, HttpUrl
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.deps import AdminUser, CsrfProtected, DbSession
-from app.errors import not_found
+from app.audit import commit_audit
+from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+from app.deps import (
+    AdminUser,
+    CsrfProtected,
+    CurrentUser,
+    DbSession,
+    assert_account_types,
+)
+from app.errors import AppError, not_found
 from app.models.ai_generation import (
     AIChannel,
     AIModel,
@@ -20,7 +30,7 @@ from app.models.configuration import (
     PlatformPrompt,
     PlatformType,
 )
-from app.schemas.common import AuditLogList, RevisionRequest
+from app.schemas.common import AccountType, AuditLogList, RevisionRequest
 from app.schemas.configuration import (
     AIChannelApiKeyReplace,
     AIChannelCreate,
@@ -46,7 +56,10 @@ from app.schemas.configuration import (
     ContentHumanizationPromptPut,
     DiscoveredModel,
     DiscoveredModelList,
+    PlatformConfigurationStatus,
+    PlatformProfileDetail,
     PlatformProfileOut,
+    PlatformProfileStatus,
     PlatformProfileUpdate,
     PlatformPromptOut,
     PlatformPromptPut,
@@ -112,10 +125,19 @@ from app.services.platform_configuration import (
     delete_platform_type as delete_platform_type_command,
 )
 from app.services.platform_configuration import (
+    export_platform_profiles as export_platform_profiles_query,
+)
+from app.services.platform_configuration import (
+    get_platform_profile_detail as get_platform_profile_detail_query,
+)
+from app.services.platform_configuration import (
     put_content_humanization_prompt as put_content_humanization_prompt_command,
 )
 from app.services.platform_configuration import (
     put_platform_prompt as put_platform_prompt_command,
+)
+from app.services.platform_configuration import (
+    set_platform_profile_enabled as set_platform_profile_enabled_command,
 )
 from app.services.platform_configuration import (
     update_platform_profile as update_platform_profile_command,
@@ -126,6 +148,36 @@ from app.services.platform_configuration import (
 from app.services.projections import platform_profile_out
 
 router = APIRouter(prefix="/api/v1", tags=["configuration"])
+
+
+def _commit_configuration_error(
+    *,
+    db: Session,
+    actor_id: uuid.UUID,
+    action: str,
+    target_type: str,
+    target_id: uuid.UUID,
+    request_id: str,
+    error: AppError,
+    failure_message: str,
+) -> None:
+    """业务事务回滚后，以独立事务记录配置命令的失败或权限拒绝。"""
+    db.rollback()
+    denied = error.code == "PERMISSION_DENIED"
+    commit_audit(
+        db,
+        AuditEntry(
+            actor_id=actor_id,
+            business_module=AuditModule.CONFIGURATION,
+            action=action,
+            target_type=target_type,
+            target_id=target_id,
+            request_id=request_id,
+            outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
+            result_message=("操作因账号类型权限不足被拒绝" if denied else failure_message),
+            error_code=error.code,
+        )
+    )
 
 
 def channel_out(channel: AIChannel) -> AIChannelOut:
@@ -296,6 +348,46 @@ def delete_platform_type(
     )
 
 
+@router.get("/platform-profiles/export", operation_id="exportPlatformProfiles")
+def export_platform_profiles(
+    db: DbSession,
+    _admin: AdminUser,
+    q: str | None = Query(None, max_length=200),
+    platform_type_id: uuid.UUID | None = None,
+    profile_status: Annotated[PlatformProfileStatus | None, Query(alias="status")] = None,
+    configuration_status: PlatformConfigurationStatus | None = None,
+) -> Response:
+    """导出当前筛选、权限范围和稳定排序下的平台事实列。"""
+    content = export_platform_profiles_query(
+        db=db,
+        q=q,
+        platform_type_id=platform_type_id,
+        profile_status=profile_status,
+        configuration_status=configuration_status,
+    )
+    generated_at = datetime.now(UTC).strftime("%Y%m%d-%H%M%SZ")
+    return Response(
+        content=content.encode("utf-8"),
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": (f'attachment; filename="platform-profiles-{generated_at}.csv"')
+        },
+    )
+
+
+@router.get(
+    "/platform-profiles/{platform_profile_id}",
+    response_model=PlatformProfileDetail,
+    operation_id="getPlatformProfile",
+)
+def get_platform_profile(
+    platform_profile_id: uuid.UUID,
+    db: DbSession,
+    _admin: AdminUser,
+) -> PlatformProfileDetail:
+    return get_platform_profile_detail_query(db, platform_profile_id)
+
+
 @router.get(
     "/platform-profiles/{platform_profile_id}/prompt",
     response_model=PlatformPromptOut,
@@ -320,16 +412,30 @@ def put_platform_prompt(
     payload: PlatformPromptPut,
     request: Request,
     db: DbSession,
-    admin: AdminUser,
+    admin: CurrentUser,
     _csrf: CsrfProtected,
 ) -> PlatformPromptOut:
-    prompt = put_platform_prompt_command(
-        db=db,
-        platform_profile_id=platform_profile_id,
-        payload=payload,
-        actor=admin,
-        request_id=request.state.request_id,
-    )
+    try:
+        assert_account_types(admin, (AccountType.ADMIN,))
+        prompt = put_platform_prompt_command(
+            db=db,
+            platform_profile_id=platform_profile_id,
+            payload=payload,
+            actor=admin,
+            request_id=request.state.request_id,
+        )
+    except AppError as error:
+        _commit_configuration_error(
+            db=db,
+            actor_id=admin.id,
+            action="platform_prompt.saved",
+            target_type="PlatformProfile",
+            target_id=platform_profile_id,
+            request_id=request.state.request_id,
+            error=error,
+            failure_message="平台 Prompt 保存失败",
+        )
+        raise
     return platform_prompt_out(prompt)
 
 
@@ -340,6 +446,7 @@ def put_platform_prompt(
 )
 def delete_platform_prompt(
     platform_profile_id: uuid.UUID,
+    expected_revision: Annotated[int, Query(ge=0)],
     request: Request,
     db: DbSession,
     admin: AdminUser,
@@ -348,6 +455,7 @@ def delete_platform_prompt(
     delete_platform_prompt_command(
         db=db,
         platform_profile_id=platform_profile_id,
+        expected_revision=expected_revision,
         actor=admin,
         request_id=request.state.request_id,
     )
@@ -363,17 +471,98 @@ def update_platform_profile(
     payload: PlatformProfileUpdate,
     request: Request,
     db: DbSession,
-    admin: AdminUser,
+    admin: CurrentUser,
     _csrf: CsrfProtected,
 ) -> PlatformProfileOut:
-    profile = update_platform_profile_command(
-        db=db,
-        platform_profile_id=platform_profile_id,
-        payload=payload,
-        actor=admin,
-        request_id=request.state.request_id,
-    )
+    try:
+        assert_account_types(admin, (AccountType.ADMIN,))
+        profile = update_platform_profile_command(
+            db=db,
+            platform_profile_id=platform_profile_id,
+            payload=payload,
+            actor=admin,
+            request_id=request.state.request_id,
+        )
+    except AppError as error:
+        _commit_configuration_error(
+            db=db,
+            actor_id=admin.id,
+            action="platform_profile.updated",
+            target_type="PlatformProfile",
+            target_id=platform_profile_id,
+            request_id=request.state.request_id,
+            error=error,
+            failure_message="平台配置更新失败",
+        )
+        raise
     return platform_profile_out(db, profile)
+
+
+def set_platform_profile_status(
+    platform_profile_id: uuid.UUID,
+    payload: RevisionRequest,
+    request: Request,
+    db: DbSession,
+    admin: CurrentUser,
+    enabled: bool,
+) -> PlatformProfileOut:
+    """复用启用和停用路由的权限、审计与投影流程。"""
+    action = f"platform_profile.{'enabled' if enabled else 'disabled'}"
+    try:
+        assert_account_types(admin, (AccountType.ADMIN,))
+        profile = set_platform_profile_enabled_command(
+            db=db,
+            platform_profile_id=platform_profile_id,
+            payload=payload,
+            actor=admin,
+            request_id=request.state.request_id,
+            enabled=enabled,
+        )
+    except AppError as error:
+        _commit_configuration_error(
+            db=db,
+            actor_id=admin.id,
+            action=action,
+            target_type="PlatformProfile",
+            target_id=platform_profile_id,
+            request_id=request.state.request_id,
+            error=error,
+            failure_message=f"平台{'启用' if enabled else '停用'}失败",
+        )
+        raise
+    return platform_profile_out(db, profile)
+
+
+@router.post(
+    "/platform-profiles/{platform_profile_id}/enable",
+    response_model=PlatformProfileOut,
+    operation_id="enablePlatformProfile",
+)
+def enable_platform_profile(
+    platform_profile_id: uuid.UUID,
+    payload: RevisionRequest,
+    request: Request,
+    db: DbSession,
+    admin: CurrentUser,
+    _csrf: CsrfProtected,
+) -> PlatformProfileOut:
+    return set_platform_profile_status(platform_profile_id, payload, request, db, admin, True)
+
+
+@router.post(
+    "/platform-profiles/{platform_profile_id}/disable",
+    response_model=PlatformProfileOut,
+    operation_id="disablePlatformProfile",
+)
+def disable_platform_profile(
+    platform_profile_id: uuid.UUID,
+    payload: RevisionRequest,
+    request: Request,
+    db: DbSession,
+    admin: CurrentUser,
+    _csrf: CsrfProtected,
+) -> PlatformProfileOut:
+    return set_platform_profile_status(platform_profile_id, payload, request, db, admin, False)
 
 
 @router.delete(

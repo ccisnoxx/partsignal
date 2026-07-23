@@ -1,0 +1,49 @@
+- main [ref=f45e4]:
+  - radiogroup "主题模式" [ref=f45e6]:
+    - generic [ref=f45e7]:
+      - generic [ref=f45e8] [cursor=pointer]:
+        - radio "sun 浅色"
+        - generic [ref=f45e9]:
+          - img "sun" [ref=f45e11]
+          - generic [ref=f45e14]: 浅色
+      - generic [ref=f45e15] [cursor=pointer]:
+        - radio "moon 深色"
+        - generic [ref=f45e16]:
+          - img "moon" [ref=f45e18]
+          - generic [ref=f45e21]: 深色
+      - generic [ref=f45e22] [cursor=pointer]:
+        - radio "desktop 跟随系统" [checked]
+        - generic [ref=f45e23]:
+          - img "desktop" [ref=f45e25]
+          - generic [ref=f45e28]: 跟随系统
+  - generic:
+    - img:
+      - generic: 内容生成
+      - generic: 多平台分发
+      - generic: 精准触达
+      - generic: GEO 观测
+      - generic: 提及与引用
+      - generic: 效果分析
+      - generic: 持续优化
+  - generic [ref=f45e30]:
+    - heading "PartSignal" [level=1] [ref=f45e36]
+    - generic [ref=f45e37]:
+      - heading "多平台 GEO 内容运营系统" [level=2] [ref=f45e38]
+      - generic [ref=f45e39]: 让内容被看见，让价值被引用
+    - form "PartSignal" [ref=f45e40]:
+      - generic [ref=f45e46]:
+        - img "user" [ref=f45e48]
+        - textbox "账号" [ref=f45e51]:
+          - /placeholder: 请输入账号
+      - generic [ref=f45e57]:
+        - img "lock" [ref=f45e59]
+        - textbox "密码" [ref=f45e62]:
+          - /placeholder: 请输入密码
+        - button "显示" [ref=f45e64] [cursor=pointer]:
+          - img "eye-invisible" [ref=f45e65]
+      - button "登 录" [ref=f45e69] [cursor=pointer]
+  - generic [ref=f45e71]:
+    - generic [ref=f45e72]:
+      - img "safety-certificate" [ref=f45e73]
+      - strong [ref=f45e76]: 内部系统 · 操作留痕 · 全程审计 · 数据安全
+    - paragraph [ref=f45e77]: 所有操作均已记录并受审计追踪，未经授权请勿访问或使用系统资源。

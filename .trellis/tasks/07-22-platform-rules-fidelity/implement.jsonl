@@ -1,0 +1,9 @@
+{"file":".trellis/tasks/07-22-platform-rules-fidelity/research/gap-analysis.md","reason":"实现前掌握当前规则字段、状态机、引用链、页面缺口、并行任务边界和禁止猜测项"}
+{"file":".trellis/tasks/07-22-platform-rules-fidelity/research/visual-spec.md","reason":"按批准原型的原始视口、四列尺寸、密度、响应式和 Browser 验收点实施"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"保持 PostgreSQL 唯一状态源、迁移不可改写、唯一 ACTIVE、行锁和追加式历史"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"实现工作台组件、交互状态、可访问性、Modal/Drawer 和焦点行为"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"由 URL、React Query 和局部表单分别拥有可恢复、服务端与瞬时状态"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"只消费 OpenAPI 生成类型，不增加兼容字段、猜测默认或第二套传输结构"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"保留动作、权限、确认、query key、响应式、主题和真实 Browser 验收"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"同步 OpenAPI、数据库说明、服务、路由、生成类型、页面、测试和文档"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"复用现有平台查询、规则命令、审计、任务筛选、组件和 Token，避免平行实现"}

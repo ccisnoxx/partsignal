@@ -1,0 +1,12 @@
+{"file":".trellis/spec/backend/index.md","reason":"检查后端相关质量门和权威规范。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"复核安全边界、真实调用、快照、权限和失败语义。"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核 revision、审计、唯一数据源和数据库一致性。"}
+{"file":".trellis/spec/frontend/index.md","reason":"检查前端相关质量门和规范路由。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"检查组件复用、交互层级与可访问性。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"检查 URL、服务端状态和草稿状态无重复所有权。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"检查 dirty/error/save、响应式、主题和 Browser 验收。"}
+{"file":".trellis/tasks/07-22-prompt-management-fidelity/research/backend-contracts-data.md","reason":"核对 Prompt 契约、权限、审计和并发事实。"}
+{"file":".trellis/tasks/07-22-prompt-management-fidelity/research/generation-prompt-chain.md","reason":"核对系统约束不可覆盖与历史快照不被改写。"}
+{"file":".trellis/tasks/07-22-prompt-management-fidelity/research/output-preview-ai-capability.md","reason":"核对预览只复用真实作业且失败不回退。"}
+{"file":".trellis/tasks/07-22-prompt-management-fidelity/research/frontend-current-state.md","reason":"核对旧功能、测试和入口未丢失。"}
+{"file":".trellis/tasks/07-22-prompt-management-fidelity/research/accepted-visual-spec.md","reason":"执行原型到实现的高保真对比。"}

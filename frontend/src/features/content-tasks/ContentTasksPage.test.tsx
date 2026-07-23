@@ -117,9 +117,12 @@ test('列表用真实任务状态生成摘要，并将客户端筛选写入 URL'
     ] });
     throw new Error(`未声明测试请求：${path}`);
   });
-  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks']}><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks?platform_profile_id=platform-1&platform_profile_version_id=platform-version-1']}><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
 
   expect(await screen.findByTitle('PartSignal PS-01')).toBeInTheDocument();
+  expect(screen.getByText('当前平台：工程师社区')).toBeInTheDocument();
+  expect(screen.getByText('当前规则版本：platform')).toBeInTheDocument();
+  expect(apiMocks.GET).toHaveBeenCalledWith('/api/v1/content-tasks', { params: { query: { platform_profile_id: 'platform-1', platform_profile_version_id: 'platform-version-1' } } });
   expect(screen.getByRole('heading', { name: '内容任务台' })).toBeInTheDocument();
   expect(within(screen.getByText('全部任务').closest('.metric-tile') as HTMLElement).getByText('3')).toBeInTheDocument();
   expect(within(screen.getByText('进行中任务').closest('.metric-tile') as HTMLElement).getByText('1')).toBeInTheDocument();

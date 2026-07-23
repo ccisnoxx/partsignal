@@ -3,27 +3,41 @@
 from __future__ import annotations
 
 import uuid
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Query, Request, status
+from pydantic import BeforeValidator
 from sqlalchemy import select
 
-from app.deps import AdminUser, CsrfProtected, CurrentUser, DbSession, EngineerUser
-from app.errors import not_found
+from app.audit import commit_audit
+from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+from app.deps import (
+    AdminUser,
+    CsrfProtected,
+    CurrentUser,
+    DbSession,
+    EngineerUser,
+    assert_account_types,
+)
+from app.errors import AppError, not_found
 from app.models.configuration import (
     PlatformProfile,
     PlatformProfileVersion,
     QueryTopic,
 )
 from app.models.content import ContentTask
-from app.schemas.common import CommandRequest
+from app.schemas.common import AccountType, CommandRequest
 from app.schemas.configuration import (
+    PlatformConfigurationStatus,
     PlatformProfileCreate,
     PlatformProfileList,
     PlatformProfileOut,
+    PlatformProfileStatus,
     PlatformProfileVersionCreate,
     PlatformProfileVersionList,
     PlatformProfileVersionOut,
     PlatformProfileVersionUpdate,
+    PlatformRuleImpactSummary,
     QueryTopicCreate,
     QueryTopicList,
     QueryTopicOut,
@@ -62,12 +76,16 @@ from app.services.content_planning import (
 from app.services.content_planning import (
     update_query_topic as update_query_topic_command,
 )
+from app.services.platform_configuration import (
+    list_platform_profiles as list_platform_profiles_query,
+)
 from app.services.projections import (
     content_task_out,
     content_tasks_out,
     platform_profile_out,
-    platform_profiles_out,
+    platform_rule_impact,
     platform_version_out,
+    platform_versions_out,
 )
 from app.services.publication import cancel_content_task as cancel_content_task_service
 
@@ -78,14 +96,8 @@ SystemAdmin = AdminUser
 
 
 def query_topic_out(topic: QueryTopic) -> QueryTopicOut:
-    return QueryTopicOut(
-        id=topic.id,
-        canonical_question=topic.canonical_question,
-        intent_type=topic.intent_type,
-        variants=topic.variants,
-        revision=topic.revision,
-        created_at=topic.created_at,
-    )
+    """把数据库枚举字符串显式解析为目标问题响应契约。"""
+    return QueryTopicOut.model_validate(topic)
 
 
 @router.get("/query-topics", response_model=QueryTopicList, operation_id="listQueryTopics")
@@ -139,9 +151,25 @@ def update_query_topic(
 @router.get(
     "/platform-profiles", response_model=PlatformProfileList, operation_id="listPlatformProfiles"
 )
-def list_platform_profiles(db: DbSession, _user: CurrentUser) -> PlatformProfileList:
-    profiles = list(db.scalars(select(PlatformProfile).order_by(PlatformProfile.name)))
-    return PlatformProfileList(items=platform_profiles_out(db, profiles))
+def list_platform_profiles(
+    db: DbSession,
+    _user: CurrentUser,
+    q: str | None = Query(None, max_length=200),
+    platform_type_id: uuid.UUID | None = None,
+    profile_status: Annotated[PlatformProfileStatus | None, Query(alias="status")] = None,
+    configuration_status: PlatformConfigurationStatus | None = None,
+    page: int | None = Query(None, ge=1),
+    page_size: Annotated[Literal[10, 20, 50] | None, BeforeValidator(int), Query()] = None,
+) -> PlatformProfileList:
+    return list_platform_profiles_query(
+        db=db,
+        q=q,
+        platform_type_id=platform_type_id,
+        profile_status=profile_status,
+        configuration_status=configuration_status,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.post(
@@ -203,7 +231,7 @@ def list_all_platform_profile_versions(
             .order_by(PlatformProfile.name, PlatformProfileVersion.version.desc())
         )
     )
-    return PlatformProfileVersionList(items=[platform_version_out(item) for item in versions])
+    return PlatformProfileVersionList(items=platform_versions_out(db, versions))
 
 
 @router.get(
@@ -224,7 +252,7 @@ def list_platform_profile_versions(
             .order_by(PlatformProfileVersion.version.desc())
         )
     )
-    return PlatformProfileVersionList(items=[platform_version_out(item) for item in versions])
+    return PlatformProfileVersionList(items=platform_versions_out(db, versions))
 
 
 @router.patch(
@@ -260,16 +288,38 @@ def activate_platform_profile_version(
     payload: CommandRequest,
     request: Request,
     db: DbSession,
-    admin: SystemAdmin,
+    admin: CurrentUser,
     _csrf: CsrfProtected,
 ) -> PlatformProfileVersionOut:
-    version = activate_platform_profile_version_command(
-        db=db,
-        platform_profile_version_id=platform_profile_version_id,
-        payload=payload,
-        actor=admin,
-        request_id=request.state.request_id,
-    )
+    actor_id = admin.id
+    command_request_id = request.state.request_id
+    try:
+        assert_account_types(admin, (AccountType.ADMIN,))
+        version = activate_platform_profile_version_command(
+            db=db,
+            platform_profile_version_id=platform_profile_version_id,
+            payload=payload,
+            actor=admin,
+            request_id=command_request_id,
+        )
+    except AppError as error:
+        db.rollback()
+        denied = error.code == "PERMISSION_DENIED"
+        commit_audit(
+            db,
+            AuditEntry(
+                actor_id=actor_id,
+                business_module=AuditModule.CONFIGURATION,
+                action="platform_profile_version.activated",
+                target_type="PlatformProfileVersion",
+                target_id=platform_profile_version_id,
+                request_id=command_request_id,
+                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
+                result_message=("平台规则版本激活被拒绝" if denied else "平台规则版本激活未完成"),
+                error_code=error.code,
+            )
+        )
+        raise
     return platform_version_out(version)
 
 
@@ -296,9 +346,36 @@ def retire_platform_profile_version(
     return platform_version_out(version)
 
 
+@router.get(
+    "/platform-profile-versions/{platform_profile_version_id}/impact",
+    response_model=PlatformRuleImpactSummary,
+    operation_id="getPlatformProfileVersionImpact",
+)
+def get_platform_profile_version_impact(
+    platform_profile_version_id: uuid.UUID,
+    db: DbSession,
+    _user: CurrentUser,
+) -> PlatformRuleImpactSummary:
+    """返回直接绑定当前规则版本的互斥内容任务影响摘要。"""
+    return platform_rule_impact(db, platform_profile_version_id)
+
+
 @router.get("/content-tasks", response_model=ContentTaskList, operation_id="listContentTasks")
-def list_content_tasks(db: DbSession, _user: CurrentUser) -> ContentTaskList:
-    tasks = list(db.scalars(select(ContentTask).order_by(ContentTask.created_at.desc())))
+def list_content_tasks(
+    db: DbSession,
+    _user: CurrentUser,
+    platform_profile_id: uuid.UUID | None = None,
+    platform_profile_version_id: uuid.UUID | None = None,
+) -> ContentTaskList:
+    query = select(ContentTask)
+    if platform_profile_version_id is not None:
+        query = query.where(ContentTask.platform_profile_version_id == platform_profile_version_id)
+    if platform_profile_id is not None:
+        query = query.join(
+            PlatformProfileVersion,
+            PlatformProfileVersion.id == ContentTask.platform_profile_version_id,
+        ).where(PlatformProfileVersion.platform_profile_id == platform_profile_id)
+    tasks = list(db.scalars(query.order_by(ContentTask.created_at.desc())))
     return ContentTaskList(items=content_tasks_out(db, tasks))
 
 

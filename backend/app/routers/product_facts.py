@@ -7,13 +7,23 @@ import uuid
 from fastapi import APIRouter, Query, Request, status
 from sqlalchemy import func, or_, select
 
-from app.deps import AdminUser, CsrfProtected, CurrentUser, DbSession, EngineerUser
-from app.errors import not_found
+from app.audit import commit_audit
+from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+from app.deps import (
+    AdminUser,
+    CsrfProtected,
+    CurrentUser,
+    DbSession,
+    EngineerUser,
+    assert_account_types,
+)
+from app.errors import AppError, not_found
 from app.models.product_facts import (
     FactVersion,
     Product,
 )
 from app.schemas.common import (
+    AccountType,
     CommandRequest,
     RequestChangesCommand,
 )
@@ -283,18 +293,40 @@ def submit_fact_version(
     payload: CommandRequest,
     request: Request,
     db: DbSession,
-    editor: ProductEditor,
+    editor: CurrentUser,
     _csrf: CsrfProtected,
 ) -> FactVersionOut:
-    return transition_fact_version(
-        db=db,
-        fact_version_id=fact_version_id,
-        expected_revision=payload.expected_revision,
-        comment=payload.comment,
-        actor=editor,
-        request_id=request.state.request_id,
-        action="submit",
-    )
+    actor_id = editor.id
+    command_request_id = request.state.request_id
+    try:
+        assert_account_types(editor, (AccountType.ADMIN, AccountType.ENGINEER))
+        return transition_fact_version(
+            db=db,
+            fact_version_id=fact_version_id,
+            expected_revision=payload.expected_revision,
+            comment=payload.comment,
+            actor=editor,
+            request_id=command_request_id,
+            action="submit",
+        )
+    except AppError as error:
+        db.rollback()
+        denied = error.code == "PERMISSION_DENIED"
+        commit_audit(
+            db,
+            AuditEntry(
+                actor_id=actor_id,
+                business_module=AuditModule.PRODUCT_FACTS,
+                action="fact_version.submit",
+                target_type="FactVersion",
+                target_id=fact_version_id,
+                request_id=command_request_id,
+                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
+                result_message=("事实版本提交审核被拒绝" if denied else "事实版本提交审核未完成"),
+                error_code=error.code,
+            )
+        )
+        raise
 
 
 @router.post(

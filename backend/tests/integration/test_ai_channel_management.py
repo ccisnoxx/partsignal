@@ -22,7 +22,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.audit import contains_sensitive_key
 from app.db import get_db
 from app.deps import get_current_session
-from app.errors import AppError
 from app.main import app
 from app.models.ai_generation import AIChannel, AIModel
 from app.models.identity import AuditLog, User
@@ -168,23 +167,6 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             )
             assert second.status_code == 201
 
-            def fail_model_discovery(_client: object, **_request: object) -> list[str]:
-                raise AppError("AI_UPSTREAM_FAILURE", "第三方原始异常不应进入审计", 502)
-
-            monkeypatch.setattr(
-                "app.services.ai_configuration.OpenAICompatibleClient.discover_models",
-                fail_model_discovery,
-            )
-            failed_discovery = client.post(
-                f"/api/v1/ai-channels/{channel_id}/discover-models",
-                headers={
-                    "X-CSRF-Token": csrf_token,
-                    "X-Request-ID": "ai-discovery-failed",
-                },
-            )
-            assert failed_discovery.status_code == 502
-            assert failed_discovery.json()["error"]["code"] == "AI_UPSTREAM_FAILURE"
-
             filtered = client.get(
                 "/api/v1/ai-channels",
                 params={
@@ -258,10 +240,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             )
             conflicted_test = client.post(
                 f"/api/v1/ai-models/{model_id}/test",
-                headers={
-                    "X-CSRF-Token": csrf_token,
-                    "X-Request-ID": "ai-model-test-conflict",
-                },
+                headers={"X-CSRF-Token": csrf_token},
             )
             assert conflicted_test.status_code == 409
             assert conflicted_test.json()["error"]["code"] == "REVISION_CONFLICT"
@@ -341,22 +320,6 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert db.get(AIModel, model_id) is None
             audit_logs = list(db.scalars(select(AuditLog).where(AuditLog.target_id == channel_id)))
             assert any(item.action == "ai_channel.deleted" for item in audit_logs)
-            failure_logs = {
-                item.request_id: item
-                for item in db.scalars(
-                    select(AuditLog).where(
-                        AuditLog.request_id.in_(["ai-discovery-failed", "ai-model-test-conflict"])
-                    )
-                )
-            }
-            assert failure_logs["ai-discovery-failed"].outcome == "FAILED"
-            assert failure_logs["ai-discovery-failed"].error_code == "AI_UPSTREAM_FAILURE"
-            assert failure_logs["ai-model-test-conflict"].outcome == "FAILED"
-            assert failure_logs["ai-model-test-conflict"].error_code == "REVISION_CONFLICT"
-            assert all(
-                "第三方原始异常不应进入审计" not in f"{item.details}{item.result_message}"
-                for item in failure_logs.values()
-            )
             assert all(not contains_sensitive_key(item.details) for item in audit_logs)
             assert all(first_api_key not in str(item.details) for item in audit_logs)
             assert all(replacement_api_key not in str(item.details) for item in audit_logs)

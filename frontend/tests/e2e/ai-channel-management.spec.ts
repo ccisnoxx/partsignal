@@ -258,7 +258,7 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   const modelRow = page.getByRole('row').filter({ hasText: 'e2e-model' });
   await modelRow.getByRole('button', { name: '更多模型操作：e2e-model' }).click();
   await page.getByRole('menuitem', { name: '启用' }).click();
-  await expect(modelRow.getByRole('cell', { name: '已启用' })).toBeVisible();
+  await expect(modelRow.getByRole('cell', { name: '是' })).toBeVisible();
   await selectDetailTab(page, '基本信息', null);
   await page.getByRole('button', { name: '启用渠道' }).click();
   await expect(page.locator('.ant-message').getByText('渠道已启用', { exact: true })).toBeVisible();
@@ -282,7 +282,7 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
     status: 'enabled',
     provider_brand: 'OPENAI',
   });
-  await expect(page.locator('.ai-channel-table tbody tr').filter({ has: page.locator('.ai-channel-name-cell') })).toHaveCount(1);
+  await expect(page.locator('.ai-channel-table tbody tr').filter({ has: page.locator('a.ai-channel-name-cell') })).toHaveCount(1);
   await page.getByRole('combobox', { name: '渠道排序' }).click();
   await selectVisibleOption(page, '名称升序');
   await expectSelectedChannelParams(page, channel.id, {
@@ -347,9 +347,9 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   const selectedChannelRow = page
     .getByRole('region', { name: 'AI 渠道列表' })
     .getByRole('row')
-    .filter({ has: page.getByText(channelName, { exact: true }) });
+    .filter({ has: page.locator(`a[href^="/configuration/ai/channels/${channel.id}"]`) });
   await expect(selectedChannelRow).toHaveClass(/ai-channel-row-selected/);
-  await expect(page.locator('.ai-channel-table tbody tr').filter({ has: page.locator('.ai-channel-name-cell') })).toHaveCount(6);
+  await expect(page.locator('.ai-channel-table tbody tr').filter({ has: page.locator('a.ai-channel-name-cell') })).toHaveCount(6);
   await expect(page.getByRole('button', { name: /^已启用\s+4$/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /^已停用\s+2$/ })).toBeVisible();
   await expect(page.getByRole('complementary', { name: '渠道详情面板' })
@@ -393,8 +393,8 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
     sider: { x: 8, y: 8, width: 220, height: 985 },
     header: { x: 228, y: 8, width: 1334, height: 64 },
     page: { x: 238, y: 84, width: 1312, height: 901 },
-    statusRail: { x: 239, y: 195, width: 188, height: 789 },
-    detail: { x: 1183, y: 195, width: 366, height: 789 },
+    statusRail: { x: 239, y: 157, width: 188, height: 827 },
+    detail: { x: 1183, y: 157, width: 366, height: 827 },
     tableHeaderHeight: 52,
     tableRowHeight: 92,
     tableHeaderFontSize: '11px',
@@ -423,7 +423,7 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   await failureDialog.getByRole('button', { name: '开始测试' }).click();
   await expect(page.getByText(/AI 渠道返回 HTTP 404/)).toBeVisible();
   await selectDetailTab(page, '模型管理', 'models');
-  await expect(page.getByRole('region', { name: '模型列表' }).getByText('失败', { exact: true })).toBeVisible();
+  await expect(page.getByText('失败', { exact: true })).toBeVisible();
   await selectDetailTab(page, '基本信息', null);
 
   await page.getByRole('button', { name: '删除渠道' }).click();
@@ -459,7 +459,7 @@ test('普通工程师无法通过直接路由或 API 访问 AI 渠道配置', as
     data: {
       username,
       display_name: `AI 权限工程师 ${suffix}`,
-      temporary_password: initialPassword,
+      password: initialPassword,
       account_type: 'ENGINEER',
     },
   }));

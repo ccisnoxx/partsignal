@@ -2,7 +2,7 @@
 import {
   BarChartOutlined, DatabaseOutlined, DownOutlined, FileTextOutlined, LockOutlined,
   LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, RocketOutlined, SettingOutlined,
-  SafetyCertificateOutlined, SearchOutlined, ToolOutlined,
+  SearchOutlined, ToolOutlined,
 } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
 import { AutoComplete, Avatar, Button, Drawer, Dropdown, Grid, Input, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
@@ -21,37 +21,20 @@ const workflowNavigation: NavigationItem[] = [
   { key: '/products', icon: <DatabaseOutlined />, label: '产品事实' },
   { key: '/tasks', icon: <FileTextOutlined />, label: '内容任务' },
   { key: '/publications', icon: <RocketOutlined />, label: '人工发布' },
-  {
-    key: '/observations-group', icon: <BarChartOutlined />, label: 'GEO 观测',
-    children: [
-      { key: '/observations', label: '观测记录' },
-      { key: '/observations/insights', label: '分析洞察' },
-    ],
-  },
+  { key: '/observations', icon: <BarChartOutlined />, label: 'GEO 观测' },
 ];
 
 const systemNavigation: NavigationItem[] = [
-  {
-    key: '/business-settings', icon: <SettingOutlined />, label: '业务设置',
-    children: [
-      { key: '/settings?tab=accounts', label: '发布账号' },
-      { key: '/settings', label: '历史目标问题' },
-      { key: '/users', label: '用户管理', adminOnly: true },
-    ],
-  },
-  {
-    key: '/audit-security', icon: <SafetyCertificateOutlined />, label: '审计与安全', adminOnly: true,
-    children: [
-      { key: '/audit', label: '审计日志' },
-    ],
-  },
+  { key: '/settings', icon: <SettingOutlined />, label: '业务设置' },
   {
     key: '/configuration', icon: <ToolOutlined />, label: '配置中心', adminOnly: true,
     children: [
-      { key: '/configuration/platforms', label: '平台管理' },
+      { key: '/configuration/platforms', label: '内容平台' },
       { key: '/configuration/platform-rules', label: '平台规则' },
       { key: '/configuration/prompts', label: '平台 Prompt' },
       { key: '/configuration/ai', label: 'AI 渠道与模型' },
+      { key: '/users', label: '用户与权限' },
+      { key: '/audit', label: '审计日志' },
     ],
   },
 ];
@@ -69,15 +52,9 @@ function navigationLeaves(items: NavigationItem[], parentKey?: string): Array<Na
     : [{ ...item, parentKey }]);
 }
 
-function matchesRoute(pathname: string, search: string, key: string): boolean {
+function matchesRoute(pathname: string, key: string): boolean {
   if (key === '/tasks' && pathname.startsWith('/content/')) return true;
-  const target = new URL(key, 'https://partsignal.local');
-  if (target.pathname === '/settings') {
-    if (pathname !== '/settings') return false;
-    const currentTab = new URLSearchParams(search).get('tab');
-    return target.searchParams.get('tab') === 'accounts' ? currentTab === 'accounts' : currentTab !== 'accounts';
-  }
-  return target.pathname === '/' ? pathname === '/' : pathname === target.pathname || pathname.startsWith(`${target.pathname}/`);
+  return key === '/' ? pathname === '/' : pathname === key || pathname.startsWith(`${key}/`);
 }
 
 export function AppLayout() {
@@ -120,23 +97,12 @@ export function AppLayout() {
     },
   });
   const selected = visibleLeaves
-    .filter((item) => matchesRoute(location.pathname, location.search, item.key))
+    .filter((item) => matchesRoute(location.pathname, item.key))
     .sort((left, right) => right.key.length - left.key.length)[0] ?? visibleLeaves.find((item) => item.key === '/');
   const selectedKey = selected?.key ?? '/';
-  const currentSection = location.pathname.startsWith('/content/')
-    ? '内容审核'
-    : location.pathname.startsWith('/observations') ? 'GEO 观测' : selected?.label ?? '工作台';
+  const currentSection = location.pathname.startsWith('/content/') ? '内容审核' : selected?.label ?? '工作台';
   const isDashboard = location.pathname === '/';
-  const isGeo = location.pathname.startsWith('/observations');
-  const isConfiguration = location.pathname.startsWith('/configuration');
-  const isAuditLog = location.pathname === '/audit';
-  const isBusinessSettings = location.pathname === '/settings' || location.pathname === '/users';
-  const isManagementShell = isConfiguration || isBusinessSettings || isAuditLog;
-  const isUserManagement = location.pathname === '/users';
-  const isPlatformManagement = location.pathname === '/configuration/platforms';
-  const isPlatformRules = location.pathname === '/configuration/platform-rules';
-  const isPromptManagement = location.pathname === '/configuration/prompts';
-  const compactShell = isDashboard || isGeo;
+  const isConfiguration = location.pathname.startsWith('/configuration') || location.pathname === '/users' || location.pathname === '/audit';
   const toMenuItems = (items: NavigationItem[]): MenuProps['items'] => items.map((item) => ({
     key: item.key,
     icon: item.icon,
@@ -160,23 +126,23 @@ export function AppLayout() {
   const desktopSider = !!screens.lg;
 
   return (
-    <Layout className={`app-shell${compactShell ? ' app-shell-dashboard' : ''}${isGeo ? ' app-shell-geo' : ''}${isManagementShell && !isUserManagement && !isAuditLog ? ' app-shell-configuration' : ''}${isUserManagement ? ' app-shell-user-management' : ''}${isAuditLog ? ' app-shell-audit' : ''}${isPlatformManagement ? ' app-shell-platform-management' : ''}${isPlatformRules ? ' app-shell-platform-rules' : ''}${isPromptManagement ? ' app-shell-prompt-management' : ''}`}>
+    <Layout className={`app-shell${isDashboard ? ' app-shell-dashboard' : ''}${isConfiguration ? ' app-shell-configuration' : ''}`}>
       {desktopSider ? (
-        <Layout.Sider theme="light" width={isAuditLog ? 188 : isUserManagement ? 186 : isPromptManagement ? 184 : isPlatformManagement || isPlatformRules ? 190 : isManagementShell ? 220 : compactShell ? 192 : 248} collapsedWidth={76} collapsed={collapsed} className="app-sider">
-          <div className="brand-mark"><span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span>{!collapsed && <strong>PartSignal</strong>}</div>
+        <Layout.Sider theme="light" width={isConfiguration ? 220 : isDashboard ? 192 : 248} collapsedWidth={76} collapsed={collapsed} className="app-sider">
+          <div className="brand-mark">{isConfiguration ? <span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span> : <span>PS</span>}{!collapsed && <strong>PartSignal</strong>}</div>
           {menu}
-          {(isManagementShell || isGeo) && <Button type="text" className="configuration-sider-collapse" aria-label={collapsed ? '展开导航' : '收起导航'} icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => setCollapsed((value) => !value)}>{!collapsed && '收起'}</Button>}
+          {isConfiguration && <Button type="text" className="configuration-sider-collapse" aria-label={collapsed ? '展开导航' : '收起导航'} icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => setCollapsed((value) => !value)}>{!collapsed && '收起'}</Button>}
         </Layout.Sider>
       ) : (
         <Drawer placement="left" open={drawerOpen} onClose={() => setDrawerOpen(false)} size={280} className="mobile-drawer">
-          <div className="brand-mark"><span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span><strong>PartSignal</strong></div>{menu}
+          <div className="brand-mark">{isConfiguration ? <span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span> : <span>PS</span>}<strong>PartSignal</strong></div>{menu}
         </Drawer>
       )}
       <Layout>
         <Layout.Header className="app-header">
           <Space size="middle" className="header-context">
-            {(!desktopSider || (!isManagementShell && !isGeo)) && <Button type="text" aria-label="切换导航" icon={desktopSider ? (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />) : <MenuUnfoldOutlined />} onClick={() => desktopSider ? setCollapsed((value) => !value) : setDrawerOpen(true)} />}
-            <div>{isConfiguration ? <><Typography.Text strong>配置中心</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isAuditLog ? <><Typography.Text strong>审计与安全</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isBusinessSettings ? <><Typography.Text strong>业务设置</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isGeo ? <><Typography.Text strong>GEO 观测</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{selected?.label}</Typography.Text></> : <><Typography.Text className="header-kicker">PARTSIGNAL</Typography.Text><Typography.Text strong>{currentSection}</Typography.Text></>}</div>
+            {(!desktopSider || !isConfiguration) && <Button type="text" aria-label="切换导航" icon={desktopSider ? (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />) : <MenuUnfoldOutlined />} onClick={() => desktopSider ? setCollapsed((value) => !value) : setDrawerOpen(true)} />}
+            <div>{isConfiguration ? <><Typography.Text strong>配置中心</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : <><Typography.Text className="header-kicker">PARTSIGNAL</Typography.Text><Typography.Text strong>{currentSection}</Typography.Text></>}</div>
           </Space>
           <AutoComplete
             className="global-navigation-search"
@@ -190,13 +156,13 @@ export function AppLayout() {
             <Input
               aria-label="全局页面搜索"
               prefix={<SearchOutlined />}
-              placeholder="搜索内容、任务、平台、数据…"
+              placeholder="搜索页面与功能…"
               suffix={<kbd>⌘K</kbd>}
               allowClear
             />
           </AutoComplete>
           <Space size="small" className="header-actions">
-            <ThemeModeControl compact={isManagementShell || isGeo || !screens.md} />
+            <ThemeModeControl compact={isConfiguration || !screens.md} />
             <Dropdown
               trigger={['click']}
               menu={{

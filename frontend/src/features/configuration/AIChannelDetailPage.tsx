@@ -22,6 +22,7 @@ import {
   Popconfirm,
   Select,
   Space,
+  Statistic,
   Table,
   Tabs,
   Tag,
@@ -34,7 +35,6 @@ import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shar
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { AIModel, Schema, User } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
-import { MetricTile } from '../../shared/components/MetricTile';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 import {
@@ -115,8 +115,8 @@ export function AIChannelDetailPage() {
     enabled: !!channelId,
   });
   const users = useQuery({
-    queryKey: queryKeys.users.list({ page: 1, page_size: 100 }),
-    queryFn: async () => unwrap(await api.GET('/api/v1/users', { params: { query: { page: 1, page_size: 100 } } })),
+    queryKey: queryKeys.users,
+    queryFn: async () => unwrap(await api.GET('/api/v1/users')),
     staleTime: QUERY_STALE_TIME.businessList,
   });
   const usage = useQuery({
@@ -371,7 +371,7 @@ export function AIChannelDetailPage() {
         { key: 'name', label: '渠道名称', children: data.name },
         { key: 'description', label: '描述', children: data.description || '—' },
         { key: 'url', label: 'API 根地址', children: <Typography.Link href={data.base_url} target="_blank" rel="noreferrer" className="ai-detail-url">{data.base_url}</Typography.Link> },
-        { key: 'state', label: '状态', children: <StatusTag status={data.is_enabled ? 'ENABLED' : 'DISABLED'} /> },
+        { key: 'state', label: '状态', children: <span className={`ai-enabled-state ${data.is_enabled ? 'is-enabled' : ''}`}><span />{data.is_enabled ? '已启用' : '已停用'}</span> },
         { key: 'key', label: 'API Key', children: data.api_key_configured ? <Space size={4}><span className="ai-configured">✓ 已配置（••••••）</span><Button type="link" size="small" onClick={() => setKeyOpen(true)}>重新配置</Button></Space> : <Button type="link" size="small" onClick={() => setKeyOpen(true)}>未配置，立即配置</Button> },
         { key: 'headers', label: '请求 Header', children: `${data.headers.length} 个` },
         { key: 'timeout', label: '超时时间', children: `${data.timeout_seconds} 秒` },
@@ -404,14 +404,14 @@ export function AIChannelDetailPage() {
     <div className="ai-request-key-card"><span><KeyOutlined /><span><strong>API Key</strong><small>{data.api_key_configured ? '已安全配置（••••••）' : '尚未配置'}</small></span></span><Button onClick={() => setKeyOpen(true)}>重新配置</Button></div>
     <div className="ai-section-heading"><strong>请求 Header</strong><Button size="small" icon={<PlusOutlined />} onClick={() => setHeaderOpen(true)}>新增</Button></div>
     {data.headers.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未配置请求 Header" /> : <TableRegion label="请求 Header 列表"><Table<Header>
-      size="small" rowKey="id" dataSource={data.headers} pagination={false} scroll={{ x: 360 }} columns={[
+      size="small" rowKey="id" dataSource={data.headers} pagination={false} columns={[
         { title: '名称', dataIndex: 'name', ellipsis: true, render: (value) => <span className="data-code">{value}</span> },
         { title: '类型', dataIndex: 'is_sensitive', width: 64, render: (value) => <Tag>{value ? '敏感' : '普通'}</Tag> },
         { title: '值', width: 100, render: (_, row) => row.is_sensitive ? '••••••' : (row.value ?? '—') },
-        { title: '操作', fixed: 'right', width: 86, render: (_, row) => <Dropdown trigger={['click']} menu={{
+        { title: '操作', width: 86, render: (_, row) => <Dropdown trigger={['click']} menu={{
           items: [{ key: 'edit', label: '编辑' }, { key: 'delete', label: '删除', danger: true }],
           onClick: ({ key }) => key === 'edit' ? setEditingHeader(row) : modal.confirm({ title: `删除 Header“${row.name}”？`, okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteHeader.mutateAsync(row.id) }),
-        }}><Button size="small" type="text" icon={<DownOutlined />} aria-label={`更多操作：Header ${row.name}`} /></Dropdown> },
+        }}><Button size="small" type="text" icon={<DownOutlined />} aria-label={`操作 Header：${row.name}`} /></Dropdown> },
       ]}
     /></TableRegion>}
   </div>;
@@ -422,8 +422,8 @@ export function AIChannelDetailPage() {
     {models.isLoading ? <QueryLoading label="正在加载模型" /> : models.error || !models.data ? <QueryFailure error={models.error ?? new Error('模型列表不存在')} onRetry={() => void models.refetch()} /> : models.data.items.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未配置模型" /> : <TableRegion label="模型列表"><Table<AIModel>
       size="small" rowKey="id" dataSource={models.data.items} pagination={false} scroll={{ x: 520 }} columns={[
         { title: '模型', width: 150, render: (_, row) => <span className="ai-model-name"><strong>{row.display_name}</strong><small>{row.model_id}</small></span> },
-        { title: '测试', dataIndex: 'test_status', width: 76, render: (value) => <StatusTag compact status={value} /> },
-        { title: '启用', dataIndex: 'is_enabled', width: 64, render: (value) => <StatusTag compact status={value ? 'ENABLED' : 'DISABLED'} /> },
+        { title: '测试', dataIndex: 'test_status', width: 76, render: (value) => <StatusTag status={value} /> },
+        { title: '启用', dataIndex: 'is_enabled', width: 64, render: (value) => value ? '是' : '否' },
         { title: '操作', fixed: 'right', width: 126, render: (_, row) => <Space size={2}>
           <Button size="small" type="text" icon={<ThunderboltOutlined />} aria-label={`测试模型：${row.display_name}`} loading={testModel.isPending && testModel.variables?.id === row.id} onClick={() => confirmTestModel(row)} />
           <Dropdown trigger={['click']} menu={{
@@ -445,10 +445,10 @@ export function AIChannelDetailPage() {
     ]} /></div>
     {usage.isLoading ? <QueryLoading label="正在加载使用统计" /> : usage.error || !usage.data ? <QueryFailure error={usage.error ?? new Error('统计不存在')} onRetry={() => void usage.refetch()} /> : <>
       <div className="ai-usage-grid">
-        <MetricTile label="业务作业" value={usage.data.total_jobs} tone="data" />
-        <MetricTile label="成功 / 失败" value={`${usage.data.succeeded_jobs} / ${usage.data.failed_jobs}`} tone="warning" />
-        <MetricTile label="成功率" value={usage.data.success_rate === null ? '暂无数据' : `${(usage.data.success_rate * 100).toFixed(1)}%`} tone="success" />
-        <MetricTile label="平均响应" value={optionalMetric(usage.data.average_response_duration_ms, ' ms')} />
+        <Statistic title="业务作业" value={usage.data.total_jobs} />
+        <Statistic title="成功 / 失败" value={`${usage.data.succeeded_jobs} / ${usage.data.failed_jobs}`} />
+        <Statistic title="成功率" value={usage.data.success_rate === null ? '暂无数据' : `${(usage.data.success_rate * 100).toFixed(1)}%`} />
+        <Statistic title="平均响应" value={optionalMetric(usage.data.average_response_duration_ms, ' ms')} />
       </div>
       <Descriptions column={1} size="small" colon={false} items={[
         { key: 'prompt', label: '已报告输入 Token', children: optionalMetric(usage.data.prompt_tokens) },
@@ -462,11 +462,10 @@ export function AIChannelDetailPage() {
   const logsContent = <div className="ai-detail-section">
     <div className="ai-section-heading"><strong>操作日志</strong></div>
     {logs.isLoading ? <QueryLoading label="正在加载操作日志" /> : logs.error || !logs.data ? <QueryFailure error={logs.error ?? new Error('操作日志不存在')} onRetry={() => void logs.refetch()} /> : logs.data.items.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无渠道操作日志" /> : <TableRegion label="渠道操作日志"><Table<Schema<'AuditLog'>>
-      size="small" rowKey="id" dataSource={logs.data.items} pagination={{ current: logPage, pageSize: 20, total: logs.data.total, showSizeChanger: false, onChange: setLogPage }} scroll={{ x: 600 }} columns={[
+      size="small" rowKey="id" dataSource={logs.data.items} pagination={{ current: logPage, pageSize: 20, total: logs.data.total, showSizeChanger: false, onChange: setLogPage }} scroll={{ x: 520 }} columns={[
         { title: '时间', dataIndex: 'created_at', width: 142, render: (value) => new Date(value).toLocaleString('zh-CN') },
         { title: '动作', dataIndex: 'action', width: 160 },
         { title: '操作者', dataIndex: 'actor_id', width: 110, render: (value) => userNames.get(value) ?? value },
-        { title: '执行结果', dataIndex: 'outcome', width: 82, render: (value) => <StatusTag compact status={value} /> },
         { title: '对象', width: 155, render: (_, row) => `${row.target_type} / ${row.target_id}` },
         { title: '请求 ID', dataIndex: 'request_id', width: 190 },
       ]}
@@ -486,7 +485,7 @@ export function AIChannelDetailPage() {
     <header className="ai-detail-header">
       <AIProviderMark brand={data.provider_brand} />
       <div><Typography.Title level={5}>{data.name}</Typography.Title><Typography.Text type="secondary">{providerBrandLabels[data.provider_brand]} · {data.protocol_type}</Typography.Text></div>
-      <StatusTag status={data.is_enabled ? 'ENABLED' : 'DISABLED'} />
+      <span className={`ai-enabled-pill ${data.is_enabled ? 'is-enabled' : ''}`}>{data.is_enabled ? '已启用' : '已停用'}</span>
     </header>
     <Tabs
       className="ai-detail-tabs"

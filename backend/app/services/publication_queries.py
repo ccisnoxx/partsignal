@@ -241,7 +241,6 @@ def list_publication_candidates(db: Session) -> PublicationCandidateList:
             ContentVersion.status == "APPROVED",
             FactVersion.status == "APPROVED",
             ContentTask.status == "OPEN",
-            PlatformProfile.is_active.is_(True),
         )
         .order_by(ContentVersion.created_at.desc(), ContentVersion.id)
     ).all()
@@ -646,19 +645,15 @@ def get_repair_context(db: Session, attention_id: uuid.UUID) -> PublicationRepai
             .order_by(FactVersion.version.desc(), FactVersion.id)
         )
     )
-    platform_candidates = (
-        list(
-            db.scalars(
-                select(PlatformProfileVersion)
-                .where(
-                    PlatformProfileVersion.platform_profile_id == profile.id,
-                    PlatformProfileVersion.status == "ACTIVE",
-                )
-                .order_by(PlatformProfileVersion.version.desc(), PlatformProfileVersion.id)
+    platform_candidates = list(
+        db.scalars(
+            select(PlatformProfileVersion)
+            .where(
+                PlatformProfileVersion.platform_profile_id == profile.id,
+                PlatformProfileVersion.status == "ACTIVE",
             )
+            .order_by(PlatformProfileVersion.version.desc(), PlatformProfileVersion.id)
         )
-        if profile.is_active
-        else []
     )
     before_fact = original_fact_out.snapshot.model_dump(mode="json")
     before_platform = original_platform_out.rules.model_dump(mode="json")

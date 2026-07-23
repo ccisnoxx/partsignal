@@ -70,12 +70,6 @@ export interface ProjectThemeTokens {
   chartSeries4: string;
   chartSeries5: string;
   chartSeries6: string;
-  geoSeriesBlue: string;
-  geoSeriesGreen: string;
-  geoSeriesPurple: string;
-  geoSeriesOrange: string;
-  geoSeriesRed: string;
-  geoSeriesTeal: string;
   chartGrid: string;
   chartAxis: string;
   chartTooltipBg: string;
@@ -99,7 +93,6 @@ export const projectThemes: Record<ResolvedTheme, ProjectThemeTokens> = {
     codeBg: '#1C1C1E', codeText: '#F5F5F7', codeBorder: '#48484A', codeInlineBg: '#F2F2F7', codeInlineText: '#004A9F', quoteBg: '#F2F7FC', quoteBorder: '#0066CC',
     diffAddBg: '#EAF7ED', diffAddText: '#1B6B30', diffAddBorder: '#63B174', diffDeleteBg: '#FDEBEC', diffDeleteText: '#A20E1A', diffDeleteBorder: '#E06B75',
     chartSeries1: '#0066CC', chartSeries2: '#007A85', chartSeries3: '#248A3D', chartSeries4: '#6E6E73', chartSeries5: '#5E5CE6', chartSeries6: '#B25000',
-    geoSeriesBlue: '#3579FF', geoSeriesGreen: '#29B36D', geoSeriesPurple: '#8B5CF6', geoSeriesOrange: '#F59A17', geoSeriesRed: '#FF4D5E', geoSeriesTeal: '#35B9C8',
     chartGrid: '#E5E5EA', chartAxis: '#6E6E73', chartTooltipBg: '#FFFFFF', chartTooltipBorder: '#D1D1D6', chartRail: '#E5E5EA',
     shadowSm: '0 1px 2px rgba(0,0,0,.06)', shadowMd: '0 8px 24px rgba(0,0,0,.10)', shadowLg: '0 20px 60px rgba(0,0,0,.16)',
   },
@@ -115,7 +108,6 @@ export const projectThemes: Record<ResolvedTheme, ProjectThemeTokens> = {
     codeBg: '#111214', codeText: '#F5F5F7', codeBorder: '#48484A', codeInlineBg: '#2C2C2E', codeInlineText: '#64A8FF', quoteBg: '#24282D', quoteBorder: '#0A84FF',
     diffAddBg: 'rgba(48,209,88,.16)', diffAddText: '#6EE98B', diffAddBorder: '#30D158', diffDeleteBg: 'rgba(255,69,58,.16)', diffDeleteText: '#FF6961', diffDeleteBorder: '#FF453A',
     chartSeries1: '#0A84FF', chartSeries2: '#64D2FF', chartSeries3: '#30D158', chartSeries4: '#A1A1A6', chartSeries5: '#BF5AF2', chartSeries6: '#FFD60A',
-    geoSeriesBlue: '#64A8FF', geoSeriesGreen: '#30D158', geoSeriesPurple: '#BF5AF2', geoSeriesOrange: '#FF9F0A', geoSeriesRed: '#FF453A', geoSeriesTeal: '#64D2FF',
     chartGrid: '#38383A', chartAxis: '#A1A1A6', chartTooltipBg: '#2C2C2E', chartTooltipBorder: '#636366', chartRail: '#38383A',
     shadowSm: '0 1px 2px rgba(0,0,0,.40)', shadowMd: '0 10px 28px rgba(0,0,0,.44)', shadowLg: '0 24px 72px rgba(0,0,0,.52)',
   },
@@ -133,7 +125,6 @@ const cssVariableNames: Record<keyof ProjectThemeTokens, `--ps-${string}`> = {
   codeBg: '--ps-code-bg', codeText: '--ps-code-text', codeBorder: '--ps-code-border', codeInlineBg: '--ps-code-inline-bg', codeInlineText: '--ps-code-inline-text', quoteBg: '--ps-quote-bg', quoteBorder: '--ps-quote-border',
   diffAddBg: '--ps-diff-add-bg', diffAddText: '--ps-diff-add-text', diffAddBorder: '--ps-diff-add-border', diffDeleteBg: '--ps-diff-delete-bg', diffDeleteText: '--ps-diff-delete-text', diffDeleteBorder: '--ps-diff-delete-border',
   chartSeries1: '--ps-chart-series-1', chartSeries2: '--ps-chart-series-2', chartSeries3: '--ps-chart-series-3', chartSeries4: '--ps-chart-series-4', chartSeries5: '--ps-chart-series-5', chartSeries6: '--ps-chart-series-6',
-  geoSeriesBlue: '--ps-geo-series-blue', geoSeriesGreen: '--ps-geo-series-green', geoSeriesPurple: '--ps-geo-series-purple', geoSeriesOrange: '--ps-geo-series-orange', geoSeriesRed: '--ps-geo-series-red', geoSeriesTeal: '--ps-geo-series-teal',
   chartGrid: '--ps-chart-grid', chartAxis: '--ps-chart-axis', chartTooltipBg: '--ps-chart-tooltip-bg', chartTooltipBorder: '--ps-chart-tooltip-border', chartRail: '--ps-chart-rail',
   shadowSm: '--ps-shadow-sm', shadowMd: '--ps-shadow-md', shadowLg: '--ps-shadow-lg',
 };

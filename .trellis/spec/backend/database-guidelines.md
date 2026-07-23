@@ -54,14 +54,6 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 正确做法：在同一事务中锁定全部目标用户，按冻结引用清单收集所有阻断位置；只有预检结果为空时才删除会话和用户，任何异常由 Alembic 事务整体回滚。
 
-## 场景：用户工作台实时查询与批量状态
-
-- 本场景复用现有 `users`、`sessions` 和 `audit_logs`，不增加表、字段、派生汇总或迁移。用户状态、账号类型、强制改密和修订号均由 `users` 单一持有，Redis 不缓存或推断身份状态。
-- 列表筛选、`created_at, id` 稳定排序、分页、导出和五项全局汇总都从 PostgreSQL 实时读取。列表 `total` 受筛选影响，汇总不受筛选影响；没有历史快照时不得补造趋势值。
-- 新用户默认启用并只保存临时密码哈希，`must_change_password=true`；重置临时密码和停用用户都撤销目标用户全部会话。明文密码不得进入响应、日志或审计。
-- 单个和批量状态命令共享同一锁、revision、最后有效管理员和会话撤销规则。批量按 UUID 稳定锁行，预期的用户不存在、revision 冲突和最后管理员保护逐项失败；非预期数据库、审计或程序错误回滚整批。
-- 用户没有日常物理删除能力。停用、重新启用、改名或调整账号类型始终更新同一用户 UUID，不改写业务外键和历史审计；CSV 导出只记录非敏感筛选与行数审计，不保存正文。
-
 ## 场景：生成作业补投递与租约恢复
 
 - 数据库 revision：`0011_generation_reliability`，`down_revision = "0010_user_cleanup"`。
@@ -135,13 +127,6 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 正确做法：锁定目标，显式统计权威引用并返回稳定类型；只有引用为空才删除当前配置，平台可用性由当前 `ACTIVE` 规则与 Prompt 共同推导。
 
-## 场景：具体平台启停与管理实时投影
-
-- 数据库 revision：`0023_platform_management`，`down_revision = "0022_geo_observation_insights"`。`platform_profiles.is_active` 是平台启停的唯一持久状态，既有平台迁移为启用；启用与“同时存在 ACTIVE 规则和当前 Prompt”的配置完整性相互独立。
-- 停用后仍允许查看、编辑、维护规则和 Prompt 及重新启用，但新建普通/修复 `ContentTask`、`PlatformAccount` 或 `PublicationRecord` 必须先以 `FOR UPDATE` 锁定平台并返回 `PLATFORM_DISABLED`；不得停用既有账号或改写规则、Prompt、任务、发布及观测历史。
-- 平台管理汇总、配置完整性、账号数量和引用数量只做 PostgreSQL 实时投影，不保存快照或派生列。引用数经任务锁定的任一平台规则版本按唯一 `ContentTask.id` 计数；最近 30 天使用同一 UTC `as_of` 的半开区间 `[as_of - 30 days, as_of)`。
-- 平台列表筛选、稳定排序、分页和 CSV 导出复用同一查询条件；无分页参数时保留完整参考集合语义，`page` 与 `page_size` 只能成对出现。更新时间只读取真实平台审计，缺失时返回 `NULL`，不得用迁移时间补造。
-
 ## 场景：平台规则草稿编辑与事实版本受限物理删除
 
 ### 1. 范围与触发条件
@@ -153,8 +138,7 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 ### 2. 签名
 
 - 数据库 revision：`0015_platform_rule_draft_editing`，`down_revision = "0014_platform_prompt_ownership"`；`0016_fact_review_cleanup`，`down_revision = "0015_platform_rule_draft_editing"`。
-- 平台规则接口：`GET /platform-profile-versions`、`GET /platform-profile-versions/{id}/impact`、`PATCH /platform-profile-versions/{id}`、`POST /platform-profile-versions/{id}/activate`。
-- 内容任务精确筛选：`GET /content-tasks?platform_profile_version_id=<uuid>`；与 `platform_profile_id` 同时提供时取交集。
+- 平台规则接口：`GET /platform-profile-versions`、`PATCH /platform-profile-versions/{id}`、`POST /platform-profile-versions/{id}/activate`。
 - 草稿更新体：`{expected_revision: integer >= 0, rules: PlatformRules}`；返回体必须含 `platform_profile_id`。
 - 事实版本删除接口：`DELETE /fact-versions/{id}`，仅管理员可调用，成功返回 `204`。
 - 事务门禁：`set_config('partsignal.fact_version_delete_id', <fact_version_id>, true)`；第三个参数必须为 `true`，确保值只在当前事务有效。
@@ -163,9 +147,6 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 - `platform_profile_versions.rules` 只允许在更新前后状态均为 `DRAFT` 时修改；`ACTIVE`、`RETIRED` 正文不可变，`platform_profile_id`、`version`、`created_at` 在所有状态不可变。
 - 草稿更新使用 `expected_revision` 乐观锁并只递增一次 revision。激活时必须锁定平台，先把旧 `ACTIVE` 更新并刷新为 `RETIRED`，释放部分唯一索引槽位后再把目标 `DRAFT` 设为 `ACTIVE`；任一步失败时整个事务回滚。
-- 版本列表的引用数、创建/激活/最后变更时间和 `available_actions` 是批量实时投影，不得保存派生列或逐版本发查询。创建人只取 `platform_profile_version.created`，激活时间只取 `activated`；审计 Actor 删除后 `actor_id=NULL`，事件仍返回。
-- 激活替换时在同一事务为旧版本追加 `retired(reason=REPLACED)`、为新版本追加 `activated(previous_active_version_id=...)`，两条事件携带同一非空命令说明；草稿直接退役记录 `reason=DIRECT`。
-- 单版本影响只统计直接引用任务，并按“存在 `PUBLISHED | VERIFIED` → 否则存在 `PLATFORM_REVIEW | PENDING_REVIEW` → 其余”互斥分桶；三桶之和必须等于去重任务总数。
 - 删除事实版本前必须锁定目标，分别统计 `ContentTask.fact_version_id` 与 `ContentVersion.fact_version_id`。任一计数非零时返回 `FACT_VERSION_IN_USE`，不得清理任何审核记录。
 - 引用为空时，先写 `fact_version.deleted` 审计（含产品、版本、状态和审核记录数量），再以事务本地父版本 ID 放行并显式删除该父版本的 `FactReviewRecord`，最后删除 `FactVersion`。
 - `fact_review_records` 的 `UPDATE` 始终拒绝；`DELETE` 只有在事务本地 ID 与该行 `fact_version_id` 精确相等时允许。不得放宽通用追加式触发器、增加级联删除或自动删除产品。
@@ -178,9 +159,6 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 | 更新目标不是 `DRAFT` | `409 INVALID_STATE_TRANSITION`，正文和 revision 不变 |
 | `expected_revision` 过期 | `409 REVISION_CONFLICT`，正文和 revision 不变 |
 | 用新草稿替换已有 `ACTIVE` | 旧版本先变为 `RETIRED`，新版本成为唯一 `ACTIVE` |
-| 直接退役 `DRAFT` | 版本成为 `RETIRED` 并记录 `reason=DIRECT`；不影响其他版本 |
-| 一个任务同时具有审核中与已发布记录 | 只归入“当前已发布”，影响总数不重复 |
-| 同时按平台和规则版本筛选任务 | 仅返回同时满足两个条件的任务 |
 | 非管理员删除事实版本 | `403`，事实版本、审核记录和审计均不变 |
 | 事实版本不存在 | `404` |
 | 存在内容任务或内容版本引用 | `409 FACT_VERSION_IN_USE`，`details.references` 只含真实非零引用 |
@@ -197,8 +175,8 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 - PostgreSQL 迁移测试验证 `0015` 只放开 `DRAFT -> DRAFT` 正文更新，`ACTIVE`/`RETIRED` 与身份字段仍受触发器保护，downgrade 恢复旧门禁。
 - PostgreSQL 迁移测试验证 `0016` 在无设置、错误父 ID 和 `UPDATE` 时拒绝，在正确事务本地父 ID 时只删除对应审核记录，downgrade 恢复通用追加式门禁。
-- API 集成测试覆盖平台空规则初态、revision 冲突、不可变状态、已有 `ACTIVE` 的原子替换与双审计、动作矩阵、互斥影响、精确任务筛选和可空 Actor，以及事实版本全部业务状态、双引用冲突、管理员权限、审核清理和审计字段。
-- E2E 验证平台规则四区工作台的草稿编辑、差异、替代激活、影响与引用入口，以及事实版本冲突提示和管理员删除入口。
+- API 集成测试覆盖平台空规则初态、revision 冲突、不可变状态、已有 `ACTIVE` 的原子替换，以及事实版本全部业务状态、双引用冲突、管理员权限、审核清理和审计字段。
+- E2E 验证独立平台规则页面的草稿编辑与当前规则选择，以及事实版本冲突提示和管理员删除入口。
 
 ### 7. 错误与正确示例
 
@@ -356,33 +334,3 @@ if task.query_topic_id is not None:
         "intent_type": topic.intent_type,
     }
 ```
-
-## 场景：追加式审计结果与失败事务
-
-### 1. 范围与签名
-
-- 数据库 revision：`0024_audit_outcome`，`down_revision = "0023_rename_platform_website_url"`。
-- `audit_logs` 是业务审计唯一来源；表级触发器继续拒绝业务运行时的 `UPDATE` 与 `DELETE`。
-- 每条事件必须明确 `business_module`、`action`、`outcome` 和非敏感 `result_message`；`target_id` 允许为空，用于命令尚未创建业务对象时的失败或拒绝。
-- `outcome` 只允许 `SUCCESS | FAILED | DENIED`。请求 ID 允许重复，但只接受 1–100 个可打印 ASCII 字符。
-
-### 2. 事务与覆盖边界
-
-- 成功审计使用 `append_audit`，与业务写入同一事务提交或回滚。
-- 仅事实版本状态转换、内容提交与审核、发布登记、GEO 观测、平台与规则、平台 Prompt、AI 渠道与模型、用户状态与管理员标识、用户导出九类关键命令，在业务事务回滚后使用 `commit_audit` 独立记录 `FAILED` 或 `DENIED`。
-- 其他既有写命令暂时只记录成功事件；不得用中间件、全局开关、第二张审计表或批量异常捕获伪造失败覆盖。
-- 请求解析、身份认证、会话与 CSRF 失败不属于业务命令审计。
-
-### 3. 数据安全与查询
-
-- `details` 只保存结构化 `changes` 与 `facts`；写入前递归拒绝敏感键，读取时再按业务模块正向白名单投影字段。
-- 关键词只匹配操作者、业务模块、动作、对象类型、对象标识、请求 ID、结果说明与错误码等已批准字段，不执行 `details::text` 搜索。
-- 列表按 `(created_at DESC, id DESC)` 稳定排序。操作者信息使用当前用户投影；用户删除后事件仍保留，投影为空。
-- 历史回填必须对已知 `action + target_type` 组合精确映射，未知组合中止迁移；AI 调用失败必须映射为真实失败，不能按旧成功默认回填。
-
-### 4. 降级与必需测试
-
-- 存在任一空 `target_id` 时，降级必须在恢复非空约束前以 PostgreSQL `55000` 失败并整体回滚。
-- 迁移测试覆盖空库升级、历史模块与结果回填、追加式触发器和不可安全降级。
-- 单元与集成测试覆盖九类关键命令的 `SUCCESS / FAILED / DENIED`、原业务事务回滚、审计独立提交、敏感键拒绝、字段白名单、稳定分页和管理员权限。
-- 前端测试覆盖默认北京时间近三天、URL 可分享筛选、手动与 30 秒可见页刷新、空态/错误态、右侧详情以及敏感字段不展示。

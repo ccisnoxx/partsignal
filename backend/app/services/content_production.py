@@ -12,7 +12,6 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
 from app.errors import AppError, not_found
 from app.models.ai_generation import (
@@ -433,17 +432,11 @@ def create_generation_job(
     if created:
         append_audit(
             db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.CONTENT_PRODUCTION,
-                action="generation_job.created",
-                target_type="GenerationJob",
-                target_id=job.id,
-                request_id=request_id,
-                outcome=AuditOutcome.SUCCESS,
-                result_message="内容生成作业已创建",
-                details={"facts": {"task_id": str(job.content_task_id)}},
-            ),
+            actor_id=actor.id,
+            action="generation_job.created",
+            target_type="GenerationJob",
+            target_id=job.id,
+            request_id=request_id,
         )
         db.commit()
         _dispatch_job(job)
@@ -526,22 +519,12 @@ def create_humanization_job(
     if created:
         append_audit(
             db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.CONTENT_PRODUCTION,
-                action="humanization_job.created",
-                target_type="GenerationJob",
-                target_id=job.id,
-                request_id=request_id,
-                outcome=AuditOutcome.SUCCESS,
-                result_message="内容自然化作业已创建",
-                details={
-                    "facts": {
-                        "source_content_version_id": str(source.id),
-                        "task_id": str(job.content_task_id),
-                    }
-                },
-            ),
+            actor_id=actor.id,
+            action="humanization_job.created",
+            target_type="GenerationJob",
+            target_id=job.id,
+            request_id=request_id,
+            details={"source_content_version_id": str(source.id)},
         )
         db.commit()
         _dispatch_job(job)
@@ -609,22 +592,12 @@ def retry_generation_job(
     if created:
         append_audit(
             db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.CONTENT_PRODUCTION,
-                action="generation_job.retried",
-                target_type="GenerationJob",
-                target_id=job.id,
-                request_id=request_id,
-                outcome=AuditOutcome.SUCCESS,
-                result_message="内容生成作业已重试",
-                details={
-                    "facts": {
-                        "retry_of_id": str(previous.id),
-                        "task_id": str(job.content_task_id),
-                    }
-                },
-            ),
+            actor_id=actor.id,
+            action="generation_job.retried",
+            target_type="GenerationJob",
+            target_id=job.id,
+            request_id=request_id,
+            details={"retry_of_id": str(previous.id)},
         )
         db.commit()
         _dispatch_job(job)
@@ -688,22 +661,12 @@ def create_content_revision(
     db.flush()
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONTENT_PRODUCTION,
-            action="content_version.revised",
-            target_type="ContentVersion",
-            target_id=content.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="内容人工修订已创建",
-            details={
-                "facts": {
-                    "based_on_id": str(source.id),
-                    "version": next_version,
-                }
-            },
-        ),
+        actor_id=actor.id,
+        action="content_version.revised",
+        target_type="ContentVersion",
+        target_id=content.id,
+        request_id=request_id,
+        details={"based_on_id": str(source.id), "version": next_version},
     )
     db.commit()
     return content

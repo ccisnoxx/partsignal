@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 import uuid
 from datetime import datetime
 from enum import StrEnum
@@ -12,48 +11,6 @@ from typing import Annotated, Any, Literal
 from pydantic import AfterValidator, Field, HttpUrl, model_validator
 
 from app.schemas.base import ContractModel, require_unique_items
-
-
-def normalize_platform_name(value: str) -> str:
-    """平台名称只保存去除首尾空白后的非空值。"""
-    normalized = value.strip()
-    if not normalized:
-        raise ValueError("平台名称不能为空")
-    return normalized
-
-
-def normalize_platform_domain(value: str) -> str:
-    """把单个允许域名转换为小写 IDNA ASCII 主机名。"""
-    candidate = value.strip().removesuffix(".")
-    if not candidate or any(character in candidate for character in "/?#@:*"):
-        raise ValueError("允许域名必须是不含协议、路径、端口或通配符的主机名")
-    try:
-        normalized = candidate.encode("idna").decode("ascii").casefold()
-    except UnicodeError as error:
-        raise ValueError("允许域名不是有效的 IDNA 主机名") from error
-    labels = normalized.split(".")
-    if len(normalized) > 253 or any(
-        not label
-        or len(label) > 63
-        or label.startswith("-")
-        or label.endswith("-")
-        or re.fullmatch(r"[a-z0-9-]+", label) is None
-        for label in labels
-    ):
-        raise ValueError("允许域名不是有效的 DNS 主机名")
-    return normalized
-
-
-PlatformName = Annotated[
-    str,
-    Field(min_length=1, max_length=160),
-    AfterValidator(normalize_platform_name),
-]
-PlatformDomain = Annotated[
-    str,
-    Field(min_length=1, max_length=253),
-    AfterValidator(normalize_platform_domain),
-]
 
 
 class IntentType(StrEnum):
@@ -144,9 +101,9 @@ class PlatformRules(ContractModel):
 
 
 class PlatformProfileCreate(ContractModel):
-    name: PlatformName
+    name: str
     slug: str = Field(pattern=r"^[a-z0-9-]+$")
-    allowed_domains: Annotated[list[PlatformDomain], AfterValidator(require_unique_items)] = Field(
+    allowed_domains: Annotated[list[str], AfterValidator(require_unique_items)] = Field(
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
     platform_type_id: uuid.UUID
@@ -156,8 +113,8 @@ class PlatformProfileCreate(ContractModel):
 
 class PlatformProfileUpdate(ContractModel):
     expected_revision: int = Field(ge=0)
-    name: PlatformName
-    allowed_domains: Annotated[list[PlatformDomain], AfterValidator(require_unique_items)] = Field(
+    name: str = Field(min_length=1)
+    allowed_domains: Annotated[list[str], AfterValidator(require_unique_items)] = Field(
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
     platform_type_id: uuid.UUID
@@ -184,106 +141,25 @@ class PlatformProfileVersionOut(ContractModel):
     created_at: datetime
 
 
-class PlatformProfileVersionAction(StrEnum):
-    EDIT = "EDIT"
-    ACTIVATE = "ACTIVATE"
-    RETIRE = "RETIRE"
-    DELETE = "DELETE"
-
-
-class PlatformProfileVersionSummary(PlatformProfileVersionOut):
-    """平台规则工作台使用的实时管理投影。"""
-
-    created_by: uuid.UUID | None
-    activated_at: datetime | None
-    last_changed_at: datetime
-    reference_count: int = Field(ge=0)
-    available_actions: list[PlatformProfileVersionAction]
-
-
 class PlatformProfileVersionList(ContractModel):
-    items: list[PlatformProfileVersionSummary]
-
-
-class PlatformRuleImpactSummary(ContractModel):
-    """直接绑定规则版本的内容任务互斥发布阶段摘要。"""
-
-    as_of: datetime
-    bound_task_total: int = Field(ge=0)
-    unpublished_task_total: int = Field(ge=0)
-    reviewing_task_total: int = Field(ge=0)
-    published_task_total: int = Field(ge=0)
-
-
-class PlatformProfileStatus(StrEnum):
-    ENABLED = "ENABLED"
-    DISABLED = "DISABLED"
-
-
-class PlatformConfigurationStatus(StrEnum):
-    COMPLETE = "COMPLETE"
-    INCOMPLETE = "INCOMPLETE"
-
-
-class PlatformTypeSummary(ContractModel):
-    id: uuid.UUID
-    name: str
-    slug: str
+    items: list[PlatformProfileVersionOut]
 
 
 class PlatformProfileOut(ContractModel):
     id: uuid.UUID
-    name: PlatformName
+    name: str
     slug: str
     allowed_domains: list[str]
     platform_type_id: uuid.UUID | None
-    platform_type: PlatformTypeSummary | None
     website_url: HttpUrl | None
     logo: PlatformLogoOut | None
     revision: int
-    is_active: bool
     active_version: PlatformProfileVersionOut | None
     prompt_configured: bool
-    prompt_updated_at: datetime | None
-    configuration_complete: bool
-    platform_account_count: int = Field(ge=0)
-    updated_at: datetime | None
-
-
-class PlatformProfileSummary(ContractModel):
-    platform_total: int = Field(ge=0)
-    enabled_total: int = Field(ge=0)
-    missing_prompt_total: int = Field(ge=0)
-    missing_active_rule_total: int = Field(ge=0)
-    configuration_complete_total: int = Field(ge=0)
 
 
 class PlatformProfileList(ContractModel):
     items: list[PlatformProfileOut]
-    page: int = Field(ge=1)
-    page_size: int = Field(ge=0)
-    total: int = Field(ge=0)
-    summary: PlatformProfileSummary
-
-
-class PlatformAccountSummary(ContractModel):
-    total: int = Field(ge=0)
-    enabled: int = Field(ge=0)
-    disabled: int = Field(ge=0)
-
-
-class PlatformReferenceSummary(ContractModel):
-    as_of: datetime
-    recent_30_days: int = Field(ge=0)
-    all_time: int = Field(ge=0)
-
-
-class PlatformProfileDetail(ContractModel):
-    profile: PlatformProfileOut
-    current_rule_activated_at: datetime | None
-    prompt_updated_at: datetime | None
-    account_summary: PlatformAccountSummary
-    reference_summary: PlatformReferenceSummary
 
 
 class PlatformTypeCreate(ContractModel):

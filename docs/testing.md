@@ -5,7 +5,7 @@
 - 后端单元测试覆盖状态机、账号类型、凭据加密、SSRF/Header 边界、严格模型响应、快照、生成质量规则、指标和文件校验。
 - 后端集成测试使用 PostgreSQL 和 Redis，不使用 SQLite 替代数据库约束。
 - 前端使用 Vitest 和 Testing Library 覆盖表单、权限、错误和状态交互。
-- Playwright 覆盖批准事实到发布登记、GEO 观测、GEO 分析洞察和 AI 渠道管理主流程，并通过 Redis、真实 Celery Worker 与本机 OpenAI-compatible HTTP 替身执行生成。AI 渠道页面在 1572×999 桌面视口保存三栏验收产物，覆盖创建/编辑、换 Key、Header、模型发现、成功与失败测试、启停、筛选排序分页、统计审计、复制脱敏和删除；GEO 主流程在 1582×995 保存观测列表、详情和分析洞察产物，洞察还覆盖筛选折叠、趋势 Tooltip 与携带同一筛选的打印视图。不得用 `page.route` 固定响应替代真实 API。
+- Playwright 覆盖批准事实到发布登记、GEO 观测和 AI 渠道管理主流程，并通过 Redis、真实 Celery Worker 与本机 OpenAI-compatible HTTP 替身执行生成。AI 渠道页面在 1570×1001 桌面视口保存三栏验收产物，覆盖创建/编辑、换 Key、Header、模型发现、成功与失败测试、启停、筛选排序分页、统计审计、复制脱敏和删除；不得用 `page.route` 固定响应替代真实 API。
 - 契约检查比较提交 OpenAPI、FastAPI 运行时 Schema 和前端生成类型。
 - 结构重构还需比较 ORM metadata 表集合、mapper 数、Alembic head、迁移历史和生产 preflight 输出，证明物理移动未改变数据库语义。
 

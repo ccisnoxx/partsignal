@@ -2,6 +2,7 @@
 import {
   ApiOutlined,
   CheckCircleFilled,
+  InfoCircleOutlined,
   MoreOutlined,
   PlusOutlined,
   SearchOutlined,
@@ -20,13 +21,14 @@ import {
   Pagination,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
   type TableColumnsType,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { Outlet, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Outlet, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
@@ -37,8 +39,6 @@ import type {
   Schema,
 } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
-import { PageHeader } from '../../shared/components/PageHeader';
-import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 import {
   AIChannelFormModal,
@@ -75,7 +75,7 @@ function positiveInteger(value: string | null, fallback: number) {
 }
 
 function testStatus(status: Schema<'AIModelTestStatus'>, testedAt: string | null) {
-  if (!testedAt || status === 'UNTESTED') return <StatusTag compact status="UNTESTED" />;
+  if (!testedAt || status === 'UNTESTED') return <span className="ai-test-status ai-test-untested">未测试</span>;
   const ageSeconds = (new Date(testedAt).getTime() - Date.now()) / 1000;
   const testedTime = Math.abs(ageSeconds) < 60
     ? '刚刚'
@@ -85,8 +85,8 @@ function testStatus(status: Schema<'AIModelTestStatus'>, testedAt: string | null
         ? relativeTimeFormatter.format(Math.round(ageSeconds / 3600), 'hour')
         : new Date(testedAt).toLocaleDateString('zh-CN');
   return (
-    <span className="ai-test-status">
-      <StatusTag compact status={status} />
+    <span className={`ai-test-status ai-test-${status.toLowerCase()}`}>
+      <span className="ai-status-dot" />{status === 'PASSED' ? '成功' : '失败'}
       <small>{testedTime}</small>
     </span>
   );
@@ -268,11 +268,20 @@ export function AIChannelsPage() {
   const columns: TableColumnsType<AIChannelSummary> = [
     {
       title: '渠道名称', dataIndex: 'name', width: 124,
-      render: (_, item) => <div className="ai-channel-name-cell"><AIProviderMark brand={item.provider_brand} /><span><strong>{item.name}</strong><small>{item.description || providerBrandLabels[item.provider_brand]}</small></span></div>,
+      render: (_, item) => <Link className="ai-channel-name-cell" to={{ pathname: `/configuration/ai/channels/${item.id}`, search: searchParams.toString() }}><AIProviderMark brand={item.provider_brand} /><span><strong>{item.name}</strong><small>{item.description || providerBrandLabels[item.provider_brand]}</small></span></Link>,
     },
     {
       title: '状态', dataIndex: 'is_enabled', width: 50,
-      render: (enabled: boolean) => <StatusTag compact status={enabled ? 'ENABLED' : 'DISABLED'} />,
+      render: (enabled: boolean, item) => <span className="ai-channel-switch">
+        <Switch
+          size="small"
+          checked={enabled}
+          loading={toggle.isPending && toggle.variables?.id === item.id}
+          aria-label={`${enabled ? '停用' : '启用'}渠道：${item.name}`}
+          onChange={() => toggle.mutate(item)}
+        />
+        <small>{enabled ? '已启用' : '已停用'}</small>
+      </span>,
     },
     {
       title: 'API 根地址', dataIndex: 'base_url', ellipsis: true, width: 167,
@@ -293,29 +302,19 @@ export function AIChannelsPage() {
     {
       title: '操作', key: 'actions', fixed: 'right', width: 84,
       render: (_, item) => <Space size={4} onClick={(event) => event.stopPropagation()}>
+        <Button size="small" type="text" icon={<ThunderboltOutlined />} aria-label={`测试连接：${item.name}`} onClick={() => openConnectionTest(item)} />
         <Button size="small" type="text" icon={<SettingOutlined />} aria-label={`配置：${item.name}`} onClick={() => selectChannel(item.id)} />
         <Dropdown
           trigger={['click']}
           menu={{
             items: [
-              { key: 'test', label: '测试连接' },
               { key: 'toggle', label: item.is_enabled ? '停用渠道' : '启用渠道' },
               { key: 'delete', label: '删除渠道', danger: true },
             ],
-            onClick: ({ key }) => {
-              if (key === 'test') openConnectionTest(item);
-              else if (key === 'toggle') toggle.mutate(item);
-              else confirmDelete(item);
-            },
+            onClick: ({ key }) => key === 'toggle' ? toggle.mutate(item) : confirmDelete(item),
           }}
         >
-          <Button
-            size="small"
-            type="text"
-            icon={<MoreOutlined />}
-            loading={toggle.isPending && toggle.variables?.id === item.id}
-            aria-label={`更多操作：${item.name}`}
-          />
+          <Button size="small" type="text" icon={<MoreOutlined />} aria-label={`更多操作：${item.name}`} />
         </Dropdown>
       </Space>,
     },
@@ -326,19 +325,17 @@ export function AIChannelsPage() {
   return (
     <div className="ai-config-page">
       {modalContext}
-      <PageHeader
-        eyebrow="AI 配置"
-        title="AI 渠道与模型"
-        description="统一管理协议、凭据、Header 与真实模型连接。"
-        actions={<Space>
+      <header className="ai-config-page-header">
+        <div className="ai-config-title"><Typography.Title level={4}>AI 渠道与模型</Typography.Title><InfoCircleOutlined title="统一管理协议、凭据、Header 与真实模型连接" /></div>
+        <Space className="ai-config-page-actions">
           <Button icon={<ThunderboltOutlined />} disabled={!channelId} onClick={() => {
             if (!channelId) return;
             const selected = channels.data?.items.find((item) => item.id === channelId);
             openConnectionTest(selected ?? { id: channelId, name: '' });
           }}>测试连接</Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>新增渠道</Button>
-        </Space>}
-      />
+        </Space>
+      </header>
       <section className="ai-workspace" aria-label="AI 渠道管理工作区">
         <aside className="ai-status-rail" aria-label="渠道状态分类">
           <div className="ai-rail-title"><span>AI 渠道</span><Tag>{activeCounts.all}</Tag></div>
@@ -355,52 +352,40 @@ export function AIChannelsPage() {
           ))}
         </aside>
         <main className="ai-channel-list-pane">
-          <div className="ai-list-toolbar" role="search" aria-label="AI 渠道筛选">
-            <label className="ai-list-filter">
-              <span>关键词</span>
-              <Input
-                key={searchParams.get('q') ?? ''}
-                type="search"
-                aria-label="搜索渠道名称、描述或地址"
-                defaultValue={searchParams.get('q') ?? ''}
-                allowClear
-                prefix={<SearchOutlined />}
-                placeholder="搜索渠道名称、描述、地址…"
-                onChange={(event) => {
-                  if (!event.target.value) updateParams({ q: undefined, page: undefined });
-                }}
-                onPressEnter={(event) => updateParams({ q: event.currentTarget.value.trim() || undefined, page: undefined })}
-              />
-            </label>
-            <label className="ai-list-filter">
-              <span>启用状态</span>
-              <Select
-                aria-label="筛选渠道状态"
-                value={statusFilter}
-                onChange={(value) => updateParams({ status: value, page: undefined })}
-                options={[
-                  { value: 'all', label: '全部状态' },
-                  { value: 'enabled', label: '已启用' },
-                  { value: 'disabled', label: '已停用' },
-                ]}
-              />
-            </label>
-            <label className="ai-list-filter">
-              <span>供应商品牌</span>
-              <Select
-                aria-label="筛选供应商品牌"
-                value={providerBrand ?? 'all'}
-                onChange={(value) => updateParams({ provider_brand: value, page: undefined })}
-                options={[
-                  { value: 'all', label: '全部类型' },
-                  ...Object.entries(providerBrandLabels).map(([value, label]) => ({ value, label })),
-                ]}
-              />
-            </label>
-            <label className="ai-list-filter">
-              <span>排序</span>
-              <Select aria-label="渠道排序" value={sort} onChange={(value) => updateParams({ sort: value, page: undefined })} options={sortOptions} />
-            </label>
+          <div className="ai-list-toolbar">
+            <Input
+              key={searchParams.get('q') ?? ''}
+              type="search"
+              aria-label="搜索渠道名称、描述或地址"
+              defaultValue={searchParams.get('q') ?? ''}
+              allowClear
+              prefix={<SearchOutlined />}
+              placeholder="搜索渠道名称、描述、地址…"
+              onChange={(event) => {
+                if (!event.target.value) updateParams({ q: undefined, page: undefined });
+              }}
+              onPressEnter={(event) => updateParams({ q: event.currentTarget.value.trim() || undefined, page: undefined })}
+            />
+            <Select
+              aria-label="筛选渠道状态"
+              value={statusFilter}
+              onChange={(value) => updateParams({ status: value, page: undefined })}
+              options={[
+                { value: 'all', label: '全部状态' },
+                { value: 'enabled', label: '已启用' },
+                { value: 'disabled', label: '已停用' },
+              ]}
+            />
+            <Select
+              aria-label="筛选供应商品牌"
+              value={providerBrand ?? 'all'}
+              onChange={(value) => updateParams({ provider_brand: value, page: undefined })}
+              options={[
+                { value: 'all', label: '全部类型' },
+                ...Object.entries(providerBrandLabels).map(([value, label]) => ({ value, label })),
+              ]}
+            />
+            <Select aria-label="渠道排序" value={sort} onChange={(value) => updateParams({ sort: value, page: undefined })} options={sortOptions} />
           </div>
           {listError && <Alert role="alert" type="error" showIcon title={errorMessage(listError)} />}
           <div className="ai-list-table-wrap">

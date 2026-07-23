@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
 from app.audit import append_audit
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
 from app.errors import AppError, not_found
 from app.models.ai_generation import (
@@ -23,7 +22,7 @@ from app.models.ai_generation import (
 )
 from app.models.base import new_uuid
 from app.models.identity import AuditLog, User
-from app.schemas.common import AuditLogList, RevisionRequest
+from app.schemas.common import AuditLogList, AuditLogOut, RevisionRequest
 from app.schemas.configuration import (
     AIChannelApiKeyReplace,
     AIChannelCounts,
@@ -43,7 +42,6 @@ from app.schemas.configuration import (
     AIProviderBrand,
     AIUsagePeriod,
 )
-from app.services.audit_logs import project_audit_log
 from app.services.credentials import CredentialCipher
 from app.services.openai_client import OpenAICompatibleClient, validate_base_url, validate_header
 
@@ -276,35 +274,39 @@ def list_ai_channel_audit_logs(
         str(model_id)
         for model_id in db.scalars(select(AIModel.id).where(AIModel.channel_id == channel_id))
     ]
-    model_conditions = [
-        AuditLog.details["facts"]["channel_id"].as_string() == str(channel_id),
-        # 0024 之前的模型审计把已确认安全的渠道 ID 存在 details 顶层。
-        AuditLog.details["channel_id"].as_string() == str(channel_id),
-    ]
+    model_conditions = [AuditLog.details["channel_id"].as_string() == str(channel_id)]
     if current_model_ids:
         model_conditions.append(AuditLog.target_id.in_(current_model_ids))
     condition = or_(
         (AuditLog.target_type == "AIChannel") & (AuditLog.target_id == str(channel_id)),
         (AuditLog.target_type == "AIModel") & or_(*model_conditions),
     )
-    base_query = (
-        select(AuditLog, User)
-        .outerjoin(User, User.id == AuditLog.actor_id)
-        .where(condition, AuditLog.actor_id.is_not(None))
-    )
+    base_query = select(AuditLog).where(condition, AuditLog.actor_id.is_not(None))
     total = int(
         db.scalar(select(func.count(AuditLog.id)).where(condition, AuditLog.actor_id.is_not(None)))
         or 0
     )
     records = list(
-        db.execute(
+        db.scalars(
             base_query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
     )
     return AuditLogList(
-        items=[project_audit_log(record, actor) for record, actor in records],
+        items=[
+            AuditLogOut(
+                id=record.id,
+                actor_id=cast(uuid.UUID, record.actor_id),
+                action=record.action,
+                target_type=record.target_type,
+                target_id=uuid.UUID(record.target_id),
+                change_summary=record.details,
+                request_id=record.request_id,
+                created_at=record.created_at,
+            )
+            for record in records
+        ],
         page=page,
         page_size=page_size,
         total=total,
@@ -366,22 +368,15 @@ def create_ai_channel(
     db.flush()
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_channel.created",
-            target_type="AIChannel",
-            target_id=channel.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 渠道已创建",
-            details={
-                "facts": {
-                    "protocol_type": payload.protocol_type.value,
-                    "provider_brand": payload.provider_brand.value,
-                }
-            },
-        ),
+        actor_id=actor.id,
+        action="ai_channel.created",
+        target_type="AIChannel",
+        target_id=channel.id,
+        request_id=request_id,
+        details={
+            "protocol_type": payload.protocol_type.value,
+            "provider_brand": payload.provider_brand.value,
+        },
     )
     db.commit()
     return channel
@@ -394,16 +389,11 @@ def delete_ai_channel(*, db: Session, channel_id: uuid.UUID, actor: User, reques
         raise not_found("AI 渠道")
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_channel.deleted",
-            target_type="AIChannel",
-            target_id=channel.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 渠道已删除",
-        ),
+        actor_id=actor.id,
+        action="ai_channel.deleted",
+        target_type="AIChannel",
+        target_id=channel.id,
+        request_id=request_id,
     )
     db.delete(channel)
     db.commit()
@@ -442,17 +432,12 @@ def create_ai_channel_header(
     invalidate_channel_models(db, channel)
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_channel_header.created",
-            target_type="AIChannel",
-            target_id=channel.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 渠道 Header 已创建",
-            details={"facts": {"is_sensitive": payload.is_sensitive}},
-        ),
+        actor_id=actor.id,
+        action="ai_channel_header.created",
+        target_type="AIChannel",
+        target_id=channel.id,
+        request_id=request_id,
+        details={"header_name": payload.name, "is_sensitive": payload.is_sensitive},
     )
     db.commit()
     return channel
@@ -491,17 +476,12 @@ def update_ai_channel_header(
     invalidate_channel_models(db, channel)
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_channel_header.updated",
-            target_type="AIChannel",
-            target_id=channel.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 渠道 Header 已更新",
-            details={"facts": {"is_sensitive": payload.is_sensitive}},
-        ),
+        actor_id=actor.id,
+        action="ai_channel_header.updated",
+        target_type="AIChannel",
+        target_id=channel.id,
+        request_id=request_id,
+        details={"header_name": payload.name, "is_sensitive": payload.is_sensitive},
     )
     db.commit()
     db.refresh(channel)
@@ -524,16 +504,12 @@ def delete_ai_channel_header(
     invalidate_channel_models(db, channel)
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_channel_header.deleted",
-            target_type="AIChannel",
-            target_id=channel.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 渠道 Header 已删除",
-        ),
+        actor_id=actor.id,
+        action="ai_channel_header.deleted",
+        target_type="AIChannel",
+        target_id=channel.id,
+        request_id=request_id,
+        details={"header_name": header.name},
     )
     db.commit()
 
@@ -560,17 +536,12 @@ def create_ai_model(
     db.flush()
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_model.created",
-            target_type="AIModel",
-            target_id=model.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 模型已创建",
-            details={"facts": {"channel_id": str(channel_id)}},
-        ),
+        actor_id=actor.id,
+        action="ai_model.created",
+        target_type="AIModel",
+        target_id=model.id,
+        request_id=request_id,
+        details={"channel_id": str(channel_id)},
     )
     db.commit()
     return model
@@ -581,17 +552,12 @@ def delete_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id
     model, channel = lock_model_configuration(db, model_id)
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_model.deleted",
-            target_type="AIModel",
-            target_id=model.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 模型已删除",
-            details={"facts": {"channel_id": str(channel.id)}},
-        ),
+        actor_id=actor.id,
+        action="ai_model.deleted",
+        target_type="AIModel",
+        target_id=model.id,
+        request_id=request_id,
+        details={"channel_id": str(channel.id)},
     )
     db.delete(model)
     db.commit()
@@ -635,17 +601,12 @@ def update_ai_channel(
         channel.revision += 1
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_channel.updated",
-            target_type="AIChannel",
-            target_id=channel.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 渠道已更新",
-            details={"facts": {"revision": channel.revision}},
-        ),
+        actor_id=actor.id,
+        action="ai_channel.updated",
+        target_type="AIChannel",
+        target_id=channel.id,
+        request_id=request_id,
+        details={"revision": channel.revision},
     )
     db.commit()
     return channel
@@ -672,16 +633,11 @@ def replace_ai_channel_api_key(
     invalidate_channel_models(db, channel)
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_channel.api_key_replaced",
-            target_type="AIChannel",
-            target_id=channel.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 渠道凭据已更新",
-        ),
+        actor_id=actor.id,
+        action="ai_channel.api_key_replaced",
+        target_type="AIChannel",
+        target_id=channel.id,
+        request_id=request_id,
     )
     db.commit()
     return channel
@@ -712,16 +668,11 @@ def set_channel_enabled(
     channel.revision += 1
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action=f"ai_channel.{'enabled' if enabled else 'disabled'}",
-            target_type="AIChannel",
-            target_id=channel.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message=f"AI 渠道已{'启用' if enabled else '停用'}",
-        ),
+        actor_id=actor.id,
+        action=f"ai_channel.{'enabled' if enabled else 'disabled'}",
+        target_type="AIChannel",
+        target_id=channel.id,
+        request_id=request_id,
     )
     db.commit()
     return channel
@@ -754,17 +705,12 @@ def update_ai_model(
     model.revision += 1
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_model.updated",
-            target_type="AIModel",
-            target_id=model.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 模型已更新",
-            details={"facts": {"channel_id": str(channel.id), "revision": model.revision}},
-        ),
+        actor_id=actor.id,
+        action="ai_model.updated",
+        target_type="AIModel",
+        target_id=model.id,
+        request_id=request_id,
+        details={"channel_id": str(channel.id), "revision": model.revision},
     )
     db.commit()
     return model
@@ -793,11 +739,9 @@ def test_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id: 
         )
     except AppError as error:
         test_status = "FAILED"
-        test_error_code: str | None = error.code
         error_summary: str | None = error.message[:500]
     else:
         test_status = "PASSED"
-        test_error_code = None
         error_summary = None
     # 外部调用期间配置可能被其他事务修改；当前会话不会在 commit 后自动过期对象。
     db.expire_all()
@@ -805,18 +749,15 @@ def test_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id: 
     if model.revision != model_revision or channel.revision != channel_revision:
         append_audit(
             db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.CONFIGURATION,
-                action="ai_model.tested",
-                target_type="AIModel",
-                target_id=model.id,
-                request_id=request_id,
-                outcome=AuditOutcome.FAILED,
-                result_message="AI 模型测试失败",
-                error_code="REVISION_CONFLICT",
-                details={"facts": {"channel_id": str(channel.id)}},
-            ),
+            actor_id=actor.id,
+            action="ai_model.tested",
+            target_type="AIModel",
+            target_id=model.id,
+            request_id=request_id,
+            details={
+                "channel_id": str(channel.id),
+                "error_code": "REVISION_CONFLICT",
+            },
         )
         db.commit()
         raise AppError("REVISION_CONFLICT", "测试期间 AI 配置已变更，请重新测试", 409)
@@ -827,23 +768,12 @@ def test_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id: 
     model.revision += 1
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_model.tested",
-            target_type="AIModel",
-            target_id=model.id,
-            request_id=request_id,
-            outcome=(AuditOutcome.FAILED if test_status == "FAILED" else AuditOutcome.SUCCESS),
-            result_message=("AI 模型测试失败" if test_status == "FAILED" else "AI 模型测试通过"),
-            error_code=test_error_code,
-            details={
-                "facts": {
-                    "channel_id": str(channel.id),
-                    "test_status": test_status,
-                }
-            },
-        ),
+        actor_id=actor.id,
+        action="ai_model.tested",
+        target_type="AIModel",
+        target_id=model.id,
+        request_id=request_id,
+        details={"channel_id": str(channel.id), "test_status": test_status},
     )
     db.commit()
     return model
@@ -870,33 +800,23 @@ def discover_ai_channel_models(
     except AppError as error:
         append_audit(
             db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.CONFIGURATION,
-                action="ai_channel.models_discovered",
-                target_type="AIChannel",
-                target_id=channel.id,
-                request_id=request_id,
-                outcome=AuditOutcome.FAILED,
-                result_message="AI 模型发现失败",
-                error_code=error.code,
-            ),
+            actor_id=actor.id,
+            action="ai_channel.models_discovered",
+            target_type="AIChannel",
+            target_id=channel.id,
+            request_id=request_id,
+            details={"error_code": error.code},
         )
         db.commit()
         raise
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_channel.models_discovered",
-            target_type="AIChannel",
-            target_id=channel.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 模型发现完成",
-            details={"facts": {"model_count": len(model_ids)}},
-        ),
+        actor_id=actor.id,
+        action="ai_channel.models_discovered",
+        target_type="AIChannel",
+        target_id=channel.id,
+        request_id=request_id,
+        details={"model_count": len(model_ids)},
     )
     db.commit()
     return model_ids
@@ -921,17 +841,12 @@ def set_model_enabled(
     model.revision += 1
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action=f"ai_model.{'enabled' if enabled else 'disabled'}",
-            target_type="AIModel",
-            target_id=model.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message=f"AI 模型已{'启用' if enabled else '停用'}",
-            details={"facts": {"channel_id": str(channel.id)}},
-        ),
+        actor_id=actor.id,
+        action=f"ai_model.{'enabled' if enabled else 'disabled'}",
+        target_type="AIModel",
+        target_id=model.id,
+        request_id=request_id,
+        details={"channel_id": str(channel.id)},
     )
     db.commit()
     return model

@@ -18,7 +18,7 @@ import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { platformProfilesQueryOptions, productsQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
-import type { ContentTaskListItem, ContentTaskListQuery, ContentVersion, Schema } from '../../shared/api/types';
+import type { ContentTaskListItem, ContentVersion, Schema } from '../../shared/api/types';
 import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
@@ -58,17 +58,7 @@ function TaskList() {
   const keyword = searchParams.get('q') ?? '';
   const status: TaskStatusFilter = rawStatus && isTaskStatus(rawStatus) ? rawStatus : 'ALL';
   const desiredFormat = searchParams.get('format') ?? '';
-  const platformProfileId = searchParams.get('platform_profile_id') ?? undefined;
-  const platformProfileVersionId = searchParams.get('platform_profile_version_id') ?? undefined;
-  const taskListQuery: ContentTaskListQuery = {
-    ...(platformProfileId ? { platform_profile_id: platformProfileId } : {}),
-    ...(platformProfileVersionId ? { platform_profile_version_id: platformProfileVersionId } : {}),
-  };
-  const tasks = useQuery({
-    queryKey: queryKeys.contentTasks.list(taskListQuery),
-    queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks', { params: { query: taskListQuery } })),
-    staleTime: QUERY_STALE_TIME.businessList,
-  });
+  const tasks = useQuery({ queryKey: queryKeys.contentTasks.all, queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks')), staleTime: QUERY_STALE_TIME.businessList });
   const items = tasks.data?.items ?? [];
   const normalizedKeyword = keyword.trim().toLocaleLowerCase('zh-CN');
   const filteredTasks = items.filter((task) => {
@@ -89,7 +79,7 @@ function TaskList() {
       setSearchParams(next, { replace: true });
     }
   }, [maxPage, page, rawPage, rawStatus, searchParams, setSearchParams, tasks.data]);
-  const setFilter = (key: 'q' | 'status' | 'format' | 'platform_profile_id' | 'platform_profile_version_id', value?: string, replace = false) => {
+  const setFilter = (key: 'q' | 'status' | 'format', value?: string, replace = false) => {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(key, value); else next.delete(key);
     next.delete('page');
@@ -115,8 +105,6 @@ function TaskList() {
     />
 
     <Card className="tasks-glass-panel tasks-filter-panel" variant="borderless">
-      {platformProfileId && <Tag className="tasks-platform-filter" closable onClose={() => setFilter('platform_profile_id')}>当前平台：{items[0]?.platform.name ?? platformProfileId}</Tag>}
-      {platformProfileVersionId && <Tag className="tasks-platform-filter" closable onClose={() => setFilter('platform_profile_version_id')}>当前规则版本：{platformProfileVersionId.slice(0, 8)}</Tag>}
       <div className="tasks-filter-grid" role="search" aria-label="内容任务筛选">
         <Input
           allowClear
@@ -207,7 +195,7 @@ function TaskCreateModal({ open, onClose }: { open: boolean; onClose: () => void
   return <Modal title="创建内容任务" open={open} onCancel={onClose} footer={null} width={760} destroyOnHidden>{create.error && <Alert role="alert" className="form-alert" type="error" message={errorMessage(create.error)} />}{dependencyError && <QueryFailure error={dependencyError} onRetry={() => { void products.refetch(); void platforms.refetch(); if (productId) void facts.refetch(); }} />}{dependenciesLoading && <QueryLoading label="正在加载任务前置数据" />}<Form<Schema<'ContentTaskCreate'>> form={form} layout="vertical" disabled={!!dependencyError || dependenciesLoading} scrollToFirstError onFinish={(body) => create.mutate(body)}><Space align="start" wrap className="form-grid">
     <Form.Item name="product_id" label="产品" rules={[{ required: true }]}><Select showSearch onChange={(value) => { setProductId(value); form.setFieldValue('fact_version_id', undefined); }} options={products.data?.items.map((item) => ({ value: item.id, label: `${item.brand} ${item.part_number}` }))} /></Form.Item>
     <Form.Item name="fact_version_id" label="已批准事实版本" rules={[{ required: true }]}><Select disabled={!productId} options={facts.data?.items.filter((item) => item.status === 'APPROVED').map((item) => ({ value: item.id, label: `V${item.version} · ${item.change_summary}` }))} /></Form.Item>
-    <Form.Item name="platform_profile_version_id" label="可用平台" rules={[{ required: true }]}><Select placeholder="仅显示已启用且配置完整的平台" options={platforms.data?.items.flatMap((item) => item.is_active && item.platform_type_id && item.active_version && item.prompt_configured ? [{ value: item.active_version.id, label: `${item.name} V${item.active_version.version}` }] : [])} /></Form.Item>
+    <Form.Item name="platform_profile_version_id" label="可用平台" rules={[{ required: true }]}><Select placeholder="仅显示已有有效规则和当前 Prompt 的平台" options={platforms.data?.items.flatMap((item) => item.platform_type_id && item.active_version && item.prompt_configured ? [{ value: item.active_version.id, label: `${item.name} V${item.active_version.version}` }] : [])} /></Form.Item>
   </Space><Form.Item name="target_audience" label="目标受众" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="content_angle" label="内容角度" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="conversion_goal" label="转化目标" rules={[{ required: true }]}><Input /></Form.Item><Space align="start" wrap><Form.Item name="desired_format" label="内容形式" rules={[{ required: true }]}><Input placeholder="例如：参数对比文章" /></Form.Item><Form.Item name="desired_length_min" label="最短字数" rules={[{ required: true }]}><InputNumber min={1} /></Form.Item><Form.Item name="desired_length_max" label="最长字数" dependencies={['desired_length_min']} rules={[{ required: true }]}><InputNumber min={1} /></Form.Item></Space><Form.Item name="canonical_url" label="官网权威页" rules={[{ required: true, type: 'url' }]}><Input type="url" /></Form.Item><Button type="primary" htmlType="submit" loading={create.isPending}>创建任务</Button></Form></Modal>;
 }
 

@@ -1,9 +1,0 @@
-{"file":".trellis/tasks/07-22-platform-rules-fidelity/research/gap-analysis.md","reason":"复核实现补齐已确认差异且没有扩展未知字段、改变状态矩阵或复制并行任务能力"}
-{"file":".trellis/tasks/07-22-platform-rules-fidelity/research/visual-spec.md","reason":"复核 1581×995 四列保真、18 项视觉台账、响应式、主题和真实交互"}
-{"file":".trellis/spec/backend/database-guidelines.md","reason":"检查唯一 ACTIVE、锁顺序、审计追加、引用门禁、迁移和 PostgreSQL 权威状态"}
-{"file":".trellis/spec/frontend/component-guidelines.md","reason":"检查组件职责、完整交互状态、可访问性、Modal/Drawer 和焦点归还"}
-{"file":".trellis/spec/frontend/state-management.md","reason":"检查 URL/React Query/局部状态所有权、精确失效和无重复状态"}
-{"file":".trellis/spec/frontend/type-safety.md","reason":"检查契约生成类型完整且没有手写响应、静默默认或字段兼容猜测"}
-{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"运行组件、类型、lint、构建、E2E、主题、缩放和 Browser 质量门禁"}
-{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"核对契约、数据库、服务、前端、测试和权威文档闭环"}
-{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"检查没有通用工作台、第二历史源、重复命令、全量前端聚合或不必要依赖"}

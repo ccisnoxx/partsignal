@@ -11,12 +11,10 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
-    Index,
     Integer,
     String,
     Text,
     func,
-    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -70,41 +68,13 @@ class AuditLog(Base):
     """追加式关键业务审计记录。"""
 
     __tablename__ = "audit_logs"
-    __table_args__ = (
-        CheckConstraint(
-            "business_module IN "
-            "('IDENTITY', 'PRODUCT_FACTS', 'CONTENT_PLANNING', 'CONTENT_PRODUCTION', "
-            "'CONTENT_REVIEW', 'PUBLICATION', 'GEO_OBSERVATION', 'CONFIGURATION', "
-            "'FILE_MANAGEMENT')",
-            name="ck_audit_logs_business_module",
-        ),
-        CheckConstraint(
-            "outcome IN ('SUCCESS', 'FAILED', 'DENIED')",
-            name="ck_audit_logs_outcome",
-        ),
-        Index(
-            "ix_audit_logs_target_created_at",
-            "target_type",
-            "target_id",
-            text("created_at DESC"),
-        ),
-        Index(
-            "ix_audit_logs_created_id",
-            text("created_at DESC"),
-            text("id DESC"),
-        ),
-    )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     actor_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
-    business_module: Mapped[str] = mapped_column(String(40), nullable=False)
     action: Mapped[str] = mapped_column(String(120), nullable=False)
     target_type: Mapped[str] = mapped_column(String(80), nullable=False)
-    target_id: Mapped[str | None] = mapped_column(String(100))
-    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
-    result_message: Mapped[str] = mapped_column(String(500), nullable=False)
-    error_code: Mapped[str | None] = mapped_column(String(100))
+    target_id: Mapped[str] = mapped_column(String(100), nullable=False)
     details: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     request_id: Mapped[str] = mapped_column(String(100), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

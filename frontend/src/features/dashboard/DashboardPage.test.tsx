@@ -17,8 +17,7 @@ const summaryData = {
 } satisfies Schema<'DashboardSummary'>;
 
 const metricsData = {
-  legacy_sample_count: 0, legacy_mention_rate: null, legacy_recommendation_rate: null,
-  legacy_citation_rate: null, legacy_accuracy_rate: null,
+  sample_count: 0, mention_rate: 0, recommendation_rate: 0, citation_rate: 0, accuracy_rate: null,
   manual_observation_count: 3, article_result_count: 10, recommended_article_count: 6,
   not_recommended_article_count: 4, article_recommendation_rate: 0.6,
 } satisfies Schema<'GeoMetrics'>;

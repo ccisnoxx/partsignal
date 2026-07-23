@@ -132,38 +132,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/users/bulk-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["bulkUpdateUserStatus"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/users/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["exportUsers"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/users/{user_id}": {
         parameters: {
             query?: never;
@@ -204,38 +172,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["listAuditLogs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/audit-logs/filter-options": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAuditLogFilterOptions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/audit-logs/{audit_log_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAuditLog"];
         put?: never;
         post?: never;
         delete?: never;
@@ -460,22 +396,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/platform-profiles/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["exportPlatformProfiles"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/platform-profile-versions": {
         parameters: {
             query?: never;
@@ -540,22 +460,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/platform-profile-versions/{platform_profile_version_id}/impact": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getPlatformProfileVersionImpact"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/platform-profiles/{platform_profile_id}": {
         parameters: {
             query?: never;
@@ -563,45 +467,13 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["getPlatformProfile"];
+        get?: never;
         put?: never;
         post?: never;
         delete: operations["deletePlatformProfile"];
         options?: never;
         head?: never;
         patch: operations["updatePlatformProfile"];
-        trace?: never;
-    };
-    "/api/v1/platform-profiles/{platform_profile_id}/enable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["enablePlatformProfile"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform-profiles/{platform_profile_id}/disable": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["disablePlatformProfile"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/api/v1/platform-profile-versions/{platform_profile_version_id}": {
@@ -1454,22 +1326,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/geo-observations/{observation_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getGeoObservation"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/geo-metrics": {
         parameters: {
             query?: never;
@@ -1478,22 +1334,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getGeoMetrics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/geo-insights": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getGeoInsights"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1639,8 +1479,6 @@ export interface components {
         };
         /** @enum {string} */
         AccountType: "ADMIN" | "ENGINEER";
-        /** @enum {string} */
-        UserStatus: "ENABLED" | "DISABLED";
         User: {
             /** Format: uuid */
             id: string;
@@ -1656,8 +1494,7 @@ export interface components {
         UserCreate: {
             username: string;
             display_name: string;
-            /** @description 仅用于本次创建请求；服务端只保存哈希并强制首次登录改密 */
-            temporary_password: string;
+            password: string;
             account_type: components["schemas"]["AccountType"];
         };
         UserUpdate: {
@@ -1673,72 +1510,21 @@ export interface components {
             old_password: string;
             new_password: string;
         };
-        UserSummary: {
-            user_total: number;
-            enabled_total: number;
-            disabled_total: number;
-            must_change_password_total: number;
-            admin_total: number;
-        };
         UserList: {
             items: components["schemas"]["User"][];
             page: number;
             page_size: number;
             total: number;
-            summary: components["schemas"]["UserSummary"];
-        };
-        UserBulkStatusItem: {
-            /** Format: uuid */
-            user_id: string;
-            expected_revision: number;
-        };
-        UserBulkStatusRequest: {
-            /** @description user_id 必须唯一 */
-            items: components["schemas"]["UserBulkStatusItem"][];
-            status: components["schemas"]["UserStatus"];
-        };
-        UserBulkStatusFailure: {
-            /** Format: uuid */
-            user_id: string;
-            code: string;
-            message: string;
-        };
-        UserBulkStatusResult: {
-            succeeded: components["schemas"]["User"][];
-            failures: components["schemas"]["UserBulkStatusFailure"][];
-        };
-        /** @enum {string} */
-        AuditModule: "IDENTITY" | "PRODUCT_FACTS" | "CONTENT_PLANNING" | "CONTENT_PRODUCTION" | "CONTENT_REVIEW" | "PUBLICATION" | "GEO_OBSERVATION" | "CONFIGURATION" | "FILE_MANAGEMENT";
-        /** @enum {string} */
-        AuditOutcome: "SUCCESS" | "FAILED" | "DENIED";
-        AuditActor: {
-            /** Format: uuid */
-            id: string;
-            display_name: string;
-            account_type: components["schemas"]["AccountType"];
-        };
-        AuditChange: {
-            field: string;
-            before?: unknown;
-            after?: unknown;
-        };
-        AuditRelatedEntry: {
-            /** @enum {string} */
-            status: "AVAILABLE" | "MISSING" | "UNSUPPORTED";
-            kind: string | null;
-            parent_id: string | null;
         };
         AuditLog: {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
-            actor_id: string | null;
-            actor: components["schemas"]["AuditActor"] | null;
-            business_module: components["schemas"]["AuditModule"];
+            actor_id: string;
             action: string;
             target_type: string;
-            target_id: string | null;
-            outcome: components["schemas"]["AuditOutcome"];
+            /** Format: uuid */
+            target_id: string;
             change_summary: {
                 [key: string]: unknown;
             };
@@ -1751,19 +1537,6 @@ export interface components {
             page: number;
             page_size: number;
             total: number;
-        };
-        AuditLogDetail: components["schemas"]["AuditLog"] & {
-            changes: components["schemas"]["AuditChange"][];
-            facts: {
-                [key: string]: unknown;
-            };
-            result_message: string;
-            error_code: string | null;
-            related_entry: components["schemas"]["AuditRelatedEntry"];
-        };
-        AuditLogFilterOptions: {
-            actions: string[];
-            target_types: string[];
         };
         /** @enum {string} */
         ProductStatus: "ACTIVE" | "RETIRED";
@@ -2028,38 +1801,8 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
-        /** @enum {string} */
-        PlatformProfileVersionAction: "EDIT" | "ACTIVATE" | "RETIRE" | "DELETE";
-        PlatformProfileVersionSummary: components["schemas"]["PlatformProfileVersion"] & {
-            /** Format: uuid */
-            created_by: string | null;
-            /** Format: date-time */
-            activated_at: string | null;
-            /** Format: date-time */
-            last_changed_at: string;
-            reference_count: number;
-            available_actions: components["schemas"]["PlatformProfileVersionAction"][];
-        };
         PlatformProfileVersionList: {
-            items: components["schemas"]["PlatformProfileVersionSummary"][];
-        };
-        PlatformRuleImpactSummary: {
-            /** Format: date-time */
-            as_of: string;
-            bound_task_total: number;
-            unpublished_task_total: number;
-            reviewing_task_total: number;
-            published_task_total: number;
-        };
-        /** @enum {string} */
-        PlatformProfileStatus: "ENABLED" | "DISABLED";
-        /** @enum {string} */
-        PlatformConfigurationStatus: "COMPLETE" | "INCOMPLETE";
-        PlatformTypeSummary: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            slug: string;
+            items: components["schemas"]["PlatformProfileVersion"][];
         };
         PlatformProfile: {
             /** Format: uuid */
@@ -2069,65 +1812,15 @@ export interface components {
             allowed_domains: string[];
             /** Format: uuid */
             platform_type_id: string | null;
-            platform_type: components["schemas"]["PlatformTypeSummary"] | null;
             /** Format: uri */
             website_url: string | null;
             logo: components["schemas"]["PlatformLogo"] | null;
             revision: number;
-            is_active: boolean;
             active_version: components["schemas"]["PlatformProfileVersion"] | null;
             prompt_configured: boolean;
-            /**
-             * Format: date-time
-             * @description 当前具体平台 Prompt 的最近更新时间；未配置时为 null
-             */
-            prompt_updated_at: string | null;
-            /** @description 同时存在 ACTIVE 规则和当前具体平台 Prompt */
-            configuration_complete: boolean;
-            platform_account_count: number;
-            /**
-             * Format: date-time
-             * @description 平台创建、编辑、启用或停用的最近真实审计时间
-             */
-            updated_at: string | null;
-        };
-        PlatformProfileSummary: {
-            platform_total: number;
-            enabled_total: number;
-            missing_prompt_total: number;
-            missing_active_rule_total: number;
-            configuration_complete_total: number;
         };
         PlatformProfileList: {
             items: components["schemas"]["PlatformProfile"][];
-            page: number;
-            /** @description 无分页模式等于 total，空集合为 0 */
-            page_size: number;
-            /** @description 应用当前筛选后的平台总数 */
-            total: number;
-            summary: components["schemas"]["PlatformProfileSummary"];
-        };
-        PlatformAccountSummary: {
-            total: number;
-            enabled: number;
-            disabled: number;
-        };
-        PlatformReferenceSummary: {
-            /** Format: date-time */
-            as_of: string;
-            /** @description ContentTask.created_at 位于半开区间 [as_of-30天, as_of) 的唯一任务数 */
-            recent_30_days: number;
-            /** @description 引用平台任一规则版本的全部唯一 ContentTask 数 */
-            all_time: number;
-        };
-        PlatformProfileDetail: {
-            profile: components["schemas"]["PlatformProfile"];
-            /** Format: date-time */
-            current_rule_activated_at: string | null;
-            /** Format: date-time */
-            prompt_updated_at: string | null;
-            account_summary: components["schemas"]["PlatformAccountSummary"];
-            reference_summary: components["schemas"]["PlatformReferenceSummary"];
         };
         PlatformTypeCreate: {
             name: string;
@@ -3030,22 +2723,10 @@ export interface components {
         GeoArticleResultCreate: {
             /** Format: uuid */
             publication_record_id: string;
-            discovered: boolean;
-            mentioned: boolean;
             /** @enum {string} */
             recommendation_status: "RECOMMENDED" | "NOT_RECOMMENDED";
-            cited: boolean;
-            accuracy: components["schemas"]["AccuracyStatus"];
         };
-        GeoArticleResult: {
-            /** Format: uuid */
-            publication_record_id: string;
-            discovered: boolean | null;
-            mentioned: boolean | null;
-            /** @enum {string} */
-            recommendation_status: "RECOMMENDED" | "NOT_RECOMMENDED";
-            cited: boolean | null;
-            accuracy: components["schemas"]["AccuracyStatus"] | null;
+        GeoArticleResult: components["schemas"]["GeoArticleResultCreate"] & {
             title: string;
             platform_name: string;
             /** Format: uri */
@@ -3067,8 +2748,6 @@ export interface components {
         GeoObservationCreate: {
             /** Format: uuid */
             product_id: string;
-            /** Format: uuid */
-            query_topic_id: string;
             search_platform: string;
             search_query: string;
             /** Format: date-time */
@@ -3091,7 +2770,6 @@ export interface components {
             query_topic_id: string;
             /** Format: uuid */
             product_id: string;
-            product_label: string;
             actual_prompt: string;
             model_name: string;
             model_version?: string | null;
@@ -3110,9 +2788,6 @@ export interface components {
             supersedes_id?: string | null;
             /** Format: uuid */
             tested_by: string;
-            recorder: components["schemas"]["ActorSummary"];
-            is_current: boolean;
-            available_actions: "CORRECT"[];
             /** Format: date-time */
             created_at: string;
         };
@@ -3125,10 +2800,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
-            query_topic_id: string | null;
-            /** Format: uuid */
             product_id: string;
-            product_label: string;
             search_platform: string;
             search_query: string;
             /** Format: date-time */
@@ -3140,205 +2812,24 @@ export interface components {
             supersedes_id: string | null;
             /** Format: uuid */
             tested_by: string;
-            recorder: components["schemas"]["ActorSummary"];
-            is_current: boolean;
-            available_actions: "CORRECT"[];
             /** Format: date-time */
             created_at: string;
         };
         GeoObservation: components["schemas"]["LegacyGeoObservation"] | components["schemas"]["ManualGeoObservation"];
         GeoObservationList: {
             items: components["schemas"]["GeoObservation"][];
-            page: number;
-            page_size: number;
-            total: number;
         };
         GeoMetrics: {
-            legacy_sample_count: number;
-            legacy_mention_rate: number | null;
-            legacy_recommendation_rate: number | null;
-            legacy_citation_rate: number | null;
-            legacy_accuracy_rate: number | null;
+            sample_count: number;
+            mention_rate: number;
+            recommendation_rate: number;
+            citation_rate: number;
+            accuracy_rate: number | null;
             manual_observation_count: number;
             article_result_count: number;
             recommended_article_count: number;
             not_recommended_article_count: number;
             article_recommendation_rate: number | null;
-        };
-        GeoInsightPeriodWindow: {
-            /** Format: date */
-            date_from: string;
-            /** Format: date */
-            date_to: string;
-        };
-        GeoInsightPeriod: {
-            current: components["schemas"]["GeoInsightPeriodWindow"];
-            previous: components["schemas"]["GeoInsightPeriodWindow"];
-        };
-        GeoInsightOption: {
-            /** Format: uuid */
-            id: string;
-            label: string;
-        };
-        GeoInsightPublicationOption: components["schemas"]["GeoInsightOption"] & {
-            platform_name: string;
-        };
-        GeoInsightFilterOptions: {
-            content_platforms: components["schemas"]["GeoInsightOption"][];
-            geo_platforms: string[];
-            content_angles: string[];
-            publications: components["schemas"]["GeoInsightPublicationOption"][];
-            query_topics: components["schemas"]["GeoInsightOption"][];
-        };
-        GeoInsightRateValue: {
-            numerator: number;
-            denominator: number;
-            value: number | null;
-        };
-        GeoInsightRatePoint: components["schemas"]["GeoInsightRateValue"] & {
-            /** Format: date */
-            date: string;
-        };
-        GeoInsightRateTrend: {
-            current: components["schemas"]["GeoInsightRateValue"];
-            previous: components["schemas"]["GeoInsightRateValue"];
-            change: number | null;
-            points: components["schemas"]["GeoInsightRatePoint"][];
-        };
-        GeoInsightCountPoint: {
-            /** Format: date */
-            date: string;
-            count: number;
-        };
-        GeoInsightCountTrend: {
-            current: number;
-            previous: number;
-            change: number | null;
-            points: components["schemas"]["GeoInsightCountPoint"][];
-        };
-        GeoInsightTrends: {
-            mention_rate: components["schemas"]["GeoInsightRateTrend"];
-            recommendation_rate: components["schemas"]["GeoInsightRateTrend"];
-            citation_rate: components["schemas"]["GeoInsightRateTrend"];
-            accuracy_rate: components["schemas"]["GeoInsightRateTrend"];
-            not_recommended_content_count: components["schemas"]["GeoInsightCountTrend"];
-        };
-        GeoInsightPlatformPerformance: {
-            geo_platform: string;
-            observation_count: number;
-            mention_rate: components["schemas"]["GeoInsightRateValue"];
-            recommendation_rate: components["schemas"]["GeoInsightRateValue"];
-            citation_rate: components["schemas"]["GeoInsightRateValue"];
-            accuracy_rate: components["schemas"]["GeoInsightRateValue"];
-        };
-        GeoInsightFunnelStage: {
-            /** @enum {string} */
-            code: "PUBLISHED" | "DISCOVERED" | "MENTIONED" | "RECOMMENDED" | "CITED" | "ACCURATE";
-            label: string;
-            count: number;
-            conversion_from_previous: number | null;
-        };
-        GeoInsightContentPerformance: {
-            /** Format: uuid */
-            publication_record_id: string;
-            title: string;
-            content_platform: string;
-            observation_count: number;
-            mention_rate: components["schemas"]["GeoInsightRateValue"];
-            recommendation_rate: components["schemas"]["GeoInsightRateValue"];
-            citation_rate: components["schemas"]["GeoInsightRateValue"];
-        };
-        GeoInsightDeclineBasis: {
-            /** @enum {string} */
-            metric: "citation_rate" | "recommendation_rate" | "mention_rate";
-            current_value: number;
-            previous_value: number;
-            decline: number;
-        };
-        GeoInsightDecliningContent: components["schemas"]["GeoInsightContentPerformance"] & {
-            basis: components["schemas"]["GeoInsightDeclineBasis"][];
-        };
-        GeoInsightLongUnmentionedContent: components["schemas"]["GeoInsightContentPerformance"] & {
-            unmentioned_days: number;
-            /** Format: date-time */
-            last_mentioned_at: string | null;
-        };
-        GeoInsightContentRankings: {
-            best: components["schemas"]["GeoInsightContentPerformance"][];
-            declining: components["schemas"]["GeoInsightDecliningContent"][];
-            long_unmentioned: components["schemas"]["GeoInsightLongUnmentionedContent"][];
-        };
-        GeoInsightCoverageCounts: {
-            stable: number;
-            occasional: number;
-            uncovered: number;
-            insufficient_data: number;
-        };
-        GeoInsightCoverageItem: {
-            /** Format: uuid */
-            query_topic_id: string;
-            canonical_question: string;
-            geo_platform: string;
-            /** @enum {string} */
-            status: "STABLE" | "OCCASIONAL" | "UNCOVERED" | "INSUFFICIENT_DATA";
-            observation_count: number;
-            mentioned_observation_count: number;
-            coverage_rate: components["schemas"]["GeoInsightRateValue"];
-        };
-        GeoInsightQuestionCoverage: {
-            by_status: components["schemas"]["GeoInsightCoverageCounts"];
-            matrix: components["schemas"]["GeoInsightCoverageItem"][];
-        };
-        GeoInsightRecommendationBasis: {
-            /** @enum {string} */
-            metric: "unmentioned_days" | "citation_rate" | "recommendation_rate" | "mention_rate" | "observation_count" | "coverage_rate";
-            value: number | null;
-            threshold: number | null;
-            /** @enum {string} */
-            unit: "RATIO" | "PERCENTAGE_POINT" | "COUNT" | "DAY";
-        };
-        GeoInsightRecommendation: {
-            /** @enum {string} */
-            rule_code: "CONTENT_LONG_UNMENTIONED" | "CONTENT_PERFORMANCE_DECLINE" | "GEO_PLATFORM_PERFORMANCE_DECLINE" | "CONTENT_NEVER_RECOMMENDED" | "QUESTION_UNCOVERED" | "QUESTION_OCCASIONAL" | "QUESTION_INSUFFICIENT_DATA";
-            /** @enum {string} */
-            priority: "HIGH" | "MEDIUM" | "LOW";
-            title: string;
-            basis_text: string;
-            basis_values: components["schemas"]["GeoInsightRecommendationBasis"][];
-            impact_relationship_count: number;
-            publication_record_ids: string[];
-            geo_platforms: string[];
-            query_topic_ids: string[];
-            detail_path: string | null;
-        };
-        GeoInsightUnavailableSection: {
-            /** @enum {string} */
-            code: "NO_COMPLETE_OBSERVATIONS" | "NO_COMPLETE_PREVIOUS_OBSERVATIONS" | "NO_GEO_PLATFORMS" | "LONG_UNMENTIONED_PERIOD_TOO_SHORT";
-            message: string;
-        };
-        GeoInsightDataQuality: {
-            eligible_observation_count: number;
-            excluded_incomplete_observation_count: number;
-            excluded_incomplete_relation_count: number;
-            unavailable_sections: components["schemas"]["GeoInsightUnavailableSection"][];
-        };
-        GeoInsights: {
-            /** Format: date-time */
-            generated_at: string;
-            /**
-             * @description 趋势率、平台率、内容排行和漏斗统一使用当前链尾人工观测与逐篇发布内容关系作为基础单位
-             * @constant
-             */
-            analysis_unit: "MANUAL_OBSERVATION_PUBLICATION_RELATION";
-            period: components["schemas"]["GeoInsightPeriod"];
-            filter_options: components["schemas"]["GeoInsightFilterOptions"];
-            trends: components["schemas"]["GeoInsightTrends"];
-            platform_performance: components["schemas"]["GeoInsightPlatformPerformance"][];
-            funnel: components["schemas"]["GeoInsightFunnelStage"][];
-            content_rankings: components["schemas"]["GeoInsightContentRankings"];
-            question_coverage: components["schemas"]["GeoInsightQuestionCoverage"];
-            recommendations: components["schemas"]["GeoInsightRecommendation"][];
-            data_quality: components["schemas"]["GeoInsightDataQuality"];
         };
         DashboardSummary: {
             pending_fact_reviews: number;
@@ -3626,22 +3117,14 @@ export interface operations {
     };
     listUsers: {
         parameters: {
-            query?: {
-                /** @description 按用户名或显示名称进行大小写不敏感的字面量包含搜索 */
-                q?: string;
-                account_type?: components["schemas"]["AccountType"];
-                /** @description 省略时返回全部状态 */
-                status?: components["schemas"]["UserStatus"];
-                page?: number;
-                page_size?: number;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 稳定分页的用户列表及不受筛选影响的全局实时摘要 */
+            /** @description 用户列表 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -3650,9 +3133,6 @@ export interface operations {
                     "application/json": components["schemas"]["UserList"];
                 };
             };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
         };
     };
     createUser: {
@@ -3670,7 +3150,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 已创建默认启用且首次登录必须修改临时密码的用户 */
+            /** @description 已创建 */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -3679,69 +3159,7 @@ export interface operations {
                     "application/json": components["schemas"]["User"];
                 };
             };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    bulkUpdateUserStatus: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UserBulkStatusRequest"];
-            };
-        };
-        responses: {
-            /** @description 合法批量命令的逐项成功与预期失败结果 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["UserBulkStatusResult"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    exportUsers: {
-        parameters: {
-            query?: {
-                /** @description 按用户名或显示名称进行大小写不敏感的字面量包含搜索 */
-                q?: string;
-                account_type?: components["schemas"]["AccountType"];
-                /** @description 省略时导出全部状态 */
-                status?: components["schemas"]["UserStatus"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 当前筛选范围内、按用户列表稳定顺序生成的 UTF-8 BOM CSV */
-            200: {
-                headers: {
-                    "Content-Disposition"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/csv": string;
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
         };
     };
     updateUser: {
@@ -3805,16 +3223,8 @@ export interface operations {
             query?: {
                 page?: components["parameters"]["Page"];
                 page_size?: components["parameters"]["PageSize"];
-                created_from?: string;
-                created_to?: string;
-                actor_id?: string;
-                business_module?: components["schemas"]["AuditModule"];
-                action?: string;
                 target_type?: string;
                 target_id?: string;
-                outcome?: components["schemas"]["AuditOutcome"];
-                request_id?: string;
-                keyword?: string;
             };
             header?: never;
             path?: never;
@@ -3831,56 +3241,6 @@ export interface operations {
                     "application/json": components["schemas"]["AuditLogList"];
                 };
             };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    getAuditLogFilterOptions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 当前审计表中真实存在的动作和对象类型 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditLogFilterOptions"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-        };
-    };
-    getAuditLog: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                audit_log_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 只包含白名单摘要的审计详情 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditLogDetail"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
         };
     };
     listProducts: {
@@ -4324,17 +3684,7 @@ export interface operations {
     };
     listPlatformProfiles: {
         parameters: {
-            query?: {
-                /** @description 按平台名称或平台类型名称搜索 */
-                q?: string;
-                platform_type_id?: string;
-                status?: components["schemas"]["PlatformProfileStatus"];
-                configuration_status?: components["schemas"]["PlatformConfigurationStatus"];
-                /** @description 与 page_size 同时提供时启用服务端分页；两者都省略时返回完整参考集合 */
-                page?: number;
-                /** @description 与 page 同时提供时启用服务端分页 */
-                page_size?: 10 | 20 | 50;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -4350,8 +3700,6 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformProfileList"];
                 };
             };
-            401: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
         };
     };
     createPlatformProfile: {
@@ -4378,40 +3726,6 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformProfile"];
                 };
             };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    exportPlatformProfiles: {
-        parameters: {
-            query?: {
-                /** @description 按平台名称或平台类型名称搜索 */
-                q?: string;
-                platform_type_id?: string;
-                status?: components["schemas"]["PlatformProfileStatus"];
-                configuration_status?: components["schemas"]["PlatformConfigurationStatus"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 当前筛选和权限范围内的 UTF-8 BOM CSV */
-            200: {
-                headers: {
-                    "Content-Disposition"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/csv": string;
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
         };
     };
     listAllPlatformProfileVersions: {
@@ -4533,55 +3847,6 @@ export interface operations {
             };
         };
     };
-    getPlatformProfileVersionImpact: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform_profile_version_id: components["parameters"]["PlatformProfileVersionId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 平台规则版本的互斥内容任务影响摘要 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformRuleImpactSummary"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
-    getPlatformProfile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform_profile_id: components["parameters"]["PlatformProfileId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 平台管理详情与实时引用摘要 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformProfileDetail"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
     deletePlatformProfile: {
         parameters: {
             query?: never;
@@ -4602,9 +3867,6 @@ export interface operations {
                 };
                 content?: never;
             };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
         };
     };
@@ -4634,66 +3896,6 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformProfile"];
                 };
             };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
-        };
-    };
-    enablePlatformProfile: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                platform_profile_id: components["parameters"]["PlatformProfileId"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["RevisionRequest"];
-        responses: {
-            /** @description 已启用平台；启用状态不代表配置完整 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformProfile"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
-    disablePlatformProfile: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                platform_profile_id: components["parameters"]["PlatformProfileId"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["RevisionRequest"];
-        responses: {
-            /** @description 已停用平台；既有账号、配置与历史保持不变 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformProfile"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
         };
     };
@@ -4803,9 +4005,7 @@ export interface operations {
     };
     deletePlatformPrompt: {
         parameters: {
-            query: {
-                expected_revision: number;
-            };
+            query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };
@@ -4823,7 +4023,6 @@ export interface operations {
                 };
                 content?: never;
             };
-            409: components["responses"]["ErrorResponse"];
         };
     };
     getContentHumanizationPrompt: {
@@ -5573,12 +4772,7 @@ export interface operations {
     };
     listContentTasks: {
         parameters: {
-            query?: {
-                /** @description 仅返回引用该平台任一规则版本的内容任务 */
-                platform_profile_id?: string;
-                /** @description 仅返回直接引用该平台规则版本的内容任务；与 platform_profile_id 同时提供时按 AND 处理 */
-                platform_profile_version_id?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -5594,7 +4788,6 @@ export interface operations {
                     "application/json": components["schemas"]["ContentTaskList"];
                 };
             };
-            401: components["responses"]["ErrorResponse"];
         };
     };
     createContentTask: {
@@ -6087,10 +5280,7 @@ export interface operations {
     };
     listPlatformAccounts: {
         parameters: {
-            query?: {
-                /** @description 仅返回指定具体平台的账号标识 */
-                platform_profile_id?: string;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -6106,7 +5296,6 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformAccountList"];
                 };
             };
-            401: components["responses"]["ErrorResponse"];
         };
     };
     createPlatformAccount: {
@@ -6133,9 +5322,6 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformAccount"];
                 };
             };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
         };
     };
     deletePlatformAccount: {
@@ -6186,8 +5372,6 @@ export interface operations {
                     "application/json": components["schemas"]["PublicationRecord"];
                 };
             };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
         };
     };
@@ -6417,35 +5601,14 @@ export interface operations {
     };
     listGeoObservations: {
         parameters: {
-            query?: {
-                page?: number;
-                page_size?: number;
-                sort_order?: "ASC" | "DESC";
-                date_from?: string;
-                date_to?: string;
-                observation_kind?: "LEGACY_MODEL_RESULT" | "MANUAL_ARTICLE_SEARCH";
-                product_id?: string;
-                search?: string;
-                query_topic_id?: string;
-                model_name?: string;
-                search_platform?: string;
-                publication_search?: string;
-                mentioned?: boolean;
-                recommendation?: "NONE" | "CANDIDATE" | "RECOMMENDED";
-                has_citation?: boolean;
-                accuracy?: components["schemas"]["AccuracyStatus"];
-                article_recommendation?: "RECOMMENDED" | "NOT_RECOMMENDED";
-                recorder_search?: string;
-                only_mine?: boolean;
-                include_history?: boolean;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 分页观测列表；默认只返回纠正链尾 */
+            /** @description 观测列表 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -6482,49 +5645,15 @@ export interface operations {
             };
         };
     };
-    getGeoObservation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                observation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 观测详情；纠正历史可直接读取 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GeoObservation"];
-                };
-            };
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
     getGeoMetrics: {
         parameters: {
             query?: {
-                date_from?: string;
-                date_to?: string;
-                observation_kind?: "LEGACY_MODEL_RESULT" | "MANUAL_ARTICLE_SEARCH";
                 product_id?: string;
-                search?: string;
                 query_topic_id?: string;
                 model_name?: string;
                 search_platform?: string;
-                publication_search?: string;
-                mentioned?: boolean;
-                recommendation?: "NONE" | "CANDIDATE" | "RECOMMENDED";
-                has_citation?: boolean;
-                accuracy?: components["schemas"]["AccuracyStatus"];
-                article_recommendation?: "RECOMMENDED" | "NOT_RECOMMENDED";
-                recorder_search?: string;
-                only_mine?: boolean;
-                include_history?: boolean;
+                date_from?: string;
+                date_to?: string;
             };
             header?: never;
             path?: never;
@@ -6532,7 +5661,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 与观测列表筛选范围一致的 GEO 指标 */
+            /** @description 基础 GEO 指标 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -6541,36 +5670,6 @@ export interface operations {
                     "application/json": components["schemas"]["GeoMetrics"];
                 };
             };
-        };
-    };
-    getGeoInsights: {
-        parameters: {
-            query?: {
-                date_from?: string;
-                date_to?: string;
-                content_platform_id?: string;
-                geo_platform?: string;
-                content_angle?: string;
-                publication_record_id?: string;
-                query_topic_id?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 同一筛选范围内的人工 GEO 洞察、筛选选项与数据完整性 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GeoInsights"];
-                };
-            };
-            404: components["responses"]["ErrorResponse"];
-            422: components["responses"]["ErrorResponse"];
         };
     };
     getDashboardSummary: {

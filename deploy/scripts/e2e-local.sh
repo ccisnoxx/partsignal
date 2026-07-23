@@ -12,7 +12,6 @@ export APP_ENV=test
 export CONTENT_GENERATOR=openai-compatible
 export AI_ALLOW_LOCAL_HTTP=true
 export AI_CREDENTIAL_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-export CORS_ALLOWED_ORIGINS=http://127.0.0.1:5173
 
 root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 storage_dir=${OBJECT_STORAGE_PATH:-/tmp/partsignal-e2e-storage}

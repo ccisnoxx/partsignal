@@ -82,62 +82,21 @@ test('管理员在渠道详情路由看到原型配置子菜单和 AI 渠道选�
   expect(await screen.findByRole('menuitem', { name: /配置中心/ })).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByRole('menuitem', { name: 'AI 渠道与模型' })).toHaveClass('ant-menu-item-selected');
   expect(screen.getAllByText('AI 渠道与模型').length).toBeGreaterThan(1);
-  expect(screen.getByRole('menuitem', { name: '平台管理' })).toBeInTheDocument();
+  expect(screen.getByRole('menuitem', { name: '内容平台' })).toBeInTheDocument();
   expect(screen.getByRole('menuitem', { name: '平台规则' })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('menuitem', { name: /业务设置/ }));
-  expect(screen.getAllByRole('menuitem', { name: /用户管理/ })).toHaveLength(1);
-  await userEvent.click(screen.getByRole('menuitem', { name: /审计与安全/ }));
   expect(screen.getAllByRole('menuitem', { name: /审计日志/ })).toHaveLength(1);
   expect(screen.getByRole('link', { name: '审计日志' })).toHaveAttribute('href', '/audit');
-  expect(screen.getByRole('link', { name: '用户管理' })).toHaveAttribute('href', '/users');
   expect(screen.queryByText('事实可信 · 人工审核 · 历史可溯')).not.toBeInTheDocument();
 });
 
-test('普通用户保留业务设置基础入口，但看不到管理员入口和配置中心', async () => {
+test('普通用户看不到配置中心、审计日志及配置子菜单', () => {
   authState.isAdmin = false;
   render(
     <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter><Routes><Route element={<AppLayout />}><Route index element={<h1>工作台</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
   );
-  expect(screen.getByRole('menuitem', { name: /业务设置/ })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('menuitem', { name: /业务设置/ }));
-  expect(screen.getByRole('link', { name: '发布账号' })).toHaveAttribute('href', '/settings?tab=accounts');
-  expect(screen.getByRole('link', { name: '历史目标问题' })).toHaveAttribute('href', '/settings');
   expect(screen.queryByRole('menuitem', { name: /配置中心/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: 'AI 渠道与模型' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('menuitem', { name: /用户管理/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: /审计日志/ })).not.toBeInTheDocument();
-});
-
-test('业务设置按查询参数区分发布账号和历史目标问题选中态', () => {
-  render(
-    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/settings?tab=accounts&platform_profile_id=profile-1']}><Routes><Route element={<AppLayout />}><Route path="settings" element={<h1>业务设置页</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
-  );
-  expect(screen.getByRole('menuitem', { name: /业务设置/ })).toHaveAttribute('aria-expanded', 'true');
-  expect(screen.getByRole('menuitem', { name: '发布账号' })).toHaveClass('ant-menu-item-selected');
-  expect(screen.getByRole('menuitem', { name: '历史目标问题' })).not.toHaveClass('ant-menu-item-selected');
-  expect(screen.getByText('业务设置', { selector: '.header-context strong' })).toBeInTheDocument();
-});
-
-test('用户管理使用独立全出血壳层，不继承配置中心外框', () => {
-  render(
-    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/users']}><Routes><Route element={<AppLayout />}><Route path="users" element={<h1>用户管理页</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
-  );
-  const shell = document.querySelector('.app-shell');
-  expect(shell).toHaveClass('app-shell-user-management');
-  expect(shell).not.toHaveClass('app-shell-configuration');
-});
-
-test('审计日志使用 188px 审计壳层和审计与安全面包屑', () => {
-  render(
-    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/audit']}><Routes><Route element={<AppLayout />}><Route path="audit" element={<h1>审计页面</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
-  );
-  const shell = document.querySelector('.app-shell');
-  const sider = document.querySelector('.app-sider');
-  expect(shell).toHaveClass('app-shell-audit');
-  expect(shell).not.toHaveClass('app-shell-configuration');
-  expect(sider).toHaveStyle({ width: '188px' });
-  expect(screen.getByRole('menuitem', { name: '审计日志' })).toHaveClass('ant-menu-item-selected');
-  expect(screen.getByText('审计与安全', { selector: '.header-context strong' })).toBeInTheDocument();
 });
 
 test('全局搜索只提供获权页面导航并支持 Ctrl K 聚焦', async () => {

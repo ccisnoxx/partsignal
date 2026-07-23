@@ -107,21 +107,12 @@ paths:
     get:
       tags: [identity]
       operationId: listUsers
-      parameters:
-        - {name: q, in: query, description: 按用户名或显示名称进行大小写不敏感的字面量包含搜索, schema: {type: string, maxLength: 200}}
-        - {name: account_type, in: query, schema: {$ref: '#/components/schemas/AccountType'}}
-        - {name: status, in: query, description: 省略时返回全部状态, schema: {$ref: '#/components/schemas/UserStatus'}}
-        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
-        - {name: page_size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
       responses:
         '200':
-          description: 稳定分页的用户列表及不受筛选影响的全局实时摘要
+          description: 用户列表
           content:
             application/json:
               schema: {$ref: '#/components/schemas/UserList'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '422': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [identity]
       operationId: createUser
@@ -133,53 +124,11 @@ paths:
             schema: {$ref: '#/components/schemas/UserCreate'}
       responses:
         '201':
-          description: 已创建默认启用且首次登录必须修改临时密码的用户
+          description: 已创建
           content:
             application/json:
               schema: {$ref: '#/components/schemas/User'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
-        '422': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/users/bulk-status:
-    post:
-      tags: [identity]
-      operationId: bulkUpdateUserStatus
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/UserBulkStatusRequest'}
-      responses:
-        '200':
-          description: 合法批量命令的逐项成功与预期失败结果
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/UserBulkStatusResult'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '422': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/users/export:
-    get:
-      tags: [identity]
-      operationId: exportUsers
-      parameters:
-        - {name: q, in: query, description: 按用户名或显示名称进行大小写不敏感的字面量包含搜索, schema: {type: string, maxLength: 200}}
-        - {name: account_type, in: query, schema: {$ref: '#/components/schemas/AccountType'}}
-        - {name: status, in: query, description: 省略时导出全部状态, schema: {$ref: '#/components/schemas/UserStatus'}}
-      responses:
-        '200':
-          description: 当前筛选范围内、按用户列表稳定顺序生成的 UTF-8 BOM CSV
-          headers:
-            Content-Disposition:
-              schema: {type: string}
-          content:
-            text/csv:
-              schema: {type: string}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/users/{user_id}:
     patch:
       tags: [identity]
@@ -227,55 +176,14 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/Page'}
         - {$ref: '#/components/parameters/PageSize'}
-        - {name: created_from, in: query, schema: {type: string, format: date-time}}
-        - {name: created_to, in: query, schema: {type: string, format: date-time}}
-        - {name: actor_id, in: query, schema: {type: string, format: uuid}}
-        - {name: business_module, in: query, schema: {$ref: '#/components/schemas/AuditModule'}}
-        - {name: action, in: query, schema: {type: string, maxLength: 120}}
         - {name: target_type, in: query, schema: {type: string}}
-        - {name: target_id, in: query, schema: {type: string, maxLength: 100}}
-        - {name: outcome, in: query, schema: {$ref: '#/components/schemas/AuditOutcome'}}
-        - {name: request_id, in: query, schema: {type: string, maxLength: 100}}
-        - {name: keyword, in: query, schema: {type: string, minLength: 1, maxLength: 100}}
+        - {name: target_id, in: query, schema: {type: string, format: uuid}}
       responses:
         '200':
           description: 追加式审计日志
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AuditLogList'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '422': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/audit-logs/filter-options:
-    get:
-      tags: [identity]
-      operationId: getAuditLogFilterOptions
-      responses:
-        '200':
-          description: 当前审计表中真实存在的动作和对象类型
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/AuditLogFilterOptions'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/audit-logs/{audit_log_id}:
-    get:
-      tags: [identity]
-      operationId: getAuditLog
-      parameters:
-        - name: audit_log_id
-          in: path
-          required: true
-          schema: {type: string, format: uuid}
-      responses:
-        '200':
-          description: 只包含白名单摘要的审计详情
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/AuditLogDetail'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products:
     get:
       tags: [product-facts]
@@ -522,36 +430,12 @@ paths:
     get:
       tags: [planning]
       operationId: listPlatformProfiles
-      parameters:
-        - name: q
-          in: query
-          description: 按平台名称或平台类型名称搜索
-          schema: {type: string, maxLength: 200}
-        - name: platform_type_id
-          in: query
-          schema: {type: string, format: uuid}
-        - name: status
-          in: query
-          schema: {$ref: '#/components/schemas/PlatformProfileStatus'}
-        - name: configuration_status
-          in: query
-          schema: {$ref: '#/components/schemas/PlatformConfigurationStatus'}
-        - name: page
-          in: query
-          description: 与 page_size 同时提供时启用服务端分页；两者都省略时返回完整参考集合
-          schema: {type: integer, minimum: 1}
-        - name: page_size
-          in: query
-          description: 与 page 同时提供时启用服务端分页
-          schema: {type: integer, enum: [10, 20, 50]}
       responses:
         '200':
           description: 平台配置列表
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfileList'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '422': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [planning]
       operationId: createPlatformProfile
@@ -567,40 +451,6 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfile'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-        '422': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/platform-profiles/export:
-    get:
-      tags: [configuration]
-      operationId: exportPlatformProfiles
-      parameters:
-        - name: q
-          in: query
-          description: 按平台名称或平台类型名称搜索
-          schema: {type: string, maxLength: 200}
-        - name: platform_type_id
-          in: query
-          schema: {type: string, format: uuid}
-        - name: status
-          in: query
-          schema: {$ref: '#/components/schemas/PlatformProfileStatus'}
-        - name: configuration_status
-          in: query
-          schema: {$ref: '#/components/schemas/PlatformConfigurationStatus'}
-      responses:
-        '200':
-          description: 当前筛选和权限范围内的 UTF-8 BOM CSV
-          headers:
-            Content-Disposition:
-              schema: {type: string}
-          content:
-            text/csv:
-              schema: {type: string}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profile-versions:
     get:
       tags: [planning]
@@ -668,34 +518,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfileVersion'}
-  /api/v1/platform-profile-versions/{platform_profile_version_id}/impact:
-    get:
-      tags: [planning]
-      operationId: getPlatformProfileVersionImpact
-      parameters:
-        - {$ref: '#/components/parameters/PlatformProfileVersionId'}
-      responses:
-        '200':
-          description: 平台规则版本的互斥内容任务影响摘要
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformRuleImpactSummary'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profiles/{platform_profile_id}:
-    get:
-      tags: [configuration]
-      operationId: getPlatformProfile
-      parameters: [{$ref: '#/components/parameters/PlatformProfileId'}]
-      responses:
-        '200':
-          description: 平台管理详情与实时引用摘要
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformProfileDetail'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
     patch:
       tags: [configuration]
       operationId: updatePlatformProfile
@@ -713,11 +536,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfile'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
-        '422': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deletePlatformProfile
@@ -726,45 +545,6 @@ paths:
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已删除未被规则版本或平台账号引用的平台}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/platform-profiles/{platform_profile_id}/enable:
-    post:
-      tags: [configuration]
-      operationId: enablePlatformProfile
-      parameters:
-        - {$ref: '#/components/parameters/PlatformProfileId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
-      responses:
-        '200':
-          description: 已启用平台；启用状态不代表配置完整
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformProfile'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/platform-profiles/{platform_profile_id}/disable:
-    post:
-      tags: [configuration]
-      operationId: disablePlatformProfile
-      parameters:
-        - {$ref: '#/components/parameters/PlatformProfileId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
-      responses:
-        '200':
-          description: 已停用平台；既有账号、配置与历史保持不变
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformProfile'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profile-versions/{platform_profile_version_id}:
     patch:
@@ -829,14 +609,9 @@ paths:
       operationId: deletePlatformPrompt
       parameters:
         - {$ref: '#/components/parameters/PlatformProfileId'}
-        - name: expected_revision
-          in: query
-          required: true
-          schema: {type: integer, minimum: 0}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已删除当前 Prompt}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-humanization-prompt:
     get:
       tags: [configuration]
@@ -1294,22 +1069,12 @@ paths:
     get:
       tags: [planning]
       operationId: listContentTasks
-      parameters:
-        - name: platform_profile_id
-          in: query
-          description: 仅返回引用该平台任一规则版本的内容任务
-          schema: {type: string, format: uuid}
-        - name: platform_profile_version_id
-          in: query
-          description: 仅返回直接引用该平台规则版本的内容任务；与 platform_profile_id 同时提供时按 AND 处理
-          schema: {type: string, format: uuid}
       responses:
         '200':
           description: 内容任务列表
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTaskList'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [planning]
       operationId: createContentTask
@@ -1600,18 +1365,12 @@ paths:
     get:
       tags: [publication]
       operationId: listPlatformAccounts
-      parameters:
-        - name: platform_profile_id
-          in: query
-          description: 仅返回指定具体平台的账号标识
-          schema: {type: string, format: uuid}
       responses:
         '200':
           description: 平台账号标识
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformAccountList'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [publication]
       operationId: createPlatformAccount
@@ -1627,9 +1386,6 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformAccount'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-accounts/{platform_account_id}:
     delete:
       tags: [publication]
@@ -1658,8 +1414,6 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PublicationRecord'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-records:
     get:
@@ -1804,30 +1558,9 @@ paths:
     get:
       tags: [observation]
       operationId: listGeoObservations
-      parameters:
-        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
-        - {name: page_size, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
-        - {name: sort_order, in: query, schema: {type: string, enum: [ASC, DESC], default: DESC}}
-        - {name: date_from, in: query, schema: {type: string, format: date}}
-        - {name: date_to, in: query, schema: {type: string, format: date}}
-        - {name: observation_kind, in: query, schema: {type: string, enum: [LEGACY_MODEL_RESULT, MANUAL_ARTICLE_SEARCH]}}
-        - {name: product_id, in: query, schema: {type: string, format: uuid}}
-        - {name: search, in: query, schema: {type: string, maxLength: 500}}
-        - {name: query_topic_id, in: query, schema: {type: string, format: uuid}}
-        - {name: model_name, in: query, schema: {type: string, maxLength: 160}}
-        - {name: search_platform, in: query, schema: {type: string, maxLength: 160}}
-        - {name: publication_search, in: query, schema: {type: string, maxLength: 500}}
-        - {name: mentioned, in: query, schema: {type: boolean}}
-        - {name: recommendation, in: query, schema: {type: string, enum: [NONE, CANDIDATE, RECOMMENDED]}}
-        - {name: has_citation, in: query, schema: {type: boolean}}
-        - {name: accuracy, in: query, schema: {$ref: '#/components/schemas/AccuracyStatus'}}
-        - {name: article_recommendation, in: query, schema: {type: string, enum: [RECOMMENDED, NOT_RECOMMENDED]}}
-        - {name: recorder_search, in: query, schema: {type: string, maxLength: 200}}
-        - {name: only_mine, in: query, schema: {type: boolean, default: false}}
-        - {name: include_history, in: query, schema: {type: boolean, default: false}}
       responses:
         '200':
-          description: 分页观测列表；默认只返回纠正链尾
+          description: 观测列表
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoObservationList'}
@@ -1846,67 +1579,23 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoObservation'}
-  /api/v1/geo-observations/{observation_id}:
-    get:
-      tags: [observation]
-      operationId: getGeoObservation
-      parameters:
-        - {name: observation_id, in: path, required: true, schema: {type: string, format: uuid}}
-      responses:
-        '200':
-          description: 观测详情；纠正历史可直接读取
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/GeoObservation'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-metrics:
     get:
       tags: [observation]
       operationId: getGeoMetrics
       parameters:
+        - {name: product_id, in: query, schema: {type: string, format: uuid}}
+        - {name: query_topic_id, in: query, schema: {type: string, format: uuid}}
+        - {name: model_name, in: query, schema: {type: string}}
+        - {name: search_platform, in: query, schema: {type: string}}
         - {name: date_from, in: query, schema: {type: string, format: date}}
         - {name: date_to, in: query, schema: {type: string, format: date}}
-        - {name: observation_kind, in: query, schema: {type: string, enum: [LEGACY_MODEL_RESULT, MANUAL_ARTICLE_SEARCH]}}
-        - {name: product_id, in: query, schema: {type: string, format: uuid}}
-        - {name: search, in: query, schema: {type: string, maxLength: 500}}
-        - {name: query_topic_id, in: query, schema: {type: string, format: uuid}}
-        - {name: model_name, in: query, schema: {type: string, maxLength: 160}}
-        - {name: search_platform, in: query, schema: {type: string, maxLength: 160}}
-        - {name: publication_search, in: query, schema: {type: string, maxLength: 500}}
-        - {name: mentioned, in: query, schema: {type: boolean}}
-        - {name: recommendation, in: query, schema: {type: string, enum: [NONE, CANDIDATE, RECOMMENDED]}}
-        - {name: has_citation, in: query, schema: {type: boolean}}
-        - {name: accuracy, in: query, schema: {$ref: '#/components/schemas/AccuracyStatus'}}
-        - {name: article_recommendation, in: query, schema: {type: string, enum: [RECOMMENDED, NOT_RECOMMENDED]}}
-        - {name: recorder_search, in: query, schema: {type: string, maxLength: 200}}
-        - {name: only_mine, in: query, schema: {type: boolean, default: false}}
-        - {name: include_history, in: query, schema: {type: boolean, default: false}}
       responses:
         '200':
-          description: 与观测列表筛选范围一致的 GEO 指标
+          description: 基础 GEO 指标
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoMetrics'}
-  /api/v1/geo-insights:
-    get:
-      tags: [observation]
-      operationId: getGeoInsights
-      parameters:
-        - {name: date_from, in: query, schema: {type: string, format: date}}
-        - {name: date_to, in: query, schema: {type: string, format: date}}
-        - {name: content_platform_id, in: query, schema: {type: string, format: uuid}}
-        - {name: geo_platform, in: query, schema: {type: string, maxLength: 160}}
-        - {name: content_angle, in: query, schema: {type: string, maxLength: 500}}
-        - {name: publication_record_id, in: query, schema: {type: string, format: uuid}}
-        - {name: query_topic_id, in: query, schema: {type: string, format: uuid}}
-      responses:
-        '200':
-          description: 同一筛选范围内的人工 GEO 洞察、筛选选项与数据完整性
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/GeoInsights'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
-        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/dashboard/summary:
     get:
       tags: [observation]
@@ -2108,9 +1797,6 @@ components:
     AccountType:
       type: string
       enum: [ADMIN, ENGINEER]
-    UserStatus:
-      type: string
-      enum: [ENABLED, DISABLED]
     User:
       type: object
       additionalProperties: false
@@ -2127,11 +1813,11 @@ components:
     UserCreate:
       type: object
       additionalProperties: false
-      required: [username, display_name, temporary_password, account_type]
+      required: [username, display_name, password, account_type]
       properties:
         username: {type: string, minLength: 3}
         display_name: {type: string, minLength: 1}
-        temporary_password: {type: string, minLength: 12, description: 仅用于本次创建请求；服务端只保存哈希并强制首次登录改密}
+        password: {type: string, minLength: 12}
         account_type: {$ref: '#/components/schemas/AccountType'}
     UserUpdate:
       type: object
@@ -2155,113 +1841,25 @@ components:
       properties:
         old_password: {type: string, minLength: 8}
         new_password: {type: string, minLength: 12}
-    UserSummary:
-      type: object
-      additionalProperties: false
-      required: [user_total, enabled_total, disabled_total, must_change_password_total, admin_total]
-      properties:
-        user_total: {type: integer, minimum: 0}
-        enabled_total: {type: integer, minimum: 0}
-        disabled_total: {type: integer, minimum: 0}
-        must_change_password_total: {type: integer, minimum: 0}
-        admin_total: {type: integer, minimum: 0}
     UserList:
       type: object
       additionalProperties: false
-      required: [items, page, page_size, total, summary]
+      required: [items, page, page_size, total]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/User'}}
         page: {type: integer}
         page_size: {type: integer}
         total: {type: integer}
-        summary: {$ref: '#/components/schemas/UserSummary'}
-    UserBulkStatusItem:
-      type: object
-      additionalProperties: false
-      required: [user_id, expected_revision]
-      properties:
-        user_id: {type: string, format: uuid}
-        expected_revision: {type: integer, minimum: 0}
-    UserBulkStatusRequest:
-      type: object
-      additionalProperties: false
-      required: [items, status]
-      properties:
-        items:
-          type: array
-          minItems: 1
-          maxItems: 100
-          description: user_id 必须唯一
-          items: {$ref: '#/components/schemas/UserBulkStatusItem'}
-        status: {$ref: '#/components/schemas/UserStatus'}
-    UserBulkStatusFailure:
-      type: object
-      additionalProperties: false
-      required: [user_id, code, message]
-      properties:
-        user_id: {type: string, format: uuid}
-        code: {type: string}
-        message: {type: string}
-    UserBulkStatusResult:
-      type: object
-      additionalProperties: false
-      required: [succeeded, failures]
-      properties:
-        succeeded: {type: array, items: {$ref: '#/components/schemas/User'}}
-        failures: {type: array, items: {$ref: '#/components/schemas/UserBulkStatusFailure'}}
-    AuditModule:
-      type: string
-      enum:
-        - IDENTITY
-        - PRODUCT_FACTS
-        - CONTENT_PLANNING
-        - CONTENT_PRODUCTION
-        - CONTENT_REVIEW
-        - PUBLICATION
-        - GEO_OBSERVATION
-        - CONFIGURATION
-        - FILE_MANAGEMENT
-    AuditOutcome: {type: string, enum: [SUCCESS, FAILED, DENIED]}
-    AuditActor:
-      type: object
-      additionalProperties: false
-      required: [id, display_name, account_type]
-      properties:
-        id: {type: string, format: uuid}
-        display_name: {type: string}
-        account_type: {$ref: '#/components/schemas/AccountType'}
-    AuditChange:
-      type: object
-      additionalProperties: false
-      required: [field]
-      properties:
-        field: {type: string}
-        before: {}
-        after: {}
-    AuditRelatedEntry:
-      type: object
-      additionalProperties: false
-      required: [status, kind, parent_id]
-      properties:
-        status: {type: string, enum: [AVAILABLE, MISSING, UNSUPPORTED]}
-        kind: {type: [string, 'null']}
-        parent_id: {type: [string, 'null']}
     AuditLog:
       type: object
       additionalProperties: false
-      required: [id, actor_id, actor, business_module, action, target_type, target_id, outcome, change_summary, request_id, created_at]
+      required: [id, actor_id, action, target_type, target_id, change_summary, request_id, created_at]
       properties:
         id: {type: string, format: uuid}
-        actor_id: {type: [string, 'null'], format: uuid}
-        actor:
-          anyOf:
-            - {$ref: '#/components/schemas/AuditActor'}
-            - {type: 'null'}
-        business_module: {$ref: '#/components/schemas/AuditModule'}
+        actor_id: {type: string, format: uuid}
         action: {type: string}
         target_type: {type: string}
-        target_id: {type: [string, 'null']}
-        outcome: {$ref: '#/components/schemas/AuditOutcome'}
+        target_id: {type: string, format: uuid}
         change_summary: {type: object, additionalProperties: true}
         request_id: {type: string}
         created_at: {type: string, format: date-time}
@@ -2274,25 +1872,6 @@ components:
         page: {type: integer}
         page_size: {type: integer}
         total: {type: integer}
-    AuditLogDetail:
-      allOf:
-        - {$ref: '#/components/schemas/AuditLog'}
-        - type: object
-          additionalProperties: false
-          required: [changes, facts, result_message, error_code, related_entry]
-          properties:
-            changes: {type: array, items: {$ref: '#/components/schemas/AuditChange'}}
-            facts: {type: object, additionalProperties: true}
-            result_message: {type: string}
-            error_code: {type: [string, 'null']}
-            related_entry: {$ref: '#/components/schemas/AuditRelatedEntry'}
-    AuditLogFilterOptions:
-      type: object
-      additionalProperties: false
-      required: [actions, target_types]
-      properties:
-        actions: {type: array, items: {type: string}}
-        target_types: {type: array, items: {type: string}}
     ProductStatus: {type: string, enum: [ACTIVE, RETIRED]}
     Product:
       type: object
@@ -2512,13 +2091,9 @@ components:
       additionalProperties: false
       required: [name, slug, allowed_domains, platform_type_id]
       properties:
-        name: {type: string, minLength: 1, maxLength: 160}
+        name: {type: string}
         slug: {type: string, pattern: '^[a-z0-9-]+$'}
-        allowed_domains:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          items: {type: string, minLength: 1, maxLength: 253, description: 不含 scheme、路径、查询、端口或通配符的规范化 DNS 主机名}
+        allowed_domains: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
         platform_type_id: {type: string, format: uuid}
         website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
         logo:
@@ -2531,12 +2106,8 @@ components:
       required: [expected_revision, name, allowed_domains, platform_type_id, website_url, logo]
       properties:
         expected_revision: {type: integer, minimum: 0}
-        name: {type: string, minLength: 1, maxLength: 160}
-        allowed_domains:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          items: {type: string, minLength: 1, maxLength: 253, description: 不含 scheme、路径、查询、端口或通配符的规范化 DNS 主机名}
+        name: {type: string, minLength: 1}
+        allowed_domains: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
         platform_type_id: {type: string, format: uuid}
         website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
         logo:
@@ -2637,132 +2208,39 @@ components:
         rules: {$ref: '#/components/schemas/PlatformRules'}
         revision: {type: integer}
         created_at: {type: string, format: date-time}
-    PlatformProfileVersionAction:
-      type: string
-      enum: [EDIT, ACTIVATE, RETIRE, DELETE]
-    PlatformProfileVersionSummary:
-      allOf:
-        - {$ref: '#/components/schemas/PlatformProfileVersion'}
-        - type: object
-          additionalProperties: false
-          required: [created_by, activated_at, last_changed_at, reference_count, available_actions]
-          properties:
-            created_by: {type: [string, 'null'], format: uuid}
-            activated_at: {type: [string, 'null'], format: date-time}
-            last_changed_at: {type: string, format: date-time}
-            reference_count: {type: integer, minimum: 0}
-            available_actions:
-              type: array
-              items: {$ref: '#/components/schemas/PlatformProfileVersionAction'}
     PlatformProfileVersionList:
       type: object
       additionalProperties: false
       required: [items]
       properties:
-        items: {type: array, items: {$ref: '#/components/schemas/PlatformProfileVersionSummary'}}
-    PlatformRuleImpactSummary:
+        items: {type: array, items: {$ref: '#/components/schemas/PlatformProfileVersion'}}
+    PlatformProfile:
       type: object
       additionalProperties: false
-      required: [as_of, bound_task_total, unpublished_task_total, reviewing_task_total, published_task_total]
-      properties:
-        as_of: {type: string, format: date-time}
-        bound_task_total: {type: integer, minimum: 0}
-        unpublished_task_total: {type: integer, minimum: 0}
-        reviewing_task_total: {type: integer, minimum: 0}
-        published_task_total: {type: integer, minimum: 0}
-    PlatformProfileStatus:
-      type: string
-      enum: [ENABLED, DISABLED]
-    PlatformConfigurationStatus:
-      type: string
-      enum: [COMPLETE, INCOMPLETE]
-    PlatformTypeSummary:
-      type: object
-      additionalProperties: false
-      required: [id, name, slug]
+      required: [id, name, slug, allowed_domains, platform_type_id, website_url, logo, revision, active_version, prompt_configured]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
         slug: {type: string}
-    PlatformProfile:
-      type: object
-      additionalProperties: false
-      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, active_version, prompt_configured, prompt_updated_at, configuration_complete, platform_account_count, updated_at]
-      properties:
-        id: {type: string, format: uuid}
-        name: {type: string, minLength: 1, maxLength: 160}
-        slug: {type: string}
         allowed_domains: {type: array, items: {type: string}}
         platform_type_id: {type: [string, 'null'], format: uuid}
-        platform_type:
-          anyOf:
-            - {$ref: '#/components/schemas/PlatformTypeSummary'}
-            - {type: 'null'}
         website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
         logo:
           anyOf:
             - {$ref: '#/components/schemas/PlatformLogo'}
             - {type: 'null'}
         revision: {type: integer}
-        is_active: {type: boolean}
         active_version:
           anyOf:
             - {$ref: '#/components/schemas/PlatformProfileVersion'}
             - {type: 'null'}
         prompt_configured: {type: boolean}
-        prompt_updated_at: {type: [string, 'null'], format: date-time, description: 当前具体平台 Prompt 的最近更新时间；未配置时为 null}
-        configuration_complete: {type: boolean, description: 同时存在 ACTIVE 规则和当前具体平台 Prompt}
-        platform_account_count: {type: integer, minimum: 0}
-        updated_at: {type: [string, 'null'], format: date-time, description: 平台创建、编辑、启用或停用的最近真实审计时间}
-    PlatformProfileSummary:
-      type: object
-      additionalProperties: false
-      required: [platform_total, enabled_total, missing_prompt_total, missing_active_rule_total, configuration_complete_total]
-      properties:
-        platform_total: {type: integer, minimum: 0}
-        enabled_total: {type: integer, minimum: 0}
-        missing_prompt_total: {type: integer, minimum: 0}
-        missing_active_rule_total: {type: integer, minimum: 0}
-        configuration_complete_total: {type: integer, minimum: 0}
     PlatformProfileList:
       type: object
       additionalProperties: false
-      required: [items, page, page_size, total, summary]
+      required: [items]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/PlatformProfile'}}
-        page: {type: integer, minimum: 1}
-        page_size: {type: integer, minimum: 0, description: 无分页模式等于 total，空集合为 0}
-        total: {type: integer, minimum: 0, description: 应用当前筛选后的平台总数}
-        summary: {$ref: '#/components/schemas/PlatformProfileSummary'}
-    PlatformAccountSummary:
-      type: object
-      additionalProperties: false
-      required: [total, enabled, disabled]
-      properties:
-        total: {type: integer, minimum: 0}
-        enabled: {type: integer, minimum: 0}
-        disabled: {type: integer, minimum: 0}
-    PlatformReferenceSummary:
-      type: object
-      additionalProperties: false
-      required: [as_of, recent_30_days, all_time]
-      properties:
-        as_of: {type: string, format: date-time}
-        recent_30_days:
-          type: integer
-          minimum: 0
-          description: 'ContentTask.created_at 位于半开区间 [as_of-30天, as_of) 的唯一任务数'
-        all_time: {type: integer, minimum: 0, description: 引用平台任一规则版本的全部唯一 ContentTask 数}
-    PlatformProfileDetail:
-      type: object
-      additionalProperties: false
-      required: [profile, current_rule_activated_at, prompt_updated_at, account_summary, reference_summary]
-      properties:
-        profile: {$ref: '#/components/schemas/PlatformProfile'}
-        current_rule_activated_at: {type: [string, 'null'], format: date-time}
-        prompt_updated_at: {type: [string, 'null'], format: date-time}
-        account_summary: {$ref: '#/components/schemas/PlatformAccountSummary'}
-        reference_summary: {$ref: '#/components/schemas/PlatformReferenceSummary'}
     PlatformTypeCreate:
       type: object
       additionalProperties: false
@@ -3765,31 +3243,19 @@ components:
     GeoArticleResultCreate:
       type: object
       additionalProperties: false
-      required: [publication_record_id, discovered, mentioned, recommendation_status, cited, accuracy]
+      required: [publication_record_id, recommendation_status]
       properties:
         publication_record_id: {type: string, format: uuid}
-        discovered: {type: boolean}
-        mentioned: {type: boolean}
         recommendation_status: {type: string, enum: [RECOMMENDED, NOT_RECOMMENDED]}
-        cited: {type: boolean}
-        accuracy: {$ref: '#/components/schemas/AccuracyStatus'}
     GeoArticleResult:
-      type: object
-      additionalProperties: false
-      required: [publication_record_id, discovered, mentioned, recommendation_status, cited, accuracy, title, platform_name, final_url]
-      properties:
-        publication_record_id: {type: string, format: uuid}
-        discovered: {type: [boolean, 'null']}
-        mentioned: {type: [boolean, 'null']}
-        recommendation_status: {type: string, enum: [RECOMMENDED, NOT_RECOMMENDED]}
-        cited: {type: [boolean, 'null']}
-        accuracy:
-          anyOf:
-            - {$ref: '#/components/schemas/AccuracyStatus'}
-            - {type: 'null'}
-        title: {type: string}
-        platform_name: {type: string}
-        final_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+      allOf:
+        - {$ref: '#/components/schemas/GeoArticleResultCreate'}
+        - type: object
+          required: [title, platform_name, final_url]
+          properties:
+            title: {type: string}
+            platform_name: {type: string}
+            final_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
     GeoPublicationCandidate:
       type: object
       additionalProperties: false
@@ -3809,10 +3275,9 @@ components:
     GeoObservationCreate:
       type: object
       additionalProperties: false
-      required: [product_id, query_topic_id, search_platform, search_query, tested_at, article_results, attachment_file_ids, notes]
+      required: [product_id, search_platform, search_query, tested_at, article_results, attachment_file_ids, notes]
       properties:
         product_id: {type: string, format: uuid}
-        query_topic_id: {type: string, format: uuid}
         search_platform: {type: string, minLength: 1, maxLength: 160}
         search_query: {type: string, minLength: 1}
         tested_at: {type: string, format: date-time}
@@ -3823,13 +3288,12 @@ components:
     LegacyGeoObservation:
       type: object
       additionalProperties: false
-      required: [observation_kind, id, query_topic_id, product_id, product_label, actual_prompt, model_name, tested_at, web_search_enabled, answer_summary, mentioned, recommendation, accuracy, citations, publication_record_ids, attachment_file_ids, notes, tested_by, recorder, is_current, available_actions, created_at]
+      required: [observation_kind, id, query_topic_id, product_id, actual_prompt, model_name, tested_at, web_search_enabled, answer_summary, mentioned, recommendation, accuracy, citations, publication_record_ids, attachment_file_ids, notes, tested_by, created_at]
       properties:
         observation_kind: {type: string, const: LEGACY_MODEL_RESULT}
         id: {type: string, format: uuid}
         query_topic_id: {type: string, format: uuid}
         product_id: {type: string, format: uuid}
-        product_label: {type: string}
         actual_prompt: {type: string}
         model_name: {type: string}
         model_version: {type: [string, 'null']}
@@ -3845,22 +3309,15 @@ components:
         notes: {type: string}
         supersedes_id: {type: [string, 'null'], format: uuid}
         tested_by: {type: string, format: uuid}
-        recorder: {$ref: '#/components/schemas/ActorSummary'}
-        is_current: {type: boolean}
-        available_actions:
-          type: array
-          items: {type: string, const: CORRECT}
         created_at: {type: string, format: date-time}
     ManualGeoObservation:
       type: object
       additionalProperties: false
-      required: [observation_kind, id, query_topic_id, product_id, product_label, search_platform, search_query, tested_at, article_results, attachment_file_ids, notes, supersedes_id, tested_by, recorder, is_current, available_actions, created_at]
+      required: [observation_kind, id, product_id, search_platform, search_query, tested_at, article_results, attachment_file_ids, notes, supersedes_id, tested_by, created_at]
       properties:
         observation_kind: {type: string, const: MANUAL_ARTICLE_SEARCH}
         id: {type: string, format: uuid}
-        query_topic_id: {type: [string, 'null'], format: uuid}
         product_id: {type: string, format: uuid}
-        product_label: {type: string}
         search_platform: {type: string}
         search_query: {type: string}
         tested_at: {type: string, format: date-time}
@@ -3869,11 +3326,6 @@ components:
         notes: {type: string}
         supersedes_id: {type: [string, 'null'], format: uuid}
         tested_by: {type: string, format: uuid}
-        recorder: {$ref: '#/components/schemas/ActorSummary'}
-        is_current: {type: boolean}
-        available_actions:
-          type: array
-          items: {type: string, const: CORRECT}
         created_at: {type: string, format: date-time}
     GeoObservation:
       oneOf:
@@ -3887,263 +3339,24 @@ components:
     GeoObservationList:
       type: object
       additionalProperties: false
-      required: [items, page, page_size, total]
+      required: [items]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/GeoObservation'}}
-        page: {type: integer}
-        page_size: {type: integer}
-        total: {type: integer}
     GeoMetrics:
       type: object
       additionalProperties: false
-      required: [legacy_sample_count, legacy_mention_rate, legacy_recommendation_rate, legacy_citation_rate, legacy_accuracy_rate, manual_observation_count, article_result_count, recommended_article_count, not_recommended_article_count, article_recommendation_rate]
+      required: [sample_count, mention_rate, recommendation_rate, citation_rate, accuracy_rate, manual_observation_count, article_result_count, recommended_article_count, not_recommended_article_count, article_recommendation_rate]
       properties:
-        legacy_sample_count: {type: integer}
-        legacy_mention_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
-        legacy_recommendation_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
-        legacy_citation_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
-        legacy_accuracy_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
+        sample_count: {type: integer}
+        mention_rate: {type: number, minimum: 0, maximum: 1}
+        recommendation_rate: {type: number, minimum: 0, maximum: 1}
+        citation_rate: {type: number, minimum: 0, maximum: 1}
+        accuracy_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
         manual_observation_count: {type: integer, minimum: 0}
         article_result_count: {type: integer, minimum: 0}
         recommended_article_count: {type: integer, minimum: 0}
         not_recommended_article_count: {type: integer, minimum: 0}
         article_recommendation_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
-    GeoInsightPeriodWindow:
-      type: object
-      additionalProperties: false
-      required: [date_from, date_to]
-      properties:
-        date_from: {type: string, format: date}
-        date_to: {type: string, format: date}
-    GeoInsightPeriod:
-      type: object
-      additionalProperties: false
-      required: [current, previous]
-      properties:
-        current: {$ref: '#/components/schemas/GeoInsightPeriodWindow'}
-        previous: {$ref: '#/components/schemas/GeoInsightPeriodWindow'}
-    GeoInsightOption:
-      type: object
-      additionalProperties: false
-      required: [id, label]
-      properties:
-        id: {type: string, format: uuid}
-        label: {type: string}
-    GeoInsightPublicationOption:
-      allOf:
-        - {$ref: '#/components/schemas/GeoInsightOption'}
-        - type: object
-          required: [platform_name]
-          properties:
-            platform_name: {type: string}
-    GeoInsightFilterOptions:
-      type: object
-      additionalProperties: false
-      required: [content_platforms, geo_platforms, content_angles, publications, query_topics]
-      properties:
-        content_platforms: {type: array, items: {$ref: '#/components/schemas/GeoInsightOption'}}
-        geo_platforms: {type: array, items: {type: string}}
-        content_angles: {type: array, items: {type: string}}
-        publications: {type: array, items: {$ref: '#/components/schemas/GeoInsightPublicationOption'}}
-        query_topics: {type: array, items: {$ref: '#/components/schemas/GeoInsightOption'}}
-    GeoInsightRateValue:
-      type: object
-      additionalProperties: false
-      required: [numerator, denominator, value]
-      properties:
-        numerator: {type: integer, minimum: 0}
-        denominator: {type: integer, minimum: 0}
-        value: {type: [number, 'null'], minimum: 0, maximum: 1}
-    GeoInsightRatePoint:
-      allOf:
-        - {$ref: '#/components/schemas/GeoInsightRateValue'}
-        - type: object
-          required: [date]
-          properties:
-            date: {type: string, format: date}
-    GeoInsightRateTrend:
-      type: object
-      additionalProperties: false
-      required: [current, previous, change, points]
-      properties:
-        current: {$ref: '#/components/schemas/GeoInsightRateValue'}
-        previous: {$ref: '#/components/schemas/GeoInsightRateValue'}
-        change: {type: [number, 'null']}
-        points: {type: array, items: {$ref: '#/components/schemas/GeoInsightRatePoint'}}
-    GeoInsightCountPoint:
-      type: object
-      additionalProperties: false
-      required: [date, count]
-      properties:
-        date: {type: string, format: date}
-        count: {type: integer, minimum: 0}
-    GeoInsightCountTrend:
-      type: object
-      additionalProperties: false
-      required: [current, previous, change, points]
-      properties:
-        current: {type: integer, minimum: 0}
-        previous: {type: integer, minimum: 0}
-        change: {type: [number, 'null']}
-        points: {type: array, items: {$ref: '#/components/schemas/GeoInsightCountPoint'}}
-    GeoInsightTrends:
-      type: object
-      additionalProperties: false
-      required: [mention_rate, recommendation_rate, citation_rate, accuracy_rate, not_recommended_content_count]
-      properties:
-        mention_rate: {$ref: '#/components/schemas/GeoInsightRateTrend'}
-        recommendation_rate: {$ref: '#/components/schemas/GeoInsightRateTrend'}
-        citation_rate: {$ref: '#/components/schemas/GeoInsightRateTrend'}
-        accuracy_rate: {$ref: '#/components/schemas/GeoInsightRateTrend'}
-        not_recommended_content_count: {$ref: '#/components/schemas/GeoInsightCountTrend'}
-    GeoInsightPlatformPerformance:
-      type: object
-      additionalProperties: false
-      required: [geo_platform, observation_count, mention_rate, recommendation_rate, citation_rate, accuracy_rate]
-      properties:
-        geo_platform: {type: string}
-        observation_count: {type: integer, minimum: 0}
-        mention_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
-        recommendation_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
-        citation_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
-        accuracy_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
-    GeoInsightFunnelStage:
-      type: object
-      additionalProperties: false
-      required: [code, label, count, conversion_from_previous]
-      properties:
-        code: {type: string, enum: [PUBLISHED, DISCOVERED, MENTIONED, RECOMMENDED, CITED, ACCURATE]}
-        label: {type: string}
-        count: {type: integer, minimum: 0}
-        conversion_from_previous: {type: [number, 'null'], minimum: 0, maximum: 1}
-    GeoInsightContentPerformance:
-      type: object
-      additionalProperties: false
-      required: [publication_record_id, title, content_platform, observation_count, mention_rate, recommendation_rate, citation_rate]
-      properties:
-        publication_record_id: {type: string, format: uuid}
-        title: {type: string}
-        content_platform: {type: string}
-        observation_count: {type: integer, minimum: 0}
-        mention_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
-        recommendation_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
-        citation_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
-    GeoInsightDeclineBasis:
-      type: object
-      additionalProperties: false
-      required: [metric, current_value, previous_value, decline]
-      properties:
-        metric: {type: string, enum: [citation_rate, recommendation_rate, mention_rate]}
-        current_value: {type: number, minimum: 0, maximum: 1}
-        previous_value: {type: number, minimum: 0, maximum: 1}
-        decline: {type: number, minimum: 0, maximum: 1}
-    GeoInsightDecliningContent:
-      allOf:
-        - {$ref: '#/components/schemas/GeoInsightContentPerformance'}
-        - type: object
-          required: [basis]
-          properties:
-            basis: {type: array, items: {$ref: '#/components/schemas/GeoInsightDeclineBasis'}}
-    GeoInsightLongUnmentionedContent:
-      allOf:
-        - {$ref: '#/components/schemas/GeoInsightContentPerformance'}
-        - type: object
-          required: [unmentioned_days, last_mentioned_at]
-          properties:
-            unmentioned_days: {type: integer, minimum: 0}
-            last_mentioned_at: {type: [string, 'null'], format: date-time}
-    GeoInsightContentRankings:
-      type: object
-      additionalProperties: false
-      required: [best, declining, long_unmentioned]
-      properties:
-        best: {type: array, items: {$ref: '#/components/schemas/GeoInsightContentPerformance'}}
-        declining: {type: array, items: {$ref: '#/components/schemas/GeoInsightDecliningContent'}}
-        long_unmentioned: {type: array, items: {$ref: '#/components/schemas/GeoInsightLongUnmentionedContent'}}
-    GeoInsightCoverageCounts:
-      type: object
-      additionalProperties: false
-      required: [stable, occasional, uncovered, insufficient_data]
-      properties:
-        stable: {type: integer, minimum: 0}
-        occasional: {type: integer, minimum: 0}
-        uncovered: {type: integer, minimum: 0}
-        insufficient_data: {type: integer, minimum: 0}
-    GeoInsightCoverageItem:
-      type: object
-      additionalProperties: false
-      required: [query_topic_id, canonical_question, geo_platform, status, observation_count, mentioned_observation_count, coverage_rate]
-      properties:
-        query_topic_id: {type: string, format: uuid}
-        canonical_question: {type: string}
-        geo_platform: {type: string}
-        status: {type: string, enum: [STABLE, OCCASIONAL, UNCOVERED, INSUFFICIENT_DATA]}
-        observation_count: {type: integer, minimum: 0}
-        mentioned_observation_count: {type: integer, minimum: 0}
-        coverage_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
-    GeoInsightQuestionCoverage:
-      type: object
-      additionalProperties: false
-      required: [by_status, matrix]
-      properties:
-        by_status: {$ref: '#/components/schemas/GeoInsightCoverageCounts'}
-        matrix: {type: array, items: {$ref: '#/components/schemas/GeoInsightCoverageItem'}}
-    GeoInsightRecommendationBasis:
-      type: object
-      additionalProperties: false
-      required: [metric, value, threshold, unit]
-      properties:
-        metric: {type: string, enum: [unmentioned_days, citation_rate, recommendation_rate, mention_rate, observation_count, coverage_rate]}
-        value: {type: [number, 'null']}
-        threshold: {type: [number, 'null']}
-        unit: {type: string, enum: [RATIO, PERCENTAGE_POINT, COUNT, DAY]}
-    GeoInsightRecommendation:
-      type: object
-      additionalProperties: false
-      required: [rule_code, priority, title, basis_text, basis_values, impact_relationship_count, publication_record_ids, geo_platforms, query_topic_ids, detail_path]
-      properties:
-        rule_code: {type: string, enum: [CONTENT_LONG_UNMENTIONED, CONTENT_PERFORMANCE_DECLINE, GEO_PLATFORM_PERFORMANCE_DECLINE, CONTENT_NEVER_RECOMMENDED, QUESTION_UNCOVERED, QUESTION_OCCASIONAL, QUESTION_INSUFFICIENT_DATA]}
-        priority: {type: string, enum: [HIGH, MEDIUM, LOW]}
-        title: {type: string}
-        basis_text: {type: string}
-        basis_values: {type: array, items: {$ref: '#/components/schemas/GeoInsightRecommendationBasis'}}
-        impact_relationship_count: {type: integer, minimum: 0}
-        publication_record_ids: {type: array, items: {type: string, format: uuid}}
-        geo_platforms: {type: array, items: {type: string}}
-        query_topic_ids: {type: array, items: {type: string, format: uuid}}
-        detail_path: {type: [string, 'null']}
-    GeoInsightUnavailableSection:
-      type: object
-      additionalProperties: false
-      required: [code, message]
-      properties:
-        code: {type: string, enum: [NO_COMPLETE_OBSERVATIONS, NO_COMPLETE_PREVIOUS_OBSERVATIONS, NO_GEO_PLATFORMS, LONG_UNMENTIONED_PERIOD_TOO_SHORT]}
-        message: {type: string}
-    GeoInsightDataQuality:
-      type: object
-      additionalProperties: false
-      required: [eligible_observation_count, excluded_incomplete_observation_count, excluded_incomplete_relation_count, unavailable_sections]
-      properties:
-        eligible_observation_count: {type: integer, minimum: 0}
-        excluded_incomplete_observation_count: {type: integer, minimum: 0}
-        excluded_incomplete_relation_count: {type: integer, minimum: 0}
-        unavailable_sections: {type: array, items: {$ref: '#/components/schemas/GeoInsightUnavailableSection'}}
-    GeoInsights:
-      type: object
-      additionalProperties: false
-      required: [generated_at, analysis_unit, period, filter_options, trends, platform_performance, funnel, content_rankings, question_coverage, recommendations, data_quality]
-      properties:
-        generated_at: {type: string, format: date-time}
-        analysis_unit: {type: string, const: MANUAL_OBSERVATION_PUBLICATION_RELATION, description: 趋势率、平台率、内容排行和漏斗统一使用当前链尾人工观测与逐篇发布内容关系作为基础单位}
-        period: {$ref: '#/components/schemas/GeoInsightPeriod'}
-        filter_options: {$ref: '#/components/schemas/GeoInsightFilterOptions'}
-        trends: {$ref: '#/components/schemas/GeoInsightTrends'}
-        platform_performance: {type: array, items: {$ref: '#/components/schemas/GeoInsightPlatformPerformance'}}
-        funnel: {type: array, items: {$ref: '#/components/schemas/GeoInsightFunnelStage'}}
-        content_rankings: {$ref: '#/components/schemas/GeoInsightContentRankings'}
-        question_coverage: {$ref: '#/components/schemas/GeoInsightQuestionCoverage'}
-        recommendations: {type: array, items: {$ref: '#/components/schemas/GeoInsightRecommendation'}}
-        data_quality: {$ref: '#/components/schemas/GeoInsightDataQuality'}
     DashboardSummary:
       type: object
       additionalProperties: false

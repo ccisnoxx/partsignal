@@ -4,7 +4,7 @@ import { expect, test, type APIResponse, type Page } from '@playwright/test';
 
 const password = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD ?? 'partsignal-admin-dev';
 
-test.setTimeout(180_000);
+test.setTimeout(120_000);
 
 async function body<T>(response: APIResponse): Promise<T> {
   if (!response.ok()) {
@@ -87,7 +87,7 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
     `/api/v1/products/${nonexistentId}`,
     `/api/v1/platform-types/${nonexistentId}`,
     `/api/v1/platform-profiles/${nonexistentId}`,
-    `/api/v1/platform-profiles/${nonexistentId}/prompt?expected_revision=0`,
+    `/api/v1/platform-profiles/${nonexistentId}/prompt`,
     `/api/v1/platform-profile-versions/${nonexistentId}`,
     `/api/v1/platform-accounts/${nonexistentId}`,
     `/api/v1/fact-versions/${nonexistentId}`,
@@ -187,7 +187,7 @@ async function expectTextInPaginatedTable(page: Page, text: string) {
   await expect(target).toBeVisible();
 }
 
-test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ page }, testInfo) => {
+test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ page }) => {
   const suffix = randomUUID().slice(0, 8);
   const csrf = await login(page, 'admin');
   const initialHumanizationPrompt = await page.request.get('/api/v1/content-humanization-prompt');
@@ -198,7 +198,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     `/api/v1/products/${nonexistentId}`,
     `/api/v1/platform-types/${nonexistentId}`,
     `/api/v1/platform-profiles/${nonexistentId}`,
-    `/api/v1/platform-profiles/${nonexistentId}/prompt?expected_revision=0`,
+    `/api/v1/platform-profiles/${nonexistentId}/prompt`,
     `/api/v1/platform-profile-versions/${nonexistentId}`,
     `/api/v1/platform-accounts/${nonexistentId}`,
     `/api/v1/fact-versions/${nonexistentId}`,
@@ -214,7 +214,6 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.getByLabel('品牌').fill('DEMO');
   await page.getByLabel('类别').fill('TEST');
   await page.getByRole('button', { name: '创建事实工作区' }).click();
-  await expect(page.getByRole('dialog', { name: '新增产品' })).toBeHidden();
   await page.getByRole('searchbox', { name: '搜索产品' }).fill(`DEMO-${suffix}`);
   const filteredProductsLoaded = page.waitForResponse((response) => {
     const url = new URL(response.url());
@@ -284,14 +283,18 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     data: { expected_revision: draftRule.revision, rules: { ...rules, body_max: 5500 } },
   }));
   expect(editedDraftRule.revision).toBe(1);
-  await page.goto(`/configuration/platform-rules?platform_profile_id=${profile.id as string}&version_id=${editedDraftRule.id}`);
-  await expect(page.getByRole('heading', { name: `E2E 论坛 ${suffix} / V1` })).toBeVisible();
-  await expect(page.getByText('1–5500 字', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '更多操作：规则版本 V1' }).click();
-  await page.getByRole('menuitem', { name: '激活版本' }).click();
-  const activateRuleDialog = page.getByRole('dialog', { name: '激活 V1' });
-  await activateRuleDialog.getByRole('textbox', { name: '操作说明' }).fill('E2E 激活首个规则版本');
-  await activateRuleDialog.getByRole('button', { name: '确认激活' }).click();
+  await page.goto('/configuration/platform-rules');
+  await expectTextInPaginatedTable(page, `E2E 论坛 ${suffix}`);
+  await page.goto('/configuration/platforms');
+  await expectTextInPaginatedTable(page, `E2E 论坛 ${suffix}`);
+  const currentRuleSelect = page.getByRole('combobox', { name: `选择 E2E 论坛 ${suffix} 当前规则` });
+  expect(await currentRuleSelect.evaluate((element) => {
+    const select = element.closest('.ant-select')?.getBoundingClientRect();
+    const cell = element.closest('td')?.getBoundingClientRect();
+    return !!select && !!cell && select.left >= cell.left && select.right <= cell.right;
+  })).toBe(true);
+  await currentRuleSelect.click();
+  await page.getByText('V1 · DRAFT', { exact: true }).last().click();
   let activeRuleId: string | null = null;
   await expect.poll(async () => {
     const profiles = await body<{ items: Array<{ id: string; active_version: { id: string } | null }> }>(await page.request.get('/api/v1/platform-profiles'));
@@ -339,8 +342,8 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await command(page, `/api/v1/ai-models/${timeoutModel.id as string}/enable`, csrf, { expected_revision: testedTimeoutModel.revision });
   const enabledSecondChannel = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/enable`, csrf, { expected_revision: secondSensitiveHeader.revision });
   await page.goto('/configuration');
-  await expect(page).toHaveURL(/\/configuration\/ai(?:\/channels\/[^/]+)?$/);
-  const channelRow = page.getByRole('region', { name: 'AI 渠道列表' }).getByRole('row').filter({ hasText: `E2E 渠道 ${suffix}` });
+  await expect(page).toHaveURL(/\/configuration\/ai$/);
+  const channelRow = page.getByRole('row').filter({ hasText: `E2E 渠道 ${suffix}` });
   const headerBox = await page.getByRole('row', { name: /渠道名称 状态 API 根地址/ }).boundingBox();
   const rowBox = await channelRow.boundingBox();
   expect(headerBox).not.toBeNull();
@@ -349,7 +352,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page.getByRole('columnheader', { name: 'API Key' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: 'Header' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: '模型' })).toBeVisible();
-  await expect(channelRow.getByRole('cell', { name: '2', exact: true })).toHaveCount(1);
+  await expect(channelRow.getByRole('cell', { name: '2' })).toHaveCount(1);
   const channelMore = channelRow.getByRole('button', { name: `更多操作：E2E 渠道 ${suffix}` });
   await expect(channelMore).toBeVisible();
   await channelMore.focus();
@@ -358,9 +361,9 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.keyboard.press('Escape');
   await expect(channelMore).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  await channelRow.getByRole('button', { name: `配置：E2E 渠道 ${suffix}` }).click();
+  await channelRow.getByRole('link').click();
   await expect(page).toHaveURL(new RegExp(`/configuration/ai/channels/${channel.id as string}$`));
-  await expect(page.getByRole('complementary', { name: '渠道详情面板' }).getByText('E2E 测试渠道', { exact: true })).toBeVisible();
+  await expect(page.getByText('E2E 测试渠道', { exact: true })).toBeVisible();
   await page.getByRole('tab', { name: '请求配置' }).click();
   await expect(page.getByRole('region', { name: '请求 Header 列表' })).toBeVisible();
   await expect(page.getByText('••••••', { exact: true }).first()).toBeVisible();
@@ -425,33 +428,14 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     expect(missingPromptHumanization.status()).toBe(409);
     expect(await missingPromptHumanization.json()).toMatchObject({ error: { code: 'HUMANIZATION_PROMPT_MISSING' } });
   }
-  await page.setViewportSize({ width: 1536, height: 1024 });
-  await page.goto(`/configuration/prompts?tab=platform&platform_profile_id=${profile.id as string}&page=1&page_size=10`);
+  await page.goto('/configuration/prompts');
   await expect(page.getByRole('heading', { name: 'Prompt 管理' })).toBeVisible();
-  await expect(page.getByText(`当前平台：E2E 论坛 ${suffix}`, { exact: true })).toBeVisible();
-  await page.getByLabel('预览内容任务').fill(product!.part_number);
-  await page.getByLabel('预览内容任务').press('Enter');
-  await page.getByLabel('预览模型').fill(`E2E 渠道 ${suffix}`);
-  await page.getByLabel('预览模型').press('Enter');
-  await page.getByRole('button', { name: '生成平台预览' }).click();
-  await expect(page.getByRole('heading', { name: '连接测试' })).toBeVisible({ timeout: 30_000 });
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-
-  await page.getByRole('tab', { name: '全局自然化 Prompt' }).click();
-  const e2eHumanizationPrompt = `保留批准事实与必要披露，减少机械衔接，使用自然、克制的中文表达。${suffix}`;
+  const e2eHumanizationPrompt = '保留批准事实与必要披露，减少机械衔接，使用自然、克制的中文表达。';
   await page.getByLabel('自然化 Prompt Markdown').fill(e2eHumanizationPrompt);
   const humanizationSaveResponse = page.waitForResponse((response) => response.url().endsWith('/api/v1/content-humanization-prompt') && response.request().method() === 'PUT');
-  await page.getByRole('button', { name: humanizationPromptWasConfigured ? '保存 Prompt' : '首次保存' }).click();
+  await page.getByRole('button', { name: humanizationPromptWasConfigured ? '按 revision 保存' : '首次保存并启用' }).click();
   expect((await humanizationSaveResponse).ok()).toBeTruthy();
-  await expect(page.getByText('Prompt 已保存')).toBeVisible();
-  await page.getByLabel('预览内容任务').fill(product!.part_number);
-  await page.getByLabel('预览内容任务').press('Enter');
-  await page.getByLabel('自然化源草稿').fill('V1');
-  await page.getByLabel('自然化源草稿').press('Enter');
-  await page.getByLabel('预览模型').fill(`E2E 渠道 ${suffix}`);
-  await page.getByLabel('预览模型').press('Enter');
-  await page.getByRole('button', { name: '生成自然化预览' }).click();
-  await expect(page.getByRole('heading', { name: '连接测试' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('自然化 Prompt 已保存')).toBeVisible();
 
   await page.goto(`/tasks/${task.id as string}`);
   const refreshedSourceRow = page.getByRole('region', { name: '内容版本列表' }).getByRole('row').filter({ has: page.getByRole('link', { name: 'V1', exact: true }) });
@@ -485,7 +469,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page.locator('#review-diff')).toBeVisible();
   await page.getByRole('tab', { name: '事实证据' }).click();
   await expect(page.locator('#review-trace').getByText('自然化 1', { exact: true })).toBeVisible();
-  const updatedPlatformPrompt = await body<{ revision: number }>(await page.request.put(`/api/v1/platform-profiles/${profile.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: '使用更新后的技术说明语气，只依据输入事实。', expected_revision: platformPrompt.revision } }));
+  await body(await page.request.put(`/api/v1/platform-profiles/${profile.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: '使用更新后的技术说明语气，只依据输入事实。', expected_revision: platformPrompt.revision } }));
   await body(await page.request.patch(`/api/v1/content-tasks/${task.id as string}/user-prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: promptedTask.revision, user_prompt_markdown: `第二次生成仍只说明 ${product!.part_number} 的 5 V 已批准事实。`, generation_data_classification: 'PUBLIC' } }));
   const secondJob = await body<{ id: string }>(await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-second-${suffix}` }, data: { ai_model_id: model.id } }));
   await expect.poll(async () => (await body<{ status: string }>(await page.request.get(`/api/v1/generation-jobs/${secondJob.id}`))).status, { timeout: 30_000 }).toBe('SUCCEEDED');
@@ -513,7 +497,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect(retriedTimeoutDetail.retry_of_id).toBe(timeoutJob.id);
   expect(retriedTimeoutDetail.input_snapshot).toEqual(failedTimeoutJob.input_snapshot);
   expect(await body<{ count: number }>(await page.request.get('http://127.0.0.1:9001/e2e/calls/e2e-timeout-model'))).toEqual({ count: 4 });
-  expect((await page.request.delete(`/api/v1/platform-profiles/${profile.id as string}/prompt?expected_revision=${updatedPlatformPrompt.revision}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  expect((await page.request.delete(`/api/v1/platform-profiles/${profile.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-no-prompt-${suffix}` }, data: { ai_model_id: model.id } })).status()).toBe(409);
   await body(await page.request.put(`/api/v1/platform-profiles/${profile.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: '恢复后的技术说明 Prompt。', expected_revision: null } }));
   const blockingRevision = await body<{ id: string; revision: number; quality_issues: Array<{ code: string; severity: string }> }>(await page.request.post(`/api/v1/content-versions/${generatedContentId}/revisions`, { headers: { 'X-CSRF-Token': csrf }, data: { title: '包含未知参数的草稿', summary: '用于验证质量门禁。', body_markdown: '未知参数为 99 V。不得将虚构验收数据用于真实选型。', tags: ['blocking'], change_summary: '构造阻断质量问题' } }));
@@ -652,167 +636,12 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page.getByRole('dialog', { name: '发布结果登记' })).toBeVisible();
   await page.getByRole('dialog', { name: '发布结果登记' }).getByRole('button', { name: '关闭' }).click();
 
-  const geoConsoleErrors: string[] = [];
-  const geoPageErrors: string[] = [];
-  const geoFailedRequests: string[] = [];
-  const geoFailedResponses: string[] = [];
-  page.on('console', (message) => { if (message.type() === 'error') geoConsoleErrors.push(message.text()); });
-  page.on('pageerror', (error) => geoPageErrors.push(error.message));
-  page.on('requestfailed', (request) => geoFailedRequests.push(`${request.method()} ${request.url()}`));
-  page.on('response', (response) => { if (response.status() >= 400) geoFailedResponses.push(`${response.status()} ${response.url()}`); });
-
-  await page.setViewportSize({ width: 1582, height: 995 });
-  await page.goto('/observations');
-  await expect(page.getByRole('heading', { name: 'GEO 观测' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: '观测记录' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: '分析洞察' })).toBeVisible();
-  await expect(page.getByRole('link', { name: '分析洞察' }).last()).toBeVisible();
-  await expect(page.getByRole('button', { name: /导出/ })).toHaveCount(0);
-
-  await page.getByRole('button', { name: /新建观测/ }).click();
-  const geoForm = page.getByRole('dialog', { name: '登记人工观测' });
-  const geoProductLoaded = page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return response.ok() && url.pathname === '/api/v1/products' && url.searchParams.get('search') === product!.part_number;
-  });
-  await geoForm.getByRole('combobox', { name: '产品' }).fill(product!.part_number);
-  await geoProductLoaded;
-  await page.getByText(`DEMO ${product!.part_number}`, { exact: true }).last().click();
-  await geoForm.getByRole('combobox', { name: '问题主题' }).click();
-  await page.locator('.ant-select-dropdown:visible .ant-select-item-option').first().click();
-  await geoForm.getByLabel('人工搜索平台').fill('DeepSeek E2E');
-  const geoSearchQuery = `${product!.part_number} 如何替代？`;
-  await geoForm.getByLabel('实际搜索词').fill(geoSearchQuery);
-  await expect(geoForm.getByText(`E2E ${suffix}`, { exact: true })).toBeVisible();
-  const discoveredSelect = geoForm.getByRole('combobox', { name: `是否发现：E2E ${suffix}` });
-  await discoveredSelect.click();
-  await page.getByRole('option', { name: '已发现', exact: true }).click();
-  const mentioned = geoForm.getByRole('combobox', { name: `是否提及：E2E ${suffix}` });
-  await mentioned.click();
-  await page.getByRole('option', { name: '已提及', exact: true }).click();
-  const articleResult = geoForm.getByRole('combobox', { name: `文章推荐结果：E2E ${suffix}` });
-  await articleResult.click();
-  await page.getByRole('option', { name: '已推荐', exact: true }).click();
-  const cited = geoForm.getByRole('combobox', { name: `是否引用：E2E ${suffix}` });
-  await cited.click();
-  await page.getByRole('option', { name: '有引用', exact: true }).click();
-  const accuracy = geoForm.getByRole('combobox', { name: `准确性：E2E ${suffix}` });
-  await accuracy.click();
-  await page.getByRole('option', { name: '准确', exact: true }).click();
-  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
-  await geoForm.getByLabel('选择文件').setInputFiles({ name: `geo-${suffix}.png`, mimeType: 'image/png', buffer: png });
-  await expect(geoForm.getByText(`geo-${suffix}.png`)).toBeVisible();
-  await geoForm.getByLabel('人工备注').fill('仅用于自动化验收');
-  await geoForm.getByRole('button', { name: /追加观测记录/ }).click();
-  await expect(page.getByRole('button', { name: geoSearchQuery })).toBeVisible();
-  const createdGeoDetail = page.getByRole('dialog', { name: '观测详情' });
-  await createdGeoDetail.locator('.ant-drawer-close').click();
-  await expect(createdGeoDetail).not.toBeVisible();
-
+  await command(page, '/api/v1/geo-observations', csrf, { product_id: product!.id, search_platform: 'DeepSeek E2E', search_query: `${product!.part_number} 如何替代？`, tested_at: new Date().toISOString(), article_results: [{ publication_record_id: publication.id, recommendation_status: 'RECOMMENDED' }], attachment_file_ids: [file.id], notes: '仅用于自动化验收', supersedes_id: null });
   const metrics = await body<{ manual_observation_count: number; article_recommendation_rate: number | null }>(await page.request.get(`/api/v1/geo-metrics?product_id=${product!.id}`));
   expect(metrics.manual_observation_count).toBe(1);
   expect(metrics.article_recommendation_rate).toBe(1);
-
-  const filteredRecords = page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return response.ok() && url.pathname === '/api/v1/geo-observations' && url.searchParams.get('search') === product!.part_number;
-  });
-  await page.getByLabel('搜索词 / 问题').fill(product!.part_number);
-  await filteredRecords;
-  await expect(page).toHaveURL(new RegExp(`search=${product!.part_number}`));
-
-  const sortedRecords = page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return response.ok() && url.pathname === '/api/v1/geo-observations' && url.searchParams.get('sort_order') === 'ASC';
-  });
-  await page.getByRole('button', { name: /观测时间/ }).click();
-  await sortedRecords;
-  await expect(page).toHaveURL(/sort_order=ASC/);
-
-  const pageSizeSelect = page.locator('.geo-record-card .ant-pagination-options .ant-select').getByRole('combobox');
-  await pageSizeSelect.click();
-  const pageSizeOption = page.locator('.ant-select-dropdown:visible .ant-select-item-option').filter({ hasText: '100 条/页' });
-  await expect(pageSizeOption).toBeVisible();
-  const resizedRecords = page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return response.ok() && url.pathname === '/api/v1/geo-observations' && url.searchParams.get('page_size') === '100';
-  });
-  await pageSizeOption.click();
-  await resizedRecords;
-  await expect(page).toHaveURL(/page_size=100/);
-  await page.screenshot({ path: testInfo.outputPath('geo-observations-list-1582x995.png') });
-
-  await page.getByRole('row').filter({ hasText: geoSearchQuery }).getByRole('cell').first().click();
-  const geoDetail = page.getByRole('dialog', { name: '观测详情' });
-  await expect(geoDetail.getByText('发现：已发现')).toBeVisible();
-  await expect(geoDetail.getByText('提及：已提及')).toBeVisible();
-  await expect(geoDetail.getByText('引用：有引用')).toBeVisible();
-  await expect(geoDetail.getByText('历史回答摘要')).toHaveCount(0);
-  await expect(geoDetail.getByRole('img', { name: `geo-${suffix}.png` })).toBeVisible();
-  await expect.poll(async () => (await geoDetail.boundingBox())?.x ?? 1582).toBeLessThanOrEqual(1210);
-  await expect(page.locator('.ant-drawer-mask')).toHaveCount(0);
-  await geoDetail.evaluate(async (element) => {
-    await Promise.allSettled(element.getAnimations({ subtree: true }).map((animation) => animation.finished));
-  });
-  await page.screenshot({ path: testInfo.outputPath('geo-observations-detail-1582x995.png') });
-
-  await geoDetail.getByRole('button', { name: '更正' }).click();
-  const correctionForm = page.getByRole('dialog', { name: '更正人工观测' });
-  await expect(correctionForm.getByLabel('实际搜索词')).toBeDisabled();
-  await expect(correctionForm.getByRole('combobox', { name: '问题主题' })).toBeDisabled();
-  const correctedDiscovered = correctionForm.getByRole('combobox', { name: `是否发现：E2E ${suffix}` });
-  await correctedDiscovered.click();
-  await page.getByRole('option', { name: '已发现', exact: true }).click();
-  const correctedMentioned = correctionForm.getByRole('combobox', { name: `是否提及：E2E ${suffix}` });
-  await correctedMentioned.click();
-  await page.getByRole('option', { name: '已提及', exact: true }).click();
-  const correctedArticleResult = correctionForm.getByRole('combobox', { name: `文章推荐结果：E2E ${suffix}` });
-  await correctedArticleResult.click();
-  await page.getByRole('option', { name: '未推荐', exact: true }).click();
-  const correctedCited = correctionForm.getByRole('combobox', { name: `是否引用：E2E ${suffix}` });
-  await correctedCited.click();
-  await page.getByRole('option', { name: '无引用', exact: true }).click();
-  const correctedAccuracy = correctionForm.getByRole('combobox', { name: `准确性：E2E ${suffix}` });
-  await correctedAccuracy.click();
-  await page.getByRole('option', { name: '部分准确', exact: true }).click();
-  await correctionForm.getByLabel('选择文件').setInputFiles({ name: `geo-correction-${suffix}.png`, mimeType: 'image/png', buffer: png });
-  await expect(correctionForm.getByText(`geo-correction-${suffix}.png`)).toBeVisible();
-  await correctionForm.getByLabel('人工备注').fill('E2E 追加更正');
-  await correctionForm.getByRole('button', { name: /追加更正记录/ }).click();
-  await expect(page.getByRole('dialog', { name: '观测详情' }).getByText('E2E 追加更正')).toBeVisible();
-  await expect(page.getByRole('dialog', { name: '观测详情' }).getByText('未推荐')).toBeVisible();
-  await page.getByRole('dialog', { name: '观测详情' }).locator('.ant-drawer-close').click();
-  await expect(page.getByRole('dialog', { name: '观测详情' })).not.toBeVisible();
-  await page.getByRole('switch', { name: '包含历史更正记录' }).click();
-  await expect(page.getByRole('button', { name: geoSearchQuery })).toHaveCount(2);
-
-  const insightsLoaded = page.waitForResponse((response) => {
-    const url = new URL(response.url());
-    return response.ok() && url.pathname === '/api/v1/geo-insights';
-  });
-  await page.getByRole('link', { name: '分析洞察' }).last().click();
-  await insightsLoaded;
-  await expect(page.getByText('平台表现对比', { exact: true })).toBeVisible();
-  await expect(page.getByText('GEO 转化链路', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '收起筛选' }).click();
-  await expect(page.getByText('筛选区已折叠')).toBeVisible();
-  await page.getByRole('button', { name: '展开筛选' }).click();
-  const mentionTrend = page.locator('.geo-insight-trend-card').filter({ hasText: '提及率' }).first();
-  await mentionTrend.locator('circle:not(.is-empty)').last().hover();
-  await expect(page.getByRole('tooltip')).toBeVisible();
-  const reportPromise = page.waitForEvent('popup');
-  await page.getByRole('link', { name: '导出洞察报告' }).click();
-  const report = await reportPromise;
-  await report.waitForLoadState('networkidle');
-  await expect(report.getByRole('button', { name: '打印 / 另存为 PDF' })).toBeVisible();
-  await expect(report.getByText('平台表现对比', { exact: true })).toBeVisible();
-  await report.close();
-  await page.screenshot({ path: testInfo.outputPath('geo-insights-1582x995.png') });
-
-  expect(geoConsoleErrors).toEqual([]);
-  expect(geoPageErrors).toEqual([]);
-  expect(geoFailedRequests).toEqual([]);
-  expect(geoFailedResponses).toEqual([]);
+  await page.goto('/observations');
+  await expect(page.getByText('DeepSeek E2E').first()).toBeVisible();
 
   await page.goto(`/publications?tab=records&record=${publication.id}`);
   const removalDrawer = page.getByRole('dialog', { name: '发布结果登记' });

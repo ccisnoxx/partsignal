@@ -11,7 +11,6 @@ from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, in_use, not_found
 from app.models.configuration import (
     PlatformProfile,
@@ -46,7 +45,6 @@ from app.schemas.publication import (
     ResolvePublicationAttentionRequest,
 )
 from app.services.file_records import verified_files
-from app.services.platform_configuration import lock_active_platform
 from app.services.projections import IN_FLIGHT_PUBLICATION_STATUSES
 from app.services.publication_queries import (
     PUBLICATION_TRANSITIONS,
@@ -91,23 +89,18 @@ def create_platform_account(
     *, db: Session, payload: PlatformAccountCreate, actor: User, request_id: str
 ) -> PlatformAccount:
     """在现存平台下创建人工发布账号并追加审计。"""
-    lock_active_platform(db, payload.platform_profile_id)
+    if db.get(PlatformProfile, payload.platform_profile_id) is None:
+        raise not_found("平台配置")
     account = PlatformAccount(**payload.model_dump())
     db.add(account)
     db.flush()
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.PUBLICATION,
-            action="platform_account.created",
-            target_type="PlatformAccount",
-            target_id=account.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="发布账号已创建",
-            details={"facts": {"platform_profile_id": str(account.platform_profile_id)}},
-        ),
+        actor_id=actor.id,
+        action="platform_account.created",
+        target_type="PlatformAccount",
+        target_id=account.id,
+        request_id=request_id,
     )
     db.commit()
     return account
@@ -138,22 +131,11 @@ def delete_platform_account(
         )
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.PUBLICATION,
-            action="platform_account.deleted",
-            target_type="PlatformAccount",
-            target_id=account.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="发布账号已删除",
-            details={
-                "facts": {
-                    "platform_profile_id": str(account.platform_profile_id),
-                    "publication_reference_count": publication_count,
-                }
-            },
-        ),
+        actor_id=actor.id,
+        action="platform_account.deleted",
+        target_type="PlatformAccount",
+        target_id=account.id,
+        request_id=request_id,
     )
     db.delete(account)
     db.commit()
@@ -192,23 +174,23 @@ def create_manual_publication(
             raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一发布登记", 409)
         return publication_out(db, existing)
 
-    account = db.get(PlatformAccount, payload.platform_account_id)
-    if account is None or not account.is_active:
-        raise AppError("INVALID_STATE_TRANSITION", "平台账号不存在或已停用", 409)
-    profile = lock_active_platform(db, account.platform_profile_id)
     content = require_publishable(db, payload.content_version_id)
     task = db.get(ContentTask, content.task_id)
+    account = db.get(PlatformAccount, payload.platform_account_id)
     if task is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容任务不存在", 409)
     if task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能创建新发布", 409)
+    if account is None or not account.is_active:
+        raise AppError("INVALID_STATE_TRANSITION", "平台账号不存在或已停用", 409)
     platform_version = db.get(PlatformProfileVersion, task.platform_profile_version_id)
     if (
         platform_version is None
         or account.platform_profile_id != platform_version.platform_profile_id
     ):
         raise AppError("PUBLICATION_PLATFORM_MISMATCH", "发布账号平台与内容任务锁定平台不一致", 422)
-    if not domain_allowed(str(payload.section_url), profile.allowed_domains):
+    profile = db.get(PlatformProfile, account.platform_profile_id)
+    if profile is None or not domain_allowed(str(payload.section_url), profile.allowed_domains):
         raise AppError("VALIDATION_ERROR", "栏目 URL 不属于平台允许域名", 422)
     files = _publication_evidence_files(db, payload.attachment_file_ids)
     publication = PublicationRecord(
@@ -235,28 +217,15 @@ def create_manual_publication(
     )
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.PUBLICATION,
-            action="publication.created",
-            target_type="PublicationRecord",
-            target_id=publication.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="人工发布登记已创建",
-            details={
-                "facts": {
-                    "content_version_id": str(content.id),
-                    "task_id": str(task.id),
-                    "status": publication.status,
-                    "attachment_count": len(files),
-                }
-            },
-        ),
+        actor_id=actor.id,
+        action="publication.created",
+        target_type="PublicationRecord",
+        target_id=publication.id,
+        request_id=request_id,
+        details={"content_version_id": str(content.id), "task_id": str(task.id)},
     )
-    result = publication_out(db, publication)
     db.commit()
-    return result
+    return publication_out(db, publication)
 
 
 def command_publication(
@@ -326,7 +295,6 @@ def command_publication(
     if command == "verify" and payload.content_matches is not True:
         raise AppError("VALIDATION_ERROR", "验证发布必须明确确认页面正文匹配批准内容", 422)
 
-    previous_status = publication.status
     publication.status = target
     db.add(
         PublicationStatusEvent(
@@ -337,34 +305,16 @@ def command_publication(
         )
     )
     if target == "VERIFIED" and task.status == "OPEN":
-        previous_task_status = task.status
         task.status = "COMPLETED"
         task.revision += 1
         append_audit(
             db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.PUBLICATION,
-                action="content_task.completed_by_verified_publication",
-                target_type="ContentTask",
-                target_id=task.id,
-                request_id=request_id,
-                outcome=AuditOutcome.SUCCESS,
-                result_message="内容任务已完成发布闭环",
-                details={
-                    "changes": [
-                        {
-                            "field": "status",
-                            "before": previous_task_status,
-                            "after": task.status,
-                        }
-                    ],
-                    "facts": {
-                        "publication_id": str(publication.id),
-                        "revision": task.revision,
-                    },
-                },
-            ),
+            actor_id=actor.id,
+            action="content_task.completed_by_verified_publication",
+            target_type="ContentTask",
+            target_id=task.id,
+            request_id=request_id,
+            details={"publication_id": str(publication.id), "revision": task.revision},
         )
     if target in {"REMOVED", "VERIFICATION_FAILED"}:
         attention = db.scalar(
@@ -382,48 +332,24 @@ def command_publication(
             db.flush()
             append_audit(
                 db,
-                AuditEntry(
-                    actor_id=actor.id,
-                    business_module=AuditModule.PUBLICATION,
-                    action="publication_attention.opened",
-                    target_type="PublicationAttention",
-                    target_id=attention.id,
-                    request_id=request_id,
-                    outcome=AuditOutcome.SUCCESS,
-                    result_message="发布异常待办已创建",
-                    details={
-                        "facts": {
-                            "publication_id": str(publication.id),
-                            "trigger_status": target,
-                        }
-                    },
-                ),
+                actor_id=actor.id,
+                action="publication_attention.opened",
+                target_type="PublicationAttention",
+                target_id=attention.id,
+                request_id=request_id,
+                details={"publication_id": str(publication.id), "trigger_status": target},
             )
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.PUBLICATION,
-            action=f"publication.{re.sub('-', '_', command)}",
-            target_type="PublicationRecord",
-            target_id=publication.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="发布状态命令已完成",
-            details={
-                "changes": [
-                    {
-                        "field": "status",
-                        "before": previous_status,
-                        "after": publication.status,
-                    }
-                ]
-            },
-        ),
+        actor_id=actor.id,
+        action=f"publication.{re.sub('-', '_', command)}",
+        target_type="PublicationRecord",
+        target_id=publication.id,
+        request_id=request_id,
+        details={"status": target},
     )
-    result = publication_out(db, publication)
     db.commit()
-    return result
+    return publication_out(db, publication)
 
 
 def cancel_content_task(
@@ -454,31 +380,16 @@ def cancel_content_task(
     )
     if in_flight is not None:
         raise AppError("PUBLICATION_IN_FLIGHT", "任务存在进行中的发布，必须先处置发布记录", 409)
-    previous_status = task.status
     task.status = "CANCELLED"
     task.revision += 1
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONTENT_PLANNING,
-            action="content_task.cancelled",
-            target_type="ContentTask",
-            target_id=task.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="内容任务已取消",
-            details={
-                "changes": [
-                    {
-                        "field": "status",
-                        "before": previous_status,
-                        "after": task.status,
-                    }
-                ],
-                "facts": {"revision": task.revision},
-            },
-        ),
+        actor_id=actor.id,
+        action="content_task.cancelled",
+        target_type="ContentTask",
+        target_id=task.id,
+        request_id=request_id,
+        details={"comment": comment, "revision": task.revision},
     )
     db.commit()
     return task
@@ -493,14 +404,6 @@ def create_repair_task(
     request_id: str,
 ) -> ContentTask:
     """锁定异常与候选版本，创建上下文不可漂移的标准内容任务。"""
-    platform_profile_id = db.scalar(
-        select(PlatformProfileVersion.platform_profile_id).where(
-            PlatformProfileVersion.id == payload.platform_profile_version_id
-        )
-    )
-    profile = (
-        lock_active_platform(db, platform_profile_id) if platform_profile_id is not None else None
-    )
     attention = db.scalar(
         select(PublicationAttention)
         .where(PublicationAttention.id == attention_id)
@@ -547,6 +450,7 @@ def create_repair_task(
         or platform_version.platform_profile_id != original_platform.platform_profile_id
     ):
         raise AppError("INVALID_STATE_TRANSITION", "修复任务必须选择原平台当前 ACTIVE 规则", 409)
+    profile = db.get(PlatformProfile, platform_version.platform_profile_id)
     platform_type = (
         db.get(PlatformType, profile.platform_type_id)
         if profile is not None and profile.platform_type_id is not None
@@ -580,23 +484,16 @@ def create_repair_task(
     db.flush()
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.PUBLICATION,
-            action="publication_attention.repair_task_created",
-            target_type="PublicationAttention",
-            target_id=attention.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="发布修复任务已创建",
-            details={
-                "facts": {
-                    "repair_task_id": str(task.id),
-                    "fact_version_id": str(fact.id),
-                    "platform_profile_version_id": str(platform_version.id),
-                }
-            },
-        ),
+        actor_id=actor.id,
+        action="publication_attention.repair_task_created",
+        target_type="PublicationAttention",
+        target_id=attention.id,
+        request_id=request_id,
+        details={
+            "repair_task_id": str(task.id),
+            "fact_version_id": str(fact.id),
+            "platform_profile_version_id": str(platform_version.id),
+        },
     )
     db.commit()
     return task
@@ -626,7 +523,6 @@ def resolve_attention(
     if not comment:
         raise AppError("RESOLUTION_COMMENT_REQUIRED", "处置说明不能为空", 422)
     actor_id = actor.id
-    previous_status = attention.status
     attention.status = "RESOLVED"
     attention.revision += 1
     attention.resolved_at = datetime.now(UTC)
@@ -634,26 +530,12 @@ def resolve_attention(
     attention.resolution_comment = comment
     append_audit(
         db,
-        AuditEntry(
-            actor_id=actor_id,
-            business_module=AuditModule.PUBLICATION,
-            action="publication_attention.resolved",
-            target_type="PublicationAttention",
-            target_id=attention.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="发布异常待办已解决",
-            details={
-                "changes": [
-                    {
-                        "field": "status",
-                        "before": previous_status,
-                        "after": attention.status,
-                    }
-                ],
-                "facts": {"revision": attention.revision},
-            },
-        ),
+        actor_id=actor_id,
+        action="publication_attention.resolved",
+        target_type="PublicationAttention",
+        target_id=attention.id,
+        request_id=request_id,
+        details={"revision": attention.revision},
     )
     db.commit()
     return attention_out(db, attention)

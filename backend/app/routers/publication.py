@@ -9,22 +9,13 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Header, Query, Request, status
 from sqlalchemy import select
 
-from app.audit import commit_audit
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
-from app.deps import (
-    CsrfProtected,
-    CurrentUser,
-    DbSession,
-    EngineerUser,
-    assert_account_types,
-)
-from app.errors import AppError, not_found
+from app.deps import AdminUser, CsrfProtected, CurrentUser, DbSession, EngineerUser
+from app.errors import not_found
 from app.models.content import ContentTask
 from app.models.publication import (
     PlatformAccount,
     PublicationRecord,
 )
-from app.schemas.common import AccountType
 from app.schemas.content import ContentTaskOut
 from app.schemas.publication import (
     ManualPublicationCreate,
@@ -150,15 +141,8 @@ def get_publication_workbench_summary(
 @router.get(
     "/platform-accounts", response_model=PlatformAccountList, operation_id="listPlatformAccounts"
 )
-def list_platform_accounts(
-    db: DbSession,
-    _user: CurrentUser,
-    platform_profile_id: uuid.UUID | None = None,
-) -> PlatformAccountList:
-    query = select(PlatformAccount)
-    if platform_profile_id is not None:
-        query = query.where(PlatformAccount.platform_profile_id == platform_profile_id)
-    accounts = list(db.scalars(query.order_by(PlatformAccount.label)))
+def list_platform_accounts(db: DbSession, _user: CurrentUser) -> PlatformAccountList:
+    accounts = list(db.scalars(select(PlatformAccount).order_by(PlatformAccount.label)))
     return PlatformAccountList(
         items=[PlatformAccountOut.model_validate(account) for account in accounts]
     )
@@ -192,37 +176,15 @@ def delete_platform_account(
     platform_account_id: uuid.UUID,
     request: Request,
     db: DbSession,
-    admin: CurrentUser,
+    admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> None:
-    actor_id = admin.id
-    command_request_id = request.state.request_id
-    try:
-        assert_account_types(admin, (AccountType.ADMIN,))
-        delete_platform_account_command(
-            db=db,
-            platform_account_id=platform_account_id,
-            actor=admin,
-            request_id=command_request_id,
-        )
-    except AppError as error:
-        db.rollback()
-        denied = error.code == "PERMISSION_DENIED"
-        commit_audit(
-            db,
-            AuditEntry(
-                actor_id=actor_id,
-                business_module=AuditModule.PUBLICATION,
-                action="platform_account.deleted",
-                target_type="PlatformAccount",
-                target_id=platform_account_id,
-                request_id=command_request_id,
-                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
-                result_message="发布账号删除被拒绝" if denied else "发布账号删除未完成",
-                error_code=error.code,
-            )
-        )
-        raise
+    delete_platform_account_command(
+        db=db,
+        platform_account_id=platform_account_id,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
 
 
 @router.post(
@@ -235,39 +197,17 @@ def create_manual_publication(
     payload: ManualPublicationCreate,
     request: Request,
     db: DbSession,
-    editor: CurrentUser,
+    editor: ContentEditor,
     _csrf: CsrfProtected,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
 ) -> PublicationRecordOut:
-    actor_id = editor.id
-    command_request_id = request.state.request_id
-    try:
-        assert_account_types(editor, (AccountType.ADMIN, AccountType.ENGINEER))
-        return create_manual_publication_service(
-            db=db,
-            payload=payload,
-            actor=editor,
-            request_id=command_request_id,
-            idempotency_key=idempotency_key,
-        )
-    except AppError as error:
-        db.rollback()
-        denied = error.code == "PERMISSION_DENIED"
-        commit_audit(
-            db,
-            AuditEntry(
-                actor_id=actor_id,
-                business_module=AuditModule.PUBLICATION,
-                action="publication.created",
-                target_type="PublicationRecord",
-                target_id=None,
-                request_id=command_request_id,
-                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
-                result_message="发布登记创建被拒绝" if denied else "发布登记创建未完成",
-                error_code=error.code,
-            )
-        )
-        raise
+    return create_manual_publication_service(
+        db=db,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+        idempotency_key=idempotency_key,
+    )
 
 
 @router.get(
@@ -315,39 +255,17 @@ def command_publication_record(
     payload: PublicationCommand,
     request: Request,
     db: DbSession,
-    editor: CurrentUser,
+    editor: ContentEditor,
     _csrf: CsrfProtected,
 ) -> PublicationRecordOut:
-    actor_id = editor.id
-    command_request_id = request.state.request_id
-    try:
-        assert_account_types(editor, (AccountType.ADMIN, AccountType.ENGINEER))
-        return command_publication(
-            db=db,
-            publication_id=publication_id,
-            command=command,
-            payload=payload,
-            actor=editor,
-            request_id=command_request_id,
-        )
-    except AppError as error:
-        db.rollback()
-        denied = error.code == "PERMISSION_DENIED"
-        commit_audit(
-            db,
-            AuditEntry(
-                actor_id=actor_id,
-                business_module=AuditModule.PUBLICATION,
-                action=f"publication.{command.replace('-', '_')}",
-                target_type="PublicationRecord",
-                target_id=publication_id,
-                request_id=command_request_id,
-                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
-                result_message="发布状态命令被拒绝" if denied else "发布状态命令未完成",
-                error_code=error.code,
-            )
-        )
-        raise
+    return command_publication(
+        db=db,
+        publication_id=publication_id,
+        command=command,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+    )
 
 
 @router.get(

@@ -62,7 +62,7 @@
 
 - [x] 更新 `contracts/database.md`、`.trellis/spec/backend/ai-configuration-guidelines.md`、`.trellis/spec/frontend/state-management.md`、`docs/GEO系统前后端技术与部署方案.md` 和 `docs/GEO多平台内容运营系统方案设计.md`；只描述当前实现，避免重复契约。
 - [x] 对新增/实质修改的 Python/TypeScript 文件做中文注释、Docstring、日志和错误文本 touched-scope 检查；未给显然代码追加机械注释。
-- [ ] 运行下列最小到完整验证，并记录真实结果：
+- [x] 已运行下列最小到完整验证并记录真实结果；通过项、非本任务失败与非阻断提示见第 7 节：
 
 ```bash
 make contract-generate

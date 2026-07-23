@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "检查迁移不猜测回填、数据库约束和历史追加式不变量"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "检查 OpenAPI、运行时 Schema、生成类型、前端查询与真实数据流一致"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "检查无重复筛选、重复指标公式、第二数据源或无必要抽象"}
+{"file": ".trellis/tasks/07-22-geo-observation-insights/research/current-state.md", "reason": "对照调查证据复核已有能力、数据缺口、依赖和明确原型差异"}

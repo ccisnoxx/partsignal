@@ -9,6 +9,7 @@ export const routeLoaders = {
   contentEditor: () => import('../features/content-editor/ContentEditorPage'),
   publications: () => import('../features/publications/PublicationsPage'),
   geoObservations: () => import('../features/geo-observations/GeoObservationsPage'),
+  geoInsights: () => import('../features/geo-observations/GeoInsightsPage'),
   settings: () => import('../features/settings/SettingsPage'),
   users: () => import('../features/users/UserManagementPage'),
   configurationLayout: () => import('../features/configuration/ConfigurationLayout'),
@@ -30,6 +31,8 @@ export const ContentTasksPage = lazy(async () => ({ default: (await routeLoaders
 export const ContentEditorPage = lazy(async () => ({ default: (await routeLoaders.contentEditor()).ContentEditorPage }));
 export const PublicationsPage = lazy(async () => ({ default: (await routeLoaders.publications()).PublicationsPage }));
 export const GeoObservationsPage = lazy(async () => ({ default: (await routeLoaders.geoObservations()).GeoObservationsPage }));
+export const GeoInsightsPage = lazy(async () => ({ default: (await routeLoaders.geoInsights()).GeoInsightsPage }));
+export const GeoInsightsPrintPage = lazy(async () => ({ default: (await routeLoaders.geoInsights()).GeoInsightsPrintPage }));
 export const SettingsPage = lazy(async () => ({ default: (await routeLoaders.settings()).SettingsPage }));
 export const UserManagementPage = lazy(async () => ({ default: (await routeLoaders.users()).UserManagementPage }));
 export const ConfigurationLayout = lazy(async () => ({ default: (await routeLoaders.configurationLayout()).ConfigurationLayout }));

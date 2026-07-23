@@ -15,6 +15,8 @@ import {
   ContentEditorPage,
   ContentTasksPage,
   DashboardPage,
+  GeoInsightsPage,
+  GeoInsightsPrintPage,
   GeoObservationsPage,
   PlatformTypesPage,
   PlatformRulesPage,
@@ -50,6 +52,9 @@ export function App() {
                     <Route path="publication-attentions/:attentionId" element={<PublicationsPage />} />
                     <Route path="publication-attentions/:attentionId/repair" element={<PublicationsPage />} />
                     <Route path="observations" element={<GeoObservationsPage />} />
+                    <Route path="observations/insights" element={<GeoInsightsPage />} />
+                    <Route path="observations/insights/print" element={<GeoInsightsPrintPage />} />
+                    <Route path="observations/:observationId/correct" element={<GeoObservationsPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="users" element={<UserManagementPage />} />
                     <Route path="audit" element={<AuditLogPage />} />

@@ -4,158 +4,180 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime, timedelta
+from typing import Annotated
 
-from fastapi import APIRouter, Request, status
-from sqlalchemy import exists, func, select
-from sqlalchemy.orm import aliased
+from fastapi import APIRouter, Depends, Query, Request, status
+from sqlalchemy import func, select
 
-from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
-from app.errors import not_found
-from app.models.configuration import PlatformProfile
-from app.models.content import ContentTask, ContentVersion
-from app.models.geo_files import (
-    GeoObservation,
-    GeoObservationAttachment,
-    GeoObservationCitation,
-    GeoObservationPublication,
+from app.audit import commit_audit
+from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+from app.deps import (
+    CsrfProtected,
+    CurrentUser,
+    DbSession,
+    assert_account_types,
 )
+from app.errors import AppError, not_found
+from app.models.content import ContentVersion
+from app.models.geo_files import GeoObservation
 from app.models.product_facts import FactVersion, Product
-from app.models.publication import PlatformAccount, PublicationRecord
+from app.models.publication import PublicationRecord
+from app.schemas.common import AccountType
 from app.schemas.geo_files import (
     DashboardSummary,
-    GeoArticleResultOut,
-    GeoCitation,
+    GeoAccuracy,
+    GeoInsights,
     GeoMetrics,
     GeoObservationCreate,
+    GeoObservationKind,
     GeoObservationList,
     GeoObservationOut,
+    GeoObservationSortOrder,
     GeoPublicationCandidateList,
-    LegacyGeoObservationOut,
-    ManualGeoObservationOut,
+    LegacyRecommendation,
+    RecommendationStatus,
+)
+from app.services.geo_observation import (
+    GeoInsightFilters,
+    GeoObservationFilters,
+    geo_publication_candidates,
 )
 from app.services.geo_observation import (
     create_geo_observation as create_geo_observation_command,
 )
 from app.services.geo_observation import (
-    geo_publication_candidates,
+    get_geo_insights as get_geo_insights_service,
+)
+from app.services.geo_observation import (
+    get_geo_metrics as get_geo_metrics_service,
+)
+from app.services.geo_observation import (
+    get_geo_observation as get_geo_observation_service,
+)
+from app.services.geo_observation import (
+    list_geo_observations as list_geo_observations_service,
 )
 from app.services.publication_queries import open_attention_count
 
 router = APIRouter(prefix="/api/v1", tags=["observation"])
-Analyst = EngineerUser
 
 
-def observation_out(db: DbSession, observation: GeoObservation) -> GeoObservationOut:
-    attachment_ids = list(
-        db.scalars(
-            select(GeoObservationAttachment.file_id).where(
-                GeoObservationAttachment.observation_id == observation.id
-            )
-        )
+def geo_observation_filters(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    observation_kind: GeoObservationKind | None = None,
+    product_id: uuid.UUID | None = None,
+    search: Annotated[str | None, Query(max_length=500)] = None,
+    query_topic_id: uuid.UUID | None = None,
+    model_name: Annotated[str | None, Query(max_length=160)] = None,
+    search_platform: Annotated[str | None, Query(max_length=160)] = None,
+    publication_search: Annotated[str | None, Query(max_length=500)] = None,
+    mentioned: bool | None = None,
+    recommendation: LegacyRecommendation | None = None,
+    has_citation: bool | None = None,
+    accuracy: GeoAccuracy | None = None,
+    article_recommendation: RecommendationStatus | None = None,
+    recorder_search: Annotated[str | None, Query(max_length=200)] = None,
+    only_mine: bool = False,
+    include_history: bool = False,
+) -> GeoObservationFilters:
+    """校验并归一化列表与指标共享的查询参数。"""
+    if date_from is not None and date_to is not None and date_from > date_to:
+        raise AppError("VALIDATION_ERROR", "开始日期不能晚于结束日期", 422)
+    text_filters = {
+        "搜索词": search,
+        "模型名称": model_name,
+        "搜索平台": search_platform,
+        "关联发布内容": publication_search,
+        "记录人": recorder_search,
+    }
+    if blank_label := next(
+        (label for label, value in text_filters.items() if value is not None and not value.strip()),
+        None,
+    ):
+        raise AppError("VALIDATION_ERROR", f"{blank_label}不能为空", 422)
+    return GeoObservationFilters(
+        date_from=date_from,
+        date_to=date_to,
+        observation_kind=observation_kind,
+        product_id=product_id,
+        search=search.strip() if search is not None else None,
+        query_topic_id=query_topic_id,
+        model_name=model_name.strip() if model_name is not None else None,
+        search_platform=search_platform.strip() if search_platform is not None else None,
+        publication_search=(publication_search.strip() if publication_search is not None else None),
+        mentioned=mentioned,
+        recommendation=recommendation,
+        has_citation=has_citation,
+        accuracy=accuracy,
+        article_recommendation=article_recommendation,
+        recorder_search=recorder_search.strip() if recorder_search is not None else None,
+        only_mine=only_mine,
+        include_history=include_history,
     )
-    if observation.observation_kind == "MANUAL_ARTICLE_SEARCH":
-        rows = db.execute(
-            select(
-                GeoObservationPublication,
-                PublicationRecord,
-                ContentVersion.title,
-                PlatformProfile.name,
-            )
-            .join(
-                PublicationRecord,
-                PublicationRecord.id == GeoObservationPublication.publication_record_id,
-            )
-            .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
-            .join(ContentTask, ContentTask.id == ContentVersion.task_id)
-            .join(PlatformAccount, PlatformAccount.id == PublicationRecord.platform_account_id)
-            .join(PlatformProfile, PlatformProfile.id == PlatformAccount.platform_profile_id)
-            .where(GeoObservationPublication.observation_id == observation.id)
-            .order_by(PublicationRecord.id)
-        ).all()
-        article_results = [
-            GeoArticleResultOut.model_validate(
-                {
-                    "publication_record_id": publication.id,
-                    "recommendation_status": relation.recommendation_status,
-                    "title": publication.actual_title or content_title,
-                    "platform_name": platform_name,
-                    "final_url": publication.final_url,
-                }
-            )
-            for relation, publication, content_title, platform_name in rows
-        ]
-        return ManualGeoObservationOut.model_validate(
-            {
-                "observation_kind": observation.observation_kind,
-                "id": observation.id,
-                "product_id": observation.product_id,
-                "search_platform": observation.search_platform,
-                "search_query": observation.search_query,
-                "tested_at": observation.tested_at,
-                "article_results": article_results,
-                "attachment_file_ids": attachment_ids,
-                "notes": observation.notes,
-                "supersedes_id": observation.supersedes_id,
-                "tested_by": observation.tested_by,
-                "created_at": observation.created_at,
-            }
-        )
 
-    citations = list(
-        db.scalars(
-            select(GeoObservationCitation).where(
-                GeoObservationCitation.observation_id == observation.id
-            )
-        )
-    )
-    publication_ids = list(
-        db.scalars(
-            select(GeoObservationPublication.publication_record_id).where(
-                GeoObservationPublication.observation_id == observation.id
-            )
-        )
-    )
-    return LegacyGeoObservationOut.model_validate(
-        {
-            "observation_kind": observation.observation_kind,
-            "id": observation.id,
-            "query_topic_id": observation.query_topic_id,
-            "product_id": observation.product_id,
-            "actual_prompt": observation.actual_prompt,
-            "model_name": observation.model_name,
-            "model_version": observation.model_version,
-            "tested_at": observation.tested_at,
-            "web_search_enabled": observation.web_search_enabled,
-            "answer_summary": observation.answer_summary,
-            "mentioned": observation.mentioned,
-            "recommendation": observation.recommendation,
-            "accuracy": observation.accuracy,
-            "citations": [
-                GeoCitation(
-                    url=citation.url,
-                    source_type=citation.source_type,
-                    publication_record_id=citation.publication_record_id,
-                )
-                for citation in citations
-            ],
-            "publication_record_ids": publication_ids,
-            "attachment_file_ids": attachment_ids,
-            "notes": observation.notes,
-            "supersedes_id": observation.supersedes_id,
-            "tested_by": observation.tested_by,
-            "created_at": observation.created_at,
-        }
+
+def geo_insight_filters(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    content_platform_id: uuid.UUID | None = None,
+    geo_platform: Annotated[str | None, Query(max_length=160)] = None,
+    content_angle: Annotated[str | None, Query(max_length=500)] = None,
+    publication_record_id: uuid.UUID | None = None,
+    query_topic_id: uuid.UUID | None = None,
+) -> GeoInsightFilters:
+    """校验洞察页面全部区块共用的精确筛选。"""
+    if date_from is not None and date_to is not None and date_from > date_to:
+        raise AppError("VALIDATION_ERROR", "开始日期不能晚于结束日期", 422)
+    text_filters = {"GEO 平台": geo_platform, "内容主题": content_angle}
+    if blank_label := next(
+        (label for label, value in text_filters.items() if value is not None and not value.strip()),
+        None,
+    ):
+        raise AppError("VALIDATION_ERROR", f"{blank_label}不能为空", 422)
+    return GeoInsightFilters(
+        date_from=date_from,
+        date_to=date_to,
+        content_platform_id=content_platform_id,
+        geo_platform=geo_platform.strip() if geo_platform is not None else None,
+        content_angle=content_angle.strip() if content_angle is not None else None,
+        publication_record_id=publication_record_id,
+        query_topic_id=query_topic_id,
     )
 
 
 @router.get(
     "/geo-observations", response_model=GeoObservationList, operation_id="listGeoObservations"
 )
-def list_geo_observations(db: DbSession, _user: CurrentUser) -> GeoObservationList:
-    observations = list(
-        db.scalars(select(GeoObservation).order_by(GeoObservation.tested_at.desc()))
+def list_geo_observations(
+    db: DbSession,
+    user: CurrentUser,
+    filters: Annotated[GeoObservationFilters, Depends(geo_observation_filters)],
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    sort_order: GeoObservationSortOrder = "DESC",
+) -> GeoObservationList:
+    """按共享筛选分页返回观测记录。"""
+    return list_geo_observations_service(
+        db,
+        filters=filters,
+        actor=user,
+        page=page,
+        page_size=page_size,
+        sort_order=sort_order,
     )
-    return GeoObservationList(items=[observation_out(db, item) for item in observations])
+
+
+@router.get(
+    "/geo-observations/{observation_id}",
+    response_model=GeoObservationOut,
+    operation_id="getGeoObservation",
+)
+def get_geo_observation(
+    observation_id: uuid.UUID, db: DbSession, user: CurrentUser
+) -> GeoObservationOut:
+    """返回一条观测详情，纠正历史也可以直接读取。"""
+    return get_geo_observation_service(db, observation_id, actor=user)
 
 
 @router.get(
@@ -182,102 +204,55 @@ def create_geo_observation(
     payload: GeoObservationCreate,
     request: Request,
     db: DbSession,
-    analyst: Analyst,
+    analyst: CurrentUser,
     _csrf: CsrfProtected,
 ) -> GeoObservationOut:
-    observation = create_geo_observation_command(
-        db=db, payload=payload, actor=analyst, request_id=request.state.request_id
-    )
-    return observation_out(db, observation)
+    actor_id = analyst.id
+    command_request_id = request.state.request_id
+    try:
+        assert_account_types(analyst, (AccountType.ADMIN, AccountType.ENGINEER))
+        observation = create_geo_observation_command(
+            db=db, payload=payload, actor=analyst, request_id=command_request_id
+        )
+    except AppError as error:
+        db.rollback()
+        denied = error.code == "PERMISSION_DENIED"
+        commit_audit(
+            db,
+            AuditEntry(
+                actor_id=actor_id,
+                business_module=AuditModule.GEO_OBSERVATION,
+                action="geo_observation.created",
+                target_type="GeoObservation",
+                target_id=None,
+                request_id=command_request_id,
+                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
+                result_message="GEO 观测创建被拒绝" if denied else "GEO 观测创建未完成",
+                error_code=error.code,
+            )
+        )
+        raise
+    return get_geo_observation_service(db, observation.id, actor=analyst)
 
 
 @router.get("/geo-metrics", response_model=GeoMetrics, operation_id="getGeoMetrics")
 def get_geo_metrics(
     db: DbSession,
-    _user: CurrentUser,
-    product_id: uuid.UUID | None = None,
-    query_topic_id: uuid.UUID | None = None,
-    model_name: str | None = None,
-    search_platform: str | None = None,
-    date_from: date | None = None,
-    date_to: date | None = None,
+    user: CurrentUser,
+    filters: Annotated[GeoObservationFilters, Depends(geo_observation_filters)],
 ) -> GeoMetrics:
-    """直接从未被纠正的源观测计算指标，不持久化汇总。"""
-    superseding = aliased(GeoObservation)
-    current_query = select(GeoObservation).where(
-        ~exists(select(superseding.id).where(superseding.supersedes_id == GeoObservation.id))
-    )
-    if product_id:
-        current_query = current_query.where(GeoObservation.product_id == product_id)
-    if date_from:
-        current_query = current_query.where(
-            GeoObservation.tested_at >= datetime.combine(date_from, datetime.min.time(), tzinfo=UTC)
-        )
-    if date_to:
-        current_query = current_query.where(
-            GeoObservation.tested_at
-            < datetime.combine(date_to + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
-        )
-    legacy_query = current_query.where(GeoObservation.observation_kind == "LEGACY_MODEL_RESULT")
-    if query_topic_id:
-        legacy_query = legacy_query.where(GeoObservation.query_topic_id == query_topic_id)
-    if model_name:
-        legacy_query = legacy_query.where(GeoObservation.model_name == model_name)
-    manual_query = current_query.where(GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH")
-    if search_platform:
-        manual_query = manual_query.where(GeoObservation.search_platform == search_platform)
+    """从与列表相同的观测集合实时计算指标。"""
+    return get_geo_metrics_service(db, filters=filters, actor=user)
 
-    observations = list(db.scalars(legacy_query))
-    manual_observations = list(db.scalars(manual_query))
-    count = len(observations)
-    observation_ids = [item.id for item in observations]
-    cited_ids = (
-        set(
-            db.scalars(
-                select(GeoObservationCitation.observation_id)
-                .where(GeoObservationCitation.observation_id.in_(observation_ids))
-                .distinct()
-            )
-        )
-        if observation_ids
-        else set()
-    )
-    judgeable = [item for item in observations if item.accuracy not in (None, "UNJUDGEABLE")]
-    manual_ids = [item.id for item in manual_observations]
-    article_statuses = (
-        list(
-            db.scalars(
-                select(GeoObservationPublication.recommendation_status).where(
-                    GeoObservationPublication.observation_id.in_(manual_ids)
-                )
-            )
-        )
-        if manual_ids
-        else []
-    )
-    recommended_count = sum(status == "RECOMMENDED" for status in article_statuses)
-    not_recommended_count = sum(status == "NOT_RECOMMENDED" for status in article_statuses)
-    article_count = recommended_count + not_recommended_count
-    return GeoMetrics(
-        sample_count=count,
-        mention_rate=(sum(item.mentioned is True for item in observations) / count if count else 0),
-        recommendation_rate=(
-            sum(item.recommendation == "RECOMMENDED" for item in observations) / count
-            if count
-            else 0
-        ),
-        citation_rate=(len(cited_ids) / count if count else 0),
-        accuracy_rate=(
-            sum(item.accuracy == "ACCURATE" for item in judgeable) / len(judgeable)
-            if judgeable
-            else None
-        ),
-        manual_observation_count=len(manual_observations),
-        article_result_count=article_count,
-        recommended_article_count=recommended_count,
-        not_recommended_article_count=not_recommended_count,
-        article_recommendation_rate=(recommended_count / article_count if article_count else None),
-    )
+
+@router.get("/geo-insights", response_model=GeoInsights, operation_id="getGeoInsights")
+def get_geo_insights(
+    db: DbSession,
+    _user: CurrentUser,
+    filters: Annotated[GeoInsightFilters, Depends(geo_insight_filters)],
+) -> GeoInsights:
+    """返回同一筛选口径下的全部人工 GEO 洞察。"""
+    return get_geo_insights_service(db, filters=filters)
 
 
 @router.get(

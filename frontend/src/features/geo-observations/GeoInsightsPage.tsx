@@ -1,0 +1,632 @@
+/** GEO 分析洞察页：一个 URL 筛选对象驱动一个服务端读模型，并复用于浏览器打印。 */
+import {
+  DownOutlined, ExclamationCircleOutlined, ExportOutlined, FallOutlined, PrinterOutlined,
+  TrophyOutlined, UpOutlined, WarningOutlined,
+} from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
+import {
+  Alert, Button, Card, DatePicker, Descriptions, Modal, Select, Space, Table, Tooltip, Typography,
+  type DescriptionsProps, type TableColumnsType,
+} from 'antd';
+import dayjs from 'dayjs';
+import { useEffect, useId, useMemo, useState, type CSSProperties } from 'react';
+import { Link, NavLink, useSearchParams } from 'react-router-dom';
+import { geoInsightsQueryOptions } from '../../shared/api/queryOptions';
+import type { GeoInsightQuery, Schema } from '../../shared/api/types';
+import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
+import { PageHeader } from '../../shared/components/PageHeader';
+import { StatusTag } from '../../shared/components/StatusTag';
+import { TableRegion } from '../../shared/components/TableRegion';
+
+type GeoInsights = Schema<'GeoInsights'>;
+type FilterOptions = Schema<'GeoInsightFilterOptions'>;
+type RateTrend = Schema<'GeoInsightRateTrend'>;
+type CountTrend = Schema<'GeoInsightCountTrend'>;
+type RatePoint = Schema<'GeoInsightRatePoint'>;
+type CountPoint = Schema<'GeoInsightCountPoint'>;
+type PlatformPerformance = Schema<'GeoInsightPlatformPerformance'>;
+type ContentRow = Schema<'GeoInsightContentPerformance'> | Schema<'GeoInsightDecliningContent'> | Schema<'GeoInsightLongUnmentionedContent'>;
+type DeclineBasis = Schema<'GeoInsightDeclineBasis'>;
+type Recommendation = Schema<'GeoInsightRecommendation'>;
+type CoverageStatus = Schema<'GeoInsightCoverageItem'>['status'];
+
+const optionalFilterKeys = [
+  'content_platform_id', 'geo_platform', 'content_angle', 'publication_record_id', 'query_topic_id',
+] as const satisfies readonly (keyof GeoInsightQuery)[];
+
+const coverageStatuses: Array<{
+  status: CoverageStatus;
+  countKey: keyof GeoInsights['question_coverage']['by_status'];
+  label: string;
+  description: string;
+}> = [
+  { status: 'STABLE', countKey: 'stable', label: '稳定覆盖', description: '覆盖率 ≥ 60%（≥3 次）' },
+  { status: 'OCCASIONAL', countKey: 'occasional', label: '偶尔命中', description: '30%–60%（≥3 次）' },
+  { status: 'UNCOVERED', countKey: 'uncovered', label: '尚未覆盖', description: '覆盖率 < 30%（≥3 次）' },
+  { status: 'INSUFFICIENT_DATA', countKey: 'insufficient_data', label: '数据不足', description: '仅 0–2 次完整观测' },
+];
+
+function utcDateString(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function defaultDates(now = new Date()): Pick<GeoInsightQuery, 'date_from' | 'date_to'> {
+  const start = new Date(now);
+  start.setUTCDate(start.getUTCDate() - 29);
+  return { date_from: utcDateString(start), date_to: utcDateString(now) };
+}
+
+export function geoInsightFiltersFromParams(
+  params: URLSearchParams,
+  defaults = defaultDates(),
+): GeoInsightQuery {
+  const filters: GeoInsightQuery = {
+    date_from: params.get('date_from') ?? defaults.date_from,
+    date_to: params.get('date_to') ?? defaults.date_to,
+  };
+  optionalFilterKeys.forEach((key) => {
+    const value = params.get(key);
+    if (value !== null) filters[key] = value;
+  });
+  return filters;
+}
+
+function formatRate(value: number | null | undefined): string {
+  return value == null ? '暂无数据' : `${(value * 100).toFixed(1)}%`;
+}
+
+function formatChange(value: number | null): string {
+  if (value == null) return '不可计算';
+  if (value === 0) return '0.0%';
+  return `${value > 0 ? '↑' : '↓'} ${Math.abs(value * 100).toFixed(1)}%`;
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString('zh-CN', { hour12: false });
+}
+
+const declineMetricLabels: Record<DeclineBasis['metric'], string> = {
+  citation_rate: '引用率',
+  recommendation_rate: '推荐率',
+  mention_rate: '提及率',
+};
+
+function declineBasisText(basis: DeclineBasis): string {
+  return `${declineMetricLabels[basis.metric]} ${formatRate(basis.previous_value)} → ${formatRate(basis.current_value)}（下降 ${(basis.decline * 100).toFixed(1)} 个百分点）`;
+}
+
+function rateMeta(value: Schema<'GeoInsightRateValue'>): string {
+  return value.denominator ? `${value.numerator} / ${value.denominator} 条关系` : '无完整关系样本';
+}
+
+function pointValue(point: RatePoint | CountPoint): number | null {
+  return 'value' in point ? point.value : point.count;
+}
+
+function pointX(index: number, count: number): number {
+  return count <= 1 ? 50 : 6 + (index * 88) / (count - 1);
+}
+
+function TrendCard(props: {
+  label: string;
+  color: string;
+} & ({ kind: 'rate'; trend: RateTrend } | { kind: 'count'; trend: CountTrend })) {
+  const { label, color } = props;
+  const points: Array<RatePoint | CountPoint> = props.trend.points;
+  const tooltipId = useId();
+  const [focusedTooltip, setFocusedTooltip] = useState<string>();
+  const [hoveredTooltip, setHoveredTooltip] = useState<string>();
+  const activeTooltip = focusedTooltip ?? hoveredTooltip;
+  let maximum: number;
+  let current: string;
+  let previous: string;
+  let currentMeta: string;
+  if (props.kind === 'rate') {
+    maximum = 1;
+    current = formatRate(props.trend.current.value);
+    previous = formatRate(props.trend.previous.value);
+    currentMeta = rateMeta(props.trend.current);
+  } else {
+    maximum = Math.max(1, ...props.trend.points.map((point) => point.count));
+    current = String(props.trend.current);
+    previous = String(props.trend.previous);
+    currentMeta = '当前周期去重发布内容数';
+  }
+  const y = (value: number | null) => value == null ? 42 : 42 - (value / maximum) * 34;
+  const currentDate = points[points.length - 1]?.date.slice(5).replace('-', '.') ?? '—';
+
+  return (
+    <article className="geo-insight-trend-card">
+      <div className="geo-insight-trend-card-body">
+      <div className="geo-insight-trend-current-badge" aria-hidden="true"><span>{currentDate}</span><strong>{current}</strong></div>
+      <div className="geo-insight-trend-heading">
+        <span>{label}</span>
+        <strong>{current}</strong>
+      </div>
+      <div className="geo-insight-trend-meta">
+        <span>上一周期 {previous}</span>
+        <span className={props.trend.change == null || props.trend.change === 0 ? undefined : props.trend.change > 0 ? 'is-positive' : 'is-negative'}>{formatChange(props.trend.change)}</span>
+      </div>
+      <svg viewBox="0 0 100 48" role="img" aria-label={`${label}趋势图`} preserveAspectRatio="none">
+        <line className="geo-insight-chart-grid" x1="6" y1="42" x2="94" y2="42" />
+        {points.slice(1).map((point, index) => {
+          const previousPoint = points[index]!;
+          const previousValue = pointValue(previousPoint);
+          const value = pointValue(point);
+          if (previousValue == null || value == null) return null;
+          return (
+            <line
+              key={`${previousPoint.date}-${point.date}`}
+              className="geo-insight-chart-line"
+              x1={pointX(index, points.length)}
+              y1={y(previousValue)}
+              x2={pointX(index + 1, points.length)}
+              y2={y(value)}
+              style={{ stroke: color }}
+            />
+          );
+        })}
+        {points.map((point, index) => {
+          const value = pointValue(point);
+          const detail = 'value' in point
+            ? (point.value == null ? '无样本' : `${formatRate(point.value)} · ${point.numerator} / ${point.denominator} 条关系`)
+            : `${point.count} 个内容`;
+          const accessibleLabel = `${label} ${point.date}：${detail}`;
+          const tooltip = `${point.date} · ${detail}`;
+          return (
+            <circle
+              key={point.date}
+              className={`geo-insight-chart-point${value == null ? ' is-empty' : ''}`}
+              cx={pointX(index, points.length)}
+              cy={y(value)}
+              r="2.2"
+              style={value == null ? undefined : { fill: color, stroke: color }}
+              tabIndex={0}
+              role="img"
+              aria-label={accessibleLabel}
+              aria-describedby={activeTooltip === tooltip ? tooltipId : undefined}
+              onFocus={() => setFocusedTooltip(tooltip)}
+              onBlur={() => setFocusedTooltip(undefined)}
+              onMouseEnter={() => setHoveredTooltip(tooltip)}
+              onMouseLeave={() => setHoveredTooltip(undefined)}
+            />
+          );
+        })}
+      </svg>
+      {activeTooltip && <div id={tooltipId} className="geo-insight-chart-tooltip" role="tooltip">{activeTooltip}</div>}
+      <small>{currentMeta}</small>
+      </div>
+    </article>
+  );
+}
+
+const platformColumns: TableColumnsType<PlatformPerformance> = [
+  {
+    title: 'GEO 平台', dataIndex: 'geo_platform', render: (value: string) => (
+      <Space size={7}><span className="geo-platform-mark">GEO</span><strong>{value}</strong></Space>
+    ),
+  },
+  { title: '观测次数', dataIndex: 'observation_count', width: 72 },
+  { title: '提及率', dataIndex: 'mention_rate', width: 96, render: (value) => <RateBar value={value} color="var(--geo-platform-mention)" /> },
+  { title: '推荐率', dataIndex: 'recommendation_rate', width: 96, render: (value) => <RateBar value={value} color="var(--geo-platform-recommendation)" /> },
+  { title: '引用率', dataIndex: 'citation_rate', width: 96, render: (value) => <RateBar value={value} color="var(--geo-platform-citation)" /> },
+  { title: '准确率', dataIndex: 'accuracy_rate', width: 96, render: (value) => <RateBar value={value} color="var(--geo-platform-accuracy)" /> },
+];
+
+function RateBar({ value, color }: { value: Schema<'GeoInsightRateValue'>; color: string }) {
+  const percentage = value.value == null ? 0 : Math.max(0, Math.min(100, value.value * 100));
+  return (
+    <Tooltip title={rateMeta(value)}>
+      <span className="geo-insight-rate-bar" style={{ '--geo-rate-color': color } as CSSProperties}>
+        <span className="geo-insight-rate-bar-track"><span style={{ width: `${percentage}%` }} /></span>
+        <span>{formatRate(value.value)}</span>
+      </span>
+    </Tooltip>
+  );
+}
+
+function PlatformPerformanceCard({ rows, unavailable }: { rows: PlatformPerformance[]; unavailable?: string }) {
+  return (
+    <Card className="geo-insight-section-card geo-insight-platform-card" title="平台表现对比">
+      {rows.length ? (
+        <>
+          <div className="geo-insight-platform-legend" aria-label="平台表现图例">
+            <span><i className="is-count" />观测次数</span><span><i className="is-mention" />提及率</span>
+            <span><i className="is-recommendation" />推荐率</span><span><i className="is-citation" />引用率</span>
+            <span><i className="is-accuracy" />准确率</span>
+          </div>
+          <TableRegion label="GEO 平台表现">
+            <Table rowKey="geo_platform" size="small" pagination={false} dataSource={rows} columns={platformColumns} scroll={{ x: 610 }} />
+          </TableRegion>
+        </>
+      ) : <NoData description={unavailable ?? '当前筛选范围暂无平台表现数据'} />}
+    </Card>
+  );
+}
+
+function FunnelCard({ stages }: { stages: GeoInsights['funnel'] }) {
+  const maximum = Math.max(1, ...stages.map((stage) => stage.count));
+  return (
+    <Card className="geo-insight-section-card" title="GEO 转化链路" extra={<Typography.Text type="secondary">服务端累计阶段</Typography.Text>}>
+      {stages.length ? (
+        <div className="geo-insight-funnel" aria-label="GEO 转化漏斗">
+          {stages.map((stage, index) => (
+            <div className="geo-insight-funnel-stage" key={stage.code}>
+              {index > 0 && (
+                <span className="geo-insight-funnel-conversion" aria-label={`从上一阶段转化：${formatRate(stage.conversion_from_previous)}`}>
+                  {formatRate(stage.conversion_from_previous)}
+                </span>
+              )}
+              <span>{stage.label}</span>
+              <strong>{stage.count}</strong>
+              <div className="geo-insight-funnel-track">
+                <span style={{ height: `${stage.count === 0 ? 0 : Math.max(8, (stage.count / maximum) * 100)}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : <NoData description="当前筛选范围暂无转化数据" />}
+    </Card>
+  );
+}
+
+function ContentRankingCard({
+  title, rows, kind, emptyDescription,
+}: {
+  title: string;
+  rows: ContentRow[];
+  kind: 'best' | 'declining' | 'long';
+  emptyDescription?: string;
+}) {
+  const columns: TableColumnsType<ContentRow> = [
+    {
+      title: '发布内容', dataIndex: 'title', ellipsis: { showTitle: false }, render: (value: string, row) => (
+        <Tooltip
+          title={kind === 'declining' && 'basis' in row && row.basis.length > 0
+            ? `${value}；下降依据：${row.basis.map(declineBasisText).join('；')}`
+            : value}
+          trigger={['hover', 'focus']}
+        >
+          <Link className="geo-insight-ranking-text" to={`/publications/${row.publication_record_id}`}>{value}</Link>
+        </Tooltip>
+      ),
+    },
+    {
+      title: '内容平台', dataIndex: 'content_platform', width: 80, ellipsis: { showTitle: false }, render: (value: string) => (
+        <Tooltip title={value} trigger={['hover', 'focus']}><span className="geo-insight-ranking-text" tabIndex={0} aria-label={`内容平台：${value}`}>{value}</span></Tooltip>
+      ),
+    },
+    { title: '观测', dataIndex: 'observation_count', width: 48 },
+    { title: '提及', dataIndex: 'mention_rate', width: 56, render: (value) => <Tooltip title={rateMeta(value)}>{formatRate(value.value)}</Tooltip> },
+    { title: '推荐', dataIndex: 'recommendation_rate', width: 56, render: (value) => <Tooltip title={rateMeta(value)}>{formatRate(value.value)}</Tooltip> },
+    { title: '引用', dataIndex: 'citation_rate', width: 56, render: (value) => <Tooltip title={rateMeta(value)}>{formatRate(value.value)}</Tooltip> },
+  ];
+  if (kind === 'long') {
+    columns.push({ title: '未提及', width: 70, render: (_, row) => 'unmentioned_days' in row ? `${row.unmentioned_days} 天` : '—' });
+  }
+  const titleIcon = kind === 'best'
+    ? <TrophyOutlined className="is-best" />
+    : kind === 'declining' ? <FallOutlined className="is-declining" /> : <WarningOutlined className="is-long" />;
+  return (
+    <section className="geo-insight-ranking-card" aria-label={title}>
+      <h3>{titleIcon}<span>{title}</span></h3>
+      {rows.length ? (
+        <TableRegion label={title}>
+          <Table rowKey="publication_record_id" size="small" pagination={false} dataSource={rows} columns={columns} />
+        </TableRegion>
+      ) : <NoData description={emptyDescription ?? '当前筛选范围暂无符合门槛的内容'} />}
+    </section>
+  );
+}
+
+function CoverageCard({ coverage }: { coverage: GeoInsights['question_coverage'] }) {
+  const platforms = [...new Set(coverage.matrix.map((item) => item.geo_platform))];
+  const groupedCounts = new Map<string, number>();
+  coverage.matrix.forEach((item) => {
+    const key = `${item.status}\u0000${item.geo_platform}`;
+    groupedCounts.set(key, (groupedCounts.get(key) ?? 0) + 1);
+  });
+  return (
+    <Card className="geo-insight-section-card geo-insight-coverage-card" title="搜索问题分析">
+      {platforms.length ? (
+        <TableRegion label="搜索问题覆盖计数">
+          <table className="geo-insight-coverage-matrix" aria-label="覆盖状态与 GEO 平台计数">
+            <thead><tr><th scope="col">覆盖状态</th>{platforms.map((platform) => <th scope="col" key={platform}>{platform}</th>)}<th scope="col">合计</th></tr></thead>
+            <tbody>
+              {coverageStatuses.map(({ status, countKey }) => (
+                <tr key={status} className={`geo-insight-coverage-${status.toLowerCase().replace('_', '-')}`}>
+                  <th scope="row"><StatusTag status={status} /></th>
+                  {platforms.map((platform) => <td key={platform}>{groupedCounts.get(`${status}\u0000${platform}`) ?? 0}</td>)}
+                  <td><strong>{coverage.by_status[countKey]}</strong></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableRegion>
+      ) : <NoData description="当前筛选范围暂无可分析的问题与 GEO 平台组合" />}
+      <ul className="geo-insight-coverage-legend" aria-label="覆盖状态说明">
+        {coverageStatuses.map(({ status, label, description }) => <li key={status} className={`is-${status.toLowerCase().replace('_', '-')}`}><i /><span>{label}：{description}</span></li>)}
+      </ul>
+    </Card>
+  );
+}
+
+function RecommendationList({ rows }: { rows: Recommendation[] }) {
+  return (
+    <div className="geo-insight-recommendation-list">
+      {rows.map((item, index) => (
+        <article key={`${item.rule_code}-${index}`}>
+          <span className="geo-insight-recommendation-index">{index + 1}</span>
+          <div>
+            <strong>{item.title}</strong>
+            <p title={`${item.basis_text} · 影响 ${item.impact_relationship_count} 条关系 · 规则 ${item.rule_code}`}>{item.basis_text} <small>· 影响 {item.impact_relationship_count} 条关系 · 规则 {item.rule_code}</small></p>
+          </div>
+          <span className="geo-insight-recommendation-actions">
+            {item.detail_path && <Link to={item.detail_path}>查看详情</Link>}
+            <StatusTag status={item.priority} />
+          </span>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function RecommendationsCard({ rows, printMode }: { rows: Recommendation[]; printMode: boolean }) {
+  const [open, setOpen] = useState(false);
+  const visibleRows = printMode ? rows : rows.slice(0, 5);
+  return (
+    <Card
+      className="geo-insight-section-card geo-insight-recommendations-card"
+      title="优先优化建议"
+      extra={!printMode && rows.length > 5 ? <Button type="link" onClick={() => setOpen(true)}>查看全部建议</Button> : undefined}
+    >
+      {visibleRows.length ? <RecommendationList rows={visibleRows} /> : <NoData description="当前筛选范围暂无确定性优化建议" />}
+      <Modal title={`全部优化建议（${rows.length}）`} open={open} onCancel={() => setOpen(false)} footer={null} width={880}>
+        <RecommendationList rows={rows} />
+      </Modal>
+    </Card>
+  );
+}
+
+function DataQualityAlert({ data, printMode }: { data: GeoInsights; printMode: boolean }) {
+  const { data_quality: quality } = data;
+  const hasWarning = quality.excluded_incomplete_observation_count > 0
+    || quality.excluded_incomplete_relation_count > 0
+    || quality.unavailable_sections.length > 0;
+  const summary = `数据质量：完整 ${quality.eligible_observation_count} 条 · 排除观测 ${quality.excluded_incomplete_observation_count} 条 · 排除关系 ${quality.excluded_incomplete_relation_count} 条`;
+  if (!printMode) {
+    const details = quality.unavailable_sections.map((section) => `${section.code}：${section.message}`).join('；');
+    return (
+      <Tooltip title={`${summary}${details ? `；${details}` : ''}`}>
+        <span className={`geo-insight-quality-chip${hasWarning ? ' is-warning' : ''}`} role="status" aria-label={`${summary}${details ? `；${details}` : ''}`}>
+          <ExclamationCircleOutlined />
+          <span>完整 {quality.eligible_observation_count} 条</span>
+          {quality.unavailable_sections.length > 0 && <span>· {quality.unavailable_sections.length} 项限制</span>}
+        </span>
+      </Tooltip>
+    );
+  }
+  return (
+    <Alert
+      className="geo-insight-quality"
+      type={hasWarning ? 'warning' : 'info'}
+      showIcon
+      title={(
+        <div className="geo-insight-quality-summary">
+          <span>{summary}</span>
+          {quality.unavailable_sections.length > 0 && (
+            <details className="geo-insight-quality-details" open={printMode}>
+              <summary>{quality.unavailable_sections.length} 项分析限制</summary>
+              <ul>
+                {quality.unavailable_sections.map((section) => <li key={section.code}><code>{section.code}</code><span>{section.message}</span></li>)}
+              </ul>
+            </details>
+          )}
+        </div>
+      )}
+    />
+  );
+}
+
+function InsightSections({ data, printMode }: { data: GeoInsights; printMode: boolean }) {
+  const unavailable = new Map(data.data_quality.unavailable_sections.map((section) => [section.code, section.message]));
+  if (data.data_quality.eligible_observation_count === 0) {
+    return (
+      <>
+        {printMode && <DataQualityAlert data={data} printMode />}
+        <Card><NoData description="当前筛选范围没有完整人工观测，无法生成洞察。调整筛选或补充真实观测后重试。" /></Card>
+      </>
+    );
+  }
+  return (
+    <>
+      {printMode && <DataQualityAlert data={data} printMode />}
+      <Card
+        className="geo-insight-parent-card geo-insight-trend-panel"
+        title="GEO 指标趋势"
+        extra={<Typography.Text type="secondary">对比期：{data.period.previous.date_from} – {data.period.previous.date_to}</Typography.Text>}
+      >
+        <section className="geo-insight-trend-grid" aria-label="GEO 指标趋势">
+          <TrendCard kind="rate" label="提及率" color="var(--geo-trend-mention)" trend={data.trends.mention_rate} />
+          <TrendCard kind="rate" label="推荐率" color="var(--geo-trend-recommendation)" trend={data.trends.recommendation_rate} />
+          <TrendCard kind="rate" label="引用率" color="var(--geo-trend-citation)" trend={data.trends.citation_rate} />
+          <TrendCard kind="rate" label="结果准确率" color="var(--geo-trend-accuracy)" trend={data.trends.accuracy_rate} />
+          <TrendCard kind="count" label="未推荐内容数量" color="var(--geo-trend-missing)" trend={data.trends.not_recommended_content_count} />
+        </section>
+      </Card>
+      <section className="geo-insight-two-column">
+        <PlatformPerformanceCard rows={data.platform_performance} unavailable={unavailable.get('NO_GEO_PLATFORMS')} />
+        <FunnelCard stages={data.funnel} />
+      </section>
+      <Card className="geo-insight-parent-card geo-insight-ranking-panel" title="内容表现排行">
+        <section className="geo-insight-ranking-grid" aria-label="内容表现排行">
+          <ContentRankingCard title="表现最佳内容 Top 5" kind="best" rows={data.content_rankings.best} />
+          <ContentRankingCard title="表现下降内容 Top 5" kind="declining" rows={data.content_rankings.declining} emptyDescription={unavailable.get('NO_COMPLETE_PREVIOUS_OBSERVATIONS')} />
+          <ContentRankingCard title="长期未获得提及的内容 Top 5" kind="long" rows={data.content_rankings.long_unmentioned} emptyDescription={unavailable.get('LONG_UNMENTIONED_PERIOD_TOO_SHORT')} />
+        </section>
+      </Card>
+      <section className="geo-insight-two-column geo-insight-bottom-grid">
+        <CoverageCard coverage={data.question_coverage} />
+        <RecommendationsCard rows={data.recommendations} printMode={printMode} />
+      </section>
+    </>
+  );
+}
+
+function FilterPanel({
+  filters, options, collapsed, loading, onChange, onPeriodChange, onReset, onToggle,
+}: {
+  filters: GeoInsightQuery;
+  options?: FilterOptions;
+  collapsed: boolean;
+  loading: boolean;
+  onChange: (key: keyof GeoInsightQuery, value: string | undefined) => void;
+  onPeriodChange: (dateFrom: string, dateTo: string) => void;
+  onReset: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <Card
+      className="geo-filter-card geo-insight-filter-card"
+      size="small"
+      title="分析筛选器"
+      extra={<Button type="text" aria-label={collapsed ? '展开筛选' : '收起筛选'} icon={collapsed ? <DownOutlined /> : <UpOutlined />} onClick={onToggle}>{collapsed ? '展开' : '收起'}</Button>}
+    >
+      {!collapsed ? (
+        <div className="geo-insight-filter-grid" role="search" aria-label="分析洞察筛选">
+          <div className="geo-insight-filter-field geo-insight-period-field">
+            <span>时间范围</span>
+            <DatePicker.RangePicker
+              aria-label="时间范围"
+              allowClear={false}
+              format="M.D"
+              separator="–"
+              prefix={<span>近 {dayjs(filters.date_to).diff(dayjs(filters.date_from), 'day') + 1} 天</span>}
+              value={filters.date_from && filters.date_to ? [dayjs(filters.date_from), dayjs(filters.date_to)] : null}
+              onChange={(range) => {
+                if (!range?.[0] || !range[1]) return;
+                onPeriodChange(range[0].format('YYYY-MM-DD'), range[1].format('YYYY-MM-DD'));
+              }}
+            />
+          </div>
+          <div className="geo-insight-filter-field"><span>内容平台</span><Select aria-label="内容平台" placeholder="全部平台" allowClear showSearch virtual={false} optionFilterProp="label" loading={loading} value={filters.content_platform_id} onChange={(value) => onChange('content_platform_id', value)} options={options?.content_platforms.map((item) => ({ value: item.id, label: item.label }))} /></div>
+          <div className="geo-insight-filter-field"><span>GEO 观测平台</span><Select aria-label="GEO 观测平台" placeholder="全部平台" allowClear showSearch virtual={false} loading={loading} value={filters.geo_platform} onChange={(value) => onChange('geo_platform', value)} options={options?.geo_platforms.map((value) => ({ value, label: value }))} /></div>
+          <div className="geo-insight-filter-field"><span>内容主题</span><Select aria-label="内容主题" placeholder="全部主题" allowClear showSearch virtual={false} loading={loading} value={filters.content_angle} onChange={(value) => onChange('content_angle', value)} options={options?.content_angles.map((value) => ({ value, label: value }))} /></div>
+          <div className="geo-insight-filter-field"><span>发布内容</span><Select aria-label="发布内容" placeholder="全部内容" allowClear showSearch virtual={false} optionFilterProp="label" loading={loading} value={filters.publication_record_id} onChange={(value) => onChange('publication_record_id', value)} options={options?.publications.map((item) => ({ value: item.id, label: `${item.label} · ${item.platform_name}` }))} /></div>
+          <div className="geo-insight-filter-field"><span>搜索问题</span><Select aria-label="搜索问题" placeholder="全部问题" allowClear showSearch virtual={false} optionFilterProp="label" loading={loading} value={filters.query_topic_id} onChange={(value) => onChange('query_topic_id', value)} options={options?.query_topics.map((item) => ({ value: item.id, label: item.label }))} /></div>
+          <Button className="geo-insight-filter-reset" aria-label="重置" onClick={onReset}>重置</Button>
+        </div>
+      ) : <Typography.Text type="secondary">筛选区已折叠，当前 URL 中的全部条件仍统一作用于所有洞察区块。</Typography.Text>}
+    </Card>
+  );
+}
+
+function filterSummary(filters: GeoInsightQuery, options: FilterOptions): DescriptionsProps['items'] {
+  const optionLabel = (items: Schema<'GeoInsightOption'>[], id?: string) => id ? items.find((item) => item.id === id)?.label ?? id : '全部';
+  return [
+    { key: 'period', label: '时间范围', children: `${filters.date_from} 至 ${filters.date_to}` },
+    { key: 'content-platform', label: '内容平台', children: optionLabel(options.content_platforms, filters.content_platform_id) },
+    { key: 'geo-platform', label: 'GEO 平台', children: filters.geo_platform ?? '全部' },
+    { key: 'angle', label: '内容主题', children: filters.content_angle ?? '全部' },
+    { key: 'publication', label: '发布内容', children: filters.publication_record_id ? options.publications.find((item) => item.id === filters.publication_record_id)?.label ?? filters.publication_record_id : '全部' },
+    { key: 'topic', label: '搜索问题', children: optionLabel(options.query_topics, filters.query_topic_id) },
+  ];
+}
+
+function GeoInsightsView({ printMode = false }: { printMode?: boolean }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const defaults = useMemo(() => defaultDates(), []);
+  const filters = geoInsightFiltersFromParams(searchParams, defaults);
+  const collapsed = searchParams.get('filters_collapsed') === 'true';
+  const insights = useQuery(geoInsightsQueryOptions(filters));
+
+  useEffect(() => {
+    if (searchParams.has('date_from') && searchParams.has('date_to')) return;
+    const next = new URLSearchParams(searchParams);
+    if (!next.has('date_from')) next.set('date_from', defaults.date_from!);
+    if (!next.has('date_to')) next.set('date_to', defaults.date_to!);
+    setSearchParams(next, { replace: true });
+  }, [defaults.date_from, defaults.date_to, searchParams, setSearchParams]);
+
+  const updateFilter = (key: keyof GeoInsightQuery, value: string | undefined) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === undefined) next.delete(key); else next.set(key, value);
+    setSearchParams(next);
+  };
+  const updatePeriod = (dateFrom: string, dateTo: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('date_from', dateFrom);
+    next.set('date_to', dateTo);
+    setSearchParams(next);
+  };
+  const reset = () => setSearchParams({ date_from: defaults.date_from!, date_to: defaults.date_to! });
+  const toggleFilters = () => {
+    const next = new URLSearchParams(searchParams);
+    if (collapsed) next.delete('filters_collapsed'); else next.set('filters_collapsed', 'true');
+    setSearchParams(next);
+  };
+  const printParams = new URLSearchParams(searchParams);
+  if (!printParams.has('date_from')) printParams.set('date_from', defaults.date_from!);
+  if (!printParams.has('date_to')) printParams.set('date_to', defaults.date_to!);
+  const printPath = `/observations/insights/print?${printParams.toString()}`;
+
+  return (
+    <div className={`page-stack geo-insights-page${printMode ? ' geo-insights-print' : ''}`}>
+      {printMode ? (
+        <PageHeader
+          title="GEO 分析洞察报告"
+          description="本报告直接呈现同一筛选下的服务端洞察结果。"
+          actions={<Button className="geo-print-action" type="primary" icon={<PrinterOutlined />} onClick={() => window.print()}>打印 / 另存为 PDF</Button>}
+        />
+      ) : (
+        <header className="geo-insight-toolbar">
+          <h1>GEO 分析洞察</h1>
+          <nav className="geo-subnav" aria-label="GEO 观测页面">
+            <NavLink end to="/observations">观测记录</NavLink>
+            <NavLink to="/observations/insights">分析洞察</NavLink>
+          </nav>
+          {insights.data && <DataQualityAlert data={insights.data} printMode={false} />}
+          <Button type="primary" icon={<ExportOutlined />} href={printPath} target="_blank">导出洞察报告</Button>
+        </header>
+      )}
+      {!printMode && (
+        <FilterPanel
+          filters={filters}
+          options={insights.data?.filter_options}
+          collapsed={collapsed}
+          loading={insights.isLoading}
+          onChange={updateFilter}
+          onPeriodChange={updatePeriod}
+          onReset={reset}
+          onToggle={toggleFilters}
+        />
+      )}
+      {printMode && insights.data && (
+        <Card className="geo-insight-print-summary" title="报告范围" extra={`生成于 ${formatDateTime(insights.data.generated_at)}`}>
+          <Descriptions size="small" column={3} items={filterSummary(filters, insights.data.filter_options)} />
+        </Card>
+      )}
+      {insights.isLoading
+        ? <Card><QueryLoading label="正在加载 GEO 分析洞察" /></Card>
+        : insights.error
+          ? <QueryFailure
+              error={insights.error}
+              actions={(
+                <Space wrap>
+                  <Button aria-label="重试" onClick={() => { void insights.refetch(); }}>重试</Button>
+                  <Button aria-label="重置筛选" onClick={reset}>重置筛选</Button>
+                </Space>
+              )}
+            />
+          : insights.data && <InsightSections data={insights.data} printMode={printMode} />}
+    </div>
+  );
+}
+
+export function GeoInsightsPage() {
+  return <GeoInsightsView />;
+}
+
+export function GeoInsightsPrintPage() {
+  return <GeoInsightsView printMode />;
+}

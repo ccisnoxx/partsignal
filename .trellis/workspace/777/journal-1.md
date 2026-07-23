@@ -490,3 +490,40 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: 前端唯一视觉规范固化
+
+**Date**: 2026-07-23
+**Task**: 前端唯一视觉规范固化
+**Branch**: `main`
+
+### Summary
+
+固化 PartSignal 唯一前端视觉规范，建立规范索引并完成 Trellis 归档。
+
+### Main Changes
+
+- 新增 `.trellis/spec/frontend/visual-system.md`，固化视觉权威、页面结构、组件、主题、响应式、可访问性与禁止模式。
+- 更新 `.trellis/spec/frontend/index.md`，加入视觉规范入口与开发前检查。
+- 保留现有 Ant Design、主题、系统字体和共享组件，未修改前端运行时代码或依赖。
+- 定向检索、Markdown 空白检查、范围审计与 Trellis 独立复核均通过；因仅文档变更，未运行前端测试、构建或 E2E。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e90ce4c` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

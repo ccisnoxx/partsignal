@@ -563,3 +563,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 17: 收口历史活动任务
+
+**Date**: 2026-07-23
+**Task**: 收口历史活动任务
+**Branch**: `main`
+
+### Summary
+
+验收对账 4 个历史任务：00-bootstrap-guidelines 因基础规范仍含初始化模板而保持活动；07-17 前端交互密度、07-20 发布管理工作台、07-22 Prompt 管理证据闭合并分别归档。契约检查通过，定向前端测试分别为 2/2、8/8、26/26。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5ef7d34` | (see git log) |
+| `b3bbc6c` | (see git log) |
+| `73ea858` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

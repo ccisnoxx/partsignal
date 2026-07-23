@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 16
+- **Total Sessions**: 17
 - **Last Active**: 2026-07-23
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~565 | Active |
+| `journal-1.md` | ~600 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 17 | 2026-07-23 | 收口历史活动任务 | `5ef7d34`, `b3bbc6c`, `73ea858` | `main` |
 | 16 | 2026-07-23 | 归档首批列表工作台任务 | `23b8e54`, `43fc078`, `62631a3`, `73ea858` | `main` |
 | 15 | 2026-07-23 | 前端唯一视觉规范固化 | `e90ce4c` | `main` |
 | 14 | 2026-07-18 | 内容任务改为产品驱动 | `057f6e9` | `main` |

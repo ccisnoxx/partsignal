@@ -43,6 +43,11 @@ class ContentTask(Base):
             "AND generation_data_classified_at IS NOT NULL)",
             name="ck_content_tasks_generation_data_classification_complete",
         ),
+        Index(
+            "ix_content_tasks_platform_profile_version_created_at",
+            "platform_profile_version_id",
+            "created_at",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     query_topic_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -69,9 +74,7 @@ class ContentTask(Base):
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="RESTRICT"),
     )
-    generation_data_classified_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True)
-    )
+    generation_data_classified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     source_publication_attention_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("publication_attentions.id", ondelete="RESTRICT"),

@@ -10,6 +10,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -26,6 +27,13 @@ class PlatformAccount(Base):
     """不含凭据的平台运营账号标识。"""
 
     __tablename__ = "platform_accounts"
+    __table_args__ = (
+        Index(
+            "ix_platform_accounts_platform_profile_active",
+            "platform_profile_id",
+            "is_active",
+        ),
+    )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     platform_profile_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platform_profiles.id", ondelete="RESTRICT"), nullable=False

@@ -1,21 +1,57 @@
-/** 管理具体平台身份、归类和当前生效规则。 */
-import { DownOutlined, PlusOutlined } from '@ant-design/icons';
+/** 管理具体平台身份、服务端集合筛选、配置状态与关联详情。 */
+import {
+  EllipsisOutlined,
+  ExportOutlined,
+  EyeOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+} from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, App, Button, Card, Dropdown, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography } from 'antd';
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Drawer,
+  Dropdown,
+  Form,
+  Grid,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  type MenuProps,
+} from 'antd';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { queryClient } from '../../app/queryClient';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
-import { platformProfilesQueryOptions, platformProfileVersionsQueryOptions, platformTypesQueryOptions } from '../../shared/api/queryOptions';
+import {
+  platformProfilesQueryOptions,
+  platformProfileVersionsForProfileQueryOptions,
+  platformTypesQueryOptions,
+} from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
-import type { PlatformProfile, Schema } from '../../shared/api/types';
-import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
+import type {
+  PlatformProfile,
+  PlatformProfileExportQuery,
+  PlatformProfileListQuery,
+  Schema,
+} from '../../shared/api/types';
+import { NoData, QueryFailure } from '../../shared/components/AsyncState';
 import { DeletionError } from '../../shared/components/DeletionError';
 import { DirectUpload } from '../../shared/components/DirectUpload';
+import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { PlatformAvatar } from '../../shared/components/PlatformAvatar';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { PlatformDetailPanel } from './PlatformDetailPanel';
 
 type RuleVersion = Schema<'PlatformProfileVersion'>;
 type PlatformLogoSource = 'NONE' | 'UPLOAD' | 'EXTERNAL';
@@ -31,6 +67,30 @@ type PlatformBrandingFormValues = {
 type PlatformCreateFormValues = PlatformBrandingFormValues & { slug: string };
 type PlatformUpdateFormValues = PlatformBrandingFormValues & { expected_revision: number };
 
+const pageSizes = [10, 20, 50] as const;
+const statusOptions: Array<{ value: Schema<'PlatformProfileStatus'>; label: string }> = [
+  { value: 'ENABLED', label: '已启用' },
+  { value: 'DISABLED', label: '已停用' },
+];
+const configurationOptions: Array<{ value: Schema<'PlatformConfigurationStatus'>; label: string }> = [
+  { value: 'COMPLETE', label: '配置完整' },
+  { value: 'INCOMPLETE', label: '配置不完整' },
+];
+const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hour12: false,
+});
+
+function positiveInteger(value: string | null, fallback: number) {
+  if (value === null || !/^[1-9]\d*$/.test(value)) return fallback;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : fallback;
+}
+
+function isOptionValue<T extends string>(value: string | null, options: ReadonlyArray<{ value: T }>): value is T {
+  return options.some((option) => option.value === value);
+}
+
 function platformLogoInput(values: PlatformBrandingFormValues): Schema<'PlatformLogoInput'> | null {
   if (values.logo_source === 'NONE') return null;
   if (values.logo_source === 'EXTERNAL') {
@@ -42,67 +102,306 @@ function platformLogoInput(values: PlatformBrandingFormValues): Schema<'Platform
 }
 
 export function PlatformsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
   const [editProfile, setEditProfile] = useState<PlatformProfile | null>(null);
+  const [rulePlatformId, setRulePlatformId] = useState<string>();
   const [modal, modalContext] = Modal.useModal();
+  const lastDetailTriggerId = useRef<string | null>(null);
+  const screens = Grid.useBreakpoint();
   const { message } = App.useApp();
-  const platforms = useQuery(platformProfilesQueryOptions());
-  const versions = useQuery(platformProfileVersionsQueryOptions());
+
+  const rawStatus = searchParams.get('status');
+  const rawConfigurationStatus = searchParams.get('configuration_status');
+  const rawPage = searchParams.get('page');
+  const rawPageSize = searchParams.get('page_size');
+  const q = searchParams.get('q')?.trim() ?? '';
+  const platformTypeId = searchParams.get('platform_type_id') ?? undefined;
+  const selectedPlatformId = searchParams.get('platform') ?? undefined;
+  const status = isOptionValue(rawStatus, statusOptions) ? rawStatus : undefined;
+  const configurationStatus = isOptionValue(rawConfigurationStatus, configurationOptions) ? rawConfigurationStatus : undefined;
+  const page = positiveInteger(rawPage, 1);
+  const pageSize = pageSizes.includes(Number(rawPageSize) as typeof pageSizes[number])
+    ? Number(rawPageSize) as typeof pageSizes[number]
+    : 20;
+  const invalidView = (rawStatus !== null && !status)
+    || (rawConfigurationStatus !== null && !configurationStatus)
+    || (rawPage !== null && positiveInteger(rawPage, 0) === 0)
+    || (rawPageSize !== null && !pageSizes.includes(Number(rawPageSize) as typeof pageSizes[number]));
+
+  useEffect(() => {
+    if (!invalidView) return;
+    const next = new URLSearchParams(searchParams);
+    if (!isOptionValue(next.get('status'), statusOptions)) next.delete('status');
+    if (!isOptionValue(next.get('configuration_status'), configurationOptions)) next.delete('configuration_status');
+    if (next.has('page') && positiveInteger(next.get('page'), 0) === 0) next.delete('page');
+    if (next.has('page_size') && !pageSizes.includes(Number(next.get('page_size')) as typeof pageSizes[number])) next.delete('page_size');
+    setSearchParams(next, { replace: true });
+  }, [invalidView, searchParams, setSearchParams]);
+
+  const listQuery = useMemo<PlatformProfileListQuery>(() => ({
+    page,
+    page_size: pageSize,
+    ...(q ? { q } : {}),
+    ...(platformTypeId ? { platform_type_id: platformTypeId } : {}),
+    ...(status ? { status } : {}),
+    ...(configurationStatus ? { configuration_status: configurationStatus } : {}),
+  }), [configurationStatus, page, pageSize, platformTypeId, q, status]);
+  const exportQuery = useMemo<PlatformProfileExportQuery>(() => ({
+    ...(q ? { q } : {}),
+    ...(platformTypeId ? { platform_type_id: platformTypeId } : {}),
+    ...(status ? { status } : {}),
+    ...(configurationStatus ? { configuration_status: configurationStatus } : {}),
+  }), [configurationStatus, platformTypeId, q, status]);
+
+  const platforms = useQuery(platformProfilesQueryOptions(listQuery));
+  const versions = useQuery(platformProfileVersionsForProfileQueryOptions(rulePlatformId));
   const platformTypes = useQuery(platformTypesQueryOptions());
+
+  const updateParams = (updates: Record<string, string | undefined>, replace = false) => {
+    const next = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(updates)) {
+      if (!value) next.delete(key); else next.set(key, value);
+    }
+    setSearchParams(next, { replace });
+  };
+  const updateFilter = (updates: Record<string, string | undefined>, replace = false) => updateParams({ ...updates, page: undefined }, replace);
+  const openDetail = (platformId: string, trigger?: HTMLElement | null) => {
+    lastDetailTriggerId.current = trigger ? platformId : null;
+    updateParams({ platform: platformId });
+  };
+  const restoreDetailFocus = () => {
+    if (!lastDetailTriggerId.current) return;
+    document.querySelector<HTMLElement>(`[data-platform-view="${lastDetailTriggerId.current}"]`)?.focus({ preventScroll: true });
+  };
+  const closeDetail = () => {
+    updateParams({ platform: undefined });
+    if (screens.xl) requestAnimationFrame(restoreDetailFocus);
+  };
+  const invalidatePlatform = async (platformId?: string) => {
+    const invalidations = [queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all })];
+    if (platformId) invalidations.push(queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.detail(platformId) }));
+    await Promise.all(invalidations);
+  };
+
   const create = useMutation({
     mutationFn: async (body: Schema<'PlatformProfileCreate'>) => unwrap(await api.POST('/api/v1/platform-profiles', { params: { header: csrfHeader() }, body })),
-    onSuccess: async () => { setCreateOpen(false); await queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }); },
+    onSuccess: async (created) => { setCreateOpen(false); message.success('平台已创建'); await invalidatePlatform(); openDetail(created.id); },
   });
   const updateProfile = useMutation({
     mutationFn: async (body: Schema<'PlatformProfileUpdate'>) => {
       if (!editProfile) throw new Error('未选择平台');
-      return unwrap(await api.PATCH('/api/v1/platform-profiles/{platform_profile_id}', { params: { path: { platform_profile_id: editProfile.id }, header: csrfHeader() }, body }));
+      return unwrap(await api.PATCH('/api/v1/platform-profiles/{platform_profile_id}', {
+        params: { path: { platform_profile_id: editProfile.id }, header: csrfHeader() }, body,
+      }));
     },
-    onSuccess: async () => { setEditProfile(null); message.success('平台身份与归类已保存'); await queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }); },
+    onSuccess: async (saved) => { setEditProfile(null); message.success('平台身份与归类已保存'); await invalidatePlatform(saved.id); },
   });
   const activate = useMutation({
     mutationFn: async (version: RuleVersion) => unwrap(await api.POST('/api/v1/platform-profile-versions/{platform_profile_version_id}/activate', {
       params: { path: { platform_profile_version_id: version.id }, header: csrfHeader() },
       body: { expected_revision: version.revision, comment: '选择为平台当前规则' },
     })),
-    onSuccess: async () => { message.success('平台当前规则已更新'); await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }),
+    onSuccess: async (saved) => { message.success('平台当前规则已更新'); await Promise.all([
+      invalidatePlatform(saved.platform_profile_id),
       queryClient.invalidateQueries({ queryKey: queryKeys.platformProfileVersions.all }),
     ]); },
   });
-  const removeProfile = useMutation({
-    mutationFn: async (profile: PlatformProfile) => ensureSuccess(await api.DELETE('/api/v1/platform-profiles/{platform_profile_id}', { params: { path: { platform_profile_id: profile.id }, header: csrfHeader() } })),
-    onSuccess: async () => { message.success('平台已删除'); await queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }); },
+  const toggleProfile = useMutation({
+    mutationFn: async (profile: PlatformProfile) => {
+      const path = profile.is_active
+        ? '/api/v1/platform-profiles/{platform_profile_id}/disable' as const
+        : '/api/v1/platform-profiles/{platform_profile_id}/enable' as const;
+      return unwrap(await api.POST(path, {
+        params: { path: { platform_profile_id: profile.id }, header: csrfHeader() },
+        body: { expected_revision: profile.revision },
+      }));
+    },
+    onSuccess: async (saved) => { message.success(saved.is_active ? '平台已启用' : '平台已停用'); await invalidatePlatform(saved.id); },
   });
-  const error = create.error ?? updateProfile.error ?? activate.error;
-  const queryError = platforms.error ?? versions.error;
-  const platformItems = platforms.data?.items ?? [];
-  const versionItems = versions.data?.items ?? [];
-  const platformTypeOptions = platformTypes.data?.items.map((item) => ({ value: item.id, label: item.name })) ?? [];
-  const confirmDelete = (profile: PlatformProfile) => modal.confirm({ title: `物理删除平台“${profile.name}”？`, content: '必须先清理全部规则版本和平台账号；当前 Prompt 会一并删除，历史作业不受影响。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => removeProfile.mutate(profile) });
+  const removeProfile = useMutation({
+    mutationFn: async (profile: PlatformProfile) => ensureSuccess(await api.DELETE('/api/v1/platform-profiles/{platform_profile_id}', {
+      params: { path: { platform_profile_id: profile.id }, header: csrfHeader() },
+    })),
+    onSuccess: async (_, profile) => {
+      message.success('平台已删除');
+      queryClient.removeQueries({ queryKey: queryKeys.platformProfiles.detail(profile.id) });
+      if (selectedPlatformId === profile.id) closeDetail();
+      await invalidatePlatform();
+    },
+  });
+  const exportList = useMutation({
+    mutationFn: async () => {
+      const result = await api.GET('/api/v1/platform-profiles/export', { params: { query: exportQuery } });
+      const csv = unwrap(result);
+      const disposition = result.response.headers.get('Content-Disposition');
+      const encodedName = disposition?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+      const plainName = disposition?.match(/filename="?([^";]+)"?/i)?.[1];
+      const fileName = encodedName ? decodeURIComponent(encodedName) : plainName ?? 'platform-profiles.csv';
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileName;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    },
+    onSuccess: () => message.success('平台列表已导出'),
+  });
 
-  return <div className="page-stack">
+  const platformItems = platforms.data?.items ?? [];
+  const platformTypeOptions = platformTypes.data?.items.map((item) => ({ value: item.id, label: item.name })) ?? [];
+  const queryError = platforms.error ?? platformTypes.error;
+  const mutationError = create.error ?? updateProfile.error ?? activate.error ?? toggleProfile.error ?? exportList.error;
+  const hasFilters = !!(q || platformTypeId || status || configurationStatus);
+
+  const confirmDelete = (profile: PlatformProfile) => modal.confirm({
+    title: `物理删除平台“${profile.name}”？`,
+    content: '必须先清理全部规则版本和平台账号；当前 Prompt 会一并删除，历史记录不会被改写。若存在引用，服务端会明确拒绝。',
+    okText: '删除', cancelText: '取消', okButtonProps: { danger: true },
+    onOk: () => removeProfile.mutateAsync(profile),
+  });
+  const confirmToggle = (profile: PlatformProfile) => modal.confirm({
+    title: `${profile.is_active ? '停用' : '启用'}平台“${profile.name}”？`,
+    content: profile.is_active
+      ? '停用后不能新建关联任务、账号或发布记录；既有配置和历史保持不变。'
+      : '启用不会自动补齐规则或 Prompt，配置完整性保持独立。',
+    okText: profile.is_active ? '停用平台' : '启用平台', cancelText: '取消',
+    okButtonProps: profile.is_active ? { danger: true } : undefined,
+    onOk: () => toggleProfile.mutateAsync(profile),
+  });
+
+  const rowMenu = (profile: PlatformProfile): MenuProps => {
+    return {
+      items: [
+        { key: 'edit', label: '编辑平台' },
+        { key: 'manage-rules', label: <Link to={`/configuration/platform-rules?platform_profile_id=${profile.id}`}>管理规则</Link> },
+        { type: 'divider' },
+        { key: 'toggle', label: profile.is_active ? '停用平台' : '启用平台', danger: profile.is_active },
+        { key: 'delete', label: '删除平台', danger: true },
+      ],
+      onClick: ({ key }) => {
+        if (key === 'edit') setEditProfile(profile);
+        else if (key === 'toggle') confirmToggle(profile);
+        else if (key === 'delete') confirmDelete(profile);
+      },
+    };
+  };
+
+  const summary = platforms.data?.summary;
+  const metricItems = [
+    { key: 'total', label: '平台总数', value: summary?.platform_total, tone: 'data' },
+    { key: 'enabled', label: '已启用平台', value: summary?.enabled_total, tone: 'success' },
+    { key: 'prompt', label: '缺少 Prompt', value: summary?.missing_prompt_total, tone: 'warning' },
+    { key: 'rule', label: '缺少有效规则', value: summary?.missing_active_rule_total, tone: 'danger' },
+    { key: 'complete', label: '配置完整平台', value: summary?.configuration_complete_total, tone: 'success' },
+  ] as const;
+
+  const detail = selectedPlatformId ? <PlatformDetailPanel
+    platformId={selectedPlatformId}
+    onClose={closeDetail}
+    onEdit={setEditProfile}
+    onToggle={confirmToggle}
+    onDelete={confirmDelete}
+    toggleLoading={toggleProfile.isPending}
+    deleteLoading={removeProfile.isPending}
+  /> : null;
+
+  return <div className="page-stack platform-management-page">
     {modalContext}
-    <PageHeader eyebrow="配置治理" title="平台管理" description="维护具体平台身份、Logo、官网、允许域名和当前生效规则。" actions={<Button type="primary" icon={<PlusOutlined />} aria-haspopup="dialog" aria-expanded={createOpen} onClick={() => setCreateOpen(true)}>新增平台</Button>} />
-    {error && <Alert role="alert" type="error" showIcon message={errorMessage(error)} />}
+    <PageHeader
+      eyebrow="平台治理"
+      title="平台管理"
+      description="管理具体内容平台、所属类型、官网、允许域名及配置完整性。"
+      actions={<Button type="primary" icon={<PlusOutlined />} aria-haspopup="dialog" aria-expanded={createOpen} onClick={() => setCreateOpen(true)}>新增平台</Button>}
+    />
+    {mutationError && <Alert role="alert" type="error" showIcon title={errorMessage(mutationError)} />}
     {removeProfile.error && <DeletionError error={removeProfile.error} />}
-    <Card className="collection-panel">{platforms.isLoading || versions.isLoading ? <QueryLoading label="正在加载平台" /> : queryError ? <QueryFailure error={queryError} onRetry={() => { void platforms.refetch(); void versions.refetch(); }} /> : platformItems.length === 0 ? <NoData description="暂无具体平台" /> : <TableRegion label="平台列表"><Table<PlatformProfile> rowKey="id" dataSource={platformItems} sticky={{ offsetHeader: 72 }} scroll={{ x: 1180 }} columns={[
-      { title: '平台', width: 190, render: (_, profile) => <div className="platform-identity-cell"><PlatformAvatar name={profile.name} logo={profile.logo} /><span><strong>{profile.name}</strong><small>{profile.logo?.source === 'UPLOAD' ? '上传 Logo' : profile.logo?.source === 'EXTERNAL' ? '外部 Logo' : '未设置 Logo'}</small></span></div> },
-      { title: '唯一标识（slug）', dataIndex: 'slug', width: 170, render: (value) => <span className="data-code">{value}</span> },
-      { title: '平台官网', dataIndex: 'website_url', width: 210, render: (value: string | null) => value ? <a className="task-cell-ellipsis" href={value} target="_blank" rel="noreferrer" title={value}>{value}</a> : '—' },
-      { title: '允许域名', dataIndex: 'allowed_domains', render: (items: string[]) => items.join(', ') },
-      { title: '当前规则', width: 250, render: (_, profile) => {
-        const drafts = versionItems.filter((version) => version.platform_profile_id === profile.id && version.status === 'DRAFT');
-        const options = [
-          ...(profile.active_version ? [{ value: profile.active_version.id, label: `V${profile.active_version.version} · 当前 ACTIVE`, disabled: true }] : []),
-          ...drafts.map((version) => ({ value: version.id, label: `V${version.version} · DRAFT` })),
-        ];
-        if (drafts.length === 0) return <Space wrap>{profile.active_version ? <Space><span>V{profile.active_version.version}</span><StatusTag status={profile.active_version.status} /></Space> : <Tag color="warning">无有效规则</Tag>}<Link to="/configuration/platform-rules">管理规则</Link></Space>;
-        return <Space wrap style={{ width: '100%' }}><Select aria-label={`选择 ${profile.name} 当前规则`} value={profile.active_version?.id} placeholder="选择规则草稿" options={options} loading={activate.isPending} onChange={(versionId) => { const version = drafts.find((item) => item.id === versionId); if (version) activate.mutate(version); }} style={{ width: 180, maxWidth: '100%' }} /><Link to="/configuration/platform-rules">管理规则</Link></Space>;
-      } },
-      { title: 'Prompt', width: 120, render: (_, profile) => profile.prompt_configured ? <Tag color="success">已配置</Tag> : <Tag>未配置 Prompt</Tag> },
-      { title: '操作', fixed: 'right', width: 200, render: (_, profile) => <Space><Button size="small" aria-label={`编辑平台：${profile.name}`} onClick={() => setEditProfile(profile)}>编辑平台</Button><Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除平台', danger: true }], onClick: () => confirmDelete(profile) }}><Button size="small" aria-label={`更多操作：${profile.name}`} loading={removeProfile.isPending && removeProfile.variables?.id === profile.id}>更多 <DownOutlined /></Button></Dropdown></Space> },
-    ]} /></TableRegion>}</Card>
+
+    <div className={`platform-management-workspace${selectedPlatformId && screens.xl ? ' has-detail' : ''}`}>
+      <main className="platform-management-main">
+        <section className="platform-metric-grid" aria-label="平台实时统计">
+          {metricItems.map((item) => <MetricTile key={item.key} label={item.label} value={item.value ?? '—'} meta="暂无历史基线" tone={item.tone} />)}
+        </section>
+
+        <Card className="platform-filter-panel">
+          <div className="platform-filter-grid" role="search" aria-label="平台筛选">
+            <label className="platform-filter-field">
+              <span>关键词</span>
+              <Input.Search
+                key={q}
+                allowClear
+                defaultValue={q}
+                maxLength={200}
+                aria-label="搜索平台名称或类型"
+                prefix={<SearchOutlined />}
+                placeholder="搜索平台名称或类型"
+                enterButton={false}
+                onSearch={(value) => updateFilter({ q: value.trim() || undefined }, true)}
+              />
+            </label>
+            <label className="platform-filter-field"><span>平台类型</span><Select allowClear aria-label="筛选平台类型" placeholder="全部类型" value={platformTypeId} options={platformTypeOptions} onChange={(value) => updateFilter({ platform_type_id: value })} /></label>
+            <label className="platform-filter-field"><span>启用状态</span><Select allowClear aria-label="筛选平台状态" placeholder="全部状态" value={status} options={statusOptions} onChange={(value) => updateFilter({ status: value })} /></label>
+            <label className="platform-filter-field"><span>配置完整性</span><Select allowClear aria-label="筛选配置完整性" placeholder="全部状态" value={configurationStatus} options={configurationOptions} onChange={(value) => updateFilter({ configuration_status: value })} /></label>
+            <Button icon={<ReloadOutlined />} disabled={!hasFilters} onClick={() => updateFilter({ q: undefined, platform_type_id: undefined, status: undefined, configuration_status: undefined })}>重置</Button>
+            <span className="platform-filter-spacer" />
+            <Typography.Text type="secondary">共 {platforms.data?.total ?? '—'} 个平台</Typography.Text>
+            <Button icon={<ExportOutlined />} loading={exportList.isPending} onClick={() => exportList.mutate()}>导出列表</Button>
+          </div>
+        </Card>
+
+        <Card className="platform-table-panel">
+          {queryError ? <QueryFailure error={queryError} onRetry={() => { void platforms.refetch(); void platformTypes.refetch(); }} /> : <TableRegion label="平台列表">
+            <Table<PlatformProfile>
+              rowKey="id"
+              loading={{ spinning: platforms.isLoading || platformTypes.isLoading, description: '正在加载平台列表' }}
+              dataSource={platformItems}
+              scroll={{ x: 1020, y: 'calc(100dvh - 473px)' }}
+              locale={{ emptyText: <NoData description={hasFilters ? '没有符合当前筛选条件的平台' : '暂无具体平台'} /> }}
+              rowClassName={(profile) => profile.id === selectedPlatformId ? 'platform-row-selected' : ''}
+              pagination={{
+                current: page,
+                pageSize,
+                total: platforms.data?.total ?? 0,
+                showSizeChanger: true,
+                pageSizeOptions: [...pageSizes],
+                showQuickJumper: true,
+                responsive: true,
+                onChange: (nextPage, nextPageSize) => updateParams({
+                  page: nextPageSize !== pageSize || nextPage === 1 ? undefined : String(nextPage),
+                  page_size: nextPageSize === 20 ? undefined : String(nextPageSize),
+                }),
+              }}
+              columns={[
+                { title: '平台名称', width: 115, render: (_, profile) => <div className="platform-identity-cell"><PlatformAvatar name={profile.name} logo={profile.logo} size={26} /><strong>{profile.name}</strong></div> },
+                { title: '所属平台类型', width: 100, render: (_, profile) => profile.platform_type?.name ?? '未归类' },
+                { title: '官方网站', dataIndex: 'website_url', width: 110, render: (value: string | null) => value ? <a className="platform-table-link" href={value} target="_blank" rel="noreferrer" title={value}>{value}</a> : '—' },
+                { title: '允许域名（数量）', dataIndex: 'allowed_domains', width: 125, render: (items: string[]) => items.length ? <span title={items.join('、')}>{items[0]}{items.length > 1 ? ` 等 ${items.length} 个` : ''}</span> : '—' },
+                { title: '状态', width: 72, render: (_, profile) => <StatusTag compact status={profile.is_active ? 'ENABLED' : 'DISABLED'} /> },
+                { title: '当前规则版本', width: 110, render: (_, profile) => {
+                  const selectorOpen = rulePlatformId === profile.id;
+                  const drafts = selectorOpen
+                    ? (versions.data?.items ?? []).filter((version) => version.status === 'DRAFT')
+                    : [];
+                  return <Select variant="borderless" size="small" aria-label={`选择 ${profile.name} 当前规则`} value={profile.active_version?.id} placeholder={<Tag color="error">无有效规则</Tag>} loading={activate.isPending || (selectorOpen && versions.isFetching)} options={[
+                    ...(profile.active_version ? [{ value: profile.active_version.id, label: `V${profile.active_version.version} · 当前`, disabled: true }] : []),
+                    ...drafts.map((version) => ({ value: version.id, label: `V${version.version} · DRAFT` })),
+                  ]} notFoundContent={versions.error ? '规则版本加载失败' : '暂无规则草稿'} onOpenChange={(open) => setRulePlatformId(open ? profile.id : undefined)} onChange={(versionId) => { const version = drafts.find((item) => item.id === versionId); if (version) activate.mutate(version); }} style={{ width: '100%' }} />;
+                } },
+                { title: 'Prompt 配置状态', width: 108, render: (_, profile) => profile.prompt_configured ? <Tag color="success">配置完整</Tag> : <Tag color="warning">缺少 Prompt</Tag> },
+                { title: '发布账号数量', dataIndex: 'platform_account_count', width: 86 },
+                { title: '更新时间', dataIndex: 'updated_at', width: 124, render: (value: string | null) => value ? <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> : '—' },
+                { title: '操作', fixed: 'right', width: 70, render: (_, profile) => <Space size={4}><Button data-platform-view={profile.id} type="text" size="small" aria-label={`查看平台：${profile.name}`} icon={<EyeOutlined />} onClick={(event) => openDetail(profile.id, event.currentTarget)} /><Dropdown trigger={['click']} menu={rowMenu(profile)}><Button type="text" size="small" aria-label={`更多操作：${profile.name}`} icon={<EllipsisOutlined />} loading={(toggleProfile.isPending || removeProfile.isPending) && (toggleProfile.variables?.id === profile.id || removeProfile.variables?.id === profile.id)} /></Dropdown></Space> },
+              ]}
+            />
+          </TableRegion>}
+        </Card>
+      </main>
+      {selectedPlatformId && screens.xl && detail}
+    </div>
+
+    <Drawer className="platform-detail-drawer" open={!!selectedPlatformId && !screens.xl} onClose={closeDetail} afterOpenChange={(open) => {
+      if (!open) requestAnimationFrame(() => requestAnimationFrame(restoreDetailFocus));
+    }} closable={false} size="min(100vw, 420px)">{detail}</Drawer>
     <Modal title="新增平台" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null} width={640} destroyOnHidden><PlatformForm typeOptions={platformTypeOptions} loading={create.isPending} onSubmit={(values) => create.mutate(values)} /></Modal>
     <Modal title={`编辑 ${editProfile?.name ?? ''} 的平台信息`} open={!!editProfile} onCancel={() => setEditProfile(null)} footer={null} width={640} destroyOnHidden>{editProfile && <PlatformIdentityForm profile={editProfile} typeOptions={platformTypeOptions} loading={updateProfile.isPending} onSubmit={(values) => updateProfile.mutate(values)} />}</Modal>
   </div>;
@@ -122,7 +421,7 @@ function PlatformBrandingFields() {
   const logoSource = Form.useWatch('logo_source', form);
   const logoFileId = Form.useWatch('logo_file_id', form);
   return <div className="platform-branding-fields">
-    <Form.Item name="website_url" label="平台官网" rules={[{ type: 'url', message: '请输入完整的 http(s) URL' }]}><Input type="url" placeholder="https://platform.example.com" /></Form.Item>
+    <Form.Item name="website_url" label="官方网站" rules={[{ type: 'url', message: '请输入完整的 http(s) URL' }]}><Input type="url" placeholder="https://platform.example.com" /></Form.Item>
     <Form.Item name="logo_source" label="Logo 来源" rules={[{ required: true }]}><Select onChange={(source: PlatformLogoSource) => {
       if (source !== 'UPLOAD') form.setFieldValue('logo_file_id', undefined);
       if (source !== 'EXTERNAL') form.setFieldValue('logo_external_url', undefined);

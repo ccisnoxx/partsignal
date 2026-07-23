@@ -14,6 +14,7 @@ from app.schemas.configuration import (
     PlatformLogoExternalInput,
     PlatformLogoUploadInput,
     PlatformProfileCreate,
+    PlatformProfileUpdate,
 )
 from app.schemas.geo_files import UploadIntentCreate
 from app.services.file_records import create_upload_intent, platform_logo_storage_values
@@ -104,6 +105,52 @@ def test_platform_logo_input_rejects_mixed_sources() -> None:
                     "url": "https://cdn.example.invalid/logo.png",
                 },
             }
+        )
+
+
+def test_platform_profile_create_and_update_share_normalization() -> None:
+    """创建与更新共用名称、官网和 IDNA 域名规范化边界。"""
+    platform_type_id = uuid.uuid4()
+    created = PlatformProfileCreate(
+        name="  工程师社区  ",
+        slug="engineer-community",
+        allowed_domains=["例子.测试."],
+        platform_type_id=platform_type_id,
+        website_url="https://example.invalid",
+    )
+    updated = PlatformProfileUpdate(
+        expected_revision=0,
+        name="  工程师社区  ",
+        allowed_domains=["例子.测试."],
+        platform_type_id=platform_type_id,
+        website_url="https://example.invalid",
+        logo=None,
+    )
+    assert created.name == updated.name == "工程师社区"
+    assert created.allowed_domains == updated.allowed_domains == ["xn--fsqu00a.xn--0zwm56d"]
+    assert str(created.website_url) == str(updated.website_url) == "https://example.invalid/"
+
+
+@pytest.mark.parametrize(
+    "domains",
+    [
+        ["EXAMPLE.invalid.", "example.invalid"],
+        ["https://example.invalid"],
+        ["example.invalid:443"],
+        ["*.example.invalid"],
+        ["-invalid.example"],
+    ],
+)
+def test_platform_profile_domain_validation_rejects_ambiguous_hosts(
+    domains: list[str],
+) -> None:
+    """规范化后重复或带非主机组成部分的允许域名必须失败。"""
+    with pytest.raises(ValidationError):
+        PlatformProfileCreate(
+            name="工程师社区",
+            slug="engineer-community",
+            allowed_domains=domains,
+            platform_type_id=uuid.uuid4(),
         )
 
 

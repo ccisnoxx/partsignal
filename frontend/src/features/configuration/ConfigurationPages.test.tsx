@@ -372,6 +372,52 @@ test('独立规则页只展示真实版本并支持创建和编辑草稿', async
   ));
 }, 30_000);
 
+test('规则草稿保护未保存输入并聚焦首个校验错误', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(<PlatformRulesPage />, ['/configuration/platform-rules?platform_profile_id=profile-ready&version_id=version-2']);
+  await user.click(await screen.findByRole('button', { name: /创建规则草稿/ }));
+  const createDialog = await findRcDialog('新增规则草稿');
+  const targetAudience = within(createDialog).getByRole('textbox', { name: '目标受众' });
+  await user.type(targetAudience, '临时受众');
+
+  const beforeUnload = new Event('beforeunload', { cancelable: true });
+  window.dispatchEvent(beforeUnload);
+  expect(beforeUnload.defaultPrevented).toBe(true);
+
+  await user.click(within(createDialog).getByRole('button', { name: /取\s*消/ }));
+  const confirmTitle = await screen.findByText('放弃未保存的规则草稿？', { selector: '.ant-modal-confirm-title' });
+  const confirm = confirmTitle.closest<HTMLElement>('[role="dialog"]');
+  expect(confirm).not.toBeNull();
+  await user.click(within(confirm!).getByRole('button', { name: '继续编辑' }));
+  expect(targetAudience).toHaveValue('临时受众');
+
+  await user.clear(targetAudience);
+  await user.click(within(createDialog).getByRole('button', { name: '创建草稿版本' }));
+  await waitFor(() => expect(targetAudience).toHaveFocus());
+});
+
+test('规则保存失败时保留草稿并聚焦就地错误', async () => {
+  const user = userEvent.setup();
+  apiMocks.PATCH.mockResolvedValueOnce({
+    error: { error: { code: 'RULE_SAVE_FAILED', message: '规则服务暂不可用' } },
+    response: new Response(null, { status: 503 }),
+  });
+  renderWithQuery(<PlatformRulesPage />, ['/configuration/platform-rules?platform_profile_id=profile-ready&version_id=version-2']);
+  await user.click(await screen.findByRole('button', { name: '更多操作：规则版本 V2' }));
+  await user.click(await screen.findByRole('menuitem', { name: '编辑草稿' }));
+  const editDialog = await findRcDialog('编辑 工程师社区 V2 草稿');
+  const bodyMax = within(editDialog).getByRole('spinbutton', { name: '正文最长' });
+  await user.clear(bodyMax);
+  await user.type(bodyMax, '7000');
+  await user.click(within(editDialog).getByRole('button', { name: '保存草稿' }));
+  const errorTitle = await screen.findByText('规则草稿保存失败');
+  const alert = errorTitle.closest<HTMLElement>('[role="alert"]');
+  expect(alert).not.toBeNull();
+  expect(alert?.parentElement).toHaveFocus();
+  expect(bodyMax).toHaveValue('7000');
+  expect(screen.getByText('保存失败，修改仍保留')).toBeInTheDocument();
+});
+
 test('规则工作台展示真实详情、互斥影响、字段差异并按 revision 激活', async () => {
   const user = userEvent.setup();
   renderWithQuery(<PlatformRulesPage />, ['/configuration/platform-rules?platform_profile_id=profile-ready&version_id=version-2']);
@@ -468,6 +514,9 @@ test('平台 Prompt 按 revision 保存并在标签切换前保护本地草稿',
   expect(editor).toHaveValue('仅使用已批准事实。');
   await user.clear(editor);
   await user.type(editor, '更新后的平台 Prompt。');
+  const beforeUnload = new Event('beforeunload', { cancelable: true });
+  window.dispatchEvent(beforeUnload);
+  expect(beforeUnload.defaultPrevented).toBe(true);
   await user.click(screen.getByRole('tab', { name: '全局自然化 Prompt' }));
   const dialog = await findRcDialog('放弃未保存的 Prompt 修改？');
   await user.click(within(dialog).getByRole('button', { name: '继续编辑' }));

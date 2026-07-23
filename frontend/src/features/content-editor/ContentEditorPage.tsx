@@ -30,8 +30,8 @@ import {
 } from 'antd';
 import DOMPurify from 'dompurify';
 import { marked } from 'marked';
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
@@ -239,13 +239,26 @@ function DiffPanel({ review }: { review: ReviewContext }) {
 export function ContentEditorPage() {
   const { contentVersionId = '' } = useParams();
   const { message } = App.useApp();
+  const navigate = useNavigate();
   const [action, setAction] = useState<ReviewAction>();
+  const [revisionDirty, setRevisionDirty] = useState(false);
+  const revisionDirtyRef = useRef(false);
+  const [modal, modalContext] = Modal.useModal();
   const [queueOpen, setQueueOpen] = useState(() => window.matchMedia('(min-width: 769px)').matches);
   useEffect(() => {
     const media = window.matchMedia('(min-width: 769px)');
     const syncQueueDisclosure = () => setQueueOpen(media.matches);
     media.addEventListener('change', syncQueueDisclosure);
     return () => media.removeEventListener('change', syncQueueDisclosure);
+  }, []);
+  useEffect(() => {
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!revisionDirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
   }, []);
   const context = useQuery({
     queryKey: queryKeys.contentVersions.review(contentVersionId),
@@ -275,6 +288,8 @@ export function ContentEditorPage() {
       body,
     })),
     onSuccess: async (created) => {
+      revisionDirtyRef.current = false;
+      setRevisionDirty(false);
       await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.versions(created.task_id) });
       window.location.assign(`/content/${created.id}`);
     },
@@ -305,10 +320,29 @@ export function ContentEditorPage() {
       ]);
     },
   });
-  if (context.isLoading) return <QueryLoading label="正在加载内容审核上下文" />;
+  const setRevisionDirtyState = (dirty: boolean) => {
+    revisionDirtyRef.current = dirty;
+    setRevisionDirty(dirty);
+  };
+  const handleWorkspaceNavigation = (event: ReactMouseEvent<HTMLAnchorElement>, destination: string) => {
+    if (!revisionDirty) return;
+    event.preventDefault();
+    modal.confirm({
+      title: '放弃未保存的内容修订？',
+      content: '离开后，本次尚未创建为新版本的 Markdown 修订不会保留。',
+      okText: '放弃修改',
+      cancelText: '继续编辑',
+      okButtonProps: { danger: true },
+      onOk: () => {
+        setRevisionDirtyState(false);
+        navigate(destination);
+      },
+    });
+  };
+  if (context.isLoading) return <div className="page-stack content-review-page"><PageHeader title="内容审核" breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: '内容审核' }]} /><QueryLoading label="正在加载内容审核上下文" /></div>;
   if (context.error || !context.data) {
     return (
-      <div className="page-stack">
+      <div className="page-stack content-review-page">
         <Link className="back-link" to="/tasks"><ArrowLeftOutlined aria-hidden /> 返回任务列表</Link>
         <PageHeader title="内容审核" breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: '内容审核' }]} />
         <QueryFailure error={context.error ?? new Error('内容审核上下文不存在')} onRetry={() => void context.refetch()} />
@@ -339,8 +373,9 @@ export function ContentEditorPage() {
 
   return (
     <div className="page-stack content-review-page">
+      {modalContext}
       <div className="content-review-topbar">
-        <Link className="back-link" to={`/tasks/${current.task_id}`}><ArrowLeftOutlined aria-hidden /> 返回内容任务</Link>
+        <Link className="back-link" to={`/tasks/${current.task_id}`} onClick={(event) => handleWorkspaceNavigation(event, `/tasks/${current.task_id}`)}><ArrowLeftOutlined aria-hidden /> 返回内容任务</Link>
         <span>内容编辑与审核</span>
       </div>
 
@@ -376,6 +411,7 @@ export function ContentEditorPage() {
                     <Link
                       key={item.id}
                       to={`/content/${item.id}`}
+                      onClick={item.id === current.id ? undefined : (event) => handleWorkspaceNavigation(event, `/content/${item.id}`)}
                       className="review-queue-item"
                       aria-current={item.id === current.id ? 'page' : undefined}
                     >
@@ -417,7 +453,7 @@ export function ContentEditorPage() {
                 ...(canRevise ? [{
                   key: 'revision',
                   label: <Space size={6}><EditOutlined aria-hidden />编辑</Space>,
-                  children: <section id="review-revision" aria-label="创建人工修订"><RevisionForm content={current} loading={revise.isPending} error={revise.error} onSubmit={(body) => revise.mutate(body)} /></section>,
+                  children: <section id="review-revision" aria-label="创建人工修订"><RevisionForm content={current} loading={revise.isPending} error={revise.error} onDirtyChange={setRevisionDirtyState} onSubmit={(body) => revise.mutate(body)} /></section>,
                 }] : []),
                 {
                   key: 'preview',

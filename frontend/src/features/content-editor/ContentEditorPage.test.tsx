@@ -181,6 +181,41 @@ test('人工修订输入后异步更新安全 Markdown 预览', async () => {
   expect(preview.querySelector('img')).not.toHaveAttribute('onerror');
 });
 
+test('人工修订聚焦首个错误，并在离开版本前保护未保存 Markdown', async () => {
+  const user = userEvent.setup();
+  window.history.pushState({}, '', `/content/${content.id}`);
+  mockFetch((request) => {
+    const path = new URL(request.url).pathname;
+    const common = commonPageResponse(path);
+    if (common) return common;
+    if (path.endsWith('/review-context')) return { body: { ...context, content: { ...content, status: 'CHANGES_REQUESTED' } } satisfies Schema<'ContentReviewContext'> };
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+  render(<App />);
+  await user.click(await screen.findByRole('tab', { name: '编辑' }));
+  const title = screen.getByRole('textbox', { name: '标题' });
+  await user.clear(title);
+  await user.click(screen.getByRole('button', { name: /创建新版本/ }));
+  await waitFor(() => expect(title).toHaveFocus());
+  await user.type(title, '保留中的人工修订');
+
+  const beforeUnload = new Event('beforeunload', { cancelable: true });
+  window.dispatchEvent(beforeUnload);
+  expect(beforeUnload.defaultPrevented).toBe(true);
+
+  await user.click(screen.getByRole('link', { name: /替代方案初稿.*工程内容平台/ }));
+  const confirm = (await screen.findByText('放弃未保存的内容修订？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
+  expect(confirm).not.toBeNull();
+  await user.click(within(confirm!).getByRole('button', { name: '继续编辑' }));
+  expect(window.location.pathname).toBe(`/content/${content.id}`);
+  expect(title).toHaveValue('保留中的人工修订');
+
+  await user.click(screen.getByRole('link', { name: /替代方案初稿.*工程内容平台/ }));
+  const discard = (await screen.findByText('放弃未保存的内容修订？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
+  await user.click(within(discard!).getByRole('button', { name: '放弃修改' }));
+  await waitFor(() => expect(window.location.pathname).toBe(`/content/${previousContent.id}`));
+});
+
 test('真实空证据下退回必须填写意见且可以重新提交', async () => {
   let status: 'PENDING_REVIEW' | 'CHANGES_REQUESTED' = 'PENDING_REVIEW';
   let revision = 1;
@@ -287,7 +322,9 @@ test('人工修订失败时保留未保存内容并给出就地反馈', async ()
   await userEvent.type(changeSummary, '补充证据边界');
   expect(screen.getByText('有未保存修改')).toBeInTheDocument();
   await userEvent.click(createButton);
-  expect(await screen.findByText('创建修订失败')).toBeInTheDocument();
+  const alert = (await screen.findByText('创建修订失败')).closest<HTMLElement>('[role="alert"]');
+  expect(alert).not.toBeNull();
+  expect(alert?.parentElement).toHaveFocus();
   expect(screen.getByText('修订保存失败')).toBeInTheDocument();
   expect(changeSummary).toHaveValue('补充证据边界');
 });

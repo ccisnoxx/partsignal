@@ -2,7 +2,7 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useThemeMode, ThemeProvider } from './ThemeProvider';
-import { projectThemes, THEME_STORAGE_KEY } from './theme';
+import { createAntTheme, projectThemes, THEME_STORAGE_KEY } from './theme';
 
 type MediaListener = (event: MediaQueryListEvent) => void;
 
@@ -39,6 +39,18 @@ function installMatchMedia(initial: { dark: boolean; reduced?: boolean }) {
 function Probe() {
   const theme = useThemeMode();
   return <><span>{theme.mode}/{theme.resolvedTheme}</span><button onClick={() => theme.setMode('light')}>使用浅色</button><button onClick={() => theme.setMode('dark')}>使用深色</button><button onClick={() => theme.setMode('system')}>跟随系统</button></>;
+}
+
+function contrastRatio(first: string, second: string) {
+  const luminance = (color: string) => {
+    const channel = (offset: number) => {
+      const value = Number.parseInt(color.slice(offset, offset + 2), 16) / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    };
+    return 0.2126 * channel(1) + 0.7152 * channel(3) + 0.0722 * channel(5);
+  };
+  const values = [luminance(first), luminance(second)];
+  return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
 }
 
 beforeEach(() => {
@@ -104,4 +116,12 @@ test('浅深模式同步更新画布与玻璃材质变量', async () => {
   expect(root.style.getPropertyValue('--ps-bg-canvas')).toBe(projectThemes.dark.bgCanvas);
   expect(root.style.getPropertyValue('--ps-glass-surface')).toBe(projectThemes.dark.glassSurface);
   expect(root.style.getPropertyValue('--ps-glass-backdrop')).toBe(projectThemes.dark.glassBackdrop);
+});
+
+test('控件边界复用强边界 Token 且满足浅深模式对比度基线', () => {
+  (['light', 'dark'] as const).forEach((mode) => {
+    const tokens = projectThemes[mode];
+    expect(createAntTheme(mode, false).token?.colorBorder).toBe(tokens.borderStrong);
+    expect(contrastRatio(tokens.borderStrong, tokens.bgSurface)).toBeGreaterThanOrEqual(3);
+  });
 });

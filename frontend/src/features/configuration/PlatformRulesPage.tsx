@@ -15,7 +15,7 @@ import {
   Select,
   Space,
 } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
@@ -83,7 +83,9 @@ function versionChangeSummary(
 export function PlatformRulesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
+  const [createDirty, setCreateDirty] = useState(false);
   const [editVersion, setEditVersion] = useState<RuleVersionSummary>();
+  const [editDirty, setEditDirty] = useState(false);
   const [commandState, setCommandState] = useState<{ action: CommandAction; version: RuleVersionSummary }>();
   const [metaOpen, setMetaOpen] = useState(false);
   const [mobileStage, setMobileStage] = useState<MobileStage>('PLATFORMS');
@@ -91,6 +93,15 @@ export function PlatformRulesPage() {
   const { message } = App.useApp();
   const screens = Grid.useBreakpoint();
   const isMobile = screens.md === false;
+  useEffect(() => {
+    if (!createDirty && !editDirty) return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [createDirty, editDirty]);
 
   const requestedProfileId = searchParams.get('platform_profile_id') ?? undefined;
   const requestedVersionId = searchParams.get('version_id') ?? undefined;
@@ -161,6 +172,7 @@ export function PlatformRulesPage() {
       body: { rules },
     })),
     onSuccess: async (created) => {
+      setCreateDirty(false);
       setCreateOpen(false);
       updateUrl({ platform_profile_id: created.platform_profile_id, version_id: created.id });
       message.success('规则草稿已创建');
@@ -177,6 +189,7 @@ export function PlatformRulesPage() {
     },
     onSuccess: async () => {
       const changed = editVersion;
+      setEditDirty(false);
       setEditVersion(undefined);
       message.success('规则草稿已保存');
       await invalidateRules(changed);
@@ -211,6 +224,56 @@ export function PlatformRulesPage() {
 
   const openCommand = (action: CommandAction, version: RuleVersionSummary) => {
     setCommandState({ action, version });
+  };
+  const openCreate = () => {
+    create.reset();
+    setCreateDirty(false);
+    setCreateOpen(true);
+  };
+  const closeCreate = () => {
+    create.reset();
+    setCreateDirty(false);
+    setCreateOpen(false);
+  };
+  const requestCloseCreate = () => {
+    if (create.isPending) return;
+    if (!createDirty) {
+      closeCreate();
+      return;
+    }
+    modal.confirm({
+      title: '放弃未保存的规则草稿？',
+      content: '关闭后，本次尚未创建的规则内容不会保留。',
+      okText: '放弃修改',
+      cancelText: '继续编辑',
+      okButtonProps: { danger: true },
+      onOk: closeCreate,
+    });
+  };
+  const openEdit = (version: RuleVersionSummary) => {
+    update.reset();
+    setEditDirty(false);
+    setEditVersion(version);
+  };
+  const closeEdit = () => {
+    update.reset();
+    setEditDirty(false);
+    setEditVersion(undefined);
+  };
+  const requestCloseEdit = () => {
+    if (update.isPending) return;
+    if (!editDirty) {
+      closeEdit();
+      return;
+    }
+    modal.confirm({
+      title: '放弃未保存的规则修改？',
+      content: '关闭后，本次对规则草稿的修改不会保留。',
+      okText: '放弃修改',
+      cancelText: '继续编辑',
+      okButtonProps: { danger: true },
+      onOk: closeEdit,
+    });
   };
   const confirmDelete = (version: RuleVersionSummary) => modal.confirm({
     title: `物理删除规则版本 V${version.version}？`,
@@ -256,7 +319,7 @@ export function PlatformRulesPage() {
     : '';
   const profileSelectionError = !!requestedProfileId && !!profiles.data && !selectedProfile;
   const versionSelectionError = !!requestedVersionId && !!versions.data && !selectedVersion;
-  const mutationError = create.error ?? update.error ?? command.error;
+  const mutationError = command.error;
   const metaPanel = selectedVersion ? (
     <PlatformRuleMetaPanel
       version={selectedVersion}
@@ -283,7 +346,7 @@ export function PlatformRulesPage() {
         eyebrow="平台治理"
         title="平台规则"
         description="维护具体平台的内容规则及不可变规则版本，为内容生成、审核和发布提供唯一依据。"
-        actions={<Button type="primary" icon={<PlusOutlined />} aria-haspopup="dialog" aria-expanded={createOpen} onClick={() => setCreateOpen(true)}>创建规则草稿</Button>}
+        actions={<Button type="primary" icon={<PlusOutlined />} aria-haspopup="dialog" aria-expanded={createOpen} onClick={openCreate}>创建规则草稿</Button>}
       />
       {mutationError && <Alert role="alert" type="error" showIcon title={errorMessage(mutationError)} />}
       {remove.error && <DeletionError error={remove.error} />}
@@ -310,7 +373,7 @@ export function PlatformRulesPage() {
             <header>
               {isMobile && <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => setMobileStage('PLATFORMS')}>平台</Button>}
               <strong>规则版本</strong>
-              <Button type="text" icon={<PlusOutlined />} disabled={!selectedProfile} aria-label="为当前平台创建规则草稿" onClick={() => setCreateOpen(true)}>创建草稿</Button>
+              <Button type="text" icon={<PlusOutlined />} disabled={!selectedProfile} aria-label="为当前平台创建规则草稿" onClick={openCreate}>创建草稿</Button>
             </header>
             {profileSelectionError ? <Alert type="error" showIcon title="URL 中的平台不在当前筛选结果内，请重新选择平台。" /> : versions.isLoading ? <QueryLoading label="正在加载规则版本" /> : versions.error ? <QueryFailure error={versions.error} onRetry={() => void versions.refetch()} /> : versionItems.length ? (
               <div className="platform-rule-version-list">
@@ -336,7 +399,7 @@ export function PlatformRulesPage() {
                   platformName={selectedProfile.name}
                   version={selectedVersion}
                   versions={versionItems}
-                  onEdit={setEditVersion}
+                  onEdit={openEdit}
                   onActivate={(version) => openCommand('ACTIVATE', version)}
                   onRetire={(version) => openCommand('RETIRE', version)}
                   onDelete={confirmDelete}
@@ -349,14 +412,14 @@ export function PlatformRulesPage() {
       )}
 
       <Drawer className="platform-rule-meta-drawer" title={selectedVersion ? `版本 V${selectedVersion.version} 信息` : '版本信息'} open={metaOpen && !screens.xl} onClose={() => setMetaOpen(false)} size="min(100vw, 420px)" destroyOnHidden>{metaPanel}</Drawer>
-      <Modal title="新增规则草稿" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null} width={760} destroyOnHidden>
-        <RuleEditor profiles={profileItems} initialPlatformId={selectedProfile?.id} loading={create.isPending} submitLabel="创建草稿版本" onSubmit={(rules, platformProfileId) => platformProfileId && create.mutate({ platformProfileId, rules })} />
+      <Modal title="新增规则草稿" open={createOpen} onCancel={requestCloseCreate} footer={null} width={760} closable={!create.isPending} keyboard={!create.isPending} mask={{ closable: !create.isPending }} destroyOnHidden>
+        <RuleEditor profiles={profileItems} initialPlatformId={selectedProfile?.id} dirty={createDirty} loading={create.isPending} error={create.error} submitLabel="创建草稿版本" onCancel={requestCloseCreate} onDirtyChange={setCreateDirty} onSubmit={(rules, platformProfileId) => platformProfileId && create.mutate({ platformProfileId, rules })} />
       </Modal>
-      <Modal title={`编辑 ${selectedProfile?.name ?? ''} V${editVersion?.version ?? ''} 草稿`} open={!!editVersion} onCancel={() => setEditVersion(undefined)} footer={null} width={760} destroyOnHidden>
-        {editVersion && <RuleEditor initial={editVersion.rules} loading={update.isPending} submitLabel="保存草稿" onSubmit={(rules) => update.mutate(rules)} />}
+      <Modal title={`编辑 ${selectedProfile?.name ?? ''} V${editVersion?.version ?? ''} 草稿`} open={!!editVersion} onCancel={requestCloseEdit} footer={null} width={760} closable={!update.isPending} keyboard={!update.isPending} mask={{ closable: !update.isPending }} destroyOnHidden>
+        {editVersion && <RuleEditor initial={editVersion.rules} dirty={editDirty} loading={update.isPending} error={update.error} submitLabel="保存草稿" onCancel={requestCloseEdit} onDirtyChange={setEditDirty} onSubmit={(rules) => update.mutate(rules)} />}
       </Modal>
       <Modal title={commandState?.action === 'ACTIVATE' ? `激活 V${commandState.version.version}` : `退役 V${commandState?.version.version ?? ''} 草稿`} open={!!commandState} onCancel={() => setCommandState(undefined)} footer={null} destroyOnHidden>
-        {commandState && <Form<{ comment: string }> key={`${commandState.action}-${commandState.version.id}`} layout="vertical" onFinish={({ comment }) => command.mutate({ ...commandState, comment: comment.trim() })}>
+        {commandState && <Form<{ comment: string }> key={`${commandState.action}-${commandState.version.id}`} layout="vertical" disabled={command.isPending} scrollToFirstError={{ behavior: 'smooth', block: 'center', focus: true }} onFinish={({ comment }) => command.mutate({ ...commandState, comment: comment.trim() })}>
           <Alert type="info" showIcon title={commandState.action === 'ACTIVATE' ? '激活后，当前 ACTIVE 版本会在同一事务中自动退役；新版本正文将冻结。' : '直接退役仅适用于从未激活的 DRAFT 草稿。'} />
           <Form.Item name="comment" label="操作说明" rules={[{ required: true, whitespace: true, message: '请填写操作说明' }]}><Input.TextArea autoFocus rows={4} maxLength={500} showCount /></Form.Item>
           <Button type="primary" htmlType="submit" loading={command.isPending}>{commandState.action === 'ACTIVATE' ? '确认激活' : '确认退役'}</Button>
@@ -370,27 +433,50 @@ function RuleEditor({
   profiles,
   initialPlatformId,
   initial,
+  dirty,
   loading,
+  error,
   submitLabel,
+  onCancel,
+  onDirtyChange,
   onSubmit,
 }: {
   profiles?: PlatformProfile[];
   initialPlatformId?: string;
   initial?: Schema<'PlatformRules'>;
+  dirty: boolean;
   loading: boolean;
+  error?: unknown;
   submitLabel: string;
+  onCancel: () => void;
+  onDirtyChange: (dirty: boolean) => void;
   onSubmit: (rules: Schema<'PlatformRules'>, platformProfileId?: string) => void;
 }) {
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
   return (
     <Form<{ platform_profile_id?: string; rules: Schema<'PlatformRules'> }>
       layout="vertical"
+      disabled={loading}
       initialValues={{ platform_profile_id: initialPlatformId, rules: initial ?? emptyRules }}
-      scrollToFirstError
+      scrollToFirstError={{ behavior: 'smooth', block: 'center', focus: true }}
+      onValuesChange={() => onDirtyChange(true)}
       onFinish={({ rules, platform_profile_id: platformProfileId }) => onSubmit(rules, platformProfileId)}
     >
+      <div ref={errorRef} tabIndex={-1}>
+        {error ? <Alert role="alert" type="error" showIcon title="规则草稿保存失败" description={errorMessage(error)} /> : null}
+      </div>
       {profiles && <Form.Item name="platform_profile_id" label="所属平台" rules={[{ required: true, message: '请选择所属平台' }]}><Select showSearch optionFilterProp="label" options={profiles.map((profile) => ({ value: profile.id, label: profile.name }))} /></Form.Item>}
       <RulesFields />
-      <Button type="primary" htmlType="submit" loading={loading}>{submitLabel}</Button>
+      <div className="form-dialog-footer">
+        <span role="status" aria-live="polite">{loading ? '正在保存' : error ? '保存失败，修改仍保留' : dirty ? '有未保存修改' : '尚未修改'}</span>
+        <Space className="form-dialog-actions">
+          <Button onClick={onCancel}>取消</Button>
+          <Button type="primary" htmlType="submit" loading={loading} disabled={!dirty}>{submitLabel}</Button>
+        </Space>
+      </div>
     </Form>
   );
 }

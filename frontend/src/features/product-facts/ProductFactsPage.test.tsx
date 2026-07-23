@@ -1,6 +1,6 @@
 /** 验证事实表单状态，以及事实版本更多菜单中的删除权限、刷新和引用错误。 */
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -14,6 +14,23 @@ import { ProductFactsPage } from './ProductFactsPage';
 const authState = vi.hoisted(() => ({ isAdmin: true }));
 
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ isAdmin: authState.isAdmin }) }));
+vi.mock('../../shared/components/DirectUpload', () => ({
+  DirectUpload: ({ onUploaded }: { onUploaded: (file: Schema<'FileRecord'>) => void }) => (
+    <button type="button" onClick={() => onUploaded({
+      id: '50000000-0000-4000-8000-000000000001',
+      category: 'EVIDENCE',
+      original_filename: 'evidence.pdf',
+      object_key: 'test/evidence.pdf',
+      content_type: 'application/pdf',
+      size: 12,
+      sha256: 'a'.repeat(64),
+      access_level: 'INTERNAL',
+      status: 'VERIFIED',
+      created_at: '2026-07-24T10:00:00Z',
+      verified_at: '2026-07-24T10:00:01Z',
+    })}>选择测试证据</button>
+  ),
+}));
 
 const productId = '10000000-0000-4000-8000-000000000001';
 const versionId = '20000000-0000-4000-8000-000000000001';
@@ -118,6 +135,7 @@ test('事实表单显示修改、校验错误和保存成功状态', async () =>
 
   await user.click(screen.getByRole('button', { name: '保存事实工作区' }));
   expect(await screen.findByText('有 4 个字段需要修正')).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole('textbox', { name: '本地标识' })).toHaveFocus());
   expect(screen.getByRole('link', { name: /参考型号有错误/ })).toHaveClass('is-error');
   expect(screen.getByRole('button', { name: '定位首个错误' })).toBeInTheDocument();
 
@@ -130,6 +148,33 @@ test('事实表单显示修改、校验错误和保存成功状态', async () =>
   expect(screen.queryByText(/有 \d+ 个字段需要修正/)).not.toBeInTheDocument();
 });
 
+test('加载状态保留唯一页面标题', () => {
+  renderPage();
+  expect(screen.getByRole('heading', { level: 1, name: '产品事实工作区' })).toBeInTheDocument();
+  expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+});
+
+test('证据直传写入隐藏字段时同步标记未保存状态', async () => {
+  const user = userEvent.setup();
+  draft = {
+    ...emptyDraft,
+    evidences: [{
+      client_key: 'datasheet',
+      type: 'DATASHEET',
+      title: '数据手册',
+      version: '1.0',
+      source_url: null,
+      file_id: null,
+      confidentiality: 'INTERNAL',
+    }],
+  };
+  renderPage();
+  expect(await screen.findByText('未修改')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '选择测试证据' }));
+  expect(screen.getByText('有未保存修改')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /证据有修改/ })).toHaveClass('is-dirty');
+});
+
 test('事实版本查询失败只影响版本页签', async () => {
   const user = userEvent.setup();
   versionsError = true;
@@ -140,4 +185,25 @@ test('事实版本查询失败只影响版本页签', async () => {
   expect(screen.getByRole('button', { name: /重\s*试/ })).toBeInTheDocument();
   await user.click(screen.getByRole('tab', { name: '事实工作区' }));
   expect(screen.getByRole('button', { name: '保存事实工作区' })).toBeInTheDocument();
+});
+
+test('未保存事实修改会拦截页签切换和浏览器离开', async () => {
+  const user = userEvent.setup();
+  renderPage();
+  await user.click(await screen.findByRole('button', { name: /添加参考型号/ }));
+  const beforeUnload = new Event('beforeunload', { cancelable: true });
+  window.dispatchEvent(beforeUnload);
+  expect(beforeUnload.defaultPrevented).toBe(true);
+
+  await user.click(screen.getByRole('tab', { name: /事实版本/ }));
+  const confirm = (await screen.findByText('放弃未保存的事实修改？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
+  expect(confirm).not.toBeNull();
+  await user.click(within(confirm!).getByRole('button', { name: '继续编辑' }));
+  expect(screen.getByRole('tab', { name: '事实工作区' })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByText('有未保存修改')).toBeInTheDocument();
+
+  await user.click(screen.getByRole('tab', { name: /事实版本/ }));
+  const discard = (await screen.findByText('放弃未保存的事实修改？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
+  await user.click(within(discard!).getByRole('button', { name: '放弃修改' }));
+  await waitFor(() => expect(screen.getByRole('tab', { name: /事实版本/ })).toHaveAttribute('aria-selected', 'true'));
 });

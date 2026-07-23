@@ -1,5 +1,15 @@
 /** React Query 键的唯一注册表；工厂返回值与既有数组语义完全一致。 */
-import type { AIChannelListQuery } from './types';
+import type {
+  AuditLogListQuery,
+  AIChannelListQuery,
+  ContentTaskListQuery,
+  GeoInsightQuery,
+  GeoMetricsQuery,
+  GeoObservationListQuery,
+  PlatformAccountListQuery,
+  PlatformProfileListQuery,
+  UserListQuery,
+} from './types';
 
 export const queryKeys = {
   auth: {
@@ -22,16 +32,29 @@ export const queryKeys = {
   queryTopics: ['query-topics'] as const,
   platformProfiles: {
     all: ['platform-profiles'] as const,
+    list: (query: PlatformProfileListQuery) => ['platform-profiles', query] as const,
+    detail: (id: string) => ['platform-profile', id] as const,
     prompt: (id: string | undefined) => ['platform-prompt', id] as const,
   },
   contentHumanizationPrompt: ['content-humanization-prompt'] as const,
   platformProfileVersions: {
     all: ['platform-profile-versions'] as const,
+    forProfile: (id: string) => ['platform-profile-versions', id] as const,
+    impact: (id: string) => ['platform-profile-version-impact', id] as const,
   },
-  platformAccounts: ['platform-accounts'] as const,
+  platformAccounts: {
+    all: ['platform-accounts'] as const,
+    list: (query: PlatformAccountListQuery) => ['platform-accounts', query] as const,
+  },
   auditLogs: ['audit-logs'] as const,
+  auditLogList: (targetType: string, targetId: string, page: number, pageSize: number) =>
+    ['audit-logs', { targetType, targetId, page, pageSize }] as const,
+  auditLogListByQuery: (query: AuditLogListQuery) => ['audit-logs', 'list', query] as const,
+  auditLogDetail: (id: string) => ['audit-logs', 'detail', id] as const,
+  auditLogFilterOptions: ['audit-logs', 'filter-options'] as const,
   contentTasks: {
     all: ['content-tasks'] as const,
+    list: (query: ContentTaskListQuery) => ['content-tasks', query] as const,
     optionsAll: ['generation-options'] as const,
     detail: (id: string) => ['content-task', id] as const,
     versions: (id: string) => ['content-versions', id] as const,
@@ -66,9 +89,22 @@ export const queryKeys = {
   },
   dashboard: ['dashboard'] as const,
   geo: {
-    metrics: ['geo-metrics'] as const,
-    observations: ['geo-observations'] as const,
-    publications: (productId: string | undefined) => ['geo-observation-publications', productId] as const,
+    all: ['geo'] as const,
+    metrics: ['geo', 'metrics'] as const,
+    metric: (query: GeoMetricsQuery) => ['geo', 'metrics', query] as const,
+    observations: ['geo', 'observations'] as const,
+    observationList: (query: GeoObservationListQuery) => ['geo', 'observations', query] as const,
+    observation: (id: string) => ['geo', 'observation', id] as const,
+    publications: (productId: string | undefined) => ['geo', 'publications', productId] as const,
+    insights: ['geo', 'insights'] as const,
+    insight: (query: GeoInsightQuery) => ['geo', 'insights', query] as const,
   },
-  users: ['users'] as const,
+  files: {
+    detail: (id: string) => ['file', id] as const,
+    download: (id: string) => ['file-download', id] as const,
+  },
+  users: {
+    all: ['users'] as const,
+    list: (query: UserListQuery) => ['users', 'list', query] as const,
+  },
 };

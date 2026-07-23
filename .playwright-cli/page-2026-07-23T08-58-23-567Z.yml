@@ -1,0 +1,712 @@
+- generic [ref=f98e16]:
+  - complementary [ref=f98e17]:
+    - generic [ref=f98e18]:
+      - strong [ref=f98e24]: PartSignal
+      - menu [ref=f98e25]:
+        - group [ref=f98e26]:
+          - menuitem [ref=f98e27] [cursor=pointer]:
+            - img "bar-chart" [ref=f98e28]
+            - link "工作台" [ref=f98e32]:
+              - /url: /
+          - menuitem [ref=f98e33] [cursor=pointer]:
+            - img "database" [ref=f98e34]
+            - link "产品事实" [ref=f98e38]:
+              - /url: /products
+          - menuitem [ref=f98e39] [cursor=pointer]:
+            - img "file-text" [ref=f98e40]
+            - link "内容任务" [ref=f98e44]:
+              - /url: /tasks
+          - menuitem [ref=f98e45] [cursor=pointer]:
+            - img "rocket" [ref=f98e46]
+            - link "人工发布" [ref=f98e50]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [expanded] [ref=f98e51] [cursor=pointer]:
+            - img "bar-chart" [ref=f98e52]
+            - generic [ref=f98e55]: GEO 观测
+          - menu [ref=f98e56]:
+            - menuitem [ref=f98e57] [cursor=pointer]:
+              - link "观测记录" [ref=f98e59]:
+                - /url: /observations
+            - menuitem [ref=f98e60] [cursor=pointer]:
+              - link "分析洞察" [ref=f98e62]:
+                - /url: /observations/insights
+        - group [ref=f98e63]:
+          - menuitem "setting 业务设置" [ref=f98e64] [cursor=pointer]:
+            - img "setting" [ref=f98e65]
+            - generic [ref=f98e68]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f98e69] [cursor=pointer]:
+            - img "safety-certificate" [ref=f98e70]
+            - generic [ref=f98e73]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f98e74] [cursor=pointer]:
+            - img "tool" [ref=f98e75]
+            - generic [ref=f98e78]: 配置中心
+      - button "收起导航" [ref=f98e79] [cursor=pointer]:
+        - img "menu-fold" [ref=f98e81]
+        - generic [ref=f98e84]: 收起
+  - generic [ref=f98e85]:
+    - banner [ref=f98e86]:
+      - generic [ref=f98e89]:
+        - strong [ref=f98e91]: GEO 观测
+        - text: /分析洞察
+      - generic [ref=f98e94] [cursor=pointer]:
+        - img "search" [ref=f98e96]
+        - combobox "全局页面搜索" [ref=f98e99]
+        - generic [ref=f98e100]: ⌘K
+      - generic [ref=f98e102]:
+        - button "主题：跟随系统" [ref=f98e104] [cursor=pointer]:
+          - img "desktop" [ref=f98e106]
+        - button "打开用户操作菜单" [ref=f98e110] [cursor=pointer]:
+          - generic [ref=f98e111]: 系
+          - generic [ref=f98e113]:
+            - strong [ref=f98e114]: 系统管理员
+            - generic [ref=f98e115]: admin
+          - img "down" [ref=f98e116]
+    - main [ref=f98e119]:
+      - generic [ref=f98e131]:
+        - generic [ref=f98e132]:
+          - heading "GEO 分析洞察" [level=1] [ref=f98e133]
+          - navigation "GEO 观测页面" [ref=f98e134]:
+            - link "观测记录" [ref=f98e135] [cursor=pointer]:
+              - /url: /observations
+            - link "分析洞察" [ref=f98e136] [cursor=pointer]:
+              - /url: /observations/insights
+          - status "数据质量：完整 33 条 · 排除观测 23 条 · 排除关系 23 条" [ref=f98e137]:
+            - img "exclamation-circle" [ref=f98e138]
+            - generic [ref=f98e142]: 完整 33 条
+          - link "export 导出洞察报告" [ref=f98e143] [cursor=pointer]:
+            - /url: /observations/insights/print?date_from=2026-06-24&date_to=2026-07-23&filters_collapsed=true
+            - img "export" [ref=f98e145]
+            - generic [ref=f98e148]: 导出洞察报告
+        - generic [ref=f98e149]:
+          - generic [ref=f98e151]:
+            - generic [ref=f98e152]: 分析筛选器
+            - button "展开筛选" [active] [ref=f98e1077] [cursor=pointer]:
+              - img "down" [ref=f98e1078]
+              - generic [ref=f98e159]: 展开
+          - generic [ref=f98e160]: 筛选区已折叠，当前 URL 中的全部条件仍统一作用于所有洞察区块。
+        - generic [ref=f98e220]:
+          - generic [ref=f98e222]:
+            - generic [ref=f98e223]: GEO 指标趋势
+            - generic [ref=f98e224]: 对比期：2026-05-25 – 2026-06-23
+          - region "GEO 指标趋势" [ref=f98e227]:
+            - article [ref=f98e228]:
+              - generic [ref=f98e229]:
+                - generic [ref=f98e230]:
+                  - generic [ref=f98e231]: "07.23"
+                  - strong [ref=f98e232]: 60.6%
+                - generic [ref=f98e233]:
+                  - text: 提及率
+                  - strong [ref=f98e234]: 60.6%
+                - generic [ref=f98e235]:
+                  - generic [ref=f98e236]: 上一周期 100.0%
+                  - generic [ref=f98e237]: ↓ 39.4%
+                - img "提及率趋势图" [ref=f98e238]:
+                  - img "提及率 2026-06-24：无样本" [ref=f98e245]
+                  - img "提及率 2026-06-25：无样本" [ref=f98e246]
+                  - img "提及率 2026-06-26：无样本" [ref=f98e247]
+                  - img "提及率 2026-06-27：无样本" [ref=f98e248]
+                  - img "提及率 2026-06-28：无样本" [ref=f98e249]
+                  - img "提及率 2026-06-29：无样本" [ref=f98e250]
+                  - img "提及率 2026-06-30：无样本" [ref=f98e251]
+                  - img "提及率 2026-07-01：无样本" [ref=f98e252]
+                  - img "提及率 2026-07-02：无样本" [ref=f98e253]
+                  - img "提及率 2026-07-03：无样本" [ref=f98e254]
+                  - img "提及率 2026-07-04：无样本" [ref=f98e255]
+                  - img "提及率 2026-07-05：100.0% · 1 / 1 条关系" [ref=f98e256]
+                  - img "提及率 2026-07-06：0.0% · 0 / 2 条关系" [ref=f98e257]
+                  - img "提及率 2026-07-07：100.0% · 3 / 3 条关系" [ref=f98e258]
+                  - img "提及率 2026-07-08：100.0% · 3 / 3 条关系" [ref=f98e259]
+                  - img "提及率 2026-07-09：100.0% · 3 / 3 条关系" [ref=f98e260]
+                  - img "提及率 2026-07-10：0.0% · 0 / 3 条关系" [ref=f98e261]
+                  - img "提及率 2026-07-11：100.0% · 3 / 3 条关系" [ref=f98e262]
+                  - img "提及率 2026-07-12：0.0% · 0 / 2 条关系" [ref=f98e263]
+                  - img "提及率 2026-07-13：100.0% · 1 / 1 条关系" [ref=f98e264]
+                  - img "提及率 2026-07-14：无样本" [ref=f98e265]
+                  - img "提及率 2026-07-15：无样本" [ref=f98e266]
+                  - img "提及率 2026-07-16：无样本" [ref=f98e267]
+                  - img "提及率 2026-07-17：无样本" [ref=f98e268]
+                  - img "提及率 2026-07-18：75.0% · 3 / 4 条关系" [ref=f98e269]
+                  - img "提及率 2026-07-19：无样本" [ref=f98e270]
+                  - img "提及率 2026-07-20：50.0% · 2 / 4 条关系" [ref=f98e271]
+                  - img "提及率 2026-07-21：无样本" [ref=f98e272]
+                  - img "提及率 2026-07-22：25.0% · 1 / 4 条关系" [ref=f98e273]
+                  - img "提及率 2026-07-23：无样本" [ref=f98e274]
+            - article [ref=f98e275]:
+              - generic [ref=f98e276]:
+                - generic [ref=f98e277]:
+                  - generic [ref=f98e278]: "07.23"
+                  - strong [ref=f98e279]: 42.4%
+                - generic [ref=f98e280]:
+                  - text: 推荐率
+                  - strong [ref=f98e281]: 42.4%
+                - generic [ref=f98e282]:
+                  - generic [ref=f98e283]: 上一周期 100.0%
+                  - generic [ref=f98e284]: ↓ 57.6%
+                - img "推荐率趋势图" [ref=f98e285]:
+                  - img "推荐率 2026-06-24：无样本" [ref=f98e294]
+                  - img "推荐率 2026-06-25：无样本" [ref=f98e295]
+                  - img "推荐率 2026-06-26：无样本" [ref=f98e296]
+                  - img "推荐率 2026-06-27：无样本" [ref=f98e297]
+                  - img "推荐率 2026-06-28：无样本" [ref=f98e298]
+                  - img "推荐率 2026-06-29：无样本" [ref=f98e299]
+                  - img "推荐率 2026-06-30：无样本" [ref=f98e300]
+                  - img "推荐率 2026-07-01：无样本" [ref=f98e301]
+                  - img "推荐率 2026-07-02：无样本" [ref=f98e302]
+                  - img "推荐率 2026-07-03：无样本" [ref=f98e303]
+                  - img "推荐率 2026-07-04：无样本" [ref=f98e304]
+                  - img "推荐率 2026-07-05：100.0% · 1 / 1 条关系" [ref=f98e305]
+                  - img "推荐率 2026-07-06：0.0% · 0 / 2 条关系" [ref=f98e306]
+                  - img "推荐率 2026-07-07：100.0% · 3 / 3 条关系" [ref=f98e307]
+                  - img "推荐率 2026-07-08：0.0% · 0 / 3 条关系" [ref=f98e308]
+                  - img "推荐率 2026-07-09：100.0% · 3 / 3 条关系" [ref=f98e309]
+                  - img "推荐率 2026-07-10：0.0% · 0 / 3 条关系" [ref=f98e310]
+                  - img "推荐率 2026-07-11：100.0% · 3 / 3 条关系" [ref=f98e311]
+                  - img "推荐率 2026-07-12：0.0% · 0 / 2 条关系" [ref=f98e312]
+                  - img "推荐率 2026-07-13：100.0% · 1 / 1 条关系" [ref=f98e313]
+                  - img "推荐率 2026-07-14：无样本" [ref=f98e314]
+                  - img "推荐率 2026-07-15：无样本" [ref=f98e315]
+                  - img "推荐率 2026-07-16：无样本" [ref=f98e316]
+                  - img "推荐率 2026-07-17：无样本" [ref=f98e317]
+                  - img "推荐率 2026-07-18：50.0% · 2 / 4 条关系" [ref=f98e318]
+                  - img "推荐率 2026-07-19：无样本" [ref=f98e319]
+                  - img "推荐率 2026-07-20：25.0% · 1 / 4 条关系" [ref=f98e320]
+                  - img "推荐率 2026-07-21：无样本" [ref=f98e321]
+                  - img "推荐率 2026-07-22：0.0% · 0 / 4 条关系" [ref=f98e322]
+                  - img "推荐率 2026-07-23：无样本" [ref=f98e323]
+            - article [ref=f98e324]:
+              - generic [ref=f98e325]:
+                - generic [ref=f98e326]:
+                  - generic [ref=f98e327]: "07.23"
+                  - strong [ref=f98e328]: 15.2%
+                - generic [ref=f98e329]:
+                  - text: 引用率
+                  - strong [ref=f98e330]: 15.2%
+                - generic [ref=f98e331]:
+                  - generic [ref=f98e332]: 上一周期 100.0%
+                  - generic [ref=f98e333]: ↓ 84.8%
+                - img "引用率趋势图" [ref=f98e334]:
+                  - img "引用率 2026-06-24：无样本" [ref=f98e338]
+                  - img "引用率 2026-06-25：无样本" [ref=f98e339]
+                  - img "引用率 2026-06-26：无样本" [ref=f98e340]
+                  - img "引用率 2026-06-27：无样本" [ref=f98e341]
+                  - img "引用率 2026-06-28：无样本" [ref=f98e342]
+                  - img "引用率 2026-06-29：无样本" [ref=f98e343]
+                  - img "引用率 2026-06-30：无样本" [ref=f98e344]
+                  - img "引用率 2026-07-01：无样本" [ref=f98e345]
+                  - img "引用率 2026-07-02：无样本" [ref=f98e346]
+                  - img "引用率 2026-07-03：无样本" [ref=f98e347]
+                  - img "引用率 2026-07-04：无样本" [ref=f98e348]
+                  - img "引用率 2026-07-05：100.0% · 1 / 1 条关系" [ref=f98e349]
+                  - img "引用率 2026-07-06：0.0% · 0 / 2 条关系" [ref=f98e350]
+                  - img "引用率 2026-07-07：0.0% · 0 / 3 条关系" [ref=f98e351]
+                  - img "引用率 2026-07-08：0.0% · 0 / 3 条关系" [ref=f98e352]
+                  - img "引用率 2026-07-09：0.0% · 0 / 3 条关系" [ref=f98e353]
+                  - img "引用率 2026-07-10：0.0% · 0 / 3 条关系" [ref=f98e354]
+                  - img "引用率 2026-07-11：100.0% · 3 / 3 条关系" [ref=f98e355]
+                  - img "引用率 2026-07-12：0.0% · 0 / 2 条关系" [ref=f98e356]
+                  - img "引用率 2026-07-13：0.0% · 0 / 1 条关系" [ref=f98e357]
+                  - img "引用率 2026-07-14：无样本" [ref=f98e358]
+                  - img "引用率 2026-07-15：无样本" [ref=f98e359]
+                  - img "引用率 2026-07-16：无样本" [ref=f98e360]
+                  - img "引用率 2026-07-17：无样本" [ref=f98e361]
+                  - img "引用率 2026-07-18：25.0% · 1 / 4 条关系" [ref=f98e362]
+                  - img "引用率 2026-07-19：无样本" [ref=f98e363]
+                  - img "引用率 2026-07-20：0.0% · 0 / 4 条关系" [ref=f98e364]
+                  - img "引用率 2026-07-21：无样本" [ref=f98e365]
+                  - img "引用率 2026-07-22：0.0% · 0 / 4 条关系" [ref=f98e366]
+                  - img "引用率 2026-07-23：无样本" [ref=f98e367]
+            - article [ref=f98e368]:
+              - generic [ref=f98e369]:
+                - generic [ref=f98e370]:
+                  - generic [ref=f98e371]: "07.23"
+                  - strong [ref=f98e372]: 15.2%
+                - generic [ref=f98e373]:
+                  - text: 结果准确率
+                  - strong [ref=f98e374]: 15.2%
+                - generic [ref=f98e375]:
+                  - generic [ref=f98e376]: 上一周期 100.0%
+                  - generic [ref=f98e377]: ↓ 84.8%
+                - img "结果准确率趋势图" [ref=f98e378]:
+                  - img "结果准确率 2026-06-24：无样本" [ref=f98e382]
+                  - img "结果准确率 2026-06-25：无样本" [ref=f98e383]
+                  - img "结果准确率 2026-06-26：无样本" [ref=f98e384]
+                  - img "结果准确率 2026-06-27：无样本" [ref=f98e385]
+                  - img "结果准确率 2026-06-28：无样本" [ref=f98e386]
+                  - img "结果准确率 2026-06-29：无样本" [ref=f98e387]
+                  - img "结果准确率 2026-06-30：无样本" [ref=f98e388]
+                  - img "结果准确率 2026-07-01：无样本" [ref=f98e389]
+                  - img "结果准确率 2026-07-02：无样本" [ref=f98e390]
+                  - img "结果准确率 2026-07-03：无样本" [ref=f98e391]
+                  - img "结果准确率 2026-07-04：无样本" [ref=f98e392]
+                  - img "结果准确率 2026-07-05：100.0% · 1 / 1 条关系" [ref=f98e393]
+                  - img "结果准确率 2026-07-06：0.0% · 0 / 2 条关系" [ref=f98e394]
+                  - img "结果准确率 2026-07-07：0.0% · 0 / 3 条关系" [ref=f98e395]
+                  - img "结果准确率 2026-07-08：0.0% · 0 / 3 条关系" [ref=f98e396]
+                  - img "结果准确率 2026-07-09：0.0% · 0 / 3 条关系" [ref=f98e397]
+                  - img "结果准确率 2026-07-10：0.0% · 0 / 3 条关系" [ref=f98e398]
+                  - img "结果准确率 2026-07-11：100.0% · 3 / 3 条关系" [ref=f98e399]
+                  - img "结果准确率 2026-07-12：0.0% · 0 / 2 条关系" [ref=f98e400]
+                  - img "结果准确率 2026-07-13：0.0% · 0 / 1 条关系" [ref=f98e401]
+                  - img "结果准确率 2026-07-14：无样本" [ref=f98e402]
+                  - img "结果准确率 2026-07-15：无样本" [ref=f98e403]
+                  - img "结果准确率 2026-07-16：无样本" [ref=f98e404]
+                  - img "结果准确率 2026-07-17：无样本" [ref=f98e405]
+                  - img "结果准确率 2026-07-18：25.0% · 1 / 4 条关系" [ref=f98e406]
+                  - img "结果准确率 2026-07-19：无样本" [ref=f98e407]
+                  - img "结果准确率 2026-07-20：0.0% · 0 / 4 条关系" [ref=f98e408]
+                  - img "结果准确率 2026-07-21：无样本" [ref=f98e409]
+                  - img "结果准确率 2026-07-22：0.0% · 0 / 4 条关系" [ref=f98e410]
+                  - img "结果准确率 2026-07-23：无样本" [ref=f98e411]
+            - article [ref=f98e412]:
+              - generic [ref=f98e413]:
+                - generic [ref=f98e414]:
+                  - generic [ref=f98e415]: "07.23"
+                  - strong [ref=f98e416]: "0"
+                - generic [ref=f98e417]:
+                  - text: 未推荐内容数量
+                  - strong [ref=f98e418]: "0"
+                - generic [ref=f98e419]:
+                  - generic [ref=f98e420]: 上一周期 0
+                  - generic [ref=f98e421]: 不可计算
+                - img "未推荐内容数量趋势图" [ref=f98e422]:
+                  - img "未推荐内容数量 2026-06-24：0 个内容" [ref=f98e433]
+                  - img "未推荐内容数量 2026-06-25：0 个内容" [ref=f98e434]
+                  - img "未推荐内容数量 2026-06-26：0 个内容" [ref=f98e435]
+                  - img "未推荐内容数量 2026-06-27：0 个内容" [ref=f98e436]
+                  - img "未推荐内容数量 2026-06-28：0 个内容" [ref=f98e437]
+                  - img "未推荐内容数量 2026-06-29：0 个内容" [ref=f98e438]
+                  - img "未推荐内容数量 2026-06-30：0 个内容" [ref=f98e439]
+                  - img "未推荐内容数量 2026-07-01：0 个内容" [ref=f98e440]
+                  - img "未推荐内容数量 2026-07-02：0 个内容" [ref=f98e441]
+                  - img "未推荐内容数量 2026-07-03：0 个内容" [ref=f98e442]
+                  - img "未推荐内容数量 2026-07-04：0 个内容" [ref=f98e443]
+                  - img "未推荐内容数量 2026-07-05：0 个内容" [ref=f98e444]
+                  - img "未推荐内容数量 2026-07-06：2 个内容" [ref=f98e445]
+                  - img "未推荐内容数量 2026-07-07：0 个内容" [ref=f98e446]
+                  - img "未推荐内容数量 2026-07-08：3 个内容" [ref=f98e447]
+                  - img "未推荐内容数量 2026-07-09：0 个内容" [ref=f98e448]
+                  - img "未推荐内容数量 2026-07-10：3 个内容" [ref=f98e449]
+                  - img "未推荐内容数量 2026-07-11：0 个内容" [ref=f98e450]
+                  - img "未推荐内容数量 2026-07-12：2 个内容" [ref=f98e451]
+                  - img "未推荐内容数量 2026-07-13：0 个内容" [ref=f98e452]
+                  - img "未推荐内容数量 2026-07-14：0 个内容" [ref=f98e453]
+                  - img "未推荐内容数量 2026-07-15：0 个内容" [ref=f98e454]
+                  - img "未推荐内容数量 2026-07-16：0 个内容" [ref=f98e455]
+                  - img "未推荐内容数量 2026-07-17：0 个内容" [ref=f98e456]
+                  - img "未推荐内容数量 2026-07-18：0 个内容" [ref=f98e457]
+                  - img "未推荐内容数量 2026-07-19：0 个内容" [ref=f98e458]
+                  - img "未推荐内容数量 2026-07-20：0 个内容" [ref=f98e459]
+                  - img "未推荐内容数量 2026-07-21：0 个内容" [ref=f98e460]
+                  - img "未推荐内容数量 2026-07-22：1 个内容" [ref=f98e461]
+                  - img "未推荐内容数量 2026-07-23：0 个内容" [ref=f98e462]
+        - generic [ref=f98e463]:
+          - generic [ref=f98e464]:
+            - generic [ref=f98e465]: 平台表现对比
+            - generic [ref=f98e468]:
+              - generic "平台表现图例" [ref=f98e469]:
+                - generic [ref=f98e470]: 观测次数
+                - generic [ref=f98e472]: 提及率
+                - generic [ref=f98e474]: 推荐率
+                - generic [ref=f98e476]: 引用率
+                - generic [ref=f98e478]: 准确率
+              - region "GEO 平台表现" [ref=f98e480]:
+                - table [ref=f98e487]:
+                  - rowgroup [ref=f98e495]:
+                    - row [ref=f98e496]:
+                      - columnheader "GEO 平台" [ref=f98e497]
+                      - columnheader "观测次数" [ref=f98e498]
+                      - columnheader "提及率" [ref=f98e499]
+                      - columnheader "推荐率" [ref=f98e500]
+                      - columnheader "引用率" [ref=f98e501]
+                      - columnheader "准确率" [ref=f98e502]
+                  - rowgroup [ref=f98e503]:
+                    - row [ref=f98e504]:
+                      - cell "GEO ChatGPT" [ref=f98e505]:
+                        - generic [ref=f98e506]:
+                          - generic [ref=f98e507]: GEO
+                          - strong [ref=f98e510]: ChatGPT
+                      - cell "7" [ref=f98e511]
+                      - cell "57.1%" [ref=f98e512]
+                      - cell "42.9%" [ref=f98e517]
+                      - cell "14.3%" [ref=f98e522]
+                      - cell "14.3%" [ref=f98e527]
+                    - row [ref=f98e532]:
+                      - cell "GEO DeepSeek" [ref=f98e533]:
+                        - generic [ref=f98e534]:
+                          - generic [ref=f98e535]: GEO
+                          - strong [ref=f98e538]: DeepSeek
+                      - cell "7" [ref=f98e539]
+                      - cell "71.4%" [ref=f98e540]
+                      - cell "57.1%" [ref=f98e545]
+                      - cell "28.6%" [ref=f98e550]
+                      - cell "28.6%" [ref=f98e555]
+                    - row [ref=f98e560]:
+                      - cell "GEO Microsoft Copilot" [ref=f98e561]:
+                        - generic [ref=f98e562]:
+                          - generic [ref=f98e563]: GEO
+                          - strong [ref=f98e566]: Microsoft Copilot
+                      - cell "3" [ref=f98e567]
+                      - cell "100.0%" [ref=f98e568]
+                      - cell "66.7%" [ref=f98e573]
+                      - cell "33.3%" [ref=f98e578]
+                      - cell "33.3%" [ref=f98e583]
+                    - row [ref=f98e588]:
+                      - cell "GEO Perplexity" [ref=f98e589]:
+                        - generic [ref=f98e590]:
+                          - generic [ref=f98e591]: GEO
+                          - strong [ref=f98e594]: Perplexity
+                      - cell "7" [ref=f98e595]
+                      - cell "71.4%" [ref=f98e596]
+                      - cell "57.1%" [ref=f98e601]
+                      - cell "14.3%" [ref=f98e606]
+                      - cell "14.3%" [ref=f98e611]
+                    - row [ref=f98e616]:
+                      - cell "GEO 百度 AI 搜索" [ref=f98e617]:
+                        - generic [ref=f98e618]:
+                          - generic [ref=f98e619]: GEO
+                          - strong [ref=f98e622]: 百度 AI 搜索
+                      - cell "3" [ref=f98e623]
+                      - cell "66.7%" [ref=f98e624]
+                      - cell "33.3%" [ref=f98e629]
+                      - cell "0.0%" [ref=f98e634]
+                      - cell "0.0%" [ref=f98e638]
+                    - row [ref=f98e642]:
+                      - cell "GEO 知乎直答" [ref=f98e643]:
+                        - generic [ref=f98e644]:
+                          - generic [ref=f98e645]: GEO
+                          - strong [ref=f98e648]: 知乎直答
+                      - cell "3" [ref=f98e649]
+                      - cell "33.3%" [ref=f98e650]
+                      - cell "0.0%" [ref=f98e655]
+                      - cell "0.0%" [ref=f98e659]
+                      - cell "0.0%" [ref=f98e663]
+                    - row [ref=f98e667]:
+                      - cell "GEO 腾讯元宝" [ref=f98e668]:
+                        - generic [ref=f98e669]:
+                          - generic [ref=f98e670]: GEO
+                          - strong [ref=f98e673]: 腾讯元宝
+                      - cell "3" [ref=f98e674]
+                      - cell "0.0%" [ref=f98e675]
+                      - cell "0.0%" [ref=f98e679]
+                      - cell "0.0%" [ref=f98e683]
+                      - cell "0.0%" [ref=f98e687]
+          - generic [ref=f98e691]:
+            - generic [ref=f98e693]:
+              - generic [ref=f98e694]: GEO 转化链路
+              - generic [ref=f98e695]: 服务端累计阶段
+            - generic "GEO 转化漏斗" [ref=f98e697]:
+              - generic [ref=f98e698]:
+                - generic [ref=f98e699]: 完成发布
+                - strong [ref=f98e700]: "33"
+              - generic [ref=f98e703]:
+                - generic "从上一阶段转化：97.0%" [ref=f98e704]: 97.0%
+                - generic [ref=f98e705]: 被检索发现
+                - strong [ref=f98e706]: "32"
+              - generic [ref=f98e709]:
+                - generic "从上一阶段转化：62.5%" [ref=f98e710]: 62.5%
+                - generic [ref=f98e711]: 获得提及
+                - strong [ref=f98e712]: "20"
+              - generic [ref=f98e715]:
+                - generic "从上一阶段转化：70.0%" [ref=f98e716]: 70.0%
+                - generic [ref=f98e717]: 获得推荐
+                - strong [ref=f98e718]: "14"
+              - generic [ref=f98e721]:
+                - generic "从上一阶段转化：35.7%" [ref=f98e722]: 35.7%
+                - generic [ref=f98e723]: 展示引用
+                - strong [ref=f98e724]: "5"
+              - generic [ref=f98e727]:
+                - generic "从上一阶段转化：100.0%" [ref=f98e728]: 100.0%
+                - generic [ref=f98e729]: 结果准确
+                - strong [ref=f98e730]: "5"
+        - generic [ref=f98e733]:
+          - generic [ref=f98e734]: 内容表现排行
+          - region "内容表现排行" [ref=f98e738]:
+            - region "表现最佳内容 Top 5" [ref=f98e739]:
+              - heading "trophy 表现最佳内容 Top 5" [level=3] [ref=f98e740]:
+                - img "trophy" [ref=f98e741]
+                - generic [ref=f98e744]: 表现最佳内容 Top 5
+              - region "表现最佳内容 Top 5" [ref=f98e745]:
+                - table [ref=f98e752]:
+                  - rowgroup [ref=f98e760]:
+                    - row [ref=f98e761]:
+                      - columnheader "发布内容" [ref=f98e762]
+                      - columnheader "内容平台" [ref=f98e763]
+                      - columnheader "观测" [ref=f98e764]
+                      - columnheader "提及" [ref=f98e765]
+                      - columnheader "推荐" [ref=f98e766]
+                      - columnheader "引用" [ref=f98e767]
+                  - rowgroup [ref=f98e768]:
+                    - row [ref=f98e769]:
+                      - cell [ref=f98e770]:
+                        - link "E2E 3da64c41" [ref=f98e771] [cursor=pointer]:
+                          - /url: /publications/58a1df44-e9bd-4093-9ef7-1e494d339b1e
+                      - cell "内容平台：E2E 论坛 3da64c41" [ref=f98e772]:
+                        - generic "内容平台：E2E 论坛 3da64c41" [ref=f98e773]: E2E 论坛 3da64c41
+                      - cell "3" [ref=f98e774]
+                      - cell "66.7%" [ref=f98e775]
+                      - cell "66.7%" [ref=f98e776]
+                      - cell "33.3%" [ref=f98e777]
+                    - row [ref=f98e778]:
+                      - cell [ref=f98e779]:
+                        - link "E2E 231f35f2" [ref=f98e780] [cursor=pointer]:
+                          - /url: /publications/6aece775-fe4b-48c0-a868-2bc751f01b8f
+                      - cell "内容平台：E2E 论坛 231f35f2" [ref=f98e781]:
+                        - generic "内容平台：E2E 论坛 231f35f2" [ref=f98e782]: E2E 论坛 231f35f2
+                      - cell "3" [ref=f98e783]
+                      - cell "66.7%" [ref=f98e784]
+                      - cell "66.7%" [ref=f98e785]
+                      - cell "33.3%" [ref=f98e786]
+                    - row [ref=f98e787]:
+                      - cell [ref=f98e788]:
+                        - link "E2E 564dae14" [ref=f98e789] [cursor=pointer]:
+                          - /url: /publications/bd66de4a-e6c6-428f-8fe2-b7a6cbcd01e0
+                      - cell "内容平台：E2E 论坛 564dae14" [ref=f98e790]:
+                        - generic "内容平台：E2E 论坛 564dae14" [ref=f98e791]: E2E 论坛 564dae14
+                      - cell "3" [ref=f98e792]
+                      - cell "33.3%" [ref=f98e793]
+                      - cell "33.3%" [ref=f98e794]
+                      - cell "33.3%" [ref=f98e795]
+                    - row [ref=f98e796]:
+                      - cell [ref=f98e797]:
+                        - link "E2E a300eee3" [ref=f98e798] [cursor=pointer]:
+                          - /url: /publications/c8754f24-a31e-48ce-8e80-3558e8bfe42a
+                      - cell "内容平台：E2E 论坛 a300eee3" [ref=f98e799]:
+                        - generic "内容平台：E2E 论坛 a300eee3" [ref=f98e800]: E2E 论坛 a300eee3
+                      - cell "15" [ref=f98e801]
+                      - cell "53.3%" [ref=f98e802]
+                      - cell "33.3%" [ref=f98e803]
+                      - cell "13.3%" [ref=f98e804]
+                    - row [ref=f98e805]:
+                      - cell [ref=f98e806]:
+                        - link "E2E 2438fa57" [ref=f98e807] [cursor=pointer]:
+                          - /url: /publications/20f94e06-0360-49a6-ad90-d45f7365e8df
+                      - cell "内容平台：E2E 论坛 2438fa57" [ref=f98e808]:
+                        - generic "内容平台：E2E 论坛 2438fa57" [ref=f98e809]: E2E 论坛 2438fa57
+                      - cell "3" [ref=f98e810]
+                      - cell "100.0%" [ref=f98e811]
+                      - cell "66.7%" [ref=f98e812]
+                      - cell "0.0%" [ref=f98e813]
+            - region "表现下降内容 Top 5" [ref=f98e814]:
+              - heading "fall 表现下降内容 Top 5" [level=3] [ref=f98e815]:
+                - img "fall" [ref=f98e816]
+                - generic [ref=f98e819]: 表现下降内容 Top 5
+              - region "表现下降内容 Top 5" [ref=f98e820]:
+                - table [ref=f98e827]:
+                  - rowgroup [ref=f98e835]:
+                    - row [ref=f98e836]:
+                      - columnheader "发布内容" [ref=f98e837]
+                      - columnheader "内容平台" [ref=f98e838]
+                      - columnheader "观测" [ref=f98e839]
+                      - columnheader "提及" [ref=f98e840]
+                      - columnheader "推荐" [ref=f98e841]
+                      - columnheader "引用" [ref=f98e842]
+                  - rowgroup [ref=f98e843]:
+                    - row [ref=f98e844]:
+                      - cell [ref=f98e845]:
+                        - link "E2E 156c11c9" [ref=f98e846] [cursor=pointer]:
+                          - /url: /publications/c2e9e169-3ece-4ff1-9d9a-81ed33ad7342
+                      - cell "内容平台：E2E 论坛 156c11c9" [ref=f98e847]:
+                        - generic "内容平台：E2E 论坛 156c11c9" [ref=f98e848]: E2E 论坛 156c11c9
+                      - cell "3" [ref=f98e849]
+                      - cell "66.7%" [ref=f98e850]
+                      - cell "33.3%" [ref=f98e851]
+                      - cell "0.0%" [ref=f98e852]
+                    - row [ref=f98e853]:
+                      - cell [ref=f98e854]:
+                        - link "E2E 73b1eb47" [ref=f98e855] [cursor=pointer]:
+                          - /url: /publications/dfbfa912-eec7-470c-ae0b-3a52a768c55b
+                      - cell "内容平台：E2E 论坛 73b1eb47" [ref=f98e856]:
+                        - generic "内容平台：E2E 论坛 73b1eb47" [ref=f98e857]: E2E 论坛 73b1eb47
+                      - cell "3" [ref=f98e858]
+                      - cell "66.7%" [ref=f98e859]
+                      - cell "33.3%" [ref=f98e860]
+                      - cell "0.0%" [ref=f98e861]
+                    - row [ref=f98e862]:
+                      - cell [ref=f98e863]:
+                        - link "E2E 2438fa57" [ref=f98e864] [cursor=pointer]:
+                          - /url: /publications/20f94e06-0360-49a6-ad90-d45f7365e8df
+                      - cell "内容平台：E2E 论坛 2438fa57" [ref=f98e865]:
+                        - generic "内容平台：E2E 论坛 2438fa57" [ref=f98e866]: E2E 论坛 2438fa57
+                      - cell "3" [ref=f98e867]
+                      - cell "100.0%" [ref=f98e868]
+                      - cell "66.7%" [ref=f98e869]
+                      - cell "0.0%" [ref=f98e870]
+                    - row [ref=f98e871]:
+                      - cell [ref=f98e872]:
+                        - link "E2E a300eee3" [ref=f98e873] [cursor=pointer]:
+                          - /url: /publications/c8754f24-a31e-48ce-8e80-3558e8bfe42a
+                      - cell "内容平台：E2E 论坛 a300eee3" [ref=f98e874]:
+                        - generic "内容平台：E2E 论坛 a300eee3" [ref=f98e875]: E2E 论坛 a300eee3
+                      - cell "15" [ref=f98e876]
+                      - cell "53.3%" [ref=f98e877]
+                      - cell "33.3%" [ref=f98e878]
+                      - cell "13.3%" [ref=f98e879]
+                    - row [ref=f98e880]:
+                      - cell [ref=f98e881]:
+                        - link "E2E 3da64c41" [ref=f98e882] [cursor=pointer]:
+                          - /url: /publications/58a1df44-e9bd-4093-9ef7-1e494d339b1e
+                      - cell "内容平台：E2E 论坛 3da64c41" [ref=f98e883]:
+                        - generic "内容平台：E2E 论坛 3da64c41" [ref=f98e884]: E2E 论坛 3da64c41
+                      - cell "3" [ref=f98e885]
+                      - cell "66.7%" [ref=f98e886]
+                      - cell "66.7%" [ref=f98e887]
+                      - cell "33.3%" [ref=f98e888]
+            - region "长期未获得提及的内容 Top 5" [ref=f98e889]:
+              - heading "warning 长期未获得提及的内容 Top 5" [level=3] [ref=f98e890]:
+                - img "warning" [ref=f98e891]
+                - generic [ref=f98e894]: 长期未获得提及的内容 Top 5
+              - generic [ref=f98e895]:
+                - img "暂无数据" [ref=f98e897]
+                - generic [ref=f98e903]: 当前筛选范围暂无符合门槛的内容
+        - generic [ref=f98e904]:
+          - generic [ref=f98e905]:
+            - generic [ref=f98e906]: 搜索问题分析
+            - generic [ref=f98e909]:
+              - region "搜索问题覆盖计数" [ref=f98e910]:
+                - table "覆盖状态与 GEO 平台计数" [ref=f98e911]:
+                  - rowgroup [ref=f98e912]:
+                    - row [ref=f98e913]:
+                      - columnheader "覆盖状态" [ref=f98e914]
+                      - columnheader "ChatGPT" [ref=f98e915]
+                      - columnheader "DeepSeek" [ref=f98e916]
+                      - columnheader "DeepSeek E2E" [ref=f98e917]
+                      - columnheader "Microsoft Copilot" [ref=f98e918]
+                      - columnheader "Perplexity" [ref=f98e919]
+                      - columnheader "百度 AI 搜索" [ref=f98e920]
+                      - columnheader "知乎直答" [ref=f98e921]
+                      - columnheader "腾讯元宝" [ref=f98e922]
+                      - columnheader "合计" [ref=f98e923]
+                  - rowgroup [ref=f98e924]:
+                    - row [ref=f98e925]:
+                      - rowheader "check-circle 稳定覆盖" [ref=f98e926]:
+                        - generic [ref=f98e927]:
+                          - img "check-circle" [ref=f98e928]
+                          - generic [ref=f98e932]: 稳定覆盖
+                      - cell "0" [ref=f98e933]
+                      - cell "0" [ref=f98e934]
+                      - cell "0" [ref=f98e935]
+                      - cell "1" [ref=f98e936]
+                      - cell "0" [ref=f98e937]
+                      - cell "1" [ref=f98e938]
+                      - cell "0" [ref=f98e939]
+                      - cell "0" [ref=f98e940]
+                      - cell [ref=f98e941]:
+                        - strong [ref=f98e942]: "2"
+                    - row [ref=f98e943]:
+                      - rowheader "exclamation-circle 偶尔命中" [ref=f98e944]:
+                        - generic [ref=f98e945]:
+                          - img "exclamation-circle" [ref=f98e946]
+                          - generic [ref=f98e950]: 偶尔命中
+                      - cell "0" [ref=f98e951]
+                      - cell "0" [ref=f98e952]
+                      - cell "0" [ref=f98e953]
+                      - cell "0" [ref=f98e954]
+                      - cell "0" [ref=f98e955]
+                      - cell "0" [ref=f98e956]
+                      - cell "1" [ref=f98e957]
+                      - cell "0" [ref=f98e958]
+                      - cell [ref=f98e959]:
+                        - strong [ref=f98e960]: "1"
+                    - row [ref=f98e961]:
+                      - rowheader "close-circle 尚未覆盖" [ref=f98e962]:
+                        - generic [ref=f98e963]:
+                          - img "close-circle" [ref=f98e964]
+                          - generic [ref=f98e967]: 尚未覆盖
+                      - cell "0" [ref=f98e968]
+                      - cell "0" [ref=f98e969]
+                      - cell "0" [ref=f98e970]
+                      - cell "0" [ref=f98e971]
+                      - cell "0" [ref=f98e972]
+                      - cell "0" [ref=f98e973]
+                      - cell "0" [ref=f98e974]
+                      - cell "1" [ref=f98e975]
+                      - cell [ref=f98e976]:
+                        - strong [ref=f98e977]: "1"
+                    - row [ref=f98e978]:
+                      - rowheader "数据不足" [ref=f98e979]
+                      - cell "48" [ref=f98e981]
+                      - cell "48" [ref=f98e982]
+                      - cell "48" [ref=f98e983]
+                      - cell "47" [ref=f98e984]
+                      - cell "48" [ref=f98e985]
+                      - cell "47" [ref=f98e986]
+                      - cell "47" [ref=f98e987]
+                      - cell "47" [ref=f98e988]
+                      - cell [ref=f98e989]:
+                        - strong [ref=f98e990]: "380"
+              - list "覆盖状态说明" [ref=f98e991]:
+                - listitem [ref=f98e992]:
+                  - generic [ref=f98e994]: 稳定覆盖：覆盖率 ≥ 60%（≥3 次）
+                - listitem [ref=f98e995]:
+                  - generic [ref=f98e997]: 偶尔命中：30%–60%（≥3 次）
+                - listitem [ref=f98e998]:
+                  - generic [ref=f98e1000]: 尚未覆盖：覆盖率 < 30%（≥3 次）
+                - listitem [ref=f98e1001]:
+                  - generic [ref=f98e1003]: 数据不足：仅 0–2 次完整观测
+          - generic [ref=f98e1004]:
+            - generic [ref=f98e1006]:
+              - generic [ref=f98e1007]: 优先优化建议
+              - button "查看全部建议" [ref=f98e1009] [cursor=pointer]
+            - generic [ref=f98e1012]:
+              - article [ref=f98e1013]:
+                - generic [ref=f98e1014]: "1"
+                - generic [ref=f98e1015]:
+                  - strong [ref=f98e1016]: 检查表现下降的内容：E2E a300eee3
+                  - paragraph [ref=f98e1017]:
+                    - text: 最大单项下降 86.7%。
+                    - generic [ref=f98e1018]: · 影响 15 条关系 · 规则 CONTENT_PERFORMANCE_DECLINE
+                - generic [ref=f98e1019]:
+                  - link "查看详情" [ref=f98e1020] [cursor=pointer]:
+                    - /url: /publications/c8754f24-a31e-48ce-8e80-3558e8bfe42a
+                  - generic [ref=f98e1021]:
+                    - img "close-circle" [ref=f98e1022]
+                    - generic [ref=f98e1025]: 高优先级
+              - article [ref=f98e1026]:
+                - generic [ref=f98e1027]: "2"
+                - generic [ref=f98e1028]:
+                  - strong [ref=f98e1029]: 检查 GEO 平台表现下降：ChatGPT
+                  - paragraph [ref=f98e1030]:
+                    - text: 最大单项下降 85.7%。
+                    - generic [ref=f98e1031]: · 影响 7 条关系 · 规则 GEO_PLATFORM_PERFORMANCE_DECLINE
+                - generic [ref=f98e1033]:
+                  - img "close-circle" [ref=f98e1034]
+                  - generic [ref=f98e1037]: 高优先级
+              - article [ref=f98e1038]:
+                - generic [ref=f98e1039]: "3"
+                - generic [ref=f98e1040]:
+                  - strong [ref=f98e1041]: 检查表现下降的内容：E2E 2438fa57
+                  - paragraph [ref=f98e1042]:
+                    - text: 最大单项下降 100.0%。
+                    - generic [ref=f98e1043]: · 影响 3 条关系 · 规则 CONTENT_PERFORMANCE_DECLINE
+                - generic [ref=f98e1044]:
+                  - link "查看详情" [ref=f98e1045] [cursor=pointer]:
+                    - /url: /publications/20f94e06-0360-49a6-ad90-d45f7365e8df
+                  - generic [ref=f98e1046]:
+                    - img "close-circle" [ref=f98e1047]
+                    - generic [ref=f98e1050]: 高优先级
+              - article [ref=f98e1051]:
+                - generic [ref=f98e1052]: "4"
+                - generic [ref=f98e1053]:
+                  - strong [ref=f98e1054]: 检查表现下降的内容：E2E 3da64c41
+                  - paragraph [ref=f98e1055]:
+                    - text: 最大单项下降 66.7%。
+                    - generic [ref=f98e1056]: · 影响 3 条关系 · 规则 CONTENT_PERFORMANCE_DECLINE
+                - generic [ref=f98e1057]:
+                  - link "查看详情" [ref=f98e1058] [cursor=pointer]:
+                    - /url: /publications/58a1df44-e9bd-4093-9ef7-1e494d339b1e
+                  - generic [ref=f98e1059]:
+                    - img "close-circle" [ref=f98e1060]
+                    - generic [ref=f98e1063]: 高优先级
+              - article [ref=f98e1064]:
+                - generic [ref=f98e1065]: "5"
+                - generic [ref=f98e1066]:
+                  - strong [ref=f98e1067]: 检查表现下降的内容：E2E 156c11c9
+                  - paragraph [ref=f98e1068]:
+                    - text: 最大单项下降 100.0%。
+                    - generic [ref=f98e1069]: · 影响 3 条关系 · 规则 CONTENT_PERFORMANCE_DECLINE
+                - generic [ref=f98e1070]:
+                  - link "查看详情" [ref=f98e1071] [cursor=pointer]:
+                    - /url: /publications/c2e9e169-3ece-4ff1-9d9a-81ed33ad7342
+                  - generic [ref=f98e1072]:
+                    - img "close-circle" [ref=f98e1073]
+                    - generic [ref=f98e1076]: 高优先级

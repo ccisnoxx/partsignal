@@ -8,6 +8,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
+from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, in_use, not_found
 from app.models.content import ContentTask, ContentVersion
 from app.models.geo_files import FileRecord, GeoObservation
@@ -219,11 +220,17 @@ def create_product(*, db: Session, payload: ProductCreate, actor: User, request_
     db.flush()
     append_audit(
         db,
-        actor_id=actor.id,
-        action="product.created",
-        target_type="Product",
-        target_id=product.id,
-        request_id=request_id,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PRODUCT_FACTS,
+            action="product.created",
+            target_type="Product",
+            target_id=product.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="产品已创建",
+            details={"facts": {"status": product.status}},
+        ),
     )
     db.commit()
     return product
@@ -261,6 +268,7 @@ def update_product(
             "产品已有批准事实版本，型号、品牌和分类不能原地修改",
             409,
         )
+    previous_status = product.status
     product.part_number = payload.part_number.strip()
     product.normalized_part_number = normalize_identity(payload.part_number)
     product.brand = payload.brand.strip()
@@ -270,12 +278,26 @@ def update_product(
     product.revision += 1
     append_audit(
         db,
-        actor_id=actor.id,
-        action="product.updated",
-        target_type="Product",
-        target_id=product.id,
-        request_id=request_id,
-        details={"revision": product.revision, "status": product.status},
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PRODUCT_FACTS,
+            action="product.updated",
+            target_type="Product",
+            target_id=product.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="产品已更新",
+            details={
+                "changes": [
+                    {
+                        "field": "status",
+                        "before": previous_status,
+                        "after": product.status,
+                    }
+                ],
+                "facts": {"revision": product.revision},
+            },
+        ),
     )
     db.commit()
     return product
@@ -328,11 +350,17 @@ def delete_product(*, db: Session, product_id: uuid.UUID, actor: User, request_i
         raise in_use("PRODUCT_IN_USE", "产品", references)
     append_audit(
         db,
-        actor_id=actor.id,
-        action="product.deleted",
-        target_type="Product",
-        target_id=product.id,
-        request_id=request_id,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PRODUCT_FACTS,
+            action="product.deleted",
+            target_type="Product",
+            target_id=product.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="产品已删除",
+            details={"facts": {"status": product.status}},
+        ),
     )
     db.delete(product)
     db.commit()
@@ -385,29 +413,28 @@ def delete_fact_version(
     )
     append_audit(
         db,
-        actor_id=actor.id,
-        action="fact_version.deleted",
-        target_type="FactVersion",
-        target_id=version.id,
-        request_id=request_id,
-        details={
-            "product_id": str(version.product_id),
-            "version": version.version,
-            "status": version.status,
-            "review_record_count": review_record_count,
-        },
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PRODUCT_FACTS,
+            action="fact_version.deleted",
+            target_type="FactVersion",
+            target_id=version.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="事实版本已删除",
+            details={
+                "facts": {
+                    "product_id": str(version.product_id),
+                    "version": version.version,
+                    "status": version.status,
+                    "review_record_count": review_record_count,
+                }
+            },
+        ),
     )
     # 专用触发器只在本事务内放行当前父版本的从属审核记录，提交或回滚后自动清除。
-    db.scalar(
-        select(
-            func.set_config(
-                "partsignal.fact_version_delete_id", str(version.id), True
-            )
-        )
-    )
-    db.execute(
-        delete(FactReviewRecord).where(FactReviewRecord.fact_version_id == version.id)
-    )
+    db.scalar(select(func.set_config("partsignal.fact_version_delete_id", str(version.id), True)))
+    db.execute(delete(FactReviewRecord).where(FactReviewRecord.fact_version_id == version.id))
     db.delete(version)
     db.commit()
 
@@ -540,12 +567,17 @@ def replace_product_facts(
     product.facts_revision += 1
     append_audit(
         db,
-        actor_id=actor.id,
-        action="product_facts.replaced",
-        target_type="Product",
-        target_id=product.id,
-        request_id=request_id,
-        details={"revision": product.facts_revision},
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PRODUCT_FACTS,
+            action="product_facts.replaced",
+            target_type="Product",
+            target_id=product.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="产品事实工作区已更新",
+            details={"facts": {"revision": product.facts_revision}},
+        ),
     )
     db.commit()
     return ProductFactsDraft(
@@ -589,12 +621,23 @@ def create_fact_version(
     db.flush()
     append_audit(
         db,
-        actor_id=actor.id,
-        action="fact_version.created",
-        target_type="FactVersion",
-        target_id=version.id,
-        request_id=request_id,
-        details={"version": next_version},
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PRODUCT_FACTS,
+            action="fact_version.created",
+            target_type="FactVersion",
+            target_id=version.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="事实版本已创建",
+            details={
+                "facts": {
+                    "product_id": str(product.id),
+                    "version": next_version,
+                    "status": version.status,
+                }
+            },
+        ),
     )
     db.commit()
     return version

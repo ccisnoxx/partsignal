@@ -8,9 +8,11 @@ import sys
 import uuid
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from threading import Barrier, Event
 from types import SimpleNamespace
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -60,10 +62,13 @@ from app.models.publication import (
     PublicationAttention,
     PublicationRecord,
 )
-from app.routers.observation import get_geo_metrics
-from app.schemas.common import CommandRequest
+from app.routers.identity import list_audit_logs
+from app.routers.planning import list_content_tasks as list_content_tasks_route
+from app.schemas.common import CommandRequest, RevisionRequest
 from app.schemas.configuration import (
+    PlatformConfigurationStatus,
     PlatformProfileCreate,
+    PlatformProfileStatus,
     PlatformProfileVersionCreate,
     PlatformProfileVersionUpdate,
 )
@@ -71,6 +76,7 @@ from app.schemas.content import ContentTaskCreate
 from app.schemas.geo_files import GeoArticleResultCreate, GeoObservationCreate
 from app.schemas.publication import (
     ManualPublicationCreate,
+    PlatformAccountCreate,
     PublicationCommand,
     PublicationRepairTaskCreate,
     ResolvePublicationAttentionRequest,
@@ -84,20 +90,38 @@ from app.services.content_planning import (
     retire_platform_profile_version,
     update_platform_profile_version,
 )
-from app.services.geo_observation import create_geo_observation, geo_publication_candidates
+from app.services.geo_observation import (
+    GeoInsightFilters,
+    GeoObservationFilters,
+    create_geo_observation,
+    geo_publication_candidates,
+    get_geo_insights,
+    get_geo_metrics,
+    get_geo_observation,
+    list_geo_observations,
+)
 from app.services.integrity import publication_integrity_issues
 from app.services.platform_configuration import (
     delete_platform_profile,
     delete_platform_profile_version,
     delete_platform_prompt,
     delete_platform_type,
+    get_platform_profile_detail,
+    list_platform_profiles,
+    set_platform_profile_enabled,
 )
 from app.services.product_facts import delete_fact_version, delete_product
-from app.services.projections import content_tasks_out, platform_profile_out
+from app.services.projections import (
+    content_tasks_out,
+    platform_profile_out,
+    platform_rule_impact,
+    platform_versions_out,
+)
 from app.services.publication import (
     cancel_content_task,
     command_publication,
     create_manual_publication,
+    create_platform_account,
     create_repair_task,
     delete_platform_account,
     resolve_attention,
@@ -477,7 +501,10 @@ def test_content_humanization_prompt_api_lifecycle_and_audit() -> None:
                     .order_by(AuditLog.created_at)
                 )
             )
-            assert [audit.details for audit in audits] == [{"revision": 0}, {"revision": 1}]
+            assert [audit.details for audit in audits] == [
+                {"facts": {"revision": 0}},
+                {"facts": {"revision": 1}},
+            ]
         engine.dispose()
 
 
@@ -514,10 +541,22 @@ def test_publication_api_database_task_and_attention_closure() -> None:
         app.dependency_overrides[get_current_session] = lambda: current_session
         client = TestClient(app)
         try:
+            csrf_rejected = client.post(
+                "/api/v1/publication-records/manual",
+                headers={
+                    "X-CSRF-Token": "wrong-csrf-token-with-more-than-32-characters",
+                    "X-Request-ID": "publication-csrf-rejected",
+                    "Idempotency-Key": "stage2-csrf-rejected",
+                },
+                json=publication_payload(content_id, same_account_id).model_dump(mode="json"),
+            )
+            assert csrf_rejected.status_code == 403
+            assert csrf_rejected.json()["error"]["code"] == "CSRF_INVALID"
             mismatch = client.post(
                 "/api/v1/publication-records/manual",
                 headers={
                     "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "publication-mismatch",
                     "Idempotency-Key": "stage2-cross-platform",
                 },
                 json={
@@ -529,11 +568,21 @@ def test_publication_api_database_task_and_attention_closure() -> None:
             )
             assert mismatch.status_code == 422
             assert mismatch.json()["error"]["code"] == "PUBLICATION_PLATFORM_MISMATCH"
+            denied_delete = client.delete(
+                f"/api/v1/platform-accounts/{same_account_id}",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "platform-account-delete-denied",
+                },
+            )
+            assert denied_delete.status_code == 403
+            assert denied_delete.json()["error"]["code"] == "PERMISSION_DENIED"
 
             first = client.post(
                 "/api/v1/publication-records/manual",
                 headers={
                     "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "publication-created-a",
                     "Idempotency-Key": "stage2-same-platform-a",
                 },
                 json=publication_payload(content_id, same_account_id).model_dump(mode="json"),
@@ -542,6 +591,7 @@ def test_publication_api_database_task_and_attention_closure() -> None:
                 "/api/v1/publication-records/manual",
                 headers={
                     "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "publication-created-b",
                     "Idempotency-Key": "stage2-same-platform-b",
                 },
                 json=publication_payload(content_id, same_account_b_id).model_dump(mode="json"),
@@ -554,6 +604,34 @@ def test_publication_api_database_task_and_attention_closure() -> None:
             app.dependency_overrides.clear()
 
         with session_factory() as db:
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(AuditLog)
+                    .where(AuditLog.request_id == "publication-csrf-rejected")
+                )
+                == 0
+            )
+            failed_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "publication-mismatch")
+            )
+            assert failed_audit is not None
+            assert failed_audit.business_module == "PUBLICATION"
+            assert failed_audit.action == "publication.created"
+            assert failed_audit.target_id is None
+            assert failed_audit.outcome == "FAILED"
+            assert failed_audit.error_code == "PUBLICATION_PLATFORM_MISMATCH"
+            assert failed_audit.details == {}
+            denied_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "platform-account-delete-denied")
+            )
+            assert denied_audit is not None
+            assert denied_audit.business_module == "PUBLICATION"
+            assert denied_audit.action == "platform_account.deleted"
+            assert denied_audit.target_id == str(same_account_id)
+            assert denied_audit.outcome == "DENIED"
+            assert denied_audit.error_code == "PERMISSION_DENIED"
+            assert denied_audit.details == {}
             db.add(
                 PublicationRecord(
                     idempotency_key="database-cross-platform",
@@ -680,6 +758,30 @@ def test_publication_api_database_task_and_attention_closure() -> None:
                 )
             )
             assert attention is not None and attention.status == "OPEN"
+            created_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "publication-created-a")
+            )
+            assert created_audit is not None
+            assert created_audit.business_module == "PUBLICATION"
+            assert created_audit.outcome == "SUCCESS"
+            assert created_audit.error_code is None
+            assert created_audit.details["facts"]["status"] == "PENDING_MANUAL_PUBLISH"
+            published_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "published-1")
+            )
+            assert published_audit is not None
+            assert published_audit.details == {
+                "changes": [
+                    {
+                        "field": "status",
+                        "before": "PLATFORM_REVIEW",
+                        "after": "PUBLISHED",
+                    }
+                ]
+            }
+            assert "已发布标题" not in str(published_audit.details)
+            assert "community.example.invalid" not in str(published_audit.details)
+            assert "发布完成" not in str(published_audit.details)
             assert db.get(PublicationRecord, second_id) is not None
             assert publication_integrity_issues(db) == []
         engine.dispose()
@@ -1079,9 +1181,21 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
             )
             db.add(prompt)
             db.commit()
+            with pytest.raises(AppError) as stale_delete:
+                delete_platform_prompt(
+                    db=db,
+                    platform_profile_id=graph["profile"].id,
+                    expected_revision=prompt.revision + 1,
+                    actor=actor,
+                    request_id="delete-stale-prompt",
+                )
+            assert stale_delete.value.code == "REVISION_CONFLICT"
+            db.rollback()
+            assert db.get(PlatformPrompt, graph["profile"].id) is not None
             delete_platform_prompt(
                 db=db,
                 platform_profile_id=graph["profile"].id,
+                expected_revision=prompt.revision,
                 actor=actor,
                 request_id="delete-clean-prompt",
             )
@@ -1182,6 +1296,14 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
                 "platform_profile.deleted",
                 "platform_type.deleted",
             } <= actions
+            deleted_prompt_audit = db.scalar(
+                select(AuditLog).where(AuditLog.action == "platform_prompt.deleted")
+            )
+            assert deleted_prompt_audit is not None
+            assert deleted_prompt_audit.details == {
+                "changes": [{"field": "is_configured", "before": True, "after": False}],
+                "facts": {"revision": prompt.revision},
+            }
         engine.dispose()
 
 
@@ -1259,15 +1381,29 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
             assert {item.publication_record_id for item in candidates} == {
                 item.id for item in publications
             }
+            with pytest.raises(ValidationError):
+                GeoArticleResultCreate(
+                    publication_record_id=publications[0].id,
+                    discovered=False,
+                    mentioned=True,
+                    recommendation_status="NOT_RECOMMENDED",
+                    cited=False,
+                    accuracy="UNJUDGEABLE",
+                )
             incomplete = GeoObservationCreate(
                 product_id=graph["product"].id,
+                query_topic_id=graph["topic"].id,
                 search_platform="DeepSeek",
                 search_query=graph["product"].part_number,
-                tested_at=datetime.now(UTC),
+                tested_at=datetime(2026, 7, 20, 10, tzinfo=UTC),
                 article_results=[
                     GeoArticleResultCreate(
                         publication_record_id=publications[0].id,
+                        discovered=True,
+                        mentioned=True,
                         recommendation_status="RECOMMENDED",
+                        cited=True,
+                        accuracy="ACCURATE",
                     )
                 ],
                 attachment_file_ids=[screenshot.id],
@@ -1288,9 +1424,13 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                     "article_results": [
                         GeoArticleResultCreate(
                             publication_record_id=publication.id,
+                            discovered=index == 0,
+                            mentioned=index == 0,
                             recommendation_status=(
                                 "RECOMMENDED" if index == 0 else "NOT_RECOMMENDED"
                             ),
+                            cited=index == 0,
+                            accuracy="ACCURATE" if index == 0 else "UNJUDGEABLE",
                         )
                         for index, publication in enumerate(publications)
                     ]
@@ -1334,12 +1474,322 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
             )
             metrics = get_geo_metrics(
                 db=db,
-                _user=graph["user"],
-                product_id=graph["product"].id,
+                actor=graph["user"],
+                filters=GeoObservationFilters(product_id=graph["product"].id),
             )
             assert metrics.manual_observation_count == 1
             assert metrics.article_result_count == 2
             assert metrics.article_recommendation_rate == 0.5
+            audit = db.scalar(select(AuditLog).where(AuditLog.request_id == "geo-complete"))
+            assert audit is not None
+            assert audit.business_module == "GEO_OBSERVATION"
+            assert audit.outcome == "SUCCESS"
+            assert audit.details == {
+                "facts": {
+                    "product_id": str(graph["product"].id),
+                    "supersedes_id": None,
+                    "article_count": 2,
+                    "attachment_count": 1,
+                }
+            }
+            assert complete.search_query not in str(audit.details)
+            assert complete.notes not in str(audit.details)
+
+            correction = create_geo_observation(
+                db=db,
+                payload=complete.model_copy(
+                    update={
+                        "tested_at": complete.tested_at + timedelta(hours=1),
+                        "notes": "纠正后的人工搜索",
+                        "supersedes_id": observation.id,
+                    }
+                ),
+                actor=graph["user"],
+                request_id="geo-correction",
+            )
+            with pytest.raises(AppError) as changed_query:
+                create_geo_observation(
+                    db=db,
+                    payload=complete.model_copy(
+                        update={
+                            "search_query": "不得改写的问题",
+                            "supersedes_id": correction.id,
+                        }
+                    ),
+                    actor=graph["user"],
+                    request_id="geo-correction-changed-query",
+                )
+            assert changed_query.value.code == "VALIDATION_ERROR"
+            db.rollback()
+
+            other_user = User(
+                username=f"geo-other-{uuid.uuid4().hex[:8]}",
+                display_name="其他记录人",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            db.add(other_user)
+            db.commit()
+            tied_time = complete.tested_at + timedelta(hours=2)
+            other_observation = create_geo_observation(
+                db=db,
+                payload=complete.model_copy(
+                    update={"tested_at": tied_time, "notes": "其他用户的人工搜索"}
+                ),
+                actor=other_user,
+                request_id="geo-other-user",
+            )
+            third_observation = create_geo_observation(
+                db=db,
+                payload=complete.model_copy(
+                    update={
+                        "tested_at": tied_time + timedelta(hours=1),
+                        "notes": "第三次完整人工搜索",
+                    }
+                ),
+                actor=other_user,
+                request_id="geo-third-observation",
+            )
+            unobserved_topic = QueryTopic(
+                canonical_question="尚未观测的问题？",
+                intent_type="PRODUCT",
+                variants=[],
+            )
+            db.add(unobserved_topic)
+            legacy = GeoObservation(
+                observation_kind="LEGACY_MODEL_RESULT",
+                query_topic_id=graph["topic"].id,
+                product_id=graph["product"].id,
+                actual_prompt="如何选择 PS 测试器件？",
+                model_name="历史模型",
+                tested_at=tied_time,
+                web_search_enabled=True,
+                answer_summary="历史模型回答摘要",
+                mentioned=True,
+                recommendation="RECOMMENDED",
+                accuracy="ACCURATE",
+                notes="只读历史记录",
+                tested_by=graph["user"].id,
+            )
+            db.add(legacy)
+            db.commit()
+
+            current = list_geo_observations(
+                db,
+                filters=GeoObservationFilters(product_id=graph["product"].id),
+                actor=graph["user"],
+                page=1,
+                page_size=20,
+                sort_order="DESC",
+            )
+            assert current.total == 4
+            assert current.page == 1
+            assert current.page_size == 20
+            tied_ids = [item.id for item in current.items if item.tested_at == tied_time]
+            assert tied_ids == sorted(tied_ids)
+            assert {item.id for item in current.items} == {
+                correction.id,
+                other_observation.id,
+                third_observation.id,
+                legacy.id,
+            }
+            correction_out = next(item for item in current.items if item.id == correction.id)
+            assert correction_out.product_label == (
+                f"{graph['product'].brand} {graph['product'].part_number}"
+            )
+            assert correction_out.recorder.display_name == graph["user"].display_name
+            assert correction_out.is_current is True
+            assert correction_out.available_actions == ["CORRECT"]
+
+            history = list_geo_observations(
+                db,
+                filters=GeoObservationFilters(product_id=graph["product"].id, include_history=True),
+                actor=graph["user"],
+                page=1,
+                page_size=20,
+                sort_order="ASC",
+            )
+            assert history.total == 5
+            original_out = next(item for item in history.items if item.id == observation.id)
+            assert original_out.is_current is False
+            assert original_out.available_actions == []
+            assert [item.tested_at for item in history.items] == sorted(
+                item.tested_at for item in history.items
+            )
+
+            mine = list_geo_observations(
+                db,
+                filters=GeoObservationFilters(product_id=graph["product"].id, only_mine=True),
+                actor=graph["user"],
+                page=1,
+                page_size=20,
+                sort_order="DESC",
+            )
+            assert mine.total == 2
+            assert {item.id for item in mine.items} == {correction.id, legacy.id}
+            recorded_by_other = list_geo_observations(
+                db,
+                filters=GeoObservationFilters(recorder_search="其他记录人"),
+                actor=graph["user"],
+                page=1,
+                page_size=20,
+                sort_order="DESC",
+            )
+            assert {item.id for item in recorded_by_other.items} == {
+                other_observation.id,
+                third_observation.id,
+            }
+            legacy_only = list_geo_observations(
+                db,
+                filters=GeoObservationFilters(mentioned=True),
+                actor=graph["user"],
+                page=1,
+                page_size=20,
+                sort_order="DESC",
+            )
+            assert [item.id for item in legacy_only.items] == [legacy.id]
+            recommended_articles = list_geo_observations(
+                db,
+                filters=GeoObservationFilters(article_recommendation="RECOMMENDED"),
+                actor=graph["user"],
+                page=1,
+                page_size=20,
+                sort_order="DESC",
+            )
+            assert recommended_articles.total == 3
+            publication_match = list_geo_observations(
+                db,
+                filters=GeoObservationFilters(publication_search="GEO 文章 1"),
+                actor=graph["user"],
+                page=1,
+                page_size=20,
+                sort_order="DESC",
+            )
+            assert publication_match.total == 3
+
+            second_page = list_geo_observations(
+                db,
+                filters=GeoObservationFilters(product_id=graph["product"].id),
+                actor=graph["user"],
+                page=2,
+                page_size=1,
+                sort_order="DESC",
+            )
+            assert second_page.total == 4
+            assert len(second_page.items) == 1
+            assert get_geo_observation(db, correction.id, actor=graph["user"]).id == correction.id
+            with pytest.raises(AppError) as missing_observation:
+                get_geo_observation(db, uuid.uuid4(), actor=graph["user"])
+            assert missing_observation.value.status_code == 404
+
+            current_metrics = get_geo_metrics(
+                db=db,
+                actor=graph["user"],
+                filters=GeoObservationFilters(product_id=graph["product"].id),
+            )
+            assert current_metrics.legacy_sample_count == 1
+            assert current_metrics.manual_observation_count == 3
+            assert current_metrics.article_result_count == 6
+            assert current_metrics.article_recommendation_rate == 0.5
+
+            observed_date = complete.tested_at.date()
+            insights = get_geo_insights(
+                db,
+                filters=GeoInsightFilters(
+                    date_from=observed_date,
+                    date_to=observed_date,
+                ),
+            )
+            assert insights.analysis_unit == "MANUAL_OBSERVATION_PUBLICATION_RELATION"
+            assert insights.data_quality.eligible_observation_count == 3
+            assert insights.data_quality.excluded_incomplete_observation_count == 0
+            assert insights.trends.mention_rate.current.model_dump() == {
+                "numerator": 3,
+                "denominator": 6,
+                "value": 0.5,
+            }
+            assert insights.trends.recommendation_rate.current.value == 0.5
+            assert insights.trends.citation_rate.current.value == 0.5
+            assert insights.trends.accuracy_rate.current.value == 0.5
+            assert insights.trends.not_recommended_content_count.current == 1
+            assert [stage.count for stage in insights.funnel] == [6, 3, 3, 3, 3, 3]
+            assert insights.platform_performance[0].observation_count == 3
+            assert insights.content_rankings.best[0].publication_record_id == publications[0].id
+
+            coverage = {item.query_topic_id: item for item in insights.question_coverage.matrix}
+            assert coverage[graph["topic"].id].status == "STABLE"
+            assert coverage[graph["topic"].id].observation_count == 3
+            assert coverage[unobserved_topic.id].status == "INSUFFICIENT_DATA"
+            insufficient = next(
+                item
+                for item in insights.recommendations
+                if item.rule_code == "QUESTION_INSUFFICIENT_DATA"
+                and item.query_topic_ids == [unobserved_topic.id]
+            )
+            assert insufficient.basis_values[0].model_dump() == {
+                "metric": "observation_count",
+                "value": 0.0,
+                "threshold": 3.0,
+                "unit": "COUNT",
+            }
+            assert any(
+                item.rule_code == "CONTENT_NEVER_RECOMMENDED"
+                and item.publication_record_ids == [publications[1].id]
+                for item in insights.recommendations
+            )
+            assert {item.code for item in insights.data_quality.unavailable_sections} >= {
+                "NO_COMPLETE_PREVIOUS_OBSERVATIONS",
+                "LONG_UNMENTIONED_PERIOD_TOO_SHORT",
+            }
+
+            shared_filters = (
+                ("content_platform_id", graph["profile"].id, 6),
+                ("geo_platform", "DeepSeek", 6),
+                ("content_angle", graph["task"].content_angle, 6),
+                ("publication_record_id", publications[1].id, 3),
+                ("query_topic_id", graph["topic"].id, 6),
+            )
+            for field, value, expected_denominator in shared_filters:
+                filtered = get_geo_insights(
+                    db,
+                    filters=GeoInsightFilters(
+                        date_from=observed_date,
+                        date_to=observed_date,
+                        **{field: value},
+                    ),
+                )
+                assert filtered.trends.mention_rate.current.denominator == expected_denominator
+            with pytest.raises(AppError) as unknown_publication:
+                get_geo_insights(
+                    db,
+                    filters=GeoInsightFilters(
+                        date_from=observed_date,
+                        date_to=observed_date,
+                        publication_record_id=uuid.uuid4(),
+                    ),
+                )
+            assert unknown_publication.value.status_code == 404
+
+            command_publication(
+                db=db,
+                publication_id=publications[0].id,
+                command="remove",
+                payload=PublicationCommand(comment="验证历史洞察仍可筛选"),
+                actor=graph["user"],
+                request_id="geo-insight-removed-publication",
+            )
+            removed_publication_insights = get_geo_insights(
+                db,
+                filters=GeoInsightFilters(
+                    date_from=observed_date,
+                    date_to=observed_date,
+                    publication_record_id=publications[0].id,
+                ),
+            )
+            assert removed_publication_insights.trends.mention_rate.current.denominator == 3
+            assert publications[0].id in {
+                item.id for item in removed_publication_insights.filter_options.publications
+            }
         engine.dispose()
 
 
@@ -1551,6 +2001,53 @@ def test_platform_rule_lifecycle_and_fact_version_deletion() -> None:
             db.refresh(alpha_version)
             assert replacement.status == "ACTIVE"
             assert alpha_version.status == "RETIRED"
+            replacement_retired_audit = db.scalar(
+                select(AuditLog).where(
+                    AuditLog.target_id == str(alpha_version.id),
+                    AuditLog.action == "platform_profile_version.retired",
+                )
+            )
+            replacement_activated_audit = db.scalar(
+                select(AuditLog).where(
+                    AuditLog.target_id == str(replacement.id),
+                    AuditLog.action == "platform_profile_version.activated",
+                )
+            )
+            assert replacement_retired_audit is not None
+            assert replacement_retired_audit.business_module == "CONFIGURATION"
+            assert replacement_retired_audit.outcome == "SUCCESS"
+            assert replacement_retired_audit.error_code is None
+            assert replacement_retired_audit.details == {
+                "changes": [
+                    {
+                        "field": "status",
+                        "before": "ACTIVE",
+                        "after": "RETIRED",
+                    }
+                ],
+                "facts": {
+                    "reason": "REPLACED",
+                    "replacement_version_id": str(replacement.id),
+                    "revision": alpha_version.revision,
+                },
+            }
+            assert replacement_activated_audit is not None
+            assert replacement_activated_audit.business_module == "CONFIGURATION"
+            assert replacement_activated_audit.outcome == "SUCCESS"
+            assert replacement_activated_audit.error_code is None
+            assert replacement_activated_audit.details == {
+                "changes": [
+                    {
+                        "field": "status",
+                        "before": "DRAFT",
+                        "after": "ACTIVE",
+                    }
+                ],
+                "facts": {
+                    "previous_active_version_id": str(alpha_version.id),
+                    "revision": replacement.revision,
+                },
+            }
             with pytest.raises(AppError) as retired_immutable:
                 update_platform_profile_version(
                     db=db,
@@ -1579,6 +2076,28 @@ def test_platform_rule_lifecycle_and_fact_version_deletion() -> None:
                 actor=actor,
                 request_id="retire-zeta-rule",
             )
+            direct_retired_audit = db.scalar(
+                select(AuditLog).where(
+                    AuditLog.target_id == str(retired_draft.id),
+                    AuditLog.action == "platform_profile_version.retired",
+                )
+            )
+            assert direct_retired_audit is not None
+            assert direct_retired_audit.business_module == "CONFIGURATION"
+            assert direct_retired_audit.outcome == "SUCCESS"
+            assert direct_retired_audit.details == {
+                "changes": [
+                    {
+                        "field": "status",
+                        "before": "DRAFT",
+                        "after": "RETIRED",
+                    }
+                ],
+                "facts": {
+                    "reason": "DIRECT",
+                    "revision": retired_draft.revision,
+                },
+            }
             with pytest.raises(AppError) as explicitly_retired_immutable:
                 update_platform_profile_version(
                     db=db,
@@ -1671,11 +2190,15 @@ def test_platform_rule_lifecycle_and_fact_version_deletion() -> None:
                     )
                 )
                 assert audit is not None
+                assert audit.business_module == "PRODUCT_FACTS"
+                assert audit.outcome == "SUCCESS"
                 assert audit.details == {
-                    "product_id": str(graph["product"].id),
-                    "version": disposable_statuses.index(status) + 2,
-                    "status": status,
-                    "review_record_count": 1,
+                    "facts": {
+                        "product_id": str(graph["product"].id),
+                        "version": disposable_statuses.index(status) + 2,
+                        "status": status,
+                        "review_record_count": 1,
+                    }
                 }
             assert not db.scalars(
                 select(FactVersion).where(FactVersion.id.in_(disposable_ids))
@@ -1784,6 +2307,298 @@ def test_platform_rule_lifecycle_and_fact_version_deletion() -> None:
         with session_factory() as db:
             assert db.get(FactVersion, api_fact_id) is None
             assert db.get(Product, api_product_id) is not None
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_platform_rule_concurrent_activation_serializes_replacements() -> None:
+    """同平台并发激活必须串行提交，并在每次替代时追加成对审计。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            graph = seed_graph(db)
+            profile_id = graph["profile"].id
+            original_id = graph["profile_version"].id
+            actor_id = graph["user"].id
+            draft_ids = [
+                create_platform_profile_version(
+                    db=db,
+                    platform_profile_id=profile_id,
+                    payload=PlatformProfileVersionCreate(rules=platform_rules(body_max)),
+                    actor=graph["user"],
+                    request_id=f"create-concurrent-rule-{body_max}",
+                ).id
+                for body_max in (2600, 2700)
+            ]
+
+        start = Barrier(2)
+
+        def activate(draft_id: uuid.UUID) -> uuid.UUID:
+            with session_factory() as db:
+                actor = db.get(User, actor_id)
+                assert actor is not None
+                start.wait(timeout=5)
+                return activate_platform_profile_version(
+                    db=db,
+                    platform_profile_version_id=draft_id,
+                    payload=CommandRequest(
+                        expected_revision=0,
+                        comment=f"并发激活 {draft_id}",
+                    ),
+                    actor=actor,
+                    request_id=f"activate-concurrent-rule-{draft_id}",
+                ).id
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            activated_ids = {
+                future.result(timeout=10)
+                for future in [executor.submit(activate, draft_id) for draft_id in draft_ids]
+            }
+        assert activated_ids == set(draft_ids)
+
+        with session_factory() as db:
+            versions = list(
+                db.scalars(
+                    select(PlatformProfileVersion).where(
+                        PlatformProfileVersion.platform_profile_id == profile_id
+                    )
+                )
+            )
+            assert sum(version.status == "ACTIVE" for version in versions) == 1
+            original = next(version for version in versions if version.id == original_id)
+            assert original.status == "RETIRED"
+            assert {version.status for version in versions if version.id in draft_ids} == {
+                "ACTIVE",
+                "RETIRED",
+            }
+            active_id = next(version.id for version in versions if version.status == "ACTIVE")
+            actor = db.get(User, actor_id)
+            assert actor is not None
+            rollback_draft = create_platform_profile_version(
+                db=db,
+                platform_profile_id=profile_id,
+                payload=PlatformProfileVersionCreate(rules=platform_rules(2800)),
+                actor=actor,
+                request_id="create-rollback-rule",
+            )
+            with pytest.raises(AppError) as stale_activation:
+                activate_platform_profile_version(
+                    db=db,
+                    platform_profile_version_id=rollback_draft.id,
+                    payload=CommandRequest(expected_revision=1, comment="不得部分提交"),
+                    actor=actor,
+                    request_id="activate-rollback-rule",
+                )
+            assert stale_activation.value.code == "REVISION_CONFLICT"
+            db.rollback()
+            assert db.get(PlatformProfileVersion, rollback_draft.id).status == "DRAFT"
+            assert (
+                db.scalar(
+                    select(PlatformProfileVersion.id).where(
+                        PlatformProfileVersion.platform_profile_id == profile_id,
+                        PlatformProfileVersion.status == "ACTIVE",
+                    )
+                )
+                == active_id
+            )
+            assert (
+                db.scalar(
+                    select(AuditLog.id).where(
+                        AuditLog.target_id == str(rollback_draft.id),
+                        AuditLog.action == "platform_profile_version.activated",
+                    )
+                )
+                is None
+            )
+
+            audits = list(
+                db.scalars(
+                    select(AuditLog).where(
+                        AuditLog.target_type == "PlatformProfileVersion",
+                        AuditLog.target_id.in_(
+                            [str(original_id), *(str(item) for item in draft_ids)]
+                        ),
+                        AuditLog.action.in_(
+                            [
+                                "platform_profile_version.activated",
+                                "platform_profile_version.retired",
+                            ]
+                        ),
+                    )
+                )
+            )
+            assert sum(audit.action.endswith(".activated") for audit in audits) == 2
+            assert sum(audit.action.endswith(".retired") for audit in audits) == 2
+            assert all("comment" not in audit.details for audit in audits)
+            assert all(
+                audit.details["facts"]["reason"] == "REPLACED"
+                for audit in audits
+                if audit.action.endswith(".retired")
+            )
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_platform_rule_workbench_projection_impact_and_exact_task_filter() -> None:
+    """规则版本元数据、影响分桶和任务筛选共享直接版本引用。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            graph = seed_graph(db)
+
+            def add_task(suffix: str) -> ContentTask:
+                task = ContentTask(
+                    query_topic_id=graph["topic"].id,
+                    product_id=graph["product"].id,
+                    fact_version_id=graph["fact"].id,
+                    platform_profile_version_id=graph["profile_version"].id,
+                    platform_type_id=graph["platform_type"].id,
+                    platform_type_snapshot=graph["task"].platform_type_snapshot,
+                    user_prompt_markdown="",
+                    target_audience="平台规则影响测试",
+                    content_angle=suffix,
+                    conversion_goal="验证互斥分桶",
+                    desired_format="MARKDOWN",
+                    desired_length_min=1,
+                    desired_length_max=100,
+                    canonical_url=f"https://product.example.invalid/rule-impact/{suffix}",
+                    created_by=graph["user"].id,
+                )
+                db.add(task)
+                db.flush()
+                return task
+
+            def add_content(
+                task: ContentTask,
+                suffix: str,
+                status_value: str,
+                *,
+                version: int = 1,
+            ) -> ContentVersion:
+                content = ContentVersion(
+                    task_id=task.id,
+                    fact_version_id=graph["fact"].id,
+                    version=version,
+                    source_type="HUMAN",
+                    title=f"规则影响 {suffix}",
+                    summary="规则影响摘要",
+                    body_markdown="# 规则影响",
+                    tags=[],
+                    content_hash=(suffix[0] * 64),
+                    status=status_value,
+                    quality_issues=[],
+                    change_summary="规则影响测试",
+                    created_by=graph["user"].id,
+                )
+                db.add(content)
+                db.flush()
+                return content
+
+            reviewing_content = add_content(
+                add_task("reviewing-content"), "b-reviewing-content", "PENDING_REVIEW"
+            )
+            platform_review_content = add_content(
+                add_task("platform-review"), "c-platform-review", "APPROVED"
+            )
+            published_task = add_task("published-priority")
+            published_content = add_content(published_task, "d-published-priority", "APPROVED")
+            add_content(
+                published_task,
+                "e-published-reviewing-priority",
+                "PENDING_REVIEW",
+                version=2,
+            )
+            db.add_all(
+                [
+                    PublicationRecord(
+                        idempotency_key=f"rule-impact-review-{uuid.uuid4()}",
+                        content_version_id=platform_review_content.id,
+                        platform_account_id=graph["same_account"].id,
+                        section_url="https://community.example.invalid/review",
+                        status="PLATFORM_REVIEW",
+                        content_hash=platform_review_content.content_hash,
+                        created_by=graph["user"].id,
+                    ),
+                    PublicationRecord(
+                        idempotency_key=f"rule-impact-published-{uuid.uuid4()}",
+                        content_version_id=published_content.id,
+                        platform_account_id=graph["same_account"].id,
+                        section_url="https://community.example.invalid/published",
+                        status="PUBLISHED",
+                        content_hash=published_content.content_hash,
+                        created_by=graph["user"].id,
+                    ),
+                ]
+            )
+            draft = create_platform_profile_version(
+                db=db,
+                platform_profile_id=graph["profile"].id,
+                payload=PlatformProfileVersionCreate(rules=platform_rules(2600)),
+                actor=graph["user"],
+                request_id="create-rule-workbench-draft",
+            )
+            db.commit()
+
+            impact = platform_rule_impact(db, graph["profile_version"].id)
+            assert impact.bound_task_total == 4
+            assert impact.unpublished_task_total == 1
+            assert impact.reviewing_task_total == 2
+            assert impact.published_task_total == 1
+
+            summaries = platform_versions_out(db, [graph["profile_version"], draft])
+            assert summaries[0].reference_count == 4
+            assert summaries[0].created_by is None
+            assert summaries[0].available_actions == []
+            assert summaries[1].reference_count == 0
+            assert summaries[1].created_by == graph["user"].id
+            assert summaries[1].activated_at is None
+            assert summaries[1].available_actions == ["EDIT", "ACTIVATE", "RETIRE", "DELETE"]
+
+            exact = list_content_tasks_route(
+                db=db,
+                _user=graph["user"],
+                platform_profile_version_id=graph["profile_version"].id,
+            )
+            assert {item.id for item in exact.items} == {
+                graph["task"].id,
+                reviewing_content.task_id,
+                platform_review_content.task_id,
+                published_content.task_id,
+            }
+            contradictory = list_content_tasks_route(
+                db=db,
+                _user=graph["user"],
+                platform_profile_id=uuid.uuid4(),
+                platform_profile_version_id=graph["profile_version"].id,
+            )
+            assert contradictory.items == []
+
+            deleted_actor_audit = AuditLog(
+                actor_id=None,
+                business_module="CONFIGURATION",
+                action="platform_profile_version.test",
+                target_type="PlatformProfileVersion",
+                target_id=str(draft.id),
+                outcome="SUCCESS",
+                result_message="操作已完成",
+                request_id="deleted-actor-audit",
+                details={},
+            )
+            db.add(deleted_actor_audit)
+            db.commit()
+            audit_page = list_audit_logs(
+                db=db,
+                _admin=graph["user"],
+                page=1,
+                page_size=20,
+                target_type="PlatformProfileVersion",
+                target_id=draft.id,
+            )
+            assert audit_page.total == 2
+            assert len(audit_page.items) == 2
+            assert any(item.actor_id is None for item in audit_page.items)
         engine.dispose()
 
 
@@ -1988,6 +2803,23 @@ def test_repair_context_resolution_and_review_history_are_immutable(
                 "已补充",
                 "",
             ]
+            fact_submit_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "fact-submit-0")
+            )
+            assert fact_submit_audit is not None
+            assert fact_submit_audit.business_module == "PRODUCT_FACTS"
+            assert fact_submit_audit.outcome == "SUCCESS"
+            assert fact_submit_audit.details == {
+                "changes": [
+                    {
+                        "field": "status",
+                        "before": "DRAFT",
+                        "after": "PENDING_REVIEW",
+                    }
+                ],
+                "facts": {"revision": 1},
+            }
+            assert "提交事实" not in str(fact_submit_audit.details)
 
             source = ContentVersion(
                 task_id=task_id,
@@ -2065,6 +2897,23 @@ def test_repair_context_resolution_and_review_history_are_immutable(
                 "重新提交",
                 "",
             ]
+            content_reject_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "content-reject")
+            )
+            assert content_reject_audit is not None
+            assert content_reject_audit.business_module == "CONTENT_REVIEW"
+            assert content_reject_audit.outcome == "SUCCESS"
+            assert content_reject_audit.details == {
+                "changes": [
+                    {
+                        "field": "status",
+                        "before": "PENDING_REVIEW",
+                        "after": "CHANGES_REQUESTED",
+                    }
+                ],
+                "facts": {"revision": 2},
+            }
+            assert "请调整标题" not in str(content_reject_audit.details)
             transition_fact_version(
                 db=db,
                 fact_version_id=graph["fact"].id,
@@ -2127,4 +2976,404 @@ def test_repair_context_resolution_and_review_history_are_immutable(
             ]
             assert db.scalar(select(func.count()).select_from(FactReviewRecord)) >= 4
             assert db.scalar(select(func.count()).select_from(ContentReviewRecord)) >= 4
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_platform_management_projection_status_gates_and_permissions() -> None:
+    """平台管理实时投影、独立启停和全部新建门禁共享同一数据库事实。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        as_of = datetime(2026, 7, 22, 8, 0, tzinfo=UTC)
+        with session_factory() as db:
+            graph = seed_graph(db)
+            admin = User(
+                username=f"platform-admin-{uuid.uuid4().hex[:8]}",
+                display_name="平台管理测试管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            prompt = PlatformPrompt(
+                platform_profile_id=graph["profile"].id,
+                template_markdown="平台管理测试 Prompt",
+                updated_by=graph["user"].id,
+            )
+            db.add_all([admin, prompt])
+            graph["task"].created_at = as_of - timedelta(days=30)
+
+            def add_reference(created_at: datetime) -> None:
+                db.add(
+                    ContentTask(
+                        query_topic_id=graph["topic"].id,
+                        product_id=graph["product"].id,
+                        fact_version_id=graph["fact"].id,
+                        platform_profile_version_id=graph["profile_version"].id,
+                        platform_type_id=graph["platform_type"].id,
+                        platform_type_snapshot=graph["task"].platform_type_snapshot,
+                        user_prompt_markdown="",
+                        target_audience="平台管理测试",
+                        content_angle="引用窗口",
+                        conversion_goal="验证统计",
+                        desired_format="MARKDOWN",
+                        desired_length_min=1,
+                        desired_length_max=100,
+                        canonical_url="https://product.example.invalid/platform-management",
+                        created_by=graph["user"].id,
+                        created_at=created_at,
+                    )
+                )
+
+            add_reference(as_of)
+            add_reference(as_of - timedelta(days=30, microseconds=1))
+            db.commit()
+
+            detail = get_platform_profile_detail(db, graph["profile"].id, as_of=as_of)
+            assert detail.reference_summary.recent_30_days == 1
+            assert detail.reference_summary.all_time == 3
+            assert detail.account_summary.model_dump() == {
+                "total": 2,
+                "enabled": 2,
+                "disabled": 0,
+            }
+            assert detail.profile.prompt_updated_at == prompt.updated_at
+            assert detail.prompt_updated_at == prompt.updated_at
+            assert detail.profile.updated_at is None
+            assert detail.current_rule_activated_at is None
+
+            listed = list_platform_profiles(
+                db=db,
+                q="技术社区",
+                platform_type_id=None,
+                profile_status=None,
+                configuration_status=None,
+                page=1,
+                page_size=10,
+            )
+            assert listed.total == 2
+            assert listed.summary.model_dump() == {
+                "platform_total": 2,
+                "enabled_total": 2,
+                "missing_prompt_total": 1,
+                "missing_active_rule_total": 1,
+                "configuration_complete_total": 1,
+            }
+            listed_by_id = {item.id: item for item in listed.items}
+            assert listed_by_id[graph["profile"].id].prompt_updated_at == prompt.updated_at
+            assert (
+                listed_by_id[graph["other_account"].platform_profile_id].prompt_updated_at is None
+            )
+
+            with pytest.raises(AppError) as duplicate_slug:
+                create_platform_profile(
+                    db=db,
+                    payload=PlatformProfileCreate(
+                        name="重复平台标识",
+                        slug=graph["profile"].slug,
+                        allowed_domains=["duplicate.example.invalid"],
+                        platform_type_id=graph["platform_type"].id,
+                    ),
+                    actor=graph["user"],
+                    request_id="duplicate-platform-slug",
+                )
+            assert duplicate_slug.value.code == "PLATFORM_SLUG_EXISTS"
+            db.rollback()
+
+            publication = create_manual_publication(
+                db=db,
+                payload=publication_payload(graph["content"].id, graph["same_account"].id),
+                actor=graph["user"],
+                request_id="platform-management-publication",
+                idempotency_key=f"platform-management-{uuid.uuid4()}",
+            )
+            command_publication(
+                db=db,
+                publication_id=publication.id,
+                command="mark-platform-review",
+                payload=PublicationCommand(comment="进入平台审核"),
+                actor=graph["user"],
+                request_id="platform-management-review",
+            )
+            command_publication(
+                db=db,
+                publication_id=publication.id,
+                command="mark-published",
+                payload=PublicationCommand(
+                    actual_title="平台管理测试发布",
+                    final_url="https://community.example.invalid/platform-management",
+                    published_at=as_of - timedelta(days=1),
+                    comment="已发布",
+                ),
+                actor=graph["user"],
+                request_id="platform-management-published",
+            )
+            command_publication(
+                db=db,
+                publication_id=publication.id,
+                command="remove",
+                payload=PublicationCommand(comment="页面已下线"),
+                actor=graph["user"],
+                request_id="platform-management-removed",
+            )
+            attention = db.scalar(
+                select(PublicationAttention).where(
+                    PublicationAttention.publication_record_id == publication.id
+                )
+            )
+            assert attention is not None
+
+            active_version_status = graph["profile_version"].status
+            prompt_revision = prompt.revision
+            account_statuses = [graph["same_account"].is_active, graph["same_account_b"].is_active]
+            disabled = set_platform_profile_enabled(
+                db=db,
+                platform_profile_id=graph["profile"].id,
+                payload=RevisionRequest(expected_revision=0),
+                actor=admin,
+                request_id="platform-management-disable",
+                enabled=False,
+            )
+            assert disabled.is_active is False
+            disabled_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "platform-management-disable")
+            )
+            assert disabled_audit is not None
+            assert disabled_audit.outcome == "SUCCESS"
+            assert disabled_audit.details == {
+                "changes": [{"field": "is_active", "before": True, "after": False}],
+                "facts": {"revision": 1},
+            }
+            assert graph["profile_version"].status == active_version_status
+            assert prompt.revision == prompt_revision
+            assert [
+                graph["same_account"].is_active,
+                graph["same_account_b"].is_active,
+            ] == account_statuses
+
+            complete_disabled = list_platform_profiles(
+                db=db,
+                q=None,
+                platform_type_id=None,
+                profile_status=PlatformProfileStatus.DISABLED,
+                configuration_status=PlatformConfigurationStatus.COMPLETE,
+                page=1,
+                page_size=10,
+            )
+            assert [item.id for item in complete_disabled.items] == [graph["profile"].id]
+            assert complete_disabled.summary.enabled_total == 1
+            assert all(
+                item.platform_profile_id != graph["profile"].id
+                for item in list_publication_candidates(db).items
+            )
+
+            with pytest.raises(AppError) as account_error:
+                create_platform_account(
+                    db=db,
+                    payload=PlatformAccountCreate(
+                        platform_profile_id=graph["profile"].id,
+                        label="停用平台账号",
+                        account_identifier="disabled-platform",
+                    ),
+                    actor=graph["user"],
+                    request_id="disabled-account",
+                )
+            assert account_error.value.code == "PLATFORM_DISABLED"
+            db.rollback()
+
+            with pytest.raises(AppError) as task_error:
+                create_content_task(
+                    db=db,
+                    payload=ContentTaskCreate(
+                        product_id=graph["product"].id,
+                        fact_version_id=graph["fact"].id,
+                        platform_profile_version_id=graph["profile_version"].id,
+                        target_audience="工程师",
+                        content_angle="停用门禁",
+                        conversion_goal="验证门禁",
+                        desired_format="MARKDOWN",
+                        desired_length_min=1,
+                        desired_length_max=100,
+                        canonical_url="https://product.example.invalid/disabled-task",
+                    ),
+                    actor=graph["user"],
+                    request_id="disabled-task",
+                )
+            assert task_error.value.code == "PLATFORM_DISABLED"
+            db.rollback()
+
+            with pytest.raises(AppError) as publication_error:
+                create_manual_publication(
+                    db=db,
+                    payload=publication_payload(graph["content"].id, graph["same_account_b"].id),
+                    actor=graph["user"],
+                    request_id="disabled-publication",
+                    idempotency_key=f"disabled-publication-{uuid.uuid4()}",
+                )
+            assert publication_error.value.code == "PLATFORM_DISABLED"
+            db.rollback()
+
+            with pytest.raises(AppError) as repair_error:
+                create_repair_task(
+                    db=db,
+                    attention_id=attention.id,
+                    payload=PublicationRepairTaskCreate(
+                        expected_attention_revision=0,
+                        fact_version_id=graph["fact"].id,
+                        platform_profile_version_id=graph["profile_version"].id,
+                        target_audience="维修工程师",
+                        content_angle="修复下线内容",
+                        conversion_goal="恢复发布",
+                        desired_format="MARKDOWN",
+                        desired_length_min=1,
+                        desired_length_max=100,
+                        canonical_url="https://product.example.invalid/disabled-repair",
+                    ),
+                    actor=graph["user"],
+                    request_id="disabled-repair",
+                )
+            assert repair_error.value.code == "PLATFORM_DISABLED"
+            db.rollback()
+
+            with pytest.raises(AppError) as delete_error:
+                delete_platform_profile(
+                    db=db,
+                    platform_profile_id=graph["profile"].id,
+                    actor=admin,
+                    request_id="disabled-delete",
+                )
+            assert delete_error.value.code == "PLATFORM_PROFILE_IN_USE"
+            assert db.get(PlatformProfile, graph["profile"].id).is_active is False
+            db.rollback()
+            admin_id = admin.id
+            engineer_id = graph["user"].id
+            profile_id = graph["profile"].id
+
+        csrf_token = "platform-management-csrf-token-more-than-32-characters"
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        with session_factory() as db:
+            admin_user = db.get(User, admin_id)
+            engineer_user = db.get(User, engineer_id)
+            assert admin_user is not None and engineer_user is not None
+        current_session = SimpleNamespace(
+            user=engineer_user,
+            csrf_hash=hash_token(csrf_token),
+            last_seen_at=None,
+        )
+        app.dependency_overrides[get_db] = override_db
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        client = TestClient(app)
+        try:
+            assert client.get(f"/api/v1/platform-profiles/{profile_id}").status_code == 403
+            assert client.get("/api/v1/platform-profiles/export").status_code == 403
+            paired = client.get("/api/v1/platform-profiles?page=1")
+            assert paired.status_code == 422
+            denied = client.post(
+                f"/api/v1/platform-profiles/{profile_id}/enable",
+                json={"expected_revision": 1},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert denied.status_code == 403
+            denied_delete = client.delete(
+                f"/api/v1/platform-profiles/{profile_id}/prompt?expected_revision=0",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert denied_delete.status_code == 403
+
+            current_session.user = admin_user
+            missing_revision = client.delete(
+                f"/api/v1/platform-profiles/{profile_id}/prompt",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert missing_revision.status_code == 422
+            stale_delete = client.delete(
+                f"/api/v1/platform-profiles/{profile_id}/prompt?expected_revision=1",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert stale_delete.status_code == 409
+            assert stale_delete.json()["error"]["code"] == "REVISION_CONFLICT"
+            csrf_denied = client.post(
+                f"/api/v1/platform-profiles/{profile_id}/enable",
+                json={"expected_revision": 1},
+                headers={"X-CSRF-Token": "wrong-token-with-more-than-32-characters"},
+            )
+            assert csrf_denied.status_code == 403
+            enabled = client.post(
+                f"/api/v1/platform-profiles/{profile_id}/enable",
+                json={"expected_revision": 1},
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert enabled.status_code == 200
+            assert enabled.json()["is_active"] is True
+            deleted_prompt = client.delete(
+                f"/api/v1/platform-profiles/{profile_id}/prompt?expected_revision=0",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert deleted_prompt.status_code == 204
+            assert client.get(f"/api/v1/platform-profiles/{profile_id}/prompt").status_code == 404
+        finally:
+            app.dependency_overrides.clear()
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_platform_disable_lock_serializes_account_creation() -> None:
+    """停用事务持有平台行锁时，账号创建必须等待并读取提交后的停用状态。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            graph = seed_graph(db)
+            profile_id = graph["profile"].id
+            actor_id = graph["user"].id
+
+        started = Event()
+
+        def create_after_lock() -> str:
+            with session_factory() as db:
+                actor = db.get(User, actor_id)
+                assert actor is not None
+                started.set()
+                try:
+                    create_platform_account(
+                        db=db,
+                        payload=PlatformAccountCreate(
+                            platform_profile_id=profile_id,
+                            label="并发账号",
+                            account_identifier="concurrent-account",
+                        ),
+                        actor=actor,
+                        request_id="concurrent-account",
+                    )
+                except AppError as error:
+                    db.rollback()
+                    return error.code
+            return "CREATED"
+
+        with session_factory() as disabling, ThreadPoolExecutor(max_workers=1) as executor:
+            profile = disabling.scalar(
+                select(PlatformProfile).where(PlatformProfile.id == profile_id).with_for_update()
+            )
+            assert profile is not None
+            profile.is_active = False
+            disabling.flush()
+            future = executor.submit(create_after_lock)
+            assert started.wait(timeout=5)
+            with pytest.raises(FutureTimeoutError):
+                future.result(timeout=0.2)
+            disabling.commit()
+            assert future.result(timeout=5) == "PLATFORM_DISABLED"
+
+        with session_factory() as db:
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(PlatformAccount)
+                    .where(PlatformAccount.account_identifier == "concurrent-account")
+                )
+                == 0
+            )
         engine.dispose()

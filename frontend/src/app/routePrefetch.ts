@@ -2,6 +2,8 @@
 import {
   dashboardSummaryQueryOptions,
   geoMetricsQueryOptions,
+  platformProfilesQueryOptions,
+  platformTypesQueryOptions,
   productsQueryOptions,
 } from '../shared/api/queryOptions';
 import { queryClient } from './queryClient';
@@ -15,6 +17,8 @@ const navigationLoaders: Record<string, RouteLoaderKey> = {
   '/tasks': 'contentTasks',
   '/publications': 'publications',
   '/observations': 'geoObservations',
+  '/observations/insights': 'geoInsights',
+  '/observations/insights/print': 'geoInsights',
   '/settings': 'settings',
   '/users': 'users',
   '/audit': 'auditLog',
@@ -36,18 +40,23 @@ export function canIdlePrefetch(connection = connectionInfo()): boolean {
 }
 
 export function navigationLoaderKey(path: string): RouteLoaderKey | undefined {
-  return path.startsWith('/configuration/ai/channels/') ? 'aiChannelDetail' : navigationLoaders[path];
+  const pathname = new URL(path, 'https://partsignal.local').pathname;
+  return pathname.startsWith('/configuration/ai/channels/') ? 'aiChannelDetail' : navigationLoaders[pathname];
 }
 
 export async function prefetchNavigation(path: string): Promise<void> {
   const loaderKey = navigationLoaderKey(path);
   if (!loaderKey) return;
+  const pathname = new URL(path, 'https://partsignal.local').pathname;
   const tasks: Promise<unknown>[] = [routeLoaders[loaderKey]()];
-  if (path === '/') {
+  if (pathname === '/') {
     tasks.push(queryClient.prefetchQuery(dashboardSummaryQueryOptions()));
     tasks.push(queryClient.prefetchQuery(geoMetricsQueryOptions()));
-  } else if (path === '/products') {
+  } else if (pathname === '/products') {
     tasks.push(queryClient.prefetchQuery(productsQueryOptions()));
+  } else if (pathname === '/configuration/platforms') {
+    tasks.push(queryClient.prefetchQuery(platformProfilesQueryOptions({ page: 1, page_size: 20 })));
+    tasks.push(queryClient.prefetchQuery(platformTypesQueryOptions()));
   }
   await Promise.all(tasks);
 }

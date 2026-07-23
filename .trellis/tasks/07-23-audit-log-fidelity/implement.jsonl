@@ -1,0 +1,9 @@
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"数据库迁移、追加式约束、索引和不可安全降级规则"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"表格、详情 Drawer、状态组件和无障碍约定"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"TanStack Query、URL 筛选和局部状态所有权"}
+{"file":".trellis/spec/frontend/hook-guidelines.md","reason":"避免为单页查询和可见性刷新创建无必要 Hook"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"保持 OpenAPI、数据库、后端投影和前端状态一致"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"复用现有审计服务、查询组件和用户管理模式"}
+{"file":".trellis/tasks/07-23-audit-log-fidelity/research/current-state.md","reason":"现状、功能差异、字段来源和真实未知项"}
+{"file":".trellis/tasks/07-23-audit-log-fidelity/research/audit-coverage-matrix.md","reason":"九类关键命令的调用点与缺失覆盖"}
+{"file":".trellis/tasks/07-23-audit-log-fidelity/research/visual-spec.md","reason":"附件原型尺寸、网格、状态和 fidelity 验收基线"}

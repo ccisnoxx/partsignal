@@ -4,10 +4,10 @@ import { Tag } from 'antd';
 import type { ReactNode } from 'react';
 
 const statusLabels: Record<string, string> = {
-  ACTIVE: '启用', RETIRED: '已停用', DRAFT: '草稿', PENDING_REVIEW: '待审核',
+  ENABLED: '已启用', DISABLED: '已停用', ACTIVE: '启用', RETIRED: '已停用', DRAFT: '草稿', PENDING_REVIEW: '待审核',
   CHANGES_REQUESTED: '需修改', APPROVED: '已批准', SUPERSEDED: '已取代',
   OPEN: '进行中', COMPLETED: '已完成', CANCELLED: '已取消',
-  PENDING: '排队中', RUNNING: '生成中', SUCCEEDED: '成功', FAILED: '失败',
+  PENDING: '排队中', RUNNING: '生成中', SUCCEEDED: '成功', SUCCESS: '成功', FAILED: '失败', DENIED: '被拒绝',
   PENDING_MANUAL_PUBLISH: '待人工发布', PLATFORM_REVIEW: '平台审核中',
   PUBLISHED: '已发布', VERIFIED: '已验证', REJECTED: '已拒绝', REMOVED: '已下线',
   VERIFICATION_FAILED: '验证失败', ABORTED: '已中止', RESOLVED: '已解决',
@@ -17,28 +17,37 @@ const statusLabels: Record<string, string> = {
   AI: 'AI 生成', HUMAN: '人工编辑',
   UNTESTED: '未测试', PASSED: '已通过', WARNING: '警告', BLOCKING: '阻断',
   NONE: '未推荐', CANDIDATE: '候选', RECOMMENDED: '已推荐',
+  NOT_RECOMMENDED: '未推荐', MENTIONED: '已提及', NOT_MENTIONED: '未提及',
+  HAS_CITATION: '有引用', NO_CITATION: '无引用',
+  OFFICIAL: '官方来源', EXTERNAL_COMPANY: '外部企业', OTHER: '其他来源',
   ACCURATE: '准确', PARTIAL: '部分准确', INCORRECT: '不准确', UNJUDGEABLE: '无法判断',
+  MANUAL_ARTICLE_SEARCH: '人工文章搜索', LEGACY_MODEL_RESULT: '历史模型观测',
+  CURRENT: '当前记录', HISTORICAL: '历史记录', UPLOADED: '已上传', MISSING_EVIDENCE: '缺少证据',
   FUNCTIONALLY_SIMILAR: '功能相近', PARAMETER_COMPATIBLE: '参数兼容', PIN_COMPATIBLE: '引脚兼容',
   PIN_TO_PIN: 'Pin-to-Pin', PROTOTYPE_VALIDATED: '样板验证', TEMPERATURE_VALIDATED: '温度验证', MASS_PRODUCTION_VALIDATED: '量产验证',
   SUBMIT: '提交审核', SUBMIT_REVIEW: '提交审核', APPROVE: '批准', REQUEST_CHANGES: '退回修改', RETIRE: '停用',
+  HIGH: '高优先级', MEDIUM: '中优先级', LOW: '低优先级',
+  STABLE: '稳定覆盖', OCCASIONAL: '偶尔命中', UNCOVERED: '尚未覆盖', INSUFFICIENT_DATA: '数据不足',
 };
 
-type StatusTone = 'success' | 'info' | 'warning' | 'danger' | 'neutral';
+type StatusTone = 'success' | 'info' | 'warning' | 'danger' | 'neutral' | 'admin';
 
 const statusTones: Record<string, StatusTone> = {
-  ACTIVE: 'success', APPROVED: 'success', VERIFIED: 'success', SUCCEEDED: 'success', RESOLVED: 'success', COMPLETED: 'success',
-  PASSED: 'success', RECOMMENDED: 'success', ACCURATE: 'success', approve: 'success', APPROVE: 'success', PUBLIC: 'success',
-  RUNNING: 'info', PUBLISHED: 'info', OPEN: 'info', INTERNAL: 'info', ADMIN: 'info', submit: 'info', 'submit-review': 'info', SUBMIT: 'info', SUBMIT_REVIEW: 'info',
-  PENDING_REVIEW: 'warning', PENDING: 'warning', PENDING_MANUAL_PUBLISH: 'warning', PLATFORM_REVIEW: 'warning', WARNING: 'warning',
-  CANDIDATE: 'warning', PARTIAL: 'warning', CHANGES_REQUESTED: 'warning', 'request-changes': 'warning', REQUEST_CHANGES: 'warning',
-  FAILED: 'danger', REJECTED: 'danger', VERIFICATION_FAILED: 'danger', RESTRICTED: 'danger', BLOCKING: 'danger', INCORRECT: 'danger',
+  ENABLED: 'success', ACTIVE: 'success', APPROVED: 'success', VERIFIED: 'success', SUCCEEDED: 'success', SUCCESS: 'success', RESOLVED: 'success', COMPLETED: 'success',
+  PASSED: 'success', RECOMMENDED: 'success', MENTIONED: 'success', HAS_CITATION: 'success', ACCURATE: 'success', UPLOADED: 'success', CURRENT: 'success', approve: 'success', APPROVE: 'success', PUBLIC: 'success',
+  RUNNING: 'info', PUBLISHED: 'info', OPEN: 'info', INTERNAL: 'info', ENGINEER: 'info', MANUAL_ARTICLE_SEARCH: 'info', submit: 'info', 'submit-review': 'info', SUBMIT: 'info', SUBMIT_REVIEW: 'info',
+  ADMIN: 'admin',
+  PENDING_REVIEW: 'warning', PENDING: 'warning', PENDING_MANUAL_PUBLISH: 'warning', PLATFORM_REVIEW: 'warning', WARNING: 'warning', DENIED: 'warning',
+  CANDIDATE: 'warning', PARTIAL: 'warning', HISTORICAL: 'warning', CHANGES_REQUESTED: 'warning', 'request-changes': 'warning', REQUEST_CHANGES: 'warning',
+  DISABLED: 'neutral', FAILED: 'danger', REJECTED: 'danger', VERIFICATION_FAILED: 'danger', RESTRICTED: 'danger', BLOCKING: 'danger', INCORRECT: 'danger', MISSING_EVIDENCE: 'danger',
+  HIGH: 'danger', MEDIUM: 'warning', LOW: 'info', STABLE: 'success', OCCASIONAL: 'warning', UNCOVERED: 'danger', INSUFFICIENT_DATA: 'neutral',
 };
 
 const toneIcons: Partial<Record<StatusTone, ReactNode>> = {
   success: <CheckCircleOutlined />, info: <InfoCircleOutlined />, warning: <ExclamationCircleOutlined />, danger: <CloseCircleOutlined />,
 };
 
-export function StatusTag({ status }: { status: string }) {
+export function StatusTag({ status, compact = false }: { status: string; compact?: boolean }) {
   const tone = statusTones[status] ?? 'neutral';
-  return <Tag className={`status-tag status-tag-${tone}`} icon={toneIcons[tone]}>{statusLabels[status] ?? status}</Tag>;
+  return <Tag className={`status-tag status-tag-${tone}${compact ? ' status-tag-compact' : ''}`} icon={compact ? undefined : toneIcons[tone]}>{statusLabels[status] ?? status}</Tag>;
 }

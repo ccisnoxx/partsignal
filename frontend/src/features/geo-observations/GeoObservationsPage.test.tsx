@@ -125,6 +125,7 @@ test('选择真实问题主题并提交完整逐篇阶段，服务端失败时�
 
   render(<App />);
   expect(await screen.findByRole('heading', { name: 'GEO 观测' })).toBeInTheDocument();
+  expect(await screen.findByText('当前筛选范围暂无观测记录')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: /新建观测/ }));
   const dialog = await screen.findByRole('dialog');
   expect(within(dialog).getByText('登记人工观测')).toBeInTheDocument();
@@ -258,4 +259,33 @@ test('人工观测详情对补采前空值明确显示历史未采集', async ()
   expect(screen.getByText('引用部分参数与原文一致。')).toBeInTheDocument();
   expect(await screen.findByRole('img', { name: 'geo-evidence.png' })).toBeInTheDocument();
   expect(window.location.search).toContain(`record=${historicalManualRecord.id}`);
+});
+
+test('统计失败不遮挡真实观测列表，并提供独立重试入口', async () => {
+  window.history.pushState({}, '', '/observations');
+  let metricRequests = 0;
+  mockFetch((request) => {
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/auth/me')) return { body: user };
+    if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
+    if (url.pathname.endsWith('/geo-metrics')) {
+      metricRequests += 1;
+      return { status: 500, body: { error: { code: 'GEO_METRICS_FAILED', message: 'GEO 统计失败' } } };
+    }
+    if (url.pathname.endsWith('/geo-observations')) {
+      return { body: { items: [manualRecord], page: 1, page_size: 20, total: 1 } satisfies Schema<'GeoObservationList'> };
+    }
+    if (url.pathname.endsWith('/products')) return { body: { items: [], page: 1, page_size: 100, total: 0 } satisfies Schema<'ProductList'> };
+    if (url.pathname.endsWith('/query-topics')) return { body: { items: [] } satisfies Schema<'QueryTopicList'> };
+    throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
+  });
+
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: 'GEO 观测' })).toBeInTheDocument();
+  expect(await screen.findByText('PS-001 如何替代？')).toBeInTheDocument();
+  const metricState = await screen.findByRole('region', { name: 'GEO 观测统计' });
+  expect(await within(metricState).findByRole('alert')).toHaveTextContent('GEO 统计失败');
+  const previousRequests = metricRequests;
+  await userEvent.click(within(metricState).getByRole('button', { name: /重\s*试/ }));
+  await waitFor(() => expect(metricRequests).toBeGreaterThan(previousRequests));
 });

@@ -202,13 +202,21 @@ test('趋势空点断线并可通过键盘焦点或鼠标悬浮读取 Tooltip', 
   expect(screen.getAllByText('上一周期 25.0%')).toHaveLength(4);
   expect(screen.getByLabelText('从上一阶段转化：66.7%')).toHaveTextContent('66.7%');
   expect(screen.getByText('结果准确').parentElement?.querySelector('.geo-insight-funnel-track > span')).toHaveStyle({ height: '0%' });
-  const point = await screen.findByLabelText('提及率 2026-07-20：无样本');
-  fireEvent.focus(point);
+  const chart = await screen.findByRole('img', { name: /提及率趋势：2026-07-20 至 2026-07-21/ });
+  expect(chart).toHaveAttribute('tabindex', '0');
+  expect(chart.querySelectorAll('circle[tabindex]')).toHaveLength(0);
+  fireEvent.focus(chart);
   expect(await screen.findByRole('tooltip')).toHaveTextContent('2026-07-20 · 无样本');
-  fireEvent.blur(point);
-  fireEvent.mouseEnter(point);
+  fireEvent.keyDown(chart, { key: 'ArrowRight' });
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('2026-07-21 · 50.0% · 2 / 4 条关系');
+  fireEvent.keyDown(chart, { key: 'Home' });
   expect(await screen.findByRole('tooltip')).toHaveTextContent('2026-07-20 · 无样本');
-  fireEvent.mouseLeave(point);
+  fireEvent.blur(chart);
+  const point = chart.querySelector('circle');
+  expect(point).not.toBeNull();
+  fireEvent.mouseEnter(point!);
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('2026-07-20 · 无样本');
+  fireEvent.mouseLeave(point!);
   expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   expect(document.querySelectorAll('.geo-insight-trend-card:first-child .geo-insight-chart-line')).toHaveLength(0);
 });
@@ -246,16 +254,17 @@ test('覆盖总览只按服务端分类结果分组计数，不铺开问题明�
 });
 
 test('数据质量以紧凑摘要呈现，并通过提示保留完整计数和机器原因', async () => {
-  const user = userEvent.setup();
   mockFetch(() => ({ body: insights }));
   renderPage('/observations/insights?date_from=2026-07-20&date_to=2026-07-21');
 
   const status = await screen.findByRole('status', { name: /数据质量：完整 3 条/ });
   expect(status).toHaveTextContent('完整 3 条· 1 项限制');
-  await user.hover(status);
+  fireEvent.focus(status);
   const tooltip = await screen.findByRole('tooltip');
   expect(tooltip).toHaveTextContent('排除观测 1 条 · 排除关系 1 条');
   expect(tooltip).toHaveTextContent('LONG_UNMENTIONED_PERIOD_TOO_SHORT：筛选周期至少需要覆盖 30 个自然日。');
+  fireEvent.blur(status);
+  await waitFor(() => expect(screen.queryByRole('tooltip')).not.toBeInTheDocument());
 });
 
 test('洞察请求失败明确显示错误并保留重试和重置入口', async () => {

@@ -18,7 +18,7 @@ import {
   queryTopicsQueryOptions,
 } from '../../shared/api/queryOptions';
 import type { GeoMetricsQuery, GeoObservation, GeoObservationListQuery, Schema } from '../../shared/api/types';
-import { QueryFailure } from '../../shared/components/AsyncState';
+import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
@@ -285,13 +285,23 @@ export function GeoObservationsPage() {
         <NavLink to="/observations/insights">分析洞察</NavLink>
       </nav>
 
-      <section className="geo-metric-grid" aria-label="GEO 观测统计">
-        <div className="geo-metric-cell geo-metric-default"><span className="geo-metric-icon"><FileSearchOutlined /></span><MetricTile label="观测记录" value={observations.data?.total ?? '—'} meta="当前筛选口径" /></div>
-        <div className="geo-metric-cell geo-metric-data"><span className="geo-metric-icon"><RobotOutlined /></span><MetricTile label="历史模型样本" value={metrics.data?.legacy_sample_count ?? '—'} meta="迁移前只读记录" tone="data" /></div>
-        <div className="geo-metric-cell geo-metric-success"><span className="geo-metric-icon"><SearchOutlined /></span><MetricTile label="历史提及率" value={mentionRate ?? '—'} unit={mentionRate == null ? undefined : '%'} percent={mentionRate} meta="提及 / 历史样本" tone="success" /></div>
-        <div className="geo-metric-cell geo-metric-warning"><span className="geo-metric-icon"><UserOutlined /></span><MetricTile label="人工观测" value={metrics.data?.manual_observation_count ?? '—'} meta="逐篇核对文章" tone="warning" /></div>
-        <div className="geo-metric-cell geo-metric-danger"><span className="geo-metric-icon"><CheckCircleOutlined /></span><MetricTile label="文章推荐率" value={recommendationRate ?? '—'} unit={recommendationRate == null ? undefined : '%'} percent={recommendationRate} meta="已推荐 / 文章结果" tone="danger" /></div>
-      </section>
+      {metrics.isLoading ? (
+        <section className="geo-metric-state" aria-label="GEO 观测统计">
+          <Card><QueryLoading label="正在加载 GEO 观测统计" /></Card>
+        </section>
+      ) : metrics.error ? (
+        <section className="geo-metric-state" aria-label="GEO 观测统计">
+          <Card><QueryFailure error={metrics.error} onRetry={() => { void metrics.refetch(); }} /></Card>
+        </section>
+      ) : (
+        <section className="geo-metric-grid" aria-label="GEO 观测统计">
+          <div className="geo-metric-cell geo-metric-purple"><span className="geo-metric-icon" aria-hidden="true"><FileSearchOutlined /></span><MetricTile label="观测记录" value={observations.data?.total ?? '—'} meta={observations.error ? '记录查询失败' : '当前筛选口径'} /></div>
+          <div className="geo-metric-cell geo-metric-teal"><span className="geo-metric-icon" aria-hidden="true"><RobotOutlined /></span><MetricTile label="历史模型样本" value={metrics.data?.legacy_sample_count ?? '—'} meta="迁移前只读记录" tone="data" /></div>
+          <div className="geo-metric-cell geo-metric-blue"><span className="geo-metric-icon" aria-hidden="true"><SearchOutlined /></span><MetricTile label="历史提及率" value={mentionRate ?? '—'} unit={mentionRate == null ? undefined : '%'} percent={mentionRate} meta="提及 / 历史样本" tone="data" /></div>
+          <div className="geo-metric-cell geo-metric-orange"><span className="geo-metric-icon" aria-hidden="true"><UserOutlined /></span><MetricTile label="人工观测" value={metrics.data?.manual_observation_count ?? '—'} meta="逐篇核对文章" tone="data" /></div>
+          <div className="geo-metric-cell geo-metric-green"><span className="geo-metric-icon" aria-hidden="true"><CheckCircleOutlined /></span><MetricTile label="文章推荐率" value={recommendationRate ?? '—'} unit={recommendationRate == null ? undefined : '%'} percent={recommendationRate} meta="已推荐 / 文章结果" tone="data" /></div>
+        </section>
+      )}
 
       <Card className="geo-filter-card" size="small">
         <div className="geo-filter-grid" role="search" aria-label="观测记录筛选">
@@ -354,6 +364,7 @@ export function GeoObservationsPage() {
               loading={observations.isLoading}
               dataSource={observations.data?.items}
               columns={columns}
+              locale={{ emptyText: <NoData description="当前筛选范围暂无观测记录" /> }}
               onRow={(row) => ({
                 onClick: (event) => {
                   const target = event.target as HTMLElement;

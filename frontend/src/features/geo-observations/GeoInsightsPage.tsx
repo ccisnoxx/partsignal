@@ -9,7 +9,7 @@ import {
   type DescriptionsProps, type TableColumnsType,
 } from 'antd';
 import dayjs from 'dayjs';
-import { useEffect, useId, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useId, useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { Link, NavLink, useSearchParams } from 'react-router-dom';
 import { geoInsightsQueryOptions } from '../../shared/api/queryOptions';
 import type { GeoInsightQuery, Schema } from '../../shared/api/types';
@@ -107,6 +107,15 @@ function pointX(index: number, count: number): number {
   return count <= 1 ? 50 : 6 + (index * 88) / (count - 1);
 }
 
+function trendPointDetail(point: RatePoint | CountPoint): string {
+  if ('value' in point) {
+    return point.value == null
+      ? '无样本'
+      : `${formatRate(point.value)} · ${point.numerator} / ${point.denominator} 条关系`;
+  }
+  return `${point.count} 个内容`;
+}
+
 function TrendCard(props: {
   label: string;
   color: string;
@@ -114,9 +123,11 @@ function TrendCard(props: {
   const { label, color } = props;
   const points: Array<RatePoint | CountPoint> = props.trend.points;
   const tooltipId = useId();
-  const [focusedTooltip, setFocusedTooltip] = useState<string>();
-  const [hoveredTooltip, setHoveredTooltip] = useState<string>();
-  const activeTooltip = focusedTooltip ?? hoveredTooltip;
+  const [keyboardPointIndex, setKeyboardPointIndex] = useState<number>();
+  const [hoveredPointIndex, setHoveredPointIndex] = useState<number>();
+  const activePointIndex = hoveredPointIndex ?? keyboardPointIndex;
+  const activePoint = activePointIndex === undefined ? undefined : points[activePointIndex];
+  const activeTooltip = activePoint ? `${activePoint.date} · ${trendPointDetail(activePoint)}` : undefined;
   let maximum: number;
   let current: string;
   let previous: string;
@@ -134,67 +145,98 @@ function TrendCard(props: {
   }
   const y = (value: number | null) => value == null ? 42 : 42 - (value / maximum) * 34;
   const currentDate = points[points.length - 1]?.date.slice(5).replace('-', '.') ?? '—';
+  const firstDate = points[0]?.date ?? '无日期';
+  const lastDate = points[points.length - 1]?.date ?? '无日期';
+  const yAxisLabels = props.kind === 'rate'
+    ? ['100%', '50%', '0%']
+    : [String(maximum), String(Math.round(maximum / 2)), '0'];
+  const chartLabel = `${label}趋势：${firstDate} 至 ${lastDate}，当前 ${current}，上一周期 ${previous}，变化 ${formatChange(props.trend.change)}。${currentMeta}。使用左右方向键浏览每日数据。`;
+
+  const handleChartKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
+    if (!points.length) return;
+    const currentIndex = keyboardPointIndex ?? 0;
+    let nextIndex: number;
+    if (event.key === 'ArrowLeft') nextIndex = Math.max(0, currentIndex - 1);
+    else if (event.key === 'ArrowRight') nextIndex = Math.min(points.length - 1, currentIndex + 1);
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = points.length - 1;
+    else return;
+    event.preventDefault();
+    setKeyboardPointIndex(nextIndex);
+  };
 
   return (
     <article className="geo-insight-trend-card">
       <div className="geo-insight-trend-card-body">
-      <div className="geo-insight-trend-current-badge" aria-hidden="true"><span>{currentDate}</span><strong>{current}</strong></div>
-      <div className="geo-insight-trend-heading">
-        <span>{label}</span>
-        <strong>{current}</strong>
-      </div>
-      <div className="geo-insight-trend-meta">
-        <span>上一周期 {previous}</span>
-        <span className={props.trend.change == null || props.trend.change === 0 ? undefined : props.trend.change > 0 ? 'is-positive' : 'is-negative'}>{formatChange(props.trend.change)}</span>
-      </div>
-      <svg viewBox="0 0 100 48" role="img" aria-label={`${label}趋势图`} preserveAspectRatio="none">
-        <line className="geo-insight-chart-grid" x1="6" y1="42" x2="94" y2="42" />
-        {points.slice(1).map((point, index) => {
-          const previousPoint = points[index]!;
-          const previousValue = pointValue(previousPoint);
-          const value = pointValue(point);
-          if (previousValue == null || value == null) return null;
-          return (
-            <line
-              key={`${previousPoint.date}-${point.date}`}
-              className="geo-insight-chart-line"
-              x1={pointX(index, points.length)}
-              y1={y(previousValue)}
-              x2={pointX(index + 1, points.length)}
-              y2={y(value)}
-              style={{ stroke: color }}
-            />
-          );
-        })}
-        {points.map((point, index) => {
-          const value = pointValue(point);
-          const detail = 'value' in point
-            ? (point.value == null ? '无样本' : `${formatRate(point.value)} · ${point.numerator} / ${point.denominator} 条关系`)
-            : `${point.count} 个内容`;
-          const accessibleLabel = `${label} ${point.date}：${detail}`;
-          const tooltip = `${point.date} · ${detail}`;
-          return (
-            <circle
-              key={point.date}
-              className={`geo-insight-chart-point${value == null ? ' is-empty' : ''}`}
-              cx={pointX(index, points.length)}
-              cy={y(value)}
-              r="2.2"
-              style={value == null ? undefined : { fill: color, stroke: color }}
-              tabIndex={0}
+        <div className="geo-insight-trend-current-badge" aria-hidden="true"><span>{currentDate}</span><strong>{current}</strong></div>
+        <div className="geo-insight-trend-heading">
+          <span>{label}</span>
+          <strong>{current}</strong>
+        </div>
+        <div className="geo-insight-trend-meta">
+          <span>上一周期 {previous}</span>
+          <span className={props.trend.change == null || props.trend.change === 0 ? undefined : props.trend.change > 0 ? 'is-positive' : 'is-negative'}>{formatChange(props.trend.change)}</span>
+        </div>
+        <div className="geo-insight-chart-frame">
+          <div className="geo-insight-chart-y-axis" aria-hidden="true">
+            {yAxisLabels.map((axisLabel, index) => <span key={`${axisLabel}-${index}`}>{axisLabel}</span>)}
+          </div>
+          <div className="geo-insight-chart-plot">
+            <svg
+              viewBox="0 0 100 48"
               role="img"
-              aria-label={accessibleLabel}
-              aria-describedby={activeTooltip === tooltip ? tooltipId : undefined}
-              onFocus={() => setFocusedTooltip(tooltip)}
-              onBlur={() => setFocusedTooltip(undefined)}
-              onMouseEnter={() => setHoveredTooltip(tooltip)}
-              onMouseLeave={() => setHoveredTooltip(undefined)}
-            />
-          );
-        })}
-      </svg>
-      {activeTooltip && <div id={tooltipId} className="geo-insight-chart-tooltip" role="tooltip">{activeTooltip}</div>}
-      <small>{currentMeta}</small>
+              aria-label={chartLabel}
+              aria-describedby={activeTooltip ? tooltipId : undefined}
+              preserveAspectRatio="none"
+              tabIndex={0}
+              onFocus={() => setKeyboardPointIndex(points.length ? 0 : undefined)}
+              onBlur={() => setKeyboardPointIndex(undefined)}
+              onKeyDown={handleChartKeyDown}
+            >
+              {[8, 25, 42].map((gridY) => (
+                <line key={gridY} className="geo-insight-chart-grid" x1="6" y1={gridY} x2="94" y2={gridY} />
+              ))}
+              {points.slice(1).map((point, index) => {
+                const previousPoint = points[index]!;
+                const previousValue = pointValue(previousPoint);
+                const value = pointValue(point);
+                if (previousValue == null || value == null) return null;
+                return (
+                  <line
+                    key={`${previousPoint.date}-${point.date}`}
+                    className="geo-insight-chart-line"
+                    x1={pointX(index, points.length)}
+                    y1={y(previousValue)}
+                    x2={pointX(index + 1, points.length)}
+                    y2={y(value)}
+                    style={{ stroke: color }}
+                  />
+                );
+              })}
+              {points.map((point, index) => {
+                const value = pointValue(point);
+                return (
+                  <circle
+                    key={point.date}
+                    className={`geo-insight-chart-point${value == null ? ' is-empty' : ''}${activePointIndex === index ? ' is-active' : ''}`}
+                    cx={pointX(index, points.length)}
+                    cy={y(value)}
+                    r="2.2"
+                    style={value == null ? undefined : { fill: color, stroke: color }}
+                    onMouseEnter={() => setHoveredPointIndex(index)}
+                    onMouseLeave={() => setHoveredPointIndex(undefined)}
+                  />
+                );
+              })}
+            </svg>
+            <div className="geo-insight-chart-x-axis" aria-hidden="true">
+              <span>{firstDate.slice(5).replace('-', '.')}</span>
+              <span>{lastDate.slice(5).replace('-', '.')}</span>
+            </div>
+          </div>
+        </div>
+        {activeTooltip && <div id={tooltipId} className="geo-insight-chart-tooltip" role="tooltip">{activeTooltip}</div>}
+        <small>{currentMeta}</small>
       </div>
     </article>
   );
@@ -216,8 +258,13 @@ const platformColumns: TableColumnsType<PlatformPerformance> = [
 function RateBar({ value, color }: { value: Schema<'GeoInsightRateValue'>; color: string }) {
   const percentage = value.value == null ? 0 : Math.max(0, Math.min(100, value.value * 100));
   return (
-    <Tooltip title={rateMeta(value)}>
-      <span className="geo-insight-rate-bar" style={{ '--geo-rate-color': color } as CSSProperties}>
+    <Tooltip title={rateMeta(value)} trigger={['hover', 'focus']}>
+      <span
+        className="geo-insight-rate-bar"
+        style={{ '--geo-rate-color': color } as CSSProperties}
+        tabIndex={0}
+        aria-label={`${formatRate(value.value)}，${rateMeta(value)}`}
+      >
         <span className="geo-insight-rate-bar-track"><span style={{ width: `${percentage}%` }} /></span>
         <span>{formatRate(value.value)}</span>
       </span>
@@ -231,7 +278,7 @@ function PlatformPerformanceCard({ rows, unavailable }: { rows: PlatformPerforma
       {rows.length ? (
         <>
           <div className="geo-insight-platform-legend" aria-label="平台表现图例">
-            <span><i className="is-count" />观测次数</span><span><i className="is-mention" />提及率</span>
+            <span><i className="is-mention" />提及率</span>
             <span><i className="is-recommendation" />推荐率</span><span><i className="is-citation" />引用率</span>
             <span><i className="is-accuracy" />准确率</span>
           </div>
@@ -397,9 +444,14 @@ function DataQualityAlert({ data, printMode }: { data: GeoInsights; printMode: b
   if (!printMode) {
     const details = quality.unavailable_sections.map((section) => `${section.code}：${section.message}`).join('；');
     return (
-      <Tooltip title={`${summary}${details ? `；${details}` : ''}`}>
-        <span className={`geo-insight-quality-chip${hasWarning ? ' is-warning' : ''}`} role="status" aria-label={`${summary}${details ? `；${details}` : ''}`}>
-          <ExclamationCircleOutlined />
+      <Tooltip title={`${summary}${details ? `；${details}` : ''}`} trigger={['hover', 'focus']}>
+        <span
+          className={`geo-insight-quality-chip${hasWarning ? ' is-warning' : ''}`}
+          role="status"
+          aria-label={`${summary}${details ? `；${details}` : ''}`}
+          tabIndex={0}
+        >
+          <ExclamationCircleOutlined aria-hidden="true" />
           <span>完整 {quality.eligible_observation_count} 条</span>
           {quality.unavailable_sections.length > 0 && <span>· {quality.unavailable_sections.length} 项限制</span>}
         </span>
@@ -434,7 +486,7 @@ function InsightSections({ data, printMode }: { data: GeoInsights; printMode: bo
     return (
       <>
         {printMode && <DataQualityAlert data={data} printMode />}
-        <Card><NoData description="当前筛选范围没有完整人工观测，无法生成洞察。调整筛选或补充真实观测后重试。" /></Card>
+        <Card className="geo-insight-state-card"><NoData description="当前筛选范围没有完整人工观测，无法生成洞察。调整筛选或补充真实观测后重试。" /></Card>
       </>
     );
   }
@@ -579,15 +631,22 @@ function GeoInsightsView({ printMode = false }: { printMode?: boolean }) {
           actions={<Button className="geo-print-action" type="primary" icon={<PrinterOutlined />} onClick={() => window.print()}>打印 / 另存为 PDF</Button>}
         />
       ) : (
-        <header className="geo-insight-toolbar">
-          <h1>GEO 分析洞察</h1>
-          <nav className="geo-subnav" aria-label="GEO 观测页面">
-            <NavLink end to="/observations">观测记录</NavLink>
-            <NavLink to="/observations/insights">分析洞察</NavLink>
-          </nav>
-          {insights.data && <DataQualityAlert data={insights.data} printMode={false} />}
-          <Button type="primary" icon={<ExportOutlined />} href={printPath} target="_blank">导出洞察报告</Button>
-        </header>
+        <PageHeader
+          title="GEO 分析洞察"
+          description="基于真实人工观测比较趋势、平台表现、内容覆盖与行动建议。"
+          actions={(
+            <>
+              {insights.data && <DataQualityAlert data={insights.data} printMode={false} />}
+              <Button type="primary" icon={<ExportOutlined />} href={printPath} target="_blank">导出洞察报告</Button>
+            </>
+          )}
+        />
+      )}
+      {!printMode && (
+        <nav className="geo-subnav" aria-label="GEO 观测页面">
+          <NavLink end to="/observations">观测记录</NavLink>
+          <NavLink to="/observations/insights">分析洞察</NavLink>
+        </nav>
       )}
       {!printMode && (
         <FilterPanel
@@ -607,17 +666,21 @@ function GeoInsightsView({ printMode = false }: { printMode?: boolean }) {
         </Card>
       )}
       {insights.isLoading
-        ? <Card><QueryLoading label="正在加载 GEO 分析洞察" /></Card>
+        ? <Card className="geo-insight-state-card"><QueryLoading label="正在加载 GEO 分析洞察" /></Card>
         : insights.error
-          ? <QueryFailure
-              error={insights.error}
-              actions={(
-                <Space wrap>
-                  <Button aria-label="重试" onClick={() => { void insights.refetch(); }}>重试</Button>
-                  <Button aria-label="重置筛选" onClick={reset}>重置筛选</Button>
-                </Space>
-              )}
-            />
+          ? (
+              <Card className="geo-insight-state-card">
+                <QueryFailure
+                  error={insights.error}
+                  actions={(
+                    <Space wrap>
+                      <Button aria-label="重试" onClick={() => { void insights.refetch(); }}>重试</Button>
+                      <Button aria-label="重置筛选" onClick={reset}>重置筛选</Button>
+                    </Space>
+                  )}
+                />
+              </Card>
+            )
           : insights.data && <InsightSections data={insights.data} printMode={printMode} />}
     </div>
   );

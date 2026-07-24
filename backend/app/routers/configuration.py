@@ -245,14 +245,18 @@ def content_humanization_prompt_out(
 @router.get(
     "/content-humanization-prompt",
     response_model=ContentHumanizationPromptOut,
+    responses={
+        status.HTTP_204_NO_CONTENT: {"description": "全局自然化 Prompt 尚未配置"}
+    },
     operation_id="getContentHumanizationPrompt",
 )
 def get_content_humanization_prompt(
     db: DbSession, _admin: AdminUser
-) -> ContentHumanizationPromptOut:
+) -> ContentHumanizationPromptOut | Response:
+    """返回当前自然化 Prompt；尚未配置时以空的 204 表达合法缺失态。"""
     prompt = db.get(ContentHumanizationPrompt, 1)
     if prompt is None:
-        raise not_found("自然化 Prompt")
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
     return content_humanization_prompt_out(prompt)
 
 

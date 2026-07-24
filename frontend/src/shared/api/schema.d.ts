@@ -4844,7 +4844,13 @@ export interface operations {
                     "application/json": components["schemas"]["ContentHumanizationPrompt"];
                 };
             };
-            404: components["responses"]["ErrorResponse"];
+            /** @description 全局自然化 Prompt 尚未配置 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     putContentHumanizationPrompt: {

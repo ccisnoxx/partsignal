@@ -440,7 +440,8 @@ def test_content_humanization_prompt_api_lifecycle_and_audit() -> None:
 
             current_session.user = admin
             missing = client.get("/api/v1/content-humanization-prompt")
-            assert missing.status_code == 404
+            assert missing.status_code == 204
+            assert missing.content == b""
 
             blank = client.put(
                 "/api/v1/content-humanization-prompt",

@@ -92,6 +92,42 @@ async function expectNoDocumentOverflow(page: Page) {
     .toBeLessThanOrEqual(dimensions.clientWidth);
 }
 
+test('未配置自然化 Prompt 时空编辑器可用且浏览器无失败信号', async ({ page }) => {
+  await login(page);
+  await page.waitForLoadState('networkidle');
+  await page.route('**/api/v1/content-humanization-prompt', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ status: 204 });
+      return;
+    }
+    await route.continue();
+  });
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  const failedRequests: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') consoleErrors.push(message.text());
+  });
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  page.on('requestfailed', (request) => {
+    failedRequests.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText ?? '未知错误'}`);
+  });
+
+  await page.goto('/configuration/prompts?tab=humanization&page=1&page_size=10');
+  const editor = page.getByRole('textbox', { name: '自然化 Prompt Markdown' });
+  await expect(editor).toHaveValue('');
+  await expect(page.getByText('尚未配置 Prompt；首次保存后才可用于新生成作业。')).toBeVisible();
+  const firstSave = page.getByRole('button', { name: '首次保存' });
+  await expect(firstSave).toBeDisabled();
+  await editor.fill('E2E 未保存自然化 Prompt');
+  await expect(firstSave).toBeEnabled();
+  await page.waitForLoadState('networkidle');
+
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
+  expect(failedRequests).toEqual([]);
+});
+
 test('五个目标路由在明暗主题下统一使用 PageHeader 与语义表面', async ({ page }, testInfo) => {
   const runtimeErrors: string[] = [];
   await login(page);

@@ -91,7 +91,13 @@ export function PlatformPromptsPage() {
   });
   const humanizationPrompt = useQuery({
     queryKey: queryKeys.contentHumanizationPrompt,
-    queryFn: async () => unwrap(await api.GET('/api/v1/content-humanization-prompt')),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/content-humanization-prompt');
+      if (result.response.status !== 204) return unwrap(result);
+      // openapi-fetch 对 204 提前返回；显式消费空响应，避免 Chromium 将未读取的 fetch 记为 ERR_ABORTED。
+      await result.response.text();
+      return null;
+    },
     enabled: tab === 'humanization',
     staleTime: QUERY_STALE_TIME.configuration,
     retry: false,
@@ -106,7 +112,7 @@ export function PlatformPromptsPage() {
     [users.data?.items],
   );
   const promptMissing = isNotFound(prompt.error);
-  const humanizationMissing = isNotFound(humanizationPrompt.error);
+  const humanizationMissing = humanizationPrompt.data === null;
   const remotePrompt = tab === 'platform' ? prompt.data : humanizationPrompt.data;
   const storedForIdentity = storedEditor.identity === identity ? storedEditor : undefined;
   const locallyDeleted = storedForIdentity?.locallyDeleted ?? false;
@@ -272,7 +278,7 @@ export function PlatformPromptsPage() {
 
   const reloadCurrent = async () => {
     const result = tab === 'platform' ? await prompt.refetch() : await humanizationPrompt.refetch();
-    if (result.error && !isNotFound(result.error)) return;
+    if (result.error && (tab === 'humanization' || !isNotFound(result.error))) return;
     const currentValue = result.data?.template_markdown ?? '';
     setStoredEditor({ identity, baseline: currentValue, draft: currentValue, saveState: 'idle', locallyDeleted: false });
   };

@@ -577,6 +577,43 @@ test('管理员按 revision 保存全局自然化 Prompt 且没有删除入口',
   ));
 });
 
+test('全局自然化 Prompt 未配置时以 204 保留空编辑器和首次保存语义', async () => {
+  const user = userEvent.setup();
+  const get = apiMocks.GET.getMockImplementation()!;
+  apiMocks.GET.mockImplementation((path: string, options?: unknown) => (
+    path === '/api/v1/content-humanization-prompt'
+      ? Promise.resolve({ response: new Response(null, { status: 204 }) })
+      : get(path, options)
+  ));
+  renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts?tab=humanization&page=1&page_size=10']);
+  const editor = await screen.findByRole('textbox', { name: '自然化 Prompt Markdown' });
+  expect(editor).toHaveValue('');
+  expect(screen.getByText('尚未配置 Prompt；首次保存后才可用于新生成作业。')).toBeInTheDocument();
+  await user.type(editor, '首次配置自然化 Prompt。');
+  await user.click(screen.getByRole('button', { name: /首次保存$/ }));
+  await waitFor(() => expect(apiMocks.PUT).toHaveBeenCalledWith(
+    '/api/v1/content-humanization-prompt',
+    expect.objectContaining({
+      body: { template_markdown: '首次配置自然化 Prompt。', expected_revision: null },
+    }),
+  ));
+});
+
+test('全局自然化 Prompt 的真实读取错误仍进入失败反馈', async () => {
+  const get = apiMocks.GET.getMockImplementation()!;
+  apiMocks.GET.mockImplementation((path: string, options?: unknown) => (
+    path === '/api/v1/content-humanization-prompt'
+      ? Promise.resolve({
+        error: { error: { code: 'HUMANIZATION_PROMPT_UNAVAILABLE', message: '自然化 Prompt 服务暂不可用' } },
+        response: new Response(null, { status: 503 }),
+      })
+      : get(path, options)
+  ));
+  renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts?tab=humanization&page=1&page_size=10']);
+  expect(await screen.findByText('自然化 Prompt 服务暂不可用')).toBeInTheDocument();
+  expect(screen.queryByRole('textbox', { name: '自然化 Prompt Markdown' })).not.toBeInTheDocument();
+});
+
 test('平台 Prompt 删除携带 expected_revision 并留在当前未配置平台', async () => {
   const user = userEvent.setup();
   renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts?tab=platform&page=1&page_size=10&platform_profile_id=profile-ready']);

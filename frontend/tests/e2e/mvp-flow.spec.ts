@@ -221,8 +221,8 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const suffix = randomUUID().slice(0, 8);
   const csrf = await login(page, 'admin');
   const initialHumanizationPrompt = await page.request.get('/api/v1/content-humanization-prompt');
-  expect([200, 404]).toContain(initialHumanizationPrompt.status());
-  const humanizationPromptWasConfigured = initialHumanizationPrompt.ok();
+  expect([200, 204]).toContain(initialHumanizationPrompt.status());
+  const humanizationPromptWasConfigured = initialHumanizationPrompt.status() === 200;
   const nonexistentId = randomUUID();
   for (const path of [
     `/api/v1/products/${nonexistentId}`,

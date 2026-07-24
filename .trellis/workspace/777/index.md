@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 21
+- **Total Sessions**: 22
 - **Last Active**: 2026-07-24
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~733 | Active |
+| `journal-1.md` | ~766 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 22 | 2026-07-24 | 收敛预发布部署 Runbook | `d6988b1` | `main` |
 | 21 | 2026-07-24 | 开发期快速重部署流程 | `bf15a8d` | `main` |
 | 20 | 2026-07-24 | 平台管理 UI/UX 审计与修正 | `3fb3183` | `main` |
 | 19 | 2026-07-24 | 完成第三批编辑与规则工作区视觉统一 | `0a53333`, `9ad94d2` | `main` |

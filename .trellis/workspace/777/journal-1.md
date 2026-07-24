@@ -731,3 +731,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 22: 收敛预发布部署 Runbook
+
+**Date**: 2026-07-24
+**Task**: 收敛预发布部署 Runbook
+**Branch**: `main`
+
+### Summary
+
+将日常快速重部署收敛为 122 行主 Runbook，新增低频部署附录，operations 只保留稳定原则，并统一 hostdzire/dmit SSH 边界。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d6988b1` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -1,102 +1,51 @@
 # PartSignal 部署与运维
 
-生产配置模板位于 `deploy/`，只描述部署方式，不包含主机地址、密钥、AccessKey 或模型密钥。自动化只有在获得明确批准后才能连接目标 VPS，SSH 凭据和生成的环境文件不得进入仓库或日志。
+本文件只记录跨环境稳定原则，不承载任何环境的可执行部署步骤。Hostdzire 预发布的日常决策、停止条件、验收和回滚摘要见 [Hostdzire 部署上线 Runbook](./Hostdzire部署上线流程.md)；首次初始化、完整手工发布、备份恢复、Nginx 和排障命令见 [Hostdzire 部署附录](./Hostdzire部署附录.md)。
 
-开发和生产 Compose 都从仓库根目录读取未提交的 `.env`；生产执行脚本默认从 `deploy/` 目录运行。`PARTSIGNAL_BACKEND_IMAGE` 与 `PARTSIGNAL_VERSION` 由部署环境注入，不写入仓库。
+## 发布与配置原则
 
-## 部署顺序
+- 部署行为以 `deploy/` 中当前 Compose、脚本和环境模板为事实源，只发布干净、已推送且与远端权威提交一致的版本。
+- release 不可覆盖。真实配置、密钥和持久数据必须独立于 release；环境文件、AccessKey、模型密钥、账号密码和私钥不得进入仓库、发布包、普通日志或对话。
+- 发布失败必须保留可观察的错误、容器状态和数据现场，不用固定成功响应、静默回退、隐藏 allowlist 或放宽安全配置掩盖故障。
+- 清理 release、镜像、备份和持久数据是独立破坏性操作，不属于部署或回滚的默认组成。
 
-```text
-构建并标记镜像
-→ 数据库备份
-→ 运行只读 preflight-integrity 并清零历史问题
-→ 一次性 Alembic 迁移
-→ 启动并确认 Worker 和 Beat 健康
-→ 启动 API
-→ 检查 live/ready 与生成诊断
-→ 原子切换前端静态目录
-→ 执行命令行冒烟与 Codex 本地浏览器 UI 冒烟
-```
+## 数据与网络原则
 
-API 只绑定 `127.0.0.1:19000`，PostgreSQL、Redis 和 Worker 不暴露宿主机端口。宿主机 Nginx 提供静态文件并代理 `/api/`。
+- PostgreSQL 是业务状态唯一来源；Redis 只用于 Celery Broker，不能用 Redis 状态替代、修复或推断业务事实。
+- 外部输入在系统边界校验。PostgreSQL 与 Redis 不暴露公网端口，也不因应用需要外部 API 就获得无关出站能力。
+- 迁移前的只读 `preflight-integrity` 必须使用待部署后端实现；任何记录都阻断迁移，必须通过明确业务处置修复，不能自动改绑、删除历史、回退状态或维护隐藏 allowlist。
+- 数据库默认不执行 Alembic downgrade。有损迁移必须具备迁移前完整备份、隔离恢复验证、明确维护窗口和数据取舍。
 
-PostgreSQL 与 Redis 只加入 `partsignal-internal` 隔离网络。API、迁移任务和 Worker 同时加入 `partsignal-egress`，用于 OSS 元数据校验和 OpenAI-compatible 模型调用；不得把数据库或 Redis 加入出站网络。应用层 DNS 校验不能替代出站防火墙，生产环境仍应只允许必要的供应商地址。
+## 凭据与外部 AI
 
-生产部署必须设置随机且备份验证过的 `AI_CREDENTIAL_ENCRYPTION_KEY`（Base64 编码的 32 字节密钥）、`CONTENT_GENERATOR=openai-compatible` 和 `AI_ALLOW_LOCAL_HTTP=false`。主密钥丢失后数据库密文无法恢复；轮换前必须显式重新加密或重新录入全部渠道 API Key 与敏感 Header。日志、审计和作业快照不得包含这些明文。
+生产必须使用随机且经过备份恢复验证的 `AI_CREDENTIAL_ENCRYPTION_KEY`、真实 `CONTENT_GENERATOR=openai-compatible` 和 `AI_ALLOW_LOCAL_HTTP=false`。主密钥丢失后数据库密文无法恢复；轮换前必须显式重新加密或重新录入全部渠道 API Key 与敏感 Header。
 
-管理员重新配置 API Key 时只提交新值，读取接口仅返回已配置状态；复制配置不包含 API Key 或敏感 Header 值。生产排障不得从浏览器状态、数据库密文、普通日志或审计差异中导出凭据。新增品牌只扩展受控管理目录，不能借品牌字段启用未实现的原生协议；当前所有外部渠道仍必须提供真实 OpenAI-compatible 端点。
+读取接口只返回凭据已配置状态，复制配置不包含 API Key 或敏感 Header。排障不得从浏览器状态、数据库密文、普通日志或审计差异导出凭据。
 
-AI 请求只连接单次 DNS 解析批准的公网地址，TLS 身份和 Host 仍使用渠道原 hostname。连接兼容故障、peer 越界、重定向或响应超限时，应立即停用相关渠道并保留非敏感错误码；不得恢复旧 hostname 二次解析路径、关闭证书校验或增加发送后自动重试。只有任务完整生成输入和绑定事实快照全部 Evidence 均为 `PUBLIC` 时才允许出站，历史未分级任务必须人工重新保存 Prompt 与分级。
+AI 请求只连接经过校验的公网地址，TLS 身份与 Host 使用渠道原 hostname。连接兼容故障、peer 越界、重定向或响应超限必须显式失败；不得关闭证书校验、恢复不受控的二次 DNS 解析或在请求发送后自动重试。
 
-生成恢复默认每 60 秒扫描一次，超过 120 秒未投递的 `PENDING` Job 才会限批次补投递。`RUNNING` 租约按作业快照供应商超时加 120 秒收尾裕量计算；供应商已接收但 Worker 丢失的 Job 只会失败，不会自动重新调用。可按负载显式设置 `GENERATION_PENDING_REDISPATCH_SECONDS`、`GENERATION_FINALIZE_GRACE_SECONDS`、`GENERATION_RECOVERY_BATCH_SIZE` 和 `GENERATION_RECOVERY_SCAN_SECONDS`，不得把阈值设为零规避状态机。
+只有作业输入完整且绑定事实快照的全部 Evidence 均为 `PUBLIC` 时才允许出站。供应商已接收但 Worker 丢失的作业只标记失败，不自动再次调用。
 
-部署后使用以下命令同时确认进程和 PostgreSQL 业务积压。诊断输出只包含数量、年龄、错误码和供应商耗时，不包含 Prompt、响应正文或凭据：
+生产文件存储必须显式使用 `OBJECT_STORAGE_BACKEND=aliyun_oss` 并注入受控凭据。上线前必须验证预签名直传、后端 HEAD 校验、短期下载 URL 和 CORS 白名单；配置错误不得回退到开发存储。
 
-```sh
-docker compose -f compose.prod.yaml ps worker scheduler
-docker compose -f compose.prod.yaml run --rm api python -m app.cli generation-diagnostics
-```
+## 生成恢复与历史门禁
 
-如果补投递出现消息风暴，先停止 `scheduler`，不要批量修改 Job 状态。修复后恢复 Beat；已进入 `RUNNING` 或 `FAILED` 的 Job 不得通过运维命令自动重放。
+生成恢复默认每 60 秒扫描一次，只补投递超过 120 秒的 `PENDING` Job；`RUNNING` 租约按作业快照供应商超时加 120 秒收尾裕量计算。可按负载显式配置 `GENERATION_PENDING_REDISPATCH_SECONDS`、`GENERATION_FINALIZE_GRACE_SECONDS`、`GENERATION_RECOVERY_BATCH_SIZE` 和 `GENERATION_RECOVERY_SCAN_SECONDS`，不得把阈值设为零规避状态机。
 
-阶段二迁移前必须使用将要部署的后端镜像执行只读历史门禁：
+诊断必须同时观察 Worker、Scheduler 和 PostgreSQL 业务积压，输出只允许包含数量、年龄、错误码和供应商耗时。消息风暴时先停止 Scheduler；不得批量改写 PostgreSQL 作业状态，也不得自动重放已经进入 `RUNNING` 或 `FAILED` 的 Job。
 
-```sh
-docker compose -f compose.prod.yaml run --rm api python -m app.cli preflight-integrity
-```
+`COMPLETED_WITHOUT_VERIFIED_PUBLICATION` 表示完成任务缺少追加式 `VERIFIED` 发布事件；`PUBLICATION_PLATFORM_MISMATCH` 表示尚未进入明确终态的发布账号与任务锁定平台不一致。两者都必须保留历史并显式处置。
 
-输出始终是按类型和稳定 ID 排序的 JSON 数组。`COMPLETED_WITHOUT_VERIFIED_PUBLICATION` 表示旧任务缺少任何追加式 `VERIFIED` 发布状态事件；曾验证成功、后来移除或验证失败的发布仍是合法完成历史，由发布异常待办继续处置。`PUBLICATION_PLATFORM_MISMATCH` 表示尚未进入 `REJECTED`、`REMOVED` 或 `VERIFICATION_FAILED` 的发布账号与任务锁定平台不一致；已显式终态处置的错绑历史继续保留，但不再阻断。任一输出记录都会以非零状态退出并阻断部署；只能通过明确业务处置修复，不得自动改绑、删除、回退或维护隐藏 allowlist。`0013` 迁移会重复关键检查，直接运行 Alembic 也不能绕过。
+## 备份、恢复与回滚
 
-生产文件存储必须显式设置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 并注入 OSS 凭据。部署前应使用非生产前缀验证浏览器预签名直传、后端 HEAD 校验、短期下载 URL 和 CORS 白名单，配置错误不得回退到开发存储。
+数据库备份必须权限受限，并配套异地、加密和保留策略；只生成本机压缩文件不等于备份完成。恢复能力必须定期在隔离数据库验证，验证目标不得指向业务主库。
 
-## Hostdzire 预发布
+数据库备份与当时的 `AI_CREDENTIAL_ENCRYPTION_KEY` 必须成对保护。恢复数据库但使用另一主密钥，会使已有 AI 渠道凭据无法解密。
 
-`compose.staging.yaml` 是独立的 MVP 验收环境，不是生产配置。它使用真实 PostgreSQL、Redis 和 Celery，可显式选择确定性生成器或专用低权限模型测试渠道；不得向该环境注入生产 OSS 或生产模型凭据。
+应用回滚只允许使用与当前数据库契约兼容的旧版本，并必须重新完成相应验收。状态机或数据契约不兼容时，先停止相关写流量与 Scheduler，再由负责人确认前滚或恢复方案。
 
-预发布栈使用 `partsignal-staging-*` 容器网络，业务端口只绑定宿主机回环地址：API `19000`、开发对象存储 `19001`、前端 `19080`。持久数据统一位于 `PARTSIGNAL_DATA_ROOT`，默认 `/root/partsignal-data`，避免随发布目录切换而丢失。
+## 验收与 E2E 边界
 
-部署前在仓库根目录创建权限为 `0600` 的 `.env.staging`，至少设置随机 `POSTGRES_PASSWORD`、`SESSION_SECRET`、`UPLOAD_SIGNING_SECRET`、`PARTSIGNAL_SEED_ADMIN_PASSWORD`、`PARTSIGNAL_SEED_ENGINEER_PASSWORD`。两个账号种子值必须独立生成，只在账号不存在时用于首次创建；账号创建后，当前有效密码以 PostgreSQL 密码哈希为准，重复部署不会覆盖已修改的密码。为支持 Codex 本地浏览器执行登录后验收，运维人员可手工将 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 同步为当前 admin 密码；该变量必须按现用凭据保护，自动化不得输出或持久化其值。
+健康端点、命令行探针和容器健康不能替代真实浏览器对渲染、认证路由和控制台的检查。浏览器验收只从本机通过真实入口执行，不在服务器或容器安装浏览器环境，也不把凭据输出或持久化。
 
-```dotenv
-APP_ENV=staging
-APP_BASE_URL=https://geo.962850.xyz
-SESSION_COOKIE_SECURE=true
-CONTENT_GENERATOR=deterministic
-AI_CREDENTIAL_ENCRYPTION_KEY=<Base64 编码的 32 字节预发布专用密钥>
-AI_ALLOW_LOCAL_HTTP=false
-OBJECT_STORAGE_BACKEND=development
-OBJECT_STORAGE_ENDPOINT=http://fake-oss:9000
-OBJECT_STORAGE_PUBLIC_ENDPOINT=https://geo.962850.xyz/object-storage
-CORS_ALLOWED_ORIGINS=https://geo.962850.xyz
-```
-
-Hostdzire Nginx 使用 `nginx/partsignal.staging.conf.template` 维护 `geo.962850.xyz` 独立虚拟主机。配置生效前必须通过 `8.8.8.8` 确认 DNS A 记录指向公网入口，并依次执行 `nginx -t`、HTTPS 健康检查、缓存响应头和容器状态验收。命令行检查通过后，使用 Codex 控制本地浏览器以 admin 登录，确认工作台、配置中心及浏览器控制台正常；只做只读验收，不创建数据或修改配置。
-
-部署上线不运行视觉基线截图，也不在服务器或容器内安装浏览器测试环境。视觉差异不能证明线上链路可用，容器内截图还容易受字体和渲染环境影响；上线 UI 验收统一使用真实公网域名和 Codex 本地浏览器，只做不写入生产数据的冒烟检查。
-
-完整发布继续使用默认 `full` 模式，并在备份后运行迁移和幂等账号种子：
-
-```sh
-cd deploy
-PARTSIGNAL_VERSION=<release-id> ./scripts/deploy-staging.sh
-```
-
-已推送且 CI 通过的普通代码提交可从干净的本地主工作目录执行快速入口：
-
-```sh
-make staging-redeploy-fast
-```
-
-快速入口要求 `main` 与 `origin/main` 一致，并在构建前比较迁移目录、环境模板、预发布 Compose、Nginx 模板和 `deploy-staging.sh`。任一路径变化、首次启用本功能或高风险 UI 变更都必须改走完整 Runbook；快速路径不备份、不迁移、不创建账号，但保留只读历史门禁、Compose/容器健康、本机探针、Nginx 语法检查和公网 `live`、`ready`、首页检查。所有检查通过后才更新 `current`；该指针只记录最后验收的 release，固定 Compose 项目和端口上的容器已提前替换，不构成蓝绿流量切换。完整步骤见 [Hostdzire 部署上线 Runbook](./Hostdzire部署上线流程.md)。
-
-预发布回滚只切换上一发布目录与镜像标签，不删除 `/root/partsignal-data`。停止栈使用 `docker compose --env-file ../.env.staging -f compose.staging.yaml down`，默认保留持久数据。
-
-`0010_user_cleanup` 执行前必须备份 PostgreSQL。若迁移报告旧版初始化账号仍被业务表或审计记录引用，迁移会整体回滚；不得绕过外键、清空历史或把归属猜测迁移给其他用户。开发验收数据可在确认无保留价值后整体重建，否则应保留数据库并重新规划账号处置。
-
-## 回滚
-
-前端通过软链接切换上一版本。API 和 Worker 使用上一镜像标签重启。回滚生成恢复代码前先停止 `scheduler`；`0011` 的新增列可由旧代码安全忽略，通常保留迁移而不删除诊断元数据。`0012` 降级会移除当前任务分级；任何不识别固定地址传输或 PUBLIC 门禁的旧应用启动前必须先停用全部 AI 渠道，不能以旧应用作为安全回退。`0013` 一旦产生发布异常或修复任务来源就拒绝 downgrade；旧应用不能理解新状态时停止发布/审核写流量并前滚修复，不删除异常、修复任务或审核历史。`0021_ai_channel_model_management` 的 downgrade 会丢失渠道描述、协议类型和供应商品牌；开发隔离数据库仅在没有不可还原身份数据时允许降级，生产回滚必须保留迁移并前滚应用，或从迁移前备份恢复。本次账号类型映射、内容追溯列删除和旧账号清理均为有损迁移：迁移前必须备份 PostgreSQL 和 AI 凭据主密钥；需要回退到旧应用时恢复完整迁移前数据库，不执行 `0009` 或 `0010` 的有损降级。仅回退同一数据库契约内的应用版本时，先停用全部 AI 渠道。
-
-## 备份
-
-`backup.sh` 只生成本地 `pg_dump` 压缩暂存文件，不假装已完成生产备份。生产部署必须由受控主机任务继续执行加密和上传对象存储，保留 7 个每日、4 个每周和 6 个每月备份；启用前需明确选定加密与上传工具并验证恢复。每月至少在隔离数据库执行一次 `restore-verify.sh`。
+纵向业务 E2E 只在本地或 CI 隔离环境执行，并使用真实 PostgreSQL、Redis、Celery 和显式 Mock Provider。公网环境保持 `AI_ALLOW_LOCAL_HTTP=false`，不得为依赖回环 Provider 的测试放宽安全策略。

@@ -31,6 +31,7 @@ PartSignal（元件信号）是面向电子元器件国产替代业务的多平�
 - [测试策略](./docs/testing.md)
 - [部署与运维](./docs/operations.md)
 - [Hostdzire 部署上线 Runbook](./docs/Hostdzire部署上线流程.md)
+- [Hostdzire 部署附录](./docs/Hostdzire部署附录.md)
 
 ## 状态
 

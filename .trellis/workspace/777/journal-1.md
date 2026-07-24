@@ -698,3 +698,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 21: 开发期快速重部署流程
+
+**Date**: 2026-07-24
+**Task**: 开发期快速重部署流程
+**Branch**: `main`
+
+### Summary
+
+新增 Hostdzire 预发布单命令快速重部署入口；完整部署保持默认，快速路径自动阻断迁移和关键配置变化，保留健康检查与验收后 current 切换，并补充 Shell 自检和部署文档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bf15a8d` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

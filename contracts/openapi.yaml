@@ -78,6 +78,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/User'}
+        '204': {description: 当前无会话}
         '401': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/auth/csrf:
     get:

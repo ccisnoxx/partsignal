@@ -3575,6 +3575,13 @@ export interface operations {
                     "application/json": components["schemas"]["User"];
                 };
             };
+            /** @description 当前无会话 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["ErrorResponse"];
         };
     };

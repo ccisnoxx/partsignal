@@ -20,14 +20,21 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const currentUser = useQuery({
     queryKey: queryKeys.auth.me,
-    queryFn: async () => unwrap(await api.GET('/api/v1/auth/me')),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/auth/me');
+      if (result.response.status !== 204) return unwrap(result);
+      // openapi-fetch 对 204 提前返回；显式消费空响应，避免 Chromium 将未读取的 fetch 记为 ERR_ABORTED。
+      await result.response.text();
+      return null;
+    },
     retry: false,
   });
+  const user = currentUser.data ?? null;
 
   const csrf = useQuery({
     queryKey: queryKeys.auth.csrf,
     queryFn: async () => unwrap(await api.GET('/api/v1/auth/csrf')),
-    enabled: currentUser.isSuccess,
+    enabled: user !== null,
     retry: false,
   });
   const refreshCurrentUser = currentUser.refetch;
@@ -42,11 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [refreshCurrentUser]);
   setCsrfToken(csrf.data?.csrf_token ?? null);
 
-  const user = currentUser.data ?? null;
   return (
     <AuthContext.Provider value={{
       user,
-      isLoading: currentUser.isLoading || (currentUser.isSuccess && csrf.isLoading),
+      isLoading: currentUser.isLoading || (user !== null && csrf.isLoading),
       isAuthenticated: user !== null,
       error: currentUser.error ?? csrf.error,
       isAdmin: user?.account_type === 'ADMIN',

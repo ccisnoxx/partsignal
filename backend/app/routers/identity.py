@@ -18,6 +18,7 @@ from app.deps import (
     CurrentSession,
     CurrentUser,
     DbSession,
+    OptionalCurrentSession,
     assert_account_types,
 )
 from app.errors import AppError
@@ -116,10 +117,17 @@ def logout(
     response.delete_cookie(settings.csrf_cookie_name, path="/")
 
 
-@router.get("/auth/me", response_model=UserOut, operation_id="getCurrentUser")
-def get_current_user(user: CurrentUser) -> UserOut:
-    """返回当前内部账号及账号类型。"""
-    return present_user(user)
+@router.get(
+    "/auth/me",
+    response_model=UserOut,
+    responses={status.HTTP_204_NO_CONTENT: {"description": "当前无会话"}},
+    operation_id="getCurrentUser",
+)
+def get_current_user(current: OptionalCurrentSession) -> UserOut | Response:
+    """返回当前内部账号；完全没有会话 Cookie 时返回空 204。"""
+    if current is None:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    return present_user(current.user)
 
 
 @router.get("/auth/csrf", response_model=CsrfToken, operation_id="getCsrfToken")

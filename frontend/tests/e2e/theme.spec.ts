@@ -16,6 +16,38 @@ async function expectBootTheme(page: Page, mode: keyof typeof projectThemes) {
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', tokens.bgCanvas);
 }
 
+test('匿名登录页使用无内容会话探测且不产生运行时错误', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  const failedRequests: string[] = [];
+  const csrfRequests: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error' || message.type() === 'warning') {
+      runtimeErrors.push(`console.${message.type()}: ${message.text()}`);
+    }
+  });
+  page.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`));
+  page.on('requestfailed', (request) => {
+    failedRequests.push(`${request.method()} ${request.url()} ${request.failure()?.errorText ?? ''}`);
+  });
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/auth/csrf') csrfRequests.push(request.url());
+  });
+
+  const sessionProbe = page.waitForResponse(
+    (response) => new URL(response.url()).pathname === '/api/v1/auth/me',
+  );
+  await page.goto('/login');
+
+  const sessionResponse = await sessionProbe;
+  expect(sessionResponse.status()).toBe(204);
+  await expect(page.getByLabel('账号')).toBeVisible();
+  await expect(page.getByLabel('密码')).toBeVisible();
+  await expect(page.getByRole('button', { name: /登\s*录/ })).toBeEnabled();
+  expect(csrfRequests).toEqual([]);
+  expect(failedRequests).toEqual([]);
+  expect(runtimeErrors).toEqual([]);
+});
+
 test('阻断 React 主模块后首屏脚本仍与主题画布一致', async ({ page }) => {
   await page.route('**/src/main.tsx*', (route) => route.abort());
   await page.addInitScript(() => {

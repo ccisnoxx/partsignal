@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 import app.services.identity as identity_service
 from app.audit import contains_sensitive_key
+from app.config import settings
 from app.db import get_db
 from app.deps import get_current_session
 from app.main import app
@@ -79,6 +80,94 @@ def temporary_database() -> Iterator[str]:
             admin_connection.execute(
                 sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(database_name))
             )
+
+
+@pytest.mark.integration
+def test_auth_session_probe_distinguishes_anonymous_and_invalid_sessions() -> None:
+    """会话探测只把完全无 Cookie 视为匿名，其他认证失败继续返回 401。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        now = datetime.now(UTC)
+        with session_factory() as db:
+            active_user = User(
+                username="session-active",
+                display_name="有效会话账号",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            disabled_user = User(
+                username="session-disabled",
+                display_name="停用会话账号",
+                password_hash="not-used",
+                account_type="ENGINEER",
+                is_active=False,
+            )
+            db.add_all([active_user, disabled_user])
+            db.flush()
+            db.add_all(
+                [
+                    SessionRecord(
+                        token_hash=hash_token("valid-session"),
+                        csrf_hash=hash_token("valid-csrf"),
+                        user_id=active_user.id,
+                        expires_at=now + timedelta(hours=1),
+                    ),
+                    SessionRecord(
+                        token_hash=hash_token("revoked-session"),
+                        csrf_hash=hash_token("revoked-csrf"),
+                        user_id=active_user.id,
+                        expires_at=now + timedelta(hours=1),
+                        revoked_at=now,
+                    ),
+                    SessionRecord(
+                        token_hash=hash_token("expired-session"),
+                        csrf_hash=hash_token("expired-csrf"),
+                        user_id=active_user.id,
+                        expires_at=now - timedelta(seconds=1),
+                    ),
+                    SessionRecord(
+                        token_hash=hash_token("disabled-session"),
+                        csrf_hash=hash_token("disabled-csrf"),
+                        user_id=disabled_user.id,
+                        expires_at=now + timedelta(hours=1),
+                    ),
+                ]
+            )
+            db.commit()
+            active_user_id = active_user.id
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        app.dependency_overrides[get_db] = override_db
+        client = TestClient(app)
+        try:
+            anonymous = client.get("/api/v1/auth/me")
+            assert anonymous.status_code == 204
+            assert anonymous.content == b""
+            assert client.get("/api/v1/users").status_code == 401
+
+            client.cookies.set(settings.session_cookie_name, "valid-session")
+            valid = client.get("/api/v1/auth/me")
+            assert valid.status_code == 200
+            assert valid.json()["id"] == str(active_user_id)
+
+            for token in (
+                "unknown-session",
+                "revoked-session",
+                "expired-session",
+                "disabled-session",
+            ):
+                client.cookies.set(settings.session_cookie_name, token)
+                rejected = client.get("/api/v1/auth/me")
+                assert rejected.status_code == 401
+                assert rejected.json()["error"]["code"] == "AUTH_REQUIRED"
+        finally:
+            app.dependency_overrides.clear()
+            client.close()
+            engine.dispose()
 
 
 @pytest.mark.integration

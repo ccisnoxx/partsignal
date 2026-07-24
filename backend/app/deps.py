@@ -28,12 +28,12 @@ session_cookie_scheme = APIKeyCookie(
 )
 
 
-def get_current_session(
-    db: DbSession,
+def _resolve_current_session(
+    db: Session,
     request: Request,
-    session_token: Annotated[str | None, Security(session_cookie_scheme)] = None,
+    session_token: str | None,
 ) -> SessionRecord:
-    """从服务端会话表解析当前用户，过期或撤销会话立即拒绝。"""
+    """严格解析服务端会话；缺失或无效令牌都必须显式拒绝。"""
     if not session_token:
         raise AppError("AUTH_REQUIRED", "请先登录", 401)
     record = db.scalar(
@@ -59,7 +59,30 @@ def get_current_session(
     return record
 
 
+def get_current_session(
+    db: DbSession,
+    request: Request,
+    session_token: Annotated[str | None, Security(session_cookie_scheme)] = None,
+) -> SessionRecord:
+    """解析受保护请求的当前会话，匿名请求同样拒绝。"""
+    return _resolve_current_session(db, request, session_token)
+
+
 CurrentSession = Annotated[SessionRecord, Depends(get_current_session)]
+
+
+def get_optional_current_session(
+    db: DbSession,
+    request: Request,
+    session_token: Annotated[str | None, Security(session_cookie_scheme)] = None,
+) -> SessionRecord | None:
+    """仅在 Cookie 完全缺失时返回匿名；存在 Cookie 时仍执行严格校验。"""
+    if settings.session_cookie_name not in request.cookies:
+        return None
+    return _resolve_current_session(db, request, session_token)
+
+
+OptionalCurrentSession = Annotated[SessionRecord | None, Depends(get_optional_current_session)]
 
 
 def get_current_user(current: CurrentSession) -> User:

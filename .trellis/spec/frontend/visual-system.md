@@ -9,8 +9,8 @@
 权威顺序如下：
 
 1. `.trellis/spec/frontend/visual-system.md` 定义设计意图、组件边界和验收规则。
-2. `frontend/src/app/theme.ts` 是运行时语义颜色、玻璃材质、状态色、图表色、阴影及 Ant Design `ThemeConfig` 的唯一值来源。
-3. `frontend/src/styles/global.css` 实现系统字体、字号与布局尺度、圆角、动效、应用壳层和 `--ps-*` Token 消费。
+2. `frontend/src/app/theme.ts` 是运行时语义颜色、玻璃材质、状态色、图表色、阴影、字体栈、圆角、动效及 Ant Design `ThemeConfig` 的唯一值来源。
+3. `frontend/src/styles/global.css` 实现字号与布局尺度、应用壳层和 `--ps-*` Token 消费，不重复持有运行时视觉值。
 4. Ant Design、`@ant-design/icons` 和现有共享组件提供业务页面必须复用的实现骨架。
 5. 业务页面只能消费上述契约；局部样式不得成为第二套配色、字体、Token、主题、状态或卡片体系。
 
@@ -50,7 +50,7 @@ PartSignal 必须呈现“macOS 原生应用秩序感 × 轻量磨砂玻璃 × �
 
 ### 3.2 字体与数字
 
-- 所有界面必须复用 `global.css` 的 `--ps-font-sans` 系统字体栈；不得加载 Inter、Google Fonts 或其他 Web Font。
+- 所有界面必须复用 `theme.ts` 注入的 `--ps-font-sans` 系统字体栈；不得加载 Inter、Google Fonts 或其他 Web Font。
 - 代码、请求标识、版本、哈希和适合纵向比较的数值必须使用 `--ps-font-mono`；表格数字和指标必须启用等宽数字。
 - 普通正文与表格内容使用 400；标签和导航使用 500；区域标题、页签和按钮使用 600；页面标题和核心数字仅在需要时使用 600–700。不得大面积使用 800–900 或以极细字重弱化信息。
 - 辅助信息使用 10–12px、至少 1.35 行高；表格、状态和筛选使用 11–13px、至少 1.4 行高；正文和输入使用 14px、1.55–1.8 行高；区域标题使用 15–16px、1.4–1.6 行高。

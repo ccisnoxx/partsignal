@@ -44,7 +44,9 @@ test('按管理层层级展示真实 GEO 指标、运营状态和处理入口', 
   render(<App />);
 
   expect(await screen.findByRole('heading', { name: '总览' })).toBeInTheDocument();
-  expect(document.querySelector('.app-shell')).toHaveClass('app-shell-dashboard');
+  const shell = document.querySelector('.app-shell');
+  expect(shell).toHaveClass('app-shell');
+  expect([...shell!.classList].filter((className) => className.startsWith('app-shell-'))).toEqual([]);
   expect(screen.getAllByText('审核员')).toHaveLength(2);
   const metrics = await screen.findByRole('region', { name: 'GEO 管理指标' });
   for (const label of ['人工观测', '文章结果', '已推荐文章', '文章推荐率']) {

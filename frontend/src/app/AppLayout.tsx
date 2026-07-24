@@ -126,17 +126,10 @@ export function AppLayout() {
   const currentSection = location.pathname.startsWith('/content/')
     ? '内容审核'
     : location.pathname.startsWith('/observations') ? 'GEO 观测' : selected?.label ?? '工作台';
-  const isDashboard = location.pathname === '/';
   const isGeo = location.pathname.startsWith('/observations');
   const isConfiguration = location.pathname.startsWith('/configuration');
   const isAuditLog = location.pathname === '/audit';
   const isBusinessSettings = location.pathname === '/settings' || location.pathname === '/users';
-  const isManagementShell = isConfiguration || isBusinessSettings || isAuditLog;
-  const isUserManagement = location.pathname === '/users';
-  const isPlatformManagement = location.pathname === '/configuration/platforms';
-  const isPlatformRules = location.pathname === '/configuration/platform-rules';
-  const isPromptManagement = location.pathname === '/configuration/prompts';
-  const compactShell = isDashboard || isGeo;
   const toMenuItems = (items: NavigationItem[]): MenuProps['items'] => items.map((item) => ({
     key: item.key,
     icon: item.icon,
@@ -160,12 +153,12 @@ export function AppLayout() {
   const desktopSider = !!screens.lg;
 
   return (
-    <Layout className={`app-shell${compactShell ? ' app-shell-dashboard' : ''}${isGeo ? ' app-shell-geo' : ''}${isManagementShell && !isUserManagement && !isAuditLog ? ' app-shell-configuration' : ''}${isUserManagement ? ' app-shell-user-management' : ''}${isAuditLog ? ' app-shell-audit' : ''}${isPlatformManagement ? ' app-shell-platform-management' : ''}${isPlatformRules ? ' app-shell-platform-rules' : ''}${isPromptManagement ? ' app-shell-prompt-management' : ''}`}>
+    <Layout className="app-shell">
       {desktopSider ? (
-        <Layout.Sider theme="light" width={isAuditLog ? 188 : isUserManagement ? 186 : isPromptManagement ? 184 : isPlatformManagement || isPlatformRules ? 190 : isManagementShell ? 220 : compactShell ? 192 : 248} collapsedWidth={76} collapsed={collapsed} className="app-sider">
+        <Layout.Sider theme="light" width={220} collapsedWidth={76} collapsed={collapsed} className="app-sider">
           <div className="brand-mark"><span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span>{!collapsed && <strong>PartSignal</strong>}</div>
           {menu}
-          {(isManagementShell || isGeo) && <Button type="text" className="configuration-sider-collapse" aria-label={collapsed ? '展开导航' : '收起导航'} icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => setCollapsed((value) => !value)}>{!collapsed && '收起'}</Button>}
+          <Button type="text" className="configuration-sider-collapse" aria-label={collapsed ? '展开导航' : '收起导航'} icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => setCollapsed((value) => !value)}>{!collapsed && '收起'}</Button>
         </Layout.Sider>
       ) : (
         <Drawer placement="left" open={drawerOpen} onClose={() => setDrawerOpen(false)} size={280} className="mobile-drawer">
@@ -175,7 +168,7 @@ export function AppLayout() {
       <Layout>
         <Layout.Header className="app-header">
           <Space size="middle" className="header-context">
-            {(!desktopSider || (!isManagementShell && !isGeo)) && <Button type="text" aria-label="切换导航" icon={desktopSider ? (collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />) : <MenuUnfoldOutlined />} onClick={() => desktopSider ? setCollapsed((value) => !value) : setDrawerOpen(true)} />}
+            {!desktopSider && <Button type="text" aria-label="切换导航" icon={<MenuUnfoldOutlined />} onClick={() => setDrawerOpen(true)} />}
             <div>{isConfiguration ? <><Typography.Text strong>配置中心</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isAuditLog ? <><Typography.Text strong>审计与安全</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isBusinessSettings ? <><Typography.Text strong>业务设置</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isGeo ? <><Typography.Text strong>GEO 观测</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{selected?.label}</Typography.Text></> : <><Typography.Text className="header-kicker">PARTSIGNAL</Typography.Text><Typography.Text strong>{currentSection}</Typography.Text></>}</div>
           </Space>
           <AutoComplete
@@ -196,7 +189,7 @@ export function AppLayout() {
             />
           </AutoComplete>
           <Space size="small" className="header-actions">
-            <ThemeModeControl compact={isManagementShell || isGeo || !screens.md} />
+            <ThemeModeControl compact={!screens.md} />
             <Dropdown
               trigger={['click']}
               menu={{

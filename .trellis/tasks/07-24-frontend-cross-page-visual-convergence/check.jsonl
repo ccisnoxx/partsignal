@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "逐项核对唯一视觉规范及实施验收清单，防止页面级新主题和第二套组件体系。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核共享组件边界、表格交互、焦点和移动 Drawer 未被视觉重构破坏。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "复核业务行为、主题、响应式、200% 缩放、键盘和焦点质量门禁。"}
+{"file": ".trellis/tasks/07-24-frontend-cross-page-visual-convergence/research/current-state.md", "reason": "复核已识别的多壳层、基础 Token、字体和验证缺口是否全部关闭。"}

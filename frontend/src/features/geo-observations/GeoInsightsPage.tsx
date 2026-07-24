@@ -249,10 +249,10 @@ const platformColumns: TableColumnsType<PlatformPerformance> = [
     ),
   },
   { title: '观测次数', dataIndex: 'observation_count', width: 72 },
-  { title: '提及率', dataIndex: 'mention_rate', width: 96, render: (value) => <RateBar value={value} color="var(--geo-platform-mention)" /> },
-  { title: '推荐率', dataIndex: 'recommendation_rate', width: 96, render: (value) => <RateBar value={value} color="var(--geo-platform-recommendation)" /> },
-  { title: '引用率', dataIndex: 'citation_rate', width: 96, render: (value) => <RateBar value={value} color="var(--geo-platform-citation)" /> },
-  { title: '准确率', dataIndex: 'accuracy_rate', width: 96, render: (value) => <RateBar value={value} color="var(--geo-platform-accuracy)" /> },
+  { title: '提及率', dataIndex: 'mention_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-green)" /> },
+  { title: '推荐率', dataIndex: 'recommendation_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-purple)" /> },
+  { title: '引用率', dataIndex: 'citation_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-orange)" /> },
+  { title: '准确率', dataIndex: 'accuracy_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-teal)" /> },
 ];
 
 function RateBar({ value, color }: { value: Schema<'GeoInsightRateValue'>; color: string }) {
@@ -499,11 +499,11 @@ function InsightSections({ data, printMode }: { data: GeoInsights; printMode: bo
         extra={<Typography.Text type="secondary">对比期：{data.period.previous.date_from} – {data.period.previous.date_to}</Typography.Text>}
       >
         <section className="geo-insight-trend-grid" aria-label="GEO 指标趋势">
-          <TrendCard kind="rate" label="提及率" color="var(--geo-trend-mention)" trend={data.trends.mention_rate} />
-          <TrendCard kind="rate" label="推荐率" color="var(--geo-trend-recommendation)" trend={data.trends.recommendation_rate} />
-          <TrendCard kind="rate" label="引用率" color="var(--geo-trend-citation)" trend={data.trends.citation_rate} />
-          <TrendCard kind="rate" label="结果准确率" color="var(--geo-trend-accuracy)" trend={data.trends.accuracy_rate} />
-          <TrendCard kind="count" label="未推荐内容数量" color="var(--geo-trend-missing)" trend={data.trends.not_recommended_content_count} />
+          <TrendCard kind="rate" label="提及率" color="var(--ps-geo-series-blue)" trend={data.trends.mention_rate} />
+          <TrendCard kind="rate" label="推荐率" color="var(--ps-geo-series-green)" trend={data.trends.recommendation_rate} />
+          <TrendCard kind="rate" label="引用率" color="var(--ps-geo-series-purple)" trend={data.trends.citation_rate} />
+          <TrendCard kind="rate" label="结果准确率" color="var(--ps-geo-series-orange)" trend={data.trends.accuracy_rate} />
+          <TrendCard kind="count" label="未推荐内容数量" color="var(--ps-geo-series-red)" trend={data.trends.not_recommended_content_count} />
         </section>
       </Card>
       <section className="geo-insight-two-column">

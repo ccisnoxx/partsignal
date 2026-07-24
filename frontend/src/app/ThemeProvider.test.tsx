@@ -102,14 +102,23 @@ test('无效持久化值被清理并回到跟随系统', () => {
   expect(localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
 });
 
-test('浅深模式同步更新画布与玻璃材质变量', async () => {
+test('浅深模式同步更新主题与共享视觉变量', async () => {
   installMatchMedia({ dark: false });
   render(<ThemeProvider><Probe /></ThemeProvider>);
   const root = document.documentElement;
+  const antTheme = createAntTheme('light', false);
   const lightCanvas = root.style.backgroundColor;
   expect(root.style.getPropertyValue('--ps-bg-canvas')).toBe(projectThemes.light.bgCanvas);
   expect(root.style.getPropertyValue('--ps-glass-surface')).toBe(projectThemes.light.glassSurface);
   expect(root.style.getPropertyValue('--ps-glass-backdrop')).toBe(projectThemes.light.glassBackdrop);
+  expect(root.style.getPropertyValue('--ps-font-sans')).toBe(antTheme.token?.fontFamily);
+  expect(root.style.getPropertyValue('--ps-font-mono')).toBe(antTheme.token?.fontFamilyCode);
+  expect(root.style.getPropertyValue('--ps-radius-sm')).toBe(`${antTheme.token?.borderRadius}px`);
+  expect(root.style.getPropertyValue('--ps-radius-md')).toBe('12px');
+  expect(root.style.getPropertyValue('--ps-radius-lg')).toBe(`${antTheme.token?.borderRadiusLG}px`);
+  expect(root.style.getPropertyValue('--ps-motion-fast')).toBe(antTheme.token?.motionDurationFast);
+  expect(root.style.getPropertyValue('--ps-motion-base')).toBe(antTheme.token?.motionDurationMid);
+  expect(root.style.getPropertyValue('--ps-motion-slow')).toBe(antTheme.token?.motionDurationSlow);
 
   await userEvent.click(screen.getByRole('button', { name: '使用深色' }));
   expect(root.style.backgroundColor).not.toBe(lightCanvas);

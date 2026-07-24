@@ -118,24 +118,30 @@ test('业务设置按查询参数区分发布账号和历史目标问题选中�
   expect(screen.getByText('业务设置', { selector: '.header-context strong' })).toBeInTheDocument();
 });
 
-test('用户管理使用独立全出血壳层，不继承配置中心外框', () => {
+test.each([
+  ['/', '工作台'],
+  ['/observations', 'GEO 观测'],
+  ['/users', '用户管理'],
+  ['/audit', '审计日志'],
+  ['/configuration/ai', 'AI 渠道与模型'],
+])('%s 使用统一应用壳层和侧栏几何', async (path, heading) => {
   render(
-    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/users']}><Routes><Route element={<AppLayout />}><Route path="users" element={<h1>用户管理页</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
+    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[path]}><Routes><Route element={<AppLayout />}><Route path="*" element={<h1>{heading}</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
   );
   const shell = document.querySelector('.app-shell');
-  expect(shell).toHaveClass('app-shell-user-management');
-  expect(shell).not.toHaveClass('app-shell-configuration');
+  expect(shell).toHaveClass('app-shell');
+  expect([...shell!.classList].filter((className) => className.startsWith('app-shell-'))).toEqual([]);
+  expect(document.querySelector('.app-sider')).toHaveStyle({ width: '220px' });
+  const collapse = screen.getByRole('button', { name: '收起导航' });
+  await userEvent.click(collapse);
+  expect(document.querySelector('.app-sider')).toHaveStyle({ width: '76px' });
+  expect(screen.getByRole('button', { name: '展开导航' })).toBeInTheDocument();
 });
 
-test('审计日志使用 188px 审计壳层和审计与安全面包屑', () => {
+test('审计日志保留导航选中与审计上下文', () => {
   render(
     <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/audit']}><Routes><Route element={<AppLayout />}><Route path="audit" element={<h1>审计页面</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
   );
-  const shell = document.querySelector('.app-shell');
-  const sider = document.querySelector('.app-sider');
-  expect(shell).toHaveClass('app-shell-audit');
-  expect(shell).not.toHaveClass('app-shell-configuration');
-  expect(sider).toHaveStyle({ width: '188px' });
   expect(screen.getByRole('menuitem', { name: '审计日志' })).toHaveClass('ant-menu-item-selected');
   expect(screen.getByText('审计与安全', { selector: '.header-context strong' })).toBeInTheDocument();
 });

@@ -21,6 +21,6 @@ export default defineConfig({
     // Ant Design 页面测试串行执行，避免共享 CI runner 在并行 JSDOM 渲染时超时。
     fileParallelism: false,
     testTimeout: 20_000,
-    exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**'],
+    exclude: ['tests/e2e/**', 'scripts/check-theme-colors.test.mjs', 'node_modules/**', 'dist/**'],
   },
 });

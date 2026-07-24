@@ -28,13 +28,33 @@ async function openPasswordPage(page: Page): Promise<void> {
   await page.getByRole('menuitem', { name: /修改密码/ }).click();
 }
 
+async function selectOption(page: Page, label: string, optionName: string): Promise<void> {
+  await page.getByLabel(label).fill(optionName);
+  await page.locator('.ant-select-dropdown:visible').getByTitle(optionName, { exact: true }).click();
+}
+
+async function clickVisibleOption(page: Page, optionName: string): Promise<void> {
+  await page.locator('.ant-select-dropdown:visible').getByTitle(optionName, { exact: true }).click({ force: true });
+}
+
 test('账号类型、最后管理员、临时密码和停用会话由服务端强制执行', async ({ page, browser }) => {
   const suffix = randomUUID().slice(0, 8);
   const csrf = await login(page, 'admin');
   await expect(page.getByRole('button', { name: '打开用户操作菜单' })).toBeVisible();
   await page.goto('/audit');
   await expect(page.getByRole('heading', { name: '审计日志' })).toBeVisible();
-  const users = await body<{ items: Array<{ id: string; username: string; display_name: string; account_type: 'ADMIN' | 'ENGINEER'; is_active: boolean; revision: number }> }>(await page.request.get('/api/v1/users'));
+  const users = await body<{ items: Array<{ id: string; username: string; display_name: string; account_type: 'ADMIN' | 'ENGINEER'; is_active: boolean; revision: number }> }>(await page.request.get('/api/v1/users?q=admin&page=1&page_size=100'));
+  // 只清理本测试历史运行生成的管理员，避免影响测试环境中的其他 admin-* 账号。
+  for (const staleAdmin of users.items.filter((item) => (
+    /^admin-[0-9a-f]{8}$/.test(item.username)
+    && item.display_name === `管理员 ${item.username.slice(6)}`
+    && item.is_active
+  ))) {
+    expect((await page.request.patch(`/api/v1/users/${staleAdmin.id}`, {
+      headers: { 'X-CSRF-Token': csrf },
+      data: { expected_revision: staleAdmin.revision, display_name: staleAdmin.display_name, account_type: 'ADMIN', is_active: false },
+    })).ok()).toBeTruthy();
+  }
   const admin = users.items.find((item) => item.username === 'admin');
   expect(admin).toBeTruthy();
   expect((await page.request.post('/api/v1/auth/change-password', {
@@ -51,7 +71,7 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   const username = `engineer-${suffix}`;
   const created = await body<{ id: string }>(await page.request.post('/api/v1/users', {
     headers: { 'X-CSRF-Token': csrf },
-    data: { username, display_name: `工程师 ${suffix}`, password: 'initial-password-only', account_type: 'ENGINEER' },
+    data: { username, display_name: `工程师 ${suffix}`, temporary_password: 'initial-password-only', account_type: 'ENGINEER' },
   }));
   const temporaryPassword = 'temporary-password-only';
   const reset = await page.request.post(`/api/v1/users/${created.id}/reset-password`, {
@@ -78,7 +98,7 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   await expect(engineerPage.getByRole('menuitem', { name: '配置中心' })).toHaveCount(0);
   await expect(engineerPage.getByRole('menuitem', { name: /审计日志/ })).toHaveCount(0);
   await engineerPage.goto('/audit');
-  await expect(engineerPage).toHaveURL(/\/$/);
+  expect((await engineerPage.request.get('/api/v1/audit-logs')).status()).toBe(403);
   await expect(engineerPage.getByRole('button', { name: '打开用户操作菜单' })).toBeVisible();
   expect((await engineerPage.request.get('/api/v1/users')).status()).toBe(403);
   const engineerCsrf = await body<{ csrf_token: string }>(await engineerPage.request.get('/api/v1/auth/csrf'));
@@ -105,10 +125,11 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
 
   const adminUsername = `admin-${suffix}`;
   const adminInitialPassword = 'temporary-admin-initial';
+  const adminReadyPassword = 'temporary-admin-ready';
   const adminNewPassword = 'temporary-admin-updated';
   const createdAdmin = await body<{ id: string }>(await page.request.post('/api/v1/users', {
     headers: { 'X-CSRF-Token': csrf },
-    data: { username: adminUsername, display_name: `管理员 ${suffix}`, password: adminInitialPassword, account_type: 'ADMIN' },
+    data: { username: adminUsername, display_name: `管理员 ${suffix}`, temporary_password: adminInitialPassword, account_type: 'ADMIN' },
   }));
   const adminContext = await browser.newContext({
     baseURL: process.env.PARTSIGNAL_E2E_BASE_URL ?? 'http://127.0.0.1:5173',
@@ -118,21 +139,30 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   });
   const adminPage = await adminContext.newPage();
   const otherAdminPage = await otherAdminContext.newPage();
-  const adminCsrf = await login(adminPage, adminUsername, adminInitialPassword);
-  await login(otherAdminPage, adminUsername, adminInitialPassword);
+  await adminPage.goto('/login');
+  await adminPage.getByLabel('账号').fill(adminUsername);
+  await adminPage.getByLabel('密码').fill(adminInitialPassword);
+  await adminPage.getByRole('button', { name: /登\s*录/ }).click();
+  await expect(adminPage).toHaveURL(/\/change-password$/);
+  await adminPage.getByLabel('当前密码').fill(adminInitialPassword);
+  await adminPage.getByLabel('新密码').fill(adminReadyPassword);
+  await adminPage.getByRole('button', { name: '更新密码' }).click();
+  await expect(adminPage).toHaveURL(/\/$/);
+  const adminCsrf = await body<{ csrf_token: string }>(await adminPage.request.get('/api/v1/auth/csrf'));
+  await login(otherAdminPage, adminUsername, adminReadyPassword);
   expect((await adminPage.request.post(`/api/v1/users/${createdAdmin.id}/reset-password`, {
-    headers: { 'X-CSRF-Token': adminCsrf },
+    headers: { 'X-CSRF-Token': adminCsrf.csrf_token },
     data: { temporary_password: 'self-reset-must-fail' },
   })).status()).toBe(422);
   await openPasswordPage(adminPage);
-  await adminPage.getByLabel('当前密码').fill(adminInitialPassword);
+  await adminPage.getByLabel('当前密码').fill(adminReadyPassword);
   await adminPage.getByLabel('新密码').fill(adminNewPassword);
   await adminPage.getByRole('button', { name: '更新密码' }).click();
   await expect(adminPage).toHaveURL(/\/$/);
   expect((await adminPage.request.get('/api/v1/auth/me')).status()).toBe(200);
   expect((await otherAdminPage.request.get('/api/v1/auth/me')).status()).toBe(401);
 
-  const refreshedUsers = await body<{ items: Array<{ id: string; username: string; display_name: string; account_type: 'ADMIN' | 'ENGINEER'; is_active: boolean; revision: number }> }>(await page.request.get('/api/v1/users'));
+  const refreshedUsers = await body<{ items: Array<{ id: string; username: string; display_name: string; account_type: 'ADMIN' | 'ENGINEER'; is_active: boolean; revision: number }> }>(await page.request.get(`/api/v1/users?q=${suffix}&page=1&page_size=100`));
   const engineer = refreshedUsers.items.find((item) => item.id === created.id);
   const temporaryAdmin = refreshedUsers.items.find((item) => item.id === createdAdmin.id);
   expect(engineer).toBeTruthy();
@@ -149,7 +179,7 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   expect(disabledAdmin.ok()).toBeTruthy();
   expect((await engineerPage.request.get('/api/v1/auth/me')).status()).toBe(401);
   const auditText = await (await page.request.get('/api/v1/audit-logs?page=1&page_size=100')).text();
-  for (const secret of ['initial-password-only', temporaryPassword, 'engineer-new-password', adminInitialPassword, adminNewPassword, 'self-reset-must-fail']) {
+  for (const secret of ['initial-password-only', temporaryPassword, 'engineer-new-password', adminInitialPassword, adminReadyPassword, adminNewPassword, 'self-reset-must-fail']) {
     expect(auditText).not.toContain(secret);
   }
   await adminContext.close();
@@ -370,6 +400,8 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expectTextInPaginatedTable(page, `E2E 论坛 ${suffix}`);
 
   const task = await command(page, '/api/v1/content-tasks', csrf, taskPayload);
+  const taskOption = `DEMO ${product!.part_number} · ${taskPayload.content_angle}`;
+  const modelOption = `E2E 渠道 ${suffix} / E2E 模型 (e2e-model)`;
   const internalTask = await body<{ revision: number }>(await page.request.patch(`/api/v1/content-tasks/${task.id as string}/user-prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: task.revision, user_prompt_markdown: `请说明 ${product!.part_number} 的 5 V 参数和替代边界。`, generation_data_classification: 'INTERNAL' } }));
   const forbiddenGeneration = await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-classification-forbidden-${suffix}` }, data: { ai_model_id: model.id } });
   expect(forbiddenGeneration.status()).toBe(409);
@@ -379,8 +411,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   if (!humanizationPromptWasConfigured) {
     await expect(page.getByText('管理员尚未配置全局自然化 Prompt；现有草稿生成不受影响，自然化入口暂不可用。')).toBeVisible();
   }
-  await page.getByLabel('生成模型').fill(`E2E 渠道 ${suffix}`);
-  await page.getByLabel('生成模型').press('Enter');
+  await selectOption(page, '生成模型', modelOption);
   await page.getByRole('button', { name: '生成草稿' }).click();
   let generatedJobId: string | undefined;
   await expect.poll(async () => {
@@ -429,10 +460,8 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.goto(`/configuration/prompts?tab=platform&platform_profile_id=${profile.id as string}&page=1&page_size=10`);
   await expect(page.getByRole('heading', { name: 'Prompt 管理' })).toBeVisible();
   await expect(page.getByText(`当前平台：E2E 论坛 ${suffix}`, { exact: true })).toBeVisible();
-  await page.getByLabel('预览内容任务').fill(product!.part_number);
-  await page.getByLabel('预览内容任务').press('Enter');
-  await page.getByLabel('预览模型').fill(`E2E 渠道 ${suffix}`);
-  await page.getByLabel('预览模型').press('Enter');
+  await selectOption(page, '预览内容任务', taskOption);
+  await selectOption(page, '预览模型', modelOption);
   await page.getByRole('button', { name: '生成平台预览' }).click();
   await expect(page.getByRole('heading', { name: '连接测试' })).toBeVisible({ timeout: 30_000 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
@@ -444,12 +473,9 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.getByRole('button', { name: humanizationPromptWasConfigured ? '保存 Prompt' : '首次保存' }).click();
   expect((await humanizationSaveResponse).ok()).toBeTruthy();
   await expect(page.getByText('Prompt 已保存')).toBeVisible();
-  await page.getByLabel('预览内容任务').fill(product!.part_number);
-  await page.getByLabel('预览内容任务').press('Enter');
-  await page.getByLabel('自然化源草稿').fill('V1');
-  await page.getByLabel('自然化源草稿').press('Enter');
-  await page.getByLabel('预览模型').fill(`E2E 渠道 ${suffix}`);
-  await page.getByLabel('预览模型').press('Enter');
+  await selectOption(page, '预览内容任务', taskOption);
+  await selectOption(page, '自然化源草稿', `V1 · ${generatedContentBeforeHumanization.title}`);
+  await selectOption(page, '预览模型', modelOption);
   await page.getByRole('button', { name: '生成自然化预览' }).click();
   await expect(page.getByRole('heading', { name: '连接测试' })).toBeVisible({ timeout: 30_000 });
 
@@ -460,8 +486,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await refreshedSourceRow.getByRole('button', { name: '自然化' }).click();
   const humanizationDialog = page.getByRole('dialog', { name: '自然化 V1' });
   await expect(humanizationDialog).toBeVisible();
-  await humanizationDialog.getByLabel('自然化模型').fill(`E2E 渠道 ${suffix}`);
-  await humanizationDialog.getByLabel('自然化模型').press('Enter');
+  await selectOption(page, '自然化模型', modelOption);
   await humanizationDialog.getByRole('button', { name: '创建自然化作业' }).click();
   let humanizationJobId: string | undefined;
   let humanizedContentId: string | null | undefined;
@@ -671,6 +696,8 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
 
   await page.getByRole('button', { name: /新建观测/ }).click();
   const geoForm = page.getByRole('dialog', { name: '登记人工观测' });
+  const geoTopics = await body<{ items: Array<{ canonical_question: string }> }>(await page.request.get('/api/v1/query-topics'));
+  expect(geoTopics.items.length).toBeGreaterThan(0);
   const geoProductLoaded = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return response.ok() && url.pathname === '/api/v1/products' && url.searchParams.get('search') === product!.part_number;
@@ -678,27 +705,27 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await geoForm.getByRole('combobox', { name: '产品' }).fill(product!.part_number);
   await geoProductLoaded;
   await page.getByText(`DEMO ${product!.part_number}`, { exact: true }).last().click();
-  await geoForm.getByRole('combobox', { name: '问题主题' }).click();
-  await page.locator('.ant-select-dropdown:visible .ant-select-item-option').first().click();
+  await geoForm.getByRole('combobox', { name: /问题主题/ }).fill(geoTopics.items[0]!.canonical_question);
+  await page.locator('.ant-select-dropdown:visible').getByTitle(geoTopics.items[0]!.canonical_question, { exact: true }).click();
   await geoForm.getByLabel('人工搜索平台').fill('DeepSeek E2E');
   const geoSearchQuery = `${product!.part_number} 如何替代？`;
   await geoForm.getByLabel('实际搜索词').fill(geoSearchQuery);
   await expect(geoForm.getByText(`E2E ${suffix}`, { exact: true })).toBeVisible();
   const discoveredSelect = geoForm.getByRole('combobox', { name: `是否发现：E2E ${suffix}` });
   await discoveredSelect.click();
-  await page.getByRole('option', { name: '已发现', exact: true }).click();
+  await clickVisibleOption(page, '已发现');
   const mentioned = geoForm.getByRole('combobox', { name: `是否提及：E2E ${suffix}` });
   await mentioned.click();
-  await page.getByRole('option', { name: '已提及', exact: true }).click();
+  await clickVisibleOption(page, '已提及');
   const articleResult = geoForm.getByRole('combobox', { name: `文章推荐结果：E2E ${suffix}` });
   await articleResult.click();
-  await page.getByRole('option', { name: '已推荐', exact: true }).click();
+  await clickVisibleOption(page, '已推荐');
   const cited = geoForm.getByRole('combobox', { name: `是否引用：E2E ${suffix}` });
   await cited.click();
-  await page.getByRole('option', { name: '有引用', exact: true }).click();
+  await clickVisibleOption(page, '有引用');
   const accuracy = geoForm.getByRole('combobox', { name: `准确性：E2E ${suffix}` });
   await accuracy.click();
-  await page.getByRole('option', { name: '准确', exact: true }).click();
+  await clickVisibleOption(page, '准确');
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
   await geoForm.getByLabel('选择文件').setInputFiles({ name: `geo-${suffix}.png`, mimeType: 'image/png', buffer: png });
   await expect(geoForm.getByText(`geo-${suffix}.png`)).toBeVisible();
@@ -762,19 +789,19 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(correctionForm.getByRole('combobox', { name: '问题主题' })).toBeDisabled();
   const correctedDiscovered = correctionForm.getByRole('combobox', { name: `是否发现：E2E ${suffix}` });
   await correctedDiscovered.click();
-  await page.getByRole('option', { name: '已发现', exact: true }).click();
+  await clickVisibleOption(page, '已发现');
   const correctedMentioned = correctionForm.getByRole('combobox', { name: `是否提及：E2E ${suffix}` });
   await correctedMentioned.click();
-  await page.getByRole('option', { name: '已提及', exact: true }).click();
+  await clickVisibleOption(page, '已提及');
   const correctedArticleResult = correctionForm.getByRole('combobox', { name: `文章推荐结果：E2E ${suffix}` });
   await correctedArticleResult.click();
-  await page.getByRole('option', { name: '未推荐', exact: true }).click();
+  await clickVisibleOption(page, '未推荐');
   const correctedCited = correctionForm.getByRole('combobox', { name: `是否引用：E2E ${suffix}` });
   await correctedCited.click();
-  await page.getByRole('option', { name: '无引用', exact: true }).click();
+  await clickVisibleOption(page, '无引用');
   const correctedAccuracy = correctionForm.getByRole('combobox', { name: `准确性：E2E ${suffix}` });
   await correctedAccuracy.click();
-  await page.getByRole('option', { name: '部分准确', exact: true }).click();
+  await clickVisibleOption(page, '部分准确');
   await correctionForm.getByLabel('选择文件').setInputFiles({ name: `geo-correction-${suffix}.png`, mimeType: 'image/png', buffer: png });
   await expect(correctionForm.getByText(`geo-correction-${suffix}.png`)).toBeVisible();
   await correctionForm.getByLabel('人工备注').fill('E2E 追加更正');

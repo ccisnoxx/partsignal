@@ -388,17 +388,20 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
       tableHeaderFontSize: getComputedStyle(tableHeader).fontSize,
     };
   });
-  expect(desktopMetrics).toEqual({
-    viewport: { width: 1570, height: 1001 },
-    sider: { x: 8, y: 8, width: 220, height: 985 },
-    header: { x: 228, y: 8, width: 1334, height: 64 },
-    page: { x: 238, y: 84, width: 1312, height: 901 },
-    statusRail: { x: 239, y: 195, width: 188, height: 789 },
-    detail: { x: 1183, y: 195, width: 366, height: 789 },
-    tableHeaderHeight: 52,
-    tableRowHeight: 92,
-    tableHeaderFontSize: '11px',
-  });
+  expect(desktopMetrics.viewport).toEqual({ width: 1570, height: 1001 });
+  expect(desktopMetrics.sider).toEqual({ x: 0, y: 0, width: 220, height: 1001 });
+  expect(desktopMetrics.header).toEqual({ x: 220, y: 0, width: 1350, height: 64 });
+  expect(desktopMetrics.page).toMatchObject({ x: 244, y: 88, width: 1302 });
+  expect(desktopMetrics.statusRail.x).toBe(desktopMetrics.page.x + 1);
+  expect(desktopMetrics.statusRail.y).toBe(desktopMetrics.detail.y);
+  expect(desktopMetrics.statusRail.y).toBeGreaterThan(desktopMetrics.page.y);
+  expect(desktopMetrics.statusRail.width).toBe(188);
+  expect(desktopMetrics.detail.x + desktopMetrics.detail.width).toBe(desktopMetrics.page.x + desktopMetrics.page.width - 1);
+  expect(desktopMetrics.detail.width).toBe(366);
+  expect(desktopMetrics.statusRail.height).toBe(desktopMetrics.detail.height);
+  expect(desktopMetrics.tableHeaderHeight).toBe(52);
+  expect(desktopMetrics.tableRowHeight).toBe(92);
+  expect(desktopMetrics.tableHeaderFontSize).toBe('11px');
   await page.screenshot({ path: testInfo.outputPath('ai-channels-1570x1001.png') });
 
   await page.setViewportSize({ width: 390, height: 844 });

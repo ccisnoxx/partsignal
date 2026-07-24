@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "唯一视觉与交互规范，约束壳层、Token、页面类型、主题、响应式和可访问性。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "约束 Ant Design 与现有共享组件复用、表格、焦点和 Drawer 行为。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "约束业务行为保持、主题/视口/缩放/键盘验证和禁止模式。"}
+{"file": ".trellis/tasks/07-24-frontend-cross-page-visual-convergence/research/current-state.md", "reason": "记录当前多壳层、页面 Token、CSS 规模和视觉门禁缺口的代码证据。"}

@@ -139,7 +139,11 @@ test('真实洞察图表提供坐标、Token、单停靠点键盘导航与可聚
     data_quality: { eligible_observation_count: number };
     platform_performance: unknown[];
   }>(response);
-  test.skip(data.data_quality.eligible_observation_count === 0, '当前真实测试库没有完整 GEO 观测，图表由组件测试覆盖');
+  if (data.data_quality.eligible_observation_count === 0) {
+    await expect(page.getByText(/当前筛选范围没有完整人工观测/)).toBeVisible();
+    await expect(page.locator('.geo-insight-trend-card svg[role="img"]')).toHaveCount(0);
+    return;
+  }
 
   const charts = page.locator('.geo-insight-trend-card svg[role="img"]');
   await expect(charts).toHaveCount(5);

@@ -7,6 +7,32 @@ export type ResolvedTheme = Exclude<ThemeMode, 'system'>;
 export const THEME_STORAGE_KEY = 'partsignal.theme-mode';
 export const THEME_MODES: readonly ThemeMode[] = ['light', 'dark', 'system'];
 
+const visualConstants = {
+  fontSans: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
+  fontMono: 'ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace',
+  radiusSm: 8,
+  radiusMd: 12,
+  radiusLg: 16,
+  motionFast: '150ms',
+  motionBase: '200ms',
+  motionSlow: '220ms',
+  easeEnter: 'cubic-bezier(.2, .8, .2, 1)',
+  easeExit: 'cubic-bezier(.4, 0, 1, 1)',
+} as const;
+
+const visualCssVariables = {
+  '--ps-font-sans': visualConstants.fontSans,
+  '--ps-font-mono': visualConstants.fontMono,
+  '--ps-radius-sm': `${visualConstants.radiusSm}px`,
+  '--ps-radius-md': `${visualConstants.radiusMd}px`,
+  '--ps-radius-lg': `${visualConstants.radiusLg}px`,
+  '--ps-motion-fast': visualConstants.motionFast,
+  '--ps-motion-base': visualConstants.motionBase,
+  '--ps-motion-slow': visualConstants.motionSlow,
+  '--ps-ease-enter': visualConstants.easeEnter,
+  '--ps-ease-exit': visualConstants.easeExit,
+} as const;
+
 export interface ProjectThemeTokens {
   bgCanvas: string;
   bgSurface: string;
@@ -143,6 +169,9 @@ export function applyProjectTheme(root: HTMLElement, resolvedTheme: ResolvedThem
   (Object.keys(cssVariableNames) as (keyof ProjectThemeTokens)[]).forEach((key) => {
     root.style.setProperty(cssVariableNames[key], tokens[key]);
   });
+  Object.entries(visualCssVariables).forEach(([name, value]) => {
+    root.style.setProperty(name, value);
+  });
 }
 
 export function createAntTheme(resolvedTheme: ResolvedTheme, reducedMotion: boolean): ThemeConfig {
@@ -175,25 +204,25 @@ export function createAntTheme(resolvedTheme: ResolvedTheme, reducedMotion: bool
       colorSplit: tokens.borderSubtle,
       colorFillSecondary: tokens.bgSunken,
       colorFillTertiary: tokens.bgSubtle,
-      borderRadius: 8,
-      borderRadiusLG: 16,
+      borderRadius: visualConstants.radiusSm,
+      borderRadiusLG: visualConstants.radiusLg,
       controlHeight: 36,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
-      fontFamilyCode: 'ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace',
+      fontFamily: visualConstants.fontSans,
+      fontFamilyCode: visualConstants.fontMono,
       motion: !reducedMotion,
-      motionDurationFast: '0.15s',
-      motionDurationMid: '0.2s',
-      motionDurationSlow: '0.22s',
+      motionDurationFast: visualConstants.motionFast,
+      motionDurationMid: visualConstants.motionBase,
+      motionDurationSlow: visualConstants.motionSlow,
     },
     components: {
       Layout: { siderBg: tokens.glassSurface, lightSiderBg: tokens.glassSurface, headerBg: tokens.glassSurface, bodyBg: tokens.bgCanvas, triggerBg: tokens.glassSurface, triggerColor: tokens.navText },
       Menu: {
         itemBg: tokens.navBg, subMenuItemBg: tokens.navBg, itemColor: tokens.navText, groupTitleColor: tokens.navTextMuted,
         itemHoverBg: tokens.navHover, itemHoverColor: tokens.navText, itemSelectedBg: tokens.navSelected, itemSelectedColor: tokens.navText,
-        itemActiveBg: tokens.navSelected, itemBorderRadius: 8, activeBarBorderWidth: 0,
+        itemActiveBg: tokens.navSelected, itemBorderRadius: visualConstants.radiusSm, activeBarBorderWidth: 0,
       },
-      Button: { primaryShadow: 'none', primaryColor: tokens.actionOnPrimary, borderRadius: 8 },
-      Card: { borderRadiusLG: 16, headerBg: tokens.bgSurface, actionsBg: tokens.bgSubtle, extraColor: tokens.textSecondary },
+      Button: { primaryShadow: 'none', primaryColor: tokens.actionOnPrimary, borderRadius: visualConstants.radiusSm },
+      Card: { borderRadiusLG: visualConstants.radiusLg, headerBg: tokens.bgSurface, actionsBg: tokens.bgSubtle, extraColor: tokens.textSecondary },
       Table: {
         headerBg: tokens.bgSubtle, headerColor: tokens.textSecondary, rowHoverBg: tokens.actionPrimarySoft, rowSelectedBg: tokens.selectionBg,
         rowSelectedHoverBg: tokens.selectionBg, rowExpandedBg: tokens.bgSubtle, borderColor: tokens.borderSubtle, headerSplitColor: tokens.borderDefault,

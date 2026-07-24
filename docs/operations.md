@@ -74,10 +74,20 @@ Hostdzire Nginx 使用 `nginx/partsignal.staging.conf.template` 维护 `geo.9628
 
 部署上线不运行视觉基线截图，也不在服务器或容器内安装浏览器测试环境。视觉差异不能证明线上链路可用，容器内截图还容易受字体和渲染环境影响；上线 UI 验收统一使用真实公网域名和 Codex 本地浏览器，只做不写入生产数据的冒烟检查。
 
+完整发布继续使用默认 `full` 模式，并在备份后运行迁移和幂等账号种子：
+
 ```sh
 cd deploy
 PARTSIGNAL_VERSION=<release-id> ./scripts/deploy-staging.sh
 ```
+
+已推送且 CI 通过的普通代码提交可从干净的本地主工作目录执行快速入口：
+
+```sh
+make staging-redeploy-fast
+```
+
+快速入口要求 `main` 与 `origin/main` 一致，并在构建前比较迁移目录、环境模板、预发布 Compose、Nginx 模板和 `deploy-staging.sh`。任一路径变化、首次启用本功能或高风险 UI 变更都必须改走完整 Runbook；快速路径不备份、不迁移、不创建账号，但保留只读历史门禁、Compose/容器健康、本机探针、Nginx 语法检查和公网 `live`、`ready`、首页检查。所有检查通过后才更新 `current`；该指针只记录最后验收的 release，固定 Compose 项目和端口上的容器已提前替换，不构成蓝绿流量切换。完整步骤见 [Hostdzire 部署上线 Runbook](./Hostdzire部署上线流程.md)。
 
 预发布回滚只切换上一发布目录与镜像标签，不删除 `/root/partsignal-data`。停止栈使用 `docker compose --env-file ../.env.staging -f compose.staging.yaml down`，默认保留持久数据。
 

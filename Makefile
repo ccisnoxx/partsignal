@@ -3,7 +3,7 @@ COMPOSE := docker compose --env-file .env -f deploy/compose.dev.yaml
 UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 UV := UV_CACHE_DIR=$(UV_CACHE_DIR) uv
 
-.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate seed-demo lint typecheck test-unit test-integration e2e build verify down
+.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate seed-demo lint typecheck test-unit test-integration e2e build verify test-deploy-scripts staging-redeploy-fast down
 
 bootstrap:
 	@test -f .env || cp .env.example .env
@@ -58,6 +58,12 @@ build:
 verify: contract-check lint typecheck test-unit test-integration build e2e
 	$(COMPOSE) config --quiet
 	PARTSIGNAL_BACKEND_IMAGE=partsignal-backend PARTSIGNAL_VERSION=test docker compose --env-file .env -f deploy/compose.prod.yaml config --quiet
+
+test-deploy-scripts:
+	deploy/scripts/test-deploy-staging.sh
+
+staging-redeploy-fast:
+	deploy/scripts/redeploy-staging-fast.sh
 
 down:
 	$(COMPOSE) down --remove-orphans

@@ -75,6 +75,8 @@ npm --prefix frontend run build
 
 涉及数据库或异步生成时，还必须执行真实 PostgreSQL/Redis 集成测试和业务 E2E。不能用 SQLite、Celery eager 或固定成功响应替代。视觉基线截图不属于上线质量门：它不验证真实线上链路，在容器内执行还容易受字体、渲染器和运行环境影响而产生无效失败。
 
+频繁代码重部署可以复用已推送提交在 CI 中完成的质量门，不在部署阶段重复上述完整检查；但仍必须是干净的 `main`，且本地 `HEAD` 等于刚获取的 `origin/main`。快速入口、适用边界和自动验收范围见第 8.2 节。
+
 ### 3.2 提交与推送流程
 
 开始新工作前，从主工作目录同步 `main`。工作区不干净时不得执行 pull，也不得另开分支绕过现有变更：
@@ -305,6 +307,8 @@ export COMPOSE_FILE=compose.staging.yaml
 
 ## 8. 构建、迁移和启动
 
+### 8.1 完整发布（默认）
+
 先验证 Compose 展开结果，再调用仓库脚本：
 
 ```sh
@@ -319,14 +323,17 @@ PARTSIGNAL_VERSION="$RELEASE_ID" ./scripts/deploy-staging.sh
 
 脚本按以下顺序执行：
 
-1. 构建后端、开发对象存储和前端镜像。
+1. 构建后端镜像供 API 与开发对象存储复用，并构建前端镜像。
 2. 启动 PostgreSQL、Redis 和开发对象存储。
-3. 运行一次性 `alembic upgrade head`。
-4. 启动 API、Celery Worker、Celery Beat 和前端。
-5. 幂等创建验收账号。
-6. 检查 API ready 与前端首页。
+3. 运行只读 `preflight-integrity` 历史完整性门禁。
+4. 运行一次性 `alembic upgrade head`。
+5. 启动 Celery Worker、Celery Beat、API 和前端并等待健康。
+6. 幂等创建验收账号。
+7. 检查 API ready 与前端首页。
 
 开发对象存储必须同时加入 `partsignal-staging-internal` 和 `partsignal-staging-edge`。如果只加入 `internal` 网络，Compose 虽声明 `127.0.0.1:19001`，Docker 实际不会发布端口，Nginx `/object-storage/` 会返回 `502`。
+
+不设置 `PARTSIGNAL_DEPLOY_MODE` 时始终使用 `full`，迁移和账号种子行为保持不变。完整发布必须先按第 7 节完成数据库备份；不要直接设置 `PARTSIGNAL_DEPLOY_MODE=fast` 绕过本节流程。
 
 确认迁移版本和容器状态：
 
@@ -336,6 +343,26 @@ docker compose --env-file ../.env.staging -f compose.staging.yaml \
   exec -T postgres psql -U partsignal -d partsignal -Atc \
   'select version_num from alembic_version'
 ```
+
+### 8.2 频繁代码快速重部署
+
+快速路径只适用于已提交并推送、CI 质量门已通过，且没有数据库迁移或预发布部署配置变化的普通前后端代码。首次上线本功能、高风险认证或路由 UI 变更，以及以下任一路径相对服务器 `current` release 变化时，必须执行第 7 节和第 8.1 节的完整流程：
+
+- `backend/alembic/versions/`
+- `.env.example`
+- `deploy/compose.staging.yaml`
+- `deploy/nginx/partsignal.staging.conf.template`
+- `deploy/scripts/deploy-staging.sh`
+
+本功能首次发布会改变 `deploy-staging.sh`，因此必须先用完整流程上线一次；从下一次未改变上述关键路径的普通代码提交开始，才可在本地主工作目录执行唯一快速入口：
+
+```sh
+make staging-redeploy-fast
+```
+
+该命令自动校验干净的 `main` 和 `HEAD == origin/main`，从提交创建并检查归档，上传到 `hostdzire`，链接权限为 `0600` 的共享环境文件，并在任何镜像构建或容器替换前比较上述关键路径。通过资格门禁后，它运行 Compose 配置校验、增量镜像构建、只读 `preflight-integrity`、容器 `--wait`、API 和前端本机探针、`nginx -t`，以及公网 `live`、`ready` 和首页标题检查；全部通过后才更新 `current`。
+
+快速路径不创建数据库备份、不运行 Alembic 迁移、不重复创建验收账号，也不执行登录后的浏览器全面验收。任一步失败都会非零退出并保留旧 `current`；若镜像或容器已经更新，新 release 会留在服务器供排查，脚本不会伪造自动回滚。冷 Docker 缓存或网络变慢可能超过 5–8 分钟目标，脚本仍会输出实际总耗时。
 
 ## 9. 安装或更新 Hostdzire Nginx
 
@@ -421,12 +448,14 @@ df -h /
 
 ## 11. 切换发布指针
 
-命令行验收、Codex 本地浏览器 UI 冒烟和主机资源复核全部通过后才切换：
+完整流程在命令行验收、Codex 本地浏览器 UI 冒烟和主机资源复核全部通过后才手工切换；快速路径则在第 8.2 节列出的自动化 HTTP 验收全部通过后切换：
 
 ```sh
 ln -sfn "releases/${RELEASE_ID}" /root/partsignal/current
 readlink /root/partsignal/current
 ```
+
+`current` 只记录最后通过对应验收范围的 release。Compose 使用固定项目名和固定回环端口，镜像构建和容器替换发生在指针更新之前，因此该指针不是蓝绿流量切换器，也不表示失败时容器已自动回滚。
 
 保留至少一个已验证旧版本及其镜像。清理旧版本、镜像、备份或持久数据属于独立破坏性操作，不包含在常规上线流程中。
 

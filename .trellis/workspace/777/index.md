@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 23
-- **Last Active**: 2026-07-24
+- **Total Sessions**: 24
+- **Last Active**: 2026-07-25
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~799 | Active |
+| `journal-1.md` | ~833 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 24 | 2026-07-25 | 修复匿名会话探测与未配置自然化 Prompt 控制台错误 | `5f0bd62`, `ef3bdb7` | `main` |
 | 23 | 2026-07-24 | 跨页面视觉系统收口 | `d721290` | `main` |
 | 22 | 2026-07-24 | 收敛预发布部署 Runbook | `d6988b1` | `main` |
 | 21 | 2026-07-24 | 开发期快速重部署流程 | `bf15a8d` | `main` |

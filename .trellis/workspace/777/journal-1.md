@@ -797,3 +797,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 24: 修复匿名会话探测与未配置自然化 Prompt 控制台错误
+
+**Date**: 2026-07-25
+**Task**: 修复匿名会话探测与未配置自然化 Prompt 控制台错误
+**Branch**: `main`
+
+### Summary
+
+将未配置自然化 Prompt 与匿名无会话探测收敛为 204 No Content，保留无效会话 401、安全边界及真实错误反馈；补齐 OpenAPI、生成类型、单元/集成/E2E 契约，并完成全量本地浏览器回归。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5f0bd62` | (see git log) |
+| `ef3bdb7` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

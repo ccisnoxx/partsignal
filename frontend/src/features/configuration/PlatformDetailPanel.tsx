@@ -1,6 +1,6 @@
 /** 平台管理详情面板只展示服务端聚合事实，并连接既有配置与引用页面。 */
 import { CloseOutlined, RightOutlined } from '@ant-design/icons';
-import { Alert, Button, Descriptions, Tag, Typography } from 'antd';
+import { Alert, Button, Descriptions, Tooltip, Typography } from 'antd';
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { platformProfileQueryOptions } from '../../shared/api/queryOptions';
@@ -45,7 +45,7 @@ export function PlatformDetailPanel({
 
   if (detail.isLoading) return <div className="platform-detail-panel"><QueryLoading label="正在加载平台详情" /></div>;
   if (detail.error || !detail.data) {
-    return <div className="platform-detail-panel"><div className="platform-detail-header"><Typography.Title ref={titleRef} tabIndex={-1} level={4}>平台详情</Typography.Title><Button type="text" aria-label="关闭平台详情" icon={<CloseOutlined />} onClick={onClose} /></div><QueryFailure error={detail.error ?? new Error('平台详情不存在')} onRetry={() => void detail.refetch()} /></div>;
+    return <div className="platform-detail-panel"><div className="platform-detail-header"><Typography.Title ref={titleRef} tabIndex={-1} level={4}>平台详情</Typography.Title><Tooltip title="关闭平台详情"><Button type="text" aria-label="关闭平台详情" icon={<CloseOutlined />} onClick={onClose} /></Tooltip></div><QueryFailure error={detail.error ?? new Error('平台详情不存在')} onRetry={() => void detail.refetch()} /></div>;
   }
 
   const { profile, account_summary: accounts, reference_summary: references } = detail.data;
@@ -57,7 +57,7 @@ export function PlatformDetailPanel({
   return <aside className="platform-detail-panel" aria-label={`${profile.name} 平台详情`}>
     <div className="platform-detail-header">
       <Typography.Title ref={titleRef} tabIndex={-1} level={4}>平台详情</Typography.Title>
-      <Button type="text" aria-label="关闭平台详情" icon={<CloseOutlined />} onClick={onClose} />
+      <Tooltip title="关闭平台详情"><Button type="text" aria-label="关闭平台详情" icon={<CloseOutlined />} onClick={onClose} /></Tooltip>
     </div>
     <div className="platform-detail-scroll">
       <div className="platform-detail-identity"><PlatformAvatar name={profile.name} logo={profile.logo} size={32} /><strong>{profile.name}</strong><StatusTag status={profile.is_active ? 'ENABLED' : 'DISABLED'} /></div>
@@ -74,8 +74,8 @@ export function PlatformDetailPanel({
       <section className="platform-detail-section" aria-labelledby="platform-detail-rule">
         <Typography.Title id="platform-detail-rule" level={5}>当前规则</Typography.Title>
         <Descriptions column={1} colon={false} size="small" items={[
-          { label: '当前规则版本', children: profile.active_version ? `V${profile.active_version.version}` : <Tag color="error">无有效规则</Tag> },
-          { label: '发布状态', children: profile.active_version ? <Tag color="success">已发布</Tag> : '—' },
+          { label: '当前规则版本', children: profile.active_version ? `V${profile.active_version.version}` : <StatusTag status="ACTIVE_RULE_MISSING" /> },
+          { label: '发布状态', children: profile.active_version ? <StatusTag status="PUBLISHED" /> : '—' },
           { label: '最后更新时间', children: formatDateTime(detail.data.current_rule_activated_at) },
         ]} />
         <Link className="platform-detail-link" to={rulesHref}>查看规则详情 <RightOutlined /></Link>
@@ -84,7 +84,7 @@ export function PlatformDetailPanel({
       <section className="platform-detail-section" aria-labelledby="platform-detail-prompt">
         <Typography.Title id="platform-detail-prompt" level={5}>Prompt 配置状态</Typography.Title>
         <Descriptions column={1} colon={false} size="small" items={[
-          { label: '配置完整性', children: profile.prompt_configured ? <Tag color="success">配置完整</Tag> : <Tag color="warning">缺少 Prompt</Tag> },
+          { label: '配置完整性', children: <StatusTag status={profile.prompt_configured ? 'PROMPT_CONFIGURED' : 'PROMPT_MISSING'} /> },
           { label: '最后更新时间', children: formatDateTime(detail.data.prompt_updated_at) },
         ]} />
         <Link className="platform-detail-link" to={promptHref}>查看 Prompt 详情 <RightOutlined /></Link>

@@ -208,10 +208,11 @@ beforeEach(() => {
 test('平台列表明确展示无有效规则和缺少 Prompt', async () => {
   renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
   expect(await screen.findByRole('heading', { name: '平台管理' })).toBeInTheDocument();
-  expect(await screen.findByText('无有效规则')).toBeInTheDocument();
-  expect(screen.getAllByText('缺少 Prompt').length).toBeGreaterThan(0);
+  expect(await screen.findByText('无有效规则')).toHaveClass('status-tag-danger');
+  expect(within(screen.getByRole('region', { name: '平台列表' })).getByText('缺少 Prompt')).toHaveClass('status-tag-warning');
   const metrics = screen.getByRole('region', { name: '平台实时统计' });
   expect(metrics.querySelectorAll('.metric-tile')).toHaveLength(5);
+  expect(within(metrics).queryByText('暂无历史基线')).not.toBeInTheDocument();
   const filters = screen.getByRole('search', { name: '平台筛选' });
   expect(within(filters).getByText('关键词')).toBeInTheDocument();
   expect(within(filters).getByText('启用状态')).toBeInTheDocument();

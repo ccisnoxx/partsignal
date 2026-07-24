@@ -1,6 +1,6 @@
 /** 三态主题选择器：工作台使用下拉，登录页可展开显示全部选项。 */
 import { DesktopOutlined, MoonOutlined, SunOutlined } from '@ant-design/icons';
-import { Dropdown, Button, Segmented, type MenuProps } from 'antd';
+import { Dropdown, Button, Segmented, Tooltip, type MenuProps } from 'antd';
 import type { ReactNode } from 'react';
 import { useThemeMode } from '../../app/ThemeProvider';
 import { THEME_MODES, type ThemeMode } from '../../app/theme';
@@ -29,9 +29,11 @@ export function ThemeModeControl({ compact = false, expanded = false }: { compac
   }
   return (
     <Dropdown trigger={['click']} menu={{ items, selectable: true, selectedKeys: [mode], onClick: ({ key }) => setMode(key as ThemeMode) }}>
-      <Button className="theme-mode-control" type="text" icon={icons[mode]} aria-label={`主题：${labels[mode]}`}>
-        {!compact && labels[mode]}
-      </Button>
+      <Tooltip title={compact ? `主题：${labels[mode]}` : undefined}>
+        <Button className="theme-mode-control" type="text" icon={icons[mode]} aria-label={`主题：${labels[mode]}`}>
+          {!compact && labels[mode]}
+        </Button>
+      </Tooltip>
     </Dropdown>
   );
 }

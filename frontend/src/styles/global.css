@@ -1022,60 +1022,27 @@ body:has(.platform-rules-page) .form-dialog-footer > span { color: var(--ps-text
   .user-management-pagination .ant-pagination { justify-content: flex-start; }
 }
 
-/* 平台管理按批准原型使用局部高密度工作台，不改变其他配置页面。 */
-.app-shell-platform-management { padding-inline: 0; font-family: 'PingFang SC', var(--ps-font-sans); }
-[data-theme='light'] .app-shell-platform-management {
-  --pm-primary: var(--ps-chart-series-5);
-  --pm-primary-hover: color-mix(in srgb, var(--ps-chart-series-5) 84%, var(--ps-action-primary-active));
-  --pm-primary-soft: color-mix(in srgb, var(--ps-chart-series-5) 4.5%, transparent);
-  --pm-text-primary: color-mix(in srgb, var(--ps-text-primary) 84%, var(--ps-chart-series-1));
-  --pm-text-secondary: color-mix(in srgb, var(--ps-text-tertiary) 82%, var(--ps-chart-series-5));
-  --pm-text-tertiary: color-mix(in srgb, var(--ps-text-disabled) 90%, var(--ps-chart-series-5));
-  --pm-border: color-mix(in srgb, var(--ps-border-default) 40%, transparent);
-  --pm-surface: color-mix(in srgb, var(--ps-bg-surface) 78%, transparent);
-  color: var(--pm-text-primary);
-  background: radial-gradient(circle at 14% 0, color-mix(in srgb, var(--ps-chart-series-1) 8%, transparent), transparent 38%), radial-gradient(circle at 3% 92%, color-mix(in srgb, var(--ps-danger) 5%, transparent), transparent 30%), linear-gradient(135deg, color-mix(in srgb, var(--ps-bg-canvas) 88%, var(--ps-action-primary-soft)), var(--ps-bg-canvas) 48%, color-mix(in srgb, var(--ps-bg-canvas) 94%, var(--ps-chart-series-5)));
-}
-[data-theme='light'] .app-shell-platform-management .app-sider { border-color: var(--pm-border); background: radial-gradient(circle at 10% 2%, color-mix(in srgb, var(--ps-chart-series-1) 9%, transparent), transparent 38%), radial-gradient(circle at 8% 90%, color-mix(in srgb, var(--ps-danger) 4%, transparent), transparent 34%), linear-gradient(180deg, color-mix(in srgb, var(--ps-glass-surface-strong) 92%, var(--ps-action-primary-soft)), color-mix(in srgb, var(--ps-glass-surface) 90%, var(--ps-chart-series-5))) !important; box-shadow: 1px 0 18px color-mix(in srgb, var(--ps-chart-series-5) 3.5%, transparent); }
-[data-theme='light'] .app-shell-platform-management .app-header { border-color: var(--pm-border); background: linear-gradient(100deg, color-mix(in srgb, var(--ps-glass-surface-strong) 92%, var(--ps-action-primary-soft)), color-mix(in srgb, var(--ps-glass-surface-strong) 88%, var(--ps-chart-series-5))) !important; box-shadow: 0 5px 20px color-mix(in srgb, var(--ps-chart-series-5) 3.5%, transparent); }
-[data-theme='light'] .app-shell-platform-management .app-content { background: linear-gradient(135deg, color-mix(in srgb, var(--ps-bg-canvas) 92%, var(--ps-action-primary-soft)), color-mix(in srgb, var(--ps-bg-canvas) 94%, transparent) 52%, color-mix(in srgb, var(--ps-bg-canvas) 95%, var(--ps-chart-series-5))); }
-[data-theme='light'] .app-shell-platform-management :is(.brand-mark, .header-context, .user-trigger, .ant-menu, .platform-management-page) { color: var(--pm-text-primary); }
-[data-theme='light'] .app-shell-platform-management :is(.brand-mark svg, .brand-mark-logo-secondary) { fill: var(--pm-primary); }
-[data-theme='light'] .app-shell-platform-management .app-sider :is(.ant-menu-item, .ant-menu-submenu-title) { color: var(--pm-text-secondary); font-size: 12px; font-weight: 400; }
-[data-theme='light'] .app-shell-platform-management .app-sider .ant-menu-item-selected { color: var(--pm-primary); background: var(--pm-primary-soft) !important; font-weight: 500; }
-[data-theme='light'] .app-shell-platform-management .app-sider .ant-menu-item-selected :is(.ant-menu-title-content, .ant-menu-item-icon) { color: var(--pm-primary); }
-[data-theme='light'] .app-shell-platform-management :is(.header-context .ant-typography, .user-block strong) { color: var(--pm-text-primary); font-weight: 500; }
-[data-theme='light'] .app-shell-platform-management :is(.header-breadcrumb-divider, .user-block small, .theme-mode-control) { color: var(--pm-text-tertiary) !important; }
-[data-theme='light'] .app-shell-platform-management .global-navigation-search .ant-input-affix-wrapper { border-color: var(--pm-border); background: var(--pm-surface); }
+/* 平台管理沿用全局主题，仅保留高密度工作台布局。 */
+.app-shell-platform-management { padding-inline: 0; }
 .app-shell-platform-management .app-header { grid-template-columns: 370px minmax(320px, 425px) minmax(200px, 1fr); }
-.app-shell-platform-management .app-content { margin-top: -34px; padding: 10px 10px 12px 16px; }
-.platform-management-page { max-width: none; gap: 10px; }
-.platform-management-page > .page-header { position: relative; z-index: 21; min-height: 60px; align-items: center; padding: 0 6px 4px; pointer-events: none; }
-.platform-management-page > .page-header .page-header-copy { transform: translateY(10px); }
-.platform-management-page > .page-header .ant-btn { pointer-events: auto; }
-.platform-management-page > .page-header h1 { margin-block: 1px 3px !important; font-size: 23px !important; font-weight: 600 !important; letter-spacing: -.025em; }
+.app-shell-platform-management .app-content { padding: 10px 10px 12px 16px; }
+.platform-management-page { gap: 10px; }
 .platform-management-page > .page-header p { font-size: 12px; font-weight: 400; }
 .platform-management-page > .page-header .eyebrow { color: var(--ps-text-secondary) !important; font-family: var(--ps-font-sans); letter-spacing: 0; }
-.platform-management-page > .page-header .ant-btn-primary { border: 0; background: linear-gradient(105deg, var(--ps-action-primary), var(--ps-chart-series-5)); box-shadow: 0 8px 18px color-mix(in srgb, var(--ps-action-primary) 18%, transparent); }
-[data-theme='light'] .platform-management-page > .page-header :is(h1, p) { color: var(--pm-text-primary); }
-[data-theme='light'] .platform-management-page > .page-header p, [data-theme='light'] .platform-management-page > .page-header .eyebrow { color: var(--pm-text-secondary) !important; }
-[data-theme='light'] .platform-management-page > .page-header .ant-btn-primary { background: linear-gradient(105deg, var(--pm-primary), var(--pm-primary-hover)); box-shadow: 0 7px 18px color-mix(in srgb, var(--pm-primary) 18%, transparent); }
 .platform-management-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px 18px; min-height: calc(100dvh - 154px); }
-.platform-management-workspace.has-detail { grid-template-columns: minmax(0, 1fr) 295px; }
-.platform-management-workspace.has-detail > .platform-detail-panel { align-self: start; height: calc(100dvh - 143px); max-height: calc(100dvh - 143px); margin-top: -16px; }
+.platform-management-workspace.has-detail { grid-template-columns: minmax(0, 1fr) 320px; }
+.platform-management-workspace.has-detail > .platform-detail-panel { align-self: start; height: calc(100dvh - 154px); max-height: calc(100dvh - 154px); }
 .platform-management-main { display: flex; min-width: 0; flex-direction: column; gap: 10px; }
 .platform-metric-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
 .platform-metric-grid .metric-tile { min-width: 0; }
-.platform-filter-panel, .platform-table-panel, .platform-detail-panel { border: 1px solid var(--ps-glass-border) !important; border-radius: 9px !important; background: color-mix(in srgb, var(--ps-glass-surface-strong) 92%, transparent) !important; box-shadow: var(--ps-shadow-sm); }
-[data-theme='light'] :is(.platform-filter-panel, .platform-table-panel, .platform-detail-panel) { border-color: var(--pm-border) !important; background: var(--pm-surface) !important; box-shadow: 0 5px 18px color-mix(in srgb, var(--ps-chart-series-5) 3.5%, transparent); -webkit-backdrop-filter: blur(18px) saturate(125%); backdrop-filter: blur(18px) saturate(125%); }
+.platform-filter-panel, .platform-detail-panel { border: 1px solid var(--ps-glass-border) !important; border-radius: 9px !important; background: color-mix(in srgb, var(--ps-glass-surface-strong) 92%, transparent) !important; box-shadow: var(--ps-shadow-sm); }
+.platform-table-panel { border: 1px solid var(--ps-border-default) !important; border-radius: 9px !important; background: var(--ps-bg-surface) !important; box-shadow: var(--ps-shadow-sm); }
 .platform-filter-panel > .ant-card-body { padding: 15px 14px; }
 .platform-filter-grid { display: grid; grid-template-columns: minmax(220px, 1.6fr) minmax(110px, .8fr) 110px 125px auto minmax(8px, 1fr) auto auto; gap: 8px; align-items: end; }
 .platform-filter-field { display: flex; min-width: 0; flex-direction: column; gap: 4px; color: var(--ps-text-secondary); font-size: 11px; }
 .platform-filter-field .ant-select { width: 100%; }
-.platform-filter-grid .ant-input-affix-wrapper, .platform-filter-grid .ant-select-selector, .platform-filter-grid .ant-btn { min-height: 32px; }
+.platform-filter-grid .ant-input-affix-wrapper, .platform-filter-grid .ant-select, .platform-filter-grid .ant-btn { min-height: 32px; }
 .platform-filter-grid > .ant-typography { white-space: nowrap; font-size: 12px; }
-[data-theme='light'] .platform-filter-grid :is(.ant-input-affix-wrapper, .ant-select-selector, .ant-btn) { border-color: var(--pm-border) !important; color: var(--pm-text-secondary); background: var(--pm-surface) !important; box-shadow: none !important; font-size: 12px; font-weight: 400; }
-[data-theme='light'] .platform-filter-grid > .ant-typography { color: var(--pm-text-tertiary); }
 .platform-table-panel { min-width: 0; }
 .platform-table-panel > .ant-card-body { padding: 0; }
 .platform-table-panel .table-region { overflow: hidden; border-radius: 9px; }
@@ -1085,14 +1052,6 @@ body:has(.platform-rules-page) .form-dialog-footer > span { color: var(--ps-text
 .platform-table-panel .ant-table-cell-fix-right { background: var(--ps-bg-surface) !important; }
 .platform-table-panel .ant-table-thead > tr > .ant-table-cell-fix-right { background: var(--ps-bg-subtle) !important; }
 .platform-table-panel .ant-table-tbody > tr:hover > .ant-table-cell-fix-right, .platform-table-panel .ant-table-tbody > tr:focus-within > .ant-table-cell-fix-right, .platform-table-panel .ant-table-tbody > tr.platform-row-selected > .ant-table-cell-fix-right { background: var(--ps-action-primary-soft) !important; }
-[data-theme='light'] .platform-table-panel :is(.ant-table, .ant-table-container, .ant-table-cell-fix-right) { color: var(--pm-text-primary); background: color-mix(in srgb, var(--ps-bg-surface) 48%, transparent) !important; }
-[data-theme='light'] .platform-table-panel .ant-table-thead > tr > th, [data-theme='light'] .platform-table-panel .ant-table-thead > tr > .ant-table-cell-fix-right { color: var(--pm-text-secondary); border-color: var(--pm-border); background: color-mix(in srgb, var(--ps-bg-subtle) 82%, transparent) !important; font-weight: 500; }
-[data-theme='light'] .platform-table-panel .ant-table-tbody > tr > td { color: var(--pm-text-secondary); border-color: var(--pm-border); font-weight: 400; }
-[data-theme='light'] .platform-table-panel .platform-identity-cell strong { color: var(--pm-text-primary); font-weight: 500; }
-[data-theme='light'] .platform-table-panel :is(a, .ant-pagination-item-active a) { color: var(--pm-primary); }
-[data-theme='light'] .platform-table-panel .ant-pagination-item-active { border-color: var(--pm-primary); background: var(--pm-surface); }
-[data-theme='light'] .platform-table-panel .ant-table-tbody > tr:hover > td, [data-theme='light'] .platform-table-panel .ant-table-tbody > tr:focus-within > td, [data-theme='light'] .platform-table-panel .ant-table-tbody > tr.platform-row-selected > td, [data-theme='light'] .platform-table-panel .ant-table-tbody > tr:hover > .ant-table-cell-fix-right, [data-theme='light'] .platform-table-panel .ant-table-tbody > tr:focus-within > .ant-table-cell-fix-right, [data-theme='light'] .platform-table-panel .ant-table-tbody > tr.platform-row-selected > .ant-table-cell-fix-right { background: var(--pm-primary-soft) !important; }
-[data-theme='light'] .platform-management-page :is(.status-tag, .ant-tag) { border-color: transparent !important; font-size: 11px; font-weight: 500; }
 .platform-table-panel .ant-pagination { position: relative; justify-content: flex-end; margin: 14px !important; padding-inline: 110px 200px; }
 .platform-table-panel .ant-pagination-options { position: absolute; inset-inline: 0; display: flex; justify-content: space-between; margin-left: 0; pointer-events: none; }
 .platform-table-panel .ant-pagination-options > * { pointer-events: auto; }
@@ -1113,12 +1072,6 @@ body:has(.platform-rules-page) .form-dialog-footer > span { color: var(--ps-text
 .platform-detail-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
 .platform-detail-actions .ant-btn { min-width: 0; padding-inline: 4px; font-size: 11px; }
 .platform-detail-footer .ant-alert { margin-top: 9px; padding: 7px 9px; font-size: 11px; line-height: 1.35; }
-[data-theme='light'] .platform-detail-panel { color: var(--pm-text-primary); }
-[data-theme='light'] .platform-detail-header, [data-theme='light'] .platform-detail-section, [data-theme='light'] .platform-detail-footer { border-color: var(--pm-border); }
-[data-theme='light'] .platform-detail-header h4, [data-theme='light'] .platform-detail-section h5, [data-theme='light'] .platform-detail-identity strong { color: var(--pm-text-primary); font-weight: 600; }
-[data-theme='light'] .platform-detail-section :is(.ant-descriptions-item-label, .ant-descriptions-item-content) { color: var(--pm-text-secondary); font-weight: 400; }
-[data-theme='light'] .platform-detail-link { color: var(--pm-primary); }
-[data-theme='light'] .platform-detail-footer { background: var(--pm-surface); }
 .platform-toggle-button { color: var(--ps-warning-text) !important; border-color: var(--ps-warning) !important; }
 .platform-detail-drawer .ant-drawer-body { padding: 0; }
 .platform-detail-drawer .platform-detail-panel { height: 100%; max-height: none; border: 0 !important; border-radius: 0 !important; }
@@ -1364,6 +1317,8 @@ body:has(.platform-rules-page) .form-dialog-footer > span { color: var(--ps-text
   .platform-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .platform-filter-grid { grid-template-columns: minmax(0, 1fr); }
   .platform-filter-field, .platform-filter-field .ant-select, .platform-filter-grid > .ant-btn { width: 100%; }
+  .platform-filter-grid :is(.ant-input-affix-wrapper, .ant-select, .ant-btn) { min-height: 44px; }
+  .platform-table-panel .ant-table-tbody > tr > td:last-child .ant-btn { width: 44px; min-width: 44px; height: 44px; }
   .platform-table-panel .ant-pagination { justify-content: flex-start; padding-inline: 0; }
   .platform-table-panel .ant-pagination-options { position: static; margin-left: auto; }
   .platform-detail-footer { position: sticky; bottom: 0; }

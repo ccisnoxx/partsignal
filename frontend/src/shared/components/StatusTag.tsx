@@ -28,6 +28,7 @@ const statusLabels: Record<string, string> = {
   SUBMIT: '提交审核', SUBMIT_REVIEW: '提交审核', APPROVE: '批准', REQUEST_CHANGES: '退回修改', RETIRE: '停用',
   HIGH: '高优先级', MEDIUM: '中优先级', LOW: '低优先级',
   STABLE: '稳定覆盖', OCCASIONAL: '偶尔命中', UNCOVERED: '尚未覆盖', INSUFFICIENT_DATA: '数据不足',
+  PROMPT_CONFIGURED: '配置完整', PROMPT_MISSING: '缺少 Prompt', ACTIVE_RULE_MISSING: '无有效规则',
 };
 
 type StatusTone = 'success' | 'info' | 'warning' | 'danger' | 'neutral' | 'admin';
@@ -41,6 +42,7 @@ const statusTones: Record<string, StatusTone> = {
   CANDIDATE: 'warning', PARTIAL: 'warning', HISTORICAL: 'warning', CHANGES_REQUESTED: 'warning', 'request-changes': 'warning', REQUEST_CHANGES: 'warning',
   DISABLED: 'neutral', FAILED: 'danger', REJECTED: 'danger', VERIFICATION_FAILED: 'danger', RESTRICTED: 'danger', BLOCKING: 'danger', INCORRECT: 'danger', MISSING_EVIDENCE: 'danger',
   HIGH: 'danger', MEDIUM: 'warning', LOW: 'info', STABLE: 'success', OCCASIONAL: 'warning', UNCOVERED: 'danger', INSUFFICIENT_DATA: 'neutral',
+  PROMPT_CONFIGURED: 'success', PROMPT_MISSING: 'warning', ACTIVE_RULE_MISSING: 'danger',
 };
 
 const toneIcons: Partial<Record<StatusTone, ReactNode>> = {

@@ -34,7 +34,7 @@ async function resolveTargets(page: Page): Promise<Target[]> {
   );
   if (!products.items[0]) throw new Error('真实测试库缺少产品，无法验证跨路由壳层');
 
-  const tasks = await body<{ items: Array<{ id: string; content_angle: string }> }>(
+  const tasks = await body<{ items: Array<{ id: string; product: { brand: string; part_number: string } }> }>(
     await page.request.get('/api/v1/content-tasks'),
   );
   if (!tasks.items[0]) throw new Error('真实测试库缺少内容任务，无法验证任务详情壳层');
@@ -54,21 +54,7 @@ async function resolveTargets(page: Page): Promise<Target[]> {
   const profiles = await body<{ items: Array<{ id: string }> }>(
     await page.request.get('/api/v1/platform-profiles'),
   );
-  if (!profiles.items[0]) throw new Error('真实测试库缺少平台，无法验证规则与 Prompt 壳层');
-
-  let ruleProfileId: string | undefined;
-  let ruleVersionId: string | undefined;
-  for (const profile of profiles.items) {
-    const versions = await body<{ items: Array<{ id: string }> }>(
-      await page.request.get(`/api/v1/platform-profiles/${profile.id}/versions`),
-    );
-    if (versions.items[0]) {
-      ruleProfileId = profile.id;
-      ruleVersionId = versions.items[0].id;
-      break;
-    }
-  }
-  if (!ruleProfileId || !ruleVersionId) throw new Error('真实测试库缺少平台规则版本，无法验证规则壳层');
+  if (!profiles.items[0]) throw new Error('真实测试库缺少平台，无法验证 Prompt 壳层');
 
   return [
     { key: 'dashboard', path: '/', heading: '总览' },
@@ -86,13 +72,8 @@ async function resolveTargets(page: Page): Promise<Target[]> {
     { key: 'platform-types', path: '/configuration/platform-types', heading: '平台类型' },
     { key: 'platforms', path: '/configuration/platforms', heading: '平台管理' },
     { key: 'product-detail', path: `/products/${products.items[0].id}`, heading: products.items[0].part_number },
-    { key: 'task-detail', path: `/tasks/${tasks.items[0].id}`, heading: tasks.items[0].content_angle },
+    { key: 'task-detail', path: `/tasks/${tasks.items[0].id}`, heading: `${tasks.items[0].product.brand} ${tasks.items[0].product.part_number}` },
     { key: 'content', path: `/content/${content.id}`, heading: content.title },
-    {
-      key: 'rules',
-      path: `/configuration/platform-rules?platform_profile_id=${ruleProfileId}&version_id=${ruleVersionId}`,
-      heading: '平台规则',
-    },
     {
       key: 'prompts',
       path: `/configuration/prompts?tab=platform&page=1&page_size=10&platform_profile_id=${profiles.items[0].id}`,

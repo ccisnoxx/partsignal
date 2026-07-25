@@ -7,6 +7,7 @@ import json
 import uuid
 from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -23,9 +24,7 @@ from app.models.ai_generation import (
 from app.models.configuration import (
     ContentHumanizationPrompt,
     PlatformProfile,
-    PlatformProfileVersion,
     PlatformPrompt,
-    QueryTopic,
 )
 from app.models.content import (
     ContentTask,
@@ -38,6 +37,7 @@ from app.models.product_facts import (
 )
 from app.schemas.content import (
     ContentRevisionCreate,
+    GenerationFactSnapshot,
     GenerationJobCreate,
     GenerationSnapshot,
     HumanizationPromptSnapshot,
@@ -45,33 +45,22 @@ from app.schemas.content import (
     HumanizationSourceContent,
 )
 from app.schemas.geo_files import GeneratedDraft
-from app.schemas.product_facts import Confidentiality, ProductFactsBody
+from app.schemas.product_facts import Confidentiality
 from app.services.ai_configuration import require_supported_protocol
 from app.services.content_lineage import resolve_content_ai_lineage
 from app.services.generation import (
-    FIXED_SYSTEM_CONTRACT,
     GENERATION_CONTRACT_VERSION,
     HUMANIZATION_CONTRACT_VERSION,
-    HUMANIZATION_FIXED_CONTRACT,
-    DevelopmentContentGenerator,
     add_near_duplicate_warning,
     content_hash,
+    ensure_generation_eligible,
     ensure_generation_sources_public,
     ensure_humanization_egress_allowed,
     ensure_third_party_egress_allowed,
     process_generation_job,
-    run_quality_checks,
 )
 from app.services.generation_dispatch import dispatch_generation_job
 from app.worker import generate_content
-
-
-def source_generation_input(db: Session, content: ContentVersion) -> dict[str, Any]:
-    """沿不可变修订链定位原始生成快照，避免读取漂移后的当前配置。"""
-    lineage = resolve_content_ai_lineage(db, content)
-    if lineage is None:
-        raise AppError("GENERATION_SNAPSHOT_INVALID", "内容版本缺少原始生成快照", 409)
-    return lineage.generation_snapshot.model_dump(mode="json")
 
 
 def _channel_snapshot(channel: AIChannel) -> dict[str, Any]:
@@ -114,114 +103,40 @@ def _enabled_channel(db: Session, model: AIModel) -> AIChannel:
 
 
 def build_generation_input(db: Session, task: ContentTask, model: AIModel) -> dict[str, Any]:
-    """从服务端权威数据构造不含凭据和证据文档的不可变快照。"""
+    """冻结平台 Prompt 与事实 Markdown，消息正文不做任何改写。"""
     fact = db.get(FactVersion, task.fact_version_id)
-    if fact is None or fact.status != "APPROVED":
+    if fact is None or fact.status != "APPROVED" or fact.product_id != task.product_id:
         raise AppError("FACT_NOT_APPROVED", "任务绑定的事实版本不再可用于生成", 409)
     product = db.get(Product, task.product_id)
     if product is None or product.status != "ACTIVE":
         raise AppError("FACT_NOT_APPROVED", "产品已停用，不能生成新内容", 409)
-    platform = db.get(PlatformProfileVersion, task.platform_profile_version_id)
-    if platform is None or platform.status not in {"ACTIVE", "RETIRED"}:
-        raise AppError("INVALID_STATE_TRANSITION", "任务绑定的平台规则不是已激活版本", 409)
-    topic = db.get(QueryTopic, task.query_topic_id) if task.query_topic_id is not None else None
-    if task.query_topic_id is not None and topic is None:
-        raise not_found("目标问题")
-    if task.platform_type_id is None or task.platform_type_snapshot is None:
-        raise AppError("PLATFORM_TYPE_MISSING", "内容任务没有锁定平台类型", 409)
-    profile = db.get(PlatformProfile, platform.platform_profile_id)
-    if profile is None:
+    profile = db.get(PlatformProfile, task.platform_profile_id)
+    if profile is None or not profile.is_active:
         raise AppError("INVALID_STATE_TRANSITION", "任务绑定的平台不存在", 409)
     prompt = db.get(PlatformPrompt, profile.id)
-    if prompt is None:
+    if prompt is None or not prompt.template_markdown.strip():
         raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少当前 Prompt", 409)
     channel = _enabled_channel(db, model)
-    if not task.user_prompt_markdown.strip():
-        raise AppError("USER_PROMPT_REQUIRED", "生成前必须填写工程师 Prompt", 409)
-    facts = ProductFactsBody.model_validate(fact.snapshot_json)
-    adapter_name = (
-        DevelopmentContentGenerator.name
-        if settings.content_generator == "deterministic"
-        else channel.protocol_type
-    )
-    if adapter_name != DevelopmentContentGenerator.name:
-        require_supported_protocol(adapter_name)
-        ensure_generation_sources_public(task, facts)
-    approved_facts = {
-        "fact_version_id": str(fact.id),
-        "reference_parts": [item.model_dump(mode="json") for item in facts.reference_parts],
-        "parameters": [
-            item.model_dump(mode="json", exclude={"evidence_keys"}) for item in facts.parameters
-        ],
-        "replacement_relations": [
-            item.model_dump(mode="json", exclude={"evidence_keys"})
-            for item in facts.replacement_relations
-        ],
-        "claims": [{"type": item.type.value, "text": item.text} for item in facts.claims],
-        "evidence_confidentialities": [
-            evidence.confidentiality.value for evidence in facts.evidences
-        ],
-    }
-    requirements: dict[str, Any] = {
-        "product": {
-            "id": str(product.id),
-            "part_number": product.part_number,
-            "brand": product.brand,
-            "category": product.category,
-        },
-        "platform_rules": platform.rules,
-        "task": {
-            "id": str(task.id),
-            "target_audience": task.target_audience,
-            "content_angle": task.content_angle,
-            "conversion_goal": task.conversion_goal,
-            "desired_format": task.desired_format,
-            "desired_length_min": task.desired_length_min,
-            "desired_length_max": task.desired_length_max,
-            "canonical_url": task.canonical_url,
-        },
-    }
-    if topic is not None:
-        requirements["query_topic"] = {
-            "id": str(topic.id),
-            "canonical_question": topic.canonical_question,
-            "intent_type": topic.intent_type,
-            "variants": topic.variants,
-        }
-    system_message = f"{FIXED_SYSTEM_CONTRACT}\n\n{prompt.template_markdown}"
-    user_message = "\n\n".join(
-        [
-            "## 工程师输入\n" + task.user_prompt_markdown,
-            "## 已批准事实（只读）\n"
-            + json.dumps(approved_facts, ensure_ascii=False, sort_keys=True),
-            "## 任务要求\n" + json.dumps(requirements, ensure_ascii=False, sort_keys=True),
-        ]
-    )
+    adapter_name = require_supported_protocol(channel.protocol_type)
+    ensure_generation_sources_public(fact)
     return GenerationSnapshot(
         adapter_name=adapter_name,
         contract_version=GENERATION_CONTRACT_VERSION,
         channel=_channel_snapshot(channel),
         model=_model_snapshot(model),
-        platform_type=dict(task.platform_type_snapshot),
         platform_profile={
             "id": str(profile.id),
             "name": profile.name,
             "slug": profile.slug,
-            "platform_profile_version_id": str(platform.id),
-            "platform_profile_version": platform.version,
         },
-        system_message=system_message,
-        user_prompt_markdown=task.user_prompt_markdown,
-        generation_data_classification=(
-            Confidentiality(task.generation_data_classification)
-            if task.generation_data_classification is not None
-            else None
+        fact_version=GenerationFactSnapshot(
+            id=fact.id,
+            product_id=fact.product_id,
+            version=fact.version,
+            classification=Confidentiality(fact.classification),
         ),
-        generation_data_classified_by=task.generation_data_classified_by,
-        generation_data_classified_at=task.generation_data_classified_at,
-        approved_facts=approved_facts,
-        task_requirements=requirements,
-        user_message=user_message,
+        system_message=prompt.template_markdown,
+        user_message=fact.body_markdown,
     ).model_dump(mode="json")
 
 
@@ -244,34 +159,27 @@ def _validate_humanization_source(task: ContentTask, source: ContentVersion) -> 
 def build_humanization_input(
     db: Session, task: ContentTask, source: ContentVersion, model: AIModel
 ) -> dict[str, Any]:
-    """冻结源正文、全局 Prompt、模型和原始批准事实。"""
+    """冻结源正文、事实 Markdown、全局 Prompt 和模型。"""
     _validate_humanization_source(task, source)
     lineage = resolve_content_ai_lineage(db, source)
     if lineage is None:
         raise AppError("GENERATION_SNAPSHOT_INVALID", "内容版本缺少原始生成快照", 409)
-    original = ensure_third_party_egress_allowed(
-        lineage.generation_snapshot.model_dump(mode="json")
-    )
     fact = db.get(FactVersion, task.fact_version_id)
     product = db.get(Product, task.product_id)
-    if fact is None or fact.status != "APPROVED" or product is None or product.status != "ACTIVE":
+    if (
+        fact is None
+        or fact.status != "APPROVED"
+        or fact.product_id != task.product_id
+        or product is None
+        or product.status != "ACTIVE"
+    ):
         raise AppError("FACT_NOT_APPROVED", "自然化作业绑定的事实或产品已失效", 409)
-    ensure_generation_sources_public(task, ProductFactsBody.model_validate(fact.snapshot_json))
+    ensure_generation_sources_public(fact)
     prompt = db.get(ContentHumanizationPrompt, 1)
-    if prompt is None:
+    if prompt is None or not prompt.template_markdown.strip():
         raise AppError("HUMANIZATION_PROMPT_MISSING", "管理员尚未配置自然化 Prompt", 409)
     channel = _enabled_channel(db, model)
     adapter_name = require_supported_protocol(channel.protocol_type)
-    if (
-        original.generation_data_classification != Confidentiality.PUBLIC
-        or original.generation_data_classified_by is None
-        or original.generation_data_classified_at is None
-    ):
-        raise AppError(
-            "AI_DATA_CLASSIFICATION_FORBIDDEN",
-            "自然化只允许处理已明确分级为 PUBLIC 的原始生成输入",
-            409,
-        )
     source_payload = HumanizationSourceContent(
         id=source.id,
         task_id=source.task_id,
@@ -283,19 +191,13 @@ def build_humanization_input(
         body_markdown=source.body_markdown,
         tags=source.tags,
     )
-    system_message = "\n\n".join(
-        (FIXED_SYSTEM_CONTRACT, HUMANIZATION_FIXED_CONTRACT, prompt.template_markdown)
-    )
     user_message = "\n\n".join(
         [
             "## 待自然化源文章（只读）\n"
             + json.dumps(
                 source_payload.model_dump(mode="json"), ensure_ascii=False, sort_keys=True
             ),
-            "## 已批准事实（只读）\n"
-            + json.dumps(original.approved_facts, ensure_ascii=False, sort_keys=True),
-            "## 任务要求（只读）\n"
-            + json.dumps(original.task_requirements, ensure_ascii=False, sort_keys=True),
+            "## 已批准事实 Markdown（只读）\n" + fact.body_markdown,
         ]
     )
     snapshot = HumanizationSnapshot(
@@ -309,13 +211,13 @@ def build_humanization_input(
         ),
         source_content=source_payload,
         source_generation_job_id=lineage.generation_job.id,
-        user_prompt_markdown=original.user_prompt_markdown,
-        generation_data_classification=original.generation_data_classification,
-        generation_data_classified_by=original.generation_data_classified_by,
-        generation_data_classified_at=original.generation_data_classified_at,
-        approved_facts=original.approved_facts,
-        task_requirements=original.task_requirements,
-        system_message=system_message,
+        fact_version=GenerationFactSnapshot(
+            id=fact.id,
+            product_id=fact.product_id,
+            version=fact.version,
+            classification=Confidentiality(fact.classification),
+        ),
+        system_message=prompt.template_markdown,
         user_message=user_message,
     )
     return snapshot.model_dump(mode="json")
@@ -353,6 +255,17 @@ def _create_job(
             raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409)
         return existing, False
     if retry_of is not None:
+        expected_contract = (
+            GENERATION_CONTRACT_VERSION
+            if retry_of.job_type == "GENERATE"
+            else HUMANIZATION_CONTRACT_VERSION
+        )
+        if retry_of.input_snapshot.get("contract_version") != expected_contract:
+            raise AppError(
+                "LEGACY_GENERATION_RETRY_FORBIDDEN",
+                "旧版生成作业仅供历史读取，不能创建重试",
+                409,
+            )
         if retry_of.ai_channel_id is None or retry_of.ai_model_id is None:
             raise AppError("AI_CONFIGURATION_DELETED", "原作业渠道或模型已删除", 409)
         channel = db.get(AIChannel, retry_of.ai_channel_id)
@@ -561,6 +474,17 @@ def retry_generation_job(
     previous = db.get(GenerationJob, generation_job_id)
     if previous is None:
         raise not_found("生成作业")
+    expected_contract = (
+        GENERATION_CONTRACT_VERSION
+        if previous.job_type == "GENERATE"
+        else HUMANIZATION_CONTRACT_VERSION
+    )
+    if previous.input_snapshot.get("contract_version") != expected_contract:
+        raise AppError(
+            "LEGACY_GENERATION_RETRY_FORBIDDEN",
+            "旧版生成作业仅供历史读取，不能创建重试",
+            409,
+        )
     if previous.status != "FAILED":
         raise AppError("INVALID_STATE_TRANSITION", "只有 FAILED 作业可以重试", 409)
     task = db.scalar(
@@ -568,6 +492,16 @@ def retry_generation_job(
     )
     if task is None or task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "内容任务不可再生成", 409)
+    retry_snapshot = (
+        ensure_third_party_egress_allowed(previous.input_snapshot)
+        if previous.job_type == "GENERATE"
+        else ensure_humanization_egress_allowed(previous.input_snapshot)
+    )
+    fact = db.get(FactVersion, task.fact_version_id)
+    product = db.get(Product, task.product_id)
+    ensure_generation_eligible(task, fact, product, retry_snapshot.fact_version)
+    if fact is not None:
+        ensure_generation_sources_public(fact)
     if (
         db.scalar(select(GenerationJob.id).where(GenerationJob.idempotency_key == idempotency_key))
         is not None
@@ -632,6 +566,118 @@ def retry_generation_job(
     return job
 
 
+def _validated_manual_draft(payload: ContentRevisionCreate) -> GeneratedDraft:
+    """复用严格文章结构，并把人工输入错误留在请求边界。"""
+    if not payload.change_summary.strip():
+        raise AppError("VALIDATION_ERROR", "变更说明不能为空白", 422)
+    try:
+        return GeneratedDraft(
+            title=payload.title,
+            summary=payload.summary,
+            body_markdown=payload.body_markdown,
+            tags=payload.tags,
+        )
+    except ValidationError as error:
+        raise AppError("VALIDATION_ERROR", "标题、摘要、正文和标签均必须填写", 422) from error
+
+
+def _require_approved_task_fact(db: Session, task: ContentTask) -> FactVersion:
+    """人工版本也必须继续绑定有效且非空的已批准事实。"""
+    fact = db.get(FactVersion, task.fact_version_id)
+    if (
+        fact is None
+        or fact.status != "APPROVED"
+        or fact.product_id != task.product_id
+        or not fact.body_markdown.strip()
+    ):
+        raise AppError("FACT_NOT_APPROVED", "任务绑定的事实版本已失效", 409)
+    return fact
+
+
+def _create_human_content(
+    *,
+    db: Session,
+    task: ContentTask,
+    payload: ContentRevisionCreate,
+    actor: User,
+    based_on_id: uuid.UUID | None,
+) -> ContentVersion:
+    """创建共享审核链上的人工 Markdown 版本。"""
+    draft = _validated_manual_draft(payload)
+    quality_issues: list[dict[str, str]] = []
+    add_near_duplicate_warning(db, task, draft, quality_issues)
+    next_version = (
+        int(
+            db.scalar(
+                select(func.coalesce(func.max(ContentVersion.version), 0)).where(
+                    ContentVersion.task_id == task.id
+                )
+            )
+            or 0
+        )
+        + 1
+    )
+    content = ContentVersion(
+        task_id=task.id,
+        fact_version_id=task.fact_version_id,
+        based_on_id=based_on_id,
+        version=next_version,
+        source_type="HUMAN",
+        title=draft.title,
+        summary=draft.summary,
+        body_markdown=draft.body_markdown,
+        tags=draft.tags,
+        content_hash=content_hash(draft.title, draft.summary, draft.body_markdown, draft.tags),
+        status="DRAFT",
+        quality_issues=quality_issues,
+        change_summary=payload.change_summary,
+        created_by=actor.id,
+    )
+    db.add(content)
+    db.flush()
+    return content
+
+
+def create_manual_content_version(
+    *,
+    db: Session,
+    content_task_id: uuid.UUID,
+    payload: ContentRevisionCreate,
+    actor: User,
+    request_id: str,
+) -> ContentVersion:
+    """在 OPEN 任务上创建不含虚假 AI lineage 的人工首稿。"""
+    task = db.scalar(select(ContentTask).where(ContentTask.id == content_task_id).with_for_update())
+    if task is None:
+        raise not_found("内容任务")
+    if task.status != "OPEN":
+        raise AppError("INVALID_STATE_TRANSITION", "终态任务不能创建人工首稿", 409)
+    _require_approved_task_fact(db, task)
+    content = _create_human_content(
+        db=db,
+        task=task,
+        payload=payload,
+        actor=actor,
+        based_on_id=None,
+    )
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.CONTENT_PRODUCTION,
+            action="content_version.manual_created",
+            target_type="ContentVersion",
+            target_id=content.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="内容人工首稿已创建",
+            details={"facts": {"task_id": str(task.id), "version": content.version}},
+        ),
+    )
+    db.commit()
+    return content
+
+
 def create_content_revision(
     *,
     db: Session,
@@ -640,52 +686,23 @@ def create_content_revision(
     actor: User,
     request_id: str,
 ) -> ContentVersion:
-    """沿原始生成快照校验质量后创建不可变人工修订。"""
+    """基于任意 AI 或人工版本创建不可变人工修订。"""
     source = db.get(ContentVersion, content_version_id)
     if source is None:
         raise not_found("内容版本")
     task = db.scalar(select(ContentTask).where(ContentTask.id == source.task_id).with_for_update())
     if task is None or task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "终态任务不能创建内容修订", 409)
-    generation_input = source_generation_input(db, source)
-    draft = GeneratedDraft(
-        title=payload.title,
-        summary=payload.summary,
-        body_markdown=payload.body_markdown,
-        tags=payload.tags,
-    )
-    quality_issues = run_quality_checks(draft, generation_input)
-    add_near_duplicate_warning(db, task, draft, quality_issues)
-    next_version = (
-        int(
-            db.scalar(
-                select(func.coalesce(func.max(ContentVersion.version), 0)).where(
-                    ContentVersion.task_id == source.task_id
-                )
-            )
-            or 0
-        )
-        + 1
-    )
-    content = ContentVersion(
-        task_id=source.task_id,
-        fact_version_id=source.fact_version_id,
+    if source.task_id != task.id or source.fact_version_id != task.fact_version_id:
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "内容版本与任务事实不一致", 409)
+    _require_approved_task_fact(db, task)
+    content = _create_human_content(
+        db=db,
+        task=task,
+        payload=payload,
+        actor=actor,
         based_on_id=source.id,
-        version=next_version,
-        source_type="HUMAN",
-        title=payload.title,
-        summary=payload.summary,
-        body_markdown=payload.body_markdown,
-        tags=payload.tags,
-        content_hash=content_hash(
-            payload.title, payload.summary, payload.body_markdown, payload.tags
-        ),
-        quality_issues=quality_issues,
-        change_summary=payload.change_summary,
-        created_by=actor.id,
     )
-    db.add(content)
-    db.flush()
     append_audit(
         db,
         AuditEntry(
@@ -700,7 +717,7 @@ def create_content_revision(
             details={
                 "facts": {
                     "based_on_id": str(source.id),
-                    "version": next_version,
+                    "version": content.version,
                 }
             },
         ),

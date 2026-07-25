@@ -29,7 +29,7 @@
 - 渠道集合只返回 `AIChannelSummary`，包含身份、状态、根地址、API Key 配置状态、Header 数、启用模型数、最近测试和修订号；不得返回 Header 值、模型数组或任何密钥片段。`counts` 应用 `q` 和 `provider_brand`，但不应用 `status`。
 - 使用统计只聚合该渠道正式 `GENERATE`/`HUMANIZE` 作业，默认最近 30 天；连接测试和模型发现只进入测试状态与审计。业务作业数为时间窗内全部正式作业，成功/失败只计对应终态；成功率分母为成功加失败，平均耗时只聚合非空耗时，Token 只求和已报告值，完全未报告时返回 `null` 而非 `0`。
 - 渠道操作日志继续读取 `audit_logs`。模型 CRUD、启停、测试和发现事件通过脱敏 `channel_id` 建立渠道投影；不得复制日志表，也不得为历史缺失关联的已删除模型猜测渠道。
-- 作业快照冻结普通 Header、敏感 Header 名称、模型参数、system/user message、批准事实和任务要求；执行或重试时只读取快照所列敏感 Header 的当前值。后来新增的敏感 Header 不得进入旧作业，快照所列 Header 已删除或改为普通 Header 时必须失败。
+- 作业快照冻结普通 Header、敏感 Header 名称、模型参数、平台身份、事实版本身份和最终 system/user message；执行或重试时只读取快照所列敏感 Header 的当前值。后来新增的敏感 Header 不得进入旧作业，快照所列 Header 已删除或改为普通 Header 时必须失败。
 - Chat Completions 正文必须直接解析为仅含 `title`、`summary`、`body_markdown`、`tags` 的非空 JSON 对象，不做提取、修复或补值。
 - 模型“测试连接”与正式生成必须使用不同解析边界：测试请求只发送一条内容为 `hi` 的用户消息，并仅验证标准 `choices[0].message.content` 字符串；不得用业务草稿四字段 Schema 判断连接是否可用。
 - 模型写操作按“渠道行 -> 模型行”顺序加锁。模型测试在读取配置后释放行锁，外部调用结束再按渠道和模型修订号回写；测试期间配置变化返回 `REVISION_CONFLICT`。
@@ -38,21 +38,21 @@
 - 每次真实请求只解析一次完整 A/AAAA 集合并整体校验，只连接该集合中的 `sockaddr`；实际 TCP peer 必须在发送 Authorization 或敏感 Header 前属于批准集合。HTTPS 始终用原 hostname 完成 SNI、证书身份和 Host。
 - 同一次请求开始发送 HTTP 字节后不得切换地址或自动重试；响应正文必须受固定大小上限保护。不得恢复“先校验 URL、再由通用客户端按 hostname 二次解析”的 TOCTOU 路径。
 - 渠道和生成页面统一展示 `AT_MOST_ONCE + 显式手动重试`。发送前可在同次已批准地址集合内建立连接；开始发送后不自动重放。用户重试必须创建带 `retry_of_id` 的新作业并复制原快照，不能增加“重试次数”渠道字段。
-- Prompt 保存必须同时记录整份生成输入的分级、分类人和时间。只有任务分级与绑定事实快照的全部 Evidence 均为 `PUBLIC` 时才能调用第三方模型；历史空分级、`INTERNAL` 或 `RESTRICTED` 一律拒绝。
+- 只有绑定 `FactVersion.classification=PUBLIC` 且 Markdown 正文非空时才能调用第三方模型；任务不保存第二份分级、用户 Prompt 或结构化事实副本。
 - 当前平台 Prompt 的唯一所有者是 `PlatformProfile`：`GET/PUT/DELETE /api/v1/platform-profiles/{platform_profile_id}/prompt`。PUT 与 DELETE 都必须携带当前 `expected_revision`；服务锁定当前 Prompt 行后比较修订号，过期命令返回 `REVISION_CONFLICT` 且不得删除、覆盖或记录伪成功审计。不得恢复类型级 Prompt API、双读、默认 Prompt 或兼容回退。
 - 平台集合的可空 `prompt_updated_at` 只能批量投影当前 `PlatformPrompt.updated_at`；未配置时为 `null`，不得使用平台审计时间、前端请求时间或持久化汇总代替。
 - 文章自然化只使用 `content_humanization_prompts.id=1` 的全局当前 Prompt。迁移不得种子默认值；管理员通过 `GET/PUT /api/v1/content-humanization-prompt` 首次创建或按 revision 更新，不提供删除、平台副本、用户临时 Prompt 或代码回退。
 - 配置页输出预览必须创建现有 `GENERATE` 或 `HUMANIZE` 作业，并按任务级作业列表中的返回 Job ID 轮询后读取不可变 `ContentVersion`；不得新增无痕模型调用、预览专用结果源，或为显示预览读取含完整输入快照的作业详情。未保存的 Prompt 草稿不能用于预览。
 - 原始生成和自然化共用 `generation_jobs` 与一个 Celery UUID 消息。`job_type=GENERATE` 使用 `GenerationSnapshot`，`job_type=HUMANIZE` 使用 `HumanizationSnapshot`；必须按类型严格解析，不得候选解析或建立第二套队列、重试和指标来源。
-- 自然化快照冻结源版本完整正文与哈希、全局 Prompt Markdown/revision、用户选择的渠道/模型、原始批准事实、PUBLIC 分类、任务要求和最终消息。重试只复制原快照，不读取当前 Prompt 或更换模型。
-- 内容任务仍提交具体 `platform_profile_version_id`。服务端必须同时校验版本为 `ACTIVE` 且所属平台存在当前 Prompt；新作业快照必须写入具体平台身份和最终 system/user message，旧快照缺少平台对象只允许只读。
+- 自然化快照冻结源版本完整正文与哈希、全局 Prompt Markdown/revision、用户选择的渠道/模型、事实版本身份和最终消息。重试只复制原快照，不读取当前 Prompt 或更换模型。
+- 内容任务直接提交 `platform_profile_id`。新原始生成作业使用 `content-markdown-v2`，请求必须恰好为 `system = PlatformPrompt.template_markdown`、`user = FactVersion.body_markdown`，不得添加前缀、任务字段或默认规则。`chat-json-v1` 与 `humanization-json-v1` 仅供历史读取且禁止重试。
 
 ### 4. 校验与错误矩阵
 
 - 非公网 HTTPS 或非回环 HTTP -> `AI_URL_FORBIDDEN`。
 - HTTP 重定向 -> `AI_REDIRECT_FORBIDDEN`，不得跟随。
 - 实际 TCP peer 不在本次批准集合 -> `AI_URL_FORBIDDEN`，且敏感 Header 尚未发送。
-- 任务或事实证据未全部明确为 `PUBLIC` -> `AI_DATA_CLASSIFICATION_FORBIDDEN`。
+- 绑定事实版本不是 `PUBLIC` -> `AI_DATA_CLASSIFICATION_FORBIDDEN`。
 - 具体平台没有当前 Prompt -> `PLATFORM_PROMPT_MISSING`；不得回退到平台类型或其他平台 Prompt。
 - 全局自然化 Prompt 未配置 -> `HUMANIZATION_PROMPT_MISSING`；不得使用文档建议模板或代码常量代替。
 - 自然化源不是 `OPEN` 任务中的 `AI DRAFT | CHANGES_REQUESTED`，或冻结身份/哈希失效 -> `HUMANIZATION_SOURCE_INVALID`；同源已有活动作业 -> `HUMANIZATION_ALREADY_ACTIVE`。
@@ -81,7 +81,7 @@
 - 错误：旧作业创建后新增敏感 Header 时，执行或重试不得把该 Header 带入请求；旧作业所需敏感 Header 不再存在时显式失败。
 - 错误：把 Humanizer-zh 当作后端 Skill 运行时，或在原始生成成功后自动串行调用自然化。
 - 正常：用户对具体合格 AI 版本选择当前可用模型，独立自然化作业创建一个 `based_on_id` 指向源版本的新 AI 草稿，源正文和状态保持不变。
-- 错误：0012 之前的历史 Job 快照缺少分级时不得重试到第三方模型；用户必须在当前任务重新保存 Prompt 与分级并创建新作业。
+- 错误：legacy Job 快照不得重试到第三方模型；用户必须基于当前三个字段任务创建新 v2 作业。
 
 ### 6. 必需测试
 
@@ -91,12 +91,12 @@
 - 契约测试：`make contract-check` 验证 FastAPI/OpenAPI 语义和前端生成类型无漂移。
 - 端到端测试：真实 HTTP 测试替身完成模型发现、测试和生成；确定性生成器只用于明确的单元/开发场景，不能伪装成真实云端成功。
 - Prompt 管理断言：平台列表批量返回真实 `prompt_updated_at`，PUT/DELETE 的 stale revision 都保持服务端当前行不变；配置页两类输出预览创建真实作业和 AI `DRAFT`，并对 Markdown 结果做安全清理。
-- 并发断言：任务 Prompt 保存与作业创建使用同一任务行锁；过期租约后的迟到响应不能写入成功结果。
+- 并发断言：作业创建锁定任务并读取当前平台 Prompt 与冻结事实；过期租约后的迟到响应不能写入成功结果。
 - 恢复断言：首次投递缺失、Broker 已接受但元数据未提交、重复消息和并发恢复均至多产生一次供应商调用和一个内容版本。
 - 模型测试并发断言：外部调用期间配置可更新，但旧测试结果不得覆盖更新后的 `UNTESTED` 状态。
 - 快照 Header 断言：只发送快照锁定的普通 Header 和敏感 Header 名称；敏感值取当前配置，新增名称被忽略，缺失名称返回 `AI_CONFIGURATION_DELETED`。
 - 固定地址断言：混合公网/私网解析整体拒绝；连接只能使用首次解析集合；peer 越界时零 HTTP 字节；真实本地 CA/HTTPS 替身验证 SNI、证书 hostname 和 Host。
-- 分类断言：迁移后历史任务保持 `NULL`；第三方创建、重试和 Worker 执行都拒绝缺失或非 PUBLIC 分级以及任一非 PUBLIC Evidence。
+- 事实断言：第三方创建和 Worker 执行都拒绝非 `PUBLIC` 或空白事实；legacy 快照重试明确返回 `LEGACY_GENERATION_RETRY_FORBIDDEN`。
 - 渠道管理断言：迁移把旧渠道协议回填为当前协议、品牌回填 `CUSTOM` 而不猜测，运行时无数据库默认；列表搜索/筛选/稳定排序/分页/分类数量、最近测试、统计可空口径和审计归属均由 PostgreSQL 集成测试覆盖。
 - 安全断言：普通用户读取返回 403，写请求缺少 CSRF 被拒绝；创建、换 Key、敏感 Header 表单关闭后 React Query mutation state 不保留明文，读取/审计/复制/浏览器存储均无明文。
 - 端到端断言：真实本机 HTTP 协议替身覆盖模型发现、成功与失败测试，确认测试后模型保持停用并需手动启用；替身不得用前端路由或固定成功响应代替服务端调用。

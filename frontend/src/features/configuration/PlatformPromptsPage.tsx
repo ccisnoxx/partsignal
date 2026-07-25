@@ -3,7 +3,7 @@ import { InfoCircleOutlined, SearchOutlined, SafetyCertificateOutlined } from '@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Alert, App, Card, Input, Pagination, Select, Space, Tabs } from 'antd';
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { ApiError, api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import {
@@ -304,11 +304,7 @@ export function PlatformPromptsPage() {
   }));
   const selected = selectedProfile.data?.profile;
   const selectedInPage = platforms.data?.items.some((platform) => platform.id === selectedId) ?? false;
-  const outputLength = tab === 'humanization'
-    ? '沿用源任务长度约束'
-    : selected?.active_version
-      ? `${selected.active_version.rules.body_min}–${selected.active_version.rules.body_max} 字`
-      : '未配置有效规则';
+  const outputLength = '由 Prompt 定义';
   const updatedBy = activePrompt?.updated_by ? userNames.get(activePrompt.updated_by) ?? activePrompt.updated_by.slice(0, 8) : '尚未配置';
   const editorUnavailable = tab === 'platform' && !selectedId;
 
@@ -316,7 +312,7 @@ export function PlatformPromptsPage() {
     <PageHeader
       eyebrow="配置中心 / Prompt 管理"
       title="Prompt 管理"
-      description="管理各平台的内容生成 Prompt 与全局自然化 Prompt；可编辑配置始终位于固定系统契约之后。"
+      description="平台 Prompt 会原样作为内容生成的 system message；全局自然化 Prompt 只用于自然化作业。"
     />
     <div className="prompt-management-topline">
       <Tabs
@@ -332,8 +328,8 @@ export function PlatformPromptsPage() {
         type="info"
         showIcon
         icon={<InfoCircleOutlined />}
-        title="Prompt 仅影响 AI 输出风格与格式，不能覆盖平台规则、批准事实、数据分级或固定安全边界。"
-        action={<a href="#prompt-safety-boundaries">查看安全边界说明 →</a>}
+        title="安全、输出格式、受众、角度和长度要求都由 Prompt 定义；删除平台 Prompt 后，新 AI 生成会直接失败。"
+        action={<a href="#prompt-safety-boundaries">查看生成边界 →</a>}
       />
     </div>
     <div className={`prompt-management-workspace${tab === 'humanization' ? ' is-humanization' : ''}`}>
@@ -381,7 +377,6 @@ export function PlatformPromptsPage() {
               </span>
               <span className="prompt-platform-status">
                 <b className={platform.prompt_configured ? 'is-configured' : 'is-missing'}>{platform.prompt_configured ? '已配置' : '未配置'}</b>
-                <small>规则：{platform.active_version ? '已激活' : '缺失'}</small>
                 <time>{formatTime(platform.prompt_updated_at)}</time>
               </span>
             </button>)}
@@ -433,14 +428,13 @@ export function PlatformPromptsPage() {
           dirty={dirty}
           promptConfigured={!!activePrompt}
         />
-        <Card id="prompt-safety-boundaries" title="安全边界说明" size="small" className="prompt-safety-panel">
+        <Card id="prompt-safety-boundaries" title="生成边界" size="small" className="prompt-safety-panel">
           <ul>
-            <li><SafetyCertificateOutlined /><span><strong>批准事实优先</strong><small>模型只能使用已批准且符合分级要求的事实。</small></span></li>
-            <li><SafetyCertificateOutlined /><span><strong>禁止编造产品事实</strong><small>输入外的产品事实必须失败，不能猜测或补零。</small></span></li>
+            <li><SafetyCertificateOutlined /><span><strong>消息原样发送</strong><small>system 为平台 Prompt，user 为已批准事实 Markdown。</small></span></li>
+            <li><SafetyCertificateOutlined /><span><strong>要求集中维护</strong><small>安全、输出、受众、角度和长度规则都需写入平台 Prompt。</small></span></li>
+            <li><SafetyCertificateOutlined /><span><strong>错误直接失败</strong><small>Prompt 缺失或响应不符合严格文章 JSON 时不会创建内容版本。</small></span></li>
             <li><SafetyCertificateOutlined /><span><strong>AI 只创建草稿</strong><small>输出必须通过人工审核后才能进入发布流程。</small></span></li>
-            <li><SafetyCertificateOutlined /><span><strong>输出结构由系统控制</strong><small>固定系统契约和平台规则不能通过 Prompt 修改。</small></span></li>
           </ul>
-          {tab === 'platform' && selectedId && <Link to={`/configuration/platform-rules?platform_profile_id=${selectedId}`}>前往平台规则 →</Link>}
         </Card>
       </aside>
     </div>

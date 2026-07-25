@@ -19,7 +19,6 @@ import {
   GeoInsightsPrintPage,
   GeoObservationsPage,
   PlatformTypesPage,
-  PlatformRulesPage,
   PlatformsPage,
   PlatformPromptsPage,
   ProductFactsPage,
@@ -65,7 +64,6 @@ export function App() {
                       </Route>
                       <Route path="platform-types" element={<PlatformTypesPage />} />
                       <Route path="platforms" element={<PlatformsPage />} />
-                      <Route path="platform-rules" element={<PlatformRulesPage />} />
                       <Route path="prompts" element={<PlatformPromptsPage />} />
                     </Route>
                   </Route>

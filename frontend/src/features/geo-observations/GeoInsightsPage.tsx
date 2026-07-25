@@ -31,7 +31,7 @@ type Recommendation = Schema<'GeoInsightRecommendation'>;
 type CoverageStatus = Schema<'GeoInsightCoverageItem'>['status'];
 
 const optionalFilterKeys = [
-  'content_platform_id', 'geo_platform', 'content_angle', 'publication_record_id', 'query_topic_id',
+  'content_platform_id', 'geo_platform', 'publication_record_id', 'query_topic_id',
 ] as const satisfies readonly (keyof GeoInsightQuery)[];
 
 const coverageStatuses: Array<{
@@ -563,7 +563,6 @@ function FilterPanel({
           </div>
           <div className="geo-insight-filter-field"><span>内容平台</span><Select aria-label="内容平台" placeholder="全部平台" allowClear showSearch virtual={false} optionFilterProp="label" loading={loading} value={filters.content_platform_id} onChange={(value) => onChange('content_platform_id', value)} options={options?.content_platforms.map((item) => ({ value: item.id, label: item.label }))} /></div>
           <div className="geo-insight-filter-field"><span>GEO 观测平台</span><Select aria-label="GEO 观测平台" placeholder="全部平台" allowClear showSearch virtual={false} loading={loading} value={filters.geo_platform} onChange={(value) => onChange('geo_platform', value)} options={options?.geo_platforms.map((value) => ({ value, label: value }))} /></div>
-          <div className="geo-insight-filter-field"><span>内容主题</span><Select aria-label="内容主题" placeholder="全部主题" allowClear showSearch virtual={false} loading={loading} value={filters.content_angle} onChange={(value) => onChange('content_angle', value)} options={options?.content_angles.map((value) => ({ value, label: value }))} /></div>
           <div className="geo-insight-filter-field"><span>发布内容</span><Select aria-label="发布内容" placeholder="全部内容" allowClear showSearch virtual={false} optionFilterProp="label" loading={loading} value={filters.publication_record_id} onChange={(value) => onChange('publication_record_id', value)} options={options?.publications.map((item) => ({ value: item.id, label: `${item.label} · ${item.platform_name}` }))} /></div>
           <div className="geo-insight-filter-field"><span>搜索问题</span><Select aria-label="搜索问题" placeholder="全部问题" allowClear showSearch virtual={false} optionFilterProp="label" loading={loading} value={filters.query_topic_id} onChange={(value) => onChange('query_topic_id', value)} options={options?.query_topics.map((item) => ({ value: item.id, label: item.label }))} /></div>
           <Button className="geo-insight-filter-reset" aria-label="重置" onClick={onReset}>重置</Button>
@@ -579,7 +578,6 @@ function filterSummary(filters: GeoInsightQuery, options: FilterOptions): Descri
     { key: 'period', label: '时间范围', children: `${filters.date_from} 至 ${filters.date_to}` },
     { key: 'content-platform', label: '内容平台', children: optionLabel(options.content_platforms, filters.content_platform_id) },
     { key: 'geo-platform', label: 'GEO 平台', children: filters.geo_platform ?? '全部' },
-    { key: 'angle', label: '内容主题', children: filters.content_angle ?? '全部' },
     { key: 'publication', label: '发布内容', children: filters.publication_record_id ? options.publications.find((item) => item.id === filters.publication_record_id)?.label ?? filters.publication_record_id : '全部' },
     { key: 'topic', label: '搜索问题', children: optionLabel(options.query_topics, filters.query_topic_id) },
   ];

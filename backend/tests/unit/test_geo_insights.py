@@ -28,7 +28,6 @@ def _insight_row(
         published_at=datetime(2026, 6, 1, tzinfo=UTC),
         content_platform_id=uuid.UUID("10000000-0000-4000-8000-000000000001"),
         content_platform="工程师社区",
-        content_angle="替代选型",
         discovered=True if complete else None,
         mentioned=True if complete else None,
         recommendation_status="RECOMMENDED" if complete else "NOT_RECOMMENDED",

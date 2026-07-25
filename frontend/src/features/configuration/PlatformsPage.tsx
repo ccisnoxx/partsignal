@@ -5,7 +5,6 @@ import {
   EllipsisOutlined,
   ExportOutlined,
   EyeOutlined,
-  FileProtectOutlined,
   FileTextOutlined,
   PlusOutlined,
   ReloadOutlined,
@@ -33,12 +32,11 @@ import {
   type MenuProps,
 } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { queryClient } from '../../app/queryClient';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import {
   platformProfilesQueryOptions,
-  platformProfileVersionsForProfileQueryOptions,
   platformTypesQueryOptions,
 } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
@@ -58,7 +56,6 @@ import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { PlatformDetailPanel } from './PlatformDetailPanel';
 
-type RuleVersion = Schema<'PlatformProfileVersion'>;
 type PlatformLogoSource = 'NONE' | 'UPLOAD' | 'EXTERNAL';
 type PlatformBrandingFormValues = {
   name: string;
@@ -110,7 +107,6 @@ export function PlatformsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
   const [editProfile, setEditProfile] = useState<PlatformProfile | null>(null);
-  const [rulePlatformId, setRulePlatformId] = useState<string>();
   const [modal, modalContext] = Modal.useModal();
   const lastDetailTriggerId = useRef<string | null>(null);
   const screens = Grid.useBreakpoint();
@@ -160,7 +156,6 @@ export function PlatformsPage() {
   }), [configurationStatus, platformTypeId, q, status]);
 
   const platforms = useQuery(platformProfilesQueryOptions(listQuery));
-  const versions = useQuery(platformProfileVersionsForProfileQueryOptions(rulePlatformId));
   const platformTypes = useQuery(platformTypesQueryOptions());
 
   const updateParams = (updates: Record<string, string | undefined>, replace = false) => {
@@ -201,16 +196,6 @@ export function PlatformsPage() {
       }));
     },
     onSuccess: async (saved) => { setEditProfile(null); message.success('平台身份与归类已保存'); await invalidatePlatform(saved.id); },
-  });
-  const activate = useMutation({
-    mutationFn: async (version: RuleVersion) => unwrap(await api.POST('/api/v1/platform-profile-versions/{platform_profile_version_id}/activate', {
-      params: { path: { platform_profile_version_id: version.id }, header: csrfHeader() },
-      body: { expected_revision: version.revision, comment: '选择为平台当前规则' },
-    })),
-    onSuccess: async (saved) => { message.success('平台当前规则已更新'); await Promise.all([
-      invalidatePlatform(saved.platform_profile_id),
-      queryClient.invalidateQueries({ queryKey: queryKeys.platformProfileVersions.all }),
-    ]); },
   });
   const toggleProfile = useMutation({
     mutationFn: async (profile: PlatformProfile) => {
@@ -256,12 +241,12 @@ export function PlatformsPage() {
   const platformItems = platforms.data?.items ?? [];
   const platformTypeOptions = platformTypes.data?.items.map((item) => ({ value: item.id, label: item.name })) ?? [];
   const queryError = platforms.error ?? platformTypes.error;
-  const mutationError = create.error ?? updateProfile.error ?? activate.error ?? toggleProfile.error ?? exportList.error;
+  const mutationError = create.error ?? updateProfile.error ?? toggleProfile.error ?? exportList.error;
   const hasFilters = !!(q || platformTypeId || status || configurationStatus);
 
   const confirmDelete = (profile: PlatformProfile) => modal.confirm({
     title: `物理删除平台“${profile.name}”？`,
-    content: '必须先清理全部规则版本和平台账号；当前 Prompt 会一并删除，历史记录不会被改写。若存在引用，服务端会明确拒绝。',
+    content: '当前 Prompt 会一并删除；存在内容任务或平台账号引用时服务端会明确拒绝，历史记录不会被改写。',
     okText: '删除', cancelText: '取消', okButtonProps: { danger: true },
     onOk: () => removeProfile.mutateAsync(profile),
   });
@@ -269,7 +254,7 @@ export function PlatformsPage() {
     title: `${profile.is_active ? '停用' : '启用'}平台“${profile.name}”？`,
     content: profile.is_active
       ? '停用后不能新建关联任务、账号或发布记录；既有配置和历史保持不变。'
-      : '启用不会自动补齐规则或 Prompt，配置完整性保持独立。',
+      : '启用不会自动补齐 Prompt，配置完整性保持独立。',
     okText: profile.is_active ? '停用平台' : '启用平台', cancelText: '取消',
     okButtonProps: profile.is_active ? { danger: true } : undefined,
     onOk: () => toggleProfile.mutateAsync(profile),
@@ -279,7 +264,6 @@ export function PlatformsPage() {
     return {
       items: [
         { key: 'edit', label: '编辑平台' },
-        { key: 'manage-rules', label: <Link to={`/configuration/platform-rules?platform_profile_id=${profile.id}`}>管理规则</Link> },
         { type: 'divider' },
         { key: 'toggle', label: profile.is_active ? '停用平台' : '启用平台', danger: profile.is_active },
         { key: 'delete', label: '删除平台', danger: true },
@@ -297,7 +281,6 @@ export function PlatformsPage() {
     { key: 'total', label: '平台总数', value: summary?.platform_total, tone: 'data', icon: <AppstoreOutlined /> },
     { key: 'enabled', label: '已启用平台', value: summary?.enabled_total, tone: 'success', icon: <CheckCircleOutlined /> },
     { key: 'prompt', label: '缺少 Prompt', value: summary?.missing_prompt_total, tone: 'warning', icon: <FileTextOutlined /> },
-    { key: 'rule', label: '缺少有效规则', value: summary?.missing_active_rule_total, tone: 'danger', icon: <FileProtectOutlined /> },
     { key: 'complete', label: '配置完整平台', value: summary?.configuration_complete_total, tone: 'success', icon: <SafetyCertificateOutlined /> },
   ] as const;
 
@@ -360,7 +343,7 @@ export function PlatformsPage() {
               rowKey="id"
               loading={{ spinning: platforms.isLoading || platformTypes.isLoading, description: '正在加载平台列表' }}
               dataSource={platformItems}
-              scroll={{ x: 1020, y: 'calc(100dvh - 473px)' }}
+              scroll={{ x: 900, y: 'calc(100dvh - 473px)' }}
               locale={{ emptyText: <NoData description={hasFilters ? '没有符合当前筛选条件的平台' : '暂无具体平台'} /> }}
               rowClassName={(profile) => profile.id === selectedPlatformId ? 'platform-row-selected' : ''}
               pagination={{
@@ -382,16 +365,6 @@ export function PlatformsPage() {
                 { title: '官方网站', dataIndex: 'website_url', width: 110, render: (value: string | null) => value ? <a className="platform-table-link" href={value} target="_blank" rel="noreferrer" title={value}>{value}</a> : '—' },
                 { title: '允许域名（数量）', dataIndex: 'allowed_domains', width: 125, render: (items: string[]) => items.length ? <span title={items.join('、')}>{items[0]}{items.length > 1 ? ` 等 ${items.length} 个` : ''}</span> : '—' },
                 { title: '状态', width: 72, render: (_, profile) => <StatusTag compact status={profile.is_active ? 'ENABLED' : 'DISABLED'} /> },
-                { title: '当前规则版本', width: 110, render: (_, profile) => {
-                  const selectorOpen = rulePlatformId === profile.id;
-                  const drafts = selectorOpen
-                    ? (versions.data?.items ?? []).filter((version) => version.status === 'DRAFT')
-                    : [];
-                  return <Select variant="borderless" size="small" aria-label={`选择 ${profile.name} 当前规则`} value={profile.active_version?.id} placeholder={<StatusTag compact status="ACTIVE_RULE_MISSING" />} loading={activate.isPending || (selectorOpen && versions.isFetching)} options={[
-                    ...(profile.active_version ? [{ value: profile.active_version.id, label: `V${profile.active_version.version} · 当前`, disabled: true }] : []),
-                    ...drafts.map((version) => ({ value: version.id, label: `V${version.version} · DRAFT` })),
-                  ]} notFoundContent={versions.error ? '规则版本加载失败' : '暂无规则草稿'} onOpenChange={(open) => setRulePlatformId(open ? profile.id : undefined)} onChange={(versionId) => { const version = drafts.find((item) => item.id === versionId); if (version) activate.mutate(version); }} style={{ width: '100%' }} />;
-                } },
                 { title: 'Prompt 配置状态', width: 108, render: (_, profile) => <StatusTag compact status={profile.prompt_configured ? 'PROMPT_CONFIGURED' : 'PROMPT_MISSING'} /> },
                 { title: '发布账号数量', dataIndex: 'platform_account_count', width: 86 },
                 { title: '更新时间', dataIndex: 'updated_at', width: 124, render: (value: string | null) => value ? <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> : '—' },

@@ -104,30 +104,6 @@ export const platformProfileQueryOptions = (platformProfileId: string | undefine
   staleTime: QUERY_STALE_TIME.detail,
 });
 
-export const platformProfileVersionsQueryOptions = () => queryOptions({
-  queryKey: queryKeys.platformProfileVersions.all,
-  queryFn: async () => unwrap(await api.GET('/api/v1/platform-profile-versions')),
-  staleTime: QUERY_STALE_TIME.configuration,
-});
-
-export const platformProfileVersionsForProfileQueryOptions = (platformProfileId: string | undefined) => queryOptions({
-  queryKey: queryKeys.platformProfileVersions.forProfile(platformProfileId ?? ''),
-  queryFn: async () => unwrap(await api.GET('/api/v1/platform-profiles/{platform_profile_id}/versions', {
-    params: { path: { platform_profile_id: platformProfileId! } },
-  })),
-  enabled: !!platformProfileId,
-  staleTime: QUERY_STALE_TIME.configuration,
-});
-
-export const platformProfileVersionImpactQueryOptions = (platformProfileVersionId: string | undefined) => queryOptions({
-  queryKey: queryKeys.platformProfileVersions.impact(platformProfileVersionId ?? ''),
-  queryFn: async () => unwrap(await api.GET('/api/v1/platform-profile-versions/{platform_profile_version_id}/impact', {
-    params: { path: { platform_profile_version_id: platformProfileVersionId! } },
-  })),
-  enabled: !!platformProfileVersionId,
-  staleTime: QUERY_STALE_TIME.workbench,
-});
-
 export const auditLogsQueryOptions = (
   targetType: string,
   targetId: string | undefined,

@@ -1,7 +1,7 @@
 /** 修复页只提交服务端给出的事实和平台候选。 */
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Descriptions, Form, Input, InputNumber, List, Select, Space } from 'antd';
+import { Alert, Button, Card, Descriptions, Form, InputNumber, List, Select } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
@@ -44,13 +44,12 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
   if (context.error || !context.data) return <div className="page-stack"><Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/publication-attentions/${attentionId}`)}>返回异常详情</Button><PageHeader title="创建发布修复任务" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: <Link to={`/publication-attentions/${attentionId}`}>异常待办</Link> }, { title: '创建修复任务' }]} /><QueryFailure error={context.error ?? new Error('修复上下文不存在')} onRetry={() => void context.refetch()} /></div>;
   const data = context.data;
   const missingFactCandidate = data.fact_candidates.length === 0;
-  const missingPlatformCandidate = data.platform_candidates.length === 0;
   return (
     <div className="page-stack">
       <Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/publication-attentions/${attentionId}`)}>
         返回异常详情
       </Button>
-      <PageHeader eyebrow="修复任务" title="创建发布修复任务" description="固定继承原产品和平台，并显式选择当前事实与规则版本。" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: <Link to={`/publication-attentions/${attentionId}`}>异常待办</Link> }, { title: '创建修复任务' }]} />
+      <PageHeader eyebrow="修复任务" title="创建发布修复任务" description="固定继承原产品和目标平台，只需显式选择当前已批准事实版本。" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: <Link to={`/publication-attentions/${attentionId}`}>异常待办</Link> }, { title: '创建修复任务' }]} />
       <Card title="固定修复上下文" className="workspace-panel">
         <Descriptions
           column={1}
@@ -59,19 +58,16 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
             ...(data.query_topic ? [{ label: '历史目标问题', children: data.query_topic.canonical_question }] : []),
             { label: '平台', children: data.platform_profile_name },
             { label: '原事实版本', children: `V${data.original_fact_version.version}` },
-            { label: '原平台规则', children: `V${data.original_platform_version.version}` },
           ]}
         />
       </Card>
       <Card title="创建修复任务" className="workspace-panel">
         {create.error && <Alert type="error" message={errorMessage(create.error)} />}
         {missingFactCandidate && <Alert type="error" showIcon message="当前产品没有可选的已批准事实版本，无法创建修复任务。" />}
-        {missingPlatformCandidate && <Alert type="error" showIcon message="原平台没有当前有效规则版本，无法创建修复任务。" />}
         <Form<Schema<'PublicationRepairTaskCreate'>>
           layout="vertical"
           initialValues={{
             expected_attention_revision: data.attention.revision,
-            ...data.defaults,
           }}
           onFinish={(body) => create.mutate(body)}
         >
@@ -94,38 +90,11 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
               </List.Item>
             )}
           />
-          <Form.Item name="platform_profile_version_id" label="当前有效平台规则" rules={[{ required: true }]}>
-            <Select
-              options={data.platform_candidates.map((item) => ({
-                value: item.version.id,
-                label: `V${item.version.version} · ${item.difference.changes.length} 项变化`,
-              }))}
-            />
-          </Form.Item>
-          <List
-            size="small"
-            header="平台规则差异"
-            dataSource={data.platform_candidates}
-            renderItem={(item) => (
-              <List.Item>
-                V{item.version.version}：{item.difference.changes.map((change) => change.field).join('、') || '无变化'}
-              </List.Item>
-            )}
-          />
-          <Form.Item name="target_audience" label="目标受众" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="content_angle" label="内容角度" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="conversion_goal" label="转化目标" rules={[{ required: true }]}><Input /></Form.Item>
-          <Form.Item name="desired_format" label="内容格式" rules={[{ required: true }]}><Input /></Form.Item>
-          <Space align="start">
-            <Form.Item name="desired_length_min" label="最小长度" rules={[{ required: true }]}><InputNumber min={1} /></Form.Item>
-            <Form.Item name="desired_length_max" label="最大长度" rules={[{ required: true }]}><InputNumber min={1} /></Form.Item>
-          </Space>
-          <Form.Item name="canonical_url" label="Canonical URL" rules={[{ required: true, type: 'url' }]}><Input type="url" /></Form.Item>
           <Button
             type="primary"
             htmlType="submit"
             loading={create.isPending}
-            disabled={missingFactCandidate || missingPlatformCandidate}
+            disabled={missingFactCandidate}
           >
             创建修复任务
           </Button>

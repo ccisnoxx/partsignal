@@ -52,7 +52,6 @@ const insights = {
   filter_options: {
     content_platforms: [{ id: contentPlatformId, label: '工程师社区' }],
     geo_platforms: ['DeepSeek', 'Gemini'],
-    content_angles: ['替代选型'],
     publications: [{ id: publicationId, label: 'PS-001 选型文章', platform_name: '工程师社区' }],
     query_topics: [{ id: topicId, label: 'PS-001 如何替代？' }],
   },
@@ -155,12 +154,11 @@ test('从 URL 恢复全部筛选，筛选请求和重置继续使用同一查询
     }
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
-  renderPage(`/observations/insights?date_from=2026-07-20&date_to=2026-07-21&content_platform_id=${contentPlatformId}&geo_platform=DeepSeek&content_angle=${encodeURIComponent('替代选型')}&publication_record_id=${publicationId}&query_topic_id=${topicId}&filters_collapsed=true`);
+  renderPage(`/observations/insights?date_from=2026-07-20&date_to=2026-07-21&content_platform_id=${contentPlatformId}&geo_platform=DeepSeek&publication_record_id=${publicationId}&query_topic_id=${topicId}&filters_collapsed=true`);
 
   expect(await screen.findByText('平台表现对比')).toBeInTheDocument();
   expect(requests[0]?.get('content_platform_id')).toBe(contentPlatformId);
   expect(requests[0]?.get('geo_platform')).toBe('DeepSeek');
-  expect(requests[0]?.get('content_angle')).toBe('替代选型');
   expect(requests[0]?.get('publication_record_id')).toBe(publicationId);
   expect(requests[0]?.get('query_topic_id')).toBe(topicId);
   expect(requests[0]?.has('filters_collapsed')).toBe(false);
@@ -188,7 +186,6 @@ test('从 URL 恢复全部筛选，筛选请求和重置继续使用同一查询
     expect(params.has('filters_collapsed')).toBe(false);
   });
   expect(screen.getAllByText('全部平台')).toHaveLength(2);
-  expect(screen.getByText('全部主题')).toBeInTheDocument();
   expect(screen.getByText('全部内容')).toBeInTheDocument();
   expect(screen.getByText('全部问题')).toBeInTheDocument();
 });

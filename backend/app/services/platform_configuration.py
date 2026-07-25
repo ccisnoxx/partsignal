@@ -18,12 +18,11 @@ from app.errors import AppError, in_use, not_found
 from app.models.configuration import (
     ContentHumanizationPrompt,
     PlatformProfile,
-    PlatformProfileVersion,
     PlatformPrompt,
     PlatformType,
 )
 from app.models.content import ContentTask
-from app.models.identity import AuditLog, User
+from app.models.identity import User
 from app.models.publication import PlatformAccount
 from app.schemas.common import RevisionRequest
 from app.schemas.configuration import (
@@ -68,10 +67,6 @@ def _filtered_platform_profiles_query(
     configuration_status: PlatformConfigurationStatus | None,
 ) -> Select[tuple[PlatformProfile]]:
     """构造列表与 CSV 共用的平台筛选和稳定排序。"""
-    active_rule_exists = exists().where(
-        PlatformProfileVersion.platform_profile_id == PlatformProfile.id,
-        PlatformProfileVersion.status == "ACTIVE",
-    )
     prompt_exists = exists().where(PlatformPrompt.platform_profile_id == PlatformProfile.id)
     conditions = _platform_search_conditions(q)
     if platform_type_id is not None:
@@ -81,9 +76,10 @@ def _filtered_platform_profiles_query(
             PlatformProfile.is_active.is_(profile_status == PlatformProfileStatus.ENABLED)
         )
     if configuration_status is not None:
-        complete = active_rule_exists & prompt_exists
         conditions.append(
-            complete if configuration_status == PlatformConfigurationStatus.COMPLETE else ~complete
+            prompt_exists
+            if configuration_status == PlatformConfigurationStatus.COMPLETE
+            else ~prompt_exists
         )
     return (
         select(PlatformProfile)
@@ -95,26 +91,20 @@ def _filtered_platform_profiles_query(
 
 def _platform_summary(db: Session) -> PlatformProfileSummary:
     """实时统计全部获权平台，结果不受管理列表筛选影响。"""
-    active_rule_exists = exists().where(
-        PlatformProfileVersion.platform_profile_id == PlatformProfile.id,
-        PlatformProfileVersion.status == "ACTIVE",
-    )
     prompt_exists = exists().where(PlatformPrompt.platform_profile_id == PlatformProfile.id)
     totals = db.execute(
         select(
             func.count(PlatformProfile.id),
             func.count(PlatformProfile.id).filter(PlatformProfile.is_active.is_(True)),
             func.count(PlatformProfile.id).filter(~prompt_exists),
-            func.count(PlatformProfile.id).filter(~active_rule_exists),
-            func.count(PlatformProfile.id).filter(active_rule_exists & prompt_exists),
+            func.count(PlatformProfile.id).filter(prompt_exists),
         )
     ).one()
     return PlatformProfileSummary(
         platform_total=int(totals[0]),
         enabled_total=int(totals[1]),
         missing_prompt_total=int(totals[2]),
-        missing_active_rule_total=int(totals[3]),
-        configuration_complete_total=int(totals[4]),
+        configuration_complete_total=int(totals[3]),
     )
 
 
@@ -184,7 +174,6 @@ def export_platform_profiles(
             "官网",
             "允许域名",
             "平台状态",
-            "当前规则版本",
             "Prompt 状态",
             "发布账号数量",
             "更新时间",
@@ -198,7 +187,6 @@ def export_platform_profiles(
                 str(item.website_url) if item.website_url is not None else "",
                 ";".join(item.allowed_domains),
                 "ENABLED" if item.is_active else "DISABLED",
-                item.active_version.version if item.active_version is not None else "",
                 "CONFIGURED" if item.prompt_configured else "MISSING",
                 item.platform_account_count,
                 item.updated_at.isoformat() if item.updated_at is not None else "",
@@ -231,31 +219,13 @@ def get_platform_profile_detail(
                 ContentTask.created_at >= query_as_of - timedelta(days=30),
                 ContentTask.created_at < query_as_of,
             ),
-        )
-        .join(
-            PlatformProfileVersion,
-            PlatformProfileVersion.id == ContentTask.platform_profile_version_id,
-        )
-        .where(PlatformProfileVersion.platform_profile_id == profile.id)
+        ).where(ContentTask.platform_profile_id == profile.id)
     ).one()
     profile_projection = platform_profile_out(db, profile)
-    active_version = profile_projection.active_version
-    activated_at = (
-        db.scalar(
-            select(func.max(AuditLog.created_at)).where(
-                AuditLog.target_type == "PlatformProfileVersion",
-                AuditLog.target_id == str(active_version.id),
-                AuditLog.action == "platform_profile_version.activated",
-            )
-        )
-        if active_version is not None
-        else None
-    )
     enabled = int(account_enabled)
     total = int(account_total)
     return PlatformProfileDetail(
         profile=profile_projection,
-        current_rule_activated_at=activated_at,
         prompt_updated_at=profile_projection.prompt_updated_at,
         account_summary=PlatformAccountSummary(
             total=total,
@@ -667,53 +637,10 @@ def update_platform_profile(
     return profile
 
 
-def delete_platform_profile_version(
-    *, db: Session, platform_profile_version_id: uuid.UUID, actor: User, request_id: str
-) -> None:
-    """删除没有内容任务引用的规则版本，包括当前 ACTIVE 版本。"""
-    version = db.scalar(
-        select(PlatformProfileVersion)
-        .where(PlatformProfileVersion.id == platform_profile_version_id)
-        .with_for_update()
-    )
-    if version is None:
-        raise not_found("平台规则版本")
-    task_count = int(
-        db.scalar(
-            select(func.count())
-            .select_from(ContentTask)
-            .where(ContentTask.platform_profile_version_id == version.id)
-        )
-        or 0
-    )
-    if task_count:
-        raise in_use(
-            "PLATFORM_PROFILE_VERSION_IN_USE",
-            "平台规则版本",
-            [("CONTENT_TASK", "内容任务", task_count)],
-        )
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="platform_profile_version.deleted",
-            target_type="PlatformProfileVersion",
-            target_id=version.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="平台规则版本已删除",
-            details={"facts": {"status": version.status, "version": version.version}},
-        ),
-    )
-    db.delete(version)
-    db.commit()
-
-
 def delete_platform_profile(
     *, db: Session, platform_profile_id: uuid.UUID, actor: User, request_id: str
 ) -> None:
-    """仅删除没有规则和账号直接引用的具体平台。"""
+    """仅删除没有任务和账号直接引用的具体平台。"""
     profile = db.scalar(
         select(PlatformProfile).where(PlatformProfile.id == platform_profile_id).with_for_update()
     )
@@ -721,13 +648,13 @@ def delete_platform_profile(
         raise not_found("平台")
     references = [
         (
-            "PLATFORM_PROFILE_VERSION",
-            "平台规则版本",
+            "CONTENT_TASK",
+            "内容任务",
             int(
                 db.scalar(
                     select(func.count())
-                    .select_from(PlatformProfileVersion)
-                    .where(PlatformProfileVersion.platform_profile_id == profile.id)
+                    .select_from(ContentTask)
+                    .where(ContentTask.platform_profile_id == profile.id)
                 )
                 or 0
             ),

@@ -39,7 +39,6 @@ import type { Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
-import { evidenceTypeLabel } from '../../shared/components/enumLabels';
 import { RevisionForm } from './RevisionForm';
 
 type ReviewAction = Schema<'ContentReviewAction'>;
@@ -81,77 +80,22 @@ function QualityIssueGroup({ title, severity, issues }: { title: string; severit
 }
 
 function FactEvidencePanel({ review }: { review: ReviewContext }) {
-  const fact = review.fact_version.snapshot;
-  const evidenceStatus = new Map(review.evidence_statuses.map((item) => [item.client_key, item.file_status]));
+  const fact = review.fact_version;
+  const safeHtml = DOMPurify.sanitize(marked.parse(fact.body_markdown) as string);
   return (
-    <section id="review-facts" className="review-side-panel" aria-label="事实与审核证据">
+    <section id="review-facts" className="review-side-panel" aria-label="冻结产品事实">
       <Descriptions
         size="small"
         column={1}
         items={[
-          { label: '冻结事实', children: <span className="data-code">V{review.fact_version.version}</span> },
-          { label: '事实状态', children: <StatusTag status={review.fact_version.status} /> },
-          { label: '变更说明', children: review.fact_version.change_summary },
+          { label: '冻结事实', children: <span className="data-code">V{fact.version}</span> },
+          { label: '事实状态', children: <StatusTag status={fact.status} /> },
+          { label: '数据分级', children: <StatusTag status={fact.classification} /> },
+          { label: '变更说明', children: fact.change_summary },
         ]}
       />
-      <Divider titlePlacement="left" plain>关键参数与测试条件</Divider>
-      {fact.parameters.length === 0 ? <Typography.Text type="secondary">冻结事实没有参数</Typography.Text> : (
-        <ul className="review-data-list">
-          {fact.parameters.map((item) => (
-            <li key={item.client_key}>
-            <Descriptions
-              size="small"
-              column={1}
-              items={[
-                { label: item.name, children: item.text_value ?? item.typical_value ?? `${item.min_value ?? '—'} ～ ${item.max_value ?? '—'} ${item.unit}` },
-                { label: '测试条件', children: item.test_conditions },
-                { label: '证据键', children: item.evidence_keys.join('、') || '无' },
-              ]}
-            />
-            </li>
-          ))}
-        </ul>
-      )}
-      <Divider titlePlacement="left" plain>适用与排除边界</Divider>
-      {fact.replacement_relations.length === 0 ? <Typography.Text type="secondary">没有替代关系</Typography.Text> : (
-        <ul className="review-data-list">
-          {fact.replacement_relations.map((item) => (
-            <li key={item.client_key}>
-            <Descriptions
-              size="small"
-              column={1}
-              items={[
-                { label: '替代等级', children: <StatusTag status={item.replacement_level} /> },
-                { label: '适用条件', children: item.conditions },
-                { label: '排除边界', children: item.exclusions },
-              ]}
-            />
-            </li>
-          ))}
-        </ul>
-      )}
-      <Divider titlePlacement="left" plain>绑定证据</Divider>
-      {fact.evidences.length === 0 ? <Typography.Text type="secondary">锁定事实没有证据</Typography.Text> : (
-        <ul className="review-data-list">
-          {fact.evidences.map((item) => {
-            const fileStatus = evidenceStatus.get(item.client_key);
-            return (
-            <li key={item.client_key}>
-            <Space orientation="vertical" size={4}>
-              <Space wrap size={6}>
-                <strong>{item.title}</strong>
-                <StatusTag status={item.confidentiality} />
-                {fileStatus ? <StatusTag status={fileStatus} /> : <Typography.Text type="danger">证据状态缺失</Typography.Text>}
-              </Space>
-              <Typography.Text type="secondary">
-                {evidenceTypeLabel(item.type)} · {item.version} · {item.source_url ?? '无公开 URL'}
-              </Typography.Text>
-            </Space>
-            </li>
-            );
-          })}
-        </ul>
-      )}
+      <Divider titlePlacement="left" plain>不可变 Markdown</Divider>
+      <article className="markdown-preview review-reading-surface" dangerouslySetInnerHTML={{ __html: safeHtml }} />
     </section>
   );
 }
@@ -510,7 +454,7 @@ export function ContentEditorPage() {
                   label: '质量检查',
                   children: <section id="review-quality" className="review-side-panel" aria-label="质量检查"><QualityIssueGroup title="阻断问题" severity="BLOCKING" issues={blockingIssues} /><QualityIssueGroup title="优化建议" severity="WARNING" issues={warningIssues} /></section>,
                 },
-                { key: 'facts', label: '事实证据', children: <><FactEvidencePanel review={review} /><TraceContext review={review} /></> },
+                { key: 'facts', label: '产品事实', children: <><FactEvidencePanel review={review} /><TraceContext review={review} /></> },
                 { key: 'history', label: <Space size={5}><HistoryOutlined aria-hidden />审核记录</Space>, children: <ReviewHistoryPanel review={review} /> },
               ]}
             />

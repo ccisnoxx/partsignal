@@ -37,11 +37,6 @@ export const queryKeys = {
     prompt: (id: string | undefined) => ['platform-prompt', id] as const,
   },
   contentHumanizationPrompt: ['content-humanization-prompt'] as const,
-  platformProfileVersions: {
-    all: ['platform-profile-versions'] as const,
-    forProfile: (id: string) => ['platform-profile-versions', id] as const,
-    impact: (id: string) => ['platform-profile-version-impact', id] as const,
-  },
   platformAccounts: {
     all: ['platform-accounts'] as const,
     list: (query: PlatformAccountListQuery) => ['platform-accounts', query] as const,
@@ -71,6 +66,7 @@ export const queryKeys = {
     list: (search: string) => ['products', { search }] as const,
     detail: (id: string) => ['product', id] as const,
     draft: (id: string) => ['facts-draft', id] as const,
+    factVersion: (id: string | undefined) => ['fact-version', id] as const,
     factVersions: (id: string | undefined) => ['fact-versions', id] as const,
     factReview: (id: string | undefined) => ['fact-review-context', id] as const,
   },

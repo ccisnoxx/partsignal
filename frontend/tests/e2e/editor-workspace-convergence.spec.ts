@@ -1,11 +1,11 @@
-/** 通过真实登录和真实查询验证第三批编辑、规则工作区的视觉与表单可用性边界。 */
+/** 通过真实登录和真实查询验证编辑与 Prompt 工作区的视觉、表单可用性边界。 */
 import { expect, test, type APIResponse, type Page } from '@playwright/test';
 
 const password = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD ?? 'partsignal-admin-dev';
 const themeStorageKey = 'partsignal.theme-mode';
 
 type RuntimeTarget = {
-  key: 'products' | 'facts' | 'content' | 'rules' | 'prompts';
+  key: 'products' | 'facts' | 'content' | 'prompts';
   path: string;
   heading: string;
   root: string;
@@ -51,26 +51,12 @@ async function resolveTargets(page: Page): Promise<RuntimeTarget[]> {
   const profiles = await body<{ items: Array<{ id: string }> }>(
     await page.request.get('/api/v1/platform-profiles'),
   );
-  if (!profiles.items[0]) throw new Error('真实测试库缺少平台，无法验证规则和 Prompt 工作区');
-  let ruleProfileId: string | undefined;
-  let ruleVersionId: string | undefined;
-  for (const profile of profiles.items) {
-    const versions = await body<{ items: Array<{ id: string }> }>(
-      await page.request.get(`/api/v1/platform-profiles/${profile.id}/versions`),
-    );
-    if (versions.items[0]) {
-      ruleProfileId = profile.id;
-      ruleVersionId = versions.items[0].id;
-      break;
-    }
-  }
-  if (!ruleProfileId || !ruleVersionId) throw new Error('真实测试库缺少平台规则版本，无法验证规则工作区');
+  if (!profiles.items[0]) throw new Error('真实测试库缺少平台，无法验证 Prompt 工作区');
 
   return [
     { key: 'products', path: '/products', heading: '产品事实', root: '.products-page' },
     { key: 'facts', path: `/products/${products.items[0].id}`, heading: products.items[0].part_number, root: '.product-facts-page' },
     { key: 'content', path: `/content/${content.id}`, heading: content.title, root: '.content-review-page' },
-    { key: 'rules', path: `/configuration/platform-rules?platform_profile_id=${ruleProfileId}&version_id=${ruleVersionId}`, heading: '平台规则', root: '.platform-rules-page' },
     { key: 'prompts', path: `/configuration/prompts?tab=platform&page=1&page_size=10&platform_profile_id=${profiles.items[0].id}`, heading: 'Prompt 管理', root: '.prompt-management-page' },
   ];
 }
@@ -128,7 +114,7 @@ test('未配置自然化 Prompt 时空编辑器可用且浏览器无失败信号
   expect(failedRequests).toEqual([]);
 });
 
-test('五个目标路由在明暗主题下统一使用 PageHeader 与语义表面', async ({ page }, testInfo) => {
+test('四个目标路由在明暗主题下统一使用 PageHeader 与语义表面', async ({ page }, testInfo) => {
   const runtimeErrors: string[] = [];
   await login(page);
   const targets = await resolveTargets(page);
@@ -173,7 +159,7 @@ test('五个目标路由在明暗主题下统一使用 PageHeader 与语义表�
   expect(runtimeErrors).toEqual([]);
 });
 
-test('1024 至 320px 无页面横向溢出，规则阶段与 Prompt 列表保持有界', async ({ page }) => {
+test('1024 至 320px 无页面横向溢出，Prompt 列表保持有界', async ({ page }) => {
   await login(page);
   const targets = await resolveTargets(page);
   await page.evaluate((key) => localStorage.setItem(key, 'light'), themeStorageKey);
@@ -187,16 +173,6 @@ test('1024 至 320px 无页面横向溢出，规则阶段与 Prompt 列表保持
   }
 
   await page.setViewportSize({ width: 375, height: 900 });
-  const rules = targets.find((target) => target.key === 'rules')!;
-  await openTarget(page, rules);
-  const platformPane = page.getByRole('region', { name: '平台列表' });
-  await expect(platformPane).toBeVisible();
-  const firstPlatform = platformPane.locator('.platform-rule-platform-list > button').first();
-  await firstPlatform.focus();
-  await expect(firstPlatform).toBeFocused();
-  await firstPlatform.press('Enter');
-  await expect(page.getByRole('region', { name: '规则版本列表' })).toBeVisible();
-
   const prompts = targets.find((target) => target.key === 'prompts')!;
   await openTarget(page, prompts);
   const promptPanel = page.locator('.prompt-platform-panel');
@@ -223,7 +199,7 @@ test('键盘、错误聚焦和未保存提示保留本地输入', async ({ page 
   await expect(createDialog.getByRole('textbox', { name: '产品型号' })).toHaveValue('E2E-UNSAVED');
 
   await openTarget(page, targets.find((target) => target.key === 'facts')!);
-  await page.getByRole('button', { name: /添加参考型号/ }).click();
+  await page.getByRole('textbox', { name: '事实 Markdown' }).fill('# E2E 未保存事实');
   await page.getByRole('tab', { name: /事实版本/ }).click();
   const factsDiscard = page.getByRole('dialog', { name: '放弃未保存的事实修改？' });
   await factsDiscard.getByRole('button', { name: '继续编辑' }).click();
@@ -239,16 +215,6 @@ test('键盘、错误聚焦和未保存提示保留本地输入', async ({ page 
     await contentDiscard.getByRole('button', { name: '继续编辑' }).click();
     await expect(page.getByRole('textbox', { name: '变更说明' })).toHaveValue('E2E 未保存修订');
   }
-
-  await openTarget(page, targets.find((target) => target.key === 'rules')!);
-  await page.locator('.platform-rules-page > .page-header').getByRole('button', { name: /创建规则草稿/ }).click();
-  const ruleDialog = page.getByRole('dialog', { name: '新增规则草稿' });
-  const audience = ruleDialog.getByRole('textbox', { name: '目标受众' });
-  await audience.fill('E2E 临时受众');
-  await ruleDialog.getByRole('button', { name: /取\s*消/ }).click();
-  const ruleDiscard = page.getByRole('dialog', { name: '放弃未保存的规则草稿？' });
-  await ruleDiscard.getByRole('button', { name: '继续编辑' }).click();
-  await expect(audience).toHaveValue('E2E 临时受众');
 
   await openTarget(page, targets.find((target) => target.key === 'prompts')!);
   const promptEditor = page.getByRole('textbox', { name: 'Prompt Markdown' });

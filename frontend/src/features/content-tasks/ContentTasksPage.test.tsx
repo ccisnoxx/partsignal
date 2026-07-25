@@ -1,4 +1,4 @@
-/** 验证内容任务身份与三个次级查询各自拥有错误边界。 */
+/** 验证内容任务身份与各次级查询拥有独立错误边界。 */
 import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -25,19 +25,30 @@ vi.mock('../../shared/api/client', () => ({
 const taskId = 'task-1';
 const task = {
   id: taskId,
-  content_angle: '高可靠替代选型',
-  target_audience: '硬件工程师',
-  desired_format: '参数对比',
+  product_id: 'product-1',
+  platform_profile_id: 'platform-1',
   status: 'OPEN',
   available_actions: [],
   fact_version_id: 'fact-version-1',
-  platform_profile_version_id: 'platform-version-1',
-  platform_type_snapshot: { name: '技术社区' },
-  conversion_goal: '阅读数据手册',
-  canonical_url: 'https://example.invalid/product',
-  user_prompt_markdown: '只使用已批准事实。',
-  generation_data_classification: 'PUBLIC',
+  query_topic_id: null,
+  source_publication_attention_id: null,
   revision: 1,
+  created_by: 'user-1',
+  created_at: '2026-07-01T08:30:00Z',
+};
+const factVersion = {
+  id: task.fact_version_id,
+  product_id: task.product_id,
+  version: 1,
+  status: 'APPROVED',
+  body_markdown: '# 产品事实',
+  classification: 'PUBLIC',
+  change_summary: '批准事实',
+  revision: 1,
+  created_by: 'user-1',
+  approved_by: 'user-1',
+  created_at: task.created_at,
+  approved_at: task.created_at,
 };
 
 function result(data: unknown, status = 200) {
@@ -48,13 +59,7 @@ function listTask(index: number, status: 'OPEN' | 'COMPLETED' | 'CANCELLED', ove
   return {
     ...task,
     id: `task-${index}`,
-    content_angle: `内容主题 ${String(index).padStart(2, '0')}`,
-    target_audience: index % 2 ? '硬件工程师' : '采购团队',
-    desired_format: index % 2 ? '参数对比' : '选型指南',
-    desired_length_min: 800,
-    desired_length_max: 1200,
     status,
-    conversion_goal: '查看产品资料',
     created_at: `2026-07-${String(Math.min(index, 19)).padStart(2, '0')}T08:30:00Z`,
     product: { id: `product-${index}`, brand: 'PartSignal', part_number: `PS-${String(index).padStart(2, '0')}` },
     platform: { id: 'platform-1', name: '工程师社区', website_url: 'https://community.example.invalid', logo: null },
@@ -72,6 +77,8 @@ beforeEach(() => {
   Object.values(apiMocks).forEach((mock) => mock.mockReset());
   apiMocks.GET.mockImplementation((path: string) => {
     if (path === '/api/v1/content-tasks/{content_task_id}') return result(task);
+    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'OPEN')] });
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
     if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result(undefined, 503);
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result(undefined, 503);
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') return result(undefined, 503);
@@ -79,13 +86,13 @@ beforeEach(() => {
   });
 });
 
-test('次级查询失败不遮蔽任务身份、约束和返回入口', async () => {
+test('次级查询失败不遮蔽任务身份和返回入口', async () => {
   render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[`/tasks/${taskId}`]}><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
 
-  expect(await screen.findByRole('heading', { name: '高可靠替代选型' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'PartSignal PS-01' })).toBeInTheDocument();
   expect(screen.getByText('fact-version-1')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /返回任务列表/ })).toBeInTheDocument();
-  await waitFor(() => expect(screen.getAllByRole('alert')).toHaveLength(3), { timeout: 3_000 });
+  await waitFor(() => expect(screen.getAllByText('加载失败')).toHaveLength(3), { timeout: 3_000 });
   expect(screen.getByRole('navigation', { name: '内容任务章节' })).toBeInTheDocument();
 });
 
@@ -113,16 +120,15 @@ test('列表用真实任务状态生成摘要，并将客户端筛选写入 URL'
     if (path === '/api/v1/content-tasks') return result({ items: [
       listTask(1, 'OPEN'),
       listTask(2, 'COMPLETED'),
-      listTask(3, 'CANCELLED', { content_angle: '停用产品迁移说明', latest_generation_status: 'FAILED' }),
+      listTask(3, 'CANCELLED', { latest_generation_status: 'FAILED' }),
     ] });
     throw new Error(`未声明测试请求：${path}`);
   });
-  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks?platform_profile_id=platform-1&platform_profile_version_id=platform-version-1']}><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks?platform_profile_id=platform-1']}><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
 
   expect(await screen.findByTitle('PartSignal PS-01')).toBeInTheDocument();
   expect(screen.getByText('当前平台：工程师社区')).toBeInTheDocument();
-  expect(screen.getByText('当前规则版本：platform')).toBeInTheDocument();
-  expect(apiMocks.GET).toHaveBeenCalledWith('/api/v1/content-tasks', { params: { query: { platform_profile_id: 'platform-1', platform_profile_version_id: 'platform-version-1' } } });
+  expect(apiMocks.GET).toHaveBeenCalledWith('/api/v1/content-tasks', { params: { query: { platform_profile_id: 'platform-1' } } });
   expect(screen.getByRole('heading', { name: '内容任务台' })).toBeInTheDocument();
   expect(within(screen.getByText('全部任务').closest('.metric-tile') as HTMLElement).getByText('3')).toBeInTheDocument();
   expect(within(screen.getByText('进行中任务').closest('.metric-tile') as HTMLElement).getByText('1')).toBeInTheDocument();
@@ -135,7 +141,7 @@ test('列表用真实任务状态生成摘要，并将客户端筛选写入 URL'
   expect(screen.getByTestId('location-search')).toHaveTextContent('status=COMPLETED');
 
   await user.click(screen.getByRole('button', { name: '重置筛选' }));
-  await user.type(screen.getByRole('searchbox', { name: '搜索内容任务' }), '不存在的主题');
+  await user.type(screen.getByRole('searchbox', { name: '搜索内容任务' }), '不存在的产品');
   expect(await screen.findByText('没有符合当前筛选条件的任务')).toBeInTheDocument();
   expect(screen.getByTestId('location-search')).toHaveTextContent('q=');
 });
@@ -150,7 +156,7 @@ test('列表从 URL 恢复分页，筛选时回到第一页', async () => {
 
   expect(await screen.findByTitle('PartSignal PS-11')).toBeInTheDocument();
   expect(screen.queryByTitle('PartSignal PS-01')).not.toBeInTheDocument();
-  await user.type(screen.getByRole('searchbox', { name: '搜索内容任务' }), '内容主题 01');
+  await user.type(screen.getByRole('searchbox', { name: '搜索内容任务' }), 'PS-01');
   expect(await screen.findByTitle('PartSignal PS-01')).toBeInTheDocument();
   await waitFor(() => expect(screen.getByTestId('location-search')).not.toHaveTextContent('page='));
 });
@@ -180,9 +186,8 @@ test('对合格 AI 版本选择模型并创建自然化作业', async () => {
     created_by: 'user-1', created_at: '2026-07-17T00:00:00Z',
   };
   const options = {
-    platform_profile_version_id: task.platform_profile_version_id,
-    platform_profile_name: '工程师社区', platform_type_id: 'type-1',
-    platform_type_name: '技术社区', platform_type_slug: 'technical-community',
+    platform_profile_id: task.platform_profile_id,
+    platform_profile_name: '工程师社区',
     system_prompt_markdown: '只使用批准事实。', humanization_prompt_configured: true,
     models: [{ id: 'model-1', channel_id: 'channel-1', channel_name: '受控渠道', display_name: '自然化模型', model_id: 'model-a' }],
   };
@@ -191,6 +196,7 @@ test('对合格 AI 版本选择模型并创建自然化作业', async () => {
     if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result({ items: [source] });
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result({ items: [] });
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') return result(options);
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
     throw new Error(`未声明测试请求：${path}`);
   });
   apiMocks.POST.mockImplementation(() => result({

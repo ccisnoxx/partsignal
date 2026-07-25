@@ -17,7 +17,6 @@ from app.models.content import (
     ContentTask,
     ContentVersion,
 )
-from app.models.geo_files import FileRecord
 from app.models.identity import User
 from app.models.product_facts import (
     FactReviewRecord,
@@ -30,7 +29,6 @@ from app.schemas.content import (
     FactReviewContext,
     GenerationTrace,
     HumanizationTrace,
-    ReviewEvidenceStatus,
     ReviewRecord,
 )
 from app.schemas.product_facts import FactVersionOut
@@ -69,31 +67,6 @@ CONTENT_REVIEW_ACTIONS: dict[ContentAction, ContentReviewAction] = {
     "approve": "APPROVE",
     "request-changes": "REQUEST_CHANGES",
 }
-
-
-def _evidence_statuses(db: Session, fact: FactVersion) -> list[ReviewEvidenceStatus]:
-    """读取快照绑定文件的不可变状态，不用当前事实工作区补缺。"""
-    snapshot = fact_version_out(fact).snapshot
-    file_ids = [evidence.file_id for evidence in snapshot.evidences if evidence.file_id]
-    files = {
-        file.id: file for file in db.scalars(select(FileRecord).where(FileRecord.id.in_(file_ids)))
-    }
-    missing = sorted(str(file_id) for file_id in file_ids if file_id not in files)
-    if missing:
-        raise AppError(
-            "REVIEW_CONTEXT_INCOMPLETE",
-            "事实快照绑定的证据文件不存在",
-            409,
-            {"file_ids": missing},
-        )
-    return [
-        ReviewEvidenceStatus(
-            client_key=evidence.client_key,
-            file_id=evidence.file_id,
-            file_status=files[evidence.file_id].status if evidence.file_id else None,
-        )
-        for evidence in snapshot.evidences
-    ]
 
 
 def _fact_history(db: Session, fact: FactVersion) -> list[ReviewRecord]:
@@ -188,7 +161,6 @@ def get_fact_review_context(db: Session, fact_version_id: uuid.UUID) -> FactRevi
         raise not_found("事实版本")
     return FactReviewContext(
         fact_version=fact_version_out(fact),
-        evidence_statuses=_evidence_statuses(db, fact),
         available_actions=_fact_actions(fact),
         review_history=_fact_history(db, fact),
     )
@@ -230,7 +202,6 @@ def get_content_review_context(db: Session, content_version_id: uuid.UUID) -> Co
         content=content_version_out(content),
         task=content_task_out(db, task),
         fact_version=fact_version_out(fact),
-        evidence_statuses=_evidence_statuses(db, fact),
         diff=comparison,
         generation_trace=(
             GenerationTrace(

@@ -13,7 +13,7 @@ from app.audit import contains_sensitive_key
 from app.audit_types import AuditModule, AuditOutcome
 from app.errors import AppError, not_found
 from app.models.ai_generation import AIChannel, AIModel
-from app.models.configuration import PlatformProfile, PlatformProfileVersion
+from app.models.configuration import PlatformProfile
 from app.models.content import ContentTask, ContentVersion
 from app.models.geo_files import GeoObservation
 from app.models.identity import AuditLog, User
@@ -400,13 +400,12 @@ def _related_entry(db: Session, record: AuditLog) -> AuditRelatedEntry:
         profile = db.get(PlatformProfile, target_id) if target_id is not None else None
         return _availability(target_type, profile)
     if target_type == "PlatformProfileVersion":
-        profile_version = (
-            db.get(PlatformProfileVersion, target_id) if target_id is not None else None
-        )
-        return _availability(
-            target_type,
-            profile_version,
-            (str(profile_version.platform_profile_id) if profile_version is not None else None),
+        _changes, facts = _project_details(record)
+        platform_profile_id = facts.get("platform_profile_id")
+        return AuditRelatedEntry(
+            status="MISSING",
+            kind=target_type,
+            parent_id=platform_profile_id if isinstance(platform_profile_id, str) else None,
         )
     if target_type == "PlatformAccount":
         account = db.get(PlatformAccount, target_id) if target_id is not None else None

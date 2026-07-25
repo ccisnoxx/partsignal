@@ -23,7 +23,7 @@ describe('navigationLoaderKey', () => {
     expect(navigationLoaderKey('/configuration/ai')).toBe('aiChannels');
     expect(navigationLoaderKey('/configuration/platform-types')).toBe('platformTypes');
     expect(navigationLoaderKey('/configuration/platforms')).toBe('platforms');
-    expect(navigationLoaderKey('/configuration/platform-rules')).toBe('platformRules');
+    expect(navigationLoaderKey('/configuration/platform-rules')).toBeUndefined();
     expect(navigationLoaderKey('/configuration/prompts')).toBe('platformPrompts');
     expect(navigationLoaderKey('/settings?tab=accounts&platform_profile_id=profile-1')).toBe('settings');
     expect(navigationLoaderKey('/configuration/audit')).toBeUndefined();

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -15,10 +14,9 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
-    UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -123,21 +121,3 @@ class PlatformProfile(Base):
     logo_external_url: Mapped[str | None] = mapped_column(Text)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-
-
-class PlatformProfileVersion(Base):
-    """DRAFT 可编辑，激活或退役后冻结的平台内容规则版本。"""
-
-    __tablename__ = "platform_profile_versions"
-    __table_args__ = (UniqueConstraint("platform_profile_id", "version"),)
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
-    platform_profile_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("platform_profiles.id", ondelete="RESTRICT"), nullable=False
-    )
-    version: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[str] = mapped_column(String(24), nullable=False)
-    rules: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, server_default=func.now()
-    )

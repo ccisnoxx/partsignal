@@ -212,7 +212,6 @@ class GeoInsightPublicationOption(GeoInsightOption):
 class GeoInsightFilterOptions(ContractModel):
     content_platforms: list[GeoInsightOption]
     geo_platforms: list[str]
-    content_angles: list[str]
     publications: list[GeoInsightPublicationOption]
     query_topics: list[GeoInsightOption]
 

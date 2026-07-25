@@ -10,7 +10,15 @@ from sqlalchemy.orm import Session
 from app.errors import AppError
 from app.models.ai_generation import GenerationJob
 from app.models.content import ContentVersion
-from app.schemas.content import GenerationSnapshot, HumanizationSnapshot
+from app.schemas.content import (
+    GenerationSnapshot,
+    HumanizationSnapshot,
+    LegacyGenerationSnapshot,
+    LegacyHumanizationSnapshot,
+)
+
+GenerationSnapshotRead = LegacyGenerationSnapshot | GenerationSnapshot
+HumanizationSnapshotRead = LegacyHumanizationSnapshot | HumanizationSnapshot
 
 
 @dataclass(frozen=True)
@@ -18,7 +26,7 @@ class HumanizationLineageItem:
     """版本链中的一次自然化作业及其严格快照。"""
 
     job: GenerationJob
-    snapshot: HumanizationSnapshot
+    snapshot: HumanizationSnapshotRead
 
 
 @dataclass(frozen=True)
@@ -26,7 +34,7 @@ class ContentAILineage:
     """一个内容版本可追溯到的完整 AI 调用链。"""
 
     generation_job: GenerationJob
-    generation_snapshot: GenerationSnapshot
+    generation_snapshot: GenerationSnapshotRead
     humanizations: tuple[HumanizationLineageItem, ...]
 
 
@@ -35,7 +43,7 @@ def resolve_content_ai_lineage(db: Session, content: ContentVersion) -> ContentA
     current = content
     visited: set[object] = set()
     generation_job: GenerationJob | None = None
-    generation_snapshot: GenerationSnapshot | None = None
+    generation_snapshot: GenerationSnapshotRead | None = None
     humanizations: list[HumanizationLineageItem] = []
     while True:
         if current.id in visited:
@@ -53,10 +61,28 @@ def resolve_content_ai_lineage(db: Session, content: ContentVersion) -> ContentA
                         raise AppError(
                             "GENERATION_SNAPSHOT_INVALID", "内容链包含无效的原始生成作业", 409
                         )
-                    generation_snapshot = GenerationSnapshot.model_validate(job.input_snapshot)
+                    contract_version = job.input_snapshot.get("contract_version")
+                    if contract_version == "chat-json-v1":
+                        generation_snapshot = LegacyGenerationSnapshot.model_validate(
+                            job.input_snapshot
+                        )
+                    elif contract_version == "content-markdown-v2":
+                        generation_snapshot = GenerationSnapshot.model_validate(job.input_snapshot)
+                    else:
+                        raise AppError(
+                            "GENERATION_SNAPSHOT_INVALID", "原始生成快照版本不受支持", 409
+                        )
                     generation_job = job
                 elif job.job_type == "HUMANIZE":
-                    snapshot = HumanizationSnapshot.model_validate(job.input_snapshot)
+                    contract_version = job.input_snapshot.get("contract_version")
+                    if contract_version == "humanization-json-v1":
+                        snapshot: HumanizationSnapshotRead = (
+                            LegacyHumanizationSnapshot.model_validate(job.input_snapshot)
+                        )
+                    elif contract_version == "humanization-markdown-v2":
+                        snapshot = HumanizationSnapshot.model_validate(job.input_snapshot)
+                    else:
+                        raise AppError("GENERATION_SNAPSHOT_INVALID", "自然化快照版本不受支持", 409)
                     if (
                         current.based_on_id is None
                         or job.source_content_version_id != current.based_on_id

@@ -44,10 +44,6 @@ function relatedPath(detail: Schema<'AuditLogDetail'>): string | undefined {
       return `/observations?record=${detail.target_id}`;
     case 'PlatformProfile':
       return `/configuration/platforms?platform=${detail.target_id}`;
-    case 'PlatformProfileVersion':
-      return parentId
-        ? `/configuration/platform-rules?platform_profile_id=${parentId}&version_id=${detail.target_id}`
-        : undefined;
     case 'PlatformAccount':
       return parentId ? `/settings?tab=accounts&platform_profile_id=${parentId}` : undefined;
     case 'AIChannel':

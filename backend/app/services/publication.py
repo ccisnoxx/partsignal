@@ -15,8 +15,6 @@ from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, in_use, not_found
 from app.models.configuration import (
     PlatformProfile,
-    PlatformProfileVersion,
-    PlatformType,
     QueryTopic,
 )
 from app.models.content import (
@@ -202,11 +200,7 @@ def create_manual_publication(
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容任务不存在", 409)
     if task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能创建新发布", 409)
-    platform_version = db.get(PlatformProfileVersion, task.platform_profile_version_id)
-    if (
-        platform_version is None
-        or account.platform_profile_id != platform_version.platform_profile_id
-    ):
+    if account.platform_profile_id != task.platform_profile_id:
         raise AppError("PUBLICATION_PLATFORM_MISMATCH", "发布账号平台与内容任务锁定平台不一致", 422)
     if not domain_allowed(str(payload.section_url), profile.allowed_domains):
         raise AppError("VALIDATION_ERROR", "栏目 URL 不属于平台允许域名", 422)
@@ -492,15 +486,7 @@ def create_repair_task(
     actor: User,
     request_id: str,
 ) -> ContentTask:
-    """锁定异常与候选版本，创建上下文不可漂移的标准内容任务。"""
-    platform_profile_id = db.scalar(
-        select(PlatformProfileVersion.platform_profile_id).where(
-            PlatformProfileVersion.id == payload.platform_profile_version_id
-        )
-    )
-    profile = (
-        lock_active_platform(db, platform_profile_id) if platform_profile_id is not None else None
-    )
+    """锁定异常与事实版本，继承原任务平台创建修复任务。"""
     attention = db.scalar(
         select(PublicationAttention)
         .where(PublicationAttention.id == attention_id)
@@ -524,6 +510,7 @@ def create_repair_task(
     product = db.get(Product, original_task.product_id)
     if product is None or product.status != "ACTIVE":
         raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能创建修复任务", 409)
+    profile = lock_active_platform(db, original_task.platform_profile_id)
     if (
         original_task.query_topic_id is not None
         and db.get(QueryTopic, original_task.query_topic_id) is None
@@ -532,48 +519,19 @@ def create_repair_task(
     fact = db.scalar(
         select(FactVersion).where(FactVersion.id == payload.fact_version_id).with_for_update()
     )
-    platform_version = db.scalar(
-        select(PlatformProfileVersion)
-        .where(PlatformProfileVersion.id == payload.platform_profile_version_id)
-        .with_for_update()
-    )
-    original_platform = db.get(PlatformProfileVersion, original_task.platform_profile_version_id)
-    if fact is None or fact.status != "APPROVED" or fact.product_id != original_task.product_id:
-        raise AppError("FACT_NOT_APPROVED", "修复任务必须选择当前已批准的同产品事实版本", 409)
     if (
-        platform_version is None
-        or platform_version.status != "ACTIVE"
-        or original_platform is None
-        or platform_version.platform_profile_id != original_platform.platform_profile_id
+        fact is None
+        or fact.status != "APPROVED"
+        or not fact.body_markdown.strip()
+        or fact.product_id != original_task.product_id
     ):
-        raise AppError("INVALID_STATE_TRANSITION", "修复任务必须选择原平台当前 ACTIVE 规则", 409)
-    platform_type = (
-        db.get(PlatformType, profile.platform_type_id)
-        if profile is not None and profile.platform_type_id is not None
-        else None
-    )
-    if platform_type is None:
-        raise AppError("PLATFORM_TYPE_MISSING", "原平台类型不存在，不能创建修复任务", 409)
+        raise AppError("FACT_NOT_APPROVED", "修复任务必须选择当前已批准的同产品事实版本", 409)
     task = ContentTask(
         query_topic_id=original_task.query_topic_id,
         product_id=original_task.product_id,
         fact_version_id=fact.id,
-        platform_profile_version_id=platform_version.id,
-        platform_type_id=platform_type.id,
-        platform_type_snapshot={
-            "id": str(platform_type.id),
-            "name": platform_type.name,
-            "slug": platform_type.slug,
-        },
-        user_prompt_markdown="",
+        platform_profile_id=profile.id,
         source_publication_attention_id=attention.id,
-        target_audience=payload.target_audience,
-        content_angle=payload.content_angle,
-        conversion_goal=payload.conversion_goal,
-        desired_format=payload.desired_format,
-        desired_length_min=payload.desired_length_min,
-        desired_length_max=payload.desired_length_max,
-        canonical_url=str(payload.canonical_url),
         created_by=actor.id,
     )
     db.add(task)
@@ -593,7 +551,7 @@ def create_repair_task(
                 "facts": {
                     "repair_task_id": str(task.id),
                     "fact_version_id": str(fact.id),
-                    "platform_profile_version_id": str(platform_version.id),
+                    "platform_profile_id": str(profile.id),
                 }
             },
         ),

@@ -66,8 +66,6 @@ const candidate = {
   task_id: content.task_id,
   platform_profile_id: '50000000-0000-4000-8000-000000000001',
   platform_profile_name: '工程师社区',
-  platform_profile_version_id: '51000000-0000-4000-8000-000000000001',
-  platform_profile_version: 2,
   matching_accounts: [{
     id: '52000000-0000-4000-8000-000000000001',
     platform_profile_id: '50000000-0000-4000-8000-000000000001',
@@ -171,7 +169,7 @@ test('候选登记抽屉只展示匹配账号并在放弃未提交内容前确�
     const common = commonWorkspaceResponse(request, { candidates: [candidate] });
     if (common) return common;
     const path = new URL(request.url).pathname;
-    if (path.endsWith('/publication-package')) return { body: { content_version_id: content.id, fact_version_id: content.fact_version_id, title: content.title, body_markdown: content.body_markdown, body_html: '<p>正文</p>', body_text: '正文', tags: [], canonical_url: 'https://product.example.invalid/demo', content_hash: content.content_hash } satisfies Schema<'PublicationPackage'> };
+    if (path.endsWith('/publication-package')) return { body: { content_version_id: content.id, fact_version_id: content.fact_version_id, title: content.title, body_markdown: content.body_markdown, body_html: '<p>正文</p>', body_text: '正文', tags: [], content_hash: content.content_hash } satisfies Schema<'PublicationPackage'> };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
   render(<App />);

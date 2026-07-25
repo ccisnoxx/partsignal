@@ -340,7 +340,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
                 (
                     [
                         "fact_versions_guard",
-                        "content_tasks_type_guard",
+                        "content_tasks_platform_guard",
                         "content_versions_guard",
                         "publication_records_guard",
                     ],
@@ -348,10 +348,28 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
             )
             assert {row[0] for row in cursor.fetchall()} == {
                 "fact_versions_guard",
-                "content_tasks_type_guard",
+                "content_tasks_platform_guard",
                 "content_versions_guard",
                 "publication_records_guard",
             }
+            cursor.execute(
+                "SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
+                "AND tablename = ANY(%s)",
+                (
+                    [
+                        "reference_parts",
+                        "evidences",
+                        "part_parameters",
+                        "replacement_relations",
+                        "fact_claims",
+                        "parameter_evidence_links",
+                        "replacement_evidence_links",
+                        "claim_evidence_links",
+                        "platform_profile_versions",
+                    ],
+                ),
+            )
+            assert cursor.fetchall() == []
             cursor.execute(
                 "SELECT username, account_type, must_change_password, password_hash "
                 "FROM users ORDER BY username"
@@ -1813,3 +1831,472 @@ def test_audit_outcome_migration_rejects_unknown_history_atomically() -> None:
             assert cursor.fetchone() == (0,)
             cursor.execute("SELECT action FROM audit_logs WHERE id = %s", (unknown_id,))
             assert cursor.fetchone() == ("unknown.action",)
+
+
+@pytest.mark.integration
+def test_markdown_facts_migration_rejects_active_legacy_jobs_atomically() -> None:
+    """0025 必须在删旧结构前拒绝仍可能调用供应商的旧契约作业。"""
+    with temporary_database("partsignal_markdown_active_job") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0022_geo_observation_insights")
+        task_id = seed_legacy_content_task(test_url)
+        run_alembic(env, backend_dir, "0024_audit_outcome")
+        job_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT created_by FROM content_tasks WHERE id = %s", (task_id,))
+            actor_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO generation_jobs "
+                "(id, content_task_id, idempotency_key, job_type, status, input_snapshot, "
+                "adapter_name, prompt_template_version, prompt_hash, attempt_count, created_by) "
+                "VALUES (%s, %s, %s, 'GENERATE', 'PENDING', "
+                "'{\"contract_version\":\"chat-json-v1\"}'::jsonb, "
+                "'openai-compatible-chat-completions', 'chat-json-v1', %s, 0, %s)",
+                (job_id, task_id, f"legacy-active-{job_id}", "a" * 64, actor_id),
+            )
+            connection.commit()
+
+        result = run_alembic(
+            env,
+            backend_dir,
+            "0025_markdown_facts",
+            check=False,
+        )
+        assert result.returncode != 0
+        output = result.stdout + result.stderr
+        assert "0025 迁移前必须终止旧契约活动作业" in output
+        assert str(job_id) in output
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0024_audit_outcome",)
+            cursor.execute(
+                "SELECT count(*) FROM information_schema.columns "
+                "WHERE table_name = 'products' AND column_name = 'facts_body_markdown'"
+            )
+            assert cursor.fetchone() == (0,)
+            cursor.execute("SELECT status FROM generation_jobs WHERE id = %s", (job_id,))
+            assert cursor.fetchone() == ("PENDING",)
+
+
+@pytest.mark.integration
+def test_markdown_facts_migration_converts_history_and_targets_direct_platform_schema() -> None:
+    """0025 只渲染旧值、保守分级、保留历史引用并删除两套废弃模型。"""
+    with temporary_database("partsignal_markdown_facts") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0022_geo_observation_insights")
+        task_id = seed_legacy_content_task(test_url)
+        run_alembic(env, backend_dir, "0024_audit_outcome")
+        ids = {
+            name: uuid.uuid4()
+            for name in (
+                "fact",
+                "reference",
+                "public_evidence",
+                "unknown_evidence",
+                "parameter",
+                "replacement",
+                "claim",
+            )
+        }
+        fact_snapshot = {
+            "reference_parts": [
+                {
+                    "client_key": "snapshot-ref",
+                    "part_number": "SNAP-REF",
+                    "manufacturer": "快照厂商",
+                    "category": "快照分类",
+                }
+            ],
+            "parameters": [],
+            "replacement_relations": [],
+            "evidences": [
+                {
+                    "client_key": "snapshot-source",
+                    "type": "DATASHEET",
+                    "title": "内部快照来源",
+                    "version": "2.0",
+                    "source_url": None,
+                    "file_id": None,
+                    "confidentiality": "INTERNAL",
+                }
+            ],
+            "claims": [
+                {
+                    "client_key": "snapshot-claim",
+                    "type": "APPROVED",
+                    "text": "只保留快照中的事实。",
+                    "evidence_keys": ["snapshot-source"],
+                }
+            ],
+        }
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT product_id, fact_version_id, platform_profile_version_id, "
+                "platform_type_id, created_by FROM content_tasks WHERE id = %s",
+                (task_id,),
+            )
+            (
+                product_id,
+                empty_fact_id,
+                platform_version_id,
+                platform_type_id,
+                actor_id,
+            ) = cursor.fetchone()
+            cursor.execute(
+                "SELECT platform_profile_id FROM platform_profile_versions WHERE id = %s",
+                (platform_version_id,),
+            )
+            platform_profile_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO fact_versions "
+                "(id, product_id, version, status, snapshot_json, change_summary, revision, "
+                "created_by, approved_by, approved_at) "
+                "VALUES (%s, %s, 2, 'APPROVED', %s::jsonb, '结构化快照', 0, %s, %s, now())",
+                (
+                    ids["fact"],
+                    product_id,
+                    json.dumps(fact_snapshot, ensure_ascii=False),
+                    actor_id,
+                    actor_id,
+                ),
+            )
+            cursor.execute(
+                "UPDATE content_tasks SET fact_version_id = %s WHERE id = %s",
+                (ids["fact"], task_id),
+            )
+            cursor.execute(
+                "INSERT INTO reference_parts "
+                "(id, product_id, client_key, part_number, normalized_part_number, "
+                "manufacturer, normalized_manufacturer, category) "
+                "VALUES (%s, %s, 'ref-a', 'REF-A', 'refa', '旧厂商', '旧厂商', 'MCU')",
+                (ids["reference"], product_id),
+            )
+            cursor.executemany(
+                "INSERT INTO evidences "
+                "(id, product_id, client_key, type, title, version, source_url, "
+                "file_record_id, confidentiality) "
+                "VALUES (%s, %s, %s, 'DATASHEET', %s, '1.0', %s, NULL, %s)",
+                [
+                    (
+                        ids["unknown_evidence"],
+                        product_id,
+                        "mystery",
+                        "未知分级来源",
+                        None,
+                        "LEGACY_UNKNOWN",
+                    ),
+                    (
+                        ids["public_evidence"],
+                        product_id,
+                        "datasheet",
+                        "公开数据手册",
+                        "https://docs.example.invalid/a.pdf",
+                        "PUBLIC",
+                    ),
+                ],
+            )
+            cursor.execute(
+                "INSERT INTO part_parameters "
+                "(id, product_id, owner_product_id, reference_part_id, client_key, key, name, "
+                "value_type, min_value, typical_value, max_value, text_value, unit, "
+                "test_conditions, is_critical) "
+                "VALUES (%s, %s, %s, NULL, 'power', 'power', '功耗', 'NUMERIC', "
+                "NULL, 1.25, 2.5, NULL, 'W', '室温', true)",
+                (ids["parameter"], product_id, product_id),
+            )
+            cursor.execute(
+                "INSERT INTO replacement_relations "
+                "(id, product_id, reference_part_id, client_key, replacement_level, "
+                "conditions, exclusions) "
+                "VALUES (%s, %s, %s, 'replace-a', 'PARAMETER_COMPATIBLE', "
+                "'仅限已验证条件', '不适用于未知场景')",
+                (ids["replacement"], product_id, ids["reference"]),
+            )
+            cursor.execute(
+                "INSERT INTO fact_claims (id, product_id, client_key, type, text) "
+                "VALUES (%s, %s, 'claim-a', 'APPROVED', '迁移只表达旧字段。')",
+                (ids["claim"], product_id),
+            )
+            cursor.execute(
+                "INSERT INTO parameter_evidence_links (parameter_id, evidence_id) "
+                "VALUES (%s, %s)",
+                (ids["parameter"], ids["public_evidence"]),
+            )
+            cursor.execute(
+                "INSERT INTO replacement_evidence_links (replacement_id, evidence_id) "
+                "VALUES (%s, %s)",
+                (ids["replacement"], ids["public_evidence"]),
+            )
+            cursor.execute(
+                "INSERT INTO claim_evidence_links (claim_id, evidence_id) VALUES (%s, %s)",
+                (ids["claim"], ids["public_evidence"]),
+            )
+            connection.commit()
+
+        publication_id = seed_legacy_publication(test_url, task_id, cross_platform=False)
+        run_alembic(env, backend_dir, "0025_markdown_facts")
+
+        expected_workspace = """## 参考型号
+
+### 记录 1
+- `client_key`: "ref-a"
+- `part_number`: "REF-A"
+- `manufacturer`: "旧厂商"
+- `category`: "MCU"
+
+## 参数
+
+### 记录 1
+- `client_key`: "power"
+- `owner_key`: "product"
+- `key`: "power"
+- `name`: "功耗"
+- `value_type`: "NUMERIC"
+- `min_value`: null
+- `typical_value`: 1.25
+- `max_value`: 2.5
+- `text_value`: null
+- `unit`: "W"
+- `test_conditions`: "室温"
+- `is_critical`: true
+- `evidence_keys`: ["datasheet"]
+
+## 替代关系
+
+### 记录 1
+- `client_key`: "replace-a"
+- `reference_part_key`: "ref-a"
+- `replacement_level`: "PARAMETER_COMPATIBLE"
+- `conditions`: "仅限已验证条件"
+- `exclusions`: "不适用于未知场景"
+- `evidence_keys`: ["datasheet"]
+
+## 证据
+
+### 记录 1
+- `client_key`: "datasheet"
+- `type`: "DATASHEET"
+- `title`: "公开数据手册"
+- `version`: "1.0"
+- `source_url`: "https://docs.example.invalid/a.pdf"
+- `file_id`: null
+- `confidentiality`: "PUBLIC"
+
+### 记录 2
+- `client_key`: "mystery"
+- `type`: "DATASHEET"
+- `title`: "未知分级来源"
+- `version`: "1.0"
+- `source_url`: null
+- `file_id`: null
+- `confidentiality`: "LEGACY_UNKNOWN"
+
+## 声明
+
+### 记录 1
+- `client_key`: "claim-a"
+- `type`: "APPROVED"
+- `text`: "迁移只表达旧字段。"
+- `evidence_keys`: ["datasheet"]"""
+        expected_fact = """## 参考型号
+
+### 记录 1
+- `client_key`: "snapshot-ref"
+- `part_number`: "SNAP-REF"
+- `manufacturer`: "快照厂商"
+- `category`: "快照分类"
+
+## 证据
+
+### 记录 1
+- `client_key`: "snapshot-source"
+- `type`: "DATASHEET"
+- `title`: "内部快照来源"
+- `version`: "2.0"
+- `source_url`: null
+- `file_id`: null
+- `confidentiality`: "INTERNAL"
+
+## 声明
+
+### 记录 1
+- `client_key`: "snapshot-claim"
+- `type`: "APPROVED"
+- `text`: "只保留快照中的事实。"
+- `evidence_keys`: ["snapshot-source"]"""
+        removed_tables = {
+            "reference_parts",
+            "evidences",
+            "part_parameters",
+            "replacement_relations",
+            "fact_claims",
+            "parameter_evidence_links",
+            "replacement_evidence_links",
+            "claim_evidence_links",
+            "platform_profile_versions",
+        }
+        removed_task_columns = {
+            "platform_profile_version_id",
+            "platform_type_id",
+            "platform_type_snapshot",
+            "user_prompt_markdown",
+            "generation_data_classification",
+            "generation_data_classified_by",
+            "generation_data_classified_at",
+            "target_audience",
+            "content_angle",
+            "conversion_goal",
+            "desired_format",
+            "desired_length_min",
+            "desired_length_max",
+            "canonical_url",
+        }
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT facts_body_markdown, facts_classification FROM products WHERE id = %s",
+                (product_id,),
+            )
+            assert cursor.fetchone() == (expected_workspace, "RESTRICTED")
+            cursor.execute(
+                "SELECT id, body_markdown, classification FROM fact_versions "
+                "WHERE product_id = %s ORDER BY version",
+                (product_id,),
+            )
+            assert cursor.fetchall() == [
+                (empty_fact_id, "", "RESTRICTED"),
+                (ids["fact"], expected_fact, "INTERNAL"),
+            ]
+            cursor.execute(
+                "SELECT fact_version_id, platform_profile_id FROM content_tasks WHERE id = %s",
+                (task_id,),
+            )
+            assert cursor.fetchone() == (ids["fact"], platform_profile_id)
+            cursor.execute(
+                "SELECT count(*) FROM publication_records WHERE id = %s",
+                (publication_id,),
+            )
+            assert cursor.fetchone() == (1,)
+
+            cursor.execute(
+                "SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
+                "AND tablename = ANY(%s)",
+                (list(removed_tables),),
+            )
+            assert cursor.fetchall() == []
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'content_tasks'"
+            )
+            task_columns = {row[0] for row in cursor.fetchall()}
+            assert "platform_profile_id" in task_columns
+            assert not task_columns & removed_task_columns
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'fact_versions'"
+            )
+            fact_columns = {row[0] for row in cursor.fetchall()}
+            assert {"body_markdown", "classification"} <= fact_columns
+            assert "snapshot_json" not in fact_columns
+            cursor.execute(
+                "SELECT indexname FROM pg_indexes WHERE tablename = 'content_tasks'"
+            )
+            task_indexes = {row[0] for row in cursor.fetchall()}
+            assert "ix_content_tasks_platform_profile_created_at" in task_indexes
+            assert "ix_content_tasks_platform_profile_version_created_at" not in task_indexes
+            cursor.execute(
+                "SELECT conname FROM pg_constraint "
+                "WHERE conrelid IN ('products'::regclass, 'fact_versions'::regclass, "
+                "'content_tasks'::regclass)"
+            )
+            constraints = {row[0] for row in cursor.fetchall()}
+            assert {
+                "ck_products_facts_classification",
+                "ck_fact_versions_classification",
+                "fk_content_tasks_platform_profile_id",
+            } <= constraints
+            cursor.execute(
+                "SELECT pg_get_functiondef("
+                "'partsignal_validate_publication_insert()'::regprocedure)"
+            )
+            publication_guard = cursor.fetchone()[0]
+            assert "ct.platform_profile_id" in publication_guard
+            assert "platform_profile_versions" not in publication_guard
+
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "INSERT INTO content_tasks "
+                    "(id, query_topic_id, product_id, fact_version_id, platform_profile_id, "
+                    "status, revision, created_by) "
+                    "VALUES (%s, NULL, %s, %s, %s, 'OPEN', 0, %s)",
+                    (
+                        uuid.uuid4(),
+                        product_id,
+                        empty_fact_id,
+                        platform_profile_id,
+                        actor_id,
+                    ),
+                )
+            connection.rollback()
+
+            other_profile_id = uuid.uuid4()
+            other_account_id = uuid.uuid4()
+            cursor.execute(
+                "INSERT INTO platform_profiles "
+                "(id, name, slug, allowed_domains, platform_type_id, revision, is_active) "
+                "VALUES (%s, '迁移后其他平台', %s, ARRAY['other.example.invalid'], %s, 0, true)",
+                (
+                    other_profile_id,
+                    f"post-migration-{other_profile_id.hex[:12]}",
+                    platform_type_id,
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO platform_accounts "
+                "(id, platform_profile_id, label, account_identifier, is_active) "
+                "VALUES (%s, %s, '其他账号', %s, true)",
+                (
+                    other_account_id,
+                    other_profile_id,
+                    f"post-migration-{other_account_id.hex[:12]}",
+                ),
+            )
+            connection.commit()
+            cursor.execute(
+                "SELECT content_version_id, content_hash, created_by "
+                "FROM publication_records WHERE id = %s",
+                (publication_id,),
+            )
+            content_version_id, content_hash, publication_actor_id = cursor.fetchone()
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "INSERT INTO publication_records "
+                    "(id, idempotency_key, content_version_id, platform_account_id, "
+                    "section_url, status, content_hash, created_by) "
+                    "VALUES (%s, %s, %s, %s, 'https://other.example.invalid/section', "
+                    "'PENDING_MANUAL_PUBLISH', %s, %s)",
+                    (
+                        uuid.uuid4(),
+                        f"wrong-platform-{uuid.uuid4()}",
+                        content_version_id,
+                        other_account_id,
+                        content_hash,
+                        publication_actor_id,
+                    ),
+                )
+            connection.rollback()
+
+        downgrade = subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0024_audit_outcome"],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "0025 不支持有损降级" in downgrade.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0025_markdown_facts",)

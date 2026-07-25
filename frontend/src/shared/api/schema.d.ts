@@ -476,86 +476,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/platform-profile-versions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listAllPlatformProfileVersions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform-profiles/{platform_profile_id}/versions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listPlatformProfileVersions"];
-        put?: never;
-        post: operations["createPlatformProfileVersion"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform-profile-versions/{platform_profile_version_id}/activate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["activatePlatformProfileVersion"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform-profile-versions/{platform_profile_version_id}/retire": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["retirePlatformProfileVersion"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform-profile-versions/{platform_profile_version_id}/impact": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getPlatformProfileVersionImpact"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/platform-profiles/{platform_profile_id}": {
         parameters: {
             query?: never;
@@ -602,22 +522,6 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/v1/platform-profile-versions/{platform_profile_version_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["deletePlatformProfileVersion"];
-        options?: never;
-        head?: never;
-        patch: operations["updatePlatformProfileVersion"];
         trace?: never;
     };
     "/api/v1/platform-profiles/{platform_profile_id}/prompt": {
@@ -958,22 +862,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/content-tasks/{content_task_id}/user-prompt": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["updateContentTaskUserPrompt"];
-        trace?: never;
-    };
     "/api/v1/content-tasks/{content_task_id}/generation-options": {
         parameters: {
             query?: never;
@@ -1032,6 +920,22 @@ export interface paths {
         get: operations["listContentTaskVersions"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-tasks/{content_task_id}/manual-versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createManualContentVersion"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1798,76 +1702,18 @@ export interface components {
             page_size: number;
             total: number;
         };
-        ReferencePart: {
-            client_key: string;
-            part_number: string;
-            manufacturer: string;
-            category: string;
-        };
-        /** @enum {string} */
-        ParameterValueType: "NUMERIC" | "RANGE" | "TEXT";
-        PartParameter: {
-            client_key: string;
-            /** @description product 或 ReferencePart.client_key */
-            owner_key: string;
-            key: string;
-            name: string;
-            value_type: components["schemas"]["ParameterValueType"];
-            min_value?: number | null;
-            typical_value?: number | null;
-            max_value?: number | null;
-            text_value?: string | null;
-            unit: string;
-            test_conditions: string;
-            is_critical: boolean;
-            evidence_keys: string[];
-        };
-        /** @enum {string} */
-        ReplacementLevel: "FUNCTIONALLY_SIMILAR" | "PARAMETER_COMPATIBLE" | "PIN_COMPATIBLE" | "PIN_TO_PIN" | "PROTOTYPE_VALIDATED" | "TEMPERATURE_VALIDATED" | "MASS_PRODUCTION_VALIDATED";
-        ReplacementRelation: {
-            client_key: string;
-            reference_part_key: string;
-            replacement_level: components["schemas"]["ReplacementLevel"];
-            conditions: string;
-            exclusions: string;
-            evidence_keys: string[];
-        };
-        /** @enum {string} */
-        EvidenceType: "DATASHEET" | "TEST_REPORT" | "APPLICATION_NOTE" | "CUSTOMER_AUTHORIZATION" | "OTHER";
         /** @enum {string} */
         Confidentiality: "PUBLIC" | "INTERNAL" | "RESTRICTED";
-        Evidence: {
-            client_key: string;
-            type: components["schemas"]["EvidenceType"];
-            title: string;
-            version: string;
-            /** Format: uri */
-            source_url?: string | null;
-            /** Format: uuid */
-            file_id?: string | null;
-            confidentiality: components["schemas"]["Confidentiality"];
-        };
-        /** @enum {string} */
-        ClaimType: "APPROVED" | "PROHIBITED" | "REQUIRED_DISCLOSURE";
-        FactClaim: {
-            client_key: string;
-            type: components["schemas"]["ClaimType"];
-            text: string;
-            evidence_keys: string[];
-        };
-        ProductFactsBody: {
-            reference_parts: components["schemas"]["ReferencePart"][];
-            parameters: components["schemas"]["PartParameter"][];
-            replacement_relations: components["schemas"]["ReplacementRelation"][];
-            evidences: components["schemas"]["Evidence"][];
-            claims: components["schemas"]["FactClaim"][];
-        };
-        ProductFactsDraftUpdate: components["schemas"]["ProductFactsBody"] & {
+        ProductFactsDraftUpdate: {
             expected_revision: number;
+            body_markdown: string;
+            classification: components["schemas"]["Confidentiality"];
         };
-        ProductFactsDraft: components["schemas"]["ProductFactsBody"] & {
+        ProductFactsDraft: {
             /** Format: uuid */
             product_id: string;
+            body_markdown: string;
+            classification: components["schemas"]["Confidentiality"];
             revision: number;
         };
         /** @enum {string} */
@@ -1893,7 +1739,8 @@ export interface components {
             product_id: string;
             version: number;
             status: components["schemas"]["FactVersionStatus"];
-            snapshot: components["schemas"]["ProductFactsBody"];
+            body_markdown: string;
+            classification: components["schemas"]["Confidentiality"];
             change_summary: string;
             revision: number;
             /** Format: uuid */
@@ -1990,67 +1837,6 @@ export interface components {
             url: string;
         };
         PlatformLogo: components["schemas"]["PlatformLogoUpload"] | components["schemas"]["PlatformLogoExternal"];
-        PlatformProfileVersionCreate: {
-            rules: components["schemas"]["PlatformRules"];
-        };
-        PlatformProfileVersionUpdate: {
-            expected_revision: number;
-            rules: components["schemas"]["PlatformRules"];
-        };
-        PlatformRules: {
-            target_audience: string;
-            title_min: number;
-            title_max: number;
-            body_min: number;
-            body_max: number;
-            tone: string;
-            allow_external_links: boolean;
-            allow_tables: boolean;
-            allow_contact: boolean;
-            prohibited_phrases: string[];
-            sections: components["schemas"]["PlatformSection"][];
-        };
-        PlatformSection: {
-            name: string;
-            /** Format: uri */
-            url: string;
-        };
-        PlatformProfileVersion: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            platform_profile_id: string;
-            version: number;
-            /** @enum {string} */
-            status: "DRAFT" | "ACTIVE" | "RETIRED";
-            rules: components["schemas"]["PlatformRules"];
-            revision: number;
-            /** Format: date-time */
-            created_at: string;
-        };
-        /** @enum {string} */
-        PlatformProfileVersionAction: "EDIT" | "ACTIVATE" | "RETIRE" | "DELETE";
-        PlatformProfileVersionSummary: components["schemas"]["PlatformProfileVersion"] & {
-            /** Format: uuid */
-            created_by: string | null;
-            /** Format: date-time */
-            activated_at: string | null;
-            /** Format: date-time */
-            last_changed_at: string;
-            reference_count: number;
-            available_actions: components["schemas"]["PlatformProfileVersionAction"][];
-        };
-        PlatformProfileVersionList: {
-            items: components["schemas"]["PlatformProfileVersionSummary"][];
-        };
-        PlatformRuleImpactSummary: {
-            /** Format: date-time */
-            as_of: string;
-            bound_task_total: number;
-            unpublished_task_total: number;
-            reviewing_task_total: number;
-            published_task_total: number;
-        };
         /** @enum {string} */
         PlatformProfileStatus: "ENABLED" | "DISABLED";
         /** @enum {string} */
@@ -2075,14 +1861,13 @@ export interface components {
             logo: components["schemas"]["PlatformLogo"] | null;
             revision: number;
             is_active: boolean;
-            active_version: components["schemas"]["PlatformProfileVersion"] | null;
             prompt_configured: boolean;
             /**
              * Format: date-time
              * @description 当前具体平台 Prompt 的最近更新时间；未配置时为 null
              */
             prompt_updated_at: string | null;
-            /** @description 同时存在 ACTIVE 规则和当前具体平台 Prompt */
+            /** @description 当前具体平台已配置 Prompt，可用于系统 AI 生成 */
             configuration_complete: boolean;
             platform_account_count: number;
             /**
@@ -2095,7 +1880,6 @@ export interface components {
             platform_total: number;
             enabled_total: number;
             missing_prompt_total: number;
-            missing_active_rule_total: number;
             configuration_complete_total: number;
         };
         PlatformProfileList: {
@@ -2117,13 +1901,11 @@ export interface components {
             as_of: string;
             /** @description ContentTask.created_at 位于半开区间 [as_of-30天, as_of) 的唯一任务数 */
             recent_30_days: number;
-            /** @description 引用平台任一规则版本的全部唯一 ContentTask 数 */
+            /** @description 直接绑定平台的全部唯一 ContentTask 数 */
             all_time: number;
         };
         PlatformProfileDetail: {
             profile: components["schemas"]["PlatformProfile"];
-            /** Format: date-time */
-            current_rule_activated_at: string | null;
             /** Format: date-time */
             prompt_updated_at: string | null;
             account_summary: components["schemas"]["PlatformAccountSummary"];
@@ -2379,32 +2161,13 @@ export interface components {
             /** Format: uuid */
             fact_version_id: string;
             /** Format: uuid */
-            platform_profile_version_id: string;
-            target_audience: string;
-            content_angle: string;
-            conversion_goal: string;
-            desired_format: string;
-            desired_length_min: number;
-            desired_length_max: number;
-            /** Format: uri */
-            canonical_url: string;
+            platform_profile_id: string;
         };
         ContentTask: components["schemas"]["ContentTaskCreate"] & {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
             query_topic_id: string | null;
-            /** Format: uuid */
-            platform_type_id: string | null;
-            platform_type_snapshot: {
-                [key: string]: unknown;
-            } | null;
-            user_prompt_markdown: string;
-            generation_data_classification: components["schemas"]["Confidentiality"] | null;
-            /** Format: uuid */
-            generation_data_classified_by: string | null;
-            /** Format: date-time */
-            generation_data_classified_at: string | null;
             /** Format: uuid */
             source_publication_attention_id: string | null;
             available_actions: "CANCEL"[];
@@ -2437,11 +2200,6 @@ export interface components {
             platform: components["schemas"]["ContentTaskPlatformSummary"];
             latest_generation_status: components["schemas"]["GenerationJobStatus"] | null;
         };
-        ContentTaskUserPromptUpdate: {
-            expected_revision: number;
-            user_prompt_markdown: string;
-            generation_data_classification: components["schemas"]["Confidentiality"];
-        };
         GenerationOptionModel: {
             /** Format: uuid */
             id: string;
@@ -2453,12 +2211,8 @@ export interface components {
         };
         GenerationOptions: {
             /** Format: uuid */
-            platform_profile_version_id: string;
+            platform_profile_id: string;
             platform_profile_name: string;
-            /** Format: uuid */
-            platform_type_id: string;
-            platform_type_name: string;
-            platform_type_slug: string;
             system_prompt_markdown: string;
             humanization_prompt_configured: boolean;
             models: components["schemas"]["GenerationOptionModel"][];
@@ -2500,11 +2254,12 @@ export interface components {
             finished_at?: string | null;
         };
         GenerationJobDetail: components["schemas"]["GenerationJob"] & {
-            input_snapshot: components["schemas"]["GenerationSnapshot"] | components["schemas"]["HumanizationSnapshot"];
+            input_snapshot: components["schemas"]["LegacyGenerationSnapshot"] | components["schemas"]["GenerationSnapshot"] | components["schemas"]["LegacyHumanizationSnapshot"] | components["schemas"]["HumanizationSnapshot"];
         };
-        GenerationSnapshot: {
+        LegacyGenerationSnapshot: {
             adapter_name: string;
-            contract_version: string;
+            /** @constant */
+            contract_version: "chat-json-v1";
             channel: {
                 [key: string]: unknown;
             };
@@ -2519,11 +2274,11 @@ export interface components {
             } | null;
             system_message: string;
             user_prompt_markdown: string;
-            generation_data_classification?: components["schemas"]["Confidentiality"];
+            generation_data_classification?: components["schemas"]["Confidentiality"] | null;
             /** Format: uuid */
-            generation_data_classified_by?: string;
+            generation_data_classified_by?: string | null;
             /** Format: date-time */
-            generation_data_classified_at?: string;
+            generation_data_classified_at?: string | null;
             approved_facts: {
                 [key: string]: unknown;
             };
@@ -2532,6 +2287,33 @@ export interface components {
             };
             user_message: string;
         };
+        GenerationFactSnapshot: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            product_id: string;
+            version: number;
+            classification: components["schemas"]["Confidentiality"];
+        };
+        GenerationSnapshot: {
+            /** @constant */
+            adapter_name: "openai-compatible-chat-completions";
+            /** @constant */
+            contract_version: "content-markdown-v2";
+            channel: {
+                [key: string]: unknown;
+            };
+            model: {
+                [key: string]: unknown;
+            };
+            platform_profile: {
+                [key: string]: unknown;
+            };
+            fact_version: components["schemas"]["GenerationFactSnapshot"];
+            system_message: string;
+            user_message: string;
+        };
+        GenerationInputSnapshot: components["schemas"]["LegacyGenerationSnapshot"] | components["schemas"]["GenerationSnapshot"];
         HumanizationPromptSnapshot: {
             revision: number;
             template_markdown: string;
@@ -2550,7 +2332,7 @@ export interface components {
             body_markdown: string;
             tags: string[];
         };
-        HumanizationSnapshot: {
+        LegacyHumanizationSnapshot: {
             /** @constant */
             adapter_name: "openai-compatible-chat-completions";
             /** @constant */
@@ -2580,6 +2362,26 @@ export interface components {
             system_message: string;
             user_message: string;
         };
+        HumanizationSnapshot: {
+            /** @constant */
+            adapter_name: "openai-compatible-chat-completions";
+            /** @constant */
+            contract_version: "humanization-markdown-v2";
+            channel: {
+                [key: string]: unknown;
+            };
+            model: {
+                [key: string]: unknown;
+            };
+            humanization_prompt: components["schemas"]["HumanizationPromptSnapshot"];
+            source_content: components["schemas"]["HumanizationSourceContent"];
+            /** Format: uuid */
+            source_generation_job_id: string;
+            fact_version: components["schemas"]["GenerationFactSnapshot"];
+            system_message: string;
+            user_message: string;
+        };
+        HumanizationInputSnapshot: components["schemas"]["LegacyHumanizationSnapshot"] | components["schemas"]["HumanizationSnapshot"];
         GenerationJobList: {
             items: components["schemas"]["GenerationJob"][];
         };
@@ -2660,39 +2462,31 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
-        ReviewEvidenceStatus: {
-            client_key: string;
-            /** Format: uuid */
-            file_id: string | null;
-            file_status: ("PENDING" | "VERIFIED" | "FAILED" | "ABORTED") | null;
-        };
         /** @enum {string} */
         FactReviewAction: "SUBMIT" | "APPROVE" | "REQUEST_CHANGES" | "RETIRE";
         /** @enum {string} */
         ContentReviewAction: "SUBMIT_REVIEW" | "APPROVE" | "REQUEST_CHANGES";
         FactReviewContext: {
             fact_version: components["schemas"]["FactVersion"];
-            evidence_statuses: components["schemas"]["ReviewEvidenceStatus"][];
             available_actions: components["schemas"]["FactReviewAction"][];
             review_history: components["schemas"]["ReviewRecord"][];
         };
         GenerationTrace: {
             /** Format: uuid */
             job_id: string;
-            input_snapshot: components["schemas"]["GenerationSnapshot"];
+            input_snapshot: components["schemas"]["GenerationInputSnapshot"];
         };
         HumanizationTrace: {
             /** Format: uuid */
             job_id: string;
             /** Format: uuid */
             source_content_version_id: string;
-            input_snapshot: components["schemas"]["HumanizationSnapshot"];
+            input_snapshot: components["schemas"]["HumanizationInputSnapshot"];
         };
         ContentReviewContext: {
             content: components["schemas"]["ContentVersion"];
             task: components["schemas"]["ContentTask"];
             fact_version: components["schemas"]["FactVersion"];
-            evidence_statuses: components["schemas"]["ReviewEvidenceStatus"][];
             diff: components["schemas"]["ContentDiff"] | null;
             generation_trace: components["schemas"]["GenerationTrace"] | null;
             humanization_traces: components["schemas"]["HumanizationTrace"][];
@@ -2709,8 +2503,6 @@ export interface components {
             body_html: string;
             body_text: string;
             tags: string[];
-            /** Format: uri */
-            canonical_url: string;
             content_hash: string;
         };
         PlatformAccountCreate: {
@@ -2834,9 +2626,6 @@ export interface components {
             /** Format: uuid */
             platform_profile_id: string;
             platform_profile_name: string;
-            /** Format: uuid */
-            platform_profile_version_id: string;
-            platform_profile_version: number;
             matching_accounts: components["schemas"]["PlatformAccount"][];
         };
         PublicationCandidateList: {
@@ -2966,20 +2755,6 @@ export interface components {
             version: components["schemas"]["FactVersion"];
             difference: components["schemas"]["VersionDifference"];
         };
-        PlatformVersionCandidate: {
-            version: components["schemas"]["PlatformProfileVersion"];
-            difference: components["schemas"]["VersionDifference"];
-        };
-        PublicationRepairDefaults: {
-            target_audience: string;
-            content_angle: string;
-            conversion_goal: string;
-            desired_format: string;
-            desired_length_min: number;
-            desired_length_max: number;
-            /** Format: uri */
-            canonical_url: string;
-        };
         PublicationRepairContext: {
             attention: components["schemas"]["PublicationAttention"];
             publication: components["schemas"]["PublicationRecord"];
@@ -2991,24 +2766,11 @@ export interface components {
             platform_profile_name: string;
             original_fact_version: components["schemas"]["FactVersion"];
             fact_candidates: components["schemas"]["FactVersionCandidate"][];
-            original_platform_version: components["schemas"]["PlatformProfileVersion"];
-            platform_candidates: components["schemas"]["PlatformVersionCandidate"][];
-            defaults: components["schemas"]["PublicationRepairDefaults"];
         };
         PublicationRepairTaskCreate: {
             expected_attention_revision: number;
             /** Format: uuid */
             fact_version_id: string;
-            /** Format: uuid */
-            platform_profile_version_id: string;
-            target_audience: string;
-            content_angle: string;
-            conversion_goal: string;
-            desired_format: string;
-            desired_length_min: number;
-            desired_length_max: number;
-            /** Format: uri */
-            canonical_url: string;
         };
         ResolvePublicationAttentionRequest: {
             expected_revision: number;
@@ -3186,7 +2948,6 @@ export interface components {
         GeoInsightFilterOptions: {
             content_platforms: components["schemas"]["GeoInsightOption"][];
             geo_platforms: string[];
-            content_angles: string[];
             publications: components["schemas"]["GeoInsightPublicationOption"][];
             query_topics: components["schemas"]["GeoInsightOption"][];
         };
@@ -3436,7 +3197,6 @@ export interface components {
         ProductId: string;
         FactVersionId: string;
         PlatformProfileId: string;
-        PlatformProfileVersionId: string;
         PlatformTypeId: string;
         AIChannelId: string;
         AIChannelHeaderId: string;
@@ -4376,7 +4136,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 已创建平台，当前规则为空 */
+            /** @description 已创建平台 */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -4421,149 +4181,6 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
-    listAllPlatformProfileVersions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 全部平台规则版本 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformProfileVersionList"];
-                };
-            };
-        };
-    };
-    listPlatformProfileVersions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform_profile_id: components["parameters"]["PlatformProfileId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 平台全部规则版本 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformProfileVersionList"];
-                };
-            };
-        };
-    };
-    createPlatformProfileVersion: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                platform_profile_id: components["parameters"]["PlatformProfileId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlatformProfileVersionCreate"];
-            };
-        };
-        responses: {
-            /** @description 已创建 DRAFT 配置版本 */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformProfileVersion"];
-                };
-            };
-        };
-    };
-    activatePlatformProfileVersion: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                platform_profile_version_id: components["parameters"]["PlatformProfileVersionId"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CommandRequest"];
-        responses: {
-            /** @description 已激活并停用上一 ACTIVE 版本 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformProfileVersion"];
-                };
-            };
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
-    retirePlatformProfileVersion: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                platform_profile_version_id: components["parameters"]["PlatformProfileVersionId"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CommandRequest"];
-        responses: {
-            /** @description 已停用平台配置版本 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformProfileVersion"];
-                };
-            };
-        };
-    };
-    getPlatformProfileVersionImpact: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                platform_profile_version_id: components["parameters"]["PlatformProfileVersionId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 平台规则版本的互斥内容任务影响摘要 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformRuleImpactSummary"];
-                };
-            };
-            401: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-        };
-    };
     getPlatformProfile: {
         parameters: {
             query?: never;
@@ -4602,7 +4219,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 已删除未被规则版本或平台账号引用的平台 */
+            /** @description 已删除未被内容任务或平台账号引用的平台 */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -4701,58 +4318,6 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
-    deletePlatformProfileVersion: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                platform_profile_version_id: components["parameters"]["PlatformProfileVersionId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 已删除未被内容任务引用的平台规则版本 */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
-    updatePlatformProfileVersion: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                platform_profile_version_id: components["parameters"]["PlatformProfileVersionId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PlatformProfileVersionUpdate"];
-            };
-        };
-        responses: {
-            /** @description 已更新 DRAFT 平台规则版本 */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlatformProfileVersion"];
-                };
-            };
             409: components["responses"]["ErrorResponse"];
         };
     };
@@ -5587,10 +5152,8 @@ export interface operations {
     listContentTasks: {
         parameters: {
             query?: {
-                /** @description 仅返回引用该平台任一规则版本的内容任务 */
+                /** @description 仅返回直接绑定该平台的内容任务 */
                 platform_profile_id?: string;
-                /** @description 仅返回直接引用该平台规则版本的内容任务；与 platform_profile_id 同时提供时按 AND 处理 */
-                platform_profile_version_id?: string;
             };
             header?: never;
             path?: never;
@@ -5657,35 +5220,6 @@ export interface operations {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
-        };
-    };
-    updateContentTaskUserPrompt: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                content_task_id: components["parameters"]["ContentTaskId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ContentTaskUserPromptUpdate"];
-            };
-        };
-        responses: {
-            /** @description 已保存任务级工程师 Prompt */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ContentTask"];
-                };
-            };
-            409: components["responses"]["ErrorResponse"];
         };
     };
     getContentTaskGenerationOptions: {
@@ -5808,6 +5342,35 @@ export interface operations {
                     "application/json": components["schemas"]["ContentVersionList"];
                 };
             };
+        };
+    };
+    createManualContentVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                content_task_id: components["parameters"]["ContentTaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentRevisionCreate"];
+            };
+        };
+        responses: {
+            /** @description 已创建无 AI 来源的人工首稿 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVersion"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
         };
     };
     createHumanizationJob: {
@@ -6563,7 +6126,6 @@ export interface operations {
                 date_to?: string;
                 content_platform_id?: string;
                 geo_platform?: string;
-                content_angle?: string;
                 publication_record_id?: string;
                 query_topic_id?: string;
             };

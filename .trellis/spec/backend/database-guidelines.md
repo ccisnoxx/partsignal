@@ -71,14 +71,6 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 - 迁移只增加可向后读取的列、检查约束和部分索引；历史迁移与 `migration_schema_v1.py` 保持冻结。
 - PostgreSQL 集成测试必须覆盖多恢复器、重复消息、租约竞态、迟到响应和迁移前后旧列读取，不能用 SQLite 替代行锁语义。
 
-## 场景：第三方模型数据分级
-
-- 数据库 revision：`0012_ai_data_classification`，`down_revision = "0011_generation_reliability"`。
-- `content_tasks` 的分级、分类人和分类时间必须全空或全有；历史任务保持全空，不得迁移猜测为 `PUBLIC`。
-- Prompt 与整份生成输入分级在同一个任务修订事务中更新，PostgreSQL 是当前分类唯一来源。
-- 第三方作业快照冻结分类结论和事实 Evidence 分级；Redis 不保存或推断分类。
-- 降级只移除分级元数据。回滚到不识别 0012 的应用前必须先停用全部 AI 渠道，避免旧应用绕过新门禁。
-
 ## 场景：发布闭环历史门禁与异常状态
 
 - 数据库 revision：`0013_publication_closure`，`down_revision = "0012_ai_data_classification"`。
@@ -88,142 +80,85 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 - `PublicationAttention` 只能以 revision 0 的 `OPEN` 初态插入，绑定与打开时间不可变，历史不可删除；唯一允许的状态变化是带非空说明和单次 revision 递增的 `OPEN -> RESOLVED`。
 - 修复任务来源字段一旦写入不可改绑。异常或修复来源产生后，迁移只允许前滚，downgrade 不得删除业务历史。
 
-## 场景：平台级 Prompt 与受约束物理删除
-
-### 1. 范围与触发条件
-
-- 修改平台 Prompt 所有权、平台可用性、产品或平台配置删除时适用。
-- 当前配置可以物理删除；不可变事实、任务、内容、发布和观测历史不得级联、改绑或自动清理。
-
-### 2. 签名
-
-- 数据库 revision：`0014_platform_prompt_ownership`，`down_revision = "0013_publication_closure"`。
-- Prompt 主键：`platform_prompts.platform_profile_id -> platform_profiles.id ON DELETE CASCADE`。
-- 删除接口：`DELETE /products/{id}`、`/platform-profile-versions/{id}`、`/platform-profiles/{id}`、`/platform-accounts/{id}`、`/platform-types/{id}`。
-
-### 3. 契约
-
-- 一个具体平台拥有零或一个当前 Prompt；类型级 Prompt 字段、接口、双读和默认值全部禁止。
-- 平台可没有 `ACTIVE` 规则。管理员仍可配置；工程师只有在 `ACTIVE` 规则和当前 Prompt 同时存在时才能创建任务。
-- 删除服务在同一事务锁定目标并统计直接引用。冲突响应使用 `details.references[{type,count}]`，只报告真实直接引用。
-
-### 4. 校验与错误矩阵
-
-| 删除对象 | 直接阻断引用 | 成功结果 |
-|---|---|---|
-| `Product` | `FactVersion`、`ContentTask`、`GeoObservation` | 删除产品和当前事实工作区 |
-| `PlatformProfileVersion` | `ContentTask` | 删除版本；若为 `ACTIVE`，平台进入无有效规则状态 |
-| `PlatformProfile` | 规则版本、平台账号 | 删除平台及其当前 Prompt |
-| `PlatformAccount` | `PublicationRecord` | 删除公开账号标识 |
-| `PlatformType` | 具体平台 | 删除分类 |
-
-### 5. 正常、基础与失败案例
-
-- 正常：删除未引用的 `ACTIVE` 规则后，平台保留，`active_version=null`，工程师不可选。
-- 基础：管理员为该平台激活新版本且当前 Prompt 存在后，平台重新进入可选集合。
-- 失败：任一直接引用存在时返回结构化 `409`，所有目标和历史记录保持不变。
-
-### 6. 必需测试
-
-- PostgreSQL 迁移测试覆盖类型 Prompt 一对多复制、孤立 Prompt 丢弃、平台主键唯一约束和不可降级策略。
-- API 集成测试覆盖每类直接引用、管理员权限、无引用成功删除，以及删除 `ACTIVE` 规则后的可用性变化。
-- E2E 验证冲突引用中文展示、Prompt 缺失/无有效规则禁选和重新激活后的恢复。
-
-### 7. 错误与正确示例
-
-错误做法：捕获首个外键异常、级联删除历史，或删除 `ACTIVE` 版本后自动挑选旧版本。
-
-正确做法：锁定目标，显式统计权威引用并返回稳定类型；只有引用为空才删除当前配置，平台可用性由当前 `ACTIVE` 规则与 Prompt 共同推导。
-
 ## 场景：具体平台启停与管理实时投影
 
-- 数据库 revision：`0023_platform_management`，`down_revision = "0022_geo_observation_insights"`。`platform_profiles.is_active` 是平台启停的唯一持久状态，既有平台迁移为启用；启用与“同时存在 ACTIVE 规则和当前 Prompt”的配置完整性相互独立。
-- 停用后仍允许查看、编辑、维护规则和 Prompt 及重新启用，但新建普通/修复 `ContentTask`、`PlatformAccount` 或 `PublicationRecord` 必须先以 `FOR UPDATE` 锁定平台并返回 `PLATFORM_DISABLED`；不得停用既有账号或改写规则、Prompt、任务、发布及观测历史。
-- 平台管理汇总、配置完整性、账号数量和引用数量只做 PostgreSQL 实时投影，不保存快照或派生列。引用数经任务锁定的任一平台规则版本按唯一 `ContentTask.id` 计数；最近 30 天使用同一 UTC `as_of` 的半开区间 `[as_of - 30 days, as_of)`。
+- `platform_profiles.is_active` 是平台启停的唯一持久状态；配置完整性只表示存在当前 `PlatformPrompt`，不再依赖规则版本。
+- 停用后仍允许查看、编辑、维护 Prompt 及重新启用，但新建普通/修复 `ContentTask`、`PlatformAccount` 或 `PublicationRecord` 必须先以 `FOR UPDATE` 锁定平台并返回 `PLATFORM_DISABLED`；不得停用既有账号或改写 Prompt、任务、发布及观测历史。
+- 平台管理汇总、配置完整性、账号数量和引用数量只做 PostgreSQL 实时投影，不保存快照或派生列。引用数直接按 `ContentTask.platform_profile_id` 统计唯一任务；最近 30 天使用同一 UTC `as_of` 的半开区间 `[as_of - 30 days, as_of)`。
 - 平台列表筛选、稳定排序、分页和 CSV 导出复用同一查询条件；无分页参数时保留完整参考集合语义，`page` 与 `page_size` 只能成对出现。更新时间只读取真实平台审计，缺失时返回 `NULL`，不得用迁移时间补造。
 
-## 场景：平台规则草稿编辑与事实版本受限物理删除
+## 场景：Markdown 产品事实与双首稿内容生产
 
 ### 1. 范围与触发条件
 
-- 平台身份与平台规则必须独立管理：创建平台不隐式创建规则，规则版本继续由 `PlatformProfileVersion` 单一模型承载。
-- 管理员编辑 `DRAFT` 规则、替换平台当前规则，或物理删除任意状态的事实版本时适用。
-- 已被内容任务或内容版本引用的事实版本仍是历史依赖，不得删除；审核记录只允许作为被删除事实版本的严格从属记录在同一事务清理。
+- 修改产品事实工作区、事实版本、内容任务、平台 Prompt、生成快照、人工首稿、发布修复或 revision `0025_markdown_facts_direct_platform` 时适用。
+- 产品数据手册由系统外 AI 总结；本系统只接收和维护用户提交的 Markdown 总结，不保存参考型号、参数、Evidence 或可独立编辑的结构化事实副本。
 
 ### 2. 签名
 
-- 数据库 revision：`0015_platform_rule_draft_editing`，`down_revision = "0014_platform_prompt_ownership"`；`0016_fact_review_cleanup`，`down_revision = "0015_platform_rule_draft_editing"`。
-- 平台规则接口：`GET /platform-profile-versions`、`GET /platform-profile-versions/{id}/impact`、`PATCH /platform-profile-versions/{id}`、`POST /platform-profile-versions/{id}/activate`。
-- 内容任务精确筛选：`GET /content-tasks?platform_profile_version_id=<uuid>`；与 `platform_profile_id` 同时提供时取交集。
-- 草稿更新体：`{expected_revision: integer >= 0, rules: PlatformRules}`；返回体必须含 `platform_profile_id`。
-- 事实版本删除接口：`DELETE /fact-versions/{id}`，仅管理员可调用，成功返回 `204`。
-- 事务门禁：`set_config('partsignal.fact_version_delete_id', <fact_version_id>, true)`；第三个参数必须为 `true`，确保值只在当前事务有效。
+- 工作区：`products.facts_body_markdown TEXT NOT NULL`、`products.facts_classification PUBLIC|INTERNAL|RESTRICTED`、`products.facts_revision`。
+- 冻结版本：`fact_versions.body_markdown`、`fact_versions.classification`；不得恢复 `snapshot_json`。
+- 任务：`ContentTaskCreate(product_id, fact_version_id, platform_profile_id)`；`content_tasks` 直接外键到 `platform_profiles`。
+- 系统首稿：`POST /api/v1/content-tasks/{id}/generation-jobs`，请求体仅 `{ai_model_id}`。
+- 人工首稿：`POST /api/v1/content-tasks/{id}/manual-versions`，请求体复用 `ContentRevisionCreate`。
+- 生成快照：新作业只写 `content-markdown-v2` 或 `humanization-markdown-v2`；旧 `chat-json-v1`、`humanization-json-v1` 只读。
 
 ### 3. 契约
 
-- `platform_profile_versions.rules` 只允许在更新前后状态均为 `DRAFT` 时修改；`ACTIVE`、`RETIRED` 正文不可变，`platform_profile_id`、`version`、`created_at` 在所有状态不可变。
-- 草稿更新使用 `expected_revision` 乐观锁并只递增一次 revision。激活时必须锁定平台，先把旧 `ACTIVE` 更新并刷新为 `RETIRED`，释放部分唯一索引槽位后再把目标 `DRAFT` 设为 `ACTIVE`；任一步失败时整个事务回滚。
-- 版本列表的引用数、创建/激活/最后变更时间和 `available_actions` 是批量实时投影，不得保存派生列或逐版本发查询。创建人只取 `platform_profile_version.created`，激活时间只取 `activated`；审计 Actor 删除后 `actor_id=NULL`，事件仍返回。
-- 激活替换时在同一事务为旧版本追加 `retired(reason=REPLACED)`、为新版本追加 `activated(previous_active_version_id=...)`，两条事件携带同一非空命令说明；草稿直接退役记录 `reason=DIRECT`。
-- 单版本影响只统计直接引用任务，并按“存在 `PUBLISHED | VERIFIED` → 否则存在 `PLATFORM_REVIEW | PENDING_REVIEW` → 其余”互斥分桶；三桶之和必须等于去重任务总数。
-- 删除事实版本前必须锁定目标，分别统计 `ContentTask.fact_version_id` 与 `ContentVersion.fact_version_id`。任一计数非零时返回 `FACT_VERSION_IN_USE`，不得清理任何审核记录。
-- 引用为空时，先写 `fact_version.deleted` 审计（含产品、版本、状态和审核记录数量），再以事务本地父版本 ID 放行并显式删除该父版本的 `FactReviewRecord`，最后删除 `FactVersion`。
-- `fact_review_records` 的 `UPDATE` 始终拒绝；`DELETE` 只有在事务本地 ID 与该行 `fact_version_id` 精确相等时允许。不得放宽通用追加式触发器、增加级联删除或自动删除产品。
+- 保存事实时去除空白后的 Markdown 必须非空，原文和分级原样保存；创建事实版本只冻结当前工作区两个字段。已批准或已被内容引用的版本不得原地修改。
+- `PlatformProfileVersion` 表、API、前端路由及任务中的受众、内容角度、转化目标、格式、长度、用户 Prompt、平台类型快照和 canonical URL 已物理删除；不得建立兼容字段或第二来源。
+- 创建任务只校验产品、该产品的 `APPROVED` 非空事实版本和启用平台。缺少平台 Prompt 不阻止任务或人工首稿，只阻止系统 AI 作业。
+- 原始 AI 请求必须恰好发送两条消息：`system.content == PlatformPrompt.template_markdown`，`user.content == FactVersion.body_markdown`；不得增加前缀、拼接任务要求、补默认安全规则或重写空白。
+- 人工首稿创建 `source_type=HUMAN`、`status=DRAFT`、`source_job_id=NULL`、`based_on_id=NULL`，随后与 AI 草稿共用修订、审核和人工发布链。
+- 发布、平台账号和修复任务沿用 `ContentTask.platform_profile_id`；修复任务只允许重新选择同产品的批准事实版本，并继承原任务平台。
+- 管理员删除当前平台 Prompt 后，新 AI 生成必须显式失败；系统不恢复默认 Prompt。历史作业继续从不可变快照读取，legacy 作业禁止重试。
 
 ### 4. 校验与错误矩阵
 
 | 条件 | 结果 |
 |---|---|
-| 创建平台但未创建规则 | 创建成功，规则列表为空且 `active_version=null` |
-| 更新目标不是 `DRAFT` | `409 INVALID_STATE_TRANSITION`，正文和 revision 不变 |
-| `expected_revision` 过期 | `409 REVISION_CONFLICT`，正文和 revision 不变 |
-| 用新草稿替换已有 `ACTIVE` | 旧版本先变为 `RETIRED`，新版本成为唯一 `ACTIVE` |
-| 直接退役 `DRAFT` | 版本成为 `RETIRED` 并记录 `reason=DIRECT`；不影响其他版本 |
-| 一个任务同时具有审核中与已发布记录 | 只归入“当前已发布”，影响总数不重复 |
-| 同时按平台和规则版本筛选任务 | 仅返回同时满足两个条件的任务 |
-| 非管理员删除事实版本 | `403`，事实版本、审核记录和审计均不变 |
-| 事实版本不存在 | `404` |
-| 存在内容任务或内容版本引用 | `409 FACT_VERSION_IN_USE`，`details.references` 只含真实非零引用 |
-| 无内容引用，事实版本处于任意状态 | 删除事实版本及其从属审核记录，保留安全审计 |
-| 直接更新审核记录，或未设置/设置错误的事务本地 ID 后删除 | PostgreSQL `55000` 拒绝 |
+| 事实 Markdown 为空白 | 请求校验失败，不递增 `facts_revision` |
+| 事实版本不属于产品、非 `APPROVED` 或正文为空 | `409 INVALID_STATE_TRANSITION`，不创建任务/首稿 |
+| 平台不存在或已停用 | `404` 或 `409 PLATFORM_DISABLED` |
+| 系统 AI 使用非 `PUBLIC` 事实 | `409 AI_DATA_CLASSIFICATION_FORBIDDEN` |
+| 当前平台 Prompt 不存在 | `409 PLATFORM_PROMPT_MISSING`，不得回退 |
+| 人工首稿提交到终态任务 | `409 INVALID_STATE_TRANSITION` |
+| 重试 legacy 生成快照 | `409 LEGACY_GENERATION_RETRY_FORBIDDEN` |
+| 删除被任务或内容版本引用的事实版本 | `409 FACT_VERSION_IN_USE`，返回真实非零引用 |
 
 ### 5. 正常、基础与失败案例
 
-- 正常：管理员创建平台后另建草稿，多次按 revision 编辑，再激活为平台当前规则；旧 `ACTIVE` 原子退役。
-- 基础：事实版本没有内容引用但有多条审核记录，管理员删除后父版本与这些从属记录消失，产品和审计保留。
-- 失败：事实版本同时被内容任务和内容版本引用，响应分别给出两个非零计数，数据库没有部分删除。
+- 正常：管理员保存公开 Markdown、批准版本、选择平台建任务，再选择模型生成 AI 草稿；供应商收到的平台 Prompt 与事实正文逐字相同。
+- 基础：同样的任务不配置模型也能直接粘贴网页版豆包、DeepSeek 或其他工具输出，创建人工 `DRAFT` 并进入审核。
+- 失败：Prompt 被删后继续生成时显式失败；不得把安全规则、受众、角度或长度从已删除任务字段拼回请求。
 
 ### 6. 必需测试
 
-- PostgreSQL 迁移测试验证 `0015` 只放开 `DRAFT -> DRAFT` 正文更新，`ACTIVE`/`RETIRED` 与身份字段仍受触发器保护，downgrade 恢复旧门禁。
-- PostgreSQL 迁移测试验证 `0016` 在无设置、错误父 ID 和 `UPDATE` 时拒绝，在正确事务本地父 ID 时只删除对应审核记录，downgrade 恢复通用追加式门禁。
-- API 集成测试覆盖平台空规则初态、revision 冲突、不可变状态、已有 `ACTIVE` 的原子替换与双审计、动作矩阵、互斥影响、精确任务筛选和可空 Actor，以及事实版本全部业务状态、双引用冲突、管理员权限、审核清理和审计字段。
-- E2E 验证平台规则四区工作台的草稿编辑、差异、替代激活、影响与引用入口，以及事实版本冲突提示和管理员删除入口。
+- 契约测试断言任务创建仅三个字段、人工首稿接口存在、平台规则 Schema/路径和旧任务字段不存在。
+- PostgreSQL 迁移测试断言确定性 Markdown 回填、最严格分级、任务平台唯一回填、旧表/列删除、活动旧作业阻断和有损 downgrade 拒绝。
+- 单元/集成测试断言生成请求恰好两条原始消息、人工 lineage 四字段、非公开事实/缺 Prompt/legacy retry 明确失败。
+- 前端测试断言 Markdown 是唯一事实编辑器，任务仅选择产品/事实/平台，AI 与人工入口并列，规则页面和旧字段不可达。
+- E2E 使用真实 HTTP 替身断言 system/user 内容逐字相同，并覆盖人工首稿到审核、发布的共用链路。
 
 ### 7. 错误与正确示例
 
-错误做法：在同一次 ORM flush 中同时提交“新版本激活、旧版本退役”，依赖未承诺的 UPDATE 顺序；或为删除事实版本而全局放开 `fact_review_records` 删除。
-
-正确做法：
+错误：为兼容旧任务继续拼接受众、角度或固定安全前缀。
 
 ```python
-current.status = "RETIRED"
-db.flush()  # 先释放唯一 ACTIVE 槽位
-draft.status = "ACTIVE"
-
-db.scalar(select(func.set_config("partsignal.fact_version_delete_id", str(version.id), True)))
-db.execute(delete(FactReviewRecord).where(FactReviewRecord.fact_version_id == version.id))
-db.delete(version)
+messages = [
+    {"role": "system", "content": DEFAULT_SAFETY + prompt},
+    {"role": "user", "content": task.user_prompt_markdown + fact.body_markdown},
+]
 ```
 
-两组操作都必须位于各自的单一数据库事务内；刷新只固定约束检查顺序，不提前提交。
+正确：平台 Prompt 和冻结事实正文各自只有一个权威来源。
 
-### 8. 自然化单例配置与活动作业
-
-- `content_humanization_prompts` 只允许 `id=1`，迁移后保持空表，`updated_by` 必须引用真实管理员。历史作业自己冻结 Prompt，因此不得增加 Prompt 历史表或第二来源。
-- `generation_jobs.job_type` 只允许 `GENERATE | HUMANIZE`；前者的 `source_content_version_id` 必须为空，后者必须非空并 `RESTRICT` 引用源版本。
-- 同一源版本只允许一个 `PENDING | RUNNING` 自然化作业，使用 PostgreSQL 部分唯一索引处理并发竞态；服务端校验用于返回稳定业务错误，不替代数据库约束。
-- 自然化成功只新增 `ContentVersion(source_type=AI, source_job_id=job.id, based_on_id=source.id)`，禁止更新源版本。存在任一 `HUMANIZE` 历史后，0017 downgrade 必须在删除任何结构前失败。
+```python
+messages = [
+    {"role": "system", "content": prompt.template_markdown},
+    {"role": "user", "content": fact.body_markdown},
+]
+```
 
 ## 场景：产品级人工 GEO 文章观测
 
@@ -287,75 +222,6 @@ if submitted_ids != candidate_ids:
 ```
 
 文章 URL 始终从 `PublicationRecord.final_url` 读取，前端不得提交或覆盖该值。
-
-## 场景：产品驱动内容任务与历史目标问题关联
-
-### 1. 范围与触发条件
-
-- 新建内容任务、创建生成作业、读取发布修复上下文或从发布异常创建修复任务时适用。
-- `QueryTopic` 只服务旧内容任务和 `LEGACY_MODEL_RESULT` 观测；不得重新成为普通内容任务的创建前置条件。
-
-### 2. 签名
-
-- 数据库 revision：`0019_product_driven_tasks`，`down_revision = "0018_manual_geo_observation"`。
-- 数据库列：`content_tasks.query_topic_id uuid NULL REFERENCES query_topics(id) ON DELETE RESTRICT`。
-- 创建接口：`POST /api/v1/content-tasks`；`ContentTaskCreate` 不接受 `query_topic_id`。
-- 内容任务响应：`ContentTask.query_topic_id: uuid | null`，用于显式区分新任务和历史任务。
-- 修复上下文响应：`PublicationRepairContext.query_topic: QueryTopic | null`。
-
-### 3. 契约
-
-- 新任务由产品、该产品的 `APPROVED` 事实版本、具体平台的 `ACTIVE` 规则版本、平台当前 Prompt 和任务要求字段共同定义；服务端必须写入 `query_topic_id=NULL`。
-- 生成新任务时，`GenerationSnapshot.task_requirements` 必须完全省略 `query_topic`，不得写入 `null`、空对象或根据产品名猜测问题；确定性开发生成器以 `content_angle` 生成摘要，标签只含产品型号。
-- 历史任务保留真实非空外键。创建新生成作业时仍解析并冻结该目标问题；外键值存在但目标记录缺失时必须显式失败。
-- 修复任务固定继承原任务的产品和可空 `query_topic_id`。修复上下文只在历史关联存在时返回问题投影，新任务返回 `query_topic=null`。
-- 0019 upgrade 只放宽列空值，不改写历史任务；存在任一空关联任务时 downgrade 必须在恢复 `NOT NULL` 前以 PostgreSQL `55000` 失败并整体回滚。
-
-### 4. 校验与错误矩阵
-
-| 条件 | 结果 |
-|---|---|
-| 创建载荷包含 `query_topic_id` | OpenAPI/Pydantic 额外字段校验拒绝，不提供兼容双写 |
-| 产品、事实版本或平台规则版本不存在 | 返回对应 `404`，不创建任务 |
-| 事实版本不属于产品、未批准，或平台规则不是当前可用规则 | `409 INVALID_STATE_TRANSITION` |
-| 平台缺少当前 Prompt | `409 PLATFORM_PROMPT_MISSING` |
-| 新任务创建成功 | `query_topic_id=null`，生成快照省略 `query_topic` |
-| 历史任务外键非空但目标问题缺失 | 生成或修复上下文显式失败，不降级为新任务语义 |
-| 新任务历史存在时执行 0019 downgrade | PostgreSQL `55000`，revision 和全部任务数据保持不变 |
-
-### 5. 正常、基础与失败案例
-
-- 正常：工程师选择一个产品、批准事实和可用平台创建任务；请求和后续生成输入均没有目标问题，文章围绕 `content_angle` 生产。
-- 基础：升级前任务继续返回原 `query_topic_id`，重新生成和修复时继续冻结、继承该真实问题。
-- 失败：为了满足旧 `NOT NULL` 约束给新任务伪造通用问题，或生成时用产品名自动补一个问题；这会制造不存在的业务事实并污染分析。
-
-### 6. 必需测试
-
-- 契约测试断言 `ContentTaskCreate` 没有 `query_topic_id`，任务响应字段可空，修复上下文问题投影可空，生成类型与 OpenAPI 一致。
-- PostgreSQL 迁移测试断言历史 UUID 不变、新任务可写 `NULL`，以及有损 downgrade 失败后 revision 和两类任务均不变。
-- 后端单元/集成测试断言新生成快照不含 `query_topic`、开发生成器不输出“目标问题”、普通任务写空关联，旧/新修复任务分别继承 UUID/`NULL`。
-- 前端组件和 E2E 测试断言创建弹窗不展示或请求目标问题，创建载荷不含该字段，完整生成链路不向模型发送 `query_topic` 或“目标问题”。
-
-### 7. 错误与正确示例
-
-错误做法：把兼容责任推给新任务，写入空对象或伪造问题。
-
-```python
-requirements["query_topic"] = {"canonical_question": f"如何选择 {product.part_number}？"}
-```
-
-正确做法：只在权威历史外键真实存在时冻结问题，否则完全省略该键。
-
-```python
-if task.query_topic_id is not None:
-    topic = db.get(QueryTopic, task.query_topic_id)
-    if topic is None:
-        raise not_found("目标问题")
-    requirements["query_topic"] = {
-        "canonical_question": topic.canonical_question,
-        "intent_type": topic.intent_type,
-    }
-```
 
 ## 场景：追加式审计结果与失败事务
 

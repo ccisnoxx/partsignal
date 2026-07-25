@@ -30,7 +30,7 @@ type PreviewSelection = {
 };
 
 function taskLabel(task: ContentTaskListItem): string {
-  return `${task.product.brand} ${task.product.part_number} · ${task.content_angle}`;
+  return `${task.product.brand} ${task.product.part_number}`;
 }
 
 function PreviewArticle({ content }: { content: ContentVersion }) {
@@ -63,11 +63,10 @@ export function PromptOutputPreview({ mode, platformProfileId, dirty, promptConf
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks', { params: { query: taskQuery } })),
     staleTime: QUERY_STALE_TIME.businessList,
   });
-  const eligibleTasks = useMemo(() => (tasks.data?.items ?? []).filter((task) => (
-    task.status === 'OPEN'
-    && task.generation_data_classification === 'PUBLIC'
-    && task.user_prompt_markdown.trim().length > 0
-  )), [tasks.data?.items]);
+  const eligibleTasks = useMemo(
+    () => (tasks.data?.items ?? []).filter((task) => task.status === 'OPEN'),
+    [tasks.data?.items],
+  );
   const versions = useQuery({
     queryKey: queryKeys.contentTasks.versions(taskId ?? ''),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/content-versions', {
@@ -168,13 +167,13 @@ export function PromptOutputPreview({ mode, platformProfileId, dirty, promptConf
         aria-label="预览内容任务"
         showSearch
         optionFilterProp="label"
-        placeholder={tasks.isLoading ? '正在加载内容任务' : '选择公开的进行中任务'}
+        placeholder={tasks.isLoading ? '正在加载内容任务' : '选择进行中任务'}
         loading={tasks.isLoading}
         value={taskId}
         onChange={(value) => setStoredSelection({ scope, taskId: value })}
         options={eligibleTasks.map((task) => ({ value: task.id, label: taskLabel(task) }))}
       />
-      {!tasks.isLoading && eligibleTasks.length === 0 && <Typography.Text type="secondary">暂无 OPEN、PUBLIC 且生成输入完整的任务。</Typography.Text>}
+      {!tasks.isLoading && eligibleTasks.length === 0 && <Typography.Text type="secondary">暂无进行中的内容任务。</Typography.Text>}
       {mode === 'humanization' && <>
         <Select
           aria-label="自然化源草稿"

@@ -6,7 +6,7 @@ import uuid
 from contextlib import AbstractContextManager
 from datetime import datetime
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import pytest
 
@@ -24,7 +24,7 @@ class FakeTransaction(AbstractContextManager[Any]):
     def __enter__(self) -> FakeTransaction:
         return self
 
-    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> bool:
+    def __exit__(self, exc_type: object, exc_value: object, traceback: object) -> Literal[False]:
         if exc_type is None and self.fail_commit:
             raise RuntimeError("模拟投递元数据提交失败")
         return False

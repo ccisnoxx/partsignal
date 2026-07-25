@@ -122,25 +122,19 @@ def geo_insight_filters(
     date_to: date | None = None,
     content_platform_id: uuid.UUID | None = None,
     geo_platform: Annotated[str | None, Query(max_length=160)] = None,
-    content_angle: Annotated[str | None, Query(max_length=500)] = None,
     publication_record_id: uuid.UUID | None = None,
     query_topic_id: uuid.UUID | None = None,
 ) -> GeoInsightFilters:
     """校验洞察页面全部区块共用的精确筛选。"""
     if date_from is not None and date_to is not None and date_from > date_to:
         raise AppError("VALIDATION_ERROR", "开始日期不能晚于结束日期", 422)
-    text_filters = {"GEO 平台": geo_platform, "内容主题": content_angle}
-    if blank_label := next(
-        (label for label, value in text_filters.items() if value is not None and not value.strip()),
-        None,
-    ):
-        raise AppError("VALIDATION_ERROR", f"{blank_label}不能为空", 422)
+    if geo_platform is not None and not geo_platform.strip():
+        raise AppError("VALIDATION_ERROR", "GEO 平台不能为空", 422)
     return GeoInsightFilters(
         date_from=date_from,
         date_to=date_to,
         content_platform_id=content_platform_id,
         geo_platform=geo_platform.strip() if geo_platform is not None else None,
-        content_angle=content_angle.strip() if content_angle is not None else None,
         publication_record_id=publication_record_id,
         query_topic_id=query_topic_id,
     )

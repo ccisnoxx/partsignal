@@ -7,10 +7,10 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, Field, HttpUrl, field_validator, model_validator
+from pydantic import AfterValidator, Field, HttpUrl, field_validator
 
 from app.schemas.base import ContractModel, require_unique_items
-from app.schemas.configuration import PlatformProfileVersionOut, QueryTopicOut
+from app.schemas.configuration import QueryTopicOut
 from app.schemas.content import ContentTaskOut, ContentVersionOut
 from app.schemas.product_facts import Confidentiality, FactVersionOut, ProductOut
 
@@ -32,7 +32,6 @@ class PublicationPackage(ContractModel):
     body_html: str
     body_text: str
     tags: list[str]
-    canonical_url: HttpUrl
     content_hash: str
 
 
@@ -160,8 +159,6 @@ class PublicationCandidate(ContractModel):
     task_id: uuid.UUID
     platform_profile_id: uuid.UUID
     platform_profile_name: str
-    platform_profile_version_id: uuid.UUID
-    platform_profile_version: int
     matching_accounts: list[PlatformAccountOut]
 
 
@@ -279,21 +276,6 @@ class FactVersionCandidate(ContractModel):
     difference: VersionDifference
 
 
-class PlatformVersionCandidate(ContractModel):
-    version: PlatformProfileVersionOut
-    difference: VersionDifference
-
-
-class PublicationRepairDefaults(ContractModel):
-    target_audience: str
-    content_angle: str
-    conversion_goal: str
-    desired_format: str
-    desired_length_min: int
-    desired_length_max: int
-    canonical_url: HttpUrl
-
-
 class PublicationRepairContext(ContractModel):
     attention: PublicationAttentionOut
     publication: PublicationRecordOut
@@ -304,28 +286,11 @@ class PublicationRepairContext(ContractModel):
     platform_profile_name: str
     original_fact_version: FactVersionOut
     fact_candidates: list[FactVersionCandidate]
-    original_platform_version: PlatformProfileVersionOut
-    platform_candidates: list[PlatformVersionCandidate]
-    defaults: PublicationRepairDefaults
 
 
 class PublicationRepairTaskCreate(ContractModel):
     expected_attention_revision: int = Field(ge=0)
     fact_version_id: uuid.UUID
-    platform_profile_version_id: uuid.UUID
-    target_audience: str = Field(min_length=1)
-    content_angle: str = Field(min_length=1)
-    conversion_goal: str = Field(min_length=1)
-    desired_format: str = Field(min_length=1)
-    desired_length_min: int = Field(ge=1)
-    desired_length_max: int = Field(ge=1)
-    canonical_url: HttpUrl
-
-    @model_validator(mode="after")
-    def validate_length(self) -> PublicationRepairTaskCreate:
-        if self.desired_length_min > self.desired_length_max:
-            raise ValueError("期望正文最小长度不能大于最大长度")
-        return self
 
 
 class ResolvePublicationAttentionRequest(ContractModel):

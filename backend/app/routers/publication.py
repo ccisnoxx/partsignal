@@ -19,7 +19,6 @@ from app.deps import (
     assert_account_types,
 )
 from app.errors import AppError, not_found
-from app.models.content import ContentTask
 from app.models.publication import (
     PlatformAccount,
     PublicationRecord,
@@ -108,9 +107,6 @@ def get_publication_package(
     content_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
 ) -> PublicationPackage:
     content = require_publishable(db, content_version_id)
-    task = db.get(ContentTask, content.task_id)
-    if task is None:
-        raise not_found("内容任务")
     body_html, body_text = render_markdown(content.body_markdown)
     return PublicationPackage(
         content_version_id=content.id,
@@ -120,7 +116,6 @@ def get_publication_package(
         body_html=body_html,
         body_text=body_text,
         tags=content.tags,
-        canonical_url=task.canonical_url,
         content_hash=content.content_hash,
     )
 

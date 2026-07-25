@@ -564,7 +564,7 @@ paths:
             schema: {$ref: '#/components/schemas/PlatformProfileCreate'}
       responses:
         '201':
-          description: 已创建平台，当前规则为空
+          description: 已创建平台
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformProfile'}
@@ -602,87 +602,6 @@ paths:
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/platform-profile-versions:
-    get:
-      tags: [planning]
-      operationId: listAllPlatformProfileVersions
-      responses:
-        '200':
-          description: 全部平台规则版本
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformProfileVersionList'}
-  /api/v1/platform-profiles/{platform_profile_id}/versions:
-    get:
-      tags: [planning]
-      operationId: listPlatformProfileVersions
-      parameters: [{$ref: '#/components/parameters/PlatformProfileId'}]
-      responses:
-        '200':
-          description: 平台全部规则版本
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformProfileVersionList'}
-    post:
-      tags: [planning]
-      operationId: createPlatformProfileVersion
-      parameters:
-        - {$ref: '#/components/parameters/PlatformProfileId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/PlatformProfileVersionCreate'}
-      responses:
-        '201':
-          description: 已创建 DRAFT 配置版本
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformProfileVersion'}
-  /api/v1/platform-profile-versions/{platform_profile_version_id}/activate:
-    post:
-      tags: [planning]
-      operationId: activatePlatformProfileVersion
-      parameters:
-        - {$ref: '#/components/parameters/PlatformProfileVersionId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
-      responses:
-        '200':
-          description: 已激活并停用上一 ACTIVE 版本
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformProfileVersion'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/platform-profile-versions/{platform_profile_version_id}/retire:
-    post:
-      tags: [planning]
-      operationId: retirePlatformProfileVersion
-      parameters:
-        - {$ref: '#/components/parameters/PlatformProfileVersionId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
-      responses:
-        '200':
-          description: 已停用平台配置版本
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformProfileVersion'}
-  /api/v1/platform-profile-versions/{platform_profile_version_id}/impact:
-    get:
-      tags: [planning]
-      operationId: getPlatformProfileVersionImpact
-      parameters:
-        - {$ref: '#/components/parameters/PlatformProfileVersionId'}
-      responses:
-        '200':
-          description: 平台规则版本的互斥内容任务影响摘要
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformRuleImpactSummary'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profiles/{platform_profile_id}:
     get:
       tags: [configuration]
@@ -726,7 +645,7 @@ paths:
         - {$ref: '#/components/parameters/PlatformProfileId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
-        '204': {description: 已删除未被规则版本或平台账号引用的平台}
+        '204': {description: 已删除未被内容任务或平台账号引用的平台}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
@@ -766,34 +685,6 @@ paths:
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/platform-profile-versions/{platform_profile_version_id}:
-    patch:
-      tags: [planning]
-      operationId: updatePlatformProfileVersion
-      parameters:
-        - {$ref: '#/components/parameters/PlatformProfileVersionId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/PlatformProfileVersionUpdate'}
-      responses:
-        '200':
-          description: 已更新 DRAFT 平台规则版本
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PlatformProfileVersion'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-    delete:
-      tags: [configuration]
-      operationId: deletePlatformProfileVersion
-      parameters:
-        - {$ref: '#/components/parameters/PlatformProfileVersionId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      responses:
-        '204': {description: 已删除未被内容任务引用的平台规则版本}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profiles/{platform_profile_id}/prompt:
     get:
@@ -1298,11 +1189,7 @@ paths:
       parameters:
         - name: platform_profile_id
           in: query
-          description: 仅返回引用该平台任一规则版本的内容任务
-          schema: {type: string, format: uuid}
-        - name: platform_profile_version_id
-          in: query
-          description: 仅返回直接引用该平台规则版本的内容任务；与 platform_profile_id 同时提供时按 AND 处理
+          description: 仅返回直接绑定该平台的内容任务
           schema: {type: string, format: uuid}
       responses:
         '200':
@@ -1338,25 +1225,6 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
-  /api/v1/content-tasks/{content_task_id}/user-prompt:
-    patch:
-      tags: [planning]
-      operationId: updateContentTaskUserPrompt
-      parameters:
-        - {$ref: '#/components/parameters/ContentTaskId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/ContentTaskUserPromptUpdate'}
-      responses:
-        '200':
-          description: 已保存任务级工程师 Prompt
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/ContentTask'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/generation-options:
     get:
       tags: [production]
@@ -1425,6 +1293,25 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentVersionList'}
+  /api/v1/content-tasks/{content_task_id}/manual-versions:
+    post:
+      tags: [production]
+      operationId: createManualContentVersion
+      parameters:
+        - {$ref: '#/components/parameters/ContentTaskId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ContentRevisionCreate'}
+      responses:
+        '201':
+          description: 已创建无 AI 来源的人工首稿
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentVersion'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/humanization-jobs:
     post:
       tags: [production]
@@ -1897,7 +1784,6 @@ paths:
         - {name: date_to, in: query, schema: {type: string, format: date}}
         - {name: content_platform_id, in: query, schema: {type: string, format: uuid}}
         - {name: geo_platform, in: query, schema: {type: string, maxLength: 160}}
-        - {name: content_angle, in: query, schema: {type: string, maxLength: 500}}
         - {name: publication_record_id, in: query, schema: {type: string, format: uuid}}
         - {name: query_topic_id, in: query, schema: {type: string, format: uuid}}
       responses:
@@ -2012,7 +1898,6 @@ components:
     ProductId: {name: product_id, in: path, required: true, schema: {type: string, format: uuid}}
     FactVersionId: {name: fact_version_id, in: path, required: true, schema: {type: string, format: uuid}}
     PlatformProfileId: {name: platform_profile_id, in: path, required: true, schema: {type: string, format: uuid}}
-    PlatformProfileVersionId: {name: platform_profile_version_id, in: path, required: true, schema: {type: string, format: uuid}}
     PlatformTypeId: {name: platform_type_id, in: path, required: true, schema: {type: string, format: uuid}}
     AIChannelId: {name: channel_id, in: path, required: true, schema: {type: string, format: uuid}}
     AIChannelHeaderId: {name: header_id, in: path, required: true, schema: {type: string, format: uuid}}
@@ -2335,97 +2220,24 @@ components:
         page: {type: integer}
         page_size: {type: integer}
         total: {type: integer}
-    ReferencePart:
-      type: object
-      additionalProperties: false
-      required: [client_key, part_number, manufacturer, category]
-      properties:
-        client_key: {type: string}
-        part_number: {type: string}
-        manufacturer: {type: string}
-        category: {type: string}
-    ParameterValueType: {type: string, enum: [NUMERIC, RANGE, TEXT]}
-    PartParameter:
-      type: object
-      additionalProperties: false
-      required: [client_key, owner_key, key, name, value_type, unit, test_conditions, is_critical, evidence_keys]
-      properties:
-        client_key: {type: string}
-        owner_key: {type: string, description: product 或 ReferencePart.client_key}
-        key: {type: string}
-        name: {type: string}
-        value_type: {$ref: '#/components/schemas/ParameterValueType'}
-        min_value: {type: [number, 'null']}
-        typical_value: {type: [number, 'null']}
-        max_value: {type: [number, 'null']}
-        text_value: {type: [string, 'null']}
-        unit: {type: string}
-        test_conditions: {type: string}
-        is_critical: {type: boolean}
-        evidence_keys: {type: array, items: {type: string}, uniqueItems: true}
-    ReplacementLevel:
-      type: string
-      enum: [FUNCTIONALLY_SIMILAR, PARAMETER_COMPATIBLE, PIN_COMPATIBLE, PIN_TO_PIN, PROTOTYPE_VALIDATED, TEMPERATURE_VALIDATED, MASS_PRODUCTION_VALIDATED]
-    ReplacementRelation:
-      type: object
-      additionalProperties: false
-      required: [client_key, reference_part_key, replacement_level, conditions, exclusions, evidence_keys]
-      properties:
-        client_key: {type: string}
-        reference_part_key: {type: string}
-        replacement_level: {$ref: '#/components/schemas/ReplacementLevel'}
-        conditions: {type: string, minLength: 1}
-        exclusions: {type: string, minLength: 1}
-        evidence_keys: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
-    EvidenceType: {type: string, enum: [DATASHEET, TEST_REPORT, APPLICATION_NOTE, CUSTOMER_AUTHORIZATION, OTHER]}
     Confidentiality: {type: string, enum: [PUBLIC, INTERNAL, RESTRICTED]}
-    Evidence:
-      type: object
-      additionalProperties: false
-      required: [client_key, type, title, version, confidentiality]
-      properties:
-        client_key: {type: string}
-        type: {$ref: '#/components/schemas/EvidenceType'}
-        title: {type: string}
-        version: {type: string}
-        source_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
-        file_id: {type: [string, 'null'], format: uuid}
-        confidentiality: {$ref: '#/components/schemas/Confidentiality'}
-    ClaimType: {type: string, enum: [APPROVED, PROHIBITED, REQUIRED_DISCLOSURE]}
-    FactClaim:
-      type: object
-      additionalProperties: false
-      required: [client_key, type, text, evidence_keys]
-      properties:
-        client_key: {type: string}
-        type: {$ref: '#/components/schemas/ClaimType'}
-        text: {type: string, minLength: 1}
-        evidence_keys: {type: array, items: {type: string}, uniqueItems: true}
-    ProductFactsBody:
-      type: object
-      additionalProperties: false
-      required: [reference_parts, parameters, replacement_relations, evidences, claims]
-      properties:
-        reference_parts: {type: array, items: {$ref: '#/components/schemas/ReferencePart'}}
-        parameters: {type: array, items: {$ref: '#/components/schemas/PartParameter'}}
-        replacement_relations: {type: array, items: {$ref: '#/components/schemas/ReplacementRelation'}}
-        evidences: {type: array, items: {$ref: '#/components/schemas/Evidence'}}
-        claims: {type: array, items: {$ref: '#/components/schemas/FactClaim'}}
     ProductFactsDraftUpdate:
-      allOf:
-        - {$ref: '#/components/schemas/ProductFactsBody'}
-        - type: object
-          required: [expected_revision]
-          properties:
-            expected_revision: {type: integer, minimum: 0}
+      type: object
+      additionalProperties: false
+      required: [expected_revision, body_markdown, classification]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
+        body_markdown: {type: string, minLength: 1}
+        classification: {$ref: '#/components/schemas/Confidentiality'}
     ProductFactsDraft:
-      allOf:
-        - {$ref: '#/components/schemas/ProductFactsBody'}
-        - type: object
-          required: [product_id, revision]
-          properties:
-            product_id: {type: string, format: uuid}
-            revision: {type: integer}
+      type: object
+      additionalProperties: false
+      required: [product_id, body_markdown, classification, revision]
+      properties:
+        product_id: {type: string, format: uuid}
+        body_markdown: {type: string}
+        classification: {$ref: '#/components/schemas/Confidentiality'}
+        revision: {type: integer, minimum: 0}
     FactVersionStatus: {type: string, enum: [DRAFT, PENDING_REVIEW, CHANGES_REQUESTED, APPROVED, RETIRED]}
     CreateVersionRequest:
       type: object
@@ -2456,13 +2268,14 @@ components:
     FactVersion:
       type: object
       additionalProperties: false
-      required: [id, product_id, version, status, snapshot, change_summary, revision, created_by, created_at]
+      required: [id, product_id, version, status, body_markdown, classification, change_summary, revision, created_by, created_at]
       properties:
         id: {type: string, format: uuid}
         product_id: {type: string, format: uuid}
         version: {type: integer}
         status: {$ref: '#/components/schemas/FactVersionStatus'}
-        snapshot: {$ref: '#/components/schemas/ProductFactsBody'}
+        body_markdown: {type: string}
+        classification: {$ref: '#/components/schemas/Confidentiality'}
         change_summary: {type: string}
         revision: {type: integer}
         created_by: {type: string, format: uuid}
@@ -2590,87 +2403,6 @@ components:
         mapping:
           UPLOAD: '#/components/schemas/PlatformLogoUpload'
           EXTERNAL: '#/components/schemas/PlatformLogoExternal'
-    PlatformProfileVersionCreate:
-      type: object
-      additionalProperties: false
-      required: [rules]
-      properties:
-        rules: {$ref: '#/components/schemas/PlatformRules'}
-    PlatformProfileVersionUpdate:
-      type: object
-      additionalProperties: false
-      required: [expected_revision, rules]
-      properties:
-        expected_revision: {type: integer, minimum: 0}
-        rules: {$ref: '#/components/schemas/PlatformRules'}
-    PlatformRules:
-      type: object
-      additionalProperties: false
-      required: [target_audience, title_min, title_max, body_min, body_max, tone, allow_external_links, allow_tables, allow_contact, prohibited_phrases, sections]
-      properties:
-        target_audience: {type: string}
-        title_min: {type: integer, minimum: 1}
-        title_max: {type: integer, minimum: 1}
-        body_min: {type: integer, minimum: 1}
-        body_max: {type: integer, minimum: 1}
-        tone: {type: string}
-        allow_external_links: {type: boolean}
-        allow_tables: {type: boolean}
-        allow_contact: {type: boolean}
-        prohibited_phrases: {type: array, items: {type: string}}
-        sections: {type: array, items: {$ref: '#/components/schemas/PlatformSection'}}
-    PlatformSection:
-      type: object
-      additionalProperties: false
-      required: [name, url]
-      properties:
-        name: {type: string}
-        url: {type: string, format: uri, minLength: 1, maxLength: 2083}
-    PlatformProfileVersion:
-      type: object
-      additionalProperties: false
-      required: [id, platform_profile_id, version, status, rules, revision, created_at]
-      properties:
-        id: {type: string, format: uuid}
-        platform_profile_id: {type: string, format: uuid}
-        version: {type: integer}
-        status: {type: string, enum: [DRAFT, ACTIVE, RETIRED]}
-        rules: {$ref: '#/components/schemas/PlatformRules'}
-        revision: {type: integer}
-        created_at: {type: string, format: date-time}
-    PlatformProfileVersionAction:
-      type: string
-      enum: [EDIT, ACTIVATE, RETIRE, DELETE]
-    PlatformProfileVersionSummary:
-      allOf:
-        - {$ref: '#/components/schemas/PlatformProfileVersion'}
-        - type: object
-          additionalProperties: false
-          required: [created_by, activated_at, last_changed_at, reference_count, available_actions]
-          properties:
-            created_by: {type: [string, 'null'], format: uuid}
-            activated_at: {type: [string, 'null'], format: date-time}
-            last_changed_at: {type: string, format: date-time}
-            reference_count: {type: integer, minimum: 0}
-            available_actions:
-              type: array
-              items: {$ref: '#/components/schemas/PlatformProfileVersionAction'}
-    PlatformProfileVersionList:
-      type: object
-      additionalProperties: false
-      required: [items]
-      properties:
-        items: {type: array, items: {$ref: '#/components/schemas/PlatformProfileVersionSummary'}}
-    PlatformRuleImpactSummary:
-      type: object
-      additionalProperties: false
-      required: [as_of, bound_task_total, unpublished_task_total, reviewing_task_total, published_task_total]
-      properties:
-        as_of: {type: string, format: date-time}
-        bound_task_total: {type: integer, minimum: 0}
-        unpublished_task_total: {type: integer, minimum: 0}
-        reviewing_task_total: {type: integer, minimum: 0}
-        published_task_total: {type: integer, minimum: 0}
     PlatformProfileStatus:
       type: string
       enum: [ENABLED, DISABLED]
@@ -2688,7 +2420,7 @@ components:
     PlatformProfile:
       type: object
       additionalProperties: false
-      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, active_version, prompt_configured, prompt_updated_at, configuration_complete, platform_account_count, updated_at]
+      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, prompt_configured, prompt_updated_at, configuration_complete, platform_account_count, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string, minLength: 1, maxLength: 160}
@@ -2706,24 +2438,19 @@ components:
             - {type: 'null'}
         revision: {type: integer}
         is_active: {type: boolean}
-        active_version:
-          anyOf:
-            - {$ref: '#/components/schemas/PlatformProfileVersion'}
-            - {type: 'null'}
         prompt_configured: {type: boolean}
         prompt_updated_at: {type: [string, 'null'], format: date-time, description: 当前具体平台 Prompt 的最近更新时间；未配置时为 null}
-        configuration_complete: {type: boolean, description: 同时存在 ACTIVE 规则和当前具体平台 Prompt}
+        configuration_complete: {type: boolean, description: 当前具体平台已配置 Prompt，可用于系统 AI 生成}
         platform_account_count: {type: integer, minimum: 0}
         updated_at: {type: [string, 'null'], format: date-time, description: 平台创建、编辑、启用或停用的最近真实审计时间}
     PlatformProfileSummary:
       type: object
       additionalProperties: false
-      required: [platform_total, enabled_total, missing_prompt_total, missing_active_rule_total, configuration_complete_total]
+      required: [platform_total, enabled_total, missing_prompt_total, configuration_complete_total]
       properties:
         platform_total: {type: integer, minimum: 0}
         enabled_total: {type: integer, minimum: 0}
         missing_prompt_total: {type: integer, minimum: 0}
-        missing_active_rule_total: {type: integer, minimum: 0}
         configuration_complete_total: {type: integer, minimum: 0}
     PlatformProfileList:
       type: object
@@ -2753,14 +2480,13 @@ components:
           type: integer
           minimum: 0
           description: 'ContentTask.created_at 位于半开区间 [as_of-30天, as_of) 的唯一任务数'
-        all_time: {type: integer, minimum: 0, description: 引用平台任一规则版本的全部唯一 ContentTask 数}
+        all_time: {type: integer, minimum: 0, description: 直接绑定平台的全部唯一 ContentTask 数}
     PlatformProfileDetail:
       type: object
       additionalProperties: false
-      required: [profile, current_rule_activated_at, prompt_updated_at, account_summary, reference_summary]
+      required: [profile, prompt_updated_at, account_summary, reference_summary]
       properties:
         profile: {$ref: '#/components/schemas/PlatformProfile'}
-        current_rule_activated_at: {type: [string, 'null'], format: date-time}
         prompt_updated_at: {type: [string, 'null'], format: date-time}
         account_summary: {$ref: '#/components/schemas/PlatformAccountSummary'}
         reference_summary: {$ref: '#/components/schemas/PlatformReferenceSummary'}
@@ -3049,35 +2775,19 @@ components:
     ContentTaskCreate:
       type: object
       additionalProperties: false
-      required: [product_id, fact_version_id, platform_profile_version_id, target_audience, content_angle, conversion_goal, desired_format, desired_length_min, desired_length_max, canonical_url]
+      required: [product_id, fact_version_id, platform_profile_id]
       properties:
         product_id: {type: string, format: uuid}
         fact_version_id: {type: string, format: uuid}
-        platform_profile_version_id: {type: string, format: uuid}
-        target_audience: {type: string}
-        content_angle: {type: string}
-        conversion_goal: {type: string}
-        desired_format: {type: string}
-        desired_length_min: {type: integer, minimum: 1}
-        desired_length_max: {type: integer, minimum: 1}
-        canonical_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+        platform_profile_id: {type: string, format: uuid}
     ContentTask:
       allOf:
         - {$ref: '#/components/schemas/ContentTaskCreate'}
         - type: object
-          required: [id, query_topic_id, platform_type_id, platform_type_snapshot, user_prompt_markdown, generation_data_classification, generation_data_classified_by, generation_data_classified_at, source_publication_attention_id, available_actions, status, revision, created_by, created_at]
+          required: [id, query_topic_id, source_publication_attention_id, available_actions, status, revision, created_by, created_at]
           properties:
             id: {type: string, format: uuid}
             query_topic_id: {type: [string, 'null'], format: uuid}
-            platform_type_id: {type: [string, 'null'], format: uuid}
-            platform_type_snapshot: {type: [object, 'null'], additionalProperties: true}
-            user_prompt_markdown: {type: string}
-            generation_data_classification:
-              anyOf:
-                - {$ref: '#/components/schemas/Confidentiality'}
-                - {type: 'null'}
-            generation_data_classified_by: {type: [string, 'null'], format: uuid}
-            generation_data_classified_at: {type: [string, 'null'], format: date-time}
             source_publication_attention_id: {type: [string, 'null'], format: uuid}
             available_actions:
               type: array
@@ -3124,14 +2834,6 @@ components:
               anyOf:
                 - {$ref: '#/components/schemas/GenerationJobStatus'}
                 - {type: 'null'}
-    ContentTaskUserPromptUpdate:
-      type: object
-      additionalProperties: false
-      required: [expected_revision, user_prompt_markdown, generation_data_classification]
-      properties:
-        expected_revision: {type: integer, minimum: 0}
-        user_prompt_markdown: {type: string}
-        generation_data_classification: {$ref: '#/components/schemas/Confidentiality'}
     GenerationOptionModel:
       type: object
       additionalProperties: false
@@ -3145,13 +2847,10 @@ components:
     GenerationOptions:
       type: object
       additionalProperties: false
-      required: [platform_profile_version_id, platform_profile_name, platform_type_id, platform_type_name, platform_type_slug, system_prompt_markdown, humanization_prompt_configured, models]
+      required: [platform_profile_id, platform_profile_name, system_prompt_markdown, humanization_prompt_configured, models]
       properties:
-        platform_profile_version_id: {type: string, format: uuid}
+        platform_profile_id: {type: string, format: uuid}
         platform_profile_name: {type: string}
-        platform_type_id: {type: string, format: uuid}
-        platform_type_name: {type: string}
-        platform_type_slug: {type: string}
         system_prompt_markdown: {type: string}
         humanization_prompt_configured: {type: boolean}
         models: {type: array, items: {$ref: '#/components/schemas/GenerationOptionModel'}}
@@ -3194,27 +2893,58 @@ components:
           properties:
             input_snapshot:
               oneOf:
+                - {$ref: '#/components/schemas/LegacyGenerationSnapshot'}
                 - {$ref: '#/components/schemas/GenerationSnapshot'}
+                - {$ref: '#/components/schemas/LegacyHumanizationSnapshot'}
                 - {$ref: '#/components/schemas/HumanizationSnapshot'}
-    GenerationSnapshot:
+    LegacyGenerationSnapshot:
       type: object
       additionalProperties: false
       required: [adapter_name, contract_version, channel, model, platform_type, system_message, user_prompt_markdown, approved_facts, task_requirements, user_message]
       properties:
         adapter_name: {type: string}
-        contract_version: {type: string}
+        contract_version: {type: string, const: chat-json-v1}
         channel: {type: object, additionalProperties: true}
         model: {type: object, additionalProperties: true}
         platform_type: {type: object, additionalProperties: true}
         platform_profile: {type: [object, 'null'], additionalProperties: true}
         system_message: {type: string}
         user_prompt_markdown: {type: string}
-        generation_data_classification: {$ref: '#/components/schemas/Confidentiality'}
-        generation_data_classified_by: {type: string, format: uuid}
-        generation_data_classified_at: {type: string, format: date-time}
+        generation_data_classification:
+          anyOf:
+            - {$ref: '#/components/schemas/Confidentiality'}
+            - {type: 'null'}
+        generation_data_classified_by: {type: [string, 'null'], format: uuid}
+        generation_data_classified_at: {type: [string, 'null'], format: date-time}
         approved_facts: {type: object, additionalProperties: true}
         task_requirements: {type: object, additionalProperties: true}
         user_message: {type: string}
+    GenerationFactSnapshot:
+      type: object
+      additionalProperties: false
+      required: [id, product_id, version, classification]
+      properties:
+        id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        classification: {$ref: '#/components/schemas/Confidentiality'}
+    GenerationSnapshot:
+      type: object
+      additionalProperties: false
+      required: [adapter_name, contract_version, channel, model, platform_profile, fact_version, system_message, user_message]
+      properties:
+        adapter_name: {type: string, const: openai-compatible-chat-completions}
+        contract_version: {type: string, const: content-markdown-v2}
+        channel: {type: object, additionalProperties: true}
+        model: {type: object, additionalProperties: true}
+        platform_profile: {type: object, additionalProperties: true}
+        fact_version: {$ref: '#/components/schemas/GenerationFactSnapshot'}
+        system_message: {type: string}
+        user_message: {type: string}
+    GenerationInputSnapshot:
+      oneOf:
+        - {$ref: '#/components/schemas/LegacyGenerationSnapshot'}
+        - {$ref: '#/components/schemas/GenerationSnapshot'}
     HumanizationPromptSnapshot:
       type: object
       additionalProperties: false
@@ -3236,7 +2966,7 @@ components:
         summary: {type: string}
         body_markdown: {type: string}
         tags: {type: array, items: {type: string}}
-    HumanizationSnapshot:
+    LegacyHumanizationSnapshot:
       type: object
       additionalProperties: false
       required: [adapter_name, contract_version, channel, model, humanization_prompt, source_content, source_generation_job_id, user_prompt_markdown, generation_data_classification, generation_data_classified_by, generation_data_classified_at, approved_facts, task_requirements, system_message, user_message]
@@ -3256,6 +2986,25 @@ components:
         task_requirements: {type: object, additionalProperties: true}
         system_message: {type: string}
         user_message: {type: string}
+    HumanizationSnapshot:
+      type: object
+      additionalProperties: false
+      required: [adapter_name, contract_version, channel, model, humanization_prompt, source_content, source_generation_job_id, fact_version, system_message, user_message]
+      properties:
+        adapter_name: {type: string, const: openai-compatible-chat-completions}
+        contract_version: {type: string, const: humanization-markdown-v2}
+        channel: {type: object, additionalProperties: true}
+        model: {type: object, additionalProperties: true}
+        humanization_prompt: {$ref: '#/components/schemas/HumanizationPromptSnapshot'}
+        source_content: {$ref: '#/components/schemas/HumanizationSourceContent'}
+        source_generation_job_id: {type: string, format: uuid}
+        fact_version: {$ref: '#/components/schemas/GenerationFactSnapshot'}
+        system_message: {type: string}
+        user_message: {type: string}
+    HumanizationInputSnapshot:
+      oneOf:
+        - {$ref: '#/components/schemas/LegacyHumanizationSnapshot'}
+        - {$ref: '#/components/schemas/HumanizationSnapshot'}
     GenerationJobList:
       type: object
       additionalProperties: false
@@ -3346,26 +3095,14 @@ components:
         comment: {type: string}
         actor: {$ref: '#/components/schemas/ActorSummary'}
         created_at: {type: string, format: date-time}
-    ReviewEvidenceStatus:
-      type: object
-      additionalProperties: false
-      required: [client_key, file_id, file_status]
-      properties:
-        client_key: {type: string}
-        file_id: {type: [string, 'null'], format: uuid}
-        file_status:
-          anyOf:
-            - {type: string, enum: [PENDING, VERIFIED, FAILED, ABORTED]}
-            - {type: 'null'}
     FactReviewAction: {type: string, enum: [SUBMIT, APPROVE, REQUEST_CHANGES, RETIRE]}
     ContentReviewAction: {type: string, enum: [SUBMIT_REVIEW, APPROVE, REQUEST_CHANGES]}
     FactReviewContext:
       type: object
       additionalProperties: false
-      required: [fact_version, evidence_statuses, available_actions, review_history]
+      required: [fact_version, available_actions, review_history]
       properties:
         fact_version: {$ref: '#/components/schemas/FactVersion'}
-        evidence_statuses: {type: array, items: {$ref: '#/components/schemas/ReviewEvidenceStatus'}}
         available_actions: {type: array, items: {$ref: '#/components/schemas/FactReviewAction'}}
         review_history: {type: array, items: {$ref: '#/components/schemas/ReviewRecord'}}
     GenerationTrace:
@@ -3374,7 +3111,7 @@ components:
       required: [job_id, input_snapshot]
       properties:
         job_id: {type: string, format: uuid}
-        input_snapshot: {$ref: '#/components/schemas/GenerationSnapshot'}
+        input_snapshot: {$ref: '#/components/schemas/GenerationInputSnapshot'}
     HumanizationTrace:
       type: object
       additionalProperties: false
@@ -3382,16 +3119,15 @@ components:
       properties:
         job_id: {type: string, format: uuid}
         source_content_version_id: {type: string, format: uuid}
-        input_snapshot: {$ref: '#/components/schemas/HumanizationSnapshot'}
+        input_snapshot: {$ref: '#/components/schemas/HumanizationInputSnapshot'}
     ContentReviewContext:
       type: object
       additionalProperties: false
-      required: [content, task, fact_version, evidence_statuses, diff, generation_trace, humanization_traces, available_actions, review_history]
+      required: [content, task, fact_version, diff, generation_trace, humanization_traces, available_actions, review_history]
       properties:
         content: {$ref: '#/components/schemas/ContentVersion'}
         task: {$ref: '#/components/schemas/ContentTask'}
         fact_version: {$ref: '#/components/schemas/FactVersion'}
-        evidence_statuses: {type: array, items: {$ref: '#/components/schemas/ReviewEvidenceStatus'}}
         diff:
           anyOf:
             - {$ref: '#/components/schemas/ContentDiff'}
@@ -3408,7 +3144,7 @@ components:
     PublicationPackage:
       type: object
       additionalProperties: false
-      required: [content_version_id, fact_version_id, title, body_markdown, body_html, body_text, tags, canonical_url, content_hash]
+      required: [content_version_id, fact_version_id, title, body_markdown, body_html, body_text, tags, content_hash]
       properties:
         content_version_id: {type: string, format: uuid}
         fact_version_id: {type: string, format: uuid}
@@ -3417,7 +3153,6 @@ components:
         body_html: {type: string}
         body_text: {type: string}
         tags: {type: array, items: {type: string}}
-        canonical_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
         content_hash: {type: string}
     PlatformAccountCreate:
       type: object
@@ -3544,14 +3279,12 @@ components:
     PublicationCandidate:
       type: object
       additionalProperties: false
-      required: [content_version, task_id, platform_profile_id, platform_profile_name, platform_profile_version_id, platform_profile_version, matching_accounts]
+      required: [content_version, task_id, platform_profile_id, platform_profile_name, matching_accounts]
       properties:
         content_version: {$ref: '#/components/schemas/ContentVersion'}
         task_id: {type: string, format: uuid}
         platform_profile_id: {type: string, format: uuid}
         platform_profile_name: {type: string}
-        platform_profile_version_id: {type: string, format: uuid}
-        platform_profile_version: {type: integer}
         matching_accounts: {type: array, items: {$ref: '#/components/schemas/PlatformAccount'}}
     PublicationCandidateList:
       type: object
@@ -3691,29 +3424,10 @@ components:
       properties:
         version: {$ref: '#/components/schemas/FactVersion'}
         difference: {$ref: '#/components/schemas/VersionDifference'}
-    PlatformVersionCandidate:
-      type: object
-      additionalProperties: false
-      required: [version, difference]
-      properties:
-        version: {$ref: '#/components/schemas/PlatformProfileVersion'}
-        difference: {$ref: '#/components/schemas/VersionDifference'}
-    PublicationRepairDefaults:
-      type: object
-      additionalProperties: false
-      required: [target_audience, content_angle, conversion_goal, desired_format, desired_length_min, desired_length_max, canonical_url]
-      properties:
-        target_audience: {type: string}
-        content_angle: {type: string}
-        conversion_goal: {type: string}
-        desired_format: {type: string}
-        desired_length_min: {type: integer}
-        desired_length_max: {type: integer}
-        canonical_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
     PublicationRepairContext:
       type: object
       additionalProperties: false
-      required: [attention, publication, original_task, product, query_topic, platform_profile_id, platform_profile_name, original_fact_version, fact_candidates, original_platform_version, platform_candidates, defaults]
+      required: [attention, publication, original_task, product, query_topic, platform_profile_id, platform_profile_name, original_fact_version, fact_candidates]
       properties:
         attention: {$ref: '#/components/schemas/PublicationAttention'}
         publication: {$ref: '#/components/schemas/PublicationRecord'}
@@ -3727,24 +3441,13 @@ components:
         platform_profile_name: {type: string}
         original_fact_version: {$ref: '#/components/schemas/FactVersion'}
         fact_candidates: {type: array, items: {$ref: '#/components/schemas/FactVersionCandidate'}}
-        original_platform_version: {$ref: '#/components/schemas/PlatformProfileVersion'}
-        platform_candidates: {type: array, items: {$ref: '#/components/schemas/PlatformVersionCandidate'}}
-        defaults: {$ref: '#/components/schemas/PublicationRepairDefaults'}
     PublicationRepairTaskCreate:
       type: object
       additionalProperties: false
-      required: [expected_attention_revision, fact_version_id, platform_profile_version_id, target_audience, content_angle, conversion_goal, desired_format, desired_length_min, desired_length_max, canonical_url]
+      required: [expected_attention_revision, fact_version_id]
       properties:
         expected_attention_revision: {type: integer, minimum: 0}
         fact_version_id: {type: string, format: uuid}
-        platform_profile_version_id: {type: string, format: uuid}
-        target_audience: {type: string, minLength: 1}
-        content_angle: {type: string, minLength: 1}
-        conversion_goal: {type: string, minLength: 1}
-        desired_format: {type: string, minLength: 1}
-        desired_length_min: {type: integer, minimum: 1}
-        desired_length_max: {type: integer, minimum: 1}
-        canonical_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
     ResolvePublicationAttentionRequest:
       type: object
       additionalProperties: false
@@ -3940,11 +3643,10 @@ components:
     GeoInsightFilterOptions:
       type: object
       additionalProperties: false
-      required: [content_platforms, geo_platforms, content_angles, publications, query_topics]
+      required: [content_platforms, geo_platforms, publications, query_topics]
       properties:
         content_platforms: {type: array, items: {$ref: '#/components/schemas/GeoInsightOption'}}
         geo_platforms: {type: array, items: {type: string}}
-        content_angles: {type: array, items: {type: string}}
         publications: {type: array, items: {$ref: '#/components/schemas/GeoInsightPublicationOption'}}
         query_topics: {type: array, items: {$ref: '#/components/schemas/GeoInsightOption'}}
     GeoInsightRateValue:

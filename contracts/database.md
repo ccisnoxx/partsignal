@@ -7,7 +7,7 @@
 - Mutable aggregates carry an integer `revision`; clients must submit `expected_revision`.
 - Alembic is the only schema migration entry point. API and Worker never run migrations on startup.
 - Revisions `0001` through `0008` use `app.migration_schema_v1` as a frozen metadata snapshot; future runtime model changes must add a new revision and must not edit that snapshot.
-- JSONB is limited to immutable snapshots, versioned rules, structured generation input/output, and audit details. Editable product facts remain normalized.
+- JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
 - Review records, status events, observations, and audit logs are append-only.
 
 ## Migration Order
@@ -22,13 +22,13 @@ This historical revision created six fixed roles. Revision `0009` migrates them 
 
 `products`, `reference_parts`, `part_parameters`, `replacement_relations`, `evidences`, `parameter_evidence_links`, `replacement_evidence_links`, `fact_claims`, `claim_evidence_links`, `fact_versions`, `fact_review_records`.
 
-`part_parameters` owns exactly one of `product_id` and `reference_part_id`. A submitted fact snapshot requires evidence for each replacement relation and each critical parameter. `fact_versions.snapshot_json` is constructed by the server; clients never provide a snapshot.
+这些规范化事实表和 `fact_versions.snapshot_json` 仅描述历史 revision；`0025` 已将当前事实模型收敛为产品 Markdown 工作区和不可变 Markdown 事实版本，并物理删除规范化事实子图。
 
 ### 0003 Content Planning
 
 `query_topics`, `platform_profiles`, `platform_profile_versions`, `content_tasks`.
 
-`content_tasks` binds a concrete `APPROVED fact_version` and `ACTIVE platform_profile_version`. These foreign keys never silently move to newer versions.
+`platform_profile_versions` 仅描述历史 revision，已由 `0025` 物理删除。当前 `content_tasks` 直接绑定具体 `platform_profile_id` 和同产品的非空 `APPROVED fact_version_id`，不会随配置变化静默改绑。
 
 ### 0004 Content Production
 
@@ -68,11 +68,11 @@ Only `VERIFIED` files may be linked. Publication attachments additionally requir
 
 用户管理工作台不增加表、列或迁移。新账号默认启用，管理员提供的 `temporary_password` 只保存安全哈希，并固定写入 `must_change_password=true`。列表摘要由 PostgreSQL 对全部用户实时聚合，不保存统计快照，也不从审计推测趋势。单个与批量启停共享同一行锁、revision、最后启用管理员保护、会话撤销和逐用户审计不变量；合法批量命令只把写入前的预期业务错误作为逐项失败，任何数据库、编程或审计异常都回滚整批。用户 CSV 只导出批准的非敏感业务列，完整生成后追加 `user.exported` 审计；停用或重新启用只改变当前用户状态，不删除、改绑或改写任何历史业务与审计外键。
 
-`platform_types` owns a unique category `slug`. Revision `0009` initially placed one mutable Markdown system Prompt under each type; revision `0014` replaces that ownership with one current Prompt per concrete platform. `platform_profiles.platform_type_id` is nullable only for migrated profiles and uses `RESTRICT` on delete. New profiles and new content tasks require an explicit type. `content_tasks.platform_type_snapshot` freezes the selected type identity while `user_prompt_markdown` remains an editable task draft protected by `revision`.
+`platform_types` owns a unique category `slug`. Revision `0009` initially placed one mutable Markdown system Prompt under each type; revision `0014` replaced that ownership with one current Prompt per concrete platform。`0025` 又删除了任务上的类型快照和可编辑 Prompt；当前任务只直接绑定具体平台，生成输入由平台 Prompt 与事实版本 Markdown 唯一决定。
 
 `ai_channels` owns an encrypted API key, timeout, and connection state. `ai_channel_headers` belongs only to a channel, normalizes names case-insensitively, and stores exactly one of a plain or encrypted value. `ai_models` belongs to a channel and stores the provider `model_id`, display name, exact JSON request parameters, and model-level test state. Channels and models default disabled. Connection, credential, or Header changes disable the channel and invalidate every child model test; model ID or parameter changes disable and invalidate that model.
 
-`generation_jobs` gains nullable `ai_channel_id` and `ai_model_id` foreign keys using `SET NULL`, provider request metadata, and nullable token usage. `input_snapshot` is the authoritative immutable generation input and retains channel/model identity, non-sensitive connection data, model parameters, system/user messages, approved fact values, and task requirements after current configuration is deleted. Credentials and sensitive Header values never enter the snapshot. `content_versions` removes model-reported fact, evidence, and disclosure ID arrays; traceability comes from `fact_version_id`, `source_job_id`, and the job snapshot.
+`generation_jobs` gains nullable `ai_channel_id` and `ai_model_id` foreign keys using `SET NULL`, provider request metadata, and nullable token usage. `input_snapshot` is the authoritative immutable generation input and retains channel/model identity, non-sensitive connection data, model parameters, final system/user messages, platform identity and approved fact version after current configuration is deleted. Credentials and sensitive Header values never enter the snapshot. `content_versions` removes model-reported fact, evidence, and disclosure ID arrays; traceability comes from `fact_version_id`, `source_job_id`, and the job snapshot.
 
 ### 0010 Legacy User Cleanup
 
@@ -90,17 +90,15 @@ The execution lease is calculated from the immutable snapshot as `started_at + i
 
 ### 0012 AI Data Classification
 
-`content_tasks` gains nullable `generation_data_classification`, `generation_data_classified_by`, and `generation_data_classified_at`. The three fields are either all `NULL` or all present, classification is limited to `PUBLIC | INTERNAL | RESTRICTED`, and the classifier foreign key uses `RESTRICT`. Historical tasks remain unclassified; the migration never infers or backfills `PUBLIC`.
-
-Saving a task Prompt replaces the complete generation-input classification and records the actor and UTC time in the same revisioned update. A third-party model Job may be created or retried only when the task input is explicitly `PUBLIC` and every Evidence in the bound immutable fact snapshot is `PUBLIC`. The Job snapshot freezes the classification evidence used for that decision. PostgreSQL remains the classification source of truth; Redis carries no classification state.
+该 revision 曾在 `content_tasks` 上引入生成输入分级字段。`0025` 已物理删除这些字段；当前分级只属于产品事实工作区和不可变事实版本，第三方模型出站只接受 `FactVersion.classification=PUBLIC`。PostgreSQL 仍是分级唯一来源，Redis 不保存分级状态。
 
 ### 0013 Publication And Review Closure
 
 `publication_attentions` is the authoritative business queue for a publication that reaches `REMOVED` or `VERIFICATION_FAILED`. One publication can create at most one attention. An attention must be inserted as revision-zero `OPEN`, may only become `RESOLVED`, cannot be deleted, and resolution requires an actor, UTC time, and non-blank comment. `content_tasks.source_publication_attention_id` is nullable and unique, so one attention creates at most one repair task without introducing a second task model. Both the attention binding and a non-null repair source are immutable.
 
-Every new `publication_record` must use an active account whose `platform_profile_id` equals the profile of the task's locked `platform_profile_version_id`. The application service validates account activity and platform equality with explicit errors; the PostgreSQL insert trigger is the final protection for the cross-table platform equality. The first related publication that reaches `VERIFIED` changes an `OPEN` task to `COMPLETED` in the same transaction. A later publication loss never reopens or cancels that task; it creates the unique attention instead. A task with `PENDING_MANUAL_PUBLISH`, `PLATFORM_REVIEW`, or `PUBLISHED` publication state cannot be cancelled.
+Every new `publication_record` must use an active account whose `platform_profile_id` equals the task's direct `platform_profile_id`. The application service validates account activity and platform equality with explicit errors; the PostgreSQL insert trigger is the final protection for the cross-table platform equality. The first related publication that reaches `VERIFIED` changes an `OPEN` task to `COMPLETED` in the same transaction. A later publication loss never reopens or cancels that task; it creates the unique attention instead. A task with `PENDING_MANUAL_PUBLISH`, `PLATFORM_REVIEW`, or `PUBLISHED` publication state cannot be cancelled.
 
-The repair command fixes product and platform from the original task. Historical tasks also retain their real query-topic link; product-driven tasks keep that link null. It must explicitly select an `APPROVED` fact version for the same product and the current `ACTIVE` version for the same platform profile. The remaining planning fields are copied as editable defaults. Creating the repair task does not resolve the attention.
+The repair command fixes product and direct platform from the original task. Historical tasks also retain their real query-topic link; product-driven tasks keep that link null. It must explicitly select a non-blank `APPROVED` fact version for the same product. Creating the repair task does not resolve the attention.
 
 Fact and content review records remain append-only. `request-changes` requires a non-blank comment, while submit and approve comments remain optional. Revision `0013` extends both database status guards so `CHANGES_REQUESTED -> PENDING_REVIEW` is valid without changing the immutable version payload. Review contexts are read projections over the locked fact/content versions, evidence file status, generation snapshot, deterministic version diff, actor summary, and stable review history; they do not persist a second copy.
 
@@ -112,13 +110,7 @@ Before `0013`, `python -m app.cli preflight-integrity` must return an empty JSON
 
 The current Prompt row also owns its `revision` and `updated_at`. Platform collection projections expose that exact `updated_at` as nullable `prompt_updated_at`; they do not reuse platform audit time or persist a duplicate field. Prompt update and physical deletion both lock the current row and compare the caller's required `expected_revision`; a stale command returns `REVISION_CONFLICT` without deleting or auditing a false success.
 
-A concrete platform may exist without an `ACTIVE platform_profile_version` or without a current Prompt. Administrators can still classify the platform, create and activate new immutable rule versions, and maintain its Prompt. Engineers may create a content task only with an `ACTIVE` rule version whose concrete platform currently has a Prompt. Deleting an unreferenced `ACTIVE` rule version leaves the profile in the explicit “no effective rule” state and never activates another version automatically.
-
-Revision `0015` changes only `partsignal_guard_platform_version()`: creating a `platform_profile` still does not create a rule row, `DRAFT -> DRAFT` rule updates are revision-protected and permitted, and `ACTIVE` or `RETIRED` rule payloads remain database-enforced immutable. `platform_profile_id`, `version`, and `created_at` stay immutable in every state. A platform's current rule is always derived from its sole `ACTIVE platform_profile_version`; no `current_rule_id` or second source of truth is stored. The revision rewrites no business rows, and its downgrade restores the original all-status payload guard.
-
-平台规则管理工作台不新增表、列、快照或派生状态。版本列表中的引用数、创建/激活/最后变更时间和可用动作均从 `platform_profile_versions`、`content_tasks` 与 `audit_logs` 实时批量投影；删除后的用户允许使审计 `actor_id` 为 `NULL`，历史事件仍必须返回。激活 `DRAFT` 替换既有 `ACTIVE` 时，服务在同一事务将旧版本退役，并分别追加旧版本 `retired(reason=REPLACED)` 与新版本 `activated(previous_active_version_id=...)` 审计；直接退役草稿记录 `reason=DIRECT`。命令说明随两侧事件保存，但规则正文仍只有 `rules` 一个权威来源。
-
-单版本影响摘要只统计直接引用该 `platform_profile_version_id` 的唯一内容任务，并按互斥优先级分桶：存在任一 `PUBLISHED | VERIFIED` 发布记录的任务归“当前已发布”；否则存在任一 `PLATFORM_REVIEW | PENDING_REVIEW` 记录的任务归“审核中”；其余归“未发布”。四个计数满足 `published + reviewing + unpublished = total`，不保存汇总行。内容任务列表可按 `platform_profile_version_id` 精确过滤；与 `platform_profile_id` 同时提供时取交集，省略新参数时保持既有集合语义。
+该 revision 曾以不可变 `platform_profile_versions` 管理平台规则。`0025` 已物理删除规则版本表、管理工作台、规则状态机、影响摘要和任务规则引用；当前具体平台只维护一个可选的当前 Markdown Prompt。
 
 Administrators may physically delete a `fact_version` in any status only when neither `content_tasks` nor `content_versions` references it. The service locks the target, reports every non-zero direct reference, explicitly deletes subordinate `fact_review_records`, and deletes the version in the same transaction. This administrative cleanup is the only exception to normal append-only review history; it never cascades to or rewrites tasks, content, generation, publication, or observation history, and product deletion never implicitly deletes fact versions.
 
@@ -132,7 +124,7 @@ Revision `0016` replaces only the `fact_review_records` append-only trigger. `UP
 
 A successful naturalization creates a new immutable `content_versions` row with `source_type = AI`, `source_job_id` pointing to the naturalization job, and `based_on_id` pointing to the frozen source version. It never updates the source. The job snapshot is the authority for the selected model, global Prompt revision and Markdown, complete source article and hash, original approved facts, PUBLIC classification, task requirements, and final messages; credentials remain outside snapshots and Redis still carries only the job UUID.
 
-The API and Worker both require an `OPEN` task, an `AI` source in `DRAFT | CHANGES_REQUESTED`, an approved fact version, an active product, and complete `PUBLIC` task/evidence classification. Worker validation occurs before and after the provider call, including source identity, status, type, task/fact binding, frozen hash, and original generation lineage. Once any `HUMANIZE` job exists, revision `0017` refuses downgrade so immutable AI history cannot become unreadable; deployment must use a forward fix.
+The API and Worker both require an `OPEN` task, an `AI` source in `DRAFT | CHANGES_REQUESTED`, a non-blank approved `PUBLIC` fact version, and an active product. Worker validation occurs before and after the provider call, including source identity, status, type, task/fact binding, frozen hash, and original generation lineage. Once any `HUMANIZE` job exists, revision `0017` refuses downgrade so immutable AI history cannot become unreadable; deployment must use a forward fix.
 
 New generation snapshots include the concrete platform identity and continue freezing the final system/user messages. Old immutable snapshots may omit the concrete-platform object only for historical reads; new writes must include it. Platform Prompts can diverge after migration, so `0014` does not guess how to merge them on downgrade; rollback requires the pre-migration PostgreSQL backup.
 
@@ -150,7 +142,7 @@ Manual GEO history is forward-only. Once a `MANUAL_ARTICLE_SEARCH` row exists, r
 
 ### 0019 Product-Driven Content Tasks
 
-`content_tasks.query_topic_id` becomes nullable while retaining its `RESTRICT` foreign key. Existing tasks are not rewritten and keep their real query-topic UUID; new ordinary tasks and repair tasks originating from them store `NULL`. The product, its selected `APPROVED fact_version`, the concrete platform's `ACTIVE platform_profile_version`, the current platform Prompt, and the existing task requirement fields are sufficient to create a new task.
+`content_tasks.query_topic_id` becomes nullable while retaining its `RESTRICT` foreign key. Existing tasks are not rewritten and keep their real query-topic UUID; new ordinary tasks and repair tasks originating from them store `NULL`. `0025` 后，新普通任务只需产品、同产品非空 `APPROVED` 事实版本和活动具体平台；人工首稿不依赖平台 Prompt，系统 AI 生成才要求当前 Prompt。
 
 `ContentTaskCreate` no longer accepts a query topic. New generation snapshots omit the `query_topic` object entirely rather than storing null, an empty object, or an invented question. Historical tasks still resolve and freeze their real query topic when creating a new generation job. Repair tasks inherit the original task's nullable link, and repair context returns a nullable query-topic projection for explicit new/legacy handling.
 
@@ -160,7 +152,7 @@ Revision `0019` rewrites no task or immutable job snapshot. It refuses downgrade
 
 `platform_profiles` gains nullable `website_url`, `logo_file_id`, and `logo_external_url`. The uploaded Logo foreign key uses `RESTRICT`; the referenced `file_record` must be a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` object before the application accepts it. A database check permits at most one Logo source, so an uploaded file and an external URL are never stored together. Signed object-storage URLs are response projections and are never persisted.
 
-The content-task list remains a read projection and adds no task columns. It joins each task's product and the concrete platform owning its locked `platform_profile_version`, but displays the platform's current name, website, and Logo. The projected AI status is the latest `generation_job` whose `job_type = GENERATE`, ordered deterministically by `created_at DESC, id DESC`; `HUMANIZE` jobs are content-version post-processing and never replace the task's generation status. The projection batches products, platforms, Logo files, publication state, and generation status instead of issuing per-task queries.
+The content-task list remains a read projection and adds no duplicate display columns. It joins each task's direct platform and displays the platform's current name, website, and Logo. The projected AI status is the latest `generation_job` whose `job_type = GENERATE`, ordered deterministically by `created_at DESC, id DESC`; `HUMANIZE` jobs are content-version post-processing and never replace the task's generation status. The projection batches products, platforms, Logo files, publication state, and generation status instead of issuing per-task queries.
 
 Revision `0020` refuses downgrade when any platform branding field is non-null. Removing populated branding requires a forward fix or a pre-migration backup rather than silent data loss.
 
@@ -188,13 +180,13 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 ### 0023 Platform Management
 
-版本 `0023` 紧跟 `0022_geo_observation_insights`。`platform_profiles.is_active BOOLEAN NOT NULL` 是具体平台启停的唯一业务状态；迁移把所有既有平台显式回填为 `true`，新建平台也显式写入 `true`。启用与配置完整相互独立：配置完整只表示同时存在唯一 `ACTIVE` 规则版本和当前具体平台 Prompt，不保存派生列、汇总行或历史快照。
+版本 `0023` 紧跟 `0022_geo_observation_insights`。`platform_profiles.is_active BOOLEAN NOT NULL` 是具体平台启停的唯一业务状态；迁移把所有既有平台显式回填为 `true`，新建平台也显式写入 `true`。`0025` 后，配置完整只表示存在当前具体平台 Prompt，不保存派生列、汇总行或历史快照。
 
-停用平台仍可查看、编辑、重新启用及维护规则与 Prompt，但所有新建 `ContentTask`（包括发布异常修复任务）、`PlatformAccount` 和 `PublicationRecord` 的服务必须先锁定同一平台行并拒绝 `is_active=false`。停用不修改既有账号的 `is_active`，不修改规则、Prompt、任务、内容、发布、GEO 或审计历史。平台启用、停用与所有受限新建路径遵循“先锁平台，再检查状态并写入”的统一锁顺序，防止并发检查后写入穿透。
+停用平台仍可查看、编辑、重新启用及维护 Prompt，但所有新建 `ContentTask`（包括发布异常修复任务）、`PlatformAccount` 和 `PublicationRecord` 的服务必须先锁定同一平台行并拒绝 `is_active=false`。停用不修改既有账号的 `is_active`，不修改 Prompt、任务、内容、发布、GEO 或审计历史。平台启用、停用与所有受限新建路径遵循“先锁平台，再检查状态并写入”的统一锁顺序，防止并发检查后写入穿透。
 
-平台配置完整性、账号数量和引用次数均为 PostgreSQL 实时投影。平台引用数只统计经 `content_tasks.platform_profile_version_id -> platform_profile_versions.platform_profile_id` 关联的唯一 `ContentTask.id`；最近 30 天使用同一 UTC `as_of` 和半开区间 `[as_of - 30 days, as_of)`，历史数不设时间下界。`content_tasks(platform_profile_version_id, created_at)` 与 `platform_accounts(platform_profile_id, is_active)` 支持聚合；`audit_logs(target_type, target_id, created_at DESC)` 支持平台创建、编辑、启用、停用和规则激活的真实时间投影。无对应审计时返回 `NULL`，不得使用迁移时间补造。
+平台配置完整性、账号数量和引用次数均为 PostgreSQL 实时投影。平台引用数直接统计 `content_tasks.platform_profile_id` 的唯一 `ContentTask.id`；最近 30 天使用同一 UTC `as_of` 和半开区间 `[as_of - 30 days, as_of)`，历史数不设时间下界。`content_tasks(platform_profile_id, created_at)` 与 `platform_accounts(platform_profile_id, is_active)` 支持聚合；`audit_logs(target_type, target_id, created_at DESC)` 支持平台创建、编辑、启用和停用的真实时间投影。无对应审计时返回 `NULL`，不得使用迁移时间补造。
 
-平台物理删除继续沿用 `0014` 的直接引用约束：任一规则版本或平台账号存在时返回结构化 `409`，不得自动停用、级联删除或改写历史。`0023` 降级会删除启停状态，只能在业务确认可丢失当前停用事实后执行；旧迁移与冻结的 `migration_schema_v1.py` 保持不变。
+平台物理删除在任一内容任务或平台账号存在时返回结构化 `409`，不得自动停用、级联删除或改写历史。`0023` 降级会删除启停状态，只能在业务确认可丢失当前停用事实后执行；旧迁移与冻结的 `migration_schema_v1.py` 保持不变。
 
 ### 0024 Audit Outcome
 
@@ -205,6 +197,30 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 成功业务状态和成功审计仍在一个事务内提交。经批准的九类关键命令在业务错误或权限拒绝时先回滚业务事务，再使用独立短事务追加 `FAILED` 或 `DENIED`；其他现有写命令暂时保持成功审计。请求解析、未登录、失效会话、强制改密和 CSRF 失败属于访问边界，不写业务审计。`details` 只保存服务端白名单 `changes/facts` 或经明确兼容投影的历史安全字段，API 不返回原始 JSONB，也不对其全文检索。
 
 审计时间按 UTC 存储和传输，查询时间窗采用半开区间 `[created_from, created_to)`。`actor_id` 继续使用 `SET NULL`，响应中的姓名和账号类型是当前用户目录投影而非历史快照。`request_id` 允许重复，只用于关联链路，并限制为 1 至 100 个可打印 ASCII 字符。表级 append-only 触发器继续禁止 `UPDATE/DELETE`；若存在空 `target_id` 的失败创建记录，降级必须拒绝恢复 `NOT NULL`，不得删除或篡改历史。
+
+### 0025 Markdown Facts And Direct Platform Tasks
+
+版本 `0025` 紧跟 `0024_audit_outcome`，一次性删除结构化产品事实和平台规则版本两套已废弃业务模型。历史迁移、`migration_schema_v1.py` 和既有不可变生成快照保持冻结；当前 Schema 只由本 revision、运行时 ORM 和本契约表达。
+
+`products` 新增 `facts_body_markdown TEXT NOT NULL` 与 `facts_classification VARCHAR(16) NOT NULL`，后者只允许 `PUBLIC | INTERNAL | RESTRICTED`；既有 `facts_revision` 继续作为事实工作区乐观锁。新产品初态正文为空且分级为 `RESTRICTED`，保存事实命令必须拒绝去除空白后为空的正文并原样保存非空 Markdown。`fact_versions` 以 `body_markdown` 和 `classification` 替换 `snapshot_json`；新版本必须从同一产品工作区冻结非空正文与分级，历史空版本可继续被旧记录引用，但不能创建新内容任务。
+
+迁移使用 revision 文件内冻结的确定性 Markdown 渲染器分别处理当前规范化工作区和每个历史 `snapshot_json`。渲染器只按固定章节、稳定记录顺序和字段顺序输出数据库已有值，不总结、归并、补值或调用 AI。分级取已有 Evidence 中限制最高的值，顺序为 `RESTRICTED > INTERNAL > PUBLIC`；没有可确定 Evidence 分级时写入 `RESTRICTED`。渲染和行数校验完成后删除 `parameter_evidence_links`、`replacement_evidence_links`、`claim_evidence_links`、`part_parameters`、`replacement_relations`、`fact_claims`、`evidences`、`reference_parts`，但不删除独立 `file_records`。
+
+`content_tasks` 新增 `platform_profile_id UUID NOT NULL REFERENCES platform_profiles(id) ON DELETE RESTRICT` 和 `(platform_profile_id, created_at)` 索引。迁移通过原 `platform_profile_version_id -> platform_profile_versions.platform_profile_id` 唯一回填；任一任务无法回填时整个 revision 失败。随后删除 `platform_profile_version_id`、`platform_type_id`、`platform_type_snapshot`、`user_prompt_markdown`、任务分级三字段、受众、角度、转化目标、格式、长度与 `canonical_url`，以及对应检查与索引。`query_topic_id` 和 `source_publication_attention_id` 保持原义。
+
+删除全部 `platform_profile_versions` 数据和表。`PlatformProfile` 是任务与发布的唯一平台身份，`PlatformPrompt` 是系统 AI 的唯一当前 system Prompt，`PlatformProfile.allowed_domains` 是发布 URL 的唯一平台域名规则。平台配置完整只表示已配置当前 Prompt；缺少 Prompt 不阻止创建内容任务或人工首稿，只阻止系统 AI 作业。平台引用数直接统计 `content_tasks.platform_profile_id`，平台物理删除由任务和平台账号直接引用共同阻断。
+
+新普通内容任务请求精确写入 `product_id`、同产品非空 `APPROVED fact_version_id` 和活动 `platform_profile_id`，并固定 `query_topic_id=NULL`。发布异常修复任务继承原任务的平台和可空目标问题，只允许选择同产品非空 `APPROVED fact_version_id`；不复制已删除任务要求。发布平台等值的应用校验与 PostgreSQL 触发器都直接比较 `content_tasks.platform_profile_id` 和 `platform_accounts.platform_profile_id`。
+
+新原始生成快照使用 `contract_version=content-markdown-v2`，冻结非敏感渠道、模型、平台身份、事实版本身份及分级、`system_message` 和 `user_message`。实际供应商请求必须恰好包含两条消息：system 正文逐字等于创建作业时读取的 `PlatformPrompt.template_markdown`，user 正文逐字等于 `FactVersion.body_markdown`；校验空白时不得改写原字符串。只有事实版本分级为 `PUBLIC` 才允许第三方出站。系统不再追加固定前缀、任务 Prompt、任务要求、产品元数据、事实 JSON 或平台规则。
+
+自然化继续复用现有 `generation_jobs`，新快照版本为 `humanization-markdown-v2`，只冻结当前自然化 Prompt、来源文章、来源原始作业、事实版本身份及最终消息，不读取结构化事实、任务要求或平台规则。历史 `chat-json-v1` 与 `humanization-json-v1` 快照不改写且只读；不得从旧快照创建重试。迁移锁定 `generation_jobs` 并在发现任一旧契约 `PENDING | RUNNING` 作业时失败，部署必须先停止新流量并清空或显式终止旧作业。
+
+任务级人工首稿直接创建 `ContentVersion(source_type=HUMAN, source_job_id=NULL, based_on_id=NULL, status=DRAFT)`，不创建生成作业。标题、摘要、Markdown 正文、标签和变更说明仍由现有内容版本契约校验；后续人工修订、审核、唯一批准版本、人工发布、状态事件和内容哈希与 AI 草稿完全共用。
+
+事实与内容审核上下文不再投影 Evidence 状态。质量检查删除平台规则长度/禁用表达、任务受众/角度/格式/长度和结构化参数数字来源检查，只保留严格四字段模型 JSON、标题/摘要/正文非空、Markdown 安全渲染、内容哈希、状态转换、唯一批准版本和发布域名等确定性边界。
+
+该 revision 的 downgrade 明确失败。恢复旧结构化关系或规则版本只能使用迁移前 PostgreSQL 备份，不得根据 Markdown 或历史快照反向猜测数据。
 
 ## State Machines
 
@@ -238,27 +254,30 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 
 ## Required Constraints
 
-- Unique product and reference part identities use normalized manufacturer/brand plus part number.
-- Version numbers are unique within their owner: product fact, platform profile, or content task.
+- Product identity is unique by normalized brand plus part number.
+- Version numbers are unique within their owner: product fact or content task.
 - Product or content-task owner rows are locked while allocating the next version number.
-- Approved fact snapshots permit status-only transition to `RETIRED`; all other columns are immutable.
+- A product has one Markdown fact workspace protected by `facts_revision`; new fact versions freeze its non-blank Markdown and classification.
+- Approved fact versions permit status-only transition to `RETIRED`; all other columns are immutable.
 - Content versions permit only valid status transitions; publishable fields are immutable.
 - `users.account_type` is the only permission source. `ADMIN` includes all `ENGINEER` abilities and exclusively manages users and configuration.
 - At least one active `ADMIN` must remain after every user account-type or active-state update.
 - Sensitive AI values are encrypted with the deployment master key and never returned, audited, logged, or copied into generation snapshots.
 - A platform type referenced by a platform profile cannot be deleted. Platform types do not own Prompts after `0014`.
-- A concrete platform owns zero or one current Prompt. Deleting the current Prompt or an unreferenced `ACTIVE` rule version keeps the platform manageable but removes it from the engineer-selectable set until both an `ACTIVE` rule and current Prompt exist.
+- A concrete platform owns zero or one current Prompt. Deleting the Prompt keeps the platform selectable for manual content tasks but makes system AI generation unavailable until a Prompt is configured again.
 - Platform Prompt update and deletion require optimistic revision matching against the locked current row. Its list `prompt_updated_at` is a nullable projection of `platform_prompts.updated_at`, never a stored summary or the platform profile's own update time.
 - A concrete platform's `is_active` state is independent from configuration completeness. A disabled platform remains manageable but cannot be used to create a content task, repair task, platform account, or publication record; disabling never mutates existing accounts, configuration, or history.
-- Platform completeness, account counts, and task-reference counts are real-time read projections. Completeness is true only when the sole `ACTIVE` rule and current platform Prompt both exist; a task reference is counted once through its bound platform rule version.
+- Platform completeness, account counts, and task-reference counts are real-time read projections. Completeness is true when the current platform Prompt exists; a task reference is counted once through `content_tasks.platform_profile_id`.
 - A concrete platform stores at most one Logo source. Uploaded Logos must reference a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` file; external Logo URLs and website URLs remain explicit nullable URI fields.
-- Product, platform profile/version, platform account, and platform type physical deletion is admin-only. Services lock the target, count direct references, and return structured `409 details.references`; they never cascade, reassign, or rewrite immutable business history.
-- A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform rule version requires no `ContentTask`; a platform profile requires no rule versions or platform accounts; a platform account requires no `PublicationRecord`; a platform type requires no platform profiles.
+- Product, platform profile, platform account, and platform type physical deletion is admin-only. Services lock the target, count direct references, and return structured `409 details.references`; they never cascade, reassign, or rewrite immutable business history.
+- A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform profile requires no content tasks or platform accounts; a platform account requires no `PublicationRecord`; a platform type requires no platform profiles.
 - Channel deletion cascades to Headers and models. Historical job foreign keys become null while their immutable snapshots remain readable.
 - A model can be enabled only after its own successful test. A channel can be enabled only when at least one child model has passed testing.
-- A generation job performs at most one provider call. Expired worker leases fail explicitly; retries create a new job and preserve the original non-sensitive snapshot.
+- A generation job performs at most one provider call. Expired worker leases fail explicitly; retries create a new job and preserve the original non-sensitive v2 snapshot. Legacy v1 snapshots are read-only and cannot be retried.
 - Automatic recovery dispatches only overdue `PENDING` jobs. Dispatch counters, queue ages, failure codes, and provider duration diagnostics must never contain prompts, response bodies, credentials, or sensitive Headers.
-- Third-party AI egress requires an explicit complete `PUBLIC` task classification and only `PUBLIC` Evidence in the bound fact snapshot. Missing historical classification is a hard denial, never a compatibility default.
+- Third-party AI egress requires the bound fact version to be explicitly `PUBLIC`; missing, legacy-empty, `INTERNAL`, or `RESTRICTED` fact data is a hard denial.
+- Original generation sends exactly one system message equal to the current platform Prompt and one user message equal to the frozen fact Markdown; no prefix, task field, metadata, JSON wrapper, repair, model switch, or fallback is allowed.
+- A manual first draft creates a `HUMAN DRAFT` content version with null generation and parent lineage, then uses the same review and publication gates as AI content.
 - A publication can reference only an approved content version whose fact is not retired at creation time.
 - A publication account profile must equal the content task's locked platform profile; both the application service and PostgreSQL enforce it.
 - `PUBLISHED` and `VERIFIED` publications require a valid HTTP(S) URL matching the configured platform domain.

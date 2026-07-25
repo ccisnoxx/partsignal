@@ -116,9 +116,6 @@ from app.services.platform_configuration import (
     delete_platform_profile as delete_platform_profile_command,
 )
 from app.services.platform_configuration import (
-    delete_platform_profile_version as delete_platform_profile_version_command,
-)
-from app.services.platform_configuration import (
     delete_platform_prompt as delete_platform_prompt_command,
 )
 from app.services.platform_configuration import (
@@ -584,26 +581,6 @@ def delete_platform_profile(
     delete_platform_profile_command(
         db=db,
         platform_profile_id=platform_profile_id,
-        actor=admin,
-        request_id=request.state.request_id,
-    )
-
-
-@router.delete(
-    "/platform-profile-versions/{platform_profile_version_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    operation_id="deletePlatformProfileVersion",
-)
-def delete_platform_profile_version(
-    platform_profile_version_id: uuid.UUID,
-    request: Request,
-    db: DbSession,
-    admin: AdminUser,
-    _csrf: CsrfProtected,
-) -> None:
-    delete_platform_profile_version_command(
-        db=db,
-        platform_profile_version_id=platform_profile_version_id,
         actor=admin,
         request_id=request.state.request_id,
     )

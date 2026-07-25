@@ -1,4 +1,4 @@
-/** 验证内容审核页清理 HTML、展示冻结证据和历史，并要求显式批准。 */
+/** 验证内容审核页清理 HTML、展示冻结事实和历史，并要求显式批准。 */
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../../app/App';
@@ -32,22 +32,9 @@ const context = {
     query_topic_id: '21000000-0000-4000-8000-000000000001',
     product_id: '22000000-0000-4000-8000-000000000001',
     fact_version_id: content.fact_version_id,
-    platform_profile_version_id: '23000000-0000-4000-8000-000000000001',
-    platform_type_id: '24000000-0000-4000-8000-000000000001',
-    platform_type_snapshot: { name: '技术社区' },
-    user_prompt_markdown: '仅使用批准事实',
-    generation_data_classification: 'PUBLIC',
-    generation_data_classified_by: content.created_by,
-    generation_data_classified_at: content.created_at,
+    platform_profile_id: '25000000-0000-4000-8000-000000000001',
     source_publication_attention_id: null,
     available_actions: [],
-    target_audience: '硬件工程师',
-    content_angle: '替代说明',
-    conversion_goal: '查看数据手册',
-    desired_format: 'MARKDOWN',
-    desired_length_min: 100,
-    desired_length_max: 1000,
-    canonical_url: 'https://product.example.invalid/demo',
     status: 'OPEN',
     revision: 0,
     created_by: content.created_by,
@@ -58,13 +45,8 @@ const context = {
     product_id: '22000000-0000-4000-8000-000000000001',
     version: 1,
     status: 'APPROVED',
-    snapshot: {
-      reference_parts: [],
-      parameters: [{ client_key: 'voltage', owner_key: 'product', key: 'voltage', name: '工作电压', value_type: 'NUMERIC', min_value: null, typical_value: 3.3, max_value: null, text_value: null, unit: 'V', test_conditions: '25 摄氏度', is_critical: true, evidence_keys: ['datasheet'] }],
-      replacement_relations: [],
-      evidences: [{ client_key: 'datasheet', type: 'DATASHEET', title: '公开数据手册', version: '1.0', source_url: 'https://docs.example.invalid/demo.pdf', file_id: null, confidentiality: 'PUBLIC' }],
-      claims: [],
-    },
+    body_markdown: '## 电气参数\n\n工作电压：3.3 V\n\n来源：公开数据手册',
+    classification: 'PUBLIC',
     change_summary: '批准事实',
     revision: 2,
     created_by: content.created_by,
@@ -72,7 +54,6 @@ const context = {
     created_at: content.created_at,
     approved_at: content.created_at,
   },
-  evidence_statuses: [{ client_key: 'datasheet', file_id: null, file_status: null }],
   diff: null,
   generation_trace: null,
   humanization_traces: [],
@@ -109,7 +90,7 @@ function commonPageResponse(path: string) {
   return undefined;
 }
 
-test('展示冻结审核证据并要求显式批准', async () => {
+test('展示冻结审核事实并要求显式批准', async () => {
   window.history.pushState({}, '', `/content/${content.id}`);
   mockFetch((request) => {
     const path = new URL(request.url).pathname;
@@ -133,9 +114,9 @@ test('展示冻结审核证据并要求显式批准', async () => {
   expect(screen.getByRole('tab', { name: 'Markdown 源文' })).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: '版本差异' })).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: '编辑' })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('tab', { name: '事实证据' }));
-  expect(screen.getByText('工作电压')).toBeInTheDocument();
-  expect(screen.getByText('公开数据手册')).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('tab', { name: '产品事实' }));
+  expect(screen.getByText(/工作电压/)).toBeInTheDocument();
+  expect(screen.getByText(/公开数据手册/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole('tab', { name: '审核记录' }));
   expect(screen.getByText('请调整标题')).toBeInTheDocument();
   expect(screen.queryByRole('region', { name: 'AI 追溯' })).not.toBeInTheDocument();
@@ -214,60 +195,6 @@ test('人工修订聚焦首个错误，并在离开版本前保护未保存 Mark
   const discard = (await screen.findByText('放弃未保存的内容修订？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
   await user.click(within(discard!).getByRole('button', { name: '放弃修改' }));
   await waitFor(() => expect(window.location.pathname).toBe(`/content/${previousContent.id}`));
-});
-
-test('真实空证据下退回必须填写意见且可以重新提交', async () => {
-  let status: 'PENDING_REVIEW' | 'CHANGES_REQUESTED' = 'PENDING_REVIEW';
-  let revision = 1;
-  let requestChangesCalls = 0;
-  let resubmitCalls = 0;
-  window.history.pushState({}, '', `/content/${content.id}`);
-  mockFetch((request) => {
-    const path = new URL(request.url).pathname;
-    const common = commonPageResponse(path);
-    if (common) return common;
-    if (path.endsWith('/request-changes')) {
-      requestChangesCalls += 1;
-      status = 'CHANGES_REQUESTED';
-      revision += 1;
-      return { body: { ...content, status, revision } };
-    }
-    if (path.endsWith('/submit-review')) {
-      resubmitCalls += 1;
-      status = 'PENDING_REVIEW';
-      revision += 1;
-      return { body: { ...content, status, revision } };
-    }
-    if (path.endsWith('/review-context')) {
-      return {
-        body: {
-          ...context,
-          content: { ...content, status, revision },
-          fact_version: {
-            ...context.fact_version,
-            snapshot: { ...context.fact_version.snapshot, evidences: [] },
-          },
-          evidence_statuses: [],
-          available_actions: status === 'PENDING_REVIEW' ? ['REQUEST_CHANGES'] : ['SUBMIT_REVIEW'],
-        } satisfies Schema<'ContentReviewContext'>,
-      };
-    }
-    throw new Error(`未声明的测试请求：${request.method} ${path}`);
-  });
-  render(<App />);
-  await userEvent.click(await screen.findByRole('tab', { name: '事实证据' }));
-  expect(await screen.findByText('锁定事实没有证据')).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: /退回修改/ }));
-  await userEvent.click(screen.getByRole('button', { name: /确\s*认/ }));
-  expect(await screen.findByText('退回必须填写意见')).toBeInTheDocument();
-  expect(requestChangesCalls).toBe(0);
-  await userEvent.type(screen.getByRole('textbox', { name: '审核意见' }), '补充证据说明');
-  await userEvent.click(screen.getByRole('button', { name: /确\s*认/ }));
-  expect(await screen.findByRole('button', { name: /提交审核/ })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: /提交审核/ }));
-  await userEvent.click(screen.getByRole('button', { name: /确\s*认/ }));
-  await waitFor(() => expect(resubmitCalls).toBe(1));
-  expect(await screen.findByRole('button', { name: /退回修改/ })).toBeInTheDocument();
 });
 
 test('按服务端严重级别区分阻断问题和优化建议，并展示真实版本差异', async () => {

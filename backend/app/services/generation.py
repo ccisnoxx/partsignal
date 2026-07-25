@@ -1,4 +1,4 @@
-"""确定性开发生成器、质量检查与 PostgreSQL 作业执行器。"""
+"""Markdown 生成门禁、内容哈希与 PostgreSQL 作业执行器。"""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ import logging
 import re
 import uuid
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
 from typing import Any, Literal, Protocol
 
 from pydantic import ValidationError
@@ -31,9 +30,13 @@ from app.models.product_facts import (
     FactVersion,
     Product,
 )
-from app.schemas.content import GenerationSnapshot, HumanizationSnapshot, QualityIssue
+from app.schemas.content import (
+    GenerationFactSnapshot,
+    GenerationSnapshot,
+    HumanizationSnapshot,
+    QualityIssue,
+)
 from app.schemas.geo_files import GeneratedDraft
-from app.schemas.product_facts import ProductFactsBody
 from app.services.ai_configuration import (
     build_snapshot_request_headers,
     request_credentials,
@@ -43,17 +46,8 @@ from app.services.content_lineage import resolve_content_ai_lineage
 from app.services.openai_client import CompletionResult, OpenAICompatibleClient
 
 logger = logging.getLogger("partsignal.worker")
-GENERATION_CONTRACT_VERSION: Literal["chat-json-v1"] = "chat-json-v1"
-HUMANIZATION_CONTRACT_VERSION: Literal["humanization-json-v1"] = "humanization-json-v1"
-FIXED_SYSTEM_CONTRACT = """批准事实优先于工程师输入。不得使用输入之外的产品事实。
-只返回一个 JSON 对象，不得使用代码块或附加说明。JSON 必须且只能包含非空字段：
-title: 字符串；summary: 字符串；body_markdown: 完整 Markdown 正文；tags: 非空字符串数组。"""
-HUMANIZATION_FIXED_CONTRACT = """你只能改写给定源文章，使表达更自然。
-必须保留原意、必要披露和产品事实。
-不得新增、猜测或暗示任何型号、参数、数据、引用、用户反馈、专家观点或第一人称经历。
-不得输出修改说明、评价或 JSON 之外的任何内容。"""
-NUMBER_PATTERN = re.compile(r"(?<![\w])[-+]?\d+(?:\.\d+)?")
-URL_PATTERN = re.compile(r"https?://\S+")
+GENERATION_CONTRACT_VERSION: Literal["content-markdown-v2"] = "content-markdown-v2"
+HUMANIZATION_CONTRACT_VERSION: Literal["humanization-markdown-v2"] = "humanization-markdown-v2"
 TEXT_CHARACTER_PATTERN = re.compile(r"[\W_]+", re.UNICODE)
 NEAR_DUPLICATE_THRESHOLD = 0.85
 
@@ -61,27 +55,15 @@ NEAR_DUPLICATE_THRESHOLD = 0.85
 def ensure_third_party_egress_allowed(
     generation_input: dict[str, Any],
 ) -> GenerationSnapshot:
-    """第三方模型只接收已完整标记为 PUBLIC 的任务和事实证据。"""
+    """第三方模型只接收明确标记为 PUBLIC 的冻结事实 Markdown。"""
     try:
         snapshot = GenerationSnapshot.model_validate(generation_input)
     except ValidationError as error:
         raise AppError("GENERATION_SNAPSHOT_INVALID", "生成作业快照结构无效", 409) from error
-    if snapshot.adapter_name != "openai-compatible-chat-completions":
-        return snapshot
-    evidence_classifications = snapshot.approved_facts.get("evidence_confidentialities")
-    task_is_public = (
-        snapshot.generation_data_classification is not None
-        and snapshot.generation_data_classification.value == "PUBLIC"
-        and snapshot.generation_data_classified_by is not None
-        and snapshot.generation_data_classified_at is not None
-    )
-    evidence_is_public = isinstance(evidence_classifications, list) and all(
-        classification == "PUBLIC" for classification in evidence_classifications
-    )
-    if not task_is_public or not evidence_is_public:
+    if snapshot.fact_version.classification.value != "PUBLIC":
         raise AppError(
             "AI_DATA_CLASSIFICATION_FORBIDDEN",
-            "第三方模型只允许处理已明确分级为 PUBLIC 的完整生成输入",
+            "第三方模型只允许处理已明确分级为 PUBLIC 的事实版本",
             409,
         )
     return snapshot
@@ -90,127 +72,36 @@ def ensure_third_party_egress_allowed(
 def ensure_humanization_egress_allowed(
     humanization_input: dict[str, Any],
 ) -> HumanizationSnapshot:
-    """自然化快照必须保留完整且明确的 PUBLIC 出站依据。"""
+    """自然化快照必须保留明确的 PUBLIC 事实版本依据。"""
     try:
         snapshot = HumanizationSnapshot.model_validate(humanization_input)
     except ValidationError as error:
         raise AppError("GENERATION_SNAPSHOT_INVALID", "自然化作业快照结构无效", 409) from error
-    evidence_classifications = snapshot.approved_facts.get("evidence_confidentialities")
-    if (
-        snapshot.generation_data_classification.value != "PUBLIC"
-        or not isinstance(evidence_classifications, list)
-        or not all(value == "PUBLIC" for value in evidence_classifications)
-    ):
+    if snapshot.fact_version.classification.value != "PUBLIC":
         raise AppError(
             "AI_DATA_CLASSIFICATION_FORBIDDEN",
-            "第三方模型只允许处理已明确分级为 PUBLIC 的完整生成输入",
+            "第三方模型只允许处理已明确分级为 PUBLIC 的事实版本",
             409,
         )
     return snapshot
 
 
-def ensure_generation_sources_public(task: ContentTask, facts: ProductFactsBody) -> None:
-    """在创建第三方作业前校验 PostgreSQL 任务分级和事实快照证据分级。"""
-    if (
-        task.generation_data_classification != "PUBLIC"
-        or task.generation_data_classified_by is None
-        or task.generation_data_classified_at is None
-        or any(evidence.confidentiality.value != "PUBLIC" for evidence in facts.evidences)
-    ):
+def ensure_generation_sources_public(fact: FactVersion) -> None:
+    """在创建第三方作业前校验 PostgreSQL 事实版本分级与正文。"""
+    if fact.classification != "PUBLIC":
         raise AppError(
             "AI_DATA_CLASSIFICATION_FORBIDDEN",
-            "第三方模型只允许处理已明确分级为 PUBLIC 的完整生成输入",
+            "第三方模型只允许处理已明确分级为 PUBLIC 的事实版本",
             409,
         )
-
-
-def number_tokens(text: str) -> set[str]:
-    """归一化数字字面量，避免把 `5` 与 `5.0` 错判为不同事实。"""
-    return {format(Decimal(token).normalize(), "f") for token in NUMBER_PATTERN.findall(text)}
+    if not fact.body_markdown.strip():
+        raise AppError("FACT_BODY_REQUIRED", "事实版本 Markdown 不能为空白", 409)
 
 
 class ContentGenerator(Protocol):
-    """真实模型和开发生成器共同遵循的结构化输出边界。"""
-
-    name: str
+    """测试注入生成器遵循的严格结构化输出边界。"""
 
     def generate(self, generation_input: dict[str, Any]) -> GeneratedDraft: ...
-
-
-class DevelopmentContentGenerator:
-    """只重组已批准事实的确定性开发适配器，不补充任何未知参数。"""
-
-    name = "development-deterministic"
-
-    def generate(self, generation_input: dict[str, Any]) -> GeneratedDraft:
-        snapshot = GenerationSnapshot.model_validate(generation_input)
-        facts = snapshot.approved_facts
-        task = snapshot.task_requirements["task"]
-        product = snapshot.task_requirements["product"]
-        claims = facts["claims"]
-        approved_claims = [item for item in claims if item["type"] == "APPROVED"]
-        disclosures = [item for item in claims if item["type"] == "REQUIRED_DISCLOSURE"]
-        parameters = facts["parameters"]
-        relations = facts["replacement_relations"]
-        if not parameters and not relations and not approved_claims:
-            raise AppError("GENERATION_FAILED", "批准事实快照没有可用于生成的事实", 422)
-        sections = [f"# {product['part_number']}：{task['content_angle']}", ""]
-        query_topic = snapshot.task_requirements.get("query_topic")
-        if query_topic is not None:
-            sections.extend([f"目标问题：{query_topic['canonical_question']}", ""])
-        if parameters:
-            sections.extend(["## 已批准参数", ""])
-            for parameter in parameters:
-                value = parameter["text_value"]
-                if parameter["value_type"] == "NUMERIC":
-                    value = f"{parameter['typical_value']:g} {parameter['unit']}".strip()
-                elif parameter["value_type"] == "RANGE":
-                    bounds = [
-                        f"最小 {parameter['min_value']:g}"
-                        if parameter["min_value"] is not None
-                        else None,
-                        f"典型 {parameter['typical_value']:g}"
-                        if parameter["typical_value"] is not None
-                        else None,
-                        f"最大 {parameter['max_value']:g}"
-                        if parameter["max_value"] is not None
-                        else None,
-                    ]
-                    value = "、".join(value for value in bounds if value) + f" {parameter['unit']}"
-                sections.append(
-                    f"- {parameter['name']}：{value}；测试条件：{parameter['test_conditions']}"
-                )
-        if relations:
-            references = {item["client_key"]: item for item in facts["reference_parts"]}
-            sections.extend(["", "## 替代边界", ""])
-            for relation in relations:
-                reference = references[relation["reference_part_key"]]
-                sections.append(
-                    f"- 对 {reference['manufacturer']} {reference['part_number']} 的证据等级为 "
-                    f"{relation['replacement_level']}。适用条件：{relation['conditions']}。"
-                    f"排除场景：{relation['exclusions']}。"
-                )
-        if approved_claims:
-            sections.extend(["", "## 已批准说明", ""])
-            sections.extend(f"- {claim['text']}" for claim in approved_claims)
-        if disclosures:
-            sections.extend(["", "## 必要披露", ""])
-            sections.extend(f"- {claim['text']}" for claim in disclosures)
-        sections.extend(["", f"详情：{task['canonical_url']}"])
-        body = "\n".join(sections)
-        title = f"{product['part_number']} {task['content_angle']}"
-        subject = (
-            query_topic["canonical_question"] if query_topic is not None else task["content_angle"]
-        )
-        tags = [product["part_number"]]
-        if query_topic is not None:
-            tags.append(query_topic["intent_type"])
-        return GeneratedDraft(
-            title=title,
-            summary=f"围绕“{subject}”整理已批准事实和替代边界。",
-            body_markdown=body,
-            tags=tags,
-        )
 
 
 def content_hash(title: str, summary: str, body_markdown: str, tags: list[str]) -> str:
@@ -255,7 +146,7 @@ def add_near_duplicate_warning(
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
         .where(
             ContentTask.product_id == task.product_id,
-            ContentTask.platform_profile_version_id == task.platform_profile_version_id,
+            ContentTask.platform_profile_id == task.platform_profile_id,
             ContentTask.id != task.id,
         )
     ).all()
@@ -290,15 +181,10 @@ def validate_generation_context(
     product = db.get(Product, task.product_id)
     if job.job_type == "HUMANIZE":
         snapshot = ensure_humanization_egress_allowed(job.input_snapshot)
-        ensure_generation_eligible(
-            task,
-            fact,
-            product,
-            str(snapshot.approved_facts.get("fact_version_id")),
-        )
+        ensure_generation_eligible(task, fact, product, snapshot.fact_version)
         if fact is None:
             raise AppError("FACT_NOT_APPROVED", "自然化作业绑定的事实已失效", 409)
-        ensure_generation_sources_public(task, ProductFactsBody.model_validate(fact.snapshot_json))
+        ensure_generation_sources_public(fact)
         source_query = select(ContentVersion).where(
             ContentVersion.id == job.source_content_version_id
         )
@@ -328,12 +214,10 @@ def validate_generation_context(
         return task
     if job.job_type != "GENERATE":
         raise AppError("GENERATION_SNAPSHOT_INVALID", "AI 作业类型无效", 409)
-    ensure_generation_eligible(
-        task,
-        fact,
-        product,
-        str(job.input_snapshot.get("approved_facts", {}).get("fact_version_id")),
-    )
+    generation_snapshot = ensure_third_party_egress_allowed(job.input_snapshot)
+    ensure_generation_eligible(task, fact, product, generation_snapshot.fact_version)
+    if fact is not None:
+        ensure_generation_sources_public(fact)
     return task
 
 
@@ -341,7 +225,7 @@ def ensure_generation_eligible(
     task: ContentTask,
     fact: FactVersion | None,
     product: Product | None,
-    snapshot_fact_version_id: str,
+    snapshot_fact: GenerationFactSnapshot,
 ) -> None:
     """在 API 入队之外再次执行 Worker 的事实有效性不变量。"""
     if task.status != "OPEN":
@@ -349,89 +233,15 @@ def ensure_generation_eligible(
     if (
         fact is None
         or fact.status != "APPROVED"
+        or fact.product_id != task.product_id
         or product is None
         or product.status != "ACTIVE"
-        or str(fact.id) != snapshot_fact_version_id
+        or fact.id != snapshot_fact.id
+        or fact.product_id != snapshot_fact.product_id
+        or fact.version != snapshot_fact.version
+        or fact.classification != snapshot_fact.classification.value
     ):
         raise AppError("FACT_NOT_APPROVED", "生成作业绑定的事实或产品已失效", 409)
-
-
-def run_quality_checks(
-    draft: GeneratedDraft,
-    generation_input: dict[str, Any],
-    *,
-    job_type: str = "GENERATE",
-) -> list[dict[str, str]]:
-    """执行确定性、可解释且不依赖模型判断的质量规则。"""
-    issues: list[QualityIssue] = []
-    snapshot: GenerationSnapshot | HumanizationSnapshot
-    if job_type == "GENERATE":
-        snapshot = GenerationSnapshot.model_validate(generation_input)
-    elif job_type == "HUMANIZE":
-        snapshot = HumanizationSnapshot.model_validate(generation_input)
-    else:
-        raise AppError("GENERATION_SNAPSHOT_INVALID", "AI 作业类型无效", 409)
-    rules = snapshot.task_requirements["platform_rules"]
-    if not rules["title_min"] <= len(draft.title) <= rules["title_max"]:
-        issues.append(
-            QualityIssue(code="TITLE_LENGTH", severity="WARNING", message="标题长度不符合平台建议")
-        )
-    if not rules["body_min"] <= len(draft.body_markdown) <= rules["body_max"]:
-        issues.append(
-            QualityIssue(code="BODY_LENGTH", severity="WARNING", message="正文长度不符合平台建议")
-        )
-    for phrase in rules["prohibited_phrases"]:
-        if phrase and phrase in draft.body_markdown:
-            issues.append(
-                QualityIssue(
-                    code="PROHIBITED_PHRASE",
-                    severity="BLOCKING",
-                    message=f"正文包含平台禁用表达：{phrase}",
-                )
-            )
-    facts = snapshot.approved_facts
-    # 正文中的独立数字只能来自批准事实或该次作业锁定的工程师 Prompt。
-    # URL 会包含路径编号，但它不是参数陈述，因此先从正文中移除。
-    approved_text = json.dumps(
-        {
-            "facts": {key: value for key, value in facts.items() if key != "fact_version_id"},
-            "user_prompt_markdown": snapshot.user_prompt_markdown,
-        },
-        ensure_ascii=False,
-    )
-    approved_numbers = number_tokens(approved_text)
-    body_without_urls = URL_PATTERN.sub("", draft.body_markdown)
-    unknown_numbers = sorted(number_tokens(body_without_urls) - approved_numbers)
-    if unknown_numbers:
-        issues.append(
-            QualityIssue(
-                code="UNKNOWN_NUMERIC_FACT",
-                severity="BLOCKING",
-                message=f"正文包含事实快照未批准的数字：{', '.join(unknown_numbers)}",
-            )
-        )
-    disclosures = [
-        item["text"] for item in facts["claims"] if item["type"] == "REQUIRED_DISCLOSURE"
-    ]
-    for text in disclosures:
-        if text not in draft.body_markdown:
-            issues.append(
-                QualityIssue(
-                    code="REQUIRED_DISCLOSURE_MISSING",
-                    severity="BLOCKING",
-                    message="正文缺少事实快照要求的披露语句",
-                )
-            )
-    for claim in facts["claims"]:
-        if claim["type"] == "PROHIBITED" and claim["text"] in draft.body_markdown:
-            issues.append(
-                QualityIssue(
-                    code="PROHIBITED_FACT_EXPRESSION",
-                    severity="BLOCKING",
-                    message="正文包含批准事实明确禁用的表达",
-                )
-            )
-    return [issue.model_dump() for issue in issues]
 
 
 def generate_for_job(
@@ -450,13 +260,7 @@ def generate_for_job(
     else:
         raise AppError("GENERATION_SNAPSHOT_INVALID", "AI 作业类型无效", 409)
     if generator is not None:
-        if job.job_type != "GENERATE":
-            raise AppError("GENERATION_ADAPTER_FORBIDDEN", "自然化作业不支持开发生成器", 409)
         return generator.generate(generation_input), None
-    if job.job_type == "GENERATE" and snapshot.adapter_name == DevelopmentContentGenerator.name:
-        if settings.environment == "production":
-            raise AppError("GENERATION_ADAPTER_FORBIDDEN", "生产环境禁止开发生成器", 409)
-        return DevelopmentContentGenerator().generate(generation_input), None
     if snapshot.adapter_name != "openai-compatible-chat-completions":
         raise AppError("GENERATION_ADAPTER_INVALID", "生成作业适配器无效", 409)
     if job.adapter_name != snapshot.adapter_name:
@@ -566,7 +370,7 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             validate_generation_context(db, job)
             db.commit()
             draft, completion = generate_for_job(db, job, generation_input, generator)
-            quality_issues = run_quality_checks(draft, generation_input, job_type=job.job_type)
+            quality_issues: list[dict[str, str]] = []
             db.expire_all()
             job = db.scalar(
                 select(GenerationJob).where(GenerationJob.id == job_id).with_for_update()
@@ -580,13 +384,15 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             task = validate_generation_context(db, job, lock_task=True)
             add_near_duplicate_warning(db, task, draft, quality_issues)
             source_version_id: uuid.UUID | None = None
-            fact_version_id = uuid.UUID(generation_input["approved_facts"]["fact_version_id"])
             change_summary = "AI 生成作业创建的草稿"
             if job.job_type == "HUMANIZE":
                 humanization_snapshot = HumanizationSnapshot.model_validate(generation_input)
                 source_version_id = humanization_snapshot.source_content.id
-                fact_version_id = humanization_snapshot.source_content.fact_version_id
+                fact_version_id = humanization_snapshot.fact_version.id
                 change_summary = "AI 自然化作业创建的草稿"
+            else:
+                generation_snapshot = GenerationSnapshot.model_validate(generation_input)
+                fact_version_id = generation_snapshot.fact_version.id
             next_version = (
                 int(
                     db.scalar(

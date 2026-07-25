@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 from app.errors import AppError, not_found
 from app.models.configuration import (
     PlatformProfile,
-    PlatformProfileVersion,
     QueryTopic,
 )
 from app.models.content import (
@@ -41,7 +40,6 @@ from app.schemas.publication import (
     FactVersionCandidate,
     FileRecordOut,
     PlatformAccountOut,
-    PlatformVersionCandidate,
     PublicationAttentionList,
     PublicationAttentionListItem,
     PublicationAttentionOut,
@@ -55,7 +53,6 @@ from app.schemas.publication import (
     PublicationRecordListItem,
     PublicationRecordOut,
     PublicationRepairContext,
-    PublicationRepairDefaults,
     PublicationStatus,
     PublicationStatusCounts,
     PublicationWorkbenchSummary,
@@ -66,7 +63,6 @@ from app.services.projections import (
     content_task_out,
     content_version_out,
     fact_version_out,
-    platform_version_out,
 )
 
 PUBLICATION_TRANSITIONS = {
@@ -167,11 +163,7 @@ def publication_out(db: Session, publication: PublicationRecord) -> PublicationR
     context = db.execute(
         select(ContentTask, ContentVersion, PlatformProfile, PlatformAccount)
         .join(ContentVersion, ContentVersion.task_id == ContentTask.id)
-        .join(
-            PlatformProfileVersion,
-            PlatformProfileVersion.id == ContentTask.platform_profile_version_id,
-        )
-        .join(PlatformProfile, PlatformProfile.id == PlatformProfileVersion.platform_profile_id)
+        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .join(PlatformAccount, PlatformAccount.id == publication.platform_account_id)
         .where(ContentVersion.id == publication.content_version_id)
     ).one_or_none()
@@ -229,14 +221,10 @@ def publication_out(db: Session, publication: PublicationRecord) -> PublicationR
 def list_publication_candidates(db: Session) -> PublicationCandidateList:
     """返回锁定平台及其活跃账号，避免前端重建平台一致性规则。"""
     rows = db.execute(
-        select(ContentVersion, ContentTask, PlatformProfileVersion, PlatformProfile)
+        select(ContentVersion, ContentTask, PlatformProfile)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
         .join(FactVersion, FactVersion.id == ContentVersion.fact_version_id)
-        .join(
-            PlatformProfileVersion,
-            PlatformProfileVersion.id == ContentTask.platform_profile_version_id,
-        )
-        .join(PlatformProfile, PlatformProfile.id == PlatformProfileVersion.platform_profile_id)
+        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(
             ContentVersion.status == "APPROVED",
             FactVersion.status == "APPROVED",
@@ -246,7 +234,7 @@ def list_publication_candidates(db: Session) -> PublicationCandidateList:
         .order_by(ContentVersion.created_at.desc(), ContentVersion.id)
     ).all()
     accounts_by_profile: defaultdict[uuid.UUID, list[PlatformAccount]] = defaultdict(list)
-    profile_ids = {profile.id for _content, _task, _version, profile in rows}
+    profile_ids = {profile.id for _content, _task, profile in rows}
     if profile_ids:
         for account in db.scalars(
             select(PlatformAccount)
@@ -264,14 +252,12 @@ def list_publication_candidates(db: Session) -> PublicationCandidateList:
                 task_id=task.id,
                 platform_profile_id=profile.id,
                 platform_profile_name=profile.name,
-                platform_profile_version_id=platform_version.id,
-                platform_profile_version=platform_version.version,
                 matching_accounts=[
                     PlatformAccountOut.model_validate(item)
                     for item in accounts_by_profile[profile.id]
                 ],
             )
-            for content, task, platform_version, profile in rows
+            for content, task, profile in rows
         ]
     )
 
@@ -307,11 +293,7 @@ def list_publication_records(
         )
         .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
-        .join(
-            PlatformProfileVersion,
-            PlatformProfileVersion.id == ContentTask.platform_profile_version_id,
-        )
-        .join(PlatformProfile, PlatformProfile.id == PlatformProfileVersion.platform_profile_id)
+        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .join(PlatformAccount, PlatformAccount.id == PublicationRecord.platform_account_id)
         .outerjoin(
             last_verification,
@@ -413,11 +395,7 @@ def list_attentions(db: Session, status_filter: str | None) -> PublicationAttent
         )
         .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
-        .join(
-            PlatformProfileVersion,
-            PlatformProfileVersion.id == ContentTask.platform_profile_version_id,
-        )
-        .join(PlatformProfile, PlatformProfile.id == PlatformProfileVersion.platform_profile_id)
+        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .join(PlatformAccount, PlatformAccount.id == PublicationRecord.platform_account_id)
         .outerjoin(repair_task, repair_task.c.attention_id == PublicationAttention.id)
     )
@@ -548,11 +526,7 @@ def publication_workbench_summary(
         )
         .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
-        .join(
-            PlatformProfileVersion,
-            PlatformProfileVersion.id == ContentTask.platform_profile_version_id,
-        )
-        .join(PlatformProfile, PlatformProfile.id == PlatformProfileVersion.platform_profile_id)
+        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(PublicationStatusEvent.created_at < as_of)
         .order_by(PublicationStatusEvent.created_at.desc(), PublicationStatusEvent.id.desc())
         .limit(5)
@@ -623,45 +597,28 @@ def get_repair_context(db: Session, attention_id: uuid.UUID) -> PublicationRepai
     product = db.get(Product, task.product_id)
     topic = db.get(QueryTopic, task.query_topic_id) if task.query_topic_id is not None else None
     original_fact = db.get(FactVersion, task.fact_version_id)
-    original_platform = db.get(PlatformProfileVersion, task.platform_profile_version_id)
-    profile = (
-        db.get(PlatformProfile, original_platform.platform_profile_id)
-        if original_platform is not None
-        else None
-    )
-    if any(item is None for item in (product, original_fact, original_platform, profile)) or (
+    profile = db.get(PlatformProfile, task.platform_profile_id)
+    if any(item is None for item in (product, original_fact, profile)) or (
         task.query_topic_id is not None and topic is None
     ):
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布修复上下文不完整", 409)
     assert product is not None
     assert original_fact is not None
-    assert original_platform is not None
     assert profile is not None
     original_fact_out = fact_version_out(original_fact)
-    original_platform_out = platform_version_out(original_platform)
-    fact_candidates = list(
-        db.scalars(
+    fact_candidates = [
+        candidate
+        for candidate in db.scalars(
             select(FactVersion)
             .where(FactVersion.product_id == task.product_id, FactVersion.status == "APPROVED")
             .order_by(FactVersion.version.desc(), FactVersion.id)
         )
-    )
-    platform_candidates = (
-        list(
-            db.scalars(
-                select(PlatformProfileVersion)
-                .where(
-                    PlatformProfileVersion.platform_profile_id == profile.id,
-                    PlatformProfileVersion.status == "ACTIVE",
-                )
-                .order_by(PlatformProfileVersion.version.desc(), PlatformProfileVersion.id)
-            )
-        )
-        if profile.is_active
-        else []
-    )
-    before_fact = original_fact_out.snapshot.model_dump(mode="json")
-    before_platform = original_platform_out.rules.model_dump(mode="json")
+        if candidate.body_markdown.strip()
+    ]
+    before_fact: dict[str, object] = {
+        "body_markdown": original_fact.body_markdown,
+        "classification": original_fact.classification,
+    }
     return PublicationRepairContext(
         attention=attention_out(db, attention),
         publication=publication_out(db, publication),
@@ -678,33 +635,14 @@ def get_repair_context(db: Session, attention_id: uuid.UUID) -> PublicationRepai
                     original_fact.id,
                     candidate.id,
                     before_fact,
-                    fact_version_out(candidate).snapshot.model_dump(mode="json"),
+                    {
+                        "body_markdown": candidate.body_markdown,
+                        "classification": candidate.classification,
+                    },
                 ),
             )
             for candidate in fact_candidates
         ],
-        original_platform_version=original_platform_out,
-        platform_candidates=[
-            PlatformVersionCandidate(
-                version=platform_version_out(candidate),
-                difference=_difference(
-                    original_platform.id,
-                    candidate.id,
-                    before_platform,
-                    platform_version_out(candidate).rules.model_dump(mode="json"),
-                ),
-            )
-            for candidate in platform_candidates
-        ],
-        defaults=PublicationRepairDefaults(
-            target_audience=task.target_audience,
-            content_angle=task.content_angle,
-            conversion_goal=task.conversion_goal,
-            desired_format=task.desired_format,
-            desired_length_min=task.desired_length_min,
-            desired_length_max=task.desired_length_max,
-            canonical_url=task.canonical_url,
-        ),
     )
 
 

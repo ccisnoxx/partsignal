@@ -1,8 +1,27 @@
-/** 产品事实工作区：维护证据化事实、创建不可变快照并执行人工审核。 */
-import { DeleteOutlined, DownOutlined, ArrowLeftOutlined, PlusOutlined } from '@ant-design/icons';
+/** 产品事实工作区：维护唯一 Markdown 正文、数据分级和不可变审核版本。 */
+import { ArrowLeftOutlined, DownOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, App, Button, Card, Checkbox, Descriptions, Divider, Dropdown, Form, Input, InputNumber, List, Modal, Select, Space, Table, Tabs, Timeline, Typography } from 'antd';
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Descriptions,
+  Dropdown,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tabs,
+  Timeline,
+  Typography,
+} from 'antd';
+import DOMPurify from 'dompurify';
+import { marked } from 'marked';
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
@@ -10,48 +29,31 @@ import { queryKeys } from '../../shared/api/queryKeys';
 import type { FactVersion, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { DeletionError } from '../../shared/components/DeletionError';
-import { DirectUpload } from '../../shared/components/DirectUpload';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
-import { evidenceTypeLabel, evidenceTypeOptions } from '../../shared/components/enumLabels';
-import { useActiveSection } from '../../shared/hooks/useActiveSection';
 import { useAuth } from '../auth/AuthProvider';
 
-const replacementOptions: Array<{ label: string; value: Schema<'ReplacementLevel'> }> = [
-  { label: '功能相近', value: 'FUNCTIONALLY_SIMILAR' }, { label: '参数兼容', value: 'PARAMETER_COMPATIBLE' },
-  { label: '引脚兼容', value: 'PIN_COMPATIBLE' }, { label: 'Pin-to-Pin', value: 'PIN_TO_PIN' },
-  { label: '样板验证', value: 'PROTOTYPE_VALIDATED' }, { label: '温度验证', value: 'TEMPERATURE_VALIDATED' },
-  { label: '量产验证', value: 'MASS_PRODUCTION_VALIDATED' },
+const classificationOptions: Array<{ label: string; value: Schema<'Confidentiality'> }> = [
+  { label: 'PUBLIC · 可发送第三方模型', value: 'PUBLIC' },
+  { label: 'INTERNAL · 禁止发送第三方模型', value: 'INTERNAL' },
+  { label: 'RESTRICTED · 禁止发送第三方模型', value: 'RESTRICTED' },
 ];
 
-const confidentialityOptions: Array<{ label: string; value: Schema<'Confidentiality'> }> = [
-  { label: '公开', value: 'PUBLIC' }, { label: '内部', value: 'INTERNAL' }, { label: '受限', value: 'RESTRICTED' },
-];
-const parameterValueOptions: Array<{ label: string; value: Schema<'ParameterValueType'> }> = [
-  { label: '数值', value: 'NUMERIC' }, { label: '范围', value: 'RANGE' }, { label: '文本', value: 'TEXT' },
-];
-const claimTypeOptions: Array<{ label: string; value: Schema<'ClaimType'> }> = [
-  { label: '允许声明', value: 'APPROVED' }, { label: '禁止声明', value: 'PROHIBITED' },
-  { label: '必须披露', value: 'REQUIRED_DISCLOSURE' },
-];
-const factSectionIds = ['reference-parts', 'evidences', 'parameters', 'relations', 'claims'];
-const factSectionByField: Record<string, string> = {
-  reference_parts: 'reference-parts',
-  evidences: 'evidences',
-  parameters: 'parameters',
-  replacement_relations: 'relations',
-  claims: 'claims',
-};
-type FormNamePath = string | number | Array<string | number>;
+function MarkdownPreview({ markdown, label }: { markdown: string; label: string }) {
+  const safeHtml = useMemo(
+    () => DOMPurify.sanitize(marked.parse(markdown) as string),
+    [markdown],
+  );
+  return <article aria-label={label} className="markdown-preview" dangerouslySetInnerHTML={{ __html: safeHtml }} />;
+}
 
 export function ProductFactsPage() {
-  const canEdit = true;
   const auth = useAuth();
   const { message } = App.useApp();
   const { productId = '' } = useParams();
   const navigate = useNavigate();
-  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [createVersionOpen, setCreateVersionOpen] = useState(false);
   const [snapshotTarget, setSnapshotTarget] = useState<FactVersion>();
   const [reviewTarget, setReviewTarget] = useState<FactVersion>();
   const [commandTarget, setCommandTarget] = useState<{ version: FactVersion; command: 'submit' | 'approve' | 'request-changes' | 'retire' } | null>(null);
@@ -62,17 +64,49 @@ export function ProductFactsPage() {
   const createVersionErrorRef = useRef<HTMLDivElement>(null);
   const commandErrorRef = useRef<HTMLDivElement>(null);
   const [modal, modalContext] = Modal.useModal();
-  const product = useQuery({ queryKey: queryKeys.products.detail(productId), queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
-  const draft = useQuery({ queryKey: queryKeys.products.draft(productId), queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
-  const versions = useQuery({ queryKey: queryKeys.products.factVersions(productId), queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId } } })), staleTime: QUERY_STALE_TIME.detail });
-  const reviewContext = useQuery({ queryKey: queryKeys.products.factReview(reviewTarget?.id), queryFn: async () => unwrap(await api.GET('/api/v1/fact-versions/{fact_version_id}/review-context', { params: { path: { fact_version_id: reviewTarget?.id ?? '' } } })), enabled: !!reviewTarget, staleTime: QUERY_STALE_TIME.detail });
+
+  const product = useQuery({
+    queryKey: queryKeys.products.detail(productId),
+    queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}', { params: { path: { product_id: productId } } })),
+    staleTime: QUERY_STALE_TIME.detail,
+  });
+  const draft = useQuery({
+    queryKey: queryKeys.products.draft(productId),
+    queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId } } })),
+    staleTime: QUERY_STALE_TIME.detail,
+  });
+  const versions = useQuery({
+    queryKey: queryKeys.products.factVersions(productId),
+    queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId } } })),
+    staleTime: QUERY_STALE_TIME.detail,
+  });
+  const reviewContext = useQuery({
+    queryKey: queryKeys.products.factReview(reviewTarget?.id),
+    queryFn: async () => unwrap(await api.GET('/api/v1/fact-versions/{fact_version_id}/review-context', { params: { path: { fact_version_id: reviewTarget!.id } } })),
+    enabled: !!reviewTarget,
+    staleTime: QUERY_STALE_TIME.detail,
+  });
   const save = useMutation({
-    mutationFn: async (values: Schema<'ProductFactsDraftUpdate'>) => unwrap(await api.PUT('/api/v1/products/{product_id}/facts', { params: { path: { product_id: productId }, header: csrfHeader() }, body: values })),
-    onSuccess: async () => { message.success('事实工作区已保存'); await queryClient.invalidateQueries({ queryKey: queryKeys.products.draft(productId) }); },
+    mutationFn: async (values: Schema<'ProductFactsDraftUpdate'>) => unwrap(await api.PUT('/api/v1/products/{product_id}/facts', {
+      params: { path: { product_id: productId }, header: csrfHeader() },
+      body: values,
+    })),
+    onSuccess: async (saved) => {
+      queryClient.setQueryData(queryKeys.products.draft(productId), saved);
+      message.success('事实工作区已保存');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.products.draft(productId) });
+    },
   });
   const createVersion = useMutation({
-    mutationFn: async (body: Schema<'CreateVersionRequest'>) => unwrap(await api.POST('/api/v1/products/{product_id}/fact-versions', { params: { path: { product_id: productId }, header: csrfHeader() }, body })),
-    onSuccess: async () => { setSnapshotOpen(false); await queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) }); },
+    mutationFn: async (body: Schema<'CreateVersionRequest'>) => unwrap(await api.POST('/api/v1/products/{product_id}/fact-versions', {
+      params: { path: { product_id: productId }, header: csrfHeader() },
+      body,
+    })),
+    onSuccess: async () => {
+      setCreateVersionOpen(false);
+      message.success('不可变事实版本已创建');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) });
+    },
   });
   const command = useMutation({
     mutationFn: async ({ target, body }: { target: NonNullable<typeof commandTarget>; body: Schema<'CommandRequest'> }) => {
@@ -80,14 +114,31 @@ export function ProductFactsPage() {
         : target.command === 'approve' ? '/api/v1/fact-versions/{fact_version_id}/approve' as const
         : target.command === 'request-changes' ? '/api/v1/fact-versions/{fact_version_id}/request-changes' as const
         : '/api/v1/fact-versions/{fact_version_id}/retire' as const;
-      return unwrap(await api.POST(path, { params: { path: { fact_version_id: target.version.id }, header: csrfHeader() }, body }));
+      return unwrap(await api.POST(path, {
+        params: { path: { fact_version_id: target.version.id }, header: csrfHeader() },
+        body,
+      }));
     },
-    onSuccess: async () => { const targetId = commandTarget?.version.id; setCommandTarget(null); message.success('事实版本状态已更新'); await Promise.all([queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) }), queryClient.invalidateQueries({ queryKey: queryKeys.products.factReview(targetId) })]); },
+    onSuccess: async () => {
+      const targetId = commandTarget?.version.id;
+      setCommandTarget(null);
+      message.success('事实版本状态已更新');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.products.factReview(targetId) }),
+      ]);
+    },
   });
   const remove = useMutation({
-    mutationFn: async (version: FactVersion) => ensureSuccess(await api.DELETE('/api/v1/fact-versions/{fact_version_id}', { params: { path: { fact_version_id: version.id }, header: csrfHeader() } })),
-    onSuccess: async () => { message.success('事实版本已删除'); await queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) }); },
+    mutationFn: async (version: FactVersion) => ensureSuccess(await api.DELETE('/api/v1/fact-versions/{fact_version_id}', {
+      params: { path: { fact_version_id: version.id }, header: csrfHeader() },
+    })),
+    onSuccess: async () => {
+      message.success('事实版本已删除');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) });
+    },
   });
+
   useEffect(() => {
     if (save.error) saveErrorRef.current?.focus();
     else if (createVersion.error) createVersionErrorRef.current?.focus();
@@ -122,7 +173,7 @@ export function ProductFactsPage() {
     }
     modal.confirm({
       title: '放弃未保存的事实修改？',
-      content: '离开事实工作区后，本次尚未保存的修改不会保留。',
+      content: '离开事实工作区后，本次尚未保存的 Markdown 和分级修改不会保留。',
       okText: '放弃修改',
       cancelText: '继续编辑',
       okButtonProps: { danger: true },
@@ -138,125 +189,221 @@ export function ProductFactsPage() {
     confirmDiscardFacts(() => navigate('/products'));
   };
 
-  if (product.isLoading || draft.isLoading) return <div className="page-stack product-facts-page"><PageHeader title="产品事实工作区" breadcrumbs={[{ title: <Link to="/products">产品事实</Link> }, { title: '事实工作区' }]} /><QueryLoading /></div>;
-  if (product.error || draft.error || !product.data || !draft.data) return <div className="page-stack product-facts-page"><Link className="back-link" to="/products"><ArrowLeftOutlined /> 返回产品列表</Link><PageHeader title="产品事实工作区" breadcrumbs={[{ title: <Link to="/products">产品事实</Link> }, { title: '事实工作区' }]} /><QueryFailure error={product.error ?? draft.error ?? new Error('产品事实工作区不存在')} onRetry={() => { void product.refetch(); void draft.refetch(); }} /></div>;
+  if (product.isLoading || draft.isLoading) {
+    return <div className="page-stack product-facts-page"><PageHeader title="产品事实工作区" breadcrumbs={[{ title: <Link to="/products">产品事实</Link> }, { title: '事实工作区' }]} /><QueryLoading /></div>;
+  }
+  if (product.error || draft.error || !product.data || !draft.data) {
+    return <div className="page-stack product-facts-page"><Link className="back-link" to="/products"><ArrowLeftOutlined /> 返回产品列表</Link><PageHeader title="产品事实工作区" breadcrumbs={[{ title: <Link to="/products">产品事实</Link> }, { title: '事实工作区' }]} /><QueryFailure error={product.error ?? draft.error ?? new Error('产品事实工作区不存在')} onRetry={() => { void product.refetch(); void draft.refetch(); }} /></div>;
+  }
+
   return (
     <div className="page-stack product-facts-page">
       {modalContext}
       <Link className="back-link" to="/products" onClick={handleBack}><ArrowLeftOutlined /> 返回产品列表</Link>
-      <PageHeader eyebrow="产品事实工作区" title={<span className="data-code">{product.data.part_number}</span>} description={`${product.data.brand} · ${product.data.category} · 工作区修订 ${draft.data.revision}`} breadcrumbs={[{ title: <Link to="/products" onClick={handleBack}>产品事实</Link> }, { title: product.data.part_number }]} actions={<StatusTag status={product.data.status} />} />
+      <PageHeader
+        eyebrow="产品事实工作区"
+        title={<span className="data-code">{product.data.part_number}</span>}
+        description={`${product.data.brand} · ${product.data.category} · 工作区修订 ${draft.data.revision}`}
+        breadcrumbs={[{ title: <Link to="/products" onClick={handleBack}>产品事实</Link> }, { title: product.data.part_number }]}
+        actions={<StatusTag status={product.data.status} />}
+      />
       <div ref={saveErrorRef} tabIndex={-1}>{save.error && <Alert role="alert" type="error" showIcon title={errorMessage(save.error)} />}</div>
       {remove.error && <DeletionError error={remove.error} />}
       <Tabs activeKey={activeTab} onChange={(key) => confirmDiscardFacts(() => setActiveTab(key))} items={[
-        { key: 'workspace', label: '事实工作区', children: draft.data && <FactsForm key={factsFormKey} draft={draft.data} saving={save.isPending} disabled={!canEdit} onDirtyChange={setFactsDirty} onSave={(values) => save.mutateAsync(values)} /> },
-        { key: 'versions', label: `事实版本（${versions.data?.items.length ?? 0}）`, children: <Card extra={canEdit && <Button type="primary" onClick={() => setSnapshotOpen(true)}>创建不可变快照</Button>}>{versions.isLoading ? <QueryLoading label="正在加载事实版本" /> : versions.error || !versions.data ? <QueryFailure error={versions.error ?? new Error('事实版本列表不存在')} onRetry={() => void versions.refetch()} /> : <TableRegion label="事实版本列表"><Table<FactVersion> rowKey="id" dataSource={versions.data.items} scroll={{ x: 760 }} columns={[
-          { title: '版本', dataIndex: 'version', render: (v) => `V${v}` }, { title: '状态', dataIndex: 'status', render: (v) => <StatusTag status={v} /> },
-          { title: '变更说明', dataIndex: 'change_summary' }, { title: '创建时间', dataIndex: 'created_at', render: (v) => new Date(v).toLocaleString('zh-CN') },
-          { title: '审核操作', render: (_, version) => <Space wrap>
-            <Button size="small" type="primary" onClick={() => setReviewTarget(version)}>审核证据与历史</Button>
-            <Dropdown trigger={['click']} menu={{ items: [
-              { key: 'snapshot', label: '查看快照' },
-              ...(auth.isAdmin ? [{ key: 'delete', label: '删除', danger: true }] : []),
-            ], onClick: ({ key }) => key === 'snapshot' ? setSnapshotTarget(version) : confirmDeleteVersion(version) }}>
-              <Button size="small" aria-label={`更多操作：事实版本 V${version.version}`} loading={remove.isPending && remove.variables?.id === version.id}>更多 <DownOutlined /></Button>
-            </Dropdown>
-          </Space> },
-        ]} /></TableRegion>}</Card> },
+        {
+          key: 'workspace',
+          label: '事实工作区',
+          children: <FactsForm
+            key={factsFormKey}
+            draft={draft.data}
+            saving={save.isPending}
+            onDirtyChange={setFactsDirty}
+            onSave={(values) => save.mutateAsync(values)}
+          />,
+        },
+        {
+          key: 'versions',
+          label: `事实版本（${versions.data?.items.length ?? 0}）`,
+          children: <Card extra={<Button type="primary" onClick={() => setCreateVersionOpen(true)}>创建不可变版本</Button>}>
+            {versions.isLoading ? <QueryLoading label="正在加载事实版本" />
+              : versions.error || !versions.data ? <QueryFailure error={versions.error ?? new Error('事实版本列表不存在')} onRetry={() => void versions.refetch()} />
+                : <TableRegion label="事实版本列表"><Table<FactVersion>
+                  rowKey="id"
+                  dataSource={versions.data.items}
+                  scroll={{ x: 820 }}
+                  columns={[
+                    { title: '版本', dataIndex: 'version', width: 90, render: (value) => `V${value}` },
+                    { title: '状态', dataIndex: 'status', width: 130, render: (value) => <StatusTag status={value} /> },
+                    { title: '数据分级', dataIndex: 'classification', width: 120, render: (value) => <StatusTag status={value} /> },
+                    { title: '变更说明', dataIndex: 'change_summary' },
+                    { title: '创建时间', dataIndex: 'created_at', width: 180, render: (value) => new Date(value).toLocaleString('zh-CN') },
+                    { title: '操作', width: 220, fixed: 'right', render: (_, version) => <Space wrap>
+                      <Button size="small" type="primary" onClick={() => setReviewTarget(version)}>审核与历史</Button>
+                      <Dropdown trigger={['click']} menu={{
+                        items: [
+                          { key: 'snapshot', label: '查看冻结正文' },
+                          ...(auth.isAdmin ? [{ key: 'delete', label: '删除', danger: true }] : []),
+                        ],
+                        onClick: ({ key }) => key === 'snapshot' ? setSnapshotTarget(version) : confirmDeleteVersion(version),
+                      }}>
+                        <Button size="small" aria-label={`更多操作：事实版本 V${version.version}`} loading={remove.isPending && remove.variables?.id === version.id}>更多 <DownOutlined /></Button>
+                      </Dropdown>
+                    </Space> },
+                  ]}
+                /></TableRegion>}
+          </Card>,
+        },
       ]} />
-      <Modal title="创建事实快照" open={snapshotOpen} footer={null} onCancel={() => setSnapshotOpen(false)} destroyOnHidden><div ref={createVersionErrorRef} tabIndex={-1}>{createVersion.error && <Alert role="alert" type="error" showIcon title={errorMessage(createVersion.error)} />}</div><Form<Schema<'CreateVersionRequest'>> layout="vertical" disabled={createVersion.isPending} scrollToFirstError={{ behavior: 'smooth', block: 'center', focus: true }} onFinish={(body) => createVersion.mutate(body)}><Form.Item name="change_summary" label="变更说明" rules={[{ required: true }]}><Input.TextArea rows={3} /></Form.Item><Button type="primary" htmlType="submit" loading={createVersion.isPending}>创建快照</Button></Form></Modal>
-      <Modal title={`事实快照 V${snapshotTarget?.version ?? ''}`} open={!!snapshotTarget} footer={null} onCancel={() => setSnapshotTarget(undefined)} width={900}><FactSnapshot version={snapshotTarget} /></Modal>
-      <Modal title={`事实审核证据 V${reviewTarget?.version ?? ''}`} open={!!reviewTarget} footer={null} onCancel={() => setReviewTarget(undefined)} width={960}>{reviewContext.isLoading && <QueryLoading />}{reviewContext.error && <Alert type="error" message={errorMessage(reviewContext.error)} />}{reviewContext.data && <FactReviewPanel context={reviewContext.data} onAction={(action) => { const commandName = action === 'SUBMIT' ? 'submit' : action === 'APPROVE' ? 'approve' : action === 'REQUEST_CHANGES' ? 'request-changes' : 'retire'; setCommandTarget({ version: reviewContext.data.fact_version, command: commandName }); }} />}</Modal>
-      <Modal title="确认状态操作" open={!!commandTarget} footer={null} onCancel={() => setCommandTarget(null)} width={commandTarget?.command === 'approve' ? 900 : undefined} destroyOnHidden><div ref={commandErrorRef} tabIndex={-1}>{command.error && <Alert role="alert" type="error" showIcon title={errorMessage(command.error)} />}</div><Typography.Paragraph type="secondary">服务端会校验证据、状态和修订号。</Typography.Paragraph>{commandTarget?.command === 'approve' && <><Alert type="warning" showIcon message="请显式确认：批准依据是下方不可变快照，而不是当前事实工作区。" /><FactSnapshot version={commandTarget.version} /></>}<Form<Schema<'CommandRequest'>> layout="vertical" disabled={command.isPending} initialValues={{ expected_revision: commandTarget?.version.revision, comment: '' }} scrollToFirstError={{ behavior: 'smooth', block: 'center', focus: true }} onFinish={(body) => commandTarget && command.mutate({ target: commandTarget, body })}><Form.Item name="expected_revision" hidden><InputNumber /></Form.Item><Form.Item name="comment" label="审核意见" rules={commandTarget?.command === 'request-changes' ? [{ required: true, whitespace: true, message: '退回必须填写意见' }] : []}><Input.TextArea rows={3} /></Form.Item><Button type="primary" htmlType="submit" loading={command.isPending}>{commandTarget?.command === 'approve' ? '确认批准' : '确认'}</Button></Form></Modal>
+      <Modal title="创建不可变事实版本" open={createVersionOpen} footer={null} onCancel={() => setCreateVersionOpen(false)} destroyOnHidden>
+        <div ref={createVersionErrorRef} tabIndex={-1}>{createVersion.error && <Alert role="alert" type="error" showIcon title={errorMessage(createVersion.error)} />}</div>
+        <Form<Schema<'CreateVersionRequest'>>
+          layout="vertical"
+          disabled={createVersion.isPending}
+          scrollToFirstError={{ behavior: 'smooth', block: 'center', focus: true }}
+          onFinish={(body) => createVersion.mutate(body)}
+        >
+          <Alert type="info" showIcon title="版本会冻结当前已保存的 Markdown 原文和数据分级，后续工作区修改不会改写它。" />
+          <Form.Item name="change_summary" label="变更说明" rules={[{ required: true, whitespace: true, message: '请填写变更说明' }]}><Input.TextArea rows={3} /></Form.Item>
+          <Button type="primary" htmlType="submit" loading={createVersion.isPending}>创建版本</Button>
+        </Form>
+      </Modal>
+      <Modal title={`事实版本 V${snapshotTarget?.version ?? ''}`} open={!!snapshotTarget} footer={null} onCancel={() => setSnapshotTarget(undefined)} width={900}><FactSnapshot version={snapshotTarget} /></Modal>
+      <Modal title={`事实审核 V${reviewTarget?.version ?? ''}`} open={!!reviewTarget} footer={null} onCancel={() => setReviewTarget(undefined)} width={960}>
+        {reviewContext.isLoading && <QueryLoading />}
+        {reviewContext.error && <Alert type="error" message={errorMessage(reviewContext.error)} />}
+        {reviewContext.data && <FactReviewPanel context={reviewContext.data} onAction={(action) => {
+          const commandName = action === 'SUBMIT' ? 'submit' : action === 'APPROVE' ? 'approve' : action === 'REQUEST_CHANGES' ? 'request-changes' : 'retire';
+          setCommandTarget({ version: reviewContext.data.fact_version, command: commandName });
+        }} />}
+      </Modal>
+      <Modal title="确认状态操作" open={!!commandTarget} footer={null} onCancel={() => setCommandTarget(null)} width={commandTarget?.command === 'approve' ? 900 : undefined} destroyOnHidden>
+        <div ref={commandErrorRef} tabIndex={-1}>{command.error && <Alert role="alert" type="error" showIcon title={errorMessage(command.error)} />}</div>
+        {commandTarget?.command === 'approve' && <><Alert type="warning" showIcon title="请显式确认：批准依据是下方不可变 Markdown 与分级，而不是当前工作区。" /><FactSnapshot version={commandTarget.version} /></>}
+        <Form<Schema<'CommandRequest'>>
+          layout="vertical"
+          disabled={command.isPending}
+          initialValues={{ expected_revision: commandTarget?.version.revision, comment: '' }}
+          scrollToFirstError={{ behavior: 'smooth', block: 'center', focus: true }}
+          onFinish={(body) => commandTarget && command.mutate({ target: commandTarget, body })}
+        >
+          <Form.Item name="expected_revision" hidden><InputNumber /></Form.Item>
+          <Form.Item name="comment" label="审核意见" rules={commandTarget?.command === 'request-changes' ? [{ required: true, whitespace: true, message: '退回必须填写意见' }] : []}><Input.TextArea rows={3} /></Form.Item>
+          <Button type="primary" htmlType="submit" loading={command.isPending}>{commandTarget?.command === 'approve' ? '确认批准' : '确认'}</Button>
+        </Form>
+      </Modal>
     </div>
   );
 }
 
 function FactSnapshot({ version }: { version?: FactVersion }) {
   if (!version) return null;
-  return <Card size="small" title={`V${version.version} · ${version.change_summary}`} className="section-card"><Typography.Paragraph type="secondary">以下 JSON 是服务端保存的完整只读快照，包含参数、替代关系、证据和声明关联。</Typography.Paragraph><pre className="snapshot-json">{JSON.stringify(version.snapshot, null, 2)}</pre></Card>;
+  return <Card size="small" title={`V${version.version} · ${version.change_summary}`} className="section-card">
+    <Descriptions size="small" column={1} items={[
+      { label: '状态', children: <StatusTag status={version.status} /> },
+      { label: '数据分级', children: <StatusTag status={version.classification} /> },
+      { label: '修订号', children: version.revision },
+    ]} />
+    <Tabs items={[
+      { key: 'preview', label: '安全预览', children: <MarkdownPreview markdown={version.body_markdown} label={`事实版本 V${version.version} Markdown 预览`} /> },
+      { key: 'source', label: 'Markdown 原文', children: <Input.TextArea aria-label={`事实版本 V${version.version} Markdown 原文`} rows={20} readOnly value={version.body_markdown} className="markdown-source" /> },
+    ]} />
+  </Card>;
 }
 
 function FactReviewPanel({ context, onAction }: { context: Schema<'FactReviewContext'>; onAction: (action: Schema<'FactReviewAction'>) => void }) {
-  const statuses = new Map(context.evidence_statuses.map((item) => [item.client_key, item.file_status]));
   return <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-    <Descriptions column={1} items={[{ label: '状态', children: <StatusTag status={context.fact_version.status} /> }, { label: '变更说明', children: context.fact_version.change_summary }, { label: '事实版本 ID', children: context.fact_version.id }]} />
-    <Card size="small" title="冻结证据"><List dataSource={context.fact_version.snapshot.evidences} locale={{ emptyText: '该事实快照没有证据' }} renderItem={(item) => <List.Item><Space orientation="vertical"><Space><strong>{item.title}</strong><StatusTag status={item.confidentiality} /><StatusTag status={statuses.get(item.client_key) ?? 'URL_ONLY'} /></Space><Typography.Text type="secondary">{evidenceTypeLabel(item.type)} · {item.version} · {item.source_url ?? '无公开 URL'}</Typography.Text></Space></List.Item>} /></Card>
-    <Card size="small" title="追加式审核历史"><Timeline items={context.review_history.map((item) => ({ children: <><Space><StatusTag status={item.action} /><strong>{item.actor.display_name}</strong><Typography.Text type="secondary">V{item.target_version}</Typography.Text></Space><Typography.Paragraph>{item.comment || '未填写意见'}</Typography.Paragraph><Typography.Text type="secondary">{new Date(item.created_at).toLocaleString('zh-CN')}</Typography.Text></> }))} /></Card>
+    <Descriptions column={1} items={[
+      { label: '状态', children: <StatusTag status={context.fact_version.status} /> },
+      { label: '数据分级', children: <StatusTag status={context.fact_version.classification} /> },
+      { label: '变更说明', children: context.fact_version.change_summary },
+      { label: '事实版本 ID', children: <span className="data-code">{context.fact_version.id}</span> },
+    ]} />
+    <Card size="small" title="冻结事实 Markdown"><MarkdownPreview markdown={context.fact_version.body_markdown} label="冻结事实 Markdown 预览" /></Card>
+    <Card size="small" title="追加式审核历史"><Timeline items={context.review_history.map((item) => ({
+      content: <><Space><StatusTag status={item.action} /><strong>{item.actor.display_name}</strong><Typography.Text type="secondary">V{item.target_version}</Typography.Text></Space><Typography.Paragraph>{item.comment || '未填写意见'}</Typography.Paragraph><Typography.Text type="secondary">{new Date(item.created_at).toLocaleString('zh-CN')}</Typography.Text></>,
+    }))} /></Card>
     <Space wrap>{context.available_actions.map((action) => <Button key={action} type={action === 'APPROVE' ? 'primary' : 'default'} danger={action === 'REQUEST_CHANGES'} onClick={() => onAction(action)}>{action === 'SUBMIT' ? '提交审核' : action === 'APPROVE' ? '批准' : action === 'REQUEST_CHANGES' ? '退回修改' : '停用'}</Button>)}</Space>
   </Space>;
 }
 
-function FactsForm({ draft, saving, disabled, onDirtyChange, onSave }: { draft: Schema<'ProductFactsDraft'>; saving: boolean; disabled: boolean; onDirtyChange: (dirty: boolean) => void; onSave: (value: Schema<'ProductFactsDraftUpdate'>) => Promise<Schema<'ProductFactsDraft'>> }) {
+function FactsForm({
+  draft,
+  saving,
+  onDirtyChange,
+  onSave,
+}: {
+  draft: Schema<'ProductFactsDraft'>;
+  saving: boolean;
+  onDirtyChange: (dirty: boolean) => void;
+  onSave: (value: Schema<'ProductFactsDraftUpdate'>) => Promise<Schema<'ProductFactsDraft'>>;
+}) {
   const [form] = Form.useForm<Schema<'ProductFactsDraftUpdate'>>();
-  const activeSection = useActiveSection(factSectionIds);
-  const [dirtySections, setDirtySections] = useState<Set<string>>(new Set());
-  const [errorSections, setErrorSections] = useState<Set<string>>(new Set());
-  const [errorCount, setErrorCount] = useState(0);
-  const [firstError, setFirstError] = useState<FormNamePath>();
   const [saveState, setSaveState] = useState<'pristine' | 'dirty' | 'saving' | 'saved' | 'failed'>('pristine');
-
-  const sectionForField = (name: FormNamePath) => {
-    const first = Array.isArray(name) ? name[0] : name;
-    return factSectionByField[String(first)];
-  };
-  const refreshErrors = () => {
-    const invalidFields = form.getFieldsError().filter((field) => field.errors.length > 0);
-    setErrorCount(invalidFields.length);
-    setErrorSections(new Set(invalidFields.map((field) => sectionForField(field.name)).filter((section): section is string => !!section)));
-    setFirstError(invalidFields[0]?.name);
-  };
-  const markSectionsDirty = (sections: string[]) => {
-    if (sections.length > 0) {
-      setDirtySections((current) => new Set([...current, ...sections]));
-      setSaveState('dirty');
-      onDirtyChange(true);
-    }
-  };
-  const markDirty = (changedValues: Partial<Schema<'ProductFactsDraftUpdate'>>) => {
-    markSectionsDirty(Object.keys(changedValues).map((name) => factSectionByField[name]).filter((section): section is string => !!section));
-  };
+  const [view, setView] = useState<'edit' | 'preview'>('edit');
+  const bodyMarkdown = Form.useWatch('body_markdown', form) ?? draft.body_markdown;
   const handleSave = async (values: Schema<'ProductFactsDraftUpdate'>) => {
     setSaveState('saving');
     try {
       const saved = await onSave(values);
-      form.setFieldsValue({ ...saved, expected_revision: saved.revision });
-      setDirtySections(new Set());
-      setErrorSections(new Set());
-      setErrorCount(0);
-      setFirstError(undefined);
+      form.setFieldsValue({
+        expected_revision: saved.revision,
+        body_markdown: saved.body_markdown,
+        classification: saved.classification,
+      });
       setSaveState('saved');
       onDirtyChange(false);
     } catch {
       setSaveState('failed');
     }
   };
-  const handleInvalid = ({ errorFields }: { errorFields: Array<{ name: FormNamePath }> }) => {
-    setErrorCount(errorFields.length);
-    setErrorSections(new Set(errorFields.map((field) => sectionForField(field.name)).filter((section): section is string => !!section)));
-    setFirstError(errorFields[0]?.name);
-    setSaveState('failed');
-  };
-  const sectionLink = (id: string, label: string) => {
-    const hasError = errorSections.has(id);
-    const isDirty = dirtySections.has(id);
-    return <a href={`#${id}`} aria-current={activeSection === id ? 'location' : undefined} className={hasError ? 'is-error' : isDirty ? 'is-dirty' : undefined}>{label}{hasError ? <span className="section-nav-status">有错误</span> : isDirty ? <span className="section-nav-status">有修改</span> : null}</a>;
-  };
-  const statusText = saving || saveState === 'saving' ? '保存中' : saveState === 'dirty' ? '有未保存修改' : saveState === 'saved' ? '已保存' : saveState === 'failed' ? '保存失败' : '未修改';
+  const statusText = saving || saveState === 'saving' ? '保存中'
+    : saveState === 'dirty' ? '有未保存修改'
+      : saveState === 'saved' ? '已保存'
+        : saveState === 'failed' ? '保存失败'
+          : '未修改';
 
-  return <Form<Schema<'ProductFactsDraftUpdate'>> form={form} className="facts-form" layout="vertical" disabled={disabled} initialValues={{ ...draft, expected_revision: draft.revision }} scrollToFirstError={{ behavior: 'smooth', block: 'center', focus: true }} onValuesChange={markDirty} onFieldsChange={refreshErrors} onFinish={handleSave} onFinishFailed={handleInvalid}>
+  return <Form<Schema<'ProductFactsDraftUpdate'>>
+    form={form}
+    className="facts-form"
+    layout="vertical"
+    initialValues={{ expected_revision: draft.revision, body_markdown: draft.body_markdown, classification: draft.classification }}
+    scrollToFirstError={{ behavior: 'smooth', block: 'center', focus: true }}
+    onValuesChange={() => {
+      setSaveState('dirty');
+      onDirtyChange(true);
+    }}
+    onFinish={handleSave}
+    onFinishFailed={() => setSaveState('failed')}
+  >
     <Form.Item name="expected_revision" hidden><InputNumber /></Form.Item>
-    <nav className="form-section-nav" aria-label="事实表单章节">{sectionLink('reference-parts', '参考型号')}{sectionLink('evidences', '证据')}{sectionLink('parameters', '参数')}{sectionLink('relations', '替代关系')}{sectionLink('claims', '内容声明')}</nav>
-    <Card id="reference-parts" title="参考型号" className="section-card"><Form.List name="reference_parts">{(fields, { add, remove }) => <>{fields.map(({ key, name, ...field }) => <div key={key} className="dynamic-block"><div className="dynamic-object-header"><Typography.Text strong>参考型号 {name + 1}</Typography.Text><Button type="text" danger icon={<DeleteOutlined />} aria-label={`删除参考型号 ${name + 1}`} onClick={() => remove(name)}>删除</Button></div><Space align="start" wrap className="dynamic-row"><Form.Item {...field} name={[name, 'client_key']} label="本地标识" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'part_number']} label="参考型号" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'manufacturer']} label="制造商" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'category']} label="类别" rules={[{ required: true }]}><Input /></Form.Item></Space></div>)}<Button icon={<PlusOutlined />} onClick={() => add()}>添加参考型号</Button></>}</Form.List></Card>
-    <Card id="evidences" title="证据" className="section-card"><Form.List name="evidences">{(fields, { add, remove }) => <>{fields.map(({ key, name, ...field }) => <div key={key} className="dynamic-block"><div className="dynamic-object-header"><Typography.Text strong>证据 {name + 1}</Typography.Text><Button type="text" danger icon={<DeleteOutlined />} aria-label={`删除证据 ${name + 1}`} onClick={() => remove(name)}>删除</Button></div><Space align="start" wrap><Form.Item {...field} name={[name, 'client_key']} label="证据标识" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'type']} label="类型" rules={[{ required: true }]}><Select options={evidenceTypeOptions} /></Form.Item><Form.Item {...field} name={[name, 'title']} label="标题" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'version']} label="版本" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'confidentiality']} label="密级" rules={[{ required: true }]}><Select options={confidentialityOptions} /></Form.Item><Form.Item {...field} name={[name, 'source_url']} label="来源 URL"><Input type="url" /></Form.Item><EvidenceFileField name={name} disabled={disabled} onDirty={() => markSectionsDirty(['evidences'])} /></Space></div>)}<Button icon={<PlusOutlined />} onClick={() => add({ confidentiality: 'INTERNAL' })}>添加证据</Button></>}</Form.List></Card>
-    <Card id="parameters" title="产品与参考型号参数" className="section-card"><Typography.Paragraph type="secondary"><code>owner_key</code> 使用 <code>product</code> 或上方参考型号标识。系统不会推断或补全任何参数。</Typography.Paragraph><Form.List name="parameters">{(fields, { add, remove }) => <>{fields.map(({ key, name, ...field }) => <div key={key} className="dynamic-block"><div className="dynamic-object-header"><Typography.Text strong>参数 {name + 1}</Typography.Text><Button type="text" danger icon={<DeleteOutlined />} aria-label={`删除参数 ${name + 1}`} onClick={() => remove(name)}>删除</Button></div><Space align="start" wrap><Form.Item {...field} name={[name, 'client_key']} label="参数标识" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'owner_key']} label="归属" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'key']} label="参数键" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'name']} label="参数名" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'value_type']} label="值类型"><Select options={parameterValueOptions} /></Form.Item><Form.Item {...field} name={[name, 'min_value']} label="最小值"><InputNumber /></Form.Item><Form.Item {...field} name={[name, 'typical_value']} label="典型值"><InputNumber /></Form.Item><Form.Item {...field} name={[name, 'max_value']} label="最大值"><InputNumber /></Form.Item><Form.Item {...field} name={[name, 'text_value']} label="文本值"><Input /></Form.Item><Form.Item {...field} name={[name, 'unit']} label="单位"><Input /></Form.Item><Form.Item {...field} name={[name, 'test_conditions']} label="测试条件"><Input /></Form.Item><Form.Item {...field} name={[name, 'evidence_keys']} label="证据标识"><Select mode="tags" /></Form.Item><Form.Item {...field} name={[name, 'is_critical']} valuePropName="checked"><Checkbox>关键参数</Checkbox></Form.Item></Space></div>)}<Button icon={<PlusOutlined />} onClick={() => add({ owner_key: 'product', value_type: 'TEXT', is_critical: false, evidence_keys: [] })}>添加参数</Button></>}</Form.List></Card>
-    <Card id="relations" title="替代关系" className="section-card"><Form.List name="replacement_relations">{(fields, { add, remove }) => <>{fields.map(({ key, name, ...field }) => <div key={key} className="dynamic-block"><div className="dynamic-object-header"><Typography.Text strong>替代关系 {name + 1}</Typography.Text><Button type="text" danger icon={<DeleteOutlined />} aria-label={`删除替代关系 ${name + 1}`} onClick={() => remove(name)}>删除</Button></div><Space align="start" wrap><Form.Item {...field} name={[name, 'client_key']} label="关系标识" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'reference_part_key']} label="参考型号标识" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'replacement_level']} label="替代等级" rules={[{ required: true }]}><Select options={replacementOptions} /></Form.Item><Form.Item {...field} name={[name, 'conditions']} label="成立条件" rules={[{ required: true }]}><Input.TextArea /></Form.Item><Form.Item {...field} name={[name, 'exclusions']} label="排除场景" rules={[{ required: true }]}><Input.TextArea /></Form.Item><Form.Item {...field} name={[name, 'evidence_keys']} label="证据标识" rules={[{ required: true }]}><Select mode="tags" /></Form.Item></Space></div>)}<Button icon={<PlusOutlined />} onClick={() => add({ evidence_keys: [] })}>添加替代关系</Button></>}</Form.List></Card>
-    <Card id="claims" title="内容声明" className="section-card"><Form.List name="claims">{(fields, { add, remove }) => <>{fields.map(({ key, name, ...field }) => <div key={key} className="dynamic-block"><div className="dynamic-object-header"><Typography.Text strong>内容声明 {name + 1}</Typography.Text><Button type="text" danger icon={<DeleteOutlined />} aria-label={`删除内容声明 ${name + 1}`} onClick={() => remove(name)}>删除</Button></div><Space align="start" wrap className="dynamic-row"><Form.Item {...field} name={[name, 'client_key']} label="声明标识" rules={[{ required: true }]}><Input /></Form.Item><Form.Item {...field} name={[name, 'type']} label="类型"><Select options={claimTypeOptions} /></Form.Item><Form.Item {...field} name={[name, 'text']} label="正文" rules={[{ required: true }]}><Input.TextArea /></Form.Item><Form.Item {...field} name={[name, 'evidence_keys']} label="证据标识"><Select mode="tags" /></Form.Item></Space></div>)}<Button icon={<PlusOutlined />} onClick={() => add({ evidence_keys: [] })}>添加声明</Button></>}</Form.List></Card>
-    <Divider />{!disabled && <div className="form-save-bar">{errorCount > 0 && <Alert role="alert" className="form-error-summary" type="error" showIcon title={`有 ${errorCount} 个字段需要修正`} action={<Button type="link" onClick={() => firstError && form.scrollToField(firstError, { focus: true })}>定位首个错误</Button>} />}<div className="form-save-feedback"><Typography.Text aria-live="polite" strong>{statusText}</Typography.Text><Typography.Text type="secondary">保存会校验当前工作区修订号，不会修改已批准快照。</Typography.Text></div><Button type="primary" htmlType="submit" size="large" loading={saving}>保存事实工作区</Button></div>}
+    <Alert type="info" showIcon title="Markdown 是产品事实唯一可编辑正文源；保存使用当前修订号防止并发覆盖。" />
+    <div className="revision-metadata-grid">
+      <Form.Item name="classification" label="数据分级" rules={[{ required: true, message: '请选择数据分级' }]}>
+        <Select options={classificationOptions} />
+      </Form.Item>
+    </div>
+    <Tabs
+      activeKey={view}
+      onChange={(key) => setView(key as 'edit' | 'preview')}
+      items={[
+        { key: 'edit', label: '编辑 Markdown' },
+        { key: 'preview', label: '安全预览' },
+      ]}
+    />
+    <div hidden={view !== 'edit'}>
+      <Form.Item name="body_markdown" label="事实 Markdown" rules={[{ required: true, whitespace: true, message: '请输入非空事实 Markdown' }]}>
+        <Input.TextArea rows={28} className="markdown-source revision-markdown-source" />
+      </Form.Item>
+    </div>
+    <section hidden={view !== 'preview'} aria-label="事实 Markdown 安全预览">
+      <MarkdownPreview markdown={bodyMarkdown} label="事实 Markdown 安全预览正文" />
+    </section>
+    <div className="form-save-bar">
+      <div className="form-save-feedback">
+        <Typography.Text aria-live="polite" strong>{statusText}</Typography.Text>
+        <Typography.Text type="secondary">保存只更新工作区，不会修改任何已创建或已批准的事实版本。</Typography.Text>
+      </div>
+      <Button type="primary" htmlType="submit" size="large" loading={saving} disabled={saveState !== 'dirty' && saveState !== 'failed'}>保存事实工作区</Button>
+    </div>
   </Form>;
-}
-
-function EvidenceFileField({ name, disabled, onDirty }: { name: number; disabled: boolean; onDirty: () => void }) {
-  const form = Form.useFormInstance<Schema<'ProductFactsDraftUpdate'>>();
-  const fileId = Form.useWatch(['evidences', name, 'file_id'], form);
-  return <Form.Item label="证据文件"><Form.Item name={['evidences', name, 'file_id']} hidden><Input /></Form.Item><Space orientation="vertical"><DirectUpload category="EVIDENCE" disabled={disabled} onUploaded={(file) => { form.setFieldValue(['evidences', name, 'file_id'], file.id); onDirty(); }} />{fileId && <Typography.Text code>{fileId}</Typography.Text>}</Space></Form.Item>;
 }

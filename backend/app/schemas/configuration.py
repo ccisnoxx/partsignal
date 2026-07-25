@@ -117,32 +117,6 @@ PlatformLogoOut = Annotated[
 ]
 
 
-class PlatformSection(ContractModel):
-    name: str
-    url: HttpUrl
-
-
-class PlatformRules(ContractModel):
-    target_audience: str
-    title_min: int = Field(ge=1)
-    title_max: int = Field(ge=1)
-    body_min: int = Field(ge=1)
-    body_max: int = Field(ge=1)
-    tone: str
-    allow_external_links: bool
-    allow_tables: bool
-    allow_contact: bool
-    prohibited_phrases: list[str]
-    sections: list[PlatformSection]
-
-    @model_validator(mode="after")
-    def validate_ranges(self) -> PlatformRules:
-        """平台规则的最小值不能大于最大值。"""
-        if self.title_min > self.title_max or self.body_min > self.body_max:
-            raise ValueError("平台标题或正文长度范围无效")
-        return self
-
-
 class PlatformProfileCreate(ContractModel):
     name: PlatformName
     slug: str = Field(pattern=r"^[a-z0-9-]+$")
@@ -163,56 +137,6 @@ class PlatformProfileUpdate(ContractModel):
     platform_type_id: uuid.UUID
     website_url: HttpUrl | None
     logo: PlatformLogoInput | None
-
-
-class PlatformProfileVersionCreate(ContractModel):
-    rules: PlatformRules
-
-
-class PlatformProfileVersionUpdate(ContractModel):
-    expected_revision: int = Field(ge=0)
-    rules: PlatformRules
-
-
-class PlatformProfileVersionOut(ContractModel):
-    id: uuid.UUID
-    platform_profile_id: uuid.UUID
-    version: int
-    status: Literal["DRAFT", "ACTIVE", "RETIRED"]
-    rules: PlatformRules
-    revision: int
-    created_at: datetime
-
-
-class PlatformProfileVersionAction(StrEnum):
-    EDIT = "EDIT"
-    ACTIVATE = "ACTIVATE"
-    RETIRE = "RETIRE"
-    DELETE = "DELETE"
-
-
-class PlatformProfileVersionSummary(PlatformProfileVersionOut):
-    """平台规则工作台使用的实时管理投影。"""
-
-    created_by: uuid.UUID | None
-    activated_at: datetime | None
-    last_changed_at: datetime
-    reference_count: int = Field(ge=0)
-    available_actions: list[PlatformProfileVersionAction]
-
-
-class PlatformProfileVersionList(ContractModel):
-    items: list[PlatformProfileVersionSummary]
-
-
-class PlatformRuleImpactSummary(ContractModel):
-    """直接绑定规则版本的内容任务互斥发布阶段摘要。"""
-
-    as_of: datetime
-    bound_task_total: int = Field(ge=0)
-    unpublished_task_total: int = Field(ge=0)
-    reviewing_task_total: int = Field(ge=0)
-    published_task_total: int = Field(ge=0)
 
 
 class PlatformProfileStatus(StrEnum):
@@ -242,7 +166,6 @@ class PlatformProfileOut(ContractModel):
     logo: PlatformLogoOut | None
     revision: int
     is_active: bool
-    active_version: PlatformProfileVersionOut | None
     prompt_configured: bool
     prompt_updated_at: datetime | None
     configuration_complete: bool
@@ -254,7 +177,6 @@ class PlatformProfileSummary(ContractModel):
     platform_total: int = Field(ge=0)
     enabled_total: int = Field(ge=0)
     missing_prompt_total: int = Field(ge=0)
-    missing_active_rule_total: int = Field(ge=0)
     configuration_complete_total: int = Field(ge=0)
 
 
@@ -280,7 +202,6 @@ class PlatformReferenceSummary(ContractModel):
 
 class PlatformProfileDetail(ContractModel):
     profile: PlatformProfileOut
-    current_rule_activated_at: datetime | None
     prompt_updated_at: datetime | None
     account_summary: PlatformAccountSummary
     reference_summary: PlatformReferenceSummary

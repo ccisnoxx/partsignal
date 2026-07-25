@@ -18,31 +18,12 @@ GenerationJobStatus = Literal["PENDING", "RUNNING", "SUCCEEDED", "FAILED"]
 class ContentTaskCreate(ContractModel):
     product_id: uuid.UUID
     fact_version_id: uuid.UUID
-    platform_profile_version_id: uuid.UUID
-    target_audience: str
-    content_angle: str
-    conversion_goal: str
-    desired_format: str
-    desired_length_min: int = Field(ge=1)
-    desired_length_max: int = Field(ge=1)
-    canonical_url: HttpUrl
-
-    @model_validator(mode="after")
-    def validate_length(self) -> ContentTaskCreate:
-        if self.desired_length_min > self.desired_length_max:
-            raise ValueError("期望正文最小长度不能大于最大长度")
-        return self
+    platform_profile_id: uuid.UUID
 
 
 class ContentTaskOut(ContentTaskCreate):
     id: uuid.UUID
     query_topic_id: uuid.UUID | None
-    platform_type_id: uuid.UUID | None
-    platform_type_snapshot: dict[str, Any] | None
-    user_prompt_markdown: str
-    generation_data_classification: Confidentiality | None
-    generation_data_classified_by: uuid.UUID | None
-    generation_data_classified_at: datetime | None
     source_publication_attention_id: uuid.UUID | None
     available_actions: list[Literal["CANCEL"]]
     status: Literal["OPEN", "COMPLETED", "CANCELLED"]
@@ -74,12 +55,6 @@ class ContentTaskList(ContractModel):
     items: list[ContentTaskListItem]
 
 
-class ContentTaskUserPromptUpdate(ContractModel):
-    expected_revision: int = Field(ge=0)
-    user_prompt_markdown: str
-    generation_data_classification: Confidentiality
-
-
 class GenerationOptionModel(ContractModel):
     id: uuid.UUID
     channel_id: uuid.UUID
@@ -89,11 +64,8 @@ class GenerationOptionModel(ContractModel):
 
 
 class GenerationOptions(ContractModel):
-    platform_profile_version_id: uuid.UUID
+    platform_profile_id: uuid.UUID
     platform_profile_name: str
-    platform_type_id: uuid.UUID
-    platform_type_name: str
-    platform_type_slug: str
     system_prompt_markdown: str
     humanization_prompt_configured: bool
     models: list[GenerationOptionModel]
@@ -128,9 +100,9 @@ class GenerationJobList(ContractModel):
     items: list[GenerationJobOut]
 
 
-class GenerationSnapshot(ContractModel):
+class LegacyGenerationSnapshot(ContractModel):
     adapter_name: str
-    contract_version: str
+    contract_version: Literal["chat-json-v1"]
     channel: dict[str, Any]
     model: dict[str, Any]
     platform_type: dict[str, Any]
@@ -144,6 +116,24 @@ class GenerationSnapshot(ContractModel):
     generation_data_classified_at: datetime | None = None
     approved_facts: dict[str, Any]
     task_requirements: dict[str, Any]
+    user_message: str
+
+
+class GenerationFactSnapshot(ContractModel):
+    id: uuid.UUID
+    product_id: uuid.UUID
+    version: int = Field(ge=1)
+    classification: Confidentiality
+
+
+class GenerationSnapshot(ContractModel):
+    adapter_name: Literal["openai-compatible-chat-completions"]
+    contract_version: Literal["content-markdown-v2"]
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    platform_profile: dict[str, Any]
+    fact_version: GenerationFactSnapshot
+    system_message: str
     user_message: str
 
 
@@ -164,8 +154,8 @@ class HumanizationSourceContent(ContractModel):
     tags: list[str]
 
 
-class HumanizationSnapshot(ContractModel):
-    """一次自然化调用的完整不可变输入。"""
+class LegacyHumanizationSnapshot(ContractModel):
+    """历史自然化调用的只读不可变输入。"""
 
     adapter_name: Literal["openai-compatible-chat-completions"]
     contract_version: Literal["humanization-json-v1"]
@@ -184,15 +174,37 @@ class HumanizationSnapshot(ContractModel):
     user_message: str
 
 
+class HumanizationSnapshot(ContractModel):
+    """一次自然化调用的完整不可变输入。"""
+
+    adapter_name: Literal["openai-compatible-chat-completions"]
+    contract_version: Literal["humanization-markdown-v2"]
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    humanization_prompt: HumanizationPromptSnapshot
+    source_content: HumanizationSourceContent
+    source_generation_job_id: uuid.UUID
+    fact_version: GenerationFactSnapshot
+    system_message: str
+    user_message: str
+
+
 class GenerationJobDetail(GenerationJobOut):
-    input_snapshot: GenerationSnapshot | HumanizationSnapshot
+    input_snapshot: (
+        LegacyGenerationSnapshot
+        | GenerationSnapshot
+        | LegacyHumanizationSnapshot
+        | HumanizationSnapshot
+    )
 
     @model_validator(mode="after")
     def validate_snapshot_type(self) -> GenerationJobDetail:
-        if self.job_type == "GENERATE" and not isinstance(self.input_snapshot, GenerationSnapshot):
+        if self.job_type == "GENERATE" and not isinstance(
+            self.input_snapshot, (LegacyGenerationSnapshot, GenerationSnapshot)
+        ):
             raise ValueError("原始生成作业必须使用 GenerationSnapshot")
         if self.job_type == "HUMANIZE" and not isinstance(
-            self.input_snapshot, HumanizationSnapshot
+            self.input_snapshot, (LegacyHumanizationSnapshot, HumanizationSnapshot)
         ):
             raise ValueError("自然化作业必须使用 HumanizationSnapshot")
         return self
@@ -265,35 +277,27 @@ class ReviewRecord(ContractModel):
     created_at: datetime
 
 
-class ReviewEvidenceStatus(ContractModel):
-    client_key: str
-    file_id: uuid.UUID | None
-    file_status: Literal["PENDING", "VERIFIED", "FAILED", "ABORTED"] | None
-
-
 class FactReviewContext(ContractModel):
     fact_version: FactVersionOut
-    evidence_statuses: list[ReviewEvidenceStatus]
     available_actions: list[Literal["SUBMIT", "APPROVE", "REQUEST_CHANGES", "RETIRE"]]
     review_history: list[ReviewRecord]
 
 
 class GenerationTrace(ContractModel):
     job_id: uuid.UUID
-    input_snapshot: GenerationSnapshot
+    input_snapshot: LegacyGenerationSnapshot | GenerationSnapshot
 
 
 class HumanizationTrace(ContractModel):
     job_id: uuid.UUID
     source_content_version_id: uuid.UUID
-    input_snapshot: HumanizationSnapshot
+    input_snapshot: LegacyHumanizationSnapshot | HumanizationSnapshot
 
 
 class ContentReviewContext(ContractModel):
     content: ContentVersionOut
     task: ContentTaskOut
     fact_version: FactVersionOut
-    evidence_statuses: list[ReviewEvidenceStatus]
     diff: ContentDiff | None
     generation_trace: GenerationTrace | None
     humanization_traces: list[HumanizationTrace]

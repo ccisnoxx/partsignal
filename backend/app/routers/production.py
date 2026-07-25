@@ -26,7 +26,6 @@ from app.models.ai_generation import (
 from app.models.configuration import (
     ContentHumanizationPrompt,
     PlatformProfile,
-    PlatformProfileVersion,
     PlatformPrompt,
 )
 from app.models.content import (
@@ -61,6 +60,9 @@ from app.services.content_production import (
     create_humanization_job as create_humanization_job_command,
 )
 from app.services.content_production import (
+    create_manual_content_version as create_manual_content_version_command,
+)
+from app.services.content_production import (
     retry_generation_job as retry_generation_job_command,
 )
 from app.services.projections import content_diff, content_version_out
@@ -91,18 +93,11 @@ def get_generation_options(
     task = db.get(ContentTask, content_task_id)
     if task is None:
         raise not_found("内容任务")
-    if task.platform_type_id is None or task.platform_type_snapshot is None:
-        raise AppError("PLATFORM_TYPE_MISSING", "内容任务没有锁定平台类型", 409)
-    platform_version = db.get(PlatformProfileVersion, task.platform_profile_version_id)
-    platform_profile = (
-        db.get(PlatformProfile, platform_version.platform_profile_id)
-        if platform_version is not None
-        else None
-    )
-    if platform_profile is None:
+    platform_profile = db.get(PlatformProfile, task.platform_profile_id)
+    if platform_profile is None or not platform_profile.is_active:
         raise AppError("INVALID_STATE_TRANSITION", "内容任务锁定的平台不存在", 409)
     prompt = db.get(PlatformPrompt, platform_profile.id)
-    if prompt is None:
+    if prompt is None or not prompt.template_markdown.strip():
         raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少当前 Prompt", 409)
     rows = db.execute(
         select(AIModel, AIChannel)
@@ -115,11 +110,8 @@ def get_generation_options(
         .order_by(AIChannel.name, AIModel.display_name)
     ).all()
     return GenerationOptions(
-        platform_profile_version_id=task.platform_profile_version_id,
+        platform_profile_id=task.platform_profile_id,
         platform_profile_name=platform_profile.name,
-        platform_type_id=task.platform_type_id,
-        platform_type_name=str(task.platform_type_snapshot["name"]),
-        platform_type_slug=str(task.platform_type_snapshot["slug"]),
         system_prompt_markdown=prompt.template_markdown,
         humanization_prompt_configured=db.get(ContentHumanizationPrompt, 1) is not None,
         models=[
@@ -267,6 +259,31 @@ def list_content_task_versions(
     return ContentVersionList(items=[content_version_out(item) for item in versions])
 
 
+@router.post(
+    "/content-tasks/{content_task_id}/manual-versions",
+    response_model=ContentVersionOut,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="createManualContentVersion",
+)
+def create_manual_content_version(
+    content_task_id: uuid.UUID,
+    payload: ContentRevisionCreate,
+    request: Request,
+    db: DbSession,
+    editor: ContentEditor,
+    _csrf: CsrfProtected,
+) -> ContentVersionOut:
+    """创建不依赖 Prompt、模型或既有内容版本的人工首稿。"""
+    content = create_manual_content_version_command(
+        db=db,
+        content_task_id=content_task_id,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+    )
+    return content_version_out(content)
+
+
 @router.get(
     "/content-versions/{content_version_id}",
     response_model=ContentVersionOut,
@@ -382,7 +399,7 @@ def approve_content_version(
                 outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
                 result_message="内容审核被拒绝" if denied else "内容审核未完成",
                 error_code=error.code,
-            )
+            ),
         )
         raise
 
@@ -428,7 +445,7 @@ def request_content_changes(
                 outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
                 result_message="内容退回修改被拒绝" if denied else "内容退回修改未完成",
                 error_code=error.code,
-            )
+            ),
         )
         raise
 

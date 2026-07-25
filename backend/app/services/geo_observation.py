@@ -24,7 +24,7 @@ from app.models.geo_files import (
 )
 from app.models.identity import User
 from app.models.product_facts import Product
-from app.models.publication import PlatformAccount, PublicationRecord
+from app.models.publication import PublicationRecord
 from app.schemas import geo_files as geo_schema
 from app.schemas.content import ActorSummary
 from app.schemas.geo_files import (
@@ -78,7 +78,6 @@ class GeoInsightFilters:
     date_to: date | None = None
     content_platform_id: uuid.UUID | None = None
     geo_platform: str | None = None
-    content_angle: str | None = None
     publication_record_id: uuid.UUID | None = None
     query_topic_id: uuid.UUID | None = None
 
@@ -94,7 +93,6 @@ class _GeoInsightRow:
     published_at: datetime | None
     content_platform_id: uuid.UUID
     content_platform: str
-    content_angle: str
     discovered: bool | None
     mentioned: bool | None
     recommendation_status: str | None
@@ -279,8 +277,7 @@ def geo_observations_out(
         )
         .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
-        .join(PlatformAccount, PlatformAccount.id == PublicationRecord.platform_account_id)
-        .join(PlatformProfile, PlatformProfile.id == PlatformAccount.platform_profile_id)
+        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(GeoObservationPublication.observation_id.in_(observation_ids))
         .order_by(GeoObservationPublication.observation_id, PublicationRecord.id)
     ).all():
@@ -536,14 +533,12 @@ def _geo_insight_filter_options(db: Session) -> geo_schema.GeoInsightFilterOptio
             PublicationRecord.id,
             PublicationRecord.actual_title,
             ContentVersion.title,
-            ContentTask.content_angle,
             PlatformProfile.id,
             PlatformProfile.name,
         )
         .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
-        .join(PlatformAccount, PlatformAccount.id == PublicationRecord.platform_account_id)
-        .join(PlatformProfile, PlatformProfile.id == PlatformAccount.platform_profile_id)
+        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(
             PublicationRecord.published_at.is_not(None),
             PublicationRecord.final_url.is_not(None),
@@ -552,11 +547,12 @@ def _geo_insight_filter_options(db: Session) -> geo_schema.GeoInsightFilterOptio
     )
     publication_rows = db.execute(publication_scope).all()
     platforms = {
-        platform_id: platform_name for _, _, _, _, platform_id, platform_name in publication_rows
+        platform_id: platform_name for _, _, _, platform_id, platform_name in publication_rows
     }
     superseding = aliased(GeoObservation)
-    geo_platforms = list(
-        db.scalars(
+    geo_platforms = [
+        platform
+        for platform in db.scalars(
             select(GeoObservation.search_platform)
             .where(
                 GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH",
@@ -568,7 +564,8 @@ def _geo_insight_filter_options(db: Session) -> geo_schema.GeoInsightFilterOptio
             .distinct()
             .order_by(GeoObservation.search_platform)
         )
-    )
+        if platform is not None
+    ]
     topics = list(
         db.scalars(select(QueryTopic).order_by(QueryTopic.canonical_question, QueryTopic.id))
     )
@@ -578,14 +575,13 @@ def _geo_insight_filter_options(db: Session) -> geo_schema.GeoInsightFilterOptio
             for platform_id in sorted(platforms, key=lambda item: (platforms[item], str(item)))
         ],
         geo_platforms=geo_platforms,
-        content_angles=sorted({row[3] for row in publication_rows}),
         publications=[
             geo_schema.GeoInsightPublicationOption(
                 id=publication_id,
                 label=actual_title or content_title,
                 platform_name=platform_name,
             )
-            for publication_id, actual_title, content_title, _, _, platform_name in publication_rows
+            for publication_id, actual_title, content_title, _, platform_name in publication_rows
         ],
         query_topics=[
             geo_schema.GeoInsightOption(id=topic.id, label=topic.canonical_question)
@@ -611,7 +607,6 @@ def _validate_geo_insight_filters(
         ),
         (filters.query_topic_id, {item.id for item in options.query_topics}, "问题主题"),
         (filters.geo_platform, set(options.geo_platforms), "GEO 平台"),
-        (filters.content_angle, set(options.content_angles), "内容主题"),
     )
     for value, allowed, label in checks:
         if value is not None and value not in allowed:
@@ -639,7 +634,6 @@ def _geo_insight_rows(
             PublicationRecord.published_at,
             PlatformProfile.id,
             PlatformProfile.name,
-            ContentTask.content_angle,
             GeoObservationPublication.discovered,
             GeoObservationPublication.mentioned,
             GeoObservationPublication.recommendation_status,
@@ -656,8 +650,7 @@ def _geo_insight_rows(
         )
         .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
-        .join(PlatformAccount, PlatformAccount.id == PublicationRecord.platform_account_id)
-        .join(PlatformProfile, PlatformProfile.id == PlatformAccount.platform_profile_id)
+        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(
             GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH",
             GeoObservation.tested_at
@@ -685,7 +678,6 @@ def _geo_insight_rows(
             published_at=published_at,
             content_platform_id=content_platform_id,
             content_platform=content_platform,
-            content_angle=content_angle,
             discovered=discovered,
             mentioned=mentioned,
             recommendation_status=recommendation_status,
@@ -703,7 +695,6 @@ def _geo_insight_rows(
             published_at,
             content_platform_id,
             content_platform,
-            content_angle,
             discovered,
             mentioned,
             recommendation_status,
@@ -758,7 +749,6 @@ def _complete_geo_insight_scope(
                 filters.content_platform_id is None
                 or row.content_platform_id == filters.content_platform_id
             )
-            and (filters.content_angle is None or row.content_angle == filters.content_angle)
             and (
                 filters.publication_record_id is None
                 or row.publication_record_id == filters.publication_record_id
@@ -1453,8 +1443,7 @@ def geo_publication_candidates(
         select(PublicationRecord, ContentVersion.title, PlatformProfile.name)
         .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
-        .join(PlatformAccount, PlatformAccount.id == PublicationRecord.platform_account_id)
-        .join(PlatformProfile, PlatformProfile.id == PlatformAccount.platform_profile_id)
+        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(
             ContentTask.product_id == product_id,
             PublicationRecord.status.in_(["PUBLISHED", "VERIFIED"]),

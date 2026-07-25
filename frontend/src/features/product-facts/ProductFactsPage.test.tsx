@@ -1,4 +1,4 @@
-/** 验证事实表单状态，以及事实版本更多菜单中的删除权限、刷新和引用错误。 */
+/** 验证 Markdown 事实工作区与事实版本删除边界。 */
 import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -14,31 +14,30 @@ import { ProductFactsPage } from './ProductFactsPage';
 const authState = vi.hoisted(() => ({ isAdmin: true }));
 
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ isAdmin: authState.isAdmin }) }));
-vi.mock('../../shared/components/DirectUpload', () => ({
-  DirectUpload: ({ onUploaded }: { onUploaded: (file: Schema<'FileRecord'>) => void }) => (
-    <button type="button" onClick={() => onUploaded({
-      id: '50000000-0000-4000-8000-000000000001',
-      category: 'EVIDENCE',
-      original_filename: 'evidence.pdf',
-      object_key: 'test/evidence.pdf',
-      content_type: 'application/pdf',
-      size: 12,
-      sha256: 'a'.repeat(64),
-      access_level: 'INTERNAL',
-      status: 'VERIFIED',
-      created_at: '2026-07-24T10:00:00Z',
-      verified_at: '2026-07-24T10:00:01Z',
-    })}>选择测试证据</button>
-  ),
-}));
-
 const productId = '10000000-0000-4000-8000-000000000001';
 const versionId = '20000000-0000-4000-8000-000000000001';
 const product = { id: productId, part_number: 'DEMO-001', brand: 'DEMO', category: 'MCU', status: 'ACTIVE', revision: 0, facts_revision: 0, created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z' };
-const snapshot = { reference_parts: [], parameters: [], replacement_relations: [], evidences: [], claims: [] };
-const emptyDraft: Schema<'ProductFactsDraft'> = { ...snapshot, product_id: productId, revision: 0 };
-let draft = emptyDraft;
-const factVersion = { id: versionId, product_id: productId, version: 1, status: 'DRAFT', snapshot, change_summary: '测试快照', revision: 0, created_by: '30000000-0000-4000-8000-000000000001', approved_by: null, created_at: '2026-07-16T00:00:00Z', approved_at: null };
+const initialDraft: Schema<'ProductFactsDraft'> = {
+  product_id: productId,
+  body_markdown: '# 产品事实\n\n初始正文',
+  classification: 'PUBLIC',
+  revision: 0,
+};
+let draft = initialDraft;
+const factVersion = {
+  id: versionId,
+  product_id: productId,
+  version: 1,
+  status: 'DRAFT',
+  body_markdown: initialDraft.body_markdown,
+  classification: initialDraft.classification,
+  change_summary: '测试快照',
+  revision: 0,
+  created_by: '30000000-0000-4000-8000-000000000001',
+  approved_by: null,
+  created_at: '2026-07-16T00:00:00Z',
+  approved_at: null,
+} satisfies Schema<'FactVersion'>;
 let versions = [factVersion];
 let deleteConflict = false;
 let deletedIds: string[] = [];
@@ -52,7 +51,7 @@ beforeEach(() => {
   queryClient.clear();
   authState.isAdmin = true;
   versions = [factVersion];
-  draft = emptyDraft;
+  draft = initialDraft;
   deleteConflict = false;
   deletedIds = [];
   versionsError = false;
@@ -63,7 +62,7 @@ beforeEach(() => {
     if (request.method === 'GET' && path === `/api/v1/products/${productId}/facts`) return { body: draft };
     if (request.method === 'GET' && path === `/api/v1/products/${productId}/fact-versions`) return versionsError ? { status: 503, body: { error: { message: '版本服务暂不可用' } } } : { body: { items: versions } };
     if (request.method === 'PUT' && path === `/api/v1/products/${productId}/facts`) {
-      draft = { ...draft, revision: draft.revision + 1, reference_parts: [{ client_key: 'reference-1', part_number: 'REF-001', manufacturer: 'DEMO', category: 'MCU' }] };
+      draft = { ...draft, body_markdown: '# 产品事实\n\n保存后的正文', revision: draft.revision + 1 };
       return { body: draft };
     }
     if (request.method === 'DELETE' && path === `/api/v1/fact-versions/${versionId}`) {
@@ -86,7 +85,7 @@ test('管理员删除事实版本后只刷新当前产品版本列表', async ()
   const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
   renderPage();
   await user.click(await screen.findByRole('tab', { name: /事实版本/ }));
-  expect(screen.getByRole('button', { name: '创建不可变快照' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '创建不可变版本' })).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: '更多操作：事实版本 V1' }));
   await user.click(await screen.findByRole('menuitem', { name: '删除' }));
   await screen.findByRole('dialog', { name: '物理删除事实版本 V1？' });
@@ -111,68 +110,38 @@ test('事实版本双引用冲突复用结构化中文错误展示', async () =>
   expect(screen.getByText('V1')).toBeInTheDocument();
 });
 
-test('工程师看不到删除按钮但保留事实维护、快照和审核入口', async () => {
+test('工程师看不到删除按钮但保留事实维护、版本和审核入口', async () => {
   const user = userEvent.setup();
   authState.isAdmin = false;
   renderPage();
   expect(await screen.findByRole('button', { name: '保存事实工作区' })).toBeInTheDocument();
   await user.click(screen.getByRole('tab', { name: /事实版本/ }));
-  expect(screen.getByRole('button', { name: '创建不可变快照' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '审核证据与历史' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '创建不可变版本' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '审核与历史' })).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: '更多操作：事实版本 V1' }));
-  expect(await screen.findByRole('menuitem', { name: '查看快照' })).toBeInTheDocument();
+  expect(await screen.findByRole('menuitem', { name: '查看冻结正文' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /删\s*除/ })).not.toBeInTheDocument();
 });
 
-test('事实表单显示修改、校验错误和保存成功状态', async () => {
+test('Markdown 工作区显示修改、校验错误和保存成功状态', async () => {
   const user = userEvent.setup();
   renderPage();
   expect(await screen.findByText('未修改')).toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: /添加参考型号/ }));
-  expect(screen.getByText('参考型号 1')).toBeInTheDocument();
+  const editor = screen.getByRole('textbox', { name: '事实 Markdown' });
+  await user.clear(editor);
   expect(screen.getByText('有未保存修改')).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: /参考型号有修改/ })).toHaveClass('is-dirty');
-
   await user.click(screen.getByRole('button', { name: '保存事实工作区' }));
-  expect(await screen.findByText('有 4 个字段需要修正')).toBeInTheDocument();
-  await waitFor(() => expect(screen.getByRole('textbox', { name: '本地标识' })).toHaveFocus());
-  expect(screen.getByRole('link', { name: /参考型号有错误/ })).toHaveClass('is-error');
-  expect(screen.getByRole('button', { name: '定位首个错误' })).toBeInTheDocument();
-
-  await user.type(screen.getByRole('textbox', { name: '本地标识' }), 'reference-1');
-  await user.type(screen.getByRole('textbox', { name: '参考型号' }), 'REF-001');
-  await user.type(screen.getByRole('textbox', { name: '制造商' }), 'DEMO');
-  await user.type(screen.getByRole('textbox', { name: '类别' }), 'MCU');
+  expect(await screen.findByText('请输入非空事实 Markdown')).toBeInTheDocument();
+  await waitFor(() => expect(editor).toHaveFocus());
+  await user.type(editor, '# 产品事实\n\n保存后的正文');
   await user.click(screen.getByRole('button', { name: '保存事实工作区' }));
   expect(await screen.findByText('已保存')).toBeInTheDocument();
-  expect(screen.queryByText(/有 \d+ 个字段需要修正/)).not.toBeInTheDocument();
 });
 
 test('加载状态保留唯一页面标题', () => {
   renderPage();
   expect(screen.getByRole('heading', { level: 1, name: '产品事实工作区' })).toBeInTheDocument();
   expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-});
-
-test('证据直传写入隐藏字段时同步标记未保存状态', async () => {
-  const user = userEvent.setup();
-  draft = {
-    ...emptyDraft,
-    evidences: [{
-      client_key: 'datasheet',
-      type: 'DATASHEET',
-      title: '数据手册',
-      version: '1.0',
-      source_url: null,
-      file_id: null,
-      confidentiality: 'INTERNAL',
-    }],
-  };
-  renderPage();
-  expect(await screen.findByText('未修改')).toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: '选择测试证据' }));
-  expect(screen.getByText('有未保存修改')).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: /证据有修改/ })).toHaveClass('is-dirty');
 });
 
 test('事实版本查询失败只影响版本页签', async () => {
@@ -190,7 +159,7 @@ test('事实版本查询失败只影响版本页签', async () => {
 test('未保存事实修改会拦截页签切换和浏览器离开', async () => {
   const user = userEvent.setup();
   renderPage();
-  await user.click(await screen.findByRole('button', { name: /添加参考型号/ }));
+  await user.type(await screen.findByRole('textbox', { name: '事实 Markdown' }), '\n\n未保存内容');
   const beforeUnload = new Event('beforeunload', { cancelable: true });
   window.dispatchEvent(beforeUnload);
   expect(beforeUnload.defaultPrevented).toBe(true);

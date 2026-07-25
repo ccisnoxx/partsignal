@@ -48,9 +48,6 @@ from app.services.product_facts import (
 from app.services.product_facts import delete_fact_version as delete_fact_version_command
 from app.services.product_facts import delete_product as delete_product_command
 from app.services.product_facts import (
-    load_fact_body,
-)
-from app.services.product_facts import (
     replace_product_facts as replace_product_facts_command,
 )
 from app.services.product_facts import (
@@ -167,9 +164,11 @@ def get_product_facts(
     product = db.get(Product, product_id)
     if product is None:
         raise not_found("产品")
-    body = load_fact_body(db, product)
     return ProductFactsDraft(
-        **body.model_dump(), product_id=product.id, revision=product.facts_revision
+        product_id=product.id,
+        body_markdown=product.facts_body_markdown,
+        classification=product.facts_classification,
+        revision=product.facts_revision,
     )
 
 

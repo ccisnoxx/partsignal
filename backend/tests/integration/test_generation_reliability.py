@@ -159,15 +159,16 @@ def generation_snapshot(
     *,
     channel_id: uuid.UUID,
     model_id: uuid.UUID,
+    product_id: uuid.UUID,
     fact_version_id: uuid.UUID,
-    classified_by: uuid.UUID,
+    platform_profile_id: uuid.UUID,
     base_url: str,
     timeout_seconds: int,
 ) -> dict[str, Any]:
     """构造与生产快照字段一致的最小真实模型输入。"""
     return {
         "adapter_name": "openai-compatible-chat-completions",
-        "contract_version": "chat-json-v1",
+        "contract_version": "content-markdown-v2",
         "channel": {
             "id": str(channel_id),
             "base_url": base_url,
@@ -180,45 +181,19 @@ def generation_snapshot(
             "model_id": "reliability-model",
             "request_parameters": {},
         },
-        "platform_type": {"id": "test", "name": "测试", "slug": "test"},
+        "platform_profile": {
+            "id": str(platform_profile_id),
+            "name": "测试平台",
+            "slug": "test",
+        },
+        "fact_version": {
+            "id": str(fact_version_id),
+            "product_id": str(product_id),
+            "version": 1,
+            "classification": "PUBLIC",
+        },
         "system_message": "只返回严格 JSON",
-        "user_prompt_markdown": "仅使用批准事实",
-        "generation_data_classification": "PUBLIC",
-        "generation_data_classified_by": str(classified_by),
-        "generation_data_classified_at": datetime.now(UTC).isoformat(),
-        "approved_facts": {
-            "fact_version_id": str(fact_version_id),
-            "reference_parts": [],
-            "parameters": [],
-            "replacement_relations": [],
-            "claims": [{"type": "APPROVED", "text": "正文只包含已批准事实。"}],
-            "evidence_confidentialities": [],
-        },
-        "task_requirements": {
-            "product": {"part_number": "REL-001", "brand": "TEST", "category": "TEST"},
-            "query_topic": {
-                "canonical_question": "如何验证生成可靠性？",
-                "intent_type": "TEST",
-            },
-            "platform_rules": {
-                "target_audience": "测试人员",
-                "title_min": 1,
-                "title_max": 200,
-                "body_min": 1,
-                "body_max": 5000,
-                "tone": "技术说明",
-                "allow_external_links": True,
-                "allow_tables": True,
-                "allow_contact": False,
-                "prohibited_phrases": [],
-                "sections": [],
-            },
-            "task": {
-                "content_angle": "可靠性验证",
-                "canonical_url": "https://example.invalid/reliability",
-            },
-        },
-        "user_message": "冻结输入",
+        "user_message": "正文只包含已批准事实。",
     }
 
 
@@ -239,7 +214,6 @@ def seed_generation_job(
             "topic",
             "platform_type",
             "profile",
-            "profile_version",
             "task",
             "channel",
             "model",
@@ -249,8 +223,9 @@ def seed_generation_job(
     snapshot = generation_snapshot(
         channel_id=ids["channel"],
         model_id=ids["model"],
+        product_id=ids["product"],
         fact_version_id=ids["fact"],
-        classified_by=ids["user"],
+        platform_profile_id=ids["profile"],
         base_url=base_url,
         timeout_seconds=timeout_seconds,
     )
@@ -277,28 +252,14 @@ def seed_generation_job(
         )
         cursor.execute(
             "INSERT INTO fact_versions "
-            "(id, product_id, version, status, snapshot_json, change_summary, revision, "
+            "(id, product_id, version, status, body_markdown, classification, "
+            "change_summary, revision, "
             "created_by, approved_by, approved_at) "
-            "VALUES (%s, %s, 1, 'APPROVED', %s, '测试事实', 0, %s, %s, now())",
+            "VALUES (%s, %s, 1, 'APPROVED', %s, 'PUBLIC', '测试事实', 0, %s, %s, now())",
             (
                 ids["fact"],
                 ids["product"],
-                Jsonb(
-                    {
-                        "reference_parts": [],
-                        "parameters": [],
-                        "replacement_relations": [],
-                        "evidences": [],
-                        "claims": [
-                            {
-                                "client_key": "approved-claim",
-                                "type": "APPROVED",
-                                "text": "正文只包含已批准事实。",
-                                "evidence_keys": [],
-                            }
-                        ],
-                    }
-                ),
+                "正文只包含已批准事实。",
                 ids["user"],
                 ids["user"],
             ),
@@ -316,47 +277,27 @@ def seed_generation_job(
         )
         cursor.execute(
             "INSERT INTO platform_profiles "
-            "(id, name, slug, allowed_domains, platform_type_id, revision) "
-            "VALUES (%s, '测试平台', %s, %s, %s, 0)",
+            "(id, name, slug, allowed_domains, platform_type_id, is_active, revision) "
+            "VALUES (%s, '测试平台', %s, %s, %s, true, 0)",
             (ids["profile"], f"profile-{unique}", ["example.invalid"], ids["platform_type"]),
         )
         cursor.execute(
-            "INSERT INTO platform_profile_versions "
-            "(id, platform_profile_id, version, status, rules, revision) "
-            "VALUES (%s, %s, 1, 'ACTIVE', %s, 0)",
-            (
-                ids["profile_version"],
-                ids["profile"],
-                Jsonb(snapshot["task_requirements"]["platform_rules"]),
-            ),
+            "INSERT INTO platform_prompts "
+            "(platform_profile_id, template_markdown, revision, updated_by) "
+            "VALUES (%s, '只返回严格 JSON', 0, %s)",
+            (ids["profile"], ids["user"]),
         )
         cursor.execute(
             "INSERT INTO content_tasks "
-            "(id, query_topic_id, product_id, fact_version_id, platform_profile_version_id, "
-            "platform_type_id, platform_type_snapshot, user_prompt_markdown, target_audience, "
-            "generation_data_classification, generation_data_classified_by, "
-            "generation_data_classified_at, "
-            "content_angle, conversion_goal, desired_format, desired_length_min, "
-            "desired_length_max, canonical_url, status, revision, created_by) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, '仅使用批准事实', '测试人员', "
-            "'PUBLIC', %s, now(), "
-            "'可靠性验证', '验证', 'MARKDOWN', 1, 5000, "
-            "'https://example.invalid/reliability', 'OPEN', 0, %s)",
+            "(id, query_topic_id, product_id, fact_version_id, platform_profile_id, "
+            "status, revision, created_by) "
+            "VALUES (%s, %s, %s, %s, %s, 'OPEN', 0, %s)",
             (
                 ids["task"],
                 ids["topic"],
                 ids["product"],
                 ids["fact"],
-                ids["profile_version"],
-                ids["platform_type"],
-                Jsonb(
-                    {
-                        "id": str(ids["platform_type"]),
-                        "name": "测试平台",
-                        "slug": f"test-{unique}",
-                    }
-                ),
-                ids["user"],
+                ids["profile"],
                 ids["user"],
             ),
         )
@@ -384,7 +325,7 @@ def seed_generation_job(
             "ai_model_id, adapter_name, prompt_template_version, prompt_hash, attempt_count, "
             "created_by, created_at) "
             "VALUES (%s, %s, %s, 'GENERATE', 'PENDING', %s, %s, %s, "
-            "'openai-compatible-chat-completions', 'chat-json-v1', %s, 0, %s, %s)",
+            "'openai-compatible-chat-completions', 'content-markdown-v2', %s, 0, %s, %s)",
             (
                 ids["job"],
                 ids["task"],
@@ -469,7 +410,7 @@ def seed_humanization_job(
         }
         snapshot = {
             "adapter_name": "openai-compatible-chat-completions",
-            "contract_version": "humanization-json-v1",
+            "contract_version": "humanization-markdown-v2",
             "channel": original["channel"],
             "model": original["model"],
             "humanization_prompt": {
@@ -478,12 +419,7 @@ def seed_humanization_job(
             },
             "source_content": source_payload,
             "source_generation_job_id": str(original_generation_job_id),
-            "user_prompt_markdown": original["user_prompt_markdown"],
-            "generation_data_classification": original["generation_data_classification"],
-            "generation_data_classified_by": original["generation_data_classified_by"],
-            "generation_data_classified_at": original["generation_data_classified_at"],
-            "approved_facts": original["approved_facts"],
-            "task_requirements": original["task_requirements"],
+            "fact_version": original["fact_version"],
             "system_message": "只改写表达并返回严格 JSON。",
             "user_message": "待自然化源文章\n" + json.dumps(source_payload, ensure_ascii=False),
         }
@@ -494,7 +430,7 @@ def seed_humanization_job(
             "status, input_snapshot, ai_channel_id, ai_model_id, adapter_name, "
             "prompt_template_version, prompt_hash, attempt_count, created_by) "
             "VALUES (%s, %s, %s, 'HUMANIZE', %s, 'PENDING', %s, %s, %s, "
-            "'openai-compatible-chat-completions', 'humanization-json-v1', %s, 0, %s)",
+            "'openai-compatible-chat-completions', 'humanization-markdown-v2', %s, 0, %s)",
             (
                 job_id,
                 task_id,

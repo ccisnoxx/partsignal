@@ -1,7 +1,7 @@
 # GEO 系统前后端技术与部署方案
 
-> 文档版本：V1.4
-> 编制日期：2026-07-22
+> 文档版本：V1.5
+> 编制日期：2026-07-25
 > 当前阶段：MVP 已实现，AI 渠道与模型管理闭环已完成
 > 业务方案：[多平台 GEO 内容运营系统方案设计](./GEO多平台内容运营系统方案设计.md)
 > 会话背景：[GEO 项目会话归档](./GEO项目会话归档.md)
@@ -30,10 +30,10 @@
 | 后台任务 | Celery + 独立 Redis |
 | 文件存储 | 阿里云 OSS |
 | 正文格式 | Markdown 为唯一可编辑正文源 |
-| 产品事实 | 覆盖参数、特性、认证、应用和测试；替代关系可选 |
+| 产品事实 | 每个产品唯一可编辑 Markdown 工作区、分级和不可变审核版本 |
 | 平台类型 | 管理员按业务需要维护的动态分类 |
-| 平台规则 | 具体平台拥有当前 Prompt；`PlatformProfileVersion` 的 DRAFT 可编辑，ACTIVE/RETIRED 冻结 |
-| 内容任务 | 创建时锁定具体平台的 `ACTIVE PlatformProfileVersion`，单次生成完整内容 |
+| 平台配置 | 具体平台拥有零或一个当前 Markdown Prompt，不存在规则版本 |
+| 内容任务 | 直接锁定产品、非空已批准事实版本和活动具体平台；支持 AI 或人工首稿 |
 | AI 配置 | 协议类型与受控供应商品牌分离；“获取模型”使用弹窗逐个添加；模型连接测试发送唯一用户消息 `hi`，不复用业务草稿解析 |
 | 发布方式 | MVP 人工发布并登记结果 |
 | 部署方式 | Hostdzire VPS 上使用 Docker Compose |
@@ -54,7 +54,7 @@
 6. 在 `4C / 6G / 100G` 的项目机资源内稳定运行。
 7. 保持部署和运维简单，不引入 Kubernetes、微服务或多余中间件。
 8. 为未来增加按平台自动发布保留稳定接口，但不预先实现自动化框架。
-9. 保证具体平台 Prompt、平台规则和模型配置变化不改变历史生成作业的解释结果。
+9. 保证具体平台 Prompt 和模型配置变化不改变历史生成作业的解释结果。
 
 ## 4. 非目标
 
@@ -67,7 +67,7 @@
 - 不在第一阶段实现 WebSocket；生成任务状态使用轮询。
 - 不把 Markdown、HTML 和编辑器 JSON 同时作为可编辑正文源。
 - 不自动发布未经人工审核的内容。
-- 不允许缺少具体平台有效规则或当前 Prompt 的任务进入生成流程。
+- 平台缺少当前 Prompt 时不允许系统 AI 生成，但仍允许创建任务和人工首稿。
 
 ## 5. 总体架构
 
@@ -194,12 +194,12 @@ HTML、纯文本和平台发布格式均由 Markdown 派生，不作为第二份
 
 ### 6.5 具体平台内容交互
 
-- 创建内容任务时选择具体平台的当前 `ACTIVE PlatformProfileVersion`。
-- 平台已停用、缺少有效规则或当前 Prompt 时从工程师新建任务、账号和发布记录的可选集合排除，并显示明确原因；停用与配置完整性相互独立。
-- 编辑器展示任务锁定的具体平台、规则版本和当前 Prompt。
-- 管理员可继续配置没有有效规则的平台；激活新规则且 Prompt 存在后恢复工程师可选。
+- 创建内容任务时直接选择产品、同产品非空已批准事实版本和活动具体平台。
+- 平台已停用时从新建任务、账号和发布记录的可选集合排除；缺少当前 Prompt 只使系统 AI 生成不可用，不影响人工首稿。
+- 编辑器展示任务直接绑定的具体平台、当前 Prompt 和事实 Markdown。
+- 管理员可继续配置没有 Prompt 的平台；保存 Prompt 后恢复系统 AI 生成。
 - 待发布列表只查询已批准内容，服务端复核平台账号与任务锁定平台一致。
-- 配置中心保留并列的“平台类型”“平台管理”“平台规则管理”“Prompt 管理”路由；平台管理维护身份、归类、域名、官网、单一来源 Logo、独立启停和当前规则选择，列表筛选/分页/统计/CSV 及详情引用摘要全部来自服务端 PostgreSQL 投影。规则页使用平台、版本、规则详情和版本信息四区工作台，URL 保存平台搜索/状态及当前平台/版本；规则、引用数、审计元数据、影响摘要和可用动作都读取服务端真实投影，独立完成草稿创建/编辑、激活、直接退役和删除。Prompt 页使用服务端平台搜索/类型筛选/分页和稳定选中 URL，在同一工作台维护具体平台当前 Markdown 与全局自然化 Prompt；未配置平台仍可选择并首次保存，列表时间只投影当前 Prompt 的 `updated_at`。Logo 可选择公开直传文件或外部 URL，不保存对象存储签名地址，也不允许两种来源并存。
+- 配置中心保留“平台类型”“平台管理”“Prompt 管理”路由，不再提供平台规则路由或隐藏入口。平台管理维护身份、归类、域名、官网、单一来源 Logo 和独立启停，列表筛选/分页/统计/CSV 及详情引用摘要全部来自服务端 PostgreSQL 投影。Prompt 页使用服务端平台搜索/类型筛选/分页和稳定选中 URL，在同一工作台维护具体平台当前 Markdown 与全局自然化 Prompt；未配置平台仍可选择并首次保存，列表时间只投影当前 Prompt 的 `updated_at`。Logo 可选择公开直传文件或外部 URL，不保存对象存储签名地址，也不允许两种来源并存。
 - 全站用户可见业务文本使用中文，枚举的显示 label 与提交 value 分离；`model_id`、API Key、URL、Markdown、JSON、Header、Prompt 和机器值保持原样。
 - AI 渠道列表由服务端按名称/描述/地址搜索、状态/品牌筛选、稳定排序和分页，一次返回表格摘要、总数与分类数量，不携带 Header 值或模型数组；只有选中渠道读取详情和模型，前端不得逐渠道追加请求。
 
@@ -265,8 +265,8 @@ Pydantic Schema
 backend/app/
 ├── main.py
 ├── core/                    配置、数据库、权限和通用错误
-├── product_facts/           产品事实、可选替代关系、证据和事实版本
-├── content_planning/        历史目标问题、具体平台规则和产品驱动任务
+├── product_facts/           产品事实 Markdown 工作区和事实版本
+├── content_planning/        历史目标问题和直接平台内容任务
 ├── configuration/           平台类型、具体平台 Prompt、AI 渠道和模型
 ├── content_production/      两级生成作业、内容版本和质量检查
 ├── review/                  事实审核和内容审核
@@ -297,11 +297,10 @@ backend/app/
 POST /api/v1/fact-versions/{id}/submit
 POST /api/v1/fact-versions/{id}/approve
 POST /api/v1/content-tasks/{id}/generation-jobs
+POST /api/v1/content-tasks/{id}/manual-versions
 POST /api/v1/generation-jobs/{id}/retry
 POST /api/v1/content-versions/{id}/submit-review
 POST /api/v1/content-versions/{id}/approve
-POST /api/v1/platform-profiles/{id}/versions
-POST /api/v1/platform-profile-versions/{id}/activate
 POST /api/v1/publications/manual
 POST /api/v1/geo-observations
 ```
@@ -311,10 +310,8 @@ POST /api/v1/geo-observations
 - 事实版本批准、内容版本批准和发布登记分别使用数据库事务。
 - 已批准版本更新使用数据库约束和服务层双重阻止。
 - 生成作业在短事务中创建并独立执行；不得用一个长事务包住外部模型调用。
-- `PlatformProfileVersion` 从 `DRAFT` 激活时锁定规则内容，并在数据库层保证每个具体平台最多一个 `ACTIVE` 版本。
-- 激活替换已有 `ACTIVE` 时先释放唯一槽位，再激活草稿，并在同一事务追加旧版本 `retired(reason=REPLACED)` 与新版本 `activated(previous_active_version_id=...)`；直接退役草稿记录 `reason=DIRECT`。状态或任一审计失败均整体回滚。
 - 平台启停与新建普通/修复任务、平台账号、发布记录统一先锁定 `PlatformProfile` 再检查 `is_active`，避免并发停用后的写入穿透；停用不修改既有账号、配置和历史。
-- 创建任务和作业时校验规则版本为 `ACTIVE` 且所属平台存在当前 Prompt；创建发布记录时校验平台账号属于任务锁定平台。
+- 创建任务时校验平台活动和事实版本同产品、非空且已批准；创建系统 AI 作业时额外校验当前 Prompt；创建发布记录时校验平台账号属于任务直接绑定平台。
 - 需要防止重复生成或重复提交的操作使用幂等键。
 - 并发编辑使用明确版本号进行乐观锁校验；平台 Prompt 覆盖和物理删除都要求 `expected_revision`，服务端锁定当前行后比较，冲突时保留当前配置并返回 `REVISION_CONFLICT`。
 - 不使用分布式锁解决单机数据库事务能够解决的问题。
@@ -326,7 +323,7 @@ MVP 建议使用内部账号、密码哈希和服务端会话：
 - 浏览器只保存 `HttpOnly`、`Secure`、`SameSite=Lax` 会话 Cookie。
 - 会话记录保存在 PostgreSQL，可撤销并记录设备和最后活动时间。
 - 写操作使用 CSRF 防护。
-- 账号类型只使用 `ADMIN` 和 `ENGINEER`；平台 Prompt、具体平台规则、AI 渠道和模型写操作仅允许管理员。
+- 账号类型只使用 `ADMIN` 和 `ENGINEER`；平台 Prompt、AI 渠道和模型写操作仅允许管理员。
 - 不把长期 JWT 存在 `localStorage`。
 
 如果公司已有 OIDC/SSO，后续用身份适配器替换登录入口，管理员标识和账号启停状态仍保存在本系统。
@@ -341,8 +338,8 @@ MVP 的生成过程是确定的流水线：
 
 ```text
 加载已批准 FactVersion
-→ 加载任务锁定的 ACTIVE PlatformProfileVersion
-→ 加载所属具体平台当前 PlatformPrompt
+→ 加载任务直接绑定的 PlatformProfile
+→ 加载该平台当前 PlatformPrompt
 → 创建一个 GenerationJob
 → 调用模型并创建 DRAFT ContentVersion
 → 人工编辑并批准内容
@@ -352,7 +349,7 @@ MVP 的生成过程是确定的流水线：
 → 发布状态与 GEO 观测继续追加历史
 ```
 
-产品事实包只包含任务实际拥有的已批准参数、特性、认证、应用和测试结论。参考型号和替代关系是可选输入；平台 Prompt 或平台规则不得要求模型补充不存在的替代事实。
+原始生成请求只包含两条消息：`system.content` 逐字等于当前平台 Prompt，`user.content` 逐字等于批准事实版本 Markdown。系统不附加产品元数据、任务字段、固定前缀或事实 JSON。
 
 使用项目自有的最小同步 HTTP/1.1 传输实现 `ContentGenerator` 适配器：单次解析完整 A/AAAA、只连接批准地址、发送敏感 Header 前校验 peer，并以原 hostname 完成 SNI、证书校验和 Host。不得使用会按 hostname 二次解析的通用默认传输，也不增加 LangChain、Agent 框架或图编排系统。
 
@@ -408,11 +405,11 @@ started_at
 finished_at
 ```
 
-内容任务锁定一个 `ACTIVE PlatformProfileVersion`；作业从该版本解析具体平台并读取当前 Prompt。`input_snapshot` 冻结具体平台身份、平台规则、最终 system/user message、事实、模型和参数，配置变化不得重新解释历史作业。
+内容任务直接锁定一个具体平台；作业读取该平台当前 Prompt。`input_snapshot` 冻结具体平台身份、最终 system/user message、事实版本身份与分级、模型和参数，配置变化不得重新解释历史作业。
 
 Prompt 管理页的输出预览复用上述真实链路：管理员选择符合门禁的任务、模型，以及自然化场景下的 AI 源草稿，创建现有 `GENERATE` 或 `HUMANIZE` 作业；页面按创建响应中的 Job ID 从任务级作业列表轮询，成功后读取不可变 `ContentVersion` 并安全渲染 Markdown。预览会留下真实作业和 `DRAFT`，未保存 Prompt 不参与调用，页面也不读取包含完整输入快照的作业详情。
 
-内容任务列表使用独立只读聚合契约展示产品名称、任务锁定规则所属的单一目标平台、任务状态、创建时间和最新原始生成状态。平台名称、官网和 Logo 读取平台当前品牌信息；生成状态只取按 `created_at DESC, id DESC` 排序后的最新 `GENERATE` 作业，`HUMANIZE` 作为内容版本后处理不覆盖任务主体状态。产品、平台、Logo 文件、发布占用状态与作业状态均批量读取，不按任务追加请求。
+内容任务列表使用独立只读聚合契约展示产品名称、任务直接绑定的平台、任务状态、创建时间和最新原始生成状态。平台名称、官网和 Logo 读取平台当前品牌信息；生成状态只取按 `created_at DESC, id DESC` 排序后的最新 `GENERATE` 作业，`HUMANIZE` 作为内容版本后处理不覆盖任务主体状态。产品、平台、Logo 文件、发布占用状态与作业状态均批量读取，不按任务追加请求。
 
 渠道管理的使用统计直接按 `generation_jobs.ai_channel_id` 和 `created_at` 聚合 `GENERATE`/`HUMANIZE` 作业，提供 7/30/90 天和全部时间，默认 30 天。连接测试与模型发现不写入业务作业统计；成功率只用成功与失败终态作为分母，缺失耗时或 Token 保持 `null`。渠道操作日志继续读取 `audit_logs`，模型事件用脱敏 `channel_id` 关联，不新增统计表或日志表。
 
@@ -426,8 +423,8 @@ Worker 启动、成功和失败都更新 PostgreSQL。不得把关键结果只�
 - 模型返回不符合结构时记录失败，不通过重试掩盖提示或契约问题。
 - 同一幂等键只能生成一个有效任务。
 - 具体平台缺少当前 Prompt 时拒绝创建作业；不得回退到类型级或其他平台 Prompt。
-- 规则版本不是 `ACTIVE` 时在入队前失败，不自动选择其他平台或历史规则。
-- 只有任务输入与全部事实 Evidence 都明确为 `PUBLIC` 时才允许第三方模型调用；历史空分级不得默认放行。
+- 只有绑定事实版本明确为 `PUBLIC` 时才允许第三方模型调用；历史空事实不得默认放行。
+- 旧 `chat-json-v1` 与 `humanization-json-v1` 快照只读且不得重试。
 - 错误日志不保存模型密钥、Prompt、响应正文、未公开资料全文或个人敏感信息。
 
 ### 8.5 并发配置
@@ -463,21 +460,18 @@ GEO 项目使用独立 PostgreSQL 和独立 Redis 容器，不复用当前其他
 
 ### 9.3 业务契约与迁移要求
 
-本次平台模型调整至少涉及以下数据库契约：
+当前平台与内容生产模型至少涉及以下数据库契约：
 
 - `platform_types.slug` 保持唯一；管理员可增删改查，删除被具体平台引用的类型时返回结构化冲突。
-- `platform_profiles` 保存具体平台和所属类型，并拥有零或一份当前 Prompt；创建平台不隐式创建规则。`platform_profile_versions` 保存 `DRAFT / ACTIVE / RETIRED` 规则，只有 `DRAFT` 可按修订号编辑，当前规则由同平台唯一 `ACTIVE` 版本推导。
+- `platform_profiles` 保存具体平台和所属类型，并拥有零或一份当前 Prompt；不存在规则版本表。
 - `platform_profiles.website_url` 保存可选官网；Logo 只能在 `logo_file_id` 与 `logo_external_url` 中选择一个。上传文件必须属于公开、已校验的 `PLATFORM_LOGO` 类别，下载地址由对象存储临时签发。
-- `content_tasks` 继续直接锁定具体 `platform_profile_version_id`、产品、事实版本和工程师输入；`query_topic_id` 只为历史任务保留并允许为空，新任务不再选择目标问题。
-- 规则版本管理摘要从 `content_tasks` 与 `audit_logs` 批量实时投影，不保存引用数、创建/激活时间或动作列；删除用户后的审计 Actor 为 `NULL` 但历史事件仍返回。
+- `content_tasks` 直接锁定 `platform_profile_id`、产品和事实版本；`query_topic_id` 只为历史任务保留并允许为空，新任务不再选择目标问题。
 - `audit_logs` 是业务审计唯一来源，保存业务模块、动作、可空对象标识、`SUCCESS | FAILED | DENIED` 结果、非敏感结果说明和稳定错误码；列表使用 `(created_at DESC, id DESC)` 稳定分页，当前用户信息只作实时投影。
-- 单版本影响使用直接引用任务的一次聚合，依次按存在 `PUBLISHED | VERIFIED`、否则存在 `PLATFORM_REVIEW | PENDING_REVIEW`、否则未发布互斥分桶。内容任务列表的 `platform_profile_version_id` 与 `platform_profile_id` 同时出现时取交集。
-- `generation_jobs.input_snapshot` 新写入具体平台身份，并继续冻结规则、最终消息、事实、渠道和模型。
+- 平台引用数直接聚合 `content_tasks.platform_profile_id`；不保存汇总列或前端推导第二口径。
+- `generation_jobs.input_snapshot` 写入具体平台身份，并冻结最终消息、事实版本、渠道和模型。
 - `content_versions` 保持单一内容版本模型；发布记录只允许引用已批准内容。
 
 `0014_platform_prompt_ownership` 用新表把旧类型 Prompt 复制给该类型下每个具体平台，孤立 Prompt 不保留，然后移除旧表和旧字段。平台 Prompt 分化后无法可靠合并，降级依赖迁移前 PostgreSQL 备份。既有任务、生成快照、内容、审核和发布历史保持只读一致。
-
-`0015_platform_rule_draft_editing` 不新增表或字段，只替换既有规则版本触发器：更新前后均为 `DRAFT` 时允许修改 `rules`，身份字段及 `ACTIVE`、`RETIRED` 正文继续由 PostgreSQL 冻结。迁移不改写业务行；显式降级只恢复原有全状态不可编辑门禁。
 
 `0016_fact_review_cleanup` 只给 `fact_review_records` 替换专用触发器：服务锁定父事实版本并确认无内容引用后，在当前事务声明父版本 ID；只有归属完全匹配的审核记录可删除，UPDATE、未声明或错配 ID 的删除继续拒绝。其他追加式历史表、`RESTRICT` 外键和显式删除顺序不变，降级恢复原通用触发器。
 
@@ -485,7 +479,9 @@ GEO 项目使用独立 PostgreSQL 和独立 Redis 容器，不复用当前其他
 
 `0024_audit_outcome` 为历史审计精确回填业务模块，为审计结果增加 `outcome`、`result_message` 和 `error_code`，并允许命令在尚未产生业务对象时以空 `target_id` 记录失败。迁移只接受已知历史动作与对象组合，未知组合必须中止；存在空对象标识时降级以 PostgreSQL `55000` 失败，要求前滚或恢复迁移前备份。
 
-管理员删除当前开发数据时，服务先锁定目标并统计直接引用，冲突统一返回 `409 details.references[{type,count}]`：产品检查事实版本、内容任务和 GEO 观测；事实版本检查内容任务和内容版本；规则版本检查内容任务；具体平台检查规则版本和平台账号；平台账号检查发布记录；平台类型检查具体平台。无引用事实版本可在任意状态删除，其从属事实审核记录在同一事务显式清理并保留安全审计摘要；产品删除不会自动删除事实版本。其他删除不级联或改写业务历史。未引用的 `ACTIVE` 规则允许删除，平台保留且 `active_version=null`；只有激活新规则并存在当前 Prompt 后，工程师才能再次选择。
+`0025_markdown_facts_direct_platform` 把现有结构化事实确定性渲染为 Markdown，回填任务直接平台后物理删除规范化事实子图、规则版本表和旧任务字段。新原始生成与自然化分别使用 `content-markdown-v2` 和 `humanization-markdown-v2` 快照；旧 v1 快照保持只读。迁移发现旧契约 `PENDING | RUNNING` 作业时失败，downgrade 明确拒绝。
+
+管理员删除当前开发数据时，服务先锁定目标并统计直接引用，冲突统一返回 `409 details.references[{type,count}]`：产品检查事实版本、内容任务和 GEO 观测；事实版本检查内容任务和内容版本；具体平台检查内容任务和平台账号；平台账号检查发布记录；平台类型检查具体平台。无引用事实版本可在任意状态删除，其从属事实审核记录在同一事务显式清理并保留安全审计摘要；产品删除不会自动删除事实版本。其他删除不级联或改写业务历史。
 
 ### 9.4 Redis
 
@@ -878,7 +874,7 @@ GET /api/health/ready
 - API 和 Worker 输出结构化日志到标准输出。
 - Docker 配置日志轮转，避免耗尽磁盘。
 - 请求日志包含请求 ID、用户 ID、接口、状态和耗时。
-- AI 任务日志包含作业 ID、具体平台、平台规则版本、模型适配器、尝试次数和错误码。
+- AI 任务日志包含作业 ID、具体平台、快照契约版本、模型适配器、尝试次数和错误码。
 - 不记录密码、Cookie、AccessKey、API Key、Authorization/敏感 Header、供应商响应正文和未公开资料全文；渠道审计只记录非敏感字段、配置状态和安全错误码。
 - 业务审计日志写入 PostgreSQL，与运行日志分离。
 - 审计成功事件与业务写入同事务提交；仅对已批准的九类关键命令在原事务回滚后，以独立事务记录 `FAILED` 或 `DENIED`。请求解析、身份认证、会话与 CSRF 失败不写业务审计。
@@ -906,7 +902,7 @@ MVP 不部署完整 Prometheus/Grafana，先监测最关键指标：
 - 容器重启次数和 OOM。
 - OSS 上传失败率。
 - AI 生成任务成功率、耗时和重试次数。
-- 平台 Prompt 缺失、无有效规则和平台规则不匹配次数。
+- 平台 Prompt 缺失和事实分级拒绝次数。
 
 可先使用现有外部可用性检测或轻量定时脚本；达到实际监控需求后再引入完整指标系统。
 
@@ -940,7 +936,7 @@ MVP 不部署完整 Prometheus/Grafana，先监测最关键指标：
 → 运行只读一致性检查
 → 启动 API
 → 启动 Worker
-→ 验证事实、平台类型、具体平台 Prompt、规则版本、生成作业快照、内容版本和发布记录
+→ 验证事实 Markdown、平台类型、具体平台 Prompt、生成作业快照、内容版本和发布记录
 ```
 
 ## 19. 安全设计
@@ -1061,10 +1057,9 @@ geo-platform/
 
 ### 阶段三：核心业务
 
-- 产品事实、可选替代关系和证据。
-- 事实版本和审核。
-- 动态平台类型、具体平台 Prompt 和规则版本。
-- 具体平台内容任务、AI 生成和内容版本。
+- 产品事实 Markdown 工作区、分级、版本和审核。
+- 动态平台类型和具体平台 Prompt。
+- 直接平台内容任务、AI/人工首稿和内容版本。
 - 人工发布登记和 GEO 观测。
 
 ### 阶段四：运维闭环
@@ -1104,11 +1099,11 @@ geo-platform/
 - [ ] 渠道搜索、筛选、排序、分页、分类数量、最近测试、业务统计和操作日志来自服务端权威投影。
 - [ ] API Key 与敏感 Header 在读取、日志、审计、复制配置、浏览器状态和截图中均不可恢复。
 - [ ] 平台类型可由管理员维护，被具体平台引用时删除返回结构化冲突。
-- [ ] 具体平台缺少有效规则或当前 Prompt 时工程师不可选择，服务端同样拒绝。
-- [ ] 平台规则四区工作台的版本元数据、可用动作、审计历史和互斥影响摘要均来自服务端权威投影。
-- [ ] 草稿替代激活原子退役旧版本并写双审计；精确规则版本引用入口与平台筛选同时存在时使用 AND 语义。
-- [ ] 内容任务使用明确的 `ACTIVE PlatformProfileVersion` 和所属平台当前 Prompt 生成内容。
-- [ ] 历史作业的平台、规则和 Prompt 结果快照不随当前配置变化。
+- [ ] 停用平台不能用于新任务；缺少当前 Prompt 时人工首稿可用而系统 AI 明确失败。
+- [ ] 内容任务只提交产品、同产品非空已批准事实版本和活动具体平台。
+- [ ] 系统 AI 请求恰好包含平台 Prompt system message 与事实 Markdown user message。
+- [ ] 人工首稿不创建生成作业，并与 AI 草稿共用审核和发布链。
+- [ ] 历史作业的平台、事实和两条消息快照不随当前配置变化，旧 v1 快照不能重试。
 - [ ] 审核和发布业务不变量测试通过。
 
 ### 25.4 安全和备份
@@ -1146,4 +1141,4 @@ React + TypeScript + Vite
 → Docker Compose 单机部署
 ```
 
-该方案复用现有双 VPS、WireGuard、Nginx 和证书体系，不增加第二套公网入口。应用容器保持独立数据与资源边界，能够在现有 Hostdzire 配置上支持 MVP，同时通过 `ContentGenerator`、`EvidenceStorage` 和未来 `Publisher` 边界保留后续扩展能力。
+该方案复用现有双 VPS、WireGuard、Nginx 和证书体系，不增加第二套公网入口。应用容器保持独立数据与资源边界，能够在现有 Hostdzire 配置上支持 MVP，同时通过 `ContentGenerator`、对象存储服务和未来 `Publisher` 边界保留后续扩展能力。

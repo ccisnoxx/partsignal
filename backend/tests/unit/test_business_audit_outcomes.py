@@ -15,7 +15,7 @@ from app.audit import validate_audit_entry
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError
 from app.models.identity import User
-from app.routers import observation, planning, product_facts, production, publication
+from app.routers import observation, product_facts, production, publication
 
 
 class _RollbackSession:
@@ -41,27 +41,12 @@ AuditCase = tuple[
 ]
 
 _CONTENT_ID = uuid.uuid4()
-_PLATFORM_VERSION_ID = uuid.uuid4()
 _PLATFORM_ACCOUNT_ID = uuid.uuid4()
 _PUBLICATION_ID = uuid.uuid4()
 _FACT_VERSION_ID = uuid.uuid4()
 _COMMAND_PAYLOAD = SimpleNamespace(expected_revision=0, comment="")
 
 AUDIT_CASES: tuple[AuditCase, ...] = (
-    (
-        planning,
-        "activate_platform_profile_version_command",
-        planning.activate_platform_profile_version,
-        "admin",
-        {
-            "platform_profile_version_id": _PLATFORM_VERSION_ID,
-            "payload": object(),
-        },
-        "platform_profile_version.activated",
-        "PlatformProfileVersion",
-        _PLATFORM_VERSION_ID,
-        AuditModule.CONFIGURATION,
-    ),
     (
         production,
         "transition_content_version",

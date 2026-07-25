@@ -49,7 +49,6 @@ export function PlatformDetailPanel({
   }
 
   const { profile, account_summary: accounts, reference_summary: references } = detail.data;
-  const rulesHref = `/configuration/platform-rules?platform_profile_id=${profile.id}`;
   const promptHref = `/configuration/prompts?platform_profile_id=${profile.id}`;
   const accountsHref = `/settings?tab=accounts&platform_profile_id=${profile.id}`;
   const referencesHref = `/tasks?platform_profile_id=${profile.id}`;
@@ -69,16 +68,6 @@ export function PlatformDetailPanel({
           { label: '官方网站', children: profile.website_url ? <a href={profile.website_url} target="_blank" rel="noreferrer">{profile.website_url}</a> : '—' },
           { label: '允许域名', children: profile.allowed_domains.length ? profile.allowed_domains.join('、') : '—' },
         ]} />
-      </section>
-
-      <section className="platform-detail-section" aria-labelledby="platform-detail-rule">
-        <Typography.Title id="platform-detail-rule" level={5}>当前规则</Typography.Title>
-        <Descriptions column={1} colon={false} size="small" items={[
-          { label: '当前规则版本', children: profile.active_version ? `V${profile.active_version.version}` : <StatusTag status="ACTIVE_RULE_MISSING" /> },
-          { label: '发布状态', children: profile.active_version ? <StatusTag status="PUBLISHED" /> : '—' },
-          { label: '最后更新时间', children: formatDateTime(detail.data.current_rule_activated_at) },
-        ]} />
-        <Link className="platform-detail-link" to={rulesHref}>查看规则详情 <RightOutlined /></Link>
       </section>
 
       <section className="platform-detail-section" aria-labelledby="platform-detail-prompt">
@@ -115,7 +104,7 @@ export function PlatformDetailPanel({
         <Button className="platform-toggle-button" loading={toggleLoading} onClick={() => onToggle(profile)}>{profile.is_active ? '停用平台' : '启用平台'}</Button>
         <Button danger loading={deleteLoading} onClick={() => onDelete(profile)}>删除平台</Button>
       </div>
-      <Alert type="warning" showIcon={false} title="存在平台规则版本或发布账号时不能删除平台；如需停止新业务，请停用平台。" />
+      <Alert type="warning" showIcon={false} title="存在内容任务或发布账号引用时不能删除平台；如需停止新业务，请停用平台。" />
     </div>
   </aside>;
 }

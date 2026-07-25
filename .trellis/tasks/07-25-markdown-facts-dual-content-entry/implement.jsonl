@@ -1,0 +1,13 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "后端实现入口、分层职责与质量门禁。"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "结构化事实删表、Markdown 迁移、外键与不可变历史约束。"}
+{"file": ".trellis/spec/backend/ai-configuration-guidelines.md", "reason": "平台 Prompt、生成快照、真实外部调用与失败边界。"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "Prompt 缺失、旧快照重试和迁移失败必须显式暴露。"}
+{"file": ".trellis/spec/backend/publication-workbench-guidelines.md", "reason": "直接平台绑定后的发布与修复闭环。"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端目录、类型与质量规范入口。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复用 Markdown 编辑/预览和内容修订组件。"}
+{"file": ".trellis/spec/frontend/state-management.md", "reason": "任务详情双入口、服务端状态和缓存失效约束。"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "OpenAPI 生成类型是唯一 DTO 来源。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "目标 Vitest 与 Playwright 回归要求。"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "契约、数据库、后端与前端同步删除旧字段。"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用现有内容版本、Markdown 编辑和审核发布能力。"}
+{"file": ".trellis/tasks/07-25-markdown-facts-dual-content-entry/research/current-flow.md", "reason": "当前数据流、规则依赖和最小回归面的代码证据。"}

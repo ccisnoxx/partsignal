@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 25
-- **Last Active**: 2026-07-25
+- **Total Sessions**: 26
+- **Last Active**: 2026-07-26
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~866 | Active |
+| `journal-1.md` | ~899 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 26 | 2026-07-26 | 简化产品事实与双模式内容任务 | `3de8705` | `main` |
 | 25 | 2026-07-25 | 统一 PartSignal 桌面端视觉系统 | `2f00036` | `main` |
 | 24 | 2026-07-25 | 修复匿名会话探测与未配置自然化 Prompt 控制台错误 | `5f0bd62`, `ef3bdb7` | `main` |
 | 23 | 2026-07-24 | 跨页面视觉系统收口 | `d721290` | `main` |

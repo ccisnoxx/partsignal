@@ -864,3 +864,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 26: 简化产品事实与双模式内容任务
+
+**Date**: 2026-07-26
+**Task**: 简化产品事实与双模式内容任务
+**Branch**: `main`
+
+### Summary
+
+将产品事实收敛为可编辑 Markdown 与不可变版本，删除平台规则版本及旧内容任务字段，实现严格平台 Prompt/事实两消息 AI 生成和无 AI 依赖的人工首稿，并同步契约、迁移、前后端、测试与权威文档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3de8705` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

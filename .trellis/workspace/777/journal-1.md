@@ -831,3 +831,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 25: 统一 PartSignal 桌面端视觉系统
+
+**Date**: 2026-07-25
+**Task**: 统一 PartSignal 桌面端视觉系统
+**Branch**: `main`
+
+### Summary
+
+完成四张统一视觉锚点与九张页面局部参考落地，统一主题、壳层、共享组件和代表页面，补齐批准清单、视觉基线及桌面端可访问性回归；完整 Vitest、类型检查、Lint、构建与 24 项 E2E 通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2f00036` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

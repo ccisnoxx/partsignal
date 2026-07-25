@@ -979,13 +979,13 @@ body:has(.platform-rules-page) .form-dialog-footer > span { color: var(--ps-text
 .ai-channel-table .ant-table-tbody > tr:hover > td, .ai-channel-table .ant-table-tbody > tr:focus-within > td { background: color-mix(in srgb, var(--ps-action-primary-soft) 24%, var(--ps-bg-surface)) !important; }
 .ai-channel-table .ant-table-tbody > tr.ai-channel-row-selected > td { background: color-mix(in srgb, var(--ps-action-primary-soft) 30%, var(--ps-bg-surface)) !important; }
 .ai-channel-table .ant-table-tbody > tr.ai-channel-row-selected > td:first-child { box-shadow: inset 2px 0 color-mix(in srgb, var(--ps-action-primary) 54%, transparent); }
-.ai-channel-table .ant-table-cell-fix-right { background: var(--ps-bg-surface) !important; }
-.ai-channel-table .ant-table-thead > tr > .ant-table-cell-fix-right { background: var(--ps-bg-subtle) !important; }
-.ai-channel-table .ant-table-tbody > tr:hover > .ant-table-cell-fix-right, .ai-channel-table .ant-table-tbody > tr:focus-within > .ant-table-cell-fix-right { background: color-mix(in srgb, var(--ps-action-primary-soft) 24%, var(--ps-bg-surface)) !important; }
-.ai-channel-table .ant-table-tbody > tr.ai-channel-row-selected > .ant-table-cell-fix-right { background: color-mix(in srgb, var(--ps-action-primary-soft) 30%, var(--ps-bg-surface)) !important; }
-.ai-channel-table .ant-table-cell-fix-right .ant-space { gap: 2px !important; }
-.ai-channel-table .ant-table-cell-fix-right-first::after { box-shadow: none !important; }
-.ai-channel-table .ant-table-cell-fix-right .ant-btn,
+.ai-channel-table .ant-table-cell-fix-end { background: var(--ps-bg-surface) !important; }
+.ai-channel-table .ant-table-thead > tr > .ant-table-cell-fix-end { background: var(--ps-bg-subtle) !important; }
+.ai-channel-table .ant-table-tbody > tr:hover > .ant-table-cell-fix-end, .ai-channel-table .ant-table-tbody > tr:focus-within > .ant-table-cell-fix-end { background: color-mix(in srgb, var(--ps-action-primary-soft) 24%, var(--ps-bg-surface)) !important; }
+.ai-channel-table .ant-table-tbody > tr.ai-channel-row-selected > .ant-table-cell-fix-end { background: color-mix(in srgb, var(--ps-action-primary-soft) 30%, var(--ps-bg-surface)) !important; }
+.ai-channel-table .ant-table-cell-fix-end .ant-space { gap: 2px !important; }
+.ai-channel-table .ant-table-cell-fix-end-shadow::after { box-shadow: none !important; }
+.ai-channel-table .ant-table-cell-fix-end .ant-btn,
 .platform-table-panel .ant-table-tbody > tr > td:last-child .ant-btn { width: 24px; min-width: 24px; height: 24px; padding-inline: 0; border: 1px solid var(--ps-border-subtle); border-radius: var(--ps-radius-sm); background: color-mix(in srgb, var(--ps-bg-surface) 82%, transparent); }
 .ai-channel-name-cell { display: flex; align-items: center; gap: 8px; min-width: 0; color: inherit; text-decoration: none; }
 .ai-channel-table :is(th, td):first-child { padding-left: 10px; }
@@ -1136,6 +1136,7 @@ body:has(.platform-rules-page) .form-dialog-footer > span { color: var(--ps-text
 @media (max-width: 991px) {
   .app-content { padding: 16px; }
   .app-header { display: flex; justify-content: space-between; padding-inline: 16px; }
+  .app-header .ant-btn, .ant-drawer-close { min-width: 44px; min-height: 44px; }
   .global-navigation-search { display: none; }
 }
 
@@ -1446,6 +1447,7 @@ body:has(.platform-rules-page) .form-dialog-footer > span { color: var(--ps-text
   .login-card > .ant-card-body { padding-inline: 20px; }
   .dashboard-kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .metric-tile .ant-card-body { padding: 12px; }
+  .metric-with-icon > .ant-card-body { padding: 54px 12px 12px; }
   .dashboard-kpi-grid .metric-tile .ant-card-body,
   .geo-observation-page .metric-tile .ant-card-body { min-height: 118px; padding: 54px 12px 12px; }
   .dashboard-kpi-grid .metric-value strong { font-size: 28px; }

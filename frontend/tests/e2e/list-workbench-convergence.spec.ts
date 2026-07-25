@@ -48,6 +48,30 @@ async function expectNoDocumentOverflow(page: Page) {
     .toBeLessThanOrEqual(dimensions.clientWidth);
 }
 
+async function expectMetricContentClearance(page: Page, selector: string) {
+  // 同时接受“左侧图标槽”和“上方图标槽”，只禁止图标覆盖标题或数值。
+  const intersections = await page.locator(selector).evaluateAll((tiles) => tiles.map((tile) => {
+    const icon = tile.querySelector<HTMLElement>('.metric-icon');
+    const label = tile.querySelector<HTMLElement>('.metric-label');
+    const value = tile.querySelector<HTMLElement>('.metric-value');
+    if (!icon || !label || !value) throw new Error('指标卡缺少图标、标题或数值');
+    const iconRect = icon.getBoundingClientRect();
+    const intersects = (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect();
+      return iconRect.left < rect.right
+        && iconRect.right > rect.left
+        && iconRect.top < rect.bottom
+        && iconRect.bottom > rect.top;
+    };
+    return { label: intersects(label), value: intersects(value) };
+  }));
+  expect(intersections.length).toBeGreaterThan(0);
+  for (const intersection of intersections) {
+    expect(intersection.label).toBe(false);
+    expect(intersection.value).toBe(false);
+  }
+}
+
 test('四个工作台统一使用真实 PageHeader、指标卡、筛选和表格入口', async ({ page }, testInfo) => {
   await login(page);
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -97,6 +121,12 @@ test('窄屏只允许 TableRegion 内横向滚动，并保留键盘操作', asyn
     for (const workbench of workbenches) {
       await openWorkbench(page, workbench);
       await expectNoDocumentOverflow(page);
+      if (width <= 375 && workbench.key === 'users') {
+        await expectMetricContentClearance(page, '.user-management-summary-grid .metric-tile');
+      }
+      if (width <= 375 && workbench.key === 'platforms') {
+        await expectMetricContentClearance(page, '.platform-metric-grid .metric-tile');
+      }
     }
   }
 

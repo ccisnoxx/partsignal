@@ -1,0 +1,7 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "约束共享壳层、表格、MetricTile、响应式、44px 触控目标与视觉基线批准规则。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "约束弹性长文本列、固定操作列、TableRegion 局部滚动与共享组件所有权。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "约束真实浏览器 320/375/768/1440、200% 缩放、键盘和焦点回归。"}
+{"file": ".trellis/tasks/07-25-staging-visual-defect-fixes/research/ai-channel-table-overlap.md", "reason": "提供 AI 表格重叠的确定性宽度根因、实际类名和最小回归。"}
+{"file": ".trellis/tasks/07-25-staging-visual-defect-fixes/research/users-mobile-metric-overlap.md", "reason": "提供共享 MetricTile 419px 级联根因、消费者边界和矩形回归。"}
+{"file": ".trellis/tasks/07-25-staging-visual-defect-fixes/research/mobile-touch-targets.md", "reason": "提供移动顶栏与 Drawer 触控框尺寸来源、断点和焦点约束。"}

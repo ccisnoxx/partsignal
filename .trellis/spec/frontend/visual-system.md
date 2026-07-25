@@ -18,7 +18,7 @@
 
 ### 1.1 批准视觉参考及从属关系
 
-`.trellis/tasks/07-25-frontend-visual-system-recalibration/assets/approved/manifest.md` 登记本轮人工批准的 13 张 1440×1000 浅色实施截图及其 SHA-256。批准资产是本文的视觉验收证据，不是平行规范；规范意图仍以本文为准，精确运行时值仍以 `theme.ts` 和 `global.css` 为准。
+`.trellis/tasks/archive/2026-07/07-25-frontend-visual-system-recalibration/assets/approved/manifest.md` 登记本轮人工批准的 13 张 1440×1000 浅色实施截图及其 SHA-256。批准资产是本文的视觉验收证据，不是平行规范；规范意图仍以本文为准，精确运行时值仍以 `theme.ts` 和 `global.css` 为准。
 
 - `13-dashboard.png`、`01-users.png`、`08-geo-insights.png`、`12-content-review.png` 分别约束总览、数据列表、分析洞察和编辑审核页面家族，并共同决定统一壳层、密度和视觉层级。
 - 审计、发布账号、Prompt、平台规则、平台、GEO 观测、发布、AI 渠道和内容任务九张原型及实施截图只补充对应页面的局部构图，不得产生页面级壳层、主题或业务契约。

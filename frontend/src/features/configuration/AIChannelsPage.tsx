@@ -275,7 +275,7 @@ export function AIChannelsPage() {
       render: (enabled: boolean) => <StatusTag compact status={enabled ? 'ENABLED' : 'DISABLED'} />,
     },
     {
-      title: 'API 根地址', dataIndex: 'base_url', ellipsis: true, width: 167,
+      title: 'API 根地址', dataIndex: 'base_url', ellipsis: true,
       render: (value: string) => <Typography.Text className="ai-url-cell" title={value}>{value}</Typography.Text>,
     },
     {
@@ -413,7 +413,7 @@ export function AIChannelsPage() {
                   dataSource={channels.data.items}
                   columns={columns}
                   pagination={false}
-                  scroll={{ x: 710 }}
+                  scroll={{ x: 630 }}
                   rowClassName={(item) => item.id === channelId ? 'ai-channel-row-selected' : ''}
                 />
               </TableRegion>

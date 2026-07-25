@@ -122,6 +122,28 @@ async function expectNoDocumentOverflow(page: Page) {
   expect(dimensions.scrollWidth, new URL(page.url()).pathname).toBeLessThanOrEqual(dimensions.clientWidth);
 }
 
+async function expectMinimumTouchTarget(locator: Locator, label: string) {
+  await expect(locator, label).toBeVisible();
+  const box = await locator.boundingBox();
+  expect(box, label).not.toBeNull();
+  expect(box!.width, `${label} 宽度`).toBeGreaterThanOrEqual(44);
+  expect(box!.height, `${label} 高度`).toBeGreaterThanOrEqual(44);
+}
+
+async function expectMobileShellTouchTargets(page: Page) {
+  const navigation = page.getByRole('button', { name: '切换导航' });
+  await expectMinimumTouchTarget(navigation, '移动导航按钮');
+  await expectMinimumTouchTarget(page.getByRole('button', { name: /主题：/ }), '移动主题按钮');
+  await navigation.click();
+  const drawer = page.locator('.ant-drawer-content-wrapper:visible');
+  await expect(drawer).toBeVisible();
+  expect(Math.round((await drawer.boundingBox())!.width)).toBe(280);
+  await expectMinimumTouchTarget(page.locator('.mobile-drawer .ant-drawer-close'), '默认 Drawer 关闭按钮');
+  await page.keyboard.press('Escape');
+  await expect(drawer).toBeHidden();
+  await expect(navigation).toBeFocused();
+}
+
 async function setBrowserZoom(worker: Worker, zoomFactor: number) {
   return worker.evaluate(async (factor) => {
     type TabsApi = {
@@ -304,12 +326,7 @@ test('三个页面类型在代表窄屏保持统一边距、280px Drawer 和无�
         await expect(page.locator('.app-sider')).toBeVisible();
       } else {
         await expect(page.locator('.app-sider')).toHaveCount(0);
-        await page.getByRole('button', { name: '切换导航' }).click();
-        const drawer = page.locator('.ant-drawer-content-wrapper:visible');
-        await expect(drawer).toBeVisible();
-        expect(Math.round((await drawer.boundingBox())!.width)).toBe(280);
-        await page.keyboard.press('Escape');
-        await expect(drawer).toBeHidden();
+        await expectMobileShellTouchTargets(page);
       }
     }
   }
@@ -444,6 +461,7 @@ test('三类页面在真实浏览器 200% tab zoom 下保持关键内容与响�
       await expectNoDocumentOverflow(page);
       await expect(page.getByRole('button', { name: '切换导航' })).toBeVisible();
       await expect(page.locator('.app-sider')).toHaveCount(0);
+      if (target.key === 'users') await expectMobileShellTouchTargets(page);
     }
     await expect(page.getByRole('heading', { level: 1, name: 'GEO 分析洞察' })).toBeVisible();
     expect(await setBrowserZoom(worker, 1)).toBe(1);

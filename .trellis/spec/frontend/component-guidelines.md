@@ -53,6 +53,8 @@ Questions to answer:
 
 不要给所有列分配相同或近似固定宽度；Ant Table 会把桌面剩余空间机械摊到这些列，造成短字段和操作列异常放大。表格内的 Select 等控件必须受单元格宽度约束，使用明确宽度配合 `maxWidth: '100%'`，不得用大于单元格的 `minWidth` 撑破页面。
 
+> **Ant Design 6 固定列注意事项**：右侧固定列使用逻辑类 `.ant-table-cell-fix-end`，阴影使用 `.ant-table-cell-fix-end-shadow::after`。修改局部覆盖前必须核对锁定版本的真实 DOM；不得沿用旧版 `.ant-table-cell-fix-right`，也不得用提高层级、遮罩或隐藏相邻字段掩盖列宽错误。
+
 ---
 
 ## Styling Patterns
@@ -62,6 +64,7 @@ Questions to answer:
 - 组件状态只消费 `src/app/theme.ts` 和 `global.css` 已定义的语义变量，不在业务 TSX/CSS 中硬编码浅色或深色颜色。
 - 长集合表使用 Ant Table `sticky={{ offsetHeader: 72 }}`；短子表不为统一外观强制 sticky。
 - 行焦点使用 `tr:focus-within` 表达，不给 `tr` 增加 `tabIndex`，避免整行成为第二个交互入口。
+- `MetricTile` 的图标槽由共享样式持有；任何后置移动断点若重写卡片 body padding，必须同时保留 `.metric-with-icon` 的图标净空，并在 320px、375px 真实浏览器中断言图标不与标题或数值相交。
 
 ---
 

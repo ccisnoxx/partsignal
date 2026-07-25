@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "独立复核线上结论是否覆盖批准锚点、页面局部参考、主题、缩放、窄屏与禁止模式。"}
+{"file": ".trellis/tasks/07-25-post-deployment-visual-acceptance/research/acceptance-evidence.md", "reason": "复核部署身份、Runbook 安全边界、页面覆盖和证据来源是否完整。"}

@@ -405,11 +405,42 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   expect(desktopMetrics.tableHeaderFontSize).toBe('11px');
   await page.screenshot({ path: testInfo.outputPath('ai-channels-1570x1001.png') });
 
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const tableGeometry = await selectedChannelRow.evaluate((row) => {
+    const status = row.querySelector<HTMLElement>('.ai-test-status');
+    const actions = row.querySelector<HTMLElement>('.ant-table-cell-fix-end .ant-space');
+    const content = row.closest('.ant-table-content');
+    if (!status || !actions || !(content instanceof HTMLElement)) {
+      throw new Error('缺少 AI 表格列几何量测节点');
+    }
+    const statusRect = status.getBoundingClientRect();
+    const actionsRect = actions.getBoundingClientRect();
+    return {
+      statusRight: statusRect.right,
+      actionsLeft: actionsRect.left,
+      clientWidth: content.clientWidth,
+      scrollWidth: content.scrollWidth,
+      documentWidth: document.documentElement.scrollWidth,
+    };
+  });
+  expect(tableGeometry.statusRight).toBeLessThanOrEqual(tableGeometry.actionsLeft);
+  expect(tableGeometry.scrollWidth).toBeLessThanOrEqual(tableGeometry.clientWidth);
+  expect(tableGeometry.documentWidth).toBeLessThanOrEqual(1440);
+  await page.screenshot({ path: testInfo.outputPath('ai-channels-light-1440x1000.png') });
+
+  await page.setViewportSize({ width: 375, height: 844 });
   await expect(page.getByRole('button', { name: '切换导航' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'AI 渠道与模型' })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  await page.screenshot({ path: testInfo.outputPath('ai-channels-mobile-390x844.png'), fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
+  const narrowTable = page.locator('.ai-channel-table .ant-table-content');
+  const narrowScroll = await narrowTable.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(narrowScroll.scrollWidth).toBeGreaterThan(narrowScroll.clientWidth);
+  await expect(page.getByRole('region', { name: 'AI 渠道列表' })
+    .getByRole('button', { name: /更多操作：/ }).first()).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('ai-channels-mobile-375x844.png'), fullPage: true });
   await page.setViewportSize({ width: 1570, height: 1001 });
   await expect(page.locator('.app-sider')).toBeVisible();
 

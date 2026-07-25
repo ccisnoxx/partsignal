@@ -1,0 +1,7 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "复核视觉规范、响应式、触控目标和人工视觉门禁符合性。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核表格列宽、固定列、局部滚动与共享组件实现边界。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "复核真实浏览器质量门禁与禁止模式。"}
+{"file": ".trellis/tasks/07-25-staging-visual-defect-fixes/research/ai-channel-table-overlap.md", "reason": "复核 AI 表格实现是否解决根因而非遮蔽症状。"}
+{"file": ".trellis/tasks/07-25-staging-visual-defect-fixes/research/users-mobile-metric-overlap.md", "reason": "复核共享指标卡修复是否覆盖用户、平台且不回归其他消费者。"}
+{"file": ".trellis/tasks/07-25-staging-visual-defect-fixes/research/mobile-touch-targets.md", "reason": "复核 44px 目标、断点、Drawer 与焦点行为。"}

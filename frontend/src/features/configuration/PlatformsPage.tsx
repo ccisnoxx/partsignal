@@ -1,10 +1,15 @@
 /** 管理具体平台身份、服务端集合筛选、配置状态与关联详情。 */
 import {
+  AppstoreOutlined,
+  CheckCircleOutlined,
   EllipsisOutlined,
   ExportOutlined,
   EyeOutlined,
+  FileProtectOutlined,
+  FileTextOutlined,
   PlusOutlined,
   ReloadOutlined,
+  SafetyCertificateOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -289,11 +294,11 @@ export function PlatformsPage() {
 
   const summary = platforms.data?.summary;
   const metricItems = [
-    { key: 'total', label: '平台总数', value: summary?.platform_total, tone: 'data' },
-    { key: 'enabled', label: '已启用平台', value: summary?.enabled_total, tone: 'success' },
-    { key: 'prompt', label: '缺少 Prompt', value: summary?.missing_prompt_total, tone: 'warning' },
-    { key: 'rule', label: '缺少有效规则', value: summary?.missing_active_rule_total, tone: 'danger' },
-    { key: 'complete', label: '配置完整平台', value: summary?.configuration_complete_total, tone: 'success' },
+    { key: 'total', label: '平台总数', value: summary?.platform_total, tone: 'data', icon: <AppstoreOutlined /> },
+    { key: 'enabled', label: '已启用平台', value: summary?.enabled_total, tone: 'success', icon: <CheckCircleOutlined /> },
+    { key: 'prompt', label: '缺少 Prompt', value: summary?.missing_prompt_total, tone: 'warning', icon: <FileTextOutlined /> },
+    { key: 'rule', label: '缺少有效规则', value: summary?.missing_active_rule_total, tone: 'danger', icon: <FileProtectOutlined /> },
+    { key: 'complete', label: '配置完整平台', value: summary?.configuration_complete_total, tone: 'success', icon: <SafetyCertificateOutlined /> },
   ] as const;
 
   const detail = selectedPlatformId ? <PlatformDetailPanel
@@ -320,7 +325,7 @@ export function PlatformsPage() {
     <div className={`platform-management-workspace${selectedPlatformId && screens.xl ? ' has-detail' : ''}`}>
       <main className="platform-management-main">
         <section className="platform-metric-grid" aria-label="平台实时统计">
-          {metricItems.map((item) => <MetricTile key={item.key} label={item.label} value={item.value ?? '—'} tone={item.tone} />)}
+          {metricItems.map((item) => <MetricTile key={item.key} icon={item.icon} label={item.label} value={item.value ?? '—'} tone={item.tone} />)}
         </section>
 
         <Card className="platform-filter-panel">

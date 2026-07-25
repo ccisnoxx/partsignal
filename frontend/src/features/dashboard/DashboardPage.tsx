@@ -65,10 +65,10 @@ export function DashboardPage() {
       ) : (
         <>
           <section className="dashboard-kpi-grid" aria-label="GEO 管理指标">
-            <div className="dashboard-metric-cell"><span className="dashboard-metric-icon dashboard-metric-purple" aria-hidden="true"><EyeOutlined /></span><MetricTile label="人工观测" value={metrics.data?.manual_observation_count ?? 0} meta="当前有效记录" /></div>
-            <div className="dashboard-metric-cell"><span className="dashboard-metric-icon dashboard-metric-blue" aria-hidden="true"><FileTextOutlined /></span><MetricTile label="文章结果" value={metrics.data?.article_result_count ?? 0} meta="逐篇人工判断" tone="data" /></div>
-            <div className="dashboard-metric-cell"><span className="dashboard-metric-icon dashboard-metric-green" aria-hidden="true"><CheckCircleOutlined /></span><MetricTile label="已推荐文章" value={metrics.data?.recommended_article_count ?? 0} meta={`未推荐 ${metrics.data?.not_recommended_article_count ?? 0} 篇`} tone="success" /></div>
-            <div className="dashboard-metric-cell"><span className="dashboard-metric-icon dashboard-metric-orange" aria-hidden="true"><PieChartOutlined /></span><MetricTile label="文章推荐率" value={articleRecommendationRate ?? '—'} unit={articleRecommendationRate == null ? undefined : '%'} percent={articleRecommendationRate} meta={articleRecommendationRate == null ? '暂无文章结果' : '已推荐 / 全部文章结果'} tone="data" /></div>
+            <MetricTile icon={<EyeOutlined />} label="人工观测" value={metrics.data?.manual_observation_count ?? 0} meta="当前有效记录" />
+            <MetricTile icon={<FileTextOutlined />} label="文章结果" value={metrics.data?.article_result_count ?? 0} meta="逐篇人工判断" tone="data" />
+            <MetricTile icon={<CheckCircleOutlined />} label="已推荐文章" value={metrics.data?.recommended_article_count ?? 0} meta={`未推荐 ${metrics.data?.not_recommended_article_count ?? 0} 篇`} tone="success" />
+            <MetricTile icon={<PieChartOutlined />} label="文章推荐率" value={articleRecommendationRate ?? '—'} unit={articleRecommendationRate == null ? undefined : '%'} percent={articleRecommendationRate} meta={articleRecommendationRate == null ? '暂无文章结果' : '已推荐 / 全部文章结果'} tone="data" />
           </section>
 
           <Card title="运营状态摘要" className="dashboard-glass-panel dashboard-status-panel">

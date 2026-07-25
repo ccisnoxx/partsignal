@@ -7,6 +7,7 @@ import {
   KeyOutlined,
   PlusOutlined,
   ReloadOutlined,
+  SafetyCertificateOutlined,
   StopOutlined,
   UserOutlined,
   WarningOutlined,
@@ -295,11 +296,11 @@ export function UserManagementPage() {
       />
 
       <section className="user-management-summary-grid" aria-label="用户统计">
-        <MetricTile label="用户总数" value={summary ? summary.user_total : <Skeleton.Input active size="small" />} meta="暂无历史基线" tone="data" />
-        <MetricTile label="已启用用户" value={summary ? summary.enabled_total : <Skeleton.Input active size="small" />} meta="暂无历史基线" tone="success" />
-        <MetricTile label="已停用用户" value={summary ? summary.disabled_total : <Skeleton.Input active size="small" />} meta="暂无历史基线" tone="danger" />
-        <MetricTile label="必须修改密码" value={summary ? summary.must_change_password_total : <Skeleton.Input active size="small" />} meta="暂无历史基线" tone="warning" />
-        <MetricTile label="管理员数量" value={summary ? summary.admin_total : <Skeleton.Input active size="small" />} meta="暂无历史基线" />
+        <MetricTile icon={<UserOutlined />} label="用户总数" value={summary ? summary.user_total : <Skeleton.Input active size="small" />} meta="暂无历史基线" tone="data" />
+        <MetricTile icon={<CheckCircleOutlined />} label="已启用用户" value={summary ? summary.enabled_total : <Skeleton.Input active size="small" />} meta="暂无历史基线" tone="success" />
+        <MetricTile icon={<StopOutlined />} label="已停用用户" value={summary ? summary.disabled_total : <Skeleton.Input active size="small" />} meta="暂无历史基线" tone="danger" />
+        <MetricTile icon={<KeyOutlined />} label="必须修改密码" value={summary ? summary.must_change_password_total : <Skeleton.Input active size="small" />} meta="暂无历史基线" tone="warning" />
+        <MetricTile icon={<SafetyCertificateOutlined />} label="管理员数量" value={summary ? summary.admin_total : <Skeleton.Input active size="small" />} meta="暂无历史基线" />
       </section>
 
       {operationError && <OperationFailure error={operationError} />}

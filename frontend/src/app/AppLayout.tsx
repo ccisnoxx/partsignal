@@ -155,7 +155,7 @@ export function AppLayout() {
   return (
     <Layout className="app-shell">
       {desktopSider ? (
-        <Layout.Sider theme="light" width={220} collapsedWidth={76} collapsed={collapsed} className="app-sider">
+        <Layout.Sider theme="light" width={208} collapsedWidth={72} collapsed={collapsed} className="app-sider">
           <div className="brand-mark"><span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span>{!collapsed && <strong>PartSignal</strong>}</div>
           {menu}
           <Button type="text" className="configuration-sider-collapse" aria-label={collapsed ? '展开导航' : '收起导航'} icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => setCollapsed((value) => !value)}>{!collapsed && '收起'}</Button>

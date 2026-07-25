@@ -295,11 +295,11 @@ export function GeoObservationsPage() {
         </section>
       ) : (
         <section className="geo-metric-grid" aria-label="GEO 观测统计">
-          <div className="geo-metric-cell geo-metric-purple"><span className="geo-metric-icon" aria-hidden="true"><FileSearchOutlined /></span><MetricTile label="观测记录" value={observations.data?.total ?? '—'} meta={observations.error ? '记录查询失败' : '当前筛选口径'} /></div>
-          <div className="geo-metric-cell geo-metric-teal"><span className="geo-metric-icon" aria-hidden="true"><RobotOutlined /></span><MetricTile label="历史模型样本" value={metrics.data?.legacy_sample_count ?? '—'} meta="迁移前只读记录" tone="data" /></div>
-          <div className="geo-metric-cell geo-metric-blue"><span className="geo-metric-icon" aria-hidden="true"><SearchOutlined /></span><MetricTile label="历史提及率" value={mentionRate ?? '—'} unit={mentionRate == null ? undefined : '%'} percent={mentionRate} meta="提及 / 历史样本" tone="data" /></div>
-          <div className="geo-metric-cell geo-metric-orange"><span className="geo-metric-icon" aria-hidden="true"><UserOutlined /></span><MetricTile label="人工观测" value={metrics.data?.manual_observation_count ?? '—'} meta="逐篇核对文章" tone="data" /></div>
-          <div className="geo-metric-cell geo-metric-green"><span className="geo-metric-icon" aria-hidden="true"><CheckCircleOutlined /></span><MetricTile label="文章推荐率" value={recommendationRate ?? '—'} unit={recommendationRate == null ? undefined : '%'} percent={recommendationRate} meta="已推荐 / 文章结果" tone="data" /></div>
+          <MetricTile icon={<FileSearchOutlined />} label="观测记录" value={observations.data?.total ?? '—'} meta={observations.error ? '记录查询失败' : '当前筛选口径'} />
+          <MetricTile icon={<RobotOutlined />} label="历史模型样本" value={metrics.data?.legacy_sample_count ?? '—'} meta="迁移前只读记录" tone="data" />
+          <MetricTile icon={<SearchOutlined />} label="历史提及率" value={mentionRate ?? '—'} unit={mentionRate == null ? undefined : '%'} percent={mentionRate} meta="提及 / 历史样本" tone="data" />
+          <MetricTile icon={<UserOutlined />} label="人工观测" value={metrics.data?.manual_observation_count ?? '—'} meta="逐篇核对文章" tone="data" />
+          <MetricTile icon={<CheckCircleOutlined />} label="文章推荐率" value={recommendationRate ?? '—'} unit={recommendationRate == null ? undefined : '%'} percent={recommendationRate} meta="已推荐 / 文章结果" tone="data" />
         </section>
       )}
 

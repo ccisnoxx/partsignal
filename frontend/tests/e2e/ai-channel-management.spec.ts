@@ -358,6 +358,7 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
   await page.mouse.move(0, 0);
+  await expect.poll(() => page.locator('.ai-config-page').evaluate((element) => element.getAnimations().length)).toBe(0);
   const desktopMetrics = await page.evaluate(() => {
     const rect = (selector: string) => {
       const element = document.querySelector(selector);
@@ -389,15 +390,15 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
     };
   });
   expect(desktopMetrics.viewport).toEqual({ width: 1570, height: 1001 });
-  expect(desktopMetrics.sider).toEqual({ x: 0, y: 0, width: 220, height: 1001 });
-  expect(desktopMetrics.header).toEqual({ x: 220, y: 0, width: 1350, height: 64 });
-  expect(desktopMetrics.page).toMatchObject({ x: 244, y: 88, width: 1302 });
+  expect(desktopMetrics.sider).toEqual({ x: 0, y: 0, width: 208, height: 1001 });
+  expect(desktopMetrics.header).toEqual({ x: 208, y: 0, width: 1362, height: 64 });
+  expect(desktopMetrics.page).toMatchObject({ x: 228, y: 84, width: 1322 });
   expect(desktopMetrics.statusRail.x).toBe(desktopMetrics.page.x + 1);
   expect(desktopMetrics.statusRail.y).toBe(desktopMetrics.detail.y);
   expect(desktopMetrics.statusRail.y).toBeGreaterThan(desktopMetrics.page.y);
   expect(desktopMetrics.statusRail.width).toBe(188);
   expect(desktopMetrics.detail.x + desktopMetrics.detail.width).toBe(desktopMetrics.page.x + desktopMetrics.page.width - 1);
-  expect(desktopMetrics.detail.width).toBe(366);
+  expect(desktopMetrics.detail.width).toBe(340);
   expect(desktopMetrics.statusRail.height).toBe(desktopMetrics.detail.height);
   expect(desktopMetrics.tableHeaderHeight).toBe(52);
   expect(desktopMetrics.tableRowHeight).toBe(92);

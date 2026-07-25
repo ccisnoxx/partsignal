@@ -10,6 +10,7 @@ const themeStorageKey = 'partsignal.theme-mode';
 const zoomExtensionPath = fileURLToPath(new URL('./fixtures/browser-zoom-extension', import.meta.url));
 
 type Target = { key: string; path: string; heading: string; redirect?: RegExp };
+type VisualTargetKey = 'users' | 'prompts' | 'geo-insights' | 'dashboard' | 'content-review';
 
 test.setTimeout(240_000);
 
@@ -166,8 +167,28 @@ async function shellSignature(page: Page) {
   });
 }
 
-function visualMasks(page: Page, key: 'users' | 'prompts' | 'geo-insights'): Locator[] {
+function visualMasks(page: Page, key: VisualTargetKey): Locator[] {
   const identity = page.locator('.user-trigger :is(.ant-avatar, .user-block)');
+  if (key === 'dashboard') {
+    return [
+      identity,
+      page.locator('.dashboard-page > .page-header p strong'),
+      page.locator('.dashboard-kpi-grid :is(.metric-value strong, .metric-meta, .ant-progress-bg)'),
+      page.locator('.dashboard-status-grid :is(.dashboard-status-icon, .ant-badge, .dashboard-status-copy > .ant-typography:last-child)'),
+      page.locator('.dashboard-action-list :is(.dashboard-action-icon, .dashboard-action-copy small, .dashboard-action-count, .dashboard-action-state)'),
+      page.locator('.dashboard-priority-list > a strong'),
+    ];
+  }
+  if (key === 'content-review') {
+    return [
+      identity,
+      page.locator('.review-queue-item :is(strong, .review-queue-platform, .review-queue-meta > *)'),
+      page.locator('.review-document-workspace .page-header :is(.eyebrow, h1, .content-review-header-meta > *, .page-actions .status-tag)'),
+      page.locator('.review-document-overview > div:first-child > :nth-child(2), .review-document-overview .ant-tag, .review-reading-surface > *'),
+      page.locator('.review-quality-totals strong, .review-decision-card > .ant-card-body > .ant-alert .ant-alert-title'),
+      page.locator('.quality-issue-group :is(.quality-issue-count, .quality-issue-copy)'),
+    ];
+  }
   if (key === 'users') {
     return [
       identity,
@@ -247,10 +268,10 @@ test('主要静态与动态路由在明暗主题下共享唯一桌面壳层', as
       await expectNoDocumentOverflow(page);
       const signature = await shellSignature(page);
       expect(signature.routeClasses, target.path).toEqual([]);
-      expect(signature.sider).toEqual({ x: 0, y: 0, width: 220, height: 1000 });
+      expect(signature.sider).toEqual({ x: 0, y: 0, width: 208, height: 1000 });
       expect(signature.brand.height).toBe(64);
-      expect(signature.header).toEqual({ x: 220, y: 0, width: 1220, height: 64 });
-      expect(signature.contentPadding).toBe('24px');
+      expect(signature.header).toEqual({ x: 208, y: 0, width: 1232, height: 64 });
+      expect(signature.contentPadding).toBe('20px');
       if (!expectedSignature) {
         expectedSignature = signature;
         await expectThemeContrast(page);
@@ -261,9 +282,9 @@ test('主要静态与动态路由在明暗主题下共享唯一桌面壳层', as
   }
 
   await page.getByRole('button', { name: '收起导航' }).click();
-  await expect.poll(() => page.locator('.app-sider').evaluate((element) => Math.round(element.getBoundingClientRect().width))).toBe(76);
+  await expect.poll(() => page.locator('.app-sider').evaluate((element) => Math.round(element.getBoundingClientRect().width))).toBe(72);
   await page.getByRole('button', { name: '展开导航' }).click();
-  await expect.poll(() => page.locator('.app-sider').evaluate((element) => Math.round(element.getBoundingClientRect().width))).toBe(220);
+  await expect.poll(() => page.locator('.app-sider').evaluate((element) => Math.round(element.getBoundingClientRect().width))).toBe(208);
 });
 
 test('三个页面类型在代表窄屏保持统一边距、280px Drawer 和无文档溢出', async ({ page }) => {
@@ -278,7 +299,7 @@ test('三个页面类型在代表窄屏保持统一边距、280px Drawer 和无�
       await openTarget(page, target);
       await expectNoDocumentOverflow(page);
       const padding = await page.locator('.app-content').evaluate((element) => getComputedStyle(element).paddingTop);
-      expect(padding, `${target.path} @ ${width}`).toBe(width >= 992 ? '24px' : width <= 419 ? '12px' : '16px');
+      expect(padding, `${target.path} @ ${width}`).toBe(width >= 992 ? '20px' : width <= 419 ? '12px' : '16px');
       if (width >= 992) {
         await expect(page.locator('.app-sider')).toBeVisible();
       } else {
@@ -294,7 +315,7 @@ test('三个页面类型在代表窄屏保持统一边距、280px Drawer 和无�
   }
 });
 
-test('数据列表、编辑审核和分析洞察保留九个可重复视觉基线', async ({ page }) => {
+test('九张代表页基线与 Dashboard、内容审核桌面锚点可重复', async ({ page }) => {
   await login(page);
   const targets = await resolveTargets(page);
   const representatives = [
@@ -327,6 +348,22 @@ test('数据列表、编辑审核和分析洞察保留九个可重复视觉基�
       animations: 'disabled',
       caret: 'hide',
       mask: visualMasks(page, representative.key),
+      maxDiffPixelRatio: 0.02,
+    });
+  }
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const desktopAnchors = [
+    { key: 'dashboard', target: targets.find((target) => target.key === 'dashboard')! },
+    { key: 'content-review', target: targets.find((target) => target.key === 'content')! },
+  ] as const;
+  for (const anchor of desktopAnchors) {
+    await openTarget(page, anchor.target);
+    await page.mouse.move(0, 0);
+    await expect(page).toHaveScreenshot(`${anchor.key}-light-1440x1000.png`, {
+      animations: 'disabled',
+      caret: 'hide',
+      mask: visualMasks(page, anchor.key),
       maxDiffPixelRatio: 0.02,
     });
   }

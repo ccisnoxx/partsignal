@@ -3,7 +3,7 @@ import { Card, Progress, Typography } from 'antd';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
-export function MetricTile({ label, value, unit, meta, percent, tone = 'default', to }: {
+export function MetricTile({ label, value, unit, meta, percent, tone = 'default', to, icon }: {
   label: ReactNode;
   value: ReactNode;
   unit?: ReactNode;
@@ -11,9 +11,11 @@ export function MetricTile({ label, value, unit, meta, percent, tone = 'default'
   percent?: number | null;
   tone?: 'default' | 'data' | 'warning' | 'danger' | 'success';
   to?: string;
+  icon?: ReactNode;
 }) {
   const card = (
-    <Card className={`metric-tile metric-${tone}`} size="small">
+    <Card className={`metric-tile metric-${tone}${icon ? ' metric-with-icon' : ''}`} size="small">
+      {icon && <span className="metric-icon" aria-hidden="true">{icon}</span>}
       <Typography.Text className="metric-label">{label}</Typography.Text>
       <div className="metric-value"><strong>{value}</strong>{unit && <span>{unit}</span>}</div>
       {percent !== undefined && percent !== null && <Progress aria-label={`${String(label)} ${percent}%`} percent={percent} showInfo={false} />}

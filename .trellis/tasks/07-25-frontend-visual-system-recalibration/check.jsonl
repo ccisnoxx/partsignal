@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "逐项核对唯一视觉规范、精确所有权、禁止模式和实施验收清单。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核共享组件边界、表格密度、操作层级、焦点和移动 Drawer 未被破坏。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "复核业务行为、主题、响应式、200% 缩放、键盘、焦点恢复和视觉依赖门禁。"}
+{"file": ".trellis/tasks/07-25-frontend-visual-system-recalibration/research/prototype-analysis.md", "reason": "对照四个批准锚点和九个局部参考，确认未复制虚构数据、未保留冲突壳层、未用当前快照自证。"}

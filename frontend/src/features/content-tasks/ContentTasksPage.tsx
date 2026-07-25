@@ -149,10 +149,10 @@ function TaskList() {
     </Card>
 
     <section className="tasks-metric-grid" aria-label="内容任务摘要">
-      <div className="tasks-metric-cell"><span className="tasks-metric-icon tasks-metric-all" aria-hidden="true"><UnorderedListOutlined /></span><MetricTile label="全部任务" value={tasks.data ? items.length : '—'} meta="当前列表全部记录" /></div>
-      <div className="tasks-metric-cell"><span className="tasks-metric-icon tasks-metric-open" aria-hidden="true"><ClockCircleOutlined /></span><MetricTile label="进行中任务" value={tasks.data ? statusCounts.OPEN : '—'} meta="状态 OPEN" tone="data" /></div>
-      <div className="tasks-metric-cell"><span className="tasks-metric-icon tasks-metric-completed" aria-hidden="true"><CheckCircleOutlined /></span><MetricTile label="已完成任务" value={tasks.data ? statusCounts.COMPLETED : '—'} meta="状态 COMPLETED" tone="success" /></div>
-      <div className="tasks-metric-cell"><span className="tasks-metric-icon tasks-metric-cancelled" aria-hidden="true"><CloseCircleOutlined /></span><MetricTile label="已取消任务" value={tasks.data ? statusCounts.CANCELLED : '—'} meta="状态 CANCELLED" /></div>
+      <MetricTile icon={<UnorderedListOutlined />} label="全部任务" value={tasks.data ? items.length : '—'} meta="当前列表全部记录" />
+      <MetricTile icon={<ClockCircleOutlined />} label="进行中任务" value={tasks.data ? statusCounts.OPEN : '—'} meta="状态 OPEN" tone="data" />
+      <MetricTile icon={<CheckCircleOutlined />} label="已完成任务" value={tasks.data ? statusCounts.COMPLETED : '—'} meta="状态 COMPLETED" tone="success" />
+      <MetricTile icon={<CloseCircleOutlined />} label="已取消任务" value={tasks.data ? statusCounts.CANCELLED : '—'} meta="状态 CANCELLED" />
     </section>
 
     <Card

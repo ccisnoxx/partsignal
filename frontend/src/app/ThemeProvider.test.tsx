@@ -111,26 +111,35 @@ test('浅深模式同步更新主题与共享视觉变量', async () => {
   expect(root.style.getPropertyValue('--ps-bg-canvas')).toBe(projectThemes.light.bgCanvas);
   expect(root.style.getPropertyValue('--ps-glass-surface')).toBe(projectThemes.light.glassSurface);
   expect(root.style.getPropertyValue('--ps-glass-backdrop')).toBe(projectThemes.light.glassBackdrop);
+  expect(root.style.getPropertyValue('--ps-action-primary-end')).toBe(projectThemes.light.actionPrimaryEnd);
+  expect(root.style.getPropertyValue('--ps-ambient-blue')).toBe(projectThemes.light.ambientBlue);
+  expect(root.style.getPropertyValue('--ps-ambient-purple')).toBe(projectThemes.light.ambientPurple);
+  expect(root.style.getPropertyValue('--ps-ambient-pink')).toBe(projectThemes.light.ambientPink);
   expect(root.style.getPropertyValue('--ps-font-sans')).toBe(antTheme.token?.fontFamily);
   expect(root.style.getPropertyValue('--ps-font-mono')).toBe(antTheme.token?.fontFamilyCode);
+  expect(root.style.getPropertyValue('--ps-radius-compact')).toBe('6px');
   expect(root.style.getPropertyValue('--ps-radius-sm')).toBe(`${antTheme.token?.borderRadius}px`);
   expect(root.style.getPropertyValue('--ps-radius-md')).toBe('12px');
   expect(root.style.getPropertyValue('--ps-radius-lg')).toBe(`${antTheme.token?.borderRadiusLG}px`);
   expect(root.style.getPropertyValue('--ps-motion-fast')).toBe(antTheme.token?.motionDurationFast);
   expect(root.style.getPropertyValue('--ps-motion-base')).toBe(antTheme.token?.motionDurationMid);
   expect(root.style.getPropertyValue('--ps-motion-slow')).toBe(antTheme.token?.motionDurationSlow);
+  expect([antTheme.token?.motionDurationFast, antTheme.token?.motionDurationMid, antTheme.token?.motionDurationSlow]).toEqual(['160ms', '200ms', '240ms']);
 
   await userEvent.click(screen.getByRole('button', { name: '使用深色' }));
   expect(root.style.backgroundColor).not.toBe(lightCanvas);
   expect(root.style.getPropertyValue('--ps-bg-canvas')).toBe(projectThemes.dark.bgCanvas);
   expect(root.style.getPropertyValue('--ps-glass-surface')).toBe(projectThemes.dark.glassSurface);
   expect(root.style.getPropertyValue('--ps-glass-backdrop')).toBe(projectThemes.dark.glassBackdrop);
+  expect(root.style.getPropertyValue('--ps-action-primary-end')).toBe(projectThemes.dark.actionPrimaryEnd);
 });
 
-test('控件边界复用强边界 Token 且满足浅深模式对比度基线', () => {
+test('控件边界与主操作渐变端点满足浅深模式对比度基线', () => {
   (['light', 'dark'] as const).forEach((mode) => {
     const tokens = projectThemes[mode];
     expect(createAntTheme(mode, false).token?.colorBorder).toBe(tokens.borderStrong);
     expect(contrastRatio(tokens.borderStrong, tokens.bgSurface)).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(tokens.actionOnPrimary, tokens.actionPrimary)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.actionOnPrimary, tokens.actionPrimaryEnd)).toBeGreaterThanOrEqual(4.5);
   });
 });

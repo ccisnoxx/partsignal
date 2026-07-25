@@ -15,6 +15,7 @@ const forbiddenShellPattern = /\bapp-shell-(?:dashboard|geo|configuration|user-m
 const forbiddenTokenPattern = /--(?:um-[\w-]+|audit-[\w-]+|geo-(?:border|surface(?:-strong)?|text-(?:primary|secondary|tertiary)|platform-[\w-]+))/;
 const externalVisualPattern = /(?:@font-face|fonts\.(?:googleapis|gstatic)\.com|(?:from|require\s*\()\s*['"][^'"]*(?:tailwindcss|@tailwind|shadcn|lucide|phosphor|styled-components|@emotion)|"(?:tailwindcss|@tailwind|shadcn|lucide|phosphor|styled-components|@emotion)[^"]*"\s*:)/i;
 const themeValuesDeclaration = 'export const projectThemes: Record<ResolvedTheme, ProjectThemeTokens> = {';
+const approvedPrimaryGradientSelector = /^\.ant-btn\.ant-btn-primary:not\(\.ant-btn-dangerous\):not\(\.review-approve-button\)(?::(?:hover|active))?$/;
 
 function isRawColorAllowed(name, line, insideThemeValues) {
   return (name === 'src/app/theme.ts' && insideThemeValues)
@@ -90,14 +91,15 @@ async function inspectFile(path, name) {
   if (extname(name) !== '.css') return;
   const primaryGradientPattern = /([^{}]*(?:\.ant-btn-primary|primary-action)[^{}]*)\{([^{}]*linear-gradient[^{}]*)\}/gi;
   for (const match of source.matchAll(primaryGradientPattern)) {
-    if (/\.login-form/.test(match[1])) continue;
+    const selector = match[1].trim().replace(/\s+/g, ' ');
+    if (approvedPrimaryGradientSelector.test(selector)) continue;
     const lineNumber = source.slice(0, match.index).split('\n').length;
-    violations.push(`${name}:${lineNumber}:primary-gradient: ${match[1].trim()}`);
+    violations.push(`${name}:${lineNumber}:primary-gradient: ${selector}`);
   }
   const chartColorMixPattern = /([^{}]+)\{([^{}]*color-mix\([^{}]*var\(--ps-(?:chart|geo)-series-[^{}]*)\}/gi;
   for (const match of source.matchAll(chartColorMixPattern)) {
     const selector = match[1].trim();
-    if (/\.(?:login-|status-tag-admin\b|dashboard-metric-purple\b|tasks-metric-all\b)/.test(selector)) continue;
+    if (/\.(?:login-|status-tag-admin\b)/.test(selector)) continue;
     const lineNumber = source.slice(0, match.index).split('\n').length;
     violations.push(`${name}:${lineNumber}:chart-color-mix: ${selector}`);
   }

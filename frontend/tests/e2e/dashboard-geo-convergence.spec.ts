@@ -50,7 +50,7 @@ async function expectNoDocumentOverflow(page: Page) {
 
 async function expectMetricIconClearance(page: Page, selector: string) {
   const clearances = await page.locator(selector).evaluateAll((cells) => cells.map((cell) => {
-    const icon = cell.querySelector<HTMLElement>('.dashboard-metric-icon, .geo-metric-icon');
+    const icon = cell.querySelector<HTMLElement>('.metric-icon');
     const label = cell.querySelector<HTMLElement>('.metric-label');
     if (!icon || !label) throw new Error('指标卡缺少图标或标签');
     return { iconBottom: icon.getBoundingClientRect().bottom, labelTop: label.getBoundingClientRect().top };
@@ -108,10 +108,10 @@ test('1024 至 320px 与 200% 缩放不产生页面横向溢出或指标图标�
       await openTarget(page, target);
       await expectNoDocumentOverflow(page);
       if (width <= 375 && target.key === 'dashboard') {
-        await expectMetricIconClearance(page, '.dashboard-metric-cell');
+        await expectMetricIconClearance(page, '.dashboard-kpi-grid .metric-tile');
       }
       if (width <= 375 && target.key === 'observations') {
-        await expectMetricIconClearance(page, '.geo-metric-cell');
+        await expectMetricIconClearance(page, '.geo-metric-grid .metric-tile');
       }
       if (width === 375) {
         await page.screenshot({

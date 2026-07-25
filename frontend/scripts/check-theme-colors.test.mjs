@@ -30,7 +30,7 @@ const failures = [
   ['external-visual', '@font-face { font-family: "Remote"; src: url(font.woff2); }'],
   ['arbitrary-radius', 'export const panel = <div style={{ borderRadius: 7 }} />;'],
   ['arbitrary-shadow', "export const panel = <div style={{ boxShadow: '0 8px 24px black' }} />;"],
-  ['primary-gradient', '.ant-btn-primary {\n  background: linear-gradient(red, blue);\n}'],
+  ['primary-gradient', '.page-primary-action .ant-btn-primary {\n  background: linear-gradient(red, blue);\n}'],
   ['chart-color-mix', '.page-panel { background: color-mix(in srgb, var(--ps-chart-series-5) 20%, var(--ps-bg-surface)); }'],
 ];
 
@@ -102,7 +102,8 @@ test('主题源、认证例外、语义变量和动态图形表达通过', async
       '.status-tag-compact { border-radius: 4px; }',
       '.geo-insight-rate-bar-track { border-radius: 999px; }',
       '.review-queue-platform::before { box-shadow: 0 0 0 3px var(--ps-action-primary-soft); }',
-      '.dashboard-metric-purple { background: color-mix(in srgb, var(--ps-chart-series-5) 14%, transparent); }',
+      '.metric-icon { background: color-mix(in srgb, var(--metric-accent) 12%, transparent); }',
+      '.ant-btn.ant-btn-primary:not(.ant-btn-dangerous):not(.review-approve-button) { background: linear-gradient(112deg, var(--ps-action-primary), var(--ps-action-primary-end)); }',
       '.login-card { border-radius: 24px; box-shadow: 0 30px 90px var(--ps-bg-overlay); }',
       '.series { color: var(--ps-geo-series-green); width: var(--geo-rate-color); }',
     ].join('\n'),

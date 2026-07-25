@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "唯一视觉与交互规范，实施必须更新并遵守视觉角色、页面构图、主题、响应式和可访问性边界。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "约束 Ant Design、共享组件、表格、焦点和 Drawer 复用，防止视觉重构改变业务交互。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "约束业务行为保持、视觉测试、主题、视口、真实缩放和键盘质量门禁。"}
+{"file": ".trellis/tasks/07-25-frontend-visual-system-recalibration/research/prototype-analysis.md", "reason": "记录 13 张原型的稳定视觉语言、内部冲突、四个批准锚点、当前实现边界和验收依据。"}

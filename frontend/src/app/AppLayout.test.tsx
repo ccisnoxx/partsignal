@@ -131,10 +131,10 @@ test.each([
   const shell = document.querySelector('.app-shell');
   expect(shell).toHaveClass('app-shell');
   expect([...shell!.classList].filter((className) => className.startsWith('app-shell-'))).toEqual([]);
-  expect(document.querySelector('.app-sider')).toHaveStyle({ width: '220px' });
+  expect(document.querySelector('.app-sider')).toHaveStyle({ width: '208px' });
   const collapse = screen.getByRole('button', { name: '收起导航' });
   await userEvent.click(collapse);
-  expect(document.querySelector('.app-sider')).toHaveStyle({ width: '76px' });
+  expect(document.querySelector('.app-sider')).toHaveStyle({ width: '72px' });
   expect(screen.getByRole('button', { name: '展开导航' })).toBeInTheDocument();
 });
 

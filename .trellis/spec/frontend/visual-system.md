@@ -16,6 +16,15 @@
 
 不得创建 `design-system/MASTER.md`、页面 override 文档或其他平行视觉规范。规划文件和原型总结只记录任务上下文，不替代本文。现有页面与本文不一致时，应当在独立审计任务中处理，不得把历史实现描述成已通过验收。
 
+### 1.1 批准视觉参考及从属关系
+
+`.trellis/tasks/07-25-frontend-visual-system-recalibration/assets/approved/manifest.md` 登记本轮人工批准的 13 张 1440×1000 浅色实施截图及其 SHA-256。批准资产是本文的视觉验收证据，不是平行规范；规范意图仍以本文为准，精确运行时值仍以 `theme.ts` 和 `global.css` 为准。
+
+- `13-dashboard.png`、`01-users.png`、`08-geo-insights.png`、`12-content-review.png` 分别约束总览、数据列表、分析洞察和编辑审核页面家族，并共同决定统一壳层、密度和视觉层级。
+- 审计、发布账号、Prompt、平台规则、平台、GEO 观测、发布、AI 渠道和内容任务九张原型及实施截图只补充对应页面的局部构图，不得产生页面级壳层、主题或业务契约。
+- 原型和实施截图中的身份、时间、正文、数值、状态与操作只记录采集时的真实页面，不成为固定产品事实；代码、API 和服务端状态仍是业务权威。
+- 未登记在批准清单中的候选图不得用于更新自动视觉基线，也不得反向修改本文或运行时 Token。
+
 ## 2. 核心视觉方向
 
 PartSignal 必须呈现“macOS 原生应用秩序感 × 轻量磨砂玻璃 × 高密度企业 SaaS 工作台 × 克制的数据可视化”：
@@ -38,15 +47,27 @@ PartSignal 必须呈现“macOS 原生应用秩序感 × 轻量磨砂玻璃 × �
 | 画布 | `bgCanvas` | 应用背景和页面最底层 |
 | 普通表面 | `bgSurface`、`bgSubtle`、`bgRaised`、`bgSunken` | 正文、表格、表单、层级分区和禁用区域 |
 | 玻璃表面 | `glassSurface`、`glassSurfaceStrong`、`glassBorder`、`glassBackdrop` | 导航、顶栏、轻量指标、筛选、抽屉和浮层 |
+| 环境光 | `ambientBlue`、`ambientPurple`、`ambientPink` | 仅由统一应用壳层组合低饱和径向光晕，业务页面不得直接消费 |
 | 文字 | `textPrimary`、`textSecondary`、`textTertiary`、`textDisabled`、`textInverse` | 标题、正文、辅助信息、禁用和反色文字 |
 | 边界 | `borderSubtle`、`borderDefault`、`borderStrong` | 分隔、容器、控件和强调边界 |
-| 主交互 | `actionPrimary`、`actionPrimaryHover`、`actionPrimaryActive`、`actionPrimarySoft`、`actionOnPrimary` | 主操作、交互状态和低强调选中背景 |
+| 主交互 | `actionPrimary`、`actionPrimaryEnd`、`actionPrimaryHover`、`actionPrimaryActive`、`actionPrimarySoft`、`actionOnPrimary` | 主操作、共享主按钮渐变终点、交互状态和低强调选中背景 |
 | 链接与选中 | `link`、`selectionBg`、`focusRing` | 链接、文本选择和可见焦点 |
 | 状态 | `success`、`successSoft`、`successText`、`warning`、`warningSoft`、`warningText`、`danger`、`dangerSoft`、`dangerText`、`neutral`、`neutralSoft`、`neutralText` | 成功、警告、危险和中性状态，不得互换业务含义 |
 | 图表 | `chartSeries1` 至 `chartSeries6`、`geoSeries*`、`chartGrid`、`chartAxis`、`chartTooltip*`、`chartRail` | 数据系列、GEO 固定语义、坐标、网格、提示和轨道 |
 | 阴影 | `shadowSm`、`shadowMd`、`shadowLg` | 普通容器、浮层和高层级模态 |
 
 浅色与深色模式必须使用同一组语义角色。业务页面不得自行生成新配色、字体、Token、主题或卡片体系，也不得通过局部变量改写状态含义。仅当同一视觉语义在多个真实场景重复出现、现有角色无法表达，并经独立任务确认后，才能在 `theme.ts` 或 `global.css` 增加 Token；不得为单次局部值创建变量。
+
+本轮批准的浅色基准值如下；深色对应值继续由 `theme.ts` 的同名角色持有，不复制浅色原型：
+
+| 角色 | 批准值 |
+|---|---|
+| 画布 / 普通表面 / 弱表面 / 下沉表面 | `#F4F7FC` / `#FFFFFF` / `#F7F9FD` / `#EDF2F8` |
+| 玻璃表面 / 强玻璃表面 / 玻璃边界 | `rgba(255,255,255,.74)` / `rgba(255,255,255,.90)` / `rgba(102,122,160,.16)` |
+| 主文字 / 次文字 / 辅助文字 | `#172033` / `#526079` / `#68758C` |
+| 弱边界 / 默认边界 / 强边界 | `#E5EAF2` / `#D7DFEB` / `#8795AA` |
+| 主交互起点 / 终点 / Hover / Active | `#315CF5` / `#5A3FF0` / `#244CE0` / `#1E40C6` |
+| 蓝 / 紫 / 粉环境光 | `rgba(92,145,255,.16)` / `rgba(132,102,255,.12)` / `rgba(255,151,178,.10)` |
 
 ### 3.2 字体与数字
 
@@ -59,18 +80,33 @@ PartSignal 必须呈现“macOS 原生应用秩序感 × 轻量磨砂玻璃 × �
 
 ### 3.3 布局与间距
 
-- 桌面验收基准为 1440–1600px；主内容必须保持现有 `.page-stack` 宽度上限和居中规则，不得为单页另建无限宽壳层。
-- 侧栏宽度、折叠宽度和移动端 Drawer 必须复用 `AppLayout` 的现有壳层变体；业务页面不得覆盖侧栏宽度、顶栏高度或创建第二个全局导航。
+桌面验收基准为 1440–1600px。批准后的共享几何如下，所有值由 `AppLayout`、Ant Design 主题或 `global.css` 的现有所有者实现：
+
+| 项目 | 精确值 |
+|---|---:|
+| 桌面侧栏 / 折叠侧栏 / 移动导航 Drawer | 208px / 72px / 280px |
+| 顶栏高度 / 全局搜索最大宽度 | 64px / 480px |
+| 桌面 / 768–991px / 最窄内容边距 | 20px / 16px / 12px |
+| 页面主间距 / 页面最大宽度 | 16px / 1520px |
+| 标准详情面板 | 340px |
+| 控件高度 / 标准卡片标题区 | 36px / 44px |
+| 标准表头 / 常规数据行 | 44px / 52px |
+| 指标卡最小高度 | 112px |
+| 紧凑 / 控件 / 普通容器 / 大面板圆角 | 6px / 8px / 12px / 16px |
+| 快速 / 常规 / 慢速动效 | 160ms / 200ms / 240ms |
+
+- 主内容必须保持 `.page-stack` 的 1520px 宽度上限和居中规则；经批准的 GEO 观测与内容审核等高密度页面可以使用现有更宽局部上限，但不得建立无限宽壳层。
+- 侧栏、折叠侧栏、移动 Drawer 和顶栏几何必须复用 `AppLayout`；业务页面不得覆盖其尺寸或创建第二个全局导航。
 - 顶栏必须保持轻量，只承载页面上下文、全局搜索、主题和账号等全局入口；页面主操作必须位于内容区标题右侧。
-- 页面必须以 8px 为基础网格：紧凑控件间距使用 8–12px，卡片和主要区块间距使用 12–20px，桌面页面内边距使用现有 20–32px 范围，窄屏使用现有 12–16px 范围。
+- 页面必须以 8px 为基础网格：紧凑控件间距使用 8–12px，卡片和主要区块间距使用 12–20px，桌面内容边距使用 20px，窄屏使用 12–16px。
 - 普通卡片内边距必须保持 16–20px；高密度表格、筛选和侧栏可使用现有更紧凑尺度，但同一区域必须一致。
 - 详情面板桌面宽度应当保持 300–380px；信息超出该宽度时使用 Drawer 或进入详情页，不得压缩主编辑区到不可读宽度。
 - 局部布局必须使用 CSS Grid、Flexbox 和 Ant Design 响应式能力。不得用绝对定位复制整页构图，也不得制造页面级横向滚动。
 
 ### 3.4 圆角、阴影与边界
 
-- 普通控件、状态和紧凑子容器使用 `--ps-radius-sm`，局部业务容器使用 `--ps-radius-md`，Ant Design `Card` 与页面级大面板使用 `--ps-radius-lg`；已有 Ant Design 映射必须继续复用。
-- 4px 紧凑状态圆角和 24px 认证或已批准特殊壳层圆角只允许在 `global.css` 已定义的对应场景使用；不得扩散为通用尺度。
+- 状态标签和紧凑子容器使用 `--ps-radius-compact`，普通控件使用 `--ps-radius-sm`，局部业务容器使用 `--ps-radius-md`，Ant Design `Card` 与页面级大面板使用 `--ps-radius-lg`；已有 Ant Design 映射必须继续复用。
+- 24px 认证或已批准特殊壳层圆角只允许在 `global.css` 已定义的对应场景使用；不得扩散为通用尺度。
 - 圆形图标容器只能用于指标、状态或身份图形，不得把所有按钮和容器胶囊化。
 - 普通卡片使用 `shadowSm`，悬浮菜单与固定操作区使用 `shadowMd`，模态、抽屉等最高层级使用 `shadowLg`。不得在业务页面写入更沉重的独立阴影。
 - 容器层级优先使用 `borderSubtle` 或 `glassBorder` 表达；只有输入焦点、选中对象和阻断状态才能使用更强边界。
@@ -160,6 +196,8 @@ PartSignal 必须呈现“macOS 原生应用秩序感 × 轻量磨砂玻璃 × �
 ### 5.4 按钮与操作层级
 
 - 每页只能有一个与当前任务对应的主操作，例如新建、保存或提交审核；使用 Ant Design `primary` 与主题主交互色。
+- 共享 `.ant-btn-primary` 是蓝紫渐变的唯一例外：固定使用 112deg 的 `actionPrimary` → `actionPrimaryEnd`，Hover/Active 只替换起点为对应语义状态。危险主按钮和 `.review-approve-button` 必须排除在外，分别使用危险色和成功色。
+- 渐变例外只能由 `global.css` 的共享选择器持有，并由主题颜色静态扫描精确放行；页面不得复制渐变、增加页面级 allowlist 或把 `actionPrimaryEnd` 用作独立强调色。
 - 次按钮用于查看差异、测试连接、重置筛选等可逆操作，使用默认或文本按钮。
 - 成功色实心操作仅用于批准等明确成功决策区域，不得作为普通导航或装饰。
 - 删除、停用、退回等危险操作不得成为默认显眼操作；必须显示影响、权限和确认流程。
@@ -189,7 +227,7 @@ PartSignal 必须呈现“macOS 原生应用秩序感 × 轻量磨砂玻璃 × �
 
 ### 5.8 动效
 
-- 动效必须复用 `--ps-motion-fast`、`--ps-motion-base`、`--ps-motion-slow` 和现有缓动；普通反馈为 150ms，面板与页面反馈为 200–220ms。
+- 动效必须复用 `--ps-motion-fast`、`--ps-motion-base`、`--ps-motion-slow` 和现有缓动；快速反馈、常规反馈和慢速页面反馈分别为 160ms、200ms、240ms。
 - 允许动画的属性仅包括 `opacity`、`transform`、背景、边框色和阴影；不得动画布局尺寸、长距离位置或影响表格阅读的属性。
 - Hover 只能轻微改变背景、边界或阴影；现有局部位移不得超过 1px。不得新增弹跳、持续漂浮、呼吸灯、视差或循环装饰动画。
 - `prefers-reduced-motion: reduce` 下必须沿用 `global.css` 停止动画、平滑滚动和非必要过渡；任何状态变化都不得依赖动画才能被理解。
@@ -264,6 +302,15 @@ PartSignal 必须呈现“macOS 原生应用秩序感 × 轻量磨砂玻璃 × �
 - 新图标库、新 Web Font、新 CSS 框架和为视觉统一引入的推测性抽象。
 
 ## 8. 实施与验收清单
+
+### 8.1 人工批准与自动视觉基线
+
+- 人工批准资产保存在任务 `assets/approved/` 并由 `manifest.md` 记录页面、对应原型、最终文件名、SHA-256、视口、主题、批准者、北京时间和批准原话；自动快照不得替代此记录。
+- `cross-page-visual-convergence.spec.ts` 固定保护 11 张基线：用户、Prompt、GEO 洞察各自的 1440×1000 浅/深色与 375×900 浅色九张，以及 Dashboard、内容审核的 1440×1000 浅色两张。
+- 只有用户明确批准最终页面后才能创建或更新对应基线。未批准候选、当前实现自动生成图和单纯测试通过均不能证明设计获批。
+- 动态身份、时间、正文和业务数值只能使用页面已有精确选择器遮罩；不得遮罩卡片边界、表头、行高、列对齐、三栏比例、共享壳层或其他稳定构图。
+- 截图比较固定使用 `maxDiffPixelRatio: 0.02`，不得通过扩大阈值、整块遮罩、`skip`、固定成功数据或兼容 fallback 消除失败。
+- 基线必须通过本地/CI 真实 API E2E 栈生成；缺少产品、任务、内容版本、平台或其他前置数据时显式失败，不得用虚构数据补齐。
 
 视觉相关变更完成前必须逐项确认：
 

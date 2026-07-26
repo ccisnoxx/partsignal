@@ -353,8 +353,8 @@ test('九张代表页基线与 Dashboard、内容审核桌面锚点可重复', a
       animations: 'disabled',
       caret: 'hide',
       mask: visualMasks(page, representative.key),
-      // Prompt 窄屏的大块遮罩边界会随 Chromium 平台字体换行轻微位移，仅放宽这一张基线。
-      maxDiffPixelRatio: representative.key === 'prompts' ? 0.035 : 0.02,
+      // Prompt 与 GEO 窄屏的大块遮罩边界会随 Chromium 平台字体换行轻微位移。
+      maxDiffPixelRatio: representative.key === 'users' ? 0.02 : 0.035,
     });
   }
 

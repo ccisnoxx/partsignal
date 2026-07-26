@@ -47,7 +47,7 @@ async function selectDetailTab(page: Page, name: string, key: string | null) {
 }
 
 async function selectVisibleOption(page: Page, name: string) {
-  await page.locator('.ant-select-dropdown:visible').getByTitle(name, { exact: true }).click();
+  await page.locator('.ant-select-dropdown:visible').getByTitle(name, { exact: true }).dispatchEvent('click');
 }
 
 async function expectSelectedChannelParams(

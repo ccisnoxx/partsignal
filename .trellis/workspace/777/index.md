@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 26
+- **Total Sessions**: 27
 - **Last Active**: 2026-07-26
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~899 | Active |
+| `journal-1.md` | ~932 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 27 | 2026-07-26 | 发布账号与重复发布约束 | `e551d22faab0d2a1df4dd8320807c103100992d9` | `main` |
 | 26 | 2026-07-26 | 简化产品事实与双模式内容任务 | `3de8705` | `main` |
 | 25 | 2026-07-25 | 统一 PartSignal 桌面端视觉系统 | `2f00036` | `main` |
 | 24 | 2026-07-25 | 修复匿名会话探测与未配置自然化 Prompt 控制台错误 | `5f0bd62`, `ef3bdb7` | `main` |

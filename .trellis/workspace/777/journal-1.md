@@ -897,3 +897,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 27: 发布账号与重复发布约束
+
+**Date**: 2026-07-26
+**Task**: 发布账号与重复发布约束
+**Branch**: `main`
+
+### Summary
+
+完成同平台多账号维护、GEO 问题库导航和平台加内容哈希重复发布门禁，并同步契约、迁移、测试与文档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e551d22faab0d2a1df4dd8320807c103100992d9` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -82,7 +82,7 @@ function formatChange(value: number | null): string {
 }
 
 function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString('zh-CN', { hour12: false });
+  return new Date(value).toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' });
 }
 
 const declineMetricLabels: Record<DeclineBasis['metric'], string> = {

@@ -18,8 +18,9 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,
-    // Ant Design 页面测试串行执行，避免共享 CI runner 在并行 JSDOM 渲染时超时。
-    fileParallelism: false,
+    // 共享 CI runner 使用两个 worker 有界并行，避免单 worker 累积导致跨文件超时。
+    fileParallelism: true,
+    maxWorkers: 2,
     testTimeout: 20_000,
     exclude: ['tests/e2e/**', 'scripts/check-theme-colors.test.mjs', 'node_modules/**', 'dist/**'],
   },

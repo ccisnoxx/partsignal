@@ -101,21 +101,32 @@ test('普通用户保留业务设置基础入口，但看不到管理员入口�
   expect(screen.getByRole('menuitem', { name: /业务设置/ })).toBeInTheDocument();
   await userEvent.click(screen.getByRole('menuitem', { name: /业务设置/ }));
   expect(screen.getByRole('link', { name: '发布账号' })).toHaveAttribute('href', '/settings?tab=accounts');
-  expect(screen.getByRole('link', { name: '历史目标问题' })).toHaveAttribute('href', '/settings');
+  expect(screen.queryByRole('link', { name: '历史目标问题' })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole('menuitem', { name: /GEO 观测/ }));
+  expect(screen.getByRole('link', { name: 'GEO 问题库' })).toHaveAttribute('href', '/observations/topics');
   expect(screen.queryByRole('menuitem', { name: /配置中心/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: 'AI 渠道与模型' })).not.toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: /用户管理/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: /审计日志/ })).not.toBeInTheDocument();
 });
 
-test('业务设置按查询参数区分发布账号和历史目标问题选中态', () => {
+test('发布账号查询参数保持业务设置选中态', () => {
   render(
     <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/settings?tab=accounts&platform_profile_id=profile-1']}><Routes><Route element={<AppLayout />}><Route path="settings" element={<h1>业务设置页</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
   );
   expect(screen.getByRole('menuitem', { name: /业务设置/ })).toHaveAttribute('aria-expanded', 'true');
   expect(screen.getByRole('menuitem', { name: '发布账号' })).toHaveClass('ant-menu-item-selected');
-  expect(screen.getByRole('menuitem', { name: '历史目标问题' })).not.toHaveClass('ant-menu-item-selected');
   expect(screen.getByText('业务设置', { selector: '.header-context strong' })).toBeInTheDocument();
+});
+
+test('GEO 问题库归属 GEO 观测并保持选中态', () => {
+  render(
+    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/observations/topics']}><Routes><Route element={<AppLayout />}><Route path="observations/topics" element={<h1>GEO 问题库页</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
+  );
+  expect(screen.getByRole('menuitem', { name: /GEO 观测/ })).toHaveAttribute('aria-expanded', 'true');
+  expect(screen.getByRole('menuitem', { name: 'GEO 问题库' })).toHaveClass('ant-menu-item-selected');
+  expect(screen.getByText('GEO 观测', { selector: '.header-context strong' })).toBeInTheDocument();
+  expect(screen.queryByRole('menuitem', { name: '历史目标问题' })).not.toBeInTheDocument();
 });
 
 test.each([

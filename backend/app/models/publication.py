@@ -15,6 +15,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -28,10 +29,28 @@ class PlatformAccount(Base):
 
     __tablename__ = "platform_accounts"
     __table_args__ = (
+        CheckConstraint(
+            "revision >= 0",
+            name="revision_nonnegative",
+        ),
+        CheckConstraint(
+            "length(btrim(label)) > 0",
+            name="label_nonblank",
+        ),
+        CheckConstraint(
+            "length(btrim(account_identifier)) > 0",
+            name="identifier_nonblank",
+        ),
         Index(
             "ix_platform_accounts_platform_profile_active",
             "platform_profile_id",
             "is_active",
+        ),
+        Index(
+            "uq_platform_accounts_profile_identifier_normalized",
+            "platform_profile_id",
+            text("lower(btrim(account_identifier))"),
+            unique=True,
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
@@ -41,6 +60,7 @@ class PlatformAccount(Base):
     label: Mapped[str] = mapped_column(String(160), nullable=False)
     account_identifier: Mapped[str] = mapped_column(String(200), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
 
 class PublicationRecord(Base):

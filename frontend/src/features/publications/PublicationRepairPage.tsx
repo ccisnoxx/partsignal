@@ -55,7 +55,7 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
           column={1}
           items={[
             { label: '产品', children: `${data.product.brand} ${data.product.part_number}` },
-            ...(data.query_topic ? [{ label: '历史目标问题', children: data.query_topic.canonical_question }] : []),
+            ...(data.query_topic ? [{ label: 'GEO 问题', children: data.query_topic.canonical_question }] : []),
             { label: '平台', children: data.platform_profile_name },
             { label: '原事实版本', children: `V${data.original_fact_version.version}` },
           ]}

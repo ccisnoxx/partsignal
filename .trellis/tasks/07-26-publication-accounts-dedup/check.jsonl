@@ -1,0 +1,10 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "执行后端质量检查清单。"}
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "复核迁移、数据完整性和不可变历史。"}
+{"file": ".trellis/spec/backend/publication-workbench-guidelines.md", "reason": "复核发布状态、证据与服务端权威。"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "执行后端质量门禁。"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "执行前端必读与质量检查清单。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核菜单、表格、表单和可访问性。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "执行前端测试、响应式与浏览器门禁。"}
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "复核页面改造没有产生平行视觉或交互体系。"}
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "复核数据库、API、类型和 UI 跨层一致性。"}
+{"file": ".trellis/tasks/07-26-publication-accounts-dedup/research/codebase-evidence.md", "reason": "按已确认现状检查是否遗漏调用链或测试。"}

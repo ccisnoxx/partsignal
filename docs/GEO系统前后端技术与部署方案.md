@@ -266,12 +266,12 @@ backend/app/
 ├── main.py
 ├── core/                    配置、数据库、权限和通用错误
 ├── product_facts/           产品事实 Markdown 工作区和事实版本
-├── content_planning/        历史目标问题和直接平台内容任务
+├── content_planning/        直接平台内容任务
 ├── configuration/           平台类型、具体平台 Prompt、AI 渠道和模型
 ├── content_production/      两级生成作业、内容版本和质量检查
 ├── review/                  事实审核和内容审核
 ├── publication/             人工发布登记和验证
-├── geo_observation/         人工文章搜索、历史模型观测和效果指标
+├── geo_observation/         GEO 问题库、人工文章搜索、历史模型观测和效果指标
 ├── files/                   文件元数据和访问授权
 ├── identity/                用户、会话、账号状态和管理员能力
 ├── audit/                   审计日志
@@ -312,8 +312,8 @@ POST /api/v1/geo-observations
 - 生成作业在短事务中创建并独立执行；不得用一个长事务包住外部模型调用。
 - 平台启停与新建普通/修复任务、平台账号、发布记录统一先锁定 `PlatformProfile` 再检查 `is_active`，避免并发停用后的写入穿透；停用不修改既有账号、配置和历史。
 - 创建任务时校验平台活动和事实版本同产品、非空且已批准；创建系统 AI 作业时额外校验当前 Prompt；创建发布记录时校验平台账号属于任务直接绑定平台。
-- 需要防止重复生成或重复提交的操作使用幂等键。
-- 并发编辑使用明确版本号进行乐观锁校验；平台 Prompt 覆盖和物理删除都要求 `expected_revision`，服务端锁定当前行后比较，冲突时保留当前配置并返回 `REVISION_CONFLICT`。
+- 幂等键只负责同一生成或提交请求的安全重放；人工发布还按“具体平台 + 不可变内容哈希”获取 PostgreSQL 事务 advisory lock，并检查追加式公开历史，不能用换账号或换幂等键绕过。
+- 并发编辑使用明确版本号进行乐观锁校验；平台 Prompt 覆盖和物理删除、发布账号编辑与启停都要求 `expected_revision`，服务端按固定顺序锁行后比较，冲突时保留当前数据并返回 `REVISION_CONFLICT`。
 - 不使用分布式锁解决单机数据库事务能够解决的问题。
 
 ### 7.5 身份认证建议
@@ -480,6 +480,8 @@ GEO 项目使用独立 PostgreSQL 和独立 Redis 容器，不复用当前其他
 `0024_audit_outcome` 为历史审计精确回填业务模块，为审计结果增加 `outcome`、`result_message` 和 `error_code`，并允许命令在尚未产生业务对象时以空 `target_id` 记录失败。迁移只接受已知历史动作与对象组合，未知组合必须中止；存在空对象标识时降级以 PostgreSQL `55000` 失败，要求前滚或恢复迁移前备份。
 
 `0025_markdown_facts_direct_platform` 把现有结构化事实确定性渲染为 Markdown，回填任务直接平台后物理删除规范化事实子图、规则版本表和旧任务字段。新原始生成与自然化分别使用 `content-markdown-v2` 和 `humanization-markdown-v2` 快照；旧 v1 快照保持只读。迁移发现旧契约 `PENDING | RUNNING` 作业时失败，downgrade 明确拒绝。
+
+`0026_publication_account_dedup` 为发布账号增加非负 revision、非空检查和同平台规范化标识唯一索引。迁移先锁表检查空值与重复组，无法无损处理时以 `55000` 失败，不自动合并或删除账号。账号停用只影响新候选；发布登记与 `mark-published` 共用“具体平台 + 内容哈希”事务门禁，曾出现 `PUBLISHED | VERIFIED` 事件后永久阻止同平台重复公开。
 
 管理员删除当前开发数据时，服务先锁定目标并统计直接引用，冲突统一返回 `409 details.references[{type,count}]`：产品检查事实版本、内容任务和 GEO 观测；事实版本检查内容任务和内容版本；具体平台检查内容任务和平台账号；平台账号检查发布记录；平台类型检查具体平台。无引用事实版本可在任意状态删除，其从属事实审核记录在同一事务显式清理并保留安全审计摘要；产品删除不会自动删除事实版本。其他删除不级联或改写业务历史。
 

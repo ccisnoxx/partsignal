@@ -1179,6 +1179,38 @@ export interface paths {
         delete: operations["deletePlatformAccount"];
         options?: never;
         head?: never;
+        patch: operations["updatePlatformAccount"];
+        trace?: never;
+    };
+    "/api/v1/platform-accounts/{platform_account_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enablePlatformAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-accounts/{platform_account_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["disablePlatformAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
         patch?: never;
         trace?: never;
     };
@@ -2511,10 +2543,16 @@ export interface components {
             label: string;
             account_identifier: string;
         };
+        PlatformAccountUpdate: {
+            label: string;
+            account_identifier: string;
+            expected_revision: number;
+        };
         PlatformAccount: components["schemas"]["PlatformAccountCreate"] & {
             /** Format: uuid */
             id: string;
             is_active: boolean;
+            revision: number;
         };
         PlatformAccountList: {
             items: components["schemas"]["PlatformAccount"][];
@@ -5673,7 +5711,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 平台账号标识 */
+            /** @description 发布账号列表 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5734,6 +5772,91 @@ export interface operations {
                 };
                 content?: never;
             };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePlatformAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformAccountUpdate"];
+            };
+        };
+        responses: {
+            /** @description 已更新发布账号 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformAccount"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    enablePlatformAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RevisionRequest"];
+        responses: {
+            /** @description 已启用发布账号 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformAccount"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    disablePlatformAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                platform_account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RevisionRequest"];
+        responses: {
+            /** @description 已停用发布账号 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformAccount"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
         };
     };

@@ -26,6 +26,7 @@ const workflowNavigation: NavigationItem[] = [
     children: [
       { key: '/observations', label: '观测记录' },
       { key: '/observations/insights', label: '分析洞察' },
+      { key: '/observations/topics', label: 'GEO 问题库' },
     ],
   },
 ];
@@ -35,7 +36,6 @@ const systemNavigation: NavigationItem[] = [
     key: '/business-settings', icon: <SettingOutlined />, label: '业务设置',
     children: [
       { key: '/settings?tab=accounts', label: '发布账号' },
-      { key: '/settings', label: '历史目标问题' },
       { key: '/users', label: '用户管理', adminOnly: true },
     ],
   },
@@ -68,14 +68,9 @@ function navigationLeaves(items: NavigationItem[], parentKey?: string): Array<Na
     : [{ ...item, parentKey }]);
 }
 
-function matchesRoute(pathname: string, search: string, key: string): boolean {
+function matchesRoute(pathname: string, _search: string, key: string): boolean {
   if (key === '/tasks' && pathname.startsWith('/content/')) return true;
   const target = new URL(key, 'https://partsignal.local');
-  if (target.pathname === '/settings') {
-    if (pathname !== '/settings') return false;
-    const currentTab = new URLSearchParams(search).get('tab');
-    return target.searchParams.get('tab') === 'accounts' ? currentTab === 'accounts' : currentTab !== 'accounts';
-  }
   return target.pathname === '/' ? pathname === '/' : pathname === target.pathname || pathname.startsWith(`${target.pathname}/`);
 }
 

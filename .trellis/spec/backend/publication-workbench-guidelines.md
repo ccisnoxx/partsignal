@@ -5,6 +5,7 @@
 ### 1. 范围与触发条件
 
 - 修改 `/publications` 的流程计数、发布记录/关注列表投影、周期数据、最近动态或结果登记时适用。
+- 修改发布账号创建、编辑、启停、候选投影或同平台重复发布门禁时同样适用。
 - PostgreSQL 的 `publication_records`、`publication_status_events`、`publication_attentions` 与 `publication_attachments` 是唯一业务来源；前端不得从分页结果重算全量数据或维护第二套状态机。
 - 本场景复用现有发布表和追加式附件关系，不新增统计表、证据阶段列或缓存状态。
 
@@ -14,7 +15,9 @@
 - 记录列表：`GET /api/v1/publication-records?page=<int>&page_size=<int>&status=<PublicationStatus?>`，响应 `PublicationRecordList<PublicationRecordListItem>`。
 - 关注列表：`GET /api/v1/publication-attentions?status=<OPEN|RESOLVED?>`，响应 `PublicationAttentionList<PublicationAttentionListItem>`。
 - 发布命令：`POST /api/v1/publication-records/{publication_id}/{command}`；`PublicationCommand.attachment_file_ids: uuid[] = []` 只允许在 `command=mark-published` 时非空。
-- 数据库仍使用既有 `publication_status_events(publication_id,status,created_at)` 与 `publication_attachments(publication_id,file_id)`；本场景没有 Alembic revision。
+- 发布账号：`POST /api/v1/platform-accounts`、`PATCH /api/v1/platform-accounts/{id}`、`POST /api/v1/platform-accounts/{id}/enable|disable`；编辑和启停必须提交 `expected_revision`。
+- 发布聚合仍使用既有 `publication_status_events(publication_id,status,created_at)` 与 `publication_attachments(publication_id,file_id)`；账号约束由下述 `0026` revision 提供，不新增发布汇总表。
+- 账号约束由 `0026_publication_account_dedup` 提供：`revision >= 0`，业务标签和运营账号标识去除两侧空白后非空，同平台 `lower(btrim(account_identifier))` 唯一。
 
 ### 3. 契约
 
@@ -25,6 +28,9 @@
 - OPEN attention 只按结构化 `trigger_status=REMOVED|VERIFICATION_FAILED` 分类；平台拒绝来自当前 `PublicationRecord.status=REJECTED`，禁止解析自由文本。
 - 列表响应直接带内容、版本、平台、账号、最后验证时间和服务端 `available_actions`；列表循环不得调用详情投影。
 - 详情 `PublicationRecord` 直接投影锁定的 `content_title/content_version`、`platform_profile_id/platform_profile_name` 与 `platform_account_label/account_identifier`；Drawer 和旧详情路由不得从当前列表页或其他接口猜测这些上下文。
+- 一个具体平台可以维护多个不同账号，但一条发布记录只能绑定其中一个。运营账号标识是内部识别文本，可以保存平台用户名或“注册手机号 + 持有人”，不得保存认证凭据或进入审计详情。
+- 停用账号不进入新候选，既有发布投影仍可读取；账号平台归属不可编辑，编辑与启停按平台行、账号行顺序加锁并校验 revision。
+- 创建登记和 `mark-published` 共用一个“具体平台 + 内容哈希”门禁。存在非 `REJECTED` 尝试时拒绝第二次登记；任一追加式状态事件曾为 `PUBLISHED | VERIFIED` 后永久拒绝同平台重试，公开后下线或验证失败也不撤销。只有从未公开且已拒绝的记录允许换账号重试。
 - 候选创建阶段与 `mark-published` 结果阶段共用追加式 `publication_attachments`，两条写路径只接受 VERIFIED `OPERATION_SCREENSHOT`。结果证据、实际标题、最终 URL、发布时间、状态事件和审计必须在同一事务提交或回滚。
 - 前端只从摘要状态键、真实 attention 触发值和 `available_actions` 派生筛选/动作；`tab`、分页、`window_days`、筛选和 Drawer 对象 ID 写入 URL，表单正文留在组件本地。
 
@@ -40,6 +46,9 @@
 | 实际标题、最终 URL 或发布时间缺失 | `422 VALIDATION_ERROR` |
 | 最终 URL 不属于锁定平台允许域名 | `422 VALIDATION_ERROR` |
 | 当前状态不允许命令 | `409 INVALID_STATE_TRANSITION` |
+| 同平台运营账号标识在去空白、忽略大小写后重复 | `409 PLATFORM_ACCOUNT_IDENTIFIER_EXISTS` |
+| 账号编辑或启停的 revision 过期 | `409 REVISION_CONFLICT` |
+| 同平台同内容存在进行中尝试或曾公开历史 | `409 DUPLICATE_PLATFORM_CONTENT` |
 | 权限或 CSRF 不满足 | 保留统一 `403`，前端隐藏动作不能替代服务端校验 |
 
 ### 5. 正常、基础与失败案例
@@ -52,6 +61,7 @@
 
 - 契约检查断言 FastAPI、OpenAPI 和生成 TypeScript 类型对 `7|30`、列表投影、命令附件字段完全一致。
 - PostgreSQL 集成测试断言 7/30 天 cohort、验证率、后续异常不回删历史、错误类别证据在两阶段原子回滚、详情锁定投影和两阶段附件共存。
+- PostgreSQL 集成测试还必须断言同平台账号规范化唯一、跨平台同标识、revision、启停候选过滤、未公开拒绝后换账号重试、公开后失效仍永久阻断，以及遗留重复记录并发 `mark-published` 无法绕过门禁。
 - 查询次数断言候选、记录、关注、摘要分别固定为 `2/2/1/2` 条 SQL；用 `EXPLAIN (ANALYZE, BUFFERS)` 检查摘要与最后验证聚合，只有真实计划证据不足时才评审索引迁移。
 - 前端组件测试覆盖默认 7 天、仅 7/30、URL 恢复、按需 Drawer、账号匹配、服务端动作和结果证据 ID 载荷。
 - Playwright 覆盖 1536×1024、1024px、375×812，浅色/深色/跟随系统，以及成功、真实失败、证据、验证、异常、修复后仍 OPEN 和显式解决。

@@ -60,6 +60,7 @@ from app.models.publication import (
     PublicationAttachment,
     PublicationAttention,
     PublicationRecord,
+    PublicationStatusEvent,
 )
 from app.schemas.common import RevisionRequest
 from app.schemas.configuration import (
@@ -72,6 +73,7 @@ from app.schemas.geo_files import GeoArticleResultCreate, GeoObservationCreate
 from app.schemas.publication import (
     ManualPublicationCreate,
     PlatformAccountCreate,
+    PlatformAccountUpdate,
     PublicationCommand,
     PublicationRepairTaskCreate,
     ResolvePublicationAttentionRequest,
@@ -110,6 +112,8 @@ from app.services.publication import (
     create_repair_task,
     delete_platform_account,
     resolve_attention,
+    set_platform_account_enabled,
+    update_platform_account,
 )
 from app.services.publication_queries import (
     get_repair_context,
@@ -272,6 +276,7 @@ def seed_graph(db: Session) -> dict[str, Any]:
         "topic": topic,
         "platform_type": platform_type,
         "profile": profile,
+        "other_profile": other_profile,
         "task": task,
         "content": content,
         "same_account": same_account,
@@ -287,6 +292,76 @@ def publication_payload(content_id: uuid.UUID, account_id: uuid.UUID) -> ManualP
         section_url="https://community.example.invalid/section",
         attachment_file_ids=[],
     )
+
+
+def replace_approved_content(
+    db: Session,
+    source_content_id: uuid.UUID,
+    *,
+    content_hash: str,
+    title: str,
+) -> ContentVersion:
+    """退役当前批准版本并创建同任务的新批准版本。"""
+    source = db.get(ContentVersion, source_content_id)
+    assert source is not None
+    source.status = "SUPERSEDED"
+    content = ContentVersion(
+        task_id=source.task_id,
+        fact_version_id=source.fact_version_id,
+        based_on_id=source.id,
+        version=source.version + 1,
+        source_type="HUMAN",
+        title=title,
+        summary=f"{title}摘要",
+        body_markdown=f"# {title}\n\n这是另一篇测试文章。",
+        tags=["PS"],
+        content_hash=content_hash,
+        status="APPROVED",
+        quality_issues=[],
+        change_summary="测试新批准内容",
+        created_by=source.created_by,
+    )
+    db.add(content)
+    db.commit()
+    return content
+
+
+def add_platform_content(
+    db: Session,
+    graph: dict[str, Any],
+    *,
+    platform_profile_id: uuid.UUID,
+    content_hash: str,
+    title: str,
+) -> ContentVersion:
+    """为指定具体平台创建一条独立任务及批准内容。"""
+    task = ContentTask(
+        query_topic_id=graph["topic"].id,
+        product_id=graph["product"].id,
+        fact_version_id=graph["fact"].id,
+        platform_profile_id=platform_profile_id,
+        created_by=graph["user"].id,
+    )
+    db.add(task)
+    db.flush()
+    content = ContentVersion(
+        task_id=task.id,
+        fact_version_id=graph["fact"].id,
+        version=1,
+        source_type="HUMAN",
+        title=title,
+        summary=f"{title}摘要",
+        body_markdown=f"# {title}\n\n测试正文。",
+        tags=["PS"],
+        content_hash=content_hash,
+        status="APPROVED",
+        quality_issues=[],
+        change_summary="测试平台内容",
+        created_by=graph["user"].id,
+    )
+    db.add(content)
+    db.commit()
+    return content
 
 
 @pytest.mark.integration
@@ -479,6 +554,15 @@ def test_publication_api_database_task_and_attention_closure() -> None:
                 },
                 json=publication_payload(content_id, same_account_id).model_dump(mode="json"),
             )
+            assert first.status_code == 201
+            with session_factory() as db:
+                second_content = replace_approved_content(
+                    db,
+                    content_id,
+                    content_hash="b" * 64,
+                    title="PS 测试器件应用",
+                )
+                second_content_id = second_content.id
             second = client.post(
                 "/api/v1/publication-records/manual",
                 headers={
@@ -486,9 +570,10 @@ def test_publication_api_database_task_and_attention_closure() -> None:
                     "X-Request-ID": "publication-created-b",
                     "Idempotency-Key": "stage2-same-platform-b",
                 },
-                json=publication_payload(content_id, same_account_b_id).model_dump(mode="json"),
+                json=publication_payload(second_content_id, same_account_b_id).model_dump(
+                    mode="json"
+                ),
             )
-            assert first.status_code == 201
             assert second.status_code == 201
             first_id = uuid.UUID(first.json()["id"])
             second_id = uuid.UUID(second.json()["id"])
@@ -680,6 +765,349 @@ def test_publication_api_database_task_and_attention_closure() -> None:
 
 
 @pytest.mark.integration
+def test_platform_account_normalization_revision_and_candidate_status() -> None:
+    """账号标识按平台规范化唯一，启停受 revision 保护且不泄露内部标识。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine) as db:
+            graph = seed_graph(db)
+            actor = graph["user"]
+
+            with pytest.raises(AppError) as duplicate_create:
+                create_platform_account(
+                    db=db,
+                    payload=PlatformAccountCreate(
+                        platform_profile_id=graph["profile"].id,
+                        label="重复账号",
+                        account_identifier="  SAME-A  ",
+                    ),
+                    actor=actor,
+                    request_id="account-duplicate-create",
+                )
+            assert duplicate_create.value.code == "PLATFORM_ACCOUNT_IDENTIFIER_EXISTS"
+            db.rollback()
+
+            cross_platform = create_platform_account(
+                db=db,
+                payload=PlatformAccountCreate(
+                    platform_profile_id=graph["other_profile"].id,
+                    label="跨平台同标识",
+                    account_identifier=" same-A ",
+                ),
+                actor=actor,
+                request_id="account-cross-platform",
+            )
+            assert cross_platform.account_identifier == "same-A"
+
+            with pytest.raises(AppError) as duplicate_update:
+                update_platform_account(
+                    db=db,
+                    platform_account_id=graph["same_account_b"].id,
+                    payload=PlatformAccountUpdate(
+                        label="重复编辑",
+                        account_identifier=" SAME-A ",
+                        expected_revision=0,
+                    ),
+                    actor=actor,
+                    request_id="account-duplicate-update",
+                )
+            assert duplicate_update.value.code == "PLATFORM_ACCOUNT_IDENTIFIER_EXISTS"
+            db.rollback()
+
+            private_identifier = "+86 13800000000 + 张三"
+            updated = update_platform_account(
+                db=db,
+                platform_account_id=graph["same_account"].id,
+                payload=PlatformAccountUpdate(
+                    label="  手机号运营账号  ",
+                    account_identifier=f"  {private_identifier}  ",
+                    expected_revision=0,
+                ),
+                actor=actor,
+                request_id="account-updated",
+            )
+            assert updated.label == "手机号运营账号"
+            assert updated.account_identifier == private_identifier
+            assert updated.revision == 1
+
+            with pytest.raises(AppError) as stale:
+                update_platform_account(
+                    db=db,
+                    platform_account_id=updated.id,
+                    payload=PlatformAccountUpdate(
+                        label="过期编辑",
+                        account_identifier="stale",
+                        expected_revision=0,
+                    ),
+                    actor=actor,
+                    request_id="account-stale",
+                )
+            assert stale.value.code == "REVISION_CONFLICT"
+            db.rollback()
+
+            disabled = set_platform_account_enabled(
+                db=db,
+                platform_account_id=updated.id,
+                payload=RevisionRequest(expected_revision=1),
+                actor=actor,
+                request_id="account-disabled",
+                enabled=False,
+            )
+            assert disabled.is_active is False
+            assert disabled.revision == 2
+            candidates = list_publication_candidates(db)
+            matching_ids = {
+                account.id
+                for candidate in candidates.items
+                for account in candidate.matching_accounts
+            }
+            assert disabled.id not in matching_ids
+
+            enabled = set_platform_account_enabled(
+                db=db,
+                platform_account_id=disabled.id,
+                payload=RevisionRequest(expected_revision=2),
+                actor=actor,
+                request_id="account-enabled",
+                enabled=True,
+            )
+            assert enabled.is_active is True
+            assert enabled.revision == 3
+
+            account_audits = list(
+                db.scalars(
+                    select(AuditLog).where(
+                        AuditLog.request_id.in_(
+                            ("account-updated", "account-disabled", "account-enabled")
+                        )
+                    )
+                )
+            )
+            assert len(account_audits) == 3
+            assert private_identifier not in str([audit.details for audit in account_audits])
+        engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("verify_first", "terminal_command"),
+    [
+        (False, "remove"),
+        (False, "mark-verification-failed"),
+        (True, "remove"),
+    ],
+)
+def test_duplicate_platform_content_retry_and_public_history(
+    verify_first: bool,
+    terminal_command: str,
+) -> None:
+    """未公开拒绝可换账号；一旦公开，后续失效也永久阻止同平台重试。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine) as db:
+            graph = seed_graph(db)
+            actor = graph["user"]
+            first = create_manual_publication(
+                db=db,
+                payload=publication_payload(
+                    graph["content"].id,
+                    graph["same_account"].id,
+                ),
+                actor=actor,
+                request_id="dedup-first",
+                idempotency_key=f"dedup-first-{uuid.uuid4()}",
+            )
+            with pytest.raises(AppError) as in_flight:
+                create_manual_publication(
+                    db=db,
+                    payload=publication_payload(
+                        graph["content"].id,
+                        graph["same_account_b"].id,
+                    ),
+                    actor=actor,
+                    request_id="dedup-in-flight",
+                    idempotency_key=f"dedup-in-flight-{uuid.uuid4()}",
+                )
+            assert in_flight.value.code == "DUPLICATE_PLATFORM_CONTENT"
+            db.rollback()
+
+            command_publication(
+                db=db,
+                publication_id=first.id,
+                command="reject",
+                payload=PublicationCommand(comment="未公开拒绝"),
+                actor=actor,
+                request_id="dedup-rejected",
+            )
+            retry = create_manual_publication(
+                db=db,
+                payload=publication_payload(
+                    graph["content"].id,
+                    graph["same_account_b"].id,
+                ),
+                actor=actor,
+                request_id="dedup-retry",
+                idempotency_key=f"dedup-retry-{uuid.uuid4()}",
+            )
+            command_publication(
+                db=db,
+                publication_id=retry.id,
+                command="mark-platform-review",
+                payload=PublicationCommand(comment="进入平台审核"),
+                actor=actor,
+                request_id="dedup-review",
+            )
+            command_publication(
+                db=db,
+                publication_id=retry.id,
+                command="mark-published",
+                payload=PublicationCommand(
+                    actual_title="公开文章",
+                    final_url="https://community.example.invalid/dedup",
+                    published_at=datetime.now(UTC),
+                    comment="公开完成",
+                ),
+                actor=actor,
+                request_id="dedup-published",
+            )
+            if verify_first:
+                command_publication(
+                    db=db,
+                    publication_id=retry.id,
+                    command="verify",
+                    payload=PublicationCommand(
+                        content_matches=True,
+                        comment="公开页面验证通过",
+                    ),
+                    actor=actor,
+                    request_id="dedup-verified",
+                )
+            command_publication(
+                db=db,
+                publication_id=retry.id,
+                command=terminal_command,
+                payload=PublicationCommand(comment="公开后失效"),
+                actor=actor,
+                request_id=f"dedup-{terminal_command}",
+            )
+
+            with pytest.raises(AppError) as public_history:
+                create_manual_publication(
+                    db=db,
+                    payload=publication_payload(
+                        graph["content"].id,
+                        graph["same_account"].id,
+                    ),
+                    actor=actor,
+                    request_id="dedup-after-public",
+                    idempotency_key=f"dedup-after-public-{uuid.uuid4()}",
+                )
+            assert public_history.value.code == "DUPLICATE_PLATFORM_CONTENT"
+            db.rollback()
+
+            other_content = add_platform_content(
+                db,
+                graph,
+                platform_profile_id=graph["other_profile"].id,
+                content_hash=graph["content"].content_hash,
+                title="另一个具体平台的同内容",
+            )
+            other_publication = create_manual_publication(
+                db=db,
+                payload=ManualPublicationCreate(
+                    content_version_id=other_content.id,
+                    platform_account_id=graph["other_account"].id,
+                    section_url="https://other.example.invalid/section",
+                    attachment_file_ids=[],
+                ),
+                actor=actor,
+                request_id="dedup-other-platform",
+                idempotency_key=f"dedup-other-platform-{uuid.uuid4()}",
+            )
+            assert other_publication.status.value == "PENDING_MANUAL_PUBLISH"
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_concurrent_mark_published_rejects_legacy_duplicate_attempts() -> None:
+    """并发登记已发布时，同平台旧重复在途记录不能绕过统一门禁。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            graph = seed_graph(db)
+            actor_id = graph["user"].id
+            content_id = graph["content"].id
+            records = [
+                PublicationRecord(
+                    idempotency_key=f"legacy-duplicate-{index}-{uuid.uuid4()}",
+                    content_version_id=content_id,
+                    platform_account_id=account.id,
+                    section_url="https://community.example.invalid/section",
+                    status="PLATFORM_REVIEW",
+                    content_hash=graph["content"].content_hash,
+                    created_by=actor_id,
+                )
+                for index, account in enumerate(
+                    (graph["same_account"], graph["same_account_b"]),
+                    start=1,
+                )
+            ]
+            db.add_all(records)
+            db.flush()
+            db.add_all(
+                PublicationStatusEvent(
+                    publication_id=record.id,
+                    status="PLATFORM_REVIEW",
+                    comment="迁移前遗留的重复在途记录",
+                    actor_id=actor_id,
+                )
+                for record in records
+            )
+            db.commit()
+            record_ids = [record.id for record in records]
+
+        def publish(publication_id: uuid.UUID) -> str:
+            with session_factory() as db:
+                actor = db.get(User, actor_id)
+                assert actor is not None
+                try:
+                    command_publication(
+                        db=db,
+                        publication_id=publication_id,
+                        command="mark-published",
+                        payload=PublicationCommand(
+                            actual_title="遗留重复文章",
+                            final_url=(
+                                "https://community.example.invalid/legacy/"
+                                f"{publication_id}"
+                            ),
+                            published_at=datetime.now(UTC),
+                            comment="并发公开",
+                        ),
+                        actor=actor,
+                        request_id=f"legacy-publish-{publication_id}",
+                    )
+                except AppError as error:
+                    db.rollback()
+                    return error.code
+            return "PUBLISHED"
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(publish, record_ids))
+        assert results == ["DUPLICATE_PLATFORM_CONTENT", "DUPLICATE_PLATFORM_CONTENT"]
+        with session_factory() as db:
+            assert set(
+                db.scalars(
+                    select(PublicationRecord.status).where(
+                        PublicationRecord.id.in_(record_ids)
+                    )
+                )
+            ) == {"PLATFORM_REVIEW"}
+        engine.dispose()
+
+
+@pytest.mark.integration
 def test_publication_workbench_projection_and_atomic_result_evidence() -> None:
     """工作台聚合使用状态事件，结果证据与登记已发布在同一事务中落库。"""
     with temporary_database() as database_url:
@@ -790,9 +1218,15 @@ def test_publication_workbench_projection_and_atomic_result_evidence() -> None:
             assert successful.platform_profile_name == graph["profile"].name
             assert successful.platform_account_label == graph["same_account"].label
             assert successful.account_identifier == graph["same_account"].account_identifier
+            failed_content = replace_approved_content(
+                db,
+                graph["content"].id,
+                content_hash="b" * 64,
+                title="PS 测试器件故障排查",
+            )
             failed = create_manual_publication(
                 db=db,
-                payload=publication_payload(graph["content"].id, graph["same_account_b"].id),
+                payload=publication_payload(failed_content.id, graph["same_account_b"].id),
                 actor=actor,
                 request_id="workbench-create-failed",
                 idempotency_key=f"workbench-failed-{uuid.uuid4()}",
@@ -1137,18 +1571,33 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
         engine = create_engine(database_url)
         with Session(engine) as db:
             graph = seed_graph(db)
-            publications = [
-                create_manual_publication(
-                    db=db,
-                    payload=publication_payload(graph["content"].id, account.id),
-                    actor=graph["user"],
-                    request_id=f"geo-publication-{index}",
-                    idempotency_key=f"geo-publication-{index}-{uuid.uuid4()}",
-                )
-                for index, account in enumerate(
-                    (graph["same_account"], graph["same_account_b"]), start=1
-                )
-            ]
+            first_publication = create_manual_publication(
+                db=db,
+                payload=publication_payload(
+                    graph["content"].id,
+                    graph["same_account"].id,
+                ),
+                actor=graph["user"],
+                request_id="geo-publication-1",
+                idempotency_key=f"geo-publication-1-{uuid.uuid4()}",
+            )
+            second_content = replace_approved_content(
+                db,
+                graph["content"].id,
+                content_hash="b" * 64,
+                title="PS 测试器件进阶应用",
+            )
+            second_publication = create_manual_publication(
+                db=db,
+                payload=publication_payload(
+                    second_content.id,
+                    graph["same_account_b"].id,
+                ),
+                actor=graph["user"],
+                request_id="geo-publication-2",
+                idempotency_key=f"geo-publication-2-{uuid.uuid4()}",
+            )
+            publications = [first_publication, second_publication]
             for index, publication in enumerate(publications, start=1):
                 command_publication(
                     db=db,

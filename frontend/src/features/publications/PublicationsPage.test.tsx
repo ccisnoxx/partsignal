@@ -72,6 +72,7 @@ const candidate = {
     label: '匹配账号',
     account_identifier: 'matched',
     is_active: true,
+    revision: 0,
   }],
 } satisfies Schema<'PublicationCandidate'>;
 
@@ -176,6 +177,7 @@ test('候选登记抽屉只展示匹配账号并在放弃未提交内容前确�
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   await userEvent.click(await screen.findByRole('button', { name: '准备人工发布' }));
   expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  expect(screen.getByText('本篇文章只能选择一个账号')).toBeInTheDocument();
   await userEvent.click(screen.getByRole('combobox', { name: '发布账号' }));
   await userEvent.click(await screen.findByText('匹配账号 / matched'));
   expect(screen.queryByText(/跨平台账号/)).not.toBeInTheDocument();
@@ -217,7 +219,10 @@ test('候选没有匹配账号时提供业务设置恢复入口', async () => {
   });
   render(<App />);
   expect(await screen.findByText('无匹配账号')).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: '前往业务设置' })).toHaveAttribute('href', '/settings');
+  expect(screen.getByRole('link', { name: '前往业务设置' })).toHaveAttribute(
+    'href',
+    `/settings?tab=accounts&platform_profile_id=${candidate.platform_profile_id}`,
+  );
   expect(screen.getByRole('button', { name: '准备人工发布' })).toBeDisabled();
 });
 

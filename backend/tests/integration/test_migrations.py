@@ -2300,3 +2300,166 @@ def test_markdown_facts_migration_converts_history_and_targets_direct_platform_s
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
             assert cursor.fetchone() == ("0025_markdown_facts",)
+
+
+def seed_platform_accounts_for_0026(
+    test_url: str,
+    identifiers: list[str],
+) -> tuple[uuid.UUID, list[uuid.UUID]]:
+    """在 0025 Schema 写入同平台账号，供 0026 迁移边界测试使用。"""
+    platform_type_id = uuid.uuid4()
+    platform_profile_id = uuid.uuid4()
+    account_ids = [uuid.uuid4() for _ in identifiers]
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+        actor_id = cursor.fetchone()[0]
+        cursor.execute(
+            "INSERT INTO platform_types (id, name, slug, revision, created_by) "
+            "VALUES (%s, '0026 迁移平台类型', %s, 0, %s)",
+            (
+                platform_type_id,
+                f"migration-0026-type-{platform_type_id.hex[:12]}",
+                actor_id,
+            ),
+        )
+        cursor.execute(
+            "INSERT INTO platform_profiles "
+            "(id, name, slug, allowed_domains, platform_type_id, revision, is_active) "
+            "VALUES (%s, '0026 迁移平台', %s, ARRAY['migration.invalid'], %s, 0, true)",
+            (
+                platform_profile_id,
+                f"migration-0026-profile-{platform_profile_id.hex[:12]}",
+                platform_type_id,
+            ),
+        )
+        cursor.executemany(
+            "INSERT INTO platform_accounts "
+            "(id, platform_profile_id, label, account_identifier, is_active) "
+            "VALUES (%s, %s, %s, %s, true)",
+            [
+                (
+                    account_id,
+                    platform_profile_id,
+                    f" 迁移账号 {index} ",
+                    identifier,
+                )
+                for index, (account_id, identifier) in enumerate(
+                    zip(account_ids, identifiers, strict=True),
+                    start=1,
+                )
+            ],
+        )
+        connection.commit()
+    return platform_profile_id, account_ids
+
+
+@pytest.mark.integration
+def test_publication_account_dedup_migration_adds_constraints_and_downgrades() -> None:
+    """0026 去除两侧空白，增加 revision 与同平台规范化唯一约束。"""
+    with temporary_database("partsignal_account_dedup") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0025_markdown_facts")
+        seed_accounts(env, backend_dir)
+        platform_profile_id, account_ids = seed_platform_accounts_for_0026(
+            test_url,
+            ["  Operator-A  ", "+86 13800000000 + 张三"],
+        )
+
+        run_alembic(env, backend_dir, "0026_publication_account_dedup")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT label, account_identifier, revision "
+                "FROM platform_accounts WHERE id = %s",
+                (account_ids[0],),
+            )
+            assert cursor.fetchone() == ("迁移账号 1", "Operator-A", 0)
+            cursor.execute(
+                "SELECT indexdef FROM pg_indexes "
+                "WHERE indexname = 'uq_platform_accounts_profile_identifier_normalized'"
+            )
+            index_definition = cursor.fetchone()
+            assert index_definition is not None
+            assert "UNIQUE INDEX" in index_definition[0]
+            assert "lower(btrim" in index_definition[0]
+            cursor.execute(
+                "SELECT conname FROM pg_constraint "
+                "WHERE conrelid = 'platform_accounts'::regclass"
+            )
+            assert {
+                "ck_platform_accounts_revision_nonnegative",
+                "ck_platform_accounts_label_nonblank",
+                "ck_platform_accounts_identifier_nonblank",
+            } <= {row[0] for row in cursor.fetchall()}
+
+            with pytest.raises(psycopg.errors.UniqueViolation):
+                cursor.execute(
+                    "INSERT INTO platform_accounts "
+                    "(id, platform_profile_id, label, account_identifier, is_active, revision) "
+                    "VALUES (%s, %s, '重复账号', '  operator-a ', true, 0)",
+                    (uuid.uuid4(), platform_profile_id),
+                )
+            connection.rollback()
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "INSERT INTO platform_accounts "
+                    "(id, platform_profile_id, label, account_identifier, is_active, revision) "
+                    "VALUES (%s, %s, '   ', 'valid-account', true, 0)",
+                    (uuid.uuid4(), platform_profile_id),
+                )
+            connection.rollback()
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0025_markdown_facts",
+            ],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT count(*) FROM information_schema.columns "
+                "WHERE table_name = 'platform_accounts' AND column_name = 'revision'"
+            )
+            assert cursor.fetchone() == (0,)
+            cursor.execute(
+                "SELECT count(*) FROM pg_indexes "
+                "WHERE indexname = 'uq_platform_accounts_profile_identifier_normalized'"
+            )
+            assert cursor.fetchone() == (0,)
+
+
+@pytest.mark.integration
+def test_publication_account_dedup_migration_rejects_existing_duplicates_atomically() -> None:
+    """0026 遇到同平台大小写或空白等价标识时必须明确失败且不留半迁移。"""
+    with temporary_database("partsignal_account_dedup_conflict") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0025_markdown_facts")
+        seed_accounts(env, backend_dir)
+        seed_platform_accounts_for_0026(
+            test_url,
+            [" Operator-A ", "operator-a"],
+        )
+
+        result = run_alembic(
+            env,
+            backend_dir,
+            "0026_publication_account_dedup",
+            check=False,
+        )
+        assert result.returncode != 0
+        assert "0026 检测到同平台重复运营账号标识" in result.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0025_markdown_facts",)
+            cursor.execute(
+                "SELECT count(*) FROM information_schema.columns "
+                "WHERE table_name = 'platform_accounts' AND column_name = 'revision'"
+            )
+            assert cursor.fetchone() == (0,)

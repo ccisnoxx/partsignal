@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from urllib.parse import urlparse
 
 from sqlalchemy import func, select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
@@ -34,9 +35,11 @@ from app.models.publication import (
     PublicationRecord,
     PublicationStatusEvent,
 )
+from app.schemas.common import RevisionRequest
 from app.schemas.publication import (
     ManualPublicationCreate,
     PlatformAccountCreate,
+    PlatformAccountUpdate,
     PublicationAttentionOut,
     PublicationCommand,
     PublicationRecordOut,
@@ -71,8 +74,11 @@ def domain_allowed(url: str, allowed_domains: list[str]) -> bool:
     return any(host == domain or host.endswith(f".{domain}") for domain in allowed_domains)
 
 
-def require_publishable(db: Session, content_id: uuid.UUID) -> ContentVersion:
-    """读取可发布内容，并重新校验不可变事实与任务状态。"""
+def _lock_approved_publication_context(
+    db: Session,
+    content_id: uuid.UUID,
+) -> tuple[ContentVersion, ContentTask]:
+    """锁定批准内容对应任务，但把任务终态检查留给具体命令。"""
     content = db.get(ContentVersion, content_id)
     if content is None:
         raise not_found("内容版本")
@@ -80,9 +86,87 @@ def require_publishable(db: Session, content_id: uuid.UUID) -> ContentVersion:
     task = db.scalar(select(ContentTask).where(ContentTask.id == content.task_id).with_for_update())
     if content.status != "APPROVED" or fact is None or fact.status != "APPROVED":
         raise AppError("CONTENT_NOT_APPROVED", "只有绑定有效批准事实的批准内容可以发布", 409)
-    if task is None or task.status != "OPEN":
+    if task is None:
+        raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能创建新发布", 409)
+    return content, task
+
+
+def require_publishable(db: Session, content_id: uuid.UUID) -> ContentVersion:
+    """读取可发布内容，并重新校验不可变事实与任务状态。"""
+    content, task = _lock_approved_publication_context(db, content_id)
+    if task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能创建新发布", 409)
     return content
+
+
+def _platform_account_identifier_exists(
+    db: Session,
+    *,
+    platform_profile_id: uuid.UUID,
+    account_identifier: str,
+    exclude_account_id: uuid.UUID | None = None,
+) -> bool:
+    """按数据库唯一索引的相同表达式检查同平台运营账号标识。"""
+    query = select(PlatformAccount.id).where(
+        PlatformAccount.platform_profile_id == platform_profile_id,
+        func.lower(func.btrim(PlatformAccount.account_identifier))
+        == func.lower(account_identifier),
+    )
+    if exclude_account_id is not None:
+        query = query.where(PlatformAccount.id != exclude_account_id)
+    return db.scalar(query.limit(1)) is not None
+
+
+def _flush_platform_account(db: Session) -> None:
+    """把数据库唯一索引冲突转换为稳定业务错误。"""
+    try:
+        db.flush()
+    except IntegrityError as error:
+        constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+        if constraint_name == "uq_platform_accounts_profile_identifier_normalized":
+            db.rollback()
+            raise AppError(
+                "PLATFORM_ACCOUNT_IDENTIFIER_EXISTS",
+                "该平台已存在相同的运营账号标识",
+                409,
+            ) from error
+        raise
+
+
+def _lock_platform_account(
+    db: Session,
+    platform_account_id: uuid.UUID,
+    *,
+    require_active_platform: bool = False,
+) -> tuple[PlatformProfile, PlatformAccount]:
+    """按平台、账号的固定顺序锁行，并刷新账号的当前状态。"""
+    platform_profile_id = db.scalar(
+        select(PlatformAccount.platform_profile_id).where(
+            PlatformAccount.id == platform_account_id
+        )
+    )
+    if platform_profile_id is None:
+        raise not_found("平台账号")
+    profile: PlatformProfile | None
+    if require_active_platform:
+        profile = lock_active_platform(db, platform_profile_id)
+    else:
+        profile = db.scalar(
+            select(PlatformProfile)
+            .where(PlatformProfile.id == platform_profile_id)
+            .with_for_update()
+        )
+        if profile is None:
+            raise not_found("平台配置")
+    account = db.scalar(
+        select(PlatformAccount)
+        .where(PlatformAccount.id == platform_account_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if account is None:
+        raise not_found("平台账号")
+    return profile, account
 
 
 def create_platform_account(
@@ -90,9 +174,19 @@ def create_platform_account(
 ) -> PlatformAccount:
     """在现存平台下创建人工发布账号并追加审计。"""
     lock_active_platform(db, payload.platform_profile_id)
+    if _platform_account_identifier_exists(
+        db,
+        platform_profile_id=payload.platform_profile_id,
+        account_identifier=payload.account_identifier,
+    ):
+        raise AppError(
+            "PLATFORM_ACCOUNT_IDENTIFIER_EXISTS",
+            "该平台已存在相同的运营账号标识",
+            409,
+        )
     account = PlatformAccount(**payload.model_dump())
     db.add(account)
-    db.flush()
+    _flush_platform_account(db)
     append_audit(
         db,
         AuditEntry(
@@ -111,15 +205,107 @@ def create_platform_account(
     return account
 
 
+def update_platform_account(
+    *,
+    db: Session,
+    platform_account_id: uuid.UUID,
+    payload: PlatformAccountUpdate,
+    actor: User,
+    request_id: str,
+) -> PlatformAccount:
+    """按 revision 修改账号业务标签和内部运营标识。"""
+    profile, account = _lock_platform_account(db, platform_account_id)
+    if account.revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "发布账号已被其他请求修改", 409)
+    if _platform_account_identifier_exists(
+        db,
+        platform_profile_id=profile.id,
+        account_identifier=payload.account_identifier,
+        exclude_account_id=account.id,
+    ):
+        raise AppError(
+            "PLATFORM_ACCOUNT_IDENTIFIER_EXISTS",
+            "该平台已存在相同的运营账号标识",
+            409,
+        )
+    account.label = payload.label
+    account.account_identifier = payload.account_identifier
+    account.revision += 1
+    _flush_platform_account(db)
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PUBLICATION,
+            action="platform_account.updated",
+            target_type="PlatformAccount",
+            target_id=account.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="发布账号已更新",
+            details={
+                "facts": {
+                    "platform_profile_id": str(profile.id),
+                    "revision": account.revision,
+                }
+            },
+        ),
+    )
+    db.commit()
+    return account
+
+
+def set_platform_account_enabled(
+    *,
+    db: Session,
+    platform_account_id: uuid.UUID,
+    payload: RevisionRequest,
+    actor: User,
+    request_id: str,
+    enabled: bool,
+) -> PlatformAccount:
+    """按 revision 启停账号，不改写任何历史发布引用。"""
+    profile, account = _lock_platform_account(db, platform_account_id)
+    if account.revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "发布账号已被其他请求修改", 409)
+    previous_enabled = account.is_active
+    account.is_active = enabled
+    account.revision += 1
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PUBLICATION,
+            action=f"platform_account.{'enabled' if enabled else 'disabled'}",
+            target_type="PlatformAccount",
+            target_id=account.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message=f"发布账号已{'启用' if enabled else '停用'}",
+            details={
+                "changes": [
+                    {
+                        "field": "is_active",
+                        "before": previous_enabled,
+                        "after": enabled,
+                    }
+                ],
+                "facts": {
+                    "platform_profile_id": str(profile.id),
+                    "revision": account.revision,
+                },
+            },
+        ),
+    )
+    db.commit()
+    return account
+
+
 def delete_platform_account(
     *, db: Session, platform_account_id: uuid.UUID, actor: User, request_id: str
 ) -> None:
-    """仅删除没有发布记录引用的平台账号标识。"""
-    account = db.scalar(
-        select(PlatformAccount).where(PlatformAccount.id == platform_account_id).with_for_update()
-    )
-    if account is None:
-        raise not_found("平台账号")
+    """仅删除没有发布记录引用的发布账号。"""
+    _profile, account = _lock_platform_account(db, platform_account_id)
     publication_count = int(
         db.scalar(
             select(func.count())
@@ -157,6 +343,51 @@ def delete_platform_account(
     db.commit()
 
 
+def _guard_duplicate_platform_content(
+    db: Session,
+    *,
+    platform_profile_id: uuid.UUID,
+    content_hash: str,
+    exclude_publication_id: uuid.UUID | None = None,
+) -> None:
+    """串行检查同平台同内容哈希的在途记录和曾公开历史。"""
+    lock_key = f"publication:{platform_profile_id}:{content_hash}"
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": lock_key},
+    )
+    published_event_exists = (
+        select(PublicationStatusEvent.id)
+        .where(
+            PublicationStatusEvent.publication_id == PublicationRecord.id,
+            PublicationStatusEvent.status.in_(("PUBLISHED", "VERIFIED")),
+        )
+        .exists()
+    )
+    query = (
+        select(
+            PublicationRecord.status,
+            published_event_exists.label("was_public"),
+        )
+        .join(
+            PlatformAccount,
+            PlatformAccount.id == PublicationRecord.platform_account_id,
+        )
+        .where(
+            PlatformAccount.platform_profile_id == platform_profile_id,
+            PublicationRecord.content_hash == content_hash,
+        )
+    )
+    if exclude_publication_id is not None:
+        query = query.where(PublicationRecord.id != exclude_publication_id)
+    if any(status != "REJECTED" or was_public for status, was_public in db.execute(query)):
+        raise AppError(
+            "DUPLICATE_PLATFORM_CONTENT",
+            "同一篇文章不能在同一平台重复登记或公开发布",
+            409,
+        )
+
+
 def create_manual_publication(
     *,
     db: Session,
@@ -190,18 +421,23 @@ def create_manual_publication(
             raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一发布登记", 409)
         return publication_out(db, existing)
 
-    account = db.get(PlatformAccount, payload.platform_account_id)
-    if account is None or not account.is_active:
+    profile, account = _lock_platform_account(
+        db,
+        payload.platform_account_id,
+        require_active_platform=True,
+    )
+    if not account.is_active:
         raise AppError("INVALID_STATE_TRANSITION", "平台账号不存在或已停用", 409)
-    profile = lock_active_platform(db, account.platform_profile_id)
-    content = require_publishable(db, payload.content_version_id)
-    task = db.get(ContentTask, content.task_id)
-    if task is None:
-        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容任务不存在", 409)
-    if task.status != "OPEN":
-        raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能创建新发布", 409)
+    content, task = _lock_approved_publication_context(db, payload.content_version_id)
     if account.platform_profile_id != task.platform_profile_id:
         raise AppError("PUBLICATION_PLATFORM_MISMATCH", "发布账号平台与内容任务锁定平台不一致", 422)
+    _guard_duplicate_platform_content(
+        db,
+        platform_profile_id=profile.id,
+        content_hash=content.content_hash,
+    )
+    if task.status != "OPEN":
+        raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能创建新发布", 409)
     if not domain_allowed(str(payload.section_url), profile.allowed_domains):
         raise AppError("VALIDATION_ERROR", "栏目 URL 不属于平台允许域名", 422)
     files = _publication_evidence_files(db, payload.attachment_file_ids)
@@ -310,6 +546,13 @@ def command_publication(
             )
             if existing_file_id is not None:
                 raise AppError("PUBLICATION_ATTACHMENT_EXISTS", "结果证据已关联该发布记录", 409)
+        _guard_duplicate_platform_content(
+            db,
+            platform_profile_id=task.platform_profile_id,
+            content_hash=publication.content_hash,
+            exclude_publication_id=publication.id,
+        )
+        if files:
             db.add_all(
                 PublicationAttachment(publication_id=publication.id, file_id=file.id)
                 for file in files

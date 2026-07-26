@@ -24,6 +24,26 @@ PublicationAction = Literal[
 ]
 
 
+def normalize_platform_account_text(value: str) -> str:
+    """去除账号维护文本两侧空白，并拒绝空白值。"""
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError("账号维护文本不能为空")
+    return normalized
+
+
+PlatformAccountLabel = Annotated[
+    str,
+    Field(min_length=1, max_length=160),
+    AfterValidator(normalize_platform_account_text),
+]
+PlatformAccountIdentifier = Annotated[
+    str,
+    Field(min_length=1, max_length=200),
+    AfterValidator(normalize_platform_account_text),
+]
+
+
 class PublicationPackage(ContractModel):
     content_version_id: uuid.UUID
     fact_version_id: uuid.UUID
@@ -37,13 +57,20 @@ class PublicationPackage(ContractModel):
 
 class PlatformAccountCreate(ContractModel):
     platform_profile_id: uuid.UUID
-    label: str
-    account_identifier: str
+    label: PlatformAccountLabel
+    account_identifier: PlatformAccountIdentifier
+
+
+class PlatformAccountUpdate(ContractModel):
+    label: PlatformAccountLabel
+    account_identifier: PlatformAccountIdentifier
+    expected_revision: int = Field(ge=0)
 
 
 class PlatformAccountOut(PlatformAccountCreate):
     id: uuid.UUID
     is_active: bool
+    revision: int = Field(ge=0)
 
 
 class PlatformAccountList(ContractModel):

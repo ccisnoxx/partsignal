@@ -46,7 +46,7 @@ Approving a new version and superseding the previous approved version happen in 
 
 `platform_accounts`, `publication_records`, `publication_status_events`.
 
-Platform accounts contain labels only, never credentials. A publication permanently binds one approved content version. Reuse of an idempotency key must match content, account, section URL, and attachment IDs; concurrent requests are serialized with a PostgreSQL transaction advisory lock. After `PUBLISHED`, URL and content binding cannot change.
+Platform accounts contain an internal business label and operator identifier, never credentials. A concrete platform may own multiple accounts, while one article publication selects exactly one account. A publication permanently binds one approved content version. Reuse of an idempotency key must match content, account, section URL, and attachment IDs; concurrent requests are serialized with PostgreSQL transaction advisory locks. After `PUBLISHED`, URL and content binding cannot change.
 
 Current-state counts come from `publication_records.status`. Period publication metrics and recent activity come from append-only `publication_status_events`: a rolling window cohort is the distinct records whose `PUBLISHED` event falls inside `[window_start, as_of)`, verification count is the cohort subset with any later `VERIFIED` event by `as_of`, and exception count is the distinct records receiving `REJECTED`, `REMOVED`, or `VERIFICATION_FAILED` inside the same window. A later removal never removes the historical publication from its original cohort.
 
@@ -222,6 +222,14 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 该 revision 的 downgrade 明确失败。恢复旧结构化关系或规则版本只能使用迁移前 PostgreSQL 备份，不得根据 Markdown 或历史快照反向猜测数据。
 
+### 0026 Publication Account Deduplication
+
+`platform_accounts` 新增非负 `revision`，业务标签与内部运营账号标识均须在 `btrim` 后非空。同一具体平台内，`lower(btrim(account_identifier))` 必须唯一；停用账号仍占用标识，不同具体平台可以保存相同标识。写入边界去除两侧空白但保留大小写用于内部展示。运营标识可以是平台用户名，也可以是“注册手机号 + 持有人”等内部组合，但不得保存密码、Cookie、令牌，不得进入日志或审计详情。
+
+账号编辑和启停固定按“锁具体平台行、锁账号行、校验 expected revision、写业务与脱敏审计”的顺序执行。停用只影响新发布候选，不删除或改写历史引用；平台归属创建后不可编辑。迁移在创建规范化唯一索引前锁表并检查空值与重复组，发现无法无损处理的数据时以 `55000` 失败，不自动合并或删除账号。
+
+人工发布以 `platform_profile_id + ContentVersion.content_hash` 作为平台内容身份。创建登记和 `mark-published` 都对该身份获取事务 advisory lock，并读取发布记录及追加式状态事件：存在非 `REJECTED` 尝试时禁止重复登记；任一记录曾出现 `PUBLISHED` 或 `VERIFIED` 事件后永久禁止同平台同内容再次登记或公开，后续 `REMOVED` 或 `VERIFICATION_FAILED` 不撤销公开事实。只有全部既有尝试从未公开且已进入 `REJECTED` 时，才允许换另一个启用账号重试。不同具体平台互不阻断，幂等键继续只负责同一请求重放。
+
 ## State Machines
 
 ```text
@@ -280,6 +288,8 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A manual first draft creates a `HUMAN DRAFT` content version with null generation and parent lineage, then uses the same review and publication gates as AI content.
 - A publication can reference only an approved content version whose fact is not retired at creation time.
 - A publication account profile must equal the content task's locked platform profile; both the application service and PostgreSQL enforce it.
+- A concrete platform may own multiple publication accounts, but their internal identifiers are unique by `lower(btrim(account_identifier))`; disabled accounts retain identity and historical references but are excluded from new publication candidates.
+- A publication record selects exactly one account. The same `platform_profile_id + content_hash` permits at most one non-rejected attempt, and any append-only `PUBLISHED | VERIFIED` event permanently blocks another publication on that concrete platform.
 - `PUBLISHED` and `VERIFIED` publications require a valid HTTP(S) URL matching the configured platform domain.
 - Candidate evidence and `mark-published` result evidence must be verified `OPERATION_SCREENSHOT` files and share the append-only `publication_attachments` relation. Result evidence, final URL, publication time, status event, and audit record commit or fail together.
 - Task completion has no public manual command. The first verified publication completes an open task atomically; completed tasks never revert.

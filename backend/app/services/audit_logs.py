@@ -122,7 +122,7 @@ _SAFE_CHANGE_FIELDS: dict[str, frozenset[str]] = {
     ),
     AuditModule.CONTENT_PRODUCTION.value: frozenset(),
     AuditModule.CONTENT_REVIEW.value: frozenset({"status"}),
-    AuditModule.PUBLICATION.value: frozenset({"status"}),
+    AuditModule.PUBLICATION.value: frozenset({"is_active", "status"}),
     AuditModule.GEO_OBSERVATION.value: frozenset(),
     AuditModule.CONFIGURATION.value: frozenset(
         {

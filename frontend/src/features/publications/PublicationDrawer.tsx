@@ -160,7 +160,12 @@ function CandidateRegistration({
         onFinish={(body) => create.mutate(body)}
       >
         <Form.Item name="content_version_id" hidden><Input /></Form.Item>
-        <Form.Item name="platform_account_id" label="发布账号" rules={[{ required: true, message: '请选择匹配平台账号' }]}>
+        <Form.Item
+          name="platform_account_id"
+          label="发布账号"
+          extra="本篇文章只能选择一个账号"
+          rules={[{ required: true, message: '请选择匹配平台账号' }]}
+        >
           <Select
             placeholder="选择锁定平台下的账号"
             options={candidate.matching_accounts.map((item) => ({

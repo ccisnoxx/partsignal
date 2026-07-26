@@ -19,17 +19,19 @@ from app.deps import (
     assert_account_types,
 )
 from app.errors import AppError, not_found
+from app.models.identity import User
 from app.models.publication import (
     PlatformAccount,
     PublicationRecord,
 )
-from app.schemas.common import AccountType
+from app.schemas.common import AccountType, RevisionRequest
 from app.schemas.content import ContentTaskOut
 from app.schemas.publication import (
     ManualPublicationCreate,
     PlatformAccountCreate,
     PlatformAccountList,
     PlatformAccountOut,
+    PlatformAccountUpdate,
     PublicationAttentionList,
     PublicationAttentionOut,
     PublicationAttentionStatus,
@@ -58,6 +60,12 @@ from app.services.publication import (
     create_platform_account as create_platform_account_command,
 )
 from app.services.publication import delete_platform_account as delete_platform_account_command
+from app.services.publication import (
+    set_platform_account_enabled as set_platform_account_enabled_command,
+)
+from app.services.publication import (
+    update_platform_account as update_platform_account_command,
+)
 from app.services.publication_queries import (
     get_attention,
     get_repair_context,
@@ -176,6 +184,95 @@ def create_platform_account(
         db=db, payload=payload, actor=editor, request_id=request.state.request_id
     )
     return PlatformAccountOut.model_validate(account)
+
+
+@router.patch(
+    "/platform-accounts/{platform_account_id}",
+    response_model=PlatformAccountOut,
+    operation_id="updatePlatformAccount",
+)
+def update_platform_account(
+    platform_account_id: uuid.UUID,
+    payload: PlatformAccountUpdate,
+    request: Request,
+    db: DbSession,
+    editor: ContentEditor,
+    _csrf: CsrfProtected,
+) -> PlatformAccountOut:
+    account = update_platform_account_command(
+        db=db,
+        platform_account_id=platform_account_id,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+    )
+    return PlatformAccountOut.model_validate(account)
+
+
+def _set_platform_account_status(
+    *,
+    platform_account_id: uuid.UUID,
+    payload: RevisionRequest,
+    request: Request,
+    db: DbSession,
+    editor: User,
+    enabled: bool,
+) -> PlatformAccountOut:
+    account = set_platform_account_enabled_command(
+        db=db,
+        platform_account_id=platform_account_id,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+        enabled=enabled,
+    )
+    return PlatformAccountOut.model_validate(account)
+
+
+@router.post(
+    "/platform-accounts/{platform_account_id}/enable",
+    response_model=PlatformAccountOut,
+    operation_id="enablePlatformAccount",
+)
+def enable_platform_account(
+    platform_account_id: uuid.UUID,
+    payload: RevisionRequest,
+    request: Request,
+    db: DbSession,
+    editor: ContentEditor,
+    _csrf: CsrfProtected,
+) -> PlatformAccountOut:
+    return _set_platform_account_status(
+        platform_account_id=platform_account_id,
+        payload=payload,
+        request=request,
+        db=db,
+        editor=editor,
+        enabled=True,
+    )
+
+
+@router.post(
+    "/platform-accounts/{platform_account_id}/disable",
+    response_model=PlatformAccountOut,
+    operation_id="disablePlatformAccount",
+)
+def disable_platform_account(
+    platform_account_id: uuid.UUID,
+    payload: RevisionRequest,
+    request: Request,
+    db: DbSession,
+    editor: ContentEditor,
+    _csrf: CsrfProtected,
+) -> PlatformAccountOut:
+    return _set_platform_account_status(
+        platform_account_id=platform_account_id,
+        payload=payload,
+        request=request,
+        db=db,
+        editor=editor,
+        enabled=False,
+    )
 
 
 @router.delete(

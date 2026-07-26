@@ -18,6 +18,7 @@ import {
   GeoInsightsPage,
   GeoInsightsPrintPage,
   GeoObservationsPage,
+  GeoTopicsPage,
   PlatformTypesPage,
   PlatformsPage,
   PlatformPromptsPage,
@@ -53,6 +54,7 @@ export function App() {
                     <Route path="observations" element={<GeoObservationsPage />} />
                     <Route path="observations/insights" element={<GeoInsightsPage />} />
                     <Route path="observations/insights/print" element={<GeoInsightsPrintPage />} />
+                    <Route path="observations/topics" element={<GeoTopicsPage />} />
                     <Route path="observations/:observationId/correct" element={<GeoObservationsPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                     <Route path="users" element={<UserManagementPage />} />

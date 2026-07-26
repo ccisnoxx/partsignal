@@ -19,6 +19,7 @@ const navigationLoaders: Record<string, RouteLoaderKey> = {
   '/observations': 'geoObservations',
   '/observations/insights': 'geoInsights',
   '/observations/insights/print': 'geoInsights',
+  '/observations/topics': 'geoTopics',
   '/settings': 'settings',
   '/users': 'users',
   '/audit': 'auditLog',

@@ -389,7 +389,7 @@ function CandidateList({
               width: 190,
               render: (_, row) => row.matching_accounts.length
                 ? row.matching_accounts.map((account) => account.label).join('、')
-                : <div className="publication-title-cell"><Typography.Text type="danger">无匹配账号</Typography.Text><Link to="/settings">前往业务设置</Link></div>,
+                : <div className="publication-title-cell"><Typography.Text type="danger">无匹配账号</Typography.Text><Link to={`/settings?tab=accounts&platform_profile_id=${row.platform_profile_id}`}>前往业务设置</Link></div>,
             },
             { title: '内容状态', width: 120, render: (_, row) => <StatusTag status={row.content_version.status} /> },
             { title: '操作', fixed: 'right', width: 150, render: (_, row) => <Button type="primary" disabled={row.matching_accounts.length === 0} onClick={() => onOpen(row)}>准备人工发布</Button> },

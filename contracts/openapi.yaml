@@ -1495,7 +1495,7 @@ paths:
           schema: {type: string, format: uuid}
       responses:
         '200':
-          description: 平台账号标识
+          description: 发布账号列表
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformAccountList'}
@@ -1519,6 +1519,26 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-accounts/{platform_account_id}:
+    patch:
+      tags: [publication]
+      operationId: updatePlatformAccount
+      parameters:
+        - {name: platform_account_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlatformAccountUpdate'}
+      responses:
+        '200':
+          description: 已更新发布账号
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformAccount'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [publication]
       operationId: deletePlatformAccount
@@ -1527,6 +1547,40 @@ paths:
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已删除未被发布记录引用的平台账号}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/platform-accounts/{platform_account_id}/enable:
+    post:
+      tags: [publication]
+      operationId: enablePlatformAccount
+      parameters:
+        - {name: platform_account_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
+      responses:
+        '200':
+          description: 已启用发布账号
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformAccount'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/platform-accounts/{platform_account_id}/disable:
+    post:
+      tags: [publication]
+      operationId: disablePlatformAccount
+      parameters:
+        - {name: platform_account_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
+      responses:
+        '200':
+          description: 已停用发布账号
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformAccount'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-records/manual:
     post:
@@ -3160,16 +3214,25 @@ components:
       required: [platform_profile_id, label, account_identifier]
       properties:
         platform_profile_id: {type: string, format: uuid}
-        label: {type: string}
-        account_identifier: {type: string}
+        label: {type: string, minLength: 1, maxLength: 160}
+        account_identifier: {type: string, minLength: 1, maxLength: 200}
+    PlatformAccountUpdate:
+      type: object
+      additionalProperties: false
+      required: [label, account_identifier, expected_revision]
+      properties:
+        label: {type: string, minLength: 1, maxLength: 160}
+        account_identifier: {type: string, minLength: 1, maxLength: 200}
+        expected_revision: {type: integer, minimum: 0}
     PlatformAccount:
       allOf:
         - {$ref: '#/components/schemas/PlatformAccountCreate'}
         - type: object
-          required: [id, is_active]
+          required: [id, is_active, revision]
           properties:
             id: {type: string, format: uuid}
             is_active: {type: boolean}
+            revision: {type: integer, minimum: 0}
     PlatformAccountList:
       type: object
       additionalProperties: false

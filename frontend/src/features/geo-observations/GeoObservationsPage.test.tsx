@@ -258,12 +258,18 @@ test('人工观测详情对补采前空值明确显示历史未采集', async ()
   });
 
   render(<App />);
-  fireEvent.click(await screen.findByRole('button', { name: 'PS-001 如何替代？' }));
-  expect(await screen.findByText('该记录存在补采前未采集事实；未知值保持未知，不按“否”推断。')).toBeInTheDocument();
-  expect(screen.getAllByText('历史未采集').length).toBeGreaterThanOrEqual(4);
-  expect(screen.queryByText('历史回答摘要')).not.toBeInTheDocument();
-  expect(screen.getByText('引用部分参数与原文一致。')).toBeInTheDocument();
-  expect(await screen.findByRole('img', { name: 'geo-evidence.png' })).toBeInTheDocument();
+  const page = within(await waitFor(() => {
+    const root = document.querySelector<HTMLElement>('.app-content');
+    expect(root).not.toBeNull();
+    return root!;
+  }));
+  fireEvent.click(await page.findByRole('button', { name: 'PS-001 如何替代？' }));
+  const dialog = await screen.findByRole('dialog');
+  expect(await within(dialog).findByText('该记录存在补采前未采集事实；未知值保持未知，不按“否”推断。')).toBeInTheDocument();
+  expect(within(dialog).getAllByText('历史未采集').length).toBeGreaterThanOrEqual(4);
+  expect(within(dialog).queryByText('历史回答摘要')).not.toBeInTheDocument();
+  expect(within(dialog).getByText('引用部分参数与原文一致。')).toBeInTheDocument();
+  await waitFor(() => expect(dialog.querySelector('img[alt="geo-evidence.png"]')).toBeInTheDocument());
   expect(window.location.search).toContain(`record=${historicalManualRecord.id}`);
 });
 

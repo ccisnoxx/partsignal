@@ -49,7 +49,7 @@ function platformList() {
   } satisfies Schema<'PlatformProfileList'>;
 }
 
-test('定向打开账号页后按 revision 编辑、停用并重新启用', async () => {
+function installAccountApi() {
   let account: Schema<'PlatformAccount'> = {
     id: accountId,
     platform_profile_id: profileId,
@@ -74,28 +74,42 @@ test('定向打开账号页后按 revision 编辑、停用并重新启用', asyn
     }
     writes.push(request);
     if (request.method === 'PATCH') {
-      account = { ...account, label: '主账号（新版）', revision: 1 };
+      account = { ...account, label: '主账号（新版）', revision: account.revision + 1 };
       return { body: account };
     }
     if (path.endsWith('/disable')) {
-      account = { ...account, is_active: false, revision: 2 };
+      account = { ...account, is_active: false, revision: account.revision + 1 };
       return { body: account };
     }
     if (path.endsWith('/enable')) {
-      account = { ...account, is_active: true, revision: 3 };
+      account = { ...account, is_active: true, revision: account.revision + 1 };
       return { body: account };
     }
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
+  return writes;
+}
 
+async function accountPage() {
+  const root = await waitFor(() => {
+    const content = document.querySelector<HTMLElement>('.app-content');
+    expect(content).not.toBeNull();
+    return content!;
+  });
+  return within(root);
+}
+
+test('定向打开账号页并预填新增平台', async () => {
+  installAccountApi();
   render(<App />);
-  expect(await screen.findByRole('heading', { name: '发布账号' })).toBeInTheDocument();
+  const page = await accountPage();
+  expect(await page.findByRole('heading', { name: '发布账号' })).toBeInTheDocument();
   await waitFor(() =>
     expect(
-      screen.getByRole('combobox', { name: '按平台筛选账号' }).closest('.ant-select'),
+      page.getByRole('combobox', { name: '按平台筛选账号' }).closest('.ant-select'),
     ).toHaveTextContent('工程师社区'),
   );
-  fireEvent.click(screen.getByRole('button', { name: /新增发布账号/ }));
+  fireEvent.click(page.getByRole('button', { name: /新增发布账号/ }));
   const createDialog = (await screen.findByText('新增发布账号', {
     selector: '.ant-modal-title',
   })).closest<HTMLElement>('[role="dialog"]');
@@ -104,8 +118,13 @@ test('定向打开账号页后按 revision 编辑、停用并重新启用', asyn
     within(createDialog!).getByRole('combobox', { name: '平台' }).closest('.ant-select'),
   ).toHaveTextContent('工程师社区');
   fireEvent.click(within(createDialog!).getByRole('button', { name: /Close|关闭/ }));
+});
 
-  fireEvent.click(screen.getByRole('button', { name: '更多操作：主运营账号' }));
+test('发布账号按 revision 编辑', async () => {
+  const writes = installAccountApi();
+  render(<App />);
+  const page = await accountPage();
+  fireEvent.click(await page.findByRole('button', { name: '更多操作：主运营账号' }));
   fireEvent.click(await screen.findByRole('menuitem', { name: '编辑' }));
   const editDialog = (await screen.findByText('编辑发布账号')).closest<HTMLElement>(
     '[role="dialog"]',
@@ -120,19 +139,24 @@ test('定向打开账号页后按 revision 编辑、停用并重新启用', asyn
     label: '主账号（新版）',
     expected_revision: 0,
   });
+});
 
-  fireEvent.click(await screen.findByRole('button', { name: '更多操作：主账号（新版）' }));
+test('发布账号按 revision 停用并重新启用', async () => {
+  const writes = installAccountApi();
+  render(<App />);
+  const page = await accountPage();
+  fireEvent.click(await page.findByRole('button', { name: '更多操作：主运营账号' }));
   fireEvent.click(await screen.findByRole('menuitem', { name: '停用' }));
   fireEvent.click(screen.getByRole('button', { name: /停\s*用/ }));
   await waitFor(() => expect(writes.some((request) => new URL(request.url).pathname.endsWith('/disable'))).toBe(true));
   const disableRequest = writes.find((request) => new URL(request.url).pathname.endsWith('/disable'));
-  expect(await disableRequest!.clone().json()).toEqual({ expected_revision: 1 });
+  expect(await disableRequest!.clone().json()).toEqual({ expected_revision: 0 });
 
-  fireEvent.click(await screen.findByRole('button', { name: '更多操作：主账号（新版）' }));
+  fireEvent.click(await page.findByRole('button', { name: '更多操作：主运营账号' }));
   fireEvent.click(await screen.findByRole('menuitem', { name: '启用' }));
   await waitFor(() => expect(writes.some((request) => new URL(request.url).pathname.endsWith('/enable'))).toBe(true));
   const enableRequest = writes.find((request) => new URL(request.url).pathname.endsWith('/enable'));
-  expect(await enableRequest!.clone().json()).toEqual({ expected_revision: 2 });
+  expect(await enableRequest!.clone().json()).toEqual({ expected_revision: 1 });
 });
 
 test('编辑为同平台规范化重复标识时在弹窗显示服务端冲突', async () => {

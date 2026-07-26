@@ -90,7 +90,7 @@ function commonPageResponse(path: string) {
   return undefined;
 }
 
-test('展示冻结审核事实并要求显式批准', async () => {
+function renderApprovedReviewPage() {
   window.history.pushState({}, '', `/content/${content.id}`);
   mockFetch((request) => {
     const path = new URL(request.url).pathname;
@@ -100,31 +100,50 @@ test('展示冻结审核事实并要求显式批准', async () => {
     if (path.endsWith('/review-context')) return { body: context };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
-  const { container } = render(<App />);
-  expect(await screen.findByRole('heading', { name: '替代方案', level: 1 })).toBeInTheDocument();
-  const queue = await screen.findByRole('navigation', { name: '同任务内容版本' });
+  return render(<App />);
+}
+
+test('展示冻结审核事实和安全预览', async () => {
+  const { container } = renderApprovedReviewPage();
+  const review = within(await waitFor(() => {
+    const root = container.querySelector<HTMLElement>('.content-review-page');
+    expect(root).not.toBeNull();
+    return root!;
+  }));
+  expect(await review.findByRole('heading', { name: '替代方案', level: 1 })).toBeInTheDocument();
+  const queue = await review.findByRole('navigation', { name: '同任务内容版本' });
   expect(within(queue).getByRole('link', { current: 'page' })).toHaveAccessibleName(/替代方案.*工程内容平台/);
   expect(within(queue).getByRole('link', { name: /替代方案初稿.*工程内容平台/ })).toHaveAttribute('href', `/content/${previousContent.id}`);
   expect(within(queue).getAllByText('工程内容平台')).toHaveLength(2);
-  expect(screen.getByRole('tab', { name: '编辑' })).toHaveAttribute('aria-selected', 'true');
-  fireEvent.click(screen.getByRole('tab', { name: '预览' }));
+  expect(review.getByRole('tab', { name: '编辑' })).toHaveAttribute('aria-selected', 'true');
+  fireEvent.click(review.getByRole('tab', { name: '预览' }));
   await waitFor(() => expect(container.querySelector('.markdown-preview img')).toBeInTheDocument());
   expect(container.querySelector('.markdown-preview img')).not.toHaveAttribute('onerror');
-  expect(screen.getByRole('tab', { name: '预览' })).toHaveAttribute('aria-selected', 'true');
-  expect(screen.getByRole('tab', { name: 'Markdown 源文' })).toBeInTheDocument();
-  expect(screen.getByRole('tab', { name: '版本差异' })).toBeInTheDocument();
-  expect(screen.getByRole('tab', { name: '编辑' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('tab', { name: '产品事实' }));
-  expect(screen.getByText(/工作电压/)).toBeInTheDocument();
-  expect(screen.getByText(/公开数据手册/)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('tab', { name: '审核记录' }));
-  expect(screen.getByText('请调整标题')).toBeInTheDocument();
-  expect(screen.queryByRole('region', { name: 'AI 追溯' })).not.toBeInTheDocument();
-  expect(screen.getAllByRole('button', { name: /批准内容/ })).toHaveLength(1);
-  fireEvent.click(screen.getByRole('button', { name: /批准内容/ }));
+  expect(review.getByRole('tab', { name: '预览' })).toHaveAttribute('aria-selected', 'true');
+  expect(review.getByRole('tab', { name: 'Markdown 源文' })).toBeInTheDocument();
+  expect(review.getByRole('tab', { name: '版本差异' })).toBeInTheDocument();
+  expect(review.getByRole('tab', { name: '编辑' })).toBeInTheDocument();
+  fireEvent.click(review.getByRole('tab', { name: '产品事实' }));
+  expect(review.getByText(/工作电压/)).toBeInTheDocument();
+  expect(review.getByText(/公开数据手册/)).toBeInTheDocument();
+});
+
+test('展示审核历史并要求显式批准', async () => {
+  const { container } = renderApprovedReviewPage();
+  const review = within(await waitFor(() => {
+    const root = container.querySelector<HTMLElement>('.content-review-page');
+    expect(root).not.toBeNull();
+    return root!;
+  }));
+  expect(await review.findByRole('heading', { name: '替代方案', level: 1 })).toBeInTheDocument();
+  fireEvent.click(review.getByRole('tab', { name: '审核记录' }));
+  expect(review.getByText('请调整标题')).toBeInTheDocument();
+  expect(review.queryByRole('region', { name: 'AI 追溯' })).not.toBeInTheDocument();
+  expect(review.getAllByRole('button', { name: /批准内容/ })).toHaveLength(1);
+  fireEvent.click(review.getByRole('button', { name: /批准内容/ }));
   expect(await screen.findByText('请显式确认批准')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '确认批准' }));
-  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeInTheDocument());
 });
 
 test('审核上下文失败时不渲染状态操作', async () => {

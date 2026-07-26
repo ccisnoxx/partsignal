@@ -218,6 +218,7 @@ async function expectTextInPaginatedTable(page: Page, text: string) {
 
 test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ page }, testInfo) => {
   const suffix = randomUUID().slice(0, 8);
+  const timeoutProviderModelId = `e2e-timeout-model-${suffix}`;
   const csrf = await login(page, 'admin');
   const initialHumanizationPrompt = await page.request.get('/api/v1/content-humanization-prompt');
   expect([200, 204]).toContain(initialHumanizationPrompt.status());
@@ -333,7 +334,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await command(page, `/api/v1/ai-channels/${channel.id as string}/enable`, csrf, { expected_revision: updatedHeaderChannel.revision });
   const secondPlainHeader = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/headers`, csrf, { expected_channel_revision: secondChannel.revision, name: 'X-E2E-Region', value: 'timeout-test', is_sensitive: false });
   const secondSensitiveHeader = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/headers`, csrf, { expected_channel_revision: secondPlainHeader.revision, name: 'X-E2E-Secret', value: 'timeout-secret', is_sensitive: true });
-  const timeoutModel = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/models`, csrf, { display_name: 'E2E 超时模型', model_id: 'e2e-timeout-model', request_parameters: {} });
+  const timeoutModel = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/models`, csrf, { display_name: 'E2E 超时模型', model_id: timeoutProviderModelId, request_parameters: {} });
   const testedTimeoutModel = await command(page, `/api/v1/ai-models/${timeoutModel.id as string}/test`, csrf, undefined);
   await command(page, `/api/v1/ai-models/${timeoutModel.id as string}/enable`, csrf, { expected_revision: testedTimeoutModel.revision });
   const enabledSecondChannel = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/enable`, csrf, { expected_revision: secondSensitiveHeader.revision });
@@ -464,20 +465,23 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const humanizationDialog = page.getByRole('dialog', { name: '自然化 V1' });
   await expect(humanizationDialog).toBeVisible();
   await selectOption(page, '自然化模型', modelOption);
+  const humanizationCreated = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && new URL(response.url()).pathname === `/api/v1/content-versions/${generatedContentId}/humanization-jobs`
+  ));
   await humanizationDialog.getByRole('button', { name: '创建自然化作业' }).click();
-  let humanizationJobId: string | undefined;
+  const { id: humanizationJobId } = await body<{ id: string }>(await humanizationCreated);
   let humanizedContentId: string | null | undefined;
   await expect.poll(async () => {
-    const aiJobs = await body<{ items: Array<{ id: string; job_type: string; status: string; content_version_id: string | null }> }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}/generation-jobs`));
-    const humanizationJob = aiJobs.items.find((item) => item.job_type === 'HUMANIZE');
-    humanizationJobId = humanizationJob?.id;
-    humanizedContentId = humanizationJob?.content_version_id;
-    return humanizationJob?.status;
+    const humanizationJob = await body<{ status: string; content_version_id: string | null }>(
+      await page.request.get(`/api/v1/generation-jobs/${humanizationJobId}`),
+    );
+    humanizedContentId = humanizationJob.content_version_id;
+    return humanizationJob.status;
   }, { timeout: 30_000 }).toBe('SUCCEEDED');
-  expect(humanizationJobId).toBeTruthy();
   expect(humanizedContentId).toBeTruthy();
   expect(await body<{ count: number }>(await page.request.get('http://127.0.0.1:9001/e2e/calls/e2e-model'))).toEqual({ count: modelCallsBeforeHumanization.count + 1 });
-  const humanizationDetail = await body<{ job_type: string; source_content_version_id: string; input_snapshot: { humanization_prompt: { template_markdown: string }; model: { id: string }; source_content: { id: string; content_hash: string } } }>(await page.request.get(`/api/v1/generation-jobs/${humanizationJobId!}`));
+  const humanizationDetail = await body<{ job_type: string; source_content_version_id: string; input_snapshot: { humanization_prompt: { template_markdown: string }; model: { id: string }; source_content: { id: string; content_hash: string } } }>(await page.request.get(`/api/v1/generation-jobs/${humanizationJobId}`));
   expect(humanizationDetail).toMatchObject({ job_type: 'HUMANIZE', source_content_version_id: generatedContentId, input_snapshot: { humanization_prompt: { template_markdown: e2eHumanizationPrompt }, model: { id: model.id }, source_content: { id: generatedContentId, content_hash: generatedContentBeforeHumanization.content_hash } } });
   const generatedContentAfterHumanization = await body<typeof generatedContentBeforeHumanization>(await page.request.get(`/api/v1/content-versions/${generatedContentId}`));
   expect(generatedContentAfterHumanization).toEqual(generatedContentBeforeHumanization);
@@ -518,7 +522,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect.poll(async () => (await body<{ status: string }>(await page.request.get(`/api/v1/generation-jobs/${timeoutJob.id}`))).status, { timeout: 30_000 }).toBe('FAILED');
   const failedTimeoutJob = await body<{ attempt_count: number; error_code: string; input_snapshot: unknown }>(await page.request.get(`/api/v1/generation-jobs/${timeoutJob.id}`));
   expect(failedTimeoutJob).toMatchObject({ attempt_count: 1, error_code: 'AI_PROVIDER_TIMEOUT' });
-  expect(await body<{ count: number }>(await page.request.get('http://127.0.0.1:9001/e2e/calls/e2e-timeout-model'))).toEqual({ count: 2 });
+  expect(await body<{ count: number }>(await page.request.get(`http://127.0.0.1:9001/e2e/calls/${timeoutProviderModelId}`))).toEqual({ count: 2 });
   const replacedSecondKey = await body<{ revision: number }>(await page.request.put(`/api/v1/ai-channels/${secondChannel.id as string}/api-key`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: enabledSecondChannel.revision, api_key: 'e2e-second-key-updated' } }));
   const secondHeaders = secondSensitiveHeader.headers as Array<{ id: string; name: string }>;
   const secondSensitiveHeaderId = secondHeaders.find((item) => item.name === 'X-E2E-Secret')?.id;
@@ -532,7 +536,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const retriedTimeoutDetail = await body<{ retry_of_id: string; input_snapshot: unknown }>(await page.request.get(`/api/v1/generation-jobs/${retriedTimeoutJob.id}`));
   expect(retriedTimeoutDetail.retry_of_id).toBe(timeoutJob.id);
   expect(retriedTimeoutDetail.input_snapshot).toEqual(failedTimeoutJob.input_snapshot);
-  expect(await body<{ count: number }>(await page.request.get('http://127.0.0.1:9001/e2e/calls/e2e-timeout-model'))).toEqual({ count: 4 });
+  expect(await body<{ count: number }>(await page.request.get(`http://127.0.0.1:9001/e2e/calls/${timeoutProviderModelId}`))).toEqual({ count: 4 });
   expect((await page.request.delete(`/api/v1/platform-profiles/${profile.id as string}/prompt?expected_revision=${updatedPlatformPrompt.revision}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-no-prompt-${suffix}` }, data: { ai_model_id: model.id } })).status()).toBe(409);
   await body(await page.request.put(`/api/v1/platform-profiles/${profile.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: '恢复后的技术说明 Prompt。', expected_revision: null } }));
@@ -590,7 +594,10 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.goto('/publications');
   const candidateWithoutAccount = page.getByRole('row').filter({ hasText: `人工核对 ${product!.part_number}` });
   await expect(candidateWithoutAccount.getByText('无匹配账号')).toBeVisible();
-  await expect(candidateWithoutAccount.getByRole('link', { name: '前往业务设置' })).toHaveAttribute('href', '/settings');
+  await expect(candidateWithoutAccount.getByRole('link', { name: '前往业务设置' })).toHaveAttribute(
+    'href',
+    `/settings?tab=accounts&platform_profile_id=${profile.id as string}`,
+  );
   await expect(candidateWithoutAccount.getByRole('button', { name: '准备人工发布' })).toBeDisabled();
   await page.unroute(candidatesPattern);
 

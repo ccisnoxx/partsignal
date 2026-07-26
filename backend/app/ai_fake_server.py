@@ -47,7 +47,7 @@ def create_completion(
     model_id = str(payload.get("model", ""))
     completion_calls[model_id] = completion_calls.get(model_id, 0) + 1
     completion_payloads[model_id] = payload
-    if model_id == "e2e-timeout-model":
+    if model_id.startswith("e2e-timeout-model-"):
         if completion_calls[model_id] == 2:
             time.sleep(11)
         if completion_calls[model_id] >= 3 and (

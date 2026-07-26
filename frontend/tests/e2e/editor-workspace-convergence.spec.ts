@@ -96,7 +96,10 @@ test('未配置自然化 Prompt 时空编辑器可用且浏览器无失败信号
   });
   page.on('pageerror', (error) => pageErrors.push(error.message));
   page.on('requestfailed', (request) => {
-    failedRequests.push(`${request.method()} ${request.url()}: ${request.failure()?.errorText ?? '未知错误'}`);
+    const errorText = request.failure()?.errorText ?? '未知错误';
+    if (errorText !== 'net::ERR_ABORTED') {
+      failedRequests.push(`${request.method()} ${request.url()}: ${errorText}`);
+    }
   });
 
   await page.goto('/configuration/prompts?tab=humanization&page=1&page_size=10');

@@ -47,8 +47,7 @@ async function selectDetailTab(page: Page, name: string, key: string | null) {
 }
 
 async function selectVisibleOption(page: Page, name: string) {
-  // Ant Select 虚拟列表只给当前窗口中的部分节点声明 option 角色，按可见浮层内文本定位。
-  await page.locator('.ant-select-dropdown:visible').getByText(name, { exact: true }).click();
+  await page.locator('.ant-select-dropdown:visible').getByTitle(name, { exact: true }).click();
 }
 
 async function expectSelectedChannelParams(
@@ -273,7 +272,17 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   await page.getByRole('searchbox', { name: '搜索渠道名称、描述或地址' }).press('Enter');
   await searchResponse;
   await expectSelectedChannelParams(page, channel.id, { q: visualQuery });
-  await page.getByRole('button', { name: /^已启用\s+4$/ }).click();
+  const enabledChannelsLoaded = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.ok()
+      && url.pathname === '/api/v1/ai-channels'
+      && url.searchParams.get('q') === visualQuery
+      && url.searchParams.get('status') === 'ENABLED';
+  });
+  await Promise.all([
+    enabledChannelsLoaded,
+    page.getByRole('button', { name: /^已启用\s+4$/ }).click(),
+  ]);
   await expectSelectedChannelParams(page, channel.id, { q: visualQuery, status: 'enabled' });
   await page.getByRole('combobox', { name: '筛选供应商品牌' }).click();
   await selectVisibleOption(page, 'OpenAI');

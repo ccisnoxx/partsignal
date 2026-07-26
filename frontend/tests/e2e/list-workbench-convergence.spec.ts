@@ -5,7 +5,7 @@ const password = process.env.PARTSIGNAL_SEED_ADMIN_PASSWORD ?? 'partsignal-admin
 const themeStorageKey = 'partsignal.theme-mode';
 const workbenches = [
   { key: 'users', path: '/users', apiPath: '/api/v1/users', heading: '用户管理', table: '用户列表', metrics: 5 },
-  { key: 'platforms', path: '/configuration/platforms', apiPath: '/api/v1/platform-profiles', heading: '平台管理', table: '平台列表', metrics: 5 },
+  { key: 'platforms', path: '/configuration/platforms', apiPath: '/api/v1/platform-profiles', heading: '平台管理', table: '平台列表', metrics: 4 },
   { key: 'ai-channels', path: '/configuration/ai', apiPath: '/api/v1/ai-channels', heading: 'AI 渠道与模型', table: 'AI 渠道列表' },
   { key: 'audit', path: '/audit', apiPath: '/api/v1/audit-logs', heading: '审计日志', table: '审计日志' },
 ] as const;

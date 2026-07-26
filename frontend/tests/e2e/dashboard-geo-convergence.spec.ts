@@ -212,6 +212,7 @@ test('跟随系统、reduced-motion 与打印视图保留信息且移除非必�
   await expect(page.getByRole('heading', { level: 1, name: 'GEO 分析洞察报告' })).toBeVisible();
   await expect(page.getByText('报告范围')).toBeVisible();
   await page.emulateMedia({ media: 'print', colorScheme: 'light', reducedMotion: 'reduce' });
+  await expect(page.locator('.geo-insights-print')).toBeVisible();
   const printLayout = await page.evaluate(() => {
     const content = document.querySelector<HTMLElement>('.app-content');
     const report = document.querySelector<HTMLElement>('.geo-insights-print');

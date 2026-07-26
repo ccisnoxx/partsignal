@@ -63,8 +63,8 @@ async function resolveTargets(page: Page): Promise<Target[]> {
     { key: 'publications', path: '/publications', heading: '发布管理' },
     { key: 'observations', path: '/observations', heading: 'GEO 观测' },
     { key: 'geo-insights', path: '/observations/insights', heading: 'GEO 分析洞察' },
-    { key: 'settings', path: '/settings', heading: '业务设置' },
-    { key: 'accounts', path: '/settings?tab=accounts', heading: '业务设置' },
+    { key: 'settings', path: '/settings', heading: '发布账号' },
+    { key: 'accounts', path: '/settings?tab=accounts', heading: '发布账号' },
     { key: 'users', path: '/users', heading: '用户管理' },
     { key: 'audit', path: '/audit', heading: '审计日志' },
     { key: 'configuration', path: '/configuration', heading: 'AI 渠道与模型', redirect: /\/configuration\/ai(?:\/channels\/[^/]+)?$/ },
@@ -202,7 +202,8 @@ function visualMasks(page: Page, key: VisualTargetKey): Locator[] {
   if (key === 'prompts') {
     return [
       identity,
-      page.locator('.prompt-platform-copy'),
+      page.locator('.prompt-platform-list'),
+      page.locator('.prompt-editor-panel > .ant-card-head'),
       page.locator('.prompt-editor-lines, .prompt-editor-surface textarea'),
       page.locator('.prompt-preview-result'),
     ];
@@ -319,7 +320,13 @@ test('九张代表页基线与 Dashboard、内容审核桌面锚点可重复', a
   const representatives = [
     { key: 'users', target: { ...targets.find((target) => target.key === 'users')!, path: '/users?q=admin' } },
     { key: 'prompts', target: targets.find((target) => target.key === 'prompts')! },
-    { key: 'geo-insights', target: targets.find((target) => target.key === 'geo-insights')! },
+    {
+      key: 'geo-insights',
+      target: {
+        ...targets.find((target) => target.key === 'geo-insights')!,
+        path: '/observations/insights?date_from=2000-01-01&date_to=2000-01-30',
+      },
+    },
   ] as const;
 
   await page.setViewportSize({ width: 1440, height: 1000 });

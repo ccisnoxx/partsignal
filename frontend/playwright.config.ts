@@ -7,6 +7,10 @@ export default defineConfig({
   workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['html', { open: 'never' }], ['list']] : 'list',
+  projects: [
+    { name: 'setup', testMatch: /shared-data\.setup\.ts/ },
+    { name: 'e2e', testIgnore: /shared-data\.setup\.ts/, dependencies: ['setup'] },
+  ],
   expect: {
     toHaveScreenshot: {
       pathTemplate: '{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}{ext}',

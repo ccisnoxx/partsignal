@@ -220,7 +220,6 @@ test('新增平台品牌字段可选且不包含规则字段', async () => {
 });
 
 test('编辑平台可保存官网和外部 Logo URL', async () => {
-  const user = userEvent.setup();
   renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
   const row = (await screen.findByText('工程师社区')).closest('tr');
   expect(row).not.toBeNull();
@@ -229,12 +228,10 @@ test('编辑平台可保存官网和外部 Logo URL', async () => {
   const dialog = (await screen.findByText('编辑 工程师社区 的平台信息')).closest<HTMLElement>('[role="dialog"]');
   expect(dialog).not.toBeNull();
   const website = within(dialog!).getByRole('textbox', { name: '官方网站' });
-  await user.clear(website);
-  await user.type(website, 'https://new.example.invalid/platform');
+  fireEvent.change(website, { target: { value: 'https://new.example.invalid/platform' } });
   const logoUrl = within(dialog!).getByRole('textbox', { name: '外部 Logo URL' });
-  await user.clear(logoUrl);
-  await user.type(logoUrl, 'https://cdn.example.invalid/new-logo.webp');
-  await user.click(within(dialog!).getByRole('button', { name: '保存平台' }));
+  fireEvent.change(logoUrl, { target: { value: 'https://cdn.example.invalid/new-logo.webp' } });
+  fireEvent.click(within(dialog!).getByRole('button', { name: '保存平台' }));
   await waitFor(() => expect(apiMocks.PATCH).toHaveBeenCalledWith(
     '/api/v1/platform-profiles/{platform_profile_id}',
     expect.objectContaining({
@@ -255,10 +252,10 @@ test('编辑平台可显式清空官网和 Logo', async () => {
   fireEvent.click(await screen.findByRole('menuitem', { name: '编辑平台' }));
   const dialog = (await screen.findByText('编辑 工程师社区 的平台信息')).closest<HTMLElement>('[role="dialog"]');
   expect(dialog).not.toBeNull();
-  await user.clear(within(dialog!).getByRole('textbox', { name: '官方网站' }));
+  fireEvent.change(within(dialog!).getByRole('textbox', { name: '官方网站' }), { target: { value: '' } });
   await user.click(within(dialog!).getByRole('combobox', { name: /Logo 来源/ }));
   await user.click(await screen.findByText('不设置 Logo'));
-  await user.click(within(dialog!).getByRole('button', { name: '保存平台' }));
+  fireEvent.click(within(dialog!).getByRole('button', { name: '保存平台' }));
   await waitFor(() => expect(apiMocks.PATCH).toHaveBeenCalledWith(
     '/api/v1/platform-profiles/{platform_profile_id}',
     expect.objectContaining({ body: expect.objectContaining({ website_url: null, logo: null }) }),
@@ -486,54 +483,58 @@ test('渠道工作区从 URL 恢复服务端筛选分页并自动选择首条渠
 });
 
 test('新增渠道提交受控品牌与协议且 API Key 只存在于创建载荷', async () => {
-  const user = userEvent.setup();
   renderWithQuery(<AIChannelsPage />, ['/configuration/ai']);
   await screen.findByText('受控模型渠道');
   fireEvent.click(screen.getByRole('button', { name: /新增渠道$/ }));
   const dialog = await findRcDialog('新增渠道');
-  await user.type(within(dialog).getByRole('textbox', { name: '渠道名称' }), '新渠道');
-  await user.type(within(dialog).getByRole('textbox', { name: '描述' }), '测试用途');
-  await user.type(within(dialog).getByRole('textbox', { name: 'API 根地址' }), 'https://new.example.invalid/v1');
-  await user.type(within(dialog).getByLabelText('API Key'), 'secret-value');
+  fireEvent.change(within(dialog).getByRole('textbox', { name: '渠道名称' }), { target: { value: '新渠道' } });
+  fireEvent.change(within(dialog).getByRole('textbox', { name: '描述' }), { target: { value: '测试用途' } });
+  fireEvent.change(within(dialog).getByRole('textbox', { name: 'API 根地址' }), { target: { value: 'https://new.example.invalid/v1' } });
+  fireEvent.change(within(dialog).getByLabelText('API Key'), { target: { value: 'secret-value' } });
   apiMocks.POST.mockResolvedValueOnce(result({ ...channel, id: 'channel-new', name: '新渠道' }));
-  await user.click(within(dialog).getByRole('button', { name: '创建渠道' }));
-  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith('/api/v1/ai-channels', expect.objectContaining({ body: expect.objectContaining({
-    description: '测试用途', protocol_type: 'openai-compatible-chat-completions', provider_brand: 'CUSTOM', api_key: 'secret-value',
-  }) })));
-  await waitFor(() => expect(screen.queryByRole('dialog', { name: '新增渠道' })).not.toBeInTheDocument());
-  await waitFor(() => expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables))).not.toContain('secret-value'));
+  fireEvent.click(within(dialog).getByRole('button', { name: '创建渠道' }));
+  await waitFor(() => {
+    expect(apiMocks.POST).toHaveBeenCalledWith('/api/v1/ai-channels', expect.objectContaining({ body: expect.objectContaining({
+      description: '测试用途', protocol_type: 'openai-compatible-chat-completions', provider_brand: 'CUSTOM', api_key: 'secret-value',
+    }) }));
+    expect(screen.queryByRole('dialog', { name: '新增渠道' })).not.toBeInTheDocument();
+    expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables))).not.toContain('secret-value');
+  });
 });
 
 test('API Key 与敏感 Header 在弹窗结束后从 mutation 状态清除', async () => {
-  const user = userEvent.setup();
   renderWithQuery(
     <Routes><Route path="/configuration/ai" element={<AIChannelsPage />}><Route path="channels/:channelId" element={<AIChannelDetailPage />} /></Route></Routes>,
     ['/configuration/ai/channels/channel-1'],
   );
   await screen.findByText('生产内容生成渠道');
   apiMocks.PUT.mockResolvedValueOnce(result({ ...channel, revision: channel.revision + 1 }));
-  await user.click(screen.getByRole('button', { name: '重新配置' }));
+  fireEvent.click(screen.getByRole('button', { name: '重新配置' }));
   const keyDialog = await findRcDialog('重新配置 API Key');
-  await user.type(within(keyDialog).getByLabelText('新的 API Key'), 'replacement-secret');
-  await user.click(within(keyDialog).getByRole('button', { name: '保存并重置连接状态' }));
-  await waitFor(() => expect(screen.queryByRole('dialog', { name: '重新配置 API Key' })).not.toBeInTheDocument());
-  await waitFor(() => expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables))).not.toContain('replacement-secret'));
+  fireEvent.change(within(keyDialog).getByLabelText('新的 API Key'), { target: { value: 'replacement-secret' } });
+  fireEvent.click(within(keyDialog).getByRole('button', { name: '保存并重置连接状态' }));
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: '重新配置 API Key' })).not.toBeInTheDocument();
+    expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables))).not.toContain('replacement-secret');
+  });
 
-  await user.click(screen.getByRole('tab', { name: '请求配置' }));
+  fireEvent.click(screen.getByRole('tab', { name: '请求配置' }));
   apiMocks.POST.mockResolvedValueOnce(result({
     ...channel,
     revision: channel.revision + 1,
     headers: [...channel.headers, { id: 'header-new', name: 'X-New-Secret', is_sensitive: true, is_configured: true, value: null }],
   }));
-  await user.click(screen.getByRole('button', { name: /新增$/ }));
+  fireEvent.click(screen.getByRole('button', { name: /新增$/ }));
   const headerDialog = await findRcDialog('新增 Header');
-  await user.type(within(headerDialog).getByRole('textbox', { name: 'Header 名' }), 'X-New-Secret');
-  await user.type(within(headerDialog).getByLabelText('值'), 'sensitive-header-value');
-  await user.click(within(headerDialog).getByRole('combobox', { name: '类型' }));
-  await user.click(await screen.findByText('敏感且永不回显'));
-  await user.click(within(headerDialog).getByRole('button', { name: /保\s*存/ }));
-  await waitFor(() => expect(screen.queryByRole('dialog', { name: '新增 Header' })).not.toBeInTheDocument());
-  await waitFor(() => expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables))).not.toContain('sensitive-header-value'));
+  fireEvent.change(within(headerDialog).getByRole('textbox', { name: 'Header 名' }), { target: { value: 'X-New-Secret' } });
+  fireEvent.change(within(headerDialog).getByLabelText('值'), { target: { value: 'sensitive-header-value' } });
+  fireEvent.mouseDown(within(headerDialog).getByRole('combobox', { name: '类型' }));
+  fireEvent.click(await screen.findByText('敏感且永不回显'));
+  fireEvent.click(within(headerDialog).getByRole('button', { name: /保\s*存/ }));
+  await waitFor(() => {
+    expect(screen.queryByRole('dialog', { name: '新增 Header' })).not.toBeInTheDocument();
+    expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables))).not.toContain('sensitive-header-value');
+  });
 });
 
 test('复制渠道配置只写入非敏感白名单', async () => {

@@ -113,7 +113,7 @@ test('恢复并规范化组合筛选 URL，全部筛选直接进入服务端分�
   expect(query.get('page_size')).toBe('50');
   expect(screen.getByText(/08:00:00/)).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('button', { name: '重置筛选' }));
+  fireEvent.click(screen.getByRole('button', { name: '重置筛选' }));
   await waitFor(() => {
     const reset = new URLSearchParams(window.location.search);
     expect(reset.has('business_module')).toBe(false);
@@ -140,10 +140,12 @@ test('查看详情展示历史缺失值和真实关联入口，手动刷新同�
   const listBefore = listRequests;
   const detailBefore = detailRequests;
 
-  await userEvent.click(screen.getByRole('button', { name: '手动刷新' }));
-  await waitFor(() => expect(listRequests).toBeGreaterThan(listBefore));
-  await waitFor(() => expect(detailRequests).toBeGreaterThan(detailBefore));
-  await userEvent.click(screen.getByRole('button', { name: '关闭日志详情' }));
+  fireEvent.click(screen.getByRole('button', { name: '手动刷新' }));
+  await waitFor(() => {
+    expect(listRequests).toBeGreaterThan(listBefore);
+    expect(detailRequests).toBeGreaterThan(detailBefore);
+  });
+  fireEvent.click(screen.getByRole('button', { name: '关闭日志详情' }));
   expect(screen.queryByRole('heading', { name: '日志详情' })).not.toBeInTheDocument();
 });
 

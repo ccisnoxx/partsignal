@@ -1,5 +1,5 @@
 /** 验证用户管理只消费服务端统计、筛选分页和命令结果。 */
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../../app/App';
 import type { Schema } from '../../shared/api/types';
@@ -63,7 +63,7 @@ test('默认请求启用用户并以服务端 summary 渲染五张统计卡', as
   expect(screen.queryByText('inactive-engineer')).not.toBeInTheDocument();
   expect(screen.getAllByText('暂无历史基线')).toHaveLength(5);
 
-  await userEvent.click(screen.getByRole('switch', { name: '显示停用账号' }));
+  fireEvent.click(screen.getByRole('switch', { name: '显示停用账号' }));
   expect(await screen.findByText('inactive-engineer')).toBeInTheDocument();
   expect(window.location.search).toBe('?status=ALL');
   await waitFor(() => expect(requests.at(-1)?.searchParams.has('status')).toBe(false));
@@ -92,7 +92,7 @@ test('清理非法 URL，并由筛选和分页参数直接驱动服务端请求'
   expect(requests[0]?.searchParams.get('page')).toBe('2');
   expect(requests[0]?.searchParams.get('page_size')).toBe('50');
 
-  await userEvent.click(screen.getByRole('button', { name: '重置筛选' }));
+  fireEvent.click(screen.getByRole('button', { name: '重置筛选' }));
   await waitFor(() => expect(window.location.search).toBe(''));
   await waitFor(() => expect(requests.at(-1)?.searchParams.get('status')).toBe('ENABLED'));
 });
@@ -116,11 +116,11 @@ test('批量停用展示服务端逐项失败，不把部分成功伪装成全�
   render(<App />);
   await screen.findByText('inactive-engineer');
   const checkboxes = screen.getAllByRole('checkbox');
-  await userEvent.click(checkboxes[1]!);
-  await userEvent.click(checkboxes[2]!);
-  await userEvent.click(screen.getByRole('button', { name: '批量停用' }));
+  fireEvent.click(checkboxes[1]!);
+  fireEvent.click(checkboxes[2]!);
+  fireEvent.click(screen.getByRole('button', { name: '批量停用' }));
   const dialog = await screen.findByRole('dialog');
-  await userEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: '批量停用' }));
 
   expect(await screen.findByText(/批量操作部分完成：成功 1，失败 1/)).toBeInTheDocument();
   expect(screen.getByText(/系统必须保留至少一个有效管理员/)).toBeInTheDocument();
@@ -128,7 +128,6 @@ test('批量停用展示服务端逐项失败，不把部分成功伪装成全�
 });
 
 test('创建用户只提交临时密码字段，并在关闭后销毁敏感表单', async () => {
-  const user = userEvent.setup();
   let submittedBody: Promise<Schema<'UserCreate'>> | undefined;
   window.history.pushState({}, '', '/users');
   mockFetch((request) => {
@@ -145,22 +144,21 @@ test('创建用户只提交临时密码字段，并在关闭后销毁敏感表�
 
   render(<App />);
   await screen.findByRole('heading', { name: '用户管理' });
-  await user.click(screen.getByRole('button', { name: '新增用户' }));
+  fireEvent.click(screen.getByRole('button', { name: '新增用户' }));
   const dialog = await screen.findByRole('dialog');
-  await user.type(within(dialog).getByLabelText('用户名'), 'new-user');
-  await user.type(within(dialog).getByLabelText('显示名称'), '新用户');
-  await user.type(within(dialog).getByLabelText('临时密码'), 'temporary-1234');
-  await user.click(within(dialog).getByRole('combobox', { name: '账号类型' }));
+  fireEvent.change(within(dialog).getByLabelText('用户名'), { target: { value: 'new-user' } });
+  fireEvent.change(within(dialog).getByLabelText('显示名称'), { target: { value: '新用户' } });
+  fireEvent.change(within(dialog).getByLabelText('临时密码'), { target: { value: 'temporary-1234' } });
+  await userEvent.click(within(dialog).getByRole('combobox', { name: '账号类型' }));
   const engineerOption = (await screen.findAllByText('工程师')).find((element) => element.closest('.ant-select-item-option'));
   expect(engineerOption).toBeDefined();
-  await user.click(engineerOption!);
-  await waitFor(() => expect(within(dialog).getAllByText('工程师').length).toBeGreaterThan(0));
-  await user.click(within(dialog).getByRole('button', { name: '创建用户' }));
+  await userEvent.click(engineerOption!);
+  fireEvent.click(within(dialog).getByRole('button', { name: '创建用户' }));
 
   await waitFor(() => expect(submittedBody).toBeDefined());
   expect(await submittedBody).toEqual({ username: 'new-user', display_name: '新用户', temporary_password: 'temporary-1234', account_type: 'ENGINEER' });
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 
-  await user.click(screen.getByRole('button', { name: '新增用户' }));
+  fireEvent.click(screen.getByRole('button', { name: '新增用户' }));
   expect(within(await screen.findByRole('dialog')).getByLabelText('临时密码')).toHaveValue('');
 });

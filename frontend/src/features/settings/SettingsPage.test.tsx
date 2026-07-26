@@ -1,6 +1,5 @@
 /** 发布账号设置测试覆盖定向筛选、修订号写入、启停和冲突反馈。 */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { App } from '../../app/App';
 import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
@@ -96,7 +95,7 @@ test('定向打开账号页后按 revision 编辑、停用并重新启用', asyn
       screen.getByRole('combobox', { name: '按平台筛选账号' }).closest('.ant-select'),
     ).toHaveTextContent('工程师社区'),
   );
-  await userEvent.click(screen.getByRole('button', { name: /新增发布账号/ }));
+  fireEvent.click(screen.getByRole('button', { name: /新增发布账号/ }));
   const createDialog = (await screen.findByText('新增发布账号', {
     selector: '.ant-modal-title',
   })).closest<HTMLElement>('[role="dialog"]');
@@ -104,18 +103,17 @@ test('定向打开账号页后按 revision 编辑、停用并重新启用', asyn
   expect(
     within(createDialog!).getByRole('combobox', { name: '平台' }).closest('.ant-select'),
   ).toHaveTextContent('工程师社区');
-  await userEvent.click(within(createDialog!).getByRole('button', { name: /Close|关闭/ }));
+  fireEvent.click(within(createDialog!).getByRole('button', { name: /Close|关闭/ }));
 
-  await userEvent.click(screen.getByRole('button', { name: '更多操作：主运营账号' }));
+  fireEvent.click(screen.getByRole('button', { name: '更多操作：主运营账号' }));
   fireEvent.click(await screen.findByRole('menuitem', { name: '编辑' }));
   const editDialog = (await screen.findByText('编辑发布账号')).closest<HTMLElement>(
     '[role="dialog"]',
   );
   expect(editDialog).not.toBeNull();
   const label = within(editDialog!).getByRole('textbox', { name: '业务标签' });
-  await userEvent.clear(label);
-  await userEvent.type(label, '主账号（新版）');
-  await userEvent.click(within(editDialog!).getByRole('button', { name: /保\s*存/ }));
+  fireEvent.change(label, { target: { value: '主账号（新版）' } });
+  fireEvent.click(within(editDialog!).getByRole('button', { name: /保\s*存/ }));
   await waitFor(() => expect(writes.some((request) => request.method === 'PATCH')).toBe(true));
   const updateRequest = writes.find((request) => request.method === 'PATCH');
   expect(await updateRequest!.clone().json()).toMatchObject({
@@ -123,15 +121,15 @@ test('定向打开账号页后按 revision 编辑、停用并重新启用', asyn
     expected_revision: 0,
   });
 
-  await userEvent.click(await screen.findByRole('button', { name: '更多操作：主账号（新版）' }));
-  await userEvent.click(await screen.findByText('停用'));
-  await userEvent.click(screen.getByRole('button', { name: /停\s*用/ }));
+  fireEvent.click(await screen.findByRole('button', { name: '更多操作：主账号（新版）' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: '停用' }));
+  fireEvent.click(screen.getByRole('button', { name: /停\s*用/ }));
   await waitFor(() => expect(writes.some((request) => new URL(request.url).pathname.endsWith('/disable'))).toBe(true));
   const disableRequest = writes.find((request) => new URL(request.url).pathname.endsWith('/disable'));
   expect(await disableRequest!.clone().json()).toEqual({ expected_revision: 1 });
 
-  await userEvent.click(await screen.findByRole('button', { name: '更多操作：主账号（新版）' }));
-  await userEvent.click(await screen.findByText('启用'));
+  fireEvent.click(await screen.findByRole('button', { name: '更多操作：主账号（新版）' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: '启用' }));
   await waitFor(() => expect(writes.some((request) => new URL(request.url).pathname.endsWith('/enable'))).toBe(true));
   const enableRequest = writes.find((request) => new URL(request.url).pathname.endsWith('/enable'));
   expect(await enableRequest!.clone().json()).toEqual({ expected_revision: 2 });
@@ -171,16 +169,15 @@ test('编辑为同平台规范化重复标识时在弹窗显示服务端冲突',
   });
 
   render(<App />);
-  await userEvent.click(await screen.findByRole('button', { name: '更多操作：主运营账号' }));
+  fireEvent.click(await screen.findByRole('button', { name: '更多操作：主运营账号' }));
   fireEvent.click(await screen.findByRole('menuitem', { name: '编辑' }));
   const dialog = (await screen.findByText('编辑发布账号')).closest<HTMLElement>(
     '[role="dialog"]',
   );
   expect(dialog).not.toBeNull();
   const identifier = within(dialog!).getByRole('textbox', { name: '运营账号标识（内部）' });
-  await userEvent.clear(identifier);
-  await userEvent.type(identifier, '  OPERATOR-A  ');
-  await userEvent.click(within(dialog!).getByRole('button', { name: /保\s*存/ }));
+  fireEvent.change(identifier, { target: { value: '  OPERATOR-A  ' } });
+  fireEvent.click(within(dialog!).getByRole('button', { name: /保\s*存/ }));
   expect(await within(dialog!).findByRole('alert')).toHaveTextContent(
     '该平台已存在相同的运营账号标识',
   );

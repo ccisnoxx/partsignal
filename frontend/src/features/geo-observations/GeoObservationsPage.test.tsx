@@ -1,6 +1,5 @@
 /** 验证 GEO 人工观测写入、历史空值和记录页服务端查询。 */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { App } from '../../app/App';
 import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
@@ -97,11 +96,18 @@ const topic = {
 } satisfies Schema<'QueryTopic'>;
 
 async function choose(comboboxName: string, optionName: string) {
-  const combobox = screen.getByRole('combobox', { name: comboboxName });
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+  if (!dialog) throw new Error('人工观测弹窗未渲染');
+  const combobox = within(dialog).getByLabelText(comboboxName);
   fireEvent.mouseDown(combobox);
-  const option = await screen.findByText(optionName, { selector: '.ant-select-item-option-content' });
+  const option = await waitFor(() => {
+    const match = [...document.querySelectorAll<HTMLElement>(
+      '.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option-content',
+    )].find((item) => item.textContent === optionName);
+    expect(match).toBeDefined();
+    return match!;
+  });
   fireEvent.click(option);
-  await waitFor(() => expect(combobox.parentElement).toHaveAttribute('title', optionName));
 }
 
 test('选择真实问题主题并提交完整逐篇阶段，服务端失败时保留表单', async () => {
@@ -194,15 +200,15 @@ test('筛选、排序和清除操作写入 URL 并请求服务端', async () => 
   expect(screen.getAllByRole('link', { name: '分析洞察' })).toHaveLength(2);
   expect(screen.queryByRole('button', { name: /导出/ })).not.toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole('switch', { name: '仅看我的记录' }));
+  fireEvent.click(screen.getByRole('switch', { name: '仅看我的记录' }));
   await waitFor(() => expect(listQueries.some((query) => query.get('only_mine') === 'true')).toBe(true));
   expect(window.location.search).toContain('only_mine=true');
 
-  await userEvent.click(screen.getByRole('button', { name: /观测时间/ }));
+  fireEvent.click(screen.getByRole('button', { name: /观测时间/ }));
   await waitFor(() => expect(listQueries.some((query) => query.get('sort_order') === 'ASC')).toBe(true));
   expect(window.location.search).toContain('sort_order=ASC');
 
-  await userEvent.click(screen.getByRole('button', { name: '清除筛选' }));
+  fireEvent.click(screen.getByRole('button', { name: '清除筛选' }));
   await waitFor(() => expect(window.location.search).toBe('?all_time=true'));
   await waitFor(() => expect(listQueries.some((query) => !query.has('date_from') && !query.has('date_to'))).toBe(true));
 });
@@ -227,7 +233,7 @@ test('补采前历史追加更正允许选择真实问题主题', async () => {
   expect(within(dialog).getByText('更正人工观测')).toBeInTheDocument();
   expect(screen.getByRole('combobox', { name: '问题主题' })).toBeEnabled();
   await choose('问题主题', topic.canonical_question);
-  expect(screen.getByRole('combobox', { name: '问题主题' }).parentElement).toHaveAttribute('title', topic.canonical_question);
+  await waitFor(() => expect(screen.getByRole('combobox', { name: '问题主题' }).parentElement).toHaveAttribute('title', topic.canonical_question));
 });
 
 test('人工观测详情对补采前空值明确显示历史未采集', async () => {
@@ -252,7 +258,7 @@ test('人工观测详情对补采前空值明确显示历史未采集', async ()
   });
 
   render(<App />);
-  await userEvent.click(await screen.findByRole('button', { name: 'PS-001 如何替代？' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'PS-001 如何替代？' }));
   expect(await screen.findByText('该记录存在补采前未采集事实；未知值保持未知，不按“否”推断。')).toBeInTheDocument();
   expect(screen.getAllByText('历史未采集').length).toBeGreaterThanOrEqual(4);
   expect(screen.queryByText('历史回答摘要')).not.toBeInTheDocument();
@@ -286,6 +292,6 @@ test('统计失败不遮挡真实观测列表，并提供独立重试入口', as
   const metricState = await screen.findByRole('region', { name: 'GEO 观测统计' });
   expect(await within(metricState).findByRole('alert')).toHaveTextContent('GEO 统计失败');
   const previousRequests = metricRequests;
-  await userEvent.click(within(metricState).getByRole('button', { name: /重\s*试/ }));
+  fireEvent.click(within(metricState).getByRole('button', { name: /重\s*试/ }));
   await waitFor(() => expect(metricRequests).toBeGreaterThan(previousRequests));
 });

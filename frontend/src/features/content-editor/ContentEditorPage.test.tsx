@@ -1,5 +1,5 @@
 /** 验证内容审核页清理 HTML、展示冻结事实和历史，并要求显式批准。 */
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../../app/App';
 import type { Schema } from '../../shared/api/types';
@@ -107,23 +107,23 @@ test('展示冻结审核事实并要求显式批准', async () => {
   expect(within(queue).getByRole('link', { name: /替代方案初稿.*工程内容平台/ })).toHaveAttribute('href', `/content/${previousContent.id}`);
   expect(within(queue).getAllByText('工程内容平台')).toHaveLength(2);
   expect(screen.getByRole('tab', { name: '编辑' })).toHaveAttribute('aria-selected', 'true');
-  await userEvent.click(screen.getByRole('tab', { name: '预览' }));
+  fireEvent.click(screen.getByRole('tab', { name: '预览' }));
   await waitFor(() => expect(container.querySelector('.markdown-preview img')).toBeInTheDocument());
   expect(container.querySelector('.markdown-preview img')).not.toHaveAttribute('onerror');
   expect(screen.getByRole('tab', { name: '预览' })).toHaveAttribute('aria-selected', 'true');
   expect(screen.getByRole('tab', { name: 'Markdown 源文' })).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: '版本差异' })).toBeInTheDocument();
   expect(screen.getByRole('tab', { name: '编辑' })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('tab', { name: '产品事实' }));
+  fireEvent.click(screen.getByRole('tab', { name: '产品事实' }));
   expect(screen.getByText(/工作电压/)).toBeInTheDocument();
   expect(screen.getByText(/公开数据手册/)).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('tab', { name: '审核记录' }));
+  fireEvent.click(screen.getByRole('tab', { name: '审核记录' }));
   expect(screen.getByText('请调整标题')).toBeInTheDocument();
   expect(screen.queryByRole('region', { name: 'AI 追溯' })).not.toBeInTheDocument();
   expect(screen.getAllByRole('button', { name: /批准内容/ })).toHaveLength(1);
-  await userEvent.click(screen.getByRole('button', { name: /批准内容/ }));
+  fireEvent.click(screen.getByRole('button', { name: /批准内容/ }));
   expect(await screen.findByText('请显式确认批准')).toBeInTheDocument();
-  await userEvent.click(screen.getByRole('button', { name: '确认批准' }));
+  fireEvent.click(screen.getByRole('button', { name: '确认批准' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 });
 
@@ -163,7 +163,6 @@ test('人工修订输入后异步更新安全 Markdown 预览', async () => {
 });
 
 test('人工修订聚焦首个错误，并在离开版本前保护未保存 Markdown', async () => {
-  const user = userEvent.setup();
   window.history.pushState({}, '', `/content/${content.id}`);
   mockFetch((request) => {
     const path = new URL(request.url).pathname;
@@ -173,27 +172,27 @@ test('人工修订聚焦首个错误，并在离开版本前保护未保存 Mark
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
   render(<App />);
-  await user.click(await screen.findByRole('tab', { name: '编辑' }));
+  fireEvent.click(await screen.findByRole('tab', { name: '编辑' }));
   const title = screen.getByRole('textbox', { name: '标题' });
-  await user.clear(title);
-  await user.click(screen.getByRole('button', { name: /创建新版本/ }));
+  fireEvent.change(title, { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: /创建新版本/ }));
   await waitFor(() => expect(title).toHaveFocus());
-  await user.type(title, '保留中的人工修订');
+  fireEvent.change(title, { target: { value: '保留中的人工修订' } });
 
   const beforeUnload = new Event('beforeunload', { cancelable: true });
   window.dispatchEvent(beforeUnload);
   expect(beforeUnload.defaultPrevented).toBe(true);
 
-  await user.click(screen.getByRole('link', { name: /替代方案初稿.*工程内容平台/ }));
+  fireEvent.click(screen.getByRole('link', { name: /替代方案初稿.*工程内容平台/ }));
   const confirm = (await screen.findByText('放弃未保存的内容修订？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
   expect(confirm).not.toBeNull();
-  await user.click(within(confirm!).getByRole('button', { name: '继续编辑' }));
+  fireEvent.click(within(confirm!).getByRole('button', { name: '继续编辑' }));
   expect(window.location.pathname).toBe(`/content/${content.id}`);
   expect(title).toHaveValue('保留中的人工修订');
 
-  await user.click(screen.getByRole('link', { name: /替代方案初稿.*工程内容平台/ }));
+  fireEvent.click(screen.getByRole('link', { name: /替代方案初稿.*工程内容平台/ }));
   const discard = (await screen.findByText('放弃未保存的内容修订？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
-  await user.click(within(discard!).getByRole('button', { name: '放弃修改' }));
+  fireEvent.click(within(discard!).getByRole('button', { name: '放弃修改' }));
   await waitFor(() => expect(window.location.pathname).toBe(`/content/${previousContent.id}`));
 });
 

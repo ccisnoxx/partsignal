@@ -43,7 +43,7 @@ OpenSSH 配置负责主机、端口、身份文件、主机密钥验证和连接
 
 ## 3. 发布前提与停止条件
 
-所有发布只接受已通过相应质量门和 CI、干净、已推送且与 `origin/main` 一致的本地主工作目录。
+开发阶段发布不依赖 GitHub Actions 打包，也不等待 GitHub CI 完成。GitHub Actions 只提供异步质量反馈，不是预发布上线门禁；快速和完整发布都从干净、已推送且与 `origin/main` 一致的本地主工作目录直接制作发布包。发布前只运行与本次改动相称的本地最小检查，上线后由操作者通过真实页面和业务流程继续人工验收。
 
 任一路径出现以下情况时停止：
 
@@ -64,6 +64,8 @@ OpenSSH 配置负责主机、端口、身份文件、主机密钥验证和连接
 git pull --ff-only origin main
 make staging-redeploy-fast
 ```
+
+该入口不下载或使用 GitHub Actions 构建产物，也不查询 CI 状态。
 
 不要重复手工打包、上传、构建或探测。`deploy/scripts/redeploy-staging-fast.sh` 会依次：
 

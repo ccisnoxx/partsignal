@@ -152,7 +152,7 @@ unset DB_PASSWORD SESSION_SECRET UPLOAD_SECRET ADMIN_PASSWORD ENGINEER_PASSWORD 
 
 ### 4.1 校验来源并制作发布包
 
-在本地主工作目录执行。所有质量门应在此之前完成；任何断言失败都停止：
+在本地主工作目录执行。先完成与本次改动相称的本地最小检查；开发阶段不等待 GitHub Actions，也不使用其构建产物。以下任一断言失败都停止：
 
 ```sh
 set -eu

@@ -163,7 +163,7 @@ function commonWorkspaceResponse(request: Request, overrides: {
   return undefined;
 }
 
-test('候选登记抽屉只展示匹配账号并在放弃未提交内容前确认', async () => {
+function mockCandidateWorkspace() {
   window.history.pushState({}, '', '/publications');
   mockFetch((request) => {
     const common = commonWorkspaceResponse(request, { candidates: [candidate] });
@@ -172,15 +172,37 @@ test('候选登记抽屉只展示匹配账号并在放弃未提交内容前确�
     if (path.endsWith('/publication-package')) return { body: { content_version_id: content.id, fact_version_id: content.fact_version_id, title: content.title, body_markdown: content.body_markdown, body_html: '<p>正文</p>', body_text: '正文', tags: [], content_hash: content.content_hash } satisfies Schema<'PublicationPackage'> };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
-  render(<App />);
+}
+
+async function openCandidateDrawer() {
   const page = within(await waitFor(() => {
     const root = document.querySelector<HTMLElement>('.app-content');
     expect(root).not.toBeNull();
     return root!;
   }));
-  expect(document.querySelector('[role="dialog"]')).not.toBeInTheDocument();
   fireEvent.click(await page.findByRole('button', { name: '准备人工发布' }));
-  const drawer = await screen.findByRole('dialog');
+  return waitFor(() => {
+    const drawer = document.querySelector<HTMLElement>('.publication-drawer-root [role="dialog"]');
+    expect(drawer).not.toBeNull();
+    return drawer!;
+  });
+}
+
+async function findPublicationConfirm() {
+  return waitFor(() => {
+    const title = [...document.querySelectorAll<HTMLElement>('.ant-modal-confirm-title')]
+      .find((item) => item.textContent === '放弃未提交内容？');
+    const dialog = title?.closest<HTMLElement>('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    return dialog!;
+  });
+}
+
+test('候选登记抽屉只展示匹配账号', async () => {
+  mockCandidateWorkspace();
+  render(<App />);
+  expect(document.querySelector('[role="dialog"]')).not.toBeInTheDocument();
+  const drawer = await openCandidateDrawer();
   expect(within(drawer).getByText('本篇文章只能选择一个账号')).toBeInTheDocument();
   const accountSelect = within(drawer).getByRole('combobox', { name: '发布账号' });
   await waitFor(() => expect(accountSelect).toBeEnabled());
@@ -195,13 +217,23 @@ test('候选登记抽屉只展示匹配账号并在放弃未提交内容前确�
   expect(matchingAccount).toBeInTheDocument();
   expect(screen.queryByText(/跨平台账号/)).not.toBeInTheDocument();
   fireEvent.click(matchingAccount);
+  await waitFor(() => expect(accountSelect.closest('.ant-select')).toHaveTextContent('匹配账号 / matched'));
+});
+
+test('候选登记有未提交内容时确认关闭', async () => {
+  mockCandidateWorkspace();
+  render(<App />);
+  const drawer = await openCandidateDrawer();
+  const sectionUrl = within(drawer).getByRole('textbox', { name: '目标栏目 URL' });
+  await waitFor(() => expect(sectionUrl).toBeEnabled());
+  fireEvent.change(sectionUrl, { target: { value: 'https://community.example.invalid/section' } });
   fireEvent.click(within(drawer).getByRole('button', { name: '关闭' }));
-  const continueDialog = (await screen.findByText('放弃未提交内容？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
-  fireEvent.click(within(continueDialog!).getByRole('button', { name: '继续编辑' }));
+  const continueDialog = await findPublicationConfirm();
+  fireEvent.click(within(continueDialog).getByRole('button', { name: '继续编辑' }));
   expect(within(drawer).getByText('此步骤只创建待人工发布记录')).toBeInTheDocument();
   fireEvent.click(within(drawer).getByRole('button', { name: '关闭' }));
-  const discardDialog = (await screen.findByText('放弃未提交内容？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
-  fireEvent.click(within(discardDialog!).getByRole('button', { name: '放弃并关闭' }));
+  const discardDialog = await findPublicationConfirm();
+  fireEvent.click(within(discardDialog).getByRole('button', { name: '放弃并关闭' }));
   await waitFor(() => expect(window.location.search).not.toContain('candidate='));
 });
 
@@ -217,10 +249,10 @@ test('候选发布包加载失败时展示真实错误并阻止登记', async ()
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
   render(<App />);
-  fireEvent.click(await screen.findByRole('button', { name: '准备人工发布' }));
-  expect(await screen.findByText('发布包加载失败')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: '复制标题' })).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '登记待人工发布' })).toBeDisabled();
+  const drawer = within(await openCandidateDrawer());
+  expect(await drawer.findByText('发布包加载失败')).toBeInTheDocument();
+  expect(drawer.queryByRole('button', { name: '复制标题' })).not.toBeInTheDocument();
+  expect(drawer.getByRole('button', { name: '登记待人工发布' })).toBeDisabled();
 });
 
 test('候选没有匹配账号时提供业务设置恢复入口', async () => {

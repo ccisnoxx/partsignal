@@ -502,7 +502,7 @@ test('新增渠道提交受控品牌与协议且 API Key 只存在于创建载�
   });
 });
 
-test('API Key 与敏感 Header 在弹窗结束后从 mutation 状态清除', async () => {
+test('API Key 在弹窗结束后从 mutation 状态清除', async () => {
   renderWithQuery(
     <Routes><Route path="/configuration/ai" element={<AIChannelsPage />}><Route path="channels/:channelId" element={<AIChannelDetailPage />} /></Route></Routes>,
     ['/configuration/ai/channels/channel-1'],
@@ -517,7 +517,14 @@ test('API Key 与敏感 Header 在弹窗结束后从 mutation 状态清除', asy
     expect(screen.queryByRole('dialog', { name: '重新配置 API Key' })).not.toBeInTheDocument();
     expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables))).not.toContain('replacement-secret');
   });
+});
 
+test('敏感 Header 在弹窗结束后从 mutation 状态清除', async () => {
+  renderWithQuery(
+    <Routes><Route path="/configuration/ai" element={<AIChannelsPage />}><Route path="channels/:channelId" element={<AIChannelDetailPage />} /></Route></Routes>,
+    ['/configuration/ai/channels/channel-1'],
+  );
+  await screen.findByText('生产内容生成渠道');
   fireEvent.click(screen.getByRole('tab', { name: '请求配置' }));
   apiMocks.POST.mockResolvedValueOnce(result({
     ...channel,

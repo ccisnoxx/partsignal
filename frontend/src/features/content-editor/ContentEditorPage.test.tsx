@@ -103,6 +103,18 @@ function renderApprovedReviewPage() {
   return render(<App />);
 }
 
+function renderChangesRequestedReviewPage() {
+  window.history.pushState({}, '', `/content/${content.id}`);
+  mockFetch((request) => {
+    const path = new URL(request.url).pathname;
+    const common = commonPageResponse(path);
+    if (common) return common;
+    if (path.endsWith('/review-context')) return { body: { ...context, content: { ...content, status: 'CHANGES_REQUESTED' } } satisfies Schema<'ContentReviewContext'> };
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+  return render(<App />);
+}
+
 test('展示冻结审核事实和安全预览', async () => {
   const { container } = renderApprovedReviewPage();
   const review = within(await waitFor(() => {
@@ -162,15 +174,7 @@ test('审核上下文失败时不渲染状态操作', async () => {
 });
 
 test('人工修订输入后异步更新安全 Markdown 预览', async () => {
-  window.history.pushState({}, '', `/content/${content.id}`);
-  mockFetch((request) => {
-    const path = new URL(request.url).pathname;
-    const common = commonPageResponse(path);
-    if (common) return common;
-    if (path.endsWith('/review-context')) return { body: { ...context, content: { ...content, status: 'CHANGES_REQUESTED' } } satisfies Schema<'ContentReviewContext'> };
-    throw new Error(`未声明的测试请求：${request.method} ${path}`);
-  });
-  render(<App />);
+  renderChangesRequestedReviewPage();
   await userEvent.click(await screen.findByRole('tab', { name: '编辑' }));
   const editor = await screen.findByRole('textbox', { name: 'Markdown 正文' });
   await userEvent.clear(editor);
@@ -181,35 +185,43 @@ test('人工修订输入后异步更新安全 Markdown 预览', async () => {
   expect(preview.querySelector('img')).not.toHaveAttribute('onerror');
 });
 
-test('人工修订聚焦首个错误，并在离开版本前保护未保存 Markdown', async () => {
-  window.history.pushState({}, '', `/content/${content.id}`);
-  mockFetch((request) => {
-    const path = new URL(request.url).pathname;
-    const common = commonPageResponse(path);
-    if (common) return common;
-    if (path.endsWith('/review-context')) return { body: { ...context, content: { ...content, status: 'CHANGES_REQUESTED' } } satisfies Schema<'ContentReviewContext'> };
-    throw new Error(`未声明的测试请求：${request.method} ${path}`);
-  });
-  render(<App />);
-  fireEvent.click(await screen.findByRole('tab', { name: '编辑' }));
-  const title = screen.getByRole('textbox', { name: '标题' });
+test('人工修订聚焦首个错误', async () => {
+  const { container } = renderChangesRequestedReviewPage();
+  const review = within(await waitFor(() => {
+    const root = container.querySelector<HTMLElement>('.content-review-page');
+    expect(root).not.toBeNull();
+    return root!;
+  }));
+  fireEvent.click(await review.findByRole('tab', { name: '编辑' }));
+  const title = review.getByRole('textbox', { name: '标题' });
   fireEvent.change(title, { target: { value: '' } });
-  fireEvent.click(screen.getByRole('button', { name: /创建新版本/ }));
+  fireEvent.click(review.getByRole('button', { name: /创建新版本/ }));
   await waitFor(() => expect(title).toHaveFocus());
+});
+
+test('离开版本前保护未保存 Markdown', async () => {
+  const { container } = renderChangesRequestedReviewPage();
+  const review = within(await waitFor(() => {
+    const root = container.querySelector<HTMLElement>('.content-review-page');
+    expect(root).not.toBeNull();
+    return root!;
+  }));
+  fireEvent.click(await review.findByRole('tab', { name: '编辑' }));
+  const title = review.getByRole('textbox', { name: '标题' });
   fireEvent.change(title, { target: { value: '保留中的人工修订' } });
 
   const beforeUnload = new Event('beforeunload', { cancelable: true });
   window.dispatchEvent(beforeUnload);
   expect(beforeUnload.defaultPrevented).toBe(true);
 
-  fireEvent.click(screen.getByRole('link', { name: /替代方案初稿.*工程内容平台/ }));
+  fireEvent.click(review.getByRole('link', { name: /替代方案初稿.*工程内容平台/ }));
   const confirm = (await screen.findByText('放弃未保存的内容修订？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
   expect(confirm).not.toBeNull();
   fireEvent.click(within(confirm!).getByRole('button', { name: '继续编辑' }));
   expect(window.location.pathname).toBe(`/content/${content.id}`);
   expect(title).toHaveValue('保留中的人工修订');
 
-  fireEvent.click(screen.getByRole('link', { name: /替代方案初稿.*工程内容平台/ }));
+  fireEvent.click(review.getByRole('link', { name: /替代方案初稿.*工程内容平台/ }));
   const discard = (await screen.findByText('放弃未保存的内容修订？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
   fireEvent.click(within(discard!).getByRole('button', { name: '放弃修改' }));
   await waitFor(() => expect(window.location.pathname).toBe(`/content/${previousContent.id}`));

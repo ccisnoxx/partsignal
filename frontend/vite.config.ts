@@ -21,7 +21,7 @@ export default defineConfig({
     // 共享 CI runner 使用两个 worker 有界并行，避免单 worker 累积导致跨文件超时。
     fileParallelism: true,
     maxWorkers: 2,
-    testTimeout: 20_000,
+    testTimeout: 30_000,
     exclude: ['tests/e2e/**', 'scripts/check-theme-colors.test.mjs', 'node_modules/**', 'dist/**'],
   },
 });

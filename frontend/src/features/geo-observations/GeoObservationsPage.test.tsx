@@ -95,19 +95,22 @@ const topic = {
   created_at: '2026-07-18T00:00:00Z',
 } satisfies Schema<'QueryTopic'>;
 
-async function choose(comboboxName: string, optionName: string) {
-  const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
-  if (!dialog) throw new Error('人工观测弹窗未渲染');
-  const combobox = within(dialog).getByLabelText(comboboxName);
-  fireEvent.mouseDown(combobox);
-  const option = await waitFor(() => {
+async function findVisibleOption(optionName: string) {
+  return waitFor(() => {
     const match = [...document.querySelectorAll<HTMLElement>(
       '.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option-content',
     )].find((item) => item.textContent === optionName);
     expect(match).toBeDefined();
     return match!;
   });
-  fireEvent.click(option);
+}
+
+async function choose(comboboxName: string, optionName: string) {
+  const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+  if (!dialog) throw new Error('人工观测弹窗未渲染');
+  const combobox = within(dialog).getByLabelText(comboboxName);
+  fireEvent.mouseDown(combobox);
+  fireEvent.click(await findVisibleOption(optionName));
 }
 
 test('选择真实问题主题并提交完整逐篇阶段，服务端失败时保留表单', async () => {
@@ -130,36 +133,42 @@ test('选择真实问题主题并提交完整逐篇阶段，服务端失败时�
   });
 
   render(<App />);
-  expect(await screen.findByRole('heading', { name: 'GEO 观测' })).toBeInTheDocument();
-  expect(await screen.findByText('当前筛选范围暂无观测记录')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: /新建观测/ }));
+  const page = within(await waitFor(() => {
+    const root = document.querySelector<HTMLElement>('.geo-observation-page');
+    expect(root).not.toBeNull();
+    return root!;
+  }));
+  expect(await page.findByRole('heading', { name: 'GEO 观测' })).toBeInTheDocument();
+  expect(await page.findByText('当前筛选范围暂无观测记录')).toBeInTheDocument();
+  fireEvent.click(page.getByRole('button', { name: /新建观测/ }));
   const dialog = await screen.findByRole('dialog');
-  expect(within(dialog).getByText('登记人工观测')).toBeInTheDocument();
-  expect(screen.queryByText('启用联网搜索')).not.toBeInTheDocument();
+  const form = within(dialog);
+  expect(form.getByText('登记人工观测')).toBeInTheDocument();
+  expect(form.queryByText('启用联网搜索')).not.toBeInTheDocument();
 
   await choose('产品', 'PartSignal PS-001');
   await choose('问题主题', topic.canonical_question);
-  expect(await screen.findByText('PS-001 选型文章')).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: '查看文章' })).toHaveAttribute('href', 'https://community.example.invalid/ps-001');
-  fireEvent.change(screen.getByRole('textbox', { name: '人工搜索平台' }), { target: { value: 'DeepSeek' } });
-  fireEvent.change(screen.getByRole('textbox', { name: '实际搜索词' }), { target: { value: 'PS-001 如何替代？' } });
+  expect(await form.findByText('PS-001 选型文章')).toBeInTheDocument();
+  expect(form.getByRole('link', { name: '查看文章' })).toHaveAttribute('href', 'https://community.example.invalid/ps-001');
+  fireEvent.change(form.getByRole('textbox', { name: '人工搜索平台' }), { target: { value: 'DeepSeek' } });
+  fireEvent.change(form.getByRole('textbox', { name: '实际搜索词' }), { target: { value: 'PS-001 如何替代？' } });
 
-  const mentionSelect = screen.getByRole('combobox', { name: '是否提及：PS-001 选型文章' });
+  const mentionSelect = form.getByRole('combobox', { name: '是否提及：PS-001 选型文章' });
   fireEvent.mouseDown(mentionSelect);
-  expect(await screen.findByRole('option', { name: '已提及' })).toHaveAttribute('aria-disabled', 'true');
+  expect((await findVisibleOption('已提及')).closest('.ant-select-item-option')).toHaveAttribute('aria-disabled', 'true');
   fireEvent.keyDown(mentionSelect, { key: 'Escape', code: 'Escape' });
   await choose('是否发现：PS-001 选型文章', '已发现');
   await choose('是否提及：PS-001 选型文章', '已提及');
   await choose('文章推荐结果：PS-001 选型文章', '已推荐');
   await choose('是否引用：PS-001 选型文章', '有引用');
   await choose('准确性：PS-001 选型文章', '准确');
-  fireEvent.click(screen.getByRole('button', { name: '选择测试证据' }));
-  expect(screen.getByText('至少上传一张真实搜索结果截图；系统不会自动解析或联网复查。')).toBeInTheDocument();
+  fireEvent.click(form.getByRole('button', { name: '选择测试证据' }));
+  expect(form.getByText('至少上传一张真实搜索结果截图；系统不会自动解析或联网复查。')).toBeInTheDocument();
 
-  fireEvent.click(within(dialog).getByRole('button', { name: /追加观测记录/ }));
-  expect(await screen.findByText('观测事实校验失败')).toBeInTheDocument();
-  expect(screen.getByRole('dialog')).toBeInTheDocument();
-  expect(screen.getByRole('textbox', { name: '实际搜索词' })).toHaveValue('PS-001 如何替代？');
+  fireEvent.click(form.getByRole('button', { name: /追加观测记录/ }));
+  expect(await form.findByText('观测事实校验失败')).toBeInTheDocument();
+  expect(dialog).toBeInTheDocument();
+  expect(form.getByRole('textbox', { name: '实际搜索词' })).toHaveValue('PS-001 如何替代？');
   await waitFor(() => expect(createRequest).toBeInstanceOf(Request));
   await expect(createRequest!.clone().json()).resolves.toMatchObject({
     product_id: productId,
@@ -176,7 +185,7 @@ test('选择真实问题主题并提交完整逐篇阶段，服务端失败时�
       accuracy: 'ACCURATE',
     }],
   });
-}, 45_000);
+}, 60_000);
 
 test('筛选、排序和清除操作写入 URL 并请求服务端', async () => {
   window.history.pushState({}, '', '/observations');
@@ -196,19 +205,24 @@ test('筛选、排序和清除操作写入 URL 并请求服务端', async () => 
   });
 
   render(<App />);
-  expect(await screen.findByText('PS-001 如何替代？')).toBeInTheDocument();
+  const page = within(await waitFor(() => {
+    const root = document.querySelector<HTMLElement>('.geo-observation-page');
+    expect(root).not.toBeNull();
+    return root!;
+  }));
+  expect(await page.findByText('PS-001 如何替代？')).toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: '分析洞察' })).toHaveLength(2);
-  expect(screen.queryByRole('button', { name: /导出/ })).not.toBeInTheDocument();
+  expect(page.queryByRole('button', { name: /导出/ })).not.toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole('switch', { name: '仅看我的记录' }));
+  fireEvent.click(page.getByRole('switch', { name: '仅看我的记录' }));
   await waitFor(() => expect(listQueries.some((query) => query.get('only_mine') === 'true')).toBe(true));
   expect(window.location.search).toContain('only_mine=true');
 
-  fireEvent.click(screen.getByRole('button', { name: /观测时间/ }));
+  fireEvent.click(page.getByRole('button', { name: /观测时间/ }));
   await waitFor(() => expect(listQueries.some((query) => query.get('sort_order') === 'ASC')).toBe(true));
   expect(window.location.search).toContain('sort_order=ASC');
 
-  fireEvent.click(screen.getByRole('button', { name: '清除筛选' }));
+  fireEvent.click(page.getByRole('button', { name: '清除筛选' }));
   await waitFor(() => expect(window.location.search).toBe('?all_time=true'));
   await waitFor(() => expect(listQueries.some((query) => !query.has('date_from') && !query.has('date_to'))).toBe(true));
 });

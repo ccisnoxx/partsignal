@@ -25,7 +25,7 @@ async function login(page: Page, username: string, loginPassword = password): Pr
 
 async function openPasswordPage(page: Page): Promise<void> {
   await page.getByRole('button', { name: '打开用户操作菜单' }).click();
-  await page.getByRole('menuitem', { name: /修改密码/ }).click();
+  await page.getByRole('menuitem', { name: /修改密码/ }).dispatchEvent('click');
 }
 
 async function selectOption(page: Page, label: string, optionName: string): Promise<void> {

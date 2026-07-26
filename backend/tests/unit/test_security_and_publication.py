@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from app.config import Settings
+from app.config import DEVELOPMENT_SESSION_SECRET, Settings
 from app.errors import AppError
 from app.models.geo_files import FileRecord
 from app.schemas.configuration import QueryTopicCreate
@@ -76,6 +76,7 @@ def test_production_rejects_development_session_secret() -> None:
         Settings(
             _env_file=None,
             APP_ENV="production",
+            SESSION_SECRET=DEVELOPMENT_SESSION_SECRET,
             SESSION_COOKIE_SECURE=True,
             OBJECT_STORAGE_BACKEND="aliyun_oss",
             OSS_ENDPOINT="https://oss.example.invalid",

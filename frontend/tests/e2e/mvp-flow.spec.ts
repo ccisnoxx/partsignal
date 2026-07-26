@@ -735,7 +735,18 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await geoForm.getByLabel('选择文件').setInputFiles({ name: `geo-${suffix}.png`, mimeType: 'image/png', buffer: png });
   await expect(geoForm.getByText(`geo-${suffix}.png`)).toBeVisible();
   await geoForm.getByLabel('人工备注').fill('仅用于自动化验收');
+  const createdGeoRecord = page.waitForResponse((response) =>
+    response.url().endsWith('/api/v1/geo-observations')
+      && response.request().method() === 'POST'
+      && response.status() === 201,
+  );
+  const refreshedGeoRecords = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === '/api/v1/geo-observations'
+      && response.request().method() === 'GET'
+      && response.ok(),
+  );
   await geoForm.getByRole('button', { name: /追加观测记录/ }).click();
+  await Promise.all([createdGeoRecord, refreshedGeoRecords]);
   await expect(page.getByRole('button', { name: geoSearchQuery })).toBeVisible();
   const createdGeoDetail = page.getByRole('dialog', { name: '观测详情' });
   await createdGeoDetail.locator('.ant-drawer-close').click();

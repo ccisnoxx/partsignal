@@ -284,16 +284,36 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
     page.getByRole('button', { name: /^已启用\s+4$/ }).click(),
   ]);
   await expectSelectedChannelParams(page, channel.id, { q: visualQuery, status: 'enabled' });
+  await expect(page.getByRole('region', { name: 'AI 渠道列表' })).toBeVisible();
+  const providerChannelsLoaded = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.ok()
+      && url.pathname === '/api/v1/ai-channels'
+      && url.searchParams.get('q') === visualQuery
+      && url.searchParams.get('status') === 'ENABLED'
+      && url.searchParams.get('provider_brand') === 'OPENAI';
+  });
   await page.getByRole('combobox', { name: '筛选供应商品牌' }).click();
   await selectVisibleOption(page, 'OpenAI');
+  await providerChannelsLoaded;
   await expectSelectedChannelParams(page, channel.id, {
     q: visualQuery,
     status: 'enabled',
     provider_brand: 'OPENAI',
   });
   await expect(page.locator('.ai-channel-table tbody tr').filter({ has: page.locator('.ai-channel-name-cell') })).toHaveCount(1);
+  const sortedChannelsLoaded = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.ok()
+      && url.pathname === '/api/v1/ai-channels'
+      && url.searchParams.get('q') === visualQuery
+      && url.searchParams.get('status') === 'ENABLED'
+      && url.searchParams.get('provider_brand') === 'OPENAI'
+      && url.searchParams.get('sort') === 'NAME_ASC';
+  });
   await page.getByRole('combobox', { name: '渠道排序' }).click();
   await selectVisibleOption(page, '名称升序');
+  await sortedChannelsLoaded;
   await expectSelectedChannelParams(page, channel.id, {
     q: visualQuery,
     status: 'enabled',

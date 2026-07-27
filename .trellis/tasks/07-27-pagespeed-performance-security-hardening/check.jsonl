@@ -3,3 +3,5 @@
 {"file": ".trellis/spec/frontend/visual-system.md", "reason": "认证布局和主题回归边界"}
 {"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "测试与代码审查门禁"}
 {"file": ".trellis/tasks/07-27-pagespeed-performance-security-hardening/research/p0-evidence.md", "reason": "核对实现是否修复真实根因"}
+{"file": ".trellis/tasks/07-27-pagespeed-performance-security-hardening/research/p1-evidence.md", "reason": "核对 P1 资源边界、动画、robots 与最终性能证据"}
+{"file": ".trellis/tasks/07-27-pagespeed-performance-security-hardening/research/p2-evidence.md", "reason": "核对 P2 唯一实施项、不实施边界与最终验证"}

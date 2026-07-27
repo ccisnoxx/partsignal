@@ -233,6 +233,10 @@ async function measureAnonymousBoot(browser) {
   await context.close();
   return {
     cls: calculateCls(metrics.layoutShifts),
+    tbt: metrics.longTasks.reduce((total, entry) => total + Math.max(0, entry.duration - 50), 0),
+    protectedResources: metrics.resources
+      .filter((entry) => /AppLayout|ChangePasswordPage|workspace\.css/.test(entry.name))
+      .map((entry) => entry.name),
     maxApi: Math.max(...apiDurations.map((item) => item.duration)),
     apiDurations,
     ...metrics,
@@ -254,6 +258,9 @@ function summarizeAnonymous(samples) {
   return {
     maxCls: Math.max(...samples.map((item) => item.cls)),
     maxLongTask: Math.max(0, ...samples.flatMap((item) => item.longTasks.map((entry) => entry.duration))),
+    maxLongTaskCount: Math.max(...samples.map((item) => item.longTasks.length)),
+    maxTbt: Math.max(...samples.map((item) => item.tbt)),
+    protectedResources: [...new Set(samples.flatMap((item) => item.protectedResources))],
     samples,
   };
 }
@@ -285,6 +292,12 @@ try {
   console.log(JSON.stringify(report, null, 2));
   if (anonymousBoot.maxCls >= clsThreshold) {
     throw new Error(`匿名 / → /login CLS 必须小于 ${clsThreshold}，实际最大值为 ${anonymousBoot.maxCls}`);
+  }
+  if (anonymousBoot.maxLongTaskCount > 0 || anonymousBoot.maxTbt > 0) {
+    throw new Error(`匿名 / → /login 不得新增 Long Task 或 TBT，实际最大值为 ${anonymousBoot.maxLongTaskCount} 项 / ${anonymousBoot.maxTbt}ms`);
+  }
+  if (anonymousBoot.protectedResources.length > 0) {
+    throw new Error(`匿名 / → /login 不得加载受保护路由资源：${anonymousBoot.protectedResources.join(', ')}`);
   }
 } finally {
   await browser?.close();

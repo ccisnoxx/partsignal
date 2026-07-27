@@ -51,3 +51,11 @@ npm run perf:production
 ## 生产性能验收
 
 `npm run perf:production` 会先执行生产构建，再用 Chromium 在 `100ms` 延迟、`1.6Mbps` 下行和 `1440×1000` 视口中分别测量禁用空闲预取的原始冷路由、启用生产预取的首次路由和热路由。每组默认使用五个全新 BrowserContext，并输出目标代码块、Mock API 与 Long Task 数据；开发服务器耗时不作为生产结论。
+
+匿名冷启动按完整 `/` → `/login` 链路单独验收：`AppLayout`、改密页和 `workspace.css` 只在已认证路由按需加载，登录首屏只请求入口 JS/CSS。报告记录初始 JS/CSS `transferSize`、CLS 与 Long Task；TBT 按 `Σ max(0, duration - 50ms)` 计算，并与同一构建、网络和视口下的修改前基线比较。CLS 必须 `< 0.1`，长任务数与 TBT 不得高于基线；Chromium coverage 的未使用 JS/CSS 字节另按同口径冷启动采集，不与压缩传输量混算。
+
+## 内部索引边界
+
+所有 SPA 路由共享 `index.html` 的 `noindex, nofollow`，`public/robots.txt` 同时禁止全站抓取。两者只表达爬虫抓取与索引意图，不是访问控制；认证、权限和私有数据保护仍由服务端负责。
+
+内部系统没有公开搜索摘要、模型能力目录或公开源码映射需求，因此不维护 meta description、`llms.txt` 或生产 source map。现有小型入口 CSS 已满足首屏性能边界，不增加 critical/async CSS、Nginx 特例、依赖或抽象来追逐非业务审计提示。

@@ -3,3 +3,5 @@
 {"file": ".trellis/spec/frontend/visual-system.md", "reason": "认证页布局、主题和响应式约束"}
 {"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端测试与质量门禁"}
 {"file": ".trellis/tasks/07-27-pagespeed-performance-security-hardening/research/p0-evidence.md", "reason": "PageSpeed、认证链和 Nginx 已确认根因"}
+{"file": ".trellis/tasks/07-27-pagespeed-performance-security-hardening/research/p1-evidence.md", "reason": "P1 静态依赖、CSS、动画、robots 与修改前性能基线"}
+{"file": ".trellis/tasks/07-27-pagespeed-performance-security-hardening/research/p2-evidence.md", "reason": "P2 索引、llms、source map 与渲染阻塞收益审查"}

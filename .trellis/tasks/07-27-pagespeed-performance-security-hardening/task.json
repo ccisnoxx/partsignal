@@ -2,7 +2,7 @@
   "id": "pagespeed-performance-security-hardening",
   "name": "pagespeed-performance-security-hardening",
   "title": "PageSpeed 性能与安全加固",
-  "description": "按 PageSpeed 桌面端证据分阶段修复性能、稳定性与公网安全边界；本轮只实施 P0 安全响应头和认证启动 CLS。",
+  "description": "按 PageSpeed 桌面端证据分阶段修复性能、稳定性与公网安全边界；P0 已提交，P1/P2 已完成验证并等待后续提交决定。",
   "status": "in_progress",
   "dev_type": null,
   "scope": "frontend,deploy,docs",

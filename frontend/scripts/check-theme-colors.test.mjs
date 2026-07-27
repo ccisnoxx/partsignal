@@ -112,3 +112,21 @@ test('主题源、认证例外、语义变量和动态图形表达通过', async
   });
   assert.equal(result.status, 0, result.stderr);
 });
+
+test('工作台样式与全局样式执行相同的视觉例外约束', async () => {
+  const accepted = await runFixture({
+    'src/styles/workspace.css': [
+      '.status-tag-compact { border-radius: 4px; }',
+      '.geo-insight-rate-bar-track { border-radius: 999px; }',
+      '.review-queue-platform::before { box-shadow: 0 0 0 3px var(--ps-action-primary-soft); }',
+    ].join('\n'),
+  });
+  assert.equal(accepted.status, 0, accepted.stderr);
+
+  const rejected = await runFixture({
+    'src/styles/workspace.css': '.panel { border-radius: 7px; box-shadow: 0 8px 24px var(--ps-bg-overlay); }',
+  });
+  assert.notEqual(rejected.status, 0);
+  assert.match(rejected.stderr, /src\/styles\/workspace\.css:1:arbitrary-radius:/);
+  assert.match(rejected.stderr, /src\/styles\/workspace\.css:1:arbitrary-shadow:/);
+});

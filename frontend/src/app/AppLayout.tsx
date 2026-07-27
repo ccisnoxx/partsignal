@@ -1,4 +1,5 @@
 /** 内部工作台框架，在桌面和移动端提供同一套路由导航。 */
+import '../styles/workspace.css';
 import {
   BarChartOutlined, DatabaseOutlined, DownOutlined, FileTextOutlined, LockOutlined,
   LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, RocketOutlined, SettingOutlined,

@@ -16,6 +16,7 @@ const forbiddenTokenPattern = /--(?:um-[\w-]+|audit-[\w-]+|geo-(?:border|surface
 const externalVisualPattern = /(?:@font-face|fonts\.(?:googleapis|gstatic)\.com|(?:from|require\s*\()\s*['"][^'"]*(?:tailwindcss|@tailwind|shadcn|lucide|phosphor|styled-components|@emotion)|"(?:tailwindcss|@tailwind|shadcn|lucide|phosphor|styled-components|@emotion)[^"]*"\s*:)/i;
 const themeValuesDeclaration = 'export const projectThemes: Record<ResolvedTheme, ProjectThemeTokens> = {';
 const approvedPrimaryGradientSelector = /^\.ant-btn\.ant-btn-primary:not\(\.ant-btn-dangerous\):not\(\.review-approve-button\)(?::(?:hover|active))?$/;
+const controlledStylesheets = new Set(['src/styles/global.css', 'src/styles/workspace.css']);
 
 function isRawColorAllowed(name, line, insideThemeValues) {
   return (name === 'src/app/theme.ts' && insideThemeValues)
@@ -24,7 +25,7 @@ function isRawColorAllowed(name, line, insideThemeValues) {
 
 function isRadiusAllowed(name, line, value) {
   if (value === '0') return true;
-  if (name !== 'src/styles/global.css') return false;
+  if (!controlledStylesheets.has(name)) return false;
   if (value === '4') {
     return /\.(?:status-tag-compact|dashboard-action-state|user-management-boolean|prompt-platform-status|prompt-editor-meta)\b|\.user-management-page \.status-tag\b/.test(line);
   }
@@ -39,7 +40,7 @@ function isRadiusAllowed(name, line, value) {
 
 function isShadowAllowed(name, line, value) {
   if (/^none\b|^var\(--ps-shadow-(?:sm|md|lg)\)(?:\s*!important)?$/.test(value)) return true;
-  if (name !== 'src/styles/global.css') return false;
+  if (!controlledStylesheets.has(name)) return false;
   if (
     /\binset\b/.test(value)
     && /\.(?:geo-insight-filter-card\b|geo-insight-filter-grid\b|review-editor-frame\b|form-section-nav\b|diff-(?:add|delete)\b|ai-channel-table\b.*ai-channel-row-selected\b|prompt-platform-list\b.*is-selected\b|prompt-editor-surface\b.*focus-visible\b)/.test(line)

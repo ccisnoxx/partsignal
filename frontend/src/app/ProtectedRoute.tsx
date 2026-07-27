@@ -1,4 +1,5 @@
 /** 保护内部路由，并保留登录后的返回地址。 */
+import { Suspense } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { QueryFailure, QueryLoading } from '../shared/components/AsyncState';
 import { useAuth } from '../features/auth/AuthProvider';
@@ -12,5 +13,9 @@ export function ProtectedRoute() {
   if (auth.user?.must_change_password && location.pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />;
   }
-  return <Outlet />;
+  return (
+    <Suspense fallback={<main className="auth-boot"><QueryLoading /></main>}>
+      <Outlet />
+    </Suspense>
+  );
 }

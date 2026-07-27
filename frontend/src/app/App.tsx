@@ -1,10 +1,9 @@
 /** 应用根组件，声明全局 Provider 和全部业务路由。 */
 import { QueryClientProvider } from '@tanstack/react-query';
+import { lazy } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from '../features/auth/LoginPage';
-import { ChangePasswordPage } from '../features/auth/ChangePasswordPage';
 import { AuthProvider } from '../features/auth/AuthProvider';
-import { AppLayout } from './AppLayout';
 import { ProtectedRoute } from './ProtectedRoute';
 import { queryClient } from './queryClient';
 import {
@@ -29,6 +28,11 @@ import {
   UserManagementPage,
 } from './routeLoaders';
 import { ThemeProvider } from './ThemeProvider';
+
+const AppLayout = lazy(async () => ({ default: (await import('./AppLayout')).AppLayout }));
+const ChangePasswordPage = lazy(async () => ({
+  default: (await import('../features/auth/ChangePasswordPage')).ChangePasswordPage,
+}));
 
 export function App() {
   return (

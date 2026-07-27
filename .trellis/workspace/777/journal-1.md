@@ -996,3 +996,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 30: 自动 Logo 导入与资源清理
+
+**Date**: 2026-07-27
+**Task**: 自动 Logo 导入与资源清理
+**Branch**: `main`
+
+### Summary
+
+实现 Icon Horse 单候选预览确认、自有对象存储绑定、旧外链只读退出及 24 小时/7 天分级清理；同步契约、迁移、前端、测试与方案文档，并通过单元、真实 PostgreSQL/Redis 集成和镜像构建验证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7d7175f` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

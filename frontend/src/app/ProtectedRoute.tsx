@@ -6,7 +6,7 @@ import { useAuth } from '../features/auth/AuthProvider';
 export function ProtectedRoute() {
   const auth = useAuth();
   const location = useLocation();
-  if (auth.isLoading) return <main className="centered"><QueryLoading /></main>;
+  if (auth.isLoading) return <main className="auth-boot"><QueryLoading /></main>;
   if (auth.user && auth.error) return <main className="centered"><QueryFailure error={auth.error} /></main>;
   if (!auth.isAuthenticated) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   if (auth.user?.must_change_password && location.pathname !== '/change-password') {

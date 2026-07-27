@@ -16,7 +16,7 @@ async function expectBootTheme(page: Page, mode: keyof typeof projectThemes) {
   await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content', tokens.bgCanvas);
 }
 
-test('匿名登录页使用无内容会话探测且不产生运行时错误', async ({ page }) => {
+test('匿名根路径经过无内容会话探测进入登录页且 CLS 达标', async ({ page }) => {
   const runtimeErrors: string[] = [];
   const failedRequests: string[] = [];
   const csrfRequests: string[] = [];
@@ -32,17 +32,47 @@ test('匿名登录页使用无内容会话探测且不产生运行时错误', as
   page.on('request', (request) => {
     if (new URL(request.url()).pathname === '/api/v1/auth/csrf') csrfRequests.push(request.url());
   });
+  await page.addInitScript(() => {
+    const shifts: number[] = [];
+    Object.defineProperty(globalThis, '__partsignalLayoutShifts', { configurable: true, value: shifts });
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries() as Array<PerformanceEntry & { hadRecentInput: boolean; value: number }>) {
+        if (!entry.hadRecentInput) shifts.push(entry.value);
+      }
+    }).observe({ type: 'layout-shift', buffered: true });
+  });
+  let releaseSessionProbe!: () => void;
+  const authBootPainted = new Promise<void>((resolve) => {
+    releaseSessionProbe = resolve;
+  });
+  await page.route('**/api/v1/auth/me', async (route) => {
+    await authBootPainted;
+    await route.fulfill({ status: 204 });
+  });
 
   const sessionProbe = page.waitForResponse(
     (response) => new URL(response.url()).pathname === '/api/v1/auth/me',
   );
-  await page.goto('/login');
+  await page.goto('/');
+  await expect(page.locator('.auth-boot')).toBeVisible();
+  await page.evaluate(() => new Promise((resolve) => {
+    globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(resolve));
+  }));
+  releaseSessionProbe();
 
   const sessionResponse = await sessionProbe;
   expect(sessionResponse.status()).toBe(204);
+  await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByLabel('账号')).toBeVisible();
   await expect(page.getByLabel('密码')).toBeVisible();
   await expect(page.getByRole('button', { name: /登\s*录/ })).toBeEnabled();
+  await page.evaluate(() => new Promise((resolve) => {
+    globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(resolve));
+  }));
+  const cls = await page.evaluate(() => (
+    globalThis as typeof globalThis & { __partsignalLayoutShifts: number[] }
+  ).__partsignalLayoutShifts.reduce((total, value) => total + value, 0));
+  expect(cls).toBeLessThan(0.1);
   expect(csrfRequests).toEqual([]);
   expect(failedRequests).toEqual([]);
   expect(runtimeErrors).toEqual([]);

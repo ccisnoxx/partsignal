@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端开发入口与强制检查"}
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "认证页布局、主题和响应式约束"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端测试与质量门禁"}
+{"file": ".trellis/tasks/07-27-pagespeed-performance-security-hardening/research/p0-evidence.md", "reason": "PageSpeed、认证链和 Nginx 已确认根因"}

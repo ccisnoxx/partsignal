@@ -708,7 +708,8 @@ networks:
 
 ### 12.2 站点配置示意
 
-配置应复用服务器现有 Nginx snippet，下面仅表达结构：
+配置以 `deploy/nginx/partsignal.conf.template` 和
+`deploy/nginx/partsignal-security-headers.conf` 为权威，下面仅表达结构：
 
 ```nginx
 upstream geo_api_backend {
@@ -734,7 +735,8 @@ server {
 
     include /etc/nginx/snippets/cert-962850.xyz.conf;
     include /etc/nginx/snippets/ssl-common.conf;
-    include /etc/nginx/snippets/security-headers-web.conf;
+    include /etc/nginx/snippets/partsignal-security-headers.conf;
+    add_header_inherit merge;
 
     root /var/www/geo-frontend/current;
     index index.html;

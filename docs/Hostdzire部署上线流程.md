@@ -13,11 +13,12 @@
 | 认证、权限、路由、全局壳层等高风险 UI 变化 | 完整发布 + 登录后浏览器验收 | 第 5、6 节 |
 | 快速脚本主动拒绝 | 停止 | 不绕过门禁；排除现场异常后走完整发布 |
 
-快速脚本比较且只比较以下 5 个门禁路径：
+快速脚本比较且只比较以下 6 个门禁路径：
 
 - `backend/alembic/versions/`
 - `.env.example`
 - `deploy/compose.staging.yaml`
+- `deploy/nginx/partsignal-security-headers.conf`
 - `deploy/nginx/partsignal.staging.conf.template`
 - `deploy/scripts/deploy-staging.sh`
 
@@ -34,6 +35,8 @@
 | 持久数据 | `/root/partsignal-data`，不得放入 release |
 | Compose 项目 | `partsignal-staging` |
 | 回环端口 | API `19000`、开发对象存储 `19001`、前端 `19080` |
+| 外层 Nginx | `1.29.3` 或更高；Hostdzire 当前已确认 `1.29.8` |
+| 公网安全头权威 | 仓库 `deploy/nginx/partsignal-security-headers.conf`；宿主机运行副本 `/etc/nginx/snippets/partsignal-security-headers.conf` |
 
 服务器连接只使用 `/Users/sc/.ssh/config`：`hostdzire` 是部署、上传、配置和常规运维的唯一写入目标；`dmit` 仅用于公网入口异常时的只读诊断。不得向 `dmit` 上传文件、修改配置或重启服务。
 
@@ -51,6 +54,7 @@ OpenSSH 配置负责主机、端口、身份文件、主机密钥验证和连接
 - SSH 主机密钥冲突，或 `hostdzire` 指向的主机身份不符合预期。
 - 发布包为空、缺少 `.env.example`，或包含环境文件、密钥、AppleDouble 文件。
 - `preflight-integrity` 报告问题，Compose 配置无效、容器不健康或相应探针失败。
+- `node deploy/scripts/check-nginx-security.mjs` 失败，Nginx 低于 `1.29.3`，或 `nginx -t` 失败。
 
 快速发布还会在共享环境文件缺失或权限不是 `0600`、`current` 无效、任一快速门禁路径缺失或变化时停止。它不以数据库备份、迁移或登录后浏览器验收为前提。
 
@@ -73,7 +77,7 @@ make staging-redeploy-fast
 2. 确认 Hostdzire 的 release 根目录、共享环境文件和有效 `current`。
 3. 生成含秒级时间戳与 12 位 commit 的 release，从目标提交制作并检查安全归档。
 4. 上传到 `hostdzire`，创建不可覆盖的 release，链接权限为 `0600` 的共享环境文件。
-5. 在构建或替换容器前比较第 1 节的 5 个门禁路径，缺失或变化即拒绝。
+5. 在构建或替换容器前比较第 1 节的 6 个门禁路径，缺失或变化即拒绝。
 6. 校验 Compose，构建镜像，启动 PostgreSQL、Redis、`fake-oss`，运行只读 `preflight-integrity`。
 7. 等待 Worker、Scheduler、API、前端健康，并检查回环 API ready 和前端首页。
 8. 执行 `nginx -t`，检查公网 `live`、`ready` 与首页标题；全部通过后原子更新 `current`。
@@ -92,7 +96,7 @@ make staging-redeploy-fast
 2. 上传并准备 release；正常升级只链接既有共享环境文件。
 3. 已有数据先备份；有损迁移还要在隔离 PostgreSQL 验证恢复。
 4. 运行默认 `full` 部署，完成只读门禁、迁移、健康检查和幂等种子账号。
-5. 仅在首次安装或 staging Nginx 模板变化时更新独立站点。
+5. 仅在首次安装或 staging Nginx 模板、项目安全 snippet 变化时更新独立站点与项目 snippet。
 6. 完成公网、缓存、对象存储代理、登录后浏览器和主机验收，再更新 `current`。
 
 首次空库可以跳过备份；已有数据时备份为空必须停止。有损迁移未通过隔离恢复验证、浏览器能力不可用或任一验收失败时，完整发布不得标记成功。
@@ -104,7 +108,8 @@ make staging-redeploy-fast
 | Compose、镜像、容器、本机 ready/首页 | 脚本自动 | 部署脚本自动 |
 | 公网 `live`、`ready`、首页标题 | 脚本自动 | 操作者执行 |
 | 数据库备份与迁移 | 不执行 | 已有数据先备份，部署脚本迁移 |
-| Nginx | 脚本自动 `nginx -t` | 模板变化时校验并 reload |
+| Nginx | 脚本自动 `nginx -t` | 模板或项目安全 snippet 变化时校验并 reload |
+| 缓存头与项目安全头共存 | 安全配置无变化时沿用上次完整验收 | `/`、`/index.html`、`/assets/*` 必须逐项验证 |
 | 缓存与对象存储代理 | 不单独扩展 | 操作者验证 |
 | 登录后浏览器只读验收 | 非高风险变更不要求 | 必须执行 |
 | `current` 更新 | 脚本在自动验收后更新 | 操作者在全部验收后更新 |
@@ -112,6 +117,8 @@ make staging-redeploy-fast
 完整浏览器验收必须通过真实公网域名在本机执行，不在服务器或容器安装浏览器，不用 `curl` 代替真实渲染。只读检查 `/login`、工作台和 `/configuration/ai`；不得输出或持久化密码，不创建业务数据或修改线上配置。详细安全步骤见[附录第 4.6 节](./Hostdzire部署附录.md#46-完整验收与更新-current)。
 
 公网环境固定 `AI_ALLOW_LOCAL_HTTP=false`。依赖回环 Mock Provider 的纵向 E2E 只在本地或 CI 隔离环境运行，不得为测试放宽公网安全策略。
+
+项目安全头必须包含 CSP、`Strict-Transport-Security: max-age=31536000`、`Cross-Origin-Opener-Policy: same-origin`、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff` 和 `Referrer-Policy: strict-origin-when-cross-origin`。CSP 内联主题脚本哈希以 `node deploy/scripts/check-nginx-security.mjs` 输出为准；不得手工猜测、改用 `script-src 'unsafe-inline'` 或依赖宿主机共享安全 snippet。
 
 ## 7. 回滚摘要
 
@@ -121,4 +128,4 @@ make staging-redeploy-fast
 
 数据库默认不执行 Alembic downgrade。有损迁移需要保留故障现场，确认恢复窗口和数据取舍，再恢复迁移前完整备份并启动兼容旧 release；备份必须与对应 `AI_CREDENTIAL_ENCRYPTION_KEY` 成对保护。具体命令和故障入口见[附录第 5、6 节](./Hostdzire部署附录.md#5-回滚与恢复)。
 
-任何回滚都不删除 release、镜像、备份或 `/root/partsignal-data`。
+Nginx 回滚必须同时恢复同一个已验证 release 的 staging 模板和项目安全 snippet，`nginx -t` 通过后才能 reload；客户端已缓存的 HSTS 在一年有效期内不会被配置回滚立即撤销。任何回滚都不删除 release、镜像、备份或 `/root/partsignal-data`。

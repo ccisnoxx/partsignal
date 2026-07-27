@@ -739,6 +739,8 @@ body:has(.products-page) .form-dialog-actions { justify-content: flex-end; }
 .login-security-note div { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--ps-text-primary); font-size: 14px; }
 .login-security-note .anticon { color: var(--ps-action-primary); font-size: 17px; }
 .login-security-note p { margin: 5px 0 0; font-size: 12px; line-height: 1.5; }
+.auth-boot { display: grid; min-height: 100dvh; place-items: center; padding: 24px; }
+.auth-boot > [aria-busy="true"] { width: min(100%, 680px); }
 .centered { width: min(100% - 24px, 680px); margin: 16vh auto; padding: 24px; }
 .centered > .ant-card { max-width: 100%; }
 .route-loading { min-height: min(560px, 70vh); padding: 24px; border: 1px solid var(--ps-border-subtle); border-radius: var(--ps-radius-lg); background: var(--ps-bg-surface); }

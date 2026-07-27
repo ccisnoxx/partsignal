@@ -21,7 +21,8 @@ server {
 
     include /etc/nginx/snippets/cert-962850.xyz.conf;
     include /etc/nginx/snippets/ssl-common.conf;
-    include /etc/nginx/snippets/security-headers-web.conf;
+    include /etc/nginx/snippets/partsignal-security-headers.conf;
+    add_header_inherit merge;
 
     root /var/www/partsignal-frontend/current;
     index index.html;

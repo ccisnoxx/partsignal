@@ -11,7 +11,9 @@
 - `.env.example`
 - `backend/alembic/versions/`
 - `deploy/compose.staging.yaml`
+- `deploy/nginx/partsignal-security-headers.conf`
 - `deploy/nginx/partsignal.staging.conf.template`
+- `deploy/scripts/check-nginx-security.mjs`
 - `deploy/scripts/deploy-staging.sh`
 - `deploy/scripts/backup.sh`
 - `deploy/scripts/restore-verify.sh`
@@ -71,8 +73,9 @@ free -h
 test -f /etc/nginx/snippets/acme-challenge.conf
 test -f /etc/nginx/snippets/cert-962850.xyz.conf
 test -f /etc/nginx/snippets/ssl-common.conf
-test -f /etc/nginx/snippets/security-headers-web.conf
 ```
+
+PartSignal 项目安全头不再依赖会影响其他站点的共享 snippet。确认 `nginx -v` 为 `1.29.3` 或更高版本；当前 Hostdzire 已确认 `1.29.8`，低于版本下限时停止，不能复制安全头到每个 location 规避 `add_header_inherit merge`。
 
 确认没有端口冲突后，在 Hostdzire 创建受保护目录：
 
@@ -160,6 +163,7 @@ test "$(git branch --show-current)" = main
 test -z "$(git status --porcelain)"
 git pull --ff-only origin main
 test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+node deploy/scripts/check-nginx-security.mjs
 
 DEPLOY_COMMIT=$(git rev-parse origin/main)
 RELEASE_ID="mvp-$(date +%Y%m%d-%H%M%S)-$(git rev-parse --short=12 "$DEPLOY_COMMIT")"
@@ -285,18 +289,23 @@ PARTSIGNAL_VERSION="$RELEASE_ID" \
 
 ### 4.5 首次安装或更新 Nginx
 
-只有首次启用或 `deploy/nginx/partsignal.staging.conf.template` 变化时执行；只修改 PartSignal 独立站点：
+只有首次启用或 `deploy/nginx/partsignal.staging.conf.template`、`deploy/nginx/partsignal-security-headers.conf` 变化时执行；站点与项目安全 snippet 必须来自同一个 release，只修改 PartSignal 自己的运行配置：
 
 ```sh
 set -eu
 TEMPLATE="$RELEASE_DIR/deploy/nginx/partsignal.staging.conf.template"
 TARGET=/etc/nginx/sites-available/partsignal-staging.conf
+SECURITY_SOURCE="$RELEASE_DIR/deploy/nginx/partsignal-security-headers.conf"
+SECURITY_TARGET=/etc/nginx/snippets/partsignal-security-headers.conf
 
+install -m 0644 "$SECURITY_SOURCE" "$SECURITY_TARGET"
 sed 's/<HOSTDZIRE_WG_ADDRESS>/10.0.0.2/g' "$TEMPLATE" >"$TARGET"
 ln -sfn "$TARGET" /etc/nginx/sites-enabled/partsignal-staging.conf
 nginx -t
 systemctl reload nginx
 ```
+
+不得修改或依赖 `/etc/nginx/snippets/security-headers-web.conf`。项目 snippet 通过 server 级 `add_header_inherit merge` 与 location 的 `Cache-Control` 合并；要求 Nginx `1.29.3` 或更高版本。
 
 Hostdzire WireGuard 的 `80/443` 监听要求 `proxy_protocol`。不要用普通 `curl` 直连 `10.0.0.2:443`；缺少 PROXY Header 会被重置，所有外部验收都走公网域名。
 
@@ -330,6 +339,17 @@ curl --fail --silent --show-error --compressed -D - -o /dev/null \
 ```
 
 带哈希的 `/assets/` 必须返回 `Cache-Control: public, max-age=31536000, immutable` 和 `Vary: Accept-Encoding`；`index.html` 与 SPA fallback 必须返回 `Cache-Control: no-cache`。WOFF2 不应返回 `Content-Encoding: gzip`。`/object-storage/` 出现 `502` 时停止验收，检查 `fake-oss` 的 internal 与 edge 网络。
+
+上述 `/`、`/index.html` 和 `/assets/*` 三类响应还必须同时返回：
+
+- `Content-Security-Policy`，其中 `script-src` 仅含 `'self'` 与 `node deploy/scripts/check-nginx-security.mjs` 校验出的主题脚本 SHA-256；
+- `Strict-Transport-Security: max-age=31536000`；
+- `Cross-Origin-Opener-Policy: same-origin`；
+- `X-Frame-Options: DENY`；
+- `X-Content-Type-Options: nosniff`；
+- `Referrer-Policy: strict-origin-when-cross-origin`。
+
+任一缓存头或项目安全头缺失、重复或漂移都停止验收。`style-src 'unsafe-inline'` 只为现有 Ant Design CSS-in-JS 保留；`connect-src` 与 `img-src` 的 `https:` 只覆盖已确认的对象存储直传和图片 URL，不得放宽 `script-src`。
 
 命令行检查通过后，用本机浏览器通过真实公网域名完成登录后只读验收：
 
@@ -407,6 +427,8 @@ PARTSIGNAL_VERSION="$PREVIOUS_RELEASE" \
 
 重新执行第 4.6 节的公网、浏览器与主机验收，通过后再按同节原子更新 `current`。只切换 `current` 不会改变运行容器，不能作为应用回滚。
 
+若回滚包含 Nginx，必须从同一个已验证旧 release 同时恢复 `partsignal.staging.conf.template` 和 `partsignal-security-headers.conf`，按第 4.5 节渲染、执行 `nginx -t` 后再 reload。HSTS 一旦被客户端接收，在 `max-age=31536000` 有效期内不能通过服务器回滚立即撤销。
+
 ### 5.2 数据库恢复边界
 
 默认不执行 Alembic downgrade。新迁移涉及删除列、数据重写或其他不可逆行为时，停止应用写入并保留故障现场备份；负责人确认恢复窗口和数据取舍后，才可恢复迁移前完整备份并启动兼容旧 release。
@@ -427,6 +449,8 @@ PARTSIGNAL_VERSION="$PREVIOUS_RELEASE" \
 | 发布包含环境文件或密钥 | 立即停止，清理仓库敏感文件并形成新的已推送提交 |
 | `/object-storage/` 返回 `502` | 确认 `fake-oss` 同时位于 `partsignal-staging-internal` 与 `partsignal-staging-edge` |
 | 直接访问 WireGuard HTTPS 被重置 | Hostdzire Nginx 要求 `proxy_protocol`；通过公网域名验证 |
+| HTML、JS 或 CSS 只有缓存头、缺少安全头 | 检查 Nginx 版本、项目 snippet include 与 `add_header_inherit merge`，不得在 location 复制安全头 |
+| CSP 阻断主题启动脚本 | 运行 `node deploy/scripts/check-nginx-security.mjs`，同步准确哈希后走完整发布；不得启用 `script-src 'unsafe-inline'` |
 | API 重建后短暂 reset | 使用有上限的重试；持续失败时检查 API 日志，不忽略为成功 |
 | 生成作业不推进 | 检查 Worker、Scheduler、Redis Broker 和 PostgreSQL 作业状态；Redis 不是业务状态源 |
 | AI 凭据无法解密 | 恢复匹配主密钥或显式重新录入；不得静默回退 |

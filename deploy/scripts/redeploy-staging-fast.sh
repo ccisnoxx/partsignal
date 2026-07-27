@@ -168,6 +168,7 @@ for critical_path in \
   backend/alembic/versions \
   .env.example \
   deploy/compose.staging.yaml \
+  deploy/nginx/partsignal-security-headers.conf \
   deploy/nginx/partsignal.staging.conf.template \
   deploy/scripts/deploy-staging.sh
 do

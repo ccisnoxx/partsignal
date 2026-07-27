@@ -9,6 +9,13 @@
 - 发布失败必须保留可观察的错误、容器状态和数据现场，不用固定成功响应、静默回退、隐藏 allowlist 或放宽安全配置掩盖故障。
 - 清理 release、镜像、备份和持久数据是独立破坏性操作，不属于部署或回滚的默认组成。
 
+## 公网安全头
+
+- `deploy/nginx/partsignal-security-headers.conf` 是 PartSignal 公网安全头的唯一仓库权威；外层 production/staging 站点引用它，容器内 `frontend/nginx.conf` 不重复定义。
+- 外层 Nginx 必须为 `1.29.3` 或更高版本，并通过 `add_header_inherit merge` 让 location 缓存头与项目安全头同时返回。升级或回滚前运行 `node deploy/scripts/check-nginx-security.mjs` 和 `nginx -t`。
+- CSP `script-src` 只允许同源脚本和 `frontend/index.html` 当前内联主题脚本的准确 SHA-256。主题脚本或 CSP 任一侧变化都必须同步更新并通过自动检查，不得改用 `unsafe-inline` 或宽松 fallback。
+- Ant Design 运行时样式保留 `style-src 'unsafe-inline'`；对象存储直传和图片只保留已确认的 HTTPS scheme 边界。HSTS 固定为 `max-age=31536000`，不包含 `includeSubDomains` 或 preload。
+
 ## 数据与网络原则
 
 - PostgreSQL 是业务状态唯一来源；Redis 只用于 Celery Broker，不能用 Redis 状态替代、修复或推断业务事实。
@@ -43,6 +50,8 @@ AI 请求只连接经过校验的公网地址，TLS 身份与 Host 使用渠道�
 数据库备份与当时的 `AI_CREDENTIAL_ENCRYPTION_KEY` 必须成对保护。恢复数据库但使用另一主密钥，会使已有 AI 渠道凭据无法解密。
 
 应用回滚只允许使用与当前数据库契约兼容的旧版本，并必须重新完成相应验收。状态机或数据契约不兼容时，先停止相关写流量与 Scheduler，再由负责人确认前滚或恢复方案。
+
+Nginx 回滚必须把站点模板和 PartSignal 项目安全 snippet 恢复到同一个已验证 release，运行 `nginx -t` 后再 reload。已经被客户端接收的 HSTS 在有效期内不能通过服务器回滚立即撤销。
 
 ## 验收与 E2E 边界
 

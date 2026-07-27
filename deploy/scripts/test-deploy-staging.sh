@@ -11,6 +11,8 @@ cleanup() {
 }
 trap cleanup 0 INT TERM
 
+node "$root/deploy/scripts/check-nginx-security.mjs"
+
 mkdir "$test_dir/bin"
 printf '%s\n' \
   '#!/bin/sh' \
@@ -112,5 +114,8 @@ awk '
            homepage < current_switch)
   }
 ' "$root/deploy/scripts/redeploy-staging-fast.sh"
+
+grep -q 'deploy/nginx/partsignal-security-headers.conf' \
+  "$root/deploy/scripts/redeploy-staging-fast.sh"
 
 printf '%s\n' "预发布 full/fast 部署模式自检通过"

@@ -930,3 +930,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 28: 完成受限删除与账号治理
+
+**Date**: 2026-07-27
+**Task**: 完成受限删除与账号治理
+**Branch**: `main`
+
+### Summary
+
+实现内容任务与停用用户受限删除、0027 审计操作者门禁、8 位重置临时密码和平台 Logo 尺寸修正，并完成契约、文档、测试与真实浏览器验收。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `661693f` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

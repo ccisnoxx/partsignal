@@ -1,0 +1,11 @@
+- main [ref=e4]:
+  - generic "正在加载内容" [ref=e5]:
+    - generic [ref=e7]:
+      - heading [level=3] [ref=e8]
+      - list [ref=e9]:
+        - listitem [ref=e10]
+        - listitem [ref=e11]
+        - listitem [ref=e12]
+        - listitem [ref=e13]
+        - listitem [ref=e14]
+        - listitem [ref=e15]

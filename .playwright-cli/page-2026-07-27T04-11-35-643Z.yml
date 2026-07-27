@@ -1,0 +1,21 @@
+- main [ref=f1e16]:
+  - generic [ref=f1e18]:
+    - text: 账号安全
+    - heading "修改密码" [level=2] [ref=f1e19]
+    - generic [ref=f1e20]: 修改后其他登录会话会被撤销。
+    - generic [ref=f1e21]:
+      - generic [ref=f1e23]:
+        - generic "当前密码" [ref=f1e25]: "* 当前密码"
+        - generic [ref=f1e29]:
+          - textbox "* 当前密码" [ref=f1e30]: old-pass
+          - button "显示" [ref=f1e32] [cursor=pointer]:
+            - img "eye-invisible" [ref=f1e33]
+      - generic [ref=f1e38]:
+        - generic "新密码" [ref=f1e40]: "* 新密码"
+        - generic [ref=f1e41]:
+          - generic [ref=f1e44]:
+            - textbox "* 新密码" [invalid] [ref=f1e45]: "1234567"
+            - button "显示" [ref=f1e47] [cursor=pointer]:
+              - img "eye-invisible" [ref=f1e48]
+          - generic [ref=f1e54]: 新密码最少8个字符
+      - button "更新密码" [active] [ref=f1e52] [cursor=pointer]

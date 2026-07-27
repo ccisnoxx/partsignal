@@ -84,7 +84,7 @@ class ResetPasswordRequest(ContractModel):
 
 class ChangePasswordRequest(ContractModel):
     old_password: str = Field(min_length=8)
-    new_password: str = Field(min_length=12)
+    new_password: str = Field(min_length=8)
 
 
 class UserBulkStatusItem(ContractModel):

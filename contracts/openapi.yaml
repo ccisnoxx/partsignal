@@ -2119,7 +2119,7 @@ components:
       required: [old_password, new_password]
       properties:
         old_password: {type: string, minLength: 8}
-        new_password: {type: string, minLength: 12}
+        new_password: {type: string, minLength: 8}
     UserSummary:
       type: object
       additionalProperties: false

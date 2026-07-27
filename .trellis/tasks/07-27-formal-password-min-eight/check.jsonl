@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "复核 OpenAPI、后端与前端的密码长度契约是否一致。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "复核前端校验、测试和类型检查是否符合既有门禁。"}

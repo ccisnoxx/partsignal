@@ -62,6 +62,54 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 - 单个和批量状态命令共享同一锁、revision、最后有效管理员和会话撤销规则。批量按 UUID 稳定锁行，预期的用户不存在、revision 冲突和最后管理员保护逐项失败；非预期数据库、审计或程序错误回滚整批。
 - 停用、重新启用、改名或调整账号类型始终更新同一用户 UUID。只有停用且没有业务历史引用的账号可按下节契约物理删除；CSV 导出只记录非敏感筛选与行数审计，不保存正文。
 
+## 场景：身份密码长度边界
+
+### 1. 范围与触发条件
+
+- 修改用户创建、管理员重置临时密码、用户自助改密或首次登录强制改密时适用。
+
+### 2. 签名
+
+- `UserCreate.temporary_password`：最少 12 位。
+- `ResetPasswordRequest.temporary_password`：最少 8 位。
+- `ChangePasswordRequest.old_password` 与 `new_password`：均最少 8 位。
+- 自助改密接口：`POST /api/v1/auth/change-password`，成功返回 `204`。
+
+### 3. 契约
+
+- 新建账号和管理员重置密码都写入临时密码哈希并设置 `must_change_password=true`；首次登录除身份、CSRF、改密和退出接口外统一返回 `PASSWORD_CHANGE_REQUIRED`。
+- 用户提交正确旧密码和至少 8 位正式新密码后，服务端更新哈希、清除 `must_change_password`、递增 revision，并撤销当前会话以外的活动会话。
+- 前端表单、Pydantic 请求模型和 OpenAPI `minLength` 必须使用同一边界；不得把新建账号的 12 位临时密码边界误改为 8 位。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 结果 |
+|---|---|
+| 新建账号临时密码为 11 位 / 12 位 | `422 VALIDATION_ERROR` / 创建成功 |
+| 重置临时密码为 7 位 / 8 位 | `422 VALIDATION_ERROR` / `204` |
+| 正式新密码为 7 位 / 8 位 | `422 VALIDATION_ERROR` / `204` |
+| 自助改密时旧密码错误 | `401 AUTH_REQUIRED` |
+| `must_change_password=true` 时访问其他业务接口 | `403 PASSWORD_CHANGE_REQUIRED` |
+
+### 5. 正常、基础与失败案例
+
+- 正常：用户以临时密码登录，使用正确旧密码设置 8 位正式密码，随后进入工作台，其他会话失效。
+- 基础：管理员创建用户仍要求 12 位临时密码；管理员重置已有用户时接受 8 位临时密码。
+- 失败：前端允许 8 位正式密码而 OpenAPI 或服务端仍要求 12 位，导致表单可提交但请求被拒绝。
+
+### 6. 必需测试
+
+- Schema 单元测试分别冻结 12/11 位新建临时密码、8/7 位重置临时密码和 8/7 位正式新密码边界。
+- 前端测试断言 7 位正式新密码不发请求，8 位提交准确载荷。
+- 身份集成测试断言首次登录强制改密、改密后清除标志、旧临时密码失效和其他会话撤销。
+- 契约测试断言运行时 OpenAPI、冻结 OpenAPI 与生成的 TypeScript 类型一致。
+
+### 7. 错误与正确示例
+
+错误：把所有密码入口统一改为同一个长度，或只改前端提示。
+
+正确：按三个请求模型保留已批准边界，并同步服务端、OpenAPI、前端表单与测试：`UserCreate=12`、`ResetPasswordRequest=8`、`ChangePasswordRequest=8`。
+
 ## 场景：受约束删除用户与内容任务
 
 ### 1. 范围与触发条件
@@ -73,7 +121,7 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 - 用户：`DELETE /api/v1/users/{user_id}`，管理员权限和 CSRF，成功返回 `204`。
 - 内容任务：`DELETE /api/v1/content-tasks/{content_task_id}`，内容编辑权限和 CSRF，成功返回 `204`。
-- 临时密码重置：`ResetPasswordRequest.temporary_password` 最少 8 位；`UserCreate` 与 `ChangePasswordRequest` 仍最少 12 位。
+- 密码边界：`UserCreate.temporary_password` 最少 12 位；`ResetPasswordRequest.temporary_password` 与 `ChangePasswordRequest.new_password` 最少 8 位。
 - 数据库 revision：`0027_audit_user_delete_guard`，`down_revision = "0026_publication_account_dedup"`。
 
 ### 3. 契约

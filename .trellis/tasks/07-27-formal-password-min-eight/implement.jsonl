@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "密码长度规则跨 OpenAPI、后端请求边界和前端表单，需保持契约一致。"}
+{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "修改校验常量前需检索全部 12 位与 8 位密码规则，避免遗漏或误改临时密码策略。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端改密表单和测试需遵循现有质量门禁。"}

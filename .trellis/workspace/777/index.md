@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 28
+- **Total Sessions**: 29
 - **Last Active**: 2026-07-27
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~965 | Active |
+| `journal-1.md` | ~998 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 29 | 2026-07-27 | 统一正式新密码最小长度并上线 | `a85f7da` | `main` |
 | 28 | 2026-07-27 | 完成受限删除与账号治理 | `661693f` | `main` |
 | 27 | 2026-07-26 | 发布账号与重复发布约束 | `e551d22faab0d2a1df4dd8320807c103100992d9` | `main` |
 | 26 | 2026-07-26 | 简化产品事实与双模式内容任务 | `3de8705` | `main` |

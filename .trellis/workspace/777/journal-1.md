@@ -963,3 +963,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 29: 统一正式新密码最小长度并上线
+
+**Date**: 2026-07-27
+**Task**: 统一正式新密码最小长度并上线
+**Branch**: `main`
+
+### Summary
+
+保留首次登录强制改密，将正式新密码的前端、后端与 OpenAPI 下限统一为 8 位，补充边界测试并同步权威文档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a85f7da` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

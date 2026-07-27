@@ -13,6 +13,7 @@ dependencies = [
   "httpx>=0.27,<1",
   "markdown>=3.7,<4",
   "oss2>=2.19,<3",
+  "pillow>=11,<13",
   "psycopg[binary]>=3.2,<4",
   "pydantic-settings>=2.7,<3",
   "python-multipart>=0.0.20,<1",

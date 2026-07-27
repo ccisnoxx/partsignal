@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 from urllib.parse import quote
 
@@ -75,6 +75,17 @@ class EvidenceStorage(Protocol):
 
     def download_url(self, object_key: str, expires_at: datetime) -> str: ...
 
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None: ...
+
+    def delete(self, object_key: str) -> None: ...
+
 
 class StorageObjectMissing(Exception):
     """对象存储明确确认目标对象不存在。"""
@@ -85,7 +96,7 @@ class StorageUnavailable(Exception):
 
 
 class DevelopmentEvidenceStorage:
-    """通过独立开发服务执行 HEAD，文件字节不经过业务 API。"""
+    """通过独立开发服务执行对象读写，文件字节不经过业务 API。"""
 
     def authorize_upload(
         self,
@@ -119,6 +130,39 @@ class DevelopmentEvidenceStorage:
 
     def download_url(self, object_key: str, expires_at: datetime) -> str:
         return signed_storage_url("download", object_key, expires_at)
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """通过内部签名 URL 保存服务端已经校验的对象。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("upload", object_key, expires_at, internal=True)
+        try:
+            response = httpx.put(
+                url,
+                content=data,
+                headers={"content-type": content_type, "x-meta-sha256": sha256},
+                timeout=10,
+            )
+            response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+            raise StorageUnavailable("开发对象存储 PUT 请求失败") from error
+
+    def delete(self, object_key: str) -> None:
+        """幂等删除开发对象及其元数据。"""
+        expires_at = datetime.now(UTC) + timedelta(seconds=60)
+        url = signed_storage_url("delete", object_key, expires_at, internal=True)
+        try:
+            response = httpx.delete(url, timeout=10)
+            if response.status_code != 404:
+                response.raise_for_status()
+        except (httpx.HTTPStatusError, httpx.RequestError) as error:
+            raise StorageUnavailable("开发对象存储 DELETE 请求失败") from error
 
 
 class AliyunOssEvidenceStorage:
@@ -182,6 +226,33 @@ class AliyunOssEvidenceStorage:
                 "GET", object_key, self._expires_in(expires_at), slash_safe=True
             )
         )
+
+    def put(
+        self,
+        object_key: str,
+        data: bytes,
+        *,
+        content_type: str,
+        sha256: str,
+    ) -> None:
+        """保存后端已经校验的对象字节与完整性元数据。"""
+        try:
+            self.bucket.put_object(
+                object_key,
+                data,
+                headers={"Content-Type": content_type, "x-oss-meta-sha256": sha256},
+            )
+        except oss2.exceptions.OssError as error:
+            raise StorageUnavailable("阿里云 OSS PUT 请求失败") from error
+
+    def delete(self, object_key: str) -> None:
+        """幂等删除 OSS 对象；目标不存在同样视为成功。"""
+        try:
+            self.bucket.delete_object(object_key)
+        except oss2.exceptions.NoSuchKey:
+            return
+        except oss2.exceptions.OssError as error:
+            raise StorageUnavailable("阿里云 OSS DELETE 请求失败") from error
 
 
 def get_evidence_storage() -> EvidenceStorage:

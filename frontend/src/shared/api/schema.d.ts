@@ -460,6 +460,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform-logo-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createPlatformLogoCandidate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/platform-profiles/export": {
         parameters: {
             query?: never;
@@ -1818,7 +1834,7 @@ export interface components {
             platform_type_id: string;
             /** Format: uri */
             website_url?: string | null;
-            logo?: components["schemas"]["PlatformLogoInput"] | null;
+            logo?: components["schemas"]["PlatformLogoUploadInput"] | null;
         };
         PlatformProfileUpdate: {
             expected_revision: number;
@@ -1828,27 +1844,23 @@ export interface components {
             platform_type_id: string;
             /** Format: uri */
             website_url: string | null;
-            logo: components["schemas"]["PlatformLogoInput"] | null;
+            logo?: components["schemas"]["PlatformLogoUploadInput"] | null;
         };
         PlatformLogoUploadInput: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
+            /** @constant */
             source: "UPLOAD";
             /** Format: uuid */
             file_id: string;
         };
-        PlatformLogoExternalInput: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            source: "EXTERNAL";
+        PlatformLogoCandidateCreate: {
             /** Format: uri */
-            url: string;
+            website_url: string;
         };
-        PlatformLogoInput: components["schemas"]["PlatformLogoUploadInput"] | components["schemas"]["PlatformLogoExternalInput"];
+        PlatformLogoCandidate: {
+            /** Format: uuid */
+            file_id: string;
+            preview: components["schemas"]["SignedUrl"];
+        };
         PlatformLogoUpload: components["schemas"]["PlatformLogoUploadInput"] & {
             /** Format: uri */
             url: string;
@@ -3185,7 +3197,7 @@ export interface components {
             sha256: string;
             access_level: components["schemas"]["Confidentiality"];
             /** @enum {string} */
-            status: "PENDING" | "VERIFIED" | "FAILED" | "ABORTED";
+            status: "PENDING" | "VERIFIED" | "FAILED" | "ABORTED" | "DELETING" | "DELETED";
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -4213,6 +4225,37 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createPlatformLogoCandidate: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformLogoCandidateCreate"];
+            };
+        };
+        responses: {
+            /** @description 已从 Icon Horse 导入一张待管理员确认的 Logo 候选 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformLogoCandidate"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+            503: components["responses"]["ErrorResponse"];
         };
     };
     exportPlatformProfiles: {

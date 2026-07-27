@@ -57,6 +57,8 @@ from app.schemas.configuration import (
     DiscoveredModel,
     DiscoveredModelList,
     PlatformConfigurationStatus,
+    PlatformLogoCandidate,
+    PlatformLogoCandidateCreate,
     PlatformProfileDetail,
     PlatformProfileOut,
     PlatformProfileStatus,
@@ -142,6 +144,9 @@ from app.services.platform_configuration import (
 from app.services.platform_configuration import (
     update_platform_type as update_platform_type_command,
 )
+from app.services.platform_logo_files import (
+    create_platform_logo_candidate as create_platform_logo_candidate_command,
+)
 from app.services.projections import platform_profile_out
 
 router = APIRouter(prefix="/api/v1", tags=["configuration"])
@@ -153,7 +158,7 @@ def _commit_configuration_error(
     actor_id: uuid.UUID,
     action: str,
     target_type: str,
-    target_id: uuid.UUID,
+    target_id: uuid.UUID | None,
     request_id: str,
     error: AppError,
     failure_message: str,
@@ -460,6 +465,41 @@ def delete_platform_prompt(
         actor=admin,
         request_id=request.state.request_id,
     )
+
+
+@router.post(
+    "/platform-logo-candidates",
+    response_model=PlatformLogoCandidate,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="createPlatformLogoCandidate",
+)
+def create_platform_logo_candidate(
+    payload: PlatformLogoCandidateCreate,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
+) -> PlatformLogoCandidate:
+    """显式导入 Icon Horse 的单个候选，不提前修改平台。"""
+    try:
+        return create_platform_logo_candidate_command(
+            db=db,
+            website_url=str(payload.website_url),
+            actor=admin,
+            request_id=request.state.request_id,
+        )
+    except AppError as error:
+        _commit_configuration_error(
+            db=db,
+            actor_id=admin.id,
+            action="platform_logo.candidate_imported",
+            target_type="FileRecord",
+            target_id=None,
+            request_id=request.state.request_id,
+            error=error,
+            failure_message="平台官网 Logo 候选导入失败",
+        )
+        raise
 
 
 @router.patch(

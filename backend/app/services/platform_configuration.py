@@ -39,7 +39,10 @@ from app.schemas.configuration import (
     PlatformTypeCreate,
     PlatformTypeUpdate,
 )
-from app.services.file_records import platform_logo_storage_values
+from app.services.platform_logo_files import (
+    lock_platform_logo_change,
+    schedule_detached_platform_logo,
+)
 from app.services.projections import platform_profile_out, platform_profiles_out
 
 HUMANIZATION_PROMPT_SINGLETON_ID = 1
@@ -580,14 +583,28 @@ def update_platform_profile(
     previous_logo_configured = (
         profile.logo_file_id is not None or profile.logo_external_url is not None
     )
-    logo_file_id, logo_external_url = platform_logo_storage_values(db, payload.logo)
+    logo_changed = "logo" in payload.model_fields_set
+    previous_logo_file_id = profile.logo_file_id
+    logo_file_id = (
+        lock_platform_logo_change(
+            db,
+            current_file_id=previous_logo_file_id,
+            logo=payload.logo,
+        )
+        if logo_changed
+        else previous_logo_file_id
+    )
     profile.name = payload.name
     profile.allowed_domains = payload.allowed_domains
     profile.platform_type_id = payload.platform_type_id
     profile.website_url = str(payload.website_url) if payload.website_url is not None else None
-    profile.logo_file_id = logo_file_id
-    profile.logo_external_url = logo_external_url
+    if logo_changed:
+        profile.logo_file_id = logo_file_id
+        profile.logo_external_url = None
     profile.revision += 1
+    db.flush()
+    if logo_changed and previous_logo_file_id != logo_file_id:
+        schedule_detached_platform_logo(db, previous_logo_file_id)
     append_audit(
         db,
         AuditEntry(
@@ -674,6 +691,12 @@ def delete_platform_profile(
     ]
     if any(count for _, _, count in references):
         raise in_use("PLATFORM_PROFILE_IN_USE", "平台", references)
+    previous_logo_file_id = profile.logo_file_id
+    lock_platform_logo_change(
+        db,
+        current_file_id=previous_logo_file_id,
+        logo=None,
+    )
     append_audit(
         db,
         AuditEntry(
@@ -688,4 +711,6 @@ def delete_platform_profile(
         ),
     )
     db.delete(profile)
+    db.flush()
+    schedule_detached_platform_logo(db, previous_logo_file_id)
     db.commit()

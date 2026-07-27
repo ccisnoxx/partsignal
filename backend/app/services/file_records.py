@@ -16,9 +16,9 @@ from app.config import settings
 from app.errors import AppError, not_found
 from app.models.geo_files import FileRecord
 from app.models.identity import User
-from app.schemas.configuration import PlatformLogoExternalInput, PlatformLogoInput
 from app.schemas.geo_files import UploadInstruction, UploadIntent, UploadIntentCreate
 from app.schemas.publication import FileRecordOut
+from app.services.platform_logo_files import UNCONFIRMED_RETENTION
 from app.services.storage import StorageObjectMissing, StorageUnavailable, get_evidence_storage
 
 MAX_SIZES = {
@@ -143,6 +143,8 @@ def complete_file_upload(
     previous_status = file.status
     file.status = "VERIFIED"
     file.verified_at = datetime.now(UTC)
+    if file.category == "PLATFORM_LOGO":
+        file.cleanup_after = file.verified_at + UNCONFIRMED_RETENTION
     append_audit(
         db,
         AuditEntry(
@@ -218,19 +220,3 @@ def verified_files(db: Session, file_ids: list[uuid.UUID]) -> list[FileRecord]:
     if len(files) != len(file_ids) or any(file.status != "VERIFIED" for file in files):
         raise AppError("FILE_INTEGRITY_FAILED", "附件必须全部处于 VERIFIED 状态", 422)
     return files
-
-
-def platform_logo_storage_values(
-    db: Session, logo: PlatformLogoInput | None
-) -> tuple[uuid.UUID | None, str | None]:
-    """把互斥 Logo 输入转换为平台表字段，并校验上传文件的公开可用性。"""
-    if logo is None:
-        return None, None
-    if isinstance(logo, PlatformLogoExternalInput):
-        return None, str(logo.url)
-    file = db.get(FileRecord, logo.file_id)
-    if file is None or file.status != "VERIFIED":
-        raise AppError("FILE_INTEGRITY_FAILED", "平台 Logo 必须是已校验文件", 422)
-    if file.category != "PLATFORM_LOGO" or file.access_level != "PUBLIC":
-        raise AppError("VALIDATION_ERROR", "平台 Logo 必须使用 PLATFORM_LOGO 类别并公开上传", 422)
-    return file.id, None

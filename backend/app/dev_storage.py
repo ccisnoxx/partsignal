@@ -1,6 +1,6 @@
 """仅用于本地验收的独立对象存储服务。
 
-该服务实现限时 PUT、HEAD 和 GET，不连接或模拟成功调用生产 OSS。
+该服务实现限时 PUT、HEAD、GET 和 DELETE，不连接或模拟成功调用生产 OSS。
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ app.add_middleware(
     allow_origins=[
         origin.strip() for origin in settings.allowed_origins.split(",") if origin.strip()
     ],
-    allow_methods=["GET", "HEAD", "PUT", "OPTIONS"],
+    allow_methods=["GET", "HEAD", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "x-meta-sha256"],
 )
 
@@ -116,3 +116,21 @@ def get_object(
         raise HTTPException(status_code=404, detail="对象不存在")
     metadata = json.loads(meta_path.read_text(encoding="utf-8"))
     return FileResponse(path, media_type=metadata["content_type"])
+
+
+@app.delete("/objects/{object_key:path}", status_code=204)
+def delete_object(
+    object_key: str,
+    operation: str = Query(),
+    expires: int = Query(),
+    signature: str = Query(),
+) -> Response:
+    """幂等删除对象及其元数据；任一文件缺失不影响结果。"""
+    if operation != "delete" or not storage_request_valid(
+        operation, object_key, expires, signature
+    ):
+        raise HTTPException(status_code=403, detail="删除签名无效或已过期")
+    path = resolve_object_path(object_key)
+    path.unlink(missing_ok=True)
+    metadata_path(path).unlink(missing_ok=True)
+    return Response(status_code=204)

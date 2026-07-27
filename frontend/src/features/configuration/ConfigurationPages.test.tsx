@@ -152,6 +152,10 @@ beforeEach(() => {
     if (path === '/api/v1/ai-models/{model_id}/disable') return result({ ...model, is_enabled: false, revision: model.revision + 1 });
     if (path === '/api/v1/ai-models/{model_id}/test') return result({ ...model, is_enabled: false, revision: model.revision + 1 });
     if (path === '/api/v1/platform-profiles') return result({ ...platforms[0], id: 'profile-new' });
+    if (path === '/api/v1/platform-logo-candidates') return result({
+      file_id: '00000000-0000-4000-8000-000000000029',
+      preview: { url: 'https://objects.example.invalid/platform-logo.png', expires_at: channel.updated_at },
+    });
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') {
       const job: Schema<'GenerationJob'> = { id: 'job-preview', content_task_id: previewTask.id, job_type: 'GENERATE', source_content_version_id: null, status: 'PENDING', attempt_count: 1, content_version_id: null, created_at: channel.created_at };
       generationJobs = [{ ...job, status: 'SUCCEEDED', content_version_id: previewContent.id }];
@@ -221,7 +225,8 @@ test('新增平台品牌字段可选且不包含规则字段', async () => {
   expect(screen.queryByLabelText('目标受众')).not.toBeInTheDocument();
 });
 
-test('编辑平台可保存官网和外部 Logo URL', async () => {
+test('旧外链 Logo 保持只读，官网候选经确认后才随平台保存', async () => {
+  const invalidations = vi.spyOn(queryClient, 'invalidateQueries');
   renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
   const row = (await screen.findByText('工程师社区')).closest('tr');
   expect(row).not.toBeNull();
@@ -229,21 +234,52 @@ test('编辑平台可保存官网和外部 Logo URL', async () => {
   fireEvent.click(await screen.findByRole('menuitem', { name: '编辑平台' }));
   const dialog = (await screen.findByText('编辑 工程师社区 的平台信息')).closest<HTMLElement>('[role="dialog"]');
   expect(dialog).not.toBeNull();
+  expect(within(dialog!).getByText('旧外链 Logo（只读）')).toBeInTheDocument();
   const website = within(dialog!).getByRole('textbox', { name: '官方网站' });
   fireEvent.change(website, { target: { value: 'https://new.example.invalid/platform' } });
-  const logoUrl = within(dialog!).getByRole('textbox', { name: '外部 Logo URL' });
-  fireEvent.change(logoUrl, { target: { value: 'https://cdn.example.invalid/new-logo.webp' } });
+  fireEvent.click(within(dialog!).getByRole('button', { name: /从官网发现 Logo/ }));
+  expect(await within(dialog!).findByRole('img', { name: '官网 Logo 候选' })).toHaveAttribute('src', 'https://objects.example.invalid/platform-logo.png');
+  fireEvent.change(website, { target: { value: 'https://final.example.invalid/platform' } });
+  expect(within(dialog!).queryByRole('img', { name: '官网 Logo 候选' })).not.toBeInTheDocument();
+  expect(apiMocks.PATCH).not.toHaveBeenCalled();
+  fireEvent.click(within(dialog!).getByRole('button', { name: /从官网发现 Logo/ }));
+  await within(dialog!).findByRole('img', { name: '官网 Logo 候选' });
+  fireEvent.click(within(dialog!).getByRole('button', { name: '使用此 Logo' }));
   fireEvent.click(within(dialog!).getByRole('button', { name: '保存平台' }));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/platform-logo-candidates',
+    expect.objectContaining({ body: { website_url: 'https://final.example.invalid/platform' } }),
+  ));
   await waitFor(() => expect(apiMocks.PATCH).toHaveBeenCalledWith(
     '/api/v1/platform-profiles/{platform_profile_id}',
     expect.objectContaining({
       params: expect.objectContaining({ path: { platform_profile_id: 'profile-ready' } }),
       body: expect.objectContaining({
-        website_url: 'https://new.example.invalid/platform',
-        logo: { source: 'EXTERNAL', url: 'https://cdn.example.invalid/new-logo.webp' },
+        expected_revision: 1,
+        website_url: 'https://final.example.invalid/platform',
+        logo: { source: 'UPLOAD', file_id: '00000000-0000-4000-8000-000000000029' },
       }),
     }),
   ));
+  await waitFor(() => {
+    expect(invalidations).toHaveBeenCalledWith({ queryKey: ['platform-profiles'] });
+    expect(invalidations).toHaveBeenCalledWith({ queryKey: ['platform-profile', 'profile-ready'] });
+    expect(invalidations).toHaveBeenCalledWith({ queryKey: ['content-tasks'] });
+  });
+  invalidations.mockRestore();
+});
+
+test('旧外链平台未操作 Logo 时 PATCH 省略该字段', async () => {
+  renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
+  const row = (await screen.findByText('工程师社区')).closest('tr');
+  fireEvent.click(within(row!).getByRole('button', { name: '更多操作：工程师社区' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: '编辑平台' }));
+  const dialog = (await screen.findByText('编辑 工程师社区 的平台信息')).closest<HTMLElement>('[role="dialog"]');
+  fireEvent.click(within(dialog!).getByRole('button', { name: '保存平台' }));
+  await waitFor(() => expect(apiMocks.PATCH).toHaveBeenCalled());
+  const options = apiMocks.PATCH.mock.calls[0]?.[1] as { body: Record<string, unknown> };
+  expect(options.body).not.toHaveProperty('logo');
+  expect(options.body.expected_revision).toBe(1);
 });
 
 test('编辑平台可显式清空官网和 Logo', async () => {
@@ -255,8 +291,8 @@ test('编辑平台可显式清空官网和 Logo', async () => {
   const dialog = (await screen.findByText('编辑 工程师社区 的平台信息')).closest<HTMLElement>('[role="dialog"]');
   expect(dialog).not.toBeNull();
   fireEvent.change(within(dialog!).getByRole('textbox', { name: '官方网站' }), { target: { value: '' } });
-  await user.click(within(dialog!).getByRole('combobox', { name: /Logo 来源/ }));
-  await user.click(await screen.findByText('不设置 Logo'));
+  await user.click(within(dialog!).getByRole('combobox', { name: /Logo 操作/ }));
+  await user.click(await screen.findByText('清空 Logo'));
   fireEvent.click(within(dialog!).getByRole('button', { name: '保存平台' }));
   await waitFor(() => expect(apiMocks.PATCH).toHaveBeenCalledWith(
     '/api/v1/platform-profiles/{platform_profile_id}',
@@ -273,7 +309,7 @@ test('平台保存失败时保留可感知的服务端反馈', async () => {
   fireEvent.click(await screen.findByRole('menuitem', { name: '编辑平台' }));
   const dialog = (await screen.findByText('编辑 工程师社区 的平台信息')).closest<HTMLElement>('[role="dialog"]');
   await user.click(within(dialog!).getByRole('button', { name: '保存平台' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('请求失败（HTTP 503）');
+  expect(await screen.findByText('请求失败（HTTP 503）')).toBeInTheDocument();
 });
 
 

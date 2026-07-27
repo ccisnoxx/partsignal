@@ -199,7 +199,7 @@ HTML、纯文本和平台发布格式均由 Markdown 派生，不作为第二份
 - 编辑器展示任务直接绑定的具体平台、当前 Prompt 和事实 Markdown。
 - 管理员可继续配置没有 Prompt 的平台；保存 Prompt 后恢复系统 AI 生成。
 - 待发布列表只查询已批准内容，服务端复核平台账号与任务锁定平台一致。
-- 配置中心保留“平台类型”“平台管理”“Prompt 管理”路由，不再提供平台规则路由或隐藏入口。平台管理维护身份、归类、域名、官网、单一来源 Logo 和独立启停，列表筛选/分页/统计/CSV 及详情引用摘要全部来自服务端 PostgreSQL 投影。Prompt 页使用服务端平台搜索/类型筛选/分页和稳定选中 URL，在同一工作台维护具体平台当前 Markdown 与全局自然化 Prompt；未配置平台仍可选择并首次保存，列表时间只投影当前 Prompt 的 `updated_at`。Logo 可选择公开直传文件或外部 URL，不保存对象存储签名地址，也不允许两种来源并存。
+- 配置中心保留“平台类型”“平台管理”“Prompt 管理”路由，不再提供平台规则路由或隐藏入口。平台管理维护身份、归类、域名、官网、单一来源 Logo 和独立启停，列表筛选/分页/统计/CSV 及详情引用摘要全部来自服务端 PostgreSQL 投影。Prompt 页使用服务端平台搜索/类型筛选/分页和稳定选中 URL，在同一工作台维护具体平台当前 Markdown 与全局自然化 Prompt；未配置平台仍可选择并首次保存，列表时间只投影当前 Prompt 的 `updated_at`。新 Logo 只能绑定公开、已校验的自有存储文件；管理员可以手工上传，或由服务端从固定 Icon Horse 地址一次性导入官网主机名对应的一张候选，预览确认后再随平台保存。历史外链只读保留，编辑其他字段不触发批量导入或替换。
 - 平台列表 Logo 使用固定 24×24 CSS 像素布局；外部 URL 返回的 16/32 像素只影响源图采样，不改变列表展示盒尺寸。
 - 全站用户可见业务文本使用中文，枚举的显示 label 与提交 value 分离；`model_id`、API Key、URL、Markdown、JSON、Header、Prompt 和机器值保持原样。
 - AI 渠道列表由服务端按名称/描述/地址搜索、状态/品牌筛选、稳定排序和分页，一次返回表格摘要、总数与分类数量，不携带 Header 值或模型数组；只有选中渠道读取详情和模型，前端不得逐渠道追加请求。
@@ -469,7 +469,8 @@ GEO 项目使用独立 PostgreSQL 和独立 Redis 容器，不复用当前其他
 
 - `platform_types.slug` 保持唯一；管理员可增删改查，删除被具体平台引用的类型时返回结构化冲突。
 - `platform_profiles` 保存具体平台和所属类型，并拥有零或一份当前 Prompt；不存在规则版本表。
-- `platform_profiles.website_url` 保存可选官网；Logo 只能在 `logo_file_id` 与 `logo_external_url` 中选择一个。上传文件必须属于公开、已校验的 `PLATFORM_LOGO` 类别，下载地址由对象存储临时签发。
+- `platform_profiles.website_url` 保存可选官网；Logo 只能在 `logo_file_id` 与历史 `logo_external_url` 中选择一个。新写入只接受公开、已校验的 `PLATFORM_LOGO` 文件，历史外链仅允许保持、清空或转换为文件；下载地址由对象存储临时签发。
+- 官网候选确认前保留 24 小时；平台解除最后一个文件引用后保留 7 天。`FAILED`、`ABORTED` 和中止上传在下一轮清理中处理，`DELETING` 由幂等任务持续重试；清理前实时复核当前全部文件外键，先提交删除声明，再删除对象并保留 `DELETED` 数据库墓碑。
 - `content_tasks` 直接锁定 `platform_profile_id`、产品和事实版本；`query_topic_id` 只为历史任务保留并允许为空，新任务不再选择目标问题。
 - `audit_logs` 是业务审计唯一来源，保存业务模块、动作、可空对象标识、`SUCCESS | FAILED | DENIED` 结果、非敏感结果说明和稳定错误码；列表使用 `(created_at DESC, id DESC)` 稳定分页，当前用户信息只作实时投影。
 - 平台引用数直接聚合 `content_tasks.platform_profile_id`；不保存汇总列或前端推导第二口径。

@@ -424,11 +424,6 @@ class UploadIntent(ContractModel):
     upload: UploadInstruction
 
 
-class SignedUrl(ContractModel):
-    url: HttpUrl
-    expires_at: datetime
-
-
 class GeneratedDraft(ContractModel):
     """开发与真实模型共同遵循的严格四字段输出边界。"""
 

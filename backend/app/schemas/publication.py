@@ -123,7 +123,7 @@ class FileRecordOut(ContractModel):
     size: int
     sha256: str
     access_level: Confidentiality
-    status: Literal["PENDING", "VERIFIED", "FAILED", "ABORTED"]
+    status: Literal["PENDING", "VERIFIED", "FAILED", "ABORTED", "DELETING", "DELETED"]
     created_at: datetime
     verified_at: datetime | None = None
 

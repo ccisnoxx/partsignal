@@ -12,6 +12,7 @@ from app.services.generation_dispatch import (
     fail_expired_generation_jobs,
     redispatch_pending_generation_jobs,
 )
+from app.services.platform_logo_files import cleanup_platform_logo_files
 
 celery_app = Celery("partsignal", broker=settings.redis_url)
 celery_app.conf.update(
@@ -28,6 +29,10 @@ celery_app.conf.update(
         "redispatch-pending-generation-jobs": {
             "task": "partsignal.redispatch_pending_generation_jobs",
             "schedule": float(settings.generation_recovery_scan_seconds),
+        },
+        "cleanup-platform-logo-files": {
+            "task": "partsignal.cleanup_platform_logo_files",
+            "schedule": 3600.0,
         },
     },
 )
@@ -49,3 +54,9 @@ def recover_expired_generation_jobs() -> None:
 def redispatch_pending_jobs() -> None:
     """仅补投递超龄 PENDING Job，Redis 消息继续只携带 UUID。"""
     redispatch_pending_generation_jobs(generate_content.delay)
+
+
+@celery_app.task(name="partsignal.cleanup_platform_logo_files")  # type: ignore[untyped-decorator]
+def cleanup_platform_logos() -> None:
+    """按 PostgreSQL 权威状态清理到期且无引用的平台 Logo。"""
+    cleanup_platform_logo_files()

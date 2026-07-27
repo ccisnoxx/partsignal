@@ -11,7 +11,8 @@ from app.config import settings
 from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
 from app.errors import AppError, not_found
 from app.models.geo_files import FileRecord
-from app.schemas.geo_files import SignedUrl, UploadIntent, UploadIntentCreate
+from app.schemas.common import SignedUrl
+from app.schemas.geo_files import UploadIntent, UploadIntentCreate
 from app.schemas.publication import FileRecordOut
 from app.services.file_records import (
     abort_file_upload as abort_file_upload_command,

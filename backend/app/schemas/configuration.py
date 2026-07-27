@@ -12,6 +12,7 @@ from typing import Annotated, Any, Literal
 from pydantic import AfterValidator, Field, HttpUrl, model_validator
 
 from app.schemas.base import ContractModel, require_unique_items
+from app.schemas.common import SignedUrl
 
 
 def normalize_platform_name(value: str) -> str:
@@ -92,23 +93,18 @@ class PlatformLogoUploadInput(ContractModel):
     file_id: uuid.UUID
 
 
-class PlatformLogoExternalInput(ContractModel):
-    source: Literal["EXTERNAL"]
-    url: HttpUrl
-
-
-PlatformLogoInput = Annotated[
-    PlatformLogoUploadInput | PlatformLogoExternalInput,
-    Field(discriminator="source"),
-]
+PlatformLogoInput = PlatformLogoUploadInput
 
 
 class PlatformLogoUploadOut(PlatformLogoUploadInput):
     url: HttpUrl
 
 
-class PlatformLogoExternalOut(PlatformLogoExternalInput):
-    pass
+class PlatformLogoExternalOut(ContractModel):
+    """部署前外链 Logo 的只读投影。"""
+
+    source: Literal["EXTERNAL"]
+    url: HttpUrl
 
 
 PlatformLogoOut = Annotated[
@@ -136,7 +132,20 @@ class PlatformProfileUpdate(ContractModel):
     )
     platform_type_id: uuid.UUID
     website_url: HttpUrl | None
-    logo: PlatformLogoInput | None
+    logo: PlatformLogoInput | None = None
+
+
+class PlatformLogoCandidateCreate(ContractModel):
+    """从平台官网发现单个待管理员确认的 Logo。"""
+
+    website_url: HttpUrl
+
+
+class PlatformLogoCandidate(ContractModel):
+    """已经暂存到自有对象存储的单个 Logo 候选。"""
+
+    file_id: uuid.UUID
+    preview: SignedUrl
 
 
 class PlatformProfileStatus(StrEnum):

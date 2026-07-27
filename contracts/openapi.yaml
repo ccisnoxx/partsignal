@@ -587,6 +587,27 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/platform-logo-candidates:
+    post:
+      tags: [configuration]
+      operationId: createPlatformLogoCandidate
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlatformLogoCandidateCreate'}
+      responses:
+        '201':
+          description: 已从 Icon Horse 导入一张待管理员确认的 Logo 候选
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformLogoCandidate'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
+        '503': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profiles/export:
     get:
       tags: [configuration]
@@ -2416,12 +2437,12 @@ components:
         website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
         logo:
           anyOf:
-            - {$ref: '#/components/schemas/PlatformLogoInput'}
+            - {$ref: '#/components/schemas/PlatformLogoUploadInput'}
             - {type: 'null'}
     PlatformProfileUpdate:
       type: object
       additionalProperties: false
-      required: [expected_revision, name, allowed_domains, platform_type_id, website_url, logo]
+      required: [expected_revision, name, allowed_domains, platform_type_id, website_url]
       properties:
         expected_revision: {type: integer, minimum: 0}
         name: {type: string, minLength: 1, maxLength: 160}
@@ -2434,7 +2455,7 @@ components:
         website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
         logo:
           anyOf:
-            - {$ref: '#/components/schemas/PlatformLogoInput'}
+            - {$ref: '#/components/schemas/PlatformLogoUploadInput'}
             - {type: 'null'}
     PlatformLogoUploadInput:
       type: object
@@ -2443,22 +2464,19 @@ components:
       properties:
         source: {type: string, const: UPLOAD}
         file_id: {type: string, format: uuid}
-    PlatformLogoExternalInput:
+    PlatformLogoCandidateCreate:
       type: object
       additionalProperties: false
-      required: [source, url]
+      required: [website_url]
       properties:
-        source: {type: string, const: EXTERNAL}
-        url: {type: string, format: uri, minLength: 1, maxLength: 2083}
-    PlatformLogoInput:
-      oneOf:
-        - {$ref: '#/components/schemas/PlatformLogoUploadInput'}
-        - {$ref: '#/components/schemas/PlatformLogoExternalInput'}
-      discriminator:
-        propertyName: source
-        mapping:
-          UPLOAD: '#/components/schemas/PlatformLogoUploadInput'
-          EXTERNAL: '#/components/schemas/PlatformLogoExternalInput'
+        website_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+    PlatformLogoCandidate:
+      type: object
+      additionalProperties: false
+      required: [file_id, preview]
+      properties:
+        file_id: {type: string, format: uuid}
+        preview: {$ref: '#/components/schemas/SignedUrl'}
     PlatformLogoUpload:
       allOf:
         - {$ref: '#/components/schemas/PlatformLogoUploadInput'}
@@ -3987,7 +4005,7 @@ components:
         size: {type: integer}
         sha256: {type: string}
         access_level: {$ref: '#/components/schemas/Confidentiality'}
-        status: {type: string, enum: [PENDING, VERIFIED, FAILED, ABORTED]}
+        status: {type: string, enum: [PENDING, VERIFIED, FAILED, ABORTED, DELETING, DELETED]}
         created_at: {type: string, format: date-time}
         verified_at: {type: [string, 'null'], format: date-time}
     SignedUrl:

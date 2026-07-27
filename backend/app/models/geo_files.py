@@ -91,7 +91,7 @@ class GeoObservationPublication(Base):
 
 
 class FileRecord(Base):
-    """对象上传生命周期与可信元数据。"""
+    """对象上传、未引用保留与幂等删除生命周期。"""
 
     __tablename__ = "file_records"
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
@@ -111,6 +111,8 @@ class FileRecord(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cleanup_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class GeoObservationAttachment(Base):

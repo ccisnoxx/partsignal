@@ -187,6 +187,68 @@ END IF;
 - 迁移只增加可向后读取的列、检查约束和部分索引；历史迁移与 `migration_schema_v1.py` 保持冻结。
 - PostgreSQL 集成测试必须覆盖多恢复器、重复消息、租约竞态、迟到响应和迁移前后旧列读取，不能用 SQLite 替代行锁语义。
 
+## 场景：平台 Logo 文件生命周期
+
+### 1. 范围与触发条件
+
+- 修改平台 Logo 导入、绑定、解绑、对象存储删除、FileRecord 状态机或 revision `0028_platform_logo_lifecycle` 时适用。
+- `logo_external_url` 只读保留既有值；不得由迁移、Worker 或后台批处理联网转换。
+
+### 2. 签名
+
+- 候选接口：`POST /api/v1/platform-logo-candidates`，请求 `{website_url}`，成功返回 `{file_id, preview: {url, expires_at}}`。
+- 平台 PATCH：省略 `logo` 表示保持，`logo=null` 表示清空，`logo={source:"UPLOAD", file_id}` 表示替换；不接受 `EXTERNAL` 写入。
+- 数据库 revision：`0028_platform_logo_lifecycle`，`down_revision = "0027_audit_user_delete_guard"`。
+- 生命周期命令：`lock_platform_logo_change(...)`、`schedule_detached_platform_logo(...)`、`cleanup_platform_logo_files(...)`。
+
+### 3. 契约
+
+- 候选请求只访问固定 `https://icon.horse/icon/{规范化 hostname}`，禁止重定向；校验实际 PNG、JPEG、WebP 或 ICO、2 MiB 字节上限和像素上限后才写入自有对象存储。
+- 新写入只允许 `platform_profiles.logo_file_id` 绑定 `VERIFIED`、`PUBLIC`、`PLATFORM_LOGO`。候选和手工上传完成后保留 24 小时；绑定时锁行并清空 `cleanup_after`，解除最后引用后保留七天。
+- `cleanup_after` 只负责调度。删除权威必须实时检查当前 head 的 `platform_profiles.logo_file_id`、`publication_attachments.file_id`、`geo_observation_attachments.file_id`，不得恢复已删除的 `evidences` 查询或增加引用计数。
+- 同时涉及旧、新文件时按 UUID 稳定顺序锁定。清理使用有限批次和 `FOR UPDATE SKIP LOCKED`，先提交 `DELETING`，再幂等删除对象；成功写 `DELETED/deleted_at`，暂时失败保持 `DELETING`。
+- 迁移时已引用 Logo 不设置截止时间，既有未引用 `VERIFIED PLATFORM_LOGO` 从迁移时点保留七天。历史 revision 和 `migration_schema_v1.py` 保持冻结。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 结果 |
+|---|---|
+| Icon Horse 超时、网络失败或 5xx | `503 LOGO_DISCOVERY_UNAVAILABLE`，平台不变 |
+| 上游 3xx/4xx、超限、SVG/HTML、伪造类型或损坏图片 | `422 LOGO_CANDIDATE_INVALID`，引导手工上传 |
+| 候选对象写入或 HEAD 失败 | `503 DEPENDENCY_UNAVAILABLE`，文件保留为可清理状态 |
+| 绑定文件不是 `VERIFIED/PUBLIC/PLATFORM_LOGO` | `422`，应用服务拒绝且数据库触发器最终阻断 |
+| 到期文件仍有任一真实外键引用 | 跳过删除；`VERIFIED` 的错误截止时间清空 |
+| 对象删除暂时失败 / 对象已不存在 | 保持 `DELETING` 待下轮重试 / 视为成功并写 `DELETED` |
+| 存在任一 `DELETING` 或 `DELETED` 后降级 | PostgreSQL `55000`，要求前滚或恢复一致备份 |
+
+### 5. 正常、基础与失败案例
+
+- 正常：管理员发现一张候选、预览确认并保存平台，候选文件绑定后不再进入 24 小时清理。
+- 基础：管理员取消预览，平台不变；候选在 24 小时后由小时级任务清理。
+- 失败：旧 Logo 被多个平台或附件共享，解除一个引用不能启动七天倒计时；最后引用解除后才调度。
+
+### 6. 必需测试
+
+- 单元测试断言固定上游、禁止重定向、超时/5xx、声明与流式超限、格式/解码、对象写入失败和 24 小时截止。
+- 服务测试断言 PATCH 三态、稳定 UUID 锁顺序、共享引用、最后解绑七天、`DELETING` 重试、对象缺失幂等和 Beat 小时级注册。
+- PostgreSQL 测试断言三类真实外键、状态触发器、`FOR UPDATE SKIP LOCKED` 竞态、迁移初始化及 downgrade 门禁；SQLite 不能替代。
+- 契约与前端测试断言旧 `EXTERNAL` 只读、确认后才绑定，以及平台列表、详情、Prompt 列表和内容任务缓存刷新。
+
+### 7. 错误与正确示例
+
+错误：仅按 `cleanup_after` 删除对象，或先删对象再依赖外键报错。
+
+```python
+if file.cleanup_after <= now:
+    storage.delete(file.object_key)
+```
+
+正确：统一调用生命周期所有者；它在事务内锁定候选行、实时复核全部当前外键并提交 `DELETING`，随后幂等删除对象并写墓碑。
+
+```python
+result = cleanup_platform_logo_files(storage=storage)
+```
+
 ## 场景：发布闭环历史门禁与异常状态
 
 - 数据库 revision：`0013_publication_closure`，`down_revision = "0012_ai_data_classification"`。

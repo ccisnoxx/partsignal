@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import Mock
 from urllib.parse import urlsplit
 
 import httpx
@@ -49,6 +50,12 @@ def test_upload_and_head_validate_real_object_bytes(tmp_path: Path) -> None:
         assert head.status_code == 200
         assert head.headers["x-object-size"] == str(len(content))
         assert head.headers["x-meta-sha256"] == digest
+        delete_url = signed_storage_url(
+            "delete", "development/evidence/test.bin", expires_at
+        )
+        assert client.delete(request_target(delete_url)).status_code == 204
+        assert client.delete(request_target(delete_url)).status_code == 204
+        assert client.head(request_target(head_url)).status_code == 404
     finally:
         settings.development_storage_path = original_path
         settings.development_storage_public_url = original_url
@@ -104,6 +111,27 @@ def test_aliyun_storage_requires_explicit_credentials() -> None:
             settings.oss_access_key_id,
             settings.oss_access_key_secret,
         ) = original
+
+
+def test_aliyun_storage_put_and_delete_reuse_existing_bucket() -> None:
+    """服务端导入和清理复用同一 OSS Bucket，不创建第二套客户端。"""
+    storage = object.__new__(AliyunOssEvidenceStorage)
+    storage.bucket = Mock()
+    storage.put(
+        "production/platform_logo/logo.png",
+        b"logo",
+        content_type="image/png",
+        sha256="a" * 64,
+    )
+    storage.delete("production/platform_logo/logo.png")
+    storage.bucket.put_object.assert_called_once_with(
+        "production/platform_logo/logo.png",
+        b"logo",
+        headers={"Content-Type": "image/png", "x-oss-meta-sha256": "a" * 64},
+    )
+    storage.bucket.delete_object.assert_called_once_with(
+        "production/platform_logo/logo.png"
+    )
 
 
 def test_development_storage_preserves_retry_on_transport_failure(

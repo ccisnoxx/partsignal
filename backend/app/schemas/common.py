@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, HttpUrl, field_validator
 
 from app.audit_types import AuditModule, AuditOutcome
 from app.schemas.base import ContractModel, require_unique_items
@@ -62,6 +62,13 @@ class AuthSession(ContractModel):
 
 class CsrfToken(ContractModel):
     csrf_token: str
+
+
+class SignedUrl(ContractModel):
+    """对象存储签名 URL 及其失效时间。"""
+
+    url: HttpUrl
+    expires_at: datetime
 
 
 class UserCreate(ContractModel):

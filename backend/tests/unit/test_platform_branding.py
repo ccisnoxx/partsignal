@@ -1,35 +1,27 @@
 """验证平台 Logo 输入只落入一个可信来源。"""
 
 import uuid
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
 from app.models.identity import User
 from app.schemas.configuration import (
-    PlatformLogoExternalInput,
     PlatformLogoUploadInput,
     PlatformProfileCreate,
     PlatformProfileUpdate,
 )
 from app.schemas.geo_files import UploadIntentCreate
-from app.services.file_records import create_upload_intent, platform_logo_storage_values
-
-
-def test_external_platform_logo_does_not_read_file_record() -> None:
-    """外链 Logo 直接保存规范 URL，不伪造上传文件。"""
-    db = Mock(spec=Session)
-    file_id, external_url = platform_logo_storage_values(
-        db,
-        PlatformLogoExternalInput(source="EXTERNAL", url="https://cdn.example.invalid/logo.png"),
-    )
-    db.get.assert_not_called()
-    assert file_id is None
-    assert external_url == "https://cdn.example.invalid/logo.png"
+from app.services import file_records
+from app.services.file_records import complete_file_upload, create_upload_intent
+from app.services.platform_logo_files import lock_platform_logo_change
+from app.services.storage import EvidenceStorage, ObjectMetadata
 
 
 def test_uploaded_platform_logo_requires_verified_public_logo_file() -> None:
@@ -40,25 +32,39 @@ def test_uploaded_platform_logo_requires_verified_public_logo_file() -> None:
         status="VERIFIED",
         category="PLATFORM_LOGO",
         access_level="PUBLIC",
+        cleanup_after=object(),
     )
     valid_db = Mock(spec=Session)
-    valid_db.get.return_value = valid
-    assert platform_logo_storage_values(
-        valid_db, PlatformLogoUploadInput(source="UPLOAD", file_id=file_id)
-    ) == (file_id, None)
+    valid_db.scalars.return_value = [valid]
+    assert (
+        lock_platform_logo_change(
+            valid_db,
+            current_file_id=None,
+            logo=PlatformLogoUploadInput(source="UPLOAD", file_id=file_id),
+        )
+        == file_id
+    )
+    lock_sql = str(
+        valid_db.scalars.call_args.args[0].compile(dialect=postgresql.dialect())
+    )
+    assert "ORDER BY file_records.id" in lock_sql
+    assert "FOR UPDATE" in lock_sql
+    assert valid.cleanup_after is None
 
     invalid = SimpleNamespace(
         id=file_id,
         status="VERIFIED",
         category="PUBLICATION_ASSET",
         access_level="PUBLIC",
+        cleanup_after=None,
     )
     invalid_db = Mock(spec=Session)
-    invalid_db.get.return_value = invalid
+    invalid_db.scalars.return_value = [invalid]
     with pytest.raises(AppError, match="PLATFORM_LOGO") as error:
-        platform_logo_storage_values(
+        lock_platform_logo_change(
             invalid_db,
-            PlatformLogoUploadInput(source="UPLOAD", file_id=file_id),
+            current_file_id=None,
+            logo=PlatformLogoUploadInput(source="UPLOAD", file_id=file_id),
         )
     assert error.value.code == "VALIDATION_ERROR"
 
@@ -83,15 +89,17 @@ def test_uploaded_platform_logo_rejects_unverified_or_non_public_files(
         access_level=access_level,
     )
     with pytest.raises(AppError) as error:
-        platform_logo_storage_values(
+        db.scalars.return_value = [db.get.return_value]
+        lock_platform_logo_change(
             db,
-            PlatformLogoUploadInput(source="UPLOAD", file_id=file_id),
+            current_file_id=None,
+            logo=PlatformLogoUploadInput(source="UPLOAD", file_id=file_id),
         )
     assert error.value.code == expected_code
 
 
-def test_platform_logo_input_rejects_mixed_sources() -> None:
-    """判别联合拒绝同时提交上传文件和外链，避免两套 Logo 来源并存。"""
+def test_platform_logo_input_rejects_external_source() -> None:
+    """新写入契约拒绝外链来源，旧外链只保留读取投影。"""
     with pytest.raises(ValidationError):
         PlatformProfileCreate.model_validate(
             {
@@ -100,12 +108,26 @@ def test_platform_logo_input_rejects_mixed_sources() -> None:
                 "allowed_domains": ["community.example.invalid"],
                 "platform_type_id": str(uuid.uuid4()),
                 "logo": {
-                    "source": "UPLOAD",
-                    "file_id": str(uuid.uuid4()),
+                    "source": "EXTERNAL",
                     "url": "https://cdn.example.invalid/logo.png",
                 },
             }
         )
+
+
+def test_platform_profile_update_distinguishes_omitted_and_explicit_null_logo() -> None:
+    """PATCH 省略 Logo 时保留旧值，显式 null 才表示清空。"""
+    common = {
+        "expected_revision": 0,
+        "name": "工程师社区",
+        "allowed_domains": ["example.invalid"],
+        "platform_type_id": uuid.uuid4(),
+        "website_url": None,
+    }
+    omitted = PlatformProfileUpdate.model_validate(common)
+    cleared = PlatformProfileUpdate.model_validate({**common, "logo": None})
+    assert "logo" not in omitted.model_fields_set
+    assert "logo" in cleared.model_fields_set
 
 
 def test_platform_profile_create_and_update_share_normalization() -> None:
@@ -183,3 +205,45 @@ def test_platform_logo_upload_policy_rejects_unsafe_type_or_oversize(
             request_id="platform-logo-policy",
         )
     assert error.value.code == "VALIDATION_ERROR"
+
+
+def test_manual_platform_logo_verification_starts_24_hour_retention(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """手工上传与官网候选使用同一未确认保留窗口。"""
+    actor = User(
+        id=uuid.uuid4(),
+        username="manual-logo",
+        display_name="手工 Logo",
+        password_hash="not-used",
+        account_type="ADMIN",
+    )
+    file = SimpleNamespace(
+        id=uuid.uuid4(),
+        uploader_id=actor.id,
+        status="PENDING",
+        object_key="test/platform_logo/manual.png",
+        size=4,
+        sha256="a" * 64,
+        content_type="image/png",
+        category="PLATFORM_LOGO",
+        verified_at=None,
+        cleanup_after=None,
+    )
+    db = Mock(spec=Session)
+    db.get.return_value = file
+    storage = Mock(spec=EvidenceStorage)
+    storage.head.return_value = ObjectMetadata(
+        size=file.size,
+        sha256=file.sha256,
+        content_type=file.content_type,
+    )
+    monkeypatch.setattr(file_records, "get_evidence_storage", lambda: storage)
+    complete_file_upload(
+        db=db,
+        file_id=file.id,
+        actor=actor,
+        request_id="manual-platform-logo",
+    )
+    assert file.status == "VERIFIED"
+    assert file.cleanup_after - file.verified_at == timedelta(hours=24)

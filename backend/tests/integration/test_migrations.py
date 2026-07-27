@@ -2623,3 +2623,122 @@ def test_audit_user_delete_guard_is_targeted_and_reversible() -> None:
             connection.rollback()
             cursor.execute("SELECT version_num FROM alembic_version")
             assert cursor.fetchone() == ("0026_publication_account_dedup",)
+
+
+@pytest.mark.integration
+def test_platform_logo_lifecycle_migration_initializes_retention_and_guards_links() -> None:
+    """0028 初始化保留期、校验 Logo 外键，并在删除开始后拒绝降级。"""
+    with temporary_database("partsignal_platform_logo_lifecycle") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0027_audit_user_delete_guard")
+        seed_accounts(env, backend_dir)
+        platform_type_id = uuid.uuid4()
+        platform_profile_id = uuid.uuid4()
+        linked_logo_id = uuid.uuid4()
+        orphan_logo_id = uuid.uuid4()
+        wrong_category_id = uuid.uuid4()
+
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+            actor_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO platform_types (id, name, slug, revision, created_by) "
+                "VALUES (%s, 'Logo 生命周期类型', %s, 0, %s)",
+                (
+                    platform_type_id,
+                    f"logo-lifecycle-type-{platform_type_id.hex[:10]}",
+                    actor_id,
+                ),
+            )
+            cursor.executemany(
+                "INSERT INTO file_records "
+                "(id, category, original_filename, object_key, content_type, size, sha256, "
+                "access_level, status, uploader_id, upload_expires_at, verified_at) "
+                "VALUES (%s, %s, 'logo.png', %s, 'image/png', 10, %s, "
+                "'PUBLIC', 'VERIFIED', %s, now(), now())",
+                [
+                    (
+                        linked_logo_id,
+                        "PLATFORM_LOGO",
+                        f"test/platform-logo/{linked_logo_id}.png",
+                        "a" * 64,
+                        actor_id,
+                    ),
+                    (
+                        orphan_logo_id,
+                        "PLATFORM_LOGO",
+                        f"test/platform-logo/{orphan_logo_id}.png",
+                        "b" * 64,
+                        actor_id,
+                    ),
+                    (
+                        wrong_category_id,
+                        "PUBLICATION_ASSET",
+                        f"test/publication/{wrong_category_id}.png",
+                        "c" * 64,
+                        actor_id,
+                    ),
+                ],
+            )
+            cursor.execute(
+                "INSERT INTO platform_profiles "
+                "(id, name, slug, allowed_domains, platform_type_id, logo_file_id, "
+                "revision, is_active) "
+                "VALUES (%s, 'Logo 生命周期平台', %s, ARRAY['logo.invalid'], %s, %s, 0, true)",
+                (
+                    platform_profile_id,
+                    f"logo-lifecycle-{platform_profile_id.hex[:10]}",
+                    platform_type_id,
+                    linked_logo_id,
+                ),
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "0028_platform_logo_lifecycle")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT id, cleanup_after IS NULL, "
+                "COALESCE(cleanup_after BETWEEN now() + interval '6 days 23 hours' "
+                "AND now() + interval '7 days 1 hour', false) "
+                "FROM file_records WHERE id IN (%s, %s) ORDER BY id",
+                (linked_logo_id, orphan_logo_id),
+            )
+            retention = {
+                row[0]: (row[1], row[2])
+                for row in cursor.fetchall()
+            }
+            assert retention[linked_logo_id] == (True, False)
+            assert retention[orphan_logo_id] == (False, True)
+
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "UPDATE platform_profiles SET logo_file_id = %s WHERE id = %s",
+                    (wrong_category_id, platform_profile_id),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "UPDATE file_records SET status = 'DELETING' WHERE id = %s",
+                (orphan_logo_id,),
+            )
+            connection.commit()
+
+        downgrade = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0027_audit_user_delete_guard",
+            ],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "platform logo deletion has started" in downgrade.stderr

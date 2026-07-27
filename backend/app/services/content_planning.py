@@ -17,8 +17,8 @@ from app.models.identity import User
 from app.models.product_facts import FactVersion, Product
 from app.schemas.configuration import PlatformProfileCreate, QueryTopicCreate, QueryTopicUpdate
 from app.schemas.content import ContentTaskCreate
-from app.services.file_records import platform_logo_storage_values
 from app.services.platform_configuration import lock_active_platform
+from app.services.platform_logo_files import lock_platform_logo_change
 
 
 def create_query_topic(
@@ -93,7 +93,11 @@ def create_platform_profile(
         raise not_found("平台类型")
     if db.scalar(select(PlatformProfile.id).where(PlatformProfile.slug == payload.slug)):
         raise AppError("PLATFORM_SLUG_EXISTS", "平台 slug 已存在", 409)
-    logo_file_id, logo_external_url = platform_logo_storage_values(db, payload.logo)
+    logo_file_id = lock_platform_logo_change(
+        db,
+        current_file_id=None,
+        logo=payload.logo,
+    )
     profile = PlatformProfile(
         name=payload.name,
         slug=payload.slug,
@@ -101,7 +105,7 @@ def create_platform_profile(
         platform_type_id=payload.platform_type_id,
         website_url=str(payload.website_url) if payload.website_url is not None else None,
         logo_file_id=logo_file_id,
-        logo_external_url=logo_external_url,
+        logo_external_url=None,
         is_active=True,
     )
     db.add(profile)

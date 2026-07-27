@@ -6,6 +6,7 @@ import {
   ExportOutlined,
   EyeOutlined,
   FileTextOutlined,
+  GlobalOutlined,
   PlusOutlined,
   ReloadOutlined,
   SafetyCertificateOutlined,
@@ -21,6 +22,7 @@ import {
   Dropdown,
   Form,
   Grid,
+  Image,
   Input,
   InputNumber,
   Modal,
@@ -56,7 +58,7 @@ import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { PlatformDetailPanel } from './PlatformDetailPanel';
 
-type PlatformLogoSource = 'NONE' | 'UPLOAD' | 'EXTERNAL';
+type PlatformLogoSource = 'UNCHANGED' | 'NONE' | 'UPLOAD';
 type PlatformBrandingFormValues = {
   name: string;
   platform_type_id: string;
@@ -64,7 +66,6 @@ type PlatformBrandingFormValues = {
   website_url?: string;
   logo_source: PlatformLogoSource;
   logo_file_id?: string;
-  logo_external_url?: string;
 };
 type PlatformCreateFormValues = PlatformBrandingFormValues & { slug: string };
 type PlatformUpdateFormValues = PlatformBrandingFormValues & { expected_revision: number };
@@ -93,12 +94,9 @@ function isOptionValue<T extends string>(value: string | null, options: Readonly
   return options.some((option) => option.value === value);
 }
 
-function platformLogoInput(values: PlatformBrandingFormValues): Schema<'PlatformLogoInput'> | null {
+function platformLogoInput(values: PlatformBrandingFormValues): Schema<'PlatformLogoUploadInput'> | null | undefined {
+  if (values.logo_source === 'UNCHANGED') return undefined;
   if (values.logo_source === 'NONE') return null;
-  if (values.logo_source === 'EXTERNAL') {
-    if (!values.logo_external_url) throw new Error('请填写外部 Logo URL');
-    return { source: 'EXTERNAL', url: values.logo_external_url.trim() };
-  }
   if (!values.logo_file_id) throw new Error('请先上传并校验 Logo 文件');
   return { source: 'UPLOAD', file_id: values.logo_file_id };
 }
@@ -179,7 +177,10 @@ export function PlatformsPage() {
     if (screens.xl) requestAnimationFrame(restoreDetailFocus);
   };
   const invalidatePlatform = async (platformId?: string) => {
-    const invalidations = [queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all })];
+    const invalidations = [
+      queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }),
+    ];
     if (platformId) invalidations.push(queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.detail(platformId) }));
     await Promise.all(invalidations);
   };
@@ -386,26 +387,73 @@ export function PlatformsPage() {
 }
 
 function PlatformForm({ typeOptions, loading, onSubmit }: { typeOptions: Array<{ value: string; label: string }>; loading: boolean; onSubmit: (value: Schema<'PlatformProfileCreate'>) => void }) {
-  return <Form<PlatformCreateFormValues> layout="vertical" initialValues={{ logo_source: 'NONE' }} onFinish={(values) => onSubmit({ name: values.name, slug: values.slug, platform_type_id: values.platform_type_id, allowed_domains: values.allowed_domains, website_url: values.website_url?.trim() || null, logo: platformLogoInput(values) })}><Form.Item name="name" label="平台名称" rules={[{ required: true }]}><Input autoFocus /></Form.Item><Form.Item name="slug" label="唯一标识（slug）" rules={[{ required: true, pattern: /^[a-z0-9-]+$/ }]}><Input /></Form.Item><Form.Item name="platform_type_id" label="平台类型" rules={[{ required: true }]}><Select options={typeOptions} /></Form.Item><Form.Item name="allowed_domains" label="允许域名" rules={[{ required: true }]}><Select mode="tags" /></Form.Item><PlatformBrandingFields /><Button type="primary" htmlType="submit" loading={loading}>创建平台</Button></Form>;
+  return <Form<PlatformCreateFormValues> layout="vertical" initialValues={{ logo_source: 'NONE' }} onFinish={(values) => {
+    const logo = platformLogoInput(values);
+    onSubmit({ name: values.name, slug: values.slug, platform_type_id: values.platform_type_id, allowed_domains: values.allowed_domains, website_url: values.website_url?.trim() || null, ...(logo === undefined ? {} : { logo }) });
+  }}><Form.Item name="name" label="平台名称" rules={[{ required: true }]}><Input autoFocus /></Form.Item><Form.Item name="slug" label="唯一标识（slug）" rules={[{ required: true, pattern: /^[a-z0-9-]+$/ }]}><Input /></Form.Item><Form.Item name="platform_type_id" label="平台类型" rules={[{ required: true }]}><Select options={typeOptions} /></Form.Item><Form.Item name="allowed_domains" label="允许域名" rules={[{ required: true }]}><Select mode="tags" /></Form.Item><PlatformBrandingFields editing={false} currentLogo={null} /><Button type="primary" htmlType="submit" loading={loading}>创建平台</Button></Form>;
 }
 
 function PlatformIdentityForm({ profile, typeOptions, loading, onSubmit }: { profile: PlatformProfile; typeOptions: Array<{ value: string; label: string }>; loading: boolean; onSubmit: (value: Schema<'PlatformProfileUpdate'>) => void }) {
-  const logoSource: PlatformLogoSource = profile.logo?.source ?? 'NONE';
-  return <Form<PlatformUpdateFormValues> layout="vertical" initialValues={{ expected_revision: profile.revision, name: profile.name, allowed_domains: profile.allowed_domains, platform_type_id: profile.platform_type_id ?? undefined, website_url: profile.website_url ?? undefined, logo_source: logoSource, logo_file_id: profile.logo?.source === 'UPLOAD' ? profile.logo.file_id : undefined, logo_external_url: profile.logo?.source === 'EXTERNAL' ? profile.logo.url : undefined }} onFinish={(values) => onSubmit({ expected_revision: values.expected_revision, name: values.name, platform_type_id: values.platform_type_id, allowed_domains: values.allowed_domains, website_url: values.website_url?.trim() || null, logo: platformLogoInput(values) })}><Form.Item name="expected_revision" hidden><InputNumber /></Form.Item><Form.Item name="name" label="平台名称" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="platform_type_id" label="平台类型" rules={[{ required: true }]}><Select options={typeOptions} /></Form.Item><Form.Item name="allowed_domains" label="允许域名" rules={[{ required: true }]}><Select mode="tags" /></Form.Item><PlatformBrandingFields /><Button type="primary" htmlType="submit" loading={loading}>保存平台</Button></Form>;
+  return <Form<PlatformUpdateFormValues> layout="vertical" initialValues={{ expected_revision: profile.revision, name: profile.name, allowed_domains: profile.allowed_domains, platform_type_id: profile.platform_type_id ?? undefined, website_url: profile.website_url ?? undefined, logo_source: 'UNCHANGED' }} onFinish={(values) => {
+    const logo = platformLogoInput(values);
+    onSubmit({ expected_revision: values.expected_revision, name: values.name, platform_type_id: values.platform_type_id, allowed_domains: values.allowed_domains, website_url: values.website_url?.trim() || null, ...(logo === undefined ? {} : { logo }) });
+  }}><Form.Item name="expected_revision" hidden><InputNumber /></Form.Item><Form.Item name="name" label="平台名称" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="platform_type_id" label="平台类型" rules={[{ required: true }]}><Select options={typeOptions} /></Form.Item><Form.Item name="allowed_domains" label="允许域名" rules={[{ required: true }]}><Select mode="tags" /></Form.Item><PlatformBrandingFields editing currentLogo={profile.logo} /><Button type="primary" htmlType="submit" loading={loading}>保存平台</Button></Form>;
 }
 
-function PlatformBrandingFields() {
+function PlatformBrandingFields({ editing, currentLogo }: { editing: boolean; currentLogo: PlatformProfile['logo'] }) {
   const form = Form.useFormInstance<PlatformBrandingFormValues>();
   const logoSource = Form.useWatch('logo_source', form);
   const logoFileId = Form.useWatch('logo_file_id', form);
+  const [candidate, setCandidate] = useState<Schema<'PlatformLogoCandidate'>>();
+  const discover = useMutation({
+    mutationFn: async (websiteUrl: string) => unwrap(await api.POST('/api/v1/platform-logo-candidates', {
+      params: { header: csrfHeader() },
+      body: { website_url: websiteUrl },
+    })),
+    onSuccess: setCandidate,
+  });
+  const discoverFromWebsite = async () => {
+    const websiteUrl = form.getFieldValue('website_url')?.trim();
+    if (!websiteUrl) {
+      form.setFields([{ name: 'website_url', errors: ['请先填写官方网站'] }]);
+      return;
+    }
+    try {
+      await form.validateFields(['website_url']);
+      setCandidate(undefined);
+      discover.mutate(websiteUrl);
+    } catch {
+      return;
+    }
+  };
   return <div className="platform-branding-fields">
-    <Form.Item name="website_url" label="官方网站" rules={[{ type: 'url', message: '请输入完整的 http(s) URL' }]}><Input type="url" placeholder="https://platform.example.com" /></Form.Item>
-    <Form.Item name="logo_source" label="Logo 来源" rules={[{ required: true }]}><Select onChange={(source: PlatformLogoSource) => {
-      if (source !== 'UPLOAD') form.setFieldValue('logo_file_id', undefined);
-      if (source !== 'EXTERNAL') form.setFieldValue('logo_external_url', undefined);
-    }} options={[{ value: 'NONE', label: '不设置 Logo' }, { value: 'UPLOAD', label: '上传 Logo 文件' }, { value: 'EXTERNAL', label: '使用外部 URL' }]} /></Form.Item>
+    <Form.Item name="website_url" label="官方网站" rules={[{ type: 'url', message: '请输入完整的 http(s) URL' }]}><Input type="url" placeholder="https://platform.example.com" onChange={() => {
+      setCandidate(undefined);
+      discover.reset();
+    }} /></Form.Item>
+    {currentLogo?.source === 'EXTERNAL' && <Alert type="info" showIcon title="旧外链 Logo（只读）" description="保存其他字段时会继续保留；请选择官网发现、手工上传或清空后才退出旧外链。" />}
+    <Form.Item label="官网 Logo">
+      <Button icon={<GlobalOutlined />} loading={discover.isPending} onClick={() => void discoverFromWebsite()}>从官网发现 Logo</Button>
+      {discover.error && <Alert role="alert" type="error" showIcon title={errorMessage(discover.error)} />}
+      {candidate && <Space orientation="vertical" className="platform-logo-candidate">
+        <Image src={candidate.preview.url} alt="官网 Logo 候选" width={72} height={72} preview={false} />
+        <Typography.Text type="secondary">Icon Horse 已选定这一张候选；请人工确认品牌是否正确。</Typography.Text>
+        <Space wrap>
+          <Button type="primary" onClick={() => {
+            form.setFieldValue('logo_source', 'UPLOAD');
+            form.setFieldValue('logo_file_id', candidate.file_id);
+            setCandidate(undefined);
+          }}>使用此 Logo</Button>
+          <Button onClick={() => setCandidate(undefined)}>取消</Button>
+        </Space>
+      </Space>}
+    </Form.Item>
+    <Form.Item name="logo_source" label="Logo 操作" rules={[{ required: true }]}><Select onChange={() => form.setFieldValue('logo_file_id', undefined)} options={[
+      ...(editing ? [{ value: 'UNCHANGED', label: '保持当前 Logo' }] : []),
+      { value: 'NONE', label: '清空 Logo' },
+      { value: 'UPLOAD', label: '手工上传 Logo' },
+    ]} /></Form.Item>
     <Form.Item name="logo_file_id" hidden><Input /></Form.Item>
     {logoSource === 'UPLOAD' && <Form.Item label="Logo 文件" required><DirectUpload category="PLATFORM_LOGO" accessLevel="PUBLIC" accept="image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon,.ico" onUploaded={(file) => form.setFieldValue('logo_file_id', file.id)} />{logoFileId && <Typography.Text type="success">已校验 Logo 文件，可继续保存平台。</Typography.Text>}<Typography.Paragraph type="secondary" className="platform-logo-help">支持 PNG、JPEG、WebP、ICO，最大 2 MiB；不接受 SVG。</Typography.Paragraph></Form.Item>}
-    {logoSource === 'EXTERNAL' && <Form.Item name="logo_external_url" label="外部 Logo URL" rules={[{ required: true }, { type: 'url', message: '请输入完整的 http(s) URL' }]}><Input type="url" placeholder="https://cdn.example.com/logo.png" /></Form.Item>}
   </div>;
 }

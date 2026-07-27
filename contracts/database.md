@@ -58,9 +58,9 @@ Observations are immutable. Corrections create another observation with `superse
 
 ### 0008 Files
 
-`file_records`, `publication_attachments`, `geo_observation_attachments`, plus `evidences.file_record_id`.
+`file_records`, `publication_attachments`, `geo_observation_attachments`, plus historical `evidences.file_record_id`.
 
-Only `VERIFIED` files may be linked. Publication attachments additionally require `category=OPERATION_SCREENSHOT` in both candidate creation and `mark-published`; other modules enforce their own category contracts at their service boundaries. `publication_attachments` is one append-only evidence relation used in both publication phases, with no mutable phase or replacement field. Referenced objects cannot be deleted through the application.
+Only `VERIFIED` files may be linked. Publication attachments additionally require `category=OPERATION_SCREENSHOT` in both candidate creation and `mark-published`; other modules enforce their own category contracts at their service boundaries. `publication_attachments` is one append-only evidence relation used in both publication phases, with no mutable phase or replacement field. Revision `0025` later deletes `evidences` and its file foreign key; the current head therefore has three actual `file_records` references: platform Logo, publication attachment, and GEO observation attachment.
 
 ### 0009 Configuration Center And AI Generation
 
@@ -150,7 +150,7 @@ Revision `0019` rewrites no task or immutable job snapshot. It refuses downgrade
 
 ### 0020 Platform Branding And Task List Projection
 
-`platform_profiles` gains nullable `website_url`, `logo_file_id`, and `logo_external_url`. The uploaded Logo foreign key uses `RESTRICT`; the referenced `file_record` must be a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` object before the application accepts it. A database check permits at most one Logo source, so an uploaded file and an external URL are never stored together. Signed object-storage URLs are response projections and are never persisted.
+`platform_profiles` gains nullable `website_url`, `logo_file_id`, and `logo_external_url`. The uploaded Logo foreign key uses `RESTRICT`; the referenced `file_record` must be a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` object before the application accepts it. A database check permits at most one Logo source, so an uploaded file and an external URL are never stored together. Signed object-storage URLs are response projections and are never persisted. Revision `0028` later makes `logo_external_url` read-only for legacy rows; new writes only bind `logo_file_id`.
 
 The content-task list remains a read projection and adds no duplicate display columns. It joins each task's direct platform and displays the platform's current name, website, and Logo. The projected AI status is the latest `generation_job` whose `job_type = GENERATE`, ordered deterministically by `created_at DESC, id DESC`; `HUMANIZE` jobs are content-version post-processing and never replace the task's generation status. The projection batches products, platforms, Logo files, publication state, and generation status instead of issuing per-task queries.
 
@@ -238,6 +238,16 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 内容任务物理删除不需要 schema 迁移：只有 `CANCELLED` 且没有任何 `generation_jobs` 或 `content_versions` 的任务可删除。服务锁定目标并统计两类直接引用；非取消状态返回 `INVALID_STATE_TRANSITION`，存在生产历史时返回 `CONTENT_TASK_IN_USE` 及结构化引用。删除不级联或改写事实、生成、内容、发布和审计历史。
 
+### 0028 Platform Logo Lifecycle
+
+版本 `0028` 紧跟 `0027_audit_user_delete_guard`。`file_records` 新增可空 `cleanup_after` 与 `deleted_at`，状态扩展为 `DELETING | DELETED`；允许的新增转换只有 `PENDING | VERIFIED | FAILED | ABORTED -> DELETING -> DELETED`。`DELETED` 必须有 `deleted_at`，其他状态必须没有。对象元数据继续不可变。
+
+管理员显式请求 Icon Horse 单候选时，服务端只访问固定 `https://icon.horse/icon/{规范化域名}`，校验 PNG、JPEG、WebP 或 ICO 后先持久化 `PENDING`，再写入自有对象存储并转为 `VERIFIED`。候选和手工上传完成的 `PLATFORM_LOGO` 设置 `cleanup_after = verified_at + 24 hours`；绑定任一平台时锁定文件并清空该字段。替换、清空或删除平台 Logo 后，仅在最后一个实际外键引用解除时设置 `cleanup_after = now() + 7 days`。
+
+清理器以 PostgreSQL 为唯一权威，使用有限批次和 `FOR UPDATE SKIP LOCKED`。它在声明删除前实时检查 `platform_profiles.logo_file_id`、`publication_attachments.file_id`、`geo_observation_attachments.file_id`；不得查询 `0025` 已删除的 `evidences`，也不维护引用计数。到期 `PENDING`、任意 `FAILED | ABORTED`、到期 `VERIFIED` 和已有 `DELETING` 可被扫描；有引用时不得删除，无引用时先提交 `DELETING`，再幂等删除对象，成功后写 `DELETED/deleted_at`，暂时失败则保留 `DELETING` 供下一轮重试。
+
+平台 Logo 外键触发器最终保证非空 `logo_file_id` 只引用 `VERIFIED`、`PUBLIC`、`PLATFORM_LOGO`。迁移把既有已引用 Logo 的 `cleanup_after` 保持为空，把既有无引用 `VERIFIED PLATFORM_LOGO` 设置为迁移时点后七天。`logo_external_url` 本阶段保留用于旧数据只读展示，创建和更新不再接受新的外链；迁移和 Worker 均不联网批量转换旧外链。存在任一 `DELETING | DELETED` 时禁止降级，因为对象删除不可逆。
+
 ## State Machines
 
 ```text
@@ -263,7 +273,8 @@ PublicationAttention: OPEN -> RESOLVED
 
 PlatformProfile: ENABLED <-> DISABLED
 
-FileRecord: PENDING -> VERIFIED | FAILED | ABORTED
+FileRecord: PENDING -> VERIFIED | FAILED | ABORTED | DELETING
+            VERIFIED | FAILED | ABORTED -> DELETING -> DELETED
 ```
 
 State changes not shown above are invalid. A rejected immutable fact or content version may be resubmitted after its editable source/workflow has been corrected, but its frozen payload is never rewritten. Content body changes still create a new immutable content version.
@@ -285,7 +296,8 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - Platform Prompt update and deletion require optimistic revision matching against the locked current row. Its list `prompt_updated_at` is a nullable projection of `platform_prompts.updated_at`, never a stored summary or the platform profile's own update time.
 - A concrete platform's `is_active` state is independent from configuration completeness. A disabled platform remains manageable but cannot be used to create a content task, repair task, platform account, or publication record; disabling never mutates existing accounts, configuration, or history.
 - Platform completeness, account counts, and task-reference counts are real-time read projections. Completeness is true when the current platform Prompt exists; a task reference is counted once through `content_tasks.platform_profile_id`.
-- A concrete platform stores at most one Logo source. Uploaded Logos must reference a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` file; external Logo URLs and website URLs remain explicit nullable URI fields.
+- A concrete platform stores at most one Logo source. New writes only accept a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` file; `logo_external_url` remains a nullable read-only legacy field until a later migration, and `website_url` remains an explicit nullable URI.
+- Logo cleanup uses the three actual current-head file foreign keys as its deletion authority. Unconfirmed Logos retain 24 hours, detached previously used Logos retain seven days, and object deletion remains retryable through `DELETING` before a `DELETED` tombstone is recorded.
 - Product, fact version, platform profile, platform account, platform type, and user physical deletion is admin-only. Services lock the target, count direct references where applicable, and return structured `409` conflicts; they never cascade, reassign, or rewrite immutable business history except for the explicitly guarded audit actor nulling in `0027`.
 - A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform profile requires no content tasks or platform accounts; a platform account requires no `PublicationRecord`; a platform type requires no platform profiles.
 - A cancelled content task can be physically deleted only when it has no generation job or content version; no other task status is deletable.

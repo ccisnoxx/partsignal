@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, or_, select, text
 from sqlalchemy import update as sa_update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Select
 from sqlalchemy.sql.elements import ColumnElement
@@ -454,6 +455,51 @@ def bulk_update_user_status(
         [succeeded[item.user_id] for item in payload.items if item.user_id in succeeded],
         [failures[item.user_id] for item in payload.items if item.user_id in failures],
     )
+
+
+def delete_user(
+    *,
+    db: Session,
+    user_id: uuid.UUID,
+    actor: User,
+    request_id: str,
+) -> None:
+    """删除已停用且没有业务历史引用的用户。"""
+    db.execute(_USER_STATE_LOCK)
+    user = db.scalar(select(User).where(User.id == user_id).with_for_update())
+    if user is None:
+        raise not_found("用户")
+    if user.is_active:
+        raise AppError("USER_ACTIVE", "启用用户不能删除，请先停用账号", 409)
+
+    account_type = user.account_type
+    db.execute(
+        select(func.set_config("partsignal.user_delete_id", str(user_id), True))
+    )
+    db.delete(user)
+    try:
+        db.flush()
+    except IntegrityError as error:
+        if getattr(error.orig, "sqlstate", None) != "23503":
+            raise
+        db.rollback()
+        raise AppError("USER_IN_USE", "用户仍有业务历史引用，不能删除", 409) from error
+
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.IDENTITY,
+            action="user.deleted",
+            target_type="User",
+            target_id=user_id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="用户已删除",
+            details={"facts": {"account_type": account_type, "status": "DISABLED"}},
+        ),
+    )
+    db.commit()
 
 
 def reset_user_password(

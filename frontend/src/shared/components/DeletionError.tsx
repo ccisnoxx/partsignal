@@ -6,6 +6,7 @@ const referenceLabels: Record<string, string> = {
   FACT_VERSION: '事实版本',
   CONTENT_TASK: '内容任务',
   CONTENT_VERSION: '内容版本',
+  GENERATION_JOB: '生成作业',
   GEO_OBSERVATION: 'GEO 观测',
   PLATFORM_PROFILE_VERSION: '平台规则版本',
   PLATFORM_PROFILE: '具体平台',
@@ -21,5 +22,5 @@ export function DeletionError({ error }: { error: unknown }) {
       return typeof value.type === 'string' && typeof value.count === 'number';
     })
     : [];
-  return <Alert role="alert" type="error" showIcon message={errorMessage(error)} description={references.length ? <ul>{references.map((item) => <li key={item.type}>{referenceLabels[item.type] ?? item.type}：{item.count}</li>)}</ul> : undefined} />;
+  return <Alert role="alert" type="error" showIcon title={errorMessage(error)} description={references.length ? <ul>{references.map((item) => <li key={item.type}>{referenceLabels[item.type] ?? item.type}：{item.count}</li>)}</ul> : undefined} />;
 }

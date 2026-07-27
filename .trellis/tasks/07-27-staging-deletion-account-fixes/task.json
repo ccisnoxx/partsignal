@@ -1,7 +1,7 @@
 {
-  "id": "post-deployment-visual-acceptance",
-  "name": "post-deployment-visual-acceptance",
-  "title": "线上部署后视觉验收",
+  "id": "staging-deletion-account-fixes",
+  "name": "staging-deletion-account-fixes",
+  "title": "修复预发布删除与账号治理缺陷",
   "description": "",
   "status": "in_progress",
   "dev_type": null,
@@ -10,7 +10,7 @@
   "priority": "P2",
   "creator": "777",
   "assignee": "777",
-  "createdAt": "2026-07-25",
+  "createdAt": "2026-07-27",
   "completedAt": null,
   "branch": null,
   "base_branch": "main",
@@ -18,11 +18,8 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [
-    "07-25-staging-visual-defect-fixes",
-    "07-27-staging-deletion-account-fixes"
-  ],
-  "parent": null,
+  "children": [],
+  "parent": "07-25-post-deployment-visual-acceptance",
   "relatedFiles": [],
   "notes": "",
   "meta": {}

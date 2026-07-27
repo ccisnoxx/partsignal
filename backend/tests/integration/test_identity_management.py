@@ -398,6 +398,210 @@ def test_user_query_export_and_temporary_password_flow() -> None:
 
 
 @pytest.mark.integration
+def test_user_delete_and_reset_password_boundaries() -> None:
+    """用户删除保留审计、尊重业务外键，并只放宽重置密码到八位。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        expires_at = datetime.now(UTC) + timedelta(hours=1)
+        with session_factory() as db:
+            admin = User(
+                username="delete-admin",
+                display_name="删除操作管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            engineer = User(
+                username="delete-engineer",
+                display_name="删除权限工程师",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            deletable_admin = User(
+                username="deletable-admin",
+                display_name="可删除管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+                is_active=False,
+            )
+            active_target = User(
+                username="active-delete-target",
+                display_name="启用删除目标",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            referenced_target = User(
+                username="referenced-delete-target",
+                display_name="业务引用删除目标",
+                password_hash="not-used",
+                account_type="ENGINEER",
+                is_active=False,
+            )
+            reset_target = User(
+                username="reset-eight-target",
+                display_name="八位密码目标",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            db.add_all(
+                [
+                    admin,
+                    engineer,
+                    deletable_admin,
+                    active_target,
+                    referenced_target,
+                    reset_target,
+                ]
+            )
+            db.flush()
+            deletable_admin_id = deletable_admin.id
+            active_target_id = active_target.id
+            referenced_target_id = referenced_target.id
+            reset_target_id = reset_target.id
+            historical_audit_id = uuid.uuid4()
+            db.add_all(
+                [
+                    PlatformType(
+                        name="用户删除业务引用",
+                        slug=f"user-delete-reference-{uuid.uuid4().hex[:8]}",
+                        created_by=referenced_target.id,
+                    ),
+                    SessionRecord(
+                        token_hash=hash_token("deletable-user-session"),
+                        csrf_hash=hash_token("deletable-user-csrf"),
+                        user_id=deletable_admin.id,
+                        expires_at=expires_at,
+                    ),
+                    SessionRecord(
+                        token_hash=hash_token("reset-target-session"),
+                        csrf_hash=hash_token("reset-target-csrf"),
+                        user_id=reset_target.id,
+                        expires_at=expires_at,
+                    ),
+                    AuditLog(
+                        id=historical_audit_id,
+                        actor_id=deletable_admin.id,
+                        business_module="IDENTITY",
+                        action="user.updated",
+                        target_type="User",
+                        target_id=str(deletable_admin.id),
+                        outcome="SUCCESS",
+                        result_message="历史用户操作",
+                        request_id="historical-delete-actor",
+                        details={"facts": {"status": "DISABLED"}},
+                    ),
+                ]
+            )
+            db.commit()
+
+        csrf_token = "user-delete-csrf-token-more-than-32-characters"
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        current_session = SimpleNamespace(
+            user=engineer,
+            csrf_hash=hash_token(csrf_token),
+            last_seen_at=None,
+        )
+        app.dependency_overrides[get_db] = override_db
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        client = TestClient(app)
+        try:
+            denied = client.delete(
+                f"/api/v1/users/{deletable_admin_id}",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert denied.status_code == 403
+            assert denied.json()["error"]["code"] == "PERMISSION_DENIED"
+
+            current_session.user = admin
+            bad_csrf = client.delete(
+                f"/api/v1/users/{deletable_admin_id}",
+                headers={"X-CSRF-Token": "wrong-token-more-than-32-characters"},
+            )
+            assert bad_csrf.status_code == 403
+            assert bad_csrf.json()["error"]["code"] == "CSRF_INVALID"
+
+            active = client.delete(
+                f"/api/v1/users/{active_target_id}",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert active.status_code == 409
+            assert active.json()["error"]["code"] == "USER_ACTIVE"
+
+            referenced = client.delete(
+                f"/api/v1/users/{referenced_target_id}",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert referenced.status_code == 409
+            assert referenced.json()["error"]["code"] == "USER_IN_USE"
+
+            seven_characters = client.post(
+                f"/api/v1/users/{reset_target_id}/reset-password",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"temporary_password": "1234567"},
+            )
+            assert seven_characters.status_code == 422
+            assert seven_characters.json()["error"]["code"] == "VALIDATION_ERROR"
+            eight_characters = client.post(
+                f"/api/v1/users/{reset_target_id}/reset-password",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"temporary_password": "12345678"},
+            )
+            assert eight_characters.status_code == 204
+
+            before_delete = client.get("/api/v1/users", params={"page_size": 100})
+            assert before_delete.status_code == 200
+            assert before_delete.json()["summary"]["admin_total"] == 2
+            deleted = client.delete(
+                f"/api/v1/users/{deletable_admin_id}",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "delete-user-success",
+                },
+            )
+            assert deleted.status_code == 204, deleted.text
+            after_delete = client.get("/api/v1/users", params={"page_size": 100})
+            assert after_delete.json()["summary"]["admin_total"] == 1
+        finally:
+            app.dependency_overrides.clear()
+            client.close()
+
+        with session_factory() as db:
+            assert db.get(User, deletable_admin_id) is None
+            assert db.get(User, active_target_id) is not None
+            assert db.get(User, referenced_target_id) is not None
+            assert (
+                db.scalar(
+                    select(SessionRecord.id).where(
+                        SessionRecord.user_id == deletable_admin_id
+                    )
+                )
+                is None
+            )
+            reset_session = db.scalar(
+                select(SessionRecord).where(SessionRecord.user_id == reset_target_id)
+            )
+            assert reset_session is not None and reset_session.revoked_at is not None
+            historical_audit = db.get(AuditLog, historical_audit_id)
+            assert historical_audit is not None
+            assert historical_audit.actor_id is None
+            deletion_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "delete-user-success")
+            )
+            assert deletion_audit is not None
+            assert deletion_audit.actor_id == admin.id
+            assert deletion_audit.target_id == str(deletable_admin_id)
+            assert deletion_audit.details == {
+                "facts": {"account_type": "ADMIN", "status": "DISABLED"}
+            }
+            assert "12345678" not in str(deletion_audit.details)
+        engine.dispose()
+
+
+@pytest.mark.integration
 def test_single_and_bulk_status_share_transaction_invariants(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -39,6 +39,7 @@ from app.services.platform_configuration import (
 )
 from app.services.projections import content_task_out, content_tasks_out, platform_profile_out
 from app.services.publication import cancel_content_task as cancel_content_task_service
+from app.services.publication import delete_content_task as delete_content_task_service
 
 router = APIRouter(prefix="/api/v1", tags=["planning"])
 
@@ -186,6 +187,27 @@ def get_content_task(
     if task is None:
         raise not_found("内容任务")
     return content_task_out(db, task)
+
+
+@router.delete(
+    "/content-tasks/{content_task_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deleteContentTask",
+)
+def delete_content_task(
+    content_task_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    editor: ContentEditor,
+    _csrf: CsrfProtected,
+) -> None:
+    """删除服务端明确允许删除的已取消内容任务。"""
+    delete_content_task_service(
+        db=db,
+        task_id=content_task_id,
+        actor=editor,
+        request_id=request.state.request_id,
+    )
 
 
 @router.post(

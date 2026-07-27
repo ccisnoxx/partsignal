@@ -162,3 +162,90 @@ test('创建用户只提交临时密码字段，并在关闭后销毁敏感表�
   fireEvent.click(screen.getByRole('button', { name: '新增用户' }));
   expect(within(await screen.findByRole('dialog')).getByLabelText('临时密码')).toHaveValue('');
 });
+
+test('停用用户经影响确认后删除并刷新当前列表', async () => {
+  let deleted = false;
+  let deleteRequest: Request | undefined;
+  window.history.pushState({}, '', '/users?status=ALL');
+  mockFetch((request) => {
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/auth/me')) return { body: admin };
+    if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
+    if (url.pathname === `/api/v1/users/${inactiveEngineer.id}` && request.method === 'DELETE') {
+      deleteRequest = request;
+      deleted = true;
+      return { body: undefined, status: 204 };
+    }
+    if (url.pathname.endsWith('/users')) return { body: userList(deleted ? [admin] : [admin, inactiveEngineer], url.searchParams) };
+    throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
+  });
+
+  render(<App />);
+  await screen.findByText('inactive-engineer');
+  fireEvent.click(screen.getByRole('button', { name: '更多操作：inactive-engineer' }));
+  await userEvent.click(await screen.findByRole('menuitem', { name: /删除用户/ }));
+  const dialog = await screen.findByRole('dialog');
+  expect(within(dialog).getByText(/会话会被清理/)).toBeInTheDocument();
+  expect(within(dialog).getByText(/历史审计记录保留但操作者会置空/)).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole('button', { name: '删除用户' }));
+
+  await waitFor(() => expect(deleteRequest?.method).toBe('DELETE'));
+  await waitFor(() => expect(screen.queryByText('inactive-engineer')).not.toBeInTheDocument());
+});
+
+test('用户删除被业务引用阻断时保留当前行并展示错误', async () => {
+  window.history.pushState({}, '', '/users?status=ALL');
+  mockFetch((request) => {
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/auth/me')) return { body: admin };
+    if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
+    if (url.pathname === `/api/v1/users/${inactiveEngineer.id}` && request.method === 'DELETE') {
+      return {
+        body: { error: { code: 'USER_IN_USE', message: '用户仍有业务历史引用，不能删除', details: {}, request_id: 'delete-user-test' } },
+        status: 409,
+      };
+    }
+    if (url.pathname.endsWith('/users')) return { body: userList([admin, inactiveEngineer], url.searchParams) };
+    throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
+  });
+
+  render(<App />);
+  await screen.findByText('inactive-engineer');
+  fireEvent.click(screen.getByRole('button', { name: '更多操作：inactive-engineer' }));
+  await userEvent.click(await screen.findByRole('menuitem', { name: /删除用户/ }));
+  await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '删除用户' }));
+
+  expect(await screen.findByText('用户仍有业务历史引用，不能删除')).toBeInTheDocument();
+  expect(screen.getByText('inactive-engineer')).toBeInTheDocument();
+});
+
+test('重置临时密码只在八位边界提交，七位留在表单校验', async () => {
+  let submittedBody: Promise<Schema<'ResetPasswordRequest'>> | undefined;
+  window.history.pushState({}, '', '/users?status=ALL');
+  mockFetch((request) => {
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/auth/me')) return { body: admin };
+    if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
+    if (url.pathname === `/api/v1/users/${inactiveEngineer.id}/reset-password` && request.method === 'POST') {
+      submittedBody = request.clone().json() as Promise<Schema<'ResetPasswordRequest'>>;
+      return { body: undefined, status: 204 };
+    }
+    if (url.pathname.endsWith('/users')) return { body: userList([admin, inactiveEngineer], url.searchParams) };
+    throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
+  });
+
+  render(<App />);
+  await screen.findByText('inactive-engineer');
+  fireEvent.click(screen.getByRole('button', { name: '更多操作：inactive-engineer' }));
+  await userEvent.click(await screen.findByRole('menuitem', { name: /重置临时密码/ }));
+  const dialog = await screen.findByRole('dialog');
+  const passwordInput = within(dialog).getByLabelText('临时密码');
+  await userEvent.type(passwordInput, '1234567');
+  await userEvent.click(within(dialog).getByRole('button', { name: '重置临时密码' }));
+  expect(submittedBody).toBeUndefined();
+
+  await userEvent.type(passwordInput, '8');
+  await userEvent.click(within(dialog).getByRole('button', { name: '重置临时密码' }));
+  await waitFor(() => expect(submittedBody).toBeDefined());
+  expect(await submittedBody).toEqual({ temporary_password: '12345678' });
+});

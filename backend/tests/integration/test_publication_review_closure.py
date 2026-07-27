@@ -103,13 +103,14 @@ from app.services.platform_configuration import (
     set_platform_profile_enabled,
 )
 from app.services.product_facts import delete_fact_version, delete_product
-from app.services.projections import content_tasks_out
+from app.services.projections import content_task_out, content_tasks_out
 from app.services.publication import (
     cancel_content_task,
     command_publication,
     create_manual_publication,
     create_platform_account,
     create_repair_task,
+    delete_content_task,
     delete_platform_account,
     resolve_attention,
     set_platform_account_enabled,
@@ -2151,6 +2152,184 @@ def test_content_task_list_uses_current_platform_and_latest_generate_only() -> N
                 assert statement_count == single_count
             finally:
                 event.remove(engine, "before_cursor_execute", count_statement)
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_cancelled_content_task_deletion_requires_no_production_history() -> None:
+    """已取消任务只有在无生成作业和内容版本时才可删除。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            graph = seed_graph(db)
+            actor = graph["user"]
+            task_values = {
+                "product_id": graph["product"].id,
+                "fact_version_id": graph["fact"].id,
+                "platform_profile_id": graph["profile"].id,
+                "created_by": actor.id,
+            }
+            open_task = ContentTask(**task_values)
+            completed_task = ContentTask(**task_values, status="COMPLETED")
+            empty_task = ContentTask(**task_values, status="CANCELLED")
+            route_task = ContentTask(**task_values, status="CANCELLED")
+            generation_task = ContentTask(**task_values, status="CANCELLED")
+            content_task = ContentTask(**task_values, status="CANCELLED")
+            db.add_all(
+                [
+                    open_task,
+                    completed_task,
+                    empty_task,
+                    route_task,
+                    generation_task,
+                    content_task,
+                ]
+            )
+            db.flush()
+            db.add(
+                GenerationJob(
+                    content_task_id=generation_task.id,
+                    idempotency_key=f"delete-task-{uuid.uuid4()}",
+                    job_type="GENERATE",
+                    status="FAILED",
+                    input_snapshot={},
+                    adapter_name="test",
+                    prompt_template_version="content-markdown-v2",
+                    prompt_hash="d" * 64,
+                    created_by=actor.id,
+                )
+            )
+            db.add(
+                ContentVersion(
+                    task_id=content_task.id,
+                    fact_version_id=graph["fact"].id,
+                    version=1,
+                    source_type="HUMAN",
+                    title="删除门禁内容",
+                    summary="删除门禁摘要",
+                    body_markdown="删除门禁正文",
+                    tags=[],
+                    content_hash="e" * 64,
+                    status="DRAFT",
+                    quality_issues=[],
+                    change_summary="验证任务删除引用",
+                    created_by=actor.id,
+                )
+            )
+            db.commit()
+            actor_id = actor.id
+            open_task_id = open_task.id
+            completed_task_id = completed_task.id
+            empty_task_id = empty_task.id
+            route_task_id = route_task.id
+            generation_task_id = generation_task.id
+            content_task_id = content_task.id
+
+            assert content_task_out(db, empty_task).available_actions == ["DELETE"]
+            assert content_task_out(db, open_task).available_actions == ["CANCEL"]
+            assert content_task_out(db, generation_task).available_actions == []
+            assert content_task_out(db, content_task).available_actions == []
+            list_actions = {
+                item.id: item.available_actions
+                for item in content_tasks_out(
+                    db,
+                    [empty_task, generation_task, content_task],
+                )
+            }
+            assert list_actions == {
+                empty_task_id: ["DELETE"],
+                generation_task_id: [],
+                content_task_id: [],
+            }
+
+            for blocked_task_id in (open_task_id, completed_task_id):
+                with pytest.raises(AppError) as invalid_state:
+                    delete_content_task(
+                        db=db,
+                        task_id=blocked_task_id,
+                        actor=actor,
+                        request_id=f"delete-state-{blocked_task_id}",
+                    )
+                assert invalid_state.value.code == "INVALID_STATE_TRANSITION"
+                db.rollback()
+
+            with pytest.raises(AppError) as generation_reference:
+                delete_content_task(
+                    db=db,
+                    task_id=generation_task_id,
+                    actor=actor,
+                    request_id="delete-generation-task",
+                )
+            assert generation_reference.value.code == "CONTENT_TASK_IN_USE"
+            assert generation_reference.value.details["references"] == [
+                {"type": "GENERATION_JOB", "count": 1}
+            ]
+            db.rollback()
+
+            with pytest.raises(AppError) as content_reference:
+                delete_content_task(
+                    db=db,
+                    task_id=content_task_id,
+                    actor=actor,
+                    request_id="delete-content-task",
+                )
+            assert content_reference.value.code == "CONTENT_TASK_IN_USE"
+            assert content_reference.value.details["references"] == [
+                {"type": "CONTENT_VERSION", "count": 1}
+            ]
+            db.rollback()
+
+            delete_content_task(
+                db=db,
+                task_id=empty_task_id,
+                actor=actor,
+                request_id="delete-empty-task",
+            )
+            assert db.get(ContentTask, empty_task_id) is None
+            deletion_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "delete-empty-task")
+            )
+            assert deletion_audit is not None
+            assert deletion_audit.action == "content_task.deleted"
+            assert deletion_audit.target_id == str(empty_task_id)
+
+        csrf_token = "content-task-delete-csrf-more-than-32-characters"
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        with session_factory() as db:
+            route_actor = db.get(User, actor_id)
+            assert route_actor is not None
+        current_session = SimpleNamespace(
+            user=route_actor,
+            csrf_hash=hash_token(csrf_token),
+            last_seen_at=None,
+        )
+        app.dependency_overrides[get_db] = override_db
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        client = TestClient(app)
+        try:
+            missing_csrf = client.delete(f"/api/v1/content-tasks/{route_task_id}")
+            assert missing_csrf.status_code == 422
+            invalid_csrf = client.delete(
+                f"/api/v1/content-tasks/{route_task_id}",
+                headers={"X-CSRF-Token": "wrong-token-more-than-32-characters"},
+            )
+            assert invalid_csrf.status_code == 403
+            deleted = client.delete(
+                f"/api/v1/content-tasks/{route_task_id}",
+                headers={"X-CSRF-Token": csrf_token},
+            )
+            assert deleted.status_code == 204, deleted.text
+        finally:
+            app.dependency_overrides.clear()
+            client.close()
+
+        with session_factory() as db:
+            assert db.get(ContentTask, route_task_id) is None
         engine.dispose()
 
 

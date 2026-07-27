@@ -360,7 +360,7 @@ export function PlatformsPage() {
                 }),
               }}
               columns={[
-                { title: '平台名称', render: (_, profile) => <div className="platform-identity-cell"><PlatformAvatar name={profile.name} logo={profile.logo} size={26} /><strong>{profile.name}</strong></div> },
+                { title: '平台名称', render: (_, profile) => <div className="platform-identity-cell"><PlatformAvatar name={profile.name} logo={profile.logo} size={24} /><strong>{profile.name}</strong></div> },
                 { title: '所属平台类型', width: 100, render: (_, profile) => profile.platform_type?.name ?? '未归类' },
                 { title: '官方网站', dataIndex: 'website_url', width: 110, render: (value: string | null) => value ? <a className="platform-table-link" href={value} target="_blank" rel="noreferrer" title={value}>{value}</a> : '—' },
                 { title: '允许域名（数量）', dataIndex: 'allowed_domains', width: 125, render: (items: string[]) => items.length ? <span title={items.join('、')}>{items[0]}{items.length > 1 ? ` 等 ${items.length} 个` : ''}</span> : '—' },

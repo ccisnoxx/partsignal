@@ -8,12 +8,15 @@ import { queryClient } from '../../app/queryClient';
 import { ThemeProvider } from '../../app/ThemeProvider';
 import { ContentTasksPage } from './ContentTasksPage';
 
-const apiMocks = vi.hoisted(() => ({ GET: vi.fn(), PATCH: vi.fn(), POST: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({ GET: vi.fn(), PATCH: vi.fn(), POST: vi.fn(), DELETE: vi.fn() }));
 
 vi.mock('../../shared/api/client', () => ({
   ApiError: class ApiError extends Error {},
   api: apiMocks,
   csrfHeader: () => ({ 'X-CSRF-Token': 'test' }),
+  ensureSuccess: (result: { error?: { error?: { message?: string } }; response: Response }) => {
+    if (!result.response.ok) throw new Error(result.error?.error?.message ?? `请求失败（HTTP ${result.response.status}）`);
+  },
   errorMessage: (error: unknown) => error instanceof Error ? error.message : '请求失败',
   newIdempotencyKey: () => 'idempotency-test',
   unwrap: <T,>(result: { data?: T; response: Response }) => {
@@ -174,6 +177,55 @@ test('列表加载和失败状态保持可感知且可重试', async () => {
   const callsBeforeRetry = apiMocks.GET.mock.calls.length;
   await userEvent.click(screen.getByRole('button', { name: /重\s*试/ }));
   await waitFor(() => expect(apiMocks.GET.mock.calls.length).toBeGreaterThan(callsBeforeRetry));
+});
+
+test('仅按服务端 DELETE 动作确认删除并返回任务列表', async () => {
+  const user = userEvent.setup();
+  const cancelledTask = { ...task, status: 'CANCELLED', available_actions: ['DELETE'] };
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}') return result(cancelledTask);
+    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'CANCELLED', { available_actions: ['DELETE'] })] });
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
+    if (path.includes('/content-versions') || path.includes('/generation-jobs') || path.includes('/generation-options')) return result(undefined, 503);
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  apiMocks.DELETE.mockResolvedValue({ response: new Response(null, { status: 204 }) });
+  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[`/tasks/${taskId}`]}><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+
+  await user.click(await screen.findByRole('button', { name: '删除任务' }));
+  const dialog = await screen.findByRole('dialog');
+  expect(within(dialog).getByText(/没有生成作业或内容版本/)).toBeInTheDocument();
+  await user.click(within(dialog).getByRole('button', { name: '删除任务' }));
+
+  await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
+    '/api/v1/content-tasks/{content_task_id}',
+    { params: { path: { content_task_id: taskId }, header: { 'X-CSRF-Token': 'test' } } },
+  ));
+  expect(await screen.findByRole('heading', { name: '任务列表' })).toBeInTheDocument();
+});
+
+test('任务删除失败保留详情并展示服务端错误', async () => {
+  const user = userEvent.setup();
+  const cancelledTask = { ...task, status: 'CANCELLED', available_actions: ['DELETE'] };
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}') return result(cancelledTask);
+    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'CANCELLED', { available_actions: ['DELETE'] })] });
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
+    if (path.includes('/content-versions') || path.includes('/generation-jobs') || path.includes('/generation-options')) return result(undefined, 503);
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  apiMocks.DELETE.mockResolvedValue({
+    error: { error: { message: '内容任务仍被生成作业引用' } },
+    response: new Response(null, { status: 409 }),
+  });
+  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[`/tasks/${taskId}`]}><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+
+  await user.click(await screen.findByRole('button', { name: '删除任务' }));
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '删除任务' }));
+
+  expect(await screen.findByText('内容任务仍被生成作业引用')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '删除任务' })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: '任务列表' })).not.toBeInTheDocument();
 });
 
 test('对合格 AI 版本选择模型并创建自然化作业', async () => {

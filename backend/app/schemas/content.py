@@ -25,7 +25,7 @@ class ContentTaskOut(ContentTaskCreate):
     id: uuid.UUID
     query_topic_id: uuid.UUID | None
     source_publication_attention_id: uuid.UUID | None
-    available_actions: list[Literal["CANCEL"]]
+    available_actions: list[Literal["CANCEL", "DELETE"]]
     status: Literal["OPEN", "COMPLETED", "CANCELLED"]
     revision: int
     created_by: uuid.UUID

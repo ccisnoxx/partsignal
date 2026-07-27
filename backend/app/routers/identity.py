@@ -55,6 +55,9 @@ from app.services.identity import (
     create_user as create_user_command,
 )
 from app.services.identity import (
+    delete_user as delete_user_command,
+)
+from app.services.identity import (
     export_users as export_users_query,
 )
 from app.services.identity import (
@@ -323,6 +326,27 @@ def update_user(
         )
         raise
     return present_user(user)
+
+
+@router.delete(
+    "/users/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deleteUser",
+)
+def delete_user(
+    user_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
+) -> None:
+    """删除已停用且不承担业务历史归属的用户。"""
+    delete_user_command(
+        db=db,
+        user_id=user_id,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
 
 
 @router.post(

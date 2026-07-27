@@ -194,6 +194,8 @@ test('平台列表明确展示 Prompt 配置状态', async () => {
   expect(within(filters).getByText('关键词')).toBeInTheDocument();
   expect(within(filters).getByText('启用状态')).toBeInTheDocument();
   const row = screen.getByText('工程师社区').closest('tr');
+  const logo = row?.querySelector<HTMLElement>('.platform-avatar');
+  expect(logo).toHaveStyle({ width: '24px', height: '24px' });
   fireEvent.click(within(row!).getByText('工程师社区'));
   expect(screen.queryByRole('heading', { name: '平台详情' })).not.toBeInTheDocument();
 });

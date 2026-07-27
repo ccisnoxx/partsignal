@@ -1,6 +1,7 @@
 /** 管理员用户工作台：URL 持有查询视图，服务端持有账号状态、统计与权限。 */
 import {
   CheckCircleOutlined,
+  DeleteOutlined,
   DownloadOutlined,
   EditOutlined,
   EllipsisOutlined,
@@ -41,6 +42,7 @@ import { ApiError, api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { Schema, User, UserExportQuery, UserListQuery } from '../../shared/api/types';
 import { NoData, QueryFailure } from '../../shared/components/AsyncState';
+import { DeletionError } from '../../shared/components/DeletionError';
 import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
@@ -196,6 +198,12 @@ export function UserManagementPage() {
     mutationFn: async ({ user, body }: { user: User; body: Schema<'ResetPasswordRequest'> }) => ensureSuccess(await api.POST('/api/v1/users/{user_id}/reset-password', { params: { path: { user_id: user.id }, header: csrfHeader() }, body })),
     onSuccess: async () => { setResetting(undefined); message.success('临时密码已更新，目标用户会话已撤销'); await refreshUsers(); },
   });
+  const deleteUser = useMutation({
+    mutationFn: async (user: User) => ensureSuccess(await api.DELETE('/api/v1/users/{user_id}', {
+      params: { path: { user_id: user.id }, header: csrfHeader() },
+    })),
+    onSuccess: async () => { message.success('用户已删除'); await refreshUsers(); },
+  });
   const toggleStatus = useMutation({
     mutationFn: async ({ user, isActive }: { user: User; isActive: boolean }) => unwrap(await api.PATCH('/api/v1/users/{user_id}', {
       params: { path: { user_id: user.id }, header: csrfHeader() },
@@ -271,21 +279,34 @@ export function UserManagementPage() {
       onOk: () => { setBatchFeedback(undefined); return bulkStatus.mutateAsync({ selectedUsers, status }); },
     });
   };
+  const confirmDelete = (user: User) => modal.confirm({
+    title: `删除用户“${user.username}”？`,
+    content: '删除后该账号全部会话会被清理，历史审计记录保留但操作者会置空；存在业务历史引用时服务端会拒绝。此操作不可恢复。',
+    okText: '删除用户',
+    cancelText: '取消',
+    okButtonProps: { danger: true },
+    onOk: () => deleteUser.mutate(user),
+  });
   const exportCurrent = () => {
     if (users.data?.total === 0) { message.info('当前筛选没有可导出的用户'); return; }
     exportList.mutate();
   };
-  const rowMenu = (user: User): MenuProps => ({
-    items: [
+  const rowMenu = (user: User): MenuProps => {
+    const items: NonNullable<MenuProps['items']> = [
       { key: 'reset', icon: <KeyOutlined />, label: '重置临时密码', disabled: user.id === auth.user?.id },
       { type: 'divider' },
       { key: 'toggle', icon: user.is_active ? <StopOutlined /> : <CheckCircleOutlined />, label: user.is_active ? '停用用户' : '启用用户', danger: user.is_active },
-    ],
-    onClick: ({ key }) => {
-      if (key === 'reset') { resetPassword.reset(); setResetting(user); }
-      else confirmToggle(user);
-    },
-  });
+    ];
+    if (!user.is_active) items.push({ key: 'delete', icon: <DeleteOutlined />, label: '删除用户', danger: true });
+    return {
+      items,
+      onClick: ({ key }) => {
+        if (key === 'reset') { resetPassword.reset(); setResetting(user); }
+        else if (key === 'toggle') confirmToggle(user);
+        else if (key === 'delete') confirmDelete(user);
+      },
+    };
+  };
 
   return (
     <div className="page-stack user-management-page">
@@ -304,6 +325,7 @@ export function UserManagementPage() {
       </section>
 
       {operationError && <OperationFailure error={operationError} />}
+      {deleteUser.error && <DeletionError error={deleteUser.error} />}
       {batchFeedback?.failures.length ? (
         <Alert
           closable
@@ -375,7 +397,7 @@ export function UserManagementPage() {
             <ul><li>新建或重置后，用户下次登录必须修改密码。</li><li>服务端只保存安全哈希，重置会撤销目标用户全部会话。</li><li>请通过安全渠道告知用户临时密码。</li></ul>
           </Card>
           <Card size="small" title="重要提示">
-            <ul className="user-management-warning-list"><li><WarningOutlined /> 系统不提供用户删除功能。</li><li><WarningOutlined /> 停用账号仍保留历史记录和关联数据。</li><li><WarningOutlined /> 建议定期审查账号状态并停用不再使用的账号。</li></ul>
+            <ul className="user-management-warning-list"><li><WarningOutlined /> 仅停用且无业务历史引用的账号可确认删除。</li><li><WarningOutlined /> 删除会清理会话，并保留操作者置空后的历史审计。</li><li><WarningOutlined /> 建议先停用不再使用的账号，再确认其历史归属。</li></ul>
           </Card>
           <Card size="small" title="快捷操作">
             <Space wrap>
@@ -417,7 +439,7 @@ export function UserManagementPage() {
         {resetting && (
           <Form<Schema<'ResetPasswordRequest'>> layout="vertical" scrollToFirstError onFinish={(body) => resetPassword.mutate({ user: resetting, body })}>
             <Alert className="form-alert" type="warning" showIcon title="重置成功后，该用户全部活动会话会被撤销，下次登录必须修改密码。" />
-            <Form.Item name="temporary_password" label="临时密码" rules={[{ required: true, min: 12 }]}><Input.Password autoComplete="new-password" /></Form.Item>
+            <Form.Item name="temporary_password" label="临时密码" rules={[{ required: true, min: 8 }]}><Input.Password autoComplete="new-password" /></Form.Item>
             <Button type="primary" htmlType="submit" loading={resetPassword.isPending}>重置临时密码</Button>
           </Form>
         )}

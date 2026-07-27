@@ -2463,3 +2463,163 @@ def test_publication_account_dedup_migration_rejects_existing_duplicates_atomica
                 "WHERE table_name = 'platform_accounts' AND column_name = 'revision'"
             )
             assert cursor.fetchone() == (0,)
+
+
+@pytest.mark.integration
+def test_audit_user_delete_guard_is_targeted_and_reversible() -> None:
+    """0027 只为当前事务目标用户放行审计操作者置空。"""
+    with temporary_database("partsignal_audit_user_delete") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0026_publication_account_dedup")
+        seed_accounts(env, backend_dir)
+        target_id, replacement_target_id = uuid.uuid4(), uuid.uuid4()
+        target_audit_id, other_audit_id = uuid.uuid4(), uuid.uuid4()
+
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+            admin_id = cursor.fetchone()[0]
+            cursor.executemany(
+                "INSERT INTO users "
+                "(id, username, display_name, password_hash, account_type, is_active, "
+                "must_change_password, revision) "
+                "VALUES (%s, %s, %s, 'hash', 'ENGINEER', false, false, 0)",
+                [
+                    (target_id, f"audit-target-{target_id.hex[:8]}", "审计删除目标"),
+                    (
+                        replacement_target_id,
+                        f"audit-target-{replacement_target_id.hex[:8]}",
+                        "降级删除目标",
+                    ),
+                ],
+            )
+            cursor.executemany(
+                "INSERT INTO audit_logs "
+                "(id, actor_id, business_module, action, target_type, target_id, outcome, "
+                "result_message, request_id, details) "
+                "VALUES (%s, %s, 'IDENTITY', 'user.updated', 'User', %s, 'SUCCESS', "
+                "'用户资料更新完成', %s, '{}'::jsonb)",
+                [
+                    (
+                        target_audit_id,
+                        target_id,
+                        str(target_id),
+                        "migration-audit-target",
+                    ),
+                    (
+                        other_audit_id,
+                        admin_id,
+                        str(admin_id),
+                        "migration-audit-other",
+                    ),
+                ],
+            )
+            connection.commit()
+
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute("DELETE FROM users WHERE id = %s", (target_id,))
+            connection.rollback()
+
+        run_alembic(env, backend_dir, "0027_audit_user_delete_guard")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE audit_logs SET actor_id = NULL WHERE id = %s",
+                    (target_audit_id,),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.user_delete_id', %s, true)",
+                (str(admin_id),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE audit_logs SET actor_id = NULL WHERE id = %s",
+                    (target_audit_id,),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.user_delete_id', %s, true)",
+                (str(target_id),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE audit_logs SET actor_id = NULL WHERE id = %s",
+                    (target_audit_id,),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.user_delete_id', %s, true)",
+                (str(target_id),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE audit_logs SET actor_id = NULL, result_message = '禁止篡改' "
+                    "WHERE id = %s",
+                    (target_audit_id,),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.user_delete_id', %s, true)",
+                (str(target_id),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute("DELETE FROM audit_logs WHERE id = %s", (target_audit_id,))
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.user_delete_id', %s, true)",
+                (str(target_id),),
+            )
+            cursor.execute("DELETE FROM users WHERE id = %s", (target_id,))
+            connection.commit()
+            cursor.execute(
+                "SELECT actor_id, result_message FROM audit_logs WHERE id = %s",
+                (target_audit_id,),
+            )
+            assert cursor.fetchone() == (None, "用户资料更新完成")
+            cursor.execute(
+                "SELECT actor_id FROM audit_logs WHERE id = %s",
+                (other_audit_id,),
+            )
+            assert cursor.fetchone() == (admin_id,)
+
+        subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0026_publication_account_dedup"],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            replacement_audit_id = uuid.uuid4()
+            cursor.execute(
+                "INSERT INTO audit_logs "
+                "(id, actor_id, business_module, action, target_type, target_id, outcome, "
+                "result_message, request_id, details) "
+                "VALUES (%s, %s, 'IDENTITY', 'user.updated', 'User', %s, 'SUCCESS', "
+                "'用户资料更新完成', 'migration-audit-downgrade', '{}'::jsonb)",
+                (
+                    replacement_audit_id,
+                    replacement_target_id,
+                    str(replacement_target_id),
+                ),
+            )
+            connection.commit()
+            cursor.execute(
+                "SELECT set_config('partsignal.user_delete_id', %s, true)",
+                (str(replacement_target_id),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "DELETE FROM users WHERE id = %s",
+                    (replacement_target_id,),
+                )
+            connection.rollback()
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0026_publication_account_dedup",)

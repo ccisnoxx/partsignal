@@ -174,7 +174,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deleteUser"];
         options?: never;
         head?: never;
         patch: operations["updateUser"];
@@ -856,7 +856,7 @@ export interface paths {
         get: operations["getContentTask"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deleteContentTask"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2202,7 +2202,7 @@ export interface components {
             query_topic_id: string | null;
             /** Format: uuid */
             source_publication_attention_id: string | null;
-            available_actions: "CANCEL"[];
+            available_actions: ("CANCEL" | "DELETE")[];
             status: components["schemas"]["ContentTaskStatus"];
             revision: number;
             /** Format: uuid */
@@ -3547,6 +3547,32 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除停用用户及其会话 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     updateUser: {
@@ -5258,6 +5284,32 @@ export interface operations {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+        };
+    };
+    deleteContentTask: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                content_task_id: components["parameters"]["ContentTaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除无生产历史的已取消内容任务 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     getContentTaskGenerationOptions: {

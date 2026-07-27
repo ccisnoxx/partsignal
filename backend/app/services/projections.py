@@ -5,6 +5,7 @@ from __future__ import annotations
 import difflib
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -49,9 +50,41 @@ PLATFORM_PROFILE_AUDIT_ACTIONS = (
 )
 
 
+def _content_task_production_history_ids(
+    db: Session,
+    task_ids: list[uuid.UUID],
+) -> set[uuid.UUID]:
+    """批量返回已有生成作业或内容版本的任务，作为删除动作的唯一投影口径。"""
+    if not task_ids:
+        return set()
+    return set(
+        db.scalars(
+            select(GenerationJob.content_task_id)
+            .where(GenerationJob.content_task_id.in_(task_ids))
+            .union(
+                select(ContentVersion.task_id).where(ContentVersion.task_id.in_(task_ids))
+            )
+        )
+    )
+
+
+def _content_task_available_actions(
+    task: ContentTask,
+    *,
+    has_in_flight_publication: bool,
+    has_production_history: bool,
+) -> list[Literal["CANCEL", "DELETE"]]:
+    """按服务端状态与历史门禁给出当前真正可执行的任务动作。"""
+    if task.status == "OPEN" and not has_in_flight_publication:
+        return ["CANCEL"]
+    if task.status == "CANCELLED" and not has_production_history:
+        return ["DELETE"]
+    return []
+
+
 def content_task_out(db: Session, task: ContentTask) -> ContentTaskOut:
     """投影任务及当前唯一可执行的人工动作。"""
-    has_in_flight_publication = (
+    has_in_flight_publication = task.status == "OPEN" and (
         db.scalar(
             select(PublicationRecord.id)
             .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
@@ -63,9 +96,15 @@ def content_task_out(db: Session, task: ContentTask) -> ContentTaskOut:
         )
         is not None
     )
+    has_production_history = task.id in _content_task_production_history_ids(
+        db,
+        [task.id] if task.status == "CANCELLED" else [],
+    )
     payload = {column.name: getattr(task, column.name) for column in task.__table__.columns}
-    payload["available_actions"] = (
-        ["CANCEL"] if task.status == "OPEN" and not has_in_flight_publication else []
+    payload["available_actions"] = _content_task_available_actions(
+        task,
+        has_in_flight_publication=has_in_flight_publication,
+        has_production_history=has_production_history,
     )
     return ContentTaskOut.model_validate(payload)
 
@@ -258,6 +297,10 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
             .distinct()
         )
     )
+    production_history_task_ids = _content_task_production_history_ids(
+        db,
+        [task.id for task in tasks if task.status == "CANCELLED"],
+    )
     items: list[ContentTaskListItem] = []
     for task in tasks:
         product = products_by_id.get(task.product_id)
@@ -265,8 +308,10 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
         if product is None or platform is None:
             raise RuntimeError(f"内容任务 {task.id} 的产品或平台关联不存在")
         payload = {column.name: getattr(task, column.name) for column in task.__table__.columns}
-        payload["available_actions"] = (
-            ["CANCEL"] if task.status == "OPEN" and task.id not in in_flight_task_ids else []
+        payload["available_actions"] = _content_task_available_actions(
+            task,
+            has_in_flight_publication=task.id in in_flight_task_ids,
+            has_production_history=task.id in production_history_task_ids,
         )
         payload["product"] = ContentTaskProductSummary(
             id=product.id,

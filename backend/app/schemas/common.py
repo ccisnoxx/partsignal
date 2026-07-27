@@ -79,7 +79,7 @@ class UserUpdate(ContractModel):
 
 
 class ResetPasswordRequest(ContractModel):
-    temporary_password: str = Field(min_length=12)
+    temporary_password: str = Field(min_length=8)
 
 
 class ChangePasswordRequest(ContractModel):

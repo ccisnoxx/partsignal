@@ -43,18 +43,35 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   await expect(page.getByRole('button', { name: '打开用户操作菜单' })).toBeVisible();
   await page.goto('/audit');
   await expect(page.getByRole('heading', { name: '审计日志' })).toBeVisible();
-  const users = await body<{ items: Array<{ id: string; username: string; display_name: string; account_type: 'ADMIN' | 'ENGINEER'; is_active: boolean; revision: number }> }>(await page.request.get('/api/v1/users?q=admin&page=1&page_size=100'));
-  // 只清理本测试历史运行生成的管理员，避免影响测试环境中的其他 admin-* 账号。
-  for (const staleAdmin of users.items.filter((item) => (
-    /^admin-[0-9a-f]{8}$/.test(item.username)
-    && item.display_name === `管理员 ${item.username.slice(6)}`
-    && item.is_active
-  ))) {
-    expect((await page.request.patch(`/api/v1/users/${staleAdmin.id}`, {
-      headers: { 'X-CSRF-Token': csrf },
-      data: { expected_revision: staleAdmin.revision, display_name: staleAdmin.display_name, account_type: 'ADMIN', is_active: false },
-    })).ok()).toBeTruthy();
+  type TestUser = { id: string; username: string; display_name: string; account_type: 'ADMIN' | 'ENGINEER'; is_active: boolean; revision: number };
+  for (const rule of [
+    { prefix: 'admin-', pattern: /^admin-([0-9a-f]{8})$/, displayPrefix: '管理员 ', accountType: 'ADMIN' },
+    { prefix: 'engineer-', pattern: /^engineer-([0-9a-f]{8})$/, displayPrefix: '工程师 ', accountType: 'ENGINEER' },
+  ] as const) {
+    const staleUsers = await body<{ items: TestUser[] }>(await page.request.get(`/api/v1/users?q=${rule.prefix}&page=1&page_size=100`));
+    for (const staleUser of staleUsers.items.filter((item) => {
+      const match = rule.pattern.exec(item.username);
+      return match !== null
+        && item.display_name === `${rule.displayPrefix}${match[1]}`
+        && item.account_type === rule.accountType;
+    })) {
+      if (staleUser.is_active) {
+        expect((await page.request.patch(`/api/v1/users/${staleUser.id}`, {
+          headers: { 'X-CSRF-Token': csrf },
+          data: {
+            expected_revision: staleUser.revision,
+            display_name: staleUser.display_name,
+            account_type: staleUser.account_type,
+            is_active: false,
+          },
+        })).ok()).toBeTruthy();
+      }
+      expect((await page.request.delete(`/api/v1/users/${staleUser.id}`, {
+        headers: { 'X-CSRF-Token': csrf },
+      })).status()).toBe(204);
+    }
   }
+  const users = await body<{ items: TestUser[] }>(await page.request.get('/api/v1/users?q=admin&page=1&page_size=100'));
   const admin = users.items.find((item) => item.username === 'admin');
   expect(admin).toBeTruthy();
   expect((await page.request.post('/api/v1/auth/change-password', {
@@ -73,7 +90,11 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
     headers: { 'X-CSRF-Token': csrf },
     data: { username, display_name: `工程师 ${suffix}`, temporary_password: 'initial-password-only', account_type: 'ENGINEER' },
   }));
-  const temporaryPassword = 'temporary-password-only';
+  expect((await page.request.post(`/api/v1/users/${created.id}/reset-password`, {
+    headers: { 'X-CSRF-Token': csrf },
+    data: { temporary_password: '1234567' },
+  })).status()).toBe(422);
+  const temporaryPassword = 'Temp1234';
   const reset = await page.request.post(`/api/v1/users/${created.id}/reset-password`, {
     headers: { 'X-CSRF-Token': csrf },
     data: { temporary_password: temporaryPassword },
@@ -110,6 +131,7 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
     `/api/v1/platform-profiles/${nonexistentId}/prompt?expected_revision=0`,
     `/api/v1/platform-accounts/${nonexistentId}`,
     `/api/v1/fact-versions/${nonexistentId}`,
+    `/api/v1/users/${nonexistentId}`,
   ]) {
     expect((await engineerPage.request.delete(path, { headers: { 'X-CSRF-Token': engineerCsrf.csrf_token } })).status()).toBe(403);
   }
@@ -177,6 +199,14 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   });
   expect(disabledAdmin.ok()).toBeTruthy();
   expect((await engineerPage.request.get('/api/v1/auth/me')).status()).toBe(401);
+  expect((await page.request.delete(`/api/v1/users/${engineer!.id}`, {
+    headers: { 'X-CSRF-Token': csrf },
+  })).status()).toBe(204);
+  expect((await page.request.delete(`/api/v1/users/${temporaryAdmin!.id}`, {
+    headers: { 'X-CSRF-Token': csrf },
+  })).status()).toBe(204);
+  const residualUsers = await body<{ items: TestUser[] }>(await page.request.get(`/api/v1/users?q=${suffix}&page=1&page_size=100`));
+  expect(residualUsers.items.filter((item) => item.username === username || item.username === adminUsername)).toEqual([]);
   const auditText = await (await page.request.get('/api/v1/audit-logs?page=1&page_size=100')).text();
   for (const secret of ['initial-password-only', temporaryPassword, 'engineer-new-password', adminInitialPassword, adminReadyPassword, adminNewPassword, 'self-reset-must-fail']) {
     expect(auditText).not.toContain(secret);

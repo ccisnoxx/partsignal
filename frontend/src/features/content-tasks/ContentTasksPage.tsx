@@ -33,11 +33,12 @@ import { marked } from 'marked';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
-import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
+import { api, csrfHeader, ensureSuccess, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { platformProfilesQueryOptions, productsQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { ContentTaskListItem, ContentTaskListQuery, ContentVersion, Schema } from '../../shared/api/types';
 import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
+import { DeletionError } from '../../shared/components/DeletionError';
 import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { PlatformAvatar } from '../../shared/components/PlatformAvatar';
@@ -266,7 +267,7 @@ function TaskCreateModal({ open, onClose }: { open: boolean; onClose: () => void
 
 function TaskDetail({ taskId }: { taskId: string }) {
   const navigate = useNavigate();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const activeSection = useActiveSection(taskSectionIds);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -360,6 +361,17 @@ function TaskDetail({ taskId }: { taskId: string }) {
       ]);
     },
   });
+  const deleteTask = useMutation({
+    mutationFn: async () => ensureSuccess(await api.DELETE('/api/v1/content-tasks/{content_task_id}', {
+      params: { path: { content_task_id: taskId }, header: csrfHeader() },
+    })),
+    onSuccess: async () => {
+      message.success('内容任务已删除');
+      queryClient.removeQueries({ queryKey: queryKeys.contentTasks.detail(taskId) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all });
+      navigate('/tasks');
+    },
+  });
   const latestJob = jobs.data?.items[0];
   const jobDetail = useQuery({
     queryKey: queryKeys.generationJob(latestJob?.id),
@@ -393,9 +405,21 @@ function TaskDetail({ taskId }: { taskId: string }) {
       title={summary ? `${summary.product.brand} ${summary.product.part_number}` : '内容任务详情'}
       description={summary ? `目标平台：${summary.platform.name}` : `平台 ${task.data.platform_profile_id.slice(0, 8)}`}
       breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: '任务详情' }]}
-      actions={<><StatusTag status={task.data.status} />{task.data.available_actions.includes('CANCEL') && <Button danger onClick={() => setCancelOpen(true)}>取消任务</Button>}</>}
+      actions={<>
+        <StatusTag status={task.data.status} />
+        {task.data.available_actions.includes('CANCEL') && <Button danger onClick={() => setCancelOpen(true)}>取消任务</Button>}
+        {task.data.available_actions.includes('DELETE') && <Button danger loading={deleteTask.isPending} onClick={() => modal.confirm({
+          title: '删除内容任务？',
+          content: '仅已取消且没有生成作业或内容版本的任务可删除；存在生产历史时服务端会拒绝。此操作不可恢复。',
+          okText: '删除任务',
+          cancelText: '取消',
+          okButtonProps: { danger: true },
+          onOk: () => deleteTask.mutate(),
+        })}>删除任务</Button>}
+      </>}
     />
     {mutationError && <Alert type="error" title={errorMessage(mutationError)} />}
+    {deleteTask.error && <DeletionError error={deleteTask.error} />}
     <nav className="form-section-nav" aria-label="内容任务章节">
       <a href="#task-context" aria-current={activeSection === 'task-context' ? 'location' : undefined}>任务上下文</a>
       <a href="#task-entry" aria-current={activeSection === 'task-entry' ? 'location' : undefined}>首稿入口</a>

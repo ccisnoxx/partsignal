@@ -8,7 +8,7 @@
 - Alembic is the only schema migration entry point. API and Worker never run migrations on startup.
 - Revisions `0001` through `0008` use `app.migration_schema_v1` as a frozen metadata snapshot; future runtime model changes must add a new revision and must not edit that snapshot.
 - JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
-- Review records, status events, observations, and audit logs are append-only.
+- Review records, status events, observations, and audit logs are append-only。`0027` 仅在物理删除停用用户时允许把该用户对应的 `audit_logs.actor_id` 从原 UUID 置空，其他审计字段、任意 DELETE 和普通 UPDATE 仍被数据库触发器拒绝。
 
 ## Migration Order
 
@@ -64,9 +64,9 @@ Only `VERIFIED` files may be linked. Publication attachments additionally requir
 
 ### 0009 Configuration Center And AI Generation
 
-`users` gains `account_type` (`ADMIN | ENGINEER`) and `must_change_password`. Existing users with `SYSTEM_ADMIN` become `ADMIN`; all other existing users become `ENGINEER`. After the mapping, `roles` and `user_roles` are removed so `users.account_type` is the only permission source. Application users remain non-deletable business identities. Disabling a user or resetting a password revokes all active sessions. A transaction may not disable or demote the last active `ADMIN`.
+`users` gains `account_type` (`ADMIN | ENGINEER`) and `must_change_password`. Existing users with `SYSTEM_ADMIN` become `ADMIN`; all other existing users become `ENGINEER`. After the mapping, `roles` and `user_roles` are removed so `users.account_type` is the only permission source. Disabling a user or resetting a password revokes all active sessions. A transaction may not disable or demote the last active `ADMIN`. Revision `0027` later adds a restricted physical-deletion path for disabled, unreferenced users.
 
-用户管理工作台不增加表、列或迁移。新账号默认启用，管理员提供的 `temporary_password` 只保存安全哈希，并固定写入 `must_change_password=true`。列表摘要由 PostgreSQL 对全部用户实时聚合，不保存统计快照，也不从审计推测趋势。单个与批量启停共享同一行锁、revision、最后启用管理员保护、会话撤销和逐用户审计不变量；合法批量命令只把写入前的预期业务错误作为逐项失败，任何数据库、编程或审计异常都回滚整批。用户 CSV 只导出批准的非敏感业务列，完整生成后追加 `user.exported` 审计；停用或重新启用只改变当前用户状态，不删除、改绑或改写任何历史业务与审计外键。
+新账号默认启用，管理员提供的 `temporary_password` 只保存安全哈希，并固定写入 `must_change_password=true`；重置临时密码最少 8 位，新建账号临时密码和用户自助改密仍保持各自既有 12 位边界。列表摘要由 PostgreSQL 对全部用户实时聚合，不保存统计快照，也不从审计推测趋势；`admin_total` 统计全部实际 `ADMIN`，不因停用而排除。单个与批量启停共享同一行锁、revision、最后启用管理员保护、会话撤销和逐用户审计不变量；合法批量命令只把写入前的预期业务错误作为逐项失败，任何数据库、编程或审计异常都回滚整批。用户 CSV 只导出批准的非敏感业务列，完整生成后追加 `user.exported` 审计；停用或重新启用只改变当前用户状态，不删除、改绑或改写任何历史业务与审计外键。
 
 `platform_types` owns a unique category `slug`. Revision `0009` initially placed one mutable Markdown system Prompt under each type; revision `0014` replaced that ownership with one current Prompt per concrete platform。`0025` 又删除了任务上的类型快照和可编辑 Prompt；当前任务只直接绑定具体平台，生成输入由平台 Prompt 与事实版本 Markdown 唯一决定。
 
@@ -78,7 +78,7 @@ Only `VERIFIED` files may be linked. Publication attachments additionally requir
 
 This irreversible data migration recognizes only `product_editor`, `product_reviewer`, `content_reviewer`, and `analyst`. It locks all matching users and checks every user-owned business or audit foreign key before deleting any row. Any reference aborts the complete migration and reports the username plus referring table and column; ownership is never reassigned and historical data is never deleted. When no references exist, sessions for the four users are removed before the users. An existing `content_editor` keeps its password, account type, active state, and profile but receives `must_change_password=true` with an incremented revision.
 
-After migration, `seed-demo` idempotently ensures only `admin` and `content_editor`. Their initial passwords come from `PARTSIGNAL_SEED_ADMIN_PASSWORD` and `PARTSIGNAL_SEED_ENGINEER_PASSWORD`; existing accounts are never overwritten. A newly created `content_editor` has account type `ENGINEER` and must change its initial password. The one-time migration is the only physical user-deletion exception and does not add an application deletion API.
+After migration, `seed-demo` idempotently ensures only `admin` and `content_editor`. Their initial passwords come from `PARTSIGNAL_SEED_ADMIN_PASSWORD` and `PARTSIGNAL_SEED_ENGINEER_PASSWORD`; existing accounts are never overwritten. A newly created `content_editor` has account type `ENGINEER` and must change its initial password. At this revision the cleanup was the only physical user-deletion exception; revision `0027` later adds the restricted application deletion contract.
 
 ### 0011 Generation Reliability
 
@@ -196,7 +196,7 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 成功业务状态和成功审计仍在一个事务内提交。经批准的九类关键命令在业务错误或权限拒绝时先回滚业务事务，再使用独立短事务追加 `FAILED` 或 `DENIED`；其他现有写命令暂时保持成功审计。请求解析、未登录、失效会话、强制改密和 CSRF 失败属于访问边界，不写业务审计。`details` 只保存服务端白名单 `changes/facts` 或经明确兼容投影的历史安全字段，API 不返回原始 JSONB，也不对其全文检索。
 
-审计时间按 UTC 存储和传输，查询时间窗采用半开区间 `[created_from, created_to)`。`actor_id` 继续使用 `SET NULL`，响应中的姓名和账号类型是当前用户目录投影而非历史快照。`request_id` 允许重复，只用于关联链路，并限制为 1 至 100 个可打印 ASCII 字符。表级 append-only 触发器继续禁止 `UPDATE/DELETE`；若存在空 `target_id` 的失败创建记录，降级必须拒绝恢复 `NOT NULL`，不得删除或篡改历史。
+审计时间按 UTC 存储和传输，查询时间窗采用半开区间 `[created_from, created_to)`。`actor_id` 使用 `SET NULL`，响应中的姓名和账号类型是当前用户目录投影而非历史快照。`request_id` 允许重复，只用于关联链路，并限制为 1 至 100 个可打印 ASCII 字符。`0027` 之前的通用 append-only 触发器禁止全部 `UPDATE/DELETE`；当前专用触发器仍禁止 DELETE 和普通 UPDATE，只放行受约束的操作者置空。若存在空 `target_id` 的失败创建记录，降级必须拒绝恢复 `NOT NULL`，不得删除或篡改历史。
 
 ### 0025 Markdown Facts And Direct Platform Tasks
 
@@ -229,6 +229,14 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 账号编辑和启停固定按“锁具体平台行、锁账号行、校验 expected revision、写业务与脱敏审计”的顺序执行。停用只影响新发布候选，不删除或改写历史引用；平台归属创建后不可编辑。迁移在创建规范化唯一索引前锁表并检查空值与重复组，发现无法无损处理的数据时以 `55000` 失败，不自动合并或删除账号。
 
 人工发布以 `platform_profile_id + ContentVersion.content_hash` 作为平台内容身份。创建登记和 `mark-published` 都对该身份获取事务 advisory lock，并读取发布记录及追加式状态事件：存在非 `REJECTED` 尝试时禁止重复登记；任一记录曾出现 `PUBLISHED` 或 `VERIFIED` 事件后永久禁止同平台同内容再次登记或公开，后续 `REMOVED` 或 `VERIFICATION_FAILED` 不撤销公开事实。只有全部既有尝试从未公开且已进入 `REJECTED` 时，才允许换另一个启用账号重试。不同具体平台互不阻断，幂等键继续只负责同一请求重放。
+
+### 0027 Guard Audit Actor User Delete
+
+版本 `0027` 紧跟 `0026_publication_account_dedup`，不新增业务表或列，只把 `audit_logs` 的通用追加式触发器替换为操作者置空专用守卫。用户删除服务必须先锁定用户表和目标行，只允许删除 `is_active=false` 的账号；活动账号返回 `USER_ACTIVE`。会话沿既有外键级联清理，任一业务外键引用继续由 `RESTRICT` 阻断并映射为 `USER_IN_USE`。
+
+删除事务先设置事务本地 `partsignal.user_delete_id`，随后仅允许在用户删除触发的外键级联上下文中，把匹配用户的 `audit_logs.actor_id` 从该 UUID 更新为 `NULL`，且 `to_jsonb(NEW) - 'actor_id'` 必须与旧行完全一致。错配用户、未声明事务变量、手工直接更新、把空操作者改为其他值、修改其他审计字段以及所有审计 DELETE 均以 `55000` 失败。用户删除成功后追加新的 `user.deleted` 审计事件，由实际执行删除的管理员作为操作者；历史审计事件保留但被删用户的当前目录投影为空。降级恢复原通用触发器。
+
+内容任务物理删除不需要 schema 迁移：只有 `CANCELLED` 且没有任何 `generation_jobs` 或 `content_versions` 的任务可删除。服务锁定目标并统计两类直接引用；非取消状态返回 `INVALID_STATE_TRANSITION`，存在生产历史时返回 `CONTENT_TASK_IN_USE` 及结构化引用。删除不级联或改写事实、生成、内容、发布和审计历史。
 
 ## State Machines
 
@@ -270,6 +278,7 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - Content versions permit only valid status transitions; publishable fields are immutable.
 - `users.account_type` is the only permission source. `ADMIN` includes all `ENGINEER` abilities and exclusively manages users and configuration.
 - At least one active `ADMIN` must remain after every user account-type or active-state update.
+- 用户物理删除仅限管理员操作停用账号；会话级联清理，审计操作者按 `0027` 受约束置空，任何业务历史引用都阻断删除。用户实时 `admin_total` 统计全部 `ADMIN`，包括停用账号。
 - Sensitive AI values are encrypted with the deployment master key and never returned, audited, logged, or copied into generation snapshots.
 - A platform type referenced by a platform profile cannot be deleted. Platform types do not own Prompts after `0014`.
 - A concrete platform owns zero or one current Prompt. Deleting the Prompt keeps the platform selectable for manual content tasks but makes system AI generation unavailable until a Prompt is configured again.
@@ -277,8 +286,9 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A concrete platform's `is_active` state is independent from configuration completeness. A disabled platform remains manageable but cannot be used to create a content task, repair task, platform account, or publication record; disabling never mutates existing accounts, configuration, or history.
 - Platform completeness, account counts, and task-reference counts are real-time read projections. Completeness is true when the current platform Prompt exists; a task reference is counted once through `content_tasks.platform_profile_id`.
 - A concrete platform stores at most one Logo source. Uploaded Logos must reference a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` file; external Logo URLs and website URLs remain explicit nullable URI fields.
-- Product, platform profile, platform account, and platform type physical deletion is admin-only. Services lock the target, count direct references, and return structured `409 details.references`; they never cascade, reassign, or rewrite immutable business history.
+- Product, fact version, platform profile, platform account, platform type, and user physical deletion is admin-only. Services lock the target, count direct references where applicable, and return structured `409` conflicts; they never cascade, reassign, or rewrite immutable business history except for the explicitly guarded audit actor nulling in `0027`.
 - A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform profile requires no content tasks or platform accounts; a platform account requires no `PublicationRecord`; a platform type requires no platform profiles.
+- A cancelled content task can be physically deleted only when it has no generation job or content version; no other task status is deletable.
 - Channel deletion cascades to Headers and models. Historical job foreign keys become null while their immutable snapshots remain readable.
 - A model can be enabled only after its own successful test. A channel can be enabled only when at least one child model has passed testing.
 - A generation job performs at most one provider call. Expired worker leases fail explicitly; retries create a new job and preserve the original non-sensitive v2 snapshot. Legacy v1 snapshots are read-only and cannot be retried.

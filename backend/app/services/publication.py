@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, in_use, not_found
+from app.models.ai_generation import GenerationJob
 from app.models.configuration import (
     PlatformProfile,
     QueryTopic,
@@ -719,6 +720,57 @@ def cancel_content_task(
     )
     db.commit()
     return task
+
+
+def delete_content_task(
+    *,
+    db: Session,
+    task_id: uuid.UUID,
+    actor: User,
+    request_id: str,
+) -> None:
+    """删除未产生生成或内容历史的已取消任务。"""
+    task = db.scalar(select(ContentTask).where(ContentTask.id == task_id).with_for_update())
+    if task is None:
+        raise not_found("内容任务")
+    if task.status != "CANCELLED":
+        raise AppError("INVALID_STATE_TRANSITION", "只有已取消的内容任务可以删除", 409)
+
+    generation_job_count = int(
+        db.scalar(
+            select(func.count(GenerationJob.id)).where(GenerationJob.content_task_id == task.id)
+        )
+        or 0
+    )
+    content_version_count = int(
+        db.scalar(select(func.count(ContentVersion.id)).where(ContentVersion.task_id == task.id))
+        or 0
+    )
+    if generation_job_count or content_version_count:
+        raise in_use(
+            "CONTENT_TASK_IN_USE",
+            "内容任务",
+            [
+                ("GENERATION_JOB", "生成作业", generation_job_count),
+                ("CONTENT_VERSION", "内容版本", content_version_count),
+            ],
+        )
+
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.CONTENT_PLANNING,
+            action="content_task.deleted",
+            target_type="ContentTask",
+            target_id=task.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="内容任务已删除",
+        ),
+    )
+    db.delete(task)
+    db.commit()
 
 
 def create_repair_task(

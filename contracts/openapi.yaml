@@ -203,6 +203,21 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/User'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+    delete:
+      tags: [identity]
+      operationId: deleteUser
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 已删除停用用户及其会话}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/users/{user_id}/reset-password:
     post:
       tags: [identity]
@@ -1225,6 +1240,16 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
+    delete:
+      tags: [planning]
+      operationId: deleteContentTask
+      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      responses:
+        '204': {description: 已删除无生产历史的已取消内容任务}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/generation-options:
     get:
       tags: [production]
@@ -2087,7 +2112,7 @@ components:
       additionalProperties: false
       required: [temporary_password]
       properties:
-        temporary_password: {type: string, minLength: 12}
+        temporary_password: {type: string, minLength: 8}
     ChangePasswordRequest:
       type: object
       additionalProperties: false
@@ -2845,7 +2870,7 @@ components:
             source_publication_attention_id: {type: [string, 'null'], format: uuid}
             available_actions:
               type: array
-              items: {type: string, enum: [CANCEL]}
+              items: {type: string, enum: [CANCEL, DELETE]}
             status: {$ref: '#/components/schemas/ContentTaskStatus'}
             revision: {type: integer}
             created_by: {type: string, format: uuid}

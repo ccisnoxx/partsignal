@@ -34,16 +34,25 @@ JOB_ID = uuid.UUID("00000000-0000-0000-0000-000000000005")
 PLATFORM_ID = uuid.UUID("00000000-0000-0000-0000-000000000006")
 CHANNEL_ID = uuid.UUID("00000000-0000-0000-0000-000000000007")
 MODEL_ID = uuid.UUID("00000000-0000-0000-0000-000000000008")
+PROMPT_ID = uuid.UUID("00000000-0000-0000-0000-000000000009")
 
 
 class SnapshotSession:
     """为快照构造测试提供按 ORM 类型读取的最小会话。"""
 
-    def __init__(self, rows: dict[type[object], object]) -> None:
+    def __init__(
+        self,
+        rows: dict[type[object], object],
+        scalar_rows: list[object] | None = None,
+    ) -> None:
         self.rows = rows
+        self.scalar_rows = list(scalar_rows or [])
 
     def get(self, model_type: type[object], _identity: object) -> object | None:
         return self.rows.get(model_type)
+
+    def scalar(self, _query: object) -> object | None:
+        return self.scalar_rows.pop(0) if self.scalar_rows else None
 
 
 def generation_input(*, classification: str = "PUBLIC") -> dict[str, Any]:
@@ -137,11 +146,17 @@ def test_build_generation_input_uses_prompt_and_fact_markdown_verbatim() -> None
             name="平台",
             slug="platform",
             is_active=True,
+            platform_prompt_id=PROMPT_ID,
         ),
     )
     prompt = cast(
         PlatformPrompt,
-        SimpleNamespace(platform_profile_id=PLATFORM_ID, template_markdown=prompt_markdown),
+        SimpleNamespace(
+            id=PROMPT_ID,
+            name="技术文章 Prompt",
+            revision=4,
+            template_markdown=prompt_markdown,
+        ),
     )
     channel = cast(
         AIChannel,
@@ -169,22 +184,24 @@ def test_build_generation_input_uses_prompt_and_fact_markdown_verbatim() -> None
             test_status="PASSED",
         ),
     )
-    db = cast(
-        Any,
-        SnapshotSession(
-            {
-                FactVersion: fact,
-                Product: product,
-                PlatformProfile: platform,
-                PlatformPrompt: prompt,
-                AIChannel: channel,
-            }
-        ),
+    session = SnapshotSession(
+        {
+            FactVersion: fact,
+            Product: product,
+            AIChannel: channel,
+        },
+        [platform, prompt],
     )
+    db = cast(Any, session)
 
-    snapshot = build_generation_input(db, task, model)
+    snapshot = build_generation_input(db, task, model, PROMPT_ID, 4)
 
-    assert snapshot["contract_version"] == "content-markdown-v2"
+    assert snapshot["contract_version"] == "content-markdown-v3"
+    assert snapshot["platform_prompt"] == {
+        "id": str(PROMPT_ID),
+        "name": "技术文章 Prompt",
+        "revision": 4,
+    }
     assert snapshot["system_message"] == prompt_markdown
     assert snapshot["user_message"] == fact_markdown
     assert set(snapshot) == {
@@ -193,10 +210,21 @@ def test_build_generation_input_uses_prompt_and_fact_markdown_verbatim() -> None
         "channel",
         "model",
         "platform_profile",
+        "platform_prompt",
         "fact_version",
         "system_message",
         "user_message",
     }
+
+    session.scalar_rows = [platform]
+    with pytest.raises(AppError) as rebound:
+        build_generation_input(db, task, model, uuid.uuid4(), 4)
+    assert rebound.value.code == "PLATFORM_PROMPT_CHANGED"
+
+    session.scalar_rows = [platform, prompt]
+    with pytest.raises(AppError) as revised:
+        build_generation_input(db, task, model, PROMPT_ID, 5)
+    assert revised.value.code == "PLATFORM_PROMPT_CHANGED"
 
 
 @pytest.mark.parametrize("classification", ["INTERNAL", "RESTRICTED"])

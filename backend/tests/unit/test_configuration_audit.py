@@ -26,7 +26,11 @@ class RollbackSession:
 @pytest.mark.parametrize(
     ("handler_name", "command_name", "action"),
     [
-        ("put_platform_prompt", "put_platform_prompt_command", "platform_prompt.saved"),
+        (
+            "update_platform_prompt",
+            "update_platform_prompt_command",
+            "platform_prompt.updated",
+        ),
         (
             "update_platform_profile",
             "update_platform_profile_command",
@@ -80,7 +84,11 @@ def test_configuration_key_command_records_failed_app_error(
 @pytest.mark.parametrize(
     ("handler_name", "command_name", "action"),
     [
-        ("put_platform_prompt", "put_platform_prompt_command", "platform_prompt.saved"),
+        (
+            "update_platform_prompt",
+            "update_platform_prompt_command",
+            "platform_prompt.updated",
+        ),
         (
             "update_platform_profile",
             "update_platform_profile_command",

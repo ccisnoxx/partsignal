@@ -27,7 +27,6 @@ from app.models.ai_generation import (
 )
 from app.models.configuration import (
     ContentHumanizationPrompt,
-    PlatformPrompt,
     PlatformType,
 )
 from app.schemas.common import AccountType, AuditLogList, RevisionRequest
@@ -63,8 +62,10 @@ from app.schemas.configuration import (
     PlatformProfileOut,
     PlatformProfileStatus,
     PlatformProfileUpdate,
-    PlatformPromptOut,
-    PlatformPromptPut,
+    PlatformPromptCreate,
+    PlatformPromptDetail,
+    PlatformPromptList,
+    PlatformPromptUpdate,
     PlatformTypeCreate,
     PlatformTypeList,
     PlatformTypeOut,
@@ -112,6 +113,9 @@ from app.services.ai_configuration import (
     update_ai_model as update_ai_model_command,
 )
 from app.services.platform_configuration import (
+    create_platform_prompt as create_platform_prompt_command,
+)
+from app.services.platform_configuration import (
     create_platform_type as create_platform_type_command,
 )
 from app.services.platform_configuration import (
@@ -130,16 +134,22 @@ from app.services.platform_configuration import (
     get_platform_profile_detail as get_platform_profile_detail_query,
 )
 from app.services.platform_configuration import (
-    put_content_humanization_prompt as put_content_humanization_prompt_command,
+    get_platform_prompt as get_platform_prompt_query,
 )
 from app.services.platform_configuration import (
-    put_platform_prompt as put_platform_prompt_command,
+    list_platform_prompts as list_platform_prompts_query,
+)
+from app.services.platform_configuration import (
+    put_content_humanization_prompt as put_content_humanization_prompt_command,
 )
 from app.services.platform_configuration import (
     set_platform_profile_enabled as set_platform_profile_enabled_command,
 )
 from app.services.platform_configuration import (
     update_platform_profile as update_platform_profile_command,
+)
+from app.services.platform_configuration import (
+    update_platform_prompt as update_platform_prompt_command,
 )
 from app.services.platform_configuration import (
     update_platform_type as update_platform_type_command,
@@ -232,10 +242,6 @@ def model_out(model: AIModel) -> AIModelOut:
 
 def platform_type_out(platform_type: PlatformType) -> PlatformTypeOut:
     return PlatformTypeOut.model_validate(platform_type)
-
-
-def platform_prompt_out(prompt: PlatformPrompt) -> PlatformPromptOut:
-    return PlatformPromptOut.model_validate(prompt)
 
 
 def content_humanization_prompt_out(
@@ -395,37 +401,31 @@ def get_platform_profile(
 
 
 @router.get(
-    "/platform-profiles/{platform_profile_id}/prompt",
-    response_model=PlatformPromptOut,
-    operation_id="getPlatformPrompt",
+    "/platform-prompts",
+    response_model=PlatformPromptList,
+    operation_id="listPlatformPrompts",
 )
-def get_platform_prompt(
-    platform_profile_id: uuid.UUID, db: DbSession, _admin: AdminUser
-) -> PlatformPromptOut:
-    prompt = db.get(PlatformPrompt, platform_profile_id)
-    if prompt is None:
-        raise not_found("平台 Prompt")
-    return platform_prompt_out(prompt)
+def list_platform_prompts(db: DbSession, _admin: AdminUser) -> PlatformPromptList:
+    return list_platform_prompts_query(db)
 
 
-@router.put(
-    "/platform-profiles/{platform_profile_id}/prompt",
-    response_model=PlatformPromptOut,
-    operation_id="putPlatformPrompt",
+@router.post(
+    "/platform-prompts",
+    response_model=PlatformPromptDetail,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="createPlatformPrompt",
 )
-def put_platform_prompt(
-    platform_profile_id: uuid.UUID,
-    payload: PlatformPromptPut,
+def create_platform_prompt(
+    payload: PlatformPromptCreate,
     request: Request,
     db: DbSession,
     admin: CurrentUser,
     _csrf: CsrfProtected,
-) -> PlatformPromptOut:
+) -> PlatformPromptDetail:
     try:
         assert_account_types(admin, (AccountType.ADMIN,))
-        prompt = put_platform_prompt_command(
+        return create_platform_prompt_command(
             db=db,
-            platform_profile_id=platform_profile_id,
             payload=payload,
             actor=admin,
             request_id=request.state.request_id,
@@ -434,37 +434,99 @@ def put_platform_prompt(
         _commit_configuration_error(
             db=db,
             actor_id=admin.id,
-            action="platform_prompt.saved",
-            target_type="PlatformProfile",
-            target_id=platform_profile_id,
+            action="platform_prompt.created",
+            target_type="PlatformPrompt",
+            target_id=None,
             request_id=request.state.request_id,
             error=error,
-            failure_message="平台 Prompt 保存失败",
+            failure_message="平台 Prompt 创建失败",
         )
         raise
-    return platform_prompt_out(prompt)
+
+
+@router.get(
+    "/platform-prompts/{platform_prompt_id}",
+    response_model=PlatformPromptDetail,
+    operation_id="getPlatformPrompt",
+)
+def get_platform_prompt(
+    platform_prompt_id: uuid.UUID,
+    db: DbSession,
+    _admin: AdminUser,
+) -> PlatformPromptDetail:
+    return get_platform_prompt_query(db, platform_prompt_id)
+
+
+@router.put(
+    "/platform-prompts/{platform_prompt_id}",
+    response_model=PlatformPromptDetail,
+    operation_id="updatePlatformPrompt",
+)
+def update_platform_prompt(
+    platform_prompt_id: uuid.UUID,
+    payload: PlatformPromptUpdate,
+    request: Request,
+    db: DbSession,
+    admin: CurrentUser,
+    _csrf: CsrfProtected,
+) -> PlatformPromptDetail:
+    try:
+        assert_account_types(admin, (AccountType.ADMIN,))
+        return update_platform_prompt_command(
+            db=db,
+            platform_prompt_id=platform_prompt_id,
+            payload=payload,
+            actor=admin,
+            request_id=request.state.request_id,
+        )
+    except AppError as error:
+        _commit_configuration_error(
+            db=db,
+            actor_id=admin.id,
+            action="platform_prompt.updated",
+            target_type="PlatformPrompt",
+            target_id=platform_prompt_id,
+            request_id=request.state.request_id,
+            error=error,
+            failure_message="平台 Prompt 更新失败",
+        )
+        raise
 
 
 @router.delete(
-    "/platform-profiles/{platform_profile_id}/prompt",
+    "/platform-prompts/{platform_prompt_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     operation_id="deletePlatformPrompt",
 )
 def delete_platform_prompt(
-    platform_profile_id: uuid.UUID,
+    platform_prompt_id: uuid.UUID,
     expected_revision: Annotated[int, Query(ge=0)],
     request: Request,
     db: DbSession,
-    admin: AdminUser,
+    admin: CurrentUser,
     _csrf: CsrfProtected,
 ) -> None:
-    delete_platform_prompt_command(
-        db=db,
-        platform_profile_id=platform_profile_id,
-        expected_revision=expected_revision,
-        actor=admin,
-        request_id=request.state.request_id,
-    )
+    try:
+        assert_account_types(admin, (AccountType.ADMIN,))
+        delete_platform_prompt_command(
+            db=db,
+            platform_prompt_id=platform_prompt_id,
+            expected_revision=expected_revision,
+            actor=admin,
+            request_id=request.state.request_id,
+        )
+    except AppError as error:
+        _commit_configuration_error(
+            db=db,
+            actor_id=admin.id,
+            action="platform_prompt.deleted",
+            target_type="PlatformPrompt",
+            target_id=platform_prompt_id,
+            request_id=request.state.request_id,
+            error=error,
+            failure_message="平台 Prompt 删除失败",
+        )
+        raise
 
 
 @router.post(

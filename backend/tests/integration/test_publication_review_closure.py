@@ -68,6 +68,9 @@ from app.schemas.configuration import (
     PlatformConfigurationStatus,
     PlatformProfileCreate,
     PlatformProfileStatus,
+    PlatformProfileUpdate,
+    PlatformPromptCreate,
+    PlatformPromptUpdate,
 )
 from app.schemas.content import ContentTaskCreate
 from app.schemas.geo_files import GeoArticleResultCreate, GeoObservationCreate
@@ -97,12 +100,17 @@ from app.services.geo_observation import (
 )
 from app.services.integrity import publication_integrity_issues
 from app.services.platform_configuration import (
+    create_platform_prompt,
     delete_platform_profile,
     delete_platform_prompt,
     delete_platform_type,
     get_platform_profile_detail,
+    get_platform_prompt,
     list_platform_profiles,
+    list_platform_prompts,
     set_platform_profile_enabled,
+    update_platform_profile,
+    update_platform_prompt,
 )
 from app.services.product_facts import delete_fact_version, delete_product
 from app.services.projections import content_task_out, content_tasks_out
@@ -1873,7 +1881,7 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
                 db=db, product_id=clean_product_id, actor=actor, request_id="delete-clean-product"
             )
             prompt = PlatformPrompt(
-                platform_profile_id=graph["profile"].id,
+                name="可删除 Prompt",
                 template_markdown="仅使用已批准事实。",
                 updated_by=actor.id,
             )
@@ -1882,17 +1890,17 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
             with pytest.raises(AppError) as stale_delete:
                 delete_platform_prompt(
                     db=db,
-                    platform_profile_id=graph["profile"].id,
+                    platform_prompt_id=prompt.id,
                     expected_revision=prompt.revision + 1,
                     actor=actor,
                     request_id="delete-stale-prompt",
                 )
             assert stale_delete.value.code == "REVISION_CONFLICT"
             db.rollback()
-            assert db.get(PlatformPrompt, graph["profile"].id) is not None
+            assert db.get(PlatformPrompt, prompt.id) is not None
             delete_platform_prompt(
                 db=db,
-                platform_profile_id=graph["profile"].id,
+                platform_prompt_id=prompt.id,
                 expected_revision=prompt.revision,
                 actor=actor,
                 request_id="delete-clean-prompt",
@@ -1903,26 +1911,35 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
                 actor=actor,
                 request_id="delete-clean-account",
             )
+            clean_prompt = PlatformPrompt(
+                name="随平台解绑保留 Prompt",
+                template_markdown="仅使用已批准事实。",
+                updated_by=actor.id,
+            )
+            db.add(clean_prompt)
+            db.flush()
             clean_profile = PlatformProfile(
                 name="无引用平台",
                 slug=f"clean-profile-{uuid.uuid4().hex[:8]}",
                 allowed_domains=["clean.example.invalid"],
                 platform_type_id=clean_type_id,
+                platform_prompt_id=clean_prompt.id,
             )
             db.add(clean_profile)
-            db.flush()
-            clean_prompt = PlatformPrompt(
-                platform_profile_id=clean_profile.id,
-                template_markdown="仅使用已批准事实。",
-                updated_by=actor.id,
-            )
-            db.add(clean_prompt)
             db.commit()
             delete_platform_profile(
                 db=db,
                 platform_profile_id=clean_profile.id,
                 actor=actor,
                 request_id="delete-clean-profile",
+            )
+            assert db.get(PlatformPrompt, clean_prompt.id) is not None
+            delete_platform_prompt(
+                db=db,
+                platform_prompt_id=clean_prompt.id,
+                expected_revision=clean_prompt.revision,
+                actor=actor,
+                request_id="delete-detached-clean-prompt",
             )
             delete_platform_type(
                 db=db, platform_type_id=clean_type_id, actor=actor, request_id="delete-clean-type"
@@ -1938,11 +1955,10 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
                 "platform_type.deleted",
             } <= actions
             deleted_prompt_audit = db.scalar(
-                select(AuditLog).where(AuditLog.action == "platform_prompt.deleted")
+                select(AuditLog).where(AuditLog.request_id == "delete-clean-prompt")
             )
             assert deleted_prompt_audit is not None
             assert deleted_prompt_audit.details == {
-                "changes": [{"field": "is_configured", "before": True, "after": False}],
                 "facts": {"revision": prompt.revision},
             }
         engine.dispose()
@@ -3360,6 +3376,106 @@ def test_repair_context_resolution_and_review_history_are_immutable(
 
 
 @pytest.mark.integration
+def test_reusable_platform_prompt_library_binding_and_delete_boundary() -> None:
+    """共享模板由平台外键绑定，引用中删除必须明确失败。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine) as db:
+            graph = seed_graph(db)
+            actor = graph["user"]
+            prompt = create_platform_prompt(
+                db=db,
+                payload=PlatformPromptCreate(
+                    name="共享技术文章 Prompt",
+                    template_markdown="仅使用已批准事实。",
+                ),
+                actor=actor,
+                request_id="shared-prompt-create",
+            )
+
+            def bind(profile: PlatformProfile, prompt_id: uuid.UUID | None) -> PlatformProfile:
+                return update_platform_profile(
+                    db=db,
+                    platform_profile_id=profile.id,
+                    payload=PlatformProfileUpdate(
+                        expected_revision=profile.revision,
+                        name=profile.name,
+                        allowed_domains=profile.allowed_domains,
+                        platform_type_id=profile.platform_type_id,
+                        platform_prompt_id=prompt_id,
+                        website_url=profile.website_url,
+                    ),
+                    actor=actor,
+                    request_id=f"bind-{profile.id}",
+                )
+
+            bind(graph["profile"], prompt.id)
+            bind(graph["other_profile"], prompt.id)
+            detail = get_platform_prompt(db, prompt.id)
+            assert detail.bound_platform_count == 2
+            assert {item.id for item in detail.bound_platforms} == {
+                graph["profile"].id,
+                graph["other_profile"].id,
+            }
+            listed = list_platform_prompts(db)
+            assert [(item.id, item.bound_platform_count) for item in listed.items] == [
+                (prompt.id, 2)
+            ]
+
+            with pytest.raises(AppError) as in_use_error:
+                delete_platform_prompt(
+                    db=db,
+                    platform_prompt_id=prompt.id,
+                    expected_revision=prompt.revision,
+                    actor=actor,
+                    request_id="shared-prompt-delete-bound",
+                )
+            assert in_use_error.value.code == "PLATFORM_PROMPT_IN_USE"
+            db.rollback()
+
+            with pytest.raises(AppError) as stale_error:
+                update_platform_prompt(
+                    db=db,
+                    platform_prompt_id=prompt.id,
+                    payload=PlatformPromptUpdate(
+                        name=prompt.name,
+                        template_markdown="新正文",
+                        expected_revision=prompt.revision + 1,
+                    ),
+                    actor=actor,
+                    request_id="shared-prompt-stale",
+                )
+            assert stale_error.value.code == "REVISION_CONFLICT"
+            db.rollback()
+
+            updated = update_platform_prompt(
+                db=db,
+                platform_prompt_id=prompt.id,
+                payload=PlatformPromptUpdate(
+                    name="共享技术文章 Prompt v2",
+                    template_markdown="更新后的已批准事实边界。",
+                    expected_revision=prompt.revision,
+                ),
+                actor=actor,
+                request_id="shared-prompt-update",
+            )
+            assert updated.revision == prompt.revision + 1
+            assert updated.bound_platform_count == 2
+
+            bind(graph["profile"], None)
+            bind(graph["other_profile"], None)
+            delete_platform_prompt(
+                db=db,
+                platform_prompt_id=prompt.id,
+                expected_revision=updated.revision,
+                actor=actor,
+                request_id="shared-prompt-delete-unbound",
+            )
+            assert db.get(PlatformPrompt, prompt.id) is None
+        engine.dispose()
+
+
+@pytest.mark.integration
 def test_platform_management_projection_status_gates_and_permissions() -> None:
     """平台管理实时投影、独立启停和全部新建门禁共享同一数据库事实。"""
     with temporary_database() as database_url:
@@ -3375,11 +3491,18 @@ def test_platform_management_projection_status_gates_and_permissions() -> None:
                 account_type="ADMIN",
             )
             prompt = PlatformPrompt(
-                platform_profile_id=graph["profile"].id,
+                name="平台管理测试 Prompt",
                 template_markdown="平台管理测试 Prompt",
                 updated_by=graph["user"].id,
             )
-            db.add_all([admin, prompt])
+            unbound_prompt = PlatformPrompt(
+                name="平台管理待删除 Prompt",
+                template_markdown="待删除 Prompt",
+                updated_by=graph["user"].id,
+            )
+            db.add_all([admin, prompt, unbound_prompt])
+            db.flush()
+            graph["profile"].platform_prompt_id = prompt.id
             graph["task"].created_at = as_of - timedelta(days=30)
 
             def add_reference(created_at: datetime) -> None:
@@ -3406,8 +3529,9 @@ def test_platform_management_projection_status_gates_and_permissions() -> None:
                 "enabled": 2,
                 "disabled": 0,
             }
-            assert detail.profile.prompt_updated_at == prompt.updated_at
-            assert detail.prompt_updated_at == prompt.updated_at
+            assert detail.profile.platform_prompt is not None
+            assert detail.profile.platform_prompt.id == prompt.id
+            assert detail.profile.platform_prompt.updated_at == prompt.updated_at
             assert detail.profile.updated_at is None
 
             listed = list_platform_profiles(
@@ -3427,9 +3551,13 @@ def test_platform_management_projection_status_gates_and_permissions() -> None:
                 "configuration_complete_total": 1,
             }
             listed_by_id = {item.id: item for item in listed.items}
-            assert listed_by_id[graph["profile"].id].prompt_updated_at == prompt.updated_at
+            assert listed_by_id[graph["profile"].id].platform_prompt is not None
+            assert listed_by_id[graph["profile"].id].platform_prompt.id == prompt.id
             assert (
-                listed_by_id[graph["other_account"].platform_profile_id].prompt_updated_at is None
+                listed_by_id[
+                    graph["other_account"].platform_profile_id
+                ].platform_prompt
+                is None
             )
 
             with pytest.raises(AppError) as duplicate_slug:
@@ -3440,6 +3568,7 @@ def test_platform_management_projection_status_gates_and_permissions() -> None:
                         slug=graph["profile"].slug,
                         allowed_domains=["duplicate.example.invalid"],
                         platform_type_id=graph["platform_type"].id,
+                        platform_prompt_id=None,
                     ),
                     actor=graph["user"],
                     request_id="duplicate-platform-slug",
@@ -3598,6 +3727,7 @@ def test_platform_management_projection_status_gates_and_permissions() -> None:
             admin_id = admin.id
             engineer_id = graph["user"].id
             profile_id = graph["profile"].id
+            unbound_prompt_id = unbound_prompt.id
 
         csrf_token = "platform-management-csrf-token-more-than-32-characters"
 
@@ -3629,19 +3759,19 @@ def test_platform_management_projection_status_gates_and_permissions() -> None:
             )
             assert denied.status_code == 403
             denied_delete = client.delete(
-                f"/api/v1/platform-profiles/{profile_id}/prompt?expected_revision=0",
+                f"/api/v1/platform-prompts/{unbound_prompt_id}?expected_revision=0",
                 headers={"X-CSRF-Token": csrf_token},
             )
             assert denied_delete.status_code == 403
 
             current_session.user = admin_user
             missing_revision = client.delete(
-                f"/api/v1/platform-profiles/{profile_id}/prompt",
+                f"/api/v1/platform-prompts/{unbound_prompt_id}",
                 headers={"X-CSRF-Token": csrf_token},
             )
             assert missing_revision.status_code == 422
             stale_delete = client.delete(
-                f"/api/v1/platform-profiles/{profile_id}/prompt?expected_revision=1",
+                f"/api/v1/platform-prompts/{unbound_prompt_id}?expected_revision=1",
                 headers={"X-CSRF-Token": csrf_token},
             )
             assert stale_delete.status_code == 409
@@ -3660,11 +3790,11 @@ def test_platform_management_projection_status_gates_and_permissions() -> None:
             assert enabled.status_code == 200
             assert enabled.json()["is_active"] is True
             deleted_prompt = client.delete(
-                f"/api/v1/platform-profiles/{profile_id}/prompt?expected_revision=0",
+                f"/api/v1/platform-prompts/{unbound_prompt_id}?expected_revision=0",
                 headers={"X-CSRF-Token": csrf_token},
             )
             assert deleted_prompt.status_code == 204
-            assert client.get(f"/api/v1/platform-profiles/{profile_id}/prompt").status_code == 404
+            assert client.get(f"/api/v1/platform-prompts/{unbound_prompt_id}").status_code == 404
         finally:
             app.dependency_overrides.clear()
         engine.dispose()

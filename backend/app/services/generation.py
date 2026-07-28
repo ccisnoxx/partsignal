@@ -34,6 +34,7 @@ from app.schemas.content import (
     GenerationFactSnapshot,
     GenerationSnapshot,
     HumanizationSnapshot,
+    MarkdownGenerationSnapshotV2,
     QualityIssue,
 )
 from app.schemas.geo_files import GeneratedDraft
@@ -46,20 +47,31 @@ from app.services.content_lineage import resolve_content_ai_lineage
 from app.services.openai_client import CompletionResult, OpenAICompatibleClient
 
 logger = logging.getLogger("partsignal.worker")
-GENERATION_CONTRACT_VERSION: Literal["content-markdown-v2"] = "content-markdown-v2"
+GENERATION_CONTRACT_VERSION: Literal["content-markdown-v3"] = "content-markdown-v3"
 HUMANIZATION_CONTRACT_VERSION: Literal["humanization-markdown-v2"] = "humanization-markdown-v2"
 TEXT_CHARACTER_PATTERN = re.compile(r"[\W_]+", re.UNICODE)
 NEAR_DUPLICATE_THRESHOLD = 0.85
+GenerationSnapshotRead = MarkdownGenerationSnapshotV2 | GenerationSnapshot
+
+
+def _generation_snapshot(generation_input: dict[str, Any]) -> GenerationSnapshotRead:
+    """按显式版本解析原始生成快照，不猜测未知历史结构。"""
+    try:
+        contract_version = generation_input.get("contract_version")
+        if contract_version == "content-markdown-v2":
+            return MarkdownGenerationSnapshotV2.model_validate(generation_input)
+        if contract_version == GENERATION_CONTRACT_VERSION:
+            return GenerationSnapshot.model_validate(generation_input)
+    except ValidationError as error:
+        raise AppError("GENERATION_SNAPSHOT_INVALID", "生成作业快照结构无效", 409) from error
+    raise AppError("GENERATION_SNAPSHOT_INVALID", "原始生成快照版本不受支持", 409)
 
 
 def ensure_third_party_egress_allowed(
     generation_input: dict[str, Any],
-) -> GenerationSnapshot:
+) -> GenerationSnapshotRead:
     """第三方模型只接收明确标记为 PUBLIC 的冻结事实 Markdown。"""
-    try:
-        snapshot = GenerationSnapshot.model_validate(generation_input)
-    except ValidationError as error:
-        raise AppError("GENERATION_SNAPSHOT_INVALID", "生成作业快照结构无效", 409) from error
+    snapshot = _generation_snapshot(generation_input)
     if snapshot.fact_version.classification.value != "PUBLIC":
         raise AppError(
             "AI_DATA_CLASSIFICATION_FORBIDDEN",
@@ -252,7 +264,7 @@ def generate_for_job(
 ) -> tuple[GeneratedDraft, CompletionResult | None]:
     """按作业冻结的适配器执行，不允许重试时切换生成方式。"""
     if job.job_type == "GENERATE":
-        snapshot: GenerationSnapshot | HumanizationSnapshot = ensure_third_party_egress_allowed(
+        snapshot: GenerationSnapshotRead | HumanizationSnapshot = ensure_third_party_egress_allowed(
             generation_input
         )
     elif job.job_type == "HUMANIZE":
@@ -305,9 +317,9 @@ def generation_timeout_seconds(
 ) -> int:
     """从不可变快照读取合法供应商超时，不使用进程级固定租约。"""
     try:
-        snapshot: GenerationSnapshot | HumanizationSnapshot
+        snapshot: GenerationSnapshotRead | HumanizationSnapshot
         if job_type == "GENERATE":
-            snapshot = GenerationSnapshot.model_validate(generation_input)
+            snapshot = _generation_snapshot(generation_input)
         elif job_type == "HUMANIZE":
             snapshot = HumanizationSnapshot.model_validate(generation_input)
         else:
@@ -391,7 +403,7 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
                 fact_version_id = humanization_snapshot.fact_version.id
                 change_summary = "AI 自然化作业创建的草稿"
             else:
-                generation_snapshot = GenerationSnapshot.model_validate(generation_input)
+                generation_snapshot = _generation_snapshot(generation_input)
                 fact_version_id = generation_snapshot.fact_version.id
             next_version = (
                 int(

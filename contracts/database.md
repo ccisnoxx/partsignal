@@ -264,6 +264,16 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 删除成功只审计稳定目标 ID、状态事件数量和附件数量，不保存标题、URL、说明或文件名。解除附件关系后，只有已无平台 Logo、发布附件或 GEO 附件引用的文件才进入既有清理状态机；共享文件继续保留。发布周期指标仍来自保留的公开状态事件，因此受控删除不会改写任何已公开历史。
 
+### 0031 Reusable Platform Prompts
+
+版本 `0031` 紧跟 `0030_publication_record_deletion`。`platform_prompts` 改为独立模板库，以独立 UUID 为主键并新增全局唯一名称；`platform_profiles.platform_prompt_id` 是可空外键并使用 `ON DELETE RESTRICT`。一个平台最多绑定一份当前 Prompt，一份 Prompt 可被多个平台复用；配置完整性、缺失数量和平台投影都只从该外键实时派生。
+
+迁移为每条旧 Prompt 保留原正文、revision、操作者和时间，并使用旧 `platform_profile_id` 作为新 Prompt UUID；名称确定为“平台名称（slug）”。复制和回绑完成后校验行数、正文与绑定关系，任一不一致都中止迁移。降级只允许每份 Prompt 恰好绑定一个平台且不存在未绑定模板，否则以 PostgreSQL `55000` 拒绝；迁移不按正文合并或猜测归属。
+
+Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理端明确展示全部受影响平台。被任一平台绑定的 Prompt 不可删除，平台删除或换绑不级联删除模板；只有未绑定模板可按 revision 物理删除。新原始生成请求同时提交所确认的 Prompt UUID 与 revision，服务端锁定任务、平台及其当前绑定后重新校验，变化时返回 `PLATFORM_PROMPT_CHANGED`，不得使用过期确认。
+
+新原始生成快照只写 `content-markdown-v3`，除既有最终消息、平台、事实、渠道和模型外，还冻结 Prompt 的 UUID、名称与 revision。`content-markdown-v2` 仅作为明确的历史类型继续读取并按原快照重试；后续换绑、更新或删除当前配置都不改变历史作业。自然化继续使用 `humanization-markdown-v2`。
+
 ## State Machines
 
 ```text
@@ -308,8 +318,8 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - 用户物理删除仅限管理员操作停用账号；会话级联清理，审计操作者按 `0027` 受约束置空，任何业务历史引用都阻断删除。用户实时 `admin_total` 统计全部 `ADMIN`，包括停用账号。
 - Sensitive AI values are encrypted with the deployment master key and never returned, audited, logged, or copied into generation snapshots.
 - A platform type referenced by a platform profile cannot be deleted. Platform types do not own Prompts after `0014`.
-- A concrete platform owns zero or one current Prompt. Deleting the Prompt keeps the platform selectable for manual content tasks but makes system AI generation unavailable until a Prompt is configured again.
-- Platform Prompt update and deletion require optimistic revision matching against the locked current row. Its list `prompt_updated_at` is a nullable projection of `platform_prompts.updated_at`, never a stored summary or the platform profile's own update time.
+- A concrete platform binds zero or one current Prompt, while one Prompt may be shared by multiple platforms. Missing binding keeps the platform selectable for manual content tasks but makes system AI generation unavailable.
+- Platform Prompt update and deletion require optimistic revision matching against the locked template row. A bound Prompt cannot be deleted; platform deletion or rebinding never cascades to the template.
 - A concrete platform's `is_active` state is independent from configuration completeness. A disabled platform remains manageable but cannot be used to create a content task, repair task, platform account, or publication record; disabling never mutates existing accounts, configuration, or history.
 - Platform completeness, account counts, and task-reference counts are real-time read projections. Completeness is true when the current platform Prompt exists; a task reference is counted once through `content_tasks.platform_profile_id`.
 - A concrete platform stores at most one Logo source. New writes only accept a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` file; `logo_external_url` remains a nullable read-only legacy field until a later migration, and `website_url` remains an explicit nullable URI.
@@ -319,10 +329,10 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A cancelled content task can be physically deleted only when it has no generation job or content version; no other task status is deletable.
 - Channel deletion cascades to Headers and models. Historical job foreign keys become null while their immutable snapshots remain readable.
 - A model can be enabled only after its own successful test. A channel can be enabled only when at least one child model has passed testing.
-- A generation job performs at most one provider call. Expired worker leases fail explicitly; retries create a new job and preserve the original non-sensitive v2 snapshot. Legacy v1 snapshots are read-only and cannot be retried.
+- A generation job performs at most one provider call. Expired worker leases fail explicitly; retries create a new job and preserve the original non-sensitive snapshot. Original-generation v2/v3 snapshots may retry from their frozen input; legacy v1 snapshots are read-only.
 - Automatic recovery dispatches only overdue `PENDING` jobs. Dispatch counters, queue ages, failure codes, and provider duration diagnostics must never contain prompts, response bodies, credentials, or sensitive Headers.
 - Third-party AI egress requires the bound fact version to be explicitly `PUBLIC`; missing, legacy-empty, `INTERNAL`, or `RESTRICTED` fact data is a hard denial.
-- Original generation sends exactly one system message equal to the current platform Prompt and one user message equal to the frozen fact Markdown; no prefix, task field, metadata, JSON wrapper, repair, model switch, or fallback is allowed.
+- Original generation revalidates the user-confirmed current Prompt UUID and revision, then sends exactly one system message equal to that Prompt and one user message equal to the frozen fact Markdown; no prefix, task field, metadata, JSON wrapper, repair, model switch, or fallback is allowed.
 - A manual first draft creates a `HUMAN DRAFT` content version with null generation and parent lineage, then uses the same review and publication gates as AI content.
 - A publication can reference only an approved content version whose fact is not retired at creation time.
 - A publication account profile must equal the content task's locked platform profile; both the application service and PostgreSQL enforce it.

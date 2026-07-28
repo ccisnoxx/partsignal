@@ -65,14 +65,32 @@ const model = {
   revision: 2, created_by: 'user-1', created_at: '2026-07-13T08:00:00+08:00', updated_at: '2026-07-13T09:00:00+08:00',
 };
 const platformType = { id: 'type-1', name: '技术社区', slug: 'technical-community', revision: 0, created_by: 'user-1', created_at: channel.created_at };
+const platformPrompt = {
+  id: 'prompt-shared',
+  name: '技术文章 Prompt',
+  template_markdown: '仅使用已批准事实。',
+  revision: 1,
+  updated_by: 'user-1',
+  created_at: channel.created_at,
+  updated_at: channel.updated_at,
+  bound_platform_count: 1,
+  bound_platforms: [{ id: 'profile-ready', name: '工程师社区', slug: 'engineer-community' }],
+};
+const unusedPlatformPrompt = {
+  ...platformPrompt,
+  id: 'prompt-unused',
+  name: '未绑定 Prompt',
+  template_markdown: '待使用。',
+  bound_platform_count: 0,
+  bound_platforms: [],
+};
 const platforms = [
-  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: null, logo: null, revision: 0, is_active: false, prompt_configured: false, prompt_updated_at: null, configuration_complete: false, platform_account_count: 0, updated_at: null },
-  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, prompt_configured: true, prompt_updated_at: channel.updated_at, configuration_complete: true, platform_account_count: 2, updated_at: channel.updated_at },
+  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: null, logo: null, revision: 0, is_active: false, platform_prompt: null, configuration_complete: false, platform_account_count: 0, updated_at: null },
+  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, updated_at: channel.updated_at },
 ];
-const platformPrompt = { platform_profile_id: 'profile-ready', template_markdown: '仅使用已批准事实。', revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
 const humanizationPrompt = { template_markdown: '保持事实，只改善表达。', revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
 let platformItems = platforms;
-let configuredPromptIds = new Set(['profile-ready']);
+let promptItems = [platformPrompt, unusedPlatformPrompt];
 let generationJobs: Schema<'GenerationJob'>[] = [];
 
 const previewTask: Schema<'ContentTaskListItem'> = {
@@ -107,7 +125,7 @@ async function findRcDialog(name: string | RegExp) {
 beforeEach(() => {
   queryClient.clear();
   platformItems = platforms;
-  configuredPromptIds = new Set(['profile-ready']);
+  promptItems = [platformPrompt, unusedPlatformPrompt];
   generationJobs = [];
   Object.values(apiMocks).forEach((mock) => mock.mockReset());
   apiMocks.GET.mockImplementation((path: string, options?: { params?: { path?: Record<string, string> } }) => {
@@ -118,29 +136,34 @@ beforeEach(() => {
     if (path === '/api/v1/ai-channels/{channel_id}/audit-logs') return result({ items: [{ id: 'audit-1', actor_id: 'user-1', actor: { id: 'user-1', display_name: '系统管理员', account_type: 'ADMIN' }, business_module: 'CONFIGURATION', action: 'ai_model.tested', target_type: 'AIModel', target_id: model.id, outcome: 'SUCCESS', change_summary: { test_status: 'PASSED' }, request_id: 'request-1', created_at: channel.updated_at }], page: 1, page_size: 20, total: 1 });
     if (path === '/api/v1/users') return result({ items: [{ id: 'user-1', username: 'admin', display_name: '系统管理员', account_type: 'ADMIN', is_active: true, must_change_password: false, revision: 0, created_at: channel.created_at }], page: 1, page_size: 20, total: 1 });
     if (path === '/api/v1/platform-profiles') {
-      const items = platformItems.map((item) => ({
-        ...item,
-        prompt_configured: configuredPromptIds.has(item.id),
-        prompt_updated_at: configuredPromptIds.has(item.id) ? channel.updated_at : null,
-      }));
-      return result({ items, page: 1, page_size: 10, total: items.length, summary: { platform_total: items.length, enabled_total: items.filter((item) => item.is_active).length, missing_prompt_total: items.filter((item) => !item.prompt_configured).length, configuration_complete_total: items.filter((item) => item.configuration_complete).length } });
+      return result({ items: platformItems, page: 1, page_size: 10, total: platformItems.length, summary: { platform_total: platformItems.length, enabled_total: platformItems.filter((item) => item.is_active).length, missing_prompt_total: platformItems.filter((item) => !item.platform_prompt).length, configuration_complete_total: platformItems.filter((item) => item.configuration_complete).length } });
     }
     if (path === '/api/v1/audit-logs') return result({ items: [{ id: 'audit-rule-1', actor_id: 'user-1', actor: { id: 'user-1', display_name: '系统管理员', account_type: 'ADMIN' }, business_module: 'CONFIGURATION', action: 'platform_profile_version.created', target_type: 'PlatformProfileVersion', target_id: options?.params?.path?.platform_profile_version_id ?? 'version-1', outcome: 'SUCCESS', change_summary: {}, request_id: 'request-rule-1', created_at: channel.created_at }], page: 1, page_size: 100, total: 1 });
     if (path === '/api/v1/platform-types') return result({ items: [platformType] });
     if (path === '/api/v1/platform-profiles/{platform_profile_id}') {
       const profile = platformItems.find((item) => item.id === options?.params?.path?.platform_profile_id);
       if (!profile) return Promise.resolve({ error: { error: { code: 'NOT_FOUND', message: '平台不存在' } }, response: new Response(null, { status: 404 }) });
-      return result({ profile: { ...profile, prompt_configured: configuredPromptIds.has(profile.id), prompt_updated_at: configuredPromptIds.has(profile.id) ? channel.updated_at : null }, prompt_updated_at: configuredPromptIds.has(profile.id) ? channel.updated_at : null, account_summary: { total: profile.platform_account_count, enabled: 1, disabled: Math.max(0, profile.platform_account_count - 1) }, reference_summary: { as_of: channel.updated_at, recent_30_days: 3, all_time: 8 } });
+      return result({ profile, account_summary: { total: profile.platform_account_count, enabled: 1, disabled: Math.max(0, profile.platform_account_count - 1) }, reference_summary: { as_of: channel.updated_at, recent_30_days: 3, all_time: 8 } });
     }
     if (path === '/api/v1/platform-profiles/export') return Promise.resolve({ data: '平台名称\n工程师社区', response: new Response(null, { status: 200, headers: { 'Content-Disposition': 'attachment; filename="platform-profiles.csv"' } }) });
-    if (path === '/api/v1/platform-profiles/{platform_profile_id}/prompt') {
-      const profileId = options?.params?.path?.platform_profile_id;
-      if (!profileId || !configuredPromptIds.has(profileId)) return Promise.resolve({ error: { error: { code: 'NOT_FOUND', message: '平台 Prompt 尚未配置' } }, response: new Response(null, { status: 404 }) });
-      return result({ ...platformPrompt, platform_profile_id: profileId });
+    if (path === '/api/v1/platform-prompts') {
+      return result({ items: promptItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        revision: item.revision,
+        updated_by: item.updated_by,
+        updated_at: item.updated_at,
+        bound_platform_count: item.bound_platform_count,
+      })) });
+    }
+    if (path === '/api/v1/platform-prompts/{platform_prompt_id}') {
+      const item = promptItems.find((candidate) => candidate.id === options?.params?.path?.platform_prompt_id);
+      if (!item) return Promise.resolve({ error: { error: { code: 'NOT_FOUND', message: 'Prompt 不存在' } }, response: new Response(null, { status: 404 }) });
+      return result(item);
     }
     if (path === '/api/v1/content-humanization-prompt') return result(humanizationPrompt);
     if (path === '/api/v1/content-tasks') return result({ items: [previewTask] });
-    if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') return result({ platform_profile_id: 'profile-ready', platform_profile_name: '工程师社区', system_prompt_markdown: platformPrompt.template_markdown, humanization_prompt_configured: true, models: [{ id: model.id, channel_id: channel.id, channel_name: channel.name, display_name: model.display_name, model_id: model.model_id }] });
+    if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') return result({ platform_profile_id: 'profile-ready', platform_profile_name: '工程师社区', platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, template_markdown: platformPrompt.template_markdown }, humanization_prompt_configured: true, models: [{ id: model.id, channel_id: channel.id, channel_name: channel.name, display_name: model.display_name, model_id: model.model_id }] });
     if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result({ items: [previewSource] });
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result({ items: generationJobs });
     if (path === '/api/v1/content-versions/{content_version_id}') return result(previewContent);
@@ -153,6 +176,7 @@ beforeEach(() => {
     if (path === '/api/v1/ai-models/{model_id}/disable') return result({ ...model, is_enabled: false, revision: model.revision + 1 });
     if (path === '/api/v1/ai-models/{model_id}/test') return result({ ...model, is_enabled: false, revision: model.revision + 1 });
     if (path === '/api/v1/platform-profiles') return result({ ...platforms[0], id: 'profile-new' });
+    if (path === '/api/v1/platform-prompts') return result({ ...unusedPlatformPrompt, id: 'prompt-new', name: '新平台 Prompt', template_markdown: '新平台 Prompt。' });
     if (path === '/api/v1/platform-logo-candidates') return result({
       file_id: '00000000-0000-4000-8000-000000000029',
       preview: { url: 'https://objects.example.invalid/platform-logo.png', expires_at: channel.updated_at },
@@ -174,16 +198,16 @@ beforeEach(() => {
     throw new Error(`未声明测试请求：${path}`);
   });
   apiMocks.PUT.mockImplementation((path: string) => {
-    if (path === '/api/v1/platform-profiles/{platform_profile_id}/prompt') {
-      configuredPromptIds.add('profile-ready');
-      configuredPromptIds.add('profile-empty');
+    if (path === '/api/v1/platform-prompts/{platform_prompt_id}') {
       return result({ ...platformPrompt, revision: 2 });
     }
     if (path === '/api/v1/content-humanization-prompt') return result({ ...humanizationPrompt, revision: 2 });
     throw new Error(`未声明测试请求：${path}`);
   });
   apiMocks.DELETE.mockImplementation((path: string, options?: { params?: { path?: Record<string, string> } }) => {
-    if (path === '/api/v1/platform-profiles/{platform_profile_id}/prompt') configuredPromptIds.delete(options?.params?.path?.platform_profile_id ?? '');
+    if (path === '/api/v1/platform-prompts/{platform_prompt_id}') {
+      promptItems = promptItems.filter((item) => item.id !== options?.params?.path?.platform_prompt_id);
+    }
     return Promise.resolve({ response: new Response(null, { status: 204 }) });
   });
 });
@@ -218,7 +242,7 @@ test('平台管理从 URL 请求服务端筛选并恢复聚合详情', async () 
 
 
 test('新增平台品牌字段可选且不包含规则字段', async () => {
-  const payload = { name: '新平台', slug: 'new-platform', platform_type_id: platformType.id, allowed_domains: ['new.example.invalid'], website_url: null, logo: null } satisfies Schema<'PlatformProfileCreate'>;
+  const payload = { name: '新平台', slug: 'new-platform', platform_type_id: platformType.id, platform_prompt_id: null, allowed_domains: ['new.example.invalid'], website_url: null, logo: null } satisfies Schema<'PlatformProfileCreate'>;
   renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
   await screen.findByText('待配置平台');
   expect(screen.getByRole('button', { name: /新增平台$/ })).toBeInTheDocument();
@@ -314,32 +338,29 @@ test('平台保存失败时保留可感知的服务端反馈', async () => {
 });
 
 
-test('Prompt 工作台从 URL 恢复服务端筛选并允许未配置平台首次保存', async () => {
+test('Prompt 工作台允许创建可复用模板', async () => {
   const user = userEvent.setup();
-  renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts?tab=platform&q=待配置&platform_type_id=type-1&page=1&page_size=10&platform_profile_id=profile-empty']);
+  renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts?tab=platform&new=1']);
+  const name = await screen.findByRole('textbox', { name: 'Prompt 名称' });
   const editor = await screen.findByRole('textbox', { name: 'Prompt Markdown' });
   expect(editor).toHaveValue('');
-  expect(screen.getByText(/尚未配置 Prompt/)).toBeInTheDocument();
-  await waitFor(() => expect(apiMocks.GET).toHaveBeenCalledWith(
-    '/api/v1/platform-profiles',
-    expect.objectContaining({ params: { query: { q: '待配置', platform_type_id: 'type-1', page: 1, page_size: 10 } } }),
-  ));
+  await user.type(name, '新平台 Prompt');
   await user.type(editor, '新平台 Prompt。');
   await user.click(screen.getByRole('button', { name: /首次保存$/ }));
-  await waitFor(() => expect(apiMocks.PUT).toHaveBeenCalledWith(
-    '/api/v1/platform-profiles/{platform_profile_id}/prompt',
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/platform-prompts',
     expect.objectContaining({
-      params: expect.objectContaining({ path: { platform_profile_id: 'profile-empty' } }),
-      body: { template_markdown: '新平台 Prompt。', expected_revision: null },
+      body: { name: '新平台 Prompt', template_markdown: '新平台 Prompt。' },
     }),
   ));
 });
 
-test('平台 Prompt 按 revision 保存并在标签切换前保护本地草稿', async () => {
+test('共享 Prompt 按 revision 保存、展示影响范围并保护本地草稿', async () => {
   const user = userEvent.setup();
-  renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts?tab=platform&page=1&page_size=10&platform_profile_id=profile-ready']);
+  renderWithQuery(<PlatformPromptsPage />, [`/configuration/prompts?tab=platform&platform_prompt_id=${platformPrompt.id}`]);
   const editor = await screen.findByRole('textbox', { name: 'Prompt Markdown' });
   expect(editor).toHaveValue('仅使用已批准事实。');
+  expect(screen.getByText('已绑定 1 个平台')).toBeInTheDocument();
   await user.clear(editor);
   await user.type(editor, '更新后的平台 Prompt。');
   const beforeUnload = new Event('beforeunload', { cancelable: true });
@@ -350,16 +371,33 @@ test('平台 Prompt 按 revision 保存并在标签切换前保护本地草稿',
   await user.click(within(dialog).getByRole('button', { name: '继续编辑' }));
   expect(editor).toHaveValue('更新后的平台 Prompt。');
   await user.click(screen.getByRole('button', { name: /保存 Prompt$/ }));
+  const impactDialog = await findRcDialog('更新将影响 1 个平台');
+  await user.click(within(impactDialog).getByRole('button', { name: '确认更新' }));
   await waitFor(() => expect(apiMocks.PUT).toHaveBeenCalledWith(
-    '/api/v1/platform-profiles/{platform_profile_id}/prompt',
-    expect.objectContaining({ body: { template_markdown: '更新后的平台 Prompt。', expected_revision: 1 } }),
+    '/api/v1/platform-prompts/{platform_prompt_id}',
+    expect.objectContaining({
+      params: expect.objectContaining({ path: { platform_prompt_id: platformPrompt.id } }),
+      body: { name: platformPrompt.name, template_markdown: '更新后的平台 Prompt。', expected_revision: 1 },
+    }),
   ));
   expect(await screen.findByText('已保存')).toBeInTheDocument();
 });
 
-test('确认放弃草稿后再次返回平台不会恢复已丢弃内容', async () => {
+test('Prompt 草稿阻止站内链接直接离开', async () => {
   const user = userEvent.setup();
-  renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts?tab=platform&page=1&page_size=10&platform_profile_id=profile-ready']);
+  renderWithQuery(<>
+    <a href="/products">离开配置</a>
+    <PlatformPromptsPage />
+  </>, [`/configuration/prompts?tab=platform&platform_prompt_id=${platformPrompt.id}`]);
+  const editor = await screen.findByRole('textbox', { name: 'Prompt Markdown' });
+  await user.type(editor, '未保存');
+  await user.click(screen.getByRole('link', { name: '离开配置' }));
+  expect(await findRcDialog('放弃未保存的 Prompt 修改？')).toHaveTextContent('确认后将离开当前页面');
+});
+
+test('确认放弃草稿后再次返回模板不会恢复已丢弃内容', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(<PlatformPromptsPage />, [`/configuration/prompts?tab=platform&platform_prompt_id=${platformPrompt.id}`]);
   const editor = await screen.findByRole('textbox', { name: 'Prompt Markdown' });
   await user.clear(editor);
   await user.type(editor, '应被丢弃的本地草稿。');
@@ -377,11 +415,13 @@ test('平台 Prompt revision 冲突保留本地草稿并提供显式重载', asy
     error: { error: { code: 'REVISION_CONFLICT', message: '平台 Prompt 已被其他请求修改' } },
     response: new Response(null, { status: 409 }),
   });
-  renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts?tab=platform&page=1&page_size=10&platform_profile_id=profile-ready']);
+  renderWithQuery(<PlatformPromptsPage />, [`/configuration/prompts?tab=platform&platform_prompt_id=${platformPrompt.id}`]);
   const editor = await screen.findByRole('textbox', { name: 'Prompt Markdown' });
   await user.clear(editor);
   await user.type(editor, '必须保留的本地草稿。');
   await user.click(screen.getByRole('button', { name: /保存 Prompt$/ }));
+  const impactDialog = await findRcDialog('更新将影响 1 个平台');
+  await user.click(within(impactDialog).getByRole('button', { name: '确认更新' }));
   expect(await screen.findByText('服务端 Prompt 已发生变化，本地草稿未被覆盖。')).toBeInTheDocument();
   expect(editor).toHaveValue('必须保留的本地草稿。');
   expect(screen.getByRole('button', { name: '重新加载当前值' })).toBeInTheDocument();
@@ -441,25 +481,23 @@ test('全局自然化 Prompt 的真实读取错误仍进入失败反馈', async 
   expect(screen.queryByRole('textbox', { name: '自然化 Prompt Markdown' })).not.toBeInTheDocument();
 });
 
-test('平台 Prompt 删除携带 expected_revision 并留在当前未配置平台', async () => {
+test('未绑定 Prompt 可按 expected_revision 删除', async () => {
   const user = userEvent.setup();
-  renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts?tab=platform&page=1&page_size=10&platform_profile_id=profile-ready']);
-  await screen.findByDisplayValue('仅使用已批准事实。');
+  renderWithQuery(<PlatformPromptsPage />, [`/configuration/prompts?tab=platform&platform_prompt_id=${unusedPlatformPrompt.id}`]);
+  await screen.findByDisplayValue('待使用。');
   await user.click(screen.getByRole('button', { name: /删除 Prompt$/ }));
   await screen.findByText('删除当前 Prompt？');
   await user.click(screen.getAllByRole('button', { name: /删除 Prompt$/ }).at(-1)!);
   await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
-    '/api/v1/platform-profiles/{platform_profile_id}/prompt',
-    expect.objectContaining({ params: expect.objectContaining({ path: { platform_profile_id: 'profile-ready' }, query: { expected_revision: 1 } }) }),
+    '/api/v1/platform-prompts/{platform_prompt_id}',
+    expect.objectContaining({ params: expect.objectContaining({ path: { platform_prompt_id: unusedPlatformPrompt.id }, query: { expected_revision: 1 } }) }),
   ));
-  expect(await screen.findByText(/尚未配置 Prompt/)).toBeInTheDocument();
-  expect(screen.getAllByText('工程师社区').length).toBeGreaterThan(0);
-  expect(screen.queryByRole('button', { name: /删除 Prompt$/ })).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByText(unusedPlatformPrompt.name)).not.toBeInTheDocument());
 });
 
 test('平台输出预览创建真实作业、读取草稿并安全渲染 Markdown', async () => {
   const user = userEvent.setup();
-  renderWithQuery(<PlatformPromptsPage />, ['/configuration/prompts?tab=platform&page=1&page_size=10&platform_profile_id=profile-ready']);
+  renderWithQuery(<PlatformPromptsPage />, [`/configuration/prompts?tab=platform&platform_prompt_id=${platformPrompt.id}`]);
   await screen.findByDisplayValue('仅使用已批准事实。');
   await user.click(screen.getByRole('combobox', { name: '预览内容任务' }));
   await user.click(await screen.findByTitle(/PartSignal PS-100/));
@@ -470,7 +508,11 @@ test('平台输出预览创建真实作业、读取草稿并安全渲染 Markdow
     '/api/v1/content-tasks/{content_task_id}/generation-jobs',
     expect.objectContaining({
       params: expect.objectContaining({ path: { content_task_id: previewTask.id }, header: expect.objectContaining({ 'Idempotency-Key': 'idempotency-test' }) }),
-      body: { ai_model_id: model.id },
+      body: {
+        ai_model_id: model.id,
+        platform_prompt_id: platformPrompt.id,
+        platform_prompt_revision: platformPrompt.revision,
+      },
     }),
   ));
   expect(await screen.findByText('真实预览标题')).toBeInTheDocument();

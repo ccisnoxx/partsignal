@@ -49,7 +49,9 @@ export function PlatformDetailPanel({
   }
 
   const { profile, account_summary: accounts, reference_summary: references } = detail.data;
-  const promptHref = `/configuration/prompts?platform_profile_id=${profile.id}`;
+  const promptHref = profile.platform_prompt
+    ? `/configuration/prompts?platform_prompt_id=${profile.platform_prompt.id}`
+    : '/configuration/prompts';
   const accountsHref = `/settings?tab=accounts&platform_profile_id=${profile.id}`;
   const referencesHref = `/tasks?platform_profile_id=${profile.id}`;
 
@@ -73,8 +75,9 @@ export function PlatformDetailPanel({
       <section className="platform-detail-section" aria-labelledby="platform-detail-prompt">
         <Typography.Title id="platform-detail-prompt" level={5}>Prompt 配置状态</Typography.Title>
         <Descriptions column={1} colon={false} size="small" items={[
-          { label: '配置完整性', children: <StatusTag status={profile.prompt_configured ? 'PROMPT_CONFIGURED' : 'PROMPT_MISSING'} /> },
-          { label: '最后更新时间', children: formatDateTime(detail.data.prompt_updated_at) },
+          { label: '当前 Prompt', children: profile.platform_prompt?.name ?? <StatusTag status="PROMPT_MISSING" /> },
+          { label: 'Prompt revision', children: profile.platform_prompt?.revision ?? '—' },
+          { label: 'Prompt 更新时间', children: formatDateTime(profile.platform_prompt?.updated_at ?? null) },
         ]} />
         <Link className="platform-detail-link" to={promptHref}>查看 Prompt 详情 <RightOutlined /></Link>
       </section>

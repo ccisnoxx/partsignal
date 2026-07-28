@@ -43,12 +43,14 @@ from app.schemas.content import (
     ContentRevisionCreate,
     ContentVersionList,
     ContentVersionOut,
-    GenerationJobCreate,
     GenerationJobDetail,
     GenerationJobList,
     GenerationJobOut,
     GenerationOptionModel,
     GenerationOptions,
+    GenerationPromptOption,
+    HumanizationJobCreate,
+    OriginalGenerationJobCreate,
 )
 from app.services.content_production import (
     create_content_revision as create_content_revision_command,
@@ -96,7 +98,11 @@ def get_generation_options(
     platform_profile = db.get(PlatformProfile, task.platform_profile_id)
     if platform_profile is None or not platform_profile.is_active:
         raise AppError("INVALID_STATE_TRANSITION", "内容任务锁定的平台不存在", 409)
-    prompt = db.get(PlatformPrompt, platform_profile.id)
+    prompt = (
+        db.get(PlatformPrompt, platform_profile.platform_prompt_id)
+        if platform_profile.platform_prompt_id is not None
+        else None
+    )
     if prompt is None or not prompt.template_markdown.strip():
         raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少当前 Prompt", 409)
     rows = db.execute(
@@ -112,7 +118,12 @@ def get_generation_options(
     return GenerationOptions(
         platform_profile_id=task.platform_profile_id,
         platform_profile_name=platform_profile.name,
-        system_prompt_markdown=prompt.template_markdown,
+        platform_prompt=GenerationPromptOption(
+            id=prompt.id,
+            name=prompt.name,
+            revision=prompt.revision,
+            template_markdown=prompt.template_markdown,
+        ),
         humanization_prompt_configured=db.get(ContentHumanizationPrompt, 1) is not None,
         models=[
             GenerationOptionModel(
@@ -135,7 +146,7 @@ def get_generation_options(
 )
 def create_generation_job(
     content_task_id: uuid.UUID,
-    payload: GenerationJobCreate,
+    payload: OriginalGenerationJobCreate,
     request: Request,
     db: DbSession,
     editor: ContentEditor,
@@ -161,7 +172,7 @@ def create_generation_job(
 )
 def create_humanization_job(
     content_version_id: uuid.UUID,
-    payload: GenerationJobCreate,
+    payload: HumanizationJobCreate,
     request: Request,
     db: DbSession,
     editor: ContentEditor,

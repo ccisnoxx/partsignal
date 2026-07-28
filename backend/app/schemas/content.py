@@ -63,15 +63,28 @@ class GenerationOptionModel(ContractModel):
     model_id: str
 
 
+class GenerationPromptOption(ContractModel):
+    id: uuid.UUID
+    name: str = Field(min_length=1, max_length=300)
+    revision: int = Field(ge=0)
+    template_markdown: str = Field(min_length=1)
+
+
 class GenerationOptions(ContractModel):
     platform_profile_id: uuid.UUID
     platform_profile_name: str
-    system_prompt_markdown: str
+    platform_prompt: GenerationPromptOption
     humanization_prompt_configured: bool
     models: list[GenerationOptionModel]
 
 
-class GenerationJobCreate(ContractModel):
+class OriginalGenerationJobCreate(ContractModel):
+    ai_model_id: uuid.UUID
+    platform_prompt_id: uuid.UUID
+    platform_prompt_revision: int = Field(ge=0)
+
+
+class HumanizationJobCreate(ContractModel):
     ai_model_id: uuid.UUID
 
 
@@ -126,12 +139,34 @@ class GenerationFactSnapshot(ContractModel):
     classification: Confidentiality
 
 
-class GenerationSnapshot(ContractModel):
+class MarkdownGenerationSnapshotV2(ContractModel):
+    """模板库上线前 Markdown 原始生成的不可变历史输入。"""
+
     adapter_name: Literal["openai-compatible-chat-completions"]
     contract_version: Literal["content-markdown-v2"]
     channel: dict[str, Any]
     model: dict[str, Any]
     platform_profile: dict[str, Any]
+    fact_version: GenerationFactSnapshot
+    system_message: str
+    user_message: str
+
+
+class PlatformPromptSnapshot(ContractModel):
+    id: uuid.UUID
+    name: str = Field(min_length=1, max_length=300)
+    revision: int = Field(ge=0)
+
+
+class GenerationSnapshot(ContractModel):
+    """包含 Prompt 身份的一次原始生成不可变输入。"""
+
+    adapter_name: Literal["openai-compatible-chat-completions"]
+    contract_version: Literal["content-markdown-v3"]
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    platform_profile: dict[str, Any]
+    platform_prompt: PlatformPromptSnapshot
     fact_version: GenerationFactSnapshot
     system_message: str
     user_message: str
@@ -192,6 +227,7 @@ class HumanizationSnapshot(ContractModel):
 class GenerationJobDetail(GenerationJobOut):
     input_snapshot: (
         LegacyGenerationSnapshot
+        | MarkdownGenerationSnapshotV2
         | GenerationSnapshot
         | LegacyHumanizationSnapshot
         | HumanizationSnapshot
@@ -200,7 +236,8 @@ class GenerationJobDetail(GenerationJobOut):
     @model_validator(mode="after")
     def validate_snapshot_type(self) -> GenerationJobDetail:
         if self.job_type == "GENERATE" and not isinstance(
-            self.input_snapshot, (LegacyGenerationSnapshot, GenerationSnapshot)
+            self.input_snapshot,
+            (LegacyGenerationSnapshot, MarkdownGenerationSnapshotV2, GenerationSnapshot),
         ):
             raise ValueError("原始生成作业必须使用 GenerationSnapshot")
         if self.job_type == "HUMANIZE" and not isinstance(
@@ -285,7 +322,7 @@ class FactReviewContext(ContractModel):
 
 class GenerationTrace(ContractModel):
     job_id: uuid.UUID
-    input_snapshot: LegacyGenerationSnapshot | GenerationSnapshot
+    input_snapshot: LegacyGenerationSnapshot | MarkdownGenerationSnapshotV2 | GenerationSnapshot
 
 
 class HumanizationTrace(ContractModel):

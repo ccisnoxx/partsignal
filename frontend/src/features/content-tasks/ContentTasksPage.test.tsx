@@ -96,13 +96,65 @@ beforeEach(() => {
 });
 
 test('次级查询失败不遮蔽任务身份和返回入口', async () => {
+  const user = userEvent.setup();
   renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
 
   expect(await screen.findByRole('heading', { name: 'PartSignal PS-01' })).toBeInTheDocument();
   expect(screen.getByText('fact-version-1')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /返回任务列表/ })).toBeInTheDocument();
-  await waitFor(() => expect(screen.getAllByText('加载失败')).toHaveLength(3), { timeout: 3_000 });
+  await waitFor(() => expect(screen.getAllByText('加载失败')).toHaveLength(2), { timeout: 3_000 });
+  await user.click(screen.getByRole('button', { name: /生成 AI 草稿/ }));
+  expect(await within(screen.getByRole('dialog')).findByText('加载失败')).toBeInTheDocument();
   expect(screen.getByRole('navigation', { name: '内容任务章节' })).toBeInTheDocument();
+});
+
+test('AI 生成弹窗确认当前 Prompt 与模型后创建作业', async () => {
+  const user = userEvent.setup();
+  const options = {
+    platform_profile_id: task.platform_profile_id,
+    platform_profile_name: '工程师社区',
+    platform_prompt: {
+      id: 'prompt-1',
+      name: '工程师社区 Prompt',
+      revision: 2,
+      template_markdown: '只使用批准事实。',
+    },
+    humanization_prompt_configured: true,
+    models: [{ id: 'model-1', channel_id: 'channel-1', channel_name: '受控渠道', display_name: '生成模型', model_id: 'model-a' }],
+  };
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}') return result(task);
+    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'OPEN')] });
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
+    if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result({ items: [] });
+    if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result({ items: [] });
+    if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') return result(options);
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  apiMocks.POST.mockImplementation(() => result({
+    id: 'job-generate', content_task_id: taskId, job_type: 'GENERATE',
+    source_content_version_id: null, status: 'PENDING', attempt_count: 0,
+    content_version_id: null, created_at: task.created_at,
+  }));
+  renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
+
+  await user.click(await screen.findByRole('button', { name: /生成 AI 草稿/ }));
+  const dialog = await screen.findByRole('dialog');
+  expect(within(dialog).getByRole('textbox', { name: '当前平台 Prompt' })).toHaveValue('只使用批准事实。');
+  await user.click(within(dialog).getByRole('combobox', { name: '生成模型' }));
+  await user.click(await screen.findByText(/生成模型 \(model-a\)/));
+  await user.click(within(dialog).getByRole('button', { name: '生成文稿' }));
+
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/content-tasks/{content_task_id}/generation-jobs',
+    expect.objectContaining({
+      body: {
+        ai_model_id: 'model-1',
+        platform_prompt_id: 'prompt-1',
+        platform_prompt_revision: 2,
+      },
+    }),
+  ));
 });
 
 test('创建内容任务只加载产品和平台，不再展示或请求目标问题', async () => {
@@ -246,7 +298,13 @@ test('对合格 AI 版本选择模型并创建自然化作业', async () => {
   const options = {
     platform_profile_id: task.platform_profile_id,
     platform_profile_name: '工程师社区',
-    system_prompt_markdown: '只使用批准事实。', humanization_prompt_configured: true,
+    platform_prompt: {
+      id: 'prompt-1',
+      name: '工程师社区 Prompt',
+      revision: 2,
+      template_markdown: '只使用批准事实。',
+    },
+    humanization_prompt_configured: true,
     models: [{ id: 'model-1', channel_id: 'channel-1', channel_name: '受控渠道', display_name: '自然化模型', model_id: 'model-a' }],
   };
   apiMocks.GET.mockImplementation((path: string) => {

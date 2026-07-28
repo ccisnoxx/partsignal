@@ -34,7 +34,10 @@ export const queryKeys = {
     all: ['platform-profiles'] as const,
     list: (query: PlatformProfileListQuery) => ['platform-profiles', query] as const,
     detail: (id: string) => ['platform-profile', id] as const,
-    prompt: (id: string | undefined) => ['platform-prompt', id] as const,
+  },
+  platformPrompts: {
+    all: ['platform-prompts'] as const,
+    detail: (id: string) => ['platform-prompt', id] as const,
   },
   contentHumanizationPrompt: ['content-humanization-prompt'] as const,
   platformAccounts: {

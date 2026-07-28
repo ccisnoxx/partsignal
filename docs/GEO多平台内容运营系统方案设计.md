@@ -78,15 +78,15 @@
 ### 2.5 2026-07-25 双首稿内容生产
 
 - 新任务只保存产品、事实版本和具体平台，不再保存受众、内容角度、转化目标、格式、长度、任务 Prompt、平台类型快照或 canonical URL。
-- 系统 AI 方式在任务创建后选择渠道与模型并创建 `GENERATE` 作业；平台 Prompt 被删除时明确失败，不提供默认安全 Prompt 或历史规则回退。
+- 系统 AI 方式打开弹窗展示平台当前绑定的 Prompt，用户确认后选择已启用模型并创建 `GENERATE` 作业；提交时服务端重新校验 Prompt 身份与 revision，不提供默认安全 Prompt 或历史规则回退。
 - 人工方式在任务上直接提交标题、摘要、Markdown 正文、标签和变更说明，创建 `source_type=HUMAN`、`status=DRAFT` 且生成与父版本引用为空的首稿。
 - 两种方式只在首稿来源不同；后续人工修订、自然化、审核、批准、人工发布、验证和 GEO 观测共用既有状态机。
 
 ### 2.6 2026-07-23 Prompt 管理工作台
 
-- Prompt 管理页按批准原型形成“平台列表—Markdown 编辑—真实输出预览/安全边界”工作台，并以 URL 保存标签、平台搜索、类型筛选、分页和当前平台；未配置 Prompt 的平台仍可选择并首次保存。
-- 平台列表从同一服务端集合读取真实 Logo、类型、配置状态和当前 Prompt 更新时间。`prompt_updated_at` 只来自当前 Prompt 行；平台更新或审计时间不冒充 Prompt 时间。
-- 平台 Prompt 与全局自然化 Prompt 分别使用既有唯一端点。保存使用 revision 乐观锁，平台 Prompt 删除也要求当前 `expected_revision`；冲突保留本地草稿，切换标签、平台、路由或刷新前提示未保存修改。
+- Prompt 管理页形成“可复用模板列表—Markdown 编辑—真实输出预览/安全边界”工作台；一个平台最多绑定一份当前 Prompt，一份 Prompt 可供多个平台复用。
+- 平台管理从同一服务端集合读取真实 Logo、类型、配置状态和当前 Prompt 摘要；配置完整性只由可空绑定实时派生。
+- 平台 Prompt 模板与全局自然化 Prompt 分别使用各自唯一端点。保存使用 revision 乐观锁；共享模板保存前展示全部受影响平台，被绑定模板不可删除，未绑定模板可按当前 revision 删除。冲突保留本地草稿，切换标签、模板、路由或刷新前提示未保存修改。
 - 输出预览不新增临时模型接口。管理员显式选择真实任务、模型及自然化源草稿后创建现有 `GENERATE | HUMANIZE` 作业，成功结果是可审计、可追溯的新 AI `DRAFT`；未保存 Prompt 不参与预览，既有结果始终归属原作业快照。
 
 ### 2.7 2026-07-23 业务设置与用户治理
@@ -502,15 +502,15 @@ flowchart LR
 - `system.content`：`PlatformPrompt.template_markdown` 原文。
 - `user.content`：`FactVersion.body_markdown` 原文。
 
-请求中不得增加固定安全前缀、产品元数据、任务字段、事实 JSON、附件地址或访问凭据。生成请求只提交 `ai_model_id`；平台、Prompt 与事实由服务端权威解析。事实分级不是 `PUBLIC` 时禁止第三方调用。
+请求中不得增加固定安全前缀、产品元数据、任务字段、事实 JSON、附件地址或访问凭据。生成请求提交 `ai_model_id`、用户已确认的 `platform_prompt_id` 和 `platform_prompt_revision`；服务端重新校验它仍是平台当前绑定。事实分级不是 `PUBLIC` 时禁止第三方调用。
 
 ### 10.3 平台配置
 
-`PlatformProfile` 表示具体平台官网，保存平台名称、Slug、所属动态业务类型、官网、允许域名、品牌信息和独立启停状态。具体平台归属于一个 `PlatformType`，拥有零或一个当前 Prompt Markdown。不存在平台规则版本或页面自动化选择器。
+`PlatformProfile` 表示具体平台官网，保存平台名称、Slug、所属动态业务类型、官网、允许域名、品牌信息、独立启停状态和可空的当前 Prompt 绑定。不存在平台规则版本或页面自动化选择器。
 
 ### 10.4 平台 Prompt
 
-平台 Prompt 由管理员按具体平台维护，用于规定该平台的生成基线。每个具体平台最多一份 Prompt，正文是一篇可全选、复制、粘贴和修改的普通 Markdown，不需要理解模板语法。
+平台 Prompt 是管理员维护的可复用模板库，用于规定平台生成基线。一个具体平台最多绑定一份当前 Prompt，同一 Prompt 可绑定多个平台；正文是一篇可全选、复制、粘贴和修改的普通 Markdown，不需要理解模板语法。
 
 平台 Prompt 主要定义：
 
@@ -803,8 +803,8 @@ MVP 实现前两个能力；`Publisher` 只作为未来扩展边界记录在设�
 | `fact_versions` | `id`, `product_id`, `version`, `body_markdown`, `classification`, `status`, `approved_by` |
 | `query_topics` | `id`, `canonical_question`, `intent_type`, `variants_json`, `status` |
 | `platform_types` | `id`, `name`, `slug`, `revision`, `created_by` |
-| `platform_prompts` | `platform_profile_id`, `template_markdown`, `revision`, `updated_by` |
-| `platform_profiles` | `id`, `platform_type_id`, `name`, `slug`, `official_url`, `allowed_domains`, `revision` |
+| `platform_prompts` | `id`, `name`, `template_markdown`, `revision`, `updated_by` |
+| `platform_profiles` | `id`, `platform_type_id`, `platform_prompt_id`, `name`, `slug`, `official_url`, `allowed_domains`, `revision` |
 | `ai_channels` | `id`, `name`, `description`, `protocol_type`, `provider_brand`, `base_url`, `api_key_ciphertext`, `timeout_seconds`, `is_enabled`, `revision` |
 | `ai_channel_headers` | `id`, `channel_id`, `name`, `normalized_name`, `is_sensitive`, `plain_value` 或 `encrypted_value` |
 | `ai_models` | `id`, `channel_id`, `display_name`, `model_id`, `request_parameters`, `test_status`, `is_enabled`, `revision` |
@@ -814,14 +814,14 @@ MVP 实现前两个能力；`Publisher` 只作为未来扩展边界记录在设�
 | `review_records` | `id`, `target_type`, `target_id`, `decision`, `comments`, `reviewer_id` |
 | `publication_records` | `id`, `content_version_id`, `platform_profile_id`, `account_id`, `url`, `status` |
 | `geo_observations` | `id`, `observation_kind`, `product_id`, 可空历史 `query_topic_id`, `search_platform`, `search_query`, `tested_at`, `supersedes_id` |
-| `geo_observation_publications` | `observation_id`, `publication_record_id`, `discovered`, `mentioned`, `recommendation_status`, `cited`, `accuracy` |
+| `geo_observation_publications` | `observation_id`, `publication_record_id`, `discovered`, `mentioned`, `accuracy` |
 | `audit_logs` | `id`, `actor_id`, `business_module`, `action`, `target_type`, `target_id`, `outcome`, `result_message`, `error_code`, `change_summary` |
 
 设计约束：
 
 - 产品事实只保存 Markdown 工作区和不可变 Markdown 版本，不保存可独立编辑的结构化子表或编辑器 JSON。
 - 关键状态使用明确枚举，不使用自由文本。
-- `platform_prompts` 保存当前配置并允许管理员覆盖或删除；`generation_jobs.input_snapshot` 创建后不可修改，是 Prompt、模型和输入的历史权威。
+- `platform_prompts` 保存可复用模板；绑定模板只允许更新，未绑定模板才允许删除。`generation_jobs.input_snapshot` 创建后不可修改，是 Prompt、模型和输入的历史权威。
 - `platform_types` 由管理员动态维护唯一 Slug；被具体平台引用时不能删除。
 - 内容任务直接引用活动具体平台；系统 AI 作业冻结该平台当前 Prompt 和事实 Markdown，人工首稿不创建作业。
 - 发布记录只能绑定已批准内容，且平台账号必须与任务直接绑定的具体平台一致。

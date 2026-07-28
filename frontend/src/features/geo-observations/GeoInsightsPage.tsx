@@ -220,8 +220,12 @@ function TrendCard({ label, color, trend }: {
 
 const platformColumns: TableColumnsType<PlatformPerformance> = [
   {
-    title: 'GEO 平台', dataIndex: 'geo_platform', render: (value: string) => (
-      <Space size={7}><span className="geo-platform-mark">GEO</span><strong>{value}</strong></Space>
+    title: 'GEO 平台', dataIndex: 'geo_platform', width: 180, ellipsis: { showTitle: false }, render: (value: string) => (
+      <Tooltip title={value} trigger={['hover', 'focus']}>
+        <span className="geo-insight-platform-name" tabIndex={0}>
+          <span className="geo-platform-mark">GEO</span><strong>{value}</strong>
+        </span>
+      </Tooltip>
     ),
   },
   { title: '观测次数', dataIndex: 'observation_count', width: 72 },

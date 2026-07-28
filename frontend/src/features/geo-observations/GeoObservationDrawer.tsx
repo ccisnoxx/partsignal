@@ -123,19 +123,8 @@ function LegacyDetails({ record }: { record: Extract<GeoObservation, { observati
       <Typography.Title level={5}>观测结论</Typography.Title>
       <Space wrap>
         <StatusTag status={record.mentioned ? 'MENTIONED' : 'NOT_MENTIONED'} />
-        <StatusTag status={record.recommendation} />
-        <StatusTag status={record.citations.length ? 'HAS_CITATION' : 'NO_CITATION'} />
         <StatusTag status={record.accuracy} />
       </Space>
-      {!!record.citations.length && (
-        <div className="geo-detail-list geo-citation-list">
-          {record.citations.map((citation) => (
-            <div className="geo-detail-list-item" key={citation.url}>
-              <Space wrap><StatusTag status={citation.source_type} /><a href={citation.url} target="_blank" rel="noreferrer">{citation.url}</a></Space>
-            </div>
-          ))}
-        </div>
-      )}
       <Typography.Title level={5}>关联发布内容</Typography.Title>
       <LegacyPublications ids={record.publication_record_ids} />
     </>
@@ -204,7 +193,7 @@ export function GeoObservationDrawer({ recordId, onClose, onCorrect }: {
       placement="right"
       open={!!recordId}
       size={screens.md ? 380 : '100%'}
-      mask={false}
+      maskClosable
       onClose={onClose}
       destroyOnHidden
       className="geo-detail-drawer"

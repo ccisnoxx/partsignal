@@ -31,7 +31,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
-import { api, csrfHeader, ensureSuccess, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
+import { ApiError, api, csrfHeader, ensureSuccess, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { platformProfilesQueryOptions, productsQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { ContentTaskListItem, ContentTaskListQuery, ContentVersion, Schema } from '../../shared/api/types';
@@ -270,6 +270,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const activeSection = useActiveSection(taskSectionIds);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
   const [modelId, setModelId] = useState<string>();
   const [humanizeSource, setHumanizeSource] = useState<ContentVersion>();
   const [humanizeModelId, setHumanizeModelId] = useState<string>();
@@ -303,18 +304,25 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const options = useQuery({
     queryKey: queryKeys.contentTasks.options(taskId),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/generation-options', { params: { path: { content_task_id: taskId } } })),
-    staleTime: QUERY_STALE_TIME.configuration,
+    enabled: aiOpen || !!humanizeSource,
+    staleTime: 0,
     retry: false,
   });
   const createJob = useMutation({
     mutationFn: async () => {
-      if (!modelId) throw new Error('请选择模型');
+      if (!modelId || !options.data) throw new Error('请确认 Prompt 并选择模型');
       return unwrap(await api.POST('/api/v1/content-tasks/{content_task_id}/generation-jobs', {
         params: { path: { content_task_id: taskId }, header: { ...csrfHeader(), 'Idempotency-Key': newIdempotencyKey() } },
-        body: { ai_model_id: modelId },
+        body: {
+          ai_model_id: modelId,
+          platform_prompt_id: options.data.platform_prompt.id,
+          platform_prompt_revision: options.data.platform_prompt.revision,
+        },
       }));
     },
     onSuccess: async () => {
+      setAiOpen(false);
+      setModelId(undefined);
       message.success('生成作业已创建');
       await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.jobs(taskId) });
     },
@@ -396,6 +404,8 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const mutationError = createJob.error ?? createHumanizationJob.error ?? retryJob.error ?? taskCommand.error;
   const isOpen = task.data.status === 'OPEN';
   const factIsPublic = fact.data?.classification === 'PUBLIC';
+  const promptChanged = createJob.error instanceof ApiError
+    && createJob.error.code === 'PLATFORM_PROMPT_CHANGED';
 
   return <div className="page-stack">
     <Button type="link" onClick={() => navigate('/tasks')}>← 返回任务列表</Button>
@@ -438,27 +448,18 @@ function TaskDetail({ taskId }: { taskId: string }) {
     <section id="task-entry" className="task-stage-grid workspace-section">
       <Card title="02A / 系统 AI 生成" className="workspace-panel">
         {!factIsPublic && fact.data && <Alert type="warning" showIcon title={`事实分级为 ${fact.data.classification}，不能发送给第三方模型。`} />}
-        {options.isLoading ? <QueryLoading label="正在加载 AI 生成选项" />
-          : options.error || !options.data ? <QueryFailure error={options.error ?? new Error('AI 生成选项不存在')} onRetry={() => void options.refetch()} />
-            : <>
-              <Alert type="info" showIcon title="模型只接收当前平台 Prompt 和冻结事实 Markdown 两条原始消息。" />
-              {!options.data.humanization_prompt_configured && <Alert type="info" showIcon title="全局自然化 Prompt 未配置；原始生成不受影响。" />}
-              <Form.Item label="当前平台 Prompt（只读）"><Input.TextArea aria-label="当前平台 Prompt" rows={8} readOnly value={options.data.system_prompt_markdown} className="markdown-source" /></Form.Item>
-              <Space wrap className="generation-controls">
-                <Select
-                  aria-label="生成模型"
-                  className="model-select"
-                  showSearch
-                  optionFilterProp="label"
-                  placeholder="选择已启用且测试通过的模型"
-                  value={modelId}
-                  onChange={setModelId}
-                  options={options.data.models.map((item) => ({ value: item.id, label: `${item.channel_name} / ${item.display_name} (${item.model_id})` }))}
-                />
-                <Button type="primary" icon={<ThunderboltOutlined />} loading={createJob.isPending} disabled={!modelId || !isOpen || !factIsPublic} onClick={() => createJob.mutate()}>生成 AI 草稿</Button>
-              </Space>
-              {options.data.models.length === 0 && <Typography.Text type="secondary">当前没有可用模型。</Typography.Text>}
-            </>}
+        <Alert type="info" showIcon title="打开弹窗后确认平台当前 Prompt，再选择已启用模型创建草稿。" />
+        <Typography.Paragraph>模型只接收已确认的 Prompt 和冻结事实 Markdown；手工录入不受 Prompt 配置影响。</Typography.Paragraph>
+        <Button
+          type="primary"
+          icon={<ThunderboltOutlined />}
+          disabled={!isOpen || !factIsPublic}
+          onClick={() => {
+            setModelId(undefined);
+            createJob.reset();
+            setAiOpen(true);
+          }}
+        >生成 AI 草稿</Button>
       </Card>
       <Card title="02B / 手动录入" className="workspace-panel">
         <Alert type="info" showIcon title="可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。" />
@@ -515,7 +516,6 @@ function TaskDetail({ taskId }: { taskId: string }) {
                 const eligible = row.source_type === 'AI'
                   && ['DRAFT', 'CHANGES_REQUESTED'].includes(row.status)
                   && isOpen
-                  && options.data?.humanization_prompt_configured
                   && factIsPublic
                   && !activeHumanizationSources.has(row.id);
                 return <Button size="small" disabled={!eligible} onClick={() => setHumanizeSource(row)}>自然化</Button>;
@@ -541,6 +541,71 @@ function TaskDetail({ taskId }: { taskId: string }) {
       }}
     />}
     <Modal
+      title="生成 AI 草稿"
+      open={aiOpen}
+      onCancel={() => {
+        setAiOpen(false);
+        setModelId(undefined);
+        createJob.reset();
+      }}
+      onOk={() => createJob.mutate()}
+      okText="生成文稿"
+      confirmLoading={createJob.isPending}
+      okButtonProps={{ disabled: !modelId || !options.data || options.data.models.length === 0 }}
+      width={760}
+      destroyOnHidden
+    >
+      {options.isLoading ? <QueryLoading label="正在加载最新生成配置" />
+        : options.error || !options.data ? <QueryFailure
+            error={options.error ?? new Error('AI 生成选项不存在')}
+            onRetry={() => void options.refetch()}
+          />
+          : <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+            <Alert
+              type="info"
+              showIcon
+              title={`${options.data.platform_profile_name} / ${options.data.platform_prompt.name} / revision ${options.data.platform_prompt.revision}`}
+              description="提交时服务端会再次校验 Prompt 身份与 revision；配置已变化时不会使用旧确认继续生成。"
+            />
+            <Form.Item label="当前平台 Prompt（只读）">
+              <Input.TextArea
+                aria-label="当前平台 Prompt"
+                rows={10}
+                readOnly
+                value={options.data.platform_prompt.template_markdown}
+                className="markdown-source"
+              />
+            </Form.Item>
+            <Form.Item label="生成模型" required>
+              <Select
+                aria-label="生成模型"
+                showSearch
+                optionFilterProp="label"
+                placeholder="选择已启用且测试通过的模型"
+                value={modelId}
+                onChange={setModelId}
+                options={options.data.models.map((item) => ({
+                  value: item.id,
+                  label: `${item.channel_name} / ${item.display_name} (${item.model_id})`,
+                }))}
+              />
+            </Form.Item>
+            {options.data.models.length === 0 && <Alert type="warning" showIcon title="当前没有已启用且测试通过的模型。" />}
+            {!options.data.humanization_prompt_configured && <Alert type="info" showIcon title="全局自然化 Prompt 未配置；不影响本次原始生成。" />}
+            {createJob.error && <Alert
+              role="alert"
+              type="error"
+              showIcon
+              title={promptChanged ? '平台 Prompt 已变化，请重新加载后确认。' : errorMessage(createJob.error)}
+              action={promptChanged && <Button size="small" onClick={() => {
+                setModelId(undefined);
+                createJob.reset();
+                void options.refetch();
+              }}>重新加载</Button>}
+            />}
+          </Space>}
+    </Modal>
+    <Modal
       title={`自然化 V${humanizeSource?.version ?? ''}`}
       open={!!humanizeSource}
       onCancel={() => { setHumanizeSource(undefined); setHumanizeModelId(undefined); }}
@@ -551,6 +616,8 @@ function TaskDetail({ taskId }: { taskId: string }) {
       destroyOnHidden
     >
       <Alert type="info" showIcon title="这会额外调用一次所选模型并创建新的待审核草稿；源版本不会被修改。" />
+      {options.isLoading && <QueryLoading label="正在加载自然化模型" />}
+      {options.error && <QueryFailure error={options.error} onRetry={() => void options.refetch()} />}
       <Form.Item label="自然化模型" required>
         <Select
           aria-label="自然化模型"

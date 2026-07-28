@@ -15,9 +15,12 @@ from app.schemas.content import (
     HumanizationSnapshot,
     LegacyGenerationSnapshot,
     LegacyHumanizationSnapshot,
+    MarkdownGenerationSnapshotV2,
 )
 
-GenerationSnapshotRead = LegacyGenerationSnapshot | GenerationSnapshot
+GenerationSnapshotRead = (
+    LegacyGenerationSnapshot | MarkdownGenerationSnapshotV2 | GenerationSnapshot
+)
 HumanizationSnapshotRead = LegacyHumanizationSnapshot | HumanizationSnapshot
 
 
@@ -67,6 +70,10 @@ def resolve_content_ai_lineage(db: Session, content: ContentVersion) -> ContentA
                             job.input_snapshot
                         )
                     elif contract_version == "content-markdown-v2":
+                        generation_snapshot = MarkdownGenerationSnapshotV2.model_validate(
+                            job.input_snapshot
+                        )
+                    elif contract_version == "content-markdown-v3":
                         generation_snapshot = GenerationSnapshot.model_validate(job.input_snapshot)
                     else:
                         raise AppError(

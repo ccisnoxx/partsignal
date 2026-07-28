@@ -30,15 +30,14 @@ import { GeoObservationDrawer } from './GeoObservationDrawer';
 import { GeoObservationForm } from './GeoObservationForm';
 
 const observationKinds = ['LEGACY_MODEL_RESULT', 'MANUAL_ARTICLE_SEARCH'] as const;
-const legacyRecommendations = ['NONE', 'CANDIDATE', 'RECOMMENDED'] as const;
 const accuracies = ['ACCURATE', 'PARTIAL', 'INCORRECT', 'UNJUDGEABLE'] as const;
 const pageSizes = [20, 50, 100] as const;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-const optionalColumnKeys = ['discovered', 'mentioned', 'recommendation', 'citation', 'accuracy', 'publication', 'evidence', 'recorder'] as const;
+const optionalColumnKeys = ['discovered', 'mentioned', 'accuracy', 'publication', 'evidence', 'recorder'] as const;
 type OptionalColumnKey = typeof optionalColumnKeys[number];
 
 const columnLabels: Record<OptionalColumnKey, string> = {
-  discovered: '是否发现', mentioned: '是否提及', recommendation: '历史推荐', citation: '历史引用', accuracy: '准确性',
+  discovered: '是否发现', mentioned: '是否提及', accuracy: '准确性',
   publication: '关联发布内容', evidence: '证据', recorder: '记录人',
 };
 
@@ -134,8 +133,6 @@ export function GeoObservationsPage() {
     ...(searchParams.get('publication_search') ? { publication_search: searchParams.get('publication_search')! } : {}),
     ...(boolValue(searchParams.get('discovered')) !== undefined ? { discovered: boolValue(searchParams.get('discovered')) } : {}),
     ...(boolValue(searchParams.get('mentioned')) !== undefined ? { mentioned: boolValue(searchParams.get('mentioned')) } : {}),
-    ...(enumValue(searchParams.get('recommendation'), legacyRecommendations) ? { recommendation: enumValue(searchParams.get('recommendation'), legacyRecommendations) } : {}),
-    ...(boolValue(searchParams.get('has_citation')) !== undefined ? { has_citation: boolValue(searchParams.get('has_citation')) } : {}),
     ...(enumValue(searchParams.get('accuracy'), accuracies) ? { accuracy: enumValue(searchParams.get('accuracy'), accuracies) } : {}),
     ...(searchParams.get('recorder_search') ? { recorder_search: searchParams.get('recorder_search')! } : {}),
     ...(searchParams.get('only_mine') === 'true' ? { only_mine: true } : {}),
@@ -170,10 +167,11 @@ export function GeoObservationsPage() {
     if (next.has('page_size') && !pageSizes.map(String).includes(next.get('page_size')!)) remove('page_size');
     normalizeEnum('sort_order', ['ASC', 'DESC']);
     normalizeEnum('observation_kind', observationKinds);
-    normalizeEnum('recommendation', legacyRecommendations);
     normalizeEnum('accuracy', accuracies);
-    if (next.has('article_recommendation')) remove('article_recommendation');
-    for (const key of ['discovered', 'mentioned', 'has_citation', 'only_mine', 'include_history', 'all_time']) {
+    for (const key of ['article_recommendation', 'recommendation', 'has_citation']) {
+      if (next.has(key)) remove(key);
+    }
+    for (const key of ['discovered', 'mentioned', 'only_mine', 'include_history', 'all_time']) {
       normalizeEnum(key, ['true', 'false']);
     }
     if (next.has('date_from') && !datePattern.test(next.get('date_from')!)) {
@@ -256,16 +254,6 @@ export function GeoObservationsPage() {
       title: '是否提及', key: 'mentioned', width: 100, render: (_, row) => row.observation_kind === 'LEGACY_MODEL_RESULT'
         ? <StatusTag status={row.mentioned ? 'MENTIONED' : 'NOT_MENTIONED'} />
         : <Tag>{manualFactSummary(row.article_results, (item) => item.mentioned !== null, (item) => item.mentioned === true, '提及')}</Tag>,
-    },
-    {
-      title: '历史推荐', key: 'recommendation', width: 104, render: (_, row) => row.observation_kind === 'LEGACY_MODEL_RESULT'
-        ? <StatusTag status={row.recommendation} />
-        : <Tag>不适用</Tag>,
-    },
-    {
-      title: '历史引用', key: 'citation', width: 100, render: (_, row) => row.observation_kind === 'LEGACY_MODEL_RESULT'
-        ? <StatusTag status={row.citations.length ? 'HAS_CITATION' : 'NO_CITATION'} />
-        : <Tag>不适用</Tag>,
     },
     {
       title: '准确性', key: 'accuracy', width: 104, render: (_, row) => row.observation_kind === 'LEGACY_MODEL_RESULT'
@@ -364,8 +352,6 @@ export function GeoObservationsPage() {
           <label><span>关联发布内容</span><Input allowClear value={listQuery.publication_search ?? ''} placeholder="标题或链接" onChange={(event) => updateFilter('publication_search', event.target.value)} /></label>
           <label><span>是否发现</span><Select allowClear value={listQuery.discovered === undefined ? undefined : String(listQuery.discovered)} onChange={(value) => updateFilter('discovered', value)} options={[{ value: 'true', label: '已发现' }, { value: 'false', label: '未发现' }]} /></label>
           <label><span>是否提及</span><Select allowClear value={listQuery.mentioned === undefined ? undefined : String(listQuery.mentioned)} onChange={(value) => updateFilter('mentioned', value)} options={[{ value: 'true', label: '已提及' }, { value: 'false', label: '未提及' }]} /></label>
-          <label><span>历史推荐</span><Select allowClear value={listQuery.recommendation} onChange={(value) => updateFilter('recommendation', value)} options={legacyRecommendations.map((value) => ({ value, label: <StatusTag status={value} /> }))} /></label>
-          <label><span>历史引用</span><Select allowClear value={listQuery.has_citation === undefined ? undefined : String(listQuery.has_citation)} onChange={(value) => updateFilter('has_citation', value)} options={[{ value: 'true', label: '有引用' }, { value: 'false', label: '无引用' }]} /></label>
           <label><span>准确性</span><Select allowClear value={listQuery.accuracy} onChange={(value) => updateFilter('accuracy', value)} options={accuracies.map((value) => ({ value, label: <StatusTag status={value} /> }))} /></label>
           <label><span>记录人</span><Input allowClear value={listQuery.recorder_search ?? ''} placeholder="姓名或用户名" onChange={(event) => updateFilter('recorder_search', event.target.value)} /></label>
         </div>
@@ -421,7 +407,7 @@ export function GeoObservationsPage() {
                 },
               })}
               sticky={{ offsetHeader: 72 }}
-              scroll={{ x: 1240 }}
+              scroll={{ x: 1040 }}
               pagination={{
                 current: rawPage,
                 pageSize,

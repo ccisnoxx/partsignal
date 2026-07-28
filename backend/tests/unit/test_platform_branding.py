@@ -107,6 +107,7 @@ def test_platform_logo_input_rejects_external_source() -> None:
                 "slug": "engineer-community",
                 "allowed_domains": ["community.example.invalid"],
                 "platform_type_id": str(uuid.uuid4()),
+                "platform_prompt_id": None,
                 "logo": {
                     "source": "EXTERNAL",
                     "url": "https://cdn.example.invalid/logo.png",
@@ -122,6 +123,7 @@ def test_platform_profile_update_distinguishes_omitted_and_explicit_null_logo() 
         "name": "工程师社区",
         "allowed_domains": ["example.invalid"],
         "platform_type_id": uuid.uuid4(),
+        "platform_prompt_id": None,
         "website_url": None,
     }
     omitted = PlatformProfileUpdate.model_validate(common)
@@ -138,6 +140,7 @@ def test_platform_profile_create_and_update_share_normalization() -> None:
         slug="engineer-community",
         allowed_domains=["例子.测试."],
         platform_type_id=platform_type_id,
+        platform_prompt_id=None,
         website_url="https://example.invalid",
     )
     updated = PlatformProfileUpdate(
@@ -145,6 +148,7 @@ def test_platform_profile_create_and_update_share_normalization() -> None:
         name="  工程师社区  ",
         allowed_domains=["例子.测试."],
         platform_type_id=platform_type_id,
+        platform_prompt_id=None,
         website_url="https://example.invalid",
         logo=None,
     )
@@ -173,6 +177,7 @@ def test_platform_profile_domain_validation_rejects_ambiguous_hosts(
             slug="engineer-community",
             allowed_domains=domains,
             platform_type_id=uuid.uuid4(),
+            platform_prompt_id=None,
         )
 
 

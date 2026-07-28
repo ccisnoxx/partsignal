@@ -24,6 +24,7 @@ import {
   Space,
   Table,
   Tabs,
+  Tooltip,
   Typography,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
@@ -515,10 +516,25 @@ function RecordList({
           dataSource={items}
           pagination={{ current: page, pageSize: PAGE_SIZE, total, showSizeChanger: false, showTotal: (count) => `共 ${count} 条`, onChange: (next) => onView({ records_page: next }) }}
           sticky={{ offsetHeader: 72 }}
-          scroll={{ x: 1240 }}
+          scroll={{ x: 1470 }}
           columns={[
-            { title: '内容标题', render: (_, row) => <div className="publication-title-cell"><strong>{row.content_title}</strong><small>V{row.content_version}</small></div> },
-            { title: '实际标题', dataIndex: 'actual_title', width: 170, render: (value: string | null) => value ?? '—' },
+            {
+              title: '内容标题',
+              ellipsis: { showTitle: false },
+              render: (_, row) => <div className="publication-title-cell">
+                <Tooltip title={row.content_title} trigger={['hover', 'focus']}><strong tabIndex={0}>{row.content_title}</strong></Tooltip>
+                <small>V{row.content_version}</small>
+              </div>,
+            },
+            {
+              title: '实际标题',
+              dataIndex: 'actual_title',
+              width: 210,
+              ellipsis: { showTitle: false },
+              render: (value: string | null) => value
+                ? <Tooltip title={value} trigger={['hover', 'focus']}><span className="publication-actual-title" tabIndex={0}>{value}</span></Tooltip>
+                : '—',
+            },
             { title: '状态', dataIndex: 'status', width: 120, render: (value) => <StatusTag status={value} /> },
             { title: '发布时间', dataIndex: 'published_at', width: 160, render: (value: string | null) => value ? formatDateTime(value) : '—' },
             { title: '目标平台', dataIndex: 'platform_profile_name', width: 140 },

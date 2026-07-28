@@ -722,48 +722,90 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/platform-profiles/{platform_profile_id}/prompt:
+  /api/v1/platform-prompts:
     get:
       tags: [configuration]
-      operationId: getPlatformPrompt
-      parameters: [{$ref: '#/components/parameters/PlatformProfileId'}]
+      operationId: listPlatformPrompts
       responses:
         '200':
-          description: 当前平台 Prompt
+          description: 可复用平台 Prompt 模板列表
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/PlatformPrompt'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
-    put:
+              schema: {$ref: '#/components/schemas/PlatformPromptList'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+    post:
       tags: [configuration]
-      operationId: putPlatformPrompt
+      operationId: createPlatformPrompt
       parameters:
-        - {$ref: '#/components/parameters/PlatformProfileId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/PlatformPromptPut'}
+            schema: {$ref: '#/components/schemas/PlatformPromptCreate'}
       responses:
-        '200':
-          description: 已创建或原地更新当前 Prompt
+        '201':
+          description: 已创建可复用 Prompt
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/PlatformPrompt'}
+              schema: {$ref: '#/components/schemas/PlatformPromptDetail'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/platform-prompts/{platform_prompt_id}:
+    get:
+      tags: [configuration]
+      operationId: getPlatformPrompt
+      parameters:
+        - {name: platform_prompt_id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Prompt 正文与当前绑定平台
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformPromptDetail'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+    put:
+      tags: [configuration]
+      operationId: updatePlatformPrompt
+      parameters:
+        - {name: platform_prompt_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PlatformPromptUpdate'}
+      responses:
+        '200':
+          description: 已按 revision 更新共享 Prompt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformPromptDetail'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deletePlatformPrompt
       parameters:
-        - {$ref: '#/components/parameters/PlatformProfileId'}
+        - {name: platform_prompt_id, in: path, required: true, schema: {type: string, format: uuid}}
         - name: expected_revision
           in: query
           required: true
           schema: {type: integer, minimum: 0}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
-        '204': {description: 已删除当前 Prompt}
+        '204': {description: 已删除未被任何平台绑定的 Prompt}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-humanization-prompt:
     get:
@@ -1320,7 +1362,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/GenerationJobCreate'}
+            schema: {$ref: '#/components/schemas/OriginalGenerationJobCreate'}
       responses:
         '202':
           description: 已创建或返回幂等作业
@@ -1370,7 +1412,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/GenerationJobCreate'}
+            schema: {$ref: '#/components/schemas/HumanizationJobCreate'}
       responses:
         '202':
           description: 已创建或返回幂等自然化作业
@@ -2448,7 +2490,7 @@ components:
     PlatformProfileCreate:
       type: object
       additionalProperties: false
-      required: [name, slug, allowed_domains, platform_type_id]
+      required: [name, slug, allowed_domains, platform_type_id, platform_prompt_id]
       properties:
         name: {type: string, minLength: 1, maxLength: 160}
         slug: {type: string, pattern: '^[a-z0-9-]+$'}
@@ -2458,6 +2500,7 @@ components:
           uniqueItems: true
           items: {type: string, minLength: 1, maxLength: 253, description: 不含 scheme、路径、查询、端口或通配符的规范化 DNS 主机名}
         platform_type_id: {type: string, format: uuid}
+        platform_prompt_id: {type: [string, 'null'], format: uuid}
         website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
         logo:
           anyOf:
@@ -2466,7 +2509,7 @@ components:
     PlatformProfileUpdate:
       type: object
       additionalProperties: false
-      required: [expected_revision, name, allowed_domains, platform_type_id, website_url]
+      required: [expected_revision, name, allowed_domains, platform_type_id, platform_prompt_id, website_url]
       properties:
         expected_revision: {type: integer, minimum: 0}
         name: {type: string, minLength: 1, maxLength: 160}
@@ -2476,6 +2519,7 @@ components:
           uniqueItems: true
           items: {type: string, minLength: 1, maxLength: 253, description: 不含 scheme、路径、查询、端口或通配符的规范化 DNS 主机名}
         platform_type_id: {type: string, format: uuid}
+        platform_prompt_id: {type: [string, 'null'], format: uuid}
         website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
         logo:
           anyOf:
@@ -2538,10 +2582,19 @@ components:
         id: {type: string, format: uuid}
         name: {type: string}
         slug: {type: string}
+    PlatformPromptReference:
+      type: object
+      additionalProperties: false
+      required: [id, name, revision, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 300}
+        revision: {type: integer, minimum: 0}
+        updated_at: {type: string, format: date-time}
     PlatformProfile:
       type: object
       additionalProperties: false
-      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, prompt_configured, prompt_updated_at, configuration_complete, platform_account_count, updated_at]
+      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, platform_prompt, configuration_complete, platform_account_count, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string, minLength: 1, maxLength: 160}
@@ -2559,9 +2612,11 @@ components:
             - {type: 'null'}
         revision: {type: integer}
         is_active: {type: boolean}
-        prompt_configured: {type: boolean}
-        prompt_updated_at: {type: [string, 'null'], format: date-time, description: 当前具体平台 Prompt 的最近更新时间；未配置时为 null}
-        configuration_complete: {type: boolean, description: 当前具体平台已配置 Prompt，可用于系统 AI 生成}
+        platform_prompt:
+          anyOf:
+            - {$ref: '#/components/schemas/PlatformPromptReference'}
+            - {type: 'null'}
+        configuration_complete: {type: boolean, description: 当前具体平台已绑定 Prompt，可用于系统 AI 生成}
         platform_account_count: {type: integer, minimum: 0}
         updated_at: {type: [string, 'null'], format: date-time, description: 平台创建、编辑、启用或停用的最近真实审计时间}
     PlatformProfileSummary:
@@ -2605,10 +2660,9 @@ components:
     PlatformProfileDetail:
       type: object
       additionalProperties: false
-      required: [profile, prompt_updated_at, account_summary, reference_summary]
+      required: [profile, account_summary, reference_summary]
       properties:
         profile: {$ref: '#/components/schemas/PlatformProfile'}
-        prompt_updated_at: {type: [string, 'null'], format: date-time}
         account_summary: {$ref: '#/components/schemas/PlatformAccountSummary'}
         reference_summary: {$ref: '#/components/schemas/PlatformReferenceSummary'}
     PlatformTypeCreate:
@@ -2644,24 +2698,53 @@ components:
       required: [items]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/PlatformType'}}
-    PlatformPromptPut:
+    PlatformPromptCreate:
       type: object
       additionalProperties: false
-      required: [template_markdown, expected_revision]
+      required: [name, template_markdown]
       properties:
+        name: {type: string, minLength: 1, maxLength: 300}
         template_markdown: {type: string, minLength: 1}
-        expected_revision: {type: [integer, 'null'], minimum: 0}
-    PlatformPrompt:
+    PlatformPromptUpdate:
+      allOf:
+        - {$ref: '#/components/schemas/PlatformPromptCreate'}
+        - type: object
+          required: [expected_revision]
+          properties:
+            expected_revision: {type: integer, minimum: 0}
+    PlatformPromptListItem:
+      allOf:
+        - {$ref: '#/components/schemas/PlatformPromptReference'}
+        - type: object
+          required: [updated_by, bound_platform_count]
+          properties:
+            updated_by: {type: string, format: uuid}
+            bound_platform_count: {type: integer, minimum: 0}
+    PlatformPromptBoundPlatform:
       type: object
       additionalProperties: false
-      required: [platform_profile_id, template_markdown, revision, updated_by, created_at, updated_at]
+      required: [id, name, slug]
       properties:
-        platform_profile_id: {type: string, format: uuid}
-        template_markdown: {type: string}
-        revision: {type: integer}
-        updated_by: {type: string, format: uuid}
-        created_at: {type: string, format: date-time}
-        updated_at: {type: string, format: date-time}
+        id: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 160}
+        slug: {type: string}
+    PlatformPromptDetail:
+      allOf:
+        - {$ref: '#/components/schemas/PlatformPromptListItem'}
+        - type: object
+          required: [template_markdown, created_at, bound_platforms]
+          properties:
+            template_markdown: {type: string}
+            created_at: {type: string, format: date-time}
+            bound_platforms:
+              type: array
+              items: {$ref: '#/components/schemas/PlatformPromptBoundPlatform'}
+    PlatformPromptList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/PlatformPromptListItem'}}
     ContentHumanizationPromptPut:
       type: object
       additionalProperties: false
@@ -2968,14 +3051,31 @@ components:
     GenerationOptions:
       type: object
       additionalProperties: false
-      required: [platform_profile_id, platform_profile_name, system_prompt_markdown, humanization_prompt_configured, models]
+      required: [platform_profile_id, platform_profile_name, platform_prompt, humanization_prompt_configured, models]
       properties:
         platform_profile_id: {type: string, format: uuid}
         platform_profile_name: {type: string}
-        system_prompt_markdown: {type: string}
+        platform_prompt: {$ref: '#/components/schemas/GenerationPromptOption'}
         humanization_prompt_configured: {type: boolean}
         models: {type: array, items: {$ref: '#/components/schemas/GenerationOptionModel'}}
-    GenerationJobCreate:
+    GenerationPromptOption:
+      type: object
+      additionalProperties: false
+      required: [id, name, revision, template_markdown]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 300}
+        revision: {type: integer, minimum: 0}
+        template_markdown: {type: string, minLength: 1}
+    OriginalGenerationJobCreate:
+      type: object
+      additionalProperties: false
+      required: [ai_model_id, platform_prompt_id, platform_prompt_revision]
+      properties:
+        ai_model_id: {type: string, format: uuid}
+        platform_prompt_id: {type: string, format: uuid}
+        platform_prompt_revision: {type: integer, minimum: 0}
+    HumanizationJobCreate:
       type: object
       additionalProperties: false
       required: [ai_model_id]
@@ -3015,6 +3115,7 @@ components:
             input_snapshot:
               oneOf:
                 - {$ref: '#/components/schemas/LegacyGenerationSnapshot'}
+                - {$ref: '#/components/schemas/MarkdownGenerationSnapshotV2'}
                 - {$ref: '#/components/schemas/GenerationSnapshot'}
                 - {$ref: '#/components/schemas/LegacyHumanizationSnapshot'}
                 - {$ref: '#/components/schemas/HumanizationSnapshot'}
@@ -3049,7 +3150,7 @@ components:
         product_id: {type: string, format: uuid}
         version: {type: integer, minimum: 1}
         classification: {$ref: '#/components/schemas/Confidentiality'}
-    GenerationSnapshot:
+    MarkdownGenerationSnapshotV2:
       type: object
       additionalProperties: false
       required: [adapter_name, contract_version, channel, model, platform_profile, fact_version, system_message, user_message]
@@ -3062,9 +3163,32 @@ components:
         fact_version: {$ref: '#/components/schemas/GenerationFactSnapshot'}
         system_message: {type: string}
         user_message: {type: string}
+    PlatformPromptSnapshot:
+      type: object
+      additionalProperties: false
+      required: [id, name, revision]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, minLength: 1, maxLength: 300}
+        revision: {type: integer, minimum: 0}
+    GenerationSnapshot:
+      type: object
+      additionalProperties: false
+      required: [adapter_name, contract_version, channel, model, platform_profile, platform_prompt, fact_version, system_message, user_message]
+      properties:
+        adapter_name: {type: string, const: openai-compatible-chat-completions}
+        contract_version: {type: string, const: content-markdown-v3}
+        channel: {type: object, additionalProperties: true}
+        model: {type: object, additionalProperties: true}
+        platform_profile: {type: object, additionalProperties: true}
+        platform_prompt: {$ref: '#/components/schemas/PlatformPromptSnapshot'}
+        fact_version: {$ref: '#/components/schemas/GenerationFactSnapshot'}
+        system_message: {type: string}
+        user_message: {type: string}
     GenerationInputSnapshot:
       oneOf:
         - {$ref: '#/components/schemas/LegacyGenerationSnapshot'}
+        - {$ref: '#/components/schemas/MarkdownGenerationSnapshotV2'}
         - {$ref: '#/components/schemas/GenerationSnapshot'}
     HumanizationPromptSnapshot:
       type: object

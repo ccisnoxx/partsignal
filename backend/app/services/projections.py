@@ -23,6 +23,7 @@ from app.schemas.configuration import (
     PlatformLogoOut,
     PlatformLogoUploadOut,
     PlatformProfileOut,
+    PlatformPromptReference,
     PlatformTypeSummary,
 )
 from app.schemas.content import (
@@ -161,13 +162,14 @@ def platform_profiles_out(db: Session, profiles: list[PlatformProfile]) -> list[
         for file in db.scalars(select(FileRecord).where(FileRecord.id.in_(logo_file_ids)))
     }
     logo_expires_at = datetime.now(UTC) + timedelta(seconds=settings.download_url_ttl_seconds)
-    prompt_updated_at_by_profile = {
-        profile_id: updated_at
-        for profile_id, updated_at in db.execute(
-            select(PlatformPrompt.platform_profile_id, PlatformPrompt.updated_at).where(
-                PlatformPrompt.platform_profile_id.in_(profile_ids)
-            )
-        ).tuples()
+    prompt_ids = {
+        profile.platform_prompt_id
+        for profile in profiles
+        if profile.platform_prompt_id is not None
+    }
+    prompts_by_id = {
+        prompt.id: prompt
+        for prompt in db.scalars(select(PlatformPrompt).where(PlatformPrompt.id.in_(prompt_ids)))
     }
     platform_type_ids = {
         profile.platform_type_id for profile in profiles if profile.platform_type_id is not None
@@ -204,6 +206,11 @@ def platform_profiles_out(db: Session, profiles: list[PlatformProfile]) -> list[
             and profile.platform_type_id not in platform_types_by_id
         ):
             raise RuntimeError(f"平台 {profile.id} 关联的平台类型不存在")
+        if (
+            profile.platform_prompt_id is not None
+            and profile.platform_prompt_id not in prompts_by_id
+        ):
+            raise RuntimeError(f"平台 {profile.id} 关联的 Prompt 不存在")
     return [
         PlatformProfileOut.model_validate(
             {
@@ -223,9 +230,14 @@ def platform_profiles_out(db: Session, profiles: list[PlatformProfile]) -> list[
                 "logo": _platform_logo_out(profile, files_by_id, logo_expires_at),
                 "revision": profile.revision,
                 "is_active": profile.is_active,
-                "prompt_configured": profile.id in prompt_updated_at_by_profile,
-                "prompt_updated_at": prompt_updated_at_by_profile.get(profile.id),
-                "configuration_complete": profile.id in prompt_updated_at_by_profile,
+                "platform_prompt": (
+                    PlatformPromptReference.model_validate(
+                        prompts_by_id[profile.platform_prompt_id]
+                    )
+                    if profile.platform_prompt_id is not None
+                    else None
+                ),
+                "configuration_complete": profile.platform_prompt_id is not None,
                 "platform_account_count": account_counts.get(profile.id, 0),
                 "updated_at": updated_at_by_profile.get(profile.id),
             }

@@ -57,14 +57,13 @@ class PlatformType(Base):
 
 
 class PlatformPrompt(Base):
-    """具体平台当前唯一的可编辑 Markdown system Prompt。"""
+    """可由多个具体平台复用的 Markdown system Prompt。"""
 
     __tablename__ = "platform_prompts"
-    platform_profile_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        ForeignKey("platform_profiles.id", ondelete="CASCADE"),
-        primary_key=True,
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=new_uuid
     )
+    name: Mapped[str] = mapped_column(String(300), unique=True, nullable=False)
     template_markdown: Mapped[str] = mapped_column(Text, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     updated_by: Mapped[uuid.UUID] = mapped_column(
@@ -113,6 +112,9 @@ class PlatformProfile(Base):
     allowed_domains: Mapped[list[str]] = mapped_column(ARRAY(Text), nullable=False)
     platform_type_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platform_types.id", ondelete="RESTRICT")
+    )
+    platform_prompt_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_prompts.id", ondelete="RESTRICT")
     )
     website_url: Mapped[str | None] = mapped_column(Text)
     logo_file_id: Mapped[uuid.UUID | None] = mapped_column(

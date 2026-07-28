@@ -9,6 +9,7 @@ export type ProductFactsDraft = Schema<'ProductFactsDraft'>;
 export type FactVersion = Schema<'FactVersion'>;
 export type QueryTopic = Schema<'QueryTopic'>;
 export type PlatformProfile = Schema<'PlatformProfile'>;
+export type PlatformPrompt = Schema<'PlatformPromptDetail'>;
 export type ContentTask = Schema<'ContentTask'>;
 export type ContentTaskListItem = Schema<'ContentTaskListItem'>;
 export type GenerationJob = Schema<'GenerationJob'>;

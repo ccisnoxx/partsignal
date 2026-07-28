@@ -125,7 +125,11 @@ export function PromptOutputPreview({ mode, platformProfileId, dirty, promptConf
           path: { content_task_id: taskId },
           header: { ...csrfHeader(), 'Idempotency-Key': newIdempotencyKey() },
         },
-        body: { ai_model_id: modelId },
+        body: {
+          ai_model_id: modelId,
+          platform_prompt_id: options.data!.platform_prompt.id,
+          platform_prompt_revision: options.data!.platform_prompt.revision,
+        },
       }));
     },
     onSuccess: async (job) => {

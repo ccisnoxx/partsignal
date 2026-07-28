@@ -50,6 +50,11 @@ PlatformName = Annotated[
     Field(min_length=1, max_length=160),
     AfterValidator(normalize_platform_name),
 ]
+PlatformPromptName = Annotated[
+    str,
+    Field(min_length=1, max_length=300),
+    AfterValidator(normalize_platform_name),
+]
 PlatformDomain = Annotated[
     str,
     Field(min_length=1, max_length=253),
@@ -120,6 +125,7 @@ class PlatformProfileCreate(ContractModel):
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
     platform_type_id: uuid.UUID
+    platform_prompt_id: uuid.UUID | None
     website_url: HttpUrl | None = None
     logo: PlatformLogoInput | None = None
 
@@ -131,6 +137,7 @@ class PlatformProfileUpdate(ContractModel):
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
     platform_type_id: uuid.UUID
+    platform_prompt_id: uuid.UUID | None
     website_url: HttpUrl | None
     logo: PlatformLogoInput | None = None
 
@@ -164,6 +171,15 @@ class PlatformTypeSummary(ContractModel):
     slug: str
 
 
+class PlatformPromptReference(ContractModel):
+    """平台和生成选项复用的当前 Prompt 摘要。"""
+
+    id: uuid.UUID
+    name: PlatformPromptName
+    revision: int = Field(ge=0)
+    updated_at: datetime
+
+
 class PlatformProfileOut(ContractModel):
     id: uuid.UUID
     name: PlatformName
@@ -175,8 +191,7 @@ class PlatformProfileOut(ContractModel):
     logo: PlatformLogoOut | None
     revision: int
     is_active: bool
-    prompt_configured: bool
-    prompt_updated_at: datetime | None
+    platform_prompt: PlatformPromptReference | None
     configuration_complete: bool
     platform_account_count: int = Field(ge=0)
     updated_at: datetime | None
@@ -211,7 +226,6 @@ class PlatformReferenceSummary(ContractModel):
 
 class PlatformProfileDetail(ContractModel):
     profile: PlatformProfileOut
-    prompt_updated_at: datetime | None
     account_summary: PlatformAccountSummary
     reference_summary: PlatformReferenceSummary
 
@@ -237,18 +251,34 @@ class PlatformTypeList(ContractModel):
     items: list[PlatformTypeOut]
 
 
-class PlatformPromptPut(ContractModel):
+class PlatformPromptCreate(ContractModel):
+    name: PlatformPromptName
     template_markdown: str = Field(min_length=1)
-    expected_revision: int | None = Field(ge=0)
 
 
-class PlatformPromptOut(ContractModel):
-    platform_profile_id: uuid.UUID
-    template_markdown: str
-    revision: int
+class PlatformPromptUpdate(PlatformPromptCreate):
+    expected_revision: int = Field(ge=0)
+
+
+class PlatformPromptListItem(PlatformPromptReference):
     updated_by: uuid.UUID
+    bound_platform_count: int = Field(ge=0)
+
+
+class PlatformPromptBoundPlatform(ContractModel):
+    id: uuid.UUID
+    name: PlatformName
+    slug: str
+
+
+class PlatformPromptDetail(PlatformPromptListItem):
+    template_markdown: str
     created_at: datetime
-    updated_at: datetime
+    bound_platforms: list[PlatformPromptBoundPlatform]
+
+
+class PlatformPromptList(ContractModel):
+    items: list[PlatformPromptListItem]
 
 
 class ContentHumanizationPromptPut(ContractModel):

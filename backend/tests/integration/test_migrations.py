@@ -3136,3 +3136,111 @@ def test_publication_record_delete_migration_guards_target_and_public_history() 
             connection.commit()
             cursor.execute("SELECT version_num FROM alembic_version")
             assert cursor.fetchone() == ("0029_geo_evidence_management",)
+
+
+@pytest.mark.integration
+def test_reusable_platform_prompt_migration_preserves_rows_and_guards_downgrade() -> None:
+    """0031 保留旧模板事实、回绑平台，并拒绝共享关系的有损降级。"""
+    with temporary_database("partsignal_reusable_prompt") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0030_publication_record_delete")
+        actor_id, type_id = uuid.uuid4(), uuid.uuid4()
+        first_profile, second_profile = uuid.uuid4(), uuid.uuid4()
+        created_at = "2026-07-20T01:02:03+00:00"
+        updated_at = "2026-07-21T04:05:06+00:00"
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO users "
+                "(id, username, display_name, password_hash, account_type, is_active, "
+                "must_change_password, revision) "
+                "VALUES (%s, %s, '0031 迁移管理员', 'hash', 'ADMIN', true, false, 0)",
+                (actor_id, f"prompt-migration-{actor_id.hex[:12]}"),
+            )
+            cursor.execute(
+                "INSERT INTO platform_types (id, name, slug, created_by) "
+                "VALUES (%s, '0031 平台类型', %s, %s)",
+                (type_id, f"prompt-type-{type_id.hex[:12]}", actor_id),
+            )
+            cursor.executemany(
+                "INSERT INTO platform_profiles "
+                "(id, name, slug, allowed_domains, platform_type_id, revision, is_active) "
+                "VALUES (%s, %s, %s, ARRAY['migration.invalid'], %s, 0, true)",
+                [
+                    (first_profile, "迁移平台甲", "prompt-platform-a", type_id),
+                    (second_profile, "迁移平台乙", "prompt-platform-b", type_id),
+                ],
+            )
+            cursor.executemany(
+                "INSERT INTO platform_prompts "
+                "(platform_profile_id, template_markdown, revision, updated_by, "
+                "created_at, updated_at) VALUES (%s, %s, %s, %s, %s, %s)",
+                [
+                    (
+                        first_profile,
+                        "相同正文不自动去重",
+                        2,
+                        actor_id,
+                        created_at,
+                        updated_at,
+                    ),
+                    (
+                        second_profile,
+                        "相同正文不自动去重",
+                        5,
+                        actor_id,
+                        created_at,
+                        updated_at,
+                    ),
+                ],
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "head")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT id, name, template_markdown, revision, updated_by, "
+                "created_at, updated_at FROM platform_prompts ORDER BY id"
+            )
+            rows = cursor.fetchall()
+            assert {row[0] for row in rows} == {first_profile, second_profile}
+            assert {row[1] for row in rows} == {
+                "迁移平台甲（prompt-platform-a）",
+                "迁移平台乙（prompt-platform-b）",
+            }
+            assert [row[2] for row in rows] == [
+                "相同正文不自动去重",
+                "相同正文不自动去重",
+            ]
+            assert {row[3] for row in rows} == {2, 5}
+            assert {row[4] for row in rows} == {actor_id}
+            assert {row[5].isoformat() for row in rows} == {created_at}
+            assert {row[6].isoformat() for row in rows} == {updated_at}
+            cursor.execute(
+                "SELECT id, platform_prompt_id FROM platform_profiles "
+                "WHERE id IN (%s, %s) ORDER BY id",
+                (first_profile, second_profile),
+            )
+            assert set(cursor.fetchall()) == {
+                (first_profile, first_profile),
+                (second_profile, second_profile),
+            }
+            cursor.execute(
+                "UPDATE platform_profiles SET platform_prompt_id = %s WHERE id = %s",
+                (first_profile, second_profile),
+            )
+            connection.commit()
+
+        downgrade = subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0030_publication_record_delete"],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "Prompt 已共享或未绑定，无法无损降级" in (
+            downgrade.stdout + downgrade.stderr
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0031_reusable_platform_prompts",)

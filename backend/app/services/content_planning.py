@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, not_found
-from app.models.configuration import PlatformProfile, PlatformType, QueryTopic
+from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType, QueryTopic
 from app.models.content import ContentTask
 from app.models.identity import User
 from app.models.product_facts import FactVersion, Product
@@ -91,6 +91,14 @@ def create_platform_profile(
     """创建稳定平台身份，不隐式创建 Prompt。"""
     if db.get(PlatformType, payload.platform_type_id) is None:
         raise not_found("平台类型")
+    if payload.platform_prompt_id is not None:
+        selected_prompt_id = db.scalar(
+            select(PlatformPrompt.id)
+            .where(PlatformPrompt.id == payload.platform_prompt_id)
+            .with_for_update()
+        )
+        if selected_prompt_id is None:
+            raise not_found("平台 Prompt")
     if db.scalar(select(PlatformProfile.id).where(PlatformProfile.slug == payload.slug)):
         raise AppError("PLATFORM_SLUG_EXISTS", "平台 slug 已存在", 409)
     logo_file_id = lock_platform_logo_change(
@@ -103,6 +111,7 @@ def create_platform_profile(
         slug=payload.slug,
         allowed_domains=payload.allowed_domains,
         platform_type_id=payload.platform_type_id,
+        platform_prompt_id=payload.platform_prompt_id,
         website_url=str(payload.website_url) if payload.website_url is not None else None,
         logo_file_id=logo_file_id,
         logo_external_url=None,
@@ -127,7 +136,16 @@ def create_platform_profile(
             request_id=request_id,
             outcome=AuditOutcome.SUCCESS,
             result_message="平台配置已创建",
-            details={"facts": {"platform_type_id": str(profile.platform_type_id)}},
+            details={
+                "facts": {
+                    "platform_type_id": str(profile.platform_type_id),
+                    "template_binding_id": (
+                        str(profile.platform_prompt_id)
+                        if profile.platform_prompt_id is not None
+                        else None
+                    ),
+                }
+            },
         ),
     )
     db.commit()

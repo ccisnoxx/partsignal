@@ -39,6 +39,7 @@ import { queryClient } from '../../app/queryClient';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import {
   platformProfilesQueryOptions,
+  platformPromptsQueryOptions,
   platformTypesQueryOptions,
 } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
@@ -64,6 +65,7 @@ type PlatformBrandingFormValues = {
   platform_type_id: string;
   allowed_domains: string[];
   website_url?: string;
+  platform_prompt_id?: string;
   logo_source: PlatformLogoSource;
   logo_file_id?: string;
 };
@@ -155,6 +157,7 @@ export function PlatformsPage() {
 
   const platforms = useQuery(platformProfilesQueryOptions(listQuery));
   const platformTypes = useQuery(platformTypesQueryOptions());
+  const platformPrompts = useQuery(platformPromptsQueryOptions());
 
   const updateParams = (updates: Record<string, string | undefined>, replace = false) => {
     const next = new URLSearchParams(searchParams);
@@ -179,6 +182,7 @@ export function PlatformsPage() {
   const invalidatePlatform = async (platformId?: string) => {
     const invalidations = [
       queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.platformPrompts.all }),
       queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }),
     ];
     if (platformId) invalidations.push(queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.detail(platformId) }));
@@ -241,13 +245,14 @@ export function PlatformsPage() {
 
   const platformItems = platforms.data?.items ?? [];
   const platformTypeOptions = platformTypes.data?.items.map((item) => ({ value: item.id, label: item.name })) ?? [];
-  const queryError = platforms.error ?? platformTypes.error;
+  const platformPromptOptions = platformPrompts.data?.items.map((item) => ({ value: item.id, label: item.name })) ?? [];
+  const queryError = platforms.error ?? platformTypes.error ?? platformPrompts.error;
   const mutationError = create.error ?? updateProfile.error ?? toggleProfile.error ?? exportList.error;
   const hasFilters = !!(q || platformTypeId || status || configurationStatus);
 
   const confirmDelete = (profile: PlatformProfile) => modal.confirm({
     title: `物理删除平台“${profile.name}”？`,
-    content: '当前 Prompt 会一并删除；存在内容任务或平台账号引用时服务端会明确拒绝，历史记录不会被改写。',
+    content: 'Prompt 模板不会随平台删除；存在内容任务或平台账号引用时服务端会明确拒绝，历史记录不会被改写。',
     okText: '删除', cancelText: '取消', okButtonProps: { danger: true },
     onOk: () => removeProfile.mutateAsync(profile),
   });
@@ -339,10 +344,10 @@ export function PlatformsPage() {
         </Card>
 
         <Card className="platform-table-panel">
-          {queryError ? <QueryFailure error={queryError} onRetry={() => { void platforms.refetch(); void platformTypes.refetch(); }} /> : <TableRegion label="平台列表">
+          {queryError ? <QueryFailure error={queryError} onRetry={() => { void platforms.refetch(); void platformTypes.refetch(); void platformPrompts.refetch(); }} /> : <TableRegion label="平台列表">
             <Table<PlatformProfile>
               rowKey="id"
-              loading={{ spinning: platforms.isLoading || platformTypes.isLoading, description: '正在加载平台列表' }}
+              loading={{ spinning: platforms.isLoading || platformTypes.isLoading || platformPrompts.isLoading, description: '正在加载平台列表' }}
               dataSource={platformItems}
               scroll={{ x: 900, y: 'calc(100dvh - 473px)' }}
               locale={{ emptyText: <NoData description={hasFilters ? '没有符合当前筛选条件的平台' : '暂无具体平台'} /> }}
@@ -366,7 +371,7 @@ export function PlatformsPage() {
                 { title: '官方网站', dataIndex: 'website_url', width: 110, render: (value: string | null) => value ? <a className="platform-table-link" href={value} target="_blank" rel="noreferrer" title={value}>{value}</a> : '—' },
                 { title: '允许域名（数量）', dataIndex: 'allowed_domains', width: 125, render: (items: string[]) => items.length ? <span title={items.join('、')}>{items[0]}{items.length > 1 ? ` 等 ${items.length} 个` : ''}</span> : '—' },
                 { title: '状态', width: 72, render: (_, profile) => <StatusTag compact status={profile.is_active ? 'ENABLED' : 'DISABLED'} /> },
-                { title: 'Prompt 配置状态', width: 108, render: (_, profile) => <StatusTag compact status={profile.prompt_configured ? 'PROMPT_CONFIGURED' : 'PROMPT_MISSING'} /> },
+                { title: '当前 Prompt', width: 140, render: (_, profile) => profile.platform_prompt?.name ?? <StatusTag compact status="PROMPT_MISSING" /> },
                 { title: '发布账号数量', dataIndex: 'platform_account_count', width: 86 },
                 { title: '更新时间', dataIndex: 'updated_at', width: 124, render: (value: string | null) => value ? <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> : '—' },
                 { title: '操作', fixed: 'right', width: 104, render: (_, profile) => <Space size={4}><Tooltip title={`查看平台：${profile.name}`}><Button data-platform-view={profile.id} type="text" size="small" aria-label={`查看平台：${profile.name}`} icon={<EyeOutlined />} onClick={(event) => openDetail(profile.id, event.currentTarget)} /></Tooltip><Dropdown trigger={['click']} menu={rowMenu(profile)}><Tooltip title={`更多操作：${profile.name}`}><Button type="text" size="small" aria-label={`更多操作：${profile.name}`} icon={<EllipsisOutlined />} loading={(toggleProfile.isPending || removeProfile.isPending) && (toggleProfile.variables?.id === profile.id || removeProfile.variables?.id === profile.id)} /></Tooltip></Dropdown></Space> },
@@ -381,23 +386,23 @@ export function PlatformsPage() {
     <Drawer className="platform-detail-drawer" open={!!selectedPlatformId && !screens.xl} onClose={closeDetail} afterOpenChange={(open) => {
       if (!open) requestAnimationFrame(() => requestAnimationFrame(restoreDetailFocus));
     }} closable={false} size="min(100vw, 420px)">{detail}</Drawer>
-    <Modal title="新增平台" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null} width={640} destroyOnHidden><PlatformForm typeOptions={platformTypeOptions} loading={create.isPending} onSubmit={(values) => create.mutate(values)} /></Modal>
-    <Modal title={`编辑 ${editProfile?.name ?? ''} 的平台信息`} open={!!editProfile} onCancel={() => setEditProfile(null)} footer={null} width={640} destroyOnHidden>{editProfile && <PlatformIdentityForm profile={editProfile} typeOptions={platformTypeOptions} loading={updateProfile.isPending} onSubmit={(values) => updateProfile.mutate(values)} />}</Modal>
+    <Modal title="新增平台" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null} width={640} destroyOnHidden><PlatformForm typeOptions={platformTypeOptions} promptOptions={platformPromptOptions} loading={create.isPending} onSubmit={(values) => create.mutate(values)} /></Modal>
+    <Modal title={`编辑 ${editProfile?.name ?? ''} 的平台信息`} open={!!editProfile} onCancel={() => setEditProfile(null)} footer={null} width={640} destroyOnHidden>{editProfile && <PlatformIdentityForm profile={editProfile} typeOptions={platformTypeOptions} promptOptions={platformPromptOptions} loading={updateProfile.isPending} onSubmit={(values) => updateProfile.mutate(values)} />}</Modal>
   </div>;
 }
 
-function PlatformForm({ typeOptions, loading, onSubmit }: { typeOptions: Array<{ value: string; label: string }>; loading: boolean; onSubmit: (value: Schema<'PlatformProfileCreate'>) => void }) {
+function PlatformForm({ typeOptions, promptOptions, loading, onSubmit }: { typeOptions: Array<{ value: string; label: string }>; promptOptions: Array<{ value: string; label: string }>; loading: boolean; onSubmit: (value: Schema<'PlatformProfileCreate'>) => void }) {
   return <Form<PlatformCreateFormValues> layout="vertical" initialValues={{ logo_source: 'NONE' }} onFinish={(values) => {
     const logo = platformLogoInput(values);
-    onSubmit({ name: values.name, slug: values.slug, platform_type_id: values.platform_type_id, allowed_domains: values.allowed_domains, website_url: values.website_url?.trim() || null, ...(logo === undefined ? {} : { logo }) });
-  }}><Form.Item name="name" label="平台名称" rules={[{ required: true }]}><Input autoFocus /></Form.Item><Form.Item name="slug" label="唯一标识（slug）" rules={[{ required: true, pattern: /^[a-z0-9-]+$/ }]}><Input /></Form.Item><Form.Item name="platform_type_id" label="平台类型" rules={[{ required: true }]}><Select options={typeOptions} /></Form.Item><Form.Item name="allowed_domains" label="允许域名" rules={[{ required: true }]}><Select mode="tags" /></Form.Item><PlatformBrandingFields editing={false} currentLogo={null} /><Button type="primary" htmlType="submit" loading={loading}>创建平台</Button></Form>;
+    onSubmit({ name: values.name, slug: values.slug, platform_type_id: values.platform_type_id, platform_prompt_id: values.platform_prompt_id ?? null, allowed_domains: values.allowed_domains, website_url: values.website_url?.trim() || null, ...(logo === undefined ? {} : { logo }) });
+  }}><Form.Item name="name" label="平台名称" rules={[{ required: true }]}><Input autoFocus /></Form.Item><Form.Item name="slug" label="唯一标识（slug）" rules={[{ required: true, pattern: /^[a-z0-9-]+$/ }]}><Input /></Form.Item><Form.Item name="platform_type_id" label="平台类型" rules={[{ required: true }]}><Select options={typeOptions} /></Form.Item><Form.Item name="platform_prompt_id" label="当前 Prompt"><Select allowClear showSearch optionFilterProp="label" placeholder="可暂不绑定，之后仍可手动录入内容" options={promptOptions} /></Form.Item><Form.Item name="allowed_domains" label="允许域名" rules={[{ required: true }]}><Select mode="tags" /></Form.Item><PlatformBrandingFields editing={false} currentLogo={null} /><Button type="primary" htmlType="submit" loading={loading}>创建平台</Button></Form>;
 }
 
-function PlatformIdentityForm({ profile, typeOptions, loading, onSubmit }: { profile: PlatformProfile; typeOptions: Array<{ value: string; label: string }>; loading: boolean; onSubmit: (value: Schema<'PlatformProfileUpdate'>) => void }) {
-  return <Form<PlatformUpdateFormValues> layout="vertical" initialValues={{ expected_revision: profile.revision, name: profile.name, allowed_domains: profile.allowed_domains, platform_type_id: profile.platform_type_id ?? undefined, website_url: profile.website_url ?? undefined, logo_source: 'UNCHANGED' }} onFinish={(values) => {
+function PlatformIdentityForm({ profile, typeOptions, promptOptions, loading, onSubmit }: { profile: PlatformProfile; typeOptions: Array<{ value: string; label: string }>; promptOptions: Array<{ value: string; label: string }>; loading: boolean; onSubmit: (value: Schema<'PlatformProfileUpdate'>) => void }) {
+  return <Form<PlatformUpdateFormValues> layout="vertical" initialValues={{ expected_revision: profile.revision, name: profile.name, allowed_domains: profile.allowed_domains, platform_type_id: profile.platform_type_id ?? undefined, platform_prompt_id: profile.platform_prompt?.id, website_url: profile.website_url ?? undefined, logo_source: 'UNCHANGED' }} onFinish={(values) => {
     const logo = platformLogoInput(values);
-    onSubmit({ expected_revision: values.expected_revision, name: values.name, platform_type_id: values.platform_type_id, allowed_domains: values.allowed_domains, website_url: values.website_url?.trim() || null, ...(logo === undefined ? {} : { logo }) });
-  }}><Form.Item name="expected_revision" hidden><InputNumber /></Form.Item><Form.Item name="name" label="平台名称" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="platform_type_id" label="平台类型" rules={[{ required: true }]}><Select options={typeOptions} /></Form.Item><Form.Item name="allowed_domains" label="允许域名" rules={[{ required: true }]}><Select mode="tags" /></Form.Item><PlatformBrandingFields editing currentLogo={profile.logo} /><Button type="primary" htmlType="submit" loading={loading}>保存平台</Button></Form>;
+    onSubmit({ expected_revision: values.expected_revision, name: values.name, platform_type_id: values.platform_type_id, platform_prompt_id: values.platform_prompt_id ?? null, allowed_domains: values.allowed_domains, website_url: values.website_url?.trim() || null, ...(logo === undefined ? {} : { logo }) });
+  }}><Form.Item name="expected_revision" hidden><InputNumber /></Form.Item><Form.Item name="name" label="平台名称" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="platform_type_id" label="平台类型" rules={[{ required: true }]}><Select options={typeOptions} /></Form.Item><Form.Item name="platform_prompt_id" label="当前 Prompt"><Select allowClear showSearch optionFilterProp="label" placeholder="未绑定时系统 AI 生成不可用" options={promptOptions} /></Form.Item><Form.Item name="allowed_domains" label="允许域名" rules={[{ required: true }]}><Select mode="tags" /></Form.Item><PlatformBrandingFields editing currentLogo={profile.logo} /><Button type="primary" htmlType="submit" loading={loading}>保存平台</Button></Form>;
 }
 
 function PlatformBrandingFields({ editing, currentLogo }: { editing: boolean; currentLogo: PlatformProfile['logo'] }) {

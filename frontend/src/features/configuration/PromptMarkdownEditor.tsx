@@ -69,7 +69,7 @@ export function PromptMarkdownEditor({
       <Space size={8} wrap>
         {canDelete && onDelete && <Popconfirm
           title="删除当前 Prompt？"
-          description="平台和历史快照会保留，但重新配置前不能创建新任务或新生成作业。"
+          description="仅未被平台绑定的 Prompt 可以删除；历史生成快照不会被改写。"
           okText="删除 Prompt"
           cancelText="取消"
           okButtonProps={{ danger: true, loading: deleting }}

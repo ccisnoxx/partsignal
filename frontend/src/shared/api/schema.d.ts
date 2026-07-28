@@ -540,7 +540,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/platform-profiles/{platform_profile_id}/prompt": {
+    "/api/v1/platform-prompts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPlatformPrompts"];
+        put?: never;
+        post: operations["createPlatformPrompt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/platform-prompts/{platform_prompt_id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -548,7 +564,7 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getPlatformPrompt"];
-        put: operations["putPlatformPrompt"];
+        put: operations["updatePlatformPrompt"];
         post?: never;
         delete: operations["deletePlatformPrompt"];
         options?: never;
@@ -1832,6 +1848,8 @@ export interface components {
             allowed_domains: string[];
             /** Format: uuid */
             platform_type_id: string;
+            /** Format: uuid */
+            platform_prompt_id: string | null;
             /** Format: uri */
             website_url?: string | null;
             logo?: components["schemas"]["PlatformLogoUploadInput"] | null;
@@ -1842,6 +1860,8 @@ export interface components {
             allowed_domains: string[];
             /** Format: uuid */
             platform_type_id: string;
+            /** Format: uuid */
+            platform_prompt_id: string | null;
             /** Format: uri */
             website_url: string | null;
             logo?: components["schemas"]["PlatformLogoUploadInput"] | null;
@@ -1891,6 +1911,14 @@ export interface components {
             name: string;
             slug: string;
         };
+        PlatformPromptReference: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            revision: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
         PlatformProfile: {
             /** Format: uuid */
             id: string;
@@ -1905,13 +1933,8 @@ export interface components {
             logo: components["schemas"]["PlatformLogo"] | null;
             revision: number;
             is_active: boolean;
-            prompt_configured: boolean;
-            /**
-             * Format: date-time
-             * @description 当前具体平台 Prompt 的最近更新时间；未配置时为 null
-             */
-            prompt_updated_at: string | null;
-            /** @description 当前具体平台已配置 Prompt，可用于系统 AI 生成 */
+            platform_prompt: components["schemas"]["PlatformPromptReference"] | null;
+            /** @description 当前具体平台已绑定 Prompt，可用于系统 AI 生成 */
             configuration_complete: boolean;
             platform_account_count: number;
             /**
@@ -1950,8 +1973,6 @@ export interface components {
         };
         PlatformProfileDetail: {
             profile: components["schemas"]["PlatformProfile"];
-            /** Format: date-time */
-            prompt_updated_at: string | null;
             account_summary: components["schemas"]["PlatformAccountSummary"];
             reference_summary: components["schemas"]["PlatformReferenceSummary"];
         };
@@ -1980,21 +2001,32 @@ export interface components {
         PlatformTypeList: {
             items: components["schemas"]["PlatformType"][];
         };
-        PlatformPromptPut: {
+        PlatformPromptCreate: {
+            name: string;
             template_markdown: string;
-            expected_revision: number | null;
         };
-        PlatformPrompt: {
-            /** Format: uuid */
-            platform_profile_id: string;
-            template_markdown: string;
-            revision: number;
+        PlatformPromptUpdate: components["schemas"]["PlatformPromptCreate"] & {
+            expected_revision: number;
+        };
+        PlatformPromptListItem: components["schemas"]["PlatformPromptReference"] & {
             /** Format: uuid */
             updated_by: string;
+            bound_platform_count: number;
+        };
+        PlatformPromptBoundPlatform: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+        };
+        PlatformPromptDetail: components["schemas"]["PlatformPromptListItem"] & {
+            template_markdown: string;
             /** Format: date-time */
             created_at: string;
-            /** Format: date-time */
-            updated_at: string;
+            bound_platforms: components["schemas"]["PlatformPromptBoundPlatform"][];
+        };
+        PlatformPromptList: {
+            items: components["schemas"]["PlatformPromptListItem"][];
         };
         ContentHumanizationPromptPut: {
             template_markdown: string;
@@ -2257,11 +2289,25 @@ export interface components {
             /** Format: uuid */
             platform_profile_id: string;
             platform_profile_name: string;
-            system_prompt_markdown: string;
+            platform_prompt: components["schemas"]["GenerationPromptOption"];
             humanization_prompt_configured: boolean;
             models: components["schemas"]["GenerationOptionModel"][];
         };
-        GenerationJobCreate: {
+        GenerationPromptOption: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            revision: number;
+            template_markdown: string;
+        };
+        OriginalGenerationJobCreate: {
+            /** Format: uuid */
+            ai_model_id: string;
+            /** Format: uuid */
+            platform_prompt_id: string;
+            platform_prompt_revision: number;
+        };
+        HumanizationJobCreate: {
             /** Format: uuid */
             ai_model_id: string;
         };
@@ -2298,7 +2344,7 @@ export interface components {
             finished_at?: string | null;
         };
         GenerationJobDetail: components["schemas"]["GenerationJob"] & {
-            input_snapshot: components["schemas"]["LegacyGenerationSnapshot"] | components["schemas"]["GenerationSnapshot"] | components["schemas"]["LegacyHumanizationSnapshot"] | components["schemas"]["HumanizationSnapshot"];
+            input_snapshot: components["schemas"]["LegacyGenerationSnapshot"] | components["schemas"]["MarkdownGenerationSnapshotV2"] | components["schemas"]["GenerationSnapshot"] | components["schemas"]["LegacyHumanizationSnapshot"] | components["schemas"]["HumanizationSnapshot"];
         };
         LegacyGenerationSnapshot: {
             adapter_name: string;
@@ -2339,7 +2385,7 @@ export interface components {
             version: number;
             classification: components["schemas"]["Confidentiality"];
         };
-        GenerationSnapshot: {
+        MarkdownGenerationSnapshotV2: {
             /** @constant */
             adapter_name: "openai-compatible-chat-completions";
             /** @constant */
@@ -2357,7 +2403,32 @@ export interface components {
             system_message: string;
             user_message: string;
         };
-        GenerationInputSnapshot: components["schemas"]["LegacyGenerationSnapshot"] | components["schemas"]["GenerationSnapshot"];
+        PlatformPromptSnapshot: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            revision: number;
+        };
+        GenerationSnapshot: {
+            /** @constant */
+            adapter_name: "openai-compatible-chat-completions";
+            /** @constant */
+            contract_version: "content-markdown-v3";
+            channel: {
+                [key: string]: unknown;
+            };
+            model: {
+                [key: string]: unknown;
+            };
+            platform_profile: {
+                [key: string]: unknown;
+            };
+            platform_prompt: components["schemas"]["PlatformPromptSnapshot"];
+            fact_version: components["schemas"]["GenerationFactSnapshot"];
+            system_message: string;
+            user_message: string;
+        };
+        GenerationInputSnapshot: components["schemas"]["LegacyGenerationSnapshot"] | components["schemas"]["MarkdownGenerationSnapshotV2"] | components["schemas"]["GenerationSnapshot"];
         HumanizationPromptSnapshot: {
             revision: number;
             template_markdown: string;
@@ -4402,56 +4473,114 @@ export interface operations {
             409: components["responses"]["ErrorResponse"];
         };
     };
-    getPlatformPrompt: {
+    listPlatformPrompts: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                platform_profile_id: components["parameters"]["PlatformProfileId"];
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 当前平台 Prompt */
+            /** @description 可复用平台 Prompt 模板列表 */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlatformPrompt"];
+                    "application/json": components["schemas"]["PlatformPromptList"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+        };
+    };
+    createPlatformPrompt: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformPromptCreate"];
+            };
+        };
+        responses: {
+            /** @description 已创建可复用 Prompt */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPromptDetail"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformPrompt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform_prompt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Prompt 正文与当前绑定平台 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPromptDetail"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
         };
     };
-    putPlatformPrompt: {
+    updatePlatformPrompt: {
         parameters: {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };
             path: {
-                platform_profile_id: components["parameters"]["PlatformProfileId"];
+                platform_prompt_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PlatformPromptPut"];
+                "application/json": components["schemas"]["PlatformPromptUpdate"];
             };
         };
         responses: {
-            /** @description 已创建或原地更新当前 Prompt */
+            /** @description 已按 revision 更新共享 Prompt */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlatformPrompt"];
+                    "application/json": components["schemas"]["PlatformPromptDetail"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     deletePlatformPrompt: {
@@ -4463,19 +4592,22 @@ export interface operations {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };
             path: {
-                platform_profile_id: components["parameters"]["PlatformProfileId"];
+                platform_prompt_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 已删除当前 Prompt */
+            /** @description 已删除未被任何平台绑定的 Prompt */
             204: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
         };
     };
@@ -5413,7 +5545,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["GenerationJobCreate"];
+                "application/json": components["schemas"]["OriginalGenerationJobCreate"];
             };
         };
         responses: {
@@ -5494,7 +5626,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["GenerationJobCreate"];
+                "application/json": components["schemas"]["HumanizationJobCreate"];
             };
         };
         responses: {

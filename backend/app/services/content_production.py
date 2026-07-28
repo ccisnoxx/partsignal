@@ -38,11 +38,13 @@ from app.models.product_facts import (
 from app.schemas.content import (
     ContentRevisionCreate,
     GenerationFactSnapshot,
-    GenerationJobCreate,
     GenerationSnapshot,
+    HumanizationJobCreate,
     HumanizationPromptSnapshot,
     HumanizationSnapshot,
     HumanizationSourceContent,
+    OriginalGenerationJobCreate,
+    PlatformPromptSnapshot,
 )
 from app.schemas.geo_files import GeneratedDraft
 from app.schemas.product_facts import Confidentiality
@@ -102,7 +104,13 @@ def _enabled_channel(db: Session, model: AIModel) -> AIChannel:
     return channel
 
 
-def build_generation_input(db: Session, task: ContentTask, model: AIModel) -> dict[str, Any]:
+def build_generation_input(
+    db: Session,
+    task: ContentTask,
+    model: AIModel,
+    platform_prompt_id: uuid.UUID,
+    platform_prompt_revision: int,
+) -> dict[str, Any]:
     """冻结平台 Prompt 与事实 Markdown，消息正文不做任何改写。"""
     fact = db.get(FactVersion, task.fact_version_id)
     if fact is None or fact.status != "APPROVED" or fact.product_id != task.product_id:
@@ -110,12 +118,26 @@ def build_generation_input(db: Session, task: ContentTask, model: AIModel) -> di
     product = db.get(Product, task.product_id)
     if product is None or product.status != "ACTIVE":
         raise AppError("FACT_NOT_APPROVED", "产品已停用，不能生成新内容", 409)
-    profile = db.get(PlatformProfile, task.platform_profile_id)
+    profile = db.scalar(
+        select(PlatformProfile)
+        .where(PlatformProfile.id == task.platform_profile_id)
+        .with_for_update()
+    )
     if profile is None or not profile.is_active:
         raise AppError("INVALID_STATE_TRANSITION", "任务绑定的平台不存在", 409)
-    prompt = db.get(PlatformPrompt, profile.id)
+    if profile.platform_prompt_id is None:
+        raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少当前 Prompt", 409)
+    if profile.platform_prompt_id != platform_prompt_id:
+        raise AppError("PLATFORM_PROMPT_CHANGED", "平台当前 Prompt 已变化，请重新确认", 409)
+    prompt = db.scalar(
+        select(PlatformPrompt)
+        .where(PlatformPrompt.id == profile.platform_prompt_id)
+        .with_for_update()
+    )
     if prompt is None or not prompt.template_markdown.strip():
         raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少当前 Prompt", 409)
+    if prompt.revision != platform_prompt_revision:
+        raise AppError("PLATFORM_PROMPT_CHANGED", "平台当前 Prompt 已变化，请重新确认", 409)
     channel = _enabled_channel(db, model)
     adapter_name = require_supported_protocol(channel.protocol_type)
     ensure_generation_sources_public(fact)
@@ -129,6 +151,11 @@ def build_generation_input(db: Session, task: ContentTask, model: AIModel) -> di
             "name": profile.name,
             "slug": profile.slug,
         },
+        platform_prompt=PlatformPromptSnapshot(
+            id=prompt.id,
+            name=prompt.name,
+            revision=prompt.revision,
+        ),
         fact_version=GenerationFactSnapshot(
             id=fact.id,
             product_id=fact.product_id,
@@ -232,8 +259,15 @@ def _create_job(
     model: AIModel | None = None,
     source: ContentVersion | None = None,
     retry_of: GenerationJob | None = None,
+    platform_prompt_id: uuid.UUID | None = None,
+    platform_prompt_revision: int | None = None,
 ) -> tuple[GenerationJob, bool]:
     """创建幂等作业；同一键不能被另一业务请求复用。"""
+    original_generation = retry_of is None and source is None
+    if original_generation and (
+        platform_prompt_id is None or platform_prompt_revision is None
+    ):
+        raise AppError("PLATFORM_PROMPT_REQUIRED", "必须确认平台当前 Prompt", 422)
     existing = db.scalar(
         select(GenerationJob).where(GenerationJob.idempotency_key == idempotency_key)
     )
@@ -253,14 +287,23 @@ def _create_job(
             or existing.source_content_version_id != expected_source_id
         ):
             raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409)
+        if original_generation:
+            existing_prompt = existing.input_snapshot.get("platform_prompt")
+            if (
+                not isinstance(existing_prompt, dict)
+                or existing_prompt.get("id") != str(platform_prompt_id)
+                or existing_prompt.get("revision") != platform_prompt_revision
+            ):
+                raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409)
         return existing, False
     if retry_of is not None:
-        expected_contract = (
-            GENERATION_CONTRACT_VERSION
+        contract_version = retry_of.input_snapshot.get("contract_version")
+        retryable_contracts = (
+            {"content-markdown-v2", GENERATION_CONTRACT_VERSION}
             if retry_of.job_type == "GENERATE"
-            else HUMANIZATION_CONTRACT_VERSION
+            else {HUMANIZATION_CONTRACT_VERSION}
         )
-        if retry_of.input_snapshot.get("contract_version") != expected_contract:
+        if contract_version not in retryable_contracts:
             raise AppError(
                 "LEGACY_GENERATION_RETRY_FORBIDDEN",
                 "旧版生成作业仅供历史读取，不能创建重试",
@@ -284,10 +327,17 @@ def _create_job(
     else:
         if model is None:
             raise AppError("AI_MODEL_REQUIRED", "必须选择 AI 模型", 422)
+        assert platform_prompt_id is not None and platform_prompt_revision is not None
         generation_input = (
             build_humanization_input(db, task, source, model)
             if source is not None
-            else build_generation_input(db, task, model)
+            else build_generation_input(
+                db,
+                task,
+                model,
+                platform_prompt_id,
+                platform_prompt_revision,
+            )
         )
         selected_model = model
     prompt_hash = hashlib.sha256(
@@ -326,7 +376,7 @@ def create_generation_job(
     *,
     db: Session,
     content_task_id: uuid.UUID,
-    payload: GenerationJobCreate,
+    payload: OriginalGenerationJobCreate,
     actor: User,
     request_id: str,
     idempotency_key: str,
@@ -341,7 +391,13 @@ def create_generation_job(
     if model is None:
         raise not_found("AI 模型")
     job, created = _create_job(
-        db=db, task=task, idempotency_key=idempotency_key, actor=actor, model=model
+        db=db,
+        task=task,
+        idempotency_key=idempotency_key,
+        actor=actor,
+        model=model,
+        platform_prompt_id=payload.platform_prompt_id,
+        platform_prompt_revision=payload.platform_prompt_revision,
     )
     if created:
         append_audit(
@@ -368,7 +424,7 @@ def create_humanization_job(
     *,
     db: Session,
     content_version_id: uuid.UUID,
-    payload: GenerationJobCreate,
+    payload: HumanizationJobCreate,
     actor: User,
     request_id: str,
     idempotency_key: str,
@@ -474,12 +530,13 @@ def retry_generation_job(
     previous = db.get(GenerationJob, generation_job_id)
     if previous is None:
         raise not_found("生成作业")
-    expected_contract = (
-        GENERATION_CONTRACT_VERSION
+    contract_version = previous.input_snapshot.get("contract_version")
+    retryable_contracts = (
+        {"content-markdown-v2", GENERATION_CONTRACT_VERSION}
         if previous.job_type == "GENERATE"
-        else HUMANIZATION_CONTRACT_VERSION
+        else {HUMANIZATION_CONTRACT_VERSION}
     )
-    if previous.input_snapshot.get("contract_version") != expected_contract:
+    if contract_version not in retryable_contracts:
         raise AppError(
             "LEGACY_GENERATION_RETRY_FORBIDDEN",
             "旧版生成作业仅供历史读取，不能创建重试",

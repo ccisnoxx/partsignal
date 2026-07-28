@@ -7,7 +7,8 @@ import io
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import exists, func, or_, select
+from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Select
 from sqlalchemy.sql.elements import ColumnElement
@@ -34,7 +35,11 @@ from app.schemas.configuration import (
     PlatformProfileStatus,
     PlatformProfileSummary,
     PlatformProfileUpdate,
-    PlatformPromptPut,
+    PlatformPromptCreate,
+    PlatformPromptDetail,
+    PlatformPromptList,
+    PlatformPromptListItem,
+    PlatformPromptUpdate,
     PlatformReferenceSummary,
     PlatformTypeCreate,
     PlatformTypeUpdate,
@@ -70,7 +75,6 @@ def _filtered_platform_profiles_query(
     configuration_status: PlatformConfigurationStatus | None,
 ) -> Select[tuple[PlatformProfile]]:
     """构造列表与 CSV 共用的平台筛选和稳定排序。"""
-    prompt_exists = exists().where(PlatformPrompt.platform_profile_id == PlatformProfile.id)
     conditions = _platform_search_conditions(q)
     if platform_type_id is not None:
         conditions.append(PlatformProfile.platform_type_id == platform_type_id)
@@ -80,9 +84,9 @@ def _filtered_platform_profiles_query(
         )
     if configuration_status is not None:
         conditions.append(
-            prompt_exists
+            PlatformProfile.platform_prompt_id.is_not(None)
             if configuration_status == PlatformConfigurationStatus.COMPLETE
-            else ~prompt_exists
+            else PlatformProfile.platform_prompt_id.is_(None)
         )
     return (
         select(PlatformProfile)
@@ -94,13 +98,14 @@ def _filtered_platform_profiles_query(
 
 def _platform_summary(db: Session) -> PlatformProfileSummary:
     """实时统计全部获权平台，结果不受管理列表筛选影响。"""
-    prompt_exists = exists().where(PlatformPrompt.platform_profile_id == PlatformProfile.id)
     totals = db.execute(
         select(
             func.count(PlatformProfile.id),
             func.count(PlatformProfile.id).filter(PlatformProfile.is_active.is_(True)),
-            func.count(PlatformProfile.id).filter(~prompt_exists),
-            func.count(PlatformProfile.id).filter(prompt_exists),
+            func.count(PlatformProfile.id).filter(PlatformProfile.platform_prompt_id.is_(None)),
+            func.count(PlatformProfile.id).filter(
+                PlatformProfile.platform_prompt_id.is_not(None)
+            ),
         )
     ).one()
     return PlatformProfileSummary(
@@ -190,7 +195,7 @@ def export_platform_profiles(
                 str(item.website_url) if item.website_url is not None else "",
                 ";".join(item.allowed_domains),
                 "ENABLED" if item.is_active else "DISABLED",
-                "CONFIGURED" if item.prompt_configured else "MISSING",
+                "CONFIGURED" if item.platform_prompt is not None else "MISSING",
                 item.platform_account_count,
                 item.updated_at.isoformat() if item.updated_at is not None else "",
             ]
@@ -229,7 +234,6 @@ def get_platform_profile_detail(
     total = int(account_total)
     return PlatformProfileDetail(
         profile=profile_projection,
-        prompt_updated_at=profile_projection.prompt_updated_at,
         account_summary=PlatformAccountSummary(
             total=total,
             enabled=enabled,
@@ -395,78 +399,194 @@ def delete_platform_type(
     db.commit()
 
 
-def put_platform_prompt(
+def _platform_prompt_detail(db: Session, prompt: PlatformPrompt) -> PlatformPromptDetail:
+    """投影 Prompt 当前正文和全部平台绑定。"""
+    bound_platforms = list(
+        db.scalars(
+            select(PlatformProfile)
+            .where(PlatformProfile.platform_prompt_id == prompt.id)
+            .order_by(func.lower(PlatformProfile.name), PlatformProfile.id)
+        )
+    )
+    return PlatformPromptDetail.model_validate(
+        {
+            "id": prompt.id,
+            "name": prompt.name,
+            "template_markdown": prompt.template_markdown,
+            "revision": prompt.revision,
+            "updated_by": prompt.updated_by,
+            "created_at": prompt.created_at,
+            "updated_at": prompt.updated_at,
+            "bound_platform_count": len(bound_platforms),
+            "bound_platforms": [
+                {"id": profile.id, "name": profile.name, "slug": profile.slug}
+                for profile in bound_platforms
+            ],
+        }
+    )
+
+
+def list_platform_prompts(db: Session) -> PlatformPromptList:
+    """按名称稳定返回 Prompt 模板及实时绑定数量。"""
+    rows = db.execute(
+        select(PlatformPrompt, func.count(PlatformProfile.id))
+        .outerjoin(PlatformProfile, PlatformProfile.platform_prompt_id == PlatformPrompt.id)
+        .group_by(PlatformPrompt.id)
+        .order_by(func.lower(PlatformPrompt.name), PlatformPrompt.id)
+    ).all()
+    return PlatformPromptList(
+        items=[
+            PlatformPromptListItem.model_validate(
+                {
+                    "id": prompt.id,
+                    "name": prompt.name,
+                    "revision": prompt.revision,
+                    "updated_by": prompt.updated_by,
+                    "updated_at": prompt.updated_at,
+                    "bound_platform_count": int(bound_count),
+                }
+            )
+            for prompt, bound_count in rows
+        ]
+    )
+
+
+def get_platform_prompt(db: Session, platform_prompt_id: uuid.UUID) -> PlatformPromptDetail:
+    """读取一份 Prompt 及其当前平台影响范围。"""
+    prompt = db.get(PlatformPrompt, platform_prompt_id)
+    if prompt is None:
+        raise not_found("平台 Prompt")
+    return _platform_prompt_detail(db, prompt)
+
+
+def create_platform_prompt(
     *,
     db: Session,
-    platform_profile_id: uuid.UUID,
-    payload: PlatformPromptPut,
+    payload: PlatformPromptCreate,
     actor: User,
     request_id: str,
-) -> PlatformPrompt:
-    """创建或按 revision 更新平台 Prompt。"""
-    if db.get(PlatformProfile, platform_profile_id) is None:
-        raise not_found("平台")
-    prompt = db.scalar(
-        select(PlatformPrompt)
-        .where(PlatformPrompt.platform_profile_id == platform_profile_id)
-        .with_for_update()
-    )
-    previous_revision = prompt.revision if prompt is not None else None
+) -> PlatformPromptDetail:
+    """创建一份未绑定的可复用 Prompt。"""
+    name = payload.name.strip()
     markdown = payload.template_markdown.strip()
     if not markdown:
         raise AppError("VALIDATION_ERROR", "平台 Prompt 不能为空", 422)
-    if prompt is None:
-        if payload.expected_revision is not None:
-            raise AppError("REVISION_CONFLICT", "平台 Prompt 尚不存在", 409)
-        prompt = PlatformPrompt(
-            platform_profile_id=platform_profile_id,
-            template_markdown=markdown,
-            updated_by=actor.id,
-        )
-        db.add(prompt)
-    else:
-        if payload.expected_revision != prompt.revision:
-            raise AppError("REVISION_CONFLICT", "平台 Prompt 已被其他请求修改", 409)
-        prompt.template_markdown = markdown
-        prompt.updated_by = actor.id
-        prompt.revision += 1
-    db.flush()
+    if db.scalar(select(PlatformPrompt.id).where(PlatformPrompt.name == name)) is not None:
+        raise AppError("PLATFORM_PROMPT_NAME_EXISTS", "Prompt 名称已存在", 409)
+    prompt = PlatformPrompt(name=name, template_markdown=markdown, updated_by=actor.id)
+    db.add(prompt)
+    try:
+        db.flush()
+    except IntegrityError as error:
+        db.rollback()
+        if db.scalar(select(PlatformPrompt.id).where(PlatformPrompt.name == name)) is not None:
+            raise AppError("PLATFORM_PROMPT_NAME_EXISTS", "Prompt 名称已存在", 409) from error
+        raise
     append_audit(
         db,
         AuditEntry(
             actor_id=actor.id,
             business_module=AuditModule.CONFIGURATION,
-            action="platform_prompt.saved",
-            target_type="PlatformProfile",
-            target_id=platform_profile_id,
+            action="platform_prompt.created",
+            target_type="PlatformPrompt",
+            target_id=prompt.id,
             request_id=request_id,
             outcome=AuditOutcome.SUCCESS,
-            result_message="平台 Prompt 已保存",
+            result_message="平台 Prompt 已创建",
+            details={"facts": {"revision": prompt.revision}},
+        ),
+    )
+    db.commit()
+    return _platform_prompt_detail(db, prompt)
+
+
+def update_platform_prompt(
+    *,
+    db: Session,
+    platform_prompt_id: uuid.UUID,
+    payload: PlatformPromptUpdate,
+    actor: User,
+    request_id: str,
+) -> PlatformPromptDetail:
+    """按 revision 更新共享 Prompt，并记录当前影响范围。"""
+    prompt = db.scalar(
+        select(PlatformPrompt)
+        .where(PlatformPrompt.id == platform_prompt_id)
+        .with_for_update()
+    )
+    if prompt is None:
+        raise not_found("平台 Prompt")
+    if prompt.revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "平台 Prompt 已被其他请求修改", 409)
+    name = payload.name.strip()
+    markdown = payload.template_markdown.strip()
+    if not markdown:
+        raise AppError("VALIDATION_ERROR", "平台 Prompt 不能为空", 422)
+    duplicate_id = db.scalar(
+        select(PlatformPrompt.id).where(
+            PlatformPrompt.name == name,
+            PlatformPrompt.id != prompt.id,
+        )
+    )
+    if duplicate_id is not None:
+        raise AppError("PLATFORM_PROMPT_NAME_EXISTS", "Prompt 名称已存在", 409)
+    previous_name = prompt.name
+    previous_revision = prompt.revision
+    bound_platform_ids = list(
+        db.scalars(
+            select(PlatformProfile.id)
+            .where(PlatformProfile.platform_prompt_id == prompt.id)
+            .order_by(PlatformProfile.id)
+        )
+    )
+    prompt.name = name
+    prompt.template_markdown = markdown
+    prompt.updated_by = actor.id
+    prompt.revision += 1
+    try:
+        db.flush()
+    except IntegrityError as error:
+        db.rollback()
+        if (
+            db.scalar(
+                select(PlatformPrompt.id).where(
+                    PlatformPrompt.name == name,
+                    PlatformPrompt.id != platform_prompt_id,
+                )
+            )
+            is not None
+        ):
+            raise AppError("PLATFORM_PROMPT_NAME_EXISTS", "Prompt 名称已存在", 409) from error
+        raise
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.CONFIGURATION,
+            action="platform_prompt.updated",
+            target_type="PlatformPrompt",
+            target_id=prompt.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="平台 Prompt 已更新",
             details={
                 "changes": [
+                    {"field": "name", "before": previous_name, "after": prompt.name},
                     {
-                        "field": "is_configured",
-                        "before": previous_revision is not None,
-                        "after": True,
+                        "field": "revision",
+                        "before": previous_revision,
+                        "after": prompt.revision,
                     },
-                    *(
-                        [
-                            {
-                                "field": "revision",
-                                "before": previous_revision,
-                                "after": prompt.revision,
-                            }
-                        ]
-                        if previous_revision is not None
-                        else []
-                    ),
                 ],
-                "facts": {"revision": prompt.revision},
+                "facts": {
+                    "bound_platform_count": len(bound_platform_ids),
+                    "bound_platform_ids": [str(item) for item in bound_platform_ids],
+                },
             },
         ),
     )
     db.commit()
-    return prompt
+    return _platform_prompt_detail(db, prompt)
 
 
 def put_content_humanization_prompt(
@@ -522,7 +642,7 @@ def put_content_humanization_prompt(
 def delete_platform_prompt(
     *,
     db: Session,
-    platform_profile_id: uuid.UUID,
+    platform_prompt_id: uuid.UUID,
     expected_revision: int,
     actor: User,
     request_id: str,
@@ -530,13 +650,27 @@ def delete_platform_prompt(
     """仅删除调用方已读取的 Prompt revision，并追加脱敏审计。"""
     prompt = db.scalar(
         select(PlatformPrompt)
-        .where(PlatformPrompt.platform_profile_id == platform_profile_id)
+        .where(PlatformPrompt.id == platform_prompt_id)
         .with_for_update()
     )
     if prompt is None:
         raise not_found("平台 Prompt")
     if prompt.revision != expected_revision:
         raise AppError("REVISION_CONFLICT", "平台 Prompt 已被其他请求修改", 409)
+    bound_platform_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(PlatformProfile)
+            .where(PlatformProfile.platform_prompt_id == prompt.id)
+        )
+        or 0
+    )
+    if bound_platform_count:
+        raise in_use(
+            "PLATFORM_PROMPT_IN_USE",
+            "平台 Prompt",
+            [("PLATFORM_PROFILE", "具体平台", bound_platform_count)],
+        )
     deleted_revision = prompt.revision
     db.delete(prompt)
     append_audit(
@@ -545,15 +679,12 @@ def delete_platform_prompt(
             actor_id=actor.id,
             business_module=AuditModule.CONFIGURATION,
             action="platform_prompt.deleted",
-            target_type="PlatformProfile",
-            target_id=platform_profile_id,
+            target_type="PlatformPrompt",
+            target_id=prompt.id,
             request_id=request_id,
             outcome=AuditOutcome.SUCCESS,
             result_message="平台 Prompt 已删除",
-            details={
-                "changes": [{"field": "is_configured", "before": True, "after": False}],
-                "facts": {"revision": deleted_revision},
-            },
+            details={"facts": {"revision": deleted_revision}},
         ),
     )
     db.commit()
@@ -577,7 +708,16 @@ def update_platform_profile(
         raise AppError("REVISION_CONFLICT", "平台已被其他请求修改", 409)
     if db.get(PlatformType, payload.platform_type_id) is None:
         raise not_found("平台类型")
+    if payload.platform_prompt_id is not None:
+        selected_prompt_id = db.scalar(
+            select(PlatformPrompt.id)
+            .where(PlatformPrompt.id == payload.platform_prompt_id)
+            .with_for_update()
+        )
+        if selected_prompt_id is None:
+            raise not_found("平台 Prompt")
     previous_platform_type_id = profile.platform_type_id
+    previous_platform_prompt_id = profile.platform_prompt_id
     previous_allowed_domain_count = len(profile.allowed_domains)
     previous_website_configured = profile.website_url is not None
     previous_logo_configured = (
@@ -597,6 +737,7 @@ def update_platform_profile(
     profile.name = payload.name
     profile.allowed_domains = payload.allowed_domains
     profile.platform_type_id = payload.platform_type_id
+    profile.platform_prompt_id = payload.platform_prompt_id
     profile.website_url = str(payload.website_url) if payload.website_url is not None else None
     if logo_changed:
         profile.logo_file_id = logo_file_id
@@ -631,6 +772,19 @@ def update_platform_profile(
                         "field": "allowed_domain_count",
                         "before": previous_allowed_domain_count,
                         "after": len(profile.allowed_domains),
+                    },
+                    {
+                        "field": "template_binding_id",
+                        "before": (
+                            str(previous_platform_prompt_id)
+                            if previous_platform_prompt_id is not None
+                            else None
+                        ),
+                        "after": (
+                            str(profile.platform_prompt_id)
+                            if profile.platform_prompt_id is not None
+                            else None
+                        ),
                     },
                     {
                         "field": "website_configured",

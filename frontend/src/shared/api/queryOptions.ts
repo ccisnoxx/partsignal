@@ -104,6 +104,21 @@ export const platformProfileQueryOptions = (platformProfileId: string | undefine
   staleTime: QUERY_STALE_TIME.detail,
 });
 
+export const platformPromptsQueryOptions = () => queryOptions({
+  queryKey: queryKeys.platformPrompts.all,
+  queryFn: async () => unwrap(await api.GET('/api/v1/platform-prompts')),
+  staleTime: QUERY_STALE_TIME.configuration,
+});
+
+export const platformPromptQueryOptions = (platformPromptId: string | undefined) => queryOptions({
+  queryKey: queryKeys.platformPrompts.detail(platformPromptId ?? ''),
+  queryFn: async () => unwrap(await api.GET('/api/v1/platform-prompts/{platform_prompt_id}', {
+    params: { path: { platform_prompt_id: platformPromptId! } },
+  })),
+  enabled: !!platformPromptId,
+  staleTime: QUERY_STALE_TIME.detail,
+});
+
 export const auditLogsQueryOptions = (
   targetType: string,
   targetId: string | undefined,

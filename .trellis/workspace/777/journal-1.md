@@ -1062,3 +1062,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 32: Hostdzire 重新部署上线
+
+**Date**: 2026-07-28
+**Task**: Hostdzire 重新部署上线
+**Branch**: `main`
+
+### Summary
+
+将 origin/main c31d455 完整发布为 mvp-20260728-170942-c31d455d3753；迁移前备份和 SHA-256、部署脚本、0030 revision、公网健康/缓存/安全头、登录后 Playwright 冒烟、Nginx 与主机资源验收全部通过，current 已原子更新；按用户要求未运行全量测试。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c31d455` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -22,16 +22,16 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 # PartSignal Project Rules
 
-- 系统采用契约优先的模块化单体，`contracts/openapi.yaml` 和 `contracts/database.md` 由主 Agent 维护。
-- `backend/` 与 `frontend/` 是并行开发边界；子 Agent 不得越界修改根目录、契约、部署文件或执行 Git。
-- PostgreSQL 是业务状态唯一来源，Redis 只用于 Celery Broker。
-- Markdown 是内容唯一可编辑正文源，不保存可独立编辑的 HTML 或编辑器 JSON。
-- AI 输出只能创建草稿，未知产品事实必须失败，不得猜测、补零或使用模糊兼容逻辑。
-- 已批准事实和内容不可原地修改；发布记录和 GEO 观测必须保留历史。
-- 新增或实质修改的中文业务代码应补充必要的中文注释、Docstring、日志和错误信息。
-- 实现前读取相关文档和契约；契约不清时报告主 Agent，不得自行创建兼容字段或第二套类型。
-- 测试必须明确区分开发适配器与真实外部服务，不得用固定成功路径掩盖未实现业务。
-- 所有状态转换、权限和输入校验以服务端为最终权威，前端隐藏按钮不构成安全控制。
+- The system uses a contract-first modular monolith. The main agent maintains `contracts/openapi.yaml` and `contracts/database.md`.
+- `backend/` and `frontend/` are parallel development boundaries. Subagents must not cross those boundaries to modify root-level files, contracts, deployment files, or run Git operations.
+- PostgreSQL is the sole source of business state. Redis is used only as the Celery broker.
+- Markdown is the sole editable source for content bodies. Do not store independently editable HTML or editor JSON.
+- AI output may create drafts only. Unknown product facts must fail explicitly; do not guess, substitute zeros, or add fuzzy compatibility logic.
+- Approved facts and content must not be modified in place. Publishing records and GEO observations must preserve history.
+- New or materially changed business code should include necessary Chinese comments, docstrings, logs, and error messages.
+- Read the relevant documentation and contracts before implementation. If a contract is unclear, report it to the main agent; do not invent compatibility fields or a second type system.
+- Tests must clearly distinguish development adapters from real external services. Do not hide unimplemented business behavior behind fixed-success paths.
+- The server is the final authority for all state transitions, permissions, and input validation. Hiding a frontend button is not a security control.
 
 
 ## Project Overrides
@@ -66,8 +66,10 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 ### Validation
 
-- After code changes, run the smallest effective validation.
-- For Trellis tasks, validate according to `implement.md` and the relevant spec quality gates.
+- After code changes, select the highest-value validation for the affected behavior and risk; do not treat every available check as a required sequence.
+- For Trellis tasks, `implement.md` must separate required validation from optional full-suite validation and list the exact commands for each. Relevant spec quality gates remain authoritative.
+- Required validation should directly cover the changed behavior or boundary. Full backend or frontend suites, complete builds, E2E runs, and other repository-wide checks are optional unless the change affects shared contracts, database behavior, permissions, state transitions, core common modules, release readiness, or the user explicitly requests them.
+- Apply the global failure-attribution and repair-loop rules to every failed check. An optional full-suite failure does not become part of the current task unless evidence ties it to the current change and requested scope.
 - If heavier checks are skipped, state the reason, the substitute checks, and the remaining risk.
 
 ### Browser Automation
@@ -83,10 +85,10 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 ### Git
 
-- 当前开发阶段采用 `main` 单分支流程。除非用户明确要求，不得创建 `codex/*`、`agent/*`、`feature/*` 或其他开发分支；日常变更直接提交到主工作目录的 `main`。
-- 平台自动创建的 detached worktree 只用于隔离执行，不作为最终交付分支。完成后必须把已验证变更提交到主工作目录的 `main`，不得把成果遗留在临时分支或旧 worktree。
-- 开始新工作前先确认主工作目录位于 `main` 且工作区干净；需要同步远端时只允许在干净工作区执行 `git pull --ff-only origin main`。
-- 如果用户明确批准临时分支，完成并合入 `main` 后应删除对应本地和远端分支，避免形成第二条开发线。
+- The current development phase uses a single-branch workflow on `main`. Do not create `codex/*`, `agent/*`, `feature/*`, or other development branches unless the user explicitly requests one. Commit routine changes directly to `main` in the primary working directory.
+- Detached worktrees created automatically by the platform are for execution isolation only and are not delivery branches. After completion, commit the validated changes to `main` in the primary working directory; do not leave deliverables on a temporary branch or stale worktree.
+- Before starting new work, confirm that the primary working directory is on `main` and clean. If the remote must be synchronized, run `git pull --ff-only origin main` only from a clean working tree.
+- If the user explicitly approves a temporary branch, delete its local and remote copies after the work is complete and merged into `main` so that it does not become a second development line.
 - Do not run `git reset --hard`, `git checkout -- <file>`, history rewrites, or broad deletion unless the user explicitly requests and confirms it.
 - Before committing work code, present a commit plan and get user confirmation.
 - Do not include unrecognized dirty files in commits.
@@ -95,7 +97,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 ### Documentation Maintenance
 
-- 当功能、业务规则、权限、数据模型、API、配置或部署行为发生变化时，必须在同一任务中更新对应的权威文档。
-- 方案文档只描述当前已实现或已明确批准的设计；删除或改写已失效、与实现冲突的旧方案，决策过程保留在已归档的 Trellis 任务中。
-- 避免重复维护同一事实：API 以 `contracts/openapi.yaml` 为准，数据库以 `contracts/database.md` 为准，稳定开发约束写入 `.trellis/spec/`，业务与系统关系写入 `docs/` 方案文档。
-- 任务完成或归档前检查代码、契约、测试和方案文档是否一致；无需更新文档时，在收尾说明中明确原因。
+- When functionality, business rules, permissions, data models, APIs, configuration, or deployment behavior changes, update the corresponding authoritative documentation in the same task.
+- Design documents must describe only the currently implemented or explicitly approved design. Remove or rewrite obsolete designs that conflict with the implementation, and preserve the decision history in archived Trellis tasks.
+- Avoid maintaining the same fact in multiple places: `contracts/openapi.yaml` is authoritative for APIs, `contracts/database.md` for the database, `.trellis/spec/` for stable development constraints, and design documents under `docs/` for relationships between the business and the system.
+- Before completing or archiving a task, verify that the code, contracts, tests, and design documents are consistent. If no documentation update is needed, state why in the closeout summary.

@@ -541,7 +541,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 将提交 `2522427d3293` 完整部署为 `mvp-20260728-210626-2522427d3293`。
+- 创建迁移前备份并在一次性 PostgreSQL 16 中恢复，演练 `0030 -> 0031` 后再迁移正式数据库。
+- 公网验收通过后原子更新 `current`，恢复并确认全部 Compose 服务健康。
 
 ### Git Commits
 
@@ -554,7 +556,10 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- 本地发布源、安全配置与 `git archive` 门禁通过。
+- 备份非空、`0600`、`gzip -t`、SHA-256 和隔离恢复迁移验证通过。
+- 正式 `preflight-integrity`、远端构建、Alembic、Compose、ready、首页和 `nginx -t` 通过。
+- 公网缓存、安全头、对象存储代理及 Playwright 只读验收通过；未运行全量测试。
 
 ### Status
 
@@ -562,7 +567,7 @@
 
 ### Next Steps
 
-- None - task complete
+- 现有内容任务均不允许再次生成，AI 生成弹窗留待后续存在可用任务时补充只读验收。
 
 
 ## Session 17: 收口历史活动任务

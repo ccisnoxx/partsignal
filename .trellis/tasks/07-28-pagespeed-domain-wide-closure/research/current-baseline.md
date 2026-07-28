@@ -31,14 +31,33 @@
 - `brutal` HTTPS 有效但 HTTP 当前失败。
 - `relay` HTTP 失败，HTTPS 错误落入 `api` 默认 vhost 且无 HSTS。
 - DMIT `ssl_preread`：
-  - 配置保留的 `probe.962850.xyz` → `10.0.0.3:443`，目标当前不可达，
-    但权威 DNS 为 NXDOMAIN；
+  - 配置保留的 `probe.962850.xyz` → 旧 TLS 443 目标，目标当前不可达，
+    且与当前 SSH 别名 `aaitr` 的 Shadowsocks `18443` 不是同一协议路径；
+    权威 DNS 为 NXDOMAIN；
   - `brutal.962850.xyz` → 本机 Reality；
   - 其他 SNI → Hostdzire。
 - Hostdzire `brutal` 8443 vhost 同时声明 `mux.962850.xyz`，但权威 DNS
-  NXDOMAIN，DMIT 当前没有把 `mux` 显式送到该 vhost。
+  NXDOMAIN，DMIT 当前没有把 `mux` 显式送到该 vhost。后续 52 天 stream 日志
+  证明 7 月仍有成功、最长近 3 小时的 `mux` 长连接；脱敏历史配置确认它是
+  multiplex-enabled VLESS/Reality，经 `11089/11090` handshake 到 Hostdzire
+  `8443`。用户已根据当前 sing-box 零引用和这组历史证据确认退役：不恢复旧
+  服务，保留历史，并在获授权后删除 Hostdzire 活动别名。
 - 证书 SAN：`962850.xyz`、`*.962850.xyz`；不覆盖嵌套子域。
-- DMIT Unbound 与两机 hosts 未发现内部 `962850.xyz` 记录；Hostdzire 没有
-  本地 DNS 服务。这不能代替 Aaitr、其他 VPN 客户端和内部 resolver 清单。
+- DMIT、Hostdzire、Aaitr 和当前开发工作站的 resolver/hosts 均未发现内部
+  `962850.xyz` 记录，也未发现嵌套名称。工作站没有域专用 resolver 或活动常见
+  mesh 客户端；其私网 DNS 上游会为公共 NXDOMAIN 合成短 TTL A，但
+  `mux/probe/plain/www` 和随机嵌套名称经系统解析均无可达 HTTP/TLS 服务。
+  上游设备配置和其他客户端仍不能由该结果代替。
 - 完整证据见 P0
-  `research/domain-inventory-2026-07-28.md`；正式写控制仍需经授权的临时 TXT。
+  `research/domain-inventory-2026-07-28.md`、
+  `research/aaitr-inventory-2026-07-28.md` 和
+  `research/dmit-stream-reality-2026-07-28.md`、
+  `research/mux-probe-traffic-contract-2026-07-28.md`、
+  `research/workstation-resolver-inventory-2026-07-28.md`。
+- 临时随机 TXT 写控制已完成：双权威、双公共可见，随后精确删除并在四端确认
+  NXDOMAIN；Cloudflare BIND export 已验证为 14 条用户记录加 2 条 provider
+  NS，并按授权保存到 Hostdzire root 专用 `0700` 目录的 `0600` 文件。注册商
+  登录截图不是 Lighthouse/HSTS/preload 正式门禁；公开 RDAP 状态已保留，账户
+  恢复与自动续费未独立验证的风险单列。
+- 根域、`relay`、Hostdzire default 443、`brutal` 与 HSTS 的未执行精确提案见
+  `research/domain-remediation-proposed-diff-2026-07-28.md`。

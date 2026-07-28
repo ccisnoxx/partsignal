@@ -21,32 +21,32 @@ Schema.org Validator 三份独立证据关闭该项。
 
 ## 3. 公开面确认
 
-- [ ] 在修改 `index.html`、robots、llms 或 Vite source map 前，展示公开风险并
+- [x] 在修改 `index.html`、robots、llms 或 Vite source map 前，展示公开风险并
   取得一次明确确认。
-- [ ] 未确认时保持这些项 Open/Blocked by approval，不静默实现。
+- [x] 未确认时保持这些项 Open/Blocked by approval，不静默实现。
 
-## 4. 经授权实施
+## 4. 经授权在工作区实施
 
-- [ ] 设置 `index,follow`、meta description 和 robots `Allow: /`。
-- [ ] 创建最小 `llms.txt`，验证 H1 和公开链接。
-- [ ] 启用完整外部 production source map。
-- [ ] 增加 map 完整性和秘密扫描门禁。
-- [ ] 更新 README 和相关测试，删除旧约束。
+以下勾选只表示本地文件、门禁和测试已完成，不表示已发布到生产：
+
+- [x] 设置 `index,follow`、meta description 和 robots `Allow: /`。
+- [x] 创建最小 `llms.txt`，验证 H1 和公开链接。
+- [x] 启用完整外部 production source map。
+- [x] 增加 map 完整性和秘密扫描门禁。
+- [x] 更新 README 和相关测试，删除旧约束。
 
 ## 5. 验证
 
-```bash
-cd frontend
-npm exec -- vitest run
-npm run typecheck
-npm run lint
-npm run build
-PLAYWRIGHT_HTML_OPEN=never npm exec -- playwright test --project=e2e
-cd ..
-git diff --check
-```
+- 已通过的三浏览器兼容矩阵、十项人工检查和结构化数据检查不再重复。
+- P2 代码未再次变化时，不运行全量测试、E2E 或构建。
+- 唯一发布候选只运行一次 production assets/秘密扫描门禁和受影响 smoke；
+  部署后用同一次 PageSpeed 关闭 source map、SEO 与 Agentic，只有失败项复测。
 
-- [ ] 校验 meta/robots/llms/map 实际构建产物。
+- [x] 校验 meta/robots/llms/map 实际构建产物。
 - [ ] 执行 Lighthouse/PageSpeed 复测，SEO=100、Agentic=3/3。
-- [ ] 执行 Trellis check；高、中问题清零。
-- [ ] 文档与产品契约同步；不自动提交、推送或部署。
+- [x] 执行 Trellis check；高、中问题清零。
+- [x] 文档与产品契约同步；不自动提交、推送或部署。
+
+授权、实现和本地产物证据见
+`research/public-surface-implementation-2026-07-28.md`。线上状态与
+PageSpeed 分数仍需部署授权后验证，本地结果不替代 AC2–AC5 的线上条件。

@@ -29,13 +29,21 @@
    跳转到 `geo`。
 5. HSTS：`includeSubDomains` 影响公开、内部、未来和嵌套子域；preload
    移除不能即时生效。
-6. 当前全量 Zone 新发现 `relay.962850.xyz`：删除其 A 会改变 DNS，保留则必须
-   建立专属 HTTPS；配置保留的 `mux/probe` 也必须由用户决定修复或退役。
+6. 当前全量 Zone 新发现 `relay.962850.xyz`。用户已决定删除其 A，并退役
+   配置名 `mux/probe`。日志和脱敏历史配置证明 `mux` 在 7 月曾有真实
+   VLESS/Reality + multiplex 长连接，因此退役必须删除活动引用并保留历史证据，
+   不能恢复旧监听、删除历史或用占位服务冒充关闭。
 7. 官方当前不普遍推荐 preload，且移除通常需 6–12 周到达多数 Chrome、
    其他浏览器可能更久；用户明确要求正式提交不等于可以省略最终不可逆确认。
 
-上述变化分别由 `implement.md` 中的授权闸门控制。没有授权时可以完成本地安全、
-性能和兼容性代码，但不得修改相应公开资产或外部状态。
+用户已确认索引、公开资产、临时 TXT、根域行为和三个特殊名称的产品选择；
+这些确认允许完成本地实现和精确提案，不等于授权发布、DNS/Nginx/HSTS 或
+preload。外部执行仍由 `implement.md` 的独立闸门控制。
+
+注册商登录截图不属于 Lighthouse、HSTS 或 preload 的正式要求。Cloudflare
+credentialed GET、双权威/双公共随机 TXT 写后删证明和受控 BIND 原文已经提供
+更直接的 DNS 技术控制证据；公开 RDAP 仅记录注册商状态。未独立验证的账户恢复、
+自动续费与 nameserver 恢复能力作为运维残余风险保留。
 
 ## 关闭模型
 

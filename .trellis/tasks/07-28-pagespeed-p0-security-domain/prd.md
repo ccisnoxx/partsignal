@@ -22,6 +22,20 @@
   `mux` 没有公共 DNS；当前仅 `geo`/`vault` 返回不带子域的 HSTS。
 - 完整只读拓扑、逐名矩阵和脱敏控制权证据见
   `research/domain-inventory-2026-07-28.md`。
+- 2026-07-28 已完成一次随机 TXT 写控制证明：两权威 NS 和两个公共 resolver
+  均先返回唯一正确内容，删除后 Cloudflare API 为零记录且四端均为 NXDOMAIN；
+  证据只保存名称与哈希。
+- Aaitr 只读盘点确认本机没有 split-horizon resolver、hosts 名称、TLS 证书或
+  443 监听；唯一业务入站是 WireGuard 上的 Shadowsocks `18443`。该运行态与
+  DMIT 旧 `probe:443` 目标不一致。后续 DMIT 历史日志和白名单配置已确认
+  `mux` 曾是有真实流量的 VLESS/Reality + multiplex 服务，但当前路径已移除。
+  用户据当前 sing-box 与流量事实确认 `mux`、`probe` 退役；历史证据保留，不再
+  恢复旧入口或猜测新服务契约。
+- Hostdzire 当前没有 443 `default_server`，未知名称会落入首个 `api`
+  vhost；根域、`relay`、`brutal` 和 HSTS 的精确候选差异、部署顺序及独立回滚
+  已写入 `research/domain-remediation-proposed-diff-2026-07-28.md`，尚未执行。
+- Hostdzire 根用户 crontab 已复核存在活动的每日 `acme.sh --cron`；证书续期、
+  部署路径和 reload 仍须一次受控端到端验收，不能以“存在调度”直接关闭。
 
 ## Requirements
 
@@ -43,16 +57,19 @@
 
 ### R3. 域名控制权和清单
 
-- 控制权证据包括经脱敏注册商账户状态、Cloudflare credentialed Zone GET、
-  完整 Zone 导出和经授权的随机临时 TXT 挑战。挑战必须在两个权威 NS 和两个
-  公共 resolver 可见，删除后再次验证不存在；不得保存 token、Cookie、私钥或
-  ACME 凭据。
+- 技术控制权证据包括 Cloudflare credentialed Zone GET、完整 Zone 导出和经
+  授权的随机临时 TXT 挑战。挑战必须在两个权威 NS 和两个公共 resolver 可见，
+  删除后再次验证不存在；不得保存 token、Cookie、私钥或 ACME 凭据。
+- 公开 RDAP 用于记录注册商、到期日和 transfer lock。注册商登录截图不是
+  Lighthouse、HSTS 或 preload 的正式要求，也不再作为技术整改硬门槛；残余风险
+  是注册商账户登录、自动续费和 nameserver 恢复能力未被独立验证。
 - 清单覆盖公开、内部、通配和嵌套子域，并交叉检查 DNS、Nginx/SNI、
   证书、内部 resolver、hosts 和访问日志。
-- DMIT/Hostdzire 当前未发现本地域或 hosts 记录，但必须继续检查 Aaitr、
+- DMIT/Hostdzire/Aaitr 当前未发现本地域或 hosts 记录，但必须继续检查其余
   WireGuard/mesh 客户端和其他 split-horizon resolver；未检查不等于不存在。
-- `probe`、`mux` 默认保留并修复；`relay` 必须确认负责人后修复或删除 DNS；
-  访问 Aaitr/`10.0.0.3` 前需用户授权。
+- 用户已确认删除 `relay` DNS，并退役 `probe`/`mux`。`relay` 删除、DMIT
+  `probe` 活动映射移除和 Hostdzire `mux` 活动别名移除仍需线上执行授权；
+  `mux` 历史配置、日志和审计证据必须保留。
 
 ### R4. 全域 HTTPS
 
@@ -62,7 +79,9 @@
   纯 MX/TXT 标签保持非 Web，不为审核虚构地址。
 - 一级通配证书不覆盖嵌套名称；任何内部或未来嵌套名称必须有显式 SAN、
   对应深度的通配证书，或在启用 `includeSubDomains` 前退役/迁出。
-- 域级 HSTS 由单一版本化 snippet 拥有，站点不得各自维护不同值。
+- 根域 `includeSubDomains` 继承策略由单一版本化 root snippet 拥有；现有
+  精确主机一年 HSTS 统一为独立 host-only snippet，分阶段时不得把现有安全
+  强度降到 300 秒。
 
 ### R5. HSTS 和 preload
 
@@ -79,10 +98,13 @@
 - [ ] AC2：Trusted Types enforcing 下项目、React、Ant、DOMPurify、
   Markdown 和测试零违规、零 TT TypeError。
 - [x] AC3：全部项目 HTML sink 由命名策略拥有，恶意 Markdown 用例均被清洗。
-- [ ] AC4：Cloudflare 14 条记录、内部/嵌套名称和历史配置均有用途、负责人、
-  DNS、入口、证书和结论；无“未检查即不存在”的名称。
+- [ ] AC4：Cloudflare 14 条记录、内部/嵌套名称和历史配置均有已登记用途/
+  负责人，或有证据支持的退役结论；DNS、入口、证书和结论完整，无“未检查即
+  不存在”的名称。
 - [ ] AC5：根域 HTTPS、证书和同主机跳转通过；8 个公开 A 均得到处理；
-  `brutal`、`relay`、`probe`、`mux` 阻断项已修复或经用户确认退役。
+  `brutal` 已修复，`relay`、`probe`、`mux` 已退役；后二者权威/公共 DNS 均为
+  NXDOMAIN、活动 Nginx/sing-box/防火墙无服务引用，未知 SNI 被 default
+  catchall 拒绝。
 - [ ] AC6：各 HSTS 观察阶段均有时间、监控和结果记录。
 - [ ] AC7：正式 preload 提交成功并最终验证状态为 `preloaded`。
 - [ ] AC8：所有 DNS/Nginx/部署和不可逆动作都有明确授权与回滚记录。

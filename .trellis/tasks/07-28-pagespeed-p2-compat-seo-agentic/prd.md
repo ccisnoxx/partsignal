@@ -65,5 +65,5 @@ Agentic Browsing、十项无障碍人工检查和结构化数据人工检查。�
 - [ ] AC4：`llms.txt` 返回 200，含一个 H1 和两个有效公开链接；Agentic=3/3。
 - [ ] AC5：十项 accessibility manual 全部 Closed，Accessibility 保持 100。
 - [x] AC6：结构化数据人工审核完成且零无效实体。
-- [ ] AC7：公开索引、llms 和 source map 修改前存在用户授权记录。
-- [ ] AC8：README、测试和当前产品契约同步，不保留“不维护这些资产”的现行约束。
+- [x] AC7：公开索引、llms 和 source map 修改前存在用户授权记录。
+- [x] AC8：README、测试和当前产品契约同步，不保留“不维护这些资产”的现行约束。

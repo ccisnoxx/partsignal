@@ -4,11 +4,14 @@
 
 - [x] 用户批准 PRD、技术设计、维护窗口和有损迁移边界。
 - [x] 确认目标就是 `https://geo.962850.xyz` 预发布环境。
-- [ ] 执行前单独展示最终 push 范围并获得明确推送批准。
+- [x] 用户确认第一批生产整改，包含应用发布及后续 Hostdzire/DMIT/DNS 精确
+  变更；该确认不覆盖 Git commit/push。
+- [x] 已展示两组 commit 范围，明确排除 Playwright 日志和
+  `.trellis/config.yaml`；用户授权提交并推送 `main`。
 
 ## 1. 清理发布来源门禁
 
-- [ ] 等待当前 PageSpeed、主题、部署文档等并行工作完成；不得 stash、回退、覆盖或临时隐藏 108 项改动。
+- [ ] 等待当前 PageSpeed 公网资产、主题和部署门禁修复完成；不得 stash、回退、覆盖或临时隐藏其改动。
 - [ ] 对最终待发布变更执行相称检查并提交到 `main`。
 - [ ] 推送后确认本地主工作目录干净，`HEAD == origin/main`。
 - [ ] 运行 `node deploy/scripts/check-nginx-security.mjs`，制作安全归档并检查 `.env.example`、密钥/环境文件、AppleDouble 和 SHA-256。

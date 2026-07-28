@@ -11,13 +11,13 @@
 - 待发布数据库 head 包含 `0029_geo_evidence_management` 和 `0030_publication_record_delete`。`0029` 会删除人工逐篇结果的 `recommendation_status/cited` 列，不能通过 Alembic downgrade 恢复旧值。
 - 现场有 1 条人工观测和 1 条人工逐篇结果，该逐篇结果在待删除字段中存在非空值；批准本部署计划即确认接受已批准业务模型带来的这项旧字段删除。
 - Hostdzire 共享环境没有 `VERIFY_DATABASE_URL`，宿主机也没有 `psql`；端口 `127.0.0.1:19002` 空闲，`postgres:16-alpine` 镜像已存在。
-- 本地 `main` 当前 HEAD 为 `1417c02`，比 `origin/main=ccdab3b` 领先 5 个提交，同时存在 108 项其他并行工作改动，因此尚不满足制作 release 的门禁。
+- 本地与远端 `main` 已同步到 `44dac9e`，但该提交自身未通过发布安全门禁，且工作树随后再次出现 PageSpeed 公网资产修复改动，因此仍不满足制作 release 的门禁。
 
 ## Requirements
 
 - 必须走完整发布，不得使用或强制开启 fast 模式；迁移目录变化和有损迁移均已关闭快速发布资格。
 - release 只能从干净、已推送且与 `origin/main` 完全一致的本地主工作目录制作。不得部署脏工作树、临时 worktree、旧 release 或未推送提交。
-- 不得覆盖、暂存、回退或清理当前 108 项并行改动。其所有者完成提交和验证后，再确定唯一待部署 commit；推送仍需用户明确确认。
+- 不得覆盖、暂存、回退或清理任何并行改动。其所有者完成提交和验证后，再确定唯一待部署 commit；存在待推送提交时仍需用户明确确认。
 - 在维护窗口开始前完成与目标 commit 相称的本地测试、迁移测试、契约检查和 Nginx 安全检查。
 - 正常升级只链接 Hostdzire 既有 `/root/partsignal/shared/.env.staging`，不得读取整个文件、下载、重建或输出其中的任何凭据。
 - 有损迁移前必须停止旧 API、Worker 和 Scheduler，生成权限受限的非空备份，校验 gzip 与 SHA-256，并在全新一次性 PostgreSQL 16 中恢复和执行 `0028 -> 0030` 迁移彩排。

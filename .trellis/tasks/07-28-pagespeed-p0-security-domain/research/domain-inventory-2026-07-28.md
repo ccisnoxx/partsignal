@@ -1,5 +1,11 @@
 # `962850.xyz` 域名、HTTPS 与 HSTS 只读证据
 
+> 后续修订：本文记录首次 DMIT/Hostdzire 只读盘点的当时边界。随后获权检查
+> SSH 别名 `aaitr`，确认其地址/协议与本文所称旧 `probe` 目标不同；当前结论
+> 以 `aaitr-inventory-2026-07-28.md`、`dmit-stream-reality-2026-07-28.md`
+> 和 `domain-remediation-proposed-diff-2026-07-28.md` 为准。Hostdzire 根
+> crontab 也已由主 Agent 复核存在每日 `23:49` 的活动 `acme.sh --cron`。
+
 ## 证据边界
 
 - 采集时间：2026-07-28。
@@ -19,16 +25,17 @@
 |---|---|---|
 | Cloudflare credentialed Zone GET | `962850.xyz` 为 `active`、`full`，NS 为 `jule`/`neil.ns.cloudflare.com`，共 14 条记录 | 已证明现有凭据可读取当前权威 Zone；账户标识只保留哈希指纹 |
 | 权威 NS/SOA | SOA serial `2409161408`；权威查询与 Zone API 的记录名称一致 | Cloudflare 是当前 DNS 权威 |
-| RDAP | 注册商 Spaceship；注册 2024-04-19，过期 2034-04-19，`client transfer prohibited` | 公开注册状态正常；仍需脱敏的注册商账户控制截图或导出作为操作权证 |
+| 随机 TXT 写后删 | 两权威 NS 与 `1.1.1.1`、`8.8.8.8` 返回唯一内容；按 record ID 删除后 API absence 且四端 NXDOMAIN | 已证明目标 Zone 当前写控制；仓库只保存名称和内容哈希 |
+| BIND export | 16 条解析记录：14 条用户记录、2 条 provider NS；原文保存到 Hostdzire root `0700` 运维目录的 `0600` 文件 | 已保存受控全量快照；仓库不保存原文或凭据 |
+| RDAP | 注册商 Spaceship；注册 2024-04-19，过期 2034-04-19，`client transfer prohibited` | 公开注册状态正常；登录截图不属于 Lighthouse/HSTS/preload 正式要求，不作为技术硬门槛 |
 | `acme.sh --list` | `962850.xyz` + `*.962850.xyz`，DNS provider 为 `dns_cf`，下次续期 2026-08-30 | 已存在 DNS-01 自动续期链路 |
 | 线上证书 | Let's Encrypt YE2；SAN 为根域和一级通配；2026-07-02 至 2026-09-30；SHA-256 `FC:D3:…:0E:B5` | 覆盖根域和一级子域，不覆盖 `a.b.962850.xyz` |
 | 凭据/私钥权限 | `account.conf`、证书任务配置和私钥均为 `0600 root:root`；每日 cron 执行 `acme.sh --cron` | 未发现凭据文件权限放宽；续期部署仍需增加独立验收 |
 
-当前证据能证明 Zone 读取权和既有 DNS-01 使用能力，但不把“持有一个历史
-token”冒充为本次正式写控制证明。实施时创建随机、一次性的
-`_partsignal-control-<UTC>.962850.xyz` TXT，经两个权威 NS 和至少两个公共
-resolver 验证后删除，并保存新增、查询、删除和最终 NXDOMAIN 的审计记录。
-该写入和删除必须先获用户授权。
+随机 TXT 证明已按授权完成，证据见
+`domain-control-proof-evidence-20260728T055825Z.jsonl`。这组证据只证明目标
+Zone 的必要读写控制，不证明 Cloudflare 账户其他 Zone 权限；注册商登录、
+自动续费和 nameserver 恢复能力未独立验证，作为残余运维风险保留。
 
 ## 完整公开 Zone
 
@@ -100,8 +107,8 @@ MX/TXT 标签不是 Web 服务，不要求为其创建 A/AAAA 或虚构 HTTPS；
 | `vault` | A；Vaultwarden | 301 同主机 HTTPS | 有效，404 为探测路径业务响应 | `max-age=31536000` | 改为域级 snippet并删除站点私有 HSTS 行 |
 | `brutal` | A；Reality 伪装入口 | 空响应，未同主机升级 | 有效，Reality 回落到 Hostdzire 8443，404 | 无 | Hostdzire 增加 80 redirect vhost；8443 vhost引用域级 snippet；验证 Reality 与 Web fallback 均不变 |
 | `relay` | A；无已确认负责人/配置 | 空响应 | 有效但错误落入 `api` 默认 vhost，200 | 无 | 硬阻断。确认业务后仅二选一：删除无用 A，或建立专属 80/443 vhost；不得让未知 Host 继续落入 API |
-| `mux` | NXDOMAIN；Hostdzire 8443 配置保留名 | N/A | 若内部解析到 DMIT，当前默认 443 路径不能到 8443 | 无 | 硬阻断。确认保留则补齐明确 SNI/80/443 路径；否则从活动 vhost 删除并保留审计 |
-| `probe` | NXDOMAIN；DMIT 配置指向 Aaitr | N/A | `10.0.0.3:443` 当前不可达 | 未知 | 硬阻断。获 Aaitr 只读权限后确认修复或退役；结论前不得进入 includeSubDomains |
+| `mux` | NXDOMAIN；Hostdzire 8443 活动别名 | N/A | 若内部解析到 DMIT，当前默认 443 路径不能到 8443 | 无 | 用户确认退役；获线上配置授权后删除活动别名，保留历史审计 |
+| `probe` | NXDOMAIN；DMIT 活动配置指向失效旧目标 | N/A | 旧目标 `:443` 当前不可达 | 未知 | 用户确认退役；获授权后删除 DMIT map，验证 unknown SNI fail-closed |
 | `plain` | NXDOMAIN；仅历史配置线索 | N/A | N/A | N/A | 不恢复；确认活动配置、内部 resolver、hosts 和日志均无引用后标记历史退役 |
 | `_dmarc` / `_domainkey` | TXT 邮件策略 | 非 Web | 非 Web | 不适用 | 保留并记录邮件负责人；不得为通过 Web 检查伪造地址 |
 
@@ -146,7 +153,8 @@ MX/TXT 标签不是 Web 服务，不要求为其创建 A/AAAA 或虚构 HTTPS；
 
 ## 进入外部实施前的硬门禁
 
-- 完整 Zone、注册商控制证据和 TXT 写控制证明均完成且脱敏存档。
+- Cloudflare credentialed GET、受控 BIND 原文和 TXT 写后删控制证明均完成并
+  脱敏登记；公开 RDAP 已记录。注册商账户恢复/自动续费未独立验证，作为残余风险。
 - `relay`、`mux`、`probe` 的保留/退役选择获得用户确认。
 - Aaitr 和其他内部 resolver/hosts 清单完成，无未知名称。
 - 所有保留 Web 名称的证书、80 同主机升级、HTTPS 业务探测和监控均通过。

@@ -43,10 +43,11 @@ Schema.org Validator 三份独立证据关闭该项。
   部署后用同一次 PageSpeed 关闭 source map、SEO 与 Agentic，只有失败项复测。
 
 - [x] 校验 meta/robots/llms/map 实际构建产物。
-- [ ] 执行 Lighthouse/PageSpeed 复测，SEO=100、Agentic=3/3。
+- [x] 执行一次 Lighthouse/PageSpeed 复测，SEO=100、Agentic=3/3；
+  source map、robots、`llms.txt` 和 Baseline 审核均通过。
 - [x] 执行 Trellis check；高、中问题清零。
 - [x] 文档与产品契约同步；不自动提交、推送或部署。
 
 授权、实现和本地产物证据见
-`research/public-surface-implementation-2026-07-28.md`。线上状态与
-PageSpeed 分数仍需部署授权后验证，本地结果不替代 AC2–AC5 的线上条件。
+`research/public-surface-implementation-2026-07-28.md`；线上状态与 PageSpeed
+结果见 P0 的 `research/first-production-batch-2026-07-28.md`。

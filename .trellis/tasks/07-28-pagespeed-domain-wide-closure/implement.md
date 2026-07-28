@@ -28,12 +28,12 @@
   运维目录的 `0600` 文件；仓库仅记录路径、大小、时间和 SHA-256。
 - [x] 完成 Aaitr 本机只读检查，并展示根域/`relay`/default 443/`brutal`/
   HSTS 的精确生产提案、部署顺序和独立回滚。
-- [ ] 用户审阅 P0
+- [x] 用户审阅 P0
   `research/domain-remediation-proposed-diff-2026-07-28.md` 后，明确授权应用
   发布、Hostdzire reload 和根域/`relay` DNS。
-- [ ] 获线上配置授权后，按“Hostdzire default catchall → 移除 Hostdzire
-  `mux` 别名 → 移除 DMIT `probe` map”顺序完成退役；同时补齐其余内部
-  resolver 清单。完成全域 HTTPS 和 ACME 续期验收后，按
+- [x] 获线上配置授权后，按“Hostdzire default catchall → 移除 Hostdzire
+  `mux` 别名 → 移除 DMIT `probe` map”顺序完成第一批退役和全域公开 HTTPS。
+- [ ] 补齐其余内部 resolver 清单并完成 ACME 续期验收后，按
   300s → 7d → 30d → 1y 观察，每阶段等待完整 `max-age`。
 - [ ] 每个 `includeSubDomains` 阶段开始前确认上一阶段证据；添加 `preload`
   和提交表单前，再取得独立不可逆操作确认。
@@ -56,8 +56,8 @@
 
 ## 5. 提交边界
 
-- [ ] 保留并排除用户已有 Playwright 日志修改。
+- [x] 保留并排除用户已有 Playwright 日志修改。
 - [x] 新增稳定 infra spec，覆盖 DNS/原文/Nginx/HSTS/preload 的执行契约。
-- [ ] 更新相关 README、operations 和部署方案。
-- [ ] 展示按 P0/P1/P2 分组的 commit plan；未确认不得提交。
-- [ ] 不推送、不创建分支。
+- [x] 更新相关 README、operations 和部署方案。
+- [x] 展示按 P0/P1/P2 分组的 commit plan，并取得提交授权。
+- [x] 未创建分支；经用户明确授权后提交并推送 `main`。

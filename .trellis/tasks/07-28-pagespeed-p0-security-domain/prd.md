@@ -31,9 +31,11 @@
   `mux` 曾是有真实流量的 VLESS/Reality + multiplex 服务，但当前路径已移除。
   用户据当前 sing-box 与流量事实确认 `mux`、`probe` 退役；历史证据保留，不再
   恢复旧入口或猜测新服务契约。
-- Hostdzire 当前没有 443 `default_server`，未知名称会落入首个 `api`
-  vhost；根域、`relay`、`brutal` 和 HSTS 的精确候选差异、部署顺序及独立回滚
-  已写入 `research/domain-remediation-proposed-diff-2026-07-28.md`，尚未执行。
+- Hostdzire 原先没有 443 `default_server`，未知名称会落入首个 `api`
+  vhost；第一批生产整改已按
+  `research/domain-remediation-proposed-diff-2026-07-28.md` 部署 default
+  catchall、根域、`brutal` 和 HSTS 准备值，执行及回滚证据见
+  `research/first-production-batch-2026-07-28.md`。
 - Hostdzire 根用户 crontab 已复核存在活动的每日 `acme.sh --cron`；证书续期、
   部署路径和 reload 仍须一次受控端到端验收，不能以“存在调度”直接关闭。
 
@@ -93,15 +95,15 @@
 
 ## Acceptance Criteria
 
-- [ ] AC1：HTML 零内联脚本，`script-src` 无 `unsafe-inline/unsafe-eval`，
+- [x] AC1：HTML 零内联脚本，`script-src` 无 `unsafe-inline/unsafe-eval`，
   PageSpeed CSP 兼容诊断关闭，主题无闪烁。
-- [ ] AC2：Trusted Types enforcing 下项目、React、Ant、DOMPurify、
+- [x] AC2：Trusted Types enforcing 下项目、React、Ant、DOMPurify、
   Markdown 和测试零违规、零 TT TypeError。
 - [x] AC3：全部项目 HTML sink 由命名策略拥有，恶意 Markdown 用例均被清洗。
 - [ ] AC4：Cloudflare 14 条记录、内部/嵌套名称和历史配置均有已登记用途/
   负责人，或有证据支持的退役结论；DNS、入口、证书和结论完整，无“未检查即
   不存在”的名称。
-- [ ] AC5：根域 HTTPS、证书和同主机跳转通过；8 个公开 A 均得到处理；
+- [x] AC5：根域 HTTPS、证书和同主机跳转通过；8 个公开 A 均得到处理；
   `brutal` 已修复，`relay`、`probe`、`mux` 已退役；后二者权威/公共 DNS 均为
   NXDOMAIN、活动 Nginx/sing-box/防火墙无服务引用，未知 SNI 被 default
   catchall 拒绝。

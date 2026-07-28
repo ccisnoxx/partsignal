@@ -26,8 +26,9 @@
 - [x] 用户接受历史闭环规则：旧报告没有 source map/调用栈，不伪造四项
   函数级 before；若新的 source-map-enabled PageSpeed 中四项全部消失，按
   “入口边界整体消除”关闭，若仍存在则按新 trace 逐项归因。
-- [ ] 部署后执行 source-map-enabled PageSpeed；按上述规则关闭四项或保存每项
-  新 trace 的函数级归因、修改和复测。
+- [x] 部署后执行一次 source-map-enabled PageSpeed；旧 110/90/75/61ms 四项
+  全部消失，按“入口边界整体消除”关闭。新报告仍有
+  285/88/68/67/66/63ms 六项，已保存为下一轮逐项归因基线。
 - [x] 以五次空白/静态对照调查 181ms 无法归因任务；最终关闭等待新 PageSpeed。
 - [x] 证明 `/auth/me` 单次且不阻塞认证启动画面。
 - [x] 记录 LCP breakdown、入口 CSS 和 DOM before/after。

@@ -73,15 +73,15 @@
 - [x] 获得 scoped commit/push 授权：排除既有 Playwright 日志和
   `.trellis/config.yaml`，只提交已展示的前端/发布门禁与 Trellis 文档范围；
   push 后从干净 `main` clone 制作 release，不 stash、回退或覆盖用户改动。
-- [ ] 获线上配置写授权后，先部署 Hostdzire 443 default catchall，再从
+- [x] 获线上配置写授权后，先部署 Hostdzire 443 default catchall，再从
   Hostdzire 8443 vhost 移除 `mux` 别名、从 DMIT SNI map 移除 `probe`；不恢复
   sing-box inbound、30090、防火墙或 DNS。每台先备份并分别通过 `nginx -t`，
   reload 后验证两名双权威/双公共 NXDOMAIN、活动配置零引用、未知 SNI 被拒绝。
-- [ ] 获授权后先保存 Zone、`nginx -T`、证书、sing-box 路由和响应快照；
+- [x] 获授权后先保存 Zone、`nginx -T`、证书、sing-box 路由和响应快照；
   修改后运行所有宿主的配置检查，再按一次一层的顺序 reload。
-- [ ] 在不启用 `includeSubDomains` 的准备阶段，确认根域和全部保留 Web 名称：
+- [x] 在不启用 `includeSubDomains` 的准备阶段，确认根域和全部保留 Web 名称：
   证书有效、80 同主机升级、443 业务探测正确、无未知 Host 落入业务 vhost。
-- [ ] 部署 host-only 与 root HSTS snippet 前运行 `nginx -t`、Reality 回归和
+- [x] 部署 host-only 与 root HSTS snippet 前运行 `nginx -t`、Reality 回归和
   完整响应矩阵；准备阶段不得含 `includeSubDomains`。
 
 ## 5. HSTS 观察与 preload
@@ -108,10 +108,10 @@
 
 - [x] 新增 `.trellis/spec/infra/domain-security-operations.md`，固化 DNS 精确写入、
   受控原文、Nginx 检查/回滚、服务退役和 HSTS/preload 授权契约。
-- [ ] 更新 operations、Hostdzire runbook、部署方案和稳定安全规范。
+- [x] 更新 operations、Hostdzire runbook、部署方案和稳定安全规范。
 - [x] 执行 Trellis check；文档一致性、JSON、受控文件权限/哈希、任务结构和
   稳定 spec 检查通过，高、中问题为零。
-- [ ] 形成逐项证据和回滚记录，不自动提交、推送或部署。
+- [x] 形成逐项证据和回滚记录；经用户逐次授权后完成提交、推送和第一批部署。
 
 2026-07-28 新增证据：
 
@@ -134,7 +134,8 @@
   成功长连接，并恢复其历史 VLESS/Reality + multiplex 路径；用户随后确认
   `mux/probe` 退役。历史证据保留，恢复候选作废，线上活动引用删除仍待授权。
 - `research/domain-remediation-proposed-diff-2026-07-28.md` 保存根域、
-  `relay`、default 443、`brutal`、HSTS、部署顺序和独立回滚提案；线上执行、
-  `includeSubDomains` 与 preload 均未授权、未执行。
+  `relay`、default 443、`brutal`、HSTS、部署顺序和独立回滚提案；第一批线上
+  执行已完成，证据见 `research/first-production-batch-2026-07-28.md`。
+  `includeSubDomains` 与 preload 仍未授权、未执行。
 - 主 Agent 复核 Hostdzire 根 crontab，确认每日 `23:49` 的活动
   `acme.sh --cron`；续期和证书部署仍须端到端验收。

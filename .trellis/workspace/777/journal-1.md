@@ -1128,3 +1128,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 34: Hostdzire 观测与 Prompt 优化重新部署
+
+**Date**: 2026-07-28
+**Task**: Hostdzire 观测与 Prompt 优化重新部署
+**Branch**: `main`
+
+### Summary
+
+将已推送版本完整部署为 mvp-20260728-210626-2522427d3293；完成数据库备份、隔离恢复与 0031 迁移演练，公网 smoke 和 Playwright 只读验收通过，未运行全量测试。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2522427d3293062f02326ce5309dfaf85c9f193e` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

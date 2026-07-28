@@ -1,0 +1,4 @@
+/.agents export-ignore
+/.codex export-ignore
+/.playwright-cli export-ignore
+/.trellis export-ignore

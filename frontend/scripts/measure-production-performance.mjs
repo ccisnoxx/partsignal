@@ -6,6 +6,7 @@ const sampleCount = Number.parseInt(process.env.PARTSIGNAL_PERF_SAMPLES ?? '5', 
 const baseUrl = process.env.PARTSIGNAL_PERF_BASE_URL ?? 'http://127.0.0.1:4173';
 const shouldStartPreview = !process.env.PARTSIGNAL_PERF_BASE_URL;
 const clsThreshold = 0.1;
+const pageLongTaskThreshold = 50;
 const initialTransferThreshold = 275 * 1024;
 const entryCssTransferThreshold = 4 * 1024;
 const domThreshold = { nodeCount: 128, maxDepth: 18, maxChildren: 9 };
@@ -574,7 +575,11 @@ try {
   if (anonymousBoot.maxCls >= clsThreshold) {
     throw new Error(`匿名 / → /login CLS 必须小于 ${clsThreshold}，实际最大值为 ${anonymousBoot.maxCls}`);
   }
-  if (anonymousBoot.maxLongTask > 100 || anonymousBoot.medianTbt > 50 || anonymousBoot.maxTbt > 100) {
+  if (
+    anonymousBoot.maxLongTask > pageLongTaskThreshold
+    || anonymousBoot.medianTbt > 50
+    || anonymousBoot.maxTbt > 100
+  ) {
     throw new Error(`匿名 / → /login 主线程超限：最长任务 ${anonymousBoot.maxLongTask}ms，TBT 中位数/最大值 ${anonymousBoot.medianTbt}/${anonymousBoot.maxTbt}ms`);
   }
   if (anonymousBoot.maxInitialTransferSize > initialTransferThreshold) {

@@ -25,6 +25,6 @@ export default defineConfig({
     fileParallelism: true,
     maxWorkers: 2,
     testTimeout: 30_000,
-    exclude: ['tests/e2e/**', 'scripts/check-theme-colors.test.mjs', 'scripts/theme-init.test.mjs', 'node_modules/**', 'dist/**'],
+    exclude: ['tests/e2e/**', 'scripts/check-production-assets.test.mjs', 'scripts/check-theme-colors.test.mjs', 'scripts/theme-init.test.mjs', 'node_modules/**', 'dist/**'],
   },
 });

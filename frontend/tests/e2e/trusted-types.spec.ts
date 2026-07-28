@@ -1,10 +1,19 @@
 /** 跨浏览器验证安全渲染链路与匿名入口、改密入口的最小 smoke。 */
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 
 const productId = '10000000-0000-4000-8000-000000000001';
-const trustedTypesCsp = "trusted-types dompurify; require-trusted-types-for 'script'";
+const securityHeaders = readFileSync(
+  fileURLToPath(new URL('../../../deploy/nginx/partsignal-security-headers.conf', import.meta.url)),
+  'utf8',
+);
+const productionCsp = securityHeaders.match(
+  /^add_header Content-Security-Policy "([^"]+)" always;$/m,
+)?.[1];
+if (!productionCsp) throw new Error('无法从权威 Nginx snippet 读取生产 CSP');
 
-test('命名策略在 enforcing 下支持 Ant 交互并清洗 Markdown', async ({ page }) => {
+test('注入权威完整 CSP 后命名策略支持 Ant 交互并清洗 Markdown', async ({ page }) => {
   await page.addInitScript(() => {
     const violations: string[] = [];
     Object.defineProperty(globalThis, '__partsignalTrustedTypesViolations', {
@@ -68,7 +77,7 @@ test('命名策略在 enforcing 下支持 Ant 交互并清洗 Markdown', async (
         response,
         headers: {
           ...response.headers(),
-          'content-security-policy': trustedTypesCsp,
+          'content-security-policy': productionCsp,
         },
       });
       return;

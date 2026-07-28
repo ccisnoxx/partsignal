@@ -54,8 +54,8 @@ npm run perf:production
 
 匿名冷启动按完整 `/` → `/login` 链路单独验收：`AppLayout`、改密页和 `workspace.css` 只在已认证路由按需加载，登录首屏只请求主题脚本、入口 JS/CSS 和一次 `/auth/me`。报告记录全部初始资源 `transferSize`、入口 CSS、`/auth/me` 次数、LCP 元素与标准文本渲染延迟（`LCP - responseStart`）；TBT 按 `Σ max(0, duration - 50ms)` 计算。CLS 必须 `< 0.1`，最长任务必须 `≤100ms`、TBT 中位数 `≤50ms` 且单次 `≤100ms`，初始总传输不得超过 `275 KiB`，入口 CSS 不得超过 `4 KiB`，DOM 不得高于 PageSpeed 基线 `128/18/9`。Chromium coverage 的未使用 JS 和 CSS-in-JS 源码字节只用于同口径归因：前者按资源传输量给出估算，后者包含未触发组件状态，不与 Lighthouse 压缩浪费字节混算，也不得据此删除 hover、focus、错误、禁用、主题、Modal 或 Drawer 样式。
 
-## 内部索引边界
+## 公开发现与源码映射边界
 
-所有 SPA 路由共享 `index.html` 的 `noindex, nofollow`，`public/robots.txt` 同时禁止全站抓取。两者只表达爬虫抓取与索引意图，不是访问控制；认证、权限和私有数据保护仍由服务端负责。
+所有 SPA 路由共享 `index.html` 的 `index,follow` 和准确 meta description，`public/robots.txt` 允许全站抓取。`public/llms.txt` 只公开产品入口、登录入口和“面向已授权用户”的最小说明，不包含 API、权限模型、账号类型、内部主机、训练许可或私有文档。公开发现不授予业务数据访问权；认证、权限和私有数据保护仍由服务端负责。
 
-内部系统没有公开搜索摘要、模型能力目录或公开源码映射需求，因此不维护 meta description、`llms.txt` 或生产 source map。现有小型入口 CSS 已满足首屏性能边界，不增加 critical/async CSS、Nginx 特例、依赖或抽象来追逐非业务审计提示。
+生产构建生成含 `sourcesContent` 和 `sourceMappingURL` 的完整外部 source map，并由 Nginx 以匿名可访问的 JSON immutable 资产提供。`npm run build` 会检查 map 可解析性、源码内容完整性以及 `.env`、凭据、私钥和绝对本机路径；客户端源码不得保存秘密，也不得依赖隐藏 map 掩盖敏感信息。

@@ -56,7 +56,11 @@ test('匿名根路径经过无内容会话探测进入登录页且 CLS 达标', 
   await page.goto('/');
   const robotsMeta = page.locator('meta[name="robots"]');
   await expect(robotsMeta).toHaveCount(1);
-  await expect(robotsMeta).toHaveAttribute('content', 'noindex, nofollow');
+  await expect(robotsMeta).toHaveAttribute('content', 'index,follow');
+  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+    'content',
+    'PartSignal 是面向已授权用户的多平台 GEO 内容运营系统，提供内容运营、发布与效果观测入口。',
+  );
   await expect(page.locator('.auth-boot')).toBeVisible();
   await page.evaluate(() => new Promise((resolve) => {
     globalThis.requestAnimationFrame(() => globalThis.requestAnimationFrame(resolve));
@@ -206,13 +210,22 @@ test('普通动态偏好下登录装饰路径保持静态虚线', async ({ page 
   })));
 });
 
-test('robots 静态资产禁止抓取且不回退到 SPA', async ({ request }) => {
+test('公开发现资产允许抓取且不泄露内部能力', async ({ request }) => {
   const response = await request.get('/robots.txt');
   expect(response.status()).toBe(200);
   expect(response.headers()['content-type']).toContain('text/plain');
   const body = await response.text();
-  expect(body).toBe('User-agent: *\nDisallow: /\n');
+  expect(body).toBe('User-agent: *\nAllow: /\n');
   expect(body).not.toContain('<html');
+
+  const llmsResponse = await request.get('/llms.txt');
+  expect(llmsResponse.status()).toBe(200);
+  expect(llmsResponse.headers()['content-type']).toContain('text/plain');
+  const llms = await llmsResponse.text();
+  expect(llms.match(/^# /gm)).toHaveLength(1);
+  expect(llms.match(/https:\/\/geo\.962850\.xyz\/(?:login)?/g)).toHaveLength(2);
+  expect(llms).not.toMatch(/\/api\/|权限|账号类型|内部主机|训练许可/);
+  expect(llms).not.toContain('<html');
 });
 
 test('登录页主题玻璃控件禁用模糊后仍可辨识和操作', async ({ page }) => {

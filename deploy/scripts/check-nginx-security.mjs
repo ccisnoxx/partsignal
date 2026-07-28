@@ -1,9 +1,13 @@
 /** 校验主题脚本、DOM sink、CSP 和外层 Nginx 模板保持同一安全契约。 */
+import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const read = (path) => readFile(`${root}/${path}`, 'utf8');
+const frontendRequire = createRequire(new URL('../../frontend/package.json', import.meta.url));
+const ts = frontendRequire('typescript');
 const markdownSinkOwners = new Map([
   ['frontend/src/features/configuration/PromptOutputPreview.tsx', { count: 1, values: ['safeHtml'] }],
   ['frontend/src/features/content-editor/ContentEditorPage.tsx', { count: 2, values: ['safeHtml'] }],
@@ -17,9 +21,199 @@ async function sourceFiles(path) {
   const nested = await Promise.all(entries.map((entry) => {
     const child = `${path}/${entry.name}`;
     if (entry.isDirectory()) return sourceFiles(child);
+    if (/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(entry.name)) return [];
     return /\.[cm]?[jt]sx?$/.test(entry.name) ? [child] : [];
   }));
   return nested.flat();
+}
+
+function unwrapExpression(expression) {
+  let current = expression;
+  while (
+    ts.isParenthesizedExpression(current)
+    || ts.isAsExpression(current)
+    || ts.isSatisfiesExpression(current)
+    || ts.isNonNullExpression(current)
+  ) {
+    current = current.expression;
+  }
+  return current;
+}
+
+function staticString(expression, aliases) {
+  const value = unwrapExpression(expression);
+  if (ts.isStringLiteral(value) || ts.isNoSubstitutionTemplateLiteral(value)) return value.text;
+  if (ts.isIdentifier(value)) return aliases.get(value.text);
+  if (ts.isBinaryExpression(value) && value.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const left = staticString(value.left, aliases);
+    const right = staticString(value.right, aliases);
+    return left === undefined || right === undefined ? undefined : left + right;
+  }
+  return undefined;
+}
+
+function memberName(expression, aliases = new Map()) {
+  if (ts.isPropertyAccessExpression(expression)) return expression.name.text;
+  if (ts.isElementAccessExpression(expression) && expression.argumentExpression) {
+    return staticString(expression.argumentExpression, aliases);
+  }
+  return undefined;
+}
+
+function isDocumentWrite(expression, stringAliases = new Map(), documentAliases = new Set(['document'])) {
+  if (!ts.isPropertyAccessExpression(expression) && !ts.isElementAccessExpression(expression)) {
+    return false;
+  }
+  const owner = unwrapExpression(expression.expression);
+  return ts.isIdentifier(owner)
+    && documentAliases.has(owner.text)
+    && ['write', 'writeln'].includes(memberName(expression, stringAliases));
+}
+
+function isSanitizedInitializer(initializer) {
+  const expression = unwrapExpression(initializer);
+  if (!ts.isCallExpression(expression)) return false;
+  const callee = unwrapExpression(expression.expression);
+  if (ts.isIdentifier(callee) && callee.text === 'renderSanitizedMarkdown') return true;
+  if (!ts.isIdentifier(callee) || callee.text !== 'useMemo' || expression.arguments.length === 0) {
+    return false;
+  }
+  const callback = unwrapExpression(expression.arguments[0]);
+  return (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))
+    && ts.isCallExpression(unwrapExpression(callback.body))
+    && ts.isIdentifier(unwrapExpression(callback.body).expression)
+    && unwrapExpression(callback.body).expression.text === 'renderSanitizedMarkdown';
+}
+
+function bindingContainsName(binding, name) {
+  if (ts.isIdentifier(binding)) return binding.text === name;
+  return binding.elements.some((element) => (
+    !ts.isOmittedExpression(element) && bindingContainsName(element.name, name)
+  ));
+}
+
+function assertMarkdownSinkOwnership(path, source, owner) {
+  const scriptKind = ts.getScriptKindFromFileName(path);
+  const sourceFile = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, scriptKind);
+  const sinks = [];
+  const declarations = new Map((owner?.values ?? []).map((value) => [value, []]));
+  const mutations = new Set();
+  const stringAliases = new Map();
+  const documentAliases = new Set(['document']);
+  const dangerousMethodAliases = new Set();
+  let importsMarkdownBoundary = false;
+
+  function visit(node) {
+    if (
+      ts.isImportDeclaration(node)
+      && ts.isStringLiteral(node.moduleSpecifier)
+      && node.moduleSpecifier.text === '../../shared/markdown'
+      && node.importClause?.namedBindings
+      && ts.isNamedImports(node.importClause.namedBindings)
+      && node.importClause.namedBindings.elements.some((element) => (
+        (element.propertyName ?? element.name).text === 'renderSanitizedMarkdown'
+        && element.name.text === 'renderSanitizedMarkdown'
+      ))
+    ) {
+      importsMarkdownBoundary = true;
+    }
+
+    if (
+      ts.isBinaryExpression(node)
+      && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment
+      && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment
+    ) {
+      const left = unwrapExpression(node.left);
+      if (['innerHTML', 'outerHTML', 'srcdoc'].includes(memberName(left, stringAliases))) {
+        throw new Error(`${path} 使用了未经共享 Markdown 边界持有的 DOM HTML sink`);
+      }
+      if (ts.isIdentifier(left) && declarations.has(left.text)) mutations.add(left.text);
+    }
+
+    if (ts.isCallExpression(node)) {
+      const callee = unwrapExpression(node.expression);
+      const calledMember = memberName(callee, stringAliases);
+      if (
+        ['insertAdjacentHTML', 'createContextualFragment', 'parseFromString'].includes(calledMember)
+        || isDocumentWrite(callee, stringAliases, documentAliases)
+        || (ts.isIdentifier(callee) && dangerousMethodAliases.has(callee.text))
+      ) {
+        throw new Error(`${path} 使用了未经共享 Markdown 边界持有的 DOM HTML sink`);
+      }
+    }
+
+    if (ts.isJsxAttribute(node) && node.name.text === 'dangerouslySetInnerHTML') {
+      const expression = node.initializer && ts.isJsxExpression(node.initializer)
+        ? unwrapExpression(node.initializer.expression)
+        : undefined;
+      const property = expression && ts.isObjectLiteralExpression(expression)
+        && expression.properties.length === 1
+        && ts.isPropertyAssignment(expression.properties[0])
+        && expression.properties[0].name.getText(sourceFile) === '__html'
+        ? expression.properties[0]
+        : undefined;
+      const value = property ? unwrapExpression(property.initializer) : undefined;
+      sinks.push(ts.isIdentifier(value) ? value.text : undefined);
+    }
+
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name)) {
+      if (declarations.has(node.name.text)) {
+        declarations.get(node.name.text).push(node.initializer);
+      }
+      if (node.initializer) {
+        const initializer = unwrapExpression(node.initializer);
+        const staticValue = staticString(initializer, stringAliases);
+        if (staticValue !== undefined) stringAliases.set(node.name.text, staticValue);
+        if (ts.isIdentifier(initializer) && documentAliases.has(initializer.text)) {
+          documentAliases.add(node.name.text);
+        }
+        if (ts.isIdentifier(initializer) && dangerousMethodAliases.has(initializer.text)) {
+          dangerousMethodAliases.add(node.name.text);
+        }
+        if (
+          (ts.isPropertyAccessExpression(initializer) || ts.isElementAccessExpression(initializer))
+          && (
+            ['insertAdjacentHTML', 'createContextualFragment', 'parseFromString']
+              .includes(memberName(initializer, stringAliases))
+            || isDocumentWrite(initializer, stringAliases, documentAliases)
+          )
+        ) {
+          dangerousMethodAliases.add(node.name.text);
+        }
+      }
+    }
+    if (
+      ts.isParameter(node)
+      && owner?.values.some((value) => bindingContainsName(node.name, value))
+    ) {
+      throw new Error(`${path} 的 Markdown sink 值不得由参数或解构别名注入`);
+    }
+
+    ts.forEachChild(node, visit);
+  }
+  visit(sourceFile);
+
+  if (sinks.length === 0 && !owner) return;
+  if (
+    !owner
+    || sinks.length !== owner.count
+    || sinks.some((value) => !value || !owner.values.includes(value))
+  ) {
+    throw new Error(`${path} 的 dangerouslySetInnerHTML 未登记到共享 Markdown 安全边界`);
+  }
+  if (!importsMarkdownBoundary) {
+    throw new Error(`${path} 的 Markdown sink 未导入 renderSanitizedMarkdown`);
+  }
+  for (const value of owner.values) {
+    const valueDeclarations = declarations.get(value);
+    if (
+      valueDeclarations.length === 0
+      || valueDeclarations.some((initializer) => !initializer || !isSanitizedInitializer(initializer))
+      || mutations.has(value)
+    ) {
+      throw new Error(`${path} 的 ${value} 并非全部由 renderSanitizedMarkdown 生成`);
+    }
+  }
 }
 
 const [html, themeScript, snippet, productionTemplate, stagingTemplate, containerConfig] = await Promise.all([
@@ -93,45 +287,71 @@ if (/add_header\s+(?:Content-Security-Policy|Strict-Transport-Security|Cross-Ori
   throw new Error('frontend/nginx.conf 不得重复定义由外层站点持有的安全头');
 }
 
-const sources = await sourceFiles('frontend/src');
-const dangerousDomApis = [
-  /\.innerHTML\s*=/,
-  /\.outerHTML\s*=/,
-  /\.insertAdjacentHTML\s*\(/,
-  /\bdocument\.write(?:ln)?\s*\(/,
-  /\.createContextualFragment\s*\(/,
+const sources = [
+  ...await sourceFiles('frontend/src'),
+  ...await sourceFiles('frontend/public'),
 ];
 for (const path of sources) {
   const source = await read(path);
-  for (const pattern of dangerousDomApis) {
-    if (pattern.test(source)) throw new Error(`${path} 使用了未经共享 Markdown 边界持有的 DOM HTML sink`);
-  }
+  assertMarkdownSinkOwnership(path, source, markdownSinkOwners.get(path));
+}
 
-  const sinkCount = [...source.matchAll(/dangerouslySetInnerHTML\s*=/g)].length;
-  if (sinkCount === 0) continue;
-  const sinks = [...source.matchAll(/dangerouslySetInnerHTML=\{\{\s*__html:\s*([A-Za-z_$][\w$]*)\s*\}\}/g)];
-  const owner = markdownSinkOwners.get(path);
-  if (!owner || sinks.length !== sinkCount || sinkCount !== owner.count || sinks.some((match) => !owner.values.includes(match[1]))) {
-    throw new Error(`${path} 的 dangerouslySetInnerHTML 未登记到共享 Markdown 安全边界`);
-  }
-  if (!source.includes("from '../../shared/markdown'") || !source.includes('renderSanitizedMarkdown(')) {
-    throw new Error(`${path} 的 Markdown sink 未调用 renderSanitizedMarkdown`);
-  }
-  for (const value of owner.values) {
-    const assignments = [...source.matchAll(new RegExp(`\\b(?:const|let|var)\\s+${value}\\s*=`, 'g'))].length;
-    const sanitizedAssignments = [...source.matchAll(new RegExp(
-      `\\b(?:const|let|var)\\s+${value}\\s*=\\s*(?:renderSanitizedMarkdown\\(|useMemo\\(\\s*\\(\\)\\s*=>\\s*renderSanitizedMarkdown\\()`,
-      'g',
-    ))].length;
-    if (assignments !== sanitizedAssignments) {
-      throw new Error(`${path} 的 ${value} 并非全部由 renderSanitizedMarkdown 生成`);
-    }
-  }
-}
-for (const [path, owner] of markdownSinkOwners) {
-  const source = await read(path);
-  const sinkCount = [...source.matchAll(/dangerouslySetInnerHTML\s*=/g)].length;
-  if (sinkCount !== owner.count) throw new Error(`${path} 的 Markdown sink 数量已漂移`);
-}
+const validFixture = `
+  import { renderSanitizedMarkdown } from '../../shared/markdown';
+  const safeHtml = renderSanitizedMarkdown(markdown);
+  export const View = () => (
+    <article dangerouslySetInnerHTML = {{ __html: safeHtml }} />
+  );
+`;
+const fixtureOwner = { count: 1, values: ['safeHtml'] };
+assert.doesNotThrow(() => assertMarkdownSinkOwnership('fixture.tsx', validFixture, fixtureOwner));
+assert.throws(
+  () => assertMarkdownSinkOwnership(
+    'fixture.tsx',
+    `${validFixture}\nsafeHtml = rawHtml;`,
+    fixtureOwner,
+  ),
+  /并非全部由 renderSanitizedMarkdown 生成/,
+);
+assert.throws(
+  () => assertMarkdownSinkOwnership(
+    'fixture.tsx',
+    validFixture.replace('__html: safeHtml', '__html: rawHtml'),
+    fixtureOwner,
+  ),
+  /dangerouslySetInnerHTML 未登记/,
+);
+assert.throws(
+  () => assertMarkdownSinkOwnership(
+    'fixture.tsx',
+    `const node = document.body;\nnode['innerHTML'] = rawHtml;`,
+    undefined,
+  ),
+  /DOM HTML sink/,
+);
+assert.throws(
+  () => assertMarkdownSinkOwnership(
+    'fixture.tsx',
+    `const sink = 'inner' + 'HTML';\nconst node = document.body;\nnode[sink] = rawHtml;`,
+    undefined,
+  ),
+  /DOM HTML sink/,
+);
+assert.throws(
+  () => assertMarkdownSinkOwnership(
+    'fixture.tsx',
+    `const method = 'insertAdjacentHTML';\ndocument.body[method]('beforeend', rawHtml);`,
+    undefined,
+  ),
+  /DOM HTML sink/,
+);
+assert.throws(
+  () => assertMarkdownSinkOwnership(
+    'fixture.tsx',
+    `const target = document;\nconst write = target.write;\nwrite(rawHtml);`,
+    undefined,
+  ),
+  /DOM HTML sink/,
+);
 
 console.log('Nginx 安全头、外置主题脚本与 DOM sink 所有权校验通过');

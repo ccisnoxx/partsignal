@@ -172,6 +172,10 @@ ARCHIVE=$(mktemp "${TMPDIR:-/tmp}/partsignal-full.XXXXXX")
 git archive --format=tar.gz --output="$ARCHIVE" "$DEPLOY_COMMIT"
 test -s "$ARCHIVE"
 tar -tzf "$ARCHIVE" | grep -qx '.env.example'
+if tar -tzf "$ARCHIVE" | grep -Eq '^(\.agents|\.codex|\.playwright-cli|\.trellis)/'; then
+  printf '%s\n' "发布包包含开发代理、Trellis 或浏览器临时文件" >&2
+  exit 1
+fi
 
 BAD_ENTRIES=$(
   tar -tzf "$ARCHIVE" |

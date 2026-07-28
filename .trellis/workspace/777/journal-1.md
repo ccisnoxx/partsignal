@@ -1166,3 +1166,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 35: 优化 Prompt 管理与 AI 草稿流程
+
+**Date**: 2026-07-29
+**Task**: 优化 Prompt 管理与 AI 草稿流程
+**Branch**: `main`
+
+### Summary
+
+统一 Prompt 管理导航与绑定摘要；保留历史任务不可变并补充阻断提示、新建任务和 AI 草稿弹窗衔接；完成单测、类型、Lint 与浏览器验收。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0b52cc0` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

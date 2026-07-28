@@ -1,6 +1,0 @@
-[      96ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-56DZC4J5.js?v=36b17f4a:20102
-[    3326ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5173/api/v1/content-versions/836ca5fa-9103-4cb4-83b8-b783d673bfa3/publication-package:0
-[    4349ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5173/api/v1/content-versions/836ca5fa-9103-4cb4-83b8-b783d673bfa3/publication-package:0
-[   20220ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5173/api/v1/content-versions/836ca5fa-9103-4cb4-83b8-b783d673bfa3/publication-package:0
-[   21224ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5173/api/v1/content-versions/836ca5fa-9103-4cb4-83b8-b783d673bfa3/publication-package:0
-[   36976ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-56DZC4J5.js?v=36b17f4a:20102

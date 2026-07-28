@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { queryClient } from '../../app/queryClient';
+import { ThemeProvider } from '../../app/ThemeProvider';
 import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
 import { ChangePasswordPage } from './ChangePasswordPage';
@@ -26,14 +27,16 @@ test('七位新密码留在表单校验，八位新密码提交服务端', async
   });
 
   render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={['/change-password']}>
-        <Routes>
-          <Route path="/change-password" element={<ChangePasswordPage />} />
-          <Route path="/" element={<h1>工作台</h1>} />
-        </Routes>
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={['/change-password']}>
+          <Routes>
+            <Route path="/change-password" element={<ChangePasswordPage />} />
+            <Route path="/" element={<h1>工作台</h1>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    </ThemeProvider>,
   );
 
   await userEvent.type(screen.getByLabelText('当前密码'), 'old-pass');

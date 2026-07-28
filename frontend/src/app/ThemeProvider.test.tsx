@@ -2,7 +2,8 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useThemeMode, ThemeProvider } from './ThemeProvider';
-import { createAntTheme, projectThemes, THEME_STORAGE_KEY } from './theme';
+import { createAntTheme } from './AntThemeProvider';
+import { projectThemes, THEME_STORAGE_KEY, visualConstants } from './theme';
 
 type MediaListener = (event: MediaQueryListEvent) => void;
 
@@ -115,8 +116,10 @@ test('浅深模式同步更新主题与共享视觉变量', async () => {
   expect(root.style.getPropertyValue('--ps-ambient-blue')).toBe(projectThemes.light.ambientBlue);
   expect(root.style.getPropertyValue('--ps-ambient-purple')).toBe(projectThemes.light.ambientPurple);
   expect(root.style.getPropertyValue('--ps-ambient-pink')).toBe(projectThemes.light.ambientPink);
-  expect(root.style.getPropertyValue('--ps-font-sans')).toBe(antTheme.token?.fontFamily);
-  expect(root.style.getPropertyValue('--ps-font-mono')).toBe(antTheme.token?.fontFamilyCode);
+  expect(root.style.getPropertyValue('--ps-font-sans')).toBe(visualConstants.fontSans);
+  expect(root.style.getPropertyValue('--ps-font-mono')).toBe(visualConstants.fontMono);
+  expect(antTheme.token?.fontFamily).toBe('var(--ps-font-sans)');
+  expect(antTheme.token?.fontFamilyCode).toBe('var(--ps-font-mono)');
   expect(root.style.getPropertyValue('--ps-radius-compact')).toBe('6px');
   expect(root.style.getPropertyValue('--ps-radius-sm')).toBe(`${antTheme.token?.borderRadius}px`);
   expect(root.style.getPropertyValue('--ps-radius-md')).toBe('12px');

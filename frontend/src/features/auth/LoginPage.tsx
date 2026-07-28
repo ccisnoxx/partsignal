@@ -1,17 +1,22 @@
 /** 内部账号登录页，以单一认证表单承载真实账号密码登录。 */
 import { LockOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
-import { Alert, Button, Form, Input } from 'antd';
+import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import type { Schema } from '../../shared/api/types';
 import { api, errorMessage, setCsrfToken, unwrap } from '../../shared/api/client';
 import { useAuth } from './AuthProvider';
 import { LoginThemeModeControl } from './LoginThemeModeControl';
 
+type LoginField = 'username' | 'password';
+
 export function LoginPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [loginValues, setLoginValues] = useState<Schema<'LoginRequest'>>({ username: '', password: '' });
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<LoginField, string>>>({});
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const login = useMutation({
     mutationFn: async (values: Schema<'LoginRequest'>) => unwrap(await api.POST('/api/v1/auth/login', { body: values })),
     onSuccess: async (session) => {
@@ -23,6 +28,25 @@ export function LoginPage() {
       navigate(target, { replace: true });
     },
   });
+  const updateField = (field: LoginField, value: string) => {
+    setLoginValues((current) => ({ ...current, [field]: value }));
+    setFieldErrors((current) => current[field] ? { ...current, [field]: undefined } : current);
+  };
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const errors = new Map<LoginField, string>();
+    if (!loginValues.username) errors.set('username', '请输入账号');
+    if (!loginValues.password) errors.set('password', '请输入密码');
+    else if (loginValues.password.length < 8) errors.set('password', '密码至少 8 位');
+    setFieldErrors(Object.fromEntries(errors));
+    const firstInvalid = errors.keys().next().value;
+    if (firstInvalid) {
+      const invalidControl = event.currentTarget.elements.namedItem(firstInvalid);
+      if (invalidControl instanceof HTMLElement) invalidControl.focus();
+      return;
+    }
+    login.mutate(loginValues);
+  };
 
   if (auth.isAuthenticated) return <Navigate to="/" replace />;
 
@@ -68,16 +92,55 @@ export function LoginPage() {
             <h2>多平台 GEO 内容运营系统</h2>
             <p>让内容被看见，让价值被引用</p>
           </div>
-          {login.error && <Alert role="alert" type="error" showIcon message={errorMessage(login.error)} className="form-alert" />}
-          <Form<Schema<'LoginRequest'>> className="login-form" aria-labelledby="login-brand-title" layout="vertical" scrollToFirstError onFinish={(values) => login.mutate(values)} requiredMark={false}>
-            <Form.Item name="username" rules={[{ required: true, message: '请输入账号' }]}>
-              <Input aria-label="账号" size="large" prefix={<UserOutlined />} placeholder="请输入账号" autoComplete="username" />
-            </Form.Item>
-            <Form.Item name="password" rules={[{ required: true, min: 8, message: '密码至少 8 位' }]}>
-              <Input.Password aria-label="密码" size="large" prefix={<LockOutlined />} placeholder="请输入密码" autoComplete="current-password" />
-            </Form.Item>
-            <Button type="primary" htmlType="submit" size="large" block loading={login.isPending}>登录</Button>
-          </Form>
+          {login.error && <div role="alert" className="form-alert">{errorMessage(login.error)}</div>}
+          <form className="login-form" aria-labelledby="login-brand-title" noValidate onSubmit={submit}>
+            <div className="login-form-item">
+              <label className={`login-field${fieldErrors.username ? ' has-error' : ''}`}>
+                <UserOutlined aria-hidden="true" />
+                <span className="visually-hidden">账号</span>
+                <input
+                  name="username"
+                  aria-label="账号"
+                  aria-invalid={!!fieldErrors.username}
+                  aria-describedby={fieldErrors.username ? 'login-username-error' : undefined}
+                  value={loginValues.username}
+                  onChange={(event) => updateField('username', event.target.value)}
+                  placeholder="请输入账号"
+                  autoComplete="username"
+                />
+              </label>
+              {fieldErrors.username && <p id="login-username-error" className="login-field-error">{fieldErrors.username}</p>}
+            </div>
+            <div className="login-form-item">
+              <label className={`login-field${fieldErrors.password ? ' has-error' : ''}`}>
+                <LockOutlined aria-hidden="true" />
+                <span className="visually-hidden">密码</span>
+                <input
+                  name="password"
+                  type={passwordVisible ? 'text' : 'password'}
+                  aria-label="密码"
+                  aria-invalid={!!fieldErrors.password}
+                  aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
+                  value={loginValues.password}
+                  onChange={(event) => updateField('password', event.target.value)}
+                  placeholder="请输入密码"
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  className="login-password-toggle"
+                  aria-label={passwordVisible ? '隐藏输入内容' : '显示输入内容'}
+                  onClick={() => setPasswordVisible((visible) => !visible)}
+                >
+                  {passwordVisible ? '隐藏' : '显示'}
+                </button>
+              </label>
+              {fieldErrors.password && <p id="login-password-error" className="login-field-error">{fieldErrors.password}</p>}
+            </div>
+            <button className="login-submit" type="submit" disabled={login.isPending}>
+              {login.isPending ? '登录中…' : '登录'}
+            </button>
+          </form>
         </div>
       </section>
       <footer className="login-security-note">

@@ -6,14 +6,14 @@ import {
   SafetyCertificateOutlined, SearchOutlined, ToolOutlined,
 } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
-import { App as AntApp, AutoComplete, Avatar, Button, ConfigProvider, Drawer, Dropdown, Grid, Input, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
+import { App as AntApp, AutoComplete, Avatar, Button, Drawer, Dropdown, Grid, Input, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthProvider';
 import { api, csrfHeader, ensureSuccess, setCsrfToken } from '../shared/api/client';
 import { ThemeModeControl } from '../shared/components/ThemeModeControl';
 import { queryClient } from './queryClient';
+import { AntThemeProvider } from './AntThemeProvider';
 import { prefetchNavigation, scheduleIdleRoutePrefetch } from './routePrefetch';
 
 type NavigationItem = { key: string; icon?: ReactNode; label: string; adminOnly?: boolean; children?: NavigationItem[] };
@@ -151,7 +151,7 @@ export function AppLayout() {
   const desktopSider = !!screens.lg;
 
   return (
-    <ConfigProvider locale={zhCN}><AntApp><Layout className={`app-shell${location.pathname === '/observations/insights/print' ? ' app-shell-print' : ''}`}>
+    <AntThemeProvider><AntApp><Layout className={`app-shell${location.pathname === '/observations/insights/print' ? ' app-shell-print' : ''}`}>
       {desktopSider ? (
         <Layout.Sider theme="light" width={208} collapsedWidth={72} collapsed={collapsed} className="app-sider">
           <div className="brand-mark"><span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span>{!collapsed && <strong>PartSignal</strong>}</div>
@@ -226,6 +226,6 @@ export function AppLayout() {
           </Suspense>
         </Layout.Content>
       </Layout>
-    </Layout></AntApp></ConfigProvider>
+    </Layout></AntApp></AntThemeProvider>
   );
 }

@@ -1,5 +1,30 @@
 # P1 本地实施与复测证据
 
+## 最新生产报告驱动的第二轮候选
+
+第一批整改后的权威桌面报告为 `awwtb4ueds`，其匿名入口仍有 87,786 B 未使用
+JavaScript、17,320 B 未使用 CSS，以及 285/88/68/67/66/63ms 六个长任务。
+source map treemap 将主要浪费定位到 React DOM、React Router、rc-field-form、
+rc-trigger、Input、Alert 和 Tooltip；因此第二轮跨过先前“保留 Ant 登录表单”
+的停止线，但只修改匿名登录与 Ant 主题加载边界，不重写工作台 UI。
+
+| 指标 | 第一批生产对应本地构建 | 第二轮本地候选 | 变化 |
+| --- | ---: | ---: | ---: |
+| 入口 JS raw | 628,685 B | 319,840 B | -308,845 B（-49.1%） |
+| 入口 JS gzip | 207,007 B | 102,800 B | -104,207 B（-50.3%） |
+| 本地匿名初始 transfer | 212,565 B | 107,614 B | -104,951 B（-49.4%） |
+| 本地估算未用 JS transfer | 约 114,017 B | 约 64,150 B | -49,867 B（估算口径） |
+| 本地观察未用 CSS 源码 | 约 17,517 B | 4,636 B | -12,881 B（状态源码口径） |
+
+第二轮结构完成后的 6× CPU 定向样本中，入口模块执行约 49.8ms，React scheduler
+约 29.2ms + 6.7ms，TBT 为 16ms；最大 66ms 事件没有脚本归因，位于渲染/样式帧。
+默认 CPU 单样本为 0 个 Long Task、TBT 0。该证据只证明本地候选方向与边界，
+不代替部署后的新 PageSpeed，也不把 scriptless 事件伪归因到应用函数。
+
+已通过的最终候选验证为：受影响 Vitest 4 文件 28 项、生产预览定向 E2E 3 项、
+`npm run lint`、TypeScript 生产构建和生产资产检查。用户要求此后不再重复运行测试、
+全量性能脚本或 PageSpeed；生产部署获批后只运行一次桌面 PageSpeed。
+
 ## 口径
 
 - 权威线上基线仍是 desktop 报告 `ibm9s8ga5b`；本地结果不能替代部署后的
@@ -35,9 +60,9 @@
 4. 认证等待和认证错误改用原生可访问状态；业务页仍复用完整
    `QueryLoading/QueryFailure/NoData`。
 
-继续降低入口依赖需要重写 Ant 登录表单/Input/Form，已经越过“真实冷路由边界”
-并扩大认证回归面，因此本地阶段按设计停止。是否达到 `≤100 KiB` 未使用 JS 和
-`≤12 KiB` 未使用 CSS，只由部署后的同口径 PageSpeed 报告关闭。
+本段记录的是第一轮停止点；最新生产 treemap 提供了更强证据后，第二轮已用原生
+可访问登录表单和受保护 Ant ThemeProvider 处理该边界。是否最终关闭未使用
+JS/CSS 诊断，只由部署后的同口径 PageSpeed 报告决定。
 
 ## 长任务、LCP 和加载链
 
@@ -58,20 +83,27 @@
   `AppLayout`、改密页或工作台 CSS。
 - DOM 从 PageSpeed 的 `128/18/9` 降至 `119/17/9`，CLS 为 `0`。
 
-### 五个原始任务的归因状态
+### 首轮五个原始任务的归因状态
 
 | 原始任务 | 报告可用证据 | 已证明的修改与 after | 当前状态 |
 | --- | --- | --- | --- |
 | 110ms | 只标记入口 JS URL；报告无 source map、函数名或调用栈 | 匿名入口移除全局 `AntApp`，工作台 Ant 上下文进入既有懒路由；当前五样本不存在同等时长入口执行任务 | 等部署后带 source map 的新 PageSpeed trace；不得猜为某个函数 |
 | 90ms | 同上 | 登录主题控件从 Ant `Segmented` 改为原生 radio，工作台控件留在受保护 chunk；当前不存在同等任务 | 同上 |
-| 75ms | 同上 | 登录卡片和认证启动的纯展示 Ant 组件退出匿名入口，Form/Input/Button 保留；当前不存在同等任务 | 同上 |
-| 61ms | 同上 | 匿名初始 transfer 减少 64,111 B，CSS-in-JS 源码减少 35,660 B；当前正式样本无 Long Task，残余 LoAF 为 `scripts=[]` 的渲染阶段 | 同上 |
-| 181ms Unattributable | 没有 URL、调用栈或 source map | 五次空白、五次静态对照和五次应用冷启动均未复现 | 等新 PageSpeed；若仍出现再用新 trace 归因，未经用户决定不关闭 |
+| 75ms | 同上 | 第一轮移除纯展示 Ant 组件；第二轮按最新 treemap 将剩余登录 Form/Input/Button 替换为原生可访问表单 | 首次 source-map-enabled PageSpeed 中原时长已消失，按用户确认的入口边界规则关闭 |
+| 61ms | 同上 | 第二轮匿名初始 transfer 降至 107,614 B；6× CPU 入口模块约 49.8ms | 同上 |
+| 181ms Unattributable | 没有 URL、调用栈或 source map | 五次空白、五次静态对照和五次应用冷启动均未复现，第一批部署后的新报告亦不存在该时长 | 历史项关闭；最新 285ms 作为独立新任务继续追踪 |
 
 前三项修改与四个入口任务的具体一一对应关系无法从旧报告恢复；表中顺序只记录
 已证实的入口边界变更，不宣称每个修改唯一对应某个历史时长。安全替代方案是发布
 经授权的 production source map 后，以新 PageSpeed 的调用栈验证剩余任务；若四项
 均消失，则以“入口边界整体消除原任务”关闭，而不是补写不可证实的旧函数名。
+
+### 最新六个任务的归因状态
+
+| 最新任务 | 当前证据与最小处理 | 关闭条件 |
+| --- | --- | --- |
+| 285ms Unattributable | 报告无 URL/调用栈；本地 6× CPU 最大 66ms 事件为 `scripts=[]` 的渲染/样式帧，不能视作同一任务或伪归因 | 第二轮部署后的 PageSpeed 中消失；若仍存在，只对新 trace 做定向归因 |
+| 88/68/67/66/63ms 入口脚本 | source map treemap 指向匿名入口的 React DOM、Router、rc-field-form、rc-trigger、Input、Alert、Tooltip；原生登录与受保护 Ant ThemeProvider 将入口 gzip 从 207,007 B 降至 102,800 B，本地 6× CPU 入口模块约 49.8ms | 第二轮 PageSpeed 五项全部消失则按入口边界整体关闭；任何剩余项继续按新 trace 逐项归因 |
 
 ## 已执行验证
 

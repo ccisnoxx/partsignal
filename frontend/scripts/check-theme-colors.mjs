@@ -45,7 +45,7 @@ function isShadowAllowed(name, line, value) {
     /\binset\b/.test(value)
     && /\.(?:geo-insight-filter-card\b|geo-insight-filter-grid\b|review-editor-frame\b|form-section-nav\b|diff-(?:add|delete)\b|ai-channel-table\b.*ai-channel-row-selected\b|prompt-platform-list\b.*is-selected\b|prompt-editor-surface\b.*focus-visible\b)/.test(line)
   ) return true;
-  return /\.login-card\b|\.login-form .*?(?:ant-input-affix-wrapper(?:-focused|:focus-within)?|ant-btn-primary)\b|\.review-queue-platform::before/.test(line);
+  return /\.login-card\b|\.login-form .*?(?:ant-input-affix-wrapper(?:-focused|:focus-within)?|ant-btn-primary|login-(?:field|submit))\b|\.review-queue-platform::before/.test(line);
 }
 
 function inspectLine(name, line, lineNumber, insideThemeValues) {

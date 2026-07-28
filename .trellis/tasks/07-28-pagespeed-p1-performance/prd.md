@@ -2,18 +2,23 @@
 
 ## Goal
 
-以当前桌面报告的 134.4 KiB 未使用 JavaScript、17 KiB 未使用 CSS、五个
-长任务、网络依赖链、LCP 渲染延迟、入口 CSS 和 DOM 证据为基线，在不重写 UI、
-不改变认证和业务行为的前提下完成可度量优化和逐项关闭。
+以首轮基线 `ibm9s8ga5b` 和第一批生产整改后的最新桌面报告 `awwtb4ueds`
+为连续证据，在不重写 UI、不改变认证和业务行为的前提下，对未使用
+JavaScript/CSS、六个当前长任务、网络依赖链、LCP 渲染延迟、入口 CSS 和 DOM
+完成可度量优化和逐项关闭。
 
 ## Confirmed Evidence
 
-- 入口脚本 274,409 B，其中浪费 137,660 B。
-- Ant CSS-in-JS 17,360 B，其中浪费 17,320 B。
-- 长任务：181ms Unattributable；入口脚本 110ms、90ms、75ms、61ms。
-- 网络链：HTML → 入口 JS → `/api/v1/auth/me`，另有一个约 3.4 KiB CSS。
-- LCP 元素为登录安全说明段落，element render delay 约 1.33s。
-- DOM 128 节点、最大深度 18、最大子节点数 9。
+- 首轮 `ibm9s8ga5b`：入口脚本浪费 137,660 B；Ant CSS-in-JS 浪费
+  17,320 B；长任务为 181ms Unattributable 和入口 110/90/75/61ms。
+- 最新 `awwtb4ueds`：入口传输 206,737 B，其中浪费 87,786 B；Ant
+  CSS-in-JS 仍为 17,360 B，其中浪费 17,320 B。
+- 最新六个长任务为 285ms Unattributable，以及入口脚本
+  88/68/67/66/63ms；`bootup-time` 为 505ms，其中脚本执行 391ms、解析
+  62ms。
+- 最新网络链仍为 HTML → 入口 JS → `/api/v1/auth/me`；LCP 元素仍是登录安全
+  说明，render delay 约 1.62s。
+- 最新 DOM 为 120 节点、最大深度 17、最大子节点数 9。
 - `AppLayout` 和业务页已有 `React.lazy`；工作台 CSS 已按路由分离。
 - 全局 `AntApp` 只服务受保护工作台中的 `App.useApp()`；主题控件同步包含登录
   `Segmented` 与工作台 Dropdown/Tooltip 分支。
@@ -29,16 +34,19 @@
 
 ### R2. 初始 JS/CSS
 
-- 将仅用于受保护路由的 `AntApp` 下移到现有懒加载 `AppLayout`。
+- 将仅用于受保护路由的 `AntApp` 和 Ant `ConfigProvider` 下移到现有懒加载
+  `AppLayout`；独立改密页按需加载同一主题 Provider。
 - 将登录展开主题控件与工作台紧凑控件拆到真实路由边界，避免互相加载依赖。
+- 最新 treemap 已证明匿名入口的 Ant Form/Input/Alert/Trigger 是剩余主要冷依赖；
+  登录页使用原生可访问表单保留同一认证契约，业务表单继续使用 Ant。
 - 继续使用 Vite 和现有 route loaders；不增加 manual chunks、通用分包层或
   bundle analyzer 依赖。
 - 首轮后只处理单个未执行贡献至少 5 KiB、且有现有条件/路由边界的模块。
 
 ### R3. 长任务
 
-- 四个入口脚本长任务必须映射到模块、函数、React commit 或样式注入。
-- 181ms 无法归因任务必须用空白页/静态页对照和至少五次冷启动调查。
+- 最新五个入口脚本长任务必须映射到模块、函数、React commit 或样式注入。
+- 最新 285ms 无法归因任务必须用空白页/静态页对照和冷启动调查。
 - 不得把无法归因当作浏览器噪声直接关闭。
 
 ### R4. 加载链和布局
@@ -56,11 +64,12 @@ total weight、bootup、main-thread 和 unsized image 均须复测并记录。
 
 ## Acceptance Criteria
 
-- [ ] AC1：未使用 JS≤100 KiB且下降≥25%；未使用 CSS≤12 KiB且下降≥25%。
+- [ ] AC1：未使用 JS/CSS 诊断在新 PageSpeed 中通过；数值同时满足未使用
+  JS≤100 KiB、未使用 CSS≤12 KiB，且均较首轮下降≥25%。
 - [ ] AC2：初始总传输≤275 KiB，登录和受保护路由资源边界正确。
 - [ ] AC3：页面自有任务最大≤50ms；TBT 中位数≤50ms、单次≤100ms；
   max potential FID≤100ms。
-- [ ] AC4：五个原始任务均有 before/after 归因；剩余无法归因任务未经用户决定
+- [ ] AC4：首轮五项和最新六项任务均有 before/after 归因；剩余无法归因任务未经用户决定
   不得关闭。
 - [ ] AC5：FCP/LCP≤0.8s、CLS=0、Speed Index≤1.2s、Performance≥99。
 - [ ] AC6：入口 CSS≤4 KiB transfer、无 FOUC；DOM 三项不高于当前值。

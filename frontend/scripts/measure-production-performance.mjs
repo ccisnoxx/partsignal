@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 import { chromium } from '@playwright/test';
 
 const sampleCount = Number.parseInt(process.env.PARTSIGNAL_PERF_SAMPLES ?? '5', 10);
+const cpuSlowdownMultiplier = Number.parseFloat(process.env.PARTSIGNAL_PERF_CPU_SLOWDOWN ?? '1');
 const baseUrl = process.env.PARTSIGNAL_PERF_BASE_URL ?? 'http://127.0.0.1:4173';
 const shouldStartPreview = !process.env.PARTSIGNAL_PERF_BASE_URL;
 const clsThreshold = 0.1;
@@ -12,6 +13,10 @@ const entryCssTransferThreshold = 4 * 1024;
 const domThreshold = { nodeCount: 128, maxDepth: 18, maxChildren: 9 };
 const productId = '20000000-0000-4000-8000-000000000001';
 const now = '2026-07-10T08:00:00+08:00';
+
+if (!Number.isFinite(cpuSlowdownMultiplier) || cpuSlowdownMultiplier < 1) {
+  throw new Error('PARTSIGNAL_PERF_CPU_SLOWDOWN 必须是大于等于 1 的数字');
+}
 
 const user = {
   id: '10000000-0000-4000-8000-000000000001',
@@ -93,6 +98,7 @@ async function installApiFixture(page, apiDurations, anonymous = false, anonymou
 async function emulateNetwork(page) {
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Network.enable');
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: cpuSlowdownMultiplier });
   await cdp.send('Network.emulateNetworkConditions', {
     offline: false,
     latency: 100,
@@ -561,7 +567,13 @@ try {
   }
   const anonymousBoot = summarizeAnonymous(anonymousBootSamples, anonymousCoverage);
   const report = {
-    conditions: { samples: sampleCount, latencyMs: 100, downloadBps: 200_000, viewport: '1440x1000' },
+    conditions: {
+      samples: sampleCount,
+      cpuSlowdownMultiplier,
+      latencyMs: 100,
+      downloadBps: 200_000,
+      viewport: '1440x1000',
+    },
     anonymousBoot,
     anonymousCoverage,
     controls: {

@@ -1,9 +1,7 @@
-/** 项目级主题 Provider，统一拥有主题偏好、系统解析与 Ant Design 配置。 */
-import { ConfigProvider } from 'antd';
+/** 项目级主题 Provider，拥有全路由主题状态；Ant 配置由受保护路由按需加载。 */
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   applyProjectTheme,
-  createAntTheme,
   projectThemes,
   THEME_MODES,
   THEME_STORAGE_KEY,
@@ -98,13 +96,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     else commit();
   }, [reducedMotion]);
   const contextValue = useMemo(() => ({ mode, resolvedTheme, reducedMotion, setMode }), [mode, resolvedTheme, reducedMotion, setMode]);
-  const antTheme = useMemo(() => createAntTheme(resolvedTheme, reducedMotion), [resolvedTheme, reducedMotion]);
 
-  return (
-    <ThemeContext.Provider value={contextValue}>
-      <ConfigProvider theme={antTheme}>{children}</ConfigProvider>
-    </ThemeContext.Provider>
-  );
+  return <ThemeContext.Provider value={contextValue}>{children}</ThemeContext.Provider>;
 }
 
 export function useThemeMode() {

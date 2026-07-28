@@ -5,6 +5,7 @@
 }
 
 * { box-sizing: border-box; }
+.visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; border: 0 !important; }
 html { min-width: 320px; background: var(--ps-bg-canvas); }
 body { margin: 0; min-width: 320px; min-height: 100vh; color: var(--ps-text-primary); background: var(--ps-bg-canvas); }
 ::selection { color: var(--ps-text-primary); background: var(--ps-selection-bg); }
@@ -54,14 +55,21 @@ a:hover { color: var(--ps-action-primary-hover); }
 .login-product-copy { margin-bottom: 32px; text-align: center; }
 .login-product-copy h2 { margin: 0 0 8px !important; color: var(--ps-text-primary) !important; font-size: 19px !important; font-weight: 600 !important; line-height: 1.35 !important; letter-spacing: .02em; }
 .login-product-copy p { margin: 0 !important; color: var(--ps-text-secondary); font-size: 14px; }
-.login-form .ant-form-item { margin-bottom: 18px; }
-.login-form .ant-input-affix-wrapper { min-height: 54px; padding-inline: 15px; border-color: color-mix(in srgb, var(--ps-border-default) 72%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--ps-bg-surface) 72%, transparent); box-shadow: inset 0 1px color-mix(in srgb, var(--ps-text-inverse) 26%, transparent); }
-.login-form .ant-input-affix-wrapper-focused, .login-form .ant-input-affix-wrapper:focus-within { border-color: var(--ps-action-primary); box-shadow: 0 0 0 3px var(--ps-focus-ring), inset 0 1px color-mix(in srgb, var(--ps-text-inverse) 26%, transparent); }
-.login-form .ant-input-prefix { margin-inline-end: 11px; color: var(--ps-text-tertiary); font-size: 17px; }
-.login-form .ant-input { font-size: 15px; }
-.login-form .ant-input::placeholder { color: var(--ps-text-tertiary); }
-.login-form .ant-btn-primary { min-height: 52px; margin-top: 4px; border: 0; border-radius: 12px; box-shadow: 0 10px 24px color-mix(in srgb, var(--ps-action-primary) 24%, transparent); font-size: 16px; font-weight: 600; }
-.login-card .form-alert { border-color: color-mix(in srgb, var(--ps-danger) 42%, transparent); background: var(--ps-danger-soft); }
+.login-form-item { margin-bottom: 18px; }
+.login-form .login-field { display: flex; min-height: 54px; align-items: center; padding-inline: 15px 8px; border: 1px solid color-mix(in srgb, var(--ps-border-default) 72%, transparent); border-radius: 12px; background: color-mix(in srgb, var(--ps-bg-surface) 72%, transparent); box-shadow: inset 0 1px color-mix(in srgb, var(--ps-text-inverse) 26%, transparent); }
+.login-form .login-field:focus-within { border-color: var(--ps-action-primary); box-shadow: 0 0 0 3px var(--ps-focus-ring), inset 0 1px color-mix(in srgb, var(--ps-text-inverse) 26%, transparent); }
+.login-field.has-error { border-color: var(--ps-danger); }
+.login-field > .anticon { flex: 0 0 auto; margin-inline-end: 11px; color: var(--ps-text-tertiary); font-size: 17px; }
+.login-field > input { flex: 1 1 auto; min-width: 0; border: 0; outline: 0; color: var(--ps-text-primary); background: transparent; font: 400 15px/1.5 var(--ps-font-sans); }
+.login-field > input::placeholder { color: var(--ps-text-tertiary); }
+.login-password-toggle { min-width: 44px; min-height: 44px; padding: 0 8px; border: 0; border-radius: var(--ps-radius-sm); color: var(--ps-text-secondary); background: transparent; font: 500 12px var(--ps-font-sans); cursor: pointer; }
+.login-password-toggle:hover { color: var(--ps-action-primary-hover); background: var(--ps-action-primary-soft); }
+.login-field-error { margin: 6px 4px 0; color: var(--ps-danger-text); font-size: 12px; line-height: 1.4; }
+.login-form .login-submit { width: 100%; min-height: 52px; margin-top: 4px; border: 0; border-radius: 12px; color: var(--ps-action-on-primary); background: linear-gradient(112deg, var(--ps-action-primary), var(--ps-action-primary-end)); box-shadow: 0 10px 24px color-mix(in srgb, var(--ps-action-primary) 24%, transparent); font: 600 16px var(--ps-font-sans); cursor: pointer; }
+.login-submit:hover { background: linear-gradient(112deg, var(--ps-action-primary-hover), var(--ps-action-primary-end)); }
+.login-submit:active { background: linear-gradient(112deg, var(--ps-action-primary-active), var(--ps-action-primary-end)); }
+.login-submit:disabled { cursor: wait; opacity: .66; }
+.login-card .form-alert { padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--ps-danger) 42%, transparent); border-radius: var(--ps-radius-sm); color: var(--ps-danger-text); background: var(--ps-danger-soft); font-size: 13px; line-height: 1.5; }
 .login-security-note { position: relative; z-index: 2; width: min(100%, 570px); padding: 15px 24px 14px; border: 1px solid var(--ps-glass-border); border-radius: 14px; color: var(--ps-text-secondary); background: var(--ps-glass-surface); box-shadow: var(--ps-shadow-sm); text-align: center; -webkit-backdrop-filter: var(--ps-glass-backdrop); backdrop-filter: var(--ps-glass-backdrop); }
 .login-security-note div { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--ps-text-primary); font-size: 14px; }
 .login-security-note .anticon { color: var(--ps-action-primary); font-size: 17px; }
@@ -97,7 +105,7 @@ a:hover { color: var(--ps-action-primary-hover); }
   .login-logo { width: 48px; height: 42px; }
   .login-brand h1 { font-size: 30px !important; }
   .login-product-copy { margin-bottom: 26px; }
-  .login-form .ant-input-affix-wrapper { min-height: 52px; }
+  .login-field { min-height: 52px; }
   .login-security-note { width: min(100%, 430px); padding: 13px 14px 12px; }
   .login-security-note div { font-size: 12px; }
   .login-security-note p { font-size: 11px; }
@@ -110,6 +118,6 @@ a:hover { color: var(--ps-action-primary-hover); }
 
 @media (prefers-reduced-motion: reduce) {
   #root, #root *, #root *::before, #root *::after { scroll-behavior: auto !important; animation: none !important; transition-duration: .01ms !important; }
-  .login-page .ant-btn, .login-page .login-card { transition-duration: .01ms !important; }
+  .login-page .login-submit, .login-page .login-card { transition-duration: .01ms !important; }
   ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
 }

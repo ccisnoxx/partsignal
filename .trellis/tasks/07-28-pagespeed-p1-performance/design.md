@@ -19,11 +19,13 @@ Playwright、fixture 和输出。每个全新 BrowserContext 在导航前注册�
 
 ## 已确定的加载边界
 
-### AntApp
+### Ant 运行时
 
-`ThemeProvider` 仍持有主题 context 和 `ConfigProvider`。`AntApp` 移到
-已懒加载的 `AppLayout`，包住使用 `App.useApp()` 的所有工作台子路由。
-现有搜索未发现登录、改密或 AppLayout 外调用 `App.useApp()`。
+`ThemeProvider` 只持有所有路由共用的主题状态和 CSS Token，不再静态导入 Ant。
+`AntThemeProvider` 持有 `ConfigProvider`、locale 和 Ant ThemeConfig，并在
+已懒加载的 `AppLayout` 与独立改密页按需加载。`AntApp` 留在 `AppLayout`，
+包住使用 `App.useApp()` 的所有工作台子路由。现有搜索未发现登录、改密或
+AppLayout 外调用 `App.useApp()`。
 
 ### 主题控件
 
@@ -33,12 +35,15 @@ Playwright、fixture 和输出。每个全新 BrowserContext 在导航前注册�
 - 主题 context、模式常量和行为保持一个事实源；不创建通用控件工厂。
 - 展开控件不得从 Tab 顺序移除。
 
-登录卡片只承担静态语义和玻璃外观，使用原生 `section/h1/h2/p`；Ant Form、
-Input、Alert 和提交 Button 保持不变。认证启动和错误态使用原生可访问语义，
-完整的查询状态组件仍供业务路由使用。
+登录卡片和登录表单使用原生 `section/h1/h2/p/form/input/button`。字段仍绑定
+`LoginRequest`，提交继续调用同一 `/api/v1/auth/login`，保留最短八位校验、
+首个无效字段聚焦、密码显隐、pending、服务端错误、会话刷新和原目标跳转。
+字段错误通过 `aria-invalid` / `aria-describedby` 关联；密码显隐按钮名称不得与
+“密码”字段名称重叠。业务表单、改密页和工作台仍使用 Ant。
 
-这些调整同时减少匿名入口 JS 和初始 CSS-in-JS 注入。第一轮后再根据 coverage
-处理单个≥5 KiB的真实冷模块；没有现有路由/条件边界时不制造新抽象。
+该边界由最新 PageSpeed treemap 中 React DOM、React Router、rc-field-form、
+rc-trigger、Input、Alert 和 Tooltip 的浪费证据触发，不是凭单次 coverage 猜测。
+没有现有路由/条件边界时不制造新抽象。
 
 ## CSS 证据
 
@@ -48,7 +53,7 @@ Modal、Drawer、Dropdown 和表单校验。只有在这些状态全部未用且
 
 ## 长任务调查
 
-四个入口任务按 trace 时间点匹配：
+最新五个入口任务按 trace 时间点匹配：
 
 - JS parse/evaluate；
 - React render/commit；
@@ -56,7 +61,7 @@ Modal、Drawer、Dropdown 和表单校验。只有在这些状态全部未用且
 - layout/style recalc；
 - 主题和 Router 初始化。
 
-181ms 任务同时采集空白页和静态最小页；若五次实验均在对照页出现且与应用栈无关，
+285ms 任务同时采集空白页和静态最小页；若实验均在对照页出现且与应用栈无关，
 只形成证据，不由实施者自行判定关闭。
 
 ## 加载链与页面结构

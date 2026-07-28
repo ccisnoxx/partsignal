@@ -9,7 +9,7 @@
 权威顺序如下：
 
 1. `.trellis/spec/frontend/visual-system.md` 定义设计意图、组件边界和验收规则。
-2. `frontend/src/app/theme.ts` 是运行时语义颜色、玻璃材质、状态色、图表色、阴影、字体栈、圆角、动效及 Ant Design `ThemeConfig` 的唯一值来源。
+2. `frontend/src/app/theme.ts` 是运行时语义颜色、玻璃材质、状态色、图表色、阴影、字体栈、圆角和动效的唯一值来源；`frontend/src/app/AntThemeProvider.tsx` 只负责将这些值按需映射为 Ant Design `ThemeConfig`。
 3. `frontend/src/styles/global.css` 实现所有路由共用的基础、认证和登录样式；`frontend/src/styles/workspace.css` 实现已认证工作台的壳层、字号与业务布局尺度。两者只消费 `--ps-*` Token，不重复持有运行时视觉值。
 4. Ant Design、`@ant-design/icons` 和现有共享组件提供业务页面必须复用的实现骨架。
 5. 业务页面只能消费上述契约；局部样式不得成为第二套配色、字体、Token、主题、状态或卡片体系。
@@ -122,6 +122,7 @@ PartSignal 必须呈现“macOS 原生应用秩序感 × 轻量磨砂玻璃 × �
 
 - `main.tsx` 只能静态导入 `global.css`。该文件持有 reset、链接与焦点、认证启动、登录、独立改密页及真正跨路由的按钮和 reduced-motion 规则。
 - `AppLayout.tsx` 导入 `workspace.css`。应用壳层、业务页面、工作台响应式与打印规则必须留在此文件，由现有 `React.lazy` 边界在认证成功后加载。
+- 全路由 `ThemeProvider` 只能持有主题状态并注入 `--ps-*` Token，不得静态导入 Ant。`AntThemeProvider` 只在 `AppLayout` 和独立 `/change-password` 路由加载；匿名登录不得加载 `ConfigProvider`、locale 或 Ant CSS-in-JS。
 - 受保护但不经过 `AppLayout` 的路由目前只有 `/change-password`；它依赖的 `.centered`、`.password-card`、`.eyebrow`、主按钮和移动端触控尺寸必须留在 `global.css`。不得为修复该页而让匿名入口加载整个 `workspace.css`。
 - 两个 CSS 文件都由 `scripts/check-theme-colors.mjs` 执行同一套 Token、圆角、阴影和字体守卫。新增规则先按真实消费者选择文件，不得在两边复制同一声明。
 - 分包变更至少断言：匿名 `/` → `/login` 不请求 `AppLayout`、改密页或工作台 CSS；直接 `/change-password` 不请求工作台 CSS；认证工作台会请求 `AppLayout-*.js` 与 `AppLayout-*.css`。
@@ -194,7 +195,8 @@ PartSignal 必须呈现“macOS 原生应用秩序感 × 轻量磨砂玻璃 × �
 
 ### 5.3 表单与 Markdown 编辑器
 
-- 表单必须使用 Ant Design `Form`、现有控件和服务端校验契约；输入高度、圆角、边框和焦点由主题及所属 CSS 加载边界控制。
+- 业务表单和改密页必须使用 Ant Design `Form`、现有控件和服务端校验契约；输入高度、圆角、边框和焦点由主题及所属 CSS 加载边界控制。
+- 匿名登录是唯一性能例外：使用 `global.css` 中的原生 `form/input/button`，但必须继续绑定 `LoginRequest` 与现有登录 API，保留最短八位校验、首个错误字段聚焦、`aria-invalid` / `aria-describedby`、密码显隐、pending、服务端错误和成功跳转。不得将该例外扩散到业务表单。
 - 必填、说明、错误和保存反馈必须与字段建立语义关联。错误必须显示在字段下方或错误摘要中，不得只改变边框颜色。
 - 长表单必须复用 `errorFields`、`scrollToFirstError`、显式修订号和既有保存状态，不得静默吞掉失败。
 - Markdown 是内容唯一可编辑正文源；不得保存可独立编辑的 HTML 或编辑器 JSON。
@@ -205,7 +207,7 @@ PartSignal 必须呈现“macOS 原生应用秩序感 × 轻量磨砂玻璃 × �
 
 - 每页只能有一个与当前任务对应的主操作，例如新建、保存或提交审核；使用 Ant Design `primary` 与主题主交互色。
 - 共享 `.ant-btn-primary` 是蓝紫渐变的唯一例外：固定使用 112deg 的 `actionPrimary` → `actionPrimaryEnd`，Hover/Active 只替换起点为对应语义状态。危险主按钮和 `.review-approve-button` 必须排除在外，分别使用危险色和成功色。
-- 渐变例外只能由 `global.css` 的共享选择器持有，并由主题颜色静态扫描精确放行；页面不得复制渐变、增加页面级 allowlist 或把 `actionPrimaryEnd` 用作独立强调色。
+- 渐变例外只能由 `global.css` 的共享 Ant 选择器和匿名登录 `.login-submit` 持有，并由主题颜色静态扫描精确放行；业务页面不得复制渐变、增加页面级 allowlist 或把 `actionPrimaryEnd` 用作独立强调色。
 - 次按钮用于查看差异、测试连接、重置筛选等可逆操作，使用默认或文本按钮。
 - 成功色实心操作仅用于批准等明确成功决策区域，不得作为普通导航或装饰。
 - 删除、停用、退回等危险操作不得成为默认显眼操作；必须显示影响、权限和确认流程。

@@ -29,7 +29,7 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { ApiError, api, csrfHeader, ensureSuccess, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { platformProfilesQueryOptions, productsQueryOptions } from '../../shared/api/queryOptions';
@@ -69,7 +69,7 @@ function isTaskStatus(value: string): value is TaskStatus {
 
 export function ContentTasksPage() {
   const { taskId } = useParams();
-  return taskId ? <TaskDetail taskId={taskId} /> : <TaskList />;
+  return taskId ? <TaskDetail key={taskId} taskId={taskId} /> : <TaskList />;
 }
 
 function TaskList() {
@@ -209,7 +209,15 @@ function TaskList() {
   </div>;
 }
 
-function TaskCreateModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+function TaskCreateModal({
+  open,
+  onClose,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onCreated?: (created: Schema<'ContentTask'>, factIsPublic: boolean) => void | Promise<void>;
+}) {
   const [productId, setProductId] = useState<string>();
   const [form] = Form.useForm<Schema<'ContentTaskCreate'>>();
   const products = useQuery({ ...productsQueryOptions(), enabled: open });
@@ -222,9 +230,11 @@ function TaskCreateModal({ open, onClose }: { open: boolean; onClose: () => void
   });
   const create = useMutation({
     mutationFn: async (body: Schema<'ContentTaskCreate'>) => unwrap(await api.POST('/api/v1/content-tasks', { params: { header: csrfHeader() }, body })),
-    onSuccess: async () => {
+    onSuccess: async (created, body) => {
+      const selectedFact = facts.data?.items.find((item) => item.id === body.fact_version_id);
       onClose();
       await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all });
+      await onCreated?.(created, selectedFact?.classification === 'PUBLIC');
     },
   });
   const dependencyError = products.error ?? platforms.error ?? facts.error;
@@ -265,11 +275,18 @@ function TaskCreateModal({ open, onClose }: { open: boolean; onClose: () => void
 }
 
 function TaskDetail({ taskId }: { taskId: string }) {
+  const location = useLocation();
   const navigate = useNavigate();
+  const aiOpenRequested = typeof location.state === 'object'
+    && location.state !== null
+    && 'openAiGeneration' in location.state
+    && location.state.openAiGeneration === true;
   const { message, modal } = App.useApp();
   const activeSection = useActiveSection(taskSectionIds);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [replacementOpen, setReplacementOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
+  const [autoAiOpen, setAutoAiOpen] = useState(aiOpenRequested);
   const [aiOpen, setAiOpen] = useState(false);
   const [modelId, setModelId] = useState<string>();
   const [humanizeSource, setHumanizeSource] = useState<ContentVersion>();
@@ -301,10 +318,12 @@ function TaskDetail({ taskId }: { taskId: string }) {
     staleTime: QUERY_STALE_TIME.workbench,
     refetchInterval: (query) => query.state.data?.items.some((job) => ['PENDING', 'RUNNING'].includes(job.status)) ? 2000 : false,
   });
+  const generationDialogOpen = aiOpen
+    || (autoAiOpen && task.data?.status === 'OPEN' && fact.data?.classification === 'PUBLIC');
   const options = useQuery({
     queryKey: queryKeys.contentTasks.options(taskId),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/generation-options', { params: { path: { content_task_id: taskId } } })),
-    enabled: aiOpen || !!humanizeSource,
+    enabled: generationDialogOpen || !!humanizeSource,
     staleTime: 0,
     retry: false,
   });
@@ -321,6 +340,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
       }));
     },
     onSuccess: async () => {
+      setAutoAiOpen(false);
       setAiOpen(false);
       setModelId(undefined);
       message.success('生成作业已创建');
@@ -395,6 +415,15 @@ function TaskDetail({ taskId }: { taskId: string }) {
     if (succeededJobs) void queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.versions(taskId) });
   }, [succeededJobs, taskId]);
 
+  useEffect(() => {
+    if (!autoAiOpen) return;
+    // 新任务的弹窗意图仅在当前详情实例生效；清除路由状态后，刷新不会重复打开。
+    navigate(
+      { pathname: location.pathname, search: location.search, hash: location.hash },
+      { replace: true, state: null },
+    );
+  }, [autoAiOpen, location.hash, location.pathname, location.search, navigate]);
+
   if (task.isLoading) return <QueryLoading label="正在加载内容任务" />;
   if (task.error || !task.data) {
     return <div className="page-stack"><Button type="link" onClick={() => navigate('/tasks')}>← 返回任务列表</Button><PageHeader title="内容任务" breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: '任务详情' }]} /><QueryFailure error={task.error ?? new Error('内容任务不存在')} onRetry={() => void task.refetch()} /></div>;
@@ -404,6 +433,14 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const mutationError = createJob.error ?? createHumanizationJob.error ?? retryJob.error ?? taskCommand.error;
   const isOpen = task.data.status === 'OPEN';
   const factIsPublic = fact.data?.classification === 'PUBLIC';
+  const replacementRequired = !isOpen || (!!fact.data && !factIsPublic);
+  const generationBlockReason = !isOpen
+    ? '当前任务已结束，历史任务保持只读，不能新增 AI 草稿。请创建新任务后继续。'
+    : fact.error
+      ? '事实版本加载失败，暂时无法确认是否允许发送给第三方模型。'
+      : fact.data && !factIsPublic
+        ? `事实分级为 ${fact.data.classification}，不能发送给第三方模型。请创建新任务并选择 PUBLIC 事实版本。`
+        : undefined;
   const promptChanged = createJob.error instanceof ApiError
     && createJob.error.code === 'PLATFORM_PROMPT_CHANGED';
 
@@ -447,19 +484,23 @@ function TaskDetail({ taskId }: { taskId: string }) {
 
     <section id="task-entry" className="task-stage-grid workspace-section">
       <Card title="02A / 系统 AI 生成" className="workspace-panel">
-        {!factIsPublic && fact.data && <Alert type="warning" showIcon title={`事实分级为 ${fact.data.classification}，不能发送给第三方模型。`} />}
-        <Alert type="info" showIcon title="打开弹窗后确认平台当前 Prompt，再选择已启用模型创建草稿。" />
+        {generationBlockReason
+          ? <Alert type={fact.error && isOpen ? 'error' : 'warning'} showIcon title="当前不能生成 AI 草稿" description={generationBlockReason} />
+          : <Alert type="info" showIcon title="打开弹窗后确认平台当前 Prompt，再选择已启用模型创建草稿。" />}
         <Typography.Paragraph>模型只接收已确认的 Prompt 和冻结事实 Markdown；手工录入不受 Prompt 配置影响。</Typography.Paragraph>
-        <Button
-          type="primary"
-          icon={<ThunderboltOutlined />}
-          disabled={!isOpen || !factIsPublic}
-          onClick={() => {
-            setModelId(undefined);
-            createJob.reset();
-            setAiOpen(true);
-          }}
-        >生成 AI 草稿</Button>
+        {replacementRequired
+          ? <Button type="primary" icon={<PlusOutlined />} onClick={() => setReplacementOpen(true)}>新建内容任务</Button>
+          : <Button
+              type="primary"
+              icon={<ThunderboltOutlined />}
+              loading={fact.isLoading}
+              disabled={!factIsPublic}
+              onClick={() => {
+                setModelId(undefined);
+                createJob.reset();
+                setAiOpen(true);
+              }}
+            >生成 AI 草稿</Button>}
       </Card>
       <Card title="02B / 手动录入" className="workspace-panel">
         <Alert type="info" showIcon title="可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。" />
@@ -531,6 +572,13 @@ function TaskDetail({ taskId }: { taskId: string }) {
         <Button type="primary" htmlType="submit" loading={taskCommand.isPending}>确认取消</Button>
       </Form>
     </Modal>
+    <TaskCreateModal
+      open={replacementOpen}
+      onClose={() => setReplacementOpen(false)}
+      onCreated={(created, createdFactIsPublic) => navigate(`/tasks/${created.id}`, {
+        state: createdFactIsPublic ? { openAiGeneration: true } : null,
+      })}
+    />
     {manualOpen && <ManualDraftModal
       taskId={taskId}
       onClose={() => setManualOpen(false)}
@@ -542,8 +590,9 @@ function TaskDetail({ taskId }: { taskId: string }) {
     />}
     <Modal
       title="生成 AI 草稿"
-      open={aiOpen}
+      open={generationDialogOpen}
       onCancel={() => {
+        setAutoAiOpen(false);
         setAiOpen(false);
         setModelId(undefined);
         createJob.reset();

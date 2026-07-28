@@ -84,6 +84,7 @@ test('管理员在渠道详情路由看到原型配置子菜单和 AI 渠道选�
   expect(screen.getByRole('menuitem', { name: 'AI 渠道与模型' })).toHaveClass('ant-menu-item-selected');
   expect(screen.getAllByText('AI 渠道与模型').length).toBeGreaterThan(1);
   expect(screen.getByRole('menuitem', { name: '平台管理' })).toBeInTheDocument();
+  expect(screen.getByRole('menuitem', { name: 'Prompt 管理' })).toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: '平台规则' })).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole('menuitem', { name: /业务设置/ }));
   expect(screen.getAllByRole('menuitem', { name: /用户管理/ })).toHaveLength(1);

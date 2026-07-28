@@ -3,7 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { App as AntApp } from 'antd';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { queryClient } from '../../app/queryClient';
@@ -74,10 +74,14 @@ function listTask(index: number, status: 'OPEN' | 'COMPLETED' | 'CANCELLED', ove
 }
 
 function LocationProbe() {
-  return <output data-testid="location-search">{useLocation().search}</output>;
+  const location = useLocation();
+  return <>
+    <output data-testid="location-search">{location.search}</output>
+    <output data-testid="location-state">{JSON.stringify(location.state)}</output>
+  </>;
 }
 
-function renderPage(ui: ReactNode, initialEntries: string[]) {
+function renderPage(ui: ReactNode, initialEntries: ComponentProps<typeof MemoryRouter>['initialEntries']) {
   return render(<ThemeProvider><AntApp><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider></AntApp></ThemeProvider>);
 }
 
@@ -155,6 +159,90 @@ test('AI 生成弹窗确认当前 Prompt 与模型后创建作业', async () => 
       },
     }),
   ));
+});
+
+test('历史任务说明阻断原因，创建新任务后自动进入 AI 生成弹窗', async () => {
+  const user = userEvent.setup();
+  const completedTask = { ...task, status: 'COMPLETED', available_actions: [] };
+  const newTask = { ...task, id: 'task-2' };
+  const options = {
+    platform_profile_id: task.platform_profile_id,
+    platform_profile_name: '工程师社区',
+    platform_prompt: {
+      id: 'prompt-1',
+      name: '工程师社区 Prompt',
+      revision: 2,
+      template_markdown: '只使用批准事实。',
+    },
+    humanization_prompt_configured: true,
+    models: [{ id: 'model-1', channel_id: 'channel-1', channel_name: '受控渠道', display_name: '生成模型', model_id: 'model-a' }],
+  };
+  apiMocks.GET.mockImplementation((path: string, request?: { params?: { path?: Record<string, string> } }) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}') {
+      return result(request?.params?.path?.content_task_id === newTask.id ? newTask : completedTask);
+    }
+    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'COMPLETED'), { ...listTask(2, 'OPEN'), id: newTask.id }] });
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
+    if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result({ items: [] });
+    if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result({ items: [] });
+    if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') return result(options);
+    if (path === '/api/v1/products') {
+      return result({ items: [{ id: task.product_id, brand: 'PartSignal', part_number: 'PS-01' }], page: 1, page_size: 100, total: 1 });
+    }
+    if (path === '/api/v1/platform-profiles') {
+      return result({ items: [{ id: task.platform_profile_id, name: '工程师社区', is_active: true }] });
+    }
+    if (path === '/api/v1/products/{product_id}/fact-versions') return result({ items: [factVersion] });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  apiMocks.POST.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks') return result(newTask);
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  renderPage(<><LocationProbe /><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes></>, [`/tasks/${taskId}`]);
+
+  expect(await screen.findByText('当前任务已结束，历史任务保持只读，不能新增 AI 草稿。请创建新任务后继续。')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /生成 AI 草稿/ })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /新建内容任务/ }));
+  const createDialog = await screen.findByRole('dialog', { name: '创建内容任务' });
+  await user.click(within(createDialog).getByRole('combobox', { name: '产品' }));
+  await user.click(await screen.findByText('PartSignal PS-01', { selector: '.ant-select-item-option-content' }));
+  await user.click(within(createDialog).getByRole('combobox', { name: '已批准事实版本' }));
+  await user.click(await screen.findByText('V1 · PUBLIC · 批准事实'));
+  await user.click(within(createDialog).getByRole('combobox', { name: '目标平台' }));
+  await user.click(await screen.findByText('工程师社区', { selector: '.ant-select-item-option-content' }));
+  await user.click(within(createDialog).getByRole('button', { name: '创建任务' }));
+
+  expect(await screen.findByRole('dialog', { name: '生成 AI 草稿' })).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId('location-state')).toHaveTextContent('null'));
+  expect(apiMocks.GET).toHaveBeenCalledWith(
+    '/api/v1/content-tasks/{content_task_id}/generation-options',
+    expect.objectContaining({ params: { path: { content_task_id: newTask.id } } }),
+  );
+});
+
+test('非 PUBLIC 新任务清除自动打开意图但不请求生成选项', async () => {
+  const internalFact = { ...factVersion, classification: 'INTERNAL' };
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}') return result(task);
+    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'OPEN')] });
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(internalFact);
+    if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result({ items: [] });
+    if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result({ items: [] });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  renderPage(
+    <><LocationProbe /><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes></>,
+    [{ pathname: `/tasks/${taskId}`, state: { openAiGeneration: true } }],
+  );
+
+  expect(await screen.findByText('事实分级为 INTERNAL，不能发送给第三方模型。请创建新任务并选择 PUBLIC 事实版本。')).toBeInTheDocument();
+  expect(screen.queryByRole('dialog', { name: '生成 AI 草稿' })).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId('location-state')).toHaveTextContent('null'));
+  expect(apiMocks.GET).not.toHaveBeenCalledWith(
+    '/api/v1/content-tasks/{content_task_id}/generation-options',
+    expect.anything(),
+  );
 });
 
 test('创建内容任务只加载产品和平台，不再展示或请求目标问题', async () => {

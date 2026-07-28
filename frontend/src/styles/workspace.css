@@ -1289,6 +1289,12 @@
 .prompt-editor-panel > .ant-card-body { min-height: 0; flex: 1 1 auto; padding: 0; }
 .prompt-editor-meta { color: var(--ps-text-tertiary); font-size: 10px; font-weight: 400; }
 .prompt-editor-meta b { padding: 1px 5px; border-radius: var(--ps-radius-compact); color: var(--ps-success-text); background: var(--ps-success-soft); font-weight: 500; }
+.prompt-binding-summary { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--ps-border-subtle); background: var(--ps-bg-subtle); }
+.prompt-binding-heading { display: flex; flex: 0 0 auto; align-items: center; min-height: 22px; gap: 6px; font-size: 11px; }
+.prompt-binding-heading .ant-typography { font-size: inherit; }
+.prompt-binding-summary > .ant-space { min-width: 0; }
+.prompt-binding-summary .ant-tag { margin-inline-end: 0; border-color: color-mix(in srgb, var(--ps-action-primary) 26%, var(--ps-border-default)); color: var(--ps-action-primary); background: var(--ps-action-primary-soft); }
+.prompt-binding-summary.is-empty { align-items: center; }
 .prompt-markdown-editor { display: flex; min-height: 100%; height: 100%; flex-direction: column; background: var(--ps-bg-surface); }
 .prompt-editor-toolbar { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; min-height: 50px; gap: 10px; padding: 9px 12px; border-bottom: 1px solid var(--ps-border-subtle); font-size: 11px; }
 .prompt-editor-toolbar .ant-btn-primary { box-shadow: none; }
@@ -1354,6 +1360,7 @@
   .prompt-management-topline > .ant-alert .ant-alert-action { margin: 6px 0 0; }
   .prompt-platform-filters { grid-template-columns: 1fr; }
   .prompt-platform-list > button { grid-template-columns: 24px minmax(0, 1fr) 78px; }
+  .prompt-binding-summary { flex-direction: column; gap: 4px; }
   .prompt-editor-toolbar { align-items: flex-start; flex-direction: column; }
   .prompt-editor-footer { align-items: flex-start; flex-direction: column; height: auto; gap: 3px; padding-block: 7px; }
   .prompt-editor-footer span:last-child { margin-left: 0; }

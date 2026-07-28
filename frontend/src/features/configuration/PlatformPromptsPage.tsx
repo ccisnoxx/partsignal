@@ -455,14 +455,20 @@ export function PlatformPromptsPage() {
                   disabled={savePrompt.isPending}
                   onChange={(event) => mutateEditor({ name: event.target.value })}
                 />}
-                {tab === 'platform' && prompt.data && <Alert
-                  type={prompt.data.bound_platform_count ? 'warning' : 'info'}
-                  showIcon
-                  title={`已绑定 ${prompt.data.bound_platform_count} 个平台`}
-                  description={prompt.data.bound_platforms.length
-                    ? <Space wrap>{prompt.data.bound_platforms.map((platform) => <Tag key={platform.id}>{platform.name}</Tag>)}</Space>
-                    : '未绑定模板可以直接删除。'}
-                />}
+                {tab === 'platform' && prompt.data && <section
+                  className={`prompt-binding-summary${prompt.data.bound_platform_count ? '' : ' is-empty'}`}
+                  aria-label="Prompt 使用平台"
+                >
+                  <div className="prompt-binding-heading">
+                    <Typography.Text strong>使用平台</Typography.Text>
+                    <Typography.Text type="secondary">
+                      {prompt.data.bound_platform_count ? `${prompt.data.bound_platform_count} 个` : '暂未绑定'}
+                    </Typography.Text>
+                  </div>
+                  {prompt.data.bound_platforms.length
+                    ? <Space size={[6, 6]} wrap>{prompt.data.bound_platforms.map((platform) => <Tag key={platform.id}>{platform.name}</Tag>)}</Space>
+                    : <Typography.Text type="secondary">可直接删除此 Prompt。</Typography.Text>}
+                </section>}
                 <PromptMarkdownEditor
                   value={editor.draft}
                   ariaLabel={tab === 'platform' ? 'Prompt Markdown' : '自然化 Prompt Markdown'}

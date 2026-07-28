@@ -404,11 +404,13 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const taskOption = `DEMO ${product!.part_number}`;
   const modelOption = `E2E 渠道 ${suffix} / E2E 模型 (e2e-model)`;
   await page.goto(`/tasks/${task.id as string}`);
+  await page.getByRole('button', { name: /生成 AI 草稿/ }).click();
+  await expect(page.getByRole('dialog', { name: '生成 AI 草稿' })).toBeVisible();
   if (!humanizationPromptWasConfigured) {
-    await expect(page.getByText('全局自然化 Prompt 未配置；原始生成不受影响。')).toBeVisible();
+    await expect(page.getByText('全局自然化 Prompt 未配置；不影响本次原始生成。')).toBeVisible();
   }
   await selectOption(page, '生成模型', modelOption);
-  await page.getByRole('button', { name: /生成 AI 草稿/ }).click();
+  await page.getByRole('button', { name: '生成文稿' }).click();
   let generatedJobId: string | undefined;
   await expect.poll(async () => {
     const aiJobs = await body<{ items: Array<{ id: string; job_type: string; status: string }> }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}/generation-jobs`));

@@ -360,7 +360,11 @@ test('共享 Prompt 按 revision 保存、展示影响范围并保护本地草�
   renderWithQuery(<PlatformPromptsPage />, [`/configuration/prompts?tab=platform&platform_prompt_id=${platformPrompt.id}`]);
   const editor = await screen.findByRole('textbox', { name: 'Prompt Markdown' });
   expect(editor).toHaveValue('仅使用已批准事实。');
-  expect(screen.getByText('已绑定 1 个平台')).toBeInTheDocument();
+  const bindingSummary = screen.getByRole('region', { name: 'Prompt 使用平台' });
+  expect(within(bindingSummary).getByText('使用平台')).toBeInTheDocument();
+  expect(within(bindingSummary).getByText('1 个')).toBeInTheDocument();
+  expect(within(bindingSummary).getByText('工程师社区')).toBeInTheDocument();
+  expect(bindingSummary.querySelector('.ant-alert-icon')).not.toBeInTheDocument();
   await user.clear(editor);
   await user.type(editor, '更新后的平台 Prompt。');
   const beforeUnload = new Event('beforeunload', { cancelable: true });
@@ -485,6 +489,9 @@ test('未绑定 Prompt 可按 expected_revision 删除', async () => {
   const user = userEvent.setup();
   renderWithQuery(<PlatformPromptsPage />, [`/configuration/prompts?tab=platform&platform_prompt_id=${unusedPlatformPrompt.id}`]);
   await screen.findByDisplayValue('待使用。');
+  const bindingSummary = screen.getByRole('region', { name: 'Prompt 使用平台' });
+  expect(within(bindingSummary).getByText('暂未绑定')).toBeInTheDocument();
+  expect(within(bindingSummary).getByText('可直接删除此 Prompt。')).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: /删除 Prompt$/ }));
   await screen.findByText('删除当前 Prompt？');
   await user.click(screen.getAllByRole('button', { name: /删除 Prompt$/ }).at(-1)!);

@@ -19,8 +19,9 @@ const summaryData = {
 const metricsData = {
   legacy_sample_count: 0, legacy_mention_rate: null, legacy_recommendation_rate: null,
   legacy_citation_rate: null, legacy_accuracy_rate: null,
-  manual_observation_count: 3, article_result_count: 10, recommended_article_count: 6,
-  not_recommended_article_count: 4, article_recommendation_rate: 0.6,
+  manual_observation_count: 3, article_result_count: 10, discovered_article_count: 8,
+  mentioned_article_count: 6, article_discovery_rate: 0.8, article_mention_rate: 0.6,
+  article_accuracy_rate: 0.75,
 } satisfies Schema<'GeoMetrics'>;
 
 function mockDashboard(
@@ -49,22 +50,24 @@ test('按管理层层级展示真实 GEO 指标、运营状态和处理入口', 
   expect([...shell!.classList].filter((className) => className.startsWith('app-shell-'))).toEqual([]);
   expect(screen.getAllByText('审核员')).toHaveLength(2);
   const metrics = await screen.findByRole('region', { name: 'GEO 管理指标' });
-  for (const label of ['人工观测', '文章结果', '已推荐文章', '文章推荐率']) {
+  for (const label of ['人工观测', '文章发现率', '文章提及率', '文章准确率']) {
     expect(within(metrics).getByText(label)).toBeInTheDocument();
   }
-  expect(within(metrics).getByLabelText('文章推荐率 60%')).toBeInTheDocument();
+  expect(within(metrics).getByLabelText('文章发现率 80%')).toBeInTheDocument();
+  expect(within(metrics).getByLabelText('文章提及率 60%')).toBeInTheDocument();
+  expect(within(metrics).getByLabelText('文章准确率 75%')).toBeInTheDocument();
   expect(within(metrics).queryByText('待审事实')).not.toBeInTheDocument();
 
   expect(within(screen.getByRole('region', { name: '审核流程状态' })).getByText('待审事实 3 · 待审内容 2')).toBeInTheDocument();
   expect(within(screen.getByRole('region', { name: '发布流程状态' })).getByText('待人工发布 4 · 发布需关注 1')).toBeInTheDocument();
-  expect(within(screen.getByRole('region', { name: 'GEO 观测状态' })).getByText('未推荐文章 4 · 准确性问题 2')).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: 'GEO 观测状态' })).getByText('发现率 80% · 提及率 60% · 准确性问题 2')).toBeInTheDocument();
 
   for (const [name, href] of [
-    ['处理发布需关注', '/publications'], ['处理近 30 日准确性问题', '/observations'],
+    ['处理发布需关注', '/publications?tab=attentions'], ['处理近 30 日准确性问题', '/observations'],
     ['处理待审事实', '/products'], ['处理待审内容', '/tasks'],
-    ['处理待人工发布', '/publications'], ['处理未推荐文章', '/observations'],
+    ['处理待人工发布', '/publications'],
     ['进入产品事实', '/products'], ['进入内容任务', '/tasks'],
-    ['进入人工发布', '/publications'], ['进入GEO 观测', '/observations'],
+    ['进入发布管理', '/publications'], ['进入GEO 观测', '/observations'],
   ]) {
     expect(screen.getByRole('link', { name })).toHaveAttribute('href', href);
   }
@@ -74,22 +77,22 @@ test('按管理层层级展示真实 GEO 指标、运营状态和处理入口', 
   expect(await screen.findByRole('heading', { name: '修改密码' })).toBeInTheDocument();
 });
 
-test('空推荐率和零待办保持明确的正常状态', async () => {
+test('空独立比率和零待办保持明确的正常状态', async () => {
   window.history.pushState({}, '', '/');
   mockDashboard(
     { pending_fact_reviews: 0, pending_content_reviews: 0, pending_publications: 0, publication_attention: 0, recent_accuracy_errors: 0 },
-    { ...metricsData, manual_observation_count: 0, article_result_count: 0, recommended_article_count: 0, not_recommended_article_count: 0, article_recommendation_rate: null },
+    { ...metricsData, manual_observation_count: 0, article_result_count: 0, discovered_article_count: 0, mentioned_article_count: 0, article_discovery_rate: null, article_mention_rate: null, article_accuracy_rate: null },
   );
   render(<App />);
 
   expect(await screen.findByRole('heading', { name: '总览' })).toBeInTheDocument();
   const metrics = await screen.findByRole('region', { name: 'GEO 管理指标' });
-  expect(within(metrics).getByText('—')).toBeInTheDocument();
+  expect(within(metrics).getAllByText('—')).toHaveLength(3);
   expect(within(metrics).queryByRole('progressbar')).not.toBeInTheDocument();
   for (const label of ['审核流程状态', '发布流程状态', 'GEO 观测状态']) {
     expect(within(screen.getByRole('region', { name: label })).getByText('正常')).toBeInTheDocument();
   }
-  expect(screen.getAllByText('当前无需处理')).toHaveLength(6);
+  expect(screen.getAllByText('当前无需处理')).toHaveLength(5);
   expect(screen.getByRole('link', { name: '查看发布需关注' })).toHaveClass('is-clear');
 });
 

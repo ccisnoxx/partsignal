@@ -24,18 +24,33 @@ import type { FileRecord, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { DirectUpload } from '../../shared/components/DirectUpload';
 import { StatusTag } from '../../shared/components/StatusTag';
-import { actionLabels, type PublicationAction } from './publicationTypes';
+import {
+  actionLabels,
+  type PublicationCommandAction,
+  type PublicationDeleteTarget,
+} from './publicationTypes';
 
 type PublicationCandidate = Schema<'PublicationCandidate'>;
 
 type PublicationDrawerProps = {
   candidate?: PublicationCandidate;
   publicationId?: string;
+  initialAction?: PublicationCommandAction;
+  deletePending: boolean;
   onClose: () => void;
   onCreated: (publicationId: string) => void;
+  onDelete: (record: PublicationDeleteTarget) => void;
 };
 
-export function PublicationDrawer({ candidate, publicationId, onClose, onCreated }: PublicationDrawerProps) {
+export function PublicationDrawer({
+  candidate,
+  publicationId,
+  initialAction,
+  deletePending,
+  onClose,
+  onCreated,
+  onDelete,
+}: PublicationDrawerProps) {
   const { modal } = App.useApp();
   const [dirty, setDirty] = useState(false);
   const requestClose = () => {
@@ -69,7 +84,13 @@ export function PublicationDrawer({ candidate, publicationId, onClose, onCreated
       {candidate ? (
         <CandidateRegistration candidate={candidate} onCreated={onCreated} onDirtyChange={setDirty} />
       ) : publicationId ? (
-        <PublicationRegistration publicationId={publicationId} onDirtyChange={setDirty} />
+        <PublicationRegistration
+          publicationId={publicationId}
+          initialAction={initialAction}
+          deletePending={deletePending}
+          onDelete={onDelete}
+          onDirtyChange={setDirty}
+        />
       ) : null}
     </Drawer>
   );
@@ -199,13 +220,19 @@ function CandidateRegistration({
 
 function PublicationRegistration({
   publicationId,
+  initialAction,
+  deletePending,
+  onDelete,
   onDirtyChange,
 }: {
   publicationId: string;
+  initialAction?: PublicationCommandAction;
+  deletePending: boolean;
+  onDelete: (record: PublicationDeleteTarget) => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
   const { message } = App.useApp();
-  const [action, setAction] = useState<PublicationAction>();
+  const [action, setAction] = useState<PublicationCommandAction | undefined>(initialAction);
   const [attachments, setAttachments] = useState<FileRecord[]>([]);
   const detail = useQuery({
     queryKey: queryKeys.publications.record(publicationId),
@@ -233,7 +260,7 @@ function PublicationRegistration({
     },
     onSuccess: async (updated) => {
       onDirtyChange(false);
-      message.success(action ? `${actionLabels[action]}已完成` : '发布状态已更新');
+      message.success(action ? commandSuccessMessage(action) : '发布状态已更新');
       setAction(undefined);
       setAttachments([]);
       await invalidatePublicationQueries(updated.task_id, publicationId);
@@ -252,6 +279,7 @@ function PublicationRegistration({
     return <QueryFailure error={detail.error ?? new Error('发布记录不存在')} onRetry={() => void detail.refetch()} />;
   }
   const record = detail.data;
+  const activeAction = action && record.available_actions.includes(action) ? action : undefined;
   return (
     <div className="publication-drawer-stack">
       {mutate.error && <Alert type="error" showIcon title={errorMessage(mutate.error)} />}
@@ -278,8 +306,13 @@ function PublicationRegistration({
             <Button
               key={item}
               type={item === 'mark-published' || item === 'verify' ? 'primary' : 'default'}
-              danger={item === 'reject' || item === 'remove' || item === 'mark-verification-failed'}
+              danger={item === 'delete' || item === 'reject' || item === 'remove' || item === 'mark-verification-failed'}
+              loading={item === 'delete' && deletePending}
               onClick={() => {
+                if (item === 'delete') {
+                  onDelete(record);
+                  return;
+                }
                 setAction(item);
                 setAttachments([]);
                 onDirtyChange(false);
@@ -293,16 +326,32 @@ function PublicationRegistration({
       ) : (
         <Alert type="success" showIcon title="当前记录没有可执行的状态命令" />
       )}
-      {action && (
-        <Card size="small" title={actionLabels[action]} className="publication-drawer-card">
+      {activeAction && (
+        <Card size="small" title={actionLabels[activeAction]} className="publication-drawer-card">
+          {activeAction === 'remove' && (
+            <Alert
+              type="warning"
+              showIcon
+              title="标记已移除会保留发布历史"
+              description="该操作表示已发布页面下线，并创建发布需关注事项；不会物理删除发布记录或既有状态事件。"
+            />
+          )}
+          {activeAction === 'mark-verification-failed' && (
+            <Alert
+              type="error"
+              showIcon
+              title="验证失败会进入发布需关注"
+              description="该操作保留已发生的发布事实，并创建需要查看上下文、修复或显式解决的关注事项。"
+            />
+          )}
           <Form<Schema<'PublicationCommand'>>
-            key={action}
+            key={activeAction}
             layout="vertical"
             initialValues={{ comment: '', attachment_file_ids: [] }}
             onValuesChange={() => onDirtyChange(true)}
             onFinish={(body) => mutate.mutate(body)}
           >
-            {action === 'mark-published' && (
+            {activeAction === 'mark-published' && (
               <>
                 <Form.Item name="actual_title" label="实际发布标题" rules={[{ required: true, message: '请输入实际发布标题' }]}>
                   <Input />
@@ -326,7 +375,7 @@ function PublicationRegistration({
                 </Form.Item>
               </>
             )}
-            {action === 'verify' && (
+            {activeAction === 'verify' && (
               <Form.Item name="content_matches" label="页面正文核对" rules={[{ required: true, message: '请确认正文核对结果' }]}>
                 <Select options={[{ value: true, label: '已人工核对，与批准正文一致' }]} />
               </Form.Item>
@@ -335,7 +384,14 @@ function PublicationRegistration({
               <Input.TextArea rows={3} maxLength={500} showCount />
             </Form.Item>
             <Space>
-              <Button type="primary" htmlType="submit" loading={mutate.isPending}>确认提交</Button>
+              <Button
+                type="primary"
+                danger={activeAction === 'remove' || activeAction === 'mark-verification-failed'}
+                htmlType="submit"
+                loading={mutate.isPending}
+              >
+                {activeAction === 'remove' ? '确认标记已移除' : activeAction === 'mark-verification-failed' ? '确认标记验证失败' : '确认提交'}
+              </Button>
               <Button onClick={() => {
                 setAction(undefined);
                 setAttachments([]);
@@ -397,4 +453,10 @@ async function invalidatePublicationQueries(taskId: string, publicationId: strin
     queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }),
     queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
   ]);
+}
+
+function commandSuccessMessage(action: PublicationCommandAction) {
+  if (action === 'remove') return '已标记为已移除，发布记录和历史事件已保留';
+  if (action === 'mark-verification-failed') return '已标记验证失败，记录已进入发布需关注';
+  return `${actionLabels[action]}已完成`;
 }

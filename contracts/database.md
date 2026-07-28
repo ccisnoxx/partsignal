@@ -8,7 +8,7 @@
 - Alembic is the only schema migration entry point. API and Worker never run migrations on startup.
 - Revisions `0001` through `0008` use `app.migration_schema_v1` as a frozen metadata snapshot; future runtime model changes must add a new revision and must not edit that snapshot.
 - JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
-- Review records, status events, observations, and audit logs are append-only。`0027` 仅在物理删除停用用户时允许把该用户对应的 `audit_logs.actor_id` 从原 UUID 置空，其他审计字段、任意 DELETE 和普通 UPDATE 仍被数据库触发器拒绝。
+- Review records, status events, observations, and audit logs are append-only。`0027` 仅在物理删除停用用户时允许把该用户对应的 `audit_logs.actor_id` 从原 UUID 置空；`0029` 仅允许管理员按完整更正链物理删除人工 GEO 观测；`0030` 仅允许删除从未公开且没有下游引用的发布聚合。其他审计字段、任意未声明删除和普通 UPDATE 仍被数据库触发器拒绝。
 
 ## Migration Order
 
@@ -48,19 +48,19 @@ Approving a new version and superseding the previous approved version happen in 
 
 Platform accounts contain an internal business label and operator identifier, never credentials. A concrete platform may own multiple accounts, while one article publication selects exactly one account. A publication permanently binds one approved content version. Reuse of an idempotency key must match content, account, section URL, and attachment IDs; concurrent requests are serialized with PostgreSQL transaction advisory locks. After `PUBLISHED`, URL and content binding cannot change.
 
-Current-state counts come from `publication_records.status`. Period publication metrics and recent activity come from append-only `publication_status_events`: a rolling window cohort is the distinct records whose `PUBLISHED` event falls inside `[window_start, as_of)`, verification count is the cohort subset with any later `VERIFIED` event by `as_of`, and exception count is the distinct records receiving `REJECTED`, `REMOVED`, or `VERIFICATION_FAILED` inside the same window. A later removal never removes the historical publication from its original cohort.
+Current-state counts come from `publication_records.status`. Period publication metrics and recent activity come from append-only `publication_status_events`, and their shared `as_of` comes from the PostgreSQL clock: a rolling window cohort is the distinct records whose `PUBLISHED` event falls inside `[window_start, as_of)`, verification count is the cohort subset with any later `VERIFIED` event by `as_of`, and exception count is the distinct records receiving `REJECTED`, `REMOVED`, or `VERIFICATION_FAILED` inside the same window. A later removal never removes the historical publication from its original cohort.
 
 ### 0007 GEO Observation
 
 `geo_observations`, `geo_observation_citations`, `geo_observation_publications`.
 
-Observations are immutable. Corrections create another observation with `supersedes_id`. Metrics are calculated from source observations rather than persisted as a second source of truth.
+Observations are immutable. Corrections create another observation with `supersedes_id`. Metrics are calculated from source observations rather than persisted as a second source of truth. Revision `0029` later adds one guarded exception that permits administrators to delete an entire manual-observation correction chain.
 
 ### 0008 Files
 
 `file_records`, `publication_attachments`, `geo_observation_attachments`, plus historical `evidences.file_record_id`.
 
-Only `VERIFIED` files may be linked. Publication attachments additionally require `category=OPERATION_SCREENSHOT` in both candidate creation and `mark-published`; other modules enforce their own category contracts at their service boundaries. `publication_attachments` is one append-only evidence relation used in both publication phases, with no mutable phase or replacement field. Revision `0025` later deletes `evidences` and its file foreign key; the current head therefore has three actual `file_records` references: platform Logo, publication attachment, and GEO observation attachment.
+Only `VERIFIED` files may be linked. Publication attachments additionally require `category=OPERATION_SCREENSHOT` in both candidate creation and `mark-published`; other modules enforce their own category contracts at their service boundaries. `publication_attachments` is one append-only evidence relation used in both publication phases, with no mutable phase or replacement field. Revision `0025` later deletes `evidences` and its file foreign key; the current head therefore has three actual `file_records` references: platform Logo, publication attachment, and GEO observation attachment. Revision `0029` permits only the GEO attachment rows belonging to a declared full-chain manual-observation deletion to be removed.
 
 ### 0009 Configuration Center And AI Generation
 
@@ -132,9 +132,9 @@ New generation snapshots include the concrete platform identity and continue fre
 
 `geo_observations.observation_kind` explicitly separates historical `LEGACY_MODEL_RESULT` rows from new `MANUAL_ARTICLE_SEARCH` rows. The migration assigns the legacy discriminator without changing any historical business field. Legacy query/model/answer fields and new `search_platform/search_query` fields are mutually exclusive under a database check; new writes have no target question, model call, web-search flag, answer summary, citation, accuracy, or observation-level recommendation.
 
-`geo_observation_publications.recommendation_status` is the authoritative per-article result for manual observations and is limited to `RECOMMENDED | NOT_RECOMMENDED`. Historical associations remain `NULL` and mean “not assessed per article”; the migration never infers a status from old citations, possible-influence links, or observation-level recommendation. An insert trigger verifies that every new result belongs to the observation product through `PublicationRecord -> ContentVersion -> ContentTask`, the publication is currently `PUBLISHED | VERIFIED`, and `final_url` is present.
+At revision `0018`, `geo_observation_publications.recommendation_status` was the authoritative per-article result for manual observations and was limited to `RECOMMENDED | NOT_RECOMMENDED`. Historical associations remained `NULL` and meant “not assessed per article”; the migration never inferred a status from old citations, possible-influence links, or observation-level recommendation. Revision `0029` later removes this field instead of preserving an obsolete compatibility value. The insert trigger continues verifying that every new result belongs to the observation product through `PublicationRecord -> ContentVersion -> ContentTask`, the publication is currently `PUBLISHED | VERIFIED`, and `final_url` is present.
 
-The create service locks the product and all current eligible publication rows, then requires the request to cover that exact publication ID set. Every manual observation includes at least one verified `OPERATION_SCREENSHOT`. Article titles, platform identity, links, and publication status remain projections of their existing owners and are not duplicated in GEO storage. Metrics and the default records list use the same filtered set of current correction-chain tails; `include_history=true` is the explicit read path for superseded rows. A row is current only when no `geo_observations.supersedes_id` points to it. Legacy model metrics and manual per-article recommendation metrics have separate denominators.
+The create service locks the product and all current eligible publication rows, then requires the request to cover that exact publication ID set. Revision `0018` required at least one verified `OPERATION_SCREENSHOT`; revision `0029` makes evidence optional. Article titles, platform identity, links, and publication status remain projections of their existing owners and are not duplicated in GEO storage. Metrics and the default records list use the same filtered set of current correction-chain tails; `include_history=true` is the explicit read path for superseded rows. A row is current only when no `geo_observations.supersedes_id` points to it.
 
 Correction is an append-only service operation over the existing schema: it creates a new `MANUAL_ARTICLE_SEARCH` row whose `supersedes_id` points to the current manual row. The service rejects already-superseded targets and changes to the product, search platform, or search query. No new table, column, index, migration, or duplicated summary field is introduced for the records page.
 
@@ -174,9 +174,9 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 新建 `MANUAL_ARTICLE_SEARCH` 观测必须关联真实 `query_topic_id`。`0022` 之前的人工观测通过 `NOT VALID` 约束保留历史 `NULL`，洞察聚合会明确排除这些记录，不把它们猜测到某个问题主题。首次追加式更正历史空主题记录时必须补充真实主题，后续更正不得改变主题。
 
-`geo_observation_publications` 新增可空的 `discovered`、`mentioned`、`cited` 和 `accuracy` 事实，既有行保持 `NULL`。新人工关系必须提交全部事实，并满足累计阶段 `cited -> RECOMMENDED -> mentioned -> discovered`；只有 `ACCURATE` 要求已达到引用阶段。旧模型观测关系必须保持全部逐篇事实为空。插入触发器继续校验发布内容归属、可观测状态和非空公开链接。
+`geo_observation_publications` 在 `0022` 新增可空的 `discovered`、`mentioned`、`cited` 和 `accuracy` 事实，既有行保持 `NULL`。该版本曾要求新人工关系提交累计阶段事实；`0029` 随后删除逐篇推荐和引用，只保留相互独立的 `discovered`、`mentioned` 与可空 `accuracy`。旧模型观测关系必须保持全部逐篇事实为空。插入触发器继续校验发布内容归属、可观测状态和非空公开链接。
 
-洞察只聚合更正链当前链尾中的完整人工观测；服务必须先校验同次观测的全部逐篇关系，再应用内容平台、内容主题或发布内容筛选，不能用筛选隐藏缺失事实。趋势率、平台率、内容排行和漏斗统一以“人工观测 × 发布内容关系”为基础单位；问题覆盖先按人工观测、问题主题和精确 GEO 平台去重。曾真实发布且仍被历史观测引用的发布记录在下线后继续可筛选追溯。分母为零时保持 `NULL`，历史不完整记录进入数据质量排除计数，迁移与服务均不推断缺失事实。只要已经写入新主题关联或逐篇洞察事实，迁移就拒绝降级；恢复必须使用前向修复或迁移前备份。
+洞察只聚合更正链当前链尾中的完整人工观测；服务必须先校验同次观测的全部逐篇关系，再应用内容平台、内容主题或发布内容筛选，不能用筛选隐藏缺失事实。`0029` 后，趋势率、平台率和内容排行统一按相互独立的发现、提及、准确事实计算，不再提供阶段漏斗。问题覆盖先按人工观测、问题主题和精确 GEO 平台去重。曾真实发布且仍被历史观测引用的发布记录在下线后继续可筛选追溯。分母为零时保持 `NULL`，历史不完整记录进入数据质量排除计数，迁移与服务均不推断缺失事实。只要已经写入新主题关联或逐篇洞察事实，迁移就拒绝降级；恢复必须使用前向修复或迁移前备份。
 
 ### 0023 Platform Management
 
@@ -248,6 +248,22 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 平台 Logo 外键触发器最终保证非空 `logo_file_id` 只引用 `VERIFIED`、`PUBLIC`、`PLATFORM_LOGO`。迁移把既有已引用 Logo 的 `cleanup_after` 保持为空，把既有无引用 `VERIFIED PLATFORM_LOGO` 设置为迁移时点后七天。`logo_external_url` 本阶段保留用于旧数据只读展示，创建和更新不再接受新的外链；迁移和 Worker 均不联网批量转换旧外链。存在任一 `DELETING | DELETED` 时禁止降级，因为对象删除不可逆。
 
+### 0029 Manual GEO Independent Facts And Deletion
+
+版本 `0029` 紧跟 `0028_platform_logo_lifecycle`。`geo_observation_publications` 物理删除 `recommendation_status` 与 `cited`，人工逐篇事实只保留相互独立且必须显式提交的 `discovered`、`mentioned`，以及允许为空的 `accuracy`（`ACCURATE | PARTIAL | INCORRECT | UNJUDGEABLE`）。迁移不根据旧阶段字段推断新事实；既有 `discovered`、`mentioned`、`accuracy` 原样保留。新建与更正的 `attachment_file_ids` 都允许为空，每个更正版本只关联当次新增文件；读取链尾时按祖先顺序聚合证据，不复制历史关联。
+
+管理员只可按完整更正链物理删除 `MANUAL_ARTICLE_SEARCH` 观测，不能删除单个版本或 `LEGACY_MODEL_RESULT`。服务按产品、根观测、链节点的固定顺序锁定并验证链连续性，再在同一事务设置当前节点的 `partsignal.geo_observation_delete_id`，依次删除该节点的逐篇发布关系、附件关系及观测，最后写入只含稳定 ID 与数量的审计摘要。专用触发器继续禁止全部 UPDATE，只放行父 ID 与事务声明精确匹配的 DELETE；错配、缺少声明或不完整链均失败。
+
+删除事务提交后，仅把已经没有平台 Logo、发布附件或 GEO 附件引用的文件安排进既有延迟清理状态机；清理器仍以三个实际外键为唯一引用权威，不保存引用计数，也不立即删除对象。通用文件清理不再限定 `PLATFORM_LOGO` 分类。审计不得记录搜索词、备注、回答、文件名或文件内容。该迁移会丢弃旧逐篇推荐与引用字段，降级仅恢复空列而不猜测历史值；恢复业务语义必须使用迁移前备份或前向修复。
+
+### 0030 Controlled Publication Record Deletion
+
+版本 `0030` 紧跟 `0029_geo_evidence_management`，不新增业务表或列。发布记录只有在完整状态事件历史从未出现 `PUBLISHED | VERIFIED`，且没有 `geo_observation_citations`、`geo_observation_publications` 或 `publication_attentions` 引用时才可物理删除；当前状态不是删除资格来源。发布关注事项一旦存在就阻断删除，因此经其关联的修复任务也不会失去来源。
+
+删除服务使用现有的“具体平台 + 内容哈希”事务 advisory lock，再锁定发布记录并重新检查全部阻断引用。事务设置 `partsignal.publication_record_delete_id` 后，只允许删除目标记录的未公开状态事件、发布附件关系和记录本身；任何 `PUBLISHED | VERIFIED` 事件即使目标匹配也由数据库拒绝删除。错配目标、未声明事务变量、普通 UPDATE 和对其他聚合的 DELETE 均以 `55000` 失败。
+
+删除成功只审计稳定目标 ID、状态事件数量和附件数量，不保存标题、URL、说明或文件名。解除附件关系后，只有已无平台 Logo、发布附件或 GEO 附件引用的文件才进入既有清理状态机；共享文件继续保留。发布周期指标仍来自保留的公开状态事件，因此受控删除不会改写任何已公开历史。
+
 ## State Machines
 
 ```text
@@ -297,7 +313,7 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A concrete platform's `is_active` state is independent from configuration completeness. A disabled platform remains manageable but cannot be used to create a content task, repair task, platform account, or publication record; disabling never mutates existing accounts, configuration, or history.
 - Platform completeness, account counts, and task-reference counts are real-time read projections. Completeness is true when the current platform Prompt exists; a task reference is counted once through `content_tasks.platform_profile_id`.
 - A concrete platform stores at most one Logo source. New writes only accept a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` file; `logo_external_url` remains a nullable read-only legacy field until a later migration, and `website_url` remains an explicit nullable URI.
-- Logo cleanup uses the three actual current-head file foreign keys as its deletion authority. Unconfirmed Logos retain 24 hours, detached previously used Logos retain seven days, and object deletion remains retryable through `DELETING` before a `DELETED` tombstone is recorded.
+- File cleanup uses the three actual current-head file foreign keys as its deletion authority. Unconfirmed files retain their configured grace period, detached previously used files retain seven days, and object deletion remains retryable through `DELETING` before a `DELETED` tombstone is recorded.
 - Product, fact version, platform profile, platform account, platform type, and user physical deletion is admin-only. Services lock the target, count direct references where applicable, and return structured `409` conflicts; they never cascade, reassign, or rewrite immutable business history except for the explicitly guarded audit actor nulling in `0027`.
 - A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform profile requires no content tasks or platform accounts; a platform account requires no `PublicationRecord`; a platform type requires no platform profiles.
 - A cancelled content task can be physically deleted only when it has no generation job or content version; no other task status is deletable.
@@ -312,12 +328,13 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A publication account profile must equal the content task's locked platform profile; both the application service and PostgreSQL enforce it.
 - A concrete platform may own multiple publication accounts, but their internal identifiers are unique by `lower(btrim(account_identifier))`; disabled accounts retain identity and historical references but are excluded from new publication candidates.
 - A publication record selects exactly one account. The same `platform_profile_id + content_hash` permits at most one non-rejected attempt, and any append-only `PUBLISHED | VERIFIED` event permanently blocks another publication on that concrete platform.
+- A publication record may be physically deleted only when its complete status-event history never contains `PUBLISHED | VERIFIED` and no GEO citation, GEO publication observation, or publication attention references it. Deletion explicitly removes only that aggregate's unpublished events and attachment relations; unreferenced files enter the shared cleanup lifecycle.
 - `PUBLISHED` and `VERIFIED` publications require a valid HTTP(S) URL matching the configured platform domain.
 - Candidate evidence and `mark-published` result evidence must be verified `OPERATION_SCREENSHOT` files and share the append-only `publication_attachments` relation. Result evidence, final URL, publication time, status event, and audit record commit or fail together.
 - Task completion has no public manual command. The first verified publication completes an open task atomically; completed tasks never revert.
 - Open publication attention is the only publication-loss todo source. Repair-task creation and attention resolution are separate explicit commands.
 - Fact and content review records are append-only, and every request-changes command requires a non-blank comment.
 - Observation accuracy `UNJUDGEABLE` is excluded from the accuracy-rate denominator.
-- Manual GEO observations cover every currently `PUBLISHED | VERIFIED` article for one product, use exactly one complete cumulative stage result per article, associate a real query topic, and include at least one verified operation screenshot.
+- Manual GEO observations cover every currently `PUBLISHED | VERIFIED` article for one product and store one independent `discovered`, `mentioned`, and optional `accuracy` result per article. Evidence screenshots are optional; corrections aggregate ancestor evidence for reads without duplicating file links. Administrators may delete only the complete manual correction chain through the guarded `0029` path.
 - Historical GEO publication associations with null insight facts remain explicitly incomplete and never enter manual insight denominators.
 - Audit log details must not contain passwords, session cookies, AccessKeys, model keys, or unpublished source documents.

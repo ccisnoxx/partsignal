@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "检查迁移、直接数据库反例、事务和文件清理。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "检查组件测试、Playwright、响应式和错误反馈。"}
+{"file": ".trellis/spec/frontend/type-safety.md", "reason": "检查生成类型消费且无手写兼容 DTO。"}
+{"file": ".trellis/tasks/07-28-observation-evidence-management/research/observation-model-and-delete.md", "reason": "检查证据链、并发和审计测试是否覆盖。"}

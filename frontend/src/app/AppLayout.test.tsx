@@ -49,6 +49,7 @@ test('懒路由加载期间保持侧栏、页头和用户区稳定', async () =>
   );
 
   expect(screen.getByText('PartSignal')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '发布管理' })).toHaveAttribute('href', '/publications');
   expect(screen.getByRole('button', { name: '打开用户操作菜单' })).toBeInTheDocument();
   expect(screen.getByRole('status', { name: '页面加载中' })).toBeInTheDocument();
 
@@ -132,6 +133,7 @@ test('GEO 问题库归属 GEO 观测并保持选中态', () => {
 test.each([
   ['/', '工作台'],
   ['/observations', 'GEO 观测'],
+  ['/publications', '发布管理'],
   ['/users', '用户管理'],
   ['/audit', '审计日志'],
   ['/configuration/ai', 'AI 渠道与模型'],
@@ -176,6 +178,14 @@ test('内容审核路由归属内容任务并显示审核标题', () => {
   );
   expect(screen.getByRole('menuitem', { name: /内容任务/ })).toHaveClass('ant-menu-item-selected');
   expect(screen.getByText('内容审核', { selector: '.header-context strong' })).toBeInTheDocument();
+});
+
+test('发布关注与修复路由归属发布管理', () => {
+  render(
+    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/publication-attentions/attention-1/repair']}><Routes><Route element={<AppLayout />}><Route path="publication-attentions/:id/repair" element={<h1>发布修复</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
+  );
+  expect(screen.getByRole('menuitem', { name: /发布管理/ })).toHaveClass('ant-menu-item-selected');
+  expect(screen.getByText('发布管理', { selector: '.header-context strong' })).toBeInTheDocument();
 });
 
 test('路径变化聚焦主内容，但查询参数变化不抢焦点', async () => {

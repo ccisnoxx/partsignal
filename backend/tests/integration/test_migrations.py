@@ -1853,7 +1853,7 @@ def test_markdown_facts_migration_rejects_active_legacy_jobs_atomically() -> Non
                 "(id, content_task_id, idempotency_key, job_type, status, input_snapshot, "
                 "adapter_name, prompt_template_version, prompt_hash, attempt_count, created_by) "
                 "VALUES (%s, %s, %s, 'GENERATE', 'PENDING', "
-                "'{\"contract_version\":\"chat-json-v1\"}'::jsonb, "
+                '\'{"contract_version":"chat-json-v1"}\'::jsonb, '
                 "'openai-compatible-chat-completions', 'chat-json-v1', %s, 0, %s)",
                 (job_id, task_id, f"legacy-active-{job_id}", "a" * 64, actor_id),
             )
@@ -2020,8 +2020,7 @@ def test_markdown_facts_migration_converts_history_and_targets_direct_platform_s
                 (ids["claim"], product_id),
             )
             cursor.execute(
-                "INSERT INTO parameter_evidence_links (parameter_id, evidence_id) "
-                "VALUES (%s, %s)",
+                "INSERT INTO parameter_evidence_links (parameter_id, evidence_id) VALUES (%s, %s)",
                 (ids["parameter"], ids["public_evidence"]),
             )
             cursor.execute(
@@ -2199,9 +2198,7 @@ def test_markdown_facts_migration_converts_history_and_targets_direct_platform_s
             fact_columns = {row[0] for row in cursor.fetchall()}
             assert {"body_markdown", "classification"} <= fact_columns
             assert "snapshot_json" not in fact_columns
-            cursor.execute(
-                "SELECT indexname FROM pg_indexes WHERE tablename = 'content_tasks'"
-            )
+            cursor.execute("SELECT indexname FROM pg_indexes WHERE tablename = 'content_tasks'")
             task_indexes = {row[0] for row in cursor.fetchall()}
             assert "ix_content_tasks_platform_profile_created_at" in task_indexes
             assert "ix_content_tasks_platform_profile_version_created_at" not in task_indexes
@@ -2367,8 +2364,7 @@ def test_publication_account_dedup_migration_adds_constraints_and_downgrades() -
         run_alembic(env, backend_dir, "0026_publication_account_dedup")
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute(
-                "SELECT label, account_identifier, revision "
-                "FROM platform_accounts WHERE id = %s",
+                "SELECT label, account_identifier, revision FROM platform_accounts WHERE id = %s",
                 (account_ids[0],),
             )
             assert cursor.fetchone() == ("迁移账号 1", "Operator-A", 0)
@@ -2381,8 +2377,7 @@ def test_publication_account_dedup_migration_adds_constraints_and_downgrades() -
             assert "UNIQUE INDEX" in index_definition[0]
             assert "lower(btrim" in index_definition[0]
             cursor.execute(
-                "SELECT conname FROM pg_constraint "
-                "WHERE conrelid = 'platform_accounts'::regclass"
+                "SELECT conname FROM pg_constraint WHERE conrelid = 'platform_accounts'::regclass"
             )
             assert {
                 "ck_platform_accounts_revision_nonnegative",
@@ -2706,10 +2701,7 @@ def test_platform_logo_lifecycle_migration_initializes_retention_and_guards_link
                 "FROM file_records WHERE id IN (%s, %s) ORDER BY id",
                 (linked_logo_id, orphan_logo_id),
             )
-            retention = {
-                row[0]: (row[1], row[2])
-                for row in cursor.fetchall()
-            }
+            retention = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
             assert retention[linked_logo_id] == (True, False)
             assert retention[orphan_logo_id] == (False, True)
 
@@ -2742,3 +2734,405 @@ def test_platform_logo_lifecycle_migration_initializes_retention_and_guards_link
         )
         assert downgrade.returncode != 0
         assert "platform logo deletion has started" in downgrade.stderr
+
+
+@pytest.mark.integration
+def test_geo_evidence_migration_removes_stages_and_guards_manual_delete() -> None:
+    """0029 删除累计字段，只按事务声明放行人工观测删除。"""
+    with temporary_database("partsignal_geo_evidence") as (test_url, env, backend_dir):
+        run_alembic(env, backend_dir, "0028_platform_logo_lifecycle")
+        seed_accounts(env, backend_dir)
+        product_id = uuid.uuid4()
+        topic_id = uuid.uuid4()
+        manual_id = uuid.uuid4()
+        legacy_id = uuid.uuid4()
+
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+            actor_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO products "
+                "(id, part_number, normalized_part_number, brand, normalized_brand, category, "
+                "status, revision, facts_revision, facts_body_markdown, facts_classification) "
+                "VALUES (%s, '0029-MIG', %s, 'PartSignal', %s, 'TEST', "
+                "'ACTIVE', 0, 0, '', 'RESTRICTED')",
+                (
+                    product_id,
+                    f"0029-{product_id.hex}",
+                    f"partsignal-{product_id.hex}",
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO query_topics "
+                "(id, canonical_question, intent_type, variants, revision) "
+                "VALUES (%s, '0029 迁移问题', 'PRODUCT', ARRAY[]::text[], 0)",
+                (topic_id,),
+            )
+            cursor.execute(
+                "INSERT INTO geo_observations "
+                "(id, observation_kind, query_topic_id, product_id, search_platform, "
+                "search_query, tested_at, notes, tested_by) "
+                "VALUES (%s, 'MANUAL_ARTICLE_SEARCH', %s, %s, 'DeepSeek', "
+                "'0029-MIG', now(), '', %s)",
+                (manual_id, topic_id, product_id, actor_id),
+            )
+            cursor.execute(
+                "INSERT INTO geo_observations "
+                "(id, observation_kind, query_topic_id, product_id, actual_prompt, model_name, "
+                "tested_at, web_search_enabled, answer_summary, mentioned, recommendation, "
+                "accuracy, notes, tested_by) "
+                "VALUES (%s, 'LEGACY_MODEL_RESULT', %s, %s, '历史问题', '历史模型', "
+                "now(), true, '历史回答', true, 'RECOMMENDED', 'ACCURATE', '', %s)",
+                (legacy_id, topic_id, product_id, actor_id),
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "0029_geo_evidence_management")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'geo_observation_publications'"
+            )
+            columns = {row[0] for row in cursor.fetchall()}
+            assert "recommendation_status" not in columns
+            assert "cited" not in columns
+            assert {"discovered", "mentioned", "accuracy"} <= columns
+            cursor.execute(
+                "SELECT count(*) FROM pg_indexes WHERE indexname = 'ix_file_records_cleanup'"
+            )
+            assert cursor.fetchone() == (1,)
+
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute("DELETE FROM geo_observations WHERE id = %s", (manual_id,))
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.geo_observation_delete_id', %s, true)",
+                (str(legacy_id),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute("DELETE FROM geo_observations WHERE id = %s", (legacy_id,))
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.geo_observation_delete_id', %s, true)",
+                (str(manual_id),),
+            )
+            cursor.execute("DELETE FROM geo_observations WHERE id = %s", (manual_id,))
+            connection.commit()
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0028_platform_logo_lifecycle",
+            ],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'geo_observation_publications'"
+            )
+            columns = {row[0] for row in cursor.fetchall()}
+            assert {"recommendation_status", "cited"} <= columns
+
+
+@pytest.mark.integration
+def test_publication_record_delete_migration_guards_target_and_public_history() -> None:
+    """0030 仅放行声明目标的未公开聚合删除，降级恢复原追加式门禁。"""
+    with temporary_database("partsignal_publication_delete") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0029_geo_evidence_management")
+        seed_accounts(env, backend_dir)
+        ids = {
+            name: uuid.uuid4()
+            for name in (
+                "product",
+                "fact",
+                "platform_type",
+                "profile",
+                "account",
+                "task",
+                "content",
+                "file",
+                "pending_publication",
+                "pending_event",
+                "public_publication",
+                "public_event",
+                "orphan_publication",
+            )
+        }
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM users WHERE username = 'admin'")
+            actor_id = cursor.fetchone()[0]
+            cursor.execute(
+                "INSERT INTO products "
+                "(id, part_number, normalized_part_number, brand, normalized_brand, category, "
+                "status, revision, facts_revision, facts_body_markdown, facts_classification) "
+                "VALUES (%s, '0030-MIG', %s, 'PartSignal', %s, 'TEST', "
+                "'ACTIVE', 0, 0, '迁移事实', 'PUBLIC')",
+                (
+                    ids["product"],
+                    f"0030-{ids['product'].hex}",
+                    f"partsignal-{ids['product'].hex}",
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO fact_versions "
+                "(id, product_id, version, status, body_markdown, classification, "
+                "change_summary, revision, created_by, approved_by, approved_at) "
+                "VALUES (%s, %s, 1, 'APPROVED', '迁移事实', 'PUBLIC', "
+                "'0030 迁移测试', 0, %s, %s, now())",
+                (ids["fact"], ids["product"], actor_id, actor_id),
+            )
+            cursor.execute(
+                "INSERT INTO platform_types (id, name, slug, revision, created_by) "
+                "VALUES (%s, '0030 迁移类型', %s, 0, %s)",
+                (
+                    ids["platform_type"],
+                    f"0030-type-{ids['platform_type'].hex[:12]}",
+                    actor_id,
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO platform_profiles "
+                "(id, name, slug, allowed_domains, platform_type_id, revision, is_active) "
+                "VALUES (%s, '0030 迁移平台', %s, ARRAY['migration.invalid'], %s, 0, true)",
+                (
+                    ids["profile"],
+                    f"0030-profile-{ids['profile'].hex[:12]}",
+                    ids["platform_type"],
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO platform_accounts "
+                "(id, platform_profile_id, label, account_identifier, is_active, revision) "
+                "VALUES (%s, %s, '0030 迁移账号', %s, true, 0)",
+                (
+                    ids["account"],
+                    ids["profile"],
+                    f"0030-account-{ids['account'].hex[:12]}",
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO content_tasks "
+                "(id, product_id, fact_version_id, platform_profile_id, status, revision, "
+                "created_by) VALUES (%s, %s, %s, %s, 'OPEN', 0, %s)",
+                (
+                    ids["task"],
+                    ids["product"],
+                    ids["fact"],
+                    ids["profile"],
+                    actor_id,
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO content_versions "
+                "(id, task_id, fact_version_id, version, source_type, title, summary, "
+                "body_markdown, tags, content_hash, status, revision, quality_issues, "
+                "change_summary, created_by) "
+                "VALUES (%s, %s, %s, 1, 'HUMAN', '0030 迁移内容', '迁移摘要', "
+                "'迁移正文', ARRAY[]::text[], %s, 'APPROVED', 0, '[]'::jsonb, "
+                "'0030 迁移测试', %s)",
+                (ids["content"], ids["task"], ids["fact"], "3" * 64, actor_id),
+            )
+            cursor.execute(
+                "INSERT INTO file_records "
+                "(id, category, original_filename, object_key, content_type, size, sha256, "
+                "access_level, status, uploader_id, upload_expires_at, verified_at) "
+                "VALUES (%s, 'OPERATION_SCREENSHOT', '0030.png', %s, 'image/png', 10, %s, "
+                "'INTERNAL', 'VERIFIED', %s, now(), now())",
+                (
+                    ids["file"],
+                    f"test/publication-delete/{ids['file']}.png",
+                    "4" * 64,
+                    actor_id,
+                ),
+            )
+            cursor.executemany(
+                "INSERT INTO publication_records "
+                "(id, idempotency_key, content_version_id, platform_account_id, section_url, "
+                "actual_title, final_url, published_at, status, content_hash, created_by) "
+                "VALUES (%s, %s, %s, %s, 'https://migration.invalid/section', "
+                "%s, %s, %s, %s, %s, %s)",
+                [
+                    (
+                        ids["pending_publication"],
+                        f"0030-pending-{ids['pending_publication']}",
+                        ids["content"],
+                        ids["account"],
+                        None,
+                        None,
+                        None,
+                        "PENDING_MANUAL_PUBLISH",
+                        "3" * 64,
+                        actor_id,
+                    ),
+                    (
+                        ids["public_publication"],
+                        f"0030-public-{ids['public_publication']}",
+                        ids["content"],
+                        ids["account"],
+                        "公开文章",
+                        "https://migration.invalid/public",
+                        "2026-07-28T00:00:00+00:00",
+                        "PUBLISHED",
+                        "3" * 64,
+                        actor_id,
+                    ),
+                    (
+                        ids["orphan_publication"],
+                        f"0030-orphan-{ids['orphan_publication']}",
+                        ids["content"],
+                        ids["account"],
+                        None,
+                        None,
+                        None,
+                        "REJECTED",
+                        "5" * 64,
+                        actor_id,
+                    ),
+                ],
+            )
+            cursor.executemany(
+                "INSERT INTO publication_status_events "
+                "(id, publication_id, status, comment, actor_id) "
+                "VALUES (%s, %s, %s, '0030 迁移事件', %s)",
+                [
+                    (
+                        ids["pending_event"],
+                        ids["pending_publication"],
+                        "PENDING_MANUAL_PUBLISH",
+                        actor_id,
+                    ),
+                    (
+                        ids["public_event"],
+                        ids["public_publication"],
+                        "PUBLISHED",
+                        actor_id,
+                    ),
+                ],
+            )
+            cursor.execute(
+                "INSERT INTO publication_attachments (publication_id, file_id) VALUES (%s, %s)",
+                (ids["pending_publication"], ids["file"]),
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "0030_publication_record_delete")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "DELETE FROM publication_records WHERE id = %s",
+                    (ids["pending_publication"],),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.publication_record_delete_id', %s, true)",
+                (str(ids["pending_publication"]),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE publication_status_events SET comment = '禁止修改' WHERE id = %s",
+                    (ids["pending_event"],),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.publication_record_delete_id', %s, true)",
+                (str(ids["public_publication"]),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "DELETE FROM publication_status_events WHERE id = %s",
+                    (ids["public_event"],),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.publication_record_delete_id', %s, true)",
+                (str(ids["pending_publication"]),),
+            )
+            cursor.execute(
+                "DELETE FROM publication_attachments WHERE publication_id = %s",
+                (ids["pending_publication"],),
+            )
+            cursor.execute(
+                "DELETE FROM publication_status_events WHERE publication_id = %s",
+                (ids["pending_publication"],),
+            )
+            cursor.execute(
+                "DELETE FROM publication_records WHERE id = %s",
+                (ids["pending_publication"],),
+            )
+            connection.commit()
+            cursor.execute(
+                "SELECT count(*) FROM publication_records WHERE id = %s",
+                (ids["pending_publication"],),
+            )
+            assert cursor.fetchone() == (0,)
+
+            replacement_event_id = uuid.uuid4()
+            cursor.execute(
+                "INSERT INTO publication_status_events "
+                "(id, publication_id, status, comment, actor_id) "
+                "VALUES (%s, %s, 'REMOVED', '降级门禁验证', %s)",
+                (replacement_event_id, ids["public_publication"], actor_id),
+            )
+            cursor.execute(
+                "INSERT INTO publication_attachments (publication_id, file_id) VALUES (%s, %s)",
+                (ids["public_publication"], ids["file"]),
+            )
+            connection.commit()
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0029_geo_evidence_management",
+            ],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT set_config('partsignal.publication_record_delete_id', %s, true)",
+                (str(ids["public_publication"]),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "DELETE FROM publication_status_events WHERE id = %s",
+                    (replacement_event_id,),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "SELECT set_config('partsignal.publication_record_delete_id', %s, true)",
+                (str(ids["public_publication"]),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "DELETE FROM publication_attachments WHERE publication_id = %s",
+                    (ids["public_publication"],),
+                )
+            connection.rollback()
+
+            cursor.execute(
+                "DELETE FROM publication_records WHERE id = %s",
+                (ids["orphan_publication"],),
+            )
+            connection.commit()
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0029_geo_evidence_management",)

@@ -199,13 +199,13 @@ END IF;
 - 候选接口：`POST /api/v1/platform-logo-candidates`，请求 `{website_url}`，成功返回 `{file_id, preview: {url, expires_at}}`。
 - 平台 PATCH：省略 `logo` 表示保持，`logo=null` 表示清空，`logo={source:"UPLOAD", file_id}` 表示替换；不接受 `EXTERNAL` 写入。
 - 数据库 revision：`0028_platform_logo_lifecycle`，`down_revision = "0027_audit_user_delete_guard"`。
-- 生命周期命令：`lock_platform_logo_change(...)`、`schedule_detached_platform_logo(...)`、`cleanup_platform_logo_files(...)`。
+- 生命周期命令：平台绑定仍使用 `lock_platform_logo_change(...)`；通用引用检查、解除关联调度和清理分别由 `file_is_referenced(...)`、`schedule_unreferenced_file(...)`、`cleanup_file_records(...)` 负责。
 
 ### 3. 契约
 
 - 候选请求只访问固定 `https://icon.horse/icon/{规范化 hostname}`，禁止重定向；校验实际 PNG、JPEG、WebP 或 ICO、2 MiB 字节上限和像素上限后才写入自有对象存储。
 - 新写入只允许 `platform_profiles.logo_file_id` 绑定 `VERIFIED`、`PUBLIC`、`PLATFORM_LOGO`。候选和手工上传完成后保留 24 小时；绑定时锁行并清空 `cleanup_after`，解除最后引用后保留七天。
-- `cleanup_after` 只负责调度。删除权威必须实时检查当前 head 的 `platform_profiles.logo_file_id`、`publication_attachments.file_id`、`geo_observation_attachments.file_id`，不得恢复已删除的 `evidences` 查询或增加引用计数。
+- `cleanup_after` 只负责调度。删除权威必须实时检查当前 head 的 `platform_profiles.logo_file_id`、`publication_attachments.file_id`、`geo_observation_attachments.file_id`，不得恢复已删除的 `evidences` 查询或增加引用计数。通用清理器处理所有文件分类，平台服务只保留 Logo 发现、校验和绑定职责。
 - 同时涉及旧、新文件时按 UUID 稳定顺序锁定。清理使用有限批次和 `FOR UPDATE SKIP LOCKED`，先提交 `DELETING`，再幂等删除对象；成功写 `DELETED/deleted_at`，暂时失败保持 `DELETING`。
 - 迁移时已引用 Logo 不设置截止时间，既有未引用 `VERIFIED PLATFORM_LOGO` 从迁移时点保留七天。历史 revision 和 `migration_schema_v1.py` 保持冻结。
 
@@ -342,24 +342,28 @@ messages = [
 
 ### 1. 范围与触发条件
 
-- 新建、读取或更正 GEO 人工搜索记录，以及修改产品文章候选或推荐率统计时适用。
+- 新建、读取、更正或删除 GEO 人工搜索记录，以及修改产品文章候选和独立事实指标时适用。
 - 用户在外部搜索网站人工核对结果；本系统只保存可复核证据，不调用模型、搜索供应商或截图解析服务。
 
 ### 2. 签名
 
-- 数据库 revision：`0018_manual_geo_observation`，`down_revision = "0017_content_humanization"`。
+- 当前数据库 revision：`0029_geo_evidence_management`，`down_revision = "0028_platform_logo_lifecycle"`；`0018` 与 `0022` 只描述历史演进。
 - 候选接口：`GET /api/v1/geo-observation-publications?product_id=<uuid>`。
 - 创建接口：`POST /api/v1/geo-observations`，接收 `product_id`、`search_platform`、`search_query`、`tested_at`、`article_results[]`、`attachment_file_ids[]`、可选 `notes/supersedes_id`。
-- 明细结果：`geo_observation_publications.recommendation_status`，仅允许 `RECOMMENDED | NOT_RECOMMENDED`。
+- 删除接口：`DELETE /api/v1/geo-observations/{observation_id}`，只允许管理员删除人工观测完整更正链。
+- 明细结果：`geo_observation_publications.discovered/mentioned/accuracy`；前两项为独立必填布尔值，`accuracy` 为可空的既有枚举。
 
 ### 3. 契约
 
 - `PublicationRecord` 是公开文章的唯一身份，标题、平台、`final_url` 和状态均由发布链投影；GEO 不复制文章或链接字段。
 - 一次人工观测必须覆盖该产品在提交事务中全部 `PUBLISHED | VERIFIED` 且 `final_url` 非空的发布记录；服务端锁定候选后比较精确 ID 集合。
-- 每篇候选只能有一个二态结果。至少关联一个已验证的 `OPERATION_SCREENSHOT`，附件不能重复。
-- `LEGACY_MODEL_RESULT` 继续保存旧目标问题、模型结果和引用；其文章关联状态保持 `NULL`，不得从旧观测级结论推断逐篇结果。
+- 每篇候选必须显式提交独立的 `discovered`、`mentioned` 和可空 `accuracy`；不得保留推荐、引用或累计阶段校验。
+- 截图可为空；非空附件必须去重且为已验证的 `OPERATION_SCREENSHOT`。每个更正版本只关联本次新增文件，读取时沿祖先链聚合截至当前版本的证据。
+- `LEGACY_MODEL_RESULT` 继续保存旧目标问题、模型结果、推荐和引用；其逐篇独立事实保持 `NULL`，不得从旧观测级结论推断。
 - `MANUAL_ARTICLE_SEARCH` 的旧模型字段必须全空；更正只能追加同产品、同类型且尚无后继的完整新记录。
-- 人工文章指标只统计没有后继更正的人工观测，并由明细实时派生；无明细时推荐率为 `NULL`。
+- 人工文章指标只统计没有后继更正的人工观测，并由明细实时派生；发现率和提及率以全部逐篇结果为分母，准确率只以非空且非 `UNJUDGEABLE` 为分母，零分母返回 `NULL`。
+- 删除任一链内 ID 都必须解析并锁定完整人工更正链，从链尾到链根显式删除关系和节点；数据库事务变量逐节点放行 DELETE，UPDATE 和旧模型 DELETE 始终拒绝。
+- 删除后只有失去全部实际外键引用的附件设置 `cleanup_after=now`，由通用文件清理器进入可重试的 `DELETING -> DELETED`；审计只记录稳定 ID 与数量。
 
 ### 4. 校验与错误矩阵
 
@@ -368,27 +372,28 @@ messages = [
 | 产品不存在 | `404 PRODUCT_NOT_FOUND` |
 | 请求文章集合与当前候选不完全相等 | `409 GEO_PUBLICATIONS_CHANGED`，不得部分写入 |
 | 文章跨产品、状态不可观测或缺少 `final_url` | 服务端拒绝；数据库触发器最终拒绝直接写入 |
-| 结果重复、不是二态值或结果为空 | 请求校验失败 |
-| 截图为空、重复、未验证或类别不是 `OPERATION_SCREENSHOT` | 请求校验或服务端校验失败 |
+| 结果重复、缺少 `discovered/mentioned` 或准确性枚举非法 | 请求校验失败 |
+| 截图重复、未验证或类别不是 `OPERATION_SCREENSHOT` | 请求校验或服务端校验失败；空数组合法 |
 | 更正来源不是同产品人工观测，或已有后继 | `409`，来源历史保持不变 |
-| 存在任一人工观测后降级 | revision 在删除新语义前失败，要求前滚或恢复备份 |
+| 删除旧模型观测、单节点或不完整/分支链 | `409` 或数据库 `55000`，不得让旧版本重新成为当前记录 |
+| 证据仍被平台 Logo、发布附件或其他 GEO 观测引用 | 只删除当前观测关系，不调度文件清理 |
 
 ### 5. 正常、基础与失败案例
 
-- 正常：产品有两篇已发布文章，人工在 DeepSeek 搜索后逐篇标记一篇已推荐、一篇未推荐，并关联真实结果截图，事务一次追加全部明细。
+- 正常：产品有两篇已发布文章，人工在 DeepSeek 搜索后分别登记发现、提及和可选准确性；不上传截图也能原子追加全部明细。
 - 基础：历史模型观测迁移后只增加 `LEGACY_MODEL_RESULT` 判别值，旧字段、引用和发布关联保持原义。
-- 失败：用户填写期间新增一篇符合条件的发布记录，提交集合已过期，返回 `GEO_PUBLICATIONS_CHANGED`，不自动补成“未推荐”。
+- 失败：用户填写期间新增一篇符合条件的发布记录，提交集合已过期，返回 `GEO_PUBLICATIONS_CHANGED`，不自动补成“未发现”。
 
 ### 6. 必需测试
 
-- PostgreSQL 迁移测试验证空库升级到 head、历史观测判别值、类型字段约束、文章归属触发器和存在人工历史后的不可降级策略。
-- 集成测试至少用两篇当前文章断言完整集合成功、漏标失败、截图类别门禁、逐篇状态落库，以及推荐数加未推荐数等于文章结果数。
-- 契约测试验证 OpenAPI、Pydantic 与前端生成类型一致；前端测试验证产品选择后再请求候选，且新载荷不含旧模型联网字段。
-- E2E 验证人工观测主流程与历史模型观测只读展示；不得把固定成功的搜索或模型替身作为人工结果证据。
+- PostgreSQL 迁移测试验证空库升级到 head、独立事实约束、文章归属触发器、四张追加式表的删除门禁和可恢复 downgrade 结构。
+- 集成测试至少覆盖两篇当前文章的完整集合、事实任意组合、无截图创建、更正聚合旧证据、整链删除、安全审计及独占/共享附件清理。
+- 契约测试验证 OpenAPI、Pydantic 与前端生成类型一致；前端测试验证独立复选项、可空准确性、可选截图、已有证据展示和服务端动作授权。
+- E2E 验证人工观测主流程、无截图更正、整链删除与历史模型只读展示；不得把固定成功的搜索或模型替身作为人工结果证据。
 
 ### 7. 错误与正确示例
 
-错误做法：信任前端只提交命中的文章，或按提交时缺少的 ID 自动补“未推荐”。这会把遗漏和并发变化伪装成真实搜索结论。
+错误做法：信任前端只提交命中的文章，或按提交时缺少的 ID 自动补“未发现”。这会把遗漏和并发变化伪装成真实搜索结论。
 
 正确做法：在同一事务锁定产品及权威候选，精确比较集合后再追加明细：
 

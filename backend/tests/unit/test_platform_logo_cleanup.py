@@ -12,11 +12,13 @@ import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Session
 
-from app.services import platform_logo_files
+from app.services import file_records
+from app.services.file_records import (
+    _claim_file_cleanup,
+    cleanup_file_records,
+    file_is_referenced,
+)
 from app.services.platform_logo_files import (
-    _claim_logo_cleanup,
-    _platform_logo_is_referenced,
-    cleanup_platform_logo_files,
     schedule_detached_platform_logo,
 )
 from app.services.storage import EvidenceStorage, StorageUnavailable
@@ -57,7 +59,7 @@ def test_cleanup_skips_referenced_verified_logo_and_clears_wrong_deadline() -> N
     db = Mock(spec=Session)
     db.scalars.return_value = [file]
     db.scalar.return_value = 1
-    assert _claim_logo_cleanup(db, now=now, batch_size=10) == []
+    assert _claim_file_cleanup(db, now=now, batch_size=10) == []
     assert file.status == "VERIFIED"
     assert file.cleanup_after is None
 
@@ -66,7 +68,7 @@ def test_cleanup_reference_authority_uses_all_current_file_foreign_keys() -> Non
     """删除权威只查询当前 head 的三类真实文件外键。"""
     db = Mock(spec=Session)
     db.scalar.return_value = 0
-    assert not _platform_logo_is_referenced(db, uuid.uuid4())
+    assert not file_is_referenced(db, uuid.uuid4())
     queries = [str(call.args[0]) for call in db.scalar.call_args_list]
     assert len(queries) == 3
     assert "platform_profiles" in queries[0]
@@ -82,7 +84,7 @@ def test_cleanup_marks_unreferenced_due_logo_deleting_before_object_delete() -> 
     db = Mock(spec=Session)
     db.scalars.return_value = [file]
     db.scalar.side_effect = [0, 0, 0]
-    assert _claim_logo_cleanup(db, now=now, batch_size=10) == [
+    assert _claim_file_cleanup(db, now=now, batch_size=10) == [
         (file.id, file.object_key)
     ]
     claim_sql = str(
@@ -110,9 +112,9 @@ def test_cleanup_deletes_object_then_keeps_deleted_database_tombstone(
         def begin():
             return nullcontext(next(sessions))
 
-    monkeypatch.setattr(platform_logo_files, "SessionLocal", FakeSessionLocal)
+    monkeypatch.setattr(file_records, "SessionLocal", FakeSessionLocal)
     storage = Mock(spec=EvidenceStorage)
-    result = cleanup_platform_logo_files(now=now, storage=storage, batch_size=10)
+    result = cleanup_file_records(now=now, storage=storage, batch_size=10)
     assert (result.selected, result.deleted, result.retry, result.failed) == (1, 1, 0, 0)
     storage.delete.assert_called_once_with(file.object_key)
     assert file.status == "DELETED"
@@ -133,17 +135,17 @@ def test_cleanup_storage_failure_keeps_deleting_for_next_scan(
         def begin():
             return nullcontext(claim_db)
 
-    monkeypatch.setattr(platform_logo_files, "SessionLocal", FakeSessionLocal)
+    monkeypatch.setattr(file_records, "SessionLocal", FakeSessionLocal)
     storage = Mock(spec=EvidenceStorage)
     storage.delete.side_effect = StorageUnavailable("test")
-    result = cleanup_platform_logo_files(storage=storage, batch_size=10)
+    result = cleanup_file_records(storage=storage, batch_size=10)
     assert (result.selected, result.deleted, result.retry, result.failed) == (1, 0, 1, 0)
     assert file.status == "DELETING"
     assert file.deleted_at is None
 
 
 def test_logo_cleanup_is_registered_as_hourly_postgresql_scan() -> None:
-    """Beat 只周期触发清理命令，不在 Redis 消息中携带文件列表。"""
+    """Beat 只周期触发通用清理命令，不在 Redis 消息中携带文件列表。"""
     schedule = celery_app.conf.beat_schedule["cleanup-platform-logo-files"]
     assert schedule == {
         "task": "partsignal.cleanup_platform_logo_files",

@@ -1,4 +1,4 @@
-/** 人工发布工作台消费服务端候选、允许动作和异常状态，不复制发布状态机。 */
+/** 发布管理工作台消费服务端候选、允许动作和异常状态，不复制发布状态机。 */
 import { useLocation, useParams } from 'react-router-dom';
 import { PublicationAttentionPage } from './PublicationAttentionPage';
 import { PublicationDetailPage } from './PublicationDetailPage';

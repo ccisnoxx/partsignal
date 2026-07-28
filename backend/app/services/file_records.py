@@ -2,24 +2,49 @@
 
 from __future__ import annotations
 
+import logging
 import mimetypes
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
+from app.db import SessionLocal
 from app.errors import AppError, not_found
-from app.models.geo_files import FileRecord
+from app.models.configuration import PlatformProfile
+from app.models.geo_files import FileRecord, GeoObservationAttachment
 from app.models.identity import User
+from app.models.publication import PublicationAttachment
 from app.schemas.geo_files import UploadInstruction, UploadIntent, UploadIntentCreate
 from app.schemas.publication import FileRecordOut
-from app.services.platform_logo_files import UNCONFIRMED_RETENTION
-from app.services.storage import StorageObjectMissing, StorageUnavailable, get_evidence_storage
+from app.services.storage import (
+    EvidenceStorage,
+    StorageObjectMissing,
+    StorageUnavailable,
+    get_evidence_storage,
+)
+
+UNCONFIRMED_RETENTION = timedelta(hours=24)
+DETACHED_RETENTION = timedelta(days=7)
+FILE_CLEANUP_BATCH_SIZE = 100
+
+logger = logging.getLogger("partsignal.worker")
+
+
+@dataclass(frozen=True)
+class FileCleanupResult:
+    """单轮文件清理的非敏感执行结果。"""
+
+    selected: int
+    deleted: int
+    retry: int
+    failed: int
 
 MAX_SIZES = {
     "EVIDENCE": 50 * 1024 * 1024,
@@ -220,3 +245,127 @@ def verified_files(db: Session, file_ids: list[uuid.UUID]) -> list[FileRecord]:
     if len(files) != len(file_ids) or any(file.status != "VERIFIED" for file in files):
         raise AppError("FILE_INTEGRITY_FAILED", "附件必须全部处于 VERIFIED 状态", 422)
     return files
+
+
+def file_is_referenced(db: Session, file_id: uuid.UUID) -> bool:
+    """实时检查当前 Schema 中全部 FileRecord 外键。"""
+    return any(
+        db.scalar(select(func.count()).select_from(model).where(column == file_id))
+        for model, column in (
+            (PlatformProfile, PlatformProfile.logo_file_id),
+            (PublicationAttachment, PublicationAttachment.file_id),
+            (GeoObservationAttachment, GeoObservationAttachment.file_id),
+        )
+    )
+
+
+def schedule_unreferenced_file(
+    db: Session,
+    file_id: uuid.UUID | None,
+    *,
+    cleanup_after: datetime,
+) -> None:
+    """仅在最后一个实际外键解除后安排已验证文件清理。"""
+    if file_id is None:
+        return
+    file = db.scalar(select(FileRecord).where(FileRecord.id == file_id).with_for_update())
+    if file is not None and file.status == "VERIFIED" and not file_is_referenced(db, file_id):
+        file.cleanup_after = cleanup_after
+
+
+def _claim_file_cleanup(
+    db: Session,
+    *,
+    now: datetime,
+    batch_size: int,
+) -> list[tuple[uuid.UUID, str]]:
+    """限批次声明无引用的到期文件，返回待删对象。"""
+    due_files = list(
+        db.scalars(
+            select(FileRecord)
+            .where(
+                or_(
+                    FileRecord.status == "DELETING",
+                    (
+                        (FileRecord.status == "PENDING")
+                        & (FileRecord.upload_expires_at <= now)
+                    ),
+                    FileRecord.status.in_(("FAILED", "ABORTED")),
+                    (
+                        (FileRecord.status == "VERIFIED")
+                        & (FileRecord.cleanup_after.is_not(None))
+                        & (FileRecord.cleanup_after <= now)
+                    ),
+                )
+            )
+            .order_by(
+                func.coalesce(
+                    FileRecord.cleanup_after,
+                    FileRecord.upload_expires_at,
+                    FileRecord.created_at,
+                ),
+                FileRecord.id,
+            )
+            .limit(batch_size)
+            .with_for_update(skip_locked=True)
+        )
+    )
+    claimed: list[tuple[uuid.UUID, str]] = []
+    for file in due_files:
+        if file_is_referenced(db, file.id):
+            if file.status == "VERIFIED":
+                file.cleanup_after = None
+            continue
+        if file.status != "DELETING":
+            file.status = "DELETING"
+        claimed.append((file.id, file.object_key))
+    return claimed
+
+
+def cleanup_file_records(
+    *,
+    now: datetime | None = None,
+    storage: EvidenceStorage | None = None,
+    batch_size: int = FILE_CLEANUP_BATCH_SIZE,
+) -> FileCleanupResult:
+    """先提交删除声明，再幂等删除对象并保留数据库墓碑。"""
+    scan_time = now or datetime.now(UTC)
+    with SessionLocal.begin() as db:
+        claimed = _claim_file_cleanup(db, now=scan_time, batch_size=batch_size)
+
+    object_storage = storage or get_evidence_storage()
+    deleted = 0
+    retry = 0
+    for file_id, object_key in claimed:
+        try:
+            object_storage.delete(object_key)
+        except StorageUnavailable:
+            retry += 1
+            logger.warning("文件对象删除失败，保留重试 file_id=%s", file_id)
+            continue
+        with SessionLocal.begin() as db:
+            file = db.scalar(
+                select(FileRecord).where(FileRecord.id == file_id).with_for_update()
+            )
+            if file is None or file.status != "DELETING":
+                logger.error("文件删除状态异常 file_id=%s", file_id)
+                continue
+            file.status = "DELETED"
+            file.deleted_at = datetime.now(UTC)
+            file.cleanup_after = None
+        deleted += 1
+
+    result = FileCleanupResult(
+        selected=len(claimed),
+        deleted=deleted,
+        retry=retry,
+        failed=len(claimed) - deleted - retry,
+    )
+    logger.info(
+        "文件清理完成 selected=%s deleted=%s retry=%s failed=%s",
+        result.selected,
+        result.deleted,
+        result.retry,
+        result.failed,
+    )
+    return result

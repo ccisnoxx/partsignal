@@ -1,7 +1,7 @@
 /** 修复页只提交服务端给出的事实和平台候选。 */
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Descriptions, Form, InputNumber, List, Select } from 'antd';
+import { Alert, Button, Card, Descriptions, Form, InputNumber, Select, Typography } from 'antd';
 import { Link, useNavigate } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
@@ -41,7 +41,7 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
     },
   });
   if (context.isLoading) return <QueryLoading />;
-  if (context.error || !context.data) return <div className="page-stack"><Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/publication-attentions/${attentionId}`)}>返回异常详情</Button><PageHeader title="创建发布修复任务" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: <Link to={`/publication-attentions/${attentionId}`}>异常待办</Link> }, { title: '创建修复任务' }]} /><QueryFailure error={context.error ?? new Error('修复上下文不存在')} onRetry={() => void context.refetch()} /></div>;
+  if (context.error || !context.data) return <div className="page-stack"><Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/publication-attentions/${attentionId}`)}>返回异常详情</Button><PageHeader title="创建发布修复任务" breadcrumbs={[{ title: <Link to="/publications">发布管理</Link> }, { title: <Link to={`/publication-attentions/${attentionId}`}>异常待办</Link> }, { title: '创建修复任务' }]} /><QueryFailure error={context.error ?? new Error('修复上下文不存在')} onRetry={() => void context.refetch()} /></div>;
   const data = context.data;
   const missingFactCandidate = data.fact_candidates.length === 0;
   return (
@@ -49,7 +49,7 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
       <Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/publication-attentions/${attentionId}`)}>
         返回异常详情
       </Button>
-      <PageHeader eyebrow="修复任务" title="创建发布修复任务" description="固定继承原产品和目标平台，只需显式选择当前已批准事实版本。" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: <Link to={`/publication-attentions/${attentionId}`}>异常待办</Link> }, { title: '创建修复任务' }]} />
+      <PageHeader eyebrow="修复任务" title="创建发布修复任务" description="固定继承原产品和目标平台，只需显式选择当前已批准事实版本。" breadcrumbs={[{ title: <Link to="/publications">发布管理</Link> }, { title: <Link to={`/publication-attentions/${attentionId}`}>异常待办</Link> }, { title: '创建修复任务' }]} />
       <Card title="固定修复上下文" className="workspace-panel">
         <Descriptions
           column={1}
@@ -80,16 +80,14 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
               }))}
             />
           </Form.Item>
-          <List
-            size="small"
-            header="事实版本差异"
-            dataSource={data.fact_candidates}
-            renderItem={(item) => (
-              <List.Item>
+          <Typography.Text strong>事实版本差异</Typography.Text>
+          <ul>
+            {data.fact_candidates.map((item) => (
+              <li key={item.version.id}>
                 V{item.version.version}：{item.difference.changes.map((change) => change.field).join('、') || '无变化'}
-              </List.Item>
-            )}
-          />
+              </li>
+            ))}
+          </ul>
           <Button
             type="primary"
             htmlType="submit"

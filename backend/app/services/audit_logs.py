@@ -74,6 +74,7 @@ _SAFE_FACT_KEYS: dict[str, frozenset[str]] = {
             "repair_task_id",
             "revision",
             "status",
+            "status_event_count",
             "task_id",
             "trigger_status",
         }
@@ -81,10 +82,13 @@ _SAFE_FACT_KEYS: dict[str, frozenset[str]] = {
     AuditModule.GEO_OBSERVATION.value: frozenset(
         {
             "article_count",
+            "article_result_count",
             "attachment_count",
+            "observation_count",
             "product_id",
             "publication_count",
             "query_topic_id",
+            "root_observation_id",
             "supersedes_id",
         }
     ),

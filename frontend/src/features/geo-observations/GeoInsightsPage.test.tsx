@@ -56,37 +56,23 @@ const insights = {
     query_topics: [{ id: topicId, label: 'PS-001 如何替代？' }],
   },
   trends: {
+    discovery_rate: rateTrend,
     mention_rate: rateTrend,
-    recommendation_rate: rateTrend,
-    citation_rate: rateTrend,
     accuracy_rate: rateTrend,
-    not_recommended_content_count: {
-      current: 1, previous: 2, change: -0.5,
-      points: [{ date: '2026-07-20', count: 1 }, { date: '2026-07-21', count: 0 }],
-    },
   },
   platform_performance: [{
     geo_platform: 'DeepSeek', observation_count: 3,
-    mention_rate: rateTrend.current, recommendation_rate: rateTrend.current,
-    citation_rate: rateTrend.current, accuracy_rate: rateTrend.current,
+    discovery_rate: rateTrend.current, mention_rate: rateTrend.current, accuracy_rate: rateTrend.current,
   }],
-  funnel: [
-    ['PUBLISHED', '完成发布', 4, null],
-    ['DISCOVERED', '被检索发现', 4, 1],
-    ['MENTIONED', '获得提及', 3, 0.75],
-    ['RECOMMENDED', '获得推荐', 2, 2 / 3],
-    ['CITED', '展示引用', 2, 1],
-    ['ACCURATE', '结果准确', 0, 0],
-  ].map(([code, label, count, conversion_from_previous]) => ({ code, label, count, conversion_from_previous })) as Schema<'GeoInsightFunnelStage'>[],
   content_rankings: {
     best: [{
       publication_record_id: publicationId, title: longPublicationTitle, content_platform: longPlatformName, observation_count: 3,
-      mention_rate: rateTrend.current, recommendation_rate: rateTrend.current, citation_rate: rateTrend.current,
+      discovery_rate: rateTrend.current, mention_rate: rateTrend.current, accuracy_rate: rateTrend.current,
     }],
     declining: [{
       publication_record_id: decliningPublicationId, title: 'PS-001 表现下降文章', content_platform: '工程师社区', observation_count: 3,
-      mention_rate: rateTrend.current, recommendation_rate: rateTrend.current, citation_rate: rateTrend.previous,
-      basis: [{ metric: 'citation_rate', current_value: 0.25, previous_value: 0.5, decline: 0.25 }],
+      discovery_rate: rateTrend.current, mention_rate: rateTrend.current, accuracy_rate: rateTrend.previous,
+      basis: [{ metric: 'accuracy_rate', current_value: 0.25, previous_value: 0.5, decline: 0.25 }],
     }],
     long_unmentioned: [],
   },
@@ -196,9 +182,10 @@ test('趋势空点断线并可通过键盘焦点或鼠标悬浮读取 Tooltip', 
   expect(await screen.findByRole('heading', { name: 'GEO 分析洞察' })).toBeInTheDocument();
   expect((await screen.findByText('GEO 指标趋势')).closest('.geo-insight-parent-card')).toHaveClass('geo-insight-trend-panel');
   expect(screen.getByText('内容表现排行').closest('.geo-insight-parent-card')).toHaveClass('geo-insight-ranking-panel');
-  expect(screen.getAllByText('上一周期 25.0%')).toHaveLength(4);
-  expect(screen.getByLabelText('从上一阶段转化：66.7%')).toHaveTextContent('66.7%');
-  expect(screen.getByText('结果准确').parentElement?.querySelector('.geo-insight-funnel-track > span')).toHaveStyle({ height: '0%' });
+  expect(screen.getAllByText('上一周期 25.0%')).toHaveLength(3);
+  expect(screen.queryByText('GEO 转化链路')).not.toBeInTheDocument();
+  expect(screen.queryByText('推荐率')).not.toBeInTheDocument();
+  expect(screen.queryByText('引用率')).not.toBeInTheDocument();
   const chart = await screen.findByRole('img', { name: /提及率趋势：2026-07-20 至 2026-07-21/ });
   expect(chart).toHaveAttribute('tabindex', '0');
   expect(chart.querySelectorAll('circle[tabindex]')).toHaveLength(0);
@@ -230,7 +217,7 @@ test('排行省略内容和下降依据仍保留完整可访问文本与 Tooltip
   fireEvent.blur(platform);
   const decliningContent = screen.getByRole('link', { name: 'PS-001 表现下降文章' });
   fireEvent.focus(decliningContent);
-  expect(await screen.findByRole('tooltip')).toHaveTextContent('引用率 50.0% → 25.0%（下降 25.0 个百分点）');
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('准确率 50.0% → 25.0%（下降 25.0 个百分点）');
 });
 
 test('覆盖总览只按服务端分类结果分组计数，不铺开问题明细', async () => {

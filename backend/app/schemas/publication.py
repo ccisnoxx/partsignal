@@ -21,6 +21,7 @@ PublicationAction = Literal[
     "reject",
     "remove",
     "mark-verification-failed",
+    "delete",
 ]
 
 

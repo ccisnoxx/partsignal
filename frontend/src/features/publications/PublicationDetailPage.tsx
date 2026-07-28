@@ -1,4 +1,4 @@
-/** 发布详情只读保留历史，所有状态命令统一回到工作台 Drawer。 */
+/** 发布详情只读保留历史，所有状态命令统一回到发布管理 Drawer。 */
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { Button, Card, Descriptions, Space, Timeline, Typography } from 'antd';
@@ -23,16 +23,16 @@ export function PublicationDetailPage({ publicationId }: { publicationId: string
     staleTime: QUERY_STALE_TIME.detail,
   });
   if (detail.isLoading) return <QueryLoading />;
-  if (detail.error || !detail.data) return <div className="page-stack"><Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布工作台</Button><PageHeader title="发布记录" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: '发布记录' }]} /><QueryFailure error={detail.error ?? new Error('发布记录不存在')} onRetry={() => void detail.refetch()} /></div>;
+  if (detail.error || !detail.data) return <div className="page-stack"><Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布管理</Button><PageHeader title="发布记录" breadcrumbs={[{ title: <Link to="/publications">发布管理</Link> }, { title: '发布记录' }]} /><QueryFailure error={detail.error ?? new Error('发布记录不存在')} onRetry={() => void detail.refetch()} /></div>;
   const record = detail.data;
   return (
     <div className="page-stack">
-      <Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布工作台</Button>
+      <Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布管理</Button>
       <PageHeader
         eyebrow="发布记录"
         title="发布记录"
         description={<>记录 ID <span className="data-code">{record.id}</span></>}
-        breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: '发布记录' }]}
+        breadcrumbs={[{ title: <Link to="/publications">发布管理</Link> }, { title: '发布记录' }]}
         actions={(
           <Space wrap>
             <StatusTag status={record.status} />

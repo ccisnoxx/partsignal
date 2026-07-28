@@ -2,6 +2,8 @@
 import type { PublicationRecord } from '../../shared/api/types';
 
 export type PublicationAction = PublicationRecord['available_actions'][number];
+export type PublicationCommandAction = Exclude<PublicationAction, 'delete'>;
+export type PublicationDeleteTarget = Pick<PublicationRecord, 'id' | 'content_title'>;
 
 export const actionLabels: Record<PublicationAction, string> = {
   'mark-platform-review': '提交平台审核',
@@ -10,4 +12,5 @@ export const actionLabels: Record<PublicationAction, string> = {
   reject: '平台拒绝',
   remove: '标记已移除',
   'mark-verification-failed': '标记验证失败',
+  delete: '删除未公开记录',
 };

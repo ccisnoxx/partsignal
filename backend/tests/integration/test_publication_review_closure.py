@@ -22,8 +22,8 @@ import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
 from pydantic import ValidationError
-from sqlalchemy import create_engine, event, func, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import create_engine, delete, event, func, select
+from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import get_db
@@ -47,6 +47,7 @@ from app.models.geo_files import (
     FileRecord,
     GeoObservation,
     GeoObservationAttachment,
+    GeoObservationCitation,
     GeoObservationPublication,
 )
 from app.models.identity import AuditLog, User
@@ -87,6 +88,7 @@ from app.services.geo_observation import (
     GeoInsightFilters,
     GeoObservationFilters,
     create_geo_observation,
+    delete_geo_observation,
     geo_publication_candidates,
     get_geo_insights,
     get_geo_metrics,
@@ -112,6 +114,7 @@ from app.services.publication import (
     create_repair_task,
     delete_content_task,
     delete_platform_account,
+    delete_publication_record,
     resolve_attention,
     set_platform_account_enabled,
     update_platform_account,
@@ -121,6 +124,7 @@ from app.services.publication_queries import (
     list_attentions,
     list_publication_candidates,
     list_publication_records,
+    publication_out,
     publication_workbench_summary,
 )
 from app.services.review import (
@@ -1080,8 +1084,7 @@ def test_concurrent_mark_published_rejects_legacy_duplicate_attempts() -> None:
                         payload=PublicationCommand(
                             actual_title="遗留重复文章",
                             final_url=(
-                                "https://community.example.invalid/legacy/"
-                                f"{publication_id}"
+                                f"https://community.example.invalid/legacy/{publication_id}"
                             ),
                             published_at=datetime.now(UTC),
                             comment="并发公开",
@@ -1100,9 +1103,7 @@ def test_concurrent_mark_published_rejects_legacy_duplicate_attempts() -> None:
         with session_factory() as db:
             assert set(
                 db.scalars(
-                    select(PublicationRecord.status).where(
-                        PublicationRecord.id.in_(record_ids)
-                    )
+                    select(PublicationRecord.status).where(PublicationRecord.id.in_(record_ids))
                 )
             ) == {"PLATFORM_REVIEW"}
         engine.dispose()
@@ -1399,6 +1400,388 @@ def test_publication_workbench_projection_and_atomic_result_evidence() -> None:
 
 
 @pytest.mark.integration
+def test_publication_record_delete_projects_actions_and_preserves_shared_files() -> None:
+    """列表、详情和删除命令共享资格，外部引用阻断且只调度独占附件。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            graph = seed_graph(db)
+            actor = graph["user"]
+            exclusive_file = FileRecord(
+                category="OPERATION_SCREENSHOT",
+                original_filename="publication-exclusive.png",
+                object_key=f"test/publication-delete/{uuid.uuid4()}.png",
+                content_type="image/png",
+                size=64,
+                sha256="1" * 64,
+                access_level="INTERNAL",
+                status="VERIFIED",
+                uploader_id=actor.id,
+                upload_expires_at=datetime.now(UTC),
+                verified_at=datetime.now(UTC),
+            )
+            shared_file = FileRecord(
+                category="OPERATION_SCREENSHOT",
+                original_filename="publication-shared.png",
+                object_key=f"test/publication-delete/{uuid.uuid4()}.png",
+                content_type="image/png",
+                size=64,
+                sha256="2" * 64,
+                access_level="INTERNAL",
+                status="VERIFIED",
+                uploader_id=actor.id,
+                upload_expires_at=datetime.now(UTC),
+                verified_at=datetime.now(UTC),
+            )
+            db.add_all([exclusive_file, shared_file])
+            db.commit()
+
+            deletable = create_manual_publication(
+                db=db,
+                payload=publication_payload(
+                    graph["content"].id,
+                    graph["same_account"].id,
+                ).model_copy(update={"attachment_file_ids": [exclusive_file.id, shared_file.id]}),
+                actor=actor,
+                request_id="publication-delete-create",
+                idempotency_key=f"publication-delete-create-{uuid.uuid4()}",
+            )
+            shared_content = replace_approved_content(
+                db,
+                graph["content"].id,
+                content_hash="2" * 64,
+                title="共享附件保留文章",
+            )
+            shared_publication = create_manual_publication(
+                db=db,
+                payload=publication_payload(
+                    shared_content.id,
+                    graph["same_account_b"].id,
+                ).model_copy(update={"attachment_file_ids": [shared_file.id]}),
+                actor=actor,
+                request_id="publication-delete-shared",
+                idempotency_key=f"publication-delete-shared-{uuid.uuid4()}",
+            )
+            public_content = replace_approved_content(
+                db,
+                shared_content.id,
+                content_hash="3" * 64,
+                title="已公开历史文章",
+            )
+            public_record = create_manual_publication(
+                db=db,
+                payload=publication_payload(
+                    public_content.id,
+                    graph["same_account"].id,
+                ),
+                actor=actor,
+                request_id="publication-delete-public",
+                idempotency_key=f"publication-delete-public-{uuid.uuid4()}",
+            )
+            command_publication(
+                db=db,
+                publication_id=public_record.id,
+                command="mark-platform-review",
+                payload=PublicationCommand(comment="进入平台审核"),
+                actor=actor,
+                request_id="publication-delete-public-review",
+            )
+            command_publication(
+                db=db,
+                publication_id=public_record.id,
+                command="mark-published",
+                payload=PublicationCommand(
+                    actual_title="已公开历史文章",
+                    final_url="https://community.example.invalid/publication-delete",
+                    published_at=datetime.now(UTC),
+                    comment="完成公开",
+                ),
+                actor=actor,
+                request_id="publication-delete-public-published",
+            )
+            command_publication(
+                db=db,
+                publication_id=public_record.id,
+                command="remove",
+                payload=PublicationCommand(comment="页面已移除"),
+                actor=actor,
+                request_id="publication-delete-public-removed",
+            )
+            observation = GeoObservation(
+                observation_kind="LEGACY_MODEL_RESULT",
+                query_topic_id=graph["topic"].id,
+                product_id=graph["product"].id,
+                actual_prompt="发布删除引用测试",
+                model_name="历史模型",
+                tested_at=datetime.now(UTC),
+                web_search_enabled=False,
+                answer_summary="历史回答",
+                mentioned=True,
+                recommendation="RECOMMENDED",
+                accuracy="ACCURATE",
+                notes="发布删除引用测试",
+                tested_by=actor.id,
+            )
+            db.add(observation)
+            db.flush()
+            db.add_all(
+                [
+                    GeoObservationCitation(
+                        observation_id=observation.id,
+                        url="https://community.example.invalid/publication-delete",
+                        source_type="PUBLICATION",
+                        publication_record_id=public_record.id,
+                    ),
+                    GeoObservationPublication(
+                        observation_id=observation.id,
+                        publication_record_id=public_record.id,
+                    ),
+                ]
+            )
+            db.commit()
+
+            listed = {
+                item.id: item.available_actions
+                for item in list_publication_records(
+                    db,
+                    page=1,
+                    page_size=20,
+                    status_filter=None,
+                ).items
+            }
+            assert listed[deletable.id][-1] == "delete"
+            assert listed[shared_publication.id][-1] == "delete"
+            assert "delete" not in listed[public_record.id]
+            deletable_model = db.get(PublicationRecord, deletable.id)
+            public_model = db.get(PublicationRecord, public_record.id)
+            assert deletable_model is not None and public_model is not None
+            assert publication_out(db, deletable_model).available_actions[-1] == "delete"
+            assert "delete" not in publication_out(db, public_model).available_actions
+
+            with pytest.raises(AppError) as blocked:
+                delete_publication_record(
+                    db=db,
+                    publication_id=public_record.id,
+                    actor=actor,
+                    request_id="publication-delete-blocked-service",
+                )
+            assert blocked.value.code == "PUBLICATION_RECORD_IN_USE"
+            assert {item["type"] for item in blocked.value.details["references"]} == {
+                "PUBLICATION_STATUS_EVENT",
+                "GEO_OBSERVATION_CITATION",
+                "GEO_OBSERVATION_PUBLICATION",
+                "PUBLICATION_ATTENTION",
+            }
+            db.rollback()
+            actor_id = actor.id
+            deletable_id = deletable.id
+            shared_publication_id = shared_publication.id
+            public_record_id = public_record.id
+            exclusive_file_id = exclusive_file.id
+            shared_file_id = shared_file.id
+
+        csrf_token = "publication-delete-csrf-token-more-than-32-characters"
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        with session_factory() as db:
+            api_actor = db.get(User, actor_id)
+            assert api_actor is not None
+        current_session = SimpleNamespace(
+            user=api_actor,
+            csrf_hash=hash_token(csrf_token),
+            last_seen_at=None,
+        )
+        app.dependency_overrides[get_db] = override_db
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        client = TestClient(app)
+        try:
+            csrf_denied = client.delete(
+                f"/api/v1/publication-records/{deletable_id}",
+                headers={
+                    "X-CSRF-Token": "wrong-token-with-more-than-32-characters",
+                    "X-Request-ID": "publication-delete-csrf-denied",
+                },
+            )
+            assert csrf_denied.status_code == 403
+
+            blocked_response = client.delete(
+                f"/api/v1/publication-records/{public_record_id}",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "publication-delete-blocked-api",
+                },
+            )
+            assert blocked_response.status_code == 409
+            assert blocked_response.json()["error"]["code"] == "PUBLICATION_RECORD_IN_USE"
+
+            deleted_response = client.delete(
+                f"/api/v1/publication-records/{deletable_id}",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "publication-delete-success-api",
+                },
+            )
+            assert deleted_response.status_code == 204
+            assert deleted_response.content == b""
+        finally:
+            app.dependency_overrides.clear()
+            client.close()
+
+        with session_factory() as db:
+            assert db.get(PublicationRecord, deletable_id) is None
+            assert db.get(PublicationRecord, shared_publication_id) is not None
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(PublicationStatusEvent)
+                    .where(PublicationStatusEvent.publication_id == deletable_id)
+                )
+                == 0
+            )
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(PublicationAttachment)
+                    .where(PublicationAttachment.publication_id == deletable_id)
+                )
+                == 0
+            )
+            exclusive = db.get(FileRecord, exclusive_file_id)
+            shared = db.get(FileRecord, shared_file_id)
+            assert exclusive is not None and shared is not None
+            assert exclusive.cleanup_after is not None
+            assert exclusive.cleanup_after <= datetime.now(UTC)
+            assert shared.cleanup_after is None
+
+            success_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "publication-delete-success-api")
+            )
+            assert success_audit is not None
+            assert success_audit.action == "publication_record.deleted"
+            assert success_audit.outcome == "SUCCESS"
+            assert success_audit.details == {
+                "facts": {
+                    "status_event_count": 1,
+                    "attachment_count": 2,
+                }
+            }
+            failed_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "publication-delete-blocked-api")
+            )
+            assert failed_audit is not None
+            assert failed_audit.action == "publication_record.deleted"
+            assert failed_audit.outcome == "FAILED"
+            assert failed_audit.error_code == "PUBLICATION_RECORD_IN_USE"
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(AuditLog)
+                    .where(AuditLog.request_id == "publication-delete-csrf-denied")
+                )
+                == 0
+            )
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_publication_delete_and_mark_published_are_serialized() -> None:
+    """删除与登记已发布共用 identity 锁，只允许一个事务形成合法结果。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            graph = seed_graph(db)
+            publication = create_manual_publication(
+                db=db,
+                payload=publication_payload(
+                    graph["content"].id,
+                    graph["same_account"].id,
+                ),
+                actor=graph["user"],
+                request_id="publication-delete-race-create",
+                idempotency_key=f"publication-delete-race-{uuid.uuid4()}",
+            )
+            command_publication(
+                db=db,
+                publication_id=publication.id,
+                command="mark-platform-review",
+                payload=PublicationCommand(comment="等待并发结果"),
+                actor=graph["user"],
+                request_id="publication-delete-race-review",
+            )
+            publication_id = publication.id
+            actor_id = graph["user"].id
+
+        start = Event()
+
+        def race(action: str) -> str:
+            with session_factory() as db:
+                actor = db.get(User, actor_id)
+                assert actor is not None
+                start.wait(timeout=5)
+                try:
+                    if action == "delete":
+                        delete_publication_record(
+                            db=db,
+                            publication_id=publication_id,
+                            actor=actor,
+                            request_id="publication-delete-race-delete",
+                        )
+                        return "DELETED"
+                    result = command_publication(
+                        db=db,
+                        publication_id=publication_id,
+                        command="mark-published",
+                        payload=PublicationCommand(
+                            actual_title="并发公开文章",
+                            final_url=(
+                                "https://community.example.invalid/"
+                                f"publication-delete-race/{publication_id}"
+                            ),
+                            published_at=datetime.now(UTC),
+                            comment="并发登记已发布",
+                        ),
+                        actor=actor,
+                        request_id="publication-delete-race-published",
+                    )
+                    return result.status.value
+                except AppError as error:
+                    db.rollback()
+                    return error.code
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(race, action) for action in ("delete", "mark-published")]
+            start.set()
+            results = {future.result(timeout=10) for future in futures}
+        assert results in (
+            {"DELETED", "NOT_FOUND"},
+            {"PUBLISHED", "PUBLICATION_RECORD_IN_USE"},
+        )
+
+        with session_factory() as db:
+            current = db.get(PublicationRecord, publication_id)
+            if current is None:
+                assert results == {"DELETED", "NOT_FOUND"}
+            else:
+                assert results == {"PUBLISHED", "PUBLICATION_RECORD_IN_USE"}
+                assert current.status == "PUBLISHED"
+                assert (
+                    db.scalar(
+                        select(func.count(PublicationStatusEvent.id)).where(
+                            PublicationStatusEvent.publication_id == publication_id,
+                            PublicationStatusEvent.status == "PUBLISHED",
+                        )
+                    )
+                    == 1
+                )
+        engine.dispose()
+
+
+@pytest.mark.integration
 def test_controlled_deletion_reports_direct_references_and_allows_clean_targets() -> None:
     """删除服务汇总直接引用；清理后的对象可在同一公开流程中重试。"""
     with temporary_database() as database_url:
@@ -1444,7 +1827,7 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
                     platform_profile_id=graph["profile"].id,
                     actor=actor,
                     request_id="delete-profile",
-            )
+                )
             assert {item["type"] for item in profile_conflict.value.details["references"]} == {
                 "CONTENT_TASK",
                 "PLATFORM_ACCOUNT",
@@ -1566,8 +1949,8 @@ def test_controlled_deletion_reports_direct_references_and_allows_clean_targets(
 
 
 @pytest.mark.integration
-def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> None:
-    """人工观测必须覆盖产品全部公开文章，并保存逐篇结果和截图证据。"""
+def test_manual_geo_observation_uses_independent_facts_and_optional_evidence() -> None:
+    """人工观测覆盖全部公开文章，事实独立且更正无需重复证据。"""
     with temporary_database() as database_url:
         engine = create_engine(database_url)
         with Session(engine) as db:
@@ -1634,6 +2017,19 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                 upload_expires_at=datetime.now(UTC),
                 verified_at=datetime.now(UTC),
             )
+            exclusive_screenshot = FileRecord(
+                category="OPERATION_SCREENSHOT",
+                original_filename="geo-exclusive-result.png",
+                object_key=f"test/geo/{uuid.uuid4()}.png",
+                content_type="image/png",
+                size=128,
+                sha256="f" * 64,
+                access_level="INTERNAL",
+                status="VERIFIED",
+                uploader_id=graph["user"].id,
+                upload_expires_at=datetime.now(UTC),
+                verified_at=datetime.now(UTC),
+            )
             evidence = FileRecord(
                 category="EVIDENCE",
                 original_filename="product-evidence.png",
@@ -1647,22 +2043,21 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                 upload_expires_at=datetime.now(UTC),
                 verified_at=datetime.now(UTC),
             )
-            db.add_all([screenshot, evidence])
+            db.add_all([screenshot, exclusive_screenshot, evidence])
             db.commit()
 
             candidates = geo_publication_candidates(db, graph["product"].id)
             assert {item.publication_record_id for item in candidates} == {
                 item.id for item in publications
             }
-            with pytest.raises(ValidationError):
-                GeoArticleResultCreate(
-                    publication_record_id=publications[0].id,
-                    discovered=False,
-                    mentioned=True,
-                    recommendation_status="NOT_RECOMMENDED",
-                    cited=False,
-                    accuracy="UNJUDGEABLE",
-                )
+            independent_result = GeoArticleResultCreate(
+                publication_record_id=publications[0].id,
+                discovered=False,
+                mentioned=True,
+                accuracy="ACCURATE",
+            )
+            assert independent_result.discovered is False
+            assert independent_result.mentioned is True
             incomplete = GeoObservationCreate(
                 product_id=graph["product"].id,
                 query_topic_id=graph["topic"].id,
@@ -1674,14 +2069,12 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                         publication_record_id=publications[0].id,
                         discovered=True,
                         mentioned=True,
-                        recommendation_status="RECOMMENDED",
-                        cited=True,
                         accuracy="ACCURATE",
                     )
                 ],
-                attachment_file_ids=[screenshot.id],
                 notes="人工搜索",
             )
+            assert incomplete.attachment_file_ids == []
             with pytest.raises(AppError) as changed:
                 create_geo_observation(
                     db=db,
@@ -1697,16 +2090,13 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                     "article_results": [
                         GeoArticleResultCreate(
                             publication_record_id=publication.id,
-                            discovered=index == 0,
+                            discovered=index == 1,
                             mentioned=index == 0,
-                            recommendation_status=(
-                                "RECOMMENDED" if index == 0 else "NOT_RECOMMENDED"
-                            ),
-                            cited=index == 0,
-                            accuracy="ACCURATE" if index == 0 else "UNJUDGEABLE",
+                            accuracy="ACCURATE" if index == 0 else None,
                         )
                         for index, publication in enumerate(publications)
-                    ]
+                    ],
+                    "attachment_file_ids": [screenshot.id, exclusive_screenshot.id],
                 }
             )
             with pytest.raises(AppError) as invalid_attachment:
@@ -1733,18 +2123,17 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                 )
             )
             assert observation.observation_kind == "MANUAL_ARTICLE_SEARCH"
-            assert {item.recommendation_status for item in results} == {
-                "RECOMMENDED",
-                "NOT_RECOMMENDED",
+            assert {(item.discovered, item.mentioned, item.accuracy) for item in results} == {
+                (False, True, "ACCURATE"),
+                (True, False, None),
             }
-            assert (
-                db.scalar(
+            assert set(
+                db.scalars(
                     select(GeoObservationAttachment.file_id).where(
                         GeoObservationAttachment.observation_id == observation.id
                     )
                 )
-                == screenshot.id
-            )
+            ) == {screenshot.id, exclusive_screenshot.id}
             metrics = get_geo_metrics(
                 db=db,
                 actor=graph["user"],
@@ -1752,7 +2141,9 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
             )
             assert metrics.manual_observation_count == 1
             assert metrics.article_result_count == 2
-            assert metrics.article_recommendation_rate == 0.5
+            assert metrics.article_discovery_rate == 0.5
+            assert metrics.article_mention_rate == 0.5
+            assert metrics.article_accuracy_rate == 1
             audit = db.scalar(select(AuditLog).where(AuditLog.request_id == "geo-complete"))
             assert audit is not None
             assert audit.business_module == "GEO_OBSERVATION"
@@ -1762,7 +2153,7 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                     "product_id": str(graph["product"].id),
                     "supersedes_id": None,
                     "article_count": 2,
-                    "attachment_count": 1,
+                    "attachment_count": 2,
                 }
             }
             assert complete.search_query not in str(audit.details)
@@ -1775,6 +2166,7 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                         "tested_at": complete.tested_at + timedelta(hours=1),
                         "notes": "纠正后的人工搜索",
                         "supersedes_id": observation.id,
+                        "attachment_file_ids": [],
                     }
                 ),
                 actor=graph["user"],
@@ -1794,6 +2186,25 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                 )
             assert changed_query.value.code == "VALIDATION_ERROR"
             db.rollback()
+            correction_out = get_geo_observation(db, correction.id, actor=graph["user"])
+            assert correction_out.attachment_file_ids == sorted(
+                [screenshot.id, exclusive_screenshot.id]
+            )
+            with pytest.raises(AppError) as duplicate_evidence:
+                create_geo_observation(
+                    db=db,
+                    payload=complete.model_copy(
+                        update={
+                            "tested_at": complete.tested_at + timedelta(hours=2),
+                            "supersedes_id": correction.id,
+                            "attachment_file_ids": [screenshot.id],
+                        }
+                    ),
+                    actor=graph["user"],
+                    request_id="geo-correction-duplicate-evidence",
+                )
+            assert duplicate_evidence.value.code == "VALIDATION_ERROR"
+            db.rollback()
 
             other_user = User(
                 username=f"geo-other-{uuid.uuid4().hex[:8]}",
@@ -1807,7 +2218,11 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
             other_observation = create_geo_observation(
                 db=db,
                 payload=complete.model_copy(
-                    update={"tested_at": tied_time, "notes": "其他用户的人工搜索"}
+                    update={
+                        "tested_at": tied_time,
+                        "notes": "其他用户的人工搜索",
+                        "attachment_file_ids": [],
+                    }
                 ),
                 actor=other_user,
                 request_id="geo-other-user",
@@ -1818,6 +2233,7 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                     update={
                         "tested_at": tied_time + timedelta(hours=1),
                         "notes": "第三次完整人工搜索",
+                        "attachment_file_ids": [],
                     }
                 ),
                 actor=other_user,
@@ -1866,13 +2282,13 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                 third_observation.id,
                 legacy.id,
             }
-            correction_out = next(item for item in current.items if item.id == correction.id)
-            assert correction_out.product_label == (
+            current_correction = next(item for item in current.items if item.id == correction.id)
+            assert current_correction.product_label == (
                 f"{graph['product'].brand} {graph['product'].part_number}"
             )
-            assert correction_out.recorder.display_name == graph["user"].display_name
-            assert correction_out.is_current is True
-            assert correction_out.available_actions == ["CORRECT"]
+            assert current_correction.recorder.display_name == graph["user"].display_name
+            assert current_correction.is_current is True
+            assert current_correction.available_actions == ["CORRECT"]
 
             history = list_geo_observations(
                 db,
@@ -1912,7 +2328,7 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                 other_observation.id,
                 third_observation.id,
             }
-            legacy_only = list_geo_observations(
+            mentioned_observations = list_geo_observations(
                 db,
                 filters=GeoObservationFilters(mentioned=True),
                 actor=graph["user"],
@@ -1920,16 +2336,21 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                 page_size=20,
                 sort_order="DESC",
             )
-            assert [item.id for item in legacy_only.items] == [legacy.id]
-            recommended_articles = list_geo_observations(
+            assert {item.id for item in mentioned_observations.items} == {
+                correction.id,
+                other_observation.id,
+                third_observation.id,
+                legacy.id,
+            }
+            discovered_articles = list_geo_observations(
                 db,
-                filters=GeoObservationFilters(article_recommendation="RECOMMENDED"),
+                filters=GeoObservationFilters(discovered=True),
                 actor=graph["user"],
                 page=1,
                 page_size=20,
                 sort_order="DESC",
             )
-            assert recommended_articles.total == 3
+            assert discovered_articles.total == 3
             publication_match = list_geo_observations(
                 db,
                 filters=GeoObservationFilters(publication_search="GEO 文章 1"),
@@ -1963,7 +2384,9 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
             assert current_metrics.legacy_sample_count == 1
             assert current_metrics.manual_observation_count == 3
             assert current_metrics.article_result_count == 6
-            assert current_metrics.article_recommendation_rate == 0.5
+            assert current_metrics.article_discovery_rate == 0.5
+            assert current_metrics.article_mention_rate == 0.5
+            assert current_metrics.article_accuracy_rate == 1
 
             observed_date = complete.tested_at.date()
             insights = get_geo_insights(
@@ -1981,11 +2404,8 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                 "denominator": 6,
                 "value": 0.5,
             }
-            assert insights.trends.recommendation_rate.current.value == 0.5
-            assert insights.trends.citation_rate.current.value == 0.5
-            assert insights.trends.accuracy_rate.current.value == 0.5
-            assert insights.trends.not_recommended_content_count.current == 1
-            assert [stage.count for stage in insights.funnel] == [6, 3, 3, 3, 3, 3]
+            assert insights.trends.discovery_rate.current.value == 0.5
+            assert insights.trends.accuracy_rate.current.value == 1
             assert insights.platform_performance[0].observation_count == 3
             assert insights.content_rankings.best[0].publication_record_id == publications[0].id
 
@@ -2006,8 +2426,8 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
                 "unit": "COUNT",
             }
             assert any(
-                item.rule_code == "CONTENT_NEVER_RECOMMENDED"
-                and item.publication_record_ids == [publications[1].id]
+                item.rule_code == "CONTENT_NEVER_DISCOVERED"
+                and item.publication_record_ids == [publications[0].id]
                 for item in insights.recommendations
             )
             assert {item.code for item in insights.data_quality.unavailable_sections} >= {
@@ -2062,6 +2482,78 @@ def test_manual_geo_observation_requires_complete_articles_and_screenshot() -> N
             assert publications[0].id in {
                 item.id for item in removed_publication_insights.filter_options.publications
             }
+
+            db.add(
+                PublicationAttachment(
+                    publication_id=publications[0].id,
+                    file_id=screenshot.id,
+                )
+            )
+            graph["user"].account_type = "ADMIN"
+            db.commit()
+
+            with pytest.raises(DatabaseError):
+                db.execute(
+                    delete(GeoObservationPublication).where(
+                        GeoObservationPublication.observation_id == other_observation.id
+                    )
+                )
+            db.rollback()
+
+            delete_geo_observation(
+                db=db,
+                observation_id=observation.id,
+                actor=graph["user"],
+                request_id="geo-delete-chain",
+            )
+            assert db.get(GeoObservation, observation.id) is None
+            assert db.get(GeoObservation, correction.id) is None
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(GeoObservationPublication)
+                    .where(
+                        GeoObservationPublication.observation_id.in_(
+                            [observation.id, correction.id]
+                        )
+                    )
+                )
+                == 0
+            )
+            remaining = list_geo_observations(
+                db,
+                filters=GeoObservationFilters(product_id=graph["product"].id),
+                actor=graph["user"],
+                page=1,
+                page_size=20,
+                sort_order="DESC",
+            )
+            assert {item.id for item in remaining.items} == {
+                other_observation.id,
+                third_observation.id,
+                legacy.id,
+            }
+
+            db.refresh(screenshot)
+            db.refresh(exclusive_screenshot)
+            assert screenshot.cleanup_after is None
+            assert exclusive_screenshot.cleanup_after is not None
+            assert exclusive_screenshot.cleanup_after <= datetime.now(UTC)
+            delete_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "geo-delete-chain")
+            )
+            assert delete_audit is not None
+            assert delete_audit.target_id == str(observation.id)
+            assert delete_audit.details == {
+                "facts": {
+                    "root_observation_id": str(observation.id),
+                    "observation_count": 2,
+                    "article_result_count": 4,
+                    "attachment_count": 2,
+                }
+            }
+            assert complete.search_query not in str(delete_audit.details)
+            assert complete.notes not in str(delete_audit.details)
         engine.dispose()
 
 
@@ -2526,6 +3018,7 @@ def test_fact_version_deletion_requires_no_content_reference() -> None:
             assert db.get(FactVersion, api_fact_id) is None
             assert db.get(Product, api_product_id) is not None
         engine.dispose()
+
 
 @pytest.mark.integration
 @pytest.mark.parametrize("with_query_topic", [True, False])

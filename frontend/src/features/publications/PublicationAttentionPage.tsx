@@ -45,12 +45,12 @@ export function PublicationAttentionPage({ attentionId }: { attentionId: string 
     },
   });
   if (detail.isLoading) return <QueryLoading />;
-  if (detail.error || !detail.data) return <div className="page-stack"><Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布工作台</Button><PageHeader title="发布异常待办" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: '异常待办' }]} /><QueryFailure error={detail.error ?? new Error('发布异常不存在')} onRetry={() => void detail.refetch()} /></div>;
+  if (detail.error || !detail.data) return <div className="page-stack"><Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布管理</Button><PageHeader title="发布异常待办" breadcrumbs={[{ title: <Link to="/publications">发布管理</Link> }, { title: '异常待办' }]} /><QueryFailure error={detail.error ?? new Error('发布异常不存在')} onRetry={() => void detail.refetch()} /></div>;
   const attention = detail.data;
   return (
     <div className="page-stack">
-      <Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布工作台</Button>
-      <PageHeader eyebrow="发布异常" title="发布异常待办" description="异常待办保留原发布上下文，创建修复任务不会自动关闭待办。" breadcrumbs={[{ title: <Link to="/publications">人工发布</Link> }, { title: '异常待办' }]} actions={<StatusTag status={attention.status} />} />
+      <Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate('/publications')}>返回发布管理</Button>
+      <PageHeader eyebrow="发布异常" title="发布异常待办" description="异常待办保留原发布上下文，创建修复任务不会自动关闭待办。" breadcrumbs={[{ title: <Link to="/publications">发布管理</Link> }, { title: '异常待办' }]} actions={<StatusTag status={attention.status} />} />
       <Card title="异常上下文" className="workspace-panel">
         <Descriptions
           column={1}

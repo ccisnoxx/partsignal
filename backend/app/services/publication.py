@@ -7,7 +7,7 @@ import uuid
 from datetime import UTC, datetime
 from urllib.parse import urlparse
 
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -23,7 +23,11 @@ from app.models.content import (
     ContentTask,
     ContentVersion,
 )
-from app.models.geo_files import FileRecord
+from app.models.geo_files import (
+    FileRecord,
+    GeoObservationCitation,
+    GeoObservationPublication,
+)
 from app.models.identity import User
 from app.models.product_facts import (
     FactVersion,
@@ -47,10 +51,11 @@ from app.schemas.publication import (
     PublicationRepairTaskCreate,
     ResolvePublicationAttentionRequest,
 )
-from app.services.file_records import verified_files
+from app.services.file_records import schedule_unreferenced_file, verified_files
 from app.services.platform_configuration import lock_active_platform
 from app.services.projections import IN_FLIGHT_PUBLICATION_STATUSES
 from app.services.publication_queries import (
+    PUBLICATION_PUBLIC_EVENT_STATUSES,
     PUBLICATION_TRANSITIONS,
     attention_out,
     publication_out,
@@ -142,9 +147,7 @@ def _lock_platform_account(
 ) -> tuple[PlatformProfile, PlatformAccount]:
     """按平台、账号的固定顺序锁行，并刷新账号的当前状态。"""
     platform_profile_id = db.scalar(
-        select(PlatformAccount.platform_profile_id).where(
-            PlatformAccount.id == platform_account_id
-        )
+        select(PlatformAccount.platform_profile_id).where(PlatformAccount.id == platform_account_id)
     )
     if platform_profile_id is None:
         raise not_found("平台账号")
@@ -344,24 +347,33 @@ def delete_platform_account(
     db.commit()
 
 
-def _guard_duplicate_platform_content(
+def _lock_platform_content(
+    db: Session,
+    *,
+    platform_profile_id: uuid.UUID,
+    content_hash: str,
+) -> None:
+    """按具体平台和内容哈希串行化登记、公开与删除。"""
+    lock_key = f"publication:{platform_profile_id}:{content_hash}"
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": lock_key},
+    )
+
+
+def _check_duplicate_platform_content(
     db: Session,
     *,
     platform_profile_id: uuid.UUID,
     content_hash: str,
     exclude_publication_id: uuid.UUID | None = None,
 ) -> None:
-    """串行检查同平台同内容哈希的在途记录和曾公开历史。"""
-    lock_key = f"publication:{platform_profile_id}:{content_hash}"
-    db.execute(
-        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
-        {"key": lock_key},
-    )
+    """在已持有 identity advisory lock 后检查重复发布事实。"""
     published_event_exists = (
         select(PublicationStatusEvent.id)
         .where(
             PublicationStatusEvent.publication_id == PublicationRecord.id,
-            PublicationStatusEvent.status.in_(("PUBLISHED", "VERIFIED")),
+            PublicationStatusEvent.status.in_(PUBLICATION_PUBLIC_EVENT_STATUSES),
         )
         .exists()
     )
@@ -387,6 +399,24 @@ def _guard_duplicate_platform_content(
             "同一篇文章不能在同一平台重复登记或公开发布",
             409,
         )
+
+
+def _publication_identity(
+    db: Session,
+    publication_id: uuid.UUID,
+) -> tuple[uuid.UUID, str]:
+    """读取发布记录不可变的平台和内容哈希，用于统一事务锁。"""
+    identity = db.execute(
+        select(
+            PlatformAccount.platform_profile_id,
+            PublicationRecord.content_hash,
+        )
+        .join(PlatformAccount, PlatformAccount.id == PublicationRecord.platform_account_id)
+        .where(PublicationRecord.id == publication_id)
+    ).one_or_none()
+    if identity is None:
+        raise not_found("发布记录")
+    return identity.platform_profile_id, identity.content_hash
 
 
 def create_manual_publication(
@@ -422,6 +452,23 @@ def create_manual_publication(
             raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一发布登记", 409)
         return publication_out(db, existing)
 
+    platform_profile_id = db.scalar(
+        select(PlatformAccount.platform_profile_id).where(
+            PlatformAccount.id == payload.platform_account_id
+        )
+    )
+    if platform_profile_id is None:
+        raise not_found("平台账号")
+    content_hash = db.scalar(
+        select(ContentVersion.content_hash).where(ContentVersion.id == payload.content_version_id)
+    )
+    if content_hash is None:
+        raise not_found("内容版本")
+    _lock_platform_content(
+        db,
+        platform_profile_id=platform_profile_id,
+        content_hash=content_hash,
+    )
     profile, account = _lock_platform_account(
         db,
         payload.platform_account_id,
@@ -430,9 +477,11 @@ def create_manual_publication(
     if not account.is_active:
         raise AppError("INVALID_STATE_TRANSITION", "平台账号不存在或已停用", 409)
     content, task = _lock_approved_publication_context(db, payload.content_version_id)
+    if profile.id != platform_profile_id or content.content_hash != content_hash:
+        raise AppError("REVISION_CONFLICT", "发布上下文已变化，请重试", 409)
     if account.platform_profile_id != task.platform_profile_id:
         raise AppError("PUBLICATION_PLATFORM_MISMATCH", "发布账号平台与内容任务锁定平台不一致", 422)
-    _guard_duplicate_platform_content(
+    _check_duplicate_platform_content(
         db,
         platform_profile_id=profile.id,
         content_hash=content.content_hash,
@@ -500,6 +549,14 @@ def command_publication(
     request_id: str,
 ) -> PublicationRecordOut:
     """锁定发布与任务后原子执行发布状态、任务终态和异常待办。"""
+    locked_identity: tuple[uuid.UUID, str] | None = None
+    if command == "mark-published":
+        locked_identity = _publication_identity(db, publication_id)
+        _lock_platform_content(
+            db,
+            platform_profile_id=locked_identity[0],
+            content_hash=locked_identity[1],
+        )
     publication = db.scalar(
         select(PublicationRecord).where(PublicationRecord.id == publication_id).with_for_update()
     )
@@ -523,6 +580,13 @@ def command_publication(
     if task is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布记录关联的内容任务不存在", 409)
     if command == "mark-published":
+        if locked_identity is None:
+            raise RuntimeError("mark-published 缺少已锁定的发布 identity")
+        if (
+            task.platform_profile_id != locked_identity[0]
+            or publication.content_hash != locked_identity[1]
+        ):
+            raise AppError("REVISION_CONFLICT", "发布上下文已变化，请重试", 409)
         if (
             payload.actual_title is None
             or payload.final_url is None
@@ -547,7 +611,7 @@ def command_publication(
             )
             if existing_file_id is not None:
                 raise AppError("PUBLICATION_ATTACHMENT_EXISTS", "结果证据已关联该发布记录", 409)
-        _guard_duplicate_platform_content(
+        _check_duplicate_platform_content(
             db,
             platform_profile_id=task.platform_profile_id,
             content_hash=publication.content_hash,
@@ -662,6 +726,134 @@ def command_publication(
     result = publication_out(db, publication)
     db.commit()
     return result
+
+
+def _publication_delete_references(
+    db: Session,
+    publication_id: uuid.UUID,
+) -> list[tuple[str, str, int]]:
+    """一次查询汇总发布记录删除的全部历史与外部引用。"""
+    counts = db.execute(
+        select(
+            select(func.count(PublicationStatusEvent.id))
+            .where(
+                PublicationStatusEvent.publication_id == publication_id,
+                PublicationStatusEvent.status.in_(PUBLICATION_PUBLIC_EVENT_STATUSES),
+            )
+            .scalar_subquery()
+            .label("public_event_count"),
+            select(func.count(GeoObservationCitation.id))
+            .where(GeoObservationCitation.publication_record_id == publication_id)
+            .scalar_subquery()
+            .label("citation_count"),
+            select(func.count())
+            .select_from(GeoObservationPublication)
+            .where(GeoObservationPublication.publication_record_id == publication_id)
+            .scalar_subquery()
+            .label("geo_publication_count"),
+            select(func.count(PublicationAttention.id))
+            .where(PublicationAttention.publication_record_id == publication_id)
+            .scalar_subquery()
+            .label("attention_count"),
+        )
+    ).one()
+    return [
+        ("PUBLICATION_STATUS_EVENT", "公开状态事件", int(counts.public_event_count or 0)),
+        ("GEO_OBSERVATION_CITATION", "GEO 引用", int(counts.citation_count or 0)),
+        (
+            "GEO_OBSERVATION_PUBLICATION",
+            "GEO 文章观测",
+            int(counts.geo_publication_count or 0),
+        ),
+        ("PUBLICATION_ATTENTION", "发布关注事项", int(counts.attention_count or 0)),
+    ]
+
+
+def delete_publication_record(
+    *,
+    db: Session,
+    publication_id: uuid.UUID,
+    actor: User,
+    request_id: str,
+) -> None:
+    """删除从未公开且没有外部引用的发布聚合，并调度独占附件清理。"""
+    platform_profile_id, content_hash = _publication_identity(db, publication_id)
+    _lock_platform_content(
+        db,
+        platform_profile_id=platform_profile_id,
+        content_hash=content_hash,
+    )
+    publication = db.scalar(
+        select(PublicationRecord).where(PublicationRecord.id == publication_id).with_for_update()
+    )
+    if publication is None:
+        raise not_found("发布记录")
+
+    references = _publication_delete_references(db, publication.id)
+    if any(count for _, _, count in references):
+        raise in_use(
+            "PUBLICATION_RECORD_IN_USE",
+            "发布记录",
+            references,
+        )
+
+    attachment_ids = list(
+        db.scalars(
+            select(PublicationAttachment.file_id)
+            .where(PublicationAttachment.publication_id == publication.id)
+            .order_by(PublicationAttachment.file_id)
+        )
+    )
+    status_event_count = int(
+        db.scalar(
+            select(func.count(PublicationStatusEvent.id)).where(
+                PublicationStatusEvent.publication_id == publication.id
+            )
+        )
+        or 0
+    )
+    db.scalar(
+        select(
+            func.set_config(
+                "partsignal.publication_record_delete_id",
+                str(publication.id),
+                True,
+            )
+        )
+    )
+    db.execute(
+        delete(PublicationAttachment).where(PublicationAttachment.publication_id == publication.id)
+    )
+    db.execute(
+        delete(PublicationStatusEvent).where(
+            PublicationStatusEvent.publication_id == publication.id
+        )
+    )
+    db.execute(delete(PublicationRecord).where(PublicationRecord.id == publication.id))
+
+    cleanup_time = datetime.now(UTC)
+    for file_id in attachment_ids:
+        schedule_unreferenced_file(db, file_id, cleanup_after=cleanup_time)
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PUBLICATION,
+            action="publication_record.deleted",
+            target_type="PublicationRecord",
+            target_id=publication.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="发布记录已删除",
+            details={
+                "facts": {
+                    "status_event_count": status_event_count,
+                    "attachment_count": len(attachment_ids),
+                }
+            },
+        ),
+    )
+    db.commit()
 
 
 def cancel_content_task(

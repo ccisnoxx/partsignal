@@ -21,9 +21,7 @@ import { TableRegion } from '../../shared/components/TableRegion';
 type GeoInsights = Schema<'GeoInsights'>;
 type FilterOptions = Schema<'GeoInsightFilterOptions'>;
 type RateTrend = Schema<'GeoInsightRateTrend'>;
-type CountTrend = Schema<'GeoInsightCountTrend'>;
 type RatePoint = Schema<'GeoInsightRatePoint'>;
-type CountPoint = Schema<'GeoInsightCountPoint'>;
 type PlatformPerformance = Schema<'GeoInsightPlatformPerformance'>;
 type ContentRow = Schema<'GeoInsightContentPerformance'> | Schema<'GeoInsightDecliningContent'> | Schema<'GeoInsightLongUnmentionedContent'>;
 type DeclineBasis = Schema<'GeoInsightDeclineBasis'>;
@@ -86,9 +84,9 @@ function formatDateTime(value: string): string {
 }
 
 const declineMetricLabels: Record<DeclineBasis['metric'], string> = {
-  citation_rate: '引用率',
-  recommendation_rate: '推荐率',
+  discovery_rate: '发现率',
   mention_rate: '提及率',
+  accuracy_rate: '准确率',
 };
 
 function declineBasisText(basis: DeclineBasis): string {
@@ -99,58 +97,36 @@ function rateMeta(value: Schema<'GeoInsightRateValue'>): string {
   return value.denominator ? `${value.numerator} / ${value.denominator} 条关系` : '无完整关系样本';
 }
 
-function pointValue(point: RatePoint | CountPoint): number | null {
-  return 'value' in point ? point.value : point.count;
-}
-
 function pointX(index: number, count: number): number {
   return count <= 1 ? 50 : 6 + (index * 88) / (count - 1);
 }
 
-function trendPointDetail(point: RatePoint | CountPoint): string {
-  if ('value' in point) {
-    return point.value == null
-      ? '无样本'
-      : `${formatRate(point.value)} · ${point.numerator} / ${point.denominator} 条关系`;
-  }
-  return `${point.count} 个内容`;
+function trendPointDetail(point: RatePoint): string {
+  return point.value == null
+    ? '无样本'
+    : `${formatRate(point.value)} · ${point.numerator} / ${point.denominator} 条关系`;
 }
 
-function TrendCard(props: {
+function TrendCard({ label, color, trend }: {
   label: string;
   color: string;
-} & ({ kind: 'rate'; trend: RateTrend } | { kind: 'count'; trend: CountTrend })) {
-  const { label, color } = props;
-  const points: Array<RatePoint | CountPoint> = props.trend.points;
+  trend: RateTrend;
+}) {
+  const points = trend.points;
   const tooltipId = useId();
   const [keyboardPointIndex, setKeyboardPointIndex] = useState<number>();
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number>();
   const activePointIndex = hoveredPointIndex ?? keyboardPointIndex;
   const activePoint = activePointIndex === undefined ? undefined : points[activePointIndex];
   const activeTooltip = activePoint ? `${activePoint.date} · ${trendPointDetail(activePoint)}` : undefined;
-  let maximum: number;
-  let current: string;
-  let previous: string;
-  let currentMeta: string;
-  if (props.kind === 'rate') {
-    maximum = 1;
-    current = formatRate(props.trend.current.value);
-    previous = formatRate(props.trend.previous.value);
-    currentMeta = rateMeta(props.trend.current);
-  } else {
-    maximum = Math.max(1, ...props.trend.points.map((point) => point.count));
-    current = String(props.trend.current);
-    previous = String(props.trend.previous);
-    currentMeta = '当前周期去重发布内容数';
-  }
-  const y = (value: number | null) => value == null ? 42 : 42 - (value / maximum) * 34;
+  const current = formatRate(trend.current.value);
+  const previous = formatRate(trend.previous.value);
+  const currentMeta = rateMeta(trend.current);
+  const y = (value: number | null) => value == null ? 42 : 42 - value * 34;
   const currentDate = points[points.length - 1]?.date.slice(5).replace('-', '.') ?? '—';
   const firstDate = points[0]?.date ?? '无日期';
   const lastDate = points[points.length - 1]?.date ?? '无日期';
-  const yAxisLabels = props.kind === 'rate'
-    ? ['100%', '50%', '0%']
-    : [String(maximum), String(Math.round(maximum / 2)), '0'];
-  const chartLabel = `${label}趋势：${firstDate} 至 ${lastDate}，当前 ${current}，上一周期 ${previous}，变化 ${formatChange(props.trend.change)}。${currentMeta}。使用左右方向键浏览每日数据。`;
+  const chartLabel = `${label}趋势：${firstDate} 至 ${lastDate}，当前 ${current}，上一周期 ${previous}，变化 ${formatChange(trend.change)}。${currentMeta}。使用左右方向键浏览每日数据。`;
 
   const handleChartKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
     if (!points.length) return;
@@ -175,11 +151,11 @@ function TrendCard(props: {
         </div>
         <div className="geo-insight-trend-meta">
           <span>上一周期 {previous}</span>
-          <span className={props.trend.change == null || props.trend.change === 0 ? undefined : props.trend.change > 0 ? 'is-positive' : 'is-negative'}>{formatChange(props.trend.change)}</span>
+          <span className={trend.change == null || trend.change === 0 ? undefined : trend.change > 0 ? 'is-positive' : 'is-negative'}>{formatChange(trend.change)}</span>
         </div>
         <div className="geo-insight-chart-frame">
           <div className="geo-insight-chart-y-axis" aria-hidden="true">
-            {yAxisLabels.map((axisLabel, index) => <span key={`${axisLabel}-${index}`}>{axisLabel}</span>)}
+            {['100%', '50%', '0%'].map((axisLabel) => <span key={axisLabel}>{axisLabel}</span>)}
           </div>
           <div className="geo-insight-chart-plot">
             <svg
@@ -198,8 +174,8 @@ function TrendCard(props: {
               ))}
               {points.slice(1).map((point, index) => {
                 const previousPoint = points[index]!;
-                const previousValue = pointValue(previousPoint);
-                const value = pointValue(point);
+                const previousValue = previousPoint.value;
+                const value = point.value;
                 if (previousValue == null || value == null) return null;
                 return (
                   <line
@@ -214,7 +190,7 @@ function TrendCard(props: {
                 );
               })}
               {points.map((point, index) => {
-                const value = pointValue(point);
+                const value = point.value;
                 return (
                   <circle
                     key={point.date}
@@ -249,9 +225,8 @@ const platformColumns: TableColumnsType<PlatformPerformance> = [
     ),
   },
   { title: '观测次数', dataIndex: 'observation_count', width: 72 },
+  { title: '发现率', dataIndex: 'discovery_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-blue)" /> },
   { title: '提及率', dataIndex: 'mention_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-green)" /> },
-  { title: '推荐率', dataIndex: 'recommendation_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-purple)" /> },
-  { title: '引用率', dataIndex: 'citation_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-orange)" /> },
   { title: '准确率', dataIndex: 'accuracy_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-teal)" /> },
 ];
 
@@ -278,41 +253,15 @@ function PlatformPerformanceCard({ rows, unavailable }: { rows: PlatformPerforma
       {rows.length ? (
         <>
           <div className="geo-insight-platform-legend" aria-label="平台表现图例">
+            <span><i style={{ background: 'var(--ps-geo-series-blue)' }} />发现率</span>
             <span><i className="is-mention" />提及率</span>
-            <span><i className="is-recommendation" />推荐率</span><span><i className="is-citation" />引用率</span>
             <span><i className="is-accuracy" />准确率</span>
           </div>
           <TableRegion label="GEO 平台表现">
-            <Table rowKey="geo_platform" size="small" pagination={false} dataSource={rows} columns={platformColumns} scroll={{ x: 610 }} />
+            <Table rowKey="geo_platform" size="small" pagination={false} dataSource={rows} columns={platformColumns} scroll={{ x: 520 }} />
           </TableRegion>
         </>
       ) : <NoData description={unavailable ?? '当前筛选范围暂无平台表现数据'} />}
-    </Card>
-  );
-}
-
-function FunnelCard({ stages }: { stages: GeoInsights['funnel'] }) {
-  const maximum = Math.max(1, ...stages.map((stage) => stage.count));
-  return (
-    <Card className="geo-insight-section-card" title="GEO 转化链路" extra={<Typography.Text type="secondary">服务端累计阶段</Typography.Text>}>
-      {stages.length ? (
-        <div className="geo-insight-funnel" aria-label="GEO 转化漏斗">
-          {stages.map((stage, index) => (
-            <div className="geo-insight-funnel-stage" key={stage.code}>
-              {index > 0 && (
-                <span className="geo-insight-funnel-conversion" aria-label={`从上一阶段转化：${formatRate(stage.conversion_from_previous)}`}>
-                  {formatRate(stage.conversion_from_previous)}
-                </span>
-              )}
-              <span>{stage.label}</span>
-              <strong>{stage.count}</strong>
-              <div className="geo-insight-funnel-track">
-                <span style={{ height: `${stage.count === 0 ? 0 : Math.max(8, (stage.count / maximum) * 100)}%` }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : <NoData description="当前筛选范围暂无转化数据" />}
     </Card>
   );
 }
@@ -344,9 +293,9 @@ function ContentRankingCard({
       ),
     },
     { title: '观测', dataIndex: 'observation_count', width: 48 },
+    { title: '发现', dataIndex: 'discovery_rate', width: 56, render: (value) => <Tooltip title={rateMeta(value)}>{formatRate(value.value)}</Tooltip> },
     { title: '提及', dataIndex: 'mention_rate', width: 56, render: (value) => <Tooltip title={rateMeta(value)}>{formatRate(value.value)}</Tooltip> },
-    { title: '推荐', dataIndex: 'recommendation_rate', width: 56, render: (value) => <Tooltip title={rateMeta(value)}>{formatRate(value.value)}</Tooltip> },
-    { title: '引用', dataIndex: 'citation_rate', width: 56, render: (value) => <Tooltip title={rateMeta(value)}>{formatRate(value.value)}</Tooltip> },
+    { title: '准确', dataIndex: 'accuracy_rate', width: 56, render: (value) => <Tooltip title={rateMeta(value)}>{formatRate(value.value)}</Tooltip> },
   ];
   if (kind === 'long') {
     columns.push({ title: '未提及', width: 70, render: (_, row) => 'unmentioned_days' in row ? `${row.unmentioned_days} 天` : '—' });
@@ -498,18 +447,13 @@ function InsightSections({ data, printMode }: { data: GeoInsights; printMode: bo
         title="GEO 指标趋势"
         extra={<Typography.Text type="secondary">对比期：{data.period.previous.date_from} – {data.period.previous.date_to}</Typography.Text>}
       >
-        <section className="geo-insight-trend-grid" aria-label="GEO 指标趋势">
-          <TrendCard kind="rate" label="提及率" color="var(--ps-geo-series-blue)" trend={data.trends.mention_rate} />
-          <TrendCard kind="rate" label="推荐率" color="var(--ps-geo-series-green)" trend={data.trends.recommendation_rate} />
-          <TrendCard kind="rate" label="引用率" color="var(--ps-geo-series-purple)" trend={data.trends.citation_rate} />
-          <TrendCard kind="rate" label="结果准确率" color="var(--ps-geo-series-orange)" trend={data.trends.accuracy_rate} />
-          <TrendCard kind="count" label="未推荐内容数量" color="var(--ps-geo-series-red)" trend={data.trends.not_recommended_content_count} />
+        <section className="geo-insight-trend-grid" aria-label="GEO 指标趋势" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))' }}>
+          <TrendCard label="发现率" color="var(--ps-geo-series-blue)" trend={data.trends.discovery_rate} />
+          <TrendCard label="提及率" color="var(--ps-geo-series-green)" trend={data.trends.mention_rate} />
+          <TrendCard label="结果准确率" color="var(--ps-geo-series-teal)" trend={data.trends.accuracy_rate} />
         </section>
       </Card>
-      <section className="geo-insight-two-column">
-        <PlatformPerformanceCard rows={data.platform_performance} unavailable={unavailable.get('NO_GEO_PLATFORMS')} />
-        <FunnelCard stages={data.funnel} />
-      </section>
+      <PlatformPerformanceCard rows={data.platform_performance} unavailable={unavailable.get('NO_GEO_PLATFORMS')} />
       <Card className="geo-insight-parent-card geo-insight-ranking-panel" title="内容表现排行">
         <section className="geo-insight-ranking-grid" aria-label="内容表现排行">
           <ContentRankingCard title="表现最佳内容 Top 5" kind="best" rows={data.content_rankings.best} />

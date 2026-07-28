@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import uuid
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from time import monotonic
@@ -13,23 +11,25 @@ from urllib.parse import quote
 
 import httpx
 from PIL import Image, UnidentifiedImageError
-from sqlalchemy import func, or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
-from app.db import SessionLocal
 from app.errors import AppError
-from app.models.configuration import PlatformProfile
-from app.models.geo_files import FileRecord, GeoObservationAttachment
+from app.models.geo_files import FileRecord
 from app.models.identity import User
-from app.models.publication import PublicationAttachment
 from app.schemas.common import SignedUrl
 from app.schemas.configuration import (
     PlatformLogoCandidate,
     PlatformLogoInput,
     normalize_platform_domain,
+)
+from app.services.file_records import (
+    DETACHED_RETENTION,
+    UNCONFIRMED_RETENTION,
+    schedule_unreferenced_file,
 )
 from app.services.storage import (
     EvidenceStorage,
@@ -42,9 +42,6 @@ ICON_HORSE_ORIGIN = "https://icon.horse"
 MAX_LOGO_BYTES = 2 * 1024 * 1024
 MAX_LOGO_PIXELS = 16_777_216
 MAX_LOGO_DOWNLOAD_SECONDS = 10
-UNCONFIRMED_RETENTION = timedelta(hours=24)
-DETACHED_RETENTION = timedelta(days=7)
-LOGO_CLEANUP_BATCH_SIZE = 100
 _ALLOWED_CONTENT_TYPES = {
     "image/png",
     "image/jpeg",
@@ -58,19 +55,6 @@ _IMAGE_FORMATS = {
     "WEBP": ("image/webp", ".webp"),
     "ICO": ("image/x-icon", ".ico"),
 }
-
-logger = logging.getLogger("partsignal.worker")
-
-
-@dataclass(frozen=True)
-class LogoCleanupResult:
-    """单轮 Logo 清理的非敏感执行结果。"""
-
-    selected: int
-    deleted: int
-    retry: int
-    failed: int
-
 
 def _candidate_invalid(message: str) -> AppError:
     return AppError("LOGO_CANDIDATE_INVALID", message, 422)
@@ -303,18 +287,6 @@ def lock_platform_logo_change(
     return target.id
 
 
-def _platform_logo_is_referenced(db: Session, file_id: uuid.UUID) -> bool:
-    """实时检查当前 head 中全部 FileRecord 外键。"""
-    return any(
-        db.scalar(select(func.count()).select_from(model).where(column == file_id))
-        for model, column in (
-            (PlatformProfile, PlatformProfile.logo_file_id),
-            (PublicationAttachment, PublicationAttachment.file_id),
-            (GeoObservationAttachment, GeoObservationAttachment.file_id),
-        )
-    )
-
-
 def schedule_detached_platform_logo(
     db: Session,
     file_id: uuid.UUID | None,
@@ -322,112 +294,8 @@ def schedule_detached_platform_logo(
     now: datetime | None = None,
 ) -> None:
     """最后一个引用解除后，从当前事务起保留旧 Logo 七天。"""
-    if file_id is None:
-        return
-    file = db.scalar(select(FileRecord).where(FileRecord.id == file_id).with_for_update())
-    if (
-        file is not None
-        and file.category == "PLATFORM_LOGO"
-        and file.status == "VERIFIED"
-        and not _platform_logo_is_referenced(db, file_id)
-    ):
-        file.cleanup_after = (now or datetime.now(UTC)) + DETACHED_RETENTION
-
-
-def _claim_logo_cleanup(
-    db: Session,
-    *,
-    now: datetime,
-    batch_size: int,
-) -> list[tuple[uuid.UUID, str]]:
-    """限批次声明无引用的到期 Logo，返回待删对象。"""
-    due_files = list(
-        db.scalars(
-            select(FileRecord)
-            .where(
-                FileRecord.category == "PLATFORM_LOGO",
-                or_(
-                    FileRecord.status == "DELETING",
-                    (
-                        (FileRecord.status == "PENDING")
-                        & (FileRecord.upload_expires_at <= now)
-                    ),
-                    FileRecord.status.in_(("FAILED", "ABORTED")),
-                    (
-                        (FileRecord.status == "VERIFIED")
-                        & (FileRecord.cleanup_after.is_not(None))
-                        & (FileRecord.cleanup_after <= now)
-                    ),
-                ),
-            )
-            .order_by(
-                func.coalesce(
-                    FileRecord.cleanup_after,
-                    FileRecord.upload_expires_at,
-                    FileRecord.created_at,
-                ),
-                FileRecord.id,
-            )
-            .limit(batch_size)
-            .with_for_update(skip_locked=True)
-        )
+    schedule_unreferenced_file(
+        db,
+        file_id,
+        cleanup_after=(now or datetime.now(UTC)) + DETACHED_RETENTION,
     )
-    claimed: list[tuple[uuid.UUID, str]] = []
-    for file in due_files:
-        if _platform_logo_is_referenced(db, file.id):
-            if file.status == "VERIFIED":
-                file.cleanup_after = None
-            continue
-        if file.status != "DELETING":
-            file.status = "DELETING"
-        claimed.append((file.id, file.object_key))
-    return claimed
-
-
-def cleanup_platform_logo_files(
-    *,
-    now: datetime | None = None,
-    storage: EvidenceStorage | None = None,
-    batch_size: int = LOGO_CLEANUP_BATCH_SIZE,
-) -> LogoCleanupResult:
-    """先提交删除声明，再幂等删除对象并保留数据库墓碑。"""
-    scan_time = now or datetime.now(UTC)
-    with SessionLocal.begin() as db:
-        claimed = _claim_logo_cleanup(db, now=scan_time, batch_size=batch_size)
-
-    object_storage = storage or get_evidence_storage()
-    deleted = 0
-    retry = 0
-    for file_id, object_key in claimed:
-        try:
-            object_storage.delete(object_key)
-        except StorageUnavailable:
-            retry += 1
-            logger.warning("平台 Logo 对象删除失败，保留重试 file_id=%s", file_id)
-            continue
-        with SessionLocal.begin() as db:
-            file = db.scalar(
-                select(FileRecord).where(FileRecord.id == file_id).with_for_update()
-            )
-            if file is None or file.status != "DELETING":
-                logger.error("平台 Logo 删除状态异常 file_id=%s", file_id)
-                continue
-            file.status = "DELETED"
-            file.deleted_at = datetime.now(UTC)
-            file.cleanup_after = None
-        deleted += 1
-
-    result = LogoCleanupResult(
-        selected=len(claimed),
-        deleted=deleted,
-        retry=retry,
-        failed=len(claimed) - deleted - retry,
-    )
-    logger.info(
-        "平台 Logo 清理完成 selected=%s deleted=%s retry=%s failed=%s",
-        result.selected,
-        result.deleted,
-        result.retry,
-        result.failed,
-    )
-    return result

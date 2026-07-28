@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import uuid
 from collections import defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from html.parser import HTMLParser
-from typing import Literal
+from typing import Literal, cast
 
 import bleach
 import markdown
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, and_, func, select
 from sqlalchemy.orm import Session
 
 from app.errors import AppError, not_found
@@ -22,7 +22,11 @@ from app.models.content import (
     ContentTask,
     ContentVersion,
 )
-from app.models.geo_files import FileRecord
+from app.models.geo_files import (
+    FileRecord,
+    GeoObservationCitation,
+    GeoObservationPublication,
+)
 from app.models.product_facts import (
     FactVersion,
     Product,
@@ -40,6 +44,7 @@ from app.schemas.publication import (
     FactVersionCandidate,
     FileRecordOut,
     PlatformAccountOut,
+    PublicationAction,
     PublicationAttentionList,
     PublicationAttentionListItem,
     PublicationAttentionOut,
@@ -78,13 +83,40 @@ PUBLICATION_TRANSITIONS = {
 }
 
 
-def publication_actions(status: str) -> list[str]:
-    """返回某一发布状态允许执行的服务端命令。"""
-    return [
-        command
+PUBLICATION_PUBLIC_EVENT_STATUSES = ("PUBLISHED", "VERIFIED")
+
+
+def publication_delete_eligible_expression() -> ColumnElement[bool]:
+    """返回与发布记录关联的受控删除资格 SQL 表达式。"""
+    return and_(
+        ~select(PublicationStatusEvent.id)
+        .where(
+            PublicationStatusEvent.publication_id == PublicationRecord.id,
+            PublicationStatusEvent.status.in_(PUBLICATION_PUBLIC_EVENT_STATUSES),
+        )
+        .exists(),
+        ~select(GeoObservationCitation.id)
+        .where(GeoObservationCitation.publication_record_id == PublicationRecord.id)
+        .exists(),
+        ~select(GeoObservationPublication.observation_id)
+        .where(GeoObservationPublication.publication_record_id == PublicationRecord.id)
+        .exists(),
+        ~select(PublicationAttention.id)
+        .where(PublicationAttention.publication_record_id == PublicationRecord.id)
+        .exists(),
+    )
+
+
+def publication_actions(status: str, *, can_delete: bool = False) -> list[PublicationAction]:
+    """返回某一发布状态允许执行的服务端命令和受控删除动作。"""
+    commands = [
+        cast(PublicationAction, command)
         for (source, command), _target in PUBLICATION_TRANSITIONS.items()
         if source == status
     ]
+    if can_delete:
+        commands.append("delete")
+    return commands
 
 
 def attention_actions(status: str, repair_task_id: uuid.UUID | None) -> list[str]:
@@ -161,15 +193,23 @@ def task_for_publication(db: Session, publication: PublicationRecord) -> Content
 def publication_out(db: Session, publication: PublicationRecord) -> PublicationRecordOut:
     """投影发布详情及服务端允许动作。"""
     context = db.execute(
-        select(ContentTask, ContentVersion, PlatformProfile, PlatformAccount)
-        .join(ContentVersion, ContentVersion.task_id == ContentTask.id)
+        select(
+            ContentTask,
+            ContentVersion,
+            PlatformProfile,
+            PlatformAccount,
+            publication_delete_eligible_expression().label("can_delete"),
+        )
+        .select_from(PublicationRecord)
+        .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
+        .join(ContentTask, ContentTask.id == ContentVersion.task_id)
         .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
-        .join(PlatformAccount, PlatformAccount.id == publication.platform_account_id)
-        .where(ContentVersion.id == publication.content_version_id)
+        .join(PlatformAccount, PlatformAccount.id == PublicationRecord.platform_account_id)
+        .where(PublicationRecord.id == publication.id)
     ).one_or_none()
     if context is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布记录锁定上下文不完整", 409)
-    task, content, profile, account = context
+    task, content, profile, account, can_delete = context
     events = list(
         db.scalars(
             select(PublicationStatusEvent)
@@ -214,7 +254,7 @@ def publication_out(db: Session, publication: PublicationRecord) -> PublicationR
             for event in events
         ],
         attachments=[FileRecordOut.model_validate(file) for file in files],
-        available_actions=publication_actions(publication.status),
+        available_actions=publication_actions(publication.status, can_delete=can_delete),
     )
 
 
@@ -290,6 +330,7 @@ def list_publication_records(
             PlatformAccount.label.label("platform_account_label"),
             PlatformAccount.account_identifier,
             last_verification.c.last_verification_at,
+            publication_delete_eligible_expression().label("can_delete"),
         )
         .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
@@ -331,7 +372,10 @@ def list_publication_records(
                 published_at=publication.published_at,
                 created_at=publication.created_at,
                 last_verification_at=row.last_verification_at,
-                available_actions=publication_actions(publication.status),
+                available_actions=publication_actions(
+                    publication.status,
+                    can_delete=row.can_delete,
+                ),
             )
         )
     return PublicationRecordList(
@@ -436,20 +480,21 @@ def publication_workbench_summary(
     db: Session, window_days: Literal[7, 30]
 ) -> PublicationWorkbenchSummary:
     """以发布事件和关注事项聚合工作台当前快照与周期指标。"""
-    as_of = datetime.now(UTC)
-    window_start = as_of - timedelta(days=window_days)
+    as_of_expression = func.statement_timestamp()
+    window_start_expression = as_of_expression - timedelta(days=window_days)
     published_cohort = (
         select(PublicationStatusEvent.publication_id.label("publication_id"))
         .where(
             PublicationStatusEvent.status == "PUBLISHED",
-            PublicationStatusEvent.created_at >= window_start,
-            PublicationStatusEvent.created_at < as_of,
+            PublicationStatusEvent.created_at >= window_start_expression,
+            PublicationStatusEvent.created_at < as_of_expression,
         )
         .distinct()
         .subquery()
     )
     aggregate = db.execute(
         select(
+            as_of_expression.label("as_of"),
             *[
                 select(func.count())
                 .select_from(PublicationRecord)
@@ -485,7 +530,7 @@ def publication_workbench_summary(
                 .where(
                     PublicationStatusEvent.publication_id == published_cohort.c.publication_id,
                     PublicationStatusEvent.status == "VERIFIED",
-                    PublicationStatusEvent.created_at < as_of,
+                    PublicationStatusEvent.created_at < as_of_expression,
                 )
                 .exists()
             )
@@ -494,13 +539,15 @@ def publication_workbench_summary(
             select(func.count(func.distinct(PublicationStatusEvent.publication_id)))
             .where(
                 PublicationStatusEvent.status.in_(("REJECTED", "REMOVED", "VERIFICATION_FAILED")),
-                PublicationStatusEvent.created_at >= window_start,
-                PublicationStatusEvent.created_at < as_of,
+                PublicationStatusEvent.created_at >= window_start_expression,
+                PublicationStatusEvent.created_at < as_of_expression,
             )
             .scalar_subquery()
             .label("new_exception_count"),
         )
     ).one()
+    as_of = cast(datetime, aggregate.as_of)
+    window_start = as_of - timedelta(days=window_days)
     status_counts = {
         status.value: int(getattr(aggregate, status.value) or 0) for status in PublicationStatus
     }

@@ -21,7 +21,7 @@ from app.schemas.product_facts import Confidentiality
 from app.schemas.publication import FileRecordOut
 
 GeoObservationKind = Literal["LEGACY_MODEL_RESULT", "MANUAL_ARTICLE_SEARCH"]
-GeoObservationAction = Literal["CORRECT"]
+GeoObservationAction = Literal["CORRECT", "DELETE"]
 GeoObservationSortOrder = Literal["ASC", "DESC"]
 LegacyRecommendation = Literal["NONE", "CANDIDATE", "RECOMMENDED"]
 GeoAccuracy = Literal["ACCURATE", "PARTIAL", "INCORRECT", "UNJUDGEABLE"]
@@ -62,11 +62,10 @@ class LegacyGeoObservationOut(ContractModel):
     tested_by: uuid.UUID
     recorder: ActorSummary
     is_current: bool
-    available_actions: list[GeoObservationAction]
+    available_actions: list[Literal["CORRECT"]]
     created_at: datetime
 
 
-RecommendationStatus = Literal["RECOMMENDED", "NOT_RECOMMENDED"]
 NonBlankText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 SearchPlatform = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=160)
@@ -77,30 +76,13 @@ class GeoArticleResultCreate(ContractModel):
     publication_record_id: uuid.UUID
     discovered: bool
     mentioned: bool
-    recommendation_status: RecommendationStatus
-    cited: bool
-    accuracy: GeoAccuracy
-
-    @model_validator(mode="after")
-    def require_cumulative_stages(self) -> GeoArticleResultCreate:
-        """逐篇阶段必须满足已批准的严格累计关系。"""
-        if self.mentioned and not self.discovered:
-            raise ValueError("获得提及前必须先被检索发现")
-        if self.recommendation_status == "RECOMMENDED" and not self.mentioned:
-            raise ValueError("获得推荐前必须先获得提及")
-        if self.cited and self.recommendation_status != "RECOMMENDED":
-            raise ValueError("展示引用前必须先获得推荐")
-        if self.accuracy == "ACCURATE" and not self.cited:
-            raise ValueError("结果准确阶段必须先展示引用")
-        return self
+    accuracy: GeoAccuracy | None
 
 
 class GeoArticleResultOut(ContractModel):
     publication_record_id: uuid.UUID
     discovered: bool | None
     mentioned: bool | None
-    recommendation_status: RecommendationStatus
-    cited: bool | None
     accuracy: GeoAccuracy | None
     title: str
     platform_name: str
@@ -127,7 +109,8 @@ class GeoObservationCreate(ContractModel):
     tested_at: datetime
     article_results: list[GeoArticleResultCreate] = Field(min_length=1)
     attachment_file_ids: Annotated[list[uuid.UUID], AfterValidator(require_unique_items)] = Field(
-        min_length=1, json_schema_extra={"uniqueItems": True}
+        default_factory=list,
+        json_schema_extra={"uniqueItems": True},
     )
     notes: str
     supersedes_id: uuid.UUID | None = None
@@ -185,9 +168,11 @@ class GeoMetrics(ContractModel):
     legacy_accuracy_rate: float | None = Field(ge=0, le=1)
     manual_observation_count: int = Field(ge=0)
     article_result_count: int = Field(ge=0)
-    recommended_article_count: int = Field(ge=0)
-    not_recommended_article_count: int = Field(ge=0)
-    article_recommendation_rate: float | None = Field(ge=0, le=1)
+    discovered_article_count: int = Field(ge=0)
+    mentioned_article_count: int = Field(ge=0)
+    article_discovery_rate: float | None = Field(ge=0, le=1)
+    article_mention_rate: float | None = Field(ge=0, le=1)
+    article_accuracy_rate: float | None = Field(ge=0, le=1)
 
 
 class GeoInsightPeriodWindow(ContractModel):
@@ -233,40 +218,18 @@ class GeoInsightRateTrend(ContractModel):
     points: list[GeoInsightRatePoint]
 
 
-class GeoInsightCountPoint(ContractModel):
-    date: date
-    count: int = Field(ge=0)
-
-
-class GeoInsightCountTrend(ContractModel):
-    current: int = Field(ge=0)
-    previous: int = Field(ge=0)
-    change: float | None
-    points: list[GeoInsightCountPoint]
-
-
 class GeoInsightTrends(ContractModel):
+    discovery_rate: GeoInsightRateTrend
     mention_rate: GeoInsightRateTrend
-    recommendation_rate: GeoInsightRateTrend
-    citation_rate: GeoInsightRateTrend
     accuracy_rate: GeoInsightRateTrend
-    not_recommended_content_count: GeoInsightCountTrend
 
 
 class GeoInsightPlatformPerformance(ContractModel):
     geo_platform: str
     observation_count: int = Field(ge=0)
+    discovery_rate: GeoInsightRateValue
     mention_rate: GeoInsightRateValue
-    recommendation_rate: GeoInsightRateValue
-    citation_rate: GeoInsightRateValue
     accuracy_rate: GeoInsightRateValue
-
-
-class GeoInsightFunnelStage(ContractModel):
-    code: Literal["PUBLISHED", "DISCOVERED", "MENTIONED", "RECOMMENDED", "CITED", "ACCURATE"]
-    label: str
-    count: int = Field(ge=0)
-    conversion_from_previous: float | None = Field(ge=0, le=1)
 
 
 class GeoInsightContentPerformance(ContractModel):
@@ -274,13 +237,13 @@ class GeoInsightContentPerformance(ContractModel):
     title: str
     content_platform: str
     observation_count: int = Field(ge=0)
+    discovery_rate: GeoInsightRateValue
     mention_rate: GeoInsightRateValue
-    recommendation_rate: GeoInsightRateValue
-    citation_rate: GeoInsightRateValue
+    accuracy_rate: GeoInsightRateValue
 
 
 class GeoInsightDeclineBasis(ContractModel):
-    metric: Literal["citation_rate", "recommendation_rate", "mention_rate"]
+    metric: Literal["discovery_rate", "mention_rate", "accuracy_rate"]
     current_value: float = Field(ge=0, le=1)
     previous_value: float = Field(ge=0, le=1)
     decline: float = Field(ge=0, le=1)
@@ -331,9 +294,9 @@ class GeoInsightQuestionCoverage(ContractModel):
 class GeoInsightRecommendationBasis(ContractModel):
     metric: Literal[
         "unmentioned_days",
-        "citation_rate",
-        "recommendation_rate",
+        "discovery_rate",
         "mention_rate",
+        "accuracy_rate",
         "observation_count",
         "coverage_rate",
     ]
@@ -347,7 +310,7 @@ class GeoInsightRecommendation(ContractModel):
         "CONTENT_LONG_UNMENTIONED",
         "CONTENT_PERFORMANCE_DECLINE",
         "GEO_PLATFORM_PERFORMANCE_DECLINE",
-        "CONTENT_NEVER_RECOMMENDED",
+        "CONTENT_NEVER_DISCOVERED",
         "QUESTION_UNCOVERED",
         "QUESTION_OCCASIONAL",
         "QUESTION_INSUFFICIENT_DATA",
@@ -387,7 +350,6 @@ class GeoInsights(ContractModel):
     filter_options: GeoInsightFilterOptions
     trends: GeoInsightTrends
     platform_performance: list[GeoInsightPlatformPerformance]
-    funnel: list[GeoInsightFunnelStage]
     content_rankings: GeoInsightContentRankings
     question_coverage: GeoInsightQuestionCoverage
     recommendations: list[GeoInsightRecommendation]

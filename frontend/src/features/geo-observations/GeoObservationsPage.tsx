@@ -1,12 +1,12 @@
 /** GEO 观测记录工作台：服务端筛选、统计、分页与 URL 驱动详情均共享同一查询口径。 */
 import {
-  CheckCircleOutlined, DownOutlined, EyeOutlined, FileSearchOutlined, PlusOutlined, ReloadOutlined,
-  RobotOutlined, SearchOutlined, SettingOutlined, SortAscendingOutlined, SortDescendingOutlined,
+  CheckCircleOutlined, DeleteOutlined, DownOutlined, EyeOutlined, FileSearchOutlined, PlusOutlined, ReloadOutlined,
+  SearchOutlined, SettingOutlined, SortAscendingOutlined, SortDescendingOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
-  Alert, Button, Card, Checkbox, Dropdown, Input, Select, Space, Switch, Table, Tag,
+  Alert, App, Button, Card, Checkbox, Dropdown, Input, Select, Space, Switch, Table, Tag,
   type TableColumnsType,
 } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -17,6 +17,9 @@ import {
   productsQueryOptions,
   queryTopicsQueryOptions,
 } from '../../shared/api/queryOptions';
+import { queryClient } from '../../app/queryClient';
+import { api, csrfHeader, ensureSuccess, errorMessage } from '../../shared/api/client';
+import { queryKeys } from '../../shared/api/queryKeys';
 import type { GeoMetricsQuery, GeoObservation, GeoObservationListQuery, Schema } from '../../shared/api/types';
 import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { MetricTile } from '../../shared/components/MetricTile';
@@ -31,11 +34,11 @@ const legacyRecommendations = ['NONE', 'CANDIDATE', 'RECOMMENDED'] as const;
 const accuracies = ['ACCURATE', 'PARTIAL', 'INCORRECT', 'UNJUDGEABLE'] as const;
 const pageSizes = [20, 50, 100] as const;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-const optionalColumnKeys = ['mentioned', 'recommendation', 'citation', 'accuracy', 'publication', 'evidence', 'recorder'] as const;
+const optionalColumnKeys = ['discovered', 'mentioned', 'recommendation', 'citation', 'accuracy', 'publication', 'evidence', 'recorder'] as const;
 type OptionalColumnKey = typeof optionalColumnKeys[number];
 
 const columnLabels: Record<OptionalColumnKey, string> = {
-  mentioned: '是否提及', recommendation: '是否推荐', citation: '是否引用', accuracy: '准确性',
+  discovered: '是否发现', mentioned: '是否提及', recommendation: '历史推荐', citation: '历史引用', accuracy: '准确性',
   publication: '关联发布内容', evidence: '证据', recorder: '记录人',
 };
 
@@ -100,6 +103,7 @@ function metricFilters(query: GeoObservationListQuery): GeoMetricsQuery {
 }
 
 export function GeoObservationsPage() {
+  const { message, modal } = App.useApp();
   const [createOpen, setCreateOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<OptionalColumnKey[]>([...optionalColumnKeys]);
   const [productSearch, setProductSearch] = useState('');
@@ -128,11 +132,11 @@ export function GeoObservationsPage() {
     ...(searchParams.get('model_name') ? { model_name: searchParams.get('model_name')! } : {}),
     ...(searchParams.get('search_platform') ? { search_platform: searchParams.get('search_platform')! } : {}),
     ...(searchParams.get('publication_search') ? { publication_search: searchParams.get('publication_search')! } : {}),
+    ...(boolValue(searchParams.get('discovered')) !== undefined ? { discovered: boolValue(searchParams.get('discovered')) } : {}),
     ...(boolValue(searchParams.get('mentioned')) !== undefined ? { mentioned: boolValue(searchParams.get('mentioned')) } : {}),
     ...(enumValue(searchParams.get('recommendation'), legacyRecommendations) ? { recommendation: enumValue(searchParams.get('recommendation'), legacyRecommendations) } : {}),
     ...(boolValue(searchParams.get('has_citation')) !== undefined ? { has_citation: boolValue(searchParams.get('has_citation')) } : {}),
     ...(enumValue(searchParams.get('accuracy'), accuracies) ? { accuracy: enumValue(searchParams.get('accuracy'), accuracies) } : {}),
-    ...(enumValue(searchParams.get('article_recommendation'), ['RECOMMENDED', 'NOT_RECOMMENDED'] as const) ? { article_recommendation: enumValue(searchParams.get('article_recommendation'), ['RECOMMENDED', 'NOT_RECOMMENDED'] as const) } : {}),
     ...(searchParams.get('recorder_search') ? { recorder_search: searchParams.get('recorder_search')! } : {}),
     ...(searchParams.get('only_mine') === 'true' ? { only_mine: true } : {}),
     ...(searchParams.get('include_history') === 'true' ? { include_history: true } : {}),
@@ -168,8 +172,8 @@ export function GeoObservationsPage() {
     normalizeEnum('observation_kind', observationKinds);
     normalizeEnum('recommendation', legacyRecommendations);
     normalizeEnum('accuracy', accuracies);
-    normalizeEnum('article_recommendation', ['RECOMMENDED', 'NOT_RECOMMENDED']);
-    for (const key of ['mentioned', 'has_citation', 'only_mine', 'include_history', 'all_time']) {
+    if (next.has('article_recommendation')) remove('article_recommendation');
+    for (const key of ['discovered', 'mentioned', 'has_citation', 'only_mine', 'include_history', 'all_time']) {
       normalizeEnum(key, ['true', 'false']);
     }
     if (next.has('date_from') && !datePattern.test(next.get('date_from')!)) {
@@ -209,8 +213,25 @@ export function GeoObservationsPage() {
     if (correctionId) navigate(`/observations${searchParams.toString() ? `?${searchParams.toString()}` : ''}`, { replace: true });
     else setCreateOpen(false);
   };
-  const recommendationRate = percent(metrics.data?.article_recommendation_rate);
-  const mentionRate = percent(metrics.data?.legacy_mention_rate);
+  const discoveryRate = percent(metrics.data?.article_discovery_rate);
+  const mentionRate = percent(metrics.data?.article_mention_rate);
+  const accuracyRate = percent(metrics.data?.article_accuracy_rate);
+  const deleteObservation = useMutation({
+    mutationFn: async (record: GeoObservation) => ensureSuccess(await api.DELETE('/api/v1/geo-observations/{observation_id}', {
+      params: { path: { observation_id: record.id }, header: csrfHeader() },
+    })),
+    onSuccess: async (_, record) => {
+      if (recordId === record.id) closeRecord();
+      queryClient.removeQueries({ queryKey: queryKeys.geo.observation(record.id) });
+      message.success('人工观测完整更正链已删除');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.geo.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
+        queryClient.invalidateQueries({ queryKey: ['file'] }),
+        queryClient.invalidateQueries({ queryKey: ['file-download'] }),
+      ]);
+    },
+  });
 
   const baseColumns: TableColumnsType<GeoObservation> = [
     {
@@ -227,19 +248,24 @@ export function GeoObservationsPage() {
     },
     { title: '观测时间', dataIndex: 'tested_at', width: 118, render: (value) => <span className="data-code">{formatDateTime(value)}</span> },
     {
+      title: '是否发现', key: 'discovered', width: 100, render: (_, row) => row.observation_kind === 'LEGACY_MODEL_RESULT'
+        ? <Tag>不适用</Tag>
+        : <Tag>{manualFactSummary(row.article_results, (item) => item.discovered !== null, (item) => item.discovered === true, '发现')}</Tag>,
+    },
+    {
       title: '是否提及', key: 'mentioned', width: 100, render: (_, row) => row.observation_kind === 'LEGACY_MODEL_RESULT'
         ? <StatusTag status={row.mentioned ? 'MENTIONED' : 'NOT_MENTIONED'} />
         : <Tag>{manualFactSummary(row.article_results, (item) => item.mentioned !== null, (item) => item.mentioned === true, '提及')}</Tag>,
     },
     {
-      title: '是否推荐', key: 'recommendation', width: 104, render: (_, row) => row.observation_kind === 'LEGACY_MODEL_RESULT'
+      title: '历史推荐', key: 'recommendation', width: 104, render: (_, row) => row.observation_kind === 'LEGACY_MODEL_RESULT'
         ? <StatusTag status={row.recommendation} />
-        : <Space size={4}><StatusTag status="RECOMMENDED" /><span>{row.article_results.filter((item) => item.recommendation_status === 'RECOMMENDED').length}</span></Space>,
+        : <Tag>不适用</Tag>,
     },
     {
-      title: '是否引用', key: 'citation', width: 100, render: (_, row) => row.observation_kind === 'LEGACY_MODEL_RESULT'
+      title: '历史引用', key: 'citation', width: 100, render: (_, row) => row.observation_kind === 'LEGACY_MODEL_RESULT'
         ? <StatusTag status={row.citations.length ? 'HAS_CITATION' : 'NO_CITATION'} />
-        : <Tag>{manualFactSummary(row.article_results, (item) => item.cited !== null, (item) => item.cited === true, '引用')}</Tag>,
+        : <Tag>不适用</Tag>,
     },
     {
       title: '准确性', key: 'accuracy', width: 104, render: (_, row) => row.observation_kind === 'LEGACY_MODEL_RESULT'
@@ -252,7 +278,7 @@ export function GeoObservationsPage() {
         return count ? <Button type="link" className="geo-cell-link" onClick={() => openRecord(row.id)}>{count} 条关联内容</Button> : '—';
       },
     },
-    { title: '证据', key: 'evidence', width: 88, render: (_, row) => row.attachment_file_ids.length ? <StatusTag status="UPLOADED" /> : <StatusTag status="MISSING_EVIDENCE" /> },
+    { title: '证据', key: 'evidence', width: 88, render: (_, row) => row.attachment_file_ids.length ? <StatusTag status="UPLOADED" /> : <Tag>未上传</Tag> },
     { title: '记录人', key: 'recorder', dataIndex: ['recorder', 'display_name'], width: 96 },
     {
       title: '操作', key: 'actions', fixed: 'right', width: 96, render: (_, row) => (
@@ -261,8 +287,29 @@ export function GeoObservationsPage() {
           <Dropdown
             trigger={['click']}
             menu={{
-              items: [{ key: 'correct', label: '更正记录', disabled: !row.available_actions.includes('CORRECT') }],
-              onClick: ({ key }) => { if (key === 'correct') openCorrection(row.id); },
+              items: [
+                { key: 'correct', label: '更正记录', disabled: !row.available_actions.includes('CORRECT') },
+                ...(row.observation_kind === 'MANUAL_ARTICLE_SEARCH' && row.available_actions.includes('DELETE') ? [{
+                  key: 'delete',
+                  label: '删除完整更正链',
+                  danger: true,
+                  icon: <DeleteOutlined />,
+                  disabled: deleteObservation.isPending,
+                }] : []),
+              ],
+              onClick: ({ key }) => {
+                if (key === 'correct') openCorrection(row.id);
+                if (key === 'delete') {
+                  modal.confirm({
+                    title: '删除完整更正链？',
+                    content: '当前人工观测及其全部历史更正会一并物理删除；失去全部引用的证据文件将进入清理。此操作不可恢复。',
+                    okText: '删除完整更正链',
+                    cancelText: '取消',
+                    okButtonProps: { danger: true },
+                    onOk: () => deleteObservation.mutateAsync(row),
+                  });
+                }
+              },
             }}
           >
             <Button size="small" aria-label={`更多操作：${row.id}`} icon={<DownOutlined />} />
@@ -296,12 +343,13 @@ export function GeoObservationsPage() {
       ) : (
         <section className="geo-metric-grid" aria-label="GEO 观测统计">
           <MetricTile icon={<FileSearchOutlined />} label="观测记录" value={observations.data?.total ?? '—'} meta={observations.error ? '记录查询失败' : '当前筛选口径'} />
-          <MetricTile icon={<RobotOutlined />} label="历史模型样本" value={metrics.data?.legacy_sample_count ?? '—'} meta="迁移前只读记录" tone="data" />
-          <MetricTile icon={<SearchOutlined />} label="历史提及率" value={mentionRate ?? '—'} unit={mentionRate == null ? undefined : '%'} percent={mentionRate} meta="提及 / 历史样本" tone="data" />
-          <MetricTile icon={<UserOutlined />} label="人工观测" value={metrics.data?.manual_observation_count ?? '—'} meta="逐篇核对文章" tone="data" />
-          <MetricTile icon={<CheckCircleOutlined />} label="文章推荐率" value={recommendationRate ?? '—'} unit={recommendationRate == null ? undefined : '%'} percent={recommendationRate} meta="已推荐 / 文章结果" tone="data" />
+          <MetricTile icon={<UserOutlined />} label="人工观测" value={metrics.data?.manual_observation_count ?? '—'} meta={`${metrics.data?.article_result_count ?? 0} 条逐篇结果`} tone="data" />
+          <MetricTile icon={<SearchOutlined />} label="文章发现率" value={discoveryRate ?? '—'} unit={discoveryRate == null ? undefined : '%'} percent={discoveryRate} meta="已发现 / 文章结果" tone="data" />
+          <MetricTile icon={<EyeOutlined />} label="文章提及率" value={mentionRate ?? '—'} unit={mentionRate == null ? undefined : '%'} percent={mentionRate} meta="已提及 / 文章结果" tone="data" />
+          <MetricTile icon={<CheckCircleOutlined />} label="文章准确率" value={accuracyRate ?? '—'} unit={accuracyRate == null ? undefined : '%'} percent={accuracyRate} meta="准确 / 可判断结果" tone="data" />
         </section>
       )}
+      {deleteObservation.error && <Alert role="alert" type="error" showIcon title={errorMessage(deleteObservation.error)} />}
 
       <Card className="geo-filter-card" size="small">
         <div className="geo-filter-grid" role="search" aria-label="观测记录筛选">
@@ -314,11 +362,11 @@ export function GeoObservationsPage() {
           <label><span>搜索平台</span><Input allowClear value={listQuery.search_platform ?? ''} placeholder="人工搜索平台" onChange={(event) => updateFilter('search_platform', event.target.value)} /></label>
           <label><span>模型名称</span><Input allowClear value={listQuery.model_name ?? ''} placeholder="历史观测模型" onChange={(event) => updateFilter('model_name', event.target.value)} /></label>
           <label><span>关联发布内容</span><Input allowClear value={listQuery.publication_search ?? ''} placeholder="标题或链接" onChange={(event) => updateFilter('publication_search', event.target.value)} /></label>
+          <label><span>是否发现</span><Select allowClear value={listQuery.discovered === undefined ? undefined : String(listQuery.discovered)} onChange={(value) => updateFilter('discovered', value)} options={[{ value: 'true', label: '已发现' }, { value: 'false', label: '未发现' }]} /></label>
           <label><span>是否提及</span><Select allowClear value={listQuery.mentioned === undefined ? undefined : String(listQuery.mentioned)} onChange={(value) => updateFilter('mentioned', value)} options={[{ value: 'true', label: '已提及' }, { value: 'false', label: '未提及' }]} /></label>
           <label><span>历史推荐</span><Select allowClear value={listQuery.recommendation} onChange={(value) => updateFilter('recommendation', value)} options={legacyRecommendations.map((value) => ({ value, label: <StatusTag status={value} /> }))} /></label>
-          <label><span>是否引用</span><Select allowClear value={listQuery.has_citation === undefined ? undefined : String(listQuery.has_citation)} onChange={(value) => updateFilter('has_citation', value)} options={[{ value: 'true', label: '有引用' }, { value: 'false', label: '无引用' }]} /></label>
+          <label><span>历史引用</span><Select allowClear value={listQuery.has_citation === undefined ? undefined : String(listQuery.has_citation)} onChange={(value) => updateFilter('has_citation', value)} options={[{ value: 'true', label: '有引用' }, { value: 'false', label: '无引用' }]} /></label>
           <label><span>准确性</span><Select allowClear value={listQuery.accuracy} onChange={(value) => updateFilter('accuracy', value)} options={accuracies.map((value) => ({ value, label: <StatusTag status={value} /> }))} /></label>
-          <label><span>逐篇推荐</span><Select allowClear value={listQuery.article_recommendation} onChange={(value) => updateFilter('article_recommendation', value)} options={[{ value: 'RECOMMENDED', label: '已推荐' }, { value: 'NOT_RECOMMENDED', label: '未推荐' }]} /></label>
           <label><span>记录人</span><Input allowClear value={listQuery.recorder_search ?? ''} placeholder="姓名或用户名" onChange={(event) => updateFilter('recorder_search', event.target.value)} /></label>
         </div>
         {(products.error || topics.error) && <Alert className="geo-filter-error" type="error" showIcon title="筛选选项加载失败" description={String(products.error ?? topics.error)} />}

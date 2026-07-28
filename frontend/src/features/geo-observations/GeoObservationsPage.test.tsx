@@ -1,5 +1,6 @@
 /** 验证 GEO 人工观测写入、历史空值和记录页服务端查询。 */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { App } from '../../app/App';
 import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
@@ -35,12 +36,13 @@ const user = {
   id: '10000000-0000-4000-8000-000000000001', username: 'engineer', display_name: '工程师',
   account_type: 'ENGINEER', is_active: true, must_change_password: false, revision: 1, created_at: '2026-07-18T00:00:00Z',
 } satisfies Schema<'User'>;
+const adminUser = { ...user, account_type: 'ADMIN' } satisfies Schema<'User'>;
 
 const metrics = {
   legacy_sample_count: 0, legacy_mention_rate: null, legacy_recommendation_rate: null,
   legacy_citation_rate: null, legacy_accuracy_rate: null,
-  manual_observation_count: 1, article_result_count: 1, recommended_article_count: 1,
-  not_recommended_article_count: 0, article_recommendation_rate: 1,
+  manual_observation_count: 1, article_result_count: 1, discovered_article_count: 1,
+  mentioned_article_count: 1, article_discovery_rate: 1, article_mention_rate: 1, article_accuracy_rate: 1,
 } satisfies Schema<'GeoMetrics'>;
 
 const manualRecord = {
@@ -56,8 +58,6 @@ const manualRecord = {
     publication_record_id: publicationId,
     discovered: true,
     mentioned: true,
-    recommendation_status: 'RECOMMENDED',
-    cited: true,
     accuracy: 'ACCURATE',
     title: 'PS-001 选型文章',
     platform_name: '工程师社区',
@@ -69,7 +69,7 @@ const manualRecord = {
   tested_by: user.id,
   recorder: { id: user.id, username: user.username, display_name: user.display_name },
   is_current: true,
-  available_actions: ['CORRECT'],
+  available_actions: ['CORRECT', 'DELETE'],
   created_at: '2026-07-20T10:05:00Z',
 } satisfies Schema<'ManualGeoObservation'>;
 
@@ -81,7 +81,6 @@ const historicalManualRecord = {
     ...item,
     discovered: null,
     mentioned: null,
-    cited: null,
     accuracy: null,
   })),
 } satisfies Schema<'ManualGeoObservation'>;
@@ -113,14 +112,14 @@ async function choose(comboboxName: string, optionName: string) {
   fireEvent.click(await findVisibleOption(optionName));
 }
 
-test('选择真实问题主题并提交完整逐篇阶段，服务端失败时保留表单', async () => {
+test('独立提交提及和准确性且不上传截图，服务端失败时保留表单', async () => {
   window.history.pushState({}, '', '/observations');
   let createRequest: Request | undefined;
   mockFetch((request) => {
     const url = new URL(request.url);
     if (url.pathname.endsWith('/auth/me')) return { body: user };
     if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
-    if (url.pathname.endsWith('/geo-metrics')) return { body: { ...metrics, manual_observation_count: 0, article_result_count: 0, recommended_article_count: 0, article_recommendation_rate: null } satisfies Schema<'GeoMetrics'> };
+    if (url.pathname.endsWith('/geo-metrics')) return { body: { ...metrics, manual_observation_count: 0, article_result_count: 0, discovered_article_count: 0, mentioned_article_count: 0, article_discovery_rate: null, article_mention_rate: null, article_accuracy_rate: null } satisfies Schema<'GeoMetrics'> };
     if (url.pathname.endsWith('/geo-observations') && request.method === 'GET') return { body: { items: [], page: 1, page_size: 20, total: 0 } satisfies Schema<'GeoObservationList'> };
     if (url.pathname.endsWith('/query-topics')) return { body: { items: [topic] } satisfies Schema<'QueryTopicList'> };
     if (url.pathname.endsWith('/products')) return { body: { items: [{ id: productId, part_number: 'PS-001', brand: 'PartSignal', category: 'MCU', status: 'ACTIVE', revision: 0, created_at: '2026-07-18T00:00:00Z', updated_at: '2026-07-18T00:00:00Z' }], page: 1, page_size: 100, total: 1 } satisfies Schema<'ProductList'> };
@@ -153,17 +152,10 @@ test('选择真实问题主题并提交完整逐篇阶段，服务端失败时�
   fireEvent.change(form.getByRole('textbox', { name: '人工搜索平台' }), { target: { value: 'DeepSeek' } });
   fireEvent.change(form.getByRole('textbox', { name: '实际搜索词' }), { target: { value: 'PS-001 如何替代？' } });
 
-  const mentionSelect = form.getByRole('combobox', { name: '是否提及：PS-001 选型文章' });
-  fireEvent.mouseDown(mentionSelect);
-  expect((await findVisibleOption('已提及')).closest('.ant-select-item-option')).toHaveAttribute('aria-disabled', 'true');
-  fireEvent.keyDown(mentionSelect, { key: 'Escape', code: 'Escape' });
-  await choose('是否发现：PS-001 选型文章', '已发现');
-  await choose('是否提及：PS-001 选型文章', '已提及');
-  await choose('文章推荐结果：PS-001 选型文章', '已推荐');
-  await choose('是否引用：PS-001 选型文章', '有引用');
-  await choose('准确性：PS-001 选型文章', '准确');
-  fireEvent.click(form.getByRole('button', { name: '选择测试证据' }));
-  expect(form.getByText('至少上传一张真实搜索结果截图；系统不会自动解析或联网复查。')).toBeInTheDocument();
+  expect(form.getByRole('checkbox', { name: '是否发现：PS-001 选型文章' })).not.toBeChecked();
+  fireEvent.click(form.getByRole('checkbox', { name: '是否提及：PS-001 选型文章' }));
+  await choose('准确性：PS-001 选型文章', '部分准确');
+  expect(form.getByText('截图用于补充真实搜索结果证据；系统不会自动解析或联网复查。')).toBeInTheDocument();
 
   fireEvent.click(form.getByRole('button', { name: /追加观测记录/ }));
   expect(await form.findByText('观测事实校验失败')).toBeInTheDocument();
@@ -175,20 +167,18 @@ test('选择真实问题主题并提交完整逐篇阶段，服务端失败时�
     query_topic_id: topicId,
     search_platform: 'DeepSeek',
     search_query: 'PS-001 如何替代？',
-    attachment_file_ids: [evidenceFileId],
+    attachment_file_ids: [],
     article_results: [{
       publication_record_id: publicationId,
-      discovered: true,
+      discovered: false,
       mentioned: true,
-      recommendation_status: 'RECOMMENDED',
-      cited: true,
-      accuracy: 'ACCURATE',
+      accuracy: 'PARTIAL',
     }],
   });
 }, 60_000);
 
 test('筛选、排序和清除操作写入 URL 并请求服务端', async () => {
-  window.history.pushState({}, '', '/observations');
+  window.history.pushState({}, '', '/observations?article_recommendation=RECOMMENDED');
   const listQueries: URLSearchParams[] = [];
   mockFetch((request) => {
     const url = new URL(request.url);
@@ -213,6 +203,13 @@ test('筛选、排序和清除操作写入 URL 并请求服务端', async () => 
   expect(await page.findByText('PS-001 如何替代？')).toBeInTheDocument();
   expect(screen.getAllByRole('link', { name: '分析洞察' })).toHaveLength(2);
   expect(page.queryByRole('button', { name: /导出/ })).not.toBeInTheDocument();
+  await waitFor(() => expect(window.location.search).not.toContain('article_recommendation'));
+
+  const filters = page.getByRole('search', { name: '观测记录筛选' });
+  const discoveryFilter = within(within(filters).getByText('是否发现').closest('label')!).getByRole('combobox');
+  fireEvent.mouseDown(discoveryFilter);
+  fireEvent.click(await findVisibleOption('已发现'));
+  await waitFor(() => expect(listQueries.some((query) => query.get('discovered') === 'true')).toBe(true));
 
   fireEvent.click(page.getByRole('switch', { name: '仅看我的记录' }));
   await waitFor(() => expect(listQueries.some((query) => query.get('only_mine') === 'true')).toBe(true));
@@ -227,18 +224,65 @@ test('筛选、排序和清除操作写入 URL 并请求服务端', async () => 
   await waitFor(() => expect(listQueries.some((query) => !query.has('date_from') && !query.has('date_to'))).toBe(true));
 });
 
+test('服务端允许时经二次确认删除人工观测完整更正链', async () => {
+  window.history.pushState({}, '', '/observations');
+  let deleted = false;
+  let deleteRequest: Request | undefined;
+  mockFetch((request) => {
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/auth/me')) return { body: adminUser };
+    if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
+    if (url.pathname.endsWith('/geo-metrics')) return { body: deleted ? { ...metrics, manual_observation_count: 0, article_result_count: 0, discovered_article_count: 0, mentioned_article_count: 0, article_discovery_rate: null, article_mention_rate: null, article_accuracy_rate: null } : metrics };
+    if (url.pathname === `/api/v1/geo-observations/${manualRecord.id}` && request.method === 'DELETE') {
+      deleted = true;
+      deleteRequest = request;
+      return { body: {} };
+    }
+    if (url.pathname.endsWith('/geo-observations') && request.method === 'GET') {
+      return { body: { items: deleted ? [] : [manualRecord], page: 1, page_size: 20, total: deleted ? 0 : 1 } satisfies Schema<'GeoObservationList'> };
+    }
+    if (url.pathname.endsWith('/products')) return { body: { items: [], page: 1, page_size: 100, total: 0 } satisfies Schema<'ProductList'> };
+    if (url.pathname.endsWith('/query-topics')) return { body: { items: [] } satisfies Schema<'QueryTopicList'> };
+    throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
+  });
+
+  render(<App />);
+  const more = await screen.findByRole('button', { name: `更多操作：${manualRecord.id}` });
+  fireEvent.click(more);
+  await userEvent.click(await screen.findByRole('menuitem', { name: /删除完整更正链/ }));
+  const confirm = await screen.findByRole('dialog');
+  expect(within(confirm).getByText('当前人工观测及其全部历史更正会一并物理删除；失去全部引用的证据文件将进入清理。此操作不可恢复。')).toBeInTheDocument();
+  await userEvent.click(within(confirm).getByRole('button', { name: '删除完整更正链' }));
+
+  await waitFor(() => expect(deleteRequest).toBeInstanceOf(Request));
+  expect(deleteRequest!.headers.get('X-CSRF-Token')).toBe('x'.repeat(32));
+  expect(await screen.findByText('人工观测完整更正链已删除')).toBeInTheDocument();
+  expect(await screen.findByText('当前筛选范围暂无观测记录')).toBeInTheDocument();
+});
+
 test('补采前历史追加更正允许选择真实问题主题', async () => {
   window.history.pushState({}, '', `/observations/${historicalManualRecord.id}/correct`);
+  let correctionRequest: Request | undefined;
   mockFetch((request) => {
     const url = new URL(request.url);
     if (url.pathname.endsWith('/auth/me')) return { body: user };
     if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
     if (url.pathname.endsWith('/geo-metrics')) return { body: metrics };
     if (url.pathname === `/api/v1/geo-observations/${historicalManualRecord.id}`) return { body: historicalManualRecord };
+    if (url.pathname.endsWith('/geo-observations') && request.method === 'POST') {
+      correctionRequest = request;
+      return { status: 422, body: { error: { code: 'VALIDATION_ERROR', message: '测试保留更正表单', request_id: 'geo-correction-failed' } } };
+    }
     if (url.pathname.endsWith('/geo-observations')) return { body: { items: [historicalManualRecord], page: 1, page_size: 20, total: 1 } satisfies Schema<'GeoObservationList'> };
     if (url.pathname.endsWith('/query-topics')) return { body: { items: [topic] } satisfies Schema<'QueryTopicList'> };
     if (url.pathname.endsWith('/products')) return { body: { items: [], page: 1, page_size: 100, total: 0 } satisfies Schema<'ProductList'> };
     if (url.pathname.endsWith('/geo-observation-publications')) return { body: { items: [{ publication_record_id: publicationId, title: 'PS-001 选型文章', platform_name: '工程师社区', final_url: 'https://community.example.invalid/ps-001', status: 'VERIFIED' }] } satisfies Schema<'GeoPublicationCandidateList'> };
+    if (url.pathname === `/api/v1/files/${evidenceFileId}`) return { body: {
+      id: evidenceFileId, category: 'OPERATION_SCREENSHOT', original_filename: 'geo-evidence.png',
+      object_key: 'test/geo-evidence.png', content_type: 'image/png', size: 12, sha256: 'a'.repeat(64),
+      access_level: 'INTERNAL', status: 'VERIFIED', created_at: '2026-07-20T10:00:00Z', verified_at: '2026-07-20T10:00:01Z',
+    } satisfies Schema<'FileRecord'> };
+    if (url.pathname === `/api/v1/files/${evidenceFileId}/download-url`) return { body: { url: 'https://files.example.invalid/geo-evidence.png', expires_at: '2026-07-20T11:00:00Z' } satisfies Schema<'SignedUrl'> };
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
@@ -248,6 +292,15 @@ test('补采前历史追加更正允许选择真实问题主题', async () => {
   expect(screen.getByRole('combobox', { name: '问题主题' })).toBeEnabled();
   await choose('问题主题', topic.canonical_question);
   await waitFor(() => expect(screen.getByRole('combobox', { name: '问题主题' }).parentElement).toHaveAttribute('title', topic.canonical_question));
+  expect(await within(dialog).findByText('已有证据截图（1）')).toBeInTheDocument();
+  await waitFor(() => expect(dialog.querySelector('img[alt="geo-evidence.png"]')).toBeInTheDocument());
+  fireEvent.click(within(dialog).getByRole('button', { name: /追加更正记录/ }));
+  await waitFor(() => expect(correctionRequest).toBeInstanceOf(Request));
+  await expect(correctionRequest!.clone().json()).resolves.toMatchObject({
+    supersedes_id: historicalManualRecord.id,
+    attachment_file_ids: [],
+    article_results: [{ publication_record_id: publicationId, discovered: false, mentioned: false, accuracy: null }],
+  });
 });
 
 test('人工观测详情对补采前空值明确显示历史未采集', async () => {
@@ -280,7 +333,8 @@ test('人工观测详情对补采前空值明确显示历史未采集', async ()
   fireEvent.click(await page.findByRole('button', { name: 'PS-001 如何替代？' }));
   const dialog = await screen.findByRole('dialog');
   expect(await within(dialog).findByText('该记录存在补采前未采集事实；未知值保持未知，不按“否”推断。')).toBeInTheDocument();
-  expect(within(dialog).getAllByText('历史未采集').length).toBeGreaterThanOrEqual(4);
+  expect(within(dialog).getAllByText('历史未采集').length).toBeGreaterThanOrEqual(3);
+  expect(within(dialog).getByText('未判断')).toBeInTheDocument();
   expect(within(dialog).queryByText('历史回答摘要')).not.toBeInTheDocument();
   expect(within(dialog).getByText('引用部分参数与原文一致。')).toBeInTheDocument();
   await waitFor(() => expect(dialog.querySelector('img[alt="geo-evidence.png"]')).toBeInTheDocument());

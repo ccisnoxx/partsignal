@@ -1,7 +1,7 @@
 /** 登记或更正人工 GEO 观测；更正始终追加新记录，不改写历史。 */
 import { PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Form, Input, Modal, Select, Space, Table, Typography } from 'antd';
+import { Alert, Button, Checkbox, Form, Input, Modal, Select, Space, Table, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
@@ -17,21 +17,15 @@ import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { DirectUpload } from '../../shared/components/DirectUpload';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { EvidenceFile } from './GeoObservationDrawer';
 
 type ObservationFormValues = Omit<Schema<'GeoObservationCreate'>, 'attachment_file_ids' | 'tested_at'> & {
   tested_at: string;
 };
 
-const articleRecommendationOptions: Array<{
-  label: string;
-  value: Schema<'GeoArticleResultCreate'>['recommendation_status'];
-}> = [
-  { label: '已推荐', value: 'RECOMMENDED' },
-  { label: '未推荐', value: 'NOT_RECOMMENDED' },
-];
 const accuracyOptions: Array<{
   label: string;
-  value: Schema<'GeoArticleResultCreate'>['accuracy'];
+  value: NonNullable<Schema<'GeoArticleResultCreate'>['accuracy']>;
 }> = [
   { label: '准确', value: 'ACCURATE' },
   { label: '部分准确', value: 'PARTIAL' },
@@ -60,7 +54,6 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
   const correction = useQuery({ ...geoObservationQueryOptions(correctionId), enabled: open && !!correctionId });
   const correctionRecord = isManualObservation(correction.data) ? correction.data : undefined;
   const watchedProductId = Form.useWatch('product_id', form);
-  const watchedArticleResults = Form.useWatch('article_results', form) ?? [];
   const productId = correctionRecord?.product_id ?? watchedProductId;
   const products = useQuery({ ...productsQueryOptions(productSearch), enabled: open && !correctionId });
   const topics = useQuery({ ...queryTopicsQueryOptions(), enabled: open });
@@ -96,8 +89,10 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
       : form.getFieldValue('article_results') ?? [];
     const priorByPublication = new Map(priorResults.map((item) => [item.publication_record_id, item]));
     form.setFieldValue('article_results', publications.data.items.map((item) => ({
-      ...priorByPublication.get(item.publication_record_id),
       publication_record_id: item.publication_record_id,
+      discovered: priorByPublication.get(item.publication_record_id)?.discovered ?? false,
+      mentioned: priorByPublication.get(item.publication_record_id)?.mentioned ?? false,
+      accuracy: priorByPublication.get(item.publication_record_id)?.accuracy ?? null,
     })));
   }, [correctionRecord, form, publications.data]);
 
@@ -200,7 +195,7 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
           className="form-alert"
           type="info"
           showIcon
-          title="阶段严格按发现、提及、推荐、引用、结果准确累计；修改前序事实后，必须重新确认受影响的后续事实。"
+          title="发现、提及和准确性是相互独立的事实；未勾选表示明确的“否”，准确性可以不判断。"
         />
         {!productId && <Alert className="form-alert" type="info" showIcon title="请先选择产品，再逐篇核对搜索结果。" />}
         {publications.isLoading && <QueryLoading label="正在加载产品文章" />}
@@ -212,93 +207,38 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
               rowKey="publication_record_id"
               dataSource={publications.data.items}
               pagination={false}
-              scroll={{ x: 1160 }}
+              scroll={{ x: 760 }}
               columns={[
                 { title: '文章', dataIndex: 'title' },
                 { title: '平台', dataIndex: 'platform_name', width: 130 },
                 { title: '链接', dataIndex: 'final_url', width: 110, render: (url) => <a href={url} target="_blank" rel="noreferrer">查看文章</a> },
                 {
-                  title: '发现', width: 130, render: (_, item, index) => <>
+                  title: '发现', width: 100, render: (_, item, index) => <>
                     <Form.Item name={['article_results', index, 'publication_record_id']} hidden><Input /></Form.Item>
-                    <Form.Item name={['article_results', index, 'discovered']} rules={[{ required: true, message: '请选择是否发现' }]} style={{ margin: 0 }}>
-                      <Select
+                    <Form.Item name={['article_results', index, 'discovered']} valuePropName="checked" style={{ margin: 0 }}>
+                      <Checkbox
                         aria-label={`是否发现：${item.title}`}
-                        placeholder="请选择"
-                        onChange={(value) => {
-                          if (value === true) return;
-                          for (const field of ['mentioned', 'recommendation_status', 'cited'] as const) form.setFieldValue(['article_results', index, field], undefined);
-                          if (watchedArticleResults[index]?.accuracy === 'ACCURATE') form.setFieldValue(['article_results', index, 'accuracy'], undefined);
-                        }}
-                        options={[{ label: '已发现', value: true }, { label: '未发现', value: false }]}
-                      />
+                      >已发现</Checkbox>
                     </Form.Item>
                   </>,
                 },
                 {
-                  title: '提及', width: 130, render: (_, item, index) => (
-                    <Form.Item name={['article_results', index, 'mentioned']} rules={[{ required: true, message: '请选择是否提及' }]} style={{ margin: 0 }}>
-                      <Select
+                  title: '提及', width: 100, render: (_, item, index) => (
+                    <Form.Item name={['article_results', index, 'mentioned']} valuePropName="checked" style={{ margin: 0 }}>
+                      <Checkbox
                         aria-label={`是否提及：${item.title}`}
-                        placeholder="请选择"
-                        onChange={(value) => {
-                          if (value === true) return;
-                          for (const field of ['recommendation_status', 'cited'] as const) form.setFieldValue(['article_results', index, field], undefined);
-                          if (watchedArticleResults[index]?.accuracy === 'ACCURATE') form.setFieldValue(['article_results', index, 'accuracy'], undefined);
-                        }}
-                        options={[
-                          { label: '已提及', value: true, disabled: watchedArticleResults[index]?.discovered !== true },
-                          { label: '未提及', value: false },
-                        ]}
-                      />
-                    </Form.Item>
-                  ),
-                },
-                {
-                  title: '推荐', width: 130, render: (_, item, index) => (
-                    <Form.Item name={['article_results', index, 'recommendation_status']} rules={[{ required: true, message: '请选择推荐结论' }]} style={{ margin: 0 }}>
-                      <Select
-                        aria-label={`文章推荐结果：${item.title}`}
-                        placeholder="请选择"
-                        onChange={(value) => {
-                          if (value === 'RECOMMENDED') return;
-                          form.setFieldValue(['article_results', index, 'cited'], undefined);
-                          if (watchedArticleResults[index]?.accuracy === 'ACCURATE') form.setFieldValue(['article_results', index, 'accuracy'], undefined);
-                        }}
-                        options={articleRecommendationOptions.map((option) => ({
-                          ...option,
-                          disabled: option.value === 'RECOMMENDED' && watchedArticleResults[index]?.mentioned !== true,
-                        }))}
-                      />
-                    </Form.Item>
-                  ),
-                },
-                {
-                  title: '引用', width: 130, render: (_, item, index) => (
-                    <Form.Item name={['article_results', index, 'cited']} rules={[{ required: true, message: '请选择是否引用' }]} style={{ margin: 0 }}>
-                      <Select
-                        aria-label={`是否引用：${item.title}`}
-                        placeholder="请选择"
-                        onChange={(value) => {
-                          if (value !== true && watchedArticleResults[index]?.accuracy === 'ACCURATE') form.setFieldValue(['article_results', index, 'accuracy'], undefined);
-                        }}
-                        options={[
-                          { label: '有引用', value: true, disabled: watchedArticleResults[index]?.recommendation_status !== 'RECOMMENDED' },
-                          { label: '无引用', value: false },
-                        ]}
-                      />
+                      >已提及</Checkbox>
                     </Form.Item>
                   ),
                 },
                 {
                   title: '准确性', width: 140, render: (_, item, index) => (
-                    <Form.Item name={['article_results', index, 'accuracy']} rules={[{ required: true, message: '请选择准确性' }]} style={{ margin: 0 }}>
+                    <Form.Item name={['article_results', index, 'accuracy']} style={{ margin: 0 }}>
                       <Select
                         aria-label={`准确性：${item.title}`}
-                        placeholder="请选择"
-                        options={accuracyOptions.map((option) => ({
-                          ...option,
-                          disabled: option.value === 'ACCURATE' && watchedArticleResults[index]?.cited !== true,
-                        }))}
+                        allowClear
+                        placeholder="未判断"
+                        options={accuracyOptions}
                       />
                     </Form.Item>
                   ),
@@ -308,7 +248,14 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
           </TableRegion>
         )}
 
-        <Form.Item label="证据截图" required extra="至少上传一张真实搜索结果截图；系统不会自动解析或联网复查。">
+        {correctionRecord && (
+          <Form.Item label={`已有证据截图（${correctionRecord.attachment_file_ids.length}）`}>
+            {correctionRecord.attachment_file_ids.length
+              ? <div className="geo-evidence-grid">{correctionRecord.attachment_file_ids.map((id) => <EvidenceFile key={id} fileId={id} />)}</div>
+              : <Typography.Text type="secondary">此前没有上传证据截图</Typography.Text>}
+          </Form.Item>
+        )}
+        <Form.Item label={correctionRecord ? '新增证据截图（可选）' : '证据截图（可选）'} extra="截图用于补充真实搜索结果证据；系统不会自动解析或联网复查。">
           <DirectUpload category="OPERATION_SCREENSHOT" onUploaded={(file) => setAttachments((items) => [...items, file])} />
           <Space wrap className="geo-upload-list">
             {attachments.map((file) => <Typography.Text key={file.id}>{file.original_filename} <StatusTag status={file.status} /></Typography.Text>)}
@@ -320,7 +267,7 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
           icon={<PlusOutlined />}
           htmlType="submit"
           loading={create.isPending}
-          disabled={missingProducts || missingTopics || missingPublications || !publications.data?.items.length || !attachments.length}
+          disabled={missingProducts || missingTopics || missingPublications || !publications.data?.items.length}
         >
           {correctionId ? '追加更正记录' : '追加观测记录'}
         </Button>

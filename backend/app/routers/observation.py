@@ -35,7 +35,6 @@ from app.schemas.geo_files import (
     GeoObservationSortOrder,
     GeoPublicationCandidateList,
     LegacyRecommendation,
-    RecommendationStatus,
 )
 from app.services.geo_observation import (
     GeoInsightFilters,
@@ -44,6 +43,9 @@ from app.services.geo_observation import (
 )
 from app.services.geo_observation import (
     create_geo_observation as create_geo_observation_command,
+)
+from app.services.geo_observation import (
+    delete_geo_observation as delete_geo_observation_command,
 )
 from app.services.geo_observation import (
     get_geo_insights as get_geo_insights_service,
@@ -72,11 +74,11 @@ def geo_observation_filters(
     model_name: Annotated[str | None, Query(max_length=160)] = None,
     search_platform: Annotated[str | None, Query(max_length=160)] = None,
     publication_search: Annotated[str | None, Query(max_length=500)] = None,
+    discovered: bool | None = None,
     mentioned: bool | None = None,
     recommendation: LegacyRecommendation | None = None,
     has_citation: bool | None = None,
     accuracy: GeoAccuracy | None = None,
-    article_recommendation: RecommendationStatus | None = None,
     recorder_search: Annotated[str | None, Query(max_length=200)] = None,
     only_mine: bool = False,
     include_history: bool = False,
@@ -106,11 +108,11 @@ def geo_observation_filters(
         model_name=model_name.strip() if model_name is not None else None,
         search_platform=search_platform.strip() if search_platform is not None else None,
         publication_search=(publication_search.strip() if publication_search is not None else None),
+        discovered=discovered,
         mentioned=mentioned,
         recommendation=recommendation,
         has_citation=has_citation,
         accuracy=accuracy,
-        article_recommendation=article_recommendation,
         recorder_search=recorder_search.strip() if recorder_search is not None else None,
         only_mine=only_mine,
         include_history=include_history,
@@ -172,6 +174,49 @@ def get_geo_observation(
 ) -> GeoObservationOut:
     """返回一条观测详情，纠正历史也可以直接读取。"""
     return get_geo_observation_service(db, observation_id, actor=user)
+
+
+@router.delete(
+    "/geo-observations/{observation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deleteGeoObservation",
+)
+def delete_geo_observation(
+    observation_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    admin: CurrentUser,
+    _csrf: CsrfProtected,
+) -> None:
+    """仅由管理员处置完整的人工 GEO 更正链。"""
+    actor_id = admin.id
+    command_request_id = request.state.request_id
+    try:
+        assert_account_types(admin, (AccountType.ADMIN,))
+        delete_geo_observation_command(
+            db=db,
+            observation_id=observation_id,
+            actor=admin,
+            request_id=command_request_id,
+        )
+    except AppError as error:
+        db.rollback()
+        denied = error.code == "PERMISSION_DENIED"
+        commit_audit(
+            db,
+            AuditEntry(
+                actor_id=actor_id,
+                business_module=AuditModule.GEO_OBSERVATION,
+                action="geo_observation.deleted",
+                target_type="GeoObservation",
+                target_id=observation_id,
+                request_id=command_request_id,
+                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
+                result_message="GEO 观测删除被拒绝" if denied else "GEO 观测删除未完成",
+                error_code=error.code,
+            ),
+        )
+        raise
 
 
 @router.get(

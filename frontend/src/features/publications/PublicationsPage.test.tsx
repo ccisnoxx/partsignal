@@ -93,7 +93,7 @@ const recordItem = {
   published_at: null,
   created_at: user.created_at,
   last_verification_at: null,
-  available_actions: ['mark-published', 'reject'],
+  available_actions: ['mark-published', 'reject', 'delete'],
 } satisfies Schema<'PublicationRecordListItem'>;
 
 const recordDetail = {
@@ -117,7 +117,7 @@ const recordDetail = {
   created_at: user.created_at,
   status_events: [{ status: 'PLATFORM_REVIEW', comment: '平台处理', actor_id: user.id, created_at: user.created_at }],
   attachments: [],
-  available_actions: ['mark-published', 'reject'],
+  available_actions: ['mark-published', 'reject', 'delete'],
 } satisfies Schema<'PublicationRecord'>;
 
 const summary = {
@@ -192,6 +192,16 @@ async function findPublicationConfirm() {
   return waitFor(() => {
     const title = [...document.querySelectorAll<HTMLElement>('.ant-modal-confirm-title')]
       .find((item) => item.textContent === '放弃未提交内容？');
+    const dialog = title?.closest<HTMLElement>('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    return dialog!;
+  });
+}
+
+async function findDeleteConfirm() {
+  return waitFor(() => {
+    const title = [...document.querySelectorAll<HTMLElement>('.ant-modal-confirm-title')]
+      .find((item) => item.textContent === '删除未公开发布记录？');
     const dialog = title?.closest<HTMLElement>('[role="dialog"]');
     expect(dialog).not.toBeNull();
     return dialog!;
@@ -331,6 +341,111 @@ test('发布记录分页与状态筛选由 URL 和服务端列表共同恢复', 
   fireEvent.click(screen.getByRole('tab', { name: /待发布候选/ }));
   await waitFor(() => expect(window.location.search).toContain('tab=candidates'));
   expect(window.location.search).toContain('records_page=2');
+});
+
+test('发布记录保留单一主入口，并在更多菜单展示其余服务端动作', async () => {
+  window.history.pushState({}, '', '/publications?tab=records');
+  mockFetch((request) => {
+    const common = commonWorkspaceResponse(request, { records: [recordItem], total: 1 });
+    if (common) return common;
+    const path = new URL(request.url).pathname;
+    if (path.endsWith(`/publication-records/${publicationId}`)) return { body: recordDetail };
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole('button', { name: `更多操作：${content.title}` }));
+  expect(await screen.findByRole('menuitem', { name: '平台拒绝' })).toBeInTheDocument();
+  expect(screen.getByRole('menuitem', { name: '删除未公开记录' })).toBeInTheDocument();
+  expect(screen.queryByRole('menuitem', { name: '登记已发布' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('menuitem', { name: '平台拒绝' }));
+
+  const drawer = within(await screen.findByRole('dialog'));
+  expect(await drawer.findByRole('button', { name: '确认提交' })).toBeInTheDocument();
+  expect(drawer.getAllByText('平台拒绝')).toHaveLength(2);
+  expect(window.location.search).toContain(`record=${publicationId}`);
+});
+
+test('删除使用专属确认和 DELETE，成功后清理记录 URL', async () => {
+  let deleted = false;
+  const requests: Request[] = [];
+  window.history.pushState({}, '', `/publications?tab=records&record=${publicationId}`);
+  mockFetch((request) => {
+    requests.push(request);
+    const common = commonWorkspaceResponse(request, {
+      records: deleted ? [] : [{ ...recordItem, available_actions: ['delete'] }],
+      total: deleted ? 0 : 1,
+    });
+    if (common) return common;
+    const path = new URL(request.url).pathname;
+    if (path.endsWith(`/publication-records/${publicationId}`) && request.method === 'GET') {
+      return { body: { ...recordDetail, available_actions: ['delete'] } };
+    }
+    if (path.endsWith(`/publication-records/${publicationId}`) && request.method === 'DELETE') {
+      deleted = true;
+      return { body: {} };
+    }
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+  render(<App />);
+
+  const drawer = within(await screen.findByRole('dialog'));
+  fireEvent.click(await drawer.findByRole('button', { name: '删除未公开记录' }));
+  const confirm = within(await findDeleteConfirm());
+  expect(confirm.getByText(/不会标记为已移除/)).toBeInTheDocument();
+  fireEvent.click(confirm.getByRole('button', { name: '删除记录' }));
+
+  await waitFor(() => expect(deleted).toBe(true));
+  await waitFor(() => expect(window.location.search).not.toContain('record='));
+  expect(requests.some((request) => request.method === 'DELETE' && new URL(request.url).pathname.endsWith(publicationId))).toBe(true);
+  expect(requests.some((request) => request.method === 'POST' && new URL(request.url).pathname.includes(`/publication-records/${publicationId}/`))).toBe(false);
+});
+
+test('Drawer 分别说明标记已移除和验证失败的影响', async () => {
+  window.history.pushState({}, '', `/publications?tab=records&record=${publicationId}`);
+  const published = {
+    ...recordDetail,
+    status: 'PUBLISHED',
+    available_actions: ['remove', 'mark-verification-failed'],
+  } satisfies Schema<'PublicationRecord'>;
+  mockFetch((request) => {
+    const common = commonWorkspaceResponse(request, {
+      records: [{
+        ...recordItem,
+        status: 'PUBLISHED',
+        available_actions: ['remove', 'mark-verification-failed'],
+      }],
+      total: 1,
+    });
+    if (common) return common;
+    const path = new URL(request.url).pathname;
+    if (path.endsWith(`/publication-records/${publicationId}`)) return { body: published };
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+  render(<App />);
+
+  const drawer = within(await screen.findByRole('dialog'));
+  fireEvent.click(await drawer.findByRole('button', { name: '标记已移除' }));
+  expect(drawer.getByText('标记已移除会保留发布历史')).toBeInTheDocument();
+  expect(drawer.getByRole('button', { name: '确认标记已移除' })).toBeInTheDocument();
+  fireEvent.click(drawer.getByRole('button', { name: /取\s*消/ }));
+  fireEvent.click(drawer.getByRole('button', { name: '标记验证失败' }));
+  expect(drawer.getByText('验证失败会进入发布需关注')).toBeInTheDocument();
+  expect(drawer.getByRole('button', { name: '确认标记验证失败' })).toBeInTheDocument();
+});
+
+test('发布需关注 Tab 解释触发与处理路径', async () => {
+  window.history.pushState({}, '', '/publications?tab=attentions');
+  mockFetch((request) => {
+    const common = commonWorkspaceResponse(request);
+    if (common) return common;
+    throw new Error(`未声明的测试请求：${request.method} ${request.url}`);
+  });
+  render(<App />);
+
+  expect(await screen.findByRole('tab', { name: /发布需关注/ })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByText('已移除或验证失败的记录会进入此处')).toBeInTheDocument();
+  expect(screen.getByText(/创建修复任务，并在写明处理结果后显式解决/)).toBeInTheDocument();
 });
 
 test('发布数据概览默认近 7 天并只允许切换到近 30 天', async () => {

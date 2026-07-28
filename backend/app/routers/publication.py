@@ -50,6 +50,7 @@ from app.services.projections import content_task_out
 from app.services.publication import (
     command_publication,
     create_repair_task,
+    delete_publication_record,
     require_publishable,
     resolve_attention,
 )
@@ -312,7 +313,7 @@ def delete_platform_account(
                 outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
                 result_message="发布账号删除被拒绝" if denied else "发布账号删除未完成",
                 error_code=error.code,
-            )
+            ),
         )
         raise
 
@@ -357,7 +358,7 @@ def create_manual_publication(
                 outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
                 result_message="发布登记创建被拒绝" if denied else "发布登记创建未完成",
                 error_code=error.code,
-            )
+            ),
         )
         raise
 
@@ -394,6 +395,49 @@ def get_publication_record(
     if publication is None:
         raise not_found("发布记录")
     return publication_out(db, publication)
+
+
+@router.delete(
+    "/publication-records/{publication_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deletePublicationRecord",
+)
+def delete_publication(
+    publication_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    editor: CurrentUser,
+    _csrf: CsrfProtected,
+) -> None:
+    """由管理员或内容工程师删除从未公开且没有外部引用的发布记录。"""
+    actor_id = editor.id
+    command_request_id = request.state.request_id
+    try:
+        assert_account_types(editor, (AccountType.ADMIN, AccountType.ENGINEER))
+        delete_publication_record(
+            db=db,
+            publication_id=publication_id,
+            actor=editor,
+            request_id=command_request_id,
+        )
+    except AppError as error:
+        db.rollback()
+        denied = error.code == "PERMISSION_DENIED"
+        commit_audit(
+            db,
+            AuditEntry(
+                actor_id=actor_id,
+                business_module=AuditModule.PUBLICATION,
+                action="publication_record.deleted",
+                target_type="PublicationRecord",
+                target_id=publication_id,
+                request_id=command_request_id,
+                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
+                result_message="发布记录删除被拒绝" if denied else "发布记录删除未完成",
+                error_code=error.code,
+            ),
+        )
+        raise
 
 
 @router.post(
@@ -437,7 +481,7 @@ def command_publication_record(
                 outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
                 result_message="发布状态命令被拒绝" if denied else "发布状态命令未完成",
                 error_code=error.code,
-            )
+            ),
         )
         raise
 

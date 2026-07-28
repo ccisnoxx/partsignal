@@ -6,7 +6,7 @@ import {
   SafetyCertificateOutlined, SearchOutlined, ToolOutlined,
 } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
-import { AutoComplete, Avatar, Button, Drawer, Dropdown, Grid, Input, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
+import { App as AntApp, AutoComplete, Avatar, Button, Drawer, Dropdown, Grid, Input, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthProvider';
@@ -21,7 +21,7 @@ const workflowNavigation: NavigationItem[] = [
   { key: '/', icon: <BarChartOutlined />, label: '工作台' },
   { key: '/products', icon: <DatabaseOutlined />, label: '产品事实' },
   { key: '/tasks', icon: <FileTextOutlined />, label: '内容任务' },
-  { key: '/publications', icon: <RocketOutlined />, label: '人工发布' },
+  { key: '/publications', icon: <RocketOutlined />, label: '发布管理' },
   {
     key: '/observations-group', icon: <BarChartOutlined />, label: 'GEO 观测',
     children: [
@@ -71,6 +71,7 @@ function navigationLeaves(items: NavigationItem[], parentKey?: string): Array<Na
 
 function matchesRoute(pathname: string, _search: string, key: string): boolean {
   if (key === '/tasks' && pathname.startsWith('/content/')) return true;
+  if (key === '/publications' && pathname.startsWith('/publication-attentions/')) return true;
   const target = new URL(key, 'https://partsignal.local');
   return target.pathname === '/' ? pathname === '/' : pathname === target.pathname || pathname.startsWith(`${target.pathname}/`);
 }
@@ -148,7 +149,7 @@ export function AppLayout() {
   const desktopSider = !!screens.lg;
 
   return (
-    <Layout className="app-shell">
+    <AntApp><Layout className="app-shell">
       {desktopSider ? (
         <Layout.Sider theme="light" width={208} collapsedWidth={72} collapsed={collapsed} className="app-sider">
           <div className="brand-mark"><span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span>{!collapsed && <strong>PartSignal</strong>}</div>
@@ -210,6 +211,6 @@ export function AppLayout() {
           </Suspense>
         </Layout.Content>
       </Layout>
-    </Layout>
+    </Layout></AntApp>
   );
 }

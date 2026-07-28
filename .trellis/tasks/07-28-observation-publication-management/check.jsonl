@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "复核删除资格、迁移、触发器反例与文件一致性。"}
+{"file": ".trellis/spec/backend/publication-workbench-guidelines.md", "reason": "复核发布历史、关注事项和聚合口径未被删除破坏。"}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "复核动作菜单、URL 状态、真实浏览器与错误处理。"}
+{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核表格操作层级、危险操作确认和可访问性。"}
+{"file": ".trellis/tasks/07-28-observation-evidence-management/research/observation-model-and-delete.md", "reason": "核对观测链与附件引用测试覆盖。"}
+{"file": ".trellis/tasks/07-28-publication-management/research/publication-delete-and-ui.md", "reason": "核对发布引用图、动作完整性和 Playwright 入口。"}

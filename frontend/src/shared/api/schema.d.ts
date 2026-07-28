@@ -1272,7 +1272,7 @@ export interface paths {
         get: operations["getPublicationRecord"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deletePublicationRecord"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1416,7 +1416,7 @@ export interface paths {
         get: operations["getGeoObservation"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deleteGeoObservation"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2593,7 +2593,7 @@ export interface components {
             attachment_file_ids?: string[];
         };
         /** @enum {string} */
-        PublicationAction: "mark-platform-review" | "mark-published" | "verify" | "reject" | "remove" | "mark-verification-failed";
+        PublicationAction: "mark-platform-review" | "mark-published" | "verify" | "reject" | "remove" | "mark-verification-failed" | "delete";
         PublicationRecord: {
             /** Format: uuid */
             id: string;
@@ -2844,19 +2844,13 @@ export interface components {
             publication_record_id: string;
             discovered: boolean;
             mentioned: boolean;
-            /** @enum {string} */
-            recommendation_status: "RECOMMENDED" | "NOT_RECOMMENDED";
-            cited: boolean;
-            accuracy: components["schemas"]["AccuracyStatus"];
+            accuracy: components["schemas"]["AccuracyStatus"] | null;
         };
         GeoArticleResult: {
             /** Format: uuid */
             publication_record_id: string;
             discovered: boolean | null;
             mentioned: boolean | null;
-            /** @enum {string} */
-            recommendation_status: "RECOMMENDED" | "NOT_RECOMMENDED";
-            cited: boolean | null;
             accuracy: components["schemas"]["AccuracyStatus"] | null;
             title: string;
             platform_name: string;
@@ -2886,7 +2880,7 @@ export interface components {
             /** Format: date-time */
             tested_at: string;
             article_results: components["schemas"]["GeoArticleResultCreate"][];
-            attachment_file_ids: string[];
+            attachment_file_ids?: string[];
             notes: string;
             /** Format: uuid */
             supersedes_id?: string | null;
@@ -2954,7 +2948,7 @@ export interface components {
             tested_by: string;
             recorder: components["schemas"]["ActorSummary"];
             is_current: boolean;
-            available_actions: "CORRECT"[];
+            available_actions: ("CORRECT" | "DELETE")[];
             /** Format: date-time */
             created_at: string;
         };
@@ -2973,9 +2967,11 @@ export interface components {
             legacy_accuracy_rate: number | null;
             manual_observation_count: number;
             article_result_count: number;
-            recommended_article_count: number;
-            not_recommended_article_count: number;
-            article_recommendation_rate: number | null;
+            discovered_article_count: number;
+            mentioned_article_count: number;
+            article_discovery_rate: number | null;
+            article_mention_rate: number | null;
+            article_accuracy_rate: number | null;
         };
         GeoInsightPeriodWindow: {
             /** Format: date */
@@ -3016,38 +3012,17 @@ export interface components {
             change: number | null;
             points: components["schemas"]["GeoInsightRatePoint"][];
         };
-        GeoInsightCountPoint: {
-            /** Format: date */
-            date: string;
-            count: number;
-        };
-        GeoInsightCountTrend: {
-            current: number;
-            previous: number;
-            change: number | null;
-            points: components["schemas"]["GeoInsightCountPoint"][];
-        };
         GeoInsightTrends: {
+            discovery_rate: components["schemas"]["GeoInsightRateTrend"];
             mention_rate: components["schemas"]["GeoInsightRateTrend"];
-            recommendation_rate: components["schemas"]["GeoInsightRateTrend"];
-            citation_rate: components["schemas"]["GeoInsightRateTrend"];
             accuracy_rate: components["schemas"]["GeoInsightRateTrend"];
-            not_recommended_content_count: components["schemas"]["GeoInsightCountTrend"];
         };
         GeoInsightPlatformPerformance: {
             geo_platform: string;
             observation_count: number;
+            discovery_rate: components["schemas"]["GeoInsightRateValue"];
             mention_rate: components["schemas"]["GeoInsightRateValue"];
-            recommendation_rate: components["schemas"]["GeoInsightRateValue"];
-            citation_rate: components["schemas"]["GeoInsightRateValue"];
             accuracy_rate: components["schemas"]["GeoInsightRateValue"];
-        };
-        GeoInsightFunnelStage: {
-            /** @enum {string} */
-            code: "PUBLISHED" | "DISCOVERED" | "MENTIONED" | "RECOMMENDED" | "CITED" | "ACCURATE";
-            label: string;
-            count: number;
-            conversion_from_previous: number | null;
         };
         GeoInsightContentPerformance: {
             /** Format: uuid */
@@ -3055,13 +3030,13 @@ export interface components {
             title: string;
             content_platform: string;
             observation_count: number;
+            discovery_rate: components["schemas"]["GeoInsightRateValue"];
             mention_rate: components["schemas"]["GeoInsightRateValue"];
-            recommendation_rate: components["schemas"]["GeoInsightRateValue"];
-            citation_rate: components["schemas"]["GeoInsightRateValue"];
+            accuracy_rate: components["schemas"]["GeoInsightRateValue"];
         };
         GeoInsightDeclineBasis: {
             /** @enum {string} */
-            metric: "citation_rate" | "recommendation_rate" | "mention_rate";
+            metric: "discovery_rate" | "mention_rate" | "accuracy_rate";
             current_value: number;
             previous_value: number;
             decline: number;
@@ -3102,7 +3077,7 @@ export interface components {
         };
         GeoInsightRecommendationBasis: {
             /** @enum {string} */
-            metric: "unmentioned_days" | "citation_rate" | "recommendation_rate" | "mention_rate" | "observation_count" | "coverage_rate";
+            metric: "unmentioned_days" | "discovery_rate" | "mention_rate" | "accuracy_rate" | "observation_count" | "coverage_rate";
             value: number | null;
             threshold: number | null;
             /** @enum {string} */
@@ -3110,7 +3085,7 @@ export interface components {
         };
         GeoInsightRecommendation: {
             /** @enum {string} */
-            rule_code: "CONTENT_LONG_UNMENTIONED" | "CONTENT_PERFORMANCE_DECLINE" | "GEO_PLATFORM_PERFORMANCE_DECLINE" | "CONTENT_NEVER_RECOMMENDED" | "QUESTION_UNCOVERED" | "QUESTION_OCCASIONAL" | "QUESTION_INSUFFICIENT_DATA";
+            rule_code: "CONTENT_LONG_UNMENTIONED" | "CONTENT_PERFORMANCE_DECLINE" | "GEO_PLATFORM_PERFORMANCE_DECLINE" | "CONTENT_NEVER_DISCOVERED" | "QUESTION_UNCOVERED" | "QUESTION_OCCASIONAL" | "QUESTION_INSUFFICIENT_DATA";
             /** @enum {string} */
             priority: "HIGH" | "MEDIUM" | "LOW";
             title: string;
@@ -3137,7 +3112,7 @@ export interface components {
             /** Format: date-time */
             generated_at: string;
             /**
-             * @description 趋势率、平台率、内容排行和漏斗统一使用当前链尾人工观测与逐篇发布内容关系作为基础单位
+             * @description 独立发现率、提及率、准确率、平台率和内容排行统一使用当前链尾人工观测与逐篇发布内容关系作为基础单位
              * @constant
              */
             analysis_unit: "MANUAL_OBSERVATION_PUBLICATION_RELATION";
@@ -3145,7 +3120,6 @@ export interface components {
             filter_options: components["schemas"]["GeoInsightFilterOptions"];
             trends: components["schemas"]["GeoInsightTrends"];
             platform_performance: components["schemas"]["GeoInsightPlatformPerformance"][];
-            funnel: components["schemas"]["GeoInsightFunnelStage"][];
             content_rankings: components["schemas"]["GeoInsightContentRankings"];
             question_coverage: components["schemas"]["GeoInsightQuestionCoverage"];
             recommendations: components["schemas"]["GeoInsightRecommendation"][];
@@ -6031,6 +6005,32 @@ export interface operations {
             };
         };
     };
+    deletePublicationRecord: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                publication_id: components["parameters"]["PublicationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已删除从未公开且没有下游引用的发布记录 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
     commandPublicationRecord: {
         parameters: {
             query?: never;
@@ -6224,11 +6224,11 @@ export interface operations {
                 model_name?: string;
                 search_platform?: string;
                 publication_search?: string;
+                discovered?: boolean;
                 mentioned?: boolean;
                 recommendation?: "NONE" | "CANDIDATE" | "RECOMMENDED";
                 has_citation?: boolean;
                 accuracy?: components["schemas"]["AccuracyStatus"];
-                article_recommendation?: "RECOMMENDED" | "NOT_RECOMMENDED";
                 recorder_search?: string;
                 only_mine?: boolean;
                 include_history?: boolean;
@@ -6299,6 +6299,32 @@ export interface operations {
             404: components["responses"]["ErrorResponse"];
         };
     };
+    deleteGeoObservation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                observation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 人工观测完整更正链已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
     getGeoMetrics: {
         parameters: {
             query?: {
@@ -6311,11 +6337,11 @@ export interface operations {
                 model_name?: string;
                 search_platform?: string;
                 publication_search?: string;
+                discovered?: boolean;
                 mentioned?: boolean;
                 recommendation?: "NONE" | "CANDIDATE" | "RECOMMENDED";
                 has_citation?: boolean;
                 accuracy?: components["schemas"]["AccuracyStatus"];
-                article_recommendation?: "RECOMMENDED" | "NOT_RECOMMENDED";
                 recorder_search?: string;
                 only_mine?: boolean;
                 include_history?: boolean;

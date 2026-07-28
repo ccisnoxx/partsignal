@@ -72,7 +72,7 @@ class GeoObservationCitation(Base):
 
 
 class GeoObservationPublication(Base):
-    """旧观测发布关联，或人工观测中的逐篇搜索阶段事实。"""
+    """旧观测发布关联，或人工观测中的逐篇独立事实。"""
 
     __tablename__ = "geo_observation_publications"
     observation_id: Mapped[uuid.UUID] = mapped_column(
@@ -83,10 +83,8 @@ class GeoObservationPublication(Base):
         ForeignKey("publication_records.id", ondelete="RESTRICT"),
         primary_key=True,
     )
-    recommendation_status: Mapped[str | None] = mapped_column(String(24))
     discovered: Mapped[bool | None] = mapped_column(Boolean)
     mentioned: Mapped[bool | None] = mapped_column(Boolean)
-    cited: Mapped[bool | None] = mapped_column(Boolean)
     accuracy: Mapped[str | None] = mapped_column(String(32))
 
 

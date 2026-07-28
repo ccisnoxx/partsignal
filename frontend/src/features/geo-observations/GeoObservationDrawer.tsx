@@ -19,7 +19,7 @@ function HistoricalFact({ value, yes, no }: { value: boolean | null; yes: string
   return <Typography.Text type={value === null ? 'secondary' : undefined}>{value === null ? '历史未采集' : value ? yes : no}</Typography.Text>;
 }
 
-function EvidenceFile({ fileId }: { fileId: string }) {
+export function EvidenceFile({ fileId }: { fileId: string }) {
   const file = useQuery({
     queryKey: queryKeys.files.detail(fileId),
     queryFn: async () => unwrap(await api.GET('/api/v1/files/{file_id}', { params: { path: { file_id: fileId } } })),
@@ -83,7 +83,7 @@ function PublicationList({ items }: { items: PublicationRecord[] }) {
 
 function ManualDetails({ record }: { record: Extract<GeoObservation, { observation_kind: 'MANUAL_ARTICLE_SEARCH' }> }) {
   const hasHistoricalGaps = record.query_topic_id === null || record.article_results.some((item) => (
-    item.discovered === null || item.mentioned === null || item.cited === null || item.accuracy === null
+    item.discovered === null || item.mentioned === null
   ));
   return (
     <>
@@ -96,13 +96,12 @@ function ManualDetails({ record }: { record: Extract<GeoObservation, { observati
           {record.article_results.map((item) => (
             <div className="geo-detail-list-item" key={item.publication_record_id}>
               <Space orientation="vertical" size={4}>
-                <Space wrap><Typography.Text strong>{item.title}</Typography.Text><StatusTag status={item.recommendation_status} /></Space>
+                <Typography.Text strong>{item.title}</Typography.Text>
                 <Typography.Text type="secondary">{item.platform_name}</Typography.Text>
                 <Space wrap size={[12, 4]}>
                   <span>发现：<HistoricalFact value={item.discovered} yes="已发现" no="未发现" /></span>
                   <span>提及：<HistoricalFact value={item.mentioned} yes="已提及" no="未提及" /></span>
-                  <span>引用：<HistoricalFact value={item.cited} yes="有引用" no="无引用" /></span>
-                  <span>准确性：{item.accuracy === null ? <Typography.Text type="secondary">历史未采集</Typography.Text> : <StatusTag status={item.accuracy} />}</span>
+                  <span>准确性：{item.accuracy === null ? <Typography.Text type="secondary">未判断</Typography.Text> : <StatusTag status={item.accuracy} />}</span>
                 </Space>
                 <a href={item.final_url} target="_blank" rel="noreferrer">查看发布内容 <LinkOutlined /></a>
               </Space>

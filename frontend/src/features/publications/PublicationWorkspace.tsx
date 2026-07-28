@@ -5,26 +5,31 @@ import {
   ClockCircleOutlined,
   ExclamationCircleOutlined,
   LinkOutlined,
+  MoreOutlined,
   SearchOutlined,
   SendOutlined,
 } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
+  Alert,
+  App,
   Button,
   Card,
+  Dropdown,
   Empty,
   Input,
   Progress,
   Segmented,
   Select,
+  Space,
   Table,
   Tabs,
   Typography,
 } from 'antd';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { QUERY_STALE_TIME } from '../../app/queryClient';
-import { api, unwrap } from '../../shared/api/client';
+import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
+import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import { publicationRecordsQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { Schema } from '../../shared/api/types';
@@ -33,7 +38,11 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { PublicationDrawer } from './PublicationDrawer';
-import { actionLabels } from './publicationTypes';
+import {
+  actionLabels,
+  type PublicationCommandAction,
+  type PublicationDeleteTarget,
+} from './publicationTypes';
 
 type PublicationCandidate = Schema<'PublicationCandidate'>;
 type PublicationAttention = Schema<'PublicationAttentionListItem'>;
@@ -56,7 +65,12 @@ function includesString<T extends string>(values: readonly T[], value: string): 
 
 export function PublicationWorkspace() {
   const navigate = useNavigate();
+  const { message, modal } = App.useApp();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedCommand, setSelectedCommand] = useState<{
+    publicationId: string;
+    action: PublicationCommandAction;
+  }>();
   const rawTab = searchParams.get('tab');
   const activeTab = rawTab && publicationTabs.has(rawTab) ? rawTab : 'candidates';
   const rawWindow = searchParams.get('window_days');
@@ -190,8 +204,59 @@ export function PublicationWorkspace() {
     setSearchParams(next, { replace });
   };
   const openCandidate = (item: PublicationCandidate) => setView({ candidate: item.content_version.id, record: undefined });
-  const openRecord = (publicationId: string) => setView({ record: publicationId, candidate: undefined });
-  const closeDrawer = () => setView({ record: undefined, candidate: undefined });
+  const openRecord = (publicationId: string) => {
+    setSelectedCommand(undefined);
+    setView({ record: publicationId, candidate: undefined });
+  };
+  const openRecordAction = (publicationId: string, action: PublicationCommandAction) => {
+    setSelectedCommand({ publicationId, action });
+    setView({ record: publicationId, candidate: undefined });
+  };
+  const closeDrawer = () => {
+    setSelectedCommand(undefined);
+    setView({ record: undefined, candidate: undefined });
+  };
+  const deletePublication = useMutation({
+    mutationFn: async (record: PublicationDeleteTarget) =>
+      ensureSuccess(
+        await api.DELETE('/api/v1/publication-records/{publication_id}', {
+          params: { path: { publication_id: record.id }, header: csrfHeader() },
+        }),
+      ),
+    onSuccess: async (_, record) => {
+      if (selectedPublicationId === record.id) closeDrawer();
+      queryClient.removeQueries({ queryKey: queryKeys.publications.record(record.id) });
+      message.success('未公开发布记录已删除');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.publications.records }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.publications.candidates }),
+        queryClient.invalidateQueries({ queryKey: ['publication-workbench-summary'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
+        queryClient.invalidateQueries({ queryKey: ['file'] }),
+        queryClient.invalidateQueries({ queryKey: ['file-download'] }),
+      ]);
+    },
+    onError: (error) => message.error(errorMessage(error)),
+  });
+  const confirmDeletePublication = (record: PublicationDeleteTarget) => {
+    modal.confirm({
+      title: '删除未公开发布记录？',
+      content: (
+        <>
+          <Typography.Paragraph>
+            将永久删除“{record.content_title}”的未公开发布记录、状态事件和附件关系。
+          </Typography.Paragraph>
+          <Typography.Paragraph type="secondary">
+            此操作不会标记为已移除，也不可撤销；没有其他引用的附件会进入统一清理流程。
+          </Typography.Paragraph>
+        </>
+      ),
+      okText: '删除记录',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: () => deletePublication.mutateAsync(record),
+    });
+  };
   const showRecordStatus = (status: PublicationStatus) => setView({ tab: 'records', record_status: status, records_page: undefined });
   const showAttention = (trigger?: AttentionTrigger) => setView({ tab: 'attentions', attention_trigger: trigger, attentions_page: undefined });
   const error = candidates.error ?? records.error ?? attentions.error ?? summary.error;
@@ -199,7 +264,7 @@ export function PublicationWorkspace() {
   return (
     <div className="page-stack publication-workbench">
       <PageHeader
-        eyebrow="人工发布工作台"
+        eyebrow="发布管理工作台"
         title="发布管理"
         description="复制已批准内容到锁定平台人工发布，登记结果、验证页面，并显式处理发布异常。"
       />
@@ -255,6 +320,9 @@ export function PublicationWorkspace() {
                   statusOptions={publicationStatuses}
                   onView={setView}
                   onOpen={openRecord}
+                  onAction={openRecordAction}
+                  onDelete={confirmDeletePublication}
+                  deletePending={deletePublication.isPending}
                 />
               ),
             },
@@ -286,11 +354,14 @@ export function PublicationWorkspace() {
         onOpenRecord={openRecord}
       />
       <PublicationDrawer
-        key={selectedCandidateId ?? selectedPublicationId ?? 'closed'}
+        key={`${selectedCandidateId ?? selectedPublicationId ?? 'closed'}:${selectedCommand?.action ?? 'view'}`}
         candidate={selectedCandidate}
         publicationId={selectedPublicationId}
+        initialAction={selectedCommand?.publicationId === selectedPublicationId ? selectedCommand?.action : undefined}
+        deletePending={deletePublication.isPending}
         onClose={closeDrawer}
         onCreated={(publicationId) => setView({ tab: 'records', record: publicationId, candidate: undefined })}
+        onDelete={confirmDeletePublication}
       />
     </div>
   );
@@ -409,6 +480,9 @@ function RecordList({
   statusOptions,
   onView,
   onOpen,
+  onAction,
+  onDelete,
+  deletePending,
 }: {
   items: PublicationRecord[];
   loading: boolean;
@@ -418,6 +492,9 @@ function RecordList({
   statusOptions: PublicationStatus[];
   onView: (values: Record<string, string | number | undefined>, replace?: boolean) => void;
   onOpen: (publicationId: string) => void;
+  onAction: (publicationId: string, action: PublicationCommandAction) => void;
+  onDelete: (record: PublicationDeleteTarget) => void;
+  deletePending: boolean;
 }) {
   return (
     <>
@@ -438,17 +515,55 @@ function RecordList({
           dataSource={items}
           pagination={{ current: page, pageSize: PAGE_SIZE, total, showSizeChanger: false, showTotal: (count) => `共 ${count} 条`, onChange: (next) => onView({ records_page: next }) }}
           sticky={{ offsetHeader: 72 }}
-          scroll={{ x: 1300 }}
+          scroll={{ x: 1240 }}
           columns={[
             { title: '内容标题', render: (_, row) => <div className="publication-title-cell"><strong>{row.content_title}</strong><small>V{row.content_version}</small></div> },
-            { title: '实际标题', dataIndex: 'actual_title', width: 190, render: (value: string | null) => value ?? '—' },
-            { title: '目标平台', dataIndex: 'platform_profile_name', width: 150 },
-            { title: '发布账号', width: 170, render: (_, row) => <div className="publication-title-cell"><span>{row.platform_account_label}</span><small>{row.account_identifier}</small></div> },
-            { title: '发布状态', dataIndex: 'status', width: 130, render: (value) => <StatusTag status={value} /> },
-            { title: '最终 URL', dataIndex: 'final_url', width: 120, render: (url: string | null) => url ? <a href={url} target="_blank" rel="noreferrer">打开 <LinkOutlined /></a> : '—' },
-            { title: '发布时间', dataIndex: 'published_at', width: 170, render: (value: string | null) => value ? formatDateTime(value) : '—' },
-            { title: '最后验证', dataIndex: 'last_verification_at', width: 170, render: (value: string | null) => value ? formatDateTime(value) : '—' },
-            { title: '操作', fixed: 'right', width: 150, render: (_, row) => <Button type={row.available_actions.includes('mark-published') ? 'primary' : 'default'} onClick={() => onOpen(row.id)}>{row.available_actions[0] ? actionLabels[row.available_actions[0]] : '查看记录'}</Button> },
+            { title: '实际标题', dataIndex: 'actual_title', width: 170, render: (value: string | null) => value ?? '—' },
+            { title: '状态', dataIndex: 'status', width: 120, render: (value) => <StatusTag status={value} /> },
+            { title: '发布时间', dataIndex: 'published_at', width: 160, render: (value: string | null) => value ? formatDateTime(value) : '—' },
+            { title: '目标平台', dataIndex: 'platform_profile_name', width: 140 },
+            { title: '发布账号', width: 150, render: (_, row) => <div className="publication-title-cell"><span>{row.platform_account_label}</span><small>{row.account_identifier}</small></div> },
+            { title: '最终 URL', dataIndex: 'final_url', width: 100, render: (url: string | null) => url ? <a href={url} target="_blank" rel="noreferrer">打开 <LinkOutlined /></a> : '—' },
+            { title: '最后验证', dataIndex: 'last_verification_at', width: 160, render: (value: string | null) => value ? formatDateTime(value) : '—' },
+            {
+              title: '操作',
+              fixed: 'right',
+              width: 190,
+              render: (_, row) => {
+                const canMarkPublished = row.available_actions.includes('mark-published');
+                const secondaryActions = row.available_actions.filter((action) => action !== 'mark-published');
+                return (
+                  <Space size={4}>
+                    <Button
+                      type={canMarkPublished ? 'primary' : 'default'}
+                      onClick={() => canMarkPublished ? onAction(row.id, 'mark-published') : onOpen(row.id)}
+                    >
+                      {canMarkPublished ? '登记发布结果' : '查看记录'}
+                    </Button>
+                    {secondaryActions.length > 0 && (
+                      <Dropdown
+                        trigger={['click']}
+                        menu={{
+                          items: secondaryActions.map((action) => ({
+                            key: action,
+                            label: actionLabels[action],
+                            danger: action === 'delete',
+                            onClick: () => action === 'delete' ? onDelete(row) : onAction(row.id, action),
+                          })),
+                        }}
+                      >
+                        <Button
+                          type="text"
+                          aria-label={`更多操作：${row.content_title}`}
+                          icon={<MoreOutlined />}
+                          disabled={deletePending}
+                        />
+                      </Dropdown>
+                    )}
+                  </Space>
+                );
+              },
+            },
           ]}
         />
       </TableRegion>
@@ -475,6 +590,12 @@ function AttentionList({
 }) {
   return (
     <>
+      <Alert
+        type="info"
+        showIcon
+        title="已移除或验证失败的记录会进入此处"
+        description="先查看原发布上下文，按需创建修复任务，并在写明处理结果后显式解决。"
+      />
       <div className="publication-filter-bar is-compact">
         <Select
           aria-label="筛选异常类型"

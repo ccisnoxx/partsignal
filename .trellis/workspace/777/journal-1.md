@@ -1095,3 +1095,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 33: 完成观测、发布与 AI 生成体验优化
+
+**Date**: 2026-07-28
+**Task**: 完成观测、发布与 AI 生成体验优化
+**Branch**: `main`
+
+### Summary
+
+完成历史观测字段收敛、详情与表格交互修正、可复用 Prompt 模板库、平台唯一绑定、AI 生成确认弹窗和 content-markdown-v3 迁移；定向测试、契约检查、类型检查及 Playwright 验收通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `88b0a3e` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

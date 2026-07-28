@@ -1,8 +1,6 @@
 /** 通过现有可追溯作业生成 Prompt 预览，不读取包含完整输入快照的作业详情。 */
 import { EyeOutlined, FullscreenOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
 import { Alert, App, Button, Empty, Modal, Select, Space, Spin, Tag, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -12,6 +10,7 @@ import { queryKeys } from '../../shared/api/queryKeys';
 import type { ContentTaskListItem, ContentVersion, GenerationJob } from '../../shared/api/types';
 import { QueryFailure } from '../../shared/components/AsyncState';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { renderSanitizedMarkdown } from '../../shared/markdown';
 
 type PreviewMode = 'platform' | 'humanization';
 
@@ -35,7 +34,7 @@ function taskLabel(task: ContentTaskListItem): string {
 
 function PreviewArticle({ content }: { content: ContentVersion }) {
   const safeHtml = useMemo(
-    () => DOMPurify.sanitize(marked.parse(content.body_markdown) as string),
+    () => renderSanitizedMarkdown(content.body_markdown),
     [content.body_markdown],
   );
   return <article className="prompt-preview-article">

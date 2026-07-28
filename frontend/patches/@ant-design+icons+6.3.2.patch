@@ -1,0 +1,48 @@
+diff --git a/node_modules/@ant-design/icons/es/cssUtils.js b/node_modules/@ant-design/icons/es/cssUtils.js
+index 484b995..e36c5c2 100644
+--- a/node_modules/@ant-design/icons/es/cssUtils.js
++++ b/node_modules/@ant-design/icons/es/cssUtils.js
+@@ -64,7 +64,7 @@ function injectCSS(css, option = {}) {
+   if (csp?.nonce) {
+     styleNode.nonce = csp.nonce;
+   }
+-  styleNode.innerHTML = css;
++  styleNode.textContent = css;
+   const container = getContainer(option);
+   const {
+     firstChild
+@@ -126,8 +126,8 @@ export function updateCSS(css, key, originOption = {}) {
+     if (option.csp?.nonce && existNode.nonce !== option.csp.nonce) {
+       existNode.nonce = option.csp.nonce;
+     }
+-    if (existNode.innerHTML !== css) {
+-      existNode.innerHTML = css;
++    if (existNode.textContent !== css) {
++      existNode.textContent = css;
+     }
+     return existNode;
+   }
+diff --git a/node_modules/@ant-design/icons/lib/cssUtils.js b/node_modules/@ant-design/icons/lib/cssUtils.js
+index a46e404..fa24fd2 100644
+--- a/node_modules/@ant-design/icons/lib/cssUtils.js
++++ b/node_modules/@ant-design/icons/lib/cssUtils.js
+@@ -72,7 +72,7 @@ function injectCSS(css, option = {}) {
+   if (csp?.nonce) {
+     styleNode.nonce = csp.nonce;
+   }
+-  styleNode.innerHTML = css;
++  styleNode.textContent = css;
+   const container = getContainer(option);
+   const {
+     firstChild
+@@ -134,8 +134,8 @@ function updateCSS(css, key, originOption = {}) {
+     if (option.csp?.nonce && existNode.nonce !== option.csp.nonce) {
+       existNode.nonce = option.csp.nonce;
+     }
+-    if (existNode.innerHTML !== css) {
+-      existNode.innerHTML = css;
++    if (existNode.textContent !== css) {
++      existNode.textContent = css;
+     }
+     return existNode;
+   }

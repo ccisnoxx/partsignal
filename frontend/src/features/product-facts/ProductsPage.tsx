@@ -102,7 +102,7 @@ export function ProductsPage() {
           { title: '操作', fixed: 'right', width: 110, render: (_, item) => auth.isAdmin ? <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(item) }}><Button size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown> : '—' },
         ]} /></TableRegion>}
       </Card>
-      <Modal title="新增产品" open={createOpen} onCancel={requestCloseCreate} footer={null} closable={!create.isPending} keyboard={!create.isPending} mask={{ closable: !create.isPending }} destroyOnHidden>
+      <Modal rootClassName="products-create-dialog" title="新增产品" open={createOpen} onCancel={requestCloseCreate} footer={null} closable={!create.isPending} keyboard={!create.isPending} mask={{ closable: !create.isPending }} destroyOnHidden>
         <div ref={createErrorRef} tabIndex={-1}>
           {create.error && <Alert role="alert" className="form-alert" type="error" showIcon title={errorMessage(create.error)} />}
         </div>

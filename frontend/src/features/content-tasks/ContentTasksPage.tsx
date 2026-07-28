@@ -28,8 +28,6 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import DOMPurify from 'dompurify';
-import { marked } from 'marked';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
@@ -45,6 +43,7 @@ import { PlatformAvatar } from '../../shared/components/PlatformAvatar';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { useActiveSection } from '../../shared/hooks/useActiveSection';
+import { renderSanitizedMarkdown } from '../../shared/markdown';
 
 const taskSectionIds = ['task-context', 'task-entry', 'task-versions'];
 const taskPageSize = 10;
@@ -585,7 +584,7 @@ function ManualDraftModal({
   });
   const [view, setView] = useState<'edit' | 'preview'>('edit');
   const preview = useMemo(
-    () => DOMPurify.sanitize(marked.parse(draft.body_markdown) as string),
+    () => renderSanitizedMarkdown(draft.body_markdown),
     [draft.body_markdown],
   );
   const create = useMutation({

@@ -118,7 +118,7 @@ make staging-redeploy-fast
 
 公网环境固定 `AI_ALLOW_LOCAL_HTTP=false`。依赖回环 Mock Provider 的纵向 E2E 只在本地或 CI 隔离环境运行，不得为测试放宽公网安全策略。
 
-项目安全头必须包含 CSP、`Strict-Transport-Security: max-age=31536000`、`Cross-Origin-Opener-Policy: same-origin`、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff` 和 `Referrer-Policy: strict-origin-when-cross-origin`。CSP 内联主题脚本哈希以 `node deploy/scripts/check-nginx-security.mjs` 输出为准；不得手工猜测、改用 `script-src 'unsafe-inline'` 或依赖宿主机共享安全 snippet。
+项目安全头必须包含 CSP、`Strict-Transport-Security: max-age=31536000`、`Cross-Origin-Opener-Policy: same-origin`、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff` 和 `Referrer-Policy: strict-origin-when-cross-origin`。CSP 的 `script-src` 只允许 `'self'`，并强制 `trusted-types dompurify; require-trusted-types-for 'script'`；`node deploy/scripts/check-nginx-security.mjs` 必须确认外置主题脚本先于 React 且 HTML 零内联脚本。不得改用 `script-src 'unsafe-inline'`、宽松 default policy 或依赖宿主机共享安全 snippet。
 
 ## 7. 回滚摘要
 

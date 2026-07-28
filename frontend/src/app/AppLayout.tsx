@@ -6,7 +6,8 @@ import {
   SafetyCertificateOutlined, SearchOutlined, ToolOutlined,
 } from '@ant-design/icons';
 import { useMutation } from '@tanstack/react-query';
-import { App as AntApp, AutoComplete, Avatar, Button, Drawer, Dropdown, Grid, Input, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
+import { App as AntApp, AutoComplete, Avatar, Button, ConfigProvider, Drawer, Dropdown, Grid, Input, Layout, Menu, Skeleton, Space, Typography, type MenuProps } from 'antd';
+import zhCN from 'antd/locale/zh_CN';
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../features/auth/AuthProvider';
@@ -84,6 +85,7 @@ export function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const contentRef = useRef<HTMLElement>(null);
+  const userMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const auth = useAuth();
   const workflowItems = filterNavigation(workflowNavigation, auth.isAdmin);
   const systemItems = filterNavigation(systemNavigation, auth.isAdmin);
@@ -149,7 +151,7 @@ export function AppLayout() {
   const desktopSider = !!screens.lg;
 
   return (
-    <AntApp><Layout className="app-shell">
+    <ConfigProvider locale={zhCN}><AntApp><Layout className={`app-shell${location.pathname === '/observations/insights/print' ? ' app-shell-print' : ''}`}>
       {desktopSider ? (
         <Layout.Sider theme="light" width={208} collapsedWidth={72} collapsed={collapsed} className="app-sider">
           <div className="brand-mark"><span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span>{!collapsed && <strong>PartSignal</strong>}</div>
@@ -157,15 +159,25 @@ export function AppLayout() {
           <Button type="text" className="configuration-sider-collapse" aria-label={collapsed ? '展开导航' : '收起导航'} icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />} onClick={() => setCollapsed((value) => !value)}>{!collapsed && '收起'}</Button>
         </Layout.Sider>
       ) : (
-        <Drawer placement="left" open={drawerOpen} onClose={() => setDrawerOpen(false)} size={280} className="mobile-drawer">
-          <div className="brand-mark"><span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span><strong>PartSignal</strong></div>{menu}
+        <Drawer title="主导航" placement="left" open={drawerOpen} onClose={() => setDrawerOpen(false)} size={280} className="mobile-drawer">
+          <div
+            className="mobile-drawer-content"
+            onKeyDownCapture={(event) => {
+              if (event.key === 'Escape') {
+                event.stopPropagation();
+                setDrawerOpen(false);
+              }
+            }}
+          >
+            <div className="brand-mark"><span><svg viewBox="0 0 32 28" aria-hidden="true"><path d="M3 4h16a9 9 0 0 1 0 18h-9l4-6h5a3 3 0 0 0 0-6H3z" /><path className="brand-mark-logo-secondary" d="M7 10h11l-4 6H3z" /></svg></span><strong>PartSignal</strong></div>{menu}
+          </div>
         </Drawer>
       )}
       <Layout>
         <Layout.Header className="app-header">
           <Space size="middle" className="header-context">
             {!desktopSider && <Button type="text" aria-label="切换导航" icon={<MenuUnfoldOutlined />} onClick={() => setDrawerOpen(true)} />}
-            <div>{isConfiguration ? <><Typography.Text strong>配置中心</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isAuditLog ? <><Typography.Text strong>审计与安全</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isBusinessSettings ? <><Typography.Text strong>业务设置</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isGeo ? <><Typography.Text strong>GEO 观测</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{selected?.label}</Typography.Text></> : <><Typography.Text className="header-kicker">PARTSIGNAL</Typography.Text><Typography.Text strong>{currentSection}</Typography.Text></>}</div>
+            <div className={!isConfiguration && !isAuditLog && !isBusinessSettings && !isGeo ? 'header-context-stacked' : undefined}>{isConfiguration ? <><Typography.Text strong>配置中心</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isAuditLog ? <><Typography.Text strong>审计与安全</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isBusinessSettings ? <><Typography.Text strong>业务设置</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{currentSection}</Typography.Text></> : isGeo ? <><Typography.Text strong>GEO 观测</Typography.Text><span className="header-breadcrumb-divider">/</span><Typography.Text>{selected?.label}</Typography.Text></> : <><Typography.Text className="header-kicker">PARTSIGNAL</Typography.Text><Typography.Text strong>{currentSection}</Typography.Text></>}</div>
           </Space>
           <AutoComplete
             className="global-navigation-search"
@@ -188,6 +200,9 @@ export function AppLayout() {
             <ThemeModeControl compact={!screens.md} />
             <Dropdown
               trigger={['click']}
+              onOpenChange={(open) => {
+                if (!open) userMenuTriggerRef.current?.focus({ preventScroll: true });
+              }}
               menu={{
                 items: [
                   { key: 'password', icon: <LockOutlined />, label: '修改密码' },
@@ -197,7 +212,7 @@ export function AppLayout() {
                 onClick: ({ key }) => key === 'password' ? navigate('/change-password') : logout.mutate(),
               }}
             >
-              <Button type="text" className="user-trigger" aria-label="打开用户操作菜单">
+              <Button ref={userMenuTriggerRef} type="text" className="user-trigger" aria-label="打开用户操作菜单">
                 <Avatar>{auth.user?.display_name.slice(0, 1)}</Avatar>
                 <span className="user-block"><strong>{auth.user?.display_name}</strong><small>{auth.user?.username}</small></span>
                 <DownOutlined />
@@ -211,6 +226,6 @@ export function AppLayout() {
           </Suspense>
         </Layout.Content>
       </Layout>
-    </Layout></AntApp>
+    </Layout></AntApp></ConfigProvider>
   );
 }

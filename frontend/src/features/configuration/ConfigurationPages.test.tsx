@@ -1,5 +1,6 @@
 /** 锁定配置页面的层级、Prompt 和渠道查询边界。 */
 import { QueryClientProvider } from '@tanstack/react-query';
+import { App as AntApp } from 'antd';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -88,7 +89,7 @@ function result(data: unknown) {
 }
 
 function renderWithQuery(ui: ReactNode, initialEntries: string[]) {
-  return render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider></ThemeProvider>);
+  return render(<ThemeProvider><AntApp><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider></AntApp></ThemeProvider>);
 }
 
 let dialogTitleSequence = 0;

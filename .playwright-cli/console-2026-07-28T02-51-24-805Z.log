@@ -1,0 +1,13 @@
+[     128ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-56DZC4J5.js?v=70e50d78:20102
+[     205ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:5173/favicon.ico:0
+[     221ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5173/api/v1/auth/me:0
+[    6593ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5173/api/v1/auth/login:0
+[    6598ms] [ERROR] Warning: [antd: Alert] `message` is deprecated. Please use `title` instead. @ http://127.0.0.1:5173/node_modules/.vite/deps/antd.js?v=1c9399e4:1934
+[   31905ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5173/api/v1/auth/login:0
+[  256840ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5173/api/v1/auth/me:0
+[ 1083738ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://127.0.0.1:5173/src/shared/components/QueryLoading.tsx?t=1785208168525:0
+[ 1083738ms] [ERROR] [vite] Failed to reload /src/shared/components/QueryLoading.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above) @ http://127.0.0.1:5173/@vite/client:808
+[ 4097459ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5173/@vite/client:864
+[ 4531787ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-56DZC4J5.js?v=98454aa7:20102
+[ 4531891ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://127.0.0.1:5173/api/v1/auth/me:0
+[ 5028583ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5173/@vite/client:864

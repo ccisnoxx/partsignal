@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "有损 Alembic 迁移、独立人工观测事实和恢复边界规范。"}
+{"file": ".trellis/tasks/07-28-production-redeployment/research/hostdzire-redeployment-risk-review.md", "reason": "Hostdzire 当前基线、完整发布路径、备份恢复缺口与回滚风险取证。"}

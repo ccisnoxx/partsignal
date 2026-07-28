@@ -1,0 +1,52 @@
+diff --git a/node_modules/@ant-design/cssinjs/es/util/cacheMapUtil.js b/node_modules/@ant-design/cssinjs/es/util/cacheMapUtil.js
+index a927175..f6d6f2a 100644
+--- a/node_modules/@ant-design/cssinjs/es/util/cacheMapUtil.js
++++ b/node_modules/@ant-design/cssinjs/es/util/cacheMapUtil.js
+@@ -65,7 +65,7 @@ export function getStyleAndHash(path) {
+     } else {
+       const style = document.querySelector(`style[${ATTR_MARK}="${cachePathMap[path]}"]`);
+       if (style) {
+-        styleStr = style.innerHTML;
++        styleStr = style.textContent;
+       } else {
+         // Clean up since not exist anymore
+         delete cachePathMap[path];
+diff --git a/node_modules/@ant-design/cssinjs/es/util/index.js b/node_modules/@ant-design/cssinjs/es/util/index.js
+index 2af3b3f..cbb2314 100644
+--- a/node_modules/@ant-design/cssinjs/es/util/index.js
++++ b/node_modules/@ant-design/cssinjs/es/util/index.js
+@@ -74,7 +74,7 @@ function supportSelector(styleStr, handleElement, supportCheck) {
+     handleElement?.(ele);
+     document.body.appendChild(ele);
+     if (process.env.NODE_ENV !== 'production') {
+-      ele.innerHTML = 'Test';
++      ele.textContent = 'Test';
+       ele.style.zIndex = '9999999';
+     }
+     const support = supportCheck ? supportCheck(ele) : getComputedStyle(ele).content?.includes(checkContent);
+diff --git a/node_modules/@ant-design/cssinjs/lib/util/cacheMapUtil.js b/node_modules/@ant-design/cssinjs/lib/util/cacheMapUtil.js
+index 5f60b0c..d9b6052 100644
+--- a/node_modules/@ant-design/cssinjs/lib/util/cacheMapUtil.js
++++ b/node_modules/@ant-design/cssinjs/lib/util/cacheMapUtil.js
+@@ -77,7 +77,7 @@ function getStyleAndHash(path) {
+     } else {
+       const style = document.querySelector(`style[${_StyleContext.ATTR_MARK}="${cachePathMap[path]}"]`);
+       if (style) {
+-        styleStr = style.innerHTML;
++        styleStr = style.textContent;
+       } else {
+         // Clean up since not exist anymore
+         delete cachePathMap[path];
+diff --git a/node_modules/@ant-design/cssinjs/lib/util/index.js b/node_modules/@ant-design/cssinjs/lib/util/index.js
+index 936ff4c..8a228c0 100644
+--- a/node_modules/@ant-design/cssinjs/lib/util/index.js
++++ b/node_modules/@ant-design/cssinjs/lib/util/index.js
+@@ -90,7 +90,7 @@ function supportSelector(styleStr, handleElement, supportCheck) {
+     handleElement?.(ele);
+     document.body.appendChild(ele);
+     if (process.env.NODE_ENV !== 'production') {
+-      ele.innerHTML = 'Test';
++      ele.textContent = 'Test';
+       ele.style.zIndex = '9999999';
+     }
+     const support = supportCheck ? supportCheck(ele) : getComputedStyle(ele).content?.includes(checkContent);

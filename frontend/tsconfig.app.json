@@ -16,7 +16,7 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "noUncheckedIndexedAccess": true,
-    "types": ["vitest/globals", "@testing-library/jest-dom"]
+    "types": ["vitest/globals", "@testing-library/jest-dom", "@types/trusted-types"]
   },
   "include": ["src"]
 }

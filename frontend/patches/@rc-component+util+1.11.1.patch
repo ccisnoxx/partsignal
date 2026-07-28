@@ -1,0 +1,48 @@
+diff --git a/node_modules/@rc-component/util/es/Dom/dynamicCSS.js b/node_modules/@rc-component/util/es/Dom/dynamicCSS.js
+index f616a15..97e1f2b 100644
+--- a/node_modules/@rc-component/util/es/Dom/dynamicCSS.js
++++ b/node_modules/@rc-component/util/es/Dom/dynamicCSS.js
+@@ -51,7 +51,7 @@ export function injectCSS(css, option = {}) {
+   if (csp?.nonce) {
+     styleNode.nonce = csp?.nonce;
+   }
+-  styleNode.innerHTML = css;
++  styleNode.textContent = css;
+   const container = getContainer(option);
+   const {
+     firstChild
+@@ -135,8 +135,8 @@ export function updateCSS(css, key, originOption = {}) {
+     if (option.csp?.nonce && existNode.nonce !== option.csp?.nonce) {
+       existNode.nonce = option.csp?.nonce;
+     }
+-    if (existNode.innerHTML !== css) {
+-      existNode.innerHTML = css;
++    if (existNode.textContent !== css) {
++      existNode.textContent = css;
+     }
+     return existNode;
+   }
+diff --git a/node_modules/@rc-component/util/lib/Dom/dynamicCSS.js b/node_modules/@rc-component/util/lib/Dom/dynamicCSS.js
+index 89f9392..f95e940 100644
+--- a/node_modules/@rc-component/util/lib/Dom/dynamicCSS.js
++++ b/node_modules/@rc-component/util/lib/Dom/dynamicCSS.js
+@@ -61,7 +61,7 @@ function injectCSS(css, option = {}) {
+   if (csp?.nonce) {
+     styleNode.nonce = csp?.nonce;
+   }
+-  styleNode.innerHTML = css;
++  styleNode.textContent = css;
+   const container = getContainer(option);
+   const {
+     firstChild
+@@ -145,8 +145,8 @@ function updateCSS(css, key, originOption = {}) {
+     if (option.csp?.nonce && existNode.nonce !== option.csp?.nonce) {
+       existNode.nonce = option.csp?.nonce;
+     }
+-    if (existNode.innerHTML !== css) {
+-      existNode.innerHTML = css;
++    if (existNode.textContent !== css) {
++      existNode.textContent = css;
+     }
+     return existNode;
+   }

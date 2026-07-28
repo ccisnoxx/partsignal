@@ -10,6 +10,17 @@ export default defineConfig({
   projects: [
     { name: 'setup', testMatch: /shared-data\.setup\.ts/ },
     { name: 'e2e', testIgnore: /shared-data\.setup\.ts/, dependencies: ['setup'] },
+    { name: 'trusted-types-firefox', testMatch: /(trusted-types|compatibility)\.spec\.ts/, use: devices['Desktop Firefox'] },
+    { name: 'trusted-types-webkit', testMatch: /(trusted-types|compatibility)\.spec\.ts/, use: devices['Desktop Safari'] },
+    {
+      name: 'compatibility-firefox-no-backdrop',
+      testMatch: /compatibility\.spec\.ts/,
+      grep: /登录装饰/,
+      use: {
+        ...devices['Desktop Firefox'],
+        launchOptions: { firefoxUserPrefs: { 'layout.css.backdrop-filter.enabled': false } },
+      },
+    },
   ],
   expect: {
     toHaveScreenshot: {

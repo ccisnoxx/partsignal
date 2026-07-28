@@ -746,18 +746,8 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const geoSearchQuery = `${product!.part_number} 如何替代？`;
   await geoForm.getByLabel('实际搜索词').fill(geoSearchQuery);
   await expect(geoForm.getByText(`E2E ${suffix}`, { exact: true })).toBeVisible();
-  const discoveredSelect = geoForm.getByRole('combobox', { name: `是否发现：E2E ${suffix}` });
-  await discoveredSelect.click();
-  await clickVisibleOption(page, '已发现');
-  const mentioned = geoForm.getByRole('combobox', { name: `是否提及：E2E ${suffix}` });
-  await mentioned.click();
-  await clickVisibleOption(page, '已提及');
-  const articleResult = geoForm.getByRole('combobox', { name: `文章推荐结果：E2E ${suffix}` });
-  await articleResult.click();
-  await clickVisibleOption(page, '已推荐');
-  const cited = geoForm.getByRole('combobox', { name: `是否引用：E2E ${suffix}` });
-  await cited.click();
-  await clickVisibleOption(page, '有引用');
+  await geoForm.getByRole('checkbox', { name: `是否发现：E2E ${suffix}` }).check();
+  await geoForm.getByRole('checkbox', { name: `是否提及：E2E ${suffix}` }).check();
   const accuracy = geoForm.getByRole('combobox', { name: `准确性：E2E ${suffix}` });
   await accuracy.click();
   await clickVisibleOption(page, '准确');
@@ -782,9 +772,16 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await createdGeoDetail.locator('.ant-drawer-close').click();
   await expect(createdGeoDetail).not.toBeVisible();
 
-  const metrics = await body<{ manual_observation_count: number; article_recommendation_rate: number | null }>(await page.request.get(`/api/v1/geo-metrics?product_id=${product!.id}`));
+  const metrics = await body<{
+    manual_observation_count: number;
+    article_discovery_rate: number | null;
+    article_mention_rate: number | null;
+    article_accuracy_rate: number | null;
+  }>(await page.request.get(`/api/v1/geo-metrics?product_id=${product!.id}`));
   expect(metrics.manual_observation_count).toBe(1);
-  expect(metrics.article_recommendation_rate).toBe(1);
+  expect(metrics.article_discovery_rate).toBe(1);
+  expect(metrics.article_mention_rate).toBe(1);
+  expect(metrics.article_accuracy_rate).toBe(1);
 
   const filteredRecords = page.waitForResponse((response) => {
     const url = new URL(response.url());
@@ -819,7 +816,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const geoDetail = page.getByRole('dialog', { name: '观测详情' });
   await expect(geoDetail.getByText('发现：已发现')).toBeVisible();
   await expect(geoDetail.getByText('提及：已提及')).toBeVisible();
-  await expect(geoDetail.getByText('引用：有引用')).toBeVisible();
+  await expect(geoDetail.getByText('准确', { exact: true })).toBeVisible();
   await expect(geoDetail.getByText('历史回答摘要')).toHaveCount(0);
   await expect(geoDetail.getByRole('img', { name: `geo-${suffix}.png` })).toBeVisible();
   await expect.poll(async () => (await geoDetail.boundingBox())?.x ?? 1582).toBeLessThanOrEqual(1210);
@@ -833,27 +830,17 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const correctionForm = page.getByRole('dialog', { name: '更正人工观测' });
   await expect(correctionForm.getByLabel('实际搜索词')).toBeDisabled();
   await expect(correctionForm.getByRole('combobox', { name: '问题主题' })).toBeDisabled();
-  const correctedDiscovered = correctionForm.getByRole('combobox', { name: `是否发现：E2E ${suffix}` });
-  await correctedDiscovered.click();
-  await clickVisibleOption(page, '已发现');
-  const correctedMentioned = correctionForm.getByRole('combobox', { name: `是否提及：E2E ${suffix}` });
-  await correctedMentioned.click();
-  await clickVisibleOption(page, '已提及');
-  const correctedArticleResult = correctionForm.getByRole('combobox', { name: `文章推荐结果：E2E ${suffix}` });
-  await correctedArticleResult.click();
-  await clickVisibleOption(page, '未推荐');
-  const correctedCited = correctionForm.getByRole('combobox', { name: `是否引用：E2E ${suffix}` });
-  await correctedCited.click();
-  await clickVisibleOption(page, '无引用');
+  await expect(correctionForm.getByText('已有证据截图（1）')).toBeVisible();
+  await correctionForm.getByRole('checkbox', { name: `是否发现：E2E ${suffix}` }).check();
+  await correctionForm.getByRole('checkbox', { name: `是否提及：E2E ${suffix}` }).check();
   const correctedAccuracy = correctionForm.getByRole('combobox', { name: `准确性：E2E ${suffix}` });
   await correctedAccuracy.click();
   await clickVisibleOption(page, '部分准确');
-  await correctionForm.getByLabel('选择文件').setInputFiles({ name: `geo-correction-${suffix}.png`, mimeType: 'image/png', buffer: png });
-  await expect(correctionForm.getByText(`geo-correction-${suffix}.png`)).toBeVisible();
   await correctionForm.getByLabel('人工备注').fill('E2E 追加更正');
   await correctionForm.getByRole('button', { name: /追加更正记录/ }).click();
   await expect(page.getByRole('dialog', { name: '观测详情' }).getByText('E2E 追加更正')).toBeVisible();
-  await expect(page.getByRole('dialog', { name: '观测详情' }).getByText('未推荐')).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '观测详情' }).getByText('部分准确', { exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: '观测详情' }).getByRole('img', { name: `geo-${suffix}.png` })).toBeVisible();
   await page.getByRole('dialog', { name: '观测详情' }).locator('.ant-drawer-close').click();
   await expect(page.getByRole('dialog', { name: '观测详情' })).not.toBeVisible();
   await page.getByRole('switch', { name: '包含历史更正记录' }).click();
@@ -866,7 +853,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.getByRole('link', { name: '分析洞察' }).last().click();
   await insightsLoaded;
   await expect(page.getByText('平台表现对比', { exact: true })).toBeVisible();
-  await expect(page.getByText('GEO 转化链路', { exact: true })).toBeVisible();
+  await expect(page.getByText('发现率', { exact: true }).first()).toBeVisible();
   await page.getByRole('button', { name: '收起筛选' }).click();
   await expect(page.getByText('筛选区已折叠')).toBeVisible();
   await page.getByRole('button', { name: '展开筛选' }).click();

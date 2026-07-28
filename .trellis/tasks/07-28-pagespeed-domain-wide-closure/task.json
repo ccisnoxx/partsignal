@@ -1,0 +1,30 @@
+{
+  "id": "pagespeed-domain-wide-closure",
+  "name": "pagespeed-domain-wide-closure",
+  "title": "PageSpeed 与 962850.xyz 全域诊断闭环",
+  "description": "以当前 PageSpeed 桌面报告为基线，完成 P0/P1/P2 全部诊断并将 HSTS 扩展至整个 962850.xyz。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "frontend,deploy,docs,domain-infrastructure",
+  "package": null,
+  "priority": "P0",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-07-28",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-28-pagespeed-p0-security-domain",
+    "07-28-pagespeed-p1-performance",
+    "07-28-pagespeed-p2-compat-seo-agentic"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

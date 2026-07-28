@@ -1,0 +1,6 @@
+# PartSignal
+
+PartSignal 是面向已授权用户的 GEO 内容运营系统。
+
+- [PartSignal 入口](https://geo.962850.xyz/)
+- [PartSignal 登录](https://geo.962850.xyz/login)

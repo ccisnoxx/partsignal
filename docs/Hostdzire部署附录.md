@@ -342,7 +342,7 @@ curl --fail --silent --show-error --compressed -D - -o /dev/null \
 
 上述 `/`、`/index.html` 和 `/assets/*` 三类响应还必须同时返回：
 
-- `Content-Security-Policy`，其中 `script-src` 仅含 `'self'` 与 `node deploy/scripts/check-nginx-security.mjs` 校验出的主题脚本 SHA-256；
+- `Content-Security-Policy`，其中 `script-src` 仅含 `'self'`，并包含 `trusted-types dompurify; require-trusted-types-for 'script'`；
 - `Strict-Transport-Security: max-age=31536000`；
 - `Cross-Origin-Opener-Policy: same-origin`；
 - `X-Frame-Options: DENY`；
@@ -450,7 +450,7 @@ PARTSIGNAL_VERSION="$PREVIOUS_RELEASE" \
 | `/object-storage/` 返回 `502` | 确认 `fake-oss` 同时位于 `partsignal-staging-internal` 与 `partsignal-staging-edge` |
 | 直接访问 WireGuard HTTPS 被重置 | Hostdzire Nginx 要求 `proxy_protocol`；通过公网域名验证 |
 | HTML、JS 或 CSS 只有缓存头、缺少安全头 | 检查 Nginx 版本、项目 snippet include 与 `add_header_inherit merge`，不得在 location 复制安全头 |
-| CSP 阻断主题启动脚本 | 运行 `node deploy/scripts/check-nginx-security.mjs`，同步准确哈希后走完整发布；不得启用 `script-src 'unsafe-inline'` |
+| CSP 或 Trusted Types 阻断启动/交互 | 运行 `node deploy/scripts/check-nginx-security.mjs` 和 Trusted Types 跨浏览器用例，修复未迁移 sink 或依赖补丁后走完整发布；不得启用 `script-src 'unsafe-inline'` 或宽松 default policy |
 | API 重建后短暂 reset | 使用有上限的重试；持续失败时检查 API 日志，不忽略为成功 |
 | 生成作业不推进 | 检查 Worker、Scheduler、Redis Broker 和 PostgreSQL 作业状态；Redis 不是业务状态源 |
 | AI 凭据无法解密 | 恢复匹配主密钥或显式重新录入；不得静默回退 |

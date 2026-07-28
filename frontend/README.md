@@ -50,9 +50,9 @@ npm run perf:production
 
 ## 生产性能验收
 
-`npm run perf:production` 会先执行生产构建，再用 Chromium 在 `100ms` 延迟、`1.6Mbps` 下行和 `1440×1000` 视口中分别测量禁用空闲预取的原始冷路由、启用生产预取的首次路由和热路由。每组默认使用五个全新 BrowserContext，并输出目标代码块、Mock API 与 Long Task 数据；开发服务器耗时不作为生产结论。
+`npm run perf:production` 会先执行生产构建，再用 Chromium 在 `100ms` 延迟、`1.6Mbps` 下行和 `1440×1000` 视口中分别测量禁用空闲预取的原始冷路由、启用生产预取的首次路由和热路由。每组默认使用五个全新 BrowserContext，并输出资源链、Mock API、Long Task、Long Animation Frame、FCP/LCP、CLS 和 DOM 数据；空白页与静态页作为浏览器任务对照，开发服务器耗时不作为生产结论。
 
-匿名冷启动按完整 `/` → `/login` 链路单独验收：`AppLayout`、改密页和 `workspace.css` 只在已认证路由按需加载，登录首屏只请求入口 JS/CSS。报告记录初始 JS/CSS `transferSize`、CLS 与 Long Task；TBT 按 `Σ max(0, duration - 50ms)` 计算，并与同一构建、网络和视口下的修改前基线比较。CLS 必须 `< 0.1`，长任务数与 TBT 不得高于基线；Chromium coverage 的未使用 JS/CSS 字节另按同口径冷启动采集，不与压缩传输量混算。
+匿名冷启动按完整 `/` → `/login` 链路单独验收：`AppLayout`、改密页和 `workspace.css` 只在已认证路由按需加载，登录首屏只请求主题脚本、入口 JS/CSS 和一次 `/auth/me`。报告记录全部初始资源 `transferSize`、入口 CSS、`/auth/me` 次数、LCP 元素与标准文本渲染延迟（`LCP - responseStart`）；TBT 按 `Σ max(0, duration - 50ms)` 计算。CLS 必须 `< 0.1`，最长任务必须 `≤100ms`、TBT 中位数 `≤50ms` 且单次 `≤100ms`，初始总传输不得超过 `275 KiB`，入口 CSS 不得超过 `4 KiB`，DOM 不得高于 PageSpeed 基线 `128/18/9`。Chromium coverage 的未使用 JS 和 CSS-in-JS 源码字节只用于同口径归因：前者按资源传输量给出估算，后者包含未触发组件状态，不与 Lighthouse 压缩浪费字节混算，也不得据此删除 hover、focus、错误、禁用、主题、Modal 或 Drawer 样式。
 
 ## 内部索引边界
 

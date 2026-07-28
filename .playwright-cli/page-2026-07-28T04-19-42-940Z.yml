@@ -1,0 +1,134 @@
+- generic [ref=f7e1]:
+  - generic [ref=f7e4]:
+    - complementary [ref=f7e5]:
+      - generic [ref=f7e6]:
+        - strong [ref=f7e12]: PartSignal
+        - menu [ref=f7e180]:
+          - text: 内容工作流
+          - group [ref=f7e181]:
+            - menuitem [ref=f7e182] [cursor=pointer]:
+              - img "bar-chart" [ref=f7e183]
+              - link "工作台" [ref=f7e187]:
+                - /url: /
+            - menuitem [ref=f7e188] [cursor=pointer]:
+              - img "database" [ref=f7e189]
+              - link "产品事实" [ref=f7e193]:
+                - /url: /products
+            - menuitem [ref=f7e194] [cursor=pointer]:
+              - img "file-text" [ref=f7e195]
+              - link "内容任务" [ref=f7e199]:
+                - /url: /tasks
+            - menuitem [ref=f7e200] [cursor=pointer]:
+              - img "rocket" [ref=f7e201]
+              - link "发布管理" [ref=f7e205]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f7e206] [cursor=pointer]:
+              - img "bar-chart" [ref=f7e207]
+              - generic [ref=f7e210]: GEO 观测
+          - text: 系统管理
+          - group [ref=f7e211]:
+            - menuitem "setting 业务设置" [ref=f7e212] [cursor=pointer]:
+              - img "setting" [ref=f7e213]
+              - generic [ref=f7e216]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f7e217] [cursor=pointer]:
+              - img "safety-certificate" [ref=f7e218]
+              - generic [ref=f7e221]: 审计与安全
+            - menuitem "tool 配置中心" [ref=f7e222] [cursor=pointer]:
+              - img "tool" [ref=f7e223]
+              - generic [ref=f7e226]: 配置中心
+        - button "收起导航" [ref=f7e60] [cursor=pointer]:
+          - img "menu-fold" [ref=f7e62]
+          - generic [ref=f7e65]: 收起
+    - generic [ref=f7e66]:
+      - banner [ref=f7e67]:
+        - generic [ref=f7e70]:
+          - generic [ref=f7e71]: PARTSIGNAL
+          - strong [ref=f7e73]: 工作台
+        - generic [ref=f7e76] [cursor=pointer]:
+          - img "search" [ref=f7e78]
+          - combobox "全局页面搜索" [ref=f7e81]
+          - generic [ref=f7e82]: ⌘K
+        - generic [ref=f7e84]:
+          - button "主题：跟随系统" [ref=f7e86] [cursor=pointer]:
+            - img "desktop" [ref=f7e88]
+            - generic [ref=f7e91]: 跟随系统
+          - button "打开用户操作菜单" [ref=f7e93] [cursor=pointer]:
+            - generic [ref=f7e94]: 系
+            - generic [ref=f7e96]:
+              - strong [ref=f7e97]: 系统管理员
+              - generic [ref=f7e98]: admin
+            - img "down" [ref=f7e99]
+      - main [ref=f7e102]:
+        - generic [ref=f7e227]:
+          - button "arrow-left 返回发布管理" [ref=f7e228] [cursor=pointer]:
+            - img "arrow-left" [ref=f7e230]
+            - generic [ref=f7e233]: 返回发布管理
+          - generic [ref=f7e234]:
+            - generic [ref=f7e235]:
+              - navigation [ref=f7e236]:
+                - list [ref=f7e237]:
+                  - listitem [ref=f7e238]:
+                    - link "发布管理" [ref=f7e240] [cursor=pointer]:
+                      - /url: /publications
+                  - listitem [ref=f7e241]: /
+                  - listitem [ref=f7e242]: 异常待办
+              - text: 发布异常
+              - heading "发布异常待办" [level=1] [ref=f7e243]
+              - generic [ref=f7e244]: 异常待办保留原发布上下文，创建修复任务不会自动关闭待办。
+            - generic [ref=f7e247]:
+              - img "info-circle" [ref=f7e248]
+              - generic [ref=f7e252]: 进行中
+          - generic [ref=f7e253]:
+            - generic [ref=f7e254]: 异常上下文
+            - generic [ref=f7e257]:
+              - table [ref=f7e260]:
+                - rowgroup [ref=f7e261]:
+                  - row [ref=f7e262]:
+                    - 'cell "状态 : info-circle 进行中" [ref=f7e263]':
+                      - generic [ref=f7e264]:
+                        - generic [ref=f7e265]: "状态 :"
+                        - generic [ref=f7e267]:
+                          - img "info-circle" [ref=f7e268]
+                          - generic [ref=f7e272]: 进行中
+                  - row [ref=f7e273]:
+                    - 'cell "触发状态 : 已下线" [ref=f7e274]':
+                      - generic [ref=f7e275]:
+                        - generic [ref=f7e276]: "触发状态 :"
+                        - generic [ref=f7e277]: 已下线
+                  - row [ref=f7e279]:
+                    - 'cell "原发布 : 944d7f30-2318-41cb-abba-9accd2632b63" [ref=f7e280]':
+                      - generic [ref=f7e281]:
+                        - generic [ref=f7e282]: "原发布 :"
+                        - link "944d7f30-2318-41cb-abba-9accd2632b63" [ref=f7e284] [cursor=pointer]:
+                          - /url: /publications/944d7f30-2318-41cb-abba-9accd2632b63
+                  - row [ref=f7e285]:
+                    - 'cell "原任务 : ecb47500-5406-4e61-b7ca-bf2607339dd4" [ref=f7e286]':
+                      - generic [ref=f7e287]:
+                        - generic [ref=f7e288]: "原任务 :"
+                        - link "ecb47500-5406-4e61-b7ca-bf2607339dd4" [ref=f7e290] [cursor=pointer]:
+                          - /url: /tasks/ecb47500-5406-4e61-b7ca-bf2607339dd4
+                  - row [ref=f7e291]:
+                    - 'cell "修复任务 : 尚未创建" [ref=f7e292]':
+                      - generic [ref=f7e293]:
+                        - generic [ref=f7e294]: "修复任务 :"
+                        - generic [ref=f7e295]: 尚未创建
+                  - row [ref=f7e296]:
+                    - 'cell "处置说明 : —" [ref=f7e297]':
+                      - generic [ref=f7e298]:
+                        - generic [ref=f7e299]: "处置说明 :"
+                        - generic [ref=f7e300]: —
+              - generic [ref=f7e301]:
+                - button "创建修复任务" [ref=f7e303] [cursor=pointer]
+                - button "显式解决" [ref=f7e306] [cursor=pointer]
+  - generic [ref=f7e308]:
+    - dialog "解决发布异常":
+      - generic [ref=f7e309]:
+        - button "Close" [active] [ref=f7e310] [cursor=pointer]:
+          - generic "关闭" [ref=f7e311]:
+            - img "close" [ref=f7e312]
+        - generic [ref=f7e315]: 解决发布异常
+        - generic [ref=f7e318]:
+          - generic [ref=f7e320]:
+            - generic "处置说明" [ref=f7e322]: "* 处置说明"
+            - textbox "* 处置说明" [ref=f7e326]
+          - button "确认解决" [ref=f7e327] [cursor=pointer]

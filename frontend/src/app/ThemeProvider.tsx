@@ -1,6 +1,5 @@
 /** 项目级主题 Provider，统一拥有主题偏好、系统解析与 Ant Design 配置。 */
-import { App as AntApp, ConfigProvider } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
+import { ConfigProvider } from 'antd';
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   applyProjectTheme,
@@ -103,9 +102,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   return (
     <ThemeContext.Provider value={contextValue}>
-      <ConfigProvider locale={zhCN} theme={antTheme}>
-        <AntApp>{children}</AntApp>
-      </ConfigProvider>
+      <ConfigProvider theme={antTheme}>{children}</ConfigProvider>
     </ThemeContext.Provider>
   );
 }

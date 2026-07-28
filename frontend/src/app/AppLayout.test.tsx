@@ -144,11 +144,19 @@ test.each([
   const shell = document.querySelector('.app-shell');
   expect(shell).toHaveClass('app-shell');
   expect([...shell!.classList].filter((className) => className.startsWith('app-shell-'))).toEqual([]);
+  if (path === '/') expect(document.querySelector('.header-context-stacked')).toBeInTheDocument();
   expect(document.querySelector('.app-sider')).toHaveStyle({ width: '208px' });
   const collapse = screen.getByRole('button', { name: '收起导航' });
   await userEvent.click(collapse);
   expect(document.querySelector('.app-sider')).toHaveStyle({ width: '72px' });
   expect(screen.getByRole('button', { name: '展开导航' })).toBeInTheDocument();
+});
+
+test('打印路由通过显式壳层类提供打印布局', () => {
+  render(
+    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/observations/insights/print']}><Routes><Route element={<AppLayout />}><Route path="observations/insights/print" element={<h1>打印洞察</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
+  );
+  expect(document.querySelector('.app-shell')).toHaveClass('app-shell-print');
 });
 
 test('审计日志保留导航选中与审计上下文', () => {

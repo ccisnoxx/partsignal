@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "前端质量门禁"}
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "兼容性与可访问性验收"}
+{"file": ".trellis/tasks/07-28-pagespeed-domain-wide-closure/research/current-baseline.md", "reason": "逐项完成度审计基线"}
+{"file": ".trellis/tasks/07-28-pagespeed-domain-wide-closure/research/completion-audit-2026-07-28.md", "reason": "复核所有诊断无跳过且证据状态准确"}

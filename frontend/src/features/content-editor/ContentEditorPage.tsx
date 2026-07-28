@@ -28,8 +28,6 @@ import {
   Timeline,
   Typography,
 } from 'antd';
-import DOMPurify from 'dompurify';
-import { marked } from 'marked';
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
@@ -39,6 +37,7 @@ import type { Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { renderSanitizedMarkdown } from '../../shared/markdown';
 import { RevisionForm } from './RevisionForm';
 
 type ReviewAction = Schema<'ContentReviewAction'>;
@@ -81,7 +80,7 @@ function QualityIssueGroup({ title, severity, issues }: { title: string; severit
 
 function FactEvidencePanel({ review }: { review: ReviewContext }) {
   const fact = review.fact_version;
-  const safeHtml = DOMPurify.sanitize(marked.parse(fact.body_markdown) as string);
+  const safeHtml = renderSanitizedMarkdown(fact.body_markdown);
   return (
     <section id="review-facts" className="review-side-panel" aria-label="冻结产品事实">
       <Descriptions
@@ -299,7 +298,7 @@ export function ContentEditorPage() {
   const canRevise = review.task.status === 'OPEN' && current.status !== 'APPROVED' && current.status !== 'SUPERSEDED';
   const blockingIssues = current.quality_issues.filter((issue) => issue.severity === 'BLOCKING');
   const warningIssues = current.quality_issues.filter((issue) => issue.severity === 'WARNING');
-  const safeHtml = DOMPurify.sanitize(marked.parse(current.body_markdown) as string);
+  const safeHtml = renderSanitizedMarkdown(current.body_markdown);
   const taskSummary = tasks.data?.items.find((item) => item.id === current.task_id);
   const actionPending = command.isPending || revise.isPending;
   const documentOverview = (

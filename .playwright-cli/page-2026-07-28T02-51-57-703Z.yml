@@ -1,0 +1,54 @@
+- main [ref=e3]:
+  - radiogroup "主题模式" [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7] [cursor=pointer]:
+        - radio "sun 浅色"
+        - generic [ref=e8]:
+          - img "sun" [ref=e10]
+          - generic [ref=e13]: 浅色
+      - generic [ref=e14] [cursor=pointer]:
+        - radio "moon 深色"
+        - generic [ref=e15]:
+          - img "moon" [ref=e17]
+          - generic [ref=e20]: 深色
+      - generic [ref=e21] [cursor=pointer]:
+        - radio "desktop 跟随系统" [checked]
+        - generic [ref=e22]:
+          - img "desktop" [ref=e24]
+          - generic [ref=e27]: 跟随系统
+  - generic:
+    - img:
+      - generic: 内容生成
+      - generic: 多平台分发
+      - generic: 精准触达
+      - generic: GEO 观测
+      - generic: 提及与引用
+      - generic: 效果分析
+      - generic: 持续优化
+  - generic [ref=e29]:
+    - heading "PartSignal" [level=1] [ref=e35]
+    - generic [ref=e36]:
+      - heading "多平台 GEO 内容运营系统" [level=2] [ref=e37]
+      - generic [ref=e38]: 让内容被看见，让价值被引用
+    - alert [ref=e84]:
+      - img "close-circle" [ref=e86]
+      - generic [ref=e89]: 请求失败（HTTP 500）
+    - form "PartSignal" [ref=e39]:
+      - generic [ref=e45]:
+        - img "user" [ref=e47]
+        - textbox "账号" [ref=e50]:
+          - /placeholder: 请输入账号
+          - text: admin
+      - generic [ref=e56]:
+        - img "lock" [ref=e58]
+        - textbox "密码" [ref=e61]:
+          - /placeholder: 请输入密码
+          - text: partsignal-admin-dev
+        - button "显示" [ref=e63] [cursor=pointer]:
+          - img "eye-invisible" [ref=e64]
+      - button "登 录" [active] [ref=e68] [cursor=pointer]
+  - generic [ref=e70]:
+    - generic [ref=e71]:
+      - img "safety-certificate" [ref=e72]
+      - strong [ref=e75]: 内部系统 · 操作留痕 · 全程审计 · 数据安全
+    - paragraph [ref=e76]: 所有操作均已记录并受审计追踪，未经授权请勿访问或使用系统资源。

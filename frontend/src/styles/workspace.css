@@ -20,7 +20,7 @@
 .brand-mark strong { font-size: 17px; }
 .app-header { position: sticky; top: 0; z-index: 20; display: grid; align-items: center; height: 64px; grid-template-columns: minmax(180px, 1fr) minmax(240px, 480px) minmax(180px, 1fr); padding: 0 20px; border-bottom: 1px solid var(--ps-glass-border); background: var(--ps-glass-surface) !important; box-shadow: var(--ps-shadow-sm); -webkit-backdrop-filter: var(--ps-glass-backdrop); backdrop-filter: var(--ps-glass-backdrop); }
 .header-context > .ant-space-item > div { display: flex; align-items: center; gap: 8px; line-height: 1.12; white-space: nowrap; }
-.header-context > .ant-space-item > div:has(.header-kicker) { align-items: flex-start; flex-direction: column; gap: 0; }
+.header-context > .ant-space-item > .header-context-stacked { align-items: flex-start; flex-direction: column; gap: 0; }
 .header-kicker { color: var(--ps-action-primary) !important; font: 600 9px/1 var(--ps-font-mono); letter-spacing: .16em; }
 .header-actions { min-width: 0; }
 .header-breadcrumb-divider { color: var(--ps-text-tertiary); }
@@ -290,7 +290,7 @@
 .product-facts-page > .ant-tabs .ant-tabs-tabpane > .ant-card { border-color: var(--ps-border-default); background: var(--ps-bg-surface); box-shadow: var(--ps-shadow-sm); }
 .product-facts-page .dynamic-block { border-color: var(--ps-border-subtle); background: var(--ps-bg-subtle); }
 .product-facts-page :is(.form-section-nav, .form-save-bar) { border-color: var(--ps-border-default); background: var(--ps-bg-surface); box-shadow: var(--ps-shadow-sm); -webkit-backdrop-filter: none; backdrop-filter: none; }
-body:has(.products-page) .form-dialog-actions { justify-content: flex-end; }
+.products-create-dialog .form-dialog-actions { justify-content: flex-end; }
 
 /* 内容审核页用同任务版本与任务列表构成真实队列，正文和审核状态仍以服务端上下文为准。 */
 .content-review-page { position: relative; max-width: 1640px; gap: 12px; overflow-x: clip; }
@@ -1005,6 +1005,8 @@ body:has(.products-page) .form-dialog-actions { justify-content: flex-end; }
   .ant-modal-container, .ant-dropdown-menu, .form-save-bar, .form-section-nav, .review-glass-panel, .review-decision-actions, .dashboard-page .page-hero, .dashboard-page .metric-tile, .dashboard-glass-panel, .tasks-glass-panel, .tasks-metric-grid .metric-tile, .publication-glass-panel, .publication-drawer, .ai-config-page, .ai-basic-card, .ai-quick-actions { background: var(--ps-bg-raised) !important; }
 }
 
+.ant-input-affix-wrapper:focus-within, .ant-select:focus-within, .ant-checkbox-wrapper:focus-within, .ant-radio-wrapper:focus-within, .ant-tabs-tab:focus-within { outline: 3px solid var(--ps-focus-ring); outline-offset: 2px; }
+
 @keyframes filter-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes chart-reveal { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: scaleX(1); } }
 
@@ -1219,8 +1221,8 @@ body:has(.products-page) .form-dialog-actions { justify-content: flex-end; }
   .app-shell > .app-sider, .app-header { display: none !important; }
   .app-shell > .ant-layout { display: block; background: var(--ps-bg-surface) !important; }
   .app-content { padding: 0 !important; background: var(--ps-bg-surface) !important; }
-  .app-shell:has(.geo-insights-print) > .ant-layout { width: 100% !important; }
-  .app-shell:has(.geo-insights-print) .app-content { width: 100%; outline: none !important; }
+  .app-shell-print > .ant-layout { width: 100% !important; }
+  .app-shell-print .app-content { width: 100%; outline: none !important; }
   .geo-insights-print { max-width: none; gap: 8px; animation: none; }
   .geo-insights-print .geo-print-action { display: none; }
   .geo-insights-print .page-header { padding-bottom: 6px; }
@@ -1353,6 +1355,6 @@ body:has(.products-page) .form-dialog-actions { justify-content: flex-end; }
   .prompt-editor-footer { align-items: flex-start; flex-direction: column; height: auto; gap: 3px; padding-block: 7px; }
   .prompt-editor-footer span:last-child { margin-left: 0; }
   .prompt-editor-surface { min-height: 460px; grid-template-columns: 38px minmax(0, 1fr); }
-  body:has(.products-page) .form-dialog-actions,
-  body:has(.products-page) .form-dialog-actions .ant-btn { width: 100%; }
+  .products-create-dialog .form-dialog-actions,
+  .products-create-dialog .form-dialog-actions .ant-btn { width: 100%; }
 }

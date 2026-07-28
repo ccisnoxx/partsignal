@@ -86,6 +86,7 @@ test('创建产品先聚焦首个错误，并在关闭前保护未保存输入',
   const user = userEvent.setup();
   renderPage('/products');
   await user.click(await screen.findByRole('button', { name: /新增产品/ }));
+  expect(document.querySelector('.products-create-dialog')).toBeInTheDocument();
   const partNumber = screen.getByRole('textbox', { name: '产品型号' });
   await user.click(screen.getByRole('button', { name: '创建事实工作区' }));
   await waitFor(() => expect(partNumber).toHaveFocus());

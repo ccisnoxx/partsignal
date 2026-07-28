@@ -35,6 +35,7 @@ Questions to answer:
 - 交互密度变更必须保留字段、入口、权限判断、服务端 available actions、确认文案、query key 与 API 载荷。
 - 长表单校验复用 Ant Form `errorFields`、`scrollToFirstError` 和显式修订号；保存状态至少区分未修改、未保存、保存中、已保存和失败。
 - 留在当前页面的长期保存、删除、启停和显式状态操作使用 `App.useApp().message` 给出短中文成功反馈；简单创建后结果立即可见或立即导航时不重复通知。
+- Markdown HTML 只能由 `renderSanitizedMarkdown` 写入 React sink；该边界用 DOMPurify 返回 `TrustedHTML`，页面不得创建 Trusted Types policy 或直接组合 `marked`、DOMPurify 与 `dangerouslySetInnerHTML`。
 
 ---
 

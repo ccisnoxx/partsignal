@@ -133,6 +133,42 @@ test('阻断 React 主模块后首屏脚本仍与主题画布一致', async ({ p
   await expect(page.locator('#root')).toBeEmpty();
 });
 
+test('无 localStorage 时外置主题脚本仍按系统配色完成首帧', async ({ page }) => {
+  await page.route('**/src/main.tsx*', (route) => route.abort());
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  await page.goto('/login');
+  await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'system');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await expect(page.locator('#root')).toBeEmpty();
+});
+
+test('localStorage 访问异常时外置主题脚本显式告警并继续启动', async ({ page }) => {
+  await page.route('**/src/main.tsx*', (route) => route.abort());
+  await page.emulateMedia({ colorScheme: 'light' });
+  const warnings: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'warning') warnings.push(message.text());
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      get: () => { throw new Error('storage blocked'); },
+    });
+  });
+  await page.goto('/login');
+  await expect(page.locator('html')).toHaveAttribute('data-theme-mode', 'system');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  expect(warnings).toEqual([
+    expect.stringContaining('无法读取主题偏好，本次会话将跟随系统主题。'),
+  ]);
+});
+
 test('跟随系统模式实时响应系统配色变化', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.addInitScript(() => localStorage.setItem('partsignal.theme-mode', 'system'));
@@ -140,6 +176,12 @@ test('跟随系统模式实时响应系统配色变化', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.emulateMedia({ colorScheme: 'light' });
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+});
+
+test('登录页主题控件可通过 Tab 进入', async ({ page }) => {
+  await page.goto('/login');
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('radio', { name: '跟随系统' })).toBeFocused();
 });
 
 test('减少动态效果时取消页面与主题过渡', async ({ page }) => {

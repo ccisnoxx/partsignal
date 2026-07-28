@@ -1,7 +1,9 @@
 /** 验证内容任务身份与各次级查询拥有独立错误边界。 */
 import { QueryClientProvider } from '@tanstack/react-query';
+import { App as AntApp } from 'antd';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { queryClient } from '../../app/queryClient';
@@ -75,6 +77,10 @@ function LocationProbe() {
   return <output data-testid="location-search">{useLocation().search}</output>;
 }
 
+function renderPage(ui: ReactNode, initialEntries: string[]) {
+  return render(<ThemeProvider><AntApp><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider></AntApp></ThemeProvider>);
+}
+
 beforeEach(() => {
   queryClient.clear();
   Object.values(apiMocks).forEach((mock) => mock.mockReset());
@@ -90,7 +96,7 @@ beforeEach(() => {
 });
 
 test('次级查询失败不遮蔽任务身份和返回入口', async () => {
-  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[`/tasks/${taskId}`]}><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+  renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
 
   expect(await screen.findByRole('heading', { name: 'PartSignal PS-01' })).toBeInTheDocument();
   expect(screen.getByText('fact-version-1')).toBeInTheDocument();
@@ -106,7 +112,7 @@ test('创建内容任务只加载产品和平台，不再展示或请求目标�
     if (path === '/api/v1/platform-profiles') return result({ items: [] });
     throw new Error(`未声明测试请求：${path}`);
   });
-  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks']}><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+  renderPage(<Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes>, ['/tasks']);
 
   expect(await screen.findByText('暂无内容任务')).toBeInTheDocument();
   const createButton = screen.getByRole('button', { name: '新建内容任务' });
@@ -127,7 +133,7 @@ test('列表用真实任务状态生成摘要，并将客户端筛选写入 URL'
     ] });
     throw new Error(`未声明测试请求：${path}`);
   });
-  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks?platform_profile_id=platform-1']}><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+  renderPage(<><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></>, ['/tasks?platform_profile_id=platform-1']);
 
   expect(await screen.findByTitle('PartSignal PS-01')).toBeInTheDocument();
   expect(screen.getByText('当前平台：工程师社区')).toBeInTheDocument();
@@ -155,7 +161,7 @@ test('列表从 URL 恢复分页，筛选时回到第一页', async () => {
     if (path === '/api/v1/content-tasks') return result({ items: Array.from({ length: 11 }, (_, index) => listTask(index + 1, 'OPEN')) });
     throw new Error(`未声明测试请求：${path}`);
   });
-  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks?page=2']}><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+  renderPage(<><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></>, ['/tasks?page=2']);
 
   expect(await screen.findByTitle('PartSignal PS-11')).toBeInTheDocument();
   expect(screen.queryByTitle('PartSignal PS-01')).not.toBeInTheDocument();
@@ -169,7 +175,7 @@ test('列表加载和失败状态保持可感知且可重试', async () => {
     if (path === '/api/v1/content-tasks') return result(undefined, 503);
     throw new Error(`未声明测试请求：${path}`);
   });
-  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/tasks']}><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+  renderPage(<Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes>, ['/tasks']);
 
   expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument();
   const alert = await screen.findByRole('alert');
@@ -190,7 +196,7 @@ test('仅按服务端 DELETE 动作确认删除并返回任务列表', async () 
     throw new Error(`未声明测试请求：${path}`);
   });
   apiMocks.DELETE.mockResolvedValue({ response: new Response(null, { status: 204 }) });
-  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[`/tasks/${taskId}`]}><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+  renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes>, [`/tasks/${taskId}`]);
 
   await user.click(await screen.findByRole('button', { name: '删除任务' }));
   const dialog = await screen.findByRole('dialog');
@@ -218,7 +224,7 @@ test('任务删除失败保留详情并展示服务端错误', async () => {
     error: { error: { message: '内容任务仍被生成作业引用' } },
     response: new Response(null, { status: 409 }),
   });
-  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[`/tasks/${taskId}`]}><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+  renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes>, [`/tasks/${taskId}`]);
 
   await user.click(await screen.findByRole('button', { name: '删除任务' }));
   await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '删除任务' }));
@@ -259,7 +265,7 @@ test('对合格 AI 版本选择模型并创建自然化作业', async () => {
     completion_tokens: null, total_tokens: null, created_at: source.created_at,
     started_at: null, finished_at: null,
   }));
-  render(<ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[`/tasks/${taskId}`]}><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>);
+  renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
 
   await user.click(await screen.findByRole('button', { name: '自然化' }));
   await user.click(screen.getByRole('combobox', { name: '自然化模型' }));

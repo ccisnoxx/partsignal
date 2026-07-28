@@ -1,11 +1,10 @@
 /** Markdown 修订表单保持唯一正文源，并明确展示未保存、提交中和失败状态。 */
 import { SaveOutlined } from '@ant-design/icons';
 import { Alert, Button, Form, Input, Select, Space, Tabs, Tag, Typography } from 'antd';
-import DOMPurify from 'dompurify';
-import { marked } from 'marked';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage } from '../../shared/api/client';
 import type { ContentVersion, Schema } from '../../shared/api/types';
+import { renderSanitizedMarkdown } from '../../shared/markdown';
 
 type RevisionDraft = Schema<'ContentRevisionCreate'>;
 
@@ -36,7 +35,7 @@ export function RevisionForm({
   const deferredMarkdown = useDeferredValue(draft.body_markdown);
   // 长正文预览让位于输入更新；解析结果只在 deferred 值变化时重新计算。
   const preview = useMemo(
-    () => DOMPurify.sanitize(marked.parse(deferredMarkdown) as string),
+    () => renderSanitizedMarkdown(deferredMarkdown),
     [deferredMarkdown],
   );
   useEffect(() => {

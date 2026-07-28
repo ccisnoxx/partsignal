@@ -19,8 +19,6 @@ import {
   Timeline,
   Typography,
 } from 'antd';
-import DOMPurify from 'dompurify';
-import { marked } from 'marked';
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
@@ -32,6 +30,7 @@ import { DeletionError } from '../../shared/components/DeletionError';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { renderSanitizedMarkdown } from '../../shared/markdown';
 import { useAuth } from '../auth/AuthProvider';
 
 const classificationOptions: Array<{ label: string; value: Schema<'Confidentiality'> }> = [
@@ -42,7 +41,7 @@ const classificationOptions: Array<{ label: string; value: Schema<'Confidentiali
 
 function MarkdownPreview({ markdown, label }: { markdown: string; label: string }) {
   const safeHtml = useMemo(
-    () => DOMPurify.sanitize(marked.parse(markdown) as string),
+    () => renderSanitizedMarkdown(markdown),
     [markdown],
   );
   return <article aria-label={label} className="markdown-preview" dangerouslySetInnerHTML={{ __html: safeHtml }} />;

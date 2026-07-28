@@ -1029,3 +1029,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 31: 完善观测与发布管理流程
+
+**Date**: 2026-07-28
+**Task**: 完善观测与发布管理流程
+**Branch**: `main`
+
+### Summary
+
+完成独立人工观测事实、可选证据与整链删除；完成发布管理命名、受约束删除、关注事项入口和真实 Playwright 验收。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `406f3ab` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

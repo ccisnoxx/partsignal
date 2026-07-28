@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 30
-- **Last Active**: 2026-07-27
+- **Total Sessions**: 31
+- **Last Active**: 2026-07-28
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1031 | Active |
+| `journal-1.md` | ~1064 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 31 | 2026-07-28 | 完善观测与发布管理流程 | `406f3ab` | `main` |
 | 30 | 2026-07-27 | 自动 Logo 导入与资源清理 | `7d7175f` | `main` |
 | 29 | 2026-07-27 | 统一正式新密码最小长度并上线 | `a85f7da` | `main` |
 | 28 | 2026-07-27 | 完成受限删除与账号治理 | `661693f` | `main` |

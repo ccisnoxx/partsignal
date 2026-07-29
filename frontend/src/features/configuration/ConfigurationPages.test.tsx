@@ -387,16 +387,22 @@ test('共享 Prompt 按 revision 保存、展示影响范围并保护本地草�
   expect(await screen.findByText('已保存')).toBeInTheDocument();
 });
 
-test('Prompt 草稿阻止站内链接直接离开', async () => {
+test('Prompt 草稿只确认一次后完成站内导航', async () => {
   const user = userEvent.setup();
-  renderWithQuery(<>
-    <a href="/products">离开配置</a>
-    <PlatformPromptsPage />
-  </>, [`/configuration/prompts?tab=platform&platform_prompt_id=${platformPrompt.id}`]);
+  renderWithQuery(<Routes>
+    <Route path="/configuration/prompts" element={<><a href="/products">离开配置</a><PlatformPromptsPage /></>} />
+    <Route path="/products" element={<h1>产品事实</h1>} />
+  </Routes>, [`/configuration/prompts?tab=platform&platform_prompt_id=${platformPrompt.id}`]);
   const editor = await screen.findByRole('textbox', { name: 'Prompt Markdown' });
   await user.type(editor, '未保存');
   await user.click(screen.getByRole('link', { name: '离开配置' }));
-  expect(await findRcDialog('放弃未保存的 Prompt 修改？')).toHaveTextContent('确认后将离开当前页面');
+  const dialog = await findRcDialog('放弃未保存的 Prompt 修改？');
+  expect(dialog).toHaveTextContent('确认后将离开当前页面');
+  await user.click(within(dialog).getByRole('button', { name: '放弃并离开' }));
+  expect(await screen.findByRole('heading', { name: '产品事实' })).toBeInTheDocument();
+  const beforeUnload = new Event('beforeunload', { cancelable: true });
+  window.dispatchEvent(beforeUnload);
+  expect(beforeUnload.defaultPrevented).toBe(false);
 });
 
 test('确认放弃草稿后再次返回模板不会恢复已丢弃内容', async () => {

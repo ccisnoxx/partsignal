@@ -121,7 +121,9 @@ export function AppLayout() {
     .filter((item) => matchesRoute(location.pathname, location.search, item.key))
     .sort((left, right) => right.key.length - left.key.length)[0] ?? visibleLeaves.find((item) => item.key === '/');
   const selectedKey = selected?.key ?? '/';
-  const currentSection = location.pathname.startsWith('/content/')
+  const currentSection = location.pathname === '/configuration/platform-types'
+    ? '平台类型'
+    : location.pathname.startsWith('/content/')
     ? '内容审核'
     : location.pathname.startsWith('/observations') ? 'GEO 观测' : selected?.label ?? '工作台';
   const isGeo = location.pathname.startsWith('/observations');

@@ -9,7 +9,7 @@ import {
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Alert, App, Button, Card, Input, Space, Tabs, Tag, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { ApiError, api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import {
@@ -61,6 +61,7 @@ function formatTime(value: string | null | undefined): string {
 
 export function PlatformPromptsPage() {
   const { message, modal } = App.useApp();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab: PromptTab = searchParams.get('tab') === 'humanization' ? 'humanization' : 'platform';
   const selectedId = searchParams.get('platform_prompt_id') ?? undefined;
@@ -181,6 +182,7 @@ export function PlatformPromptsPage() {
       const anchor = (event.target as Element | null)?.closest<HTMLAnchorElement>('a[href]');
       if (!anchor || anchor.target === '_blank') return;
       const target = new URL(anchor.href, window.location.href);
+      if (target.origin !== window.location.origin) return;
       if (target.pathname === window.location.pathname && target.search === window.location.search) return;
       event.preventDefault();
       modal.confirm({
@@ -189,12 +191,15 @@ export function PlatformPromptsPage() {
         okText: '放弃并离开',
         cancelText: '继续编辑',
         okButtonProps: { danger: true },
-        onOk: () => window.location.assign(target.href),
+        onOk: () => {
+          setStoredEditor(emptyEditor);
+          navigate(`${target.pathname}${target.search}${target.hash}`);
+        },
       });
     };
     document.addEventListener('click', protectRouteLinks, true);
     return () => document.removeEventListener('click', protectRouteLinks, true);
-  }, [dirty, modal]);
+  }, [dirty, modal, navigate]);
 
   const savePrompt = useMutation({
     mutationFn: async (variables: SaveVariables) => {

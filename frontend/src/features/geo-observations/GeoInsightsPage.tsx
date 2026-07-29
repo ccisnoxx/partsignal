@@ -608,7 +608,7 @@ function GeoInsightsView({ printMode = false }: { printMode?: boolean }) {
       )}
       {printMode && insights.data && (
         <Card className="geo-insight-print-summary" title="报告范围" extra={`生成于 ${formatDateTime(insights.data.generated_at)}`}>
-          <Descriptions size="small" column={3} items={filterSummary(filters, insights.data.filter_options)} />
+          <Descriptions size="small" column={{ xs: 1, sm: 2, md: 3 }} items={filterSummary(filters, insights.data.filter_options)} />
         </Card>
       )}
       {insights.isLoading

@@ -372,7 +372,7 @@ export function AIChannelDetailPage() {
         { key: 'description', label: '描述', children: data.description || '—' },
         { key: 'url', label: 'API 根地址', children: <Typography.Link href={data.base_url} target="_blank" rel="noreferrer" className="ai-detail-url">{data.base_url}</Typography.Link> },
         { key: 'state', label: '状态', children: <StatusTag status={data.is_enabled ? 'ENABLED' : 'DISABLED'} /> },
-        { key: 'key', label: 'API Key', children: data.api_key_configured ? <Space size={4}><span className="ai-configured">✓ 已配置（••••••）</span><Button type="link" size="small" onClick={() => setKeyOpen(true)}>重新配置</Button></Space> : <Button type="link" size="small" onClick={() => setKeyOpen(true)}>未配置，立即配置</Button> },
+        { key: 'key', label: 'API Key', children: data.api_key_configured ? <Space size={4} wrap><span className="ai-configured">✓ 已配置（••••••）</span><Button type="link" size="small" onClick={() => setKeyOpen(true)}>重新配置</Button></Space> : <Button type="link" size="small" onClick={() => setKeyOpen(true)}>未配置，立即配置</Button> },
         { key: 'headers', label: '请求 Header', children: `${data.headers.length} 个` },
         { key: 'timeout', label: '超时时间', children: `${data.timeout_seconds} 秒` },
         { key: 'retry', label: '重试策略', children: '仅手动重试' },

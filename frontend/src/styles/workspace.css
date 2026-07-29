@@ -912,13 +912,13 @@
 .ai-channel-table .ant-table-thead > tr > th { height: 52px; padding: 8px 6px; color: var(--ps-text-secondary); background: color-mix(in srgb, var(--ps-bg-subtle) 72%, var(--ps-bg-surface)); font-size: 11px; font-weight: 500; line-height: 1.35; letter-spacing: 0; white-space: nowrap; }
 .ai-channel-table .ant-table-tbody > tr { cursor: default; }
 .ai-channel-table .ant-table-tbody > tr > td { height: 92px; padding: 10px 6px; border-color: var(--ps-border-subtle); background: var(--ps-bg-surface); }
-.ai-channel-table .ant-table-tbody > tr:hover > td, .ai-channel-table .ant-table-tbody > tr:focus-within > td { background: color-mix(in srgb, var(--ps-action-primary-soft) 24%, var(--ps-bg-surface)) !important; }
-.ai-channel-table .ant-table-tbody > tr.ai-channel-row-selected > td { background: color-mix(in srgb, var(--ps-action-primary-soft) 30%, var(--ps-bg-surface)) !important; }
+.ai-channel-table .ant-table-tbody > tr:hover > td, .ai-channel-table .ant-table-tbody > tr:focus-within > td { background: color-mix(in srgb, var(--ps-action-primary) 3%, var(--ps-bg-surface)) !important; }
+.ai-channel-table .ant-table-tbody > tr.ai-channel-row-selected > td { background: color-mix(in srgb, var(--ps-action-primary) 4%, var(--ps-bg-surface)) !important; }
 .ai-channel-table .ant-table-tbody > tr.ai-channel-row-selected > td:first-child { box-shadow: inset 2px 0 color-mix(in srgb, var(--ps-action-primary) 54%, transparent); }
 .ai-channel-table .ant-table-cell-fix-end { background: var(--ps-bg-surface) !important; }
 .ai-channel-table .ant-table-thead > tr > .ant-table-cell-fix-end { background: var(--ps-bg-subtle) !important; }
-.ai-channel-table .ant-table-tbody > tr:hover > .ant-table-cell-fix-end, .ai-channel-table .ant-table-tbody > tr:focus-within > .ant-table-cell-fix-end { background: color-mix(in srgb, var(--ps-action-primary-soft) 24%, var(--ps-bg-surface)) !important; }
-.ai-channel-table .ant-table-tbody > tr.ai-channel-row-selected > .ant-table-cell-fix-end { background: color-mix(in srgb, var(--ps-action-primary-soft) 30%, var(--ps-bg-surface)) !important; }
+.ai-channel-table .ant-table-tbody > tr:hover > .ant-table-cell-fix-end, .ai-channel-table .ant-table-tbody > tr:focus-within > .ant-table-cell-fix-end { background: color-mix(in srgb, var(--ps-action-primary) 3%, var(--ps-bg-surface)) !important; }
+.ai-channel-table .ant-table-tbody > tr.ai-channel-row-selected > .ant-table-cell-fix-end { background: color-mix(in srgb, var(--ps-action-primary) 4%, var(--ps-bg-surface)) !important; }
 .ai-channel-table .ant-table-cell-fix-end .ant-space { gap: 2px !important; }
 .ai-channel-table .ant-table-cell-fix-end-shadow::after { box-shadow: none !important; }
 .ai-channel-table .ant-table-cell-fix-end .ant-btn,

@@ -470,6 +470,37 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   await expect(page.getByRole('region', { name: 'AI 渠道列表' })
     .getByRole('button', { name: /更多操作：/ }).first()).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('ai-channels-mobile-375x844.png'), fullPage: true });
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  await narrowTable.evaluate((element) => { element.scrollLeft = element.scrollWidth; });
+  const compactGeometry = await selectedChannelRow.evaluate((row) => {
+    const fixedCell = row.querySelector<HTMLElement>('.ant-table-cell-fix-end');
+    const detail = document.querySelector<HTMLElement>('.ai-detail-scroll');
+    const apiKeyItem = Array.from(document.querySelectorAll<HTMLElement>('.ai-basic-descriptions .ant-descriptions-item'))
+      .find((item) => item.querySelector('.ant-descriptions-item-label')?.textContent?.includes('API Key'));
+    const reconfigure = apiKeyItem?.querySelector<HTMLElement>('button');
+    if (!fixedCell || !detail || !reconfigure) throw new Error('缺少窄屏 AI 渠道量测节点');
+    const fixedBackground = getComputedStyle(fixedCell).backgroundColor;
+    const rgbaAlpha = fixedBackground.match(/^rgba\([^)]*,\s*([\d.]+)\)$/)?.[1];
+    const colorAlpha = fixedBackground.match(/\/\s*([\d.]+)\s*\)$/)?.[1];
+    const detailRect = detail.getBoundingClientRect();
+    const reconfigureRect = reconfigure.getBoundingClientRect();
+    return {
+      fixedBackground,
+      fixedAlpha: Number(rgbaAlpha ?? colorAlpha ?? 1),
+      reconfigureLeft: reconfigureRect.left,
+      reconfigureRight: reconfigureRect.right,
+      detailLeft: detailRect.left,
+      detailRight: detailRect.right,
+      documentWidth: document.documentElement.scrollWidth,
+    };
+  });
+  expect(compactGeometry.fixedAlpha, compactGeometry.fixedBackground).toBe(1);
+  expect(compactGeometry.reconfigureLeft).toBeGreaterThanOrEqual(compactGeometry.detailLeft);
+  expect(compactGeometry.reconfigureRight).toBeLessThanOrEqual(compactGeometry.detailRight);
+  expect(compactGeometry.documentWidth).toBeLessThanOrEqual(320);
+  await page.screenshot({ path: testInfo.outputPath('ai-channels-mobile-320x800.png'), fullPage: true });
+
   await page.setViewportSize({ width: 1570, height: 1001 });
   await expect(page.locator('.app-sider')).toBeVisible();
 

@@ -228,6 +228,42 @@ test('键盘、错误聚焦和未保存提示保留本地输入', async ({ page 
   await expect(promptEditor).toHaveValue(/E2E 未保存/);
 });
 
+test('Prompt 放弃站内导航只确认一次', async ({ page }, testInfo) => {
+  const nativeDialogs: string[] = [];
+  const runtimeErrors: string[] = [];
+  const failedRequests: string[] = [];
+  page.on('dialog', async (dialog) => {
+    nativeDialogs.push(dialog.type());
+    await dialog.accept();
+  });
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(message.text());
+  });
+  page.on('pageerror', (error) => runtimeErrors.push(error.message));
+  page.on('requestfailed', (request) => {
+    const errorText = request.failure()?.errorText ?? '未知错误';
+    if (errorText !== 'net::ERR_ABORTED') failedRequests.push(`${request.method()} ${request.url()}: ${errorText}`);
+  });
+
+  await login(page);
+  const targets = await resolveTargets(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openTarget(page, targets.find((target) => target.key === 'prompts')!);
+  const promptEditor = page.getByRole('textbox', { name: 'Prompt Markdown' });
+  await promptEditor.fill(`${await promptEditor.inputValue()}\nE2E 单次确认`);
+  await page.getByRole('link', { name: '产品事实' }).click();
+  const discard = page.getByRole('dialog', { name: '放弃未保存的 Prompt 修改？' });
+  await expect(discard).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('prompt-unsaved-confirmation-1440x900.png') });
+  await discard.getByRole('button', { name: '放弃并离开' }).click();
+  await expect(page).toHaveURL(/\/products$/);
+  await expect(discard).not.toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '产品事实' })).toBeVisible();
+  expect(nativeDialogs).toEqual([]);
+  expect(runtimeErrors).toEqual([]);
+  expect(failedRequests).toEqual([]);
+});
+
 test('服务端错误聚焦 Alert，跟随系统与 reduced-motion 保留工作区信息', async ({ page }) => {
   await login(page);
   const targets = await resolveTargets(page);

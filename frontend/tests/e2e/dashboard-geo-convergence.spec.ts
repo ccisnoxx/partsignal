@@ -208,9 +208,34 @@ test('跟随系统、reduced-motion 与打印视图保留信息且移除非必�
     new URL(response.url()).pathname === '/api/v1/geo-insights'
     && response.request().method() === 'GET'
   ));
-  await Promise.all([page.goto('/observations/insights/print'), printLoaded]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await Promise.all([
+    page.goto('/observations/insights/print?date_from=2026-06-30&date_to=2026-07-29'),
+    printLoaded,
+  ]);
   await expect(page.getByRole('heading', { level: 1, name: 'GEO 分析洞察报告' })).toBeVisible();
   await expect(page.getByText('报告范围')).toBeVisible();
+  const periodRow = page.locator('.geo-insight-print-summary .ant-descriptions-row')
+    .filter({ hasText: '时间范围' }).first();
+  const periodGeometry = await periodRow.evaluate((row) => {
+    const content = row.querySelector<HTMLElement>('.ant-descriptions-item-content');
+    const card = row.closest<HTMLElement>('.geo-insight-print-summary');
+    if (!content || !card) throw new Error('打印摘要缺少时间范围量测节点');
+    const contentRect = content.getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    return {
+      contentWidth: contentRect.width,
+      contentHeight: contentRect.height,
+      contentRight: contentRect.right,
+      cardRight: cardRect.right,
+    };
+  });
+  expect(periodGeometry.contentWidth).toBeGreaterThan(160);
+  expect(periodGeometry.contentHeight).toBeLessThan(60);
+  expect(periodGeometry.contentRight).toBeLessThanOrEqual(periodGeometry.cardRight);
+  await page.screenshot({ path: testInfo.outputPath('geo-insights-print-390x844.png'), fullPage: true });
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ media: 'print', colorScheme: 'light', reducedMotion: 'reduce' });
   await expect(page.locator('.geo-insights-print')).toBeVisible();
   const printLayout = await page.evaluate(() => {

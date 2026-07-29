@@ -4,6 +4,7 @@ import { Alert, Button, Form, Input, Select, Space, Tabs, Tag, Typography } from
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { errorMessage } from '../../shared/api/client';
 import type { ContentVersion, Schema } from '../../shared/api/types';
+import { CONTENT_TAG_ERROR, contentTagRules, isContentTagsValidationError } from '../../shared/contentValidation';
 import { renderSanitizedMarkdown } from '../../shared/markdown';
 
 type RevisionDraft = Schema<'ContentRevisionCreate'>;
@@ -21,6 +22,7 @@ export function RevisionForm({
   onDirtyChange: (dirty: boolean) => void;
   onSubmit: (body: RevisionDraft) => void;
 }) {
+  const [form] = Form.useForm<RevisionDraft>();
   const initialDraft: RevisionDraft = {
     title: content.title,
     summary: content.summary,
@@ -39,10 +41,15 @@ export function RevisionForm({
     [deferredMarkdown],
   );
   useEffect(() => {
-    if (error) errorRef.current?.focus();
-  }, [error]);
+    if (!error) return;
+    if (isContentTagsValidationError(error)) {
+      form.setFields([{ name: 'tags', errors: [CONTENT_TAG_ERROR] }]);
+    }
+    errorRef.current?.focus();
+  }, [error, form]);
   return (
     <Form<RevisionDraft>
+      form={form}
       className="revision-form"
       layout="vertical"
       initialValues={initialDraft}
@@ -71,7 +78,7 @@ export function RevisionForm({
       <div hidden={view !== 'edit'}>
         <div className="revision-metadata-grid">
           <Form.Item name="title" label="标题" rules={[{ required: true, whitespace: true, message: '请输入标题' }]}><Input /></Form.Item>
-          <Form.Item name="tags" label="标签"><Select mode="tags" tokenSeparators={[',']} /></Form.Item>
+          <Form.Item name="tags" label="标签" rules={contentTagRules}><Select mode="tags" tokenSeparators={[',']} /></Form.Item>
           <Form.Item className="revision-summary-field" name="summary" label="摘要" rules={[{ required: true, whitespace: true, message: '请输入摘要' }]}><Input.TextArea rows={2} /></Form.Item>
         </div>
         <Form.Item className="revision-editor-field" name="body_markdown" label="Markdown 正文" rules={[{ required: true, whitespace: true, message: '请输入 Markdown 正文' }]}>

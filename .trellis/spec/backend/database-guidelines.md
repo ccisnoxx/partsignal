@@ -288,6 +288,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - 创建任务只校验产品、该产品的 `APPROVED` 非空事实版本和启用平台。平台通过可空外键绑定零或一份可复用 Prompt；缺少绑定不阻止任务或人工首稿，只阻止系统 AI 作业。
 - 原始 AI 请求必须恰好发送两条消息：`system.content == PlatformPrompt.template_markdown`，`user.content == FactVersion.body_markdown`；不得增加前缀、拼接任务要求、补默认安全规则或重写空白。
 - 人工首稿创建 `source_type=HUMAN`、`status=DRAFT`、`source_job_id=NULL`、`based_on_id=NULL`，随后与 AI 草稿共用修订、审核和人工发布链。
+- `ContentRevisionCreate.tags` 必须至少包含一个标签，且每个标签至少包含一个非空白字符；人工首稿与人工修订前端复用同一必填规则，服务端请求模型仍是最终校验权威。标签不自动 trim、去重、补默认值或增加未批准的数量/长度限制。
 - 发布、平台账号和修复任务沿用 `ContentTask.platform_profile_id`；修复任务只允许重新选择同产品的批准事实版本，并继承原任务平台。
 - 被平台绑定的 Prompt 不可删除；换绑或清空绑定后，新 AI 生成必须使用新绑定或显式失败。历史作业继续从不可变快照读取，v2 可按原快照重试，v1 禁止重试。
 
@@ -316,6 +317,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - PostgreSQL 迁移测试断言确定性 Markdown 回填、最严格分级、任务平台唯一回填、旧表/列删除、活动旧作业阻断和有损 downgrade 拒绝。
 - 单元/集成测试断言生成请求恰好两条原始消息、人工 lineage 四字段、非公开事实/缺 Prompt/legacy retry 明确失败。
 - 前端测试断言 Markdown 是唯一事实编辑器，任务仅选择产品/事实/平台，AI 与人工入口并列，规则页面和旧字段不可达。
+- 契约、请求边界和前端组件测试共同断言空数组、全空白标签与删除最后一个标签均不创建内容版本；恢复有效标签后提交原 payload，直接绕过前端仍返回结构化 `422 VALIDATION_ERROR`。
 - E2E 使用真实 HTTP 替身断言 system/user 内容逐字相同，并覆盖人工首稿到审核、发布的共用链路。
 
 ### 7. 错误与正确示例
@@ -336,6 +338,66 @@ messages = [
     {"role": "system", "content": prompt.template_markdown},
     {"role": "user", "content": fact.body_markdown},
 ]
+```
+
+## 场景：事实版本审核历史精确归属
+
+### 1. 范围与触发条件
+
+- 修改事实版本状态命令、`fact_review_records`、事实审核上下文或产品事实页审核历史时适用。
+- 该边界防止把同产品兄弟版本的审核记录混作当前版本历史。
+
+### 2. 签名
+
+- 读取接口：`GET /api/v1/fact-versions/{fact_version_id}/review-context`。
+- 审核记录 owner：`fact_review_records.fact_version_id -> fact_versions.id`。
+- 业务审计 owner：`audit_logs.target_type="FactVersion"` 且 `target_id=<fact_version_id>`。
+
+### 3. 契约
+
+- `FactReviewContext.fact_version.id` 必须等于路径 `fact_version_id`。
+- `review_history` 每项 `target_id` 必须等于同一路径 ID，只返回该版本自身的追加式审核记录。
+- 前端按选中版本 ID 请求并原样展示服务端投影，不增加产品级拼接、兼容过滤或第二 owner。
+- 内容审核仍可按同一任务累计到目标内容版本；不得因事实版本修复改动 `_content_history`。
+- 若未来需要产品级时间线，必须新增明确命名和分区的独立契约，不能复用版本详情冒充。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 结果 |
+|---|---|
+| `fact_version_id` 不存在 | `404`，不返回其他版本历史 |
+| 同产品 V1、V2 都有审核记录 | V1、V2 上下文各自只返回自己的记录 |
+| 审核命令成功 | 同事务追加精确版本的 `FactReviewRecord` 与 `FactVersion` 审计 |
+| 产品级时间线不存在 | 不回退到 `product_id` 聚合 |
+
+### 5. 正常、基础与失败案例
+
+- 正常：V1 退役、V2 提交审核；打开 V2 只显示 V2 提交事件。
+- 基础：目标版本没有审核记录，返回空 `review_history`。
+- 失败：按 `product_id` 和 `version <= 当前版本` 查询，使 V2 详情混入 V1 事件。
+
+### 6. 必需测试
+
+- PostgreSQL 集成测试创建同产品 V1、V2，分别执行不同状态命令，断言两个上下文的 `target_id/action/comment` 不交叉。
+- 同一测试断言对应审计的 `target_type/target_id` 精确指向各自版本。
+- 前端组件测试点击 V2 行，断言请求 V2 `review-context` 且不展示 V1-only 事件。
+- 契约测试与生成类型检查必须通过；响应字段结构保持不变。
+
+### 7. 错误与正确示例
+
+错误：按产品聚合兄弟版本。
+
+```python
+.where(
+    FactVersion.product_id == fact.product_id,
+    FactVersion.version <= fact.version,
+)
+```
+
+正确：按审核记录的权威父版本过滤。
+
+```python
+.where(FactReviewRecord.fact_version_id == fact.id)
 ```
 
 ## 场景：产品级人工 GEO 文章观测

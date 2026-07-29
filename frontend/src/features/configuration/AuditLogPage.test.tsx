@@ -1,5 +1,5 @@
 /** 验证审计工作台只用 URL 驱动服务端组合查询，并消费安全详情投影。 */
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { App } from '../../app/App';
@@ -40,6 +40,18 @@ const auditDetail = {
   related_entry: { status: 'AVAILABLE', kind: 'PlatformProfile', parent_id: null },
 } satisfies Schema<'AuditLogDetail'>;
 
+const representativeAuditLogs = [
+  { ...auditLog, id: '20000000-0000-4000-8000-000000000011', business_module: 'IDENTITY', action: 'user.created' },
+  { ...auditLog, id: '20000000-0000-4000-8000-000000000012', action: 'platform_profile.created' },
+  { ...auditLog, id: '20000000-0000-4000-8000-000000000013', business_module: 'PRODUCT_FACTS', action: 'fact_version.approve' },
+  { ...auditLog, id: '20000000-0000-4000-8000-000000000014', business_module: 'CONTENT_PRODUCTION', action: 'generation_job.created' },
+  { ...auditLog, id: '20000000-0000-4000-8000-000000000015', business_module: 'PUBLICATION', action: 'publication.created' },
+  { ...auditLog, id: '20000000-0000-4000-8000-000000000016', business_module: 'GEO_OBSERVATION', action: 'geo_observation.created' },
+  { ...auditLog, id: '20000000-0000-4000-8000-000000000017', action: 'ai_channel.created' },
+  { ...auditLog, id: '20000000-0000-4000-8000-000000000018', action: 'ai_model.tested' },
+  { ...auditLog, id: '20000000-0000-4000-8000-000000000019', action: 'unknown.history_action' },
+] satisfies Schema<'AuditLog'>[];
+
 function userList(): Schema<'UserList'> {
   return {
     items: [admin],
@@ -56,13 +68,22 @@ function userList(): Schema<'UserList'> {
   };
 }
 
-function installAuditApi(onList?: (url: URL) => void, onDetail?: () => void) {
+function installAuditApi(
+  onList?: (url: URL) => void,
+  onDetail?: () => void,
+  logs: Schema<'AuditLog'>[] = [auditLog],
+) {
   mockFetch((request) => {
     const url = new URL(request.url);
     if (url.pathname.endsWith('/auth/me')) return { body: admin };
     if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
     if (url.pathname.endsWith('/audit-logs/filter-options')) {
-      return { body: { actions: [auditLog.action], target_types: [auditLog.target_type] } satisfies Schema<'AuditLogFilterOptions'> };
+      return {
+        body: {
+          actions: logs.map((item) => item.action),
+          target_types: [...new Set(logs.map((item) => item.target_type))],
+        } satisfies Schema<'AuditLogFilterOptions'>,
+      };
     }
     if (url.pathname.endsWith(`/audit-logs/${auditLog.id}`)) {
       onDetail?.();
@@ -70,12 +91,14 @@ function installAuditApi(onList?: (url: URL) => void, onDetail?: () => void) {
     }
     if (url.pathname.endsWith('/audit-logs')) {
       onList?.(url);
+      const action = url.searchParams.get('action');
+      const items = action ? logs.filter((item) => item.action === action) : logs;
       return {
         body: {
-          items: [auditLog],
+          items,
           page: Number(url.searchParams.get('page') ?? 1),
           page_size: Number(url.searchParams.get('page_size') ?? 20),
-          total: 60,
+          total: action ? items.length : 60,
         } satisfies Schema<'AuditLogList'>,
       };
     }
@@ -121,6 +144,51 @@ test('恢复并规范化组合筛选 URL，全部筛选直接进入服务端分�
     expect(reset.has('created_from')).toBe(true);
     expect(reset.has('created_to')).toBe(true);
   });
+});
+
+test('动作筛选展示跨模块中文名称，以真实代码查询并保留未知历史动作', async () => {
+  const requests: URL[] = [];
+  window.history.pushState({}, '', '/audit?all_time=true&action=geo_observation.created');
+  installAuditApi((url) => requests.push(url), undefined, representativeAuditLogs);
+
+  render(<App />);
+  expect(await screen.findByRole('heading', { name: '审计日志' })).toBeInTheDocument();
+  expect(screen.getByLabelText('动作类型').closest('.ant-select')).toHaveTextContent('新增观测记录');
+  await waitFor(() => expect(requests.at(-1)?.searchParams.get('action')).toBe('geo_observation.created'));
+  const auditList = screen.getByRole('region', { name: '审计日志列表' });
+  expect(within(auditList).getByText('新增观测记录')).toBeInTheDocument();
+  expect(within(auditList).queryByText('创建发布登记')).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: '重置筛选' }));
+  await waitFor(() => expect(new URLSearchParams(window.location.search).has('action')).toBe(false));
+  await waitFor(() => expect(within(auditList).getByText('unknown.history_action')).toBeInTheDocument());
+
+  await userEvent.click(screen.getByLabelText('动作类型'));
+  const dropdown = await waitFor(() => {
+    const current = document.querySelector('.ant-select-dropdown:not(.ant-select-dropdown-hidden)');
+    expect(current).not.toBeNull();
+    return current as HTMLElement;
+  });
+  for (const label of [
+    '创建用户',
+    '创建平台配置',
+    '事实审核通过',
+    '创建内容生成作业',
+    '创建发布登记',
+    '新增观测记录',
+    '创建 AI 渠道',
+    '测试 AI 模型',
+  ]) {
+    expect(within(dropdown).getByText(label)).toBeInTheDocument();
+  }
+
+  await userEvent.click(within(dropdown).getByText('创建 AI 渠道'));
+  await waitFor(() => expect(requests.at(-1)?.searchParams.get('action')).toBe('ai_channel.created'));
+  await waitFor(() => expect(within(auditList).queryByText('unknown.history_action')).not.toBeInTheDocument());
+
+  await userEvent.click(screen.getByLabelText('动作类型'));
+  await userEvent.click(await screen.findByText('测试 AI 模型'));
+  await waitFor(() => expect(requests.at(-1)?.searchParams.get('action')).toBe('ai_model.tested'));
 });
 
 test('查看详情展示历史缺失值和真实关联入口，手动刷新同时请求列表与详情', async () => {

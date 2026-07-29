@@ -3,8 +3,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { App as AntApp } from 'antd';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { StrictMode, type ReactNode } from 'react';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { queryClient } from '../../app/queryClient';
 import { ThemeProvider } from '../../app/ThemeProvider';
@@ -59,6 +59,12 @@ const channelSummary = {
   api_key_configured: channel.api_key_configured, header_count: channel.headers.length, enabled_model_count: 1,
   latest_test_status: channel.latest_test_status, last_tested_at: channel.last_tested_at, revision: channel.revision,
 };
+const otherChannelSummary = {
+  ...channelSummary,
+  id: 'channel-2',
+  name: '备用模型渠道',
+  description: '仅用于非当前删除回归',
+};
 const model = {
   id: 'model-1', channel_id: channel.id, display_name: '内容生成模型', model_id: 'model-controlled', request_parameters: { temperature: 0.2 },
   is_enabled: true, test_status: 'PASSED', last_tested_at: '2026-07-13T09:00:00+08:00', last_test_error_summary: null,
@@ -89,6 +95,7 @@ const platforms = [
   { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, updated_at: channel.updated_at },
 ];
 const humanizationPrompt = { template_markdown: '保持事实，只改善表达。', revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
+let channelItems = [channelSummary];
 let platformItems = platforms;
 let promptItems = [platformPrompt, unusedPlatformPrompt];
 let generationJobs: Schema<'GenerationJob'>[] = [];
@@ -110,6 +117,11 @@ function renderWithQuery(ui: ReactNode, initialEntries: string[]) {
   return render(<ThemeProvider><AntApp><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter></QueryClientProvider></AntApp></ThemeProvider>);
 }
 
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}{location.search}</output>;
+}
+
 let dialogTitleSequence = 0;
 
 async function findRcDialog(name: string | RegExp) {
@@ -124,14 +136,33 @@ async function findRcDialog(name: string | RegExp) {
 
 beforeEach(() => {
   queryClient.clear();
+  channelItems = [channelSummary];
   platformItems = platforms;
   promptItems = [platformPrompt, unusedPlatformPrompt];
   generationJobs = [];
   Object.values(apiMocks).forEach((mock) => mock.mockReset());
   apiMocks.GET.mockImplementation((path: string, options?: { params?: { path?: Record<string, string> } }) => {
-    if (path === '/api/v1/ai-channels') return result({ items: [channelSummary], page: 1, page_size: 20, total: 1, counts: { all: 1, enabled: 1, disabled: 0 } });
-    if (path === '/api/v1/ai-channels/{channel_id}') return result(channel);
-    if (path === '/api/v1/ai-channels/{channel_id}/models') return result({ items: [model] });
+    if (path === '/api/v1/ai-channels') return result({
+      items: channelItems,
+      page: 1,
+      page_size: 20,
+      total: channelItems.length,
+      counts: {
+        all: channelItems.length,
+        enabled: channelItems.filter((item) => item.is_enabled).length,
+        disabled: channelItems.filter((item) => !item.is_enabled).length,
+      },
+    });
+    if (path === '/api/v1/ai-channels/{channel_id}') {
+      const item = channelItems.find((candidate) => candidate.id === options?.params?.path?.channel_id);
+      if (!item) return Promise.resolve({ error: { error: { code: 'NOT_FOUND', message: '渠道不存在' } }, response: new Response(null, { status: 404 }) });
+      return result(item.id === channel.id ? channel : { ...channel, ...item });
+    }
+    if (path === '/api/v1/ai-channels/{channel_id}/models') {
+      const item = channelItems.find((candidate) => candidate.id === options?.params?.path?.channel_id);
+      if (!item) return Promise.resolve({ error: { error: { code: 'NOT_FOUND', message: '渠道不存在' } }, response: new Response(null, { status: 404 }) });
+      return result({ items: item.id === channel.id ? [model] : [] });
+    }
     if (path === '/api/v1/ai-channels/{channel_id}/usage-summary') return result({ channel_id: channel.id, period: '30d', period_started_at: '2026-06-13T08:00:00+08:00', period_ended_at: '2026-07-13T08:00:00+08:00', total_jobs: 3, succeeded_jobs: 2, failed_jobs: 1, success_rate: 2 / 3, average_response_duration_ms: 1200, prompt_tokens: 20, completion_tokens: 10, total_tokens: 30, last_used_at: '2026-07-13T07:00:00+08:00' });
     if (path === '/api/v1/ai-channels/{channel_id}/audit-logs') return result({ items: [{ id: 'audit-1', actor_id: 'user-1', actor: { id: 'user-1', display_name: '系统管理员', account_type: 'ADMIN' }, business_module: 'CONFIGURATION', action: 'ai_model.tested', target_type: 'AIModel', target_id: model.id, outcome: 'SUCCESS', change_summary: { test_status: 'PASSED' }, request_id: 'request-1', created_at: channel.updated_at }], page: 1, page_size: 20, total: 1 });
     if (path === '/api/v1/users') return result({ items: [{ id: 'user-1', username: 'admin', display_name: '系统管理员', account_type: 'ADMIN', is_active: true, must_change_password: false, revision: 0, created_at: channel.created_at }], page: 1, page_size: 20, total: 1 });
@@ -205,6 +236,9 @@ beforeEach(() => {
     throw new Error(`未声明测试请求：${path}`);
   });
   apiMocks.DELETE.mockImplementation((path: string, options?: { params?: { path?: Record<string, string> } }) => {
+    if (path === '/api/v1/ai-channels/{channel_id}') {
+      channelItems = channelItems.filter((item) => item.id !== options?.params?.path?.channel_id);
+    }
     if (path === '/api/v1/platform-prompts/{platform_prompt_id}') {
       promptItems = promptItems.filter((item) => item.id !== options?.params?.path?.platform_prompt_id);
     }
@@ -491,10 +525,18 @@ test('全局自然化 Prompt 的真实读取错误仍进入失败反馈', async 
   expect(screen.queryByRole('textbox', { name: '自然化 Prompt Markdown' })).not.toBeInTheDocument();
 });
 
-test('未绑定 Prompt 可按 expected_revision 删除', async () => {
+test('Strict Mode 下删除当前 Prompt 后刷新列表且不重取已删除详情', async () => {
   const user = userEvent.setup();
-  renderWithQuery(<PlatformPromptsPage />, [`/configuration/prompts?tab=platform&platform_prompt_id=${unusedPlatformPrompt.id}`]);
+  renderWithQuery(
+    <StrictMode><><LocationProbe /><PlatformPromptsPage /></></StrictMode>,
+    [`/configuration/prompts?tab=platform&platform_prompt_id=${unusedPlatformPrompt.id}`],
+  );
   await screen.findByDisplayValue('待使用。');
+  const removedDetailGets = () => apiMocks.GET.mock.calls.filter(([path, options]) => (
+    path === '/api/v1/platform-prompts/{platform_prompt_id}'
+    && options?.params?.path?.platform_prompt_id === unusedPlatformPrompt.id
+  )).length;
+  const detailGetsBeforeDelete = removedDetailGets();
   const bindingSummary = screen.getByRole('region', { name: 'Prompt 使用平台' });
   expect(within(bindingSummary).getByText('暂未绑定')).toBeInTheDocument();
   expect(within(bindingSummary).getByText('可直接删除此 Prompt。')).toBeInTheDocument();
@@ -505,7 +547,45 @@ test('未绑定 Prompt 可按 expected_revision 删除', async () => {
     '/api/v1/platform-prompts/{platform_prompt_id}',
     expect.objectContaining({ params: expect.objectContaining({ path: { platform_prompt_id: unusedPlatformPrompt.id }, query: { expected_revision: 1 } }) }),
   ));
-  await waitFor(() => expect(screen.queryByText(unusedPlatformPrompt.name)).not.toBeInTheDocument());
+  await waitFor(() => {
+    expect(screen.queryByText(unusedPlatformPrompt.name)).not.toBeInTheDocument();
+    expect(screen.getByTestId('location')).toHaveTextContent(`platform_prompt_id=${platformPrompt.id}`);
+  });
+  expect(await screen.findByDisplayValue(platformPrompt.template_markdown)).toBeInTheDocument();
+  expect(apiMocks.DELETE).toHaveBeenCalledTimes(1);
+  expect(removedDetailGets()).toBe(detailGetsBeforeDelete);
+  expect(screen.queryByText('Prompt 不存在')).not.toBeInTheDocument();
+});
+
+test('Prompt 删除失败时保留当前选中项并显示原始错误', async () => {
+  const user = userEvent.setup();
+  apiMocks.DELETE.mockResolvedValueOnce({
+    error: { error: { code: 'PROMPT_IN_USE', message: 'Prompt 仍被平台引用' } },
+    response: new Response(null, { status: 409 }),
+  });
+  renderWithQuery(
+    <><LocationProbe /><PlatformPromptsPage /></>,
+    [`/configuration/prompts?tab=platform&platform_prompt_id=${unusedPlatformPrompt.id}`],
+  );
+  expect(await screen.findByDisplayValue(unusedPlatformPrompt.template_markdown)).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /删除 Prompt$/ }));
+  await user.click(screen.getAllByRole('button', { name: /删除 Prompt$/ }).at(-1)!);
+  expect(await screen.findAllByText('Prompt 仍被平台引用')).not.toHaveLength(0);
+  expect(screen.getByTestId('location')).toHaveTextContent(`platform_prompt_id=${unusedPlatformPrompt.id}`);
+  expect(screen.getByDisplayValue(unusedPlatformPrompt.template_markdown)).toBeInTheDocument();
+  expect(apiMocks.DELETE).toHaveBeenCalledTimes(1);
+});
+
+test('直接访问不存在的 Prompt 仍展示 NOT_FOUND', async () => {
+  renderWithQuery(
+    <PlatformPromptsPage />,
+    ['/configuration/prompts?tab=platform&platform_prompt_id=prompt-missing'],
+  );
+  expect(await screen.findByText('Prompt 不存在')).toBeInTheDocument();
+  expect(apiMocks.GET).toHaveBeenCalledWith(
+    '/api/v1/platform-prompts/{platform_prompt_id}',
+    expect.objectContaining({ params: { path: { platform_prompt_id: 'prompt-missing' } } }),
+  );
 });
 
 test('平台输出预览创建真实作业、读取草稿并安全渲染 Markdown', async () => {
@@ -574,6 +654,121 @@ test('渠道工作区从 URL 恢复服务端筛选分页并自动选择首条渠
   expect(channelTable.querySelector('.status-tag-compact')).not.toBeNull();
   expect(within(channelTable).getByRole('button', { name: '配置：受控模型渠道' })).toBeInTheDocument();
   expect(within(channelTable).queryByRole('link', { name: /受控模型渠道/ })).not.toBeInTheDocument();
+});
+
+test('Strict Mode 下从详情删除当前渠道只发一次 DELETE 且不重取详情', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(
+    <StrictMode><><LocationProbe /><Routes>
+      <Route path="/configuration/ai" element={<AIChannelsPage />}>
+        <Route path="channels/:channelId" element={<AIChannelDetailPage />} />
+      </Route>
+    </Routes></></StrictMode>,
+    ['/configuration/ai/channels/channel-1'],
+  );
+  await screen.findByRole('heading', { name: channel.name });
+  const detailGets = () => apiMocks.GET.mock.calls.filter(([path]) => path === '/api/v1/ai-channels/{channel_id}').length;
+  const modelGets = () => apiMocks.GET.mock.calls.filter(([path]) => path === '/api/v1/ai-channels/{channel_id}/models').length;
+  const detailGetsBeforeDelete = detailGets();
+  const modelGetsBeforeDelete = modelGets();
+  await user.click(screen.getByRole('button', { name: /删除渠道$/ }));
+  await screen.findByText('删除此 AI 渠道？');
+  await user.click(screen.getAllByRole('button', { name: /删除渠道$/ }).at(-1)!);
+  await waitFor(() => {
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/configuration\/ai$/);
+    expect(screen.queryByText(channel.name)).not.toBeInTheDocument();
+  });
+  expect(apiMocks.DELETE.mock.calls.filter(([path]) => path === '/api/v1/ai-channels/{channel_id}')).toHaveLength(1);
+  expect(detailGets()).toBe(detailGetsBeforeDelete);
+  expect(modelGets()).toBe(modelGetsBeforeDelete);
+  expect(apiMocks.GET.mock.calls.filter(([path]) => path === '/api/v1/ai-channels').length).toBeGreaterThan(1);
+});
+
+test('从列表删除当前渠道同样先退出详情且不重取已删除资源', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(
+    <><LocationProbe /><Routes>
+      <Route path="/configuration/ai" element={<AIChannelsPage />}>
+        <Route path="channels/:channelId" element={<AIChannelDetailPage />} />
+      </Route>
+    </Routes></>,
+    ['/configuration/ai/channels/channel-1'],
+  );
+  await screen.findByRole('heading', { name: channel.name });
+  const detailGetsBeforeDelete = apiMocks.GET.mock.calls.filter(([path]) => path === '/api/v1/ai-channels/{channel_id}').length;
+  await user.click(screen.getByRole('button', { name: `更多操作：${channel.name}` }));
+  await user.click(await screen.findByRole('menuitem', { name: '删除渠道' }));
+  const dialog = await findRcDialog(`删除渠道“${channel.name}”？`);
+  await user.click(within(dialog).getByRole('button', { name: '删除渠道' }));
+  await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent(/^\/configuration\/ai$/));
+  expect(apiMocks.DELETE.mock.calls.filter(([path]) => path === '/api/v1/ai-channels/{channel_id}')).toHaveLength(1);
+  expect(apiMocks.GET.mock.calls.filter(([path]) => path === '/api/v1/ai-channels/{channel_id}')).toHaveLength(detailGetsBeforeDelete);
+});
+
+test('删除非当前渠道不改变当前详情', async () => {
+  const user = userEvent.setup();
+  channelItems = [channelSummary, otherChannelSummary];
+  renderWithQuery(
+    <><LocationProbe /><Routes>
+      <Route path="/configuration/ai" element={<AIChannelsPage />}>
+        <Route path="channels/:channelId" element={<AIChannelDetailPage />} />
+      </Route>
+    </Routes></>,
+    ['/configuration/ai/channels/channel-1'],
+  );
+  await screen.findByText(otherChannelSummary.name);
+  const currentDetailGets = () => apiMocks.GET.mock.calls.filter(([path, options]) => (
+    path === '/api/v1/ai-channels/{channel_id}'
+    && options?.params?.path?.channel_id === channel.id
+  )).length;
+  const detailGetsBeforeDelete = currentDetailGets();
+  await user.click(screen.getByRole('button', { name: `更多操作：${otherChannelSummary.name}` }));
+  await user.click(await screen.findByRole('menuitem', { name: '删除渠道' }));
+  const dialog = await findRcDialog(`删除渠道“${otherChannelSummary.name}”？`);
+  await user.click(within(dialog).getByRole('button', { name: '删除渠道' }));
+  await waitFor(() => expect(screen.queryByText(otherChannelSummary.name)).not.toBeInTheDocument());
+  expect(screen.getByTestId('location')).toHaveTextContent('/configuration/ai/channels/channel-1');
+  expect(screen.getByRole('heading', { name: channel.name })).toBeInTheDocument();
+  expect(currentDetailGets()).toBe(detailGetsBeforeDelete);
+});
+
+test('渠道删除失败时保留详情路由并显示原始错误', async () => {
+  const user = userEvent.setup();
+  apiMocks.DELETE.mockResolvedValueOnce({
+    error: { error: { code: 'CHANNEL_IN_USE', message: '渠道仍有关联作业' } },
+    response: new Response(null, { status: 409 }),
+  });
+  renderWithQuery(
+    <><LocationProbe /><Routes>
+      <Route path="/configuration/ai" element={<AIChannelsPage />}>
+        <Route path="channels/:channelId" element={<AIChannelDetailPage />} />
+      </Route>
+    </Routes></>,
+    ['/configuration/ai/channels/channel-1'],
+  );
+  await screen.findByRole('heading', { name: channel.name });
+  await user.click(screen.getByRole('button', { name: /删除渠道$/ }));
+  await user.click(screen.getAllByRole('button', { name: /删除渠道$/ }).at(-1)!);
+  expect(await screen.findByText('渠道仍有关联作业')).toBeInTheDocument();
+  expect(screen.getByTestId('location')).toHaveTextContent('/configuration/ai/channels/channel-1');
+  expect(screen.getByRole('heading', { name: channel.name })).toBeInTheDocument();
+  expect(apiMocks.DELETE).toHaveBeenCalledTimes(1);
+});
+
+test('直接访问不存在的渠道仍展示 NOT_FOUND', async () => {
+  renderWithQuery(
+    <Routes>
+      <Route path="/configuration/ai" element={<AIChannelsPage />}>
+        <Route path="channels/:channelId" element={<AIChannelDetailPage />} />
+      </Route>
+    </Routes>,
+    ['/configuration/ai/channels/channel-missing'],
+  );
+  expect(await screen.findByText('渠道不存在')).toBeInTheDocument();
+  expect(apiMocks.GET).toHaveBeenCalledWith(
+    '/api/v1/ai-channels/{channel_id}',
+    expect.objectContaining({ params: { path: { channel_id: 'channel-missing' } } }),
+  );
 });
 
 test('新增渠道提交受控品牌与协议且 API Key 只存在于创建载荷', async () => {

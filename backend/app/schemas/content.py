@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import Field, HttpUrl, model_validator
 
@@ -13,6 +13,9 @@ from app.schemas.configuration import PlatformLogoOut
 from app.schemas.product_facts import Confidentiality, FactVersionOut
 
 GenerationJobStatus = Literal["PENDING", "RUNNING", "SUCCEEDED", "FAILED"]
+
+
+ContentTag = Annotated[str, Field(min_length=1, pattern=r"\S")]
 
 
 class ContentTaskCreate(ContractModel):
@@ -277,7 +280,7 @@ class ContentRevisionCreate(ContractModel):
     title: str = Field(min_length=1)
     summary: str = Field(min_length=1)
     body_markdown: str = Field(min_length=1)
-    tags: list[str]
+    tags: list[ContentTag] = Field(min_length=1)
     change_summary: str = Field(min_length=1)
 
 

@@ -273,21 +273,33 @@ export function PlatformPromptsPage() {
   });
   const removePrompt = useMutation({
     mutationFn: async () => {
-      if (!prompt.data) throw new Error('当前 Prompt 未加载');
+      const currentPrompt = prompt.data;
+      if (!currentPrompt) throw new Error('当前 Prompt 未加载');
       ensureSuccess(await api.DELETE('/api/v1/platform-prompts/{platform_prompt_id}', {
         params: {
-          path: { platform_prompt_id: prompt.data.id },
-          query: { expected_revision: prompt.data.revision },
+          path: { platform_prompt_id: currentPrompt.id },
+          query: { expected_revision: currentPrompt.revision },
           header: csrfHeader(),
         },
       }));
+      return currentPrompt.id;
     },
-    onSuccess: async () => {
-      const removedId = prompt.data?.id;
-      if (removedId) queryClient.removeQueries({ queryKey: queryKeys.platformPrompts.detail(removedId) });
+    onSuccess: async (removedId) => {
+      queryClient.setQueryData<Schema<'PlatformPromptList'>>(
+        queryKeys.platformPrompts.all,
+        (current) => current
+          ? { ...current, items: current.items.filter((item) => item.id !== removedId) }
+          : current,
+      );
       setStoredEditor(emptyEditor);
-      setView({ platform_prompt_id: undefined });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.platformPrompts.all });
+      setView({ platform_prompt_id: undefined }, true);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.platformPrompts.detail(removedId),
+          refetchType: 'none',
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.platformPrompts.all }),
+      ]);
       message.success('未绑定的 Prompt 已删除');
     },
   });

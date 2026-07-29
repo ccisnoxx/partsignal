@@ -18,4 +18,13 @@ Object.defineProperty(window, 'matchMedia', {
 });
 Object.defineProperty(globalThis, 'ResizeObserver', { value: ResizeObserverStub });
 
+const jsdomGetComputedStyle = window.getComputedStyle.bind(window);
+Object.defineProperty(window, 'getComputedStyle', {
+  writable: true,
+  value: (element: Element, pseudoElement?: string | null) => (
+    // rc-component 查询滚动条伪元素时，jsdom 会告警后返回宿主元素样式；这里直接执行同一回退。
+    jsdomGetComputedStyle(element, pseudoElement === '::-webkit-scrollbar' ? undefined : pseudoElement)
+  ),
+});
+
 afterEach(() => { vi.restoreAllMocks(); queryClient.clear(); });

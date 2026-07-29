@@ -33,6 +33,20 @@ Questions to answer:
 - 任务详情并列展示“系统 AI 生成”和“手动录入”入口。人工入口直接提交 Markdown 首稿，不要求 Prompt 或模型，也不得伪造 AI 作业来源。
 - Prompt 管理维护可复用模板库，平台配置只选择零或一份当前 Prompt；平台规则版本页面、旧平台所属 Prompt 路由、查询键与兼容提示均不得恢复。被平台绑定的 Prompt 不显示删除入口，提交竞态仍由服务端冲突兜底。
 
+### GEO 更正表单边界
+
+- GEO 更正表单以待更正详情响应作为全部业务字段和逐篇事实的唯一初值来源，不得再用当前文章候选列表重建或覆盖原结论。
+- 补采前 `discovered/mentioned = null` 表示历史未采集，必须保留未知并要求用户显式选择，不能用未勾选或 `false` 代替。
+- 历史证据只做聚合展示；更正请求只提交本次新增证据。当前文章集合与链尾仍由服务端事务校验，前端不补造缺失事实。
+
+```tsx
+const articleRows = correctionRecord
+  ? correctionRecord.article_results
+  : publications.data?.items ?? [];
+```
+
+回归测试至少断言：详情值正确预填；只改一个逐篇字段时其余载荷保持原值；`null` 未确认时不发请求；POST 携带原记录 `supersedes_id` 且不复制历史附件。服务端返回 `GEO_PUBLICATIONS_CHANGED` 或非链尾冲突时直接展示错误，不从候选列表补造默认结论。
+
 ---
 
 ## Props Conventions

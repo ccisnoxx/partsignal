@@ -1,0 +1,9 @@
+[109712655ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:5173/@vite/client:864
+[109791254ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://127.0.0.1:5173/node_modules/.vite/deps/chunk-56DZC4J5.js?v=98454aa7:20102
+[109792138ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:5173/?token=VSJL0AB4UDke' failed: Error during WebSocket handshake: net::ERR_CONNECTION_RESET @ http://127.0.0.1:5173/@vite/client:744
+[109792689ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:5173/?token=VSJL0AB4UDke' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:5173/@vite/client:754
+[109792690ms] [ERROR] [vite] failed to connect to websocket.
+your current setup:
+  (browser) 127.0.0.1:5173/ <--[HTTP]--> 127.0.0.1:5173/ (server)
+  (browser) 127.0.0.1:5173/ <--[WebSocket (failing)]--> 127.0.0.1:5173/ (server)
+Check out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr . @ http://127.0.0.1:5173/@vite/client:764

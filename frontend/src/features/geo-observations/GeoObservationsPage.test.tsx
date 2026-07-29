@@ -8,6 +8,7 @@ import { mockFetch } from '../../test/fetchMock';
 const productId = '20000000-0000-4000-8000-000000000001';
 const topicId = '21000000-0000-4000-8000-000000000001';
 const publicationId = '30000000-0000-4000-8000-000000000001';
+const secondPublicationId = '30000000-0000-4000-8000-000000000002';
 const evidenceFileId = '50000000-0000-4000-8000-000000000001';
 
 vi.mock('../../shared/components/DirectUpload', () => ({
@@ -83,6 +84,24 @@ const historicalManualRecord = {
     mentioned: null,
     accuracy: null,
   })),
+} satisfies Schema<'ManualGeoObservation'>;
+
+const correctionRecord = {
+  ...manualRecord,
+  id: '40000000-0000-4000-8000-000000000003',
+  attachment_file_ids: [],
+  article_results: [
+    ...manualRecord.article_results,
+    {
+      publication_record_id: secondPublicationId,
+      discovered: false,
+      mentioned: true,
+      accuracy: 'PARTIAL',
+      title: 'PS-001 进阶文章',
+      platform_name: '工程师社区',
+      final_url: 'https://community.example.invalid/ps-001-advanced',
+    },
+  ],
 } satisfies Schema<'ManualGeoObservation'>;
 
 const topic = {
@@ -260,6 +279,69 @@ test('服务端允许时经二次确认删除人工观测完整更正链', async
   expect(await screen.findByText('当前筛选范围暂无观测记录')).toBeInTheDocument();
 });
 
+test('更正完整预填原观测且只修改一个逐篇字段', async () => {
+  window.history.pushState({}, '', `/observations/${correctionRecord.id}/correct`);
+  let correctionRequest: Request | undefined;
+  mockFetch((request) => {
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/auth/me')) return { body: user };
+    if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
+    if (url.pathname.endsWith('/geo-metrics')) return { body: metrics };
+    if (url.pathname === `/api/v1/geo-observations/${correctionRecord.id}`) return { body: correctionRecord };
+    if (url.pathname.endsWith('/geo-observations') && request.method === 'POST') {
+      correctionRequest = request;
+      return { status: 422, body: { error: { code: 'VALIDATION_ERROR', message: '测试保留更正表单', request_id: 'geo-correction-failed' } } };
+    }
+    if (url.pathname.endsWith('/geo-observations')) return { body: { items: [correctionRecord], page: 1, page_size: 20, total: 1 } satisfies Schema<'GeoObservationList'> };
+    if (url.pathname.endsWith('/query-topics')) return { body: { items: [topic] } satisfies Schema<'QueryTopicList'> };
+    if (url.pathname.endsWith('/products')) return { body: { items: [], page: 1, page_size: 100, total: 0 } satisfies Schema<'ProductList'> };
+    throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
+  });
+
+  render(<App />);
+  const dialog = await screen.findByRole('dialog');
+  const form = within(dialog);
+  expect(form.getByRole('checkbox', { name: '是否发现：PS-001 选型文章' })).toBeChecked();
+  expect(form.getByRole('checkbox', { name: '是否提及：PS-001 选型文章' })).toBeChecked();
+  expect(form.getByRole('checkbox', { name: '是否发现：PS-001 进阶文章' })).not.toBeChecked();
+  expect(form.getByRole('checkbox', { name: '是否提及：PS-001 进阶文章' })).toBeChecked();
+  expect(form.getByRole('textbox', { name: '实际搜索词' })).toHaveValue(correctionRecord.search_query);
+  expect(form.getByRole('textbox', { name: '人工备注' })).toHaveValue(correctionRecord.notes);
+  const testedAt = form.getByLabelText('观测时间') as HTMLInputElement;
+  expect(new Date(testedAt.value).getTime()).toBe(new Date(correctionRecord.tested_at).getTime());
+
+  const discoveredCheckbox = form.getByRole('checkbox', { name: '是否发现：PS-001 选型文章' });
+  await waitFor(() => expect(discoveredCheckbox).toBeEnabled());
+  await userEvent.click(discoveredCheckbox.closest('label')!);
+  expect(form.getByRole('checkbox', { name: '是否发现：PS-001 选型文章' })).not.toBeChecked();
+  await userEvent.click(form.getByRole('button', { name: /追加更正记录/ }));
+  await waitFor(() => expect(correctionRequest).toBeInstanceOf(Request));
+  await expect(correctionRequest!.clone().json()).resolves.toMatchObject({
+    product_id: correctionRecord.product_id,
+    query_topic_id: correctionRecord.query_topic_id,
+    search_platform: correctionRecord.search_platform,
+    search_query: correctionRecord.search_query,
+    tested_at: new Date(correctionRecord.tested_at).toISOString(),
+    notes: correctionRecord.notes,
+    supersedes_id: correctionRecord.id,
+    attachment_file_ids: [],
+    article_results: [
+      {
+        publication_record_id: publicationId,
+        discovered: false,
+        mentioned: true,
+        accuracy: 'ACCURATE',
+      },
+      {
+        publication_record_id: secondPublicationId,
+        discovered: false,
+        mentioned: true,
+        accuracy: 'PARTIAL',
+      },
+    ],
+  });
+});
+
 test('补采前历史追加更正允许选择真实问题主题', async () => {
   window.history.pushState({}, '', `/observations/${historicalManualRecord.id}/correct`);
   let correctionRequest: Request | undefined;
@@ -276,7 +358,6 @@ test('补采前历史追加更正允许选择真实问题主题', async () => {
     if (url.pathname.endsWith('/geo-observations')) return { body: { items: [historicalManualRecord], page: 1, page_size: 20, total: 1 } satisfies Schema<'GeoObservationList'> };
     if (url.pathname.endsWith('/query-topics')) return { body: { items: [topic] } satisfies Schema<'QueryTopicList'> };
     if (url.pathname.endsWith('/products')) return { body: { items: [], page: 1, page_size: 100, total: 0 } satisfies Schema<'ProductList'> };
-    if (url.pathname.endsWith('/geo-observation-publications')) return { body: { items: [{ publication_record_id: publicationId, title: 'PS-001 选型文章', platform_name: '工程师社区', final_url: 'https://community.example.invalid/ps-001', status: 'VERIFIED' }] } satisfies Schema<'GeoPublicationCandidateList'> };
     if (url.pathname === `/api/v1/files/${evidenceFileId}`) return { body: {
       id: evidenceFileId, category: 'OPERATION_SCREENSHOT', original_filename: 'geo-evidence.png',
       object_key: 'test/geo-evidence.png', content_type: 'image/png', size: 12, sha256: 'a'.repeat(64),
@@ -295,6 +376,22 @@ test('补采前历史追加更正允许选择真实问题主题', async () => {
   expect(await within(dialog).findByText('已有证据截图（1）')).toBeInTheDocument();
   await waitFor(() => expect(dialog.querySelector('img[alt="geo-evidence.png"]')).toBeInTheDocument());
   fireEvent.click(within(dialog).getByRole('button', { name: /追加更正记录/ }));
+  expect(await within(dialog).findByText('请选择是否发现')).toBeInTheDocument();
+  expect(within(dialog).getByText('请选择是否提及')).toBeInTheDocument();
+  expect(correctionRequest).toBeUndefined();
+  await choose('是否发现：PS-001 选型文章', '否');
+  await waitFor(() => {
+    expect(within(dialog).getByRole('combobox', { name: '是否发现：PS-001 选型文章' }).parentElement)
+      .toHaveAttribute('title', '否');
+  });
+  await choose('是否提及：PS-001 选型文章', '否');
+  await waitFor(() => {
+    expect(within(dialog).getByRole('combobox', { name: '是否发现：PS-001 选型文章' }).parentElement)
+      .toHaveAttribute('title', '否');
+    expect(within(dialog).getByRole('combobox', { name: '是否提及：PS-001 选型文章' }).parentElement)
+      .toHaveAttribute('title', '否');
+  });
+  await userEvent.click(within(dialog).getByRole('button', { name: /追加更正记录/ }));
   await waitFor(() => expect(correctionRequest).toBeInstanceOf(Request));
   await expect(correctionRequest!.clone().json()).resolves.toMatchObject({
     supersedes_id: historicalManualRecord.id,

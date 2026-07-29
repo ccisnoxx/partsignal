@@ -305,6 +305,11 @@ export function AuditLogPage() {
     ...(view.actorId && !selectedActorInOptions ? [{ value: view.actorId, label: view.actorId }] : []),
     ...(actors.data?.items.map((actor) => ({ value: actor.id, label: actor.display_name })) ?? []),
   ];
+  const selectedActionInOptions = filterOptions.data?.actions.includes(view.action ?? '');
+  const actionOptions = [
+    ...(view.action && !selectedActionInOptions ? [{ value: view.action, label: actionLabel(view.action) }] : []),
+    ...(filterOptions.data?.actions.map((value) => ({ value, label: actionLabel(value) })) ?? []),
+  ];
   const desktopDetail = !!screens.xl;
   const refresh = async () => {
     await Promise.all([
@@ -387,7 +392,7 @@ export function AuditLogPage() {
               loading={filterOptions.isLoading}
               placeholder="全部动作"
               value={view.action}
-              options={filterOptions.data?.actions.map((value) => ({ value, label: actionLabel(value) }))}
+              options={actionOptions}
               onChange={(action) => setView({ action, page: 1 })}
             />
           </label>

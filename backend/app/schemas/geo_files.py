@@ -16,7 +16,7 @@ from pydantic import (
 )
 
 from app.schemas.base import ContractModel, require_unique_items
-from app.schemas.content import ActorSummary
+from app.schemas.content import ActorSummary, ContentTag
 from app.schemas.product_facts import Confidentiality
 from app.schemas.publication import FileRecordOut
 
@@ -392,15 +392,13 @@ class GeneratedDraft(ContractModel):
     title: str = Field(min_length=1)
     summary: str = Field(min_length=1)
     body_markdown: str = Field(min_length=1)
-    tags: list[Annotated[str, Field(min_length=1)]] = Field(min_length=1)
+    tags: list[ContentTag] = Field(min_length=1)
 
     @model_validator(mode="after")
     def reject_blank_output(self) -> GeneratedDraft:
-        """拒绝仅由空白组成的正文或标签，不替模型修复内容。"""
+        """拒绝仅由空白组成的正文，不替模型修复内容。"""
         if not self.title.strip() or not self.summary.strip() or not self.body_markdown.strip():
             raise ValueError("模型输出字段不能为空白")
-        if any(not item.strip() for item in self.tags):
-            raise ValueError("模型输出标签不能为空白")
         return self
 
 

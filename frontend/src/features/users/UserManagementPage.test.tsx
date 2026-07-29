@@ -1,6 +1,7 @@
 /** 验证用户管理只消费服务端统计、筛选分页和命令结果。 */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
 import { App } from '../../app/App';
 import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
@@ -248,4 +249,65 @@ test('重置临时密码只在八位边界提交，七位留在表单校验', as
   await userEvent.click(within(dialog).getByRole('button', { name: '重置临时密码' }));
   await waitFor(() => expect(submittedBody).toBeDefined());
   expect(await submittedBody).toEqual({ temporary_password: '12345678' });
+});
+
+test('按文本解析中文 CSV，触发下载并释放对象 URL', async () => {
+  const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:users');
+  const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+  window.history.pushState({}, '', '/users');
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const request = input instanceof Request ? input : new Request(input);
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/auth/me')) return Response.json(admin);
+    if (url.pathname.endsWith('/auth/csrf')) return Response.json({ csrf_token: 'x'.repeat(32) });
+    if (url.pathname.endsWith('/users/export')) {
+      return new Response('\ufeff用户名,显示名称\r\nadmin,系统管理员\r\n', {
+        headers: {
+          'Content-Type': 'text/csv; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="users-20260729.csv"',
+        },
+      });
+    }
+    if (url.pathname.endsWith('/users')) return Response.json(userList([admin], url.searchParams));
+    throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
+  });
+
+  render(<App />);
+  expect(await screen.findByText('admin')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '导出列表' }));
+
+  await waitFor(() => expect(click).toHaveBeenCalledTimes(1));
+  expect(createObjectURL).toHaveBeenCalledTimes(1);
+  expect(click.mock.instances[0]).toMatchObject({ download: 'users-20260729.csv', href: 'blob:users' });
+  expect(revokeObjectURL).toHaveBeenCalledWith('blob:users');
+});
+
+test('导出 JSON 错误沿用现有错误展示且不创建下载', async () => {
+  const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:users');
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+  window.history.pushState({}, '', '/users');
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const request = input instanceof Request ? input : new Request(input);
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/auth/me')) return Response.json(admin);
+    if (url.pathname.endsWith('/auth/csrf')) return Response.json({ csrf_token: 'x'.repeat(32) });
+    if (url.pathname.endsWith('/users/export')) {
+      return Response.json(
+        { error: { code: 'EXPORT_FORBIDDEN', message: '无权导出用户', details: {}, request_id: 'export-test' } },
+        { status: 403 },
+      );
+    }
+    if (url.pathname.endsWith('/users')) return Response.json(userList([admin], url.searchParams));
+    throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
+  });
+
+  render(<App />);
+  expect(await screen.findByText('admin')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '导出列表' }));
+
+  expect(await screen.findByText('无权导出用户')).toBeInTheDocument();
+  expect(screen.getByText(/EXPORT_FORBIDDEN/)).toBeInTheDocument();
+  expect(createObjectURL).not.toHaveBeenCalled();
+  expect(click).not.toHaveBeenCalled();
 });

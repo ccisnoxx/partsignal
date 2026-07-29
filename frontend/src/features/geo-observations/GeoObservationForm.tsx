@@ -19,8 +19,17 @@ import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { EvidenceFile } from './GeoObservationDrawer';
 
-type ObservationFormValues = Omit<Schema<'GeoObservationCreate'>, 'attachment_file_ids' | 'tested_at'> & {
+type ObservationArticleResult = Omit<Schema<'GeoArticleResultCreate'>, 'discovered' | 'mentioned'> & {
+  discovered: boolean | null;
+  mentioned: boolean | null;
+};
+
+type ObservationFormValues = Omit<
+  Schema<'GeoObservationCreate'>,
+  'article_results' | 'attachment_file_ids' | 'tested_at'
+> & {
   tested_at: string;
+  article_results: ObservationArticleResult[];
 };
 
 const accuracyOptions: Array<{
@@ -59,8 +68,11 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
   const topics = useQuery({ ...queryTopicsQueryOptions(), enabled: open });
   const publications = useQuery({
     ...geoPublicationCandidatesQueryOptions(productId),
-    enabled: open && !!productId && (!correctionId || !!correctionRecord),
+    enabled: open && !!productId && !correctionId,
   });
+  const articleRows: Array<Schema<'GeoPublicationCandidate'> | Schema<'GeoArticleResult'>> = correctionRecord
+    ? correctionRecord.article_results
+    : publications.data?.items ?? [];
 
   useEffect(() => {
     if (!open) return;
@@ -70,9 +82,14 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
         query_topic_id: correctionRecord.query_topic_id ?? undefined,
         search_platform: correctionRecord.search_platform,
         search_query: correctionRecord.search_query,
-        tested_at: localDateTime(new Date()),
-        article_results: [],
-        notes: '',
+        tested_at: localDateTime(new Date(correctionRecord.tested_at)),
+        article_results: correctionRecord.article_results.map((item) => ({
+          publication_record_id: item.publication_record_id,
+          discovered: item.discovered,
+          mentioned: item.mentioned,
+          accuracy: item.accuracy,
+        })),
+        notes: correctionRecord.notes,
         supersedes_id: correctionRecord.id,
       });
     } else if (!correctionId) {
@@ -82,11 +99,8 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
   }, [correctionId, correctionRecord, form, open]);
 
   useEffect(() => {
-    if (!publications.data?.items.length) return;
-    // 更正必须重新确认当前全部文章，不沿用旧记录结论。
-    const priorResults: Schema<'GeoArticleResultCreate'>[] = correctionRecord
-      ? []
-      : form.getFieldValue('article_results') ?? [];
+    if (correctionId || !publications.data?.items.length) return;
+    const priorResults: ObservationArticleResult[] = form.getFieldValue('article_results') ?? [];
     const priorByPublication = new Map(priorResults.map((item) => [item.publication_record_id, item]));
     form.setFieldValue('article_results', publications.data.items.map((item) => ({
       publication_record_id: item.publication_record_id,
@@ -94,7 +108,7 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
       mentioned: priorByPublication.get(item.publication_record_id)?.mentioned ?? false,
       accuracy: priorByPublication.get(item.publication_record_id)?.accuracy ?? null,
     })));
-  }, [correctionRecord, form, publications.data]);
+  }, [correctionId, form, publications.data]);
 
   const close = () => {
     form.resetFields();
@@ -103,15 +117,28 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
     onClose();
   };
   const create = useMutation({
-    mutationFn: async (values: ObservationFormValues) => unwrap(await api.POST('/api/v1/geo-observations', {
-      params: { header: csrfHeader() },
-      body: {
-        ...values,
-        tested_at: new Date(values.tested_at).toISOString(),
-        attachment_file_ids: attachments.map((item) => item.id),
-        supersedes_id: correctionRecord?.id,
-      },
-    })),
+    mutationFn: async (values: ObservationFormValues) => {
+      const articleResults = values.article_results.map((item) => {
+        if (item.discovered === null || item.mentioned === null) {
+          throw new Error('请先明确所有历史未采集的发现和提及结果');
+        }
+        return {
+          ...item,
+          discovered: item.discovered,
+          mentioned: item.mentioned,
+        };
+      });
+      return unwrap(await api.POST('/api/v1/geo-observations', {
+        params: { header: csrfHeader() },
+        body: {
+          ...values,
+          tested_at: new Date(values.tested_at).toISOString(),
+          article_results: articleResults,
+          attachment_file_ids: attachments.map((item) => item.id),
+          supersedes_id: correctionRecord?.id,
+        },
+      }));
+    },
     onSuccess: async (observation) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.geo.all }),
@@ -123,7 +150,8 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
   });
   const missingProducts = !correctionId && !products.isLoading && !products.data?.items.length;
   const missingTopics = !topics.isLoading && !topics.error && !topics.data?.items.length;
-  const missingPublications = !!productId && !publications.isLoading && !publications.error && !publications.data?.items.length;
+  const missingPublications = !correctionId && !!productId && !publications.isLoading
+    && !publications.error && !publications.data?.items.length;
   const correctionError = correctionId && !correction.isLoading && (
     correction.error
     ?? (!correctionRecord ? new Error('仅当前人工观测记录可以更正') : null)
@@ -155,7 +183,8 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
         form={form}
         layout="vertical"
         className="observation-form"
-        disabled={products.isLoading || topics.isLoading || !!products.error || !!topics.error || !!correctionError || correction.isLoading}
+        disabled={(!correctionId && (products.isLoading || !!products.error))
+          || topics.isLoading || !!topics.error || !!correctionError || correction.isLoading}
         scrollToFirstError
         onFinish={(values) => create.mutate(values)}
       >
@@ -195,17 +224,17 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
           className="form-alert"
           type="info"
           showIcon
-          title="发现、提及和准确性是相互独立的事实；未勾选表示明确的“否”，准确性可以不判断。"
+          title="发现、提及和准确性是相互独立的事实；新观测未勾选表示明确的“否”，历史未采集值必须明确选择，准确性可以不判断。"
         />
         {!productId && <Alert className="form-alert" type="info" showIcon title="请先选择产品，再逐篇核对搜索结果。" />}
-        {publications.isLoading && <QueryLoading label="正在加载产品文章" />}
-        {publications.error && <QueryFailure error={publications.error} onRetry={() => { void publications.refetch(); }} />}
+        {!correctionId && publications.isLoading && <QueryLoading label="正在加载产品文章" />}
+        {!correctionId && publications.error && <QueryFailure error={publications.error} onRetry={() => { void publications.refetch(); }} />}
         {missingPublications && <Alert className="form-alert" type="warning" showIcon title="该产品暂无具有公开链接的已发布文章，请先完成发布登记。" />}
-        {!!publications.data?.items.length && (
+        {!!articleRows.length && (
           <TableRegion label="产品文章观测结果">
-            <Table<Schema<'GeoPublicationCandidate'>>
+            <Table<Schema<'GeoPublicationCandidate'> | Schema<'GeoArticleResult'>>
               rowKey="publication_record_id"
-              dataSource={publications.data.items}
+              dataSource={articleRows}
               pagination={false}
               scroll={{ x: 760 }}
               columns={[
@@ -215,20 +244,56 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
                 {
                   title: '发现', width: 100, render: (_, item, index) => <>
                     <Form.Item name={['article_results', index, 'publication_record_id']} hidden><Input /></Form.Item>
-                    <Form.Item name={['article_results', index, 'discovered']} valuePropName="checked" style={{ margin: 0 }}>
-                      <Checkbox
-                        aria-label={`是否发现：${item.title}`}
-                      >已发现</Checkbox>
-                    </Form.Item>
+                    {correctionRecord?.article_results[index]?.discovered === null ? (
+                      <Form.Item
+                        name={['article_results', index, 'discovered']}
+                        rules={[{
+                          validator: (_, value) => typeof value === 'boolean'
+                            ? Promise.resolve()
+                            : Promise.reject(new Error('请选择是否发现')),
+                        }]}
+                        style={{ margin: 0 }}
+                      >
+                        <Select
+                          aria-label={`是否发现：${item.title}`}
+                          placeholder="历史未采集"
+                          options={[{ label: '是', value: true }, { label: '否', value: false }]}
+                        />
+                      </Form.Item>
+                    ) : (
+                      <Form.Item name={['article_results', index, 'discovered']} valuePropName="checked" style={{ margin: 0 }}>
+                        <Checkbox
+                          aria-label={`是否发现：${item.title}`}
+                        >已发现</Checkbox>
+                      </Form.Item>
+                    )}
                   </>,
                 },
                 {
                   title: '提及', width: 100, render: (_, item, index) => (
-                    <Form.Item name={['article_results', index, 'mentioned']} valuePropName="checked" style={{ margin: 0 }}>
-                      <Checkbox
-                        aria-label={`是否提及：${item.title}`}
-                      >已提及</Checkbox>
-                    </Form.Item>
+                    correctionRecord?.article_results[index]?.mentioned === null ? (
+                      <Form.Item
+                        name={['article_results', index, 'mentioned']}
+                        rules={[{
+                          validator: (_, value) => typeof value === 'boolean'
+                            ? Promise.resolve()
+                            : Promise.reject(new Error('请选择是否提及')),
+                        }]}
+                        style={{ margin: 0 }}
+                      >
+                        <Select
+                          aria-label={`是否提及：${item.title}`}
+                          placeholder="历史未采集"
+                          options={[{ label: '是', value: true }, { label: '否', value: false }]}
+                        />
+                      </Form.Item>
+                    ) : (
+                      <Form.Item name={['article_results', index, 'mentioned']} valuePropName="checked" style={{ margin: 0 }}>
+                        <Checkbox
+                          aria-label={`是否提及：${item.title}`}
+                        >已提及</Checkbox>
+                      </Form.Item>
+                    )
                   ),
                 },
                 {
@@ -267,7 +332,7 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
           icon={<PlusOutlined />}
           htmlType="submit"
           loading={create.isPending}
-          disabled={missingProducts || missingTopics || missingPublications || !publications.data?.items.length}
+          disabled={missingProducts || missingTopics || missingPublications || !articleRows.length}
         >
           {correctionId ? '追加更正记录' : '追加观测记录'}
         </Button>

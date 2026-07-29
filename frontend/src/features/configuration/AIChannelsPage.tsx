@@ -218,9 +218,24 @@ export function AIChannelsPage() {
     )),
     onSuccess: async (_, channel) => {
       message.success('渠道已删除');
-      queryClient.removeQueries({ queryKey: queryKeys.aiChannels.detail(channel.id) });
+      queryClient.setQueriesData<Schema<'AIChannelList'>>(
+        { queryKey: queryKeys.aiChannels.all },
+        (current) => current
+          ? { ...current, items: current.items.filter((item) => item.id !== channel.id) }
+          : current,
+      );
       if (channelId === channel.id) navigate({ pathname: '/configuration/ai', search: searchParams.toString() }, { replace: true });
-      await invalidateChannels();
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.aiChannels.detail(channel.id),
+          refetchType: 'none',
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.aiChannels.models(channel.id),
+          refetchType: 'none',
+        }),
+        invalidateChannels(),
+      ]);
     },
   });
   const testModels = useQuery({

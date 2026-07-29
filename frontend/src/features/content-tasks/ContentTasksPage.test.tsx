@@ -8,24 +8,47 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { queryClient } from '../../app/queryClient';
 import { ThemeProvider } from '../../app/ThemeProvider';
+import { CONTENT_TAG_ERROR, hasValidContentTags } from '../../shared/contentValidation';
 import { ContentTasksPage } from './ContentTasksPage';
 
 const apiMocks = vi.hoisted(() => ({ GET: vi.fn(), PATCH: vi.fn(), POST: vi.fn(), DELETE: vi.fn() }));
 
-vi.mock('../../shared/api/client', () => ({
-  ApiError: class ApiError extends Error {},
-  api: apiMocks,
-  csrfHeader: () => ({ 'X-CSRF-Token': 'test' }),
-  ensureSuccess: (result: { error?: { error?: { message?: string } }; response: Response }) => {
-    if (!result.response.ok) throw new Error(result.error?.error?.message ?? `请求失败（HTTP ${result.response.status}）`);
-  },
-  errorMessage: (error: unknown) => error instanceof Error ? error.message : '请求失败',
-  newIdempotencyKey: () => 'idempotency-test',
-  unwrap: <T,>(result: { data?: T; response: Response }) => {
-    if (result.data !== undefined) return result.data;
-    throw new Error(`请求失败（HTTP ${result.response.status}）`);
-  },
-}));
+vi.mock('../../shared/api/client', () => {
+  class MockApiError extends Error {
+    constructor(
+      message: string,
+      readonly code = 'HTTP_ERROR',
+      readonly requestId?: string,
+      readonly details: Record<string, unknown> = {},
+    ) {
+      super(message);
+    }
+  }
+  return {
+    ApiError: MockApiError,
+    api: apiMocks,
+    csrfHeader: () => ({ 'X-CSRF-Token': 'test' }),
+    ensureSuccess: (result: { error?: { error?: { message?: string } }; response: Response }) => {
+      if (!result.response.ok) throw new Error(result.error?.error?.message ?? `请求失败（HTTP ${result.response.status}）`);
+    },
+    errorMessage: (error: unknown) => error instanceof Error ? error.message : '请求失败',
+    newIdempotencyKey: () => 'idempotency-test',
+    unwrap: <T,>(result: {
+      data?: T;
+      error?: { error?: { message?: string; code?: string; request_id?: string; details?: Record<string, unknown> } };
+      response: Response;
+    }) => {
+      if (result.data !== undefined) return result.data;
+      const detail = result.error?.error;
+      throw new MockApiError(
+        detail?.message ?? `请求失败（HTTP ${result.response.status}）`,
+        detail?.code,
+        detail?.request_id,
+        detail?.details,
+      );
+    },
+  };
+});
 
 const taskId = 'task-1';
 const task = {
@@ -159,6 +182,96 @@ test('AI 生成弹窗确认当前 Prompt 与模型后创建作业', async () => 
       },
     }),
   ));
+});
+
+test('人工首稿标签在提交前校验并保留有效 payload', async () => {
+  const user = userEvent.setup();
+  const created = {
+    id: 'version-manual', task_id: taskId, fact_version_id: task.fact_version_id,
+    source_job_id: null, based_on_id: null, version: 1, source_type: 'HUMAN',
+    title: '人工首稿', summary: '人工摘要', body_markdown: '# 人工正文', tags: ['人工'],
+    content_hash: 'b'.repeat(64), status: 'DRAFT', revision: 0, quality_issues: [],
+    created_by: 'user-1', created_at: task.created_at,
+  };
+  apiMocks.POST.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}/manual-versions') return result(created, 201);
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
+
+  await user.click(await screen.findByRole('button', { name: '录入首个人工草稿' }));
+  const dialog = await screen.findByRole('dialog', { name: '录入首个人工草稿' });
+  await user.type(within(dialog).getByRole('textbox', { name: '标题' }), '人工首稿');
+  await user.type(within(dialog).getByRole('textbox', { name: '摘要' }), '人工摘要');
+  await user.type(within(dialog).getByRole('textbox', { name: 'Markdown 正文' }), '# 人工正文');
+  await user.type(within(dialog).getByRole('textbox', { name: '变更说明' }), '人工校对');
+  const tags = within(dialog).getByRole('combobox', { name: '标签' });
+  expect(tags).toHaveAttribute('aria-required', 'true');
+
+  await user.click(within(dialog).getByRole('button', { name: '创建人工首稿' }));
+  expect(await within(dialog).findByText(CONTENT_TAG_ERROR)).toBeInTheDocument();
+  expect(tags).toHaveAttribute('aria-invalid', 'true');
+  const describedBy = tags.getAttribute('aria-describedby');
+  expect(describedBy).toBeTruthy();
+  expect(document.getElementById(describedBy!)).toHaveTextContent(CONTENT_TAG_ERROR);
+  expect(apiMocks.POST).not.toHaveBeenCalled();
+  expect(hasValidContentTags(['   '])).toBe(false);
+
+  await user.click(tags);
+  await user.type(tags, '临时标签,');
+  await waitFor(() => expect(tags).not.toHaveAttribute('aria-invalid', 'true'));
+  expect(tags).not.toHaveAttribute('aria-describedby');
+  await user.click(tags);
+  await user.keyboard('{Backspace}');
+  await user.click(within(dialog).getByRole('button', { name: '创建人工首稿' }));
+  expect(await within(dialog).findByText(CONTENT_TAG_ERROR)).toBeInTheDocument();
+  expect(apiMocks.POST).not.toHaveBeenCalled();
+
+  await user.type(tags, '最终标签,');
+  await user.click(within(dialog).getByRole('button', { name: '创建人工首稿' }));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/content-tasks/{content_task_id}/manual-versions',
+    expect.objectContaining({
+      body: {
+        title: '人工首稿',
+        summary: '人工摘要',
+        body_markdown: '# 人工正文',
+        tags: ['最终标签'],
+        change_summary: '人工校对',
+      },
+    }),
+  ));
+});
+
+test('人工首稿把服务端结构化标签错误映射回字段', async () => {
+  const user = userEvent.setup();
+  apiMocks.POST.mockResolvedValue({
+    error: {
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: '请求数据不符合接口契约',
+        request_id: 'tag-validation',
+        details: { errors: [{ loc: ['body', 'tags'], type: 'too_short' }] },
+      },
+    },
+    response: new Response(null, { status: 422 }),
+  });
+  renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
+
+  await user.click(await screen.findByRole('button', { name: '录入首个人工草稿' }));
+  const dialog = await screen.findByRole('dialog', { name: '录入首个人工草稿' });
+  await user.type(within(dialog).getByRole('textbox', { name: '标题' }), '人工首稿');
+  await user.type(within(dialog).getByRole('textbox', { name: '摘要' }), '人工摘要');
+  await user.type(within(dialog).getByRole('textbox', { name: 'Markdown 正文' }), '人工正文');
+  await user.type(within(dialog).getByRole('textbox', { name: '变更说明' }), '人工校对');
+  const tags = within(dialog).getByRole('combobox', { name: '标签' });
+  await user.type(tags, '有效标签{Enter}');
+  await user.click(within(dialog).getByRole('button', { name: '创建人工首稿' }));
+
+  expect(await within(dialog).findByText(CONTENT_TAG_ERROR)).toBeInTheDocument();
+  expect(tags).toHaveAttribute('aria-invalid', 'true');
+  const requestError = (await within(dialog).findByText('创建人工首稿失败')).closest('[role="alert"]');
+  expect(requestError).toHaveTextContent('请求数据不符合接口契约');
 });
 
 test('历史任务说明阻断原因，创建新任务后自动进入 AI 生成弹窗', async () => {

@@ -47,6 +47,17 @@ Questions to answer:
 - E2E 复用现有数据流程，断言代表性产品搜索 URL、事实章节和对象标题、内容任务/审核章节、AI 更多菜单键盘焦点及人工发布 Tab URL。
 - 真实浏览器在浅色、深色、跟随系统三种模式下检查 375/768/1024/1440px、实际 200% 缩放和键盘链；宽表只能在 `TableRegion` 内溢出。
 
+### jsdom 能力边界
+
+- `src/test/setup.ts` 只为 jsdom 明确未实现、且组件库真实调用的浏览器能力提供替身，不得通过过滤 `console` 或虚拟控制台错误隐藏未知问题。
+- jsdom 对 `@rc-component/util` 使用的 `::-webkit-scrollbar` 查询会告警后返回宿主元素样式；测试替身只对该已证实调用执行同一回退，其他未知伪元素仍应暴露。伪元素尺寸、布局和视觉正确性仍由 Playwright 验证，不能依赖该替身断言。
+
+```ts
+getComputedStyle(element, pseudoElement === '::-webkit-scrollbar' ? undefined : pseudoElement);
+```
+
+修改测试环境替身后，至少运行一个会渲染 Ant Design 表格或弹窗的测试文件，并确认进程输出中没有对应的 `Not implemented` 提示。
+
 ---
 
 ## Code Review Checklist

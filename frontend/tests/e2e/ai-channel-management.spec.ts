@@ -144,11 +144,18 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
   const failedRequests: string[] = [];
+  const channelRequests: Array<{ method: string; pathname: string }> = [];
   page.setDefaultTimeout(10_000);
   page.on('console', (message) => {
     if (message.type() === 'error') consoleErrors.push(message.text());
   });
   page.on('pageerror', (error) => pageErrors.push(error.message));
+  page.on('request', (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (pathname === '/api/v1/ai-channels' || pathname.startsWith('/api/v1/ai-channels/')) {
+      channelRequests.push({ method: request.method(), pathname });
+    }
+  });
   page.on('requestfailed', (request) => {
     const errorText = request.failure()?.errorText ?? 'unknown';
     if (errorText !== 'net::ERR_ABORTED') {
@@ -527,6 +534,21 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   await page.getByRole('button', { name: '删除渠道' }).last().click();
   await expect(page).not.toHaveURL(new RegExp(`/configuration/ai/channels/${channel.id}`));
   await expect(page.getByText(channelName, { exact: true })).toHaveCount(0);
+  await page.waitForLoadState('networkidle');
+  const deleteRequestIndex = channelRequests.findIndex(
+    ({ method, pathname }) => method === 'DELETE' && pathname === `/api/v1/ai-channels/${channel.id}`,
+  );
+  expect(deleteRequestIndex).toBeGreaterThanOrEqual(0);
+  const requestsAfterDelete = channelRequests.slice(deleteRequestIndex + 1);
+  expect(requestsAfterDelete).toContainEqual({ method: 'GET', pathname: '/api/v1/ai-channels' });
+  expect(requestsAfterDelete).not.toContainEqual({
+    method: 'GET',
+    pathname: `/api/v1/ai-channels/${channel.id}`,
+  });
+  expect(requestsAfterDelete).not.toContainEqual({
+    method: 'GET',
+    pathname: `/api/v1/ai-channels/${channel.id}/models`,
+  });
   createdChannelIds.delete(channel.id);
 
   for (const fixtureChannelId of fixtureChannelIds) {
@@ -536,8 +558,7 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
     expect(response.status()).toBe(204);
     createdChannelIds.delete(fixtureChannelId);
   }
-  expect(consoleErrors).not.toEqual([]);
-  expect(consoleErrors.filter((entry) => !entry.includes('404 (Not Found)'))).toEqual([]);
+  expect(consoleErrors).toEqual([]);
   expect(pageErrors).toEqual([]);
   expect(failedRequests).toEqual([]);
 });

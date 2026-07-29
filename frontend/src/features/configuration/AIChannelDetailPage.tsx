@@ -197,10 +197,24 @@ export function AIChannelDetailPage() {
     })),
     onSuccess: async () => {
       message.success('AI 渠道已删除');
-      queryClient.removeQueries({ queryKey: queryKeys.aiChannels.detail(channelId) });
-      queryClient.removeQueries({ queryKey: queryKeys.aiChannels.models(channelId) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.all });
+      queryClient.setQueriesData<Schema<'AIChannelList'>>(
+        { queryKey: queryKeys.aiChannels.all },
+        (current) => current
+          ? { ...current, items: current.items.filter((item) => item.id !== channelId) }
+          : current,
+      );
       navigate({ pathname: '/configuration/ai', search: searchParams.toString() }, { replace: true });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.aiChannels.detail(channelId),
+          refetchType: 'none',
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.aiChannels.models(channelId),
+          refetchType: 'none',
+        }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.all }),
+      ]);
     },
   });
   const addHeader = useMutation({

@@ -74,10 +74,7 @@ def _fact_history(db: Session, fact: FactVersion) -> list[ReviewRecord]:
         select(FactReviewRecord, FactVersion.version, User)
         .join(FactVersion, FactVersion.id == FactReviewRecord.fact_version_id)
         .join(User, User.id == FactReviewRecord.actor_id)
-        .where(
-            FactVersion.product_id == fact.product_id,
-            FactVersion.version <= fact.version,
-        )
+        .where(FactReviewRecord.fact_version_id == fact.id)
         .order_by(FactReviewRecord.created_at, FactReviewRecord.id)
     ).all()
     return [
@@ -155,7 +152,7 @@ def _content_actions(
 
 
 def get_fact_review_context(db: Session, fact_version_id: uuid.UUID) -> FactReviewContext:
-    """返回目标事实版本及同产品截至该版本的完整审核时间线。"""
+    """返回目标事实版本及其自身的完整审核时间线。"""
     fact = db.get(FactVersion, fact_version_id)
     if fact is None:
         raise not_found("事实版本")

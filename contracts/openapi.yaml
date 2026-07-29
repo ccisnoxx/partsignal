@@ -440,7 +440,7 @@ paths:
       parameters: [{$ref: '#/components/parameters/FactVersionId'}]
       responses:
         '200':
-          description: 不可变事实快照与完整审核历史
+          description: 不可变事实快照与目标版本自身的完整审核历史
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactReviewContext'}
@@ -1399,6 +1399,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentVersion'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/humanization-jobs:
     post:
@@ -1486,6 +1487,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentVersion'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/submit-review:
     post:
       tags: [review]
@@ -3295,7 +3297,10 @@ components:
         title: {type: string, minLength: 1}
         summary: {type: string, minLength: 1}
         body_markdown: {type: string, minLength: 1}
-        tags: {type: array, items: {type: string}}
+        tags:
+          type: array
+          minItems: 1
+          items: {type: string, minLength: 1, pattern: '\S'}
         change_summary: {type: string, minLength: 1}
     ContentVersionList:
       type: object

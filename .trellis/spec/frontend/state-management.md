@@ -49,6 +49,23 @@ Questions to answer:
 - Prompt 保存成功后用 mutation 返回值替换名称、正文基线和 revision；`REVISION_CONFLICT` 必须保留本地草稿并提供显式重载。脏草稿在切换 Prompt 标签、模板、站内路由或刷新/关闭前提示，不能通过查询失效静默覆盖。
 - Prompt 输出预览按创建响应中的 Job ID 从任务级作业列表轮询，成功后读取不可变内容版本；已有结果属于原快照，Prompt 后续保存不得把该结果改标为当前配置预览。
 
+### 删除 URL 当前对象
+
+删除由路径或查询参数选中的当前对象成功后，先从集合缓存投影中过滤已删除 ID，再清理 URL 身份；详情 query 使用 `refetchType: 'none'` 标记失效，不能在旧身份仍有活动 observer 时调用 `removeQueries`，否则会重新 GET 已删除资源。随后正常失效集合查询，让服务端列表校准缓存；删除失败不得修改集合、URL 或详情。
+
+```tsx
+queryClient.setQueryData(listKey, (current) => current
+  ? { ...current, items: current.items.filter((item) => item.id !== deletedId) }
+  : current);
+setSearchParams(nextWithoutDeletedId, { replace: true });
+await Promise.all([
+  queryClient.invalidateQueries({ queryKey: detailKey, refetchType: 'none' }),
+  queryClient.invalidateQueries({ queryKey: listKey }),
+]);
+```
+
+回归测试必须同时断言：成功删除后不再请求该详情；列表刷新不会重新选中该 ID；失败时原详情和错误保留；普通直接访问不存在 ID 仍展示明确 `NOT_FOUND`。
+
 ---
 
 ## Common Mistakes

@@ -4057,7 +4057,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 不可变事实快照与完整审核历史 */
+            /** @description 不可变事实快照与目标版本自身的完整审核历史 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5610,6 +5610,7 @@ export interface operations {
                 };
             };
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     createHumanizationJob: {
@@ -5760,6 +5761,7 @@ export interface operations {
                     "application/json": components["schemas"]["ContentVersion"];
                 };
             };
+            422: components["responses"]["ErrorResponse"];
         };
     };
     submitContentVersion: {

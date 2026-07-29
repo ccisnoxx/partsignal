@@ -17,6 +17,7 @@ const authState = vi.hoisted(() => ({ isAdmin: true }));
 vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ isAdmin: authState.isAdmin }) }));
 const productId = '10000000-0000-4000-8000-000000000001';
 const versionId = '20000000-0000-4000-8000-000000000001';
+const secondVersionId = '20000000-0000-4000-8000-000000000002';
 const product = { id: productId, part_number: 'DEMO-001', brand: 'DEMO', category: 'MCU', status: 'ACTIVE', revision: 0, facts_revision: 0, created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z' };
 const initialDraft: Schema<'ProductFactsDraft'> = {
   product_id: productId,
@@ -39,10 +40,19 @@ const factVersion = {
   created_at: '2026-07-16T00:00:00Z',
   approved_at: null,
 } satisfies Schema<'FactVersion'>;
+const secondFactVersion = {
+  ...factVersion,
+  id: secondVersionId,
+  version: 2,
+  classification: 'RESTRICTED',
+  change_summary: '第二版快照',
+} satisfies Schema<'FactVersion'>;
 let versions = [factVersion];
 let deleteConflict = false;
 let deletedIds: string[] = [];
 let versionsError = false;
+let reviewContexts: Record<string, Schema<'FactReviewContext'>> = {};
+let requestedReviewIds: string[] = [];
 
 function renderPage() {
   return render(<ThemeProvider><AntApp><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[`/products/${productId}`]}><Routes><Route path="/products/:productId" element={<ProductFactsPage />} /></Routes></MemoryRouter></QueryClientProvider></AntApp></ThemeProvider>);
@@ -56,12 +66,20 @@ beforeEach(() => {
   deleteConflict = false;
   deletedIds = [];
   versionsError = false;
+  reviewContexts = {};
+  requestedReviewIds = [];
   setCsrfToken('x'.repeat(32));
   mockFetch((request) => {
     const path = new URL(request.url).pathname;
     if (request.method === 'GET' && path === `/api/v1/products/${productId}`) return { body: product };
     if (request.method === 'GET' && path === `/api/v1/products/${productId}/facts`) return { body: draft };
     if (request.method === 'GET' && path === `/api/v1/products/${productId}/fact-versions`) return versionsError ? { status: 503, body: { error: { message: '版本服务暂不可用' } } } : { body: { items: versions } };
+    if (request.method === 'GET' && path.startsWith('/api/v1/fact-versions/') && path.endsWith('/review-context')) {
+      const reviewId = path.slice('/api/v1/fact-versions/'.length, -'/review-context'.length);
+      requestedReviewIds.push(reviewId);
+      const context = reviewContexts[reviewId];
+      if (context) return { body: context };
+    }
     if (request.method === 'PUT' && path === `/api/v1/products/${productId}/facts`) {
       draft = { ...draft, body_markdown: '# 产品事实\n\n保存后的正文', revision: draft.revision + 1 };
       return { body: draft };
@@ -122,6 +140,54 @@ test('工程师看不到删除按钮但保留事实维护、版本和审核入�
   await user.click(screen.getByRole('button', { name: '更多操作：事实版本 V1' }));
   expect(await screen.findByRole('menuitem', { name: '查看冻结正文' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /删\s*除/ })).not.toBeInTheDocument();
+});
+
+test('V2 审核详情只请求并展示 V2 自身历史', async () => {
+  const user = userEvent.setup();
+  versions = [secondFactVersion, factVersion];
+  const actor = {
+    id: '30000000-0000-4000-8000-000000000001',
+    username: 'reviewer',
+    display_name: '审核员',
+  };
+  reviewContexts = {
+    [versionId]: {
+      fact_version: factVersion,
+      available_actions: ['SUBMIT'],
+      review_history: [{
+        id: '40000000-0000-4000-8000-000000000001',
+        target_id: versionId,
+        target_version: 1,
+        action: 'submit',
+        comment: '仅属于 V1 的事件',
+        actor,
+        created_at: '2026-07-16T01:00:00Z',
+      }],
+    },
+    [secondVersionId]: {
+      fact_version: secondFactVersion,
+      available_actions: ['SUBMIT'],
+      review_history: [{
+        id: '40000000-0000-4000-8000-000000000002',
+        target_id: secondVersionId,
+        target_version: 2,
+        action: 'submit',
+        comment: '仅属于 V2 的事件',
+        actor,
+        created_at: '2026-07-16T02:00:00Z',
+      }],
+    },
+  };
+
+  renderPage();
+  await user.click(await screen.findByRole('tab', { name: /事实版本/ }));
+  const versionTwoRow = screen.getByText('V2').closest('tr');
+  expect(versionTwoRow).not.toBeNull();
+  await user.click(within(versionTwoRow!).getByRole('button', { name: '审核与历史' }));
+
+  expect(await screen.findByText('仅属于 V2 的事件')).toBeInTheDocument();
+  expect(screen.queryByText('仅属于 V1 的事件')).not.toBeInTheDocument();
+  expect(requestedReviewIds).toEqual([secondVersionId]);
 });
 
 test('Markdown 工作区显示修改、校验错误和保存成功状态', async () => {

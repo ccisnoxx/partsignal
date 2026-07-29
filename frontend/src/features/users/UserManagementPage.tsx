@@ -229,7 +229,7 @@ export function UserManagementPage() {
   });
   const exportList = useMutation({
     mutationFn: async () => {
-      const result = await api.GET('/api/v1/users/export', { params: { query: exportQuery } });
+      const result = await api.GET('/api/v1/users/export', { params: { query: exportQuery }, parseAs: 'text' });
       const csv = unwrap(result);
       const disposition = result.response.headers.get('Content-Disposition');
       const encodedName = disposition?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];

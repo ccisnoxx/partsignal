@@ -2179,15 +2179,50 @@ def test_manual_geo_observation_uses_independent_facts_and_optional_evidence() -
                 db=db,
                 payload=complete.model_copy(
                     update={
-                        "tested_at": complete.tested_at + timedelta(hours=1),
-                        "notes": "纠正后的人工搜索",
                         "supersedes_id": observation.id,
                         "attachment_file_ids": [],
+                        "article_results": [
+                            result.model_copy(update={"accuracy": "UNJUDGEABLE"})
+                            if result.publication_record_id == publications[0].id
+                            else result
+                            for result in complete.article_results
+                        ],
                     }
                 ),
                 actor=graph["user"],
                 request_id="geo-correction",
             )
+            original_results_after_correction = list(
+                db.scalars(
+                    select(GeoObservationPublication)
+                    .where(GeoObservationPublication.observation_id == observation.id)
+                    .order_by(GeoObservationPublication.publication_record_id)
+                )
+            )
+            correction_results = list(
+                db.scalars(
+                    select(GeoObservationPublication)
+                    .where(GeoObservationPublication.observation_id == correction.id)
+                    .order_by(GeoObservationPublication.publication_record_id)
+                )
+            )
+            assert correction.supersedes_id == observation.id
+            assert correction.tested_at == observation.tested_at
+            assert correction.notes == observation.notes
+            assert {
+                item.publication_record_id: (item.discovered, item.mentioned, item.accuracy)
+                for item in original_results_after_correction
+            } == {
+                publications[0].id: (False, True, "ACCURATE"),
+                publications[1].id: (True, False, None),
+            }
+            assert {
+                item.publication_record_id: (item.discovered, item.mentioned, item.accuracy)
+                for item in correction_results
+            } == {
+                publications[0].id: (False, True, "UNJUDGEABLE"),
+                publications[1].id: (True, False, None),
+            }
             with pytest.raises(AppError) as changed_query:
                 create_geo_observation(
                     db=db,
@@ -3033,6 +3068,72 @@ def test_fact_version_deletion_requires_no_content_reference() -> None:
         with session_factory() as db:
             assert db.get(FactVersion, api_fact_id) is None
             assert db.get(Product, api_product_id) is not None
+        engine.dispose()
+
+
+@pytest.mark.integration
+def test_fact_review_history_is_scoped_to_version() -> None:
+    """同产品不同事实版本的审核记录和审计归属互不混入。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine) as db:
+            graph = seed_graph(db)
+            actor = graph["user"]
+            version_one = graph["fact"]
+            version_two = FactVersion(
+                product_id=graph["product"].id,
+                version=2,
+                status="DRAFT",
+                body_markdown=fact_markdown(5.0),
+                classification="RESTRICTED",
+                change_summary="受限事实版本",
+                created_by=actor.id,
+            )
+            db.add(version_two)
+            db.commit()
+
+            transition_fact_version(
+                db=db,
+                fact_version_id=version_one.id,
+                expected_revision=version_one.revision,
+                comment="仅属于 V1 的退役事件",
+                actor=actor,
+                request_id="fact-v1-retire",
+                action="retire",
+            )
+            transition_fact_version(
+                db=db,
+                fact_version_id=version_two.id,
+                expected_revision=version_two.revision,
+                comment="仅属于 V2 的提交事件",
+                actor=actor,
+                request_id="fact-v2-submit",
+                action="submit",
+            )
+
+            version_one_context = get_fact_review_context(db, version_one.id)
+            version_two_context = get_fact_review_context(db, version_two.id)
+            assert [
+                (item.target_id, item.target_version, item.action, item.comment)
+                for item in version_one_context.review_history
+            ] == [(version_one.id, 1, "retire", "仅属于 V1 的退役事件")]
+            assert [
+                (item.target_id, item.target_version, item.action, item.comment)
+                for item in version_two_context.review_history
+            ] == [(version_two.id, 2, "submit", "仅属于 V2 的提交事件")]
+
+            audits = {
+                item.request_id: (item.target_type, item.target_id)
+                for item in db.scalars(
+                    select(AuditLog).where(
+                        AuditLog.request_id.in_(["fact-v1-retire", "fact-v2-submit"])
+                    )
+                )
+            }
+            assert audits == {
+                "fact-v1-retire": ("FactVersion", str(version_one.id)),
+                "fact-v2-submit": ("FactVersion", str(version_two.id)),
+            }
         engine.dispose()
 
 

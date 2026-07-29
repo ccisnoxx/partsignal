@@ -42,6 +42,7 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { PlatformAvatar } from '../../shared/components/PlatformAvatar';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { CONTENT_TAG_ERROR, contentTagRules, isContentTagsValidationError } from '../../shared/contentValidation';
 import { useActiveSection } from '../../shared/hooks/useActiveSection';
 import { renderSanitizedMarkdown } from '../../shared/markdown';
 
@@ -691,6 +692,7 @@ function ManualDraftModal({
   onClose: () => void;
   onCreated: (created: ContentVersion) => void | Promise<void>;
 }) {
+  const [form] = Form.useForm<Schema<'ContentRevisionCreate'>>();
   const [draft, setDraft] = useState<Schema<'ContentRevisionCreate'>>({
     title: '',
     summary: '',
@@ -709,10 +711,16 @@ function ManualDraftModal({
       body,
     })),
     onSuccess: onCreated,
+    onError: (error) => {
+      if (isContentTagsValidationError(error)) {
+        form.setFields([{ name: 'tags', errors: [CONTENT_TAG_ERROR] }]);
+      }
+    },
   });
 
   return <Modal title="录入首个人工草稿" open footer={null} width={900} onCancel={onClose} destroyOnHidden>
     <Form<Schema<'ContentRevisionCreate'>>
+      form={form}
       layout="vertical"
       initialValues={draft}
       disabled={create.isPending}
@@ -728,7 +736,7 @@ function ManualDraftModal({
       <div hidden={view !== 'edit'}>
         <div className="revision-metadata-grid">
           <Form.Item name="title" label="标题" rules={[{ required: true, whitespace: true, message: '请输入标题' }]}><Input /></Form.Item>
-          <Form.Item name="tags" label="标签"><Select mode="tags" tokenSeparators={[',']} /></Form.Item>
+          <Form.Item name="tags" label="标签" rules={contentTagRules}><Select mode="tags" tokenSeparators={[',']} /></Form.Item>
           <Form.Item className="revision-summary-field" name="summary" label="摘要" rules={[{ required: true, whitespace: true, message: '请输入摘要' }]}><Input.TextArea rows={2} /></Form.Item>
         </div>
         <Form.Item name="body_markdown" label="Markdown 正文" rules={[{ required: true, whitespace: true, message: '请输入 Markdown 正文' }]}>

@@ -278,7 +278,7 @@ def delete_fact_version(
 def fact_review_context(
     fact_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
 ) -> FactReviewContext:
-    """返回冻结事实证据和追加式审核历史。"""
+    """返回冻结事实证据和当前版本自身的追加式审核历史。"""
     return get_fact_review_context(db, fact_version_id)
 
 

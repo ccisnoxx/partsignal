@@ -24,7 +24,7 @@ PostgreSQL 保存全部业务状态。Redis 只传递 Celery 消息，消息只�
 
 发布应用服务唯一拥有账号编辑/启停、发布状态转换、同平台内容防重、任务自动完成、取消门禁、发布异常和修复任务。一个具体平台可维护多个规范化标识不同的内部运营账号，但一条发布记录只选择一个；账号必须与任务锁定平台一致。创建登记和 `mark-published` 共用“具体平台 + 内容哈希”事务锁与门禁，未公开拒绝后可换账号重试，任一追加式公开事件会永久阻止同平台重复公开。首条 `VERIFIED` 发布与任务 `COMPLETED`、状态事件和审计在同一事务提交；后续 `REMOVED` 或 `VERIFICATION_FAILED` 不回退任务，也不撤销公开历史，只创建唯一 `PublicationAttention`。异常的修复任务和显式解决是两个独立命令，Dashboard 只统计 `OPEN PublicationAttention`。
 
-审核应用服务唯一拥有事实/内容审核状态机、非空退回意见、内容质量门禁、审核记录追加和 `available_actions` 投影。`FactReviewContext` 与 `ContentReviewContext` 从不可变目标版本、任务绑定事实 Markdown、原始生成快照、完整自然化链和追加式历史一次装配；前端不再从当前事实工作区或多个独立请求拼接审核依据。Router 只映射路径、请求与响应，不保存第二套状态转换表。
+审核应用服务唯一拥有事实/内容审核状态机、非空退回意见、内容质量门禁、审核记录追加和 `available_actions` 投影。`FactReviewContext` 只装配目标 `FactVersion.id` 自身的追加式审核记录，不通过产品 ID 混入兄弟版本；`ContentReviewContext` 继续装配同一内容任务截至目标版本的追加式历史。两类上下文都从不可变目标版本、任务绑定事实 Markdown、原始生成快照和完整自然化链一次装配，前端不再从当前事实工作区或多个独立请求拼接审核依据。Router 只映射路径、请求与响应，不保存第二套状态转换表。
 
 ## 外部适配器
 

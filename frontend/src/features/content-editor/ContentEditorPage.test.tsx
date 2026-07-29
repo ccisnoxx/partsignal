@@ -1,9 +1,12 @@
 /** 验证内容审核页清理 HTML、展示冻结事实和历史，并要求显式批准。 */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
 import { App } from '../../app/App';
 import type { Schema } from '../../shared/api/types';
+import { CONTENT_TAG_ERROR } from '../../shared/contentValidation';
 import { mockFetch } from '../../test/fetchMock';
+import { RevisionForm } from './RevisionForm';
 
 const content = {
   id: '30000000-0000-4000-8000-000000000001',
@@ -16,7 +19,7 @@ const content = {
   title: '替代方案',
   summary: '摘要',
   body_markdown: '# 正文\n<img src="x" onerror="alert(1)">',
-  tags: [],
+  tags: ['替代方案'],
   content_hash: 'abc1234567890',
   status: 'PENDING_REVIEW',
   revision: 1,
@@ -197,6 +200,41 @@ test('人工修订聚焦首个错误', async () => {
   fireEvent.change(title, { target: { value: '' } });
   fireEvent.click(review.getByRole('button', { name: /创建新版本/ }));
   await waitFor(() => expect(title).toHaveFocus());
+});
+
+test('人工修订删除最后一个标签后阻止提交，恢复后保留原 payload', async () => {
+  const user = userEvent.setup();
+  const onSubmit = vi.fn();
+  render(
+    <RevisionForm
+      content={{ ...content, status: 'CHANGES_REQUESTED' }}
+      loading={false}
+      onDirtyChange={() => undefined}
+      onSubmit={onSubmit}
+    />,
+  );
+  const tags = screen.getByRole('combobox', { name: '标签' });
+  expect(tags).toHaveAttribute('aria-required', 'true');
+  await user.click(tags);
+  await user.keyboard('{Backspace}');
+  await user.type(screen.getByRole('textbox', { name: '变更说明' }), '补充标签边界');
+  await user.click(screen.getByRole('button', { name: /创建新版本/ }));
+
+  expect(await screen.findByText(CONTENT_TAG_ERROR)).toBeInTheDocument();
+  expect(tags).toHaveAttribute('aria-invalid', 'true');
+  expect(onSubmit).not.toHaveBeenCalled();
+
+  await user.type(tags, '复核标签,');
+  await waitFor(() => expect(tags).not.toHaveAttribute('aria-invalid', 'true'));
+  expect(tags).not.toHaveAttribute('aria-describedby');
+  await user.click(screen.getByRole('button', { name: /创建新版本/ }));
+  expect(onSubmit).toHaveBeenCalledWith({
+    title: content.title,
+    summary: content.summary,
+    body_markdown: content.body_markdown,
+    tags: ['复核标签'],
+    change_summary: '补充标签边界',
+  });
 });
 
 test('离开版本前保护未保存 Markdown', async () => {

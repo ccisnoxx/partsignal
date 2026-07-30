@@ -1199,3 +1199,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 36: 修复 DEF-002 内容任务创建幂等
+
+**Date**: 2026-07-30
+**Task**: 修复 DEF-002 内容任务创建幂等
+**Branch**: `main`
+
+### Summary
+
+为内容任务创建增加请求键幂等：OpenAPI 必填 Idempotency-Key，PostgreSQL advisory lock 与唯一约束保证同键单任务单审计，前端同一弹窗复用请求键；required validation 全部通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `de8d95d` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

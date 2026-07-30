@@ -1,6 +1,7 @@
 upstream partsignal_api_backend {
     server 127.0.0.1:19000;
     keepalive 16;
+    keepalive_timeout 30s;
 }
 
 server {

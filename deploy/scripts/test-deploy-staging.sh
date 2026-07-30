@@ -13,6 +13,13 @@ trap cleanup 0 INT TERM
 
 node "$root/deploy/scripts/check-nginx-security.mjs"
 
+test "$(grep -c '^[[:space:]]*keepalive_timeout 30s;$' "$root/deploy/nginx/partsignal.conf.template")" -eq 1
+test "$(grep -c '^[[:space:]]*keepalive_timeout 30s;$' "$root/deploy/nginx/partsignal.staging.conf.template")" -eq 1
+grep -Fqx "    command: [uvicorn, 'app.main:app', --host, 0.0.0.0, --port, '8000', --timeout-keep-alive, '35', --workers, '2']" \
+  "$root/deploy/compose.prod.yaml"
+grep -Fqx "    command: [uvicorn, 'app.main:app', --host, 0.0.0.0, --port, '8000', --timeout-keep-alive, '35', --workers, '1']" \
+  "$root/deploy/compose.staging.yaml"
+
 mkdir "$test_dir/bin"
 printf '%s\n' \
   '#!/bin/sh' \

@@ -313,6 +313,21 @@ systemctl reload nginx
 
 Hostdzire WireGuard 的 `80/443` 监听要求 `proxy_protocol`。不要用普通 `curl` 直连 `10.0.0.2:443`；缺少 PROXY Header 会被重置，所有外部验收都走公网域名。
 
+#### 4.5.1 API upstream 空闲连接不变量
+
+PartSignal 的 API upstream 必须保持 Nginx `keepalive_timeout 30s` 小于
+Uvicorn `--timeout-keep-alive 35`。代理提前 5 秒淘汰空闲连接，避免复用正在被
+Uvicorn 关闭的连接；不得用 `proxy_next_upstream`、客户端重试或业务 fallback
+掩盖配置漂移。该约束只适用于 API upstream，不得同步修改前端或对象存储
+upstream。
+
+若 Nginx 出现 `upstream prematurely closed connection while reading response
+header from upstream`，先只读核对故障时间窗内的 Nginx 日志、API 容器
+`RestartCount`、OOM 状态和前后健康请求。容器无重启、无 OOM，且相邻请求正常时，
+重点核对生效 Nginx 配置和 API 进程参数是否仍为 `30s < 35s`。修复必须随完整
+release 发布，并在 reload 前执行 `nginx -t`；回滚时从同一个已验证旧 release
+恢复 Nginx 模板和 API 镜像，不改写业务数据。
+
 ### 4.6 完整验收与更新 `current`
 
 退出 Hostdzire，在本地主工作目录检查公共 DNS、健康端点和首页：
@@ -455,6 +470,7 @@ PARTSIGNAL_VERSION="$PREVIOUS_RELEASE" \
 | 直接访问 WireGuard HTTPS 被重置 | Hostdzire Nginx 要求 `proxy_protocol`；通过公网域名验证 |
 | HTML、JS 或 CSS 只有缓存头、缺少安全头 | 检查 Nginx 版本、项目 snippet include 与 `add_header_inherit merge`，不得在 location 复制安全头 |
 | CSP 或 Trusted Types 阻断启动/交互 | 运行 `node deploy/scripts/check-nginx-security.mjs` 和 Trusted Types 跨浏览器用例，修复未迁移 sink 或依赖补丁后走完整发布；不得启用 `script-src 'unsafe-inline'` 或宽松 default policy |
+| API 偶发 `upstream prematurely closed connection` 502 | 只读核对 Nginx 故障时间窗、API `RestartCount`、OOM 与相邻健康请求，再确认 API upstream 为 `30s < 35s`；不得增加代理或业务重试 |
 | API 重建后短暂 reset | 使用有上限的重试；持续失败时检查 API 日志，不忽略为成功 |
 | 生成作业不推进 | 检查 Worker、Scheduler、Redis Broker 和 PostgreSQL 作业状态；Redis 不是业务状态源 |
 | AI 凭据无法解密 | 恢复匹配主密钥或显式重新录入；不得静默回退 |

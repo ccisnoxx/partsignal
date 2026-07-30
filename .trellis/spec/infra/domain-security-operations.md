@@ -89,3 +89,52 @@ systemctl reload nginx
 唯一 Zone/record ID → 受控快照 → 单层原子变更 → 配置与业务验证
 → 双权威/双公共验证 → 完整 HSTS 观察 → 单独确认 preload
 ```
+
+## 8. Scenario: API upstream 空闲连接协调
+
+### 8.1 Scope / Trigger
+
+Nginx 使用 upstream 连接池代理 Uvicorn API 时，必须显式协调双方的空闲连接寿命；
+该约束不适用于前端或对象存储 upstream。
+
+### 8.2 Signatures
+
+```text
+Nginx API upstream: keepalive_timeout 30s;
+Uvicorn API command: --timeout-keep-alive 35
+```
+
+### 8.3 Contracts
+
+- 必须保持 `Nginx 30s < Uvicorn 35s`，由代理提前 5 秒淘汰空闲连接。
+- production 与 staging 使用相同精确值，并由部署自检锁定。
+- 不增加 `proxy_next_upstream`、客户端静默重试或业务 fallback。
+
+### 8.4 Validation & Error Matrix
+
+| 条件 | 处理 |
+| --- | --- |
+| 任一环境缺少精确的 `30s` 或 `35` | 部署自检失败，不发布 |
+| `nginx -t` 失败 | 不 reload，恢复同一已验证旧 release |
+| 出现 premature close 且容器无重启/OOM | 核对生效配置和 API 进程参数，不先增加重试 |
+| 发布后健康探针或浏览器请求失败 | 停止更新 `current`，按完整 release 回滚 |
+
+### 8.5 Good / Base / Bad Cases
+
+- Good：两侧精确值通过静态门禁、Compose 解析和 `nginx -t`，发布后连续探针正常。
+- Base：本地缺少 staging 环境文件时，由隔离部署脚本验证结构并明确记录直接校验跳过。
+- Bad：只延长一侧超时，或用代理/业务重试掩盖空闲连接竞态。
+
+### 8.6 Tests Required
+
+- `check-nginx-security.mjs` 和部署脚本自检通过。
+- production/staging Compose 能解析，且 API 命令包含精确的 `35`。
+- 部署后至少连续 6 次、间隔 6 秒执行只读 API 探针，并核对时间窗内无新的
+  `upstream prematurely closed connection`。
+
+### 8.7 Wrong vs Correct
+
+```text
+Wrong: Uvicorn 5s + Nginx 长期保留连接 → 增加 proxy retry
+Correct: Nginx 30s < Uvicorn 35s → 代理先淘汰连接 → 不增加重试
+```

@@ -13,23 +13,23 @@
 - 已有数据必须在迁移前生成非空备份；迁移、`preflight-integrity`、Compose、容器健康或 `nginx -t` 失败时停止。
 - staging Nginx 模板必须与同一 release 一起安装，确认 API upstream 为 `keepalive_timeout 30s`，API 进程参数为 `--timeout-keep-alive 35`。
 - 公网必须通过 live、ready、首页、缓存头、安全头、对象存储代理和连续 API 探针。
-- 使用真实浏览器只读回归登录、管理员页面、工程师 403、控制台和失败请求；不得创建业务数据、调用模型或修改配置。
+- 使用真实浏览器回归登录、管理员页面、工程师 403、控制台和失败请求；不得创建业务数据、调用模型或修改业务配置。经用户明确授权，可通过正常 UI 创建一个无业务历史的隔离工程师测试账号，完成首次改密和权限回归后先停用再删除，审计记录必须保留。
 - 只有全部验收通过后才能原子更新 `/root/partsignal/current`；失败时保留现场并按旧 release 回滚，不删除数据或历史 release。
 - 所有记录必须脱敏，不保存密码、Cookie、Token、环境文件或完整认证状态。
 
 ## Acceptance Criteria
 
-- [ ] 新 release ID 唯一且包含目标 commit `2e34281` 的 12 位短哈希。
-- [ ] 已有数据库备份非空，完整部署、迁移与所有容器健康检查通过。
-- [ ] 生效 Nginx 配置通过 `nginx -t`，API upstream 为 30 秒，API 进程为 35 秒。
-- [ ] 公网 live、ready、首页、缓存头、安全头和对象存储代理符合 Runbook。
-- [ ] 至少连续 6 次、间隔 6 秒的只读 API 请求均为 200，时间窗无新的 upstream premature close。
-- [ ] 管理员可访问 `/audit` 和 `/configuration/ai`，相关请求成功且控制台无应用级错误。
-- [ ] 工程师直达 `/users`、`/audit`、`/configuration/ai` 均保留 URL、显示可聚焦 403，且无受限业务请求。
-- [ ] 验收完成后 `current` 指向新 release，API 容器无重启、无 OOM。
-- [ ] 浏览器会话退出并清理，本地工作树除本任务记录外无意外变更。
+- [x] 新 release ID 唯一且包含目标 commit `4e4672f` 的 12 位短哈希。
+- [x] 已有数据库备份非空，完整部署、迁移与所有容器健康检查通过。
+- [x] 生效 Nginx 配置通过 `nginx -t`，API upstream 为 30 秒，API 进程为 35 秒。
+- [x] 公网 live、ready、首页、缓存头、安全头和对象存储代理符合 Runbook。
+- [x] 至少连续 6 次、间隔 6 秒的只读 API 请求均为 200，时间窗无新的 upstream premature close。
+- [x] 管理员可访问 `/audit` 和 `/configuration/ai`，相关请求成功且控制台无应用级错误。
+- [x] 工程师直达 `/users`、`/audit`、`/configuration/ai` 均保留 URL、显示可聚焦 403，且无受限业务请求。
+- [x] 验收完成后 `current` 指向新 release，API 容器无重启、无 OOM。
+- [x] 浏览器会话退出并清理，本地工作树除本任务记录外无意外变更。
 
 ## Notes
 
 - 目标环境：`https://geo.962850.xyz`。
-- 工作提交：`78e79cd`、`87edd78`；发布目标 HEAD：`2e34281`。
+- 工作提交：`78e79cd`、`87edd78`、`db4fc8a`；发布目标 HEAD：`4e4672f`。

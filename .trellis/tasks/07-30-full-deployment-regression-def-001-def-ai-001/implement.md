@@ -25,7 +25,7 @@ make test-deploy-scripts
 - `deploy/scripts/smoke.sh https://geo.962850.xyz`。
 - 检查 `/`、`/index.html`、哈希资产的缓存与安全头，以及 `/object-storage/` 非 502。
 - 连续 6 次、间隔 6 秒请求 live，随后只读核对 Nginx 时间窗。
-- 使用 `playwright-cli -s=deploy-20260730` 的 1440×900 持续会话验证管理员和工程师权限路径、请求和控制台。
+- 使用 `playwright-cli -s=deploy-20260730-4e4672f` 的 1440×900 持续会话验证管理员和工程师权限路径、请求和控制台；隔离工程师账号只按授权完成创建、首次改密、403、停用和删除，保留审计。
 - 退出账号、关闭会话并删除浏览器数据。
 
 ## 完成条件

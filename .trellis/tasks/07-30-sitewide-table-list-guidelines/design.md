@@ -125,6 +125,10 @@
 - 数据行高度不因长值增长；
 - hover 复合根、固定标记和文本叶子，以及 focus 复合根，Tooltip 都包含完整原值。
 
+### 5.3 Tooltip 可读性不变量
+
+完整值 Tooltip 继续使用 Ant Design 的共享主题，不增加 GEO 局部颜色。`AntThemeProvider.tsx` 以 `bgRaised` 作为 `colorBgSpotlight` 时，必须同时把 `colorTextLightSolid` 映射为 `textPrimary`，保证浅色和深色均使用同一语义表面/文字组合。浏览器回归除 DOM 可见和完整文本外，还必须验证最终计算后的前景/背景对比度不低于 4.5:1。
+
 ## 6. 列表控件视觉组织
 
 不创建工具栏组件；页面继续使用现有 Ant 控件和语义容器，按以下层级逐表收敛：

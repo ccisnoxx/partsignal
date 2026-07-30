@@ -137,12 +137,16 @@ test('浅深模式同步更新主题与共享视觉变量', async () => {
   expect(root.style.getPropertyValue('--ps-action-primary-end')).toBe(projectThemes.dark.actionPrimaryEnd);
 });
 
-test('控件边界与主操作渐变端点满足浅深模式对比度基线', () => {
+test('控件边界、主操作和 Tooltip 满足浅深模式对比度基线', () => {
   (['light', 'dark'] as const).forEach((mode) => {
     const tokens = projectThemes[mode];
-    expect(createAntTheme(mode, false).token?.colorBorder).toBe(tokens.borderStrong);
+    const antTheme = createAntTheme(mode, false);
+    expect(antTheme.token?.colorBorder).toBe(tokens.borderStrong);
+    expect(antTheme.token?.colorBgSpotlight).toBe(tokens.bgRaised);
+    expect(antTheme.token?.colorTextLightSolid).toBe(tokens.textPrimary);
     expect(contrastRatio(tokens.borderStrong, tokens.bgSurface)).toBeGreaterThanOrEqual(3);
     expect(contrastRatio(tokens.actionOnPrimary, tokens.actionPrimary)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(tokens.actionOnPrimary, tokens.actionPrimaryEnd)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(tokens.textPrimary, tokens.bgRaised)).toBeGreaterThanOrEqual(4.5);
   });
 });

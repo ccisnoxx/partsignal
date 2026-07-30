@@ -30,6 +30,7 @@ export function createAntTheme(resolvedTheme: ResolvedTheme, reducedMotion: bool
       colorBgContainer: tokens.bgSurface,
       colorBgElevated: tokens.bgRaised,
       colorBgSpotlight: tokens.bgRaised,
+      colorTextLightSolid: tokens.textPrimary,
       colorBorder: tokens.borderStrong,
       colorBorderSecondary: tokens.borderSubtle,
       colorSplit: tokens.borderSubtle,

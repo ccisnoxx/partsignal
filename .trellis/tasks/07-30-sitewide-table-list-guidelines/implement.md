@@ -30,6 +30,7 @@
 - [x] 在 `frontend/src/styles/workspace.css` 增加最小 `.geo-platform-cell` 布局规则；不修改全局 Ant `Space`，不增加掩盖问题的层级或 overflow。
 - [ ] 在 160–180px 范围内用真实表头、长值、桌面和窄屏确认平台目标宽度，采用满足可读性的最小值（1440px 专项已通过；窄屏随 24 表 E2E 一并被共享夹具阻断）。
 - [x] 运行 GEO 定向 Vitest 和 Playwright，确认失败回归转绿。
+- [x] 部署后复现并修复 Tooltip 白底白字：在共享 Ant 主题中成对映射 `colorBgSpotlight` 与 `colorTextLightSolid`，并增加真实计算样式对比度断言。
 
 ## 3. 建立 24 表逐表展示结论
 
@@ -164,6 +165,7 @@ make e2e
 - 逐表结论：`research/sitewide-display-audit.md` 已覆盖 24 张表并登记 58 个可变长文本位置；普通文本继续复用 `TableCellText`，交互标题、链接和复合身份的文本叶子统一纳入 `.table-cell-ellipsis` 压力探针。
 - GEO 失败证据：修复前专项 Playwright 在真实 DOM 上报“缺少平台或问题量测节点”，证明旧结构无法满足几何合同。
 - GEO 通过证据：接近 160 字符的平台名与长问题用例 1/1 通过，覆盖所属 `td`、相邻列不相交、实际省略、52px 行高；复合根、平台标记、文字三种 hover 与复合根 focus 均显示完整值。
+- Tooltip 可读性失败/通过证据：新增断言在旧主题映射下测得前景/背景对比度 1:1 并失败；补齐配套前景 Token 后，同一 GEO Playwright 用例 1/1 通过，浅深主题 Token 单测 7/7 通过。
 - 组件回归：受影响 6 个 Vitest 文件、78 个用例通过；完整前端 Vitest 25 个文件、173 个用例及 23 个视觉合同用例通过。
 - 静态检查：`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check` 通过。
 - 真实浏览器补充证据：动态矩阵长平台列在 `1440×1000` 与 `375×900` 均为 `table-layout: fixed`、实际截断且不越过所属 `th`；桌面无页面级横向溢出，窄屏只在 `TableRegion` 内滚动，hover/focus Tooltip 均返回完整平台名，控制台 0 error、0 warning。

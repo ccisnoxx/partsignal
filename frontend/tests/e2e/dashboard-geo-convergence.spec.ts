@@ -241,6 +241,21 @@ test('GEO 长平台名与问题各自收敛在单元格内并支持完整值提�
   await platformContent.focus();
   await expect(platformContent).toBeFocused();
   await expect(platformTooltip).toBeVisible();
+  const tooltipContrast = await platformTooltip.evaluate((element) => {
+    const luminance = (color: string) => {
+      const channels = color.match(/\d+(?:\.\d+)?/g)?.slice(0, 3).map(Number);
+      if (!channels || channels.length !== 3) throw new Error(`无法解析 Tooltip 颜色：${color}`);
+      const [red, green, blue] = channels.map((channel) => {
+        const value = channel / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    };
+    const style = getComputedStyle(element);
+    const values = [luminance(style.color), luminance(style.backgroundColor)];
+    return (Math.max(...values) + 0.05) / (Math.min(...values) + 0.05);
+  });
+  expect(tooltipContrast).toBeGreaterThanOrEqual(4.5);
 
   const question = questionCell.locator('.geo-question-link');
   await question.hover();

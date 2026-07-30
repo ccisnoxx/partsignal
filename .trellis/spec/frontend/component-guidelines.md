@@ -85,6 +85,15 @@ const articleRows = correctionRecord
 <!-- How styles are applied (CSS modules, styled-components, Tailwind, etc.) -->
 
 - 组件状态只消费 `src/app/theme.ts` 和 `global.css` 已定义的语义变量，不在业务 TSX/CSS 中硬编码浅色或深色颜色。
+- 映射 Ant Design 的组合语义 Token 时，前景与背景必须成对覆盖；例如自定义 Tooltip 的 `colorBgSpotlight` 时必须同时指定兼容的 `colorTextLightSolid`，不得让组件库默认前景色与项目表面色混用。
+
+```tsx
+token: {
+  colorBgSpotlight: tokens.bgRaised,
+  colorTextLightSolid: tokens.textPrimary,
+}
+```
+
 - 长集合表使用 Ant Table `sticky={{ offsetHeader: 72 }}`；短子表不为统一外观强制 sticky。
 - 行焦点使用 `tr:focus-within` 表达，不给 `tr` 增加 `tabIndex`，避免整行成为第二个交互入口。
 - `MetricTile` 的图标槽由共享样式持有；任何后置移动断点若重写卡片 body padding，必须同时保留 `.metric-with-icon` 的图标净空，并在 320px、375px 真实浏览器中断言图标不与标题或数值相交。

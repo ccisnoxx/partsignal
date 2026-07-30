@@ -22,6 +22,7 @@ import {
   Space,
   Table,
   Tag,
+  Tooltip,
   Typography,
   type TableColumnsType,
 } from 'antd';
@@ -39,6 +40,7 @@ import type {
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import {
   AIChannelFormModal,
@@ -283,7 +285,10 @@ export function AIChannelsPage() {
   const columns: TableColumnsType<AIChannelSummary> = [
     {
       title: '渠道名称', dataIndex: 'name', width: 124,
-      render: (_, item) => <div className="ai-channel-name-cell"><AIProviderMark brand={item.provider_brand} /><span><strong>{item.name}</strong><small>{item.description || providerBrandLabels[item.provider_brand]}</small></span></div>,
+      render: (_, item) => {
+        const description = item.description || providerBrandLabels[item.provider_brand];
+        return <Tooltip title={`${item.name} · ${description}`} trigger={['hover', 'focus']}><div className="ai-channel-name-cell" tabIndex={0} aria-label={`${item.name}，${description}`}><AIProviderMark brand={item.provider_brand} /><span><strong className="table-cell-ellipsis">{item.name}</strong><small className="table-cell-ellipsis">{description}</small></span></div></Tooltip>;
+      },
     },
     {
       title: '状态', dataIndex: 'is_enabled', width: 50,
@@ -291,7 +296,7 @@ export function AIChannelsPage() {
     },
     {
       title: 'API 根地址', dataIndex: 'base_url', ellipsis: true,
-      render: (value: string) => <Typography.Text className="ai-url-cell" title={value}>{value}</Typography.Text>,
+      render: (value: string) => <TableCellText text={value} />,
     },
     {
       title: 'API Key', dataIndex: 'api_key_configured', width: 72,

@@ -165,6 +165,35 @@ async function expectVisibleTableRegionsBounded(page: Page) {
   for (const style of ellipsisStyles) {
     expect(style).toEqual({ overflow: 'hidden', whiteSpace: 'nowrap' });
   }
+  const pressuredCells = await page.locator('.table-region:visible :is(td, th) .table-cell-ellipsis:visible').evaluateAll((elements) => (
+    elements.map((element) => {
+      const cell = element.closest<HTMLElement>('td, th');
+      const row = element.closest<HTMLElement>('tr');
+      if (!cell || !row) throw new Error('省略文本缺少表格单元格或数据行');
+      const originalRowHeight = row.getBoundingClientRect().height;
+      const keyboardReachable = element.closest('a, button, [tabindex]') !== null;
+      const probe = element.cloneNode(true) as HTMLElement;
+      probe.textContent = `长文本边界压力-${'连续内容'.repeat(80)}`;
+      element.replaceWith(probe);
+      const elementRect = probe.getBoundingClientRect();
+      const cellRect = cell.getBoundingClientRect();
+      const result = {
+        contained: elementRect.left >= cellRect.left - 1 && elementRect.right <= cellRect.right + 1,
+        overflowed: probe.scrollWidth > probe.clientWidth,
+        keyboardReachable,
+        rowHeight: row.getBoundingClientRect().height,
+        originalRowHeight,
+      };
+      probe.replaceWith(element);
+      return result;
+    })
+  ));
+  for (const cell of pressuredCells) {
+    expect(cell.contained).toBe(true);
+    expect(cell.overflowed).toBe(true);
+    expect(cell.keyboardReachable).toBe(true);
+    expect(cell.rowHeight).toBeLessThanOrEqual(cell.originalRowHeight + 1);
+  }
   const fixedCellBackgrounds = await page.locator('.table-region .ant-table-cell-fix-right:visible, .table-region .ant-table-cell-fix-end:visible').evaluateAll(
     (elements) => elements.map((element) => getComputedStyle(element).backgroundColor),
   );

@@ -468,14 +468,14 @@ export function AuditLogPage() {
                   }}
                   columns={[
                     { title: '时间', dataIndex: 'created_at', width: 144, render: (value: string) => <time className="audit-time" dateTime={value}>{formatBeijingTime(value)}</time> },
-                    { title: '操作者', width: 76, render: (_, row) => row.actor?.display_name ?? '已删除用户' },
+                    { title: '操作者', width: 76, ellipsis: true, render: (_, row) => <TableCellText text={row.actor?.display_name ?? '已删除用户'} /> },
                     { title: '账号类型', width: 82, render: (_, row) => row.actor ? <StatusTag compact status={row.actor.account_type} /> : '未记录' },
                     { title: '业务模块', dataIndex: 'business_module', width: 94, render: moduleLabel },
                     { title: '动作', dataIndex: 'action', width: 160, ellipsis: true, render: (value: string) => <TableCellText text={actionLabel(value)} /> },
                     { title: '对象类型', dataIndex: 'target_type', width: 94, render: targetTypeLabel },
-                    { title: '对象标识', dataIndex: 'target_id', width: 126, render: (value: string | null) => <Tooltip title={value ?? '未创建'}><span className="data-code audit-cell-ellipsis">{value ?? '未创建'}</span></Tooltip> },
+                    { title: '对象标识', dataIndex: 'target_id', width: 126, ellipsis: true, render: (value: string | null) => <TableCellText text={value ?? '未创建'} mono /> },
                     { title: '执行结果', dataIndex: 'outcome', width: 76, render: (value: string) => <StatusTag compact status={value} /> },
-                    { title: '请求 ID', dataIndex: 'request_id', width: 144, render: (value: string) => <Tooltip title={value}><span className="data-code audit-cell-ellipsis">{value}</span></Tooltip> },
+                    { title: '请求 ID', dataIndex: 'request_id', width: 144, ellipsis: true, render: (value: string) => <TableCellText text={value} mono /> },
                     { title: '操作', fixed: 'right', width: 50, render: (_, row) => <Tooltip title="查看日志详情"><Button aria-label={`查看日志详情：${row.id}`} size="small" icon={<EyeOutlined />} onClick={() => setSelectedId(row.id)} /></Tooltip> },
                   ]}
                 />

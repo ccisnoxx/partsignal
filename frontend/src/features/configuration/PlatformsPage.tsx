@@ -367,10 +367,10 @@ export function PlatformsPage() {
                 }),
               }}
               columns={[
-                { title: '平台名称', render: (_, profile) => <div className="platform-identity-cell"><PlatformAvatar name={profile.name} logo={profile.logo} size={24} /><strong>{profile.name}</strong></div> },
+                { title: '平台名称', render: (_, profile) => <Tooltip title={profile.name} trigger={['hover', 'focus']}><div className="platform-identity-cell" tabIndex={0} aria-label={profile.name}><PlatformAvatar name={profile.name} logo={profile.logo} size={24} /><strong className="table-cell-ellipsis">{profile.name}</strong></div></Tooltip> },
                 { title: '所属平台类型', width: 120, ellipsis: true, render: (_, profile) => <TableCellText text={profile.platform_type?.name ?? '未归类'} /> },
-                { title: '官方网站', dataIndex: 'website_url', width: 110, render: (value: string | null) => value ? <a className="platform-table-link" href={value} target="_blank" rel="noreferrer" title={value}>{value}</a> : '—' },
-                { title: '允许域名（数量）', dataIndex: 'allowed_domains', width: 125, render: (items: string[]) => items.length ? <span title={items.join('、')}>{items[0]}{items.length > 1 ? ` 等 ${items.length} 个` : ''}</span> : '—' },
+                { title: '官方网站', dataIndex: 'website_url', width: 110, render: (value: string | null) => value ? <Tooltip title={value} trigger={['hover', 'focus']}><a className="platform-table-link table-cell-ellipsis" href={value} target="_blank" rel="noreferrer">{value}</a></Tooltip> : '—' },
+                { title: '允许域名（数量）', dataIndex: 'allowed_domains', width: 125, render: (items: string[]) => items.length ? <Tooltip title={items.join('、')} trigger={['hover', 'focus']}><span className="platform-table-link table-cell-ellipsis" tabIndex={0} aria-label={items.join('、')}>{items[0]}{items.length > 1 ? ` 等 ${items.length} 个` : ''}</span></Tooltip> : '—' },
                 { title: '状态', width: 72, render: (_, profile) => <StatusTag compact status={profile.is_active ? 'ENABLED' : 'DISABLED'} /> },
                 { title: '当前 Prompt', width: 160, ellipsis: true, render: (_, profile) => profile.platform_prompt ? <TableCellText text={profile.platform_prompt.name} /> : <StatusTag compact status="PROMPT_MISSING" /> },
                 { title: '发布账号数量', dataIndex: 'platform_account_count', width: 86 },

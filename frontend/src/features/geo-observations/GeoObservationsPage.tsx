@@ -6,7 +6,7 @@ import {
 } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
-  Alert, App, Button, Card, Checkbox, Dropdown, Input, Select, Space, Switch, Table, Tag,
+  Alert, App, Button, Card, Checkbox, Dropdown, Input, Select, Space, Switch, Table, Tag, Tooltip,
   type TableColumnsType,
 } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -68,10 +68,6 @@ function boolValue(value: string | null): boolean | undefined {
   if (value === 'true') return true;
   if (value === 'false') return false;
   return undefined;
-}
-
-function compactText(value: string, max = 44) {
-  return value.length > max ? `${value.slice(0, max)}…` : value;
 }
 
 function formatDateTime(value: string) {
@@ -235,15 +231,20 @@ export function GeoObservationsPage() {
   const baseColumns: TableColumnsType<GeoObservation> = [
     {
       title: '观测平台', width: 180, render: (_, row) => (
-        <Space size={6}><span className="geo-platform-mark">{row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? '人' : 'AI'}</span><TableCellText text={row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.search_platform : row.model_name} /></Space>
+        <div className="geo-platform-cell"><span className="geo-platform-mark">{row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? '人' : 'AI'}</span><TableCellText text={row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.search_platform : row.model_name} /></div>
       ),
     },
     {
-      title: '搜索词 / 问题', key: 'question', ellipsis: true, render: (_, row) => (
-        <Button type="link" className="geo-question-link" onClick={() => openRecord(row.id)}>
-          {compactText(row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.search_query : row.actual_prompt)}
-        </Button>
-      ),
+      title: '搜索词 / 问题', key: 'question', ellipsis: true, render: (_, row) => {
+        const question = row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.search_query : row.actual_prompt;
+        return (
+          <Tooltip title={question} trigger={['hover', 'focus']}>
+            <Button type="link" className="geo-question-link table-cell-ellipsis" aria-label={question} onClick={() => openRecord(row.id)}>
+              {question}
+            </Button>
+          </Tooltip>
+        );
+      },
     },
     { title: '观测时间', dataIndex: 'tested_at', width: 118, render: (value) => <span className="data-code">{formatDateTime(value)}</span> },
     {

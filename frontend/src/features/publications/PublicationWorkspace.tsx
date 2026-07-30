@@ -456,7 +456,7 @@ function CandidateList({
           columns={[
             { title: '内容标题', width: 300, ellipsis: true, render: (_, row) => <div className="publication-title-cell"><TableCellText text={row.content_version.title} /><small className="data-code">{row.content_version.id.slice(0, 8)}</small></div> },
             { title: '版本', width: 80, render: (_, row) => `V${row.content_version.version}` },
-            { title: '目标平台', dataIndex: 'platform_profile_name', width: 170 },
+            { title: '目标平台', dataIndex: 'platform_profile_name', width: 170, ellipsis: true, render: (value: string) => <TableCellText text={value} /> },
             {
               title: '发布账号',
               width: 190,
@@ -524,7 +524,7 @@ function RecordList({
               width: 250,
               ellipsis: { showTitle: false },
               render: (_, row) => <div className="publication-title-cell">
-                <Tooltip title={row.content_title} trigger={['hover', 'focus']}><strong tabIndex={0}>{row.content_title}</strong></Tooltip>
+                <Tooltip title={row.content_title} trigger={['hover', 'focus']}><strong className="table-cell-ellipsis" tabIndex={0}>{row.content_title}</strong></Tooltip>
                 <small>V{row.content_version}</small>
               </div>,
             },
@@ -534,7 +534,7 @@ function RecordList({
               width: 210,
               ellipsis: { showTitle: false },
               render: (value: string | null) => value
-                ? <Tooltip title={value} trigger={['hover', 'focus']}><span className="publication-actual-title" tabIndex={0}>{value}</span></Tooltip>
+                ? <Tooltip title={value} trigger={['hover', 'focus']}><span className="publication-actual-title table-cell-ellipsis" tabIndex={0}>{value}</span></Tooltip>
                 : '—',
             },
             { title: '状态', dataIndex: 'status', width: 120, render: (value) => <StatusTag status={value} /> },

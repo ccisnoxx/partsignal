@@ -456,7 +456,7 @@ test('列表用真实任务状态生成摘要，并将客户端筛选写入 URL'
   });
   renderPage(<><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></>, ['/tasks?platform_profile_id=platform-1']);
 
-  expect(await screen.findByTitle('PartSignal PS-01')).toBeInTheDocument();
+  expect(await screen.findByLabelText('PartSignal PS-01')).toBeInTheDocument();
   expect(screen.getByText('当前平台：工程师社区')).toBeInTheDocument();
   expect(apiMocks.GET).toHaveBeenCalledWith('/api/v1/content-tasks', { params: { query: { platform_profile_id: 'platform-1' } } });
   expect(screen.getByRole('heading', { name: '内容任务台' })).toBeInTheDocument();
@@ -466,8 +466,8 @@ test('列表用真实任务状态生成摘要，并将客户端筛选写入 URL'
   expect(screen.getByText('失败').closest('tr')).toHaveClass('task-row-generation-failed');
 
   await user.click(screen.getByRole('tab', { name: /已完成 1/ }));
-  expect(await screen.findByTitle('PartSignal PS-02')).toBeInTheDocument();
-  expect(screen.queryByTitle('PartSignal PS-01')).not.toBeInTheDocument();
+  expect(await screen.findByLabelText('PartSignal PS-02')).toBeInTheDocument();
+  expect(screen.queryByLabelText('PartSignal PS-01')).not.toBeInTheDocument();
   expect(screen.getByTestId('location-search')).toHaveTextContent('status=COMPLETED');
 
   await user.click(screen.getByRole('button', { name: '重置筛选' }));
@@ -484,10 +484,10 @@ test('列表从 URL 恢复分页，筛选时回到第一页', async () => {
   });
   renderPage(<><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></>, ['/tasks?page=2']);
 
-  expect(await screen.findByTitle('PartSignal PS-11')).toBeInTheDocument();
-  expect(screen.queryByTitle('PartSignal PS-01')).not.toBeInTheDocument();
+  expect(await screen.findByLabelText('PartSignal PS-11')).toBeInTheDocument();
+  expect(screen.queryByLabelText('PartSignal PS-01')).not.toBeInTheDocument();
   await user.type(screen.getByRole('searchbox', { name: '搜索内容任务' }), 'PS-01');
-  expect(await screen.findByTitle('PartSignal PS-01')).toBeInTheDocument();
+  expect(await screen.findByLabelText('PartSignal PS-01')).toBeInTheDocument();
   await waitFor(() => expect(screen.getByTestId('location-search')).not.toHaveTextContent('page='));
 });
 

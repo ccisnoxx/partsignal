@@ -8,6 +8,8 @@ const targetPages = [
   { key: 'observations', path: '/observations', apiPath: '/api/v1/geo-observations', heading: 'GEO 观测' },
   { key: 'insights', path: '/observations/insights', apiPath: '/api/v1/geo-insights', heading: 'GEO 分析洞察' },
 ] as const;
+const longPlatformName = `GEO 长平台-${'超长观测平台名称'.repeat(22)}`.slice(0, 160);
+const longQuestion = `如何判断产品在复杂搜索场景中的真实表现：${'需要核对完整问题与引用证据'.repeat(12)}`;
 
 test.setTimeout(120_000);
 
@@ -130,6 +132,113 @@ test('1024 至 320px 与 200% 缩放不产生页面横向溢出或指标图标�
   await expect(page.getByRole('heading', { level: 1, name: 'GEO 分析洞察' })).toBeVisible();
   await expect(page.getByRole('link', { name: /导出洞察报告/ })).toBeVisible();
   await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 });
+});
+
+test('GEO 长平台名与问题各自收敛在单元格内并支持完整值提示', async ({ page }) => {
+  await login(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.route('**/api/v1/geo-observations*', async (route) => {
+    const request = route.request();
+    if (request.method() !== 'GET' || new URL(request.url()).pathname !== '/api/v1/geo-observations') {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    const payload = await response.json() as {
+      items: Array<Record<string, unknown> & { observation_kind: string }>;
+      total: number;
+    };
+    payload.items[0] = {
+      ...(payload.items[0] ?? {
+        observation_kind: 'MANUAL_ARTICLE_SEARCH',
+        id: '10000000-0000-4000-8000-000000000001',
+        query_topic_id: null,
+        product_id: '10000000-0000-4000-8000-000000000002',
+        product_label: 'GEO 长文本展示回归',
+        tested_at: '2026-07-30T12:00:00Z',
+        article_results: [],
+        attachment_file_ids: [],
+        notes: '',
+        supersedes_id: null,
+        tested_by: '10000000-0000-4000-8000-000000000003',
+        recorder: {
+          id: '10000000-0000-4000-8000-000000000003',
+          username: 'visual-regression',
+          display_name: '视觉回归',
+        },
+        is_current: true,
+        available_actions: ['CORRECT'],
+        created_at: '2026-07-30T12:00:00Z',
+      }),
+      search_platform: longPlatformName,
+      model_name: longPlatformName,
+      search_query: longQuestion,
+      actual_prompt: longQuestion,
+    };
+    payload.total = Math.max(payload.total, 1);
+    await route.fulfill({ response, json: payload });
+  });
+
+  const response = page.waitForResponse((candidate) => (
+    candidate.request().method() === 'GET'
+    && new URL(candidate.url()).pathname === '/api/v1/geo-observations'
+  ));
+  await Promise.all([page.goto('/observations?all_time=true'), response]);
+  await expect(page.getByRole('heading', { level: 1, name: 'GEO 观测' })).toBeVisible();
+  await expect(page.locator('.ant-spin-spinning')).toHaveCount(0);
+
+  const row = page.locator('.geo-record-card .ant-table-tbody > tr.ant-table-row').first();
+  const platformCell = row.locator('td').nth(0);
+  const questionCell = row.locator('td').nth(1);
+  await expect(row).toBeVisible();
+  const geometry = await row.evaluate((element) => {
+    const cells = element.querySelectorAll<HTMLElement>('td');
+    const platform = cells[0];
+    const question = cells[1];
+    const platformContent = platform?.querySelector<HTMLElement>('.geo-platform-cell');
+    const platformText = platformContent?.querySelector<HTMLElement>('.table-cell-ellipsis');
+    const questionContent = question?.querySelector<HTMLElement>('.geo-question-link');
+    if (!platform || !question || !platformContent || !platformText || !questionContent) {
+      throw new Error('GEO 观测行缺少平台或问题量测节点');
+    }
+    const platformRect = platform.getBoundingClientRect();
+    const questionRect = question.getBoundingClientRect();
+    const platformContentRect = platformContent.getBoundingClientRect();
+    const questionContentRect = questionContent.getBoundingClientRect();
+    return {
+      platformContentLeft: platformContentRect.left,
+      platformContentRight: platformContentRect.right,
+      platformLeft: platformRect.left,
+      platformRight: platformRect.right,
+      platformOverflowed: platformText.scrollWidth > platformText.clientWidth,
+      questionContentLeft: questionContentRect.left,
+      questionContentRight: questionContentRect.right,
+      questionLeft: questionRect.left,
+      questionRight: questionRect.right,
+      rowHeight: element.getBoundingClientRect().height,
+    };
+  });
+  expect(geometry.platformContentLeft).toBeGreaterThanOrEqual(geometry.platformLeft);
+  expect(geometry.platformContentRight).toBeLessThanOrEqual(geometry.platformRight);
+  expect(geometry.platformOverflowed).toBe(true);
+  expect(geometry.questionContentLeft).toBeGreaterThanOrEqual(geometry.questionLeft);
+  expect(geometry.questionContentRight).toBeLessThanOrEqual(geometry.questionRight);
+  expect(geometry.platformContentRight).toBeLessThanOrEqual(geometry.questionContentLeft);
+  expect(geometry.rowHeight).toBeLessThanOrEqual(52);
+
+  const platformText = platformCell.locator('.table-cell-ellipsis');
+  await platformText.hover();
+  await expect(page.getByRole('tooltip', { name: longPlatformName })).toBeVisible();
+  await page.mouse.move(0, 0);
+  await platformText.focus();
+  await expect(page.getByRole('tooltip', { name: longPlatformName })).toBeVisible();
+
+  const question = questionCell.locator('.geo-question-link');
+  await question.hover();
+  await expect(page.getByRole('tooltip', { name: longQuestion })).toBeVisible();
+  await page.mouse.move(0, 0);
+  await question.focus();
+  await expect(page.getByRole('tooltip', { name: longQuestion })).toBeVisible();
 });
 
 test('真实洞察图表提供坐标、Token、单停靠点键盘导航与可聚焦 Tooltip', async ({ page }) => {

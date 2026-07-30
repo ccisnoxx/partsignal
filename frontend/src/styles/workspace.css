@@ -93,8 +93,9 @@
 .geo-record-card .ant-table-tbody > tr > td { padding-block: 10px; font-size: 12px; }
 .geo-record-card .ant-table-tbody > tr { cursor: pointer; }
 .geo-record-card .ant-pagination { margin-inline: 14px; }
+.geo-platform-cell { display: flex; align-items: center; width: 100%; min-width: 0; gap: 6px; }
 .geo-platform-mark { display: inline-grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; border-radius: var(--ps-radius-sm); color: var(--ps-action-primary); background: var(--ps-action-primary-soft); font: 600 9px var(--ps-font-mono); }
-.geo-question-link, .geo-cell-link { max-width: 100%; height: auto !important; padding: 0 !important; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.geo-question-link, .geo-cell-link { display: block; width: 100%; min-width: 0; max-width: 100%; height: auto !important; padding: 0 !important; overflow: hidden; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .geo-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .geo-upload-list { margin-top: 8px; }
 .ant-drawer-section.geo-detail-drawer { border-left: 1px solid color-mix(in srgb, var(--ps-border-subtle) 74%, var(--ps-bg-surface)); background: var(--ps-bg-surface); box-shadow: var(--ps-shadow-lg); }
@@ -236,9 +237,10 @@
 .geo-insight-ranking-card .ant-empty { margin-block: 4px; }
 .geo-insight-bottom-grid { align-items: start; }
 .geo-insight-coverage-card .table-region { overflow-x: auto; }
-.geo-insight-coverage-matrix { min-width: 580px; width: 100%; border-collapse: collapse; font-size: 12px; }
+.geo-insight-coverage-matrix { min-width: 580px; width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
 .geo-insight-coverage-matrix th, .geo-insight-coverage-matrix td { padding: 3px 6px; border: 1px solid var(--ps-border-subtle); text-align: center; white-space: nowrap; }
 .geo-insight-coverage-matrix thead th { color: var(--ps-text-secondary); background: color-mix(in srgb, var(--ps-bg-surface) 74%, var(--ps-bg-subtle)); }
+.geo-insight-coverage-matrix thead th > span { display: block; overflow: hidden; text-overflow: ellipsis; }
 .geo-insight-coverage-matrix tbody th { text-align: left; font-weight: 500; }
 .geo-insight-coverage-matrix .ant-tag { margin: 0; padding-inline: 0; border: 0; background: transparent; font-size: 11px; }
 .geo-insight-coverage-matrix td strong { font: 700 12px var(--ps-font-mono); }
@@ -649,7 +651,7 @@
 /* 横向滚动由 Ant Table 的 scroll.x 持有；外层 overflow 会破坏 sticky 表头定位。 */
 .table-region { max-width: 100%; border-radius: var(--ps-radius-md); }
 .table-region:focus-visible { outline-offset: -3px; }
-.table-cell-ellipsis { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table-cell-ellipsis { display: block; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table-search { width: min(100%, 360px); margin-bottom: 16px; }
 .section-card { margin-bottom: 14px; background: var(--ps-bg-surface); }
 .dynamic-row, .dynamic-block { width: 100%; margin-bottom: 12px; padding: 14px; border: 1px dashed var(--ps-border-strong); border-radius: var(--ps-radius-md); background: var(--ps-bg-subtle); }
@@ -725,7 +727,6 @@
 .audit-list-panel .ant-table-tbody > tr > td { height: 44px; padding: 7px; }
 .audit-list-panel .ant-table-tbody > tr.audit-row-selected > td { background: color-mix(in srgb, var(--ps-action-primary-soft) 72%, var(--ps-bg-surface)) !important; }
 .audit-time { display: block; color: var(--ps-text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.audit-cell-ellipsis { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .audit-pagination { display: flex; align-items: center; justify-content: space-between; min-height: 64px; gap: 12px; padding: 10px 15px; border-top: 1px solid var(--ps-border-subtle); }
 .audit-pagination > .ant-select { width: 92px; }
 .audit-detail-aside { position: sticky; top: 68px; height: calc(100dvh - 154px); max-height: calc(100dvh - 80px); overflow: hidden; }
@@ -938,7 +939,7 @@
 .ai-provider-mark-google { color: var(--ps-chart-series-5); }
 .ai-provider-mark-azure_openai { color: var(--ps-chart-series-2); }
 .ai-provider-mark-zhipu, .ai-provider-mark-qwen { color: var(--ps-chart-series-5); }
-.ai-url-cell { display: block; overflow: hidden; color: var(--ps-text-secondary); font: 400 11px/1.45 var(--ps-font-sans); text-overflow: ellipsis; white-space: nowrap; }
+.ai-channel-table .table-cell-ellipsis { color: var(--ps-text-secondary); font: 400 11px/1.45 var(--ps-font-sans); }
 .ai-configured { color: var(--ps-success-text); font-size: 11px; white-space: nowrap; }
 .ai-not-configured { color: var(--ps-warning-text); font-size: 11px; }
 .ai-test-status { display: inline-flex; align-items: flex-start; flex-direction: column; gap: 2px; }
@@ -1060,7 +1061,7 @@
 }
 
 @media (min-width: 1200px) {
-  .geo-insight-coverage-matrix { min-width: 0; table-layout: fixed; font-size: 12px; }
+  .geo-insight-coverage-matrix { min-width: 0; font-size: 12px; }
   .geo-insight-coverage-matrix th, .geo-insight-coverage-matrix td { padding: 5px 2px; overflow: hidden; text-overflow: ellipsis; }
   .geo-insight-coverage-matrix th:first-child { width: 92px; }
   .geo-insight-coverage-matrix th:last-child { width: 38px; }

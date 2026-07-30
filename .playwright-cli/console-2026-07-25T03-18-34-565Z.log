@@ -10,3 +10,4 @@ Check out your Vite / network configuration and https://vite.dev/config/server-o
 [376379812ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:5173/api/v1/auth/me:0
 [390272939ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:5173/api/v1/auth/me:0
 [424053121ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:5173/api/v1/auth/me:0
+[459423243ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:5173/api/v1/auth/me:0

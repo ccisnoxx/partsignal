@@ -231,9 +231,16 @@ function TaskList() {
             columns={[
               {
                 title: '产品',
-                render: (_, row) => <div className="task-title-cell"><strong title={`${row.product.brand} ${row.product.part_number}`}>{row.product.brand} <span className="data-code">{row.product.part_number}</span></strong><span>事实版本 <span className="data-code">{row.fact_version_id.slice(0, 8)}</span></span></div>,
+                render: (_, row) => {
+                  const productName = `${row.product.brand} ${row.product.part_number}`;
+                  return <div className="task-title-cell"><Tooltip title={productName} trigger={['hover', 'focus']}><strong className="table-cell-ellipsis" tabIndex={0} aria-label={productName}>{row.product.brand} <span className="data-code">{row.product.part_number}</span></strong></Tooltip><span>事实版本 <span className="data-code">{row.fact_version_id.slice(0, 8)}</span></span></div>;
+                },
               },
-              { title: '目标平台', width: 190, render: (_, row) => <div className="task-platform-cell"><PlatformAvatar name={row.platform.name} logo={row.platform.logo} />{row.platform.website_url ? <a href={row.platform.website_url} target="_blank" rel="noreferrer" title={row.platform.name}>{row.platform.name}</a> : <span title={row.platform.name}>{row.platform.name}</span>}</div> },
+              {
+                title: '目标平台',
+                width: 190,
+                render: (_, row) => <div className="task-platform-cell"><PlatformAvatar name={row.platform.name} logo={row.platform.logo} /><Tooltip title={row.platform.name} trigger={['hover', 'focus']}>{row.platform.website_url ? <a className="table-cell-ellipsis" href={row.platform.website_url} target="_blank" rel="noreferrer" aria-label={row.platform.name}>{row.platform.name}</a> : <span className="table-cell-ellipsis" tabIndex={0} aria-label={row.platform.name}>{row.platform.name}</span>}</Tooltip></div>,
+              },
               { title: '任务状态', dataIndex: 'status', width: 118, render: (value: TaskStatus) => <StatusTag status={value} /> },
               { title: 'AI 生成状态', dataIndex: 'latest_generation_status', width: 132, render: (value: Schema<'GenerationJobStatus'> | null) => value ? <StatusTag status={value} /> : <Tag className="status-tag status-tag-neutral">尚未生成</Tag> },
               { title: '创建时间', dataIndex: 'created_at', width: 170, render: (value: string) => <time dateTime={value}>{taskDateFormatter.format(new Date(value))}</time> },

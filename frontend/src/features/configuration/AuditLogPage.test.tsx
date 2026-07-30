@@ -119,7 +119,7 @@ test('恢复并规范化组合筛选 URL，全部筛选直接进入服务端分�
 
   render(<App />);
   expect(await screen.findByRole('heading', { name: '审计日志' })).toBeInTheDocument();
-  expect(await screen.findByText('系统管理员', { selector: 'td' })).toBeInTheDocument();
+  expect(await screen.findByLabelText('系统管理员')).toBeInTheDocument();
   await waitFor(() => expect(new URLSearchParams(window.location.search).has('unknown')).toBe(false));
 
   const query = requests[0]!.searchParams;
@@ -198,7 +198,7 @@ test('查看详情展示历史缺失值和真实关联入口，手动刷新同�
   installAuditApi(() => { listRequests += 1; }, () => { detailRequests += 1; });
 
   render(<App />);
-  await screen.findByText('系统管理员', { selector: 'td' });
+  await screen.findByLabelText('系统管理员');
   await userEvent.click(screen.getByRole('button', { name: `查看日志详情：${auditLog.id}` }));
 
   expect(await screen.findByRole('heading', { name: '日志详情' })).toBeInTheDocument();
@@ -222,7 +222,7 @@ test('自动刷新默认关闭，开启后每 30 秒刷新且页面隐藏时暂�
   window.history.pushState({}, '', '/audit?created_from=2026-07-20T00%3A00%3A00Z&created_to=2026-07-23T00%3A00%3A00Z');
   installAuditApi(() => { listRequests += 1; });
   render(<App />);
-  await screen.findByText('系统管理员', { selector: 'td' });
+  await screen.findByLabelText('系统管理员');
   const initial = listRequests;
   expect(screen.getByRole('switch', { name: '自动刷新' })).not.toBeChecked();
 

@@ -235,6 +235,10 @@ test('覆盖总览只按服务端分类结果分组计数，不铺开问题明�
   expect(within(table).getByRole('row', { name: /数据不足 0 1 1/ })).toHaveClass('geo-insight-coverage-insufficient-data');
   expect(screen.queryByText('不应在总览铺开的问题一')).not.toBeInTheDocument();
   expect(screen.getByLabelText('覆盖状态说明')).toHaveTextContent('稳定覆盖：覆盖率 ≥ 60%（≥3 次）');
+  const platformHeader = within(table).getByRole('columnheader', { name: 'DeepSeek' }).querySelector('span');
+  expect(platformHeader).not.toBeNull();
+  fireEvent.focus(platformHeader!);
+  expect(await screen.findByRole('tooltip', { name: 'DeepSeek' })).toBeInTheDocument();
 });
 
 test('数据质量以紧凑摘要呈现，并通过提示保留完整计数和机器原因', async () => {

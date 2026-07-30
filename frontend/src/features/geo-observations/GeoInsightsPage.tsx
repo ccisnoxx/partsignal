@@ -223,7 +223,7 @@ const platformColumns: TableColumnsType<PlatformPerformance> = [
     title: 'GEO 平台', dataIndex: 'geo_platform', width: 180, ellipsis: { showTitle: false }, render: (value: string) => (
       <Tooltip title={value} trigger={['hover', 'focus']}>
         <span className="geo-insight-platform-name" tabIndex={0}>
-          <span className="geo-platform-mark">GEO</span><strong>{value}</strong>
+          <span className="geo-platform-mark">GEO</span><strong className="table-cell-ellipsis">{value}</strong>
         </span>
       </Tooltip>
     ),
@@ -287,13 +287,13 @@ function ContentRankingCard({
             : value}
           trigger={['hover', 'focus']}
         >
-          <Link className="geo-insight-ranking-text" to={`/publications/${row.publication_record_id}`}>{value}</Link>
+          <Link className="geo-insight-ranking-text table-cell-ellipsis" to={`/publications/${row.publication_record_id}`}>{value}</Link>
         </Tooltip>
       ),
     },
     {
       title: '内容平台', dataIndex: 'content_platform', width: 80, ellipsis: { showTitle: false }, render: (value: string) => (
-        <Tooltip title={value} trigger={['hover', 'focus']}><span className="geo-insight-ranking-text" tabIndex={0} aria-label={`内容平台：${value}`}>{value}</span></Tooltip>
+        <Tooltip title={value} trigger={['hover', 'focus']}><span className="geo-insight-ranking-text table-cell-ellipsis" tabIndex={0} aria-label={`内容平台：${value}`}>{value}</span></Tooltip>
       ),
     },
     { title: '观测', dataIndex: 'observation_count', width: 48 },
@@ -331,7 +331,7 @@ function CoverageCard({ coverage }: { coverage: GeoInsights['question_coverage']
       {platforms.length ? (
         <TableRegion label="搜索问题覆盖计数">
           <table className="geo-insight-coverage-matrix" aria-label="覆盖状态与 GEO 平台计数">
-            <thead><tr><th scope="col">覆盖状态</th>{platforms.map((platform) => <th scope="col" key={platform} title={platform}>{platform}</th>)}<th scope="col">合计</th></tr></thead>
+            <thead><tr><th scope="col">覆盖状态</th>{platforms.map((platform) => <th scope="col" key={platform}><Tooltip title={platform} trigger={['hover', 'focus']}><span className="table-cell-ellipsis" tabIndex={0}>{platform}</span></Tooltip></th>)}<th scope="col">合计</th></tr></thead>
             <tbody>
               {coverageStatuses.map(({ status, countKey }) => (
                 <tr key={status} className={`geo-insight-coverage-${status.toLowerCase().replace('_', '-')}`}>

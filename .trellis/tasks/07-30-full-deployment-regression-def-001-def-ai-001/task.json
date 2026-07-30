@@ -1,0 +1,28 @@
+{
+  "id": "full-deployment-regression-def-001-def-ai-001",
+  "name": "full-deployment-regression-def-001-def-ai-001",
+  "title": "完整发布与上线回归 DEF-001 / DEF-AI-001",
+  "description": "将已推送的 DEF-001 与 DEF-AI-001 通过 Hostdzire 完整 Runbook 发布到 https://geo.962850.xyz，并完成 Nginx、健康探针和真实浏览器回归。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "infra",
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-07-30",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-30-def-002-content-task-list-projection"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

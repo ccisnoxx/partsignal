@@ -582,7 +582,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 保存完整发布失败、回滚与线上恢复证据，父发布任务继续保持进行中。
+- 让内容任务列表与详情复用同一基础投影，排除内部 `idempotency_key`。
+- 补充列表、平台筛选、详情及创建幂等 PostgreSQL 回归断言，并同步后端规范。
 
 ### Git Commits
 
@@ -594,7 +596,8 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- PostgreSQL 定向集成测试：3 passed。
+- Ruff、mypy、OpenAPI 合同检查与 `git diff --check`：通过。
 
 ### Status
 
@@ -602,7 +605,7 @@
 
 ### Next Steps
 
-- None - task complete
+- 推送本轮提交后，恢复父任务的完整发布与真实浏览器回归。
 
 
 ## Session 18: Dashboard 与 GEO 洞察视觉统一
@@ -1254,6 +1257,40 @@
 |------|---------|
 | `78e79cd` | (see git log) |
 | `87edd78` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 38: 修复内容任务列表投影字段泄漏
+
+**Date**: 2026-07-30
+**Task**: 修复内容任务列表投影字段泄漏
+**Branch**: `main`
+
+### Summary
+
+记录完整发布回归失败与安全回滚；统一内容任务列表/详情基础投影，排除内部幂等键并补充 PostgreSQL 回归测试。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2845416` | (see git log) |
+| `db4fc8a` | (see git log) |
 
 ### Testing
 

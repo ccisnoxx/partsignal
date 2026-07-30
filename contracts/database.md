@@ -28,7 +28,7 @@ This historical revision created six fixed roles. Revision `0009` migrates them 
 
 `query_topics`, `platform_profiles`, `platform_profile_versions`, `content_tasks`.
 
-`platform_profile_versions` 仅描述历史 revision，已由 `0025` 物理删除。当前 `content_tasks` 直接绑定具体 `platform_profile_id` 和同产品的非空 `APPROVED fact_version_id`，不会随配置变化静默改绑。
+`platform_profile_versions` 仅描述历史 revision，已由 `0025` 物理删除。当前 `content_tasks` 直接绑定具体 `platform_profile_id` 和同产品的非空 `APPROVED fact_version_id`，不会随配置变化静默改绑。Revision `0032` 为普通任务创建增加可空且唯一的 `idempotency_key`：同键同三字段重放返回原任务，同键异载荷冲突，不同键仍允许相同业务输入；历史任务和发布修复任务保持空值。
 
 ### 0004 Content Production
 
@@ -308,6 +308,7 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 ## Required Constraints
 
 - Product identity is unique by normalized brand plus part number.
+- 非空 `content_tasks.idempotency_key` 全局唯一；普通任务创建先按命名请求键获取 PostgreSQL 事务 advisory lock，再判断重放或执行当前业务校验。三字段业务输入本身不唯一。
 - Version numbers are unique within their owner: product fact or content task.
 - Product or content-task owner rows are locked while allocating the next version number.
 - A product has one Markdown fact workspace protected by `facts_revision`; new fact versions freeze its non-blank Markdown and classification.

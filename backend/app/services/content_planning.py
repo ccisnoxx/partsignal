@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -153,9 +153,30 @@ def create_platform_profile(
 
 
 def create_content_task(
-    *, db: Session, payload: ContentTaskCreate, actor: User, request_id: str
+    *,
+    db: Session,
+    payload: ContentTaskCreate,
+    actor: User,
+    request_id: str,
+    idempotency_key: str,
 ) -> ContentTask:
-    """锁定已批准事实和活动平台；Prompt 门禁只在创建 AI 作业时执行。"""
+    """幂等锁定已批准事实和活动平台；Prompt 门禁只在创建 AI 作业时执行。"""
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"content-task-create:{idempotency_key}"},
+    )
+    existing = db.scalar(
+        select(ContentTask).where(ContentTask.idempotency_key == idempotency_key)
+    )
+    if existing is not None:
+        if (
+            existing.product_id != payload.product_id
+            or existing.fact_version_id != payload.fact_version_id
+            or existing.platform_profile_id != payload.platform_profile_id
+        ):
+            raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一内容任务创建请求", 409)
+        return existing
+
     profile = lock_active_platform(db, payload.platform_profile_id)
     fact_version = db.get(FactVersion, payload.fact_version_id)
     if (
@@ -174,6 +195,7 @@ def create_content_task(
         fact_version_id=payload.fact_version_id,
         platform_profile_id=profile.id,
         query_topic_id=None,
+        idempotency_key=idempotency_key,
         created_by=actor.id,
     )
     db.add(task)

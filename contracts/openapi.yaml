@@ -1279,7 +1279,9 @@ paths:
     post:
       tags: [planning]
       operationId: createContentTask
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters:
+        - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
         content:
@@ -1287,7 +1289,7 @@ paths:
             schema: {$ref: '#/components/schemas/ContentTaskCreate'}
       responses:
         '201':
-          description: 已创建
+          description: 已创建或返回同一幂等请求已创建的任务
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}

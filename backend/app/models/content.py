@@ -28,6 +28,7 @@ class ContentTask(Base):
 
     __tablename__ = "content_tasks"
     __table_args__ = (
+        UniqueConstraint("idempotency_key", name="uq_content_tasks_idempotency_key"),
         Index("ix_content_tasks_platform_profile_created_at", "platform_profile_id", "created_at"),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
@@ -50,6 +51,7 @@ class ContentTask(Base):
         ForeignKey("publication_attentions.id", ondelete="RESTRICT"),
         unique=True,
     )
+    idempotency_key: Mapped[str | None] = mapped_column(String(128))
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="OPEN")
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_by: Mapped[uuid.UUID] = mapped_column(

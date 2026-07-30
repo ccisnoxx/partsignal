@@ -277,6 +277,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - 工作区：`products.facts_body_markdown TEXT NOT NULL`、`products.facts_classification PUBLIC|INTERNAL|RESTRICTED`、`products.facts_revision`。
 - 冻结版本：`fact_versions.body_markdown`、`fact_versions.classification`；不得恢复 `snapshot_json`。
 - 任务：`ContentTaskCreate(product_id, fact_version_id, platform_profile_id)`；`content_tasks` 直接外键到 `platform_profiles`。
+- 普通任务创建要求 8–128 字符 `Idempotency-Key`；同键同三字段返回原任务，同键异载荷返回 `409 IDEMPOTENCY_CONFLICT`，不同键允许相同业务输入。
 - 系统首稿：`POST /api/v1/content-tasks/{id}/generation-jobs`，请求体为 `{ai_model_id, platform_prompt_id, platform_prompt_revision}`。
 - 人工首稿：`POST /api/v1/content-tasks/{id}/manual-versions`，请求体复用 `ContentRevisionCreate`。
 - 生成快照：新原始作业只写 `content-markdown-v3`，自然化只写 `humanization-markdown-v2`；`content-markdown-v2` 可按原快照读取和重试，旧 v1 只读。
@@ -286,6 +287,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - 保存事实时去除空白后的 Markdown 必须非空，原文和分级原样保存；创建事实版本只冻结当前工作区两个字段。已批准或已被内容引用的版本不得原地修改。
 - `PlatformProfileVersion` 表、API、前端路由及任务中的受众、内容角度、转化目标、格式、长度、用户 Prompt、平台类型快照和 canonical URL 已物理删除；不得建立兼容字段或第二来源。
 - 创建任务只校验产品、该产品的 `APPROVED` 非空事实版本和启用平台。平台通过可空外键绑定零或一份可复用 Prompt；缺少绑定不阻止任务或人工首稿，只阻止系统 AI 作业。
+- 普通任务创建先按命名请求键获取 PostgreSQL 事务 advisory lock，再读取唯一的 `content_tasks.idempotency_key`。只有首次插入追加创建审计；历史任务和发布修复任务保持空值，Redis 不保存幂等状态。
 - 原始 AI 请求必须恰好发送两条消息：`system.content == PlatformPrompt.template_markdown`，`user.content == FactVersion.body_markdown`；不得增加前缀、拼接任务要求、补默认安全规则或重写空白。
 - 人工首稿创建 `source_type=HUMAN`、`status=DRAFT`、`source_job_id=NULL`、`based_on_id=NULL`，随后与 AI 草稿共用修订、审核和人工发布链。
 - `ContentRevisionCreate.tags` 必须至少包含一个标签，且每个标签至少包含一个非空白字符；人工首稿与人工修订前端复用同一必填规则，服务端请求模型仍是最终校验权威。标签不自动 trim、去重、补默认值或增加未批准的数量/长度限制。
@@ -299,6 +301,8 @@ result = cleanup_platform_logo_files(storage=storage)
 | 事实 Markdown 为空白 | 请求校验失败，不递增 `facts_revision` |
 | 事实版本不属于产品、非 `APPROVED` 或正文为空 | `409 INVALID_STATE_TRANSITION`，不创建任务/首稿 |
 | 平台不存在或已停用 | `404` 或 `409 PLATFORM_DISABLED` |
+| 缺少或长度非法的任务请求键 | `422 VALIDATION_ERROR`，不创建任务 |
+| 同键异载荷 | `409 IDEMPOTENCY_CONFLICT`，原任务不变 |
 | 系统 AI 使用非 `PUBLIC` 事实 | `409 AI_DATA_CLASSIFICATION_FORBIDDEN` |
 | 当前平台 Prompt 不存在 | `409 PLATFORM_PROMPT_MISSING`，不得回退 |
 | 人工首稿提交到终态任务 | `409 INVALID_STATE_TRANSITION` |

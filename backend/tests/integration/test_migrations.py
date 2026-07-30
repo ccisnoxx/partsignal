@@ -3244,3 +3244,141 @@ def test_reusable_platform_prompt_migration_preserves_rows_and_guards_downgrade(
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
             assert cursor.fetchone() == ("0031_reusable_platform_prompts",)
+
+
+@pytest.mark.integration
+def test_content_task_creation_idempotency_migration_preserves_history_and_downgrades() -> None:
+    """0032 保留历史空键，以唯一约束保护新请求键，并可无损降级。"""
+    with temporary_database("partsignal_content_task_idempotency") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0031_reusable_platform_prompts")
+        ids = {
+            name: uuid.uuid4()
+            for name in ("actor", "product", "fact", "platform_type", "profile", "first", "second")
+        }
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO users "
+                "(id, username, display_name, password_hash, account_type, is_active, "
+                "must_change_password, revision) "
+                "VALUES (%s, %s, '0032 迁移用户', 'hash', 'ENGINEER', true, false, 0)",
+                (ids["actor"], f"task-idempotency-{ids['actor'].hex[:12]}"),
+            )
+            cursor.execute(
+                "INSERT INTO products "
+                "(id, part_number, normalized_part_number, brand, normalized_brand, category, "
+                "status, revision, facts_revision, facts_body_markdown, facts_classification) "
+                "VALUES (%s, '0032-MIG', %s, 'PartSignal', %s, 'TEST', "
+                "'ACTIVE', 0, 0, '迁移事实', 'PUBLIC')",
+                (
+                    ids["product"],
+                    f"0032-{ids['product'].hex}",
+                    f"partsignal-{ids['product'].hex}",
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO fact_versions "
+                "(id, product_id, version, status, body_markdown, classification, "
+                "change_summary, revision, created_by, approved_by, approved_at) "
+                "VALUES (%s, %s, 1, 'APPROVED', '迁移事实', 'PUBLIC', "
+                "'0032 迁移测试', 0, %s, %s, now())",
+                (ids["fact"], ids["product"], ids["actor"], ids["actor"]),
+            )
+            cursor.execute(
+                "INSERT INTO platform_types (id, name, slug, revision, created_by) "
+                "VALUES (%s, '0032 迁移类型', %s, 0, %s)",
+                (
+                    ids["platform_type"],
+                    f"0032-type-{ids['platform_type'].hex[:12]}",
+                    ids["actor"],
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO platform_profiles "
+                "(id, name, slug, allowed_domains, platform_type_id, revision, is_active) "
+                "VALUES (%s, '0032 迁移平台', %s, ARRAY['migration.invalid'], %s, 0, true)",
+                (
+                    ids["profile"],
+                    f"0032-profile-{ids['profile'].hex[:12]}",
+                    ids["platform_type"],
+                ),
+            )
+            cursor.execute(
+                "INSERT INTO content_tasks "
+                "(id, product_id, fact_version_id, platform_profile_id, status, revision, "
+                "created_by) VALUES (%s, %s, %s, %s, 'OPEN', 0, %s)",
+                (
+                    ids["first"],
+                    ids["product"],
+                    ids["fact"],
+                    ids["profile"],
+                    ids["actor"],
+                ),
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "head")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT idempotency_key FROM content_tasks WHERE id = %s",
+                (ids["first"],),
+            )
+            assert cursor.fetchone() == (None,)
+            cursor.execute(
+                "SELECT constraint_name FROM information_schema.table_constraints "
+                "WHERE table_schema = 'public' AND table_name = 'content_tasks' "
+                "AND constraint_type = 'UNIQUE'"
+            )
+            assert "uq_content_tasks_idempotency_key" in {
+                row[0] for row in cursor.fetchall()
+            }
+            cursor.execute(
+                "INSERT INTO content_tasks "
+                "(id, product_id, fact_version_id, platform_profile_id, status, revision, "
+                "created_by) VALUES (%s, %s, %s, %s, 'OPEN', 0, %s)",
+                (
+                    ids["second"],
+                    ids["product"],
+                    ids["fact"],
+                    ids["profile"],
+                    ids["actor"],
+                ),
+            )
+            cursor.execute(
+                "UPDATE content_tasks SET idempotency_key = %s WHERE id = %s",
+                ("content-task-migration-key", ids["first"]),
+            )
+            connection.commit()
+            with pytest.raises(psycopg.errors.UniqueViolation):
+                cursor.execute(
+                    "UPDATE content_tasks SET idempotency_key = %s WHERE id = %s",
+                    ("content-task-migration-key", ids["second"]),
+                )
+            connection.rollback()
+            cursor.execute(
+                "SELECT count(*) FROM content_tasks WHERE idempotency_key IS NULL"
+            )
+            assert cursor.fetchone() == (1,)
+
+        subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0031_reusable_platform_prompts"],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'content_tasks'"
+            )
+            assert "idempotency_key" not in {row[0] for row in cursor.fetchall()}
+            cursor.execute(
+                "SELECT count(*) FROM content_tasks WHERE id IN (%s, %s)",
+                (ids["first"], ids["second"]),
+            )
+            assert cursor.fetchone() == (2,)
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0031_reusable_platform_prompts",)

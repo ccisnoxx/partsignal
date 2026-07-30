@@ -5391,6 +5391,7 @@ export interface operations {
             query?: never;
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
             };
             path?: never;
             cookie?: never;
@@ -5401,7 +5402,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 已创建 */
+            /** @description 已创建或返回同一幂等请求已创建的任务 */
             201: {
                 headers: {
                     [name: string]: unknown;

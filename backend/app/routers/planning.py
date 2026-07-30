@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Query, Request, status
+from fastapi import APIRouter, Header, Query, Request, status
 from pydantic import BeforeValidator
 from sqlalchemy import select
 
@@ -168,9 +168,16 @@ def create_content_task(
     db: DbSession,
     editor: ContentEditor,
     _csrf: CsrfProtected,
+    idempotency_key: Annotated[
+        str, Header(alias="Idempotency-Key", min_length=8, max_length=128)
+    ],
 ) -> ContentTaskOut:
     task = create_content_task_command(
-        db=db, payload=payload, actor=editor, request_id=request.state.request_id
+        db=db,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+        idempotency_key=idempotency_key,
     )
     return content_task_out(db, task)
 

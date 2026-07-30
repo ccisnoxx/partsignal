@@ -101,7 +101,11 @@ def content_task_out(db: Session, task: ContentTask) -> ContentTaskOut:
         db,
         [task.id] if task.status == "CANCELLED" else [],
     )
-    payload = {column.name: getattr(task, column.name) for column in task.__table__.columns}
+    payload = {
+        column.name: getattr(task, column.name)
+        for column in task.__table__.columns
+        if column.name != "idempotency_key"
+    }
     payload["available_actions"] = _content_task_available_actions(
         task,
         has_in_flight_publication=has_in_flight_publication,

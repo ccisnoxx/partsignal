@@ -28,7 +28,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { ApiError, api, csrfHeader, ensureSuccess, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
@@ -221,6 +221,10 @@ function TaskCreateModal({
 }) {
   const [productId, setProductId] = useState<string>();
   const [form] = Form.useForm<Schema<'ContentTaskCreate'>>();
+  const idempotencyKey = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    idempotencyKey.current = open ? newIdempotencyKey() : undefined;
+  }, [open]);
   const products = useQuery({ ...productsQueryOptions(), enabled: open });
   const platforms = useQuery({ ...platformProfilesQueryOptions(), enabled: open });
   const facts = useQuery({
@@ -230,9 +234,13 @@ function TaskCreateModal({
     staleTime: QUERY_STALE_TIME.detail,
   });
   const create = useMutation({
-    mutationFn: async (body: Schema<'ContentTaskCreate'>) => unwrap(await api.POST('/api/v1/content-tasks', { params: { header: csrfHeader() }, body })),
-    onSuccess: async (created, body) => {
+    mutationFn: async ({ body, key }: { body: Schema<'ContentTaskCreate'>; key: string }) => unwrap(await api.POST(
+      '/api/v1/content-tasks',
+      { params: { header: { ...csrfHeader(), 'Idempotency-Key': key } }, body },
+    )),
+    onSuccess: async (created, { body }) => {
       const selectedFact = facts.data?.items.find((item) => item.id === body.fact_version_id);
+      idempotencyKey.current = undefined;
       onClose();
       await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all });
       await onCreated?.(created, selectedFact?.classification === 'PUBLIC');
@@ -241,7 +249,10 @@ function TaskCreateModal({
   const dependencyError = products.error ?? platforms.error ?? facts.error;
   const dependenciesLoading = products.isLoading || platforms.isLoading || (!!productId && facts.isLoading);
 
-  return <Modal title="创建内容任务" open={open} onCancel={onClose} footer={null} width={680} destroyOnHidden>
+  return <Modal title="创建内容任务" open={open} onCancel={() => {
+    idempotencyKey.current = undefined;
+    onClose();
+  }} footer={null} width={680} destroyOnHidden>
     {create.error && <Alert role="alert" className="form-alert" type="error" title={errorMessage(create.error)} />}
     {dependencyError && <QueryFailure error={dependencyError} onRetry={() => { void products.refetch(); void platforms.refetch(); if (productId) void facts.refetch(); }} />}
     {dependenciesLoading && <QueryLoading label="正在加载任务前置数据" />}
@@ -250,7 +261,10 @@ function TaskCreateModal({
       layout="vertical"
       disabled={!!dependencyError || dependenciesLoading}
       scrollToFirstError={{ behavior: 'smooth', block: 'center', focus: true }}
-      onFinish={(body) => create.mutate(body)}
+      onFinish={(body) => {
+        idempotencyKey.current ??= newIdempotencyKey();
+        create.mutate({ body, key: idempotencyKey.current });
+      }}
     >
       <Form.Item name="product_id" label="产品" rules={[{ required: true, message: '请选择产品' }]}>
         <Select showSearch optionFilterProp="label" onChange={(value) => {

@@ -378,6 +378,225 @@ def add_platform_content(
 
 
 @pytest.mark.integration
+def test_content_task_creation_idempotency() -> None:
+    """请求键在 API、业务事务和数据库三层只允许首次创建产生副作用。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            graph = seed_graph(db)
+            user_id = graph["user"].id
+            payload = ContentTaskCreate(
+                product_id=graph["product"].id,
+                fact_version_id=graph["fact"].id,
+                platform_profile_id=graph["profile"].id,
+            )
+            conflicting_payload = ContentTaskCreate(
+                product_id=graph["product"].id,
+                fact_version_id=graph["fact"].id,
+                platform_profile_id=graph["other_profile"].id,
+            )
+
+        csrf_token = "content-task-idempotency-csrf-token-over-32-characters"
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        app.dependency_overrides[get_db] = override_db
+        client = TestClient(app)
+        try:
+            unauthorized = client.post(
+                "/api/v1/content-tasks",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "Idempotency-Key": "content-task-unauthorized",
+                },
+                json=payload.model_dump(mode="json"),
+            )
+            assert unauthorized.status_code == 401
+
+            with session_factory() as db:
+                api_user = db.get(User, user_id)
+                assert api_user is not None
+                current_session = SimpleNamespace(
+                    user=api_user,
+                    csrf_hash=hash_token(csrf_token),
+                    last_seen_at=None,
+                )
+            app.dependency_overrides[get_current_session] = lambda: current_session
+
+            missing_key = client.post(
+                "/api/v1/content-tasks",
+                headers={"X-CSRF-Token": csrf_token},
+                json=payload.model_dump(mode="json"),
+            )
+            assert missing_key.status_code == 422
+            invalid_key = client.post(
+                "/api/v1/content-tasks",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "Idempotency-Key": "short",
+                },
+                json=payload.model_dump(mode="json"),
+            )
+            assert invalid_key.status_code == 422
+            invalid_csrf = client.post(
+                "/api/v1/content-tasks",
+                headers={
+                    "X-CSRF-Token": "wrong-csrf-token-over-32-characters",
+                    "Idempotency-Key": "content-task-invalid-csrf",
+                },
+                json=payload.model_dump(mode="json"),
+            )
+            assert invalid_csrf.status_code == 403
+            with session_factory() as db:
+                assert (
+                    db.scalar(
+                        select(func.count())
+                        .select_from(ContentTask)
+                        .where(ContentTask.idempotency_key.is_not(None))
+                    )
+                    == 0
+                )
+
+            first = client.post(
+                "/api/v1/content-tasks",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "content-task-api-first",
+                    "Idempotency-Key": "content-task-api-replay",
+                },
+                json=payload.model_dump(mode="json"),
+            )
+            replay = client.post(
+                "/api/v1/content-tasks",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "content-task-api-replay",
+                    "Idempotency-Key": "content-task-api-replay",
+                },
+                json=payload.model_dump(mode="json"),
+            )
+            assert first.status_code == replay.status_code == 201
+            assert first.json()["id"] == replay.json()["id"]
+
+            conflict = client.post(
+                "/api/v1/content-tasks",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "Idempotency-Key": "content-task-api-replay",
+                },
+                json=conflicting_payload.model_dump(mode="json"),
+            )
+            assert conflict.status_code == 409
+            assert conflict.json()["error"]["code"] == "IDEMPOTENCY_CONFLICT"
+        finally:
+            app.dependency_overrides.clear()
+
+        with session_factory() as db:
+            actor = db.get(User, user_id)
+            assert actor is not None
+            first_retry = create_content_task(
+                db=db,
+                payload=payload,
+                actor=actor,
+                request_id="content-task-timeout-first",
+                idempotency_key="content-task-timeout-retry",
+            )
+        with session_factory() as db:
+            profile = db.get(PlatformProfile, payload.platform_profile_id)
+            assert profile is not None
+            profile.is_active = False
+            db.commit()
+        with session_factory() as db:
+            actor = db.get(User, user_id)
+            assert actor is not None
+            timeout_retry = create_content_task(
+                db=db,
+                payload=payload,
+                actor=actor,
+                request_id="content-task-timeout-replay",
+                idempotency_key="content-task-timeout-retry",
+            )
+        with session_factory() as db:
+            profile = db.get(PlatformProfile, payload.platform_profile_id)
+            assert profile is not None
+            profile.is_active = True
+            db.commit()
+        with session_factory() as db:
+            actor = db.get(User, user_id)
+            assert actor is not None
+            distinct_intent = create_content_task(
+                db=db,
+                payload=payload,
+                actor=actor,
+                request_id="content-task-distinct-intent",
+                idempotency_key="content-task-distinct-intent",
+            )
+        assert timeout_retry.id == first_retry.id
+        assert distinct_intent.id != first_retry.id
+
+        start = Event()
+
+        def create_concurrently(request_id: str) -> uuid.UUID:
+            with session_factory() as db:
+                actor = db.get(User, user_id)
+                assert actor is not None
+                start.wait()
+                return create_content_task(
+                    db=db,
+                    payload=payload,
+                    actor=actor,
+                    request_id=request_id,
+                    idempotency_key="content-task-concurrent",
+                ).id
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(create_concurrently, "content-task-concurrent-a"),
+                executor.submit(create_concurrently, "content-task-concurrent-b"),
+            ]
+            start.set()
+            concurrent_ids = {future.result(timeout=10) for future in futures}
+        assert len(concurrent_ids) == 1
+
+        with session_factory() as db:
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(ContentTask)
+                    .where(ContentTask.idempotency_key == "content-task-concurrent")
+                )
+                == 1
+            )
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(AuditLog)
+                    .where(
+                        AuditLog.request_id.in_(
+                            ["content-task-concurrent-a", "content-task-concurrent-b"]
+                        )
+                    )
+                )
+                == 1
+            )
+            assert (
+                db.scalar(
+                    select(func.count())
+                    .select_from(AuditLog)
+                    .where(
+                        AuditLog.request_id.in_(
+                            ["content-task-timeout-first", "content-task-timeout-replay"]
+                        )
+                    )
+                )
+                == 1
+            )
+
+
+@pytest.mark.integration
 def test_content_humanization_prompt_api_lifecycle_and_audit() -> None:
     """全局自然化 Prompt 必须由管理员首次创建，并按修订号更新且不泄露正文。"""
     with temporary_database() as database_url:
@@ -3786,6 +4005,7 @@ def test_platform_management_projection_status_gates_and_permissions() -> None:
                     ),
                     actor=graph["user"],
                     request_id="disabled-task",
+                    idempotency_key=f"disabled-task-{uuid.uuid4()}",
                 )
             assert task_error.value.code == "PLATFORM_DISABLED"
             db.rollback()

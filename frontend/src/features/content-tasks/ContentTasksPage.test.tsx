@@ -11,7 +11,13 @@ import { ThemeProvider } from '../../app/ThemeProvider';
 import { CONTENT_TAG_ERROR, hasValidContentTags } from '../../shared/contentValidation';
 import { ContentTasksPage } from './ContentTasksPage';
 
-const apiMocks = vi.hoisted(() => ({ GET: vi.fn(), PATCH: vi.fn(), POST: vi.fn(), DELETE: vi.fn() }));
+const apiMocks = vi.hoisted(() => ({
+  GET: vi.fn(),
+  PATCH: vi.fn(),
+  POST: vi.fn(),
+  DELETE: vi.fn(),
+  newIdempotencyKey: vi.fn(),
+}));
 
 vi.mock('../../shared/api/client', () => {
   class MockApiError extends Error {
@@ -32,7 +38,7 @@ vi.mock('../../shared/api/client', () => {
       if (!result.response.ok) throw new Error(result.error?.error?.message ?? `请求失败（HTTP ${result.response.status}）`);
     },
     errorMessage: (error: unknown) => error instanceof Error ? error.message : '请求失败',
-    newIdempotencyKey: () => 'idempotency-test',
+    newIdempotencyKey: apiMocks.newIdempotencyKey,
     unwrap: <T,>(result: {
       data?: T;
       error?: { error?: { message?: string; code?: string; request_id?: string; details?: Record<string, unknown> } };
@@ -111,6 +117,7 @@ function renderPage(ui: ReactNode, initialEntries: ComponentProps<typeof MemoryR
 beforeEach(() => {
   queryClient.clear();
   Object.values(apiMocks).forEach((mock) => mock.mockReset());
+  apiMocks.newIdempotencyKey.mockReturnValue('idempotency-test');
   apiMocks.GET.mockImplementation((path: string) => {
     if (path === '/api/v1/content-tasks/{content_task_id}') return result(task);
     if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'OPEN')] });
@@ -374,6 +381,67 @@ test('创建内容任务只加载产品和平台，不再展示或请求目标�
   expect(await screen.findByText('创建内容任务')).toBeInTheDocument();
   expect(screen.queryByLabelText('目标问题')).not.toBeInTheDocument();
   expect(apiMocks.GET).not.toHaveBeenCalledWith('/api/v1/query-topics');
+});
+
+test('创建内容任务失败重试复用请求键，关闭后重新创建使用新键', async () => {
+  const user = userEvent.setup();
+  const newTask = { ...task, id: 'task-2' };
+  apiMocks.newIdempotencyKey
+    .mockReturnValueOnce('content-task-request-1')
+    .mockReturnValueOnce('content-task-request-2');
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks') return result({ items: [] });
+    if (path === '/api/v1/products') {
+      return result({ items: [{ id: task.product_id, brand: 'PartSignal', part_number: 'PS-01' }], page: 1, page_size: 100, total: 1 });
+    }
+    if (path === '/api/v1/platform-profiles') {
+      return result({ items: [{ id: task.platform_profile_id, name: '工程师社区', is_active: true }] });
+    }
+    if (path === '/api/v1/products/{product_id}/fact-versions') return result({ items: [factVersion] });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  apiMocks.POST
+    .mockResolvedValueOnce({
+      error: { error: { code: 'UPSTREAM_UNAVAILABLE', message: '服务暂不可用' } },
+      response: new Response(null, { status: 503 }),
+    })
+    .mockImplementation(() => result(newTask, 201));
+  renderPage(<Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes>, ['/tasks']);
+
+  await screen.findByText('暂无内容任务');
+  await user.click(screen.getByRole('button', { name: '新建内容任务' }));
+  const createDialog = await screen.findByRole('dialog', { name: '创建内容任务' });
+  await user.click(within(createDialog).getByRole('combobox', { name: '产品' }));
+  await user.click(await screen.findByText('PartSignal PS-01', { selector: '.ant-select-item-option-content' }));
+  await user.click(within(createDialog).getByRole('combobox', { name: '已批准事实版本' }));
+  await user.click(await screen.findByText('V1 · PUBLIC · 批准事实'));
+  await user.click(within(createDialog).getByRole('combobox', { name: '目标平台' }));
+  await user.click(await screen.findByText('工程师社区', { selector: '.ant-select-item-option-content' }));
+  await user.click(within(createDialog).getByRole('button', { name: '创建任务' }));
+  expect(await within(createDialog).findByText('服务暂不可用')).toBeInTheDocument();
+
+  await user.click(within(createDialog).getByRole('button', { name: '创建任务' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '创建内容任务' })).not.toBeInTheDocument());
+  expect(apiMocks.POST).toHaveBeenNthCalledWith(
+    1,
+    '/api/v1/content-tasks',
+    expect.objectContaining({ params: { header: { 'X-CSRF-Token': 'test', 'Idempotency-Key': 'content-task-request-1' } } }),
+  );
+  expect(apiMocks.POST).toHaveBeenNthCalledWith(
+    2,
+    '/api/v1/content-tasks',
+    expect.objectContaining({ params: { header: { 'X-CSRF-Token': 'test', 'Idempotency-Key': 'content-task-request-1' } } }),
+  );
+
+  await user.click(screen.getByRole('button', { name: '新建内容任务' }));
+  const reopenedDialog = await screen.findByRole('dialog', { name: '创建内容任务' });
+  await user.click(within(reopenedDialog).getByRole('button', { name: '创建任务' }));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledTimes(3));
+  expect(apiMocks.POST).toHaveBeenNthCalledWith(
+    3,
+    '/api/v1/content-tasks',
+    expect.objectContaining({ params: { header: { 'X-CSRF-Token': 'test', 'Idempotency-Key': 'content-task-request-2' } } }),
+  );
 });
 
 test('列表用真实任务状态生成摘要，并将客户端筛选写入 URL', async () => {

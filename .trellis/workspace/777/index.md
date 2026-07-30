@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 38
+- **Total Sessions**: 39
 - **Last Active**: 2026-07-30
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1302 | Active |
+| `journal-1.md` | ~1338 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 39 | 2026-07-30 | 完成完整发布与上线回归 | `2c3122d` | `main` |
 | 38 | 2026-07-30 | 修复内容任务列表投影字段泄漏 | `2845416`, `db4fc8a` | `main` |
 | 37 | 2026-07-30 | 修复 DEF-001 与 DEF-AI-001 | `78e79cd`, `87edd78` | `main` |
 | 36 | 2026-07-30 | 修复 DEF-002 内容任务创建幂等 | `de8d95d` | `main` |

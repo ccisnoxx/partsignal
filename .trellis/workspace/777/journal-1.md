@@ -1303,3 +1303,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 39: 完成完整发布与上线回归
+
+**Date**: 2026-07-30
+**Task**: 完成完整发布与上线回归
+**Branch**: `main`
+
+### Summary
+
+完整发布 4e4672f 至 Hostdzire，通过公网、Nginx、连续探针和真实浏览器权限回归；隔离工程师账号完成改密、403、停用与删除，审计保留；current 已更新并清理会话。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2c3122d` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

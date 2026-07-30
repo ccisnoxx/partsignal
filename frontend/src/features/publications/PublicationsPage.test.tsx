@@ -356,7 +356,7 @@ test('发布记录保留单一主入口，并在更多菜单展示其余服务�
 
   fireEvent.click(await screen.findByRole('button', { name: `更多操作：${content.title}` }));
   expect(await screen.findByRole('menuitem', { name: '平台拒绝' })).toBeInTheDocument();
-  expect(screen.getByRole('menuitem', { name: '删除未公开记录' })).toBeInTheDocument();
+  expect(screen.getByRole('menuitem', { name: '物理删除' })).toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: '登记已发布' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('menuitem', { name: '平台拒绝' }));
 
@@ -364,6 +364,27 @@ test('发布记录保留单一主入口，并在更多菜单展示其余服务�
   expect(await drawer.findByRole('button', { name: '确认提交' })).toBeInTheDocument();
   expect(drawer.getAllByText('平台拒绝')).toHaveLength(2);
   expect(window.location.search).toContain(`record=${publicationId}`);
+});
+
+test('已有公开历史时仍展示禁用的物理删除及原因', async () => {
+  window.history.pushState({}, '', '/publications?tab=records');
+  const protectedRecord = {
+    ...recordItem,
+    status: 'VERIFIED' as const,
+    available_actions: [],
+  };
+  mockFetch((request) => {
+    const common = commonWorkspaceResponse(request, { records: [protectedRecord], total: 1 });
+    if (common) return common;
+    throw new Error(`未声明的测试请求：${request.method} ${request.url}`);
+  });
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole('button', { name: `更多操作：${content.title}` }));
+  const deleteItem = await screen.findByRole('menuitem', { name: '物理删除' });
+  expect(deleteItem).toHaveAttribute('aria-disabled', 'true');
+  fireEvent.mouseOver(within(deleteItem).getByText('物理删除'));
+  expect(await screen.findByText(/记录一旦公开/)).toBeInTheDocument();
 });
 
 test('删除使用专属确认和 DELETE，成功后清理记录 URL', async () => {

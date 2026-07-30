@@ -56,6 +56,7 @@ import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { PlatformAvatar } from '../../shared/components/PlatformAvatar';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { PlatformDetailPanel } from './PlatformDetailPanel';
 
@@ -367,11 +368,11 @@ export function PlatformsPage() {
               }}
               columns={[
                 { title: '平台名称', render: (_, profile) => <div className="platform-identity-cell"><PlatformAvatar name={profile.name} logo={profile.logo} size={24} /><strong>{profile.name}</strong></div> },
-                { title: '所属平台类型', width: 100, render: (_, profile) => profile.platform_type?.name ?? '未归类' },
+                { title: '所属平台类型', width: 120, ellipsis: true, render: (_, profile) => <TableCellText text={profile.platform_type?.name ?? '未归类'} /> },
                 { title: '官方网站', dataIndex: 'website_url', width: 110, render: (value: string | null) => value ? <a className="platform-table-link" href={value} target="_blank" rel="noreferrer" title={value}>{value}</a> : '—' },
                 { title: '允许域名（数量）', dataIndex: 'allowed_domains', width: 125, render: (items: string[]) => items.length ? <span title={items.join('、')}>{items[0]}{items.length > 1 ? ` 等 ${items.length} 个` : ''}</span> : '—' },
                 { title: '状态', width: 72, render: (_, profile) => <StatusTag compact status={profile.is_active ? 'ENABLED' : 'DISABLED'} /> },
-                { title: '当前 Prompt', width: 140, render: (_, profile) => profile.platform_prompt?.name ?? <StatusTag compact status="PROMPT_MISSING" /> },
+                { title: '当前 Prompt', width: 160, ellipsis: true, render: (_, profile) => profile.platform_prompt ? <TableCellText text={profile.platform_prompt.name} /> : <StatusTag compact status="PROMPT_MISSING" /> },
                 { title: '发布账号数量', dataIndex: 'platform_account_count', width: 86 },
                 { title: '更新时间', dataIndex: 'updated_at', width: 124, render: (value: string | null) => value ? <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> : '—' },
                 { title: '操作', fixed: 'right', width: 104, render: (_, profile) => <Space size={4}><Tooltip title={`查看平台：${profile.name}`}><Button data-platform-view={profile.id} type="text" size="small" aria-label={`查看平台：${profile.name}`} icon={<EyeOutlined />} onClick={(event) => openDetail(profile.id, event.currentTarget)} /></Tooltip><Dropdown trigger={['click']} menu={rowMenu(profile)}><Tooltip title={`更多操作：${profile.name}`}><Button type="text" size="small" aria-label={`更多操作：${profile.name}`} icon={<EllipsisOutlined />} loading={(toggleProfile.isPending || removeProfile.isPending) && (toggleProfile.variables?.id === profile.id || removeProfile.variables?.id === profile.id)} /></Tooltip></Dropdown></Space> },

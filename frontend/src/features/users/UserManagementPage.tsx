@@ -46,6 +46,7 @@ import { DeletionError } from '../../shared/components/DeletionError';
 import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { useAuth } from '../auth/AuthProvider';
 
@@ -367,8 +368,8 @@ export function UserManagementPage() {
                   }}
                   locale={{ emptyText: <NoData description="当前筛选没有用户" action={hasFilters ? <Button onClick={resetFilters}>清除筛选</Button> : undefined} /> }}
                   columns={[
-                    { title: '用户名', dataIndex: 'username', render: (value: string, row) => <Space><Avatar className="user-management-avatar" aria-label={`${row.username} 的头像`} icon={<UserOutlined />}>{row.display_name.slice(0, 1)}</Avatar><span className="data-code">{value}</span></Space> },
-                    { title: '显示名称', dataIndex: 'display_name' },
+                    { title: '用户名', dataIndex: 'username', width: 260, ellipsis: true, render: (value: string, row) => <Space><Avatar className="user-management-avatar" aria-label={`${row.username} 的头像`} icon={<UserOutlined />}>{row.display_name.slice(0, 1)}</Avatar><TableCellText text={value} mono /></Space> },
+                    { title: '显示名称', dataIndex: 'display_name', width: 220, ellipsis: true, render: (value: string) => <TableCellText text={value} /> },
                     { title: '账号类型', dataIndex: 'account_type', width: 120, render: (value: string) => <StatusTag compact status={value} /> },
                     { title: '状态', dataIndex: 'is_active', width: 105, render: (value: boolean) => <StatusTag compact status={value ? 'ENABLED' : 'DISABLED'} /> },
                     { title: '必须修改密码', dataIndex: 'must_change_password', width: 135, render: (value: boolean) => <Tag className={`user-management-boolean user-management-boolean-${value ? 'yes' : 'no'}`}>{value ? '是' : '否'}</Tag> },

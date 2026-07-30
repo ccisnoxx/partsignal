@@ -33,6 +33,7 @@ import type { AuditLogListQuery, Schema, UserListQuery } from '../../shared/api/
 import { NoData, QueryFailure } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import {
   actionLabel,
@@ -470,7 +471,7 @@ export function AuditLogPage() {
                     { title: '操作者', width: 76, render: (_, row) => row.actor?.display_name ?? '已删除用户' },
                     { title: '账号类型', width: 82, render: (_, row) => row.actor ? <StatusTag compact status={row.actor.account_type} /> : '未记录' },
                     { title: '业务模块', dataIndex: 'business_module', width: 94, render: moduleLabel },
-                    { title: '动作', dataIndex: 'action', render: actionLabel },
+                    { title: '动作', dataIndex: 'action', width: 160, ellipsis: true, render: (value: string) => <TableCellText text={actionLabel(value)} /> },
                     { title: '对象类型', dataIndex: 'target_type', width: 94, render: targetTypeLabel },
                     { title: '对象标识', dataIndex: 'target_id', width: 126, render: (value: string | null) => <Tooltip title={value ?? '未创建'}><span className="data-code audit-cell-ellipsis">{value ?? '未创建'}</span></Tooltip> },
                     { title: '执行结果', dataIndex: 'outcome', width: 76, render: (value: string) => <StatusTag compact status={value} /> },

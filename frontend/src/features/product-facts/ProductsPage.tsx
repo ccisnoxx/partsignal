@@ -1,7 +1,7 @@
 /** 产品入口页，创建与检索事实工作区的业务主对象。 */
 import { DownOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, App, Button, Card, Dropdown, Form, Input, Modal, Space, Table } from 'antd';
+import { Alert, App, Button, Card, Dropdown, Form, Input, Modal, Space, Table, Tooltip } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
@@ -11,6 +11,7 @@ import type { Product, Schema } from '../../shared/api/types';
 import { QueryFailure } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { queryClient } from '../../app/queryClient';
 import { useAuth } from '../auth/AuthProvider';
@@ -95,9 +96,9 @@ export function ProductsPage() {
       <Card className="collection-panel">
         {remove.error && <DeletionError error={remove.error} />}
         <Input.Search key={search} aria-label="搜索产品" prefix={<SearchOutlined />} allowClear placeholder="搜索型号或品牌" defaultValue={search} onSearch={(value) => setView({ q: value.trim(), page: 1 })} className="table-search" />
-        {products.error ? <QueryFailure error={products.error} onRetry={() => void products.refetch()} /> : <TableRegion label="产品事实列表"><Table<Product> rowKey="id" loading={products.isLoading} dataSource={products.data?.items} pagination={{ current: page, pageSize: 20, showSizeChanger: false, onChange: (nextPage) => setView({ page: nextPage }) }} sticky={{ offsetHeader: 72 }} scroll={{ x: 760 }} columns={[
-          { title: '型号', dataIndex: 'part_number', render: (value, item) => <Link className="data-code" to={`/products/${item.id}`}><strong>{value}</strong></Link> },
-          { title: '品牌', dataIndex: 'brand', width: 180 }, { title: '类别', dataIndex: 'category', width: 180 },
+        {products.error ? <QueryFailure error={products.error} onRetry={() => void products.refetch()} /> : <TableRegion label="产品事实列表"><Table<Product> rowKey="id" loading={products.isLoading} dataSource={products.data?.items} pagination={{ current: page, pageSize: 20, showSizeChanger: false, onChange: (nextPage) => setView({ page: nextPage }) }} sticky={{ offsetHeader: 72 }} scroll={{ x: 860 }} columns={[
+          { title: '型号', dataIndex: 'part_number', width: 280, ellipsis: true, render: (value, item) => <Tooltip title={value} trigger={['hover', 'focus']}><Link className="table-cell-ellipsis data-code" aria-label={value} to={`/products/${item.id}`}>{value}</Link></Tooltip> },
+          { title: '品牌', dataIndex: 'brand', width: 180, ellipsis: true, render: (value) => <TableCellText text={value} /> }, { title: '类别', dataIndex: 'category', width: 180, ellipsis: true, render: (value) => <TableCellText text={value} /> },
           { title: '状态', dataIndex: 'status', width: 110, render: (value) => <StatusTag status={value} /> },
           { title: '操作', fixed: 'right', width: 110, render: (_, item) => auth.isAdmin ? <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(item) }}><Button size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown> : '—' },
         ]} /></TableRegion>}

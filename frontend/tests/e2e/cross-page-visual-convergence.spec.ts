@@ -1,5 +1,5 @@
 /** 跨主要业务路由验证唯一壳层、代表视觉基线与响应式交互边界。 */
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +11,34 @@ const zoomExtensionPath = fileURLToPath(new URL('./fixtures/browser-zoom-extensi
 
 type Target = { key: string; path: string; heading: string; redirect?: RegExp };
 type VisualTargetKey = 'users' | 'prompts' | 'geo-insights' | 'dashboard' | 'content-review';
+type TableInventoryItem = { label: string; source: string; marker: string; surface: string };
+
+const sitewideTableInventory: TableInventoryItem[] = [
+  { label: '内容任务列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="内容任务列表"', surface: 'tasks' },
+  { label: 'AI 作业列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="AI 作业列表"', surface: 'task-detail' },
+  { label: '内容版本列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="内容版本列表"', surface: 'task-detail' },
+  { label: '产品事实列表', source: '../../src/features/product-facts/ProductsPage.tsx', marker: 'label="产品事实列表"', surface: 'products' },
+  { label: '事实版本列表', source: '../../src/features/product-facts/ProductFactsPage.tsx', marker: 'label="事实版本列表"', surface: 'product-versions' },
+  { label: '待发布候选', source: '../../src/features/publications/PublicationWorkspace.tsx', marker: 'label="待发布候选列表"', surface: 'publication-candidates' },
+  { label: '发布记录', source: '../../src/features/publications/PublicationWorkspace.tsx', marker: 'label="发布记录列表"', surface: 'publication-records' },
+  { label: '发布异常待办', source: '../../src/features/publications/PublicationWorkspace.tsx', marker: 'label="发布需关注列表"', surface: 'publication-attentions' },
+  { label: 'GEO 观测记录', source: '../../src/features/geo-observations/GeoObservationsPage.tsx', marker: 'label="观测记录列表"', surface: 'observations' },
+  { label: 'GEO 文章观测结果', source: '../../src/features/geo-observations/GeoObservationForm.tsx', marker: 'label="产品文章观测结果"', surface: 'observation-form' },
+  { label: 'GEO 问题库', source: '../../src/features/geo-observations/GeoTopicsPage.tsx', marker: 'label="GEO 问题库列表"', surface: 'geo-topics' },
+  { label: 'GEO 平台表现', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'label="GEO 平台表现"', surface: 'geo-insights' },
+  { label: 'GEO 内容排行', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'rowKey="publication_record_id"', surface: 'geo-insights' },
+  { label: 'GEO 覆盖矩阵', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'label="搜索问题覆盖计数"', surface: 'geo-insights' },
+  { label: 'AI 渠道列表', source: '../../src/features/configuration/AIChannelsPage.tsx', marker: 'label="AI 渠道列表"', surface: 'ai' },
+  { label: 'AI 请求 Header', source: '../../src/features/configuration/AIChannelDetailPage.tsx', marker: 'label="请求 Header 列表"', surface: 'ai-request' },
+  { label: 'AI 模型列表', source: '../../src/features/configuration/AIChannelDetailPage.tsx', marker: 'label="模型列表"', surface: 'ai-models' },
+  { label: 'AI 渠道操作日志', source: '../../src/features/configuration/AIChannelDetailPage.tsx', marker: 'label="渠道操作日志"', surface: 'ai-logs' },
+  { label: '全局审计日志', source: '../../src/features/configuration/AuditLogPage.tsx', marker: 'label="审计日志"', surface: 'audit' },
+  { label: '模型发现弹窗', source: '../../src/features/configuration/ModelDiscoveryModal.tsx', marker: 'label="远端模型列表"', surface: 'ai-model-discovery' },
+  { label: '平台列表', source: '../../src/features/configuration/PlatformsPage.tsx', marker: 'label="平台列表"', surface: 'platforms' },
+  { label: '平台类型列表', source: '../../src/features/configuration/PlatformTypesPage.tsx', marker: 'label="平台类型列表"', surface: 'platform-types' },
+  { label: '发布账号列表', source: '../../src/features/settings/SettingsPage.tsx', marker: 'label="发布账号列表"', surface: 'accounts' },
+  { label: '用户列表', source: '../../src/features/users/UserManagementPage.tsx', marker: 'label="用户列表"', surface: 'users' },
+];
 
 test.setTimeout(240_000);
 
@@ -34,18 +62,20 @@ async function resolveTargets(page: Page): Promise<Target[]> {
   );
   if (!products.items[0]) throw new Error('真实测试库缺少产品，无法验证跨路由壳层');
 
-  const tasks = await body<{ items: Array<{ id: string; product: { brand: string; part_number: string } }> }>(
+  const tasks = await body<{ items: Array<{ id: string; product_id: string; product: { brand: string; part_number: string } }> }>(
     await page.request.get('/api/v1/content-tasks'),
   );
   if (!tasks.items[0]) throw new Error('真实测试库缺少内容任务，无法验证任务详情壳层');
 
   let content: { id: string; title: string } | undefined;
+  let taskWithContent = tasks.items[0];
   for (const task of tasks.items) {
     const versions = await body<{ items: Array<{ id: string; title: string }> }>(
       await page.request.get(`/api/v1/content-tasks/${task.id}/content-versions`),
     );
     if (versions.items[0]) {
       content = versions.items[0];
+      taskWithContent = task;
       break;
     }
   }
@@ -56,23 +86,36 @@ async function resolveTargets(page: Page): Promise<Target[]> {
   );
   if (!profiles.items[0]) throw new Error('真实测试库缺少平台，无法验证 Prompt 壳层');
 
+  const channels = await body<{ items: Array<{ id: string }> }>(
+    await page.request.get('/api/v1/ai-channels?page=1&page_size=10'),
+  );
+  if (!channels.items[0]) throw new Error('真实测试库缺少 AI 渠道，无法验证渠道详情表格');
+  const channelDetailPath = `/configuration/ai/channels/${channels.items[0].id}`;
+
   return [
     { key: 'dashboard', path: '/', heading: '总览' },
     { key: 'products', path: '/products', heading: '产品事实' },
     { key: 'tasks', path: '/tasks', heading: '内容任务台' },
     { key: 'publications', path: '/publications', heading: '发布管理' },
+    { key: 'publication-candidates', path: '/publications?tab=candidates', heading: '发布管理' },
+    { key: 'publication-records', path: '/publications?tab=records', heading: '发布管理' },
+    { key: 'publication-attentions', path: '/publications?tab=attentions', heading: '发布管理' },
     { key: 'observations', path: '/observations', heading: 'GEO 观测' },
     { key: 'geo-insights', path: '/observations/insights', heading: 'GEO 分析洞察' },
+    { key: 'geo-topics', path: '/observations/topics', heading: 'GEO 问题库' },
     { key: 'settings', path: '/settings', heading: '发布账号' },
     { key: 'accounts', path: '/settings?tab=accounts', heading: '发布账号' },
     { key: 'users', path: '/users', heading: '用户管理' },
     { key: 'audit', path: '/audit', heading: '审计日志' },
     { key: 'configuration', path: '/configuration', heading: 'AI 渠道与模型', redirect: /\/configuration\/ai(?:\/channels\/[^/]+)?$/ },
     { key: 'ai', path: '/configuration/ai', heading: 'AI 渠道与模型' },
+    { key: 'ai-request', path: `${channelDetailPath}?tab=request`, heading: 'AI 渠道与模型' },
+    { key: 'ai-models', path: `${channelDetailPath}?tab=models`, heading: 'AI 渠道与模型' },
+    { key: 'ai-logs', path: `${channelDetailPath}?tab=logs`, heading: 'AI 渠道与模型' },
     { key: 'platform-types', path: '/configuration/platform-types', heading: '平台类型' },
     { key: 'platforms', path: '/configuration/platforms', heading: '平台管理' },
-    { key: 'product-detail', path: `/products/${products.items[0].id}`, heading: products.items[0].part_number },
-    { key: 'task-detail', path: `/tasks/${tasks.items[0].id}`, heading: `${tasks.items[0].product.brand} ${tasks.items[0].product.part_number}` },
+    { key: 'product-detail', path: `/products/${taskWithContent.product_id}`, heading: taskWithContent.product.part_number },
+    { key: 'task-detail', path: `/tasks/${taskWithContent.id}`, heading: `${taskWithContent.product.brand} ${taskWithContent.product.part_number}` },
     { key: 'content', path: `/content/${content.id}`, heading: content.title },
     {
       key: 'prompts',
@@ -101,6 +144,41 @@ async function expectNoDocumentOverflow(page: Page) {
     scrollWidth: document.documentElement.scrollWidth,
   }));
   expect(dimensions.scrollWidth, new URL(page.url()).pathname).toBeLessThanOrEqual(dimensions.clientWidth);
+}
+
+async function expectVisibleTableRegionsBounded(page: Page) {
+  const regions = page.locator('.table-region:visible');
+  await expect(regions).not.toHaveCount(0);
+  const viewportWidth = await page.evaluate(() => document.documentElement.clientWidth);
+  for (const region of await regions.all()) {
+    const box = await region.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(viewportWidth + 1);
+  }
+  const ellipsisStyles = await page.locator('.table-cell-ellipsis:visible').evaluateAll((elements) => (
+    elements.map((element) => {
+      const style = getComputedStyle(element);
+      return { overflow: style.overflow, whiteSpace: style.whiteSpace };
+    })
+  ));
+  for (const style of ellipsisStyles) {
+    expect(style).toEqual({ overflow: 'hidden', whiteSpace: 'nowrap' });
+  }
+  const fixedCellBackgrounds = await page.locator('.table-region .ant-table-cell-fix-right:visible, .table-region .ant-table-cell-fix-end:visible').evaluateAll(
+    (elements) => elements.map((element) => getComputedStyle(element).backgroundColor),
+  );
+  for (const background of fixedCellBackgrounds) {
+    expect(background).not.toBe('transparent');
+    expect(background).not.toBe('rgba(0, 0, 0, 0)');
+  }
+}
+
+async function inspectCurrentTableSurface(page: Page) {
+  await expectNoDocumentOverflow(page);
+  if (await page.locator('.table-region:visible').count()) {
+    await expectVisibleTableRegionsBounded(page);
+  }
 }
 
 async function expectMinimumTouchTarget(locator: Locator, label: string) {
@@ -423,7 +501,47 @@ test('system、reduced-motion、键盘焦点和打印边界可用', async ({ pag
   await expectNoDocumentOverflow(page);
 });
 
-test('三类页面在真实浏览器 200% tab zoom 下保持关键内容与响应式边界', async () => {
+test('全站 24 张业务表的源码清单与桌面、移动页面边界保持一致', async ({ page }) => {
+  test.setTimeout(360_000);
+  expect(sitewideTableInventory).toHaveLength(24);
+  for (const item of sitewideTableInventory) {
+    const source = await readFile(fileURLToPath(new URL(item.source, import.meta.url)), 'utf8');
+    expect(source, `${item.label} 未命中登记的源码标记`).toContain(item.marker);
+  }
+
+  await login(page);
+  const targets = await resolveTargets(page);
+  const targetByKey = new Map(targets.map((target) => [target.key, target]));
+  const surfaces = [...new Set(sitewideTableInventory.map((item) => item.surface))];
+
+  for (const width of [1440, 375]) {
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 900 });
+    for (const surface of surfaces) {
+      if (surface === 'product-versions') {
+        await openTarget(page, targetByKey.get('product-detail')!);
+        const tab = page.getByRole('tab', { name: /事实版本/ });
+        await tab.click();
+        await expect(tab).toHaveAttribute('aria-selected', 'true');
+      } else if (surface === 'observation-form') {
+        await openTarget(page, targetByKey.get('observations')!);
+        await page.getByRole('button', { name: '新建观测' }).click();
+        await expect(page.getByRole('dialog', { name: '登记人工观测' })).toBeVisible();
+      } else if (surface === 'ai-model-discovery') {
+        await openTarget(page, targetByKey.get('ai-models')!);
+        await page.getByRole('button', { name: '获取模型' }).click();
+        await expect(page.getByRole('dialog', { name: '获取模型' })).toBeVisible();
+      } else {
+        await openTarget(page, targetByKey.get(surface)!);
+      }
+      await inspectCurrentTableSurface(page);
+      if (surface === 'observation-form' || surface === 'ai-model-discovery') {
+        await page.keyboard.press('Escape');
+      }
+    }
+  }
+});
+
+test('五类业务表在真实浏览器 200% tab zoom 下保持关键内容与响应式边界', async () => {
   const userDataDir = await mkdtemp(join(tmpdir(), 'partsignal-browser-zoom-'));
   const context = await chromium.launchPersistentContext(userDataDir, {
     channel: 'chromium',
@@ -443,16 +561,17 @@ test('三类页面在真实浏览器 200% tab zoom 下保持关键内容与响�
     expect(await setBrowserZoom(worker, 2)).toBe(2);
     await expect.poll(() => page.evaluate(() => window.innerWidth)).toBeLessThan(1440);
 
-    const representatives = ['users', 'prompts', 'geo-insights']
+    const representatives = ['tasks', 'publications', 'observations', 'users', 'ai']
       .map((key) => targets.find((target) => target.key === key)!);
     for (const target of representatives) {
       await openTarget(page, target);
       await expectNoDocumentOverflow(page);
+      await expectVisibleTableRegionsBounded(page);
       await expect(page.getByRole('button', { name: '切换导航' })).toBeVisible();
       await expect(page.locator('.app-sider')).toHaveCount(0);
       if (target.key === 'users') await expectMobileShellTouchTargets(page);
     }
-    await expect(page.getByRole('heading', { level: 1, name: 'GEO 分析洞察' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'AI 渠道与模型' })).toBeVisible();
     expect(await setBrowserZoom(worker, 1)).toBe(1);
   } finally {
     await context.close();

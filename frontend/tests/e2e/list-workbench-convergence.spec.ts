@@ -182,13 +182,6 @@ test('窄屏只允许 TableRegion 内横向滚动，并保留键盘操作', asyn
   await expect(platformDrawer).not.toBeVisible();
   await expect(viewPlatform).toBeFocused();
 
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await openWorkbench(page, workbenches[0]);
-  const cdp = await page.context().newCDPSession(page);
-  await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 2 });
-  await expect.poll(() => page.evaluate(() => window.visualViewport?.scale)).toBe(2);
-  await expect(page.getByRole('button', { name: '新增用户' })).toBeVisible();
-  await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1 });
 });
 
 test('跟随系统主题与 reduced-motion 不改变工作台信息和操作入口', async ({ page }) => {

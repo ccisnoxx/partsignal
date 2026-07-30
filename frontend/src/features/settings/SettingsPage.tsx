@@ -25,6 +25,7 @@ import type { PlatformAccountListQuery, Schema } from '../../shared/api/types';
 import { DeletionError } from '../../shared/components/DeletionError';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { useAuth } from '../auth/AuthProvider';
 
@@ -237,20 +238,21 @@ function PlatformAccountsPanel({
           rowKey="id"
           loading={accounts.isLoading}
           dataSource={accounts.data?.items}
-          scroll={{ x: 820 }}
+          scroll={{ x: 900 }}
           columns={[
             {
               title: '平台',
               dataIndex: 'platform_profile_id',
               width: 180,
-              render: (value) => platformNames.get(value) ?? value,
+              render: (value) => <TableCellText text={platformNames.get(value) ?? value} />,
             },
-            { title: '业务标签', dataIndex: 'label' },
+            { title: '业务标签', dataIndex: 'label', width: 220, ellipsis: true, render: (value) => <TableCellText text={value} /> },
             {
               title: '运营账号标识（内部）',
               dataIndex: 'account_identifier',
               width: 280,
-              render: (value) => <span className="data-code">{value}</span>,
+              ellipsis: true,
+              render: (value) => <TableCellText text={value} mono />,
             },
             {
               title: '状态',

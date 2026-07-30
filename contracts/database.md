@@ -8,7 +8,7 @@
 - Alembic is the only schema migration entry point. API and Worker never run migrations on startup.
 - Revisions `0001` through `0008` use `app.migration_schema_v1` as a frozen metadata snapshot; future runtime model changes must add a new revision and must not edit that snapshot.
 - JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
-- Review records, status events, observations, and audit logs are append-only。`0027` 仅在物理删除停用用户时允许把该用户对应的 `audit_logs.actor_id` 从原 UUID 置空；`0029` 仅允许管理员按完整更正链物理删除人工 GEO 观测；`0030` 仅允许删除从未公开且没有下游引用的发布聚合。其他审计字段、任意未声明删除和普通 UPDATE 仍被数据库触发器拒绝。
+- Review records, status events, observations, and audit logs are append-only。`0027` 仅在物理删除停用用户时允许把该用户对应的 `audit_logs.actor_id` 从原 UUID 置空；`0029` 仅允许管理员按完整更正链物理删除人工 GEO 观测；`0030` 仅允许删除从未公开且没有下游引用的发布聚合；`0033` 仅允许清理匹配已取消任务的审核记录和未批准生产历史。其他审计字段、任意未声明删除和普通 UPDATE 仍被数据库触发器拒绝。
 
 ## Migration Order
 
@@ -236,7 +236,7 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 删除事务先设置事务本地 `partsignal.user_delete_id`，随后仅允许在用户删除触发的外键级联上下文中，把匹配用户的 `audit_logs.actor_id` 从该 UUID 更新为 `NULL`，且 `to_jsonb(NEW) - 'actor_id'` 必须与旧行完全一致。错配用户、未声明事务变量、手工直接更新、把空操作者改为其他值、修改其他审计字段以及所有审计 DELETE 均以 `55000` 失败。用户删除成功后追加新的 `user.deleted` 审计事件，由实际执行删除的管理员作为操作者；历史审计事件保留但被删用户的当前目录投影为空。降级恢复原通用触发器。
 
-内容任务物理删除不需要 schema 迁移：只有 `CANCELLED` 且没有任何 `generation_jobs` 或 `content_versions` 的任务可删除。服务锁定目标并统计两类直接引用；非取消状态返回 `INVALID_STATE_TRANSITION`，存在生产历史时返回 `CONTENT_TASK_IN_USE` 及结构化引用。删除不级联或改写事实、生成、内容、发布和审计历史。
+本 revision 最初只允许删除没有 `generation_jobs` 或 `content_versions` 的 `CANCELLED` 任务；该旧规则已由 `0033` 的任务自有历史删除契约取代。
 
 ### 0028 Platform Logo Lifecycle
 
@@ -273,6 +273,14 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理端明确展示全部受影响平台。被任一平台绑定的 Prompt 不可删除，平台删除或换绑不级联删除模板；只有未绑定模板可按 revision 物理删除。新原始生成请求同时提交所确认的 Prompt UUID 与 revision，服务端锁定任务、平台及其当前绑定后重新校验，变化时返回 `PLATFORM_PROMPT_CHANGED`，不得使用过期确认。
 
 新原始生成快照只写 `content-markdown-v3`，除既有最终消息、平台、事实、渠道和模型外，还冻结 Prompt 的 UUID、名称与 revision。`content-markdown-v2` 仅作为明确的历史类型继续读取并按原快照重试；后续换绑、更新或删除当前配置都不改变历史作业。自然化继续使用 `humanization-markdown-v2`。
+
+### 0033 Controlled Content Task Owned History Deletion
+
+版本 `0033_task_owned_history_delete` 紧跟 `0032_content_task_idempotency`，不新增业务表或列。只有 `CANCELLED` 任务可物理删除；该任务可以拥有生成作业、内容审核记录以及 `DRAFT | PENDING_REVIEW | CHANGES_REQUESTED` 内容版本。任一 `APPROVED | SUPERSEDED` 内容版本、任一关联发布记录或非空 `source_publication_attention_id` 都返回 `CONTENT_TASK_IN_USE` 并阻断删除。发布记录覆盖其 GEO 引用、文章观测和发布异常历史，修复来源单独阻断，因此任何下游历史都不会被清理。
+
+服务按 UUID 顺序锁定目标任务的生成作业、内容版本和任务行，并在锁内重新检查状态与全部保护关系。事务设置 `partsignal.content_task_delete_id` 后，只允许把匹配任务内容版本的 `source_job_id` 置空，以及删除这些版本的审核记录；普通内容修改、审核记录 UPDATE、未声明或错配任务的 DELETE 继续以 `55000` 失败。服务随后依次删除任务生成作业、审核记录、未批准内容版本和任务，任一步失败都整体回滚。
+
+删除成功只审计任务 UUID 与生成作业、内容版本、审核记录数量，不保存标题、正文、Prompt 或审核说明。产品、事实版本、平台、用户、发布、GEO 和既有审计均保持不变。任务列表与详情用同一批量保护历史投影决定 `DELETE` 动作，服务端仍是最终删除权限和状态权威。
 
 ## State Machines
 
@@ -327,7 +335,7 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - File cleanup uses the three actual current-head file foreign keys as its deletion authority. Unconfirmed files retain their configured grace period, detached previously used files retain seven days, and object deletion remains retryable through `DELETING` before a `DELETED` tombstone is recorded.
 - Product, fact version, platform profile, platform account, platform type, and user physical deletion is admin-only. Services lock the target, count direct references where applicable, and return structured `409` conflicts; they never cascade, reassign, or rewrite immutable business history except for the explicitly guarded audit actor nulling in `0027`.
 - A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform profile requires no content tasks or platform accounts; a platform account requires no `PublicationRecord`; a platform type requires no platform profiles.
-- A cancelled content task can be physically deleted only when it has no generation job or content version; no other task status is deletable.
+- 已取消内容任务可连同其生成作业、审核记录和未批准内容版本物理删除；存在 `APPROVED`/`SUPERSEDED` 内容、任一发布记录或发布修复来源时必须阻断，其他任务状态不可删除。
 - Channel deletion cascades to Headers and models. Historical job foreign keys become null while their immutable snapshots remain readable.
 - A model can be enabled only after its own successful test. A channel can be enabled only when at least one child model has passed testing.
 - A generation job performs at most one provider call. Expired worker leases fail explicitly; retries create a new job and preserve the original non-sensitive snapshot. Original-generation v2/v3 snapshots may retry from their frozen input; legacy v1 snapshots are read-only.

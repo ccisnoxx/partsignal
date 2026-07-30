@@ -7,7 +7,7 @@ import uuid
 from datetime import UTC, datetime
 from urllib.parse import urlparse
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -20,6 +20,7 @@ from app.models.configuration import (
     QueryTopic,
 )
 from app.models.content import (
+    ContentReviewRecord,
     ContentTask,
     ContentVersion,
 )
@@ -921,32 +922,105 @@ def delete_content_task(
     actor: User,
     request_id: str,
 ) -> None:
-    """删除未产生生成或内容历史的已取消任务。"""
-    task = db.scalar(select(ContentTask).where(ContentTask.id == task_id).with_for_update())
+    """删除已取消任务及其未进入下游历史的生成、审核与草稿数据。"""
+    task = db.get(ContentTask, task_id)
     if task is None:
         raise not_found("内容任务")
     if task.status != "CANCELLED":
         raise AppError("INVALID_STATE_TRANSITION", "只有已取消的内容任务可以删除", 409)
 
-    generation_job_count = int(
-        db.scalar(
-            select(func.count(GenerationJob.id)).where(GenerationJob.content_task_id == task.id)
+    jobs = list(
+        db.scalars(
+            select(GenerationJob)
+            .where(GenerationJob.content_task_id == task_id)
+            .order_by(GenerationJob.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
-        or 0
     )
-    content_version_count = int(
-        db.scalar(select(func.count(ContentVersion.id)).where(ContentVersion.task_id == task.id))
-        or 0
+    versions = list(
+        db.scalars(
+            select(ContentVersion)
+            .where(ContentVersion.task_id == task_id)
+            .order_by(ContentVersion.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
     )
-    if generation_job_count or content_version_count:
+    task = db.scalar(
+        select(ContentTask)
+        .where(ContentTask.id == task_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if task is None:
+        raise not_found("内容任务")
+    if task.status != "CANCELLED":
+        raise AppError("INVALID_STATE_TRANSITION", "只有已取消的内容任务可以删除", 409)
+
+    version_ids = [version.id for version in versions]
+    protected_content_count = sum(
+        version.status in {"APPROVED", "SUPERSEDED"} for version in versions
+    )
+    publication_count = (
+        int(
+            db.scalar(
+                select(func.count(PublicationRecord.id)).where(
+                    PublicationRecord.content_version_id.in_(version_ids)
+                )
+            )
+            or 0
+        )
+        if version_ids
+        else 0
+    )
+    repair_source_count = int(task.source_publication_attention_id is not None)
+    if protected_content_count or publication_count or repair_source_count:
         raise in_use(
             "CONTENT_TASK_IN_USE",
             "内容任务",
             [
-                ("GENERATION_JOB", "生成作业", generation_job_count),
-                ("CONTENT_VERSION", "内容版本", content_version_count),
+                ("PROTECTED_CONTENT_VERSION", "已批准内容历史", protected_content_count),
+                ("PUBLICATION_RECORD", "发布记录", publication_count),
+                ("PUBLICATION_ATTENTION", "发布修复来源", repair_source_count),
             ],
         )
+
+    review_count = (
+        int(
+            db.scalar(
+                select(func.count(ContentReviewRecord.id)).where(
+                    ContentReviewRecord.content_version_id.in_(version_ids)
+                )
+            )
+            or 0
+        )
+        if version_ids
+        else 0
+    )
+    db.scalar(
+        select(
+            func.set_config(
+                "partsignal.content_task_delete_id",
+                str(task.id),
+                True,
+            )
+        )
+    )
+    if version_ids:
+        db.execute(
+            update(ContentVersion)
+            .where(ContentVersion.id.in_(version_ids))
+            .values(source_job_id=None)
+        )
+    db.execute(delete(GenerationJob).where(GenerationJob.content_task_id == task.id))
+    if version_ids:
+        db.execute(
+            delete(ContentReviewRecord).where(
+                ContentReviewRecord.content_version_id.in_(version_ids)
+            )
+        )
+        db.execute(delete(ContentVersion).where(ContentVersion.id.in_(version_ids)))
 
     append_audit(
         db,
@@ -959,9 +1033,16 @@ def delete_content_task(
             request_id=request_id,
             outcome=AuditOutcome.SUCCESS,
             result_message="内容任务已删除",
+            details={
+                "facts": {
+                    "generation_job_count": len(jobs),
+                    "content_version_count": len(versions),
+                    "content_review_record_count": review_count,
+                }
+            },
         ),
     )
-    db.delete(task)
+    db.execute(delete(ContentTask).where(ContentTask.id == task.id))
     db.commit()
 
 

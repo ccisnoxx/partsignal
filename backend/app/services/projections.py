@@ -51,19 +51,31 @@ PLATFORM_PROFILE_AUDIT_ACTIONS = (
 )
 
 
-def _content_task_production_history_ids(
+def _content_task_protected_history_ids(
     db: Session,
     task_ids: list[uuid.UUID],
 ) -> set[uuid.UUID]:
-    """批量返回已有生成作业或内容版本的任务，作为删除动作的唯一投影口径。"""
+    """批量返回已有批准、发布或修复历史的任务，统一删除动作投影口径。"""
     if not task_ids:
         return set()
     return set(
         db.scalars(
-            select(GenerationJob.content_task_id)
-            .where(GenerationJob.content_task_id.in_(task_ids))
+            select(ContentVersion.task_id)
+            .where(
+                ContentVersion.task_id.in_(task_ids),
+                ContentVersion.status.in_(("APPROVED", "SUPERSEDED")),
+            )
             .union(
-                select(ContentVersion.task_id).where(ContentVersion.task_id.in_(task_ids))
+                select(ContentVersion.task_id)
+                .join(
+                    PublicationRecord,
+                    PublicationRecord.content_version_id == ContentVersion.id,
+                )
+                .where(ContentVersion.task_id.in_(task_ids)),
+                select(ContentTask.id).where(
+                    ContentTask.id.in_(task_ids),
+                    ContentTask.source_publication_attention_id.is_not(None),
+                ),
             )
         )
     )
@@ -73,12 +85,12 @@ def _content_task_available_actions(
     task: ContentTask,
     *,
     has_in_flight_publication: bool,
-    has_production_history: bool,
+    has_protected_history: bool,
 ) -> list[Literal["CANCEL", "DELETE"]]:
     """按服务端状态与历史门禁给出当前真正可执行的任务动作。"""
     if task.status == "OPEN" and not has_in_flight_publication:
         return ["CANCEL"]
-    if task.status == "CANCELLED" and not has_production_history:
+    if task.status == "CANCELLED" and not has_protected_history:
         return ["DELETE"]
     return []
 
@@ -106,7 +118,7 @@ def content_task_out(db: Session, task: ContentTask) -> ContentTaskOut:
         )
         is not None
     )
-    has_production_history = task.id in _content_task_production_history_ids(
+    has_protected_history = task.id in _content_task_protected_history_ids(
         db,
         [task.id] if task.status == "CANCELLED" else [],
     )
@@ -114,7 +126,7 @@ def content_task_out(db: Session, task: ContentTask) -> ContentTaskOut:
     payload["available_actions"] = _content_task_available_actions(
         task,
         has_in_flight_publication=has_in_flight_publication,
-        has_production_history=has_production_history,
+        has_protected_history=has_protected_history,
     )
     return ContentTaskOut.model_validate(payload)
 
@@ -172,9 +184,7 @@ def platform_profiles_out(db: Session, profiles: list[PlatformProfile]) -> list[
     }
     logo_expires_at = datetime.now(UTC) + timedelta(seconds=settings.download_url_ttl_seconds)
     prompt_ids = {
-        profile.platform_prompt_id
-        for profile in profiles
-        if profile.platform_prompt_id is not None
+        profile.platform_prompt_id for profile in profiles if profile.platform_prompt_id is not None
     }
     prompts_by_id = {
         prompt.id: prompt
@@ -318,7 +328,7 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
             .distinct()
         )
     )
-    production_history_task_ids = _content_task_production_history_ids(
+    protected_history_task_ids = _content_task_protected_history_ids(
         db,
         [task.id for task in tasks if task.status == "CANCELLED"],
     )
@@ -332,7 +342,7 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
         payload["available_actions"] = _content_task_available_actions(
             task,
             has_in_flight_publication=task.id in in_flight_task_ids,
-            has_production_history=task.id in production_history_task_ids,
+            has_protected_history=task.id in protected_history_task_ids,
         )
         payload["product"] = ContentTaskProductSummary(
             id=product.id,

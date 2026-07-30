@@ -37,6 +37,7 @@ import type { Schema } from '../../shared/api/types';
 import { QueryFailure } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { PublicationDrawer } from './PublicationDrawer';
 import {
@@ -451,16 +452,16 @@ function CandidateList({
           dataSource={items}
           pagination={{ current: page, pageSize: PAGE_SIZE, total: items.length, showSizeChanger: false, showTotal: (total) => `共 ${total} 条`, onChange: (next) => onView({ candidates_page: next }) }}
           sticky={{ offsetHeader: 72 }}
-          scroll={{ x: 820 }}
+          scroll={{ x: 1010 }}
           columns={[
-            { title: '内容标题', render: (_, row) => <div className="publication-title-cell"><strong>{row.content_version.title}</strong><small className="data-code">{row.content_version.id.slice(0, 8)}</small></div> },
+            { title: '内容标题', width: 300, ellipsis: true, render: (_, row) => <div className="publication-title-cell"><TableCellText text={row.content_version.title} /><small className="data-code">{row.content_version.id.slice(0, 8)}</small></div> },
             { title: '版本', width: 80, render: (_, row) => `V${row.content_version.version}` },
             { title: '目标平台', dataIndex: 'platform_profile_name', width: 170 },
             {
               title: '发布账号',
               width: 190,
               render: (_, row) => row.matching_accounts.length
-                ? row.matching_accounts.map((account) => account.label).join('、')
+                ? <TableCellText text={row.matching_accounts.map((account) => account.label).join('、')} />
                 : <div className="publication-title-cell"><Typography.Text type="danger">无匹配账号</Typography.Text><Link to={`/settings?tab=accounts&platform_profile_id=${row.platform_profile_id}`}>前往业务设置</Link></div>,
             },
             { title: '内容状态', width: 120, render: (_, row) => <StatusTag status={row.content_version.status} /> },
@@ -516,10 +517,11 @@ function RecordList({
           dataSource={items}
           pagination={{ current: page, pageSize: PAGE_SIZE, total, showSizeChanger: false, showTotal: (count) => `共 ${count} 条`, onChange: (next) => onView({ records_page: next }) }}
           sticky={{ offsetHeader: 72 }}
-          scroll={{ x: 1470 }}
+          scroll={{ x: 1480 }}
           columns={[
             {
               title: '内容标题',
+              width: 250,
               ellipsis: { showTitle: false },
               render: (_, row) => <div className="publication-title-cell">
                 <Tooltip title={row.content_title} trigger={['hover', 'focus']}><strong tabIndex={0}>{row.content_title}</strong></Tooltip>
@@ -537,8 +539,8 @@ function RecordList({
             },
             { title: '状态', dataIndex: 'status', width: 120, render: (value) => <StatusTag status={value} /> },
             { title: '发布时间', dataIndex: 'published_at', width: 160, render: (value: string | null) => value ? formatDateTime(value) : '—' },
-            { title: '目标平台', dataIndex: 'platform_profile_name', width: 140 },
-            { title: '发布账号', width: 150, render: (_, row) => <div className="publication-title-cell"><span>{row.platform_account_label}</span><small>{row.account_identifier}</small></div> },
+            { title: '目标平台', dataIndex: 'platform_profile_name', width: 140, ellipsis: true, render: (value: string) => <TableCellText text={value} /> },
+            { title: '发布账号', width: 150, render: (_, row) => <div className="publication-title-cell"><TableCellText text={row.platform_account_label} /><TableCellText text={row.account_identifier} mono /></div> },
             { title: '最终 URL', dataIndex: 'final_url', width: 100, render: (url: string | null) => url ? <a href={url} target="_blank" rel="noreferrer">打开 <LinkOutlined /></a> : '—' },
             { title: '最后验证', dataIndex: 'last_verification_at', width: 160, render: (value: string | null) => value ? formatDateTime(value) : '—' },
             {
@@ -547,7 +549,10 @@ function RecordList({
               width: 190,
               render: (_, row) => {
                 const canMarkPublished = row.available_actions.includes('mark-published');
-                const secondaryActions = row.available_actions.filter((action) => action !== 'mark-published');
+                const canDelete = row.available_actions.includes('delete');
+                const secondaryActions = row.available_actions.filter(
+                  (action) => action !== 'mark-published' && action !== 'delete',
+                );
                 return (
                   <Space size={4}>
                     <Button
@@ -556,26 +561,36 @@ function RecordList({
                     >
                       {canMarkPublished ? '登记发布结果' : '查看记录'}
                     </Button>
-                    {secondaryActions.length > 0 && (
-                      <Dropdown
-                        trigger={['click']}
-                        menu={{
-                          items: secondaryActions.map((action) => ({
+                    <Dropdown
+                      trigger={['click']}
+                      menu={{
+                        items: [
+                          ...secondaryActions.map((action) => ({
                             key: action,
                             label: actionLabels[action],
-                            danger: action === 'delete',
-                            onClick: () => action === 'delete' ? onDelete(row) : onAction(row.id, action),
+                            onClick: () => onAction(row.id, action),
                           })),
-                        }}
-                      >
-                        <Button
-                          type="text"
-                          aria-label={`更多操作：${row.content_title}`}
-                          icon={<MoreOutlined />}
-                          disabled={deletePending}
-                        />
-                      </Dropdown>
-                    )}
+                          {
+                            key: 'delete',
+                            label: canDelete ? '物理删除' : (
+                              <Tooltip title="记录一旦公开，或已有 GEO、发布异常及修复历史，就不能物理删除。" trigger={['hover', 'focus']}>
+                                <span tabIndex={0}>物理删除</span>
+                              </Tooltip>
+                            ),
+                            danger: true,
+                            disabled: !canDelete,
+                            onClick: () => onDelete(row),
+                          },
+                        ],
+                      }}
+                    >
+                      <Button
+                        type="text"
+                        aria-label={`更多操作：${row.content_title}`}
+                        icon={<MoreOutlined />}
+                        disabled={deletePending}
+                      />
+                    </Dropdown>
                   </Space>
                 );
               },
@@ -631,9 +646,9 @@ function AttentionList({
           sticky={{ offsetHeader: 72 }}
           scroll={{ x: 920 }}
           columns={[
-            { title: '内容标题', render: (_, row) => <div className="publication-title-cell"><strong>{row.content_title}</strong><small>V{row.content_version}</small></div> },
-            { title: '目标平台', dataIndex: 'platform_profile_name', width: 150 },
-            { title: '发布账号', dataIndex: 'platform_account_label', width: 150 },
+            { title: '内容标题', width: 250, ellipsis: true, render: (_, row) => <div className="publication-title-cell"><TableCellText text={row.content_title} /><small>V{row.content_version}</small></div> },
+            { title: '目标平台', dataIndex: 'platform_profile_name', width: 150, ellipsis: true, render: (value: string) => <TableCellText text={value} /> },
+            { title: '发布账号', dataIndex: 'platform_account_label', width: 150, ellipsis: true, render: (value: string) => <TableCellText text={value} /> },
             { title: '异常类型', dataIndex: 'trigger_status', width: 150, render: (value) => <StatusTag status={value} /> },
             { title: '打开时间', dataIndex: 'opened_at', width: 180, render: formatDateTime },
             { title: '修复任务', dataIndex: 'repair_task_id', width: 120, render: (value: string | null) => value ? '已创建' : '未创建' },

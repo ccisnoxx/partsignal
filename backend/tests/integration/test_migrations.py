@@ -3382,3 +3382,49 @@ def test_content_task_creation_idempotency_migration_preserves_history_and_downg
             assert cursor.fetchone() == (2,)
             cursor.execute("SELECT version_num FROM alembic_version")
             assert cursor.fetchone() == ("0031_reusable_platform_prompts",)
+
+
+@pytest.mark.integration
+def test_content_task_owned_history_delete_migration_is_reversible() -> None:
+    """0033 只在升级态开放任务级清理窗口，降级后恢复绝对不可变守卫。"""
+    with temporary_database("partsignal_task_owned_history") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "head")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT pg_get_functiondef('partsignal_guard_content_version()'::regprocedure)"
+            )
+            assert "partsignal.content_task_delete_id" in cursor.fetchone()[0]
+            cursor.execute(
+                "SELECT pg_get_functiondef("
+                "'partsignal_guard_content_review_record()'::regprocedure)"
+            )
+            assert "partsignal.content_task_delete_id" in cursor.fetchone()[0]
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0032_content_task_idempotency",
+            ],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT pg_get_functiondef('partsignal_guard_content_version()'::regprocedure)"
+            )
+            assert "partsignal.content_task_delete_id" not in cursor.fetchone()[0]
+            cursor.execute(
+                "SELECT pg_get_triggerdef(oid) FROM pg_trigger "
+                "WHERE tgname = 'content_review_records_append_only'"
+            )
+            assert "partsignal_prevent_change()" in cursor.fetchone()[0]
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0032_content_task_idempotency",)

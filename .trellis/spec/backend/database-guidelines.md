@@ -115,21 +115,22 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 ### 1. 范围与触发条件
 
 - 修改用户、内容任务删除 API，或 `audit_logs.actor_id ON DELETE SET NULL` 与追加式审计门禁时适用。
-- 删除只用于尚未承担业务历史的停用账号，以及没有生成作业或内容版本的已取消任务；不得扩展成级联清理历史。
+- 删除只用于尚未承担业务历史的停用账号，以及没有批准、发布或修复历史的已取消任务。任务自有的生成作业、审核记录、草稿和未批准内容可在同一事务中清理。
 
 ### 2. 签名
 
 - 用户：`DELETE /api/v1/users/{user_id}`，管理员权限和 CSRF，成功返回 `204`。
 - 内容任务：`DELETE /api/v1/content-tasks/{content_task_id}`，内容编辑权限和 CSRF，成功返回 `204`。
 - 密码边界：`UserCreate.temporary_password` 最少 12 位；`ResetPasswordRequest.temporary_password` 与 `ChangePasswordRequest.new_password` 最少 8 位。
-- 数据库 revision：`0027_audit_user_delete_guard`，`down_revision = "0026_publication_account_dedup"`。
+- 数据库 revision：用户门禁为 `0027_audit_user_delete_guard`；任务自有历史删除门禁为 `0033_task_owned_history_delete`。
 
 ### 3. 契约
 
 - 用户删除先锁定 `users` 表与目标行，仅接受 `is_active=false`。`sessions` 由既有 `CASCADE` 清理，业务归属继续由既有 `RESTRICT` 阻断。
 - 删除事务通过 `set_config('partsignal.user_delete_id', <uuid>, true)` 声明目标。审计触发器还必须满足 `pg_trigger_depth() > 1`、`OLD.actor_id=<uuid>`、`NEW.actor_id IS NULL`，且除 `actor_id` 外整行完全相等。
-- 内容任务删除锁定目标行，仅接受 `CANCELLED`，并显式确认 `generation_jobs.content_task_id` 与 `content_versions.task_id` 的引用数都为零。
-- 任务详情与列表使用同一批量生产历史查询，只有满足上述条件时才投影 `available_actions=["DELETE"]`；删除服务仍须重新校验。
+- 内容任务删除仅接受 `CANCELLED`，按稳定 UUID 顺序锁定任务的生成作业、内容版本和任务行；存在 `APPROVED`/`SUPERSEDED` 内容、任一发布记录或 `source_publication_attention_id` 时阻断。
+- 删除事务通过 `set_config('partsignal.content_task_delete_id', <uuid>, true)` 仅为匹配任务开放 `content_versions.source_job_id=NULL` 和审核记录删除，随后清理任务自有生成作业、审核记录、未批准版本与任务；产品、事实、平台、发布和 GEO 历史不级联。
+- 任务详情与列表使用同一批量保护历史查询，满足上述条件时投影 `available_actions=["DELETE"]`；删除服务仍须在锁内重新校验。
 - 成功后分别追加 `user.deleted` 或 `content_task.deleted`；不得记录密码或删除历史审计行。
 
 ### 4. 校验与错误矩阵
@@ -140,21 +141,21 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 | 用户仍启用 | `409 USER_ACTIVE` |
 | 用户仍有任一 `RESTRICT` 业务引用 | `409 USER_IN_USE` |
 | 任务不是 `CANCELLED` | `409 INVALID_STATE_TRANSITION` |
-| 任务存在生成作业或内容版本 | `409 CONTENT_TASK_IN_USE`，返回真实非零引用 |
+| 任务存在批准/曾批准内容、发布记录或发布修复来源 | `409 CONTENT_TASK_IN_USE`，返回真实非零引用 |
 | 手工更新审计、目标 UUID 错配、同时修改其他字段或删除审计行 | PostgreSQL `55000` |
 | 重置临时密码为 7 位 / 8 位 | `422 VALIDATION_ERROR` / `204` |
 
 ### 5. 正常、基础与失败案例
 
 - 正常：管理员删除无业务引用的停用账号，会话消失，旧审计行保留且操作者为空，新的删除审计保留执行管理员和目标 UUID。
-- 基础：已取消且没有生成作业或内容版本的任务被删除；外链平台、产品与事实版本保持不变。
+- 基础：已取消任务连同生成作业、审核记录、草稿和未批准内容版本删除；外链平台、产品与事实版本保持不变。
 - 失败：仅设置事务变量后直接执行 `UPDATE audit_logs SET actor_id=NULL`，或删除带业务历史的用户/任务，事务失败且目标数据保持原状。
 
 ### 6. 必需测试
 
 - PostgreSQL 迁移测试断言合法外键级联成功，手工 UPDATE、错配目标、其他字段 UPDATE、审计 DELETE 继续返回 `55000`，并覆盖 `0026 ↔ 0027`。
 - 身份集成测试断言权限、CSRF、启用状态、业务引用、会话级联、审计保留、管理员实时总数和 8/7 位密码边界。
-- 内容集成测试断言状态门禁、生成作业与内容版本引用、权限、成功审计和 `204`。
+- 内容集成测试断言状态门禁、任务自有历史级联、批准/发布/修复历史阻断、权限、成功审计和 `204`；迁移测试覆盖事务变量错配和审核记录手工更新/删除仍返回 `55000`。
 - 契约与前端测试断言 OpenAPI/生成类型一致，危险操作只从服务端动作或停用状态展示，并经过确认。
 
 ### 7. 错误与正确示例

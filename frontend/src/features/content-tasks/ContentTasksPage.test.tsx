@@ -506,6 +506,42 @@ test('列表加载和失败状态保持可感知且可重试', async () => {
   await waitFor(() => expect(apiMocks.GET.mock.calls.length).toBeGreaterThan(callsBeforeRetry));
 });
 
+test('任务列表直接呈现服务端允许的取消和物理删除操作', async () => {
+  const user = userEvent.setup();
+  const openTask = listTask(1, 'OPEN', { available_actions: ['CANCEL'] });
+  const cancelledTask = listTask(2, 'CANCELLED', { available_actions: ['DELETE'] });
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks') return result({ items: [openTask, cancelledTask] });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  apiMocks.POST.mockResolvedValue(result({ ...openTask, status: 'CANCELLED', available_actions: ['DELETE'] }));
+  apiMocks.DELETE.mockResolvedValue({ response: new Response(null, { status: 204 }) });
+  renderPage(<Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes>, ['/tasks']);
+
+  await user.click(await screen.findByRole('button', { name: '更多操作：PartSignal PS-01' }));
+  await user.click(await screen.findByRole('menuitem', { name: '取消任务' }));
+  const cancelDialog = within(await screen.findByRole('dialog'));
+  await user.type(cancelDialog.getByRole('textbox', { name: '说明' }), '不再继续生产');
+  await user.click(cancelDialog.getByRole('button', { name: '确认取消' }));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/content-tasks/{content_task_id}/cancel',
+    {
+      params: { path: { content_task_id: openTask.id }, header: { 'X-CSRF-Token': 'test' } },
+      body: { expected_revision: openTask.revision, comment: '不再继续生产' },
+    },
+  ));
+
+  await user.click(screen.getByRole('button', { name: '更多操作：PartSignal PS-02' }));
+  await user.click(await screen.findByRole('menuitem', { name: '物理删除' }));
+  const deleteDialog = within(await screen.findByRole('dialog'));
+  expect(deleteDialog.getByText(/生成作业、审核记录、草稿和未批准内容/)).toBeInTheDocument();
+  await user.click(deleteDialog.getByRole('button', { name: '物理删除' }));
+  await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
+    '/api/v1/content-tasks/{content_task_id}',
+    { params: { path: { content_task_id: cancelledTask.id }, header: { 'X-CSRF-Token': 'test' } } },
+  ));
+});
+
 test('仅按服务端 DELETE 动作确认删除并返回任务列表', async () => {
   const user = userEvent.setup();
   const cancelledTask = { ...task, status: 'CANCELLED', available_actions: ['DELETE'] };
@@ -519,10 +555,10 @@ test('仅按服务端 DELETE 动作确认删除并返回任务列表', async () 
   apiMocks.DELETE.mockResolvedValue({ response: new Response(null, { status: 204 }) });
   renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes>, [`/tasks/${taskId}`]);
 
-  await user.click(await screen.findByRole('button', { name: '删除任务' }));
+  await user.click(await screen.findByRole('button', { name: '物理删除' }));
   const dialog = await screen.findByRole('dialog');
-  expect(within(dialog).getByText(/没有生成作业或内容版本/)).toBeInTheDocument();
-  await user.click(within(dialog).getByRole('button', { name: '删除任务' }));
+  expect(within(dialog).getByText(/生成作业、审核记录、草稿和未批准内容/)).toBeInTheDocument();
+  await user.click(within(dialog).getByRole('button', { name: '物理删除' }));
 
   await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
     '/api/v1/content-tasks/{content_task_id}',
@@ -547,12 +583,65 @@ test('任务删除失败保留详情并展示服务端错误', async () => {
   });
   renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes>, [`/tasks/${taskId}`]);
 
-  await user.click(await screen.findByRole('button', { name: '删除任务' }));
-  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '删除任务' }));
+  await user.click(await screen.findByRole('button', { name: '物理删除' }));
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '物理删除' }));
 
   expect(await screen.findByText('内容任务仍被生成作业引用')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '删除任务' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '物理删除' })).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: '任务列表' })).not.toBeInTheDocument();
+});
+
+test('最新作业追溯只展示身份和参数，不渲染完整系统或用户消息', async () => {
+  const job = {
+    id: 'job-1',
+    content_task_id: taskId,
+    job_type: 'GENERATE',
+    source_content_version_id: null,
+    status: 'SUCCEEDED',
+    attempt_count: 1,
+    content_version_id: 'version-1',
+    retry_of_id: null,
+    error_code: null,
+    error_summary: null,
+    provider_request_id: 'provider-1',
+    response_duration_ms: 100,
+    prompt_tokens: 20,
+    completion_tokens: 30,
+    total_tokens: 50,
+    created_at: task.created_at,
+    started_at: task.created_at,
+    finished_at: task.created_at,
+  };
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}') return result(task);
+    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'OPEN')] });
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
+    if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result({ items: [] });
+    if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result({ items: [job] });
+    if (path === '/api/v1/generation-jobs/{generation_job_id}') return result({
+      ...job,
+      input_snapshot: {
+        contract_version: 'content-markdown-v3',
+        adapter_name: 'openai-compatible-chat-completions',
+        channel: { name: '受控渠道' },
+        model: { model_id: 'model-a', request_parameters: { temperature: 0.2 } },
+        platform_profile: {},
+        platform_prompt: { id: 'prompt-1', name: '工程师社区 Prompt', revision: 1 },
+        fact_version: { id: task.fact_version_id, product_id: task.product_id, version: 1, classification: 'PUBLIC' },
+        system_message: '不应展示的超长系统消息',
+        user_message: '不应展示的超长用户消息',
+      },
+    });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
+
+  expect(await screen.findByText('content-markdown-v3')).toBeInTheDocument();
+  expect(screen.getByText('受控渠道 / model-a')).toBeInTheDocument();
+  expect(screen.queryByText('不应展示的超长系统消息')).not.toBeInTheDocument();
+  expect(screen.queryByText('不应展示的超长用户消息')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('系统消息（System Message）')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('用户消息（User Message）')).not.toBeInTheDocument();
 });
 
 test('对合格 AI 版本选择模型并创建自然化作业', async () => {

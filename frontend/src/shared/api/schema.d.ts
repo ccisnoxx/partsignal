@@ -5449,7 +5449,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 已删除无生产历史的已取消内容任务 */
+            /** @description 已删除已取消任务及其未批准、未发布的任务自有生产历史 */
             204: {
                 headers: {
                     [name: string]: unknown;

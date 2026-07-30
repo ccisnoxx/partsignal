@@ -22,7 +22,7 @@ import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
 from pydantic import ValidationError
-from sqlalchemy import create_engine, delete, event, func, select
+from sqlalchemy import create_engine, delete, event, func, select, update
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -2938,8 +2938,8 @@ def test_content_task_list_uses_current_platform_and_latest_generate_only() -> N
 
 
 @pytest.mark.integration
-def test_cancelled_content_task_deletion_requires_no_production_history() -> None:
-    """已取消任务只有在无生成作业和内容版本时才可删除。"""
+def test_cancelled_content_task_deletion_cleans_owned_history_and_protects_downstream() -> None:
+    """已取消任务可清理自有草稿历史，但批准、发布与修复历史必须保留。"""
     with temporary_database() as database_url:
         engine = create_engine(database_url)
         session_factory = sessionmaker(bind=engine, expire_on_commit=False)
@@ -2956,74 +2956,220 @@ def test_cancelled_content_task_deletion_requires_no_production_history() -> Non
             completed_task = ContentTask(**task_values, status="COMPLETED")
             empty_task = ContentTask(**task_values, status="CANCELLED")
             route_task = ContentTask(**task_values, status="CANCELLED")
-            generation_task = ContentTask(**task_values, status="CANCELLED")
-            content_task = ContentTask(**task_values, status="CANCELLED")
+            owned_history_task = ContentTask(**task_values, status="CANCELLED")
+            approved_task = ContentTask(**task_values, status="CANCELLED")
+            superseded_task = ContentTask(**task_values, status="CANCELLED")
+            publication_task = ContentTask(**task_values, status="CANCELLED")
             db.add_all(
                 [
                     open_task,
                     completed_task,
                     empty_task,
                     route_task,
-                    generation_task,
-                    content_task,
+                    owned_history_task,
+                    approved_task,
+                    superseded_task,
+                    publication_task,
                 ]
             )
             db.flush()
-            db.add(
-                GenerationJob(
-                    content_task_id=generation_task.id,
-                    idempotency_key=f"delete-task-{uuid.uuid4()}",
-                    job_type="GENERATE",
-                    status="FAILED",
-                    input_snapshot={},
-                    adapter_name="test",
-                    prompt_template_version="content-markdown-v2",
-                    prompt_hash="d" * 64,
-                    created_by=actor.id,
-                )
+            owned_job = GenerationJob(
+                content_task_id=owned_history_task.id,
+                idempotency_key=f"delete-task-{uuid.uuid4()}",
+                job_type="GENERATE",
+                status="FAILED",
+                input_snapshot={},
+                adapter_name="test",
+                prompt_template_version="content-markdown-v2",
+                prompt_hash="d" * 64,
+                created_by=actor.id,
             )
-            db.add(
-                ContentVersion(
-                    task_id=content_task.id,
-                    fact_version_id=graph["fact"].id,
-                    version=1,
-                    source_type="HUMAN",
-                    title="删除门禁内容",
-                    summary="删除门禁摘要",
-                    body_markdown="删除门禁正文",
-                    tags=[],
-                    content_hash="e" * 64,
-                    status="DRAFT",
-                    quality_issues=[],
-                    change_summary="验证任务删除引用",
-                    created_by=actor.id,
-                )
+            db.add(owned_job)
+            db.flush()
+            owned_content = ContentVersion(
+                task_id=owned_history_task.id,
+                fact_version_id=graph["fact"].id,
+                source_job_id=owned_job.id,
+                version=1,
+                source_type="HUMAN",
+                title="可删除草稿",
+                summary="可删除摘要",
+                body_markdown="可删除正文",
+                tags=[],
+                content_hash="e" * 64,
+                status="CHANGES_REQUESTED",
+                quality_issues=[],
+                change_summary="验证任务自有历史删除",
+                created_by=actor.id,
             )
+            approved_content = ContentVersion(
+                task_id=approved_task.id,
+                fact_version_id=graph["fact"].id,
+                version=1,
+                source_type="HUMAN",
+                title="已批准内容",
+                summary="已批准摘要",
+                body_markdown="已批准正文",
+                tags=[],
+                content_hash="f" * 64,
+                status="APPROVED",
+                quality_issues=[],
+                change_summary="验证批准历史保护",
+                created_by=actor.id,
+            )
+            superseded_content = ContentVersion(
+                task_id=superseded_task.id,
+                fact_version_id=graph["fact"].id,
+                version=1,
+                source_type="HUMAN",
+                title="曾批准内容",
+                summary="曾批准摘要",
+                body_markdown="曾批准正文",
+                tags=[],
+                content_hash="1" * 64,
+                status="SUPERSEDED",
+                quality_issues=[],
+                change_summary="验证曾批准历史保护",
+                created_by=actor.id,
+            )
+            publication_content = ContentVersion(
+                task_id=publication_task.id,
+                fact_version_id=graph["fact"].id,
+                version=1,
+                source_type="HUMAN",
+                title="已有发布内容",
+                summary="已有发布摘要",
+                body_markdown="已有发布正文",
+                tags=[],
+                content_hash="2" * 64,
+                status="APPROVED",
+                quality_issues=[],
+                change_summary="验证发布历史保护",
+                created_by=actor.id,
+            )
+            db.add_all(
+                [
+                    owned_content,
+                    approved_content,
+                    superseded_content,
+                    publication_content,
+                ]
+            )
+            db.flush()
+            owned_review = ContentReviewRecord(
+                content_version_id=owned_content.id,
+                action="REQUEST_CHANGES",
+                comment="任务删除时一并清理",
+                actor_id=actor.id,
+            )
+            publication = PublicationRecord(
+                idempotency_key=f"delete-task-publication-{uuid.uuid4()}",
+                content_version_id=publication_content.id,
+                platform_account_id=graph["same_account"].id,
+                section_url="https://community.example.invalid/delete-guard",
+                status="PENDING_MANUAL_PUBLISH",
+                content_hash=publication_content.content_hash,
+                created_by=actor.id,
+            )
+            repair_source_publication = PublicationRecord(
+                idempotency_key=f"delete-task-repair-{uuid.uuid4()}",
+                content_version_id=graph["content"].id,
+                platform_account_id=graph["same_account"].id,
+                section_url="https://community.example.invalid/repair-guard",
+                status="REMOVED",
+                content_hash=graph["content"].content_hash,
+                created_by=actor.id,
+            )
+            db.add_all([owned_review, publication, repair_source_publication])
+            db.flush()
+            repair_attention = PublicationAttention(
+                publication_record_id=repair_source_publication.id,
+                trigger_status="REMOVED",
+            )
+            db.add(repair_attention)
+            db.flush()
+            repair_task = ContentTask(
+                **task_values,
+                source_publication_attention_id=repair_attention.id,
+                status="CANCELLED",
+            )
+            db.add(repair_task)
             db.commit()
             actor_id = actor.id
             open_task_id = open_task.id
             completed_task_id = completed_task.id
             empty_task_id = empty_task.id
             route_task_id = route_task.id
-            generation_task_id = generation_task.id
-            content_task_id = content_task.id
+            owned_history_task_id = owned_history_task.id
+            approved_task_id = approved_task.id
+            superseded_task_id = superseded_task.id
+            publication_task_id = publication_task.id
+            repair_task_id = repair_task.id
+            owned_job_id = owned_job.id
+            owned_content_id = owned_content.id
+            owned_review_id = owned_review.id
 
             assert content_task_out(db, empty_task).available_actions == ["DELETE"]
             assert content_task_out(db, open_task).available_actions == ["CANCEL"]
-            assert content_task_out(db, generation_task).available_actions == []
-            assert content_task_out(db, content_task).available_actions == []
+            assert content_task_out(db, owned_history_task).available_actions == ["DELETE"]
+            assert content_task_out(db, approved_task).available_actions == []
+            assert content_task_out(db, superseded_task).available_actions == []
+            assert content_task_out(db, publication_task).available_actions == []
+            assert content_task_out(db, repair_task).available_actions == []
             list_actions = {
                 item.id: item.available_actions
                 for item in content_tasks_out(
                     db,
-                    [empty_task, generation_task, content_task],
+                    [
+                        empty_task,
+                        owned_history_task,
+                        approved_task,
+                        superseded_task,
+                        publication_task,
+                        repair_task,
+                    ],
                 )
             }
             assert list_actions == {
                 empty_task_id: ["DELETE"],
-                generation_task_id: [],
-                content_task_id: [],
+                owned_history_task_id: ["DELETE"],
+                approved_task_id: [],
+                superseded_task_id: [],
+                publication_task_id: [],
+                repair_task_id: [],
             }
+
+            with pytest.raises(DatabaseError) as direct_content_change:
+                db.execute(
+                    update(ContentVersion)
+                    .where(ContentVersion.id == owned_content_id)
+                    .values(source_job_id=None)
+                )
+            assert direct_content_change.value.orig.sqlstate == "55000"
+            db.rollback()
+
+            with pytest.raises(DatabaseError) as direct_review_delete:
+                db.execute(
+                    delete(ContentReviewRecord).where(ContentReviewRecord.id == owned_review_id)
+                )
+            assert direct_review_delete.value.orig.sqlstate == "55000"
+            db.rollback()
+
+            db.execute(
+                select(
+                    func.set_config(
+                        "partsignal.content_task_delete_id",
+                        str(empty_task_id),
+                        True,
+                    )
+                )
+            )
+            with pytest.raises(DatabaseError) as mismatched_review_delete:
+                db.execute(
+                    delete(ContentReviewRecord).where(ContentReviewRecord.id == owned_review_id)
+                )
+            assert mismatched_review_delete.value.orig.sqlstate == "55000"
+            db.rollback()
 
             for blocked_task_id in (open_task_id, completed_task_id):
                 with pytest.raises(AppError) as invalid_state:
@@ -3036,31 +3182,49 @@ def test_cancelled_content_task_deletion_requires_no_production_history() -> Non
                 assert invalid_state.value.code == "INVALID_STATE_TRANSITION"
                 db.rollback()
 
-            with pytest.raises(AppError) as generation_reference:
-                delete_content_task(
-                    db=db,
-                    task_id=generation_task_id,
-                    actor=actor,
-                    request_id="delete-generation-task",
-                )
-            assert generation_reference.value.code == "CONTENT_TASK_IN_USE"
-            assert generation_reference.value.details["references"] == [
-                {"type": "GENERATION_JOB", "count": 1}
-            ]
-            db.rollback()
+            blocked_references = {
+                approved_task_id: [{"type": "PROTECTED_CONTENT_VERSION", "count": 1}],
+                superseded_task_id: [{"type": "PROTECTED_CONTENT_VERSION", "count": 1}],
+                publication_task_id: [
+                    {"type": "PROTECTED_CONTENT_VERSION", "count": 1},
+                    {"type": "PUBLICATION_RECORD", "count": 1},
+                ],
+                repair_task_id: [{"type": "PUBLICATION_ATTENTION", "count": 1}],
+            }
+            for blocked_task_id, references in blocked_references.items():
+                with pytest.raises(AppError) as protected_history:
+                    delete_content_task(
+                        db=db,
+                        task_id=blocked_task_id,
+                        actor=actor,
+                        request_id=f"delete-protected-{blocked_task_id}",
+                    )
+                assert protected_history.value.code == "CONTENT_TASK_IN_USE"
+                assert protected_history.value.details["references"] == references
+                db.rollback()
 
-            with pytest.raises(AppError) as content_reference:
-                delete_content_task(
-                    db=db,
-                    task_id=content_task_id,
-                    actor=actor,
-                    request_id="delete-content-task",
-                )
-            assert content_reference.value.code == "CONTENT_TASK_IN_USE"
-            assert content_reference.value.details["references"] == [
-                {"type": "CONTENT_VERSION", "count": 1}
-            ]
-            db.rollback()
+            delete_content_task(
+                db=db,
+                task_id=owned_history_task_id,
+                actor=actor,
+                request_id="delete-owned-history-task",
+            )
+            assert db.get(ContentTask, owned_history_task_id) is None
+            assert db.get(GenerationJob, owned_job_id) is None
+            assert db.get(ContentVersion, owned_content_id) is None
+            assert db.get(ContentReviewRecord, owned_review_id) is None
+            deletion_audit = db.scalar(
+                select(AuditLog).where(AuditLog.request_id == "delete-owned-history-task")
+            )
+            assert deletion_audit is not None
+            assert deletion_audit.action == "content_task.deleted"
+            assert deletion_audit.target_id == str(owned_history_task_id)
+            assert deletion_audit.details["facts"] == {
+                "generation_job_count": 1,
+                "content_version_count": 1,
+                "content_review_record_count": 1,
+            }
+            assert owned_content.body_markdown not in str(deletion_audit.details)
 
             delete_content_task(
                 db=db,
@@ -3069,12 +3233,12 @@ def test_cancelled_content_task_deletion_requires_no_production_history() -> Non
                 request_id="delete-empty-task",
             )
             assert db.get(ContentTask, empty_task_id) is None
-            deletion_audit = db.scalar(
+            empty_deletion_audit = db.scalar(
                 select(AuditLog).where(AuditLog.request_id == "delete-empty-task")
             )
-            assert deletion_audit is not None
-            assert deletion_audit.action == "content_task.deleted"
-            assert deletion_audit.target_id == str(empty_task_id)
+            assert empty_deletion_audit is not None
+            assert empty_deletion_audit.action == "content_task.deleted"
+            assert empty_deletion_audit.target_id == str(empty_task_id)
 
         csrf_token = "content-task-delete-csrf-more-than-32-characters"
 
@@ -3893,12 +4057,7 @@ def test_platform_management_projection_status_gates_and_permissions() -> None:
             listed_by_id = {item.id: item for item in listed.items}
             assert listed_by_id[graph["profile"].id].platform_prompt is not None
             assert listed_by_id[graph["profile"].id].platform_prompt.id == prompt.id
-            assert (
-                listed_by_id[
-                    graph["other_account"].platform_profile_id
-                ].platform_prompt
-                is None
-            )
+            assert listed_by_id[graph["other_account"].platform_profile_id].platform_prompt is None
 
             with pytest.raises(AppError) as duplicate_slug:
                 create_platform_profile(

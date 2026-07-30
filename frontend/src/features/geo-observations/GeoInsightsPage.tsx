@@ -312,7 +312,7 @@ function ContentRankingCard({
       <h3>{titleIcon}<span>{title}</span></h3>
       {rows.length ? (
         <TableRegion label={title}>
-          <Table rowKey="publication_record_id" size="small" pagination={false} dataSource={rows} columns={columns} />
+          <Table rowKey="publication_record_id" size="small" pagination={false} dataSource={rows} columns={columns} scroll={{ x: kind === 'long' ? 650 : 580 }} />
         </TableRegion>
       ) : <NoData description={emptyDescription ?? '当前筛选范围暂无符合门槛的内容'} />}
     </section>
@@ -331,7 +331,7 @@ function CoverageCard({ coverage }: { coverage: GeoInsights['question_coverage']
       {platforms.length ? (
         <TableRegion label="搜索问题覆盖计数">
           <table className="geo-insight-coverage-matrix" aria-label="覆盖状态与 GEO 平台计数">
-            <thead><tr><th scope="col">覆盖状态</th>{platforms.map((platform) => <th scope="col" key={platform}>{platform}</th>)}<th scope="col">合计</th></tr></thead>
+            <thead><tr><th scope="col">覆盖状态</th>{platforms.map((platform) => <th scope="col" key={platform} title={platform}>{platform}</th>)}<th scope="col">合计</th></tr></thead>
             <tbody>
               {coverageStatuses.map(({ status, countKey }) => (
                 <tr key={status} className={`geo-insight-coverage-${status.toLowerCase().replace('_', '-')}`}>

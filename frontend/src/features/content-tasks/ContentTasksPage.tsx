@@ -3,6 +3,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
+  MoreOutlined,
   PlusOutlined,
   ReloadOutlined,
   RightOutlined,
@@ -17,6 +18,7 @@ import {
   Button,
   Card,
   Descriptions,
+  Dropdown,
   Form,
   Input,
   InputNumber,
@@ -26,6 +28,7 @@ import {
   Table,
   Tabs,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -41,6 +44,7 @@ import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { PlatformAvatar } from '../../shared/components/PlatformAvatar';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { CONTENT_TAG_ERROR, contentTagRules, isContentTagsValidationError } from '../../shared/contentValidation';
 import { useActiveSection } from '../../shared/hooks/useActiveSection';
@@ -74,7 +78,9 @@ export function ContentTasksPage() {
 }
 
 function TaskList() {
+  const { message, modal } = App.useApp();
   const [open, setOpen] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<ContentTaskListItem>();
   const [searchParams, setSearchParams] = useSearchParams();
   const rawPage = searchParams.get('page');
   const rawStatus = searchParams.get('status');
@@ -103,6 +109,36 @@ function TaskList() {
     items.filter((task) => task.status === option.value).length,
   ])) as Record<TaskStatus, number>;
   const maxPage = Math.max(1, Math.ceil(filteredTasks.length / taskPageSize));
+  const cancelTask = useMutation({
+    mutationFn: async ({ task, comment }: { task: ContentTaskListItem; comment: string }) =>
+      unwrap(await api.POST('/api/v1/content-tasks/{content_task_id}/cancel', {
+        params: { path: { content_task_id: task.id }, header: csrfHeader() },
+        body: { expected_revision: task.revision, comment },
+      })),
+    onSuccess: async () => {
+      setCancelTarget(undefined);
+      message.success('内容任务已取消');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all });
+    },
+  });
+  const deleteTask = useMutation({
+    mutationFn: async (task: ContentTaskListItem) =>
+      ensureSuccess(await api.DELETE('/api/v1/content-tasks/{content_task_id}', {
+        params: { path: { content_task_id: task.id }, header: csrfHeader() },
+      })),
+    onSuccess: async () => {
+      message.success('内容任务已删除');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all });
+    },
+  });
+  const confirmDeleteTask = (target: ContentTaskListItem) => modal.confirm({
+    title: '物理删除内容任务？',
+    content: '将同时删除该任务的生成作业、审核记录、草稿和未批准内容。已批准或已有发布、GEO、修复历史时服务端会拒绝；操作不可恢复。',
+    okText: '物理删除',
+    cancelText: '取消',
+    okButtonProps: { danger: true },
+    onOk: () => deleteTask.mutateAsync(target),
+  });
 
   useEffect(() => {
     if ((rawPage !== null && !/^[1-9]\d*$/.test(rawPage)) || (rawStatus !== null && !isTaskStatus(rawStatus)) || (tasks.data && page > maxPage)) {
@@ -176,6 +212,7 @@ function TaskList() {
       extra={<Typography.Text className="tasks-table-summary">显示 {filteredTasks.length} / {items.length} 条</Typography.Text>}
     >
       {tasks.error ? <QueryFailure error={tasks.error} onRetry={() => void tasks.refetch()} /> : <div aria-busy={tasks.isLoading}>
+        {(cancelTask.error || deleteTask.error) && <DeletionError error={cancelTask.error ?? deleteTask.error} />}
         <TableRegion label="内容任务列表">
           <Table<ContentTaskListItem>
             rowKey="id"
@@ -200,13 +237,66 @@ function TaskList() {
               { title: '任务状态', dataIndex: 'status', width: 118, render: (value: TaskStatus) => <StatusTag status={value} /> },
               { title: 'AI 生成状态', dataIndex: 'latest_generation_status', width: 132, render: (value: Schema<'GenerationJobStatus'> | null) => value ? <StatusTag status={value} /> : <Tag className="status-tag status-tag-neutral">尚未生成</Tag> },
               { title: '创建时间', dataIndex: 'created_at', width: 170, render: (value: string) => <time dateTime={value}>{taskDateFormatter.format(new Date(value))}</time> },
-              { title: '操作', key: 'actions', width: 112, fixed: 'right', render: (_, row) => <Link className="task-row-action" aria-label={`查看任务：${row.product.brand} ${row.product.part_number}`} to={`/tasks/${row.id}`}>查看详情 <RightOutlined /></Link> },
+              {
+                title: '操作',
+                key: 'actions',
+                width: 160,
+                fixed: 'right',
+                render: (_, row) => {
+                  const moreButton = (
+                    <Button
+                      type="text"
+                      icon={<MoreOutlined />}
+                      aria-label={`更多操作：${row.product.brand} ${row.product.part_number}`}
+                      disabled={row.available_actions.length === 0}
+                      loading={deleteTask.isPending && deleteTask.variables?.id === row.id}
+                    />
+                  );
+                  return <Space size={2}>
+                    <Link className="task-row-action" aria-label={`查看任务：${row.product.brand} ${row.product.part_number}`} to={`/tasks/${row.id}`}>查看详情 <RightOutlined /></Link>
+                    {row.available_actions.length ? <Dropdown
+                      trigger={['click']}
+                      menu={{
+                        items: row.available_actions.map((action) => ({
+                          key: action,
+                          label: action === 'CANCEL' ? '取消任务' : '物理删除',
+                          danger: true,
+                          onClick: () => action === 'CANCEL'
+                            ? setCancelTarget(row)
+                            : confirmDeleteTask(row),
+                        })),
+                      }}
+                    >{moreButton}</Dropdown> : (
+                      <Tooltip title="服务端当前未返回可执行操作；已批准或已有下游历史的任务不能物理删除。">
+                        <span tabIndex={0} aria-label="当前任务没有可执行操作">{moreButton}</span>
+                      </Tooltip>
+                    )}
+                  </Space>;
+                },
+              },
             ]}
           />
         </TableRegion>
       </div>}
     </Card>
     <TaskCreateModal open={open} onClose={() => setOpen(false)} />
+    <Modal
+      key={cancelTarget?.id}
+      title="取消任务"
+      open={!!cancelTarget}
+      onCancel={() => setCancelTarget(undefined)}
+      footer={null}
+      destroyOnHidden
+    >
+      <Form<{ comment: string }>
+        layout="vertical"
+        initialValues={{ comment: '' }}
+        onFinish={({ comment }) => cancelTarget && cancelTask.mutate({ task: cancelTarget, comment })}
+      >
+        <Form.Item name="comment" label="说明"><Input.TextArea /></Form.Item>
+        <Button type="primary" htmlType="submit" loading={cancelTask.isPending}>确认取消</Button>
+      </Form>
+    </Modal>
   </div>;
 }
 
@@ -470,15 +560,27 @@ function TaskDetail({ taskId }: { taskId: string }) {
         <StatusTag status={task.data.status} />
         {task.data.available_actions.includes('CANCEL') && <Button danger onClick={() => setCancelOpen(true)}>取消任务</Button>}
         {task.data.available_actions.includes('DELETE') && <Button danger loading={deleteTask.isPending} onClick={() => modal.confirm({
-          title: '删除内容任务？',
-          content: '仅已取消且没有生成作业或内容版本的任务可删除；存在生产历史时服务端会拒绝。此操作不可恢复。',
-          okText: '删除任务',
+          title: '物理删除内容任务？',
+          content: '将同时删除该任务的生成作业、审核记录、草稿和未批准内容。已批准或已有发布、GEO、修复历史时服务端会拒绝；操作不可恢复。',
+          okText: '物理删除',
           cancelText: '取消',
           okButtonProps: { danger: true },
           onOk: () => deleteTask.mutate(),
-        })}>删除任务</Button>}
+        })}>物理删除</Button>}
       </>}
     />
+    {task.data.available_actions.length === 0 && (
+      <Alert
+        type="info"
+        showIcon
+        title="当前任务为只读状态"
+        description={task.data.status === 'OPEN'
+          ? '服务端当前未返回取消操作，通常表示存在进行中的发布流程；详情暂时保持只读。'
+          : task.data.status === 'CANCELLED'
+            ? '已批准、发布、GEO 或发布修复历史会永久保护任务不被物理删除。'
+            : '任务已完成，详情保持只读。'}
+      />
+    )}
     {mutationError && <Alert type="error" title={errorMessage(mutationError)} />}
     {deleteTask.error && <DeletionError error={deleteTask.error} />}
     <nav className="form-section-nav" aria-label="内容任务章节">
@@ -537,7 +639,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
               { title: '源版本', dataIndex: 'source_content_version_id', width: 150, render: (value) => value ? <Link to={`/content/${value}`}>{value.slice(0, 8)}</Link> : '—' },
               { title: '状态', dataIndex: 'status', width: 110, render: (value) => <StatusTag status={value} /> },
               { title: '结果', dataIndex: 'content_version_id', width: 150, render: (value) => value ? <Link to={`/content/${value}`}>打开草稿</Link> : '—' },
-              { title: '失败原因', dataIndex: 'error_summary' },
+              { title: '失败原因', dataIndex: 'error_summary', width: 250, ellipsis: true, render: (value) => value ? <TableCellText text={value} /> : '—' },
               { title: '耗时 / Token', width: 180, render: (_, row) => `${row.response_duration_ms ?? '—'} ms / ${row.total_tokens ?? '—'}` },
               { title: '操作', width: 130, fixed: 'right', render: (_, row) => row.status === 'FAILED' ? <Button size="small" loading={retryJob.isPending} onClick={() => retryJob.mutate(row.id)}>重试原快照</Button> : null },
             ]}
@@ -550,8 +652,6 @@ function TaskDetail({ taskId }: { taskId: string }) {
         { label: '契约版本', children: <span className="data-code">{jobDetail.data.input_snapshot.contract_version}</span> },
         { label: '渠道 / 模型', children: `${String(jobDetail.data.input_snapshot.channel.name)} / ${String(jobDetail.data.input_snapshot.model.model_id)}` },
         { label: '请求参数', children: <pre>{JSON.stringify(jobDetail.data.input_snapshot.model.request_parameters, null, 2)}</pre> },
-        { label: '系统消息（System Message）', children: <Input.TextArea aria-label="系统消息（System Message）" rows={8} readOnly value={jobDetail.data.input_snapshot.system_message} /> },
-        { label: '用户消息（User Message）', children: <Input.TextArea aria-label="用户消息（User Message）" rows={10} readOnly value={jobDetail.data.input_snapshot.user_message} /> },
       ]} />
     </Card>}
 
@@ -564,7 +664,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
             scroll={{ x: 880 }}
             columns={[
               { title: '版本', dataIndex: 'version', render: (value, row) => <Link className="data-code" to={`/content/${row.id}`}>V{value}</Link> },
-              { title: '标题', dataIndex: 'title' },
+              { title: '标题', dataIndex: 'title', width: 320, ellipsis: true, render: (value) => <TableCellText text={value} /> },
               { title: '来源', dataIndex: 'source_type', width: 100, render: (value) => <StatusTag status={value} /> },
               { title: '状态', dataIndex: 'status', width: 140, render: (value) => <StatusTag status={value} /> },
               { title: '质量问题', dataIndex: 'quality_issues', width: 100, render: (issues: Schema<'QualityIssue'>[]) => issues.length },

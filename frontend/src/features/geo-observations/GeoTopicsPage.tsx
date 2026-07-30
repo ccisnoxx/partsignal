@@ -9,6 +9,7 @@ import { queryTopicsQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { QueryTopic, Schema } from '../../shared/api/types';
 import { PageHeader } from '../../shared/components/PageHeader';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 
 const intentOptions: Array<{ label: string; value: Schema<'IntentType'> }> = [
@@ -66,9 +67,9 @@ export function GeoTopicsPage() {
             rowKey="id"
             loading={topics.isLoading}
             dataSource={topics.data?.items}
-            scroll={{ x: 720 }}
+            scroll={{ x: 780 }}
             columns={[
-              { title: '标准问题', dataIndex: 'canonical_question' },
+              { title: '标准问题', dataIndex: 'canonical_question', width: 320, ellipsis: true, render: (value) => <TableCellText text={value} /> },
               {
                 title: '意图',
                 dataIndex: 'intent_type',
@@ -78,8 +79,9 @@ export function GeoTopicsPage() {
               {
                 title: '变体',
                 dataIndex: 'variants',
-                width: 400,
-                render: (items: string[]) => items.join(' / '),
+                width: 320,
+                ellipsis: true,
+                render: (items: string[]) => <TableCellText text={items.join(' / ')} />,
               },
             ]}
           />

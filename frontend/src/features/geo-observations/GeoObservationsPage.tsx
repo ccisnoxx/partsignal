@@ -25,6 +25,7 @@ import { NoData, QueryFailure, QueryLoading } from '../../shared/components/Asyn
 import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { GeoObservationDrawer } from './GeoObservationDrawer';
 import { GeoObservationForm } from './GeoObservationForm';
@@ -233,8 +234,8 @@ export function GeoObservationsPage() {
 
   const baseColumns: TableColumnsType<GeoObservation> = [
     {
-      title: '观测平台', width: 150, render: (_, row) => (
-        <Space size={6}><span className="geo-platform-mark">{row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? '人' : 'AI'}</span><span>{row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.search_platform : row.model_name}</span></Space>
+      title: '观测平台', width: 180, render: (_, row) => (
+        <Space size={6}><span className="geo-platform-mark">{row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? '人' : 'AI'}</span><TableCellText text={row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.search_platform : row.model_name} /></Space>
       ),
     },
     {
@@ -267,7 +268,7 @@ export function GeoObservationsPage() {
       },
     },
     { title: '证据', key: 'evidence', width: 88, render: (_, row) => row.attachment_file_ids.length ? <StatusTag status="UPLOADED" /> : <Tag>未上传</Tag> },
-    { title: '记录人', key: 'recorder', dataIndex: ['recorder', 'display_name'], width: 96 },
+    { title: '记录人', key: 'recorder', dataIndex: ['recorder', 'display_name'], width: 130, ellipsis: true, render: (value: string) => <TableCellText text={value} /> },
     {
       title: '操作', key: 'actions', fixed: 'right', width: 96, render: (_, row) => (
         <Space size={4}>
@@ -407,7 +408,7 @@ export function GeoObservationsPage() {
                 },
               })}
               sticky={{ offsetHeader: 72 }}
-              scroll={{ x: 1040 }}
+              scroll={{ x: 1110 }}
               pagination={{
                 current: rawPage,
                 pageSize,

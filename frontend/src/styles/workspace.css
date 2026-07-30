@@ -397,7 +397,8 @@
 .revision-preview h3 { margin-top: 0 !important; }
 .revision-preview .markdown-preview { margin-top: 22px; }
 .revision-save-bar { margin-top: 16px; }
-.task-stage-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 16px; align-items: start; }
+.task-stage-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
+.task-stage-grid > .ant-card { height: 100%; }
 .form-grid .ant-form-item { min-width: 200px; flex: 1 1 220px; }
 .generation-controls { width: 100%; margin: 16px 0; }
 .model-select { width: min(100%, 420px); }
@@ -449,8 +450,8 @@
 .publication-filter-bar { display: grid; grid-template-columns: minmax(260px, 420px) minmax(180px, 240px); gap: 10px; padding: 2px 2px 12px; }
 .publication-filter-bar.is-compact { grid-template-columns: minmax(180px, 260px); }
 .publication-filter-bar .ant-input-affix-wrapper, .publication-filter-bar .ant-select-selector { min-height: 36px; border-color: var(--ps-glass-border) !important; background: color-mix(in srgb, var(--ps-bg-surface) 74%, transparent) !important; }
-.publication-title-cell { display: flex; flex-direction: column; min-width: 190px; gap: 3px; }
-.publication-title-cell strong, .publication-title-cell span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.publication-title-cell { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
+.publication-title-cell strong, .publication-title-cell span, .publication-title-cell small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .publication-title-cell small { color: var(--ps-text-tertiary); font-size: 11px; }
 .publication-actual-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .publication-insights { display: grid; grid-template-columns: minmax(220px, .9fr) minmax(260px, 1.15fr) minmax(220px, .85fr) minmax(310px, 1.25fr); gap: 12px; align-items: stretch; }
@@ -648,6 +649,7 @@
 /* 横向滚动由 Ant Table 的 scroll.x 持有；外层 overflow 会破坏 sticky 表头定位。 */
 .table-region { max-width: 100%; border-radius: var(--ps-radius-md); }
 .table-region:focus-visible { outline-offset: -3px; }
+.table-cell-ellipsis { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table-search { width: min(100%, 360px); margin-bottom: 16px; }
 .section-card { margin-bottom: 14px; background: var(--ps-bg-surface); }
 .dynamic-row, .dynamic-block { width: 100%; margin-bottom: 12px; padding: 14px; border: 1px dashed var(--ps-border-strong); border-radius: var(--ps-radius-md); background: var(--ps-bg-subtle); }
@@ -688,7 +690,7 @@
 .publication-accounts-panel > .ant-card-head { min-height: 52px; padding-inline: 14px; border-color: var(--ps-border-subtle); }
 .publication-accounts-panel > .ant-card-body { padding: 14px; }
 .publication-accounts-panel > .ant-card-body > .ant-alert { margin-bottom: 12px; }
-.publication-accounts-panel .table-region { overflow: hidden; border: 1px solid var(--ps-border-subtle); border-radius: var(--ps-radius-lg); }
+.publication-accounts-panel .table-region { border: 1px solid var(--ps-border-subtle); border-radius: var(--ps-radius-lg); }
 .publication-accounts-panel .ant-table-thead > tr > th { height: 44px; color: var(--ps-text-secondary); background: var(--ps-bg-subtle); font-size: 12px; white-space: nowrap; }
 .publication-accounts-panel .ant-table-tbody > tr > td { height: 52px; border-color: var(--ps-border-subtle); font-size: 13px; }
 .publication-accounts-panel .ant-pagination { margin: 14px !important; }
@@ -717,7 +719,7 @@
 .audit-list-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 15px; border-bottom: 1px solid var(--ps-border-subtle); font-size: 12px; }
 .audit-auto-refresh { display: inline-flex; align-items: center; gap: 8px; color: var(--ps-text-secondary); font-size: 11px; }
 .audit-list-error { display: flex; flex-direction: column; gap: 8px; padding: 10px; }
-.audit-list-panel .table-region { overflow: hidden; border-radius: 0; }
+.audit-list-panel .table-region { border-radius: 0; }
 .audit-list-panel .ant-table { font-size: 11px; }
 .audit-list-panel .ant-table-thead > tr > th { height: 40px; padding: 8px 7px; color: var(--ps-text-secondary); white-space: nowrap; }
 .audit-list-panel .ant-table-tbody > tr > td { height: 44px; padding: 7px; }
@@ -772,7 +774,7 @@
 .user-management-page .ant-switch.ant-switch-checked { background: var(--ps-action-primary); }
 .user-management-total { flex: 1 1 auto; min-width: 92px; margin-left: auto; text-align: right; white-space: nowrap; }
 .user-management-total strong { color: var(--ps-action-primary); }
-.user-management-list-card .table-region { overflow: hidden; border-radius: 0; }
+.user-management-list-card .table-region { border-radius: 0; }
 .user-management-list-card :is(.ant-table, .ant-table-container, .ant-table-content) { color: var(--ps-text-primary); background: transparent; }
 .user-management-list-card .ant-table-thead > tr > th { height: 44px; padding: 8px 10px; color: var(--ps-text-secondary); background: color-mix(in srgb, var(--ps-bg-surface) 88%, var(--ps-action-primary-soft)); font-size: 12px; font-weight: 500; white-space: nowrap; }
 .user-management-list-card .ant-table-tbody > tr > td { height: 52px; overflow: hidden; padding: 7px 10px; border-color: var(--ps-border-subtle); font-size: 13px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
@@ -851,13 +853,13 @@
 .platform-filter-grid > .ant-typography { white-space: nowrap; font-size: 12px; }
 .platform-table-panel { min-width: 0; }
 .platform-table-panel > .ant-card-body { padding: 0; }
-.platform-table-panel .table-region { overflow: hidden; border-radius: var(--ps-radius-lg); }
+.platform-table-panel .table-region { border-radius: var(--ps-radius-lg); }
 .platform-table-panel .ant-table-thead > tr > th { height: 40px; padding: 8px 9px; color: var(--ps-text-secondary); background: var(--ps-bg-subtle); font-size: 11px; white-space: nowrap; }
 .platform-table-panel .ant-table-tbody > tr > td { height: 50px; overflow: hidden; padding: 7px 9px; border-color: var(--ps-border-subtle); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .platform-table-panel .ant-table-tbody > tr:hover > td, .platform-table-panel .ant-table-tbody > tr:focus-within > td, .platform-table-panel .ant-table-tbody > tr.platform-row-selected > td { background: var(--ps-action-primary-soft) !important; }
-.platform-table-panel .ant-table-cell-fix-right { background: var(--ps-bg-surface) !important; }
-.platform-table-panel .ant-table-thead > tr > .ant-table-cell-fix-right { background: var(--ps-bg-subtle) !important; }
-.platform-table-panel .ant-table-tbody > tr:hover > .ant-table-cell-fix-right, .platform-table-panel .ant-table-tbody > tr:focus-within > .ant-table-cell-fix-right, .platform-table-panel .ant-table-tbody > tr.platform-row-selected > .ant-table-cell-fix-right { background: var(--ps-action-primary-soft) !important; }
+.platform-table-panel :is(.ant-table-cell-fix-end, .ant-table-cell-fix-right) { background: var(--ps-bg-surface) !important; }
+.platform-table-panel .ant-table-thead > tr > :is(.ant-table-cell-fix-end, .ant-table-cell-fix-right) { background: var(--ps-bg-subtle) !important; }
+.platform-table-panel .ant-table-tbody > tr:hover > :is(.ant-table-cell-fix-end, .ant-table-cell-fix-right), .platform-table-panel .ant-table-tbody > tr:focus-within > :is(.ant-table-cell-fix-end, .ant-table-cell-fix-right), .platform-table-panel .ant-table-tbody > tr.platform-row-selected > :is(.ant-table-cell-fix-end, .ant-table-cell-fix-right) { background: var(--ps-action-primary-soft) !important; }
 .platform-table-panel .ant-pagination { position: relative; justify-content: flex-end; margin: 14px !important; padding-inline: 110px 200px; }
 .platform-table-panel .ant-pagination-options { position: absolute; inset-inline: 0; display: flex; justify-content: space-between; margin-left: 0; pointer-events: none; }
 .platform-table-panel .ant-pagination-options > * { pointer-events: auto; }
@@ -906,7 +908,7 @@
 .ai-list-toolbar .ant-select-single .ant-select-selector { padding-inline: 10px 26px !important; }
 .ai-list-toolbar .ant-select-selection-item { padding-inline-end: 0 !important; }
 .ai-list-table-wrap { min-height: 0; flex: 1 1 auto; overflow-x: hidden; overflow-y: auto; padding: 0 14px; }
-.ai-list-table-wrap > .table-region { min-width: 0; margin-top: -1px; overflow: hidden; border: 1px solid var(--ps-border-subtle); border-radius: var(--ps-radius-md); }
+.ai-list-table-wrap > .table-region { min-width: 0; margin-top: -1px; border: 1px solid var(--ps-border-subtle); border-radius: var(--ps-radius-md); }
 .ai-channel-table .ant-table { font: 400 11px/1.4 var(--ps-font-sans); }
 .ai-channel-table .ant-table, .ai-channel-table .ant-table-container { background: transparent; }
 .ai-channel-table .ant-table-thead > tr > th { height: 52px; padding: 8px 6px; color: var(--ps-text-secondary); background: color-mix(in srgb, var(--ps-bg-subtle) 72%, var(--ps-bg-surface)); font-size: 11px; font-weight: 500; line-height: 1.35; letter-spacing: 0; white-space: nowrap; }

@@ -1,6 +1,8 @@
 /** 在独立弹窗中筛选远端模型，并明确区分已配置与可添加状态。 */
 import { Alert, Button, Input, Modal, Space, Table, Typography } from 'antd';
 import { useDeferredValue, useState } from 'react';
+import { TableCellText } from '../../shared/components/TableCellText';
+import { TableRegion } from '../../shared/components/TableRegion';
 
 type ModelDiscoveryModalProps = {
   open: boolean;
@@ -32,19 +34,21 @@ export function ModelDiscoveryModal({ open, modelIds, configuredModelIds, loadin
       {fetchError && <Alert role="alert" type="error" showIcon message={fetchError} />}
       {addError && <Alert role="alert" type="error" showIcon message={addError} />}
       <Input.Search aria-label="筛选远端模型" placeholder="按 model_id 筛选" allowClear value={search} onChange={(event) => setSearch(event.target.value)} />
-      <Table<{ modelId: string }>
-        rowKey="modelId"
-        loading={loading}
-        dataSource={filteredModels}
-        pagination={{ pageSize: 10, hideOnSinglePage: true }}
-        scroll={{ x: 560 }}
-        locale={{ emptyText: loading ? '正在获取模型' : '渠道未返回可用模型' }}
-        columns={[
-          { title: 'model_id', dataIndex: 'modelId', render: (value) => <span className="data-code configuration-break-text">{value}</span> },
-          { title: '状态', width: 120, render: (_, row) => configured.has(row.modelId) ? '已配置' : '未配置' },
-          { title: '操作', width: 120, fixed: 'right', render: (_, row) => <Button type="link" disabled={configured.has(row.modelId) || !!addingModelId} loading={addingModelId === row.modelId} onClick={() => onAdd(row.modelId)}>{configured.has(row.modelId) ? '已添加' : '添加'}</Button> },
-        ]}
-      />
+      <TableRegion label="远端模型列表">
+        <Table<{ modelId: string }>
+          rowKey="modelId"
+          loading={loading}
+          dataSource={filteredModels}
+          pagination={{ pageSize: 10, hideOnSinglePage: true }}
+          scroll={{ x: 620 }}
+          locale={{ emptyText: loading ? '正在获取模型' : '渠道未返回可用模型' }}
+          columns={[
+            { title: 'model_id', dataIndex: 'modelId', width: 380, ellipsis: true, render: (value) => <TableCellText text={value} mono /> },
+            { title: '状态', width: 120, render: (_, row) => configured.has(row.modelId) ? '已配置' : '未配置' },
+            { title: '操作', width: 120, fixed: 'right', render: (_, row) => <Button type="link" disabled={configured.has(row.modelId) || !!addingModelId} loading={addingModelId === row.modelId} onClick={() => onAdd(row.modelId)}>{configured.has(row.modelId) ? '已添加' : '添加'}</Button> },
+          ]}
+        />
+      </TableRegion>
     </Space>
   </Modal>;
 }

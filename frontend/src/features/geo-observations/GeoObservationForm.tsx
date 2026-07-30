@@ -16,6 +16,7 @@ import type { FileRecord, GeoObservation, Schema } from '../../shared/api/types'
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { DirectUpload } from '../../shared/components/DirectUpload';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { EvidenceFile } from './GeoObservationDrawer';
 
@@ -236,10 +237,10 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
               rowKey="publication_record_id"
               dataSource={articleRows}
               pagination={false}
-              scroll={{ x: 760 }}
+              scroll={{ x: 890 }}
               columns={[
-                { title: '文章', dataIndex: 'title' },
-                { title: '平台', dataIndex: 'platform_name', width: 130 },
+                { title: '文章', dataIndex: 'title', width: 280, ellipsis: true, render: (value) => <TableCellText text={value} /> },
+                { title: '平台', dataIndex: 'platform_name', width: 150, ellipsis: true, render: (value) => <TableCellText text={value} /> },
                 { title: '链接', dataIndex: 'final_url', width: 110, render: (url) => <a href={url} target="_blank" rel="noreferrer">查看文章</a> },
                 {
                   title: '发现', width: 100, render: (_, item, index) => <>

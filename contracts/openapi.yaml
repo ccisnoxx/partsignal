@@ -1310,7 +1310,7 @@ paths:
       operationId: deleteContentTask
       parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
       responses:
-        '204': {description: 已删除无生产历史的已取消内容任务}
+        '204': {description: 已删除已取消任务及其未批准、未发布的任务自有生产历史}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}

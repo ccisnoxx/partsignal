@@ -20,7 +20,7 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME } from '../../app/queryClient';
 import { api, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
@@ -34,7 +34,6 @@ import { NoData, QueryFailure } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableRegion } from '../../shared/components/TableRegion';
-import { useAuth } from '../auth/AuthProvider';
 import {
   actionLabel,
   AuditLogDetailPanel,
@@ -185,7 +184,6 @@ function AuditRequestIdField({ value, onCommit }: { value: string | undefined; o
 }
 
 export function AuditLogPage() {
-  const auth = useAuth();
   const screens = Grid.useBreakpoint();
   const [searchParams, setSearchParams] = useSearchParams();
   const [autoRefresh, setAutoRefresh] = useState(false);
@@ -218,22 +216,17 @@ export function AuditLogPage() {
 
   const audit = useQuery({
     ...auditLogListQueryOptions(listQuery),
-    enabled: auth.isAdmin,
     refetchInterval: autoRefresh && pageVisible ? AUTO_REFRESH_INTERVAL : false,
   });
-  const filterOptions = useQuery({
-    ...auditLogFilterOptionsQueryOptions(),
-    enabled: auth.isAdmin,
-  });
+  const filterOptions = useQuery(auditLogFilterOptionsQueryOptions());
   const actors = useQuery({
     queryKey: queryKeys.users.list(actorQuery),
     queryFn: async () => unwrap(await api.GET('/api/v1/users', { params: { query: actorQuery } })),
     staleTime: QUERY_STALE_TIME.businessList,
-    enabled: auth.isAdmin,
   });
   const detail = useQuery({
     ...auditLogDetailQueryOptions(selectedId),
-    enabled: auth.isAdmin && !!selectedId,
+    enabled: !!selectedId,
   });
 
   useEffect(() => {
@@ -282,8 +275,6 @@ export function AuditLogPage() {
     if ('pageSize' in changes) setOptional('page_size', changes.pageSize && changes.pageSize !== 20 ? String(changes.pageSize) : undefined);
     setSearchParams(next);
   };
-
-  if (!auth.isAdmin) return <Navigate to="/" replace />;
 
   const items = audit.data?.items ?? [];
   const hasFilters = !!(

@@ -36,7 +36,7 @@ import {
   type MenuProps,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { ApiError, api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
@@ -146,7 +146,6 @@ export function UserManagementPage() {
     queryKey: queryKeys.users.list(listQuery),
     queryFn: async () => unwrap(await api.GET('/api/v1/users', { params: { query: listQuery } })),
     staleTime: QUERY_STALE_TIME.businessList,
-    enabled: auth.isAdmin,
   });
 
   useEffect(() => {
@@ -244,8 +243,6 @@ export function UserManagementPage() {
     },
     onSuccess: () => message.success('用户列表已导出'),
   });
-
-  if (!auth.isAdmin) return <Navigate to="/" replace />;
 
   const items = users.data?.items ?? [];
   const selectionScope = `${canonicalSearch}:${users.dataUpdatedAt}`;

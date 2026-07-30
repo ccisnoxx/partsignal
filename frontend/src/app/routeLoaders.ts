@@ -13,7 +13,7 @@ export const routeLoaders = {
   geoTopics: () => import('../features/geo-observations/GeoTopicsPage'),
   settings: () => import('../features/settings/SettingsPage'),
   users: () => import('../features/users/UserManagementPage'),
-  configurationLayout: () => import('../features/configuration/ConfigurationLayout'),
+  adminRoute: () => import('./AdminRoute'),
   aiChannels: () => import('../features/configuration/AIChannelsPage'),
   aiChannelDetail: () => import('../features/configuration/AIChannelDetailPage'),
   platformTypes: () => import('../features/configuration/PlatformTypesPage'),
@@ -36,7 +36,7 @@ export const GeoInsightsPrintPage = lazy(async () => ({ default: (await routeLoa
 export const GeoTopicsPage = lazy(async () => ({ default: (await routeLoaders.geoTopics()).GeoTopicsPage }));
 export const SettingsPage = lazy(async () => ({ default: (await routeLoaders.settings()).SettingsPage }));
 export const UserManagementPage = lazy(async () => ({ default: (await routeLoaders.users()).UserManagementPage }));
-export const ConfigurationLayout = lazy(async () => ({ default: (await routeLoaders.configurationLayout()).ConfigurationLayout }));
+export const AdminRoute = lazy(async () => ({ default: (await routeLoaders.adminRoute()).AdminRoute }));
 export const AIChannelsPage = lazy(async () => ({ default: (await routeLoaders.aiChannels()).AIChannelsPage }));
 export const AIChannelDetailPage = lazy(async () => ({ default: (await routeLoaders.aiChannelDetail()).AIChannelDetailPage }));
 export const PlatformTypesPage = lazy(async () => ({ default: (await routeLoaders.platformTypes()).PlatformTypesPage }));

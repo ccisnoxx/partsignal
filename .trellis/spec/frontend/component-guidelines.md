@@ -16,7 +16,7 @@ Questions to answer:
 - What accessibility standards apply?
 -->
 
-前端沿用 React 与 Ant Design 组件，不建立第二套基础组件或通知系统。共享组件只承载稳定的展示边界，例如 `TableRegion`、`QueryFailure`、`NoData` 和 `MetricTile`；业务权限、恢复路径和状态转换仍由 feature 页面决定。
+前端沿用 React 与 Ant Design 组件，不建立第二套基础组件或通知系统。共享组件只承载稳定的展示边界，例如 `TableRegion`、`QueryFailure`、`NoData` 和 `MetricTile`；业务权限、恢复路径和状态转换由对应路由或 feature 所有者决定。
 
 ---
 
@@ -96,6 +96,7 @@ const articleRows = correctionRecord
 - 高密度行只保留一个高频主入口；低频和危险操作放入 Ant `Dropdown`，触发器名称使用 `更多操作：<业务标识>`。危险菜单项必须进入原有确认流程，不得直接执行删除或停用。
 - 长页面章节导航使用原生锚点；当前章节设置 `aria-current="location"`。条件章节的链接与区块必须使用同一个渲染条件。
 - 路由 pathname 变化后由 `AppLayout` 将焦点移到 `Layout.Content`，并调用 `focus({ preventScroll: true })`；查询参数变化不得抢焦点。
+- `/users`、`/audit` 和 `/configuration/*` 必须共用 `AdminRoute`，在受限页面挂载前判断管理员权限。未获权访问保留原 URL，展示带恢复操作的 403，并在 `AppLayout` 路由焦点完成后把焦点移入提示区域；页面内部不得再维护查询开关或重定向。
 - 弹窗、下拉菜单和表格滚动区继续使用 Ant Design 与 `TableRegion` 的键盘和可访问语义，不手写第二套焦点圈定。
 - 工作台侧栏只在 URL 中存在真实选中对象时渲染 Ant Drawer；移动端使用全宽 Drawer。关闭后清理对象查询参数并由 Ant 恢复触发器焦点，不保留无对象的永久占位面板。
 

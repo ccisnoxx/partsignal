@@ -9,8 +9,8 @@ import { queryClient } from './queryClient';
 import {
   AIChannelDetailPage,
   AIChannelsPage,
+  AdminRoute,
   AuditLogPage,
-  ConfigurationLayout,
   ContentEditorPage,
   ContentTasksPage,
   DashboardPage,
@@ -61,16 +61,18 @@ export function App() {
                     <Route path="observations/topics" element={<GeoTopicsPage />} />
                     <Route path="observations/:observationId/correct" element={<GeoObservationsPage />} />
                     <Route path="settings" element={<SettingsPage />} />
-                    <Route path="users" element={<UserManagementPage />} />
-                    <Route path="audit" element={<AuditLogPage />} />
-                    <Route path="configuration" element={<ConfigurationLayout />}>
-                      <Route index element={<Navigate to="ai" replace />} />
-                      <Route path="ai" element={<AIChannelsPage />}>
-                        <Route path="channels/:channelId" element={<AIChannelDetailPage />} />
+                    <Route element={<AdminRoute />}>
+                      <Route path="users" element={<UserManagementPage />} />
+                      <Route path="audit" element={<AuditLogPage />} />
+                      <Route path="configuration">
+                        <Route index element={<Navigate to="ai" replace />} />
+                        <Route path="ai" element={<AIChannelsPage />}>
+                          <Route path="channels/:channelId" element={<AIChannelDetailPage />} />
+                        </Route>
+                        <Route path="platform-types" element={<PlatformTypesPage />} />
+                        <Route path="platforms" element={<PlatformsPage />} />
+                        <Route path="prompts" element={<PlatformPromptsPage />} />
                       </Route>
-                      <Route path="platform-types" element={<PlatformTypesPage />} />
-                      <Route path="platforms" element={<PlatformsPage />} />
-                      <Route path="prompts" element={<PlatformPromptsPage />} />
                     </Route>
                   </Route>
                 </Route>

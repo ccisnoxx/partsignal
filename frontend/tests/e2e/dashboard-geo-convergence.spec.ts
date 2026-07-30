@@ -226,12 +226,21 @@ test('GEO 长平台名与问题各自收敛在单元格内并支持完整值提�
   expect(geometry.platformContentRight).toBeLessThanOrEqual(geometry.questionContentLeft);
   expect(geometry.rowHeight).toBeLessThanOrEqual(52);
 
-  const platformText = platformCell.locator('.table-cell-ellipsis');
-  await platformText.hover();
-  await expect(page.getByRole('tooltip', { name: longPlatformName })).toBeVisible();
-  await page.mouse.move(0, 0);
-  await platformText.focus();
-  await expect(page.getByRole('tooltip', { name: longPlatformName })).toBeVisible();
+  const platformContent = platformCell.locator('.geo-platform-cell');
+  const platformMark = platformContent.locator('.geo-platform-mark');
+  const platformText = platformContent.locator('.table-cell-ellipsis');
+  const platformTooltip = page.getByRole('tooltip', { name: longPlatformName });
+  await expect(platformContent).toHaveAttribute('tabindex', '0');
+  await expect(platformText).not.toHaveAttribute('tabindex');
+  for (const target of [platformContent, platformMark, platformText]) {
+    await target.hover();
+    await expect(platformTooltip).toBeVisible();
+    await page.mouse.move(0, 0);
+    await expect(platformTooltip).toBeHidden();
+  }
+  await platformContent.focus();
+  await expect(platformContent).toBeFocused();
+  await expect(platformTooltip).toBeVisible();
 
   const question = questionCell.locator('.geo-question-link');
   await question.hover();

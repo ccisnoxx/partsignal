@@ -24,6 +24,7 @@
 - [x] 修改 `frontend/src/features/geo-observations/GeoObservationsPage.tsx`：
   - 用带 `min-width:0` 的局部复合单元格替换“观测平台”列中的 Ant `Space`；
   - 保持平台标记固定，文本槽收缩；
+  - Tooltip 与键盘焦点由复合根持有，平台标记、留白和文字共享完整值触发范围；
   - “搜索词 / 问题”继续作为主要弹性列；
   - Tooltip 使用未截断原值，保留打开详情的交互。
 - [x] 在 `frontend/src/styles/workspace.css` 增加最小 `.geo-platform-cell` 布局规则；不修改全局 Ant `Space`，不增加掩盖问题的层级或 overflow。
@@ -162,7 +163,7 @@ make e2e
 
 - 逐表结论：`research/sitewide-display-audit.md` 已覆盖 24 张表并登记 58 个可变长文本位置；普通文本继续复用 `TableCellText`，交互标题、链接和复合身份的文本叶子统一纳入 `.table-cell-ellipsis` 压力探针。
 - GEO 失败证据：修复前专项 Playwright 在真实 DOM 上报“缺少平台或问题量测节点”，证明旧结构无法满足几何合同。
-- GEO 通过证据：接近 160 字符的平台名与长问题用例 1/1 通过，覆盖所属 `td`、相邻列不相交、实际省略、52px 行高、hover/focus 完整值。
+- GEO 通过证据：接近 160 字符的平台名与长问题用例 1/1 通过，覆盖所属 `td`、相邻列不相交、实际省略、52px 行高；复合根、平台标记、文字三种 hover 与复合根 focus 均显示完整值。
 - 组件回归：受影响 6 个 Vitest 文件、78 个用例通过；完整前端 Vitest 25 个文件、173 个用例及 23 个视觉合同用例通过。
 - 静态检查：`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check` 通过。
 - 真实浏览器补充证据：动态矩阵长平台列在 `1440×1000` 与 `375×900` 均为 `table-layout: fixed`、实际截断且不越过所属 `th`；桌面无页面级横向溢出，窄屏只在 `TableRegion` 内滚动，hover/focus Tooltip 均返回完整平台名，控制台 0 error、0 warning。

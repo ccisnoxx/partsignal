@@ -108,7 +108,8 @@
 
 - 容器 `display:flex; align-items:center; width:100%; min-width:0; gap:6px`；
 - `.geo-platform-mark` 保持固定 24px；
-- `TableCellText` 所在文本槽允许收缩并占据剩余空间；
+- 根容器持有完整平台名 Tooltip、`tabIndex=0` 和可访问名称，固定标记、留白与文字共用同一指针触发范围；
+- 文本叶子只持有 `.table-cell-ellipsis`，允许收缩并占据剩余空间，不再单独持有 Tooltip 或键盘停靠点；
 - 180px 只作为业务目标宽度，实施时可在 160–180px 内依据表头和长值回归选择，不允许数据把列撑宽。
 
 “搜索词 / 问题”继续是主要弹性列。显示内容可以紧凑，但 Tooltip 必须使用原始 `search_query/actual_prompt`，点击仍打开观测详情。
@@ -122,7 +123,7 @@
 - 两个可见文本矩形不相交；
 - 平台文本 `scrollWidth > clientWidth`，证明压力数据确实触发省略；
 - 数据行高度不因长值增长；
-- hover 与 focus Tooltip 都包含完整原值。
+- hover 复合根、固定标记和文本叶子，以及 focus 复合根，Tooltip 都包含完整原值。
 
 ## 6. 列表控件视觉组织
 

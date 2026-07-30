@@ -230,9 +230,17 @@ export function GeoObservationsPage() {
 
   const baseColumns: TableColumnsType<GeoObservation> = [
     {
-      title: '观测平台', width: 180, render: (_, row) => (
-        <div className="geo-platform-cell"><span className="geo-platform-mark">{row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? '人' : 'AI'}</span><TableCellText text={row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.search_platform : row.model_name} /></div>
-      ),
+      title: '观测平台', width: 180, render: (_, row) => {
+        const platformName = row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.search_platform : row.model_name;
+        return (
+          <Tooltip title={platformName} trigger={['hover', 'focus']}>
+            <div className="geo-platform-cell" tabIndex={0} aria-label={`观测平台：${platformName}`}>
+              <span className="geo-platform-mark">{row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? '人' : 'AI'}</span>
+              <span className="table-cell-ellipsis">{platformName}</span>
+            </div>
+          </Tooltip>
+        );
+      },
     },
     {
       title: '搜索词 / 问题', key: 'question', ellipsis: true, render: (_, row) => {

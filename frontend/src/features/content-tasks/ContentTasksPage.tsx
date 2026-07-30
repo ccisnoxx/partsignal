@@ -132,9 +132,9 @@ function TaskList() {
     },
   });
   const confirmDeleteTask = (target: ContentTaskListItem) => modal.confirm({
-    title: '物理删除内容任务？',
+    title: '删除内容任务？',
     content: '将同时删除该任务的生成作业、审核记录、草稿和未批准内容。已批准或已有发布、GEO、修复历史时服务端会拒绝；操作不可恢复。',
-    okText: '物理删除',
+    okText: '确认删除',
     cancelText: '取消',
     okButtonProps: { danger: true },
     onOk: () => deleteTask.mutateAsync(target),
@@ -266,7 +266,7 @@ function TaskList() {
                       menu={{
                         items: row.available_actions.map((action) => ({
                           key: action,
-                          label: action === 'CANCEL' ? '取消任务' : '物理删除',
+                          label: action === 'CANCEL' ? '取消任务' : '删除任务',
                           danger: true,
                           onClick: () => action === 'CANCEL'
                             ? setCancelTarget(row)
@@ -274,7 +274,7 @@ function TaskList() {
                         })),
                       }}
                     >{moreButton}</Dropdown> : (
-                      <Tooltip title="服务端当前未返回可执行操作；已批准或已有下游历史的任务不能物理删除。">
+                      <Tooltip title="服务端当前未返回可执行操作；已批准或已有下游历史的任务不能删除。">
                         <span tabIndex={0} aria-label="当前任务没有可执行操作">{moreButton}</span>
                       </Tooltip>
                     )}
@@ -567,13 +567,13 @@ function TaskDetail({ taskId }: { taskId: string }) {
         <StatusTag status={task.data.status} />
         {task.data.available_actions.includes('CANCEL') && <Button danger onClick={() => setCancelOpen(true)}>取消任务</Button>}
         {task.data.available_actions.includes('DELETE') && <Button danger loading={deleteTask.isPending} onClick={() => modal.confirm({
-          title: '物理删除内容任务？',
+          title: '删除内容任务？',
           content: '将同时删除该任务的生成作业、审核记录、草稿和未批准内容。已批准或已有发布、GEO、修复历史时服务端会拒绝；操作不可恢复。',
-          okText: '物理删除',
+          okText: '确认删除',
           cancelText: '取消',
           okButtonProps: { danger: true },
           onOk: () => deleteTask.mutate(),
-        })}>物理删除</Button>}
+        })}>删除任务</Button>}
       </>}
     />
     {task.data.available_actions.length === 0 && (
@@ -584,7 +584,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
         description={task.data.status === 'OPEN'
           ? '服务端当前未返回取消操作，通常表示存在进行中的发布流程；详情暂时保持只读。'
           : task.data.status === 'CANCELLED'
-            ? '已批准、发布、GEO 或发布修复历史会永久保护任务不被物理删除。'
+            ? '已批准、发布、GEO 或发布修复历史会保留该任务，不能删除。'
             : '任务已完成，详情保持只读。'}
       />
     )}

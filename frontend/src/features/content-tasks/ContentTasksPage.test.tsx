@@ -506,7 +506,7 @@ test('列表加载和失败状态保持可感知且可重试', async () => {
   await waitFor(() => expect(apiMocks.GET.mock.calls.length).toBeGreaterThan(callsBeforeRetry));
 });
 
-test('任务列表直接呈现服务端允许的取消和物理删除操作', async () => {
+test('任务列表直接呈现服务端允许的取消和删除操作', async () => {
   const user = userEvent.setup();
   const openTask = listTask(1, 'OPEN', { available_actions: ['CANCEL'] });
   const cancelledTask = listTask(2, 'CANCELLED', { available_actions: ['DELETE'] });
@@ -532,10 +532,11 @@ test('任务列表直接呈现服务端允许的取消和物理删除操作', as
   ));
 
   await user.click(screen.getByRole('button', { name: '更多操作：PartSignal PS-02' }));
-  await user.click(await screen.findByRole('menuitem', { name: '物理删除' }));
+  await user.click(await screen.findByRole('menuitem', { name: '删除任务' }));
   const deleteDialog = within(await screen.findByRole('dialog'));
   expect(deleteDialog.getByText(/生成作业、审核记录、草稿和未批准内容/)).toBeInTheDocument();
-  await user.click(deleteDialog.getByRole('button', { name: '物理删除' }));
+  expect(deleteDialog.queryByText('物理删除')).not.toBeInTheDocument();
+  await user.click(deleteDialog.getByRole('button', { name: '确认删除' }));
   await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
     '/api/v1/content-tasks/{content_task_id}',
     { params: { path: { content_task_id: cancelledTask.id }, header: { 'X-CSRF-Token': 'test' } } },
@@ -555,10 +556,11 @@ test('仅按服务端 DELETE 动作确认删除并返回任务列表', async () 
   apiMocks.DELETE.mockResolvedValue({ response: new Response(null, { status: 204 }) });
   renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes>, [`/tasks/${taskId}`]);
 
-  await user.click(await screen.findByRole('button', { name: '物理删除' }));
+  await user.click(await screen.findByRole('button', { name: '删除任务' }));
   const dialog = await screen.findByRole('dialog');
   expect(within(dialog).getByText(/生成作业、审核记录、草稿和未批准内容/)).toBeInTheDocument();
-  await user.click(within(dialog).getByRole('button', { name: '物理删除' }));
+  expect(within(dialog).queryByText('物理删除')).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole('button', { name: '确认删除' }));
 
   await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
     '/api/v1/content-tasks/{content_task_id}',
@@ -583,11 +585,11 @@ test('任务删除失败保留详情并展示服务端错误', async () => {
   });
   renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes>, [`/tasks/${taskId}`]);
 
-  await user.click(await screen.findByRole('button', { name: '物理删除' }));
-  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '物理删除' }));
+  await user.click(await screen.findByRole('button', { name: '删除任务' }));
+  await user.click(within(await screen.findByRole('dialog')).getByRole('button', { name: '确认删除' }));
 
   expect(await screen.findByText('内容任务仍被生成作业引用')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '物理删除' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '删除任务' })).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: '任务列表' })).not.toBeInTheDocument();
 });
 

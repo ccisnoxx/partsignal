@@ -480,6 +480,26 @@ def test_content_task_creation_idempotency() -> None:
             )
             assert first.status_code == replay.status_code == 201
             assert first.json()["id"] == replay.json()["id"]
+            assert "idempotency_key" not in first.json()
+
+            listed = client.get("/api/v1/content-tasks")
+            filtered = client.get(
+                "/api/v1/content-tasks",
+                params={"platform_profile_id": str(payload.platform_profile_id)},
+            )
+            detail = client.get(f"/api/v1/content-tasks/{first.json()['id']}")
+            assert listed.status_code == filtered.status_code == detail.status_code == 200
+            assert first.json()["id"] in {item["id"] for item in listed.json()["items"]}
+            assert all(
+                item["platform_profile_id"] == str(payload.platform_profile_id)
+                for item in filtered.json()["items"]
+            )
+            assert all(
+                "idempotency_key" not in item
+                for response in (listed, filtered)
+                for item in response.json()["items"]
+            )
+            assert "idempotency_key" not in detail.json()
 
             conflict = client.post(
                 "/api/v1/content-tasks",

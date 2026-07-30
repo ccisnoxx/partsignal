@@ -288,6 +288,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - `PlatformProfileVersion` 表、API、前端路由及任务中的受众、内容角度、转化目标、格式、长度、用户 Prompt、平台类型快照和 canonical URL 已物理删除；不得建立兼容字段或第二来源。
 - 创建任务只校验产品、该产品的 `APPROVED` 非空事实版本和启用平台。平台通过可空外键绑定零或一份可复用 Prompt；缺少绑定不阻止任务或人工首稿，只阻止系统 AI 作业。
 - 普通任务创建先按命名请求键获取 PostgreSQL 事务 advisory lock，再读取唯一的 `content_tasks.idempotency_key`。只有首次插入追加创建审计；历史任务和发布修复任务保持空值，Redis 不保存幂等状态。
+- `content_tasks.idempotency_key` 只属于服务端创建幂等控制；任务列表与详情必须复用同一响应基础投影排除该字段，并继续由禁止额外字段的响应模型检查合同漂移。
 - 原始 AI 请求必须恰好发送两条消息：`system.content == PlatformPrompt.template_markdown`，`user.content == FactVersion.body_markdown`；不得增加前缀、拼接任务要求、补默认安全规则或重写空白。
 - 人工首稿创建 `source_type=HUMAN`、`status=DRAFT`、`source_job_id=NULL`、`based_on_id=NULL`，随后与 AI 草稿共用修订、审核和人工发布链。
 - `ContentRevisionCreate.tags` 必须至少包含一个标签，且每个标签至少包含一个非空白字符；人工首稿与人工修订前端复用同一必填规则，服务端请求模型仍是最终校验权威。标签不自动 trim、去重、补默认值或增加未批准的数量/长度限制。

@@ -83,6 +83,15 @@ def _content_task_available_actions(
     return []
 
 
+def _content_task_payload(task: ContentTask) -> dict[str, object]:
+    """构造不暴露服务端幂等键的内容任务响应基础载荷。"""
+    return {
+        column.name: getattr(task, column.name)
+        for column in task.__table__.columns
+        if column.name != "idempotency_key"
+    }
+
+
 def content_task_out(db: Session, task: ContentTask) -> ContentTaskOut:
     """投影任务及当前唯一可执行的人工动作。"""
     has_in_flight_publication = task.status == "OPEN" and (
@@ -101,11 +110,7 @@ def content_task_out(db: Session, task: ContentTask) -> ContentTaskOut:
         db,
         [task.id] if task.status == "CANCELLED" else [],
     )
-    payload = {
-        column.name: getattr(task, column.name)
-        for column in task.__table__.columns
-        if column.name != "idempotency_key"
-    }
+    payload = _content_task_payload(task)
     payload["available_actions"] = _content_task_available_actions(
         task,
         has_in_flight_publication=has_in_flight_publication,
@@ -323,7 +328,7 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
         platform = platforms_by_id.get(task.platform_profile_id)
         if product is None or platform is None:
             raise RuntimeError(f"内容任务 {task.id} 的产品或平台关联不存在")
-        payload = {column.name: getattr(task, column.name) for column in task.__table__.columns}
+        payload = _content_task_payload(task)
         payload["available_actions"] = _content_task_available_actions(
             task,
             has_in_flight_publication=task.id in in_flight_task_ids,

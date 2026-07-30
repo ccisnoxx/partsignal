@@ -1232,3 +1232,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 37: 修复 DEF-001 与 DEF-AI-001
+
+**Date**: 2026-07-30
+**Task**: 修复 DEF-001 与 DEF-AI-001
+**Branch**: `main`
+
+### Summary
+
+统一管理员受限路由 403 边界，并协调 Nginx 与 Uvicorn API upstream 空闲连接寿命；定向前端与部署配置验证通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `78e79cd` | (see git log) |
+| `87edd78` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

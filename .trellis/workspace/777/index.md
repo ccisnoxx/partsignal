@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 36
+- **Total Sessions**: 37
 - **Last Active**: 2026-07-30
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1234 | Active |
+| `journal-1.md` | ~1268 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 37 | 2026-07-30 | 修复 DEF-001 与 DEF-AI-001 | `78e79cd`, `87edd78` | `main` |
 | 36 | 2026-07-30 | 修复 DEF-002 内容任务创建幂等 | `de8d95d` | `main` |
 | 35 | 2026-07-29 | 优化 Prompt 管理与 AI 草稿流程 | `0b52cc0` | `main` |
 | 34 | 2026-07-28 | Hostdzire 观测与 Prompt 优化重新部署 | `2522427d3293062f02326ce5309dfaf85c9f193e` | `main` |

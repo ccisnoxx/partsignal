@@ -1,0 +1,470 @@
+- generic [ref=e60] [box=0,0,1440,935]:
+  - complementary [ref=e61] [box=0,0,208,900]:
+    - generic [ref=e62] [box=0,0,207,900]:
+      - strong [ref=e68] [box=65,19,86,27]: PartSignal
+      - menu [ref=e1038] [box=0,64,207,774]:
+        - text: 内容工作流
+        - group [ref=e1039] [box=0,106,207,241]:
+          - menuitem [ref=e1040] [cursor=pointer] [box=4,106,199,45]:
+            - img "bar-chart" [ref=e1041] [box=28,122,14,14]
+            - link "工作台" [ref=e1045] [box=55,120,42,17]:
+              - /url: /
+          - menuitem [ref=e1046] [cursor=pointer] [box=4,155,199,45]:
+            - img "database" [ref=e1047] [box=28,171,14,14]
+            - link "产品事实" [ref=e1051] [box=55,169,56,17]:
+              - /url: /products
+          - menuitem [ref=e1052] [cursor=pointer] [box=4,204,199,45]:
+            - img "file-text" [ref=e1053] [box=28,220,14,14]
+            - link "内容任务" [ref=e1057] [box=55,218,56,17]:
+              - /url: /tasks
+          - menuitem [ref=e1058] [cursor=pointer] [box=4,253,199,45]:
+            - img "rocket" [ref=e1059] [box=28,269,14,14]
+            - link "发布管理" [ref=e1063] [box=55,267,56,17]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=e1064] [cursor=pointer] [box=4,302,199,45]:
+            - img "bar-chart" [ref=e1065] [box=28,318,14,14]
+            - generic [ref=e1068] [box=55,302,61,45]: GEO 观测
+        - text: 系统管理
+        - group [ref=e1069] [box=0,393,207,200]:
+          - menuitem "setting 业务设置" [ref=e1070] [cursor=pointer] [box=4,393,199,45]:
+            - img "setting" [ref=e1071] [box=28,409,14,14]
+            - generic [ref=e1074] [box=55,393,56,45]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [expanded] [ref=e1075] [cursor=pointer] [box=4,442,199,45]:
+            - img "safety-certificate" [ref=e1076] [box=28,458,14,14]
+            - generic [ref=e1079] [box=55,442,70,45]: 审计与安全
+          - menu [ref=e1080] [box=0,491,207,53]:
+            - menuitem [ref=e1081] [cursor=pointer] [box=4,495,199,45]:
+              - link "审计日志" [ref=e1083] [box=52,509,56,17]:
+                - /url: /audit
+          - menuitem "tool 配置中心" [ref=e1084] [cursor=pointer] [box=4,548,199,45]:
+            - img "tool" [ref=e1085] [box=28,564,14,14]
+            - generic [ref=e1088] [box=55,548,56,45]: 配置中心
+      - button "收起导航" [ref=e116] [cursor=pointer] [box=10,842,187,48]:
+        - img "menu-fold" [ref=e118] [box=26,859,14,14]
+        - generic [ref=e121] [box=48,856,28,20]: 收起
+  - generic [ref=e122] [box=208,0,1232,935]:
+    - banner [ref=e123] [box=208,0,1232,64]:
+      - generic [ref=e126] [box=228,25,146,22]:
+        - strong [ref=e479] [box=228,27,70,17]: 审计与安全
+        - generic [ref=e480] [box=306,28,4,16]: /
+        - generic [ref=e481] [box=318,25,56,22]: 审计日志
+      - generic [ref=e132] [cursor=pointer] [box=584,0,480,72]:
+        - img "search" [ref=e134] [box=596,29,14,14]
+        - combobox "全局页面搜索" [ref=e137] [box=614,7,386,58]
+        - generic [ref=e138] [box=1004,7,48,58]: ⌘K
+      - generic [ref=e140] [box=1124,0,296,72]:
+        - button "主题：跟随系统" [ref=e142] [cursor=pointer] [box=1124,18,110,36]:
+          - img "desktop" [ref=e144] [box=1140,29,14,14]
+          - generic [ref=e147] [box=1162,26,56,20]: 跟随系统
+        - button "打开用户操作菜单" [ref=e149] [cursor=pointer] [box=1242,11,178,50]:
+          - generic [ref=e150] [box=1251,18,36,36]: 系
+          - generic [ref=e152] [box=1297,21,92,30]:
+            - strong [ref=e153] [box=1297,21,92,17]: 系统管理员
+            - generic [ref=e154] [box=1297,38,92,13]: admin
+          - img "down" [ref=e155] [box=1399,30,12,12]
+    - main [active] [ref=e158] [box=208,64,1232,871]:
+      - generic [ref=e1089] [box=228,84,1192,831]:
+        - generic [ref=e1091] [box=233,84,434,70]:
+          - heading "审计日志" [level=1] [ref=e1092] [box=233,84,434,32]
+          - generic [ref=e1093] [box=233,118,434,22]: 追溯关键业务操作、状态转换和配置变更。审计记录不可修改或删除。
+        - generic [ref=e1095] [box=228,166,1192,749]:
+          - region "审计日志筛选" [ref=e1096] [box=228,166,1192,222]:
+            - generic [ref=e1097] [box=244,180,1160,137]:
+              - generic [ref=e1098] [box=244,180,376,57]:
+                - generic [ref=e1099] [box=244,180,376,16]: 时间范围
+                - generic [ref=e1100] [box=244,201,376,36]:
+                  - textbox "时间范围" [ref=e1102] [box=256,208,152,22]:
+                    - /placeholder: 开始日期
+                    - text: 2026-07-27 00:34
+                  - generic "to" [ref=e1104] [box=416,211,16,16]:
+                    - img "swap-right" [ref=e1105] [box=416,211,16,16]
+                  - textbox "时间范围" [ref=e1109] [box=440,208,152,22]:
+                    - /placeholder: 结束日期
+                    - text: 2026-07-30 00:34
+                  - button "清除" [box=596,213,12,12]:
+                    - img "close-circle" [box=596,213,12,12]
+              - generic [ref=e1110] [box=636,180,180,57]:
+                - generic [ref=e1111] [box=636,180,180,16]: 操作者
+                - generic [ref=e1112] [box=636,201,180,36]:
+                  - generic [ref=e1113] [box=648,208,138,22]:
+                    - generic [box=648,208,70,22]: 选择操作者
+                    - combobox "操作者" [ref=e1114] [box=648,208,138,22]
+                  - img "down" [ref=e1116] [box=792,213,12,12]
+              - generic [ref=e1119] [box=832,180,180,57]:
+                - generic [ref=e1120] [box=832,180,180,16]: 业务模块
+                - generic [ref=e1121] [cursor=pointer] [box=832,201,180,36]:
+                  - generic [ref=e1122] [box=844,208,138,22]:
+                    - generic [box=844,208,56,22]: 全部模块
+                    - combobox "业务模块" [ref=e1123] [box=844,208,138,22]
+                  - img "down" [ref=e1125] [box=988,213,12,12]
+              - generic [ref=e1128] [box=1028,180,376,57]:
+                - generic [ref=e1129] [box=1028,180,376,16]: 动作类型
+                - generic [ref=e1130] [box=1028,201,376,36]:
+                  - generic [ref=e1131] [box=1040,208,334,22]:
+                    - generic [box=1040,208,56,22]: 全部动作
+                    - combobox "动作类型" [ref=e1132] [box=1040,208,334,22]
+                  - img "down" [ref=e1134] [box=1380,213,12,12]
+              - generic [ref=e1137] [box=244,250,278,67]:
+                - generic [ref=e1138] [box=244,250,278,16]: 对象类型
+                - generic [ref=e1139] [box=244,271,278,36]:
+                  - generic [ref=e1140] [box=256,278,236,22]:
+                    - generic [box=256,278,84,22]: 全部对象类型
+                    - combobox "对象类型" [ref=e1141] [box=256,278,236,22]
+                  - img "down" [ref=e1143] [box=498,283,12,12]
+              - generic [ref=e1146] [box=538,250,278,67]:
+                - generic [ref=e1147] [box=538,250,278,16]: 执行结果
+                - generic [ref=e1148] [cursor=pointer] [box=538,271,278,36]:
+                  - generic [ref=e1149] [box=550,278,236,22]:
+                    - generic [box=550,278,56,22]: 全部结果
+                    - combobox "执行结果" [ref=e1150] [box=550,278,236,22]
+                  - img "down" [ref=e1152] [box=792,283,12,12]
+              - generic [ref=e1155] [box=832,250,278,67]:
+                - generic [ref=e1156] [box=832,250,278,16]: 请求 ID
+                - textbox "请求 ID" [ref=e1158] [box=844,278,238,32]:
+                  - /placeholder: 请输入请求 ID
+            - generic [ref=e1160] [box=244,329,1160,46]:
+              - generic [ref=e1161] [box=244,329,340,46]:
+                - generic [ref=e1162] [box=244,329,305,46]:
+                  - img "search" [ref=e1164] [box=256,346,12,12]
+                  - searchbox "关键字搜索" [ref=e1167] [box=272,336,249,32]
+                - button [ref=e1169] [cursor=pointer] [box=548,329,36,36]:
+                  - img "search" [ref=e1171] [box=559,340,14,14]
+              - button "重置筛选" [ref=e1174] [cursor=pointer] [box=1294,339,110,36]:
+                - img "reload" [ref=e1176] [box=1310,350,14,14]
+          - region "审计日志列表" [ref=e1180] [box=228,398,1192,517]:
+            - generic [ref=e1181] [box=229,399,1190,52]:
+              - generic [ref=e1182] [box=244,414,86,22]:
+                - text: 共
+                - strong [ref=e1183] [box=262,416,23,17]: "141"
+                - text: 条记录
+              - generic [ref=e1184] [box=1264,407,140,36]:
+                - generic [ref=e1186] [box=1264,414,96,22]:
+                  - generic [ref=e1187] [box=1264,416,44,17]: 自动刷新
+                  - switch "自动刷新" [ref=e1188] [cursor=pointer] [box=1316,414,44,22]
+                - button "手动刷新" [ref=e1192] [cursor=pointer] [box=1368,407,36,36]:
+                  - img "reload" [ref=e1194] [box=1379,418,14,14]
+            - region "审计日志" [ref=e1197] [box=229,451,1190,399]:
+              - generic [ref=e1202] [box=229,451,1190,399]:
+                - table [ref=e1204] [box=229,451,1190,44]:
+                  - rowgroup [ref=e1216] [box=229,451,1190,44]:
+                    - row [ref=e1217] [box=229,451,1190,44]:
+                      - columnheader "时间" [ref=e1218] [box=229,451,144,44]
+                      - columnheader "操作者" [ref=e1219] [box=373,451,76,44]
+                      - columnheader "账号类型" [ref=e1220] [box=449,451,82,44]
+                      - columnheader "业务模块" [ref=e1221] [box=531,451,94,44]
+                      - columnheader "动作" [ref=e1222] [box=625,451,304,44]
+                      - columnheader "对象类型" [ref=e1223] [box=929,451,94,44]
+                      - columnheader "对象标识" [ref=e1224] [box=1023,451,126,44]
+                      - columnheader "执行结果" [ref=e1225] [box=1149,451,76,44]
+                      - columnheader "请求 ID" [ref=e1226] [box=1225,451,144,44]
+                      - columnheader "操作" [ref=e1227] [box=1369,451,50,44]
+                - table [ref=e1229] [box=229,495,1190,1117]:
+                  - rowgroup [ref=e1241] [box=229,495,1190,1117]:
+                    - row [ref=e1242] [box=229,495,1190,56]:
+                      - cell [ref=e1243] [box=229,495,144,56]:
+                        - time [ref=e1244] [box=236,512,130,20]: 2026/07/30 00:33:48
+                      - cell "系统管理员" [ref=e1245] [box=373,495,76,56]
+                      - cell "管理员" [ref=e1246] [box=449,495,82,56]
+                      - cell "用户管理" [ref=e1248] [box=531,495,94,56]
+                      - cell "创建用户" [ref=e1249] [box=625,495,304,56]
+                      - cell "用户" [ref=e1250] [box=929,495,94,56]
+                      - cell "ed97fc97-bfb0-4f37-92c2-8b0b8085d66d" [ref=e1251] [box=1023,495,126,56]
+                      - cell "成功" [ref=e1253] [box=1149,495,76,56]
+                      - cell "37a851cd-96e3-47f3-8638-b214725f53fd" [ref=e1255] [box=1225,495,144,56]
+                      - cell [ref=e1257] [box=1369,495,50,56]:
+                        - button "查看日志详情：2954d59e-a094-443e-8cf1-abb53817114e" [ref=e1258] [cursor=pointer] [box=1376,509,27,27]:
+                          - img "eye" [ref=e1260] [box=1383,516,14,14]
+                    - row [ref=e1263] [box=229,551,1190,56]:
+                      - cell [ref=e1264] [box=229,551,144,56]:
+                        - time [ref=e1265] [box=236,568,130,20]: 2026/07/30 00:33:25
+                      - cell "系统管理员" [ref=e1266] [box=373,551,76,56]
+                      - cell "管理员" [ref=e1267] [box=449,551,82,56]
+                      - cell "用户管理" [ref=e1269] [box=531,551,94,56]
+                      - cell "创建用户" [ref=e1270] [box=625,551,304,56]
+                      - cell "用户" [ref=e1271] [box=929,551,94,56]
+                      - cell "1118e964-9474-4351-a6b9-277702144c0a" [ref=e1272] [box=1023,551,126,56]
+                      - cell "成功" [ref=e1274] [box=1149,551,76,56]
+                      - cell "45354989-821c-4707-b15e-5c34466f03a2" [ref=e1276] [box=1225,551,144,56]
+                      - cell [ref=e1278] [box=1369,551,50,56]:
+                        - button "查看日志详情：a85f6872-8cd9-4ce5-a85d-e4af5d102824" [ref=e1279] [cursor=pointer] [box=1376,565,27,27]:
+                          - img "eye" [ref=e1281] [box=1383,572,14,14]
+                    - row [ref=e1284] [box=229,607,1190,56]:
+                      - cell [ref=e1285] [box=229,607,144,56]:
+                        - time [ref=e1286] [box=236,624,130,20]: 2026/07/29 23:13:23
+                      - cell "系统管理员" [ref=e1287] [box=373,607,76,56]
+                      - cell "管理员" [ref=e1288] [box=449,607,82,56]
+                      - cell "配置中心" [ref=e1290] [box=531,607,94,56]
+                      - cell "启用平台配置" [ref=e1291] [box=625,607,304,56]
+                      - cell "平台" [ref=e1292] [box=929,607,94,56]
+                      - cell "2ae16274-e43f-479e-bb80-7a3c2ef8c3bb" [ref=e1293] [box=1023,607,126,56]
+                      - cell "成功" [ref=e1295] [box=1149,607,76,56]
+                      - cell "c48e5998-e3eb-4615-8331-e25f5ff249ac" [ref=e1297] [box=1225,607,144,56]
+                      - cell [ref=e1299] [box=1369,607,50,56]:
+                        - button "查看日志详情：0d23b922-298b-46ec-a29e-670aa9680970" [ref=e1300] [cursor=pointer] [box=1376,621,27,27]:
+                          - img "eye" [ref=e1302] [box=1383,627,14,14]
+                    - row [ref=e1305] [box=229,663,1190,56]:
+                      - cell [ref=e1306] [box=229,663,144,56]:
+                        - time [ref=e1307] [box=236,680,130,20]: 2026/07/29 10:08:50
+                      - cell "系统管理员" [ref=e1308] [box=373,663,76,56]
+                      - cell "管理员" [ref=e1309] [box=449,663,82,56]
+                      - cell "发布管理" [ref=e1311] [box=531,663,94,56]
+                      - cell "停用发布账号" [ref=e1312] [box=625,663,304,56]
+                      - cell "发布账号" [ref=e1313] [box=929,663,94,56]
+                      - cell "91070524-559a-4e70-8d75-e85dc47adcf0" [ref=e1314] [box=1023,663,126,56]
+                      - cell "成功" [ref=e1316] [box=1149,663,76,56]
+                      - cell "5d3bc7f9-fef7-4475-949d-47326e85b4c5" [ref=e1318] [box=1225,663,144,56]
+                      - cell [ref=e1320] [box=1369,663,50,56]:
+                        - button "查看日志详情：e751f763-2f00-45ec-8724-ebf570ee34e9" [ref=e1321] [cursor=pointer] [box=1376,676,27,27]:
+                          - img "eye" [ref=e1323] [box=1383,683,14,14]
+                    - row [ref=e1326] [box=229,718,1190,56]:
+                      - cell [ref=e1327] [box=229,718,144,56]:
+                        - time [ref=e1328] [box=236,736,130,20]: 2026/07/29 10:08:15
+                      - cell "系统管理员" [ref=e1329] [box=373,718,76,56]
+                      - cell "管理员" [ref=e1330] [box=449,718,82,56]
+                      - cell "配置中心" [ref=e1332] [box=531,718,94,56]
+                      - cell "删除 Prompt" [ref=e1333] [box=625,718,304,56]
+                      - cell "PlatformPrompt" [ref=e1334] [box=929,718,94,56]
+                      - cell "a6101085-5ce2-4564-b1c4-53e74ab798c7" [ref=e1335] [box=1023,718,126,56]
+                      - cell "成功" [ref=e1337] [box=1149,718,76,56]
+                      - cell "ba56f901-3ca5-47b7-b1af-4b357bfb42aa" [ref=e1339] [box=1225,718,144,56]
+                      - cell [ref=e1341] [box=1369,718,50,56]:
+                        - button "查看日志详情：6847256c-c3a7-4067-b95a-851c36086aa2" [ref=e1342] [cursor=pointer] [box=1376,732,27,27]:
+                          - img "eye" [ref=e1344] [box=1383,739,14,14]
+                    - row [ref=e1347] [box=229,774,1190,56]:
+                      - cell [ref=e1348] [box=229,774,144,56]:
+                        - time [ref=e1349] [box=236,791,130,20]: 2026/07/29 10:07:54
+                      - cell "系统管理员" [ref=e1350] [box=373,774,76,56]
+                      - cell "管理员" [ref=e1351] [box=449,774,82,56]
+                      - cell "配置中心" [ref=e1353] [box=531,774,94,56]
+                      - cell "停用平台配置" [ref=e1354] [box=625,774,304,56]
+                      - cell "平台" [ref=e1355] [box=929,774,94,56]
+                      - cell "2ae16274-e43f-479e-bb80-7a3c2ef8c3bb" [ref=e1356] [box=1023,774,126,56]
+                      - cell "成功" [ref=e1358] [box=1149,774,76,56]
+                      - cell "ad02a1a8-b426-4170-9bb9-ddce25fc4fc4" [ref=e1360] [box=1225,774,144,56]
+                      - cell [ref=e1362] [box=1369,774,50,56]:
+                        - button "查看日志详情：105bddad-ec53-4abe-97f3-9a2048af03ac" [ref=e1363] [cursor=pointer] [box=1376,788,27,27]:
+                          - img "eye" [ref=e1365] [box=1383,795,14,14]
+                    - row [ref=e1368] [box=229,830,1190,56]:
+                      - cell [ref=e1369] [box=229,830,144,56]:
+                        - time [ref=e1370] [box=236,847,130,20]: 2026/07/29 10:07:34
+                      - cell "系统管理员" [ref=e1371] [box=373,830,76,56]
+                      - cell "管理员" [ref=e1372] [box=449,830,82,56]
+                      - cell "配置中心" [ref=e1374] [box=531,830,94,56]
+                      - cell "更新平台配置" [ref=e1375] [box=625,830,304,56]
+                      - cell "平台" [ref=e1376] [box=929,830,94,56]
+                      - cell "2ae16274-e43f-479e-bb80-7a3c2ef8c3bb" [ref=e1377] [box=1023,830,126,56]
+                      - cell "成功" [ref=e1379] [box=1149,830,76,56]
+                      - cell "177a8866-cd7c-4b94-a4af-e6ee00114f17" [ref=e1381] [box=1225,830,144,56]
+                      - cell [ref=e1383] [box=1369,830,50,56]:
+                        - button "查看日志详情：10f7d182-1df1-4698-b943-f2f2c0b149d7" [ref=e1384] [cursor=pointer] [box=1376,844,27,27]:
+                          - img "eye" [ref=e1386] [box=1383,851,14,14]
+                    - row [ref=e1389] [box=229,886,1190,56]:
+                      - cell [ref=e1390] [box=229,886,144,56]:
+                        - time [ref=e1391] [box=236,903,130,20]: 2026/07/29 10:06:47
+                      - cell "系统管理员" [ref=e1392] [box=373,886,76,56]
+                      - cell "管理员" [ref=e1393] [box=449,886,82,56]
+                      - cell "配置中心" [ref=e1395] [box=531,886,94,56]
+                      - cell "删除 AI 渠道" [ref=e1396] [box=625,886,304,56]
+                      - cell "AI 渠道" [ref=e1397] [box=929,886,94,56]
+                      - cell "a03f3c78-dadc-4192-b017-f7ac930d90c4" [ref=e1398] [box=1023,886,126,56]
+                      - cell "成功" [ref=e1400] [box=1149,886,76,56]
+                      - cell "6c408a44-429b-4dc1-ba54-e60acbaddccb" [ref=e1402] [box=1225,886,144,56]
+                      - cell [ref=e1404] [box=1369,886,50,56]:
+                        - button "查看日志详情：637a7b7a-385b-4e67-aad7-6937b753b476" [ref=e1405] [cursor=pointer] [box=1376,900,27,27]:
+                          - img "eye" [ref=e1407] [box=1383,907,14,14]
+                    - row [ref=e1410] [box=229,942,1190,56]:
+                      - cell [ref=e1411] [box=229,942,144,56]:
+                        - time [ref=e1412] [box=236,959,130,20]: 2026/07/29 10:06:25
+                      - cell "系统管理员" [ref=e1413] [box=373,942,76,56]
+                      - cell "管理员" [ref=e1414] [box=449,942,82,56]
+                      - cell "配置中心" [ref=e1416] [box=531,942,94,56]
+                      - cell "删除 AI 模型" [ref=e1417] [box=625,942,304,56]
+                      - cell "AI 模型" [ref=e1418] [box=929,942,94,56]
+                      - cell "e06054b5-6b74-49a6-bc37-92f4594dae5c" [ref=e1419] [box=1023,942,126,56]
+                      - cell "成功" [ref=e1421] [box=1149,942,76,56]
+                      - cell "12b8d376-8e01-4db0-ab76-78c71f34754f" [ref=e1423] [box=1225,942,144,56]
+                      - cell [ref=e1425] [box=1369,942,50,56]:
+                        - button "查看日志详情：d7e50c00-f0e1-440c-ae37-1b18f2f48ed8" [ref=e1426] [cursor=pointer] [box=1376,956,27,27]:
+                          - img "eye" [ref=e1428] [box=1383,962,14,14]
+                    - row [ref=e1431] [box=229,998,1190,56]:
+                      - cell [ref=e1432] [box=229,998,144,56]:
+                        - time [ref=e1433] [box=236,1015,130,20]: 2026/07/29 10:05:49
+                      - cell "系统管理员" [ref=e1434] [box=373,998,76,56]
+                      - cell "管理员" [ref=e1435] [box=449,998,82,56]
+                      - cell "用户管理" [ref=e1437] [box=531,998,94,56]
+                      - cell "删除用户" [ref=e1438] [box=625,998,304,56]
+                      - cell "用户" [ref=e1439] [box=929,998,94,56]
+                      - cell "253540d8-dbc8-4be8-a319-dec0e90c4023" [ref=e1440] [box=1023,998,126,56]
+                      - cell "成功" [ref=e1442] [box=1149,998,76,56]
+                      - cell "7c078cdb-7d1a-4b84-ba0b-be7801aaa502" [ref=e1444] [box=1225,998,144,56]
+                      - cell [ref=e1446] [box=1369,998,50,56]:
+                        - button "查看日志详情：c7191009-9d92-47e8-9553-aeb9ec62b9c9" [ref=e1447] [cursor=pointer] [box=1376,1012,27,27]:
+                          - img "eye" [ref=e1449] [box=1383,1018,14,14]
+                    - row [ref=e1452] [box=229,1053,1190,56]:
+                      - cell [ref=e1453] [box=229,1053,144,56]:
+                        - time [ref=e1454] [box=236,1071,130,20]: 2026/07/29 09:57:18
+                      - cell "系统管理员" [ref=e1455] [box=373,1053,76,56]
+                      - cell "管理员" [ref=e1456] [box=449,1053,82,56]
+                      - cell "GEO 观测" [ref=e1458] [box=531,1053,94,56]
+                      - cell "新增观测记录" [ref=e1459] [box=625,1053,304,56]
+                      - cell "观测记录" [ref=e1460] [box=929,1053,94,56]
+                      - cell "3e82e790-21cd-4f54-a02f-0fb1e0b02671" [ref=e1461] [box=1023,1053,126,56]
+                      - cell "成功" [ref=e1463] [box=1149,1053,76,56]
+                      - cell "2866bdaf-2222-4c42-8d7a-202c1869aa5d" [ref=e1465] [box=1225,1053,144,56]
+                      - cell [ref=e1467] [box=1369,1053,50,56]:
+                        - button "查看日志详情：93e6d506-07a5-43f5-b039-a1fe770e1fa6" [ref=e1468] [cursor=pointer] [box=1376,1067,27,27]:
+                          - img "eye" [ref=e1470] [box=1383,1074,14,14]
+                    - row [ref=e1473] [box=229,1109,1190,56]:
+                      - cell [ref=e1474] [box=229,1109,144,56]:
+                        - time [ref=e1475] [box=236,1126,130,20]: 2026/07/29 09:55:05
+                      - cell "系统管理员" [ref=e1476] [box=373,1109,76,56]
+                      - cell "管理员" [ref=e1477] [box=449,1109,82,56]
+                      - cell "GEO 观测" [ref=e1479] [box=531,1109,94,56]
+                      - cell "新增观测记录" [ref=e1480] [box=625,1109,304,56]
+                      - cell "观测记录" [ref=e1481] [box=929,1109,94,56]
+                      - cell "240c377c-40f8-4be0-b7ec-86c328b340ea" [ref=e1482] [box=1023,1109,126,56]
+                      - cell "成功" [ref=e1484] [box=1149,1109,76,56]
+                      - cell "46d65ed4-ace8-4c88-a5f3-44d057f19cfd" [ref=e1486] [box=1225,1109,144,56]
+                      - cell [ref=e1488] [box=1369,1109,50,56]:
+                        - button "查看日志详情：375c5e9d-07bf-4f22-b788-d4ffbf278120" [ref=e1489] [cursor=pointer] [box=1376,1123,27,27]:
+                          - img "eye" [ref=e1491] [box=1383,1130,14,14]
+                    - row [ref=e1494] [box=229,1165,1190,56]:
+                      - cell [ref=e1495] [box=229,1165,144,56]:
+                        - time [ref=e1496] [box=236,1182,130,20]: 2026/07/29 09:54:48
+                      - cell "系统管理员" [ref=e1497] [box=373,1165,76,56]
+                      - cell "管理员" [ref=e1498] [box=449,1165,82,56]
+                      - cell "文件管理" [ref=e1500] [box=531,1165,94,56]
+                      - cell "验证文件" [ref=e1501] [box=625,1165,304,56]
+                      - cell "FileRecord" [ref=e1502] [box=929,1165,94,56]
+                      - cell "5ceeb149-2af7-4cc3-affc-6cca29c9e923" [ref=e1503] [box=1023,1165,126,56]
+                      - cell "成功" [ref=e1505] [box=1149,1165,76,56]
+                      - cell "42ee4fe6-06c5-46ae-a313-0694be15e325" [ref=e1507] [box=1225,1165,144,56]
+                      - cell [ref=e1509] [box=1369,1165,50,56]:
+                        - button "查看日志详情：7d991d6f-dec1-4f85-b4fc-bcba44f8cdf3" [ref=e1510] [cursor=pointer] [box=1376,1179,27,27]:
+                          - img "eye" [ref=e1512] [box=1383,1186,14,14]
+                    - row [ref=e1515] [box=229,1221,1190,56]:
+                      - cell [ref=e1516] [box=229,1221,144,56]:
+                        - time [ref=e1517] [box=236,1238,130,20]: 2026/07/29 09:54:48
+                      - cell "系统管理员" [ref=e1518] [box=373,1221,76,56]
+                      - cell "管理员" [ref=e1519] [box=449,1221,82,56]
+                      - cell "文件管理" [ref=e1521] [box=531,1221,94,56]
+                      - cell "创建文件上传" [ref=e1522] [box=625,1221,304,56]
+                      - cell "FileRecord" [ref=e1523] [box=929,1221,94,56]
+                      - cell "5ceeb149-2af7-4cc3-affc-6cca29c9e923" [ref=e1524] [box=1023,1221,126,56]
+                      - cell "成功" [ref=e1526] [box=1149,1221,76,56]
+                      - cell "bbde4f08-e711-4027-9e74-6d74f3138153" [ref=e1528] [box=1225,1221,144,56]
+                      - cell [ref=e1530] [box=1369,1221,50,56]:
+                        - button "查看日志详情：2df5d29c-d895-4dc6-9be8-de0b8619f529" [ref=e1531] [cursor=pointer] [box=1376,1235,27,27]:
+                          - img "eye" [ref=e1533] [box=1383,1242,14,14]
+                    - row [ref=e1536] [box=229,1277,1190,56]:
+                      - cell [ref=e1537] [box=229,1277,144,56]:
+                        - time [ref=e1538] [box=236,1294,130,20]: 2026/07/29 09:54:33
+                      - cell "系统管理员" [ref=e1539] [box=373,1277,76,56]
+                      - cell "管理员" [ref=e1540] [box=449,1277,82,56]
+                      - cell "发布管理" [ref=e1542] [box=531,1277,94,56]
+                      - cell "登记发布结果" [ref=e1543] [box=625,1277,304,56]
+                      - cell "发布记录" [ref=e1544] [box=929,1277,94,56]
+                      - cell "814d9a15-50ab-46da-b25d-6f47728c33ad" [ref=e1545] [box=1023,1277,126,56]
+                      - cell "成功" [ref=e1547] [box=1149,1277,76,56]
+                      - cell "a2aec699-f400-4b15-95d9-7781a8fc2b14" [ref=e1549] [box=1225,1277,144,56]
+                      - cell [ref=e1551] [box=1369,1277,50,56]:
+                        - button "查看日志详情：f46d65e7-0596-4e2e-a0f2-cc77441aac13" [ref=e1552] [cursor=pointer] [box=1376,1291,27,27]:
+                          - img "eye" [ref=e1554] [box=1383,1297,14,14]
+                    - row [ref=e1557] [box=229,1333,1190,56]:
+                      - cell [ref=e1558] [box=229,1333,144,56]:
+                        - time [ref=e1559] [box=236,1350,130,20]: 2026/07/29 09:54:32
+                      - cell "系统管理员" [ref=e1560] [box=373,1333,76,56]
+                      - cell "管理员" [ref=e1561] [box=449,1333,82,56]
+                      - cell "发布管理" [ref=e1563] [box=531,1333,94,56]
+                      - cell "标记平台审核中" [ref=e1564] [box=625,1333,304,56]
+                      - cell "发布记录" [ref=e1565] [box=929,1333,94,56]
+                      - cell "814d9a15-50ab-46da-b25d-6f47728c33ad" [ref=e1566] [box=1023,1333,126,56]
+                      - cell "成功" [ref=e1568] [box=1149,1333,76,56]
+                      - cell "1233b436-d085-42f6-aa62-8ae53998ccfa" [ref=e1570] [box=1225,1333,144,56]
+                      - cell [ref=e1572] [box=1369,1333,50,56]:
+                        - button "查看日志详情：4b2ad10b-1ae5-4996-8573-9e97e15e5eb6" [ref=e1573] [cursor=pointer] [box=1376,1347,27,27]:
+                          - img "eye" [ref=e1575] [box=1383,1353,14,14]
+                    - row [ref=e1578] [box=229,1389,1190,56]:
+                      - cell [ref=e1579] [box=229,1389,144,56]:
+                        - time [ref=e1580] [box=236,1406,130,20]: 2026/07/29 09:54:31
+                      - cell "系统管理员" [ref=e1581] [box=373,1389,76,56]
+                      - cell "管理员" [ref=e1582] [box=449,1389,82,56]
+                      - cell "发布管理" [ref=e1584] [box=531,1389,94,56]
+                      - cell "创建发布登记" [ref=e1585] [box=625,1389,304,56]
+                      - cell "发布记录" [ref=e1586] [box=929,1389,94,56]
+                      - cell "814d9a15-50ab-46da-b25d-6f47728c33ad" [ref=e1587] [box=1023,1389,126,56]
+                      - cell "成功" [ref=e1589] [box=1149,1389,76,56]
+                      - cell "e19ee8c4-9585-4169-9ea4-cc32926878a6" [ref=e1591] [box=1225,1389,144,56]
+                      - cell [ref=e1593] [box=1369,1389,50,56]:
+                        - button "查看日志详情：b1e91aca-35bd-4e9f-9433-6ab975378661" [ref=e1594] [cursor=pointer] [box=1376,1402,27,27]:
+                          - img "eye" [ref=e1596] [box=1383,1409,14,14]
+                    - row [ref=e1599] [box=229,1444,1190,56]:
+                      - cell [ref=e1600] [box=229,1444,144,56]:
+                        - time [ref=e1601] [box=236,1462,130,20]: 2026/07/29 09:54:03
+                      - cell "系统管理员" [ref=e1602] [box=373,1444,76,56]
+                      - cell "管理员" [ref=e1603] [box=449,1444,82,56]
+                      - cell "内容与审核" [ref=e1605] [box=531,1444,94,56]
+                      - cell "审核通过" [ref=e1606] [box=625,1444,304,56]
+                      - cell "内容版本" [ref=e1607] [box=929,1444,94,56]
+                      - cell "b973f83b-eb40-40a6-801f-72ff28816102" [ref=e1608] [box=1023,1444,126,56]
+                      - cell "成功" [ref=e1610] [box=1149,1444,76,56]
+                      - cell "97d4c7b1-bc46-4e93-8082-40b8fddd8fc3" [ref=e1612] [box=1225,1444,144,56]
+                      - cell [ref=e1614] [box=1369,1444,50,56]:
+                        - button "查看日志详情：ce012aa4-8937-4b12-b4d8-466087ef180d" [ref=e1615] [cursor=pointer] [box=1376,1458,27,27]:
+                          - img "eye" [ref=e1617] [box=1383,1465,14,14]
+                    - row [ref=e1620] [box=229,1500,1190,56]:
+                      - cell [ref=e1621] [box=229,1500,144,56]:
+                        - time [ref=e1622] [box=236,1517,130,20]: 2026/07/29 09:54:02
+                      - cell "系统管理员" [ref=e1623] [box=373,1500,76,56]
+                      - cell "管理员" [ref=e1624] [box=449,1500,82,56]
+                      - cell "内容与审核" [ref=e1626] [box=531,1500,94,56]
+                      - cell "提交内容审核" [ref=e1627] [box=625,1500,304,56]
+                      - cell "内容版本" [ref=e1628] [box=929,1500,94,56]
+                      - cell "b973f83b-eb40-40a6-801f-72ff28816102" [ref=e1629] [box=1023,1500,126,56]
+                      - cell "成功" [ref=e1631] [box=1149,1500,76,56]
+                      - cell "8aad9b5d-2a23-435d-8304-6a3294385c5b" [ref=e1633] [box=1225,1500,144,56]
+                      - cell [ref=e1635] [box=1369,1500,50,56]:
+                        - button "查看日志详情：c1581f5e-d2b0-4b4a-8428-5292497b15da" [ref=e1636] [cursor=pointer] [box=1376,1514,27,27]:
+                          - img "eye" [ref=e1638] [box=1383,1521,14,14]
+                    - row [ref=e1641] [box=229,1556,1190,56]:
+                      - cell [ref=e1642] [box=229,1556,144,56]:
+                        - time [ref=e1643] [box=236,1573,130,20]: 2026/07/29 09:53:51
+                      - cell "系统管理员" [ref=e1644] [box=373,1556,76,56]
+                      - cell "管理员" [ref=e1645] [box=449,1556,82,56]
+                      - cell "内容生产" [ref=e1647] [box=531,1556,94,56]
+                      - cell "创建人工内容" [ref=e1648] [box=625,1556,304,56]
+                      - cell "内容版本" [ref=e1649] [box=929,1556,94,56]
+                      - cell "b973f83b-eb40-40a6-801f-72ff28816102" [ref=e1650] [box=1023,1556,126,56]
+                      - cell "成功" [ref=e1652] [box=1149,1556,76,56]
+                      - cell "a182334c-5de0-442e-a931-d3d1ab8848e6" [ref=e1654] [box=1225,1556,144,56]
+                      - cell [ref=e1656] [box=1369,1556,50,56]:
+                        - button "查看日志详情：5fd0b74d-d4c6-4bdc-a5e5-3a085ed9c656" [ref=e1657] [cursor=pointer] [box=1376,1570,27,27]:
+                          - img "eye" [ref=e1659] [box=1383,1577,14,14]
+            - generic [ref=e1662] [box=229,850,1190,64]:
+              - generic [ref=e1663] [cursor=pointer] [box=244,865,92,36]:
+                - generic "20 条/页" [ref=e1664] [box=256,872,50,22]:
+                  - text: 20 条/页
+                  - combobox "每页数量" [ref=e1665] [box=256,872,50,22]
+                - img "down" [ref=e1667] [box=312,877,12,12]
+              - list [ref=e1670] [box=878,865,526,36]:
+                - listitem "上一页" [ref=e1671] [box=878,865,36,36]:
+                  - button [disabled] [ref=e1672] [box=878,865,36,36]:
+                    - img "left" [ref=e1673] [box=890,876,12,12]
+                - listitem "1" [ref=e1676] [cursor=pointer] [box=922,865,36,36]
+                - listitem "2" [ref=e1678] [cursor=pointer] [box=966,865,36,36]
+                - listitem "3" [ref=e1680] [cursor=pointer] [box=1010,865,36,36]
+                - listitem "4" [ref=e1682] [cursor=pointer] [box=1054,865,36,36]
+                - listitem "5" [ref=e1684] [cursor=pointer] [box=1098,865,36,36]
+                - listitem "向后 5 页" [ref=e1686] [cursor=pointer] [box=1142,865,36,36]:
+                  - generic [ref=e1688] [box=1142,865,36,36]:
+                    - img "double-right" [ref=e1689] [box=1154,877,12,12]
+                    - img "ellipsis" [ref=e1693] [box=1148,871,24,24]
+                - listitem "8" [ref=e1696] [cursor=pointer] [box=1186,865,36,36]
+                - listitem "下一页" [ref=e1698] [cursor=pointer] [box=1230,865,36,36]:
+                  - button [ref=e1699] [box=1230,865,36,36]:
+                    - img "right" [ref=e1700] [box=1242,876,12,12]
+                - listitem [ref=e1703] [box=1282,865,122,36]:
+                  - generic [ref=e1704] [box=1290,865,114,36]:
+                    - text: 跳至
+                    - textbox "页" [ref=e1705] [box=1326,865,56,36]
+                    - text: 页

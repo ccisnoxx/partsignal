@@ -1,0 +1,256 @@
+- generic [ref=e60] [box=0,0,1440,985]:
+  - complementary [ref=e61] [box=0,0,208,900]:
+    - generic [ref=e62] [box=0,0,207,900]:
+      - strong [ref=e68] [box=65,19,86,27]: PartSignal
+      - menu [ref=e425] [box=0,64,207,774]:
+        - text: 内容工作流
+        - group [ref=e426] [box=0,106,207,241]:
+          - menuitem [ref=e427] [cursor=pointer] [box=4,106,199,45]:
+            - img "bar-chart" [ref=e428] [box=28,122,14,14]
+            - link "工作台" [ref=e432] [box=55,120,42,17]:
+              - /url: /
+          - menuitem [ref=e433] [cursor=pointer] [box=4,155,199,45]:
+            - img "database" [ref=e434] [box=28,171,14,14]
+            - link "产品事实" [ref=e438] [box=55,169,56,17]:
+              - /url: /products
+          - menuitem [ref=e439] [cursor=pointer] [box=4,204,199,45]:
+            - img "file-text" [ref=e440] [box=28,220,14,14]
+            - link "内容任务" [ref=e444] [box=55,218,56,17]:
+              - /url: /tasks
+          - menuitem [ref=e445] [cursor=pointer] [box=4,253,199,45]:
+            - img "rocket" [ref=e446] [box=28,269,14,14]
+            - link "发布管理" [ref=e450] [box=55,267,56,17]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=e451] [cursor=pointer] [box=4,302,199,45]:
+            - img "bar-chart" [ref=e452] [box=28,318,14,14]
+            - generic [ref=e455] [box=55,302,61,45]: GEO 观测
+        - text: 系统管理
+        - group [ref=e456] [box=0,393,207,249]:
+          - menuitem "setting 业务设置" [expanded] [ref=e457] [cursor=pointer] [box=4,393,199,45]:
+            - img "setting" [ref=e458] [box=28,409,14,14]
+            - generic [ref=e461] [box=55,393,56,45]: 业务设置
+          - menu [ref=e462] [box=0,442,207,102]:
+            - menuitem [ref=e463] [cursor=pointer] [box=4,446,199,45]:
+              - link "发布账号" [ref=e465] [box=52,460,56,17]:
+                - /url: /settings?tab=accounts
+            - menuitem [ref=e466] [cursor=pointer] [box=4,495,199,45]:
+              - link "用户管理" [ref=e468] [box=52,509,56,17]:
+                - /url: /users
+          - menuitem "safety-certificate 审计与安全" [ref=e469] [cursor=pointer] [box=4,548,199,45]:
+            - img "safety-certificate" [ref=e470] [box=28,564,14,14]
+            - generic [ref=e473] [box=55,548,70,45]: 审计与安全
+          - menuitem "tool 配置中心" [ref=e474] [cursor=pointer] [box=4,597,199,45]:
+            - img "tool" [ref=e475] [box=28,613,14,14]
+            - generic [ref=e478] [box=55,597,56,45]: 配置中心
+      - button "收起导航" [ref=e116] [cursor=pointer] [box=10,842,187,48]:
+        - img "menu-fold" [ref=e118] [box=26,859,14,14]
+        - generic [ref=e121] [box=48,856,28,20]: 收起
+  - generic [ref=e122] [box=208,0,1232,985]:
+    - banner [ref=e123] [box=208,0,1232,64]:
+      - generic [ref=e126] [box=228,25,132,22]:
+        - strong [ref=e479] [box=228,27,56,17]: 业务设置
+        - generic [ref=e480] [box=292,28,4,16]: /
+        - generic [ref=e481] [box=304,25,56,22]: 用户管理
+      - generic [ref=e132] [cursor=pointer] [box=584,0,480,72]:
+        - img "search" [ref=e134] [box=596,29,14,14]
+        - combobox "全局页面搜索" [ref=e137] [box=614,7,386,58]
+        - generic [ref=e138] [box=1004,7,48,58]: ⌘K
+      - generic [ref=e140] [box=1124,0,296,72]:
+        - button "主题：跟随系统" [ref=e142] [cursor=pointer] [box=1124,18,110,36]:
+          - img "desktop" [ref=e144] [box=1140,29,14,14]
+          - generic [ref=e147] [box=1162,26,56,20]: 跟随系统
+        - button "打开用户操作菜单" [ref=e149] [cursor=pointer] [box=1242,11,178,50]:
+          - generic [ref=e150] [box=1251,18,36,36]: 系
+          - generic [ref=e152] [box=1297,21,92,30]:
+            - strong [ref=e153] [box=1297,21,92,17]: 系统管理员
+            - generic [ref=e154] [box=1297,38,92,13]: admin
+          - img "down" [ref=e155] [box=1399,30,12,12]
+    - main [active] [ref=e158] [box=208,64,1232,921]:
+      - generic [ref=e482] [box=228,84,1192,881]:
+        - generic [ref=e483] [box=228,84,1192,62]:
+          - generic [ref=e484] [box=232,87,286,45]:
+            - heading "用户管理" [level=1] [ref=e485] [box=232,87,286,28]
+            - generic [ref=e486] [box=232,117,286,16]: 管理内部账号、账号类型、启停状态和临时密码。
+          - button "新增用户" [ref=e489] [cursor=pointer] [box=1306,95,110,36]:
+            - img "plus" [ref=e491] [box=1322,106,14,14]
+        - region "用户统计" [ref=e496] [box=228,158,1192,117]:
+          - generic [ref=e498] [box=229,159,225,115]:
+            - generic [ref=e499] [box=293,175,145,19]: 用户总数
+            - strong [ref=e501] [box=293,199,20,36]: "3"
+            - generic [ref=e502] [box=293,240,145,18]: 暂无历史基线
+          - generic [ref=e504] [box=470,159,225,115]:
+            - generic [ref=e505] [box=534,175,145,19]: 已启用用户
+            - strong [ref=e507] [box=534,199,20,36]: "3"
+            - generic [ref=e508] [box=534,240,145,18]: 暂无历史基线
+          - generic [ref=e510] [box=711,159,225,115]:
+            - generic [ref=e511] [box=775,175,145,19]: 已停用用户
+            - strong [ref=e513] [box=775,199,20,36]: "0"
+            - generic [ref=e514] [box=775,240,145,18]: 暂无历史基线
+          - generic [ref=e516] [box=953,159,225,115]:
+            - generic [ref=e517] [box=1017,175,145,19]: 必须修改密码
+            - strong [ref=e519] [box=1017,199,20,36]: "1"
+            - generic [ref=e520] [box=1017,240,145,18]: 暂无历史基线
+          - generic [ref=e522] [box=1194,159,225,115]:
+            - generic [ref=e523] [box=1258,175,145,19]: 管理员数量
+            - strong [ref=e525] [box=1258,199,20,36]: "1"
+            - generic [ref=e526] [box=1258,240,145,18]: 暂无历史基线
+        - generic [ref=e527] [box=228,298,1192,667]:
+          - generic [ref=e529] [box=229,299,838,352]:
+            - generic [ref=e530] [box=229,299,838,84]:
+              - generic [ref=e531] [box=243,333,180,36]:
+                - searchbox "搜索用户名或显示名称" [ref=e533] [box=255,340,105,22]
+                - button [ref=e535] [cursor=pointer] [box=387,333,36,36]:
+                  - img "search" [ref=e537] [box=398,344,14,14]
+              - generic [ref=e540] [box=433,312,112,57]:
+                - generic [ref=e541] [box=433,312,112,17]: 账号类型
+                - generic [ref=e542] [cursor=pointer] [box=433,333,112,36]:
+                  - generic [ref=e543] [box=445,340,70,22]:
+                    - generic [box=445,340,56,22]: 全部类型
+                    - combobox "账号类型" [ref=e544] [box=445,340,70,22]
+                  - img "down" [ref=e546] [box=521,345,12,12]
+              - generic [ref=e549] [box=555,312,112,57]:
+                - generic [ref=e550] [box=555,312,112,17]: 启用状态
+                - generic [ref=e551] [cursor=pointer] [box=555,333,112,36]:
+                  - generic "已启用" [ref=e552] [box=567,340,70,22]:
+                    - text: 已启用
+                    - combobox "启用状态" [ref=e553] [box=567,340,70,22]
+                  - img "down" [ref=e555] [box=643,345,12,12]
+              - generic [ref=e558] [box=677,337,124,22]:
+                - generic [ref=e559] [box=677,339,72,19]: 显示停用账号
+                - switch "显示停用账号" [ref=e560] [cursor=pointer] [box=757,337,44,22]
+              - button "重置筛选" [ref=e563] [cursor=pointer] [box=811,333,110,36]:
+                - img "reload" [ref=e565] [box=827,344,14,14]
+              - generic [ref=e569] [box=931,347,92,22]:
+                - text: 共
+                - strong [ref=e570] [box=968,349,9,17]: "3"
+                - text: 个用户
+              - button "导出列表" [ref=e571] [cursor=pointer] [box=1033,333,110,36]:
+                - img "download" [ref=e573] [box=1049,344,14,14]
+            - region "用户列表" [ref=e577] [box=229,383,838,200]:
+              - table [ref=e584] [box=229,383,980,200]:
+                - rowgroup [ref=e594] [box=229,383,980,44]:
+                  - row [ref=e595] [box=229,383,980,44]:
+                    - columnheader [ref=e596] [box=229,383,36,44]:
+                      - checkbox "Select all" [ref=e600] [cursor=pointer] [box=238,396,18,18]
+                    - columnheader "用户名" [ref=e601] [box=265,383,156,44]
+                    - columnheader "显示名称" [ref=e602] [box=421,383,156,44]
+                    - columnheader "账号类型" [ref=e603] [box=577,383,120,44]
+                    - columnheader "状态" [ref=e604] [box=697,383,105,44]
+                    - columnheader "必须修改密码" [ref=e605] [box=802,383,135,44]
+                    - columnheader "创建时间" [ref=e606] [box=937,383,168,44]
+                    - columnheader "操作" [ref=e607] [box=963,383,104,44]
+                - rowgroup [ref=e608] [box=229,427,980,156]:
+                  - checkbox [ref=e612] [cursor=pointer] [box=239,429,18,18]
+                  - row [ref=e613] [box=229,427,980,52]:
+                    - cell [ref=e614] [box=229,427,36,52]:
+                      - checkbox "Select row 1" [ref=e617] [cursor=pointer] [box=238,444,18,18]
+                    - cell "admin 的头像 admin" [ref=e618] [box=265,427,156,52]:
+                      - generic [ref=e619] [box=275,435,83,36]:
+                        - generic "admin 的头像" [ref=e621] [box=275,435,36,36]:
+                          - img "user" [ref=e622] [box=284,444,18,18]
+                        - generic [ref=e625] [box=319,442,39,20]: admin
+                    - cell "系统管理员" [ref=e627] [box=421,427,156,52]
+                    - cell "管理员" [ref=e628] [box=577,427,120,52]
+                    - cell "已启用" [ref=e630] [box=697,427,105,52]
+                    - cell "否" [ref=e632] [box=802,427,135,52]
+                    - cell [ref=e634] [box=937,427,168,52]:
+                      - time [ref=e635] [box=947,444,112,16]: 2026/07/12 13:02
+                    - cell [ref=e636] [box=963,427,104,52]:
+                      - generic [ref=e637] [box=973,439,58,27]:
+                        - button "编辑用户：admin" [ref=e639] [cursor=pointer] [box=973,439,27,27]:
+                          - img "edit" [ref=e641] [box=980,446,14,14]
+                        - button "更多操作：admin" [ref=e645] [cursor=pointer] [box=1004,439,27,27]:
+                          - img "ellipsis" [ref=e647] [box=1011,446,14,14]
+                  - row [ref=e650] [box=229,479,980,52]:
+                    - cell [ref=e651] [box=229,479,36,52]:
+                      - checkbox "Select row 2" [ref=e654] [cursor=pointer] [box=238,496,18,18]
+                    - cell "ichelps 的头像 ichelps" [ref=e655] [box=265,479,156,52]:
+                      - generic [ref=e656] [box=275,487,99,36]:
+                        - generic "ichelps 的头像" [ref=e658] [box=275,487,36,36]:
+                          - img "user" [ref=e659] [box=284,496,18,18]
+                        - generic [ref=e662] [box=319,494,55,20]: ichelps
+                    - cell "工程师" [ref=e664] [box=421,479,156,52]
+                    - cell "工程师" [ref=e665] [box=577,479,120,52]
+                    - cell "已启用" [ref=e667] [box=697,479,105,52]
+                    - cell "否" [ref=e669] [box=802,479,135,52]
+                    - cell [ref=e671] [box=937,479,168,52]:
+                      - time [ref=e672] [box=947,496,112,16]: 2026/07/27 09:46
+                    - cell [ref=e673] [box=963,479,104,52]:
+                      - generic [ref=e674] [box=973,491,58,27]:
+                        - button "编辑用户：ichelps" [ref=e676] [cursor=pointer] [box=973,491,27,27]:
+                          - img "edit" [ref=e678] [box=980,498,14,14]
+                        - button "更多操作：ichelps" [ref=e682] [cursor=pointer] [box=1004,491,27,27]:
+                          - img "ellipsis" [ref=e684] [box=1011,498,14,14]
+                  - row [ref=e687] [box=229,531,980,52]:
+                    - cell [ref=e688] [box=229,531,36,52]:
+                      - checkbox "Select row 3" [ref=e691] [cursor=pointer] [box=238,548,18,18]
+                    - cell "content_editor 的头像 content_editor" [ref=e692] [box=265,531,156,52]:
+                      - generic [ref=e693] [box=275,539,136,36]:
+                        - generic "content_editor 的头像" [ref=e695] [box=275,539,36,36]:
+                          - img "user" [ref=e696] [box=284,548,18,18]
+                        - generic [ref=e699] [box=319,546,92,20]: content_editor
+                    - cell "内容运营" [ref=e701] [box=421,531,156,52]
+                    - cell "工程师" [ref=e702] [box=577,531,120,52]
+                    - cell "已启用" [ref=e704] [box=697,531,105,52]
+                    - cell "是" [ref=e706] [box=802,531,135,52]
+                    - cell [ref=e708] [box=937,531,168,52]:
+                      - time [ref=e709] [box=947,548,112,16]: 2026/07/27 16:18
+                    - cell [ref=e710] [box=963,531,104,52]:
+                      - generic [ref=e711] [box=973,543,58,27]:
+                        - button "编辑用户：content_editor" [ref=e713] [cursor=pointer] [box=973,543,27,27]:
+                          - img "edit" [ref=e715] [box=980,550,14,14]
+                        - button "更多操作：content_editor" [ref=e719] [cursor=pointer] [box=1004,543,27,27]:
+                          - img "ellipsis" [ref=e721] [box=1011,550,14,14]
+            - generic [ref=e724] [box=229,583,838,68]:
+              - generic [ref=e725] [cursor=pointer] [box=243,600,104,36]:
+                - generic "20 条/页" [ref=e726] [box=255,607,62,22]:
+                  - text: 20 条/页
+                  - combobox "每页数量" [ref=e727] [box=255,607,62,22]
+                - img "down" [ref=e729] [box=323,612,12,12]
+              - list [ref=e732] [box=929,600,124,36]:
+                - listitem "上一页" [ref=e733] [box=929,600,36,36]:
+                  - button [disabled] [ref=e734] [box=929,600,36,36]:
+                    - img "left" [ref=e735] [box=941,611,12,12]
+                - listitem "1" [ref=e738] [cursor=pointer] [box=973,600,36,36]
+                - listitem "下一页" [ref=e740] [box=1017,600,36,36]:
+                  - button [disabled] [ref=e741] [box=1017,600,36,36]:
+                    - img "right" [ref=e742] [box=1029,611,12,12]
+          - complementary "用户管理说明" [ref=e745] [box=1080,298,340,667]:
+            - generic [ref=e746] [box=1080,298,340,191]:
+              - generic [ref=e747] [box=1081,299,338,43]: 账号类型说明
+              - generic [ref=e750] [box=1081,341,338,147]:
+                - generic [ref=e751] [box=1095,353,310,64]:
+                  - generic [ref=e752] [box=1095,355,45,20]: 管理员
+                  - paragraph [ref=e753] [box=1095,380,310,37]: 拥有系统全部管理与配置权限，负责系统治理与平台配置。
+                - generic [ref=e754] [box=1095,430,310,46]:
+                  - generic [ref=e755] [box=1095,432,52,20]: 工程师
+                  - paragraph [ref=e757] [box=1095,457,310,19]: 负责内容执行、发布与观测等日常运营工作。
+            - generic [ref=e758] [box=1080,499,340,158]:
+              - generic [ref=e759] [box=1081,500,338,43]: 临时密码说明
+              - list [ref=e763] [box=1095,554,310,90]:
+                - listitem [ref=e764] [box=1113,554,292,19]: 新建或重置后，用户下次登录必须修改密码。
+                - listitem [ref=e765] [box=1113,580,292,37]: 服务端只保存安全哈希，重置会撤销目标用户全部会话。
+                - listitem [ref=e766] [box=1113,625,292,19]: 请通过安全渠道告知用户临时密码。
+            - generic [ref=e767] [box=1080,667,340,140]:
+              - generic [ref=e768] [box=1081,668,338,43]: 重要提示
+              - list [ref=e772] [box=1095,722,310,72]:
+                - listitem [ref=e773] [box=1095,722,310,19]:
+                  - img "warning" [ref=e774] [box=1095,725,12,12]
+                  - text: 仅停用且无业务历史引用的账号可确认删除。
+                - listitem [ref=e777] [box=1095,749,310,19]:
+                  - img "warning" [ref=e778] [box=1095,752,12,12]
+                  - text: 删除会清理会话，并保留操作者置空后的历史审计。
+                - listitem [ref=e781] [box=1095,775,310,19]:
+                  - img "warning" [ref=e782] [box=1095,778,12,12]
+                  - text: 建议先停用不再使用的账号，再确认其历史归属。
+            - generic [ref=e785] [box=1080,817,340,148]:
+              - generic [ref=e786] [box=1081,818,338,43]: 快捷操作
+              - generic [ref=e790] [box=1095,872,310,80]:
+                - button "批量启用" [disabled] [ref=e792] [box=1095,872,110,36]:
+                  - generic [box=1111,881,14,17]:
+                    - img "check-circle" [box=1111,883,14,14]
+                - button "批量停用" [disabled] [ref=e794] [box=1213,872,110,36]:
+                  - generic [box=1229,881,14,17]:
+                    - img "stop" [box=1229,883,14,14]
+                - button "导出用户列表" [ref=e796] [cursor=pointer] [box=1095,916,138,36]:
+                  - img "download" [ref=e798] [box=1111,927,14,14]

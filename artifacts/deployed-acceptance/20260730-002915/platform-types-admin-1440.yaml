@@ -1,0 +1,119 @@
+- generic [ref=f11e201] [box=0,0,1440,900]:
+  - complementary [ref=f11e202] [box=0,0,208,900]:
+    - generic [ref=f11e203] [box=0,0,207,900]:
+      - strong [ref=f11e209] [box=65,19,86,27]: PartSignal
+      - menu [ref=f11e998] [box=0,64,207,774]:
+        - text: 内容工作流
+        - group [ref=f11e999] [box=0,106,207,241]:
+          - menuitem [ref=f11e1000] [cursor=pointer] [box=4,106,199,45]:
+            - img "bar-chart" [ref=f11e1001] [box=28,122,14,14]
+            - link "工作台" [ref=f11e1005] [box=55,120,42,17]:
+              - /url: /
+          - menuitem [ref=f11e1006] [cursor=pointer] [box=4,155,199,45]:
+            - img "database" [ref=f11e1007] [box=28,171,14,14]
+            - link "产品事实" [ref=f11e1011] [box=55,169,56,17]:
+              - /url: /products
+          - menuitem [ref=f11e1012] [cursor=pointer] [box=4,204,199,45]:
+            - img "file-text" [ref=f11e1013] [box=28,220,14,14]
+            - link "内容任务" [ref=f11e1017] [box=55,218,56,17]:
+              - /url: /tasks
+          - menuitem [ref=f11e1018] [cursor=pointer] [box=4,253,199,45]:
+            - img "rocket" [ref=f11e1019] [box=28,269,14,14]
+            - link "发布管理" [ref=f11e1023] [box=55,267,56,17]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f11e1024] [cursor=pointer] [box=4,302,199,45]:
+            - img "bar-chart" [ref=f11e1025] [box=28,318,14,14]
+            - generic [ref=f11e1028] [box=55,302,61,45]: GEO 观测
+        - text: 系统管理
+        - group [ref=f11e1029] [box=0,393,207,143]:
+          - menuitem "setting 业务设置" [ref=f11e1030] [cursor=pointer] [box=4,393,199,45]:
+            - img "setting" [ref=f11e1031] [box=28,409,14,14]
+            - generic [ref=f11e1034] [box=55,393,56,45]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f11e1035] [cursor=pointer] [box=4,442,199,45]:
+            - img "safety-certificate" [ref=f11e1036] [box=28,458,14,14]
+            - generic [ref=f11e1039] [box=55,442,70,45]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f11e1040] [cursor=pointer] [box=4,491,199,45]:
+            - img "tool" [ref=f11e1041] [box=28,507,14,14]
+            - generic [ref=f11e1044] [box=55,491,56,45]: 配置中心
+      - button "收起导航" [ref=f11e257] [cursor=pointer] [box=10,842,187,48]:
+        - img "menu-fold" [ref=f11e259] [box=26,859,14,14]
+        - generic [ref=f11e262] [box=48,856,28,20]: 收起
+  - generic [ref=f11e263] [box=208,0,1232,900]:
+    - banner [ref=f11e264] [box=208,0,1232,64]:
+      - generic [ref=f11e267] [box=228,25,132,22]:
+        - strong [ref=f11e615] [box=228,27,56,17]: 配置中心
+        - generic [ref=f11e616] [box=292,28,4,16]: /
+        - generic [ref=f11e617] [box=304,25,56,22]: 平台类型
+      - generic [ref=f11e273] [cursor=pointer] [box=584,0,480,72]:
+        - img "search" [ref=f11e275] [box=596,29,14,14]
+        - combobox "全局页面搜索" [ref=f11e278] [box=614,7,386,58]
+        - generic [ref=f11e279] [box=1004,7,48,58]: ⌘K
+      - generic [ref=f11e281] [box=940,0,480,72]:
+        - button "主题：跟随系统" [ref=f11e283] [cursor=pointer] [box=940,18,110,36]:
+          - img "desktop" [ref=f11e285] [box=956,29,14,14]
+          - generic [ref=f11e288] [box=978,26,56,20]: 跟随系统
+        - button "打开用户操作菜单" [ref=f11e290] [cursor=pointer] [box=1058,11,362,50]:
+          - generic [ref=f11e291] [box=1067,18,36,36]: E
+          - generic [ref=f11e293] [box=1113,21,276,30]:
+            - strong [ref=f11e294] [box=1113,21,276,17]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=f11e295] [box=1113,38,276,13]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=f11e296] [box=1399,30,12,12]
+    - main [active] [ref=f11e299] [box=208,64,1232,836]:
+      - generic [ref=f11e1046] [box=228,84,1192,477]:
+        - generic [ref=f11e1047] [box=228,84,1192,107]:
+          - generic [ref=f11e1048] [box=228,88,196,93]:
+            - text: 配置治理
+            - heading "平台类型" [level=1] [ref=f11e1049] [box=228,113,196,29]
+            - generic [ref=f11e1050] [box=228,145,196,22]: 维护具体平台使用的业务分类。
+          - button "plus 新增类型" [ref=f11e1053] [cursor=pointer] [box=1310,145,110,36]:
+            - img "plus" [ref=f11e1055] [box=1326,156,14,14]
+            - generic [ref=f11e1059] [box=1348,153,56,20]: 新增类型
+        - region "平台类型列表" [ref=f11e1062] [box=245,224,1158,320]:
+          - generic [ref=f11e1065] [box=245,224,1158,304]:
+            - table [ref=f11e1069] [box=245,224,1158,252]:
+              - rowgroup [ref=f11e1074] [box=245,224,1158,44]:
+                - row [ref=f11e1075] [box=245,224,1158,44]:
+                  - columnheader "名称" [ref=f11e1076] [box=245,224,688,44]
+                  - columnheader "唯一标识（slug）" [ref=f11e1077] [box=933,224,280,44]
+                  - columnheader "操作" [ref=f11e1078] [box=1213,224,190,44]
+              - rowgroup [ref=f11e1079] [box=245,268,1158,208]:
+                - row [ref=f11e1080] [box=245,268,1158,52]:
+                  - cell "技术论坛" [ref=f11e1081] [box=245,268,688,52]
+                  - cell "e2e-type-17de7a18" [ref=f11e1082] [box=933,268,280,52]
+                  - cell [ref=f11e1083] [box=1213,268,190,52]:
+                    - button "编 辑" [ref=f11e1084] [cursor=pointer] [box=1227,280,48,27]
+                    - button "更多操作：技术论坛" [ref=f11e1086] [cursor=pointer] [box=1278,280,64,27]:
+                      - generic [ref=f11e1087] [box=1286,283,28,20]: 更多
+                      - img "down" [ref=f11e1088] [box=1322,287,12,12]
+                - row [ref=f11e1091] [box=245,320,1158,52]:
+                  - cell "E2E 论坛类型 b1470ce0" [ref=f11e1092] [box=245,320,688,52]
+                  - cell "e2e-type-b1470ce0" [ref=f11e1093] [box=933,320,280,52]
+                  - cell [ref=f11e1094] [box=1213,320,190,52]:
+                    - button "编 辑" [ref=f11e1095] [cursor=pointer] [box=1227,332,48,27]
+                    - button "更多操作：E2E 论坛类型 b1470ce0" [ref=f11e1097] [cursor=pointer] [box=1278,332,64,27]:
+                      - generic [ref=f11e1098] [box=1286,335,28,20]: 更多
+                      - img "down" [ref=f11e1099] [box=1322,339,12,12]
+                - row [ref=f11e1102] [box=245,372,1158,52]:
+                  - cell "问答平台" [ref=f11e1103] [box=245,372,688,52]
+                  - cell "111" [ref=f11e1104] [box=933,372,280,52]
+                  - cell [ref=f11e1105] [box=1213,372,190,52]:
+                    - button "编 辑" [ref=f11e1106] [cursor=pointer] [box=1227,384,48,27]
+                    - button "更多操作：问答平台" [ref=f11e1108] [cursor=pointer] [box=1278,384,64,27]:
+                      - generic [ref=f11e1109] [box=1286,387,28,20]: 更多
+                      - img "down" [ref=f11e1110] [box=1322,391,12,12]
+                - row [ref=f11e1113] [box=245,424,1158,52]:
+                  - cell "E2E-ACCEPT-20260729-091241 验收平台-已编辑" [ref=f11e1114] [box=245,424,688,52]
+                  - cell "e2e-type-0729091241" [ref=f11e1115] [box=933,424,280,52]
+                  - cell [ref=f11e1116] [box=1213,424,190,52]:
+                    - button "编 辑" [ref=f11e1117] [cursor=pointer] [box=1227,436,48,27]
+                    - button "更多操作：E2E-ACCEPT-20260729-091241 验收平台-已编辑" [ref=f11e1119] [cursor=pointer] [box=1278,436,64,27]:
+                      - generic [ref=f11e1120] [box=1286,439,28,20]: 更多
+                      - img "down" [ref=f11e1121] [box=1322,443,12,12]
+            - list [ref=f11e1124] [box=245,492,1158,36]:
+              - listitem "上一页" [ref=f11e1125] [box=1279,492,36,36]:
+                - button [disabled] [ref=f11e1126] [box=1279,492,36,36]:
+                  - img "left" [ref=f11e1127] [box=1291,503,12,12]
+              - listitem "1" [ref=f11e1130] [cursor=pointer] [box=1323,492,36,36]
+              - listitem "下一页" [ref=f11e1132] [box=1367,492,36,36]:
+                - button [disabled] [ref=f11e1133] [box=1367,492,36,36]:
+                  - img "right" [ref=f11e1134] [box=1379,503,12,12]

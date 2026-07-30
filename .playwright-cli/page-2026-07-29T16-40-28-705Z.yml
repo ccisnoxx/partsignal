@@ -1,0 +1,19 @@
+- main [ref=f11e162]:
+  - generic [ref=f11e164]:
+    - text: 账号安全
+    - heading "修改密码" [level=2] [ref=f11e165]
+    - generic [ref=f11e166]: 当前使用临时密码，完成修改后才能进入工作台。
+    - generic [ref=f11e167]:
+      - generic [ref=f11e169]:
+        - generic "当前密码" [ref=f11e171]: "* 当前密码"
+        - generic [ref=f11e175]:
+          - textbox "* 当前密码" [ref=f11e176]
+          - button "显示" [ref=f11e178] [cursor=pointer]:
+            - img "eye-invisible" [ref=f11e179]
+      - generic [ref=f11e184]:
+        - generic "新密码" [ref=f11e186]: "* 新密码"
+        - generic [ref=f11e190]:
+          - textbox "* 新密码" [ref=f11e191]
+          - button "显示" [ref=f11e193] [cursor=pointer]:
+            - img "eye-invisible" [ref=f11e194]
+      - button "更新密码" [ref=f11e198] [cursor=pointer]

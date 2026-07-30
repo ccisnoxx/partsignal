@@ -1,0 +1,123 @@
+- generic [ref=f11e6]:
+  - complementary [ref=f11e7]:
+    - generic [ref=f11e8]:
+      - strong [ref=f11e14]: PartSignal
+      - menu [ref=f11e1393]:
+        - text: 内容工作流
+        - group [ref=f11e1394]:
+          - menuitem [ref=f11e1395] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e1396]
+            - link "工作台" [ref=f11e1400]:
+              - /url: /
+          - menuitem [ref=f11e1401] [cursor=pointer]:
+            - img "database" [ref=f11e1402]
+            - link "产品事实" [ref=f11e1406]:
+              - /url: /products
+          - menuitem [ref=f11e1407] [cursor=pointer]:
+            - img "file-text" [ref=f11e1408]
+            - link "内容任务" [ref=f11e1412]:
+              - /url: /tasks
+          - menuitem [ref=f11e1413] [cursor=pointer]:
+            - img "rocket" [ref=f11e1414]
+            - link "发布管理" [ref=f11e1418]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f11e1419] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e1420]
+            - generic [ref=f11e1423]: GEO 观测
+        - text: 系统管理
+        - group [ref=f11e1424]:
+          - menuitem "setting 业务设置" [ref=f11e1425] [cursor=pointer]:
+            - img "setting" [ref=f11e1426]
+            - generic [ref=f11e1429]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f11e1430] [cursor=pointer]:
+            - img "safety-certificate" [ref=f11e1431]
+            - generic [ref=f11e1434]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f11e1435] [cursor=pointer]:
+            - img "tool" [ref=f11e1436]
+            - generic [ref=f11e1439]: 配置中心
+      - button "收起导航" [ref=f11e62] [cursor=pointer]:
+        - img "menu-fold" [ref=f11e64]
+        - generic [ref=f11e67]: 收起
+  - generic [ref=f11e68]:
+    - banner [ref=f11e69]:
+      - generic [ref=f11e72]:
+        - generic [ref=f11e73]: PARTSIGNAL
+        - strong [ref=f11e75]: 发布管理
+      - generic [ref=f11e78] [cursor=pointer]:
+        - img "search" [ref=f11e80]
+        - combobox "全局页面搜索" [ref=f11e83]
+        - generic [ref=f11e84]: ⌘K
+      - generic [ref=f11e86]:
+        - button "主题：跟随系统" [ref=f11e88] [cursor=pointer]:
+          - img "desktop" [ref=f11e90]
+          - generic [ref=f11e93]: 跟随系统
+        - button "打开用户操作菜单" [ref=f11e95] [cursor=pointer]:
+          - generic [ref=f11e96]: E
+          - generic [ref=f11e98]:
+            - strong [ref=f11e99]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=f11e100]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=f11e101]
+    - main [active] [ref=f11e104]:
+      - generic [ref=f11e1440]:
+        - button "arrow-left 返回发布管理" [ref=f11e1441] [cursor=pointer]:
+          - img "arrow-left" [ref=f11e1443]
+          - generic [ref=f11e1446]: 返回发布管理
+        - generic [ref=f11e1447]:
+          - generic [ref=f11e1448]:
+            - navigation [ref=f11e1449]:
+              - list [ref=f11e1450]:
+                - listitem [ref=f11e1451]:
+                  - link "发布管理" [ref=f11e1453] [cursor=pointer]:
+                    - /url: /publications
+                - listitem [ref=f11e1454]: /
+                - listitem [ref=f11e1455]: 异常待办
+            - text: 发布异常
+            - heading "发布异常待办" [level=1] [ref=f11e1456]
+            - generic [ref=f11e1457]: 异常待办保留原发布上下文，创建修复任务不会自动关闭待办。
+          - generic [ref=f11e1460]:
+            - img "info-circle" [ref=f11e1461]
+            - generic [ref=f11e1465]: 进行中
+        - generic [ref=f11e1466]:
+          - generic [ref=f11e1467]: 异常上下文
+          - generic [ref=f11e1470]:
+            - table [ref=f11e1473]:
+              - rowgroup [ref=f11e1474]:
+                - row [ref=f11e1475]:
+                  - 'cell "状态 : info-circle 进行中" [ref=f11e1476]':
+                    - generic [ref=f11e1477]:
+                      - generic [ref=f11e1478]: "状态 :"
+                      - generic [ref=f11e1480]:
+                        - img "info-circle" [ref=f11e1481]
+                        - generic [ref=f11e1485]: 进行中
+                - row [ref=f11e1486]:
+                  - 'cell "触发状态 : close-circle 验证失败" [ref=f11e1487]':
+                    - generic [ref=f11e1488]:
+                      - generic [ref=f11e1489]: "触发状态 :"
+                      - generic [ref=f11e1491]:
+                        - img "close-circle" [ref=f11e1492]
+                        - generic [ref=f11e1495]: 验证失败
+                - row [ref=f11e1496]:
+                  - 'cell "原发布 : 2dba5a5a-4996-42c0-b43c-250cd2f156b4" [ref=f11e1497]':
+                    - generic [ref=f11e1498]:
+                      - generic [ref=f11e1499]: "原发布 :"
+                      - link "2dba5a5a-4996-42c0-b43c-250cd2f156b4" [ref=f11e1501] [cursor=pointer]:
+                        - /url: /publications/2dba5a5a-4996-42c0-b43c-250cd2f156b4
+                - row [ref=f11e1502]:
+                  - 'cell "原任务 : 4f1314c1-9c41-40c7-85d1-0f3299545f98" [ref=f11e1503]':
+                    - generic [ref=f11e1504]:
+                      - generic [ref=f11e1505]: "原任务 :"
+                      - link "4f1314c1-9c41-40c7-85d1-0f3299545f98" [ref=f11e1507] [cursor=pointer]:
+                        - /url: /tasks/4f1314c1-9c41-40c7-85d1-0f3299545f98
+                - row [ref=f11e1508]:
+                  - 'cell "修复任务 : 尚未创建" [ref=f11e1509]':
+                    - generic [ref=f11e1510]:
+                      - generic [ref=f11e1511]: "修复任务 :"
+                      - generic [ref=f11e1512]: 尚未创建
+                - row [ref=f11e1513]:
+                  - 'cell "处置说明 : —" [ref=f11e1514]':
+                    - generic [ref=f11e1515]:
+                      - generic [ref=f11e1516]: "处置说明 :"
+                      - generic [ref=f11e1517]: —
+            - generic [ref=f11e1518]:
+              - button "创建修复任务" [ref=f11e1520] [cursor=pointer]
+              - button "显式解决" [ref=f11e1523] [cursor=pointer]

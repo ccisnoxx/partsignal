@@ -1,0 +1,293 @@
+- generic [ref=f7e1]:
+  - generic [ref=f7e6]:
+    - complementary [ref=f7e7]:
+      - generic [ref=f7e8]:
+        - strong [ref=f7e14]: PartSignal
+        - menu [ref=f7e15]:
+          - text: 内容工作流
+          - group [ref=f7e16]:
+            - menuitem [ref=f7e17] [cursor=pointer]:
+              - img "bar-chart" [ref=f7e18]
+              - link "工作台" [ref=f7e22]:
+                - /url: /
+            - menuitem [ref=f7e23] [cursor=pointer]:
+              - img "database" [ref=f7e24]
+              - link "产品事实" [ref=f7e28]:
+                - /url: /products
+            - menuitem [ref=f7e29] [cursor=pointer]:
+              - img "file-text" [ref=f7e30]
+              - link "内容任务" [ref=f7e34]:
+                - /url: /tasks
+            - menuitem [ref=f7e35] [cursor=pointer]:
+              - img "rocket" [ref=f7e36]
+              - link "发布管理" [ref=f7e40]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f7e41] [cursor=pointer]:
+              - img "bar-chart" [ref=f7e42]
+              - generic [ref=f7e45]: GEO 观测
+          - text: 系统管理
+          - group [ref=f7e46]:
+            - menuitem "setting 业务设置" [ref=f7e47] [cursor=pointer]:
+              - img "setting" [ref=f7e48]
+              - generic [ref=f7e51]: 业务设置
+        - button "收起导航" [ref=f7e52] [cursor=pointer]:
+          - img "menu-fold" [ref=f7e54]
+          - generic [ref=f7e57]: 收起
+    - generic [ref=f7e58]:
+      - banner [ref=f7e59]:
+        - generic [ref=f7e62]:
+          - generic [ref=f7e63]: PARTSIGNAL
+          - strong [ref=f7e65]: 内容任务
+        - generic [ref=f7e68] [cursor=pointer]:
+          - img "search" [ref=f7e70]
+          - combobox "全局页面搜索" [ref=f7e73]
+          - generic [ref=f7e74]: ⌘K
+        - generic [ref=f7e76]:
+          - button "主题：跟随系统" [ref=f7e78] [cursor=pointer]:
+            - img "desktop" [ref=f7e80]
+            - generic [ref=f7e83]: 跟随系统
+          - button "打开用户操作菜单" [ref=f7e85] [cursor=pointer]:
+            - generic [ref=f7e86]: E
+            - generic [ref=f7e88]:
+              - strong [ref=f7e89]: E2E-ACCEPT-20260730-002915-工程师
+              - generic [ref=f7e90]: e2e-accept-20260730-002915-eng
+            - img "down" [ref=f7e91]
+      - main [ref=f7e94]:
+        - generic [ref=f7e95]:
+          - generic [ref=f7e96]:
+            - generic [ref=f7e97]:
+              - text: 内容工作流
+              - heading "内容任务台" [level=1] [ref=f7e98]
+              - generic [ref=f7e99]: 每个任务只锁定产品、已批准事实版本和目标平台；AI 模型在每次生成时选择。
+            - button "新建内容任务" [expanded] [ref=f7e102] [cursor=pointer]:
+              - img "plus" [ref=f7e104]
+          - generic [ref=f7e110]:
+            - search "内容任务筛选" [ref=f7e111]:
+              - generic [ref=f7e112]:
+                - img "search" [ref=f7e114]
+                - searchbox "搜索内容任务" [ref=f7e117]
+              - button "重置筛选" [disabled] [ref=f7e119]:
+                - generic:
+                  - img "reload"
+            - generic [ref=f7e120]:
+              - tablist [ref=f7e121]:
+                - generic [ref=f7e123]:
+                  - tab "全部 6" [selected] [ref=f7e125] [cursor=pointer]:
+                    - generic [ref=f7e126]:
+                      - text: 全部
+                      - generic [ref=f7e127]: "6"
+                  - tab "进行中 5" [ref=f7e129] [cursor=pointer]:
+                    - generic [ref=f7e130]:
+                      - text: 进行中
+                      - generic [ref=f7e131]: "5"
+                  - tab "已完成 1" [ref=f7e133] [cursor=pointer]:
+                    - generic [ref=f7e134]:
+                      - text: 已完成
+                      - generic [ref=f7e135]: "1"
+                  - tab "已取消 0" [ref=f7e137] [cursor=pointer]:
+                    - generic [ref=f7e138]:
+                      - text: 已取消
+                      - generic [ref=f7e139]: "0"
+              - generic:
+                - generic:
+                  - tabpanel "全部 6"
+          - region "内容任务摘要" [ref=f7e140]:
+            - generic [ref=f7e142]:
+              - generic [ref=f7e143]: 全部任务
+              - strong [ref=f7e145]: "6"
+              - generic [ref=f7e146]: 当前列表全部记录
+            - generic [ref=f7e148]:
+              - generic [ref=f7e149]: 进行中任务
+              - strong [ref=f7e151]: "5"
+              - generic [ref=f7e152]: 状态 OPEN
+            - generic [ref=f7e154]:
+              - generic [ref=f7e155]: 已完成任务
+              - strong [ref=f7e157]: "1"
+              - generic [ref=f7e158]: 状态 COMPLETED
+            - generic [ref=f7e160]:
+              - generic [ref=f7e161]: 已取消任务
+              - strong [ref=f7e163]: "0"
+              - generic [ref=f7e164]: 状态 CANCELLED
+          - generic [ref=f7e165]:
+            - generic [ref=f7e167]:
+              - generic [ref=f7e168]: 任务列表
+              - generic [ref=f7e169]: 显示 6 / 6 条
+            - region "内容任务列表" [ref=f7e173]:
+              - generic [ref=f7e176]:
+                - table [ref=f7e180]:
+                  - rowgroup [ref=f7e188]:
+                    - row [ref=f7e189]:
+                      - columnheader "产品" [ref=f7e190]
+                      - columnheader "目标平台" [ref=f7e191]
+                      - columnheader "任务状态" [ref=f7e192]
+                      - columnheader "AI 生成状态" [ref=f7e193]
+                      - columnheader "创建时间" [ref=f7e194]
+                      - columnheader "操作" [ref=f7e195]
+                  - rowgroup [ref=f7e196]:
+                    - row [ref=f7e197]:
+                      - cell "E2E-ACCEPT-20260729-091241 E2E-PRODUCT-20260729-091241 事实版本 b90171fe" [ref=f7e198]:
+                        - generic [ref=f7e199]:
+                          - strong [ref=f7e200]: E2E-ACCEPT-20260729-091241 E2E-PRODUCT-20260729-091241
+                          - generic [ref=f7e201]: 事实版本 b90171fe
+                      - cell [ref=f7e202]:
+                        - link "E2E Example 20260729-091241" [ref=f7e205] [cursor=pointer]:
+                          - /url: https://example.com/
+                      - cell "info-circle 进行中" [ref=f7e206]:
+                        - generic [ref=f7e207]:
+                          - img "info-circle" [ref=f7e208]
+                          - generic [ref=f7e212]: 进行中
+                      - cell "尚未生成" [ref=f7e213]
+                      - cell [ref=f7e215]:
+                        - time [ref=f7e216]: 2026/07/29 09:51
+                      - cell [ref=f7e217]:
+                        - link "查看任务：E2E-ACCEPT-20260729-091241 E2E-PRODUCT-20260729-091241" [ref=f7e218] [cursor=pointer]:
+                          - /url: /tasks/a1e8bc49-1130-4de6-b9ac-da5554986218
+                          - text: 查看详情
+                          - img "right" [ref=f7e219]
+                    - row [ref=f7e222]:
+                      - cell "E2E-ACCEPT-20260729-091241 E2E-PRODUCT-20260729-091241 事实版本 b90171fe" [ref=f7e223]:
+                        - generic [ref=f7e224]:
+                          - strong [ref=f7e225]: E2E-ACCEPT-20260729-091241 E2E-PRODUCT-20260729-091241
+                          - generic [ref=f7e226]: 事实版本 b90171fe
+                      - cell [ref=f7e227]:
+                        - link "E2E Example 20260729-091241" [ref=f7e230] [cursor=pointer]:
+                          - /url: https://example.com/
+                      - cell "info-circle 进行中" [ref=f7e231]:
+                        - generic [ref=f7e232]:
+                          - img "info-circle" [ref=f7e233]
+                          - generic [ref=f7e237]: 进行中
+                      - cell "check-circle 成功" [ref=f7e238]:
+                        - generic [ref=f7e239]:
+                          - img "check-circle" [ref=f7e240]
+                          - generic [ref=f7e244]: 成功
+                      - cell [ref=f7e245]:
+                        - time [ref=f7e246]: 2026/07/29 09:47
+                      - cell [ref=f7e247]:
+                        - link "查看任务：E2E-ACCEPT-20260729-091241 E2E-PRODUCT-20260729-091241" [ref=f7e248] [cursor=pointer]:
+                          - /url: /tasks/4a78818d-fa52-40e3-a042-3e6b6f766a9b
+                          - text: 查看详情
+                          - img "right" [ref=f7e249]
+                    - row [ref=f7e252]:
+                      - cell "E2E-ACCEPT-20260729-091241 E2E-PRODUCT-20260729-091241 事实版本 0c2a0b2e" [ref=f7e253]:
+                        - generic [ref=f7e254]:
+                          - strong [ref=f7e255]: E2E-ACCEPT-20260729-091241 E2E-PRODUCT-20260729-091241
+                          - generic [ref=f7e256]: 事实版本 0c2a0b2e
+                      - cell [ref=f7e257]:
+                        - link "E2E Example 20260729-091241" [ref=f7e260] [cursor=pointer]:
+                          - /url: https://example.com/
+                      - cell "info-circle 进行中" [ref=f7e261]:
+                        - generic [ref=f7e262]:
+                          - img "info-circle" [ref=f7e263]
+                          - generic [ref=f7e267]: 进行中
+                      - cell "尚未生成" [ref=f7e268]
+                      - cell [ref=f7e270]:
+                        - time [ref=f7e271]: 2026/07/29 09:46
+                      - cell [ref=f7e272]:
+                        - link "查看任务：E2E-ACCEPT-20260729-091241 E2E-PRODUCT-20260729-091241" [ref=f7e273] [cursor=pointer]:
+                          - /url: /tasks/bfa650b8-7969-419a-b7de-8e5e46694eb6
+                          - text: 查看详情
+                          - img "right" [ref=f7e274]
+                    - row [ref=f7e277]:
+                      - cell "验收测试 TEST-GEO-AI-20260729-043142 事实版本 2130412f" [ref=f7e278]:
+                        - generic [ref=f7e279]:
+                          - strong [ref=f7e280]: 验收测试 TEST-GEO-AI-20260729-043142
+                          - generic [ref=f7e281]: 事实版本 2130412f
+                      - cell [ref=f7e282]:
+                        - link "知乎" [ref=f7e285] [cursor=pointer]:
+                          - /url: https://www.zhihu.com/
+                      - cell "info-circle 进行中" [ref=f7e286]:
+                        - generic [ref=f7e287]:
+                          - img "info-circle" [ref=f7e288]
+                          - generic [ref=f7e292]: 进行中
+                      - cell "check-circle 成功" [ref=f7e293]:
+                        - generic [ref=f7e294]:
+                          - img "check-circle" [ref=f7e295]
+                          - generic [ref=f7e299]: 成功
+                      - cell [ref=f7e300]:
+                        - time [ref=f7e301]: 2026/07/29 04:37
+                      - cell [ref=f7e302]:
+                        - link "查看任务：验收测试 TEST-GEO-AI-20260729-043142" [ref=f7e303] [cursor=pointer]:
+                          - /url: /tasks/76883083-540e-4e2c-9ead-35f3049607dd
+                          - text: 查看详情
+                          - img "right" [ref=f7e304]
+                    - row [ref=f7e307]:
+                      - cell "上海宸屿电子 CYA620 事实版本 706c35de" [ref=f7e308]:
+                        - generic [ref=f7e309]:
+                          - strong [ref=f7e310]: 上海宸屿电子 CYA620
+                          - generic [ref=f7e311]: 事实版本 706c35de
+                      - cell [ref=f7e312]:
+                        - link "知乎" [ref=f7e315] [cursor=pointer]:
+                          - /url: https://www.zhihu.com/
+                      - cell "info-circle 进行中" [ref=f7e316]:
+                        - generic [ref=f7e317]:
+                          - img "info-circle" [ref=f7e318]
+                          - generic [ref=f7e322]: 进行中
+                      - cell "尚未生成" [ref=f7e323]
+                      - cell [ref=f7e325]:
+                        - time [ref=f7e326]: 2026/07/28 10:24
+                      - cell [ref=f7e327]:
+                        - link "查看任务：上海宸屿电子 CYA620" [ref=f7e328] [cursor=pointer]:
+                          - /url: /tasks/1ff52980-f4e7-49b5-921b-9aee47268b25
+                          - text: 查看详情
+                          - img "right" [ref=f7e329]
+                    - row [ref=f7e332]:
+                      - cell "TI OPA228 事实版本 99481bba" [ref=f7e333]:
+                        - generic [ref=f7e334]:
+                          - strong [ref=f7e335]: TI OPA228
+                          - generic [ref=f7e336]: 事实版本 99481bba
+                      - cell [ref=f7e337]:
+                        - link "知乎" [ref=f7e340] [cursor=pointer]:
+                          - /url: https://www.zhihu.com/
+                      - cell "check-circle 已完成" [ref=f7e341]:
+                        - generic [ref=f7e342]:
+                          - img "check-circle" [ref=f7e343]
+                          - generic [ref=f7e347]: 已完成
+                      - cell "尚未生成" [ref=f7e348]
+                      - cell [ref=f7e350]:
+                        - time [ref=f7e351]: 2026/07/26 09:51
+                      - cell [ref=f7e352]:
+                        - link "查看任务：TI OPA228" [ref=f7e353] [cursor=pointer]:
+                          - /url: /tasks/c0b97264-119e-4df4-b593-a1bd47037684
+                          - text: 查看详情
+                          - img "right" [ref=f7e354]
+                - list [ref=f7e357]:
+                  - listitem [ref=f7e358]: 1–6 / 共 6 条
+                  - listitem "上一页" [ref=f7e359]:
+                    - button [disabled] [ref=f7e360]:
+                      - img "left" [ref=f7e361]
+                  - listitem "1" [ref=f7e364] [cursor=pointer]
+                  - listitem "下一页" [ref=f7e366]:
+                    - button [disabled] [ref=f7e367]:
+                      - img "right" [ref=f7e368]
+  - generic [ref=f7e371]:
+    - dialog "创建内容任务":
+      - generic [ref=f7e372]:
+        - button "Close" [ref=f7e373] [cursor=pointer]:
+          - generic "关闭" [ref=f7e374]:
+            - img "close" [ref=f7e375]
+        - generic [ref=f7e378]: 创建内容任务
+        - generic [ref=f7e381]:
+          - generic [ref=f7e383]:
+            - generic "产品" [ref=f7e385]: "* 产品"
+            - generic [ref=f7e389]:
+              - generic "E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [ref=f7e445]:
+                - text: E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT
+                - combobox "* 产品" [ref=f7e391]
+              - img "down" [ref=f7e446]
+          - generic [ref=f7e397]:
+            - generic "已批准事实版本" [ref=f7e399]: "* 已批准事实版本"
+            - generic [ref=f7e403] [cursor=pointer]:
+              - combobox "* 已批准事实版本" [expanded] [active] [ref=f7e405]:
+                - listbox [ref=f7e449]:
+                  - generic [ref=f7e450]:
+                    - img "暂无数据" [ref=f7e452]
+                    - generic [ref=f7e458]: 暂无数据
+              - img "down" [ref=f7e407]
+          - generic [ref=f7e411]:
+            - generic "目标平台" [ref=f7e413]: "* 目标平台"
+            - generic [ref=f7e417] [cursor=pointer]:
+              - generic [ref=f7e418]:
+                - generic: 显示全部已启用平台；缺少 Prompt 仍可手动录入首稿
+                - combobox "* 目标平台" [ref=f7e419]
+              - img "down" [ref=f7e421]
+          - button "创建任务" [ref=f7e424] [cursor=pointer]

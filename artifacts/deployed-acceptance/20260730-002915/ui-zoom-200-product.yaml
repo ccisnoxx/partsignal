@@ -1,0 +1,113 @@
+- generic [ref=f19e6]:
+  - complementary [ref=f19e7]:
+    - generic [ref=f19e8]:
+      - strong [ref=f19e14]: PartSignal
+      - menu [ref=f19e15]:
+        - text: 内容工作流
+        - group [ref=f19e16]:
+          - menuitem [ref=f19e17] [cursor=pointer]:
+            - img "bar-chart" [ref=f19e18]
+            - link "工作台" [ref=f19e22]:
+              - /url: /
+          - menuitem [ref=f19e23] [cursor=pointer]:
+            - img "database" [ref=f19e24]
+            - link "产品事实" [ref=f19e28]:
+              - /url: /products
+          - menuitem [ref=f19e29] [cursor=pointer]:
+            - img "file-text" [ref=f19e30]
+            - link "内容任务" [ref=f19e34]:
+              - /url: /tasks
+          - menuitem [ref=f19e35] [cursor=pointer]:
+            - img "rocket" [ref=f19e36]
+            - link "发布管理" [ref=f19e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f19e41] [cursor=pointer]:
+            - img "bar-chart" [ref=f19e42]
+            - generic [ref=f19e45]: GEO 观测
+        - text: 系统管理
+        - group [ref=f19e46]:
+          - menuitem "setting 业务设置" [ref=f19e47] [cursor=pointer]:
+            - img "setting" [ref=f19e48]
+            - generic [ref=f19e51]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f19e52] [cursor=pointer]:
+            - img "safety-certificate" [ref=f19e53]
+            - generic [ref=f19e56]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f19e57] [cursor=pointer]:
+            - img "tool" [ref=f19e58]
+            - generic [ref=f19e61]: 配置中心
+      - button "收起导航" [ref=f19e62] [cursor=pointer]:
+        - img "menu-fold" [ref=f19e64]
+        - generic [ref=f19e67]: 收起
+  - generic [ref=f19e68]:
+    - banner [ref=f19e69]:
+      - generic [ref=f19e72]:
+        - generic [ref=f19e73]: PARTSIGNAL
+        - strong [ref=f19e75]: 产品事实
+      - generic [ref=f19e78] [cursor=pointer]:
+        - img "search" [ref=f19e80]
+        - combobox "全局页面搜索" [ref=f19e83]
+        - generic [ref=f19e84]: ⌘K
+      - generic [ref=f19e86]:
+        - button "主题：跟随系统" [ref=f19e88] [cursor=pointer]:
+          - img "desktop" [ref=f19e90]
+          - generic [ref=f19e93]: 跟随系统
+        - button "打开用户操作菜单" [ref=f19e95] [cursor=pointer]:
+          - generic [ref=f19e96]: E
+          - generic [ref=f19e98]:
+            - strong [ref=f19e99]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=f19e100]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=f19e101]
+    - main [active] [ref=f19e104]:
+      - generic [ref=f19e105]:
+        - link [ref=f19e106] [cursor=pointer]:
+          - /url: /products
+          - img "arrow-left" [ref=f19e107]
+          - text: 返回产品列表
+        - generic [ref=f19e110]:
+          - generic [ref=f19e111]:
+            - navigation [ref=f19e112]:
+              - list [ref=f19e113]:
+                - listitem [ref=f19e114]:
+                  - link "产品事实" [ref=f19e116] [cursor=pointer]:
+                    - /url: /products
+                - listitem [ref=f19e117]: /
+                - listitem [ref=f19e118]: E2E-ACCEPT-20260730-002915-PRODUCT
+            - text: 产品事实工作区
+            - heading "E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=f19e119]
+            - generic [ref=f19e120]: E2E-ACCEPT-20260730-002915 · 完全虚构验收 · 工作区修订 2
+          - generic [ref=f19e123]:
+            - img "check-circle" [ref=f19e124]
+            - generic [ref=f19e128]: 启用
+        - generic [ref=f19e129]:
+          - tablist [ref=f19e130]:
+            - generic [ref=f19e132]:
+              - tab "事实工作区" [selected] [ref=f19e134] [cursor=pointer]
+              - tab "事实版本（2）" [ref=f19e136] [cursor=pointer]
+          - tabpanel "事实工作区" [ref=f19e139]:
+            - generic [ref=f19e140]:
+              - alert [ref=f19e141]:
+                - img "info-circle" [ref=f19e143]
+                - generic [ref=f19e146]: Markdown 是产品事实唯一可编辑正文源；保存使用当前修订号防止并发覆盖。
+              - generic [ref=f19e150]:
+                - generic "数据分级" [ref=f19e152]: "* 数据分级"
+                - generic [ref=f19e156] [cursor=pointer]:
+                  - generic "RESTRICTED · 禁止发送第三方模型" [ref=f19e157]:
+                    - text: RESTRICTED · 禁止发送第三方模型
+                    - combobox "* 数据分级" [ref=f19e158]
+                  - img "down" [ref=f19e160]
+              - generic [ref=f19e163]:
+                - tablist [ref=f19e164]:
+                  - generic [ref=f19e166]:
+                    - tab "编辑 Markdown" [selected] [ref=f19e168] [cursor=pointer]
+                    - tab "安全预览" [ref=f19e170] [cursor=pointer]
+                - generic:
+                  - generic:
+                    - tabpanel "编辑 Markdown"
+              - generic [ref=f19e173]:
+                - generic "事实 Markdown" [ref=f19e175]: "* 事实 Markdown"
+                - textbox "* 事实 Markdown" [ref=f19e179]: "# E2E-ACCEPT-20260730-002915-PRODUCT 受限测试事实\\n\\n> RESTRICTED-SENTINEL-20260730-002915：这是完全虚构的敏感边界标记，不是真实秘密。\\n\\n- 内部测试参数：仅用于验证第三方模型外发门禁\\n- 禁止任何 AI 生成、自然化或外部传输\\n- 对外披露级别：RESTRICTED"
+              - generic [ref=f19e180]:
+                - generic [ref=f19e181]:
+                  - strong [ref=f19e183]: 未修改
+                  - generic [ref=f19e184]: 保存只更新工作区，不会修改任何已创建或已批准的事实版本。
+                - button "保存事实工作区" [disabled] [ref=f19e185]

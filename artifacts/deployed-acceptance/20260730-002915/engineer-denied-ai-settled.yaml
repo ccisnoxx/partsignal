@@ -1,0 +1,204 @@
+- generic [ref=f10e6]:
+  - complementary [ref=f10e7]:
+    - generic [ref=f10e8]:
+      - strong [ref=f10e14]: PartSignal
+      - menu [ref=f10e15]:
+        - text: 内容工作流
+        - group [ref=f10e16]:
+          - menuitem [ref=f10e17] [cursor=pointer]:
+            - img "bar-chart" [ref=f10e18]
+            - link "工作台" [ref=f10e22]:
+              - /url: /
+          - menuitem [ref=f10e23] [cursor=pointer]:
+            - img "database" [ref=f10e24]
+            - link "产品事实" [ref=f10e28]:
+              - /url: /products
+          - menuitem [ref=f10e29] [cursor=pointer]:
+            - img "file-text" [ref=f10e30]
+            - link "内容任务" [ref=f10e34]:
+              - /url: /tasks
+          - menuitem [ref=f10e35] [cursor=pointer]:
+            - img "rocket" [ref=f10e36]
+            - link "发布管理" [ref=f10e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f10e41] [cursor=pointer]:
+            - img "bar-chart" [ref=f10e42]
+            - generic [ref=f10e45]: GEO 观测
+        - text: 系统管理
+        - group [ref=f10e46]:
+          - menuitem "setting 业务设置" [ref=f10e47] [cursor=pointer]:
+            - img "setting" [ref=f10e48]
+            - generic [ref=f10e51]: 业务设置
+      - button "收起导航" [ref=f10e52] [cursor=pointer]:
+        - img "menu-fold" [ref=f10e54]
+        - generic [ref=f10e57]: 收起
+  - generic [ref=f10e58]:
+    - banner [ref=f10e59]:
+      - generic [ref=f10e62]:
+        - generic [ref=f10e63]: PARTSIGNAL
+        - strong [ref=f10e65]: 工作台
+      - generic [ref=f10e68] [cursor=pointer]:
+        - img "search" [ref=f10e70]
+        - combobox "全局页面搜索" [ref=f10e73]
+        - generic [ref=f10e74]: ⌘K
+      - generic [ref=f10e76]:
+        - button "主题：跟随系统" [ref=f10e78] [cursor=pointer]:
+          - img "desktop" [ref=f10e80]
+          - generic [ref=f10e83]: 跟随系统
+        - button "打开用户操作菜单" [ref=f10e85] [cursor=pointer]:
+          - generic [ref=f10e86]: E
+          - generic [ref=f10e88]:
+            - strong [ref=f10e89]: E2E-ACCEPT-20260730-002915-工程师
+            - generic [ref=f10e90]: e2e-accept-20260730-002915-eng
+          - img "down" [ref=f10e91]
+    - main [active] [ref=f10e94]:
+      - generic [ref=f10e95]:
+        - generic [ref=f10e97]:
+          - heading "总览" [level=1] [ref=f10e98]
+          - generic [ref=f10e99]:
+            - text: 你好，
+            - strong [ref=f10e100]: E2E-ACCEPT-20260730-002915-工程师
+            - text: 。以下数据来自当前有效业务记录。
+        - region "GEO 管理指标" [ref=f10e101]:
+          - generic [ref=f10e103]:
+            - generic [ref=f10e104]: 人工观测
+            - strong [ref=f10e106]: "2"
+            - generic [ref=f10e107]: 2 条逐篇结果
+          - generic [ref=f10e109]:
+            - generic [ref=f10e110]: 文章发现率
+            - generic [ref=f10e111]:
+              - strong [ref=f10e112]: "100"
+              - generic [ref=f10e113]: "%"
+            - progressbar "文章发现率 100%" [ref=f10e114]
+            - generic [ref=f10e118]: 已发现 / 全部文章结果
+          - generic [ref=f10e120]:
+            - generic [ref=f10e121]: 文章提及率
+            - generic [ref=f10e122]:
+              - strong [ref=f10e123]: "100"
+              - generic [ref=f10e124]: "%"
+            - progressbar "文章提及率 100%" [ref=f10e125]
+            - generic [ref=f10e129]: 已提及 / 全部文章结果
+          - generic [ref=f10e131]:
+            - generic [ref=f10e132]: 文章准确率
+            - generic [ref=f10e133]:
+              - strong [ref=f10e134]: "50"
+              - generic [ref=f10e135]: "%"
+            - progressbar "文章准确率 50%" [ref=f10e136]
+            - generic [ref=f10e140]: 准确 / 可判断结果
+        - generic [ref=f10e141]:
+          - generic [ref=f10e142]: 运营状态摘要
+          - generic [ref=f10e146]:
+            - region "审核流程状态" [ref=f10e147]:
+              - generic [ref=f10e153]:
+                - strong [ref=f10e155]: 审核流程
+                - generic [ref=f10e156]: 正常
+                - generic [ref=f10e158]: 待审事实 0 · 待审内容 0
+            - region "发布流程状态" [ref=f10e159]:
+              - generic [ref=f10e165]:
+                - strong [ref=f10e167]: 发布流程
+                - generic [ref=f10e168]: 正常
+                - generic [ref=f10e170]: 待人工发布 0 · 发布需关注 0
+            - region "GEO 观测状态" [ref=f10e171]:
+              - generic [ref=f10e177]:
+                - strong [ref=f10e179]: GEO 观测
+                - generic [ref=f10e180]: 正常
+                - generic [ref=f10e182]: 发现率 100% · 提及率 100% · 准确性问题 0
+        - generic [ref=f10e183]:
+          - generic [ref=f10e184]:
+            - generic [ref=f10e185]: 待处理事项
+            - generic [ref=f10e188]:
+              - generic [ref=f10e189]:
+                - generic [ref=f10e190]: 事项
+                - generic [ref=f10e191]: 数量
+                - generic [ref=f10e192]: 状态
+                - generic [ref=f10e193]: 操作
+              - list [ref=f10e194]:
+                - listitem [ref=f10e195]:
+                  - generic [ref=f10e202]:
+                    - strong [ref=f10e204]: 发布需关注
+                    - generic [ref=f10e205]: 当前无需处理
+                  - generic [ref=f10e206]: "0"
+                  - generic [ref=f10e207]: 已清零
+                  - link "处理发布需关注" [ref=f10e208] [cursor=pointer]:
+                    - /url: /publications?tab=attentions
+                    - text: 去处理
+                    - img "arrow-right" [ref=f10e209]
+                - listitem [ref=f10e212]:
+                  - generic [ref=f10e219]:
+                    - strong [ref=f10e221]: 近 30 日准确性问题
+                    - generic [ref=f10e222]: 当前无需处理
+                  - generic [ref=f10e223]: "0"
+                  - generic [ref=f10e224]: 已清零
+                  - link "处理近 30 日准确性问题" [ref=f10e225] [cursor=pointer]:
+                    - /url: /observations
+                    - text: 去处理
+                    - img "arrow-right" [ref=f10e226]
+                - listitem [ref=f10e229]:
+                  - generic [ref=f10e236]:
+                    - strong [ref=f10e238]: 待审事实
+                    - generic [ref=f10e239]: 当前无需处理
+                  - generic [ref=f10e240]: "0"
+                  - generic [ref=f10e241]: 已清零
+                  - link "处理待审事实" [ref=f10e242] [cursor=pointer]:
+                    - /url: /products
+                    - text: 去处理
+                    - img "arrow-right" [ref=f10e243]
+                - listitem [ref=f10e246]:
+                  - generic [ref=f10e253]:
+                    - strong [ref=f10e255]: 待审内容
+                    - generic [ref=f10e256]: 当前无需处理
+                  - generic [ref=f10e257]: "0"
+                  - generic [ref=f10e258]: 已清零
+                  - link "处理待审内容" [ref=f10e259] [cursor=pointer]:
+                    - /url: /tasks
+                    - text: 去处理
+                    - img "arrow-right" [ref=f10e260]
+                - listitem [ref=f10e263]:
+                  - generic [ref=f10e270]:
+                    - strong [ref=f10e272]: 待人工发布
+                    - generic [ref=f10e273]: 当前无需处理
+                  - generic [ref=f10e274]: "0"
+                  - generic [ref=f10e275]: 已清零
+                  - link "处理待人工发布" [ref=f10e276] [cursor=pointer]:
+                    - /url: /publications
+                    - text: 去处理
+                    - img "arrow-right" [ref=f10e277]
+          - complementary "运营辅助入口" [ref=f10e280]:
+            - generic [ref=f10e281]:
+              - generic [ref=f10e282]: 快捷入口
+              - navigation "工作流快捷入口" [ref=f10e286]:
+                - link "进入产品事实" [ref=f10e287] [cursor=pointer]:
+                  - /url: /products
+                  - generic [ref=f10e292]:
+                    - strong [ref=f10e293]: 产品事实
+                    - generic [ref=f10e294]: 查看事实与审核
+                - link "进入内容任务" [ref=f10e295] [cursor=pointer]:
+                  - /url: /tasks
+                  - generic [ref=f10e300]:
+                    - strong [ref=f10e301]: 内容任务
+                    - generic [ref=f10e302]: 处理生成与审核
+                - link "进入发布管理" [ref=f10e303] [cursor=pointer]:
+                  - /url: /publications
+                  - generic [ref=f10e308]:
+                    - strong [ref=f10e309]: 发布管理
+                    - generic [ref=f10e310]: 登记并跟进发布
+                - link "进入GEO 观测" [ref=f10e311] [cursor=pointer]:
+                  - /url: /observations
+                  - generic [ref=f10e316]:
+                    - strong [ref=f10e317]: GEO 观测
+                    - generic [ref=f10e318]: 记录与查看观测
+            - generic [ref=f10e319]:
+              - generic [ref=f10e320]: 重点提醒
+              - generic [ref=f10e324]:
+                - link "查看发布需关注" [ref=f10e325] [cursor=pointer]:
+                  - /url: /publications?tab=attentions
+                  - generic [ref=f10e326]: 发布需关注
+                  - strong [ref=f10e327]: "0"
+                - link "查看近 30 日准确性问题" [ref=f10e331] [cursor=pointer]:
+                  - /url: /observations
+                  - generic [ref=f10e332]: 近 30 日准确性问题
+                  - strong [ref=f10e333]: "0"
+                - link "查看待人工发布" [ref=f10e337] [cursor=pointer]:
+                  - /url: /publications
+                  - generic [ref=f10e338]: 待人工发布
+                  - strong [ref=f10e339]: "0"

@@ -1,0 +1,114 @@
+- generic [ref=f11e6]:
+  - complementary [ref=f11e7]:
+    - generic [ref=f11e8]:
+      - strong [ref=f11e14]: PartSignal
+      - menu [ref=f11e1525]:
+        - text: 内容工作流
+        - group [ref=f11e1526]:
+          - menuitem [ref=f11e1527] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e1528]
+            - link "工作台" [ref=f11e1532]:
+              - /url: /
+          - menuitem [ref=f11e1533] [cursor=pointer]:
+            - img "database" [ref=f11e1534]
+            - link "产品事实" [ref=f11e1538]:
+              - /url: /products
+          - menuitem [ref=f11e1539] [cursor=pointer]:
+            - img "file-text" [ref=f11e1540]
+            - link "内容任务" [ref=f11e1544]:
+              - /url: /tasks
+          - menuitem [ref=f11e1545] [cursor=pointer]:
+            - img "rocket" [ref=f11e1546]
+            - link "发布管理" [ref=f11e1550]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f11e1551] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e1552]
+            - generic [ref=f11e1555]: GEO 观测
+        - text: 系统管理
+        - group [ref=f11e1556]:
+          - menuitem "setting 业务设置" [ref=f11e1557] [cursor=pointer]:
+            - img "setting" [ref=f11e1558]
+            - generic [ref=f11e1561]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f11e1562] [cursor=pointer]:
+            - img "safety-certificate" [ref=f11e1563]
+            - generic [ref=f11e1566]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f11e1567] [cursor=pointer]:
+            - img "tool" [ref=f11e1568]
+            - generic [ref=f11e1571]: 配置中心
+      - button "收起导航" [ref=f11e62] [cursor=pointer]:
+        - img "menu-fold" [ref=f11e64]
+        - generic [ref=f11e67]: 收起
+  - generic [ref=f11e68]:
+    - banner [ref=f11e69]:
+      - generic [ref=f11e72]:
+        - generic [ref=f11e73]: PARTSIGNAL
+        - strong [ref=f11e75]: 发布管理
+      - generic [ref=f11e78] [cursor=pointer]:
+        - img "search" [ref=f11e80]
+        - combobox "全局页面搜索" [ref=f11e83]
+        - generic [ref=f11e84]: ⌘K
+      - generic [ref=f11e86]:
+        - button "主题：跟随系统" [ref=f11e88] [cursor=pointer]:
+          - img "desktop" [ref=f11e90]
+          - generic [ref=f11e93]: 跟随系统
+        - button "打开用户操作菜单" [ref=f11e95] [cursor=pointer]:
+          - generic [ref=f11e96]: E
+          - generic [ref=f11e98]:
+            - strong [ref=f11e99]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=f11e100]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=f11e101]
+    - main [ref=f11e104]:
+      - generic [ref=f11e1572]:
+        - button "arrow-left 返回异常详情" [ref=f11e1573] [cursor=pointer]:
+          - img "arrow-left" [ref=f11e1575]
+          - generic [ref=f11e1578]: 返回异常详情
+        - generic [ref=f11e1580]:
+          - navigation [ref=f11e1581]:
+            - list [ref=f11e1582]:
+              - listitem [ref=f11e1583]:
+                - link "发布管理" [ref=f11e1585] [cursor=pointer]:
+                  - /url: /publications
+              - listitem [ref=f11e1586]: /
+              - listitem [ref=f11e1587]:
+                - link "异常待办" [ref=f11e1589] [cursor=pointer]:
+                  - /url: /publication-attentions/d478b506-000e-4e34-bf1e-9e1a60cff5d3
+              - listitem [ref=f11e1590]: /
+              - listitem [ref=f11e1591]: 创建修复任务
+          - text: 修复任务
+          - heading "创建发布修复任务" [level=1] [ref=f11e1592]
+          - generic [ref=f11e1593]: 固定继承原产品和目标平台，只需显式选择当前已批准事实版本。
+        - generic [ref=f11e1594]:
+          - generic [ref=f11e1595]: 固定修复上下文
+          - table [ref=f11e1601]:
+            - rowgroup [ref=f11e1602]:
+              - row [ref=f11e1603]:
+                - 'cell "产品 : E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [ref=f11e1604]':
+                  - generic [ref=f11e1605]:
+                    - generic [ref=f11e1606]: "产品 :"
+                    - generic [ref=f11e1607]: E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT
+              - row [ref=f11e1608]:
+                - 'cell "平台 : E2E-ACCEPT-20260730-002915-平台" [ref=f11e1609]':
+                  - generic [ref=f11e1610]:
+                    - generic [ref=f11e1611]: "平台 :"
+                    - generic [ref=f11e1612]: E2E-ACCEPT-20260730-002915-平台
+              - row [ref=f11e1613]:
+                - 'cell "原事实版本 : V1" [ref=f11e1614]':
+                  - generic [ref=f11e1615]:
+                    - generic [ref=f11e1616]: "原事实版本 :"
+                    - generic [ref=f11e1617]: V1
+        - generic [ref=f11e1618]:
+          - generic [ref=f11e1619]: 创建修复任务
+          - generic [ref=f11e1623]:
+            - generic [ref=f11e1625]:
+              - generic "当前已批准事实版本" [ref=f11e1627]: "* 当前已批准事实版本"
+              - generic [ref=f11e1630]:
+                - generic: V1 · E2E-ACCEPT-20260730-002915 创建 PUBLIC 公共测试事实版本。 · 0 项变化
+                - generic [ref=f11e1631] [cursor=pointer]:
+                  - generic "V1 · E2E-ACCEPT-20260730-002915 创建 PUBLIC 公共测试事实版本。 · 0 项变化" [ref=f11e1652]:
+                    - text: V1 · E2E-ACCEPT-20260730-002915 创建 PUBLIC 公共测试事实版本。 · 0 项变化
+                    - combobox "* 当前已批准事实版本" [active] [ref=f11e1633]
+                  - img "down" [ref=f11e1635]
+            - strong [ref=f11e1639]: 事实版本差异
+            - list [ref=f11e1640]:
+              - listitem [ref=f11e1641]: V1：无变化
+            - button "创建修复任务" [ref=f11e1642] [cursor=pointer]

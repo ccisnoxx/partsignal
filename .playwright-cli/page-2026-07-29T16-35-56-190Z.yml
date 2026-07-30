@@ -1,0 +1,48 @@
+- main [ref=e2436]:
+  - radiogroup "主题模式" [ref=e2438]:
+    - generic [ref=e2439] [cursor=pointer]:
+      - radio "sun 浅色"
+      - generic [ref=e2440]:
+        - img "sun" [ref=e2441]
+        - text: 浅色
+    - generic [ref=e2444] [cursor=pointer]:
+      - radio "moon 深色"
+      - generic [ref=e2445]:
+        - img "moon" [ref=e2446]
+        - text: 深色
+    - generic [ref=e2449] [cursor=pointer]:
+      - radio "desktop 跟随系统" [checked]
+      - generic [ref=e2450]:
+        - img "desktop" [ref=e2451]
+        - text: 跟随系统
+  - generic:
+    - img:
+      - generic: 内容生成
+      - generic: 多平台分发
+      - generic: 精准触达
+      - generic: GEO 观测
+      - generic: 提及与引用
+      - generic: 效果分析
+      - generic: 持续优化
+  - region [ref=e2454]:
+    - generic [ref=e2455]:
+      - heading "PartSignal" [level=1] [ref=e2461]
+      - generic [ref=e2462]:
+        - heading "多平台 GEO 内容运营系统" [level=2] [ref=e2463]
+        - paragraph [ref=e2464]: 让内容被看见，让价值被引用
+      - form "PartSignal" [ref=e2465]:
+        - generic [ref=e2467]:
+          - generic [ref=e2471]: 账号
+          - textbox "账号" [ref=e2472]:
+            - /placeholder: 请输入账号
+        - generic [ref=e2474]:
+          - generic [ref=e2478]: 密码
+          - textbox "密码" [ref=e2479]:
+            - /placeholder: 请输入密码
+          - button "显示输入内容" [ref=e2480] [cursor=pointer]: 显示
+        - button "登录" [ref=e2481] [cursor=pointer]
+  - generic [ref=e2482]:
+    - generic [ref=e2483]:
+      - img "safety-certificate" [ref=e2484]
+      - strong [ref=e2487]: 内部系统 · 操作留痕 · 全程审计 · 数据安全
+    - paragraph [ref=e2488]: 所有操作均已记录并受审计追踪，未经授权请勿访问或使用系统资源。

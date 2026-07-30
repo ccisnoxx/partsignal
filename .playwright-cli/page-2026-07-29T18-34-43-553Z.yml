@@ -1,0 +1,275 @@
+- generic [ref=f7e1]:
+  - generic [ref=f7e6]:
+    - complementary [ref=f7e7]:
+      - generic [ref=f7e8]:
+        - strong [ref=f7e14]: PartSignal
+        - menu [ref=f7e15]:
+          - text: 内容工作流
+          - group [ref=f7e16]:
+            - menuitem [ref=f7e17] [cursor=pointer]:
+              - img "bar-chart" [ref=f7e18]
+              - link "工作台" [ref=f7e22]:
+                - /url: /
+            - menuitem [ref=f7e23] [cursor=pointer]:
+              - img "database" [ref=f7e24]
+              - link "产品事实" [ref=f7e28]:
+                - /url: /products
+            - menuitem [ref=f7e29] [cursor=pointer]:
+              - img "file-text" [ref=f7e30]
+              - link "内容任务" [ref=f7e34]:
+                - /url: /tasks
+            - menuitem [ref=f7e35] [cursor=pointer]:
+              - img "rocket" [ref=f7e36]
+              - link "发布管理" [ref=f7e40]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f7e41] [cursor=pointer]:
+              - img "bar-chart" [ref=f7e42]
+              - generic [ref=f7e45]: GEO 观测
+          - text: 系统管理
+          - group [ref=f7e46]:
+            - menuitem "setting 业务设置" [ref=f7e47] [cursor=pointer]:
+              - img "setting" [ref=f7e48]
+              - generic [ref=f7e51]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f7e52] [cursor=pointer]:
+              - img "safety-certificate" [ref=f7e53]
+              - generic [ref=f7e56]: 审计与安全
+            - menuitem "tool 配置中心" [expanded] [ref=f7e57] [cursor=pointer]:
+              - img "tool" [ref=f7e58]
+              - generic [ref=f7e61]: 配置中心
+            - menu [ref=f7e62]:
+              - menuitem [ref=f7e63] [cursor=pointer]:
+                - link "平台管理" [ref=f7e65]:
+                  - /url: /configuration/platforms
+              - menuitem [ref=f7e66] [cursor=pointer]:
+                - link "Prompt 管理" [ref=f7e68]:
+                  - /url: /configuration/prompts
+              - menuitem [ref=f7e69] [cursor=pointer]:
+                - link "AI 渠道与模型" [ref=f7e71]:
+                  - /url: /configuration/ai
+        - button "收起导航" [ref=f7e72] [cursor=pointer]:
+          - img "menu-fold" [ref=f7e74]
+          - generic [ref=f7e77]: 收起
+    - generic [ref=f7e78]:
+      - banner [ref=f7e79]:
+        - generic [ref=f7e82]:
+          - strong [ref=f7e84]: 配置中心
+          - generic [ref=f7e85]: /
+          - generic [ref=f7e86]: 平台管理
+        - generic [ref=f7e89] [cursor=pointer]:
+          - img "search" [ref=f7e91]
+          - combobox "全局页面搜索" [ref=f7e94]
+          - generic [ref=f7e95]: ⌘K
+        - generic [ref=f7e97]:
+          - button "主题：跟随系统" [ref=f7e99] [cursor=pointer]:
+            - img "desktop" [ref=f7e101]
+            - generic [ref=f7e104]: 跟随系统
+          - button "打开用户操作菜单" [ref=f7e106] [cursor=pointer]:
+            - generic [ref=f7e107]: 系
+            - generic [ref=f7e109]:
+              - strong [ref=f7e110]: 系统管理员
+              - generic [ref=f7e111]: admin
+            - img "down" [ref=f7e112]
+      - main [ref=f7e115]:
+        - generic [ref=f7e116]:
+          - generic [ref=f7e117]:
+            - generic [ref=f7e118]:
+              - text: 平台治理
+              - heading "平台管理" [level=1] [ref=f7e119]
+              - generic [ref=f7e120]: 管理具体内容平台、所属类型、官网、允许域名及配置完整性。
+            - button "plus 新增平台" [ref=f7e123] [cursor=pointer]:
+              - img "plus" [ref=f7e125]
+              - generic [ref=f7e129]: 新增平台
+          - main [ref=f7e131]:
+            - region "平台实时统计" [ref=f7e132]:
+              - generic [ref=f7e134]:
+                - generic [ref=f7e135]: 平台总数
+                - strong [ref=f7e137]: "3"
+              - generic [ref=f7e139]:
+                - generic [ref=f7e140]: 已启用平台
+                - strong [ref=f7e142]: "3"
+              - generic [ref=f7e144]:
+                - generic [ref=f7e145]: 缺少 Prompt
+                - strong [ref=f7e147]: "1"
+              - generic [ref=f7e149]:
+                - generic [ref=f7e150]: 配置完整平台
+                - strong [ref=f7e152]: "2"
+            - search "平台筛选" [ref=f7e155]:
+              - generic [ref=f7e156]:
+                - generic [ref=f7e157]: 关键词
+                - generic [ref=f7e158]:
+                  - generic [ref=f7e159]:
+                    - img "search" [ref=f7e161]
+                    - searchbox "搜索平台名称或类型" [ref=f7e164]
+                  - button [ref=f7e166] [cursor=pointer]:
+                    - img "search" [ref=f7e168]
+              - generic [ref=f7e171]:
+                - generic [ref=f7e172]: 平台类型
+                - generic [ref=f7e173] [cursor=pointer]:
+                  - generic [ref=f7e174]:
+                    - generic: 全部类型
+                    - combobox "筛选平台类型" [ref=f7e175]
+                  - img "down" [ref=f7e177]
+              - generic [ref=f7e180]:
+                - generic [ref=f7e181]: 启用状态
+                - generic [ref=f7e182] [cursor=pointer]:
+                  - generic [ref=f7e183]:
+                    - generic: 全部状态
+                    - combobox "筛选平台状态" [ref=f7e184]
+                  - img "down" [ref=f7e186]
+              - generic [ref=f7e189]:
+                - generic [ref=f7e190]: 配置完整性
+                - generic [ref=f7e191] [cursor=pointer]:
+                  - generic [ref=f7e192]:
+                    - generic: 全部状态
+                    - combobox "筛选配置完整性" [ref=f7e193]
+                  - img "down" [ref=f7e195]
+              - button "reload 重置" [disabled] [ref=f7e198]:
+                - generic:
+                  - img "reload"
+                - generic: 重置
+              - generic [ref=f7e199]: 共 3 个平台
+              - button "export 导出列表" [ref=f7e200] [cursor=pointer]:
+                - img "export" [ref=f7e202]
+                - generic [ref=f7e205]: 导出列表
+            - region "平台列表" [ref=f7e208]:
+              - generic [ref=f7e211]:
+                - generic [ref=f7e213]:
+                  - table [ref=f7e215]:
+                    - rowgroup [ref=f7e226]:
+                      - row [ref=f7e227]:
+                        - columnheader "平台名称" [ref=f7e228]
+                        - columnheader "所属平台类型" [ref=f7e229]
+                        - columnheader "官方网站" [ref=f7e230]
+                        - columnheader "允许域名（数量）" [ref=f7e231]
+                        - columnheader "状态" [ref=f7e232]
+                        - columnheader "当前 Prompt" [ref=f7e233]
+                        - columnheader "发布账号数量" [ref=f7e234]
+                        - columnheader "更新时间" [ref=f7e235]
+                        - columnheader "操作" [ref=f7e236]
+                  - table [ref=f7e238]:
+                    - rowgroup [ref=f7e249]:
+                      - row [ref=f7e250]:
+                        - cell [ref=f7e251]:
+                          - strong [ref=f7e254]: E2E Example 20260729-091241
+                        - cell "E2E-ACCEPT-20260729-091241 验收平台-已编辑" [ref=f7e255]
+                        - cell [ref=f7e256]:
+                          - link "https://example.com/" [ref=f7e257] [cursor=pointer]:
+                            - /url: https://example.com/
+                        - cell "example.com" [ref=f7e258]
+                        - cell "已启用" [ref=f7e259]
+                        - cell "缺少 Prompt" [ref=f7e261]
+                        - cell "1" [ref=f7e263]
+                        - cell [ref=f7e264]:
+                          - time [ref=f7e265]: 2026/07/29 23:13
+                        - cell [ref=f7e266]:
+                          - generic [ref=f7e267]:
+                            - button "查看平台：E2E Example 20260729-091241" [ref=f7e269] [cursor=pointer]:
+                              - img "eye" [ref=f7e271]
+                            - button "更多操作：E2E Example 20260729-091241" [ref=f7e275] [cursor=pointer]:
+                              - img "ellipsis" [ref=f7e277]
+                      - row [ref=f7e280]:
+                        - cell [ref=f7e281]:
+                          - generic [ref=f7e282]:
+                            - generic [ref=f7e283]: E
+                            - strong [ref=f7e285]: E2E-ACCEPT-20260730-002915-平台
+                        - cell "E2E-ACCEPT-20260730-002915-平台类型" [ref=f7e286]
+                        - cell [ref=f7e287]:
+                          - link "https://example.com/" [ref=f7e288] [cursor=pointer]:
+                            - /url: https://example.com/
+                        - cell "example.com" [ref=f7e289]
+                        - cell "已启用" [ref=f7e290]
+                        - cell "E2E-ACCEPT-20260730-002915-合规JSON" [ref=f7e292]
+                        - cell "1" [ref=f7e293]
+                        - cell [ref=f7e294]:
+                          - time [ref=f7e295]: 2026/07/30 02:29
+                        - cell [ref=f7e296]:
+                          - generic [ref=f7e297]:
+                            - button "查看平台：E2E-ACCEPT-20260730-002915-平台" [ref=f7e299] [cursor=pointer]:
+                              - img "eye" [ref=f7e301]
+                            - button "更多操作：E2E-ACCEPT-20260730-002915-平台" [ref=f7e305] [cursor=pointer]:
+                              - img "ellipsis" [ref=f7e307]
+                      - row [ref=f7e310]:
+                        - cell [ref=f7e311]:
+                          - strong [ref=f7e314]: 知乎
+                        - cell "问答平台" [ref=f7e315]
+                        - cell [ref=f7e316]:
+                          - link "https://www.zhihu.com/" [ref=f7e317] [cursor=pointer]:
+                            - /url: https://www.zhihu.com/
+                        - cell "zhihu.com" [ref=f7e318]
+                        - cell "已启用" [ref=f7e319]
+                        - cell "测试" [ref=f7e321]
+                        - cell "1" [ref=f7e322]
+                        - cell [ref=f7e323]:
+                          - time [ref=f7e324]: 2026/07/28 21:45
+                        - cell [ref=f7e325]:
+                          - generic [ref=f7e326]:
+                            - button "查看平台：知乎" [ref=f7e328] [cursor=pointer]:
+                              - img "eye" [ref=f7e330]
+                            - button "更多操作：知乎" [ref=f7e334] [cursor=pointer]:
+                              - img "ellipsis" [ref=f7e336]
+                - list [ref=f7e339]:
+                  - listitem "上一页" [ref=f7e340]:
+                    - button [disabled] [ref=f7e341]:
+                      - img "left" [ref=f7e342]
+                  - listitem "1" [ref=f7e345] [cursor=pointer]
+                  - listitem "下一页" [ref=f7e347]:
+                    - button [disabled] [ref=f7e348]:
+                      - img "right" [ref=f7e349]
+                  - listitem:
+                    - generic [ref=f7e352]:
+                      - generic "20 条/页" [ref=f7e353]:
+                        - text: 20 条/页
+                        - combobox "页码" [ref=f7e354]
+                      - img "down" [ref=f7e356]
+  - generic [ref=f7e370]:
+    - dialog "编辑 E2E-ACCEPT-20260730-002915-平台 的平台信息":
+      - generic [ref=f7e371]:
+        - button "Close" [active] [ref=f7e372] [cursor=pointer]:
+          - generic "关闭" [ref=f7e373]:
+            - img "close" [ref=f7e374]
+        - generic [ref=f7e377]: 编辑 E2E-ACCEPT-20260730-002915-平台 的平台信息
+        - generic [ref=f7e380]:
+          - generic [ref=f7e382]:
+            - generic "平台名称" [ref=f7e384]: "* 平台名称"
+            - textbox "* 平台名称" [ref=f7e388]: E2E-ACCEPT-20260730-002915-平台
+          - generic [ref=f7e390]:
+            - generic "平台类型" [ref=f7e392]: "* 平台类型"
+            - generic [ref=f7e396] [cursor=pointer]:
+              - generic "E2E-ACCEPT-20260730-002915-平台类型" [ref=f7e397]:
+                - text: E2E-ACCEPT-20260730-002915-平台类型
+                - combobox "* 平台类型" [ref=f7e398]
+              - img "down" [ref=f7e400]
+          - generic [ref=f7e404]:
+            - generic "当前 Prompt" [ref=f7e406]
+            - generic [ref=f7e410]:
+              - generic "E2E-ACCEPT-20260730-002915-合规JSON" [ref=f7e411]:
+                - text: E2E-ACCEPT-20260730-002915-合规JSON
+                - combobox "当前 Prompt" [ref=f7e412]
+              - img "down" [ref=f7e414]
+              - img "close-circle" [ref=f7e418] [cursor=pointer]
+          - generic [ref=f7e422]:
+            - generic "允许域名" [ref=f7e424]: "* 允许域名"
+            - generic [ref=f7e428]:
+              - generic [ref=f7e429]:
+                - generic "example.com" [ref=f7e431]
+                - combobox "* 允许域名" [ref=f7e438]
+              - img "down" [ref=f7e440]
+          - generic [ref=f7e443]:
+            - generic [ref=f7e445]:
+              - generic "官方网站" [ref=f7e447]
+              - textbox "官方网站" [ref=f7e451]:
+                - /placeholder: https://platform.example.com
+                - text: https://example.com/
+            - generic [ref=f7e453]:
+              - generic "官网 Logo" [ref=f7e455]
+              - button "global 从官网发现 Logo" [ref=f7e459] [cursor=pointer]:
+                - img "global" [ref=f7e461]
+                - generic [ref=f7e464]: 从官网发现 Logo
+            - generic [ref=f7e466]:
+              - generic "Logo 操作" [ref=f7e468]: "* Logo 操作"
+              - generic [ref=f7e472] [cursor=pointer]:
+                - generic "保持当前 Logo" [ref=f7e473]:
+                  - text: 保持当前 Logo
+                  - combobox "* Logo 操作" [ref=f7e474]
+                - img "down" [ref=f7e476]
+          - button "保存平台" [ref=f7e479] [cursor=pointer]

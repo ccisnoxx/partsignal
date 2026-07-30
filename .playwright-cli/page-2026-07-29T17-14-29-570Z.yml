@@ -1,0 +1,132 @@
+- generic [ref=f12e1]:
+  - generic [ref=f12e6]:
+    - complementary [ref=f12e7]:
+      - generic [ref=f12e8]:
+        - strong [ref=f12e14]: PartSignal
+        - menu [ref=f12e238]:
+          - text: 内容工作流
+          - group [ref=f12e239]:
+            - menuitem [ref=f12e240] [cursor=pointer]:
+              - img "bar-chart" [ref=f12e241]
+              - link "工作台" [ref=f12e245]:
+                - /url: /
+            - menuitem [ref=f12e246] [cursor=pointer]:
+              - img "database" [ref=f12e247]
+              - link "产品事实" [ref=f12e251]:
+                - /url: /products
+            - menuitem [ref=f12e252] [cursor=pointer]:
+              - img "file-text" [ref=f12e253]
+              - link "内容任务" [ref=f12e257]:
+                - /url: /tasks
+            - menuitem [ref=f12e258] [cursor=pointer]:
+              - img "rocket" [ref=f12e259]
+              - link "发布管理" [ref=f12e263]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [expanded] [ref=f12e264] [cursor=pointer]:
+              - img "bar-chart" [ref=f12e265]
+              - generic [ref=f12e268]: GEO 观测
+            - menu [ref=f12e269]:
+              - menuitem [ref=f12e270] [cursor=pointer]:
+                - link "观测记录" [ref=f12e272]:
+                  - /url: /observations
+              - menuitem [ref=f12e273] [cursor=pointer]:
+                - link "分析洞察" [ref=f12e275]:
+                  - /url: /observations/insights
+              - menuitem [ref=f12e276] [cursor=pointer]:
+                - link "GEO 问题库" [ref=f12e278]:
+                  - /url: /observations/topics
+          - text: 系统管理
+          - group [ref=f12e279]:
+            - menuitem "setting 业务设置" [ref=f12e280] [cursor=pointer]:
+              - img "setting" [ref=f12e281]
+              - generic [ref=f12e284]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f12e285] [cursor=pointer]:
+              - img "safety-certificate" [ref=f12e286]
+              - generic [ref=f12e289]: 审计与安全
+            - menuitem "tool 配置中心" [ref=f12e290] [cursor=pointer]:
+              - img "tool" [ref=f12e291]
+              - generic [ref=f12e294]: 配置中心
+        - button "收起导航" [ref=f12e62] [cursor=pointer]:
+          - img "menu-fold" [ref=f12e64]
+          - generic [ref=f12e67]: 收起
+    - generic [ref=f12e68]:
+      - banner [ref=f12e69]:
+        - generic [ref=f12e72]:
+          - strong [ref=f12e295]: GEO 观测
+          - generic [ref=f12e296]: /
+          - generic [ref=f12e297]: GEO 问题库
+        - generic [ref=f12e78] [cursor=pointer]:
+          - img "search" [ref=f12e80]
+          - combobox "全局页面搜索" [ref=f12e83]
+          - generic [ref=f12e84]: ⌘K
+        - generic [ref=f12e86]:
+          - button "主题：跟随系统" [ref=f12e88] [cursor=pointer]:
+            - img "desktop" [ref=f12e90]
+            - generic [ref=f12e93]: 跟随系统
+          - button "打开用户操作菜单" [ref=f12e95] [cursor=pointer]:
+            - generic [ref=f12e96]: E
+            - generic [ref=f12e98]:
+              - strong [ref=f12e99]: E2E-ACCEPT-20260730-002915-管理员
+              - generic [ref=f12e100]: e2e-accept-20260730-002915-admin
+            - img "down" [ref=f12e101]
+      - main [ref=f12e104]:
+        - generic [ref=f12e298]:
+          - generic [ref=f12e300]:
+            - text: GEO 观测
+            - heading "GEO 问题库" [level=1] [ref=f12e301]
+            - generic [ref=f12e302]: 维护人工 GEO 观测选择的问题主题和覆盖分析维度。
+          - generic [ref=f12e303]:
+            - button "plus 新增问题" [ref=f12e307] [cursor=pointer]:
+              - img "plus" [ref=f12e309]
+              - generic [ref=f12e313]: 新增问题
+            - region "GEO 问题库列表" [ref=f12e315]:
+              - generic [ref=f12e318]:
+                - table [ref=f12e322]:
+                  - rowgroup [ref=f12e327]:
+                    - row [ref=f12e328]:
+                      - columnheader "标准问题" [ref=f12e329]
+                      - columnheader "意图" [ref=f12e330]
+                      - columnheader "变体" [ref=f12e331]
+                  - rowgroup [ref=f12e332]:
+                    - row [ref=f12e333]:
+                      - cell "测试" [ref=f12e334]
+                      - cell "替代选型" [ref=f12e335]
+                      - cell "测试" [ref=f12e336]
+                    - row [ref=f12e337]:
+                      - cell "E2E-QUERY-20260729-091241" [ref=f12e338]
+                      - cell "产品" [ref=f12e339]
+                      - cell "E2E-PRODUCT-20260729-091241" [ref=f12e340]
+                - list [ref=f12e341]:
+                  - listitem "上一页" [ref=f12e342]:
+                    - button [disabled] [ref=f12e343]:
+                      - img "left" [ref=f12e344]
+                  - listitem "1" [ref=f12e347] [cursor=pointer]
+                  - listitem "下一页" [ref=f12e349]:
+                    - button [disabled] [ref=f12e350]:
+                      - img "right" [ref=f12e351]
+  - generic [ref=f12e354]:
+    - dialog "新增 GEO 问题":
+      - generic [ref=f12e355]:
+        - button "Close" [ref=f12e356] [cursor=pointer]:
+          - generic "关闭" [ref=f12e357]:
+            - img "close" [ref=f12e358]
+        - generic [ref=f12e361]: 新增 GEO 问题
+        - generic [ref=f12e364]:
+          - generic [ref=f12e366]:
+            - generic "标准问题" [ref=f12e368]: "* 标准问题"
+            - textbox "* 标准问题" [ref=f12e372]: E2E-ACCEPT-20260730-002915 GEO 标准问题
+          - generic [ref=f12e374]:
+            - generic "意图" [ref=f12e376]: "* 意图"
+            - generic [ref=f12e379]:
+              - generic: 产品
+              - generic [ref=f12e380] [cursor=pointer]:
+                - generic "产品" [ref=f12e422]:
+                  - text: 产品
+                  - combobox "* 意图" [active] [ref=f12e382]
+                - img "down" [ref=f12e384]
+          - generic [ref=f12e388]:
+            - generic "问题变体" [ref=f12e390]: "* 问题变体"
+            - generic [ref=f12e394]:
+              - combobox "* 问题变体" [ref=f12e397]
+              - img "down" [ref=f12e399]
+          - button "创 建" [ref=f12e402] [cursor=pointer]

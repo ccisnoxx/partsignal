@@ -1,0 +1,464 @@
+- generic [active] [ref=f11e1]:
+  - generic [ref=f11e6]:
+    - complementary [ref=f11e7]:
+      - generic [ref=f11e8]:
+        - strong [ref=f11e14]: PartSignal
+        - menu [ref=f11e15]:
+          - text: 内容工作流
+          - group [ref=f11e16]:
+            - menuitem [ref=f11e17] [cursor=pointer]:
+              - img "bar-chart" [ref=f11e18]
+              - link "工作台" [ref=f11e22]:
+                - /url: /
+            - menuitem [ref=f11e23] [cursor=pointer]:
+              - img "database" [ref=f11e24]
+              - link "产品事实" [ref=f11e28]:
+                - /url: /products
+            - menuitem [ref=f11e29] [cursor=pointer]:
+              - img "file-text" [ref=f11e30]
+              - link "内容任务" [ref=f11e34]:
+                - /url: /tasks
+            - menuitem [ref=f11e35] [cursor=pointer]:
+              - img "rocket" [ref=f11e36]
+              - link "发布管理" [ref=f11e40]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f11e41] [cursor=pointer]:
+              - img "bar-chart" [ref=f11e42]
+              - generic [ref=f11e45]: GEO 观测
+          - text: 系统管理
+          - group [ref=f11e46]:
+            - menuitem "setting 业务设置" [ref=f11e47] [cursor=pointer]:
+              - img "setting" [ref=f11e48]
+              - generic [ref=f11e51]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f11e52] [cursor=pointer]:
+              - img "safety-certificate" [ref=f11e53]
+              - generic [ref=f11e56]: 审计与安全
+            - menuitem "tool 配置中心" [ref=f11e57] [cursor=pointer]:
+              - img "tool" [ref=f11e58]
+              - generic [ref=f11e61]: 配置中心
+        - button "收起导航" [ref=f11e62] [cursor=pointer]:
+          - img "menu-fold" [ref=f11e64]
+          - generic [ref=f11e67]: 收起
+    - generic [ref=f11e68]:
+      - banner [ref=f11e69]:
+        - generic [ref=f11e72]:
+          - generic [ref=f11e73]: PARTSIGNAL
+          - strong [ref=f11e75]: 发布管理
+        - generic [ref=f11e78] [cursor=pointer]:
+          - img "search" [ref=f11e80]
+          - combobox "全局页面搜索" [ref=f11e83]
+          - generic [ref=f11e84]: ⌘K
+        - generic [ref=f11e86]:
+          - button "主题：跟随系统" [ref=f11e88] [cursor=pointer]:
+            - img "desktop" [ref=f11e90]
+            - generic [ref=f11e93]: 跟随系统
+          - button "打开用户操作菜单" [ref=f11e95] [cursor=pointer]:
+            - generic [ref=f11e96]: E
+            - generic [ref=f11e98]:
+              - strong [ref=f11e99]: E2E-ACCEPT-20260730-002915-管理员
+              - generic [ref=f11e100]: e2e-accept-20260730-002915-admin
+            - img "down" [ref=f11e101]
+      - main [ref=f11e104]:
+        - generic [ref=f11e105]:
+          - generic [ref=f11e107]:
+            - text: 发布管理工作台
+            - heading "发布管理" [level=1] [ref=f11e108]
+            - generic [ref=f11e109]: 复制已批准内容到锁定平台人工发布，登记结果、验证页面，并显式处理发布异常。
+          - region "发布流程概览" [ref=f11e110]:
+            - generic [ref=f11e111]:
+              - heading "发布流程概览" [level=5] [ref=f11e112]
+              - generic [ref=f11e113]: 全量当前状态
+            - generic [ref=f11e114]:
+              - button "send 待人工发布 0" [ref=f11e950] [cursor=pointer]:
+                - img "send" [ref=f11e118]
+                - generic [ref=f11e121]:
+                  - generic [ref=f11e122]: 待人工发布
+                  - strong [ref=f11e123]: "0"
+              - button "clock-circle 平台审核中 0" [ref=f11e1060] [cursor=pointer]:
+                - img "clock-circle" [ref=f11e130]
+                - generic [ref=f11e134]:
+                  - generic [ref=f11e135]: 平台审核中
+                  - strong [ref=f11e136]: "0"
+              - button "link 已发布 1" [ref=f11e1177] [cursor=pointer]:
+                - img "link" [ref=f11e143]
+                - generic [ref=f11e146]:
+                  - generic [ref=f11e147]: 已发布
+                  - strong [ref=f11e148]: "1"
+              - button "check-circle 已验证 2" [ref=f11e1178] [cursor=pointer]:
+                - img "check-circle" [ref=f11e155]
+                - generic [ref=f11e159]:
+                  - generic [ref=f11e160]: 已验证
+                  - strong [ref=f11e161]: "2"
+              - button "exclamation-circle 发布需关注 0" [ref=f11e166] [cursor=pointer]:
+                - img "exclamation-circle" [ref=f11e168]
+                - generic [ref=f11e172]:
+                  - generic [ref=f11e173]: 发布需关注
+                  - strong [ref=f11e174]: "0"
+          - generic [ref=f11e177]:
+            - tablist [ref=f11e178]:
+              - generic [ref=f11e180]:
+                - tab "待发布候选 3" [ref=f11e1179] [cursor=pointer]:
+                  - generic [ref=f11e183]:
+                    - text: 待发布候选
+                    - generic [ref=f11e184]: "3"
+                - tab "发布记录 4" [selected] [ref=f11e607] [cursor=pointer]:
+                  - generic [ref=f11e187]:
+                    - text: 发布记录
+                    - generic [ref=f11e188]: "4"
+                - tab "发布需关注 0" [ref=f11e190] [cursor=pointer]:
+                  - generic [ref=f11e191]:
+                    - text: 发布需关注
+                    - generic [ref=f11e192]: "0"
+            - tabpanel "发布记录 4" [ref=f11e608]:
+              - generic [ref=f11e610] [cursor=pointer]:
+                - generic [ref=f11e611]:
+                  - generic: 全部发布状态
+                  - combobox "筛选发布状态" [ref=f11e612]
+                - img "down" [ref=f11e614]
+              - region "发布记录列表" [ref=f11e617]:
+                - generic [ref=f11e620]:
+                  - generic [ref=f11e622]:
+                    - table [ref=f11e624]:
+                      - rowgroup [ref=f11e635]:
+                        - row [ref=f11e636]:
+                          - columnheader "内容标题" [ref=f11e637]
+                          - columnheader "实际标题" [ref=f11e638]
+                          - columnheader "状态" [ref=f11e639]
+                          - columnheader "发布时间" [ref=f11e640]
+                          - columnheader "目标平台" [ref=f11e641]
+                          - columnheader "发布账号" [ref=f11e642]
+                          - columnheader "最终 URL" [ref=f11e643]
+                          - columnheader "最后验证" [ref=f11e644]
+                          - columnheader "操作" [ref=f11e645]
+                    - table [ref=f11e647]:
+                      - rowgroup [ref=f11e658]:
+                        - row [ref=f11e1180]:
+                          - cell "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） V2" [ref=f11e660]:
+                            - generic [ref=f11e661]:
+                              - strong [ref=f11e662]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）
+                              - generic [ref=f11e663]: V2
+                          - cell "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（模拟发布）" [ref=f11e1063]
+                          - cell "check-circle 已验证" [ref=f11e1181]:
+                            - generic [ref=f11e666]:
+                              - img "check-circle" [ref=f11e1182]
+                              - generic [ref=f11e671]: 已验证
+                          - cell "2026/7/30 01:08:00" [ref=f11e1070]
+                          - cell "E2E-ACCEPT-20260730-002915-平台" [ref=f11e673]
+                          - cell "E2E-ACCEPT-20260730-002915-发布账号 E2E-ACCEPT-20260730-002915-account" [ref=f11e674]:
+                            - generic [ref=f11e675]:
+                              - generic [ref=f11e676]: E2E-ACCEPT-20260730-002915-发布账号
+                              - generic [ref=f11e677]: E2E-ACCEPT-20260730-002915-account
+                          - cell [ref=f11e1071]:
+                            - link [ref=f11e1072] [cursor=pointer]:
+                              - /url: https://example.com/e2e-accept-20260730-002915/article
+                              - text: 打开
+                              - img "link" [ref=f11e1073]
+                          - cell "2026/7/30 01:09:23" [ref=f11e1186]
+                          - cell [ref=f11e1076]:
+                            - generic [ref=f11e681]:
+                              - button "查看记录" [ref=f11e1077] [cursor=pointer]
+                              - button "更多操作：E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）" [ref=f11e686] [cursor=pointer]:
+                                - img "more" [ref=f11e688]
+                        - row [ref=f11e691]:
+                          - cell "E2E-ACCEPT-20260729-091241 发布修复草稿 V1" [ref=f11e692]:
+                            - generic [ref=f11e693]:
+                              - strong [ref=f11e694]: E2E-ACCEPT-20260729-091241 发布修复草稿
+                              - generic [ref=f11e695]: V1
+                          - cell "E2E-ACCEPT-20260729-091241 发布修复草稿" [ref=f11e696]
+                          - cell "info-circle 已发布" [ref=f11e698]:
+                            - generic [ref=f11e699]:
+                              - img "info-circle" [ref=f11e700]
+                              - generic [ref=f11e704]: 已发布
+                          - cell "2026/7/29 09:54:00" [ref=f11e705]
+                          - cell "E2E Example 20260729-091241" [ref=f11e706]
+                          - cell "E2E-ACCEPT-20260729-091241 验收账号-已编辑 E2E-ACCEPT-20260729-091241" [ref=f11e707]:
+                            - generic [ref=f11e708]:
+                              - generic [ref=f11e709]: E2E-ACCEPT-20260729-091241 验收账号-已编辑
+                              - generic [ref=f11e710]: E2E-ACCEPT-20260729-091241
+                          - cell [ref=f11e711]:
+                            - link [ref=f11e712] [cursor=pointer]:
+                              - /url: https://example.com/partsignal-e2e/repair/20260729-091241
+                              - text: 打开
+                              - img "link" [ref=f11e713]
+                          - cell "—" [ref=f11e716]
+                          - cell [ref=f11e717]:
+                            - generic [ref=f11e718]:
+                              - button "查看记录" [ref=f11e720] [cursor=pointer]
+                              - button "更多操作：E2E-ACCEPT-20260729-091241 发布修复草稿" [ref=f11e723] [cursor=pointer]:
+                                - img "more" [ref=f11e725]
+                        - row [ref=f11e728]:
+                          - cell "E2E-ACCEPT-20260729-091241 PartSignal 工作流验收（人工复核） V2" [ref=f11e729]:
+                            - generic [ref=f11e730]:
+                              - strong [ref=f11e731]: E2E-ACCEPT-20260729-091241 PartSignal 工作流验收（人工复核）
+                              - generic [ref=f11e732]: V2
+                          - cell "E2E-ACCEPT-20260729-091241 PartSignal 工作流验收（人工复核）" [ref=f11e733]
+                          - cell "close-circle 验证失败" [ref=f11e735]:
+                            - generic [ref=f11e736]:
+                              - img "close-circle" [ref=f11e737]
+                              - generic [ref=f11e740]: 验证失败
+                          - cell "2026/7/29 09:50:00" [ref=f11e741]
+                          - cell "E2E Example 20260729-091241" [ref=f11e742]
+                          - cell "E2E-ACCEPT-20260729-091241 验收账号-已编辑 E2E-ACCEPT-20260729-091241" [ref=f11e743]:
+                            - generic [ref=f11e744]:
+                              - generic [ref=f11e745]: E2E-ACCEPT-20260729-091241 验收账号-已编辑
+                              - generic [ref=f11e746]: E2E-ACCEPT-20260729-091241
+                          - cell [ref=f11e747]:
+                            - link [ref=f11e748] [cursor=pointer]:
+                              - /url: https://example.com/partsignal-e2e/20260729-091241
+                              - text: 打开
+                              - img "link" [ref=f11e749]
+                          - cell "2026/7/29 09:50:42" [ref=f11e752]
+                          - cell [ref=f11e753]:
+                            - button "查看记录" [ref=f11e756] [cursor=pointer]
+                        - row [ref=f11e758]:
+                          - cell "OPA228测试 V1" [ref=f11e759]:
+                            - generic [ref=f11e760]:
+                              - strong [ref=f11e761]: OPA228测试
+                              - generic [ref=f11e762]: V1
+                          - cell "测试" [ref=f11e763]
+                          - cell "check-circle 已验证" [ref=f11e765]:
+                            - generic [ref=f11e766]:
+                              - img "check-circle" [ref=f11e767]
+                              - generic [ref=f11e771]: 已验证
+                          - cell "2026/7/28 08:00:00" [ref=f11e772]
+                          - cell "知乎" [ref=f11e773]
+                          - cell "啊啊啊 对的" [ref=f11e774]:
+                            - generic [ref=f11e775]:
+                              - generic [ref=f11e776]: 啊啊啊
+                              - generic [ref=f11e777]: 对的
+                          - cell [ref=f11e778]:
+                            - link [ref=f11e779] [cursor=pointer]:
+                              - /url: https://zhuanlan.zhihu.com/p/2035288538678288989
+                              - text: 打开
+                              - img "link" [ref=f11e780]
+                          - cell "2026/7/28 10:32:10" [ref=f11e783]
+                          - cell [ref=f11e784]:
+                            - generic [ref=f11e785]:
+                              - button "查看记录" [ref=f11e787] [cursor=pointer]
+                              - button "更多操作：OPA228测试" [ref=f11e790] [cursor=pointer]:
+                                - img "more" [ref=f11e792]
+                  - list [ref=f11e797]:
+                    - listitem [ref=f11e798]: 共 4 条
+                    - listitem "上一页" [ref=f11e799]:
+                      - button [disabled] [ref=f11e800]:
+                        - img "left" [ref=f11e801]
+                    - listitem "1" [ref=f11e804] [cursor=pointer]
+                    - listitem "下一页" [ref=f11e806]:
+                      - button [disabled] [ref=f11e807]:
+                        - img "right" [ref=f11e808]
+          - region "发布辅助信息" [ref=f11e340]:
+            - generic [ref=f11e341]:
+              - generic [ref=f11e342]: 发布指引
+              - list [ref=f11e346]:
+                - listitem [ref=f11e347]:
+                  - generic [ref=f11e348]: "1"
+                  - generic [ref=f11e349]:
+                    - strong [ref=f11e350]: 复制已批准内容
+                    - generic [ref=f11e351]: 始终使用候选抽屉里的锁定版本。
+                - listitem [ref=f11e352]:
+                  - generic [ref=f11e353]: "2"
+                  - generic [ref=f11e354]:
+                    - strong [ref=f11e355]: 在目标平台人工发布
+                    - generic [ref=f11e356]: 使用锁定平台下的匹配账号。
+                - listitem [ref=f11e357]:
+                  - generic [ref=f11e358]: "3"
+                  - generic [ref=f11e359]:
+                    - strong [ref=f11e360]: 登记最终结果与证据
+                    - generic [ref=f11e361]: 填写最终 URL、发布时间和真实平台状态。
+                - listitem [ref=f11e362]:
+                  - generic [ref=f11e363]: "4"
+                  - generic [ref=f11e364]:
+                    - strong [ref=f11e365]: 完成人工页面验证
+                    - generic [ref=f11e366]: 确认页面可访问，且正文与锁定版本一致。
+                - listitem [ref=f11e367]:
+                  - generic [ref=f11e368]: "5"
+                  - generic [ref=f11e369]:
+                    - strong [ref=f11e370]: 显式处理发布异常
+                    - generic [ref=f11e371]: 验证失败或下线后进入关注和修复流程。
+            - generic [ref=f11e372]:
+              - generic [ref=f11e373]: 最近发布动态
+              - list [ref=f11e377]:
+                - listitem [ref=f11e1187]:
+                  - button "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） E2E-ACCEPT-20260730-002915-平台 · V2 check-circle 已验证 2026/7/30 01:09:23" [ref=f11e1188] [cursor=pointer]:
+                    - generic [ref=f11e1189]:
+                      - strong [ref=f11e1190]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）
+                      - generic [ref=f11e1191]: E2E-ACCEPT-20260730-002915-平台 · V2
+                    - generic [ref=f11e1192]:
+                      - generic [ref=f11e1193]:
+                        - img "check-circle" [ref=f11e1194]
+                        - generic [ref=f11e1198]: 已验证
+                      - time [ref=f11e1199]: 2026/7/30 01:09:23
+                - listitem [ref=f11e1078]:
+                  - button "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） E2E-ACCEPT-20260730-002915-平台 · V2 info-circle 已发布 2026/7/30 01:08:50" [ref=f11e1079] [cursor=pointer]:
+                    - generic [ref=f11e1080]:
+                      - strong [ref=f11e1081]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）
+                      - generic [ref=f11e1082]: E2E-ACCEPT-20260730-002915-平台 · V2
+                    - generic [ref=f11e1083]:
+                      - generic [ref=f11e1084]:
+                        - img "info-circle" [ref=f11e1085]
+                        - generic [ref=f11e1089]: 已发布
+                      - time [ref=f11e1090]: 2026/7/30 01:08:50
+                - listitem [ref=f11e956]:
+                  - button "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） E2E-ACCEPT-20260730-002915-平台 · V2 exclamation-circle 平台审核中 2026/7/30 01:08:19" [ref=f11e957] [cursor=pointer]:
+                    - generic [ref=f11e958]:
+                      - strong [ref=f11e959]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）
+                      - generic [ref=f11e960]: E2E-ACCEPT-20260730-002915-平台 · V2
+                    - generic [ref=f11e961]:
+                      - generic [ref=f11e962]:
+                        - img "exclamation-circle" [ref=f11e963]
+                        - generic [ref=f11e967]: 平台审核中
+                      - time [ref=f11e968]: 2026/7/30 01:08:19
+                - listitem [ref=f11e811]:
+                  - button "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） E2E-ACCEPT-20260730-002915-平台 · V2 exclamation-circle 待人工发布 2026/7/30 01:07:43" [ref=f11e812] [cursor=pointer]:
+                    - generic [ref=f11e813]:
+                      - strong [ref=f11e814]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）
+                      - generic [ref=f11e815]: E2E-ACCEPT-20260730-002915-平台 · V2
+                    - generic [ref=f11e816]:
+                      - generic [ref=f11e817]:
+                        - img "exclamation-circle" [ref=f11e818]
+                        - generic [ref=f11e822]: 待人工发布
+                      - time [ref=f11e823]: 2026/7/30 01:07:43
+                - listitem [ref=f11e378]:
+                  - button "E2E-ACCEPT-20260729-091241 发布修复草稿 E2E Example 20260729-091241 · V1 info-circle 已发布 2026/7/29 09:54:33" [ref=f11e379] [cursor=pointer]:
+                    - generic [ref=f11e380]:
+                      - strong [ref=f11e381]: E2E-ACCEPT-20260729-091241 发布修复草稿
+                      - generic [ref=f11e382]: E2E Example 20260729-091241 · V1
+                    - generic [ref=f11e383]:
+                      - generic [ref=f11e384]:
+                        - img "info-circle" [ref=f11e385]
+                        - generic [ref=f11e389]: 已发布
+                      - time [ref=f11e390]: 2026/7/29 09:54:33
+            - generic [ref=f11e442]:
+              - generic [ref=f11e443]: 常见异常类型
+              - generic [ref=f11e446]:
+                - button "平台拒绝 0" [ref=f11e447] [cursor=pointer]:
+                  - generic [ref=f11e448]: 平台拒绝
+                  - strong [ref=f11e449]: "0"
+                - button "页面验证失败 0" [ref=f11e450] [cursor=pointer]:
+                  - generic [ref=f11e451]: 页面验证失败
+                  - strong [ref=f11e452]: "0"
+                - button "页面已下线 0" [ref=f11e453] [cursor=pointer]:
+                  - generic [ref=f11e454]: 页面已下线
+                  - strong [ref=f11e455]: "0"
+                - generic [ref=f11e456]: 异常类型来自发布状态与开放的 PublicationAttention，不解析错误文案。
+            - generic [ref=f11e457]:
+              - generic [ref=f11e459]:
+                - generic [ref=f11e460]: 发布数据概览
+                - radiogroup "统计周期" [ref=f11e462]:
+                  - generic [ref=f11e463]:
+                    - generic [ref=f11e464] [cursor=pointer]:
+                      - radio "近 7 天" [checked]
+                      - generic "近 7 天" [ref=f11e465]
+                    - generic [ref=f11e466] [cursor=pointer]:
+                      - radio "近 30 天"
+                      - generic "近 30 天" [ref=f11e467]
+              - generic [ref=f11e468]:
+                - generic [ref=f11e469]:
+                  - generic [ref=f11e470]:
+                    - generic [ref=f11e471]: 登记发布数
+                    - strong [ref=f11e472]: "4"
+                  - generic [ref=f11e473]:
+                    - generic [ref=f11e474]: 验证通过数
+                    - strong [ref=f11e475]: "2"
+                  - generic [ref=f11e476]:
+                    - generic [ref=f11e477]: 验证通过率
+                    - strong [ref=f11e478]: 50%
+                    - progressbar [ref=f11e479]
+                  - generic [ref=f11e483]:
+                    - generic [ref=f11e484]: 新增异常数
+                    - strong [ref=f11e485]: "1"
+                  - generic [ref=f11e486]:
+                    - generic [ref=f11e487]: 当前未解决异常
+                    - strong [ref=f11e488]: "0"
+                - generic [ref=f11e489]: 窗口：2026/7/23 01:09:24 至 2026/7/30 01:09:24
+  - dialog "发布结果登记" [ref=f11e832]:
+    - generic [ref=f11e834]:
+      - button "关闭" [ref=f11e835] [cursor=pointer]:
+        - img "close" [ref=f11e836]
+      - generic [ref=f11e839]: 发布结果登记
+    - generic [ref=f11e841]:
+      - table [ref=f11e846]:
+        - rowgroup [ref=f11e847]:
+          - row [ref=f11e1200]:
+            - 'cell "发布状态 : check-circle 已验证" [ref=f11e1201]':
+              - generic [ref=f11e850]:
+                - generic [ref=f11e851]: "发布状态 :"
+                - generic [ref=f11e853]:
+                  - img "check-circle" [ref=f11e1202]
+                  - generic [ref=f11e858]: 已验证
+          - row [ref=f11e859]:
+            - 'cell "锁定内容 : E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） · V2" [ref=f11e860]':
+              - generic [ref=f11e861]:
+                - generic [ref=f11e862]: "锁定内容 :"
+                - generic [ref=f11e863]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） · V2
+          - row [ref=f11e864]:
+            - 'cell "目标平台 : E2E-ACCEPT-20260730-002915-平台" [ref=f11e865]':
+              - generic [ref=f11e866]:
+                - generic [ref=f11e867]: "目标平台 :"
+                - generic [ref=f11e868]: E2E-ACCEPT-20260730-002915-平台
+          - row [ref=f11e869]:
+            - 'cell "发布账号 : E2E-ACCEPT-20260730-002915-发布账号 / E2E-ACCEPT-20260730-002915-account" [ref=f11e870]':
+              - generic [ref=f11e871]:
+                - generic [ref=f11e872]: "发布账号 :"
+                - generic [ref=f11e873]: E2E-ACCEPT-20260730-002915-发布账号 / E2E-ACCEPT-20260730-002915-account
+          - row [ref=f11e874]:
+            - 'cell "内容哈希 : e2679ce514b9179d1943bf96981f2584eb2bae8efa4ae54688fdef15bd495ab6" [ref=f11e875]':
+              - generic [ref=f11e876]:
+                - generic [ref=f11e877]: "内容哈希 :"
+                - generic [ref=f11e878]: e2679ce514b9179d1943bf96981f2584eb2bae8efa4ae54688fdef15bd495ab6
+          - row [ref=f11e880]:
+            - 'cell "目标栏目 : 打开栏目 link" [ref=f11e881]':
+              - generic [ref=f11e882]:
+                - generic [ref=f11e883]: "目标栏目 :"
+                - link [ref=f11e885] [cursor=pointer]:
+                  - /url: https://example.com/e2e-accept-20260730-002915/section
+                  - text: 打开栏目
+                  - img "link" [ref=f11e886]
+          - row [ref=f11e1097]:
+            - 'cell "实际标题 : E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（模拟发布）" [ref=f11e1098]':
+              - generic [ref=f11e891]:
+                - generic [ref=f11e892]: "实际标题 :"
+                - generic [ref=f11e893]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（模拟发布）
+          - row [ref=f11e1099]:
+            - 'cell "最终 URL : 打开页面 link" [ref=f11e1100]':
+              - generic [ref=f11e896]:
+                - generic [ref=f11e897]: "最终 URL :"
+                - link [ref=f11e1101] [cursor=pointer]:
+                  - /url: https://example.com/e2e-accept-20260730-002915/article
+                  - text: 打开页面
+                  - img "link" [ref=f11e1102]
+          - row [ref=f11e1105]:
+            - 'cell "发布时间 : 2026/7/30 01:08:00" [ref=f11e1106]':
+              - generic [ref=f11e901]:
+                - generic [ref=f11e902]: "发布时间 :"
+                - generic [ref=f11e903]: 2026/7/30 01:08:00
+      - generic "服务端允许的操作" [ref=f11e904]:
+        - button "标记已移除" [ref=f11e1109] [cursor=pointer]
+        - button "标记验证失败" [ref=f11e1111] [cursor=pointer]
+      - generic [ref=f11e911]:
+        - generic [ref=f11e912]: 状态轨迹
+        - list [ref=f11e916]:
+          - listitem [ref=f11e917]:
+            - generic [ref=f11e921]:
+              - generic [ref=f11e922]:
+                - img "exclamation-circle" [ref=f11e923]
+                - generic [ref=f11e927]: 待人工发布
+              - text: 创建人工发布登记2026/7/30 01:07:43
+          - listitem [ref=f11e974]:
+            - generic [ref=f11e978]:
+              - generic [ref=f11e979]:
+                - img "exclamation-circle" [ref=f11e980]
+                - generic [ref=f11e984]: 平台审核中
+              - text: E2E-ACCEPT-20260730-002915 模拟向测试平台提交审核，不发生真实外部发布。2026/7/30 01:08:19
+          - listitem [ref=f11e1114]:
+            - generic [ref=f11e1118]:
+              - generic [ref=f11e1119]:
+                - img "info-circle" [ref=f11e1120]
+                - generic [ref=f11e1124]: 已发布
+              - text: E2E-ACCEPT-20260730-002915 仅在系统内登记 example.com 测试 URL，未向任何第三方真实发布。2026/7/30 01:08:50
+          - listitem [ref=f11e1207]:
+            - generic [ref=f11e1211]:
+              - generic [ref=f11e1212]:
+                - img "check-circle" [ref=f11e1213]
+                - generic [ref=f11e1217]: 已验证
+              - text: E2E-ACCEPT-20260730-002915 系统内模拟人工核对，确认登记正文与批准 V2 一致；example.com 未真实托管内容。2026/7/30 01:09:23

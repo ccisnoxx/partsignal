@@ -1,0 +1,221 @@
+- generic [ref=f5e1]:
+  - generic [ref=f5e4]:
+    - complementary [ref=f5e5]:
+      - generic [ref=f5e6]:
+        - strong [ref=f5e12]: PartSignal
+        - menu [ref=f5e13]:
+          - text: 内容工作流
+          - group [ref=f5e14]:
+            - menuitem [ref=f5e15] [cursor=pointer]:
+              - img "bar-chart" [ref=f5e16]
+              - link "工作台" [ref=f5e20]:
+                - /url: /
+            - menuitem [ref=f5e21] [cursor=pointer]:
+              - img "database" [ref=f5e22]
+              - link "产品事实" [ref=f5e26]:
+                - /url: /products
+            - menuitem [ref=f5e27] [cursor=pointer]:
+              - img "file-text" [ref=f5e28]
+              - link "内容任务" [ref=f5e32]:
+                - /url: /tasks
+            - menuitem [ref=f5e33] [cursor=pointer]:
+              - img "rocket" [ref=f5e34]
+              - link "发布管理" [ref=f5e38]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f5e39] [cursor=pointer]:
+              - img "bar-chart" [ref=f5e40]
+              - generic [ref=f5e43]: GEO 观测
+          - text: 系统管理
+          - group [ref=f5e44]:
+            - menuitem "setting 业务设置" [ref=f5e45] [cursor=pointer]:
+              - img "setting" [ref=f5e46]
+              - generic [ref=f5e49]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f5e50] [cursor=pointer]:
+              - img "safety-certificate" [ref=f5e51]
+              - generic [ref=f5e54]: 审计与安全
+            - menuitem "tool 配置中心" [ref=f5e55] [cursor=pointer]:
+              - img "tool" [ref=f5e56]
+              - generic [ref=f5e59]: 配置中心
+        - button "收起导航" [ref=f5e60] [cursor=pointer]:
+          - img "menu-fold" [ref=f5e62]
+          - generic [ref=f5e65]: 收起
+    - generic [ref=f5e66]:
+      - banner [ref=f5e67]:
+        - generic [ref=f5e70]:
+          - generic [ref=f5e71]: PARTSIGNAL
+          - strong [ref=f5e73]: 内容审核
+        - generic [ref=f5e76] [cursor=pointer]:
+          - img "search" [ref=f5e78]
+          - combobox "全局页面搜索" [ref=f5e81]
+          - generic [ref=f5e82]: ⌘K
+        - generic [ref=f5e84]:
+          - button "主题：跟随系统" [ref=f5e86] [cursor=pointer]:
+            - img "desktop" [ref=f5e88]
+            - generic [ref=f5e91]: 跟随系统
+          - button "打开用户操作菜单" [ref=f5e93] [cursor=pointer]:
+            - generic [ref=f5e94]: 系
+            - generic [ref=f5e96]:
+              - strong [ref=f5e97]: 系统管理员
+              - generic [ref=f5e98]: admin
+            - img "down" [ref=f5e99]
+      - main [ref=f5e102]:
+        - generic [ref=f5e103]:
+          - generic [ref=f5e104]:
+            - link "返回内容任务" [ref=f5e105] [cursor=pointer]:
+              - /url: /tasks/420858be-050f-4ea2-99ac-7f68938c4e73
+            - generic [ref=f5e109]: 内容编辑与审核
+          - generic [ref=f5e110]:
+            - complementary "内容队列" [ref=f5e111]:
+              - generic [ref=f5e112]:
+                - generic [ref=f5e113]: 内容队列
+                - group [ref=f5e123]:
+                  - navigation "同任务内容版本" [ref=f5e379]:
+                    - link "完全虚构验收器件｜PUBLIC 测试信息｜补充验收修订 E2E-ACCEPT-20260730-002915-平台 任务 420858be 2026/7/30 02:32:38" [ref=f5e380] [cursor=pointer]:
+                      - /url: /content/96d6a77f-7606-4f2f-a6e8-c4186dc476e2
+                      - strong [ref=f5e381]: 完全虚构验收器件｜PUBLIC 测试信息｜补充验收修订
+                      - generic [ref=f5e382]: E2E-ACCEPT-20260730-002915-平台
+                      - generic [ref=f5e383]:
+                        - generic [ref=f5e384]: 任务 420858be
+                        - time [ref=f5e385]: 2026/7/30 02:32:38
+                    - link "完全虚构验收器件｜PUBLIC 测试信息 E2E-ACCEPT-20260730-002915-平台 任务 420858be 2026/7/30 02:30:58" [ref=f5e386] [cursor=pointer]:
+                      - /url: /content/05da12ad-db90-47ff-b8f7-5472441cea6f
+                      - strong [ref=f5e387]: 完全虚构验收器件｜PUBLIC 测试信息
+                      - generic [ref=f5e388]: E2E-ACCEPT-20260730-002915-平台
+                      - generic [ref=f5e389]:
+                        - generic [ref=f5e390]: 任务 420858be
+                        - time [ref=f5e391]: 2026/7/30 02:30:58
+            - main [ref=f5e135]:
+              - generic [ref=f5e137]:
+                - generic [ref=f5e138]:
+                  - generic [ref=f5e139]:
+                    - generic [ref=f5e140]: 正文工作区 / Markdown · V2
+                    - heading "完全虚构验收器件｜PUBLIC 测试信息｜补充验收修订" [level=1] [ref=f5e148]
+                    - generic [ref=f5e150]:
+                      - generic [ref=f5e151]: 人工编辑
+                      - generic [ref=f5e153]: 任务 420858be
+                      - generic [ref=f5e156]:
+                        - text: 任务状态
+                        - generic [ref=f5e157]:
+                          - img "info-circle" [ref=f5e158]
+                          - generic [ref=f5e162]: 进行中
+                      - generic [ref=f5e392]: 平台 · E2E-ACCEPT-20260730-002915-平台
+                      - generic "293f6c76-50b6-4b13-9674-1268b46f9c06" [ref=f5e164]: 创建人 293f6c76
+                      - time [ref=f5e166]: 2026/7/30 02:32:38
+                  - generic [ref=f5e169]:
+                    - img "exclamation-circle" [ref=f5e415]
+                    - generic [ref=f5e419]: 待审核
+                - generic [ref=f5e170]:
+                  - tablist [ref=f5e171]:
+                    - generic [ref=f5e173]:
+                      - tab "编辑" [selected] [ref=f5e175] [cursor=pointer]
+                      - tab "预览" [ref=f5e183] [cursor=pointer]
+                      - tab "Markdown 源文" [ref=f5e191] [cursor=pointer]
+                      - tab "版本差异" [ref=f5e199] [cursor=pointer]
+                  - tabpanel "编辑" [ref=f5e202]:
+                    - region "创建人工修订" [ref=f5e203]:
+                      - generic [ref=f5e204]:
+                        - alert [ref=f5e205]:
+                          - img "info-circle" [ref=f5e207]
+                          - generic [ref=f5e210]: 人工修订会创建新的不可变内容版本，Markdown 仍是唯一可编辑正文源。
+                        - generic [ref=f5e212]:
+                          - tablist [ref=f5e213]:
+                            - generic [ref=f5e215]:
+                              - tab "编辑 Markdown" [selected] [ref=f5e217] [cursor=pointer]
+                              - tab "预览修订" [ref=f5e219] [cursor=pointer]
+                          - generic:
+                            - generic:
+                              - tabpanel "编辑 Markdown"
+                        - generic [ref=f5e220]:
+                          - generic [ref=f5e221]:
+                            - generic [ref=f5e223]:
+                              - generic "标题" [ref=f5e225]: "* 标题"
+                              - textbox "* 标题" [ref=f5e229]: 完全虚构验收器件｜PUBLIC 测试信息｜补充验收修订
+                            - generic [ref=f5e231]:
+                              - generic "标签" [ref=f5e233]: "* 标签"
+                              - generic [ref=f5e237]:
+                                - generic [ref=f5e238]:
+                                  - generic "PUBLIC" [ref=f5e240]
+                                  - generic "完全虚构验收器件" [ref=f5e247]
+                                  - generic "测试用途" [ref=f5e254]
+                                  - generic "PartSignal" [ref=f5e261]
+                                  - generic "部署验收" [ref=f5e268]
+                                  - combobox "* 标签" [ref=f5e275]
+                                - img "down" [ref=f5e277]
+                            - generic [ref=f5e281]:
+                              - generic "摘要" [ref=f5e283]: "* 摘要"
+                              - textbox "* 摘要" [ref=f5e287]: 该完全虚构验收器件用于验证 PartSignal 的事实审核、内容草稿与发布登记流程；公开测试条件包括 1 V 至 5 V 供电范围及 -10 °C 至 60 °C 工作温度。
+                          - generic [ref=f5e289]:
+                            - generic "Markdown 正文" [ref=f5e291]: "* Markdown 正文"
+                            - textbox "* Markdown 正文" [ref=f5e295]: "## 产品概述 - **产品类别**：完全虚构验收器件 - **对外披露级别**：PUBLIC ## 测试用途 本器件的测试用途为：**验证 PartSignal 的事实审核、内容草稿与发布登记流程**。 > 本产品及本文所列数据均为完全虚构的部署验收数据，不对应任何真实器件。 ## 公开测试条件 | 项目 | 测试范围 | |---|---| | 测试供电范围 | 1 V 至 5 V | | 测试工作温度 | -10 °C 至 60 °C | ## 测试标注 上述供电范围与工作温度仅用于本次虚构部署验收的测试场景，不应视为真实产品规格、设计保证或应用建议。"
+                          - generic [ref=f5e297]:
+                            - generic "变更说明" [ref=f5e299]: "* 变更说明"
+                            - textbox "* 变更说明" [ref=f5e303]:
+                              - /placeholder: 说明为什么创建这个新版本
+                        - generic [ref=f5e304]:
+                          - generic [ref=f5e305]:
+                            - strong [ref=f5e307]: 尚未修改
+                            - generic [ref=f5e308]: 提交成功后将打开新版本，不会修改当前版本。
+                          - button "save 创建新版本" [disabled] [ref=f5e309]:
+                            - generic:
+                              - img "save"
+                            - generic: 创建新版本
+            - complementary "质量检查与审核决策" [ref=f5e310]:
+              - generic [ref=f5e311]:
+                - generic [ref=f5e312]: 质量与审核
+                - generic [ref=f5e321]:
+                  - generic "质量问题统计" [ref=f5e322]:
+                    - generic [ref=f5e323]:
+                      - generic [ref=f5e324]: 阻断问题
+                      - strong [ref=f5e325]: "0"
+                    - generic [ref=f5e326]:
+                      - generic [ref=f5e327]: 优化建议
+                      - strong [ref=f5e328]: "0"
+                  - generic [ref=f5e329]:
+                    - tablist [ref=f5e330]:
+                      - generic [ref=f5e332]:
+                        - tab "质量检查" [selected] [ref=f5e334] [cursor=pointer]
+                        - tab "产品事实" [ref=f5e336] [cursor=pointer]
+                        - tab "审核记录" [ref=f5e338] [cursor=pointer]
+                    - tabpanel "质量检查" [ref=f5e347]:
+                      - region "质量检查" [ref=f5e348]:
+                        - region "阻断问题" [ref=f5e349]:
+                          - generic [ref=f5e350]:
+                            - generic [ref=f5e351]:
+                              - generic [ref=f5e353]:
+                                - img "close-circle" [ref=f5e354]
+                                - generic [ref=f5e357]: 阻断
+                              - strong [ref=f5e359]: 阻断问题
+                            - generic [ref=f5e360]: "0"
+                          - text: 当前没有此类问题。
+                        - region "优化建议" [ref=f5e361]:
+                          - generic [ref=f5e362]:
+                            - generic [ref=f5e363]:
+                              - generic [ref=f5e365]:
+                                - img "exclamation-circle" [ref=f5e366]
+                                - generic [ref=f5e370]: 警告
+                              - strong [ref=f5e372]: 优化建议
+                            - generic [ref=f5e373]: "0"
+                          - text: 当前没有此类问题。
+                  - generic [ref=f5e374]:
+                    - generic [ref=f5e375]: 操作由服务端当前状态与权限决定
+                    - generic [ref=f5e376]:
+                      - button "批准内容" [ref=f5e420] [cursor=pointer]
+                      - button "退回修改" [ref=f5e426] [cursor=pointer]
+  - generic [ref=f5e435]:
+    - dialog "批准内容":
+      - generic [ref=f5e436]:
+        - button "Close" [active] [ref=f5e437] [cursor=pointer]:
+          - generic "关闭" [ref=f5e438]:
+            - img "close" [ref=f5e439]
+        - generic [ref=f5e442]: 批准内容
+        - generic [ref=f5e444]:
+          - alert [ref=f5e445]:
+            - img "exclamation-circle" [ref=f5e447]
+            - generic [ref=f5e450]:
+              - generic [ref=f5e451]: 请显式确认批准
+              - generic [ref=f5e452]: 批准后该不可变版本可进入人工发布；服务端仍会复核冻结事实和阻断质量问题。
+          - generic [ref=f5e453]:
+            - generic [ref=f5e455]:
+              - generic "审核意见" [ref=f5e457]
+              - textbox "审核意见" [ref=f5e461]
+            - button "确认批准" [ref=f5e462] [cursor=pointer]

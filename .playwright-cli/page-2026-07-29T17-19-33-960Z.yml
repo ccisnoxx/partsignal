@@ -1,0 +1,397 @@
+- generic [ref=f16e6]:
+  - complementary [ref=f16e7]:
+    - generic [ref=f16e8]:
+      - strong [ref=f16e14]: PartSignal
+      - menu [ref=f16e1690]:
+        - text: 内容工作流
+        - group [ref=f16e1691]:
+          - menuitem [ref=f16e1692] [cursor=pointer]:
+            - img "bar-chart" [ref=f16e1693]
+            - link "工作台" [ref=f16e1697]:
+              - /url: /
+          - menuitem [ref=f16e1698] [cursor=pointer]:
+            - img "database" [ref=f16e1699]
+            - link "产品事实" [ref=f16e1703]:
+              - /url: /products
+          - menuitem [ref=f16e1704] [cursor=pointer]:
+            - img "file-text" [ref=f16e1705]
+            - link "内容任务" [ref=f16e1709]:
+              - /url: /tasks
+          - menuitem [ref=f16e1710] [cursor=pointer]:
+            - img "rocket" [ref=f16e1711]
+            - link "发布管理" [ref=f16e1715]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [expanded] [ref=f16e1716] [cursor=pointer]:
+            - img "bar-chart" [ref=f16e1717]
+            - generic [ref=f16e1720]: GEO 观测
+          - menu [ref=f16e1721]:
+            - menuitem [ref=f16e1722] [cursor=pointer]:
+              - link "观测记录" [ref=f16e1724]:
+                - /url: /observations
+            - menuitem [ref=f16e1725] [cursor=pointer]:
+              - link "分析洞察" [ref=f16e1727]:
+                - /url: /observations/insights
+            - menuitem [ref=f16e1728] [cursor=pointer]:
+              - link "GEO 问题库" [ref=f16e1730]:
+                - /url: /observations/topics
+        - text: 系统管理
+        - group [ref=f16e1731]:
+          - menuitem "setting 业务设置" [ref=f16e1732] [cursor=pointer]:
+            - img "setting" [ref=f16e1733]
+            - generic [ref=f16e1736]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f16e1737] [cursor=pointer]:
+            - img "safety-certificate" [ref=f16e1738]
+            - generic [ref=f16e1741]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f16e1742] [cursor=pointer]:
+            - img "tool" [ref=f16e1743]
+            - generic [ref=f16e1746]: 配置中心
+      - button "收起导航" [ref=f16e72] [cursor=pointer]:
+        - img "menu-fold" [ref=f16e74]
+        - generic [ref=f16e77]: 收起
+  - generic [ref=f16e78]:
+    - banner [ref=f16e79]:
+      - generic [ref=f16e82]:
+        - strong [ref=f16e84]: GEO 观测
+        - generic [ref=f16e85]: /
+        - generic [ref=f16e86]: 分析洞察
+      - generic [ref=f16e89] [cursor=pointer]:
+        - img "search" [ref=f16e91]
+        - combobox "全局页面搜索" [ref=f16e94]
+        - generic [ref=f16e95]: ⌘K
+      - generic [ref=f16e97]:
+        - button "主题：跟随系统" [ref=f16e99] [cursor=pointer]:
+          - img "desktop" [ref=f16e101]
+          - generic [ref=f16e104]: 跟随系统
+        - button "打开用户操作菜单" [ref=f16e106] [cursor=pointer]:
+          - generic [ref=f16e107]: E
+          - generic [ref=f16e109]:
+            - strong [ref=f16e110]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=f16e111]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=f16e112]
+    - main [active] [ref=f16e115]:
+      - generic [ref=f16e1747]:
+        - generic [ref=f16e1748]:
+          - generic [ref=f16e1749]:
+            - heading "GEO 分析洞察" [level=1] [ref=f16e1750]
+            - generic [ref=f16e1751]: 基于真实人工观测比较趋势、平台表现、内容覆盖与行动建议。
+          - generic [ref=f16e1752]:
+            - status "数据质量：完整 3 条 · 排除观测 0 条 · 排除关系 0 条；NO_COMPLETE_PREVIOUS_OBSERVATIONS：相邻比较周期没有字段完整的链尾人工观测，环比和下降分析不可用。" [ref=f16e1754]:
+              - generic [ref=f16e1759]: 完整 3 条
+              - generic [ref=f16e1760]: · 1 项限制
+            - link "export 导出洞察报告" [ref=f16e1762] [cursor=pointer]:
+              - /url: /observations/insights/print?date_from=2026-06-30&date_to=2026-07-29
+              - img "export" [ref=f16e1764]
+              - generic [ref=f16e1767]: 导出洞察报告
+        - navigation "GEO 观测页面" [ref=f16e1768]:
+          - link "观测记录" [ref=f16e1769] [cursor=pointer]:
+            - /url: /observations
+          - link "分析洞察" [ref=f16e1770] [cursor=pointer]:
+            - /url: /observations/insights
+        - generic [ref=f16e1771]:
+          - generic [ref=f16e1773]:
+            - generic [ref=f16e1774]: 分析筛选器
+            - button "收起筛选" [ref=f16e1776] [cursor=pointer]:
+              - img "up" [ref=f16e1778]
+              - generic [ref=f16e1781]: 收起
+          - search "分析洞察筛选" [ref=f16e1783]:
+            - generic [ref=f16e1784]:
+              - generic [ref=f16e1785]: 时间范围
+              - generic [ref=f16e1786]:
+                - generic [ref=f16e1787]: 近 30 天
+                - textbox "时间范围" [ref=f16e1790]:
+                  - /placeholder: 开始日期
+                  - text: "6.30"
+                - generic "to" [ref=f16e1792]: –
+                - textbox "时间范围" [ref=f16e1794]:
+                  - /placeholder: 结束日期
+                  - text: "7.29"
+            - generic [ref=f16e1795]:
+              - generic [ref=f16e1796]: 内容平台
+              - generic [ref=f16e1797]:
+                - generic [ref=f16e1798]:
+                  - generic: 全部平台
+                  - combobox "内容平台" [ref=f16e1799]
+                - img "down" [ref=f16e1801]
+            - generic [ref=f16e1804]:
+              - generic [ref=f16e1805]: GEO 观测平台
+              - generic [ref=f16e1806]:
+                - generic [ref=f16e1807]:
+                  - generic: 全部平台
+                  - combobox "GEO 观测平台" [ref=f16e1808]
+                - img "down" [ref=f16e1810]
+            - generic [ref=f16e1813]:
+              - generic [ref=f16e1814]: 发布内容
+              - generic [ref=f16e1815]:
+                - generic [ref=f16e1816]:
+                  - generic: 全部内容
+                  - combobox "发布内容" [ref=f16e1817]
+                - img "down" [ref=f16e1819]
+            - generic [ref=f16e1822]:
+              - generic [ref=f16e1823]: 搜索问题
+              - generic [ref=f16e1824]:
+                - generic [ref=f16e1825]:
+                  - generic: 全部问题
+                  - combobox "搜索问题" [ref=f16e1826]
+                - img "down" [ref=f16e1828]
+            - button "重置" [ref=f16e1831] [cursor=pointer]:
+              - generic [ref=f16e1832]: 重 置
+        - generic [ref=f16e1833]:
+          - generic [ref=f16e1835]:
+            - generic [ref=f16e1836]: GEO 指标趋势
+            - generic [ref=f16e1837]: 对比期：2026-05-31 – 2026-06-29
+          - region "GEO 指标趋势" [ref=f16e1840]:
+            - article [ref=f16e1841]:
+              - generic [ref=f16e1842]:
+                - generic [ref=f16e1843]:
+                  - generic [ref=f16e1844]: "07.29"
+                  - strong [ref=f16e1845]: 100.0%
+                - generic [ref=f16e1846]:
+                  - text: 发现率
+                  - strong [ref=f16e1847]: 100.0%
+                - generic [ref=f16e1848]:
+                  - generic [ref=f16e1849]: 上一周期 暂无数据
+                  - generic [ref=f16e1850]: 不可计算
+                - generic [ref=f16e1851]:
+                  - generic [ref=f16e1852]:
+                    - generic [ref=f16e1853]: 100%
+                    - generic [ref=f16e1854]: 50%
+                    - generic [ref=f16e1855]: 0%
+                  - generic [ref=f16e1856]:
+                    - img "发现率趋势：2026-06-30 至 2026-07-29，当前 100.0%，上一周期 暂无数据，变化 不可计算。3 / 3 条关系。使用左右方向键浏览每日数据。" [ref=f16e1857]
+                    - generic [ref=f16e1888]:
+                      - generic [ref=f16e1889]: "06.30"
+                      - generic [ref=f16e1890]: "07.29"
+            - article [ref=f16e1891]:
+              - generic [ref=f16e1892]:
+                - generic [ref=f16e1893]:
+                  - generic [ref=f16e1894]: "07.29"
+                  - strong [ref=f16e1895]: 100.0%
+                - generic [ref=f16e1896]:
+                  - text: 提及率
+                  - strong [ref=f16e1897]: 100.0%
+                - generic [ref=f16e1898]:
+                  - generic [ref=f16e1899]: 上一周期 暂无数据
+                  - generic [ref=f16e1900]: 不可计算
+                - generic [ref=f16e1901]:
+                  - generic [ref=f16e1902]:
+                    - generic [ref=f16e1903]: 100%
+                    - generic [ref=f16e1904]: 50%
+                    - generic [ref=f16e1905]: 0%
+                  - generic [ref=f16e1906]:
+                    - img "提及率趋势：2026-06-30 至 2026-07-29，当前 100.0%，上一周期 暂无数据，变化 不可计算。3 / 3 条关系。使用左右方向键浏览每日数据。" [ref=f16e1907]
+                    - generic [ref=f16e1938]:
+                      - generic [ref=f16e1939]: "06.30"
+                      - generic [ref=f16e1940]: "07.29"
+            - article [ref=f16e1941]:
+              - generic [ref=f16e1942]:
+                - generic [ref=f16e1943]:
+                  - generic [ref=f16e1944]: "07.29"
+                  - strong [ref=f16e1945]: 66.7%
+                - generic [ref=f16e1946]:
+                  - text: 结果准确率
+                  - strong [ref=f16e1947]: 66.7%
+                - generic [ref=f16e1948]:
+                  - generic [ref=f16e1949]: 上一周期 暂无数据
+                  - generic [ref=f16e1950]: 不可计算
+                - generic [ref=f16e1951]:
+                  - generic [ref=f16e1952]:
+                    - generic [ref=f16e1953]: 100%
+                    - generic [ref=f16e1954]: 50%
+                    - generic [ref=f16e1955]: 0%
+                  - generic [ref=f16e1956]:
+                    - img "结果准确率趋势：2026-06-30 至 2026-07-29，当前 66.7%，上一周期 暂无数据，变化 不可计算。2 / 3 条关系。使用左右方向键浏览每日数据。" [ref=f16e1957]
+                    - generic [ref=f16e1989]:
+                      - generic [ref=f16e1990]: "06.30"
+                      - generic [ref=f16e1991]: "07.29"
+        - generic [ref=f16e1992]:
+          - generic [ref=f16e1993]: 平台表现对比
+          - generic [ref=f16e1996]:
+            - generic "平台表现图例" [ref=f16e1997]:
+              - generic [ref=f16e1998]: 发现率
+              - generic [ref=f16e2000]: 提及率
+              - generic [ref=f16e2002]: 准确率
+            - region "GEO 平台表现" [ref=f16e2004]:
+              - table [ref=f16e2011]:
+                - rowgroup [ref=f16e2018]:
+                  - row [ref=f16e2019]:
+                    - columnheader "GEO 平台" [ref=f16e2020]
+                    - columnheader "观测次数" [ref=f16e2021]
+                    - columnheader "发现率" [ref=f16e2022]
+                    - columnheader "提及率" [ref=f16e2023]
+                    - columnheader "准确率" [ref=f16e2024]
+                - rowgroup [ref=f16e2025]:
+                  - row [ref=f16e2026]:
+                    - cell "GEO E2E 模拟搜索" [ref=f16e2027]:
+                      - generic [ref=f16e2028]:
+                        - generic [ref=f16e2029]: GEO
+                        - strong [ref=f16e2030]: E2E 模拟搜索
+                    - cell "1" [ref=f16e2031]
+                    - cell [ref=f16e2032]:
+                      - generic "100.0%，1 / 1 条关系" [ref=f16e2033]: 100.0%
+                    - cell [ref=f16e2037]:
+                      - generic "100.0%，1 / 1 条关系" [ref=f16e2038]: 100.0%
+                    - cell [ref=f16e2042]:
+                      - generic "100.0%，1 / 1 条关系" [ref=f16e2043]: 100.0%
+                  - row [ref=f16e2047]:
+                    - cell "GEO E2E-ACCEPT-20260730-002915 人工测试搜索平台" [ref=f16e2048]:
+                      - generic [ref=f16e2049]:
+                        - generic [ref=f16e2050]: GEO
+                        - strong [ref=f16e2051]: E2E-ACCEPT-20260730-002915 人工测试搜索平台
+                    - cell "1" [ref=f16e2052]
+                    - cell [ref=f16e2053]:
+                      - generic "100.0%，1 / 1 条关系" [ref=f16e2054]: 100.0%
+                    - cell [ref=f16e2058]:
+                      - generic "100.0%，1 / 1 条关系" [ref=f16e2059]: 100.0%
+                    - cell [ref=f16e2063]:
+                      - generic "100.0%，1 / 1 条关系" [ref=f16e2064]: 100.0%
+                  - row [ref=f16e2068]:
+                    - cell "GEO 豆包" [ref=f16e2069]:
+                      - generic [ref=f16e2070]:
+                        - generic [ref=f16e2071]: GEO
+                        - strong [ref=f16e2072]: 豆包
+                    - cell "1" [ref=f16e2073]
+                    - cell [ref=f16e2074]:
+                      - generic "100.0%，1 / 1 条关系" [ref=f16e2075]: 100.0%
+                    - cell [ref=f16e2079]:
+                      - generic "100.0%，1 / 1 条关系" [ref=f16e2080]: 100.0%
+                    - cell [ref=f16e2084]:
+                      - generic "0.0%，0 / 1 条关系" [ref=f16e2085]: 0.0%
+        - generic [ref=f16e2088]:
+          - generic [ref=f16e2089]: 内容表现排行
+          - region "内容表现排行" [ref=f16e2093]:
+            - region "表现最佳内容 Top 5" [ref=f16e2094]:
+              - heading "trophy 表现最佳内容 Top 5" [level=3] [ref=f16e2095]:
+                - img "trophy" [ref=f16e2096]
+                - generic [ref=f16e2099]: 表现最佳内容 Top 5
+              - generic [ref=f16e2100]:
+                - img "暂无数据" [ref=f16e2102]
+                - generic [ref=f16e2108]: 当前筛选范围暂无符合门槛的内容
+            - region "表现下降内容 Top 5" [ref=f16e2109]:
+              - heading "fall 表现下降内容 Top 5" [level=3] [ref=f16e2110]:
+                - img "fall" [ref=f16e2111]
+                - generic [ref=f16e2114]: 表现下降内容 Top 5
+              - generic [ref=f16e2115]:
+                - img "暂无数据" [ref=f16e2117]
+                - generic [ref=f16e2123]: 相邻比较周期没有字段完整的链尾人工观测，环比和下降分析不可用。
+            - region "长期未获得提及的内容 Top 5" [ref=f16e2124]:
+              - heading "warning 长期未获得提及的内容 Top 5" [level=3] [ref=f16e2125]:
+                - img "warning" [ref=f16e2126]
+                - generic [ref=f16e2129]: 长期未获得提及的内容 Top 5
+              - generic [ref=f16e2130]:
+                - img "暂无数据" [ref=f16e2132]
+                - generic [ref=f16e2138]: 当前筛选范围暂无符合门槛的内容
+        - generic [ref=f16e2139]:
+          - generic [ref=f16e2140]:
+            - generic [ref=f16e2141]: 搜索问题分析
+            - generic [ref=f16e2144]:
+              - region "搜索问题覆盖计数" [ref=f16e2145]:
+                - table "覆盖状态与 GEO 平台计数" [ref=f16e2146]:
+                  - rowgroup [ref=f16e2147]:
+                    - row [ref=f16e2148]:
+                      - columnheader "覆盖状态" [ref=f16e2149]
+                      - columnheader "E2E 模拟搜索" [ref=f16e2150]
+                      - columnheader "E2E-ACCEPT-20260730-002915 人工测试搜索平台" [ref=f16e2151]
+                      - columnheader "豆包" [ref=f16e2152]
+                      - columnheader "合计" [ref=f16e2153]
+                  - rowgroup [ref=f16e2154]:
+                    - row [ref=f16e2155]:
+                      - rowheader "check-circle 稳定覆盖" [ref=f16e2156]:
+                        - generic [ref=f16e2157]:
+                          - img "check-circle" [ref=f16e2158]
+                          - generic [ref=f16e2162]: 稳定覆盖
+                      - cell "0" [ref=f16e2163]
+                      - cell "0" [ref=f16e2164]
+                      - cell "0" [ref=f16e2165]
+                      - cell [ref=f16e2166]:
+                        - strong [ref=f16e2167]: "0"
+                    - row [ref=f16e2168]:
+                      - rowheader "exclamation-circle 偶尔命中" [ref=f16e2169]:
+                        - generic [ref=f16e2170]:
+                          - img "exclamation-circle" [ref=f16e2171]
+                          - generic [ref=f16e2175]: 偶尔命中
+                      - cell "0" [ref=f16e2176]
+                      - cell "0" [ref=f16e2177]
+                      - cell "0" [ref=f16e2178]
+                      - cell [ref=f16e2179]:
+                        - strong [ref=f16e2180]: "0"
+                    - row [ref=f16e2181]:
+                      - rowheader "close-circle 尚未覆盖" [ref=f16e2182]:
+                        - generic [ref=f16e2183]:
+                          - img "close-circle" [ref=f16e2184]
+                          - generic [ref=f16e2187]: 尚未覆盖
+                      - cell "0" [ref=f16e2188]
+                      - cell "0" [ref=f16e2189]
+                      - cell "0" [ref=f16e2190]
+                      - cell [ref=f16e2191]:
+                        - strong [ref=f16e2192]: "0"
+                    - row [ref=f16e2193]:
+                      - rowheader "数据不足" [ref=f16e2194]
+                      - cell "3" [ref=f16e2196]
+                      - cell "3" [ref=f16e2197]
+                      - cell "3" [ref=f16e2198]
+                      - cell [ref=f16e2199]:
+                        - strong [ref=f16e2200]: "9"
+              - list "覆盖状态说明" [ref=f16e2201]:
+                - listitem [ref=f16e2202]:
+                  - generic [ref=f16e2204]: 稳定覆盖：覆盖率 ≥ 60%（≥3 次）
+                - listitem [ref=f16e2205]:
+                  - generic [ref=f16e2207]: 偶尔命中：30%–60%（≥3 次）
+                - listitem [ref=f16e2208]:
+                  - generic [ref=f16e2210]: 尚未覆盖：覆盖率 < 30%（≥3 次）
+                - listitem [ref=f16e2211]:
+                  - generic [ref=f16e2213]: 数据不足：仅 0–2 次完整观测
+          - generic [ref=f16e2214]:
+            - generic [ref=f16e2216]:
+              - generic [ref=f16e2217]: 优先优化建议
+              - button "查看全部建议" [ref=f16e2219] [cursor=pointer]
+            - generic [ref=f16e2222]:
+              - article [ref=f16e2223]:
+                - generic [ref=f16e2224]: "1"
+                - generic [ref=f16e2225]:
+                  - strong [ref=f16e2226]: 补充问题观测：E2E-QUERY-20260729-091241
+                  - paragraph [ref=f16e2227]:
+                    - text: E2E 模拟搜索 覆盖率为 100.0%。
+                    - generic [ref=f16e2228]: · 影响 1 条关系 · 规则 QUESTION_INSUFFICIENT_DATA
+                - generic [ref=f16e2230]:
+                  - img "info-circle" [ref=f16e2231]
+                  - generic [ref=f16e2235]: 低优先级
+              - article [ref=f16e2236]:
+                - generic [ref=f16e2237]: "2"
+                - generic [ref=f16e2238]:
+                  - strong [ref=f16e2239]: 补充问题观测：E2E-ACCEPT-20260730-002915 GEO 标准问题
+                  - paragraph [ref=f16e2240]:
+                    - text: E2E-ACCEPT-20260730-002915 人工测试搜索平台 覆盖率为 100.0%。
+                    - generic [ref=f16e2241]: · 影响 1 条关系 · 规则 QUESTION_INSUFFICIENT_DATA
+                - generic [ref=f16e2243]:
+                  - img "info-circle" [ref=f16e2244]
+                  - generic [ref=f16e2248]: 低优先级
+              - article [ref=f16e2249]:
+                - generic [ref=f16e2250]: "3"
+                - generic [ref=f16e2251]:
+                  - strong [ref=f16e2252]: 补充问题观测：测试
+                  - paragraph [ref=f16e2253]:
+                    - text: 豆包 覆盖率为 100.0%。
+                    - generic [ref=f16e2254]: · 影响 1 条关系 · 规则 QUESTION_INSUFFICIENT_DATA
+                - generic [ref=f16e2256]:
+                  - img "info-circle" [ref=f16e2257]
+                  - generic [ref=f16e2261]: 低优先级
+              - article [ref=f16e2262]:
+                - generic [ref=f16e2263]: "4"
+                - generic [ref=f16e2264]:
+                  - strong [ref=f16e2265]: 补充问题观测：测试
+                  - paragraph [ref=f16e2266]:
+                    - text: E2E 模拟搜索 尚无完整观测。
+                    - generic [ref=f16e2267]: · 影响 0 条关系 · 规则 QUESTION_INSUFFICIENT_DATA
+                - generic [ref=f16e2269]:
+                  - img "info-circle" [ref=f16e2270]
+                  - generic [ref=f16e2274]: 低优先级
+              - article [ref=f16e2275]:
+                - generic [ref=f16e2276]: "5"
+                - generic [ref=f16e2277]:
+                  - strong [ref=f16e2278]: 补充问题观测：E2E-ACCEPT-20260730-002915 GEO 标准问题
+                  - paragraph [ref=f16e2279]:
+                    - text: E2E 模拟搜索 尚无完整观测。
+                    - generic [ref=f16e2280]: · 影响 0 条关系 · 规则 QUESTION_INSUFFICIENT_DATA
+                - generic [ref=f16e2282]:
+                  - img "info-circle" [ref=f16e2283]
+                  - generic [ref=f16e2287]: 低优先级

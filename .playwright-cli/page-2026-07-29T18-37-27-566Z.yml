@@ -1,0 +1,227 @@
+- generic [ref=f10e1]:
+  - generic [ref=f10e6]:
+    - complementary [ref=f10e7]:
+      - generic [ref=f10e8]:
+        - strong [ref=f10e14]: PartSignal
+        - menu [ref=f10e15]:
+          - text: 内容工作流
+          - group [ref=f10e16]:
+            - menuitem [ref=f10e17] [cursor=pointer]:
+              - img "bar-chart" [ref=f10e18]
+              - link "工作台" [ref=f10e22]:
+                - /url: /
+            - menuitem [ref=f10e23] [cursor=pointer]:
+              - img "database" [ref=f10e24]
+              - link "产品事实" [ref=f10e28]:
+                - /url: /products
+            - menuitem [ref=f10e29] [cursor=pointer]:
+              - img "file-text" [ref=f10e30]
+              - link "内容任务" [ref=f10e34]:
+                - /url: /tasks
+            - menuitem [ref=f10e35] [cursor=pointer]:
+              - img "rocket" [ref=f10e36]
+              - link "发布管理" [ref=f10e40]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f10e41] [cursor=pointer]:
+              - img "bar-chart" [ref=f10e42]
+              - generic [ref=f10e45]: GEO 观测
+          - text: 系统管理
+          - group [ref=f10e46]:
+            - menuitem "setting 业务设置" [ref=f10e47] [cursor=pointer]:
+              - img "setting" [ref=f10e48]
+              - generic [ref=f10e51]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f10e52] [cursor=pointer]:
+              - img "safety-certificate" [ref=f10e53]
+              - generic [ref=f10e56]: 审计与安全
+            - menuitem "tool 配置中心" [ref=f10e57] [cursor=pointer]:
+              - img "tool" [ref=f10e58]
+              - generic [ref=f10e61]: 配置中心
+        - button "收起导航" [ref=f10e62] [cursor=pointer]:
+          - img "menu-fold" [ref=f10e64]
+          - generic [ref=f10e67]: 收起
+    - generic [ref=f10e68]:
+      - banner [ref=f10e69]:
+        - generic [ref=f10e72]:
+          - generic [ref=f10e73]: PARTSIGNAL
+          - strong [ref=f10e75]: 内容任务
+        - generic [ref=f10e78] [cursor=pointer]:
+          - img "search" [ref=f10e80]
+          - combobox "全局页面搜索" [ref=f10e83]
+          - generic [ref=f10e84]: ⌘K
+        - generic [ref=f10e86]:
+          - button "主题：跟随系统" [ref=f10e88] [cursor=pointer]:
+            - img "desktop" [ref=f10e90]
+            - generic [ref=f10e93]: 跟随系统
+          - button "打开用户操作菜单" [ref=f10e95] [cursor=pointer]:
+            - generic [ref=f10e96]: 系
+            - generic [ref=f10e98]:
+              - strong [ref=f10e99]: 系统管理员
+              - generic [ref=f10e100]: admin
+            - img "down" [ref=f10e101]
+      - main [ref=f10e104]:
+        - generic [ref=f10e105]:
+          - button "← 返回任务列表" [ref=f10e106] [cursor=pointer]
+          - generic [ref=f10e108]:
+            - generic [ref=f10e109]:
+              - navigation [ref=f10e110]:
+                - list [ref=f10e111]:
+                  - listitem [ref=f10e112]:
+                    - link "内容任务" [ref=f10e114] [cursor=pointer]:
+                      - /url: /tasks
+                  - listitem [ref=f10e115]: /
+                  - listitem [ref=f10e116]: 任务详情
+              - text: 任务 / a4ff70d9
+              - heading "E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=f10e117]
+              - generic [ref=f10e118]: 目标平台：E2E-ACCEPT-20260730-002915-平台
+            - generic [ref=f10e119]:
+              - generic [ref=f10e121]:
+                - img "info-circle" [ref=f10e122]
+                - generic [ref=f10e126]: 进行中
+              - button "取消任务" [ref=f10e128] [cursor=pointer]
+          - navigation "内容任务章节" [ref=f10e130]:
+            - link "任务上下文" [ref=f10e131] [cursor=pointer]:
+              - /url: "#task-context"
+            - link "首稿入口" [ref=f10e132] [cursor=pointer]:
+              - /url: "#task-entry"
+            - link "内容版本" [ref=f10e133] [cursor=pointer]:
+              - /url: "#task-versions"
+          - generic [ref=f10e134]:
+            - generic [ref=f10e135]: 01 / 锁定上下文
+            - table [ref=f10e141]:
+              - rowgroup [ref=f10e142]:
+                - row [ref=f10e143]:
+                  - 'cell "产品 : E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [ref=f10e144]':
+                    - generic [ref=f10e145]:
+                      - generic [ref=f10e146]: "产品 :"
+                      - generic [ref=f10e147]: E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT
+                  - 'cell "冻结事实版本 : V1 check-circle 公开" [ref=f10e148]':
+                    - generic [ref=f10e149]:
+                      - generic [ref=f10e150]: "冻结事实版本 :"
+                      - generic [ref=f10e152]:
+                        - generic [ref=f10e153]: V1
+                        - generic [ref=f10e156]:
+                          - img "check-circle" [ref=f10e157]
+                          - generic [ref=f10e161]: 公开
+                - row [ref=f10e162]:
+                  - 'cell "目标平台 : E2E-ACCEPT-20260730-002915-平台" [ref=f10e163]':
+                    - generic [ref=f10e164]:
+                      - generic [ref=f10e165]: "目标平台 :"
+                      - generic [ref=f10e166]: E2E-ACCEPT-20260730-002915-平台
+                  - 'cell "任务创建时间 : 2026/07/30 02:35" [ref=f10e167]':
+                    - generic [ref=f10e168]:
+                      - generic [ref=f10e169]: "任务创建时间 :"
+                      - time [ref=f10e171]: 2026/07/30 02:35
+          - generic [ref=f10e172]:
+            - generic [ref=f10e173]:
+              - generic [ref=f10e174]: 02A / 系统 AI 生成
+              - generic [ref=f10e177]:
+                - alert [ref=f10e178]:
+                  - img "info-circle" [ref=f10e180]
+                  - generic [ref=f10e183]: 打开弹窗后确认平台当前 Prompt，再选择已启用模型创建草稿。
+                - generic [ref=f10e185]: 模型只接收已确认的 Prompt 和冻结事实 Markdown；手工录入不受 Prompt 配置影响。
+                - button "thunderbolt 生成 AI 草稿" [ref=f10e186] [cursor=pointer]:
+                  - img "thunderbolt" [ref=f10e188]
+                  - generic [ref=f10e191]: 生成 AI 草稿
+            - generic [ref=f10e192]:
+              - generic [ref=f10e193]: 02B / 手动录入
+              - generic [ref=f10e196]:
+                - alert [ref=f10e197]:
+                  - img "info-circle" [ref=f10e199]
+                  - generic [ref=f10e202]: 可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。
+                - generic [ref=f10e204]: 手动首稿与 AI 草稿进入同一内容版本、审核和人工发布流程。
+                - button "录入首个人工草稿" [ref=f10e205] [cursor=pointer]
+          - generic [ref=f10e207]:
+            - generic [ref=f10e208]: AI 作业
+            - region "AI 作业列表" [ref=f10e212]:
+              - table [ref=f10e219]:
+                - rowgroup [ref=f10e228]:
+                  - row [ref=f10e229]:
+                    - columnheader "类型" [ref=f10e230]
+                    - columnheader "源版本" [ref=f10e231]
+                    - columnheader "状态" [ref=f10e232]
+                    - columnheader "结果" [ref=f10e233]
+                    - columnheader "失败原因" [ref=f10e234]
+                    - columnheader "耗时 / Token" [ref=f10e235]
+                    - columnheader "操作" [ref=f10e236]
+                - rowgroup [ref=f10e237]:
+                  - row [ref=f10e238]:
+                    - cell "原始生成" [ref=f10e239]
+                    - cell "—" [ref=f10e240]
+                    - cell "close-circle 失败" [ref=f10e241]:
+                      - generic [ref=f10e242]:
+                        - img "close-circle" [ref=f10e243]
+                        - generic [ref=f10e246]: 失败
+                    - cell "—" [ref=f10e247]
+                    - cell "模型响应不是单个合法 JSON 对象" [ref=f10e248]
+                    - cell "— ms / —" [ref=f10e249]
+                    - cell [ref=f10e250]:
+                      - button "重试原快照" [ref=f10e251] [cursor=pointer]
+          - generic [ref=f10e253]:
+            - generic [ref=f10e254]: 最新作业追溯快照
+            - table [ref=f10e260]:
+              - rowgroup [ref=f10e261]:
+                - row [ref=f10e262]:
+                  - 'cell "契约版本 : content-markdown-v3" [ref=f10e263]':
+                    - generic [ref=f10e264]:
+                      - generic [ref=f10e265]: "契约版本 :"
+                      - generic [ref=f10e266]: content-markdown-v3
+                - row [ref=f10e268]:
+                  - 'cell "渠道 / 模型 : gpt / gpt-5.6-terra" [ref=f10e269]':
+                    - generic [ref=f10e270]:
+                      - generic [ref=f10e271]: "渠道 / 模型 :"
+                      - generic [ref=f10e272]: gpt / gpt-5.6-terra
+                - row [ref=f10e273]:
+                  - 'cell "请求参数 : { \"reasoning_effort\": \"high\" }" [ref=f10e274]':
+                    - generic [ref=f10e275]:
+                      - generic [ref=f10e276]: "请求参数 :"
+                      - generic [ref=f10e277]: "{ \"reasoning_effort\": \"high\" }"
+                - row [ref=f10e279]:
+                  - 'cell "系统消息（System Message） : 你是部署验收格式错误测试助手。只允许使用用户消息中的已批准 PUBLIC 测试事实，不得猜测未知事实。为了验证格式错误处理，返回且仅返回一句非空纯文本，禁止输出 JSON、Markdown 代码块或任何结构化对象。" [ref=f10e280]':
+                    - generic [ref=f10e281]:
+                      - generic [ref=f10e282]: "系统消息（System Message） :"
+                      - textbox "系统消息（System Message）" [ref=f10e284]: 你是部署验收格式错误测试助手。只允许使用用户消息中的已批准 PUBLIC 测试事实，不得猜测未知事实。为了验证格式错误处理，返回且仅返回一句非空纯文本，禁止输出 JSON、Markdown 代码块或任何结构化对象。
+                - row [ref=f10e285]:
+                  - 'cell "用户消息（User Message） : # E2E-ACCEPT-20260730-002915-PRODUCT 公共测试事实\\n\\n> 本产品与以下数据均为完全虚构的部署验收数据，不对应任何真实器件。\\n\\n- 产品类别：完全虚构验收器件\\n- 测试供电范围：1 V 至 5 V\\n- 测试工作温度：-10 °C 至 60 °C\\n- 测试用途：验证 PartSignal 的事实审核、内容草稿与发布登记流程\\n- 对外披露级别：PUBLIC" [ref=f10e286]':
+                    - generic [ref=f10e287]:
+                      - generic [ref=f10e288]: "用户消息（User Message） :"
+                      - textbox "用户消息（User Message）" [ref=f10e290]: "# E2E-ACCEPT-20260730-002915-PRODUCT 公共测试事实\\n\\n> 本产品与以下数据均为完全虚构的部署验收数据，不对应任何真实器件。\\n\\n- 产品类别：完全虚构验收器件\\n- 测试供电范围：1 V 至 5 V\\n- 测试工作温度：-10 °C 至 60 °C\\n- 测试用途：验证 PartSignal 的事实审核、内容草稿与发布登记流程\\n- 对外披露级别：PUBLIC"
+          - generic [ref=f10e291]:
+            - generic [ref=f10e292]: 03 / 内容版本
+            - generic [ref=f10e296]:
+              - img "暂无数据" [ref=f10e298]
+              - generic [ref=f10e304]: 尚无内容版本，可从上方任一入口创建首稿
+  - generic [ref=f10e305]:
+    - dialog "生成 AI 草稿":
+      - generic [ref=f10e306]:
+        - button "Close" [ref=f10e307] [cursor=pointer]:
+          - generic "关闭" [ref=f10e308]:
+            - img "close" [ref=f10e309]
+        - generic [ref=f10e312]: 生成 AI 草稿
+        - generic [ref=f10e315]:
+          - alert [ref=f10e317]:
+            - img "info-circle" [ref=f10e319]
+            - generic [ref=f10e322]:
+              - generic [ref=f10e323]: E2E-ACCEPT-20260730-002915-平台 / E2E-ACCEPT-AI-20260730-020822-格式错误 / revision 1
+              - generic [ref=f10e324]: 提交时服务端会再次校验 Prompt 身份与 revision；配置已变化时不会使用旧确认继续生成。
+          - generic [ref=f10e327]:
+            - generic "当前平台 Prompt（只读）" [ref=f10e329]: "当前平台 Prompt（只读） :"
+            - textbox "当前平台 Prompt" [ref=f10e333]: 你是电子元器件部署验收内容助手。只使用用户消息中的已批准 PUBLIC 测试事实，不猜测未知事实。返回且仅返回一个 JSON 对象，不要使用 Markdown 代码块，不要添加解释或额外字段。对象必须恰好包含 title、summary、body_markdown、tags 四个字段；title、summary、body_markdown 必须是非空字符串，tags 必须是至少包含一个非空字符串的数组。body_markdown 使用清晰的中文 Markdown，并明确标注测试用途。
+          - generic [ref=f10e336]:
+            - generic "生成模型" [ref=f10e338]: "* 生成模型 :"
+            - generic [ref=f10e342]:
+              - generic [ref=f10e343]:
+                - generic: 选择已启用且测试通过的模型
+                - combobox "生成模型" [expanded] [active] [ref=f10e344]:
+                  - listbox:
+                    - option "ds / deepseek-v4-flash (deepseek-v4-flash)": a96f07cd-3d99-440a-82da-c93d7efc0076
+                    - option "gpt / gpt-5.6-terra (gpt-5.6-terra)": ca43062b-66c3-4170-9611-11e9b4b4a83e
+              - img "search" [ref=f10e361]
+          - alert [ref=f10e350]:
+            - img "info-circle" [ref=f10e352]
+            - generic [ref=f10e355]: 全局自然化 Prompt 未配置；不影响本次原始生成。
+        - generic [ref=f10e357]:
+          - button "取 消" [ref=f10e358] [cursor=pointer]
+          - button "生成文稿" [disabled] [ref=f10e360]
+  - generic [ref=f10e369]:
+    - generic "ds / deepseek-v4-flash (deepseek-v4-flash)" [ref=f10e370] [cursor=pointer]
+    - generic "gpt / gpt-5.6-terra (gpt-5.6-terra)" [ref=f10e372] [cursor=pointer]

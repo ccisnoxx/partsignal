@@ -1,0 +1,281 @@
+- generic [ref=e1]:
+  - generic [ref=e60]:
+    - complementary [ref=e61]:
+      - generic [ref=e62]:
+        - strong [ref=e68]: PartSignal
+        - menu [ref=e425]:
+          - text: 内容工作流
+          - group [ref=e426]:
+            - menuitem [ref=e427] [cursor=pointer]:
+              - img "bar-chart" [ref=e428]
+              - link "工作台" [ref=e432]:
+                - /url: /
+            - menuitem [ref=e433] [cursor=pointer]:
+              - img "database" [ref=e434]
+              - link "产品事实" [ref=e438]:
+                - /url: /products
+            - menuitem [ref=e439] [cursor=pointer]:
+              - img "file-text" [ref=e440]
+              - link "内容任务" [ref=e444]:
+                - /url: /tasks
+            - menuitem [ref=e445] [cursor=pointer]:
+              - img "rocket" [ref=e446]
+              - link "发布管理" [ref=e450]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=e451] [cursor=pointer]:
+              - img "bar-chart" [ref=e452]
+              - generic [ref=e455]: GEO 观测
+          - text: 系统管理
+          - group [ref=e456]:
+            - menuitem "setting 业务设置" [expanded] [ref=e457] [cursor=pointer]:
+              - img "setting" [ref=e458]
+              - generic [ref=e461]: 业务设置
+            - menu [ref=e462]:
+              - menuitem [ref=e463] [cursor=pointer]:
+                - link "发布账号" [ref=e465]:
+                  - /url: /settings?tab=accounts
+              - menuitem [ref=e466] [cursor=pointer]:
+                - link "用户管理" [ref=e468]:
+                  - /url: /users
+            - menuitem "safety-certificate 审计与安全" [ref=e469] [cursor=pointer]:
+              - img "safety-certificate" [ref=e470]
+              - generic [ref=e473]: 审计与安全
+            - menuitem "tool 配置中心" [ref=e474] [cursor=pointer]:
+              - img "tool" [ref=e475]
+              - generic [ref=e478]: 配置中心
+        - button "收起导航" [ref=e116] [cursor=pointer]:
+          - img "menu-fold" [ref=e118]
+          - generic [ref=e121]: 收起
+    - generic [ref=e122]:
+      - banner [ref=e123]:
+        - generic [ref=e126]:
+          - strong [ref=e479]: 业务设置
+          - generic [ref=e480]: /
+          - generic [ref=e481]: 用户管理
+        - generic [ref=e132] [cursor=pointer]:
+          - img "search" [ref=e134]
+          - combobox "全局页面搜索" [ref=e137]
+          - generic [ref=e138]: ⌘K
+        - generic [ref=e140]:
+          - button "主题：跟随系统" [ref=e142] [cursor=pointer]:
+            - img "desktop" [ref=e144]
+            - generic [ref=e147]: 跟随系统
+          - button "打开用户操作菜单" [ref=e149] [cursor=pointer]:
+            - generic [ref=e150]: 系
+            - generic [ref=e152]:
+              - strong [ref=e153]: 系统管理员
+              - generic [ref=e154]: admin
+            - img "down" [ref=e155]
+      - main [ref=e158]:
+        - generic [ref=e482]:
+          - generic [ref=e483]:
+            - generic [ref=e484]:
+              - heading "用户管理" [level=1] [ref=e485]
+              - generic [ref=e486]: 管理内部账号、账号类型、启停状态和临时密码。
+            - button "新增用户" [active] [ref=e489] [cursor=pointer]:
+              - img "plus" [ref=e491]
+          - region "用户统计" [ref=e496]:
+            - generic [ref=e498]:
+              - generic [ref=e499]: 用户总数
+              - strong [ref=e501]: "4"
+              - generic [ref=e502]: 暂无历史基线
+            - generic [ref=e504]:
+              - generic [ref=e505]: 已启用用户
+              - strong [ref=e507]: "4"
+              - generic [ref=e508]: 暂无历史基线
+            - generic [ref=e510]:
+              - generic [ref=e511]: 已停用用户
+              - strong [ref=e513]: "0"
+              - generic [ref=e514]: 暂无历史基线
+            - generic [ref=e516]:
+              - generic [ref=e517]: 必须修改密码
+              - strong [ref=e519]: "2"
+              - generic [ref=e520]: 暂无历史基线
+            - generic [ref=e522]:
+              - generic [ref=e523]: 管理员数量
+              - strong [ref=e525]: "1"
+              - generic [ref=e526]: 暂无历史基线
+          - generic [ref=e527]:
+            - generic [ref=e529]:
+              - generic [ref=e530]:
+                - generic [ref=e531]:
+                  - searchbox "搜索用户名或显示名称" [ref=e533]
+                  - button [ref=e535] [cursor=pointer]:
+                    - img "search" [ref=e537]
+                - generic [ref=e540]:
+                  - generic [ref=e541]: 账号类型
+                  - generic [ref=e542] [cursor=pointer]:
+                    - generic [ref=e543]:
+                      - generic: 全部类型
+                      - combobox "账号类型" [ref=e544]
+                    - img "down" [ref=e546]
+                - generic [ref=e549]:
+                  - generic [ref=e550]: 启用状态
+                  - generic [ref=e551] [cursor=pointer]:
+                    - generic "已启用" [ref=e552]:
+                      - text: 已启用
+                      - combobox "启用状态" [ref=e553]
+                    - img "down" [ref=e555]
+                - generic [ref=e558]:
+                  - generic [ref=e559]: 显示停用账号
+                  - switch "显示停用账号" [ref=e560] [cursor=pointer]
+                - button "重置筛选" [ref=e563] [cursor=pointer]:
+                  - img "reload" [ref=e565]
+                - generic [ref=e569]:
+                  - text: 共
+                  - strong [ref=e570]: "4"
+                  - text: 个用户
+                - button "导出列表" [ref=e571] [cursor=pointer]:
+                  - img "download" [ref=e573]
+              - region "用户列表" [ref=e577]:
+                - table [ref=e584]:
+                  - rowgroup [ref=e594]:
+                    - row [ref=e595]:
+                      - columnheader [ref=e596]:
+                        - checkbox "Select all" [ref=e600] [cursor=pointer]
+                      - columnheader "用户名" [ref=e601]
+                      - columnheader "显示名称" [ref=e602]
+                      - columnheader "账号类型" [ref=e603]
+                      - columnheader "状态" [ref=e604]
+                      - columnheader "必须修改密码" [ref=e605]
+                      - columnheader "创建时间" [ref=e606]
+                      - columnheader "操作" [ref=e607]
+                  - rowgroup [ref=e608]:
+                    - checkbox [ref=e612] [cursor=pointer]
+                    - row [ref=e613]:
+                      - cell [ref=e614]:
+                        - checkbox "Select row 1" [ref=e617] [cursor=pointer]
+                      - cell "admin 的头像 admin" [ref=e618]:
+                        - generic [ref=e619]:
+                          - generic "admin 的头像" [ref=e621]:
+                            - img "user" [ref=e622]
+                          - generic [ref=e625]: admin
+                      - cell "系统管理员" [ref=e627]
+                      - cell "管理员" [ref=e628]
+                      - cell "已启用" [ref=e630]
+                      - cell "否" [ref=e632]
+                      - cell [ref=e634]:
+                        - time [ref=e635]: 2026/07/12 13:02
+                      - cell [ref=e636]:
+                        - generic [ref=e637]:
+                          - button "编辑用户：admin" [ref=e639] [cursor=pointer]:
+                            - img "edit" [ref=e641]
+                          - button "更多操作：admin" [ref=e645] [cursor=pointer]:
+                            - img "ellipsis" [ref=e647]
+                    - row [ref=e650]:
+                      - cell [ref=e651]:
+                        - checkbox "Select row 2" [ref=e654] [cursor=pointer]
+                      - cell "ichelps 的头像 ichelps" [ref=e655]:
+                        - generic [ref=e656]:
+                          - generic "ichelps 的头像" [ref=e658]:
+                            - img "user" [ref=e659]
+                          - generic [ref=e662]: ichelps
+                      - cell "工程师" [ref=e664]
+                      - cell "工程师" [ref=e665]
+                      - cell "已启用" [ref=e667]
+                      - cell "否" [ref=e669]
+                      - cell [ref=e671]:
+                        - time [ref=e672]: 2026/07/27 09:46
+                      - cell [ref=e673]:
+                        - generic [ref=e674]:
+                          - button "编辑用户：ichelps" [ref=e676] [cursor=pointer]:
+                            - img "edit" [ref=e678]
+                          - button "更多操作：ichelps" [ref=e682] [cursor=pointer]:
+                            - img "ellipsis" [ref=e684]
+                    - row [ref=e687]:
+                      - cell [ref=e688]:
+                        - checkbox "Select row 3" [ref=e691] [cursor=pointer]
+                      - cell "content_editor 的头像 content_editor" [ref=e692]:
+                        - generic [ref=e693]:
+                          - generic "content_editor 的头像" [ref=e695]:
+                            - img "user" [ref=e696]
+                          - generic [ref=e699]: content_editor
+                      - cell "内容运营" [ref=e701]
+                      - cell "工程师" [ref=e702]
+                      - cell "已启用" [ref=e704]
+                      - cell "是" [ref=e706]
+                      - cell [ref=e708]:
+                        - time [ref=e709]: 2026/07/27 16:18
+                      - cell [ref=e710]:
+                        - generic [ref=e711]:
+                          - button "编辑用户：content_editor" [ref=e713] [cursor=pointer]:
+                            - img "edit" [ref=e715]
+                          - button "更多操作：content_editor" [ref=e719] [cursor=pointer]:
+                            - img "ellipsis" [ref=e721]
+                    - row [ref=e875]:
+                      - cell [ref=e876]:
+                        - checkbox "Select row 4" [ref=e879] [cursor=pointer]
+                      - cell "e2e-accept-20260730-002915-eng 的头像 e2e-accept-20260730-002915-eng" [ref=e880]:
+                        - generic [ref=e881]:
+                          - generic "e2e-accept-20260730-002915-eng 的头像" [ref=e883]:
+                            - img "user" [ref=e884]
+                          - generic [ref=e887]: e2e-accept-20260730-002915-eng
+                      - cell "E2E-ACCEPT-20260730-002915-工程师" [ref=e889]
+                      - cell "工程师" [ref=e890]
+                      - cell "已启用" [ref=e892]
+                      - cell "是" [ref=e894]
+                      - cell [ref=e896]:
+                        - time [ref=e897]: 2026/07/30 00:33
+                      - cell [ref=e898]:
+                        - generic [ref=e899]:
+                          - button "编辑用户：e2e-accept-20260730-002915-eng" [ref=e901] [cursor=pointer]:
+                            - img "edit" [ref=e903]
+                          - button "更多操作：e2e-accept-20260730-002915-eng" [ref=e907] [cursor=pointer]:
+                            - img "ellipsis" [ref=e909]
+              - generic [ref=e724]:
+                - generic [ref=e725] [cursor=pointer]:
+                  - generic "20 条/页" [ref=e726]:
+                    - text: 20 条/页
+                    - combobox "每页数量" [ref=e727]
+                  - img "down" [ref=e729]
+                - list [ref=e732]:
+                  - listitem "上一页" [ref=e733]:
+                    - button [disabled] [ref=e734]:
+                      - img "left" [ref=e735]
+                  - listitem "1" [ref=e738] [cursor=pointer]
+                  - listitem "下一页" [ref=e740]:
+                    - button [disabled] [ref=e741]:
+                      - img "right" [ref=e742]
+            - complementary "用户管理说明" [ref=e745]:
+              - generic [ref=e746]:
+                - generic [ref=e747]: 账号类型说明
+                - generic [ref=e750]:
+                  - generic [ref=e751]:
+                    - generic [ref=e752]: 管理员
+                    - paragraph [ref=e753]: 拥有系统全部管理与配置权限，负责系统治理与平台配置。
+                  - generic [ref=e754]:
+                    - generic [ref=e755]: 工程师
+                    - paragraph [ref=e757]: 负责内容执行、发布与观测等日常运营工作。
+              - generic [ref=e758]:
+                - generic [ref=e759]: 临时密码说明
+                - list [ref=e763]:
+                  - listitem [ref=e764]: 新建或重置后，用户下次登录必须修改密码。
+                  - listitem [ref=e765]: 服务端只保存安全哈希，重置会撤销目标用户全部会话。
+                  - listitem [ref=e766]: 请通过安全渠道告知用户临时密码。
+              - generic [ref=e767]:
+                - generic [ref=e768]: 重要提示
+                - list [ref=e772]:
+                  - listitem [ref=e773]:
+                    - img "warning" [ref=e774]
+                    - text: 仅停用且无业务历史引用的账号可确认删除。
+                  - listitem [ref=e777]:
+                    - img "warning" [ref=e778]
+                    - text: 删除会清理会话，并保留操作者置空后的历史审计。
+                  - listitem [ref=e781]:
+                    - img "warning" [ref=e782]
+                    - text: 建议先停用不再使用的账号，再确认其历史归属。
+              - generic [ref=e785]:
+                - generic [ref=e786]: 快捷操作
+                - generic [ref=e790]:
+                  - button "批量启用" [disabled] [ref=e792]:
+                    - generic:
+                      - img "check-circle"
+                  - button "批量停用" [disabled] [ref=e794]:
+                    - generic:
+                      - img "stop"
+                  - button "导出用户列表" [ref=e796] [cursor=pointer]:
+                    - img "download" [ref=e798]
+  - alert [ref=e912]:
+    - generic [ref=e913]:
+      - img "check-circle" [ref=e915]
+      - generic [ref=e918]: 用户已创建

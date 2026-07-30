@@ -1,0 +1,164 @@
+- generic [ref=f8e7]:
+  - banner [ref=f8e8]:
+    - generic [ref=f8e9]:
+      - button "切换导航" [ref=f8e11] [cursor=pointer]:
+        - img "menu-unfold" [ref=f8e13]
+      - generic [ref=f8e17]:
+        - strong [ref=f8e19]: 配置中心
+        - generic [ref=f8e20]: /
+        - generic [ref=f8e21]: Prompt 管理
+    - generic [ref=f8e22]:
+      - button "主题：跟随系统" [ref=f8e24] [cursor=pointer]:
+        - img "desktop" [ref=f8e26]
+      - button "打开用户操作菜单" [ref=f8e30] [cursor=pointer]:
+        - generic [ref=f8e31]: E
+        - img "down" [ref=f8e33]
+  - main [active] [ref=f8e36]:
+    - generic [ref=f8e37]:
+      - generic [ref=f8e38]:
+        - generic [ref=f8e39]:
+          - text: 配置中心 / Prompt 管理
+          - heading "Prompt 管理" [level=1] [ref=f8e40]
+          - generic [ref=f8e41]: 平台 Prompt 可被多个平台复用；平台当前绑定决定新 AI 生成使用哪一份模板。
+        - button "plus 新建 Prompt" [ref=f8e44] [cursor=pointer]:
+          - img "plus" [ref=f8e46]
+          - generic [ref=f8e50]: 新建 Prompt
+      - generic [ref=f8e51]:
+        - generic [ref=f8e52]:
+          - tablist [ref=f8e53]:
+            - generic [ref=f8e55]:
+              - tab "平台 Prompt" [selected] [ref=f8e57] [cursor=pointer]
+              - tab "全局自然化 Prompt" [ref=f8e59] [cursor=pointer]
+          - generic:
+            - generic:
+              - tabpanel "平台 Prompt"
+        - alert [ref=f8e60]:
+          - img "info-circle" [ref=f8e62]
+          - generic [ref=f8e66]: 共享 Prompt 修改会影响全部绑定平台；历史生成快照保持不变。
+          - link "查看生成边界 →" [ref=f8e69] [cursor=pointer]:
+            - /url: "#prompt-safety-boundaries"
+      - generic [ref=f8e70]:
+        - generic [ref=f8e71]:
+          - generic [ref=f8e72]: Prompt 模板
+          - generic [ref=f8e75]:
+            - generic [ref=f8e76]:
+              - generic [ref=f8e77]:
+                - img "search" [ref=f8e79]
+                - textbox "搜索 Prompt 名称" [ref=f8e82]
+              - button "plus 新建" [ref=f8e84] [cursor=pointer]:
+                - img "plus" [ref=f8e86]
+                - generic [ref=f8e90]: 新建
+            - listbox "Prompt 模板列表" [ref=f8e91]:
+              - option "file-text E2E-ACCEPT-20260730-002915-合规JSON revision 1 1 个平台 2026年7月30日 00:46" [selected] [ref=f8e92] [cursor=pointer]:
+                - img "file-text" [ref=f8e93]
+                - generic [ref=f8e96]:
+                  - strong [ref=f8e97]: E2E-ACCEPT-20260730-002915-合规JSON
+                  - generic [ref=f8e98]: revision 1
+                - generic [ref=f8e99]:
+                  - generic [ref=f8e100]: 1 个平台
+                  - time [ref=f8e101]: 2026年7月30日 00:46
+              - option "file-text E2E-ACCEPT-20260730-002915-格式错误 revision 0 0 个平台 2026年7月30日 00:46" [ref=f8e102] [cursor=pointer]:
+                - img "file-text" [ref=f8e103]
+                - generic [ref=f8e106]:
+                  - strong [ref=f8e107]: E2E-ACCEPT-20260730-002915-格式错误
+                  - generic [ref=f8e108]: revision 0
+                - generic [ref=f8e109]:
+                  - generic [ref=f8e110]: 0 个平台
+                  - time [ref=f8e111]: 2026年7月30日 00:46
+              - option "file-text 测试 revision 3 1 个平台 2026年7月29日 07:07" [ref=f8e112] [cursor=pointer]:
+                - img "file-text" [ref=f8e113]
+                - generic [ref=f8e116]:
+                  - strong [ref=f8e117]: 测试
+                  - generic [ref=f8e118]: revision 3
+                - generic [ref=f8e119]:
+                  - generic [ref=f8e120]: 1 个平台
+                  - time [ref=f8e121]: 2026年7月29日 07:07
+        - generic [ref=f8e122]:
+          - generic [ref=f8e124]:
+            - generic: E2E-ACCEPT-20260730-002915-合规JSON
+            - generic [ref=f8e126]:
+              - generic [ref=f8e127]: 更新：2026年7月30日 00:46
+              - generic [ref=f8e129]: 更新人：E2E-ACCEPT-20260730-002915-管理员
+              - generic [ref=f8e131]: revision 1
+          - generic [ref=f8e133]:
+            - textbox "Prompt 名称" [ref=f8e134]: E2E-ACCEPT-20260730-002915-合规JSON
+            - region "Prompt 使用平台" [ref=f8e135]:
+              - generic [ref=f8e136]:
+                - strong [ref=f8e138]: 使用平台
+                - generic [ref=f8e139]: 1 个
+              - generic [ref=f8e140]: E2E-ACCEPT-20260730-002915-平台
+            - region "Prompt Markdown 编辑区" [ref=f8e143]:
+              - generic [ref=f8e144]:
+                - generic [ref=f8e145]:
+                  - strong [ref=f8e148]: Prompt 编辑
+                  - generic [ref=f8e149]: Markdown
+                  - status [ref=f8e151]: 已加载
+                - button "save 保存 Prompt" [disabled] [ref=f8e154]:
+                  - generic:
+                    - img "save"
+                  - generic: 保存 Prompt
+              - generic [ref=f8e155]:
+                - generic [ref=f8e156]: "1"
+                - textbox "Prompt Markdown" [ref=f8e157]: 你是电子元器件内容工程师。只使用用户消息中的已批准 PUBLIC 事实，不猜测未知产品事实。\n\n返回且仅返回一个 JSON 对象，不要使用 Markdown 代码块，不要添加解释或额外字段。对象必须恰好包含 title、summary、body_markdown、tags 四个字段；title、summary、body_markdown 必须是非空字符串，tags 必须是至少包含一个非空字符串的数组。\n\nbody_markdown 使用清晰的中文 Markdown，并明确标注测试用途。\n\n本轮验收 revision 1：保持上述输出合同不变。
+              - generic [ref=f8e158]:
+                - generic [ref=f8e159]: 字数：266
+                - generic [ref=f8e160]: 行数：1
+                - generic [ref=f8e161]: 预计输出：由 Prompt 定义
+                - generic [ref=f8e162]: Markdown
+        - complementary [ref=f8e163]:
+          - region "输出预览" [ref=f8e164]:
+            - generic [ref=f8e165]:
+              - generic [ref=f8e166]:
+                - strong [ref=f8e168]: 输出预览
+                - text: （真实草稿）
+              - button "fullscreen 全屏预览" [disabled] [ref=f8e169]:
+                - generic:
+                  - img "fullscreen"
+                - generic: 全屏预览
+            - generic [ref=f8e170]:
+              - alert [ref=f8e171]:
+                - img "info-circle" [ref=f8e173]
+                - generic [ref=f8e176]: 预览会创建可审计的真实 AI 作业和 DRAFT，不会进行无痕临时调用。
+              - generic [ref=f8e178]:
+                - generic [ref=f8e179]:
+                  - generic: 选择进行中任务
+                  - combobox "预览内容任务" [ref=f8e180]
+                - img "down" [ref=f8e182]
+              - generic [ref=f8e185]: 暂无进行中的内容任务。
+              - generic [ref=f8e186]:
+                - generic [ref=f8e187]:
+                  - generic: 选择已启用且测试通过的模型
+                  - combobox "预览模型" [disabled] [ref=f8e188]
+                - img "down" [ref=f8e190]
+              - button "thunderbolt 生成平台预览" [disabled] [ref=f8e193]:
+                - generic:
+                  - img "thunderbolt"
+                - generic: 生成平台预览
+            - generic [ref=f8e195]:
+              - img "eye" [ref=f8e197]
+              - generic [ref=f8e200]: 选择真实任务和模型后生成预览
+            - link "前往内容任务" [ref=f8e202] [cursor=pointer]:
+              - /url: /tasks
+          - generic [ref=f8e203]:
+            - generic [ref=f8e204]: 生成边界
+            - list [ref=f8e208]:
+              - listitem [ref=f8e209]:
+                - img "safety-certificate" [ref=f8e210]
+                - generic [ref=f8e213]:
+                  - strong [ref=f8e214]: 消息原样发送
+                  - generic [ref=f8e215]: system 为平台绑定 Prompt，user 为已批准事实 Markdown。
+              - listitem [ref=f8e216]:
+                - img "safety-certificate" [ref=f8e217]
+                - generic [ref=f8e220]:
+                  - strong [ref=f8e221]: 共享影响透明
+                  - generic [ref=f8e222]: 保存前列出全部绑定平台，revision 冲突不会覆盖新值。
+              - listitem [ref=f8e223]:
+                - img "safety-certificate" [ref=f8e224]
+                - generic [ref=f8e227]:
+                  - strong [ref=f8e228]: 删除受约束
+                  - generic [ref=f8e229]: 被任一平台绑定的 Prompt 不能删除。
+              - listitem [ref=f8e230]:
+                - img "safety-certificate" [ref=f8e231]
+                - generic [ref=f8e234]:
+                  - strong [ref=f8e235]: AI 只创建草稿
+                  - generic [ref=f8e236]: 输出通过人工审核后才能进入发布流程。

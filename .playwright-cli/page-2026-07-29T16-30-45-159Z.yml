@@ -1,0 +1,51 @@
+- main [ref=e5]:
+  - radiogroup "主题模式" [ref=e7]:
+    - generic [ref=e8] [cursor=pointer]:
+      - radio "sun 浅色"
+      - generic [ref=e9]:
+        - img "sun" [ref=e10]
+        - text: 浅色
+    - generic [ref=e13] [cursor=pointer]:
+      - radio "moon 深色"
+      - generic [ref=e14]:
+        - img "moon" [ref=e15]
+        - text: 深色
+    - generic [ref=e18] [cursor=pointer]:
+      - radio "desktop 跟随系统" [checked]
+      - generic [ref=e19]:
+        - img "desktop" [ref=e20]
+        - text: 跟随系统
+  - generic:
+    - img:
+      - generic: 内容生成
+      - generic: 多平台分发
+      - generic: 精准触达
+      - generic: GEO 观测
+      - generic: 提及与引用
+      - generic: 效果分析
+      - generic: 持续优化
+  - region [ref=e23]:
+    - generic [ref=e24]:
+      - heading "PartSignal" [level=1] [ref=e30]
+      - generic [ref=e31]:
+        - heading "多平台 GEO 内容运营系统" [level=2] [ref=e32]
+        - paragraph [ref=e33]: 让内容被看见，让价值被引用
+      - alert [ref=e58]: 用户名或密码错误
+      - form "PartSignal" [ref=e34]:
+        - generic [ref=e36]:
+          - generic [ref=e40]: 账号
+          - textbox "账号" [ref=e41]:
+            - /placeholder: 请输入账号
+            - text: E2E-ACCEPT-20260730-002915-NOUSER
+        - generic [ref=e43]:
+          - generic [ref=e47]: 密码
+          - textbox "密码" [ref=e48]:
+            - /placeholder: 请输入密码
+            - text: invalid-test-password
+          - button "显示输入内容" [ref=e49] [cursor=pointer]: 显示
+        - button "登录" [ref=e50] [cursor=pointer]
+  - generic [ref=e51]:
+    - generic [ref=e52]:
+      - img "safety-certificate" [ref=e53]
+      - strong [ref=e56]: 内部系统 · 操作留痕 · 全程审计 · 数据安全
+    - paragraph [ref=e57]: 所有操作均已记录并受审计追踪，未经授权请勿访问或使用系统资源。

@@ -1,0 +1,209 @@
+- generic [ref=f11e201]:
+  - complementary [ref=f11e202]:
+    - generic [ref=f11e203]:
+      - strong [ref=f11e209]: PartSignal
+      - menu [ref=f11e1187]:
+        - text: 内容工作流
+        - group [ref=f11e1188]:
+          - menuitem [ref=f11e1189] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e1190]
+            - link "工作台" [ref=f11e1194]:
+              - /url: /
+          - menuitem [ref=f11e1195] [cursor=pointer]:
+            - img "database" [ref=f11e1196]
+            - link "产品事实" [ref=f11e1200]:
+              - /url: /products
+          - menuitem [ref=f11e1201] [cursor=pointer]:
+            - img "file-text" [ref=f11e1202]
+            - link "内容任务" [ref=f11e1206]:
+              - /url: /tasks
+          - menuitem [ref=f11e1207] [cursor=pointer]:
+            - img "rocket" [ref=f11e1208]
+            - link "发布管理" [ref=f11e1212]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f11e1213] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e1214]
+            - generic [ref=f11e1217]: GEO 观测
+        - text: 系统管理
+        - group [ref=f11e1218]:
+          - menuitem "setting 业务设置" [ref=f11e1219] [cursor=pointer]:
+            - img "setting" [ref=f11e1220]
+            - generic [ref=f11e1223]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f11e1224] [cursor=pointer]:
+            - img "safety-certificate" [ref=f11e1225]
+            - generic [ref=f11e1228]: 审计与安全
+          - menuitem "tool 配置中心" [expanded] [ref=f11e1229] [cursor=pointer]:
+            - img "tool" [ref=f11e1230]
+            - generic [ref=f11e1233]: 配置中心
+          - menu [ref=f11e1234]:
+            - menuitem [ref=f11e1235] [cursor=pointer]:
+              - link "平台管理" [ref=f11e1237]:
+                - /url: /configuration/platforms
+            - menuitem [ref=f11e1238] [cursor=pointer]:
+              - link "Prompt 管理" [ref=f11e1240]:
+                - /url: /configuration/prompts
+            - menuitem [ref=f11e1241] [cursor=pointer]:
+              - link "AI 渠道与模型" [ref=f11e1243]:
+                - /url: /configuration/ai
+      - button "收起导航" [ref=f11e257] [cursor=pointer]:
+        - img "menu-fold" [ref=f11e259]
+        - generic [ref=f11e262]: 收起
+  - generic [ref=f11e263]:
+    - banner [ref=f11e264]:
+      - generic [ref=f11e267]:
+        - strong [ref=f11e615]: 配置中心
+        - generic [ref=f11e616]: /
+        - generic [ref=f11e617]: Prompt 管理
+      - generic [ref=f11e273] [cursor=pointer]:
+        - img "search" [ref=f11e275]
+        - combobox "全局页面搜索" [ref=f11e278]
+        - generic [ref=f11e279]: ⌘K
+      - generic [ref=f11e281]:
+        - button "主题：跟随系统" [ref=f11e283] [cursor=pointer]:
+          - img "desktop" [ref=f11e285]
+          - generic [ref=f11e288]: 跟随系统
+        - button "打开用户操作菜单" [ref=f11e290] [cursor=pointer]:
+          - generic [ref=f11e291]: E
+          - generic [ref=f11e293]:
+            - strong [ref=f11e294]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=f11e295]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=f11e296]
+    - main [ref=f11e299]:
+      - generic [ref=f11e1244]:
+        - generic [ref=f11e1245]:
+          - generic [ref=f11e1246]:
+            - text: 配置中心 / Prompt 管理
+            - heading "Prompt 管理" [level=1] [ref=f11e1247]
+            - generic [ref=f11e1248]: 平台 Prompt 可被多个平台复用；平台当前绑定决定新 AI 生成使用哪一份模板。
+          - button "plus 新建 Prompt" [ref=f11e1251] [cursor=pointer]:
+            - img "plus" [ref=f11e1253]
+            - generic [ref=f11e1257]: 新建 Prompt
+        - generic [ref=f11e1258]:
+          - generic [ref=f11e1259]:
+            - tablist [ref=f11e1260]:
+              - generic [ref=f11e1262]:
+                - tab "平台 Prompt" [selected] [ref=f11e1264] [cursor=pointer]
+                - tab "全局自然化 Prompt" [ref=f11e1266] [cursor=pointer]
+            - generic:
+              - generic:
+                - tabpanel "平台 Prompt"
+          - alert [ref=f11e1267]:
+            - img "info-circle" [ref=f11e1269]
+            - generic [ref=f11e1273]: 共享 Prompt 修改会影响全部绑定平台；历史生成快照保持不变。
+            - link "查看生成边界 →" [ref=f11e1276] [cursor=pointer]:
+              - /url: "#prompt-safety-boundaries"
+        - generic [ref=f11e1277]:
+          - generic [ref=f11e1278]:
+            - generic [ref=f11e1279]: Prompt 模板
+            - generic [ref=f11e1282]:
+              - generic [ref=f11e1283]:
+                - generic [ref=f11e1284]:
+                  - img "search" [ref=f11e1286]
+                  - textbox "搜索 Prompt 名称" [ref=f11e1289]
+                - button "plus 新建" [ref=f11e1291] [cursor=pointer]:
+                  - img "plus" [ref=f11e1293]
+                  - generic [ref=f11e1297]: 新建
+              - listbox "Prompt 模板列表" [ref=f11e1298]:
+                - option "file-text E2E-ACCEPT-20260730-002915-合规JSON revision 0 0 个平台 2026年7月30日 00:44" [ref=f11e1451] [cursor=pointer]:
+                  - img "file-text" [ref=f11e1452]
+                  - generic [ref=f11e1455]:
+                    - strong [ref=f11e1456]: E2E-ACCEPT-20260730-002915-合规JSON
+                    - generic [ref=f11e1457]: revision 0
+                  - generic [ref=f11e1458]:
+                    - generic [ref=f11e1459]: 0 个平台
+                    - time [ref=f11e1460]: 2026年7月30日 00:44
+                - option "file-text 测试 revision 3 1 个平台 2026年7月29日 07:07" [ref=f11e1299] [cursor=pointer]:
+                  - img "file-text" [ref=f11e1300]
+                  - generic [ref=f11e1303]:
+                    - strong [ref=f11e1304]: 测试
+                    - generic [ref=f11e1305]: revision 3
+                  - generic [ref=f11e1306]:
+                    - generic [ref=f11e1307]: 1 个平台
+                    - time [ref=f11e1308]: 2026年7月29日 07:07
+          - generic [ref=f11e1309]:
+            - generic [ref=f11e1310]: 新建 Prompt
+            - generic [ref=f11e1321]:
+              - textbox "Prompt 名称" [active] [ref=f11e1322]: E2E-ACCEPT-20260730-002915-格式错误
+              - region "Prompt Markdown 编辑区" [ref=f11e1331]:
+                - generic [ref=f11e1332]:
+                  - generic [ref=f11e1333]:
+                    - strong [ref=f11e1336]: Prompt 编辑
+                    - generic [ref=f11e1337]: Markdown
+                    - status [ref=f11e1339]: 未保存修改
+                  - button "save 首次保存" [disabled] [ref=f11e1491]:
+                    - generic:
+                      - img "save"
+                    - generic: 首次保存
+                - alert [ref=f11e1492]:
+                  - img "exclamation-circle" [ref=f11e1494]
+                  - generic [ref=f11e1497]: 尚未配置 Prompt；首次保存后才可用于新生成作业。
+                - generic [ref=f11e1343]:
+                  - generic [ref=f11e1344]: "1"
+                  - textbox "Prompt Markdown" [ref=f11e1345]
+                - generic [ref=f11e1346]:
+                  - generic [ref=f11e1347]: 字数：0
+                  - generic [ref=f11e1348]: 行数：1
+                  - generic [ref=f11e1349]: 预计输出：由 Prompt 定义
+                  - generic [ref=f11e1350]: Markdown
+          - complementary [ref=f11e1351]:
+            - region "输出预览" [ref=f11e1352]:
+              - generic [ref=f11e1353]:
+                - generic [ref=f11e1354]:
+                  - strong [ref=f11e1356]: 输出预览
+                  - text: （真实草稿）
+                - button "fullscreen 全屏预览" [disabled] [ref=f11e1357]:
+                  - generic:
+                    - img "fullscreen"
+                  - generic: 全屏预览
+              - generic [ref=f11e1358]:
+                - alert [ref=f11e1359]:
+                  - img "info-circle" [ref=f11e1361]
+                  - generic [ref=f11e1364]: 预览会创建可审计的真实 AI 作业和 DRAFT，不会进行无痕临时调用。
+                - alert [ref=f11e1499]:
+                  - img "exclamation-circle" [ref=f11e1501]
+                  - generic [ref=f11e1504]: 请先保存当前 Prompt，再创建使用新配置的预览。
+                - alert [ref=f11e1432]:
+                  - img "exclamation-circle" [ref=f11e1434]
+                  - generic [ref=f11e1437]: 当前 Prompt 尚未配置，无法创建预览作业。
+                - generic [ref=f11e1366]:
+                  - generic [ref=f11e1367]:
+                    - generic: 选择进行中任务
+                    - combobox "预览内容任务" [ref=f11e1368]
+                  - img "down" [ref=f11e1370]
+                - generic [ref=f11e1373]:
+                  - generic [ref=f11e1374]:
+                    - generic: 选择已启用且测试通过的模型
+                    - combobox "预览模型" [disabled] [ref=f11e1375]
+                  - img "down" [ref=f11e1377]
+                - button "thunderbolt 生成平台预览" [disabled] [ref=f11e1380]:
+                  - generic:
+                    - img "thunderbolt"
+                  - generic: 生成平台预览
+              - generic [ref=f11e1382]:
+                - img "eye" [ref=f11e1384]
+                - generic [ref=f11e1387]: 选择真实任务和模型后生成预览
+              - link "前往内容任务" [ref=f11e1389] [cursor=pointer]:
+                - /url: /tasks
+            - generic [ref=f11e1390]:
+              - generic [ref=f11e1391]: 生成边界
+              - list [ref=f11e1395]:
+                - listitem [ref=f11e1396]:
+                  - img "safety-certificate" [ref=f11e1397]
+                  - generic [ref=f11e1400]:
+                    - strong [ref=f11e1401]: 消息原样发送
+                    - generic [ref=f11e1402]: system 为平台绑定 Prompt，user 为已批准事实 Markdown。
+                - listitem [ref=f11e1403]:
+                  - img "safety-certificate" [ref=f11e1404]
+                  - generic [ref=f11e1407]:
+                    - strong [ref=f11e1408]: 共享影响透明
+                    - generic [ref=f11e1409]: 保存前列出全部绑定平台，revision 冲突不会覆盖新值。
+                - listitem [ref=f11e1410]:
+                  - img "safety-certificate" [ref=f11e1411]
+                  - generic [ref=f11e1414]:
+                    - strong [ref=f11e1415]: 删除受约束
+                    - generic [ref=f11e1416]: 被任一平台绑定的 Prompt 不能删除。
+                - listitem [ref=f11e1417]:
+                  - img "safety-certificate" [ref=f11e1418]
+                  - generic [ref=f11e1421]:
+                    - strong [ref=f11e1422]: AI 只创建草稿
+                    - generic [ref=f11e1423]: 输出通过人工审核后才能进入发布流程。

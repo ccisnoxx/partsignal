@@ -1,0 +1,161 @@
+- generic [ref=f2e1]:
+  - generic [ref=f2e6]:
+    - complementary [ref=f2e7]:
+      - generic [ref=f2e8]:
+        - strong [ref=f2e14]: PartSignal
+        - menu [ref=f2e323]:
+          - text: 内容工作流
+          - group [ref=f2e324]:
+            - menuitem [ref=f2e325] [cursor=pointer]:
+              - img "bar-chart" [ref=f2e326]
+              - link "工作台" [ref=f2e330]:
+                - /url: /
+            - menuitem [ref=f2e331] [cursor=pointer]:
+              - img "database" [ref=f2e332]
+              - link "产品事实" [ref=f2e336]:
+                - /url: /products
+            - menuitem [ref=f2e337] [cursor=pointer]:
+              - img "file-text" [ref=f2e338]
+              - link "内容任务" [ref=f2e342]:
+                - /url: /tasks
+            - menuitem [ref=f2e343] [cursor=pointer]:
+              - img "rocket" [ref=f2e344]
+              - link "发布管理" [ref=f2e348]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f2e349] [cursor=pointer]:
+              - img "bar-chart" [ref=f2e350]
+              - generic [ref=f2e353]: GEO 观测
+          - text: 系统管理
+          - group [ref=f2e354]:
+            - menuitem "setting 业务设置" [expanded] [ref=f2e355] [cursor=pointer]:
+              - img "setting" [ref=f2e356]
+              - generic [ref=f2e359]: 业务设置
+            - menu [ref=f2e360]:
+              - menuitem [ref=f2e361] [cursor=pointer]:
+                - link "发布账号" [ref=f2e363]:
+                  - /url: /settings?tab=accounts
+              - menuitem [ref=f2e364] [cursor=pointer]:
+                - link "用户管理" [ref=f2e366]:
+                  - /url: /users
+            - menuitem "safety-certificate 审计与安全" [ref=f2e367] [cursor=pointer]:
+              - img "safety-certificate" [ref=f2e368]
+              - generic [ref=f2e371]: 审计与安全
+            - menuitem "tool 配置中心" [ref=f2e372] [cursor=pointer]:
+              - img "tool" [ref=f2e373]
+              - generic [ref=f2e376]: 配置中心
+        - button "收起导航" [ref=f2e72] [cursor=pointer]:
+          - img "menu-fold" [ref=f2e74]
+          - generic [ref=f2e77]: 收起
+    - generic [ref=f2e78]:
+      - banner [ref=f2e79]:
+        - generic [ref=f2e82]:
+          - strong [ref=f2e84]: 业务设置
+          - generic [ref=f2e85]: /
+          - generic [ref=f2e86]: 发布账号
+        - generic [ref=f2e89] [cursor=pointer]:
+          - img "search" [ref=f2e91]
+          - combobox "全局页面搜索" [ref=f2e94]
+          - generic [ref=f2e95]: ⌘K
+        - generic [ref=f2e97]:
+          - button "主题：跟随系统" [ref=f2e99] [cursor=pointer]:
+            - img "desktop" [ref=f2e101]
+            - generic [ref=f2e104]: 跟随系统
+          - button "打开用户操作菜单" [ref=f2e106] [cursor=pointer]:
+            - generic [ref=f2e107]: E
+            - generic [ref=f2e109]:
+              - strong [ref=f2e110]: E2E-ACCEPT-20260730-002915-管理员
+              - generic [ref=f2e111]: e2e-accept-20260730-002915-admin
+            - img "down" [ref=f2e112]
+      - main [ref=f2e115]:
+        - generic [ref=f2e377]:
+          - generic [ref=f2e379]:
+            - text: 业务设置
+            - heading "发布账号" [level=1] [ref=f2e380]
+            - generic [ref=f2e381]: 维护每个具体平台可选的内部运营账号；平台归属创建后不可修改。
+          - generic [ref=f2e382]:
+            - generic [ref=f2e386]:
+              - generic [ref=f2e388] [cursor=pointer]:
+                - generic [ref=f2e389]:
+                  - generic: 全部平台
+                  - combobox "按平台筛选账号" [ref=f2e390]
+                - img "down" [ref=f2e392]
+              - button "plus 新增发布账号" [ref=f2e396] [cursor=pointer]:
+                - img "plus" [ref=f2e398]
+                - generic [ref=f2e402]: 新增发布账号
+            - generic [ref=f2e403]:
+              - alert [ref=f2e404]:
+                - img "info-circle" [ref=f2e406]
+                - generic [ref=f2e409]:
+                  - generic [ref=f2e410]: 运营账号标识仅供内部识别
+                  - generic [ref=f2e411]: 可填写平台用户名，或“注册手机号 + 持有人”等组合；这里不保存密码、Cookie 或令牌。
+              - region "发布账号列表" [ref=f2e412]:
+                - generic [ref=f2e415]:
+                  - table [ref=f2e419]:
+                    - rowgroup [ref=f2e426]:
+                      - row [ref=f2e427]:
+                        - columnheader "平台" [ref=f2e428]
+                        - columnheader "业务标签" [ref=f2e429]
+                        - columnheader "运营账号标识（内部）" [ref=f2e430]
+                        - columnheader "状态" [ref=f2e431]
+                        - columnheader "操作" [ref=f2e432]
+                    - rowgroup [ref=f2e433]:
+                      - row [ref=f2e434]:
+                        - cell "E2E Example 20260729-091241" [ref=f2e435]
+                        - cell "E2E-ACCEPT-20260729-091241 验收账号-已编辑" [ref=f2e436]
+                        - cell "E2E-ACCEPT-20260729-091241" [ref=f2e437]
+                        - cell "已停用" [ref=f2e438]
+                        - cell [ref=f2e440]:
+                          - button "更多操作：E2E-ACCEPT-20260729-091241 验收账号-已编辑" [ref=f2e441] [cursor=pointer]:
+                            - generic [ref=f2e442]: 更多
+                            - img "down" [ref=f2e443]
+                      - row [ref=f2e446]:
+                        - cell "知乎" [ref=f2e447]
+                        - cell "啊啊啊" [ref=f2e448]
+                        - cell "对的" [ref=f2e449]
+                        - cell "check-circle 启用" [ref=f2e450]:
+                          - generic [ref=f2e451]:
+                            - img "check-circle" [ref=f2e452]
+                            - generic [ref=f2e456]: 启用
+                        - cell [ref=f2e457]:
+                          - button "更多操作：啊啊啊" [ref=f2e458] [cursor=pointer]:
+                            - generic [ref=f2e459]: 更多
+                            - img "down" [ref=f2e460]
+                  - list [ref=f2e463]:
+                    - listitem "上一页" [ref=f2e464]:
+                      - button [disabled] [ref=f2e465]:
+                        - img "left" [ref=f2e466]
+                    - listitem "1" [ref=f2e469] [cursor=pointer]
+                    - listitem "下一页" [ref=f2e471]:
+                      - button [disabled] [ref=f2e472]:
+                        - img "right" [ref=f2e473]
+  - generic [ref=f2e476]:
+    - dialog "新增发布账号":
+      - generic [ref=f2e477]:
+        - button "Close" [ref=f2e478] [cursor=pointer]:
+          - generic "关闭" [ref=f2e479]:
+            - img "close" [ref=f2e480]
+        - generic [ref=f2e483]: 新增发布账号
+        - generic [ref=f2e486]:
+          - generic [ref=f2e488]:
+            - generic "平台" [ref=f2e490]: "* 平台"
+            - generic [ref=f2e494] [cursor=pointer]:
+              - generic [ref=f2e495]:
+                - generic: 仅显示已启用平台
+                - combobox "* 平台" [expanded] [active] [ref=f2e496]:
+                  - listbox:
+                    - option "E2E Example 20260729-091241": 2ae16274-e43f-479e-bb80-7a3c2ef8c3bb
+                    - option "E2E-ACCEPT-20260730-002915-平台": cadd4a6a-f645-43cf-bcf5-626b2efa32ea
+              - img "down" [ref=f2e498]
+          - generic [ref=f2e502]:
+            - generic "业务标签" [ref=f2e504]: "* 业务标签"
+            - textbox "* 业务标签" [ref=f2e508]: E2E-ACCEPT-20260730-002915-发布账号
+          - generic [ref=f2e510]:
+            - generic "运营账号标识（内部）" [ref=f2e512]: "* 运营账号标识（内部）"
+            - generic [ref=f2e513]:
+              - textbox "* 运营账号标识（内部）" [ref=f2e516]: E2E-ACCEPT-20260730-002915-account
+              - generic [ref=f2e517]: 可填写平台用户名，或“注册手机号 + 持有人”等仅供运营识别的组合。
+          - button "创 建" [ref=f2e519] [cursor=pointer]
+  - generic [ref=f2e526]:
+    - generic "E2E Example 20260729-091241" [ref=f2e527] [cursor=pointer]
+    - generic "E2E-ACCEPT-20260730-002915-平台" [ref=f2e529] [cursor=pointer]
+    - generic "知乎" [ref=f2e531] [cursor=pointer]

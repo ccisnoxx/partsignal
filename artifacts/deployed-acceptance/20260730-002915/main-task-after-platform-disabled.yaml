@@ -1,0 +1,182 @@
+- generic [ref=e6]:
+  - complementary [ref=e7]:
+    - generic [ref=e8]:
+      - strong [ref=e14]: PartSignal
+      - menu [ref=e15]:
+        - text: 内容工作流
+        - group [ref=e16]:
+          - menuitem [ref=e17] [cursor=pointer]:
+            - img "bar-chart" [ref=e18]
+            - link "工作台" [ref=e22]:
+              - /url: /
+          - menuitem [ref=e23] [cursor=pointer]:
+            - img "database" [ref=e24]
+            - link "产品事实" [ref=e28]:
+              - /url: /products
+          - menuitem [ref=e29] [cursor=pointer]:
+            - img "file-text" [ref=e30]
+            - link "内容任务" [ref=e34]:
+              - /url: /tasks
+          - menuitem [ref=e35] [cursor=pointer]:
+            - img "rocket" [ref=e36]
+            - link "发布管理" [ref=e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=e41] [cursor=pointer]:
+            - img "bar-chart" [ref=e42]
+            - generic [ref=e45]: GEO 观测
+        - text: 系统管理
+        - group [ref=e46]:
+          - menuitem "setting 业务设置" [ref=e47] [cursor=pointer]:
+            - img "setting" [ref=e48]
+            - generic [ref=e51]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=e52] [cursor=pointer]:
+            - img "safety-certificate" [ref=e53]
+            - generic [ref=e56]: 审计与安全
+          - menuitem "tool 配置中心" [ref=e57] [cursor=pointer]:
+            - img "tool" [ref=e58]
+            - generic [ref=e61]: 配置中心
+      - button "收起导航" [ref=e62] [cursor=pointer]:
+        - img "menu-fold" [ref=e64]
+        - generic [ref=e67]: 收起
+  - generic [ref=e68]:
+    - banner [ref=e69]:
+      - generic [ref=e72]:
+        - generic [ref=e73]: PARTSIGNAL
+        - strong [ref=e75]: 内容任务
+      - generic [ref=e78] [cursor=pointer]:
+        - img "search" [ref=e80]
+        - combobox "全局页面搜索" [ref=e83]
+        - generic [ref=e84]: ⌘K
+      - generic [ref=e86]:
+        - button "主题：跟随系统" [ref=e88] [cursor=pointer]:
+          - img "desktop" [ref=e90]
+          - generic [ref=e93]: 跟随系统
+        - button "打开用户操作菜单" [ref=e95] [cursor=pointer]:
+          - generic [ref=e96]: E
+          - generic [ref=e98]:
+            - strong [ref=e99]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=e100]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=e101]
+    - main [active] [ref=e104]:
+      - generic [ref=e105]:
+        - button "← 返回任务列表" [ref=e106] [cursor=pointer]
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - navigation [ref=e110]:
+              - list [ref=e111]:
+                - listitem [ref=e112]:
+                  - link "内容任务" [ref=e114] [cursor=pointer]:
+                    - /url: /tasks
+                - listitem [ref=e115]: /
+                - listitem [ref=e116]: 任务详情
+            - text: 任务 / 4f1314c1
+            - heading "E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=e117]
+            - generic [ref=e118]: 目标平台：E2E-ACCEPT-20260730-002915-平台
+          - generic [ref=e121]:
+            - img "check-circle" [ref=e122]
+            - generic [ref=e126]: 已完成
+        - navigation "内容任务章节" [ref=e127]:
+          - link "任务上下文" [ref=e128] [cursor=pointer]:
+            - /url: "#task-context"
+          - link "首稿入口" [ref=e129] [cursor=pointer]:
+            - /url: "#task-entry"
+          - link "内容版本" [ref=e130] [cursor=pointer]:
+            - /url: "#task-versions"
+        - generic [ref=e131]:
+          - generic [ref=e132]: 01 / 锁定上下文
+          - table [ref=e138]:
+            - rowgroup [ref=e139]:
+              - row [ref=e140]:
+                - 'cell "产品 : E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [ref=e141]':
+                  - generic [ref=e142]:
+                    - generic [ref=e143]: "产品 :"
+                    - generic [ref=e144]: E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT
+                - 'cell "冻结事实版本 : V1 check-circle 公开" [ref=e145]':
+                  - generic [ref=e146]:
+                    - generic [ref=e147]: "冻结事实版本 :"
+                    - generic [ref=e149]:
+                      - generic [ref=e150]: V1
+                      - generic [ref=e153]:
+                        - img "check-circle" [ref=e154]
+                        - generic [ref=e158]: 公开
+              - row [ref=e159]:
+                - 'cell "目标平台 : E2E-ACCEPT-20260730-002915-平台" [ref=e160]':
+                  - generic [ref=e161]:
+                    - generic [ref=e162]: "目标平台 :"
+                    - generic [ref=e163]: E2E-ACCEPT-20260730-002915-平台
+                - 'cell "任务创建时间 : 2026/07/30 01:03" [ref=e164]':
+                  - generic [ref=e165]:
+                    - generic [ref=e166]: "任务创建时间 :"
+                    - time [ref=e168]: 2026/07/30 01:03
+        - generic [ref=e169]:
+          - generic [ref=e170]:
+            - generic [ref=e171]: 02A / 系统 AI 生成
+            - generic [ref=e174]:
+              - alert [ref=e175]:
+                - img "exclamation-circle" [ref=e177]
+                - generic [ref=e180]:
+                  - generic [ref=e181]: 当前不能生成 AI 草稿
+                  - generic [ref=e182]: 当前任务已结束，历史任务保持只读，不能新增 AI 草稿。请创建新任务后继续。
+              - generic [ref=e183]: 模型只接收已确认的 Prompt 和冻结事实 Markdown；手工录入不受 Prompt 配置影响。
+              - button "plus 新建内容任务" [ref=e184] [cursor=pointer]:
+                - img "plus" [ref=e186]
+                - generic [ref=e190]: 新建内容任务
+          - generic [ref=e191]:
+            - generic [ref=e192]: 02B / 手动录入
+            - generic [ref=e195]:
+              - alert [ref=e196]:
+                - img "info-circle" [ref=e198]
+                - generic [ref=e201]: 可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。
+              - generic [ref=e203]: 手动首稿与 AI 草稿进入同一内容版本、审核和人工发布流程。
+              - button "录入首个人工草稿" [disabled] [ref=e204]
+        - generic [ref=e205]:
+          - generic [ref=e206]: AI 作业
+          - generic [ref=e209]: 尚无 AI 作业。
+        - generic [ref=e210]:
+          - generic [ref=e211]: 03 / 内容版本
+          - region "内容版本列表" [ref=e215]:
+            - generic [ref=e218]:
+              - table [ref=e222]:
+                - rowgroup [ref=e230]:
+                  - row [ref=e231]:
+                    - columnheader "版本" [ref=e232]
+                    - columnheader "标题" [ref=e233]
+                    - columnheader "来源" [ref=e234]
+                    - columnheader "状态" [ref=e235]
+                    - columnheader "质量问题" [ref=e236]
+                    - columnheader "操作" [ref=e237]
+                - rowgroup [ref=e238]:
+                  - row [ref=e239]:
+                    - cell [ref=e240]:
+                      - link "V2" [ref=e241] [cursor=pointer]:
+                        - /url: /content/822105ed-7463-4fb1-a2c1-f1511550a612
+                    - cell "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）" [ref=e242]
+                    - cell "人工编辑" [ref=e243]
+                    - cell "check-circle 已批准" [ref=e245]:
+                      - generic [ref=e246]:
+                        - img "check-circle" [ref=e247]
+                        - generic [ref=e251]: 已批准
+                    - cell "0" [ref=e252]
+                    - cell [ref=e253]:
+                      - button "自然化" [disabled] [ref=e254]
+                  - row [ref=e255]:
+                    - cell [ref=e256]:
+                      - link "V1" [ref=e257] [cursor=pointer]:
+                        - /url: /content/8d51a505-a72c-4dba-ba30-c240da5874df
+                    - cell "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明" [ref=e258]
+                    - cell "人工编辑" [ref=e259]
+                    - cell "exclamation-circle 需修改" [ref=e261]:
+                      - generic [ref=e262]:
+                        - img "exclamation-circle" [ref=e263]
+                        - generic [ref=e267]: 需修改
+                    - cell "0" [ref=e268]
+                    - cell [ref=e269]:
+                      - button "自然化" [disabled] [ref=e270]
+              - list [ref=e271]:
+                - listitem "上一页" [ref=e272]:
+                  - button [disabled] [ref=e273]:
+                    - img "left" [ref=e274]
+                - listitem "1" [ref=e277] [cursor=pointer]
+                - listitem "下一页" [ref=e279]:
+                  - button [disabled] [ref=e280]:
+                    - img "right" [ref=e281]

@@ -1,0 +1,127 @@
+- generic [ref=f11e201]:
+  - complementary [ref=f11e202]:
+    - generic [ref=f11e203]:
+      - strong [ref=f11e209]: PartSignal
+      - menu [ref=f11e998]:
+        - text: 内容工作流
+        - group [ref=f11e999]:
+          - menuitem [ref=f11e1000] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e1001]
+            - link "工作台" [ref=f11e1005]:
+              - /url: /
+          - menuitem [ref=f11e1006] [cursor=pointer]:
+            - img "database" [ref=f11e1007]
+            - link "产品事实" [ref=f11e1011]:
+              - /url: /products
+          - menuitem [ref=f11e1012] [cursor=pointer]:
+            - img "file-text" [ref=f11e1013]
+            - link "内容任务" [ref=f11e1017]:
+              - /url: /tasks
+          - menuitem [ref=f11e1018] [cursor=pointer]:
+            - img "rocket" [ref=f11e1019]
+            - link "发布管理" [ref=f11e1023]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f11e1024] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e1025]
+            - generic [ref=f11e1028]: GEO 观测
+        - text: 系统管理
+        - group [ref=f11e1029]:
+          - menuitem "setting 业务设置" [ref=f11e1030] [cursor=pointer]:
+            - img "setting" [ref=f11e1031]
+            - generic [ref=f11e1034]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f11e1035] [cursor=pointer]:
+            - img "safety-certificate" [ref=f11e1036]
+            - generic [ref=f11e1039]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f11e1040] [cursor=pointer]:
+            - img "tool" [ref=f11e1041]
+            - generic [ref=f11e1044]: 配置中心
+      - button "收起导航" [ref=f11e257] [cursor=pointer]:
+        - img "menu-fold" [ref=f11e259]
+        - generic [ref=f11e262]: 收起
+  - generic [ref=f11e263]:
+    - banner [ref=f11e264]:
+      - generic [ref=f11e267]:
+        - strong [ref=f11e615]: 配置中心
+        - generic [ref=f11e616]: /
+        - generic [ref=f11e617]: 平台类型
+      - generic [ref=f11e273] [cursor=pointer]:
+        - img "search" [ref=f11e275]
+        - combobox "全局页面搜索" [ref=f11e278]
+        - generic [ref=f11e279]: ⌘K
+      - generic [ref=f11e281]:
+        - button "主题：跟随系统" [ref=f11e283] [cursor=pointer]:
+          - img "desktop" [ref=f11e285]
+          - generic [ref=f11e288]: 跟随系统
+        - button "打开用户操作菜单" [ref=f11e290] [cursor=pointer]:
+          - generic [ref=f11e291]: E
+          - generic [ref=f11e293]:
+            - strong [ref=f11e294]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=f11e295]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=f11e296]
+    - main [ref=f11e299]:
+      - generic [ref=f11e1046]:
+        - generic [ref=f11e1047]:
+          - generic [ref=f11e1048]:
+            - text: 配置治理
+            - heading "平台类型" [level=1] [ref=f11e1049]
+            - generic [ref=f11e1050]: 维护具体平台使用的业务分类。
+          - button "plus 新增类型" [active] [ref=f11e1053] [cursor=pointer]:
+            - img "plus" [ref=f11e1055]
+            - generic [ref=f11e1059]: 新增类型
+        - region "平台类型列表" [ref=f11e1062]:
+          - generic [ref=f11e1065]:
+            - table [ref=f11e1069]:
+              - rowgroup [ref=f11e1074]:
+                - row [ref=f11e1075]:
+                  - columnheader "名称" [ref=f11e1076]
+                  - columnheader "唯一标识（slug）" [ref=f11e1077]
+                  - columnheader "操作" [ref=f11e1078]
+              - rowgroup [ref=f11e1079]:
+                - row [ref=f11e1080]:
+                  - cell "技术论坛" [ref=f11e1081]
+                  - cell "e2e-type-17de7a18" [ref=f11e1082]
+                  - cell [ref=f11e1083]:
+                    - button "编 辑" [ref=f11e1084] [cursor=pointer]
+                    - button "更多操作：技术论坛" [ref=f11e1086] [cursor=pointer]:
+                      - generic [ref=f11e1087]: 更多
+                      - img "down" [ref=f11e1088]
+                - row [ref=f11e1091]:
+                  - cell "E2E 论坛类型 b1470ce0" [ref=f11e1092]
+                  - cell "e2e-type-b1470ce0" [ref=f11e1093]
+                  - cell [ref=f11e1094]:
+                    - button "编 辑" [ref=f11e1095] [cursor=pointer]
+                    - button "更多操作：E2E 论坛类型 b1470ce0" [ref=f11e1097] [cursor=pointer]:
+                      - generic [ref=f11e1098]: 更多
+                      - img "down" [ref=f11e1099]
+                - row [ref=f11e1102]:
+                  - cell "问答平台" [ref=f11e1103]
+                  - cell "111" [ref=f11e1104]
+                  - cell [ref=f11e1105]:
+                    - button "编 辑" [ref=f11e1106] [cursor=pointer]
+                    - button "更多操作：问答平台" [ref=f11e1108] [cursor=pointer]:
+                      - generic [ref=f11e1109]: 更多
+                      - img "down" [ref=f11e1110]
+                - row [ref=f11e1113]:
+                  - cell "E2E-ACCEPT-20260729-091241 验收平台-已编辑" [ref=f11e1114]
+                  - cell "e2e-type-0729091241" [ref=f11e1115]
+                  - cell [ref=f11e1116]:
+                    - button "编 辑" [ref=f11e1117] [cursor=pointer]
+                    - button "更多操作：E2E-ACCEPT-20260729-091241 验收平台-已编辑" [ref=f11e1119] [cursor=pointer]:
+                      - generic [ref=f11e1120]: 更多
+                      - img "down" [ref=f11e1121]
+                - row [ref=f11e1166]:
+                  - cell "E2E-ACCEPT-20260730-002915-平台类型" [ref=f11e1167]
+                  - cell "e2e-accept-20260730-002915-type" [ref=f11e1168]
+                  - cell [ref=f11e1169]:
+                    - button "编 辑" [ref=f11e1170] [cursor=pointer]
+                    - button "更多操作：E2E-ACCEPT-20260730-002915-平台类型" [ref=f11e1172] [cursor=pointer]:
+                      - generic [ref=f11e1173]: 更多
+                      - img "down" [ref=f11e1174]
+            - list [ref=f11e1124]:
+              - listitem "上一页" [ref=f11e1125]:
+                - button [disabled] [ref=f11e1126]:
+                  - img "left" [ref=f11e1127]
+              - listitem "1" [ref=f11e1130] [cursor=pointer]
+              - listitem "下一页" [ref=f11e1132]:
+                - button [disabled] [ref=f11e1133]:
+                  - img "right" [ref=f11e1134]

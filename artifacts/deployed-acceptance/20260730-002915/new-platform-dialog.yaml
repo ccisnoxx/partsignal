@@ -1,0 +1,251 @@
+- generic [ref=f11e1] [box=0,0,1440,967]:
+  - generic [ref=f11e201] [box=0,0,1440,967]:
+    - complementary [ref=f11e202] [box=0,0,208,900]:
+      - generic [ref=f11e203] [box=0,0,207,900]:
+        - strong [ref=f11e209] [box=65,19,86,27]: PartSignal
+        - menu [ref=f11e558] [box=0,64,207,774]:
+          - text: 内容工作流
+          - group [ref=f11e559] [box=0,106,207,241]:
+            - menuitem [ref=f11e560] [cursor=pointer] [box=4,106,199,45]:
+              - img "bar-chart" [ref=f11e561] [box=28,122,14,14]
+              - link "工作台" [ref=f11e565] [box=55,120,42,17]:
+                - /url: /
+            - menuitem [ref=f11e566] [cursor=pointer] [box=4,155,199,45]:
+              - img "database" [ref=f11e567] [box=28,171,14,14]
+              - link "产品事实" [ref=f11e571] [box=55,169,56,17]:
+                - /url: /products
+            - menuitem [ref=f11e572] [cursor=pointer] [box=4,204,199,45]:
+              - img "file-text" [ref=f11e573] [box=28,220,14,14]
+              - link "内容任务" [ref=f11e577] [box=55,218,56,17]:
+                - /url: /tasks
+            - menuitem [ref=f11e578] [cursor=pointer] [box=4,253,199,45]:
+              - img "rocket" [ref=f11e579] [box=28,269,14,14]
+              - link "发布管理" [ref=f11e583] [box=55,267,56,17]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f11e584] [cursor=pointer] [box=4,302,199,45]:
+              - img "bar-chart" [ref=f11e585] [box=28,318,14,14]
+              - generic [ref=f11e588] [box=55,302,61,45]: GEO 观测
+          - text: 系统管理
+          - group [ref=f11e589] [box=0,393,207,298]:
+            - menuitem "setting 业务设置" [ref=f11e590] [cursor=pointer] [box=4,393,199,45]:
+              - img "setting" [ref=f11e591] [box=28,409,14,14]
+              - generic [ref=f11e594] [box=55,393,56,45]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f11e595] [cursor=pointer] [box=4,442,199,45]:
+              - img "safety-certificate" [ref=f11e596] [box=28,458,14,14]
+              - generic [ref=f11e599] [box=55,442,70,45]: 审计与安全
+            - menuitem "tool 配置中心" [expanded] [ref=f11e600] [cursor=pointer] [box=4,491,199,45]:
+              - img "tool" [ref=f11e601] [box=28,507,14,14]
+              - generic [ref=f11e604] [box=55,491,56,45]: 配置中心
+            - menu [ref=f11e605] [box=0,540,207,151]:
+              - menuitem [ref=f11e606] [cursor=pointer] [box=4,544,199,45]:
+                - link "平台管理" [ref=f11e608] [box=52,558,56,17]:
+                  - /url: /configuration/platforms
+              - menuitem [ref=f11e609] [cursor=pointer] [box=4,593,199,45]:
+                - link "Prompt 管理" [ref=f11e611] [box=52,607,79,17]:
+                  - /url: /configuration/prompts
+              - menuitem [ref=f11e612] [cursor=pointer] [box=4,642,199,45]:
+                - link "AI 渠道与模型" [ref=f11e614] [box=52,656,87,17]:
+                  - /url: /configuration/ai
+        - button "收起导航" [ref=f11e257] [cursor=pointer] [box=10,842,187,48]:
+          - img "menu-fold" [ref=f11e259] [box=26,859,14,14]
+          - generic [ref=f11e262] [box=48,856,28,20]: 收起
+    - generic [ref=f11e263] [box=208,0,1232,967]:
+      - banner [ref=f11e264] [box=208,0,1232,64]:
+        - generic [ref=f11e267] [box=228,25,132,22]:
+          - strong [ref=f11e615] [box=228,27,56,17]: 配置中心
+          - generic [ref=f11e616] [box=292,28,4,16]: /
+          - generic [ref=f11e617] [box=304,25,56,22]: 平台管理
+        - generic [ref=f11e273] [cursor=pointer] [box=584,0,480,72]:
+          - img "search" [ref=f11e275] [box=596,29,14,14]
+          - combobox "全局页面搜索" [ref=f11e278] [box=614,7,386,58]
+          - generic [ref=f11e279] [box=1004,7,48,58]: ⌘K
+        - generic [ref=f11e281] [box=940,0,480,72]:
+          - button "主题：跟随系统" [ref=f11e283] [cursor=pointer] [box=940,18,110,36]:
+            - img "desktop" [ref=f11e285] [box=956,29,14,14]
+            - generic [ref=f11e288] [box=978,26,56,20]: 跟随系统
+          - button "打开用户操作菜单" [ref=f11e290] [cursor=pointer] [box=1058,11,362,50]:
+            - generic [ref=f11e291] [box=1067,18,36,36]: E
+            - generic [ref=f11e293] [box=1113,21,276,30]:
+              - strong [ref=f11e294] [box=1113,21,276,17]: E2E-ACCEPT-20260730-002915-管理员
+              - generic [ref=f11e295] [box=1113,38,276,13]: e2e-accept-20260730-002915-admin
+            - img "down" [ref=f11e296] [box=1399,30,12,12]
+      - main [ref=f11e299] [box=208,64,1232,903]:
+        - generic [ref=f11e618] [box=228,84,1192,863]:
+          - generic [ref=f11e619] [box=228,84,1192,107]:
+            - generic [ref=f11e620] [box=228,88,392,93]:
+              - text: 平台治理
+              - heading "平台管理" [level=1] [ref=f11e621] [box=228,113,392,29]
+              - generic [ref=f11e622] [box=228,145,392,22]: 管理具体内容平台、所属类型、官网、允许域名及配置完整性。
+            - button "plus 新增平台" [expanded] [ref=f11e625] [cursor=pointer] [box=1310,145,110,36]:
+              - img "plus" [ref=f11e627] [box=1326,156,14,14]
+              - generic [ref=f11e631] [box=1348,153,56,20]: 新增平台
+          - main [ref=f11e633] [box=228,201,1192,746]:
+            - region "平台实时统计" [ref=f11e634] [box=228,201,1192,114]:
+              - generic [ref=f11e636] [box=229,202,227,112]:
+                - generic [ref=f11e637] [box=293,218,147,19]: 平台总数
+                - strong [ref=f11e639] [box=293,242,20,36]: "2"
+              - generic [ref=f11e641] [box=470,202,227,112]:
+                - generic [ref=f11e642] [box=534,218,147,19]: 已启用平台
+                - strong [ref=f11e644] [box=534,242,20,36]: "2"
+              - generic [ref=f11e646] [box=711,202,227,112]:
+                - generic [ref=f11e647] [box=775,218,147,19]: 缺少 Prompt
+                - strong [ref=f11e649] [box=775,242,20,36]: "1"
+              - generic [ref=f11e651] [box=951,202,227,112]:
+                - generic [ref=f11e652] [box=1015,218,147,19]: 配置完整平台
+                - strong [ref=f11e654] [box=1015,242,20,36]: "1"
+            - search "平台筛选" [ref=f11e657] [box=243,341,1162,57]:
+              - generic [ref=f11e658] [box=243,341,290,57]:
+                - generic [ref=f11e659] [box=243,341,290,17]: 关键词
+                - generic [ref=f11e660] [box=243,362,290,36]:
+                  - generic [ref=f11e661] [box=243,362,255,36]:
+                    - img "search" [ref=f11e663] [box=255,373,14,14]
+                    - searchbox "搜索平台名称或类型" [ref=f11e666] [box=273,369,197,22]
+                  - button [ref=f11e668] [cursor=pointer] [box=497,362,36,36]:
+                    - img "search" [ref=f11e670] [box=508,373,14,14]
+              - generic [ref=f11e673] [box=541,341,145,57]:
+                - generic [ref=f11e674] [box=541,341,145,17]: 平台类型
+                - generic [ref=f11e675] [cursor=pointer] [box=541,362,145,36]:
+                  - generic [ref=f11e676] [box=553,369,103,22]:
+                    - generic [box=553,369,56,22]: 全部类型
+                    - combobox "筛选平台类型" [ref=f11e677] [box=553,369,103,22]
+                  - img "down" [ref=f11e679] [box=663,374,12,12]
+              - generic [ref=f11e682] [box=695,341,110,57]:
+                - generic [ref=f11e683] [box=695,341,110,17]: 启用状态
+                - generic [ref=f11e684] [cursor=pointer] [box=695,362,110,36]:
+                  - generic [ref=f11e685] [box=707,369,68,22]:
+                    - generic [box=707,369,56,22]: 全部状态
+                    - combobox "筛选平台状态" [ref=f11e686] [box=707,369,68,22]
+                  - img "down" [ref=f11e688] [box=781,374,12,12]
+              - generic [ref=f11e691] [box=813,341,125,57]:
+                - generic [ref=f11e692] [box=813,341,125,17]: 配置完整性
+                - generic [ref=f11e693] [cursor=pointer] [box=813,362,125,36]:
+                  - generic [ref=f11e694] [box=825,369,83,22]:
+                    - generic [box=825,369,56,22]: 全部状态
+                    - combobox "筛选配置完整性" [ref=f11e695] [box=825,369,83,22]
+                  - img "down" [ref=f11e697] [box=914,374,12,12]
+              - button "reload 重置" [disabled] [ref=f11e700] [box=946,362,82,36]:
+                - generic [box=962,372,14,17]:
+                  - img "reload" [box=962,373,14,14]
+                - generic [box=984,370,28,20]: 重置
+              - generic [ref=f11e701] [box=1225,379,62,19]: 共 2 个平台
+              - button "export 导出列表" [ref=f11e702] [cursor=pointer] [box=1295,362,110,36]:
+                - img "export" [ref=f11e704] [box=1311,373,14,14]
+                - generic [ref=f11e707] [box=1333,370,56,20]: 导出列表
+            - region "平台列表" [ref=f11e710] [box=229,425,1190,212]:
+              - generic [ref=f11e713] [box=229,425,1190,198]:
+                - generic [ref=f11e715] [box=229,425,1190,148]:
+                  - table [ref=f11e717] [box=229,425,1190,44]:
+                    - rowgroup [ref=f11e728] [box=229,425,1190,44]:
+                      - row [ref=f11e729] [box=229,425,1190,44]:
+                        - columnheader "平台名称" [ref=f11e730] [box=229,425,329,44]
+                        - columnheader "所属平台类型" [ref=f11e731] [box=558,425,100,44]
+                        - columnheader "官方网站" [ref=f11e732] [box=658,425,110,44]
+                        - columnheader "允许域名（数量）" [ref=f11e733] [box=768,425,125,44]
+                        - columnheader "状态" [ref=f11e734] [box=893,425,72,44]
+                        - columnheader "当前 Prompt" [ref=f11e735] [box=965,425,140,44]
+                        - columnheader "发布账号数量" [ref=f11e736] [box=1105,425,86,44]
+                        - columnheader "更新时间" [ref=f11e737] [box=1191,425,124,44]
+                        - columnheader "操作" [ref=f11e738] [box=1315,425,104,44]
+                  - table [ref=f11e740] [box=229,469,1190,104]:
+                    - rowgroup [ref=f11e751] [box=229,469,1190,104]:
+                      - row [ref=f11e752] [box=229,469,1190,52]:
+                        - cell [ref=f11e753] [box=229,469,329,52]:
+                          - strong [ref=f11e756] [box=271,484,213,20]: E2E Example 20260729-091241
+                        - cell "E2E-ACCEPT-20260729-091241 验收平台-已编辑" [ref=f11e757] [box=558,469,100,52]
+                        - cell [ref=f11e758] [box=658,469,110,52]:
+                          - link "https://example.com/" [ref=f11e759] [cursor=pointer] [box=667,484,92,20]:
+                            - /url: https://example.com/
+                        - cell "example.com" [ref=f11e760] [box=768,469,125,52]
+                        - cell "已启用" [ref=f11e761] [box=893,469,72,52]
+                        - cell "缺少 Prompt" [ref=f11e763] [box=965,469,140,52]
+                        - cell "1" [ref=f11e765] [box=1105,469,86,52]
+                        - cell [ref=f11e766] [box=1191,469,124,52]:
+                          - time [ref=f11e767] [box=1200,486,112,16]: 2026/07/29 23:13
+                        - cell [ref=f11e768] [box=1315,469,104,52]:
+                          - generic [ref=f11e769] [box=1324,483,52,24]:
+                            - button "查看平台：E2E Example 20260729-091241" [ref=f11e771] [cursor=pointer] [box=1324,483,24,24]:
+                              - img "eye" [ref=f11e773] [box=1329,488,14,14]
+                            - button "更多操作：E2E Example 20260729-091241" [ref=f11e777] [cursor=pointer] [box=1352,483,24,24]:
+                              - img "ellipsis" [ref=f11e779] [box=1357,488,14,14]
+                      - row [ref=f11e782] [box=229,521,1190,52]:
+                        - cell [ref=f11e783] [box=229,521,329,52]:
+                          - strong [ref=f11e786] [box=271,536,26,20]: 知乎
+                        - cell "问答平台" [ref=f11e787] [box=558,521,100,52]
+                        - cell [ref=f11e788] [box=658,521,110,52]:
+                          - link "https://www.zhihu.com/" [ref=f11e789] [cursor=pointer] [box=667,536,92,20]:
+                            - /url: https://www.zhihu.com/
+                        - cell "zhihu.com" [ref=f11e790] [box=768,521,125,52]
+                        - cell "已启用" [ref=f11e791] [box=893,521,72,52]
+                        - cell "测试" [ref=f11e793] [box=965,521,140,52]
+                        - cell "1" [ref=f11e794] [box=1105,521,86,52]
+                        - cell [ref=f11e795] [box=1191,521,124,52]:
+                          - time [ref=f11e796] [box=1200,538,112,16]: 2026/07/28 21:45
+                        - cell [ref=f11e797] [box=1315,521,104,52]:
+                          - generic [ref=f11e798] [box=1324,535,52,24]:
+                            - button "查看平台：知乎" [ref=f11e800] [cursor=pointer] [box=1324,535,24,24]:
+                              - img "eye" [ref=f11e802] [box=1329,540,14,14]
+                            - button "更多操作：知乎" [ref=f11e806] [cursor=pointer] [box=1352,535,24,24]:
+                              - img "ellipsis" [ref=f11e808] [box=1357,540,14,14]
+                - list [ref=f11e811] [box=243,587,1162,36]:
+                  - listitem "上一页" [ref=f11e812] [box=1081,587,36,36]:
+                    - button [disabled] [ref=f11e813] [box=1081,587,36,36]:
+                      - img "left" [ref=f11e814] [box=1093,599,12,12]
+                  - listitem "1" [ref=f11e817] [cursor=pointer] [box=1125,587,36,36]
+                  - listitem "下一页" [ref=f11e819] [box=1169,587,36,36]:
+                    - button [disabled] [ref=f11e820] [box=1169,587,36,36]:
+                      - img "right" [ref=f11e821] [box=1181,599,12,12]
+                  - listitem [box=243,587,1162,36]:
+                    - generic [ref=f11e824] [box=243,587,95,36]:
+                      - generic "20 条/页" [ref=f11e825] [box=255,594,53,22]:
+                        - text: 20 条/页
+                        - combobox "页码" [ref=f11e826] [box=255,594,53,22]
+                      - img "down" [ref=f11e828] [box=314,599,12,12]
+  - generic [ref=f11e831] [box=0,0,1440,900]:
+    - dialog "新增平台" [box=400,0,640,900]:
+      - generic [ref=f11e832] [box=400,24,640,852]:
+        - button "Close" [ref=f11e833] [cursor=pointer] [box=993,35,36,36]:
+          - generic "关闭" [ref=f11e834] [box=993,45,36,16]:
+            - img "close" [ref=f11e835] [box=1003,45,16,16]
+        - generic [ref=f11e838] [box=425,45,590,24]: 新增平台
+        - generic [ref=f11e841] [box=425,77,590,804]:
+          - generic [ref=f11e843] [box=425,77,590,66]:
+            - generic "平台名称" [ref=f11e845] [box=425,77,81,22]: "* 平台名称"
+            - textbox "* 平台名称" [active] [ref=f11e849] [box=425,107,590,36]
+          - generic [ref=f11e851] [box=425,167,590,66]:
+            - generic "唯一标识（slug）" [ref=f11e853] [box=425,167,136,22]: "* 唯一标识（slug）"
+            - textbox "* 唯一标识（slug）" [ref=f11e857] [box=425,197,590,36]
+          - generic [ref=f11e859] [box=425,257,590,66]:
+            - generic "平台类型" [ref=f11e861] [box=425,257,81,22]: "* 平台类型"
+            - generic [ref=f11e865] [cursor=pointer] [box=425,287,590,36]:
+              - combobox "* 平台类型" [ref=f11e867] [box=437,294,548,22]
+              - img "down" [ref=f11e869] [box=991,299,12,12]
+          - generic [ref=f11e873] [box=425,347,590,66]:
+            - generic "当前 Prompt" [ref=f11e875] [box=425,347,93,22]
+            - generic [ref=f11e879] [box=425,377,590,36]:
+              - generic [ref=f11e880] [box=437,384,548,22]:
+                - generic [box=437,384,224,22]: 可暂不绑定，之后仍可手动录入内容
+                - combobox "当前 Prompt" [ref=f11e881] [box=437,384,548,22]
+              - img "down" [ref=f11e883] [box=991,389,12,12]
+          - generic [ref=f11e887] [box=425,437,590,66]:
+            - generic "允许域名" [ref=f11e889] [box=425,437,81,22]: "* 允许域名"
+            - generic [ref=f11e893] [box=425,467,590,36]:
+              - combobox "* 允许域名" [ref=f11e896] [box=437,469,4,32]
+              - img "down" [ref=f11e898] [box=991,479,12,12]
+          - generic [ref=f11e901] [box=425,527,590,300]:
+            - generic [ref=f11e903] [box=440,542,560,66]:
+              - generic "官方网站" [ref=f11e905] [box=440,542,70,22]
+              - textbox "官方网站" [ref=f11e909] [box=440,572,560,36]:
+                - /placeholder: https://platform.example.com
+            - generic [ref=f11e911] [box=440,632,560,66]:
+              - generic "官网 Logo" [ref=f11e913] [box=440,632,78,22]
+              - button "global 从官网发现 Logo" [ref=f11e917] [cursor=pointer] [box=440,662,160,36]:
+                - img "global" [ref=f11e919] [box=456,673,14,14]
+                - generic [ref=f11e922] [box=478,670,106,20]: 从官网发现 Logo
+            - generic [ref=f11e924] [box=440,722,560,66]:
+              - generic "Logo 操作" [ref=f11e926] [box=440,722,89,22]: "* Logo 操作"
+              - generic [ref=f11e930] [cursor=pointer] [box=440,752,560,36]:
+                - generic "清空 Logo" [ref=f11e931] [box=452,759,518,22]:
+                  - text: 清空 Logo
+                  - combobox "* Logo 操作" [ref=f11e932] [box=452,759,518,22]
+                - img "down" [ref=f11e934] [box=976,764,12,12]
+          - button "创建平台" [ref=f11e937] [cursor=pointer] [box=425,845,88,36]

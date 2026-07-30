@@ -1,0 +1,470 @@
+- generic [ref=f15e6]:
+  - complementary [ref=f15e7]:
+    - generic [ref=f15e8]:
+      - strong [ref=f15e14]: PartSignal
+      - menu [ref=f15e15]:
+        - text: 内容工作流
+        - group [ref=f15e16]:
+          - menuitem [ref=f15e17] [cursor=pointer]:
+            - img "bar-chart" [ref=f15e18]
+            - link "工作台" [ref=f15e22]:
+              - /url: /
+          - menuitem [ref=f15e23] [cursor=pointer]:
+            - img "database" [ref=f15e24]
+            - link "产品事实" [ref=f15e28]:
+              - /url: /products
+          - menuitem [ref=f15e29] [cursor=pointer]:
+            - img "file-text" [ref=f15e30]
+            - link "内容任务" [ref=f15e34]:
+              - /url: /tasks
+          - menuitem [ref=f15e35] [cursor=pointer]:
+            - img "rocket" [ref=f15e36]
+            - link "发布管理" [ref=f15e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f15e41] [cursor=pointer]:
+            - img "bar-chart" [ref=f15e42]
+            - generic [ref=f15e45]: GEO 观测
+        - text: 系统管理
+        - group [ref=f15e46]:
+          - menuitem "setting 业务设置" [ref=f15e47] [cursor=pointer]:
+            - img "setting" [ref=f15e48]
+            - generic [ref=f15e51]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [expanded] [ref=f15e52] [cursor=pointer]:
+            - img "safety-certificate" [ref=f15e53]
+            - generic [ref=f15e56]: 审计与安全
+          - menu [ref=f15e57]:
+            - menuitem [ref=f15e58] [cursor=pointer]:
+              - link "审计日志" [ref=f15e60]:
+                - /url: /audit
+          - menuitem "tool 配置中心" [ref=f15e61] [cursor=pointer]:
+            - img "tool" [ref=f15e62]
+            - generic [ref=f15e65]: 配置中心
+      - button "收起导航" [ref=f15e66] [cursor=pointer]:
+        - img "menu-fold" [ref=f15e68]
+        - generic [ref=f15e71]: 收起
+  - generic [ref=f15e72]:
+    - banner [ref=f15e73]:
+      - generic [ref=f15e76]:
+        - strong [ref=f15e78]: 审计与安全
+        - generic [ref=f15e79]: /
+        - generic [ref=f15e80]: 审计日志
+      - generic [ref=f15e83] [cursor=pointer]:
+        - img "search" [ref=f15e85]
+        - combobox "全局页面搜索" [ref=f15e88]
+        - generic [ref=f15e89]: ⌘K
+      - generic [ref=f15e91]:
+        - button "主题：跟随系统" [ref=f15e93] [cursor=pointer]:
+          - img "desktop" [ref=f15e95]
+          - generic [ref=f15e98]: 跟随系统
+        - button "打开用户操作菜单" [ref=f15e100] [cursor=pointer]:
+          - generic [ref=f15e101]: 系
+          - generic [ref=f15e103]:
+            - strong [ref=f15e104]: 系统管理员
+            - generic [ref=f15e105]: admin
+          - img "down" [ref=f15e106]
+    - main [active] [ref=f15e109]:
+      - generic [ref=f15e110]:
+        - generic [ref=f15e112]:
+          - heading "审计日志" [level=1] [ref=f15e113]
+          - generic [ref=f15e114]: 追溯关键业务操作、状态转换和配置变更。审计记录不可修改或删除。
+        - generic [ref=f15e116]:
+          - region "审计日志筛选" [ref=f15e117]:
+            - generic [ref=f15e118]:
+              - generic [ref=f15e119]:
+                - generic [ref=f15e120]: 时间范围
+                - generic [ref=f15e121]:
+                  - textbox "时间范围" [ref=f15e123]:
+                    - /placeholder: 开始日期
+                    - text: 2026-07-27 02:39
+                  - generic "to" [ref=f15e125]:
+                    - img "swap-right" [ref=f15e126]
+                  - textbox "时间范围" [ref=f15e130]:
+                    - /placeholder: 结束日期
+                    - text: 2026-07-30 02:39
+                  - button "清除":
+                    - img "close-circle"
+              - generic [ref=f15e131]:
+                - generic [ref=f15e132]: 操作者
+                - generic [ref=f15e133]:
+                  - generic [ref=f15e134]:
+                    - generic: 选择操作者
+                    - combobox "操作者" [ref=f15e135]
+                  - img "down" [ref=f15e137]
+              - generic [ref=f15e140]:
+                - generic [ref=f15e141]: 业务模块
+                - generic [ref=f15e142] [cursor=pointer]:
+                  - generic [ref=f15e143]:
+                    - generic: 全部模块
+                    - combobox "业务模块" [ref=f15e144]
+                  - img "down" [ref=f15e146]
+              - generic [ref=f15e149]:
+                - generic [ref=f15e150]: 动作类型
+                - generic [ref=f15e151]:
+                  - generic [ref=f15e152]:
+                    - generic: 全部动作
+                    - combobox "动作类型" [ref=f15e153]
+                  - img "down" [ref=f15e155]
+              - generic [ref=f15e158]:
+                - generic [ref=f15e159]: 对象类型
+                - generic [ref=f15e160]:
+                  - generic [ref=f15e161]:
+                    - generic: 全部对象类型
+                    - combobox "对象类型" [ref=f15e162]
+                  - img "down" [ref=f15e164]
+              - generic [ref=f15e167]:
+                - generic [ref=f15e168]: 执行结果
+                - generic [ref=f15e169] [cursor=pointer]:
+                  - generic [ref=f15e170]:
+                    - generic: 全部结果
+                    - combobox "执行结果" [ref=f15e171]
+                  - img "down" [ref=f15e173]
+              - generic [ref=f15e176]:
+                - generic [ref=f15e177]: 请求 ID
+                - textbox "请求 ID" [ref=f15e179]:
+                  - /placeholder: 请输入请求 ID
+            - generic [ref=f15e181]:
+              - generic [ref=f15e182]:
+                - generic [ref=f15e183]:
+                  - img "search" [ref=f15e185]
+                  - searchbox "关键字搜索" [ref=f15e188]
+                - button [ref=f15e190] [cursor=pointer]:
+                  - img "search" [ref=f15e192]
+              - button "重置筛选" [ref=f15e195] [cursor=pointer]:
+                - img "reload" [ref=f15e197]
+          - region "审计日志列表" [ref=f15e201]:
+            - generic [ref=f15e202]:
+              - generic [ref=f15e203]:
+                - text: 共
+                - strong [ref=f15e204]: "228"
+                - text: 条记录
+              - generic [ref=f15e205]:
+                - generic [ref=f15e207]:
+                  - generic [ref=f15e208]: 自动刷新
+                  - switch "自动刷新" [ref=f15e209] [cursor=pointer]
+                - button "手动刷新" [ref=f15e213] [cursor=pointer]:
+                  - img "reload" [ref=f15e215]
+            - region "审计日志" [ref=f15e218]:
+              - generic [ref=f15e223]:
+                - table [ref=f15e225]:
+                  - rowgroup [ref=f15e237]:
+                    - row [ref=f15e238]:
+                      - columnheader "时间" [ref=f15e239]
+                      - columnheader "操作者" [ref=f15e240]
+                      - columnheader "账号类型" [ref=f15e241]
+                      - columnheader "业务模块" [ref=f15e242]
+                      - columnheader "动作" [ref=f15e243]
+                      - columnheader "对象类型" [ref=f15e244]
+                      - columnheader "对象标识" [ref=f15e245]
+                      - columnheader "执行结果" [ref=f15e246]
+                      - columnheader "请求 ID" [ref=f15e247]
+                      - columnheader "操作" [ref=f15e248]
+                - table [ref=f15e250]:
+                  - rowgroup [ref=f15e262]:
+                    - row [ref=f15e263]:
+                      - cell [ref=f15e264]:
+                        - time [ref=f15e265]: 2026/07/30 02:39:27
+                      - cell "系统管理员" [ref=f15e266]
+                      - cell "管理员" [ref=f15e267]
+                      - cell "内容规划" [ref=f15e269]
+                      - cell "取消内容任务" [ref=f15e270]
+                      - cell "内容任务" [ref=f15e271]
+                      - cell "a4ff70d9-2ddd-4008-ae3a-81c699515fa0" [ref=f15e272]
+                      - cell "成功" [ref=f15e274]
+                      - cell "7de10863-642b-4e7d-8e2b-2560e1309532" [ref=f15e276]
+                      - cell [ref=f15e278]:
+                        - button "查看日志详情：fae9503b-20c7-4928-8f78-2c438c4cf189" [ref=f15e279] [cursor=pointer]:
+                          - img "eye" [ref=f15e281]
+                    - row [ref=f15e284]:
+                      - cell [ref=f15e285]:
+                        - time [ref=f15e286]: 2026/07/30 02:39:13
+                      - cell "系统管理员" [ref=f15e287]
+                      - cell "管理员" [ref=f15e288]
+                      - cell "内容规划" [ref=f15e290]
+                      - cell "取消内容任务" [ref=f15e291]
+                      - cell "内容任务" [ref=f15e292]
+                      - cell "420858be-050f-4ea2-99ac-7f68938c4e73" [ref=f15e293]
+                      - cell "成功" [ref=f15e295]
+                      - cell "21ae0e0a-8880-46fc-b545-138b02d7c4fc" [ref=f15e297]
+                      - cell [ref=f15e299]:
+                        - button "查看日志详情：708a01ca-8e5b-4adf-a13f-0a9546cddc13" [ref=f15e300] [cursor=pointer]:
+                          - img "eye" [ref=f15e302]
+                    - row [ref=f15e305]:
+                      - cell [ref=f15e306]:
+                        - time [ref=f15e307]: 2026/07/30 02:38:50
+                      - cell "系统管理员" [ref=f15e308]
+                      - cell "管理员" [ref=f15e309]
+                      - cell "配置中心" [ref=f15e311]
+                      - cell "停用平台配置" [ref=f15e312]
+                      - cell "平台" [ref=f15e313]
+                      - cell "cadd4a6a-f645-43cf-bcf5-626b2efa32ea" [ref=f15e314]
+                      - cell "成功" [ref=f15e316]
+                      - cell "951d7d42-c449-434b-ab0b-1593089f719b" [ref=f15e318]
+                      - cell [ref=f15e320]:
+                        - button "查看日志详情：aac307ee-3efb-418c-b4d1-bb25f44316e5" [ref=f15e321] [cursor=pointer]:
+                          - img "eye" [ref=f15e323]
+                    - row [ref=f15e326]:
+                      - cell [ref=f15e327]:
+                        - time [ref=f15e328]: 2026/07/30 02:38:22
+                      - cell "系统管理员" [ref=f15e329]
+                      - cell "管理员" [ref=f15e330]
+                      - cell "配置中心" [ref=f15e332]
+                      - cell "更新平台配置" [ref=f15e333]
+                      - cell "平台" [ref=f15e334]
+                      - cell "cadd4a6a-f645-43cf-bcf5-626b2efa32ea" [ref=f15e335]
+                      - cell "成功" [ref=f15e337]
+                      - cell "7e9fcaa6-b883-4f45-9a13-0d35e181bac0" [ref=f15e339]
+                      - cell [ref=f15e341]:
+                        - button "查看日志详情：121ba750-c842-4c07-8fb0-efacf61062c3" [ref=f15e342] [cursor=pointer]:
+                          - img "eye" [ref=f15e344]
+                    - row [ref=f15e347]:
+                      - cell [ref=f15e348]:
+                        - time [ref=f15e349]: 2026/07/30 02:37:28
+                      - cell "系统管理员" [ref=f15e350]
+                      - cell "管理员" [ref=f15e351]
+                      - cell "内容生产" [ref=f15e353]
+                      - cell "创建内容生成作业" [ref=f15e354]
+                      - cell "GenerationJob" [ref=f15e355]
+                      - cell "5c3814e3-c650-411d-9c66-f533581e3522" [ref=f15e356]
+                      - cell "成功" [ref=f15e358]
+                      - cell "0350c4c6-efd6-469d-a90d-ebda000ae7a2" [ref=f15e360]
+                      - cell [ref=f15e362]:
+                        - button "查看日志详情：2aa4f290-ad95-4f0f-9907-1a4ca6200af3" [ref=f15e363] [cursor=pointer]:
+                          - img "eye" [ref=f15e365]
+                    - row [ref=f15e368]:
+                      - cell [ref=f15e369]:
+                        - time [ref=f15e370]: 2026/07/30 02:36:58
+                      - cell "系统管理员" [ref=f15e371]
+                      - cell "管理员" [ref=f15e372]
+                      - cell "配置中心" [ref=f15e374]
+                      - cell "更新 Prompt" [ref=f15e375]
+                      - cell "PlatformPrompt" [ref=f15e376]
+                      - cell "e1ff345d-6164-4578-97f8-9142b1638583" [ref=f15e377]
+                      - cell "成功" [ref=f15e379]
+                      - cell "d737fa61-3ad3-4aa7-a315-b43dcdd19e9b" [ref=f15e381]
+                      - cell [ref=f15e383]:
+                        - button "查看日志详情：3caea5bf-136e-467a-9555-96a7e3c8fbb9" [ref=f15e384] [cursor=pointer]:
+                          - img "eye" [ref=f15e386]
+                    - row [ref=f15e389]:
+                      - cell [ref=f15e390]:
+                        - time [ref=f15e391]: 2026/07/30 02:36:00
+                      - cell "系统管理员" [ref=f15e392]
+                      - cell "管理员" [ref=f15e393]
+                      - cell "内容生产" [ref=f15e395]
+                      - cell "创建内容生成作业" [ref=f15e396]
+                      - cell "GenerationJob" [ref=f15e397]
+                      - cell "464e92c6-4b31-42d1-a806-d8dd91f2c36d" [ref=f15e398]
+                      - cell "成功" [ref=f15e400]
+                      - cell "cf113254-2019-4b6b-a990-b264e4f8a5dc" [ref=f15e402]
+                      - cell [ref=f15e404]:
+                        - button "查看日志详情：cf3168c9-300a-444e-a090-b2ccd01a53d8" [ref=f15e405] [cursor=pointer]:
+                          - img "eye" [ref=f15e407]
+                    - row [ref=f15e410]:
+                      - cell [ref=f15e411]:
+                        - time [ref=f15e412]: 2026/07/30 02:35:34
+                      - cell "系统管理员" [ref=f15e413]
+                      - cell "管理员" [ref=f15e414]
+                      - cell "内容规划" [ref=f15e416]
+                      - cell "创建内容任务" [ref=f15e417]
+                      - cell "内容任务" [ref=f15e418]
+                      - cell "a4ff70d9-2ddd-4008-ae3a-81c699515fa0" [ref=f15e419]
+                      - cell "成功" [ref=f15e421]
+                      - cell "aaf32979-c9a7-4ebf-b7a9-3359b6858871" [ref=f15e423]
+                      - cell [ref=f15e425]:
+                        - button "查看日志详情：6d1c00c7-a3b7-424a-89aa-766b757e91cc" [ref=f15e426] [cursor=pointer]:
+                          - img "eye" [ref=f15e428]
+                    - row [ref=f15e431]:
+                      - cell [ref=f15e432]:
+                        - time [ref=f15e433]: 2026/07/30 02:35:06
+                      - cell "系统管理员" [ref=f15e434]
+                      - cell "管理员" [ref=f15e435]
+                      - cell "配置中心" [ref=f15e437]
+                      - cell "更新平台配置" [ref=f15e438]
+                      - cell "平台" [ref=f15e439]
+                      - cell "cadd4a6a-f645-43cf-bcf5-626b2efa32ea" [ref=f15e440]
+                      - cell "成功" [ref=f15e442]
+                      - cell "fd87e081-01cb-461d-920b-d98c5c4d5e7f" [ref=f15e444]
+                      - cell [ref=f15e446]:
+                        - button "查看日志详情：9e0a8d70-f4cc-4ba9-9c7a-cf49d8c60660" [ref=f15e447] [cursor=pointer]:
+                          - img "eye" [ref=f15e449]
+                    - row [ref=f15e452]:
+                      - cell [ref=f15e453]:
+                        - time [ref=f15e454]: 2026/07/30 02:34:24
+                      - cell "系统管理员" [ref=f15e455]
+                      - cell "管理员" [ref=f15e456]
+                      - cell "配置中心" [ref=f15e458]
+                      - cell "创建 Prompt" [ref=f15e459]
+                      - cell "PlatformPrompt" [ref=f15e460]
+                      - cell "e1ff345d-6164-4578-97f8-9142b1638583" [ref=f15e461]
+                      - cell "成功" [ref=f15e463]
+                      - cell "49befe29-3cf0-4189-9c84-952edec5b08e" [ref=f15e465]
+                      - cell [ref=f15e467]:
+                        - button "查看日志详情：b97d70c2-efcc-47da-91c8-afdb5d6f8522" [ref=f15e468] [cursor=pointer]:
+                          - img "eye" [ref=f15e470]
+                    - row [ref=f15e473]:
+                      - cell [ref=f15e474]:
+                        - time [ref=f15e475]: 2026/07/30 02:33:17
+                      - cell "系统管理员" [ref=f15e476]
+                      - cell "管理员" [ref=f15e477]
+                      - cell "内容与审核" [ref=f15e479]
+                      - cell "审核通过" [ref=f15e480]
+                      - cell "内容版本" [ref=f15e481]
+                      - cell "96d6a77f-7606-4f2f-a6e8-c4186dc476e2" [ref=f15e482]
+                      - cell "成功" [ref=f15e484]
+                      - cell "b5761ad4-f806-48c9-8ee1-5716d99a0090" [ref=f15e486]
+                      - cell [ref=f15e488]:
+                        - button "查看日志详情：97153e61-4c97-43c1-a313-82ee5fbc6c6d" [ref=f15e489] [cursor=pointer]:
+                          - img "eye" [ref=f15e491]
+                    - row [ref=f15e494]:
+                      - cell [ref=f15e495]:
+                        - time [ref=f15e496]: 2026/07/30 02:32:58
+                      - cell "系统管理员" [ref=f15e497]
+                      - cell "管理员" [ref=f15e498]
+                      - cell "内容与审核" [ref=f15e500]
+                      - cell "提交内容审核" [ref=f15e501]
+                      - cell "内容版本" [ref=f15e502]
+                      - cell "96d6a77f-7606-4f2f-a6e8-c4186dc476e2" [ref=f15e503]
+                      - cell "成功" [ref=f15e505]
+                      - cell "58cc3cb2-3fc7-4daf-9af0-d86849bdd876" [ref=f15e507]
+                      - cell [ref=f15e509]:
+                        - button "查看日志详情：c9ece072-65f2-441e-90a9-87adbefb2e56" [ref=f15e510] [cursor=pointer]:
+                          - img "eye" [ref=f15e512]
+                    - row [ref=f15e515]:
+                      - cell [ref=f15e516]:
+                        - time [ref=f15e517]: 2026/07/30 02:32:38
+                      - cell "系统管理员" [ref=f15e518]
+                      - cell "管理员" [ref=f15e519]
+                      - cell "内容生产" [ref=f15e521]
+                      - cell "修订内容" [ref=f15e522]
+                      - cell "内容版本" [ref=f15e523]
+                      - cell "96d6a77f-7606-4f2f-a6e8-c4186dc476e2" [ref=f15e524]
+                      - cell "成功" [ref=f15e526]
+                      - cell "bdb507c2-e679-4c2e-a1d1-9f1f33757689" [ref=f15e528]
+                      - cell [ref=f15e530]:
+                        - button "查看日志详情：13890f0b-b7a0-49e6-ac18-24aecba6b625" [ref=f15e531] [cursor=pointer]:
+                          - img "eye" [ref=f15e533]
+                    - row [ref=f15e536]:
+                      - cell [ref=f15e537]:
+                        - time [ref=f15e538]: 2026/07/30 02:32:22
+                      - cell "系统管理员" [ref=f15e539]
+                      - cell "管理员" [ref=f15e540]
+                      - cell "内容与审核" [ref=f15e542]
+                      - cell "退回修改" [ref=f15e543]
+                      - cell "内容版本" [ref=f15e544]
+                      - cell "05da12ad-db90-47ff-b8f7-5472441cea6f" [ref=f15e545]
+                      - cell "成功" [ref=f15e547]
+                      - cell "d0cdbabd-d2cf-43f4-b2a5-1696e854e811" [ref=f15e549]
+                      - cell [ref=f15e551]:
+                        - button "查看日志详情：a848618b-d37a-4735-bdac-f55e1663880e" [ref=f15e552] [cursor=pointer]:
+                          - img "eye" [ref=f15e554]
+                    - row [ref=f15e557]:
+                      - cell [ref=f15e558]:
+                        - time [ref=f15e559]: 2026/07/30 02:32:02
+                      - cell "系统管理员" [ref=f15e560]
+                      - cell "管理员" [ref=f15e561]
+                      - cell "内容与审核" [ref=f15e563]
+                      - cell "提交内容审核" [ref=f15e564]
+                      - cell "内容版本" [ref=f15e565]
+                      - cell "05da12ad-db90-47ff-b8f7-5472441cea6f" [ref=f15e566]
+                      - cell "成功" [ref=f15e568]
+                      - cell "54591cd6-85e0-4101-a0b3-85d99d74db3f" [ref=f15e570]
+                      - cell [ref=f15e572]:
+                        - button "查看日志详情：c560a5db-6292-40e4-8d8e-07aaa03dd408" [ref=f15e573] [cursor=pointer]:
+                          - img "eye" [ref=f15e575]
+                    - row [ref=f15e578]:
+                      - cell [ref=f15e579]:
+                        - time [ref=f15e580]: 2026/07/30 02:30:58
+                      - cell "系统管理员" [ref=f15e581]
+                      - cell "管理员" [ref=f15e582]
+                      - cell "内容生产" [ref=f15e584]
+                      - cell "创建内容生成作业" [ref=f15e585]
+                      - cell "GenerationJob" [ref=f15e586]
+                      - cell "b6f02463-65c0-40b0-a9df-8d06c2c503ea" [ref=f15e587]
+                      - cell "成功" [ref=f15e589]
+                      - cell "e146f2f6-1bb3-4427-98b2-9ed2960e219b" [ref=f15e591]
+                      - cell [ref=f15e593]:
+                        - button "查看日志详情：ea638b94-7762-4e2a-a6d5-7856732b7d58" [ref=f15e594] [cursor=pointer]:
+                          - img "eye" [ref=f15e596]
+                    - row [ref=f15e599]:
+                      - cell [ref=f15e600]:
+                        - time [ref=f15e601]: 2026/07/30 02:30:02
+                      - cell "系统管理员" [ref=f15e602]
+                      - cell "管理员" [ref=f15e603]
+                      - cell "内容规划" [ref=f15e605]
+                      - cell "创建内容任务" [ref=f15e606]
+                      - cell "内容任务" [ref=f15e607]
+                      - cell "420858be-050f-4ea2-99ac-7f68938c4e73" [ref=f15e608]
+                      - cell "成功" [ref=f15e610]
+                      - cell "c4b1a0db-04f7-431b-ad1d-63197152d751" [ref=f15e612]
+                      - cell [ref=f15e614]:
+                        - button "查看日志详情：c5b6a11f-8c2c-4996-9803-8dc807f022fb" [ref=f15e615] [cursor=pointer]:
+                          - img "eye" [ref=f15e617]
+                    - row [ref=f15e620]:
+                      - cell [ref=f15e621]:
+                        - time [ref=f15e622]: 2026/07/30 02:29:03
+                      - cell "系统管理员" [ref=f15e623]
+                      - cell "管理员" [ref=f15e624]
+                      - cell "配置中心" [ref=f15e626]
+                      - cell "启用平台配置" [ref=f15e627]
+                      - cell "平台" [ref=f15e628]
+                      - cell "cadd4a6a-f645-43cf-bcf5-626b2efa32ea" [ref=f15e629]
+                      - cell "成功" [ref=f15e631]
+                      - cell "0edc29b0-50aa-4d97-8b31-b9ac6f8b513a" [ref=f15e633]
+                      - cell [ref=f15e635]:
+                        - button "查看日志详情：837a40ff-e576-47dc-ae7b-6dc7af2ae1e2" [ref=f15e636] [cursor=pointer]:
+                          - img "eye" [ref=f15e638]
+                    - row [ref=f15e641]:
+                      - cell [ref=f15e642]:
+                        - time [ref=f15e643]: 2026/07/30 01:40:37
+                      - cell "E2E-ACCEPT-20260730-002915-管理员" [ref=f15e644]
+                      - cell "管理员" [ref=f15e645]
+                      - cell "用户管理" [ref=f15e647]
+                      - cell "更新用户" [ref=f15e648]
+                      - cell "用户" [ref=f15e649]
+                      - cell "1118e964-9474-4351-a6b9-277702144c0a" [ref=f15e650]
+                      - cell "成功" [ref=f15e652]
+                      - cell "975626e4-f796-4dce-84bc-b70d5e8cb983" [ref=f15e654]
+                      - cell [ref=f15e656]:
+                        - button "查看日志详情：30a9488b-c3a5-4dde-a2f9-2e7742f5baba" [ref=f15e657] [cursor=pointer]:
+                          - img "eye" [ref=f15e659]
+                    - row [ref=f15e662]:
+                      - cell [ref=f15e663]:
+                        - time [ref=f15e664]: 2026/07/30 01:40:10
+                      - cell "E2E-ACCEPT-20260730-002915-管理员" [ref=f15e665]
+                      - cell "管理员" [ref=f15e666]
+                      - cell "发布管理" [ref=f15e668]
+                      - cell "停用发布账号" [ref=f15e669]
+                      - cell "发布账号" [ref=f15e670]
+                      - cell "3f701864-2151-40d9-af02-451da34ddf1d" [ref=f15e671]
+                      - cell "成功" [ref=f15e673]
+                      - cell "7d896c7c-26d3-4ee9-a8fa-6000b3a60930" [ref=f15e675]
+                      - cell [ref=f15e677]:
+                        - button "查看日志详情：abde92ea-3769-413b-a145-2fcd0521784a" [ref=f15e678] [cursor=pointer]:
+                          - img "eye" [ref=f15e680]
+            - generic [ref=f15e683]:
+              - generic [ref=f15e684] [cursor=pointer]:
+                - generic "20 条/页" [ref=f15e685]:
+                  - text: 20 条/页
+                  - combobox "每页数量" [ref=f15e686]
+                - img "down" [ref=f15e688]
+              - list [ref=f15e691]:
+                - listitem "上一页" [ref=f15e692]:
+                  - button [disabled] [ref=f15e693]:
+                    - img "left" [ref=f15e694]
+                - listitem "1" [ref=f15e697] [cursor=pointer]
+                - listitem "2" [ref=f15e699] [cursor=pointer]
+                - listitem "3" [ref=f15e701] [cursor=pointer]
+                - listitem "4" [ref=f15e703] [cursor=pointer]
+                - listitem "5" [ref=f15e705] [cursor=pointer]
+                - listitem "向后 5 页" [ref=f15e707] [cursor=pointer]:
+                  - generic [ref=f15e709]:
+                    - img "double-right" [ref=f15e710]
+                    - img "ellipsis" [ref=f15e714]
+                - listitem "12" [ref=f15e717] [cursor=pointer]
+                - listitem "下一页" [ref=f15e719] [cursor=pointer]:
+                  - button [ref=f15e720]:
+                    - img "right" [ref=f15e721]
+                - listitem [ref=f15e724]:
+                  - generic [ref=f15e725]:
+                    - text: 跳至
+                    - textbox "页" [ref=f15e726]
+                    - text: 页

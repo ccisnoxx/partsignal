@@ -1,0 +1,210 @@
+- generic [ref=e60] [box=0,0,1440,978]:
+  - complementary [ref=e61] [box=0,0,208,900]:
+    - generic [ref=e62] [box=0,0,207,900]:
+      - strong [ref=e68] [box=65,19,86,27]: PartSignal
+      - menu [ref=e69] [box=0,64,207,774]:
+        - text: 内容工作流
+        - group [ref=e70] [box=0,106,207,241]:
+          - menuitem [ref=e71] [cursor=pointer] [box=4,106,199,45]:
+            - img "bar-chart" [ref=e72] [box=28,122,14,14]
+            - link "工作台" [ref=e76] [box=55,120,42,17]:
+              - /url: /
+          - menuitem [ref=e77] [cursor=pointer] [box=4,155,199,45]:
+            - img "database" [ref=e78] [box=28,171,14,14]
+            - link "产品事实" [ref=e82] [box=55,169,56,17]:
+              - /url: /products
+          - menuitem [ref=e83] [cursor=pointer] [box=4,204,199,45]:
+            - img "file-text" [ref=e84] [box=28,220,14,14]
+            - link "内容任务" [ref=e88] [box=55,218,56,17]:
+              - /url: /tasks
+          - menuitem [ref=e89] [cursor=pointer] [box=4,253,199,45]:
+            - img "rocket" [ref=e90] [box=28,269,14,14]
+            - link "发布管理" [ref=e94] [box=55,267,56,17]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=e95] [cursor=pointer] [box=4,302,199,45]:
+            - img "bar-chart" [ref=e96] [box=28,318,14,14]
+            - generic [ref=e99] [box=55,302,61,45]: GEO 观测
+        - text: 系统管理
+        - group [ref=e100] [box=0,393,207,143]:
+          - menuitem "setting 业务设置" [ref=e101] [cursor=pointer] [box=4,393,199,45]:
+            - img "setting" [ref=e102] [box=28,409,14,14]
+            - generic [ref=e105] [box=55,393,56,45]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=e106] [cursor=pointer] [box=4,442,199,45]:
+            - img "safety-certificate" [ref=e107] [box=28,458,14,14]
+            - generic [ref=e110] [box=55,442,70,45]: 审计与安全
+          - menuitem "tool 配置中心" [ref=e111] [cursor=pointer] [box=4,491,199,45]:
+            - img "tool" [ref=e112] [box=28,507,14,14]
+            - generic [ref=e115] [box=55,491,56,45]: 配置中心
+      - button "收起导航" [ref=e116] [cursor=pointer] [box=10,842,187,48]:
+        - img "menu-fold" [ref=e118] [box=26,859,14,14]
+        - generic [ref=e121] [box=48,856,28,20]: 收起
+  - generic [ref=e122] [box=208,0,1232,978]:
+    - banner [ref=e123] [box=208,0,1232,64]:
+      - generic [ref=e126] [box=228,21,69,31]:
+        - generic [ref=e127] [box=228,21,69,9]: PARTSIGNAL
+        - strong [ref=e129] [box=228,32,42,17]: 工作台
+      - generic [ref=e132] [cursor=pointer] [box=584,0,480,72]:
+        - img "search" [ref=e134] [box=596,29,14,14]
+        - combobox "全局页面搜索" [ref=e137] [box=614,7,386,58]
+        - generic [ref=e138] [box=1004,7,48,58]: ⌘K
+      - generic [ref=e140] [box=1124,0,296,72]:
+        - button "主题：跟随系统" [ref=e142] [cursor=pointer] [box=1124,18,110,36]:
+          - img "desktop" [ref=e144] [box=1140,29,14,14]
+          - generic [ref=e147] [box=1162,26,56,20]: 跟随系统
+        - button "打开用户操作菜单" [ref=e149] [cursor=pointer] [box=1242,11,178,50]:
+          - generic [ref=e150] [box=1251,18,36,36]: 系
+          - generic [ref=e152] [box=1297,21,92,30]:
+            - strong [ref=e153] [box=1297,21,92,17]: 系统管理员
+            - generic [ref=e154] [box=1297,38,92,13]: admin
+          - img "down" [ref=e155] [box=1399,30,12,12]
+    - main [active] [ref=e158] [box=208,64,1232,914]:
+      - generic [ref=e170] [box=228,84,1192,874]:
+        - generic [ref=e172] [box=228,88,336,71]:
+          - heading "总览" [level=1] [ref=e173] [box=228,91,336,29]
+          - generic [ref=e174] [box=228,123,336,22]:
+            - text: 你好，
+            - strong [ref=e175] [box=270,125,70,17]: 系统管理员
+            - text: 。以下数据来自当前有效业务记录。
+        - region "GEO 管理指标" [ref=e176] [box=228,181,1192,141]:
+          - generic [ref=e178] [box=229,182,287,117]:
+            - generic [ref=e179] [box=293,198,207,20]: 人工观测
+            - strong [ref=e181] [box=293,225,18,32]: "2"
+            - generic [ref=e182] [box=293,265,207,18]: 2 条逐篇结果
+          - generic [ref=e184] [box=530,182,287,139]:
+            - generic [ref=e185] [box=594,198,207,20]: 文章发现率
+            - generic [ref=e186] [box=594,225,207,32]:
+              - strong [ref=e187] [box=594,225,53,32]: "100"
+              - generic [ref=e188] [box=652,238,11,19]: "%"
+            - progressbar "文章发现率 100%" [ref=e189] [box=594,273,207,8]
+            - generic [ref=e193] [box=594,287,207,18]: 已发现 / 全部文章结果
+          - generic [ref=e195] [box=831,182,287,139]:
+            - generic [ref=e196] [box=895,198,207,20]: 文章提及率
+            - generic [ref=e197] [box=895,225,207,32]:
+              - strong [ref=e198] [box=895,225,53,32]: "100"
+              - generic [ref=e199] [box=953,238,11,19]: "%"
+            - progressbar "文章提及率 100%" [ref=e200] [box=895,273,207,8]
+            - generic [ref=e204] [box=895,287,207,18]: 已提及 / 全部文章结果
+          - generic [ref=e206] [box=1132,182,287,139]:
+            - generic [ref=e207] [box=1196,198,207,20]: 文章准确率
+            - generic [ref=e208] [box=1196,225,207,32]:
+              - strong [ref=e209] [box=1196,225,36,32]: "50"
+              - generic [ref=e210] [box=1237,238,11,19]: "%"
+            - progressbar "文章准确率 50%" [ref=e211] [box=1196,273,207,8]
+            - generic [ref=e215] [box=1196,287,207,18]: 准确 / 可判断结果
+        - generic [ref=e216] [box=228,334,1192,126]:
+          - generic [ref=e217] [box=229,335,1190,46]: 运营状态摘要
+          - generic [ref=e221] [box=243,388,1162,59]:
+            - region "审核流程状态" [ref=e222] [box=243,388,387,59]:
+              - generic [ref=e228] [box=311,396,302,43]:
+                - strong [ref=e230] [box=311,398,56,17]: 审核流程
+                - generic [ref=e231] [box=377,396,42,22]: 正常
+                - generic [ref=e233] [box=311,420,302,19]: 待审事实 0 · 待审内容 0
+            - region "发布流程状态" [ref=e234] [box=630,388,387,59]:
+              - generic [ref=e240] [box=698,396,302,43]:
+                - strong [ref=e242] [box=698,398,56,17]: 发布流程
+                - generic [ref=e243] [box=764,396,42,22]: 正常
+                - generic [ref=e245] [box=698,420,302,19]: 待人工发布 0 · 发布需关注 0
+            - region "GEO 观测状态" [ref=e246] [box=1018,388,387,59]:
+              - generic [ref=e252] [box=1086,396,303,43]:
+                - strong [ref=e254] [box=1086,398,61,17]: GEO 观测
+                - generic [ref=e255] [box=1157,396,42,22]: 正常
+                - generic [ref=e257] [box=1086,420,303,19]: 发现率 100% · 提及率 100% · 准确性问题 0
+        - generic [ref=e258] [box=228,472,1192,486]:
+          - generic [ref=e259] [box=228,472,810,391]:
+            - generic [ref=e260] [box=229,473,808,46]: 待处理事项
+            - generic [ref=e263] [box=229,518,808,344]:
+              - generic [ref=e264] [box=247,518,772,34]:
+                - generic [ref=e265] [box=249,526,532,17]: 事项
+                - generic [ref=e266] [box=793,526,56,17]: 数量
+                - generic [ref=e267] [box=861,526,72,17]: 状态
+                - generic [ref=e268] [box=945,526,72,17]: 操作
+              - list [ref=e269] [box=247,552,772,304]:
+                - listitem [ref=e270] [box=247,552,772,61]:
+                  - generic [ref=e277] [box=289,562,70,40]:
+                    - strong [ref=e279] [box=289,564,70,17]: 发布需关注
+                    - generic [ref=e280] [box=289,588,70,14]: 当前无需处理
+                  - generic [ref=e281] [box=793,573,28,18]: "0"
+                  - generic [ref=e282] [box=861,571,47,21]: 已清零
+                  - link "处理发布需关注" [ref=e283] [cursor=pointer] [box=945,560,72,44]:
+                    - /url: /publications?tab=attentions
+                    - text: 去处理
+                    - img "arrow-right" [ref=e284] [box=1005,576,12,12]
+                - listitem [ref=e287] [box=247,613,772,61]:
+                  - generic [ref=e294] [box=289,623,123,40]:
+                    - strong [ref=e296] [box=289,625,123,17]: 近 30 日准确性问题
+                    - generic [ref=e297] [box=289,649,123,14]: 当前无需处理
+                  - generic [ref=e298] [box=793,634,28,18]: "0"
+                  - generic [ref=e299] [box=861,632,47,21]: 已清零
+                  - link "处理近 30 日准确性问题" [ref=e300] [cursor=pointer] [box=945,621,72,44]:
+                    - /url: /observations
+                    - text: 去处理
+                    - img "arrow-right" [ref=e301] [box=1005,637,12,12]
+                - listitem [ref=e304] [box=247,674,772,61]:
+                  - generic [ref=e311] [box=289,684,66,40]:
+                    - strong [ref=e313] [box=289,686,56,17]: 待审事实
+                    - generic [ref=e314] [box=289,710,66,14]: 当前无需处理
+                  - generic [ref=e315] [box=793,695,28,18]: "0"
+                  - generic [ref=e316] [box=861,693,47,21]: 已清零
+                  - link "处理待审事实" [ref=e317] [cursor=pointer] [box=945,682,72,44]:
+                    - /url: /products
+                    - text: 去处理
+                    - img "arrow-right" [ref=e318] [box=1005,698,12,12]
+                - listitem [ref=e321] [box=247,735,772,61]:
+                  - generic [ref=e328] [box=289,745,66,40]:
+                    - strong [ref=e330] [box=289,747,56,17]: 待审内容
+                    - generic [ref=e331] [box=289,771,66,14]: 当前无需处理
+                  - generic [ref=e332] [box=793,756,28,18]: "0"
+                  - generic [ref=e333] [box=861,754,47,21]: 已清零
+                  - link "处理待审内容" [ref=e334] [cursor=pointer] [box=945,743,72,44]:
+                    - /url: /tasks
+                    - text: 去处理
+                    - img "arrow-right" [ref=e335] [box=1005,759,12,12]
+                - listitem [ref=e338] [box=247,796,772,60]:
+                  - generic [ref=e345] [box=289,806,70,40]:
+                    - strong [ref=e347] [box=289,808,70,17]: 待人工发布
+                    - generic [ref=e348] [box=289,832,70,14]: 当前无需处理
+                  - generic [ref=e349] [box=793,817,28,18]: "0"
+                  - generic [ref=e350] [box=861,815,47,21]: 已清零
+                  - link "处理待人工发布" [ref=e351] [cursor=pointer] [box=945,804,72,44]:
+                    - /url: /publications
+                    - text: 去处理
+                    - img "arrow-right" [ref=e352] [box=1005,820,12,12]
+          - complementary "运营辅助入口" [ref=e355] [box=1050,472,370,486]:
+            - generic [ref=e356] [box=1050,472,370,283]:
+              - generic [ref=e357] [box=1051,473,368,46]: 快捷入口
+              - navigation "工作流快捷入口" [ref=e361] [box=1063,530,344,212]:
+                - link "进入产品事实" [ref=e362] [cursor=pointer] [box=1063,530,168,102]:
+                  - /url: /products
+                  - generic [ref=e367] [box=1112,584,70,37]:
+                    - strong [ref=e368] [box=1112,584,70,22]: 产品事实
+                    - generic [ref=e369] [box=1112,608,70,13]: 查看事实与审核
+                - link "进入内容任务" [ref=e370] [cursor=pointer] [box=1239,530,168,102]:
+                  - /url: /tasks
+                  - generic [ref=e375] [box=1288,584,70,37]:
+                    - strong [ref=e376] [box=1288,584,70,22]: 内容任务
+                    - generic [ref=e377] [box=1288,608,70,13]: 处理生成与审核
+                - link "进入发布管理" [ref=e378] [cursor=pointer] [box=1063,640,168,102]:
+                  - /url: /publications
+                  - generic [ref=e383] [box=1112,694,70,37]:
+                    - strong [ref=e384] [box=1112,694,70,22]: 发布管理
+                    - generic [ref=e385] [box=1112,718,70,13]: 登记并跟进发布
+                - link "进入GEO 观测" [ref=e386] [cursor=pointer] [box=1239,640,168,102]:
+                  - /url: /observations
+                  - generic [ref=e391] [box=1288,694,70,37]:
+                    - strong [ref=e392] [box=1288,694,70,22]: GEO 观测
+                    - generic [ref=e393] [box=1288,718,70,13]: 记录与查看观测
+            - generic [ref=e394] [box=1050,767,370,191]:
+              - generic [ref=e395] [box=1051,768,368,46]: 重点提醒
+              - generic [ref=e399] [box=1065,817,340,132]:
+                - link "查看发布需关注" [ref=e400] [cursor=pointer] [box=1065,817,340,44]:
+                  - /url: /publications?tab=attentions
+                  - generic [ref=e401] [box=1065,827,284,22]: 发布需关注
+                  - strong [ref=e402] [box=1357,831,26,15]: "0"
+                - link "查看近 30 日准确性问题" [ref=e406] [cursor=pointer] [box=1065,861,340,44]:
+                  - /url: /observations
+                  - generic [ref=e407] [box=1065,871,284,22]: 近 30 日准确性问题
+                  - strong [ref=e408] [box=1357,875,26,15]: "0"
+                - link "查看待人工发布" [ref=e412] [cursor=pointer] [box=1065,905,340,44]:
+                  - /url: /publications
+                  - generic [ref=e413] [box=1065,916,284,22]: 待人工发布
+                  - strong [ref=e414] [box=1357,919,26,15]: "0"

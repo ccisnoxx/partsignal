@@ -1,0 +1,231 @@
+- generic [ref=f11e6]:
+  - complementary [ref=f11e7]:
+    - generic [ref=f11e8]:
+      - strong [ref=f11e14]: PartSignal
+      - menu [ref=f11e15]:
+        - text: 内容工作流
+        - group [ref=f11e16]:
+          - menuitem [ref=f11e17] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e18]
+            - link "工作台" [ref=f11e22]:
+              - /url: /
+          - menuitem [ref=f11e23] [cursor=pointer]:
+            - img "database" [ref=f11e24]
+            - link "产品事实" [ref=f11e28]:
+              - /url: /products
+          - menuitem [ref=f11e29] [cursor=pointer]:
+            - img "file-text" [ref=f11e30]
+            - link "内容任务" [ref=f11e34]:
+              - /url: /tasks
+          - menuitem [ref=f11e35] [cursor=pointer]:
+            - img "rocket" [ref=f11e36]
+            - link "发布管理" [ref=f11e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f11e41] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e42]
+            - generic [ref=f11e45]: GEO 观测
+        - text: 系统管理
+        - group [ref=f11e46]:
+          - menuitem "setting 业务设置" [ref=f11e47] [cursor=pointer]:
+            - img "setting" [ref=f11e48]
+            - generic [ref=f11e51]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f11e52] [cursor=pointer]:
+            - img "safety-certificate" [ref=f11e53]
+            - generic [ref=f11e56]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f11e57] [cursor=pointer]:
+            - img "tool" [ref=f11e58]
+            - generic [ref=f11e61]: 配置中心
+      - button "收起导航" [ref=f11e62] [cursor=pointer]:
+        - img "menu-fold" [ref=f11e64]
+        - generic [ref=f11e67]: 收起
+  - generic [ref=f11e68]:
+    - banner [ref=f11e69]:
+      - generic [ref=f11e72]:
+        - generic [ref=f11e73]: PARTSIGNAL
+        - strong [ref=f11e75]: 内容任务
+      - generic [ref=f11e78] [cursor=pointer]:
+        - img "search" [ref=f11e80]
+        - combobox "全局页面搜索" [ref=f11e83]
+        - generic [ref=f11e84]: ⌘K
+      - generic [ref=f11e86]:
+        - button "主题：跟随系统" [ref=f11e88] [cursor=pointer]:
+          - img "desktop" [ref=f11e90]
+          - generic [ref=f11e93]: 跟随系统
+        - button "打开用户操作菜单" [ref=f11e95] [cursor=pointer]:
+          - generic [ref=f11e96]: 系
+          - generic [ref=f11e98]:
+            - strong [ref=f11e99]: 系统管理员
+            - generic [ref=f11e100]: admin
+          - img "down" [ref=f11e101]
+    - main [active] [ref=f11e104]:
+      - generic [ref=f11e105]:
+        - button "← 返回任务列表" [ref=f11e106] [cursor=pointer]
+        - generic [ref=f11e108]:
+          - generic [ref=f11e109]:
+            - navigation [ref=f11e110]:
+              - list [ref=f11e111]:
+                - listitem [ref=f11e112]:
+                  - link "内容任务" [ref=f11e114] [cursor=pointer]:
+                    - /url: /tasks
+                - listitem [ref=f11e115]: /
+                - listitem [ref=f11e116]: 任务详情
+            - text: 任务 / a4ff70d9
+            - heading "E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=f11e117]
+            - generic [ref=f11e118]: 目标平台：E2E-ACCEPT-20260730-002915-平台
+          - generic [ref=f11e119]:
+            - generic [ref=f11e121]:
+              - img "info-circle" [ref=f11e122]
+              - generic [ref=f11e126]: 进行中
+            - button "取消任务" [ref=f11e128] [cursor=pointer]
+        - navigation "内容任务章节" [ref=f11e130]:
+          - link "任务上下文" [ref=f11e131] [cursor=pointer]:
+            - /url: "#task-context"
+          - link "首稿入口" [ref=f11e132] [cursor=pointer]:
+            - /url: "#task-entry"
+          - link "内容版本" [ref=f11e133] [cursor=pointer]:
+            - /url: "#task-versions"
+        - generic [ref=f11e134]:
+          - generic [ref=f11e135]: 01 / 锁定上下文
+          - table [ref=f11e141]:
+            - rowgroup [ref=f11e142]:
+              - row [ref=f11e143]:
+                - 'cell "产品 : E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [ref=f11e144]':
+                  - generic [ref=f11e145]:
+                    - generic [ref=f11e146]: "产品 :"
+                    - generic [ref=f11e147]: E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT
+                - 'cell "冻结事实版本 : V1 check-circle 公开" [ref=f11e148]':
+                  - generic [ref=f11e149]:
+                    - generic [ref=f11e150]: "冻结事实版本 :"
+                    - generic [ref=f11e152]:
+                      - generic [ref=f11e153]: V1
+                      - generic [ref=f11e156]:
+                        - img "check-circle" [ref=f11e157]
+                        - generic [ref=f11e161]: 公开
+              - row [ref=f11e162]:
+                - 'cell "目标平台 : E2E-ACCEPT-20260730-002915-平台" [ref=f11e163]':
+                  - generic [ref=f11e164]:
+                    - generic [ref=f11e165]: "目标平台 :"
+                    - generic [ref=f11e166]: E2E-ACCEPT-20260730-002915-平台
+                - 'cell "任务创建时间 : 2026/07/30 02:35" [ref=f11e167]':
+                  - generic [ref=f11e168]:
+                    - generic [ref=f11e169]: "任务创建时间 :"
+                    - time [ref=f11e171]: 2026/07/30 02:35
+        - generic [ref=f11e172]:
+          - generic [ref=f11e173]:
+            - generic [ref=f11e174]: 02A / 系统 AI 生成
+            - generic [ref=f11e177]:
+              - alert [ref=f11e178]:
+                - img "info-circle" [ref=f11e180]
+                - generic [ref=f11e183]: 打开弹窗后确认平台当前 Prompt，再选择已启用模型创建草稿。
+              - generic [ref=f11e185]: 模型只接收已确认的 Prompt 和冻结事实 Markdown；手工录入不受 Prompt 配置影响。
+              - button "thunderbolt 生成 AI 草稿" [ref=f11e186] [cursor=pointer]:
+                - img "thunderbolt" [ref=f11e188]
+                - generic [ref=f11e191]: 生成 AI 草稿
+          - generic [ref=f11e192]:
+            - generic [ref=f11e193]: 02B / 手动录入
+            - generic [ref=f11e196]:
+              - alert [ref=f11e197]:
+                - img "info-circle" [ref=f11e199]
+                - generic [ref=f11e202]: 可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。
+              - generic [ref=f11e204]: 手动首稿与 AI 草稿进入同一内容版本、审核和人工发布流程。
+              - button "录入首个人工草稿" [ref=f11e205] [cursor=pointer]
+        - generic [ref=f11e207]:
+          - generic [ref=f11e208]: AI 作业
+          - region "AI 作业列表" [ref=f11e212]:
+            - table [ref=f11e219]:
+              - rowgroup [ref=f11e228]:
+                - row [ref=f11e229]:
+                  - columnheader "类型" [ref=f11e230]
+                  - columnheader "源版本" [ref=f11e231]
+                  - columnheader "状态" [ref=f11e232]
+                  - columnheader "结果" [ref=f11e233]
+                  - columnheader "失败原因" [ref=f11e234]
+                  - columnheader "耗时 / Token" [ref=f11e235]
+                  - columnheader "操作" [ref=f11e236]
+              - rowgroup [ref=f11e237]:
+                - row [ref=f11e238]:
+                  - cell "原始生成" [ref=f11e239]
+                  - cell "—" [ref=f11e240]
+                  - cell "check-circle 成功" [ref=f11e241]:
+                    - generic [ref=f11e242]:
+                      - img "check-circle" [ref=f11e243]
+                      - generic [ref=f11e247]: 成功
+                  - cell [ref=f11e248]:
+                    - link "打开草稿" [ref=f11e249] [cursor=pointer]:
+                      - /url: /content/f16fa628-bfa4-4fc6-b01e-1475a9cc5340
+                  - cell [ref=f11e250]
+                  - cell "4946 ms / 480" [ref=f11e251]
+                  - cell [ref=f11e252]
+                - row [ref=f11e253]:
+                  - cell "原始生成" [ref=f11e254]
+                  - cell "—" [ref=f11e255]
+                  - cell "close-circle 失败" [ref=f11e256]:
+                    - generic [ref=f11e257]:
+                      - img "close-circle" [ref=f11e258]
+                      - generic [ref=f11e261]: 失败
+                  - cell "—" [ref=f11e262]
+                  - cell "模型响应不是单个合法 JSON 对象" [ref=f11e263]
+                  - cell "— ms / —" [ref=f11e264]
+                  - cell [ref=f11e265]:
+                    - button "重试原快照" [ref=f11e266] [cursor=pointer]
+        - generic [ref=f11e268]:
+          - generic [ref=f11e269]: 最新作业追溯快照
+          - table [ref=f11e275]:
+            - rowgroup [ref=f11e276]:
+              - row [ref=f11e277]:
+                - 'cell "契约版本 : content-markdown-v3" [ref=f11e278]':
+                  - generic [ref=f11e279]:
+                    - generic [ref=f11e280]: "契约版本 :"
+                    - generic [ref=f11e281]: content-markdown-v3
+              - row [ref=f11e283]:
+                - 'cell "渠道 / 模型 : gpt / gpt-5.6-terra" [ref=f11e284]':
+                  - generic [ref=f11e285]:
+                    - generic [ref=f11e286]: "渠道 / 模型 :"
+                    - generic [ref=f11e287]: gpt / gpt-5.6-terra
+              - row [ref=f11e288]:
+                - 'cell "请求参数 : { \"reasoning_effort\": \"high\" }" [ref=f11e289]':
+                  - generic [ref=f11e290]:
+                    - generic [ref=f11e291]: "请求参数 :"
+                    - generic [ref=f11e292]: "{ \"reasoning_effort\": \"high\" }"
+              - row [ref=f11e294]:
+                - 'cell "系统消息（System Message） : 你是电子元器件部署验收内容助手。只使用用户消息中的已批准 PUBLIC 测试事实，不猜测未知事实。返回且仅返回一个 JSON 对象，不要使用 Markdown 代码块，不要添加解释或额外字段。对象必须恰好包含 title、summary、body_markdown、tags 四个字段；title、summary、body_markdown 必须是非空字符串，tags 必须是至少包含一个非空字符串的数组。body_markdown 使用清晰的中文 Markdown，并明确标注测试用途。" [ref=f11e295]':
+                  - generic [ref=f11e296]:
+                    - generic [ref=f11e297]: "系统消息（System Message） :"
+                    - textbox "系统消息（System Message）" [ref=f11e299]: 你是电子元器件部署验收内容助手。只使用用户消息中的已批准 PUBLIC 测试事实，不猜测未知事实。返回且仅返回一个 JSON 对象，不要使用 Markdown 代码块，不要添加解释或额外字段。对象必须恰好包含 title、summary、body_markdown、tags 四个字段；title、summary、body_markdown 必须是非空字符串，tags 必须是至少包含一个非空字符串的数组。body_markdown 使用清晰的中文 Markdown，并明确标注测试用途。
+              - row [ref=f11e300]:
+                - 'cell "用户消息（User Message） : # E2E-ACCEPT-20260730-002915-PRODUCT 公共测试事实\\n\\n> 本产品与以下数据均为完全虚构的部署验收数据，不对应任何真实器件。\\n\\n- 产品类别：完全虚构验收器件\\n- 测试供电范围：1 V 至 5 V\\n- 测试工作温度：-10 °C 至 60 °C\\n- 测试用途：验证 PartSignal 的事实审核、内容草稿与发布登记流程\\n- 对外披露级别：PUBLIC" [ref=f11e301]':
+                  - generic [ref=f11e302]:
+                    - generic [ref=f11e303]: "用户消息（User Message） :"
+                    - textbox "用户消息（User Message）" [ref=f11e305]: "# E2E-ACCEPT-20260730-002915-PRODUCT 公共测试事实\\n\\n> 本产品与以下数据均为完全虚构的部署验收数据，不对应任何真实器件。\\n\\n- 产品类别：完全虚构验收器件\\n- 测试供电范围：1 V 至 5 V\\n- 测试工作温度：-10 °C 至 60 °C\\n- 测试用途：验证 PartSignal 的事实审核、内容草稿与发布登记流程\\n- 对外披露级别：PUBLIC"
+        - generic [ref=f11e306]:
+          - generic [ref=f11e307]: 03 / 内容版本
+          - region "内容版本列表" [ref=f11e311]:
+            - generic [ref=f11e314]:
+              - table [ref=f11e318]:
+                - rowgroup [ref=f11e326]:
+                  - row [ref=f11e327]:
+                    - columnheader "版本" [ref=f11e328]
+                    - columnheader "标题" [ref=f11e329]
+                    - columnheader "来源" [ref=f11e330]
+                    - columnheader "状态" [ref=f11e331]
+                    - columnheader "质量问题" [ref=f11e332]
+                    - columnheader "操作" [ref=f11e333]
+                - rowgroup [ref=f11e334]:
+                  - row [ref=f11e335]:
+                    - cell [ref=f11e336]:
+                      - link "V1" [ref=f11e337] [cursor=pointer]:
+                        - /url: /content/f16fa628-bfa4-4fc6-b01e-1475a9cc5340
+                    - cell "完全虚构验收器件部署验收测试" [ref=f11e338]
+                    - cell "AI 生成" [ref=f11e339]
+                    - cell "草稿" [ref=f11e341]
+                    - cell "0" [ref=f11e343]
+                    - cell [ref=f11e344]:
+                      - button "自然化" [ref=f11e345] [cursor=pointer]
+              - list [ref=f11e347]:
+                - listitem "上一页" [ref=f11e348]:
+                  - button [disabled] [ref=f11e349]:
+                    - img "left" [ref=f11e350]
+                - listitem "1" [ref=f11e353] [cursor=pointer]
+                - listitem "下一页" [ref=f11e355]:
+                  - button [disabled] [ref=f11e356]:
+                    - img "right" [ref=f11e357]

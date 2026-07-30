@@ -1,0 +1,169 @@
+- generic [ref=f9e1]:
+  - generic [ref=f9e6]:
+    - complementary [ref=f9e7]:
+      - generic [ref=f9e8]:
+        - strong [ref=f9e14]: PartSignal
+        - menu [ref=f9e509]:
+          - text: 内容工作流
+          - group [ref=f9e510]:
+            - menuitem [ref=f9e511] [cursor=pointer]:
+              - img "bar-chart" [ref=f9e512]
+              - link "工作台" [ref=f9e516]:
+                - /url: /
+            - menuitem [ref=f9e517] [cursor=pointer]:
+              - img "database" [ref=f9e518]
+              - link "产品事实" [ref=f9e522]:
+                - /url: /products
+            - menuitem [ref=f9e523] [cursor=pointer]:
+              - img "file-text" [ref=f9e524]
+              - link "内容任务" [ref=f9e528]:
+                - /url: /tasks
+            - menuitem [ref=f9e529] [cursor=pointer]:
+              - img "rocket" [ref=f9e530]
+              - link "发布管理" [ref=f9e534]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f9e535] [cursor=pointer]:
+              - img "bar-chart" [ref=f9e536]
+              - generic [ref=f9e539]: GEO 观测
+          - text: 系统管理
+          - group [ref=f9e540]:
+            - menuitem "setting 业务设置" [ref=f9e541] [cursor=pointer]:
+              - img "setting" [ref=f9e542]
+              - generic [ref=f9e545]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f9e546] [cursor=pointer]:
+              - img "safety-certificate" [ref=f9e547]
+              - generic [ref=f9e550]: 审计与安全
+            - menuitem "tool 配置中心" [ref=f9e551] [cursor=pointer]:
+              - img "tool" [ref=f9e552]
+              - generic [ref=f9e555]: 配置中心
+        - button "收起导航" [ref=f9e62] [cursor=pointer]:
+          - img "menu-fold" [ref=f9e64]
+          - generic [ref=f9e67]: 收起
+    - generic [ref=f9e68]:
+      - banner [ref=f9e69]:
+        - generic [ref=f9e72]:
+          - generic [ref=f9e73]: PARTSIGNAL
+          - strong [ref=f9e75]: 内容任务
+        - generic [ref=f9e78] [cursor=pointer]:
+          - img "search" [ref=f9e80]
+          - combobox "全局页面搜索" [ref=f9e83]
+          - generic [ref=f9e84]: ⌘K
+        - generic [ref=f9e86]:
+          - button "主题：跟随系统" [ref=f9e88] [cursor=pointer]:
+            - img "desktop" [ref=f9e90]
+            - generic [ref=f9e93]: 跟随系统
+          - button "打开用户操作菜单" [ref=f9e95] [cursor=pointer]:
+            - generic [ref=f9e96]: E
+            - generic [ref=f9e98]:
+              - strong [ref=f9e99]: E2E-ACCEPT-20260730-002915-管理员
+              - generic [ref=f9e100]: e2e-accept-20260730-002915-admin
+            - img "down" [ref=f9e101]
+      - main [ref=f9e104]:
+        - generic [ref=f9e556]:
+          - button "← 返回任务列表" [ref=f9e557] [cursor=pointer]
+          - generic [ref=f9e559]:
+            - generic [ref=f9e560]:
+              - navigation [ref=f9e561]:
+                - list [ref=f9e562]:
+                  - listitem [ref=f9e563]:
+                    - link "内容任务" [ref=f9e565] [cursor=pointer]:
+                      - /url: /tasks
+                  - listitem [ref=f9e566]: /
+                  - listitem [ref=f9e567]: 任务详情
+              - text: 任务 / 4f1314c1
+              - heading "E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=f9e568]
+              - generic [ref=f9e569]: 目标平台：E2E-ACCEPT-20260730-002915-平台
+            - generic [ref=f9e570]:
+              - generic [ref=f9e572]:
+                - img "info-circle" [ref=f9e573]
+                - generic [ref=f9e577]: 进行中
+              - button "取消任务" [ref=f9e579] [cursor=pointer]
+          - navigation "内容任务章节" [ref=f9e581]:
+            - link "任务上下文" [ref=f9e582] [cursor=pointer]:
+              - /url: "#task-context"
+            - link "首稿入口" [ref=f9e583] [cursor=pointer]:
+              - /url: "#task-entry"
+            - link "内容版本" [ref=f9e584] [cursor=pointer]:
+              - /url: "#task-versions"
+          - generic [ref=f9e585]:
+            - generic [ref=f9e586]: 01 / 锁定上下文
+            - table [ref=f9e592]:
+              - rowgroup [ref=f9e593]:
+                - row [ref=f9e594]:
+                  - 'cell "产品 : E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [ref=f9e595]':
+                    - generic [ref=f9e596]:
+                      - generic [ref=f9e597]: "产品 :"
+                      - generic [ref=f9e598]: E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT
+                  - 'cell "冻结事实版本 : V1 check-circle 公开" [ref=f9e599]':
+                    - generic [ref=f9e600]:
+                      - generic [ref=f9e601]: "冻结事实版本 :"
+                      - generic [ref=f9e603]:
+                        - generic [ref=f9e604]: V1
+                        - generic [ref=f9e607]:
+                          - img "check-circle" [ref=f9e608]
+                          - generic [ref=f9e612]: 公开
+                - row [ref=f9e613]:
+                  - 'cell "目标平台 : E2E-ACCEPT-20260730-002915-平台" [ref=f9e614]':
+                    - generic [ref=f9e615]:
+                      - generic [ref=f9e616]: "目标平台 :"
+                      - generic [ref=f9e617]: E2E-ACCEPT-20260730-002915-平台
+                  - 'cell "任务创建时间 : 2026/07/30 01:03" [ref=f9e618]':
+                    - generic [ref=f9e619]:
+                      - generic [ref=f9e620]: "任务创建时间 :"
+                      - time [ref=f9e622]: 2026/07/30 01:03
+          - generic [ref=f9e623]:
+            - generic [ref=f9e624]:
+              - generic [ref=f9e625]: 02A / 系统 AI 生成
+              - generic [ref=f9e628]:
+                - alert [ref=f9e629]:
+                  - img "info-circle" [ref=f9e631]
+                  - generic [ref=f9e634]: 打开弹窗后确认平台当前 Prompt，再选择已启用模型创建草稿。
+                - generic [ref=f9e636]: 模型只接收已确认的 Prompt 和冻结事实 Markdown；手工录入不受 Prompt 配置影响。
+                - button "thunderbolt 生成 AI 草稿" [ref=f9e637] [cursor=pointer]:
+                  - img "thunderbolt" [ref=f9e639]
+                  - generic [ref=f9e642]: 生成 AI 草稿
+            - generic [ref=f9e643]:
+              - generic [ref=f9e644]: 02B / 手动录入
+              - generic [ref=f9e647]:
+                - alert [ref=f9e648]:
+                  - img "info-circle" [ref=f9e650]
+                  - generic [ref=f9e653]: 可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。
+                - generic [ref=f9e655]: 手动首稿与 AI 草稿进入同一内容版本、审核和人工发布流程。
+                - button "录入首个人工草稿" [ref=f9e656] [cursor=pointer]
+          - generic [ref=f9e658]:
+            - generic [ref=f9e659]: AI 作业
+            - generic [ref=f9e662]: 尚无 AI 作业。
+          - generic [ref=f9e663]:
+            - generic [ref=f9e664]: 03 / 内容版本
+            - generic [ref=f9e668]:
+              - img "暂无数据" [ref=f9e670]
+              - generic [ref=f9e676]: 尚无内容版本，可从上方任一入口创建首稿
+  - generic [ref=f9e677]:
+    - dialog "生成 AI 草稿":
+      - generic [ref=f9e678]:
+        - button "Close" [active] [ref=f9e679] [cursor=pointer]:
+          - generic "关闭" [ref=f9e680]:
+            - img "close" [ref=f9e681]
+        - generic [ref=f9e684]: 生成 AI 草稿
+        - generic [ref=f9e687]:
+          - alert [ref=f9e689]:
+            - img "info-circle" [ref=f9e691]
+            - generic [ref=f9e694]:
+              - generic [ref=f9e695]: E2E-ACCEPT-20260730-002915-平台 / E2E-ACCEPT-20260730-002915-合规JSON / revision 1
+              - generic [ref=f9e696]: 提交时服务端会再次校验 Prompt 身份与 revision；配置已变化时不会使用旧确认继续生成。
+          - generic [ref=f9e699]:
+            - generic "当前平台 Prompt（只读）" [ref=f9e701]: "当前平台 Prompt（只读） :"
+            - textbox "当前平台 Prompt" [ref=f9e705]: 你是电子元器件内容工程师。只使用用户消息中的已批准 PUBLIC 事实，不猜测未知产品事实。\n\n返回且仅返回一个 JSON 对象，不要使用 Markdown 代码块，不要添加解释或额外字段。对象必须恰好包含 title、summary、body_markdown、tags 四个字段；title、summary、body_markdown 必须是非空字符串，tags 必须是至少包含一个非空字符串的数组。\n\nbody_markdown 使用清晰的中文 Markdown，并明确标注测试用途。\n\n本轮验收 revision 1：保持上述输出合同不变。
+          - generic [ref=f9e708]:
+            - generic "生成模型" [ref=f9e710]: "* 生成模型 :"
+            - generic [ref=f9e714]:
+              - generic [ref=f9e715]:
+                - generic: 选择已启用且测试通过的模型
+                - combobox "生成模型" [ref=f9e716]
+              - img "down" [ref=f9e718]
+          - alert [ref=f9e722]:
+            - img "info-circle" [ref=f9e724]
+            - generic [ref=f9e727]: 全局自然化 Prompt 未配置；不影响本次原始生成。
+        - generic [ref=f9e729]:
+          - button "取 消" [ref=f9e730] [cursor=pointer]
+          - button "生成文稿" [disabled] [ref=f9e732]

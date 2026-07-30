@@ -1,0 +1,68 @@
+- generic [ref=f20e7]:
+  - banner [ref=f20e8]:
+    - generic [ref=f20e9]:
+      - button "切换导航" [ref=f20e11] [cursor=pointer]:
+        - img "menu-unfold" [ref=f20e13]
+      - generic [ref=f20e17]:
+        - generic [ref=f20e18]: PARTSIGNAL
+        - strong [ref=f20e20]: 产品事实
+    - generic [ref=f20e21]:
+      - button "主题：跟随系统" [ref=f20e23] [cursor=pointer]:
+        - img "desktop" [ref=f20e25]
+      - button "打开用户操作菜单" [ref=f20e29] [cursor=pointer]:
+        - generic [ref=f20e30]: E
+        - img "down" [ref=f20e32]
+  - main [active] [ref=f20e35]:
+    - generic [ref=f20e36]:
+      - link [ref=f20e37] [cursor=pointer]:
+        - /url: /products
+        - img "arrow-left" [ref=f20e38]
+        - text: 返回产品列表
+      - generic [ref=f20e41]:
+        - generic [ref=f20e42]:
+          - navigation [ref=f20e43]:
+            - list [ref=f20e44]:
+              - listitem [ref=f20e45]:
+                - link "产品事实" [ref=f20e47] [cursor=pointer]:
+                  - /url: /products
+              - listitem [ref=f20e48]: /
+              - listitem [ref=f20e49]: E2E-ACCEPT-20260730-002915-PRODUCT
+          - text: 产品事实工作区
+          - heading "E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=f20e50]
+          - generic [ref=f20e51]: E2E-ACCEPT-20260730-002915 · 完全虚构验收 · 工作区修订 2
+        - generic [ref=f20e54]:
+          - img "check-circle" [ref=f20e55]
+          - generic [ref=f20e59]: 启用
+      - generic [ref=f20e60]:
+        - tablist [ref=f20e61]:
+          - generic [ref=f20e63]:
+            - tab "事实工作区" [selected] [ref=f20e65] [cursor=pointer]
+            - tab "事实版本（2）" [ref=f20e67] [cursor=pointer]
+        - tabpanel "事实工作区" [ref=f20e70]:
+          - generic [ref=f20e71]:
+            - alert [ref=f20e72]:
+              - img "info-circle" [ref=f20e74]
+              - generic [ref=f20e77]: Markdown 是产品事实唯一可编辑正文源；保存使用当前修订号防止并发覆盖。
+            - generic [ref=f20e81]:
+              - generic "数据分级" [ref=f20e83]: "* 数据分级"
+              - generic [ref=f20e87] [cursor=pointer]:
+                - generic "RESTRICTED · 禁止发送第三方模型" [ref=f20e88]:
+                  - text: RESTRICTED · 禁止发送第三方模型
+                  - combobox "* 数据分级" [ref=f20e89]
+                - img "down" [ref=f20e91]
+            - generic [ref=f20e94]:
+              - tablist [ref=f20e95]:
+                - generic [ref=f20e97]:
+                  - tab "编辑 Markdown" [selected] [ref=f20e99] [cursor=pointer]
+                  - tab "安全预览" [ref=f20e101] [cursor=pointer]
+              - generic:
+                - generic:
+                  - tabpanel "编辑 Markdown"
+            - generic [ref=f20e104]:
+              - generic "事实 Markdown" [ref=f20e106]: "* 事实 Markdown"
+              - textbox "* 事实 Markdown" [ref=f20e110]: "# E2E-ACCEPT-20260730-002915-PRODUCT 受限测试事实\\n\\n> RESTRICTED-SENTINEL-20260730-002915：这是完全虚构的敏感边界标记，不是真实秘密。\\n\\n- 内部测试参数：仅用于验证第三方模型外发门禁\\n- 禁止任何 AI 生成、自然化或外部传输\\n- 对外披露级别：RESTRICTED"
+            - generic [ref=f20e111]:
+              - generic [ref=f20e112]:
+                - strong [ref=f20e114]: 未修改
+                - generic [ref=f20e115]: 保存只更新工作区，不会修改任何已创建或已批准的事实版本。
+              - button "保存事实工作区" [disabled] [ref=f20e116]

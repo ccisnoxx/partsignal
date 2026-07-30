@@ -1,0 +1,55 @@
+- generic [ref=f11e6]:
+  - complementary [ref=f11e7]:
+    - generic [ref=f11e8]:
+      - strong [ref=f11e14]: PartSignal
+      - menu [ref=f11e15]:
+        - text: 内容工作流
+        - group [ref=f11e16]:
+          - menuitem [ref=f11e17] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e18]
+            - link "工作台" [ref=f11e22]:
+              - /url: /
+          - menuitem [ref=f11e23] [cursor=pointer]:
+            - img "database" [ref=f11e24]
+            - link "产品事实" [ref=f11e28]:
+              - /url: /products
+          - menuitem [ref=f11e29] [cursor=pointer]:
+            - img "file-text" [ref=f11e30]
+            - link "内容任务" [ref=f11e34]:
+              - /url: /tasks
+          - menuitem [ref=f11e35] [cursor=pointer]:
+            - img "rocket" [ref=f11e36]
+            - link "发布管理" [ref=f11e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f11e41] [cursor=pointer]:
+            - img "bar-chart" [ref=f11e42]
+            - generic [ref=f11e45]: GEO 观测
+        - text: 系统管理
+        - group [ref=f11e46]:
+          - menuitem "setting 业务设置" [ref=f11e47] [cursor=pointer]:
+            - img "setting" [ref=f11e48]
+            - generic [ref=f11e51]: 业务设置
+      - button "收起导航" [ref=f11e52] [cursor=pointer]:
+        - img "menu-fold" [ref=f11e54]
+        - generic [ref=f11e57]: 收起
+  - generic [ref=f11e58]:
+    - banner [ref=f11e59]:
+      - generic [ref=f11e62]:
+        - strong [ref=f11e64]: 审计与安全
+        - generic [ref=f11e65]: /
+        - generic [ref=f11e66]: 工作台
+      - generic [ref=f11e69] [cursor=pointer]:
+        - img "search" [ref=f11e71]
+        - combobox "全局页面搜索" [ref=f11e74]
+        - generic [ref=f11e75]: ⌘K
+      - generic [ref=f11e77]:
+        - button "主题：跟随系统" [ref=f11e79] [cursor=pointer]:
+          - img "desktop" [ref=f11e81]
+          - generic [ref=f11e84]: 跟随系统
+        - button "打开用户操作菜单" [ref=f11e86] [cursor=pointer]:
+          - generic [ref=f11e87]: E
+          - generic [ref=f11e89]:
+            - strong [ref=f11e90]: E2E-ACCEPT-20260730-002915-工程师
+            - generic [ref=f11e91]: e2e-accept-20260730-002915-eng
+          - img "down" [ref=f11e92]
+    - main [active] [ref=f11e95]

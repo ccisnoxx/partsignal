@@ -1,0 +1,333 @@
+- generic [ref=f1e6]:
+  - complementary [ref=f1e7]:
+    - generic [ref=f1e8]:
+      - strong [ref=f1e14]: PartSignal
+      - menu [ref=f1e15]:
+        - text: 内容工作流
+        - group [ref=f1e16]:
+          - menuitem [ref=f1e17] [cursor=pointer]:
+            - img "bar-chart" [ref=f1e18]
+            - link "工作台" [ref=f1e22]:
+              - /url: /
+          - menuitem [ref=f1e23] [cursor=pointer]:
+            - img "database" [ref=f1e24]
+            - link "产品事实" [ref=f1e28]:
+              - /url: /products
+          - menuitem [ref=f1e29] [cursor=pointer]:
+            - img "file-text" [ref=f1e30]
+            - link "内容任务" [ref=f1e34]:
+              - /url: /tasks
+          - menuitem [ref=f1e35] [cursor=pointer]:
+            - img "rocket" [ref=f1e36]
+            - link "发布管理" [ref=f1e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f1e41] [cursor=pointer]:
+            - img "bar-chart" [ref=f1e42]
+            - generic [ref=f1e45]: GEO 观测
+        - text: 系统管理
+        - group [ref=f1e46]:
+          - menuitem "setting 业务设置" [ref=f1e47] [cursor=pointer]:
+            - img "setting" [ref=f1e48]
+            - generic [ref=f1e51]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f1e52] [cursor=pointer]:
+            - img "safety-certificate" [ref=f1e53]
+            - generic [ref=f1e56]: 审计与安全
+          - menuitem "tool 配置中心" [expanded] [ref=f1e57] [cursor=pointer]:
+            - img "tool" [ref=f1e58]
+            - generic [ref=f1e61]: 配置中心
+          - menu [ref=f1e62]:
+            - menuitem [ref=f1e63] [cursor=pointer]:
+              - link "平台管理" [ref=f1e65]:
+                - /url: /configuration/platforms
+            - menuitem [ref=f1e66] [cursor=pointer]:
+              - link "Prompt 管理" [ref=f1e68]:
+                - /url: /configuration/prompts
+            - menuitem [ref=f1e69] [cursor=pointer]:
+              - link "AI 渠道与模型" [ref=f1e71]:
+                - /url: /configuration/ai
+      - button "收起导航" [ref=f1e72] [cursor=pointer]:
+        - img "menu-fold" [ref=f1e74]
+        - generic [ref=f1e77]: 收起
+  - generic [ref=f1e78]:
+    - banner [ref=f1e79]:
+      - generic [ref=f1e82]:
+        - strong [ref=f1e84]: 配置中心
+        - generic [ref=f1e85]: /
+        - generic [ref=f1e86]: AI 渠道与模型
+      - generic [ref=f1e89] [cursor=pointer]:
+        - img "search" [ref=f1e91]
+        - combobox "全局页面搜索" [ref=f1e94]
+        - generic [ref=f1e95]: ⌘K
+      - generic [ref=f1e97]:
+        - button "主题：跟随系统" [ref=f1e99] [cursor=pointer]:
+          - img "desktop" [ref=f1e101]
+          - generic [ref=f1e104]: 跟随系统
+        - button "打开用户操作菜单" [ref=f1e106] [cursor=pointer]:
+          - generic [ref=f1e107]: 系
+          - generic [ref=f1e109]:
+            - strong [ref=f1e110]: 系统管理员
+            - generic [ref=f1e111]: admin
+          - img "down" [ref=f1e112]
+    - main [active] [ref=f1e115]:
+      - generic [ref=f1e116]:
+        - generic [ref=f1e117]:
+          - generic [ref=f1e118]:
+            - text: AI 配置
+            - heading "AI 渠道与模型" [level=1] [ref=f1e119]
+            - generic [ref=f1e120]: 统一管理协议、凭据、Header 与真实模型连接。
+          - generic [ref=f1e123]:
+            - button "thunderbolt 测试连接" [ref=f1e125] [cursor=pointer]:
+              - img "thunderbolt" [ref=f1e127]
+              - generic [ref=f1e130]: 测试连接
+            - button "plus 新增渠道" [ref=f1e132] [cursor=pointer]:
+              - img "plus" [ref=f1e134]
+              - generic [ref=f1e138]: 新增渠道
+        - region "AI 渠道管理工作区" [ref=f1e139]:
+          - complementary "渠道状态分类" [ref=f1e140]:
+            - generic [ref=f1e141]:
+              - generic [ref=f1e142]: AI 渠道
+              - generic [ref=f1e143]: "3"
+            - button "全部渠道 3" [ref=f1e144] [cursor=pointer]:
+              - generic [ref=f1e145]: 全部渠道
+              - strong [ref=f1e146]: "3"
+            - button "已启用 2" [ref=f1e147] [cursor=pointer]:
+              - generic [ref=f1e148]: 已启用
+              - strong [ref=f1e149]: "2"
+            - button "已停用 1" [ref=f1e150] [cursor=pointer]:
+              - generic [ref=f1e151]: 已停用
+              - strong [ref=f1e152]: "1"
+          - main [ref=f1e153]:
+            - search "AI 渠道筛选" [ref=f1e154]:
+              - generic [ref=f1e155]:
+                - generic [ref=f1e156]: 关键词
+                - generic [ref=f1e157]:
+                  - img "search" [ref=f1e159]
+                  - searchbox "搜索渠道名称、描述或地址" [ref=f1e162]
+              - generic [ref=f1e164]:
+                - generic [ref=f1e165]: 启用状态
+                - generic [ref=f1e166] [cursor=pointer]:
+                  - generic "全部状态" [ref=f1e167]:
+                    - text: 全部状态
+                    - combobox "筛选渠道状态" [ref=f1e168]
+                  - img "down" [ref=f1e170]
+              - generic [ref=f1e173]:
+                - generic [ref=f1e174]: 供应商品牌
+                - generic [ref=f1e175] [cursor=pointer]:
+                  - generic "全部类型" [ref=f1e176]:
+                    - text: 全部类型
+                    - combobox "筛选供应商品牌" [ref=f1e177]
+                  - img "down" [ref=f1e179]
+              - generic [ref=f1e182]:
+                - generic [ref=f1e183]: 排序
+                - generic [ref=f1e184] [cursor=pointer]:
+                  - generic "默认排序" [ref=f1e185]:
+                    - text: 默认排序
+                    - combobox "渠道排序" [ref=f1e186]
+                  - img "down" [ref=f1e188]
+            - region "AI 渠道列表" [ref=f1e192]:
+              - table [ref=f1e199]:
+                - rowgroup [ref=f1e209]:
+                  - row [ref=f1e210]:
+                    - columnheader "渠道名称" [ref=f1e211]
+                    - columnheader "状态" [ref=f1e212]
+                    - columnheader "API 根地址" [ref=f1e213]
+                    - columnheader "API Key" [ref=f1e214]
+                    - columnheader "Header 数量" [ref=f1e215]
+                    - columnheader "已启用模型" [ref=f1e216]
+                    - columnheader "测试状态" [ref=f1e217]
+                    - columnheader "操作" [ref=f1e218]
+                - rowgroup [ref=f1e219]:
+                  - row [ref=f1e220]:
+                    - cell "自定义品牌 E2E-ACCEPT-20260730-002915-AI渠道 本轮已部署环境验收的隔离负向连接渠道，不承载真实业务数据。" [ref=f1e221]:
+                      - generic [ref=f1e222]:
+                        - generic "自定义品牌" [ref=f1e223]:
+                          - img "api" [ref=f1e224]
+                        - generic [ref=f1e227]:
+                          - strong [ref=f1e228]: E2E-ACCEPT-20260730-002915-AI渠道
+                          - generic [ref=f1e229]: 本轮已部署环境验收的隔离负向连接渠道，不承载真实业务数据。
+                    - cell "已停用" [ref=f1e230]
+                    - cell "https://api.962850.xyz/v1" [ref=f1e232]
+                    - cell [ref=f1e234]:
+                      - generic [ref=f1e235]:
+                        - img "check-circle" [ref=f1e236]
+                        - text: 已配置
+                    - cell "0" [ref=f1e239]
+                    - cell "0" [ref=f1e240]
+                    - cell "失败 2小时前" [ref=f1e241]:
+                      - generic [ref=f1e242]:
+                        - generic [ref=f1e243]: 失败
+                        - generic [ref=f1e244]: 2小时前
+                    - cell [ref=f1e245]:
+                      - generic [ref=f1e246]:
+                        - button "配置：E2E-ACCEPT-20260730-002915-AI渠道" [ref=f1e248] [cursor=pointer]:
+                          - img "setting" [ref=f1e250]
+                        - button "更多操作：E2E-ACCEPT-20260730-002915-AI渠道" [ref=f1e254] [cursor=pointer]:
+                          - img "more" [ref=f1e256]
+                  - row [ref=f1e259]:
+                    - cell "OpenAI gpt OpenAI" [ref=f1e260]:
+                      - generic [ref=f1e261]:
+                        - generic "OpenAI" [ref=f1e262]:
+                          - img "open-a-i" [ref=f1e263]
+                        - generic [ref=f1e266]:
+                          - strong [ref=f1e267]: gpt
+                          - generic [ref=f1e268]: OpenAI
+                    - cell "已启用" [ref=f1e269]
+                    - cell "https://api.962850.xyz/v1" [ref=f1e271]
+                    - cell [ref=f1e273]:
+                      - generic [ref=f1e274]:
+                        - img "check-circle" [ref=f1e275]
+                        - text: 已配置
+                    - cell "0" [ref=f1e278]
+                    - cell "1" [ref=f1e279]
+                    - cell "已通过 2026/7/25" [ref=f1e280]:
+                      - generic [ref=f1e281]:
+                        - generic [ref=f1e282]: 已通过
+                        - generic [ref=f1e283]: 2026/7/25
+                    - cell [ref=f1e284]:
+                      - generic [ref=f1e285]:
+                        - button "配置：gpt" [ref=f1e287] [cursor=pointer]:
+                          - img "setting" [ref=f1e289]
+                        - button "更多操作：gpt" [ref=f1e293] [cursor=pointer]:
+                          - img "more" [ref=f1e295]
+                  - row [ref=f1e298]:
+                    - cell "自定义品牌 ds 自定义品牌" [ref=f1e299]:
+                      - generic [ref=f1e300]:
+                        - generic "自定义品牌" [ref=f1e301]:
+                          - img "api" [ref=f1e302]
+                        - generic [ref=f1e305]:
+                          - strong [ref=f1e306]: ds
+                          - generic [ref=f1e307]: 自定义品牌
+                    - cell "已启用" [ref=f1e308]
+                    - cell "https://2c2ch1u11-share-api-0.hf.space/v1" [ref=f1e310]
+                    - cell [ref=f1e312]:
+                      - generic [ref=f1e313]:
+                        - img "check-circle" [ref=f1e314]
+                        - text: 已配置
+                    - cell "0" [ref=f1e317]
+                    - cell "1" [ref=f1e318]
+                    - cell "已通过 2026/7/16" [ref=f1e319]:
+                      - generic [ref=f1e320]:
+                        - generic [ref=f1e321]: 已通过
+                        - generic [ref=f1e322]: 2026/7/16
+                    - cell [ref=f1e323]:
+                      - generic [ref=f1e324]:
+                        - button "配置：ds" [ref=f1e326] [cursor=pointer]:
+                          - img "setting" [ref=f1e328]
+                        - button "更多操作：ds" [ref=f1e332] [cursor=pointer]:
+                          - img "more" [ref=f1e334]
+            - generic [ref=f1e337]:
+              - generic [ref=f1e338]: 共 3 条
+              - list [ref=f1e339]:
+                - listitem "上一页" [ref=f1e340]:
+                  - button [disabled] [ref=f1e341]:
+                    - img "left" [ref=f1e342]
+                - listitem "1" [ref=f1e345] [cursor=pointer]
+                - listitem "下一页" [ref=f1e347]:
+                  - button [disabled] [ref=f1e348]:
+                    - img "right" [ref=f1e349]
+                - listitem [ref=f1e352]:
+                  - generic [ref=f1e353]:
+                    - generic "20 条/页" [ref=f1e354]:
+                      - text: 20 条/页
+                      - combobox "页码" [ref=f1e355]
+                    - img "down" [ref=f1e357]
+          - complementary "渠道详情面板" [ref=f1e360]:
+            - generic [ref=f1e361]:
+              - generic [ref=f1e362]:
+                - generic "自定义品牌" [ref=f1e363]:
+                  - img "api" [ref=f1e364]
+                - generic [ref=f1e367]:
+                  - heading "E2E-ACCEPT-20260730-002915-AI渠道" [level=5] [ref=f1e368]
+                  - generic [ref=f1e369]: 自定义品牌 · openai-compatible-chat-completions
+                - generic [ref=f1e370]: 已停用
+              - generic [ref=f1e371]:
+                - tablist [ref=f1e372]:
+                  - generic [ref=f1e374]:
+                    - tab "基本信息" [selected] [ref=f1e376] [cursor=pointer]
+                    - tab "请求配置" [ref=f1e378] [cursor=pointer]
+                    - tab "模型管理" [ref=f1e380] [cursor=pointer]
+                    - tab "使用统计" [ref=f1e382] [cursor=pointer]
+                    - tab "操作日志" [ref=f1e384] [cursor=pointer]
+                - generic:
+                  - generic:
+                    - tabpanel "基本信息"
+              - generic [ref=f1e386]:
+                - generic [ref=f1e387]:
+                  - generic [ref=f1e388]:
+                    - strong [ref=f1e389]: 基本信息
+                    - button "edit 编辑" [ref=f1e390] [cursor=pointer]:
+                      - img "edit" [ref=f1e392]
+                      - generic [ref=f1e395]: 编辑
+                  - table [ref=f1e398]:
+                    - rowgroup [ref=f1e399]:
+                      - row [ref=f1e400]:
+                        - cell "渠道名称 E2E-ACCEPT-20260730-002915-AI渠道" [ref=f1e401]:
+                          - generic [ref=f1e402]:
+                            - generic [ref=f1e403]: 渠道名称
+                            - generic [ref=f1e404]: E2E-ACCEPT-20260730-002915-AI渠道
+                      - row [ref=f1e405]:
+                        - cell "描述 本轮已部署环境验收的隔离负向连接渠道，不承载真实业务数据。" [ref=f1e406]:
+                          - generic [ref=f1e407]:
+                            - generic [ref=f1e408]: 描述
+                            - generic [ref=f1e409]: 本轮已部署环境验收的隔离负向连接渠道，不承载真实业务数据。
+                      - row [ref=f1e410]:
+                        - cell "API 根地址 https://api.962850.xyz/v1" [ref=f1e411]:
+                          - generic [ref=f1e412]:
+                            - generic [ref=f1e413]: API 根地址
+                            - link "https://api.962850.xyz/v1" [ref=f1e415] [cursor=pointer]:
+                              - /url: https://api.962850.xyz/v1
+                      - row [ref=f1e416]:
+                        - cell "状态 已停用" [ref=f1e417]:
+                          - generic [ref=f1e418]:
+                            - generic [ref=f1e419]: 状态
+                            - generic [ref=f1e420]: 已停用
+                      - row [ref=f1e422]:
+                        - cell "API Key ✓ 已配置（••••••） 重新配置" [ref=f1e423]:
+                          - generic [ref=f1e424]:
+                            - generic [ref=f1e425]: API Key
+                            - generic [ref=f1e427]:
+                              - generic [ref=f1e428]: ✓ 已配置（••••••）
+                              - button "重新配置" [ref=f1e430] [cursor=pointer]
+                      - row [ref=f1e432]:
+                        - cell "请求 Header 0 个" [ref=f1e433]:
+                          - generic [ref=f1e434]:
+                            - generic [ref=f1e435]: 请求 Header
+                            - generic [ref=f1e436]: 0 个
+                      - row [ref=f1e437]:
+                        - cell "超时时间 60 秒" [ref=f1e438]:
+                          - generic [ref=f1e439]:
+                            - generic [ref=f1e440]: 超时时间
+                            - generic [ref=f1e441]: 60 秒
+                      - row [ref=f1e442]:
+                        - cell "重试策略 仅手动重试" [ref=f1e443]:
+                          - generic [ref=f1e444]:
+                            - generic [ref=f1e445]: 重试策略
+                            - generic [ref=f1e446]: 仅手动重试
+                      - row [ref=f1e447]:
+                        - cell "创建时间 2026/7/30 00:50:46" [ref=f1e448]:
+                          - generic [ref=f1e449]:
+                            - generic [ref=f1e450]: 创建时间
+                            - generic [ref=f1e451]: 2026/7/30 00:50:46
+                      - row [ref=f1e452]:
+                        - cell "更新时间 2026/7/30 00:50:46" [ref=f1e453]:
+                          - generic [ref=f1e454]:
+                            - generic [ref=f1e455]: 更新时间
+                            - generic [ref=f1e456]: 2026/7/30 00:50:46
+                      - row [ref=f1e457]:
+                        - cell "创建人 E2E-ACCEPT-20260730-002915-管理员" [ref=f1e458]:
+                          - generic [ref=f1e459]:
+                            - generic [ref=f1e460]: 创建人
+                            - generic [ref=f1e461]: E2E-ACCEPT-20260730-002915-管理员
+                - generic [ref=f1e462]:
+                  - strong [ref=f1e463]: 快捷操作
+                  - generic [ref=f1e464]:
+                    - button "thunderbolt 测试连接" [ref=f1e465] [cursor=pointer]:
+                      - img "thunderbolt" [ref=f1e467]
+                      - generic [ref=f1e470]: 测试连接
+                    - button "启用渠道" [ref=f1e471] [cursor=pointer]
+                    - button "copy 复制配置" [ref=f1e473] [cursor=pointer]:
+                      - img "copy" [ref=f1e475]
+                      - generic [ref=f1e478]: 复制配置
+                    - button "delete 删除渠道" [ref=f1e479] [cursor=pointer]:
+                      - img "delete" [ref=f1e481]
+                      - generic [ref=f1e484]: 删除渠道

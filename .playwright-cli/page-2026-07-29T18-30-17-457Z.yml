@@ -1,0 +1,139 @@
+- generic [ref=f4e6]:
+  - complementary [ref=f4e7]:
+    - generic [ref=f4e8]:
+      - strong [ref=f4e14]: PartSignal
+      - menu [ref=f4e582]:
+        - text: 内容工作流
+        - group [ref=f4e583]:
+          - menuitem [ref=f4e584] [cursor=pointer]:
+            - img "bar-chart" [ref=f4e585]
+            - link "工作台" [ref=f4e589]:
+              - /url: /
+          - menuitem [ref=f4e590] [cursor=pointer]:
+            - img "database" [ref=f4e591]
+            - link "产品事实" [ref=f4e595]:
+              - /url: /products
+          - menuitem [ref=f4e596] [cursor=pointer]:
+            - img "file-text" [ref=f4e597]
+            - link "内容任务" [ref=f4e601]:
+              - /url: /tasks
+          - menuitem [ref=f4e602] [cursor=pointer]:
+            - img "rocket" [ref=f4e603]
+            - link "发布管理" [ref=f4e607]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f4e608] [cursor=pointer]:
+            - img "bar-chart" [ref=f4e609]
+            - generic [ref=f4e612]: GEO 观测
+        - text: 系统管理
+        - group [ref=f4e613]:
+          - menuitem "setting 业务设置" [ref=f4e614] [cursor=pointer]:
+            - img "setting" [ref=f4e615]
+            - generic [ref=f4e618]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f4e619] [cursor=pointer]:
+            - img "safety-certificate" [ref=f4e620]
+            - generic [ref=f4e623]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f4e624] [cursor=pointer]:
+            - img "tool" [ref=f4e625]
+            - generic [ref=f4e628]: 配置中心
+      - button "收起导航" [ref=f4e62] [cursor=pointer]:
+        - img "menu-fold" [ref=f4e64]
+        - generic [ref=f4e67]: 收起
+  - generic [ref=f4e68]:
+    - banner [ref=f4e69]:
+      - generic [ref=f4e72]:
+        - generic [ref=f4e73]: PARTSIGNAL
+        - strong [ref=f4e75]: 内容任务
+      - generic [ref=f4e78] [cursor=pointer]:
+        - img "search" [ref=f4e80]
+        - combobox "全局页面搜索" [ref=f4e83]
+        - generic [ref=f4e84]: ⌘K
+      - generic [ref=f4e86]:
+        - button "主题：跟随系统" [ref=f4e88] [cursor=pointer]:
+          - img "desktop" [ref=f4e90]
+          - generic [ref=f4e93]: 跟随系统
+        - button "打开用户操作菜单" [ref=f4e95] [cursor=pointer]:
+          - generic [ref=f4e96]: 系
+          - generic [ref=f4e98]:
+            - strong [ref=f4e99]: 系统管理员
+            - generic [ref=f4e100]: admin
+          - img "down" [ref=f4e101]
+    - main [active] [ref=f4e104]:
+      - generic [ref=f4e629]:
+        - button "← 返回任务列表" [ref=f4e630] [cursor=pointer]
+        - generic [ref=f4e632]:
+          - generic [ref=f4e633]:
+            - navigation [ref=f4e634]:
+              - list [ref=f4e635]:
+                - listitem [ref=f4e636]:
+                  - link "内容任务" [ref=f4e638] [cursor=pointer]:
+                    - /url: /tasks
+                - listitem [ref=f4e639]: /
+                - listitem [ref=f4e640]: 任务详情
+            - text: 任务 / 420858be
+            - heading "E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=f4e641]
+            - generic [ref=f4e642]: 目标平台：E2E-ACCEPT-20260730-002915-平台
+          - generic [ref=f4e643]:
+            - generic [ref=f4e645]:
+              - img "info-circle" [ref=f4e646]
+              - generic [ref=f4e650]: 进行中
+            - button "取消任务" [ref=f4e652] [cursor=pointer]
+        - navigation "内容任务章节" [ref=f4e654]:
+          - link "任务上下文" [ref=f4e655] [cursor=pointer]:
+            - /url: "#task-context"
+          - link "首稿入口" [ref=f4e656] [cursor=pointer]:
+            - /url: "#task-entry"
+          - link "内容版本" [ref=f4e657] [cursor=pointer]:
+            - /url: "#task-versions"
+        - generic [ref=f4e658]:
+          - generic [ref=f4e659]: 01 / 锁定上下文
+          - table [ref=f4e665]:
+            - rowgroup [ref=f4e666]:
+              - row [ref=f4e667]:
+                - 'cell "产品 : E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [ref=f4e668]':
+                  - generic [ref=f4e669]:
+                    - generic [ref=f4e670]: "产品 :"
+                    - generic [ref=f4e671]: E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT
+                - 'cell "冻结事实版本 : V1 check-circle 公开" [ref=f4e672]':
+                  - generic [ref=f4e673]:
+                    - generic [ref=f4e674]: "冻结事实版本 :"
+                    - generic [ref=f4e676]:
+                      - generic [ref=f4e677]: V1
+                      - generic [ref=f4e680]:
+                        - img "check-circle" [ref=f4e681]
+                        - generic [ref=f4e685]: 公开
+              - row [ref=f4e686]:
+                - 'cell "目标平台 : E2E-ACCEPT-20260730-002915-平台" [ref=f4e687]':
+                  - generic [ref=f4e688]:
+                    - generic [ref=f4e689]: "目标平台 :"
+                    - generic [ref=f4e690]: E2E-ACCEPT-20260730-002915-平台
+                - 'cell "任务创建时间 : 2026/07/30 02:30" [ref=f4e691]':
+                  - generic [ref=f4e692]:
+                    - generic [ref=f4e693]: "任务创建时间 :"
+                    - time [ref=f4e695]: 2026/07/30 02:30
+        - generic [ref=f4e696]:
+          - generic [ref=f4e697]:
+            - generic [ref=f4e698]: 02A / 系统 AI 生成
+            - generic [ref=f4e701]:
+              - alert [ref=f4e702]:
+                - img "info-circle" [ref=f4e704]
+                - generic [ref=f4e707]: 打开弹窗后确认平台当前 Prompt，再选择已启用模型创建草稿。
+              - generic [ref=f4e709]: 模型只接收已确认的 Prompt 和冻结事实 Markdown；手工录入不受 Prompt 配置影响。
+              - button "thunderbolt 生成 AI 草稿" [ref=f4e710] [cursor=pointer]:
+                - img "thunderbolt" [ref=f4e712]
+                - generic [ref=f4e715]: 生成 AI 草稿
+          - generic [ref=f4e716]:
+            - generic [ref=f4e717]: 02B / 手动录入
+            - generic [ref=f4e720]:
+              - alert [ref=f4e721]:
+                - img "info-circle" [ref=f4e723]
+                - generic [ref=f4e726]: 可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。
+              - generic [ref=f4e728]: 手动首稿与 AI 草稿进入同一内容版本、审核和人工发布流程。
+              - button "录入首个人工草稿" [ref=f4e729] [cursor=pointer]
+        - generic [ref=f4e731]:
+          - generic [ref=f4e732]: AI 作业
+          - generic [ref=f4e735]: 尚无 AI 作业。
+        - generic [ref=f4e736]:
+          - generic [ref=f4e737]: 03 / 内容版本
+          - generic [ref=f4e741]:
+            - img "暂无数据" [ref=f4e743]
+            - generic [ref=f4e749]: 尚无内容版本，可从上方任一入口创建首稿

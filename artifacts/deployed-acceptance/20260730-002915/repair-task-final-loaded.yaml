@@ -1,0 +1,169 @@
+- generic [ref=f17e6]:
+  - complementary [ref=f17e7]:
+    - generic [ref=f17e8]:
+      - strong [ref=f17e14]: PartSignal
+      - menu [ref=f17e15]:
+        - text: 内容工作流
+        - group [ref=f17e16]:
+          - menuitem [ref=f17e17] [cursor=pointer]:
+            - img "bar-chart" [ref=f17e18]
+            - link "工作台" [ref=f17e22]:
+              - /url: /
+          - menuitem [ref=f17e23] [cursor=pointer]:
+            - img "database" [ref=f17e24]
+            - link "产品事实" [ref=f17e28]:
+              - /url: /products
+          - menuitem [ref=f17e29] [cursor=pointer]:
+            - img "file-text" [ref=f17e30]
+            - link "内容任务" [ref=f17e34]:
+              - /url: /tasks
+          - menuitem [ref=f17e35] [cursor=pointer]:
+            - img "rocket" [ref=f17e36]
+            - link "发布管理" [ref=f17e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f17e41] [cursor=pointer]:
+            - img "bar-chart" [ref=f17e42]
+            - generic [ref=f17e45]: GEO 观测
+        - text: 系统管理
+        - group [ref=f17e46]:
+          - menuitem "setting 业务设置" [ref=f17e47] [cursor=pointer]:
+            - img "setting" [ref=f17e48]
+            - generic [ref=f17e51]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f17e52] [cursor=pointer]:
+            - img "safety-certificate" [ref=f17e53]
+            - generic [ref=f17e56]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f17e57] [cursor=pointer]:
+            - img "tool" [ref=f17e58]
+            - generic [ref=f17e61]: 配置中心
+      - button "收起导航" [ref=f17e62] [cursor=pointer]:
+        - img "menu-fold" [ref=f17e64]
+        - generic [ref=f17e67]: 收起
+  - generic [ref=f17e68]:
+    - banner [ref=f17e69]:
+      - generic [ref=f17e72]:
+        - generic [ref=f17e73]: PARTSIGNAL
+        - strong [ref=f17e75]: 内容任务
+      - generic [ref=f17e78] [cursor=pointer]:
+        - img "search" [ref=f17e80]
+        - combobox "全局页面搜索" [ref=f17e83]
+        - generic [ref=f17e84]: ⌘K
+      - generic [ref=f17e86]:
+        - button "主题：跟随系统" [ref=f17e88] [cursor=pointer]:
+          - img "desktop" [ref=f17e90]
+          - generic [ref=f17e93]: 跟随系统
+        - button "打开用户操作菜单" [ref=f17e95] [cursor=pointer]:
+          - generic [ref=f17e96]: E
+          - generic [ref=f17e98]:
+            - strong [ref=f17e99]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=f17e100]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=f17e101]
+    - main [active] [ref=f17e104]:
+      - generic [ref=f17e105]:
+        - button "← 返回任务列表" [ref=f17e106] [cursor=pointer]
+        - generic [ref=f17e108]:
+          - generic [ref=f17e109]:
+            - navigation [ref=f17e110]:
+              - list [ref=f17e111]:
+                - listitem [ref=f17e112]:
+                  - link "内容任务" [ref=f17e114] [cursor=pointer]:
+                    - /url: /tasks
+                - listitem [ref=f17e115]: /
+                - listitem [ref=f17e116]: 任务详情
+            - text: 任务 / 58e6b3b1
+            - heading "E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=f17e117]
+            - generic [ref=f17e118]: 目标平台：E2E-ACCEPT-20260730-002915-平台
+          - generic [ref=f17e121]:
+            - img "check-circle" [ref=f17e122]
+            - generic [ref=f17e126]: 已完成
+        - navigation "内容任务章节" [ref=f17e127]:
+          - link "任务上下文" [ref=f17e128] [cursor=pointer]:
+            - /url: "#task-context"
+          - link "首稿入口" [ref=f17e129] [cursor=pointer]:
+            - /url: "#task-entry"
+          - link "内容版本" [ref=f17e130] [cursor=pointer]:
+            - /url: "#task-versions"
+        - generic [ref=f17e131]:
+          - generic [ref=f17e132]: 01 / 锁定上下文
+          - table [ref=f17e138]:
+            - rowgroup [ref=f17e139]:
+              - row [ref=f17e140]:
+                - 'cell "产品 : E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [ref=f17e141]':
+                  - generic [ref=f17e142]:
+                    - generic [ref=f17e143]: "产品 :"
+                    - generic [ref=f17e144]: E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT
+                - 'cell "冻结事实版本 : V1 check-circle 公开" [ref=f17e145]':
+                  - generic [ref=f17e146]:
+                    - generic [ref=f17e147]: "冻结事实版本 :"
+                    - generic [ref=f17e149]:
+                      - generic [ref=f17e150]: V1
+                      - generic [ref=f17e153]:
+                        - img "check-circle" [ref=f17e154]
+                        - generic [ref=f17e158]: 公开
+              - row [ref=f17e159]:
+                - 'cell "目标平台 : E2E-ACCEPT-20260730-002915-平台" [ref=f17e160]':
+                  - generic [ref=f17e161]:
+                    - generic [ref=f17e162]: "目标平台 :"
+                    - generic [ref=f17e163]: E2E-ACCEPT-20260730-002915-平台
+                - 'cell "任务创建时间 : 2026/07/30 01:10" [ref=f17e164]':
+                  - generic [ref=f17e165]:
+                    - generic [ref=f17e166]: "任务创建时间 :"
+                    - time [ref=f17e168]: 2026/07/30 01:10
+        - generic [ref=f17e169]:
+          - generic [ref=f17e170]:
+            - generic [ref=f17e171]: 02A / 系统 AI 生成
+            - generic [ref=f17e174]:
+              - alert [ref=f17e175]:
+                - img "exclamation-circle" [ref=f17e177]
+                - generic [ref=f17e180]:
+                  - generic [ref=f17e181]: 当前不能生成 AI 草稿
+                  - generic [ref=f17e182]: 当前任务已结束，历史任务保持只读，不能新增 AI 草稿。请创建新任务后继续。
+              - generic [ref=f17e183]: 模型只接收已确认的 Prompt 和冻结事实 Markdown；手工录入不受 Prompt 配置影响。
+              - button "plus 新建内容任务" [ref=f17e184] [cursor=pointer]:
+                - img "plus" [ref=f17e186]
+                - generic [ref=f17e190]: 新建内容任务
+          - generic [ref=f17e191]:
+            - generic [ref=f17e192]: 02B / 手动录入
+            - generic [ref=f17e195]:
+              - alert [ref=f17e196]:
+                - img "info-circle" [ref=f17e198]
+                - generic [ref=f17e201]: 可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。
+              - generic [ref=f17e203]: 手动首稿与 AI 草稿进入同一内容版本、审核和人工发布流程。
+              - button "录入首个人工草稿" [disabled] [ref=f17e204]
+        - generic [ref=f17e205]:
+          - generic [ref=f17e206]: AI 作业
+          - generic [ref=f17e209]: 尚无 AI 作业。
+        - generic [ref=f17e210]:
+          - generic [ref=f17e211]: 03 / 内容版本
+          - region "内容版本列表" [ref=f17e215]:
+            - generic [ref=f17e218]:
+              - table [ref=f17e222]:
+                - rowgroup [ref=f17e230]:
+                  - row [ref=f17e231]:
+                    - columnheader "版本" [ref=f17e232]
+                    - columnheader "标题" [ref=f17e233]
+                    - columnheader "来源" [ref=f17e234]
+                    - columnheader "状态" [ref=f17e235]
+                    - columnheader "质量问题" [ref=f17e236]
+                    - columnheader "操作" [ref=f17e237]
+                - rowgroup [ref=f17e238]:
+                  - row [ref=f17e239]:
+                    - cell [ref=f17e240]:
+                      - link "V1" [ref=f17e241] [cursor=pointer]:
+                        - /url: /content/c7235ccd-2ebd-4c12-b9ae-d549311a1c8b
+                    - cell "E2E-ACCEPT-20260730-002915 发布修复草稿" [ref=f17e242]
+                    - cell "人工编辑" [ref=f17e243]
+                    - cell "check-circle 已批准" [ref=f17e245]:
+                      - generic [ref=f17e246]:
+                        - img "check-circle" [ref=f17e247]
+                        - generic [ref=f17e251]: 已批准
+                    - cell "0" [ref=f17e252]
+                    - cell [ref=f17e253]:
+                      - button "自然化" [disabled] [ref=f17e254]
+              - list [ref=f17e255]:
+                - listitem "上一页" [ref=f17e256]:
+                  - button [disabled] [ref=f17e257]:
+                    - img "left" [ref=f17e258]
+                - listitem "1" [ref=f17e261] [cursor=pointer]
+                - listitem "下一页" [ref=f17e263]:
+                  - button [disabled] [ref=f17e264]:
+                    - img "right" [ref=f17e265]

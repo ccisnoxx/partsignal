@@ -1,0 +1,236 @@
+- generic [ref=f18e7]:
+  - banner [ref=f18e8]:
+    - generic [ref=f18e9]:
+      - button "切换导航" [ref=f18e11] [cursor=pointer]:
+        - img "menu-unfold" [ref=f18e13]
+      - generic [ref=f18e17]:
+        - strong [ref=f18e19]: GEO 观测
+        - generic [ref=f18e20]: /
+        - generic [ref=f18e21]: 观测记录
+    - generic [ref=f18e22]:
+      - button "主题：跟随系统" [ref=f18e24] [cursor=pointer]:
+        - img "desktop" [ref=f18e26]
+      - button "打开用户操作菜单" [ref=f18e30] [cursor=pointer]:
+        - generic [ref=f18e31]: E
+        - img "down" [ref=f18e33]
+  - main [active] [ref=f18e36]:
+    - generic [ref=f18e37]:
+      - generic [ref=f18e38]:
+        - generic [ref=f18e39]:
+          - heading "GEO 观测" [level=1] [ref=f18e40]
+          - generic [ref=f18e41]: 记录真实搜索结果、逐篇观测结论与证据，支持按产品、平台和结论追溯历史。
+        - button "plus 新建观测" [ref=f18e44] [cursor=pointer]:
+          - img "plus" [ref=f18e46]
+          - generic [ref=f18e50]: 新建观测
+      - navigation "GEO 观测页面" [ref=f18e51]:
+        - link "观测记录" [ref=f18e52] [cursor=pointer]:
+          - /url: /observations
+        - link "分析洞察" [ref=f18e53] [cursor=pointer]:
+          - /url: /observations/insights
+      - region "GEO 观测统计" [ref=f18e54]:
+        - generic [ref=f18e56]:
+          - generic [ref=f18e57]: 观测记录
+          - strong [ref=f18e59]: "3"
+          - generic [ref=f18e60]: 当前筛选口径
+        - generic [ref=f18e62]:
+          - generic [ref=f18e63]: 人工观测
+          - strong [ref=f18e65]: "3"
+          - generic [ref=f18e66]: 3 条逐篇结果
+        - generic [ref=f18e68]:
+          - generic [ref=f18e69]: 文章发现率
+          - generic [ref=f18e70]:
+            - strong [ref=f18e71]: "100"
+            - generic [ref=f18e72]: "%"
+          - progressbar "文章发现率 100%" [ref=f18e73]
+          - generic [ref=f18e77]: 已发现 / 文章结果
+        - generic [ref=f18e79]:
+          - generic [ref=f18e80]: 文章提及率
+          - generic [ref=f18e81]:
+            - strong [ref=f18e82]: "100"
+            - generic [ref=f18e83]: "%"
+          - progressbar "文章提及率 100%" [ref=f18e84]
+          - generic [ref=f18e88]: 已提及 / 文章结果
+        - generic [ref=f18e90]:
+          - generic [ref=f18e91]: 文章准确率
+          - generic [ref=f18e92]:
+            - strong [ref=f18e93]: "67"
+            - generic [ref=f18e94]: "%"
+          - progressbar "文章准确率 67%" [ref=f18e95]
+          - generic [ref=f18e99]: 准确 / 可判断结果
+      - generic [ref=f18e101]:
+        - search "观测记录筛选" [ref=f18e102]:
+          - generic [ref=f18e103]:
+            - generic [ref=f18e104]: 开始日期
+            - textbox "开始日期" [ref=f18e105]: 2026-07-01
+          - generic [ref=f18e106]:
+            - generic [ref=f18e107]: 结束日期
+            - textbox "结束日期" [ref=f18e108]: 2026-07-30
+          - generic [ref=f18e109]:
+            - generic [ref=f18e110]: 观测类型
+            - generic [ref=f18e111] [cursor=pointer]:
+              - combobox "观测类型 down" [ref=f18e113]
+              - img "down" [ref=f18e115]
+          - generic [ref=f18e118]:
+            - generic [ref=f18e119]: 产品
+            - generic [ref=f18e120]:
+              - combobox "产品 down" [ref=f18e122]
+              - img "down" [ref=f18e124]
+          - generic [ref=f18e127]:
+            - generic [ref=f18e128]: 搜索词 / 问题
+            - textbox "搜索词 / 问题" [ref=f18e130]:
+              - /placeholder: 搜索完整问题关键词
+          - generic [ref=f18e132]:
+            - generic [ref=f18e133]: 问题主题
+            - generic [ref=f18e134]:
+              - combobox "问题主题 down" [ref=f18e136]
+              - img "down" [ref=f18e138]
+          - generic [ref=f18e141]:
+            - generic [ref=f18e142]: 搜索平台
+            - textbox "搜索平台" [ref=f18e144]:
+              - /placeholder: 人工搜索平台
+          - generic [ref=f18e146]:
+            - generic [ref=f18e147]: 模型名称
+            - textbox "模型名称" [ref=f18e149]:
+              - /placeholder: 历史观测模型
+          - generic [ref=f18e151]:
+            - generic [ref=f18e152]: 关联发布内容
+            - textbox "关联发布内容" [ref=f18e154]:
+              - /placeholder: 标题或链接
+          - generic [ref=f18e156]:
+            - generic [ref=f18e157]: 是否发现
+            - generic [ref=f18e158] [cursor=pointer]:
+              - combobox "是否发现 down" [ref=f18e160]
+              - img "down" [ref=f18e162]
+          - generic [ref=f18e165]:
+            - generic [ref=f18e166]: 是否提及
+            - generic [ref=f18e167] [cursor=pointer]:
+              - combobox "是否提及 down" [ref=f18e169]
+              - img "down" [ref=f18e171]
+          - generic [ref=f18e174]:
+            - generic [ref=f18e175]: 准确性
+            - generic [ref=f18e176] [cursor=pointer]:
+              - combobox "准确性 down" [ref=f18e178]
+              - img "down" [ref=f18e180]
+          - generic [ref=f18e183]:
+            - generic [ref=f18e184]: 记录人
+            - textbox "记录人" [ref=f18e186]:
+              - /placeholder: 姓名或用户名
+        - generic [ref=f18e188]:
+          - generic [ref=f18e189]:
+            - button "reload 重置" [ref=f18e191] [cursor=pointer]:
+              - img "reload" [ref=f18e193]
+              - generic [ref=f18e196]: 重置
+            - button "清除筛选" [ref=f18e198] [cursor=pointer]
+          - generic [ref=f18e200]:
+            - generic [ref=f18e202]:
+              - generic [ref=f18e203]: 包含历史更正记录
+              - switch "包含历史更正记录" [ref=f18e204] [cursor=pointer]
+            - generic [ref=f18e208]:
+              - generic [ref=f18e209]: 仅看我的记录
+              - switch "仅看我的记录" [ref=f18e210] [cursor=pointer]
+      - generic [ref=f18e213]:
+        - generic [ref=f18e215]:
+          - generic [ref=f18e216]: 共 3 条记录
+          - generic [ref=f18e219]:
+            - button "sort-descending 观测时间" [ref=f18e221] [cursor=pointer]:
+              - img "sort-descending" [ref=f18e223]
+              - generic [ref=f18e226]: 观测时间
+            - button "setting 列设置" [ref=f18e228] [cursor=pointer]:
+              - img "setting" [ref=f18e230]
+              - generic [ref=f18e233]: 列设置
+        - region "观测记录列表" [ref=f18e235]:
+          - generic [ref=f18e238]:
+            - generic [ref=f18e240]:
+              - table [ref=f18e242]:
+                - rowgroup [ref=f18e254]:
+                  - row [ref=f18e255]:
+                    - columnheader "观测平台" [ref=f18e256]
+                    - columnheader "搜索词 / 问题" [ref=f18e257]
+                    - columnheader "观测时间" [ref=f18e258]
+                    - columnheader "是否发现" [ref=f18e259]
+                    - columnheader "是否提及" [ref=f18e260]
+                    - columnheader "准确性" [ref=f18e261]
+                    - columnheader "关联发布内容" [ref=f18e262]
+                    - columnheader "证据" [ref=f18e263]
+                    - columnheader "记录人" [ref=f18e264]
+                    - columnheader "操作" [ref=f18e265]
+              - table [ref=f18e267]:
+                - rowgroup [ref=f18e279]:
+                  - row [ref=f18e280] [cursor=pointer]:
+                    - cell "人 E2E-ACCEPT-20260730-002915 人工测试搜索平台" [ref=f18e281]:
+                      - generic [ref=f18e282]:
+                        - generic [ref=f18e283]: 人
+                        - generic [ref=f18e285]: E2E-ACCEPT-20260730-002915 人工测试搜索平台
+                    - cell [ref=f18e286]:
+                      - button "E2E-ACCEPT-20260730-002915 GEO 问题变体" [ref=f18e287]
+                    - cell "07/30 01:17" [ref=f18e289]
+                    - cell "1/1 篇发现" [ref=f18e290]
+                    - cell "1/1 篇提及" [ref=f18e292]
+                    - cell "1/1 篇准确" [ref=f18e294]
+                    - cell [ref=f18e296]:
+                      - button "1 条关联内容" [ref=f18e297]
+                    - cell "未上传" [ref=f18e299]
+                    - cell "E2E-ACCEPT-20260730-002915-管理员" [ref=f18e301]
+                    - cell [ref=f18e302]:
+                      - generic [ref=f18e303]:
+                        - button "查看观测：52ebcd82-9363-4486-95ab-710cb3fe5438" [ref=f18e305]:
+                          - img "eye" [ref=f18e307]
+                        - button "更多操作：52ebcd82-9363-4486-95ab-710cb3fe5438" [ref=f18e311]:
+                          - img "down" [ref=f18e313]
+                  - row [ref=f18e316] [cursor=pointer]:
+                    - cell "人 E2E 模拟搜索" [ref=f18e317]:
+                      - generic [ref=f18e318]:
+                        - generic [ref=f18e319]: 人
+                        - generic [ref=f18e321]: E2E 模拟搜索
+                    - cell [ref=f18e322]:
+                      - button "E2E-PRODUCT-20260729-091241" [ref=f18e323]
+                    - cell "07/29 09:56" [ref=f18e325]
+                    - cell "1/1 篇发现" [ref=f18e326]
+                    - cell "1/1 篇提及" [ref=f18e328]
+                    - cell "1/1 篇准确" [ref=f18e330]
+                    - cell [ref=f18e332]:
+                      - button "1 条关联内容" [ref=f18e333]
+                    - cell "check-circle 已上传" [ref=f18e335]:
+                      - generic [ref=f18e336]:
+                        - img "check-circle" [ref=f18e337]
+                        - generic [ref=f18e341]: 已上传
+                    - cell "系统管理员" [ref=f18e342]
+                    - cell [ref=f18e343]:
+                      - generic [ref=f18e344]:
+                        - button "查看观测：3e82e790-21cd-4f54-a02f-0fb1e0b02671" [ref=f18e346]:
+                          - img "eye" [ref=f18e348]
+                        - button "更多操作：3e82e790-21cd-4f54-a02f-0fb1e0b02671" [ref=f18e352]:
+                          - img "down" [ref=f18e354]
+                  - row [ref=f18e357] [cursor=pointer]:
+                    - cell "人 豆包" [ref=f18e358]:
+                      - generic [ref=f18e359]:
+                        - generic [ref=f18e360]: 人
+                        - generic [ref=f18e362]: 豆包
+                    - cell [ref=f18e363]:
+                      - button "1" [ref=f18e364]
+                    - cell "07/28 17:20" [ref=f18e366]
+                    - cell "1/1 篇发现" [ref=f18e367]
+                    - cell "1/1 篇提及" [ref=f18e369]
+                    - cell "0/1 篇准确" [ref=f18e371]
+                    - cell [ref=f18e373]:
+                      - button "1 条关联内容" [ref=f18e374]
+                    - cell "check-circle 已上传" [ref=f18e376]:
+                      - generic [ref=f18e377]:
+                        - img "check-circle" [ref=f18e378]
+                        - generic [ref=f18e382]: 已上传
+                    - cell "系统管理员" [ref=f18e383]
+                    - cell [ref=f18e384]:
+                      - generic [ref=f18e385]:
+                        - button "查看观测：93bd54ab-2657-4622-91e0-86d7433d8e5a" [ref=f18e387]:
+                          - img "eye" [ref=f18e389]
+                        - button "更多操作：93bd54ab-2657-4622-91e0-86d7433d8e5a" [ref=f18e393]:
+                          - img "down" [ref=f18e395]
+            - list [ref=f18e398]:
+              - listitem [ref=f18e399]: 共 3 条
+              - listitem "上一页" [ref=f18e400]:
+                - button [disabled] [ref=f18e401]:
+                  - img "left" [ref=f18e402]
+              - listitem "1" [ref=f18e405] [cursor=pointer]
+              - listitem "下一页" [ref=f18e407]:
+                - button [disabled] [ref=f18e408]:
+                  - img "right" [ref=f18e409]

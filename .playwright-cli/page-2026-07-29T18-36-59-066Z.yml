@@ -1,0 +1,231 @@
+- generic [active] [ref=f9e1]:
+  - generic [ref=f9e6]:
+    - complementary [ref=f9e7]:
+      - generic [ref=f9e8]:
+        - strong [ref=f9e14]: PartSignal
+        - menu [ref=f9e15]:
+          - text: 内容工作流
+          - group [ref=f9e16]:
+            - menuitem [ref=f9e17] [cursor=pointer]:
+              - img "bar-chart" [ref=f9e18]
+              - link "工作台" [ref=f9e22]:
+                - /url: /
+            - menuitem [ref=f9e23] [cursor=pointer]:
+              - img "database" [ref=f9e24]
+              - link "产品事实" [ref=f9e28]:
+                - /url: /products
+            - menuitem [ref=f9e29] [cursor=pointer]:
+              - img "file-text" [ref=f9e30]
+              - link "内容任务" [ref=f9e34]:
+                - /url: /tasks
+            - menuitem [ref=f9e35] [cursor=pointer]:
+              - img "rocket" [ref=f9e36]
+              - link "发布管理" [ref=f9e40]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f9e41] [cursor=pointer]:
+              - img "bar-chart" [ref=f9e42]
+              - generic [ref=f9e45]: GEO 观测
+          - text: 系统管理
+          - group [ref=f9e46]:
+            - menuitem "setting 业务设置" [ref=f9e47] [cursor=pointer]:
+              - img "setting" [ref=f9e48]
+              - generic [ref=f9e51]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f9e52] [cursor=pointer]:
+              - img "safety-certificate" [ref=f9e53]
+              - generic [ref=f9e56]: 审计与安全
+            - menuitem "tool 配置中心" [expanded] [ref=f9e57] [cursor=pointer]:
+              - img "tool" [ref=f9e58]
+              - generic [ref=f9e61]: 配置中心
+            - menu [ref=f9e62]:
+              - menuitem [ref=f9e63] [cursor=pointer]:
+                - link "平台管理" [ref=f9e65]:
+                  - /url: /configuration/platforms
+              - menuitem [ref=f9e66] [cursor=pointer]:
+                - link "Prompt 管理" [ref=f9e68]:
+                  - /url: /configuration/prompts
+              - menuitem [ref=f9e69] [cursor=pointer]:
+                - link "AI 渠道与模型" [ref=f9e71]:
+                  - /url: /configuration/ai
+        - button "收起导航" [ref=f9e72] [cursor=pointer]:
+          - img "menu-fold" [ref=f9e74]
+          - generic [ref=f9e77]: 收起
+    - generic [ref=f9e78]:
+      - banner [ref=f9e79]:
+        - generic [ref=f9e82]:
+          - strong [ref=f9e84]: 配置中心
+          - generic [ref=f9e85]: /
+          - generic [ref=f9e86]: Prompt 管理
+        - generic [ref=f9e89] [cursor=pointer]:
+          - img "search" [ref=f9e91]
+          - combobox "全局页面搜索" [ref=f9e94]
+          - generic [ref=f9e95]: ⌘K
+        - generic [ref=f9e97]:
+          - button "主题：跟随系统" [ref=f9e99] [cursor=pointer]:
+            - img "desktop" [ref=f9e101]
+            - generic [ref=f9e104]: 跟随系统
+          - button "打开用户操作菜单" [ref=f9e106] [cursor=pointer]:
+            - generic [ref=f9e107]: 系
+            - generic [ref=f9e109]:
+              - strong [ref=f9e110]: 系统管理员
+              - generic [ref=f9e111]: admin
+            - img "down" [ref=f9e112]
+      - main [ref=f9e115]:
+        - generic [ref=f9e116]:
+          - generic [ref=f9e117]:
+            - generic [ref=f9e118]:
+              - text: 配置中心 / Prompt 管理
+              - heading "Prompt 管理" [level=1] [ref=f9e119]
+              - generic [ref=f9e120]: 平台 Prompt 可被多个平台复用；平台当前绑定决定新 AI 生成使用哪一份模板。
+            - button "plus 新建 Prompt" [ref=f9e123] [cursor=pointer]:
+              - img "plus" [ref=f9e125]
+              - generic [ref=f9e129]: 新建 Prompt
+          - generic [ref=f9e130]:
+            - generic [ref=f9e131]:
+              - tablist [ref=f9e132]:
+                - generic [ref=f9e134]:
+                  - tab "平台 Prompt" [selected] [ref=f9e136] [cursor=pointer]
+                  - tab "全局自然化 Prompt" [ref=f9e138] [cursor=pointer]
+              - generic:
+                - generic:
+                  - tabpanel "平台 Prompt"
+            - alert [ref=f9e139]:
+              - img "info-circle" [ref=f9e141]
+              - generic [ref=f9e145]: 共享 Prompt 修改会影响全部绑定平台；历史生成快照保持不变。
+              - link "查看生成边界 →" [ref=f9e148] [cursor=pointer]:
+                - /url: "#prompt-safety-boundaries"
+          - generic [ref=f9e149]:
+            - generic [ref=f9e150]:
+              - generic [ref=f9e151]: Prompt 模板
+              - generic [ref=f9e154]:
+                - generic [ref=f9e155]:
+                  - generic [ref=f9e156]:
+                    - img "search" [ref=f9e158]
+                    - textbox "搜索 Prompt 名称" [ref=f9e161]
+                  - button "plus 新建" [ref=f9e163] [cursor=pointer]:
+                    - img "plus" [ref=f9e165]
+                    - generic [ref=f9e169]: 新建
+                - listbox "Prompt 模板列表" [ref=f9e170]:
+                  - option "file-text E2E-ACCEPT-20260730-002915-合规JSON revision 1 0 个平台 2026年7月30日 00:46" [ref=f9e171] [cursor=pointer]:
+                    - img "file-text" [ref=f9e172]
+                    - generic [ref=f9e175]:
+                      - strong [ref=f9e176]: E2E-ACCEPT-20260730-002915-合规JSON
+                      - generic [ref=f9e177]: revision 1
+                    - generic [ref=f9e178]:
+                      - generic [ref=f9e179]: 0 个平台
+                      - time [ref=f9e180]: 2026年7月30日 00:46
+                  - option "file-text E2E-ACCEPT-20260730-002915-格式错误 revision 0 0 个平台 2026年7月30日 00:46" [ref=f9e181] [cursor=pointer]:
+                    - img "file-text" [ref=f9e182]
+                    - generic [ref=f9e185]:
+                      - strong [ref=f9e186]: E2E-ACCEPT-20260730-002915-格式错误
+                      - generic [ref=f9e187]: revision 0
+                    - generic [ref=f9e188]:
+                      - generic [ref=f9e189]: 0 个平台
+                      - time [ref=f9e190]: 2026年7月30日 00:46
+                  - option "file-text E2E-ACCEPT-AI-20260730-020822-格式错误 revision 1 1 个平台 2026年7月30日 02:36" [selected] [ref=f9e357] [cursor=pointer]:
+                    - img "file-text" [ref=f9e192]
+                    - generic [ref=f9e195]:
+                      - strong [ref=f9e196]: E2E-ACCEPT-AI-20260730-020822-格式错误
+                      - generic [ref=f9e197]: revision 1
+                    - generic [ref=f9e198]:
+                      - generic [ref=f9e199]: 1 个平台
+                      - time [ref=f9e200]: 2026年7月30日 02:36
+                  - option "file-text 测试 revision 3 1 个平台 2026年7月29日 07:07" [ref=f9e201] [cursor=pointer]:
+                    - img "file-text" [ref=f9e202]
+                    - generic [ref=f9e205]:
+                      - strong [ref=f9e206]: 测试
+                      - generic [ref=f9e207]: revision 3
+                    - generic [ref=f9e208]:
+                      - generic [ref=f9e209]: 1 个平台
+                      - time [ref=f9e210]: 2026年7月29日 07:07
+            - generic [ref=f9e211]:
+              - generic [ref=f9e213]:
+                - generic [ref=f9e214]: E2E-ACCEPT-AI-20260730-020822-格式错误
+                - generic [ref=f9e216]:
+                  - generic [ref=f9e217]: 更新：2026年7月30日 02:36
+                  - generic [ref=f9e219]: 更新人：系统管理员
+                  - generic [ref=f9e221]: revision 1
+              - generic [ref=f9e223]:
+                - textbox "Prompt 名称" [ref=f9e224]: E2E-ACCEPT-AI-20260730-020822-格式错误
+                - region "Prompt 使用平台" [ref=f9e225]:
+                  - generic [ref=f9e226]:
+                    - strong [ref=f9e228]: 使用平台
+                    - generic [ref=f9e229]: 1 个
+                  - generic [ref=f9e230]: E2E-ACCEPT-20260730-002915-平台
+                - region "Prompt Markdown 编辑区" [ref=f9e233]:
+                  - generic [ref=f9e234]:
+                    - generic [ref=f9e235]:
+                      - strong [ref=f9e238]: Prompt 编辑
+                      - generic [ref=f9e239]: Markdown
+                      - status [ref=f9e241]: 已保存
+                    - button "save 保存 Prompt" [disabled] [ref=f9e244]:
+                      - generic:
+                        - img "save"
+                      - generic: 保存 Prompt
+                  - generic [ref=f9e245]:
+                    - generic [ref=f9e246]: "1"
+                    - textbox "Prompt Markdown" [ref=f9e247]: 你是电子元器件部署验收内容助手。只使用用户消息中的已批准 PUBLIC 测试事实，不猜测未知事实。返回且仅返回一个 JSON 对象，不要使用 Markdown 代码块，不要添加解释或额外字段。对象必须恰好包含 title、summary、body_markdown、tags 四个字段；title、summary、body_markdown 必须是非空字符串，tags 必须是至少包含一个非空字符串的数组。body_markdown 使用清晰的中文 Markdown，并明确标注测试用途。
+                  - generic [ref=f9e248]:
+                    - generic [ref=f9e249]: 字数：232
+                    - generic [ref=f9e250]: 行数：1
+                    - generic [ref=f9e251]: 预计输出：由 Prompt 定义
+                    - generic [ref=f9e252]: Markdown
+            - complementary [ref=f9e253]:
+              - region "输出预览" [ref=f9e254]:
+                - generic [ref=f9e255]:
+                  - generic [ref=f9e256]:
+                    - strong [ref=f9e258]: 输出预览
+                    - text: （真实草稿）
+                  - button "fullscreen 全屏预览" [disabled] [ref=f9e259]:
+                    - generic:
+                      - img "fullscreen"
+                    - generic: 全屏预览
+                - generic [ref=f9e260]:
+                  - alert [ref=f9e261]:
+                    - img "info-circle" [ref=f9e263]
+                    - generic [ref=f9e266]: 预览会创建可审计的真实 AI 作业和 DRAFT，不会进行无痕临时调用。
+                  - generic [ref=f9e268]:
+                    - generic [ref=f9e269]:
+                      - generic: 选择进行中任务
+                      - combobox "预览内容任务" [ref=f9e270]
+                    - img "down" [ref=f9e272]
+                  - generic [ref=f9e275]:
+                    - generic [ref=f9e276]:
+                      - generic: 选择已启用且测试通过的模型
+                      - combobox "预览模型" [disabled] [ref=f9e277]
+                    - img "down" [ref=f9e279]
+                  - button "thunderbolt 生成平台预览" [disabled] [ref=f9e282]:
+                    - generic:
+                      - img "thunderbolt"
+                    - generic: 生成平台预览
+                - generic [ref=f9e284]:
+                  - img "eye" [ref=f9e286]
+                  - generic [ref=f9e289]: 选择真实任务和模型后生成预览
+                - link "前往内容任务" [ref=f9e291] [cursor=pointer]:
+                  - /url: /tasks
+              - generic [ref=f9e292]:
+                - generic [ref=f9e293]: 生成边界
+                - list [ref=f9e297]:
+                  - listitem [ref=f9e298]:
+                    - img "safety-certificate" [ref=f9e299]
+                    - generic [ref=f9e302]:
+                      - strong [ref=f9e303]: 消息原样发送
+                      - generic [ref=f9e304]: system 为平台绑定 Prompt，user 为已批准事实 Markdown。
+                  - listitem [ref=f9e305]:
+                    - img "safety-certificate" [ref=f9e306]
+                    - generic [ref=f9e309]:
+                      - strong [ref=f9e310]: 共享影响透明
+                      - generic [ref=f9e311]: 保存前列出全部绑定平台，revision 冲突不会覆盖新值。
+                  - listitem [ref=f9e312]:
+                    - img "safety-certificate" [ref=f9e313]
+                    - generic [ref=f9e316]:
+                      - strong [ref=f9e317]: 删除受约束
+                      - generic [ref=f9e318]: 被任一平台绑定的 Prompt 不能删除。
+                  - listitem [ref=f9e319]:
+                    - img "safety-certificate" [ref=f9e320]
+                    - generic [ref=f9e323]:
+                      - strong [ref=f9e324]: AI 只创建草稿
+                      - generic [ref=f9e325]: 输出通过人工审核后才能进入发布流程。
+  - alert [ref=f9e358]:
+    - generic [ref=f9e359]:
+      - img "check-circle" [ref=f9e361]
+      - generic [ref=f9e364]: Prompt 已保存

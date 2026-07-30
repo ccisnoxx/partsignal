@@ -1,0 +1,130 @@
+- generic [ref=f12e6]:
+  - complementary [ref=f12e7]:
+    - generic [ref=f12e8]:
+      - strong [ref=f12e14]: PartSignal
+      - menu [ref=f12e15]:
+        - text: 内容工作流
+        - group [ref=f12e16]:
+          - menuitem [ref=f12e17] [cursor=pointer]:
+            - img "bar-chart" [ref=f12e18]
+            - link "工作台" [ref=f12e22]:
+              - /url: /
+          - menuitem [ref=f12e23] [cursor=pointer]:
+            - img "database" [ref=f12e24]
+            - link "产品事实" [ref=f12e28]:
+              - /url: /products
+          - menuitem [ref=f12e29] [cursor=pointer]:
+            - img "file-text" [ref=f12e30]
+            - link "内容任务" [ref=f12e34]:
+              - /url: /tasks
+          - menuitem [ref=f12e35] [cursor=pointer]:
+            - img "rocket" [ref=f12e36]
+            - link "发布管理" [ref=f12e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [expanded] [active] [ref=f12e41] [cursor=pointer]:
+            - img "bar-chart" [ref=f12e42]
+            - generic [ref=f12e45]: GEO 观测
+          - menu [ref=f12e228]:
+            - menuitem [ref=f12e229] [cursor=pointer]:
+              - link "观测记录" [ref=f12e231]:
+                - /url: /observations
+            - menuitem [ref=f12e232] [cursor=pointer]:
+              - link "分析洞察" [ref=f12e234]:
+                - /url: /observations/insights
+            - menuitem [ref=f12e235] [cursor=pointer]:
+              - link "GEO 问题库" [ref=f12e237]:
+                - /url: /observations/topics
+        - text: 系统管理
+        - group [ref=f12e46]:
+          - menuitem "setting 业务设置" [ref=f12e47] [cursor=pointer]:
+            - img "setting" [ref=f12e48]
+            - generic [ref=f12e51]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f12e52] [cursor=pointer]:
+            - img "safety-certificate" [ref=f12e53]
+            - generic [ref=f12e56]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f12e57] [cursor=pointer]:
+            - img "tool" [ref=f12e58]
+            - generic [ref=f12e61]: 配置中心
+      - button "收起导航" [ref=f12e62] [cursor=pointer]:
+        - img "menu-fold" [ref=f12e64]
+        - generic [ref=f12e67]: 收起
+  - generic [ref=f12e68]:
+    - banner [ref=f12e69]:
+      - generic [ref=f12e72]:
+        - generic [ref=f12e73]: PARTSIGNAL
+        - strong [ref=f12e75]: 发布管理
+      - generic [ref=f12e78] [cursor=pointer]:
+        - img "search" [ref=f12e80]
+        - combobox "全局页面搜索" [ref=f12e83]
+        - generic [ref=f12e84]: ⌘K
+      - generic [ref=f12e86]:
+        - button "主题：跟随系统" [ref=f12e88] [cursor=pointer]:
+          - img "desktop" [ref=f12e90]
+          - generic [ref=f12e93]: 跟随系统
+        - button "打开用户操作菜单" [ref=f12e95] [cursor=pointer]:
+          - generic [ref=f12e96]: E
+          - generic [ref=f12e98]:
+            - strong [ref=f12e99]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=f12e100]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=f12e101]
+    - main [ref=f12e104]:
+      - generic [ref=f12e105]:
+        - button "arrow-left 返回发布管理" [ref=f12e106] [cursor=pointer]:
+          - img "arrow-left" [ref=f12e108]
+          - generic [ref=f12e111]: 返回发布管理
+        - generic [ref=f12e112]:
+          - generic [ref=f12e113]:
+            - navigation [ref=f12e114]:
+              - list [ref=f12e115]:
+                - listitem [ref=f12e116]:
+                  - link "发布管理" [ref=f12e118] [cursor=pointer]:
+                    - /url: /publications
+                - listitem [ref=f12e119]: /
+                - listitem [ref=f12e120]: 异常待办
+            - text: 发布异常
+            - heading "发布异常待办" [level=1] [ref=f12e121]
+            - generic [ref=f12e122]: 异常待办保留原发布上下文，创建修复任务不会自动关闭待办。
+          - generic [ref=f12e125]:
+            - img "check-circle" [ref=f12e209]
+            - generic [ref=f12e130]: 已解决
+        - generic [ref=f12e131]:
+          - generic [ref=f12e132]: 异常上下文
+          - table [ref=f12e138]:
+            - rowgroup [ref=f12e139]:
+              - row [ref=f12e213]:
+                - 'cell "状态 : check-circle 已解决" [ref=f12e214]':
+                  - generic [ref=f12e142]:
+                    - generic [ref=f12e143]: "状态 :"
+                    - generic [ref=f12e145]:
+                      - img "check-circle" [ref=f12e215]
+                      - generic [ref=f12e150]: 已解决
+              - row [ref=f12e151]:
+                - 'cell "触发状态 : close-circle 验证失败" [ref=f12e152]':
+                  - generic [ref=f12e153]:
+                    - generic [ref=f12e154]: "触发状态 :"
+                    - generic [ref=f12e156]:
+                      - img "close-circle" [ref=f12e157]
+                      - generic [ref=f12e160]: 验证失败
+              - row [ref=f12e161]:
+                - 'cell "原发布 : 2dba5a5a-4996-42c0-b43c-250cd2f156b4" [ref=f12e162]':
+                  - generic [ref=f12e163]:
+                    - generic [ref=f12e164]: "原发布 :"
+                    - link "2dba5a5a-4996-42c0-b43c-250cd2f156b4" [ref=f12e166] [cursor=pointer]:
+                      - /url: /publications/2dba5a5a-4996-42c0-b43c-250cd2f156b4
+              - row [ref=f12e167]:
+                - 'cell "原任务 : 4f1314c1-9c41-40c7-85d1-0f3299545f98" [ref=f12e168]':
+                  - generic [ref=f12e169]:
+                    - generic [ref=f12e170]: "原任务 :"
+                    - link "4f1314c1-9c41-40c7-85d1-0f3299545f98" [ref=f12e172] [cursor=pointer]:
+                      - /url: /tasks/4f1314c1-9c41-40c7-85d1-0f3299545f98
+              - row [ref=f12e173]:
+                - 'cell "修复任务 : 58e6b3b1-f4e4-4567-a4e3-0990bc2300e9" [ref=f12e174]':
+                  - generic [ref=f12e175]:
+                    - generic [ref=f12e176]: "修复任务 :"
+                    - link "58e6b3b1-f4e4-4567-a4e3-0990bc2300e9" [ref=f12e178] [cursor=pointer]:
+                      - /url: /tasks/58e6b3b1-f4e4-4567-a4e3-0990bc2300e9
+              - row [ref=f12e219]:
+                - 'cell "处置说明 : E2E-ACCEPT-20260730-002915 已创建并批准修复任务 58e6b3b1-f4e4-4567-a4e3-0990bc2300e9 的人工修复内容，现显式解决待办。" [ref=f12e220]':
+                  - generic [ref=f12e181]:
+                    - generic [ref=f12e182]: "处置说明 :"
+                    - generic [ref=f12e183]: E2E-ACCEPT-20260730-002915 已创建并批准修复任务 58e6b3b1-f4e4-4567-a4e3-0990bc2300e9 的人工修复内容，现显式解决待办。

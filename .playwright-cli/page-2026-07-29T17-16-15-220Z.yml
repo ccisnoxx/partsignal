@@ -1,0 +1,396 @@
+- generic [ref=f15e1]:
+  - generic [ref=f15e6]:
+    - complementary [ref=f15e7]:
+      - generic [ref=f15e8]:
+        - strong [ref=f15e14]: PartSignal
+        - menu [ref=f15e15]:
+          - text: 内容工作流
+          - group [ref=f15e16]:
+            - menuitem [ref=f15e17] [cursor=pointer]:
+              - img "bar-chart" [ref=f15e18]
+              - link "工作台" [ref=f15e22]:
+                - /url: /
+            - menuitem [ref=f15e23] [cursor=pointer]:
+              - img "database" [ref=f15e24]
+              - link "产品事实" [ref=f15e28]:
+                - /url: /products
+            - menuitem [ref=f15e29] [cursor=pointer]:
+              - img "file-text" [ref=f15e30]
+              - link "内容任务" [ref=f15e34]:
+                - /url: /tasks
+            - menuitem [ref=f15e35] [cursor=pointer]:
+              - img "rocket" [ref=f15e36]
+              - link "发布管理" [ref=f15e40]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f15e41] [cursor=pointer]:
+              - img "bar-chart" [ref=f15e42]
+              - generic [ref=f15e45]: GEO 观测
+          - text: 系统管理
+          - group [ref=f15e46]:
+            - menuitem "setting 业务设置" [ref=f15e47] [cursor=pointer]:
+              - img "setting" [ref=f15e48]
+              - generic [ref=f15e51]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f15e52] [cursor=pointer]:
+              - img "safety-certificate" [ref=f15e53]
+              - generic [ref=f15e56]: 审计与安全
+            - menuitem "tool 配置中心" [ref=f15e57] [cursor=pointer]:
+              - img "tool" [ref=f15e58]
+              - generic [ref=f15e61]: 配置中心
+        - button "收起导航" [ref=f15e62] [cursor=pointer]:
+          - img "menu-fold" [ref=f15e64]
+          - generic [ref=f15e67]: 收起
+    - generic [ref=f15e68]:
+      - banner [ref=f15e69]:
+        - generic [ref=f15e72]:
+          - generic [ref=f15e73]: PARTSIGNAL
+          - strong [ref=f15e75]: 发布管理
+        - generic [ref=f15e78] [cursor=pointer]:
+          - img "search" [ref=f15e80]
+          - combobox "全局页面搜索" [ref=f15e83]
+          - generic [ref=f15e84]: ⌘K
+        - generic [ref=f15e86]:
+          - button "主题：跟随系统" [ref=f15e88] [cursor=pointer]:
+            - img "desktop" [ref=f15e90]
+            - generic [ref=f15e93]: 跟随系统
+          - button "打开用户操作菜单" [ref=f15e95] [cursor=pointer]:
+            - generic [ref=f15e96]: E
+            - generic [ref=f15e98]:
+              - strong [ref=f15e99]: E2E-ACCEPT-20260730-002915-管理员
+              - generic [ref=f15e100]: e2e-accept-20260730-002915-admin
+            - img "down" [ref=f15e101]
+      - main [ref=f15e104]:
+        - generic [ref=f15e105]:
+          - generic [ref=f15e107]:
+            - text: 发布管理工作台
+            - heading "发布管理" [level=1] [ref=f15e108]
+            - generic [ref=f15e109]: 复制已批准内容到锁定平台人工发布，登记结果、验证页面，并显式处理发布异常。
+          - region "发布流程概览" [ref=f15e110]:
+            - generic [ref=f15e111]:
+              - heading "发布流程概览" [level=5] [ref=f15e112]
+              - generic [ref=f15e113]: 全量当前状态
+            - generic [ref=f15e114]:
+              - button "send 待人工发布 0" [ref=f15e116] [cursor=pointer]:
+                - img "send" [ref=f15e118]
+                - generic [ref=f15e121]:
+                  - generic [ref=f15e122]: 待人工发布
+                  - strong [ref=f15e123]: "0"
+              - button "clock-circle 平台审核中 0" [ref=f15e128] [cursor=pointer]:
+                - img "clock-circle" [ref=f15e130]
+                - generic [ref=f15e134]:
+                  - generic [ref=f15e135]: 平台审核中
+                  - strong [ref=f15e136]: "0"
+              - button "link 已发布 1" [ref=f15e141] [cursor=pointer]:
+                - img "link" [ref=f15e143]
+                - generic [ref=f15e146]:
+                  - generic [ref=f15e147]: 已发布
+                  - strong [ref=f15e148]: "1"
+              - button "check-circle 已验证 1" [ref=f15e153] [cursor=pointer]:
+                - img "check-circle" [ref=f15e155]
+                - generic [ref=f15e159]:
+                  - generic [ref=f15e160]: 已验证
+                  - strong [ref=f15e161]: "1"
+              - button "exclamation-circle 发布需关注 0" [ref=f15e166] [cursor=pointer]:
+                - img "exclamation-circle" [ref=f15e168]
+                - generic [ref=f15e172]:
+                  - generic [ref=f15e173]: 发布需关注
+                  - strong [ref=f15e174]: "0"
+          - generic [ref=f15e177]:
+            - tablist [ref=f15e178]:
+              - generic [ref=f15e180]:
+                - tab "待发布候选 4" [selected] [ref=f15e182] [cursor=pointer]:
+                  - generic [ref=f15e183]:
+                    - text: 待发布候选
+                    - generic [ref=f15e184]: "4"
+                - tab "发布记录 4" [ref=f15e186] [cursor=pointer]:
+                  - generic [ref=f15e187]:
+                    - text: 发布记录
+                    - generic [ref=f15e188]: "4"
+                - tab "发布需关注 0" [ref=f15e190] [cursor=pointer]:
+                  - generic [ref=f15e191]:
+                    - text: 发布需关注
+                    - generic [ref=f15e192]: "0"
+            - tabpanel "待发布候选 4" [ref=f15e195]:
+              - generic [ref=f15e196]:
+                - generic [ref=f15e197]:
+                  - generic [ref=f15e198]:
+                    - img "search" [ref=f15e200]
+                    - searchbox "搜索候选标题" [ref=f15e203]
+                  - button [ref=f15e205] [cursor=pointer]:
+                    - img "search" [ref=f15e207]
+                - generic [ref=f15e210] [cursor=pointer]:
+                  - generic [ref=f15e211]:
+                    - generic: 全部目标平台
+                    - combobox "筛选候选平台" [ref=f15e212]
+                  - img "down" [ref=f15e214]
+              - region "待发布候选列表" [ref=f15e217]:
+                - generic [ref=f15e220]:
+                  - generic [ref=f15e222]:
+                    - table [ref=f15e224]:
+                      - rowgroup [ref=f15e232]:
+                        - row [ref=f15e233]:
+                          - columnheader "内容标题" [ref=f15e234]
+                          - columnheader "版本" [ref=f15e235]
+                          - columnheader "目标平台" [ref=f15e236]
+                          - columnheader "发布账号" [ref=f15e237]
+                          - columnheader "内容状态" [ref=f15e238]
+                          - columnheader "操作" [ref=f15e239]
+                    - table [ref=f15e241]:
+                      - rowgroup [ref=f15e249]:
+                        - row [ref=f15e250]:
+                          - cell "E2E-ACCEPT-20260730-002915 发布修复草稿 c7235ccd" [ref=f15e251]:
+                            - generic [ref=f15e252]:
+                              - strong [ref=f15e253]: E2E-ACCEPT-20260730-002915 发布修复草稿
+                              - generic [ref=f15e254]: c7235ccd
+                          - cell "V1" [ref=f15e255]
+                          - cell "E2E-ACCEPT-20260730-002915-平台" [ref=f15e256]
+                          - cell "E2E-ACCEPT-20260730-002915-发布账号" [ref=f15e257]
+                          - cell "check-circle 已批准" [ref=f15e258]:
+                            - generic [ref=f15e259]:
+                              - img "check-circle" [ref=f15e260]
+                              - generic [ref=f15e264]: 已批准
+                          - cell [ref=f15e265]:
+                            - button "准备人工发布" [ref=f15e266] [cursor=pointer]
+                        - row [ref=f15e268]:
+                          - cell "E2E-ACCEPT-20260729-091241 发布修复草稿 b973f83b" [ref=f15e269]:
+                            - generic [ref=f15e270]:
+                              - strong [ref=f15e271]: E2E-ACCEPT-20260729-091241 发布修复草稿
+                              - generic [ref=f15e272]: b973f83b
+                          - cell "V1" [ref=f15e273]
+                          - cell "E2E Example 20260729-091241" [ref=f15e274]
+                          - cell "无匹配账号 前往业务设置" [ref=f15e275]:
+                            - generic [ref=f15e276]:
+                              - generic [ref=f15e277]: 无匹配账号
+                              - link "前往业务设置" [ref=f15e278] [cursor=pointer]:
+                                - /url: /settings?tab=accounts&platform_profile_id=2ae16274-e43f-479e-bb80-7a3c2ef8c3bb
+                          - cell "check-circle 已批准" [ref=f15e279]:
+                            - generic [ref=f15e280]:
+                              - img "check-circle" [ref=f15e281]
+                              - generic [ref=f15e285]: 已批准
+                          - cell [ref=f15e286]:
+                            - button "准备人工发布" [disabled] [ref=f15e287]
+                        - row [ref=f15e288]:
+                          - cell "E2E-ACCEPT-20260729-091241 PartSignal 工作流验收（人工复核） e9fa3994" [ref=f15e289]:
+                            - generic [ref=f15e290]:
+                              - strong [ref=f15e291]: E2E-ACCEPT-20260729-091241 PartSignal 工作流验收（人工复核）
+                              - generic [ref=f15e292]: e9fa3994
+                          - cell "V2" [ref=f15e293]
+                          - cell "E2E Example 20260729-091241" [ref=f15e294]
+                          - cell "无匹配账号 前往业务设置" [ref=f15e295]:
+                            - generic [ref=f15e296]:
+                              - generic [ref=f15e297]: 无匹配账号
+                              - link "前往业务设置" [ref=f15e298] [cursor=pointer]:
+                                - /url: /settings?tab=accounts&platform_profile_id=2ae16274-e43f-479e-bb80-7a3c2ef8c3bb
+                          - cell "check-circle 已批准" [ref=f15e299]:
+                            - generic [ref=f15e300]:
+                              - img "check-circle" [ref=f15e301]
+                              - generic [ref=f15e305]: 已批准
+                          - cell [ref=f15e306]:
+                            - button "准备人工发布" [disabled] [ref=f15e307]
+                        - row [ref=f15e308]:
+                          - cell "TEST-GEO-AI-20260729-043142 测试草稿 b7b96c72" [ref=f15e309]:
+                            - generic [ref=f15e310]:
+                              - strong [ref=f15e311]: TEST-GEO-AI-20260729-043142 测试草稿
+                              - generic [ref=f15e312]: b7b96c72
+                          - cell "V1" [ref=f15e313]
+                          - cell "知乎" [ref=f15e314]
+                          - cell "啊啊啊" [ref=f15e315]
+                          - cell "check-circle 已批准" [ref=f15e316]:
+                            - generic [ref=f15e317]:
+                              - img "check-circle" [ref=f15e318]
+                              - generic [ref=f15e322]: 已批准
+                          - cell [ref=f15e323]:
+                            - button "准备人工发布" [ref=f15e324] [cursor=pointer]
+                  - list [ref=f15e326]:
+                    - listitem [ref=f15e327]: 共 4 条
+                    - listitem "上一页" [ref=f15e328]:
+                      - button [disabled] [ref=f15e329]:
+                        - img "left" [ref=f15e330]
+                    - listitem "1" [ref=f15e333] [cursor=pointer]
+                    - listitem "下一页" [ref=f15e335]:
+                      - button [disabled] [ref=f15e336]:
+                        - img "right" [ref=f15e337]
+          - region "发布辅助信息" [ref=f15e340]:
+            - generic [ref=f15e341]:
+              - generic [ref=f15e342]: 发布指引
+              - list [ref=f15e346]:
+                - listitem [ref=f15e347]:
+                  - generic [ref=f15e348]: "1"
+                  - generic [ref=f15e349]:
+                    - strong [ref=f15e350]: 复制已批准内容
+                    - generic [ref=f15e351]: 始终使用候选抽屉里的锁定版本。
+                - listitem [ref=f15e352]:
+                  - generic [ref=f15e353]: "2"
+                  - generic [ref=f15e354]:
+                    - strong [ref=f15e355]: 在目标平台人工发布
+                    - generic [ref=f15e356]: 使用锁定平台下的匹配账号。
+                - listitem [ref=f15e357]:
+                  - generic [ref=f15e358]: "3"
+                  - generic [ref=f15e359]:
+                    - strong [ref=f15e360]: 登记最终结果与证据
+                    - generic [ref=f15e361]: 填写最终 URL、发布时间和真实平台状态。
+                - listitem [ref=f15e362]:
+                  - generic [ref=f15e363]: "4"
+                  - generic [ref=f15e364]:
+                    - strong [ref=f15e365]: 完成人工页面验证
+                    - generic [ref=f15e366]: 确认页面可访问，且正文与锁定版本一致。
+                - listitem [ref=f15e367]:
+                  - generic [ref=f15e368]: "5"
+                  - generic [ref=f15e369]:
+                    - strong [ref=f15e370]: 显式处理发布异常
+                    - generic [ref=f15e371]: 验证失败或下线后进入关注和修复流程。
+            - generic [ref=f15e372]:
+              - generic [ref=f15e373]: 最近发布动态
+              - list [ref=f15e377]:
+                - listitem [ref=f15e378]:
+                  - button "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） E2E-ACCEPT-20260730-002915-平台 · V2 close-circle 验证失败 2026/7/30 01:10:02" [ref=f15e379] [cursor=pointer]:
+                    - generic [ref=f15e380]:
+                      - strong [ref=f15e381]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）
+                      - generic [ref=f15e382]: E2E-ACCEPT-20260730-002915-平台 · V2
+                    - generic [ref=f15e383]:
+                      - generic [ref=f15e384]:
+                        - img "close-circle" [ref=f15e385]
+                        - generic [ref=f15e388]: 验证失败
+                      - time [ref=f15e389]: 2026/7/30 01:10:02
+                - listitem [ref=f15e390]:
+                  - button "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） E2E-ACCEPT-20260730-002915-平台 · V2 check-circle 已验证 2026/7/30 01:09:23" [ref=f15e391] [cursor=pointer]:
+                    - generic [ref=f15e392]:
+                      - strong [ref=f15e393]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）
+                      - generic [ref=f15e394]: E2E-ACCEPT-20260730-002915-平台 · V2
+                    - generic [ref=f15e395]:
+                      - generic [ref=f15e396]:
+                        - img "check-circle" [ref=f15e397]
+                        - generic [ref=f15e401]: 已验证
+                      - time [ref=f15e402]: 2026/7/30 01:09:23
+                - listitem [ref=f15e403]:
+                  - button "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） E2E-ACCEPT-20260730-002915-平台 · V2 info-circle 已发布 2026/7/30 01:08:50" [ref=f15e404] [cursor=pointer]:
+                    - generic [ref=f15e405]:
+                      - strong [ref=f15e406]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）
+                      - generic [ref=f15e407]: E2E-ACCEPT-20260730-002915-平台 · V2
+                    - generic [ref=f15e408]:
+                      - generic [ref=f15e409]:
+                        - img "info-circle" [ref=f15e410]
+                        - generic [ref=f15e414]: 已发布
+                      - time [ref=f15e415]: 2026/7/30 01:08:50
+                - listitem [ref=f15e416]:
+                  - button "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） E2E-ACCEPT-20260730-002915-平台 · V2 exclamation-circle 平台审核中 2026/7/30 01:08:19" [ref=f15e417] [cursor=pointer]:
+                    - generic [ref=f15e418]:
+                      - strong [ref=f15e419]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）
+                      - generic [ref=f15e420]: E2E-ACCEPT-20260730-002915-平台 · V2
+                    - generic [ref=f15e421]:
+                      - generic [ref=f15e422]:
+                        - img "exclamation-circle" [ref=f15e423]
+                        - generic [ref=f15e427]: 平台审核中
+                      - time [ref=f15e428]: 2026/7/30 01:08:19
+                - listitem [ref=f15e429]:
+                  - button "E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） E2E-ACCEPT-20260730-002915-平台 · V2 exclamation-circle 待人工发布 2026/7/30 01:07:43" [ref=f15e430] [cursor=pointer]:
+                    - generic [ref=f15e431]:
+                      - strong [ref=f15e432]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订）
+                      - generic [ref=f15e433]: E2E-ACCEPT-20260730-002915-平台 · V2
+                    - generic [ref=f15e434]:
+                      - generic [ref=f15e435]:
+                        - img "exclamation-circle" [ref=f15e436]
+                        - generic [ref=f15e440]: 待人工发布
+                      - time [ref=f15e441]: 2026/7/30 01:07:43
+            - generic [ref=f15e442]:
+              - generic [ref=f15e443]: 常见异常类型
+              - generic [ref=f15e446]:
+                - button "平台拒绝 0" [ref=f15e447] [cursor=pointer]:
+                  - generic [ref=f15e448]: 平台拒绝
+                  - strong [ref=f15e449]: "0"
+                - button "页面验证失败 0" [ref=f15e450] [cursor=pointer]:
+                  - generic [ref=f15e451]: 页面验证失败
+                  - strong [ref=f15e452]: "0"
+                - button "页面已下线 0" [ref=f15e453] [cursor=pointer]:
+                  - generic [ref=f15e454]: 页面已下线
+                  - strong [ref=f15e455]: "0"
+                - generic [ref=f15e456]: 异常类型来自发布状态与开放的 PublicationAttention，不解析错误文案。
+            - generic [ref=f15e457]:
+              - generic [ref=f15e459]:
+                - generic [ref=f15e460]: 发布数据概览
+                - radiogroup "统计周期" [ref=f15e462]:
+                  - generic [ref=f15e463]:
+                    - generic [ref=f15e464] [cursor=pointer]:
+                      - radio "近 7 天" [checked]
+                      - generic "近 7 天" [ref=f15e465]
+                    - generic [ref=f15e466] [cursor=pointer]:
+                      - radio "近 30 天"
+                      - generic "近 30 天" [ref=f15e467]
+              - generic [ref=f15e468]:
+                - generic [ref=f15e469]:
+                  - generic [ref=f15e470]:
+                    - generic [ref=f15e471]: 登记发布数
+                    - strong [ref=f15e472]: "4"
+                  - generic [ref=f15e473]:
+                    - generic [ref=f15e474]: 验证通过数
+                    - strong [ref=f15e475]: "2"
+                  - generic [ref=f15e476]:
+                    - generic [ref=f15e477]: 验证通过率
+                    - strong [ref=f15e478]: 50%
+                    - progressbar [ref=f15e479]
+                  - generic [ref=f15e483]:
+                    - generic [ref=f15e484]: 新增异常数
+                    - strong [ref=f15e485]: "2"
+                  - generic [ref=f15e486]:
+                    - generic [ref=f15e487]: 当前未解决异常
+                    - strong [ref=f15e488]: "0"
+                - generic [ref=f15e489]: 窗口：2026/7/23 01:15:58 至 2026/7/30 01:15:58
+  - dialog "准备人工发布" [ref=f15e491]:
+    - generic [ref=f15e493]:
+      - button "关闭" [ref=f15e494] [cursor=pointer]:
+        - img "close" [ref=f15e495]
+      - generic [ref=f15e498]: 准备人工发布
+    - generic [ref=f15e500]:
+      - generic [ref=f15e502]:
+        - heading "E2E-ACCEPT-20260730-002915 发布修复草稿" [level=5] [ref=f15e503]
+        - generic [ref=f15e504]:
+          - generic [ref=f15e506]:
+            - img "check-circle" [ref=f15e507]
+            - generic [ref=f15e511]: 已批准
+          - generic [ref=f15e512]: V1
+          - generic [ref=f15e514]: E2E-ACCEPT-20260730-002915-平台
+        - separator [ref=f15e515]
+        - generic [ref=f15e516]:
+          - button "copy 复制标题" [ref=f15e518] [cursor=pointer]:
+            - img "copy" [ref=f15e520]
+            - generic [ref=f15e523]: 复制标题
+          - button "copy 复制 Markdown" [ref=f15e525] [cursor=pointer]:
+            - img "copy" [ref=f15e527]
+            - generic [ref=f15e530]: 复制 Markdown
+          - button "copy 复制纯文本" [ref=f15e532] [cursor=pointer]:
+            - img "copy" [ref=f15e534]
+            - generic [ref=f15e537]: 复制纯文本
+        - generic [ref=f15e538]:
+          - text: 内容哈希：1bc6b529f20891281305a55ebebb3b915cfedf6c4aef7e67fd1d80e39a06ba70
+          - button "复制" [ref=f15e540] [cursor=pointer]:
+            - img "copy" [ref=f15e541]
+      - alert [ref=f15e544]:
+        - img "info-circle" [ref=f15e546]
+        - generic [ref=f15e549]:
+          - generic [ref=f15e550]: 此步骤只创建待人工发布记录
+          - generic [ref=f15e551]: 发布账号必须属于内容锁定平台；这里上传的材料会在候选创建阶段关联发布记录。
+      - generic [ref=f15e552]:
+        - generic [ref=f15e554]:
+          - generic "发布账号" [ref=f15e556]: "* 发布账号"
+          - generic [ref=f15e557]:
+            - generic [ref=f15e560] [cursor=pointer]:
+              - generic [ref=f15e561]:
+                - generic: 选择锁定平台下的账号
+                - combobox "* 发布账号" [expanded] [active] [ref=f15e562]:
+                  - listbox:
+                    - option "E2E-ACCEPT-20260730-002915-发布账号 / E2E-ACCEPT-20260730-002915-account": 3f701864-2151-40d9-af02-451da34ddf1d
+              - img "down" [ref=f15e564]
+            - generic [ref=f15e567]: 本篇文章只能选择一个账号
+        - generic [ref=f15e570]:
+          - generic "目标栏目 URL" [ref=f15e572]: "* 目标栏目 URL"
+          - textbox "* 目标栏目 URL" [ref=f15e576]:
+            - /placeholder: https://目标平台.example/section
+        - generic [ref=f15e578]:
+          - generic "准备阶段证据（可选）" [ref=f15e580]
+          - generic [ref=f15e584]:
+            - generic [ref=f15e588] [cursor=pointer]:
+              - img "upload" [ref=f15e589]
+              - generic [ref=f15e592]: 选择文件
+              - button "选择文件" [ref=f15e593]
+            - generic [ref=f15e594]: 文件不会经过 FastAPI，由浏览器直接上传对象存储。
+        - button "登记待人工发布" [ref=f15e595] [cursor=pointer]
+  - generic "E2E-ACCEPT-20260730-002915-发布账号 / E2E-ACCEPT-20260730-002915-account" [ref=f15e603] [cursor=pointer]

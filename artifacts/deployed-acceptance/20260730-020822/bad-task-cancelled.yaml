@@ -1,0 +1,234 @@
+- generic [active] [ref=f14e1]:
+  - generic [ref=f14e6]:
+    - complementary [ref=f14e7]:
+      - generic [ref=f14e8]:
+        - strong [ref=f14e14]: PartSignal
+        - menu [ref=f14e15]:
+          - text: 内容工作流
+          - group [ref=f14e16]:
+            - menuitem [ref=f14e17] [cursor=pointer]:
+              - img "bar-chart" [ref=f14e18]
+              - link "工作台" [ref=f14e22]:
+                - /url: /
+            - menuitem [ref=f14e23] [cursor=pointer]:
+              - img "database" [ref=f14e24]
+              - link "产品事实" [ref=f14e28]:
+                - /url: /products
+            - menuitem [ref=f14e29] [cursor=pointer]:
+              - img "file-text" [ref=f14e30]
+              - link "内容任务" [ref=f14e34]:
+                - /url: /tasks
+            - menuitem [ref=f14e35] [cursor=pointer]:
+              - img "rocket" [ref=f14e36]
+              - link "发布管理" [ref=f14e40]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f14e41] [cursor=pointer]:
+              - img "bar-chart" [ref=f14e42]
+              - generic [ref=f14e45]: GEO 观测
+          - text: 系统管理
+          - group [ref=f14e46]:
+            - menuitem "setting 业务设置" [ref=f14e47] [cursor=pointer]:
+              - img "setting" [ref=f14e48]
+              - generic [ref=f14e51]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f14e52] [cursor=pointer]:
+              - img "safety-certificate" [ref=f14e53]
+              - generic [ref=f14e56]: 审计与安全
+            - menuitem "tool 配置中心" [ref=f14e57] [cursor=pointer]:
+              - img "tool" [ref=f14e58]
+              - generic [ref=f14e61]: 配置中心
+        - button "收起导航" [ref=f14e62] [cursor=pointer]:
+          - img "menu-fold" [ref=f14e64]
+          - generic [ref=f14e67]: 收起
+    - generic [ref=f14e68]:
+      - banner [ref=f14e69]:
+        - generic [ref=f14e72]:
+          - generic [ref=f14e73]: PARTSIGNAL
+          - strong [ref=f14e75]: 内容任务
+        - generic [ref=f14e78] [cursor=pointer]:
+          - img "search" [ref=f14e80]
+          - combobox "全局页面搜索" [ref=f14e83]
+          - generic [ref=f14e84]: ⌘K
+        - generic [ref=f14e86]:
+          - button "主题：跟随系统" [ref=f14e88] [cursor=pointer]:
+            - img "desktop" [ref=f14e90]
+            - generic [ref=f14e93]: 跟随系统
+          - button "打开用户操作菜单" [ref=f14e95] [cursor=pointer]:
+            - generic [ref=f14e96]: 系
+            - generic [ref=f14e98]:
+              - strong [ref=f14e99]: 系统管理员
+              - generic [ref=f14e100]: admin
+            - img "down" [ref=f14e101]
+      - main [ref=f14e104]:
+        - generic [ref=f14e105]:
+          - button "← 返回任务列表" [ref=f14e106] [cursor=pointer]
+          - generic [ref=f14e108]:
+            - generic [ref=f14e109]:
+              - navigation [ref=f14e110]:
+                - list [ref=f14e111]:
+                  - listitem [ref=f14e112]:
+                    - link "内容任务" [ref=f14e114] [cursor=pointer]:
+                      - /url: /tasks
+                  - listitem [ref=f14e115]: /
+                  - listitem [ref=f14e116]: 任务详情
+              - text: 任务 / a4ff70d9
+              - heading "E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=f14e117]
+              - generic [ref=f14e118]: 目标平台：E2E-ACCEPT-20260730-002915-平台
+            - generic [ref=f14e119]: 已取消
+          - navigation "内容任务章节" [ref=f14e130]:
+            - link "任务上下文" [ref=f14e131] [cursor=pointer]:
+              - /url: "#task-context"
+            - link "首稿入口" [ref=f14e132] [cursor=pointer]:
+              - /url: "#task-entry"
+            - link "内容版本" [ref=f14e133] [cursor=pointer]:
+              - /url: "#task-versions"
+          - generic [ref=f14e134]:
+            - generic [ref=f14e135]: 01 / 锁定上下文
+            - table [ref=f14e141]:
+              - rowgroup [ref=f14e142]:
+                - row [ref=f14e143]:
+                  - 'cell "产品 : E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [ref=f14e144]':
+                    - generic [ref=f14e145]:
+                      - generic [ref=f14e146]: "产品 :"
+                      - generic [ref=f14e147]: E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT
+                  - 'cell "冻结事实版本 : V1 check-circle 公开" [ref=f14e148]':
+                    - generic [ref=f14e149]:
+                      - generic [ref=f14e150]: "冻结事实版本 :"
+                      - generic [ref=f14e152]:
+                        - generic [ref=f14e153]: V1
+                        - generic [ref=f14e156]:
+                          - img "check-circle" [ref=f14e157]
+                          - generic [ref=f14e161]: 公开
+                - row [ref=f14e162]:
+                  - 'cell "目标平台 : E2E-ACCEPT-20260730-002915-平台" [ref=f14e163]':
+                    - generic [ref=f14e164]:
+                      - generic [ref=f14e165]: "目标平台 :"
+                      - generic [ref=f14e166]: E2E-ACCEPT-20260730-002915-平台
+                  - 'cell "任务创建时间 : 2026/07/30 02:35" [ref=f14e167]':
+                    - generic [ref=f14e168]:
+                      - generic [ref=f14e169]: "任务创建时间 :"
+                      - time [ref=f14e171]: 2026/07/30 02:35
+          - generic [ref=f14e172]:
+            - generic [ref=f14e173]:
+              - generic [ref=f14e174]: 02A / 系统 AI 生成
+              - generic [ref=f14e177]:
+                - alert [ref=f14e178]:
+                  - img "exclamation-circle" [ref=f14e381]
+                  - generic [ref=f14e183]:
+                    - generic [ref=f14e184]: 当前不能生成 AI 草稿
+                    - generic [ref=f14e384]: 当前任务已结束，历史任务保持只读，不能新增 AI 草稿。请创建新任务后继续。
+                - generic [ref=f14e185]: 模型只接收已确认的 Prompt 和冻结事实 Markdown；手工录入不受 Prompt 配置影响。
+                - button "plus 新建内容任务" [ref=f14e385] [cursor=pointer]:
+                  - img "plus" [ref=f14e386]
+                  - generic [ref=f14e191]: 新建内容任务
+            - generic [ref=f14e192]:
+              - generic [ref=f14e193]: 02B / 手动录入
+              - generic [ref=f14e196]:
+                - alert [ref=f14e197]:
+                  - img "info-circle" [ref=f14e199]
+                  - generic [ref=f14e202]: 可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。
+                - generic [ref=f14e204]: 手动首稿与 AI 草稿进入同一内容版本、审核和人工发布流程。
+                - button "录入首个人工草稿" [disabled] [ref=f14e205]
+          - generic [ref=f14e207]:
+            - generic [ref=f14e208]: AI 作业
+            - region "AI 作业列表" [ref=f14e212]:
+              - table [ref=f14e219]:
+                - rowgroup [ref=f14e228]:
+                  - row [ref=f14e229]:
+                    - columnheader "类型" [ref=f14e230]
+                    - columnheader "源版本" [ref=f14e231]
+                    - columnheader "状态" [ref=f14e232]
+                    - columnheader "结果" [ref=f14e233]
+                    - columnheader "失败原因" [ref=f14e234]
+                    - columnheader "耗时 / Token" [ref=f14e235]
+                    - columnheader "操作" [ref=f14e236]
+                - rowgroup [ref=f14e237]:
+                  - row [ref=f14e238]:
+                    - cell "原始生成" [ref=f14e239]
+                    - cell "—" [ref=f14e240]
+                    - cell "check-circle 成功" [ref=f14e241]:
+                      - generic [ref=f14e242]:
+                        - img "check-circle" [ref=f14e243]
+                        - generic [ref=f14e247]: 成功
+                    - cell [ref=f14e248]:
+                      - link "打开草稿" [ref=f14e249] [cursor=pointer]:
+                        - /url: /content/f16fa628-bfa4-4fc6-b01e-1475a9cc5340
+                    - cell [ref=f14e250]
+                    - cell "4946 ms / 480" [ref=f14e251]
+                    - cell [ref=f14e252]
+                  - row [ref=f14e253]:
+                    - cell "原始生成" [ref=f14e254]
+                    - cell "—" [ref=f14e255]
+                    - cell "close-circle 失败" [ref=f14e256]:
+                      - generic [ref=f14e257]:
+                        - img "close-circle" [ref=f14e258]
+                        - generic [ref=f14e261]: 失败
+                    - cell "—" [ref=f14e262]
+                    - cell "模型响应不是单个合法 JSON 对象" [ref=f14e263]
+                    - cell "— ms / —" [ref=f14e264]
+                    - cell [ref=f14e265]:
+                      - button "重试原快照" [ref=f14e266] [cursor=pointer]
+          - generic [ref=f14e268]:
+            - generic [ref=f14e269]: 最新作业追溯快照
+            - table [ref=f14e275]:
+              - rowgroup [ref=f14e276]:
+                - row [ref=f14e277]:
+                  - 'cell "契约版本 : content-markdown-v3" [ref=f14e278]':
+                    - generic [ref=f14e279]:
+                      - generic [ref=f14e280]: "契约版本 :"
+                      - generic [ref=f14e281]: content-markdown-v3
+                - row [ref=f14e283]:
+                  - 'cell "渠道 / 模型 : gpt / gpt-5.6-terra" [ref=f14e284]':
+                    - generic [ref=f14e285]:
+                      - generic [ref=f14e286]: "渠道 / 模型 :"
+                      - generic [ref=f14e287]: gpt / gpt-5.6-terra
+                - row [ref=f14e288]:
+                  - 'cell "请求参数 : { \"reasoning_effort\": \"high\" }" [ref=f14e289]':
+                    - generic [ref=f14e290]:
+                      - generic [ref=f14e291]: "请求参数 :"
+                      - generic [ref=f14e292]: "{ \"reasoning_effort\": \"high\" }"
+                - row [ref=f14e294]:
+                  - 'cell "系统消息（System Message） : 你是电子元器件部署验收内容助手。只使用用户消息中的已批准 PUBLIC 测试事实，不猜测未知事实。返回且仅返回一个 JSON 对象，不要使用 Markdown 代码块，不要添加解释或额外字段。对象必须恰好包含 title、summary、body_markdown、tags 四个字段；title、summary、body_markdown 必须是非空字符串，tags 必须是至少包含一个非空字符串的数组。body_markdown 使用清晰的中文 Markdown，并明确标注测试用途。" [ref=f14e295]':
+                    - generic [ref=f14e296]:
+                      - generic [ref=f14e297]: "系统消息（System Message） :"
+                      - textbox "系统消息（System Message）" [ref=f14e299]: 你是电子元器件部署验收内容助手。只使用用户消息中的已批准 PUBLIC 测试事实，不猜测未知事实。返回且仅返回一个 JSON 对象，不要使用 Markdown 代码块，不要添加解释或额外字段。对象必须恰好包含 title、summary、body_markdown、tags 四个字段；title、summary、body_markdown 必须是非空字符串，tags 必须是至少包含一个非空字符串的数组。body_markdown 使用清晰的中文 Markdown，并明确标注测试用途。
+                - row [ref=f14e300]:
+                  - 'cell "用户消息（User Message） : # E2E-ACCEPT-20260730-002915-PRODUCT 公共测试事实\\n\\n> 本产品与以下数据均为完全虚构的部署验收数据，不对应任何真实器件。\\n\\n- 产品类别：完全虚构验收器件\\n- 测试供电范围：1 V 至 5 V\\n- 测试工作温度：-10 °C 至 60 °C\\n- 测试用途：验证 PartSignal 的事实审核、内容草稿与发布登记流程\\n- 对外披露级别：PUBLIC" [ref=f14e301]':
+                    - generic [ref=f14e302]:
+                      - generic [ref=f14e303]: "用户消息（User Message） :"
+                      - textbox "用户消息（User Message）" [ref=f14e305]: "# E2E-ACCEPT-20260730-002915-PRODUCT 公共测试事实\\n\\n> 本产品与以下数据均为完全虚构的部署验收数据，不对应任何真实器件。\\n\\n- 产品类别：完全虚构验收器件\\n- 测试供电范围：1 V 至 5 V\\n- 测试工作温度：-10 °C 至 60 °C\\n- 测试用途：验证 PartSignal 的事实审核、内容草稿与发布登记流程\\n- 对外披露级别：PUBLIC"
+          - generic [ref=f14e306]:
+            - generic [ref=f14e307]: 03 / 内容版本
+            - region "内容版本列表" [ref=f14e311]:
+              - generic [ref=f14e314]:
+                - table [ref=f14e318]:
+                  - rowgroup [ref=f14e326]:
+                    - row [ref=f14e327]:
+                      - columnheader "版本" [ref=f14e328]
+                      - columnheader "标题" [ref=f14e329]
+                      - columnheader "来源" [ref=f14e330]
+                      - columnheader "状态" [ref=f14e331]
+                      - columnheader "质量问题" [ref=f14e332]
+                      - columnheader "操作" [ref=f14e333]
+                  - rowgroup [ref=f14e334]:
+                    - row [ref=f14e335]:
+                      - cell [ref=f14e336]:
+                        - link "V1" [ref=f14e337] [cursor=pointer]:
+                          - /url: /content/f16fa628-bfa4-4fc6-b01e-1475a9cc5340
+                      - cell "完全虚构验收器件部署验收测试" [ref=f14e338]
+                      - cell "AI 生成" [ref=f14e339]
+                      - cell "草稿" [ref=f14e341]
+                      - cell "0" [ref=f14e343]
+                      - cell [ref=f14e344]:
+                        - button "自然化" [disabled] [ref=f14e345]
+                - list [ref=f14e347]:
+                  - listitem "上一页" [ref=f14e348]:
+                    - button [disabled] [ref=f14e349]:
+                      - img "left" [ref=f14e350]
+                  - listitem "1" [ref=f14e353] [cursor=pointer]
+                  - listitem "下一页" [ref=f14e355]:
+                    - button [disabled] [ref=f14e356]:
+                      - img "right" [ref=f14e357]
+  - alert [ref=f14e390]:
+    - generic [ref=f14e391]:
+      - img "check-circle" [ref=f14e393]
+      - generic [ref=f14e396]: 内容任务已取消

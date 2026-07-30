@@ -1,0 +1,219 @@
+- generic [ref=f2e6]:
+  - complementary [ref=f2e7]:
+    - generic [ref=f2e8]:
+      - strong [ref=f2e14]: PartSignal
+      - menu [ref=f2e15]:
+        - text: 内容工作流
+        - group [ref=f2e16]:
+          - menuitem [ref=f2e17] [cursor=pointer]:
+            - img "bar-chart" [ref=f2e18]
+            - link "工作台" [ref=f2e22]:
+              - /url: /
+          - menuitem [ref=f2e23] [cursor=pointer]:
+            - img "database" [ref=f2e24]
+            - link "产品事实" [ref=f2e28]:
+              - /url: /products
+          - menuitem [ref=f2e29] [cursor=pointer]:
+            - img "file-text" [ref=f2e30]
+            - link "内容任务" [ref=f2e34]:
+              - /url: /tasks
+          - menuitem [ref=f2e35] [cursor=pointer]:
+            - img "rocket" [ref=f2e36]
+            - link "发布管理" [ref=f2e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f2e41] [cursor=pointer]:
+            - img "bar-chart" [ref=f2e42]
+            - generic [ref=f2e45]: GEO 观测
+        - text: 系统管理
+        - group [ref=f2e46]:
+          - menuitem "setting 业务设置" [ref=f2e47] [cursor=pointer]:
+            - img "setting" [ref=f2e48]
+            - generic [ref=f2e51]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f2e52] [cursor=pointer]:
+            - img "safety-certificate" [ref=f2e53]
+            - generic [ref=f2e56]: 审计与安全
+          - menuitem "tool 配置中心" [expanded] [ref=f2e57] [cursor=pointer]:
+            - img "tool" [ref=f2e58]
+            - generic [ref=f2e61]: 配置中心
+          - menu [ref=f2e62]:
+            - menuitem [ref=f2e63] [cursor=pointer]:
+              - link "平台管理" [ref=f2e65]:
+                - /url: /configuration/platforms
+            - menuitem [ref=f2e66] [cursor=pointer]:
+              - link "Prompt 管理" [ref=f2e68]:
+                - /url: /configuration/prompts
+            - menuitem [ref=f2e69] [cursor=pointer]:
+              - link "AI 渠道与模型" [ref=f2e71]:
+                - /url: /configuration/ai
+      - button "收起导航" [ref=f2e72] [cursor=pointer]:
+        - img "menu-fold" [ref=f2e74]
+        - generic [ref=f2e77]: 收起
+  - generic [ref=f2e78]:
+    - banner [ref=f2e79]:
+      - generic [ref=f2e82]:
+        - strong [ref=f2e84]: 配置中心
+        - generic [ref=f2e85]: /
+        - generic [ref=f2e86]: Prompt 管理
+      - generic [ref=f2e89] [cursor=pointer]:
+        - img "search" [ref=f2e91]
+        - combobox "全局页面搜索" [ref=f2e94]
+        - generic [ref=f2e95]: ⌘K
+      - generic [ref=f2e97]:
+        - button "主题：跟随系统" [ref=f2e99] [cursor=pointer]:
+          - img "desktop" [ref=f2e101]
+          - generic [ref=f2e104]: 跟随系统
+        - button "打开用户操作菜单" [ref=f2e106] [cursor=pointer]:
+          - generic [ref=f2e107]: E
+          - generic [ref=f2e109]:
+            - strong [ref=f2e110]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=f2e111]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=f2e112]
+    - main [active] [ref=f2e115]:
+      - generic [ref=f2e116]:
+        - generic [ref=f2e117]:
+          - generic [ref=f2e118]:
+            - text: 配置中心 / Prompt 管理
+            - heading "Prompt 管理" [level=1] [ref=f2e119]
+            - generic [ref=f2e120]: 平台 Prompt 可被多个平台复用；平台当前绑定决定新 AI 生成使用哪一份模板。
+          - button "plus 新建 Prompt" [ref=f2e123] [cursor=pointer]:
+            - img "plus" [ref=f2e125]
+            - generic [ref=f2e129]: 新建 Prompt
+        - generic [ref=f2e130]:
+          - generic [ref=f2e131]:
+            - tablist [ref=f2e132]:
+              - generic [ref=f2e134]:
+                - tab "平台 Prompt" [selected] [ref=f2e136] [cursor=pointer]
+                - tab "全局自然化 Prompt" [ref=f2e138] [cursor=pointer]
+            - generic:
+              - generic:
+                - tabpanel "平台 Prompt"
+          - alert [ref=f2e139]:
+            - img "info-circle" [ref=f2e141]
+            - generic [ref=f2e145]: 共享 Prompt 修改会影响全部绑定平台；历史生成快照保持不变。
+            - link "查看生成边界 →" [ref=f2e148] [cursor=pointer]:
+              - /url: "#prompt-safety-boundaries"
+        - generic [ref=f2e149]:
+          - generic [ref=f2e150]:
+            - generic [ref=f2e151]: Prompt 模板
+            - generic [ref=f2e154]:
+              - generic [ref=f2e155]:
+                - generic [ref=f2e156]:
+                  - img "search" [ref=f2e158]
+                  - textbox "搜索 Prompt 名称" [ref=f2e161]
+                - button "plus 新建" [ref=f2e163] [cursor=pointer]:
+                  - img "plus" [ref=f2e165]
+                  - generic [ref=f2e169]: 新建
+              - listbox "Prompt 模板列表" [ref=f2e170]:
+                - option "file-text E2E-ACCEPT-20260730-002915-合规JSON revision 1 1 个平台 2026年7月30日 00:46" [selected] [ref=f2e171] [cursor=pointer]:
+                  - img "file-text" [ref=f2e172]
+                  - generic [ref=f2e175]:
+                    - strong [ref=f2e176]: E2E-ACCEPT-20260730-002915-合规JSON
+                    - generic [ref=f2e177]: revision 1
+                  - generic [ref=f2e178]:
+                    - generic [ref=f2e179]: 1 个平台
+                    - time [ref=f2e180]: 2026年7月30日 00:46
+                - option "file-text E2E-ACCEPT-20260730-002915-格式错误 revision 0 0 个平台 2026年7月30日 00:46" [ref=f2e181] [cursor=pointer]:
+                  - img "file-text" [ref=f2e182]
+                  - generic [ref=f2e185]:
+                    - strong [ref=f2e186]: E2E-ACCEPT-20260730-002915-格式错误
+                    - generic [ref=f2e187]: revision 0
+                  - generic [ref=f2e188]:
+                    - generic [ref=f2e189]: 0 个平台
+                    - time [ref=f2e190]: 2026年7月30日 00:46
+                - option "file-text 测试 revision 3 1 个平台 2026年7月29日 07:07" [ref=f2e191] [cursor=pointer]:
+                  - img "file-text" [ref=f2e192]
+                  - generic [ref=f2e195]:
+                    - strong [ref=f2e196]: 测试
+                    - generic [ref=f2e197]: revision 3
+                  - generic [ref=f2e198]:
+                    - generic [ref=f2e199]: 1 个平台
+                    - time [ref=f2e200]: 2026年7月29日 07:07
+          - generic [ref=f2e201]:
+            - generic [ref=f2e203]:
+              - generic: E2E-ACCEPT-20260730-002915-合规JSON
+              - generic [ref=f2e205]:
+                - generic [ref=f2e206]: 更新：2026年7月30日 00:46
+                - generic [ref=f2e208]: 更新人：E2E-ACCEPT-20260730-002915-管理员
+                - generic [ref=f2e210]: revision 1
+            - generic [ref=f2e212]:
+              - textbox "Prompt 名称" [ref=f2e213]: E2E-ACCEPT-20260730-002915-合规JSON
+              - region "Prompt 使用平台" [ref=f2e214]:
+                - generic [ref=f2e215]:
+                  - strong [ref=f2e217]: 使用平台
+                  - generic [ref=f2e218]: 1 个
+                - generic [ref=f2e219]: E2E-ACCEPT-20260730-002915-平台
+              - region "Prompt Markdown 编辑区" [ref=f2e222]:
+                - generic [ref=f2e223]:
+                  - generic [ref=f2e224]:
+                    - strong [ref=f2e227]: Prompt 编辑
+                    - generic [ref=f2e228]: Markdown
+                    - status [ref=f2e230]: 已加载
+                  - button "save 保存 Prompt" [disabled] [ref=f2e233]:
+                    - generic:
+                      - img "save"
+                    - generic: 保存 Prompt
+                - generic [ref=f2e234]:
+                  - generic [ref=f2e235]: "1"
+                  - textbox "Prompt Markdown" [ref=f2e236]: 你是电子元器件内容工程师。只使用用户消息中的已批准 PUBLIC 事实，不猜测未知产品事实。\n\n返回且仅返回一个 JSON 对象，不要使用 Markdown 代码块，不要添加解释或额外字段。对象必须恰好包含 title、summary、body_markdown、tags 四个字段；title、summary、body_markdown 必须是非空字符串，tags 必须是至少包含一个非空字符串的数组。\n\nbody_markdown 使用清晰的中文 Markdown，并明确标注测试用途。\n\n本轮验收 revision 1：保持上述输出合同不变。
+                - generic [ref=f2e237]:
+                  - generic [ref=f2e238]: 字数：266
+                  - generic [ref=f2e239]: 行数：1
+                  - generic [ref=f2e240]: 预计输出：由 Prompt 定义
+                  - generic [ref=f2e241]: Markdown
+          - complementary [ref=f2e242]:
+            - region "输出预览" [ref=f2e243]:
+              - generic [ref=f2e244]:
+                - generic [ref=f2e245]:
+                  - strong [ref=f2e247]: 输出预览
+                  - text: （真实草稿）
+                - button "fullscreen 全屏预览" [disabled] [ref=f2e248]:
+                  - generic:
+                    - img "fullscreen"
+                  - generic: 全屏预览
+              - generic [ref=f2e249]:
+                - alert [ref=f2e250]:
+                  - img "info-circle" [ref=f2e252]
+                  - generic [ref=f2e255]: 预览会创建可审计的真实 AI 作业和 DRAFT，不会进行无痕临时调用。
+                - generic [ref=f2e257]:
+                  - generic [ref=f2e258]:
+                    - generic: 选择进行中任务
+                    - combobox "预览内容任务" [ref=f2e259]
+                  - img "down" [ref=f2e261]
+                - generic [ref=f2e264]: 暂无进行中的内容任务。
+                - generic [ref=f2e265]:
+                  - generic [ref=f2e266]:
+                    - generic: 选择已启用且测试通过的模型
+                    - combobox "预览模型" [disabled] [ref=f2e267]
+                  - img "down" [ref=f2e269]
+                - button "thunderbolt 生成平台预览" [disabled] [ref=f2e272]:
+                  - generic:
+                    - img "thunderbolt"
+                  - generic: 生成平台预览
+              - generic [ref=f2e274]:
+                - img "eye" [ref=f2e276]
+                - generic [ref=f2e279]: 选择真实任务和模型后生成预览
+              - link "前往内容任务" [ref=f2e281] [cursor=pointer]:
+                - /url: /tasks
+            - generic [ref=f2e282]:
+              - generic [ref=f2e283]: 生成边界
+              - list [ref=f2e287]:
+                - listitem [ref=f2e288]:
+                  - img "safety-certificate" [ref=f2e289]
+                  - generic [ref=f2e292]:
+                    - strong [ref=f2e293]: 消息原样发送
+                    - generic [ref=f2e294]: system 为平台绑定 Prompt，user 为已批准事实 Markdown。
+                - listitem [ref=f2e295]:
+                  - img "safety-certificate" [ref=f2e296]
+                  - generic [ref=f2e299]:
+                    - strong [ref=f2e300]: 共享影响透明
+                    - generic [ref=f2e301]: 保存前列出全部绑定平台，revision 冲突不会覆盖新值。
+                - listitem [ref=f2e302]:
+                  - img "safety-certificate" [ref=f2e303]
+                  - generic [ref=f2e306]:
+                    - strong [ref=f2e307]: 删除受约束
+                    - generic [ref=f2e308]: 被任一平台绑定的 Prompt 不能删除。
+                - listitem [ref=f2e309]:
+                  - img "safety-certificate" [ref=f2e310]
+                  - generic [ref=f2e313]:
+                    - strong [ref=f2e314]: AI 只创建草稿
+                    - generic [ref=f2e315]: 输出通过人工审核后才能进入发布流程。

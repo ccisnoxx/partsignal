@@ -1,0 +1,201 @@
+- generic [ref=f15e1]:
+  - generic [ref=f15e6]:
+    - complementary [ref=f15e7]:
+      - generic [ref=f15e8]:
+        - strong [ref=f15e14]: PartSignal
+        - menu [ref=f15e15]:
+          - text: 内容工作流
+          - group [ref=f15e16]:
+            - menuitem [ref=f15e17] [cursor=pointer]:
+              - img "bar-chart" [ref=f15e18]
+              - link "工作台" [ref=f15e22]:
+                - /url: /
+            - menuitem [ref=f15e23] [cursor=pointer]:
+              - img "database" [ref=f15e24]
+              - link "产品事实" [ref=f15e28]:
+                - /url: /products
+            - menuitem [ref=f15e29] [cursor=pointer]:
+              - img "file-text" [ref=f15e30]
+              - link "内容任务" [ref=f15e34]:
+                - /url: /tasks
+            - menuitem [ref=f15e35] [cursor=pointer]:
+              - img "rocket" [ref=f15e36]
+              - link "发布管理" [ref=f15e40]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f15e41] [cursor=pointer]:
+              - img "bar-chart" [ref=f15e42]
+              - generic [ref=f15e45]: GEO 观测
+          - text: 系统管理
+          - group [ref=f15e46]:
+            - menuitem "setting 业务设置" [ref=f15e47] [cursor=pointer]:
+              - img "setting" [ref=f15e48]
+              - generic [ref=f15e51]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [expanded] [ref=f15e52] [cursor=pointer]:
+              - img "safety-certificate" [ref=f15e53]
+              - generic [ref=f15e56]: 审计与安全
+            - menu [ref=f15e57]:
+              - menuitem [ref=f15e58] [cursor=pointer]:
+                - link "审计日志" [ref=f15e60]:
+                  - /url: /audit
+            - menuitem "tool 配置中心" [ref=f15e61] [cursor=pointer]:
+              - img "tool" [ref=f15e62]
+              - generic [ref=f15e65]: 配置中心
+        - button "收起导航" [ref=f15e66] [cursor=pointer]:
+          - img "menu-fold" [ref=f15e68]
+          - generic [ref=f15e71]: 收起
+    - generic [ref=f15e72]:
+      - banner [ref=f15e73]:
+        - generic [ref=f15e76]:
+          - strong [ref=f15e78]: 审计与安全
+          - generic [ref=f15e79]: /
+          - generic [ref=f15e80]: 审计日志
+        - generic [ref=f15e83] [cursor=pointer]:
+          - img "search" [ref=f15e85]
+          - combobox "全局页面搜索" [ref=f15e88]
+          - generic [ref=f15e89]: ⌘K
+        - generic [ref=f15e91]:
+          - button "主题：跟随系统" [ref=f15e93] [cursor=pointer]:
+            - img "desktop" [ref=f15e95]
+            - generic [ref=f15e98]: 跟随系统
+          - button "打开用户操作菜单" [active] [ref=f15e100] [cursor=pointer]:
+            - generic [ref=f15e101]: 系
+            - generic [ref=f15e103]:
+              - strong [ref=f15e104]: 系统管理员
+              - generic [ref=f15e105]: admin
+            - img "down" [ref=f15e106]
+      - main [ref=f15e109]:
+        - generic [ref=f15e110]:
+          - generic [ref=f15e112]:
+            - heading "审计日志" [level=1] [ref=f15e113]
+            - generic [ref=f15e114]: 追溯关键业务操作、状态转换和配置变更。审计记录不可修改或删除。
+          - generic [ref=f15e116]:
+            - region "审计日志筛选" [ref=f15e117]:
+              - generic [ref=f15e118]:
+                - generic [ref=f15e119]:
+                  - generic [ref=f15e120]: 时间范围
+                  - generic [ref=f15e121]:
+                    - textbox "时间范围" [ref=f15e123]:
+                      - /placeholder: 开始日期
+                      - text: 2026-07-27 02:39
+                    - generic "to" [ref=f15e125]:
+                      - img "swap-right" [ref=f15e126]
+                    - textbox "时间范围" [ref=f15e130]:
+                      - /placeholder: 结束日期
+                      - text: 2026-07-30 02:39
+                    - button "清除":
+                      - img "close-circle"
+                - generic [ref=f15e131]:
+                  - generic [ref=f15e132]: 操作者
+                  - generic [ref=f15e133]:
+                    - generic [ref=f15e134]:
+                      - generic: 选择操作者
+                      - combobox "操作者" [ref=f15e135]
+                    - img "down" [ref=f15e137]
+                - generic [ref=f15e140]:
+                  - generic [ref=f15e141]: 业务模块
+                  - generic [ref=f15e142] [cursor=pointer]:
+                    - generic [ref=f15e143]:
+                      - generic: 全部模块
+                      - combobox "业务模块" [ref=f15e144]
+                    - img "down" [ref=f15e146]
+                - generic [ref=f15e149]:
+                  - generic [ref=f15e150]: 动作类型
+                  - generic [ref=f15e151]:
+                    - generic [ref=f15e152]:
+                      - generic: 全部动作
+                      - combobox "动作类型" [ref=f15e153]
+                    - img "down" [ref=f15e155]
+                - generic [ref=f15e158]:
+                  - generic [ref=f15e159]: 对象类型
+                  - generic [ref=f15e160]:
+                    - generic [ref=f15e161]:
+                      - generic: 全部对象类型
+                      - combobox "对象类型" [ref=f15e162]
+                    - img "down" [ref=f15e164]
+                - generic [ref=f15e167]:
+                  - generic [ref=f15e168]: 执行结果
+                  - generic [ref=f15e169] [cursor=pointer]:
+                    - generic [ref=f15e170]:
+                      - generic: 全部结果
+                      - combobox "执行结果" [ref=f15e171]
+                    - img "down" [ref=f15e173]
+                - generic [ref=f15e176]:
+                  - generic [ref=f15e177]: 请求 ID
+                  - textbox "请求 ID" [ref=f15e179]:
+                    - /placeholder: 请输入请求 ID
+              - generic [ref=f15e181]:
+                - generic [ref=f15e964]:
+                  - generic [ref=f15e965]:
+                    - img "search" [ref=f15e967]
+                    - searchbox "关键字搜索" [ref=f15e970]: 464e92c6-4b31-42d1-a806-d8dd91f2c36d
+                    - button [ref=f15e972] [cursor=pointer]:
+                      - img "close-circle" [ref=f15e973]
+                  - button [ref=f15e976] [cursor=pointer]:
+                    - img "search" [ref=f15e978]
+                - button "重置筛选" [ref=f15e195] [cursor=pointer]:
+                  - img "reload" [ref=f15e197]
+            - region "审计日志列表" [ref=f15e201]:
+              - generic [ref=f15e202]:
+                - generic [ref=f15e203]:
+                  - text: 共
+                  - strong [ref=f15e204]: "1"
+                  - text: 条记录
+                - generic [ref=f15e205]:
+                  - generic [ref=f15e207]:
+                    - generic [ref=f15e208]: 自动刷新
+                    - switch "自动刷新" [ref=f15e209] [cursor=pointer]
+                  - button "手动刷新" [ref=f15e213] [cursor=pointer]:
+                    - img "reload" [ref=f15e982]
+              - region "审计日志" [ref=f15e218]:
+                - generic [ref=f15e223]:
+                  - table [ref=f15e225]:
+                    - rowgroup [ref=f15e237]:
+                      - row [ref=f15e238]:
+                        - columnheader "时间" [ref=f15e239]
+                        - columnheader "操作者" [ref=f15e240]
+                        - columnheader "账号类型" [ref=f15e241]
+                        - columnheader "业务模块" [ref=f15e242]
+                        - columnheader "动作" [ref=f15e243]
+                        - columnheader "对象类型" [ref=f15e244]
+                        - columnheader "对象标识" [ref=f15e245]
+                        - columnheader "执行结果" [ref=f15e246]
+                        - columnheader "请求 ID" [ref=f15e247]
+                        - columnheader "操作" [ref=f15e248]
+                  - table [ref=f15e250]:
+                    - rowgroup [ref=f15e262]:
+                      - row [ref=f15e985]:
+                        - cell [ref=f15e986]:
+                          - time [ref=f15e987]: 2026/07/30 02:36:00
+                        - cell "系统管理员" [ref=f15e988]
+                        - cell "管理员" [ref=f15e989]
+                        - cell "内容生产" [ref=f15e991]
+                        - cell "创建内容生成作业" [ref=f15e992]
+                        - cell "GenerationJob" [ref=f15e993]
+                        - cell "464e92c6-4b31-42d1-a806-d8dd91f2c36d" [ref=f15e994]
+                        - cell "成功" [ref=f15e996]
+                        - cell "cf113254-2019-4b6b-a990-b264e4f8a5dc" [ref=f15e998]
+                        - cell [ref=f15e1000]:
+                          - button "查看日志详情：cf3168c9-300a-444e-a090-b2ccd01a53d8" [ref=f15e1001] [cursor=pointer]:
+                            - img "eye" [ref=f15e1003]
+              - generic [ref=f15e683]:
+                - generic [ref=f15e684] [cursor=pointer]:
+                  - generic "20 条/页" [ref=f15e685]:
+                    - text: 20 条/页
+                    - combobox "每页数量" [ref=f15e686]
+                  - img "down" [ref=f15e688]
+                - list [ref=f15e691]:
+                  - listitem "上一页" [ref=f15e692]:
+                    - button [disabled] [ref=f15e693]:
+                      - img "left" [ref=f15e694]
+                  - listitem "1" [ref=f15e697] [cursor=pointer]
+                  - listitem "下一页" [ref=f15e719]:
+                    - button [disabled] [ref=f15e720]:
+                      - img "right" [ref=f15e721]
+  - menu [ref=f15e1007]:
+    - menuitem "lock 修改密码" [ref=f15e1008] [cursor=pointer]:
+      - img "lock" [ref=f15e1009]
+      - generic [ref=f15e1012]: 修改密码
+    - separator [ref=f15e1013]
+    - menuitem "logout 退出登录" [ref=f15e1014] [cursor=pointer]:
+      - img "logout" [ref=f15e1015]
+      - generic [ref=f15e1018]: 退出登录

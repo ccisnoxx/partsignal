@@ -1,0 +1,184 @@
+- generic [ref=f11e1]:
+  - generic [ref=f11e6]:
+    - complementary [ref=f11e7]:
+      - generic [ref=f11e8]:
+        - strong [ref=f11e14]: PartSignal
+        - menu [ref=f11e1653]:
+          - text: 内容工作流
+          - group [ref=f11e1654]:
+            - menuitem [ref=f11e1655] [cursor=pointer]:
+              - img "bar-chart" [ref=f11e1656]
+              - link "工作台" [ref=f11e1660]:
+                - /url: /
+            - menuitem [ref=f11e1661] [cursor=pointer]:
+              - img "database" [ref=f11e1662]
+              - link "产品事实" [ref=f11e1666]:
+                - /url: /products
+            - menuitem [ref=f11e1667] [cursor=pointer]:
+              - img "file-text" [ref=f11e1668]
+              - link "内容任务" [ref=f11e1672]:
+                - /url: /tasks
+            - menuitem [ref=f11e1673] [cursor=pointer]:
+              - img "rocket" [ref=f11e1674]
+              - link "发布管理" [ref=f11e1678]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f11e1679] [cursor=pointer]:
+              - img "bar-chart" [ref=f11e1680]
+              - generic [ref=f11e1683]: GEO 观测
+          - text: 系统管理
+          - group [ref=f11e1684]:
+            - menuitem "setting 业务设置" [ref=f11e1685] [cursor=pointer]:
+              - img "setting" [ref=f11e1686]
+              - generic [ref=f11e1689]: 业务设置
+            - menuitem "safety-certificate 审计与安全" [ref=f11e1690] [cursor=pointer]:
+              - img "safety-certificate" [ref=f11e1691]
+              - generic [ref=f11e1694]: 审计与安全
+            - menuitem "tool 配置中心" [ref=f11e1695] [cursor=pointer]:
+              - img "tool" [ref=f11e1696]
+              - generic [ref=f11e1699]: 配置中心
+        - button "收起导航" [ref=f11e62] [cursor=pointer]:
+          - img "menu-fold" [ref=f11e64]
+          - generic [ref=f11e67]: 收起
+    - generic [ref=f11e68]:
+      - banner [ref=f11e69]:
+        - generic [ref=f11e72]:
+          - generic [ref=f11e73]: PARTSIGNAL
+          - strong [ref=f11e75]: 内容任务
+        - generic [ref=f11e78] [cursor=pointer]:
+          - img "search" [ref=f11e80]
+          - combobox "全局页面搜索" [ref=f11e83]
+          - generic [ref=f11e84]: ⌘K
+        - generic [ref=f11e86]:
+          - button "主题：跟随系统" [ref=f11e88] [cursor=pointer]:
+            - img "desktop" [ref=f11e90]
+            - generic [ref=f11e93]: 跟随系统
+          - button "打开用户操作菜单" [ref=f11e95] [cursor=pointer]:
+            - generic [ref=f11e96]: E
+            - generic [ref=f11e98]:
+              - strong [ref=f11e99]: E2E-ACCEPT-20260730-002915-管理员
+              - generic [ref=f11e100]: e2e-accept-20260730-002915-admin
+            - img "down" [ref=f11e101]
+      - main [ref=f11e104]:
+        - generic [ref=f11e1700]:
+          - button "← 返回任务列表" [ref=f11e1701] [cursor=pointer]
+          - generic [ref=f11e1703]:
+            - generic [ref=f11e1704]:
+              - navigation [ref=f11e1705]:
+                - list [ref=f11e1706]:
+                  - listitem [ref=f11e1707]:
+                    - link "内容任务" [ref=f11e1709] [cursor=pointer]:
+                      - /url: /tasks
+                  - listitem [ref=f11e1710]: /
+                  - listitem [ref=f11e1711]: 任务详情
+              - text: 任务 / 58e6b3b1
+              - heading "E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=f11e1712]
+              - generic [ref=f11e1713]: 目标平台：E2E-ACCEPT-20260730-002915-平台
+            - generic [ref=f11e1714]:
+              - generic [ref=f11e1716]:
+                - img "info-circle" [ref=f11e1717]
+                - generic [ref=f11e1721]: 进行中
+              - button "取消任务" [ref=f11e1723] [cursor=pointer]
+          - navigation "内容任务章节" [ref=f11e1725]:
+            - link "任务上下文" [ref=f11e1726] [cursor=pointer]:
+              - /url: "#task-context"
+            - link "首稿入口" [ref=f11e1727] [cursor=pointer]:
+              - /url: "#task-entry"
+            - link "内容版本" [ref=f11e1728] [cursor=pointer]:
+              - /url: "#task-versions"
+          - generic [ref=f11e1729]:
+            - generic [ref=f11e1730]: 01 / 锁定上下文
+            - table [ref=f11e1736]:
+              - rowgroup [ref=f11e1737]:
+                - row [ref=f11e1738]:
+                  - 'cell "产品 : E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT" [ref=f11e1739]':
+                    - generic [ref=f11e1740]:
+                      - generic [ref=f11e1741]: "产品 :"
+                      - generic [ref=f11e1742]: E2E-ACCEPT-20260730-002915 E2E-ACCEPT-20260730-002915-PRODUCT
+                  - 'cell "冻结事实版本 : V1 check-circle 公开" [ref=f11e1743]':
+                    - generic [ref=f11e1744]:
+                      - generic [ref=f11e1745]: "冻结事实版本 :"
+                      - generic [ref=f11e1747]:
+                        - generic [ref=f11e1748]: V1
+                        - generic [ref=f11e1751]:
+                          - img "check-circle" [ref=f11e1752]
+                          - generic [ref=f11e1756]: 公开
+                - row [ref=f11e1757]:
+                  - 'cell "目标平台 : E2E-ACCEPT-20260730-002915-平台" [ref=f11e1758]':
+                    - generic [ref=f11e1759]:
+                      - generic [ref=f11e1760]: "目标平台 :"
+                      - generic [ref=f11e1761]: E2E-ACCEPT-20260730-002915-平台
+                  - 'cell "任务创建时间 : 2026/07/30 01:10" [ref=f11e1762]':
+                    - generic [ref=f11e1763]:
+                      - generic [ref=f11e1764]: "任务创建时间 :"
+                      - time [ref=f11e1766]: 2026/07/30 01:10
+          - generic [ref=f11e1767]:
+            - generic [ref=f11e1768]:
+              - generic [ref=f11e1769]: 02A / 系统 AI 生成
+              - generic [ref=f11e1772]:
+                - alert [ref=f11e1773]:
+                  - img "info-circle" [ref=f11e1775]
+                  - generic [ref=f11e1778]: 打开弹窗后确认平台当前 Prompt，再选择已启用模型创建草稿。
+                - generic [ref=f11e1780]: 模型只接收已确认的 Prompt 和冻结事实 Markdown；手工录入不受 Prompt 配置影响。
+                - button "thunderbolt 生成 AI 草稿" [ref=f11e1781] [cursor=pointer]:
+                  - img "thunderbolt" [ref=f11e1783]
+                  - generic [ref=f11e1786]: 生成 AI 草稿
+            - generic [ref=f11e1787]:
+              - generic [ref=f11e1788]: 02B / 手动录入
+              - generic [ref=f11e1791]:
+                - alert [ref=f11e1792]:
+                  - img "info-circle" [ref=f11e1794]
+                  - generic [ref=f11e1797]: 可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。
+                - generic [ref=f11e1799]: 手动首稿与 AI 草稿进入同一内容版本、审核和人工发布流程。
+                - button "录入首个人工草稿" [ref=f11e1800] [cursor=pointer]
+          - generic [ref=f11e1802]:
+            - generic [ref=f11e1803]: AI 作业
+            - generic [ref=f11e1806]: 尚无 AI 作业。
+          - generic [ref=f11e1807]:
+            - generic [ref=f11e1808]: 03 / 内容版本
+            - generic [ref=f11e1812]:
+              - img "暂无数据" [ref=f11e1814]
+              - generic [ref=f11e1820]: 尚无内容版本，可从上方任一入口创建首稿
+  - generic [ref=f11e1821]:
+    - dialog "录入首个人工草稿":
+      - generic [ref=f11e1822]:
+        - button "Close" [active] [ref=f11e1823] [cursor=pointer]:
+          - generic "关闭" [ref=f11e1824]:
+            - img "close" [ref=f11e1825]
+        - generic [ref=f11e1828]: 录入首个人工草稿
+        - generic [ref=f11e1831]:
+          - alert [ref=f11e1832]:
+            - img "info-circle" [ref=f11e1834]
+            - generic [ref=f11e1837]: 提交后直接创建 HUMAN DRAFT，不会创建或计入 AI 作业。
+          - generic [ref=f11e1839]:
+            - tablist [ref=f11e1840]:
+              - generic [ref=f11e1842]:
+                - tab "编辑 Markdown" [selected] [ref=f11e1844] [cursor=pointer]
+                - tab "安全预览" [ref=f11e1846] [cursor=pointer]
+            - generic:
+              - generic:
+                - tabpanel "编辑 Markdown"
+          - generic [ref=f11e1847]:
+            - generic [ref=f11e1848]:
+              - generic [ref=f11e1850]:
+                - generic "标题" [ref=f11e1852]: "* 标题"
+                - textbox "* 标题" [ref=f11e1856]
+              - generic [ref=f11e1858]:
+                - generic "标签" [ref=f11e1860]: "* 标签"
+                - generic [ref=f11e1864]:
+                  - combobox "* 标签" [ref=f11e1867]
+                  - img "down" [ref=f11e1869]
+              - generic [ref=f11e1873]:
+                - generic "摘要" [ref=f11e1875]: "* 摘要"
+                - textbox "* 摘要" [ref=f11e1879]
+            - generic [ref=f11e1881]:
+              - generic "Markdown 正文" [ref=f11e1883]: "* Markdown 正文"
+              - textbox "* Markdown 正文" [ref=f11e1887]
+            - generic [ref=f11e1889]:
+              - generic "变更说明" [ref=f11e1891]: "* 变更说明"
+              - textbox "* 变更说明" [ref=f11e1895]:
+                - /placeholder: 例如：粘贴外部模型草稿并完成人工校对
+          - generic [ref=f11e1896]:
+            - generic [ref=f11e1897]:
+              - strong [ref=f11e1899]: 提交后进入统一内容审核流程
+              - generic [ref=f11e1900]: Markdown 是唯一可编辑正文源。
+            - button "创建人工首稿" [ref=f11e1901] [cursor=pointer]

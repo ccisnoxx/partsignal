@@ -1,0 +1,107 @@
+- generic [ref=f6e6]:
+  - complementary [ref=f6e7]:
+    - generic [ref=f6e8]:
+      - strong [ref=f6e14]: PartSignal
+      - menu [ref=f6e15]:
+        - text: 内容工作流
+        - group [ref=f6e16]:
+          - menuitem [ref=f6e17] [cursor=pointer]:
+            - img "bar-chart" [ref=f6e18]
+            - link "工作台" [ref=f6e22]:
+              - /url: /
+          - menuitem [ref=f6e23] [cursor=pointer]:
+            - img "database" [ref=f6e24]
+            - link "产品事实" [ref=f6e28]:
+              - /url: /products
+          - menuitem [ref=f6e29] [cursor=pointer]:
+            - img "file-text" [ref=f6e30]
+            - link "内容任务" [ref=f6e34]:
+              - /url: /tasks
+          - menuitem [ref=f6e35] [cursor=pointer]:
+            - img "rocket" [ref=f6e36]
+            - link "发布管理" [ref=f6e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f6e41] [cursor=pointer]:
+            - img "bar-chart" [ref=f6e42]
+            - generic [ref=f6e45]: GEO 观测
+        - text: 系统管理
+        - group [ref=f6e46]:
+          - menuitem "setting 业务设置" [ref=f6e47] [cursor=pointer]:
+            - img "setting" [ref=f6e48]
+            - generic [ref=f6e51]: 业务设置
+      - button "收起导航" [ref=f6e52] [cursor=pointer]:
+        - img "menu-fold" [ref=f6e54]
+        - generic [ref=f6e57]: 收起
+  - generic [ref=f6e58]:
+    - banner [ref=f6e59]:
+      - generic [ref=f6e62]:
+        - generic [ref=f6e63]: PARTSIGNAL
+        - strong [ref=f6e65]: 产品事实
+      - generic [ref=f6e68] [cursor=pointer]:
+        - img "search" [ref=f6e70]
+        - combobox "全局页面搜索" [ref=f6e73]
+        - generic [ref=f6e74]: ⌘K
+      - generic [ref=f6e76]:
+        - button "主题：跟随系统" [ref=f6e78] [cursor=pointer]:
+          - img "desktop" [ref=f6e80]
+          - generic [ref=f6e83]: 跟随系统
+        - button "打开用户操作菜单" [ref=f6e85] [cursor=pointer]:
+          - generic [ref=f6e86]: E
+          - generic [ref=f6e88]:
+            - strong [ref=f6e89]: E2E-ACCEPT-20260730-002915-工程师
+            - generic [ref=f6e90]: e2e-accept-20260730-002915-eng
+          - img "down" [ref=f6e91]
+    - main [active] [ref=f6e94]:
+      - generic [ref=f6e95]:
+        - link [ref=f6e96] [cursor=pointer]:
+          - /url: /products
+          - img "arrow-left" [ref=f6e97]
+          - text: 返回产品列表
+        - generic [ref=f6e100]:
+          - generic [ref=f6e101]:
+            - navigation [ref=f6e102]:
+              - list [ref=f6e103]:
+                - listitem [ref=f6e104]:
+                  - link "产品事实" [ref=f6e106] [cursor=pointer]:
+                    - /url: /products
+                - listitem [ref=f6e107]: /
+                - listitem [ref=f6e108]: E2E-ACCEPT-20260730-002915-PRODUCT
+            - text: 产品事实工作区
+            - heading "E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=f6e109]
+            - generic [ref=f6e110]: E2E-ACCEPT-20260730-002915 · 完全虚构验收 · 工作区修订 2
+          - generic [ref=f6e113]:
+            - img "check-circle" [ref=f6e114]
+            - generic [ref=f6e118]: 启用
+        - generic [ref=f6e119]:
+          - tablist [ref=f6e120]:
+            - generic [ref=f6e122]:
+              - tab "事实工作区" [selected] [ref=f6e124] [cursor=pointer]
+              - tab "事实版本（2）" [ref=f6e126] [cursor=pointer]
+          - tabpanel "事实工作区" [ref=f6e129]:
+            - generic [ref=f6e130]:
+              - alert [ref=f6e131]:
+                - img "info-circle" [ref=f6e133]
+                - generic [ref=f6e136]: Markdown 是产品事实唯一可编辑正文源；保存使用当前修订号防止并发覆盖。
+              - generic [ref=f6e140]:
+                - generic "数据分级" [ref=f6e142]: "* 数据分级"
+                - generic [ref=f6e146] [cursor=pointer]:
+                  - generic "RESTRICTED · 禁止发送第三方模型" [ref=f6e147]:
+                    - text: RESTRICTED · 禁止发送第三方模型
+                    - combobox "* 数据分级" [ref=f6e148]
+                  - img "down" [ref=f6e150]
+              - generic [ref=f6e153]:
+                - tablist [ref=f6e154]:
+                  - generic [ref=f6e156]:
+                    - tab "编辑 Markdown" [selected] [ref=f6e158] [cursor=pointer]
+                    - tab "安全预览" [ref=f6e160] [cursor=pointer]
+                - generic:
+                  - generic:
+                    - tabpanel "编辑 Markdown"
+              - generic [ref=f6e163]:
+                - generic "事实 Markdown" [ref=f6e165]: "* 事实 Markdown"
+                - textbox "* 事实 Markdown" [ref=f6e169]: "# E2E-ACCEPT-20260730-002915-PRODUCT 受限测试事实\\n\\n> RESTRICTED-SENTINEL-20260730-002915：这是完全虚构的敏感边界标记，不是真实秘密。\\n\\n- 内部测试参数：仅用于验证第三方模型外发门禁\\n- 禁止任何 AI 生成、自然化或外部传输\\n- 对外披露级别：RESTRICTED"
+              - generic [ref=f6e170]:
+                - generic [ref=f6e171]:
+                  - strong [ref=f6e173]: 未修改
+                  - generic [ref=f6e174]: 保存只更新工作区，不会修改任何已创建或已批准的事实版本。
+                - button "保存事实工作区" [disabled] [ref=f6e175]

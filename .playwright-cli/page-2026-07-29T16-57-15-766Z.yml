@@ -1,0 +1,124 @@
+- generic [ref=f4e1]:
+  - generic [ref=f4e6]:
+    - complementary [ref=f4e7]:
+      - generic [ref=f4e8]:
+        - strong [ref=f4e14]: PartSignal
+        - menu [ref=f4e279]:
+          - text: 内容工作流
+          - group [ref=f4e280]:
+            - menuitem [ref=f4e281] [cursor=pointer]:
+              - img "bar-chart" [ref=f4e282]
+              - link "工作台" [ref=f4e286]:
+                - /url: /
+            - menuitem [ref=f4e287] [cursor=pointer]:
+              - img "database" [ref=f4e288]
+              - link "产品事实" [ref=f4e292]:
+                - /url: /products
+            - menuitem [ref=f4e293] [cursor=pointer]:
+              - img "file-text" [ref=f4e294]
+              - link "内容任务" [ref=f4e298]:
+                - /url: /tasks
+            - menuitem [ref=f4e299] [cursor=pointer]:
+              - img "rocket" [ref=f4e300]
+              - link "发布管理" [ref=f4e304]:
+                - /url: /publications
+            - menuitem "bar-chart GEO 观测" [ref=f4e305] [cursor=pointer]:
+              - img "bar-chart" [ref=f4e306]
+              - generic [ref=f4e309]: GEO 观测
+          - text: 系统管理
+          - group [ref=f4e310]:
+            - menuitem "setting 业务设置" [ref=f4e311] [cursor=pointer]:
+              - img "setting" [ref=f4e312]
+              - generic [ref=f4e315]: 业务设置
+        - button "收起导航" [ref=f4e52] [cursor=pointer]:
+          - img "menu-fold" [ref=f4e54]
+          - generic [ref=f4e57]: 收起
+    - generic [ref=f4e58]:
+      - banner [ref=f4e59]:
+        - generic [ref=f4e62]:
+          - generic [ref=f4e63]: PARTSIGNAL
+          - strong [ref=f4e65]: 产品事实
+        - generic [ref=f4e68] [cursor=pointer]:
+          - img "search" [ref=f4e70]
+          - combobox "全局页面搜索" [ref=f4e73]
+          - generic [ref=f4e74]: ⌘K
+        - generic [ref=f4e76]:
+          - button "主题：跟随系统" [ref=f4e78] [cursor=pointer]:
+            - img "desktop" [ref=f4e80]
+            - generic [ref=f4e83]: 跟随系统
+          - button "打开用户操作菜单" [ref=f4e85] [cursor=pointer]:
+            - generic [ref=f4e86]: E
+            - generic [ref=f4e88]:
+              - strong [ref=f4e89]: E2E-ACCEPT-20260730-002915-工程师
+              - generic [ref=f4e90]: e2e-accept-20260730-002915-eng
+            - img "down" [ref=f4e91]
+      - main [ref=f4e94]:
+        - generic [ref=f4e316]:
+          - link [ref=f4e317] [cursor=pointer]:
+            - /url: /products
+            - img "arrow-left" [ref=f4e318]
+            - text: 返回产品列表
+          - generic [ref=f4e321]:
+            - generic [ref=f4e322]:
+              - navigation [ref=f4e323]:
+                - list [ref=f4e324]:
+                  - listitem [ref=f4e325]:
+                    - link "产品事实" [ref=f4e327] [cursor=pointer]:
+                      - /url: /products
+                  - listitem [ref=f4e328]: /
+                  - listitem [ref=f4e329]: E2E-ACCEPT-20260730-002915-PRODUCT
+              - text: 产品事实工作区
+              - heading "E2E-ACCEPT-20260730-002915-PRODUCT" [level=1] [ref=f4e330]
+              - generic [ref=f4e331]: E2E-ACCEPT-20260730-002915 · 完全虚构验收 · 工作区修订 1
+            - generic [ref=f4e334]:
+              - img "check-circle" [ref=f4e335]
+              - generic [ref=f4e339]: 启用
+          - generic [ref=f4e340]:
+            - tablist [ref=f4e341]:
+              - generic [ref=f4e343]:
+                - tab "事实工作区" [ref=f4e345] [cursor=pointer]
+                - tab "事实版本（1）" [selected] [ref=f4e490] [cursor=pointer]
+            - generic [ref=f4e349]:
+              - text: "* *"
+              - tabpanel "事实版本（1）" [ref=f4e491]:
+                - generic [ref=f4e419]:
+                  - button "创建不可变版本" [ref=f4e423] [cursor=pointer]
+                  - region "事实版本列表" [ref=f4e426]:
+                    - generic [ref=f4e429]:
+                      - table [ref=f4e433]:
+                        - rowgroup [ref=f4e441]:
+                          - row [ref=f4e442]:
+                            - columnheader "版本" [ref=f4e443]
+                            - columnheader "状态" [ref=f4e444]
+                            - columnheader "数据分级" [ref=f4e445]
+                            - columnheader "变更说明" [ref=f4e446]
+                            - columnheader "创建时间" [ref=f4e447]
+                            - columnheader "操作" [ref=f4e448]
+                        - rowgroup [ref=f4e449]:
+                          - row [ref=f4e625]:
+                            - cell "V1" [ref=f4e493]
+                            - cell "exclamation-circle 待审核" [ref=f4e626]:
+                              - generic [ref=f4e495]:
+                                - img "exclamation-circle" [ref=f4e627]
+                                - generic [ref=f4e631]: 待审核
+                            - cell "check-circle 公开" [ref=f4e496]:
+                              - generic [ref=f4e497]:
+                                - img "check-circle" [ref=f4e498]
+                                - generic [ref=f4e502]: 公开
+                            - cell "E2E-ACCEPT-20260730-002915 创建 PUBLIC 公共测试事实版本。" [ref=f4e503]
+                            - cell "2026/7/30 00:56:26" [ref=f4e504]
+                            - cell [ref=f4e505]:
+                              - generic [ref=f4e506]:
+                                - button "审核与历史" [active] [ref=f4e508] [cursor=pointer]
+                                - button "更多操作：事实版本 V1" [ref=f4e511] [cursor=pointer]:
+                                  - generic [ref=f4e512]: 更多
+                                  - img "down" [ref=f4e513]
+                      - list [ref=f4e516]:
+                        - listitem "上一页" [ref=f4e517]:
+                          - button [disabled] [ref=f4e518]:
+                            - img "left" [ref=f4e519]
+                        - listitem "1" [ref=f4e522] [cursor=pointer]
+                        - listitem "下一页" [ref=f4e524]:
+                          - button [disabled] [ref=f4e525]:
+                            - img "right" [ref=f4e526]
+  - generic: ": : : :"

@@ -1,0 +1,176 @@
+- generic [ref=f13e6]:
+  - complementary [ref=f13e7]:
+    - generic [ref=f13e8]:
+      - strong [ref=f13e14]: PartSignal
+      - menu [ref=f13e15]:
+        - text: 内容工作流
+        - group [ref=f13e16]:
+          - menuitem [ref=f13e17] [cursor=pointer]:
+            - img "bar-chart" [ref=f13e18]
+            - link "工作台" [ref=f13e22]:
+              - /url: /
+          - menuitem [ref=f13e23] [cursor=pointer]:
+            - img "database" [ref=f13e24]
+            - link "产品事实" [ref=f13e28]:
+              - /url: /products
+          - menuitem [ref=f13e29] [cursor=pointer]:
+            - img "file-text" [ref=f13e30]
+            - link "内容任务" [ref=f13e34]:
+              - /url: /tasks
+          - menuitem [ref=f13e35] [cursor=pointer]:
+            - img "rocket" [ref=f13e36]
+            - link "发布管理" [ref=f13e40]:
+              - /url: /publications
+          - menuitem "bar-chart GEO 观测" [ref=f13e41] [cursor=pointer]:
+            - img "bar-chart" [ref=f13e42]
+            - generic [ref=f13e45]: GEO 观测
+        - text: 系统管理
+        - group [ref=f13e46]:
+          - menuitem "setting 业务设置" [ref=f13e47] [cursor=pointer]:
+            - img "setting" [ref=f13e48]
+            - generic [ref=f13e51]: 业务设置
+          - menuitem "safety-certificate 审计与安全" [ref=f13e52] [cursor=pointer]:
+            - img "safety-certificate" [ref=f13e53]
+            - generic [ref=f13e56]: 审计与安全
+          - menuitem "tool 配置中心" [ref=f13e57] [cursor=pointer]:
+            - img "tool" [ref=f13e58]
+            - generic [ref=f13e61]: 配置中心
+      - button "收起导航" [ref=f13e62] [cursor=pointer]:
+        - img "menu-fold" [ref=f13e64]
+        - generic [ref=f13e67]: 收起
+  - generic [ref=f13e68]:
+    - banner [ref=f13e69]:
+      - generic [ref=f13e72]:
+        - generic [ref=f13e73]: PARTSIGNAL
+        - strong [ref=f13e75]: 发布管理
+      - generic [ref=f13e78] [cursor=pointer]:
+        - img "search" [ref=f13e80]
+        - combobox "全局页面搜索" [ref=f13e83]
+        - generic [ref=f13e84]: ⌘K
+      - generic [ref=f13e86]:
+        - button "主题：跟随系统" [ref=f13e88] [cursor=pointer]:
+          - img "desktop" [ref=f13e90]
+          - generic [ref=f13e93]: 跟随系统
+        - button "打开用户操作菜单" [ref=f13e95] [cursor=pointer]:
+          - generic [ref=f13e96]: E
+          - generic [ref=f13e98]:
+            - strong [ref=f13e99]: E2E-ACCEPT-20260730-002915-管理员
+            - generic [ref=f13e100]: e2e-accept-20260730-002915-admin
+          - img "down" [ref=f13e101]
+    - main [active] [ref=f13e104]:
+      - generic [ref=f13e105]:
+        - button "arrow-left 返回发布管理" [ref=f13e106] [cursor=pointer]:
+          - img "arrow-left" [ref=f13e108]
+          - generic [ref=f13e111]: 返回发布管理
+        - generic [ref=f13e112]:
+          - generic [ref=f13e113]:
+            - navigation [ref=f13e114]:
+              - list [ref=f13e115]:
+                - listitem [ref=f13e116]:
+                  - link "发布管理" [ref=f13e118] [cursor=pointer]:
+                    - /url: /publications
+                - listitem [ref=f13e119]: /
+                - listitem [ref=f13e120]: 发布记录
+            - text: 发布记录
+            - heading "发布记录" [level=1] [ref=f13e121]
+            - generic [ref=f13e122]: 记录 ID 2dba5a5a-4996-42c0-b43c-250cd2f156b4
+          - generic [ref=f13e125]:
+            - generic [ref=f13e127]:
+              - img "close-circle" [ref=f13e128]
+              - generic [ref=f13e131]: 验证失败
+            - button "在工作台查看" [ref=f13e133] [cursor=pointer]
+        - generic [ref=f13e135]:
+          - generic [ref=f13e136]: 发布上下文
+          - generic [ref=f13e139]:
+            - table [ref=f13e142]:
+              - rowgroup [ref=f13e143]:
+                - row [ref=f13e144]:
+                  - 'cell "状态 : close-circle 验证失败" [ref=f13e145]':
+                    - generic [ref=f13e146]:
+                      - generic [ref=f13e147]: "状态 :"
+                      - generic [ref=f13e149]:
+                        - img "close-circle" [ref=f13e150]
+                        - generic [ref=f13e153]: 验证失败
+                - row [ref=f13e154]:
+                  - 'cell "锁定内容 : E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） · V2" [ref=f13e155]':
+                    - generic [ref=f13e156]:
+                      - generic [ref=f13e157]: "锁定内容 :"
+                      - generic [ref=f13e158]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（已修订） · V2
+                - row [ref=f13e159]:
+                  - 'cell "目标平台 : E2E-ACCEPT-20260730-002915-平台" [ref=f13e160]':
+                    - generic [ref=f13e161]:
+                      - generic [ref=f13e162]: "目标平台 :"
+                      - generic [ref=f13e163]: E2E-ACCEPT-20260730-002915-平台
+                - row [ref=f13e164]:
+                  - 'cell "发布账号 : E2E-ACCEPT-20260730-002915-发布账号 / E2E-ACCEPT-20260730-002915-account" [ref=f13e165]':
+                    - generic [ref=f13e166]:
+                      - generic [ref=f13e167]: "发布账号 :"
+                      - generic [ref=f13e168]: E2E-ACCEPT-20260730-002915-发布账号 / E2E-ACCEPT-20260730-002915-account
+                - row [ref=f13e169]:
+                  - 'cell "内容任务 : 4f1314c1-9c41-40c7-85d1-0f3299545f98" [ref=f13e170]':
+                    - generic [ref=f13e171]:
+                      - generic [ref=f13e172]: "内容任务 :"
+                      - link "4f1314c1-9c41-40c7-85d1-0f3299545f98" [ref=f13e174] [cursor=pointer]:
+                        - /url: /tasks/4f1314c1-9c41-40c7-85d1-0f3299545f98
+                - row [ref=f13e175]:
+                  - 'cell "栏目 : https://example.com/e2e-accept-20260730-002915/section" [ref=f13e176]':
+                    - generic [ref=f13e177]:
+                      - generic [ref=f13e178]: "栏目 :"
+                      - generic [ref=f13e179]: https://example.com/e2e-accept-20260730-002915/section
+                - row [ref=f13e180]:
+                  - 'cell "实际标题 : E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（模拟发布）" [ref=f13e181]':
+                    - generic [ref=f13e182]:
+                      - generic [ref=f13e183]: "实际标题 :"
+                      - generic [ref=f13e184]: E2E-ACCEPT-20260730-002915 完全虚构验收器件说明（模拟发布）
+                - row [ref=f13e185]:
+                  - 'cell "最终 URL : https://example.com/e2e-accept-20260730-002915/article" [ref=f13e186]':
+                    - generic [ref=f13e187]:
+                      - generic [ref=f13e188]: "最终 URL :"
+                      - generic [ref=f13e189]: https://example.com/e2e-accept-20260730-002915/article
+                - row [ref=f13e190]:
+                  - 'cell "发布时间 : 2026/7/30 01:08:00" [ref=f13e191]':
+                    - generic [ref=f13e192]:
+                      - generic [ref=f13e193]: "发布时间 :"
+                      - generic [ref=f13e194]: 2026/7/30 01:08:00
+                - row [ref=f13e195]:
+                  - 'cell "内容哈希 : e2679ce514b9179d1943bf96981f2584eb2bae8efa4ae54688fdef15bd495ab6" [ref=f13e196]':
+                    - generic [ref=f13e197]:
+                      - generic [ref=f13e198]: "内容哈希 :"
+                      - generic [ref=f13e199]: e2679ce514b9179d1943bf96981f2584eb2bae8efa4ae54688fdef15bd495ab6
+            - heading "状态轨迹" [level=5] [ref=f13e201]
+            - list [ref=f13e202]:
+              - listitem [ref=f13e203]:
+                - generic [ref=f13e208]:
+                  - strong [ref=f13e209]:
+                    - generic [ref=f13e210]:
+                      - img "exclamation-circle" [ref=f13e211]
+                      - generic [ref=f13e215]: 待人工发布
+                  - text: 创建人工发布登记2026/7/30 01:07:43
+              - listitem [ref=f13e216]:
+                - generic [ref=f13e221]:
+                  - strong [ref=f13e222]:
+                    - generic [ref=f13e223]:
+                      - img "exclamation-circle" [ref=f13e224]
+                      - generic [ref=f13e228]: 平台审核中
+                  - text: E2E-ACCEPT-20260730-002915 模拟向测试平台提交审核，不发生真实外部发布。2026/7/30 01:08:19
+              - listitem [ref=f13e229]:
+                - generic [ref=f13e234]:
+                  - strong [ref=f13e235]:
+                    - generic [ref=f13e236]:
+                      - img "info-circle" [ref=f13e237]
+                      - generic [ref=f13e241]: 已发布
+                  - text: E2E-ACCEPT-20260730-002915 仅在系统内登记 example.com 测试 URL，未向任何第三方真实发布。2026/7/30 01:08:50
+              - listitem [ref=f13e242]:
+                - generic [ref=f13e247]:
+                  - strong [ref=f13e248]:
+                    - generic [ref=f13e249]:
+                      - img "check-circle" [ref=f13e250]
+                      - generic [ref=f13e254]: 已验证
+                  - text: E2E-ACCEPT-20260730-002915 系统内模拟人工核对，确认登记正文与批准 V2 一致；example.com 未真实托管内容。2026/7/30 01:09:23
+              - listitem [ref=f13e255]:
+                - generic [ref=f13e259]:
+                  - strong [ref=f13e260]:
+                    - generic [ref=f13e261]:
+                      - img "close-circle" [ref=f13e262]
+                      - generic [ref=f13e265]: 验证失败
+                  - text: E2E-ACCEPT-20260730-002915 模拟后续复核发现页面内容不一致，验证异常待办与修复流程。2026/7/30 01:10:02

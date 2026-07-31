@@ -37,6 +37,56 @@ Questions to answer:
 - 留在当前页面的长期保存、删除、启停和显式状态操作使用 `App.useApp().message` 给出短中文成功反馈；简单创建后结果立即可见或立即导航时不重复通知。
 - Markdown HTML 只能由 `renderSanitizedMarkdown` 写入 React sink；该边界用 DOMPurify 返回 `TrustedHTML`，页面不得创建 Trusted Types policy 或直接组合 `marked`、DOMPurify 与 `dangerouslySetInnerHTML`。
 
+## 场景：Vite 开发配置选择
+
+### 1. 适用范围
+
+- 修改前端开发命令、Docker Compose 前端服务或 Vite 配置选择时适用。
+
+### 2. 命令签名
+
+```bash
+npm --prefix frontend run dev -- [vite arguments...]
+vite --config vite.config.ts [vite arguments...]
+```
+
+### 3. 合同
+
+- `frontend/vite.config.ts` 是受支持开发入口的权威配置；`dev` 脚本必须显式传入 `--config vite.config.ts`，不得依赖 Vite 自动发现。
+- Compose 通过 `VITE_API_PROXY_TARGET=http://api:8000` 连接 API 容器；宿主机未设置该变量时才使用配置内的 `http://localhost:8000` 回退。
+- 相邻的本地生成 `vite.config.js` 或 `.d.ts` 即使存在，也不能改变受支持开发命令的配置选择。
+
+### 4. 验证与错误矩阵
+
+| 条件 | 预期结果 |
+| --- | --- |
+| Compose 设置 `VITE_API_PROXY_TARGET` | `/api` 代理到 `api:8000` |
+| 宿主机未设置代理目标 | 使用 `localhost:8000` |
+| 目录残留旧 `vite.config.js` | 显式配置仍选择 `vite.config.ts` |
+| `/api` 返回 Vite 500 和 `ECONNREFUSED` | 对照实际 `configFile`、代理目标、容器内直连和 API 健康，禁止先改 DNS 或硬编码 IP |
+
+### 5. Good / Base / Bad
+
+- Good：`npm run dev` 显式选择 `vite.config.ts`，Compose 代理和真实登录在容器重启后通过。
+- Base：隔离 E2E 继续追加相同 `--config` 参数并使用宿主机 API，重复参数不改变隔离边界。
+- Bad：裸运行 `vite` 并依赖扩展名优先级，导致被忽略的旧 `.js` 配置遮蔽当前 TypeScript 配置。
+
+### 6. 必需测试
+
+- 解析 `frontend/package.json` 并确认 Vite 收到 `--config vite.config.ts`。
+- Compose 前端重启后验证代理健康 200、无会话探测 204、真实登录 200，且新日志无代理 `ECONNREFUSED`。
+- 配置入口变更后至少运行一个包含真实登录准备流程的隔离 Playwright 用例，并确认数据库与临时存储清理成功。
+
+### 7. Wrong vs Correct
+
+```jsonc
+// Wrong：自动发现可能选择本地旧 vite.config.js。
+"dev": "vite --host 0.0.0.0"
+
+// Correct：显式选择受版本控制的权威配置。
+"dev": "vite --config vite.config.ts --host 0.0.0.0"
+```
+
 ---
 
 ## Testing Requirements

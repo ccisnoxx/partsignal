@@ -1406,3 +1406,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 42: 完成产品验收缺陷修复
+
+**Date**: 2026-07-31
+**Task**: 完成产品验收缺陷修复
+**Branch**: `main`
+
+### Summary
+
+修复内容任务表缩放越界、取消弹窗交互和自然化 Prompt 缺失错误，并校正 GEO 打印门禁的失效 DOM 节点读取；相关定向验证通过，全量 E2E 51 通过、1 个无关 Prompt 页面断言失败。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `591a2ca` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

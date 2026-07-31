@@ -620,7 +620,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 修正后端集成测试夹具、迁移断言和前端 E2E 当前合同漂移。
+- 建立每次运行独立的 PostgreSQL 数据库与临时存储，并验证失败路径清理。
+- 更新 Prompt 视觉基线、GEO 三项指标文档和验收门禁实施报告。
 
 ### Git Commits
 
@@ -630,7 +632,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- `make test-integration`：68 passed。
+- `make lint`、`make typecheck`：通过。
+- 五组关键 E2E：19 passed / 3 failed；失败均已归入独立产品修复任务。
 
 ### Status
 
@@ -638,7 +642,7 @@
 
 ### Next Steps
 
-- None - task complete
+- 实施 `07-31-product-ui-ux-defect-fixes`，修复已确认的四项产品缺陷。
 
 
 ## Session 19: 完成第三批编辑与规则工作区视觉统一
@@ -1357,6 +1361,39 @@
 | Hash | Message |
 |------|---------|
 | `9560602` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 41: 恢复验收门禁并隔离 E2E 运行
+
+**Date**: 2026-07-31
+**Task**: 恢复验收门禁并隔离 E2E 运行
+**Branch**: `main`
+
+### Summary
+
+恢复后端与前端验收门禁，建立每次运行独立的 E2E 数据库和临时存储，形成实施报告并将真实产品缺陷转入独立修复任务。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `89b7a2b` | (see git log) |
 
 ### Testing
 

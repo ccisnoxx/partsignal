@@ -80,24 +80,28 @@ test('准备共享视觉验收数据', async ({ page }) => {
     name: `共享视觉平台类型 ${suffix}`,
     slug: `visual-type-${suffix}`,
   });
+  const prompt = await post<{ id: string }>(page, '/api/v1/platform-prompts', csrf, {
+    name: `共享视觉 Prompt ${suffix}`,
+    template_markdown: '仅依据已批准事实生成测试内容。',
+  });
   const profile = await post<{ id: string }>(page, '/api/v1/platform-profiles', csrf, {
     name: `共享视觉平台 ${suffix}`,
     slug: `visual-platform-${suffix}`,
     allowed_domains: ['visual.example.invalid'],
     platform_type_id: platformType.id,
+    platform_prompt_id: prompt.id,
   });
-  await body(await page.request.put(`/api/v1/platform-profiles/${profile.id}/prompt`, {
-    headers: { 'X-CSRF-Token': csrf },
+  const task = await body<{ id: string }>(await page.request.post('/api/v1/content-tasks', {
+    headers: {
+      'X-CSRF-Token': csrf,
+      'Idempotency-Key': `shared-visual-${suffix}`,
+    },
     data: {
-      template_markdown: '仅依据已批准事实生成测试内容。',
-      expected_revision: null,
+      product_id: product.id,
+      fact_version_id: factVersion.id,
+      platform_profile_id: profile.id,
     },
   }));
-  const task = await post<{ id: string }>(page, '/api/v1/content-tasks', csrf, {
-    product_id: product.id,
-    fact_version_id: factVersion.id,
-    platform_profile_id: profile.id,
-  });
   await post(page, `/api/v1/content-tasks/${task.id}/manual-versions`, csrf, {
     title: `共享视觉内容 ${suffix}`,
     summary: '用于动态内容路由的浏览器验收。',

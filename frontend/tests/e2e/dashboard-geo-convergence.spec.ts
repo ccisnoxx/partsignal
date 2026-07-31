@@ -279,7 +279,7 @@ test('真实洞察图表提供坐标、Token、单停靠点键盘导航与可聚
   }
 
   const charts = page.locator('.geo-insight-trend-card svg[role="img"]');
-  await expect(charts).toHaveCount(5);
+  await expect(charts).toHaveCount(3);
   await expect(charts.first()).toHaveAttribute('aria-label', /趋势：\d{4}-\d{2}-\d{2} 至 \d{4}-\d{2}-\d{2}.*使用左右方向键/);
   await expect(charts.first()).toHaveAttribute('tabindex', '0');
   await expect(charts.first().locator('circle[tabindex]')).toHaveCount(0);

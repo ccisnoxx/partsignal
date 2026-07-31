@@ -213,6 +213,7 @@ def seed_generation_job(
             "fact",
             "topic",
             "platform_type",
+            "prompt",
             "profile",
             "task",
             "channel",
@@ -276,16 +277,23 @@ def seed_generation_job(
             (ids["platform_type"], f"test-{unique}", ids["user"]),
         )
         cursor.execute(
-            "INSERT INTO platform_profiles "
-            "(id, name, slug, allowed_domains, platform_type_id, is_active, revision) "
-            "VALUES (%s, '测试平台', %s, %s, %s, true, 0)",
-            (ids["profile"], f"profile-{unique}", ["example.invalid"], ids["platform_type"]),
+            "INSERT INTO platform_prompts "
+            "(id, name, template_markdown, revision, updated_by) "
+            "VALUES (%s, %s, '只返回严格 JSON', 0, %s)",
+            (ids["prompt"], f"可靠性 Prompt {unique}", ids["user"]),
         )
         cursor.execute(
-            "INSERT INTO platform_prompts "
-            "(platform_profile_id, template_markdown, revision, updated_by) "
-            "VALUES (%s, '只返回严格 JSON', 0, %s)",
-            (ids["profile"], ids["user"]),
+            "INSERT INTO platform_profiles "
+            "(id, name, slug, allowed_domains, platform_type_id, platform_prompt_id, "
+            "is_active, revision) "
+            "VALUES (%s, '测试平台', %s, %s, %s, %s, true, 0)",
+            (
+                ids["profile"],
+                f"profile-{unique}",
+                ["example.invalid"],
+                ids["platform_type"],
+                ids["prompt"],
+            ),
         )
         cursor.execute(
             "INSERT INTO content_tasks "

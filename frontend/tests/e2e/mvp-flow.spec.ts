@@ -128,7 +128,7 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
     `/api/v1/products/${nonexistentId}`,
     `/api/v1/platform-types/${nonexistentId}`,
     `/api/v1/platform-profiles/${nonexistentId}`,
-    `/api/v1/platform-profiles/${nonexistentId}/prompt?expected_revision=0`,
+    `/api/v1/platform-prompts/${nonexistentId}?expected_revision=0`,
     `/api/v1/platform-accounts/${nonexistentId}`,
     `/api/v1/fact-versions/${nonexistentId}`,
     `/api/v1/users/${nonexistentId}`,
@@ -223,6 +223,21 @@ async function command(page: Page, path: string, csrf: string, data: unknown) {
   }));
 }
 
+async function createContentTask(
+  page: Page,
+  csrf: string,
+  data: unknown,
+  idempotencyKey: string,
+) {
+  return body<Record<string, unknown>>(await page.request.post('/api/v1/content-tasks', {
+    headers: {
+      'X-CSRF-Token': csrf,
+      'Idempotency-Key': idempotencyKey,
+    },
+    data,
+  }));
+}
+
 async function uploadOperationScreenshot(page: Page, csrf: string, filename: string, text: string) {
   const bytes = Buffer.from(text);
   const digest = createHash('sha256').update(bytes).digest('hex');
@@ -258,7 +273,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     `/api/v1/products/${nonexistentId}`,
     `/api/v1/platform-types/${nonexistentId}`,
     `/api/v1/platform-profiles/${nonexistentId}`,
-    `/api/v1/platform-profiles/${nonexistentId}/prompt?expected_revision=0`,
+    `/api/v1/platform-prompts/${nonexistentId}?expected_revision=0`,
     `/api/v1/platform-accounts/${nonexistentId}`,
     `/api/v1/fact-versions/${nonexistentId}`,
   ]) {
@@ -329,11 +344,18 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect((await page.request.get(`/api/v1/fact-versions/${disposableFact.id as string}`)).status()).toBe(404);
 
   const platformType = await command(page, '/api/v1/platform-types', csrf, { name: `E2E 论坛类型 ${suffix}`, slug: `e2e-type-${suffix}` });
-  const profile = await command(page, '/api/v1/platform-profiles', csrf, { name: `E2E 论坛 ${suffix}`, slug: `e2e-forum-${suffix}`, allowed_domains: ['forum.example.invalid'], platform_type_id: platformType.id });
-  const taskPayload = { product_id: product!.id, fact_version_id: factVersion.id, platform_profile_id: profile.id };
+  const platformPromptName = `E2E 论坛 Prompt ${suffix}`;
   const platformPromptMarkdown = '使用技术说明语气，只依据输入事实；受众、角度、长度、安全和 JSON 输出均按本 Prompt 执行。';
-  const platformPrompt = await body<{ revision: number }>(await page.request.put(`/api/v1/platform-profiles/${profile.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: platformPromptMarkdown, expected_revision: null } }));
-  expect((await page.request.put(`/api/v1/platform-profiles/${profile.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: '禁止创建第二份 Prompt', expected_revision: null } })).status()).toBe(409);
+  const platformPrompt = await body<{ id: string; name: string; revision: number }>(await page.request.post('/api/v1/platform-prompts', { headers: { 'X-CSRF-Token': csrf }, data: { name: platformPromptName, template_markdown: platformPromptMarkdown } }));
+  const profile = await command(page, '/api/v1/platform-profiles', csrf, { name: `E2E 论坛 ${suffix}`, slug: `e2e-forum-${suffix}`, allowed_domains: ['forum.example.invalid'], platform_type_id: platformType.id, platform_prompt_id: platformPrompt.id }) as {
+    id: string;
+    name: string;
+    allowed_domains: string[];
+    revision: number;
+    website_url: string | null;
+  };
+  const taskPayload = { product_id: product!.id, fact_version_id: factVersion.id, platform_profile_id: profile.id };
+  expect((await page.request.post('/api/v1/platform-prompts', { headers: { 'X-CSRF-Token': csrf }, data: { name: platformPromptName, template_markdown: '禁止创建同名 Prompt' } })).status()).toBe(409);
   const typeConflict = await page.request.delete(`/api/v1/platform-types/${platformType.id as string}`, { headers: { 'X-CSRF-Token': csrf } });
   expect(typeConflict.status()).toBe(409);
   expect((await typeConflict.json()).error.details.references).toEqual([{ type: 'PLATFORM_PROFILE', count: 1 }]);
@@ -400,7 +422,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.goto('/configuration/platforms');
   await expectTextInPaginatedTable(page, `E2E 论坛 ${suffix}`);
 
-  const task = await command(page, '/api/v1/content-tasks', csrf, taskPayload);
+  const task = await createContentTask(page, csrf, taskPayload, `e2e-task-${suffix}`);
   const taskOption = `DEMO ${product!.part_number}`;
   const modelOption = `E2E 渠道 ${suffix} / E2E 模型 (e2e-model)`;
   await page.goto(`/tasks/${task.id as string}`);
@@ -440,7 +462,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect(completedJob).toMatchObject({ provider_request_id: 'e2e-provider-request', prompt_tokens: 1, completion_tokens: 1, total_tokens: null });
   expect(completedJob.response_duration_ms).not.toBeNull();
   expect(completedJob.input_snapshot).toMatchObject({
-    contract_version: 'content-markdown-v2',
+    contract_version: 'content-markdown-v3',
     system_message: platformPromptMarkdown,
     user_message: factsBodyMarkdown,
   });
@@ -461,7 +483,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   }
   const sourceVersionRow = page.getByRole('region', { name: '内容版本列表' }).getByRole('row').filter({ has: page.getByRole('link', { name: 'V1', exact: true }) });
   if (!humanizationPromptWasConfigured) {
-    await expect(sourceVersionRow.getByRole('button', { name: '自然化' })).toBeDisabled();
+    await expect(sourceVersionRow.getByRole('button', { name: '自然化' })).toBeEnabled();
     const missingPromptHumanization = await page.request.post(`/api/v1/content-versions/${generatedContentId}/humanization-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-humanization-no-prompt-${suffix}` }, data: { ai_model_id: model.id } });
     expect(missingPromptHumanization.status()).toBe(409);
     expect(await missingPromptHumanization.json()).toMatchObject({ error: { code: 'HUMANIZATION_PROMPT_MISSING' } });
@@ -523,7 +545,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page.locator('#review-diff')).toBeVisible();
   await page.getByRole('tab', { name: '产品事实' }).click();
   await expect(page.locator('#review-trace').getByText('自然化 1', { exact: true })).toBeVisible();
-  const updatedPlatformPrompt = await body<{ revision: number }>(await page.request.put(`/api/v1/platform-profiles/${profile.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: '使用更新后的技术说明语气，只依据输入事实。', expected_revision: platformPrompt.revision } }));
+  const updatedPlatformPrompt = await body<{ revision: number }>(await page.request.put(`/api/v1/platform-prompts/${platformPrompt.id}`, { headers: { 'X-CSRF-Token': csrf }, data: { name: platformPrompt.name, template_markdown: '使用更新后的技术说明语气，只依据输入事实。', expected_revision: platformPrompt.revision } }));
   const secondJob = await body<{ id: string }>(await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-second-${suffix}` }, data: { ai_model_id: model.id } }));
   await expect.poll(async () => (await body<{ status: string }>(await page.request.get(`/api/v1/generation-jobs/${secondJob.id}`))).status, { timeout: 30_000 }).toBe('SUCCEEDED');
   const secondJobDetail = await body<{ input_snapshot: { system_message: string; user_message: string } }>(await page.request.get(`/api/v1/generation-jobs/${secondJob.id}`));
@@ -531,7 +553,12 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect(completedJob.input_snapshot.user_message).toBe(factsBodyMarkdown);
   expect(secondJobDetail.input_snapshot.system_message).toContain('更新后的技术说明语气');
   expect(secondJobDetail.input_snapshot.user_message).toBe(factsBodyMarkdown);
-  const manualTask = await command(page, '/api/v1/content-tasks', csrf, taskPayload);
+  const manualTask = await createContentTask(
+    page,
+    csrf,
+    taskPayload,
+    `e2e-manual-task-${suffix}`,
+  );
   const manualFirstDraft = await body<{ source_type: string; status: string; source_job_id: string | null; based_on_id: string | null }>(
     await page.request.post(`/api/v1/content-tasks/${manualTask.id as string}/manual-versions`, {
       headers: { 'X-CSRF-Token': csrf },
@@ -569,9 +596,37 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect(retriedTimeoutDetail.retry_of_id).toBe(timeoutJob.id);
   expect(retriedTimeoutDetail.input_snapshot).toEqual(failedTimeoutJob.input_snapshot);
   expect(await body<{ count: number }>(await page.request.get(`http://127.0.0.1:9001/e2e/calls/${timeoutProviderModelId}`))).toEqual({ count: 4 });
-  expect((await page.request.delete(`/api/v1/platform-profiles/${profile.id as string}/prompt?expected_revision=${updatedPlatformPrompt.revision}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  const unboundProfile = await body<{ revision: number }>(await page.request.patch(`/api/v1/platform-profiles/${profile.id}`, {
+    headers: { 'X-CSRF-Token': csrf },
+    data: {
+      expected_revision: profile.revision,
+      name: profile.name,
+      allowed_domains: profile.allowed_domains,
+      platform_type_id: platformType.id,
+      platform_prompt_id: null,
+      website_url: profile.website_url,
+    },
+  }));
+  expect((await page.request.delete(`/api/v1/platform-prompts/${platformPrompt.id}?expected_revision=${updatedPlatformPrompt.revision}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-no-prompt-${suffix}` }, data: { ai_model_id: model.id } })).status()).toBe(409);
-  await body(await page.request.put(`/api/v1/platform-profiles/${profile.id as string}/prompt`, { headers: { 'X-CSRF-Token': csrf }, data: { template_markdown: '恢复后的技术说明 Prompt。', expected_revision: null } }));
+  const replacementPrompt = await body<{ id: string }>(await page.request.post('/api/v1/platform-prompts', {
+    headers: { 'X-CSRF-Token': csrf },
+    data: {
+      name: `E2E 恢复 Prompt ${suffix}`,
+      template_markdown: '恢复后的技术说明 Prompt。',
+    },
+  }));
+  await body(await page.request.patch(`/api/v1/platform-profiles/${profile.id}`, {
+    headers: { 'X-CSRF-Token': csrf },
+    data: {
+      expected_revision: unboundProfile.revision,
+      name: profile.name,
+      allowed_domains: profile.allowed_domains,
+      platform_type_id: platformType.id,
+      platform_prompt_id: replacementPrompt.id,
+      website_url: profile.website_url,
+    },
+  }));
   const manualRevision = await body<{ id: string }>(await page.request.post(`/api/v1/content-versions/${generatedContentId}/revisions`, { headers: { 'X-CSRF-Token': csrf }, data: { title: `人工核对 ${product!.part_number}`, summary: '工程师已核对生成草稿。', body_markdown: '不得将虚构验收数据用于真实选型。', tags: ['reviewed'], change_summary: '人工核对并创建新版本' } }));
   const submittedId = manualRevision.id;
   await page.goto(`/tasks/${task.id as string}`);

@@ -189,10 +189,11 @@ async function expectVisibleTableRegionsBounded(page: Page) {
     })
   ));
   for (const cell of pressuredCells) {
-    expect(cell.contained).toBe(true);
-    expect(cell.overflowed).toBe(true);
-    expect(cell.keyboardReachable).toBe(true);
-    expect(cell.rowHeight).toBeLessThanOrEqual(cell.originalRowHeight + 1);
+    const context = `${new URL(page.url()).pathname} @ ${viewportWidth}px`;
+    expect(cell.contained, `${context} 省略文本越出单元格`).toBe(true);
+    expect(cell.overflowed, `${context} 长文本未形成省略边界`).toBe(true);
+    expect(cell.keyboardReachable, `${context} 省略文本无法通过键盘访问`).toBe(true);
+    expect(cell.rowHeight, `${context} 长文本改变了行高`).toBeLessThanOrEqual(cell.originalRowHeight + 1);
   }
   const fixedCellBackgrounds = await page.locator('.table-region .ant-table-cell-fix-right:visible, .table-region .ant-table-cell-fix-end:visible').evaluateAll(
     (elements) => elements.map((element) => getComputedStyle(element).backgroundColor),
@@ -201,7 +202,11 @@ async function expectVisibleTableRegionsBounded(page: Page) {
     expect(background).not.toBe('transparent');
     expect(background).not.toBe('rgba(0, 0, 0, 0)');
   }
-  const firstDataRow = page.locator('.table-region:visible .ant-table-tbody > tr:visible').first();
+  const modal = page.locator('.ant-modal-wrap:visible');
+  const interactiveScope = await modal.count() ? modal : page;
+  const firstDataRow = interactiveScope
+    .locator('.table-region:visible .ant-table-tbody > tr:visible:not(.ant-table-placeholder)')
+    .first();
   if (await firstDataRow.count()) {
     await firstDataRow.hover();
     await page.waitForTimeout(250);
@@ -576,8 +581,13 @@ test('全站 24 张业务表的源码清单与桌面、移动页面边界保持�
       }
       await inspectCurrentTableSurface(page);
       if (surface === 'observation-form' || surface === 'ai-model-discovery') {
-        await page.keyboard.press('Escape');
+        const dialog = page.getByRole('dialog', {
+          name: surface === 'observation-form' ? '登记人工观测' : '获取模型',
+        });
+        await dialog.locator('.ant-modal-close').click();
+        await expect(dialog).toBeHidden();
       }
+      await expect(page.locator('.ant-modal-wrap:visible')).toHaveCount(0);
     }
   }
 });

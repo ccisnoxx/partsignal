@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 
 const productId = '10000000-0000-4000-8000-000000000001';
+const productionBaseUrl = process.env.PARTSIGNAL_E2E_PRODUCTION_BASE_URL
+  ?? 'http://127.0.0.1:4173';
 const securityHeaders = readFileSync(
   fileURLToPath(new URL('../../../deploy/nginx/partsignal-security-headers.conf', import.meta.url)),
   'utf8',
@@ -16,6 +18,10 @@ if (!productionCsp) throw new Error('无法从权威 Nginx snippet 读取生产 
 test('注入权威完整 CSP 后命名策略支持 Ant 交互并清洗 Markdown', async ({ page }) => {
   await page.addInitScript(() => {
     const violations: string[] = [];
+    Object.defineProperty(navigator, 'connection', {
+      configurable: true,
+      value: { saveData: true },
+    });
     Object.defineProperty(globalThis, '__partsignalTrustedTypesViolations', {
       configurable: true,
       value: violations,
@@ -87,7 +93,7 @@ test('注入权威完整 CSP 后命名策略支持 Ant 交互并清洗 Markdown'
 
   const runtimeErrors: string[] = [];
   page.on('pageerror', (error) => runtimeErrors.push(error.message));
-  await page.goto(`/products/${productId}`);
+  await page.goto(`${productionBaseUrl}/products/${productId}`);
   await expect(page.getByRole('heading', { name: 'TT-001' })).toBeVisible();
   await page.getByRole('tab', { name: '安全预览' }).click();
   const preview = page.getByRole('region', { name: '事实 Markdown 安全预览' });
@@ -95,7 +101,7 @@ test('注入权威完整 CSP 后命名策略支持 Ant 交互并清洗 Markdown'
   await expect(preview.locator('script')).toHaveCount(0);
   await expect(preview.locator('[onerror]')).toHaveCount(0);
   await page.getByRole('button', { name: /主题：/ }).click();
-  await page.getByText('深色', { exact: true }).click();
+  await page.getByRole('menuitem', { name: '深色' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
   expect(await page.evaluate(() => (

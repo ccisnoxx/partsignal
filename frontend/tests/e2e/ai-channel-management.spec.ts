@@ -606,7 +606,8 @@ test('普通工程师无法通过直接路由或 API 访问 AI 渠道配置', as
     await expect(engineerPage.getByRole('menuitem', { name: '配置中心' })).toHaveCount(0);
 
     await engineerPage.goto('/configuration/ai');
-    await expect(engineerPage).toHaveURL(/\/$/);
+    await expect(engineerPage).toHaveURL(/\/configuration\/ai$/);
+    await expect(engineerPage.getByRole('alert', { name: '无权访问' })).toBeVisible();
     expect((await engineerPage.request.get('/api/v1/ai-channels?page=1&page_size=20')).status()).toBe(403);
     const engineerCsrf = await body<{ csrf_token: string }>(
       await engineerPage.request.get('/api/v1/auth/csrf'),

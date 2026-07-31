@@ -281,6 +281,8 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
         seed_accounts(env, backend_dir)
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0033_task_owned_history_delete",)
             cursor.execute(
                 "SELECT tablename FROM pg_tables "
                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
@@ -900,7 +902,7 @@ def test_platform_prompts_move_from_type_to_each_profile() -> None:
             )
             connection.commit()
 
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0014_platform_prompt_ownership")
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute(
                 "SELECT platform_profile_id, template_markdown FROM platform_prompts "
@@ -3194,7 +3196,7 @@ def test_reusable_platform_prompt_migration_preserves_rows_and_guards_downgrade(
             )
             connection.commit()
 
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0031_reusable_platform_prompts")
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute(
                 "SELECT id, name, template_markdown, revision, updated_by, "

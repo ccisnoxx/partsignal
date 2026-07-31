@@ -5,6 +5,7 @@
 | 规范 | 适用范围 | 状态 |
 | --- | --- | --- |
 | [域名安全运维](./domain-security-operations.md) | DNS、Nginx、证书、HSTS 与 preload | Active |
+| [E2E 运行隔离](./e2e-isolation.md) | Playwright 独立数据库、临时存储与清理结果 | Active |
 
 ## Pre-Development Checklist
 

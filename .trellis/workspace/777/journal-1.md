@@ -1538,3 +1538,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 46: 恢复开发环境前端 API 代理
+
+**Date**: 2026-07-31
+**Task**: 恢复开发环境前端 API 代理
+**Branch**: `main`
+
+### Summary
+
+定位旧 vite.config.js 遮蔽权威 TypeScript 配置的根因，显式固定开发启动配置；验证 Compose 重启、真实登录与隔离 E2E，并同步前端质量规范。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e3565f3` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

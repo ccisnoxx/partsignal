@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 45
+- **Total Sessions**: 46
 - **Last Active**: 2026-07-31
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1540 | Active |
+| `journal-1.md` | ~1573 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 46 | 2026-07-31 | 恢复开发环境前端 API 代理 | `e3565f3` | `main` |
 | 45 | 2026-07-31 | 统一全站表格列表规范验收收尾 | `b0cafd9` | `main` |
 | 44 | 2026-07-31 | 前端测试门禁收敛 | `8adfd8d` | `main` |
 | 43 | 2026-07-31 | 全项目功能与删除专项验收 | `f452ce0` | `main` |

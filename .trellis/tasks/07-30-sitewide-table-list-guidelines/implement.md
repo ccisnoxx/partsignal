@@ -28,7 +28,7 @@
   - “搜索词 / 问题”继续作为主要弹性列；
   - Tooltip 使用未截断原值，保留打开详情的交互。
 - [x] 在 `frontend/src/styles/workspace.css` 增加最小 `.geo-platform-cell` 布局规则；不修改全局 Ant `Space`，不增加掩盖问题的层级或 overflow。
-- [ ] 在 160–180px 范围内用真实表头、长值、桌面和窄屏确认平台目标宽度，采用满足可读性的最小值（1440px 专项已通过；窄屏随 24 表 E2E 一并被共享夹具阻断）。
+- [x] 在 160–180px 范围内用真实表头、长值、桌面和窄屏确认平台目标宽度，采用满足可读性的最小值；GEO 专项与恢复后的 24 表桌面/移动压力验收均通过。
 - [x] 运行 GEO 定向 Vitest 和 Playwright，确认失败回归转绿。
 - [x] 部署后复现并修复 Tooltip 白底白字：在共享 Ant 主题中成对映射 `colorBgSpotlight` 与 `colorTextLightSolid`，并增加真实计算样式对比度断言。
 
@@ -97,7 +97,7 @@
 - [x] 在 GEO 专项 E2E 保留真实 route fixture 的相邻列、行高和 Tooltip 精确断言。
 - [x] 为 `TableCellText` 或已有使用方增加最小 Vitest，验证鼠标和键盘都能看到原始完整值。
 - [x] 截图只保留为失败诊断或明确视觉基线，不把无比较截图记作通过证据。
-- [ ] 继续运行五类代表表的真实 200% tab zoom，不使用 CSS zoom 或页面缩放模拟替代。
+- [x] 继续运行五类代表表的真实 200% tab zoom，不使用 CSS zoom 或页面缩放模拟替代。
 
 ## 8. 文档同步
 
@@ -118,7 +118,7 @@ npm --prefix frontend exec -- vitest run \
   src/features/geo-observations/GeoObservationsPage.test.tsx \
   src/features/geo-observations/GeoInsightsPage.test.tsx
 
-PLAYWRIGHT_HTML_OPEN=never npm --prefix frontend exec -- playwright test \
+PLAYWRIGHT_HTML_OPEN=never npm --prefix frontend run e2e -- \
   tests/e2e/dashboard-geo-convergence.spec.ts \
   --project=e2e
 ```
@@ -131,7 +131,7 @@ npm --prefix frontend run lint
 npm --prefix frontend run typecheck
 npm --prefix frontend run build
 
-PLAYWRIGHT_HTML_OPEN=never npm --prefix frontend exec -- playwright test \
+PLAYWRIGHT_HTML_OPEN=never npm --prefix frontend run e2e -- \
   tests/e2e/cross-page-visual-convergence.spec.ts \
   tests/e2e/dashboard-geo-convergence.spec.ts \
   tests/e2e/list-workbench-convergence.spec.ts \
@@ -166,7 +166,7 @@ make e2e
 - [x] 确认 GEO 长平台用例能在撤掉修复后失败，防止测试只验证自身。
 - [x] 说明 24 表中哪些改动、哪些保持不变及原因。
 - [x] 说明评论、JSDoc、测试说明和开发者可见文本的中文文档检查结果。
-- [ ] 提交前向用户展示提交计划并等待确认；不自动提交、推送、部署或归档任务。
+- [x] 提交前向用户展示提交计划并等待确认；用户已批准按 3 份 Trellis/规范文档范围提交，并在提交后执行 Trellis 收尾归档。
 
 ## 12. 验收证据
 
@@ -177,7 +177,7 @@ make e2e
 - 组件回归：受影响 6 个 Vitest 文件、78 个用例通过；完整前端 Vitest 25 个文件、173 个用例及 23 个视觉合同用例通过。
 - 静态检查：`npm run lint`、`npm run typecheck`、`npm run build`、`git diff --check` 通过。
 - 真实浏览器补充证据：动态矩阵长平台列在 `1440×1000` 与 `375×900` 均为 `table-layout: fixed`、实际截断且不越过所属 `th`；桌面无页面级横向溢出，窄屏只在 `TableRegion` 内滚动，hover/focus Tooltip 均返回完整平台名，控制台 0 error、0 warning。
-- 24 表 E2E 阻塞：共享数据初始化 POST `/api/v1/platform-profiles` 返回 422，既有夹具缺少当前合同必填的 `platform_prompt_id`；`--no-deps` 绕过初始化后，独立数据库又没有内容任务，故未进入逐表压力探针和五类 200% 缩放断言。本任务不修改服务端合同或扩大范围修复该夹具。
+- 24 表与跨页视觉验收：2026-07-31 使用 `e2e-local.sh` 标准隔离栈运行 `cross-page-visual-convergence.spec.ts --project=e2e`，共享数据准备及 6 项跨页用例共 7/7 通过，耗时 1.8 分钟；覆盖 24 表源码清单与长文本压力探针、桌面/移动边界、浅深/system、键盘焦点、reduced-motion、11 张视觉基线和五类表真实 200% tab zoom。隔离数据库与临时存储均由脚本成功清理。
 - 文档检查：新增测试文件含中文文件级说明；新增测试错误、任务文档与稳定规范均使用中文，未新增业务日志或异常文本。
 - 内容任务删除文案：修改前新增断言只在 3 个删除交互用例失败；修正后删除定向用例 3/3、内容任务页完整 Vitest 16/16、lint 与 typecheck 通过，并明确断言确认弹窗不显示“物理删除”。
 - 发布管理补充修复：发布页 Vitest 15/15、lint、typecheck、生产构建与 `git diff --check` 通过；`playwright-cli` 真实页面路由夹具确认候选取消后退出列表、不可删记录不显示更多菜单、可删记录显示“删除记录”，固定操作列在普通、hover 与键盘 focus 后均保持不透明且只显示“查看记录”，清理夹具请求后控制台 0 error、0 warning。

@@ -1,9 +1,15 @@
 /** 验证 GEO 人工观测写入、历史空值和记录页服务端查询。 */
+import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { App } from '../../app/App';
+import { App as AntApp } from 'antd';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { queryClient } from '../../app/queryClient';
+import { ThemeProvider } from '../../app/ThemeProvider';
+import { setCsrfToken } from '../../shared/api/client';
 import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
+import { GeoObservationsPage } from './GeoObservationsPage';
 
 const productId = '20000000-0000-4000-8000-000000000001';
 const topicId = '21000000-0000-4000-8000-000000000001';
@@ -131,6 +137,26 @@ async function choose(comboboxName: string, optionName: string) {
   fireEvent.click(await findVisibleOption(optionName));
 }
 
+function renderPage() {
+  return render(
+    <ThemeProvider>
+      <AntApp>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/observations" element={<GeoObservationsPage />} />
+              <Route path="/observations/:observationId/correct" element={<GeoObservationsPage />} />
+            </Routes>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </AntApp>
+    </ThemeProvider>,
+  );
+}
+
+beforeEach(() => setCsrfToken('x'.repeat(32)));
+afterEach(() => setCsrfToken(null));
+
 test('独立提交提及和准确性且不上传截图，服务端失败时保留表单', async () => {
   window.history.pushState({}, '', '/observations');
   let createRequest: Request | undefined;
@@ -150,7 +176,7 @@ test('独立提交提及和准确性且不上传截图，服务端失败时保�
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   const page = within(await waitFor(() => {
     const root = document.querySelector<HTMLElement>('.geo-observation-page');
     expect(root).not.toBeNull();
@@ -213,14 +239,14 @@ test('筛选、排序和清除操作写入 URL 并请求服务端', async () => 
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   const page = within(await waitFor(() => {
     const root = document.querySelector<HTMLElement>('.geo-observation-page');
     expect(root).not.toBeNull();
     return root!;
   }));
   expect(await page.findByText('PS-001 如何替代？')).toBeInTheDocument();
-  expect(screen.getAllByRole('link', { name: '分析洞察' })).toHaveLength(2);
+  expect(screen.getAllByRole('link', { name: '分析洞察' })).toHaveLength(1);
   expect(page.queryByRole('button', { name: /导出/ })).not.toBeInTheDocument();
   await waitFor(() => expect(window.location.search).not.toContain('article_recommendation'));
 
@@ -265,7 +291,7 @@ test('服务端允许时经二次确认删除人工观测完整更正链', async
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   const more = await screen.findByRole('button', { name: `更多操作：${manualRecord.id}` });
   fireEvent.click(more);
   await userEvent.click(await screen.findByRole('menuitem', { name: /删除完整更正链/ }));
@@ -298,7 +324,7 @@ test('更正完整预填原观测且只修改一个逐篇字段', async () => {
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   const dialog = await screen.findByRole('dialog');
   const form = within(dialog);
   expect(form.getByRole('checkbox', { name: '是否发现：PS-001 选型文章' })).toBeChecked();
@@ -367,7 +393,7 @@ test('补采前历史追加更正允许选择真实问题主题', async () => {
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   const dialog = await screen.findByRole('dialog');
   expect(within(dialog).getByText('更正人工观测')).toBeInTheDocument();
   expect(screen.getByRole('combobox', { name: '问题主题' })).toBeEnabled();
@@ -421,9 +447,9 @@ test('人工观测详情对补采前空值明确显示历史未采集', async ()
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   const page = within(await waitFor(() => {
-    const root = document.querySelector<HTMLElement>('.app-content');
+    const root = document.querySelector<HTMLElement>('.geo-observation-page');
     expect(root).not.toBeNull();
     return root!;
   }));
@@ -457,7 +483,7 @@ test('统计失败不遮挡真实观测列表，并提供独立重试入口', as
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   expect(await screen.findByRole('heading', { name: 'GEO 观测' })).toBeInTheDocument();
   expect(await screen.findByText('PS-001 如何替代？')).toBeInTheDocument();
   const metricState = await screen.findByRole('region', { name: 'GEO 观测统计' });

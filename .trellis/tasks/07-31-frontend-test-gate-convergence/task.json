@@ -1,0 +1,31 @@
+{
+  "id": "frontend-test-gate-convergence",
+  "name": "frontend-test-gate-convergence",
+  "title": "前端测试门禁收敛",
+  "description": "修复过期的 Prompt E2E 断言，并定位、消除前端完整 Vitest 门禁的异常耗时，使前端验收恢复为可重复、可判定的测试入口。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "frontend",
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-07-31",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "frontend/tests/e2e/mvp-flow.spec.ts",
+    "frontend/src/features/geo-observations/GeoObservationsPage.test.tsx",
+    "frontend/vite.config.ts",
+    "frontend/src/test/setup.ts"
+  ],
+  "notes": "",
+  "meta": {}
+}

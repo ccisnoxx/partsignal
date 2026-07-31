@@ -489,9 +489,12 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     expect(await missingPromptHumanization.json()).toMatchObject({ error: { code: 'HUMANIZATION_PROMPT_MISSING' } });
   }
   await page.setViewportSize({ width: 1536, height: 1024 });
-  await page.goto(`/configuration/prompts?tab=platform&platform_profile_id=${profile.id as string}&page=1&page_size=10`);
+  await page.goto(`/configuration/prompts?tab=platform&platform_prompt_id=${platformPrompt.id}&page=1&page_size=10`);
   await expect(page.getByRole('heading', { name: 'Prompt 管理' })).toBeVisible();
-  await expect(page.getByText(`当前平台：E2E 论坛 ${suffix}`, { exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Prompt 名称', exact: true })).toHaveValue(platformPromptName);
+  const promptBindings = page.getByRole('region', { name: 'Prompt 使用平台' });
+  await expect(promptBindings.getByText('1 个', { exact: true })).toBeVisible();
+  await expect(promptBindings.getByText(`E2E 论坛 ${suffix}`, { exact: true })).toBeVisible();
   await selectOption(page, '预览内容任务', taskOption);
   await selectOption(page, '预览模型', modelOption);
   await page.getByRole('button', { name: '生成平台预览' }).click();
@@ -546,7 +549,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.getByRole('tab', { name: '产品事实' }).click();
   await expect(page.locator('#review-trace').getByText('自然化 1', { exact: true })).toBeVisible();
   const updatedPlatformPrompt = await body<{ revision: number }>(await page.request.put(`/api/v1/platform-prompts/${platformPrompt.id}`, { headers: { 'X-CSRF-Token': csrf }, data: { name: platformPrompt.name, template_markdown: '使用更新后的技术说明语气，只依据输入事实。', expected_revision: platformPrompt.revision } }));
-  const secondJob = await body<{ id: string }>(await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-second-${suffix}` }, data: { ai_model_id: model.id } }));
+  const secondJob = await body<{ id: string }>(await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-second-${suffix}` }, data: { ai_model_id: model.id, platform_prompt_id: platformPrompt.id, platform_prompt_revision: updatedPlatformPrompt.revision } }));
   await expect.poll(async () => (await body<{ status: string }>(await page.request.get(`/api/v1/generation-jobs/${secondJob.id}`))).status, { timeout: 30_000 }).toBe('SUCCEEDED');
   const secondJobDetail = await body<{ input_snapshot: { system_message: string; user_message: string } }>(await page.request.get(`/api/v1/generation-jobs/${secondJob.id}`));
   expect(completedJob.input_snapshot.system_message).toBe(platformPromptMarkdown);
@@ -577,7 +580,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     source_job_id: null,
     based_on_id: null,
   });
-  const timeoutJob = await body<{ id: string }>(await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-timeout-${suffix}` }, data: { ai_model_id: timeoutModel.id } }));
+  const timeoutJob = await body<{ id: string }>(await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-timeout-${suffix}` }, data: { ai_model_id: timeoutModel.id, platform_prompt_id: platformPrompt.id, platform_prompt_revision: updatedPlatformPrompt.revision } }));
   await expect.poll(async () => (await body<{ status: string }>(await page.request.get(`/api/v1/generation-jobs/${timeoutJob.id}`))).status, { timeout: 30_000 }).toBe('FAILED');
   const failedTimeoutJob = await body<{ attempt_count: number; error_code: string; input_snapshot: unknown }>(await page.request.get(`/api/v1/generation-jobs/${timeoutJob.id}`));
   expect(failedTimeoutJob).toMatchObject({ attempt_count: 1, error_code: 'AI_PROVIDER_TIMEOUT' });
@@ -608,7 +611,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     },
   }));
   expect((await page.request.delete(`/api/v1/platform-prompts/${platformPrompt.id}?expected_revision=${updatedPlatformPrompt.revision}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
-  expect((await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-no-prompt-${suffix}` }, data: { ai_model_id: model.id } })).status()).toBe(409);
+  expect((await page.request.post(`/api/v1/content-tasks/${task.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-no-prompt-${suffix}` }, data: { ai_model_id: model.id, platform_prompt_id: platformPrompt.id, platform_prompt_revision: updatedPlatformPrompt.revision } })).status()).toBe(409);
   const replacementPrompt = await body<{ id: string }>(await page.request.post('/api/v1/platform-prompts', {
     headers: { 'X-CSRF-Token': csrf },
     data: {
@@ -744,7 +747,8 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   });
   await expect(publicationRow).toBeVisible();
   await expect(publicationRow.getByText(`E2E ${suffix}`, { exact: true })).toBeVisible();
-  await publicationRow.getByRole('button', { name: '标记已移除' }).click();
+  await publicationRow.getByRole('button', { name: `更多操作：人工核对 ${product!.part_number}` }).click();
+  await page.getByRole('menuitem', { name: '标记已移除' }).click();
   const publicationDrawer = page.getByRole('dialog', { name: '发布结果登记' });
   await expect(publicationDrawer).toBeVisible();
   await expect(publicationDrawer.getByText(new RegExp(`人工核对 ${product!.part_number} · V\\d+`))).toBeVisible();
@@ -869,7 +873,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page).toHaveURL(/page_size=100/);
   await page.screenshot({ path: testInfo.outputPath('geo-observations-list-1582x995.png') });
 
-  await page.getByRole('row').filter({ hasText: geoSearchQuery }).getByRole('cell').first().click();
+  await page.getByRole('row').filter({ hasText: geoSearchQuery }).getByRole('button', { name: /查看观测/ }).click();
   const geoDetail = page.getByRole('dialog', { name: '观测详情' });
   await expect(geoDetail.getByText('发现：已发现')).toBeVisible();
   await expect(geoDetail.getByText('提及：已提及')).toBeVisible();
@@ -877,7 +881,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(geoDetail.getByText('历史回答摘要')).toHaveCount(0);
   await expect(geoDetail.getByRole('img', { name: `geo-${suffix}.png` })).toBeVisible();
   await expect.poll(async () => (await geoDetail.boundingBox())?.x ?? 1582).toBeLessThanOrEqual(1210);
-  await expect(page.locator('.ant-drawer-mask')).toHaveCount(0);
+  await expect(page.locator('.ant-drawer-mask')).toBeVisible();
   await geoDetail.evaluate(async (element) => {
     await Promise.allSettled(element.getAnimations({ subtree: true }).map((animation) => animation.finished));
   });
@@ -935,7 +939,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const removalDrawer = page.getByRole('dialog', { name: '发布结果登记' });
   await removalDrawer.getByRole('button', { name: '标记已移除' }).click();
   await removalDrawer.getByRole('textbox', { name: '操作说明' }).fill('E2E 页面已下线');
-  await removalDrawer.getByRole('button', { name: '确认提交' }).click();
+  await removalDrawer.getByRole('button', { name: '确认标记已移除' }).click();
   await expect(removalDrawer.getByText('已下线').first()).toBeVisible();
   expect((await body<{ status: string }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`))).status).toBe('COMPLETED');
   const attentionList = await body<{ items: Array<{ id: string; publication_record_id: string; status: string; repair_task_id: string | null }> }>(await page.request.get('/api/v1/publication-attentions?status=OPEN'));

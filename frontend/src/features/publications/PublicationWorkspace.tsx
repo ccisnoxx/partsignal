@@ -240,6 +240,41 @@ export function PublicationWorkspace() {
     },
     onError: (error) => message.error(errorMessage(error)),
   });
+  const cancelCandidate = useMutation({
+    mutationFn: async (candidate: PublicationCandidate) => {
+      const task = unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}', {
+        params: { path: { content_task_id: candidate.task_id } },
+      }));
+      if (!task.available_actions.includes('CANCEL')) {
+        throw new Error('该候选当前不能取消，请先处置进行中的发布记录');
+      }
+      return unwrap(await api.POST('/api/v1/content-tasks/{content_task_id}/cancel', {
+        params: { path: { content_task_id: candidate.task_id }, header: csrfHeader() },
+        body: {
+          expected_revision: task.revision,
+          comment: '从发布管理取消待发布候选',
+        },
+      }));
+    },
+    onSuccess: async () => {
+      message.success('待发布候选已取消，已批准内容和审核历史仍保留');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.publications.candidates }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }),
+      ]);
+    },
+    onError: (error) => message.error(errorMessage(error)),
+  });
+  const confirmCancelCandidate = (candidate: PublicationCandidate) => {
+    modal.confirm({
+      title: '取消待发布候选？',
+      content: `“${candidate.content_version.title}”将退出待发布列表，已批准内容和审核历史仍会保留。`,
+      okText: '确认取消',
+      cancelText: '返回',
+      okButtonProps: { danger: true },
+      onOk: () => cancelCandidate.mutateAsync(candidate),
+    });
+  };
   const confirmDeletePublication = (record: PublicationDeleteTarget) => {
     modal.confirm({
       title: '删除未公开发布记录？',
@@ -306,6 +341,8 @@ export function PublicationWorkspace() {
                   search={candidateSearch}
                   onView={setView}
                   onOpen={openCandidate}
+                  onCancel={confirmCancelCandidate}
+                  cancelPending={cancelCandidate.isPending}
                 />
               ),
             },
@@ -414,6 +451,8 @@ function CandidateList({
   search,
   onView,
   onOpen,
+  onCancel,
+  cancelPending,
 }: {
   items: PublicationCandidate[];
   loading: boolean;
@@ -423,6 +462,8 @@ function CandidateList({
   search: string;
   onView: (values: Record<string, string | number | undefined>, replace?: boolean) => void;
   onOpen: (item: PublicationCandidate) => void;
+  onCancel: (item: PublicationCandidate) => void;
+  cancelPending: boolean;
 }) {
   return (
     <>
@@ -465,7 +506,32 @@ function CandidateList({
                 : <div className="publication-title-cell"><Typography.Text type="danger">无匹配账号</Typography.Text><Link to={`/settings?tab=accounts&platform_profile_id=${row.platform_profile_id}`}>前往业务设置</Link></div>,
             },
             { title: '内容状态', width: 120, render: (_, row) => <StatusTag status={row.content_version.status} /> },
-            { title: '操作', fixed: 'right', width: 150, render: (_, row) => <Button type="primary" disabled={row.matching_accounts.length === 0} onClick={() => onOpen(row)}>准备人工发布</Button> },
+            {
+              title: '操作',
+              fixed: 'right',
+              width: 190,
+              render: (_, row) => <Space size={4}>
+                <Button type="primary" disabled={row.matching_accounts.length === 0} onClick={() => onOpen(row)}>准备人工发布</Button>
+                <Dropdown
+                  trigger={['click']}
+                  menu={{
+                    items: [{
+                      key: 'cancel',
+                      label: '取消待发布',
+                      danger: true,
+                      onClick: () => onCancel(row),
+                    }],
+                  }}
+                >
+                  <Button
+                    type="text"
+                    aria-label={`更多操作：${row.content_version.title}`}
+                    icon={<MoreOutlined />}
+                    disabled={cancelPending}
+                  />
+                </Dropdown>
+              </Space>,
+            },
           ]}
         />
       </TableRegion>
@@ -553,6 +619,19 @@ function RecordList({
                 const secondaryActions = row.available_actions.filter(
                   (action) => action !== 'mark-published' && action !== 'delete',
                 );
+                const menuItems = [
+                  ...secondaryActions.map((action) => ({
+                    key: action,
+                    label: actionLabels[action],
+                    onClick: () => onAction(row.id, action),
+                  })),
+                  ...(canDelete ? [{
+                    key: 'delete',
+                    label: '删除记录',
+                    danger: true,
+                    onClick: () => onDelete(row),
+                  }] : []),
+                ];
                 return (
                   <Space size={4}>
                     <Button
@@ -561,36 +640,9 @@ function RecordList({
                     >
                       {canMarkPublished ? '登记发布结果' : '查看记录'}
                     </Button>
-                    <Dropdown
-                      trigger={['click']}
-                      menu={{
-                        items: [
-                          ...secondaryActions.map((action) => ({
-                            key: action,
-                            label: actionLabels[action],
-                            onClick: () => onAction(row.id, action),
-                          })),
-                          {
-                            key: 'delete',
-                            label: canDelete ? '物理删除' : (
-                              <Tooltip title="记录一旦公开，或已有 GEO、发布异常及修复历史，就不能物理删除。" trigger={['hover', 'focus']}>
-                                <span tabIndex={0}>物理删除</span>
-                              </Tooltip>
-                            ),
-                            danger: true,
-                            disabled: !canDelete,
-                            onClick: () => onDelete(row),
-                          },
-                        ],
-                      }}
-                    >
-                      <Button
-                        type="text"
-                        aria-label={`更多操作：${row.content_title}`}
-                        icon={<MoreOutlined />}
-                        disabled={deletePending}
-                      />
-                    </Dropdown>
+                    {menuItems.length > 0 && <Dropdown trigger={['click']} menu={{ items: menuItems }}>
+                      <Button type="text" aria-label={`更多操作：${row.content_title}`} icon={<MoreOutlined />} disabled={deletePending} />
+                    </Dropdown>}
                   </Space>
                 );
               },

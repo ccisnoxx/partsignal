@@ -201,6 +201,18 @@ async function expectVisibleTableRegionsBounded(page: Page) {
     expect(background).not.toBe('transparent');
     expect(background).not.toBe('rgba(0, 0, 0, 0)');
   }
+  const firstDataRow = page.locator('.table-region:visible .ant-table-tbody > tr:visible').first();
+  if (await firstDataRow.count()) {
+    await firstDataRow.hover();
+    await page.waitForTimeout(250);
+    const hoveredFixedCellBackgrounds = await firstDataRow.locator('.ant-table-cell-fix-right, .ant-table-cell-fix-end').evaluateAll(
+      (elements) => elements.map((element) => getComputedStyle(element).backgroundColor),
+    );
+    for (const background of hoveredFixedCellBackgrounds) {
+      expect(background).not.toBe('transparent');
+      expect(background).not.toBe('rgba(0, 0, 0, 0)');
+    }
+  }
 }
 
 async function inspectCurrentTableSurface(page: Page) {

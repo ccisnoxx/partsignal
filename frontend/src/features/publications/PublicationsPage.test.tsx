@@ -283,6 +283,50 @@ test('候选没有匹配账号时提供业务设置恢复入口', async () => {
   expect(screen.getByRole('button', { name: '准备人工发布' })).toBeDisabled();
 });
 
+test('待发布候选通过现有任务取消能力退出列表并保留批准历史', async () => {
+  let cancelled = false;
+  window.history.pushState({}, '', '/publications');
+  mockFetch((request) => {
+    const common = commonWorkspaceResponse(request, {
+      candidates: cancelled ? [] : [candidate],
+    });
+    if (common) return common;
+    const path = new URL(request.url).pathname;
+    if (path.endsWith(`/content-tasks/${candidate.task_id}`) && request.method === 'GET') {
+      return {
+        body: {
+          id: candidate.task_id,
+          product_id: '51000000-0000-4000-8000-000000000001',
+          fact_version_id: content.fact_version_id,
+          platform_profile_id: candidate.platform_profile_id,
+          query_topic_id: null,
+          source_publication_attention_id: null,
+          available_actions: ['CANCEL'],
+          status: 'OPEN',
+          revision: 2,
+          created_by: user.id,
+          created_at: user.created_at,
+        },
+      };
+    }
+    if (path.endsWith(`/content-tasks/${candidate.task_id}/cancel`) && request.method === 'POST') {
+      cancelled = true;
+      return { body: {} };
+    }
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole('button', { name: `更多操作：${content.title}` }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: '取消待发布' }));
+  const confirm = within(await screen.findByRole('dialog'));
+  expect(confirm.getByText(/已批准内容和审核历史仍会保留/)).toBeInTheDocument();
+  fireEvent.click(confirm.getByRole('button', { name: '确认取消' }));
+
+  await waitFor(() => expect(cancelled).toBe(true));
+  await waitFor(() => expect(screen.queryByText(content.title)).not.toBeInTheDocument());
+});
+
 test('异常待办只能填写非空说明后显式解决', async () => {
   const attentionId = '60000000-0000-4000-8000-000000000001';
   let resolveCalls = 0;
@@ -356,7 +400,7 @@ test('发布记录保留单一主入口，并在更多菜单展示其余服务�
 
   fireEvent.click(await screen.findByRole('button', { name: `更多操作：${content.title}` }));
   expect(await screen.findByRole('menuitem', { name: '平台拒绝' })).toBeInTheDocument();
-  expect(screen.getByRole('menuitem', { name: '物理删除' })).toBeInTheDocument();
+  expect(screen.getByRole('menuitem', { name: '删除记录' })).toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: '登记已发布' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('menuitem', { name: '平台拒绝' }));
 
@@ -366,7 +410,7 @@ test('发布记录保留单一主入口，并在更多菜单展示其余服务�
   expect(window.location.search).toContain(`record=${publicationId}`);
 });
 
-test('已有公开历史时仍展示禁用的物理删除及原因', async () => {
+test('已有公开历史且无其他动作时只保留查看记录', async () => {
   window.history.pushState({}, '', '/publications?tab=records');
   const protectedRecord = {
     ...recordItem,
@@ -380,11 +424,9 @@ test('已有公开历史时仍展示禁用的物理删除及原因', async () =>
   });
   render(<App />);
 
-  fireEvent.click(await screen.findByRole('button', { name: `更多操作：${content.title}` }));
-  const deleteItem = await screen.findByRole('menuitem', { name: '物理删除' });
-  expect(deleteItem).toHaveAttribute('aria-disabled', 'true');
-  fireEvent.mouseOver(within(deleteItem).getByText('物理删除'));
-  expect(await screen.findByText(/记录一旦公开/)).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: '查看记录' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: `更多操作：${content.title}` })).not.toBeInTheDocument();
+  expect(screen.queryByText('物理删除')).not.toBeInTheDocument();
 });
 
 test('删除使用专属确认和 DELETE，成功后清理记录 URL', async () => {

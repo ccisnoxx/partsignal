@@ -443,6 +443,9 @@
 .publication-list-panel > .ant-card-body { padding: 0 14px 14px; }
 .publication-list-panel, .publication-insights > .publication-glass-panel { background: var(--ps-bg-surface) !important; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .publication-list-panel :is(.ant-table, .ant-table-container, .ant-table-content) { background: var(--ps-bg-surface); }
+.publication-list-panel .ant-table-tbody > tr > td:is(.ant-table-cell-fix-end, .ant-table-cell-fix-right) { background: var(--ps-bg-surface); }
+.publication-list-panel .ant-table-tbody > tr:hover > td:is(.ant-table-cell-fix-end, .ant-table-cell-fix-right),
+.publication-list-panel .ant-table-tbody > tr:focus-within > td:is(.ant-table-cell-fix-end, .ant-table-cell-fix-right) { background: var(--ps-action-primary-soft) !important; }
 .publication-tabs > .ant-tabs-nav { margin: 0 0 12px; }
 .publication-tabs .ant-tabs-tab { min-height: 52px; padding-block: 12px; }
 .publication-tabs .ant-tabs-tab-btn > span { display: inline-flex; align-items: center; gap: 7px; }

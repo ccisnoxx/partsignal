@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 43
+- **Total Sessions**: 44
 - **Last Active**: 2026-07-31
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1474 | Active |
+| `journal-1.md` | ~1507 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 44 | 2026-07-31 | 前端测试门禁收敛 | `8adfd8d` | `main` |
 | 43 | 2026-07-31 | 全项目功能与删除专项验收 | `f452ce0` | `main` |
 | 42 | 2026-07-31 | 完成产品验收缺陷修复 | `591a2ca` | `main` |
 | 41 | 2026-07-31 | 恢复验收门禁并隔离 E2E 运行 | `89b7a2b` | `main` |

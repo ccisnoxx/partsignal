@@ -1,11 +1,11 @@
 {
   "id": "sitewide-table-actions-delete-testing",
   "name": "sitewide-table-actions-delete-testing",
-  "title": "全站表格操作与删除安全测试",
-  "description": "",
-  "status": "planning",
+  "title": "全项目功能、业务逻辑与 UI/UX 重新验收",
+  "description": "重新执行全项目功能、业务逻辑、权限、可靠性和 UI/UX 验收，重点覆盖 24 张业务表、全部操作列、13 个删除接口及其直接链路。",
+  "status": "in_progress",
   "dev_type": null,
-  "scope": null,
+  "scope": "full-stack",
   "package": null,
   "priority": "P2",
   "creator": "777",
@@ -18,7 +18,10 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "07-31-acceptance-gate-restoration",
+    "07-31-product-ui-ux-defect-fixes"
+  ],
   "parent": null,
   "relatedFiles": [],
   "notes": "",

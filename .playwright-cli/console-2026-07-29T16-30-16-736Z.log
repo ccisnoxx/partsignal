@@ -1,5 +1,0 @@
-[   27555ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://geo.962850.xyz/api/v1/auth/login:0
-[  365074ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ https://geo.962850.xyz/change-password:0
-[  383924ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ https://geo.962850.xyz/change-password:0
-[  401422ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ https://geo.962850.xyz/change-password:0
-[  421097ms] [VERBOSE] [DOM] Password forms should have (optionally hidden) username fields for accessibility: (More info: https://goo.gl/9p2vKq) %o @ https://geo.962850.xyz/change-password:0

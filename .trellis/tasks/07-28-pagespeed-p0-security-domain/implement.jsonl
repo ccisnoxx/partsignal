@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "安全与前端质量约束"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "React 与 Ant 组件边界"}
-{"file": ".trellis/tasks/07-28-pagespeed-domain-wide-closure/research/current-baseline.md", "reason": "CSP、TT、HSTS 和域名基线"}
-{"file": ".trellis/tasks/07-28-pagespeed-p0-security-domain/research/domain-inventory-2026-07-28.md", "reason": "全域 DNS、TLS、HSTS 与授权边界"}

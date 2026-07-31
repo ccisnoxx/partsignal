@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "CSS、主题和视觉性能约束"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "组件与懒加载边界"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "性能验证与浏览器门禁"}
-{"file": ".trellis/tasks/07-28-pagespeed-domain-wide-closure/research/current-baseline.md", "reason": "当前性能基线"}

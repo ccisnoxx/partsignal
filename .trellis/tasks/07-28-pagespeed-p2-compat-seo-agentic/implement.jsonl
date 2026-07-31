@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "兼容 fallback、响应式与可访问性"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "组件 class 与交互语义"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "跨浏览器和构建门禁"}
-{"file": ".trellis/tasks/07-28-pagespeed-domain-wide-closure/research/current-baseline.md", "reason": "Baseline、SEO、Agentic 与人工审核基线"}
-{"file": ".trellis/tasks/07-28-pagespeed-p2-compat-seo-agentic/research/baseline-compatibility-2026-07-28.md", "reason": "Baseline 兼容实施、来源与三浏览器证据"}
-{"file": ".trellis/tasks/07-28-pagespeed-p2-compat-seo-agentic/research/manual-audit-2026-07-28.md", "reason": "十项无障碍与结构化数据人工闭环"}

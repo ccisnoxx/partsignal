@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "测试、类型和禁止模式检查"}
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "主题首帧和跨浏览器验收"}
-{"file": ".trellis/tasks/07-28-pagespeed-domain-wide-closure/research/current-baseline.md", "reason": "逐项安全关闭证据"}
-{"file": ".trellis/tasks/07-28-pagespeed-p0-security-domain/research/domain-inventory-2026-07-28.md", "reason": "逐名 HTTPS、控制权和 preload 门禁复核"}

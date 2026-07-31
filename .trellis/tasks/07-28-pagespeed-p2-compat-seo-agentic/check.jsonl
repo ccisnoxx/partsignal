@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "构建、浏览器和测试审查"}
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "人工无障碍和兼容性审查"}
-{"file": ".trellis/tasks/07-28-pagespeed-domain-wide-closure/research/current-baseline.md", "reason": "逐项关闭证据"}
-{"file": ".trellis/tasks/07-28-pagespeed-p2-compat-seo-agentic/research/baseline-compatibility-2026-07-28.md", "reason": "复核兼容来源、fallback 与验收结果"}
-{"file": ".trellis/tasks/07-28-pagespeed-p2-compat-seo-agentic/research/manual-audit-2026-07-28.md", "reason": "复核人工审核缺陷与关闭证据"}

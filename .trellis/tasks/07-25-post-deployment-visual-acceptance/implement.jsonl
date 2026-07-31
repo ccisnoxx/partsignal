@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "线上视觉验收的唯一视觉规范，约束稳定壳层、主题、响应式、缩放和批准资产使用方式。"}
-{"file": ".trellis/tasks/07-25-post-deployment-visual-acceptance/research/acceptance-evidence.md", "reason": "汇总预发布权威地址、Runbook 只读安全边界、批准资产位置、目标提交和页面路由。"}

@@ -1505,3 +1505,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 45: 统一全站表格列表规范验收收尾
+
+**Date**: 2026-07-31
+**Task**: 统一全站表格列表规范验收收尾
+**Branch**: `main`
+
+### Summary
+
+完成 AC7、AC8 剩余验收：标准隔离跨页 E2E 7/7 通过，覆盖 24 表压力探针、响应式、主题、键盘和真实 200% 缩放；同步任务证据与 Playwright 标准运行命令。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b0cafd9` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

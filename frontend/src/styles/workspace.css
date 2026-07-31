@@ -633,7 +633,7 @@
 .tasks-table-panel .ant-table-tbody > tr.task-row-generation-failed:hover > td:is(.ant-table-cell-fix-end, .ant-table-cell-fix-right), .tasks-table-panel .ant-table-tbody > tr.task-row-generation-failed:focus-within > td:is(.ant-table-cell-fix-end, .ant-table-cell-fix-right) { background: color-mix(in srgb, var(--ps-danger) 18%, var(--ps-bg-surface)) !important; }
 .tasks-table-panel .ant-table-tbody > tr:last-child > td { border-bottom: 0; }
 .tasks-table-panel .status-tag { margin: 0; padding-inline: 8px; border-color: transparent; font-size: 12px; }
-.task-title-cell { display: flex; min-width: 180px; flex-direction: column; gap: 4px; }
+.task-title-cell { display: flex; width: 100%; min-width: 0; max-width: 100%; flex-direction: column; gap: 4px; }
 .task-title-cell > strong, .task-title-cell > span, .task-cell-ellipsis { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .task-title-cell > strong { color: var(--ps-text-primary); font-weight: 600; }
 .task-title-cell > span { color: var(--ps-text-tertiary); font-size: 11px; }

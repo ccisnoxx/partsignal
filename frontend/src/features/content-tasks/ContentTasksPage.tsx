@@ -81,6 +81,7 @@ function TaskList() {
   const { message, modal } = App.useApp();
   const [open, setOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<ContentTaskListItem>();
+  const cancelTriggerRef = useRef<HTMLElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const rawPage = searchParams.get('page');
   const rawStatus = searchParams.get('status');
@@ -88,6 +89,9 @@ function TaskList() {
   const keyword = searchParams.get('q') ?? '';
   const status: TaskStatusFilter = rawStatus && isTaskStatus(rawStatus) ? rawStatus : 'ALL';
   const platformProfileId = searchParams.get('platform_profile_id') ?? undefined;
+  useEffect(() => {
+    if (!cancelTarget) cancelTriggerRef.current?.focus({ preventScroll: true });
+  }, [cancelTarget]);
   const taskListQuery: ContentTaskListQuery = platformProfileId ? { platform_profile_id: platformProfileId } : {};
   const tasks = useQuery({
     queryKey: queryKeys.contentTasks.list(taskListQuery),
@@ -257,6 +261,8 @@ function TaskList() {
                       aria-label={`更多操作：${row.product.brand} ${row.product.part_number}`}
                       disabled={row.available_actions.length === 0}
                       loading={deleteTask.isPending && deleteTask.variables?.id === row.id}
+                      onFocus={(event) => { cancelTriggerRef.current = event.currentTarget; }}
+                      onPointerDown={(event) => { cancelTriggerRef.current = event.currentTarget; }}
                     />
                   );
                   return <Space size={2}>
@@ -268,9 +274,14 @@ function TaskList() {
                           key: action,
                           label: action === 'CANCEL' ? '取消任务' : '删除任务',
                           danger: true,
-                          onClick: () => action === 'CANCEL'
-                            ? setCancelTarget(row)
-                            : confirmDeleteTask(row),
+                          onClick: () => {
+                            if (action === 'CANCEL') {
+                              cancelTriggerRef.current?.focus({ preventScroll: true });
+                              setCancelTarget(row);
+                            } else {
+                              confirmDeleteTask(row);
+                            }
+                          },
                         })),
                       }}
                     >{moreButton}</Dropdown> : (
@@ -301,7 +312,10 @@ function TaskList() {
         onFinish={({ comment }) => cancelTarget && cancelTask.mutate({ task: cancelTarget, comment })}
       >
         <Form.Item name="comment" label="说明"><Input.TextArea /></Form.Item>
-        <Button type="primary" htmlType="submit" loading={cancelTask.isPending}>确认取消</Button>
+        <Space>
+          <Button onClick={() => setCancelTarget(undefined)}>暂不取消</Button>
+          <Button type="primary" htmlType="submit" loading={cancelTask.isPending}>确认取消</Button>
+        </Space>
       </Form>
     </Modal>
   </div>;
@@ -691,7 +705,10 @@ function TaskDetail({ taskId }: { taskId: string }) {
       <Form<Schema<'CommandRequest'>> layout="vertical" initialValues={{ expected_revision: task.data.revision, comment: '' }} onFinish={(body) => taskCommand.mutate(body)}>
         <Form.Item name="expected_revision" hidden><InputNumber /></Form.Item>
         <Form.Item name="comment" label="说明"><Input.TextArea /></Form.Item>
-        <Button type="primary" htmlType="submit" loading={taskCommand.isPending}>确认取消</Button>
+        <Space>
+          <Button onClick={() => setCancelOpen(false)}>暂不取消</Button>
+          <Button type="primary" htmlType="submit" loading={taskCommand.isPending}>确认取消</Button>
+        </Space>
       </Form>
     </Modal>
     <TaskCreateModal

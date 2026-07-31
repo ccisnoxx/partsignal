@@ -48,6 +48,22 @@ Questions to answer:
 - 长文本表格回归必须用实际触发 `scrollWidth > clientWidth` 的压力值，扫描 `td` 和动态矩阵 `th` 内登记的 `.table-cell-ellipsis`，并断言内容矩形位于所属单元格内、行高有界、交互文本可由键盘到达；代表用例还必须验证鼠标悬停和键盘聚焦都能读取完整值。复合身份的代表用例必须分别从根容器、固定图形和文本叶子触发 Tooltip，并确认焦点停靠在根容器，不能只精确 hover 内部文本。只检查 `overflow:hidden` 计算样式或页面外框不溢出不能证明列边界正确。
 - Tooltip 回归不能只断言 `role`、文本内容和 DOM 可见；代表性真实浏览器用例必须读取最终计算后的前景色与背景色，并验证普通文字对比度至少为 4.5:1，防止浮层存在但白底白字或同色不可读。
 - 真实浏览器在浅色、深色、跟随系统三种模式下检查 375/768/1024/1440px、实际 200% 缩放和键盘链；宽表只能在 `TableRegion` 内溢出。
+- `emulateMedia`、主题或响应式状态切换可能重挂载布局。切换后的几何断言必须重新查询当前已连接节点，并先轮询关键尺寸稳定；不得把旧节点的零尺寸误判为生产 CSS 缺陷。
+
+```ts
+// 错误：媒体切换前解析元素，重挂载后可能继续量测失效节点。
+const content = await page.locator('.app-content').elementHandle();
+await page.emulateMedia({ media: 'print', reducedMotion: 'reduce' });
+expect(await content?.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(0);
+
+// 正确：切换后从当前 document 重新查询，并同时保留非零和无文档溢出断言。
+await page.emulateMedia({ media: 'print', reducedMotion: 'reduce' });
+await expect.poll(() => page.evaluate(() => (
+  document.querySelector<HTMLElement>('.app-content')?.getBoundingClientRect().width ?? 0
+))).toBeGreaterThan(0);
+expect(await page.evaluate(() => document.documentElement.scrollWidth))
+  .toBeLessThanOrEqual(await page.evaluate(() => document.documentElement.clientWidth));
+```
 
 ### jsdom 能力边界
 

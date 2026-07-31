@@ -2,15 +2,15 @@
 
 ## Goal
 
-修复父验收与门禁恢复任务确认的 4 个产品问题：GEO 打印内容宽度为 0、内容任务表在窄屏和真实 200% zoom 下产品列越界、取消任务确认弹窗缺少可见取消动作，以及未配置自然化 Prompt 时接口错误返回 500。保持业务状态机、API、权限和删除语义不变。
+处理父验收与门禁恢复任务登记的 4 个问题：校正 GEO 打印宽度门禁对失效 DOM 节点的误读，修复内容任务表在窄屏和真实 200% zoom 下产品列越界，补齐取消任务确认弹窗的可见取消动作，并修复未配置自然化 Prompt 时接口错误返回 500。保持业务状态机、API、权限和删除语义不变。
 
 ## Background
 
 ### PS-QA-001：GEO 打印宽度
 
-- `frontend/tests/e2e/compatibility.spec.ts:151-166` 在 Chromium、Firefox、WebKit 下均测得 `.app-content` 宽度为 0。
-- 当前 print CSS 位于 `frontend/src/styles/workspace.css:1226-1234`。
-- 影响是打印预览或导出可能空白、裁切或不可读。
+- 原用例在 `emulateMedia` 引发主题重渲染后继续读取旧 locator 捕获的节点；该节点已脱离 `document`，所以宽度为 0。
+- 对当前已连接的 `.app-content` 实测宽度为 1280px，等于视口和文档宽度；没有证据表明生产 print CSS 存在零宽缺陷。
+- 影响是三浏览器门禁误报并阻断验收；不得为测试同步问题添加生产 CSS 补丁。
 
 ### PS-QA-002：200% zoom 越界
 
@@ -33,10 +33,10 @@
 
 ### R1. GEO 打印
 
-1. Print media 下 `.app-content` 必须得到非零可读宽度。
+1. Print media 切换后必须重新读取当前已连接的 `.app-content`，且得到非零可读宽度。
 2. 文档宽度不得超过打印视口；隐藏 header/sider 后不得留下空白占位。
-3. 打印标题、趋势、表格和优化建议保持可见，不为通过宽度断言隐藏内容。
-4. 修复应落在共享打印布局尺寸链的最小权威位置，不按三个浏览器分别打补丁。
+3. 打印标题和当前筛选结果保持可见；有完整观测时保留趋势、表格和优化建议，无完整观测时保留数据质量原因与空状态。
+4. 无生产 CSS 缺陷证据时只修正测试同步，不按三个浏览器分别打补丁。
 
 ### R2. 内容任务 200% zoom
 
@@ -62,17 +62,17 @@
 
 ## Acceptance Criteria
 
-- [ ] GEO 打印用例在 Chromium、Firefox、WebKit 全部通过，`.app-content.width > 0` 且无文档横向溢出。
-- [ ] 打印预览人工检查可读，标题、趋势、表格和建议未丢失。
-- [ ] 真实 200% zoom 下内容任务产品列所有可见行均位于单元格内。
-- [ ] 1440×1000、375×900 和 200% zoom 下内容任务表无新增布局回归。
-- [ ] 列表和详情取消任务弹窗均显示明确的可见取消按钮。
-- [ ] 次按钮、关闭图标和 Escape 不发请求，焦点恢复到原触发控件。
-- [ ] 主按钮正常提交，重复点击被加载状态阻止，服务端错误仍按现有方式显示。
-- [ ] 相关 Vitest、Playwright、lint、typecheck 和 frontend build 通过。
-- [ ] OpenAPI、数据库、权限和业务状态机没有变化。
-- [ ] 未配置自然化 Prompt 的接口回归返回 409 `HUMANIZATION_PROMPT_MISSING`，不再产生 500。
-- [ ] 原始生成 `content-markdown-v3` 快照仍包含平台 Prompt 身份和 revision。
+- [x] GEO 打印用例在 Chromium、Firefox、WebKit 全部通过，当前已连接的 `.app-content.width > 0` 且无文档横向溢出。
+- [x] 打印预览人工检查可读，标题、报告范围、数据质量原因与当前筛选结果未丢失。
+- [x] 真实 200% zoom 下内容任务产品列所有可见行均位于单元格内。
+- [x] 1440×1000、375×900 和 200% zoom 下内容任务表无新增布局回归。
+- [x] 列表和详情取消任务弹窗均显示明确的可见取消按钮。
+- [x] 次按钮、关闭图标和 Escape 不发请求，焦点恢复到原触发控件。
+- [x] 主按钮正常提交，重复点击被加载状态阻止，服务端错误仍按现有方式显示。
+- [x] 相关 Vitest、Playwright、lint、typecheck 和 frontend build 通过。
+- [x] OpenAPI、数据库、权限和业务状态机没有变化。
+- [x] 未配置自然化 Prompt 的接口回归返回 409 `HUMANIZATION_PROMPT_MISSING`，不再产生 500。
+- [x] 原始生成 `content-markdown-v3` 快照仍包含平台 Prompt 身份和 revision。
 
 ## Out of Scope
 

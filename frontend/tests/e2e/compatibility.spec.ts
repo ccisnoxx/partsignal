@@ -157,8 +157,11 @@ test('打印路由由显式壳层类控制且保持可读宽度', async ({ page 
   await page.emulateMedia({ media: 'print', colorScheme: 'light', reducedMotion: 'reduce' });
   await expect(page.locator('.app-header')).toBeHidden();
   await expect(page.locator('.app-sider')).toBeHidden();
-  const widths = await page.locator('.app-content').evaluate((element) => ({
-    content: element.getBoundingClientRect().width,
+  await expect.poll(() => page.evaluate(() => (
+    document.querySelector<HTMLElement>('.app-content')?.getBoundingClientRect().width ?? 0
+  ))).toBeGreaterThan(0);
+  const widths = await page.evaluate(() => ({
+    content: document.querySelector<HTMLElement>('.app-content')?.getBoundingClientRect().width ?? 0,
     viewport: document.documentElement.clientWidth,
     document: document.documentElement.scrollWidth,
   }));

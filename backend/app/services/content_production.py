@@ -327,18 +327,17 @@ def _create_job(
     else:
         if model is None:
             raise AppError("AI_MODEL_REQUIRED", "必须选择 AI 模型", 422)
-        assert platform_prompt_id is not None and platform_prompt_revision is not None
-        generation_input = (
-            build_humanization_input(db, task, source, model)
-            if source is not None
-            else build_generation_input(
+        if source is not None:
+            generation_input = build_humanization_input(db, task, source, model)
+        else:
+            assert platform_prompt_id is not None and platform_prompt_revision is not None
+            generation_input = build_generation_input(
                 db,
                 task,
                 model,
                 platform_prompt_id,
                 platform_prompt_revision,
             )
-        )
         selected_model = model
     prompt_hash = hashlib.sha256(
         json.dumps(generation_input, ensure_ascii=False, sort_keys=True).encode("utf-8")

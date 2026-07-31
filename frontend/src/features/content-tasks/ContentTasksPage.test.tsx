@@ -518,9 +518,18 @@ test('任务列表直接呈现服务端允许的取消和删除操作', async ()
   apiMocks.DELETE.mockResolvedValue({ response: new Response(null, { status: 204 }) });
   renderPage(<Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes>, ['/tasks']);
 
-  await user.click(await screen.findByRole('button', { name: '更多操作：PartSignal PS-01' }));
+  const openTaskActions = await screen.findByRole('button', { name: '更多操作：PartSignal PS-01' });
+  await user.click(openTaskActions);
   await user.click(await screen.findByRole('menuitem', { name: '取消任务' }));
-  const cancelDialog = within(await screen.findByRole('dialog'));
+  let cancelDialog = within(await screen.findByRole('dialog'));
+  await user.click(cancelDialog.getByRole('button', { name: '暂不取消' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '取消任务' })).not.toBeInTheDocument());
+  expect(apiMocks.POST).not.toHaveBeenCalled();
+  await waitFor(() => expect(openTaskActions).toHaveFocus());
+
+  await user.click(openTaskActions);
+  await user.click(await screen.findByRole('menuitem', { name: '取消任务' }));
+  cancelDialog = within(await screen.findByRole('dialog'));
   await user.type(cancelDialog.getByRole('textbox', { name: '说明' }), '不再继续生产');
   await user.click(cancelDialog.getByRole('button', { name: '确认取消' }));
   await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
@@ -541,6 +550,38 @@ test('任务列表直接呈现服务端允许的取消和删除操作', async ()
     '/api/v1/content-tasks/{content_task_id}',
     { params: { path: { content_task_id: cancelledTask.id }, header: { 'X-CSRF-Token': 'test' } } },
   ));
+});
+
+test('详情取消弹窗的次按钮、关闭图标和 Escape 均不提交并恢复焦点', async () => {
+  const user = userEvent.setup();
+  const cancellableTask = { ...task, available_actions: ['CANCEL'] };
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}') return result(cancellableTask);
+    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'OPEN', { available_actions: ['CANCEL'] })] });
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
+    if (path.includes('/content-versions') || path.includes('/generation-jobs') || path.includes('/generation-options')) return result(undefined, 503);
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
+
+  const trigger = await screen.findByRole('button', { name: '取消任务' });
+  await user.click(trigger);
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '取消任务' })).not.toBeInTheDocument());
+  expect(apiMocks.POST).not.toHaveBeenCalled();
+  await waitFor(() => expect(trigger).toHaveFocus());
+
+  await user.click(trigger);
+  await user.click(within(await screen.findByRole('dialog', { name: '取消任务' })).getByRole('button', { name: 'Close' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '取消任务' })).not.toBeInTheDocument());
+  expect(apiMocks.POST).not.toHaveBeenCalled();
+  await waitFor(() => expect(trigger).toHaveFocus());
+
+  await user.click(trigger);
+  await user.click(within(await screen.findByRole('dialog', { name: '取消任务' })).getByRole('button', { name: '暂不取消' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '取消任务' })).not.toBeInTheDocument());
+  expect(apiMocks.POST).not.toHaveBeenCalled();
+  await waitFor(() => expect(trigger).toHaveFocus());
 });
 
 test('仅按服务端 DELETE 动作确认删除并返回任务列表', async () => {

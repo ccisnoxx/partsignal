@@ -4,16 +4,16 @@
 
 前端只修改现有页面和共享样式，不新增组件框架、依赖或第二套表格抽象；后端只修正生成作业分支条件。四个缺陷分别修正各自的权威位置，保持业务请求和服务端合同不变。
 
-## 2. GEO 打印尺寸链
+## 2. GEO 打印门禁同步
 
-先检查 print media 下 `.app-shell`、Ant `Layout`、`.app-content` 和 `.geo-insights-print` 的计算尺寸。修复应满足：
+运行时检查证明当前已连接的 `.app-shell`、Ant `Layout`、`.app-content` 和
+`.geo-insights-print` 尺寸链正常。零宽来自 `emulateMedia` 引发主题重渲染后，原
+locator 继续读取已脱离文档的旧节点。
 
-- 打印壳层和主 Layout 不再继承会把内容压缩为 0 的 flex 约束。
-- `.app-content` 使用可打印宽度并取消不适用的 flex basis/min-width 限制。
-- header/sider 隐藏后，内容直接占据打印画布。
-- 保留现有 CSS 变量和白色打印表面。
-
-不使用固定像素宽度，不为单一浏览器新增 UA 分支。
+- 媒体切换后使用 `document.querySelector` 重新取得当前 `.app-content`。
+- 先轮询当前节点宽度非零，再读取内容、视口和文档宽度。
+- 保留 header/sider 隐藏、内容非零和无文档溢出的原断言。
+- 不修改正常的生产 print CSS，不增加浏览器分支或固定宽度。
 
 ## 3. 内容任务产品列
 
@@ -53,7 +53,7 @@
 
 ## 7. 风险与回滚
 
-- Print flex 修正可能影响普通路由：定向检查 screen media 下 AppLayout。
+- 打印测试若再次遇到重渲染，必须读取当前已连接节点；三浏览器和真实打印视图共同验证。
 - 产品列收缩可能让文本更早省略：保证 Tooltip 和主身份仍可访问。
 - 弹窗 footer 调整可能影响 Enter 提交：保留 Form submit 语义并测试键盘。
 - 生成分支调整可能弱化原始 Prompt 门禁：单元与 E2E 同时验证原始生成快照和自然化缺失错误。

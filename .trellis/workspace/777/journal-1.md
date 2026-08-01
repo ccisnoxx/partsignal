@@ -765,7 +765,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 为 24 项业务表登记精确 `regionLabel`，两张弹窗表额外限定 dialog 作用域。
+- 将几何、长文本和固定列检查收敛到当前 `TableRegion`，移除 24 表路径的背景表替代与零表跳过。
+- 补齐 AI、发布、对象存储和 3 条 GEO 观测组成的共享 E2E 数据图，就绪洞察按 `publication_record_id` 精确验证。
 
 ### Git Commits
 
@@ -1805,6 +1807,41 @@
 ### Testing
 
 - Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 54: 完成 24 表门禁目标收敛
+
+**Date**: 2026-08-01
+**Task**: 完成 24 表门禁目标收敛
+**Branch**: `main`
+
+### Summary
+
+完成 PS-QA2-TEST-001：24 项业务表逐项精确绑定 TableRegion，弹窗表限定 dialog 作用域，共享 E2E 数据图补齐并通过隔离回归。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6f8ca05` | `test: 收敛 24 表门禁目标` |
+
+### Testing
+
+- `git diff --check`、`npm --prefix frontend run typecheck`、`npm --prefix frontend run lint` 通过。
+- 24 表隔离 E2E 的 setup 与主用例 2/2 通过，一次性数据库和临时对象存储均删除。
+- 不存在的 `regionLabel` 负向探针以 0 命中按预期失败，恢复后正式门禁通过。
 
 ### Status
 

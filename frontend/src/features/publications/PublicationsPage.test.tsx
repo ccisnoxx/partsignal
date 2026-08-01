@@ -692,8 +692,17 @@ test('旧发布详情页只读展示历史并把写操作收敛到工作台', as
     if (path.endsWith(`/publication-records/${publicationId}`)) return { body: recordDetail };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
-  render(<App />);
-  expect(await screen.findByText(`${content.title} · V${content.version}`)).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '在工作台处理' })).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: '登记已发布' })).not.toBeInTheDocument();
+  const consoleError = vi.spyOn(console, 'error');
+  try {
+    render(<App />);
+    expect(await screen.findByText(`${content.title} · V${content.version}`)).toBeInTheDocument();
+    expect(screen.getByText('平台处理')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '在工作台处理' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '登记已发布' })).not.toBeInTheDocument();
+    expect(consoleError.mock.calls.flat().join(' ')).not.toContain(
+      '[antd: Timeline] `items.children` is deprecated. Please use `items.content` instead.',
+    );
+  } finally {
+    consoleError.mockRestore();
+  }
 });

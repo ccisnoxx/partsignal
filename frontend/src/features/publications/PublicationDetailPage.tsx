@@ -60,7 +60,7 @@ export function PublicationDetailPage({ publicationId }: { publicationId: string
         />
         <Typography.Title level={5}>状态轨迹</Typography.Title><Timeline
           items={record.status_events.map((event) => ({
-            children: (
+            content: (
               <>
                 <strong><StatusTag status={event.status} /></strong> {event.comment}
                 <br />

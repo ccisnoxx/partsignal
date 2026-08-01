@@ -1,0 +1,33 @@
+{
+  "id": "frontend-lightweight-resource-compatibility-cleanup",
+  "name": "frontend-lightweight-resource-compatibility-cleanup",
+  "title": "前端轻量资源与兼容清理",
+  "description": "修复 PS-QA2-UI-001 与 PS-QA2-UI-003：补齐受版本控制的 PartSignal favicon，并迁移发布详情唯一的 Ant Timeline 弃用字段。",
+  "status": "in_progress",
+  "dev_type": "frontend",
+  "scope": "前端入口静态图标、生产公开资产门禁、发布详情 Timeline 兼容字段及对应回归测试",
+  "package": "frontend",
+  "priority": "P3",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-01",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "frontend/index.html",
+    "frontend/public/favicon.svg",
+    "frontend/scripts/check-production-assets.mjs",
+    "frontend/scripts/check-production-assets.test.mjs",
+    "frontend/src/features/publications/PublicationDetailPage.tsx",
+    "frontend/src/features/publications/PublicationsPage.test.tsx"
+  ],
+  "notes": "",
+  "meta": {}
+}

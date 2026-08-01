@@ -8,7 +8,9 @@ import test from 'node:test';
 
 const checker = new URL('./check-production-assets.mjs', import.meta.url);
 const frontendRoot = new URL('../', import.meta.url);
-const expectedIndex = `<!doctype html><html><head><meta name="robots" content="index,follow"><meta name="description" content="PartSignal 是面向已授权用户的多平台 GEO 内容运营系统，提供内容运营、发布与效果观测入口。"></head></html>`;
+const expectedFaviconLink = '<link rel="icon" type="image/svg+xml" href="/favicon.svg">';
+const expectedIndex = `<!doctype html><html><head>${expectedFaviconLink}<meta name="robots" content="index,follow"><meta name="description" content="PartSignal 是面向已授权用户的多平台 GEO 内容运营系统，提供内容运营、发布与效果观测入口。"></head></html>`;
+const expectedFavicon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 28"><path d="M3 4h16" /></svg>\n';
 const expectedRobots = 'User-agent: *\nAllow: /\n';
 const expectedLlms = '# PartSignal\n\nPartSignal 是面向已授权用户的 GEO 内容运营系统。\n\n- [PartSignal 入口](https://geo.962850.xyz/)\n- [PartSignal 登录](https://geo.962850.xyz/login)\n';
 
@@ -16,6 +18,7 @@ async function runFixture(overrides = {}, environment = {}) {
   const root = await mkdtemp(join(tmpdir(), 'partsignal-production-assets-'));
   const files = {
     'index.html': expectedIndex,
+    'favicon.svg': expectedFavicon,
     'robots.txt': expectedRobots,
     'llms.txt': expectedLlms,
     'assets/app.js': 'console.log("ok");\n//# sourceMappingURL=app.js.map\n',
@@ -31,6 +34,7 @@ async function runFixture(overrides = {}, environment = {}) {
   };
   try {
     for (const [name, source] of Object.entries(files)) {
+      if (source === null) continue;
       const path = join(root, name);
       await mkdir(dirname(path), { recursive: true });
       await writeFile(path, source, 'utf8');
@@ -47,6 +51,16 @@ async function runFixture(overrides = {}, environment = {}) {
 test('完整且无敏感信息的公开资产通过', async () => {
   const result = await runFixture();
   assert.equal(result.status, 0, result.stderr);
+});
+
+test('favicon 声明或资源缺失会阻断构建', async () => {
+  const missingLink = await runFixture({ 'index.html': expectedIndex.replace(expectedFaviconLink, '') });
+  assert.notEqual(missingLink.status, 0);
+  assert.match(missingLink.stderr, /index\.html: favicon-link/);
+
+  const missingIcon = await runFixture({ 'favicon.svg': null });
+  assert.notEqual(missingIcon.status, 0);
+  assert.match(missingIcon.stderr, /favicon\.svg: missing/);
 });
 
 test('不完整 map、敏感凭据、env 和本机路径都会阻断构建', async () => {

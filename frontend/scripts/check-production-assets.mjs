@@ -72,9 +72,13 @@ async function readRequired(name) {
 }
 
 const indexHtml = await readRequired('index.html');
+const favicon = await readRequired('favicon.svg');
 const robots = await readRequired('robots.txt');
 const llms = await readRequired('llms.txt');
 
+const faviconMatches = indexHtml.match(/<link\s+rel=["']icon["']\s+type=["']image\/svg\+xml["']\s+href=["']\/favicon\.svg["']\s*\/?>/gi) ?? [];
+if (faviconMatches.length !== 1) report('index.html', 'favicon-link');
+if (!/^\s*<svg(?:\s[^>]*)?>[\s\S]*<\/svg>\s*$/i.test(favicon)) report('favicon.svg', 'invalid-svg');
 const robotsMatches = indexHtml.match(/<meta\s+name=["']robots["']\s+content=["']([^"']+)["']\s*\/?>/gi) ?? [];
 if (robotsMatches.length !== 1 || !/content=["']index,follow["']/.test(robotsMatches[0])) {
   report('index.html', 'robots-meta');

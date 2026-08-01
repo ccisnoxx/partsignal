@@ -82,7 +82,7 @@ services:
 
   fake-oss:
     <<: *backend
-    command: [uv, run, python, -m, app.files.fake_server]
+    command: [python, -m, app.files.fake_server]
     ports:
       - 127.0.0.1:19001:9000
     volumes:

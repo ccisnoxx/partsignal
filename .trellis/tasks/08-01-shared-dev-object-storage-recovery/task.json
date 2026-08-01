@@ -1,0 +1,30 @@
+{
+  "id": "shared-dev-object-storage-recovery",
+  "name": "shared-dev-object-storage-recovery",
+  "title": "共享开发对象存储启动恢复",
+  "description": "修复开发 Compose 中 fake-oss 因 uv 运行时同步依赖而无法启动的问题，恢复共享开发文件流。",
+  "status": "in_progress",
+  "dev_type": "infra",
+  "scope": "开发 Compose fake-oss 启动命令与共享开发对象存储真实文件流",
+  "package": "infra",
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-01",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "deploy/compose.dev.yaml",
+    "backend/Dockerfile",
+    "backend/tests/unit/test_development_storage.py"
+  ],
+  "notes": "",
+  "meta": {}
+}

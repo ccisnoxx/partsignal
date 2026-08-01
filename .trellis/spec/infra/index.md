@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | [域名安全运维](./domain-security-operations.md) | DNS、Nginx、证书、HSTS 与 preload | Active |
 | [E2E 运行隔离](./e2e-isolation.md) | Playwright 独立数据库、临时存储与清理结果 | Active |
+| [开发对象存储运行契约](./development-object-storage.md) | 共享开发 Compose 的对象存储启动、端点与真实文件流 | Active |
 
 ## Pre-Development Checklist
 

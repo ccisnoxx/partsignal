@@ -1922,3 +1922,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 57: 修复发布抽屉直接关闭焦点恢复
+
+**Date**: 2026-08-02
+**Task**: 修复发布抽屉直接关闭焦点恢复
+**Branch**: `main`
+
+### Summary
+
+稳定发布 Drawer 关闭生命周期所有者，将对象身份下移到内容边界；新增候选与发布记录焦点回归，发布页 17 项测试、typecheck、lint、真实浏览器候选关闭和记录 Escape 验证均通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `45966c1` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

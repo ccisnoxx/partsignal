@@ -1705,3 +1705,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 51: 完成浮层焦点恢复
+
+**Date**: 2026-08-01
+**Task**: 完成浮层焦点恢复
+**Branch**: `main`
+
+### Summary
+
+统一修复 Dropdown 静态确认、发布 Drawer 与审计详情关闭后的触发器焦点恢复；目标组件、类型检查和 lint 通过，隔离 E2E 的焦点断言通过后被既有自然化 available_actions 断言阻断。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `95b34bc` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

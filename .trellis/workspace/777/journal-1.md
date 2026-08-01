@@ -655,9 +655,10 @@
 
 统一内容编辑、产品事实、平台规则与 Prompt 管理的视觉和表单反馈；修正共享控件边界对比度，完成单测、类型、Lint、构建、真实 API Playwright 和跨批次回归后归档任务。
 
-### Main Changes
+### 主要变更
 
-- Detailed change bullets were not supplied; see the summary above.
+- `deploy/compose.dev.yaml` 的 `fake-oss` 改为直接使用镜像内 Python，移除运行时 `uv run` 依赖同步。
+- 新增开发对象存储运行契约，明确端点、签名、失败矩阵、真实文件流和共享数据边界。
 
 ### Git Commits
 
@@ -666,17 +667,18 @@
 | `0a53333` | (see git log) |
 | `9ad94d2` | (see git log) |
 
-### Testing
+### 验证
 
-- Validation was not recorded for this session.
+- Compose 配置、任务校验、lint、mypy、TypeScript typecheck 和 `git diff --check` 通过。
+- 开发对象存储单测 `6 passed`；真实 upload intent、浏览器 PUT、API HEAD/complete、浏览器 GET 和精确清理通过。
 
 ### Status
 
 [OK] **Completed**
 
-### Next Steps
+### 后续
 
-- None - task complete
+- 按七组总计划进入“状态动作投影收敛”独立任务的规划审批。
 
 
 ## Session 20: 平台管理 UI/UX 审计与修正
@@ -1625,6 +1627,39 @@
 | Hash | Message |
 |------|---------|
 | `5808545` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 49: 恢复共享开发对象存储启动
+
+**Date**: 2026-08-01
+**Task**: 恢复共享开发对象存储启动
+**Branch**: `main`
+
+### Summary
+
+将共享开发 fake-oss 改为使用镜像内 Python 直接启动，完成真实上传、完整性确认、浏览器下载与精确清理，并固化开发对象存储运行契约。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `62c4e16` | (see git log) |
 
 ### Testing
 

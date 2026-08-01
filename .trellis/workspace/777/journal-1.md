@@ -1604,3 +1604,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 48: 修复 AI 配置删除并发一致性
+
+**Date**: 2026-08-01
+**Task**: 修复 AI 配置删除并发一致性
+**Branch**: `main`
+
+### Summary
+
+为 AI 渠道与 Header 删除增加目标行锁，补充 PostgreSQL 并发回归与稳定规范，验证并发请求仅一次成功。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5808545` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

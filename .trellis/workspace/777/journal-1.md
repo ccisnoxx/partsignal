@@ -1955,3 +1955,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 58: E2E 可用动作合同同步
+
+**Date**: 2026-08-02
+**Task**: E2E 可用动作合同同步
+**Branch**: `main`
+
+### Summary
+
+同步 compatibility 与 Trusted Types 的 required available_actions mock，收敛 MVP 自然化和发布候选动作期待；定向验证暴露的发布 Drawer 菜单动作关闭焦点回归已分流为独立任务。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5ff34e1` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

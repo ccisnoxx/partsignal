@@ -1,0 +1,31 @@
+{
+  "id": "publication-drawer-direct-close-focus-restoration",
+  "name": "publication-drawer-direct-close-focus-restoration",
+  "title": "发布抽屉直接关闭焦点恢复",
+  "description": "修复发布候选与发布记录 Drawer 无 dirty 直接关闭时未在关闭完成后恢复原触发器焦点的问题。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "frontend",
+  "package": "frontend",
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-01",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "frontend/src/features/publications/PublicationWorkspace.tsx",
+    "frontend/src/features/publications/PublicationDrawer.tsx",
+    "frontend/src/features/publications/PublicationsPage.test.tsx",
+    ".trellis/spec/frontend/hook-guidelines.md"
+  ],
+  "notes": "",
+  "meta": {}
+}

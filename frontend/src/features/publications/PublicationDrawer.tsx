@@ -16,7 +16,7 @@ import {
   Timeline,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { ApiError, api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
@@ -54,9 +54,16 @@ export function PublicationDrawer({
   onDelete,
 }: PublicationDrawerProps) {
   const { modal } = App.useApp();
-  const [dirty, setDirty] = useState(false);
+  const contentIdentity = candidate
+    ? `candidate:${candidate.content_version.id}`
+    : `publication:${publicationId ?? 'closed'}:${initialAction ?? 'view'}`;
+  // dirty 只服务关闭判断；绑定内容身份可在换对象时同步失效，不复制 URL 打开状态。
+  const dirtyRef = useRef({ contentIdentity, value: false });
+  const setDirty = (value: boolean) => {
+    dirtyRef.current = { contentIdentity, value };
+  };
   const requestClose = () => {
-    if (!dirty) {
+    if (dirtyRef.current.contentIdentity !== contentIdentity || !dirtyRef.current.value) {
       onClose();
       return;
     }
@@ -80,14 +87,25 @@ export function PublicationDrawer({
       open={!!candidate || !!publicationId}
       size="large"
       onClose={requestClose}
-      afterOpenChange={(open) => { if (!open) onAfterClose(); }}
+      afterOpenChange={(open) => {
+        if (!open) {
+          dirtyRef.current = { contentIdentity, value: false };
+          onAfterClose();
+        }
+      }}
       destroyOnHidden
       keyboard
     >
       {candidate ? (
-        <CandidateRegistration candidate={candidate} onCreated={onCreated} onDirtyChange={setDirty} />
+        <CandidateRegistration
+          key={contentIdentity}
+          candidate={candidate}
+          onCreated={onCreated}
+          onDirtyChange={setDirty}
+        />
       ) : publicationId ? (
         <PublicationRegistration
+          key={contentIdentity}
           publicationId={publicationId}
           initialAction={initialAction}
           deletePending={deletePending}

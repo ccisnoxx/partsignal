@@ -409,7 +409,6 @@ export function PublicationWorkspace() {
         onOpenRecord={openRecord}
       />
       <PublicationDrawer
-        key={`${selectedCandidateId ?? selectedPublicationId ?? 'closed'}:${selectedCommand?.action ?? 'view'}`}
         candidate={selectedCandidate}
         publicationId={selectedPublicationId}
         initialAction={selectedCommand?.publicationId === selectedPublicationId ? selectedCommand?.action : undefined}

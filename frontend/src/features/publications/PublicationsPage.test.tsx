@@ -237,6 +237,20 @@ test('候选登记抽屉只展示匹配账号', async () => {
   await waitFor(() => expect(accountSelect.closest('.ant-select')).toHaveTextContent('匹配账号 / matched'));
 });
 
+test('候选登记抽屉无未提交内容时直接关闭后恢复原触发器', async () => {
+  mockCandidateWorkspace();
+  render(<App />);
+  const { drawer, trigger } = await openCandidateDrawer();
+  const closeButton = within(drawer).getByRole('button', { name: '关闭' });
+  closeButton.focus();
+  expect(closeButton).toHaveFocus();
+
+  fireEvent.click(closeButton);
+
+  await waitFor(() => expect(window.location.search).not.toContain('candidate='));
+  await waitFor(() => expect(trigger).toHaveFocus());
+});
+
 test('候选登记有未提交内容时确认关闭', async () => {
   mockCandidateWorkspace();
   render(<App />);
@@ -501,7 +515,10 @@ test('发布记录保留单一主入口，并在更多菜单展示其余服务�
   expect(await drawer.findByRole('button', { name: '确认提交' })).toBeInTheDocument();
   expect(drawer.getAllByText('平台拒绝')).toHaveLength(2);
   expect(window.location.search).toContain(`record=${publicationId}`);
-  fireEvent.click(drawer.getByRole('button', { name: '关闭' }));
+  const closeButton = drawer.getByRole('button', { name: '关闭' });
+  closeButton.focus();
+  expect(closeButton).toHaveFocus();
+  fireEvent.click(closeButton);
   await waitFor(() => expect(moreTrigger).toHaveFocus());
 });
 

@@ -27,6 +27,7 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import { GeoObservationDrawer } from './GeoObservationDrawer';
 import { GeoObservationForm } from './GeoObservationForm';
 
@@ -100,6 +101,7 @@ function metricFilters(query: GeoObservationListQuery): GeoMetricsQuery {
 
 export function GeoObservationsPage() {
   const { message, modal } = App.useApp();
+  const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
   const [createOpen, setCreateOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<OptionalColumnKey[]>([...optionalColumnKeys]);
   const [productSearch, setProductSearch] = useState('');
@@ -305,12 +307,13 @@ export function GeoObservationsPage() {
                     cancelText: '取消',
                     okButtonProps: { danger: true },
                     onOk: () => deleteObservation.mutateAsync(row),
+                    afterClose: restoreFocus,
                   });
                 }
               },
             }}
           >
-            <Button size="small" aria-label={`更多操作：${row.id}`} icon={<DownOutlined />} />
+            <Button {...focusReturnTargetProps} size="small" aria-label={`更多操作：${row.id}`} icon={<DownOutlined />} />
           </Dropdown>
         </Space>
       ),

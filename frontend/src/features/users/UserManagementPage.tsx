@@ -48,6 +48,7 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import { useAuth } from '../auth/AuthProvider';
 
 type AccountType = Schema<'AccountType'>;
@@ -120,6 +121,7 @@ function UserSearchField({ initialValue, onSearch }: { initialValue: string; onS
 export function UserManagementPage() {
   const auth = useAuth();
   const { message, modal } = App.useApp();
+  const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<User>();
   const [resetting, setResetting] = useState<User>();
@@ -264,6 +266,7 @@ export function UserManagementPage() {
     cancelText: '取消',
     okButtonProps: user.is_active ? { danger: true } : undefined,
     onOk: () => toggleStatus.mutateAsync({ user, isActive: !user.is_active }),
+    afterClose: restoreFocus,
   });
   const confirmBulk = (status: UserStatus) => {
     if (!selectedUsers.length) return;
@@ -284,6 +287,7 @@ export function UserManagementPage() {
     cancelText: '取消',
     okButtonProps: { danger: true },
     onOk: () => deleteUser.mutate(user),
+    afterClose: restoreFocus,
   });
   const exportCurrent = () => {
     if (users.data?.total === 0) { message.info('当前筛选没有可导出的用户'); return; }
@@ -373,7 +377,7 @@ export function UserManagementPage() {
                     { title: '状态', dataIndex: 'is_active', width: 105, render: (value: boolean) => <StatusTag compact status={value ? 'ENABLED' : 'DISABLED'} /> },
                     { title: '必须修改密码', dataIndex: 'must_change_password', width: 135, render: (value: boolean) => <Tag className={`user-management-boolean user-management-boolean-${value ? 'yes' : 'no'}`}>{value ? '是' : '否'}</Tag> },
                     { title: '创建时间', dataIndex: 'created_at', width: 168, render: (value: string) => <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> },
-                    { title: '操作', fixed: 'right', width: 104, render: (_, row) => <Space size={4}>{row.available_actions.includes('UPDATE') && <Tooltip title={`编辑 ${row.username}`}><Button aria-label={`编辑用户：${row.username}`} size="small" icon={<EditOutlined />} onClick={() => { update.reset(); setEditing(row); }} /></Tooltip>}{rowMenu(row).items?.length ? <Dropdown trigger={['click']} menu={rowMenu(row)}><Button aria-label={`更多操作：${row.username}`} size="small" icon={<EllipsisOutlined />} /></Dropdown> : null}</Space> },
+                    { title: '操作', fixed: 'right', width: 104, render: (_, row) => <Space size={4}>{row.available_actions.includes('UPDATE') && <Tooltip title={`编辑 ${row.username}`}><Button aria-label={`编辑用户：${row.username}`} size="small" icon={<EditOutlined />} onClick={() => { update.reset(); setEditing(row); }} /></Tooltip>}{rowMenu(row).items?.length ? <Dropdown trigger={['click']} menu={rowMenu(row)}><Button {...focusReturnTargetProps} aria-label={`更多操作：${row.username}`} size="small" icon={<EllipsisOutlined />} /></Dropdown> : null}</Space> },
                   ]}
                 />
               </TableRegion>

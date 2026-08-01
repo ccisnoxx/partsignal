@@ -38,6 +38,7 @@ type PublicationDrawerProps = {
   initialAction?: PublicationCommandAction;
   deletePending: boolean;
   onClose: () => void;
+  onAfterClose: () => void;
   onCreated: (publicationId: string) => void;
   onDelete: (record: PublicationDeleteTarget) => void;
 };
@@ -48,6 +49,7 @@ export function PublicationDrawer({
   initialAction,
   deletePending,
   onClose,
+  onAfterClose,
   onCreated,
   onDelete,
 }: PublicationDrawerProps) {
@@ -78,6 +80,7 @@ export function PublicationDrawer({
       open={!!candidate || !!publicationId}
       size="large"
       onClose={requestClose}
+      afterOpenChange={(open) => { if (!open) onAfterClose(); }}
       destroyOnHidden
       keyboard
     >

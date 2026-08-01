@@ -19,7 +19,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME } from '../../app/queryClient';
 import { api, unwrap } from '../../shared/api/client';
@@ -35,6 +35,7 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import {
   actionLabel,
   AuditLogDetailPanel,
@@ -191,6 +192,9 @@ export function AuditLogPage() {
   const [pageVisible, setPageVisible] = useState(() => document.visibilityState === 'visible');
   const [selectedId, setSelectedId] = useState<string>();
   const [actorSearch, setActorSearch] = useState('');
+  // 只在真实关闭移动 Drawer 后恢复，避免断点切换抢走详情焦点。
+  const restoreAfterDrawerClose = useRef(false);
+  const { rememberFocusTarget, restoreFocus } = useFocusReturn();
   const defaults = useMemo(() => defaultDateRange(), []);
   const sourceSearch = searchParams.toString();
   const view = useMemo(() => parseAuditView(searchParams, defaults), [defaults, searchParams]);
@@ -303,6 +307,15 @@ export function AuditLogPage() {
     ...(filterOptions.data?.actions.map((value) => ({ value, label: actionLabel(value) })) ?? []),
   ];
   const desktopDetail = !!screens.xl;
+  const openDetail = (id: string, trigger: HTMLElement) => {
+    rememberFocusTarget(trigger);
+    setSelectedId(id);
+  };
+  const closeDetail = () => {
+    setSelectedId(undefined);
+    if (desktopDetail) requestAnimationFrame(restoreFocus);
+    else restoreAfterDrawerClose.current = true;
+  };
   const refresh = async () => {
     await Promise.all([
       audit.refetch(),
@@ -317,7 +330,7 @@ export function AuditLogPage() {
       detail={detail.data}
       error={detail.error}
       loading={detail.isLoading}
-      onClose={() => setSelectedId(undefined)}
+      onClose={closeDetail}
       onRetry={() => void detail.refetch()}
     />
   ) : null;
@@ -476,7 +489,7 @@ export function AuditLogPage() {
                     { title: '对象标识', dataIndex: 'target_id', width: 126, ellipsis: true, render: (value: string | null) => <TableCellText text={value ?? '未创建'} mono /> },
                     { title: '执行结果', dataIndex: 'outcome', width: 76, render: (value: string) => <StatusTag compact status={value} /> },
                     { title: '请求 ID', dataIndex: 'request_id', width: 144, ellipsis: true, render: (value: string) => <TableCellText text={value} mono /> },
-                    { title: '操作', fixed: 'right', width: 50, render: (_, row) => <Tooltip title="查看日志详情"><Button aria-label={`查看日志详情：${row.id}`} size="small" icon={<EyeOutlined />} onClick={() => setSelectedId(row.id)} /></Tooltip> },
+                    { title: '操作', fixed: 'right', width: 50, render: (_, row) => <Tooltip title="查看日志详情"><Button aria-label={`查看日志详情：${row.id}`} size="small" icon={<EyeOutlined />} onClick={(event) => openDetail(row.id, event.currentTarget)} /></Tooltip> },
                   ]}
                 />
               </TableRegion>
@@ -509,7 +522,12 @@ export function AuditLogPage() {
         size="min(420px, 100vw)"
         open={!!selectedId && !desktopDetail}
         closable={false}
-        onClose={() => setSelectedId(undefined)}
+        onClose={closeDetail}
+        afterOpenChange={(open) => {
+          if (open || !restoreAfterDrawerClose.current) return;
+          restoreAfterDrawerClose.current = false;
+          restoreFocus();
+        }}
         styles={{ body: { padding: 0 } }}
       >
         {detailPanel}

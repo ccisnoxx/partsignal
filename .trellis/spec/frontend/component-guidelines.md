@@ -119,7 +119,7 @@ token: {
 - 路由 pathname 变化后由 `AppLayout` 将焦点移到 `Layout.Content`，并调用 `focus({ preventScroll: true })`；查询参数变化不得抢焦点。
 - `/users`、`/audit` 和 `/configuration/*` 必须共用 `AdminRoute`，在受限页面挂载前判断管理员权限。未获权访问保留原 URL，展示带恢复操作的 403，并在 `AppLayout` 路由焦点完成后把焦点移入提示区域；页面内部不得再维护查询开关或重定向。
 - 弹窗、下拉菜单和表格滚动区继续使用 Ant Design 与 `TableRegion` 的键盘和可访问语义，不手写第二套焦点圈定。
-- 工作台侧栏只在 URL 中存在真实选中对象时渲染 Ant Drawer；移动端使用全宽 Drawer。关闭后清理对象查询参数并由 Ant 恢复触发器焦点，不保留无对象的永久占位面板。
+- 工作台侧栏只在 URL 中存在真实选中对象时渲染 Ant Drawer；移动端使用全宽 Drawer。关闭后清理对象查询参数并恢复原触发器焦点，不保留无对象的永久占位面板。
 
 ---
 

@@ -43,6 +43,15 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   await expect(page.getByRole('button', { name: '打开用户操作菜单' })).toBeVisible();
   await page.goto('/audit');
   await expect(page.getByRole('heading', { name: '审计日志' })).toBeVisible();
+  await page.setViewportSize({ width: 375, height: 812 });
+  const auditDetailTrigger = page.getByRole('button', { name: /查看日志详情：/ }).first();
+  await expect(auditDetailTrigger).toBeVisible();
+  await auditDetailTrigger.focus();
+  await auditDetailTrigger.click();
+  await expect(page.getByRole('heading', { name: '日志详情' })).toBeVisible();
+  await page.getByRole('button', { name: '关闭日志详情' }).click();
+  await expect(auditDetailTrigger).toBeFocused();
+  await page.setViewportSize({ width: 1536, height: 1024 });
   type TestUser = { id: string; username: string; display_name: string; account_type: 'ADMIN' | 'ENGINEER'; is_active: boolean; revision: number };
   for (const rule of [
     { prefix: 'admin-', pattern: /^admin-([0-9a-f]{8})$/, displayPrefix: '管理员 ', accountType: 'ADMIN' },
@@ -417,6 +426,14 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.getByRole('tab', { name: '请求配置' }).click();
   await expect(page.getByRole('region', { name: '请求 Header 列表' })).toBeVisible();
   await expect(page.getByText('••••••', { exact: true }).first()).toBeVisible();
+  const headerMore = page.getByRole('button', { name: '更多操作：Header X-E2E-Region' });
+  await headerMore.focus();
+  await headerMore.click();
+  await page.getByRole('menuitem', { name: '删除' }).click();
+  const headerDeleteDialog = page.getByRole('dialog', { name: '删除 Header“X-E2E-Region”？' });
+  await expect(headerDeleteDialog).toBeVisible();
+  await headerDeleteDialog.getByRole('button', { name: /取\s*消/ }).click();
+  await expect(headerMore).toBeFocused();
   await page.getByRole('tab', { name: '模型管理' }).click();
   await expect(page.getByText('E2E 模型', { exact: true })).toBeVisible();
   await page.goto('/configuration/platforms');
@@ -747,7 +764,9 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   });
   await expect(publicationRow).toBeVisible();
   await expect(publicationRow.getByText(`E2E ${suffix}`, { exact: true })).toBeVisible();
-  await publicationRow.getByRole('button', { name: `更多操作：人工核对 ${product!.part_number}` }).click();
+  const publicationMore = publicationRow.getByRole('button', { name: `更多操作：人工核对 ${product!.part_number}` });
+  await publicationMore.focus();
+  await publicationMore.click();
   await page.getByRole('menuitem', { name: '标记已移除' }).click();
   const publicationDrawer = page.getByRole('dialog', { name: '发布结果登记' });
   await expect(publicationDrawer).toBeVisible();
@@ -758,6 +777,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(publicationDrawer.getByText('e2e-prepared.png')).toBeVisible();
   await expect(publicationDrawer.getByText('e2e-result.png')).toBeVisible();
   await publicationDrawer.getByRole('button', { name: '关闭' }).click();
+  await expect(publicationMore).toBeFocused();
 
   await page.goto(`/publications/${publication.id}`);
   await expect(page.getByRole('button', { name: '在工作台处理' })).toBeVisible();

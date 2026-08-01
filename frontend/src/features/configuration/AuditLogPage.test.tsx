@@ -200,7 +200,9 @@ test('查看详情展示历史缺失值和真实关联入口，手动刷新同�
 
   render(<App />);
   await screen.findByLabelText('系统管理员');
-  await userEvent.click(screen.getByRole('button', { name: `查看日志详情：${auditLog.id}` }));
+  const detailTrigger = screen.getByRole('button', { name: `查看日志详情：${auditLog.id}` });
+  detailTrigger.focus();
+  await userEvent.click(detailTrigger);
 
   expect(await screen.findByRole('heading', { name: '日志详情' })).toBeInTheDocument();
   expect(screen.getByText('历史未记录')).toBeInTheDocument();
@@ -216,6 +218,7 @@ test('查看详情展示历史缺失值和真实关联入口，手动刷新同�
   });
   fireEvent.click(screen.getByRole('button', { name: '关闭日志详情' }));
   expect(screen.queryByRole('heading', { name: '日志详情' })).not.toBeInTheDocument();
+  await waitFor(() => expect(detailTrigger).toHaveFocus());
 });
 
 test('自动刷新默认关闭，开启后每 30 秒刷新且页面隐藏时暂停', async () => {

@@ -27,6 +27,7 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 
 type PlatformAccount = Schema<'PlatformAccount'>;
 
@@ -67,6 +68,7 @@ function PlatformAccountsPanel({
   const [editing, setEditing] = useState<PlatformAccount>();
   const [modal, modalContext] = Modal.useModal();
   const { message } = App.useApp();
+  const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
   const accountQuery: PlatformAccountListQuery = platformProfileId
     ? { platform_profile_id: platformProfileId }
     : {};
@@ -161,6 +163,7 @@ function PlatformAccountsPanel({
       cancelText: '取消',
       okButtonProps: { danger: true },
       onOk: () => setEnabled.mutate({ account, enabled: false }),
+      afterClose: restoreFocus,
     });
   const confirmDelete = (account: PlatformAccount) =>
     modal.confirm({
@@ -170,6 +173,7 @@ function PlatformAccountsPanel({
       cancelText: '取消',
       okButtonProps: { danger: true },
       onOk: () => remove.mutate(account.id),
+      afterClose: restoreFocus,
     });
   const handleAction = (key: string, account: PlatformAccount) => {
     if (key === 'edit') {
@@ -276,6 +280,7 @@ function PlatformAccountsPanel({
                   }}
                 >
                   <Button
+                    {...focusReturnTargetProps}
                     size="small"
                     aria-label={`更多操作：${account.label}`}
                     loading={

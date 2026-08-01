@@ -184,12 +184,15 @@ async function openCandidateDrawer() {
     expect(root).not.toBeNull();
     return root!;
   }));
-  fireEvent.click(await page.findByRole('button', { name: '准备人工发布' }));
-  return waitFor(() => {
+  const trigger = await page.findByRole('button', { name: '准备人工发布' });
+  trigger.focus();
+  fireEvent.click(trigger);
+  const drawer = await waitFor(() => {
     const drawer = document.querySelector<HTMLElement>('.publication-drawer-root [role="dialog"]');
     expect(drawer).not.toBeNull();
     return drawer!;
   });
+  return { drawer, trigger };
 }
 
 async function findPublicationConfirm() {
@@ -216,7 +219,7 @@ test('候选登记抽屉只展示匹配账号', async () => {
   mockCandidateWorkspace();
   render(<App />);
   expect(document.querySelector('[role="dialog"]')).not.toBeInTheDocument();
-  const drawer = await openCandidateDrawer();
+  const { drawer } = await openCandidateDrawer();
   expect(within(drawer).getByText('本篇文章只能选择一个账号')).toBeInTheDocument();
   const accountSelect = within(drawer).getByRole('combobox', { name: '发布账号' });
   await waitFor(() => expect(accountSelect).toBeEnabled());
@@ -237,7 +240,7 @@ test('候选登记抽屉只展示匹配账号', async () => {
 test('候选登记有未提交内容时确认关闭', async () => {
   mockCandidateWorkspace();
   render(<App />);
-  const drawer = await openCandidateDrawer();
+  const { drawer, trigger } = await openCandidateDrawer();
   const sectionUrl = within(drawer).getByRole('textbox', { name: '目标栏目 URL' });
   await waitFor(() => expect(sectionUrl).toBeEnabled());
   fireEvent.change(sectionUrl, { target: { value: 'https://community.example.invalid/section' } });
@@ -249,6 +252,7 @@ test('候选登记有未提交内容时确认关闭', async () => {
   const discardDialog = await findPublicationConfirm();
   fireEvent.click(within(discardDialog).getByRole('button', { name: '放弃并关闭' }));
   await waitFor(() => expect(window.location.search).not.toContain('candidate='));
+  await waitFor(() => expect(trigger).toHaveFocus());
 });
 
 test('候选发布包加载失败时展示真实错误并阻止登记', async () => {
@@ -263,7 +267,7 @@ test('候选发布包加载失败时展示真实错误并阻止登记', async ()
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
   render(<App />);
-  const drawer = within(await openCandidateDrawer());
+  const drawer = within((await openCandidateDrawer()).drawer);
   expect(await drawer.findByText('发布包加载失败')).toBeInTheDocument();
   expect(drawer.queryByRole('button', { name: '复制标题' })).not.toBeInTheDocument();
   expect(drawer.getByRole('button', { name: '登记待人工发布' })).toBeDisabled();
@@ -485,7 +489,9 @@ test('发布记录保留单一主入口，并在更多菜单展示其余服务�
   });
   render(<App />);
 
-  fireEvent.click(await screen.findByRole('button', { name: `更多操作：${content.title}` }));
+  const moreTrigger = await screen.findByRole('button', { name: `更多操作：${content.title}` });
+  moreTrigger.focus();
+  fireEvent.click(moreTrigger);
   expect(await screen.findByRole('menuitem', { name: '平台拒绝' })).toBeInTheDocument();
   expect(screen.getByRole('menuitem', { name: '删除记录' })).toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: '登记已发布' })).not.toBeInTheDocument();
@@ -495,6 +501,8 @@ test('发布记录保留单一主入口，并在更多菜单展示其余服务�
   expect(await drawer.findByRole('button', { name: '确认提交' })).toBeInTheDocument();
   expect(drawer.getAllByText('平台拒绝')).toHaveLength(2);
   expect(window.location.search).toContain(`record=${publicationId}`);
+  fireEvent.click(drawer.getByRole('button', { name: '关闭' }));
+  await waitFor(() => expect(moreTrigger).toHaveFocus());
 });
 
 test('已有公开历史且无其他动作时只保留查看记录', async () => {

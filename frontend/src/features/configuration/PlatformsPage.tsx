@@ -58,6 +58,7 @@ import { PlatformAvatar } from '../../shared/components/PlatformAvatar';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import { PlatformDetailPanel } from './PlatformDetailPanel';
 
 type PlatformLogoSource = 'UNCHANGED' | 'NONE' | 'UPLOAD';
@@ -112,6 +113,7 @@ export function PlatformsPage() {
   const lastDetailTriggerId = useRef<string | null>(null);
   const screens = Grid.useBreakpoint();
   const { message } = App.useApp();
+  const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
 
   const rawStatus = searchParams.get('status');
   const rawConfigurationStatus = searchParams.get('configuration_status');
@@ -251,13 +253,14 @@ export function PlatformsPage() {
   const mutationError = create.error ?? updateProfile.error ?? toggleProfile.error ?? exportList.error;
   const hasFilters = !!(q || platformTypeId || status || configurationStatus);
 
-  const confirmDelete = (profile: PlatformProfile) => modal.confirm({
+  const confirmDelete = (profile: PlatformProfile, afterClose?: () => void) => modal.confirm({
     title: `物理删除平台“${profile.name}”？`,
     content: 'Prompt 模板不会随平台删除；存在内容任务或平台账号引用时服务端会明确拒绝，历史记录不会被改写。',
     okText: '删除', cancelText: '取消', okButtonProps: { danger: true },
     onOk: () => removeProfile.mutateAsync(profile),
+    afterClose,
   });
-  const confirmToggle = (profile: PlatformProfile) => modal.confirm({
+  const confirmToggle = (profile: PlatformProfile, afterClose?: () => void) => modal.confirm({
     title: `${profile.is_active ? '停用' : '启用'}平台“${profile.name}”？`,
     content: profile.is_active
       ? '停用后不能新建关联任务、账号或发布记录；既有配置和历史保持不变。'
@@ -265,6 +268,7 @@ export function PlatformsPage() {
     okText: profile.is_active ? '停用平台' : '启用平台', cancelText: '取消',
     okButtonProps: profile.is_active ? { danger: true } : undefined,
     onOk: () => toggleProfile.mutateAsync(profile),
+    afterClose,
   });
 
   const rowMenu = (profile: PlatformProfile): MenuProps => {
@@ -277,8 +281,8 @@ export function PlatformsPage() {
       items,
       onClick: ({ key }) => {
         if (key === 'edit') setEditProfile(profile);
-        else if (key === 'toggle') confirmToggle(profile);
-        else if (key === 'delete') confirmDelete(profile);
+        else if (key === 'toggle') confirmToggle(profile, restoreFocus);
+        else if (key === 'delete') confirmDelete(profile, restoreFocus);
       },
     };
   };
@@ -375,7 +379,7 @@ export function PlatformsPage() {
                 { title: '当前 Prompt', width: 160, ellipsis: true, render: (_, profile) => profile.platform_prompt ? <TableCellText text={profile.platform_prompt.name} /> : <StatusTag compact status="PROMPT_MISSING" /> },
                 { title: '发布账号数量', dataIndex: 'platform_account_count', width: 86 },
                 { title: '更新时间', dataIndex: 'updated_at', width: 124, render: (value: string | null) => value ? <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> : '—' },
-                { title: '操作', fixed: 'right', width: 104, render: (_, profile) => <Space size={4}><Tooltip title={`查看平台：${profile.name}`}><Button data-platform-view={profile.id} type="text" size="small" aria-label={`查看平台：${profile.name}`} icon={<EyeOutlined />} onClick={(event) => openDetail(profile.id, event.currentTarget)} /></Tooltip><Dropdown trigger={['click']} menu={rowMenu(profile)}><Tooltip title={`更多操作：${profile.name}`}><Button type="text" size="small" aria-label={`更多操作：${profile.name}`} icon={<EllipsisOutlined />} loading={(toggleProfile.isPending || removeProfile.isPending) && (toggleProfile.variables?.id === profile.id || removeProfile.variables?.id === profile.id)} /></Tooltip></Dropdown></Space> },
+                { title: '操作', fixed: 'right', width: 104, render: (_, profile) => <Space size={4}><Tooltip title={`查看平台：${profile.name}`}><Button data-platform-view={profile.id} type="text" size="small" aria-label={`查看平台：${profile.name}`} icon={<EyeOutlined />} onClick={(event) => openDetail(profile.id, event.currentTarget)} /></Tooltip><Dropdown trigger={['click']} menu={rowMenu(profile)}><Tooltip title={`更多操作：${profile.name}`}><Button {...focusReturnTargetProps} type="text" size="small" aria-label={`更多操作：${profile.name}`} icon={<EllipsisOutlined />} loading={(toggleProfile.isPending || removeProfile.isPending) && (toggleProfile.variables?.id === profile.id || removeProfile.variables?.id === profile.id)} /></Tooltip></Dropdown></Space> },
               ]}
             />
           </TableRegion>}

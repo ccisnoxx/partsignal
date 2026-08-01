@@ -38,6 +38,7 @@ import { MetricTile } from '../../shared/components/MetricTile';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import {
   AIChannelFormModal,
   AIProviderMark,
@@ -99,6 +100,7 @@ export function AIChannelDetailPage() {
   const [usagePeriod, setUsagePeriod] = useState<Schema<'AIUsagePeriod'>>('30d');
   const [logPage, setLogPage] = useState(1);
   const [modal, modalContext] = Modal.useModal();
+  const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
   const tab = AI_CHANNEL_DETAIL_TAB_KEYS.includes(searchParams.get('tab') as AIChannelDetailTab)
     ? searchParams.get('tab') as AIChannelDetailTab
     : 'basic';
@@ -428,8 +430,8 @@ export function AIChannelDetailPage() {
             ...(row.available_actions.includes('UPDATE') ? [{ key: 'edit', label: '编辑' }] : []),
             ...(row.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
           ],
-          onClick: ({ key }) => key === 'edit' ? setEditingHeader(row) : modal.confirm({ title: `删除 Header“${row.name}”？`, okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteHeader.mutateAsync(row.id) }),
-        }}><Button size="small" type="text" icon={<DownOutlined />} aria-label={`更多操作：Header ${row.name}`} /></Dropdown> },
+          onClick: ({ key }) => key === 'edit' ? setEditingHeader(row) : modal.confirm({ title: `删除 Header“${row.name}”？`, okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteHeader.mutateAsync(row.id), afterClose: restoreFocus }),
+        }}><Button {...focusReturnTargetProps} size="small" type="text" icon={<DownOutlined />} aria-label={`更多操作：Header ${row.name}`} /></Dropdown> },
       ]}
     /></TableRegion>}
   </div>;
@@ -451,8 +453,8 @@ export function AIChannelDetailPage() {
               ...(row.available_actions.includes('UPDATE') ? [{ key: 'edit', label: '编辑' }] : []),
               ...(row.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
             ],
-            onClick: ({ key }) => key === 'toggle' ? toggleModel.mutate(row) : key === 'edit' ? setEditingModel(row) : modal.confirm({ title: `删除模型“${row.display_name}”？`, content: '历史作业快照会保留，但未执行的关联作业将因配置缺失而失败。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteModel.mutateAsync(row) }),
-          }}><Button size="small" type="text" icon={<DownOutlined />} aria-label={`更多模型操作：${row.display_name}`} /></Dropdown>
+            onClick: ({ key }) => key === 'toggle' ? toggleModel.mutate(row) : key === 'edit' ? setEditingModel(row) : modal.confirm({ title: `删除模型“${row.display_name}”？`, content: '历史作业快照会保留，但未执行的关联作业将因配置缺失而失败。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteModel.mutateAsync(row), afterClose: restoreFocus }),
+          }}><Button {...focusReturnTargetProps} size="small" type="text" icon={<DownOutlined />} aria-label={`更多模型操作：${row.display_name}`} /></Dropdown>
         </Space> },
       ]}
     /></TableRegion>}

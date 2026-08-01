@@ -266,7 +266,7 @@ PartSignal 必须呈现“macOS 原生应用秩序感 × 轻量磨砂玻璃 × �
 - 所有操作必须可由键盘完成，并保持符合阅读顺序的焦点顺序；不得使用仅 Hover 才出现且无法聚焦的必要操作。
 - 可交互元素必须使用原生语义或 Ant Design 组件，并具有可访问名称；图标按钮、Drawer、表格滚动区和复杂图表必须提供明确标签。
 - `:focus-visible` 焦点必须清晰、连续且不被粘性区域或浮层遮挡。路由 pathname 变化后的焦点管理必须沿用 `AppLayout`，查询参数变化不得抢焦点。
-- 模态、Dropdown 和 Drawer 必须沿用 Ant Design 的焦点圈定、Escape 关闭和触发器焦点恢复，不得手写第二套焦点管理。
+- 模态、Dropdown 和 Drawer 必须沿用 Ant Design 的焦点圈定与 Escape 关闭，默认使用其触发器焦点恢复。只有已验证不能自动恢复的 Dropdown 静态确认链或状态持有详情浮层，才能按 `hook-guidelines.md` 使用共享 `useFocusReturn`；不得在页面内手写第二套焦点管理。
 - 移动端关键操作目标必须至少为 44 × 44 CSS px；桌面紧凑控件不得牺牲键盘可用性。
 
 ### 6.4 对比度与非颜色表达

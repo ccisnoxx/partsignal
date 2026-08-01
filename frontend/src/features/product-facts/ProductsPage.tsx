@@ -13,6 +13,7 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import { queryClient } from '../../app/queryClient';
 import { DeletionError } from '../../shared/components/DeletionError';
 
@@ -27,6 +28,7 @@ export function ProductsPage() {
   const createErrorRef = useRef<HTMLDivElement>(null);
   const [modal, modalContext] = Modal.useModal();
   const { message } = App.useApp();
+  const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
   const products = useQuery(productsQueryOptions(search));
   useEffect(() => {
     if ((rawPage !== null && !/^[1-9]\d*$/.test(rawPage)) || (products.data && page > Math.max(1, Math.ceil(products.data.items.length / 20)))) {
@@ -58,7 +60,7 @@ export function ProductsPage() {
     if (create.error) createErrorRef.current?.focus();
   }, [create.error]);
   const remove = useMutation({ mutationFn: async (product: Product) => ensureSuccess(await api.DELETE('/api/v1/products/{product_id}', { params: { path: { product_id: product.id }, header: csrfHeader() } })), onSuccess: async () => { message.success('产品已删除'); await queryClient.invalidateQueries({ queryKey: queryKeys.products.all }); } });
-  const confirmDelete = (product: Product) => modal.confirm({ title: `物理删除产品“${product.part_number}”？`, content: '只会删除产品及当前事实工作区；存在任何历史引用时服务端会拒绝。此操作不可恢复。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => remove.mutate(product) });
+  const confirmDelete = (product: Product) => modal.confirm({ title: `物理删除产品“${product.part_number}”？`, content: '只会删除产品及当前事实工作区；存在任何历史引用时服务端会拒绝。此操作不可恢复。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => remove.mutate(product), afterClose: restoreFocus });
   const openCreate = () => {
     create.reset();
     createForm.resetFields();
@@ -98,7 +100,7 @@ export function ProductsPage() {
           { title: '型号', dataIndex: 'part_number', width: 280, ellipsis: true, render: (value, item) => <Tooltip title={value} trigger={['hover', 'focus']}><Link className="table-cell-ellipsis data-code" aria-label={value} to={`/products/${item.id}`}>{value}</Link></Tooltip> },
           { title: '品牌', dataIndex: 'brand', width: 180, ellipsis: true, render: (value) => <TableCellText text={value} /> }, { title: '类别', dataIndex: 'category', width: 180, ellipsis: true, render: (value) => <TableCellText text={value} /> },
           { title: '状态', dataIndex: 'status', width: 110, render: (value) => <StatusTag status={value} /> },
-          { title: '操作', fixed: 'right', width: 110, render: (_, item) => item.available_actions.includes('DELETE') ? <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(item) }}><Button size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown> : '—' },
+          { title: '操作', fixed: 'right', width: 110, render: (_, item) => item.available_actions.includes('DELETE') ? <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(item) }}><Button {...focusReturnTargetProps} size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown> : '—' },
         ]} /></TableRegion>}
       </Card>
       <Modal rootClassName="products-create-dialog" title="新增产品" open={createOpen} onCancel={requestCloseCreate} footer={null} closable={!create.isPending} keyboard={!create.isPending} mask={{ closable: !create.isPending }} destroyOnHidden>

@@ -48,6 +48,7 @@ import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { CONTENT_TAG_ERROR, contentTagRules, isContentTagsValidationError } from '../../shared/contentValidation';
 import { useActiveSection } from '../../shared/hooks/useActiveSection';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import { renderSanitizedMarkdown } from '../../shared/markdown';
 
 const taskSectionIds = ['task-context', 'task-entry', 'task-versions'];
@@ -82,6 +83,7 @@ function TaskList() {
   const [open, setOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<ContentTaskListItem>();
   const cancelTriggerRef = useRef<HTMLElement>(null);
+  const { rememberFocusTarget, restoreFocus } = useFocusReturn();
   const [searchParams, setSearchParams] = useSearchParams();
   const rawPage = searchParams.get('page');
   const rawStatus = searchParams.get('status');
@@ -142,6 +144,7 @@ function TaskList() {
     cancelText: '取消',
     okButtonProps: { danger: true },
     onOk: () => deleteTask.mutateAsync(target),
+    afterClose: restoreFocus,
   });
 
   useEffect(() => {
@@ -261,8 +264,14 @@ function TaskList() {
                       aria-label={`更多操作：${row.product.brand} ${row.product.part_number}`}
                       disabled={row.available_actions.length === 0}
                       loading={deleteTask.isPending && deleteTask.variables?.id === row.id}
-                      onFocus={(event) => { cancelTriggerRef.current = event.currentTarget; }}
-                      onPointerDown={(event) => { cancelTriggerRef.current = event.currentTarget; }}
+                      onFocus={(event) => {
+                        cancelTriggerRef.current = event.currentTarget;
+                        rememberFocusTarget(event.currentTarget);
+                      }}
+                      onPointerDown={(event) => {
+                        cancelTriggerRef.current = event.currentTarget;
+                        rememberFocusTarget(event.currentTarget);
+                      }}
                     />
                   );
                   return <Space size={2}>

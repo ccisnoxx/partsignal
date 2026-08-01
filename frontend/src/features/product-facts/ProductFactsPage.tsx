@@ -31,6 +31,7 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import { renderSanitizedMarkdown } from '../../shared/markdown';
 
 const classificationOptions: Array<{ label: string; value: Schema<'Confidentiality'> }> = [
@@ -62,6 +63,7 @@ export function ProductFactsPage() {
   const createVersionErrorRef = useRef<HTMLDivElement>(null);
   const commandErrorRef = useRef<HTMLDivElement>(null);
   const [modal, modalContext] = Modal.useModal();
+  const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
 
   const product = useQuery({
     queryKey: queryKeys.products.detail(productId),
@@ -159,6 +161,7 @@ export function ProductFactsPage() {
     cancelText: '取消',
     okButtonProps: { danger: true },
     onOk: () => remove.mutate(version),
+    afterClose: restoreFocus,
   });
   const discardFactsChanges = () => {
     setFactsDirty(false);
@@ -244,7 +247,7 @@ export function ProductFactsPage() {
                         ],
                         onClick: ({ key }) => key === 'snapshot' ? setSnapshotTarget(version) : confirmDeleteVersion(version),
                       }}>
-                        <Button size="small" aria-label={`更多操作：事实版本 V${version.version}`} loading={remove.isPending && remove.variables?.id === version.id}>更多 <DownOutlined /></Button>
+                        <Button {...focusReturnTargetProps} size="small" aria-label={`更多操作：事实版本 V${version.version}`} loading={remove.isPending && remove.variables?.id === version.id}>更多 <DownOutlined /></Button>
                       </Dropdown>
                     </Space> },
                   ]}

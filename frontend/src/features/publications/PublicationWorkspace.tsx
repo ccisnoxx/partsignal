@@ -39,6 +39,7 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import { PublicationDrawer } from './PublicationDrawer';
 import {
   actionLabels,
@@ -68,6 +69,9 @@ function includesString<T extends string>(values: readonly T[], value: string): 
 export function PublicationWorkspace() {
   const navigate = useNavigate();
   const { message, modal } = App.useApp();
+  // 确认框与 Drawer 分开持有目标，避免内层确认消费外层 Drawer 入口。
+  const confirmFocus = useFocusReturn();
+  const drawerFocus = useFocusReturn();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedCommand, setSelectedCommand] = useState<{
     publicationId: string;
@@ -205,12 +209,17 @@ export function PublicationWorkspace() {
     }
     setSearchParams(next, { replace });
   };
-  const openCandidate = (item: PublicationCandidate) => setView({ candidate: item.content_version.id, record: undefined });
-  const openRecord = (publicationId: string) => {
+  const openCandidate = (item: PublicationCandidate, trigger: HTMLElement) => {
+    drawerFocus.rememberFocusTarget(trigger);
+    setView({ candidate: item.content_version.id, record: undefined });
+  };
+  const openRecord = (publicationId: string, trigger?: HTMLElement) => {
+    if (trigger) drawerFocus.rememberFocusTarget(trigger);
     setSelectedCommand(undefined);
     setView({ record: publicationId, candidate: undefined });
   };
-  const openRecordAction = (publicationId: string, action: PublicationCommandAction) => {
+  const openRecordAction = (publicationId: string, action: PublicationCommandAction, trigger?: HTMLElement) => {
+    if (trigger) drawerFocus.rememberFocusTarget(trigger);
     setSelectedCommand({ publicationId, action });
     setView({ record: publicationId, candidate: undefined });
   };
@@ -273,9 +282,10 @@ export function PublicationWorkspace() {
       cancelText: '返回',
       okButtonProps: { danger: true },
       onOk: () => cancelCandidate.mutateAsync(candidate),
+      afterClose: confirmFocus.restoreFocus,
     });
   };
-  const confirmDeletePublication = (record: PublicationDeleteTarget) => {
+  const confirmDeletePublication = (record: PublicationDeleteTarget, afterClose?: () => void) => {
     modal.confirm({
       title: '删除未公开发布记录？',
       content: (
@@ -292,6 +302,7 @@ export function PublicationWorkspace() {
       cancelText: '取消',
       okButtonProps: { danger: true },
       onOk: () => deletePublication.mutateAsync(record),
+      afterClose,
     });
   };
   const showRecordStatus = (status: PublicationStatus) => setView({ tab: 'records', record_status: status, records_page: undefined });
@@ -342,6 +353,7 @@ export function PublicationWorkspace() {
                   onView={setView}
                   onOpen={openCandidate}
                   onCancel={confirmCancelCandidate}
+                  onRememberConfirmTrigger={confirmFocus.rememberFocusTarget}
                   cancelPending={cancelCandidate.isPending}
                 />
               ),
@@ -360,7 +372,11 @@ export function PublicationWorkspace() {
                   onView={setView}
                   onOpen={openRecord}
                   onAction={openRecordAction}
-                  onDelete={confirmDeletePublication}
+                  onDelete={(record) => confirmDeletePublication(record, confirmFocus.restoreFocus)}
+                  onRememberMenuTrigger={(trigger) => {
+                    confirmFocus.rememberFocusTarget(trigger);
+                    drawerFocus.rememberFocusTarget(trigger);
+                  }}
                   deletePending={deletePublication.isPending}
                 />
               ),
@@ -399,6 +415,7 @@ export function PublicationWorkspace() {
         initialAction={selectedCommand?.publicationId === selectedPublicationId ? selectedCommand?.action : undefined}
         deletePending={deletePublication.isPending}
         onClose={closeDrawer}
+        onAfterClose={drawerFocus.restoreFocus}
         onCreated={(publicationId) => setView({ tab: 'records', record: publicationId, candidate: undefined })}
         onDelete={confirmDeletePublication}
       />
@@ -452,6 +469,7 @@ function CandidateList({
   onView,
   onOpen,
   onCancel,
+  onRememberConfirmTrigger,
   cancelPending,
 }: {
   items: PublicationCandidate[];
@@ -461,8 +479,9 @@ function CandidateList({
   platformOptions: Array<{ value: string; label: string }>;
   search: string;
   onView: (values: Record<string, string | number | undefined>, replace?: boolean) => void;
-  onOpen: (item: PublicationCandidate) => void;
+  onOpen: (item: PublicationCandidate, trigger: HTMLElement) => void;
   onCancel: (item: PublicationCandidate) => void;
+  onRememberConfirmTrigger: (trigger: HTMLElement) => void;
   cancelPending: boolean;
 }) {
   return (
@@ -511,7 +530,7 @@ function CandidateList({
               fixed: 'right',
               width: 190,
               render: (_, row) => <Space size={4}>
-                <Button type="primary" disabled={!row.available_actions.includes('REGISTER')} onClick={() => onOpen(row)}>准备人工发布</Button>
+                <Button type="primary" disabled={!row.available_actions.includes('REGISTER')} onClick={(event) => onOpen(row, event.currentTarget)}>准备人工发布</Button>
                 <Dropdown
                   trigger={['click']}
                   menu={{
@@ -528,6 +547,8 @@ function CandidateList({
                     aria-label={`更多操作：${row.content_version.title}`}
                     icon={<MoreOutlined />}
                     disabled={cancelPending}
+                    onFocus={(event) => onRememberConfirmTrigger(event.currentTarget)}
+                    onPointerDown={(event) => onRememberConfirmTrigger(event.currentTarget)}
                   />
                 </Dropdown>
               </Space>,
@@ -550,6 +571,7 @@ function RecordList({
   onOpen,
   onAction,
   onDelete,
+  onRememberMenuTrigger,
   deletePending,
 }: {
   items: PublicationRecord[];
@@ -559,9 +581,10 @@ function RecordList({
   status?: PublicationStatus;
   statusOptions: PublicationStatus[];
   onView: (values: Record<string, string | number | undefined>, replace?: boolean) => void;
-  onOpen: (publicationId: string) => void;
-  onAction: (publicationId: string, action: PublicationCommandAction) => void;
+  onOpen: (publicationId: string, trigger?: HTMLElement) => void;
+  onAction: (publicationId: string, action: PublicationCommandAction, trigger?: HTMLElement) => void;
   onDelete: (record: PublicationDeleteTarget) => void;
+  onRememberMenuTrigger: (trigger: HTMLElement) => void;
   deletePending: boolean;
 }) {
   return (
@@ -636,12 +659,21 @@ function RecordList({
                   <Space size={4}>
                     <Button
                       type={canMarkPublished ? 'primary' : 'default'}
-                      onClick={() => canMarkPublished ? onAction(row.id, 'mark-published') : onOpen(row.id)}
+                      onClick={(event) => canMarkPublished
+                        ? onAction(row.id, 'mark-published', event.currentTarget)
+                        : onOpen(row.id, event.currentTarget)}
                     >
                       {canMarkPublished ? '登记发布结果' : '查看记录'}
                     </Button>
                     {menuItems.length > 0 && <Dropdown trigger={['click']} menu={{ items: menuItems }}>
-                      <Button type="text" aria-label={`更多操作：${row.content_title}`} icon={<MoreOutlined />} disabled={deletePending} />
+                      <Button
+                        type="text"
+                        aria-label={`更多操作：${row.content_title}`}
+                        icon={<MoreOutlined />}
+                        disabled={deletePending}
+                        onFocus={(event) => onRememberMenuTrigger(event.currentTarget)}
+                        onPointerDown={(event) => onRememberMenuTrigger(event.currentTarget)}
+                      />
                     </Dropdown>}
                   </Space>
                 );
@@ -727,7 +759,7 @@ function PublicationInsights({
   onWindowChange: (days: 7 | 30) => void;
   onRecordStatus: (status: PublicationStatus) => void;
   onAttention: (trigger?: AttentionTrigger) => void;
-  onOpenRecord: (publicationId: string) => void;
+  onOpenRecord: (publicationId: string, trigger?: HTMLElement) => void;
 }) {
   const period = summary?.period;
   const rate = period?.verification_rate == null ? null : Math.round(period.verification_rate * 1000) / 10;
@@ -747,7 +779,7 @@ function PublicationInsights({
           <ul>
             {summary.recent_activity.map((item) => (
               <li key={`${item.publication_id}-${item.status}-${item.occurred_at}`}>
-                <button type="button" onClick={() => onOpenRecord(item.publication_id)}>
+                <button type="button" onClick={(event) => onOpenRecord(item.publication_id, event.currentTarget)}>
                   <span><strong>{item.content_title}</strong><small>{item.platform_profile_name} · V{item.content_version}</small></span>
                   <span><StatusTag status={item.status} /><time>{formatDateTime(item.occurred_at)}</time></span>
                 </button>

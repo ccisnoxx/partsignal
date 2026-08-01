@@ -105,7 +105,9 @@ test('管理员删除事实版本后只刷新当前产品版本列表', async ()
   expect(screen.getByRole('button', { name: '创建不可变版本' })).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: '更多操作：事实版本 V1' }));
   await user.click(await screen.findByRole('menuitem', { name: '删除' }));
-  await screen.findByRole('dialog', { name: '物理删除事实版本 V1？' });
+  const dialog = await screen.findByRole('dialog', { name: '删除事实版本 V1？' });
+  expect(within(dialog).getByText('该版本及其审核记录会一并删除；存在内容任务或内容版本引用时服务端会拒绝。此操作不可恢复。')).toBeInTheDocument();
+  expect(within(dialog).queryByText(/物理删除/)).not.toBeInTheDocument();
   await user.click(screen.getAllByRole('button', { name: /删\s*除/ }).at(-1)!);
   await waitFor(() => expect(deletedIds).toEqual([versionId]));
   await waitFor(() => expect(screen.getByRole('tab', { name: '事实版本（0）' })).toBeInTheDocument());
@@ -119,7 +121,7 @@ test('事实版本双引用冲突复用结构化中文错误展示', async () =>
   await user.click(await screen.findByRole('tab', { name: /事实版本/ }));
   await user.click(screen.getByRole('button', { name: '更多操作：事实版本 V1' }));
   await user.click(await screen.findByRole('menuitem', { name: '删除' }));
-  await screen.findByRole('dialog', { name: '物理删除事实版本 V1？' });
+  await screen.findByRole('dialog', { name: '删除事实版本 V1？' });
   await user.click(screen.getAllByRole('button', { name: /删\s*除/ }).at(-1)!);
   const alert = await screen.findByRole('alert');
   expect(alert).toHaveTextContent('内容任务：1');

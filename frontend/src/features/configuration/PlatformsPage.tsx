@@ -254,8 +254,8 @@ export function PlatformsPage() {
   const hasFilters = !!(q || platformTypeId || status || configurationStatus);
 
   const confirmDelete = (profile: PlatformProfile, afterClose?: () => void) => modal.confirm({
-    title: `物理删除平台“${profile.name}”？`,
-    content: 'Prompt 模板不会随平台删除；存在内容任务或平台账号引用时服务端会明确拒绝，历史记录不会被改写。',
+    title: `删除平台“${profile.name}”？`,
+    content: '将删除平台配置；Prompt 模板不会随之删除。存在内容任务或平台账号引用时服务端会拒绝，既有历史不会被改写。此操作不可恢复。',
     okText: '删除', cancelText: '取消', okButtonProps: { danger: true },
     onOk: () => removeProfile.mutateAsync(profile),
     afterClose,

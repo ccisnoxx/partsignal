@@ -298,7 +298,8 @@ test('服务端允许时经二次确认删除人工观测完整更正链', async
   fireEvent.click(more);
   await userEvent.click(await screen.findByRole('menuitem', { name: /删除完整更正链/ }));
   const confirm = await screen.findByRole('dialog');
-  expect(within(confirm).getByText('当前人工观测及其全部历史更正会一并物理删除；失去全部引用的证据文件将进入清理。此操作不可恢复。')).toBeInTheDocument();
+  expect(within(confirm).getByText('当前人工观测及其全部历史更正会一并删除；失去全部引用的证据文件将进入清理。此操作不可恢复。')).toBeInTheDocument();
+  expect(within(confirm).queryByText(/物理删除/)).not.toBeInTheDocument();
   await userEvent.click(within(confirm).getByRole('button', { name: '删除完整更正链' }));
 
   await waitFor(() => expect(deleteRequest).toBeInstanceOf(Request));

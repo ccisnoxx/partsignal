@@ -268,6 +268,17 @@ test('平台列表明确展示 Prompt 配置状态', async () => {
   expect(screen.queryByRole('heading', { name: '平台详情' })).not.toBeInTheDocument();
 });
 
+test('平台删除确认说明配置范围、保留对象和引用阻断', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
+  await user.click(await screen.findByRole('button', { name: '更多操作：待配置平台' }));
+  await user.click(await screen.findByRole('menuitem', { name: '删除平台' }));
+  const dialog = await findRcDialog('删除平台“待配置平台”？');
+  expect(within(dialog).getByText('将删除平台配置；Prompt 模板不会随之删除。存在内容任务或平台账号引用时服务端会拒绝，既有历史不会被改写。此操作不可恢复。')).toBeInTheDocument();
+  expect(within(dialog).queryByText(/物理删除/)).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole('button', { name: /取\s*消/ }));
+});
+
 test('平台管理从 URL 请求服务端筛选并恢复聚合详情', async () => {
   Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: vi.fn(() => 'blob:platforms') });
   Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: vi.fn() });
@@ -870,6 +881,20 @@ test('详情 Tabs 从 URL 恢复，请求配置仅显示固定掩码且敏感值
   await user.click(screen.getByRole('button', { name: '获取模型' }));
   expect(await findRcDialog('获取模型')).toBeInTheDocument();
   expect(await screen.findByText('model-new')).toBeInTheDocument();
+});
+
+test('Header 删除确认说明渠道和模型失效范围', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(
+    <Routes><Route path="/configuration/ai/channels/:channelId" element={<AIChannelDetailPage />} /></Routes>,
+    ['/configuration/ai/channels/channel-1?tab=request'],
+  );
+  await user.click(await screen.findByRole('button', { name: '更多操作：Header X-Public' }));
+  await user.click(await screen.findByRole('menuitem', { name: '删除' }));
+  const dialog = await findRcDialog('删除 Header“X-Public”？');
+  expect(within(dialog).getByText('删除后会停用该渠道及其全部模型，并把全部模型的测试状态重置为“未测试”、清除最近测试信息；重新测试并启用前不可用于生成。此操作不可恢复。')).toBeInTheDocument();
+  expect(within(dialog).queryByText(/物理删除/)).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole('button', { name: /取\s*消/ }));
 });
 
 test('渠道级连接测试必须显式选择模型并提示测试后停用', async () => {

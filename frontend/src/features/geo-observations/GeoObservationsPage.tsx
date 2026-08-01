@@ -302,7 +302,7 @@ export function GeoObservationsPage() {
                 if (key === 'delete') {
                   modal.confirm({
                     title: '删除完整更正链？',
-                    content: '当前人工观测及其全部历史更正会一并物理删除；失去全部引用的证据文件将进入清理。此操作不可恢复。',
+                    content: '当前人工观测及其全部历史更正会一并删除；失去全部引用的证据文件将进入清理。此操作不可恢复。',
                     okText: '删除完整更正链',
                     cancelText: '取消',
                     okButtonProps: { danger: true },

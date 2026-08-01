@@ -19,7 +19,7 @@ const products = Array.from({ length: 21 }, (_, index) => ({
   brand: 'DEMO',
   category: 'MCU',
   status: 'ACTIVE',
-  available_actions: ['UPDATE'],
+  available_actions: index === 0 ? ['UPDATE', 'DELETE'] : ['UPDATE'],
   revision: 0,
   facts_revision: 0,
   created_at: '2026-07-17T00:00:00Z',
@@ -81,6 +81,17 @@ test('无效页码在数据加载后替换为默认视图', async () => {
   renderPage('/products?page=0');
   await screen.findByText('DEMO-001');
   await waitFor(() => expect(screen.getByLabelText('当前查询参数')).toHaveTextContent(''));
+});
+
+test('产品删除确认说明工作区范围和引用阻断', async () => {
+  const user = userEvent.setup();
+  renderPage('/products');
+  await user.click(await screen.findByRole('button', { name: '更多操作：DEMO-001' }));
+  await user.click(await screen.findByRole('menuitem', { name: '删除' }));
+  const dialog = await screen.findByRole('dialog', { name: '删除产品“DEMO-001”？' });
+  expect(within(dialog).getByText('将删除产品及当前事实工作区；如果仍有事实版本、内容任务或 GEO 观测引用，服务端会拒绝。此操作不可恢复。')).toBeInTheDocument();
+  expect(within(dialog).queryByText(/物理删除/)).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole('button', { name: /取\s*消/ }));
 });
 
 test('创建产品先聚焦首个错误，并在关闭前保护未保存输入', async () => {

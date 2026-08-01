@@ -430,7 +430,7 @@ export function AIChannelDetailPage() {
             ...(row.available_actions.includes('UPDATE') ? [{ key: 'edit', label: '编辑' }] : []),
             ...(row.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
           ],
-          onClick: ({ key }) => key === 'edit' ? setEditingHeader(row) : modal.confirm({ title: `删除 Header“${row.name}”？`, okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteHeader.mutateAsync(row.id), afterClose: restoreFocus }),
+          onClick: ({ key }) => key === 'edit' ? setEditingHeader(row) : modal.confirm({ title: `删除 Header“${row.name}”？`, content: '删除后会停用该渠道及其全部模型，并把全部模型的测试状态重置为“未测试”、清除最近测试信息；重新测试并启用前不可用于生成。此操作不可恢复。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteHeader.mutateAsync(row.id), afterClose: restoreFocus }),
         }}><Button {...focusReturnTargetProps} size="small" type="text" icon={<DownOutlined />} aria-label={`更多操作：Header ${row.name}`} /></Dropdown> },
       ]}
     /></TableRegion>}

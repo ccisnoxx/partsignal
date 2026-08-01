@@ -155,7 +155,7 @@ export function ProductFactsPage() {
   }, [factsDirty]);
 
   const confirmDeleteVersion = (version: FactVersion) => modal.confirm({
-    title: `物理删除事实版本 V${version.version}？`,
+    title: `删除事实版本 V${version.version}？`,
     content: '该版本及其审核记录会一并删除；存在内容任务或内容版本引用时服务端会拒绝。此操作不可恢复。',
     okText: '删除',
     cancelText: '取消',

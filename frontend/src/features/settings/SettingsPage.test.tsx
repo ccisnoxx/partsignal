@@ -57,7 +57,7 @@ function installAccountApi() {
     label: '主运营账号',
     account_identifier: 'operator-a',
     is_active: true,
-    available_actions: ['UPDATE', 'DISABLE'],
+    available_actions: ['UPDATE', 'DISABLE', 'DELETE'],
     revision: 0,
   };
   const writes: Request[] = [];
@@ -159,6 +159,21 @@ test('发布账号按 revision 停用并重新启用', async () => {
   await waitFor(() => expect(writes.some((request) => new URL(request.url).pathname.endsWith('/enable'))).toBe(true));
   const enableRequest = writes.find((request) => new URL(request.url).pathname.endsWith('/enable'));
   expect(await enableRequest!.clone().json()).toEqual({ expected_revision: 1 });
+});
+
+test('发布账号删除确认说明引用阻断和不可恢复性', async () => {
+  installAccountApi();
+  render(<App />);
+  const page = await accountPage();
+  fireEvent.click(await page.findByRole('button', { name: '更多操作：主运营账号' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+  const dialog = (await screen.findByText('删除发布账号“主运营账号”？', {
+    selector: '.ant-modal-confirm-title',
+  })).closest<HTMLElement>('[role="dialog"]');
+  expect(dialog).not.toBeNull();
+  expect(within(dialog!).getByText('存在发布记录引用时服务端会拒绝。此操作不可恢复。')).toBeInTheDocument();
+  expect(within(dialog!).queryByText(/物理删除/)).not.toBeInTheDocument();
+  fireEvent.click(within(dialog!).getByRole('button', { name: /取\s*消/ }));
 });
 
 test('编辑为同平台规范化重复标识时在弹窗显示服务端冲突', async () => {

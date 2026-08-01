@@ -500,7 +500,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   }
   const sourceVersionRow = page.getByRole('region', { name: '内容版本列表' }).getByRole('row').filter({ has: page.getByRole('link', { name: 'V1', exact: true }) });
   if (!humanizationPromptWasConfigured) {
-    await expect(sourceVersionRow.getByRole('button', { name: '自然化' })).toBeEnabled();
+    await expect(sourceVersionRow.getByRole('button', { name: '自然化' })).toBeDisabled();
     const missingPromptHumanization = await page.request.post(`/api/v1/content-versions/${generatedContentId}/humanization-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-humanization-no-prompt-${suffix}` }, data: { ai_model_id: model.id } });
     expect(missingPromptHumanization.status()).toBe(409);
     expect(await missingPromptHumanization.json()).toMatchObject({ error: { code: 'HUMANIZATION_PROMPT_MISSING' } });
@@ -528,7 +528,15 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await selectOption(page, '预览内容任务', taskOption);
   await selectOption(page, '自然化源草稿', `V1 · ${generatedContentBeforeHumanization.title}`);
   await selectOption(page, '预览模型', modelOption);
+  const humanizationPreviewCreated = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && new URL(response.url()).pathname === `/api/v1/content-versions/${generatedContentId}/humanization-jobs`
+  ));
   await page.getByRole('button', { name: '生成自然化预览' }).click();
+  const { id: humanizationPreviewJobId } = await body<{ id: string }>(await humanizationPreviewCreated);
+  await expect.poll(async () => (
+    await body<{ status: string }>(await page.request.get(`/api/v1/generation-jobs/${humanizationPreviewJobId}`))
+  ).status, { timeout: 30_000 }).toBe('SUCCEEDED');
   await expect(page.getByRole('heading', { name: '连接测试' })).toBeVisible({ timeout: 30_000 });
 
   await page.goto(`/tasks/${task.id as string}`);
@@ -558,7 +566,10 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const humanizationDetail = await body<{ job_type: string; source_content_version_id: string; input_snapshot: { humanization_prompt: { template_markdown: string }; model: { id: string }; source_content: { id: string; content_hash: string } } }>(await page.request.get(`/api/v1/generation-jobs/${humanizationJobId}`));
   expect(humanizationDetail).toMatchObject({ job_type: 'HUMANIZE', source_content_version_id: generatedContentId, input_snapshot: { humanization_prompt: { template_markdown: e2eHumanizationPrompt }, model: { id: model.id }, source_content: { id: generatedContentId, content_hash: generatedContentBeforeHumanization.content_hash } } });
   const generatedContentAfterHumanization = await body<typeof generatedContentBeforeHumanization>(await page.request.get(`/api/v1/content-versions/${generatedContentId}`));
-  expect(generatedContentAfterHumanization).toEqual(generatedContentBeforeHumanization);
+  expect(generatedContentAfterHumanization).toMatchObject({
+    ...generatedContentBeforeHumanization,
+    available_actions: expect.arrayContaining(['CREATE_HUMANIZATION_JOB']),
+  });
   expect(await body<{ source_type: string; status: string; source_job_id: string; based_on_id: string }>(await page.request.get(`/api/v1/content-versions/${humanizedContentId!}`))).toMatchObject({ source_type: 'AI', status: 'DRAFT', source_job_id: humanizationJobId, based_on_id: generatedContentId });
   await page.goto(`/content/${humanizedContentId!}`);
   await page.getByRole('tab', { name: '版本差异' }).click();
@@ -692,10 +703,13 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await page.route(candidatesPattern, async (route) => {
     const response = await route.fetch();
     const candidates = await response.json() as {
-      items: Array<{ content_version: { id: string }; matching_accounts: unknown[] }>;
+      items: Array<{ content_version: { id: string }; matching_accounts: unknown[]; available_actions: Array<'REGISTER'> }>;
     };
     const target = candidates.items.find((item) => item.content_version.id === submittedId);
-    if (target) target.matching_accounts = [];
+    if (target) {
+      target.matching_accounts = [];
+      target.available_actions = [];
+    }
     await route.fulfill({ response, json: candidates });
   });
   await page.goto('/publications');

@@ -8,6 +8,7 @@ const user = {
   account_type: 'ADMIN',
   is_active: true,
   must_change_password: false,
+  available_actions: [],
   revision: 1,
   created_at: '2026-07-10T08:00:00+08:00',
 };
@@ -33,6 +34,7 @@ async function mockApi(page: Page, authenticated: boolean) {
           status: 'ACTIVE',
           revision: 1,
           facts_revision: 1,
+          available_actions: ['UPDATE'],
           created_at: '2026-07-16T00:00:00Z',
           updated_at: '2026-07-16T00:00:00Z',
         }],

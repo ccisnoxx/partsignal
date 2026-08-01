@@ -41,6 +41,7 @@ test('注入权威完整 CSP 后命名策略支持 Ant 交互并清洗 Markdown'
         account_type: 'ADMIN',
         is_active: true,
         must_change_password: false,
+        available_actions: [],
         revision: 1,
         created_at: '2026-07-10T08:00:00+08:00',
       } });
@@ -59,6 +60,7 @@ test('注入权威完整 CSP 后命名策略支持 Ant 交互并清洗 Markdown'
         status: 'ACTIVE',
         revision: 1,
         facts_revision: 1,
+        available_actions: ['UPDATE'],
         created_at: '2026-07-16T00:00:00Z',
         updated_at: '2026-07-16T00:00:00Z',
       } });
@@ -69,6 +71,7 @@ test('注入权威完整 CSP 后命名策略支持 Ant 交互并清洗 Markdown'
         product_id: productId,
         body_markdown: '# 安全正文\n\n<img src="x" onerror="alert(1)">\n\n<script>alert(2)</script>',
         classification: 'PUBLIC',
+        available_actions: ['SAVE', 'CREATE_VERSION'],
         revision: 1,
       } });
       return;
@@ -123,6 +126,7 @@ test('登录和改密入口保持可访问且不加载工作台资源', async ({
     account_type: 'ADMIN',
     is_active: true,
     must_change_password: false,
+    available_actions: [],
     revision: 1,
     created_at: '2026-07-10T08:00:00+08:00',
   } }));

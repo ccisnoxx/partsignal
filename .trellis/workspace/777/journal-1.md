@@ -1672,3 +1672,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 50: 全局资源动作投影收敛
+
+**Date**: 2026-08-01
+**Task**: 全局资源动作投影收敛
+**Branch**: `main`
+
+### Summary
+
+完成 PS-QA2-FUNC-001～003 与已批准 PS-QA2-DEC-002：统一 typed available_actions 跨层合同、批量服务端投影和前端消费，补齐回归测试、性能门禁与稳定规范。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2e59943` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

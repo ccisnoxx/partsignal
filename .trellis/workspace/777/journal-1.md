@@ -728,7 +728,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 新增复用现有品牌标记的 `favicon.svg`，在 HTML 显式声明，并纳入现有生产公开资产门禁及缺失夹具测试。
+- 将旧发布详情 Timeline item 从 `children` 迁移为 `content`，保留状态轨迹内容并增加目标弃用警告回归断言。
+- 更新任务验收记录，完成 `trellis-check`、`trellis-update-spec` 判断和 Trellis 归档。
 
 ### Git Commits
 
@@ -738,7 +740,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- 公开资产脚本测试 5/5 通过；发布管理定向 Vitest 16/16 通过。
+- `npm --prefix frontend run typecheck`、`lint`、`build` 全部通过，`git diff --check` 通过。
+- 新 Playwright 会话确认 `/login` 与 `/favicon.svg` 返回 200、类型为 `image/svg+xml`，且未请求 `/favicon.ico`；本地后端未启动导致 `/api/v1/auth/me` 独立返回 500，与本任务无关。
 
 ### Status
 
@@ -1768,6 +1772,39 @@
 - `npm --prefix frontend run typecheck` 通过。
 - `npm --prefix frontend run lint` 通过。
 - `trellis-check` 与 `git diff --check` 通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 53: 完成前端轻量资源与 Timeline 兼容清理
+
+**Date**: 2026-08-01
+**Task**: 完成前端轻量资源与 Timeline 兼容清理
+**Branch**: `main`
+
+### Summary
+
+新增并门禁 PartSignal SVG favicon，迁移发布详情 Timeline content 字段，完成定向测试、前端门禁与浏览器 smoke，并归档任务。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f491809` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
 
 ### Status
 

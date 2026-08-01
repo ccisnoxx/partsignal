@@ -389,7 +389,7 @@ def create_ai_channel(
 
 def delete_ai_channel(*, db: Session, channel_id: uuid.UUID, actor: User, request_id: str) -> None:
     """删除渠道及数据库约束定义的子配置。"""
-    channel = db.get(AIChannel, channel_id)
+    channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
     if channel is None:
         raise not_found("AI 渠道")
     append_audit(
@@ -512,7 +512,9 @@ def delete_ai_channel_header(
     *, db: Session, header_id: uuid.UUID, actor: User, request_id: str
 ) -> None:
     """删除 Header，并撤销渠道与模型的旧测试结论。"""
-    header = db.get(AIChannelHeader, header_id)
+    header = db.scalar(
+        select(AIChannelHeader).where(AIChannelHeader.id == header_id).with_for_update()
+    )
     if header is None:
         raise not_found("渠道 Header")
     channel = db.scalar(

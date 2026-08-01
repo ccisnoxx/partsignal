@@ -33,6 +33,7 @@
 - Chat Completions 正文必须直接解析为仅含 `title`、`summary`、`body_markdown`、`tags` 的非空 JSON 对象，不做提取、修复或补值。
 - 模型“测试连接”与正式生成必须使用不同解析边界：测试请求只发送一条内容为 `hi` 的用户消息，并仅验证标准 `choices[0].message.content` 字符串；不得用业务草稿四字段 Schema 判断连接是否可用。
 - 模型写操作按“渠道行 -> 模型行”顺序加锁。模型测试在读取配置后释放行锁，外部调用结束再按渠道和模型修订号回写；测试期间配置变化返回 `REVISION_CONFLICT`。
+- 渠道与 Header 物理删除必须先以 `SELECT ... FOR UPDATE` 锁定删除目标，再追加成功审计和执行副作用。同一目标的两个并发 DELETE 必须分别返回 `204`、`404`；只能产生一条成功审计，Header 删除引起的渠道/模型失效和 revision 递增也只能执行一次。
 - API 提交 Job 后的 Broker 故障不得把业务作业改为失败；Beat 只补投递超龄 `PENDING`，Worker 只有完成原子 `PENDING -> RUNNING` 声明后才能调用供应商。
 - `RUNNING` 租约必须按冻结快照的 `timeout_seconds + GENERATION_FINALIZE_GRACE_SECONDS` 计算；租约过期形成 `FAILED/WORKER_LOST`，不得自动再次调用供应商。
 - 每次真实请求只解析一次完整 A/AAAA 集合并整体校验，只连接该集合中的 `sockaddr`；实际 TCP peer 必须在发送 Authorization 或敏感 Header 前属于批准集合。HTTPS 始终用原 hostname 完成 SNI、证书身份和 Host。
@@ -65,12 +66,14 @@
 - 非法列表页码、`page_size` 不属于 `10|20|50`、未知排序或统计周期 -> 请求校验失败；不得静默改成默认值。
 - 渠道或模型未启用、模型未测试 -> `AI_CONFIGURATION_DISABLED` 或 `AI_MODEL_NOT_TESTED`。
 - 配置行已物理删除 -> `AI_CONFIGURATION_DELETED`，不得用快照中的非敏感信息猜测调用。
+- 同一渠道或 Header 已被另一个并发 DELETE 提交 -> HTTP `404`；不得再次返回 `204`、追加成功审计或重复失效关联配置。
 - 快照所列敏感 Header 已删除或改为普通 Header -> `AI_CONFIGURATION_DELETED`，不得省略该 Header 或改用后来新增的 Header。
 - 超时、网络失败、供应商 HTTP 错误和严格响应失败 -> 作业显式 `FAILED`，错误摘要不得包含凭据或响应正文。
 
 ### 5. 正常、基础与错误案例
 
 - 正常：管理员保存公网 HTTPS 渠道，模型严格测试通过并启用；作业冻结快照后只调用一次供应商并创建一个 `DRAFT ContentVersion`。
+- 正常：两个请求并发删除同一渠道或 Header 时，先获得目标行锁的请求返回 `204`，后一个在锁释放后确认目标不存在并返回 `404`。
 - 连接测试：管理员对具体模型发起测试，系统携带当前凭据、Header、模型 ID 和自定义参数发送 `hi`；普通文本响应可以通过，且不会进入内容版本。
 - 基础：供应商不返回 token 用量时，对应字段保存 `NULL`，不得补 `0`。
 - 管理：按描述搜索并筛选 `OPENAI` 时，列表 `total` 与 `counts` 来自同一服务端查询；切换状态只改变 `items/total`，分类数量仍保留同一搜索和品牌条件下的全部/启用/停用计数。
@@ -95,6 +98,7 @@
 - 并发断言：作业创建锁定任务并读取当前平台 Prompt 与冻结事实；过期租约后的迟到响应不能写入成功结果。
 - 恢复断言：首次投递缺失、Broker 已接受但元数据未提交、重复消息和并发恢复均至多产生一次供应商调用和一个内容版本。
 - 模型测试并发断言：外部调用期间配置可更新，但旧测试结果不得覆盖更新后的 `UNTESTED` 状态。
+- 删除并发断言：使用隔离 PostgreSQL、独立请求会话和同步屏障同时删除同一渠道及同一 Header；分别断言状态码为 `[204, 404]`、成功审计恰好一条、级联最终状态正确，且 Header 删除只递增一次渠道和模型 revision。
 - 快照 Header 断言：只发送快照锁定的普通 Header 和敏感 Header 名称；敏感值取当前配置，新增名称被忽略，缺失名称返回 `AI_CONFIGURATION_DELETED`。
 - 固定地址断言：混合公网/私网解析整体拒绝；连接只能使用首次解析集合；peer 越界时零 HTTP 字节；真实本地 CA/HTTPS 替身验证 SNI、证书 hostname 和 Host。
 - 事实断言：第三方创建和 Worker 执行都拒绝非 `PUBLIC` 或空白事实；legacy 快照重试明确返回 `LEGACY_GENERATION_RETRY_FORBIDDEN`。
@@ -142,4 +146,12 @@ protocol = "anthropic-native" if channel.provider_brand == "ANTHROPIC" else "ope
 
 # 正确：协议字段是唯一调用依据，品牌只参与已登记组合校验和管理投影。
 protocol = require_supported_protocol(channel.protocol_type)
+```
+
+```python
+# 错误：普通读取允许两个并发删除都进入成功审计和副作用。
+target = db.get(AIChannel, channel_id)
+
+# 正确：目标行串行化后，等待者会在前一事务提交删除后得到不存在结果。
+target = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
 ```

@@ -7,8 +7,11 @@ import subprocess
 import sys
 import uuid
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
+from threading import Barrier
 from types import SimpleNamespace
 from urllib.parse import urlsplit, urlunsplit
 
@@ -24,7 +27,7 @@ from app.db import get_db
 from app.deps import get_current_session
 from app.errors import AppError
 from app.main import app
-from app.models.ai_generation import AIChannel, AIModel
+from app.models.ai_generation import AIChannel, AIChannelHeader, AIModel
 from app.models.identity import AuditLog, User
 from app.security import hash_token
 
@@ -365,6 +368,183 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert "second-channel-key" not in second_channel.api_key_ciphertext
 
         engine.dispose()
+
+
+@pytest.mark.integration
+def test_ai_configuration_concurrent_delete_has_single_successful_effect(
+    request: pytest.FixtureRequest,
+) -> None:
+    """同一 AI 配置并发删除只能成功一次，且失效副作用不能重复。"""
+    with temporary_database("head") as (_, database_url, _, _):
+        engine = create_engine(database_url)
+        request.addfinalizer(engine.dispose)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        admin_id = uuid.uuid4()
+        channel_id = uuid.uuid4()
+        channel_header_id = uuid.uuid4()
+        channel_model_id = uuid.uuid4()
+        header_channel_id = uuid.uuid4()
+        header_id = uuid.uuid4()
+        header_model_id = uuid.uuid4()
+        now = datetime.now(UTC)
+        with session_factory() as db:
+            admin = User(
+                id=admin_id,
+                username=f"ai-delete-admin-{uuid.uuid4().hex[:8]}",
+                display_name="AI 删除管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            db.add(admin)
+            db.commit()
+            db.add_all(
+                [
+                    AIChannel(
+                        id=channel_id,
+                        name="并发删除渠道",
+                        description="验证渠道删除",
+                        protocol_type="openai-compatible-chat-completions",
+                        provider_brand="CUSTOM",
+                        base_url="https://8.8.8.8/v1",
+                        api_key_ciphertext="ciphertext",
+                        api_key_updated_at=now,
+                        timeout_seconds=30,
+                        created_by=admin_id,
+                    ),
+                    AIChannelHeader(
+                        id=channel_header_id,
+                        channel_id=channel_id,
+                        name="X-Delete-Channel",
+                        normalized_name="x-delete-channel",
+                        is_sensitive=False,
+                        plain_value="value",
+                    ),
+                    AIModel(
+                        id=channel_model_id,
+                        channel_id=channel_id,
+                        display_name="待级联删除模型",
+                        model_id="delete-channel-model",
+                        request_parameters={},
+                        created_by=admin_id,
+                    ),
+                    AIChannel(
+                        id=header_channel_id,
+                        name="Header 并发删除渠道",
+                        description="验证 Header 删除",
+                        protocol_type="openai-compatible-chat-completions",
+                        provider_brand="CUSTOM",
+                        base_url="https://8.8.4.4/v1",
+                        api_key_ciphertext="ciphertext",
+                        api_key_updated_at=now,
+                        timeout_seconds=30,
+                        is_enabled=True,
+                        revision=4,
+                        created_by=admin_id,
+                    ),
+                    AIChannelHeader(
+                        id=header_id,
+                        channel_id=header_channel_id,
+                        name="X-Delete-Header",
+                        normalized_name="x-delete-header",
+                        is_sensitive=False,
+                        plain_value="value",
+                    ),
+                    AIModel(
+                        id=header_model_id,
+                        channel_id=header_channel_id,
+                        display_name="待失效模型",
+                        model_id="delete-header-model",
+                        request_parameters={},
+                        is_enabled=True,
+                        test_status="PASSED",
+                        last_tested_at=now,
+                        revision=6,
+                        created_by=admin_id,
+                    ),
+                ]
+            )
+            db.commit()
+
+        csrf_token = "ai-delete-csrf-token-with-more-than-32-characters"
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        current_session = SimpleNamespace(
+            user=admin,
+            csrf_hash=hash_token(csrf_token),
+            last_seen_at=None,
+        )
+        app.dependency_overrides[get_db] = override_db
+        app.dependency_overrides[get_current_session] = lambda: current_session
+
+        def delete_twice(path: str, request_prefix: str) -> list[int]:
+            barrier = Barrier(2)
+
+            def issue_request(index: int) -> int:
+                barrier.wait(timeout=5)
+                with TestClient(app) as client:
+                    response = client.delete(
+                        path,
+                        headers={
+                            "X-CSRF-Token": csrf_token,
+                            "X-Request-ID": f"{request_prefix}-{index}",
+                        },
+                    )
+                return response.status_code
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futures = [executor.submit(issue_request, index) for index in range(2)]
+                return sorted(future.result(timeout=15) for future in futures)
+
+        try:
+            channel_statuses = delete_twice(
+                f"/api/v1/ai-channels/{channel_id}", "concurrent-channel-delete"
+            )
+            header_statuses = delete_twice(
+                f"/api/v1/ai-channel-headers/{header_id}", "concurrent-header-delete"
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert channel_statuses == [204, 404]
+        assert header_statuses == [204, 404]
+        with session_factory() as db:
+            assert db.get(AIChannel, channel_id) is None
+            assert db.get(AIChannelHeader, channel_header_id) is None
+            assert db.get(AIModel, channel_model_id) is None
+            assert db.get(AIChannelHeader, header_id) is None
+            header_channel = db.get(AIChannel, header_channel_id)
+            header_model = db.get(AIModel, header_model_id)
+            assert header_channel is not None
+            assert header_channel.is_enabled is False
+            assert header_channel.revision == 5
+            assert header_model is not None
+            assert header_model.is_enabled is False
+            assert header_model.test_status == "UNTESTED"
+            assert header_model.last_tested_at is None
+            assert header_model.revision == 7
+            channel_delete_audits = list(
+                db.scalars(
+                    select(AuditLog).where(
+                        AuditLog.action == "ai_channel.deleted",
+                        AuditLog.target_id == str(channel_id),
+                        AuditLog.outcome == "SUCCESS",
+                    )
+                )
+            )
+            header_delete_audits = list(
+                db.scalars(
+                    select(AuditLog).where(
+                        AuditLog.action == "ai_channel_header.deleted",
+                        AuditLog.target_id == str(header_channel_id),
+                        AuditLog.outcome == "SUCCESS",
+                    )
+                )
+            )
+            assert len(channel_delete_audits) == 1
+            assert len(header_delete_audits) == 1
 
 
 @pytest.mark.integration

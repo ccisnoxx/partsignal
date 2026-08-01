@@ -11,33 +11,33 @@ const zoomExtensionPath = fileURLToPath(new URL('./fixtures/browser-zoom-extensi
 
 type Target = { key: string; path: string; heading: string; redirect?: RegExp };
 type VisualTargetKey = 'users' | 'prompts' | 'geo-insights' | 'dashboard' | 'content-review';
-type TableInventoryItem = { label: string; source: string; marker: string; surface: string };
+type TableInventoryItem = { label: string; source: string; marker: string; surface: string; regionLabel: string; dialogName?: string };
 
 const sitewideTableInventory: TableInventoryItem[] = [
-  { label: '内容任务列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="内容任务列表"', surface: 'tasks' },
-  { label: 'AI 作业列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="AI 作业列表"', surface: 'task-detail' },
-  { label: '内容版本列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="内容版本列表"', surface: 'task-detail' },
-  { label: '产品事实列表', source: '../../src/features/product-facts/ProductsPage.tsx', marker: 'label="产品事实列表"', surface: 'products' },
-  { label: '事实版本列表', source: '../../src/features/product-facts/ProductFactsPage.tsx', marker: 'label="事实版本列表"', surface: 'product-versions' },
-  { label: '待发布候选', source: '../../src/features/publications/PublicationWorkspace.tsx', marker: 'label="待发布候选列表"', surface: 'publication-candidates' },
-  { label: '发布记录', source: '../../src/features/publications/PublicationWorkspace.tsx', marker: 'label="发布记录列表"', surface: 'publication-records' },
-  { label: '发布异常待办', source: '../../src/features/publications/PublicationWorkspace.tsx', marker: 'label="发布需关注列表"', surface: 'publication-attentions' },
-  { label: 'GEO 观测记录', source: '../../src/features/geo-observations/GeoObservationsPage.tsx', marker: 'label="观测记录列表"', surface: 'observations' },
-  { label: 'GEO 文章观测结果', source: '../../src/features/geo-observations/GeoObservationForm.tsx', marker: 'label="产品文章观测结果"', surface: 'observation-form' },
-  { label: 'GEO 问题库', source: '../../src/features/geo-observations/GeoTopicsPage.tsx', marker: 'label="GEO 问题库列表"', surface: 'geo-topics' },
-  { label: 'GEO 平台表现', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'label="GEO 平台表现"', surface: 'geo-insights' },
-  { label: 'GEO 内容排行', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'rowKey="publication_record_id"', surface: 'geo-insights' },
-  { label: 'GEO 覆盖矩阵', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'label="搜索问题覆盖计数"', surface: 'geo-insights' },
-  { label: 'AI 渠道列表', source: '../../src/features/configuration/AIChannelsPage.tsx', marker: 'label="AI 渠道列表"', surface: 'ai' },
-  { label: 'AI 请求 Header', source: '../../src/features/configuration/AIChannelDetailPage.tsx', marker: 'label="请求 Header 列表"', surface: 'ai-request' },
-  { label: 'AI 模型列表', source: '../../src/features/configuration/AIChannelDetailPage.tsx', marker: 'label="模型列表"', surface: 'ai-models' },
-  { label: 'AI 渠道操作日志', source: '../../src/features/configuration/AIChannelDetailPage.tsx', marker: 'label="渠道操作日志"', surface: 'ai-logs' },
-  { label: '全局审计日志', source: '../../src/features/configuration/AuditLogPage.tsx', marker: 'label="审计日志"', surface: 'audit' },
-  { label: '模型发现弹窗', source: '../../src/features/configuration/ModelDiscoveryModal.tsx', marker: 'label="远端模型列表"', surface: 'ai-model-discovery' },
-  { label: '平台列表', source: '../../src/features/configuration/PlatformsPage.tsx', marker: 'label="平台列表"', surface: 'platforms' },
-  { label: '平台类型列表', source: '../../src/features/configuration/PlatformTypesPage.tsx', marker: 'label="平台类型列表"', surface: 'platform-types' },
-  { label: '发布账号列表', source: '../../src/features/settings/SettingsPage.tsx', marker: 'label="发布账号列表"', surface: 'accounts' },
-  { label: '用户列表', source: '../../src/features/users/UserManagementPage.tsx', marker: 'label="用户列表"', surface: 'users' },
+  { label: '内容任务列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="内容任务列表"', surface: 'tasks', regionLabel: '内容任务列表' },
+  { label: 'AI 作业列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="AI 作业列表"', surface: 'task-detail', regionLabel: 'AI 作业列表' },
+  { label: '内容版本列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="内容版本列表"', surface: 'task-detail', regionLabel: '内容版本列表' },
+  { label: '产品事实列表', source: '../../src/features/product-facts/ProductsPage.tsx', marker: 'label="产品事实列表"', surface: 'products', regionLabel: '产品事实列表' },
+  { label: '事实版本列表', source: '../../src/features/product-facts/ProductFactsPage.tsx', marker: 'label="事实版本列表"', surface: 'product-versions', regionLabel: '事实版本列表' },
+  { label: '待发布候选', source: '../../src/features/publications/PublicationWorkspace.tsx', marker: 'label="待发布候选列表"', surface: 'publication-candidates', regionLabel: '待发布候选列表' },
+  { label: '发布记录', source: '../../src/features/publications/PublicationWorkspace.tsx', marker: 'label="发布记录列表"', surface: 'publication-records', regionLabel: '发布记录列表' },
+  { label: '发布异常待办', source: '../../src/features/publications/PublicationWorkspace.tsx', marker: 'label="发布需关注列表"', surface: 'publication-attentions', regionLabel: '发布需关注列表' },
+  { label: 'GEO 观测记录', source: '../../src/features/geo-observations/GeoObservationsPage.tsx', marker: 'label="观测记录列表"', surface: 'observations', regionLabel: '观测记录列表' },
+  { label: 'GEO 文章观测结果', source: '../../src/features/geo-observations/GeoObservationForm.tsx', marker: 'label="产品文章观测结果"', surface: 'observation-form', regionLabel: '产品文章观测结果', dialogName: '登记人工观测' },
+  { label: 'GEO 问题库', source: '../../src/features/geo-observations/GeoTopicsPage.tsx', marker: 'label="GEO 问题库列表"', surface: 'geo-topics', regionLabel: 'GEO 问题库列表' },
+  { label: 'GEO 平台表现', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'label="GEO 平台表现"', surface: 'geo-insights', regionLabel: 'GEO 平台表现' },
+  { label: 'GEO 内容排行', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'title="表现最佳内容 Top 5"', surface: 'geo-insights', regionLabel: '表现最佳内容 Top 5' },
+  { label: 'GEO 覆盖矩阵', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'label="搜索问题覆盖计数"', surface: 'geo-insights', regionLabel: '搜索问题覆盖计数' },
+  { label: 'AI 渠道列表', source: '../../src/features/configuration/AIChannelsPage.tsx', marker: 'label="AI 渠道列表"', surface: 'ai', regionLabel: 'AI 渠道列表' },
+  { label: 'AI 请求 Header', source: '../../src/features/configuration/AIChannelDetailPage.tsx', marker: 'label="请求 Header 列表"', surface: 'ai-request', regionLabel: '请求 Header 列表' },
+  { label: 'AI 模型列表', source: '../../src/features/configuration/AIChannelDetailPage.tsx', marker: 'label="模型列表"', surface: 'ai-models', regionLabel: '模型列表' },
+  { label: 'AI 渠道操作日志', source: '../../src/features/configuration/AIChannelDetailPage.tsx', marker: 'label="渠道操作日志"', surface: 'ai-logs', regionLabel: '渠道操作日志' },
+  { label: '全局审计日志', source: '../../src/features/configuration/AuditLogPage.tsx', marker: 'label="审计日志"', surface: 'audit', regionLabel: '审计日志' },
+  { label: '模型发现弹窗', source: '../../src/features/configuration/ModelDiscoveryModal.tsx', marker: 'label="远端模型列表"', surface: 'ai-model-discovery', regionLabel: '远端模型列表', dialogName: '获取模型' },
+  { label: '平台列表', source: '../../src/features/configuration/PlatformsPage.tsx', marker: 'label="平台列表"', surface: 'platforms', regionLabel: '平台列表' },
+  { label: '平台类型列表', source: '../../src/features/configuration/PlatformTypesPage.tsx', marker: 'label="平台类型列表"', surface: 'platform-types', regionLabel: '平台类型列表' },
+  { label: '发布账号列表', source: '../../src/features/settings/SettingsPage.tsx', marker: 'label="发布账号列表"', surface: 'accounts', regionLabel: '发布账号列表' },
+  { label: '用户列表', source: '../../src/features/users/UserManagementPage.tsx', marker: 'label="用户列表"', surface: 'users', regionLabel: '用户列表' },
 ];
 
 test.setTimeout(240_000);
@@ -57,40 +57,37 @@ async function login(page: Page) {
 }
 
 async function resolveTargets(page: Page): Promise<Target[]> {
-  const products = await body<{ items: Array<{ id: string; part_number: string }> }>(
-    await page.request.get('/api/v1/products'),
-  );
-  if (!products.items[0]) throw new Error('真实测试库缺少产品，无法验证跨路由壳层');
-
-  const tasks = await body<{ items: Array<{ id: string; product_id: string; product: { brand: string; part_number: string } }> }>(
+  const tasks = await body<{ items: Array<{
+    id: string;
+    product_id: string;
+    product: { brand: string; part_number: string };
+    platform: { id: string };
+  }> }>(
     await page.request.get('/api/v1/content-tasks'),
   );
-  if (!tasks.items[0]) throw new Error('真实测试库缺少内容任务，无法验证任务详情壳层');
-
   let content: { id: string; title: string } | undefined;
-  let taskWithContent = tasks.items[0];
-  for (const task of tasks.items) {
-    const versions = await body<{ items: Array<{ id: string; title: string }> }>(
-      await page.request.get(`/api/v1/content-tasks/${task.id}/content-versions`),
-    );
-    if (versions.items[0]) {
+  let taskWithContent: (typeof tasks.items)[number] | undefined;
+  for (const task of tasks.items.filter((item) => item.product.part_number.startsWith('VISUAL-'))) {
+    const [versions, jobs] = await Promise.all([
+      body<{ items: Array<{ id: string; title: string }> }>(await page.request.get(`/api/v1/content-tasks/${task.id}/content-versions`)),
+      body<{ items: unknown[] }>(await page.request.get(`/api/v1/content-tasks/${task.id}/generation-jobs`)),
+    ]);
+    if (versions.items[0] && jobs.items.length) {
       content = versions.items[0];
       taskWithContent = task;
       break;
     }
   }
-  if (!content) throw new Error('真实测试库缺少内容版本，无法验证内容审核壳层');
+  if (!content || !taskWithContent) throw new Error('共享视觉验收图缺少同时包含内容版本和 AI 作业的任务');
 
-  const profiles = await body<{ items: Array<{ id: string }> }>(
-    await page.request.get('/api/v1/platform-profiles'),
+  const suffix = taskWithContent.product.part_number.slice('VISUAL-'.length);
+  const channelName = `共享视觉渠道 ${suffix}`;
+  const channels = await body<{ items: Array<{ id: string; name: string }> }>(
+    await page.request.get(`/api/v1/ai-channels?q=${encodeURIComponent(channelName)}&page=1&page_size=50`),
   );
-  if (!profiles.items[0]) throw new Error('真实测试库缺少平台，无法验证 Prompt 壳层');
-
-  const channels = await body<{ items: Array<{ id: string }> }>(
-    await page.request.get('/api/v1/ai-channels?page=1&page_size=10'),
-  );
-  if (!channels.items[0]) throw new Error('真实测试库缺少 AI 渠道，无法验证渠道详情表格');
-  const channelDetailPath = `/configuration/ai/channels/${channels.items[0].id}`;
+  const channel = channels.items.find((item) => item.name === channelName);
+  if (!channel) throw new Error(`共享视觉验收图缺少 AI 渠道：${channelName}`);
+  const channelDetailPath = `/configuration/ai/channels/${channel.id}`;
 
   return [
     { key: 'dashboard', path: '/', heading: '总览' },
@@ -119,7 +116,7 @@ async function resolveTargets(page: Page): Promise<Target[]> {
     { key: 'content', path: `/content/${content.id}`, heading: content.title },
     {
       key: 'prompts',
-      path: `/configuration/prompts?tab=platform&page=1&page_size=10&platform_profile_id=${profiles.items[0].id}`,
+      path: `/configuration/prompts?tab=platform&page=1&page_size=10&platform_profile_id=${taskWithContent.platform.id}`,
       heading: 'Prompt 管理',
     },
   ];
@@ -146,17 +143,13 @@ async function expectNoDocumentOverflow(page: Page) {
   expect(dimensions.scrollWidth, new URL(page.url()).pathname).toBeLessThanOrEqual(dimensions.clientWidth);
 }
 
-async function expectVisibleTableRegionsBounded(page: Page) {
-  const regions = page.locator('.table-region:visible');
-  await expect(regions).not.toHaveCount(0);
+async function expectTableRegionBounded(page: Page, region: Locator, context: string) {
   const viewportWidth = await page.evaluate(() => document.documentElement.clientWidth);
-  for (const region of await regions.all()) {
-    const box = await region.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(viewportWidth + 1);
-  }
-  const ellipsisStyles = await page.locator('.table-cell-ellipsis:visible').evaluateAll((elements) => (
+  const box = await region.boundingBox();
+  expect(box, `${context} 表格区域不存在`).not.toBeNull();
+  expect(box!.x, `${context} 左侧越出视口`).toBeGreaterThanOrEqual(0);
+  expect(box!.x + box!.width, `${context} 右侧越出视口`).toBeLessThanOrEqual(viewportWidth + 1);
+  const ellipsisStyles = await region.locator('.table-cell-ellipsis:visible').evaluateAll((elements) => (
     elements.map((element) => {
       const style = getComputedStyle(element);
       return { overflow: style.overflow, whiteSpace: style.whiteSpace };
@@ -165,7 +158,7 @@ async function expectVisibleTableRegionsBounded(page: Page) {
   for (const style of ellipsisStyles) {
     expect(style).toEqual({ overflow: 'hidden', whiteSpace: 'nowrap' });
   }
-  const pressuredCells = await page.locator('.table-region:visible :is(td, th) .table-cell-ellipsis:visible').evaluateAll((elements) => (
+  const pressuredCells = await region.locator(':is(td, th) .table-cell-ellipsis:visible').evaluateAll((elements) => (
     elements.map((element) => {
       const cell = element.closest<HTMLElement>('td, th');
       const row = element.closest<HTMLElement>('tr');
@@ -189,23 +182,20 @@ async function expectVisibleTableRegionsBounded(page: Page) {
     })
   ));
   for (const cell of pressuredCells) {
-    const context = `${new URL(page.url()).pathname} @ ${viewportWidth}px`;
     expect(cell.contained, `${context} 省略文本越出单元格`).toBe(true);
     expect(cell.overflowed, `${context} 长文本未形成省略边界`).toBe(true);
     expect(cell.keyboardReachable, `${context} 省略文本无法通过键盘访问`).toBe(true);
     expect(cell.rowHeight, `${context} 长文本改变了行高`).toBeLessThanOrEqual(cell.originalRowHeight + 1);
   }
-  const fixedCellBackgrounds = await page.locator('.table-region .ant-table-cell-fix-right:visible, .table-region .ant-table-cell-fix-end:visible').evaluateAll(
+  const fixedCellBackgrounds = await region.locator('.ant-table-cell-fix-right:visible, .ant-table-cell-fix-end:visible').evaluateAll(
     (elements) => elements.map((element) => getComputedStyle(element).backgroundColor),
   );
   for (const background of fixedCellBackgrounds) {
     expect(background).not.toBe('transparent');
     expect(background).not.toBe('rgba(0, 0, 0, 0)');
   }
-  const modal = page.locator('.ant-modal-wrap:visible');
-  const interactiveScope = await modal.count() ? modal : page;
-  const firstDataRow = interactiveScope
-    .locator('.table-region:visible .ant-table-tbody > tr:visible:not(.ant-table-placeholder)')
+  const firstDataRow = region
+    .locator('.ant-table-tbody > tr:visible:not(.ant-table-placeholder)')
     .first();
   if (await firstDataRow.count()) {
     await firstDataRow.hover();
@@ -220,11 +210,26 @@ async function expectVisibleTableRegionsBounded(page: Page) {
   }
 }
 
-async function inspectCurrentTableSurface(page: Page) {
-  await expectNoDocumentOverflow(page);
-  if (await page.locator('.table-region:visible').count()) {
-    await expectVisibleTableRegionsBounded(page);
+async function expectVisibleTableRegionsBounded(page: Page) {
+  const regions = page.locator('.table-region:visible');
+  await expect(regions).not.toHaveCount(0);
+  for (const [index, region] of (await regions.all()).entries()) {
+    await expectTableRegionBounded(page, region, `${new URL(page.url()).pathname} @ 可见表 ${index + 1}`);
   }
+}
+
+async function expectInventoryTableBounded(page: Page, item: TableInventoryItem, viewportWidth: number) {
+  const scope = item.dialogName
+    ? page.getByRole('dialog', { name: item.dialogName, exact: true })
+    : page;
+  const context = `${item.label} / ${item.surface} / ${item.regionLabel} @ ${viewportWidth}px`;
+  if (item.dialogName) await expect(scope, `${context} 弹窗缺失`).toBeVisible();
+  const region = scope.locator('.table-region').and(
+    scope.getByRole('region', { name: item.regionLabel, exact: true }),
+  );
+  await expect(region, `${context} 必须唯一命中`).toHaveCount(1);
+  await expect(region, `${context} 目标不可见`).toBeVisible();
+  await expectTableRegionBounded(page, region, context);
 }
 
 async function expectMinimumTouchTarget(locator: Locator, label: string) {
@@ -563,6 +568,7 @@ test('全站 24 张业务表的源码清单与桌面、移动页面边界保持�
   for (const width of [1440, 375]) {
     await page.setViewportSize({ width, height: width === 1440 ? 1000 : 900 });
     for (const surface of surfaces) {
+      const inventoryItems = sitewideTableInventory.filter((item) => item.surface === surface);
       if (surface === 'product-versions') {
         await openTarget(page, targetByKey.get('product-detail')!);
         const tab = page.getByRole('tab', { name: /事实版本/ });
@@ -571,7 +577,16 @@ test('全站 24 张业务表的源码清单与桌面、移动页面边界保持�
       } else if (surface === 'observation-form') {
         await openTarget(page, targetByKey.get('observations')!);
         await page.getByRole('button', { name: '新建观测' }).click();
-        await expect(page.getByRole('dialog', { name: '登记人工观测' })).toBeVisible();
+        const dialog = page.getByRole('dialog', { name: '登记人工观测', exact: true });
+        await expect(dialog).toBeVisible();
+        const partNumber = targetByKey.get('product-detail')!.heading;
+        const productLoaded = page.waitForResponse((response) => {
+          const url = new URL(response.url());
+          return response.ok() && url.pathname === '/api/v1/products' && url.searchParams.get('search') === partNumber;
+        });
+        await dialog.getByRole('combobox', { name: '产品' }).fill(partNumber);
+        await productLoaded;
+        await page.locator('.ant-select-dropdown:visible').getByText(targetByKey.get('task-detail')!.heading, { exact: true }).click();
       } else if (surface === 'ai-model-discovery') {
         await openTarget(page, targetByKey.get('ai-models')!);
         await page.getByRole('button', { name: '获取模型' }).click();
@@ -579,7 +594,8 @@ test('全站 24 张业务表的源码清单与桌面、移动页面边界保持�
       } else {
         await openTarget(page, targetByKey.get(surface)!);
       }
-      await inspectCurrentTableSurface(page);
+      await expectNoDocumentOverflow(page);
+      for (const item of inventoryItems) await expectInventoryTableBounded(page, item, width);
       if (surface === 'observation-form' || surface === 'ai-model-discovery') {
         const dialog = page.getByRole('dialog', {
           name: surface === 'observation-form' ? '登记人工观测' : '获取模型',

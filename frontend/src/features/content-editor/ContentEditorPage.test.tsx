@@ -22,6 +22,7 @@ const content = {
   tags: ['替代方案'],
   content_hash: 'abc1234567890',
   status: 'PENDING_REVIEW',
+  available_actions: ['CREATE_REVISION', 'APPROVE', 'REQUEST_CHANGES'],
   revision: 1,
   quality_issues: [],
   created_by: '10000000-0000-4000-8000-000000000001',
@@ -51,6 +52,7 @@ const context = {
     body_markdown: '## 电气参数\n\n工作电压：3.3 V\n\n来源：公开数据手册',
     classification: 'PUBLIC',
     change_summary: '批准事实',
+    available_actions: ['RETIRE'],
     revision: 2,
     created_by: content.created_by,
     approved_by: content.created_by,
@@ -86,7 +88,7 @@ const taskListItem = {
 } satisfies Schema<'ContentTaskListItem'>;
 
 function commonPageResponse(path: string) {
-  if (path.endsWith('/auth/me')) return { body: { id: content.created_by, username: 'editor', display_name: '编辑', account_type: 'ENGINEER', is_active: true, must_change_password: false, revision: 1, created_at: content.created_at } satisfies Schema<'User'> };
+  if (path.endsWith('/auth/me')) return { body: { id: content.created_by, username: 'editor', display_name: '编辑', account_type: 'ENGINEER', is_active: true, must_change_password: false, available_actions: [], revision: 1, created_at: content.created_at } satisfies Schema<'User'> };
   if (path.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
   if (path === '/api/v1/content-tasks') return { body: { items: [taskListItem] } satisfies Schema<'ContentTaskList'> };
   if (path === `/api/v1/content-tasks/${content.task_id}/content-versions`) return { body: { items: [content, previousContent] } satisfies Schema<'ContentVersionList'> };
@@ -330,7 +332,7 @@ test('已批准版本保持只读且不渲染人工修订与审核操作', async
     const path = new URL(request.url).pathname;
     const common = commonPageResponse(path);
     if (common) return common;
-    if (path.endsWith('/review-context')) return { body: { ...context, content: { ...content, status: 'APPROVED' }, available_actions: [] } satisfies Schema<'ContentReviewContext'> };
+    if (path.endsWith('/review-context')) return { body: { ...context, content: { ...content, status: 'APPROVED', available_actions: [] }, task: { ...context.task, status: 'COMPLETED', available_actions: [] }, available_actions: [] } satisfies Schema<'ContentReviewContext'> };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
   render(<App />);
@@ -351,7 +353,7 @@ test('所属任务进入终态后未批准版本也不提供人工修订入口',
       return {
         body: {
           ...context,
-          content: { ...content, status: 'CHANGES_REQUESTED' },
+          content: { ...content, status: 'CHANGES_REQUESTED', available_actions: [] },
           task: { ...context.task, status: 'COMPLETED', available_actions: [] },
           available_actions: [],
         } satisfies Schema<'ContentReviewContext'>,

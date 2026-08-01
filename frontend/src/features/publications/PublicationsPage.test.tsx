@@ -36,6 +36,7 @@ const user = {
   account_type: 'ENGINEER',
   is_active: true,
   must_change_password: false,
+  available_actions: [],
   revision: 1,
   created_at: '2026-07-10T00:00:00Z',
 } satisfies Schema<'User'>;
@@ -54,6 +55,7 @@ const content = {
   tags: [],
   content_hash: 'a'.repeat(64),
   status: 'APPROVED',
+  available_actions: [],
   revision: 1,
   quality_issues: [],
   created_by: user.id,
@@ -71,8 +73,10 @@ const candidate = {
     label: '匹配账号',
     account_identifier: 'matched',
     is_active: true,
+    available_actions: ['UPDATE', 'DISABLE'],
     revision: 0,
   }],
+  available_actions: ['REGISTER'],
 } satisfies Schema<'PublicationCandidate'>;
 
 const publicationId = '61000000-0000-4000-8000-000000000001';
@@ -269,7 +273,7 @@ test('候选没有匹配账号时提供业务设置恢复入口', async () => {
   window.history.pushState({}, '', '/publications');
   mockFetch((request) => {
     const common = commonWorkspaceResponse(request, {
-      candidates: [{ ...candidate, matching_accounts: [] }],
+      candidates: [{ ...candidate, matching_accounts: [], available_actions: [] }],
     });
     if (common) return common;
     throw new Error(`未声明的测试请求：${request.method} ${request.url}`);
@@ -364,6 +368,89 @@ test('异常待办只能填写非空说明后显式解决', async () => {
   fireEvent.change(screen.getByRole('textbox', { name: '处置说明' }), { target: { value: '已人工处置' } });
   fireEvent.click(screen.getByRole('button', { name: '确认解决' }));
   await waitFor(() => expect(resolveCalls).toBe(1));
+});
+
+test('异常待办没有 CREATE_REPAIR_TASK 时修复上下文保持只读', async () => {
+  const attentionId = '60000000-0000-4000-8000-000000000002';
+  const productId = '51000000-0000-4000-8000-000000000001';
+  const factVersion = {
+    id: content.fact_version_id,
+    product_id: productId,
+    version: 1,
+    status: 'APPROVED',
+    body_markdown: '# 已批准事实',
+    classification: 'PUBLIC',
+    change_summary: '已批准事实',
+    available_actions: ['RETIRE'],
+    revision: 1,
+    created_by: user.id,
+    approved_by: user.id,
+    created_at: user.created_at,
+    approved_at: user.created_at,
+  } satisfies Schema<'FactVersion'>;
+  const attention = {
+    id: attentionId,
+    publication_record_id: publicationId,
+    original_task_id: content.task_id,
+    trigger_status: 'REMOVED',
+    status: 'RESOLVED',
+    revision: 1,
+    opened_at: user.created_at,
+    resolved_at: user.created_at,
+    resolved_by: user.id,
+    resolution_comment: '已完成处置',
+    repair_task_id: null,
+    available_actions: [],
+  } satisfies Schema<'PublicationAttention'>;
+  const context = {
+    attention,
+    publication: { ...recordDetail, status: 'REMOVED', available_actions: ['delete'] },
+    original_task: {
+      id: content.task_id,
+      product_id: productId,
+      fact_version_id: factVersion.id,
+      platform_profile_id: candidate.platform_profile_id,
+      query_topic_id: null,
+      source_publication_attention_id: null,
+      status: 'OPEN',
+      available_actions: [],
+      revision: 1,
+      created_by: user.id,
+      created_at: user.created_at,
+    },
+    product: {
+      id: productId,
+      part_number: 'PS-001',
+      brand: 'PartSignal',
+      category: 'MCU',
+      status: 'ACTIVE',
+      available_actions: ['UPDATE'],
+      revision: 1,
+      created_at: user.created_at,
+      updated_at: user.created_at,
+    },
+    query_topic: null,
+    platform_profile_id: candidate.platform_profile_id,
+    platform_profile_name: candidate.platform_profile_name,
+    original_fact_version: factVersion,
+    fact_candidates: [{
+      version: factVersion,
+      difference: { from_id: factVersion.id, to_id: factVersion.id, changes: [] },
+    }],
+  } satisfies Schema<'PublicationRepairContext'>;
+  window.history.pushState({}, '', `/publication-attentions/${attentionId}/repair`);
+  mockFetch((request) => {
+    const path = new URL(request.url).pathname;
+    if (path.endsWith('/auth/me')) return { body: user };
+    if (path.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
+    if (path.endsWith('/repair-context')) return { body: context };
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+
+  render(<App />);
+  expect(await screen.findByText('该异常待办已处置或已有修复任务，当前上下文仅供查看。')).toBeInTheDocument();
+  expect(screen.queryByRole('combobox', { name: '当前已批准事实版本' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '创建修复任务' })).not.toBeInTheDocument();
 });
 
 test('发布记录分页与状态筛选由 URL 和服务端列表共同恢复', async () => {

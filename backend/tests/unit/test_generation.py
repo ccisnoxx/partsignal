@@ -15,7 +15,11 @@ from app.models.content import ContentTask
 from app.models.product_facts import FactVersion, Product
 from app.schemas.content import GenerationFactSnapshot
 from app.schemas.product_facts import Confidentiality
-from app.services.content_production import build_generation_input, retry_generation_job
+from app.services.content_production import (
+    build_generation_input,
+    generation_job_retryable,
+    retry_generation_job,
+)
 from app.services.generation import (
     content_hash,
     ensure_generation_eligible,
@@ -294,6 +298,25 @@ def test_legacy_job_retry_is_explicitly_rejected(job_type: str, contract_version
         )
 
     assert captured.value.code == "LEGACY_GENERATION_RETRY_FORBIDDEN"
+
+
+def test_retry_projection_requires_supported_failed_job_and_open_parent() -> None:
+    job = cast(
+        GenerationJob,
+        SimpleNamespace(
+            job_type="GENERATE",
+            status="FAILED",
+            input_snapshot={"contract_version": "content-markdown-v3"},
+        ),
+    )
+    task = cast(ContentTask, SimpleNamespace(status="OPEN"))
+
+    assert generation_job_retryable(job, task) is True
+    task.status = "COMPLETED"
+    assert generation_job_retryable(job, task) is False
+    task.status = "OPEN"
+    job.input_snapshot = {"contract_version": "chat-json-v1"}
+    assert generation_job_retryable(job, task) is False
 
 
 def test_generation_sources_require_public_nonblank_markdown() -> None:

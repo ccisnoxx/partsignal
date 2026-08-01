@@ -23,6 +23,7 @@ from app.schemas.product_facts import (
     ProductCreate,
     ProductFactsDraft,
     ProductFactsDraftUpdate,
+    ProductOut,
     ProductUpdate,
 )
 
@@ -30,6 +31,64 @@ from app.schemas.product_facts import (
 def normalize_identity(value: str) -> str:
     """以大小写和常见分隔符无关的形式比较型号身份。"""
     return "".join(character for character in value.casefold().strip() if character.isalnum())
+
+
+def products_out(
+    db: Session,
+    products: list[Product],
+    *,
+    can_delete: bool,
+) -> list[ProductOut]:
+    """批量投影产品编辑与无引用删除动作。"""
+    if not products:
+        return []
+    product_ids = [product.id for product in products]
+    referenced_ids = set(
+        db.scalars(
+            select(FactVersion.product_id)
+            .where(FactVersion.product_id.in_(product_ids))
+            .union(
+                select(ContentTask.product_id).where(ContentTask.product_id.in_(product_ids)),
+                select(GeoObservation.product_id).where(
+                    GeoObservation.product_id.in_(product_ids)
+                ),
+            )
+        )
+    )
+    items: list[ProductOut] = []
+    for product in products:
+        actions = ["UPDATE"]
+        if can_delete and product.id not in referenced_ids:
+            actions.append("DELETE")
+        payload = {
+            field: getattr(product, field)
+            for field in ProductOut.model_fields
+            if field != "available_actions"
+        }
+        payload["available_actions"] = actions
+        items.append(ProductOut.model_validate(payload))
+    return items
+
+
+def product_out(db: Session, product: Product, *, can_delete: bool) -> ProductOut:
+    """投影单个产品及其当前动作。"""
+    return products_out(db, [product], can_delete=can_delete)[0]
+
+
+def product_facts_draft_out(product: Product) -> ProductFactsDraft:
+    """投影事实工作区保存与版本创建动作。"""
+    actions = ["SAVE"]
+    if product.facts_body_markdown.strip():
+        actions.append("CREATE_VERSION")
+    return ProductFactsDraft.model_validate(
+        {
+            "product_id": product.id,
+            "body_markdown": product.facts_body_markdown,
+            "classification": product.facts_classification,
+            "revision": product.facts_revision,
+            "available_actions": actions,
+        }
+    )
 
 
 def create_product(*, db: Session, payload: ProductCreate, actor: User, request_id: str) -> Product:
@@ -298,12 +357,7 @@ def replace_product_facts(
         ),
     )
     db.commit()
-    return ProductFactsDraft(
-        product_id=product.id,
-        body_markdown=product.facts_body_markdown,
-        classification=product.facts_classification,
-        revision=product.facts_revision,
-    )
+    return product_facts_draft_out(product)
 
 
 def create_fact_version(

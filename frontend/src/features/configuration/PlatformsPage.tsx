@@ -268,13 +268,13 @@ export function PlatformsPage() {
   });
 
   const rowMenu = (profile: PlatformProfile): MenuProps => {
+    const items: NonNullable<MenuProps['items']> = [];
+    if (profile.available_actions.includes('UPDATE')) items.push({ key: 'edit', label: '编辑平台' });
+    if (profile.available_actions.includes('DISABLE')) items.push({ key: 'toggle', label: '停用平台', danger: true });
+    if (profile.available_actions.includes('ENABLE')) items.push({ key: 'toggle', label: '启用平台' });
+    if (profile.available_actions.includes('DELETE')) items.push({ key: 'delete', label: '删除平台', danger: true });
     return {
-      items: [
-        { key: 'edit', label: '编辑平台' },
-        { type: 'divider' },
-        { key: 'toggle', label: profile.is_active ? '停用平台' : '启用平台', danger: profile.is_active },
-        { key: 'delete', label: '删除平台', danger: true },
-      ],
+      items,
       onClick: ({ key }) => {
         if (key === 'edit') setEditProfile(profile);
         else if (key === 'toggle') confirmToggle(profile);

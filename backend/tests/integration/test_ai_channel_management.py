@@ -155,6 +155,14 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert channel["api_key_configured"] is True
             assert "api_key" not in channel
             assert first_api_key not in created.text
+            assert channel["available_actions"] == [
+                "UPDATE",
+                "REPLACE_API_KEY",
+                "DELETE",
+                "DISCOVER_MODELS",
+                "CREATE_HEADER",
+                "CREATE_MODEL",
+            ]
 
             second = client.post(
                 "/api/v1/ai-channels",
@@ -245,6 +253,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             )
             assert model.status_code == 201
             model_id = uuid.UUID(model.json()["id"])
+            assert model.json()["available_actions"] == ["UPDATE", "TEST", "DELETE"]
 
             def change_model_during_test(_client: object, **_request: object) -> None:
                 """模拟外部调用期间管理员修改模型，旧测试结果不得覆盖新状态。"""
@@ -277,6 +286,15 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                 stored_model.test_status = "PASSED"
                 db.commit()
 
+            models = client.get(f"/api/v1/ai-channels/{channel_id}/models")
+            assert models.status_code == 200
+            assert set(models.json()["items"][0]["available_actions"]) == {
+                "UPDATE",
+                "TEST",
+                "ENABLE",
+                "DELETE",
+            }
+
             enabled = client.post(
                 f"/api/v1/ai-channels/{channel_id}/enable",
                 headers={"X-CSRF-Token": csrf_token},
@@ -284,6 +302,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             )
             assert enabled.status_code == 200
             assert enabled.json()["is_enabled"] is True
+            assert "DISABLE" in enabled.json()["available_actions"]
             disabled = client.post(
                 f"/api/v1/ai-channels/{channel_id}/disable",
                 headers={"X-CSRF-Token": csrf_token},
@@ -291,6 +310,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             )
             assert disabled.status_code == 200
             assert disabled.json()["is_enabled"] is False
+            assert "ENABLE" in disabled.json()["available_actions"]
 
             usage = client.get(
                 f"/api/v1/ai-channels/{channel_id}/usage-summary",

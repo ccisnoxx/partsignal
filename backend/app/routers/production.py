@@ -64,10 +64,11 @@ from app.services.content_production import (
 from app.services.content_production import (
     create_manual_content_version as create_manual_content_version_command,
 )
+from app.services.content_production import generation_job_retryable
 from app.services.content_production import (
     retry_generation_job as retry_generation_job_command,
 )
-from app.services.projections import content_diff, content_version_out
+from app.services.projections import content_diff, content_version_out, content_versions_out
 from app.services.review import get_content_review_context, transition_content_version
 
 router = APIRouter(prefix="/api/v1", tags=["production", "review"])
@@ -75,12 +76,35 @@ router = APIRouter(prefix="/api/v1", tags=["production", "review"])
 ContentEditor = EngineerUser
 
 
-def generation_job_out(job: GenerationJob) -> GenerationJobOut:
-    return GenerationJobOut.model_validate(job)
+def generation_jobs_out(db: DbSession, jobs: list[GenerationJob]) -> list[GenerationJobOut]:
+    """批量投影作业重试动作，避免逐行读取父任务。"""
+    task_ids = {job.content_task_id for job in jobs}
+    tasks_by_id = {
+        task.id: task
+        for task in db.scalars(select(ContentTask).where(ContentTask.id.in_(task_ids)))
+    }
+    items: list[GenerationJobOut] = []
+    for job in jobs:
+        payload = {
+            field: getattr(job, field)
+            for field in GenerationJobOut.model_fields
+            if field != "available_actions"
+        }
+        payload["available_actions"] = (
+            ["RETRY"] if generation_job_retryable(job, tasks_by_id.get(job.content_task_id)) else []
+        )
+        items.append(GenerationJobOut.model_validate(payload))
+    return items
 
 
-def generation_job_detail(job: GenerationJob) -> GenerationJobDetail:
-    return GenerationJobDetail.model_validate(job)
+def generation_job_out(db: DbSession, job: GenerationJob) -> GenerationJobOut:
+    return generation_jobs_out(db, [job])[0]
+
+
+def generation_job_detail(db: DbSession, job: GenerationJob) -> GenerationJobDetail:
+    payload = generation_job_out(db, job).model_dump()
+    payload["input_snapshot"] = job.input_snapshot
+    return GenerationJobDetail.model_validate(payload)
 
 
 @router.get(
@@ -161,7 +185,7 @@ def create_generation_job(
         request_id=request.state.request_id,
         idempotency_key=idempotency_key,
     )
-    return generation_job_out(job)
+    return generation_job_out(db, job)
 
 
 @router.post(
@@ -188,7 +212,7 @@ def create_humanization_job(
         request_id=request.state.request_id,
         idempotency_key=idempotency_key,
     )
-    return generation_job_out(job)
+    return generation_job_out(db, job)
 
 
 @router.get(
@@ -209,7 +233,7 @@ def list_generation_jobs(
             .order_by(GenerationJob.created_at.desc())
         )
     )
-    return GenerationJobList(items=[generation_job_out(job) for job in jobs])
+    return GenerationJobList(items=generation_jobs_out(db, jobs))
 
 
 @router.get(
@@ -223,7 +247,7 @@ def get_generation_job(
     job = db.get(GenerationJob, generation_job_id)
     if job is None:
         raise not_found("生成作业")
-    return generation_job_detail(job)
+    return generation_job_detail(db, job)
 
 
 @router.post(
@@ -247,7 +271,7 @@ def retry_generation_job(
         request_id=request.state.request_id,
         idempotency_key=idempotency_key,
     )
-    return generation_job_out(job)
+    return generation_job_out(db, job)
 
 
 @router.get(
@@ -267,7 +291,7 @@ def list_content_task_versions(
             .order_by(ContentVersion.version.desc())
         )
     )
-    return ContentVersionList(items=[content_version_out(item) for item in versions])
+    return ContentVersionList(items=content_versions_out(db, versions))
 
 
 @router.post(
@@ -292,7 +316,7 @@ def create_manual_content_version(
         actor=editor,
         request_id=request.state.request_id,
     )
-    return content_version_out(content)
+    return content_version_out(db, content)
 
 
 @router.get(
@@ -306,7 +330,7 @@ def get_content_version(
     content = db.get(ContentVersion, content_version_id)
     if content is None:
         raise not_found("内容版本")
-    return content_version_out(content)
+    return content_version_out(db, content)
 
 
 @router.get(
@@ -315,10 +339,12 @@ def get_content_version(
     operation_id="getContentReviewContext",
 )
 def content_review_context(
-    content_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    content_version_id: uuid.UUID, db: DbSession, user: CurrentUser
 ) -> ContentReviewContext:
     """返回不可变内容、锁定事实、证据、差异和追加式审核历史。"""
-    return get_content_review_context(db, content_version_id)
+    return get_content_review_context(
+        db, content_version_id, can_delete_fact=user.account_type == "ADMIN"
+    )
 
 
 @router.post(
@@ -342,7 +368,7 @@ def create_content_revision(
         actor=editor,
         request_id=request.state.request_id,
     )
-    return content_version_out(content)
+    return content_version_out(db, content)
 
 
 @router.post(

@@ -19,6 +19,7 @@ const products = Array.from({ length: 21 }, (_, index) => ({
   brand: 'DEMO',
   category: 'MCU',
   status: 'ACTIVE',
+  available_actions: ['UPDATE'],
   revision: 0,
   facts_revision: 0,
   created_at: '2026-07-17T00:00:00Z',

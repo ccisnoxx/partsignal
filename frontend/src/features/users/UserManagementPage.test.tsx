@@ -8,12 +8,20 @@ import { mockFetch } from '../../test/fetchMock';
 
 const admin = {
   id: '10000000-0000-4000-8000-000000000001', username: 'admin', display_name: '管理员',
-  account_type: 'ADMIN', is_active: true, must_change_password: false, revision: 1, created_at: '2026-07-10T00:00:00Z',
+  account_type: 'ADMIN', is_active: true, must_change_password: false, available_actions: ['UPDATE', 'DISABLE'], revision: 1, created_at: '2026-07-10T00:00:00Z',
 } satisfies Schema<'User'>;
 
 const inactiveEngineer = {
   id: '10000000-0000-4000-8000-000000000002', username: 'inactive-engineer', display_name: '停用工程师',
-  account_type: 'ENGINEER', is_active: false, must_change_password: true, revision: 2, created_at: '2026-07-11T00:00:00Z',
+  account_type: 'ENGINEER', is_active: false, must_change_password: true, available_actions: ['UPDATE', 'RESET_PASSWORD', 'ENABLE', 'DELETE'], revision: 2, created_at: '2026-07-11T00:00:00Z',
+} satisfies Schema<'User'>;
+
+const activeEngineer = {
+  ...inactiveEngineer,
+  username: 'active-engineer',
+  display_name: '启用工程师',
+  is_active: true,
+  available_actions: ['UPDATE', 'RESET_PASSWORD', 'DISABLE'],
 } satisfies Schema<'User'>;
 
 const summary = {
@@ -106,16 +114,16 @@ test('批量停用展示服务端逐项失败，不把部分成功伪装成全�
     if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
     if (url.pathname.endsWith('/users/bulk-status')) return {
       body: {
-        succeeded: [{ ...inactiveEngineer, is_active: false, revision: 3 }],
+        succeeded: [{ ...activeEngineer, is_active: false, available_actions: ['UPDATE', 'RESET_PASSWORD', 'ENABLE', 'DELETE'], revision: 3 }],
         failures: [{ user_id: admin.id, code: 'LAST_ADMIN_REQUIRED', message: '系统必须保留至少一个有效管理员' }],
       } satisfies Schema<'UserBulkStatusResult'>,
     };
-    if (url.pathname.endsWith('/users')) return { body: userList([admin, inactiveEngineer], url.searchParams) };
+    if (url.pathname.endsWith('/users')) return { body: userList([admin, activeEngineer], url.searchParams) };
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
   render(<App />);
-  await screen.findByText('inactive-engineer');
+  await screen.findByText('active-engineer');
   const checkboxes = screen.getAllByRole('checkbox');
   fireEvent.click(checkboxes[1]!);
   fireEvent.click(checkboxes[2]!);

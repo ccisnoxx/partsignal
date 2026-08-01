@@ -42,6 +42,7 @@ from app.schemas.configuration import (
     PlatformPromptUpdate,
     PlatformReferenceSummary,
     PlatformTypeCreate,
+    PlatformTypeOut,
     PlatformTypeUpdate,
 )
 from app.services.platform_logo_files import (
@@ -125,6 +126,7 @@ def list_platform_profiles(
     configuration_status: PlatformConfigurationStatus | None,
     page: int | None,
     page_size: int | None,
+    can_manage: bool,
 ) -> PlatformProfileList:
     """返回兼容全量模式或成对分页的权威平台集合。"""
     if (page is None) != (page_size is None):
@@ -144,7 +146,7 @@ def list_platform_profiles(
         profiles = list(db.scalars(query.offset((page - 1) * page_size).limit(page_size)))
         response_page, response_page_size = page, page_size
     return PlatformProfileList(
-        items=platform_profiles_out(db, profiles),
+        items=platform_profiles_out(db, profiles, can_manage=can_manage),
         page=response_page,
         page_size=response_page_size,
         total=total,
@@ -171,7 +173,7 @@ def export_platform_profiles(
             )
         )
     )
-    items = platform_profiles_out(db, profiles)
+    items = platform_profiles_out(db, profiles, can_manage=True)
     output = io.StringIO(newline="")
     output.write("\ufeff")
     writer = csv.writer(output)
@@ -229,7 +231,7 @@ def get_platform_profile_detail(
             ),
         ).where(ContentTask.platform_profile_id == profile.id)
     ).one()
-    profile_projection = platform_profile_out(db, profile)
+    profile_projection = platform_profile_out(db, profile, can_manage=True)
     enabled = int(account_enabled)
     total = int(account_total)
     return PlatformProfileDetail(
@@ -322,6 +324,41 @@ def create_platform_type(
     )
     db.commit()
     return item
+
+
+def platform_types_out(db: Session, items: list[PlatformType]) -> list[PlatformTypeOut]:
+    """批量投影平台类型及无平台引用时的删除动作。"""
+    if not items:
+        return []
+    item_ids = [item.id for item in items]
+    referenced_ids = set(
+        db.scalars(
+            select(PlatformProfile.platform_type_id).where(
+                PlatformProfile.platform_type_id.in_(item_ids)
+            )
+        )
+    )
+    return [
+        PlatformTypeOut.model_validate(
+            {
+                **{
+                    field: getattr(item, field)
+                    for field in PlatformTypeOut.model_fields
+                    if field != "available_actions"
+                },
+                "available_actions": [
+                    "UPDATE",
+                    *([] if item.id in referenced_ids else ["DELETE"]),
+                ],
+            }
+        )
+        for item in items
+    ]
+
+
+def platform_type_out(db: Session, item: PlatformType) -> PlatformTypeOut:
+    """投影单个平台类型的当前动作。"""
+    return platform_types_out(db, [item])[0]
 
 
 def update_platform_type(
@@ -418,6 +455,10 @@ def _platform_prompt_detail(db: Session, prompt: PlatformPrompt) -> PlatformProm
             "created_at": prompt.created_at,
             "updated_at": prompt.updated_at,
             "bound_platform_count": len(bound_platforms),
+            "available_actions": [
+                "UPDATE",
+                *([] if bound_platforms else ["DELETE"]),
+            ],
             "bound_platforms": [
                 {"id": profile.id, "name": profile.name, "slug": profile.slug}
                 for profile in bound_platforms
@@ -444,6 +485,10 @@ def list_platform_prompts(db: Session) -> PlatformPromptList:
                     "updated_by": prompt.updated_by,
                     "updated_at": prompt.updated_at,
                     "bound_platform_count": int(bound_count),
+                    "available_actions": [
+                        "UPDATE",
+                        *([] if bound_count else ["DELETE"]),
+                    ],
                 }
             )
             for prompt, bound_count in rows

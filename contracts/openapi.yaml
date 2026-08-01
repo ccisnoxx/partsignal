@@ -2170,7 +2170,7 @@ components:
     User:
       type: object
       additionalProperties: false
-      required: [id, username, display_name, account_type, is_active, must_change_password, revision, created_at]
+      required: [id, username, display_name, account_type, is_active, must_change_password, available_actions, revision, created_at]
       properties:
         id: {type: string, format: uuid}
         username: {type: string}
@@ -2178,6 +2178,9 @@ components:
         account_type: {$ref: '#/components/schemas/AccountType'}
         is_active: {type: boolean}
         must_change_password: {type: boolean}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, RESET_PASSWORD, ENABLE, DISABLE, DELETE]}
         revision: {type: integer}
         created_at: {type: string, format: date-time}
     UserCreate:
@@ -2353,13 +2356,16 @@ components:
     Product:
       type: object
       additionalProperties: false
-      required: [id, part_number, brand, category, status, revision, created_at, updated_at]
+      required: [id, part_number, brand, category, status, available_actions, revision, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         part_number: {type: string}
         brand: {type: string}
         category: {type: string}
         status: {$ref: '#/components/schemas/ProductStatus'}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, DELETE]}
         revision: {type: integer}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
@@ -2402,11 +2408,14 @@ components:
     ProductFactsDraft:
       type: object
       additionalProperties: false
-      required: [product_id, body_markdown, classification, revision]
+      required: [product_id, body_markdown, classification, available_actions, revision]
       properties:
         product_id: {type: string, format: uuid}
         body_markdown: {type: string}
         classification: {$ref: '#/components/schemas/Confidentiality'}
+        available_actions:
+          type: array
+          items: {type: string, enum: [SAVE, CREATE_VERSION]}
         revision: {type: integer, minimum: 0}
     FactVersionStatus: {type: string, enum: [DRAFT, PENDING_REVIEW, CHANGES_REQUESTED, APPROVED, RETIRED]}
     CreateVersionRequest:
@@ -2438,7 +2447,7 @@ components:
     FactVersion:
       type: object
       additionalProperties: false
-      required: [id, product_id, version, status, body_markdown, classification, change_summary, revision, created_by, created_at]
+      required: [id, product_id, version, status, body_markdown, classification, change_summary, available_actions, revision, created_by, created_at]
       properties:
         id: {type: string, format: uuid}
         product_id: {type: string, format: uuid}
@@ -2447,6 +2456,9 @@ components:
         body_markdown: {type: string}
         classification: {$ref: '#/components/schemas/Confidentiality'}
         change_summary: {type: string}
+        available_actions:
+          type: array
+          items: {type: string, enum: [SUBMIT, APPROVE, REQUEST_CHANGES, RETIRE, DELETE]}
         revision: {type: integer}
         created_by: {type: string, format: uuid}
         approved_by: {type: [string, 'null'], format: uuid}
@@ -2480,9 +2492,12 @@ components:
       allOf:
         - {$ref: '#/components/schemas/QueryTopicCreate'}
         - type: object
-          required: [id, revision, created_at]
+          required: [id, available_actions, revision, created_at]
           properties:
             id: {type: string, format: uuid}
+            available_actions:
+              type: array
+              items: {type: string, enum: [UPDATE]}
             revision: {type: integer}
             created_at: {type: string, format: date-time}
     QueryTopicList:
@@ -2598,7 +2613,7 @@ components:
     PlatformProfile:
       type: object
       additionalProperties: false
-      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, platform_prompt, configuration_complete, platform_account_count, updated_at]
+      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, platform_prompt, configuration_complete, platform_account_count, available_actions, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string, minLength: 1, maxLength: 160}
@@ -2622,6 +2637,9 @@ components:
             - {type: 'null'}
         configuration_complete: {type: boolean, description: 当前具体平台已绑定 Prompt，可用于系统 AI 生成}
         platform_account_count: {type: integer, minimum: 0}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, ENABLE, DISABLE, DELETE]}
         updated_at: {type: [string, 'null'], format: date-time, description: 平台创建、编辑、启用或停用的最近真实审计时间}
     PlatformProfileSummary:
       type: object
@@ -2687,11 +2705,14 @@ components:
     PlatformType:
       type: object
       additionalProperties: false
-      required: [id, name, slug, revision, created_by, created_at, updated_at]
+      required: [id, name, slug, available_actions, revision, created_by, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string, minLength: 1}
         slug: {type: string, pattern: '^[a-z0-9-]+$'}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, DELETE]}
         revision: {type: integer}
         created_by: {type: string, format: uuid}
         created_at: {type: string, format: date-time}
@@ -2720,10 +2741,13 @@ components:
       allOf:
         - {$ref: '#/components/schemas/PlatformPromptReference'}
         - type: object
-          required: [updated_by, bound_platform_count]
+          required: [updated_by, bound_platform_count, available_actions]
           properties:
             updated_by: {type: string, format: uuid}
             bound_platform_count: {type: integer, minimum: 0}
+            available_actions:
+              type: array
+              items: {type: string, enum: [UPDATE, DELETE]}
     PlatformPromptBoundPlatform:
       type: object
       additionalProperties: false
@@ -2759,9 +2783,12 @@ components:
     ContentHumanizationPrompt:
       type: object
       additionalProperties: false
-      required: [template_markdown, revision, updated_by, created_at, updated_at]
+      required: [template_markdown, available_actions, revision, updated_by, created_at, updated_at]
       properties:
         template_markdown: {type: string}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE]}
         revision: {type: integer}
         updated_by: {type: string, format: uuid}
         created_at: {type: string, format: date-time}
@@ -2769,12 +2796,15 @@ components:
     AIChannelHeader:
       type: object
       additionalProperties: false
-      required: [id, name, is_sensitive, is_configured]
+      required: [id, name, is_sensitive, is_configured, available_actions]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
         is_sensitive: {type: boolean}
         is_configured: {type: boolean}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, DELETE]}
         value: {type: [string, 'null']}
     AIChannelHeaderCreate:
       type: object
@@ -2828,7 +2858,7 @@ components:
     AIChannel:
       type: object
       additionalProperties: false
-      required: [id, name, description, protocol_type, provider_brand, base_url, timeout_seconds, is_enabled, api_key_configured, api_key_updated_at, headers, enabled_models, latest_test_status, last_tested_at, revision, created_by, created_at, updated_at]
+      required: [id, name, description, protocol_type, provider_brand, base_url, timeout_seconds, is_enabled, api_key_configured, api_key_updated_at, headers, enabled_models, latest_test_status, last_tested_at, available_actions, revision, created_by, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
@@ -2844,6 +2874,9 @@ components:
         enabled_models: {type: array, items: {$ref: '#/components/schemas/AIChannelModelSummary'}}
         latest_test_status: {$ref: '#/components/schemas/AIModelTestStatus'}
         last_tested_at: {type: [string, 'null'], format: date-time}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, REPLACE_API_KEY, ENABLE, DISABLE, DELETE, DISCOVER_MODELS, CREATE_HEADER, CREATE_MODEL]}
         revision: {type: integer}
         created_by: {type: string, format: uuid}
         created_at: {type: string, format: date-time}
@@ -2864,7 +2897,7 @@ components:
     AIChannelSummary:
       type: object
       additionalProperties: false
-      required: [id, name, description, protocol_type, provider_brand, base_url, is_enabled, api_key_configured, header_count, enabled_model_count, latest_test_status, last_tested_at, revision]
+      required: [id, name, description, protocol_type, provider_brand, base_url, is_enabled, api_key_configured, header_count, enabled_model_count, latest_test_status, last_tested_at, available_actions, revision]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
@@ -2878,6 +2911,9 @@ components:
         enabled_model_count: {type: integer, minimum: 0}
         latest_test_status: {$ref: '#/components/schemas/AIModelTestStatus'}
         last_tested_at: {type: [string, 'null'], format: date-time}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, REPLACE_API_KEY, ENABLE, DISABLE, DELETE, DISCOVER_MODELS, CREATE_HEADER, CREATE_MODEL]}
         revision: {type: integer, minimum: 0}
     AIChannelCounts:
       type: object
@@ -2946,7 +2982,7 @@ components:
     AIModel:
       type: object
       additionalProperties: false
-      required: [id, channel_id, display_name, model_id, request_parameters, is_enabled, test_status, revision, created_by, created_at, updated_at]
+      required: [id, channel_id, display_name, model_id, request_parameters, is_enabled, test_status, available_actions, revision, created_by, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         channel_id: {type: string, format: uuid}
@@ -2957,6 +2993,9 @@ components:
         test_status: {$ref: '#/components/schemas/AIModelTestStatus'}
         last_tested_at: {type: [string, 'null'], format: date-time}
         last_test_error_summary: {type: [string, 'null']}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, TEST, ENABLE, DISABLE, DELETE]}
         revision: {type: integer}
         created_by: {type: string, format: uuid}
         created_at: {type: string, format: date-time}
@@ -2999,7 +3038,7 @@ components:
             source_publication_attention_id: {type: [string, 'null'], format: uuid}
             available_actions:
               type: array
-              items: {type: string, enum: [CANCEL, DELETE]}
+              items: {type: string, enum: [CANCEL, DELETE, CREATE_GENERATION_JOB, CREATE_MANUAL_VERSION]}
             status: {$ref: '#/components/schemas/ContentTaskStatus'}
             revision: {type: integer}
             created_by: {type: string, format: uuid}
@@ -3090,13 +3129,16 @@ components:
     GenerationJob:
       type: object
       additionalProperties: false
-      required: [id, content_task_id, job_type, source_content_version_id, status, attempt_count, created_at]
+      required: [id, content_task_id, job_type, source_content_version_id, status, available_actions, attempt_count, created_at]
       properties:
         id: {type: string, format: uuid}
         content_task_id: {type: string, format: uuid}
         job_type: {$ref: '#/components/schemas/GenerationJobType'}
         source_content_version_id: {type: [string, 'null'], format: uuid}
         status: {$ref: '#/components/schemas/GenerationJobStatus'}
+        available_actions:
+          type: array
+          items: {type: string, enum: [RETRY]}
         attempt_count: {type: integer}
         content_version_id: {type: [string, 'null'], format: uuid}
         retry_of_id: {type: [string, 'null'], format: uuid}
@@ -3272,7 +3314,7 @@ components:
     ContentVersion:
       type: object
       additionalProperties: false
-      required: [id, task_id, fact_version_id, source_job_id, based_on_id, version, source_type, title, summary, body_markdown, tags, content_hash, status, revision, quality_issues, created_by, created_at]
+      required: [id, task_id, fact_version_id, source_job_id, based_on_id, version, source_type, title, summary, body_markdown, tags, content_hash, status, available_actions, revision, quality_issues, created_by, created_at]
       properties:
         id: {type: string, format: uuid}
         task_id: {type: string, format: uuid}
@@ -3287,6 +3329,9 @@ components:
         tags: {type: array, items: {type: string}}
         content_hash: {type: string}
         status: {$ref: '#/components/schemas/ContentVersionStatus'}
+        available_actions:
+          type: array
+          items: {type: string, enum: [CREATE_REVISION, CREATE_HUMANIZATION_JOB, SUBMIT_REVIEW, APPROVE, REQUEST_CHANGES]}
         revision: {type: integer}
         quality_issues: {type: array, items: {$ref: '#/components/schemas/QualityIssue'}}
         created_by: {type: string, format: uuid}
@@ -3426,10 +3471,13 @@ components:
       allOf:
         - {$ref: '#/components/schemas/PlatformAccountCreate'}
         - type: object
-          required: [id, is_active, revision]
+          required: [id, is_active, available_actions, revision]
           properties:
             id: {type: string, format: uuid}
             is_active: {type: boolean}
+            available_actions:
+              type: array
+              items: {type: string, enum: [UPDATE, ENABLE, DISABLE, DELETE]}
             revision: {type: integer, minimum: 0}
     PlatformAccountList:
       type: object
@@ -3540,13 +3588,16 @@ components:
     PublicationCandidate:
       type: object
       additionalProperties: false
-      required: [content_version, task_id, platform_profile_id, platform_profile_name, matching_accounts]
+      required: [content_version, task_id, platform_profile_id, platform_profile_name, matching_accounts, available_actions]
       properties:
         content_version: {$ref: '#/components/schemas/ContentVersion'}
         task_id: {type: string, format: uuid}
         platform_profile_id: {type: string, format: uuid}
         platform_profile_name: {type: string}
         matching_accounts: {type: array, items: {$ref: '#/components/schemas/PlatformAccount'}}
+        available_actions:
+          type: array
+          items: {type: string, enum: [REGISTER]}
     PublicationCandidateList:
       type: object
       additionalProperties: false

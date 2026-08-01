@@ -295,7 +295,7 @@ export function ContentEditorPage() {
 
   const review = context.data;
   const current = review.content;
-  const canRevise = review.task.status === 'OPEN' && current.status !== 'APPROVED' && current.status !== 'SUPERSEDED';
+  const canRevise = current.available_actions.includes('CREATE_REVISION');
   const blockingIssues = current.quality_issues.filter((issue) => issue.severity === 'BLOCKING');
   const warningIssues = current.quality_issues.filter((issue) => issue.severity === 'WARNING');
   const safeHtml = renderSanitizedMarkdown(current.body_markdown);

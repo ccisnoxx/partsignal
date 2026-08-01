@@ -38,8 +38,6 @@ from app.models.publication import (
     PublicationRecord,
     PublicationStatusEvent,
 )
-from app.schemas.configuration import QueryTopicOut
-from app.schemas.product_facts import ProductOut
 from app.schemas.publication import (
     FactVersionCandidate,
     FileRecordOut,
@@ -64,10 +62,14 @@ from app.schemas.publication import (
     VersionChange,
     VersionDifference,
 )
+from app.services.content_planning import query_topic_out
+from app.services.product_facts import product_out
 from app.services.projections import (
     content_task_out,
-    content_version_out,
+    content_versions_out,
     fact_version_out,
+    fact_versions_out,
+    platform_accounts_out,
 )
 
 PUBLICATION_TRANSITIONS = {
@@ -258,7 +260,9 @@ def publication_out(db: Session, publication: PublicationRecord) -> PublicationR
     )
 
 
-def list_publication_candidates(db: Session) -> PublicationCandidateList:
+def list_publication_candidates(
+    db: Session, *, can_delete_accounts: bool
+) -> PublicationCandidateList:
     """返回锁定平台及其活跃账号，避免前端重建平台一致性规则。"""
     rows = db.execute(
         select(ContentVersion, ContentTask, PlatformProfile)
@@ -273,29 +277,38 @@ def list_publication_candidates(db: Session) -> PublicationCandidateList:
         )
         .order_by(ContentVersion.created_at.desc(), ContentVersion.id)
     ).all()
-    accounts_by_profile: defaultdict[uuid.UUID, list[PlatformAccount]] = defaultdict(list)
     profile_ids = {profile.id for _content, _task, profile in rows}
+    accounts: list[PlatformAccount] = []
     if profile_ids:
-        for account in db.scalars(
-            select(PlatformAccount)
-            .where(
-                PlatformAccount.platform_profile_id.in_(profile_ids),
-                PlatformAccount.is_active.is_(True),
+        accounts = list(
+            db.scalars(
+                select(PlatformAccount)
+                .where(
+                    PlatformAccount.platform_profile_id.in_(profile_ids),
+                    PlatformAccount.is_active.is_(True),
+                )
+                .order_by(PlatformAccount.label, PlatformAccount.id)
             )
-            .order_by(PlatformAccount.label, PlatformAccount.id)
-        ):
-            accounts_by_profile[account.platform_profile_id].append(account)
+        )
+    accounts_by_profile: defaultdict[uuid.UUID, list[PlatformAccountOut]] = defaultdict(list)
+    for account in platform_accounts_out(db, accounts, can_delete=can_delete_accounts):
+        accounts_by_profile[account.platform_profile_id].append(account)
+    contents = [content for content, _task, _profile in rows]
+    projected_contents = {
+        content.id: projected
+        for content, projected in zip(
+            contents, content_versions_out(db, contents), strict=True
+        )
+    }
     return PublicationCandidateList(
         items=[
             PublicationCandidate(
-                content_version=content_version_out(content),
+                content_version=projected_contents[content.id],
                 task_id=task.id,
                 platform_profile_id=profile.id,
                 platform_profile_name=profile.name,
-                matching_accounts=[
-                    PlatformAccountOut.model_validate(item)
-                    for item in accounts_by_profile[profile.id]
-                ],
+                matching_accounts=accounts_by_profile[profile.id],
+                available_actions=(["REGISTER"] if accounts_by_profile[profile.id] else []),
             )
             for content, task, profile in rows
         ]
@@ -632,7 +645,9 @@ def _difference(
     return VersionDifference(from_id=from_id, to_id=to_id, changes=changes)
 
 
-def get_repair_context(db: Session, attention_id: uuid.UUID) -> PublicationRepairContext:
+def get_repair_context(
+    db: Session, attention_id: uuid.UUID, *, can_delete: bool
+) -> PublicationRepairContext:
     """返回固定业务上下文、当前候选和确定性版本差异。"""
     attention = db.get(PublicationAttention, attention_id)
     if attention is None:
@@ -652,7 +667,7 @@ def get_repair_context(db: Session, attention_id: uuid.UUID) -> PublicationRepai
     assert product is not None
     assert original_fact is not None
     assert profile is not None
-    original_fact_out = fact_version_out(original_fact)
+    original_fact_out = fact_version_out(db, original_fact, can_delete=can_delete)
     fact_candidates = [
         candidate
         for candidate in db.scalars(
@@ -670,14 +685,14 @@ def get_repair_context(db: Session, attention_id: uuid.UUID) -> PublicationRepai
         attention=attention_out(db, attention),
         publication=publication_out(db, publication),
         original_task=content_task_out(db, task),
-        product=ProductOut.model_validate(product),
-        query_topic=QueryTopicOut.model_validate(topic) if topic is not None else None,
+        product=product_out(db, product, can_delete=can_delete),
+        query_topic=query_topic_out(topic) if topic is not None else None,
         platform_profile_id=profile.id,
         platform_profile_name=profile.name,
         original_fact_version=original_fact_out,
         fact_candidates=[
             FactVersionCandidate(
-                version=fact_version_out(candidate),
+                version=projected_candidate,
                 difference=_difference(
                     original_fact.id,
                     candidate.id,
@@ -688,7 +703,11 @@ def get_repair_context(db: Session, attention_id: uuid.UUID) -> PublicationRepai
                     },
                 ),
             )
-            for candidate in fact_candidates
+            for candidate, projected_candidate in zip(
+                fact_candidates,
+                fact_versions_out(db, fact_candidates, can_delete=can_delete),
+                strict=True,
+            )
         ],
     )
 

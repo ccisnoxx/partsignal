@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -39,34 +38,14 @@ from app.services.projections import (
     content_version_out,
     fact_version_out,
 )
-
-FactAction = Literal["submit", "approve", "request-changes", "retire"]
-ContentAction = Literal["submit-review", "approve", "request-changes"]
-FactReviewAction = Literal["SUBMIT", "APPROVE", "REQUEST_CHANGES", "RETIRE"]
-ContentReviewAction = Literal["SUBMIT_REVIEW", "APPROVE", "REQUEST_CHANGES"]
-
-FACT_TRANSITIONS: dict[FactAction, tuple[frozenset[str], str]] = {
-    "submit": (frozenset({"DRAFT", "CHANGES_REQUESTED"}), "PENDING_REVIEW"),
-    "approve": (frozenset({"PENDING_REVIEW"}), "APPROVED"),
-    "request-changes": (frozenset({"PENDING_REVIEW"}), "CHANGES_REQUESTED"),
-    "retire": (frozenset({"APPROVED"}), "RETIRED"),
-}
-FACT_REVIEW_ACTIONS: dict[FactAction, FactReviewAction] = {
-    "submit": "SUBMIT",
-    "approve": "APPROVE",
-    "request-changes": "REQUEST_CHANGES",
-    "retire": "RETIRE",
-}
-CONTENT_TRANSITIONS: dict[ContentAction, tuple[frozenset[str], str]] = {
-    "submit-review": (frozenset({"DRAFT", "CHANGES_REQUESTED"}), "PENDING_REVIEW"),
-    "approve": (frozenset({"PENDING_REVIEW"}), "APPROVED"),
-    "request-changes": (frozenset({"PENDING_REVIEW"}), "CHANGES_REQUESTED"),
-}
-CONTENT_REVIEW_ACTIONS: dict[ContentAction, ContentReviewAction] = {
-    "submit-review": "SUBMIT_REVIEW",
-    "approve": "APPROVE",
-    "request-changes": "REQUEST_CHANGES",
-}
+from app.services.review_policy import (
+    CONTENT_TRANSITIONS,
+    FACT_TRANSITIONS,
+    ContentAction,
+    FactAction,
+    content_review_actions,
+    fact_review_actions,
+)
 
 
 def _fact_history(db: Session, fact: FactVersion) -> list[ReviewRecord]:
@@ -124,41 +103,16 @@ def _content_history(db: Session, content: ContentVersion) -> list[ReviewRecord]
     ]
 
 
-def _fact_actions(
-    fact: FactVersion,
-) -> list[FactReviewAction]:
-    return [
-        FACT_REVIEW_ACTIONS[action]
-        for action, (sources, _target) in FACT_TRANSITIONS.items()
-        if fact.status in sources
-    ]
-
-
-def _content_actions(
-    content: ContentVersion,
-    fact: FactVersion,
-) -> list[ContentReviewAction]:
-    blocking = any(issue.get("severity") == "BLOCKING" for issue in content.quality_issues)
-    actions = [
-        CONTENT_REVIEW_ACTIONS[action]
-        for action, (sources, _target) in CONTENT_TRANSITIONS.items()
-        if content.status in sources
-    ]
-    if blocking:
-        actions = [action for action in actions if action == "REQUEST_CHANGES"]
-    if fact.status != "APPROVED":
-        actions = [action for action in actions if action != "APPROVE"]
-    return actions
-
-
-def get_fact_review_context(db: Session, fact_version_id: uuid.UUID) -> FactReviewContext:
+def get_fact_review_context(
+    db: Session, fact_version_id: uuid.UUID, *, can_delete: bool
+) -> FactReviewContext:
     """返回目标事实版本及其自身的完整审核时间线。"""
     fact = db.get(FactVersion, fact_version_id)
     if fact is None:
         raise not_found("事实版本")
     return FactReviewContext(
-        fact_version=fact_version_out(fact),
-        available_actions=_fact_actions(fact),
+        fact_version=fact_version_out(db, fact, can_delete=can_delete),
+        available_actions=fact_review_actions(fact),
         review_history=_fact_history(db, fact),
     )
 
@@ -171,7 +125,9 @@ def _source_ai_lineage(db: Session, content: ContentVersion) -> ContentAILineage
         raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容 AI 追溯链不完整", 409) from error
 
 
-def get_content_review_context(db: Session, content_version_id: uuid.UUID) -> ContentReviewContext:
+def get_content_review_context(
+    db: Session, content_version_id: uuid.UUID, *, can_delete_fact: bool
+) -> ContentReviewContext:
     """从不可变内容、任务事实和生成快照装配一次审核读取投影。"""
     content = db.get(ContentVersion, content_version_id)
     if content is None:
@@ -196,9 +152,9 @@ def get_content_review_context(db: Session, content_version_id: uuid.UUID) -> Co
         comparison = content_diff(comparison_source, content)
     lineage = _source_ai_lineage(db, content)
     return ContentReviewContext(
-        content=content_version_out(content),
+        content=content_version_out(db, content),
         task=content_task_out(db, task),
-        fact_version=fact_version_out(fact),
+        fact_version=fact_version_out(db, fact, can_delete=can_delete_fact),
         diff=comparison,
         generation_trace=(
             GenerationTrace(
@@ -216,7 +172,7 @@ def get_content_review_context(db: Session, content_version_id: uuid.UUID) -> Co
             )
             for item in (lineage.humanizations if lineage is not None else ())
         ],
-        available_actions=_content_actions(content, fact),
+        available_actions=content_review_actions(content, fact),
         review_history=_content_history(db, content),
     )
 
@@ -289,7 +245,7 @@ def transition_fact_version(
         ),
     )
     db.commit()
-    return fact_version_out(version)
+    return fact_version_out(db, version, can_delete=actor.account_type == "ADMIN")
 
 
 def transition_content_version(
@@ -374,4 +330,4 @@ def transition_content_version(
         ),
     )
     db.commit()
-    return content_version_out(content)
+    return content_version_out(db, content)

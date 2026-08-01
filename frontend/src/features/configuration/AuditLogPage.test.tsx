@@ -13,6 +13,7 @@ const admin = {
   account_type: 'ADMIN',
   is_active: true,
   must_change_password: false,
+  available_actions: [],
   revision: 1,
   created_at: '2026-07-20T00:00:00Z',
 } satisfies Schema<'User'>;

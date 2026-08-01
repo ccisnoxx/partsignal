@@ -108,6 +108,7 @@ function CandidateRegistration({
   const { message } = App.useApp();
   const [attachments, setAttachments] = useState<FileRecord[]>([]);
   const content = candidate.content_version;
+  const canRegister = candidate.available_actions.includes('REGISTER');
   const packageQuery = useQuery({
     queryKey: queryKeys.publications.package(content.id),
     queryFn: async () =>
@@ -175,7 +176,7 @@ function CandidateRegistration({
       />
       <Form<Schema<'ManualPublicationCreate'>>
         layout="vertical"
-        disabled={!packageQuery.data}
+        disabled={!packageQuery.data || !canRegister}
         initialValues={{ content_version_id: content.id, attachment_file_ids: [] }}
         onValuesChange={() => onDirtyChange(true)}
         onFinish={(body) => create.mutate(body)}
@@ -202,7 +203,7 @@ function CandidateRegistration({
           <DirectUpload
             category="OPERATION_SCREENSHOT"
             accept="image/png,image/jpeg,image/webp"
-            disabled={!packageQuery.data}
+            disabled={!packageQuery.data || !canRegister}
             onUploaded={(file) => {
               setAttachments((items) => [...items, file]);
               onDirtyChange(true);
@@ -210,7 +211,7 @@ function CandidateRegistration({
           />
           <UploadedFiles files={attachments} />
         </Form.Item>
-        <Button block type="primary" htmlType="submit" loading={create.isPending}>
+        <Button block type="primary" htmlType="submit" loading={create.isPending} disabled={!packageQuery.data || !canRegister}>
           登记待人工发布
         </Button>
       </Form>

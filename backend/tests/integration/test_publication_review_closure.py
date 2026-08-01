@@ -98,6 +98,7 @@ from app.services.geo_observation import (
     get_geo_observation,
     list_geo_observations,
 )
+from app.services.identity import users_out
 from app.services.integrity import publication_integrity_issues
 from app.services.platform_configuration import (
     create_platform_prompt,
@@ -112,8 +113,12 @@ from app.services.platform_configuration import (
     update_platform_profile,
     update_platform_prompt,
 )
-from app.services.product_facts import delete_fact_version, delete_product
-from app.services.projections import content_task_out, content_tasks_out
+from app.services.product_facts import delete_fact_version, delete_product, products_out
+from app.services.projections import (
+    content_task_out,
+    content_tasks_out,
+    platform_accounts_out,
+)
 from app.services.publication import (
     cancel_content_task,
     command_publication,
@@ -1107,7 +1112,7 @@ def test_platform_account_normalization_revision_and_candidate_status() -> None:
             )
             assert disabled.is_active is False
             assert disabled.revision == 2
-            candidates = list_publication_candidates(db)
+            candidates = list_publication_candidates(db, can_delete_accounts=True)
             matching_ids = {
                 account.id
                 for candidate in candidates.items
@@ -1426,12 +1431,12 @@ def test_publication_workbench_projection_and_atomic_result_evidence() -> None:
 
             event.listen(engine, "before_cursor_execute", count_candidate_statement)
             try:
-                candidates = list_publication_candidates(db)
+                candidates = list_publication_candidates(db, can_delete_accounts=True)
             finally:
                 event.remove(engine, "before_cursor_execute", count_candidate_statement)
             assert len(candidates.items) == 1
             assert len(candidates.items[0].matching_accounts) == 2
-            assert candidate_statement_count == 2
+            assert candidate_statement_count == 8
 
             empty_summary = publication_workbench_summary(db, 7)
             assert empty_summary.period.registered_published_count == 0
@@ -2938,6 +2943,112 @@ def test_content_task_list_uses_current_platform_and_latest_generate_only() -> N
 
 
 @pytest.mark.integration
+def test_available_action_reference_checks_stay_batched() -> None:
+    """用户、产品和发布账号的引用资格不随列表行数增加查询次数。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine) as db:
+            graph = seed_graph(db)
+            deletable_user = User(
+                username=f"action-free-{uuid.uuid4().hex[:8]}",
+                display_name="可删除用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+                is_active=False,
+            )
+            referenced_user = User(
+                username=f"action-ref-{uuid.uuid4().hex[:8]}",
+                display_name="被引用用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+                is_active=False,
+            )
+            clean_product = Product(
+                part_number=f"FREE-{uuid.uuid4().hex[:8]}",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex[:8]}",
+                category="MCU",
+            )
+            db.add_all([deletable_user, referenced_user, clean_product])
+            db.flush()
+            db.add_all(
+                [
+                    PlatformType(
+                        name="动作投影引用类型",
+                        slug=f"action-ref-{uuid.uuid4().hex[:8]}",
+                        created_by=referenced_user.id,
+                    ),
+                    PublicationRecord(
+                        idempotency_key=f"action-account-{uuid.uuid4()}",
+                        content_version_id=graph["content"].id,
+                        platform_account_id=graph["same_account"].id,
+                        section_url="https://community.example.invalid/action-check",
+                        status="PENDING_MANUAL_PUBLISH",
+                        content_hash=graph["content"].content_hash,
+                        created_by=graph["user"].id,
+                    ),
+                ]
+            )
+            db.commit()
+
+            projected_users = users_out(
+                db,
+                [graph["user"], deletable_user, referenced_user],
+                actor=graph["user"],
+            )
+            assert "RESET_PASSWORD" not in projected_users[0].available_actions
+            assert "DELETE" in projected_users[1].available_actions
+            assert "DELETE" not in projected_users[2].available_actions
+
+            projected_products = products_out(
+                db, [graph["product"], clean_product], can_delete=True
+            )
+            assert "DELETE" not in projected_products[0].available_actions
+            assert "DELETE" in projected_products[1].available_actions
+
+            projected_accounts = platform_accounts_out(
+                db,
+                [graph["same_account"], graph["same_account_b"]],
+                can_delete=True,
+            )
+            assert "DELETE" not in projected_accounts[0].available_actions
+            assert "DELETE" in projected_accounts[1].available_actions
+
+            def assert_fixed_query_count(call: Any) -> None:
+                statement_count = 0
+
+                def count_statement(*_args: object) -> None:
+                    nonlocal statement_count
+                    statement_count += 1
+
+                event.listen(engine, "before_cursor_execute", count_statement)
+                try:
+                    call(1)
+                    single_count = statement_count
+                    statement_count = 0
+                    call(20)
+                    assert statement_count == single_count
+                finally:
+                    event.remove(engine, "before_cursor_execute", count_statement)
+
+            assert_fixed_query_count(
+                lambda size: users_out(
+                    db, [deletable_user] * size, actor=graph["user"]
+                )
+            )
+            assert_fixed_query_count(
+                lambda size: products_out(db, [clean_product] * size, can_delete=True)
+            )
+            assert_fixed_query_count(
+                lambda size: platform_accounts_out(
+                    db, [graph["same_account_b"]] * size, can_delete=True
+                )
+            )
+        engine.dispose()
+
+
+@pytest.mark.integration
 def test_cancelled_content_task_deletion_cleans_owned_history_and_protects_downstream() -> None:
     """已取消任务可清理自有草稿历史，但批准、发布与修复历史必须保留。"""
     with temporary_database() as database_url:
@@ -3110,7 +3221,10 @@ def test_cancelled_content_task_deletion_cleans_owned_history_and_protects_downs
             owned_review_id = owned_review.id
 
             assert content_task_out(db, empty_task).available_actions == ["DELETE"]
-            assert content_task_out(db, open_task).available_actions == ["CANCEL"]
+            assert content_task_out(db, open_task).available_actions == [
+                "CANCEL",
+                "CREATE_MANUAL_VERSION",
+            ]
             assert content_task_out(db, owned_history_task).available_actions == ["DELETE"]
             assert content_task_out(db, approved_task).available_actions == []
             assert content_task_out(db, superseded_task).available_actions == []
@@ -3514,8 +3628,8 @@ def test_fact_review_history_is_scoped_to_version() -> None:
                 action="submit",
             )
 
-            version_one_context = get_fact_review_context(db, version_one.id)
-            version_two_context = get_fact_review_context(db, version_two.id)
+            version_one_context = get_fact_review_context(db, version_one.id, can_delete=True)
+            version_two_context = get_fact_review_context(db, version_two.id, can_delete=True)
             assert [
                 (item.target_id, item.target_version, item.action, item.comment)
                 for item in version_one_context.review_history
@@ -3611,7 +3725,7 @@ def test_repair_context_resolution_and_review_history_are_immutable(
             )
             db.add(new_fact)
             db.commit()
-            context = get_repair_context(db, attention.id)
+            context = get_repair_context(db, attention.id, can_delete=True)
             assert (context.query_topic is not None) is with_query_topic
             assert [item.version.id for item in context.fact_candidates] == [
                 new_fact.id,
@@ -3711,7 +3825,7 @@ def test_repair_context_resolution_and_review_history_are_immutable(
                     action=action,  # type: ignore[arg-type]
                 )
                 db.refresh(review_fact)
-            fact_context = get_fact_review_context(db, review_fact.id)
+            fact_context = get_fact_review_context(db, review_fact.id, can_delete=True)
             assert fact_context.available_actions == ["RETIRE"]
             assert [item.comment for item in fact_context.review_history[-4:]] == [
                 "提交事实",
@@ -3802,7 +3916,7 @@ def test_repair_context_resolution_and_review_history_are_immutable(
                 request_id="content-approve",
                 action="approve",
             )
-            content_context = get_content_review_context(db, source.id)
+            content_context = get_content_review_context(db, source.id, can_delete_fact=True)
             assert content_context.available_actions == []
             assert content_context.fact_version.id == graph["fact"].id
             assert "3.3 V" in content_context.fact_version.body_markdown
@@ -3839,7 +3953,7 @@ def test_repair_context_resolution_and_review_history_are_immutable(
                 request_id="fact-retire-after-content",
                 action="retire",
             )
-            retired_context = get_content_review_context(db, source.id)
+            retired_context = get_content_review_context(db, source.id, can_delete_fact=True)
             assert retired_context.fact_version.status == "RETIRED"
             assert "3.3 V" in retired_context.fact_version.body_markdown
 
@@ -3871,7 +3985,9 @@ def test_repair_context_resolution_and_review_history_are_immutable(
                     action="approve",
                 )
             db.rollback()
-            assert get_content_review_context(db, blocking.id).available_actions == [
+            assert get_content_review_context(
+                db, blocking.id, can_delete_fact=True
+            ).available_actions == [
                 "REQUEST_CHANGES"
             ]
             assert db.scalar(select(func.count()).select_from(FactReviewRecord)) >= 4
@@ -4046,6 +4162,7 @@ def test_platform_management_projection_status_gates_and_permissions() -> None:
                 configuration_status=None,
                 page=1,
                 page_size=10,
+                can_manage=True,
             )
             assert listed.total == 2
             assert listed.summary.model_dump() == {
@@ -4152,12 +4269,13 @@ def test_platform_management_projection_status_gates_and_permissions() -> None:
                 configuration_status=PlatformConfigurationStatus.COMPLETE,
                 page=1,
                 page_size=10,
+                can_manage=True,
             )
             assert [item.id for item in complete_disabled.items] == [graph["profile"].id]
             assert complete_disabled.summary.enabled_total == 1
             assert all(
                 item.platform_profile_id != graph["profile"].id
-                for item in list_publication_candidates(db).items
+                for item in list_publication_candidates(db, can_delete_accounts=True).items
             )
 
             with pytest.raises(AppError) as account_error:

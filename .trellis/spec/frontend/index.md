@@ -21,6 +21,7 @@
 | [状态管理](./state-management.md) | 本地状态、全局状态与服务端状态 | 待完善 |
 | [质量规范](./quality-guidelines.md) | 代码标准与禁止模式 | 待完善 |
 | [类型安全](./type-safety.md) | 类型模式与校验 | 待完善 |
+| [资源动作投影合同](../backend/available-actions-contract.md) | typed `available_actions` 的跨层响应与消费边界 | 有效 |
 
 ---
 

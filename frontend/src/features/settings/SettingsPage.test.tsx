@@ -13,6 +13,7 @@ const engineer = {
   account_type: 'ENGINEER',
   is_active: true,
   must_change_password: false,
+  available_actions: [],
   revision: 1,
   created_at: '2026-07-26T00:00:00Z',
 } satisfies Schema<'User'>;
@@ -30,6 +31,7 @@ const profile = {
   platform_prompt: null,
   configuration_complete: false,
   platform_account_count: 1,
+  available_actions: [],
   updated_at: null,
 } satisfies Schema<'PlatformProfile'>;
 
@@ -55,6 +57,7 @@ function installAccountApi() {
     label: '主运营账号',
     account_identifier: 'operator-a',
     is_active: true,
+    available_actions: ['UPDATE', 'DISABLE'],
     revision: 0,
   };
   const writes: Request[] = [];
@@ -77,11 +80,11 @@ function installAccountApi() {
       return { body: account };
     }
     if (path.endsWith('/disable')) {
-      account = { ...account, is_active: false, revision: account.revision + 1 };
+      account = { ...account, is_active: false, available_actions: ['UPDATE', 'ENABLE'], revision: account.revision + 1 };
       return { body: account };
     }
     if (path.endsWith('/enable')) {
-      account = { ...account, is_active: true, revision: account.revision + 1 };
+      account = { ...account, is_active: true, available_actions: ['UPDATE', 'DISABLE'], revision: account.revision + 1 };
       return { body: account };
     }
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
@@ -165,6 +168,7 @@ test('编辑为同平台规范化重复标识时在弹窗显示服务端冲突',
     label: '主运营账号',
     account_identifier: 'operator-a',
     is_active: true,
+    available_actions: ['UPDATE', 'DISABLE'],
     revision: 0,
   } satisfies Schema<'PlatformAccount'>;
   window.history.pushState({}, '', '/settings?tab=accounts');

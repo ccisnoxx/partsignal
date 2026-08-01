@@ -384,6 +384,10 @@ export function PlatformPromptsPage() {
     ? userNames.get(remoteUpdatedBy) ?? remoteUpdatedBy.slice(0, 8)
     : '尚未配置';
   const platformPreviewId = prompt.data?.bound_platforms[0]?.id;
+  const canSaveCurrent = creating
+    || (tab === 'platform'
+      ? !!prompt.data?.available_actions.includes('UPDATE')
+      : !humanizationPrompt.data || humanizationPrompt.data.available_actions.includes('UPDATE'));
 
   return <div className="page-stack prompt-management-page">
     <PageHeader
@@ -490,11 +494,11 @@ export function PlatformPromptsPage() {
                   value={editor.draft}
                   ariaLabel={tab === 'platform' ? 'Prompt Markdown' : '自然化 Prompt Markdown'}
                   configured={configured}
-                  disabled={savePrompt.isPending || removePrompt.isPending || (tab === 'platform' && !editor.name.trim())}
+                  disabled={!canSaveCurrent || savePrompt.isPending || removePrompt.isPending || (tab === 'platform' && !editor.name.trim())}
                   saveState={editor.saveState}
                   error={savePrompt.error ?? removePrompt.error}
                   outputLength="由 Prompt 定义"
-                  canDelete={tab === 'platform' && !!prompt.data && prompt.data.bound_platform_count === 0}
+                  canDelete={tab === 'platform' && !!prompt.data?.available_actions.includes('DELETE')}
                   deleting={removePrompt.isPending}
                   onChange={(draft) => mutateEditor({ draft })}
                   onSave={submitCurrent}

@@ -12,7 +12,12 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models.ai_generation import GenerationJob
-from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType
+from app.models.configuration import (
+    ContentHumanizationPrompt,
+    PlatformProfile,
+    PlatformPrompt,
+    PlatformType,
+)
 from app.models.content import ContentTask, ContentVersion
 from app.models.geo_files import FileRecord
 from app.models.identity import AuditLog
@@ -36,6 +41,9 @@ from app.schemas.content import (
     DiffLine,
 )
 from app.schemas.product_facts import FactVersionOut
+from app.schemas.publication import PlatformAccountOut
+from app.services.generation import content_hash
+from app.services.review_policy import content_review_actions, fact_review_actions
 from app.services.storage import get_evidence_storage
 
 IN_FLIGHT_PUBLICATION_STATUSES = (
@@ -49,6 +57,45 @@ PLATFORM_PROFILE_AUDIT_ACTIONS = (
     "platform_profile.enabled",
     "platform_profile.disabled",
 )
+
+
+def platform_accounts_out(
+    db: Session,
+    accounts: list[PlatformAccount],
+    *,
+    can_delete: bool,
+) -> list[PlatformAccountOut]:
+    """批量投影平台账号及无发布引用时的管理员删除动作。"""
+    if not accounts:
+        return []
+    account_ids = [account.id for account in accounts]
+    referenced_ids = set(
+        db.scalars(
+            select(PublicationRecord.platform_account_id).where(
+                PublicationRecord.platform_account_id.in_(account_ids)
+            )
+        )
+    )
+    items: list[PlatformAccountOut] = []
+    for account in accounts:
+        actions = ["UPDATE", "DISABLE" if account.is_active else "ENABLE"]
+        if can_delete and account.id not in referenced_ids:
+            actions.append("DELETE")
+        payload = {
+            field: getattr(account, field)
+            for field in PlatformAccountOut.model_fields
+            if field != "available_actions"
+        }
+        payload["available_actions"] = actions
+        items.append(PlatformAccountOut.model_validate(payload))
+    return items
+
+
+def platform_account_out(
+    db: Session, account: PlatformAccount, *, can_delete: bool
+) -> PlatformAccountOut:
+    """投影单个平台账号的当前动作。"""
+    return platform_accounts_out(db, [account], can_delete=can_delete)[0]
 
 
 def _content_task_protected_history_ids(
@@ -86,13 +133,24 @@ def _content_task_available_actions(
     *,
     has_in_flight_publication: bool,
     has_protected_history: bool,
-) -> list[Literal["CANCEL", "DELETE"]]:
+    can_generate: bool,
+    can_create_manual_version: bool,
+) -> list[
+    Literal["CANCEL", "DELETE", "CREATE_GENERATION_JOB", "CREATE_MANUAL_VERSION"]
+]:
     """按服务端状态与历史门禁给出当前真正可执行的任务动作。"""
+    actions: list[
+        Literal["CANCEL", "DELETE", "CREATE_GENERATION_JOB", "CREATE_MANUAL_VERSION"]
+    ] = []
     if task.status == "OPEN" and not has_in_flight_publication:
-        return ["CANCEL"]
+        actions.append("CANCEL")
     if task.status == "CANCELLED" and not has_protected_history:
-        return ["DELETE"]
-    return []
+        actions.append("DELETE")
+    if can_generate:
+        actions.append("CREATE_GENERATION_JOB")
+    if can_create_manual_version:
+        actions.append("CREATE_MANUAL_VERSION")
+    return actions
 
 
 def _content_task_payload(task: ContentTask) -> dict[str, object]:
@@ -122,23 +180,158 @@ def content_task_out(db: Session, task: ContentTask) -> ContentTaskOut:
         db,
         [task.id] if task.status == "CANCELLED" else [],
     )
+    fact = db.get(FactVersion, task.fact_version_id)
+    product = db.get(Product, task.product_id)
+    profile = db.get(PlatformProfile, task.platform_profile_id)
+    fact_ready = bool(
+        task.status == "OPEN"
+        and fact is not None
+        and fact.product_id == task.product_id
+        and fact.status == "APPROVED"
+        and fact.body_markdown.strip()
+    )
     payload = _content_task_payload(task)
     payload["available_actions"] = _content_task_available_actions(
         task,
         has_in_flight_publication=has_in_flight_publication,
         has_protected_history=has_protected_history,
+        can_generate=bool(
+            fact_ready
+            and fact is not None
+            and fact.classification == "PUBLIC"
+            and product is not None
+            and product.status == "ACTIVE"
+            and profile is not None
+            and profile.is_active
+            and profile.platform_prompt_id is not None
+        ),
+        can_create_manual_version=fact_ready,
     )
     return ContentTaskOut.model_validate(payload)
 
 
-def content_version_out(content: ContentVersion) -> ContentVersionOut:
-    """将不可变内容版本映射为冻结 HTTP 契约。"""
-    return ContentVersionOut.model_validate(content)
+def content_versions_out(db: Session, contents: list[ContentVersion]) -> list[ContentVersionOut]:
+    """批量投影内容版本的修订、自然化和审核动作。"""
+    if not contents:
+        return []
+    task_ids = {content.task_id for content in contents}
+    tasks_by_id = {
+        task.id: task
+        for task in db.scalars(select(ContentTask).where(ContentTask.id.in_(task_ids)))
+    }
+    fact_ids = {content.fact_version_id for content in contents}
+    facts_by_id = {
+        fact.id: fact
+        for fact in db.scalars(select(FactVersion).where(FactVersion.id.in_(fact_ids)))
+    }
+    product_ids = {task.product_id for task in tasks_by_id.values()}
+    products_by_id = {
+        product.id: product
+        for product in db.scalars(select(Product).where(Product.id.in_(product_ids)))
+    }
+    active_humanization_sources = set(
+        db.scalars(
+            select(GenerationJob.source_content_version_id).where(
+                GenerationJob.source_content_version_id.in_([content.id for content in contents]),
+                GenerationJob.job_type == "HUMANIZE",
+                GenerationJob.status.in_(("PENDING", "RUNNING")),
+            )
+        )
+    )
+    humanization_prompt_configured = db.get(ContentHumanizationPrompt, 1) is not None
+    items: list[ContentVersionOut] = []
+    for content in contents:
+        task = tasks_by_id.get(content.task_id)
+        fact = facts_by_id.get(content.fact_version_id)
+        actions: list[str] = []
+        fact_ready = bool(
+            task is not None
+            and fact is not None
+            and task.status == "OPEN"
+            and task.fact_version_id == fact.id
+            and task.product_id == fact.product_id
+            and fact.status == "APPROVED"
+            and fact.body_markdown.strip()
+        )
+        if fact_ready:
+            actions.append("CREATE_REVISION")
+        product = products_by_id.get(task.product_id) if task is not None else None
+        actual_hash = content_hash(
+            content.title,
+            content.summary,
+            content.body_markdown,
+            content.tags,
+        )
+        if (
+            fact_ready
+            and fact is not None
+            and fact.classification == "PUBLIC"
+            and product is not None
+            and product.status == "ACTIVE"
+            and content.source_type == "AI"
+            and content.status in {"DRAFT", "CHANGES_REQUESTED"}
+            and content.source_job_id is not None
+            and content.content_hash == actual_hash
+            and content.id not in active_humanization_sources
+            and humanization_prompt_configured
+        ):
+            actions.append("CREATE_HUMANIZATION_JOB")
+        if fact is not None:
+            actions.extend(content_review_actions(content, fact))
+        payload = {
+            field: getattr(content, field)
+            for field in ContentVersionOut.model_fields
+            if field != "available_actions"
+        }
+        payload["available_actions"] = actions
+        items.append(ContentVersionOut.model_validate(payload))
+    return items
 
 
-def fact_version_out(version: FactVersion) -> FactVersionOut:
-    """将 Markdown 事实版本映射为冻结 HTTP 契约。"""
-    return FactVersionOut.model_validate(version)
+def content_version_out(db: Session, content: ContentVersion) -> ContentVersionOut:
+    """投影单个内容版本及其当前资源动作。"""
+    return content_versions_out(db, [content])[0]
+
+
+def fact_versions_out(
+    db: Session,
+    versions: list[FactVersion],
+    *,
+    can_delete: bool,
+) -> list[FactVersionOut]:
+    """批量投影事实审核动作和无引用删除资格。"""
+    if not versions:
+        return []
+    version_ids = [version.id for version in versions]
+    referenced_ids = set(
+        db.scalars(
+            select(ContentTask.fact_version_id)
+            .where(ContentTask.fact_version_id.in_(version_ids))
+            .union(
+                select(ContentVersion.fact_version_id).where(
+                    ContentVersion.fact_version_id.in_(version_ids)
+                )
+            )
+        )
+    )
+    items: list[FactVersionOut] = []
+    for version in versions:
+        actions: list[str] = list(fact_review_actions(version))
+        if can_delete and version.id not in referenced_ids:
+            actions.append("DELETE")
+        payload = {
+            field: getattr(version, field)
+            for field in FactVersionOut.model_fields
+            if field != "available_actions"
+        }
+        payload["available_actions"] = actions
+        items.append(FactVersionOut.model_validate(payload))
+    return items
+
+
+def fact_version_out(db: Session, version: FactVersion, *, can_delete: bool) -> FactVersionOut:
+    """投影单个事实版本及其当前资源动作。"""
+    return fact_versions_out(db, [version], can_delete=can_delete)[0]
 
 
 def _platform_logo_out(
@@ -165,12 +358,19 @@ def _platform_logo_out(
     return None
 
 
-def platform_profile_out(db: Session, profile: PlatformProfile) -> PlatformProfileOut:
+def platform_profile_out(
+    db: Session, profile: PlatformProfile, *, can_manage: bool
+) -> PlatformProfileOut:
     """投影单个平台，并复用列表批量投影的唯一计算口径。"""
-    return platform_profiles_out(db, [profile])[0]
+    return platform_profiles_out(db, [profile], can_manage=can_manage)[0]
 
 
-def platform_profiles_out(db: Session, profiles: list[PlatformProfile]) -> list[PlatformProfileOut]:
+def platform_profiles_out(
+    db: Session,
+    profiles: list[PlatformProfile],
+    *,
+    can_manage: bool,
+) -> list[PlatformProfileOut]:
     """批量投影平台的类型、Prompt、账号和真实审计时间。"""
     if not profiles:
         return []
@@ -203,6 +403,14 @@ def platform_profiles_out(db: Session, profiles: list[PlatformProfile]) -> list[
             select(PlatformAccount.platform_profile_id, func.count(PlatformAccount.id))
             .where(PlatformAccount.platform_profile_id.in_(profile_ids))
             .group_by(PlatformAccount.platform_profile_id)
+        ).tuples()
+    }
+    task_counts = {
+        profile_id: int(count)
+        for profile_id, count in db.execute(
+            select(ContentTask.platform_profile_id, func.count(ContentTask.id))
+            .where(ContentTask.platform_profile_id.in_(profile_ids))
+            .group_by(ContentTask.platform_profile_id)
         ).tuples()
     }
     profile_id_strings = [str(profile_id) for profile_id in profile_ids]
@@ -258,6 +466,20 @@ def platform_profiles_out(db: Session, profiles: list[PlatformProfile]) -> list[
                 ),
                 "configuration_complete": profile.platform_prompt_id is not None,
                 "platform_account_count": account_counts.get(profile.id, 0),
+                "available_actions": (
+                    [
+                        "UPDATE",
+                        "DISABLE" if profile.is_active else "ENABLE",
+                        *(
+                            ["DELETE"]
+                            if account_counts.get(profile.id, 0) == 0
+                            and task_counts.get(profile.id, 0) == 0
+                            else []
+                        ),
+                    ]
+                    if can_manage
+                    else []
+                ),
                 "updated_at": updated_at_by_profile.get(profile.id),
             }
         )
@@ -271,10 +493,15 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
         return []
     task_ids = [task.id for task in tasks]
     product_ids = {task.product_id for task in tasks}
+    fact_ids = {task.fact_version_id for task in tasks}
     platform_ids = {task.platform_profile_id for task in tasks}
     products_by_id = {
         product.id: product
         for product in db.scalars(select(Product).where(Product.id.in_(product_ids)))
+    }
+    facts_by_id = {
+        fact.id: fact
+        for fact in db.scalars(select(FactVersion).where(FactVersion.id.in_(fact_ids)))
     }
     platforms_by_id = {
         profile.id: profile
@@ -335,14 +562,29 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
     items: list[ContentTaskListItem] = []
     for task in tasks:
         product = products_by_id.get(task.product_id)
+        fact = facts_by_id.get(task.fact_version_id)
         platform = platforms_by_id.get(task.platform_profile_id)
-        if product is None or platform is None:
+        if product is None or fact is None or platform is None:
             raise RuntimeError(f"内容任务 {task.id} 的产品或平台关联不存在")
+        fact_ready = bool(
+            task.status == "OPEN"
+            and fact.product_id == task.product_id
+            and fact.status == "APPROVED"
+            and fact.body_markdown.strip()
+        )
         payload = _content_task_payload(task)
         payload["available_actions"] = _content_task_available_actions(
             task,
             has_in_flight_publication=task.id in in_flight_task_ids,
             has_protected_history=task.id in protected_history_task_ids,
+            can_generate=bool(
+                fact_ready
+                and fact.classification == "PUBLIC"
+                and product.status == "ACTIVE"
+                and platform.is_active
+                and platform.platform_prompt_id is not None
+            ),
+            can_create_manual_version=fact_ready,
         )
         payload["product"] = ContentTaskProductSummary(
             id=product.id,

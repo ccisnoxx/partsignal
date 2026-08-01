@@ -46,7 +46,7 @@ from app.schemas.publication import (
     PublicationWorkbenchSummary,
     ResolvePublicationAttentionRequest,
 )
-from app.services.projections import content_task_out
+from app.services.projections import content_task_out, platform_account_out, platform_accounts_out
 from app.services.publication import (
     command_publication,
     create_repair_task,
@@ -134,8 +134,10 @@ def get_publication_package(
     response_model=PublicationCandidateList,
     operation_id="listPublicationCandidates",
 )
-def list_publication_candidates(db: DbSession, _user: CurrentUser) -> PublicationCandidateList:
-    return list_publication_candidates_service(db)
+def list_publication_candidates(db: DbSession, user: CurrentUser) -> PublicationCandidateList:
+    return list_publication_candidates_service(
+        db, can_delete_accounts=user.account_type == "ADMIN"
+    )
 
 
 @router.get(
@@ -156,7 +158,7 @@ def get_publication_workbench_summary(
 )
 def list_platform_accounts(
     db: DbSession,
-    _user: CurrentUser,
+    user: CurrentUser,
     platform_profile_id: uuid.UUID | None = None,
 ) -> PlatformAccountList:
     query = select(PlatformAccount)
@@ -164,7 +166,7 @@ def list_platform_accounts(
         query = query.where(PlatformAccount.platform_profile_id == platform_profile_id)
     accounts = list(db.scalars(query.order_by(PlatformAccount.label)))
     return PlatformAccountList(
-        items=[PlatformAccountOut.model_validate(account) for account in accounts]
+        items=platform_accounts_out(db, accounts, can_delete=user.account_type == "ADMIN")
     )
 
 
@@ -184,7 +186,7 @@ def create_platform_account(
     account = create_platform_account_command(
         db=db, payload=payload, actor=editor, request_id=request.state.request_id
     )
-    return PlatformAccountOut.model_validate(account)
+    return platform_account_out(db, account, can_delete=editor.account_type == "ADMIN")
 
 
 @router.patch(
@@ -207,7 +209,7 @@ def update_platform_account(
         actor=editor,
         request_id=request.state.request_id,
     )
-    return PlatformAccountOut.model_validate(account)
+    return platform_account_out(db, account, can_delete=editor.account_type == "ADMIN")
 
 
 def _set_platform_account_status(
@@ -227,7 +229,7 @@ def _set_platform_account_status(
         request_id=request.state.request_id,
         enabled=enabled,
     )
-    return PlatformAccountOut.model_validate(account)
+    return platform_account_out(db, account, can_delete=editor.account_type == "ADMIN")
 
 
 @router.post(
@@ -516,9 +518,11 @@ def get_publication_attention(
     operation_id="getPublicationRepairContext",
 )
 def get_publication_repair_context(
-    attention_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    attention_id: uuid.UUID, db: DbSession, user: CurrentUser
 ) -> PublicationRepairContext:
-    return get_repair_context(db, attention_id)
+    return get_repair_context(
+        db, attention_id, can_delete=user.account_type == "ADMIN"
+    )
 
 
 @router.post(

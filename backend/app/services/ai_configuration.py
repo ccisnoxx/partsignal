@@ -51,6 +51,55 @@ SUPPORTED_BRAND_PROTOCOLS = frozenset(
     (AIProtocolType.OPENAI_COMPATIBLE_CHAT_COMPLETIONS, brand) for brand in AIProviderBrand
 )
 
+AIChannelAction = Literal[
+    "UPDATE",
+    "REPLACE_API_KEY",
+    "ENABLE",
+    "DISABLE",
+    "DELETE",
+    "DISCOVER_MODELS",
+    "CREATE_HEADER",
+    "CREATE_MODEL",
+]
+AIModelAction = Literal["UPDATE", "TEST", "ENABLE", "DISABLE", "DELETE"]
+
+
+def can_enable_ai_channel(*, is_enabled: bool, has_passed_model: bool) -> bool:
+    """渠道仅在当前停用且至少一个模型测试通过时可启用。"""
+    return not is_enabled and has_passed_model
+
+
+def ai_channel_actions(*, is_enabled: bool, has_passed_model: bool) -> list[AIChannelAction]:
+    """投影管理员对渠道当前可执行的资源命令。"""
+    actions: list[AIChannelAction] = [
+        "UPDATE",
+        "REPLACE_API_KEY",
+        "DELETE",
+        "DISCOVER_MODELS",
+        "CREATE_HEADER",
+        "CREATE_MODEL",
+    ]
+    if is_enabled:
+        actions.append("DISABLE")
+    elif can_enable_ai_channel(is_enabled=is_enabled, has_passed_model=has_passed_model):
+        actions.append("ENABLE")
+    return actions
+
+
+def can_enable_ai_model(model: AIModel) -> bool:
+    """模型只有测试通过时才满足启用命令的业务门禁。"""
+    return model.test_status == "PASSED"
+
+
+def ai_model_actions(model: AIModel) -> list[AIModelAction]:
+    """投影管理员对模型当前可执行的资源命令。"""
+    actions: list[AIModelAction] = ["UPDATE", "TEST", "DELETE"]
+    if model.is_enabled:
+        actions.append("DISABLE")
+    elif can_enable_ai_model(model):
+        actions.append("ENABLE")
+    return actions
+
 
 def _cipher() -> CredentialCipher:
     return CredentialCipher(settings.ai_credential_encryption_key)
@@ -132,6 +181,12 @@ def list_ai_channels(
         .correlate(AIChannel)
         .scalar_subquery()
     )
+    passed_model_count = (
+        select(func.count(AIModel.id))
+        .where(AIModel.channel_id == AIChannel.id, AIModel.test_status == "PASSED")
+        .correlate(AIChannel)
+        .scalar_subquery()
+    )
     latest_test_status = (
         select(AIModel.test_status)
         .where(AIModel.channel_id == AIChannel.id, AIModel.last_tested_at.is_not(None))
@@ -160,6 +215,7 @@ def list_ai_channels(
         AIChannel.revision,
         header_count.label("header_count"),
         enabled_model_count.label("enabled_model_count"),
+        passed_model_count.label("passed_model_count"),
         latest_test_status.label("latest_test_status"),
         last_tested_at.label("last_tested_at"),
     ).where(*filtered_conditions)
@@ -194,6 +250,10 @@ def list_ai_channels(
                 enabled_model_count=row.enabled_model_count,
                 latest_test_status=row.latest_test_status or AIModelTestStatus.UNTESTED,
                 last_tested_at=row.last_tested_at,
+                available_actions=ai_channel_actions(
+                    is_enabled=row.is_enabled,
+                    has_passed_model=row.passed_model_count > 0,
+                ),
                 revision=row.revision,
             )
             for row in rows
@@ -704,11 +764,12 @@ def set_channel_enabled(
         raise not_found("AI 渠道")
     if channel.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
-    if enabled and not db.scalar(
+    has_passed_model = db.scalar(
         select(AIModel.id)
         .where(AIModel.channel_id == channel.id, AIModel.test_status == "PASSED")
         .limit(1)
-    ):
+    ) is not None
+    if enabled and not has_passed_model:
         raise AppError("AI_MODEL_NOT_TESTED", "渠道至少需要一个测试通过的模型", 409)
     channel.is_enabled = enabled
     channel.revision += 1
@@ -917,7 +978,7 @@ def set_model_enabled(
     model, channel = lock_model_configuration(db, model_id)
     if model.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
-    if enabled and model.test_status != "PASSED":
+    if enabled and not can_enable_ai_model(model):
         raise AppError("AI_MODEL_NOT_TESTED", "模型必须先通过连接测试", 409)
     model.is_enabled = enabled
     model.revision += 1

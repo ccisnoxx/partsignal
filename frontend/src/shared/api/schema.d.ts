@@ -1617,6 +1617,7 @@ export interface components {
             account_type: components["schemas"]["AccountType"];
             is_active: boolean;
             must_change_password: boolean;
+            available_actions: ("UPDATE" | "RESET_PASSWORD" | "ENABLE" | "DISABLE" | "DELETE")[];
             revision: number;
             /** Format: date-time */
             created_at: string;
@@ -1742,6 +1743,7 @@ export interface components {
             brand: string;
             category: string;
             status: components["schemas"]["ProductStatus"];
+            available_actions: ("UPDATE" | "DELETE")[];
             revision: number;
             /** Format: date-time */
             created_at: string;
@@ -1778,6 +1780,7 @@ export interface components {
             product_id: string;
             body_markdown: string;
             classification: components["schemas"]["Confidentiality"];
+            available_actions: ("SAVE" | "CREATE_VERSION")[];
             revision: number;
         };
         /** @enum {string} */
@@ -1806,6 +1809,7 @@ export interface components {
             body_markdown: string;
             classification: components["schemas"]["Confidentiality"];
             change_summary: string;
+            available_actions: ("SUBMIT" | "APPROVE" | "REQUEST_CHANGES" | "RETIRE" | "DELETE")[];
             revision: number;
             /** Format: uuid */
             created_by: string;
@@ -1835,6 +1839,7 @@ export interface components {
         QueryTopic: components["schemas"]["QueryTopicCreate"] & {
             /** Format: uuid */
             id: string;
+            available_actions: "UPDATE"[];
             revision: number;
             /** Format: date-time */
             created_at: string;
@@ -1937,6 +1942,7 @@ export interface components {
             /** @description 当前具体平台已绑定 Prompt，可用于系统 AI 生成 */
             configuration_complete: boolean;
             platform_account_count: number;
+            available_actions: ("UPDATE" | "ENABLE" | "DISABLE" | "DELETE")[];
             /**
              * Format: date-time
              * @description 平台创建、编辑、启用或停用的最近真实审计时间
@@ -1990,6 +1996,7 @@ export interface components {
             id: string;
             name: string;
             slug: string;
+            available_actions: ("UPDATE" | "DELETE")[];
             revision: number;
             /** Format: uuid */
             created_by: string;
@@ -2012,6 +2019,7 @@ export interface components {
             /** Format: uuid */
             updated_by: string;
             bound_platform_count: number;
+            available_actions: ("UPDATE" | "DELETE")[];
         };
         PlatformPromptBoundPlatform: {
             /** Format: uuid */
@@ -2034,6 +2042,7 @@ export interface components {
         };
         ContentHumanizationPrompt: {
             template_markdown: string;
+            available_actions: "UPDATE"[];
             revision: number;
             /** Format: uuid */
             updated_by: string;
@@ -2048,6 +2057,7 @@ export interface components {
             name: string;
             is_sensitive: boolean;
             is_configured: boolean;
+            available_actions: ("UPDATE" | "DELETE")[];
             value?: string | null;
         };
         AIChannelHeaderCreate: {
@@ -2105,6 +2115,7 @@ export interface components {
             latest_test_status: components["schemas"]["AIModelTestStatus"];
             /** Format: date-time */
             last_tested_at: string | null;
+            available_actions: ("UPDATE" | "REPLACE_API_KEY" | "ENABLE" | "DISABLE" | "DELETE" | "DISCOVER_MODELS" | "CREATE_HEADER" | "CREATE_MODEL")[];
             revision: number;
             /** Format: uuid */
             created_by: string;
@@ -2140,6 +2151,7 @@ export interface components {
             latest_test_status: components["schemas"]["AIModelTestStatus"];
             /** Format: date-time */
             last_tested_at: string | null;
+            available_actions: ("UPDATE" | "REPLACE_API_KEY" | "ENABLE" | "DISABLE" | "DELETE" | "DISCOVER_MODELS" | "CREATE_HEADER" | "CREATE_MODEL")[];
             revision: number;
         };
         AIChannelCounts: {
@@ -2212,6 +2224,7 @@ export interface components {
             /** Format: date-time */
             last_tested_at?: string | null;
             last_test_error_summary?: string | null;
+            available_actions: ("UPDATE" | "TEST" | "ENABLE" | "DISABLE" | "DELETE")[];
             revision: number;
             /** Format: uuid */
             created_by: string;
@@ -2246,7 +2259,7 @@ export interface components {
             query_topic_id: string | null;
             /** Format: uuid */
             source_publication_attention_id: string | null;
-            available_actions: ("CANCEL" | "DELETE")[];
+            available_actions: ("CANCEL" | "DELETE" | "CREATE_GENERATION_JOB" | "CREATE_MANUAL_VERSION")[];
             status: components["schemas"]["ContentTaskStatus"];
             revision: number;
             /** Format: uuid */
@@ -2324,6 +2337,7 @@ export interface components {
             /** Format: uuid */
             source_content_version_id: string | null;
             status: components["schemas"]["GenerationJobStatus"];
+            available_actions: "RETRY"[];
             attempt_count: number;
             /** Format: uuid */
             content_version_id?: string | null;
@@ -2528,6 +2542,7 @@ export interface components {
             tags: string[];
             content_hash: string;
             status: components["schemas"]["ContentVersionStatus"];
+            available_actions: ("CREATE_REVISION" | "CREATE_HUMANIZATION_JOB" | "SUBMIT_REVIEW" | "APPROVE" | "REQUEST_CHANGES")[];
             revision: number;
             quality_issues: components["schemas"]["QualityIssue"][];
             /** Format: uuid */
@@ -2635,6 +2650,7 @@ export interface components {
             /** Format: uuid */
             id: string;
             is_active: boolean;
+            available_actions: ("UPDATE" | "ENABLE" | "DISABLE" | "DELETE")[];
             revision: number;
         };
         PlatformAccountList: {
@@ -2748,6 +2764,7 @@ export interface components {
             platform_profile_id: string;
             platform_profile_name: string;
             matching_accounts: components["schemas"]["PlatformAccount"][];
+            available_actions: "REGISTER"[];
         };
         PublicationCandidateList: {
             items: components["schemas"]["PublicationCandidate"][];

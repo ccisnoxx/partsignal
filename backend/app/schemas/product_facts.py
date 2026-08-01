@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import Field
 
@@ -36,6 +37,7 @@ class ProductOut(ContractModel):
     brand: str
     category: str
     status: ProductStatus
+    available_actions: list[Literal["UPDATE", "DELETE"]]
     revision: int
     created_at: datetime
     updated_at: datetime
@@ -64,6 +66,7 @@ class ProductFactsDraft(ContractModel):
     product_id: uuid.UUID
     body_markdown: str
     classification: Confidentiality
+    available_actions: list[Literal["SAVE", "CREATE_VERSION"]]
     revision: int = Field(ge=0)
 
 
@@ -87,6 +90,9 @@ class FactVersionOut(ContractModel):
     body_markdown: str
     classification: Confidentiality
     change_summary: str
+    available_actions: list[
+        Literal["SUBMIT", "APPROVE", "REQUEST_CHANGES", "RETIRE", "DELETE"]
+    ]
     revision: int
     created_by: uuid.UUID
     approved_by: uuid.UUID | None = None

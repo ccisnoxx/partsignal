@@ -44,6 +44,7 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
   if (context.error || !context.data) return <div className="page-stack"><Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/publication-attentions/${attentionId}`)}>返回异常详情</Button><PageHeader title="创建发布修复任务" breadcrumbs={[{ title: <Link to="/publications">发布管理</Link> }, { title: <Link to={`/publication-attentions/${attentionId}`}>异常待办</Link> }, { title: '创建修复任务' }]} /><QueryFailure error={context.error ?? new Error('修复上下文不存在')} onRetry={() => void context.refetch()} /></div>;
   const data = context.data;
   const missingFactCandidate = data.fact_candidates.length === 0;
+  const canCreateRepairTask = data.attention.available_actions.includes('CREATE_REPAIR_TASK');
   return (
     <div className="page-stack">
       <Button className="back-link" icon={<ArrowLeftOutlined />} onClick={() => navigate(`/publication-attentions/${attentionId}`)}>
@@ -63,8 +64,9 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
       </Card>
       <Card title="创建修复任务" className="workspace-panel">
         {create.error && <Alert type="error" message={errorMessage(create.error)} />}
+        {!canCreateRepairTask && <Alert type="info" showIcon message="该异常待办已处置或已有修复任务，当前上下文仅供查看。" />}
         {missingFactCandidate && <Alert type="error" showIcon message="当前产品没有可选的已批准事实版本，无法创建修复任务。" />}
-        <Form<Schema<'PublicationRepairTaskCreate'>>
+        {canCreateRepairTask && <Form<Schema<'PublicationRepairTaskCreate'>>
           layout="vertical"
           initialValues={{
             expected_attention_revision: data.attention.revision,
@@ -96,7 +98,7 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
           >
             创建修复任务
           </Button>
-        </Form>
+        </Form>}
       </Card>
     </div>
   );

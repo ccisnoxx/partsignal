@@ -12,17 +12,15 @@ import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
 import { ProductFactsPage } from './ProductFactsPage';
 
-const authState = vi.hoisted(() => ({ isAdmin: true }));
-
-vi.mock('../auth/AuthProvider', () => ({ useAuth: () => ({ isAdmin: authState.isAdmin }) }));
 const productId = '10000000-0000-4000-8000-000000000001';
 const versionId = '20000000-0000-4000-8000-000000000001';
 const secondVersionId = '20000000-0000-4000-8000-000000000002';
-const product = { id: productId, part_number: 'DEMO-001', brand: 'DEMO', category: 'MCU', status: 'ACTIVE', revision: 0, facts_revision: 0, created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z' };
+const product = { id: productId, part_number: 'DEMO-001', brand: 'DEMO', category: 'MCU', status: 'ACTIVE', available_actions: ['UPDATE'], revision: 0, facts_revision: 0, created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z' };
 const initialDraft: Schema<'ProductFactsDraft'> = {
   product_id: productId,
   body_markdown: '# 产品事实\n\n初始正文',
   classification: 'PUBLIC',
+  available_actions: ['SAVE', 'CREATE_VERSION'],
   revision: 0,
 };
 let draft = initialDraft;
@@ -39,6 +37,7 @@ const factVersion = {
   approved_by: null,
   created_at: '2026-07-16T00:00:00Z',
   approved_at: null,
+  available_actions: ['SUBMIT', 'DELETE'],
 } satisfies Schema<'FactVersion'>;
 const secondFactVersion = {
   ...factVersion,
@@ -60,7 +59,6 @@ function renderPage() {
 
 beforeEach(() => {
   queryClient.clear();
-  authState.isAdmin = true;
   versions = [factVersion];
   draft = initialDraft;
   deleteConflict = false;
@@ -129,9 +127,9 @@ test('事实版本双引用冲突复用结构化中文错误展示', async () =>
   expect(screen.getByText('V1')).toBeInTheDocument();
 });
 
-test('工程师看不到删除按钮但保留事实维护、版本和审核入口', async () => {
+test('服务端未投影删除动作时仍保留事实维护、版本和审核入口', async () => {
   const user = userEvent.setup();
-  authState.isAdmin = false;
+  versions = [{ ...factVersion, available_actions: ['SUBMIT'] }];
   renderPage();
   expect(await screen.findByRole('button', { name: '保存事实工作区' })).toBeInTheDocument();
   await user.click(screen.getByRole('tab', { name: /事实版本/ }));

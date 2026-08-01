@@ -62,7 +62,7 @@ const task = {
   product_id: 'product-1',
   platform_profile_id: 'platform-1',
   status: 'OPEN',
-  available_actions: [],
+  available_actions: ['CANCEL', 'CREATE_GENERATION_JOB', 'CREATE_MANUAL_VERSION'],
   fact_version_id: 'fact-version-1',
   query_topic_id: null,
   source_publication_attention_id: null,
@@ -167,7 +167,7 @@ test('AI 生成弹窗确认当前 Prompt 与模型后创建作业', async () => 
   });
   apiMocks.POST.mockImplementation(() => result({
     id: 'job-generate', content_task_id: taskId, job_type: 'GENERATE',
-    source_content_version_id: null, status: 'PENDING', attempt_count: 0,
+    source_content_version_id: null, status: 'PENDING', available_actions: [], attempt_count: 0,
     content_version_id: null, created_at: task.created_at,
   }));
   renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
@@ -197,7 +197,7 @@ test('人工首稿标签在提交前校验并保留有效 payload', async () => 
     id: 'version-manual', task_id: taskId, fact_version_id: task.fact_version_id,
     source_job_id: null, based_on_id: null, version: 1, source_type: 'HUMAN',
     title: '人工首稿', summary: '人工摘要', body_markdown: '# 人工正文', tags: ['人工'],
-    content_hash: 'b'.repeat(64), status: 'DRAFT', revision: 0, quality_issues: [],
+    content_hash: 'b'.repeat(64), status: 'DRAFT', available_actions: ['CREATE_REVISION', 'SUBMIT_REVIEW'], revision: 0, quality_issues: [],
     created_by: 'user-1', created_at: task.created_at,
   };
   apiMocks.POST.mockImplementation((path: string) => {
@@ -343,9 +343,10 @@ test('历史任务说明阻断原因，创建新任务后自动进入 AI 生成�
 
 test('非 PUBLIC 新任务清除自动打开意图但不请求生成选项', async () => {
   const internalFact = { ...factVersion, classification: 'INTERNAL' };
+  const internalTask = { ...task, available_actions: ['CANCEL', 'CREATE_MANUAL_VERSION'] };
   apiMocks.GET.mockImplementation((path: string) => {
-    if (path === '/api/v1/content-tasks/{content_task_id}') return result(task);
-    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'OPEN')] });
+    if (path === '/api/v1/content-tasks/{content_task_id}') return result(internalTask);
+    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'OPEN', { available_actions: internalTask.available_actions })] });
     if (path === '/api/v1/fact-versions/{fact_version_id}') return result(internalFact);
     if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result({ items: [] });
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result({ items: [] });
@@ -641,6 +642,7 @@ test('最新作业追溯只展示身份和参数，不渲染完整系统或用�
     job_type: 'GENERATE',
     source_content_version_id: null,
     status: 'SUCCEEDED',
+    available_actions: [],
     attempt_count: 1,
     content_version_id: 'version-1',
     retry_of_id: null,
@@ -687,13 +689,41 @@ test('最新作业追溯只展示身份和参数，不渲染完整系统或用�
   expect(screen.queryByLabelText('用户消息（User Message）')).not.toBeInTheDocument();
 });
 
+test('失败作业只按服务端 RETRY 动作显示重试入口', async () => {
+  const user = userEvent.setup();
+  const blockedJob = {
+    id: 'job-blocked', content_task_id: taskId, job_type: 'GENERATE',
+    source_content_version_id: null, status: 'FAILED', available_actions: [], attempt_count: 1,
+    content_version_id: null, created_at: task.created_at,
+  };
+  const retryableJob = { ...blockedJob, id: 'job-retryable', available_actions: ['RETRY'] };
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}') return result(task);
+    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'OPEN')] });
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
+    if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result({ items: [] });
+    if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result({ items: [blockedJob, retryableJob] });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  apiMocks.POST.mockImplementation(() => result({ ...retryableJob, id: 'job-retried', status: 'PENDING', available_actions: [] }));
+  renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
+
+  const buttons = await screen.findAllByRole('button', { name: '重试原快照' });
+  expect(buttons).toHaveLength(1);
+  await user.click(buttons[0]!);
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/generation-jobs/{generation_job_id}/retry',
+    expect.objectContaining({ params: expect.objectContaining({ path: { generation_job_id: retryableJob.id } }) }),
+  ));
+});
+
 test('对合格 AI 版本选择模型并创建自然化作业', async () => {
   const user = userEvent.setup();
   const source = {
     id: 'version-1', task_id: taskId, fact_version_id: task.fact_version_id,
     source_job_id: 'job-1', based_on_id: null, version: 1, source_type: 'AI',
     title: '机械表达的文章', summary: '摘要', body_markdown: '正文', tags: ['test'],
-    content_hash: 'a'.repeat(64), status: 'DRAFT', revision: 0, quality_issues: [],
+    content_hash: 'a'.repeat(64), status: 'DRAFT', available_actions: ['CREATE_HUMANIZATION_JOB'], revision: 0, quality_issues: [],
     created_by: 'user-1', created_at: '2026-07-17T00:00:00Z',
   };
   const options = {
@@ -718,7 +748,7 @@ test('对合格 AI 版本选择模型并创建自然化作业', async () => {
   });
   apiMocks.POST.mockImplementation(() => result({
     id: 'job-humanize', content_task_id: taskId, job_type: 'HUMANIZE',
-    source_content_version_id: source.id, status: 'PENDING', attempt_count: 0,
+    source_content_version_id: source.id, status: 'PENDING', available_actions: [], attempt_count: 0,
     content_version_id: null, retry_of_id: null, error_code: null, error_summary: null,
     provider_request_id: null, response_duration_ms: null, prompt_tokens: null,
     completion_tokens: null, total_tokens: null, created_at: source.created_at,

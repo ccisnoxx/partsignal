@@ -153,10 +153,11 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
   const missingTopics = !topics.isLoading && !topics.error && !topics.data?.items.length;
   const missingPublications = !correctionId && !!productId && !publications.isLoading
     && !publications.error && !publications.data?.items.length;
+  const canCorrect = !correctionId || !!correctionRecord?.available_actions.includes('CORRECT');
   const correctionError = correctionId && !correction.isLoading && (
     correction.error
     ?? (!correctionRecord ? new Error('仅当前人工观测记录可以更正') : null)
-    ?? (correctionRecord && !correctionRecord.available_actions.includes('CORRECT') ? new Error('当前记录不可更正') : null)
+    ?? (!canCorrect ? new Error('当前记录不可更正') : null)
   );
 
   return (
@@ -185,6 +186,7 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
         layout="vertical"
         className="observation-form"
         disabled={(!correctionId && (products.isLoading || !!products.error))
+          || !canCorrect
           || topics.isLoading || !!topics.error || !!correctionError || correction.isLoading}
         scrollToFirstError
         onFinish={(values) => create.mutate(values)}
@@ -322,7 +324,7 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
           </Form.Item>
         )}
         <Form.Item label={correctionRecord ? '新增证据截图（可选）' : '证据截图（可选）'} extra="截图用于补充真实搜索结果证据；系统不会自动解析或联网复查。">
-          <DirectUpload category="OPERATION_SCREENSHOT" onUploaded={(file) => setAttachments((items) => [...items, file])} />
+          <DirectUpload category="OPERATION_SCREENSHOT" disabled={!canCorrect} onUploaded={(file) => setAttachments((items) => [...items, file])} />
           <Space wrap className="geo-upload-list">
             {attachments.map((file) => <Typography.Text key={file.id}>{file.original_filename} <StatusTag status={file.status} /></Typography.Text>)}
           </Space>
@@ -333,7 +335,7 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
           icon={<PlusOutlined />}
           htmlType="submit"
           loading={create.isPending}
-          disabled={missingProducts || missingTopics || missingPublications || !articleRows.length}
+          disabled={!canCorrect || missingProducts || missingTopics || missingPublications || !articleRows.length}
         >
           {correctionId ? '追加更正记录' : '追加观测记录'}
         </Button>

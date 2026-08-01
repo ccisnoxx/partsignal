@@ -14,7 +14,6 @@ import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { queryClient } from '../../app/queryClient';
-import { useAuth } from '../auth/AuthProvider';
 import { DeletionError } from '../../shared/components/DeletionError';
 
 export function ProductsPage() {
@@ -28,7 +27,6 @@ export function ProductsPage() {
   const createErrorRef = useRef<HTMLDivElement>(null);
   const [modal, modalContext] = Modal.useModal();
   const { message } = App.useApp();
-  const auth = useAuth();
   const products = useQuery(productsQueryOptions(search));
   useEffect(() => {
     if ((rawPage !== null && !/^[1-9]\d*$/.test(rawPage)) || (products.data && page > Math.max(1, Math.ceil(products.data.items.length / 20)))) {
@@ -100,7 +98,7 @@ export function ProductsPage() {
           { title: '型号', dataIndex: 'part_number', width: 280, ellipsis: true, render: (value, item) => <Tooltip title={value} trigger={['hover', 'focus']}><Link className="table-cell-ellipsis data-code" aria-label={value} to={`/products/${item.id}`}>{value}</Link></Tooltip> },
           { title: '品牌', dataIndex: 'brand', width: 180, ellipsis: true, render: (value) => <TableCellText text={value} /> }, { title: '类别', dataIndex: 'category', width: 180, ellipsis: true, render: (value) => <TableCellText text={value} /> },
           { title: '状态', dataIndex: 'status', width: 110, render: (value) => <StatusTag status={value} /> },
-          { title: '操作', fixed: 'right', width: 110, render: (_, item) => auth.isAdmin ? <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(item) }}><Button size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown> : '—' },
+          { title: '操作', fixed: 'right', width: 110, render: (_, item) => item.available_actions.includes('DELETE') ? <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(item) }}><Button size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown> : '—' },
         ]} /></TableRegion>}
       </Card>
       <Modal rootClassName="products-create-dialog" title="新增产品" open={createOpen} onCancel={requestCloseCreate} footer={null} closable={!create.isPending} keyboard={!create.isPending} mask={{ closable: !create.isPending }} destroyOnHidden>

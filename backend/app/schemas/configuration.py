@@ -85,6 +85,7 @@ class QueryTopicUpdate(QueryTopicCreate):
 
 class QueryTopicOut(QueryTopicCreate):
     id: uuid.UUID
+    available_actions: list[Literal["UPDATE"]]
     revision: int
     created_at: datetime
 
@@ -194,6 +195,7 @@ class PlatformProfileOut(ContractModel):
     platform_prompt: PlatformPromptReference | None
     configuration_complete: bool
     platform_account_count: int = Field(ge=0)
+    available_actions: list[Literal["UPDATE", "ENABLE", "DISABLE", "DELETE"]]
     updated_at: datetime | None
 
 
@@ -241,6 +243,7 @@ class PlatformTypeUpdate(PlatformTypeCreate):
 
 class PlatformTypeOut(PlatformTypeCreate):
     id: uuid.UUID
+    available_actions: list[Literal["UPDATE", "DELETE"]]
     revision: int
     created_by: uuid.UUID
     created_at: datetime
@@ -263,6 +266,7 @@ class PlatformPromptUpdate(PlatformPromptCreate):
 class PlatformPromptListItem(PlatformPromptReference):
     updated_by: uuid.UUID
     bound_platform_count: int = Field(ge=0)
+    available_actions: list[Literal["UPDATE", "DELETE"]]
 
 
 class PlatformPromptBoundPlatform(ContractModel):
@@ -292,6 +296,7 @@ class ContentHumanizationPromptOut(ContractModel):
     """全局自然化 Prompt 当前配置。"""
 
     template_markdown: str
+    available_actions: list[Literal["UPDATE"]]
     revision: int
     updated_by: uuid.UUID
     created_at: datetime
@@ -303,6 +308,7 @@ class AIChannelHeaderOut(ContractModel):
     name: str
     is_sensitive: bool
     is_configured: bool
+    available_actions: list[Literal["UPDATE", "DELETE"]]
     value: str | None = None
 
 
@@ -399,6 +405,18 @@ class AIChannelOut(ContractModel):
     enabled_models: list[AIChannelModelSummary]
     latest_test_status: AIModelTestStatus
     last_tested_at: datetime | None
+    available_actions: list[
+        Literal[
+            "UPDATE",
+            "REPLACE_API_KEY",
+            "ENABLE",
+            "DISABLE",
+            "DELETE",
+            "DISCOVER_MODELS",
+            "CREATE_HEADER",
+            "CREATE_MODEL",
+        ]
+    ]
     revision: int
     created_by: uuid.UUID
     created_at: datetime
@@ -420,6 +438,18 @@ class AIChannelSummary(ContractModel):
     enabled_model_count: int = Field(ge=0)
     latest_test_status: AIModelTestStatus
     last_tested_at: datetime | None
+    available_actions: list[
+        Literal[
+            "UPDATE",
+            "REPLACE_API_KEY",
+            "ENABLE",
+            "DISABLE",
+            "DELETE",
+            "DISCOVER_MODELS",
+            "CREATE_HEADER",
+            "CREATE_MODEL",
+        ]
+    ]
     revision: int = Field(ge=0)
 
 
@@ -498,6 +528,7 @@ class AIModelOut(AIModelCreate):
     test_status: AIModelTestStatus
     last_tested_at: datetime | None = None
     last_test_error_summary: str | None = None
+    available_actions: list[Literal["UPDATE", "TEST", "ENABLE", "DISABLE", "DELETE"]]
     revision: int
     created_by: uuid.UUID
     created_at: datetime

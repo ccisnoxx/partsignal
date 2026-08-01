@@ -33,6 +33,7 @@ from app.services.content_planning import (
     create_platform_profile as create_platform_profile_command,
 )
 from app.services.content_planning import create_query_topic as create_query_topic_command
+from app.services.content_planning import query_topic_out
 from app.services.content_planning import update_query_topic as update_query_topic_command
 from app.services.platform_configuration import (
     list_platform_profiles as list_platform_profiles_query,
@@ -45,11 +46,6 @@ router = APIRouter(prefix="/api/v1", tags=["planning"])
 
 ContentEditor = EngineerUser
 SystemAdmin = AdminUser
-
-
-def query_topic_out(topic: QueryTopic) -> QueryTopicOut:
-    """把数据库枚举字符串显式解析为目标问题响应契约。"""
-    return QueryTopicOut.model_validate(topic)
 
 
 @router.get("/query-topics", response_model=QueryTopicList, operation_id="listQueryTopics")
@@ -105,7 +101,7 @@ def update_query_topic(
 )
 def list_platform_profiles(
     db: DbSession,
-    _user: CurrentUser,
+    user: CurrentUser,
     q: str | None = Query(None, max_length=200),
     platform_type_id: uuid.UUID | None = None,
     profile_status: Annotated[PlatformProfileStatus | None, Query(alias="status")] = None,
@@ -121,6 +117,7 @@ def list_platform_profiles(
         configuration_status=configuration_status,
         page=page,
         page_size=page_size,
+        can_manage=user.account_type == "ADMIN",
     )
 
 
@@ -140,7 +137,7 @@ def create_platform_profile(
     profile = create_platform_profile_command(
         db=db, payload=payload, actor=admin, request_id=request.state.request_id
     )
-    return platform_profile_out(db, profile)
+    return platform_profile_out(db, profile, can_manage=True)
 
 
 @router.get("/content-tasks", response_model=ContentTaskList, operation_id="listContentTasks")

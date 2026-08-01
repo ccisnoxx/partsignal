@@ -32,7 +32,6 @@ import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { renderSanitizedMarkdown } from '../../shared/markdown';
-import { useAuth } from '../auth/AuthProvider';
 
 const classificationOptions: Array<{ label: string; value: Schema<'Confidentiality'> }> = [
   { label: 'PUBLIC · 可发送第三方模型', value: 'PUBLIC' },
@@ -49,7 +48,6 @@ function MarkdownPreview({ markdown, label }: { markdown: string; label: string 
 }
 
 export function ProductFactsPage() {
-  const auth = useAuth();
   const { message } = App.useApp();
   const { productId = '' } = useParams();
   const navigate = useNavigate();
@@ -224,7 +222,7 @@ export function ProductFactsPage() {
         {
           key: 'versions',
           label: `事实版本（${versions.data?.items.length ?? 0}）`,
-          children: <Card extra={<Button type="primary" onClick={() => setCreateVersionOpen(true)}>创建不可变版本</Button>}>
+          children: <Card extra={draft.data.available_actions.includes('CREATE_VERSION') ? <Button type="primary" onClick={() => setCreateVersionOpen(true)}>创建不可变版本</Button> : undefined}>
             {versions.isLoading ? <QueryLoading label="正在加载事实版本" />
               : versions.error || !versions.data ? <QueryFailure error={versions.error ?? new Error('事实版本列表不存在')} onRetry={() => void versions.refetch()} />
                 : <TableRegion label="事实版本列表"><Table<FactVersion>
@@ -242,7 +240,7 @@ export function ProductFactsPage() {
                       <Dropdown trigger={['click']} menu={{
                         items: [
                           { key: 'snapshot', label: '查看冻结正文' },
-                          ...(auth.isAdmin ? [{ key: 'delete', label: '删除', danger: true }] : []),
+                          ...(version.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
                         ],
                         onClick: ({ key }) => key === 'snapshot' ? setSnapshotTarget(version) : confirmDeleteVersion(version),
                       }}>
@@ -403,7 +401,7 @@ function FactsForm({
         <Typography.Text aria-live="polite" strong>{statusText}</Typography.Text>
         <Typography.Text type="secondary">保存只更新工作区，不会修改任何已创建或已批准的事实版本。</Typography.Text>
       </div>
-      <Button type="primary" htmlType="submit" size="large" loading={saving} disabled={saveState !== 'dirty' && saveState !== 'failed'}>保存事实工作区</Button>
+      <Button type="primary" htmlType="submit" size="large" loading={saving} disabled={!draft.available_actions.includes('SAVE') || (saveState !== 'dirty' && saveState !== 'failed')}>保存事实工作区</Button>
     </div>
   </Form>;
 }

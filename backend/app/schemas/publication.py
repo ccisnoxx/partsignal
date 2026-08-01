@@ -71,6 +71,7 @@ class PlatformAccountUpdate(ContractModel):
 class PlatformAccountOut(PlatformAccountCreate):
     id: uuid.UUID
     is_active: bool
+    available_actions: list[Literal["UPDATE", "ENABLE", "DISABLE", "DELETE"]]
     revision: int = Field(ge=0)
 
 
@@ -188,6 +189,7 @@ class PublicationCandidate(ContractModel):
     platform_profile_id: uuid.UUID
     platform_profile_name: str
     matching_accounts: list[PlatformAccountOut]
+    available_actions: list[Literal["REGISTER"]]
 
 
 class PublicationCandidateList(ContractModel):

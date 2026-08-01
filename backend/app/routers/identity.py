@@ -75,13 +75,24 @@ from app.services.identity import (
 from app.services.identity import (
     update_user as update_user_command,
 )
+from app.services.identity import user_out as present_managed_user
+from app.services.identity import users_out as present_managed_users
 
 router = APIRouter(prefix="/api/v1", tags=["auth", "identity"])
 
 
 def present_user(user: User) -> UserOut:
     """将内部账号投影为不含密码信息的契约对象。"""
-    return UserOut.model_validate(user)
+    return UserOut.model_validate(
+        {
+            **{
+                field: getattr(user, field)
+                for field in UserOut.model_fields
+                if field != "available_actions"
+            },
+            "available_actions": [],
+        }
+    )
 
 
 @router.post("/auth/login", response_model=AuthSession, operation_id="login")
@@ -162,7 +173,7 @@ def change_password(
 @router.get("/users", response_model=UserList, operation_id="listUsers")
 def list_users(
     db: DbSession,
-    _admin: AdminUser,
+    admin: AdminUser,
     q: str | None = Query(None, max_length=200),
     account_type: AccountType | None = None,
     user_status: Annotated[UserStatus | None, Query(alias="status")] = None,
@@ -177,6 +188,7 @@ def list_users(
         user_status=user_status,
         page=page,
         page_size=page_size,
+        actor=admin,
     )
 
 
@@ -193,7 +205,7 @@ def create_user(
     user = create_user_command(
         db=db, payload=payload, actor=admin, request_id=request.state.request_id
     )
-    return present_user(user)
+    return present_managed_user(db, user, actor=admin)
 
 
 @router.post(
@@ -247,7 +259,7 @@ def bulk_update_user_status(
             )
         raise
     return UserBulkStatusResult(
-        succeeded=[present_user(user) for user in succeeded],
+        succeeded=present_managed_users(db, succeeded, actor=actor),
         failures=failures,
     )
 
@@ -325,7 +337,7 @@ def update_user(
             )
         )
         raise
-    return present_user(user)
+    return present_managed_user(db, user, actor=actor)
 
 
 @router.delete(

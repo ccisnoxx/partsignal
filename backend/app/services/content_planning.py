@@ -15,10 +15,26 @@ from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformTy
 from app.models.content import ContentTask
 from app.models.identity import User
 from app.models.product_facts import FactVersion, Product
-from app.schemas.configuration import PlatformProfileCreate, QueryTopicCreate, QueryTopicUpdate
+from app.schemas.configuration import (
+    PlatformProfileCreate,
+    QueryTopicCreate,
+    QueryTopicOut,
+    QueryTopicUpdate,
+)
 from app.schemas.content import ContentTaskCreate
 from app.services.platform_configuration import lock_active_platform
 from app.services.platform_logo_files import lock_platform_logo_change
+
+
+def query_topic_out(topic: QueryTopic) -> QueryTopicOut:
+    """投影目标问题及其当前编辑动作。"""
+    payload = {
+        field: getattr(topic, field)
+        for field in QueryTopicOut.model_fields
+        if field != "available_actions"
+    }
+    payload["available_actions"] = ["UPDATE"]
+    return QueryTopicOut.model_validate(payload)
 
 
 def create_query_topic(

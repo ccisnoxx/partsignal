@@ -48,9 +48,10 @@ const channel = {
   latest_test_status: 'PASSED' as const, last_tested_at: '2026-07-13T09:00:00+08:00',
   created_by: 'user-1', created_at: '2026-07-13T08:00:00+08:00', updated_at: '2026-07-13T08:00:00+08:00',
   headers: [
-    { id: 'header-1', name: 'X-Public', is_sensitive: false, is_configured: true, value: 'public-value' },
-    { id: 'header-2', name: 'X-Secret', is_sensitive: true, is_configured: true, value: null },
+    { id: 'header-1', name: 'X-Public', is_sensitive: false, is_configured: true, available_actions: ['UPDATE', 'DELETE'] as const, value: 'public-value' },
+    { id: 'header-2', name: 'X-Secret', is_sensitive: true, is_configured: true, available_actions: ['UPDATE', 'DELETE'] as const, value: null },
   ],
+  available_actions: ['UPDATE', 'REPLACE_API_KEY', 'DISABLE', 'DELETE', 'DISCOVER_MODELS', 'CREATE_HEADER', 'CREATE_MODEL'] as const,
   enabled_models: [{ display_name: '内容生成模型', model_id: 'model-controlled' }],
 };
 const channelSummary = {
@@ -58,6 +59,7 @@ const channelSummary = {
   provider_brand: channel.provider_brand, base_url: channel.base_url, is_enabled: channel.is_enabled,
   api_key_configured: channel.api_key_configured, header_count: channel.headers.length, enabled_model_count: 1,
   latest_test_status: channel.latest_test_status, last_tested_at: channel.last_tested_at, revision: channel.revision,
+  available_actions: channel.available_actions,
 };
 const otherChannelSummary = {
   ...channelSummary,
@@ -68,9 +70,10 @@ const otherChannelSummary = {
 const model = {
   id: 'model-1', channel_id: channel.id, display_name: '内容生成模型', model_id: 'model-controlled', request_parameters: { temperature: 0.2 },
   is_enabled: true, test_status: 'PASSED', last_tested_at: '2026-07-13T09:00:00+08:00', last_test_error_summary: null,
+  available_actions: ['UPDATE', 'TEST', 'DISABLE', 'DELETE'] as const,
   revision: 2, created_by: 'user-1', created_at: '2026-07-13T08:00:00+08:00', updated_at: '2026-07-13T09:00:00+08:00',
 };
-const platformType = { id: 'type-1', name: '技术社区', slug: 'technical-community', revision: 0, created_by: 'user-1', created_at: channel.created_at };
+const platformType = { id: 'type-1', name: '技术社区', slug: 'technical-community', available_actions: ['UPDATE'] as const, revision: 0, created_by: 'user-1', created_at: channel.created_at };
 const platformPrompt = {
   id: 'prompt-shared',
   name: '技术文章 Prompt',
@@ -80,6 +83,7 @@ const platformPrompt = {
   created_at: channel.created_at,
   updated_at: channel.updated_at,
   bound_platform_count: 1,
+  available_actions: ['UPDATE'] as const,
   bound_platforms: [{ id: 'profile-ready', name: '工程师社区', slug: 'engineer-community' }],
 };
 const unusedPlatformPrompt = {
@@ -88,13 +92,14 @@ const unusedPlatformPrompt = {
   name: '未绑定 Prompt',
   template_markdown: '待使用。',
   bound_platform_count: 0,
+  available_actions: ['UPDATE', 'DELETE'] as const,
   bound_platforms: [],
 };
 const platforms = [
-  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: null, logo: null, revision: 0, is_active: false, platform_prompt: null, configuration_complete: false, platform_account_count: 0, updated_at: null },
-  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, updated_at: channel.updated_at },
+  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: null, logo: null, revision: 0, is_active: false, platform_prompt: null, configuration_complete: false, platform_account_count: 0, available_actions: ['UPDATE', 'ENABLE', 'DELETE'] as const, updated_at: null },
+  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, available_actions: ['UPDATE', 'DISABLE'] as const, updated_at: channel.updated_at },
 ];
-const humanizationPrompt = { template_markdown: '保持事实，只改善表达。', revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
+const humanizationPrompt = { template_markdown: '保持事实，只改善表达。', available_actions: ['UPDATE'] as const, revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
 let channelItems = [channelSummary];
 let platformItems = platforms;
 let promptItems = [platformPrompt, unusedPlatformPrompt];
@@ -106,7 +111,7 @@ const previewTask: Schema<'ContentTaskListItem'> = {
   source_publication_attention_id: null, available_actions: ['CANCEL'], status: 'OPEN', revision: 1, created_by: 'user-1', created_at: channel.created_at,
   product: { id: 'product-1', brand: 'PartSignal', part_number: 'PS-100' }, platform: { id: 'profile-ready', name: '工程师社区', website_url: platforms[1]!.website_url, logo: platforms[1]!.logo }, latest_generation_status: null,
 };
-const previewSource: Schema<'ContentVersion'> = { id: 'version-source', task_id: previewTask.id, fact_version_id: 'fact-1', source_job_id: 'job-source', based_on_id: null, version: 1, source_type: 'AI', title: '源草稿', summary: '源摘要', body_markdown: '源正文', tags: ['源'], content_hash: 'hash-source', status: 'DRAFT', revision: 0, quality_issues: [], created_by: 'user-1', created_at: channel.created_at };
+const previewSource: Schema<'ContentVersion'> = { id: 'version-source', task_id: previewTask.id, fact_version_id: 'fact-1', source_job_id: 'job-source', based_on_id: null, version: 1, source_type: 'AI', title: '源草稿', summary: '源摘要', body_markdown: '源正文', tags: ['源'], content_hash: 'hash-source', status: 'DRAFT', available_actions: [], revision: 0, quality_issues: [], created_by: 'user-1', created_at: channel.created_at };
 const previewContent: Schema<'ContentVersion'> = { ...previewSource, id: 'version-preview', source_job_id: 'job-preview', based_on_id: previewSource.id, version: 2, title: '真实预览标题', summary: '真实预览摘要', body_markdown: '[危险链接](javascript:alert(1))\n\n<script>globalThis.compromised=true</script>\n\n安全正文', tags: ['真实', '草稿'], content_hash: 'hash-preview' };
 
 function result(data: unknown) {
@@ -165,7 +170,7 @@ beforeEach(() => {
     }
     if (path === '/api/v1/ai-channels/{channel_id}/usage-summary') return result({ channel_id: channel.id, period: '30d', period_started_at: '2026-06-13T08:00:00+08:00', period_ended_at: '2026-07-13T08:00:00+08:00', total_jobs: 3, succeeded_jobs: 2, failed_jobs: 1, success_rate: 2 / 3, average_response_duration_ms: 1200, prompt_tokens: 20, completion_tokens: 10, total_tokens: 30, last_used_at: '2026-07-13T07:00:00+08:00' });
     if (path === '/api/v1/ai-channels/{channel_id}/audit-logs') return result({ items: [{ id: 'audit-1', actor_id: 'user-1', actor: { id: 'user-1', display_name: '系统管理员', account_type: 'ADMIN' }, business_module: 'CONFIGURATION', action: 'ai_model.tested', target_type: 'AIModel', target_id: model.id, outcome: 'SUCCESS', change_summary: { test_status: 'PASSED' }, request_id: 'request-1', created_at: channel.updated_at }], page: 1, page_size: 20, total: 1 });
-    if (path === '/api/v1/users') return result({ items: [{ id: 'user-1', username: 'admin', display_name: '系统管理员', account_type: 'ADMIN', is_active: true, must_change_password: false, revision: 0, created_at: channel.created_at }], page: 1, page_size: 20, total: 1 });
+    if (path === '/api/v1/users') return result({ items: [{ id: 'user-1', username: 'admin', display_name: '系统管理员', account_type: 'ADMIN', is_active: true, must_change_password: false, available_actions: ['UPDATE', 'DISABLE'], revision: 0, created_at: channel.created_at }], page: 1, page_size: 20, total: 1 });
     if (path === '/api/v1/platform-profiles') {
       return result({ items: platformItems, page: 1, page_size: 10, total: platformItems.length, summary: { platform_total: platformItems.length, enabled_total: platformItems.filter((item) => item.is_active).length, missing_prompt_total: platformItems.filter((item) => !item.platform_prompt).length, configuration_complete_total: platformItems.filter((item) => item.configuration_complete).length } });
     }
@@ -213,12 +218,12 @@ beforeEach(() => {
       preview: { url: 'https://objects.example.invalid/platform-logo.png', expires_at: channel.updated_at },
     });
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') {
-      const job: Schema<'GenerationJob'> = { id: 'job-preview', content_task_id: previewTask.id, job_type: 'GENERATE', source_content_version_id: null, status: 'PENDING', attempt_count: 1, content_version_id: null, created_at: channel.created_at };
+      const job: Schema<'GenerationJob'> = { id: 'job-preview', content_task_id: previewTask.id, job_type: 'GENERATE', source_content_version_id: null, status: 'PENDING', available_actions: [], attempt_count: 1, content_version_id: null, created_at: channel.created_at };
       generationJobs = [{ ...job, status: 'SUCCEEDED', content_version_id: previewContent.id }];
       return result(job);
     }
     if (path === '/api/v1/content-versions/{content_version_id}/humanization-jobs') {
-      const job: Schema<'GenerationJob'> = { id: 'job-humanize', content_task_id: previewTask.id, job_type: 'HUMANIZE', source_content_version_id: previewSource.id, status: 'PENDING', attempt_count: 1, content_version_id: null, created_at: channel.created_at };
+      const job: Schema<'GenerationJob'> = { id: 'job-humanize', content_task_id: previewTask.id, job_type: 'HUMANIZE', source_content_version_id: previewSource.id, status: 'PENDING', available_actions: [], attempt_count: 1, content_version_id: null, created_at: channel.created_at };
       generationJobs = [{ ...job, status: 'SUCCEEDED', content_version_id: previewContent.id }];
       return result(job);
     }

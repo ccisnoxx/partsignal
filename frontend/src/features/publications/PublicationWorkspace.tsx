@@ -511,7 +511,7 @@ function CandidateList({
               fixed: 'right',
               width: 190,
               render: (_, row) => <Space size={4}>
-                <Button type="primary" disabled={row.matching_accounts.length === 0} onClick={() => onOpen(row)}>准备人工发布</Button>
+                <Button type="primary" disabled={!row.available_actions.includes('REGISTER')} onClick={() => onOpen(row)}>准备人工发布</Button>
                 <Dropdown
                   trigger={['click']}
                   menu={{

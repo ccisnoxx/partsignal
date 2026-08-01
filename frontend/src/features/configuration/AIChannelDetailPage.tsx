@@ -381,13 +381,13 @@ export function AIChannelDetailPage() {
   const basicContent = <div className="ai-detail-section">
     {channelError && <Alert role="alert" type="error" showIcon title={errorMessage(channelError)} />}
     <section className="ai-basic-card">
-      <div className="ai-section-heading"><strong>基本信息</strong><Button size="small" icon={<EditOutlined />} onClick={() => setEditOpen(true)}>编辑</Button></div>
+      <div className="ai-section-heading"><strong>基本信息</strong>{data.available_actions.includes('UPDATE') && <Button size="small" icon={<EditOutlined />} onClick={() => setEditOpen(true)}>编辑</Button>}</div>
       <Descriptions column={1} size="small" colon={false} className="ai-basic-descriptions" items={[
         { key: 'name', label: '渠道名称', children: data.name },
         { key: 'description', label: '描述', children: data.description || '—' },
         { key: 'url', label: 'API 根地址', children: <Typography.Link href={data.base_url} target="_blank" rel="noreferrer" className="ai-detail-url">{data.base_url}</Typography.Link> },
         { key: 'state', label: '状态', children: <StatusTag status={data.is_enabled ? 'ENABLED' : 'DISABLED'} /> },
-        { key: 'key', label: 'API Key', children: data.api_key_configured ? <Space size={4} wrap><span className="ai-configured">✓ 已配置（••••••）</span><Button type="link" size="small" onClick={() => setKeyOpen(true)}>重新配置</Button></Space> : <Button type="link" size="small" onClick={() => setKeyOpen(true)}>未配置，立即配置</Button> },
+        { key: 'key', label: 'API Key', children: data.api_key_configured ? <Space size={4} wrap><span className="ai-configured">✓ 已配置（••••••）</span>{data.available_actions.includes('REPLACE_API_KEY') && <Button type="link" size="small" onClick={() => setKeyOpen(true)}>重新配置</Button>}</Space> : data.available_actions.includes('REPLACE_API_KEY') ? <Button type="link" size="small" onClick={() => setKeyOpen(true)}>未配置，立即配置</Button> : '未配置' },
         { key: 'headers', label: '请求 Header', children: `${data.headers.length} 个` },
         { key: 'timeout', label: '超时时间', children: `${data.timeout_seconds} 秒` },
         { key: 'retry', label: '重试策略', children: '仅手动重试' },
@@ -400,31 +400,34 @@ export function AIChannelDetailPage() {
       <strong>快捷操作</strong>
       <div>
         <Button icon={<ThunderboltOutlined />} disabled={!workspace} onClick={() => workspace?.openConnectionTest(data)}>测试连接</Button>
-        <Button danger={data.is_enabled} loading={toggleChannel.isPending} onClick={() => toggleChannel.mutate()}>{data.is_enabled ? '停用渠道' : '启用渠道'}</Button>
+        {(data.available_actions.includes('ENABLE') || data.available_actions.includes('DISABLE')) && <Button danger={data.available_actions.includes('DISABLE')} loading={toggleChannel.isPending} onClick={() => toggleChannel.mutate()}>{data.available_actions.includes('DISABLE') ? '停用渠道' : '启用渠道'}</Button>}
         <Button icon={<CopyOutlined />} onClick={() => void copyConfiguration()}>复制配置</Button>
-        <Popconfirm
+        {data.available_actions.includes('DELETE') && <Popconfirm
           title="删除此 AI 渠道？"
           description="当前 Header 与模型会删除；未执行作业将明确失败，历史快照保留。"
           okText="删除渠道"
           cancelText="取消"
           okButtonProps={{ danger: true }}
           onConfirm={() => deleteChannel.mutate()}
-        ><Button danger icon={<DeleteOutlined />} loading={deleteChannel.isPending}>删除渠道</Button></Popconfirm>
+        ><Button danger icon={<DeleteOutlined />} loading={deleteChannel.isPending}>删除渠道</Button></Popconfirm>}
       </div>
     </section>
   </div>;
 
   const requestContent = <div className="ai-detail-section">
     {requestError && <Alert role="alert" type="error" showIcon title={errorMessage(requestError)} />}
-    <div className="ai-request-key-card"><span><KeyOutlined /><span><strong>API Key</strong><small>{data.api_key_configured ? '已安全配置（••••••）' : '尚未配置'}</small></span></span><Button onClick={() => setKeyOpen(true)}>重新配置</Button></div>
-    <div className="ai-section-heading"><strong>请求 Header</strong><Button size="small" icon={<PlusOutlined />} onClick={() => setHeaderOpen(true)}>新增</Button></div>
+    <div className="ai-request-key-card"><span><KeyOutlined /><span><strong>API Key</strong><small>{data.api_key_configured ? '已安全配置（••••••）' : '尚未配置'}</small></span></span>{data.available_actions.includes('REPLACE_API_KEY') && <Button onClick={() => setKeyOpen(true)}>重新配置</Button>}</div>
+    <div className="ai-section-heading"><strong>请求 Header</strong>{data.available_actions.includes('CREATE_HEADER') && <Button size="small" icon={<PlusOutlined />} onClick={() => setHeaderOpen(true)}>新增</Button>}</div>
     {data.headers.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未配置请求 Header" /> : <TableRegion label="请求 Header 列表"><Table<Header>
       size="small" rowKey="id" dataSource={data.headers} pagination={false} scroll={{ x: 500 }} columns={[
         { title: '名称', dataIndex: 'name', width: 150, ellipsis: true, render: (value) => <TableCellText text={value} mono /> },
         { title: '类型', dataIndex: 'is_sensitive', width: 64, render: (value) => <Tag>{value ? '敏感' : '普通'}</Tag> },
         { title: '值', width: 180, ellipsis: true, render: (_, row) => row.is_sensitive ? '••••••' : row.value ? <TableCellText text={row.value} mono /> : '—' },
         { title: '操作', fixed: 'right', width: 86, render: (_, row) => <Dropdown trigger={['click']} menu={{
-          items: [{ key: 'edit', label: '编辑' }, { key: 'delete', label: '删除', danger: true }],
+          items: [
+            ...(row.available_actions.includes('UPDATE') ? [{ key: 'edit', label: '编辑' }] : []),
+            ...(row.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
+          ],
           onClick: ({ key }) => key === 'edit' ? setEditingHeader(row) : modal.confirm({ title: `删除 Header“${row.name}”？`, okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteHeader.mutateAsync(row.id) }),
         }}><Button size="small" type="text" icon={<DownOutlined />} aria-label={`更多操作：Header ${row.name}`} /></Dropdown> },
       ]}
@@ -433,19 +436,20 @@ export function AIChannelDetailPage() {
 
   const modelContent = <div className="ai-detail-section">
     {modelError && <Alert role="alert" type="error" showIcon title={errorMessage(modelError)} />}
-    <div className="ai-section-heading"><strong>模型管理</strong><Space size={4}><Button size="small" onClick={() => { setDiscoveryOpen(true); setDiscovered([]); discover.reset(); discover.mutate(); }}>获取模型</Button><Button size="small" type="primary" onClick={() => setModelOpen(true)}>添加</Button></Space></div>
+    <div className="ai-section-heading"><strong>模型管理</strong><Space size={4}>{data.available_actions.includes('DISCOVER_MODELS') && <Button size="small" onClick={() => { setDiscoveryOpen(true); setDiscovered([]); discover.reset(); discover.mutate(); }}>获取模型</Button>}{data.available_actions.includes('CREATE_MODEL') && <Button size="small" type="primary" onClick={() => setModelOpen(true)}>添加</Button>}</Space></div>
     {models.isLoading ? <QueryLoading label="正在加载模型" /> : models.error || !models.data ? <QueryFailure error={models.error ?? new Error('模型列表不存在')} onRetry={() => void models.refetch()} /> : models.data.items.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未配置模型" /> : <TableRegion label="模型列表"><Table<AIModel>
       size="small" rowKey="id" dataSource={models.data.items} pagination={false} scroll={{ x: 560 }} columns={[
         { title: '模型', width: 210, render: (_, row) => <span className="ai-model-name"><TableCellText text={row.display_name} /><TableCellText text={row.model_id} mono /></span> },
         { title: '测试', dataIndex: 'test_status', width: 76, render: (value) => <StatusTag compact status={value} /> },
         { title: '启用', dataIndex: 'is_enabled', width: 64, render: (value) => <StatusTag compact status={value ? 'ENABLED' : 'DISABLED'} /> },
         { title: '操作', fixed: 'right', width: 126, render: (_, row) => <Space size={2}>
-          <Button size="small" type="text" icon={<ThunderboltOutlined />} aria-label={`测试模型：${row.display_name}`} loading={testModel.isPending && testModel.variables?.id === row.id} onClick={() => confirmTestModel(row)} />
+          {row.available_actions.includes('TEST') && <Button size="small" type="text" icon={<ThunderboltOutlined />} aria-label={`测试模型：${row.display_name}`} loading={testModel.isPending && testModel.variables?.id === row.id} onClick={() => confirmTestModel(row)} />}
           <Dropdown trigger={['click']} menu={{
             items: [
-              { key: 'toggle', label: row.is_enabled ? '停用' : '启用' },
-              { key: 'edit', label: '编辑' },
-              { key: 'delete', label: '删除', danger: true },
+              ...(row.available_actions.includes('DISABLE') ? [{ key: 'toggle', label: '停用' }] : []),
+              ...(row.available_actions.includes('ENABLE') ? [{ key: 'toggle', label: '启用' }] : []),
+              ...(row.available_actions.includes('UPDATE') ? [{ key: 'edit', label: '编辑' }] : []),
+              ...(row.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
             ],
             onClick: ({ key }) => key === 'toggle' ? toggleModel.mutate(row) : key === 'edit' ? setEditingModel(row) : modal.confirm({ title: `删除模型“${row.display_name}”？`, content: '历史作业快照会保留，但未执行的关联作业将因配置缺失而失败。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteModel.mutateAsync(row) }),
           }}><Button size="small" type="text" icon={<DownOutlined />} aria-label={`更多模型操作：${row.display_name}`} /></Dropdown>

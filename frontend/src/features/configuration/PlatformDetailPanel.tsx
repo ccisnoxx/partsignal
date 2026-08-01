@@ -103,9 +103,9 @@ export function PlatformDetailPanel({
     </div>
     <div className="platform-detail-footer">
       <div className="platform-detail-actions">
-        <Button onClick={() => onEdit(profile)}>编辑平台</Button>
-        <Button className="platform-toggle-button" loading={toggleLoading} onClick={() => onToggle(profile)}>{profile.is_active ? '停用平台' : '启用平台'}</Button>
-        <Button danger loading={deleteLoading} onClick={() => onDelete(profile)}>删除平台</Button>
+        {profile.available_actions.includes('UPDATE') && <Button onClick={() => onEdit(profile)}>编辑平台</Button>}
+        {(profile.available_actions.includes('ENABLE') || profile.available_actions.includes('DISABLE')) && <Button className="platform-toggle-button" loading={toggleLoading} onClick={() => onToggle(profile)}>{profile.available_actions.includes('DISABLE') ? '停用平台' : '启用平台'}</Button>}
+        {profile.available_actions.includes('DELETE') && <Button danger loading={deleteLoading} onClick={() => onDelete(profile)}>删除平台</Button>}
       </div>
       <Alert type="warning" showIcon={false} title="存在内容任务或发布账号引用时不能删除平台；如需停止新业务，请停用平台。" />
     </div>

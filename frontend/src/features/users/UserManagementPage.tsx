@@ -290,12 +290,11 @@ export function UserManagementPage() {
     exportList.mutate();
   };
   const rowMenu = (user: User): MenuProps => {
-    const items: NonNullable<MenuProps['items']> = [
-      { key: 'reset', icon: <KeyOutlined />, label: '重置临时密码', disabled: user.id === auth.user?.id },
-      { type: 'divider' },
-      { key: 'toggle', icon: user.is_active ? <StopOutlined /> : <CheckCircleOutlined />, label: user.is_active ? '停用用户' : '启用用户', danger: user.is_active },
-    ];
-    if (!user.is_active) items.push({ key: 'delete', icon: <DeleteOutlined />, label: '删除用户', danger: true });
+    const items: NonNullable<MenuProps['items']> = [];
+    if (user.available_actions.includes('RESET_PASSWORD')) items.push({ key: 'reset', icon: <KeyOutlined />, label: '重置临时密码' });
+    if (user.available_actions.includes('DISABLE')) items.push({ key: 'toggle', icon: <StopOutlined />, label: '停用用户', danger: true });
+    if (user.available_actions.includes('ENABLE')) items.push({ key: 'toggle', icon: <CheckCircleOutlined />, label: '启用用户' });
+    if (user.available_actions.includes('DELETE')) items.push({ key: 'delete', icon: <DeleteOutlined />, label: '删除用户', danger: true });
     return {
       items,
       onClick: ({ key }) => {
@@ -374,7 +373,7 @@ export function UserManagementPage() {
                     { title: '状态', dataIndex: 'is_active', width: 105, render: (value: boolean) => <StatusTag compact status={value ? 'ENABLED' : 'DISABLED'} /> },
                     { title: '必须修改密码', dataIndex: 'must_change_password', width: 135, render: (value: boolean) => <Tag className={`user-management-boolean user-management-boolean-${value ? 'yes' : 'no'}`}>{value ? '是' : '否'}</Tag> },
                     { title: '创建时间', dataIndex: 'created_at', width: 168, render: (value: string) => <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> },
-                    { title: '操作', fixed: 'right', width: 104, render: (_, row) => <Space size={4}><Tooltip title={`编辑 ${row.username}`}><Button aria-label={`编辑用户：${row.username}`} size="small" icon={<EditOutlined />} onClick={() => { update.reset(); setEditing(row); }} /></Tooltip><Dropdown trigger={['click']} menu={rowMenu(row)}><Button aria-label={`更多操作：${row.username}`} size="small" icon={<EllipsisOutlined />} /></Dropdown></Space> },
+                    { title: '操作', fixed: 'right', width: 104, render: (_, row) => <Space size={4}>{row.available_actions.includes('UPDATE') && <Tooltip title={`编辑 ${row.username}`}><Button aria-label={`编辑用户：${row.username}`} size="small" icon={<EditOutlined />} onClick={() => { update.reset(); setEditing(row); }} /></Tooltip>}{rowMenu(row).items?.length ? <Dropdown trigger={['click']} menu={rowMenu(row)}><Button aria-label={`更多操作：${row.username}`} size="small" icon={<EllipsisOutlined />} /></Dropdown> : null}</Space> },
                   ]}
                 />
               </TableRegion>
@@ -399,8 +398,8 @@ export function UserManagementPage() {
           </Card>
           <Card size="small" title="快捷操作">
             <Space wrap>
-              <Button aria-label="批量启用" icon={<CheckCircleOutlined />} disabled={!selectedUsers.length} loading={bulkStatus.isPending} onClick={() => confirmBulk('ENABLED')}>批量启用</Button>
-              <Button aria-label="批量停用" danger icon={<StopOutlined />} disabled={!selectedUsers.length} loading={bulkStatus.isPending} onClick={() => confirmBulk('DISABLED')}>批量停用</Button>
+              <Button aria-label="批量启用" icon={<CheckCircleOutlined />} disabled={!selectedUsers.length || !selectedUsers.every((user) => user.available_actions.includes('ENABLE'))} loading={bulkStatus.isPending} onClick={() => confirmBulk('ENABLED')}>批量启用</Button>
+              <Button aria-label="批量停用" danger icon={<StopOutlined />} disabled={!selectedUsers.length || !selectedUsers.every((user) => user.available_actions.includes('DISABLE'))} loading={bulkStatus.isPending} onClick={() => confirmBulk('DISABLED')}>批量停用</Button>
               <Button aria-label="导出用户列表" icon={<DownloadOutlined />} loading={exportList.isPending} onClick={exportCurrent}>导出用户列表</Button>
             </Space>
           </Card>

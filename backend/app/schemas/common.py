@@ -30,6 +30,9 @@ class UserOut(ContractModel):
     account_type: AccountType
     is_active: bool
     must_change_password: bool
+    available_actions: list[
+        Literal["UPDATE", "RESET_PASSWORD", "ENABLE", "DISABLE", "DELETE"]
+    ]
     revision: int
     created_at: datetime
 

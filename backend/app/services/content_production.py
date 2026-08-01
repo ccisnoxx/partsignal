@@ -65,6 +65,27 @@ from app.services.generation_dispatch import dispatch_generation_job
 from app.worker import generate_content
 
 
+def generation_job_contract_retryable(job: GenerationJob) -> bool:
+    """仅允许当前正式快照版本和已声明可读的 v2 原始生成快照重试。"""
+    contract_version = job.input_snapshot.get("contract_version")
+    retryable_contracts = (
+        {"content-markdown-v2", GENERATION_CONTRACT_VERSION}
+        if job.job_type == "GENERATE"
+        else {HUMANIZATION_CONTRACT_VERSION}
+    )
+    return contract_version in retryable_contracts
+
+
+def generation_job_retryable(job: GenerationJob, task: ContentTask | None) -> bool:
+    """返回作业是否通过重试入口的快照、状态与父任务门禁。"""
+    return (
+        generation_job_contract_retryable(job)
+        and job.status == "FAILED"
+        and task is not None
+        and task.status == "OPEN"
+    )
+
+
 def _channel_snapshot(channel: AIChannel) -> dict[str, Any]:
     """冻结连接所需非敏感配置和敏感 Header 名称。"""
     return {
@@ -529,13 +550,7 @@ def retry_generation_job(
     previous = db.get(GenerationJob, generation_job_id)
     if previous is None:
         raise not_found("生成作业")
-    contract_version = previous.input_snapshot.get("contract_version")
-    retryable_contracts = (
-        {"content-markdown-v2", GENERATION_CONTRACT_VERSION}
-        if previous.job_type == "GENERATE"
-        else {HUMANIZATION_CONTRACT_VERSION}
-    )
-    if contract_version not in retryable_contracts:
+    if not generation_job_contract_retryable(previous):
         raise AppError(
             "LEGACY_GENERATION_RETRY_FORBIDDEN",
             "旧版生成作业仅供历史读取，不能创建重试",

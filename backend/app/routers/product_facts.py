@@ -47,13 +47,14 @@ from app.services.product_facts import (
 )
 from app.services.product_facts import delete_fact_version as delete_fact_version_command
 from app.services.product_facts import delete_product as delete_product_command
+from app.services.product_facts import product_facts_draft_out, product_out, products_out
 from app.services.product_facts import (
     replace_product_facts as replace_product_facts_command,
 )
 from app.services.product_facts import (
     update_product as update_product_command,
 )
-from app.services.projections import fact_version_out
+from app.services.projections import fact_version_out, fact_versions_out
 from app.services.review import get_fact_review_context, transition_fact_version
 
 router = APIRouter(prefix="/api/v1", tags=["product-facts", "review"])
@@ -65,7 +66,7 @@ ProductReviewer = EngineerUser
 @router.get("/products", response_model=ProductList, operation_id="listProducts")
 def list_products(
     db: DbSession,
-    _user: CurrentUser,
+    user: CurrentUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     search: str | None = None,
@@ -85,7 +86,7 @@ def list_products(
         )
     )
     return ProductList(
-        items=[ProductOut.model_validate(item) for item in items],
+        items=products_out(db, items, can_delete=user.account_type == "ADMIN"),
         page=page,
         page_size=page_size,
         total=total,
@@ -108,15 +109,15 @@ def create_product(
     product = create_product_command(
         db=db, payload=payload, actor=editor, request_id=request.state.request_id
     )
-    return ProductOut.model_validate(product)
+    return product_out(db, product, can_delete=editor.account_type == "ADMIN")
 
 
 @router.get("/products/{product_id}", response_model=ProductOut, operation_id="getProduct")
-def get_product(product_id: uuid.UUID, db: DbSession, _user: CurrentUser) -> ProductOut:
+def get_product(product_id: uuid.UUID, db: DbSession, user: CurrentUser) -> ProductOut:
     product = db.get(Product, product_id)
     if product is None:
         raise not_found("产品")
-    return ProductOut.model_validate(product)
+    return product_out(db, product, can_delete=user.account_type == "ADMIN")
 
 
 @router.patch("/products/{product_id}", response_model=ProductOut, operation_id="updateProduct")
@@ -135,7 +136,7 @@ def update_product(
         actor=editor,
         request_id=request.state.request_id,
     )
-    return ProductOut.model_validate(product)
+    return product_out(db, product, can_delete=editor.account_type == "ADMIN")
 
 
 @router.delete(
@@ -164,12 +165,7 @@ def get_product_facts(
     product = db.get(Product, product_id)
     if product is None:
         raise not_found("产品")
-    return ProductFactsDraft(
-        product_id=product.id,
-        body_markdown=product.facts_body_markdown,
-        classification=product.facts_classification,
-        revision=product.facts_revision,
-    )
+    return product_facts_draft_out(product)
 
 
 @router.put(
@@ -199,7 +195,7 @@ def replace_product_facts(
     response_model=FactVersionList,
     operation_id="listFactVersions",
 )
-def list_fact_versions(product_id: uuid.UUID, db: DbSession, _user: CurrentUser) -> FactVersionList:
+def list_fact_versions(product_id: uuid.UUID, db: DbSession, user: CurrentUser) -> FactVersionList:
     if db.get(Product, product_id) is None:
         raise not_found("产品")
     versions = list(
@@ -209,7 +205,9 @@ def list_fact_versions(product_id: uuid.UUID, db: DbSession, _user: CurrentUser)
             .order_by(FactVersion.version.desc())
         )
     )
-    return FactVersionList(items=[fact_version_out(item) for item in versions])
+    return FactVersionList(
+        items=fact_versions_out(db, versions, can_delete=user.account_type == "ADMIN")
+    )
 
 
 @router.post(
@@ -233,7 +231,7 @@ def create_fact_version(
         actor=editor,
         request_id=request.state.request_id,
     )
-    return fact_version_out(version)
+    return fact_version_out(db, version, can_delete=editor.account_type == "ADMIN")
 
 
 @router.get(
@@ -242,12 +240,12 @@ def create_fact_version(
     operation_id="getFactVersion",
 )
 def get_fact_version(
-    fact_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    fact_version_id: uuid.UUID, db: DbSession, user: CurrentUser
 ) -> FactVersionOut:
     version = db.get(FactVersion, fact_version_id)
     if version is None:
         raise not_found("事实版本")
-    return fact_version_out(version)
+    return fact_version_out(db, version, can_delete=user.account_type == "ADMIN")
 
 
 @router.delete(
@@ -276,10 +274,12 @@ def delete_fact_version(
     operation_id="getFactReviewContext",
 )
 def fact_review_context(
-    fact_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    fact_version_id: uuid.UUID, db: DbSession, user: CurrentUser
 ) -> FactReviewContext:
     """返回冻结事实证据和当前版本自身的追加式审核历史。"""
-    return get_fact_review_context(db, fact_version_id)
+    return get_fact_review_context(
+        db, fact_version_id, can_delete=user.account_type == "ADMIN"
+    )
 
 
 @router.post(

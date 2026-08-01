@@ -28,7 +28,9 @@ class ContentTaskOut(ContentTaskCreate):
     id: uuid.UUID
     query_topic_id: uuid.UUID | None
     source_publication_attention_id: uuid.UUID | None
-    available_actions: list[Literal["CANCEL", "DELETE"]]
+    available_actions: list[
+        Literal["CANCEL", "DELETE", "CREATE_GENERATION_JOB", "CREATE_MANUAL_VERSION"]
+    ]
     status: Literal["OPEN", "COMPLETED", "CANCELLED"]
     revision: int
     created_by: uuid.UUID
@@ -97,6 +99,7 @@ class GenerationJobOut(ContractModel):
     job_type: Literal["GENERATE", "HUMANIZE"]
     source_content_version_id: uuid.UUID | None
     status: GenerationJobStatus
+    available_actions: list[Literal["RETRY"]]
     attempt_count: int
     content_version_id: uuid.UUID | None = None
     retry_of_id: uuid.UUID | None = None
@@ -270,6 +273,15 @@ class ContentVersionOut(ContractModel):
     tags: list[str]
     content_hash: str
     status: Literal["DRAFT", "PENDING_REVIEW", "CHANGES_REQUESTED", "APPROVED", "SUPERSEDED"]
+    available_actions: list[
+        Literal[
+            "CREATE_REVISION",
+            "CREATE_HUMANIZATION_JOB",
+            "SUBMIT_REVIEW",
+            "APPROVE",
+            "REQUEST_CHANGES",
+        ]
+    ]
     revision: int
     quality_issues: list[QualityIssue]
     created_by: uuid.UUID

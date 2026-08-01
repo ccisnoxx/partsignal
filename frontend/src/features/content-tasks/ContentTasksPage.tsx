@@ -445,7 +445,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
     refetchInterval: (query) => query.state.data?.items.some((job) => ['PENDING', 'RUNNING'].includes(job.status)) ? 2000 : false,
   });
   const generationDialogOpen = aiOpen
-    || (autoAiOpen && task.data?.status === 'OPEN' && fact.data?.classification === 'PUBLIC');
+    || (autoAiOpen && !!task.data?.available_actions.includes('CREATE_GENERATION_JOB'));
   const options = useQuery({
     queryKey: queryKeys.contentTasks.options(taskId),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/generation-options', { params: { path: { content_task_id: taskId } } })),
@@ -533,10 +533,6 @@ function TaskDetail({ taskId }: { taskId: string }) {
     staleTime: QUERY_STALE_TIME.detail,
   });
   const succeededJobs = jobs.data?.items.filter((job) => job.status === 'SUCCEEDED').map((job) => job.id).join(',');
-  const activeHumanizationSources = new Set(jobs.data?.items
-    .filter((job) => job.job_type === 'HUMANIZE' && ['PENDING', 'RUNNING'].includes(job.status))
-    .map((job) => job.source_content_version_id));
-
   useEffect(() => {
     if (succeededJobs) void queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.versions(taskId) });
   }, [succeededJobs, taskId]);
@@ -559,14 +555,18 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const mutationError = createJob.error ?? createHumanizationJob.error ?? retryJob.error ?? taskCommand.error;
   const isOpen = task.data.status === 'OPEN';
   const factIsPublic = fact.data?.classification === 'PUBLIC';
-  const replacementRequired = !isOpen || (!!fact.data && !factIsPublic);
+  const canGenerate = task.data.available_actions.includes('CREATE_GENERATION_JOB');
+  const canCreateManualVersion = task.data.available_actions.includes('CREATE_MANUAL_VERSION');
+  const replacementRequired = !canGenerate;
   const generationBlockReason = !isOpen
     ? '当前任务已结束，历史任务保持只读，不能新增 AI 草稿。请创建新任务后继续。'
     : fact.error
       ? '事实版本加载失败，暂时无法确认是否允许发送给第三方模型。'
       : fact.data && !factIsPublic
         ? `事实分级为 ${fact.data.classification}，不能发送给第三方模型。请创建新任务并选择 PUBLIC 事实版本。`
-        : undefined;
+        : !canGenerate
+          ? '服务端当前未开放 AI 生成，可能需要恢复产品、平台或 Prompt 配置。'
+          : undefined;
   const promptChanged = createJob.error instanceof ApiError
     && createJob.error.code === 'PLATFORM_PROMPT_CHANGED';
 
@@ -632,7 +632,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
               type="primary"
               icon={<ThunderboltOutlined />}
               loading={fact.isLoading}
-              disabled={!factIsPublic}
+              disabled={!canGenerate}
               onClick={() => {
                 setModelId(undefined);
                 createJob.reset();
@@ -643,7 +643,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
       <Card title="02B / 手动录入" className="workspace-panel">
         <Alert type="info" showIcon title="可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。" />
         <Typography.Paragraph>手动首稿与 AI 草稿进入同一内容版本、审核和人工发布流程。</Typography.Paragraph>
-        <Button type="primary" disabled={!isOpen} onClick={() => setManualOpen(true)}>录入首个人工草稿</Button>
+        <Button type="primary" disabled={!canCreateManualVersion} onClick={() => setManualOpen(true)}>录入首个人工草稿</Button>
       </Card>
     </section>
 
@@ -662,7 +662,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
               { title: '结果', dataIndex: 'content_version_id', width: 150, render: (value) => value ? <Link to={`/content/${value}`}>打开草稿</Link> : '—' },
               { title: '失败原因', dataIndex: 'error_summary', width: 250, ellipsis: true, render: (value) => value ? <TableCellText text={value} /> : '—' },
               { title: '耗时 / Token', width: 180, render: (_, row) => `${row.response_duration_ms ?? '—'} ms / ${row.total_tokens ?? '—'}` },
-              { title: '操作', width: 130, fixed: 'right', render: (_, row) => row.status === 'FAILED' ? <Button size="small" loading={retryJob.isPending} onClick={() => retryJob.mutate(row.id)}>重试原快照</Button> : null },
+              { title: '操作', width: 130, fixed: 'right', render: (_, row) => row.available_actions.includes('RETRY') ? <Button size="small" loading={retryJob.isPending} onClick={() => retryJob.mutate(row.id)}>重试原快照</Button> : null },
             ]}
           /></TableRegion> : <Typography.Text type="secondary">尚无 AI 作业。</Typography.Text>}
       {jobDetail.isLoading && <QueryLoading label="正在加载最新作业追溯" />}
@@ -690,12 +690,8 @@ function TaskDetail({ taskId }: { taskId: string }) {
               { title: '状态', dataIndex: 'status', width: 140, render: (value) => <StatusTag status={value} /> },
               { title: '质量问题', dataIndex: 'quality_issues', width: 100, render: (issues: Schema<'QualityIssue'>[]) => issues.length },
               { title: '操作', width: 120, fixed: 'right', render: (_, row) => {
-                const eligible = row.source_type === 'AI'
-                  && ['DRAFT', 'CHANGES_REQUESTED'].includes(row.status)
-                  && isOpen
-                  && factIsPublic
-                  && !activeHumanizationSources.has(row.id);
-                return <Button size="small" disabled={!eligible} onClick={() => setHumanizeSource(row)}>自然化</Button>;
+                const canHumanize = row.available_actions.includes('CREATE_HUMANIZATION_JOB');
+                return <Button size="small" disabled={!canHumanize} onClick={() => setHumanizeSource(row)}>自然化</Button>;
               } },
             ]}
           /></TableRegion> : <NoData description="尚无内容版本，可从上方任一入口创建首稿" />}

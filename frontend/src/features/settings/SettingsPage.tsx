@@ -27,7 +27,6 @@ import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
-import { useAuth } from '../auth/AuthProvider';
 
 type PlatformAccount = Schema<'PlatformAccount'>;
 
@@ -68,7 +67,6 @@ function PlatformAccountsPanel({
   const [editing, setEditing] = useState<PlatformAccount>();
   const [modal, modalContext] = Modal.useModal();
   const { message } = App.useApp();
-  const auth = useAuth();
   const accountQuery: PlatformAccountListQuery = platformProfileId
     ? { platform_profile_id: platformProfileId }
     : {};
@@ -269,13 +267,10 @@ function PlatformAccountsPanel({
                   trigger={['click']}
                   menu={{
                     items: [
-                      { key: 'edit', label: '编辑' },
-                      account.is_active
-                        ? { key: 'disable', label: '停用', danger: true }
-                        : { key: 'enable', label: '启用' },
-                      ...(auth.isAdmin
-                        ? [{ key: 'delete', label: '删除', danger: true }]
-                        : []),
+                      ...(account.available_actions.includes('UPDATE') ? [{ key: 'edit', label: '编辑' }] : []),
+                      ...(account.available_actions.includes('DISABLE') ? [{ key: 'disable', label: '停用', danger: true }] : []),
+                      ...(account.available_actions.includes('ENABLE') ? [{ key: 'enable', label: '启用' }] : []),
+                      ...(account.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
                     ],
                     onClick: ({ key }) => handleAction(key, account),
                   }}

@@ -153,6 +153,7 @@ def test_auth_session_probe_distinguishes_anonymous_and_invalid_sessions() -> No
             valid = client.get("/api/v1/auth/me")
             assert valid.status_code == 200
             assert valid.json()["id"] == str(active_user_id)
+            assert valid.json()["available_actions"] == []
 
             for token in (
                 "unknown-session",
@@ -241,6 +242,10 @@ def test_user_query_export_and_temporary_password_flow() -> None:
             assert [item["id"] for item in first_page.json()["items"]] == [
                 str(uuid.UUID(int=1)),
                 str(uuid.UUID(int=2)),
+            ]
+            assert [item["available_actions"] for item in first_page.json()["items"]] == [
+                ["UPDATE"],
+                ["UPDATE", "RESET_PASSWORD", "DISABLE"],
             ]
             assert first_page.json()["total"] == 4
             assert first_page.json()["summary"] == {
@@ -555,6 +560,12 @@ def test_user_delete_and_reset_password_boundaries() -> None:
             before_delete = client.get("/api/v1/users", params={"page_size": 100})
             assert before_delete.status_code == 200
             assert before_delete.json()["summary"]["admin_total"] == 2
+            actions_by_id = {
+                item["id"]: item["available_actions"]
+                for item in before_delete.json()["items"]
+            }
+            assert "DELETE" in actions_by_id[str(deletable_admin_id)]
+            assert "DELETE" not in actions_by_id[str(referenced_target_id)]
             deleted = client.delete(
                 f"/api/v1/users/{deletable_admin_id}",
                 headers={

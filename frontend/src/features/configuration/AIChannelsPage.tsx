@@ -314,17 +314,16 @@ export function AIChannelsPage() {
       title: '操作', key: 'actions', fixed: 'right', width: 84,
       render: (_, item) => <Space size={4} onClick={(event) => event.stopPropagation()}>
         <Button size="small" type="text" icon={<SettingOutlined />} aria-label={`配置：${item.name}`} onClick={() => selectChannel(item.id)} />
-        <Dropdown
+        {item.available_actions.some((action) => ['ENABLE', 'DISABLE', 'DELETE'].includes(action)) && <Dropdown
           trigger={['click']}
           menu={{
             items: [
-              { key: 'test', label: '测试连接' },
-              { key: 'toggle', label: item.is_enabled ? '停用渠道' : '启用渠道' },
-              { key: 'delete', label: '删除渠道', danger: true },
+              ...(item.available_actions.includes('DISABLE') ? [{ key: 'toggle', label: '停用渠道' }] : []),
+              ...(item.available_actions.includes('ENABLE') ? [{ key: 'toggle', label: '启用渠道' }] : []),
+              ...(item.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除渠道', danger: true }] : []),
             ],
             onClick: ({ key }) => {
-              if (key === 'test') openConnectionTest(item);
-              else if (key === 'toggle') toggle.mutate(item);
+              if (key === 'toggle') toggle.mutate(item);
               else confirmDelete(item);
             },
           }}
@@ -336,7 +335,7 @@ export function AIChannelsPage() {
             loading={toggle.isPending && toggle.variables?.id === item.id}
             aria-label={`更多操作：${item.name}`}
           />
-        </Dropdown>
+        </Dropdown>}
       </Space>,
     },
   ];
@@ -476,7 +475,7 @@ export function AIChannelsPage() {
         destroyOnHidden
         onCancel={() => { setTestChannel(undefined); setTestModelId(undefined); }}
         onOk={() => {
-          const model = testModels.data?.items.find((item) => item.id === testModelId);
+          const model = testModels.data?.items.find((item) => item.id === testModelId && item.available_actions.includes('TEST'));
           if (model) testConnection.mutate(model);
         }}
       >
@@ -490,7 +489,7 @@ export function AIChannelsPage() {
             loading={testModels.isLoading}
             placeholder="必须明确选择一个已配置模型"
             onChange={setTestModelId}
-            options={testModels.data?.items.map((item) => ({
+            options={testModels.data?.items.filter((item) => item.available_actions.includes('TEST')).map((item) => ({
               value: item.id,
               label: `${item.display_name} · ${item.model_id}`,
             }))}

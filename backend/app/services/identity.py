@@ -6,8 +6,9 @@ import csv
 import io
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import func, or_, select, text, union_all
 from sqlalchemy import update as sa_update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -18,10 +19,16 @@ from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
 from app.errors import AppError, not_found
+from app.models.ai_generation import AIChannel, AIModel, GenerationJob
+from app.models.configuration import ContentHumanizationPrompt, PlatformPrompt, PlatformType
+from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
+from app.models.geo_files import FileRecord, GeoObservation
 from app.models.identity import (
     SessionRecord,
     User,
 )
+from app.models.product_facts import FactReviewRecord, FactVersion
+from app.models.publication import PublicationAttention, PublicationRecord, PublicationStatusEvent
 from app.schemas.common import (
     ChangePasswordRequest,
     LoginRequest,
@@ -39,6 +46,98 @@ from app.security import generate_token, hash_password, hash_token, verify_passw
 
 _USER_STATE_LOCK = text("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE")
 _BULK_ITEM_ERROR_CODES = {"NOT_FOUND", "REVISION_CONFLICT", "LAST_ADMIN_REQUIRED"}
+UserResourceAction = Literal["UPDATE", "RESET_PASSWORD", "ENABLE", "DISABLE", "DELETE"]
+
+
+def _referenced_user_ids(db: Session, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
+    """一次查询找出承担不可删除业务历史的用户。"""
+    if not user_ids:
+        return set()
+    columns = (
+        AIChannel.created_by,
+        AIModel.created_by,
+        GenerationJob.created_by,
+        PlatformType.created_by,
+        PlatformPrompt.updated_by,
+        ContentHumanizationPrompt.updated_by,
+        ContentTask.created_by,
+        ContentVersion.created_by,
+        ContentReviewRecord.actor_id,
+        GeoObservation.tested_by,
+        FileRecord.uploader_id,
+        FactVersion.created_by,
+        FactVersion.approved_by,
+        FactReviewRecord.actor_id,
+        PublicationRecord.created_by,
+        PublicationStatusEvent.actor_id,
+        PublicationAttention.resolved_by,
+    )
+    query = union_all(
+        *(select(column.label("user_id")).where(column.in_(user_ids)) for column in columns)
+    )
+    return set(db.scalars(query))
+
+
+def _user_actions(
+    user: User,
+    *,
+    actor: User,
+    active_admin_total: int,
+    has_business_reference: bool,
+) -> list[UserResourceAction]:
+    """按当前操作者、账号状态和历史归属投影用户命令。"""
+    actions: list[UserResourceAction] = ["UPDATE"]
+    if user.id != actor.id:
+        actions.append("RESET_PASSWORD")
+    if user.is_active:
+        if not (
+            user.account_type == "ADMIN"
+            and active_admin_total <= 1
+        ):
+            actions.append("DISABLE")
+    else:
+        actions.append("ENABLE")
+        if not has_business_reference:
+            actions.append("DELETE")
+    return actions
+
+
+def users_out(db: Session, users: list[User], *, actor: User) -> list[UserOut]:
+    """批量投影用户动作，避免按行查询管理员数量或历史引用。"""
+    if not users:
+        return []
+    active_admin_total = int(
+        db.scalar(
+            select(func.count())
+            .select_from(User)
+            .where(User.account_type == "ADMIN", User.is_active.is_(True))
+        )
+        or 0
+    )
+    referenced_ids = _referenced_user_ids(db, [user.id for user in users])
+    return [
+        UserOut.model_validate(
+            {
+                **{
+                    field: getattr(user, field)
+                    for field in UserOut.model_fields
+                    if field != "available_actions"
+                },
+                "available_actions": _user_actions(
+                    user,
+                    actor=actor,
+                    active_admin_total=active_admin_total,
+                    has_business_reference=user.id in referenced_ids,
+                ),
+            }
+        )
+        for user in users
+    ]
+
+
+def user_out(db: Session, user: User, *, actor: User) -> UserOut:
+    """投影单个管理用户及其当前动作。"""
+    return users_out(db, [user], actor=actor)[0]
 
 
 def _user_search_conditions(q: str | None) -> list[ColumnElement[bool]]:
@@ -98,6 +197,7 @@ def list_users(
     user_status: UserStatus | None,
     page: int,
     page_size: int,
+    actor: User,
 ) -> UserList:
     """返回当前筛选的稳定分页窗口和未筛选全局摘要。"""
     query = _filtered_users_query(
@@ -108,7 +208,7 @@ def list_users(
     total = int(db.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0)
     users = list(db.scalars(query.offset((page - 1) * page_size).limit(page_size)))
     return UserList(
-        items=[UserOut.model_validate(user) for user in users],
+        items=users_out(db, users, actor=actor),
         page=page,
         page_size=page_size,
         total=total,

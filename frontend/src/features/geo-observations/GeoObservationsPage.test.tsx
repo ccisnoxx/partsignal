@@ -18,9 +18,10 @@ const secondPublicationId = '30000000-0000-4000-8000-000000000002';
 const evidenceFileId = '50000000-0000-4000-8000-000000000001';
 
 vi.mock('../../shared/components/DirectUpload', () => ({
-  DirectUpload: ({ onUploaded }: { onUploaded: (file: Schema<'FileRecord'>) => void }) => (
+  DirectUpload: ({ disabled, onUploaded }: { disabled?: boolean; onUploaded: (file: Schema<'FileRecord'>) => void }) => (
     <button
       type="button"
+      disabled={disabled}
       onClick={() => onUploaded({
         id: '50000000-0000-4000-8000-000000000001',
         category: 'OPERATION_SCREENSHOT',
@@ -41,7 +42,7 @@ vi.mock('../../shared/components/DirectUpload', () => ({
 }));
 const user = {
   id: '10000000-0000-4000-8000-000000000001', username: 'engineer', display_name: '工程师',
-  account_type: 'ENGINEER', is_active: true, must_change_password: false, revision: 1, created_at: '2026-07-18T00:00:00Z',
+  account_type: 'ENGINEER', is_active: true, must_change_password: false, available_actions: [], revision: 1, created_at: '2026-07-18T00:00:00Z',
 } satisfies Schema<'User'>;
 const adminUser = { ...user, account_type: 'ADMIN' } satisfies Schema<'User'>;
 
@@ -115,6 +116,7 @@ const topic = {
   canonical_question: 'PS-001 的替代选型有哪些？',
   intent_type: 'REPLACEMENT',
   variants: ['PS-001 如何替代？'],
+  available_actions: ['UPDATE'],
   revision: 0,
   created_at: '2026-07-18T00:00:00Z',
 } satisfies Schema<'QueryTopic'>;
@@ -167,7 +169,7 @@ test('独立提交提及和准确性且不上传截图，服务端失败时保�
     if (url.pathname.endsWith('/geo-metrics')) return { body: { ...metrics, manual_observation_count: 0, article_result_count: 0, discovered_article_count: 0, mentioned_article_count: 0, article_discovery_rate: null, article_mention_rate: null, article_accuracy_rate: null } satisfies Schema<'GeoMetrics'> };
     if (url.pathname.endsWith('/geo-observations') && request.method === 'GET') return { body: { items: [], page: 1, page_size: 20, total: 0 } satisfies Schema<'GeoObservationList'> };
     if (url.pathname.endsWith('/query-topics')) return { body: { items: [topic] } satisfies Schema<'QueryTopicList'> };
-    if (url.pathname.endsWith('/products')) return { body: { items: [{ id: productId, part_number: 'PS-001', brand: 'PartSignal', category: 'MCU', status: 'ACTIVE', revision: 0, created_at: '2026-07-18T00:00:00Z', updated_at: '2026-07-18T00:00:00Z' }], page: 1, page_size: 100, total: 1 } satisfies Schema<'ProductList'> };
+    if (url.pathname.endsWith('/products')) return { body: { items: [{ id: productId, part_number: 'PS-001', brand: 'PartSignal', category: 'MCU', status: 'ACTIVE', available_actions: ['UPDATE'], revision: 0, created_at: '2026-07-18T00:00:00Z', updated_at: '2026-07-18T00:00:00Z' }], page: 1, page_size: 100, total: 1 } satisfies Schema<'ProductList'> };
     if (url.pathname.endsWith('/geo-observation-publications')) return { body: { items: [{ publication_record_id: publicationId, title: 'PS-001 选型文章', platform_name: '工程师社区', final_url: 'https://community.example.invalid/ps-001', status: 'VERIFIED' }] } satisfies Schema<'GeoPublicationCandidateList'> };
     if (url.pathname.endsWith('/geo-observations') && request.method === 'POST') {
       createRequest = request;
@@ -366,6 +368,36 @@ test('更正完整预填原观测且只修改一个逐篇字段', async () => {
       },
     ],
   });
+});
+
+test('服务端未投影 CORRECT 时更正表单、上传和提交统一禁用', async () => {
+  const readOnlyRecord = { ...correctionRecord, available_actions: [] } satisfies Schema<'ManualGeoObservation'>;
+  window.history.pushState({}, '', `/observations/${readOnlyRecord.id}/correct`);
+  let correctionRequest: Request | undefined;
+  mockFetch((request) => {
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/auth/me')) return { body: user };
+    if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
+    if (url.pathname.endsWith('/geo-metrics')) return { body: metrics };
+    if (url.pathname === `/api/v1/geo-observations/${readOnlyRecord.id}`) return { body: readOnlyRecord };
+    if (url.pathname.endsWith('/geo-observations') && request.method === 'POST') {
+      correctionRequest = request;
+      return { body: readOnlyRecord };
+    }
+    if (url.pathname.endsWith('/geo-observations')) return { body: { items: [readOnlyRecord], page: 1, page_size: 20, total: 1 } satisfies Schema<'GeoObservationList'> };
+    if (url.pathname.endsWith('/query-topics')) return { body: { items: [topic] } satisfies Schema<'QueryTopicList'> };
+    throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
+  });
+
+  renderPage();
+  const dialog = within(await screen.findByRole('dialog'));
+  expect(await dialog.findByText('当前记录不可更正')).toBeInTheDocument();
+  expect(dialog.getByRole('textbox', { name: '人工备注' })).toBeDisabled();
+  expect(dialog.getByRole('button', { name: '选择测试证据' })).toBeDisabled();
+  const submit = dialog.getByRole('button', { name: /追加更正记录/ });
+  expect(submit).toBeDisabled();
+  fireEvent.click(submit);
+  expect(correctionRequest).toBeUndefined();
 });
 
 test('补采前历史追加更正允许选择真实问题主题', async () => {

@@ -71,6 +71,7 @@ from app.schemas.configuration import (
     PlatformTypeOut,
     PlatformTypeUpdate,
 )
+from app.services.ai_configuration import ai_channel_actions, ai_model_actions
 from app.services.ai_configuration import create_ai_channel as create_ai_channel_command
 from app.services.ai_configuration import (
     create_ai_channel_header as create_ai_channel_header_command,
@@ -139,6 +140,7 @@ from app.services.platform_configuration import (
 from app.services.platform_configuration import (
     list_platform_prompts as list_platform_prompts_query,
 )
+from app.services.platform_configuration import platform_type_out, platform_types_out
 from app.services.platform_configuration import (
     put_content_humanization_prompt as put_content_humanization_prompt_command,
 )
@@ -216,6 +218,7 @@ def channel_out(channel: AIChannel) -> AIChannelOut:
                 name=item.name,
                 is_sensitive=item.is_sensitive,
                 is_configured=bool(item.encrypted_value if item.is_sensitive else item.plain_value),
+                available_actions=["UPDATE", "DELETE"],
                 value=None if item.is_sensitive else item.plain_value,
             )
             for item in sorted(channel.headers, key=lambda value: value.normalized_name)
@@ -229,6 +232,10 @@ def channel_out(channel: AIChannel) -> AIChannelOut:
             latest_tested_model.test_status if latest_tested_model else "UNTESTED"
         ),
         last_tested_at=(latest_tested_model.last_tested_at if latest_tested_model else None),
+        available_actions=ai_channel_actions(
+            is_enabled=channel.is_enabled,
+            has_passed_model=any(model.test_status == "PASSED" for model in channel.models),
+        ),
         revision=channel.revision,
         created_by=channel.created_by,
         created_at=channel.created_at,
@@ -237,17 +244,25 @@ def channel_out(channel: AIChannel) -> AIChannelOut:
 
 
 def model_out(model: AIModel) -> AIModelOut:
-    return AIModelOut.model_validate(model)
-
-
-def platform_type_out(platform_type: PlatformType) -> PlatformTypeOut:
-    return PlatformTypeOut.model_validate(platform_type)
+    payload = {
+        field: getattr(model, field)
+        for field in AIModelOut.model_fields
+        if field != "available_actions"
+    }
+    payload["available_actions"] = ai_model_actions(model)
+    return AIModelOut.model_validate(payload)
 
 
 def content_humanization_prompt_out(
     prompt: ContentHumanizationPrompt,
 ) -> ContentHumanizationPromptOut:
-    return ContentHumanizationPromptOut.model_validate(prompt)
+    payload = {
+        field: getattr(prompt, field)
+        for field in ContentHumanizationPromptOut.model_fields
+        if field != "available_actions"
+    }
+    payload["available_actions"] = ["UPDATE"]
+    return ContentHumanizationPromptOut.model_validate(payload)
 
 
 @router.get(
@@ -292,7 +307,7 @@ def put_content_humanization_prompt(
 @router.get("/platform-types", response_model=PlatformTypeList, operation_id="listPlatformTypes")
 def list_platform_types(db: DbSession, _admin: AdminUser) -> PlatformTypeList:
     items = list(db.scalars(select(PlatformType).order_by(PlatformType.created_at)))
-    return PlatformTypeList(items=[platform_type_out(item) for item in items])
+    return PlatformTypeList(items=platform_types_out(db, items))
 
 
 @router.post(
@@ -314,7 +329,7 @@ def create_platform_type(
         actor=admin,
         request_id=request.state.request_id,
     )
-    return platform_type_out(item)
+    return platform_type_out(db, item)
 
 
 @router.patch(
@@ -337,7 +352,7 @@ def update_platform_type(
         actor=admin,
         request_id=request.state.request_id,
     )
-    return platform_type_out(item)
+    return platform_type_out(db, item)
 
 
 @router.delete(
@@ -598,7 +613,7 @@ def update_platform_profile(
             failure_message="平台配置更新失败",
         )
         raise
-    return platform_profile_out(db, profile)
+    return platform_profile_out(db, profile, can_manage=True)
 
 
 def set_platform_profile_status(
@@ -633,7 +648,7 @@ def set_platform_profile_status(
             failure_message=f"平台{'启用' if enabled else '停用'}失败",
         )
         raise
-    return platform_profile_out(db, profile)
+    return platform_profile_out(db, profile, can_manage=True)
 
 
 @router.post(

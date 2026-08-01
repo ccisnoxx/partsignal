@@ -693,7 +693,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 统一产品、事实版本、GEO 人工观测完整更正链、平台和发布账号的危险删除业务说明，移除用户可见“物理删除”术语。
+- 为 AI Header 删除确认补充渠道、全部模型与测试状态失效范围。
+- 扩展五个既有前端测试文件，覆盖六类确认框的新标题、影响正文和禁用术语。
 
 ### Git Commits
 
@@ -1730,6 +1732,42 @@
 ### Testing
 
 - Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 52: 统一危险删除影响说明
+
+**Date**: 2026-08-01
+**Task**: 统一危险删除影响说明
+**Branch**: `main`
+
+### Summary
+
+统一产品、事实版本、GEO 更正链、平台、发布账号与 AI Header 的危险删除确认说明；补充回归断言并通过 61 项定向测试、类型检查、Lint 和 trellis-check。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6c45c09` | fix: 统一危险删除影响说明 |
+
+### Testing
+
+- 定向 Vitest：5 个文件、61 项测试通过。
+- `npm --prefix frontend run typecheck` 通过。
+- `npm --prefix frontend run lint` 通过。
+- `trellis-check` 与 `git diff --check` 通过。
 
 ### Status
 

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 51
+- **Total Sessions**: 52
 - **Last Active**: 2026-08-01
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~1740 | Active |
+| `journal-1.md` | ~1773 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 52 | 2026-08-01 | 统一危险删除影响说明 | `6c45c09` | `main` |
 | 51 | 2026-08-01 | 完成浮层焦点恢复 | `95b34bc` | `main` |
 | 50 | 2026-08-01 | 全局资源动作投影收敛 | `2e59943` | `main` |
 | 49 | 2026-08-01 | 恢复共享开发对象存储启动 | `62c4e16` | `main` |

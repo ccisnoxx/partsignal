@@ -19,7 +19,8 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 将 8 个前端文件中的 11 个 Ant Design `Alert.message` 原位迁移为 `title`，保持提示内容和业务逻辑不变。
+- 完成任务验收记录并归档 `08-02-antd-alert-content-prop-compatibility-cleanup`。
 
 ### Git Commits
 
@@ -29,7 +30,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- 定向 Vitest：4 个测试文件、61 个用例通过。
+- `npm --prefix frontend run typecheck`、`npm --prefix frontend run lint`、`git diff --check` 通过。
+- TypeScript AST 复扫 `count=0`；真实浏览器错误 Alert 可见，console 目标弃用警告为 0。
 
 ### Status
 
@@ -125,6 +128,39 @@
 | Hash | Message |
 |------|---------|
 | `dd03df0` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 63: 清理 Ant Design Alert 弃用属性
+
+**Date**: 2026-08-02
+**Task**: 清理 Ant Design Alert 弃用属性
+**Branch**: `main`
+
+### Summary
+
+将 8 个前端文件中的 11 个 Alert.message 原位迁移为 title；AST 零遗留，定向 61 个用例、typecheck、lint、diff check、trellis-check 与真实浏览器 console smoke 通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e01bb81` | (see git log) |
 
 ### Testing
 

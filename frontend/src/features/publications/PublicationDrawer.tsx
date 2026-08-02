@@ -16,7 +16,7 @@ import {
   Timeline,
   Typography,
 } from 'antd';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { ApiError, api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
@@ -57,8 +57,16 @@ export function PublicationDrawer({
   const contentIdentity = candidate
     ? `candidate:${candidate.content_version.id}`
     : `publication:${publicationId ?? 'closed'}:${initialAction ?? 'view'}`;
+  const open = !!candidate || !!publicationId;
   // dirty 只服务关闭判断；绑定内容身份可在换对象时同步失效，不复制 URL 打开状态。
   const dirtyRef = useRef({ contentIdentity, value: false });
+  const openCompletedRef = useRef(false);
+  // 入场动画完成前关闭时 rc Drawer 不触发 afterOpenChange(false)，此时 Portal 已直接卸载。
+  useEffect(() => {
+    if (open || openCompletedRef.current) return;
+    dirtyRef.current = { contentIdentity, value: false };
+    onAfterClose();
+  }, [contentIdentity, onAfterClose, open]);
   const setDirty = (value: boolean) => {
     dirtyRef.current = { contentIdentity, value };
   };
@@ -79,19 +87,25 @@ export function PublicationDrawer({
       },
     });
   };
+  // 关闭后只由业务触发器回焦，避免临时菜单焦点覆盖真实入口。
   return (
     <Drawer
       className="publication-drawer"
       rootClassName="publication-drawer-root"
       title={candidate ? '准备人工发布' : '发布结果登记'}
-      open={!!candidate || !!publicationId}
+      open={open}
       size="large"
+      focusable={{ focusTriggerAfterClose: false }}
       onClose={requestClose}
-      afterOpenChange={(open) => {
-        if (!open) {
-          dirtyRef.current = { contentIdentity, value: false };
-          onAfterClose();
+      afterOpenChange={(nextOpen) => {
+        if (nextOpen) {
+          openCompletedRef.current = true;
+          return;
         }
+        if (!openCompletedRef.current) return;
+        openCompletedRef.current = false;
+        dirtyRef.current = { contentIdentity, value: false };
+        onAfterClose();
       }}
       destroyOnHidden
       keyboard

@@ -1,5 +1,6 @@
 /** 发布管理测试覆盖真实聚合、URL 状态、按需抽屉和服务端动作契约。 */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { App } from '../../app/App';
 import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
@@ -493,6 +494,7 @@ test('发布记录分页与状态筛选由 URL 和服务端列表共同恢复', 
 });
 
 test('发布记录保留单一主入口，并在更多菜单展示其余服务端动作', async () => {
+  const interaction = userEvent.setup();
   window.history.pushState({}, '', '/publications?tab=records');
   mockFetch((request) => {
     const common = commonWorkspaceResponse(request, { records: [recordItem], total: 1 });
@@ -504,21 +506,21 @@ test('发布记录保留单一主入口，并在更多菜单展示其余服务�
   render(<App />);
 
   const moreTrigger = await screen.findByRole('button', { name: `更多操作：${content.title}` });
-  moreTrigger.focus();
-  fireEvent.click(moreTrigger);
-  expect(await screen.findByRole('menuitem', { name: '平台拒绝' })).toBeInTheDocument();
+  await interaction.click(moreTrigger);
+  const actionItem = await screen.findByRole('menuitem', { name: '平台拒绝' });
+  const actionFocus = vi.fn();
+  actionItem.addEventListener('focus', actionFocus, { once: true });
   expect(screen.getByRole('menuitem', { name: '删除记录' })).toBeInTheDocument();
   expect(screen.queryByRole('menuitem', { name: '登记已发布' })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('menuitem', { name: '平台拒绝' }));
+  await interaction.click(actionItem);
+  expect(actionFocus).toHaveBeenCalledOnce();
 
   const drawer = within(await screen.findByRole('dialog'));
   expect(await drawer.findByRole('button', { name: '确认提交' })).toBeInTheDocument();
   expect(drawer.getAllByText('平台拒绝')).toHaveLength(2);
   expect(window.location.search).toContain(`record=${publicationId}`);
   const closeButton = drawer.getByRole('button', { name: '关闭' });
-  closeButton.focus();
-  expect(closeButton).toHaveFocus();
-  fireEvent.click(closeButton);
+  await interaction.click(closeButton);
   await waitFor(() => expect(moreTrigger).toHaveFocus());
 });
 

@@ -271,7 +271,7 @@ export function ProductFactsPage() {
       <Modal title={`事实版本 V${snapshotTarget?.version ?? ''}`} open={!!snapshotTarget} footer={null} onCancel={() => setSnapshotTarget(undefined)} width={900}><FactSnapshot version={snapshotTarget} /></Modal>
       <Modal title={`事实审核 V${reviewTarget?.version ?? ''}`} open={!!reviewTarget} footer={null} onCancel={() => setReviewTarget(undefined)} width={960}>
         {reviewContext.isLoading && <QueryLoading />}
-        {reviewContext.error && <Alert type="error" message={errorMessage(reviewContext.error)} />}
+        {reviewContext.error && <Alert type="error" title={errorMessage(reviewContext.error)} />}
         {reviewContext.data && <FactReviewPanel context={reviewContext.data} onAction={(action) => {
           const commandName = action === 'SUBMIT' ? 'submit' : action === 'APPROVE' ? 'approve' : action === 'REQUEST_CHANGES' ? 'request-changes' : 'retire';
           setCommandTarget({ version: reviewContext.data.fact_version, command: commandName });

@@ -31,8 +31,8 @@ export function ModelDiscoveryModal({ open, modelIds, configuredModelIds, loadin
         <Typography.Text type="secondary">从当前渠道读取模型列表，添加后仍需单独测试连接并启用。</Typography.Text>
         <Button onClick={onRefresh} loading={loading}>重新获取</Button>
       </Space>
-      {fetchError && <Alert role="alert" type="error" showIcon message={fetchError} />}
-      {addError && <Alert role="alert" type="error" showIcon message={addError} />}
+      {fetchError && <Alert role="alert" type="error" showIcon title={fetchError} />}
+      {addError && <Alert role="alert" type="error" showIcon title={addError} />}
       <Input.Search aria-label="筛选远端模型" placeholder="按 model_id 筛选" allowClear value={search} onChange={(event) => setSearch(event.target.value)} />
       <TableRegion label="远端模型列表">
         <Table<{ modelId: string }>

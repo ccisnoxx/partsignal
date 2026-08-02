@@ -63,9 +63,9 @@ export function PublicationRepairPage({ attentionId }: { attentionId: string }) 
         />
       </Card>
       <Card title="创建修复任务" className="workspace-panel">
-        {create.error && <Alert type="error" message={errorMessage(create.error)} />}
-        {!canCreateRepairTask && <Alert type="info" showIcon message="该异常待办已处置或已有修复任务，当前上下文仅供查看。" />}
-        {missingFactCandidate && <Alert type="error" showIcon message="当前产品没有可选的已批准事实版本，无法创建修复任务。" />}
+        {create.error && <Alert type="error" title={errorMessage(create.error)} />}
+        {!canCreateRepairTask && <Alert type="info" showIcon title="该异常待办已处置或已有修复任务，当前上下文仅供查看。" />}
+        {missingFactCandidate && <Alert type="error" showIcon title="当前产品没有可选的已批准事实版本，无法创建修复任务。" />}
         {canCreateRepairTask && <Form<Schema<'PublicationRepairTaskCreate'>>
           layout="vertical"
           initialValues={{

@@ -59,7 +59,7 @@ export function GeoTopicsPage() {
             role="alert"
             type="error"
             showIcon
-            message={errorMessage(topics.error ?? create.error)}
+            title={errorMessage(topics.error ?? create.error)}
           />
         )}
         <TableRegion label="GEO 问题库列表">

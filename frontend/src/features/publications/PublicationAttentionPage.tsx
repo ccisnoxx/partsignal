@@ -75,7 +75,7 @@ export function PublicationAttentionPage({ attentionId }: { attentionId: string 
         </Space>
       </Card>
       <Modal title="解决发布异常" open={resolveOpen} footer={null} onCancel={() => setResolveOpen(false)} destroyOnHidden>
-        {resolveMutation.error && <Alert type="error" message={errorMessage(resolveMutation.error)} />}
+        {resolveMutation.error && <Alert type="error" title={errorMessage(resolveMutation.error)} />}
         <Form<Schema<'ResolvePublicationAttentionRequest'>>
           layout="vertical"
           initialValues={{ expected_revision: attention.revision, resolution_comment: '' }}

@@ -1,0 +1,32 @@
+{
+  "id": "dashboard-visual-baseline-sync",
+  "name": "dashboard-visual-baseline-sync",
+  "title": "Dashboard 视觉基线同步",
+  "description": "在用户明确批准当前 Dashboard 外观后，只同步过期的 1440×1000 浅色视觉基线，并用目标视觉 E2E 与完整 make e2e 恢复浏览器门禁。",
+  "status": "in_progress",
+  "dev_type": "test",
+  "scope": "frontend Dashboard approved asset and single Playwright visual baseline",
+  "package": "frontend",
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-02",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "frontend/tests/e2e/cross-page-visual-convergence.spec.ts",
+    "frontend/tests/e2e/cross-page-visual-convergence.spec.ts-snapshots/dashboard-light-1440x1000.png",
+    "frontend/src/features/dashboard/DashboardPage.tsx",
+    ".trellis/spec/frontend/visual-system.md",
+    ".trellis/tasks/archive/2026-08/08-01-round-2-seven-group-centralized-regression/report.md"
+  ],
+  "notes": "用户已批准当前 1440×1000 浅色 Dashboard 和最终规划；任务已启动并完成 Dashboard 单基线替换。独立 content-review 基线任务提交 6696959 后，目标视觉用例与完整 make e2e 均已通过。",
+  "meta": {}
+}

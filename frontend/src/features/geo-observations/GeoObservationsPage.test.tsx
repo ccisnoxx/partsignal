@@ -63,7 +63,7 @@ const manualRecord = {
   search_query: 'PS-001 如何替代？',
   tested_at: '2026-07-20T10:00:00Z',
   article_results: [{
-    publication_record_id: publicationId,
+    published_article_id: publicationId,
     discovered: true,
     mentioned: true,
     accuracy: 'ACCURATE',
@@ -100,7 +100,7 @@ const correctionRecord = {
   article_results: [
     ...manualRecord.article_results,
     {
-      publication_record_id: secondPublicationId,
+      published_article_id: secondPublicationId,
       discovered: false,
       mentioned: true,
       accuracy: 'PARTIAL',
@@ -170,7 +170,7 @@ test('独立提交提及和准确性且不上传截图，服务端失败时保�
     if (url.pathname.endsWith('/geo-observations') && request.method === 'GET') return { body: { items: [], page: 1, page_size: 20, total: 0 } satisfies Schema<'GeoObservationList'> };
     if (url.pathname.endsWith('/query-topics')) return { body: { items: [topic] } satisfies Schema<'QueryTopicList'> };
     if (url.pathname.endsWith('/products')) return { body: { items: [{ id: productId, part_number: 'PS-001', brand: 'PartSignal', category: 'MCU', status: 'ACTIVE', available_actions: ['UPDATE'], revision: 0, created_at: '2026-07-18T00:00:00Z', updated_at: '2026-07-18T00:00:00Z' }], page: 1, page_size: 100, total: 1 } satisfies Schema<'ProductList'> };
-    if (url.pathname.endsWith('/geo-observation-publications')) return { body: { items: [{ publication_record_id: publicationId, title: 'PS-001 选型文章', platform_name: '工程师社区', final_url: 'https://community.example.invalid/ps-001', status: 'VERIFIED' }] } satisfies Schema<'GeoPublicationCandidateList'> };
+    if (url.pathname.endsWith('/geo-observation-publications')) return { body: { items: [{ published_article_id: publicationId, title: 'PS-001 选型文章', platform_name: '工程师社区', final_url: 'https://community.example.invalid/ps-001', status: 'COMPLETED' }] } satisfies Schema<'GeoPublicationCandidateList'> };
     if (url.pathname.endsWith('/geo-observations') && request.method === 'POST') {
       createRequest = request;
       return { status: 422, body: { error: { code: 'VALIDATION_ERROR', message: '观测事实校验失败', request_id: 'geo-create-failed' } } };
@@ -216,7 +216,7 @@ test('独立提交提及和准确性且不上传截图，服务端失败时保�
     search_query: 'PS-001 如何替代？',
     attachment_file_ids: [],
     article_results: [{
-      publication_record_id: publicationId,
+      published_article_id: publicationId,
       discovered: false,
       mentioned: true,
       accuracy: 'PARTIAL',
@@ -356,13 +356,13 @@ test('更正完整预填原观测且只修改一个逐篇字段', async () => {
     attachment_file_ids: [],
     article_results: [
       {
-        publication_record_id: publicationId,
+        published_article_id: publicationId,
         discovered: false,
         mentioned: true,
         accuracy: 'ACCURATE',
       },
       {
-        publication_record_id: secondPublicationId,
+        published_article_id: secondPublicationId,
         discovered: false,
         mentioned: true,
         accuracy: 'PARTIAL',
@@ -455,7 +455,7 @@ test('补采前历史追加更正允许选择真实问题主题', async () => {
   await expect(correctionRequest!.clone().json()).resolves.toMatchObject({
     supersedes_id: historicalManualRecord.id,
     attachment_file_ids: [],
-    article_results: [{ publication_record_id: publicationId, discovered: false, mentioned: false, accuracy: null }],
+    article_results: [{ published_article_id: publicationId, discovered: false, mentioned: false, accuracy: null }],
   });
 });
 

@@ -21,7 +21,7 @@ from app.errors import AppError, not_found
 from app.models.content import ContentVersion
 from app.models.geo_files import GeoObservation
 from app.models.product_facts import FactVersion, Product
-from app.models.publication import PublicationRecord
+from app.models.publication import PublicationWork
 from app.schemas.common import AccountType
 from app.schemas.geo_files import (
     DashboardSummary,
@@ -59,7 +59,7 @@ from app.services.geo_observation import (
 from app.services.geo_observation import (
     list_geo_observations as list_geo_observations_service,
 )
-from app.services.publication_queries import open_attention_count
+from app.services.publication_queries import NONTERMINAL_WORK_STATUSES, open_issue_count
 
 router = APIRouter(prefix="/api/v1", tags=["observation"])
 
@@ -124,7 +124,7 @@ def geo_insight_filters(
     date_to: date | None = None,
     content_platform_id: uuid.UUID | None = None,
     geo_platform: Annotated[str | None, Query(max_length=160)] = None,
-    publication_record_id: uuid.UUID | None = None,
+    published_article_id: uuid.UUID | None = None,
     query_topic_id: uuid.UUID | None = None,
 ) -> GeoInsightFilters:
     """校验洞察页面全部区块共用的精确筛选。"""
@@ -137,7 +137,7 @@ def geo_insight_filters(
         date_to=date_to,
         content_platform_id=content_platform_id,
         geo_platform=geo_platform.strip() if geo_platform is not None else None,
-        publication_record_id=publication_record_id,
+        published_article_id=published_article_id,
         query_topic_id=query_topic_id,
     )
 
@@ -319,12 +319,12 @@ def get_dashboard_summary(db: DbSession, _user: CurrentUser) -> DashboardSummary
         pending_publications=int(
             db.scalar(
                 select(func.count())
-                .select_from(PublicationRecord)
-                .where(PublicationRecord.status == "PENDING_MANUAL_PUBLISH")
+                .select_from(PublicationWork)
+                .where(PublicationWork.status.in_(NONTERMINAL_WORK_STATUSES))
             )
             or 0
         ),
-        publication_attention=open_attention_count(db),
+        open_publication_issues=open_issue_count(db),
         recent_accuracy_errors=int(
             db.scalar(
                 select(func.count())

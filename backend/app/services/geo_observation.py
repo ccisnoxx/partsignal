@@ -24,7 +24,7 @@ from app.models.geo_files import (
 )
 from app.models.identity import User
 from app.models.product_facts import Product
-from app.models.publication import PublicationRecord
+from app.models.publication import PublicationWork, PublishedArticle, PublishedContentIssue
 from app.schemas import geo_files as geo_schema
 from app.schemas.content import ActorSummary
 from app.schemas.geo_files import (
@@ -77,7 +77,7 @@ class GeoInsightFilters:
     date_to: date | None = None
     content_platform_id: uuid.UUID | None = None
     geo_platform: str | None = None
-    publication_record_id: uuid.UUID | None = None
+    published_article_id: uuid.UUID | None = None
     query_topic_id: uuid.UUID | None = None
 
 
@@ -87,7 +87,7 @@ class _GeoInsightRow:
     tested_at: datetime
     query_topic_id: uuid.UUID | None
     geo_platform: str
-    publication_record_id: uuid.UUID
+    published_article_id: uuid.UUID
     title: str
     published_at: datetime | None
     content_platform_id: uuid.UUID
@@ -153,19 +153,19 @@ def geo_observation_query(
             exists(
                 select(GeoObservationPublication.observation_id)
                 .join(
-                    PublicationRecord,
-                    PublicationRecord.id == GeoObservationPublication.publication_record_id,
+                    PublicationWork,
+                    PublicationWork.id == GeoObservationPublication.published_article_id,
                 )
                 .join(
                     ContentVersion,
-                    ContentVersion.id == PublicationRecord.content_version_id,
+                    ContentVersion.id == PublicationWork.content_version_id,
                 )
                 .where(
                     GeoObservationPublication.observation_id == GeoObservation.id,
                     or_(
                         ContentVersion.title.ilike(pattern, escape="\\"),
-                        PublicationRecord.actual_title.ilike(pattern, escape="\\"),
-                        PublicationRecord.final_url.ilike(pattern, escape="\\"),
+                        PublicationWork.actual_title.ilike(pattern, escape="\\"),
+                        PublicationWork.final_url.ilike(pattern, escape="\\"),
                     ),
                 )
             )
@@ -327,24 +327,24 @@ def geo_observations_out(
 
     relations: dict[
         uuid.UUID,
-        list[tuple[GeoObservationPublication, PublicationRecord, str, str]],
+        list[tuple[GeoObservationPublication, PublicationWork, str, str]],
     ] = defaultdict(list)
     for relation, publication, content_title, platform_name in db.execute(
         select(
             GeoObservationPublication,
-            PublicationRecord,
+            PublicationWork,
             ContentVersion.title,
             PlatformProfile.name,
         )
         .join(
-            PublicationRecord,
-            PublicationRecord.id == GeoObservationPublication.publication_record_id,
+            PublicationWork,
+            PublicationWork.id == GeoObservationPublication.published_article_id,
         )
-        .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
+        .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
         .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(GeoObservationPublication.observation_id.in_(observation_ids))
-        .order_by(GeoObservationPublication.observation_id, PublicationRecord.id)
+        .order_by(GeoObservationPublication.observation_id, PublicationWork.id)
     ).all():
         relations[relation.observation_id].append(
             (relation, publication, content_title, platform_name)
@@ -408,7 +408,7 @@ def geo_observations_out(
                 article_results.append(
                     GeoArticleResultOut.model_validate(
                         {
-                            "publication_record_id": publication.id,
+                            "published_article_id": publication.id,
                             "discovered": relation.discovered,
                             "mentioned": relation.mentioned,
                             "accuracy": relation.accuracy,
@@ -448,11 +448,11 @@ def geo_observations_out(
                         GeoCitation(
                             url=citation.url,
                             source_type=citation.source_type,
-                            publication_record_id=citation.publication_record_id,
+                            published_article_id=citation.published_article_id,
                         )
                         for citation in citations[observation.id]
                     ],
-                    "publication_record_ids": [
+                    "published_article_ids": [
                         publication.id for _, publication, _, _ in relations[observation.id]
                     ],
                 }
@@ -601,23 +601,24 @@ def _geo_insight_period(
 
 
 def _geo_insight_filter_options(db: Session) -> geo_schema.GeoInsightFilterOptions:
-    """从配置和真实发布记录投影稳定筛选选项。"""
+    """从配置和真实发布成果投影稳定筛选选项。"""
     publication_scope = (
         select(
-            PublicationRecord.id,
-            PublicationRecord.actual_title,
+            PublicationWork.id,
+            PublicationWork.actual_title,
             ContentVersion.title,
             PlatformProfile.id,
             PlatformProfile.name,
         )
-        .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
+        .join(PublishedArticle, PublishedArticle.id == PublicationWork.id)
+        .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
         .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(
-            PublicationRecord.published_at.is_not(None),
-            PublicationRecord.final_url.is_not(None),
+            PublicationWork.published_at.is_not(None),
+            PublicationWork.final_url.is_not(None),
         )
-        .order_by(PlatformProfile.name, PublicationRecord.id)
+        .order_by(PlatformProfile.name, PublicationWork.id)
     )
     publication_rows = db.execute(publication_scope).all()
     platforms = {
@@ -675,7 +676,7 @@ def _validate_geo_insight_filters(
             "内容平台",
         ),
         (
-            filters.publication_record_id,
+            filters.published_article_id,
             {item.id for item in options.publications},
             "发布内容",
         ),
@@ -702,10 +703,10 @@ def _geo_insight_rows(
             GeoObservation.tested_at,
             GeoObservation.query_topic_id,
             GeoObservation.search_platform,
-            GeoObservationPublication.publication_record_id,
-            PublicationRecord.actual_title,
+            GeoObservationPublication.published_article_id,
+            PublicationWork.actual_title,
             ContentVersion.title,
-            PublicationRecord.published_at,
+            PublicationWork.published_at,
             PlatformProfile.id,
             PlatformProfile.name,
             GeoObservationPublication.discovered,
@@ -717,10 +718,10 @@ def _geo_insight_rows(
             GeoObservationPublication.observation_id == GeoObservation.id,
         )
         .join(
-            PublicationRecord,
-            PublicationRecord.id == GeoObservationPublication.publication_record_id,
+            PublicationWork,
+            PublicationWork.id == GeoObservationPublication.published_article_id,
         )
-        .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
+        .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
         .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(
@@ -729,7 +730,7 @@ def _geo_insight_rows(
             < datetime.combine(date_to + timedelta(days=1), datetime.min.time(), tzinfo=UTC),
             ~exists(select(superseding.id).where(superseding.supersedes_id == GeoObservation.id)),
         )
-        .order_by(GeoObservation.tested_at, GeoObservation.id, PublicationRecord.id)
+        .order_by(GeoObservation.tested_at, GeoObservation.id, PublicationWork.id)
     )
     if date_from is not None:
         query = query.where(
@@ -745,7 +746,7 @@ def _geo_insight_rows(
             tested_at=tested_at,
             query_topic_id=query_topic_id,
             geo_platform=geo_platform,
-            publication_record_id=publication_record_id,
+            published_article_id=published_article_id,
             title=actual_title or content_title,
             published_at=published_at,
             content_platform_id=content_platform_id,
@@ -759,7 +760,7 @@ def _geo_insight_rows(
             tested_at,
             query_topic_id,
             geo_platform,
-            publication_record_id,
+            published_article_id,
             actual_title,
             content_title,
             published_at,
@@ -811,8 +812,8 @@ def _complete_geo_insight_scope(
                 or row.content_platform_id == filters.content_platform_id
             )
             and (
-                filters.publication_record_id is None
-                or row.publication_record_id == filters.publication_record_id
+                filters.published_article_id is None
+                or row.published_article_id == filters.published_article_id
             )
         )
 
@@ -900,7 +901,7 @@ def _content_performance(
 ) -> geo_schema.GeoInsightContentPerformance:
     first = rows[0]
     return geo_schema.GeoInsightContentPerformance(
-        publication_record_id=first.publication_record_id,
+        published_article_id=first.published_article_id,
         title=first.title,
         content_platform=first.content_platform,
         observation_count=len({row.observation_id for row in rows}),
@@ -926,9 +927,9 @@ def _content_rankings(
     current_groups: dict[uuid.UUID, list[_GeoInsightRow]] = defaultdict(list)
     previous_groups: dict[uuid.UUID, list[_GeoInsightRow]] = defaultdict(list)
     for row in current_rows:
-        current_groups[row.publication_record_id].append(row)
+        current_groups[row.published_article_id].append(row)
     for row in previous_rows:
-        previous_groups[row.publication_record_id].append(row)
+        previous_groups[row.published_article_id].append(row)
 
     best = [
         _content_performance(rows)
@@ -942,7 +943,7 @@ def _content_rankings(
             -(item.mention_rate.value or 0),
             -(item.discovery_rate.value or 0),
             -item.observation_count,
-            str(item.publication_record_id),
+            str(item.published_article_id),
         )
     )
 
@@ -988,9 +989,9 @@ def _content_rankings(
         )
     declining.sort(
         key=lambda item: (
-            *(-value for value in decline_sort[item.publication_record_id]),
+            *(-value for value in decline_sort[item.published_article_id]),
             -item.observation_count,
-            str(item.publication_record_id),
+            str(item.published_article_id),
         )
     )
 
@@ -1006,8 +1007,8 @@ def _content_rankings(
         history_mentions: dict[uuid.UUID, datetime] = {}
         for row in history_rows:
             if _RATE_PREDICATES["mention_rate"](row):
-                history_mentions[row.publication_record_id] = max(
-                    history_mentions.get(row.publication_record_id, row.tested_at),
+                history_mentions[row.published_article_id] = max(
+                    history_mentions.get(row.published_article_id, row.tested_at),
                     row.tested_at,
                 )
         for publication_id, rows in current_groups.items():
@@ -1032,7 +1033,7 @@ def _content_rankings(
             key=lambda item: (
                 -item.unmentioned_days,
                 -item.observation_count,
-                str(item.publication_record_id),
+                str(item.published_article_id),
             )
         )
     return geo_schema.GeoInsightContentRankings(
@@ -1155,10 +1156,10 @@ def _recommendations(
                     )
                 ],
                 impact_relationship_count=long_item.observation_count,
-                publication_record_ids=[long_item.publication_record_id],
+                published_article_ids=[long_item.published_article_id],
                 geo_platforms=[],
                 query_topic_ids=[],
-                detail_path=f"/publications/{long_item.publication_record_id}",
+                detail_path=f"/publications/{long_item.published_article_id}",
             )
         )
     for declining_item in rankings.declining:
@@ -1179,10 +1180,10 @@ def _recommendations(
                     for basis in declining_item.basis
                 ],
                 impact_relationship_count=declining_item.observation_count,
-                publication_record_ids=[declining_item.publication_record_id],
+                published_article_ids=[declining_item.published_article_id],
                 geo_platforms=[],
                 query_topic_ids=[],
-                detail_path=f"/publications/{declining_item.publication_record_id}",
+                detail_path=f"/publications/{declining_item.published_article_id}",
             )
         )
 
@@ -1227,7 +1228,7 @@ def _recommendations(
                     if value >= 0.1
                 ],
                 impact_relationship_count=current.mention_rate.denominator,
-                publication_record_ids=[],
+                published_article_ids=[],
                 geo_platforms=[platform],
                 query_topic_ids=[],
                 detail_path=None,
@@ -1236,7 +1237,7 @@ def _recommendations(
 
     by_publication: dict[uuid.UUID, list[_GeoInsightRow]] = defaultdict(list)
     for row in current_rows:
-        by_publication[row.publication_record_id].append(row)
+        by_publication[row.published_article_id].append(row)
     for publication_id, rows in by_publication.items():
         if len({row.observation_id for row in rows}) < 3 or any(
             _RATE_PREDICATES["discovery_rate"](row) for row in rows
@@ -1258,7 +1259,7 @@ def _recommendations(
                     )
                 ],
                 impact_relationship_count=len(rows),
-                publication_record_ids=[publication_id],
+                published_article_ids=[publication_id],
                 geo_platforms=[],
                 query_topic_ids=[],
                 detail_path=f"/publications/{publication_id}",
@@ -1311,7 +1312,7 @@ def _recommendations(
                     )
                 ],
                 impact_relationship_count=coverage_item.observation_count,
-                publication_record_ids=[],
+                published_article_ids=[],
                 geo_platforms=[coverage_item.geo_platform],
                 query_topic_ids=[coverage_item.query_topic_id],
                 detail_path=None,
@@ -1323,7 +1324,7 @@ def _recommendations(
             priority_order[item.priority],
             -item.impact_relationship_count,
             item.rule_code,
-            str(item.publication_record_ids[0]) if item.publication_record_ids else "",
+            str(item.published_article_ids[0]) if item.published_article_ids else "",
             item.geo_platforms[0] if item.geo_platforms else "",
             str(item.query_topic_ids[0]) if item.query_topic_ids else "",
         )
@@ -1432,32 +1433,41 @@ def get_geo_insights(db: Session, *, filters: GeoInsightFilters) -> geo_schema.G
 def geo_publication_candidates(
     db: Session, product_id: uuid.UUID, *, lock: bool = False
 ) -> list[GeoPublicationCandidate]:
-    """投影产品当前全部可观测文章；写入时锁定发布记录稳定候选集合。"""
+    """投影产品当前全部合格发布成果；写入时锁定完整文章集合。"""
     query = (
-        select(PublicationRecord, ContentVersion.title, PlatformProfile.name)
-        .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
+        select(PublishedArticle, PublicationWork, ContentVersion.title, PlatformProfile.name)
+        .join(PublicationWork, PublicationWork.id == PublishedArticle.id)
+        .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
         .join(ContentTask, ContentTask.id == ContentVersion.task_id)
         .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(
             ContentTask.product_id == product_id,
-            PublicationRecord.status.in_(["PUBLISHED", "VERIFIED"]),
-            PublicationRecord.final_url.is_not(None),
+            PublicationWork.status == "COMPLETED",
+            ~exists(
+                select(PublishedContentIssue.id).where(
+                    PublishedContentIssue.published_article_id == PublishedArticle.id,
+                    or_(
+                        PublishedContentIssue.status == "OPEN",
+                        PublishedContentIssue.resolution_outcome == "RETIRED",
+                    ),
+                )
+            ),
         )
-        .order_by(PublicationRecord.published_at, PublicationRecord.id)
+        .order_by(PublicationWork.published_at, PublicationWork.id)
     )
     if lock:
-        query = query.with_for_update(of=PublicationRecord)
+        query = query.with_for_update(of=PublishedArticle)
     return [
         GeoPublicationCandidate.model_validate(
             {
-                "publication_record_id": publication.id,
-                "title": publication.actual_title or content_title,
+                "published_article_id": article.id,
+                "title": work.actual_title or content_title,
                 "platform_name": platform_name,
-                "final_url": publication.final_url,
-                "status": publication.status,
+                "final_url": work.final_url,
+                "status": "COMPLETED",
             }
         )
-        for publication, content_title, platform_name in db.execute(query).all()
+        for article, work, content_title, platform_name in db.execute(query).all()
     ]
 
 
@@ -1473,8 +1483,8 @@ def create_geo_observation(
     candidates = geo_publication_candidates(db, payload.product_id, lock=True)
     if not candidates:
         raise AppError("VALIDATION_ERROR", "该产品暂无可观测的已发布文章", 422)
-    submitted_ids = {item.publication_record_id for item in payload.article_results}
-    candidate_ids = {item.publication_record_id for item in candidates}
+    submitted_ids = {item.published_article_id for item in payload.article_results}
+    candidate_ids = {item.published_article_id for item in candidates}
     if submitted_ids != candidate_ids:
         raise AppError(
             "GEO_PUBLICATIONS_CHANGED",
@@ -1547,7 +1557,7 @@ def create_geo_observation(
     db.add_all(
         GeoObservationPublication(
             observation_id=observation.id,
-            publication_record_id=result.publication_record_id,
+            published_article_id=result.published_article_id,
             discovered=result.discovered,
             mentioned=result.mentioned,
             accuracy=result.accuracy,

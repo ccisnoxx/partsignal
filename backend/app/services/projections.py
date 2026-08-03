@@ -22,7 +22,7 @@ from app.models.content import ContentTask, ContentVersion
 from app.models.geo_files import FileRecord
 from app.models.identity import AuditLog
 from app.models.product_facts import FactVersion, Product
-from app.models.publication import PlatformAccount, PublicationRecord
+from app.models.publication import PlatformAccount, PublicationWork
 from app.schemas.configuration import (
     PlatformLogoExternalOut,
     PlatformLogoOut,
@@ -47,9 +47,10 @@ from app.services.review_policy import content_review_actions, fact_review_actio
 from app.services.storage import get_evidence_storage
 
 IN_FLIGHT_PUBLICATION_STATUSES = (
-    "PENDING_MANUAL_PUBLISH",
+    "PREPARING",
     "PLATFORM_REVIEW",
-    "PUBLISHED",
+    "AWAITING_VERIFICATION",
+    "ACTION_REQUIRED",
 )
 PLATFORM_PROFILE_AUDIT_ACTIONS = (
     "platform_profile.created",
@@ -71,8 +72,8 @@ def platform_accounts_out(
     account_ids = [account.id for account in accounts]
     referenced_ids = set(
         db.scalars(
-            select(PublicationRecord.platform_account_id).where(
-                PublicationRecord.platform_account_id.in_(account_ids)
+            select(PublicationWork.platform_account_id).where(
+                PublicationWork.platform_account_id.in_(account_ids)
             )
         )
     )
@@ -115,13 +116,13 @@ def _content_task_protected_history_ids(
             .union(
                 select(ContentVersion.task_id)
                 .join(
-                    PublicationRecord,
-                    PublicationRecord.content_version_id == ContentVersion.id,
+                    PublicationWork,
+                    PublicationWork.content_version_id == ContentVersion.id,
                 )
                 .where(ContentVersion.task_id.in_(task_ids)),
                 select(ContentTask.id).where(
                     ContentTask.id.in_(task_ids),
-                    ContentTask.source_publication_attention_id.is_not(None),
+                    ContentTask.source_published_content_issue_id.is_not(None),
                 ),
             )
         )
@@ -166,11 +167,11 @@ def content_task_out(db: Session, task: ContentTask) -> ContentTaskOut:
     """投影任务及当前唯一可执行的人工动作。"""
     has_in_flight_publication = task.status == "OPEN" and (
         db.scalar(
-            select(PublicationRecord.id)
-            .join(ContentVersion, ContentVersion.id == PublicationRecord.content_version_id)
+            select(PublicationWork.id)
+            .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
             .where(
                 ContentVersion.task_id == task.id,
-                PublicationRecord.status.in_(IN_FLIGHT_PUBLICATION_STATUSES),
+                PublicationWork.status.in_(IN_FLIGHT_PUBLICATION_STATUSES),
             )
             .limit(1)
         )
@@ -547,10 +548,10 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
     in_flight_task_ids = set(
         db.scalars(
             select(ContentVersion.task_id)
-            .join(PublicationRecord, PublicationRecord.content_version_id == ContentVersion.id)
+            .join(PublicationWork, PublicationWork.content_version_id == ContentVersion.id)
             .where(
                 ContentVersion.task_id.in_(task_ids),
-                PublicationRecord.status.in_(IN_FLIGHT_PUBLICATION_STATUSES),
+                PublicationWork.status.in_(IN_FLIGHT_PUBLICATION_STATUSES),
             )
             .distinct()
         )

@@ -108,7 +108,7 @@ let generationJobs: Schema<'GenerationJob'>[] = [];
 const previewTask: Schema<'ContentTaskListItem'> = {
   id: 'task-preview', product_id: 'product-1', fact_version_id: 'fact-1', platform_profile_id: 'profile-ready',
   query_topic_id: null,
-  source_publication_attention_id: null, available_actions: ['CANCEL'], status: 'OPEN', revision: 1, created_by: 'user-1', created_at: channel.created_at,
+  source_published_content_issue_id: null, available_actions: ['CANCEL'], status: 'OPEN', revision: 1, created_by: 'user-1', created_at: channel.created_at,
   product: { id: 'product-1', brand: 'PartSignal', part_number: 'PS-100' }, platform: { id: 'profile-ready', name: '工程师社区', website_url: platforms[1]!.website_url, logo: platforms[1]!.logo }, latest_generation_status: null,
 };
 const previewSource: Schema<'ContentVersion'> = { id: 'version-source', task_id: previewTask.id, fact_version_id: 'fact-1', source_job_id: 'job-source', based_on_id: null, version: 1, source_type: 'AI', title: '源草稿', summary: '源摘要', body_markdown: '源正文', tags: ['源'], content_hash: 'hash-source', status: 'DRAFT', available_actions: [], revision: 0, quality_issues: [], created_by: 'user-1', created_at: channel.created_at };

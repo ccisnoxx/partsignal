@@ -36,10 +36,10 @@ function relatedPath(detail: Schema<'AuditLogDetail'>): string | undefined {
       return `/tasks/${detail.target_id}`;
     case 'ContentVersion':
       return `/content/${detail.target_id}`;
-    case 'PublicationRecord':
-      return `/publications/${detail.target_id}`;
-    case 'PublicationAttention':
-      return `/publication-attentions/${detail.target_id}`;
+    case 'PublicationWork':
+      return `/publications?tab=works&selected=${detail.target_id}`;
+    case 'PublishedContentIssue':
+      return `/publications?tab=issues&selected=${detail.target_id}`;
     case 'GeoObservation':
       return `/observations?record=${detail.target_id}`;
     case 'PlatformProfile':
@@ -226,17 +226,16 @@ const actionLabels: Record<string, string> = {
   'platform_account.enabled': '启用发布账号',
   'platform_account.disabled': '停用发布账号',
   'platform_account.deleted': '删除发布账号',
-  'publication.created': '创建发布登记',
-  'publication.mark_platform_review': '标记平台审核中',
-  'publication.mark_published': '登记发布结果',
-  'publication.verify': '验证发布结果',
-  'publication.reject': '拒绝发布',
-  'publication.remove': '标记发布已移除',
-  'publication.mark_verification_failed': '标记发布验证失败',
-  'publication_record.deleted': '删除发布记录',
-  'publication_attention.opened': '创建发布异常',
-  'publication_attention.repair_task_created': '创建发布修复任务',
-  'publication_attention.resolved': '解决发布异常',
+  'publication_work.created': '开始发布工作',
+  'publication_work.preparation_updated': '调整发布准备信息',
+  'publication_work.platform_review_marked': '标记平台处理中',
+  'publication_work.result_registered': '登记发布结果',
+  'publication_work.verification_failed': '首次核验失败',
+  'publication_work.completed': '完成发布工作',
+  'publication_work.closed': '关闭发布工作',
+  'published_content_issue.opened': '登记已发布内容问题',
+  'published_content_issue.repair_task_created': '创建内容修复任务',
+  'published_content_issue.resolved': '解决已发布内容问题',
 
   'geo_observation.created': '新增观测记录',
   'geo_observation.deleted': '删除观测记录',
@@ -298,8 +297,8 @@ const targetTypeLabels: Record<string, string> = {
   PlatformProfile: '平台',
   PlatformProfileVersion: '平台规则',
   Product: '产品',
-  PublicationAttention: '发布异常',
-  PublicationRecord: '发布记录',
+  PublicationWork: '发布工作',
+  PublishedContentIssue: '已发布内容问题',
   User: '用户',
 };
 

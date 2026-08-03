@@ -29,7 +29,7 @@ async function hasSharedData(page: Page): Promise<boolean> {
     const [versions, jobs, candidates, observations, channels] = await Promise.all([
       body<{ items: unknown[] }>(await page.request.get(`/api/v1/content-tasks/${task.id}/content-versions`)),
       body<{ items: unknown[] }>(await page.request.get(`/api/v1/content-tasks/${task.id}/generation-jobs`)),
-      body<{ items: Array<{ publication_record_id: string }> }>(await page.request.get(`/api/v1/geo-observation-publications?product_id=${task.product.id}`)),
+      body<{ items: Array<{ published_article_id: string }> }>(await page.request.get(`/api/v1/geo-observation-publications?product_id=${task.product.id}`)),
       body<{ items: unknown[] }>(await page.request.get(`/api/v1/geo-observations?product_id=${task.product.id}&page_size=100`)),
       body<{ items: Array<{ id: string; name: string }> }>(await page.request.get(`/api/v1/ai-channels?q=${encodeURIComponent(`共享视觉渠道 ${suffix}`)}&page=1&page_size=50`)),
     ]);
@@ -45,7 +45,7 @@ async function hasSharedData(page: Page): Promise<boolean> {
         platform_performance: unknown[];
         content_rankings: { best: unknown[] };
         question_coverage: { matrix: unknown[] };
-      }>(await page.request.get(`/api/v1/geo-insights?publication_record_id=${candidate.publication_record_id}`)),
+      }>(await page.request.get(`/api/v1/geo-insights?published_article_id=${candidate.published_article_id}`)),
     ]);
     if (detail.headers.length >= 2
       && models.items.length
@@ -208,7 +208,7 @@ test('准备共享视觉验收数据', async ({ page }) => {
   expect((await page.request.put(upload.upload.url, { headers: upload.upload.headers, data: evidenceBytes })).status()).toBe(204);
   await post(page, `/api/v1/files/${upload.file.id}/complete`, csrf, undefined);
 
-  const publication = await body<{ id: string }>(await page.request.post('/api/v1/publication-records/manual', {
+  const publication = await body<{ id: string; revision: number }>(await page.request.post('/api/v1/publication-works', {
     headers: {
       'X-CSRF-Token': csrf,
       'Idempotency-Key': `shared-visual-publication-${suffix}`,
@@ -217,27 +217,28 @@ test('准备共享视觉验收数据', async ({ page }) => {
       content_version_id: content.id,
       platform_account_id: account.id,
       section_url: 'https://visual.example.invalid/board',
-      attachment_file_ids: [],
     },
   }));
-  await post(page, `/api/v1/publication-records/${publication.id}/mark-platform-review`, csrf, {
-    comment: '共享视觉验收平台审核',
+  const reviewWork = await post<{ revision: number }>(page, `/api/v1/publication-works/${publication.id}/platform-review`, csrf, {
+    expected_revision: publication.revision,
+    comment: '共享视觉验收平台处理中',
   });
-  await post(page, `/api/v1/publication-records/${publication.id}/mark-published`, csrf, {
+  const resultWork = await body<{ revision: number }>(await page.request.put(`/api/v1/publication-works/${publication.id}/result`, {
+    headers: { 'X-CSRF-Token': csrf },
+    data: {
     actual_title: `共享视觉发布 ${suffix}`,
     final_url: `https://visual.example.invalid/posts/${suffix}`,
     published_at: new Date().toISOString(),
-    content_matches: null,
+    expected_revision: reviewWork.revision,
     comment: '共享视觉验收发布完成',
     attachment_file_ids: [upload.file.id],
-  });
-  await post(page, `/api/v1/publication-records/${publication.id}/verify`, csrf, {
-    actual_title: null,
-    final_url: null,
-    published_at: null,
+    },
+  }));
+  await post(page, `/api/v1/publication-works/${publication.id}/verifications`, csrf, {
+    outcome: 'PASSED',
     content_matches: true,
+    expected_revision: resultWork.revision,
     comment: '共享视觉验收核对一致',
-    attachment_file_ids: [],
   });
 
   const topic = await post<{ id: string }>(page, '/api/v1/query-topics', csrf, {
@@ -245,10 +246,10 @@ test('准备共享视觉验收数据', async ({ page }) => {
     intent_type: 'APPLICATION',
     variants: [`${product.id} 视觉验收`],
   });
-  const candidates = await body<{ items: Array<{ publication_record_id: string }> }>(
+  const candidates = await body<{ items: Array<{ published_article_id: string }> }>(
     await page.request.get(`/api/v1/geo-observation-publications?product_id=${product.id}`),
   );
-  // 内容排行要求同一发布记录至少有 3 个独立观测样本。
+  // 内容排行要求同一发布成果至少有 3 个独立观测样本。
   for (let sample = 1; sample <= 3; sample += 1) {
     await post(page, '/api/v1/geo-observations', csrf, {
       product_id: product.id,
@@ -257,7 +258,7 @@ test('准备共享视觉验收数据', async ({ page }) => {
       search_query: `${product.id} 共享视觉验收 ${sample}`,
       tested_at: new Date().toISOString(),
       article_results: candidates.items.map((item) => ({
-        publication_record_id: item.publication_record_id,
+        published_article_id: item.published_article_id,
         discovered: true,
         mentioned: true,
         accuracy: 'ACCURATE',

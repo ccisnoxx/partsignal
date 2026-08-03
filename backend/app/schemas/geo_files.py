@@ -30,7 +30,7 @@ GeoAccuracy = Literal["ACCURATE", "PARTIAL", "INCORRECT", "UNJUDGEABLE"]
 class GeoCitation(ContractModel):
     url: HttpUrl
     source_type: Literal["OFFICIAL", "EXTERNAL_COMPANY", "OTHER"]
-    publication_record_id: uuid.UUID | None = None
+    published_article_id: uuid.UUID | None = None
 
 
 class LegacyGeoObservationOut(ContractModel):
@@ -51,7 +51,7 @@ class LegacyGeoObservationOut(ContractModel):
     recommendation: LegacyRecommendation
     accuracy: GeoAccuracy
     citations: list[GeoCitation]
-    publication_record_ids: Annotated[list[uuid.UUID], AfterValidator(require_unique_items)] = (
+    published_article_ids: Annotated[list[uuid.UUID], AfterValidator(require_unique_items)] = (
         Field(json_schema_extra={"uniqueItems": True})
     )
     attachment_file_ids: Annotated[list[uuid.UUID], AfterValidator(require_unique_items)] = Field(
@@ -73,14 +73,14 @@ SearchPlatform = Annotated[
 
 
 class GeoArticleResultCreate(ContractModel):
-    publication_record_id: uuid.UUID
+    published_article_id: uuid.UUID
     discovered: bool
     mentioned: bool
     accuracy: GeoAccuracy | None
 
 
 class GeoArticleResultOut(ContractModel):
-    publication_record_id: uuid.UUID
+    published_article_id: uuid.UUID
     discovered: bool | None
     mentioned: bool | None
     accuracy: GeoAccuracy | None
@@ -90,11 +90,11 @@ class GeoArticleResultOut(ContractModel):
 
 
 class GeoPublicationCandidate(ContractModel):
-    publication_record_id: uuid.UUID
+    published_article_id: uuid.UUID
     title: str
     platform_name: str
     final_url: HttpUrl
-    status: Literal["PUBLISHED", "VERIFIED"]
+    status: Literal["COMPLETED"]
 
 
 class GeoPublicationCandidateList(ContractModel):
@@ -120,8 +120,8 @@ class GeoObservationCreate(ContractModel):
     def require_unique_publications(
         cls, values: list[GeoArticleResultCreate]
     ) -> list[GeoArticleResultCreate]:
-        """一次观测只能对同一发布记录给出一个结论。"""
-        publication_ids = [item.publication_record_id for item in values]
+        """一次观测只能对同一发布成果给出一个结论。"""
+        publication_ids = [item.published_article_id for item in values]
         if len(publication_ids) != len(set(publication_ids)):
             raise ValueError("文章结果不得重复")
         return values
@@ -233,7 +233,7 @@ class GeoInsightPlatformPerformance(ContractModel):
 
 
 class GeoInsightContentPerformance(ContractModel):
-    publication_record_id: uuid.UUID
+    published_article_id: uuid.UUID
     title: str
     content_platform: str
     observation_count: int = Field(ge=0)
@@ -320,7 +320,7 @@ class GeoInsightRecommendation(ContractModel):
     basis_text: str
     basis_values: list[GeoInsightRecommendationBasis]
     impact_relationship_count: int = Field(ge=0)
-    publication_record_ids: list[uuid.UUID]
+    published_article_ids: list[uuid.UUID]
     geo_platforms: list[str]
     query_topic_ids: list[uuid.UUID]
     detail_path: str | None
@@ -360,7 +360,7 @@ class DashboardSummary(ContractModel):
     pending_fact_reviews: int = Field(ge=0)
     pending_content_reviews: int = Field(ge=0)
     pending_publications: int = Field(ge=0)
-    publication_attention: int = Field(ge=0)
+    open_publication_issues: int = Field(ge=0)
     recent_accuracy_errors: int = Field(ge=0)
 
 

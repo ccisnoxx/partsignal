@@ -35,11 +35,11 @@ export function DashboardPage() {
   const articleMentionRate = rate(metrics.data?.article_mention_rate);
   const articleAccuracyRate = rate(metrics.data?.article_accuracy_rate);
   const reviewNeedsAction = !!(summary.data?.pending_fact_reviews || summary.data?.pending_content_reviews);
-  const publicationNeedsAttention = !!summary.data?.publication_attention;
+  const publicationNeedsAttention = !!summary.data?.open_publication_issues;
   const publicationNeedsAction = publicationNeedsAttention || !!summary.data?.pending_publications;
   const geoNeedsAttention = !!summary.data?.recent_accuracy_errors;
   const pendingItems = [
-    { label: '发布需关注', description: '开放的发布关注记录', value: summary.data?.publication_attention ?? 0, to: '/publications?tab=attentions', tone: 'danger' },
+    { label: '已发布内容问题', description: '待处置的已发布内容问题', value: summary.data?.open_publication_issues ?? 0, to: '/publications?tab=issues&status=OPEN', tone: 'danger' },
     { label: '近 30 日准确性问题', description: '部分准确或不准确的观测', value: summary.data?.recent_accuracy_errors ?? 0, to: '/observations', tone: 'danger' },
     { label: '待审事实', description: '等待人工审核的事实版本', value: summary.data?.pending_fact_reviews ?? 0, to: '/products', tone: 'warning' },
     { label: '待审内容', description: '等待人工审核的内容版本', value: summary.data?.pending_content_reviews ?? 0, to: '/tasks', tone: 'warning' },
@@ -79,7 +79,7 @@ export function DashboardPage() {
               </section>
               <section className={`dashboard-status-item dashboard-status-${publicationNeedsAttention ? 'danger' : publicationNeedsAction ? 'warning' : 'success'}`} aria-label="发布流程状态">
                 <span className="dashboard-status-icon" aria-hidden="true">{publicationNeedsAction ? <ExclamationCircleOutlined /> : <CheckCircleOutlined />}</span>
-                <div className="dashboard-status-copy"><Typography.Text strong>发布流程</Typography.Text><Badge status={publicationNeedsAttention ? 'error' : publicationNeedsAction ? 'warning' : 'success'} text={publicationNeedsAttention ? '需关注' : publicationNeedsAction ? '待处理' : '正常'} /><Typography.Text type="secondary">待人工发布 {summary.data?.pending_publications ?? 0} · 发布需关注 {summary.data?.publication_attention ?? 0}</Typography.Text></div>
+                <div className="dashboard-status-copy"><Typography.Text strong>发布流程</Typography.Text><Badge status={publicationNeedsAttention ? 'error' : publicationNeedsAction ? 'warning' : 'success'} text={publicationNeedsAttention ? '需处置' : publicationNeedsAction ? '待处理' : '正常'} /><Typography.Text type="secondary">待处理发布 {summary.data?.pending_publications ?? 0} · 开放问题 {summary.data?.open_publication_issues ?? 0}</Typography.Text></div>
               </section>
               <section className={`dashboard-status-item dashboard-status-${geoNeedsAttention ? 'danger' : 'success'}`} aria-label="GEO 观测状态">
                 <span className="dashboard-status-icon" aria-hidden="true">{geoNeedsAttention ? <ExclamationCircleOutlined /> : <CheckCircleOutlined />}</span>

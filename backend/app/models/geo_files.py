@@ -66,8 +66,8 @@ class GeoObservationCitation(Base):
     )
     url: Mapped[str] = mapped_column(Text, nullable=False)
     source_type: Mapped[str] = mapped_column(String(40), nullable=False)
-    publication_record_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("publication_records.id", ondelete="RESTRICT")
+    published_article_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("published_articles.id", ondelete="RESTRICT")
     )
 
 
@@ -78,9 +78,9 @@ class GeoObservationPublication(Base):
     observation_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("geo_observations.id", ondelete="RESTRICT"), primary_key=True
     )
-    publication_record_id: Mapped[uuid.UUID] = mapped_column(
+    published_article_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("publication_records.id", ondelete="RESTRICT"),
+        ForeignKey("published_articles.id", ondelete="RESTRICT"),
         primary_key=True,
     )
     discovered: Mapped[bool | None] = mapped_column(Boolean)

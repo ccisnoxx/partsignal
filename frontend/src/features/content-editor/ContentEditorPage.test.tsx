@@ -37,7 +37,7 @@ const context = {
     product_id: '22000000-0000-4000-8000-000000000001',
     fact_version_id: content.fact_version_id,
     platform_profile_id: '25000000-0000-4000-8000-000000000001',
-    source_publication_attention_id: null,
+    source_published_content_issue_id: null,
     available_actions: [],
     status: 'OPEN',
     revision: 0,

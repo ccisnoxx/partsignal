@@ -46,9 +46,9 @@ class ContentTask(Base):
         ForeignKey("platform_profiles.id", ondelete="RESTRICT"),
         nullable=False,
     )
-    source_publication_attention_id: Mapped[uuid.UUID | None] = mapped_column(
+    source_published_content_issue_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("publication_attentions.id", ondelete="RESTRICT"),
+        ForeignKey("published_content_issues.id", ondelete="RESTRICT"),
         unique=True,
     )
     idempotency_key: Mapped[str | None] = mapped_column(String(128))

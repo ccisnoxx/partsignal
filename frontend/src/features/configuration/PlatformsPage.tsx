@@ -263,7 +263,7 @@ export function PlatformsPage() {
   const confirmToggle = (profile: PlatformProfile, afterClose?: () => void) => modal.confirm({
     title: `${profile.is_active ? '停用' : '启用'}平台“${profile.name}”？`,
     content: profile.is_active
-      ? '停用后不能新建关联任务、账号或发布记录；既有配置和历史保持不变。'
+      ? '停用后不能新建关联任务、账号或发布工作；既有配置和历史保持不变。'
       : '启用不会自动补齐 Prompt，配置完整性保持独立。',
     okText: profile.is_active ? '停用平台' : '启用平台', cancelText: '取消',
     okButtonProps: profile.is_active ? { danger: true } : undefined,

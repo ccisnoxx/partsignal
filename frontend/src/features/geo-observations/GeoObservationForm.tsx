@@ -85,7 +85,7 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
         search_query: correctionRecord.search_query,
         tested_at: localDateTime(new Date(correctionRecord.tested_at)),
         article_results: correctionRecord.article_results.map((item) => ({
-          publication_record_id: item.publication_record_id,
+          published_article_id: item.published_article_id,
           discovered: item.discovered,
           mentioned: item.mentioned,
           accuracy: item.accuracy,
@@ -102,12 +102,12 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
   useEffect(() => {
     if (correctionId || !publications.data?.items.length) return;
     const priorResults: ObservationArticleResult[] = form.getFieldValue('article_results') ?? [];
-    const priorByPublication = new Map(priorResults.map((item) => [item.publication_record_id, item]));
+    const priorByPublication = new Map(priorResults.map((item) => [item.published_article_id, item]));
     form.setFieldValue('article_results', publications.data.items.map((item) => ({
-      publication_record_id: item.publication_record_id,
-      discovered: priorByPublication.get(item.publication_record_id)?.discovered ?? false,
-      mentioned: priorByPublication.get(item.publication_record_id)?.mentioned ?? false,
-      accuracy: priorByPublication.get(item.publication_record_id)?.accuracy ?? null,
+      published_article_id: item.published_article_id,
+      discovered: priorByPublication.get(item.published_article_id)?.discovered ?? false,
+      mentioned: priorByPublication.get(item.published_article_id)?.mentioned ?? false,
+      accuracy: priorByPublication.get(item.published_article_id)?.accuracy ?? null,
     })));
   }, [correctionId, form, publications.data]);
 
@@ -236,7 +236,7 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
         {!!articleRows.length && (
           <TableRegion label="产品文章观测结果">
             <Table<Schema<'GeoPublicationCandidate'> | Schema<'GeoArticleResult'>>
-              rowKey="publication_record_id"
+              rowKey="published_article_id"
               dataSource={articleRows}
               pagination={false}
               scroll={{ x: 890 }}
@@ -246,7 +246,7 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
                 { title: '链接', dataIndex: 'final_url', width: 110, render: (url) => <a href={url} target="_blank" rel="noreferrer">查看文章</a> },
                 {
                   title: '发现', width: 100, render: (_, item, index) => <>
-                    <Form.Item name={['article_results', index, 'publication_record_id']} hidden><Input /></Form.Item>
+                    <Form.Item name={['article_results', index, 'published_article_id']} hidden><Input /></Form.Item>
                     {correctionRecord?.article_results[index]?.discovered === null ? (
                       <Form.Item
                         name={['article_results', index, 'discovered']}

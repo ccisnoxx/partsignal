@@ -128,7 +128,7 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 - 用户删除先锁定 `users` 表与目标行，仅接受 `is_active=false`。`sessions` 由既有 `CASCADE` 清理，业务归属继续由既有 `RESTRICT` 阻断。
 - 删除事务通过 `set_config('partsignal.user_delete_id', <uuid>, true)` 声明目标。审计触发器还必须满足 `pg_trigger_depth() > 1`、`OLD.actor_id=<uuid>`、`NEW.actor_id IS NULL`，且除 `actor_id` 外整行完全相等。
-- 内容任务删除仅接受 `CANCELLED`，按稳定 UUID 顺序锁定任务的生成作业、内容版本和任务行；存在 `APPROVED`/`SUPERSEDED` 内容、任一发布记录或 `source_publication_attention_id` 时阻断。
+- 内容任务删除仅接受 `CANCELLED`，按稳定 UUID 顺序锁定任务的生成作业、内容版本和任务行；存在 `APPROVED`/`SUPERSEDED` 内容、任一 `PublicationWork` 或 `source_published_content_issue_id` 时阻断。
 - 删除事务通过 `set_config('partsignal.content_task_delete_id', <uuid>, true)` 仅为匹配任务开放 `content_versions.source_job_id=NULL` 和审核记录删除，随后清理任务自有生成作业、审核记录、未批准版本与任务；产品、事实、平台、发布和 GEO 历史不级联。
 - 任务详情与列表使用同一批量保护历史查询，满足上述条件时投影 `available_actions=["DELETE"]`；删除服务仍须在锁内重新校验。
 - 成功后分别追加 `user.deleted` 或 `content_task.deleted`；不得记录密码或删除历史审计行。
@@ -141,7 +141,7 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 | 用户仍启用 | `409 USER_ACTIVE` |
 | 用户仍有任一 `RESTRICT` 业务引用 | `409 USER_IN_USE` |
 | 任务不是 `CANCELLED` | `409 INVALID_STATE_TRANSITION` |
-| 任务存在批准/曾批准内容、发布记录或发布修复来源 | `409 CONTENT_TASK_IN_USE`，返回真实非零引用 |
+| 任务存在批准/曾批准内容、发布工作或发布后问题修复来源 | `409 CONTENT_TASK_IN_USE`，返回真实非零引用 |
 | 手工更新审计、目标 UUID 错配、同时修改其他字段或删除审计行 | PostgreSQL `55000` |
 | 重置临时密码为 7 位 / 8 位 | `422 VALIDATION_ERROR` / `204` |
 
@@ -250,19 +250,21 @@ if file.cleanup_after <= now:
 result = cleanup_platform_logo_files(storage=storage)
 ```
 
-## 场景：发布闭环历史门禁与异常状态
+## 场景：发布工作、只读成果与发布后问题
 
-- 数据库 revision：`0013_publication_closure`，`down_revision = "0012_ai_data_classification"`。
-- `COMPLETED` 表示任务曾完成发布闭环。完整性门禁必须读取追加式 `publication_status_events` 中的 `VERIFIED` 事实，不能只看发布记录当前状态；后来 `REMOVED` 或 `VERIFICATION_FAILED` 不得把合法完成历史误报为脏数据。
-- 跨平台错绑只在尚未进入 `REJECTED`、`REMOVED` 或 `VERIFICATION_FAILED` 时阻断。已显式终态处置的旧记录继续保留，不通过改绑、删除或隐藏 allowlist 清理历史。
-- 新发布的平台等值由应用服务给出业务错误，并由 PostgreSQL 插入触发器最终保护。测试必须同时覆盖 API 与直接数据库写入。
-- `PublicationAttention` 只能以 revision 0 的 `OPEN` 初态插入，绑定与打开时间不可变，历史不可删除；唯一允许的状态变化是带非空说明和单次 revision 递增的 `OPEN -> RESOLVED`。
-- 修复任务来源字段一旦写入不可改绑。异常或修复来源产生后，迁移只允许前滚，downgrade 不得删除业务历史。
+- 当前数据库 revision：`0034_publication_redesign`，`down_revision = "0033_task_owned_history_delete"`；历史 revision 与 `migration_schema_v1.py` 保持冻结。
+- `PublicationWork` 唯一拥有发布过程当前状态；`PublicationWorkEvent` 与 `PublicationVerification` 是追加式历史，`PublishedArticle` 是首次成功核验形成的只读公开成果，`PublishedContentIssue` 只描述成功发布后的页面问题。
+- `COMPLETED` 表示工作曾通过首次核验。成功核验、同 ID `PublishedArticle` 创建和来源 `ContentTask.COMPLETED` 必须同事务提交；失败核验只追加快照并进入 `ACTION_REQUIRED`，不得完成或取消任务。
+- 非终态工作只能通过带原因和说明的关闭命令进入 `CLOSED`，并原子取消来源任务；发布工作、事件、核验、成果和问题都不得物理删除。
+- 平台、账号、内容版本和内容哈希绑定由应用服务给出结构化错误，并由 PostgreSQL 约束或触发器最终保护。测试必须同时覆盖 API 与直接数据库写入。
+- `PublishedContentIssue` 只能从 revision 0 的 `OPEN` 开始，文章绑定与打开事实不可变；唯一状态变化是带处理结果、非空说明和单次 revision 递增的 `OPEN -> RESOLVED`。
+- 修复任务来源 `source_published_content_issue_id` 一旦写入不可改绑且唯一。创建修复任务与解决问题是独立命令，任何一方不得从另一方状态推断完成。
+- `0034` 只允许在旧发布与 GEO 依赖表全部为空时替换结构；发现数据必须汇总阻断表并以 PostgreSQL `55000` 失败。迁移和 downgrade 不猜测新旧业务语义。
 
 ## 场景：具体平台启停与管理实时投影
 
 - `platform_profiles.is_active` 是平台启停的唯一持久状态；配置完整性只表示存在当前 `PlatformPrompt`，不再依赖规则版本。
-- 停用后仍允许查看、编辑、维护 Prompt 及重新启用，但新建普通/修复 `ContentTask`、`PlatformAccount` 或 `PublicationRecord` 必须先以 `FOR UPDATE` 锁定平台并返回 `PLATFORM_DISABLED`；不得停用既有账号或改写 Prompt、任务、发布及观测历史。
+- 停用后仍允许查看、编辑、维护 Prompt 及重新启用，但新建普通/修复 `ContentTask`、`PlatformAccount` 或 `PublicationWork` 必须先以 `FOR UPDATE` 锁定平台并返回 `PLATFORM_DISABLED`；不得停用既有账号或改写 Prompt、任务、发布及观测历史。
 - 平台管理汇总、配置完整性、账号数量和引用数量只做 PostgreSQL 实时投影，不保存快照或派生列。引用数直接按 `ContentTask.platform_profile_id` 统计唯一任务；最近 30 天使用同一 UTC `as_of` 的半开区间 `[as_of - 30 days, as_of)`。
 - 平台列表筛选、稳定排序、分页和 CSV 导出复用同一查询条件；无分页参数时保留完整参考集合语义，`page` 与 `page_size` 只能成对出现。更新时间只读取真实平台审计，缺失时返回 `NULL`，不得用迁移时间补造。
 
@@ -293,7 +295,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - 原始 AI 请求必须恰好发送两条消息：`system.content == PlatformPrompt.template_markdown`，`user.content == FactVersion.body_markdown`；不得增加前缀、拼接任务要求、补默认安全规则或重写空白。
 - 人工首稿创建 `source_type=HUMAN`、`status=DRAFT`、`source_job_id=NULL`、`based_on_id=NULL`，随后与 AI 草稿共用修订、审核和人工发布链。
 - `ContentRevisionCreate.tags` 必须至少包含一个标签，且每个标签至少包含一个非空白字符；人工首稿与人工修订前端复用同一必填规则，服务端请求模型仍是最终校验权威。标签不自动 trim、去重、补默认值或增加未批准的数量/长度限制。
-- 发布、平台账号和修复任务沿用 `ContentTask.platform_profile_id`；修复任务只允许重新选择同产品的批准事实版本，并继承原任务平台。
+- 发布工作、平台账号和修复任务沿用 `ContentTask.platform_profile_id`；修复任务只允许重新选择同产品的批准事实版本，并继承原文章任务的平台。
 - 被平台绑定的 Prompt 不可删除；换绑或清空绑定后，新 AI 生成必须使用新绑定或显式失败。历史作业继续从不可变快照读取，v2 可按原快照重试，v1 禁止重试。
 
 ### 4. 校验与错误矩阵
@@ -415,7 +417,7 @@ messages = [
 
 ### 2. 签名
 
-- 当前数据库 revision：`0029_geo_evidence_management`，`down_revision = "0028_platform_logo_lifecycle"`；`0018` 与 `0022` 只描述历史演进。
+- 当前发布文章身份由 `0034_publication_redesign` 替换为 `PublishedArticle`；`0029`、`0018` 与 `0022` 只描述历史演进。
 - 候选接口：`GET /api/v1/geo-observation-publications?product_id=<uuid>`。
 - 创建接口：`POST /api/v1/geo-observations`，接收 `product_id`、`search_platform`、`search_query`、`tested_at`、`article_results[]`、`attachment_file_ids[]`、可选 `notes/supersedes_id`。
 - 删除接口：`DELETE /api/v1/geo-observations/{observation_id}`，只允许管理员删除人工观测完整更正链。
@@ -423,8 +425,8 @@ messages = [
 
 ### 3. 契约
 
-- `PublicationRecord` 是公开文章的唯一身份，标题、平台、`final_url` 和状态均由发布链投影；GEO 不复制文章或链接字段。
-- 一次人工观测必须覆盖该产品在提交事务中全部 `PUBLISHED | VERIFIED` 且 `final_url` 非空的发布记录；服务端锁定候选后比较精确 ID 集合。
+- `PublishedArticle` 是公开文章的唯一身份，标题、平台和 `final_url` 均由只读发布成果投影；GEO 不复制文章或链接字段。
+- 一次人工观测必须覆盖该产品在提交事务中全部合格 `PublishedArticle`；存在 `OPEN PublishedContentIssue` 或曾以 `RETIRED` 解决问题的文章不合格，服务端锁定候选后比较精确 ID 集合。
 - 每篇候选必须显式提交独立的 `discovered`、`mentioned` 和可空 `accuracy`；不得保留推荐、引用或累计阶段校验。
 - 截图可为空；非空附件必须去重且为已验证的 `OPERATION_SCREENSHOT`。每个更正版本只关联本次新增文件，读取时沿祖先链聚合截至当前版本的证据。
 - `LEGACY_MODEL_RESULT` 继续保存旧目标问题、模型结果、推荐和引用；其逐篇独立事实保持 `NULL`，不得从旧观测级结论推断。
@@ -450,7 +452,7 @@ messages = [
 
 - 正常：产品有两篇已发布文章，人工在 DeepSeek 搜索后分别登记发现、提及和可选准确性；不上传截图也能原子追加全部明细。
 - 基础：历史模型观测迁移后只增加 `LEGACY_MODEL_RESULT` 判别值，旧字段、引用和发布关联保持原义。
-- 失败：用户填写期间新增一篇符合条件的发布记录，提交集合已过期，返回 `GEO_PUBLICATIONS_CHANGED`，不自动补成“未发现”。
+- 失败：用户填写期间新增一篇符合条件的发布成果，提交集合已过期，返回 `GEO_PUBLICATIONS_CHANGED`，不自动补成“未发现”。
 
 ### 6. 必需测试
 
@@ -466,13 +468,13 @@ messages = [
 正确做法：在同一事务锁定产品及权威候选，精确比较集合后再追加明细：
 
 ```python
-candidate_ids = {publication.id for publication in locked_candidates}
-submitted_ids = {result.publication_record_id for result in request.article_results}
+candidate_ids = {article.id for article in locked_candidates}
+submitted_ids = {result.published_article_id for result in request.article_results}
 if submitted_ids != candidate_ids:
     raise ConflictError("GEO_PUBLICATIONS_CHANGED")
 ```
 
-文章 URL 始终从 `PublicationRecord.final_url` 读取，前端不得提交或覆盖该值。
+文章 URL 始终从 `PublishedArticle` 对应的冻结发布工作读取，前端不得提交或覆盖该值。
 
 ## 场景：追加式审计结果与失败事务
 

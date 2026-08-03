@@ -138,15 +138,3 @@ export const platformTypesQueryOptions = () => queryOptions({
   queryFn: async () => unwrap(await api.GET('/api/v1/platform-types')),
   staleTime: QUERY_STALE_TIME.configuration,
 });
-
-export const publicationRecordsQueryOptions = (
-  page: number,
-  pageSize: number,
-  status?: 'PENDING_MANUAL_PUBLISH' | 'PLATFORM_REVIEW' | 'PUBLISHED' | 'VERIFIED' | 'REJECTED' | 'REMOVED' | 'VERIFICATION_FAILED',
-) => queryOptions({
-  queryKey: queryKeys.publications.recordList(page, pageSize, status),
-  queryFn: async () => unwrap(await api.GET('/api/v1/publication-records', {
-    params: { query: { page, page_size: pageSize, ...(status ? { status } : {}) } },
-  })),
-  staleTime: QUERY_STALE_TIME.businessList,
-});

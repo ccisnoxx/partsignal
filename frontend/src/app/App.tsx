@@ -52,9 +52,6 @@ export function App() {
                     <Route path="tasks/:taskId" element={<ContentTasksPage />} />
                     <Route path="content/:contentVersionId" element={<ContentEditorPage />} />
                     <Route path="publications" element={<PublicationsPage />} />
-                    <Route path="publications/:publicationId" element={<PublicationsPage />} />
-                    <Route path="publication-attentions/:attentionId" element={<PublicationsPage />} />
-                    <Route path="publication-attentions/:attentionId/repair" element={<PublicationsPage />} />
                     <Route path="observations" element={<GeoObservationsPage />} />
                     <Route path="observations/insights" element={<GeoInsightsPage />} />
                     <Route path="observations/insights/print" element={<GeoInsightsPrintPage />} />

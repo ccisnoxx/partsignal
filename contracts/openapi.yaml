@@ -1550,32 +1550,36 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/PublicationPackage'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/publication-candidates:
+  /api/v1/publication-ready-items:
     get:
-      tags: [publication]
-      operationId: listPublicationCandidates
+      tags:
+      - publication
+      summary: List Publication Ready Items
+      operationId: listPublicationReadyItems
       responses:
         '200':
-          description: 可人工发布的批准内容
+          description: Successful Response
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/PublicationCandidateList'}
+              schema:
+                $ref: '#/components/schemas/PublicationReadyItemList'
+      security:
+      - sessionCookie: []
   /api/v1/publication-workbench-summary:
     get:
-      tags: [publication]
+      tags:
+      - publication
+      summary: Get Publication Workbench Summary
       operationId: getPublicationWorkbenchSummary
-      parameters:
-        - name: window_days
-          in: query
-          schema:
-            $ref: '#/components/schemas/PublicationWindowDays'
-            default: 7
       responses:
         '200':
-          description: 发布工作台全量状态、周期指标和最近动态
+          description: Successful Response
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/PublicationWorkbenchSummary'}
+              schema:
+                $ref: '#/components/schemas/PublicationWorkbenchSummary'
+      security:
+      - sessionCookie: []
   /api/v1/platform-accounts:
     get:
       tags: [publication]
@@ -1638,7 +1642,7 @@ paths:
         - {name: platform_account_id, in: path, required: true, schema: {type: string, format: uuid}}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
-        '204': {description: 已删除未被发布记录引用的平台账号}
+        '204': {description: 已删除未被发布工作引用的平台账号}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-accounts/{platform_account_id}/enable:
     post:
@@ -1674,162 +1678,569 @@ paths:
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/publication-records/manual:
+  /api/v1/publication-works:
     post:
-      tags: [publication]
-      operationId: createManualPublication
+      tags:
+      - publication
+      summary: Create Work
+      operationId: createPublicationWork
+      security:
+      - sessionCookie: []
       parameters:
-        - {$ref: '#/components/parameters/CsrfHeader'}
-        - {$ref: '#/components/parameters/IdempotencyKey'}
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 8
+          maxLength: 128
+          title: Idempotency-Key
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/ManualPublicationCreate'}
+            schema:
+              $ref: '#/components/schemas/PublicationWorkCreate'
       responses:
         '201':
-          description: 已创建人工发布记录
+          description: Successful Response
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/PublicationRecord'}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/publication-records:
+              schema:
+                $ref: '#/components/schemas/PublicationWork'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
     get:
-      tags: [publication]
-      operationId: listPublicationRecords
+      tags:
+      - publication
+      summary: List Publication Works
+      operationId: listPublicationWorks
+      security:
+      - sessionCookie: []
       parameters:
-        - {$ref: '#/components/parameters/Page'}
-        - {$ref: '#/components/parameters/PageSize'}
-        - {name: status, in: query, schema: {$ref: '#/components/schemas/PublicationStatus'}}
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Page Size
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/PublicationWorkStatus'
+          - type: 'null'
+          title: Status
       responses:
         '200':
-          description: 发布记录列表
+          description: Successful Response
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/PublicationRecordList'}
-  /api/v1/publication-records/{publication_id}:
+              schema:
+                $ref: '#/components/schemas/PublicationWorkList'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/publication-works/{work_id}:
     get:
-      tags: [publication]
-      operationId: getPublicationRecord
-      parameters: [{$ref: '#/components/parameters/PublicationId'}]
+      tags:
+      - publication
+      summary: Get Publication Work
+      operationId: getPublicationWork
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: work_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Work Id
       responses:
         '200':
-          description: 发布记录
+          description: Successful Response
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/PublicationRecord'}
-    delete:
-      tags: [publication]
-      operationId: deletePublicationRecord
+              schema:
+                $ref: '#/components/schemas/PublicationWork'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/publication-works/{work_id}/preparation:
+    patch:
+      tags:
+      - publication
+      summary: Update Preparation
+      operationId: updatePublicationPreparation
+      security:
+      - sessionCookie: []
       parameters:
-        - {$ref: '#/components/parameters/PublicationId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      responses:
-        '204': {description: 已删除从未公开且没有下游引用的发布记录}
-        '401': {$ref: '#/components/responses/ErrorResponse'}
-        '403': {$ref: '#/components/responses/ErrorResponse'}
-        '404': {$ref: '#/components/responses/ErrorResponse'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/publication-records/{publication_id}/{command}:
-    post:
-      tags: [publication]
-      operationId: commandPublicationRecord
-      parameters:
-        - {$ref: '#/components/parameters/PublicationId'}
-        - name: command
-          in: path
-          required: true
-          schema:
-            type: string
-            enum: [mark-platform-review, mark-published, verify, reject, remove, mark-verification-failed]
-        - {$ref: '#/components/parameters/CsrfHeader'}
+      - name: work_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Work Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/PublicationCommand'}
+            schema:
+              $ref: '#/components/schemas/PublicationPreparationUpdate'
       responses:
         '200':
-          description: 已执行状态命令
+          description: Successful Response
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/PublicationRecord'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/publication-attentions:
-    get:
-      tags: [publication]
-      operationId: listPublicationAttentions
-      parameters:
-        - {name: status, in: query, schema: {$ref: '#/components/schemas/PublicationAttentionStatus'}}
-      responses:
-        '200':
-          description: 发布异常待办
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PublicationAttentionList'}
-  /api/v1/publication-attentions/{attention_id}:
-    get:
-      tags: [publication]
-      operationId: getPublicationAttention
-      parameters: [{$ref: '#/components/parameters/PublicationAttentionId'}]
-      responses:
-        '200':
-          description: 发布异常待办详情
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PublicationAttention'}
-  /api/v1/publication-attentions/{attention_id}/repair-context:
-    get:
-      tags: [publication]
-      operationId: getPublicationRepairContext
-      parameters: [{$ref: '#/components/parameters/PublicationAttentionId'}]
-      responses:
-        '200':
-          description: 固定原上下文、当前候选和规范化差异
-          content:
-            application/json:
-              schema: {$ref: '#/components/schemas/PublicationRepairContext'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/publication-attentions/{attention_id}/repair-task:
+              schema:
+                $ref: '#/components/schemas/PublicationWork'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/publication-works/{work_id}/platform-review:
     post:
-      tags: [publication]
-      operationId: createPublicationRepairTask
+      tags:
+      - publication
+      summary: Mark Platform Review
+      operationId: markPublicationPlatformReview
+      security:
+      - sessionCookie: []
       parameters:
-        - {$ref: '#/components/parameters/PublicationAttentionId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
+      - name: work_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Work Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/PublicationRepairTaskCreate'}
+            schema:
+              $ref: '#/components/schemas/PublicationPlatformReviewRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationWork'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/publication-works/{work_id}/result:
+    put:
+      tags:
+      - publication
+      summary: Register Result
+      operationId: registerPublicationResult
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: work_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Work Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationResultUpdate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationWork'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/publication-works/{work_id}/verifications:
+    post:
+      tags:
+      - publication
+      summary: Verify Work
+      operationId: verifyPublicationWork
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: work_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Work Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationVerificationCreate'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationWork'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/publication-works/{work_id}/close:
+    post:
+      tags:
+      - publication
+      summary: Close Work
+      operationId: closePublicationWork
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: work_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Work Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublicationWorkCloseRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicationWork'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/published-articles:
+    get:
+      tags:
+      - publication
+      summary: List Published Articles
+      operationId: listPublishedArticles
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Page Size
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedArticleList'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/published-articles/{article_id}:
+    get:
+      tags:
+      - publication
+      summary: Get Published Article
+      operationId: getPublishedArticle
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: article_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Article Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedArticle'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/published-articles/{article_id}/issues:
+    post:
+      tags:
+      - publication
+      summary: Open Content Issue
+      operationId: openPublishedContentIssue
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: article_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Article Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishedContentIssueCreate'
       responses:
         '201':
-          description: 已创建标准内容修复任务，待办保持 OPEN
+          description: Successful Response
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/ContentTask'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
-  /api/v1/publication-attentions/{attention_id}/resolve:
-    post:
-      tags: [publication]
-      operationId: resolvePublicationAttention
+              schema:
+                $ref: '#/components/schemas/PublishedContentIssue'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/published-content-issues:
+    get:
+      tags:
+      - publication
+      summary: List Published Content Issues
+      operationId: listPublishedContentIssues
+      security:
+      - sessionCookie: []
       parameters:
-        - {$ref: '#/components/parameters/PublicationAttentionId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+          title: Page
+      - name: page_size
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 20
+          title: Page Size
+      - name: status
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - $ref: '#/components/schemas/PublishedContentIssueStatus'
+          - type: 'null'
+          title: Status
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedContentIssueList'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/published-content-issues/{issue_id}:
+    get:
+      tags:
+      - publication
+      summary: Get Published Content Issue
+      operationId: getPublishedContentIssue
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: issue_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Issue Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedContentIssue'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/published-content-issues/{issue_id}/repair-context:
+    get:
+      tags:
+      - publication
+      summary: Get Repair Context
+      operationId: getPublishedContentRepairContext
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: issue_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Issue Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedContentRepairContext'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/published-content-issues/{issue_id}/repair-task:
+    post:
+      tags:
+      - publication
+      summary: Create Published Content Repair Task
+      operationId: createPublishedContentRepairTask
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: issue_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Issue Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/ResolvePublicationAttentionRequest'}
+            schema:
+              $ref: '#/components/schemas/PublishedContentRepairTaskCreate'
       responses:
-        '200':
-          description: 已显式解决待办
+        '201':
+          description: Successful Response
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/PublicationAttention'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
+              schema:
+                $ref: '#/components/schemas/ContentTask'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/published-content-issues/{issue_id}/resolve:
+    post:
+      tags:
+      - publication
+      summary: Resolve Content Issue
+      operationId: resolvePublishedContentIssue
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: issue_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Issue Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishedContentIssueResolveRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedContentIssue'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo-observation-publications:
     get:
       tags: [observation]
@@ -1954,7 +2365,7 @@ paths:
         - {name: date_to, in: query, schema: {type: string, format: date}}
         - {name: content_platform_id, in: query, schema: {type: string, format: uuid}}
         - {name: geo_platform, in: query, schema: {type: string, maxLength: 160}}
-        - {name: publication_record_id, in: query, schema: {type: string, format: uuid}}
+        - {name: published_article_id, in: query, schema: {type: string, format: uuid}}
         - {name: query_topic_id, in: query, schema: {type: string, format: uuid}}
       responses:
         '200':
@@ -2075,8 +2486,6 @@ components:
     ContentTaskId: {name: content_task_id, in: path, required: true, schema: {type: string, format: uuid}}
     GenerationJobId: {name: generation_job_id, in: path, required: true, schema: {type: string, format: uuid}}
     ContentVersionId: {name: content_version_id, in: path, required: true, schema: {type: string, format: uuid}}
-    PublicationId: {name: publication_id, in: path, required: true, schema: {type: string, format: uuid}}
-    PublicationAttentionId: {name: attention_id, in: path, required: true, schema: {type: string, format: uuid}}
     FileId: {name: file_id, in: path, required: true, schema: {type: string, format: uuid}}
   requestBodies:
     CommandRequest:
@@ -3031,11 +3440,11 @@ components:
       allOf:
         - {$ref: '#/components/schemas/ContentTaskCreate'}
         - type: object
-          required: [id, query_topic_id, source_publication_attention_id, available_actions, status, revision, created_by, created_at]
+          required: [id, query_topic_id, source_published_content_issue_id, available_actions, status, revision, created_by, created_at]
           properties:
             id: {type: string, format: uuid}
             query_topic_id: {type: [string, 'null'], format: uuid}
-            source_publication_attention_id: {type: [string, 'null'], format: uuid}
+            source_published_content_issue_id: {type: [string, 'null'], format: uuid}
             available_actions:
               type: array
               items: {type: string, enum: [CANCEL, DELETE, CREATE_GENERATION_JOB, CREATE_MANUAL_VERSION]}
@@ -3485,288 +3894,1386 @@ components:
       required: [items]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/PlatformAccount'}}
-    ManualPublicationCreate:
-      type: object
-      additionalProperties: false
-      required: [content_version_id, platform_account_id, section_url]
+    PublicationReadyItemList:
       properties:
-        content_version_id: {type: string, format: uuid}
-        platform_account_id: {type: string, format: uuid}
-        section_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
-        attachment_file_ids:
+        items:
+          items:
+            $ref: '#/components/schemas/PublicationReadyItem'
           type: array
-          uniqueItems: true
-          description: 候选创建阶段关联的文件，必须全部为 VERIFIED OPERATION_SCREENSHOT。
-          items: {type: string, format: uuid}
-    PublicationStatus:
-      type: string
-      enum: [PENDING_MANUAL_PUBLISH, PLATFORM_REVIEW, PUBLISHED, VERIFIED, REJECTED, REMOVED, VERIFICATION_FAILED]
-    PublicationCommand:
-      type: object
+          title: Items
       additionalProperties: false
-      required: [comment]
+      type: object
+      required:
+      - items
+      title: PublicationReadyItemList
+    PublicationReadyItem:
       properties:
-        actual_title: {type: [string, 'null']}
-        final_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
-        published_at: {type: [string, 'null'], format: date-time}
-        content_matches: {type: [boolean, 'null']}
-        comment: {type: string}
-        attachment_file_ids:
+        content_version:
+          $ref: '#/components/schemas/ContentVersion'
+        task_id:
+          type: string
+          format: uuid
+          title: Task Id
+        platform_profile_id:
+          type: string
+          format: uuid
+          title: Platform Profile Id
+        platform_profile_name:
+          type: string
+          title: Platform Profile Name
+        matching_accounts:
+          items:
+            $ref: '#/components/schemas/PlatformAccount'
           type: array
-          uniqueItems: true
-          description: 仅 mark-published 接受；文件必须全部为 VERIFIED OPERATION_SCREENSHOT。
-          items: {type: string, format: uuid}
-    PublicationAction:
-      type: string
-      enum: [mark-platform-review, mark-published, verify, reject, remove, mark-verification-failed, delete]
-    PublicationRecord:
-      type: object
-      additionalProperties: false
-      required: [id, content_version_id, task_id, content_title, content_version, platform_profile_id, platform_profile_name, platform_account_id, platform_account_label, account_identifier, section_url, status, content_hash, created_by, created_at, status_events, attachments, available_actions]
-      properties:
-        id: {type: string, format: uuid}
-        content_version_id: {type: string, format: uuid}
-        task_id: {type: string, format: uuid}
-        content_title: {type: string}
-        content_version: {type: integer}
-        platform_profile_id: {type: string, format: uuid}
-        platform_profile_name: {type: string}
-        platform_account_id: {type: string, format: uuid}
-        platform_account_label: {type: string}
-        account_identifier: {type: string}
-        section_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
-        actual_title: {type: [string, 'null']}
-        final_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
-        published_at: {type: [string, 'null'], format: date-time}
-        status: {$ref: '#/components/schemas/PublicationStatus'}
-        content_hash: {type: string}
-        created_by: {type: string, format: uuid}
-        created_at: {type: string, format: date-time}
-        status_events: {type: array, items: {$ref: '#/components/schemas/PublicationEvent'}}
-        attachments: {type: array, items: {$ref: '#/components/schemas/FileRecord'}}
-        available_actions: {type: array, items: {$ref: '#/components/schemas/PublicationAction'}}
-    PublicationRecordListItem:
-      type: object
-      additionalProperties: false
-      required: [id, task_id, content_version_id, content_title, content_version, platform_profile_id, platform_profile_name, platform_account_id, platform_account_label, account_identifier, status, actual_title, final_url, published_at, created_at, last_verification_at, available_actions]
-      properties:
-        id: {type: string, format: uuid}
-        task_id: {type: string, format: uuid}
-        content_version_id: {type: string, format: uuid}
-        content_title: {type: string}
-        content_version: {type: integer}
-        platform_profile_id: {type: string, format: uuid}
-        platform_profile_name: {type: string}
-        platform_account_id: {type: string, format: uuid}
-        platform_account_label: {type: string}
-        account_identifier: {type: string}
-        status: {$ref: '#/components/schemas/PublicationStatus'}
-        actual_title: {type: [string, 'null']}
-        final_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
-        published_at: {type: [string, 'null'], format: date-time}
-        created_at: {type: string, format: date-time}
-        last_verification_at: {type: [string, 'null'], format: date-time}
-        available_actions: {type: array, items: {$ref: '#/components/schemas/PublicationAction'}}
-    PublicationRecordList:
-      type: object
-      additionalProperties: false
-      required: [items, page, page_size, total]
-      properties:
-        items: {type: array, items: {$ref: '#/components/schemas/PublicationRecordListItem'}}
-        page: {type: integer}
-        page_size: {type: integer}
-        total: {type: integer}
-    PublicationEvent:
-      type: object
-      additionalProperties: false
-      required: [status, comment, actor_id, created_at]
-      properties:
-        status: {$ref: '#/components/schemas/PublicationStatus'}
-        comment: {type: string}
-        actor_id: {type: string, format: uuid}
-        created_at: {type: string, format: date-time}
-    PublicationCandidate:
-      type: object
-      additionalProperties: false
-      required: [content_version, task_id, platform_profile_id, platform_profile_name, matching_accounts, available_actions]
-      properties:
-        content_version: {$ref: '#/components/schemas/ContentVersion'}
-        task_id: {type: string, format: uuid}
-        platform_profile_id: {type: string, format: uuid}
-        platform_profile_name: {type: string}
-        matching_accounts: {type: array, items: {$ref: '#/components/schemas/PlatformAccount'}}
+          title: Matching Accounts
         available_actions:
+          items:
+            type: string
+            const: START
           type: array
-          items: {type: string, enum: [REGISTER]}
-    PublicationCandidateList:
-      type: object
+          title: Available Actions
+        primary_action:
+          anyOf:
+          - type: string
+            const: START
+          - type: 'null'
+          title: Primary Action
       additionalProperties: false
-      required: [items]
-      properties:
-        items: {type: array, items: {$ref: '#/components/schemas/PublicationCandidate'}}
-    PublicationAttentionStatus: {type: string, enum: [OPEN, RESOLVED]}
-    PublicationAttentionAction: {type: string, enum: [CREATE_REPAIR_TASK, RESOLVE]}
-    PublicationAttention:
       type: object
-      additionalProperties: false
-      required: [id, publication_record_id, original_task_id, trigger_status, status, revision, opened_at, resolved_at, resolved_by, resolution_comment, repair_task_id, available_actions]
-      properties:
-        id: {type: string, format: uuid}
-        publication_record_id: {type: string, format: uuid}
-        original_task_id: {type: string, format: uuid}
-        trigger_status: {type: string, enum: [REMOVED, VERIFICATION_FAILED]}
-        status: {$ref: '#/components/schemas/PublicationAttentionStatus'}
-        revision: {type: integer}
-        opened_at: {type: string, format: date-time}
-        resolved_at: {type: [string, 'null'], format: date-time}
-        resolved_by: {type: [string, 'null'], format: uuid}
-        resolution_comment: {type: [string, 'null']}
-        repair_task_id: {type: [string, 'null'], format: uuid}
-        available_actions: {type: array, items: {$ref: '#/components/schemas/PublicationAttentionAction'}}
-    PublicationAttentionList:
-      type: object
-      additionalProperties: false
-      required: [items]
-      properties:
-        items: {type: array, items: {$ref: '#/components/schemas/PublicationAttentionListItem'}}
-    PublicationAttentionListItem:
-      type: object
-      additionalProperties: false
-      required: [id, publication_record_id, original_task_id, content_title, content_version, platform_profile_id, platform_profile_name, platform_account_label, final_url, trigger_status, status, revision, opened_at, resolved_at, resolved_by, resolution_comment, repair_task_id, available_actions]
-      properties:
-        id: {type: string, format: uuid}
-        publication_record_id: {type: string, format: uuid}
-        original_task_id: {type: string, format: uuid}
-        content_title: {type: string}
-        content_version: {type: integer}
-        platform_profile_id: {type: string, format: uuid}
-        platform_profile_name: {type: string}
-        platform_account_label: {type: string}
-        final_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
-        trigger_status: {type: string, enum: [REMOVED, VERIFICATION_FAILED]}
-        status: {$ref: '#/components/schemas/PublicationAttentionStatus'}
-        revision: {type: integer}
-        opened_at: {type: string, format: date-time}
-        resolved_at: {type: [string, 'null'], format: date-time}
-        resolved_by: {type: [string, 'null'], format: uuid}
-        resolution_comment: {type: [string, 'null']}
-        repair_task_id: {type: [string, 'null'], format: uuid}
-        available_actions: {type: array, items: {$ref: '#/components/schemas/PublicationAttentionAction'}}
-    PublicationStatusCounts:
-      type: object
-      additionalProperties: false
-      required: [PENDING_MANUAL_PUBLISH, PLATFORM_REVIEW, PUBLISHED, VERIFIED, REJECTED, REMOVED, VERIFICATION_FAILED]
-      properties:
-        PENDING_MANUAL_PUBLISH: {type: integer, minimum: 0}
-        PLATFORM_REVIEW: {type: integer, minimum: 0}
-        PUBLISHED: {type: integer, minimum: 0}
-        VERIFIED: {type: integer, minimum: 0}
-        REJECTED: {type: integer, minimum: 0}
-        REMOVED: {type: integer, minimum: 0}
-        VERIFICATION_FAILED: {type: integer, minimum: 0}
-    PublicationPeriodMetrics:
-      type: object
-      additionalProperties: false
-      required: [registered_published_count, verified_count, verification_rate, new_exception_count, current_unresolved_attention_count]
-      properties:
-        registered_published_count: {type: integer, minimum: 0}
-        verified_count: {type: integer, minimum: 0}
-        verification_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
-        new_exception_count: {type: integer, minimum: 0}
-        current_unresolved_attention_count: {type: integer, minimum: 0}
-    PublicationExceptionCounts:
-      type: object
-      additionalProperties: false
-      required: [rejected, removed_open, verification_failed_open]
-      properties:
-        rejected: {type: integer, minimum: 0}
-        removed_open: {type: integer, minimum: 0}
-        verification_failed_open: {type: integer, minimum: 0}
-    PublicationRecentActivity:
-      type: object
-      additionalProperties: false
-      required: [publication_id, content_title, content_version, platform_profile_name, status, occurred_at]
-      properties:
-        publication_id: {type: string, format: uuid}
-        content_title: {type: string}
-        content_version: {type: integer}
-        platform_profile_name: {type: string}
-        status: {$ref: '#/components/schemas/PublicationStatus'}
-        occurred_at: {type: string, format: date-time}
+      required:
+      - content_version
+      - task_id
+      - platform_profile_id
+      - platform_profile_name
+      - matching_accounts
+      - available_actions
+      - primary_action
+      title: PublicationReadyItem
     PublicationWorkbenchSummary:
-      type: object
-      additionalProperties: false
-      required: [as_of, window_start, window_days, current_status_counts, open_attention_count, period, exception_counts, recent_activity]
       properties:
-        as_of: {type: string, format: date-time}
-        window_start: {type: string, format: date-time}
-        window_days: {type: integer, enum: [7, 30]}
-        current_status_counts: {$ref: '#/components/schemas/PublicationStatusCounts'}
-        open_attention_count: {type: integer, minimum: 0}
-        period: {$ref: '#/components/schemas/PublicationPeriodMetrics'}
-        exception_counts: {$ref: '#/components/schemas/PublicationExceptionCounts'}
-        recent_activity:
+        ready_count:
+          type: integer
+          minimum: 0.0
+          title: Ready Count
+        active_count:
+          type: integer
+          minimum: 0.0
+          title: Active Count
+        awaiting_verification_count:
+          type: integer
+          minimum: 0.0
+          title: Awaiting Verification Count
+        action_required_count:
+          type: integer
+          minimum: 0.0
+          title: Action Required Count
+        open_issue_count:
+          type: integer
+          minimum: 0.0
+          title: Open Issue Count
+      additionalProperties: false
+      type: object
+      required:
+      - ready_count
+      - active_count
+      - awaiting_verification_count
+      - action_required_count
+      - open_issue_count
+      title: PublicationWorkbenchSummary
+    PublicationWorkCreate:
+      properties:
+        content_version_id:
+          type: string
+          format: uuid
+          title: Content Version Id
+        platform_account_id:
+          type: string
+          format: uuid
+          title: Platform Account Id
+        section_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Section Url
+      additionalProperties: false
+      type: object
+      required:
+      - content_version_id
+      - platform_account_id
+      - section_url
+      title: PublicationWorkCreate
+    PublicationWork:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        task_id:
+          type: string
+          format: uuid
+          title: Task Id
+        content_version_id:
+          type: string
+          format: uuid
+          title: Content Version Id
+        content_title:
+          type: string
+          title: Content Title
+        content_version:
+          type: integer
+          title: Content Version
+        platform_profile_id:
+          type: string
+          format: uuid
+          title: Platform Profile Id
+        platform_profile_name:
+          type: string
+          title: Platform Profile Name
+        platform_account_id:
+          type: string
+          format: uuid
+          title: Platform Account Id
+        platform_account_label:
+          type: string
+          title: Platform Account Label
+        account_identifier:
+          type: string
+          title: Account Identifier
+        section_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Section Url
+        actual_title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actual Title
+        final_url:
+          anyOf:
+          - type: string
+            maxLength: 2083
+            minLength: 1
+            format: uri
+          - type: 'null'
+          title: Final Url
+        published_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Published At
+        status:
+          $ref: '#/components/schemas/PublicationWorkStatus'
+        revision:
+          type: integer
+          minimum: 0.0
+          title: Revision
+        close_reason:
+          anyOf:
+          - $ref: '#/components/schemas/PublicationCloseReason'
+          - type: 'null'
+        close_comment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Close Comment
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        latest_verification_outcome:
+          anyOf:
+          - $ref: '#/components/schemas/PublicationVerificationOutcome'
+          - type: 'null'
+        latest_verification_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Latest Verification At
+        available_actions:
+          items:
+            type: string
+            enum:
+            - UPDATE_PREPARATION
+            - MARK_PLATFORM_REVIEW
+            - REGISTER_RESULT
+            - VERIFY
+            - CLOSE
           type: array
-          maxItems: 5
-          items: {$ref: '#/components/schemas/PublicationRecentActivity'}
-    PublicationWindowDays:
-      type: integer
-      enum: [7, 30]
-      description: 发布工作台允许的滚动统计周期。
-    VersionChange:
-      type: object
+          title: Available Actions
+        primary_action:
+          anyOf:
+          - type: string
+            enum:
+            - UPDATE_PREPARATION
+            - MARK_PLATFORM_REVIEW
+            - REGISTER_RESULT
+            - VERIFY
+            - CLOSE
+          - type: 'null'
+          title: Primary Action
+        content_hash:
+          type: string
+          title: Content Hash
+        closed_by:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Closed By
+        closed_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Closed At
+        created_by:
+          type: string
+          format: uuid
+          title: Created By
+        events:
+          items:
+            $ref: '#/components/schemas/PublicationWorkEvent'
+          type: array
+          title: Events
+        verifications:
+          items:
+            $ref: '#/components/schemas/PublicationVerification'
+          type: array
+          title: Verifications
+        attachments:
+          items:
+            $ref: '#/components/schemas/FileRecord'
+          type: array
+          title: Attachments
       additionalProperties: false
-      required: [field, before, after]
-      properties:
-        field: {type: string}
-        before: {}
-        after: {}
-    VersionDifference:
       type: object
-      additionalProperties: false
-      required: [from_id, to_id, changes]
+      required:
+      - id
+      - task_id
+      - content_version_id
+      - content_title
+      - content_version
+      - platform_profile_id
+      - platform_profile_name
+      - platform_account_id
+      - platform_account_label
+      - account_identifier
+      - section_url
+      - actual_title
+      - final_url
+      - published_at
+      - status
+      - revision
+      - close_reason
+      - close_comment
+      - created_at
+      - updated_at
+      - latest_verification_outcome
+      - latest_verification_at
+      - available_actions
+      - primary_action
+      - content_hash
+      - closed_by
+      - closed_at
+      - created_by
+      - events
+      - verifications
+      - attachments
+      title: PublicationWorkOut
+    PublicationWorkStatus:
+      type: string
+      enum:
+      - PREPARING
+      - PLATFORM_REVIEW
+      - AWAITING_VERIFICATION
+      - ACTION_REQUIRED
+      - COMPLETED
+      - CLOSED
+      title: PublicationWorkStatus
+    PublicationCloseReason:
+      type: string
+      enum:
+      - PLATFORM_REJECTED
+      - BUSINESS_CANCELLED
+      - OTHER
+      title: PublicationCloseReason
+    PublicationVerificationOutcome:
+      type: string
+      enum:
+      - PASSED
+      - FAILED
+      title: PublicationVerificationOutcome
+    PublicationWorkEvent:
       properties:
-        from_id: {type: string, format: uuid}
-        to_id: {type: string, format: uuid}
-        changes: {type: array, items: {$ref: '#/components/schemas/VersionChange'}}
-    FactVersionCandidate:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        action:
+          type: string
+          enum:
+          - CREATED
+          - PREPARATION_UPDATED
+          - PLATFORM_REVIEW_MARKED
+          - RESULT_REGISTERED
+          - VERIFICATION_FAILED
+          - COMPLETED
+          - CLOSED
+          title: Action
+        from_status:
+          anyOf:
+          - $ref: '#/components/schemas/PublicationWorkStatus'
+          - type: 'null'
+        to_status:
+          $ref: '#/components/schemas/PublicationWorkStatus'
+        comment:
+          type: string
+          title: Comment
+        actor_id:
+          type: string
+          format: uuid
+          title: Actor Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
       type: object
-      additionalProperties: false
-      required: [version, difference]
+      required:
+      - id
+      - action
+      - from_status
+      - to_status
+      - comment
+      - actor_id
+      - created_at
+      title: PublicationWorkEventOut
+    PublicationVerification:
       properties:
-        version: {$ref: '#/components/schemas/FactVersion'}
-        difference: {$ref: '#/components/schemas/VersionDifference'}
-    PublicationRepairContext:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        outcome:
+          $ref: '#/components/schemas/PublicationVerificationOutcome'
+        actual_title_snapshot:
+          type: string
+          title: Actual Title Snapshot
+        final_url_snapshot:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Final Url Snapshot
+        published_at_snapshot:
+          type: string
+          format: date-time
+          title: Published At Snapshot
+        comment:
+          type: string
+          title: Comment
+        actor_id:
+          type: string
+          format: uuid
+          title: Actor Id
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+      additionalProperties: false
       type: object
-      additionalProperties: false
-      required: [attention, publication, original_task, product, query_topic, platform_profile_id, platform_profile_name, original_fact_version, fact_candidates]
+      required:
+      - id
+      - outcome
+      - actual_title_snapshot
+      - final_url_snapshot
+      - published_at_snapshot
+      - comment
+      - actor_id
+      - created_at
+      title: PublicationVerificationOut
+    PublicationWorkList:
       properties:
-        attention: {$ref: '#/components/schemas/PublicationAttention'}
-        publication: {$ref: '#/components/schemas/PublicationRecord'}
-        original_task: {$ref: '#/components/schemas/ContentTask'}
-        product: {$ref: '#/components/schemas/Product'}
+        items:
+          items:
+            $ref: '#/components/schemas/PublicationWorkListItem'
+          type: array
+          title: Items
+        page:
+          type: integer
+          minimum: 1.0
+          title: Page
+        page_size:
+          type: integer
+          minimum: 1.0
+          title: Page Size
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      title: PublicationWorkList
+    PublicationWorkListItem:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        task_id:
+          type: string
+          format: uuid
+          title: Task Id
+        content_version_id:
+          type: string
+          format: uuid
+          title: Content Version Id
+        content_title:
+          type: string
+          title: Content Title
+        content_version:
+          type: integer
+          title: Content Version
+        platform_profile_id:
+          type: string
+          format: uuid
+          title: Platform Profile Id
+        platform_profile_name:
+          type: string
+          title: Platform Profile Name
+        platform_account_id:
+          type: string
+          format: uuid
+          title: Platform Account Id
+        platform_account_label:
+          type: string
+          title: Platform Account Label
+        account_identifier:
+          type: string
+          title: Account Identifier
+        section_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Section Url
+        actual_title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Actual Title
+        final_url:
+          anyOf:
+          - type: string
+            maxLength: 2083
+            minLength: 1
+            format: uri
+          - type: 'null'
+          title: Final Url
+        published_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Published At
+        status:
+          $ref: '#/components/schemas/PublicationWorkStatus'
+        revision:
+          type: integer
+          minimum: 0.0
+          title: Revision
+        close_reason:
+          anyOf:
+          - $ref: '#/components/schemas/PublicationCloseReason'
+          - type: 'null'
+        close_comment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Close Comment
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        latest_verification_outcome:
+          anyOf:
+          - $ref: '#/components/schemas/PublicationVerificationOutcome'
+          - type: 'null'
+        latest_verification_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Latest Verification At
+        available_actions:
+          items:
+            type: string
+            enum:
+            - UPDATE_PREPARATION
+            - MARK_PLATFORM_REVIEW
+            - REGISTER_RESULT
+            - VERIFY
+            - CLOSE
+          type: array
+          title: Available Actions
+        primary_action:
+          anyOf:
+          - type: string
+            enum:
+            - UPDATE_PREPARATION
+            - MARK_PLATFORM_REVIEW
+            - REGISTER_RESULT
+            - VERIFY
+            - CLOSE
+          - type: 'null'
+          title: Primary Action
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - task_id
+      - content_version_id
+      - content_title
+      - content_version
+      - platform_profile_id
+      - platform_profile_name
+      - platform_account_id
+      - platform_account_label
+      - account_identifier
+      - section_url
+      - actual_title
+      - final_url
+      - published_at
+      - status
+      - revision
+      - close_reason
+      - close_comment
+      - created_at
+      - updated_at
+      - latest_verification_outcome
+      - latest_verification_at
+      - available_actions
+      - primary_action
+      title: PublicationWorkListItem
+    PublicationPreparationUpdate:
+      properties:
+        platform_account_id:
+          type: string
+          format: uuid
+          title: Platform Account Id
+        section_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Section Url
+        expected_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Revision
+        comment:
+          type: string
+          minLength: 1
+          title: Comment
+      additionalProperties: false
+      type: object
+      required:
+      - platform_account_id
+      - section_url
+      - expected_revision
+      - comment
+      title: PublicationPreparationUpdate
+    PublicationPlatformReviewRequest:
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Revision
+        comment:
+          type: string
+          minLength: 1
+          title: Comment
+      additionalProperties: false
+      type: object
+      required:
+      - expected_revision
+      - comment
+      title: PublicationPlatformReviewRequest
+    PublicationResultUpdate:
+      properties:
+        actual_title:
+          type: string
+          minLength: 1
+          title: Actual Title
+        final_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Final Url
+        published_at:
+          type: string
+          format: date-time
+          title: Published At
+        expected_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Revision
+        comment:
+          type: string
+          minLength: 1
+          title: Comment
+        attachment_file_ids:
+          items:
+            type: string
+            format: uuid
+          type: array
+          uniqueItems: true
+          title: Attachment File Ids
+      additionalProperties: false
+      type: object
+      required:
+      - actual_title
+      - final_url
+      - published_at
+      - expected_revision
+      - comment
+      title: PublicationResultUpdate
+    PublicationVerificationCreate:
+      properties:
+        outcome:
+          $ref: '#/components/schemas/PublicationVerificationOutcome'
+        content_matches:
+          type: boolean
+          title: Content Matches
+        expected_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Revision
+        comment:
+          type: string
+          title: Comment
+          default: ''
+      additionalProperties: false
+      type: object
+      required:
+      - outcome
+      - content_matches
+      - expected_revision
+      title: PublicationVerificationCreate
+    PublicationWorkCloseRequest:
+      properties:
+        reason:
+          $ref: '#/components/schemas/PublicationCloseReason'
+        comment:
+          type: string
+          minLength: 1
+          title: Comment
+        expected_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Revision
+      additionalProperties: false
+      type: object
+      required:
+      - reason
+      - comment
+      - expected_revision
+      title: PublicationWorkCloseRequest
+    PublishedArticleList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/PublishedArticleListItem'
+          type: array
+          title: Items
+        page:
+          type: integer
+          minimum: 1.0
+          title: Page
+        page_size:
+          type: integer
+          minimum: 1.0
+          title: Page Size
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      title: PublishedArticleList
+    PublishedArticleListItem:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        task_id:
+          type: string
+          format: uuid
+          title: Task Id
+        content_version_id:
+          type: string
+          format: uuid
+          title: Content Version Id
+        content_title:
+          type: string
+          title: Content Title
+        content_version:
+          type: integer
+          title: Content Version
+        platform_profile_id:
+          type: string
+          format: uuid
+          title: Platform Profile Id
+        platform_profile_name:
+          type: string
+          title: Platform Profile Name
+        platform_account_id:
+          type: string
+          format: uuid
+          title: Platform Account Id
+        platform_account_label:
+          type: string
+          title: Platform Account Label
+        account_identifier:
+          type: string
+          title: Account Identifier
+        actual_title:
+          type: string
+          title: Actual Title
+        final_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Final Url
+        published_at:
+          type: string
+          format: date-time
+          title: Published At
+        verified_at:
+          type: string
+          format: date-time
+          title: Verified At
+        has_open_issue:
+          type: boolean
+          title: Has Open Issue
+        retired:
+          type: boolean
+          title: Retired
+        available_actions:
+          items:
+            type: string
+            const: OPEN_ISSUE
+          type: array
+          title: Available Actions
+        primary_action:
+          anyOf:
+          - type: string
+            const: OPEN_ISSUE
+          - type: 'null'
+          title: Primary Action
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - task_id
+      - content_version_id
+      - content_title
+      - content_version
+      - platform_profile_id
+      - platform_profile_name
+      - platform_account_id
+      - platform_account_label
+      - account_identifier
+      - actual_title
+      - final_url
+      - published_at
+      - verified_at
+      - has_open_issue
+      - retired
+      - available_actions
+      - primary_action
+      title: PublishedArticleListItem
+    PublishedArticle:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        task_id:
+          type: string
+          format: uuid
+          title: Task Id
+        content_version_id:
+          type: string
+          format: uuid
+          title: Content Version Id
+        content_title:
+          type: string
+          title: Content Title
+        content_version:
+          type: integer
+          title: Content Version
+        platform_profile_id:
+          type: string
+          format: uuid
+          title: Platform Profile Id
+        platform_profile_name:
+          type: string
+          title: Platform Profile Name
+        platform_account_id:
+          type: string
+          format: uuid
+          title: Platform Account Id
+        platform_account_label:
+          type: string
+          title: Platform Account Label
+        account_identifier:
+          type: string
+          title: Account Identifier
+        actual_title:
+          type: string
+          title: Actual Title
+        final_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Final Url
+        published_at:
+          type: string
+          format: date-time
+          title: Published At
+        verified_at:
+          type: string
+          format: date-time
+          title: Verified At
+        has_open_issue:
+          type: boolean
+          title: Has Open Issue
+        retired:
+          type: boolean
+          title: Retired
+        available_actions:
+          items:
+            type: string
+            const: OPEN_ISSUE
+          type: array
+          title: Available Actions
+        primary_action:
+          anyOf:
+          - type: string
+            const: OPEN_ISSUE
+          - type: 'null'
+          title: Primary Action
+        section_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Section Url
+        content_hash:
+          type: string
+          title: Content Hash
+        verification:
+          $ref: '#/components/schemas/PublicationVerification'
+        issues:
+          items:
+            $ref: '#/components/schemas/PublishedContentIssueHistoryItem'
+          type: array
+          title: Issues
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - task_id
+      - content_version_id
+      - content_title
+      - content_version
+      - platform_profile_id
+      - platform_profile_name
+      - platform_account_id
+      - platform_account_label
+      - account_identifier
+      - actual_title
+      - final_url
+      - published_at
+      - verified_at
+      - has_open_issue
+      - retired
+      - available_actions
+      - primary_action
+      - section_url
+      - content_hash
+      - verification
+      - issues
+      title: PublishedArticleOut
+    PublishedContentIssueHistoryItem:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        kind:
+          $ref: '#/components/schemas/PublishedContentIssueKind'
+        description:
+          type: string
+          title: Description
+        status:
+          $ref: '#/components/schemas/PublishedContentIssueStatus'
+        opened_at:
+          type: string
+          format: date-time
+          title: Opened At
+        resolved_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Resolved At
+        resolution_outcome:
+          anyOf:
+          - $ref: '#/components/schemas/PublishedContentIssueResolution'
+          - type: 'null'
+        resolution_comment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Resolution Comment
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - kind
+      - description
+      - status
+      - opened_at
+      - resolved_at
+      - resolution_outcome
+      - resolution_comment
+      title: PublishedContentIssueHistoryItem
+    PublishedContentIssueKind:
+      type: string
+      enum:
+      - PAGE_UNAVAILABLE
+      - CONTENT_CHANGED
+      - OTHER
+      title: PublishedContentIssueKind
+    PublishedContentIssueStatus:
+      type: string
+      enum:
+      - OPEN
+      - RESOLVED
+      title: PublishedContentIssueStatus
+    PublishedContentIssueResolution:
+      type: string
+      enum:
+      - RESTORED
+      - RETIRED
+      title: PublishedContentIssueResolution
+    PublishedContentIssueCreate:
+      properties:
+        kind:
+          $ref: '#/components/schemas/PublishedContentIssueKind'
+        description:
+          type: string
+          minLength: 1
+          title: Description
+      additionalProperties: false
+      type: object
+      required:
+      - kind
+      - description
+      title: PublishedContentIssueCreate
+    PublishedContentIssue:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        kind:
+          $ref: '#/components/schemas/PublishedContentIssueKind'
+        description:
+          type: string
+          title: Description
+        status:
+          $ref: '#/components/schemas/PublishedContentIssueStatus'
+        opened_at:
+          type: string
+          format: date-time
+          title: Opened At
+        resolved_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Resolved At
+        resolution_outcome:
+          anyOf:
+          - $ref: '#/components/schemas/PublishedContentIssueResolution'
+          - type: 'null'
+        resolution_comment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Resolution Comment
+        published_article_id:
+          type: string
+          format: uuid
+          title: Published Article Id
+        content_title:
+          type: string
+          title: Content Title
+        platform_profile_name:
+          type: string
+          title: Platform Profile Name
+        actual_title:
+          type: string
+          title: Actual Title
+        final_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Final Url
+        revision:
+          type: integer
+          minimum: 0.0
+          title: Revision
+        repair_task_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Repair Task Id
+        available_actions:
+          items:
+            type: string
+            enum:
+            - CREATE_REPAIR_TASK
+            - RESOLVE
+          type: array
+          title: Available Actions
+        primary_action:
+          anyOf:
+          - type: string
+            enum:
+            - CREATE_REPAIR_TASK
+            - RESOLVE
+          - type: 'null'
+          title: Primary Action
+        opened_by:
+          type: string
+          format: uuid
+          title: Opened By
+        resolved_by:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Resolved By
+        article:
+          $ref: '#/components/schemas/PublishedArticleListItem'
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - kind
+      - description
+      - status
+      - opened_at
+      - resolved_at
+      - resolution_outcome
+      - resolution_comment
+      - published_article_id
+      - content_title
+      - platform_profile_name
+      - actual_title
+      - final_url
+      - revision
+      - repair_task_id
+      - available_actions
+      - primary_action
+      - opened_by
+      - resolved_by
+      - article
+      title: PublishedContentIssueOut
+    PublishedContentIssueList:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/PublishedContentIssueListItem'
+          type: array
+          title: Items
+        page:
+          type: integer
+          minimum: 1.0
+          title: Page
+        page_size:
+          type: integer
+          minimum: 1.0
+          title: Page Size
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - page
+      - page_size
+      - total
+      title: PublishedContentIssueList
+    PublishedContentIssueListItem:
+      properties:
+        id:
+          type: string
+          format: uuid
+          title: Id
+        kind:
+          $ref: '#/components/schemas/PublishedContentIssueKind'
+        description:
+          type: string
+          title: Description
+        status:
+          $ref: '#/components/schemas/PublishedContentIssueStatus'
+        opened_at:
+          type: string
+          format: date-time
+          title: Opened At
+        resolved_at:
+          anyOf:
+          - type: string
+            format: date-time
+          - type: 'null'
+          title: Resolved At
+        resolution_outcome:
+          anyOf:
+          - $ref: '#/components/schemas/PublishedContentIssueResolution'
+          - type: 'null'
+        resolution_comment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Resolution Comment
+        published_article_id:
+          type: string
+          format: uuid
+          title: Published Article Id
+        content_title:
+          type: string
+          title: Content Title
+        platform_profile_name:
+          type: string
+          title: Platform Profile Name
+        actual_title:
+          type: string
+          title: Actual Title
+        final_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+          title: Final Url
+        revision:
+          type: integer
+          minimum: 0.0
+          title: Revision
+        repair_task_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Repair Task Id
+        available_actions:
+          items:
+            type: string
+            enum:
+            - CREATE_REPAIR_TASK
+            - RESOLVE
+          type: array
+          title: Available Actions
+        primary_action:
+          anyOf:
+          - type: string
+            enum:
+            - CREATE_REPAIR_TASK
+            - RESOLVE
+          - type: 'null'
+          title: Primary Action
+      additionalProperties: false
+      type: object
+      required:
+      - id
+      - kind
+      - description
+      - status
+      - opened_at
+      - resolved_at
+      - resolution_outcome
+      - resolution_comment
+      - published_article_id
+      - content_title
+      - platform_profile_name
+      - actual_title
+      - final_url
+      - revision
+      - repair_task_id
+      - available_actions
+      - primary_action
+      title: PublishedContentIssueListItem
+    PublishedContentRepairContext:
+      properties:
+        issue:
+          $ref: '#/components/schemas/PublishedContentIssue'
+        article:
+          $ref: '#/components/schemas/PublishedArticle'
+        original_task:
+          $ref: '#/components/schemas/ContentTask'
+        product:
+          $ref: '#/components/schemas/Product'
         query_topic:
           anyOf:
-            - {$ref: '#/components/schemas/QueryTopic'}
-            - {type: 'null'}
-        platform_profile_id: {type: string, format: uuid}
-        platform_profile_name: {type: string}
-        original_fact_version: {$ref: '#/components/schemas/FactVersion'}
-        fact_candidates: {type: array, items: {$ref: '#/components/schemas/FactVersionCandidate'}}
-    PublicationRepairTaskCreate:
-      type: object
+          - $ref: '#/components/schemas/QueryTopic'
+          - type: 'null'
+        platform_profile_id:
+          type: string
+          format: uuid
+          title: Platform Profile Id
+        platform_profile_name:
+          type: string
+          title: Platform Profile Name
+        original_fact_version:
+          $ref: '#/components/schemas/FactVersion'
+        fact_candidates:
+          items:
+            $ref: '#/components/schemas/FactVersionCandidate'
+          type: array
+          title: Fact Candidates
       additionalProperties: false
-      required: [expected_attention_revision, fact_version_id]
-      properties:
-        expected_attention_revision: {type: integer, minimum: 0}
-        fact_version_id: {type: string, format: uuid}
-    ResolvePublicationAttentionRequest:
       type: object
-      additionalProperties: false
-      required: [expected_revision, resolution_comment]
+      required:
+      - issue
+      - article
+      - original_task
+      - product
+      - query_topic
+      - platform_profile_id
+      - platform_profile_name
+      - original_fact_version
+      - fact_candidates
+      title: PublishedContentRepairContext
+    FactVersionCandidate:
       properties:
-        expected_revision: {type: integer, minimum: 0}
-        resolution_comment: {type: string, minLength: 1}
+        version:
+          $ref: '#/components/schemas/FactVersion'
+        difference:
+          $ref: '#/components/schemas/VersionDifference'
+      additionalProperties: false
+      type: object
+      required:
+      - version
+      - difference
+      title: FactVersionCandidate
+    VersionDifference:
+      properties:
+        from_id:
+          type: string
+          format: uuid
+          title: From Id
+        to_id:
+          type: string
+          format: uuid
+          title: To Id
+        changes:
+          items:
+            $ref: '#/components/schemas/VersionChange'
+          type: array
+          title: Changes
+      additionalProperties: false
+      type: object
+      required:
+      - from_id
+      - to_id
+      - changes
+      title: VersionDifference
+    VersionChange:
+      properties:
+        field:
+          type: string
+          title: Field
+        before:
+          title: Before
+        after:
+          title: After
+      additionalProperties: false
+      type: object
+      required:
+      - field
+      - before
+      - after
+      title: VersionChange
+    PublishedContentRepairTaskCreate:
+      properties:
+        fact_version_id:
+          type: string
+          format: uuid
+          title: Fact Version Id
+        expected_issue_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Issue Revision
+      additionalProperties: false
+      type: object
+      required:
+      - fact_version_id
+      - expected_issue_revision
+      title: PublishedContentRepairTaskCreate
+    PublishedContentIssueResolveRequest:
+      properties:
+        outcome:
+          $ref: '#/components/schemas/PublishedContentIssueResolution'
+        comment:
+          type: string
+          minLength: 1
+          title: Comment
+        expected_revision:
+          type: integer
+          minimum: 0.0
+          title: Expected Revision
+      additionalProperties: false
+      type: object
+      required:
+      - outcome
+      - comment
+      - expected_revision
+      title: PublishedContentIssueResolveRequest
     RecommendationStatus: {type: string, enum: [NONE, CANDIDATE, RECOMMENDED]}
     AccuracyStatus: {type: string, enum: [ACCURATE, PARTIAL, INCORRECT, UNJUDGEABLE]}
     CitationSourceType: {type: string, enum: [OFFICIAL, EXTERNAL_COMPANY, OTHER]}
@@ -3777,13 +5284,13 @@ components:
       properties:
         url: {type: string, format: uri, minLength: 1, maxLength: 2083}
         source_type: {$ref: '#/components/schemas/CitationSourceType'}
-        publication_record_id: {type: [string, 'null'], format: uuid}
+        published_article_id: {type: [string, 'null'], format: uuid}
     GeoArticleResultCreate:
       type: object
       additionalProperties: false
-      required: [publication_record_id, discovered, mentioned, accuracy]
+      required: [published_article_id, discovered, mentioned, accuracy]
       properties:
-        publication_record_id: {type: string, format: uuid}
+        published_article_id: {type: string, format: uuid}
         discovered: {type: boolean}
         mentioned: {type: boolean}
         accuracy:
@@ -3793,9 +5300,9 @@ components:
     GeoArticleResult:
       type: object
       additionalProperties: false
-      required: [publication_record_id, discovered, mentioned, accuracy, title, platform_name, final_url]
+      required: [published_article_id, discovered, mentioned, accuracy, title, platform_name, final_url]
       properties:
-        publication_record_id: {type: string, format: uuid}
+        published_article_id: {type: string, format: uuid}
         discovered: {type: [boolean, 'null']}
         mentioned: {type: [boolean, 'null']}
         accuracy:
@@ -3808,13 +5315,13 @@ components:
     GeoPublicationCandidate:
       type: object
       additionalProperties: false
-      required: [publication_record_id, title, platform_name, final_url, status]
+      required: [published_article_id, title, platform_name, final_url, status]
       properties:
-        publication_record_id: {type: string, format: uuid}
+        published_article_id: {type: string, format: uuid}
         title: {type: string}
         platform_name: {type: string}
         final_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
-        status: {type: string, enum: [PUBLISHED, VERIFIED]}
+        status: {type: string, enum: [COMPLETED]}
     GeoPublicationCandidateList:
       type: object
       additionalProperties: false
@@ -3838,7 +5345,7 @@ components:
     LegacyGeoObservation:
       type: object
       additionalProperties: false
-      required: [observation_kind, id, query_topic_id, product_id, product_label, actual_prompt, model_name, tested_at, web_search_enabled, answer_summary, mentioned, recommendation, accuracy, citations, publication_record_ids, attachment_file_ids, notes, tested_by, recorder, is_current, available_actions, created_at]
+      required: [observation_kind, id, query_topic_id, product_id, product_label, actual_prompt, model_name, tested_at, web_search_enabled, answer_summary, mentioned, recommendation, accuracy, citations, published_article_ids, attachment_file_ids, notes, tested_by, recorder, is_current, available_actions, created_at]
       properties:
         observation_kind: {type: string, const: LEGACY_MODEL_RESULT}
         id: {type: string, format: uuid}
@@ -3855,7 +5362,7 @@ components:
         recommendation: {$ref: '#/components/schemas/RecommendationStatus'}
         accuracy: {$ref: '#/components/schemas/AccuracyStatus'}
         citations: {type: array, items: {$ref: '#/components/schemas/GeoCitation'}}
-        publication_record_ids: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
+        published_article_ids: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
         attachment_file_ids: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
         notes: {type: string}
         supersedes_id: {type: [string, 'null'], format: uuid}
@@ -4007,9 +5514,9 @@ components:
     GeoInsightContentPerformance:
       type: object
       additionalProperties: false
-      required: [publication_record_id, title, content_platform, observation_count, discovery_rate, mention_rate, accuracy_rate]
+      required: [published_article_id, title, content_platform, observation_count, discovery_rate, mention_rate, accuracy_rate]
       properties:
-        publication_record_id: {type: string, format: uuid}
+        published_article_id: {type: string, format: uuid}
         title: {type: string}
         content_platform: {type: string}
         observation_count: {type: integer, minimum: 0}
@@ -4088,7 +5595,7 @@ components:
     GeoInsightRecommendation:
       type: object
       additionalProperties: false
-      required: [rule_code, priority, title, basis_text, basis_values, impact_relationship_count, publication_record_ids, geo_platforms, query_topic_ids, detail_path]
+      required: [rule_code, priority, title, basis_text, basis_values, impact_relationship_count, published_article_ids, geo_platforms, query_topic_ids, detail_path]
       properties:
         rule_code: {type: string, enum: [CONTENT_LONG_UNMENTIONED, CONTENT_PERFORMANCE_DECLINE, GEO_PLATFORM_PERFORMANCE_DECLINE, CONTENT_NEVER_DISCOVERED, QUESTION_UNCOVERED, QUESTION_OCCASIONAL, QUESTION_INSUFFICIENT_DATA]}
         priority: {type: string, enum: [HIGH, MEDIUM, LOW]}
@@ -4096,7 +5603,7 @@ components:
         basis_text: {type: string}
         basis_values: {type: array, items: {$ref: '#/components/schemas/GeoInsightRecommendationBasis'}}
         impact_relationship_count: {type: integer, minimum: 0}
-        publication_record_ids: {type: array, items: {type: string, format: uuid}}
+        published_article_ids: {type: array, items: {type: string, format: uuid}}
         geo_platforms: {type: array, items: {type: string}}
         query_topic_ids: {type: array, items: {type: string, format: uuid}}
         detail_path: {type: [string, 'null']}
@@ -4134,12 +5641,12 @@ components:
     DashboardSummary:
       type: object
       additionalProperties: false
-      required: [pending_fact_reviews, pending_content_reviews, pending_publications, publication_attention, recent_accuracy_errors]
+      required: [pending_fact_reviews, pending_content_reviews, pending_publications, open_publication_issues, recent_accuracy_errors]
       properties:
         pending_fact_reviews: {type: integer, minimum: 0}
         pending_content_reviews: {type: integer, minimum: 0}
         pending_publications: {type: integer, minimum: 0}
-        publication_attention: {type: integer, minimum: 0}
+        open_publication_issues: {type: integer, minimum: 0}
         recent_accuracy_errors: {type: integer, minimum: 0}
     FileCategory: {type: string, enum: [EVIDENCE, OPERATION_SCREENSHOT, PUBLICATION_ASSET, PLATFORM_LOGO]}
     UploadIntentCreate:

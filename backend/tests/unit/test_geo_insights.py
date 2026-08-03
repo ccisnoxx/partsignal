@@ -18,7 +18,7 @@ from app.services.geo_observation import (
 def _insight_row(
     *,
     observation_id: uuid.UUID,
-    publication_record_id: uuid.UUID,
+    published_article_id: uuid.UUID,
     complete: bool,
     accuracy: str | None = None,
 ) -> _GeoInsightRow:
@@ -27,7 +27,7 @@ def _insight_row(
         tested_at=datetime(2026, 7, 20, tzinfo=UTC),
         query_topic_id=uuid.UUID("30000000-0000-4000-8000-000000000001"),
         geo_platform="DeepSeek",
-        publication_record_id=publication_record_id,
+        published_article_id=published_article_id,
         title="测试内容",
         published_at=datetime(2026, 6, 1, tzinfo=UTC),
         content_platform_id=uuid.UUID("10000000-0000-4000-8000-000000000001"),
@@ -45,19 +45,19 @@ def test_content_filter_still_excludes_an_observation_with_an_incomplete_relatio
     rows = [
         _insight_row(
             observation_id=observation_id,
-            publication_record_id=selected_publication_id,
+            published_article_id=selected_publication_id,
             complete=True,
         ),
         _insight_row(
             observation_id=observation_id,
-            publication_record_id=uuid.uuid4(),
+            published_article_id=uuid.uuid4(),
             complete=False,
         ),
     ]
 
     scoped, excluded_observations, excluded_relations = _complete_geo_insight_scope(
         rows,
-        GeoInsightFilters(publication_record_id=selected_publication_id),
+        GeoInsightFilters(published_article_id=selected_publication_id),
     )
 
     assert scoped == []
@@ -71,7 +71,7 @@ def test_unknown_accuracy_does_not_create_a_false_decline() -> None:
     current = [
         _insight_row(
             observation_id=uuid.uuid4(),
-            publication_record_id=publication_id,
+            published_article_id=publication_id,
             complete=True,
         )
         for _ in range(3)
@@ -79,7 +79,7 @@ def test_unknown_accuracy_does_not_create_a_false_decline() -> None:
     previous = [
         _insight_row(
             observation_id=uuid.uuid4(),
-            publication_record_id=publication_id,
+            published_article_id=publication_id,
             complete=True,
             accuracy="ACCURATE",
         )
@@ -119,7 +119,7 @@ def test_best_content_does_not_rank_unknown_accuracy_as_zero() -> None:
         *[
             _insight_row(
                 observation_id=uuid.uuid4(),
-                publication_record_id=unknown_id,
+                published_article_id=unknown_id,
                 complete=True,
             )
             for _ in range(3)
@@ -127,7 +127,7 @@ def test_best_content_does_not_rank_unknown_accuracy_as_zero() -> None:
         *[
             _insight_row(
                 observation_id=uuid.uuid4(),
-                publication_record_id=judged_id,
+                published_article_id=judged_id,
                 complete=True,
                 accuracy="INCORRECT",
             )
@@ -145,4 +145,4 @@ def test_best_content_does_not_rank_unknown_accuracy_as_zero() -> None:
         unavailable=[],
     )
 
-    assert [item.publication_record_id for item in rankings.best] == [judged_id, unknown_id]
+    assert [item.published_article_id for item in rankings.best] == [judged_id, unknown_id]

@@ -36,7 +36,7 @@ const recommendations = Array.from({ length: 6 }, (_, index) => ({
   basis_text: '当前只有 2 次完整观测。',
   basis_values: [{ metric: 'observation_count', value: 2, threshold: 3, unit: 'COUNT' }],
   impact_relationship_count: 2,
-  publication_record_ids: [],
+  published_article_ids: [],
   geo_platforms: ['DeepSeek'],
   query_topic_ids: [topicId],
   detail_path: null,
@@ -66,11 +66,11 @@ const insights = {
   }],
   content_rankings: {
     best: [{
-      publication_record_id: publicationId, title: longPublicationTitle, content_platform: longPlatformName, observation_count: 3,
+      published_article_id: publicationId, title: longPublicationTitle, content_platform: longPlatformName, observation_count: 3,
       discovery_rate: rateTrend.current, mention_rate: rateTrend.current, accuracy_rate: rateTrend.current,
     }],
     declining: [{
-      publication_record_id: decliningPublicationId, title: 'PS-001 表现下降文章', content_platform: '工程师社区', observation_count: 3,
+      published_article_id: decliningPublicationId, title: 'PS-001 表现下降文章', content_platform: '工程师社区', observation_count: 3,
       discovery_rate: rateTrend.current, mention_rate: rateTrend.current, accuracy_rate: rateTrend.previous,
       basis: [{ metric: 'accuracy_rate', current_value: 0.25, previous_value: 0.5, decline: 0.25 }],
     }],
@@ -140,12 +140,12 @@ test('从 URL 恢复全部筛选，筛选请求和重置继续使用同一查询
     }
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
-  renderPage(`/observations/insights?date_from=2026-07-20&date_to=2026-07-21&content_platform_id=${contentPlatformId}&geo_platform=DeepSeek&publication_record_id=${publicationId}&query_topic_id=${topicId}&filters_collapsed=true`);
+  renderPage(`/observations/insights?date_from=2026-07-20&date_to=2026-07-21&content_platform_id=${contentPlatformId}&geo_platform=DeepSeek&published_article_id=${publicationId}&query_topic_id=${topicId}&filters_collapsed=true`);
 
   expect(await screen.findByText('平台表现对比')).toBeInTheDocument();
   expect(requests[0]?.get('content_platform_id')).toBe(contentPlatformId);
   expect(requests[0]?.get('geo_platform')).toBe('DeepSeek');
-  expect(requests[0]?.get('publication_record_id')).toBe(publicationId);
+  expect(requests[0]?.get('published_article_id')).toBe(publicationId);
   expect(requests[0]?.get('query_topic_id')).toBe(topicId);
   expect(requests[0]?.has('filters_collapsed')).toBe(false);
 
@@ -160,7 +160,7 @@ test('从 URL 恢复全部筛选，筛选请求和重置继续使用同一查询
   const printUrl = new URL(printLink.getAttribute('href')!, 'http://example.test');
   expect(printUrl.pathname).toBe('/observations/insights/print');
   expect(printUrl.searchParams.get('geo_platform')).toBe('Gemini');
-  expect(printUrl.searchParams.get('publication_record_id')).toBe(publicationId);
+  expect(printUrl.searchParams.get('published_article_id')).toBe(publicationId);
 
   await user.click(screen.getByRole('button', { name: '重置' }));
   await waitFor(() => {
@@ -168,7 +168,7 @@ test('从 URL 恢复全部筛选，筛选请求和重置继续使用同一查询
     expect(params.get('date_from')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(params.get('date_to')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(params.has('geo_platform')).toBe(false);
-    expect(params.has('publication_record_id')).toBe(false);
+    expect(params.has('published_article_id')).toBe(false);
     expect(params.has('filters_collapsed')).toBe(false);
   });
   expect(screen.getAllByText('全部平台')).toHaveLength(2);

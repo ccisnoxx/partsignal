@@ -1150,14 +1150,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/publication-candidates": {
+    "/api/v1/publication-ready-items": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["listPublicationCandidates"];
+        /** List Publication Ready Items */
+        get: operations["listPublicationReadyItems"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1173,6 +1174,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** Get Publication Workbench Summary */
         get: operations["getPublicationWorkbenchSummary"];
         put?: never;
         post?: never;
@@ -1246,7 +1248,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/publication-records/manual": {
+    "/api/v1/publication-works": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Publication Works */
+        get: operations["listPublicationWorks"];
+        put?: never;
+        /** Create Work */
+        post: operations["createPublicationWork"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/publication-works/{work_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Publication Work */
+        get: operations["getPublicationWork"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/publication-works/{work_id}/preparation": {
         parameters: {
             query?: never;
             header?: never;
@@ -1255,46 +1292,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["createManualPublication"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/publication-records": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["listPublicationRecords"];
-        put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Update Preparation */
+        patch: operations["updatePublicationPreparation"];
         trace?: never;
     };
-    "/api/v1/publication-records/{publication_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getPublicationRecord"];
-        put?: never;
-        post?: never;
-        delete: operations["deletePublicationRecord"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/publication-records/{publication_id}/{command}": {
+    "/api/v1/publication-works/{work_id}/platform-review": {
         parameters: {
             query?: never;
             header?: never;
@@ -1303,22 +1309,24 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["commandPublicationRecord"];
+        /** Mark Platform Review */
+        post: operations["markPublicationPlatformReview"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/publication-attentions": {
+    "/api/v1/publication-works/{work_id}/result": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["listPublicationAttentions"];
-        put?: never;
+        get?: never;
+        /** Register Result */
+        put: operations["registerPublicationResult"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1326,39 +1334,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/publication-attentions/{attention_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getPublicationAttention"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/publication-attentions/{attention_id}/repair-context": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getPublicationRepairContext"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/publication-attentions/{attention_id}/repair-task": {
+    "/api/v1/publication-works/{work_id}/verifications": {
         parameters: {
             query?: never;
             header?: never;
@@ -1367,14 +1343,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["createPublicationRepairTask"];
+        /** Verify Work */
+        post: operations["verifyPublicationWork"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/v1/publication-attentions/{attention_id}/resolve": {
+    "/api/v1/publication-works/{work_id}/close": {
         parameters: {
             query?: never;
             header?: never;
@@ -1383,7 +1360,144 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post: operations["resolvePublicationAttention"];
+        /** Close Work */
+        post: operations["closePublicationWork"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/published-articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Published Articles */
+        get: operations["listPublishedArticles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/published-articles/{article_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Published Article */
+        get: operations["getPublishedArticle"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/published-articles/{article_id}/issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open Content Issue */
+        post: operations["openPublishedContentIssue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/published-content-issues": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Published Content Issues */
+        get: operations["listPublishedContentIssues"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/published-content-issues/{issue_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Published Content Issue */
+        get: operations["getPublishedContentIssue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/published-content-issues/{issue_id}/repair-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Repair Context */
+        get: operations["getPublishedContentRepairContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/published-content-issues/{issue_id}/repair-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Published Content Repair Task */
+        post: operations["createPublishedContentRepairTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/published-content-issues/{issue_id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resolve Content Issue */
+        post: operations["resolvePublishedContentIssue"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2258,7 +2372,7 @@ export interface components {
             /** Format: uuid */
             query_topic_id: string | null;
             /** Format: uuid */
-            source_publication_attention_id: string | null;
+            source_published_content_issue_id: string | null;
             available_actions: ("CANCEL" | "DELETE" | "CREATE_GENERATION_JOB" | "CREATE_MANUAL_VERSION")[];
             status: components["schemas"]["ContentTaskStatus"];
             revision: number;
@@ -2656,263 +2770,742 @@ export interface components {
         PlatformAccountList: {
             items: components["schemas"]["PlatformAccount"][];
         };
-        ManualPublicationCreate: {
-            /** Format: uuid */
-            content_version_id: string;
-            /** Format: uuid */
-            platform_account_id: string;
-            /** Format: uri */
-            section_url: string;
-            /** @description 候选创建阶段关联的文件，必须全部为 VERIFIED OPERATION_SCREENSHOT。 */
-            attachment_file_ids?: string[];
+        /** PublicationReadyItemList */
+        PublicationReadyItemList: {
+            /** Items */
+            items: components["schemas"]["PublicationReadyItem"][];
         };
-        /** @enum {string} */
-        PublicationStatus: "PENDING_MANUAL_PUBLISH" | "PLATFORM_REVIEW" | "PUBLISHED" | "VERIFIED" | "REJECTED" | "REMOVED" | "VERIFICATION_FAILED";
-        PublicationCommand: {
-            actual_title?: string | null;
-            /** Format: uri */
-            final_url?: string | null;
-            /** Format: date-time */
-            published_at?: string | null;
-            content_matches?: boolean | null;
-            comment: string;
-            /** @description 仅 mark-published 接受；文件必须全部为 VERIFIED OPERATION_SCREENSHOT。 */
-            attachment_file_ids?: string[];
-        };
-        /** @enum {string} */
-        PublicationAction: "mark-platform-review" | "mark-published" | "verify" | "reject" | "remove" | "mark-verification-failed" | "delete";
-        PublicationRecord: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            content_version_id: string;
-            /** Format: uuid */
-            task_id: string;
-            content_title: string;
-            content_version: number;
-            /** Format: uuid */
-            platform_profile_id: string;
-            platform_profile_name: string;
-            /** Format: uuid */
-            platform_account_id: string;
-            platform_account_label: string;
-            account_identifier: string;
-            /** Format: uri */
-            section_url: string;
-            actual_title?: string | null;
-            /** Format: uri */
-            final_url?: string | null;
-            /** Format: date-time */
-            published_at?: string | null;
-            status: components["schemas"]["PublicationStatus"];
-            content_hash: string;
-            /** Format: uuid */
-            created_by: string;
-            /** Format: date-time */
-            created_at: string;
-            status_events: components["schemas"]["PublicationEvent"][];
-            attachments: components["schemas"]["FileRecord"][];
-            available_actions: components["schemas"]["PublicationAction"][];
-        };
-        PublicationRecordListItem: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            task_id: string;
-            /** Format: uuid */
-            content_version_id: string;
-            content_title: string;
-            content_version: number;
-            /** Format: uuid */
-            platform_profile_id: string;
-            platform_profile_name: string;
-            /** Format: uuid */
-            platform_account_id: string;
-            platform_account_label: string;
-            account_identifier: string;
-            status: components["schemas"]["PublicationStatus"];
-            actual_title: string | null;
-            /** Format: uri */
-            final_url: string | null;
-            /** Format: date-time */
-            published_at: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            last_verification_at: string | null;
-            available_actions: components["schemas"]["PublicationAction"][];
-        };
-        PublicationRecordList: {
-            items: components["schemas"]["PublicationRecordListItem"][];
-            page: number;
-            page_size: number;
-            total: number;
-        };
-        PublicationEvent: {
-            status: components["schemas"]["PublicationStatus"];
-            comment: string;
-            /** Format: uuid */
-            actor_id: string;
-            /** Format: date-time */
-            created_at: string;
-        };
-        PublicationCandidate: {
+        /** PublicationReadyItem */
+        PublicationReadyItem: {
             content_version: components["schemas"]["ContentVersion"];
-            /** Format: uuid */
+            /**
+             * Task Id
+             * Format: uuid
+             */
             task_id: string;
-            /** Format: uuid */
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
             platform_profile_id: string;
+            /** Platform Profile Name */
             platform_profile_name: string;
+            /** Matching Accounts */
             matching_accounts: components["schemas"]["PlatformAccount"][];
-            available_actions: "REGISTER"[];
+            /** Available Actions */
+            available_actions: "START"[];
+            /** Primary Action */
+            primary_action: "START" | null;
         };
-        PublicationCandidateList: {
-            items: components["schemas"]["PublicationCandidate"][];
-        };
-        /** @enum {string} */
-        PublicationAttentionStatus: "OPEN" | "RESOLVED";
-        /** @enum {string} */
-        PublicationAttentionAction: "CREATE_REPAIR_TASK" | "RESOLVE";
-        PublicationAttention: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            publication_record_id: string;
-            /** Format: uuid */
-            original_task_id: string;
-            /** @enum {string} */
-            trigger_status: "REMOVED" | "VERIFICATION_FAILED";
-            status: components["schemas"]["PublicationAttentionStatus"];
-            revision: number;
-            /** Format: date-time */
-            opened_at: string;
-            /** Format: date-time */
-            resolved_at: string | null;
-            /** Format: uuid */
-            resolved_by: string | null;
-            resolution_comment: string | null;
-            /** Format: uuid */
-            repair_task_id: string | null;
-            available_actions: components["schemas"]["PublicationAttentionAction"][];
-        };
-        PublicationAttentionList: {
-            items: components["schemas"]["PublicationAttentionListItem"][];
-        };
-        PublicationAttentionListItem: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            publication_record_id: string;
-            /** Format: uuid */
-            original_task_id: string;
-            content_title: string;
-            content_version: number;
-            /** Format: uuid */
-            platform_profile_id: string;
-            platform_profile_name: string;
-            platform_account_label: string;
-            /** Format: uri */
-            final_url: string | null;
-            /** @enum {string} */
-            trigger_status: "REMOVED" | "VERIFICATION_FAILED";
-            status: components["schemas"]["PublicationAttentionStatus"];
-            revision: number;
-            /** Format: date-time */
-            opened_at: string;
-            /** Format: date-time */
-            resolved_at: string | null;
-            /** Format: uuid */
-            resolved_by: string | null;
-            resolution_comment: string | null;
-            /** Format: uuid */
-            repair_task_id: string | null;
-            available_actions: components["schemas"]["PublicationAttentionAction"][];
-        };
-        PublicationStatusCounts: {
-            PENDING_MANUAL_PUBLISH: number;
-            PLATFORM_REVIEW: number;
-            PUBLISHED: number;
-            VERIFIED: number;
-            REJECTED: number;
-            REMOVED: number;
-            VERIFICATION_FAILED: number;
-        };
-        PublicationPeriodMetrics: {
-            registered_published_count: number;
-            verified_count: number;
-            verification_rate: number | null;
-            new_exception_count: number;
-            current_unresolved_attention_count: number;
-        };
-        PublicationExceptionCounts: {
-            rejected: number;
-            removed_open: number;
-            verification_failed_open: number;
-        };
-        PublicationRecentActivity: {
-            /** Format: uuid */
-            publication_id: string;
-            content_title: string;
-            content_version: number;
-            platform_profile_name: string;
-            status: components["schemas"]["PublicationStatus"];
-            /** Format: date-time */
-            occurred_at: string;
-        };
+        /** PublicationWorkbenchSummary */
         PublicationWorkbenchSummary: {
-            /** Format: date-time */
-            as_of: string;
-            /** Format: date-time */
-            window_start: string;
-            /** @enum {integer} */
-            window_days: 7 | 30;
-            current_status_counts: components["schemas"]["PublicationStatusCounts"];
-            open_attention_count: number;
-            period: components["schemas"]["PublicationPeriodMetrics"];
-            exception_counts: components["schemas"]["PublicationExceptionCounts"];
-            recent_activity: components["schemas"]["PublicationRecentActivity"][];
+            /** Ready Count */
+            ready_count: number;
+            /** Active Count */
+            active_count: number;
+            /** Awaiting Verification Count */
+            awaiting_verification_count: number;
+            /** Action Required Count */
+            action_required_count: number;
+            /** Open Issue Count */
+            open_issue_count: number;
+        };
+        /** PublicationWorkCreate */
+        PublicationWorkCreate: {
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /**
+             * Platform Account Id
+             * Format: uuid
+             */
+            platform_account_id: string;
+            /**
+             * Section Url
+             * Format: uri
+             */
+            section_url: string;
+        };
+        /** PublicationWorkOut */
+        PublicationWork: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /** Content Title */
+            content_title: string;
+            /** Content Version */
+            content_version: number;
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
+            platform_profile_id: string;
+            /** Platform Profile Name */
+            platform_profile_name: string;
+            /**
+             * Platform Account Id
+             * Format: uuid
+             */
+            platform_account_id: string;
+            /** Platform Account Label */
+            platform_account_label: string;
+            /** Account Identifier */
+            account_identifier: string;
+            /**
+             * Section Url
+             * Format: uri
+             */
+            section_url: string;
+            /** Actual Title */
+            actual_title: string | null;
+            /** Final Url */
+            final_url: string | null;
+            /** Published At */
+            published_at: string | null;
+            status: components["schemas"]["PublicationWorkStatus"];
+            /** Revision */
+            revision: number;
+            close_reason: components["schemas"]["PublicationCloseReason"] | null;
+            /** Close Comment */
+            close_comment: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            latest_verification_outcome: components["schemas"]["PublicationVerificationOutcome"] | null;
+            /** Latest Verification At */
+            latest_verification_at: string | null;
+            /** Available Actions */
+            available_actions: ("UPDATE_PREPARATION" | "MARK_PLATFORM_REVIEW" | "REGISTER_RESULT" | "VERIFY" | "CLOSE")[];
+            /** Primary Action */
+            primary_action: ("UPDATE_PREPARATION" | "MARK_PLATFORM_REVIEW" | "REGISTER_RESULT" | "VERIFY" | "CLOSE") | null;
+            /** Content Hash */
+            content_hash: string;
+            /** Closed By */
+            closed_by: string | null;
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /** Events */
+            events: components["schemas"]["PublicationWorkEvent"][];
+            /** Verifications */
+            verifications: components["schemas"]["PublicationVerification"][];
+            /** Attachments */
+            attachments: components["schemas"]["FileRecord"][];
         };
         /**
-         * @description 发布工作台允许的滚动统计周期。
-         * @enum {integer}
+         * PublicationWorkStatus
+         * @enum {string}
          */
-        PublicationWindowDays: 7 | 30;
-        VersionChange: {
-            field: string;
-            before: unknown;
-            after: unknown;
+        PublicationWorkStatus: "PREPARING" | "PLATFORM_REVIEW" | "AWAITING_VERIFICATION" | "ACTION_REQUIRED" | "COMPLETED" | "CLOSED";
+        /**
+         * PublicationCloseReason
+         * @enum {string}
+         */
+        PublicationCloseReason: "PLATFORM_REJECTED" | "BUSINESS_CANCELLED" | "OTHER";
+        /**
+         * PublicationVerificationOutcome
+         * @enum {string}
+         */
+        PublicationVerificationOutcome: "PASSED" | "FAILED";
+        /** PublicationWorkEventOut */
+        PublicationWorkEvent: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "CREATED" | "PREPARATION_UPDATED" | "PLATFORM_REVIEW_MARKED" | "RESULT_REGISTERED" | "VERIFICATION_FAILED" | "COMPLETED" | "CLOSED";
+            from_status: components["schemas"]["PublicationWorkStatus"] | null;
+            to_status: components["schemas"]["PublicationWorkStatus"];
+            /** Comment */
+            comment: string;
+            /**
+             * Actor Id
+             * Format: uuid
+             */
+            actor_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
-        VersionDifference: {
-            /** Format: uuid */
-            from_id: string;
-            /** Format: uuid */
-            to_id: string;
-            changes: components["schemas"]["VersionChange"][];
+        /** PublicationVerificationOut */
+        PublicationVerification: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            outcome: components["schemas"]["PublicationVerificationOutcome"];
+            /** Actual Title Snapshot */
+            actual_title_snapshot: string;
+            /**
+             * Final Url Snapshot
+             * Format: uri
+             */
+            final_url_snapshot: string;
+            /**
+             * Published At Snapshot
+             * Format: date-time
+             */
+            published_at_snapshot: string;
+            /** Comment */
+            comment: string;
+            /**
+             * Actor Id
+             * Format: uuid
+             */
+            actor_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
+        /** PublicationWorkList */
+        PublicationWorkList: {
+            /** Items */
+            items: components["schemas"]["PublicationWorkListItem"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** PublicationWorkListItem */
+        PublicationWorkListItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /** Content Title */
+            content_title: string;
+            /** Content Version */
+            content_version: number;
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
+            platform_profile_id: string;
+            /** Platform Profile Name */
+            platform_profile_name: string;
+            /**
+             * Platform Account Id
+             * Format: uuid
+             */
+            platform_account_id: string;
+            /** Platform Account Label */
+            platform_account_label: string;
+            /** Account Identifier */
+            account_identifier: string;
+            /**
+             * Section Url
+             * Format: uri
+             */
+            section_url: string;
+            /** Actual Title */
+            actual_title: string | null;
+            /** Final Url */
+            final_url: string | null;
+            /** Published At */
+            published_at: string | null;
+            status: components["schemas"]["PublicationWorkStatus"];
+            /** Revision */
+            revision: number;
+            close_reason: components["schemas"]["PublicationCloseReason"] | null;
+            /** Close Comment */
+            close_comment: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            latest_verification_outcome: components["schemas"]["PublicationVerificationOutcome"] | null;
+            /** Latest Verification At */
+            latest_verification_at: string | null;
+            /** Available Actions */
+            available_actions: ("UPDATE_PREPARATION" | "MARK_PLATFORM_REVIEW" | "REGISTER_RESULT" | "VERIFY" | "CLOSE")[];
+            /** Primary Action */
+            primary_action: ("UPDATE_PREPARATION" | "MARK_PLATFORM_REVIEW" | "REGISTER_RESULT" | "VERIFY" | "CLOSE") | null;
+        };
+        /** PublicationPreparationUpdate */
+        PublicationPreparationUpdate: {
+            /**
+             * Platform Account Id
+             * Format: uuid
+             */
+            platform_account_id: string;
+            /**
+             * Section Url
+             * Format: uri
+             */
+            section_url: string;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Comment */
+            comment: string;
+        };
+        /** PublicationPlatformReviewRequest */
+        PublicationPlatformReviewRequest: {
+            /** Expected Revision */
+            expected_revision: number;
+            /** Comment */
+            comment: string;
+        };
+        /** PublicationResultUpdate */
+        PublicationResultUpdate: {
+            /** Actual Title */
+            actual_title: string;
+            /**
+             * Final Url
+             * Format: uri
+             */
+            final_url: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /** Expected Revision */
+            expected_revision: number;
+            /** Comment */
+            comment: string;
+            /** Attachment File Ids */
+            attachment_file_ids?: string[];
+        };
+        /** PublicationVerificationCreate */
+        PublicationVerificationCreate: {
+            outcome: components["schemas"]["PublicationVerificationOutcome"];
+            /** Content Matches */
+            content_matches: boolean;
+            /** Expected Revision */
+            expected_revision: number;
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+        };
+        /** PublicationWorkCloseRequest */
+        PublicationWorkCloseRequest: {
+            reason: components["schemas"]["PublicationCloseReason"];
+            /** Comment */
+            comment: string;
+            /** Expected Revision */
+            expected_revision: number;
+        };
+        /** PublishedArticleList */
+        PublishedArticleList: {
+            /** Items */
+            items: components["schemas"]["PublishedArticleListItem"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** PublishedArticleListItem */
+        PublishedArticleListItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /** Content Title */
+            content_title: string;
+            /** Content Version */
+            content_version: number;
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
+            platform_profile_id: string;
+            /** Platform Profile Name */
+            platform_profile_name: string;
+            /**
+             * Platform Account Id
+             * Format: uuid
+             */
+            platform_account_id: string;
+            /** Platform Account Label */
+            platform_account_label: string;
+            /** Account Identifier */
+            account_identifier: string;
+            /** Actual Title */
+            actual_title: string;
+            /**
+             * Final Url
+             * Format: uri
+             */
+            final_url: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /**
+             * Verified At
+             * Format: date-time
+             */
+            verified_at: string;
+            /** Has Open Issue */
+            has_open_issue: boolean;
+            /** Retired */
+            retired: boolean;
+            /** Available Actions */
+            available_actions: "OPEN_ISSUE"[];
+            /** Primary Action */
+            primary_action: "OPEN_ISSUE" | null;
+        };
+        /** PublishedArticleOut */
+        PublishedArticle: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /**
+             * Content Version Id
+             * Format: uuid
+             */
+            content_version_id: string;
+            /** Content Title */
+            content_title: string;
+            /** Content Version */
+            content_version: number;
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
+            platform_profile_id: string;
+            /** Platform Profile Name */
+            platform_profile_name: string;
+            /**
+             * Platform Account Id
+             * Format: uuid
+             */
+            platform_account_id: string;
+            /** Platform Account Label */
+            platform_account_label: string;
+            /** Account Identifier */
+            account_identifier: string;
+            /** Actual Title */
+            actual_title: string;
+            /**
+             * Final Url
+             * Format: uri
+             */
+            final_url: string;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
+            /**
+             * Verified At
+             * Format: date-time
+             */
+            verified_at: string;
+            /** Has Open Issue */
+            has_open_issue: boolean;
+            /** Retired */
+            retired: boolean;
+            /** Available Actions */
+            available_actions: "OPEN_ISSUE"[];
+            /** Primary Action */
+            primary_action: "OPEN_ISSUE" | null;
+            /**
+             * Section Url
+             * Format: uri
+             */
+            section_url: string;
+            /** Content Hash */
+            content_hash: string;
+            verification: components["schemas"]["PublicationVerification"];
+            /** Issues */
+            issues: components["schemas"]["PublishedContentIssueHistoryItem"][];
+        };
+        /** PublishedContentIssueHistoryItem */
+        PublishedContentIssueHistoryItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["PublishedContentIssueKind"];
+            /** Description */
+            description: string;
+            status: components["schemas"]["PublishedContentIssueStatus"];
+            /**
+             * Opened At
+             * Format: date-time
+             */
+            opened_at: string;
+            /** Resolved At */
+            resolved_at: string | null;
+            resolution_outcome: components["schemas"]["PublishedContentIssueResolution"] | null;
+            /** Resolution Comment */
+            resolution_comment: string | null;
+        };
+        /**
+         * PublishedContentIssueKind
+         * @enum {string}
+         */
+        PublishedContentIssueKind: "PAGE_UNAVAILABLE" | "CONTENT_CHANGED" | "OTHER";
+        /**
+         * PublishedContentIssueStatus
+         * @enum {string}
+         */
+        PublishedContentIssueStatus: "OPEN" | "RESOLVED";
+        /**
+         * PublishedContentIssueResolution
+         * @enum {string}
+         */
+        PublishedContentIssueResolution: "RESTORED" | "RETIRED";
+        /** PublishedContentIssueCreate */
+        PublishedContentIssueCreate: {
+            kind: components["schemas"]["PublishedContentIssueKind"];
+            /** Description */
+            description: string;
+        };
+        /** PublishedContentIssueOut */
+        PublishedContentIssue: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["PublishedContentIssueKind"];
+            /** Description */
+            description: string;
+            status: components["schemas"]["PublishedContentIssueStatus"];
+            /**
+             * Opened At
+             * Format: date-time
+             */
+            opened_at: string;
+            /** Resolved At */
+            resolved_at: string | null;
+            resolution_outcome: components["schemas"]["PublishedContentIssueResolution"] | null;
+            /** Resolution Comment */
+            resolution_comment: string | null;
+            /**
+             * Published Article Id
+             * Format: uuid
+             */
+            published_article_id: string;
+            /** Content Title */
+            content_title: string;
+            /** Platform Profile Name */
+            platform_profile_name: string;
+            /** Actual Title */
+            actual_title: string;
+            /**
+             * Final Url
+             * Format: uri
+             */
+            final_url: string;
+            /** Revision */
+            revision: number;
+            /** Repair Task Id */
+            repair_task_id: string | null;
+            /** Available Actions */
+            available_actions: ("CREATE_REPAIR_TASK" | "RESOLVE")[];
+            /** Primary Action */
+            primary_action: ("CREATE_REPAIR_TASK" | "RESOLVE") | null;
+            /**
+             * Opened By
+             * Format: uuid
+             */
+            opened_by: string;
+            /** Resolved By */
+            resolved_by: string | null;
+            article: components["schemas"]["PublishedArticleListItem"];
+        };
+        /** PublishedContentIssueList */
+        PublishedContentIssueList: {
+            /** Items */
+            items: components["schemas"]["PublishedContentIssueListItem"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** PublishedContentIssueListItem */
+        PublishedContentIssueListItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["PublishedContentIssueKind"];
+            /** Description */
+            description: string;
+            status: components["schemas"]["PublishedContentIssueStatus"];
+            /**
+             * Opened At
+             * Format: date-time
+             */
+            opened_at: string;
+            /** Resolved At */
+            resolved_at: string | null;
+            resolution_outcome: components["schemas"]["PublishedContentIssueResolution"] | null;
+            /** Resolution Comment */
+            resolution_comment: string | null;
+            /**
+             * Published Article Id
+             * Format: uuid
+             */
+            published_article_id: string;
+            /** Content Title */
+            content_title: string;
+            /** Platform Profile Name */
+            platform_profile_name: string;
+            /** Actual Title */
+            actual_title: string;
+            /**
+             * Final Url
+             * Format: uri
+             */
+            final_url: string;
+            /** Revision */
+            revision: number;
+            /** Repair Task Id */
+            repair_task_id: string | null;
+            /** Available Actions */
+            available_actions: ("CREATE_REPAIR_TASK" | "RESOLVE")[];
+            /** Primary Action */
+            primary_action: ("CREATE_REPAIR_TASK" | "RESOLVE") | null;
+        };
+        /** PublishedContentRepairContext */
+        PublishedContentRepairContext: {
+            issue: components["schemas"]["PublishedContentIssue"];
+            article: components["schemas"]["PublishedArticle"];
+            original_task: components["schemas"]["ContentTask"];
+            product: components["schemas"]["Product"];
+            query_topic: components["schemas"]["QueryTopic"] | null;
+            /**
+             * Platform Profile Id
+             * Format: uuid
+             */
+            platform_profile_id: string;
+            /** Platform Profile Name */
+            platform_profile_name: string;
+            original_fact_version: components["schemas"]["FactVersion"];
+            /** Fact Candidates */
+            fact_candidates: components["schemas"]["FactVersionCandidate"][];
+        };
+        /** FactVersionCandidate */
         FactVersionCandidate: {
             version: components["schemas"]["FactVersion"];
             difference: components["schemas"]["VersionDifference"];
         };
-        PublicationRepairContext: {
-            attention: components["schemas"]["PublicationAttention"];
-            publication: components["schemas"]["PublicationRecord"];
-            original_task: components["schemas"]["ContentTask"];
-            product: components["schemas"]["Product"];
-            query_topic: components["schemas"]["QueryTopic"] | null;
-            /** Format: uuid */
-            platform_profile_id: string;
-            platform_profile_name: string;
-            original_fact_version: components["schemas"]["FactVersion"];
-            fact_candidates: components["schemas"]["FactVersionCandidate"][];
+        /** VersionDifference */
+        VersionDifference: {
+            /**
+             * From Id
+             * Format: uuid
+             */
+            from_id: string;
+            /**
+             * To Id
+             * Format: uuid
+             */
+            to_id: string;
+            /** Changes */
+            changes: components["schemas"]["VersionChange"][];
         };
-        PublicationRepairTaskCreate: {
-            expected_attention_revision: number;
-            /** Format: uuid */
+        /** VersionChange */
+        VersionChange: {
+            /** Field */
+            field: string;
+            /** Before */
+            before: unknown;
+            /** After */
+            after: unknown;
+        };
+        /** PublishedContentRepairTaskCreate */
+        PublishedContentRepairTaskCreate: {
+            /**
+             * Fact Version Id
+             * Format: uuid
+             */
             fact_version_id: string;
+            /** Expected Issue Revision */
+            expected_issue_revision: number;
         };
-        ResolvePublicationAttentionRequest: {
+        /** PublishedContentIssueResolveRequest */
+        PublishedContentIssueResolveRequest: {
+            outcome: components["schemas"]["PublishedContentIssueResolution"];
+            /** Comment */
+            comment: string;
+            /** Expected Revision */
             expected_revision: number;
-            resolution_comment: string;
         };
         /** @enum {string} */
         RecommendationStatus: "NONE" | "CANDIDATE" | "RECOMMENDED";
@@ -2925,18 +3518,18 @@ export interface components {
             url: string;
             source_type: components["schemas"]["CitationSourceType"];
             /** Format: uuid */
-            publication_record_id?: string | null;
+            published_article_id?: string | null;
         };
         GeoArticleResultCreate: {
             /** Format: uuid */
-            publication_record_id: string;
+            published_article_id: string;
             discovered: boolean;
             mentioned: boolean;
             accuracy: components["schemas"]["AccuracyStatus"] | null;
         };
         GeoArticleResult: {
             /** Format: uuid */
-            publication_record_id: string;
+            published_article_id: string;
             discovered: boolean | null;
             mentioned: boolean | null;
             accuracy: components["schemas"]["AccuracyStatus"] | null;
@@ -2947,13 +3540,13 @@ export interface components {
         };
         GeoPublicationCandidate: {
             /** Format: uuid */
-            publication_record_id: string;
+            published_article_id: string;
             title: string;
             platform_name: string;
             /** Format: uri */
             final_url: string;
             /** @enum {string} */
-            status: "PUBLISHED" | "VERIFIED";
+            status: "COMPLETED";
         };
         GeoPublicationCandidateList: {
             items: components["schemas"]["GeoPublicationCandidate"][];
@@ -2997,7 +3590,7 @@ export interface components {
             recommendation: components["schemas"]["RecommendationStatus"];
             accuracy: components["schemas"]["AccuracyStatus"];
             citations: components["schemas"]["GeoCitation"][];
-            publication_record_ids: string[];
+            published_article_ids: string[];
             attachment_file_ids: string[];
             notes: string;
             /** Format: uuid */
@@ -3114,7 +3707,7 @@ export interface components {
         };
         GeoInsightContentPerformance: {
             /** Format: uuid */
-            publication_record_id: string;
+            published_article_id: string;
             title: string;
             content_platform: string;
             observation_count: number;
@@ -3180,7 +3773,7 @@ export interface components {
             basis_text: string;
             basis_values: components["schemas"]["GeoInsightRecommendationBasis"][];
             impact_relationship_count: number;
-            publication_record_ids: string[];
+            published_article_ids: string[];
             geo_platforms: string[];
             query_topic_ids: string[];
             detail_path: string | null;
@@ -3217,7 +3810,7 @@ export interface components {
             pending_fact_reviews: number;
             pending_content_reviews: number;
             pending_publications: number;
-            publication_attention: number;
+            open_publication_issues: number;
             recent_accuracy_errors: number;
         };
         /** @enum {string} */
@@ -3316,8 +3909,6 @@ export interface components {
         ContentTaskId: string;
         GenerationJobId: string;
         ContentVersionId: string;
-        PublicationId: string;
-        PublicationAttentionId: string;
         FileId: string;
     };
     requestBodies: {
@@ -5878,7 +6469,7 @@ export interface operations {
             409: components["responses"]["ErrorResponse"];
         };
     };
-    listPublicationCandidates: {
+    listPublicationReadyItems: {
         parameters: {
             query?: never;
             header?: never;
@@ -5887,29 +6478,27 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 可人工发布的批准内容 */
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicationCandidateList"];
+                    "application/json": components["schemas"]["PublicationReadyItemList"];
                 };
             };
         };
     };
     getPublicationWorkbenchSummary: {
         parameters: {
-            query?: {
-                window_days?: components["schemas"]["PublicationWindowDays"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 发布工作台全量状态、周期指标和最近动态 */
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5986,7 +6575,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 已删除未被发布记录引用的平台账号 */
+            /** @description 已删除未被发布工作引用的平台账号 */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -6081,42 +6670,232 @@ export interface operations {
             409: components["responses"]["ErrorResponse"];
         };
     };
-    createManualPublication: {
+    listPublicationWorks: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                status?: components["schemas"]["PublicationWorkStatus"] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationWorkList"];
+                };
+            };
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    createPublicationWork: {
         parameters: {
             query?: never;
             header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "Idempotency-Key": string;
+                "X-CSRF-Token": string;
             };
             path?: never;
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ManualPublicationCreate"];
+                "application/json": components["schemas"]["PublicationWorkCreate"];
             };
         };
         responses: {
-            /** @description 已创建人工发布记录 */
+            /** @description Successful Response */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicationRecord"];
+                    "application/json": components["schemas"]["PublicationWork"];
                 };
             };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    listPublicationRecords: {
+    getPublicationWork: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationWork"];
+                };
+            };
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    updatePublicationPreparation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationPreparationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationWork"];
+                };
+            };
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    markPublicationPlatformReview: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationPlatformReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationWork"];
+                };
+            };
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    registerPublicationResult: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationResultUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationWork"];
+                };
+            };
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    verifyPublicationWork: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationVerificationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationWork"];
+                };
+            };
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    closePublicationWork: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationWorkCloseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationWork"];
+                };
+            };
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listPublishedArticles: {
         parameters: {
             query?: {
-                page?: components["parameters"]["Page"];
-                page_size?: components["parameters"]["PageSize"];
-                status?: components["schemas"]["PublicationStatus"];
+                page?: number;
+                page_size?: number;
             };
             header?: never;
             path?: never;
@@ -6124,99 +6903,76 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 发布记录列表 */
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicationRecordList"];
+                    "application/json": components["schemas"]["PublishedArticleList"];
                 };
             };
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    getPublicationRecord: {
+    getPublishedArticle: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                publication_id: components["parameters"]["PublicationId"];
+                article_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 发布记录 */
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicationRecord"];
+                    "application/json": components["schemas"]["PublishedArticle"];
                 };
             };
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    deletePublicationRecord: {
+    openPublishedContentIssue: {
         parameters: {
             query?: never;
             header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-CSRF-Token": string;
             };
             path: {
-                publication_id: components["parameters"]["PublicationId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description 已删除从未公开且没有下游引用的发布记录 */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            401: components["responses"]["ErrorResponse"];
-            403: components["responses"]["ErrorResponse"];
-            404: components["responses"]["ErrorResponse"];
-            409: components["responses"]["ErrorResponse"];
-        };
-    };
-    commandPublicationRecord: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                publication_id: components["parameters"]["PublicationId"];
-                command: "mark-platform-review" | "mark-published" | "verify" | "reject" | "remove" | "mark-verification-failed";
+                article_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PublicationCommand"];
+                "application/json": components["schemas"]["PublishedContentIssueCreate"];
             };
         };
         responses: {
-            /** @description 已执行状态命令 */
-            200: {
+            /** @description Successful Response */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicationRecord"];
+                    "application/json": components["schemas"]["PublishedContentIssue"];
                 };
             };
-            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    listPublicationAttentions: {
+    listPublishedContentIssues: {
         parameters: {
             query?: {
-                status?: components["schemas"]["PublicationAttentionStatus"];
+                page?: number;
+                page_size?: number;
+                status?: components["schemas"]["PublishedContentIssueStatus"] | null;
             };
             header?: never;
             path?: never;
@@ -6224,80 +6980,82 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 发布异常待办 */
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicationAttentionList"];
+                    "application/json": components["schemas"]["PublishedContentIssueList"];
                 };
             };
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    getPublicationAttention: {
+    getPublishedContentIssue: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                attention_id: components["parameters"]["PublicationAttentionId"];
+                issue_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 发布异常待办详情 */
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicationAttention"];
+                    "application/json": components["schemas"]["PublishedContentIssue"];
                 };
             };
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    getPublicationRepairContext: {
+    getPublishedContentRepairContext: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                attention_id: components["parameters"]["PublicationAttentionId"];
+                issue_id: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description 固定原上下文、当前候选和规范化差异 */
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicationRepairContext"];
+                    "application/json": components["schemas"]["PublishedContentRepairContext"];
                 };
             };
-            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    createPublicationRepairTask: {
+    createPublishedContentRepairTask: {
         parameters: {
             query?: never;
             header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-CSRF-Token": string;
             };
             path: {
-                attention_id: components["parameters"]["PublicationAttentionId"];
+                issue_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PublicationRepairTaskCreate"];
+                "application/json": components["schemas"]["PublishedContentRepairTaskCreate"];
             };
         };
         responses: {
-            /** @description 已创建标准内容修复任务，待办保持 OPEN */
+            /** @description Successful Response */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -6306,36 +7064,36 @@ export interface operations {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
-            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
-    resolvePublicationAttention: {
+    resolvePublishedContentIssue: {
         parameters: {
             query?: never;
             header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "X-CSRF-Token": string;
             };
             path: {
-                attention_id: components["parameters"]["PublicationAttentionId"];
+                issue_id: string;
             };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ResolvePublicationAttentionRequest"];
+                "application/json": components["schemas"]["PublishedContentIssueResolveRequest"];
             };
         };
         responses: {
-            /** @description 已显式解决待办 */
+            /** @description Successful Response */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PublicationAttention"];
+                    "application/json": components["schemas"]["PublishedContentIssue"];
                 };
             };
-            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listGeoObservationPublications: {
@@ -6522,7 +7280,7 @@ export interface operations {
                 date_to?: string;
                 content_platform_id?: string;
                 geo_platform?: string;
-                publication_record_id?: string;
+                published_article_id?: string;
                 query_topic_id?: string;
             };
             header?: never;

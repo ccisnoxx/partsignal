@@ -72,7 +72,6 @@ function navigationLeaves(items: NavigationItem[], parentKey?: string): Array<Na
 
 function matchesRoute(pathname: string, _search: string, key: string): boolean {
   if (key === '/tasks' && pathname.startsWith('/content/')) return true;
-  if (key === '/publications' && pathname.startsWith('/publication-attentions/')) return true;
   const target = new URL(key, 'https://partsignal.local');
   return target.pathname === '/' ? pathname === '/' : pathname === target.pathname || pathname.startsWith(`${target.pathname}/`);
 }

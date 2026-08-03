@@ -7,7 +7,7 @@ import {
 import { api, errorMessage, unwrap } from '../../shared/api/client';
 import { geoObservationQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
-import type { GeoObservation, PublicationRecord } from '../../shared/api/types';
+import type { GeoObservation, PublishedArticle } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { StatusTag } from '../../shared/components/StatusTag';
 
@@ -46,34 +46,32 @@ export function EvidenceFile({ fileId }: { fileId: string }) {
   return <Button href={download.data.url} target="_blank" icon={<LinkOutlined />}>{file.data.original_filename}</Button>;
 }
 
-function LegacyPublications({ ids }: { ids: string[] }) {
-  const publications = useQueries({
+function LegacyArticles({ ids }: { ids: string[] }) {
+  const articles = useQueries({
     queries: ids.map((id) => ({
-      queryKey: queryKeys.publications.record(id),
-      queryFn: async () => unwrap(await api.GET('/api/v1/publication-records/{publication_id}', {
-        params: { path: { publication_id: id } },
+      queryKey: queryKeys.publications.article(id),
+      queryFn: async () => unwrap(await api.GET('/api/v1/published-articles/{article_id}', {
+        params: { path: { article_id: id } },
       })),
     })),
   });
   if (!ids.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="未关联发布内容" />;
-  const error = publications.find((query) => query.error)?.error;
+  const error = articles.find((query) => query.error)?.error;
   if (error) return <Alert type="error" showIcon title={errorMessage(error)} />;
-  if (publications.some((query) => query.isLoading)) return <QueryLoading label="正在加载关联发布内容" />;
-  return <PublicationList items={publications.flatMap((query) => query.data ? [query.data] : [])} />;
+  if (articles.some((query) => query.isLoading)) return <QueryLoading label="正在加载关联发布内容" />;
+  return <ArticleList items={articles.flatMap((query) => query.data ? [query.data] : [])} />;
 }
 
-function PublicationList({ items }: { items: PublicationRecord[] }) {
+function ArticleList({ items }: { items: PublishedArticle[] }) {
   if (!items.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="未关联发布内容" />;
   return (
     <div className="geo-detail-list">
       {items.map((item) => (
         <div className="geo-detail-list-item" key={item.id}>
           <Space orientation="vertical" size={4}>
-            <Space wrap><Typography.Text strong>{item.content_title}</Typography.Text><StatusTag status={item.status} /></Space>
+            <Space wrap><Typography.Text strong>{item.content_title}</Typography.Text><StatusTag status={item.retired ? 'RETIRED' : 'COMPLETED'} /></Space>
             <Typography.Text type="secondary">{item.platform_profile_name} · V{item.content_version}</Typography.Text>
-            {item.final_url
-              ? <a href={item.final_url} target="_blank" rel="noreferrer">查看发布内容 <LinkOutlined /></a>
-              : <Typography.Text type="secondary">尚无公开链接</Typography.Text>}
+            <a href={item.final_url} target="_blank" rel="noreferrer">查看发布内容 <LinkOutlined /></a>
           </Space>
         </div>
       ))}
@@ -94,7 +92,7 @@ function ManualDetails({ record }: { record: Extract<GeoObservation, { observati
       {record.article_results.length ? (
         <div className="geo-detail-list">
           {record.article_results.map((item) => (
-            <div className="geo-detail-list-item" key={item.publication_record_id}>
+            <div className="geo-detail-list-item" key={item.published_article_id}>
               <Space orientation="vertical" size={4}>
                 <Typography.Text strong>{item.title}</Typography.Text>
                 <Typography.Text type="secondary">{item.platform_name}</Typography.Text>
@@ -126,7 +124,7 @@ function LegacyDetails({ record }: { record: Extract<GeoObservation, { observati
         <StatusTag status={record.accuracy} />
       </Space>
       <Typography.Title level={5}>关联发布内容</Typography.Title>
-      <LegacyPublications ids={record.publication_record_ids} />
+      <LegacyArticles ids={record.published_article_ids} />
     </>
   );
 }

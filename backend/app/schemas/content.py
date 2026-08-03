@@ -27,7 +27,7 @@ class ContentTaskCreate(ContractModel):
 class ContentTaskOut(ContentTaskCreate):
     id: uuid.UUID
     query_topic_id: uuid.UUID | None
-    source_publication_attention_id: uuid.UUID | None
+    source_published_content_issue_id: uuid.UUID | None
     available_actions: list[
         Literal["CANCEL", "DELETE", "CREATE_GENERATION_JOB", "CREATE_MANUAL_VERSION"]
     ]

@@ -13,7 +13,7 @@ const user = {
 
 const summaryData = {
   pending_fact_reviews: 3, pending_content_reviews: 2, pending_publications: 4,
-  publication_attention: 1, recent_accuracy_errors: 2,
+  open_publication_issues: 1, recent_accuracy_errors: 2,
 } satisfies Schema<'DashboardSummary'>;
 
 const metricsData = {
@@ -59,11 +59,11 @@ test('按管理层层级展示真实 GEO 指标、运营状态和处理入口', 
   expect(within(metrics).queryByText('待审事实')).not.toBeInTheDocument();
 
   expect(within(screen.getByRole('region', { name: '审核流程状态' })).getByText('待审事实 3 · 待审内容 2')).toBeInTheDocument();
-  expect(within(screen.getByRole('region', { name: '发布流程状态' })).getByText('待人工发布 4 · 发布需关注 1')).toBeInTheDocument();
+  expect(within(screen.getByRole('region', { name: '发布流程状态' })).getByText('待处理发布 4 · 开放问题 1')).toBeInTheDocument();
   expect(within(screen.getByRole('region', { name: 'GEO 观测状态' })).getByText('发现率 80% · 提及率 60% · 准确性问题 2')).toBeInTheDocument();
 
   for (const [name, href] of [
-    ['处理发布需关注', '/publications?tab=attentions'], ['处理近 30 日准确性问题', '/observations'],
+    ['处理已发布内容问题', '/publications?tab=issues&status=OPEN'], ['处理近 30 日准确性问题', '/observations'],
     ['处理待审事实', '/products'], ['处理待审内容', '/tasks'],
     ['处理待人工发布', '/publications'],
     ['进入产品事实', '/products'], ['进入内容任务', '/tasks'],
@@ -80,7 +80,7 @@ test('按管理层层级展示真实 GEO 指标、运营状态和处理入口', 
 test('空独立比率和零待办保持明确的正常状态', async () => {
   window.history.pushState({}, '', '/');
   mockDashboard(
-    { pending_fact_reviews: 0, pending_content_reviews: 0, pending_publications: 0, publication_attention: 0, recent_accuracy_errors: 0 },
+    { pending_fact_reviews: 0, pending_content_reviews: 0, pending_publications: 0, open_publication_issues: 0, recent_accuracy_errors: 0 },
     { ...metricsData, manual_observation_count: 0, article_result_count: 0, discovered_article_count: 0, mentioned_article_count: 0, article_discovery_rate: null, article_mention_rate: null, article_accuracy_rate: null },
   );
   render(<App />);
@@ -93,7 +93,7 @@ test('空独立比率和零待办保持明确的正常状态', async () => {
     expect(within(screen.getByRole('region', { name: label })).getByText('正常')).toBeInTheDocument();
   }
   expect(screen.getAllByText('当前无需处理')).toHaveLength(5);
-  expect(screen.getByRole('link', { name: '查看发布需关注' })).toHaveClass('is-clear');
+  expect(screen.getByRole('link', { name: '查看已发布内容问题' })).toHaveClass('is-clear');
 });
 
 test('加载中仍保留 PageHeader，并用统一状态卡承载反馈', async () => {

@@ -18,9 +18,9 @@ describe('AsyncState', () => {
   });
 
   it('为加载态提供可读名称和忙碌状态', () => {
-    render(<QueryLoading label="正在加载发布记录" />);
+    render(<QueryLoading label="正在加载发布成果" />);
 
-    expect(screen.getByLabelText('正在加载发布记录')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByLabelText('正在加载发布成果')).toHaveAttribute('aria-busy', 'true');
   });
 
   it('允许业务页面补充恢复动作和空态下一步', async () => {

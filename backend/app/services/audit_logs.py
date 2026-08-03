@@ -18,7 +18,7 @@ from app.models.content import ContentTask, ContentVersion
 from app.models.geo_files import GeoObservation
 from app.models.identity import AuditLog, User
 from app.models.product_facts import FactVersion, Product
-from app.models.publication import PlatformAccount, PublicationAttention, PublicationRecord
+from app.models.publication import PlatformAccount, PublicationWork, PublishedContentIssue
 from app.schemas.common import (
     AccountType,
     AuditActor,
@@ -391,12 +391,12 @@ def _related_entry(db: Session, record: AuditLog) -> AuditRelatedEntry:
             content_version,
             str(content_version.task_id) if content_version is not None else None,
         )
-    if target_type == "PublicationRecord":
-        publication = db.get(PublicationRecord, target_id) if target_id is not None else None
-        return _availability(target_type, publication)
-    if target_type == "PublicationAttention":
-        attention = db.get(PublicationAttention, target_id) if target_id is not None else None
-        return _availability(target_type, attention)
+    if target_type == "PublicationWork":
+        work = db.get(PublicationWork, target_id) if target_id is not None else None
+        return _availability(target_type, work)
+    if target_type == "PublishedContentIssue":
+        issue = db.get(PublishedContentIssue, target_id) if target_id is not None else None
+        return _availability(target_type, issue)
     if target_type == "GeoObservation":
         observation = db.get(GeoObservation, target_id) if target_id is not None else None
         return _availability(target_type, observation)

@@ -1,100 +1,77 @@
 # 发布管理工作台契约
 
-## 场景：人工发布工作台聚合与结果证据
+## 场景：人工发布工作、首次核验与发布后问题
 
-### 1. 范围与触发条件
+### 1. 范围与权威来源
 
-- 修改 `/publications` 的流程计数、发布记录/关注列表投影、周期数据、最近动态或结果登记时适用。
-- 修改发布账号创建、编辑、启停、候选投影或同平台重复发布门禁时同样适用。
-- PostgreSQL 的 `publication_records`、`publication_status_events`、`publication_attentions` 与 `publication_attachments` 是唯一业务来源；前端不得从分页结果重算全量数据或维护第二套状态机。
-- 本场景复用现有发布表和追加式附件关系，不新增统计表、证据阶段列或缓存状态。
+- 修改 `/publications`、发布命令、发布账号门禁、GEO 文章候选或修复任务来源时适用。
+- PostgreSQL 的 `publication_works`、`publication_work_events`、`publication_verifications`、`published_articles`、`published_content_issues` 与 `publication_attachments` 是唯一业务来源；前端不得维护第二套状态机或从分页结果重算全量数量。
+- 发布工作、只读发布成果和发布后内容问题是三个不同生命周期，不得用一个可任意修改的聚合兼任。
 
-### 2. 签名
+### 2. 状态与完成边界
 
-- 摘要：`GET /api/v1/publication-workbench-summary?window_days=7|30`，默认 `7`，响应 `PublicationWorkbenchSummary`。
-- 记录列表：`GET /api/v1/publication-records?page=<int>&page_size=<int>&status=<PublicationStatus?>`，响应 `PublicationRecordList<PublicationRecordListItem>`。
-- 关注列表：`GET /api/v1/publication-attentions?status=<OPEN|RESOLVED?>`，响应 `PublicationAttentionList<PublicationAttentionListItem>`。
-- 发布命令：`POST /api/v1/publication-records/{publication_id}/{command}`；`PublicationCommand.attachment_file_ids: uuid[] = []` 只允许在 `command=mark-published` 时非空。
-- 发布账号：`POST /api/v1/platform-accounts`、`PATCH /api/v1/platform-accounts/{id}`、`POST /api/v1/platform-accounts/{id}/enable|disable`；编辑和启停必须提交 `expected_revision`。
-- 发布聚合仍使用既有 `publication_status_events(publication_id,status,created_at)` 与 `publication_attachments(publication_id,file_id)`；账号约束由下述 `0026` revision 提供，不新增发布汇总表。
-- 账号约束由 `0026_publication_account_dedup` 提供：`revision >= 0`，业务标签和运营账号标识去除两侧空白后非空，同平台 `lower(btrim(account_identifier))` 唯一。
+```text
+PublicationWork:
+PREPARING -> PLATFORM_REVIEW -> AWAITING_VERIFICATION
+PREPARING -> AWAITING_VERIFICATION
+AWAITING_VERIFICATION -> ACTION_REQUIRED -> AWAITING_VERIFICATION
+AWAITING_VERIFICATION | ACTION_REQUIRED -> COMPLETED
+任一非终态 -> CLOSED
 
-### 3. 契约
-
-- 摘要响应必须包含 `as_of`、`window_start`、`window_days`、七个当前状态计数、`open_attention_count`、周期指标、三类确定性异常计数和最多 5 条最近状态事件。
-- 当前状态计数读取 `PublicationRecord.status`；滚动窗口使用半开区间 `[window_start, as_of)`。
-- `registered_published_count` 是窗口内出现 `PUBLISHED` 事件的 distinct publication 数；`verified_count` 是该 cohort 在 `as_of` 前曾出现 `VERIFIED` 事件的数量；零分母的 `verification_rate` 为 `null`。
-- `new_exception_count` 是窗口内出现 `REJECTED | REMOVED | VERIFICATION_FAILED` 事件的 distinct publication 数。后续下线或验证失败不从历史发布 cohort 扣除。
-- OPEN attention 只按结构化 `trigger_status=REMOVED|VERIFICATION_FAILED` 分类；平台拒绝来自当前 `PublicationRecord.status=REJECTED`，禁止解析自由文本。
-- 列表响应直接带内容、版本、平台、账号、最后验证时间和服务端 `available_actions`；列表循环不得调用详情投影。
-- 详情 `PublicationRecord` 直接投影锁定的 `content_title/content_version`、`platform_profile_id/platform_profile_name` 与 `platform_account_label/account_identifier`；Drawer 和旧详情路由不得从当前列表页或其他接口猜测这些上下文。
-- 一个具体平台可以维护多个不同账号，但一条发布记录只能绑定其中一个。运营账号标识是内部识别文本，可以保存平台用户名或“注册手机号 + 持有人”，不得保存认证凭据或进入审计详情。
-- 停用账号不进入新候选，既有发布投影仍可读取；账号平台归属不可编辑，编辑与启停按平台行、账号行顺序加锁并校验 revision。
-- 创建登记和 `mark-published` 共用一个“具体平台 + 内容哈希”门禁。存在非 `REJECTED` 尝试时拒绝第二次登记；任一追加式状态事件曾为 `PUBLISHED | VERIFIED` 后永久拒绝同平台重试，公开后下线或验证失败也不撤销。只有从未公开且已拒绝的记录允许换账号重试。
-- 候选创建阶段与 `mark-published` 结果阶段共用追加式 `publication_attachments`，两条写路径只接受 VERIFIED `OPERATION_SCREENSHOT`。结果证据、实际标题、最终 URL、发布时间、状态事件和审计必须在同一事务提交或回滚。
-- 前端只从摘要状态键、真实 attention 触发值和 `available_actions` 派生筛选/动作；`tab`、分页、`window_days`、筛选和 Drawer 对象 ID 写入 URL，表单正文留在组件本地。
-
-### 4. 校验与错误矩阵
-
-| 条件 | 结果 |
-|---|---|
-| `window_days` 不是 `7` 或 `30` | 请求边界返回 `422`，统计服务不接收普通任意整数 |
-| 非 `mark-published` 命令携带非空 `attachment_file_ids` | `422 VALIDATION_ERROR` |
-| 文件缺失、重复或状态不是 `VERIFIED` | `422 VALIDATION_ERROR` 或 `FILE_INTEGRITY_FAILED`，发布字段和附件关系均不落库 |
-| 文件类别不是 `OPERATION_SCREENSHOT` | `422 VALIDATION_ERROR`，候选记录、发布字段和附件关系均不落库 |
-| 同一结果证据已绑定当前发布记录 | `409 PUBLICATION_ATTACHMENT_EXISTS` |
-| 实际标题、最终 URL 或发布时间缺失 | `422 VALIDATION_ERROR` |
-| 最终 URL 不属于锁定平台允许域名 | `422 VALIDATION_ERROR` |
-| 当前状态不允许命令 | `409 INVALID_STATE_TRANSITION` |
-| 同平台运营账号标识在去空白、忽略大小写后重复 | `409 PLATFORM_ACCOUNT_IDENTIFIER_EXISTS` |
-| 账号编辑或启停的 revision 过期 | `409 REVISION_CONFLICT` |
-| 同平台同内容存在进行中尝试或曾公开历史 | `409 DUPLICATE_PLATFORM_CONTENT` |
-| 权限或 CSRF 不满足 | 保留统一 `403`，前端隐藏动作不能替代服务端校验 |
-
-### 5. 正常、基础与失败案例
-
-- 正常：记录进入平台审核后，`mark-published` 同时写实际结果和一张已验证截图；后续验证成功，7/30 天统计均保留该发布历史。
-- 基础：窗口内没有 `PUBLISHED` 事件时，登记数和验证数为 `0`、验证率为 `null`；最近动态为空数组。
-- 失败：结果截图仍为 `PENDING`，命令整体失败；记录保持 `PLATFORM_REVIEW`，实际标题/URL/发布时间为空，候选阶段已绑定证据保持不变。
-
-### 6. 必需测试
-
-- 契约检查断言 FastAPI、OpenAPI 和生成 TypeScript 类型对 `7|30`、列表投影、命令附件字段完全一致。
-- PostgreSQL 集成测试断言 7/30 天 cohort、验证率、后续异常不回删历史、错误类别证据在两阶段原子回滚、详情锁定投影和两阶段附件共存。
-- PostgreSQL 集成测试还必须断言同平台账号规范化唯一、跨平台同标识、revision、启停候选过滤、未公开拒绝后换账号重试、公开后失效仍永久阻断，以及遗留重复记录并发 `mark-published` 无法绕过门禁。
-- 查询次数断言候选、记录、关注、摘要分别固定为 `8/2/1/2` 条 SQL；候选的固定查询包含嵌套内容版本与平台账号的资源动作资格，数量不得随候选或账号行数增长。用 `EXPLAIN (ANALYZE, BUFFERS)` 检查摘要与最后验证聚合，只有真实计划证据不足时才评审索引迁移。
-- 前端组件测试覆盖默认 7 天、仅 7/30、URL 恢复、按需 Drawer、账号匹配、服务端动作和结果证据 ID 载荷。
-- Playwright 覆盖 1536×1024、1024px、375×812，浅色/深色/跟随系统，以及成功、真实失败、证据、验证、异常、修复后仍 OPEN 和显式解决。
-
-### 7. 错误与正确示例
-
-错误做法：从当前页 `items.length` 计算流程数量，遍历每条记录请求详情，再按错误文案猜测异常类型；上传文件成功后即在 UI 标记为“已绑定”。
-
-正确做法：
-
-```python
-summary = publication_workbench_summary(db, window_days)
-records = list_publication_records(
-    db,
-    page=page,
-    page_size=page_size,
-    status_filter=status_filter,
-)
-
-command_publication(
-    db=db,
-    publication_id=publication_id,
-    command="mark-published",
-    payload=PublicationCommand(
-        actual_title="真实发布标题",
-        final_url="https://allowed.example/posts/1",
-        published_at=published_at,
-        comment="人工发布完成",
-        attachment_file_ids=[verified_file_id],
-    ),
-    actor=actor,
-    request_id=request_id,
-)
+PublishedContentIssue: OPEN -> RESOLVED
 ```
 
-只有命令成功响应中的 `attachments` 才表示已绑定；上传成功但命令失败的文件仍只是独立 `FileRecord`。
+- 结果登记必须保存实际标题、最终公开 URL、发布时间、说明和可选已验证 `OPERATION_SCREENSHOT`；登记后进入 `AWAITING_VERIFICATION`。
+- 失败核验追加不可变快照并进入 `ACTION_REQUIRED`，工作继续待处理；结果修正后可以再次登记并复核，不创建第二条工作。
+- 首次成功核验在同一事务创建同 ID 的只读 `PublishedArticle`，把工作和来源 `ContentTask` 置为 `COMPLETED`，并追加事件与审计。
+- 显式关闭必须带结构化原因和非空说明，在同一事务把工作置为 `CLOSED`、来源任务置为 `CANCELLED`；关闭后不可恢复。
+- 发布后页面问题只创建 `PublishedContentIssue`。创建修复任务不会解决问题，解决问题也不会自动完成修复任务。
+- 发布业务对象、事件、核验、成果和问题均没有日常物理删除能力；开发环境清理使用经核对的数据库重置，不进入业务 API。
+
+### 3. HTTP 签名
+
+读取：
+
+- `GET /api/v1/publication-ready-items`
+- `GET /api/v1/publication-workbench-summary`
+- `GET /api/v1/publication-works` 与 `GET /api/v1/publication-works/{work_id}`
+- `GET /api/v1/published-articles` 与 `GET /api/v1/published-articles/{article_id}`
+- `GET /api/v1/published-content-issues` 与 `GET /api/v1/published-content-issues/{issue_id}`
+- `GET /api/v1/published-content-issues/{issue_id}/repair-context`
+
+命令：
+
+- `POST /api/v1/publication-works`
+- `PATCH /api/v1/publication-works/{work_id}/preparation`
+- `POST /api/v1/publication-works/{work_id}/platform-review`
+- `PUT /api/v1/publication-works/{work_id}/result`
+- `POST /api/v1/publication-works/{work_id}/verifications`
+- `POST /api/v1/publication-works/{work_id}/close`
+- `POST /api/v1/published-articles/{article_id}/issues`
+- `POST /api/v1/published-content-issues/{issue_id}/repair-task`
+- `POST /api/v1/published-content-issues/{issue_id}/resolve`
+
+不得恢复通用 command 路径、旧路径别名、兼容请求字段或双写。
+
+### 4. 动作、并发与身份
+
+- 每个资源由服务端返回 typed `available_actions` 和可空 `primary_action`；前端只展示该投影，不按状态、URL、角色或关联对象推断资格。
+- 工作命令锁定目标行并校验 `expected_revision`。创建工作按请求键获取事务 advisory lock；同平台内容身份按 `platform_profile_id + content_hash` 串行校验。
+- 一个已批准内容版本最多有一个发布工作；同一具体平台的同一内容哈希最多有一个未关闭工作。关闭只表达该次工作终止，不绕过内容身份形成重复公开。
+- 发布账号必须启用且属于任务锁定平台。账号停用只影响新选择，既有历史身份保持可读；账号凭据、Cookie 和令牌不得保存。
+- 最终 URL 必须是 HTTP(S) 且匹配平台允许域名；未知标题、URL、时间、账号或内容一致性必须明确失败，不能补默认值。
+- 工作事件、核验快照、成果和问题历史只能追加或执行契约允许的状态更新；直接非法 UPDATE/DELETE 由 PostgreSQL 以 `55000` 拒绝。
+
+### 5. GEO 与修复回流
+
+- GEO 文章身份唯一来自 `PublishedArticle`；`geo_observation_publications.published_article_id` 和 `geo_observation_citations.published_article_id` 不复制标题或 URL。
+- 新 GEO 候选排除存在 `OPEN` 问题或曾以 `RETIRED` 解决问题的文章。打开问题和创建观测必须锁定同一文章，候选集合变化返回 `409 GEO_PUBLICATIONS_CHANGED`。
+- 修复任务继承原文章的产品与具体平台，用户必须选择同产品当前有效的 `APPROVED FactVersion`；`content_tasks.source_published_content_issue_id` 只写一次且唯一。
+
+### 6. 必需验证
+
+- PostgreSQL 集成测试覆盖连续失败、失败后复核成功、显式关闭、成功核验原子完成、附件、revision、账号/平台门禁、直接非法写入和不可删除历史。
+- GEO 集成测试覆盖合格文章全集、问题打开后的候选变化、并发集合校验、问题修复来源和显式解决。
+- 契约检查保证 FastAPI、`contracts/openapi.yaml` 和生成 TypeScript 类型一致，旧资源与通用命令不存在。
+- 前端组件测试覆盖 URL 恢复、服务端动作投影、失败后继续待处理、关闭确认、只读成果和问题独立处理。
+- Playwright 覆盖批准内容到成功核验、只读成果、问题退出 GEO、修复与解决，并检查真实请求、console 与页面错误；失败复核和关闭由 PostgreSQL 集成测试与前端组件测试覆盖。

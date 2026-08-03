@@ -696,60 +696,18 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(page.getByText('已批准', { exact: true })).toBeVisible();
 
   const account = await command(page, '/api/v1/platform-accounts', csrf, { platform_profile_id: profile.id, label: `E2E 账号 ${suffix}`, account_identifier: `e2e-${suffix}` });
-  const file = await uploadOperationScreenshot(page, csrf, 'e2e-prepared.png', `PartSignal E2E prepared screenshot ${suffix}`);
   const resultFile = await uploadOperationScreenshot(page, csrf, 'e2e-result.png', `PartSignal E2E result screenshot ${suffix}`);
 
-  const candidatesPattern = '**/api/v1/publication-candidates';
-  await page.route(candidatesPattern, async (route) => {
-    const response = await route.fetch();
-    const candidates = await response.json() as {
-      items: Array<{ content_version: { id: string }; matching_accounts: unknown[]; available_actions: Array<'REGISTER'> }>;
-    };
-    const target = candidates.items.find((item) => item.content_version.id === submittedId);
-    if (target) {
-      target.matching_accounts = [];
-      target.available_actions = [];
-    }
-    await route.fulfill({ response, json: candidates });
-  });
-  await page.goto('/publications');
-  const candidateWithoutAccount = page.getByRole('row').filter({ hasText: `人工核对 ${product!.part_number}` });
-  await expect(candidateWithoutAccount.getByText('无匹配账号')).toBeVisible();
-  await expect(candidateWithoutAccount.getByRole('link', { name: '前往业务设置' })).toHaveAttribute(
-    'href',
-    `/settings?tab=accounts&platform_profile_id=${profile.id as string}`,
-  );
-  await expect(candidateWithoutAccount.getByRole('button', { name: '准备人工发布' })).toBeDisabled();
-  await page.unroute(candidatesPattern);
-
-  const packagePattern = `**/api/v1/content-versions/${submittedId}/publication-package`;
-  await page.route(packagePattern, async (route) => {
-    await route.fulfill({
-      status: 500,
-      contentType: 'application/json',
-      json: {
-        error: {
-          code: 'PUBLICATION_PACKAGE_FAILED',
-          message: '发布包加载失败',
-          request_id: `e2e-package-${suffix}`,
-        },
-      },
-    });
-  });
-  await page.reload();
-  const candidateWithPackageFailure = page.getByRole('row').filter({ hasText: `人工核对 ${product!.part_number}` });
-  await candidateWithPackageFailure.getByRole('button', { name: '准备人工发布' }).click();
-  const failedPackageDrawer = page.getByRole('dialog', { name: '准备人工发布' });
-  await expect(failedPackageDrawer.getByText('发布包加载失败')).toBeVisible();
-  await expect(failedPackageDrawer.getByRole('button', { name: '登记待人工发布' })).toBeDisabled();
-  await expect(failedPackageDrawer.locator('input[type="file"]')).toBeDisabled();
-  await failedPackageDrawer.getByRole('button', { name: '关闭' }).click();
-  await page.unroute(packagePattern);
-
-  const publication = await body<{ id: string }>(await page.request.post('/api/v1/publication-records/manual', { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-publication-${suffix}` }, data: { content_version_id: submittedId, platform_account_id: account.id, section_url: 'https://forum.example.invalid/board', attachment_file_ids: [file.id] } }));
-  await command(page, `/api/v1/publication-records/${publication.id}/mark-platform-review`, csrf, { comment: '平台审核中' });
-  await command(page, `/api/v1/publication-records/${publication.id}/mark-published`, csrf, { actual_title: `E2E ${suffix}`, final_url: `https://forum.example.invalid/posts/${suffix}`, published_at: new Date().toISOString(), content_matches: null, comment: '人工发布完成', attachment_file_ids: [resultFile.id] });
-  await command(page, `/api/v1/publication-records/${publication.id}/verify`, csrf, { actual_title: null, final_url: null, published_at: null, content_matches: true, comment: '人工核对一致' });
+  const publication = await body<{ id: string; revision: number }>(await page.request.post('/api/v1/publication-works', {
+    headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-publication-${suffix}` },
+    data: { content_version_id: submittedId, platform_account_id: account.id, section_url: 'https://forum.example.invalid/board' },
+  }));
+  const reviewWork = await command(page, `/api/v1/publication-works/${publication.id}/platform-review`, csrf, { expected_revision: publication.revision, comment: '平台处理中' });
+  const resultWork = await body<{ revision: number }>(await page.request.put(`/api/v1/publication-works/${publication.id}/result`, {
+    headers: { 'X-CSRF-Token': csrf },
+    data: { actual_title: `E2E ${suffix}`, final_url: `https://forum.example.invalid/posts/${suffix}`, published_at: new Date().toISOString(), expected_revision: reviewWork.revision, comment: '人工发布完成', attachment_file_ids: [resultFile.id] },
+  }));
+  await command(page, `/api/v1/publication-works/${publication.id}/verifications`, csrf, { outcome: 'PASSED', content_matches: true, expected_revision: resultWork.revision, comment: '人工核对一致' });
   const completedTask = await body<{ status: string }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`));
   expect(completedTask.status).toBe('COMPLETED');
   await page.goto('/publications');
@@ -768,45 +726,15 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     await expect(page.locator('html')).toHaveAttribute('data-theme-mode', mode);
     await expect(page.getByRole('heading', { name: '发布管理' })).toBeVisible();
   }
-  await expect(page.getByRole('radio', { name: '近 7 天' })).toBeChecked();
-  await page.getByText('近 30 天').click();
-  await expect(page).toHaveURL(/window_days=30/);
-  await page.getByRole('tab', { name: /发布记录/ }).click();
-  await expect(page).toHaveURL(/tab=records/);
-  const publicationRow = page.getByRole('row').filter({
-    has: page.locator(`a[href="https://forum.example.invalid/posts/${suffix}"]`),
-  });
-  await expect(publicationRow).toBeVisible();
-  await expect(publicationRow.getByText(`E2E ${suffix}`, { exact: true })).toBeVisible();
-  const publicationMore = publicationRow.getByRole('button', { name: `更多操作：人工核对 ${product!.part_number}` });
-  await publicationMore.focus();
-  await publicationMore.click();
-  await page.getByRole('menuitem', { name: '标记已移除' }).click();
-  const publicationDrawer = page.getByRole('dialog', { name: '发布结果登记' });
-  await expect(publicationDrawer).toBeVisible();
-  await expect(publicationDrawer.getByText(new RegExp(`人工核对 ${product!.part_number} · V\\d+`))).toBeVisible();
-  await expect(publicationDrawer.getByText(`E2E 论坛 ${suffix}`, { exact: true })).toBeVisible();
-  await expect(publicationDrawer.getByText(`E2E 账号 ${suffix} / e2e-${suffix}`, { exact: true })).toBeVisible();
-  await expect(publicationDrawer.getByText(/内容哈希/)).toBeVisible();
-  await expect(publicationDrawer.getByText('e2e-prepared.png')).toBeVisible();
-  await expect(publicationDrawer.getByText('e2e-result.png')).toBeVisible();
-  await publicationDrawer.getByRole('button', { name: /取\s*消/ }).click();
-  await expect(publicationDrawer).not.toBeVisible();
-  await expect(page).not.toHaveURL(/record=/);
-  await expect(publicationMore).toBeFocused();
-  await publicationMore.click();
-  await page.getByRole('menuitem', { name: '标记已移除' }).click();
-  await expect(publicationDrawer).toBeVisible();
+  await page.getByRole('tab', { name: '发布成果' }).click();
+  await expect(page).toHaveURL(/tab=articles/);
+  await page.getByRole('button', { name: `E2E ${suffix}`, exact: true }).click();
+  const publicationDrawer = page.getByRole('dialog', { name: '发布成果详情' });
+  await expect(publicationDrawer.getByText('发布成果为只读历史，不提供修改或删除。')).toBeVisible();
+  await expect(publicationDrawer.getByRole('link', { name: `https://forum.example.invalid/posts/${suffix}` })).toBeVisible();
+  await expect(publicationDrawer.getByRole('button', { name: '登记内容问题' })).toBeVisible();
+  await expect(publicationDrawer.getByRole('button', { name: /删除/ })).toHaveCount(0);
   await publicationDrawer.getByRole('button', { name: '关闭' }).click();
-  await expect(publicationMore).toBeFocused();
-
-  await page.goto(`/publications/${publication.id}`);
-  await expect(page.getByRole('button', { name: '在工作台处理' })).toBeVisible();
-  await expect(page.getByRole('button', { name: '标记已移除' })).toHaveCount(0);
-  await page.getByRole('button', { name: '在工作台处理' }).click();
-  await expect(page).toHaveURL(new RegExp(`/publications\\?record=${publication.id}`));
-  await expect(page.getByRole('dialog', { name: '发布结果登记' })).toBeVisible();
-  await page.getByRole('dialog', { name: '发布结果登记' }).getByRole('button', { name: '关闭' }).click();
 
   const geoTopic = await body<{ canonical_question: string }>(await page.request.post('/api/v1/query-topics', {
     headers: { 'X-CSRF-Token': csrf },
@@ -976,30 +904,33 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect(geoFailedRequests).toEqual([]);
   expect(geoFailedResponses).toEqual([]);
 
-  await page.goto(`/publications?tab=records&record=${publication.id}`);
-  const removalDrawer = page.getByRole('dialog', { name: '发布结果登记' });
-  await removalDrawer.getByRole('button', { name: '标记已移除' }).click();
-  await removalDrawer.getByRole('textbox', { name: '操作说明' }).fill('E2E 页面已下线');
-  await removalDrawer.getByRole('button', { name: '确认标记已移除' }).click();
-  await expect(removalDrawer.getByText('已下线').first()).toBeVisible();
+  const issue = await body<{ id: string; revision: number; status: string }>(await page.request.post(`/api/v1/published-articles/${publication.id}/issues`, {
+    headers: { 'X-CSRF-Token': csrf },
+    data: { kind: 'PAGE_UNAVAILABLE', description: 'E2E 页面已下线' },
+  }));
+  expect(issue.status).toBe('OPEN');
   expect((await body<{ status: string }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`))).status).toBe('COMPLETED');
-  const attentionList = await body<{ items: Array<{ id: string; publication_record_id: string; status: string; repair_task_id: string | null }> }>(await page.request.get('/api/v1/publication-attentions?status=OPEN'));
-  const attention = attentionList.items.find((item) => item.publication_record_id === publication.id);
-  expect(attention).toBeTruthy();
-  await page.goto(`/publication-attentions/${attention!.id}`);
-  await page.getByRole('button', { name: /创\s*建\s*修\s*复\s*任\s*务/ }).click();
-  await page.getByRole('combobox', { name: '当前已批准事实版本' }).click();
+  const eligibleAfterIssue = await body<{ items: Array<{ published_article_id: string }> }>(await page.request.get(`/api/v1/geo-observation-publications?product_id=${product!.id}`));
+  expect(eligibleAfterIssue.items.some((item) => item.published_article_id === publication.id)).toBe(false);
+
+  await page.goto(`/publications?tab=issues&status=OPEN&selected=${issue.id}`);
+  const issueDrawer = page.getByRole('dialog', { name: '内容问题详情' });
+  await issueDrawer.getByRole('button', { name: '创建修复任务' }).click();
+  const repairModal = page.getByRole('dialog', { name: '创建修复任务' });
+  await repairModal.getByRole('combobox', { name: '修复所用事实版本' }).click();
   await page.getByText(/^V1 ·/).last().click();
-  await page.getByRole('button', { name: /创\s*建\s*修\s*复\s*任\s*务/ }).click();
-  await expect(page.getByRole('heading', { name: `DEMO ${product!.part_number}` })).toBeVisible();
-  const attentionWithRepair = await body<{ status: string; repair_task_id: string | null }>(await page.request.get(`/api/v1/publication-attentions/${attention!.id}`));
-  expect(attentionWithRepair.status).toBe('OPEN');
-  expect(attentionWithRepair.repair_task_id).not.toBeNull();
-  await page.goto(`/publication-attentions/${attention!.id}`);
-  await page.getByRole('button', { name: /显\s*式\s*解\s*决/ }).click();
-  await page.getByLabel('处置说明').fill('E2E 已创建并确认修复任务');
-  await page.getByRole('button', { name: /确\s*认\s*解\s*决/ }).click();
-  await expect(page.getByText('已解决').first()).toBeVisible();
+  await repairModal.getByRole('button', { name: '确认提交' }).click();
+  const issueWithRepair = await body<{ status: string; repair_task_id: string | null }>(await page.request.get(`/api/v1/published-content-issues/${issue.id}`));
+  expect(issueWithRepair.status).toBe('OPEN');
+  expect(issueWithRepair.repair_task_id).not.toBeNull();
+
+  await issueDrawer.getByRole('button', { name: '解决内容问题' }).click();
+  const resolveModal = page.getByRole('dialog', { name: '解决内容问题' });
+  await resolveModal.getByRole('combobox', { name: '处理结果' }).click();
+  await page.getByText('已恢复，可继续观测', { exact: true }).last().click();
+  await resolveModal.getByRole('textbox', { name: '操作说明' }).fill('E2E 已创建并确认修复任务');
+  await resolveModal.getByRole('button', { name: '确认提交' }).click();
+  expect((await body<{ status: string }>(await page.request.get(`/api/v1/published-content-issues/${issue.id}`))).status).toBe('RESOLVED');
   expect((await page.request.delete(`/api/v1/ai-channels/${channel.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.delete(`/api/v1/ai-channels/${secondChannel.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.post(`/api/v1/generation-jobs/${timeoutJob.id}/retry`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-timeout-deleted-${suffix}` } })).status()).toBe(409);

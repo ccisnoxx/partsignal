@@ -8,7 +8,7 @@
 - Alembic is the only schema migration entry point. API and Worker never run migrations on startup.
 - Revisions `0001` through `0008` use `app.migration_schema_v1` as a frozen metadata snapshot; future runtime model changes must add a new revision and must not edit that snapshot.
 - JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
-- Review records, status events, observations, and audit logs are append-only。`0027` 仅在物理删除停用用户时允许把该用户对应的 `audit_logs.actor_id` 从原 UUID 置空；`0029` 仅允许管理员按完整更正链物理删除人工 GEO 观测；`0030` 仅允许删除从未公开且没有下游引用的发布聚合；`0033` 仅允许清理匹配已取消任务的审核记录和未批准生产历史。其他审计字段、任意未声明删除和普通 UPDATE 仍被数据库触发器拒绝。
+- Review records, publication work events, publication verifications, observations, and audit logs are append-only。`0027` 仅在物理删除停用用户时允许把该用户对应的 `audit_logs.actor_id` 从原 UUID 置空；`0029` 仅允许管理员按完整更正链物理删除人工 GEO 观测；`0033` 仅允许清理匹配已取消任务的审核记录和未批准生产历史。`0034` 移除发布业务对象的日常物理删除能力；其他审计字段、任意未声明删除和普通 UPDATE 仍被数据库触发器拒绝。
 
 ## Migration Order
 
@@ -282,6 +282,16 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 删除成功只审计任务 UUID 与生成作业、内容版本、审核记录数量，不保存标题、正文、Prompt 或审核说明。产品、事实版本、平台、用户、发布、GEO 和既有审计均保持不变。任务列表与详情用同一批量保护历史投影决定 `DELETE` 动作，服务端仍是最终删除权限和状态权威。
 
+### 0034 Publication Workflow Redesign
+
+版本 `0034_publication_redesign` 紧跟 `0033_task_owned_history_delete`。该 revision 重新建立发布当前态：`publication_works` 保存一次人工发布工作的绑定和阶段，`publication_work_events` 与 `publication_verifications` 保存追加式历史，`published_articles` 保存首次核验成功后形成的只读公开成果，`published_content_issues` 保存发布后的页面问题，`publication_attachments` 只归属于发布工作。
+
+新旧发布状态无法无损映射。迁移必须在替换结构前检查旧发布、关注事项、附件和依赖旧发布身份的 GEO 关系；任一非空时汇总表名与数量并以 PostgreSQL `55000` 中止，不删除、补值或猜测映射。通过预检后删除旧表与旧删除门禁，将 `content_tasks.source_publication_attention_id` 替换为唯一且不可改绑的 `source_published_content_issue_id`，并把 GEO 外键统一替换为 `published_article_id`。downgrade 同样以 `55000` 拒绝，恢复只能使用迁移前备份。
+
+发布工作使用 `PREPARING | PLATFORM_REVIEW | AWAITING_VERIFICATION | ACTION_REQUIRED | COMPLETED | CLOSED`。失败核验只追加当时标题、URL、发布时间和说明快照，并把工作置为 `ACTION_REQUIRED`；后续结果修正仍发生在同一工作上。首次成功核验原子创建与工作同 ID 的 `PublishedArticle`，并完成工作和来源任务。显式关闭必须保存原因、说明、操作者和时间，并原子取消来源任务。成功成果不再回退；后续问题由 `PublishedContentIssue OPEN -> RESOLVED` 独立表达，创建修复任务不会自动解决问题。
+
+工作终态字段、成果、事件、核验和问题历史由触发器冻结或限制为契约允许的状态变化，任何发布业务对象 DELETE 均被拒绝。GEO 新观测只能引用没有 `OPEN` 问题且从未以 `RETIRED` 解决问题的 `PublishedArticle`；打开问题与创建观测锁定同一文章，避免资格竞态。
+
 ## State Machines
 
 ```text
@@ -292,18 +302,19 @@ ContentVersion: DRAFT -> PENDING_REVIEW -> APPROVED -> SUPERSEDED
                                   \-> CHANGES_REQUESTED -> PENDING_REVIEW
 
 ContentTask: OPEN -> CANCELLED
-             OPEN -- first related PublicationRecord.VERIFIED --> COMPLETED
+             OPEN -- first successful PublicationVerification --> COMPLETED
 
 GenerationJob: PENDING -> RUNNING -> SUCCEEDED | FAILED
                (applies to both GENERATE and HUMANIZE)
 
-PublicationRecord:
-PENDING_MANUAL_PUBLISH -> PLATFORM_REVIEW -> PUBLISHED -> VERIFIED
-                       -> REJECTED
-PUBLISHED -> REMOVED | VERIFICATION_FAILED
-VERIFIED -> REMOVED | VERIFICATION_FAILED
+PublicationWork:
+PREPARING -> PLATFORM_REVIEW -> AWAITING_VERIFICATION
+PREPARING -> AWAITING_VERIFICATION
+AWAITING_VERIFICATION -> ACTION_REQUIRED -> AWAITING_VERIFICATION
+AWAITING_VERIFICATION | ACTION_REQUIRED -> COMPLETED
+PREPARING | PLATFORM_REVIEW | AWAITING_VERIFICATION | ACTION_REQUIRED -> CLOSED
 
-PublicationAttention: OPEN -> RESOLVED
+PublishedContentIssue: OPEN -> RESOLVED
 
 PlatformProfile: ENABLED <-> DISABLED
 
@@ -329,13 +340,13 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A platform type referenced by a platform profile cannot be deleted. Platform types do not own Prompts after `0014`.
 - A concrete platform binds zero or one current Prompt, while one Prompt may be shared by multiple platforms. Missing binding keeps the platform selectable for manual content tasks but makes system AI generation unavailable.
 - Platform Prompt update and deletion require optimistic revision matching against the locked template row. A bound Prompt cannot be deleted; platform deletion or rebinding never cascades to the template.
-- A concrete platform's `is_active` state is independent from configuration completeness. A disabled platform remains manageable but cannot be used to create a content task, repair task, platform account, or publication record; disabling never mutates existing accounts, configuration, or history.
+- A concrete platform's `is_active` state is independent from configuration completeness. A disabled platform remains manageable but cannot be used to create a content task, repair task, platform account, or publication work; disabling never mutates existing accounts, configuration, or history.
 - Platform completeness, account counts, and task-reference counts are real-time read projections. Completeness is true when the current platform Prompt exists; a task reference is counted once through `content_tasks.platform_profile_id`.
 - A concrete platform stores at most one Logo source. New writes only accept a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` file; `logo_external_url` remains a nullable read-only legacy field until a later migration, and `website_url` remains an explicit nullable URI.
 - File cleanup uses the three actual current-head file foreign keys as its deletion authority. Unconfirmed files retain their configured grace period, detached previously used files retain seven days, and object deletion remains retryable through `DELETING` before a `DELETED` tombstone is recorded.
 - Product, fact version, platform profile, platform account, platform type, and user physical deletion is admin-only. Services lock the target, count direct references where applicable, and return structured `409` conflicts; they never cascade, reassign, or rewrite immutable business history except for the explicitly guarded audit actor nulling in `0027`.
-- A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform profile requires no content tasks or platform accounts; a platform account requires no `PublicationRecord`; a platform type requires no platform profiles.
-- 已取消内容任务可连同其生成作业、审核记录和未批准内容版本物理删除；存在 `APPROVED`/`SUPERSEDED` 内容、任一发布记录或发布修复来源时必须阻断，其他任务状态不可删除。
+- A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform profile requires no content tasks or platform accounts; a platform account requires no `PublicationWork`; a platform type requires no platform profiles.
+- 已取消内容任务可连同其生成作业、审核记录和未批准内容版本物理删除；存在 `APPROVED`/`SUPERSEDED` 内容、任一 `PublicationWork` 或非空 `source_published_content_issue_id` 时必须阻断，其他任务状态不可删除。
 - Channel deletion cascades to Headers and models. Historical job foreign keys become null while their immutable snapshots remain readable.
 - A model can be enabled only after its own successful test. A channel can be enabled only when at least one child model has passed testing.
 - A generation job performs at most one provider call. Expired worker leases fail explicitly; retries create a new job and preserve the original non-sensitive snapshot. Original-generation v2/v3 snapshots may retry from their frozen input; legacy v1 snapshots are read-only.
@@ -343,17 +354,18 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - Third-party AI egress requires the bound fact version to be explicitly `PUBLIC`; missing, legacy-empty, `INTERNAL`, or `RESTRICTED` fact data is a hard denial.
 - Original generation revalidates the user-confirmed current Prompt UUID and revision, then sends exactly one system message equal to that Prompt and one user message equal to the frozen fact Markdown; no prefix, task field, metadata, JSON wrapper, repair, model switch, or fallback is allowed.
 - A manual first draft creates a `HUMAN DRAFT` content version with null generation and parent lineage, then uses the same review and publication gates as AI content.
-- A publication can reference only an approved content version whose fact is not retired at creation time.
+- A publication work can reference only an approved content version whose fact is not retired at creation time.
 - A publication account profile must equal the content task's locked platform profile; both the application service and PostgreSQL enforce it.
 - A concrete platform may own multiple publication accounts, but their internal identifiers are unique by `lower(btrim(account_identifier))`; disabled accounts retain identity and historical references but are excluded from new publication candidates.
-- A publication record selects exactly one account. The same `platform_profile_id + content_hash` permits at most one non-rejected attempt, and any append-only `PUBLISHED | VERIFIED` event permanently blocks another publication on that concrete platform.
-- A publication record may be physically deleted only when its complete status-event history never contains `PUBLISHED | VERIFIED` and no GEO citation, GEO publication observation, or publication attention references it. Deletion explicitly removes only that aggregate's unpublished events and attachment relations; unreferenced files enter the shared cleanup lifecycle.
-- `PUBLISHED` and `VERIFIED` publications require a valid HTTP(S) URL matching the configured platform domain.
-- Candidate evidence and `mark-published` result evidence must be verified `OPERATION_SCREENSHOT` files and share the append-only `publication_attachments` relation. Result evidence, final URL, publication time, status event, and audit record commit or fail together.
-- Task completion has no public manual command. The first verified publication completes an open task atomically; completed tasks never revert.
-- Open publication attention is the only publication-loss todo source. Repair-task creation and attention resolution are separate explicit commands.
+- A publication work selects exactly one account. One content version has at most one work, and one `platform_profile_id + content_hash` has at most one non-closed work.
+- Result registration requires a valid HTTP(S) URL matching the configured platform domain and may append only verified `OPERATION_SCREENSHOT` evidence. Result fields, evidence, work event and audit commit or fail together.
+- A failed verification appends an immutable snapshot and leaves the work pending in `ACTION_REQUIRED`; it never creates an article or completes/cancels the task.
+- Task completion has no public manual command. The first successful verification atomically creates the read-only `PublishedArticle` and completes the open source task; completed tasks never revert.
+- A nonterminal work may only end without success through explicit close with a structured reason and non-blank comment; close atomically cancels the source task.
+- Publication works, events, verifications, articles and issues cannot be physically deleted through business APIs. Published results are immutable; later page problems use `PublishedContentIssue` rather than rewriting the article.
+- Repair-task creation and issue resolution are separate explicit commands. A repaired issue remains `OPEN` until explicitly resolved, and resolving it does not complete the repair task.
 - Fact and content review records are append-only, and every request-changes command requires a non-blank comment.
 - Observation accuracy `UNJUDGEABLE` is excluded from the accuracy-rate denominator.
-- Manual GEO observations cover every currently `PUBLISHED | VERIFIED` article for one product and store one independent `discovered`, `mentioned`, and optional `accuracy` result per article. Evidence screenshots are optional; corrections aggregate ancestor evidence for reads without duplicating file links. Administrators may delete only the complete manual correction chain through the guarded `0029` path.
+- Manual GEO observations cover every currently eligible `PublishedArticle` for one product and store one independent `discovered`, `mentioned`, and optional `accuracy` result per article. Articles with an open issue or a historical `RETIRED` outcome are ineligible. Evidence screenshots are optional; corrections aggregate ancestor evidence for reads without duplicating file links. Administrators may delete only the complete manual correction chain through the guarded `0029` path.
 - Historical GEO publication associations with null insight facts remain explicitly incomplete and never enter manual insight denominators.
 - Audit log details must not contain passwords, session cookies, AccessKeys, model keys, or unpublished source documents.

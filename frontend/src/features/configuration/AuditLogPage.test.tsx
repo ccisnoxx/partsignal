@@ -46,7 +46,7 @@ const representativeAuditLogs = [
   { ...auditLog, id: '20000000-0000-4000-8000-000000000012', action: 'platform_profile.created' },
   { ...auditLog, id: '20000000-0000-4000-8000-000000000013', business_module: 'PRODUCT_FACTS', action: 'fact_version.approve' },
   { ...auditLog, id: '20000000-0000-4000-8000-000000000014', business_module: 'CONTENT_PRODUCTION', action: 'generation_job.created' },
-  { ...auditLog, id: '20000000-0000-4000-8000-000000000015', business_module: 'PUBLICATION', action: 'publication.created' },
+  { ...auditLog, id: '20000000-0000-4000-8000-000000000015', business_module: 'PUBLICATION', action: 'publication_work.created' },
   { ...auditLog, id: '20000000-0000-4000-8000-000000000016', business_module: 'GEO_OBSERVATION', action: 'geo_observation.created' },
   { ...auditLog, id: '20000000-0000-4000-8000-000000000017', action: 'ai_channel.created' },
   { ...auditLog, id: '20000000-0000-4000-8000-000000000018', action: 'ai_model.tested' },
@@ -158,7 +158,7 @@ test('动作筛选展示跨模块中文名称，以真实代码查询并保留�
   await waitFor(() => expect(requests.at(-1)?.searchParams.get('action')).toBe('geo_observation.created'));
   const auditList = screen.getByRole('region', { name: '审计日志列表' });
   expect(within(auditList).getByText('新增观测记录')).toBeInTheDocument();
-  expect(within(auditList).queryByText('创建发布登记')).not.toBeInTheDocument();
+  expect(within(auditList).queryByText('开始发布工作')).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: '重置筛选' }));
   await waitFor(() => expect(new URLSearchParams(window.location.search).has('action')).toBe(false));
@@ -175,7 +175,7 @@ test('动作筛选展示跨模块中文名称，以真实代码查询并保留�
     '创建平台配置',
     '事实审核通过',
     '创建内容生成作业',
-    '创建发布登记',
+    '开始发布工作',
     '新增观测记录',
     '创建 AI 渠道',
     '测试 AI 模型',

@@ -197,9 +197,9 @@ test('内容审核路由归属内容任务并显示审核标题', () => {
   expect(screen.getByText('内容审核', { selector: '.header-context strong' })).toBeInTheDocument();
 });
 
-test('发布关注与修复路由归属发布管理', () => {
+test('发布内容问题筛选归属发布管理', () => {
   render(
-    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/publication-attentions/attention-1/repair']}><Routes><Route element={<AppLayout />}><Route path="publication-attentions/:id/repair" element={<h1>发布修复</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
+    <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/publications?tab=issues&status=OPEN']}><Routes><Route element={<AppLayout />}><Route path="publications" element={<h1>内容问题</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
   );
   expect(screen.getByRole('menuitem', { name: /发布管理/ })).toHaveClass('ant-menu-item-selected');
   expect(screen.getByText('发布管理', { selector: '.header-context strong' })).toBeInTheDocument();

@@ -65,7 +65,7 @@ const task = {
   available_actions: ['CANCEL', 'CREATE_GENERATION_JOB', 'CREATE_MANUAL_VERSION'],
   fact_version_id: 'fact-version-1',
   query_topic_id: null,
-  source_publication_attention_id: null,
+  source_published_content_issue_id: null,
   revision: 1,
   created_by: 'user-1',
   created_at: '2026-07-01T08:30:00Z',

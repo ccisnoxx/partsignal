@@ -274,7 +274,7 @@ export function GeoObservationsPage() {
     },
     {
       title: '关联发布内容', key: 'publication', width: 150, ellipsis: true, render: (_, row) => {
-        const count = row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.article_results.length : row.publication_record_ids.length;
+        const count = row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.article_results.length : row.published_article_ids.length;
         return count ? <Button type="link" className="geo-cell-link" onClick={() => openRecord(row.id)}>{count} 条关联内容</Button> : '—';
       },
     },

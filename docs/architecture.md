@@ -18,11 +18,11 @@ Pydantic Schema 按接口领域放在 `app.schemas` 子模块，调用方直接�
 
 PostgreSQL 保存全部业务状态。Redis 只传递 Celery 消息，消息只包含 `generation_job_id`。对象存储保存文件字节，数据库保存文件元数据、哈希和业务引用。
 
-`FactVersion`、`ContentVersion`、AI 作业输入快照、发布状态事件、GEO 观测和审计记录构成不可变历史。每个产品只有一份以 `facts_revision` 保护的可编辑 Markdown 事实工作区；事实版本冻结原 Markdown 与分级。平台只维护一个可选的当前 Prompt，不存在任务 Prompt 或平台规则版本。模型输出不自报事实或证据 ID，追溯以作业快照和绑定事实版本为准。自然化结果不覆盖正文：它是 `based_on_id` 指向源版本、`source_job_id` 指向 `HUMANIZE` 作业的新 AI 草稿。
+`FactVersion`、`ContentVersion`、AI 作业输入快照、发布工作事件、核验快照、发布成果、GEO 观测和审计记录构成不可变历史。每个产品只有一份以 `facts_revision` 保护的可编辑 Markdown 事实工作区；事实版本冻结原 Markdown 与分级。平台只维护一个可选的当前 Prompt，不存在任务 Prompt 或平台规则版本。模型输出不自报事实或证据 ID，追溯以作业快照和绑定事实版本为准。自然化结果不覆盖正文：它是 `based_on_id` 指向源版本、`source_job_id` 指向 `HUMANIZE` 作业的新 AI 草稿。
 
 ## 发布与审核应用服务
 
-发布应用服务唯一拥有账号编辑/启停、发布状态转换、同平台内容防重、任务自动完成、取消门禁、发布异常和修复任务。一个具体平台可维护多个规范化标识不同的内部运营账号，但一条发布记录只选择一个；账号必须与任务锁定平台一致。创建登记和 `mark-published` 共用“具体平台 + 内容哈希”事务锁与门禁，未公开拒绝后可换账号重试，任一追加式公开事件会永久阻止同平台重复公开。首条 `VERIFIED` 发布与任务 `COMPLETED`、状态事件和审计在同一事务提交；后续 `REMOVED` 或 `VERIFICATION_FAILED` 不回退任务，也不撤销公开历史，只创建唯一 `PublicationAttention`。异常的修复任务和显式解决是两个独立命令，Dashboard 只统计 `OPEN PublicationAttention`。
+发布应用服务唯一拥有账号编辑/启停、`PublicationWork` 状态转换、同平台内容身份、首次核验、任务完成或取消、`PublishedArticle` 形成、发布后问题和修复任务。一个具体平台可维护多个规范化标识不同的内部运营账号，但一次发布工作只选择一个；账号必须与任务锁定平台一致。失败核验追加不可变快照并进入 `ACTION_REQUIRED`，同一工作修正结果后继续复核；首次成功核验与只读成果、任务 `COMPLETED`、工作事件和审计同事务提交。非终态工作只有带原因显式关闭才会取消来源任务。成功后的页面问题由 `PublishedContentIssue` 独立表达，创建修复任务和显式解决是两个独立命令；GEO 只读取没有开放问题且未退役的发布成果。
 
 审核应用服务唯一拥有事实/内容审核状态机、非空退回意见、内容质量门禁、审核记录追加和 `available_actions` 投影。`FactReviewContext` 只装配目标 `FactVersion.id` 自身的追加式审核记录，不通过产品 ID 混入兄弟版本；`ContentReviewContext` 继续装配同一内容任务截至目标版本的追加式历史。两类上下文都从不可变目标版本、任务绑定事实 Markdown、原始生成快照和完整自然化链一次装配，前端不再从当前事实工作区或多个独立请求拼接审核依据。Router 只映射路径、请求与响应，不保存第二套状态转换表。
 

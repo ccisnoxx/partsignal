@@ -11,7 +11,7 @@ test('GEO 洞察查询键包含全部筛选并可由 GEO 根键统一失效', as
     date_to: '2026-07-22',
     content_platform_id: '10000000-0000-4000-8000-000000000001',
     geo_platform: 'DeepSeek',
-    publication_record_id: '20000000-0000-4000-8000-000000000001',
+    published_article_id: '20000000-0000-4000-8000-000000000001',
     query_topic_id: '30000000-0000-4000-8000-000000000001',
   } satisfies GeoInsightQuery;
   let requested: URL | undefined;

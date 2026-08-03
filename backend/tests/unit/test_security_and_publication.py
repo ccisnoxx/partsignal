@@ -14,7 +14,12 @@ from app.schemas.configuration import QueryTopicCreate
 from app.security import generate_token, hash_password, hash_token, verify_password
 from app.services.file_records import verified_files
 from app.services.publication import domain_allowed
-from app.services.publication_queries import publication_actions, render_markdown
+from app.services.publication_queries import (
+    publication_work_actions,
+    published_article_actions,
+    published_content_issue_actions,
+    render_markdown,
+)
 
 
 class FileQuerySession:
@@ -59,14 +64,25 @@ def test_publication_domain_requires_http_and_real_domain_boundary() -> None:
     assert not domain_allowed("javascript:alert(1)", ["example.com"])
 
 
-def test_publication_delete_action_keeps_state_commands_first() -> None:
-    assert publication_actions("PLATFORM_REVIEW", can_delete=True) == [
-        "mark-published",
-        "reject",
-        "delete",
-    ]
-    assert publication_actions("REJECTED", can_delete=True) == ["delete"]
-    assert publication_actions("REJECTED") == []
+def test_publication_actions_have_one_server_projected_primary_action() -> None:
+    assert publication_work_actions("ACTION_REQUIRED") == (
+        ["VERIFY", "REGISTER_RESULT", "CLOSE"],
+        "VERIFY",
+    )
+    assert publication_work_actions("COMPLETED") == ([], None)
+    assert published_article_actions(has_open_issue=False, retired=False) == (
+        ["OPEN_ISSUE"],
+        "OPEN_ISSUE",
+    )
+    assert published_article_actions(has_open_issue=True, retired=False) == ([], None)
+    repair_task_id = uuid.uuid4()
+    assert published_content_issue_actions(status="OPEN", repair_task_id=None) == (
+        ["CREATE_REPAIR_TASK", "RESOLVE"],
+        "CREATE_REPAIR_TASK",
+    )
+    assert published_content_issue_actions(
+        status="OPEN", repair_task_id=repair_task_id
+    ) == (["RESOLVE"], "RESOLVE")
 
 
 def test_verified_files_rejects_duplicate_or_unverified_attachments() -> None:

@@ -168,7 +168,7 @@ function PlatformAccountsPanel({
   const confirmDelete = (account: PlatformAccount) =>
     modal.confirm({
       title: `删除发布账号“${account.label}”？`,
-      content: '存在发布记录引用时服务端会拒绝。此操作不可恢复。',
+      content: '存在发布工作引用时服务端会拒绝。此操作不可恢复。',
       okText: '删除',
       cancelText: '取消',
       okButtonProps: { danger: true },

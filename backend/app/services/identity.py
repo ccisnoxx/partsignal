@@ -28,7 +28,12 @@ from app.models.identity import (
     User,
 )
 from app.models.product_facts import FactReviewRecord, FactVersion
-from app.models.publication import PublicationAttention, PublicationRecord, PublicationStatusEvent
+from app.models.publication import (
+    PublicationVerification,
+    PublicationWork,
+    PublicationWorkEvent,
+    PublishedContentIssue,
+)
 from app.schemas.common import (
     ChangePasswordRequest,
     LoginRequest,
@@ -68,9 +73,12 @@ def _referenced_user_ids(db: Session, user_ids: list[uuid.UUID]) -> set[uuid.UUI
         FactVersion.created_by,
         FactVersion.approved_by,
         FactReviewRecord.actor_id,
-        PublicationRecord.created_by,
-        PublicationStatusEvent.actor_id,
-        PublicationAttention.resolved_by,
+        PublicationWork.created_by,
+        PublicationWork.closed_by,
+        PublicationWorkEvent.actor_id,
+        PublicationVerification.actor_id,
+        PublishedContentIssue.opened_by,
+        PublishedContentIssue.resolved_by,
     )
     query = union_all(
         *(select(column.label("user_id")).where(column.in_(user_ids)) for column in columns)

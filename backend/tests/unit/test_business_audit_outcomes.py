@@ -42,9 +42,13 @@ AuditCase = tuple[
 
 _CONTENT_ID = uuid.uuid4()
 _PLATFORM_ACCOUNT_ID = uuid.uuid4()
-_PUBLICATION_ID = uuid.uuid4()
+_PUBLICATION_WORK_ID = uuid.uuid4()
 _FACT_VERSION_ID = uuid.uuid4()
 _COMMAND_PAYLOAD = SimpleNamespace(expected_revision=0, comment="")
+_VERIFICATION_PAYLOAD = SimpleNamespace(
+    expected_revision=0,
+    outcome=SimpleNamespace(value="PASSED"),
+)
 
 AUDIT_CASES: tuple[AuditCase, ...] = (
     (
@@ -82,28 +86,24 @@ AUDIT_CASES: tuple[AuditCase, ...] = (
     ),
     (
         publication,
-        "create_manual_publication_service",
-        publication.create_manual_publication,
+        "create_publication_work",
+        publication.create_work,
         "editor",
         {"payload": object(), "idempotency_key": "audit-test-key"},
-        "publication.created",
-        "PublicationRecord",
+        "publication_work.created",
+        "PublicationWork",
         None,
         AuditModule.PUBLICATION,
     ),
     (
         publication,
-        "command_publication",
-        publication.command_publication_record,
+        "verify_publication_work",
+        publication.verify_work,
         "editor",
-        {
-            "publication_id": _PUBLICATION_ID,
-            "command": "mark-published",
-            "payload": object(),
-        },
-        "publication.mark_published",
-        "PublicationRecord",
-        _PUBLICATION_ID,
+        {"work_id": _PUBLICATION_WORK_ID, "payload": _VERIFICATION_PAYLOAD},
+        "publication_work.completed",
+        "PublicationWork",
+        _PUBLICATION_WORK_ID,
         AuditModule.PUBLICATION,
     ),
     (

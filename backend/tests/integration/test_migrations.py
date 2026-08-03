@@ -282,7 +282,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0033_task_owned_history_delete",)
+            assert cursor.fetchone() == ("0034_publication_redesign",)
             cursor.execute(
                 "SELECT tablename FROM pg_tables "
                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
@@ -290,7 +290,11 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
                     [
                         "fact_versions",
                         "content_versions",
-                        "publication_records",
+                        "publication_works",
+                        "publication_work_events",
+                        "publication_verifications",
+                        "published_articles",
+                        "published_content_issues",
                         "geo_observations",
                         "platform_types",
                         "platform_prompts",
@@ -305,7 +309,11 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
             assert {row[0] for row in cursor.fetchall()} == {
                 "fact_versions",
                 "content_versions",
-                "publication_records",
+                "publication_works",
+                "publication_work_events",
+                "publication_verifications",
+                "published_articles",
+                "published_content_issues",
                 "geo_observations",
                 "platform_types",
                 "platform_prompts",
@@ -344,7 +352,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
                         "fact_versions_guard",
                         "content_tasks_platform_guard",
                         "content_versions_guard",
-                        "publication_records_guard",
+                        "publication_works_guard",
                     ],
                 ),
             )
@@ -352,7 +360,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
                 "fact_versions_guard",
                 "content_tasks_platform_guard",
                 "content_versions_guard",
-                "publication_records_guard",
+                "publication_works_guard",
             }
             cursor.execute(
                 "SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
@@ -368,6 +376,9 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
                         "replacement_evidence_links",
                         "claim_evidence_links",
                         "platform_profile_versions",
+                        "publication_records",
+                        "publication_status_events",
+                        "publication_attentions",
                     ],
                 ),
             )
@@ -408,6 +419,26 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
                 "AND tablename IN ('roles', 'user_roles')"
             )
             assert cursor.fetchone() == (0,)
+
+        downgrade = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0033_task_owned_history_delete",
+            ],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "0034 无法安全降级" in downgrade.stdout + downgrade.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0034_publication_redesign",)
 
 
 @pytest.mark.integration
@@ -489,7 +520,7 @@ def test_ai_data_classification_migration_keeps_history_unclassified_and_reversi
 
 @pytest.mark.integration
 def test_publication_closure_migration_blocks_ambiguous_history() -> None:
-    """0013 必须稳定报告旧完成态和跨平台发布，并保持迁移原子。"""
+    """历史 0013 直接迁移仍稳定报告歧义数据并保持原子。"""
     with temporary_database("partsignal_publication_preflight") as (
         test_url,
         env,
@@ -508,21 +539,6 @@ def test_publication_closure_migration_blocks_ambiguous_history() -> None:
                 (task_id,),
             )
             connection.commit()
-
-        preflight = subprocess.run(
-            [sys.executable, "-m", "app.cli", "preflight-integrity"],
-            check=False,
-            env=env,
-            cwd=backend_dir,
-            capture_output=True,
-            text=True,
-        )
-        assert preflight.returncode == 1
-        issues = json.loads(preflight.stdout)
-        assert [(item["record_id"], item["reason_code"]) for item in issues] == [
-            (str(task_id), "COMPLETED_WITHOUT_VERIFIED_PUBLICATION"),
-            (str(publication_id), "PUBLICATION_PLATFORM_MISMATCH"),
-        ]
 
         result = run_alembic(env, backend_dir, "head", check=False)
         assert result.returncode != 0
@@ -3322,7 +3338,7 @@ def test_content_task_creation_idempotency_migration_preserves_history_and_downg
             )
             connection.commit()
 
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0032_content_task_idempotency")
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute(
                 "SELECT idempotency_key FROM content_tasks WHERE id = %s",
@@ -3394,7 +3410,7 @@ def test_content_task_owned_history_delete_migration_is_reversible() -> None:
         env,
         backend_dir,
     ):
-        run_alembic(env, backend_dir, "head")
+        run_alembic(env, backend_dir, "0033_task_owned_history_delete")
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute(
                 "SELECT pg_get_functiondef('partsignal_guard_content_version()'::regprocedure)"
@@ -3430,3 +3446,37 @@ def test_content_task_owned_history_delete_migration_is_reversible() -> None:
             assert "partsignal_prevent_change()" in cursor.fetchone()[0]
             cursor.execute("SELECT version_num FROM alembic_version")
             assert cursor.fetchone() == ("0032_content_task_idempotency",)
+
+
+@pytest.mark.integration
+def test_publication_redesign_migration_blocks_legacy_data_atomically() -> None:
+    """0034 发现旧发布数据时汇总阻断，且不推进 revision。"""
+    with temporary_database("partsignal_publication_redesign_blocked") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0012_ai_data_classification")
+        task_id = seed_legacy_content_task(test_url)
+        publication_id = seed_legacy_publication(
+            test_url,
+            task_id,
+            cross_platform=False,
+        )
+        run_alembic(env, backend_dir, "0033_task_owned_history_delete")
+
+        result = run_alembic(env, backend_dir, "0034_publication_redesign", check=False)
+        output = result.stdout + result.stderr
+        assert result.returncode != 0
+        assert "0034 需要先完成已批准的环境重置" in output
+        assert "publication_records=1" in output
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0033_task_owned_history_delete",)
+            cursor.execute(
+                "SELECT count(*) FROM publication_records WHERE id = %s",
+                (publication_id,),
+            )
+            assert cursor.fetchone() == (1,)
+            cursor.execute("SELECT to_regclass('public.publication_works')")
+            assert cursor.fetchone() == (None,)

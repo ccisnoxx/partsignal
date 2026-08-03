@@ -11,7 +11,7 @@ const referenceLabels: Record<string, string> = {
   PLATFORM_PROFILE_VERSION: '平台规则版本',
   PLATFORM_PROFILE: '具体平台',
   PLATFORM_ACCOUNT: '平台账号',
-  PUBLICATION_RECORD: '发布记录',
+  PUBLICATION_WORK: '发布工作',
 };
 
 export function DeletionError({ error }: { error: unknown }) {

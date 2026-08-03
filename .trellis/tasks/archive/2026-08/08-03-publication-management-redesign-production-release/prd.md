@@ -24,10 +24,17 @@
 
 ## 验收标准
 
-- [ ] AC1：部署前工作区干净，分支为 `main`，且 `HEAD == origin/main`。
-- [ ] AC2：`make staging-redeploy-fast` 成功完成并产生不可覆盖的新 release，`current` 指向该 release。
-- [ ] AC3：部署后容器、API `live`、API `ready`、PostgreSQL、Redis 与前端首页均通过脚本检查。
-- [ ] AC4：再次执行 `deploy/scripts/smoke.sh https://geo.962850.xyz` 通过，并记录 release ID；全过程不输出秘密。
+- [x] AC1：部署前工作区干净，分支为 `main`，且 `HEAD == origin/main`。
+- [x] AC2：`make staging-redeploy-fast` 成功完成并产生不可覆盖的新 release，`current` 指向该 release。
+- [x] AC3：部署后容器、API `live`、API `ready`、PostgreSQL、Redis 与前端首页均通过脚本检查。
+- [x] AC4：再次执行 `deploy/scripts/smoke.sh https://geo.962850.xyz` 通过，并记录 release ID；全过程不输出秘密。
+
+## 实际结果
+
+- 2026-08-03 执行 `make staging-redeploy-fast` 成功，总耗时 55 秒。
+- 新 release 为 `mvp-20260803-211435-63d7a5b0bfaa`，远端 `current` 已原子切换到该目录。
+- API、前端、Worker、Scheduler、PostgreSQL、Redis 与 `fake-oss` 均在运行；有健康检查的服务全部为 `healthy`。
+- 独立执行公网冒烟通过：API `live`、`ready`、PostgreSQL、Redis 与前端首页均正常。
 
 ## 范围外
 

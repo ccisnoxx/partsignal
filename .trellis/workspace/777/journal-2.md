@@ -206,3 +206,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 65: 视觉基线与测试合同一致性恢复
+
+**Date**: 2026-08-03
+**Task**: 视觉基线与测试合同一致性恢复
+**Branch**: `main`
+
+### Summary
+
+精确恢复 11 张已批准视觉基线，将截图阈值统一为 0.02，并完成目标视觉用例、完整 E2E、清理与质量复核。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e3dbe81` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

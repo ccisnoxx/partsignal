@@ -272,3 +272,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 67: 上线前最终发布候选验收复验收尾
+
+**Date**: 2026-08-03
+**Task**: 上线前最终发布候选验收复验收尾
+**Branch**: `main`
+
+### Summary
+
+在冻结候选上完成七项质量门禁、关键页面 S0～S8 smoke、清理与 trellis-check，机械判定为 GO；提交最终复验报告并归档任务。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a180ced` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

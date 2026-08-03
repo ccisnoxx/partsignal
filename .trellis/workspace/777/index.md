@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 65
+- **Total Sessions**: 66
 - **Last Active**: 2026-08-03
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~241 | Active |
+| `journal-2.md` | ~274 | Active |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 66 | 2026-08-03 | 发布确认取消回焦修复 | `a778393` | `main` |
 | 65 | 2026-08-03 | 视觉基线与测试合同一致性恢复 | `e3dbe81` | `main` |
 | 64 | 2026-08-03 | 上线前最终发布候选验收 | `94f0431` | `main` |
 | 63 | 2026-08-02 | 清理 Ant Design Alert 弃用属性 | `e01bb81` | `main` |

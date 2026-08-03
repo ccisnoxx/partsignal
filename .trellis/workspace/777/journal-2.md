@@ -239,3 +239,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 66: 发布确认取消回焦修复
+
+**Date**: 2026-08-03
+**Task**: 发布确认取消回焦修复
+**Branch**: `main`
+
+### Summary
+
+修复发布动作确认取消后的两级焦点恢复，补充组件与隔离 E2E 回归并归档任务。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a778393` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

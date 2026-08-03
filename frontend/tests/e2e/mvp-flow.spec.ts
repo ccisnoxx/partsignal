@@ -658,7 +658,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
       website_url: profile.website_url,
     },
   }));
-  const manualRevision = await body<{ id: string }>(await page.request.post(`/api/v1/content-versions/${generatedContentId}/revisions`, { headers: { 'X-CSRF-Token': csrf }, data: { title: `人工核对 ${product!.part_number}`, summary: '工程师已核对生成草稿。', body_markdown: '不得将虚构验收数据用于真实选型。', tags: ['reviewed'], change_summary: '人工核对并创建新版本' } }));
+  const manualRevision = await body<{ id: string; version: number }>(await page.request.post(`/api/v1/content-versions/${generatedContentId}/revisions`, { headers: { 'X-CSRF-Token': csrf }, data: { title: `人工核对 ${product!.part_number}`, summary: '工程师已核对生成草稿。', body_markdown: '不得将虚构验收数据用于真实选型。', tags: ['reviewed'], change_summary: '人工核对并创建新版本' } }));
   const submittedId = manualRevision.id;
   await page.goto(`/tasks/${task.id as string}`);
   const taskNavigation = page.getByRole('navigation', { name: '内容任务章节' });
@@ -707,7 +707,46 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
     headers: { 'X-CSRF-Token': csrf },
     data: { actual_title: `E2E ${suffix}`, final_url: `https://forum.example.invalid/posts/${suffix}`, published_at: new Date().toISOString(), expected_revision: reviewWork.revision, comment: '人工发布完成', attachment_file_ids: [resultFile.id] },
   }));
-  await command(page, `/api/v1/publication-works/${publication.id}/verifications`, csrf, { outcome: 'PASSED', content_matches: true, expected_revision: resultWork.revision, comment: '人工核对一致' });
+  const failedWork = await command(page, `/api/v1/publication-works/${publication.id}/verifications`, csrf, { outcome: 'FAILED', content_matches: false, expected_revision: resultWork.revision, comment: '首次核验发现正文不一致' });
+  expect(failedWork.status).toBe('ACTION_REQUIRED');
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.goto('/publications?tab=works&status=ACTION_REQUIRED');
+  const mobileWorkList = page.getByRole('list', { name: '发布工作移动列表' });
+  await expect(mobileWorkList).toBeVisible();
+  await expect(page.locator('.publication-panel table')).toHaveCount(0);
+  const mobileWorkTitle = mobileWorkList.getByRole('button', { name: `人工核对 ${product!.part_number} · V${manualRevision.version}` });
+  const mobileVerify = mobileWorkList.getByRole('button', { name: '核验发布结果' });
+  await expect(mobileWorkTitle).toBeVisible();
+  await expect(mobileVerify).toBeVisible();
+  for (const target of [mobileWorkTitle, mobileVerify]) {
+    const box = await target.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
+  await mobileWorkTitle.click();
+  await expect(page).toHaveURL(new RegExp(`kind=work.*selected=${publication.id}|selected=${publication.id}.*kind=work`));
+  const pendingDrawer = page.getByRole('dialog', { name: '发布工作详情' });
+  await expect(pendingDrawer.getByText('首次核验发现正文不一致', { exact: true })).toBeVisible();
+  await pendingDrawer.getByRole('button', { name: '关闭' }).click();
+  await expect(mobileWorkTitle).toBeFocused();
+  await mobileVerify.click();
+  const verifyModal = page.getByRole('dialog', { name: '核验发布结果' });
+  await expect(verifyModal).toBeVisible();
+  await verifyModal.getByRole('button', { name: /取\s*消/ }).click();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/publications?tab=works&status=ACTION_REQUIRED');
+  const workRegion = page.getByRole('region', { name: '发布管理列表' });
+  await expect(workRegion).toBeVisible();
+  const workRegionBox = await workRegion.boundingBox();
+  expect(workRegionBox?.y).toBeLessThan(1000);
+  const desktopWorkRow = workRegion.locator('tbody tr').filter({ hasText: `人工核对 ${product!.part_number}` });
+  const desktopTitleBox = await desktopWorkRow.locator('.publication-table-title').boundingBox();
+  const desktopActionBox = await desktopWorkRow.locator('td.ant-table-cell-fix-end').boundingBox();
+  expect(desktopTitleBox!.x + desktopTitleBox!.width).toBeLessThanOrEqual(desktopActionBox!.x + 1);
+
+  await command(page, `/api/v1/publication-works/${publication.id}/verifications`, csrf, { outcome: 'PASSED', content_matches: true, expected_revision: failedWork.revision as number, comment: '复核后人工核对一致' });
   const completedTask = await body<{ status: string }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`));
   expect(completedTask.status).toBe('COMPLETED');
   await page.goto('/publications');
@@ -913,7 +952,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const eligibleAfterIssue = await body<{ items: Array<{ published_article_id: string }> }>(await page.request.get(`/api/v1/geo-observation-publications?product_id=${product!.id}`));
   expect(eligibleAfterIssue.items.some((item) => item.published_article_id === publication.id)).toBe(false);
 
-  await page.goto(`/publications?tab=issues&status=OPEN&selected=${issue.id}`);
+  await page.goto(`/publications?tab=works&kind=issue&selected=${issue.id}`);
   const issueDrawer = page.getByRole('dialog', { name: '内容问题详情' });
   await issueDrawer.getByRole('button', { name: '创建修复任务' }).click();
   const repairModal = page.getByRole('dialog', { name: '创建修复任务' });

@@ -6,6 +6,8 @@ import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
 
 const workId = '61000000-0000-4000-8000-000000000001';
+const articleId = '64000000-0000-4000-8000-000000000001';
+const issueId = '65000000-0000-4000-8000-000000000001';
 const user = {
   id: '10000000-0000-4000-8000-000000000001',
   username: 'editor',
@@ -74,12 +76,89 @@ const workDetail = {
 } satisfies Schema<'PublicationWork'>;
 
 const summary = {
-  ready_count: 0,
+  ready_count: 1,
   active_count: 0,
   awaiting_verification_count: 0,
   action_required_count: 1,
-  open_issue_count: 0,
+  open_issue_count: 1,
 } satisfies Schema<'PublicationWorkbenchSummary'>;
+
+const readyItem = {
+  content_version: {
+    id: '30000000-0000-4000-8000-000000000002',
+    task_id: '20000000-0000-4000-8000-000000000002',
+    fact_version_id: '21000000-0000-4000-8000-000000000002',
+    source_job_id: null,
+    based_on_id: null,
+    version: 2,
+    source_type: 'HUMAN',
+    title: 'PS-002 已批准内容',
+    summary: '发布候选摘要',
+    body_markdown: '# 发布候选',
+    tags: ['PS-002'],
+    content_hash: 'b'.repeat(64),
+    status: 'APPROVED',
+    available_actions: [],
+    revision: 1,
+    quality_issues: [],
+    created_by: user.id,
+    created_at: '2026-08-03T00:00:00Z',
+  },
+  task_id: '20000000-0000-4000-8000-000000000002',
+  platform_profile_id: '40000000-0000-4000-8000-000000000001',
+  platform_profile_name: '工程师社区',
+  matching_accounts: [],
+  available_actions: ['START'],
+  primary_action: 'START',
+} satisfies Schema<'PublicationReadyItem'>;
+
+const articleItem = {
+  id: articleId,
+  task_id: workItem.task_id,
+  content_version_id: workItem.content_version_id,
+  content_title: workItem.content_title,
+  content_version: workItem.content_version,
+  platform_profile_id: workItem.platform_profile_id,
+  platform_profile_name: workItem.platform_profile_name,
+  platform_account_id: workItem.platform_account_id,
+  platform_account_label: workItem.platform_account_label,
+  account_identifier: workItem.account_identifier,
+  actual_title: 'PS-001 已发布成果',
+  final_url: workItem.final_url!,
+  published_at: workItem.published_at!,
+  verified_at: '2026-08-03T03:00:00Z',
+  has_open_issue: true,
+  retired: false,
+  available_actions: ['OPEN_ISSUE'],
+  primary_action: 'OPEN_ISSUE',
+} satisfies Schema<'PublishedArticleListItem'>;
+
+const issueItem = {
+  id: issueId,
+  kind: 'PAGE_UNAVAILABLE',
+  description: '公开页面已下线',
+  status: 'OPEN',
+  opened_at: '2026-08-03T04:00:00Z',
+  resolved_at: null,
+  resolution_outcome: null,
+  resolution_comment: null,
+  published_article_id: articleId,
+  content_title: workItem.content_title,
+  platform_profile_name: workItem.platform_profile_name,
+  actual_title: articleItem.actual_title,
+  final_url: articleItem.final_url,
+  revision: 1,
+  repair_task_id: null,
+  available_actions: ['CREATE_REPAIR_TASK', 'RESOLVE'],
+  primary_action: 'CREATE_REPAIR_TASK',
+} satisfies Schema<'PublishedContentIssueListItem'>;
+
+const issueDetail = {
+  ...issueItem,
+  opened_by: user.id,
+  resolved_by: null,
+  article: articleItem,
+} satisfies Schema<'PublishedContentIssue'>;
 
 function installResponses({ onVerify, onClose }: {
   onVerify?: (request: Request) => void;
@@ -91,10 +170,17 @@ function installResponses({ onVerify, onClose }: {
     if (url.pathname.endsWith('/auth/me')) return { body: user };
     if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
     if (url.pathname.endsWith('/publication-workbench-summary')) return { body: summary };
-    if (url.pathname.endsWith('/publication-ready-items')) return { body: { items: [] } };
+    if (url.pathname.endsWith('/publication-ready-items')) return { body: { items: [readyItem] } };
     if (url.pathname.endsWith('/publication-works') && request.method === 'GET') {
-      return { body: { items: closed ? [] : [workItem], page: 1, page_size: 20, total: closed ? 0 : 1 } };
+      const historical = url.searchParams.get('status') === 'CLOSED';
+      return { body: { items: closed || historical ? [] : [workItem], page: 1, page_size: 20, total: closed || historical ? 0 : 1 } };
     }
+    if (url.pathname.endsWith('/published-articles')) return { body: { items: [articleItem], page: 1, page_size: 20, total: 1 } };
+    if (url.pathname.endsWith('/published-content-issues')) {
+      const resolved = url.searchParams.get('status') === 'RESOLVED';
+      return { body: { items: resolved ? [] : [issueItem], page: 1, page_size: 20, total: resolved ? 0 : 1 } };
+    }
+    if (url.pathname.endsWith(`/published-content-issues/${issueId}`)) return { body: issueDetail };
     if (url.pathname.endsWith(`/publication-works/${workId}`)) return { body: workDetail };
     if (url.pathname.endsWith(`/publication-works/${workId}/verifications`)) {
       onVerify?.(request);
@@ -120,7 +206,7 @@ async function findDialog(title: string) {
 }
 
 test('URL 恢复需处理工作详情，动作完全来自服务端投影', async () => {
-  window.history.pushState({}, '', `/publications?tab=works&status=ACTION_REQUIRED&page=1&selected=${workId}`);
+  window.history.pushState({}, '', `/publications?tab=works&status=ACTION_REQUIRED&work_page=1&kind=work&selected=${workId}`);
   installResponses();
   render(<App />);
 
@@ -131,6 +217,49 @@ test('URL 恢复需处理工作详情，动作完全来自服务端投影', asyn
   expect(await screen.findByText('登记发布结果')).toBeInTheDocument();
   expect(screen.getByText('关闭发布工作')).toBeInTheDocument();
   expect(screen.queryByText(/删除发布/)).not.toBeInTheDocument();
+});
+
+test('默认待处理视图按问题、当前工作和待开始内容组织', async () => {
+  window.history.pushState({}, '', '/publications');
+  installResponses();
+  render(<App />);
+
+  expect(await screen.findByRole('tab', { name: '待处理' })).toHaveAttribute('aria-selected', 'true');
+  expect(screen.getByRole('tab', { name: '发布成果' })).toBeInTheDocument();
+  expect(screen.getByRole('tab', { name: '历史记录' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: '开放内容问题' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: '当前发布工作' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: '待开始内容' })).toBeInTheDocument();
+  expect(screen.queryByRole('tab', { name: '内容问题' })).not.toBeInTheDocument();
+});
+
+test('混合待处理视图只按显式 kind 恢复问题详情', async () => {
+  window.history.pushState({}, '', `/publications?tab=works&kind=issue&selected=${issueId}`);
+  installResponses();
+  render(<App />);
+
+  const drawer = await findDialog('内容问题详情');
+  expect(await within(drawer).findByText('公开页面已下线')).toBeInTheDocument();
+  expect(within(drawer).getByRole('button', { name: '创建修复任务' })).toBeInTheDocument();
+});
+
+test('历史记录只查询已关闭工作或已解决问题，不重复发布成果', async () => {
+  const requests: string[] = [];
+  window.history.pushState({}, '', '/publications?tab=history&status=CLOSED&page=1');
+  installResponses();
+  const originalFetch = window.fetch;
+  window.fetch = ((input, init) => {
+    requests.push(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
+    return originalFetch(input, init);
+  }) as typeof window.fetch;
+  try {
+    render(<App />);
+    expect(await screen.findByRole('tab', { name: '历史记录' })).toHaveAttribute('aria-selected', 'true');
+    await waitFor(() => expect(requests.some((url) => new URL(url).searchParams.get('status') === 'CLOSED')).toBe(true));
+    expect(requests.some((url) => new URL(url).pathname.endsWith('/published-articles'))).toBe(false);
+  } finally {
+    window.fetch = originalFetch;
+  }
 });
 
 test('首次核验失败提交明确结果并继续保留待处理动作', async () => {

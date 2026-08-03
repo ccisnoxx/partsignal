@@ -20,27 +20,31 @@ import {
   Input,
   List,
   Modal,
+  Pagination,
   Select,
   Space,
   Table,
   Tabs,
   Tag,
+  Tooltip,
   Typography,
   type TableColumnsType,
 } from 'antd';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { Schema } from '../../shared/api/types';
-import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
+import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { DirectUpload } from '../../shared/components/DirectUpload';
-import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 
-type PublicationTab = 'works' | 'articles' | 'issues';
+type PublicationTab = 'works' | 'articles' | 'history';
+type ResourceKind = 'work' | 'article' | 'issue';
 type ReadyItem = Schema<'PublicationReadyItem'>;
 type WorkItem = Schema<'PublicationWorkListItem'>;
 type Work = Schema<'PublicationWork'>;
@@ -58,7 +62,7 @@ type ActionTarget =
 
 const PAGE_SIZE = 20;
 const workStatuses: Schema<'PublicationWorkStatus'>[] = [
-  'ACTION_REQUIRED', 'AWAITING_VERIFICATION', 'PLATFORM_REVIEW', 'PREPARING', 'COMPLETED', 'CLOSED',
+  'ACTION_REQUIRED', 'AWAITING_VERIFICATION', 'PLATFORM_REVIEW', 'PREPARING',
 ];
 const actionLabels: Record<ActionTarget['action'], string> = {
   START: '开始发布',
@@ -92,7 +96,7 @@ function ActionButtons({
 }) {
   const secondary = resource.available_actions.filter((action) => action !== resource.primary_action);
   return (
-    <Space size={4}>
+    <Space className="publication-action-buttons" size={4}>
       {resource.primary_action && (
         <Button size="small" type="primary" onClick={() => onAction(resource.primary_action!)}>
           {actionLabels[resource.primary_action as ActionTarget['action']]}
@@ -365,38 +369,50 @@ function ActionModal({ target, onClose }: { target: ActionTarget | null; onClose
 }
 
 function DetailDrawer({
-  tab,
+  kind,
   selected,
   onClose,
   onAction,
+  restoreFocus,
 }: {
-  tab: PublicationTab;
+  kind: ResourceKind | null;
   selected: string | null;
   onClose: () => void;
   onAction: (target: ActionTarget) => void;
+  restoreFocus: () => void;
 }) {
   const screens = Grid.useBreakpoint();
+  const openCompletedRef = useRef(false);
+  const [closingSelection, setClosingSelection] = useState<{ selected: string; kind: ResourceKind } | null>(null);
+  const activeSelected = selected ?? closingSelection?.selected ?? '';
+  const activeKind = kind ?? closingSelection?.kind ?? 'work';
+  const open = !!selected && !!kind;
+
+  useEffect(() => {
+    if (!open && !openCompletedRef.current) restoreFocus();
+  }, [open, restoreFocus]);
+
   const work = useQuery({
-    queryKey: queryKeys.publications.work(selected ?? ''),
-    queryFn: async () => unwrap(await api.GET('/api/v1/publication-works/{work_id}', { params: { path: { work_id: selected! } } })),
-    enabled: tab === 'works' && !!selected,
+    queryKey: queryKeys.publications.work(activeSelected),
+    queryFn: async () => unwrap(await api.GET('/api/v1/publication-works/{work_id}', { params: { path: { work_id: activeSelected } } })),
+    enabled: open && activeKind === 'work',
   });
   const article = useQuery({
-    queryKey: queryKeys.publications.article(selected ?? ''),
-    queryFn: async () => unwrap(await api.GET('/api/v1/published-articles/{article_id}', { params: { path: { article_id: selected! } } })),
-    enabled: tab === 'articles' && !!selected,
+    queryKey: queryKeys.publications.article(activeSelected),
+    queryFn: async () => unwrap(await api.GET('/api/v1/published-articles/{article_id}', { params: { path: { article_id: activeSelected } } })),
+    enabled: open && activeKind === 'article',
   });
   const issue = useQuery({
-    queryKey: queryKeys.publications.issue(selected ?? ''),
-    queryFn: async () => unwrap(await api.GET('/api/v1/published-content-issues/{issue_id}', { params: { path: { issue_id: selected! } } })),
-    enabled: tab === 'issues' && !!selected,
+    queryKey: queryKeys.publications.issue(activeSelected),
+    queryFn: async () => unwrap(await api.GET('/api/v1/published-content-issues/{issue_id}', { params: { path: { issue_id: activeSelected } } })),
+    enabled: open && activeKind === 'issue',
   });
-  const query = tab === 'works' ? work : tab === 'articles' ? article : issue;
-  const title = tab === 'works' ? '发布工作详情' : tab === 'articles' ? '发布成果详情' : '内容问题详情';
+  const query = activeKind === 'work' ? work : activeKind === 'article' ? article : issue;
+  const title = activeKind === 'work' ? '发布工作详情' : activeKind === 'article' ? '发布成果详情' : '内容问题详情';
   let content = null;
   if (query.isLoading) content = <QueryLoading label={`正在加载${title}`} />;
   else if (query.error) content = <QueryFailure error={query.error} onRetry={() => void query.refetch()} />;
-  else if (tab === 'works' && work.data) {
+  else if (activeKind === 'work' && work.data) {
     content = (
       <Space orientation="vertical" size="large" className="detail-stack">
         <Descriptions column={1} size="small" items={[
@@ -413,7 +429,7 @@ function DetailDrawer({
         <section><Typography.Title level={5}>工作事件</Typography.Title><List dataSource={work.data.events} renderItem={(item) => <List.Item><List.Item.Meta title={`${item.action} · ${formatDateTime(item.created_at)}`} description={<><StatusTag status={item.to_status} /> {item.comment}</>} /></List.Item>} /></section>
       </Space>
     );
-  } else if (tab === 'articles' && article.data) {
+  } else if (activeKind === 'article' && article.data) {
     content = (
       <Space orientation="vertical" size="large" className="detail-stack">
         <Alert type="info" showIcon title="发布成果为只读历史，不提供修改或删除。" />
@@ -428,7 +444,7 @@ function DetailDrawer({
         <section><Typography.Title level={5}>历史问题</Typography.Title><List dataSource={article.data.issues} locale={{ emptyText: '没有内容问题' }} renderItem={(item) => <List.Item><List.Item.Meta title={<Space><StatusTag status={item.kind} /><StatusTag status={item.status} /></Space>} description={item.description} /></List.Item>} /></section>
       </Space>
     );
-  } else if (tab === 'issues' && issue.data) {
+  } else if (activeKind === 'issue' && issue.data) {
     content = (
       <Space orientation="vertical" size="large" className="detail-stack">
         <Descriptions column={1} size="small" items={[
@@ -443,18 +459,33 @@ function DetailDrawer({
       </Space>
     );
   }
-  const data = tab === 'works' ? work.data : tab === 'articles' ? article.data : issue.data;
+  const data = activeKind === 'work' ? work.data : activeKind === 'article' ? article.data : issue.data;
   return (
     <Drawer
-      open={!!selected}
+      rootClassName="publication-drawer-root"
+      className="publication-drawer"
+      open={open}
       title={title}
-      size={screens.md ? 680 : '100%'}
-      onClose={onClose}
+      size={screens.md ? 560 : '100%'}
+      onClose={() => {
+        if (selected && kind) setClosingSelection({ selected, kind });
+        onClose();
+      }}
+      focusable={{ focusTriggerAfterClose: false }}
+      destroyOnHidden
+      afterOpenChange={(nextOpen) => {
+        if (nextOpen) openCompletedRef.current = true;
+        else if (openCompletedRef.current) {
+          openCompletedRef.current = false;
+          setClosingSelection(null);
+          restoreFocus();
+        }
+      }}
       extra={data && (
         <ActionButtons
           resource={data}
           label={data.content_title}
-          onAction={(action) => onAction({ kind: tab === 'works' ? 'work' : tab === 'articles' ? 'article' : 'issue', resource: data, action } as ActionTarget)}
+          onAction={(action) => onAction({ kind: activeKind, resource: data, action } as ActionTarget)}
         />
       )}
     >
@@ -466,144 +497,232 @@ function DetailDrawer({
 export function PublicationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [actionTarget, setActionTarget] = useState<ActionTarget | null>(null);
+  const screens = Grid.useBreakpoint();
+  const mobile = screens.md === false;
+  const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
   const rawTab = searchParams.get('tab');
-  const tab: PublicationTab = rawTab === 'articles' || rawTab === 'issues' ? rawTab : 'works';
+  const tab: PublicationTab = rawTab === 'articles' || rawTab === 'history' ? rawTab : 'works';
   const page = validPage(searchParams.get('page'));
+  const workPage = validPage(searchParams.get('work_page'));
+  const issuePage = validPage(searchParams.get('issue_page'));
   const selected = searchParams.get('selected');
+  const rawKind = searchParams.get('kind');
+  const selectedKind: ResourceKind | null = rawKind === 'work' || rawKind === 'article' || rawKind === 'issue'
+    ? rawKind
+    : tab === 'articles' && selected ? 'article' : null;
   const rawStatus = searchParams.get('status');
   const workStatus = workStatuses.includes(rawStatus as Schema<'PublicationWorkStatus'>)
     ? rawStatus as Schema<'PublicationWorkStatus'>
     : undefined;
-  const issueStatus: Schema<'PublishedContentIssueStatus'> = rawStatus === 'RESOLVED' ? 'RESOLVED' : 'OPEN';
+  const historyStatus: 'CLOSED' | 'RESOLVED' = rawStatus === 'RESOLVED' ? 'RESOLVED' : 'CLOSED';
   const updateUrl = (updates: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams);
     Object.entries(updates).forEach(([key, value]) => value === null ? next.delete(key) : next.set(key, value));
     setSearchParams(next);
   };
+  const openDetail = (kind: ResourceKind, id: string) => updateUrl({ kind, selected: id });
   const summary = useQuery({
     queryKey: queryKeys.publications.summary,
     queryFn: async () => unwrap(await api.GET('/api/v1/publication-workbench-summary')),
+    enabled: tab === 'works',
   });
   const ready = useQuery({
     queryKey: queryKeys.publications.ready,
     queryFn: async () => unwrap(await api.GET('/api/v1/publication-ready-items')),
-    enabled: tab === 'works' && !workStatus,
-  });
-  const works = useQuery({
-    queryKey: queryKeys.publications.works(page, PAGE_SIZE, workStatus),
-    queryFn: async () => unwrap(await api.GET('/api/v1/publication-works', {
-      params: { query: { page, page_size: PAGE_SIZE, ...(workStatus ? { status: workStatus } : {}) } },
-    })),
     enabled: tab === 'works',
+  });
+  const worksQueryPage = tab === 'history' ? page : workPage;
+  const worksQueryStatus = tab === 'history' ? 'CLOSED' : workStatus;
+  const works = useQuery({
+    queryKey: queryKeys.publications.works(worksQueryPage, PAGE_SIZE, worksQueryStatus),
+    queryFn: async () => unwrap(await api.GET('/api/v1/publication-works', {
+      params: { query: { page: worksQueryPage, page_size: PAGE_SIZE, ...(worksQueryStatus ? { status: worksQueryStatus } : {}) } },
+    })),
+    enabled: tab === 'works' || (tab === 'history' && historyStatus === 'CLOSED'),
   });
   const articles = useQuery({
     queryKey: queryKeys.publications.articles(page, PAGE_SIZE),
     queryFn: async () => unwrap(await api.GET('/api/v1/published-articles', { params: { query: { page, page_size: PAGE_SIZE } } })),
     enabled: tab === 'articles',
   });
+  const issuesQueryPage = tab === 'history' ? page : issuePage;
+  const issuesQueryStatus: Schema<'PublishedContentIssueStatus'> = tab === 'history' ? 'RESOLVED' : 'OPEN';
   const issues = useQuery({
-    queryKey: queryKeys.publications.issues(page, PAGE_SIZE, issueStatus),
-    queryFn: async () => unwrap(await api.GET('/api/v1/published-content-issues', { params: { query: { page, page_size: PAGE_SIZE, status: issueStatus } } })),
-    enabled: tab === 'issues',
+    queryKey: queryKeys.publications.issues(issuesQueryPage, PAGE_SIZE, issuesQueryStatus),
+    queryFn: async () => unwrap(await api.GET('/api/v1/published-content-issues', { params: { query: { page: issuesQueryPage, page_size: PAGE_SIZE, status: issuesQueryStatus } } })),
+    enabled: tab === 'works' || (tab === 'history' && historyStatus === 'RESOLVED'),
   });
 
   const workColumns: TableColumnsType<WorkItem> = [
-    { title: '内容', render: (_, row) => <Button type="link" onClick={() => updateUrl({ selected: row.id })}>{row.content_title} · V{row.content_version}</Button> },
-    { title: '平台 / 账号', render: (_, row) => `${row.platform_profile_name} · ${row.platform_account_label}` },
-    { title: '当前阶段', dataIndex: 'status', width: 140, render: (status: string) => <StatusTag status={status} /> },
-    { title: '最近情况', width: 170, render: (_, row) => row.latest_verification_outcome ? <StatusTag status={row.latest_verification_outcome} /> : '尚未核验' },
-    { title: '更新时间', dataIndex: 'updated_at', width: 180, render: formatDateTime },
-    { title: '操作', width: 230, fixed: 'right', render: (_, row) => <ActionButtons resource={row} label={row.content_title} onAction={(action) => setActionTarget({ kind: 'work', resource: row, action: action as WorkAction })} /> },
+    { title: '内容', render: (_, row) => <Tooltip title={`${row.content_title} · V${row.content_version}`} trigger={['hover', 'focus']}><Button {...focusReturnTargetProps} className="publication-table-title table-cell-ellipsis" type="link" onClick={() => openDetail('work', row.id)}>{row.content_title} · V{row.content_version}</Button></Tooltip> },
+    { title: '平台 / 账号', width: 210, render: (_, row) => <TableCellText text={`${row.platform_profile_name} · ${row.platform_account_label}`} /> },
+    { title: '当前阶段', dataIndex: 'status', width: 128, render: (status: string) => <StatusTag status={status} /> },
+    { title: '最近情况', width: 126, render: (_, row) => row.latest_verification_outcome ? <StatusTag status={row.latest_verification_outcome} /> : '尚未核验' },
+    { title: '更新时间', dataIndex: 'updated_at', width: 156, render: formatDateTime },
+    { title: '操作', width: 168, fixed: 'right', render: (_, row) => <ActionButtons resource={row} label={row.content_title} onAction={(action) => setActionTarget({ kind: 'work', resource: row, action: action as WorkAction })} /> },
   ];
   const articleColumns: TableColumnsType<ArticleItem> = [
-    { title: '发布成果', render: (_, row) => <Button type="link" onClick={() => updateUrl({ selected: row.id })}>{row.actual_title}</Button> },
-    { title: '平台 / 账号', render: (_, row) => `${row.platform_profile_name} · ${row.platform_account_label}` },
-    { title: '首次核验', dataIndex: 'verified_at', width: 180, render: formatDateTime },
-    { title: '健康状态', width: 120, render: (_, row) => <StatusTag status={row.retired ? 'RETIRED' : row.has_open_issue ? 'OPEN' : 'COMPLETED'} /> },
-    { title: '操作', width: 220, fixed: 'right', render: (_, row) => <ActionButtons resource={row} label={row.actual_title} onAction={(action) => setActionTarget({ kind: 'article', resource: row, action: action as 'OPEN_ISSUE' })} /> },
+    { title: '发布成果', render: (_, row) => <Tooltip title={row.actual_title} trigger={['hover', 'focus']}><Button {...focusReturnTargetProps} className="publication-table-title table-cell-ellipsis" type="link" onClick={() => openDetail('article', row.id)}>{row.actual_title}</Button></Tooltip> },
+    { title: '平台 / 账号', width: 210, render: (_, row) => <TableCellText text={`${row.platform_profile_name} · ${row.platform_account_label}`} /> },
+    { title: '首次核验', dataIndex: 'verified_at', width: 156, render: formatDateTime },
+    { title: '健康状态', width: 112, render: (_, row) => <StatusTag status={row.retired ? 'RETIRED' : row.has_open_issue ? 'OPEN' : 'COMPLETED'} /> },
+    { title: '操作', width: 154, fixed: 'right', render: (_, row) => <ActionButtons resource={row} label={row.actual_title} onAction={(action) => setActionTarget({ kind: 'article', resource: row, action: action as 'OPEN_ISSUE' })} /> },
   ];
   const issueColumns: TableColumnsType<IssueItem> = [
-    { title: '内容问题', render: (_, row) => <Button type="link" onClick={() => updateUrl({ selected: row.id })}>{row.content_title}</Button> },
-    { title: '类型', dataIndex: 'kind', width: 150, render: (kind: string) => <StatusTag status={kind} /> },
-    { title: '状态', dataIndex: 'status', width: 110, render: (status: string) => <StatusTag status={status} /> },
-    { title: '打开时间', dataIndex: 'opened_at', width: 180, render: formatDateTime },
-    { title: '修复任务', width: 120, render: (_, row) => row.repair_task_id ? <Link to={`/tasks/${row.repair_task_id}`}>查看任务</Link> : '未创建' },
-    { title: '操作', width: 230, fixed: 'right', render: (_, row) => <ActionButtons resource={row} label={row.content_title} onAction={(action) => setActionTarget({ kind: 'issue', resource: row, action: action as IssueAction })} /> },
+    { title: '内容问题', render: (_, row) => <Tooltip title={`${row.content_title}：${row.description}`} trigger={['hover', 'focus']}><Button {...focusReturnTargetProps} className="publication-table-title table-cell-ellipsis" type="link" onClick={() => openDetail('issue', row.id)}>{row.content_title}</Button></Tooltip> },
+    { title: '类型', dataIndex: 'kind', width: 138, render: (kind: string) => <StatusTag status={kind} /> },
+    { title: '状态', dataIndex: 'status', width: 100, render: (status: string) => <StatusTag status={status} /> },
+    { title: '打开时间', dataIndex: 'opened_at', width: 156, render: formatDateTime },
+    { title: '修复任务', width: 108, render: (_, row) => row.repair_task_id ? <Link to={`/tasks/${row.repair_task_id}`}>查看任务</Link> : '未创建' },
+    { title: '操作', width: 168, fixed: 'right', render: (_, row) => <ActionButtons resource={row} label={`内容问题 ${row.content_title}`} onAction={(action) => setActionTarget({ kind: 'issue', resource: row, action: action as IssueAction })} /> },
   ];
-  const activeQuery = tab === 'works' ? works : tab === 'articles' ? articles : issues;
+
+  const workCollection = works.isLoading ? <QueryLoading label="正在加载发布工作" /> : works.error
+    ? <QueryFailure error={works.error} onRetry={() => void works.refetch()} />
+    : mobile ? (
+      <div className="publication-mobile-list" role="list" aria-label={tab === 'history' ? '已关闭发布工作移动列表' : '发布工作移动列表'}>
+        {(works.data?.items.length ?? 0) === 0 ? <NoData description={tab === 'history' ? '没有已关闭发布工作' : '没有当前发布工作'} /> : works.data?.items.map((row) => (
+          <article className="publication-task-card" role="listitem" key={row.id}>
+            <header>
+              <Button {...focusReturnTargetProps} type="link" onClick={() => openDetail('work', row.id)}>{row.content_title} · V{row.content_version}</Button>
+              <StatusTag status={row.status} />
+            </header>
+            <div className="publication-card-meta"><span>{row.platform_profile_name} · {row.platform_account_label}</span><time dateTime={row.updated_at}>{formatDateTime(row.updated_at)}</time></div>
+            <p>{row.latest_verification_outcome === 'FAILED' ? '上次核验失败，仍需复核公开页面。' : row.latest_verification_outcome ? `最近核验：${row.latest_verification_outcome}` : '尚未核验，按当前推荐动作继续处理。'}</p>
+            <footer><ActionButtons resource={row} label={row.content_title} onAction={(action) => setActionTarget({ kind: 'work', resource: row, action: action as WorkAction })} /></footer>
+          </article>
+        ))}
+        <Pagination hideOnSinglePage current={worksQueryPage} pageSize={PAGE_SIZE} total={works.data?.total ?? 0} showSizeChanger={false} onChange={(next) => updateUrl({ [tab === 'history' ? 'page' : 'work_page']: String(next), selected: null, kind: null })} />
+      </div>
+    ) : (
+      <TableRegion label={tab === 'history' ? '已关闭发布工作列表' : '发布管理列表'}>
+        <Table<WorkItem> rowKey="id" dataSource={works.data?.items} columns={workColumns} scroll={{ x: 920 }} pagination={{ current: worksQueryPage, pageSize: PAGE_SIZE, total: works.data?.total, showSizeChanger: false, onChange: (next) => updateUrl({ [tab === 'history' ? 'page' : 'work_page']: String(next), selected: null, kind: null }) }} />
+      </TableRegion>
+    );
+
+  const issueCollection = issues.isLoading ? <QueryLoading label="正在加载内容问题" /> : issues.error
+    ? <QueryFailure error={issues.error} onRetry={() => void issues.refetch()} />
+    : mobile ? (
+      <div className="publication-mobile-list" role="list" aria-label={tab === 'history' ? '已解决内容问题移动列表' : '开放内容问题移动列表'}>
+        {(issues.data?.items.length ?? 0) === 0 ? <NoData description={tab === 'history' ? '没有已解决内容问题' : '没有开放内容问题'} /> : issues.data?.items.map((row) => (
+          <article className="publication-task-card publication-issue-card" role="listitem" key={row.id}>
+            <header>
+              <Button {...focusReturnTargetProps} type="link" onClick={() => openDetail('issue', row.id)}>{row.content_title}</Button>
+              <StatusTag status={row.status} />
+            </header>
+            <div className="publication-card-meta"><StatusTag status={row.kind} compact /><time dateTime={row.opened_at}>{formatDateTime(row.opened_at)}</time></div>
+            <p>{row.description}</p>
+            <footer><ActionButtons resource={row} label={`内容问题 ${row.content_title}`} onAction={(action) => setActionTarget({ kind: 'issue', resource: row, action: action as IssueAction })} /></footer>
+          </article>
+        ))}
+        <Pagination hideOnSinglePage current={issuesQueryPage} pageSize={PAGE_SIZE} total={issues.data?.total ?? 0} showSizeChanger={false} onChange={(next) => updateUrl({ [tab === 'history' ? 'page' : 'issue_page']: String(next), selected: null, kind: null })} />
+      </div>
+    ) : (
+      <TableRegion label={tab === 'history' ? '已解决内容问题列表' : '开放内容问题列表'}>
+        <Table<IssueItem> rowKey="id" dataSource={issues.data?.items} columns={issueColumns} scroll={{ x: 860 }} pagination={{ current: issuesQueryPage, pageSize: PAGE_SIZE, total: issues.data?.total, showSizeChanger: false, onChange: (next) => updateUrl({ [tab === 'history' ? 'page' : 'issue_page']: String(next), selected: null, kind: null }) }} />
+      </TableRegion>
+    );
+
+  const readyCollection = ready.isLoading ? <QueryLoading label="正在加载待开始内容" /> : ready.error
+    ? <QueryFailure error={ready.error} onRetry={() => void ready.refetch()} />
+    : mobile ? (
+      <div className="publication-mobile-list" role="list" aria-label="待开始发布移动列表">
+        {(ready.data?.items.length ?? 0) === 0 ? <NoData description="没有待开始内容" /> : ready.data?.items.map((row) => (
+          <article className="publication-task-card" role="listitem" key={row.content_version.id}>
+            <header><strong>{row.content_version.title} · V{row.content_version.version}</strong><StatusTag status={row.content_version.status} /></header>
+            <div className="publication-card-meta"><span>{row.platform_profile_name}</span><span>{row.matching_accounts.length} 个可用账号</span></div>
+            <p>内容已批准，可选择匹配账号开始发布。</p>
+            <footer><ActionButtons resource={row} label={row.content_version.title} onAction={(action) => setActionTarget({ kind: 'ready', resource: row, action: action as 'START' })} /></footer>
+          </article>
+        ))}
+      </div>
+    ) : (
+      <TableRegion label="待开始发布列表">
+        <Table<ReadyItem>
+          rowKey={(row) => row.content_version.id}
+          size="small"
+          pagination={false}
+          dataSource={ready.data?.items}
+          locale={{ emptyText: '没有待开始内容' }}
+          scroll={{ x: 660 }}
+          columns={[
+            { title: '内容', render: (_, row) => <TableCellText text={`${row.content_version.title} · V${row.content_version.version}`} /> },
+            { title: '目标平台', dataIndex: 'platform_profile_name', width: 200, render: (value: string) => <TableCellText text={value} /> },
+            { title: '可用账号', width: 100, render: (_, row) => `${row.matching_accounts.length} 个` },
+            { title: '操作', width: 132, fixed: 'right', render: (_, row) => <ActionButtons resource={row} label={row.content_version.title} onAction={(action) => setActionTarget({ kind: 'ready', resource: row, action: action as 'START' })} /> },
+          ]}
+        />
+      </TableRegion>
+    );
+
+  const articleCollection = articles.isLoading ? <QueryLoading label="正在加载发布成果" /> : articles.error
+    ? <QueryFailure error={articles.error} onRetry={() => void articles.refetch()} />
+    : mobile ? (
+      <div className="publication-mobile-list" role="list" aria-label="发布成果移动列表">
+        {(articles.data?.items.length ?? 0) === 0 ? <NoData description="没有发布成果" /> : articles.data?.items.map((row) => (
+          <article className="publication-task-card" role="listitem" key={row.id}>
+            <header><Button {...focusReturnTargetProps} type="link" onClick={() => openDetail('article', row.id)}>{row.actual_title}</Button><StatusTag status={row.retired ? 'RETIRED' : row.has_open_issue ? 'OPEN' : 'COMPLETED'} /></header>
+            <div className="publication-card-meta"><span>{row.platform_profile_name} · {row.platform_account_label}</span><time dateTime={row.verified_at}>{formatDateTime(row.verified_at)}</time></div>
+            <p>核验通过形成的只读发布成果。</p>
+            <footer><ActionButtons resource={row} label={row.actual_title} onAction={(action) => setActionTarget({ kind: 'article', resource: row, action: action as 'OPEN_ISSUE' })} /></footer>
+          </article>
+        ))}
+        <Pagination hideOnSinglePage current={page} pageSize={PAGE_SIZE} total={articles.data?.total ?? 0} showSizeChanger={false} onChange={(next) => updateUrl({ page: String(next), selected: null, kind: null })} />
+      </div>
+    ) : (
+      <TableRegion label="发布成果列表">
+        <Table<ArticleItem> rowKey="id" dataSource={articles.data?.items} columns={articleColumns} scroll={{ x: 820 }} pagination={{ current: page, pageSize: PAGE_SIZE, total: articles.data?.total, showSizeChanger: false, onChange: (next) => updateUrl({ page: String(next), selected: null, kind: null }) }} />
+      </TableRegion>
+    );
 
   return (
-    <div className="page-shell">
-      <PageHeader eyebrow="人工发布与公开内容" title="发布管理" description="发布工作、只读发布成果和发布后内容问题各自拥有清晰生命周期。" />
-      {summary.error ? <QueryFailure error={summary.error} onRetry={() => void summary.refetch()} /> : (
-        <div className="metric-grid">
-          <MetricTile icon={<SendOutlined />} label="待开始" value={summary.data?.ready_count ?? '—'} tone="data" />
-          <MetricTile icon={<ReadOutlined />} label="进行中" value={summary.data?.active_count ?? '—'} />
-          <MetricTile label="待核验" value={summary.data?.awaiting_verification_count ?? '—'} tone="warning" />
-          <MetricTile icon={<ExclamationCircleOutlined />} label="需处理" value={summary.data?.action_required_count ?? '—'} tone="danger" />
-          <MetricTile icon={<CloseCircleOutlined />} label="开放问题" value={summary.data?.open_issue_count ?? '—'} tone="danger" />
-        </div>
-      )}
-      <Card>
+    <div className="page-stack publication-workbench">
+      <PageHeader eyebrow="人工发布与公开内容" title="发布管理" description="优先处理当前发布工作与公开内容问题，成果和历史记录用于追溯。" />
+      <Card className="publication-panel">
         <Tabs
           activeKey={tab}
-          onChange={(key) => updateUrl({ tab: key, page: '1', selected: null, status: key === 'issues' ? 'OPEN' : null })}
+          onChange={(key) => updateUrl({ tab: key, page: '1', work_page: null, issue_page: null, selected: null, kind: null, status: key === 'history' ? 'CLOSED' : null })}
           items={[
-            { key: 'works', label: '发布工作' },
+            { key: 'works', label: '待处理' },
             { key: 'articles', label: '发布成果' },
-            { key: 'issues', label: '内容问题' },
+            { key: 'history', label: '历史记录' },
           ]}
         />
         {tab === 'works' && (
-          <Select
-            aria-label="发布工作状态"
-            value={workStatus ?? ''}
-            onChange={(value) => updateUrl({ status: value || null, page: '1', selected: null })}
-            options={[{ value: '', label: '当前待处理' }, ...workStatuses.map((status) => ({ value: status, label: <StatusTag status={status} compact /> }))]}
-          />
-        )}
-        {tab === 'issues' && (
-          <Select
-            aria-label="内容问题状态"
-            value={issueStatus}
-            onChange={(value) => updateUrl({ status: value, page: '1', selected: null })}
-            options={[{ value: 'OPEN', label: '待处置' }, { value: 'RESOLVED', label: '已解决' }]}
-          />
-        )}
-        {tab === 'works' && !workStatus && (
-          <section>
-            <Typography.Title level={4}>待开始</Typography.Title>
-            {ready.isLoading ? <QueryLoading label="正在加载待开始内容" /> : ready.error ? <QueryFailure error={ready.error} onRetry={() => void ready.refetch()} /> : (
-              <TableRegion label="待开始发布列表">
-                <Table<ReadyItem>
-                  rowKey={(row) => row.content_version.id}
-                  size="small"
-                  pagination={false}
-                  dataSource={ready.data?.items}
-                  locale={{ emptyText: '没有待开始内容' }}
-                  columns={[
-                    { title: '内容', render: (_, row) => `${row.content_version.title} · V${row.content_version.version}` },
-                    { title: '目标平台', dataIndex: 'platform_profile_name' },
-                    { title: '可用账号', render: (_, row) => `${row.matching_accounts.length} 个` },
-                    { title: '操作', width: 160, render: (_, row) => <ActionButtons resource={row} label={row.content_version.title} onAction={(action) => setActionTarget({ kind: 'ready', resource: row, action: action as 'START' })} /> },
-                  ]}
-                />
-              </TableRegion>
+          <>
+            {summary.error ? <QueryFailure error={summary.error} onRetry={() => void summary.refetch()} /> : (
+              <section className="publication-status-strip" aria-label="发布待处理摘要">
+                <div><SendOutlined /><span>待开始</span><strong>{summary.data?.ready_count ?? '—'}</strong></div>
+                <div><ReadOutlined /><span>进行中</span><strong>{summary.data?.active_count ?? '—'}</strong></div>
+                <div><ReadOutlined /><span>待核验</span><strong>{summary.data?.awaiting_verification_count ?? '—'}</strong></div>
+                <div className="is-attention"><ExclamationCircleOutlined /><span>需处理</span><strong>{summary.data?.action_required_count ?? '—'}</strong></div>
+                <div className="is-attention"><CloseCircleOutlined /><span>开放问题</span><strong>{summary.data?.open_issue_count ?? '—'}</strong></div>
+              </section>
             )}
-          </section>
+            {(issues.isLoading || issues.error || (issues.data?.total ?? 0) > 0) && <section className="publication-section publication-priority-section">
+              <header className="publication-section-header"><div><Typography.Title level={4}>开放内容问题</Typography.Title><Typography.Text type="secondary">公开页面异常，需要先判断修复或结束处理。</Typography.Text></div></header>
+              {issueCollection}
+            </section>}
+            <section className="publication-section">
+              <header className="publication-section-header"><div><Typography.Title level={4}>当前发布工作</Typography.Title><Typography.Text type="secondary">服务端已按需处理程度排序。</Typography.Text></div><Select aria-label="发布工作状态" value={workStatus ?? ''} onChange={(value) => updateUrl({ status: value || null, work_page: '1', selected: null, kind: null })} options={[{ value: '', label: '全部待处理' }, ...workStatuses.map((status) => ({ value: status, label: <StatusTag status={status} compact /> }))]} /></header>
+              {workCollection}
+            </section>
+            <section className="publication-section">
+              <header className="publication-section-header"><div><Typography.Title level={4}>待开始内容</Typography.Title><Typography.Text type="secondary">已批准且尚未创建发布工作的内容。</Typography.Text></div></header>
+              {readyCollection}
+            </section>
+          </>
         )}
-        <section>
-          <Typography.Title level={4}>{tab === 'works' ? '发布工作' : tab === 'articles' ? '发布成果' : '内容问题'}</Typography.Title>
-          {activeQuery.isLoading ? <QueryLoading label="正在加载发布管理列表" /> : activeQuery.error ? <QueryFailure error={activeQuery.error} onRetry={() => void activeQuery.refetch()} /> : (
-            <TableRegion label="发布管理列表">
-              {tab === 'works' ? <Table<WorkItem> rowKey="id" dataSource={works.data?.items} columns={workColumns} scroll={{ x: 1050 }} pagination={{ current: page, pageSize: PAGE_SIZE, total: works.data?.total, showSizeChanger: false, onChange: (next) => updateUrl({ page: String(next), selected: null }) }} />
-                : tab === 'articles' ? <Table<ArticleItem> rowKey="id" dataSource={articles.data?.items} columns={articleColumns} scroll={{ x: 900 }} pagination={{ current: page, pageSize: PAGE_SIZE, total: articles.data?.total, showSizeChanger: false, onChange: (next) => updateUrl({ page: String(next), selected: null }) }} />
-                  : <Table<IssueItem> rowKey="id" dataSource={issues.data?.items} columns={issueColumns} scroll={{ x: 1000 }} pagination={{ current: page, pageSize: PAGE_SIZE, total: issues.data?.total, showSizeChanger: false, onChange: (next) => updateUrl({ page: String(next), selected: null }) }} />}
-            </TableRegion>
-          )}
-        </section>
+        {tab === 'articles' && <section className="publication-section">
+          <header className="publication-section-header"><div><Typography.Title level={4}>发布成果</Typography.Title><Typography.Text type="secondary">首次核验通过后形成的只读公开成果。</Typography.Text></div></header>
+          {articleCollection}
+        </section>}
+        {tab === 'history' && <section className="publication-section">
+          <header className="publication-section-header"><div><Typography.Title level={4}>{historyStatus === 'CLOSED' ? '已关闭发布工作' : '已解决内容问题'}</Typography.Title><Typography.Text type="secondary">只用于查询已经结束的处理记录。</Typography.Text></div><Select aria-label="历史记录类型" value={historyStatus} onChange={(value) => updateUrl({ status: value, page: '1', selected: null, kind: null })} options={[{ value: 'CLOSED', label: '已关闭工作' }, { value: 'RESOLVED', label: '已解决问题' }]} /></header>
+          {historyStatus === 'CLOSED' ? workCollection : issueCollection}
+        </section>}
       </Card>
-      <DetailDrawer tab={tab} selected={selected} onClose={() => updateUrl({ selected: null })} onAction={setActionTarget} />
+      <DetailDrawer kind={selectedKind} selected={selected} onClose={() => updateUrl({ selected: null, kind: null })} onAction={setActionTarget} restoreFocus={restoreFocus} />
       <ActionModal target={actionTarget} onClose={() => setActionTarget(null)} />
     </div>
   );

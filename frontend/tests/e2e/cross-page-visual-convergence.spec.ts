@@ -11,7 +11,7 @@ const zoomExtensionPath = fileURLToPath(new URL('./fixtures/browser-zoom-extensi
 
 type Target = { key: string; path: string; heading: string; redirect?: RegExp };
 type VisualTargetKey = 'users' | 'prompts' | 'geo-insights' | 'dashboard' | 'content-review';
-type TableInventoryItem = { label: string; source: string; marker: string; surface: string; regionLabel: string; dialogName?: string };
+type TableInventoryItem = { label: string; source: string; marker: string; surface: string; regionLabel: string; mobileRegionLabel?: string; dialogName?: string };
 
 const sitewideTableInventory: TableInventoryItem[] = [
   { label: '内容任务列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="内容任务列表"', surface: 'tasks', regionLabel: '内容任务列表' },
@@ -19,8 +19,9 @@ const sitewideTableInventory: TableInventoryItem[] = [
   { label: '内容版本列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="内容版本列表"', surface: 'task-detail', regionLabel: '内容版本列表' },
   { label: '产品事实列表', source: '../../src/features/product-facts/ProductsPage.tsx', marker: 'label="产品事实列表"', surface: 'products', regionLabel: '产品事实列表' },
   { label: '事实版本列表', source: '../../src/features/product-facts/ProductFactsPage.tsx', marker: 'label="事实版本列表"', surface: 'product-versions', regionLabel: '事实版本列表' },
-  { label: '待开始发布', source: '../../src/features/publications/PublicationsPage.tsx', marker: 'label="待开始发布列表"', surface: 'publication-ready', regionLabel: '待开始发布列表' },
-  { label: '发布工作', source: '../../src/features/publications/PublicationsPage.tsx', marker: 'label="发布管理列表"', surface: 'publication-works', regionLabel: '发布管理列表' },
+  { label: '待开始发布', source: '../../src/features/publications/PublicationsPage.tsx', marker: 'label="待开始发布列表"', surface: 'publication-ready', regionLabel: '待开始发布列表', mobileRegionLabel: '待开始发布移动列表' },
+  { label: '发布工作', source: '../../src/features/publications/PublicationsPage.tsx', marker: "'发布管理列表'", surface: 'publication-works', regionLabel: '发布管理列表', mobileRegionLabel: '发布工作移动列表' },
+  { label: '发布成果', source: '../../src/features/publications/PublicationsPage.tsx', marker: 'label="发布成果列表"', surface: 'publication-articles', regionLabel: '发布成果列表', mobileRegionLabel: '发布成果移动列表' },
   { label: 'GEO 观测记录', source: '../../src/features/geo-observations/GeoObservationsPage.tsx', marker: 'label="观测记录列表"', surface: 'observations', regionLabel: '观测记录列表' },
   { label: 'GEO 文章观测结果', source: '../../src/features/geo-observations/GeoObservationForm.tsx', marker: 'label="产品文章观测结果"', surface: 'observation-form', regionLabel: '产品文章观测结果', dialogName: '登记人工观测' },
   { label: 'GEO 问题库', source: '../../src/features/geo-observations/GeoTopicsPage.tsx', marker: 'label="GEO 问题库列表"', surface: 'geo-topics', regionLabel: 'GEO 问题库列表' },
@@ -95,6 +96,7 @@ async function resolveTargets(page: Page): Promise<Target[]> {
     { key: 'publications', path: '/publications', heading: '发布管理' },
     { key: 'publication-ready', path: '/publications?tab=works', heading: '发布管理' },
     { key: 'publication-works', path: '/publications?tab=works&status=ACTION_REQUIRED', heading: '发布管理' },
+    { key: 'publication-articles', path: '/publications?tab=articles', heading: '发布管理' },
     { key: 'observations', path: '/observations', heading: 'GEO 观测' },
     { key: 'geo-insights', path: '/observations/insights', heading: 'GEO 分析洞察' },
     { key: 'geo-topics', path: '/observations/topics', heading: 'GEO 问题库' },
@@ -222,6 +224,18 @@ async function expectInventoryTableBounded(page: Page, item: TableInventoryItem,
     : page;
   const context = `${item.label} / ${item.surface} / ${item.regionLabel} @ ${viewportWidth}px`;
   if (item.dialogName) await expect(scope, `${context} 弹窗缺失`).toBeVisible();
+  if (viewportWidth < 768 && item.mobileRegionLabel) {
+    const mobileRegion = scope.getByRole('list', { name: item.mobileRegionLabel, exact: true });
+    await expect(mobileRegion, `${context} 移动替代区域必须唯一命中`).toHaveCount(1);
+    await expect(mobileRegion, `${context} 移动替代区域不可见`).toBeVisible();
+    await expect(scope.getByRole('region', { name: item.regionLabel, exact: true })).toHaveCount(0);
+    const viewport = await page.evaluate(() => document.documentElement.clientWidth);
+    const box = await mobileRegion.boundingBox();
+    expect(box, `${context} 移动替代区域不存在`).not.toBeNull();
+    expect(box!.x, `${context} 移动替代区域左侧越界`).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width, `${context} 移动替代区域右侧越界`).toBeLessThanOrEqual(viewport + 1);
+    return;
+  }
   const region = scope.locator('.table-region').and(
     scope.getByRole('region', { name: item.regionLabel, exact: true }),
   );
@@ -630,7 +644,18 @@ test('五类业务表在真实浏览器 200% tab zoom 下保持关键内容与�
     for (const target of representatives) {
       await openTarget(page, target);
       await expectNoDocumentOverflow(page);
-      await expectVisibleTableRegionsBounded(page);
+      if (target.key === 'publications') {
+        const mobileWorkList = page.getByRole('list', { name: '发布工作移动列表' });
+        await expect(mobileWorkList).toBeVisible();
+        await expect(page.locator('.publication-panel table')).toHaveCount(0);
+        const box = await mobileWorkList.boundingBox();
+        const viewport = await page.evaluate(() => document.documentElement.clientWidth);
+        expect(box).not.toBeNull();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(viewport + 1);
+      } else {
+        await expectVisibleTableRegionsBounded(page);
+      }
       await expect(page.getByRole('button', { name: '切换导航' })).toBeVisible();
       await expect(page.locator('.app-sider')).toHaveCount(0);
       if (target.key === 'users') await expectMobileShellTouchTargets(page);

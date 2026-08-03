@@ -55,7 +55,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 将发布管理收敛为“待处理 / 发布成果 / 历史记录”，保留服务端状态、动作与权限权威。
+- 桌面使用紧凑表格，移动端使用任务卡片和全宽详情抽屉，并保持 URL 与焦点恢复。
+- 使用隔离真实 API 数据登记三张用户批准视觉资产。
 
 ### Git Commits
 
@@ -65,7 +67,8 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- 定向组件测试 6/6、lint、typecheck、build 与 `git diff --check` 通过。
+- 24 表边界、真实浏览器 200% 缩放和发布闭环核心段通过；完整 MVP 后续受本地 5174 与对象存储固定 5173 CORS 配置影响。
 
 ### Status
 
@@ -360,6 +363,39 @@
 | Hash | Message |
 |------|---------|
 | `63d7a5b` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 70: 完成发布管理页 UI/UX 重构
+
+**Date**: 2026-08-03
+**Task**: 完成发布管理页 UI/UX 重构
+**Branch**: `main`
+
+### Summary
+
+按前端视觉系统重构发布管理信息架构、桌面与移动呈现和详情交互，补齐真实浏览器回归及用户批准资产。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `72c4dd3` | (see git log) |
 
 ### Testing
 

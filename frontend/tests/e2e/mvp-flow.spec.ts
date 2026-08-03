@@ -790,6 +790,13 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await expect(publicationDrawer.getByText(/内容哈希/)).toBeVisible();
   await expect(publicationDrawer.getByText('e2e-prepared.png')).toBeVisible();
   await expect(publicationDrawer.getByText('e2e-result.png')).toBeVisible();
+  await publicationDrawer.getByRole('button', { name: /取\s*消/ }).click();
+  await expect(publicationDrawer).not.toBeVisible();
+  await expect(page).not.toHaveURL(/record=/);
+  await expect(publicationMore).toBeFocused();
+  await publicationMore.click();
+  await page.getByRole('menuitem', { name: '标记已移除' }).click();
+  await expect(publicationDrawer).toBeVisible();
   await publicationDrawer.getByRole('button', { name: '关闭' }).click();
   await expect(publicationMore).toBeFocused();
 

@@ -24,6 +24,7 @@ import type { FileRecord, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { DirectUpload } from '../../shared/components/DirectUpload';
 import { StatusTag } from '../../shared/components/StatusTag';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import {
   actionLabels,
   type PublicationCommandAction,
@@ -123,6 +124,7 @@ export function PublicationDrawer({
           publicationId={publicationId}
           initialAction={initialAction}
           deletePending={deletePending}
+          onClose={onClose}
           onDelete={onDelete}
           onDirtyChange={setDirty}
         />
@@ -258,16 +260,19 @@ function PublicationRegistration({
   publicationId,
   initialAction,
   deletePending,
+  onClose,
   onDelete,
   onDirtyChange,
 }: {
   publicationId: string;
   initialAction?: PublicationCommandAction;
   deletePending: boolean;
+  onClose: () => void;
   onDelete: (record: PublicationDeleteTarget) => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
   const { message } = App.useApp();
+  const actionFocus = useFocusReturn();
   const [action, setAction] = useState<PublicationCommandAction | undefined>(initialAction);
   const [attachments, setAttachments] = useState<FileRecord[]>([]);
   const detail = useQuery({
@@ -341,6 +346,7 @@ function PublicationRegistration({
           {record.available_actions.map((item) => (
             <Button
               key={item}
+              {...(item === 'delete' ? {} : actionFocus.focusReturnTargetProps)}
               type={item === 'mark-published' || item === 'verify' ? 'primary' : 'default'}
               danger={item === 'delete' || item === 'reject' || item === 'remove' || item === 'mark-verification-failed'}
               loading={item === 'delete' && deletePending}
@@ -433,6 +439,9 @@ function PublicationRegistration({
                 setAttachments([]);
                 onDirtyChange(false);
                 mutate.reset();
+                // initialAction 表示动作由 Drawer 外触发，取消后由外层关闭生命周期回焦。
+                if (initialAction) onClose();
+                else actionFocus.restoreFocus();
               }}>取消</Button>
             </Space>
           </Form>

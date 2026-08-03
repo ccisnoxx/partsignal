@@ -524,6 +524,44 @@ test('发布记录保留单一主入口，并在更多菜单展示其余服务�
   await waitFor(() => expect(moreTrigger).toHaveFocus());
 });
 
+test('从发布记录更多菜单进入动作后取消会关闭 Drawer 并恢复原触发器', async () => {
+  const interaction = userEvent.setup();
+  const requests: Request[] = [];
+  const published = {
+    ...recordDetail,
+    status: 'PUBLISHED',
+    available_actions: ['remove', 'mark-verification-failed'],
+  } satisfies Schema<'PublicationRecord'>;
+  window.history.pushState({}, '', '/publications?tab=records');
+  mockFetch((request) => {
+    requests.push(request);
+    const common = commonWorkspaceResponse(request, {
+      records: [{
+        ...recordItem,
+        status: 'PUBLISHED',
+        available_actions: ['remove', 'mark-verification-failed'],
+      }],
+      total: 1,
+    });
+    if (common) return common;
+    const path = new URL(request.url).pathname;
+    if (path.endsWith(`/publication-records/${publicationId}`)) return { body: published };
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+  render(<App />);
+
+  const moreTrigger = await screen.findByRole('button', { name: `更多操作：${content.title}` });
+  await interaction.click(moreTrigger);
+  await interaction.click(await screen.findByRole('menuitem', { name: '标记已移除' }));
+  const drawer = within(await screen.findByRole('dialog'));
+  await interaction.click(drawer.getByRole('button', { name: /取\s*消/ }));
+
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(window.location.search).not.toContain('record=');
+  await waitFor(() => expect(moreTrigger).toHaveFocus());
+  expect(requests.some((request) => request.method === 'POST')).toBe(false);
+});
+
 test('已有公开历史且无其他动作时只保留查看记录', async () => {
   window.history.pushState({}, '', '/publications?tab=records');
   const protectedRecord = {
@@ -579,6 +617,8 @@ test('删除使用专属确认和 DELETE，成功后清理记录 URL', async () 
 });
 
 test('Drawer 分别说明标记已移除和验证失败的影响', async () => {
+  const interaction = userEvent.setup();
+  const requests: Request[] = [];
   window.history.pushState({}, '', `/publications?tab=records&record=${publicationId}`);
   const published = {
     ...recordDetail,
@@ -586,6 +626,7 @@ test('Drawer 分别说明标记已移除和验证失败的影响', async () => {
     available_actions: ['remove', 'mark-verification-failed'],
   } satisfies Schema<'PublicationRecord'>;
   mockFetch((request) => {
+    requests.push(request);
     const common = commonWorkspaceResponse(request, {
       records: [{
         ...recordItem,
@@ -602,11 +643,16 @@ test('Drawer 分别说明标记已移除和验证失败的影响', async () => {
   render(<App />);
 
   const drawer = within(await screen.findByRole('dialog'));
-  fireEvent.click(await drawer.findByRole('button', { name: '标记已移除' }));
+  const removeTrigger = await drawer.findByRole('button', { name: '标记已移除' });
+  await interaction.click(removeTrigger);
   expect(drawer.getByText('标记已移除会保留发布历史')).toBeInTheDocument();
   expect(drawer.getByRole('button', { name: '确认标记已移除' })).toBeInTheDocument();
-  fireEvent.click(drawer.getByRole('button', { name: /取\s*消/ }));
-  fireEvent.click(drawer.getByRole('button', { name: '标记验证失败' }));
+  await interaction.click(drawer.getByRole('button', { name: /取\s*消/ }));
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(window.location.search).toContain(`record=${publicationId}`);
+  expect(removeTrigger).toHaveFocus();
+  expect(requests.some((request) => request.method === 'POST')).toBe(false);
+  await interaction.click(drawer.getByRole('button', { name: '标记验证失败' }));
   expect(drawer.getByText('验证失败会进入发布需关注')).toBeInTheDocument();
   expect(drawer.getByRole('button', { name: '确认标记验证失败' })).toBeInTheDocument();
 });

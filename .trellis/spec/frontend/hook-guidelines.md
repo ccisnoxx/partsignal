@@ -28,6 +28,8 @@ Questions to answer:
 
 `useFocusReturn()` 只补足已验证的 Ant Design 触发器恢复缺口：Dropdown 菜单项进入静态确认框，或 URL/页面状态持有的 Drawer、桌面详情面板。按钮使用 `focusReturnTargetProps` 登记键盘或指针触发器，状态所有者可用 `rememberFocusTarget(event.currentTarget)` 显式登记；确认框在 `afterClose`、Drawer 在 `afterOpenChange(false)`、条件详情面板在卸载后调用 `restoreFocus`。恢复只聚焦仍 `isConnected` 的原元素，并使用 `preventScroll`；不得通过 DOM 选择器、相邻行、延时或轮询猜测替代目标。普通 Ant 浮层仍使用内建恢复，页面不得复制另一套 ref 实现。
 
+同一浮层内的条件动作区关闭时，焦点所有权由动作入口决定：入口仍挂载则在清理条件状态后立即调用 `restoreFocus`；入口位于浮层外且关闭动作同时结束整个浮层链时，只调用外层关闭回调，由既有浮层关闭生命周期恢复外部触发器。不得让即将卸载的取消按钮成为最终焦点，也不得让内外两层同时执行回焦。
+
 Drawer 已显式调用 `restoreFocus` 时，必须设置 `focusable={{ focusTriggerAfterClose: false }}`，只保留 Ant 的自动入焦与焦点圈定。否则 `@rc-component/drawer` 会在业务 `afterOpenChange(false)` 之后再次聚焦打开瞬间的活动元素；从 Dropdown 菜单打开时，该元素可能是临时菜单项或 `BODY`，会覆盖真实业务触发器。还必须覆盖入场动画完成前直接关闭的分支：此时 rc Drawer 会直接卸载 Portal，不触发 `afterOpenChange(false)`；组件应在确认打开动画尚未完成时随 `open` 转为 `false` 调用同一个回焦实现，不得增加定时器、轮询、DOM 查询或第二份目标 ref。
 
 ```tsx

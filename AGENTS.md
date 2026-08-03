@@ -74,14 +74,16 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 
 ### Browser Automation
 
-- Use the project-installed `playwright-cli` skill for local UI debugging, repeatable browser workflows, and post-deployment validation.
-- Prefer existing Playwright tests or project scripts before creating an ad hoc browser flow.
-- Use snapshots, `find`, or a known selector to inspect and target elements; take screenshots only when visual evidence is needed.
-- Use `playwright-cli console`, `requests`, and tracing for ordinary frontend diagnostics.
-- For authenticated deployed checks, use a named persistent session or saved storage state, and keep authentication state files untracked.
-- Turn a verified browser flow into a Playwright test when it will be repeated or used as a regression check.
-- Use Chrome DevTools CLI only when Playwright CLI does not cover the required diagnostic, such as Lighthouse, deep performance profiling, or heap snapshots.
-- Use `@Chrome` only when the user explicitly requests it or the interaction depends on visual browser state that Playwright cannot represent reliably.
+- Use the project-installed `playwright-cli` skill for temporary interactive browser diagnostics.
+- When an existing Playwright test covers the requested behavior, use the Playwright Test Runner instead of creating an ad hoc `playwright-cli` flow.
+- Use `playwright-cli` only for temporary browser workflows that require interactive inspection or human/agent judgment.
+- Every task must use its own explicitly named `playwright-cli` session; never use the `default` session.
+- Before the final reply, close every `playwright-cli` session created by the current task and verify that none remains open.
+- Do not run `playwright-cli close-all` or `playwright-cli kill-all` during ordinary tasks.
+- Use `playwright-cli kill-all` only for manual recovery after the user confirms that no other Playwright or browser-automation task is running.
+- Convert a verified CLI workflow into a Playwright test when it becomes repeatable or is needed as a regression check.
+- Use Chrome DevTools CLI only when Playwright does not cover the required diagnostic, such as Lighthouse, deep performance profiling, or heap snapshots.
+- Use `@Chrome` only when the user explicitly requests it or the interaction depends on browser state that Playwright cannot represent reliably.
 
 ### Git
 

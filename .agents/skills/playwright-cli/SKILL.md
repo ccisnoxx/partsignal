@@ -6,24 +6,85 @@ allowed-tools: Bash(playwright-cli:*) Bash(npx:*) Bash(npm:*)
 
 # Browser Automation with playwright-cli
 
+## Required workflow
+
+### 1. Choose the correct Playwright surface
+
+Use the first applicable option:
+
+1. Run an existing project Playwright test when it covers the requested behavior.
+2. Add or update a Playwright test when the workflow is repeatable or should become a regression check.
+3. Use `playwright-cli` only when the task requires temporary interactive inspection or human/agent judgment.
+
+Typical Test Runner commands:
+
+```bash
+make e2e
+cd frontend && npx playwright test path/to/spec.ts
+```
+
+### 2. Create an exclusive named CLI session
+
+Never use the `default` session. Choose a short task-specific literal name, use it in every command, and track every session name created by the current task.
+
+```bash
+playwright-cli -s=observation-drawer-check open http://localhost:3000
+playwright-cli -s=observation-drawer-check snapshot
+playwright-cli -s=observation-drawer-check console
+```
+
+If the task needs multiple isolated browser contexts, use names with the same task prefix:
+
+```bash
+playwright-cli -s=publication-check-admin open http://localhost:3000
+playwright-cli -s=publication-check-editor open http://localhost:3000
+```
+
+### 3. Preserve authentication without preserving processes
+
+When later tasks need the same authenticated state, save the storage state and then close the browser. Keep authentication state files untracked.
+
+```bash
+playwright-cli -s=observation-drawer-check state-save .playwright-cli/auth.json
+playwright-cli -s=observation-drawer-check close
+```
+
+### 4. Close and verify before the final reply
+
+Close every session created by the current task, including failure and partial-completion paths, and then verify that none remains open.
+
+```bash
+playwright-cli -s=observation-drawer-check close
+playwright-cli list --all --json
+```
+
+Do not send the final reply until the task's session names are absent or no longer reported as `open`.
+
+### 5. Manual recovery only
+
+Do not use `playwright-cli close-all` or `playwright-cli kill-all` during ordinary tasks. `kill-all` is a manual recovery command and may run only after the user confirms that no other Playwright or browser-automation task is active.
+
 ## Quick start
 
 ```bash
-# open new browser
-playwright-cli open
+# open a task-specific browser session
+playwright-cli -s=playwright-docs-check open
 # navigate to a page
-playwright-cli goto https://playwright.dev
+playwright-cli -s=playwright-docs-check goto https://playwright.dev
 # interact with the page using refs from the snapshot
-playwright-cli click e15
-playwright-cli type "page.click"
-playwright-cli press Enter
+playwright-cli -s=playwright-docs-check click e15
+playwright-cli -s=playwright-docs-check type "page.click"
+playwright-cli -s=playwright-docs-check press Enter
 # take a screenshot (rarely used, as snapshot is more common)
-playwright-cli screenshot
-# close the browser
-playwright-cli close
+playwright-cli -s=playwright-docs-check screenshot
+# close and verify the task session
+playwright-cli -s=playwright-docs-check close
+playwright-cli list --all --json
 ```
 
 ## Commands
+
+The command reference below omits `-s=<task-session>` for readability. Actual task commands must always include the task's explicit session name.
 
 ### Core
 
@@ -325,20 +386,20 @@ playwright-cli click "getByTestId('submit-button')"
 ## Browser Sessions
 
 ```bash
-# create new browser session named "mysession" with persistent profile
-playwright-cli -s=mysession open example.com --persistent
-# same with manually specified profile directory (use when requested explicitly)
-playwright-cli -s=mysession open example.com --profile=/path/to/profile
+# create an ephemeral named browser session
+playwright-cli -s=mysession open example.com
 playwright-cli -s=mysession click e6
 playwright-cli -s=mysession close  # stop a named browser
+
+# use persistent browser data only when explicitly required
+playwright-cli -s=mysession open example.com --persistent
+playwright-cli -s=mysession open example.com --profile=/path/to/profile
 playwright-cli -s=mysession delete-data  # delete user data for persistent session
 
-playwright-cli list
-# Close all browsers
-playwright-cli close-all
-# Forcefully kill all browser processes
-playwright-cli kill-all
+playwright-cli list --all --json
 ```
+
+`close-all` and `kill-all` are not normal session-management commands. Use `kill-all` only for manual recovery after the user confirms that no other Playwright or browser-automation task is active.
 
 ## Installation
 
@@ -357,45 +418,49 @@ npm install -g @playwright/cli@latest
 ## Example: Form submission
 
 ```bash
-playwright-cli open https://example.com/form
-playwright-cli snapshot
+playwright-cli -s=form-check open https://example.com/form
+playwright-cli -s=form-check snapshot
 
-playwright-cli fill e1 "user@example.com"
-playwright-cli fill e2 "password123"
-playwright-cli click e3
-playwright-cli snapshot
-playwright-cli close
+playwright-cli -s=form-check fill e1 "user@example.com"
+playwright-cli -s=form-check fill e2 "password123"
+playwright-cli -s=form-check click e3
+playwright-cli -s=form-check snapshot
+playwright-cli -s=form-check close
+playwright-cli list --all --json
 ```
 
 ## Example: Multi-tab workflow
 
 ```bash
-playwright-cli open https://example.com
-playwright-cli tab-new https://example.com/other
-playwright-cli tab-list
-playwright-cli tab-select 0
-playwright-cli snapshot
-playwright-cli close
+playwright-cli -s=multi-tab-check open https://example.com
+playwright-cli -s=multi-tab-check tab-new https://example.com/other
+playwright-cli -s=multi-tab-check tab-list
+playwright-cli -s=multi-tab-check tab-select 0
+playwright-cli -s=multi-tab-check snapshot
+playwright-cli -s=multi-tab-check close
+playwright-cli list --all --json
 ```
 
 ## Example: Debugging with DevTools
 
 ```bash
-playwright-cli open https://example.com
-playwright-cli click e4
-playwright-cli fill e7 "test"
-playwright-cli console
-playwright-cli requests
-playwright-cli close
+playwright-cli -s=devtools-check open https://example.com
+playwright-cli -s=devtools-check click e4
+playwright-cli -s=devtools-check fill e7 "test"
+playwright-cli -s=devtools-check console
+playwright-cli -s=devtools-check requests
+playwright-cli -s=devtools-check close
+playwright-cli list --all --json
 ```
 
 ```bash
-playwright-cli open https://example.com
-playwright-cli tracing-start
-playwright-cli click e4
-playwright-cli fill e7 "test"
-playwright-cli tracing-stop
-playwright-cli close
+playwright-cli -s=trace-check open https://example.com
+playwright-cli -s=trace-check tracing-start
+playwright-cli -s=trace-check click e4
+playwright-cli -s=trace-check fill e7 "test"
+playwright-cli -s=trace-check tracing-stop
+playwright-cli -s=trace-check close
+playwright-cli list --all --json
 ```
 
 ## Example: Interactive session
@@ -403,8 +468,10 @@ playwright-cli close
 Ask the user for UI review or design feedback. The user draws boxes on the live page and types comments; you receive the annotated screenshot, the snapshot of the marked region, and the user's notes. Use this whenever the user asks for "UI review", "design feedback", or to "ask the user what they think / want / mean":
 
 ```bash
-playwright-cli open https://example.com
-playwright-cli show --annotate
+playwright-cli -s=interactive-review open https://example.com
+playwright-cli -s=interactive-review show --annotate
+playwright-cli -s=interactive-review close
+playwright-cli list --all --json
 ```
 
 ## Specific tasks

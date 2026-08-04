@@ -90,11 +90,13 @@ def present_user(user: User) -> UserOut:
             **{
                 field: getattr(user, field)
                 for field in UserOut.model_fields
-                if field not in {"available_actions", "workflow_stage", "primary_task"}
+                if field
+                not in {"available_actions", "deletion", "workflow_stage", "primary_task"}
             },
             "workflow_stage": workflow_stage,
             "primary_task": primary_task,
             "available_actions": [],
+            "deletion": None,
         }
     )
 

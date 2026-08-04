@@ -44,6 +44,7 @@ const context = {
     workflow_stage: 'REVIEW_PENDING',
     primary_task: 'REVIEW_CONTENT',
     available_actions: [],
+    deletion: null,
     status: 'OPEN',
     revision: 0,
     created_by: content.created_by,
@@ -59,6 +60,7 @@ const context = {
     change_summary: '批准事实',
     primary_task: 'CREATE_CONTENT_TASK',
     available_actions: ['RETIRE'],
+    deletion: null,
     revision: 2,
     created_by: content.created_by,
     approved_by: content.created_by,
@@ -96,7 +98,7 @@ const taskListItem = {
 } satisfies Schema<'ContentTaskListItem'>;
 
 function commonPageResponse(path: string) {
-  if (path.endsWith('/auth/me')) return { body: { id: content.created_by, username: 'editor', display_name: '编辑', account_type: 'ENGINEER', is_active: true, must_change_password: false, workflow_stage: 'ACTIVE', primary_task: 'MANAGE_USER', available_actions: [], revision: 1, created_at: content.created_at } satisfies Schema<'User'> };
+  if (path.endsWith('/auth/me')) return { body: { id: content.created_by, username: 'editor', display_name: '编辑', account_type: 'ENGINEER', is_active: true, must_change_password: false, workflow_stage: 'ACTIVE', primary_task: 'MANAGE_USER', available_actions: [], deletion: null, revision: 1, created_at: content.created_at } satisfies Schema<'User'> };
   if (path.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
   if (path === '/api/v1/content-tasks') return { body: { items: [taskListItem] } satisfies Schema<'ContentTaskList'> };
   if (path === `/api/v1/content-tasks/${content.task_id}/content-versions`) return { body: { items: [content, previousContent] } satisfies Schema<'ContentVersionList'> };

@@ -10,6 +10,7 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import AfterValidator, Field, HttpUrl, model_validator
 
 from app.schemas.base import ContractModel, require_unique_items
+from app.schemas.common import DeletionProjection
 from app.schemas.configuration import QueryTopicOut
 from app.schemas.content import ContentTaskOut, ContentVersionOut
 from app.schemas.product_facts import Confidentiality, FactVersionOut, ProductOut
@@ -80,6 +81,7 @@ class PlatformAccountOut(PlatformAccountCreate):
     workflow_stage: Literal["PLATFORM_DISABLED", "ACCOUNT_DISABLED", "OPERATIONAL"]
     primary_task: Literal["HANDLE_PLATFORM", "ENABLE_ACCOUNT", "MANAGE_ACCOUNT"]
     available_actions: list[Literal["UPDATE", "ENABLE", "DISABLE", "DELETE"]]
+    deletion: DeletionProjection | None
     revision: int = Field(ge=0)
 
 

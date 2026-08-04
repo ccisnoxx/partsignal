@@ -16,6 +16,7 @@ const admin = {
   workflow_stage: 'ACTIVE',
   primary_task: 'MANAGE_USER',
   available_actions: [],
+  deletion: null,
   revision: 1,
   created_at: '2026-07-20T00:00:00Z',
 } satisfies Schema<'User'>;

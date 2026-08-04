@@ -18,7 +18,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
-from app.errors import AppError, not_found
+from app.errors import AppError, in_use, not_found
 from app.models.ai_generation import AIChannel, AIModel, GenerationJob
 from app.models.configuration import ContentHumanizationPrompt, PlatformPrompt, PlatformType
 from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
@@ -65,10 +65,12 @@ def user_stage(user: User) -> tuple[UserWorkflowStage, UserPrimaryTask]:
     return "ACTIVE", "MANAGE_USER"
 
 
-def _referenced_user_ids(db: Session, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
-    """一次查询找出承担不可删除业务历史的用户。"""
+def _user_business_reference_counts(
+    db: Session, user_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, int]:
+    """一次查询统计用户承担的全部不可删除业务历史引用。"""
     if not user_ids:
-        return set()
+        return {}
     columns = (
         AIChannel.created_by,
         AIModel.created_by,
@@ -91,10 +93,16 @@ def _referenced_user_ids(db: Session, user_ids: list[uuid.UUID]) -> set[uuid.UUI
         PublishedContentIssue.opened_by,
         PublishedContentIssue.resolved_by,
     )
-    query = union_all(
+    references = union_all(
         *(select(column.label("user_id")).where(column.in_(user_ids)) for column in columns)
-    )
-    return set(db.scalars(query))
+    ).subquery()
+    return {
+        user_id: int(count)
+        for user_id, count in db.execute(
+            select(references.c.user_id, func.count())
+            .group_by(references.c.user_id)
+        ).tuples()
+    }
 
 
 def _user_actions(
@@ -133,7 +141,7 @@ def users_out(db: Session, users: list[User], *, actor: User) -> list[UserOut]:
         )
         or 0
     )
-    referenced_ids = _referenced_user_ids(db, [user.id for user in users])
+    reference_counts = _user_business_reference_counts(db, [user.id for user in users])
     output: list[UserOut] = []
     for user in users:
         workflow_stage, primary_task = user_stage(user)
@@ -142,15 +150,32 @@ def users_out(db: Session, users: list[User], *, actor: User) -> list[UserOut]:
                 **{
                     field: getattr(user, field)
                     for field in UserOut.model_fields
-                    if field not in {"available_actions", "workflow_stage", "primary_task"}
+                    if field
+                    not in {"available_actions", "deletion", "workflow_stage", "primary_task"}
                 },
                 "workflow_stage": workflow_stage,
                 "primary_task": primary_task,
+                "deletion": (
+                    {
+                        "blockers": (
+                            [
+                                {
+                                    "type": "USER_BUSINESS_HISTORY",
+                                    "count": reference_counts[user.id],
+                                }
+                            ]
+                            if user.id in reference_counts
+                            else []
+                        )
+                    }
+                    if not user.is_active and user.id != actor.id
+                    else None
+                ),
                 "available_actions": _user_actions(
                     user,
                     actor=actor,
                     active_admin_total=active_admin_total,
-                    has_business_reference=user.id in referenced_ids,
+                    has_business_reference=user.id in reference_counts,
                 ),
             }
         ))
@@ -593,6 +618,13 @@ def delete_user(
         raise not_found("用户")
     if user.is_active:
         raise AppError("USER_ACTIVE", "启用用户不能删除，请先停用账号", 409)
+    reference_count = _user_business_reference_counts(db, [user.id]).get(user.id, 0)
+    if reference_count:
+        raise in_use(
+            "USER_IN_USE",
+            "用户",
+            [("USER_BUSINESS_HISTORY", "业务历史", reference_count)],
+        )
 
     account_type = user.account_type
     db.execute(

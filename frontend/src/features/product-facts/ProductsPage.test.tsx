@@ -22,6 +22,7 @@ const products = Array.from({ length: 21 }, (_, index) => ({
   workflow_stage: 'FACTS_EMPTY',
   primary_task: 'ENTER_FACTS',
   available_actions: index === 0 ? ['UPDATE', 'DELETE'] : ['UPDATE'],
+  deletion: index === 0 ? { blockers: [] } : null,
   revision: 0,
   facts_revision: 0,
   created_at: '2026-07-17T00:00:00Z',
@@ -94,6 +95,29 @@ test('产品删除确认说明工作区范围和引用阻断', async () => {
   expect(within(dialog).getByText('将删除产品及当前事实工作区；如果仍有事实版本、内容任务或 GEO 观测引用，服务端会拒绝。此操作不可恢复。')).toBeInTheDocument();
   expect(within(dialog).queryByText(/物理删除/)).not.toBeInTheDocument();
   await user.click(within(dialog).getByRole('button', { name: /取\s*消/ }));
+});
+
+test('产品被引用时展示删除条件并下钻任务与不可变观测历史', async () => {
+  const user = userEvent.setup();
+  const blocked = {
+    ...products[1]!,
+    deletion: { blockers: [
+      { type: 'CONTENT_TASK' as const, count: 2 },
+      { type: 'GEO_OBSERVATION' as const, count: 3 },
+    ] },
+  };
+  mockFetch((request) => {
+    const url = new URL(request.url);
+    if (request.method === 'GET' && url.pathname === '/api/v1/products') return { body: { items: [blocked], page: 1, page_size: 100, total: 1 } };
+    throw new Error(`未声明测试请求：${request.method} ${url.pathname}`);
+  });
+
+  renderPage('/products');
+  await user.click(await screen.findByRole('button', { name: '更多操作：DEMO-002' }));
+  await user.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
+  expect(screen.getByText('内容任务：2')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '查看引用' })).toHaveAttribute('href', `/tasks?filter_product_id=${blocked.id}`);
+  expect(screen.getByRole('link', { name: '查看历史' })).toHaveAttribute('href', `/observations?product_id=${blocked.id}&all_time=true`);
 });
 
 test('创建产品先聚焦首个错误，并在关闭前保护未保存输入', async () => {

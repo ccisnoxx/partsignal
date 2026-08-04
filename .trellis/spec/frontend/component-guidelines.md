@@ -72,6 +72,11 @@ function renderPrimaryTask(task: ContentTask): ReactNode {
   const token: ContentTask['primary_task'] = task.primary_task;
   // 当前 feature 内以 switch 穷尽映射所有 token。
 }
+
+type DeletionBlocker = components['schemas']['DeletionBlocker'];
+type DeletionLinkResolver = (blocker: DeletionBlocker) =>
+  | { href: string; label: '查看引用' | '查看历史' }
+  | undefined;
 ```
 
 只从 `frontend/src/shared/api/schema.d.ts` 导入字段类型，不手写字符串并集或通用 action 类型。
@@ -82,6 +87,8 @@ function renderPrimaryTask(task: ContentTask): ReactNode {
 - token 到中文文案、导航、Drawer 或确认流程的映射归当前 feature 所有；不建立跨领域 registry 或只做转发的通用组件。
 - 同一主操作在桌面、移动和 200% 缩放下必须可达；不得通过隐藏按钮改变业务能力。
 - mutation 成功后使用返回资源或失效既有 query；竞态被服务端拒绝时显示真实错误并刷新，不用本地兼容分支补回入口。
+- 七类受约束物理删除对象存在非空 `deletion.blockers` 时，更多菜单显示“查看删除条件”，不得悄悄隐藏全部删除相关入口。共享组件只显示引用类型、数量、不可级联说明和新标签页链接；精确筛选 URL 与“查看引用/查看历史”文案由当前 feature 提供。
+- 不可变历史只有查看入口。用户处理可删除的直接引用后必须点击“重新检查”刷新服务端投影；前端不得递归删除、轮询猜测引用是否消失或本地补回 `DELETE`。
 
 #### 4. 校验与错误矩阵
 
@@ -91,18 +98,26 @@ function renderPrimaryTask(task: ContentTask): ReactNode {
 | 生成类型出现未处理 token | TypeScript 穷尽检查失败；不渲染“查看”默认入口 |
 | 过期投影提交后返回 `409`/领域错误 | 保留错误反馈并刷新资源；不改用 `status` 推断 |
 | 主任务需要付费、删除或外部调用 | 先打开详情或确认流程；不在列表单击立即执行 |
+| `deletion=null` | 当前响应没有删除管理上下文，不显示删除或查看条件入口 |
+| `deletion.blockers=[]` 且包含 `DELETE` | 显示既有删除确认流程 |
+| `deletion.blockers` 非空 | 显示“查看删除条件”，列出类型、数量和 feature 提供的精确下钻 |
+| 下钻目标是不可变历史 | 链接文案使用“查看历史”，页面不提供删除或强制清理 |
 
 #### 5. Good / Base / Bad
 
 - Good：`HANDLE_FAILURE` 打开真实失败详情，只在 `available_actions` 包含 `RETRY` 时提供经确认的重试。
 - Base：`VIEW_VERSION_HISTORY` 只打开冻结版本，不因历史 `status` 为 `APPROVED` 补发布入口。
 - Bad：以 `row.status === 'APPROVED' && !work` 在页面重新推导“开始发布”。
+- Good：发布账号被四个发布工作引用时显示“发布工作：4”和 `/publications?platform_account_id=<id>` 的“查看历史”。
+- Base：阻断对象被处理后，用户点击“重新检查”，页面重新消费服务端投影。
+- Bad：引用存在时只隐藏“删除”，或让共享组件硬编码各 feature 路由。
 
 #### 6. 必需测试
 
 - 使用相同表面状态、不同 `primary_task` 的 fixture，断言主入口只随 token 变化。
 - 对会执行写入或外部调用的主入口，断言列表点击先进入详情/确认，用户确认后才发请求。
 - 运行前端 typecheck 和对应 feature Vitest；业务 E2E 覆盖桌面、移动及关键焦点返回。
+- 受约束删除测试至少断言：空阻断显示原确认流程；非空阻断显示数量和精确 URL；不可变目标显示“查看历史”；重新检查触发对应 query 刷新。
 
 #### 7. Wrong vs Correct
 
@@ -112,6 +127,16 @@ const label = row.status === 'APPROVED' ? '开始发布' : '查看';
 
 // Correct：只消费服务端 typed token。
 const label = primaryTaskLabels[row.primary_task];
+```
+
+```tsx
+// Wrong：被引用时静默消失。
+const items = row.available_actions.includes('DELETE') ? [deleteItem] : [];
+
+// Correct：删除资格和阻断引导都直接消费服务端投影。
+const items = row.deletion?.blockers.length
+  ? [viewDeletionConditionsItem]
+  : row.available_actions.includes('DELETE') ? [deleteItem] : [];
 ```
 
 ### 表格列宽约定

@@ -181,12 +181,13 @@ test('全局搜索只提供获权页面导航并支持 Ctrl K 聚焦', async () 
   expect(await screen.findByRole('heading', { name: '平台类型页' })).toBeInTheDocument();
 });
 
-test('平台类型隐藏路由保留配置中心页头语义', () => {
+test('平台类型显示在配置中心导航并保留页头语义', () => {
   render(
     <ThemeProvider><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/configuration/platform-types']}><Routes><Route element={<AppLayout />}><Route path="configuration/platform-types" element={<h1>平台类型页</h1>} /></Route></Routes></MemoryRouter></QueryClientProvider></ThemeProvider>,
   );
   expect(screen.getByText('配置中心', { selector: '.header-context strong' })).toBeInTheDocument();
   expect(screen.getByText('平台类型', { selector: '.header-context .ant-typography' })).toBeInTheDocument();
+  expect(screen.getByRole('menuitem', { name: '平台类型' })).toHaveClass('ant-menu-item-selected');
 });
 
 test('内容审核路由归属内容任务并显示审核标题', () => {

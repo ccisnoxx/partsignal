@@ -66,6 +66,27 @@ Product:
 
 `contracts/openapi.yaml` 仍是 API 唯一权威，生成的 `frontend/src/shared/api/schema.d.ts` 不手改。
 
+### 3.4 受约束删除引用投影（批准增补）
+
+七类可物理删除资源增加必填、可空的 `deletion` 读模型：
+
+```yaml
+Deletion:
+  required: [blockers]
+  properties:
+    blockers:
+      type: array
+      items: {$ref: '#/components/schemas/DeletionBlocker'}
+```
+
+- `deletion = null`：当前操作者或业务阶段不进入该资源的删除流程。
+- `deletion.blockers = []`：当前读取时没有直接阻断引用；`available_actions` 同时包含 `DELETE`。
+- `deletion.blockers` 非空：当前读取时存在直接阻断引用；不返回 `DELETE`，前端显示“查看删除条件”。
+- `DeletionBlocker` 只包含稳定机器类型和正整数数量，不下发前端路由、中文文案或引用对象快照。
+- 列表投影批量统计直接引用，删除命令锁定目标后重新统计，并通过现有 `409` 错误返回同一类型与数量。用户业务历史按现有全部 `RESTRICT` 归属聚合为一个不可清理类型，不从数据库异常文案猜测引用。
+
+该投影不递归计算引用树，也不建立通用依赖图。用户进入目标页面后，由目标资源自己的 `deletion` 和 `available_actions` 继续给出下一层真实状态。
+
 ## 4. 数据模型与迁移
 
 新增单个前滚迁移 `0035_business_workflow_primary_tasks`，在同一版本建立以下不可分割约束。
@@ -162,6 +183,14 @@ Product:
 ### 6.3 工作区定位
 
 复用现有路由：`/products/:productId`、`/tasks/:taskId`、`/content/:contentVersionId`、`/publications`、`/observations`、`/observations/insights`、`/configuration/*`、`/settings`、`/users`、`/audit`。只增加必要的稳定查询参数（如 tab、selected、step 和筛选 ID），不新建重复详情页。
+
+### 6.4 删除条件与引用下钻（批准增补）
+
+- 当前 feature 只按 `deletion` 与 `available_actions` 渲染“删除”或“查看删除条件”，不得按角色、状态或关联字段重建资格。
+- 复用共享引用列表展示；具体跳转仍归各 feature 所有，不建立跨全站 action registry。
+- 平台类型下钻具体平台；平台下钻发布账号和内容任务；发布账号下钻发布工作；产品下钻事实版本、内容任务和 GEO 观测；事实版本下钻关联任务；内容任务下钻自身版本、发布工作和来源记录；停用用户下钻相关审计历史。
+- 缺少稳定筛选的现有列表仅增加必要 URL/API 查询参数。引用页在新标签页打开，原页保留“重新检查”入口；重新检查必须重新读取服务端，不在本地删除 blocker。
+- 不可变引用的操作文案使用“查看历史”，不得使用“去删除”或承诺最终可删除原对象。
 
 ## 7. 文档与规范一致性
 

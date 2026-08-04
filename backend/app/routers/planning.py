@@ -145,10 +145,16 @@ def list_content_tasks(
     db: DbSession,
     _user: CurrentUser,
     platform_profile_id: uuid.UUID | None = None,
+    filter_product_id: uuid.UUID | None = None,
+    filter_fact_version_id: uuid.UUID | None = None,
 ) -> ContentTaskList:
     query = select(ContentTask)
     if platform_profile_id is not None:
         query = query.where(ContentTask.platform_profile_id == platform_profile_id)
+    if filter_product_id is not None:
+        query = query.where(ContentTask.product_id == filter_product_id)
+    if filter_fact_version_id is not None:
+        query = query.where(ContentTask.fact_version_id == filter_fact_version_id)
     tasks = list(db.scalars(query.order_by(ContentTask.created_at.desc())))
     return ContentTaskList(items=content_tasks_out(db, tasks))
 

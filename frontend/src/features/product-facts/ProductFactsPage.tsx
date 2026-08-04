@@ -26,7 +26,7 @@ import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shar
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { FactVersion, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
-import { DeletionError } from '../../shared/components/DeletionError';
+import { DeletionError, DeletionGuidanceModal, type DeletionBlocker } from '../../shared/components/DeletionError';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
@@ -62,6 +62,7 @@ export function ProductFactsPage() {
   const [submitReviewOpen, setSubmitReviewOpen] = useState(false);
   const [snapshotTarget, setSnapshotTarget] = useState<FactVersion>();
   const [reviewTarget, setReviewTarget] = useState<FactVersion>();
+  const [deletionTarget, setDeletionTarget] = useState<FactVersion>();
   const [commandTarget, setCommandTarget] = useState<{ version: FactVersion; command: 'approve' | 'request-changes' | 'retire' } | null>(null);
   const [activeTab, setActiveTab] = useState('workspace');
   const [factsDirty, setFactsDirty] = useState(false);
@@ -173,6 +174,11 @@ export function ProductFactsPage() {
     onOk: () => remove.mutate(version),
     afterClose: restoreFocus,
   });
+  const deletionLink = (version: FactVersion) => (blocker: DeletionBlocker) => {
+    if (blocker.type === 'CONTENT_TASK') return { href: `/tasks?filter_fact_version_id=${version.id}`, label: '查看引用' as const };
+    if (blocker.type === 'CONTENT_VERSION') return { href: `/tasks?filter_fact_version_id=${version.id}`, label: '查看历史' as const };
+    return undefined;
+  };
   const discardFactsChanges = () => {
     setFactsDirty(false);
     setFactsFormKey((current) => current + 1);
@@ -219,7 +225,7 @@ export function ProductFactsPage() {
         actions={<StatusTag status={product.data.status} />}
       />
       <div ref={saveErrorRef} tabIndex={-1}>{save.error && <Alert role="alert" type="error" showIcon title={errorMessage(save.error)} />}</div>
-      {remove.error && <DeletionError error={remove.error} />}
+      {remove.error && <DeletionError error={remove.error} resolveLink={remove.variables ? deletionLink(remove.variables) : undefined} />}
       <Tabs activeKey={activeTab} onChange={(key) => confirmDiscardFacts(() => setActiveTab(key))} items={[
         {
           key: 'workspace',
@@ -258,8 +264,13 @@ export function ProductFactsPage() {
                         items: [
                           { key: 'snapshot', label: '查看冻结正文' },
                           ...(version.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
+                          ...(!version.available_actions.includes('DELETE') && version.deletion?.blockers.length ? [{ key: 'conditions', label: '查看删除条件' }] : []),
                         ],
-                        onClick: ({ key }) => key === 'snapshot' ? setSnapshotTarget(version) : confirmDeleteVersion(version),
+                        onClick: ({ key }) => {
+                          if (key === 'snapshot') setSnapshotTarget(version);
+                          else if (key === 'delete') confirmDeleteVersion(version);
+                          else setDeletionTarget(version);
+                        },
                       }}>
                         <Button {...focusReturnTargetProps} size="small" aria-label={`更多操作：事实版本 V${version.version}`} loading={remove.isPending && remove.variables?.id === version.id}>更多 <DownOutlined /></Button>
                       </Dropdown>
@@ -269,6 +280,7 @@ export function ProductFactsPage() {
           </Card>,
         },
       ]} />
+      <DeletionGuidanceModal open={!!deletionTarget} resourceLabel={`事实版本 V${deletionTarget?.version ?? ''}`} blockers={deletionTarget?.deletion?.blockers ?? []} refreshing={versions.isFetching} resolveLink={deletionTarget ? deletionLink(deletionTarget) : () => undefined} onClose={() => setDeletionTarget(undefined)} onRefresh={async () => { await versions.refetch(); setDeletionTarget(undefined); }} />
       <Modal title="提交事实审核" open={submitReviewOpen} footer={null} onCancel={() => setSubmitReviewOpen(false)} destroyOnHidden>
         <div ref={submitReviewErrorRef} tabIndex={-1}>{submitReview.error && <Alert role="alert" type="error" showIcon title={errorMessage(submitReview.error)} />}</div>
         <Form<Schema<'FactReviewSubmissionRequest'>>

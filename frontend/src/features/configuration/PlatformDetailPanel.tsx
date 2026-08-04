@@ -25,6 +25,7 @@ export function PlatformDetailPanel({
   onEdit,
   onToggle,
   onDelete,
+  onViewDeletion,
   toggleLoading,
   deleteLoading,
 }: {
@@ -33,6 +34,7 @@ export function PlatformDetailPanel({
   onEdit: (profile: PlatformProfile) => void;
   onToggle: (profile: PlatformProfile) => void;
   onDelete: (profile: PlatformProfile) => void;
+  onViewDeletion: (profile: PlatformProfile) => void;
   toggleLoading: boolean;
   deleteLoading: boolean;
 }) {
@@ -106,6 +108,7 @@ export function PlatformDetailPanel({
         {profile.available_actions.includes('UPDATE') && <Button onClick={() => onEdit(profile)}>编辑平台</Button>}
         {(profile.available_actions.includes('ENABLE') || profile.available_actions.includes('DISABLE')) && <Button className="platform-toggle-button" loading={toggleLoading} onClick={() => onToggle(profile)}>{profile.available_actions.includes('DISABLE') ? '停用平台' : '启用平台'}</Button>}
         {profile.available_actions.includes('DELETE') && <Button danger loading={deleteLoading} onClick={() => onDelete(profile)}>删除平台</Button>}
+        {!profile.available_actions.includes('DELETE') && !!profile.deletion?.blockers.length && <Button onClick={() => onViewDeletion(profile)}>查看删除条件</Button>}
       </div>
       <Alert type="warning" showIcon={false} title="存在内容任务或发布账号引用时不能删除平台；如需停止新业务，请停用平台。" />
     </div>

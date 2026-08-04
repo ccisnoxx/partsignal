@@ -15,7 +15,7 @@ import { ProductFactsPage } from './ProductFactsPage';
 const productId = '10000000-0000-4000-8000-000000000001';
 const versionId = '20000000-0000-4000-8000-000000000001';
 const secondVersionId = '20000000-0000-4000-8000-000000000002';
-const product = { id: productId, part_number: 'DEMO-001', brand: 'DEMO', category: 'MCU', status: 'ACTIVE', workflow_stage: 'FACTS_EDITING', primary_task: 'SUBMIT_FACT_REVIEW', available_actions: ['UPDATE'], revision: 0, facts_revision: 0, created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z' };
+const product = { id: productId, part_number: 'DEMO-001', brand: 'DEMO', category: 'MCU', status: 'ACTIVE', workflow_stage: 'FACTS_EDITING', primary_task: 'SUBMIT_FACT_REVIEW', available_actions: ['UPDATE'], deletion: null, revision: 0, facts_revision: 0, created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z' };
 const initialDraft: Schema<'ProductFactsDraft'> = {
   product_id: productId,
   body_markdown: '# 产品事实\n\n初始正文',
@@ -39,6 +39,7 @@ const factVersion = {
   created_at: '2026-07-16T00:00:00Z',
   approved_at: null,
   available_actions: ['APPROVE', 'REQUEST_CHANGES', 'DELETE'],
+  deletion: { blockers: [] },
 } satisfies Schema<'FactVersion'>;
 const secondFactVersion = {
   ...factVersion,
@@ -47,7 +48,7 @@ const secondFactVersion = {
   classification: 'RESTRICTED',
   change_summary: '第二版快照',
 } satisfies Schema<'FactVersion'>;
-let versions = [factVersion];
+let versions: Schema<'FactVersion'>[] = [factVersion];
 let deleteConflict = false;
 let deletedIds: string[] = [];
 let versionsError = false;
@@ -134,6 +135,24 @@ test('事实版本双引用冲突复用结构化中文错误展示', async () =>
   expect(alert).toHaveTextContent('内容任务：1');
   expect(alert).toHaveTextContent('内容版本：2');
   expect(screen.getByText('V1')).toBeInTheDocument();
+});
+
+test('事实版本被引用时显示删除条件并把内容历史标为只读', async () => {
+  const user = userEvent.setup();
+  versions = [{
+    ...factVersion,
+    available_actions: ['APPROVE'],
+    deletion: { blockers: [
+      { type: 'CONTENT_TASK', count: 1 },
+      { type: 'CONTENT_VERSION', count: 2 },
+    ] } as Schema<'DeletionProjection'>,
+  }];
+  renderPage();
+  await user.click(await screen.findByRole('tab', { name: /事实版本/ }));
+  await user.click(await screen.findByRole('button', { name: '更多操作：事实版本 V1' }));
+  await user.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
+  expect(screen.getByText('内容版本：2')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '查看历史' })).toHaveAttribute('href', `/tasks?filter_fact_version_id=${versionId}`);
 });
 
 test('服务端未投影删除动作时仍保留原子提交、版本和审核入口', async () => {

@@ -1260,6 +1260,14 @@ paths:
           in: query
           description: 仅返回直接绑定该平台的内容任务
           schema: {type: string, format: uuid}
+        - name: filter_product_id
+          in: query
+          description: 仅返回直接绑定该产品的内容任务
+          schema: {type: string, format: uuid}
+        - name: filter_fact_version_id
+          in: query
+          description: 仅返回直接绑定该事实版本的内容任务
+          schema: {type: string, format: uuid}
       responses:
         '200':
           description: 内容任务列表
@@ -1752,6 +1760,24 @@ paths:
           - $ref: '#/components/schemas/PublicationWorkStatus'
           - type: 'null'
           title: Status
+      - name: platform_account_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Platform Account Id
+      - name: content_task_id
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Content Task Id
       responses:
         '200':
           description: Successful Response
@@ -2621,10 +2647,28 @@ components:
     UserStatus:
       type: string
       enum: [ENABLED, DISABLED]
+    DeletionBlockerType:
+      type: string
+      enum: [FACT_VERSION, CONTENT_TASK, GEO_OBSERVATION, CONTENT_VERSION, PLATFORM_PROFILE, PLATFORM_ACCOUNT, PUBLICATION_WORK, PROTECTED_CONTENT_VERSION, PUBLISHED_CONTENT_ISSUE, GEO_OPTIMIZATION_SOURCE, USER_BUSINESS_HISTORY]
+    DeletionBlocker:
+      type: object
+      additionalProperties: false
+      required: [type, count]
+      properties:
+        type: {$ref: '#/components/schemas/DeletionBlockerType'}
+        count: {type: integer, minimum: 1}
+    DeletionProjection:
+      type: object
+      additionalProperties: false
+      required: [blockers]
+      properties:
+        blockers:
+          type: array
+          items: {$ref: '#/components/schemas/DeletionBlocker'}
     User:
       type: object
       additionalProperties: false
-      required: [id, username, display_name, account_type, is_active, must_change_password, workflow_stage, primary_task, available_actions, revision, created_at]
+      required: [id, username, display_name, account_type, is_active, must_change_password, workflow_stage, primary_task, available_actions, deletion, revision, created_at]
       properties:
         id: {type: string, format: uuid}
         username: {type: string}
@@ -2637,6 +2681,10 @@ components:
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, RESET_PASSWORD, ENABLE, DISABLE, DELETE]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
         revision: {type: integer}
         created_at: {type: string, format: date-time}
     UserCreate:
@@ -2813,7 +2861,7 @@ components:
     Product:
       type: object
       additionalProperties: false
-      required: [id, part_number, brand, category, status, workflow_stage, primary_task, available_actions, revision, created_at, updated_at]
+      required: [id, part_number, brand, category, status, workflow_stage, primary_task, available_actions, deletion, revision, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         part_number: {type: string}
@@ -2825,6 +2873,10 @@ components:
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, DELETE]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
         revision: {type: integer}
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
@@ -2907,7 +2959,7 @@ components:
     FactVersion:
       type: object
       additionalProperties: false
-      required: [id, product_id, version, status, body_markdown, classification, change_summary, primary_task, available_actions, revision, created_by, created_at]
+      required: [id, product_id, version, status, body_markdown, classification, change_summary, primary_task, available_actions, deletion, revision, created_by, created_at]
       properties:
         id: {type: string, format: uuid}
         product_id: {type: string, format: uuid}
@@ -2920,6 +2972,10 @@ components:
         available_actions:
           type: array
           items: {type: string, enum: [APPROVE, REQUEST_CHANGES, RETIRE, DELETE]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
         revision: {type: integer}
         created_by: {type: string, format: uuid}
         approved_by: {type: [string, 'null'], format: uuid}
@@ -3075,7 +3131,7 @@ components:
     PlatformProfile:
       type: object
       additionalProperties: false
-      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, platform_prompt, configuration_complete, platform_account_count, workflow_stage, primary_task, available_actions, updated_at]
+      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, platform_prompt, configuration_complete, platform_account_count, workflow_stage, primary_task, available_actions, deletion, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string, minLength: 1, maxLength: 160}
@@ -3104,6 +3160,10 @@ components:
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, ENABLE, DISABLE, DELETE]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
         updated_at: {type: [string, 'null'], format: date-time, description: 平台创建、编辑、启用或停用的最近真实审计时间}
     PlatformProfileSummary:
       type: object
@@ -3169,7 +3229,7 @@ components:
     PlatformType:
       type: object
       additionalProperties: false
-      required: [id, name, slug, available_actions, primary_task, revision, created_by, created_at, updated_at]
+      required: [id, name, slug, available_actions, deletion, primary_task, revision, created_by, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string, minLength: 1}
@@ -3177,6 +3237,10 @@ components:
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, DELETE]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
         primary_task: {type: string, const: EDIT_CATEGORY}
         revision: {type: integer}
         created_by: {type: string, format: uuid}
@@ -3505,7 +3569,7 @@ components:
       allOf:
         - {$ref: '#/components/schemas/ContentTaskCreate'}
         - type: object
-          required: [id, query_topic_id, source_published_content_issue_id, current_content_version_id, workflow_stage, primary_task, available_actions, status, revision, created_by, created_at]
+          required: [id, query_topic_id, source_published_content_issue_id, current_content_version_id, workflow_stage, primary_task, available_actions, deletion, status, revision, created_by, created_at]
           properties:
             id: {type: string, format: uuid}
             query_topic_id: {type: [string, 'null'], format: uuid}
@@ -3516,6 +3580,10 @@ components:
             available_actions:
               type: array
               items: {type: string, enum: [CANCEL, DELETE, CREATE_GENERATION_JOB, CREATE_MANUAL_VERSION]}
+            deletion:
+              anyOf:
+                - {$ref: '#/components/schemas/DeletionProjection'}
+                - {type: 'null'}
             status: {$ref: '#/components/schemas/ContentTaskStatus'}
             revision: {type: integer}
             created_by: {type: string, format: uuid}
@@ -3952,7 +4020,7 @@ components:
       allOf:
         - {$ref: '#/components/schemas/PlatformAccountCreate'}
         - type: object
-          required: [id, is_active, workflow_stage, primary_task, available_actions, revision]
+          required: [id, is_active, workflow_stage, primary_task, available_actions, deletion, revision]
           properties:
             id: {type: string, format: uuid}
             is_active: {type: boolean}
@@ -3961,6 +4029,10 @@ components:
             available_actions:
               type: array
               items: {type: string, enum: [UPDATE, ENABLE, DISABLE, DELETE]}
+            deletion:
+              anyOf:
+                - {$ref: '#/components/schemas/DeletionProjection'}
+                - {type: 'null'}
             revision: {type: integer, minimum: 0}
     PlatformAccountList:
       type: object

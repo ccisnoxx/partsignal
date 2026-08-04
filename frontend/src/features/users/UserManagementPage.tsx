@@ -40,7 +40,7 @@ import { ApiError, api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { Schema, User, UserExportQuery, UserListQuery } from '../../shared/api/types';
 import { NoData, QueryFailure } from '../../shared/components/AsyncState';
-import { DeletionError } from '../../shared/components/DeletionError';
+import { DeletionError, DeletionGuidanceModal, type DeletionBlocker } from '../../shared/components/DeletionError';
 import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
@@ -128,6 +128,7 @@ export function UserManagementPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<User>();
   const [resetting, setResetting] = useState<User>();
+  const [deletionTarget, setDeletionTarget] = useState<User>();
   const [selection, setSelection] = useState<{ scope: string; ids: string[] }>({ scope: '', ids: [] });
   const [searchResetVersion, setSearchResetVersion] = useState(0);
   const [batchFeedback, setBatchFeedback] = useState<{ succeeded: number; failures: Array<Schema<'UserBulkStatusFailure'> & { username: string }> }>();
@@ -292,6 +293,7 @@ export function UserManagementPage() {
     onOk: () => deleteUser.mutate(user),
     afterClose: restoreFocus,
   });
+  const deletionLink = (user: User) => (blocker: DeletionBlocker) => blocker.type === 'USER_BUSINESS_HISTORY' ? { href: `/audit?actor_id=${user.id}`, label: '查看历史' as const } : undefined;
   const exportCurrent = () => {
     if (users.data?.total === 0) { message.info('当前筛选没有可导出的用户'); return; }
     exportList.mutate();
@@ -302,12 +304,14 @@ export function UserManagementPage() {
     if (user.available_actions.includes('DISABLE')) items.push({ key: 'toggle', icon: <StopOutlined />, label: '停用用户', danger: true });
     if (user.available_actions.includes('ENABLE') && user.primary_task !== 'ENABLE_USER') items.push({ key: 'toggle', icon: <CheckCircleOutlined />, label: '启用用户' });
     if (user.available_actions.includes('DELETE')) items.push({ key: 'delete', icon: <DeleteOutlined />, label: '删除用户', danger: true });
+    else if (user.deletion?.blockers.length) items.push({ key: 'conditions', icon: <DeleteOutlined />, label: '查看删除条件' });
     return {
       items,
       onClick: ({ key }) => {
         if (key === 'reset') { resetPassword.reset(); setResetting(user); }
         else if (key === 'toggle') confirmToggle(user);
         else if (key === 'delete') confirmDelete(user);
+        else if (key === 'conditions') setDeletionTarget(user);
       },
     };
   };
@@ -329,7 +333,7 @@ export function UserManagementPage() {
       </section>
 
       {operationError && <OperationFailure error={operationError} />}
-      {deleteUser.error && <DeletionError error={deleteUser.error} />}
+      {deleteUser.error && <DeletionError error={deleteUser.error} resolveLink={deleteUser.variables ? deletionLink(deleteUser.variables) : undefined} />}
       {batchFeedback?.failures.length ? (
         <Alert
           closable
@@ -416,6 +420,8 @@ export function UserManagementPage() {
           </Card>
         </aside>
       </div>
+
+      <DeletionGuidanceModal open={!!deletionTarget} resourceLabel={`用户“${deletionTarget?.username ?? ''}”`} blockers={deletionTarget?.deletion?.blockers ?? []} refreshing={users.isFetching} resolveLink={deletionTarget ? deletionLink(deletionTarget) : () => undefined} onClose={() => setDeletionTarget(undefined)} onRefresh={async () => { await users.refetch(); setDeletionTarget(undefined); }} />
 
       <Modal title="新增用户" open={createOpen} onCancel={() => { setCreateOpen(false); create.reset(); }} footer={null} destroyOnHidden>
         {create.error && <OperationFailure error={create.error} title="创建失败" />}

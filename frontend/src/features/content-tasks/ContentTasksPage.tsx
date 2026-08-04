@@ -39,7 +39,7 @@ import { platformProfilesQueryOptions, productsQueryOptions } from '../../shared
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { ContentTaskListItem, ContentTaskListQuery, ContentVersion, Schema } from '../../shared/api/types';
 import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
-import { DeletionError } from '../../shared/components/DeletionError';
+import { DeletionError, DeletionGuidanceModal, type DeletionBlocker, type DeletionReferenceLink } from '../../shared/components/DeletionError';
 import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { PlatformAvatar } from '../../shared/components/PlatformAvatar';
@@ -103,6 +103,16 @@ function isTaskStatus(value: string): value is TaskStatus {
   return taskStatusOptions.some((option) => option.value === value);
 }
 
+function taskDeletionLink(taskId: string, issueId?: string | null) {
+  return (blocker: DeletionBlocker): DeletionReferenceLink | undefined => {
+    if (blocker.type === 'PROTECTED_CONTENT_VERSION') return { href: `/tasks/${taskId}#task-versions`, label: '查看历史' };
+    if (blocker.type === 'PUBLICATION_WORK') return { href: `/publications?content_task_id=${taskId}`, label: '查看历史' };
+    if (blocker.type === 'PUBLISHED_CONTENT_ISSUE' && issueId) return { href: `/publications?kind=issue&selected=${issueId}`, label: '查看历史' };
+    if (blocker.type === 'GEO_OPTIMIZATION_SOURCE') return { href: `/tasks/${taskId}`, label: '查看历史' };
+    return undefined;
+  };
+}
+
 export function ContentTasksPage() {
   const { taskId } = useParams();
   return taskId ? <TaskDetail key={taskId} taskId={taskId} /> : <TaskList />;
@@ -115,6 +125,7 @@ function TaskList() {
   const requestedFactId = searchParams.get('fact_version_id') ?? undefined;
   const [open, setOpen] = useState(!!requestedProductId);
   const [cancelTarget, setCancelTarget] = useState<ContentTaskListItem>();
+  const [deletionTarget, setDeletionTarget] = useState<ContentTaskListItem>();
   const cancelTriggerRef = useRef<HTMLElement>(null);
   const { rememberFocusTarget, restoreFocus } = useFocusReturn();
   const rawPage = searchParams.get('page');
@@ -123,10 +134,16 @@ function TaskList() {
   const keyword = searchParams.get('q') ?? '';
   const status: TaskStatusFilter = rawStatus && isTaskStatus(rawStatus) ? rawStatus : 'ALL';
   const platformProfileId = searchParams.get('platform_profile_id') ?? undefined;
+  const filterProductId = searchParams.get('filter_product_id') ?? undefined;
+  const filterFactVersionId = searchParams.get('filter_fact_version_id') ?? undefined;
   useEffect(() => {
     if (!cancelTarget) cancelTriggerRef.current?.focus({ preventScroll: true });
   }, [cancelTarget]);
-  const taskListQuery: ContentTaskListQuery = platformProfileId ? { platform_profile_id: platformProfileId } : {};
+  const taskListQuery: ContentTaskListQuery = {
+    ...(platformProfileId ? { platform_profile_id: platformProfileId } : {}),
+    ...(filterProductId ? { filter_product_id: filterProductId } : {}),
+    ...(filterFactVersionId ? { filter_fact_version_id: filterFactVersionId } : {}),
+  };
   const tasks = useQuery({
     queryKey: queryKeys.contentTasks.list(taskListQuery),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks', { params: { query: taskListQuery } })),
@@ -188,7 +205,7 @@ function TaskList() {
     }
   }, [maxPage, page, rawPage, rawStatus, searchParams, setSearchParams, tasks.data]);
 
-  const setFilter = (key: 'q' | 'status' | 'platform_profile_id', value?: string, replace = false) => {
+  const setFilter = (key: 'q' | 'status' | 'platform_profile_id' | 'filter_product_id' | 'filter_fact_version_id', value?: string, replace = false) => {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(key, value); else next.delete(key);
     next.delete('page');
@@ -201,7 +218,7 @@ function TaskList() {
   };
   const resetFilters = () => {
     const next = new URLSearchParams(searchParams);
-    ['q', 'status', 'page'].forEach((key) => next.delete(key));
+    ['q', 'status', 'page', 'filter_product_id', 'filter_fact_version_id'].forEach((key) => next.delete(key));
     setSearchParams(next);
   };
 
@@ -215,6 +232,8 @@ function TaskList() {
 
     <Card className="tasks-glass-panel tasks-filter-panel" variant="borderless">
       {platformProfileId && <Tag className="tasks-platform-filter" closable onClose={() => setFilter('platform_profile_id')}>当前平台：{items[0]?.platform.name ?? platformProfileId}</Tag>}
+      {filterProductId && <Tag closable onClose={() => setFilter('filter_product_id')}>引用产品：{items[0]?.product.part_number ?? filterProductId}</Tag>}
+      {filterFactVersionId && <Tag closable onClose={() => setFilter('filter_fact_version_id')}>引用事实版本：{filterFactVersionId.slice(0, 8)}</Tag>}
       <div className="tasks-filter-grid" role="search" aria-label="内容任务筛选">
         <Input
           allowClear
@@ -225,7 +244,7 @@ function TaskList() {
           value={keyword}
           onChange={(event) => setFilter('q', event.target.value, true)}
         />
-        <Button aria-label="重置筛选" icon={<ReloadOutlined />} disabled={!keyword && status === 'ALL'} onClick={resetFilters}>重置筛选</Button>
+        <Button aria-label="重置筛选" icon={<ReloadOutlined />} disabled={!keyword && status === 'ALL' && !filterProductId && !filterFactVersionId} onClick={resetFilters}>重置筛选</Button>
       </div>
       <Tabs
         className="tasks-status-tabs"
@@ -251,7 +270,7 @@ function TaskList() {
       extra={<Typography.Text className="tasks-table-summary">显示 {filteredTasks.length} / {items.length} 条</Typography.Text>}
     >
       {tasks.error ? <QueryFailure error={tasks.error} onRetry={() => void tasks.refetch()} /> : <div aria-busy={tasks.isLoading}>
-        {(cancelTask.error || deleteTask.error) && <DeletionError error={cancelTask.error ?? deleteTask.error} />}
+        {(cancelTask.error || deleteTask.error) && <DeletionError error={cancelTask.error ?? deleteTask.error} resolveLink={deleteTask.variables ? taskDeletionLink(deleteTask.variables.id, deleteTask.variables.source_published_content_issue_id) : undefined} />}
         <TableRegion label="内容任务列表">
           <Table<ContentTaskListItem>
             rowKey="id"
@@ -289,12 +308,14 @@ function TaskList() {
                 width: 160,
                 fixed: 'right',
                 render: (_, row) => {
+                  const secondaryActions = row.available_actions.filter((action) => action === 'CANCEL' || action === 'DELETE');
+                  const hasDeletionConditions = !row.available_actions.includes('DELETE') && !!row.deletion?.blockers.length;
                   const moreButton = (
                     <Button
                       type="text"
                       icon={<MoreOutlined />}
                       aria-label={`更多操作：${row.product.brand} ${row.product.part_number}`}
-                      disabled={row.available_actions.length === 0}
+                      disabled={secondaryActions.length === 0 && !hasDeletionConditions}
                       loading={deleteTask.isPending && deleteTask.variables?.id === row.id}
                       onFocus={(event) => {
                         cancelTriggerRef.current = event.currentTarget;
@@ -308,22 +329,25 @@ function TaskList() {
                   );
                   return <Space size={2}>
                     <Link className="task-row-action" aria-label={`${taskPrimaryLabels[row.primary_task]}：${row.product.brand} ${row.product.part_number}`} to={`/tasks/${row.id}`}>{taskPrimaryLabels[row.primary_task]} <RightOutlined /></Link>
-                    {row.available_actions.length ? <Dropdown
+                    {(secondaryActions.length || hasDeletionConditions) ? <Dropdown
                       trigger={['click']}
                       menu={{
-                        items: row.available_actions.map((action) => ({
-                          key: action,
-                          label: action === 'CANCEL' ? '取消任务' : '删除任务',
-                          danger: true,
-                          onClick: () => {
-                            if (action === 'CANCEL') {
-                              cancelTriggerRef.current?.focus({ preventScroll: true });
-                              setCancelTarget(row);
-                            } else {
-                              confirmDeleteTask(row);
-                            }
-                          },
-                        })),
+                        items: [
+                          ...secondaryActions.map((action) => ({
+                            key: action,
+                            label: action === 'CANCEL' ? '取消任务' : '删除任务',
+                            danger: true,
+                            onClick: () => {
+                              if (action === 'CANCEL') {
+                                cancelTriggerRef.current?.focus({ preventScroll: true });
+                                setCancelTarget(row);
+                              } else {
+                                confirmDeleteTask(row);
+                              }
+                            },
+                          })),
+                          ...(hasDeletionConditions ? [{ key: 'conditions', label: '查看删除条件', onClick: () => setDeletionTarget(row) }] : []),
+                        ],
                       }}
                     >{moreButton}</Dropdown> : (
                       <Tooltip title="服务端当前未返回可执行操作；已批准或已有下游历史的任务不能删除。">
@@ -338,6 +362,7 @@ function TaskList() {
         </TableRegion>
       </div>}
     </Card>
+    <DeletionGuidanceModal open={!!deletionTarget} resourceLabel="内容任务" blockers={deletionTarget?.deletion?.blockers ?? []} refreshing={tasks.isFetching} resolveLink={deletionTarget ? taskDeletionLink(deletionTarget.id, deletionTarget.source_published_content_issue_id) : () => undefined} onClose={() => setDeletionTarget(undefined)} onRefresh={async () => { await tasks.refetch(); setDeletionTarget(undefined); }} />
     <TaskCreateModal
       open={open}
       initialProductId={requestedProductId}
@@ -474,6 +499,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const { message, modal } = App.useApp();
   const activeSection = useActiveSection(taskSectionIds);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [deletionOpen, setDeletionOpen] = useState(false);
   const [replacementOpen, setReplacementOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [autoAiOpen, setAutoAiOpen] = useState(aiOpenRequested);
@@ -656,6 +682,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
           okButtonProps: { danger: true },
           onOk: () => deleteTask.mutate(),
         })}>删除任务</Button>}
+        {!task.data.available_actions.includes('DELETE') && !!task.data.deletion?.blockers.length && <Button onClick={() => setDeletionOpen(true)}>查看删除条件</Button>}
       </>}
     />
     {task.data.available_actions.length === 0 && (
@@ -671,7 +698,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
       />
     )}
     {mutationError && <Alert type="error" title={errorMessage(mutationError)} />}
-    {deleteTask.error && <DeletionError error={deleteTask.error} />}
+    {deleteTask.error && <DeletionError error={deleteTask.error} resolveLink={taskDeletionLink(taskId, task.data.source_published_content_issue_id)} />}
     <nav className="form-section-nav" aria-label="内容任务章节">
       <a href="#task-context" aria-current={activeSection === 'task-context' ? 'location' : undefined}>任务上下文</a>
       <a href="#task-entry" aria-current={activeSection === 'task-entry' ? 'location' : undefined}>首稿入口</a>
@@ -771,6 +798,8 @@ function TaskDetail({ taskId }: { taskId: string }) {
             ]}
           /></TableRegion> : <NoData description="尚无内容版本，可从上方任一入口创建首稿" />}
     </Card>
+
+    <DeletionGuidanceModal open={deletionOpen} resourceLabel="内容任务" blockers={task.data.deletion?.blockers ?? []} refreshing={task.isFetching} resolveLink={taskDeletionLink(taskId, task.data.source_published_content_issue_id)} onClose={() => setDeletionOpen(false)} onRefresh={async () => { await task.refetch(); setDeletionOpen(false); }} />
 
     <Modal title="取消任务" open={cancelOpen} onCancel={() => setCancelOpen(false)} footer={null} destroyOnHidden>
       <Form<Schema<'CommandRequest'>> layout="vertical" initialValues={{ expected_revision: task.data.revision, comment: '' }} onFinish={(body) => taskCommand.mutate(body)}>

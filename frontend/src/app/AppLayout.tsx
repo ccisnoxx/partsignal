@@ -51,6 +51,7 @@ const systemNavigation: NavigationItem[] = [
     key: '/configuration', icon: <ToolOutlined />, label: '配置中心', adminOnly: true,
     children: [
       { key: '/configuration/platforms', label: '平台管理' },
+      { key: '/configuration/platform-types', label: '平台类型' },
       { key: '/configuration/prompts', label: 'Prompt 管理' },
       { key: '/configuration/ai', label: 'AI 渠道与模型' },
     ],
@@ -89,10 +90,7 @@ export function AppLayout() {
   const workflowItems = filterNavigation(workflowNavigation, auth.isAdmin);
   const systemItems = filterNavigation(systemNavigation, auth.isAdmin);
   const visibleLeaves = navigationLeaves([...workflowItems, ...systemItems]);
-  const searchableNavigation = [
-    ...visibleLeaves,
-    ...(auth.isAdmin ? [{ key: '/configuration/platform-types', label: '平台类型', parentKey: '/configuration' }] : []),
-  ];
+  const searchableNavigation = visibleLeaves;
   useEffect(() => scheduleIdleRoutePrefetch(), []);
   useEffect(() => {
     contentRef.current?.focus({ preventScroll: true });
@@ -120,9 +118,7 @@ export function AppLayout() {
     .filter((item) => matchesRoute(location.pathname, location.search, item.key))
     .sort((left, right) => right.key.length - left.key.length)[0] ?? visibleLeaves.find((item) => item.key === '/');
   const selectedKey = selected?.key ?? '/';
-  const currentSection = location.pathname === '/configuration/platform-types'
-    ? '平台类型'
-    : location.pathname.startsWith('/content/')
+  const currentSection = location.pathname.startsWith('/content/')
     ? '内容审核'
     : location.pathname.startsWith('/observations') ? 'GEO 观测' : selected?.label ?? '工作台';
   const isGeo = location.pathname.startsWith('/observations');

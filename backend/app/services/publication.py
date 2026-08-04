@@ -1034,7 +1034,9 @@ def cancel_content_task(
 
 def delete_content_task(*, db: Session, task_id: uuid.UUID, actor: User, request_id: str) -> None:
     """删除已取消且没有受保护历史的任务及其草稿生成数据。"""
-    task = db.get(ContentTask, task_id)
+    task = db.scalar(
+        select(ContentTask).where(ContentTask.id == task_id).with_for_update()
+    )
     if task is None:
         raise not_found("内容任务")
     if task.status != "CANCELLED":

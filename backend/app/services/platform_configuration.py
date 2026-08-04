@@ -331,25 +331,38 @@ def platform_types_out(db: Session, items: list[PlatformType]) -> list[PlatformT
     if not items:
         return []
     item_ids = [item.id for item in items]
-    referenced_ids = set(
-        db.scalars(
-            select(PlatformProfile.platform_type_id).where(
-                PlatformProfile.platform_type_id.in_(item_ids)
-            )
-        )
-    )
+    profile_counts = {
+        platform_type_id: int(count)
+        for platform_type_id, count in db.execute(
+            select(PlatformProfile.platform_type_id, func.count(PlatformProfile.id))
+            .where(PlatformProfile.platform_type_id.in_(item_ids))
+            .group_by(PlatformProfile.platform_type_id)
+        ).tuples()
+    }
     return [
         PlatformTypeOut.model_validate(
             {
                 **{
                     field: getattr(item, field)
                     for field in PlatformTypeOut.model_fields
-                    if field not in {"available_actions", "primary_task"}
+                    if field not in {"available_actions", "deletion", "primary_task"}
                 },
                 "primary_task": "EDIT_CATEGORY",
+                "deletion": {
+                    "blockers": (
+                        [
+                            {
+                                "type": "PLATFORM_PROFILE",
+                                "count": profile_counts[item.id],
+                            }
+                        ]
+                        if item.id in profile_counts
+                        else []
+                    )
+                },
                 "available_actions": [
                     "UPDATE",
-                    *([] if item.id in referenced_ids else ["DELETE"]),
+                    *([] if item.id in profile_counts else ["DELETE"]),
                 ],
             }
         )

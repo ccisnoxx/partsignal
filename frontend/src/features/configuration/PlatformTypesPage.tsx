@@ -12,12 +12,13 @@ import { NoData, QueryFailure, QueryLoading } from '../../shared/components/Asyn
 import { PageHeader } from '../../shared/components/PageHeader';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
-import { DeletionError } from '../../shared/components/DeletionError';
+import { DeletionError, DeletionGuidanceModal, type DeletionBlocker } from '../../shared/components/DeletionError';
 import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 
 export function PlatformTypesPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PlatformType>();
+  const [deletionTarget, setDeletionTarget] = useState<PlatformType>();
   const [modal, modalContext] = Modal.useModal();
   const { message } = App.useApp();
   const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
@@ -29,11 +30,13 @@ export function PlatformTypesPage() {
   const error = create.error ?? update.error ?? remove.error;
   const items = types.data?.items ?? [];
   const confirmDelete = (row: PlatformType) => modal.confirm({ title: `删除平台类型“${row.name}”？`, content: '仅未被具体平台使用的类型可以删除。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => remove.mutate(row), afterClose: restoreFocus });
+  const deletionLink = (row: PlatformType) => (blocker: DeletionBlocker) => blocker.type === 'PLATFORM_PROFILE' ? { href: `/configuration/platforms?platform_type_id=${row.id}`, label: '查看引用' as const } : undefined;
 
   return <div className="page-stack"><PageHeader eyebrow="配置治理" title="平台类型" description="维护具体平台使用的业务分类。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新增类型</Button>} />
     {modalContext}
-    {error && (remove.error ? <DeletionError error={remove.error} /> : <Alert role="alert" type="error" showIcon title={errorMessage(error)} />)}
-    <Card className="collection-panel">{types.isLoading ? <QueryLoading label="正在加载平台类型" /> : types.error ? <QueryFailure error={types.error} onRetry={() => void types.refetch()} /> : items.length === 0 ? <NoData description="暂无平台类型" /> : <TableRegion label="平台类型列表"><Table<PlatformType> rowKey="id" dataSource={items} scroll={{ x: 700 }} columns={[{ title: '名称', dataIndex: 'name', width: 230, ellipsis: true, render: (value) => <TableCellText text={value} /> }, { title: '唯一标识（slug）', dataIndex: 'slug', width: 280, ellipsis: true, render: (value) => <TableCellText text={value} mono /> }, { title: '操作', fixed: 'right', width: 190, render: (_, row) => <><Button type="primary" size="small" onClick={() => setEditing(row)}>编辑分类</Button> {row.available_actions.includes('DELETE') && <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(row) }}><Button {...focusReturnTargetProps} size="small" aria-label={`更多操作：${row.name}`} loading={remove.isPending && remove.variables?.id === row.id}>更多 <DownOutlined /></Button></Dropdown>}</> }]} /></TableRegion>}</Card>
+    {error && (remove.error ? <DeletionError error={remove.error} resolveLink={remove.variables ? deletionLink(remove.variables) : undefined} /> : <Alert role="alert" type="error" showIcon title={errorMessage(error)} />)}
+    <Card className="collection-panel">{types.isLoading ? <QueryLoading label="正在加载平台类型" /> : types.error ? <QueryFailure error={types.error} onRetry={() => void types.refetch()} /> : items.length === 0 ? <NoData description="暂无平台类型" /> : <TableRegion label="平台类型列表"><Table<PlatformType> rowKey="id" dataSource={items} scroll={{ x: 700 }} columns={[{ title: '名称', dataIndex: 'name', width: 230, ellipsis: true, render: (value) => <TableCellText text={value} /> }, { title: '唯一标识（slug）', dataIndex: 'slug', width: 280, ellipsis: true, render: (value) => <TableCellText text={value} mono /> }, { title: '操作', fixed: 'right', width: 190, render: (_, row) => <><Button type="primary" size="small" onClick={() => setEditing(row)}>编辑分类</Button> {(row.available_actions.includes('DELETE') || row.deletion?.blockers.length) && <Dropdown trigger={['click']} menu={{ items: row.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : [{ key: 'conditions', label: '查看删除条件' }], onClick: ({ key }) => key === 'delete' ? confirmDelete(row) : setDeletionTarget(row) }}><Button {...focusReturnTargetProps} size="small" aria-label={`更多操作：${row.name}`} loading={remove.isPending && remove.variables?.id === row.id}>更多 <DownOutlined /></Button></Dropdown>}</> }]} /></TableRegion>}</Card>
+    <DeletionGuidanceModal open={!!deletionTarget} resourceLabel={`平台类型“${deletionTarget?.name ?? ''}”`} blockers={deletionTarget?.deletion?.blockers ?? []} refreshing={types.isFetching} resolveLink={deletionTarget ? deletionLink(deletionTarget) : () => undefined} onClose={() => setDeletionTarget(undefined)} onRefresh={async () => { await types.refetch(); setDeletionTarget(undefined); }} />
     <Modal title={editing ? '编辑平台类型' : '新增平台类型'} open={open || !!editing} onCancel={() => { setOpen(false); setEditing(undefined); }} footer={null} destroyOnHidden><Form<Schema<'PlatformTypeCreate'>> key={editing?.id ?? 'new'} layout="vertical" initialValues={{ name: editing?.name, slug: editing?.slug }} onFinish={(body) => editing ? update.mutate(body) : create.mutate(body)}><Form.Item name="name" label="名称" rules={[{ required: true }]}><Input autoFocus /></Form.Item><Form.Item name="slug" label="唯一标识（slug）" rules={[{ required: true, pattern: /^[a-z0-9-]+$/ }]}><Input /></Form.Item><Button type="primary" htmlType="submit" loading={create.isPending || update.isPending}>保存</Button></Form></Modal>
   </div>;
 }

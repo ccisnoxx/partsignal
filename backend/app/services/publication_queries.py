@@ -392,13 +392,26 @@ def list_publication_works(
     page: int,
     page_size: int,
     status_filter: str | None,
+    platform_account_id: uuid.UUID | None = None,
+    content_task_id: uuid.UUID | None = None,
 ) -> PublicationWorkList:
-    """按处理优先级分页返回发布工作；未指定状态时只返回未终结待办。"""
+    """按处理优先级分页；引用筛选会显式包含终态历史。"""
     query = _work_context_query()
     count_query = select(func.count()).select_from(PublicationWork)
-    statuses = (status_filter,) if status_filter is not None else NONTERMINAL_WORK_STATUSES
-    query = query.where(PublicationWork.status.in_(statuses))
-    count_query = count_query.where(PublicationWork.status.in_(statuses))
+    if platform_account_id is not None:
+        query = query.where(PublicationWork.platform_account_id == platform_account_id)
+        count_query = count_query.where(
+            PublicationWork.platform_account_id == platform_account_id
+        )
+    if content_task_id is not None:
+        query = query.where(PublicationWork.content_task_id == content_task_id)
+        count_query = count_query.where(PublicationWork.content_task_id == content_task_id)
+    if status_filter is not None:
+        query = query.where(PublicationWork.status == status_filter)
+        count_query = count_query.where(PublicationWork.status == status_filter)
+    elif platform_account_id is None and content_task_id is None:
+        query = query.where(PublicationWork.status.in_(NONTERMINAL_WORK_STATUSES))
+        count_query = count_query.where(PublicationWork.status.in_(NONTERMINAL_WORK_STATUSES))
     total = int(db.scalar(count_query) or 0)
     rows = db.execute(
         query.order_by(

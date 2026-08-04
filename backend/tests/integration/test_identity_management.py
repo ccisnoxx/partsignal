@@ -542,6 +542,9 @@ def test_user_delete_and_reset_password_boundaries() -> None:
             )
             assert referenced.status_code == 409
             assert referenced.json()["error"]["code"] == "USER_IN_USE"
+            assert referenced.json()["error"]["details"]["references"] == [
+                {"type": "USER_BUSINESS_HISTORY", "count": 1}
+            ]
 
             seven_characters = client.post(
                 f"/api/v1/users/{reset_target_id}/reset-password",
@@ -564,8 +567,16 @@ def test_user_delete_and_reset_password_boundaries() -> None:
                 item["id"]: item["available_actions"]
                 for item in before_delete.json()["items"]
             }
+            deletion_by_id = {
+                item["id"]: item["deletion"]
+                for item in before_delete.json()["items"]
+            }
             assert "DELETE" in actions_by_id[str(deletable_admin_id)]
             assert "DELETE" not in actions_by_id[str(referenced_target_id)]
+            assert deletion_by_id[str(deletable_admin_id)] == {"blockers": []}
+            assert deletion_by_id[str(referenced_target_id)] == {
+                "blockers": [{"type": "USER_BUSINESS_HISTORY", "count": 1}]
+            }
             deleted = client.delete(
                 f"/api/v1/users/{deletable_admin_id}",
                 headers={

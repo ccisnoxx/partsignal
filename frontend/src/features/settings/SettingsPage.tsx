@@ -22,7 +22,7 @@ import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shar
 import { platformProfilesQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { PlatformAccountListQuery, Schema } from '../../shared/api/types';
-import { DeletionError } from '../../shared/components/DeletionError';
+import { DeletionError, DeletionGuidanceModal, type DeletionBlocker } from '../../shared/components/DeletionError';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
@@ -71,6 +71,7 @@ function PlatformAccountsPanel({
 }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<PlatformAccount>();
+  const [deletionTarget, setDeletionTarget] = useState<PlatformAccount>();
   const [modal, modalContext] = Modal.useModal();
   const navigate = useNavigate();
   const { message } = App.useApp();
@@ -149,10 +150,10 @@ function PlatformAccountsPanel({
     },
   });
   const remove = useMutation({
-    mutationFn: async (id: string) =>
+    mutationFn: async (account: PlatformAccount) =>
       ensureSuccess(
         await api.DELETE('/api/v1/platform-accounts/{platform_account_id}', {
-          params: { path: { platform_account_id: id }, header: csrfHeader() },
+          params: { path: { platform_account_id: account.id }, header: csrfHeader() },
         }),
       ),
     onSuccess: async () => {
@@ -187,9 +188,10 @@ function PlatformAccountsPanel({
       okText: '删除',
       cancelText: '取消',
       okButtonProps: { danger: true },
-      onOk: () => remove.mutate(account.id),
+      onOk: () => remove.mutate(account),
       afterClose: restoreFocus,
     });
+  const deletionLink = (account: PlatformAccount) => (blocker: DeletionBlocker) => blocker.type === 'PUBLICATION_WORK' ? { href: `/publications?platform_account_id=${account.id}`, label: '查看历史' as const } : undefined;
   const handleAction = (key: string, account: PlatformAccount) => {
     if (key === 'edit') {
       update.reset();
@@ -198,6 +200,7 @@ function PlatformAccountsPanel({
     else if (key === 'enable') confirmEnable(account);
     else if (key === 'disable') confirmDisable(account);
     else if (key === 'delete') confirmDelete(account);
+    else if (key === 'conditions') setDeletionTarget(account);
   };
 
   const platformNames = new Map(platforms.data?.items.map((item) => [item.id, item.name]));
@@ -249,7 +252,7 @@ function PlatformAccountsPanel({
           title={errorMessage(accounts.error ?? platforms.error ?? operationError)}
         />
       )}
-      {remove.error && <DeletionError error={remove.error} />}
+      {remove.error && <DeletionError error={remove.error} resolveLink={remove.variables ? deletionLink(remove.variables) : undefined} />}
       <TableRegion label="发布账号列表">
         <Table<PlatformAccount>
           rowKey="id"
@@ -300,6 +303,7 @@ function PlatformAccountsPanel({
                       ...(account.available_actions.includes('DISABLE') ? [{ key: 'disable', label: '停用', danger: true }] : []),
                       ...(account.available_actions.includes('ENABLE') && account.primary_task !== 'ENABLE_ACCOUNT' ? [{ key: 'enable', label: '启用' }] : []),
                       ...(account.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
+                      ...(!account.available_actions.includes('DELETE') && account.deletion?.blockers.length ? [{ key: 'conditions', label: '查看删除条件' }] : []),
                     ],
                     onClick: ({ key }) => handleAction(key, account),
                   }}>
@@ -309,7 +313,7 @@ function PlatformAccountsPanel({
                       aria-label={`更多操作：${account.label}`}
                       loading={
                         (setEnabled.isPending && setEnabled.variables.account.id === account.id)
-                        || (remove.isPending && remove.variables === account.id)
+                        || (remove.isPending && remove.variables.id === account.id)
                       }
                     >
                       更多 <DownOutlined />
@@ -321,6 +325,7 @@ function PlatformAccountsPanel({
           ]}
         />
       </TableRegion>
+      <DeletionGuidanceModal open={!!deletionTarget} resourceLabel={`发布账号“${deletionTarget?.label ?? ''}”`} blockers={deletionTarget?.deletion?.blockers ?? []} refreshing={accounts.isFetching} resolveLink={deletionTarget ? deletionLink(deletionTarget) : () => undefined} onClose={() => setDeletionTarget(undefined)} onRefresh={async () => { await accounts.refetch(); setDeletionTarget(undefined); }} />
       <Modal
         title="新增发布账号"
         open={createOpen}

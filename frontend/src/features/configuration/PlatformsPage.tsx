@@ -49,7 +49,7 @@ import type {
   Schema,
 } from '../../shared/api/types';
 import { NoData, QueryFailure } from '../../shared/components/AsyncState';
-import { DeletionError } from '../../shared/components/DeletionError';
+import { DeletionError, DeletionGuidanceModal, type DeletionBlocker } from '../../shared/components/DeletionError';
 import { DirectUpload } from '../../shared/components/DirectUpload';
 import { MetricTile } from '../../shared/components/MetricTile';
 import { PageHeader } from '../../shared/components/PageHeader';
@@ -113,6 +113,7 @@ export function PlatformsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
   const [editProfile, setEditProfile] = useState<PlatformProfile | null>(null);
+  const [deletionTarget, setDeletionTarget] = useState<PlatformProfile>();
   const [modal, modalContext] = Modal.useModal();
   const lastDetailTriggerId = useRef<string | null>(null);
   const screens = Grid.useBreakpoint();
@@ -264,6 +265,11 @@ export function PlatformsPage() {
     onOk: () => removeProfile.mutateAsync(profile),
     afterClose,
   });
+  const deletionLink = (profile: PlatformProfile) => (blocker: DeletionBlocker) => {
+    if (blocker.type === 'CONTENT_TASK') return { href: `/tasks?platform_profile_id=${profile.id}`, label: '查看引用' as const };
+    if (blocker.type === 'PLATFORM_ACCOUNT') return { href: `/settings?tab=accounts&platform_profile_id=${profile.id}`, label: '查看引用' as const };
+    return undefined;
+  };
   const confirmToggle = (profile: PlatformProfile, afterClose?: () => void) => modal.confirm({
     title: `${profile.is_active ? '停用' : '启用'}平台“${profile.name}”？`,
     content: profile.is_active
@@ -281,12 +287,14 @@ export function PlatformsPage() {
     if (profile.available_actions.includes('DISABLE')) items.push({ key: 'toggle', label: '停用平台', danger: true });
     if (profile.available_actions.includes('ENABLE') && profile.primary_task !== 'ENABLE_PLATFORM') items.push({ key: 'toggle', label: '启用平台' });
     if (profile.available_actions.includes('DELETE')) items.push({ key: 'delete', label: '删除平台', danger: true });
+    else if (profile.deletion?.blockers.length) items.push({ key: 'conditions', label: '查看删除条件' });
     return {
       items,
       onClick: ({ key }) => {
         if (key === 'edit') setEditProfile(profile);
         else if (key === 'toggle') confirmToggle(profile, restoreFocus);
         else if (key === 'delete') confirmDelete(profile, restoreFocus);
+        else if (key === 'conditions') setDeletionTarget(profile);
       },
     };
   };
@@ -305,6 +313,7 @@ export function PlatformsPage() {
     onEdit={setEditProfile}
     onToggle={confirmToggle}
     onDelete={confirmDelete}
+    onViewDeletion={setDeletionTarget}
     toggleLoading={toggleProfile.isPending}
     deleteLoading={removeProfile.isPending}
   /> : null;
@@ -318,7 +327,7 @@ export function PlatformsPage() {
       actions={<Button type="primary" icon={<PlusOutlined />} aria-haspopup="dialog" aria-expanded={createOpen} onClick={() => setCreateOpen(true)}>新增平台</Button>}
     />
     {mutationError && <Alert role="alert" type="error" showIcon title={errorMessage(mutationError)} />}
-    {removeProfile.error && <DeletionError error={removeProfile.error} />}
+    {removeProfile.error && <DeletionError error={removeProfile.error} resolveLink={removeProfile.variables ? deletionLink(removeProfile.variables) : undefined} />}
 
     <div className={`platform-management-workspace${selectedPlatformId && screens.xl ? ' has-detail' : ''}`}>
       <main className="platform-management-main">
@@ -395,6 +404,7 @@ export function PlatformsPage() {
     <Drawer className="platform-detail-drawer" open={!!selectedPlatformId && !screens.xl} onClose={closeDetail} afterOpenChange={(open) => {
       if (!open) requestAnimationFrame(() => requestAnimationFrame(restoreDetailFocus));
     }} closable={false} size="min(100vw, 420px)">{detail}</Drawer>
+    <DeletionGuidanceModal open={!!deletionTarget} resourceLabel={`平台“${deletionTarget?.name ?? ''}”`} blockers={deletionTarget?.deletion?.blockers ?? []} refreshing={platforms.isFetching} resolveLink={deletionTarget ? deletionLink(deletionTarget) : () => undefined} onClose={() => setDeletionTarget(undefined)} onRefresh={async () => { await invalidatePlatform(deletionTarget?.id); setDeletionTarget(undefined); }} />
     <Modal title="新增平台" open={createOpen} onCancel={() => setCreateOpen(false)} footer={null} width={640} destroyOnHidden><PlatformForm typeOptions={platformTypeOptions} promptOptions={platformPromptOptions} loading={create.isPending} onSubmit={(values) => create.mutate(values)} /></Modal>
     <Modal title={`编辑 ${editProfile?.name ?? ''} 的平台信息`} open={!!editProfile} onCancel={() => setEditProfile(null)} footer={null} width={640} destroyOnHidden>{editProfile && <PlatformIdentityForm profile={editProfile} typeOptions={platformTypeOptions} promptOptions={platformPromptOptions} loading={updateProfile.isPending} onSubmit={(values) => updateProfile.mutate(values)} />}</Modal>
   </div>;

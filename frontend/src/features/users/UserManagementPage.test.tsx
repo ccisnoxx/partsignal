@@ -9,11 +9,13 @@ import { mockFetch } from '../../test/fetchMock';
 const admin = {
   id: '10000000-0000-4000-8000-000000000001', username: 'admin', display_name: '管理员',
   account_type: 'ADMIN', is_active: true, must_change_password: false, workflow_stage: 'ACTIVE', primary_task: 'MANAGE_USER', available_actions: ['UPDATE', 'DISABLE'], revision: 1, created_at: '2026-07-10T00:00:00Z',
+  deletion: null,
 } satisfies Schema<'User'>;
 
 const inactiveEngineer = {
   id: '10000000-0000-4000-8000-000000000002', username: 'inactive-engineer', display_name: '停用工程师',
   account_type: 'ENGINEER', is_active: false, must_change_password: true, workflow_stage: 'DISABLED', primary_task: 'ENABLE_USER', available_actions: ['UPDATE', 'RESET_PASSWORD', 'ENABLE', 'DELETE'], revision: 2, created_at: '2026-07-11T00:00:00Z',
+  deletion: { blockers: [] },
 } satisfies Schema<'User'>;
 
 const activeEngineer = {
@@ -78,6 +80,29 @@ test('默认请求启用用户并以服务端 summary 渲染五张统计卡', as
   expect(await screen.findByText('inactive-engineer')).toBeInTheDocument();
   expect(window.location.search).toBe('?status=ALL');
   await waitFor(() => expect(requests.at(-1)?.searchParams.has('status')).toBe(false));
+});
+
+test('停用用户有业务历史时显示查看条件并下钻审计记录', async () => {
+  const user = userEvent.setup();
+  const blocked = {
+    ...inactiveEngineer,
+    available_actions: ['UPDATE', 'RESET_PASSWORD', 'ENABLE'] as Schema<'User'>['available_actions'],
+    deletion: { blockers: [{ type: 'USER_BUSINESS_HISTORY' as const, count: 6 }] },
+  };
+  window.history.pushState({}, '', '/users?status=ALL');
+  mockFetch((request) => {
+    const url = new URL(request.url);
+    if (url.pathname.endsWith('/auth/me')) return { body: admin };
+    if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
+    if (url.pathname.endsWith('/users')) return { body: userList([blocked], url.searchParams) };
+    throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
+  });
+
+  render(<App />);
+  await user.click(await screen.findByRole('button', { name: '更多操作：inactive-engineer' }));
+  await user.click(screen.getByRole('menuitem', { name: /查看删除条件/ }));
+  expect(screen.getByText('业务历史：6')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '查看历史' })).toHaveAttribute('href', `/audit?actor_id=${blocked.id}`);
 });
 
 test('清理非法 URL，并由筛选和分页参数直接驱动服务端请求', async () => {

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, literal, select, union_all
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
@@ -43,18 +43,33 @@ def products_out(
     if not products:
         return []
     product_ids = [product.id for product in products]
-    referenced_ids = set(
-        db.scalars(
-            select(FactVersion.product_id)
-            .where(FactVersion.product_id.in_(product_ids))
-            .union(
-                select(ContentTask.product_id).where(ContentTask.product_id.in_(product_ids)),
-                select(GeoObservation.product_id).where(
-                    GeoObservation.product_id.in_(product_ids)
-                ),
+    direct_references = union_all(
+        select(
+            FactVersion.product_id.label("resource_id"),
+            literal("FACT_VERSION").label("blocker_type"),
+        ).where(FactVersion.product_id.in_(product_ids)),
+        select(
+            ContentTask.product_id.label("resource_id"),
+            literal("CONTENT_TASK").label("blocker_type"),
+        ).where(ContentTask.product_id.in_(product_ids)),
+        select(
+            GeoObservation.product_id.label("resource_id"),
+            literal("GEO_OBSERVATION").label("blocker_type"),
+        ).where(GeoObservation.product_id.in_(product_ids)),
+    ).subquery()
+    reference_counts = {
+        (resource_id, blocker_type): int(count)
+        for resource_id, blocker_type, count in db.execute(
+            select(
+                direct_references.c.resource_id,
+                direct_references.c.blocker_type,
+                func.count(),
+            ).group_by(
+                direct_references.c.resource_id,
+                direct_references.c.blocker_type,
             )
-        )
-    )
+        ).tuples()
+    }
     versions = list(
         db.scalars(
             select(FactVersion)
@@ -71,8 +86,13 @@ def products_out(
 
     items: list[ProductOut] = []
     for product in products:
+        blockers = [
+            {"type": blocker_type, "count": count}
+            for blocker_type in ("FACT_VERSION", "CONTENT_TASK", "GEO_OBSERVATION")
+            if (count := reference_counts.get((product.id, blocker_type), 0))
+        ]
         actions = ["UPDATE"]
-        if can_delete and product.id not in referenced_ids:
+        if can_delete and not blockers:
             actions.append("DELETE")
         latest = latest_by_product.get(product.id)
         if product.status == "RETIRED":
@@ -96,9 +116,11 @@ def products_out(
         payload = {
             field: getattr(product, field)
             for field in ProductOut.model_fields
-            if field not in {"available_actions", "workflow_stage", "primary_task"}
+            if field
+            not in {"available_actions", "deletion", "workflow_stage", "primary_task"}
         }
         payload["available_actions"] = actions
+        payload["deletion"] = {"blockers": blockers} if can_delete else None
         payload["workflow_stage"] = workflow_stage
         payload["primary_task"] = primary_task
         items.append(ProductOut.model_validate(payload))

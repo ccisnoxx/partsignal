@@ -1773,6 +1773,15 @@ export interface components {
         AccountType: "ADMIN" | "ENGINEER";
         /** @enum {string} */
         UserStatus: "ENABLED" | "DISABLED";
+        /** @enum {string} */
+        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "CONTENT_VERSION" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY";
+        DeletionBlocker: {
+            type: components["schemas"]["DeletionBlockerType"];
+            count: number;
+        };
+        DeletionProjection: {
+            blockers: components["schemas"]["DeletionBlocker"][];
+        };
         User: {
             /** Format: uuid */
             id: string;
@@ -1786,6 +1795,7 @@ export interface components {
             /** @enum {string} */
             primary_task: "MANAGE_LOGIN_SECURITY" | "MANAGE_USER" | "ENABLE_USER";
             available_actions: ("UPDATE" | "RESET_PASSWORD" | "ENABLE" | "DISABLE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
             revision: number;
             /** Format: date-time */
             created_at: string;
@@ -1918,6 +1928,7 @@ export interface components {
             /** @enum {string} */
             primary_task: "ENTER_FACTS" | "SUBMIT_FACT_REVIEW" | "REVIEW_FACT" | "REVISE_FACT" | "CREATE_CONTENT_TASK" | "VIEW_FACT_HISTORY";
             available_actions: ("UPDATE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
             revision: number;
             /** Format: date-time */
             created_at: string;
@@ -1987,6 +1998,7 @@ export interface components {
             /** @enum {string} */
             primary_task: "REVIEW_FACT" | "CREATE_CONTENT_TASK" | "REVISE_FACT" | "VIEW_FACT_HISTORY";
             available_actions: ("APPROVE" | "REQUEST_CHANGES" | "RETIRE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
             revision: number;
             /** Format: uuid */
             created_by: string;
@@ -2126,6 +2138,7 @@ export interface components {
             /** @enum {string} */
             primary_task: "ENABLE_PLATFORM" | "CONFIGURE_GENERATION" | "VIEW_PLATFORM_OPERATION";
             available_actions: ("UPDATE" | "ENABLE" | "DISABLE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
             /**
              * Format: date-time
              * @description 平台创建、编辑、启用或停用的最近真实审计时间
@@ -2180,6 +2193,7 @@ export interface components {
             name: string;
             slug: string;
             available_actions: ("UPDATE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
             /** @constant */
             primary_task: "EDIT_CATEGORY";
             revision: number;
@@ -2468,6 +2482,7 @@ export interface components {
             /** @enum {string} */
             primary_task: "CREATE_FIRST_DRAFT" | "VIEW_GENERATION_PROGRESS" | "HANDLE_GENERATION_FAILURE" | "EDIT_AND_SUBMIT_REVIEW" | "REVIEW_CONTENT" | "REVISE_CONTENT" | "START_PUBLICATION" | "CONTINUE_PUBLICATION" | "VIEW_FULL_LINEAGE" | "VIEW_CANCELLATION";
             available_actions: ("CANCEL" | "DELETE" | "CREATE_GENERATION_JOB" | "CREATE_MANUAL_VERSION")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
             status: components["schemas"]["ContentTaskStatus"];
             revision: number;
             /** Format: uuid */
@@ -2871,6 +2886,7 @@ export interface components {
             /** @enum {string} */
             primary_task: "HANDLE_PLATFORM" | "ENABLE_ACCOUNT" | "MANAGE_ACCOUNT";
             available_actions: ("UPDATE" | "ENABLE" | "DISABLE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
             revision: number;
         };
         PlatformAccountList: {
@@ -6140,6 +6156,10 @@ export interface operations {
             query?: {
                 /** @description 仅返回直接绑定该平台的内容任务 */
                 platform_profile_id?: string;
+                /** @description 仅返回直接绑定该产品的内容任务 */
+                filter_product_id?: string;
+                /** @description 仅返回直接绑定该事实版本的内容任务 */
+                filter_fact_version_id?: string;
             };
             header?: never;
             path?: never;
@@ -6858,6 +6878,8 @@ export interface operations {
                 page?: number;
                 page_size?: number;
                 status?: components["schemas"]["PublicationWorkStatus"] | null;
+                platform_account_id?: string | null;
+                content_task_id?: string | null;
             };
             header?: never;
             path?: never;

@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import Field
 
 from app.schemas.base import ContractModel
+from app.schemas.common import DeletionProjection
 
 
 class ProductStatus(StrEnum):
@@ -54,6 +55,7 @@ class ProductOut(ContractModel):
         "VIEW_FACT_HISTORY",
     ]
     available_actions: list[Literal["UPDATE", "DELETE"]]
+    deletion: DeletionProjection | None
     revision: int
     created_at: datetime
     updated_at: datetime
@@ -110,6 +112,7 @@ class FactVersionOut(ContractModel):
         "REVIEW_FACT", "CREATE_CONTENT_TASK", "REVISE_FACT", "VIEW_FACT_HISTORY"
     ]
     available_actions: list[Literal["APPROVE", "REQUEST_CHANGES", "RETIRE", "DELETE"]]
+    deletion: DeletionProjection | None
     revision: int
     created_by: uuid.UUID
     approved_by: uuid.UUID | None = None

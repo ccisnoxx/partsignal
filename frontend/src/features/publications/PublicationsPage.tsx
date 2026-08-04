@@ -633,6 +633,9 @@ export function PublicationsPage() {
     ? rawKind
     : tab === 'articles' && selected ? 'article' : null;
   const rawStatus = searchParams.get('status');
+  const platformAccountId = searchParams.get('platform_account_id') ?? undefined;
+  const contentTaskId = searchParams.get('content_task_id') ?? undefined;
+  const referenceMode = !!(platformAccountId || contentTaskId);
   const workStatus = workStatuses.includes(rawStatus as Schema<'PublicationWorkStatus'>)
     ? rawStatus as Schema<'PublicationWorkStatus'>
     : undefined;
@@ -706,33 +709,40 @@ export function PublicationsPage() {
   const summary = useQuery({
     queryKey: queryKeys.publications.summary,
     queryFn: async () => unwrap(await api.GET('/api/v1/publication-workbench-summary')),
-    enabled: tab === 'works',
+    enabled: tab === 'works' && !referenceMode,
   });
   const ready = useQuery({
     queryKey: queryKeys.publications.ready,
     queryFn: async () => unwrap(await api.GET('/api/v1/publication-ready-items')),
-    enabled: tab === 'works',
+    enabled: tab === 'works' && !referenceMode,
   });
-  const worksQueryPage = tab === 'history' ? page : workPage;
-  const worksQueryStatus = tab === 'history' ? 'CLOSED' : workStatus;
+  const worksQueryPage = referenceMode ? page : tab === 'history' ? page : workPage;
+  const worksPageParam = referenceMode || tab === 'history' ? 'page' : 'work_page';
+  const worksQueryStatus = referenceMode ? undefined : tab === 'history' ? 'CLOSED' : workStatus;
   const works = useQuery({
-    queryKey: queryKeys.publications.works(worksQueryPage, PAGE_SIZE, worksQueryStatus),
+    queryKey: queryKeys.publications.works(worksQueryPage, PAGE_SIZE, worksQueryStatus, platformAccountId, contentTaskId),
     queryFn: async () => unwrap(await api.GET('/api/v1/publication-works', {
-      params: { query: { page: worksQueryPage, page_size: PAGE_SIZE, ...(worksQueryStatus ? { status: worksQueryStatus } : {}) } },
+      params: { query: {
+        page: worksQueryPage,
+        page_size: PAGE_SIZE,
+        ...(worksQueryStatus ? { status: worksQueryStatus } : {}),
+        ...(platformAccountId ? { platform_account_id: platformAccountId } : {}),
+        ...(contentTaskId ? { content_task_id: contentTaskId } : {}),
+      } },
     })),
-    enabled: tab === 'works' || (tab === 'history' && historyStatus === 'CLOSED'),
+    enabled: referenceMode || tab === 'works' || (tab === 'history' && historyStatus === 'CLOSED'),
   });
   const articles = useQuery({
     queryKey: queryKeys.publications.articles(page, PAGE_SIZE),
     queryFn: async () => unwrap(await api.GET('/api/v1/published-articles', { params: { query: { page, page_size: PAGE_SIZE } } })),
-    enabled: tab === 'articles',
+    enabled: tab === 'articles' && !referenceMode,
   });
   const issuesQueryPage = tab === 'history' ? page : issuePage;
   const issuesQueryStatus: Schema<'PublishedContentIssueStatus'> = tab === 'history' ? 'RESOLVED' : 'OPEN';
   const issues = useQuery({
     queryKey: queryKeys.publications.issues(issuesQueryPage, PAGE_SIZE, issuesQueryStatus),
     queryFn: async () => unwrap(await api.GET('/api/v1/published-content-issues', { params: { query: { page: issuesQueryPage, page_size: PAGE_SIZE, status: issuesQueryStatus } } })),
-    enabled: tab === 'works' || (tab === 'history' && historyStatus === 'RESOLVED'),
+    enabled: !referenceMode && (tab === 'works' || (tab === 'history' && historyStatus === 'RESOLVED')),
   });
 
   const workColumns: TableColumnsType<WorkItem> = [
@@ -774,11 +784,11 @@ export function PublicationsPage() {
             <footer>{workActions(row)}</footer>
           </article>
         ))}
-        <Pagination hideOnSinglePage current={worksQueryPage} pageSize={PAGE_SIZE} total={works.data?.total ?? 0} showSizeChanger={false} onChange={(next) => updateUrl({ [tab === 'history' ? 'page' : 'work_page']: String(next), selected: null, kind: null })} />
+        <Pagination hideOnSinglePage current={worksQueryPage} pageSize={PAGE_SIZE} total={works.data?.total ?? 0} showSizeChanger={false} onChange={(next) => updateUrl({ [worksPageParam]: String(next), selected: null, kind: null })} />
       </div>
     ) : (
       <TableRegion label={tab === 'history' ? '已关闭发布工作列表' : '发布管理列表'}>
-        <Table<WorkItem> rowKey="id" dataSource={works.data?.items} columns={workColumns} scroll={{ x: 920 }} pagination={{ current: worksQueryPage, pageSize: PAGE_SIZE, total: works.data?.total, showSizeChanger: false, onChange: (next) => updateUrl({ [tab === 'history' ? 'page' : 'work_page']: String(next), selected: null, kind: null }) }} />
+        <Table<WorkItem> rowKey="id" dataSource={works.data?.items} columns={workColumns} scroll={{ x: 920 }} pagination={{ current: worksQueryPage, pageSize: PAGE_SIZE, total: works.data?.total, showSizeChanger: false, onChange: (next) => updateUrl({ [worksPageParam]: String(next), selected: null, kind: null }) }} />
       </TableRegion>
     );
 
@@ -861,7 +871,7 @@ export function PublicationsPage() {
     <div className="page-stack publication-workbench">
       <PageHeader eyebrow="人工发布与公开内容" title="发布管理" description="优先处理当前发布工作与公开内容问题，成果和历史记录用于追溯。" />
       <Card className="publication-panel">
-        <Tabs
+        {!referenceMode && <Tabs
           activeKey={tab}
           onChange={(key) => updateUrl({ tab: key, page: '1', work_page: null, issue_page: null, selected: null, kind: null, status: key === 'history' ? 'CLOSED' : null })}
           items={[
@@ -869,8 +879,13 @@ export function PublicationsPage() {
             { key: 'articles', label: '发布成果' },
             { key: 'history', label: '历史记录' },
           ]}
-        />
-        {tab === 'works' && (
+        />}
+        {referenceMode && <section className="publication-section">
+          <Alert type="info" showIcon title="正在查看删除阻断引用" description="这里包含匹配的全部发布工作，包括已完成和已关闭历史；发布历史不可删除。" action={<Button href="/publications">返回完整工作台</Button>} />
+          <header className="publication-section-header"><div><Typography.Title level={4}>关联发布工作</Typography.Title><Typography.Text type="secondary">服务端按发布账号或内容任务精确筛选。</Typography.Text></div></header>
+          {workCollection}
+        </section>}
+        {tab === 'works' && !referenceMode && (
           <>
             {summary.error ? <QueryFailure error={summary.error} onRetry={() => void summary.refetch()} /> : (
               <section className="publication-status-strip" aria-label="发布待处理摘要">
@@ -895,11 +910,11 @@ export function PublicationsPage() {
             </section>
           </>
         )}
-        {tab === 'articles' && <section className="publication-section">
+        {tab === 'articles' && !referenceMode && <section className="publication-section">
           <header className="publication-section-header"><div><Typography.Title level={4}>发布成果</Typography.Title><Typography.Text type="secondary">首次核验通过后形成的只读公开成果。</Typography.Text></div></header>
           {articleCollection}
         </section>}
-        {tab === 'history' && <section className="publication-section">
+        {tab === 'history' && !referenceMode && <section className="publication-section">
           <header className="publication-section-header"><div><Typography.Title level={4}>{historyStatus === 'CLOSED' ? '已关闭发布工作' : '已解决内容问题'}</Typography.Title><Typography.Text type="secondary">只用于查询已经结束的处理记录。</Typography.Text></div><Select aria-label="历史记录类型" value={historyStatus} onChange={(value) => updateUrl({ status: value, page: '1', selected: null, kind: null })} options={[{ value: 'CLOSED', label: '已关闭工作' }, { value: 'RESOLVED', label: '已解决问题' }]} /></header>
           {historyStatus === 'CLOSED' ? workCollection : issueCollection}
         </section>}

@@ -23,6 +23,33 @@ class UserStatus(StrEnum):
     DISABLED = "DISABLED"
 
 
+class DeletionBlockerType(StrEnum):
+    """受约束物理删除的稳定直接引用类型。"""
+
+    FACT_VERSION = "FACT_VERSION"
+    CONTENT_TASK = "CONTENT_TASK"
+    GEO_OBSERVATION = "GEO_OBSERVATION"
+    CONTENT_VERSION = "CONTENT_VERSION"
+    PLATFORM_PROFILE = "PLATFORM_PROFILE"
+    PLATFORM_ACCOUNT = "PLATFORM_ACCOUNT"
+    PUBLICATION_WORK = "PUBLICATION_WORK"
+    PROTECTED_CONTENT_VERSION = "PROTECTED_CONTENT_VERSION"
+    PUBLISHED_CONTENT_ISSUE = "PUBLISHED_CONTENT_ISSUE"
+    GEO_OPTIMIZATION_SOURCE = "GEO_OPTIMIZATION_SOURCE"
+    USER_BUSINESS_HISTORY = "USER_BUSINESS_HISTORY"
+
+
+class DeletionBlocker(ContractModel):
+    type: DeletionBlockerType
+    count: int = Field(ge=1)
+
+
+class DeletionProjection(ContractModel):
+    """当前操作者和业务阶段下的直接删除阻断投影。"""
+
+    blockers: list[DeletionBlocker]
+
+
 class UserOut(ContractModel):
     id: uuid.UUID
     username: str
@@ -35,6 +62,7 @@ class UserOut(ContractModel):
     available_actions: list[
         Literal["UPDATE", "RESET_PASSWORD", "ENABLE", "DISABLE", "DELETE"]
     ]
+    deletion: DeletionProjection | None
     revision: int
     created_at: datetime
 

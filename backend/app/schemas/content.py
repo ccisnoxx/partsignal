@@ -9,6 +9,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field, HttpUrl, model_validator
 
 from app.schemas.base import ContractModel
+from app.schemas.common import DeletionProjection
 from app.schemas.configuration import PlatformLogoOut
 from app.schemas.product_facts import Confidentiality, FactVersionOut
 
@@ -56,6 +57,7 @@ class ContentTaskOut(ContentTaskCreate):
     available_actions: list[
         Literal["CANCEL", "DELETE", "CREATE_GENERATION_JOB", "CREATE_MANUAL_VERSION"]
     ]
+    deletion: DeletionProjection | None
     status: Literal["OPEN", "COMPLETED", "CANCELLED"]
     revision: int
     created_by: uuid.UUID

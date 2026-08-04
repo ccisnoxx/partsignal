@@ -1,5 +1,6 @@
 /** 发布账号设置测试覆盖定向筛选、修订号写入、启停和冲突反馈。 */
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { App } from '../../app/App';
 import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
@@ -16,6 +17,7 @@ const engineer = {
   workflow_stage: 'ACTIVE',
   primary_task: 'MANAGE_USER',
   available_actions: [],
+  deletion: null,
   revision: 1,
   created_at: '2026-07-26T00:00:00Z',
 } satisfies Schema<'User'>;
@@ -36,6 +38,7 @@ const profile = {
   workflow_stage: 'GENERATION_UNCONFIGURED',
   primary_task: 'CONFIGURE_GENERATION',
   available_actions: [],
+  deletion: null,
   updated_at: null,
 } satisfies Schema<'PlatformProfile'>;
 
@@ -54,8 +57,8 @@ function platformList() {
   } satisfies Schema<'PlatformProfileList'>;
 }
 
-function installAccountApi() {
-  let account: Schema<'PlatformAccount'> = {
+function installAccountApi(initialAccount?: Schema<'PlatformAccount'>) {
+  let account: Schema<'PlatformAccount'> = initialAccount ?? {
     id: accountId,
     platform_profile_id: profileId,
     label: '主运营账号',
@@ -64,6 +67,7 @@ function installAccountApi() {
     workflow_stage: 'OPERATIONAL',
     primary_task: 'MANAGE_ACCOUNT',
     available_actions: ['UPDATE', 'DISABLE', 'DELETE'],
+    deletion: { blockers: [] },
     revision: 0,
   };
   const writes: Request[] = [];
@@ -97,6 +101,27 @@ function installAccountApi() {
   });
   return writes;
 }
+
+test('发布账号被历史引用时下钻包含终态的发布工作列表', async () => {
+  const user = userEvent.setup();
+  installAccountApi({
+    id: accountId,
+    platform_profile_id: profileId,
+    label: '历史账号',
+    account_identifier: 'archived-operator',
+    is_active: false,
+    workflow_stage: 'ACCOUNT_DISABLED',
+    primary_task: 'ENABLE_ACCOUNT',
+    available_actions: ['UPDATE', 'ENABLE'],
+    deletion: { blockers: [{ type: 'PUBLICATION_WORK', count: 4 }] },
+    revision: 1,
+  });
+  render(<App />);
+  await user.click(await screen.findByRole('button', { name: '更多操作：历史账号' }));
+  await user.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
+  expect(screen.getByText('发布工作：4')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '查看历史' })).toHaveAttribute('href', `/publications?platform_account_id=${accountId}`);
+});
 
 async function accountPage() {
   const root = await waitFor(() => {
@@ -193,6 +218,7 @@ test('编辑为同平台规范化重复标识时在弹窗显示服务端冲突',
     workflow_stage: 'OPERATIONAL',
     primary_task: 'MANAGE_ACCOUNT',
     available_actions: ['UPDATE', 'DISABLE'],
+    deletion: null,
     revision: 0,
   } satisfies Schema<'PlatformAccount'>;
   window.history.pushState({}, '', '/settings?tab=accounts');

@@ -63,6 +63,7 @@ const task = {
   platform_profile_id: 'platform-1',
   status: 'OPEN',
   available_actions: ['CANCEL', 'CREATE_GENERATION_JOB', 'CREATE_MANUAL_VERSION'],
+  deletion: null,
   fact_version_id: 'fact-version-1',
   query_topic_id: null,
   source_published_content_issue_id: null,
@@ -83,6 +84,7 @@ const factVersion = {
   change_summary: '批准事实',
   workflow_stage: 'APPROVED',
   primary_task: 'CREATE_CONTENT_TASK',
+  deletion: null,
   revision: 1,
   created_by: 'user-1',
   approved_by: 'user-1',
@@ -562,6 +564,27 @@ test('任务列表直接呈现服务端允许的取消和删除操作', async ()
     '/api/v1/content-tasks/{content_task_id}',
     { params: { path: { content_task_id: cancelledTask.id }, header: { 'X-CSRF-Token': 'test' } } },
   ));
+});
+
+test('已取消任务被不可变历史引用时提供精确查看入口', async () => {
+  const user = userEvent.setup();
+  const blocked = listTask(2, 'CANCELLED', {
+    available_actions: [],
+    deletion: { blockers: [
+      { type: 'PROTECTED_CONTENT_VERSION', count: 1 },
+      { type: 'PUBLICATION_WORK', count: 1 },
+    ] },
+  });
+  apiMocks.GET.mockImplementation((path: string) => path === '/api/v1/content-tasks' ? result({ items: [blocked] }) : result(undefined, 404));
+  renderPage(<Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes>, ['/tasks']);
+
+  await user.click(await screen.findByRole('button', { name: /更多操作/ }));
+  await user.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
+  expect(screen.getByText('已批准内容历史：1')).toBeInTheDocument();
+  expect(screen.getAllByRole('link', { name: '查看历史' }).map((link) => link.getAttribute('href'))).toEqual(expect.arrayContaining([
+    '/tasks/task-2#task-versions',
+    '/publications?content_task_id=task-2',
+  ]));
 });
 
 test('详情取消弹窗的次按钮、关闭图标和 Escape 均不提交并恢复焦点', async () => {

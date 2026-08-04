@@ -7,7 +7,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from sqlalchemy import func, select
+from sqlalchemy import func, literal, select, union_all
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -18,7 +18,7 @@ from app.models.configuration import (
     PlatformPrompt,
     PlatformType,
 )
-from app.models.content import ContentTask, ContentVersion
+from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
 from app.models.geo_files import FileRecord
 from app.models.identity import AuditLog
 from app.models.product_facts import FactVersion, Product
@@ -70,13 +70,14 @@ def platform_accounts_out(
     if not accounts:
         return []
     account_ids = [account.id for account in accounts]
-    referenced_ids = set(
-        db.scalars(
-            select(PublicationWork.platform_account_id).where(
-                PublicationWork.platform_account_id.in_(account_ids)
-            )
-        )
-    )
+    work_counts = {
+        account_id: int(count)
+        for account_id, count in db.execute(
+            select(PublicationWork.platform_account_id, func.count(PublicationWork.id))
+            .where(PublicationWork.platform_account_id.in_(account_ids))
+            .group_by(PublicationWork.platform_account_id)
+        ).tuples()
+    }
     platform_ids = {account.platform_profile_id for account in accounts}
     platform_enabled = {
         profile.id: profile.is_active
@@ -86,15 +87,22 @@ def platform_accounts_out(
     }
     items: list[PlatformAccountOut] = []
     for account in accounts:
+        blockers = (
+            [{"type": "PUBLICATION_WORK", "count": work_counts[account.id]}]
+            if account.id in work_counts
+            else []
+        )
         actions = ["UPDATE", "DISABLE" if account.is_active else "ENABLE"]
-        if can_delete and account.id not in referenced_ids:
+        if can_delete and not blockers:
             actions.append("DELETE")
         payload = {
             field: getattr(account, field)
             for field in PlatformAccountOut.model_fields
-            if field not in {"available_actions", "workflow_stage", "primary_task"}
+            if field
+            not in {"available_actions", "deletion", "workflow_stage", "primary_task"}
         }
         payload["available_actions"] = actions
+        payload["deletion"] = {"blockers": blockers} if can_delete else None
         if not platform_enabled.get(account.platform_profile_id, False):
             payload["workflow_stage"] = "PLATFORM_DISABLED"
             payload["primary_task"] = "HANDLE_PLATFORM"
@@ -115,34 +123,63 @@ def platform_account_out(
     return platform_accounts_out(db, [account], can_delete=can_delete)[0]
 
 
-def _content_task_protected_history_ids(
+def _content_task_deletion_blockers(
     db: Session,
     task_ids: list[uuid.UUID],
-) -> set[uuid.UUID]:
-    """批量返回已有批准、发布或修复历史的任务，统一删除动作投影口径。"""
+) -> dict[uuid.UUID, list[dict[str, object]]]:
+    """批量统计已取消任务的全部直接删除阻断引用。"""
     if not task_ids:
-        return set()
-    return set(
-        db.scalars(
-            select(ContentVersion.task_id)
-            .where(
-                ContentVersion.task_id.in_(task_ids),
-                ContentVersion.status.in_(("APPROVED", "SUPERSEDED")),
+        return {}
+    direct_references = union_all(
+        select(
+            ContentVersion.task_id.label("task_id"),
+            literal("PROTECTED_CONTENT_VERSION").label("blocker_type"),
+        ).where(
+            ContentVersion.task_id.in_(task_ids),
+            ContentVersion.status.in_(("APPROVED", "SUPERSEDED")),
+        ),
+        select(
+            PublicationWork.content_task_id.label("task_id"),
+            literal("PUBLICATION_WORK").label("blocker_type"),
+        ).where(PublicationWork.content_task_id.in_(task_ids)),
+        select(
+            ContentTask.id.label("task_id"),
+            literal("PUBLISHED_CONTENT_ISSUE").label("blocker_type"),
+        ).where(
+            ContentTask.id.in_(task_ids),
+            ContentTask.source_published_content_issue_id.is_not(None),
+        ),
+        select(
+            ContentTaskGeoSource.content_task_id.label("task_id"),
+            literal("GEO_OPTIMIZATION_SOURCE").label("blocker_type"),
+        ).where(ContentTaskGeoSource.content_task_id.in_(task_ids)),
+    ).subquery()
+    counts = {
+        (task_id, blocker_type): int(count)
+        for task_id, blocker_type, count in db.execute(
+            select(
+                direct_references.c.task_id,
+                direct_references.c.blocker_type,
+                func.count(),
+            ).group_by(
+                direct_references.c.task_id,
+                direct_references.c.blocker_type,
             )
-            .union(
-                select(ContentVersion.task_id)
-                .join(
-                    PublicationWork,
-                    PublicationWork.content_version_id == ContentVersion.id,
-                )
-                .where(ContentVersion.task_id.in_(task_ids)),
-                select(ContentTask.id).where(
-                    ContentTask.id.in_(task_ids),
-                    ContentTask.source_published_content_issue_id.is_not(None),
-                ),
+        ).tuples()
+    }
+    return {
+        task_id: [
+            {"type": blocker_type, "count": count}
+            for blocker_type in (
+                "PROTECTED_CONTENT_VERSION",
+                "PUBLICATION_WORK",
+                "PUBLISHED_CONTENT_ISSUE",
+                "GEO_OPTIMIZATION_SOURCE",
             )
-        )
-    )
+            if (count := counts.get((task_id, blocker_type), 0))
+        ]
+        for task_id in task_ids
+    }
 
 
 def _content_task_available_actions(
@@ -317,28 +354,46 @@ def fact_versions_out(
     if not versions:
         return []
     version_ids = [version.id for version in versions]
-    referenced_ids = set(
-        db.scalars(
-            select(ContentTask.fact_version_id)
-            .where(ContentTask.fact_version_id.in_(version_ids))
-            .union(
-                select(ContentVersion.fact_version_id).where(
-                    ContentVersion.fact_version_id.in_(version_ids)
-                )
+    direct_references = union_all(
+        select(
+            ContentTask.fact_version_id.label("resource_id"),
+            literal("CONTENT_TASK").label("blocker_type"),
+        ).where(ContentTask.fact_version_id.in_(version_ids)),
+        select(
+            ContentVersion.fact_version_id.label("resource_id"),
+            literal("CONTENT_VERSION").label("blocker_type"),
+        ).where(ContentVersion.fact_version_id.in_(version_ids)),
+    ).subquery()
+    reference_counts = {
+        (resource_id, blocker_type): int(count)
+        for resource_id, blocker_type, count in db.execute(
+            select(
+                direct_references.c.resource_id,
+                direct_references.c.blocker_type,
+                func.count(),
+            ).group_by(
+                direct_references.c.resource_id,
+                direct_references.c.blocker_type,
             )
-        )
-    )
+        ).tuples()
+    }
     items: list[FactVersionOut] = []
     for version in versions:
+        blockers = [
+            {"type": blocker_type, "count": count}
+            for blocker_type in ("CONTENT_TASK", "CONTENT_VERSION")
+            if (count := reference_counts.get((version.id, blocker_type), 0))
+        ]
         actions: list[str] = list(fact_review_actions(version))
-        if can_delete and version.id not in referenced_ids:
+        if can_delete and not blockers:
             actions.append("DELETE")
         payload = {
             field: getattr(version, field)
             for field in FactVersionOut.model_fields
-            if field not in {"available_actions", "primary_task"}
+            if field not in {"available_actions", "deletion", "primary_task"}
         }
         payload["available_actions"] = actions
+        payload["deletion"] = {"blockers": blockers} if can_delete else None
         payload["primary_task"] = {
             "PENDING_REVIEW": "REVIEW_FACT",
             "APPROVED": "CREATE_CONTENT_TASK",
@@ -504,6 +559,29 @@ def platform_profiles_out(
                     )
                 ),
                 "platform_account_count": account_counts.get(profile.id, 0),
+                "deletion": (
+                    {
+                        "blockers": [
+                            *(
+                                [{"type": "CONTENT_TASK", "count": task_counts[profile.id]}]
+                                if profile.id in task_counts
+                                else []
+                            ),
+                            *(
+                                [
+                                    {
+                                        "type": "PLATFORM_ACCOUNT",
+                                        "count": account_counts[profile.id],
+                                    }
+                                ]
+                                if profile.id in account_counts
+                                else []
+                            ),
+                        ]
+                    }
+                    if can_manage
+                    else None
+                ),
                 "available_actions": (
                     [
                         "UPDATE",
@@ -602,7 +680,7 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
         content.id: content
         for content in db.scalars(select(ContentVersion).where(ContentVersion.id.in_(current_ids)))
     }
-    protected_history_task_ids = _content_task_protected_history_ids(
+    deletion_blockers_by_task = _content_task_deletion_blockers(
         db,
         [task.id for task in tasks if task.status == "CANCELLED"],
     )
@@ -652,7 +730,7 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
         payload["available_actions"] = _content_task_available_actions(
             task,
             has_in_flight_publication=task.id in in_flight_task_ids,
-            has_protected_history=task.id in protected_history_task_ids,
+            has_protected_history=bool(deletion_blockers_by_task.get(task.id)),
             can_generate=bool(
                 fact_ready
                 and current is None
@@ -663,6 +741,11 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
                 and platform.platform_prompt_id is not None
             ),
             can_create_manual_version=bool(fact_ready and current is None),
+        )
+        payload["deletion"] = (
+            {"blockers": deletion_blockers_by_task.get(task.id, [])}
+            if task.status == "CANCELLED"
+            else None
         )
         payload["workflow_stage"] = workflow_stage
         payload["primary_task"] = primary_task

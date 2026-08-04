@@ -18,6 +18,7 @@ const user = {
   workflow_stage: 'ACTIVE',
   primary_task: 'MANAGE_USER',
   available_actions: [],
+  deletion: null,
   revision: 1,
   created_at: '2026-08-03T00:00:00Z',
 } satisfies Schema<'User'>;
@@ -180,10 +181,12 @@ const issueDetail = {
   article: articleItem,
 } satisfies Schema<'PublishedContentIssue'>;
 
-function installResponses({ onVerify, onClose, onSwitch }: {
+function installResponses({ onVerify, onClose, onSwitch, onWorks, workTotal = 1 }: {
   onVerify?: (request: Request) => void;
   onClose?: (request: Request) => void;
   onSwitch?: (request: Request) => void;
+  onWorks?: (url: URL) => void;
+  workTotal?: number;
 } = {}) {
   let closed = false;
   mockFetch((request) => {
@@ -193,8 +196,9 @@ function installResponses({ onVerify, onClose, onSwitch }: {
     if (url.pathname.endsWith('/publication-workbench-summary')) return { body: summary };
     if (url.pathname.endsWith('/publication-ready-items')) return { body: { items: [readyItem] } };
     if (url.pathname.endsWith('/publication-works') && request.method === 'GET') {
+      onWorks?.(url);
       const historical = url.searchParams.get('status') === 'CLOSED';
-      return { body: { items: closed || historical ? [] : [workItem], page: 1, page_size: 20, total: closed || historical ? 0 : 1 } };
+      return { body: { items: closed || historical ? [] : [workItem], page: Number(url.searchParams.get('page') ?? 1), page_size: 20, total: closed || historical ? 0 : workTotal } };
     }
     if (url.pathname.endsWith('/published-articles')) return { body: { items: [articleItem], page: 1, page_size: 20, total: 1 } };
     if (url.pathname.endsWith('/published-content-issues')) {
@@ -220,6 +224,33 @@ function installResponses({ onVerify, onClose, onSwitch }: {
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 }
+
+test('删除引用模式按账号精确筛选并包含终态发布历史', async () => {
+  const workRequests: URL[] = [];
+  installResponses({ onWorks: (url) => workRequests.push(url) });
+  window.history.pushState({}, '', `/publications?platform_account_id=${workItem.platform_account_id}`);
+
+  render(<App />);
+  expect(await screen.findByText('正在查看删除阻断引用')).toBeInTheDocument();
+  expect(screen.getByText(/包括已完成和已关闭历史/)).toBeInTheDocument();
+  await waitFor(() => expect(workRequests.length).toBeGreaterThan(0));
+  expect(workRequests[0]!.searchParams.get('platform_account_id')).toBe(workItem.platform_account_id);
+  expect(workRequests[0]!.searchParams.has('status')).toBe(false);
+});
+
+test('删除引用模式翻页使用通用 page 参数', async () => {
+  const operator = userEvent.setup();
+  const workRequests: URL[] = [];
+  installResponses({ workTotal: 21, onWorks: (url) => workRequests.push(url) });
+  window.history.pushState({}, '', `/publications?platform_account_id=${workItem.platform_account_id}`);
+
+  render(<App />);
+  await operator.click(await screen.findByTitle('2'));
+
+  await waitFor(() => expect(workRequests.some((url) => url.searchParams.get('page') === '2')).toBe(true));
+  expect(new URLSearchParams(window.location.search).get('page')).toBe('2');
+  expect(new URLSearchParams(window.location.search).has('work_page')).toBe(false);
+});
 
 async function findDialog(title: string) {
   return waitFor(() => {

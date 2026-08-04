@@ -79,7 +79,7 @@ const model = {
   primary_task: 'VIEW_MODEL_RUNTIME' as const,
   revision: 2, created_by: 'user-1', created_at: '2026-07-13T08:00:00+08:00', updated_at: '2026-07-13T09:00:00+08:00',
 };
-const platformType = { id: 'type-1', name: '技术社区', slug: 'technical-community', primary_task: 'EDIT_CATEGORY' as const, available_actions: ['UPDATE'] as const, revision: 0, created_by: 'user-1', created_at: channel.created_at };
+const platformType = { id: 'type-1', name: '技术社区', slug: 'technical-community', primary_task: 'EDIT_CATEGORY' as const, available_actions: ['UPDATE'] as const, deletion: { blockers: [{ type: 'PLATFORM_PROFILE' as const, count: 2 }] }, revision: 0, created_by: 'user-1', created_at: channel.created_at };
 const platformPrompt = {
   id: 'prompt-shared',
   name: '技术文章 Prompt',
@@ -102,8 +102,8 @@ const unusedPlatformPrompt = {
   bound_platforms: [],
 };
 const platforms = [
-  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: null, logo: null, revision: 0, is_active: false, platform_prompt: null, configuration_complete: false, platform_account_count: 0, workflow_stage: 'DISABLED' as const, primary_task: 'ENABLE_PLATFORM' as const, available_actions: ['UPDATE', 'ENABLE', 'DELETE'] as const, updated_at: null },
-  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, workflow_stage: 'OPERATIONAL' as const, primary_task: 'VIEW_PLATFORM_OPERATION' as const, available_actions: ['UPDATE', 'DISABLE'] as const, updated_at: channel.updated_at },
+  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: null, logo: null, revision: 0, is_active: false, platform_prompt: null, configuration_complete: false, platform_account_count: 0, workflow_stage: 'DISABLED' as const, primary_task: 'ENABLE_PLATFORM' as const, available_actions: ['UPDATE', 'ENABLE', 'DELETE'] as const, deletion: { blockers: [] }, updated_at: null },
+  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, workflow_stage: 'OPERATIONAL' as const, primary_task: 'VIEW_PLATFORM_OPERATION' as const, available_actions: ['UPDATE', 'DISABLE'] as const, deletion: { blockers: [{ type: 'CONTENT_TASK' as const, count: 3 }, { type: 'PLATFORM_ACCOUNT' as const, count: 2 }] }, updated_at: channel.updated_at },
 ];
 const humanizationPrompt = { template_markdown: '保持事实，只改善表达。', available_actions: ['UPDATE'] as const, revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
 let channelItems = [channelSummary];
@@ -115,6 +115,7 @@ const previewTask: Schema<'ContentTaskListItem'> = {
   id: 'task-preview', product_id: 'product-1', fact_version_id: 'fact-1', platform_profile_id: 'profile-ready',
   query_topic_id: null,
   source_published_content_issue_id: null, current_content_version_id: null, workflow_stage: 'NO_DRAFT', primary_task: 'CREATE_FIRST_DRAFT', available_actions: ['CREATE_GENERATION_JOB', 'CANCEL'], status: 'OPEN', revision: 1, created_by: 'user-1', created_at: channel.created_at,
+  deletion: null,
   product: { id: 'product-1', brand: 'PartSignal', part_number: 'PS-100' }, platform: { id: 'profile-ready', name: '工程师社区', website_url: platforms[1]!.website_url, logo: platforms[1]!.logo }, latest_generation_status: null,
 };
 const previewSource: Schema<'ContentVersion'> = { id: 'version-source', task_id: previewTask.id, fact_version_id: 'fact-1', source_job_id: 'job-source', based_on_id: null, version: 1, source_type: 'AI', title: '源草稿', summary: '源摘要', body_markdown: '源正文', tags: ['源'], content_hash: 'hash-source', status: 'DRAFT', workflow_stage: 'CURRENT_DRAFT', primary_task: 'EDIT_AND_SUBMIT_REVIEW', available_actions: ['CREATE_HUMANIZATION_JOB'], revision: 0, quality_issues: [], created_by: 'user-1', created_at: channel.created_at };
@@ -283,6 +284,18 @@ test('平台删除确认说明配置范围、保留对象和引用阻断', async
   expect(within(dialog).getByText('将删除平台配置；Prompt 模板不会随之删除。存在内容任务或平台账号引用时服务端会拒绝，既有历史不会被改写。此操作不可恢复。')).toBeInTheDocument();
   expect(within(dialog).queryByText(/物理删除/)).not.toBeInTheDocument();
   await user.click(within(dialog).getByRole('button', { name: /取\s*消/ }));
+});
+
+test('平台被引用时分别下钻内容任务和发布账号', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
+  await user.click(await screen.findByRole('button', { name: '更多操作：工程师社区' }));
+  await user.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
+  expect(screen.getByText('内容任务：3')).toBeInTheDocument();
+  expect(screen.getAllByRole('link', { name: '查看引用' }).map((link) => link.getAttribute('href'))).toEqual(expect.arrayContaining([
+    '/tasks?platform_profile_id=profile-ready',
+    '/settings?tab=accounts&platform_profile_id=profile-ready',
+  ]));
 });
 
 test('平台管理从 URL 请求服务端筛选并恢复聚合详情', async () => {

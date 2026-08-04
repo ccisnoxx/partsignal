@@ -15,7 +15,7 @@ import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import { queryClient } from '../../app/queryClient';
-import { DeletionError } from '../../shared/components/DeletionError';
+import { DeletionError, DeletionGuidanceModal, type DeletionBlocker } from '../../shared/components/DeletionError';
 
 const productTaskLabels: Record<Product['primary_task'], string> = {
   ENTER_FACTS: '录入产品事实',
@@ -34,6 +34,7 @@ export function ProductsPage() {
   const page = rawPage && /^[1-9]\d*$/.test(rawPage) ? Number(rawPage) : 1;
   const [createOpen, setCreateOpen] = useState(false);
   const [createDirty, setCreateDirty] = useState(false);
+  const [deletionTarget, setDeletionTarget] = useState<Product>();
   const [createForm] = Form.useForm<Schema<'ProductCreate'>>();
   const createErrorRef = useRef<HTMLDivElement>(null);
   const [modal, modalContext] = Modal.useModal();
@@ -71,6 +72,12 @@ export function ProductsPage() {
   }, [create.error]);
   const remove = useMutation({ mutationFn: async (product: Product) => ensureSuccess(await api.DELETE('/api/v1/products/{product_id}', { params: { path: { product_id: product.id }, header: csrfHeader() } })), onSuccess: async () => { message.success('产品已删除'); await queryClient.invalidateQueries({ queryKey: queryKeys.products.all }); } });
   const confirmDelete = (product: Product) => modal.confirm({ title: `删除产品“${product.part_number}”？`, content: '将删除产品及当前事实工作区；如果仍有事实版本、内容任务或 GEO 观测引用，服务端会拒绝。此操作不可恢复。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => remove.mutate(product), afterClose: restoreFocus });
+  const deletionLink = (product: Product) => (blocker: DeletionBlocker) => {
+    if (blocker.type === 'FACT_VERSION') return { href: `/products/${product.id}`, label: '查看引用' as const };
+    if (blocker.type === 'CONTENT_TASK') return { href: `/tasks?filter_product_id=${product.id}`, label: '查看引用' as const };
+    if (blocker.type === 'GEO_OBSERVATION') return { href: `/observations?product_id=${product.id}&all_time=true`, label: '查看历史' as const };
+    return undefined;
+  };
   const openCreate = () => {
     create.reset();
     createForm.resetFields();
@@ -104,7 +111,7 @@ export function ProductsPage() {
       {modalContext}
       <PageHeader eyebrow="事实基础" title="产品事实" description="先建立可审核、带证据的事实，再进入内容生成。" actions={<Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增产品</Button>} />
       <Card className="collection-panel">
-        {remove.error && <DeletionError error={remove.error} />}
+        {remove.error && <DeletionError error={remove.error} resolveLink={remove.variables ? deletionLink(remove.variables) : undefined} />}
         <Input.Search key={search} aria-label="搜索产品" prefix={<SearchOutlined />} allowClear placeholder="搜索型号或品牌" defaultValue={search} onSearch={(value) => setView({ q: value.trim(), page: 1 })} className="table-search" />
         {products.error ? <QueryFailure error={products.error} onRetry={() => void products.refetch()} /> : <TableRegion label="产品事实列表"><Table<Product> rowKey="id" loading={products.isLoading} dataSource={products.data?.items} pagination={{ current: page, pageSize: 20, showSizeChanger: false, onChange: (nextPage) => setView({ page: nextPage }) }} sticky={{ offsetHeader: 72 }} scroll={{ x: 860 }} columns={[
           { title: '型号', dataIndex: 'part_number', width: 280, ellipsis: true, render: (value, item) => <Tooltip title={value} trigger={['hover', 'focus']}><Link className="table-cell-ellipsis data-code" aria-label={value} to={`/products/${item.id}`}>{value}</Link></Tooltip> },
@@ -112,10 +119,11 @@ export function ProductsPage() {
           { title: '状态', dataIndex: 'status', width: 110, render: (value) => <StatusTag status={value} /> },
           { title: '操作', fixed: 'right', width: 230, render: (_, item) => <Space size={4}>
             <Button type="primary" size="small" onClick={() => navigate(item.primary_task === 'CREATE_CONTENT_TASK' ? `/tasks?product_id=${item.id}` : `/products/${item.id}`)}>{productTaskLabels[item.primary_task]}</Button>
-            {item.available_actions.includes('DELETE') && <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(item) }}><Button {...focusReturnTargetProps} size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown>}
+            {(item.available_actions.includes('DELETE') || item.deletion?.blockers.length) && <Dropdown trigger={['click']} menu={{ items: item.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : [{ key: 'conditions', label: '查看删除条件' }], onClick: ({ key }) => key === 'delete' ? confirmDelete(item) : setDeletionTarget(item) }}><Button {...focusReturnTargetProps} size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown>}
           </Space> },
         ]} /></TableRegion>}
       </Card>
+      <DeletionGuidanceModal open={!!deletionTarget} resourceLabel={`产品“${deletionTarget?.part_number ?? ''}”`} blockers={deletionTarget?.deletion?.blockers ?? []} refreshing={products.isFetching} resolveLink={deletionTarget ? deletionLink(deletionTarget) : () => undefined} onClose={() => setDeletionTarget(undefined)} onRefresh={async () => { await products.refetch(); setDeletionTarget(undefined); }} />
       <Modal rootClassName="products-create-dialog" title="新增产品" open={createOpen} onCancel={requestCloseCreate} footer={null} closable={!create.isPending} keyboard={!create.isPending} mask={{ closable: !create.isPending }} destroyOnHidden>
         <div ref={createErrorRef} tabIndex={-1}>
           {create.error && <Alert role="alert" className="form-alert" type="error" showIcon title={errorMessage(create.error)} />}

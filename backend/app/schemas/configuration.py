@@ -12,7 +12,7 @@ from typing import Annotated, Any, Literal
 from pydantic import AfterValidator, Field, HttpUrl, model_validator
 
 from app.schemas.base import ContractModel, require_unique_items
-from app.schemas.common import SignedUrl
+from app.schemas.common import DeletionProjection, SignedUrl
 
 
 def normalize_platform_name(value: str) -> str:
@@ -199,6 +199,7 @@ class PlatformProfileOut(ContractModel):
     workflow_stage: Literal["DISABLED", "GENERATION_UNCONFIGURED", "OPERATIONAL"]
     primary_task: Literal["ENABLE_PLATFORM", "CONFIGURE_GENERATION", "VIEW_PLATFORM_OPERATION"]
     available_actions: list[Literal["UPDATE", "ENABLE", "DISABLE", "DELETE"]]
+    deletion: DeletionProjection | None
     updated_at: datetime | None
 
 
@@ -247,6 +248,7 @@ class PlatformTypeUpdate(PlatformTypeCreate):
 class PlatformTypeOut(PlatformTypeCreate):
     id: uuid.UUID
     available_actions: list[Literal["UPDATE", "DELETE"]]
+    deletion: DeletionProjection | None
     primary_task: Literal["EDIT_CATEGORY"]
     revision: int
     created_by: uuid.UUID

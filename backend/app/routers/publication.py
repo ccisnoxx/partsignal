@@ -420,12 +420,16 @@ def list_publication_works(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     status_filter: Annotated[PublicationWorkStatus | None, Query(alias="status")] = None,
+    platform_account_id: uuid.UUID | None = None,
+    content_task_id: uuid.UUID | None = None,
 ) -> PublicationWorkList:
     return list_publication_works_service(
         db,
         page=page,
         page_size=page_size,
         status_filter=status_filter.value if status_filter else None,
+        platform_account_id=platform_account_id,
+        content_task_id=content_task_id,
     )
 
 

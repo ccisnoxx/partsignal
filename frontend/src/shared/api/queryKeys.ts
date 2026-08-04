@@ -78,7 +78,7 @@ export const queryKeys = {
     ready: ['publications', 'ready'] as const,
     summary: ['publications', 'summary'] as const,
     package: (id: string) => ['publication-package', id] as const,
-    works: (page: number, pageSize: number, status?: string) => ['publications', 'works', { page, pageSize, status }] as const,
+    works: (page: number, pageSize: number, status?: string, platformAccountId?: string, contentTaskId?: string) => ['publications', 'works', { page, pageSize, status, platformAccountId, contentTaskId }] as const,
     work: (id: string) => ['publications', 'work', id] as const,
     articles: (page: number, pageSize: number) => ['publications', 'articles', { page, pageSize }] as const,
     article: (id: string) => ['publications', 'article', id] as const,

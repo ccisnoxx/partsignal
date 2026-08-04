@@ -442,3 +442,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 72: 完成全站受约束删除引用向导
+
+**Date**: 2026-08-04
+**Task**: 完成全站受约束删除引用向导
+**Branch**: `main`
+
+### Summary
+
+完成全站表格操作流程重设计及阶段 G：七类受约束物理删除统一返回引用投影，前端提供删除条件、精确下钻和不可变历史说明，恢复平台类型导航；完整 make verify 通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e426d7b` | (see git log) |
+| `949dc98` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

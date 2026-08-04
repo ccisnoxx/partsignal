@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 71
+- **Total Sessions**: 72
 - **Last Active**: 2026-08-04
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~444 | Active |
+| `journal-2.md` | ~478 | Active |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 72 | 2026-08-04 | 完成全站受约束删除引用向导 | `e426d7b`, `949dc98` | `main` |
 | 71 | 2026-08-04 | 发布管理 UI/UX 重构生产上线 | `90efafd`, `d6e7d67` | `main` |
 | 70 | 2026-08-03 | 完成发布管理页 UI/UX 重构 | `72c4dd3` | `main` |
 | 69 | 2026-08-03 | 发布管理重构快速重新上线 | `63d7a5b` | `main` |

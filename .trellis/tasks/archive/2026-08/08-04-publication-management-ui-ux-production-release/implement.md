@@ -94,5 +94,5 @@ make test-deploy-scripts
 ## 8. 收尾
 
 - [x] 向用户给出任务结果文件的精确提交计划并取得确认，不自动提交或推送。
-- [ ] 提交结果后执行 `trellis-finish-work`，归档任务并记录会话；如果脚本配置不自动提交，按已说明的 Trellis bookkeeping 边界处理。
-- [ ] 最终工作树干净，报告提交、release、线上状态、未推送提交和残余风险。
+- [x] 提交结果后执行 `trellis-finish-work`，归档任务并记录会话；如果脚本配置不自动提交，按已说明的 Trellis bookkeeping 边界处理。
+- [x] 最终工作树干净，报告提交、release、线上状态、未推送提交和残余风险。

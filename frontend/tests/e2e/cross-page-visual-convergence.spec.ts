@@ -11,7 +11,7 @@ const zoomExtensionPath = fileURLToPath(new URL('./fixtures/browser-zoom-extensi
 
 type Target = { key: string; path: string; heading: string; redirect?: RegExp };
 type VisualTargetKey = 'users' | 'prompts' | 'geo-insights' | 'dashboard' | 'content-review';
-type TableInventoryItem = { label: string; source: string; marker: string; surface: string; regionLabel: string; mobileRegionLabel?: string; dialogName?: string };
+type TableInventoryItem = { label: string; source: string; marker: string; surface: string; regionLabel: string; mobileRegionLabel?: string; dialogName?: string; hasRowAction?: boolean };
 
 const sitewideTableInventory: TableInventoryItem[] = [
   { label: '内容任务列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="内容任务列表"', surface: 'tasks', regionLabel: '内容任务列表' },
@@ -22,12 +22,13 @@ const sitewideTableInventory: TableInventoryItem[] = [
   { label: '待开始发布', source: '../../src/features/publications/PublicationsPage.tsx', marker: 'label="待开始发布列表"', surface: 'publication-ready', regionLabel: '待开始发布列表', mobileRegionLabel: '待开始发布移动列表' },
   { label: '发布工作', source: '../../src/features/publications/PublicationsPage.tsx', marker: "'发布管理列表'", surface: 'publication-works', regionLabel: '发布管理列表', mobileRegionLabel: '发布工作移动列表' },
   { label: '发布成果', source: '../../src/features/publications/PublicationsPage.tsx', marker: 'label="发布成果列表"', surface: 'publication-articles', regionLabel: '发布成果列表', mobileRegionLabel: '发布成果移动列表' },
+  { label: '内容问题', source: '../../src/features/publications/PublicationsPage.tsx', marker: "'已解决内容问题列表'", surface: 'publication-issues', regionLabel: '已解决内容问题列表', mobileRegionLabel: '已解决内容问题移动列表' },
   { label: 'GEO 观测记录', source: '../../src/features/geo-observations/GeoObservationsPage.tsx', marker: 'label="观测记录列表"', surface: 'observations', regionLabel: '观测记录列表' },
-  { label: 'GEO 文章观测结果', source: '../../src/features/geo-observations/GeoObservationForm.tsx', marker: 'label="产品文章观测结果"', surface: 'observation-form', regionLabel: '产品文章观测结果', dialogName: '登记人工观测' },
+  { label: 'GEO 文章观测结果', source: '../../src/features/geo-observations/GeoObservationForm.tsx', marker: 'label="产品文章观测结果"', surface: 'observation-form', regionLabel: '产品文章观测结果', dialogName: '登记人工观测', hasRowAction: false },
   { label: 'GEO 问题库', source: '../../src/features/geo-observations/GeoTopicsPage.tsx', marker: 'label="GEO 问题库列表"', surface: 'geo-topics', regionLabel: 'GEO 问题库列表' },
   { label: 'GEO 平台表现', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'label="GEO 平台表现"', surface: 'geo-insights', regionLabel: 'GEO 平台表现' },
   { label: 'GEO 内容排行', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'title="表现最佳内容 Top 5"', surface: 'geo-insights', regionLabel: '表现最佳内容 Top 5' },
-  { label: 'GEO 覆盖矩阵', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'label="搜索问题覆盖计数"', surface: 'geo-insights', regionLabel: '搜索问题覆盖计数' },
+  { label: 'GEO 问题覆盖明细', source: '../../src/features/geo-observations/GeoInsightsPage.tsx', marker: 'label="问题主题与 GEO 平台覆盖明细"', surface: 'geo-insights', regionLabel: '问题主题与 GEO 平台覆盖明细' },
   { label: 'AI 渠道列表', source: '../../src/features/configuration/AIChannelsPage.tsx', marker: 'label="AI 渠道列表"', surface: 'ai', regionLabel: 'AI 渠道列表' },
   { label: 'AI 请求 Header', source: '../../src/features/configuration/AIChannelDetailPage.tsx', marker: 'label="请求 Header 列表"', surface: 'ai-request', regionLabel: '请求 Header 列表' },
   { label: 'AI 模型列表', source: '../../src/features/configuration/AIChannelDetailPage.tsx', marker: 'label="模型列表"', surface: 'ai-models', regionLabel: '模型列表' },
@@ -97,6 +98,7 @@ async function resolveTargets(page: Page): Promise<Target[]> {
     { key: 'publication-ready', path: '/publications?tab=works', heading: '发布管理' },
     { key: 'publication-works', path: '/publications?tab=works&status=ACTION_REQUIRED', heading: '发布管理' },
     { key: 'publication-articles', path: '/publications?tab=articles', heading: '发布管理' },
+    { key: 'publication-issues', path: '/publications?tab=history&status=RESOLVED', heading: '发布管理' },
     { key: 'observations', path: '/observations', heading: 'GEO 观测' },
     { key: 'geo-insights', path: '/observations/insights', heading: 'GEO 分析洞察' },
     { key: 'geo-topics', path: '/observations/topics', heading: 'GEO 问题库' },
@@ -191,8 +193,8 @@ async function expectTableRegionBounded(page: Page, region: Locator, context: st
     (elements) => elements.map((element) => getComputedStyle(element).backgroundColor),
   );
   for (const background of fixedCellBackgrounds) {
-    expect(background).not.toBe('transparent');
-    expect(background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(background, `${context} 固定列背景不得透明`).not.toBe('transparent');
+    expect(background, `${context} 固定列背景不得透明`).not.toBe('rgba(0, 0, 0, 0)');
   }
   const firstDataRow = region
     .locator('.ant-table-tbody > tr:visible:not(.ant-table-placeholder)')
@@ -204,8 +206,8 @@ async function expectTableRegionBounded(page: Page, region: Locator, context: st
       (elements) => elements.map((element) => getComputedStyle(element).backgroundColor),
     );
     for (const background of hoveredFixedCellBackgrounds) {
-      expect(background).not.toBe('transparent');
-      expect(background).not.toBe('rgba(0, 0, 0, 0)');
+      expect(background, `${context} 悬停固定列背景不得透明`).not.toBe('transparent');
+      expect(background, `${context} 悬停固定列背景不得透明`).not.toBe('rgba(0, 0, 0, 0)');
     }
   }
 }
@@ -242,6 +244,11 @@ async function expectInventoryTableBounded(page: Page, item: TableInventoryItem,
   await expect(region, `${context} 必须唯一命中`).toHaveCount(1);
   await expect(region, `${context} 目标不可见`).toBeVisible();
   await expectTableRegionBounded(page, region, context);
+  if (viewportWidth >= 768) {
+    const actionHeader = region.getByRole('columnheader', { name: '操作', exact: true });
+    if (item.hasRowAction === false) await expect(actionHeader, `${context} 输入矩阵不应设置操作列`).toHaveCount(0);
+    else await expect(actionHeader, `${context} 业务资源缺少主操作列`).toHaveCount(1);
+  }
 }
 
 async function expectMinimumTouchTarget(locator: Locator, label: string) {
@@ -563,9 +570,9 @@ test('system、reduced-motion、键盘焦点和打印边界可用', async ({ pag
   await expectNoDocumentOverflow(page);
 });
 
-test('全站 24 张业务表的源码清单与桌面、移动页面边界保持一致', async ({ page }) => {
+test('全站 25 张业务表的源码清单与桌面、移动页面边界保持一致', async ({ page }) => {
   test.setTimeout(360_000);
-  expect(sitewideTableInventory).toHaveLength(24);
+  expect(sitewideTableInventory).toHaveLength(25);
   for (const item of sitewideTableInventory) {
     const source = await readFile(fileURLToPath(new URL(item.source, import.meta.url)), 'utf8');
     expect(source, `${item.label} 未命中登记的源码标记`).toContain(item.marker);

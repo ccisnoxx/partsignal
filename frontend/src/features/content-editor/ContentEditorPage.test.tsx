@@ -22,6 +22,8 @@ const content = {
   tags: ['替代方案'],
   content_hash: 'abc1234567890',
   status: 'PENDING_REVIEW',
+  workflow_stage: 'CURRENT_REVIEW_PENDING',
+  primary_task: 'REVIEW_CONTENT',
   available_actions: ['CREATE_REVISION', 'APPROVE', 'REQUEST_CHANGES'],
   revision: 1,
   quality_issues: [],
@@ -38,6 +40,9 @@ const context = {
     fact_version_id: content.fact_version_id,
     platform_profile_id: '25000000-0000-4000-8000-000000000001',
     source_published_content_issue_id: null,
+    current_content_version_id: content.id,
+    workflow_stage: 'REVIEW_PENDING',
+    primary_task: 'REVIEW_CONTENT',
     available_actions: [],
     status: 'OPEN',
     revision: 0,
@@ -52,6 +57,7 @@ const context = {
     body_markdown: '## 电气参数\n\n工作电压：3.3 V\n\n来源：公开数据手册',
     classification: 'PUBLIC',
     change_summary: '批准事实',
+    primary_task: 'CREATE_CONTENT_TASK',
     available_actions: ['RETIRE'],
     revision: 2,
     created_by: content.created_by,
@@ -72,6 +78,8 @@ const previousContent = {
   version: 1,
   title: '替代方案初稿',
   status: 'SUPERSEDED',
+  workflow_stage: 'HISTORICAL',
+  primary_task: 'VIEW_VERSION_HISTORY',
   created_at: '2026-07-09T00:00:00Z',
 } satisfies Schema<'ContentVersion'>;
 
@@ -88,7 +96,7 @@ const taskListItem = {
 } satisfies Schema<'ContentTaskListItem'>;
 
 function commonPageResponse(path: string) {
-  if (path.endsWith('/auth/me')) return { body: { id: content.created_by, username: 'editor', display_name: '编辑', account_type: 'ENGINEER', is_active: true, must_change_password: false, available_actions: [], revision: 1, created_at: content.created_at } satisfies Schema<'User'> };
+  if (path.endsWith('/auth/me')) return { body: { id: content.created_by, username: 'editor', display_name: '编辑', account_type: 'ENGINEER', is_active: true, must_change_password: false, workflow_stage: 'ACTIVE', primary_task: 'MANAGE_USER', available_actions: [], revision: 1, created_at: content.created_at } satisfies Schema<'User'> };
   if (path.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
   if (path === '/api/v1/content-tasks') return { body: { items: [taskListItem] } satisfies Schema<'ContentTaskList'> };
   if (path === `/api/v1/content-tasks/${content.task_id}/content-versions`) return { body: { items: [content, previousContent] } satisfies Schema<'ContentVersionList'> };

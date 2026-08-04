@@ -16,7 +16,12 @@ from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, in_use, not_found
 from app.models.ai_generation import GenerationJob
 from app.models.configuration import PlatformProfile, QueryTopic
-from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
+from app.models.content import (
+    ContentReviewRecord,
+    ContentTask,
+    ContentTaskGeoSource,
+    ContentVersion,
+)
 from app.models.geo_files import FileRecord
 from app.models.identity import User
 from app.models.product_facts import FactVersion, Product
@@ -33,6 +38,7 @@ from app.schemas.common import RevisionRequest
 from app.schemas.publication import (
     PlatformAccountCreate,
     PlatformAccountUpdate,
+    PublicationContentVersionSwitchRequest,
     PublicationPlatformReviewRequest,
     PublicationPreparationUpdate,
     PublicationResultUpdate,
@@ -114,6 +120,8 @@ def _lock_approved_publication_context(
         raise AppError("CONTENT_NOT_APPROVED", "只有绑定有效批准事实的批准内容可以发布", 409)
     if task is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容版本关联的任务不存在", 409)
+    if task.current_content_version_id != content.id:
+        raise AppError("CONTENT_VERSION_NOT_CURRENT", "只有任务当前批准版本可以开始发布", 409)
     return content, task
 
 
@@ -365,6 +373,8 @@ def _work_event(
     from_status: str | None,
     comment: str,
     actor: User,
+    from_content_version_id: uuid.UUID | None = None,
+    to_content_version_id: uuid.UUID | None = None,
 ) -> None:
     db.add(
         PublicationWorkEvent(
@@ -372,6 +382,8 @@ def _work_event(
             action=action,
             from_status=from_status,
             to_status=work.status,
+            from_content_version_id=from_content_version_id,
+            to_content_version_id=to_content_version_id,
             comment=comment,
             actor_id=actor.id,
         )
@@ -455,6 +467,7 @@ def create_publication_work(
     )
     work = PublicationWork(
         idempotency_key=idempotency_key,
+        content_task_id=task.id,
         content_version_id=content.id,
         platform_profile_id=profile.id,
         platform_account_id=account.id,
@@ -481,6 +494,75 @@ def create_publication_work(
         target_type="PublicationWork",
         target_id=work.id,
         message="发布工作已创建",
+    )
+    return _finish_work_command(db, work)
+
+
+def switch_publication_content_version(
+    *,
+    db: Session,
+    work_id: uuid.UUID,
+    payload: PublicationContentVersionSwitchRequest,
+    actor: User,
+    request_id: str,
+) -> PublicationWorkOut:
+    """在首次核验成功前切换到同任务当前批准版本，并保留版本事件。"""
+    work = _lock_work(db, work_id, payload.expected_revision)
+    if work.status not in NONTERMINAL_WORK_STATUSES:
+        raise AppError("INVALID_STATE_TRANSITION", "终态发布工作不能切换内容版本", 409)
+    candidate = db.get(ContentVersion, payload.content_version_id)
+    if candidate is None:
+        raise not_found("内容版本")
+    task = db.scalar(
+        select(ContentTask).where(ContentTask.id == work.content_task_id).with_for_update()
+    )
+    fact = db.get(FactVersion, candidate.fact_version_id)
+    if (
+        task is None
+        or candidate.task_id != work.content_task_id
+        or task.current_content_version_id != candidate.id
+        or candidate.status != "APPROVED"
+        or fact is None
+        or fact.status != "APPROVED"
+    ):
+        raise AppError(
+            "CONTENT_VERSION_NOT_SWITCHABLE",
+            "只能切换到同一任务的当前批准内容版本",
+            409,
+        )
+    if candidate.id == work.content_version_id:
+        raise AppError("CONTENT_VERSION_UNCHANGED", "发布工作已使用该内容版本", 409)
+    previous_content_version_id = work.content_version_id
+    work.content_version_id = candidate.id
+    work.content_hash = candidate.content_hash
+    work.revision += 1
+    _work_event(
+        db,
+        work=work,
+        action="CONTENT_VERSION_CHANGED",
+        from_status=work.status,
+        comment=payload.comment,
+        actor=actor,
+        from_content_version_id=previous_content_version_id,
+        to_content_version_id=candidate.id,
+    )
+    _audit(
+        db,
+        actor=actor,
+        request_id=request_id,
+        action="publication_work.content_version_changed",
+        target_type="PublicationWork",
+        target_id=work.id,
+        message="发布工作内容版本已切换",
+        details={
+            "changes": [
+                {
+                    "field": "content_version_id",
+                    "before": str(previous_content_version_id),
+                    "after": str(candidate.id),
+                }
+            ]
+        },
     )
     return _finish_work_command(db, work)
 
@@ -635,16 +717,14 @@ def verify_publication_work(
     if work.actual_title is None or work.final_url is None or work.published_at is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作缺少可核验结果", 409)
     task = db.scalar(
-        select(ContentTask)
-        .join(ContentVersion, ContentVersion.task_id == ContentTask.id)
-        .where(ContentVersion.id == work.content_version_id)
-        .with_for_update()
+        select(ContentTask).where(ContentTask.id == work.content_task_id).with_for_update()
     )
     if task is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作关联的内容任务不存在", 409)
     previous = work.status
     verification = PublicationVerification(
         publication_work_id=work.id,
+        content_version_id=work.content_version_id,
         outcome=payload.outcome.value,
         actual_title_snapshot=work.actual_title,
         final_url_snapshot=work.final_url,
@@ -705,10 +785,7 @@ def close_publication_work(
     if work.status not in NONTERMINAL_WORK_STATUSES:
         raise AppError("INVALID_STATE_TRANSITION", "终态发布工作不能关闭", 409)
     task = db.scalar(
-        select(ContentTask)
-        .join(ContentVersion, ContentVersion.task_id == ContentTask.id)
-        .where(ContentVersion.id == work.content_version_id)
-        .with_for_update()
+        select(ContentTask).where(ContentTask.id == work.content_task_id).with_for_update()
     )
     if task is None or task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "来源内容任务已终止，不能关闭发布工作", 409)
@@ -927,9 +1004,8 @@ def cancel_content_task(
         raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能再次变更状态", 409)
     in_flight = db.scalar(
         select(PublicationWork.id)
-        .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
         .where(
-            ContentVersion.task_id == task.id,
+            PublicationWork.content_task_id == task.id,
             PublicationWork.status.in_(IN_FLIGHT_PUBLICATION_STATUSES),
         )
         .limit(1)
@@ -983,20 +1059,24 @@ def delete_content_task(*, db: Session, task_id: uuid.UUID, actor: User, request
     protected_content_count = sum(
         version.status in {"APPROVED", "SUPERSEDED"} for version in versions
     )
-    work_count = (
-        int(
-            db.scalar(
-                select(func.count(PublicationWork.id)).where(
-                    PublicationWork.content_version_id.in_(version_ids)
-                )
+    work_count = int(
+        db.scalar(
+            select(func.count(PublicationWork.id)).where(
+                PublicationWork.content_task_id == task.id
             )
-            or 0
         )
-        if version_ids
-        else 0
+        or 0
     )
     repair_source_count = int(task.source_published_content_issue_id is not None)
-    if protected_content_count or work_count or repair_source_count:
+    geo_source_count = int(
+        db.scalar(
+            select(func.count(ContentTaskGeoSource.content_task_id)).where(
+                ContentTaskGeoSource.content_task_id == task.id
+            )
+        )
+        or 0
+    )
+    if protected_content_count or work_count or repair_source_count or geo_source_count:
         raise in_use(
             "CONTENT_TASK_IN_USE",
             "内容任务",
@@ -1004,6 +1084,7 @@ def delete_content_task(*, db: Session, task_id: uuid.UUID, actor: User, request
                 ("PROTECTED_CONTENT_VERSION", "已批准内容历史", protected_content_count),
                 ("PUBLICATION_WORK", "发布工作", work_count),
                 ("PUBLISHED_CONTENT_ISSUE", "发布问题修复来源", repair_source_count),
+                ("GEO_OPTIMIZATION_SOURCE", "GEO 优化来源", geo_source_count),
             ],
         )
     review_count = (
@@ -1019,6 +1100,8 @@ def delete_content_task(*, db: Session, task_id: uuid.UUID, actor: User, request
         else 0
     )
     db.scalar(select(func.set_config("partsignal.content_task_delete_id", str(task.id), True)))
+    task.current_content_version_id = None
+    db.flush()
     if version_ids:
         db.execute(
             update(ContentVersion)

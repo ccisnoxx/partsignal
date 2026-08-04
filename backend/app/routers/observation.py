@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy import func, select
 
 from app.audit import commit_audit
@@ -23,6 +23,7 @@ from app.models.geo_files import GeoObservation
 from app.models.product_facts import FactVersion, Product
 from app.models.publication import PublicationWork
 from app.schemas.common import AccountType
+from app.schemas.content import ContentTaskOut
 from app.schemas.geo_files import (
     DashboardSummary,
     GeoAccuracy,
@@ -33,12 +34,14 @@ from app.schemas.geo_files import (
     GeoObservationList,
     GeoObservationOut,
     GeoObservationSortOrder,
+    GeoOptimizationContentTaskCreate,
     GeoPublicationCandidateList,
     LegacyRecommendation,
 )
 from app.services.geo_observation import (
     GeoInsightFilters,
     GeoObservationFilters,
+    create_geo_optimization_content_task,
     geo_publication_candidates,
 )
 from app.services.geo_observation import (
@@ -59,6 +62,7 @@ from app.services.geo_observation import (
 from app.services.geo_observation import (
     list_geo_observations as list_geo_observations_service,
 )
+from app.services.projections import content_task_out
 from app.services.publication_queries import NONTERMINAL_WORK_STATUSES, open_issue_count
 
 router = APIRouter(prefix="/api/v1", tags=["observation"])
@@ -122,6 +126,7 @@ def geo_observation_filters(
 def geo_insight_filters(
     date_from: date | None = None,
     date_to: date | None = None,
+    product_id: uuid.UUID | None = None,
     content_platform_id: uuid.UUID | None = None,
     geo_platform: Annotated[str | None, Query(max_length=160)] = None,
     published_article_id: uuid.UUID | None = None,
@@ -135,6 +140,7 @@ def geo_insight_filters(
     return GeoInsightFilters(
         date_from=date_from,
         date_to=date_to,
+        product_id=product_id,
         content_platform_id=content_platform_id,
         geo_platform=geo_platform.strip() if geo_platform is not None else None,
         published_article_id=published_article_id,
@@ -292,6 +298,33 @@ def get_geo_insights(
 ) -> GeoInsights:
     """返回同一筛选口径下的全部人工 GEO 洞察。"""
     return get_geo_insights_service(db, filters=filters)
+
+
+@router.post(
+    "/geo-insights/optimization-content-tasks",
+    response_model=ContentTaskOut,
+    status_code=status.HTTP_201_CREATED,
+    operation_id="createGeoOptimizationContentTask",
+)
+def create_geo_optimization_task(
+    payload: GeoOptimizationContentTaskCreate,
+    request: Request,
+    db: DbSession,
+    analyst: CurrentUser,
+    _csrf: CsrfProtected,
+    idempotency_key: Annotated[
+        str, Header(alias="Idempotency-Key", min_length=8, max_length=128)
+    ],
+) -> ContentTaskOut:
+    assert_account_types(analyst, (AccountType.ADMIN, AccountType.ENGINEER))
+    task = create_geo_optimization_content_task(
+        db=db,
+        payload=payload,
+        actor=analyst,
+        request_id=request.state.request_id,
+        idempotency_key=idempotency_key,
+    )
+    return content_task_out(db, task)
 
 
 @router.get(

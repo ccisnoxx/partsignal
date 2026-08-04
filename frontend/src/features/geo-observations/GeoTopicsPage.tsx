@@ -1,8 +1,9 @@
 /** GEO 问题库页面，维护人工观测使用的问题主题。 */
 import { PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Form, Input, Modal, Select, Table } from 'antd';
+import { Alert, Button, Card, Form, Input, Modal, Select, Space, Table } from 'antd';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
 import { queryTopicsQueryOptions } from '../../shared/api/queryOptions';
@@ -24,6 +25,8 @@ const intentLabels = new Map(intentOptions.map((item) => [item.value, item.label
 
 export function GeoTopicsPage() {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<QueryTopic>();
+  const navigate = useNavigate();
   const topics = useQuery(queryTopicsQueryOptions());
   const create = useMutation({
     mutationFn: async (body: Schema<'QueryTopicCreate'>) =>
@@ -35,6 +38,19 @@ export function GeoTopicsPage() {
       ),
     onSuccess: async () => {
       setOpen(false);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.queryTopics });
+    },
+  });
+  const update = useMutation({
+    mutationFn: async (body: Schema<'QueryTopicCreate'>) => {
+      if (!editing) throw new Error('未选择要编辑的问题主题');
+      return unwrap(await api.PATCH('/api/v1/query-topics/{query_topic_id}', {
+        params: { path: { query_topic_id: editing.id }, header: csrfHeader() },
+        body: { ...body, expected_revision: editing.revision },
+      }));
+    },
+    onSuccess: async () => {
+      setEditing(undefined);
       await queryClient.invalidateQueries({ queryKey: queryKeys.queryTopics });
     },
   });
@@ -54,12 +70,12 @@ export function GeoTopicsPage() {
           </Button>
         )}
       >
-        {(topics.error || create.error) && (
+        {(topics.error || create.error || update.error) && (
           <Alert
             role="alert"
             type="error"
             showIcon
-            title={errorMessage(topics.error ?? create.error)}
+            title={errorMessage(topics.error ?? create.error ?? update.error)}
           />
         )}
         <TableRegion label="GEO 问题库列表">
@@ -83,20 +99,43 @@ export function GeoTopicsPage() {
                 ellipsis: true,
                 render: (items: string[]) => <TableCellText text={items.join(' / ')} />,
               },
+              {
+                title: '操作',
+                fixed: 'right',
+                width: 210,
+                render: (_, row) => (
+                  <Space size={4}>
+                    <Button
+                      type="primary"
+                      size="small"
+                      onClick={() => navigate(`/observations?create=true&query_topic_id=${row.id}&search_query=${encodeURIComponent(row.canonical_question)}`)}
+                    >
+                      使用此问题观测
+                    </Button>
+                    <Button size="small" onClick={() => setEditing(row)}>编辑</Button>
+                  </Space>
+                ),
+              },
             ]}
           />
         </TableRegion>
       </Card>
       <Modal
-        title="新增 GEO 问题"
-        open={open}
-        onCancel={() => setOpen(false)}
+        title={editing ? '编辑 GEO 问题' : '新增 GEO 问题'}
+        open={open || !!editing}
+        onCancel={() => { setOpen(false); setEditing(undefined); }}
         footer={null}
         destroyOnHidden
       >
         <Form<Schema<'QueryTopicCreate'>>
+          key={editing?.id ?? 'new'}
           layout="vertical"
-          onFinish={(body) => create.mutate(body)}
+          initialValues={editing ? {
+            canonical_question: editing.canonical_question,
+            intent_type: editing.intent_type,
+            variants: editing.variants,
+          } : undefined}
+          onFinish={(body) => editing ? update.mutate(body) : create.mutate(body)}
         >
           <Form.Item name="canonical_question" label="标准问题" rules={[{ required: true }]}>
             <Input autoFocus />
@@ -107,7 +146,7 @@ export function GeoTopicsPage() {
           <Form.Item name="variants" label="问题变体" rules={[{ required: true }]}>
             <Select mode="tags" tokenSeparators={[',']} />
           </Form.Item>
-          <Button type="primary" htmlType="submit" loading={create.isPending}>创建</Button>
+          <Button type="primary" htmlType="submit" loading={create.isPending || update.isPending}>{editing ? '保存' : '创建'}</Button>
         </Form>
       </Modal>
     </div>

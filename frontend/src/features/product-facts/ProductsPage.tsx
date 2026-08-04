@@ -3,7 +3,7 @@ import { DownOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Alert, App, Button, Card, Dropdown, Form, Input, Modal, Space, Table, Tooltip } from 'antd';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import { productsQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
@@ -17,7 +17,17 @@ import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 import { queryClient } from '../../app/queryClient';
 import { DeletionError } from '../../shared/components/DeletionError';
 
+const productTaskLabels: Record<Product['primary_task'], string> = {
+  ENTER_FACTS: '录入产品事实',
+  SUBMIT_FACT_REVIEW: '提交事实审核',
+  REVIEW_FACT: '审核处理',
+  REVISE_FACT: '根据意见修订',
+  CREATE_CONTENT_TASK: '创建内容任务',
+  VIEW_FACT_HISTORY: '查看事实历史',
+};
+
 export function ProductsPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.get('q') ?? '';
   const rawPage = searchParams.get('page');
@@ -100,7 +110,10 @@ export function ProductsPage() {
           { title: '型号', dataIndex: 'part_number', width: 280, ellipsis: true, render: (value, item) => <Tooltip title={value} trigger={['hover', 'focus']}><Link className="table-cell-ellipsis data-code" aria-label={value} to={`/products/${item.id}`}>{value}</Link></Tooltip> },
           { title: '品牌', dataIndex: 'brand', width: 180, ellipsis: true, render: (value) => <TableCellText text={value} /> }, { title: '类别', dataIndex: 'category', width: 180, ellipsis: true, render: (value) => <TableCellText text={value} /> },
           { title: '状态', dataIndex: 'status', width: 110, render: (value) => <StatusTag status={value} /> },
-          { title: '操作', fixed: 'right', width: 110, render: (_, item) => item.available_actions.includes('DELETE') ? <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(item) }}><Button {...focusReturnTargetProps} size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown> : '—' },
+          { title: '操作', fixed: 'right', width: 230, render: (_, item) => <Space size={4}>
+            <Button type="primary" size="small" onClick={() => navigate(item.primary_task === 'CREATE_CONTENT_TASK' ? `/tasks?product_id=${item.id}` : `/products/${item.id}`)}>{productTaskLabels[item.primary_task]}</Button>
+            {item.available_actions.includes('DELETE') && <Dropdown trigger={['click']} menu={{ items: [{ key: 'delete', label: '删除', danger: true }], onClick: () => confirmDelete(item) }}><Button {...focusReturnTargetProps} size="small" aria-label={`更多操作：${item.part_number}`} loading={remove.isPending && remove.variables?.id === item.id}>更多 <DownOutlined /></Button></Dropdown>}
+          </Space> },
         ]} /></TableRegion>}
       </Card>
       <Modal rootClassName="products-create-dialog" title="新增产品" open={createOpen} onCancel={requestCloseCreate} footer={null} closable={!create.isPending} keyboard={!create.isPending} mask={{ closable: !create.isPending }} destroyOnHidden>

@@ -19,6 +19,7 @@ PublicationWorkAction = Literal[
     "MARK_PLATFORM_REVIEW",
     "REGISTER_RESULT",
     "VERIFY",
+    "SWITCH_CONTENT_VERSION",
     "CLOSE",
 ]
 PublishedArticleAction = Literal["OPEN_ISSUE"]
@@ -76,6 +77,8 @@ class PlatformAccountUpdate(ContractModel):
 class PlatformAccountOut(PlatformAccountCreate):
     id: uuid.UUID
     is_active: bool
+    workflow_stage: Literal["PLATFORM_DISABLED", "ACCOUNT_DISABLED", "OPERATIONAL"]
+    primary_task: Literal["HANDLE_PLATFORM", "ENABLE_ACCOUNT", "MANAGE_ACCOUNT"]
     available_actions: list[Literal["UPDATE", "ENABLE", "DISABLE", "DELETE"]]
     revision: int = Field(ge=0)
 
@@ -173,6 +176,12 @@ class PublicationWorkCloseRequest(ContractModel):
     expected_revision: int = Field(ge=0)
 
 
+class PublicationContentVersionSwitchRequest(ContractModel):
+    content_version_id: uuid.UUID
+    expected_revision: int = Field(ge=0)
+    comment: NonblankText
+
+
 class PublishedContentIssueCreate(ContractModel):
     kind: PublishedContentIssueKind
     description: NonblankText
@@ -211,11 +220,14 @@ class PublicationWorkEventOut(ContractModel):
         "PLATFORM_REVIEW_MARKED",
         "RESULT_REGISTERED",
         "VERIFICATION_FAILED",
+        "CONTENT_VERSION_CHANGED",
         "COMPLETED",
         "CLOSED",
     ]
     from_status: PublicationWorkStatus | None
     to_status: PublicationWorkStatus
+    from_content_version_id: uuid.UUID | None
+    to_content_version_id: uuid.UUID | None
     comment: str
     actor_id: uuid.UUID
     created_at: datetime
@@ -223,6 +235,7 @@ class PublicationWorkEventOut(ContractModel):
 
 class PublicationVerificationOut(ContractModel):
     id: uuid.UUID
+    content_version_id: uuid.UUID
     outcome: PublicationVerificationOutcome
     actual_title_snapshot: str
     final_url_snapshot: HttpUrl
@@ -239,7 +252,7 @@ class PublicationReadyItem(ContractModel):
     platform_profile_name: str
     matching_accounts: list[PlatformAccountOut]
     available_actions: list[Literal["START"]]
-    primary_action: Literal["START"] | None
+    primary_task: Literal["START_PUBLICATION"]
 
 
 class PublicationReadyItemList(ContractModel):
@@ -269,8 +282,23 @@ class PublicationWorkListItem(ContractModel):
     updated_at: datetime
     latest_verification_outcome: PublicationVerificationOutcome | None
     latest_verification_at: datetime | None
+    workflow_stage: Literal[
+        "PREPARING",
+        "PLATFORM_REVIEW",
+        "AWAITING_VERIFICATION",
+        "ACTION_REQUIRED",
+        "COMPLETED",
+        "CLOSED",
+    ]
+    primary_task: Literal[
+        "CONTINUE_PREPARATION",
+        "REGISTER_RESULT",
+        "RUN_FIRST_VERIFICATION",
+        "FIX_AND_REVERIFY",
+        "VIEW_COMPLETION",
+        "VIEW_CLOSURE",
+    ]
     available_actions: list[PublicationWorkAction]
-    primary_action: PublicationWorkAction | None
 
 
 class PublicationWorkOut(PublicationWorkListItem):
@@ -304,6 +332,7 @@ class PublishedContentIssueHistoryItem(ContractModel):
 class PublishedArticleListItem(ContractModel):
     id: uuid.UUID
     task_id: uuid.UUID
+    product_id: uuid.UUID
     content_version_id: uuid.UUID
     content_title: str
     content_version: int
@@ -317,9 +346,11 @@ class PublishedArticleListItem(ContractModel):
     published_at: datetime
     verified_at: datetime
     has_open_issue: bool
+    open_issue_id: uuid.UUID | None
     retired: bool
+    workflow_stage: Literal["HEALTHY", "OPEN_ISSUE", "RETIRED"]
+    primary_task: Literal["START_PRODUCT_OBSERVATION", "HANDLE_CONTENT_ISSUE", "VIEW_HISTORY"]
     available_actions: list[PublishedArticleAction]
-    primary_action: PublishedArticleAction | None
 
 
 class PublishedArticleOut(PublishedArticleListItem):
@@ -344,8 +375,11 @@ class PublishedContentIssueListItem(PublishedContentIssueHistoryItem):
     final_url: HttpUrl
     revision: int = Field(ge=0)
     repair_task_id: uuid.UUID | None
+    workflow_stage: Literal["OPEN", "REPAIRING", "AWAITING_RESOLUTION", "RESOLVED"]
+    primary_task: Literal[
+        "HANDLE_CONTENT_ISSUE", "CONTINUE_REPAIR", "CONFIRM_RESOLUTION", "VIEW_RESOLUTION"
+    ]
     available_actions: list[PublishedContentIssueAction]
-    primary_action: PublishedContentIssueAction | None
 
 
 class PublishedContentIssueOut(PublishedContentIssueListItem):

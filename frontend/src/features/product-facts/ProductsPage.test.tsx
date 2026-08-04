@@ -19,6 +19,8 @@ const products = Array.from({ length: 21 }, (_, index) => ({
   brand: 'DEMO',
   category: 'MCU',
   status: 'ACTIVE',
+  workflow_stage: 'FACTS_EMPTY',
+  primary_task: 'ENTER_FACTS',
   available_actions: index === 0 ? ['UPDATE', 'DELETE'] : ['UPDATE'],
   revision: 0,
   facts_revision: 0,

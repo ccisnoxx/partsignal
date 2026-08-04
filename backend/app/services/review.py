@@ -172,7 +172,11 @@ def get_content_review_context(
             )
             for item in (lineage.humanizations if lineage is not None else ())
         ],
-        available_actions=content_review_actions(content, fact),
+        available_actions=(
+            content_review_actions(content, fact)
+            if task.current_content_version_id == content.id
+            else []
+        ),
         review_history=_content_history(db, content),
     )
 
@@ -227,7 +231,6 @@ def transition_fact_version(
             request_id=request_id,
             outcome=AuditOutcome.SUCCESS,
             result_message={
-                "submit": "事实版本已提交审核",
                 "approve": "事实版本已审核通过",
                 "request-changes": "事实版本已退回修改",
                 "retire": "事实版本已退役",
@@ -266,6 +269,11 @@ def transition_content_version(
         raise not_found("内容版本")
     if content.revision != expected_revision:
         raise AppError("REVISION_CONFLICT", "内容版本已被其他请求修改", 409)
+    task = db.scalar(
+        select(ContentTask).where(ContentTask.id == content.task_id).with_for_update()
+    )
+    if task is None or task.current_content_version_id != content.id:
+        raise AppError("CONTENT_VERSION_NOT_CURRENT", "只有任务当前内容版本可以审核", 409)
     expected, target = CONTENT_TRANSITIONS[action]
     if content.status not in expected:
         raise AppError(

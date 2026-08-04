@@ -64,6 +64,36 @@ AIChannelAction = Literal[
 AIModelAction = Literal["UPDATE", "TEST", "ENABLE", "DISABLE", "DELETE"]
 
 
+def ai_channel_stage(
+    *,
+    is_enabled: bool,
+    api_key_configured: bool,
+    model_count: int,
+    passed_model_count: int,
+) -> tuple[str, str]:
+    """按真实配置与测试结论投影渠道治理阶段。"""
+    if not api_key_configured or model_count == 0:
+        return "INCOMPLETE", "COMPLETE_CONFIGURATION"
+    if passed_model_count == 0:
+        return "UNVERIFIED", "TEST_MODEL"
+    if not is_enabled:
+        return "READY_TO_ENABLE", "ENABLE_CHANNEL"
+    return "RUNNING", "VIEW_RUNTIME"
+
+
+def ai_model_stage(model: AIModel, *, channel_enabled: bool) -> tuple[str, str]:
+    """按模型测试、启用和所属渠道状态投影治理阶段。"""
+    if model.test_status == "UNTESTED":
+        return "UNTESTED", "TEST_CONNECTION"
+    if model.test_status == "FAILED":
+        return "TEST_FAILED", "VIEW_FAILURE_AND_RETRY"
+    if not model.is_enabled:
+        return "READY_TO_ENABLE", "ENABLE_MODEL"
+    if not channel_enabled:
+        return "CHANNEL_DISABLED", "ENABLE_CHANNEL"
+    return "RUNNING", "VIEW_MODEL_RUNTIME"
+
+
 def can_enable_ai_channel(*, is_enabled: bool, has_passed_model: bool) -> bool:
     """渠道仅在当前停用且至少一个模型测试通过时可启用。"""
     return not is_enabled and has_passed_model
@@ -181,6 +211,12 @@ def list_ai_channels(
         .correlate(AIChannel)
         .scalar_subquery()
     )
+    model_count = (
+        select(func.count(AIModel.id))
+        .where(AIModel.channel_id == AIChannel.id)
+        .correlate(AIChannel)
+        .scalar_subquery()
+    )
     passed_model_count = (
         select(func.count(AIModel.id))
         .where(AIModel.channel_id == AIChannel.id, AIModel.test_status == "PASSED")
@@ -215,6 +251,7 @@ def list_ai_channels(
         AIChannel.revision,
         header_count.label("header_count"),
         enabled_model_count.label("enabled_model_count"),
+        model_count.label("model_count"),
         passed_model_count.label("passed_model_count"),
         latest_test_status.label("latest_test_status"),
         last_tested_at.label("last_tested_at"),
@@ -250,6 +287,18 @@ def list_ai_channels(
                 enabled_model_count=row.enabled_model_count,
                 latest_test_status=row.latest_test_status or AIModelTestStatus.UNTESTED,
                 last_tested_at=row.last_tested_at,
+                workflow_stage=ai_channel_stage(
+                    is_enabled=row.is_enabled,
+                    api_key_configured=bool(row.api_key_ciphertext),
+                    model_count=row.model_count,
+                    passed_model_count=row.passed_model_count,
+                )[0],
+                primary_task=ai_channel_stage(
+                    is_enabled=row.is_enabled,
+                    api_key_configured=bool(row.api_key_ciphertext),
+                    model_count=row.model_count,
+                    passed_model_count=row.passed_model_count,
+                )[1],
                 available_actions=ai_channel_actions(
                     is_enabled=row.is_enabled,
                     has_passed_model=row.passed_model_count > 0,

@@ -66,6 +66,9 @@ const task = {
   fact_version_id: 'fact-version-1',
   query_topic_id: null,
   source_published_content_issue_id: null,
+  current_content_version_id: null,
+  workflow_stage: 'NO_DRAFT',
+  primary_task: 'CREATE_FIRST_DRAFT',
   revision: 1,
   created_by: 'user-1',
   created_at: '2026-07-01T08:30:00Z',
@@ -78,6 +81,8 @@ const factVersion = {
   body_markdown: '# 产品事实',
   classification: 'PUBLIC',
   change_summary: '批准事实',
+  workflow_stage: 'APPROVED',
+  primary_task: 'CREATE_CONTENT_TASK',
   revision: 1,
   created_by: 'user-1',
   approved_by: 'user-1',
@@ -436,6 +441,12 @@ test('创建内容任务失败重试复用请求键，关闭后重新创建使�
 
   await user.click(screen.getByRole('button', { name: '新建内容任务' }));
   const reopenedDialog = await screen.findByRole('dialog', { name: '创建内容任务' });
+  await user.click(within(reopenedDialog).getByRole('combobox', { name: '产品' }));
+  await user.click(await screen.findByText('PartSignal PS-01', { selector: '.ant-select-item-option-content' }));
+  await user.click(within(reopenedDialog).getByRole('combobox', { name: '已批准事实版本' }));
+  await user.click(await screen.findByText('V1 · PUBLIC · 批准事实'));
+  await user.click(within(reopenedDialog).getByRole('combobox', { name: '目标平台' }));
+  await user.click(await screen.findByText('工程师社区', { selector: '.ant-select-item-option-content' }));
   await user.click(within(reopenedDialog).getByRole('button', { name: '创建任务' }));
   await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledTimes(3));
   expect(apiMocks.POST).toHaveBeenNthCalledWith(
@@ -694,9 +705,16 @@ test('失败作业只按服务端 RETRY 动作显示重试入口', async () => {
   const blockedJob = {
     id: 'job-blocked', content_task_id: taskId, job_type: 'GENERATE',
     source_content_version_id: null, status: 'FAILED', available_actions: [], attempt_count: 1,
+    workflow_stage: 'HISTORICAL_FAILURE', primary_task: 'VIEW_FAILURE',
     content_version_id: null, created_at: task.created_at,
   };
-  const retryableJob = { ...blockedJob, id: 'job-retryable', available_actions: ['RETRY'] };
+  const retryableJob = {
+    ...blockedJob,
+    id: 'job-retryable',
+    workflow_stage: 'RETRYABLE_FAILURE',
+    primary_task: 'HANDLE_FAILURE',
+    available_actions: ['RETRY'],
+  };
   apiMocks.GET.mockImplementation((path: string) => {
     if (path === '/api/v1/content-tasks/{content_task_id}') return result(task);
     if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'OPEN')] });
@@ -705,12 +723,21 @@ test('失败作业只按服务端 RETRY 动作显示重试入口', async () => {
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result({ items: [blockedJob, retryableJob] });
     throw new Error(`未声明测试请求：${path}`);
   });
-  apiMocks.POST.mockImplementation(() => result({ ...retryableJob, id: 'job-retried', status: 'PENDING', available_actions: [] }));
+  apiMocks.POST.mockImplementation(() => result({
+    ...retryableJob,
+    id: 'job-retried',
+    status: 'PENDING',
+    workflow_stage: 'RUNNING',
+    primary_task: 'VIEW_EXECUTION_PROGRESS',
+    available_actions: [],
+  }));
   renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
 
-  const buttons = await screen.findAllByRole('button', { name: '重试原快照' });
+  const buttons = await screen.findAllByRole('button', { name: '处理失败' });
   expect(buttons).toHaveLength(1);
   await user.click(buttons[0]!);
+  const dialog = await screen.findByRole('dialog', { name: '确认重试原生成快照' });
+  await user.click(within(dialog).getByRole('button', { name: '确认重试' }));
   await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
     '/api/v1/generation-jobs/{generation_job_id}/retry',
     expect.objectContaining({ params: expect.objectContaining({ path: { generation_job_id: retryableJob.id } }) }),

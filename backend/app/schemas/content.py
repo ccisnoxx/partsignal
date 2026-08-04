@@ -28,6 +28,31 @@ class ContentTaskOut(ContentTaskCreate):
     id: uuid.UUID
     query_topic_id: uuid.UUID | None
     source_published_content_issue_id: uuid.UUID | None
+    current_content_version_id: uuid.UUID | None
+    workflow_stage: Literal[
+        "NO_DRAFT",
+        "GENERATING",
+        "GENERATION_FAILED",
+        "DRAFT",
+        "REVIEW_PENDING",
+        "CHANGES_REQUESTED",
+        "APPROVED",
+        "PUBLISHING",
+        "VERIFIED",
+        "CANCELLED",
+    ]
+    primary_task: Literal[
+        "CREATE_FIRST_DRAFT",
+        "VIEW_GENERATION_PROGRESS",
+        "HANDLE_GENERATION_FAILURE",
+        "EDIT_AND_SUBMIT_REVIEW",
+        "REVIEW_CONTENT",
+        "REVISE_CONTENT",
+        "START_PUBLICATION",
+        "CONTINUE_PUBLICATION",
+        "VIEW_FULL_LINEAGE",
+        "VIEW_CANCELLATION",
+    ]
     available_actions: list[
         Literal["CANCEL", "DELETE", "CREATE_GENERATION_JOB", "CREATE_MANUAL_VERSION"]
     ]
@@ -99,6 +124,13 @@ class GenerationJobOut(ContractModel):
     job_type: Literal["GENERATE", "HUMANIZE"]
     source_content_version_id: uuid.UUID | None
     status: GenerationJobStatus
+    workflow_stage: Literal["IN_PROGRESS", "SUCCEEDED", "RETRYABLE_FAILURE", "HISTORICAL_FAILURE"]
+    primary_task: Literal[
+        "VIEW_EXECUTION_PROGRESS",
+        "VIEW_GENERATED_CONTENT",
+        "HANDLE_FAILURE",
+        "VIEW_FAILURE",
+    ]
     available_actions: list[Literal["RETRY"]]
     attempt_count: int
     content_version_id: uuid.UUID | None = None
@@ -272,7 +304,27 @@ class ContentVersionOut(ContractModel):
     body_markdown: str
     tags: list[str]
     content_hash: str
-    status: Literal["DRAFT", "PENDING_REVIEW", "CHANGES_REQUESTED", "APPROVED", "SUPERSEDED"]
+    status: Literal[
+        "DRAFT", "PENDING_REVIEW", "CHANGES_REQUESTED", "APPROVED", "SUPERSEDED", "ABANDONED"
+    ]
+    workflow_stage: Literal[
+        "CURRENT_DRAFT",
+        "CURRENT_REVIEW_PENDING",
+        "CURRENT_CHANGES_REQUESTED",
+        "CURRENT_APPROVED",
+        "CURRENT_PUBLISHING",
+        "PUBLISHED",
+        "HISTORICAL",
+    ]
+    primary_task: Literal[
+        "EDIT_AND_SUBMIT_REVIEW",
+        "REVIEW_CONTENT",
+        "CREATE_REVISION",
+        "START_PUBLICATION",
+        "CONTINUE_PUBLICATION",
+        "VIEW_PUBLICATION_RESULT",
+        "VIEW_VERSION_HISTORY",
+    ]
     available_actions: list[
         Literal[
             "CREATE_REVISION",
@@ -280,6 +332,7 @@ class ContentVersionOut(ContractModel):
             "SUBMIT_REVIEW",
             "APPROVE",
             "REQUEST_CHANGES",
+            "ABANDON",
         ]
     ]
     revision: int
@@ -331,7 +384,7 @@ class ReviewRecord(ContractModel):
 
 class FactReviewContext(ContractModel):
     fact_version: FactVersionOut
-    available_actions: list[Literal["SUBMIT", "APPROVE", "REQUEST_CHANGES", "RETIRE"]]
+    available_actions: list[Literal["APPROVE", "REQUEST_CHANGES", "RETIRE"]]
     review_history: list[ReviewRecord]
 
 

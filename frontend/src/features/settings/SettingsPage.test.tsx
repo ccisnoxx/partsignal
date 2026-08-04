@@ -13,6 +13,8 @@ const engineer = {
   account_type: 'ENGINEER',
   is_active: true,
   must_change_password: false,
+  workflow_stage: 'ACTIVE',
+  primary_task: 'MANAGE_USER',
   available_actions: [],
   revision: 1,
   created_at: '2026-07-26T00:00:00Z',
@@ -31,6 +33,8 @@ const profile = {
   platform_prompt: null,
   configuration_complete: false,
   platform_account_count: 1,
+  workflow_stage: 'GENERATION_UNCONFIGURED',
+  primary_task: 'CONFIGURE_GENERATION',
   available_actions: [],
   updated_at: null,
 } satisfies Schema<'PlatformProfile'>;
@@ -57,6 +61,8 @@ function installAccountApi() {
     label: '主运营账号',
     account_identifier: 'operator-a',
     is_active: true,
+    workflow_stage: 'OPERATIONAL',
+    primary_task: 'MANAGE_ACCOUNT',
     available_actions: ['UPDATE', 'DISABLE', 'DELETE'],
     revision: 0,
   };
@@ -80,11 +86,11 @@ function installAccountApi() {
       return { body: account };
     }
     if (path.endsWith('/disable')) {
-      account = { ...account, is_active: false, available_actions: ['UPDATE', 'ENABLE'], revision: account.revision + 1 };
+      account = { ...account, is_active: false, workflow_stage: 'ACCOUNT_DISABLED', primary_task: 'ENABLE_ACCOUNT', available_actions: ['UPDATE', 'ENABLE'], revision: account.revision + 1 };
       return { body: account };
     }
     if (path.endsWith('/enable')) {
-      account = { ...account, is_active: true, available_actions: ['UPDATE', 'DISABLE'], revision: account.revision + 1 };
+      account = { ...account, is_active: true, workflow_stage: 'OPERATIONAL', primary_task: 'MANAGE_ACCOUNT', available_actions: ['UPDATE', 'DISABLE'], revision: account.revision + 1 };
       return { body: account };
     }
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
@@ -126,8 +132,7 @@ test('发布账号按 revision 编辑', async () => {
   const writes = installAccountApi();
   render(<App />);
   const page = await accountPage();
-  fireEvent.click(await page.findByRole('button', { name: '更多操作：主运营账号' }));
-  fireEvent.click(await screen.findByRole('menuitem', { name: '编辑' }));
+  fireEvent.click(await page.findByRole('button', { name: '管理发布账号' }));
   const editDialog = (await screen.findByText('编辑发布账号')).closest<HTMLElement>(
     '[role="dialog"]',
   );
@@ -154,8 +159,10 @@ test('发布账号按 revision 停用并重新启用', async () => {
   const disableRequest = writes.find((request) => new URL(request.url).pathname.endsWith('/disable'));
   expect(await disableRequest!.clone().json()).toEqual({ expected_revision: 0 });
 
-  fireEvent.click(await page.findByRole('button', { name: '更多操作：主运营账号' }));
-  fireEvent.click(await screen.findByRole('menuitem', { name: '启用' }));
+  fireEvent.click(await page.findByRole('button', { name: '重新启用' }));
+  const enableDialog = (await screen.findByText('重新启用发布账号“主运营账号”？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
+  expect(enableDialog).not.toBeNull();
+  fireEvent.click(within(enableDialog!).getByRole('button', { name: /重新启用/ }));
   await waitFor(() => expect(writes.some((request) => new URL(request.url).pathname.endsWith('/enable'))).toBe(true));
   const enableRequest = writes.find((request) => new URL(request.url).pathname.endsWith('/enable'));
   expect(await enableRequest!.clone().json()).toEqual({ expected_revision: 1 });
@@ -183,6 +190,8 @@ test('编辑为同平台规范化重复标识时在弹窗显示服务端冲突',
     label: '主运营账号',
     account_identifier: 'operator-a',
     is_active: true,
+    workflow_stage: 'OPERATIONAL',
+    primary_task: 'MANAGE_ACCOUNT',
     available_actions: ['UPDATE', 'DISABLE'],
     revision: 0,
   } satisfies Schema<'PlatformAccount'>;
@@ -211,8 +220,7 @@ test('编辑为同平台规范化重复标识时在弹窗显示服务端冲突',
   });
 
   render(<App />);
-  fireEvent.click(await screen.findByRole('button', { name: '更多操作：主运营账号' }));
-  fireEvent.click(await screen.findByRole('menuitem', { name: '编辑' }));
+  fireEvent.click(await screen.findByRole('button', { name: '管理发布账号' }));
   const dialog = (await screen.findByText('编辑发布账号')).closest<HTMLElement>(
     '[role="dialog"]',
   );

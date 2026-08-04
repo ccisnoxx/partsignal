@@ -52,9 +52,22 @@ function isManualObservation(record: GeoObservation | undefined): record is Sche
   return record?.observation_kind === 'MANUAL_ARTICLE_SEARCH';
 }
 
-export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
+export function GeoObservationForm({
+  open,
+  correctionId,
+  initialProductId,
+  initialQueryTopicId,
+  initialSearchPlatform,
+  initialSearchQuery,
+  onClose,
+  onCreated,
+}: {
   open: boolean;
   correctionId?: string;
+  initialProductId?: string;
+  initialQueryTopicId?: string;
+  initialSearchPlatform?: string;
+  initialSearchQuery?: string;
   onClose: () => void;
   onCreated: (observation: GeoObservation) => void;
 }) {
@@ -95,9 +108,26 @@ export function GeoObservationForm({ open, correctionId, onClose, onCreated }: {
       });
     } else if (!correctionId) {
       form.resetFields();
-      form.setFieldsValue({ tested_at: localDateTime(new Date()), article_results: [], notes: '' });
+      form.setFieldsValue({
+        product_id: initialProductId,
+        query_topic_id: initialQueryTopicId,
+        search_platform: initialSearchPlatform,
+        search_query: initialSearchQuery,
+        tested_at: localDateTime(new Date()),
+        article_results: [],
+        notes: '',
+      });
     }
-  }, [correctionId, correctionRecord, form, open]);
+  }, [
+    correctionId,
+    correctionRecord,
+    form,
+    initialProductId,
+    initialQueryTopicId,
+    initialSearchPlatform,
+    initialSearchQuery,
+    open,
+  ]);
 
   useEffect(() => {
     if (correctionId || !publications.data?.items.length) return;

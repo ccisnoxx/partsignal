@@ -22,14 +22,10 @@ from app.models.product_facts import (
     FactVersion,
     Product,
 )
-from app.schemas.common import (
-    AccountType,
-    CommandRequest,
-    RequestChangesCommand,
-)
+from app.schemas.common import AccountType, CommandRequest, RequestChangesCommand
 from app.schemas.content import FactReviewContext
 from app.schemas.product_facts import (
-    CreateVersionRequest,
+    FactReviewSubmissionRequest,
     FactVersionList,
     FactVersionOut,
     ProductCreate,
@@ -40,9 +36,6 @@ from app.schemas.product_facts import (
     ProductUpdate,
 )
 from app.services.product_facts import (
-    create_fact_version as create_fact_version_command,
-)
-from app.services.product_facts import (
     create_product as create_product_command,
 )
 from app.services.product_facts import delete_fact_version as delete_fact_version_command
@@ -51,6 +44,7 @@ from app.services.product_facts import product_facts_draft_out, product_out, pro
 from app.services.product_facts import (
     replace_product_facts as replace_product_facts_command,
 )
+from app.services.product_facts import submit_fact_review as submit_fact_review_command
 from app.services.product_facts import (
     update_product as update_product_command,
 )
@@ -165,7 +159,7 @@ def get_product_facts(
     product = db.get(Product, product_id)
     if product is None:
         raise not_found("产品")
-    return product_facts_draft_out(product)
+    return product_facts_draft_out(db, product)
 
 
 @router.put(
@@ -211,26 +205,47 @@ def list_fact_versions(product_id: uuid.UUID, db: DbSession, user: CurrentUser) 
 
 
 @router.post(
-    "/products/{product_id}/fact-versions",
+    "/products/{product_id}/fact-review-submissions",
     response_model=FactVersionOut,
     status_code=status.HTTP_201_CREATED,
-    operation_id="createFactVersion",
+    operation_id="submitProductFactReview",
 )
-def create_fact_version(
+def submit_product_fact_review(
     product_id: uuid.UUID,
-    payload: CreateVersionRequest,
+    payload: FactReviewSubmissionRequest,
     request: Request,
     db: DbSession,
-    editor: ProductEditor,
+    editor: CurrentUser,
     _csrf: CsrfProtected,
 ) -> FactVersionOut:
-    version = create_fact_version_command(
-        db=db,
-        product_id=product_id,
-        payload=payload,
-        actor=editor,
-        request_id=request.state.request_id,
-    )
+    request_id = request.state.request_id
+    try:
+        assert_account_types(editor, (AccountType.ADMIN, AccountType.ENGINEER))
+        version = submit_fact_review_command(
+            db=db,
+            product_id=product_id,
+            payload=payload,
+            actor=editor,
+            request_id=request_id,
+        )
+    except AppError as error:
+        db.rollback()
+        denied = error.code == "PERMISSION_DENIED"
+        commit_audit(
+            db,
+            AuditEntry(
+                actor_id=editor.id,
+                business_module=AuditModule.PRODUCT_FACTS,
+                action="fact_version.submitted",
+                target_type="FactVersion",
+                target_id=None,
+                request_id=request_id,
+                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
+                result_message="事实版本提交审核被拒绝" if denied else "事实版本提交审核未完成",
+                error_code=error.code,
+            ),
+        )
+        raise
     return fact_version_out(db, version, can_delete=editor.account_type == "ADMIN")
 
 
@@ -280,52 +295,6 @@ def fact_review_context(
     return get_fact_review_context(
         db, fact_version_id, can_delete=user.account_type == "ADMIN"
     )
-
-
-@router.post(
-    "/fact-versions/{fact_version_id}/submit",
-    response_model=FactVersionOut,
-    operation_id="submitFactVersion",
-)
-def submit_fact_version(
-    fact_version_id: uuid.UUID,
-    payload: CommandRequest,
-    request: Request,
-    db: DbSession,
-    editor: CurrentUser,
-    _csrf: CsrfProtected,
-) -> FactVersionOut:
-    actor_id = editor.id
-    command_request_id = request.state.request_id
-    try:
-        assert_account_types(editor, (AccountType.ADMIN, AccountType.ENGINEER))
-        return transition_fact_version(
-            db=db,
-            fact_version_id=fact_version_id,
-            expected_revision=payload.expected_revision,
-            comment=payload.comment,
-            actor=editor,
-            request_id=command_request_id,
-            action="submit",
-        )
-    except AppError as error:
-        db.rollback()
-        denied = error.code == "PERMISSION_DENIED"
-        commit_audit(
-            db,
-            AuditEntry(
-                actor_id=actor_id,
-                business_module=AuditModule.PRODUCT_FACTS,
-                action="fact_version.submit",
-                target_type="FactVersion",
-                target_id=fact_version_id,
-                request_id=command_request_id,
-                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
-                result_message=("事实版本提交审核被拒绝" if denied else "事实版本提交审核未完成"),
-                error_code=error.code,
-            )
-        )
-        raise
 
 
 @router.post(

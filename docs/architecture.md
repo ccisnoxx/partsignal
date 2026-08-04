@@ -12,19 +12,19 @@ FastAPI Router 只负责 HTTP 参数、认证与权限依赖、响应投影和�
 
 Pydantic Schema 按接口领域放在 `app.schemas` 子模块，调用方直接导入所属模块，包入口不维护兼容性重导出。SQLAlchemy 映射按稳定数据领域放在 `app.models` 子模块，全部继承同一个 `app.db.Base`，跨域外键继续使用字符串表名；`app.models.__init__` 只导入模块以完成 mapper 和 metadata 注册。该物理拆分不改变表名、约束、枚举、迁移图或公共 Schema。
 
-前端页面在职责已稳定混合时拆为路由容器、领域面板或表单，例如配置中心、发布流程和内容修订；简单页面仍保持单文件。所有 API 数据类型继续来自 OpenAPI 生成产物，React Query 键由 `shared/api/queryKeys.ts` 唯一登记并保持原数组前缀语义，不建立第二套接口或业务状态机。
+前端页面在职责已稳定混合时拆为路由容器、领域面板或表单，例如配置中心、发布流程和内容修订；简单页面仍保持单文件。所有 API 数据类型继续来自 OpenAPI 生成产物，React Query 键由 `shared/api/queryKeys.ts` 唯一登记并保持原数组前缀语义，不建立第二套接口或业务状态机。有业务推进含义的资源由服务端返回领域内 typed `workflow_stage` 和唯一 `primary_task`；前端只在当前 feature 内穷尽映射文案与导航，不按 `status`、角色或分页结果重建主操作，也不建立跨领域 action registry。
 
 ## 数据所有权
 
 PostgreSQL 保存全部业务状态。Redis 只传递 Celery 消息，消息只包含 `generation_job_id`。对象存储保存文件字节，数据库保存文件元数据、哈希和业务引用。
 
-`FactVersion`、`ContentVersion`、AI 作业输入快照、发布工作事件、核验快照、发布成果、GEO 观测和审计记录构成不可变历史。每个产品只有一份以 `facts_revision` 保护的可编辑 Markdown 事实工作区；事实版本冻结原 Markdown 与分级。平台只维护一个可选的当前 Prompt，不存在任务 Prompt 或平台规则版本。模型输出不自报事实或证据 ID，追溯以作业快照和绑定事实版本为准。自然化结果不覆盖正文：它是 `based_on_id` 指向源版本、`source_job_id` 指向 `HUMANIZE` 作业的新 AI 草稿。
+`FactVersion`、`ContentVersion`、AI 作业输入快照、发布工作事件、核验快照、发布成果、GEO 观测和审计记录构成不可变历史。每个产品只有一份以 `facts_revision` 保护的可编辑 Markdown 事实工作区；提交审核直接冻结 `PENDING_REVIEW` 版本，不存在事实版本 `DRAFT`。`ContentTask.current_content_version_id` 是审核和发布候选的唯一内容主线；首稿、AI 结果、自然化和修订都创建新当前版本，放弃草稿记为 `ABANDONED`，被退回版本必须创建修订。平台只维护一个可选的当前 Prompt，不存在任务 Prompt 或平台规则版本。模型输出不自报事实或证据 ID，追溯以作业快照和绑定事实版本为准。
 
 ## 发布与审核应用服务
 
-发布应用服务唯一拥有账号编辑/启停、`PublicationWork` 状态转换、同平台内容身份、首次核验、任务完成或取消、`PublishedArticle` 形成、发布后问题和修复任务。一个具体平台可维护多个规范化标识不同的内部运营账号，但一次发布工作只选择一个；账号必须与任务锁定平台一致。失败核验追加不可变快照并进入 `ACTION_REQUIRED`，同一工作修正结果后继续复核；首次成功核验与只读成果、任务 `COMPLETED`、工作事件和审计同事务提交。非终态工作只有带原因显式关闭才会取消来源任务。成功后的页面问题由 `PublishedContentIssue` 独立表达，创建修复任务和显式解决是两个独立命令；GEO 只读取没有开放问题且未退役的发布成果。
+发布应用服务唯一拥有账号编辑/启停、`PublicationWork` 状态转换与内容版本切换、首次核验、任务完成或取消、`PublishedArticle` 形成、发布后问题和修复任务。一次发布工作只选择一个任务平台账号。失败核验追加含当时 `content_version_id` 的不可变快照并进入 `ACTION_REQUIRED`；同一工作可修正结果，或切换到同任务、同平台的当前批准版本后继续复核。首次成功核验与该版本的只读成果、任务 `COMPLETED`、工作事件和审计同事务提交。非终态工作只有带原因显式关闭才会取消来源任务。成功后的页面问题由 `PublishedContentIssue` 独立表达，创建修复任务和显式解决是两个独立命令；GEO 只读取没有开放问题且未退役的发布成果。GEO 优化命令只信任服务端重算的精确异常，并把 typed 来源快照与新内容任务原子保存。
 
-审核应用服务唯一拥有事实/内容审核状态机、非空退回意见、内容质量门禁、审核记录追加和 `available_actions` 投影。`FactReviewContext` 只装配目标 `FactVersion.id` 自身的追加式审核记录，不通过产品 ID 混入兄弟版本；`ContentReviewContext` 继续装配同一内容任务截至目标版本的追加式历史。两类上下文都从不可变目标版本、任务绑定事实 Markdown、原始生成快照和完整自然化链一次装配，前端不再从当前事实工作区或多个独立请求拼接审核依据。Router 只映射路径、请求与响应，不保存第二套状态转换表。
+审核应用服务唯一拥有事实/内容审核状态机、非空退回意见、内容质量门禁、审核记录追加和资源操作投影。事实提交直接创建待审核快照；内容审核只接受任务当前版本，退回版本不能原样重提。`FactReviewContext` 只装配目标 `FactVersion.id` 自身的追加式审核记录，不通过产品 ID 混入兄弟版本；`ContentReviewContext` 继续装配同一内容任务截至目标版本的追加式历史。两类上下文都从不可变目标版本、任务绑定事实 Markdown、原始生成快照和完整自然化链一次装配，前端不再从当前事实工作区或多个独立请求拼接审核依据。Router 只映射路径、请求与响应，不保存第二套状态转换表。
 
 ## 外部适配器
 

@@ -307,7 +307,25 @@ export interface paths {
         };
         get: operations["listFactVersions"];
         put?: never;
-        post: operations["createFactVersion"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/products/{product_id}/fact-review-submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: components["parameters"]["ProductId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitProductFactReview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -342,22 +360,6 @@ export interface paths {
         get: operations["getFactReviewContext"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/fact-versions/{fact_version_id}/submit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["submitFactVersion"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1086,6 +1088,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content-versions/{content_version_id}/abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["abandonContentVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content-versions/{content_version_id}/approve": {
         parameters: {
             query?: never;
@@ -1351,6 +1369,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/publication-works/{work_id}/content-version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["switchPublicationContentVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/publication-works/{work_id}/close": {
         parameters: {
             query?: never;
@@ -1600,6 +1634,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/geo-insights/optimization-content-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createGeoOptimizationContentTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/files/upload-intents": {
         parameters: {
             query?: never;
@@ -1731,6 +1781,10 @@ export interface components {
             account_type: components["schemas"]["AccountType"];
             is_active: boolean;
             must_change_password: boolean;
+            /** @enum {string} */
+            workflow_stage: "FIRST_PASSWORD_CHANGE" | "ACTIVE" | "DISABLED";
+            /** @enum {string} */
+            primary_task: "MANAGE_LOGIN_SECURITY" | "MANAGE_USER" | "ENABLE_USER";
             available_actions: ("UPDATE" | "RESET_PASSWORD" | "ENABLE" | "DISABLE" | "DELETE")[];
             revision: number;
             /** Format: date-time */
@@ -1825,6 +1879,8 @@ export interface components {
             change_summary: {
                 [key: string]: unknown;
             };
+            /** @constant */
+            primary_task: "VIEW_LOG_DETAIL";
             request_id: string;
             /** Format: date-time */
             created_at: string;
@@ -1857,6 +1913,10 @@ export interface components {
             brand: string;
             category: string;
             status: components["schemas"]["ProductStatus"];
+            /** @enum {string} */
+            workflow_stage: "FACTS_EMPTY" | "FACTS_EDITING" | "FACT_REVIEW_PENDING" | "FACT_CHANGES_REQUESTED" | "FACT_APPROVED" | "RETIRED";
+            /** @enum {string} */
+            primary_task: "ENTER_FACTS" | "SUBMIT_FACT_REVIEW" | "REVIEW_FACT" | "REVISE_FACT" | "CREATE_CONTENT_TASK" | "VIEW_FACT_HISTORY";
             available_actions: ("UPDATE" | "DELETE")[];
             revision: number;
             /** Format: date-time */
@@ -1894,12 +1954,13 @@ export interface components {
             product_id: string;
             body_markdown: string;
             classification: components["schemas"]["Confidentiality"];
-            available_actions: ("SAVE" | "CREATE_VERSION")[];
+            available_actions: ("SAVE" | "SUBMIT_REVIEW")[];
             revision: number;
         };
         /** @enum {string} */
-        FactVersionStatus: "DRAFT" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "APPROVED" | "RETIRED";
-        CreateVersionRequest: {
+        FactVersionStatus: "PENDING_REVIEW" | "CHANGES_REQUESTED" | "APPROVED" | "RETIRED";
+        FactReviewSubmissionRequest: {
+            expected_revision: number;
             change_summary: string;
         };
         CommandRequest: {
@@ -1923,7 +1984,9 @@ export interface components {
             body_markdown: string;
             classification: components["schemas"]["Confidentiality"];
             change_summary: string;
-            available_actions: ("SUBMIT" | "APPROVE" | "REQUEST_CHANGES" | "RETIRE" | "DELETE")[];
+            /** @enum {string} */
+            primary_task: "REVIEW_FACT" | "CREATE_CONTENT_TASK" | "REVISE_FACT" | "VIEW_FACT_HISTORY";
+            available_actions: ("APPROVE" | "REQUEST_CHANGES" | "RETIRE" | "DELETE")[];
             revision: number;
             /** Format: uuid */
             created_by: string;
@@ -1954,6 +2017,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             available_actions: "UPDATE"[];
+            /** @constant */
+            primary_task: "USE_FOR_OBSERVATION";
             revision: number;
             /** Format: date-time */
             created_at: string;
@@ -2056,6 +2121,10 @@ export interface components {
             /** @description 当前具体平台已绑定 Prompt，可用于系统 AI 生成 */
             configuration_complete: boolean;
             platform_account_count: number;
+            /** @enum {string} */
+            workflow_stage: "DISABLED" | "GENERATION_UNCONFIGURED" | "OPERATIONAL";
+            /** @enum {string} */
+            primary_task: "ENABLE_PLATFORM" | "CONFIGURE_GENERATION" | "VIEW_PLATFORM_OPERATION";
             available_actions: ("UPDATE" | "ENABLE" | "DISABLE" | "DELETE")[];
             /**
              * Format: date-time
@@ -2111,6 +2180,8 @@ export interface components {
             name: string;
             slug: string;
             available_actions: ("UPDATE" | "DELETE")[];
+            /** @constant */
+            primary_task: "EDIT_CATEGORY";
             revision: number;
             /** Format: uuid */
             created_by: string;
@@ -2172,6 +2243,8 @@ export interface components {
             is_sensitive: boolean;
             is_configured: boolean;
             available_actions: ("UPDATE" | "DELETE")[];
+            /** @enum {string} */
+            primary_task: "EDIT_HEADER" | "RECONFIGURE_HEADER";
             value?: string | null;
         };
         AIChannelHeaderCreate: {
@@ -2229,6 +2302,10 @@ export interface components {
             latest_test_status: components["schemas"]["AIModelTestStatus"];
             /** Format: date-time */
             last_tested_at: string | null;
+            /** @enum {string} */
+            workflow_stage: "INCOMPLETE" | "UNVERIFIED" | "READY_TO_ENABLE" | "RUNNING";
+            /** @enum {string} */
+            primary_task: "COMPLETE_CONFIGURATION" | "TEST_MODEL" | "ENABLE_CHANNEL" | "VIEW_RUNTIME";
             available_actions: ("UPDATE" | "REPLACE_API_KEY" | "ENABLE" | "DISABLE" | "DELETE" | "DISCOVER_MODELS" | "CREATE_HEADER" | "CREATE_MODEL")[];
             revision: number;
             /** Format: uuid */
@@ -2265,6 +2342,10 @@ export interface components {
             latest_test_status: components["schemas"]["AIModelTestStatus"];
             /** Format: date-time */
             last_tested_at: string | null;
+            /** @enum {string} */
+            workflow_stage: "INCOMPLETE" | "UNVERIFIED" | "READY_TO_ENABLE" | "RUNNING";
+            /** @enum {string} */
+            primary_task: "COMPLETE_CONFIGURATION" | "TEST_MODEL" | "ENABLE_CHANNEL" | "VIEW_RUNTIME";
             available_actions: ("UPDATE" | "REPLACE_API_KEY" | "ENABLE" | "DISABLE" | "DELETE" | "DISCOVER_MODELS" | "CREATE_HEADER" | "CREATE_MODEL")[];
             revision: number;
         };
@@ -2338,6 +2419,10 @@ export interface components {
             /** Format: date-time */
             last_tested_at?: string | null;
             last_test_error_summary?: string | null;
+            /** @enum {string} */
+            workflow_stage: "UNTESTED" | "TEST_FAILED" | "READY_TO_ENABLE" | "CHANNEL_DISABLED" | "RUNNING";
+            /** @enum {string} */
+            primary_task: "TEST_CONNECTION" | "VIEW_FAILURE_AND_RETRY" | "ENABLE_MODEL" | "ENABLE_CHANNEL" | "VIEW_MODEL_RUNTIME";
             available_actions: ("UPDATE" | "TEST" | "ENABLE" | "DISABLE" | "DELETE")[];
             revision: number;
             /** Format: uuid */
@@ -2352,6 +2437,9 @@ export interface components {
         };
         DiscoveredModel: {
             model_id: string;
+            configured: boolean;
+            /** @enum {string} */
+            primary_task: "ADD_MODEL" | "VIEW_CONFIGURED_MODEL";
         };
         DiscoveredModelList: {
             items: components["schemas"]["DiscoveredModel"][];
@@ -2373,6 +2461,12 @@ export interface components {
             query_topic_id: string | null;
             /** Format: uuid */
             source_published_content_issue_id: string | null;
+            /** Format: uuid */
+            current_content_version_id: string | null;
+            /** @enum {string} */
+            workflow_stage: "NO_DRAFT" | "GENERATING" | "GENERATION_FAILED" | "DRAFT" | "REVIEW_PENDING" | "CHANGES_REQUESTED" | "APPROVED" | "PUBLISHING" | "VERIFIED" | "CANCELLED";
+            /** @enum {string} */
+            primary_task: "CREATE_FIRST_DRAFT" | "VIEW_GENERATION_PROGRESS" | "HANDLE_GENERATION_FAILURE" | "EDIT_AND_SUBMIT_REVIEW" | "REVIEW_CONTENT" | "REVISE_CONTENT" | "START_PUBLICATION" | "CONTINUE_PUBLICATION" | "VIEW_FULL_LINEAGE" | "VIEW_CANCELLATION";
             available_actions: ("CANCEL" | "DELETE" | "CREATE_GENERATION_JOB" | "CREATE_MANUAL_VERSION")[];
             status: components["schemas"]["ContentTaskStatus"];
             revision: number;
@@ -2451,6 +2545,10 @@ export interface components {
             /** Format: uuid */
             source_content_version_id: string | null;
             status: components["schemas"]["GenerationJobStatus"];
+            /** @enum {string} */
+            workflow_stage: "IN_PROGRESS" | "SUCCEEDED" | "RETRYABLE_FAILURE" | "HISTORICAL_FAILURE";
+            /** @enum {string} */
+            primary_task: "VIEW_EXECUTION_PROGRESS" | "VIEW_GENERATED_CONTENT" | "HANDLE_FAILURE" | "VIEW_FAILURE";
             available_actions: "RETRY"[];
             attempt_count: number;
             /** Format: uuid */
@@ -2629,7 +2727,7 @@ export interface components {
             items: components["schemas"]["GenerationJob"][];
         };
         /** @enum {string} */
-        ContentVersionStatus: "DRAFT" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "APPROVED" | "SUPERSEDED";
+        ContentVersionStatus: "DRAFT" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "APPROVED" | "SUPERSEDED" | "ABANDONED";
         QualityIssue: {
             code: string;
             /** @enum {string} */
@@ -2656,7 +2754,11 @@ export interface components {
             tags: string[];
             content_hash: string;
             status: components["schemas"]["ContentVersionStatus"];
-            available_actions: ("CREATE_REVISION" | "CREATE_HUMANIZATION_JOB" | "SUBMIT_REVIEW" | "APPROVE" | "REQUEST_CHANGES")[];
+            /** @enum {string} */
+            workflow_stage: "CURRENT_DRAFT" | "CURRENT_REVIEW_PENDING" | "CURRENT_CHANGES_REQUESTED" | "CURRENT_APPROVED" | "CURRENT_PUBLISHING" | "PUBLISHED" | "HISTORICAL";
+            /** @enum {string} */
+            primary_task: "EDIT_AND_SUBMIT_REVIEW" | "REVIEW_CONTENT" | "CREATE_REVISION" | "START_PUBLICATION" | "CONTINUE_PUBLICATION" | "VIEW_PUBLICATION_RESULT" | "VIEW_VERSION_HISTORY";
+            available_actions: ("CREATE_REVISION" | "CREATE_HUMANIZATION_JOB" | "SUBMIT_REVIEW" | "APPROVE" | "REQUEST_CHANGES" | "ABANDON")[];
             revision: number;
             quality_issues: components["schemas"]["QualityIssue"][];
             /** Format: uuid */
@@ -2707,7 +2809,7 @@ export interface components {
             created_at: string;
         };
         /** @enum {string} */
-        FactReviewAction: "SUBMIT" | "APPROVE" | "REQUEST_CHANGES" | "RETIRE";
+        FactReviewAction: "APPROVE" | "REQUEST_CHANGES" | "RETIRE";
         /** @enum {string} */
         ContentReviewAction: "SUBMIT_REVIEW" | "APPROVE" | "REQUEST_CHANGES";
         FactReviewContext: {
@@ -2764,6 +2866,10 @@ export interface components {
             /** Format: uuid */
             id: string;
             is_active: boolean;
+            /** @enum {string} */
+            workflow_stage: "PLATFORM_DISABLED" | "ACCOUNT_DISABLED" | "OPERATIONAL";
+            /** @enum {string} */
+            primary_task: "HANDLE_PLATFORM" | "ENABLE_ACCOUNT" | "MANAGE_ACCOUNT";
             available_actions: ("UPDATE" | "ENABLE" | "DISABLE" | "DELETE")[];
             revision: number;
         };
@@ -2794,8 +2900,8 @@ export interface components {
             matching_accounts: components["schemas"]["PlatformAccount"][];
             /** Available Actions */
             available_actions: "START"[];
-            /** Primary Action */
-            primary_action: "START" | null;
+            /** @constant */
+            primary_task: "START_PUBLICATION";
         };
         /** PublicationWorkbenchSummary */
         PublicationWorkbenchSummary: {
@@ -2827,6 +2933,12 @@ export interface components {
              * Format: uri
              */
             section_url: string;
+        };
+        PublicationContentVersionSwitchRequest: {
+            /** Format: uuid */
+            content_version_id: string;
+            expected_revision: number;
+            comment: string;
         };
         /** PublicationWorkOut */
         PublicationWork: {
@@ -2895,10 +3007,12 @@ export interface components {
             latest_verification_outcome: components["schemas"]["PublicationVerificationOutcome"] | null;
             /** Latest Verification At */
             latest_verification_at: string | null;
+            /** @enum {string} */
+            workflow_stage: "PREPARING" | "PLATFORM_REVIEW" | "AWAITING_VERIFICATION" | "ACTION_REQUIRED" | "COMPLETED" | "CLOSED";
+            /** @enum {string} */
+            primary_task: "CONTINUE_PREPARATION" | "REGISTER_RESULT" | "RUN_FIRST_VERIFICATION" | "FIX_AND_REVERIFY" | "VIEW_COMPLETION" | "VIEW_CLOSURE";
             /** Available Actions */
-            available_actions: ("UPDATE_PREPARATION" | "MARK_PLATFORM_REVIEW" | "REGISTER_RESULT" | "VERIFY" | "CLOSE")[];
-            /** Primary Action */
-            primary_action: ("UPDATE_PREPARATION" | "MARK_PLATFORM_REVIEW" | "REGISTER_RESULT" | "VERIFY" | "CLOSE") | null;
+            available_actions: ("UPDATE_PREPARATION" | "MARK_PLATFORM_REVIEW" | "REGISTER_RESULT" | "VERIFY" | "SWITCH_CONTENT_VERSION" | "CLOSE")[];
             /** Content Hash */
             content_hash: string;
             /** Closed By */
@@ -2943,9 +3057,13 @@ export interface components {
              * Action
              * @enum {string}
              */
-            action: "CREATED" | "PREPARATION_UPDATED" | "PLATFORM_REVIEW_MARKED" | "RESULT_REGISTERED" | "VERIFICATION_FAILED" | "COMPLETED" | "CLOSED";
+            action: "CREATED" | "PREPARATION_UPDATED" | "PLATFORM_REVIEW_MARKED" | "RESULT_REGISTERED" | "VERIFICATION_FAILED" | "CONTENT_VERSION_CHANGED" | "COMPLETED" | "CLOSED";
             from_status: components["schemas"]["PublicationWorkStatus"] | null;
             to_status: components["schemas"]["PublicationWorkStatus"];
+            /** Format: uuid */
+            from_content_version_id: string | null;
+            /** Format: uuid */
+            to_content_version_id: string | null;
             /** Comment */
             comment: string;
             /**
@@ -2966,6 +3084,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Format: uuid */
+            content_version_id: string;
             outcome: components["schemas"]["PublicationVerificationOutcome"];
             /** Actual Title Snapshot */
             actual_title_snapshot: string;
@@ -3070,10 +3190,12 @@ export interface components {
             latest_verification_outcome: components["schemas"]["PublicationVerificationOutcome"] | null;
             /** Latest Verification At */
             latest_verification_at: string | null;
+            /** @enum {string} */
+            workflow_stage: "PREPARING" | "PLATFORM_REVIEW" | "AWAITING_VERIFICATION" | "ACTION_REQUIRED" | "COMPLETED" | "CLOSED";
+            /** @enum {string} */
+            primary_task: "CONTINUE_PREPARATION" | "REGISTER_RESULT" | "RUN_FIRST_VERIFICATION" | "FIX_AND_REVERIFY" | "VIEW_COMPLETION" | "VIEW_CLOSURE";
             /** Available Actions */
-            available_actions: ("UPDATE_PREPARATION" | "MARK_PLATFORM_REVIEW" | "REGISTER_RESULT" | "VERIFY" | "CLOSE")[];
-            /** Primary Action */
-            primary_action: ("UPDATE_PREPARATION" | "MARK_PLATFORM_REVIEW" | "REGISTER_RESULT" | "VERIFY" | "CLOSE") | null;
+            available_actions: ("UPDATE_PREPARATION" | "MARK_PLATFORM_REVIEW" | "REGISTER_RESULT" | "VERIFY" | "SWITCH_CONTENT_VERSION" | "CLOSE")[];
         };
         /** PublicationPreparationUpdate */
         PublicationPreparationUpdate: {
@@ -3165,6 +3287,11 @@ export interface components {
              */
             task_id: string;
             /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /**
              * Content Version Id
              * Format: uuid
              */
@@ -3208,12 +3335,16 @@ export interface components {
             verified_at: string;
             /** Has Open Issue */
             has_open_issue: boolean;
+            /** Open Issue Id */
+            open_issue_id: string | null;
             /** Retired */
             retired: boolean;
+            /** @enum {string} */
+            workflow_stage: "HEALTHY" | "OPEN_ISSUE" | "RETIRED";
+            /** @enum {string} */
+            primary_task: "START_PRODUCT_OBSERVATION" | "HANDLE_CONTENT_ISSUE" | "VIEW_HISTORY";
             /** Available Actions */
             available_actions: "OPEN_ISSUE"[];
-            /** Primary Action */
-            primary_action: "OPEN_ISSUE" | null;
         };
         /** PublishedArticleOut */
         PublishedArticle: {
@@ -3228,6 +3359,11 @@ export interface components {
              */
             task_id: string;
             /**
+             * Product Id
+             * Format: uuid
+             */
+            product_id: string;
+            /**
              * Content Version Id
              * Format: uuid
              */
@@ -3271,12 +3407,16 @@ export interface components {
             verified_at: string;
             /** Has Open Issue */
             has_open_issue: boolean;
+            /** Open Issue Id */
+            open_issue_id: string | null;
             /** Retired */
             retired: boolean;
+            /** @enum {string} */
+            workflow_stage: "HEALTHY" | "OPEN_ISSUE" | "RETIRED";
+            /** @enum {string} */
+            primary_task: "START_PRODUCT_OBSERVATION" | "HANDLE_CONTENT_ISSUE" | "VIEW_HISTORY";
             /** Available Actions */
             available_actions: "OPEN_ISSUE"[];
-            /** Primary Action */
-            primary_action: "OPEN_ISSUE" | null;
             /**
              * Section Url
              * Format: uri
@@ -3372,10 +3512,12 @@ export interface components {
             revision: number;
             /** Repair Task Id */
             repair_task_id: string | null;
+            /** @enum {string} */
+            workflow_stage: "OPEN" | "REPAIRING" | "AWAITING_RESOLUTION" | "RESOLVED";
+            /** @enum {string} */
+            primary_task: "HANDLE_CONTENT_ISSUE" | "CONTINUE_REPAIR" | "CONFIRM_RESOLUTION" | "VIEW_RESOLUTION";
             /** Available Actions */
             available_actions: ("CREATE_REPAIR_TASK" | "RESOLVE")[];
-            /** Primary Action */
-            primary_action: ("CREATE_REPAIR_TASK" | "RESOLVE") | null;
             /**
              * Opened By
              * Format: uuid
@@ -3437,10 +3579,12 @@ export interface components {
             revision: number;
             /** Repair Task Id */
             repair_task_id: string | null;
+            /** @enum {string} */
+            workflow_stage: "OPEN" | "REPAIRING" | "AWAITING_RESOLUTION" | "RESOLVED";
+            /** @enum {string} */
+            primary_task: "HANDLE_CONTENT_ISSUE" | "CONTINUE_REPAIR" | "CONFIRM_RESOLUTION" | "VIEW_RESOLUTION";
             /** Available Actions */
             available_actions: ("CREATE_REPAIR_TASK" | "RESOLVE")[];
-            /** Primary Action */
-            primary_action: ("CREATE_REPAIR_TASK" | "RESOLVE") | null;
         };
         /** PublishedContentRepairContext */
         PublishedContentRepairContext: {
@@ -3566,6 +3710,25 @@ export interface components {
             /** Format: uuid */
             supersedes_id?: string | null;
         };
+        GeoOptimizationContentTaskCreate: {
+            /** @enum {string} */
+            rule_code: "CONTENT_DECLINE" | "LONG_UNMENTIONED" | "QUESTION_COVERAGE_GAP";
+            /** Format: date */
+            date_from: string;
+            /** Format: date */
+            date_to: string;
+            /** Format: uuid */
+            published_article_id?: string | null;
+            /** Format: uuid */
+            query_topic_id?: string | null;
+            geo_platform?: string | null;
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            platform_profile_id: string;
+            /** Format: uuid */
+            fact_version_id: string;
+        };
         LegacyGeoObservation: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -3599,6 +3762,10 @@ export interface components {
             tested_by: string;
             recorder: components["schemas"]["ActorSummary"];
             is_current: boolean;
+            /** @constant */
+            workflow_stage: "LEGACY";
+            /** @constant */
+            primary_task: "VIEW_HISTORICAL_RECORD";
             available_actions: "CORRECT"[];
             /** Format: date-time */
             created_at: string;
@@ -3629,6 +3796,10 @@ export interface components {
             tested_by: string;
             recorder: components["schemas"]["ActorSummary"];
             is_current: boolean;
+            /** @enum {string} */
+            workflow_stage: "READY" | "INCOMPLETE" | "SUPERSEDED";
+            /** @enum {string} */
+            primary_task: "VIEW_ANALYSIS" | "CORRECT_OBSERVATION" | "VIEW_CORRECTION_HISTORY";
             available_actions: ("CORRECT" | "DELETE")[];
             /** Format: date-time */
             created_at: string;
@@ -3673,6 +3844,7 @@ export interface components {
             platform_name: string;
         };
         GeoInsightFilterOptions: {
+            products: components["schemas"]["GeoInsightOption"][];
             content_platforms: components["schemas"]["GeoInsightOption"][];
             geo_platforms: string[];
             publications: components["schemas"]["GeoInsightPublicationOption"][];
@@ -3704,16 +3876,24 @@ export interface components {
             discovery_rate: components["schemas"]["GeoInsightRateValue"];
             mention_rate: components["schemas"]["GeoInsightRateValue"];
             accuracy_rate: components["schemas"]["GeoInsightRateValue"];
+            /** @constant */
+            primary_task: "VIEW_OBSERVATION_DETAILS";
         };
         GeoInsightContentPerformance: {
             /** Format: uuid */
             published_article_id: string;
+            /** Format: uuid */
+            product_id: string;
+            /** Format: uuid */
+            content_platform_id: string;
             title: string;
             content_platform: string;
             observation_count: number;
             discovery_rate: components["schemas"]["GeoInsightRateValue"];
             mention_rate: components["schemas"]["GeoInsightRateValue"];
             accuracy_rate: components["schemas"]["GeoInsightRateValue"];
+            /** @enum {string} */
+            primary_task: "VIEW_CONTENT_PERFORMANCE" | "CREATE_OPTIMIZATION_TASK";
         };
         GeoInsightDeclineBasis: {
             /** @enum {string} */
@@ -3751,6 +3931,8 @@ export interface components {
             observation_count: number;
             mentioned_observation_count: number;
             coverage_rate: components["schemas"]["GeoInsightRateValue"];
+            /** @enum {string} */
+            primary_task: "VIEW_OBSERVATION_DETAILS" | "CREATE_OPTIMIZATION_TASK" | "ADD_OBSERVATION";
         };
         GeoInsightQuestionCoverage: {
             by_status: components["schemas"]["GeoInsightCoverageCounts"];
@@ -4578,7 +4760,7 @@ export interface operations {
             };
         };
     };
-    createFactVersion: {
+    submitProductFactReview: {
         parameters: {
             query?: never;
             header: {
@@ -4591,11 +4773,11 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CreateVersionRequest"];
+                "application/json": components["schemas"]["FactReviewSubmissionRequest"];
             };
         };
         responses: {
-            /** @description 已从工作区创建不可变快照 */
+            /** @description 已从事实工作区原子创建待审核快照 */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -4674,23 +4856,6 @@ export interface operations {
                     "application/json": components["schemas"]["FactReviewContext"];
                 };
             };
-        };
-    };
-    submitFactVersion: {
-        parameters: {
-            query?: never;
-            header: {
-                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
-            };
-            path: {
-                fact_version_id: components["parameters"]["FactVersionId"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CommandRequest"];
-        responses: {
-            200: components["responses"]["FactVersionResponse"];
-            409: components["responses"]["ErrorResponse"];
         };
     };
     approveFactVersion: {
@@ -6389,6 +6554,23 @@ export interface operations {
             200: components["responses"]["ContentVersionResponse"];
         };
     };
+    abandonContentVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                content_version_id: components["parameters"]["ContentVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["CommandRequest"];
+        responses: {
+            200: components["responses"]["ContentVersionResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
     approveContentVersion: {
         parameters: {
             query?: never;
@@ -6862,6 +7044,35 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
+    switchPublicationContentVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationContentVersionSwitchRequest"];
+            };
+        };
+        responses: {
+            /** @description 发布工作已切换到同任务当前批准版本 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationWork"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
     closePublicationWork: {
         parameters: {
             query?: never;
@@ -7278,6 +7489,7 @@ export interface operations {
             query?: {
                 date_from?: string;
                 date_to?: string;
+                product_id?: string;
                 content_platform_id?: string;
                 geo_platform?: string;
                 published_article_id?: string;
@@ -7320,6 +7532,35 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardSummary"];
                 };
             };
+        };
+    };
+    createGeoOptimizationContentTask: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeoOptimizationContentTaskCreate"];
+            };
+        };
+        responses: {
+            /** @description 已创建带不可变 GEO 来源快照的内容任务 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTask"];
+                };
+            };
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     createFileUploadIntent: {

@@ -57,6 +57,63 @@ const articleRows = correctionRecord
 - 空结果使用 `NoData({ description?: ReactNode, action?: ReactNode })`。同屏已有等价主操作时不重复传 `action`。
 - 表格宽列必须位于 `TableRegion` 内，通过 Table 自身 `scroll.x` 局部滚动，不允许制造页面级横向滚动。
 
+### 业务表格主操作边界
+
+#### 1. 适用范围 / 触发条件
+
+当表格行表示可推进业务流程的资源，且 OpenAPI 返回 typed `primary_task` 时，行内必须使用该 token 决定唯一高频主入口。逐篇观测结果等父表单输入矩阵不是独立资源，不增加行操作列。
+
+#### 2. 签名
+
+```tsx
+type ContentTask = components['schemas']['ContentTask'];
+
+function renderPrimaryTask(task: ContentTask): ReactNode {
+  const token: ContentTask['primary_task'] = task.primary_task;
+  // 当前 feature 内以 switch 穷尽映射所有 token。
+}
+```
+
+只从 `frontend/src/shared/api/schema.d.ts` 导入字段类型，不手写字符串并集或通用 action 类型。
+
+#### 3. 合同
+
+- `primary_task` 只控制行的高频主入口；`available_actions` 控制更多菜单、危险确认和具体写命令。
+- token 到中文文案、导航、Drawer 或确认流程的映射归当前 feature 所有；不建立跨领域 registry 或只做转发的通用组件。
+- 同一主操作在桌面、移动和 200% 缩放下必须可达；不得通过隐藏按钮改变业务能力。
+- mutation 成功后使用返回资源或失效既有 query；竞态被服务端拒绝时显示真实错误并刷新，不用本地兼容分支补回入口。
+
+#### 4. 校验与错误矩阵
+
+| 条件 | 处理 |
+| --- | --- |
+| `primary_task` 有已知 token | 渲染唯一对应主入口 |
+| 生成类型出现未处理 token | TypeScript 穷尽检查失败；不渲染“查看”默认入口 |
+| 过期投影提交后返回 `409`/领域错误 | 保留错误反馈并刷新资源；不改用 `status` 推断 |
+| 主任务需要付费、删除或外部调用 | 先打开详情或确认流程；不在列表单击立即执行 |
+
+#### 5. Good / Base / Bad
+
+- Good：`HANDLE_FAILURE` 打开真实失败详情，只在 `available_actions` 包含 `RETRY` 时提供经确认的重试。
+- Base：`VIEW_VERSION_HISTORY` 只打开冻结版本，不因历史 `status` 为 `APPROVED` 补发布入口。
+- Bad：以 `row.status === 'APPROVED' && !work` 在页面重新推导“开始发布”。
+
+#### 6. 必需测试
+
+- 使用相同表面状态、不同 `primary_task` 的 fixture，断言主入口只随 token 变化。
+- 对会执行写入或外部调用的主入口，断言列表点击先进入详情/确认，用户确认后才发请求。
+- 运行前端 typecheck 和对应 feature Vitest；业务 E2E 覆盖桌面、移动及关键焦点返回。
+
+#### 7. Wrong vs Correct
+
+```tsx
+// Wrong：在前端重建业务流程。
+const label = row.status === 'APPROVED' ? '开始发布' : '查看';
+
+// Correct：只消费服务端 typed token。
+const label = primaryTaskLabels[row.primary_task];
+```
+
 ### 表格列宽约定
 
 按字段内容角色分配宽度：状态、版本、数量和操作等有明确上限的字段使用紧凑 `width`；名称、标题等长文本列可以作为弹性列，也可以在宽表中声明与 `scroll.x` 一致的有界宽度。横向滚动的关键宽表将操作列设为 `fixed: 'right'`，保证移动端仍可直接操作。

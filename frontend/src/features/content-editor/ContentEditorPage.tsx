@@ -33,7 +33,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
-import type { Schema } from '../../shared/api/types';
+import type { ContentVersion, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
@@ -263,6 +263,20 @@ export function ContentEditorPage() {
       ]);
     },
   });
+  const abandon = useMutation({
+    mutationFn: async (version: ContentVersion) => unwrap(await api.POST('/api/v1/content-versions/{content_version_id}/abandon', {
+      params: { path: { content_version_id: version.id }, header: csrfHeader() },
+      body: { expected_revision: version.revision, comment: '用户确认放弃当前内容版本' },
+    })),
+    onSuccess: async (version) => {
+      message.success('当前内容版本已放弃');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.versions(version.task_id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.detail(version.task_id) }),
+      ]);
+      navigate(`/tasks/${version.task_id}`);
+    },
+  });
   const setRevisionDirtyState = (dirty: boolean) => {
     revisionDirtyRef.current = dirty;
     setRevisionDirty(dirty);
@@ -387,7 +401,17 @@ export function ContentEditorPage() {
                   <time dateTime={current.created_at}>{formatDateTime(current.created_at)}</time>
                 </Space>
               )}
-              actions={<StatusTag status={current.status} />}
+              actions={<Space>
+                <StatusTag status={current.status} />
+                {current.available_actions.includes('ABANDON') && <Button danger loading={abandon.isPending} onClick={() => modal.confirm({
+                  title: '放弃当前内容版本？',
+                  content: '该版本会进入只读历史；任务将恢复到最近批准版本，没有批准版本时回到“尚未创建首稿”。此操作不可撤销。',
+                  okText: '确认放弃',
+                  cancelText: '继续编辑',
+                  okButtonProps: { danger: true },
+                  onOk: () => abandon.mutateAsync(current),
+                })}>放弃当前版本</Button>}
+              </Space>}
             />
             <Tabs
               className="review-document-tabs"

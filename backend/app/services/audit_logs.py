@@ -231,6 +231,7 @@ def project_audit_log(record: AuditLog, actor: User | None) -> AuditLogOut:
         target_id=record.target_id,
         outcome=AuditOutcome(record.outcome),
         change_summary=summary,
+        primary_task="VIEW_LOG_DETAIL",
         request_id=record.request_id,
         created_at=record.created_at,
     )

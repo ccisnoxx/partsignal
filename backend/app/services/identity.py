@@ -52,6 +52,17 @@ from app.security import generate_token, hash_password, hash_token, verify_passw
 _USER_STATE_LOCK = text("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE")
 _BULK_ITEM_ERROR_CODES = {"NOT_FOUND", "REVISION_CONFLICT", "LAST_ADMIN_REQUIRED"}
 UserResourceAction = Literal["UPDATE", "RESET_PASSWORD", "ENABLE", "DISABLE", "DELETE"]
+UserWorkflowStage = Literal["FIRST_PASSWORD_CHANGE", "ACTIVE", "DISABLED"]
+UserPrimaryTask = Literal["MANAGE_LOGIN_SECURITY", "MANAGE_USER", "ENABLE_USER"]
+
+
+def user_stage(user: User) -> tuple[UserWorkflowStage, UserPrimaryTask]:
+    """从账号权威状态投影当前阶段与唯一主任务。"""
+    if not user.is_active:
+        return "DISABLED", "ENABLE_USER"
+    if user.must_change_password:
+        return "FIRST_PASSWORD_CHANGE", "MANAGE_LOGIN_SECURITY"
+    return "ACTIVE", "MANAGE_USER"
 
 
 def _referenced_user_ids(db: Session, user_ids: list[uuid.UUID]) -> set[uuid.UUID]:
@@ -123,14 +134,18 @@ def users_out(db: Session, users: list[User], *, actor: User) -> list[UserOut]:
         or 0
     )
     referenced_ids = _referenced_user_ids(db, [user.id for user in users])
-    return [
-        UserOut.model_validate(
+    output: list[UserOut] = []
+    for user in users:
+        workflow_stage, primary_task = user_stage(user)
+        output.append(UserOut.model_validate(
             {
                 **{
                     field: getattr(user, field)
                     for field in UserOut.model_fields
-                    if field != "available_actions"
+                    if field not in {"available_actions", "workflow_stage", "primary_task"}
                 },
+                "workflow_stage": workflow_stage,
+                "primary_task": primary_task,
                 "available_actions": _user_actions(
                     user,
                     actor=actor,
@@ -138,9 +153,8 @@ def users_out(db: Session, users: list[User], *, actor: User) -> list[UserOut]:
                     has_business_reference=user.id in referenced_ids,
                 ),
             }
-        )
-        for user in users
-    ]
+        ))
+    return output
 
 
 def user_out(db: Session, user: User, *, actor: User) -> UserOut:

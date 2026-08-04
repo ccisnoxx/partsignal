@@ -31,7 +31,7 @@ import {
   type TableColumnsType,
 } from 'antd';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { Schema } from '../../shared/api/types';
@@ -54,6 +54,9 @@ type IssueItem = Schema<'PublishedContentIssueListItem'>;
 type Issue = Schema<'PublishedContentIssue'>;
 type WorkAction = Work['available_actions'][number];
 type IssueAction = Issue['available_actions'][number];
+type WorkPrimaryTask = WorkItem['primary_task'];
+type ArticlePrimaryTask = ArticleItem['primary_task'];
+type IssuePrimaryTask = IssueItem['primary_task'];
 type ActionTarget =
   | { kind: 'ready'; resource: ReadyItem; action: 'START' }
   | { kind: 'work'; resource: WorkItem | Work; action: WorkAction }
@@ -70,10 +73,44 @@ const actionLabels: Record<ActionTarget['action'], string> = {
   MARK_PLATFORM_REVIEW: '标记平台处理中',
   REGISTER_RESULT: '登记发布结果',
   VERIFY: '核验发布结果',
+  SWITCH_CONTENT_VERSION: '切换待发布版本',
   CLOSE: '关闭发布工作',
   OPEN_ISSUE: '登记内容问题',
   CREATE_REPAIR_TASK: '创建修复任务',
   RESOLVE: '解决内容问题',
+};
+const workTaskLabels: Record<WorkPrimaryTask, string> = {
+  CONTINUE_PREPARATION: '继续发布准备',
+  REGISTER_RESULT: '登记发布结果',
+  RUN_FIRST_VERIFICATION: '执行首次核验',
+  FIX_AND_REVERIFY: '修复并重新核验',
+  VIEW_COMPLETION: '查看完成记录',
+  VIEW_CLOSURE: '查看关闭记录',
+};
+const workTaskActions: Record<WorkPrimaryTask, WorkAction | null> = {
+  CONTINUE_PREPARATION: 'UPDATE_PREPARATION',
+  REGISTER_RESULT: 'REGISTER_RESULT',
+  RUN_FIRST_VERIFICATION: 'VERIFY',
+  FIX_AND_REVERIFY: 'VERIFY',
+  VIEW_COMPLETION: null,
+  VIEW_CLOSURE: null,
+};
+const articleTaskLabels: Record<ArticlePrimaryTask, string> = {
+  START_PRODUCT_OBSERVATION: '开始产品观测',
+  HANDLE_CONTENT_ISSUE: '处理内容问题',
+  VIEW_HISTORY: '查看历史',
+};
+const issueTaskLabels: Record<IssuePrimaryTask, string> = {
+  HANDLE_CONTENT_ISSUE: '处理内容问题',
+  CONTINUE_REPAIR: '继续修复',
+  CONFIRM_RESOLUTION: '确认处理结果',
+  VIEW_RESOLUTION: '查看处理结果',
+};
+const issueTaskActions: Record<IssuePrimaryTask, IssueAction | null> = {
+  HANDLE_CONTENT_ISSUE: 'CREATE_REPAIR_TASK',
+  CONTINUE_REPAIR: null,
+  CONFIRM_RESOLUTION: 'RESOLVE',
+  VIEW_RESOLUTION: null,
 };
 
 function formatDateTime(value: string | null) {
@@ -87,21 +124,23 @@ function validPage(value: string | null) {
 
 function ActionButtons({
   resource,
-  label,
+  primaryLabel,
+  primaryAction,
+  accessibleLabel,
+  onPrimary,
   onAction,
 }: {
-  resource: { available_actions: readonly string[]; primary_action: string | null };
-  label: string;
+  resource: { available_actions: readonly string[] };
+  primaryLabel: string;
+  primaryAction: string | null;
+  accessibleLabel: string;
+  onPrimary: () => void;
   onAction: (action: string) => void;
 }) {
-  const secondary = resource.available_actions.filter((action) => action !== resource.primary_action);
+  const secondary = resource.available_actions.filter((action) => action !== primaryAction);
   return (
     <Space className="publication-action-buttons" size={4}>
-      {resource.primary_action && (
-        <Button size="small" type="primary" onClick={() => onAction(resource.primary_action!)}>
-          {actionLabels[resource.primary_action as ActionTarget['action']]}
-        </Button>
-      )}
+      <Button size="small" type="primary" onClick={onPrimary}>{primaryLabel}</Button>
       {secondary.length > 0 && (
         <Dropdown
           trigger={['click']}
@@ -114,7 +153,7 @@ function ActionButtons({
             onClick: ({ key }) => onAction(key),
           }}
         >
-          <Button size="small" type="text" icon={<MoreOutlined />} aria-label={`更多操作：${label}`} />
+          <Button size="small" type="text" icon={<MoreOutlined />} aria-label={`更多操作：${accessibleLabel}`} />
         </Dropdown>
       )}
     </Space>
@@ -143,6 +182,13 @@ function ActionModalContent({ target, onClose }: { target: ActionTarget; onClose
       params: { path: { issue_id: issueId } },
     })),
     enabled: target.kind === 'issue' && target.action === 'CREATE_REPAIR_TASK',
+  });
+  const contentVersions = useQuery({
+    queryKey: queryKeys.contentTasks.versions(target.kind === 'work' ? target.resource.task_id : ''),
+    queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/content-versions', {
+      params: { path: { content_task_id: target.kind === 'work' ? target.resource.task_id : '' } },
+    })),
+    enabled: target.kind === 'work' && target.action === 'SWITCH_CONTENT_VERSION',
   });
 
   useEffect(() => {
@@ -210,6 +256,16 @@ function ActionModalContent({ target, onClose }: { target: ActionTarget; onClose
               content_matches: outcome === 'PASSED',
               expected_revision: target.resource.revision,
               comment: values.comment ?? '',
+            },
+          }));
+        }
+        if (target.action === 'SWITCH_CONTENT_VERSION') {
+          return unwrap(await api.POST('/api/v1/publication-works/{work_id}/content-version', {
+            params,
+            body: {
+              content_version_id: values.content_version_id!,
+              expected_revision: target.resource.revision,
+              comment: values.comment!,
             },
           }));
         }
@@ -284,6 +340,7 @@ function ActionModalContent({ target, onClose }: { target: ActionTarget; onClose
       {command.error && <Alert type="error" showIcon title={errorMessage(command.error)} />}
       {accounts.error && <QueryFailure error={accounts.error} onRetry={() => void accounts.refetch()} />}
       {repair.error && <QueryFailure error={repair.error} onRetry={() => void repair.refetch()} />}
+      {contentVersions.error && <QueryFailure error={contentVersions.error} onRetry={() => void contentVersions.refetch()} />}
       <Form form={form} layout="vertical" onFinish={(values) => command.mutate(values)}>
         {target.action === 'START' && (
           <>
@@ -317,6 +374,24 @@ function ActionModalContent({ target, onClose }: { target: ActionTarget; onClose
             <Select options={[{ value: 'PASSED', label: '内容一致，核验通过' }, { value: 'FAILED', label: '核验失败，继续待处理' }]} />
           </Form.Item>
         )}
+        {target.action === 'SWITCH_CONTENT_VERSION' && (
+          <>
+            <Alert
+              className="form-alert"
+              type="warning"
+              showIcon
+              title="切换会保留原发布工作和事件历史，后续核验只针对新版本。"
+            />
+            <Form.Item name="content_version_id" label="新的批准版本" rules={[{ required: true, message: '请选择批准版本' }]}>
+              <Select
+                loading={contentVersions.isLoading}
+                options={contentVersions.data?.items
+                  .filter((version) => version.status === 'APPROVED' && version.id !== target.resource.content_version_id)
+                  .map((version) => ({ value: version.id, label: `${version.title} · V${version.version}` }))}
+              />
+            </Form.Item>
+          </>
+        )}
         {target.action === 'CLOSE' && (
           <Form.Item name="reason" label="关闭原因" rules={[{ required: true, message: '请选择关闭原因' }]}>
             <Select options={[
@@ -348,11 +423,11 @@ function ActionModalContent({ target, onClose }: { target: ActionTarget; onClose
             <Select options={[{ value: 'RESTORED', label: '已恢复，可继续观测' }, { value: 'RETIRED', label: '永久退役' }]} />
           </Form.Item>
         )}
-        {(needsComment || target.action === 'VERIFY') && (
+        {(needsComment || target.action === 'VERIFY' || target.action === 'SWITCH_CONTENT_VERSION') && (
           <Form.Item
             name="comment"
             label={target.action === 'VERIFY' ? '核验说明' : '操作说明'}
-            rules={needsComment ? [{ required: true, whitespace: true, message: '请输入说明' }] : undefined}
+            rules={needsComment || target.action === 'SWITCH_CONTENT_VERSION' ? [{ required: true, whitespace: true, message: '请输入说明' }] : undefined}
           >
             <Input.TextArea rows={3} placeholder={target.action === 'VERIFY' ? '核验失败时必须说明原因' : undefined} />
           </Form.Item>
@@ -373,14 +448,17 @@ function DetailDrawer({
   selected,
   onClose,
   onAction,
+  onOpenDetail,
   restoreFocus,
 }: {
   kind: ResourceKind | null;
   selected: string | null;
   onClose: () => void;
   onAction: (target: ActionTarget) => void;
+  onOpenDetail: (kind: ResourceKind, id: string) => void;
   restoreFocus: () => void;
 }) {
+  const navigate = useNavigate();
   const screens = Grid.useBreakpoint();
   const openCompletedRef = useRef(false);
   const [closingSelection, setClosingSelection] = useState<{ selected: string; kind: ResourceKind } | null>(null);
@@ -460,6 +538,54 @@ function DetailDrawer({
     );
   }
   const data = activeKind === 'work' ? work.data : activeKind === 'article' ? article.data : issue.data;
+  let actions = null;
+  if (activeKind === 'work' && work.data) {
+    const primaryAction = workTaskActions[work.data.primary_task];
+    if (primaryAction || work.data.available_actions.length) {
+      actions = (
+        <ActionButtons
+          resource={work.data}
+          primaryLabel={workTaskLabels[work.data.primary_task]}
+          primaryAction={primaryAction}
+          accessibleLabel={work.data.content_title}
+          onPrimary={() => primaryAction && onAction({ kind: 'work', resource: work.data!, action: primaryAction })}
+          onAction={(action) => onAction({ kind: 'work', resource: work.data!, action: action as WorkAction })}
+        />
+      );
+    }
+  } else if (activeKind === 'article' && article.data && article.data.primary_task !== 'VIEW_HISTORY') {
+    actions = (
+      <ActionButtons
+        resource={article.data}
+        primaryLabel={articleTaskLabels[article.data.primary_task]}
+        primaryAction={null}
+        accessibleLabel={article.data.actual_title}
+        onPrimary={() => {
+          if (article.data?.primary_task === 'START_PRODUCT_OBSERVATION') {
+            navigate(`/observations?product_id=${article.data.product_id}&create=true`);
+          } else if (article.data?.open_issue_id) {
+            onOpenDetail('issue', article.data.open_issue_id);
+          }
+        }}
+        onAction={(action) => onAction({ kind: 'article', resource: article.data!, action: action as 'OPEN_ISSUE' })}
+      />
+    );
+  } else if (activeKind === 'issue' && issue.data && issue.data.primary_task !== 'VIEW_RESOLUTION') {
+    const primaryAction = issueTaskActions[issue.data.primary_task];
+    actions = (
+      <ActionButtons
+        resource={issue.data}
+        primaryLabel={issueTaskLabels[issue.data.primary_task]}
+        primaryAction={primaryAction}
+        accessibleLabel={`内容问题 ${issue.data.content_title}`}
+        onPrimary={() => {
+          if (primaryAction) onAction({ kind: 'issue', resource: issue.data!, action: primaryAction });
+          else if (issue.data?.repair_task_id) navigate(`/tasks/${issue.data.repair_task_id}`);
+        }}
+        onAction={(action) => onAction({ kind: 'issue', resource: issue.data!, action: action as IssueAction })}
+      />
+    );
+  }
   return (
     <Drawer
       rootClassName="publication-drawer-root"
@@ -481,13 +607,7 @@ function DetailDrawer({
           restoreFocus();
         }
       }}
-      extra={data && (
-        <ActionButtons
-          resource={data}
-          label={data.content_title}
-          onAction={(action) => onAction({ kind: activeKind, resource: data, action } as ActionTarget)}
-        />
-      )}
+      extra={data ? actions : null}
     >
       {content}
     </Drawer>
@@ -495,6 +615,8 @@ function DetailDrawer({
 }
 
 export function PublicationsPage() {
+  const { message } = App.useApp();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [actionTarget, setActionTarget] = useState<ActionTarget | null>(null);
   const screens = Grid.useBreakpoint();
@@ -521,6 +643,66 @@ export function PublicationsPage() {
     setSearchParams(next);
   };
   const openDetail = (kind: ResourceKind, id: string) => updateUrl({ kind, selected: id });
+  const workActions = (row: WorkItem) => {
+    const primaryAction = workTaskActions[row.primary_task];
+    return (
+      <ActionButtons
+        resource={row}
+        primaryLabel={workTaskLabels[row.primary_task]}
+        primaryAction={primaryAction}
+        accessibleLabel={row.content_title}
+        onPrimary={() => primaryAction
+          ? setActionTarget({ kind: 'work', resource: row, action: primaryAction })
+          : openDetail('work', row.id)}
+        onAction={(action) => setActionTarget({ kind: 'work', resource: row, action: action as WorkAction })}
+      />
+    );
+  };
+  const articleActions = (row: ArticleItem) => (
+    <ActionButtons
+      resource={row}
+      primaryLabel={articleTaskLabels[row.primary_task]}
+      primaryAction={null}
+      accessibleLabel={row.actual_title}
+      onPrimary={() => {
+        if (row.primary_task === 'START_PRODUCT_OBSERVATION') {
+          navigate(`/observations?product_id=${row.product_id}&create=true`);
+        } else if (row.primary_task === 'HANDLE_CONTENT_ISSUE') {
+          if (row.open_issue_id) openDetail('issue', row.open_issue_id);
+          else void message.error('发布成果缺少开放问题标识，无法进入处理工作区');
+        } else openDetail('article', row.id);
+      }}
+      onAction={(action) => setActionTarget({ kind: 'article', resource: row, action: action as 'OPEN_ISSUE' })}
+    />
+  );
+  const issueActions = (row: IssueItem) => {
+    const primaryAction = issueTaskActions[row.primary_task];
+    return (
+      <ActionButtons
+        resource={row}
+        primaryLabel={issueTaskLabels[row.primary_task]}
+        primaryAction={primaryAction}
+        accessibleLabel={`内容问题 ${row.content_title}`}
+        onPrimary={() => {
+          if (primaryAction) setActionTarget({ kind: 'issue', resource: row, action: primaryAction });
+          else if (row.primary_task === 'CONTINUE_REPAIR' && row.repair_task_id) navigate(`/tasks/${row.repair_task_id}`);
+          else if (row.primary_task === 'VIEW_RESOLUTION') openDetail('issue', row.id);
+          else void message.error('内容问题缺少修复任务标识，无法继续处理');
+        }}
+        onAction={(action) => setActionTarget({ kind: 'issue', resource: row, action: action as IssueAction })}
+      />
+    );
+  };
+  const readyActions = (row: ReadyItem) => (
+    <ActionButtons
+      resource={row}
+      primaryLabel="开始发布"
+      primaryAction="START"
+      accessibleLabel={row.content_version.title}
+      onPrimary={() => setActionTarget({ kind: 'ready', resource: row, action: 'START' })}
+      onAction={() => setActionTarget({ kind: 'ready', resource: row, action: 'START' })}
+    />
+  );
   const summary = useQuery({
     queryKey: queryKeys.publications.summary,
     queryFn: async () => unwrap(await api.GET('/api/v1/publication-workbench-summary')),
@@ -559,14 +741,14 @@ export function PublicationsPage() {
     { title: '当前阶段', dataIndex: 'status', width: 128, render: (status: string) => <StatusTag status={status} /> },
     { title: '最近情况', width: 126, render: (_, row) => row.latest_verification_outcome ? <StatusTag status={row.latest_verification_outcome} /> : '尚未核验' },
     { title: '更新时间', dataIndex: 'updated_at', width: 156, render: formatDateTime },
-    { title: '操作', width: 168, fixed: 'right', render: (_, row) => <ActionButtons resource={row} label={row.content_title} onAction={(action) => setActionTarget({ kind: 'work', resource: row, action: action as WorkAction })} /> },
+    { title: '操作', width: 168, fixed: 'right', render: (_, row) => workActions(row) },
   ];
   const articleColumns: TableColumnsType<ArticleItem> = [
     { title: '发布成果', render: (_, row) => <Tooltip title={row.actual_title} trigger={['hover', 'focus']}><Button {...focusReturnTargetProps} className="publication-table-title table-cell-ellipsis" type="link" onClick={() => openDetail('article', row.id)}>{row.actual_title}</Button></Tooltip> },
     { title: '平台 / 账号', width: 210, render: (_, row) => <TableCellText text={`${row.platform_profile_name} · ${row.platform_account_label}`} /> },
     { title: '首次核验', dataIndex: 'verified_at', width: 156, render: formatDateTime },
     { title: '健康状态', width: 112, render: (_, row) => <StatusTag status={row.retired ? 'RETIRED' : row.has_open_issue ? 'OPEN' : 'COMPLETED'} /> },
-    { title: '操作', width: 154, fixed: 'right', render: (_, row) => <ActionButtons resource={row} label={row.actual_title} onAction={(action) => setActionTarget({ kind: 'article', resource: row, action: action as 'OPEN_ISSUE' })} /> },
+    { title: '操作', width: 154, fixed: 'right', render: (_, row) => articleActions(row) },
   ];
   const issueColumns: TableColumnsType<IssueItem> = [
     { title: '内容问题', render: (_, row) => <Tooltip title={`${row.content_title}：${row.description}`} trigger={['hover', 'focus']}><Button {...focusReturnTargetProps} className="publication-table-title table-cell-ellipsis" type="link" onClick={() => openDetail('issue', row.id)}>{row.content_title}</Button></Tooltip> },
@@ -574,7 +756,7 @@ export function PublicationsPage() {
     { title: '状态', dataIndex: 'status', width: 100, render: (status: string) => <StatusTag status={status} /> },
     { title: '打开时间', dataIndex: 'opened_at', width: 156, render: formatDateTime },
     { title: '修复任务', width: 108, render: (_, row) => row.repair_task_id ? <Link to={`/tasks/${row.repair_task_id}`}>查看任务</Link> : '未创建' },
-    { title: '操作', width: 168, fixed: 'right', render: (_, row) => <ActionButtons resource={row} label={`内容问题 ${row.content_title}`} onAction={(action) => setActionTarget({ kind: 'issue', resource: row, action: action as IssueAction })} /> },
+    { title: '操作', width: 168, fixed: 'right', render: (_, row) => issueActions(row) },
   ];
 
   const workCollection = works.isLoading ? <QueryLoading label="正在加载发布工作" /> : works.error
@@ -589,7 +771,7 @@ export function PublicationsPage() {
             </header>
             <div className="publication-card-meta"><span>{row.platform_profile_name} · {row.platform_account_label}</span><time dateTime={row.updated_at}>{formatDateTime(row.updated_at)}</time></div>
             <p>{row.latest_verification_outcome === 'FAILED' ? '上次核验失败，仍需复核公开页面。' : row.latest_verification_outcome ? `最近核验：${row.latest_verification_outcome}` : '尚未核验，按当前推荐动作继续处理。'}</p>
-            <footer><ActionButtons resource={row} label={row.content_title} onAction={(action) => setActionTarget({ kind: 'work', resource: row, action: action as WorkAction })} /></footer>
+            <footer>{workActions(row)}</footer>
           </article>
         ))}
         <Pagination hideOnSinglePage current={worksQueryPage} pageSize={PAGE_SIZE} total={works.data?.total ?? 0} showSizeChanger={false} onChange={(next) => updateUrl({ [tab === 'history' ? 'page' : 'work_page']: String(next), selected: null, kind: null })} />
@@ -612,7 +794,7 @@ export function PublicationsPage() {
             </header>
             <div className="publication-card-meta"><StatusTag status={row.kind} compact /><time dateTime={row.opened_at}>{formatDateTime(row.opened_at)}</time></div>
             <p>{row.description}</p>
-            <footer><ActionButtons resource={row} label={`内容问题 ${row.content_title}`} onAction={(action) => setActionTarget({ kind: 'issue', resource: row, action: action as IssueAction })} /></footer>
+            <footer>{issueActions(row)}</footer>
           </article>
         ))}
         <Pagination hideOnSinglePage current={issuesQueryPage} pageSize={PAGE_SIZE} total={issues.data?.total ?? 0} showSizeChanger={false} onChange={(next) => updateUrl({ [tab === 'history' ? 'page' : 'issue_page']: String(next), selected: null, kind: null })} />
@@ -632,7 +814,7 @@ export function PublicationsPage() {
             <header><strong>{row.content_version.title} · V{row.content_version.version}</strong><StatusTag status={row.content_version.status} /></header>
             <div className="publication-card-meta"><span>{row.platform_profile_name}</span><span>{row.matching_accounts.length} 个可用账号</span></div>
             <p>内容已批准，可选择匹配账号开始发布。</p>
-            <footer><ActionButtons resource={row} label={row.content_version.title} onAction={(action) => setActionTarget({ kind: 'ready', resource: row, action: action as 'START' })} /></footer>
+            <footer>{readyActions(row)}</footer>
           </article>
         ))}
       </div>
@@ -649,7 +831,7 @@ export function PublicationsPage() {
             { title: '内容', render: (_, row) => <TableCellText text={`${row.content_version.title} · V${row.content_version.version}`} /> },
             { title: '目标平台', dataIndex: 'platform_profile_name', width: 200, render: (value: string) => <TableCellText text={value} /> },
             { title: '可用账号', width: 100, render: (_, row) => `${row.matching_accounts.length} 个` },
-            { title: '操作', width: 132, fixed: 'right', render: (_, row) => <ActionButtons resource={row} label={row.content_version.title} onAction={(action) => setActionTarget({ kind: 'ready', resource: row, action: action as 'START' })} /> },
+            { title: '操作', width: 132, fixed: 'right', render: (_, row) => readyActions(row) },
           ]}
         />
       </TableRegion>
@@ -664,7 +846,7 @@ export function PublicationsPage() {
             <header><Button {...focusReturnTargetProps} type="link" onClick={() => openDetail('article', row.id)}>{row.actual_title}</Button><StatusTag status={row.retired ? 'RETIRED' : row.has_open_issue ? 'OPEN' : 'COMPLETED'} /></header>
             <div className="publication-card-meta"><span>{row.platform_profile_name} · {row.platform_account_label}</span><time dateTime={row.verified_at}>{formatDateTime(row.verified_at)}</time></div>
             <p>核验通过形成的只读发布成果。</p>
-            <footer><ActionButtons resource={row} label={row.actual_title} onAction={(action) => setActionTarget({ kind: 'article', resource: row, action: action as 'OPEN_ISSUE' })} /></footer>
+            <footer>{articleActions(row)}</footer>
           </article>
         ))}
         <Pagination hideOnSinglePage current={page} pageSize={PAGE_SIZE} total={articles.data?.total ?? 0} showSizeChanger={false} onChange={(next) => updateUrl({ page: String(next), selected: null, kind: null })} />
@@ -722,7 +904,7 @@ export function PublicationsPage() {
           {historyStatus === 'CLOSED' ? workCollection : issueCollection}
         </section>}
       </Card>
-      <DetailDrawer kind={selectedKind} selected={selected} onClose={() => updateUrl({ selected: null, kind: null })} onAction={setActionTarget} restoreFocus={restoreFocus} />
+      <DetailDrawer kind={selectedKind} selected={selected} onClose={() => updateUrl({ selected: null, kind: null })} onAction={setActionTarget} onOpenDetail={openDetail} restoreFocus={restoreFocus} />
       <ActionModal target={actionTarget} onClose={() => setActionTarget(null)} />
     </div>
   );

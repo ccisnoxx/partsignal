@@ -48,10 +48,12 @@ const channel = {
   latest_test_status: 'PASSED' as const, last_tested_at: '2026-07-13T09:00:00+08:00',
   created_by: 'user-1', created_at: '2026-07-13T08:00:00+08:00', updated_at: '2026-07-13T08:00:00+08:00',
   headers: [
-    { id: 'header-1', name: 'X-Public', is_sensitive: false, is_configured: true, available_actions: ['UPDATE', 'DELETE'] as const, value: 'public-value' },
-    { id: 'header-2', name: 'X-Secret', is_sensitive: true, is_configured: true, available_actions: ['UPDATE', 'DELETE'] as const, value: null },
+    { id: 'header-1', name: 'X-Public', is_sensitive: false, is_configured: true, primary_task: 'EDIT_HEADER' as const, available_actions: ['UPDATE', 'DELETE'] as const, value: 'public-value' },
+    { id: 'header-2', name: 'X-Secret', is_sensitive: true, is_configured: true, primary_task: 'RECONFIGURE_HEADER' as const, available_actions: ['UPDATE', 'DELETE'] as const, value: null },
   ],
   available_actions: ['UPDATE', 'REPLACE_API_KEY', 'DISABLE', 'DELETE', 'DISCOVER_MODELS', 'CREATE_HEADER', 'CREATE_MODEL'] as const,
+  workflow_stage: 'RUNNING' as const,
+  primary_task: 'VIEW_RUNTIME' as const,
   enabled_models: [{ display_name: '内容生成模型', model_id: 'model-controlled' }],
 };
 const channelSummary = {
@@ -60,6 +62,8 @@ const channelSummary = {
   api_key_configured: channel.api_key_configured, header_count: channel.headers.length, enabled_model_count: 1,
   latest_test_status: channel.latest_test_status, last_tested_at: channel.last_tested_at, revision: channel.revision,
   available_actions: channel.available_actions,
+  workflow_stage: channel.workflow_stage,
+  primary_task: channel.primary_task,
 };
 const otherChannelSummary = {
   ...channelSummary,
@@ -71,9 +75,11 @@ const model = {
   id: 'model-1', channel_id: channel.id, display_name: '内容生成模型', model_id: 'model-controlled', request_parameters: { temperature: 0.2 },
   is_enabled: true, test_status: 'PASSED', last_tested_at: '2026-07-13T09:00:00+08:00', last_test_error_summary: null,
   available_actions: ['UPDATE', 'TEST', 'DISABLE', 'DELETE'] as const,
+  workflow_stage: 'RUNNING' as const,
+  primary_task: 'VIEW_MODEL_RUNTIME' as const,
   revision: 2, created_by: 'user-1', created_at: '2026-07-13T08:00:00+08:00', updated_at: '2026-07-13T09:00:00+08:00',
 };
-const platformType = { id: 'type-1', name: '技术社区', slug: 'technical-community', available_actions: ['UPDATE'] as const, revision: 0, created_by: 'user-1', created_at: channel.created_at };
+const platformType = { id: 'type-1', name: '技术社区', slug: 'technical-community', primary_task: 'EDIT_CATEGORY' as const, available_actions: ['UPDATE'] as const, revision: 0, created_by: 'user-1', created_at: channel.created_at };
 const platformPrompt = {
   id: 'prompt-shared',
   name: '技术文章 Prompt',
@@ -96,8 +102,8 @@ const unusedPlatformPrompt = {
   bound_platforms: [],
 };
 const platforms = [
-  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: null, logo: null, revision: 0, is_active: false, platform_prompt: null, configuration_complete: false, platform_account_count: 0, available_actions: ['UPDATE', 'ENABLE', 'DELETE'] as const, updated_at: null },
-  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, available_actions: ['UPDATE', 'DISABLE'] as const, updated_at: channel.updated_at },
+  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: null, logo: null, revision: 0, is_active: false, platform_prompt: null, configuration_complete: false, platform_account_count: 0, workflow_stage: 'DISABLED' as const, primary_task: 'ENABLE_PLATFORM' as const, available_actions: ['UPDATE', 'ENABLE', 'DELETE'] as const, updated_at: null },
+  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, workflow_stage: 'OPERATIONAL' as const, primary_task: 'VIEW_PLATFORM_OPERATION' as const, available_actions: ['UPDATE', 'DISABLE'] as const, updated_at: channel.updated_at },
 ];
 const humanizationPrompt = { template_markdown: '保持事实，只改善表达。', available_actions: ['UPDATE'] as const, revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
 let channelItems = [channelSummary];
@@ -108,10 +114,10 @@ let generationJobs: Schema<'GenerationJob'>[] = [];
 const previewTask: Schema<'ContentTaskListItem'> = {
   id: 'task-preview', product_id: 'product-1', fact_version_id: 'fact-1', platform_profile_id: 'profile-ready',
   query_topic_id: null,
-  source_published_content_issue_id: null, available_actions: ['CANCEL'], status: 'OPEN', revision: 1, created_by: 'user-1', created_at: channel.created_at,
+  source_published_content_issue_id: null, current_content_version_id: null, workflow_stage: 'NO_DRAFT', primary_task: 'CREATE_FIRST_DRAFT', available_actions: ['CREATE_GENERATION_JOB', 'CANCEL'], status: 'OPEN', revision: 1, created_by: 'user-1', created_at: channel.created_at,
   product: { id: 'product-1', brand: 'PartSignal', part_number: 'PS-100' }, platform: { id: 'profile-ready', name: '工程师社区', website_url: platforms[1]!.website_url, logo: platforms[1]!.logo }, latest_generation_status: null,
 };
-const previewSource: Schema<'ContentVersion'> = { id: 'version-source', task_id: previewTask.id, fact_version_id: 'fact-1', source_job_id: 'job-source', based_on_id: null, version: 1, source_type: 'AI', title: '源草稿', summary: '源摘要', body_markdown: '源正文', tags: ['源'], content_hash: 'hash-source', status: 'DRAFT', available_actions: [], revision: 0, quality_issues: [], created_by: 'user-1', created_at: channel.created_at };
+const previewSource: Schema<'ContentVersion'> = { id: 'version-source', task_id: previewTask.id, fact_version_id: 'fact-1', source_job_id: 'job-source', based_on_id: null, version: 1, source_type: 'AI', title: '源草稿', summary: '源摘要', body_markdown: '源正文', tags: ['源'], content_hash: 'hash-source', status: 'DRAFT', workflow_stage: 'CURRENT_DRAFT', primary_task: 'EDIT_AND_SUBMIT_REVIEW', available_actions: ['CREATE_HUMANIZATION_JOB'], revision: 0, quality_issues: [], created_by: 'user-1', created_at: channel.created_at };
 const previewContent: Schema<'ContentVersion'> = { ...previewSource, id: 'version-preview', source_job_id: 'job-preview', based_on_id: previewSource.id, version: 2, title: '真实预览标题', summary: '真实预览摘要', body_markdown: '[危险链接](javascript:alert(1))\n\n<script>globalThis.compromised=true</script>\n\n安全正文', tags: ['真实', '草稿'], content_hash: 'hash-preview' };
 
 function result(data: unknown) {
@@ -218,12 +224,12 @@ beforeEach(() => {
       preview: { url: 'https://objects.example.invalid/platform-logo.png', expires_at: channel.updated_at },
     });
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') {
-      const job: Schema<'GenerationJob'> = { id: 'job-preview', content_task_id: previewTask.id, job_type: 'GENERATE', source_content_version_id: null, status: 'PENDING', available_actions: [], attempt_count: 1, content_version_id: null, created_at: channel.created_at };
+      const job: Schema<'GenerationJob'> = { id: 'job-preview', content_task_id: previewTask.id, job_type: 'GENERATE', source_content_version_id: null, status: 'PENDING', workflow_stage: 'IN_PROGRESS', primary_task: 'VIEW_EXECUTION_PROGRESS', available_actions: [], attempt_count: 1, content_version_id: null, created_at: channel.created_at };
       generationJobs = [{ ...job, status: 'SUCCEEDED', content_version_id: previewContent.id }];
       return result(job);
     }
     if (path === '/api/v1/content-versions/{content_version_id}/humanization-jobs') {
-      const job: Schema<'GenerationJob'> = { id: 'job-humanize', content_task_id: previewTask.id, job_type: 'HUMANIZE', source_content_version_id: previewSource.id, status: 'PENDING', available_actions: [], attempt_count: 1, content_version_id: null, created_at: channel.created_at };
+      const job: Schema<'GenerationJob'> = { id: 'job-humanize', content_task_id: previewTask.id, job_type: 'HUMANIZE', source_content_version_id: previewSource.id, status: 'PENDING', workflow_stage: 'IN_PROGRESS', primary_task: 'VIEW_EXECUTION_PROGRESS', available_actions: [], attempt_count: 1, content_version_id: null, created_at: channel.created_at };
       generationJobs = [{ ...job, status: 'SUCCEEDED', content_version_id: previewContent.id }];
       return result(job);
     }
@@ -668,7 +674,7 @@ test('渠道工作区从 URL 恢复服务端筛选分页并自动选择首条渠
   expect(screen.getByRole('columnheader', { name: 'Header 数量' })).toBeInTheDocument();
   const channelTable = screen.getByRole('region', { name: 'AI 渠道列表' });
   expect(channelTable.querySelector('.status-tag-compact')).not.toBeNull();
-  expect(within(channelTable).getByRole('button', { name: '配置：受控模型渠道' })).toBeInTheDocument();
+  expect(within(channelTable).getByRole('button', { name: '查看运行情况' })).toBeInTheDocument();
   expect(within(channelTable).queryByRole('link', { name: /受控模型渠道/ })).not.toBeInTheDocument();
 });
 

@@ -282,7 +282,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0034_publication_redesign",)
+            assert cursor.fetchone() == ("0035_business_workflow",)
             cursor.execute(
                 "SELECT tablename FROM pg_tables "
                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
@@ -435,10 +435,10 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
             text=True,
         )
         assert downgrade.returncode != 0
-        assert "0034 无法安全降级" in downgrade.stdout + downgrade.stderr
+        assert "0035 无法安全降级" in downgrade.stdout + downgrade.stderr
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0034_publication_redesign",)
+            assert cursor.fetchone() == ("0035_business_workflow",)
 
 
 @pytest.mark.integration
@@ -3480,3 +3480,238 @@ def test_publication_redesign_migration_blocks_legacy_data_atomically() -> None:
             assert cursor.fetchone() == (1,)
             cursor.execute("SELECT to_regclass('public.publication_works')")
             assert cursor.fetchone() == (None,)
+
+
+def _seed_business_workflow_base(test_url: str) -> dict[str, uuid.UUID]:
+    """为 0035 迁移构造最小且真实的事实、内容和平台关系。"""
+    ids = {
+        name: uuid.uuid4()
+        for name in (
+            "actor",
+            "product",
+            "fact",
+            "platform_type",
+            "profile",
+            "account",
+            "task",
+            "content",
+        )
+    }
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO users "
+            "(id, username, display_name, password_hash, account_type, is_active, "
+            "must_change_password, revision) "
+            "VALUES (%s, %s, '0035 迁移用户', 'hash', 'ENGINEER', true, false, 0)",
+            (ids["actor"], f"workflow-{ids['actor'].hex[:12]}"),
+        )
+        cursor.execute(
+            "INSERT INTO products "
+            "(id, part_number, normalized_part_number, brand, normalized_brand, category, "
+            "status, revision, facts_revision, facts_body_markdown, facts_classification) "
+            "VALUES (%s, '0035-MIG', %s, 'PartSignal', %s, 'TEST', "
+            "'ACTIVE', 0, 0, '迁移事实', 'PUBLIC')",
+            (
+                ids["product"],
+                f"0035-{ids['product'].hex}",
+                f"partsignal-{ids['product'].hex}",
+            ),
+        )
+        cursor.execute(
+            "INSERT INTO fact_versions "
+            "(id, product_id, version, status, body_markdown, classification, "
+            "change_summary, revision, created_by, approved_by, approved_at) "
+            "VALUES (%s, %s, 1, 'APPROVED', '迁移事实', 'PUBLIC', "
+            "'0035 迁移测试', 0, %s, %s, now())",
+            (ids["fact"], ids["product"], ids["actor"], ids["actor"]),
+        )
+        cursor.execute(
+            "INSERT INTO platform_types (id, name, slug, revision, created_by) "
+            "VALUES (%s, '0035 迁移类型', %s, 0, %s)",
+            (
+                ids["platform_type"],
+                f"0035-type-{ids['platform_type'].hex[:12]}",
+                ids["actor"],
+            ),
+        )
+        cursor.execute(
+            "INSERT INTO platform_profiles "
+            "(id, name, slug, allowed_domains, platform_type_id, revision, is_active) "
+            "VALUES (%s, '0035 迁移平台', %s, ARRAY['migration.invalid'], %s, 0, true)",
+            (
+                ids["profile"],
+                f"0035-profile-{ids['profile'].hex[:12]}",
+                ids["platform_type"],
+            ),
+        )
+        cursor.execute(
+            "INSERT INTO platform_accounts "
+            "(id, platform_profile_id, label, account_identifier, is_active, revision) "
+            "VALUES (%s, %s, '0035 迁移账号', %s, true, 0)",
+            (ids["account"], ids["profile"], f"account-{ids['account'].hex[:12]}"),
+        )
+        cursor.execute(
+            "INSERT INTO content_tasks "
+            "(id, product_id, fact_version_id, platform_profile_id, status, revision, "
+            "created_by) VALUES (%s, %s, %s, %s, 'OPEN', 0, %s)",
+            (
+                ids["task"],
+                ids["product"],
+                ids["fact"],
+                ids["profile"],
+                ids["actor"],
+            ),
+        )
+        cursor.execute(
+            "INSERT INTO content_versions "
+            "(id, task_id, fact_version_id, version, source_type, title, summary, "
+            "body_markdown, tags, content_hash, status, revision, quality_issues, "
+            "change_summary, created_by) "
+            "VALUES (%s, %s, %s, 1, 'HUMAN', '迁移内容', '迁移摘要', '迁移正文', "
+            "ARRAY['迁移'], %s, 'APPROVED', 0, '[]'::jsonb, '0035 迁移内容', %s)",
+            (
+                ids["content"],
+                ids["task"],
+                ids["fact"],
+                "a" * 64,
+                ids["actor"],
+            ),
+        )
+        connection.commit()
+    return ids
+
+
+@pytest.mark.integration
+def test_business_workflow_migration_backfills_and_guards_authoritative_owners() -> None:
+    """0035 确定性回填当前版本、发布来源与核验版本，并建立最终守卫。"""
+    with temporary_database("partsignal_business_workflow") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0034_publication_redesign")
+        ids = _seed_business_workflow_base(test_url)
+        work_id, verification_id = uuid.uuid4(), uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO publication_works "
+                "(id, idempotency_key, content_version_id, platform_profile_id, "
+                "platform_account_id, content_hash, section_url, actual_title, final_url, "
+                "published_at, status, revision, created_by) "
+                "VALUES (%s, %s, %s, %s, %s, %s, 'https://migration.invalid/section', "
+                "NULL, NULL, NULL, 'PREPARING', 0, %s)",
+                (
+                    work_id,
+                    f"work-{work_id.hex}",
+                    ids["content"],
+                    ids["profile"],
+                    ids["account"],
+                    "a" * 64,
+                    ids["actor"],
+                ),
+            )
+            cursor.execute(
+                "UPDATE publication_works SET actual_title = '迁移内容', "
+                "final_url = 'https://migration.invalid/article', published_at = now(), "
+                "status = 'AWAITING_VERIFICATION', revision = 1 WHERE id = %s",
+                (work_id,),
+            )
+            cursor.execute(
+                "INSERT INTO publication_verifications "
+                "(id, publication_work_id, outcome, actual_title_snapshot, "
+                "final_url_snapshot, published_at_snapshot, comment, actor_id) "
+                "SELECT %s, id, 'FAILED', actual_title, final_url, published_at, "
+                "'迁移失败核验', %s FROM publication_works WHERE id = %s",
+                (verification_id, ids["actor"], work_id),
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "0035_business_workflow")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT current_content_version_id FROM content_tasks WHERE id = %s",
+                (ids["task"],),
+            )
+            assert cursor.fetchone() == (ids["content"],)
+            cursor.execute(
+                "SELECT content_task_id FROM publication_works WHERE id = %s",
+                (work_id,),
+            )
+            assert cursor.fetchone() == (ids["task"],)
+            cursor.execute(
+                "SELECT content_version_id FROM publication_verifications WHERE id = %s",
+                (verification_id,),
+            )
+            assert cursor.fetchone() == (ids["content"],)
+
+            with pytest.raises(psycopg.errors.CheckViolation):
+                cursor.execute(
+                    "INSERT INTO fact_versions "
+                    "(id, product_id, version, status, body_markdown, classification, "
+                    "change_summary, revision, created_by) "
+                    "VALUES (%s, %s, 2, 'DRAFT', '禁止草稿', 'PUBLIC', '禁止草稿', 0, %s)",
+                    (uuid.uuid4(), ids["product"], ids["actor"]),
+                )
+            connection.rollback()
+
+            downgrade = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "alembic",
+                    "downgrade",
+                    "0034_publication_redesign",
+                ],
+                check=False,
+                env=env,
+                cwd=backend_dir,
+                capture_output=True,
+                text=True,
+            )
+            assert downgrade.returncode != 0
+            assert "0035 无法安全降级" in downgrade.stdout + downgrade.stderr
+
+
+@pytest.mark.integration
+def test_business_workflow_migration_blocks_ambiguous_fact_history_atomically() -> None:
+    """0035 对事实草稿和同产品多条待审核记录返回 55000，且不推进 revision。"""
+    with temporary_database("partsignal_business_workflow_blocked") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0034_publication_redesign")
+        ids = _seed_business_workflow_base(test_url)
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.executemany(
+                "INSERT INTO fact_versions "
+                "(id, product_id, version, status, body_markdown, classification, "
+                "change_summary, revision, created_by) "
+                "VALUES (%s, %s, %s, %s, '歧义事实', 'PUBLIC', '歧义测试', 0, %s)",
+                [
+                    (uuid.uuid4(), ids["product"], 2, "DRAFT", ids["actor"]),
+                    (uuid.uuid4(), ids["product"], 3, "PENDING_REVIEW", ids["actor"]),
+                    (uuid.uuid4(), ids["product"], 4, "PENDING_REVIEW", ids["actor"]),
+                ],
+            )
+            connection.commit()
+
+        result = run_alembic(
+            env,
+            backend_dir,
+            "0035_business_workflow",
+            check=False,
+        )
+        output = result.stdout + result.stderr
+        assert result.returncode != 0
+        assert "0035 业务主线存在歧义" in output
+        assert "fact_versions.DRAFT=1" in output
+        assert "fact_versions.multiple_pending=1" in output
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0034_publication_redesign",)
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'content_tasks' AND column_name = 'current_content_version_id'"
+            )
+            assert cursor.fetchone() is None

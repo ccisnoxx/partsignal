@@ -26,16 +26,18 @@ async function hasSharedData(page: Page): Promise<boolean> {
   const tasks = await body<{ items: SharedTask[] }>(await page.request.get('/api/v1/content-tasks'));
   for (const task of tasks.items.filter((item) => item.product.part_number.startsWith('VISUAL-'))) {
     const suffix = task.product.part_number.slice('VISUAL-'.length);
-    const [versions, jobs, candidates, observations, channels] = await Promise.all([
+    const [versions, jobs, candidates, observations, channels, issues] = await Promise.all([
       body<{ items: unknown[] }>(await page.request.get(`/api/v1/content-tasks/${task.id}/content-versions`)),
       body<{ items: unknown[] }>(await page.request.get(`/api/v1/content-tasks/${task.id}/generation-jobs`)),
       body<{ items: Array<{ published_article_id: string }> }>(await page.request.get(`/api/v1/geo-observation-publications?product_id=${task.product.id}`)),
       body<{ items: unknown[] }>(await page.request.get(`/api/v1/geo-observations?product_id=${task.product.id}&page_size=100`)),
       body<{ items: Array<{ id: string; name: string }> }>(await page.request.get(`/api/v1/ai-channels?q=${encodeURIComponent(`共享视觉渠道 ${suffix}`)}&page=1&page_size=50`)),
+      body<{ items: Array<{ published_article_id: string }> }>(await page.request.get('/api/v1/published-content-issues?status=RESOLVED&page=1&page_size=100')),
     ]);
     const channel = channels.items.find((item) => item.name === `共享视觉渠道 ${suffix}`);
     const candidate = candidates.items[0];
-    if (!versions.items.length || !jobs.items.length || !candidate || !observations.items.length || !channel) continue;
+    if (!versions.items.length || !jobs.items.length || !candidate || !observations.items.length || !channel
+      || !issues.items.some((item) => item.published_article_id === candidate.published_article_id)) continue;
 
     const [detail, models, logs, insights] = await Promise.all([
       body<{ headers: unknown[] }>(await page.request.get(`/api/v1/ai-channels/${channel.id}`)),
@@ -74,7 +76,7 @@ test('准备共享视觉验收数据', async ({ page }) => {
     brand: 'PartSignal',
     category: 'TEST',
   });
-  await body(await page.request.put(`/api/v1/products/${product.id}/facts`, {
+  const savedFacts = await body<{ revision: number }>(await page.request.put(`/api/v1/products/${product.id}/facts`, {
     headers: { 'X-CSRF-Token': csrf },
     data: {
       expected_revision: 0,
@@ -84,21 +86,15 @@ test('准备共享视觉验收数据', async ({ page }) => {
   }));
   const factVersion = await post<{ id: string; revision: number }>(
     page,
-    `/api/v1/products/${product.id}/fact-versions`,
+    `/api/v1/products/${product.id}/fact-review-submissions`,
     csrf,
-    { change_summary: '创建共享视觉验收事实快照' },
-  );
-  const submittedFact = await post<{ revision: number }>(
-    page,
-    `/api/v1/fact-versions/${factVersion.id}/submit`,
-    csrf,
-    { expected_revision: factVersion.revision, comment: '提交共享视觉验收事实' },
+    { expected_revision: savedFacts.revision, change_summary: '提交共享视觉验收事实' },
   );
   await post(
     page,
     `/api/v1/fact-versions/${factVersion.id}/approve`,
     csrf,
-    { expected_revision: submittedFact.revision, comment: '批准共享视觉验收事实' },
+    { expected_revision: factVersion.revision, comment: '批准共享视觉验收事实' },
   );
 
   const platformType = await post<{ id: string }>(page, '/api/v1/platform-types', csrf, {
@@ -127,13 +123,6 @@ test('准备共享视觉验收数据', async ({ page }) => {
       platform_profile_id: profile.id,
     },
   }));
-  const content = await post<{ id: string; revision: number }>(page, `/api/v1/content-tasks/${task.id}/manual-versions`, csrf, {
-    title: `共享视觉内容 ${suffix}`,
-    summary: '用于动态内容路由的浏览器验收。',
-    body_markdown: '不得将共享视觉验收数据用于真实选型。',
-    tags: ['e2e'],
-    change_summary: '创建共享视觉验收内容',
-  });
   const channel = await post<{ id: string; revision: number }>(page, '/api/v1/ai-channels', csrf, {
     name: `共享视觉渠道 ${suffix}`,
     description: '用于 AI 渠道列表浏览器验收',
@@ -178,6 +167,18 @@ test('准备共享视觉验收数据', async ({ page }) => {
   await expect.poll(async () => (
     await body<{ status: string }>(await page.request.get(`/api/v1/generation-jobs/${job.id}`))
   ).status, { timeout: 30_000 }).toBe('SUCCEEDED');
+  const completedJob = await body<{ content_version_id: string | null }>(
+    await page.request.get(`/api/v1/generation-jobs/${job.id}`),
+  );
+  if (!completedJob.content_version_id) throw new Error('共享视觉生成作业缺少内容版本');
+
+  const content = await post<{ id: string; revision: number }>(page, `/api/v1/content-versions/${completedJob.content_version_id}/revisions`, csrf, {
+    title: `共享视觉内容 ${suffix}`,
+    summary: '用于动态内容路由的浏览器验收。',
+    body_markdown: '不得将共享视觉验收数据用于真实选型。',
+    tags: ['e2e'],
+    change_summary: '人工核对共享视觉验收内容',
+  });
 
   const submittedContent = await post<{ revision: number }>(page, `/api/v1/content-versions/${content.id}/submit-review`, csrf, {
     expected_revision: content.revision,
@@ -264,9 +265,19 @@ test('准备共享视觉验收数据', async ({ page }) => {
         accuracy: 'ACCURATE',
       })),
       attachment_file_ids: [upload.file.id],
-      notes: '仅用于本地和 CI 的 24 表门禁验收。',
+      notes: '仅用于本地和 CI 的 25 表门禁验收。',
     });
   }
+
+  const issue = await post<{ id: string; revision: number }>(page, `/api/v1/published-articles/${candidates.items[0].published_article_id}/issues`, csrf, {
+    kind: 'CONTENT_CHANGED',
+    description: '共享视觉验收的内容问题记录。',
+  });
+  await post(page, `/api/v1/published-content-issues/${issue.id}/resolve`, csrf, {
+    outcome: 'RESTORED',
+    comment: '共享视觉验收已恢复。',
+    expected_revision: issue.revision,
+  });
 
   expect(await hasSharedData(page)).toBe(true);
 });

@@ -19,7 +19,7 @@ from app.models.product_facts import (
     Product,
 )
 from app.schemas.product_facts import (
-    CreateVersionRequest,
+    FactReviewSubmissionRequest,
     ProductCreate,
     ProductFactsDraft,
     ProductFactsDraftUpdate,
@@ -55,17 +55,52 @@ def products_out(
             )
         )
     )
+    versions = list(
+        db.scalars(
+            select(FactVersion)
+            .where(FactVersion.product_id.in_(product_ids))
+            .order_by(FactVersion.product_id, FactVersion.version.desc())
+        )
+    )
+    latest_by_product: dict[uuid.UUID, FactVersion] = {}
+    pending_by_product: dict[uuid.UUID, FactVersion] = {}
+    for version in versions:
+        latest_by_product.setdefault(version.product_id, version)
+        if version.status == "PENDING_REVIEW":
+            pending_by_product[version.product_id] = version
+
     items: list[ProductOut] = []
     for product in products:
         actions = ["UPDATE"]
         if can_delete and product.id not in referenced_ids:
             actions.append("DELETE")
+        latest = latest_by_product.get(product.id)
+        if product.status == "RETIRED":
+            workflow_stage, primary_task = "RETIRED", "VIEW_FACT_HISTORY"
+        elif not product.facts_body_markdown.strip():
+            workflow_stage, primary_task = "FACTS_EMPTY", "ENTER_FACTS"
+        elif product.id in pending_by_product:
+            workflow_stage, primary_task = "FACT_REVIEW_PENDING", "REVIEW_FACT"
+        elif latest is not None and (
+            latest.body_markdown == product.facts_body_markdown
+            and latest.classification == product.facts_classification
+        ):
+            if latest.status == "CHANGES_REQUESTED":
+                workflow_stage, primary_task = "FACT_CHANGES_REQUESTED", "REVISE_FACT"
+            elif latest.status == "APPROVED":
+                workflow_stage, primary_task = "FACT_APPROVED", "CREATE_CONTENT_TASK"
+            else:
+                workflow_stage, primary_task = "FACTS_EDITING", "SUBMIT_FACT_REVIEW"
+        else:
+            workflow_stage, primary_task = "FACTS_EDITING", "SUBMIT_FACT_REVIEW"
         payload = {
             field: getattr(product, field)
             for field in ProductOut.model_fields
-            if field != "available_actions"
+            if field not in {"available_actions", "workflow_stage", "primary_task"}
         }
         payload["available_actions"] = actions
+        payload["workflow_stage"] = workflow_stage
+        payload["primary_task"] = primary_task
         items.append(ProductOut.model_validate(payload))
     return items
 
@@ -75,11 +110,17 @@ def product_out(db: Session, product: Product, *, can_delete: bool) -> ProductOu
     return products_out(db, [product], can_delete=can_delete)[0]
 
 
-def product_facts_draft_out(product: Product) -> ProductFactsDraft:
-    """投影事实工作区保存与版本创建动作。"""
+def product_facts_draft_out(db: Session, product: Product) -> ProductFactsDraft:
+    """投影事实工作区保存与原子提交审核动作。"""
     actions = ["SAVE"]
-    if product.facts_body_markdown.strip():
-        actions.append("CREATE_VERSION")
+    has_pending = db.scalar(
+        select(FactVersion.id).where(
+            FactVersion.product_id == product.id,
+            FactVersion.status == "PENDING_REVIEW",
+        )
+    )
+    if product.status == "ACTIVE" and product.facts_body_markdown.strip() and has_pending is None:
+        actions.append("SUBMIT_REVIEW")
     return ProductFactsDraft.model_validate(
         {
             "product_id": product.id,
@@ -357,23 +398,34 @@ def replace_product_facts(
         ),
     )
     db.commit()
-    return product_facts_draft_out(product)
+    return product_facts_draft_out(db, product)
 
 
-def create_fact_version(
+def submit_fact_review(
     *,
     db: Session,
     product_id: uuid.UUID,
-    payload: CreateVersionRequest,
+    payload: FactReviewSubmissionRequest,
     actor: User,
     request_id: str,
 ) -> FactVersion:
-    """锁定产品后从非空 Markdown 工作区创建不可变事实版本。"""
+    """锁定事实工作区并直接创建一条待审核不可变快照。"""
     product = db.scalar(select(Product).where(Product.id == product_id).with_for_update())
     if product is None:
         raise not_found("产品")
+    if product.status != "ACTIVE":
+        raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能提交新的事实审核", 409)
+    if product.facts_revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "事实工作区已被其他请求修改", 409)
     if not product.facts_body_markdown.strip():
         raise AppError("VALIDATION_ERROR", "产品事实 Markdown 不能为空", 422)
+    if db.scalar(
+        select(FactVersion.id).where(
+            FactVersion.product_id == product.id,
+            FactVersion.status == "PENDING_REVIEW",
+        )
+    ) is not None:
+        raise AppError("FACT_REVIEW_PENDING", "该产品已有待审核事实版本", 409)
     next_version = (
         int(
             db.scalar(
@@ -391,21 +443,30 @@ def create_fact_version(
         body_markdown=product.facts_body_markdown,
         classification=product.facts_classification,
         change_summary=payload.change_summary,
+        status="PENDING_REVIEW",
         created_by=actor.id,
     )
     db.add(version)
     db.flush()
+    db.add(
+        FactReviewRecord(
+            fact_version_id=version.id,
+            action="submit-review",
+            comment=payload.change_summary,
+            actor_id=actor.id,
+        )
+    )
     append_audit(
         db,
         AuditEntry(
             actor_id=actor.id,
             business_module=AuditModule.PRODUCT_FACTS,
-            action="fact_version.created",
+            action="fact_version.submitted",
             target_type="FactVersion",
             target_id=version.id,
             request_id=request_id,
             outcome=AuditOutcome.SUCCESS,
-            result_message="事实版本已创建",
+            result_message="事实版本已提交审核",
             details={
                 "facts": {
                     "product_id": str(product.id),

@@ -437,6 +437,17 @@ def process_generation_job(job_id: uuid.UUID, generator: ContentGenerator | None
             )
             db.add(content)
             db.flush()
+            if job.job_type == "HUMANIZE":
+                if task.current_content_version_id != source_version_id:
+                    raise AppError(
+                        "CONTENT_VERSION_NOT_CURRENT", "自然化源版本不再是任务当前版本", 409
+                    )
+            elif task.current_content_version_id is not None:
+                raise AppError(
+                    "CONTENT_MAINLINE_EXISTS", "任务已有当前内容版本，生成结果不能覆盖主线", 409
+                )
+            task.current_content_version_id = content.id
+            task.revision += 1
             job.status = "SUCCEEDED"
             job.content_version_id = content.id
             job.finished_at = datetime.now(UTC)

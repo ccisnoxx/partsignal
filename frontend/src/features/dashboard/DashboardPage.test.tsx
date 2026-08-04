@@ -8,7 +8,7 @@ import { mockFetch } from '../../test/fetchMock';
 
 const user = {
   id: '10000000-0000-4000-8000-000000000001', username: 'reviewer', display_name: '审核员',
-  account_type: 'ENGINEER', is_active: true, must_change_password: false, available_actions: [], revision: 1, created_at: '2026-07-10T00:00:00Z',
+  account_type: 'ENGINEER', is_active: true, must_change_password: false, workflow_stage: 'ACTIVE', primary_task: 'MANAGE_USER', available_actions: [], revision: 1, created_at: '2026-07-10T00:00:00Z',
 } satisfies Schema<'User'>;
 
 const summaryData = {

@@ -292,14 +292,24 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 工作终态字段、成果、事件、核验和问题历史由触发器冻结或限制为契约允许的状态变化，任何发布业务对象 DELETE 均被拒绝。GEO 新观测只能引用没有 `OPEN` 问题且从未以 `RETIRED` 解决问题的 `PublishedArticle`；打开问题与创建观测锁定同一文章，避免资格竞态。
 
+### 0035 Business Workflow Primary Tasks
+
+版本文件 `0035_business_workflow_primary_tasks.py` 紧跟 `0034_publication_redesign`，Alembic revision 为 `0035_business_workflow`。事实版本不再保存可重新提交的 `DRAFT`：事实工作区提交原子冻结一个 `PENDING_REVIEW` 版本，每个产品至多一个待审核版本；既有草稿或多待审核等歧义数据以 PostgreSQL `55000` 阻断迁移，不猜测业务结论。
+
+`content_tasks.current_content_version_id` 是内容单主线的唯一当前指针。迁移只在每个任务的版本历史能确定唯一当前版本时回填；多个候选主线以 `55000` 阻断。当前草稿或退回版本可转为 `ABANDONED`，新修订和自然化结果通过原子更新该指针成为当前版本，旧版本保持不可变历史。数据库触发器校验当前版本必须归属同一任务，每个任务至多一个待审核内容版本。
+
+`publication_works.content_task_id` 固定发布工作的稳定任务身份并取代按内容版本唯一；首次核验成功前，工作可切换到同任务、同平台的当前批准版本。每次切换在事件中冻结前后内容版本，核验记录冻结当次内容版本，成果读取成功核验快照而不是可变工作指针。旧工作、事件和核验只有在归属可唯一确定时才回填，否则以 `55000` 阻断。
+
+`content_task_geo_sources` 按内容任务一对一冻结 GEO 异常规则、分析周期、来源文章或问题、GEO 平台和结构化依据。来源行只允许插入，不允许更新或删除；创建服务必须重新计算当前洞察并与内容任务同事务写入。该迁移包含新的不可逆业务历史，downgrade 固定以 `55000` 拒绝，恢复使用迁移前备份或前向修复。
+
 ## State Machines
 
 ```text
-FactVersion: DRAFT -> PENDING_REVIEW -> APPROVED -> RETIRED
-                               \-> CHANGES_REQUESTED -> PENDING_REVIEW
+FactVersion: PENDING_REVIEW -> APPROVED -> RETIRED
+                            \-> CHANGES_REQUESTED
 
 ContentVersion: DRAFT -> PENDING_REVIEW -> APPROVED -> SUPERSEDED
-                                  \-> CHANGES_REQUESTED -> PENDING_REVIEW
+                    \-> ABANDONED    \-> CHANGES_REQUESTED -> ABANDONED
 
 ContentTask: OPEN -> CANCELLED
              OPEN -- first successful PublicationVerification --> COMPLETED
@@ -322,7 +332,7 @@ FileRecord: PENDING -> VERIFIED | FAILED | ABORTED | DELETING
             VERIFIED | FAILED | ABORTED -> DELETING -> DELETED
 ```
 
-State changes not shown above are invalid. A rejected immutable fact or content version may be resubmitted after its editable source/workflow has been corrected, but its frozen payload is never rewritten. Content body changes still create a new immutable content version.
+State changes not shown above are invalid. A rejected immutable fact or content version is a terminal historical conclusion; correction creates a new immutable version from the editable fact workspace or current content lineage. Frozen payloads are never rewritten.
 
 ## Required Constraints
 
@@ -331,8 +341,11 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - Version numbers are unique within their owner: product fact or content task.
 - Product or content-task owner rows are locked while allocating the next version number.
 - A product has one Markdown fact workspace protected by `facts_revision`; new fact versions freeze its non-blank Markdown and classification.
+- 每个产品至多一个 `PENDING_REVIEW` 事实版本；工作区提交直接创建该不可变版本，不存在版本级草稿或原版本重提。
 - Approved fact versions permit status-only transition to `RETIRED`; all other columns are immutable.
 - Content versions permit only valid status transitions; publishable fields are immutable.
+- `content_tasks.current_content_version_id` 是内容主线唯一权威，必须为空或指向同任务版本；审核、修订、自然化、待发布资格和发布版本切换只接受当前版本。
+- 每个任务至多一个 `PENDING_REVIEW` 内容版本；放弃当前草稿或退回版本后，指针恢复到该任务最近批准版本，没有批准版本时置空。
 - `users.account_type` is the only permission source. `ADMIN` includes all `ENGINEER` abilities and exclusively manages users and configuration.
 - At least one active `ADMIN` must remain after every user account-type or active-state update.
 - 用户物理删除仅限管理员操作停用账号；会话级联清理，审计操作者按 `0027` 受约束置空，任何业务历史引用都阻断删除。用户实时 `admin_total` 统计全部 `ADMIN`，包括停用账号。
@@ -357,7 +370,8 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A publication work can reference only an approved content version whose fact is not retired at creation time.
 - A publication account profile must equal the content task's locked platform profile; both the application service and PostgreSQL enforce it.
 - A concrete platform may own multiple publication accounts, but their internal identifiers are unique by `lower(btrim(account_identifier))`; disabled accounts retain identity and historical references but are excluded from new publication candidates.
-- A publication work selects exactly one account. One content version has at most one work, and one `platform_profile_id + content_hash` has at most one non-closed work.
+- A publication work selects exactly one account. One content task has at most one work, and one `platform_profile_id + content_hash` has at most one non-closed work.
+- 非终态发布工作仅可切换到同任务、同平台的当前批准版本；切换事件记录前后版本，每次核验记录当时版本，成功成果永久读取成功核验快照。
 - Result registration requires a valid HTTP(S) URL matching the configured platform domain and may append only verified `OPERATION_SCREENSHOT` evidence. Result fields, evidence, work event and audit commit or fail together.
 - A failed verification appends an immutable snapshot and leaves the work pending in `ACTION_REQUIRED`; it never creates an article or completes/cancels the task.
 - Task completion has no public manual command. The first successful verification atomically creates the read-only `PublishedArticle` and completes the open source task; completed tasks never revert.
@@ -368,4 +382,5 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - Observation accuracy `UNJUDGEABLE` is excluded from the accuracy-rate denominator.
 - Manual GEO observations cover every currently eligible `PublishedArticle` for one product and store one independent `discovered`, `mentioned`, and optional `accuracy` result per article. Articles with an open issue or a historical `RETIRED` outcome are ineligible. Evidence screenshots are optional; corrections aggregate ancestor evidence for reads without duplicating file links. Administrators may delete only the complete manual correction chain through the guarded `0029` path.
 - Historical GEO publication associations with null insight facts remain explicitly incomplete and never enter manual insight denominators.
+- GEO 优化任务必须与一条不可变 `content_task_geo_sources` 来源快照同事务创建；服务端重新计算异常，拒绝客户端伪造、过期或数据不足的依据。
 - Audit log details must not contain passwords, session cookies, AccessKeys, model keys, or unpublished source documents.

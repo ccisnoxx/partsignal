@@ -77,6 +77,13 @@ def platform_accounts_out(
             )
         )
     )
+    platform_ids = {account.platform_profile_id for account in accounts}
+    platform_enabled = {
+        profile.id: profile.is_active
+        for profile in db.scalars(
+            select(PlatformProfile).where(PlatformProfile.id.in_(platform_ids))
+        )
+    }
     items: list[PlatformAccountOut] = []
     for account in accounts:
         actions = ["UPDATE", "DISABLE" if account.is_active else "ENABLE"]
@@ -85,9 +92,18 @@ def platform_accounts_out(
         payload = {
             field: getattr(account, field)
             for field in PlatformAccountOut.model_fields
-            if field != "available_actions"
+            if field not in {"available_actions", "workflow_stage", "primary_task"}
         }
         payload["available_actions"] = actions
+        if not platform_enabled.get(account.platform_profile_id, False):
+            payload["workflow_stage"] = "PLATFORM_DISABLED"
+            payload["primary_task"] = "HANDLE_PLATFORM"
+        elif not account.is_active:
+            payload["workflow_stage"] = "ACCOUNT_DISABLED"
+            payload["primary_task"] = "ENABLE_ACCOUNT"
+        else:
+            payload["workflow_stage"] = "OPERATIONAL"
+            payload["primary_task"] = "MANAGE_ACCOUNT"
         items.append(PlatformAccountOut.model_validate(payload))
     return items
 
@@ -164,51 +180,11 @@ def _content_task_payload(task: ContentTask) -> dict[str, object]:
 
 
 def content_task_out(db: Session, task: ContentTask) -> ContentTaskOut:
-    """投影任务及当前唯一可执行的人工动作。"""
-    has_in_flight_publication = task.status == "OPEN" and (
-        db.scalar(
-            select(PublicationWork.id)
-            .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
-            .where(
-                ContentVersion.task_id == task.id,
-                PublicationWork.status.in_(IN_FLIGHT_PUBLICATION_STATUSES),
-            )
-            .limit(1)
-        )
-        is not None
+    """复用列表批量投影口径返回单个任务。"""
+    item = content_tasks_out(db, [task])[0]
+    return ContentTaskOut.model_validate(
+        {field: getattr(item, field) for field in ContentTaskOut.model_fields}
     )
-    has_protected_history = task.id in _content_task_protected_history_ids(
-        db,
-        [task.id] if task.status == "CANCELLED" else [],
-    )
-    fact = db.get(FactVersion, task.fact_version_id)
-    product = db.get(Product, task.product_id)
-    profile = db.get(PlatformProfile, task.platform_profile_id)
-    fact_ready = bool(
-        task.status == "OPEN"
-        and fact is not None
-        and fact.product_id == task.product_id
-        and fact.status == "APPROVED"
-        and fact.body_markdown.strip()
-    )
-    payload = _content_task_payload(task)
-    payload["available_actions"] = _content_task_available_actions(
-        task,
-        has_in_flight_publication=has_in_flight_publication,
-        has_protected_history=has_protected_history,
-        can_generate=bool(
-            fact_ready
-            and fact is not None
-            and fact.classification == "PUBLIC"
-            and product is not None
-            and product.status == "ACTIVE"
-            and profile is not None
-            and profile.is_active
-            and profile.platform_prompt_id is not None
-        ),
-        can_create_manual_version=fact_ready,
-    )
-    return ContentTaskOut.model_validate(payload)
 
 
 def content_versions_out(db: Session, contents: list[ContentVersion]) -> list[ContentVersionOut]:
@@ -240,11 +216,18 @@ def content_versions_out(db: Session, contents: list[ContentVersion]) -> list[Co
         )
     )
     humanization_prompt_configured = db.get(ContentHumanizationPrompt, 1) is not None
+    works_by_task = {
+        work.content_task_id: work
+        for work in db.scalars(
+            select(PublicationWork).where(PublicationWork.content_task_id.in_(task_ids))
+        )
+    }
     items: list[ContentVersionOut] = []
     for content in contents:
         task = tasks_by_id.get(content.task_id)
         fact = facts_by_id.get(content.fact_version_id)
         actions: list[str] = []
+        is_current = task is not None and task.current_content_version_id == content.id
         fact_ready = bool(
             task is not None
             and fact is not None
@@ -254,7 +237,11 @@ def content_versions_out(db: Session, contents: list[ContentVersion]) -> list[Co
             and fact.status == "APPROVED"
             and fact.body_markdown.strip()
         )
-        if fact_ready:
+        if fact_ready and is_current and content.status in {
+            "DRAFT",
+            "CHANGES_REQUESTED",
+            "APPROVED",
+        }:
             actions.append("CREATE_REVISION")
         product = products_by_id.get(task.product_id) if task is not None else None
         actual_hash = content_hash(
@@ -265,6 +252,7 @@ def content_versions_out(db: Session, contents: list[ContentVersion]) -> list[Co
         )
         if (
             fact_ready
+            and is_current
             and fact is not None
             and fact.classification == "PUBLIC"
             and product is not None
@@ -277,14 +265,39 @@ def content_versions_out(db: Session, contents: list[ContentVersion]) -> list[Co
             and humanization_prompt_configured
         ):
             actions.append("CREATE_HUMANIZATION_JOB")
-        if fact is not None:
+        if fact is not None and is_current:
             actions.extend(content_review_actions(content, fact))
+        if is_current and content.status in {"DRAFT", "CHANGES_REQUESTED"}:
+            actions.append("ABANDON")
+        work = works_by_task.get(content.task_id)
+        if (
+            work is not None
+            and work.content_version_id == content.id
+            and work.status == "COMPLETED"
+        ):
+            workflow_stage, primary_task = "PUBLISHED", "VIEW_PUBLICATION_RESULT"
+        elif not is_current:
+            workflow_stage, primary_task = "HISTORICAL", "VIEW_VERSION_HISTORY"
+        elif content.status == "DRAFT":
+            workflow_stage, primary_task = "CURRENT_DRAFT", "EDIT_AND_SUBMIT_REVIEW"
+        elif content.status == "PENDING_REVIEW":
+            workflow_stage, primary_task = "CURRENT_REVIEW_PENDING", "REVIEW_CONTENT"
+        elif content.status == "CHANGES_REQUESTED":
+            workflow_stage, primary_task = "CURRENT_CHANGES_REQUESTED", "CREATE_REVISION"
+        elif content.status == "APPROVED" and work is not None:
+            workflow_stage, primary_task = "CURRENT_PUBLISHING", "CONTINUE_PUBLICATION"
+        elif content.status == "APPROVED":
+            workflow_stage, primary_task = "CURRENT_APPROVED", "START_PUBLICATION"
+        else:
+            workflow_stage, primary_task = "HISTORICAL", "VIEW_VERSION_HISTORY"
         payload = {
             field: getattr(content, field)
             for field in ContentVersionOut.model_fields
-            if field != "available_actions"
+            if field not in {"available_actions", "workflow_stage", "primary_task"}
         }
         payload["available_actions"] = actions
+        payload["workflow_stage"] = workflow_stage
+        payload["primary_task"] = primary_task
         items.append(ContentVersionOut.model_validate(payload))
     return items
 
@@ -323,9 +336,15 @@ def fact_versions_out(
         payload = {
             field: getattr(version, field)
             for field in FactVersionOut.model_fields
-            if field != "available_actions"
+            if field not in {"available_actions", "primary_task"}
         }
         payload["available_actions"] = actions
+        payload["primary_task"] = {
+            "PENDING_REVIEW": "REVIEW_FACT",
+            "APPROVED": "CREATE_CONTENT_TASK",
+            "CHANGES_REQUESTED": "REVISE_FACT",
+            "RETIRED": "VIEW_FACT_HISTORY",
+        }[version.status]
         items.append(FactVersionOut.model_validate(payload))
     return items
 
@@ -466,6 +485,24 @@ def platform_profiles_out(
                     else None
                 ),
                 "configuration_complete": profile.platform_prompt_id is not None,
+                "workflow_stage": (
+                    "DISABLED"
+                    if not profile.is_active
+                    else (
+                        "OPERATIONAL"
+                        if profile.platform_prompt_id is not None
+                        else "GENERATION_UNCONFIGURED"
+                    )
+                ),
+                "primary_task": (
+                    "ENABLE_PLATFORM"
+                    if not profile.is_active
+                    else (
+                        "VIEW_PLATFORM_OPERATION"
+                        if profile.platform_prompt_id is not None
+                        else "CONFIGURE_GENERATION"
+                    )
+                ),
                 "platform_account_count": account_counts.get(profile.id, 0),
                 "available_actions": (
                     [
@@ -545,17 +582,26 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
             )
         ).tuples()
     }
-    in_flight_task_ids = set(
-        db.scalars(
-            select(ContentVersion.task_id)
-            .join(PublicationWork, PublicationWork.content_version_id == ContentVersion.id)
-            .where(
-                ContentVersion.task_id.in_(task_ids),
-                PublicationWork.status.in_(IN_FLIGHT_PUBLICATION_STATUSES),
-            )
-            .distinct()
+    works_by_task = {
+        work.content_task_id: work
+        for work in db.scalars(
+            select(PublicationWork).where(PublicationWork.content_task_id.in_(task_ids))
         )
-    )
+    }
+    in_flight_task_ids = {
+        task_id
+        for task_id, work in works_by_task.items()
+        if work.status in IN_FLIGHT_PUBLICATION_STATUSES
+    }
+    current_ids = {
+        task.current_content_version_id
+        for task in tasks
+        if task.current_content_version_id is not None
+    }
+    current_by_id = {
+        content.id: content
+        for content in db.scalars(select(ContentVersion).where(ContentVersion.id.in_(current_ids)))
+    }
     protected_history_task_ids = _content_task_protected_history_ids(
         db,
         [task.id for task in tasks if task.status == "CANCELLED"],
@@ -573,6 +619,35 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
             and fact.status == "APPROVED"
             and fact.body_markdown.strip()
         )
+        latest_generation_status = latest_generation_by_task.get(task.id)
+        current = (
+            current_by_id.get(task.current_content_version_id)
+            if task.current_content_version_id is not None
+            else None
+        )
+        work = works_by_task.get(task.id)
+        if task.status == "CANCELLED":
+            workflow_stage, primary_task = "CANCELLED", "VIEW_CANCELLATION"
+        elif work is not None and work.status == "COMPLETED":
+            workflow_stage, primary_task = "VERIFIED", "VIEW_FULL_LINEAGE"
+        elif work is not None:
+            workflow_stage, primary_task = "PUBLISHING", "CONTINUE_PUBLICATION"
+        elif current is None and latest_generation_status in {"PENDING", "RUNNING"}:
+            workflow_stage, primary_task = "GENERATING", "VIEW_GENERATION_PROGRESS"
+        elif current is None and latest_generation_status == "FAILED":
+            workflow_stage, primary_task = "GENERATION_FAILED", "HANDLE_GENERATION_FAILURE"
+        elif current is None:
+            workflow_stage, primary_task = "NO_DRAFT", "CREATE_FIRST_DRAFT"
+        elif current.status == "DRAFT":
+            workflow_stage, primary_task = "DRAFT", "EDIT_AND_SUBMIT_REVIEW"
+        elif current.status == "PENDING_REVIEW":
+            workflow_stage, primary_task = "REVIEW_PENDING", "REVIEW_CONTENT"
+        elif current.status == "CHANGES_REQUESTED":
+            workflow_stage, primary_task = "CHANGES_REQUESTED", "REVISE_CONTENT"
+        elif current.status == "APPROVED":
+            workflow_stage, primary_task = "APPROVED", "START_PUBLICATION"
+        else:
+            raise RuntimeError(f"内容任务 {task.id} 的当前版本状态无效")
         payload = _content_task_payload(task)
         payload["available_actions"] = _content_task_available_actions(
             task,
@@ -580,25 +655,31 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
             has_protected_history=task.id in protected_history_task_ids,
             can_generate=bool(
                 fact_ready
+                and current is None
+                and latest_generation_status not in {"PENDING", "RUNNING"}
                 and fact.classification == "PUBLIC"
                 and product.status == "ACTIVE"
                 and platform.is_active
                 and platform.platform_prompt_id is not None
             ),
-            can_create_manual_version=fact_ready,
+            can_create_manual_version=bool(fact_ready and current is None),
         )
+        payload["workflow_stage"] = workflow_stage
+        payload["primary_task"] = primary_task
         payload["product"] = ContentTaskProductSummary(
             id=product.id,
             brand=product.brand,
             part_number=product.part_number,
         )
-        payload["platform"] = ContentTaskPlatformSummary(
-            id=platform.id,
-            name=platform.name,
-            website_url=platform.website_url,
-            logo=_platform_logo_out(platform, logo_files_by_id, logo_expires_at),
+        payload["platform"] = ContentTaskPlatformSummary.model_validate(
+            {
+                "id": platform.id,
+                "name": platform.name,
+                "website_url": platform.website_url,
+                "logo": _platform_logo_out(platform, logo_files_by_id, logo_expires_at),
+            }
         )
-        payload["latest_generation_status"] = latest_generation_by_task.get(task.id)
+        payload["latest_generation_status"] = latest_generation_status
         items.append(ContentTaskListItem.model_validate(payload))
     return items
 

@@ -15,6 +15,8 @@ const user = {
   account_type: 'ENGINEER',
   is_active: true,
   must_change_password: false,
+  workflow_stage: 'ACTIVE',
+  primary_task: 'MANAGE_USER',
   available_actions: [],
   revision: 1,
   created_at: '2026-08-03T00:00:00Z',
@@ -43,8 +45,9 @@ const workItem = {
   updated_at: '2026-08-03T02:00:00Z',
   latest_verification_outcome: 'FAILED',
   latest_verification_at: '2026-08-03T02:00:00Z',
-  available_actions: ['VERIFY', 'REGISTER_RESULT', 'CLOSE'],
-  primary_action: 'VERIFY',
+  workflow_stage: 'ACTION_REQUIRED',
+  primary_task: 'FIX_AND_REVERIFY',
+  available_actions: ['VERIFY', 'REGISTER_RESULT', 'SWITCH_CONTENT_VERSION', 'CLOSE'],
 } satisfies Schema<'PublicationWorkListItem'>;
 
 const workDetail = {
@@ -58,6 +61,8 @@ const workDetail = {
     action: 'VERIFICATION_FAILED',
     from_status: 'AWAITING_VERIFICATION',
     to_status: 'ACTION_REQUIRED',
+    from_content_version_id: workItem.content_version_id,
+    to_content_version_id: workItem.content_version_id,
     comment: '公开页面正文不一致',
     actor_id: user.id,
     created_at: '2026-08-03T02:00:00Z',
@@ -65,6 +70,7 @@ const workDetail = {
   verifications: [{
     id: '63000000-0000-4000-8000-000000000001',
     outcome: 'FAILED',
+    content_version_id: workItem.content_version_id,
     actual_title_snapshot: workItem.actual_title,
     final_url_snapshot: workItem.final_url,
     published_at_snapshot: workItem.published_at,
@@ -98,6 +104,8 @@ const readyItem = {
     tags: ['PS-002'],
     content_hash: 'b'.repeat(64),
     status: 'APPROVED',
+    workflow_stage: 'CURRENT_APPROVED',
+    primary_task: 'START_PUBLICATION',
     available_actions: [],
     revision: 1,
     quality_issues: [],
@@ -109,12 +117,21 @@ const readyItem = {
   platform_profile_name: '工程师社区',
   matching_accounts: [],
   available_actions: ['START'],
-  primary_action: 'START',
+  primary_task: 'START_PUBLICATION',
 } satisfies Schema<'PublicationReadyItem'>;
+
+const switchCandidate = {
+  ...readyItem.content_version,
+  id: '30000000-0000-4000-8000-000000000003',
+  task_id: workItem.task_id,
+  version: 2,
+  title: 'PS-001 核验修订版',
+} satisfies Schema<'ContentVersion'>;
 
 const articleItem = {
   id: articleId,
   task_id: workItem.task_id,
+  product_id: '22000000-0000-4000-8000-000000000001',
   content_version_id: workItem.content_version_id,
   content_title: workItem.content_title,
   content_version: workItem.content_version,
@@ -128,9 +145,11 @@ const articleItem = {
   published_at: workItem.published_at!,
   verified_at: '2026-08-03T03:00:00Z',
   has_open_issue: true,
+  open_issue_id: issueId,
   retired: false,
+  workflow_stage: 'OPEN_ISSUE',
+  primary_task: 'HANDLE_CONTENT_ISSUE',
   available_actions: ['OPEN_ISSUE'],
-  primary_action: 'OPEN_ISSUE',
 } satisfies Schema<'PublishedArticleListItem'>;
 
 const issueItem = {
@@ -149,8 +168,9 @@ const issueItem = {
   final_url: articleItem.final_url,
   revision: 1,
   repair_task_id: null,
+  workflow_stage: 'OPEN',
+  primary_task: 'HANDLE_CONTENT_ISSUE',
   available_actions: ['CREATE_REPAIR_TASK', 'RESOLVE'],
-  primary_action: 'CREATE_REPAIR_TASK',
 } satisfies Schema<'PublishedContentIssueListItem'>;
 
 const issueDetail = {
@@ -160,9 +180,10 @@ const issueDetail = {
   article: articleItem,
 } satisfies Schema<'PublishedContentIssue'>;
 
-function installResponses({ onVerify, onClose }: {
+function installResponses({ onVerify, onClose, onSwitch }: {
   onVerify?: (request: Request) => void;
   onClose?: (request: Request) => void;
+  onSwitch?: (request: Request) => void;
 } = {}) {
   let closed = false;
   mockFetch((request) => {
@@ -180,8 +201,13 @@ function installResponses({ onVerify, onClose }: {
       const resolved = url.searchParams.get('status') === 'RESOLVED';
       return { body: { items: resolved ? [] : [issueItem], page: 1, page_size: 20, total: resolved ? 0 : 1 } };
     }
+    if (url.pathname.endsWith(`/content-tasks/${workItem.task_id}/content-versions`)) return { body: { items: [switchCandidate] } };
     if (url.pathname.endsWith(`/published-content-issues/${issueId}`)) return { body: issueDetail };
     if (url.pathname.endsWith(`/publication-works/${workId}`)) return { body: workDetail };
+    if (url.pathname.endsWith(`/publication-works/${workId}/content-version`)) {
+      onSwitch?.(request);
+      return { body: { ...workDetail, content_version_id: switchCandidate.id, content_title: switchCandidate.title, content_version: switchCandidate.version, revision: 4 } };
+    }
     if (url.pathname.endsWith(`/publication-works/${workId}/verifications`)) {
       onVerify?.(request);
       return { body: workDetail };
@@ -189,7 +215,7 @@ function installResponses({ onVerify, onClose }: {
     if (url.pathname.endsWith(`/publication-works/${workId}/close`)) {
       onClose?.(request);
       closed = true;
-      return { body: { ...workDetail, status: 'CLOSED', revision: 4, available_actions: [], primary_action: null } };
+      return { body: { ...workDetail, status: 'CLOSED', workflow_stage: 'CLOSED', primary_task: 'VIEW_CLOSURE', revision: 4, available_actions: [] } };
     }
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
@@ -212,7 +238,7 @@ test('URL 恢复需处理工作详情，动作完全来自服务端投影', asyn
 
   const drawer = await findDialog('发布工作详情');
   await waitFor(() => expect(within(drawer).getAllByText('公开页面正文不一致')).not.toHaveLength(0));
-  expect(await within(drawer).findByRole('button', { name: '核验发布结果' })).toBeInTheDocument();
+  expect(await within(drawer).findByRole('button', { name: '修复并重新核验' })).toBeInTheDocument();
   await userEvent.click(within(drawer).getByRole('button', { name: /更多操作/ }));
   expect(await screen.findByText('登记发布结果')).toBeInTheDocument();
   expect(screen.getByText('关闭发布工作')).toBeInTheDocument();
@@ -240,7 +266,7 @@ test('混合待处理视图只按显式 kind 恢复问题详情', async () => {
 
   const drawer = await findDialog('内容问题详情');
   expect(await within(drawer).findByText('公开页面已下线')).toBeInTheDocument();
-  expect(within(drawer).getByRole('button', { name: '创建修复任务' })).toBeInTheDocument();
+  expect(within(drawer).getByRole('button', { name: '处理内容问题' })).toBeInTheDocument();
 });
 
 test('历史记录只查询已关闭工作或已解决问题，不重复发布成果', async () => {
@@ -268,7 +294,7 @@ test('首次核验失败提交明确结果并继续保留待处理动作', async
   installResponses({ onVerify: (request) => { submitted = request.clone().json() as Promise<Schema<'PublicationVerificationCreate'>>; } });
   render(<App />);
 
-  await userEvent.click(await screen.findByRole('button', { name: '核验发布结果' }));
+  await userEvent.click(await screen.findByRole('button', { name: '修复并重新核验' }));
   const dialog = await findDialog('核验发布结果');
   await userEvent.click(within(dialog).getByRole('combobox'));
   await userEvent.click(await screen.findByText('核验失败，继续待处理'));
@@ -282,7 +308,29 @@ test('首次核验失败提交明确结果并继续保留待处理动作', async
     expected_revision: 3,
     comment: '页面正文仍不一致',
   });
-  expect(await screen.findByRole('button', { name: '核验发布结果' })).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: '修复并重新核验' })).toBeInTheDocument();
+});
+
+test('核验成功前可在原发布工作中切换同任务批准版本', async () => {
+  let submitted: Promise<Schema<'PublicationContentVersionSwitchRequest'>> | undefined;
+  window.history.pushState({}, '', '/publications?tab=works&status=ACTION_REQUIRED');
+  installResponses({ onSwitch: (request) => { submitted = request.clone().json() as Promise<Schema<'PublicationContentVersionSwitchRequest'>>; } });
+  render(<App />);
+
+  await userEvent.click(await screen.findByRole('button', { name: /更多操作：PS-001 选型文章/ }));
+  await userEvent.click(await screen.findByText('切换待发布版本'));
+  const dialog = await findDialog('切换待发布版本');
+  await userEvent.click(within(dialog).getByRole('combobox', { name: '新的批准版本' }));
+  await userEvent.click(await screen.findByText('PS-001 核验修订版 · V2'));
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '操作说明' }), '使用核验修订版继续发布');
+  await userEvent.click(within(dialog).getByRole('button', { name: '确认提交' }));
+
+  await waitFor(() => expect(submitted).toBeDefined());
+  await expect(submitted).resolves.toEqual({
+    content_version_id: switchCandidate.id,
+    expected_revision: workItem.revision,
+    comment: '使用核验修订版继续发布',
+  });
 });
 
 test('更多操作中的关闭命令展示不可恢复影响并取消来源任务', async () => {

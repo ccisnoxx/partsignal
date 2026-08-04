@@ -27,6 +27,7 @@ from app.schemas.publication import (
     PlatformAccountList,
     PlatformAccountOut,
     PlatformAccountUpdate,
+    PublicationContentVersionSwitchRequest,
     PublicationPackage,
     PublicationPlatformReviewRequest,
     PublicationPreparationUpdate,
@@ -59,6 +60,7 @@ from app.services.publication import (
     register_publication_result,
     require_publishable,
     resolve_published_content_issue,
+    switch_publication_content_version,
     update_publication_preparation,
     verify_publication_work,
 )
@@ -522,6 +524,36 @@ def register_result(
         target_type="PublicationWork",
         target_id=work_id,
         command=lambda: register_publication_result(
+            db=db,
+            work_id=work_id,
+            payload=payload,
+            actor=editor,
+            request_id=request.state.request_id,
+        ),
+    )
+
+
+@router.post(
+    "/publication-works/{work_id}/content-version",
+    response_model=PublicationWorkOut,
+    operation_id="switchPublicationContentVersion",
+)
+def switch_content_version(
+    work_id: uuid.UUID,
+    payload: PublicationContentVersionSwitchRequest,
+    request: Request,
+    db: DbSession,
+    editor: CurrentUser,
+    _csrf: CsrfProtected,
+) -> PublicationWorkOut:
+    return _run_publication_command(
+        db=db,
+        actor=editor,
+        request_id=request.state.request_id,
+        action="publication_work.content_version_changed",
+        target_type="PublicationWork",
+        target_id=work_id,
+        command=lambda: switch_publication_content_version(
             db=db,
             work_id=work_id,
             payload=payload,

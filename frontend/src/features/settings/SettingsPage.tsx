@@ -16,7 +16,7 @@ import {
   Typography,
 } from 'antd';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import { platformProfilesQueryOptions } from '../../shared/api/queryOptions';
@@ -30,6 +30,11 @@ import { TableRegion } from '../../shared/components/TableRegion';
 import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 
 type PlatformAccount = Schema<'PlatformAccount'>;
+const accountTaskLabels: Record<PlatformAccount['primary_task'], string> = {
+  HANDLE_PLATFORM: '处理所属平台',
+  ENABLE_ACCOUNT: '重新启用',
+  MANAGE_ACCOUNT: '管理发布账号',
+};
 
 export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -67,6 +72,7 @@ function PlatformAccountsPanel({
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<PlatformAccount>();
   const [modal, modalContext] = Modal.useModal();
+  const navigate = useNavigate();
   const { message } = App.useApp();
   const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
   const accountQuery: PlatformAccountListQuery = platformProfileId
@@ -165,6 +171,15 @@ function PlatformAccountsPanel({
       onOk: () => setEnabled.mutate({ account, enabled: false }),
       afterClose: restoreFocus,
     });
+  const confirmEnable = (account: PlatformAccount) =>
+    modal.confirm({
+      title: `重新启用发布账号“${account.label}”？`,
+      content: '启用后该账号会重新进入新发布工作的可选账号范围。',
+      okText: '重新启用',
+      cancelText: '取消',
+      onOk: () => setEnabled.mutate({ account, enabled: true }),
+      afterClose: restoreFocus,
+    });
   const confirmDelete = (account: PlatformAccount) =>
     modal.confirm({
       title: `删除发布账号“${account.label}”？`,
@@ -180,7 +195,7 @@ function PlatformAccountsPanel({
       update.reset();
       setEditing(account);
     }
-    else if (key === 'enable') setEnabled.mutate({ account, enabled: true });
+    else if (key === 'enable') confirmEnable(account);
     else if (key === 'disable') confirmDisable(account);
     else if (key === 'delete') confirmDelete(account);
   };
@@ -265,32 +280,42 @@ function PlatformAccountsPanel({
             {
               title: '操作',
               fixed: 'right',
-              width: 110,
+              width: 220,
               render: (_, account) => (
-                <Dropdown
-                  trigger={['click']}
-                  menu={{
+                <Space size={4}>
+                  <Button
+                    type="primary"
+                    size="small"
+                    onClick={() => {
+                      if (account.primary_task === 'HANDLE_PLATFORM') navigate(`/configuration/platforms?platform=${account.platform_profile_id}`);
+                      else if (account.primary_task === 'ENABLE_ACCOUNT') confirmEnable(account);
+                      else { update.reset(); setEditing(account); }
+                    }}
+                  >
+                    {accountTaskLabels[account.primary_task]}
+                  </Button>
+                  <Dropdown trigger={['click']} menu={{
                     items: [
-                      ...(account.available_actions.includes('UPDATE') ? [{ key: 'edit', label: '编辑' }] : []),
+                      ...(account.available_actions.includes('UPDATE') && account.primary_task !== 'MANAGE_ACCOUNT' ? [{ key: 'edit', label: '编辑' }] : []),
                       ...(account.available_actions.includes('DISABLE') ? [{ key: 'disable', label: '停用', danger: true }] : []),
-                      ...(account.available_actions.includes('ENABLE') ? [{ key: 'enable', label: '启用' }] : []),
+                      ...(account.available_actions.includes('ENABLE') && account.primary_task !== 'ENABLE_ACCOUNT' ? [{ key: 'enable', label: '启用' }] : []),
                       ...(account.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
                     ],
                     onClick: ({ key }) => handleAction(key, account),
-                  }}
-                >
-                  <Button
-                    {...focusReturnTargetProps}
-                    size="small"
-                    aria-label={`更多操作：${account.label}`}
-                    loading={
-                      (setEnabled.isPending && setEnabled.variables.account.id === account.id)
-                      || (remove.isPending && remove.variables === account.id)
-                    }
-                  >
-                    更多 <DownOutlined />
-                  </Button>
-                </Dropdown>
+                  }}>
+                    <Button
+                      {...focusReturnTargetProps}
+                      size="small"
+                      aria-label={`更多操作：${account.label}`}
+                      loading={
+                        (setEnabled.isPending && setEnabled.variables.account.id === account.id)
+                        || (remove.isPending && remove.variables === account.id)
+                      }
+                    >
+                      更多 <DownOutlined />
+                    </Button>
+                  </Dropdown>
+                </Space>
               ),
             },
           ]}

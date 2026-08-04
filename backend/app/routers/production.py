@@ -53,6 +53,9 @@ from app.schemas.content import (
     OriginalGenerationJobCreate,
 )
 from app.services.content_production import (
+    abandon_content_version as abandon_content_version_command,
+)
+from app.services.content_production import (
     create_content_revision as create_content_revision_command,
 )
 from app.services.content_production import (
@@ -83,16 +86,31 @@ def generation_jobs_out(db: DbSession, jobs: list[GenerationJob]) -> list[Genera
         task.id: task
         for task in db.scalars(select(ContentTask).where(ContentTask.id.in_(task_ids)))
     }
+    latest_by_task: dict[uuid.UUID, uuid.UUID] = {}
+    for job in sorted(jobs, key=lambda item: (item.created_at, item.id), reverse=True):
+        latest_by_task.setdefault(job.content_task_id, job.id)
     items: list[GenerationJobOut] = []
     for job in jobs:
+        retryable = bool(
+            latest_by_task.get(job.content_task_id) == job.id
+            and generation_job_retryable(job, tasks_by_id.get(job.content_task_id))
+        )
+        if job.status in {"PENDING", "RUNNING"}:
+            workflow_stage, primary_task = "IN_PROGRESS", "VIEW_EXECUTION_PROGRESS"
+        elif job.status == "SUCCEEDED":
+            workflow_stage, primary_task = "SUCCEEDED", "VIEW_GENERATED_CONTENT"
+        elif retryable:
+            workflow_stage, primary_task = "RETRYABLE_FAILURE", "HANDLE_FAILURE"
+        else:
+            workflow_stage, primary_task = "HISTORICAL_FAILURE", "VIEW_FAILURE"
         payload = {
             field: getattr(job, field)
             for field in GenerationJobOut.model_fields
-            if field != "available_actions"
+            if field not in {"available_actions", "workflow_stage", "primary_task"}
         }
-        payload["available_actions"] = (
-            ["RETRY"] if generation_job_retryable(job, tasks_by_id.get(job.content_task_id)) else []
-        )
+        payload["available_actions"] = ["RETRY"] if retryable else []
+        payload["workflow_stage"] = workflow_stage
+        payload["primary_task"] = primary_task
         items.append(GenerationJobOut.model_validate(payload))
     return items
 
@@ -365,6 +383,30 @@ def create_content_revision(
         db=db,
         content_version_id=content_version_id,
         payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+    )
+    return content_version_out(db, content)
+
+
+@router.post(
+    "/content-versions/{content_version_id}/abandon",
+    response_model=ContentVersionOut,
+    operation_id="abandonContentVersion",
+)
+def abandon_content_version(
+    content_version_id: uuid.UUID,
+    payload: CommandRequest,
+    request: Request,
+    db: DbSession,
+    editor: ContentEditor,
+    _csrf: CsrfProtected,
+) -> ContentVersionOut:
+    content = abandon_content_version_command(
+        db=db,
+        content_version_id=content_version_id,
+        expected_revision=payload.expected_revision,
+        comment=payload.comment,
         actor=editor,
         request_id=request.state.request_id,
     )

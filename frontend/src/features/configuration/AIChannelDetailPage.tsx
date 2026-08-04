@@ -14,6 +14,7 @@ import {
   App,
   Button,
   Descriptions,
+  Drawer,
   Dropdown,
   Empty,
   Form,
@@ -31,6 +32,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
+import { auditLogDetailQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { AIModel, Schema, User } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
@@ -51,9 +53,21 @@ import {
   type AIChannelWorkspaceContext,
 } from './AIChannelsPage';
 import { ModelDiscoveryModal } from './ModelDiscoveryModal';
+import { AuditLogDetailPanel } from './AuditLogDetailPanel';
 
 type Header = Schema<'AIChannelHeader'>;
 type ModelFormValues = { display_name: string; model_id: string; request_parameters_json: string };
+const headerTaskLabels: Record<Header['primary_task'], string> = {
+  EDIT_HEADER: '编辑 Header',
+  RECONFIGURE_HEADER: '重新配置 Header',
+};
+const modelTaskLabels: Record<AIModel['primary_task'], string> = {
+  TEST_CONNECTION: '测试连接',
+  VIEW_FAILURE_AND_RETRY: '查看失败并重试',
+  ENABLE_MODEL: '启用模型',
+  ENABLE_CHANNEL: '启用所属渠道',
+  VIEW_MODEL_RUNTIME: '查看模型情况',
+};
 
 const detailTabs: Array<{ key: AIChannelDetailTab; label: string }> = [
   { key: 'basic', label: '基本信息' },
@@ -96,7 +110,8 @@ export function AIChannelDetailPage() {
   const [discoveryOpen, setDiscoveryOpen] = useState(false);
   const [editingHeader, setEditingHeader] = useState<Header>();
   const [editingModel, setEditingModel] = useState<AIModel>();
-  const [discovered, setDiscovered] = useState<string[]>([]);
+  const [discovered, setDiscovered] = useState<Schema<'DiscoveredModel'>[]>([]);
+  const [selectedLogId, setSelectedLogId] = useState<string>();
   const [usagePeriod, setUsagePeriod] = useState<Schema<'AIUsagePeriod'>>('30d');
   const [logPage, setLogPage] = useState(1);
   const [modal, modalContext] = Modal.useModal();
@@ -138,6 +153,7 @@ export function AIChannelDetailPage() {
     enabled: !!channelId && tab === 'logs',
     staleTime: QUERY_STALE_TIME.configuration,
   });
+  const logDetail = useQuery({ ...auditLogDetailQueryOptions(selectedLogId), enabled: !!selectedLogId });
   const userNames = new Map((users.data?.items ?? []).map((user: User) => [user.id, user.display_name]));
 
   const updateChannel = useMutation({
@@ -253,7 +269,7 @@ export function AIChannelDetailPage() {
     mutationFn: async () => unwrap(await api.POST('/api/v1/ai-channels/{channel_id}/discover-models', {
       params: { path: { channel_id: channelId }, header: csrfHeader() },
     })),
-    onSuccess: (data) => setDiscovered(data.items.map((item) => item.model_id)),
+    onSuccess: (data) => setDiscovered(data.items),
     onSettled: async () => queryClient.invalidateQueries({ queryKey: ['ai-channel-audit-logs', channelId] }),
   });
   const createDiscoveredModel = useMutation({
@@ -261,7 +277,12 @@ export function AIChannelDetailPage() {
       params: { path: { channel_id: channelId }, header: csrfHeader() },
       body: { display_name: modelId, model_id: modelId, request_parameters: {} },
     })),
-    onSuccess: async () => invalidateChannel(channelId, true),
+    onSuccess: async (_, modelId) => {
+      setDiscovered((items) => items.map((item) => item.model_id === modelId
+        ? { ...item, configured: true, primary_task: 'VIEW_CONFIGURED_MODEL' }
+        : item));
+      await invalidateChannel(channelId, true);
+    },
   });
   const createModel = useMutation({
     mutationFn: async (values: ModelFormValues) => unwrap(await api.POST('/api/v1/ai-channels/{channel_id}/models', {
@@ -346,7 +367,9 @@ export function AIChannelDetailPage() {
   };
   const confirmTestModel = (model: AIModel) => modal.confirm({
     title: `测试模型“${model.display_name}”？`,
-    content: '服务端会使用当前渠道真实配置发送“hi”。测试完成后模型将停用，通过后需手动重新启用。',
+    content: model.primary_task === 'VIEW_FAILURE_AND_RETRY'
+      ? `最近失败：${model.last_test_error_summary || '未返回失败摘要'}。重试会使用当前渠道真实配置发送“hi”，可能产生外部调用费用。`
+      : '服务端会使用当前渠道真实配置发送“hi”。测试可能产生外部调用费用，完成后模型将停用，通过后需手动重新启用。',
     okText: '开始测试',
     cancelText: '取消',
     onOk: () => testModel.mutateAsync(model),
@@ -425,13 +448,10 @@ export function AIChannelDetailPage() {
         { title: '名称', dataIndex: 'name', width: 150, ellipsis: true, render: (value) => <TableCellText text={value} mono /> },
         { title: '类型', dataIndex: 'is_sensitive', width: 64, render: (value) => <Tag>{value ? '敏感' : '普通'}</Tag> },
         { title: '值', width: 180, ellipsis: true, render: (_, row) => row.is_sensitive ? '••••••' : row.value ? <TableCellText text={row.value} mono /> : '—' },
-        { title: '操作', fixed: 'right', width: 86, render: (_, row) => <Dropdown trigger={['click']} menu={{
-          items: [
-            ...(row.available_actions.includes('UPDATE') ? [{ key: 'edit', label: '编辑' }] : []),
-            ...(row.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
-          ],
-          onClick: ({ key }) => key === 'edit' ? setEditingHeader(row) : modal.confirm({ title: `删除 Header“${row.name}”？`, content: '删除后会停用该渠道及其全部模型，并把全部模型的测试状态重置为“未测试”、清除最近测试信息；重新测试并启用前不可用于生成。此操作不可恢复。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteHeader.mutateAsync(row.id), afterClose: restoreFocus }),
-        }}><Button {...focusReturnTargetProps} size="small" type="text" icon={<DownOutlined />} aria-label={`更多操作：Header ${row.name}`} /></Dropdown> },
+        { title: '操作', fixed: 'right', width: 210, render: (_, row) => <Space size={4}><Button type="primary" size="small" onClick={() => setEditingHeader(row)}>{headerTaskLabels[row.primary_task]}</Button>{row.available_actions.includes('DELETE') && <Dropdown trigger={['click']} menu={{
+          items: [{ key: 'delete', label: '删除', danger: true }],
+          onClick: () => modal.confirm({ title: `删除 Header“${row.name}”？`, content: '删除后会停用该渠道及其全部模型，并把全部模型的测试状态重置为“未测试”、清除最近测试信息；重新测试并启用前不可用于生成。此操作不可恢复。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteHeader.mutateAsync(row.id), afterClose: restoreFocus }),
+        }}><Button {...focusReturnTargetProps} size="small" type="text" icon={<DownOutlined />} aria-label={`更多操作：Header ${row.name}`} /></Dropdown>}</Space> },
       ]}
     /></TableRegion>}
   </div>;
@@ -440,20 +460,25 @@ export function AIChannelDetailPage() {
     {modelError && <Alert role="alert" type="error" showIcon title={errorMessage(modelError)} />}
     <div className="ai-section-heading"><strong>模型管理</strong><Space size={4}>{data.available_actions.includes('DISCOVER_MODELS') && <Button size="small" onClick={() => { setDiscoveryOpen(true); setDiscovered([]); discover.reset(); discover.mutate(); }}>获取模型</Button>}{data.available_actions.includes('CREATE_MODEL') && <Button size="small" type="primary" onClick={() => setModelOpen(true)}>添加</Button>}</Space></div>
     {models.isLoading ? <QueryLoading label="正在加载模型" /> : models.error || !models.data ? <QueryFailure error={models.error ?? new Error('模型列表不存在')} onRetry={() => void models.refetch()} /> : models.data.items.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未配置模型" /> : <TableRegion label="模型列表"><Table<AIModel>
-      size="small" rowKey="id" dataSource={models.data.items} pagination={false} scroll={{ x: 560 }} columns={[
+      size="small" rowKey="id" dataSource={models.data.items} pagination={false} scroll={{ x: 680 }} onRow={(row) => ({ id: `ai-model-${encodeURIComponent(row.model_id)}` })} columns={[
         { title: '模型', width: 210, render: (_, row) => <span className="ai-model-name"><TableCellText text={row.display_name} /><TableCellText text={row.model_id} mono /></span> },
         { title: '测试', dataIndex: 'test_status', width: 76, render: (value) => <StatusTag compact status={value} /> },
         { title: '启用', dataIndex: 'is_enabled', width: 64, render: (value) => <StatusTag compact status={value ? 'ENABLED' : 'DISABLED'} /> },
-        { title: '操作', fixed: 'right', width: 126, render: (_, row) => <Space size={2}>
-          {row.available_actions.includes('TEST') && <Button size="small" type="text" icon={<ThunderboltOutlined />} aria-label={`测试模型：${row.display_name}`} loading={testModel.isPending && testModel.variables?.id === row.id} onClick={() => confirmTestModel(row)} />}
+        { title: '操作', fixed: 'right', width: 210, render: (_, row) => <Space size={2}>
+          <Button type="primary" size="small" loading={(testModel.isPending || toggleModel.isPending) && (testModel.variables?.id === row.id || toggleModel.variables?.id === row.id)} onClick={() => {
+            if (row.primary_task === 'TEST_CONNECTION' || row.primary_task === 'VIEW_FAILURE_AND_RETRY') confirmTestModel(row);
+            else if (row.primary_task === 'ENABLE_MODEL') toggleModel.mutate(row);
+            else changeTab(row.primary_task === 'ENABLE_CHANNEL' ? 'basic' : 'usage');
+          }}>{modelTaskLabels[row.primary_task]}</Button>
           <Dropdown trigger={['click']} menu={{
             items: [
               ...(row.available_actions.includes('DISABLE') ? [{ key: 'toggle', label: '停用' }] : []),
-              ...(row.available_actions.includes('ENABLE') ? [{ key: 'toggle', label: '启用' }] : []),
+              ...(row.available_actions.includes('ENABLE') && row.primary_task !== 'ENABLE_MODEL' ? [{ key: 'toggle', label: '启用' }] : []),
+              ...(row.available_actions.includes('TEST') && row.primary_task !== 'TEST_CONNECTION' && row.primary_task !== 'VIEW_FAILURE_AND_RETRY' ? [{ key: 'test', label: '重新测试' }] : []),
               ...(row.available_actions.includes('UPDATE') ? [{ key: 'edit', label: '编辑' }] : []),
               ...(row.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除', danger: true }] : []),
             ],
-            onClick: ({ key }) => key === 'toggle' ? toggleModel.mutate(row) : key === 'edit' ? setEditingModel(row) : modal.confirm({ title: `删除模型“${row.display_name}”？`, content: '历史作业快照会保留，但未执行的关联作业将因配置缺失而失败。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteModel.mutateAsync(row), afterClose: restoreFocus }),
+            onClick: ({ key }) => key === 'toggle' ? toggleModel.mutate(row) : key === 'test' ? confirmTestModel(row) : key === 'edit' ? setEditingModel(row) : modal.confirm({ title: `删除模型“${row.display_name}”？`, content: '历史作业快照会保留，但未执行的关联作业将因配置缺失而失败。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteModel.mutateAsync(row), afterClose: restoreFocus }),
           }}><Button {...focusReturnTargetProps} size="small" type="text" icon={<DownOutlined />} aria-label={`更多模型操作：${row.display_name}`} /></Dropdown>
         </Space> },
       ]}
@@ -490,6 +515,7 @@ export function AIChannelDetailPage() {
         { title: '执行结果', dataIndex: 'outcome', width: 82, render: (value) => <StatusTag compact status={value} /> },
         { title: '对象', width: 190, ellipsis: true, render: (_, row) => <TableCellText text={`${row.target_type} / ${row.target_id}`} mono /> },
         { title: '请求 ID', dataIndex: 'request_id', width: 220, ellipsis: true, render: (value) => <TableCellText text={value} mono /> },
+        { title: '操作', fixed: 'right', width: 130, render: (_, row) => <Button type="primary" size="small" onClick={() => setSelectedLogId(row.id)}>查看日志详情</Button> },
       ]}
     /></TableRegion>}
   </div>;
@@ -527,7 +553,31 @@ export function AIChannelDetailPage() {
     </Modal>
     <HeaderModal open={headerOpen || !!editingHeader} editing={editingHeader} loading={addHeader.isPending || updateHeader.isPending} onCancel={() => { setHeaderOpen(false); setEditingHeader(undefined); }} onSubmit={(body) => editingHeader ? updateHeader.mutate(body) : addHeader.mutate(body)} />
     <ModelModal open={modelOpen || !!editingModel} editing={editingModel} loading={createModel.isPending || updateModel.isPending} onCancel={() => { setModelOpen(false); setEditingModel(undefined); }} onSubmit={(body) => editingModel ? updateModel.mutate(body) : createModel.mutate(body)} />
-    <ModelDiscoveryModal open={discoveryOpen} modelIds={discovered} configuredModelIds={models.data?.items.map((item) => item.model_id) ?? []} loading={discover.isPending} addingModelId={createDiscoveredModel.isPending ? createDiscoveredModel.variables : undefined} fetchError={discover.error ? errorMessage(discover.error) : undefined} addError={createDiscoveredModel.error ? errorMessage(createDiscoveredModel.error) : undefined} onCancel={() => setDiscoveryOpen(false)} onRefresh={() => { setDiscovered([]); discover.reset(); discover.mutate(); }} onAdd={(modelId) => createDiscoveredModel.mutate(modelId)} />
+    <ModelDiscoveryModal
+      open={discoveryOpen}
+      models={discovered}
+      loading={discover.isPending}
+      addingModelId={createDiscoveredModel.isPending ? createDiscoveredModel.variables : undefined}
+      fetchError={discover.error ? errorMessage(discover.error) : undefined}
+      addError={createDiscoveredModel.error ? errorMessage(createDiscoveredModel.error) : undefined}
+      onCancel={() => setDiscoveryOpen(false)}
+      onRefresh={() => { setDiscovered([]); discover.reset(); discover.mutate(); }}
+      onAdd={(modelId) => createDiscoveredModel.mutate(modelId)}
+      onViewConfigured={(modelId) => {
+        setDiscoveryOpen(false);
+        changeTab('models');
+        requestAnimationFrame(() => document.getElementById(`ai-model-${encodeURIComponent(modelId)}`)?.scrollIntoView({ block: 'center' }));
+      }}
+    />
+    <Drawer open={!!selectedLogId} title="渠道操作日志详情" size={560} onClose={() => setSelectedLogId(undefined)} destroyOnHidden>
+      <AuditLogDetailPanel
+        detail={logDetail.data}
+        error={logDetail.error}
+        loading={logDetail.isLoading}
+        onClose={() => setSelectedLogId(undefined)}
+        onRetry={() => void logDetail.refetch()}
+      />
+    </Drawer>
   </div>;
 }
 

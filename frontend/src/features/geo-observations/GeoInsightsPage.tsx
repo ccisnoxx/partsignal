@@ -3,15 +3,18 @@ import {
   DownOutlined, ExclamationCircleOutlined, ExportOutlined, FallOutlined, PrinterOutlined,
   TrophyOutlined, UpOutlined, WarningOutlined,
 } from '@ant-design/icons';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import {
-  Alert, Button, Card, DatePicker, Descriptions, Modal, Select, Space, Table, Tooltip, Typography,
+  Alert, App, Button, Card, DatePicker, Descriptions, Form, Modal, Select, Space, Table, Tooltip, Typography,
   type DescriptionsProps, type TableColumnsType,
 } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useId, useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
-import { Link, NavLink, useSearchParams } from 'react-router-dom';
-import { geoInsightsQueryOptions } from '../../shared/api/queryOptions';
+import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
+import { queryClient } from '../../app/queryClient';
+import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
+import { geoInsightsQueryOptions, platformProfilesQueryOptions, productsQueryOptions } from '../../shared/api/queryOptions';
+import { queryKeys } from '../../shared/api/queryKeys';
 import type { GeoInsightQuery, Schema } from '../../shared/api/types';
 import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { PageHeader } from '../../shared/components/PageHeader';
@@ -27,9 +30,13 @@ type ContentRow = Schema<'GeoInsightContentPerformance'> | Schema<'GeoInsightDec
 type DeclineBasis = Schema<'GeoInsightDeclineBasis'>;
 type Recommendation = Schema<'GeoInsightRecommendation'>;
 type CoverageStatus = Schema<'GeoInsightCoverageItem'>['status'];
+type CoverageRow = Schema<'GeoInsightCoverageItem'>;
+type OptimizationRequest = Schema<'GeoOptimizationContentTaskCreate'>;
+type OptimizationTarget = Pick<OptimizationRequest, 'rule_code' | 'date_from' | 'date_to'>
+  & Partial<Pick<OptimizationRequest, 'published_article_id' | 'query_topic_id' | 'geo_platform' | 'product_id' | 'platform_profile_id'>>;
 
 const optionalFilterKeys = [
-  'content_platform_id', 'geo_platform', 'published_article_id', 'query_topic_id',
+  'product_id', 'content_platform_id', 'geo_platform', 'published_article_id', 'query_topic_id',
 ] as const satisfies readonly (keyof GeoInsightQuery)[];
 
 const coverageStatuses: Array<{
@@ -251,7 +258,91 @@ function RateBar({ value, color }: { value: Schema<'GeoInsightRateValue'>; color
   );
 }
 
-function PlatformPerformanceCard({ rows, unavailable }: { rows: PlatformPerformance[]; unavailable?: string }) {
+function OptimizationModal({ target, onClose }: { target: OptimizationTarget | null; onClose: () => void }) {
+  const [form] = Form.useForm<Pick<OptimizationRequest, 'product_id' | 'platform_profile_id' | 'fact_version_id'>>();
+  const { message } = App.useApp();
+  const navigate = useNavigate();
+  const productId = Form.useWatch('product_id', form);
+  const products = useQuery({ ...productsQueryOptions(), enabled: !!target });
+  const platforms = useQuery({ ...platformProfilesQueryOptions(), enabled: !!target });
+  const facts = useQuery({
+    queryKey: queryKeys.products.factVersions(productId ?? ''),
+    queryFn: async () => unwrap(await api.GET('/api/v1/products/{product_id}/fact-versions', {
+      params: { path: { product_id: productId! } },
+    })),
+    enabled: !!target && !!productId,
+  });
+  const create = useMutation({
+    mutationFn: async (values: Pick<OptimizationRequest, 'product_id' | 'platform_profile_id' | 'fact_version_id'>) => {
+      if (!target) throw new Error('未选择 GEO 优化依据');
+      return unwrap(await api.POST('/api/v1/geo-insights/optimization-content-tasks', {
+        params: { header: { ...csrfHeader(), 'Idempotency-Key': newIdempotencyKey() } },
+        body: {
+          rule_code: target.rule_code,
+          date_from: target.date_from,
+          date_to: target.date_to,
+          published_article_id: target.published_article_id ?? null,
+          query_topic_id: target.query_topic_id ?? null,
+          geo_platform: target.geo_platform ?? null,
+          ...values,
+        },
+      }));
+    },
+    onSuccess: async (task) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.geo.all }),
+      ]);
+      message.success('GEO 优化任务已创建');
+      onClose();
+      navigate(`/tasks/${task.id}`);
+    },
+  });
+  return (
+    <Modal open={!!target} title="创建 GEO 优化任务" footer={null} onCancel={onClose} destroyOnHidden>
+      <Alert className="form-alert" type="info" showIcon title="服务端会按当前周期重新计算异常；指标过期或样本不足时会拒绝创建。" />
+      {create.error && <Alert className="form-alert" type="error" showIcon title={errorMessage(create.error)} />}
+      <Form
+        key={target ? `${target.rule_code}-${target.published_article_id ?? target.query_topic_id}` : 'closed'}
+        form={form}
+        layout="vertical"
+        initialValues={{ product_id: target?.product_id, platform_profile_id: target?.platform_profile_id }}
+        onValuesChange={(changed) => { if ('product_id' in changed) form.setFieldValue('fact_version_id', undefined); }}
+        onFinish={(values) => create.mutate(values)}
+      >
+        <Form.Item name="product_id" label="产品" rules={[{ required: true, message: '请选择产品' }]}>
+          <Select showSearch optionFilterProp="label" loading={products.isLoading} options={products.data?.items.map((item) => ({ value: item.id, label: `${item.brand} ${item.part_number}` }))} />
+        </Form.Item>
+        <Form.Item name="platform_profile_id" label="内容平台" rules={[{ required: true, message: '请选择内容平台' }]}>
+          <Select showSearch optionFilterProp="label" loading={platforms.isLoading} options={platforms.data?.items.filter((item) => item.is_active).map((item) => ({ value: item.id, label: item.name }))} />
+        </Form.Item>
+        <Form.Item name="fact_version_id" label="已批准事实版本" rules={[{ required: true, message: '请选择已批准事实版本' }]}>
+          <Select disabled={!productId} loading={facts.isLoading} options={facts.data?.items.filter((item) => item.status === 'APPROVED').map((item) => ({ value: item.id, label: `V${item.version} · ${item.change_summary}` }))} />
+        </Form.Item>
+        <Button type="primary" htmlType="submit" loading={create.isPending}>创建优化任务</Button>
+      </Form>
+    </Modal>
+  );
+}
+
+function observationPath(values: Record<string, string | undefined>): string {
+  const params = new URLSearchParams();
+  Object.entries(values).forEach(([key, value]) => { if (value) params.set(key, value); });
+  return `/observations?${params.toString()}`;
+}
+
+function PlatformPerformanceCard({ rows, filters, interactive, unavailable }: { rows: PlatformPerformance[]; filters: GeoInsightQuery; interactive: boolean; unavailable?: string }) {
+  const columns: TableColumnsType<PlatformPerformance> = [...platformColumns];
+  if (interactive) columns.push({
+      title: '操作',
+      fixed: 'right',
+      width: 130,
+      render: (_, row) => (
+        <Link to={observationPath({ geo_platform: row.geo_platform, date_from: filters.date_from, date_to: filters.date_to })}>
+          <Button type="primary" size="small">查看观测明细</Button>
+        </Link>
+      ),
+    });
   return (
     <Card className="geo-insight-section-card geo-insight-platform-card" title="平台表现对比">
       {rows.length ? (
@@ -262,7 +353,7 @@ function PlatformPerformanceCard({ rows, unavailable }: { rows: PlatformPerforma
             <span><i className="is-accuracy" />准确率</span>
           </div>
           <TableRegion label="GEO 平台表现">
-            <Table rowKey="geo_platform" size="small" pagination={false} dataSource={rows} columns={platformColumns} scroll={{ x: 520 }} />
+            <Table rowKey="geo_platform" size="small" pagination={false} dataSource={rows} columns={columns} scroll={{ x: 650 }} />
           </TableRegion>
         </>
       ) : <NoData description={unavailable ?? '当前筛选范围暂无平台表现数据'} />}
@@ -271,11 +362,13 @@ function PlatformPerformanceCard({ rows, unavailable }: { rows: PlatformPerforma
 }
 
 function ContentRankingCard({
-  title, rows, kind, emptyDescription,
+  title, rows, kind, filters, onOptimize, emptyDescription,
 }: {
   title: string;
   rows: ContentRow[];
   kind: 'best' | 'declining' | 'long';
+  filters: GeoInsightQuery;
+  onOptimize?: (target: OptimizationTarget) => void;
   emptyDescription?: string;
 }) {
   const columns: TableColumnsType<ContentRow> = [
@@ -304,6 +397,31 @@ function ContentRankingCard({
   if (kind === 'long') {
     columns.push({ title: '未提及', width: 70, render: (_, row) => 'unmentioned_days' in row ? `${row.unmentioned_days} 天` : '—' });
   }
+  if (onOptimize) columns.push({
+    title: '操作',
+    fixed: 'right',
+    width: 128,
+    render: (_, row) => row.primary_task === 'CREATE_OPTIMIZATION_TASK' ? (
+      <Button
+        type="primary"
+        size="small"
+        onClick={() => onOptimize({
+          rule_code: kind === 'declining' ? 'CONTENT_DECLINE' : 'LONG_UNMENTIONED',
+          date_from: filters.date_from!,
+          date_to: filters.date_to!,
+          published_article_id: row.published_article_id,
+          product_id: row.product_id,
+          platform_profile_id: row.content_platform_id,
+        })}
+      >
+        创建优化任务
+      </Button>
+    ) : (
+      <Link to={observationPath({ published_article_id: row.published_article_id, date_from: filters.date_from, date_to: filters.date_to })}>
+        <Button type="primary" size="small">查看内容表现</Button>
+      </Link>
+    ),
+  });
   const titleIcon = kind === 'best'
     ? <TrophyOutlined className="is-best" />
     : kind === 'declining' ? <FallOutlined className="is-declining" /> : <WarningOutlined className="is-long" />;
@@ -319,7 +437,11 @@ function ContentRankingCard({
   );
 }
 
-function CoverageCard({ coverage }: { coverage: GeoInsights['question_coverage'] }) {
+function CoverageCard({ coverage, filters, onOptimize }: {
+  coverage: GeoInsights['question_coverage'];
+  filters: GeoInsightQuery;
+  onOptimize?: (target: OptimizationTarget) => void;
+}) {
   const platforms = [...new Set(coverage.matrix.map((item) => item.geo_platform))];
   const groupedCounts = new Map<string, number>();
   coverage.matrix.forEach((item) => {
@@ -329,24 +451,60 @@ function CoverageCard({ coverage }: { coverage: GeoInsights['question_coverage']
   return (
     <Card className="geo-insight-section-card geo-insight-coverage-card" title="搜索问题分析">
       {platforms.length ? (
-        <TableRegion label="搜索问题覆盖计数">
-          <table className="geo-insight-coverage-matrix" aria-label="覆盖状态与 GEO 平台计数">
-            <thead><tr><th scope="col">覆盖状态</th>{platforms.map((platform) => <th scope="col" key={platform}><Tooltip title={platform} trigger={['hover', 'focus']}><span className="table-cell-ellipsis" tabIndex={0}>{platform}</span></Tooltip></th>)}<th scope="col">合计</th></tr></thead>
-            <tbody>
-              {coverageStatuses.map(({ status, countKey }) => (
-                <tr key={status} className={`geo-insight-coverage-${status.toLowerCase().replace('_', '-')}`}>
-                  <th scope="row"><StatusTag status={status} /></th>
-                  {platforms.map((platform) => <td key={platform}>{groupedCounts.get(`${status}\u0000${platform}`) ?? 0}</td>)}
-                  <td><strong>{coverage.by_status[countKey]}</strong></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableRegion>
+        <div className="geo-insight-coverage-overview" role="list" aria-label="搜索问题覆盖概览">
+          {coverageStatuses.map(({ status, countKey, label }) => (
+            <article key={status} role="listitem">
+              <StatusTag status={status} />
+              <strong>{coverage.by_status[countKey]}</strong>
+              <span>{label}</span>
+              <small>{platforms.map((platform) => `${platform} ${groupedCounts.get(`${status}\u0000${platform}`) ?? 0}`).join(' · ')}</small>
+            </article>
+          ))}
+        </div>
       ) : <NoData description="当前筛选范围暂无可分析的问题与 GEO 平台组合" />}
       <ul className="geo-insight-coverage-legend" aria-label="覆盖状态说明">
         {coverageStatuses.map(({ status, label, description }) => <li key={status} className={`is-${status.toLowerCase().replace('_', '-')}`}><i /><span>{label}：{description}</span></li>)}
       </ul>
+      {!!coverage.matrix.length && (
+        <TableRegion label="问题主题与 GEO 平台覆盖明细">
+          <Table<CoverageRow>
+            rowKey={(row) => `${row.query_topic_id}-${row.geo_platform}`}
+            size="small"
+            pagination={false}
+            dataSource={coverage.matrix}
+            scroll={{ x: 760 }}
+            columns={[
+              { title: '问题主题', dataIndex: 'canonical_question', ellipsis: true },
+              { title: 'GEO 平台', dataIndex: 'geo_platform', width: 120, ellipsis: true },
+              { title: '覆盖状态', dataIndex: 'status', width: 110, render: (status) => <StatusTag status={status} /> },
+              { title: '样本', dataIndex: 'observation_count', width: 64 },
+              { title: '覆盖率', dataIndex: 'coverage_rate', width: 90, render: (value) => formatRate(value.value) },
+              ...(onOptimize ? [{
+                title: '操作', fixed: 'right', width: 132, render: (_, row) => {
+                  if (row.primary_task === 'CREATE_OPTIMIZATION_TASK') {
+                    return <Button type="primary" size="small" onClick={() => onOptimize({
+                      rule_code: 'QUESTION_COVERAGE_GAP',
+                      date_from: filters.date_from!,
+                      date_to: filters.date_to!,
+                      query_topic_id: row.query_topic_id,
+                      geo_platform: row.geo_platform,
+                    })}>创建优化任务</Button>;
+                  }
+                  const path = observationPath({
+                    query_topic_id: row.query_topic_id,
+                    search_platform: row.geo_platform,
+                    search_query: row.canonical_question,
+                    date_from: filters.date_from,
+                    date_to: filters.date_to,
+                    create: row.primary_task === 'ADD_OBSERVATION' ? 'true' : undefined,
+                  });
+                  return <Link to={path}><Button type="primary" size="small">{row.primary_task === 'ADD_OBSERVATION' ? '补充观测' : '查看观测依据'}</Button></Link>;
+                },
+              } satisfies NonNullable<TableColumnsType<CoverageRow>[number]>] : []),
+            ]}
+          />
+        </TableRegion>
+      )}
     </Card>
   );
 }
@@ -433,7 +591,12 @@ function DataQualityAlert({ data, printMode }: { data: GeoInsights; printMode: b
   );
 }
 
-function InsightSections({ data, printMode }: { data: GeoInsights; printMode: boolean }) {
+function InsightSections({ data, filters, printMode, onOptimize }: {
+  data: GeoInsights;
+  filters: GeoInsightQuery;
+  printMode: boolean;
+  onOptimize?: (target: OptimizationTarget) => void;
+}) {
   const unavailable = new Map(data.data_quality.unavailable_sections.map((section) => [section.code, section.message]));
   if (data.data_quality.eligible_observation_count === 0) {
     return (
@@ -457,16 +620,16 @@ function InsightSections({ data, printMode }: { data: GeoInsights; printMode: bo
           <TrendCard label="结果准确率" color="var(--ps-geo-series-teal)" trend={data.trends.accuracy_rate} />
         </section>
       </Card>
-      <PlatformPerformanceCard rows={data.platform_performance} unavailable={unavailable.get('NO_GEO_PLATFORMS')} />
+      <PlatformPerformanceCard rows={data.platform_performance} filters={filters} interactive={!printMode} unavailable={unavailable.get('NO_GEO_PLATFORMS')} />
       <Card className="geo-insight-parent-card geo-insight-ranking-panel" title="内容表现排行">
         <section className="geo-insight-ranking-grid" aria-label="内容表现排行">
-          <ContentRankingCard title="表现最佳内容 Top 5" kind="best" rows={data.content_rankings.best} />
-          <ContentRankingCard title="表现下降内容 Top 5" kind="declining" rows={data.content_rankings.declining} emptyDescription={unavailable.get('NO_COMPLETE_PREVIOUS_OBSERVATIONS')} />
-          <ContentRankingCard title="长期未获得提及的内容 Top 5" kind="long" rows={data.content_rankings.long_unmentioned} emptyDescription={unavailable.get('LONG_UNMENTIONED_PERIOD_TOO_SHORT')} />
+          <ContentRankingCard title="表现最佳内容 Top 5" kind="best" rows={data.content_rankings.best} filters={filters} onOptimize={onOptimize} />
+          <ContentRankingCard title="表现下降内容 Top 5" kind="declining" rows={data.content_rankings.declining} filters={filters} onOptimize={onOptimize} emptyDescription={unavailable.get('NO_COMPLETE_PREVIOUS_OBSERVATIONS')} />
+          <ContentRankingCard title="长期未获得提及的内容 Top 5" kind="long" rows={data.content_rankings.long_unmentioned} filters={filters} onOptimize={onOptimize} emptyDescription={unavailable.get('LONG_UNMENTIONED_PERIOD_TOO_SHORT')} />
         </section>
       </Card>
       <section className="geo-insight-two-column geo-insight-bottom-grid">
-        <CoverageCard coverage={data.question_coverage} />
+        <CoverageCard coverage={data.question_coverage} filters={filters} onOptimize={onOptimize} />
         <RecommendationsCard rows={data.recommendations} printMode={printMode} />
       </section>
     </>
@@ -510,6 +673,7 @@ function FilterPanel({
             />
           </div>
           <div className="geo-insight-filter-field"><span>内容平台</span><Select aria-label="内容平台" placeholder="全部平台" allowClear showSearch virtual={false} optionFilterProp="label" loading={loading} value={filters.content_platform_id} onChange={(value) => onChange('content_platform_id', value)} options={options?.content_platforms.map((item) => ({ value: item.id, label: item.label }))} /></div>
+          <div className="geo-insight-filter-field"><span>产品</span><Select aria-label="产品" placeholder="全部产品" allowClear showSearch virtual={false} optionFilterProp="label" loading={loading} value={filters.product_id} onChange={(value) => onChange('product_id', value)} options={options?.products.map((item) => ({ value: item.id, label: item.label }))} /></div>
           <div className="geo-insight-filter-field"><span>GEO 观测平台</span><Select aria-label="GEO 观测平台" placeholder="全部平台" allowClear showSearch virtual={false} loading={loading} value={filters.geo_platform} onChange={(value) => onChange('geo_platform', value)} options={options?.geo_platforms.map((value) => ({ value, label: value }))} /></div>
           <div className="geo-insight-filter-field"><span>发布内容</span><Select aria-label="发布内容" placeholder="全部内容" allowClear showSearch virtual={false} optionFilterProp="label" loading={loading} value={filters.published_article_id} onChange={(value) => onChange('published_article_id', value)} options={options?.publications.map((item) => ({ value: item.id, label: `${item.label} · ${item.platform_name}` }))} /></div>
           <div className="geo-insight-filter-field"><span>搜索问题</span><Select aria-label="搜索问题" placeholder="全部问题" allowClear showSearch virtual={false} optionFilterProp="label" loading={loading} value={filters.query_topic_id} onChange={(value) => onChange('query_topic_id', value)} options={options?.query_topics.map((item) => ({ value: item.id, label: item.label }))} /></div>
@@ -524,6 +688,7 @@ function filterSummary(filters: GeoInsightQuery, options: FilterOptions): Descri
   const optionLabel = (items: Schema<'GeoInsightOption'>[], id?: string) => id ? items.find((item) => item.id === id)?.label ?? id : '全部';
   return [
     { key: 'period', label: '时间范围', children: `${filters.date_from} 至 ${filters.date_to}` },
+    { key: 'product', label: '产品', children: optionLabel(options.products, filters.product_id) },
     { key: 'content-platform', label: '内容平台', children: optionLabel(options.content_platforms, filters.content_platform_id) },
     { key: 'geo-platform', label: 'GEO 平台', children: filters.geo_platform ?? '全部' },
     { key: 'publication', label: '发布内容', children: filters.published_article_id ? options.publications.find((item) => item.id === filters.published_article_id)?.label ?? filters.published_article_id : '全部' },
@@ -533,6 +698,7 @@ function filterSummary(filters: GeoInsightQuery, options: FilterOptions): Descri
 
 function GeoInsightsView({ printMode = false }: { printMode?: boolean }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [optimizationTarget, setOptimizationTarget] = useState<OptimizationTarget | null>(null);
   const defaults = useMemo(() => defaultDates(), []);
   const filters = geoInsightFiltersFromParams(searchParams, defaults);
   const collapsed = searchParams.get('filters_collapsed') === 'true';
@@ -627,7 +793,8 @@ function GeoInsightsView({ printMode = false }: { printMode?: boolean }) {
                 />
               </Card>
             )
-          : insights.data && <InsightSections data={insights.data} printMode={printMode} />}
+          : insights.data && <InsightSections data={insights.data} filters={filters} printMode={printMode} onOptimize={printMode ? undefined : setOptimizationTarget} />}
+      {!printMode && <OptimizationModal target={optimizationTarget} onClose={() => setOptimizationTarget(null)} />}
     </div>
   );
 }

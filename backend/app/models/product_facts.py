@@ -9,11 +9,13 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -65,13 +67,23 @@ class FactVersion(Base):
             "classification IN ('PUBLIC', 'INTERNAL', 'RESTRICTED')",
             name="ck_fact_versions_classification",
         ),
+        CheckConstraint(
+            "status IN ('PENDING_REVIEW', 'CHANGES_REQUESTED', 'APPROVED', 'RETIRED')",
+            name="ck_fact_versions_status_business_workflow",
+        ),
+        Index(
+            "uq_fact_versions_one_pending_per_product",
+            "product_id",
+            unique=True,
+            postgresql_where=text("status = 'PENDING_REVIEW'"),
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     product_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("products.id", ondelete="RESTRICT"), nullable=False
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="DRAFT")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PENDING_REVIEW")
     body_markdown: Mapped[str] = mapped_column(Text, nullable=False)
     classification: Mapped[str] = mapped_column(String(16), nullable=False)
     change_summary: Mapped[str] = mapped_column(Text, nullable=False)

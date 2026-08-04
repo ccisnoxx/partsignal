@@ -64,7 +64,7 @@ class PublicationWork(Base):
     __tablename__ = "publication_works"
     __table_args__ = (
         UniqueConstraint("idempotency_key", name="uq_publication_works_idempotency_key"),
-        UniqueConstraint("content_version_id", name="uq_publication_works_content_version_id"),
+        UniqueConstraint("content_task_id", name="uq_publication_works_content_task_id"),
         CheckConstraint(
             "status IN ('PREPARING', 'PLATFORM_REVIEW', 'AWAITING_VERIFICATION', "
             "'ACTION_REQUIRED', 'COMPLETED', 'CLOSED')",
@@ -102,6 +102,9 @@ class PublicationWork(Base):
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     idempotency_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    content_task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("content_tasks.id", ondelete="RESTRICT"), nullable=False
+    )
     content_version_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("content_versions.id", ondelete="RESTRICT"), nullable=False
     )
@@ -146,6 +149,12 @@ class PublicationWorkEvent(Base):
     action: Mapped[str] = mapped_column(String(40), nullable=False)
     from_status: Mapped[str | None] = mapped_column(String(40))
     to_status: Mapped[str] = mapped_column(String(40), nullable=False)
+    from_content_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("content_versions.id", ondelete="RESTRICT")
+    )
+    to_content_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("content_versions.id", ondelete="RESTRICT")
+    )
     comment: Mapped[str] = mapped_column(Text, nullable=False)
     actor_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
@@ -175,6 +184,9 @@ class PublicationVerification(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     publication_work_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("publication_works.id", ondelete="RESTRICT"), nullable=False
+    )
+    content_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("content_versions.id", ondelete="RESTRICT"), nullable=False
     )
     outcome: Mapped[str] = mapped_column(String(16), nullable=False)
     actual_title_snapshot: Mapped[str] = mapped_column(Text, nullable=False)

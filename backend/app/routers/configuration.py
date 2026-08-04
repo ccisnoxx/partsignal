@@ -71,7 +71,12 @@ from app.schemas.configuration import (
     PlatformTypeOut,
     PlatformTypeUpdate,
 )
-from app.services.ai_configuration import ai_channel_actions, ai_model_actions
+from app.services.ai_configuration import (
+    ai_channel_actions,
+    ai_channel_stage,
+    ai_model_actions,
+    ai_model_stage,
+)
 from app.services.ai_configuration import create_ai_channel as create_ai_channel_command
 from app.services.ai_configuration import (
     create_ai_channel_header as create_ai_channel_header_command,
@@ -201,6 +206,12 @@ def channel_out(channel: AIChannel) -> AIChannelOut:
         key=lambda model: (model.last_tested_at, model.id),
         default=None,
     )
+    workflow_stage, primary_task = ai_channel_stage(
+        is_enabled=channel.is_enabled,
+        api_key_configured=bool(channel.api_key_ciphertext),
+        model_count=len(channel.models),
+        passed_model_count=sum(model.test_status == "PASSED" for model in channel.models),
+    )
     return AIChannelOut(
         id=channel.id,
         name=channel.name,
@@ -219,6 +230,7 @@ def channel_out(channel: AIChannel) -> AIChannelOut:
                 is_sensitive=item.is_sensitive,
                 is_configured=bool(item.encrypted_value if item.is_sensitive else item.plain_value),
                 available_actions=["UPDATE", "DELETE"],
+                primary_task="RECONFIGURE_HEADER" if item.is_sensitive else "EDIT_HEADER",
                 value=None if item.is_sensitive else item.plain_value,
             )
             for item in sorted(channel.headers, key=lambda value: value.normalized_name)
@@ -232,6 +244,8 @@ def channel_out(channel: AIChannel) -> AIChannelOut:
             latest_tested_model.test_status if latest_tested_model else "UNTESTED"
         ),
         last_tested_at=(latest_tested_model.last_tested_at if latest_tested_model else None),
+        workflow_stage=workflow_stage,
+        primary_task=primary_task,
         available_actions=ai_channel_actions(
             is_enabled=channel.is_enabled,
             has_passed_model=any(model.test_status == "PASSED" for model in channel.models),
@@ -243,13 +257,16 @@ def channel_out(channel: AIChannel) -> AIChannelOut:
     )
 
 
-def model_out(model: AIModel) -> AIModelOut:
+def model_out(model: AIModel, *, channel_enabled: bool) -> AIModelOut:
+    workflow_stage, primary_task = ai_model_stage(model, channel_enabled=channel_enabled)
     payload = {
         field: getattr(model, field)
         for field in AIModelOut.model_fields
-        if field != "available_actions"
+        if field not in {"available_actions", "workflow_stage", "primary_task"}
     }
     payload["available_actions"] = ai_model_actions(model)
+    payload["workflow_stage"] = workflow_stage
+    payload["primary_task"] = primary_task
     return AIModelOut.model_validate(payload)
 
 
@@ -913,7 +930,24 @@ def discover_ai_channel_models(
         actor=admin,
         request_id=request.state.request_id,
     )
-    return DiscoveredModelList(items=[DiscoveredModel(model_id=item) for item in model_ids])
+    configured_ids = set(
+        db.scalars(
+            select(AIModel.model_id).where(
+                AIModel.channel_id == channel_id,
+                AIModel.model_id.in_(model_ids),
+            )
+        )
+    )
+    return DiscoveredModelList(
+        items=[
+            DiscoveredModel(
+                model_id=item,
+                configured=item in configured_ids,
+                primary_task=("VIEW_CONFIGURED_MODEL" if item in configured_ids else "ADD_MODEL"),
+            )
+            for item in model_ids
+        ]
+    )
 
 
 @router.post(
@@ -984,14 +1018,17 @@ def delete_ai_channel_header(
     "/ai-channels/{channel_id}/models", response_model=AIModelList, operation_id="listAIModels"
 )
 def list_ai_models(channel_id: uuid.UUID, db: DbSession, _admin: AdminUser) -> AIModelList:
-    if db.get(AIChannel, channel_id) is None:
+    channel = db.get(AIChannel, channel_id)
+    if channel is None:
         raise not_found("AI 渠道")
     models = list(
         db.scalars(
             select(AIModel).where(AIModel.channel_id == channel_id).order_by(AIModel.created_at)
         )
     )
-    return AIModelList(items=[model_out(item) for item in models])
+    return AIModelList(
+        items=[model_out(item, channel_enabled=channel.is_enabled) for item in models]
+    )
 
 
 @router.post(
@@ -1015,7 +1052,8 @@ def create_ai_model(
         actor=admin,
         request_id=request.state.request_id,
     )
-    return model_out(model)
+    channel = db.get(AIChannel, model.channel_id)
+    return model_out(model, channel_enabled=bool(channel and channel.is_enabled))
 
 
 @router.patch("/ai-models/{model_id}", response_model=AIModelOut, operation_id="updateAIModel")
@@ -1034,7 +1072,8 @@ def update_ai_model(
         actor=admin,
         request_id=request.state.request_id,
     )
-    return model_out(model)
+    channel = db.get(AIChannel, model.channel_id)
+    return model_out(model, channel_enabled=bool(channel and channel.is_enabled))
 
 
 @router.post("/ai-models/{model_id}/test", response_model=AIModelOut, operation_id="testAIModel")
@@ -1045,14 +1084,14 @@ def test_ai_model(
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> AIModelOut:
-    return model_out(
-        test_ai_model_command(
+    model = test_ai_model_command(
             db=db,
             model_id=model_id,
             actor=admin,
             request_id=request.state.request_id,
-        )
     )
+    channel = db.get(AIChannel, model.channel_id)
+    return model_out(model, channel_enabled=bool(channel and channel.is_enabled))
 
 
 def set_model_enabled(
@@ -1071,7 +1110,8 @@ def set_model_enabled(
         request_id=request.state.request_id,
         enabled=enabled,
     )
-    return model_out(model)
+    channel = db.get(AIChannel, model.channel_id)
+    return model_out(model, channel_enabled=bool(channel and channel.is_enabled))
 
 
 @router.post(

@@ -344,8 +344,9 @@ def platform_types_out(db: Session, items: list[PlatformType]) -> list[PlatformT
                 **{
                     field: getattr(item, field)
                     for field in PlatformTypeOut.model_fields
-                    if field != "available_actions"
+                    if field not in {"available_actions", "primary_task"}
                 },
+                "primary_task": "EDIT_CATEGORY",
                 "available_actions": [
                     "UPDATE",
                     *([] if item.id in referenced_ids else ["DELETE"]),

@@ -18,17 +18,21 @@ from sqlalchemy import create_engine, func, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
+from app.errors import AppError
 from app.models.configuration import PlatformProfile, PlatformType, QueryTopic
 from app.models.content import ContentTask, ContentVersion
 from app.models.identity import User
-from app.models.product_facts import FactVersion, Product
+from app.models.product_facts import FactReviewRecord, FactVersion, Product
 from app.models.publication import (
     PlatformAccount,
     PublicationVerification,
     PublicationWork,
+    PublicationWorkEvent,
     PublishedArticle,
 )
+from app.schemas.product_facts import FactReviewSubmissionRequest, ProductFactsDraftUpdate
 from app.schemas.publication import (
+    PublicationContentVersionSwitchRequest,
     PublicationResultUpdate,
     PublicationVerificationCreate,
     PublicationWorkCloseRequest,
@@ -38,6 +42,7 @@ from app.schemas.publication import (
     PublishedContentRepairTaskCreate,
 )
 from app.services.geo_observation import geo_publication_candidates
+from app.services.product_facts import replace_product_facts, submit_fact_review
 from app.services.publication import (
     close_publication_work,
     create_publication_work,
@@ -45,9 +50,11 @@ from app.services.publication import (
     open_published_content_issue,
     register_publication_result,
     resolve_published_content_issue,
+    switch_publication_content_version,
     verify_publication_work,
 )
 from app.services.publication_queries import list_publication_ready_items
+from app.services.review import transition_fact_version
 
 
 def _psycopg_url(value: str) -> str:
@@ -167,6 +174,8 @@ def _seed_graph(db: Session, *, content_hash: str = "a" * 64) -> dict[str, objec
         account_identifier=f"account-{uuid.uuid4().hex[:8]}",
     )
     db.add_all([content, account])
+    db.flush()
+    task.current_content_version_id = content.id
     db.commit()
     return {
         "user": user,
@@ -249,13 +258,61 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
             assert failed.status == "ACTION_REQUIRED"
             assert db.get(PublishedArticle, work.id) is None
             assert db.get(ContentTask, content.task_id).status == "OPEN"
+
+            content.status = "SUPERSEDED"
+            content.revision += 1
+            db.flush()
+            revised_content = ContentVersion(
+                task_id=content.task_id,
+                fact_version_id=content.fact_version_id,
+                based_on_id=content.id,
+                version=2,
+                source_type="HUMAN",
+                title="测试器件选型（修订）",
+                summary="冻结事实摘要",
+                body_markdown="# 测试器件\n\n修订后的公开正文。",
+                tags=["PS"],
+                content_hash="c" * 64,
+                status="APPROVED",
+                quality_issues=[],
+                change_summary="根据失败核验修订",
+                created_by=user.id,
+            )
+            db.add(revised_content)
+            db.flush()
+            task = db.get(ContentTask, content.task_id)
+            assert task is not None
+            task.current_content_version_id = revised_content.id
+            db.commit()
+
+            switched = switch_publication_content_version(
+                db=db,
+                work_id=work.id,
+                payload=PublicationContentVersionSwitchRequest(
+                    content_version_id=revised_content.id,
+                    expected_revision=failed.revision,
+                    comment="切换到修订批准版本",
+                ),
+                actor=user,
+                request_id="publication-version-switch",
+            )
+            assert switched.content_version_id == revised_content.id
+            switch_event = db.scalar(
+                select(PublicationWorkEvent).where(
+                    PublicationWorkEvent.publication_work_id == work.id,
+                    PublicationWorkEvent.action == "CONTENT_VERSION_CHANGED",
+                )
+            )
+            assert switch_event is not None
+            assert switch_event.from_content_version_id == content.id
+            assert switch_event.to_content_version_id == revised_content.id
             completed = verify_publication_work(
                 db=db,
                 work_id=work.id,
                 payload=PublicationVerificationCreate(
                     outcome="PASSED",
                     content_matches=True,
-                    expected_revision=failed.revision,
+                    expected_revision=switched.revision,
                     comment="页面修正后复核通过",
                 ),
                 actor=user,
@@ -272,6 +329,27 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                 )
                 == 2
             )
+            verification_versions = list(
+                db.scalars(
+                    select(PublicationVerification.content_version_id)
+                    .where(PublicationVerification.publication_work_id == work.id)
+                    .order_by(PublicationVerification.created_at)
+                )
+            )
+            assert verification_versions == [content.id, revised_content.id]
+            with pytest.raises(AppError) as terminal_switch:
+                switch_publication_content_version(
+                    db=db,
+                    work_id=work.id,
+                    payload=PublicationContentVersionSwitchRequest(
+                        content_version_id=content.id,
+                        expected_revision=completed.revision,
+                        comment="终态禁止切换",
+                    ),
+                    actor=user,
+                    request_id="publication-terminal-switch",
+                )
+            assert terminal_switch.value.code == "INVALID_STATE_TRANSITION"
             assert [
                 candidate.published_article_id
                 for candidate in geo_publication_candidates(db, product.id)
@@ -375,3 +453,98 @@ def test_close_work_cancels_source_task_without_published_article() -> None:
             assert closed.close_reason == "PLATFORM_REJECTED"
             assert db.get(ContentTask, content.task_id).status == "CANCELLED"
             assert db.get(PublishedArticle, work.id) is None
+
+
+@pytest.mark.integration
+def test_fact_workspace_submission_creates_one_pending_snapshot_and_new_revision_after_return(
+) -> None:
+    """事实提交一步冻结待审核版本，退回后只能从工作区创建新版本。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            actor = User(
+                username=f"fact-{uuid.uuid4().hex[:10]}",
+                display_name="事实流程测试用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            product = Product(
+                part_number="PS-FACT",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex[:8]}",
+                category="MCU",
+                facts_body_markdown="## 初始事实",
+                facts_classification="PUBLIC",
+            )
+            db.add_all([actor, product])
+            db.commit()
+
+            first = submit_fact_review(
+                db=db,
+                product_id=product.id,
+                payload=FactReviewSubmissionRequest(
+                    expected_revision=product.facts_revision,
+                    change_summary="提交初始事实",
+                ),
+                actor=actor,
+                request_id="fact-submit-first",
+            )
+            assert first.status == "PENDING_REVIEW"
+            assert first.body_markdown == "## 初始事实"
+            with pytest.raises(AppError) as duplicate:
+                submit_fact_review(
+                    db=db,
+                    product_id=product.id,
+                    payload=FactReviewSubmissionRequest(
+                        expected_revision=product.facts_revision,
+                        change_summary="重复提交",
+                    ),
+                    actor=actor,
+                    request_id="fact-submit-duplicate",
+                )
+            assert duplicate.value.code == "FACT_REVIEW_PENDING"
+            db.rollback()
+
+            returned = transition_fact_version(
+                db=db,
+                fact_version_id=first.id,
+                expected_revision=first.revision,
+                comment="补充参数来源",
+                actor=actor,
+                request_id="fact-request-changes",
+                action="request-changes",
+            )
+            assert returned.status == "CHANGES_REQUESTED"
+            draft = replace_product_facts(
+                db=db,
+                product_id=product.id,
+                payload=ProductFactsDraftUpdate(
+                    body_markdown="## 修订事实\n\n补充参数来源。",
+                    classification="PUBLIC",
+                    expected_revision=product.facts_revision,
+                ),
+                actor=actor,
+                request_id="fact-workspace-revise",
+            )
+            second = submit_fact_review(
+                db=db,
+                product_id=product.id,
+                payload=FactReviewSubmissionRequest(
+                    expected_revision=draft.revision,
+                    change_summary="根据意见创建修订",
+                ),
+                actor=actor,
+                request_id="fact-submit-second",
+            )
+            assert second.version == 2
+            assert second.status == "PENDING_REVIEW"
+            assert first.status == "CHANGES_REQUESTED"
+            assert (
+                db.scalar(
+                    select(func.count(FactReviewRecord.id)).where(
+                        FactReviewRecord.fact_version_id.in_([first.id, second.id])
+                    )
+                )
+                == 3
+            )

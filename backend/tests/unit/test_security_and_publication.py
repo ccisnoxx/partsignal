@@ -64,25 +64,33 @@ def test_publication_domain_requires_http_and_real_domain_boundary() -> None:
     assert not domain_allowed("javascript:alert(1)", ["example.com"])
 
 
-def test_publication_actions_have_one_server_projected_primary_action() -> None:
+def test_publication_actions_have_one_server_projected_primary_task() -> None:
     assert publication_work_actions("ACTION_REQUIRED") == (
-        ["VERIFY", "REGISTER_RESULT", "CLOSE"],
-        "VERIFY",
+        ["VERIFY", "REGISTER_RESULT", "SWITCH_CONTENT_VERSION", "CLOSE"],
+        "FIX_AND_REVERIFY",
     )
-    assert publication_work_actions("COMPLETED") == ([], None)
+    assert publication_work_actions("COMPLETED") == ([], "VIEW_COMPLETION")
     assert published_article_actions(has_open_issue=False, retired=False) == (
         ["OPEN_ISSUE"],
-        "OPEN_ISSUE",
+        "HEALTHY",
+        "START_PRODUCT_OBSERVATION",
     )
-    assert published_article_actions(has_open_issue=True, retired=False) == ([], None)
+    assert published_article_actions(has_open_issue=True, retired=False) == (
+        [],
+        "OPEN_ISSUE",
+        "HANDLE_CONTENT_ISSUE",
+    )
     repair_task_id = uuid.uuid4()
-    assert published_content_issue_actions(status="OPEN", repair_task_id=None) == (
+    assert published_content_issue_actions(
+        status="OPEN", repair_task_id=None, repair_task_status=None
+    ) == (
         ["CREATE_REPAIR_TASK", "RESOLVE"],
-        "CREATE_REPAIR_TASK",
+        "OPEN",
+        "HANDLE_CONTENT_ISSUE",
     )
     assert published_content_issue_actions(
-        status="OPEN", repair_task_id=repair_task_id
-    ) == (["RESOLVE"], "RESOLVE")
+        status="OPEN", repair_task_id=repair_task_id, repair_task_status="OPEN"
+    ) == (["RESOLVE"], "REPAIRING", "CONTINUE_REPAIR")
 
 
 def test_verified_files_rejects_duplicate_or_unverified_attachments() -> None:

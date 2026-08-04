@@ -10,6 +10,7 @@ import { mockFetch } from '../../test/fetchMock';
 import { GeoInsightsPage, GeoInsightsPrintPage } from './GeoInsightsPage';
 
 const contentPlatformId = '10000000-0000-4000-8000-000000000001';
+const productId = '10000000-0000-4000-8000-000000000010';
 const publicationId = '20000000-0000-4000-8000-000000000001';
 const decliningPublicationId = '20000000-0000-4000-8000-000000000002';
 const topicId = '30000000-0000-4000-8000-000000000001';
@@ -50,6 +51,7 @@ const insights = {
     previous: { date_from: '2026-07-18', date_to: '2026-07-19' },
   },
   filter_options: {
+    products: [{ id: productId, label: 'PartSignal PS-001' }],
     content_platforms: [{ id: contentPlatformId, label: '工程师社区' }],
     geo_platforms: ['DeepSeek', 'Gemini'],
     publications: [{ id: publicationId, label: 'PS-001 选型文章', platform_name: '工程师社区' }],
@@ -63,15 +65,18 @@ const insights = {
   platform_performance: [{
     geo_platform: 'DeepSeek', observation_count: 3,
     discovery_rate: rateTrend.current, mention_rate: rateTrend.current, accuracy_rate: rateTrend.current,
+    primary_task: 'VIEW_OBSERVATION_DETAILS',
   }],
   content_rankings: {
     best: [{
-      published_article_id: publicationId, title: longPublicationTitle, content_platform: longPlatformName, observation_count: 3,
+      published_article_id: publicationId, product_id: productId, content_platform_id: contentPlatformId, title: longPublicationTitle, content_platform: longPlatformName, observation_count: 3,
       discovery_rate: rateTrend.current, mention_rate: rateTrend.current, accuracy_rate: rateTrend.current,
+      primary_task: 'VIEW_CONTENT_PERFORMANCE',
     }],
     declining: [{
-      published_article_id: decliningPublicationId, title: 'PS-001 表现下降文章', content_platform: '工程师社区', observation_count: 3,
+      published_article_id: decliningPublicationId, product_id: productId, content_platform_id: contentPlatformId, title: 'PS-001 表现下降文章', content_platform: '工程师社区', observation_count: 3,
       discovery_rate: rateTrend.current, mention_rate: rateTrend.current, accuracy_rate: rateTrend.previous,
+      primary_task: 'CREATE_OPTIMIZATION_TASK',
       basis: [{ metric: 'accuracy_rate', current_value: 0.25, previous_value: 0.5, decline: 0.25 }],
     }],
     long_unmentioned: [],
@@ -82,22 +87,27 @@ const insights = {
       {
         query_topic_id: topicId, canonical_question: '不应在总览铺开的问题一', geo_platform: 'DeepSeek', status: 'STABLE',
         observation_count: 4, mentioned_observation_count: 3, coverage_rate: { numerator: 3, denominator: 4, value: 0.75 },
+        primary_task: 'VIEW_OBSERVATION_DETAILS',
       },
       {
         query_topic_id: topicId, canonical_question: '不应在总览铺开的问题一', geo_platform: 'Gemini', status: 'STABLE',
         observation_count: 4, mentioned_observation_count: 3, coverage_rate: { numerator: 3, denominator: 4, value: 0.75 },
+        primary_task: 'VIEW_OBSERVATION_DETAILS',
       },
       {
         query_topic_id: secondTopicId, canonical_question: '不应在总览铺开的问题二', geo_platform: 'DeepSeek', status: 'OCCASIONAL',
         observation_count: 4, mentioned_observation_count: 2, coverage_rate: rateTrend.current,
+        primary_task: 'CREATE_OPTIMIZATION_TASK',
       },
       {
         query_topic_id: thirdTopicId, canonical_question: '不应在总览铺开的问题三', geo_platform: 'Gemini', status: 'UNCOVERED',
         observation_count: 4, mentioned_observation_count: 0, coverage_rate: { numerator: 0, denominator: 4, value: 0 },
+        primary_task: 'CREATE_OPTIMIZATION_TASK',
       },
       {
         query_topic_id: fourthTopicId, canonical_question: '不应在总览铺开的问题四', geo_platform: 'Gemini', status: 'INSUFFICIENT_DATA',
         observation_count: 2, mentioned_observation_count: 0, coverage_rate: { numerator: 0, denominator: 2, value: 0 },
+        primary_task: 'ADD_OBSERVATION',
       },
     ],
   },
@@ -220,25 +230,22 @@ test('排行省略内容和下降依据仍保留完整可访问文本与 Tooltip
   expect(await screen.findByRole('tooltip')).toHaveTextContent('准确率 50.0% → 25.0%（下降 25.0 个百分点）');
 });
 
-test('覆盖总览只按服务端分类结果分组计数，不铺开问题明细', async () => {
+test('覆盖总览按服务端分类计数，并为每个问题平台组合提供主操作', async () => {
   mockFetch(() => ({ body: insights }));
   renderPage('/observations/insights?date_from=2026-07-20&date_to=2026-07-21');
 
-  const table = await screen.findByRole('table', { name: '覆盖状态与 GEO 平台计数' });
-  expect(within(table).getByRole('row', { name: /稳定覆盖 1 1 2/ })).toBeInTheDocument();
-  expect(within(table).getByRole('row', { name: /偶尔命中 1 0 1/ })).toBeInTheDocument();
-  expect(within(table).getByRole('row', { name: /尚未覆盖 0 1 1/ })).toBeInTheDocument();
-  expect(within(table).getByRole('row', { name: /数据不足 0 1 1/ })).toBeInTheDocument();
-  expect(within(table).getByRole('row', { name: /稳定覆盖 1 1 2/ })).toHaveClass('geo-insight-coverage-stable');
-  expect(within(table).getByRole('row', { name: /偶尔命中 1 0 1/ })).toHaveClass('geo-insight-coverage-occasional');
-  expect(within(table).getByRole('row', { name: /尚未覆盖 0 1 1/ })).toHaveClass('geo-insight-coverage-uncovered');
-  expect(within(table).getByRole('row', { name: /数据不足 0 1 1/ })).toHaveClass('geo-insight-coverage-insufficient-data');
-  expect(screen.queryByText('不应在总览铺开的问题一')).not.toBeInTheDocument();
+  const overview = await screen.findByRole('list', { name: '搜索问题覆盖概览' });
+  const summaryItems = within(overview).getAllByRole('listitem');
+  expect(summaryItems[0]).toHaveTextContent('稳定覆盖2稳定覆盖DeepSeek 1 · Gemini 1');
+  expect(summaryItems[1]).toHaveTextContent('偶尔命中1偶尔命中DeepSeek 1 · Gemini 0');
+  expect(summaryItems[2]).toHaveTextContent('尚未覆盖1尚未覆盖DeepSeek 0 · Gemini 1');
+  expect(summaryItems[3]).toHaveTextContent('数据不足1数据不足DeepSeek 0 · Gemini 1');
   expect(screen.getByLabelText('覆盖状态说明')).toHaveTextContent('稳定覆盖：覆盖率 ≥ 60%（≥3 次）');
-  const platformHeader = within(table).getByRole('columnheader', { name: 'DeepSeek' }).querySelector('span');
-  expect(platformHeader).not.toBeNull();
-  fireEvent.focus(platformHeader!);
-  expect(await screen.findByRole('tooltip', { name: 'DeepSeek' })).toBeInTheDocument();
+  const detail = screen.getByRole('region', { name: '问题主题与 GEO 平台覆盖明细' });
+  expect(within(detail).getAllByText('不应在总览铺开的问题一')).toHaveLength(2);
+  expect(within(detail).getAllByRole('button', { name: '查看观测依据' })).toHaveLength(2);
+  expect(within(detail).getAllByRole('button', { name: '创建优化任务' })).toHaveLength(2);
+  expect(within(detail).getByRole('button', { name: '补充观测' })).toBeInTheDocument();
 });
 
 test('数据质量以紧凑摘要呈现，并通过提示保留完整计数和机器原因', async () => {

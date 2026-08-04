@@ -43,6 +43,7 @@ vi.mock('../../shared/components/DirectUpload', () => ({
 const user = {
   id: '10000000-0000-4000-8000-000000000001', username: 'engineer', display_name: '工程师',
   account_type: 'ENGINEER', is_active: true, must_change_password: false, available_actions: [], revision: 1, created_at: '2026-07-18T00:00:00Z',
+  workflow_stage: 'ACTIVE', primary_task: 'MANAGE_USER',
 } satisfies Schema<'User'>;
 const adminUser = { ...user, account_type: 'ADMIN' } satisfies Schema<'User'>;
 
@@ -77,6 +78,8 @@ const manualRecord = {
   tested_by: user.id,
   recorder: { id: user.id, username: user.username, display_name: user.display_name },
   is_current: true,
+  workflow_stage: 'READY',
+  primary_task: 'VIEW_ANALYSIS',
   available_actions: ['CORRECT', 'DELETE'],
   created_at: '2026-07-20T10:05:00Z',
 } satisfies Schema<'ManualGeoObservation'>;
@@ -85,6 +88,8 @@ const historicalManualRecord = {
   ...manualRecord,
   id: '40000000-0000-4000-8000-000000000002',
   query_topic_id: null,
+  workflow_stage: 'INCOMPLETE',
+  primary_task: 'CORRECT_OBSERVATION',
   article_results: manualRecord.article_results.map((item) => ({
     ...item,
     discovered: null,
@@ -117,6 +122,7 @@ const topic = {
   intent_type: 'REPLACEMENT',
   variants: ['PS-001 如何替代？'],
   available_actions: ['UPDATE'],
+  primary_task: 'USE_FOR_OBSERVATION',
   revision: 0,
   created_at: '2026-07-18T00:00:00Z',
 } satisfies Schema<'QueryTopic'>;
@@ -169,7 +175,7 @@ test('独立提交提及和准确性且不上传截图，服务端失败时保�
     if (url.pathname.endsWith('/geo-metrics')) return { body: { ...metrics, manual_observation_count: 0, article_result_count: 0, discovered_article_count: 0, mentioned_article_count: 0, article_discovery_rate: null, article_mention_rate: null, article_accuracy_rate: null } satisfies Schema<'GeoMetrics'> };
     if (url.pathname.endsWith('/geo-observations') && request.method === 'GET') return { body: { items: [], page: 1, page_size: 20, total: 0 } satisfies Schema<'GeoObservationList'> };
     if (url.pathname.endsWith('/query-topics')) return { body: { items: [topic] } satisfies Schema<'QueryTopicList'> };
-    if (url.pathname.endsWith('/products')) return { body: { items: [{ id: productId, part_number: 'PS-001', brand: 'PartSignal', category: 'MCU', status: 'ACTIVE', available_actions: ['UPDATE'], revision: 0, created_at: '2026-07-18T00:00:00Z', updated_at: '2026-07-18T00:00:00Z' }], page: 1, page_size: 100, total: 1 } satisfies Schema<'ProductList'> };
+    if (url.pathname.endsWith('/products')) return { body: { items: [{ id: productId, part_number: 'PS-001', brand: 'PartSignal', category: 'MCU', status: 'ACTIVE', workflow_stage: 'FACT_APPROVED', primary_task: 'CREATE_CONTENT_TASK', available_actions: ['UPDATE'], revision: 0, created_at: '2026-07-18T00:00:00Z', updated_at: '2026-07-18T00:00:00Z' }], page: 1, page_size: 100, total: 1 } satisfies Schema<'ProductList'> };
     if (url.pathname.endsWith('/geo-observation-publications')) return { body: { items: [{ published_article_id: publicationId, title: 'PS-001 选型文章', platform_name: '工程师社区', final_url: 'https://community.example.invalid/ps-001', status: 'COMPLETED' }] } satisfies Schema<'GeoPublicationCandidateList'> };
     if (url.pathname.endsWith('/geo-observations') && request.method === 'POST') {
       createRequest = request;

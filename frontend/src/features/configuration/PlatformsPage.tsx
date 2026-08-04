@@ -4,7 +4,6 @@ import {
   CheckCircleOutlined,
   EllipsisOutlined,
   ExportOutlined,
-  EyeOutlined,
   FileTextOutlined,
   GlobalOutlined,
   PlusOutlined,
@@ -73,6 +72,11 @@ type PlatformBrandingFormValues = {
 };
 type PlatformCreateFormValues = PlatformBrandingFormValues & { slug: string };
 type PlatformUpdateFormValues = PlatformBrandingFormValues & { expected_revision: number };
+const platformTaskLabels: Record<PlatformProfile['primary_task'], string> = {
+  ENABLE_PLATFORM: '重新启用',
+  CONFIGURE_GENERATION: '配置系统生成',
+  VIEW_PLATFORM_OPERATION: '查看平台运营',
+};
 
 const pageSizes = [10, 20, 50] as const;
 const statusOptions: Array<{ value: Schema<'PlatformProfileStatus'>; label: string }> = [
@@ -275,7 +279,7 @@ export function PlatformsPage() {
     const items: NonNullable<MenuProps['items']> = [];
     if (profile.available_actions.includes('UPDATE')) items.push({ key: 'edit', label: '编辑平台' });
     if (profile.available_actions.includes('DISABLE')) items.push({ key: 'toggle', label: '停用平台', danger: true });
-    if (profile.available_actions.includes('ENABLE')) items.push({ key: 'toggle', label: '启用平台' });
+    if (profile.available_actions.includes('ENABLE') && profile.primary_task !== 'ENABLE_PLATFORM') items.push({ key: 'toggle', label: '启用平台' });
     if (profile.available_actions.includes('DELETE')) items.push({ key: 'delete', label: '删除平台', danger: true });
     return {
       items,
@@ -379,7 +383,7 @@ export function PlatformsPage() {
                 { title: '当前 Prompt', width: 160, ellipsis: true, render: (_, profile) => profile.platform_prompt ? <TableCellText text={profile.platform_prompt.name} /> : <StatusTag compact status="PROMPT_MISSING" /> },
                 { title: '发布账号数量', dataIndex: 'platform_account_count', width: 86 },
                 { title: '更新时间', dataIndex: 'updated_at', width: 124, render: (value: string | null) => value ? <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> : '—' },
-                { title: '操作', fixed: 'right', width: 104, render: (_, profile) => <Space size={4}><Tooltip title={`查看平台：${profile.name}`}><Button data-platform-view={profile.id} type="text" size="small" aria-label={`查看平台：${profile.name}`} icon={<EyeOutlined />} onClick={(event) => openDetail(profile.id, event.currentTarget)} /></Tooltip><Dropdown trigger={['click']} menu={rowMenu(profile)}><Tooltip title={`更多操作：${profile.name}`}><Button {...focusReturnTargetProps} type="text" size="small" aria-label={`更多操作：${profile.name}`} icon={<EllipsisOutlined />} loading={(toggleProfile.isPending || removeProfile.isPending) && (toggleProfile.variables?.id === profile.id || removeProfile.variables?.id === profile.id)} /></Tooltip></Dropdown></Space> },
+                { title: '操作', fixed: 'right', width: 210, render: (_, profile) => <Space size={4}><Button data-platform-view={profile.id} type="primary" size="small" onClick={(event) => profile.primary_task === 'ENABLE_PLATFORM' ? confirmToggle(profile, restoreFocus) : openDetail(profile.id, event.currentTarget)}>{platformTaskLabels[profile.primary_task]}</Button>{rowMenu(profile).items?.length ? <Dropdown trigger={['click']} menu={rowMenu(profile)}><Tooltip title={`更多操作：${profile.name}`}><Button {...focusReturnTargetProps} type="text" size="small" aria-label={`更多操作：${profile.name}`} icon={<EllipsisOutlined />} loading={(toggleProfile.isPending || removeProfile.isPending) && (toggleProfile.variables?.id === profile.id || removeProfile.variables?.id === profile.id)} /></Tooltip></Dropdown> : null}</Space> },
               ]}
             />
           </TableRegion>}

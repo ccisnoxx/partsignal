@@ -43,8 +43,8 @@ AuditCase = tuple[
 _CONTENT_ID = uuid.uuid4()
 _PLATFORM_ACCOUNT_ID = uuid.uuid4()
 _PUBLICATION_WORK_ID = uuid.uuid4()
-_FACT_VERSION_ID = uuid.uuid4()
-_COMMAND_PAYLOAD = SimpleNamespace(expected_revision=0, comment="")
+_PRODUCT_ID = uuid.uuid4()
+_COMMAND_PAYLOAD = SimpleNamespace(expected_revision=0, comment="", change_summary="测试提交")
 _VERIFICATION_PAYLOAD = SimpleNamespace(
     expected_revision=0,
     outcome=SimpleNamespace(value="PASSED"),
@@ -119,13 +119,13 @@ AUDIT_CASES: tuple[AuditCase, ...] = (
     ),
     (
         product_facts,
-        "transition_fact_version",
-        product_facts.submit_fact_version,
+        "submit_fact_review_command",
+        product_facts.submit_product_fact_review,
         "editor",
-        {"fact_version_id": _FACT_VERSION_ID, "payload": _COMMAND_PAYLOAD},
-        "fact_version.submit",
+        {"product_id": _PRODUCT_ID, "payload": _COMMAND_PAYLOAD},
+        "fact_version.submitted",
         "FactVersion",
-        _FACT_VERSION_ID,
+        None,
         AuditModule.PRODUCT_FACTS,
     ),
 )

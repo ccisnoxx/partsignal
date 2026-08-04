@@ -15,12 +15,12 @@ import { ProductFactsPage } from './ProductFactsPage';
 const productId = '10000000-0000-4000-8000-000000000001';
 const versionId = '20000000-0000-4000-8000-000000000001';
 const secondVersionId = '20000000-0000-4000-8000-000000000002';
-const product = { id: productId, part_number: 'DEMO-001', brand: 'DEMO', category: 'MCU', status: 'ACTIVE', available_actions: ['UPDATE'], revision: 0, facts_revision: 0, created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z' };
+const product = { id: productId, part_number: 'DEMO-001', brand: 'DEMO', category: 'MCU', status: 'ACTIVE', workflow_stage: 'FACTS_EDITING', primary_task: 'SUBMIT_FACT_REVIEW', available_actions: ['UPDATE'], revision: 0, facts_revision: 0, created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z' };
 const initialDraft: Schema<'ProductFactsDraft'> = {
   product_id: productId,
   body_markdown: '# 产品事实\n\n初始正文',
   classification: 'PUBLIC',
-  available_actions: ['SAVE', 'CREATE_VERSION'],
+  available_actions: ['SAVE', 'SUBMIT_REVIEW'],
   revision: 0,
 };
 let draft = initialDraft;
@@ -28,16 +28,17 @@ const factVersion = {
   id: versionId,
   product_id: productId,
   version: 1,
-  status: 'DRAFT',
+  status: 'PENDING_REVIEW',
   body_markdown: initialDraft.body_markdown,
   classification: initialDraft.classification,
   change_summary: '测试快照',
+  primary_task: 'REVIEW_FACT',
   revision: 0,
   created_by: '30000000-0000-4000-8000-000000000001',
   approved_by: null,
   created_at: '2026-07-16T00:00:00Z',
   approved_at: null,
-  available_actions: ['SUBMIT', 'DELETE'],
+  available_actions: ['APPROVE', 'REQUEST_CHANGES', 'DELETE'],
 } satisfies Schema<'FactVersion'>;
 const secondFactVersion = {
   ...factVersion,
@@ -52,6 +53,7 @@ let deletedIds: string[] = [];
 let versionsError = false;
 let reviewContexts: Record<string, Schema<'FactReviewContext'>> = {};
 let requestedReviewIds: string[] = [];
+let submittedReview: Promise<Schema<'FactReviewSubmissionRequest'>> | undefined;
 
 function renderPage() {
   return render(<ThemeProvider><AntApp><QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[`/products/${productId}`]}><Routes><Route path="/products/:productId" element={<ProductFactsPage />} /></Routes></MemoryRouter></QueryClientProvider></AntApp></ThemeProvider>);
@@ -66,6 +68,7 @@ beforeEach(() => {
   versionsError = false;
   reviewContexts = {};
   requestedReviewIds = [];
+  submittedReview = undefined;
   setCsrfToken('x'.repeat(32));
   mockFetch((request) => {
     const path = new URL(request.url).pathname;
@@ -81,6 +84,10 @@ beforeEach(() => {
     if (request.method === 'PUT' && path === `/api/v1/products/${productId}/facts`) {
       draft = { ...draft, body_markdown: '# 产品事实\n\n保存后的正文', revision: draft.revision + 1 };
       return { body: draft };
+    }
+    if (request.method === 'POST' && path === `/api/v1/products/${productId}/fact-review-submissions`) {
+      submittedReview = request.clone().json() as Promise<Schema<'FactReviewSubmissionRequest'>>;
+      return { body: factVersion };
     }
     if (request.method === 'DELETE' && path === `/api/v1/fact-versions/${versionId}`) {
       if (deleteConflict) return { status: 409, body: { error: { code: 'FACT_VERSION_IN_USE', message: '事实版本仍被引用', request_id: 'req-delete', details: { references: [{ type: 'CONTENT_TASK', count: 1 }, { type: 'CONTENT_VERSION', count: 2 }] } } } };
@@ -102,7 +109,7 @@ test('管理员删除事实版本后只刷新当前产品版本列表', async ()
   const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
   renderPage();
   await user.click(await screen.findByRole('tab', { name: /事实版本/ }));
-  expect(screen.getByRole('button', { name: '创建不可变版本' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '提交事实审核' })).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: '更多操作：事实版本 V1' }));
   await user.click(await screen.findByRole('menuitem', { name: '删除' }));
   const dialog = await screen.findByRole('dialog', { name: '删除事实版本 V1？' });
@@ -129,14 +136,14 @@ test('事实版本双引用冲突复用结构化中文错误展示', async () =>
   expect(screen.getByText('V1')).toBeInTheDocument();
 });
 
-test('服务端未投影删除动作时仍保留事实维护、版本和审核入口', async () => {
+test('服务端未投影删除动作时仍保留原子提交、版本和审核入口', async () => {
   const user = userEvent.setup();
-  versions = [{ ...factVersion, available_actions: ['SUBMIT'] }];
+  versions = [{ ...factVersion, available_actions: ['APPROVE'] }];
   renderPage();
   expect(await screen.findByRole('button', { name: '保存事实工作区' })).toBeInTheDocument();
   await user.click(screen.getByRole('tab', { name: /事实版本/ }));
-  expect(screen.getByRole('button', { name: '创建不可变版本' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '审核与历史' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '提交事实审核' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '审核处理' })).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: '更多操作：事实版本 V1' }));
   expect(await screen.findByRole('menuitem', { name: '查看冻结正文' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /删\s*除/ })).not.toBeInTheDocument();
@@ -153,7 +160,7 @@ test('V2 审核详情只请求并展示 V2 自身历史', async () => {
   reviewContexts = {
     [versionId]: {
       fact_version: factVersion,
-      available_actions: ['SUBMIT'],
+      available_actions: ['APPROVE'],
       review_history: [{
         id: '40000000-0000-4000-8000-000000000001',
         target_id: versionId,
@@ -166,7 +173,7 @@ test('V2 审核详情只请求并展示 V2 自身历史', async () => {
     },
     [secondVersionId]: {
       fact_version: secondFactVersion,
-      available_actions: ['SUBMIT'],
+      available_actions: ['APPROVE'],
       review_history: [{
         id: '40000000-0000-4000-8000-000000000002',
         target_id: secondVersionId,
@@ -183,11 +190,24 @@ test('V2 审核详情只请求并展示 V2 自身历史', async () => {
   await user.click(await screen.findByRole('tab', { name: /事实版本/ }));
   const versionTwoRow = screen.getByText('V2').closest('tr');
   expect(versionTwoRow).not.toBeNull();
-  await user.click(within(versionTwoRow!).getByRole('button', { name: '审核与历史' }));
+  await user.click(within(versionTwoRow!).getByRole('button', { name: '审核处理' }));
 
   expect(await screen.findByText('仅属于 V2 的事件')).toBeInTheDocument();
   expect(screen.queryByText('仅属于 V1 的事件')).not.toBeInTheDocument();
   expect(requestedReviewIds).toEqual([secondVersionId]);
+});
+
+test('提交事实审核以一次请求冻结当前工作区', async () => {
+  const user = userEvent.setup();
+  renderPage();
+  await user.click(await screen.findByRole('tab', { name: /事实版本/ }));
+  await user.click(screen.getByRole('button', { name: '提交事实审核' }));
+  await user.type(screen.getByRole('textbox', { name: '变更说明' }), '首版事实审核');
+  await user.click(screen.getByRole('button', { name: '确认提交审核' }));
+
+  await waitFor(() => expect(submittedReview).toBeDefined());
+  await expect(submittedReview).resolves.toEqual({ expected_revision: 0, change_summary: '首版事实审核' });
+  expect(await screen.findByText('事实版本已提交审核')).toBeInTheDocument();
 });
 
 test('Markdown 工作区显示修改、校验错误和保存成功状态', async () => {

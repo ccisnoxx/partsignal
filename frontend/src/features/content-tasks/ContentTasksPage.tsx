@@ -69,6 +69,36 @@ const taskDateFormatter = new Intl.DateTimeFormat('zh-CN', {
   hour12: false,
 });
 
+const taskPrimaryLabels: Record<ContentTaskListItem['primary_task'], string> = {
+  CREATE_FIRST_DRAFT: '创建首稿',
+  VIEW_GENERATION_PROGRESS: '查看生成进度',
+  HANDLE_GENERATION_FAILURE: '处理生成失败',
+  EDIT_AND_SUBMIT_REVIEW: '编辑并提交审核',
+  REVIEW_CONTENT: '审核处理',
+  REVISE_CONTENT: '根据意见修订',
+  START_PUBLICATION: '开始发布',
+  CONTINUE_PUBLICATION: '继续发布',
+  VIEW_FULL_LINEAGE: '查看完整链路',
+  VIEW_CANCELLATION: '查看取消记录',
+};
+
+const generationTaskLabels: Record<Schema<'GenerationJob'>['primary_task'], string> = {
+  VIEW_EXECUTION_PROGRESS: '查看执行进度',
+  VIEW_GENERATED_CONTENT: '查看生成内容',
+  HANDLE_FAILURE: '处理失败',
+  VIEW_FAILURE: '查看失败原因',
+};
+
+const contentTaskLabels: Record<ContentVersion['primary_task'], string> = {
+  EDIT_AND_SUBMIT_REVIEW: '编辑并提交审核',
+  REVIEW_CONTENT: '审核处理',
+  CREATE_REVISION: '创建修订版本',
+  START_PUBLICATION: '开始发布',
+  CONTINUE_PUBLICATION: '继续发布',
+  VIEW_PUBLICATION_RESULT: '查看发布成果',
+  VIEW_VERSION_HISTORY: '查看历史版本',
+};
+
 function isTaskStatus(value: string): value is TaskStatus {
   return taskStatusOptions.some((option) => option.value === value);
 }
@@ -80,11 +110,13 @@ export function ContentTasksPage() {
 
 function TaskList() {
   const { message, modal } = App.useApp();
-  const [open, setOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedProductId = searchParams.get('product_id') ?? undefined;
+  const requestedFactId = searchParams.get('fact_version_id') ?? undefined;
+  const [open, setOpen] = useState(!!requestedProductId);
   const [cancelTarget, setCancelTarget] = useState<ContentTaskListItem>();
   const cancelTriggerRef = useRef<HTMLElement>(null);
   const { rememberFocusTarget, restoreFocus } = useFocusReturn();
-  const [searchParams, setSearchParams] = useSearchParams();
   const rawPage = searchParams.get('page');
   const rawStatus = searchParams.get('status');
   const page = rawPage && /^[1-9]\d*$/.test(rawPage) ? Number(rawPage) : 1;
@@ -275,7 +307,7 @@ function TaskList() {
                     />
                   );
                   return <Space size={2}>
-                    <Link className="task-row-action" aria-label={`查看任务：${row.product.brand} ${row.product.part_number}`} to={`/tasks/${row.id}`}>查看详情 <RightOutlined /></Link>
+                    <Link className="task-row-action" aria-label={`${taskPrimaryLabels[row.primary_task]}：${row.product.brand} ${row.product.part_number}`} to={`/tasks/${row.id}`}>{taskPrimaryLabels[row.primary_task]} <RightOutlined /></Link>
                     {row.available_actions.length ? <Dropdown
                       trigger={['click']}
                       menu={{
@@ -306,7 +338,20 @@ function TaskList() {
         </TableRegion>
       </div>}
     </Card>
-    <TaskCreateModal open={open} onClose={() => setOpen(false)} />
+    <TaskCreateModal
+      open={open}
+      initialProductId={requestedProductId}
+      initialFactVersionId={requestedFactId}
+      onClose={() => {
+        setOpen(false);
+        if (requestedProductId || requestedFactId) {
+          const next = new URLSearchParams(searchParams);
+          next.delete('product_id');
+          next.delete('fact_version_id');
+          setSearchParams(next, { replace: true });
+        }
+      }}
+    />
     <Modal
       key={cancelTarget?.id}
       title="取消任务"
@@ -332,19 +377,30 @@ function TaskList() {
 
 function TaskCreateModal({
   open,
+  initialProductId,
+  initialFactVersionId,
   onClose,
   onCreated,
 }: {
   open: boolean;
+  initialProductId?: string;
+  initialFactVersionId?: string;
   onClose: () => void;
   onCreated?: (created: Schema<'ContentTask'>, factIsPublic: boolean) => void | Promise<void>;
 }) {
-  const [productId, setProductId] = useState<string>();
   const [form] = Form.useForm<Schema<'ContentTaskCreate'>>();
+  const productId = Form.useWatch('product_id', form);
   const idempotencyKey = useRef<string | undefined>(undefined);
   useEffect(() => {
     idempotencyKey.current = open ? newIdempotencyKey() : undefined;
-  }, [open]);
+    if (open) {
+      form.resetFields();
+      form.setFieldsValue({
+        product_id: initialProductId,
+        fact_version_id: initialFactVersionId,
+      });
+    }
+  }, [form, initialFactVersionId, initialProductId, open]);
   const products = useQuery({ ...productsQueryOptions(), enabled: open });
   const platforms = useQuery({ ...platformProfilesQueryOptions(), enabled: open });
   const facts = useQuery({
@@ -387,8 +443,7 @@ function TaskCreateModal({
       }}
     >
       <Form.Item name="product_id" label="产品" rules={[{ required: true, message: '请选择产品' }]}>
-        <Select showSearch optionFilterProp="label" onChange={(value) => {
-          setProductId(value);
+        <Select showSearch optionFilterProp="label" onChange={() => {
           form.setFieldValue('fact_version_id', undefined);
         }} options={products.data?.items.map((item) => ({ value: item.id, label: `${item.brand} ${item.part_number}` }))} />
       </Form.Item>
@@ -426,6 +481,8 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const [modelId, setModelId] = useState<string>();
   const [humanizeSource, setHumanizeSource] = useState<ContentVersion>();
   const [humanizeModelId, setHumanizeModelId] = useState<string>();
+  const [selectedJobId, setSelectedJobId] = useState<string>();
+  const [retryTarget, setRetryTarget] = useState<Schema<'GenerationJob'>>();
   const task = useQuery({
     queryKey: queryKeys.contentTasks.detail(taskId),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}', { params: { path: { content_task_id: taskId } } })),
@@ -505,6 +562,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
       params: { path: { generation_job_id: jobId }, header: { ...csrfHeader(), 'Idempotency-Key': newIdempotencyKey() } },
     })),
     onSuccess: async () => {
+      setRetryTarget(undefined);
       message.success('已提交原快照重试');
       await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.jobs(taskId) });
     },
@@ -535,10 +593,11 @@ function TaskDetail({ taskId }: { taskId: string }) {
     },
   });
   const latestJob = jobs.data?.items[0];
+  const jobDetailId = selectedJobId ?? latestJob?.id;
   const jobDetail = useQuery({
-    queryKey: queryKeys.generationJob(latestJob?.id),
-    queryFn: async () => unwrap(await api.GET('/api/v1/generation-jobs/{generation_job_id}', { params: { path: { generation_job_id: latestJob!.id } } })),
-    enabled: !!latestJob,
+    queryKey: queryKeys.generationJob(jobDetailId),
+    queryFn: async () => unwrap(await api.GET('/api/v1/generation-jobs/{generation_job_id}', { params: { path: { generation_job_id: jobDetailId! } } })),
+    enabled: !!jobDetailId,
     staleTime: QUERY_STALE_TIME.detail,
   });
   const succeededJobs = jobs.data?.items.filter((job) => job.status === 'SUCCEEDED').map((job) => job.id).join(',');
@@ -671,13 +730,17 @@ function TaskDetail({ taskId }: { taskId: string }) {
               { title: '结果', dataIndex: 'content_version_id', width: 150, render: (value) => value ? <Link to={`/content/${value}`}>打开草稿</Link> : '—' },
               { title: '失败原因', dataIndex: 'error_summary', width: 250, ellipsis: true, render: (value) => value ? <TableCellText text={value} /> : '—' },
               { title: '耗时 / Token', width: 180, render: (_, row) => `${row.response_duration_ms ?? '—'} ms / ${row.total_tokens ?? '—'}` },
-              { title: '操作', width: 130, fixed: 'right', render: (_, row) => row.available_actions.includes('RETRY') ? <Button size="small" loading={retryJob.isPending} onClick={() => retryJob.mutate(row.id)}>重试原快照</Button> : null },
+              { title: '操作', width: 150, fixed: 'right', render: (_, row) => <Button size="small" type="primary" loading={retryJob.isPending && retryTarget?.id === row.id} onClick={() => {
+                if (row.primary_task === 'VIEW_GENERATED_CONTENT' && row.content_version_id) navigate(`/content/${row.content_version_id}`);
+                else if (row.primary_task === 'HANDLE_FAILURE' && row.available_actions.includes('RETRY')) setRetryTarget(row);
+                else setSelectedJobId(row.id);
+              }}>{generationTaskLabels[row.primary_task]}</Button> },
             ]}
           /></TableRegion> : <Typography.Text type="secondary">尚无 AI 作业。</Typography.Text>}
       {jobDetail.isLoading && <QueryLoading label="正在加载最新作业追溯" />}
       {jobDetail.error && <QueryFailure error={jobDetail.error} onRetry={() => void jobDetail.refetch()} />}
     </Card>
-    {jobDetail.data && <Card title="最新作业追溯快照">
+    {jobDetail.data && <Card title="作业追溯快照">
       <Descriptions column={1} items={[
         { label: '契约版本', children: <span className="data-code">{jobDetail.data.input_snapshot.contract_version}</span> },
         { label: '渠道 / 模型', children: `${String(jobDetail.data.input_snapshot.channel.name)} / ${String(jobDetail.data.input_snapshot.model.model_id)}` },
@@ -698,9 +761,12 @@ function TaskDetail({ taskId }: { taskId: string }) {
               { title: '来源', dataIndex: 'source_type', width: 100, render: (value) => <StatusTag status={value} /> },
               { title: '状态', dataIndex: 'status', width: 140, render: (value) => <StatusTag status={value} /> },
               { title: '质量问题', dataIndex: 'quality_issues', width: 100, render: (issues: Schema<'QualityIssue'>[]) => issues.length },
-              { title: '操作', width: 120, fixed: 'right', render: (_, row) => {
+              { title: '操作', width: 220, fixed: 'right', render: (_, row) => {
                 const canHumanize = row.available_actions.includes('CREATE_HUMANIZATION_JOB');
-                return <Button size="small" disabled={!canHumanize} onClick={() => setHumanizeSource(row)}>自然化</Button>;
+                return <Space size={4}>
+                  <Button size="small" type="primary" onClick={() => navigate(`/content/${row.id}`)}>{contentTaskLabels[row.primary_task]}</Button>
+                  {canHumanize && <Button size="small" onClick={() => setHumanizeSource(row)}>自然化</Button>}
+                </Space>;
               } },
             ]}
           /></TableRegion> : <NoData description="尚无内容版本，可从上方任一入口创建首稿" />}
@@ -715,6 +781,18 @@ function TaskDetail({ taskId }: { taskId: string }) {
           <Button type="primary" htmlType="submit" loading={taskCommand.isPending}>确认取消</Button>
         </Space>
       </Form>
+    </Modal>
+    <Modal
+      title="确认重试原生成快照"
+      open={!!retryTarget}
+      onCancel={() => !retryJob.isPending && setRetryTarget(undefined)}
+      onOk={() => retryTarget && retryJob.mutate(retryTarget.id)}
+      okText="确认重试"
+      confirmLoading={retryJob.isPending}
+      destroyOnHidden
+    >
+      <Alert type="warning" showIcon title="重试会创建新的生成作业，并可能产生外部模型调用费用；原失败作业保持不变。" />
+      {retryTarget?.error_summary && <Typography.Paragraph>{retryTarget.error_summary}</Typography.Paragraph>}
     </Modal>
     <TaskCreateModal
       open={replacementOpen}

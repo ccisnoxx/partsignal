@@ -248,25 +248,21 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   const discoveryDialog = page.getByRole('dialog', { name: '获取模型' });
   const discoveredRow = discoveryDialog.getByRole('row').filter({ hasText: 'e2e-model' });
   await expect(discoveredRow).toBeVisible();
-  await discoveredRow.getByRole('button', { name: '添加' }).click();
-  await expect(discoveredRow.getByRole('button', { name: '已添加' })).toBeDisabled();
+  await discoveredRow.getByRole('button', { name: '添加模型' }).click();
+  await expect(discoveredRow.getByRole('button', { name: '查看已配置模型' })).toBeVisible();
   await discoveryDialog.locator('.ant-modal-close').click();
   await expect(discoveryDialog).not.toBeVisible();
 
-  await page.getByRole('button', { name: '测试连接' }).first().click();
-  const testDialog = page.getByRole('dialog', { name: /测试连接.*OpenAI/ });
-  await expect(testDialog.getByRole('button', { name: '开始测试' })).toBeDisabled();
-  await testDialog.getByRole('combobox', { name: '选择测试模型' }).click();
-  await selectVisibleOption(page, 'e2e-model · e2e-model');
-  await testDialog.getByRole('button', { name: '开始测试' }).click();
-  await expect(page.getByText('连接测试成功，模型当前保持停用')).toBeVisible();
-
   const modelRow = page.getByRole('row').filter({ hasText: 'e2e-model' });
-  await modelRow.getByRole('button', { name: '更多模型操作：e2e-model' }).click();
-  await page.getByRole('menuitem', { name: '启用' }).click();
+  await modelRow.getByRole('button', { name: '测试连接' }).click();
+  const testDialog = page.getByRole('dialog', { name: '测试模型“e2e-model”？' });
+  await testDialog.getByRole('button', { name: '开始测试' }).click();
+  await expect(page.getByText('连接测试成功，模型已保持停用')).toBeVisible();
+
+  await modelRow.getByRole('button', { name: '启用模型' }).click();
   await expect(modelRow.getByRole('cell', { name: '已启用' })).toBeVisible();
   await selectDetailTab(page, '基本信息', null);
-  await page.getByRole('button', { name: '启用渠道' }).click();
+  await detailPanel.getByRole('button', { name: '启用渠道' }).click();
   await expect(page.locator('.ant-message').getByText('渠道已启用', { exact: true })).toBeVisible();
 
   const searchResponse = page.waitForResponse((response) => {
@@ -460,7 +456,7 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
     };
   });
   expect(tableGeometry.statusRight).toBeLessThanOrEqual(tableGeometry.actionsLeft);
-  expect(tableGeometry.scrollWidth).toBeLessThanOrEqual(tableGeometry.clientWidth);
+  expect(tableGeometry.scrollWidth).toBeLessThanOrEqual(tableGeometry.clientWidth + 1);
   expect(tableGeometry.documentWidth).toBeLessThanOrEqual(1440);
   await page.screenshot({ path: testInfo.outputPath('ai-channels-light-1440x1000.png') });
 

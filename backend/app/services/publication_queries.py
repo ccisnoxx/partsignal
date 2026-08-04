@@ -74,42 +74,74 @@ NONTERMINAL_WORK_STATUSES = (
 
 def publication_work_actions(
     status: str,
-) -> tuple[list[PublicationWorkAction], PublicationWorkAction | None]:
+) -> tuple[list[PublicationWorkAction], str]:
     """返回发布工作当前可执行动作及唯一主动作。"""
     actions_by_status: dict[str, list[PublicationWorkAction]] = {
         "PREPARING": [
             "REGISTER_RESULT",
             "UPDATE_PREPARATION",
             "MARK_PLATFORM_REVIEW",
+            "SWITCH_CONTENT_VERSION",
             "CLOSE",
         ],
-        "PLATFORM_REVIEW": ["REGISTER_RESULT", "UPDATE_PREPARATION", "CLOSE"],
-        "AWAITING_VERIFICATION": ["VERIFY", "REGISTER_RESULT", "CLOSE"],
-        "ACTION_REQUIRED": ["VERIFY", "REGISTER_RESULT", "CLOSE"],
+        "PLATFORM_REVIEW": [
+            "REGISTER_RESULT",
+            "UPDATE_PREPARATION",
+            "SWITCH_CONTENT_VERSION",
+            "CLOSE",
+        ],
+        "AWAITING_VERIFICATION": [
+            "VERIFY",
+            "REGISTER_RESULT",
+            "SWITCH_CONTENT_VERSION",
+            "CLOSE",
+        ],
+        "ACTION_REQUIRED": [
+            "VERIFY",
+            "REGISTER_RESULT",
+            "SWITCH_CONTENT_VERSION",
+            "CLOSE",
+        ],
     }
     actions = actions_by_status.get(status, [])
-    return actions, (actions[0] if actions else None)
+    primary_task = {
+        "PREPARING": "CONTINUE_PREPARATION",
+        "PLATFORM_REVIEW": "REGISTER_RESULT",
+        "AWAITING_VERIFICATION": "RUN_FIRST_VERIFICATION",
+        "ACTION_REQUIRED": "FIX_AND_REVERIFY",
+        "COMPLETED": "VIEW_COMPLETION",
+        "CLOSED": "VIEW_CLOSURE",
+    }[status]
+    return actions, primary_task
 
 
 def published_article_actions(
     *, has_open_issue: bool, retired: bool
-) -> tuple[list[PublishedArticleAction], PublishedArticleAction | None]:
+) -> tuple[list[PublishedArticleAction], str, str]:
     """只有当前健康且从未退役的文章可以打开问题。"""
     actions: list[PublishedArticleAction] = [] if has_open_issue or retired else ["OPEN_ISSUE"]
-    return actions, (actions[0] if actions else None)
+    if retired:
+        return actions, "RETIRED", "VIEW_HISTORY"
+    if has_open_issue:
+        return actions, "OPEN_ISSUE", "HANDLE_CONTENT_ISSUE"
+    return actions, "HEALTHY", "START_PRODUCT_OBSERVATION"
 
 
 def published_content_issue_actions(
-    *, status: str, repair_task_id: uuid.UUID | None
-) -> tuple[list[PublishedContentIssueAction], PublishedContentIssueAction | None]:
+    *, status: str, repair_task_id: uuid.UUID | None, repair_task_status: str | None
+) -> tuple[list[PublishedContentIssueAction], str, str]:
     """返回内容问题当前可执行动作及唯一主动作。"""
     if status != "OPEN":
-        return [], None
+        return [], "RESOLVED", "VIEW_RESOLUTION"
     actions: list[PublishedContentIssueAction] = []
     if repair_task_id is None:
         actions.append("CREATE_REPAIR_TASK")
     actions.append("RESOLVE")
-    return actions, actions[0]
+    if repair_task_id is None:
+        return actions, "OPEN", "HANDLE_CONTENT_ISSUE"
+    if repair_task_status != "COMPLETED":
+        return actions, "REPAIRING", "CONTINUE_REPAIR"
+    return actions, "AWAITING_RESOLUTION", "CONFIRM_RESOLUTION"
 
 
 ALLOWED_HTML_TAGS = [
@@ -165,12 +197,8 @@ def render_markdown(body_markdown: str) -> tuple[str, str]:
 
 
 def task_for_work(db: Session, work: PublicationWork) -> ContentTask:
-    """返回发布工作锁定内容所属的原任务。"""
-    task = db.scalar(
-        select(ContentTask)
-        .join(ContentVersion, ContentVersion.task_id == ContentTask.id)
-        .where(ContentVersion.id == work.content_version_id)
-    )
+    """返回发布工作稳定锁定的原任务。"""
+    task = db.get(ContentTask, work.content_task_id)
     if task is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作关联的内容任务不存在", 409)
     return task
@@ -180,9 +208,9 @@ def list_publication_ready_items(
     db: Session, *, can_delete_accounts: bool
 ) -> PublicationReadyItemList:
     """实时返回尚未开始且满足平台身份约束的发布就绪项。"""
-    work_for_content = (
+    work_for_task = (
         select(PublicationWork.id)
-        .where(PublicationWork.content_version_id == ContentVersion.id)
+        .where(PublicationWork.content_task_id == ContentTask.id)
         .exists()
     )
     active_same_hash = (
@@ -201,10 +229,11 @@ def list_publication_ready_items(
         .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(
             ContentVersion.status == "APPROVED",
+            ContentTask.current_content_version_id == ContentVersion.id,
             FactVersion.status == "APPROVED",
             ContentTask.status == "OPEN",
             PlatformProfile.is_active.is_(True),
-            ~work_for_content,
+            ~work_for_task,
             ~active_same_hash,
             select(PlatformAccount.id)
             .where(
@@ -247,7 +276,7 @@ def list_publication_ready_items(
                 platform_profile_name=profile.name,
                 matching_accounts=accounts_by_profile[profile.id],
                 available_actions=["START"],
-                primary_action="START",
+                primary_task="START_PUBLICATION",
             )
             for content, task, profile in rows
         ]
@@ -266,7 +295,7 @@ def _work_context_query() -> Any:
             PlatformAccount.account_identifier,
         )
         .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
-        .join(ContentTask, ContentTask.id == ContentVersion.task_id)
+        .join(ContentTask, ContentTask.id == PublicationWork.content_task_id)
         .join(PlatformProfile, PlatformProfile.id == PublicationWork.platform_profile_id)
         .join(PlatformAccount, PlatformAccount.id == PublicationWork.platform_account_id)
     )
@@ -285,7 +314,7 @@ def _work_list_item(
     row: Row[Any], latest: PublicationVerification | None
 ) -> PublicationWorkListItem:
     work = row[0]
-    actions, primary_action = publication_work_actions(work.status)
+    actions, primary_task = publication_work_actions(work.status)
     return PublicationWorkListItem.model_validate(
         {
             "id": work.id,
@@ -310,8 +339,9 @@ def _work_list_item(
             "updated_at": work.updated_at,
             "latest_verification_outcome": latest.outcome if latest else None,
             "latest_verification_at": latest.created_at if latest else None,
+            "workflow_stage": work.status,
+            "primary_task": primary_task,
             "available_actions": actions,
-            "primary_action": primary_action,
         }
     )
 
@@ -426,6 +456,7 @@ def _article_context_query() -> Any:
             PublicationWork,
             PublicationVerification,
             ContentTask.id.label("task_id"),
+            ContentTask.product_id,
             ContentVersion.title.label("content_title"),
             ContentVersion.version.label("content_version"),
             PlatformProfile.name.label("platform_profile_name"),
@@ -436,20 +467,23 @@ def _article_context_query() -> Any:
         .join(
             PublicationVerification, PublicationVerification.id == PublishedArticle.verification_id
         )
-        .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
-        .join(ContentTask, ContentTask.id == ContentVersion.task_id)
+        .join(ContentVersion, ContentVersion.id == PublicationVerification.content_version_id)
+        .join(ContentTask, ContentTask.id == PublicationWork.content_task_id)
         .join(PlatformProfile, PlatformProfile.id == PublicationWork.platform_profile_id)
         .join(PlatformAccount, PlatformAccount.id == PublicationWork.platform_account_id)
     )
 
 
 def _article_item(
-    row: Row[Any], issue_rows: list[tuple[str, str | None]]
+    row: Row[Any], issue_rows: list[tuple[uuid.UUID, str, str | None]]
 ) -> PublishedArticleListItem:
     article, work, verification = row[0], row[1], row[2]
-    has_open_issue = any(status == "OPEN" for status, _outcome in issue_rows)
-    retired = any(outcome == "RETIRED" for _status, outcome in issue_rows)
-    actions, primary_action = published_article_actions(
+    open_issue_id = next(
+        (issue_id for issue_id, status, _outcome in issue_rows if status == "OPEN"), None
+    )
+    has_open_issue = open_issue_id is not None
+    retired = any(outcome == "RETIRED" for _issue_id, _status, outcome in issue_rows)
+    actions, workflow_stage, primary_task = published_article_actions(
         has_open_issue=has_open_issue,
         retired=retired,
     )
@@ -459,7 +493,8 @@ def _article_item(
         {
             "id": article.id,
             "task_id": row.task_id,
-            "content_version_id": work.content_version_id,
+            "product_id": row.product_id,
+            "content_version_id": verification.content_version_id,
             "content_title": row.content_title,
             "content_version": row.content_version,
             "platform_profile_id": work.platform_profile_id,
@@ -472,9 +507,11 @@ def _article_item(
             "published_at": work.published_at,
             "verified_at": verification.created_at,
             "has_open_issue": has_open_issue,
+            "open_issue_id": open_issue_id,
             "retired": retired,
+            "workflow_stage": workflow_stage,
+            "primary_task": primary_task,
             "available_actions": actions,
-            "primary_action": primary_action,
         }
     )
 
@@ -487,9 +524,13 @@ def published_article_out(db: Session, article: PublishedArticle) -> PublishedAr
     if row is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布成果上下文不完整", 409)
     issue_rows = [
-        (status, outcome)
-        for status, outcome in db.execute(
-            select(PublishedContentIssue.status, PublishedContentIssue.resolution_outcome).where(
+        (issue_id, status, outcome)
+        for issue_id, status, outcome in db.execute(
+            select(
+                PublishedContentIssue.id,
+                PublishedContentIssue.status,
+                PublishedContentIssue.resolution_outcome,
+            ).where(
                 PublishedContentIssue.published_article_id == article.id
             )
         )
@@ -522,16 +563,19 @@ def list_published_articles(db: Session, *, page: int, page_size: int) -> Publis
         .limit(page_size)
     ).all()
     article_ids = [row[0].id for row in rows]
-    issue_states: defaultdict[uuid.UUID, list[tuple[str, str | None]]] = defaultdict(list)
+    issue_states: defaultdict[
+        uuid.UUID, list[tuple[uuid.UUID, str, str | None]]
+    ] = defaultdict(list)
     if article_ids:
-        for article_id, issue_status, outcome in db.execute(
+        for article_id, issue_id, issue_status, outcome in db.execute(
             select(
                 PublishedContentIssue.published_article_id,
+                PublishedContentIssue.id,
                 PublishedContentIssue.status,
                 PublishedContentIssue.resolution_outcome,
             ).where(PublishedContentIssue.published_article_id.in_(article_ids))
         ):
-            issue_states[article_id].append((issue_status, outcome))
+            issue_states[article_id].append((issue_id, issue_status, outcome))
     return PublishedArticleList(
         items=[_article_item(row, issue_states[row[0].id]) for row in rows],
         page=page,
@@ -540,9 +584,9 @@ def list_published_articles(db: Session, *, page: int, page_size: int) -> Publis
     )
 
 
-def _issue_repair_task_id(db: Session, issue_id: uuid.UUID) -> uuid.UUID | None:
+def _issue_repair_task(db: Session, issue_id: uuid.UUID) -> ContentTask | None:
     return db.scalar(
-        select(ContentTask.id).where(ContentTask.source_published_content_issue_id == issue_id)
+        select(ContentTask).where(ContentTask.source_published_content_issue_id == issue_id)
     )
 
 
@@ -554,10 +598,12 @@ def published_content_issue_out(
     if article is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
     article_out = published_article_out(db, article)
-    repair_task_id = _issue_repair_task_id(db, issue.id)
-    actions, primary_action = published_content_issue_actions(
+    repair_task = _issue_repair_task(db, issue.id)
+    repair_task_id = repair_task.id if repair_task is not None else None
+    actions, workflow_stage, primary_task = published_content_issue_actions(
         status=issue.status,
         repair_task_id=repair_task_id,
+        repair_task_status=repair_task.status if repair_task is not None else None,
     )
     return PublishedContentIssueOut.model_validate(
         {
@@ -578,8 +624,9 @@ def published_content_issue_out(
             "resolution_outcome": issue.resolution_outcome,
             "resolution_comment": issue.resolution_comment,
             "repair_task_id": repair_task_id,
+            "workflow_stage": workflow_stage,
+            "primary_task": primary_task,
             "available_actions": actions,
-            "primary_action": primary_action,
             "article": {
                 field: getattr(article_out, field)
                 for field in PublishedArticleListItem.model_fields
@@ -620,20 +667,27 @@ def list_published_content_issues(
         if article_ids
         else {}
     )
-    issue_states: defaultdict[uuid.UUID, list[tuple[str, str | None]]] = defaultdict(list)
+    issue_states: defaultdict[
+        uuid.UUID, list[tuple[uuid.UUID, str, str | None]]
+    ] = defaultdict(list)
     if article_ids:
-        for article_id, issue_status, outcome in db.execute(
+        for article_id, issue_id, issue_status, outcome in db.execute(
             select(
                 PublishedContentIssue.published_article_id,
+                PublishedContentIssue.id,
                 PublishedContentIssue.status,
                 PublishedContentIssue.resolution_outcome,
             ).where(PublishedContentIssue.published_article_id.in_(article_ids))
         ):
-            issue_states[article_id].append((issue_status, outcome))
+            issue_states[article_id].append((issue_id, issue_status, outcome))
     repair_tasks = {
-        source_id: task_id
-        for source_id, task_id in db.execute(
-            select(ContentTask.source_published_content_issue_id, ContentTask.id).where(
+        source_id: (task_id, task_status)
+        for source_id, task_id, task_status in db.execute(
+            select(
+                ContentTask.source_published_content_issue_id,
+                ContentTask.id,
+                ContentTask.status,
+            ).where(
                 ContentTask.source_published_content_issue_id.in_([issue.id for issue in issues])
             )
         )
@@ -645,10 +699,12 @@ def list_published_content_issues(
         if row is None:
             raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
         article = _article_item(row, issue_states[issue.published_article_id])
-        repair_task_id = repair_tasks.get(issue.id)
-        actions, primary_action = published_content_issue_actions(
+        repair_task = repair_tasks.get(issue.id)
+        repair_task_id = repair_task[0] if repair_task is not None else None
+        actions, workflow_stage, primary_task = published_content_issue_actions(
             status=issue.status,
             repair_task_id=repair_task_id,
+            repair_task_status=repair_task[1] if repair_task is not None else None,
         )
         items.append(
             PublishedContentIssueListItem.model_validate(
@@ -661,8 +717,9 @@ def list_published_content_issues(
                     "final_url": article.final_url,
                     "revision": issue.revision,
                     "repair_task_id": repair_task_id,
+                    "workflow_stage": workflow_stage,
+                    "primary_task": primary_task,
                     "available_actions": actions,
-                    "primary_action": primary_action,
                 }
             )
         )
@@ -671,9 +728,9 @@ def list_published_content_issues(
 
 def publication_workbench_summary(db: Session) -> PublicationWorkbenchSummary:
     """返回发布工作台五个互斥运营口径。"""
-    work_for_content = (
+    work_for_task = (
         select(PublicationWork.id)
-        .where(PublicationWork.content_version_id == ContentVersion.id)
+        .where(PublicationWork.content_task_id == ContentTask.id)
         .exists()
     )
     active_same_hash = (
@@ -694,10 +751,11 @@ def publication_workbench_summary(db: Session) -> PublicationWorkbenchSummary:
             .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
             .where(
                 ContentVersion.status == "APPROVED",
+                ContentTask.current_content_version_id == ContentVersion.id,
                 FactVersion.status == "APPROVED",
                 ContentTask.status == "OPEN",
                 PlatformProfile.is_active.is_(True),
-                ~work_for_content,
+                ~work_for_task,
                 ~active_same_hash,
                 select(PlatformAccount.id)
                 .where(

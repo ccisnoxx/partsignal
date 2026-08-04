@@ -37,6 +37,13 @@ const pageSizes = [20, 50, 100] as const;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const optionalColumnKeys = ['discovered', 'mentioned', 'accuracy', 'publication', 'evidence', 'recorder'] as const;
 type OptionalColumnKey = typeof optionalColumnKeys[number];
+type ObservationPrimaryTask = GeoObservation['primary_task'];
+const observationTaskLabels: Record<ObservationPrimaryTask, string> = {
+  VIEW_HISTORICAL_RECORD: '查看历史记录',
+  VIEW_ANALYSIS: '查看分析结果',
+  CORRECT_OBSERVATION: '更正观测',
+  VIEW_CORRECTION_HISTORY: '查看更正历史',
+};
 
 const columnLabels: Record<OptionalColumnKey, string> = {
   discovered: '是否发现', mentioned: '是否提及', accuracy: '准确性',
@@ -206,9 +213,22 @@ export function GeoObservationsPage() {
   const openRecord = (id: string) => updateParams({ record: id });
   const closeRecord = () => updateParams({ record: undefined }, true);
   const openCorrection = (id: string) => navigate(`/observations/${id}/correct?${searchParams.toString()}`);
+  const openAnalysis = (row: GeoObservation) => {
+    const params = new URLSearchParams({
+      product_id: row.product_id,
+      date_from: dateFrom ?? defaults.date_from,
+      date_to: dateTo ?? defaults.date_to,
+    });
+    if (row.query_topic_id) params.set('query_topic_id', row.query_topic_id);
+    if (row.observation_kind === 'MANUAL_ARTICLE_SEARCH') params.set('geo_platform', row.search_platform);
+    navigate(`/observations/insights?${params.toString()}`);
+  };
   const closeForm = () => {
     if (correctionId) navigate(`/observations${searchParams.toString() ? `?${searchParams.toString()}` : ''}`, { replace: true });
-    else setCreateOpen(false);
+    else {
+      setCreateOpen(false);
+      updateParams({ create: undefined }, true);
+    }
   };
   const discoveryRate = percent(metrics.data?.article_discovery_rate);
   const mentionRate = percent(metrics.data?.article_mention_rate);
@@ -245,13 +265,13 @@ export function GeoObservationsPage() {
       },
     },
     {
-      title: '搜索词 / 问题', key: 'question', ellipsis: true, render: (_, row) => {
+      title: '搜索词 / 问题', key: 'question', width: 280, ellipsis: true, render: (_, row) => {
         const question = row.observation_kind === 'MANUAL_ARTICLE_SEARCH' ? row.search_query : row.actual_prompt;
         return (
           <Tooltip title={question} trigger={['hover', 'focus']}>
-            <Button type="link" className="geo-question-link table-cell-ellipsis" aria-label={question} onClick={() => openRecord(row.id)}>
+            <button type="button" className="geo-question-link table-cell-ellipsis" aria-label={question} onClick={() => openRecord(row.id)}>
               {question}
-            </Button>
+            </button>
           </Tooltip>
         );
       },
@@ -281,14 +301,25 @@ export function GeoObservationsPage() {
     { title: '证据', key: 'evidence', width: 88, render: (_, row) => row.attachment_file_ids.length ? <StatusTag status="UPLOADED" /> : <Tag>未上传</Tag> },
     { title: '记录人', key: 'recorder', dataIndex: ['recorder', 'display_name'], width: 130, ellipsis: true, render: (value: string) => <TableCellText text={value} /> },
     {
-      title: '操作', key: 'actions', fixed: 'right', width: 96, render: (_, row) => (
+      title: '操作', key: 'actions', fixed: 'right', width: 220, render: (_, row) => (
         <Space size={4}>
-          <Button size="small" aria-label={`查看观测：${row.id}`} icon={<EyeOutlined />} onClick={() => openRecord(row.id)} />
+          <Button
+            type="primary"
+            size="small"
+            onClick={() => {
+              if (row.primary_task === 'VIEW_ANALYSIS') openAnalysis(row);
+              else if (row.primary_task === 'CORRECT_OBSERVATION') openCorrection(row.id);
+              else openRecord(row.id);
+            }}
+          >
+            {observationTaskLabels[row.primary_task]}
+          </Button>
           <Dropdown
             trigger={['click']}
             menu={{
               items: [
-                { key: 'correct', label: '更正记录', disabled: !row.available_actions.includes('CORRECT') },
+                { key: 'view', label: '查看观测详情' },
+                ...(row.primary_task !== 'CORRECT_OBSERVATION' ? [{ key: 'correct', label: '更正记录', disabled: !row.available_actions.includes('CORRECT') }] : []),
                 ...(row.observation_kind === 'MANUAL_ARTICLE_SEARCH' && row.available_actions.includes('DELETE') ? [{
                   key: 'delete',
                   label: '删除完整更正链',
@@ -298,6 +329,7 @@ export function GeoObservationsPage() {
                 }] : []),
               ],
               onClick: ({ key }) => {
+                if (key === 'view') openRecord(row.id);
                 if (key === 'correct') openCorrection(row.id);
                 if (key === 'delete') {
                   modal.confirm({
@@ -420,7 +452,7 @@ export function GeoObservationsPage() {
                 },
               })}
               sticky={{ offsetHeader: 72 }}
-              scroll={{ x: 1110 }}
+              scroll={{ x: 1470 }}
               pagination={{
                 current: rawPage,
                 pageSize,
@@ -436,12 +468,18 @@ export function GeoObservationsPage() {
 
       <GeoObservationDrawer recordId={recordId} onClose={closeRecord} onCorrect={openCorrection} />
       <GeoObservationForm
-        open={createOpen || !!correctionId}
+        open={createOpen || searchParams.get('create') === 'true' || !!correctionId}
         correctionId={correctionId}
+        initialProductId={searchParams.get('product_id') ?? undefined}
+        initialQueryTopicId={searchParams.get('query_topic_id') ?? undefined}
+        initialSearchPlatform={searchParams.get('search_platform') ?? undefined}
+        initialSearchQuery={searchParams.get('search_query') ?? undefined}
         onClose={closeForm}
         onCreated={(record) => {
           setCreateOpen(false);
           const next = new URLSearchParams(searchParams);
+          next.delete('create');
+          next.delete('search_query');
           next.set('record', record.id);
           navigate(`/observations?${next.toString()}`, { replace: true });
         }}

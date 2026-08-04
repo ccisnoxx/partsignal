@@ -40,6 +40,13 @@ const classificationOptions: Array<{ label: string; value: Schema<'Confidentiali
   { label: 'RESTRICTED · 禁止发送第三方模型', value: 'RESTRICTED' },
 ];
 
+const factTaskLabels: Record<FactVersion['primary_task'], string> = {
+  REVIEW_FACT: '审核处理',
+  CREATE_CONTENT_TASK: '创建内容任务',
+  REVISE_FACT: '创建修订版本',
+  VIEW_FACT_HISTORY: '查看历史',
+};
+
 function MarkdownPreview({ markdown, label }: { markdown: string; label: string }) {
   const safeHtml = useMemo(
     () => renderSanitizedMarkdown(markdown),
@@ -52,15 +59,15 @@ export function ProductFactsPage() {
   const { message } = App.useApp();
   const { productId = '' } = useParams();
   const navigate = useNavigate();
-  const [createVersionOpen, setCreateVersionOpen] = useState(false);
+  const [submitReviewOpen, setSubmitReviewOpen] = useState(false);
   const [snapshotTarget, setSnapshotTarget] = useState<FactVersion>();
   const [reviewTarget, setReviewTarget] = useState<FactVersion>();
-  const [commandTarget, setCommandTarget] = useState<{ version: FactVersion; command: 'submit' | 'approve' | 'request-changes' | 'retire' } | null>(null);
+  const [commandTarget, setCommandTarget] = useState<{ version: FactVersion; command: 'approve' | 'request-changes' | 'retire' } | null>(null);
   const [activeTab, setActiveTab] = useState('workspace');
   const [factsDirty, setFactsDirty] = useState(false);
   const [factsFormKey, setFactsFormKey] = useState(0);
   const saveErrorRef = useRef<HTMLDivElement>(null);
-  const createVersionErrorRef = useRef<HTMLDivElement>(null);
+  const submitReviewErrorRef = useRef<HTMLDivElement>(null);
   const commandErrorRef = useRef<HTMLDivElement>(null);
   const [modal, modalContext] = Modal.useModal();
   const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
@@ -97,21 +104,24 @@ export function ProductFactsPage() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.products.draft(productId) });
     },
   });
-  const createVersion = useMutation({
-    mutationFn: async (body: Schema<'CreateVersionRequest'>) => unwrap(await api.POST('/api/v1/products/{product_id}/fact-versions', {
+  const submitReview = useMutation({
+    mutationFn: async (body: Schema<'FactReviewSubmissionRequest'>) => unwrap(await api.POST('/api/v1/products/{product_id}/fact-review-submissions', {
       params: { path: { product_id: productId }, header: csrfHeader() },
       body,
     })),
     onSuccess: async () => {
-      setCreateVersionOpen(false);
-      message.success('不可变事实版本已创建');
-      await queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) });
+      setSubmitReviewOpen(false);
+      message.success('事实版本已提交审核');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.products.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.products.factVersions(productId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.products.draft(productId) }),
+      ]);
     },
   });
   const command = useMutation({
     mutationFn: async ({ target, body }: { target: NonNullable<typeof commandTarget>; body: Schema<'CommandRequest'> }) => {
-      const path = target.command === 'submit' ? '/api/v1/fact-versions/{fact_version_id}/submit' as const
-        : target.command === 'approve' ? '/api/v1/fact-versions/{fact_version_id}/approve' as const
+      const path = target.command === 'approve' ? '/api/v1/fact-versions/{fact_version_id}/approve' as const
         : target.command === 'request-changes' ? '/api/v1/fact-versions/{fact_version_id}/request-changes' as const
         : '/api/v1/fact-versions/{fact_version_id}/retire' as const;
       return unwrap(await api.POST(path, {
@@ -141,9 +151,9 @@ export function ProductFactsPage() {
 
   useEffect(() => {
     if (save.error) saveErrorRef.current?.focus();
-    else if (createVersion.error) createVersionErrorRef.current?.focus();
+    else if (submitReview.error) submitReviewErrorRef.current?.focus();
     else if (command.error) commandErrorRef.current?.focus();
-  }, [command.error, createVersion.error, save.error]);
+  }, [command.error, save.error, submitReview.error]);
   useEffect(() => {
     if (!factsDirty) return;
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -225,7 +235,7 @@ export function ProductFactsPage() {
         {
           key: 'versions',
           label: `事实版本（${versions.data?.items.length ?? 0}）`,
-          children: <Card extra={draft.data.available_actions.includes('CREATE_VERSION') ? <Button type="primary" onClick={() => setCreateVersionOpen(true)}>创建不可变版本</Button> : undefined}>
+          children: <Card extra={draft.data.available_actions.includes('SUBMIT_REVIEW') ? <Button type="primary" disabled={factsDirty} onClick={() => setSubmitReviewOpen(true)}>提交事实审核</Button> : undefined}>
             {versions.isLoading ? <QueryLoading label="正在加载事实版本" />
               : versions.error || !versions.data ? <QueryFailure error={versions.error ?? new Error('事实版本列表不存在')} onRetry={() => void versions.refetch()} />
                 : <TableRegion label="事实版本列表"><Table<FactVersion>
@@ -238,8 +248,12 @@ export function ProductFactsPage() {
                     { title: '数据分级', dataIndex: 'classification', width: 120, render: (value) => <StatusTag status={value} /> },
                     { title: '变更说明', dataIndex: 'change_summary', width: 260, ellipsis: true, render: (value) => <TableCellText text={value} /> },
                     { title: '创建时间', dataIndex: 'created_at', width: 180, render: (value) => new Date(value).toLocaleString('zh-CN') },
-                    { title: '操作', width: 220, fixed: 'right', render: (_, version) => <Space>
-                      <Button size="small" type="primary" onClick={() => setReviewTarget(version)}>审核与历史</Button>
+                    { title: '操作', width: 250, fixed: 'right', render: (_, version) => <Space>
+                      <Button size="small" type="primary" onClick={() => {
+                        if (version.primary_task === 'REVIEW_FACT' || version.primary_task === 'VIEW_FACT_HISTORY') setReviewTarget(version);
+                        else if (version.primary_task === 'CREATE_CONTENT_TASK') navigate(`/tasks?product_id=${productId}&fact_version_id=${version.id}`);
+                        else setActiveTab('workspace');
+                      }}>{factTaskLabels[version.primary_task]}</Button>
                       <Dropdown trigger={['click']} menu={{
                         items: [
                           { key: 'snapshot', label: '查看冻结正文' },
@@ -255,17 +269,19 @@ export function ProductFactsPage() {
           </Card>,
         },
       ]} />
-      <Modal title="创建不可变事实版本" open={createVersionOpen} footer={null} onCancel={() => setCreateVersionOpen(false)} destroyOnHidden>
-        <div ref={createVersionErrorRef} tabIndex={-1}>{createVersion.error && <Alert role="alert" type="error" showIcon title={errorMessage(createVersion.error)} />}</div>
-        <Form<Schema<'CreateVersionRequest'>>
+      <Modal title="提交事实审核" open={submitReviewOpen} footer={null} onCancel={() => setSubmitReviewOpen(false)} destroyOnHidden>
+        <div ref={submitReviewErrorRef} tabIndex={-1}>{submitReview.error && <Alert role="alert" type="error" showIcon title={errorMessage(submitReview.error)} />}</div>
+        <Form<Schema<'FactReviewSubmissionRequest'>>
           layout="vertical"
-          disabled={createVersion.isPending}
+          disabled={submitReview.isPending}
+          initialValues={{ expected_revision: draft.data.revision }}
           scrollToFirstError={{ behavior: 'smooth', block: 'center', focus: true }}
-          onFinish={(body) => createVersion.mutate(body)}
+          onFinish={(body) => submitReview.mutate(body)}
         >
-          <Alert type="info" showIcon title="版本会冻结当前已保存的 Markdown 原文和数据分级，后续工作区修改不会改写它。" />
+          <Alert type="info" showIcon title="提交会直接冻结当前已保存的 Markdown 和数据分级，并创建一条待审核版本。" />
+          <Form.Item name="expected_revision" hidden><InputNumber /></Form.Item>
           <Form.Item name="change_summary" label="变更说明" rules={[{ required: true, whitespace: true, message: '请填写变更说明' }]}><Input.TextArea rows={3} /></Form.Item>
-          <Button type="primary" htmlType="submit" loading={createVersion.isPending}>创建版本</Button>
+          <Button type="primary" htmlType="submit" loading={submitReview.isPending}>确认提交审核</Button>
         </Form>
       </Modal>
       <Modal title={`事实版本 V${snapshotTarget?.version ?? ''}`} open={!!snapshotTarget} footer={null} onCancel={() => setSnapshotTarget(undefined)} width={900}><FactSnapshot version={snapshotTarget} /></Modal>
@@ -273,7 +289,7 @@ export function ProductFactsPage() {
         {reviewContext.isLoading && <QueryLoading />}
         {reviewContext.error && <Alert type="error" title={errorMessage(reviewContext.error)} />}
         {reviewContext.data && <FactReviewPanel context={reviewContext.data} onAction={(action) => {
-          const commandName = action === 'SUBMIT' ? 'submit' : action === 'APPROVE' ? 'approve' : action === 'REQUEST_CHANGES' ? 'request-changes' : 'retire';
+          const commandName = action === 'APPROVE' ? 'approve' : action === 'REQUEST_CHANGES' ? 'request-changes' : 'retire';
           setCommandTarget({ version: reviewContext.data.fact_version, command: commandName });
         }} />}
       </Modal>
@@ -323,7 +339,7 @@ function FactReviewPanel({ context, onAction }: { context: Schema<'FactReviewCon
     <Card size="small" title="追加式审核历史"><Timeline items={context.review_history.map((item) => ({
       content: <><Space><StatusTag status={item.action} /><strong>{item.actor.display_name}</strong><Typography.Text type="secondary">V{item.target_version}</Typography.Text></Space><Typography.Paragraph>{item.comment || '未填写意见'}</Typography.Paragraph><Typography.Text type="secondary">{new Date(item.created_at).toLocaleString('zh-CN')}</Typography.Text></>,
     }))} /></Card>
-    <Space wrap>{context.available_actions.map((action) => <Button key={action} type={action === 'APPROVE' ? 'primary' : 'default'} danger={action === 'REQUEST_CHANGES'} onClick={() => onAction(action)}>{action === 'SUBMIT' ? '提交审核' : action === 'APPROVE' ? '批准' : action === 'REQUEST_CHANGES' ? '退回修改' : '停用'}</Button>)}</Space>
+    <Space wrap>{context.available_actions.map((action) => <Button key={action} type={action === 'APPROVE' ? 'primary' : 'default'} danger={action === 'REQUEST_CHANGES'} onClick={() => onAction(action)}>{action === 'APPROVE' ? '批准' : action === 'REQUEST_CHANGES' ? '退回修改' : '停用'}</Button>)}</Space>
   </Space>;
 }
 

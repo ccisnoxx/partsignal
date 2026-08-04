@@ -76,6 +76,7 @@ from app.services.identity import (
     update_user as update_user_command,
 )
 from app.services.identity import user_out as present_managed_user
+from app.services.identity import user_stage
 from app.services.identity import users_out as present_managed_users
 
 router = APIRouter(prefix="/api/v1", tags=["auth", "identity"])
@@ -83,13 +84,16 @@ router = APIRouter(prefix="/api/v1", tags=["auth", "identity"])
 
 def present_user(user: User) -> UserOut:
     """将内部账号投影为不含密码信息的契约对象。"""
+    workflow_stage, primary_task = user_stage(user)
     return UserOut.model_validate(
         {
             **{
                 field: getattr(user, field)
                 for field in UserOut.model_fields
-                if field != "available_actions"
+                if field not in {"available_actions", "workflow_stage", "primary_task"}
             },
+            "workflow_stage": workflow_stage,
+            "primary_task": primary_task,
             "available_actions": [],
         }
     )

@@ -31,9 +31,10 @@ def query_topic_out(topic: QueryTopic) -> QueryTopicOut:
     payload = {
         field: getattr(topic, field)
         for field in QueryTopicOut.model_fields
-        if field != "available_actions"
+        if field not in {"available_actions", "primary_task"}
     }
     payload["available_actions"] = ["UPDATE"]
+    payload["primary_task"] = "USE_FOR_OBSERVATION"
     return QueryTopicOut.model_validate(payload)
 
 
@@ -175,6 +176,7 @@ def create_content_task(
     actor: User,
     request_id: str,
     idempotency_key: str,
+    commit: bool = True,
 ) -> ContentTask:
     """幂等锁定已批准事实和活动平台；Prompt 门禁只在创建 AI 作业时执行。"""
     db.execute(
@@ -235,5 +237,6 @@ def create_content_task(
             },
         ),
     )
-    db.commit()
+    if commit:
+        db.commit()
     return task

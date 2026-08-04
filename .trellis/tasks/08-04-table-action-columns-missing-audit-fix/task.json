@@ -3,7 +3,7 @@
   "name": "table-action-columns-missing-audit-fix",
   "title": "全站业务表格操作流程重设计",
   "description": "基于产品事实、内容生产、发布、GEO 和配置治理闭环，重新设计全站业务表格的行操作与跨页面流转。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": "fullstack",
   "scope": "全站 25 张业务表、业务流程、资源动作投影、权限与状态守卫、跨页面流转与操作列",
   "package": null,

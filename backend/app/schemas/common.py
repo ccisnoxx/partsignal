@@ -30,6 +30,8 @@ class UserOut(ContractModel):
     account_type: AccountType
     is_active: bool
     must_change_password: bool
+    workflow_stage: Literal["FIRST_PASSWORD_CHANGE", "ACTIVE", "DISABLED"]
+    primary_task: Literal["MANAGE_LOGIN_SECURITY", "MANAGE_USER", "ENABLE_USER"]
     available_actions: list[
         Literal["UPDATE", "RESET_PASSWORD", "ENABLE", "DISABLE", "DELETE"]
     ]
@@ -143,6 +145,7 @@ class AuditLogOut(ContractModel):
     target_id: str | None
     outcome: AuditOutcome
     change_summary: dict[str, Any]
+    primary_task: Literal["VIEW_LOG_DETAIL"]
     request_id: str
     created_at: datetime
 

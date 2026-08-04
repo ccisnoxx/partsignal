@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
+    CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -41,6 +43,15 @@ class ContentTask(Base):
     fact_version_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("fact_versions.id", ondelete="RESTRICT"), nullable=False
     )
+    current_content_version_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "content_versions.id",
+            name="fk_content_tasks_current_content_version_id",
+            ondelete="RESTRICT",
+            use_alter=True,
+        ),
+    )
     platform_profile_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("platform_profiles.id", ondelete="RESTRICT"),
@@ -74,6 +85,17 @@ class ContentVersion(Base):
             "task_id",
             unique=True,
             postgresql_where="status = 'APPROVED'",
+        ),
+        Index(
+            "uq_content_versions_one_pending_per_task",
+            "task_id",
+            unique=True,
+            postgresql_where="status = 'PENDING_REVIEW'",
+        ),
+        CheckConstraint(
+            "status IN ('DRAFT', 'PENDING_REVIEW', 'CHANGES_REQUESTED', "
+            "'APPROVED', 'SUPERSEDED', 'ABANDONED')",
+            name="ck_content_versions_status_business_workflow",
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
@@ -121,6 +143,53 @@ class ContentReviewRecord(Base):
     action: Mapped[str] = mapped_column(String(40), nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=False)
     actor_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class ContentTaskGeoSource(Base):
+    """GEO 异常创建内容任务时冻结的来源依据。"""
+
+    __tablename__ = "content_task_geo_sources"
+    __table_args__ = (
+        CheckConstraint(
+            "rule_code IN ('CONTENT_DECLINE', 'LONG_UNMENTIONED', "
+            "'QUESTION_COVERAGE_GAP')",
+            name="ck_content_task_geo_sources_rule_code",
+        ),
+        CheckConstraint(
+            "date_from <= date_to",
+            name="ck_content_task_geo_sources_period",
+        ),
+        CheckConstraint(
+            "published_article_id IS NOT NULL OR query_topic_id IS NOT NULL",
+            name="ck_content_task_geo_sources_identity",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(basis_snapshot) = 'object'",
+            name="ck_content_task_geo_sources_snapshot_object",
+        ),
+    )
+    content_task_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("content_tasks.id", ondelete="RESTRICT"),
+        primary_key=True,
+    )
+    rule_code: Mapped[str] = mapped_column(String(48), nullable=False)
+    date_from: Mapped[date] = mapped_column(Date, nullable=False)
+    date_to: Mapped[date] = mapped_column(Date, nullable=False)
+    published_article_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("published_articles.id", ondelete="RESTRICT")
+    )
+    query_topic_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("query_topics.id", ondelete="RESTRICT")
+    )
+    geo_platform: Mapped[str | None] = mapped_column(String(160))
+    basis_snapshot: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(

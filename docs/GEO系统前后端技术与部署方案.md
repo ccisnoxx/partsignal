@@ -1,8 +1,8 @@
 # GEO 系统前后端技术与部署方案
 
-> 文档版本：V1.7
-> 编制日期：2026-08-03
-> 当前阶段：MVP 发布管理流程重设计实施中
+> 文档版本：V1.8
+> 编制日期：2026-08-04
+> 当前阶段：MVP 业务表格主操作与单主线收口实施中
 > 业务方案：[多平台 GEO 内容运营系统方案设计](./GEO多平台内容运营系统方案设计.md)
 > 会话背景：[GEO 项目会话归档](./GEO项目会话归档.md)
 
@@ -34,6 +34,7 @@
 | 平台类型 | 管理员按业务需要维护的动态分类 |
 | 平台配置 | 具体平台拥有零或一个当前 Markdown Prompt，不存在规则版本 |
 | 内容任务 | 直接锁定产品、非空已批准事实版本和活动具体平台；支持 AI 或人工首稿 |
+| 流程投影 | 服务端按资源返回 typed `workflow_stage` 和唯一 `primary_task`；前端不重建业务状态机 |
 | AI 配置 | 协议类型与受控供应商品牌分离；“获取模型”使用弹窗逐个添加；模型连接测试发送唯一用户消息 `hi`，不复用业务草稿解析 |
 | 发布方式 | MVP 人工发布并登记结果 |
 | 部署方式 | Hostdzire VPS 上使用 Docker Compose |
@@ -202,6 +203,7 @@ HTML、纯文本和平台发布格式均由 Markdown 派生，不作为第二份
 - 配置中心保留“平台类型”“平台管理”“Prompt 管理”路由，不再提供平台规则路由或隐藏入口。平台管理维护身份、归类、域名、官网、单一来源 Logo 和独立启停，列表筛选/分页/统计/CSV 及详情引用摘要全部来自服务端 PostgreSQL 投影。Prompt 页使用服务端平台搜索/类型筛选/分页和稳定选中 URL，在同一工作台维护具体平台当前 Markdown 与全局自然化 Prompt；未配置平台仍可选择并首次保存，列表时间只投影当前 Prompt 的 `updated_at`。新 Logo 只能绑定公开、已校验的自有存储文件；管理员可以手工上传，或由服务端从固定 Icon Horse 地址一次性导入官网主机名对应的一张候选，预览确认后再随平台保存。历史外链只读保留，编辑其他字段不触发批量导入或替换。
 - 平台列表 Logo 使用固定 24×24 CSS 像素布局；外部 URL 返回的 16/32 像素只影响源图采样，不改变列表展示盒尺寸。
 - 全站用户可见业务文本使用中文，枚举的显示 label 与提交 value 分离；`model_id`、API Key、URL、Markdown、JSON、Header、Prompt 和机器值保持原样。
+- 业务表格的高频主入口只消费资源 typed `primary_task`，低频命令才消费 `available_actions`。每个领域在本地使用穷尽映射转换中文文案和导航，不建立跨领域 action registry，不用 `status`、`is_active` 或角色补主操作。
 - AI 渠道列表由服务端按名称/描述/地址搜索、状态/品牌筛选、稳定排序和分页，一次返回表格摘要、总数与分类数量，不携带 Header 值或模型数组；只有选中渠道读取详情和模型，前端不得逐渠道追加请求。
 
 ### 6.6 前端目录边界
@@ -295,26 +297,33 @@ backend/app/
 示例：
 
 ```text
-POST /api/v1/fact-versions/{id}/submit
+POST /api/v1/products/{id}/fact-review-submissions
 POST /api/v1/fact-versions/{id}/approve
 POST /api/v1/content-tasks/{id}/generation-jobs
 POST /api/v1/content-tasks/{id}/manual-versions
 DELETE /api/v1/content-tasks/{id}
 POST /api/v1/generation-jobs/{id}/retry
 POST /api/v1/content-versions/{id}/submit-review
+POST /api/v1/content-versions/{id}/abandon
 POST /api/v1/content-versions/{id}/approve
+POST /api/v1/publication-works/{id}/content-version
 POST /api/v1/publications/manual
 POST /api/v1/geo-observations
+POST /api/v1/geo-insights/optimization-content-tasks
 DELETE /api/v1/users/{id}
 ```
 
 ### 7.4 事务和并发
 
 - 事实版本批准、内容版本批准和发布登记分别使用数据库事务。
+- 事实工作区提交直接创建待审核快照；单产品待审核唯一索引和 `facts_revision` 共同防止重复或过期提交。
 - 已批准版本更新使用数据库约束和服务层双重阻止。
 - 生成作业在短事务中创建并独立执行；不得用一个长事务包住外部模型调用。
 - 平台启停与新建普通/修复任务、平台账号、发布工作统一先锁定 `PlatformProfile` 再检查 `is_active`，避免并发停用后的写入穿透；停用不修改既有账号、配置和历史。
 - 创建任务时校验平台活动和事实版本同产品、非空且已批准；创建系统 AI 作业时额外校验当前 Prompt；创建发布工作时校验平台账号属于任务直接绑定平台。
+- `content_tasks.current_content_version_id` 是内容审核和发布候选的唯一指针。创建首稿、AI 结果、自然化或修订时与新版本原子更新；放弃当前草稿与指针回退同事务提交。
+- 发布版本切换先锁工作并校验 `expected_revision`，再复核新版本是同任务、同平台的当前 `APPROVED` 版本；切换事件、工作哈希与 revision 原子更新。每次核验冻结当时 `content_version_id`。
+- GEO 优化任务命令必须在同一请求内按筛选重算精确异常；只有重算结果仍满足阈值时，才把内容任务与 typed GEO 来源快照原子落库。
 - 普通任务创建先按带命名空间的请求键获取 PostgreSQL 事务 advisory lock；同键同三字段返回原任务且不重复审计，同键异载荷返回冲突。数据库唯一约束兜底，前端 loading 只提供即时反馈。
 - 幂等键只负责同一生成或提交请求的安全重放；人工发布还按“具体平台 + 不可变内容哈希”获取 PostgreSQL 事务 advisory lock，并检查追加式公开历史，不能用换账号或换幂等键绕过。
 - 并发编辑使用明确版本号进行乐观锁校验；平台 Prompt 覆盖和物理删除、发布账号编辑与启停都要求 `expected_revision`，服务端按固定顺序锁行后比较，冲突时保留当前数据并返回 `REVISION_CONFLICT`。
@@ -500,6 +509,8 @@ GEO 项目使用独立 PostgreSQL 和独立 Redis 容器，不复用当前其他
 `0033_task_owned_history_delete` 允许普通用户删除 `CANCELLED` 任务及其生成作业、内容审核记录和 `DRAFT | PENDING_REVIEW | CHANGES_REQUESTED` 内容版本。`0034` 将当前阻断来源替换为任一 `PublicationWork` 或非空 `source_published_content_issue_id`；任务列表与详情使用同一服务端动作投影，删除服务仍在锁内重新校验。
 
 `0034_publication_redesign` 只在旧发布、关注事项、附件和依赖旧发布身份的 GEO 表全部为空时替换结构；任一非空时以 PostgreSQL `55000` 汇总阻断，不猜测映射。新结构由 `publication_works`、追加式事件与核验、只读 `published_articles`、`published_content_issues` 和工作附件组成；GEO 外键统一为 `published_article_id`，修复来源统一为 `source_published_content_issue_id`。发布业务对象不提供物理删除，downgrade 明确失败。
+
+`0035_business_workflow_primary_tasks` 把事实审核、内容单主线、发布版本快照和 GEO 优化来源收口为数据库约束。迁移删除事实 `DRAFT`，增加单产品/单任务待审核唯一性、`content_tasks.current_content_version_id`、`ABANDONED`、`publication_works.content_task_id`、版本切换事件字段、核验 `content_version_id` 与 `content_task_geo_sources`。合法旧数据按版本序和已有发布关系确定性回填；事实草稿、多待审核、多主线或无法确定归属时以 PostgreSQL `55000` 阻断。该收口不能无损逆转，downgrade 明确失败。
 
 管理员删除其他当前开发数据时，服务先锁定目标并统计直接引用，冲突统一返回结构化 `409`：产品检查事实版本、内容任务和 GEO 观测；事实版本检查内容任务和内容版本；具体平台检查内容任务和平台账号；平台账号检查发布工作；平台类型检查具体平台；停用用户由既有业务外键阻断。无引用事实版本可在任意状态删除，其从属事实审核记录在同一事务显式清理并保留安全审计摘要；产品删除不会自动删除事实版本。停用用户删除会清理会话并保留审计历史。除 `0033` 明确允许清理的任务自有未批准历史外，其他删除不级联或改写业务历史。
 
@@ -1032,11 +1043,11 @@ MVP 先维持现有路由，监测 AI 请求耗时、OSS 请求耗时和 DMIT �
 
 | 层级 | 工具 | 重点 |
 |---|---|---|
-| 后端单元测试 | pytest | 平台可用性、规则状态机、版本不变量、权限校验，以及九类关键命令的成功、失败与拒绝审计 |
-| 后端集成测试 | pytest + PostgreSQL | Prompt 所有权迁移、事实审核与 `0027` 审计操作者守卫、AI 渠道身份/列表/统计/审计、审计回填与降级门禁、任务/用户受限删除、生成作业、发布约束和 OSS 适配器 |
-| 前端单元测试 | Vitest + Testing Library | 平台可用性与 24 像素 Logo、内容任务/停用用户删除、8 位重置密码边界、AI 渠道三栏 URL 状态与敏感 mutation 清理、审计筛选/URL/刷新/详情/脱敏展示、中文枚举、表单、审核、编辑和异常状态 |
+| 后端单元测试 | pytest | 平台可用性、版本单主线、领域 `primary_task` 精确投影、权限校验、GEO 异常重算，以及关键命令的成功、失败与拒绝审计 |
+| 后端集成测试 | pytest + PostgreSQL | Prompt 所有权迁移、事实原子提交、`0035` 回填/歧义阻断、`0027` 审计操作者守卫、AI 渠道身份/列表/统计/审计、任务/用户受限删除、生成作业、发布版本切换与核验快照和 OSS 适配器 |
+| 前端单元测试 | Vitest + Testing Library | 各领域 typed `primary_task` 主操作、原子事实提交、内容修订/放弃、发布版本切换、GEO 优化回流、配置治理阶段、敏感 mutation 清理、表单、中文枚举和异常状态 |
 | API 契约测试 | OpenAPI 客户端构建 | 前后端类型一致性 |
-| 端到端测试 | Playwright | 产品事实到发布，以及真实本机协议替身上的 AI 渠道创建、测试成功/失败、统计审计与删除闭环 |
+| 端到端测试 | Playwright | 事实原子提交、内容退回新修订、发布切换与失败后复核、成果观测、GEO 优化回流，以及真实本机协议替身上的 AI 渠道配置治理闭环 |
 | AI 质量评估 | 固定评估集 | 事实命中、禁止结论和平台差异化 |
 
 外部 OSS 和模型测试需要预算与环境隔离，普通单元测试使用明确的适配器替身，不伪造业务成功状态。
@@ -1123,10 +1134,15 @@ geo-platform/
 - [ ] 平台类型可由管理员维护，被具体平台引用时删除返回结构化冲突。
 - [ ] 停用平台不能用于新任务；缺少当前 Prompt 时人工首稿可用而系统 AI 明确失败。
 - [ ] 内容任务只提交产品、同产品非空已批准事实版本和活动具体平台。
+- [ ] 事实工作区以一次命令直接创建待审核快照，事实版本没有草稿或原样重提流程。
+- [ ] 内容任务当前版本是审核与待发布的唯一来源，退回后创建新修订，放弃草稿不会把它伪装成历史成功版本。
 - [ ] 系统 AI 请求恰好包含平台 Prompt system message 与事实 Markdown user message。
 - [ ] 人工首稿不创建生成作业，并与 AI 草稿共用审核和发布链。
 - [ ] 已取消任务可连同生成作业、审核记录和未批准内容版本删除；已批准/曾批准内容、发布工作或发布后问题修复来源返回真实引用冲突且保持不变。
 - [ ] 发布工作失败核验后继续待处理，首次成功核验原子形成只读成果并完成来源任务，显式关闭原子取消来源任务。
+- [ ] 失败核验后可在原发布工作切换到同任务、同平台的当前批准版本；切换与每次核验都保留精确版本快照。
+- [ ] GEO 内容下降、长期未提及和问题覆盖缺口只在服务端重算通过后创建优化任务，并原子冻结 GEO 来源快照。
+- [ ] 业务列表主操作只消费 typed `primary_task`，不在前端从状态、角色或关联集合重建。
 - [ ] 发布成果打开问题后退出新 GEO 候选；创建修复任务、解决问题和新内容重新发布互不代替。
 - [ ] 停用且无业务引用的用户可删除，会话清理且历史审计仅将操作者置空；8 位重置临时密码通过、7 位拒绝。
 - [ ] 历史作业的平台、事实和两条消息快照不随当前配置变化，旧 v1 快照不能重试。

@@ -37,6 +37,22 @@ class ProductOut(ContractModel):
     brand: str
     category: str
     status: ProductStatus
+    workflow_stage: Literal[
+        "FACTS_EMPTY",
+        "FACTS_EDITING",
+        "FACT_REVIEW_PENDING",
+        "FACT_CHANGES_REQUESTED",
+        "FACT_APPROVED",
+        "RETIRED",
+    ]
+    primary_task: Literal[
+        "ENTER_FACTS",
+        "SUBMIT_FACT_REVIEW",
+        "REVIEW_FACT",
+        "REVISE_FACT",
+        "CREATE_CONTENT_TASK",
+        "VIEW_FACT_HISTORY",
+    ]
     available_actions: list[Literal["UPDATE", "DELETE"]]
     revision: int
     created_at: datetime
@@ -66,16 +82,16 @@ class ProductFactsDraft(ContractModel):
     product_id: uuid.UUID
     body_markdown: str
     classification: Confidentiality
-    available_actions: list[Literal["SAVE", "CREATE_VERSION"]]
+    available_actions: list[Literal["SAVE", "SUBMIT_REVIEW"]]
     revision: int = Field(ge=0)
 
 
-class CreateVersionRequest(ContractModel):
+class FactReviewSubmissionRequest(ContractModel):
+    expected_revision: int = Field(ge=0)
     change_summary: str = Field(min_length=1)
 
 
 class FactVersionStatus(StrEnum):
-    DRAFT = "DRAFT"
     PENDING_REVIEW = "PENDING_REVIEW"
     CHANGES_REQUESTED = "CHANGES_REQUESTED"
     APPROVED = "APPROVED"
@@ -90,9 +106,10 @@ class FactVersionOut(ContractModel):
     body_markdown: str
     classification: Confidentiality
     change_summary: str
-    available_actions: list[
-        Literal["SUBMIT", "APPROVE", "REQUEST_CHANGES", "RETIRE", "DELETE"]
+    primary_task: Literal[
+        "REVIEW_FACT", "CREATE_CONTENT_TASK", "REVISE_FACT", "VIEW_FACT_HISTORY"
     ]
+    available_actions: list[Literal["APPROVE", "REQUEST_CHANGES", "RETIRE", "DELETE"]]
     revision: int
     created_by: uuid.UUID
     approved_by: uuid.UUID | None = None

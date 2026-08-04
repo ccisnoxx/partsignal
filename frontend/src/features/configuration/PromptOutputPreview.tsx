@@ -29,7 +29,7 @@ type PreviewSelection = {
 };
 
 function taskLabel(task: ContentTaskListItem): string {
-  return `${task.product.brand} ${task.product.part_number}`;
+  return `${task.product.brand} ${task.product.part_number} · ${task.platform.name} · ${task.id.slice(0, 8)}`;
 }
 
 function PreviewArticle({ content }: { content: ContentVersion }) {
@@ -63,8 +63,12 @@ export function PromptOutputPreview({ mode, platformProfileId, dirty, promptConf
     staleTime: QUERY_STALE_TIME.businessList,
   });
   const eligibleTasks = useMemo(
-    () => (tasks.data?.items ?? []).filter((task) => task.status === 'OPEN'),
-    [tasks.data?.items],
+    () => (tasks.data?.items ?? []).filter((task) => (
+      mode === 'platform'
+        ? task.available_actions.includes('CREATE_GENERATION_JOB')
+        : task.status === 'OPEN'
+    )),
+    [mode, tasks.data?.items],
   );
   const versions = useQuery({
     queryKey: queryKeys.contentTasks.versions(taskId ?? ''),
@@ -74,9 +78,10 @@ export function PromptOutputPreview({ mode, platformProfileId, dirty, promptConf
     enabled: mode === 'humanization' && !!taskId,
     staleTime: QUERY_STALE_TIME.detail,
   });
-  const eligibleVersions = useMemo(() => (versions.data?.items ?? []).filter((version) => (
-    version.source_type === 'AI' && ['DRAFT', 'CHANGES_REQUESTED'].includes(version.status)
-  )), [versions.data?.items]);
+  const eligibleVersions = useMemo(
+    () => (versions.data?.items ?? []).filter((version) => version.available_actions.includes('CREATE_HUMANIZATION_JOB')),
+    [versions.data?.items],
+  );
   const options = useQuery({
     queryKey: queryKeys.contentTasks.options(taskId ?? ''),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/generation-options', {

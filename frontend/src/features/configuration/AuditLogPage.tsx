@@ -1,5 +1,5 @@
 /** 管理员审计工作台：URL 持有组合筛选，服务端持有日志、总数和安全详情。 */
-import { EyeOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
@@ -489,7 +489,7 @@ export function AuditLogPage() {
                     { title: '对象标识', dataIndex: 'target_id', width: 126, ellipsis: true, render: (value: string | null) => <TableCellText text={value ?? '未创建'} mono /> },
                     { title: '执行结果', dataIndex: 'outcome', width: 76, render: (value: string) => <StatusTag compact status={value} /> },
                     { title: '请求 ID', dataIndex: 'request_id', width: 144, ellipsis: true, render: (value: string) => <TableCellText text={value} mono /> },
-                    { title: '操作', fixed: 'right', width: 50, render: (_, row) => <Tooltip title="查看日志详情"><Button aria-label={`查看日志详情：${row.id}`} size="small" icon={<EyeOutlined />} onClick={(event) => openDetail(row.id, event.currentTarget)} /></Tooltip> },
+                    { title: '操作', fixed: 'right', width: 130, render: (_, row) => <Button type="primary" aria-label={`查看日志详情：${row.id}`} size="small" onClick={(event) => openDetail(row.id, event.currentTarget)}>查看日志详情</Button> },
                   ]}
                 />
               </TableRegion>

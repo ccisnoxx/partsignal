@@ -5,7 +5,6 @@ import {
   MoreOutlined,
   PlusOutlined,
   SearchOutlined,
-  SettingOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -60,6 +59,12 @@ const sortOptions: Array<{ value: Schema<'AIChannelSort'>; label: string }> = [
 ];
 const pageSizes = [10, 20, 50] as const;
 const relativeTimeFormatter = new Intl.RelativeTimeFormat('zh-CN', { numeric: 'auto' });
+const channelTaskLabels: Record<AIChannelSummary['primary_task'], string> = {
+  COMPLETE_CONFIGURATION: '完善配置',
+  TEST_MODEL: '测试模型',
+  ENABLE_CHANNEL: '启用渠道',
+  VIEW_RUNTIME: '查看运行情况',
+};
 export const AI_CHANNEL_DETAIL_TAB_KEYS = ['basic', 'request', 'models', 'usage', 'logs'] as const;
 export type AIChannelDetailTab = typeof AI_CHANNEL_DETAIL_TAB_KEYS[number];
 
@@ -178,6 +183,11 @@ export function AIChannelsPage() {
     pathname: `/configuration/ai/channels/${id}`,
     search: searchParams.toString(),
   });
+  const selectChannelTab = (id: string, tab: AIChannelDetailTab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', tab);
+    navigate({ pathname: `/configuration/ai/channels/${id}`, search: next.toString() });
+  };
   const invalidateChannels = async (id?: string) => {
     const invalidations = [queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.all })];
     if (id) invalidations.push(queryClient.invalidateQueries({ queryKey: queryKeys.aiChannels.detail(id) }));
@@ -285,6 +295,17 @@ export function AIChannelsPage() {
     onOk: () => remove.mutateAsync(channel),
     afterClose: restoreFocus,
   });
+  const confirmToggle = (channel: AIChannelSummary) => modal.confirm({
+    title: `${channel.is_enabled ? '停用' : '启用'}渠道“${channel.name}”？`,
+    content: channel.is_enabled
+      ? '停用后新的 AI 调用不会再选择该渠道，既有历史保持不变。'
+      : '服务端会重新校验至少一个已验证且已启用的模型。',
+    okText: channel.is_enabled ? '停用渠道' : '启用渠道',
+    cancelText: '取消',
+    okButtonProps: channel.is_enabled ? { danger: true } : undefined,
+    onOk: () => toggle.mutateAsync(channel),
+    afterClose: restoreFocus,
+  });
   const columns: TableColumnsType<AIChannelSummary> = [
     {
       title: '渠道名称', dataIndex: 'name', width: 124,
@@ -314,19 +335,23 @@ export function AIChannelsPage() {
       render: (_, item) => testStatus(item.latest_test_status, item.last_tested_at),
     },
     {
-      title: '操作', key: 'actions', fixed: 'right', width: 84,
+      title: '操作', key: 'actions', fixed: 'right', width: 170,
       render: (_, item) => <Space size={4} onClick={(event) => event.stopPropagation()}>
-        <Button size="small" type="text" icon={<SettingOutlined />} aria-label={`配置：${item.name}`} onClick={() => selectChannel(item.id)} />
+        <Button size="small" type="primary" onClick={() => {
+          if (item.primary_task === 'TEST_MODEL') openConnectionTest(item);
+          else if (item.primary_task === 'ENABLE_CHANNEL') confirmToggle(item);
+          else selectChannelTab(item.id, item.primary_task === 'VIEW_RUNTIME' ? 'usage' : 'basic');
+        }}>{channelTaskLabels[item.primary_task]}</Button>
         {item.available_actions.some((action) => ['ENABLE', 'DISABLE', 'DELETE'].includes(action)) && <Dropdown
           trigger={['click']}
           menu={{
             items: [
               ...(item.available_actions.includes('DISABLE') ? [{ key: 'toggle', label: '停用渠道' }] : []),
-              ...(item.available_actions.includes('ENABLE') ? [{ key: 'toggle', label: '启用渠道' }] : []),
+              ...(item.available_actions.includes('ENABLE') && item.primary_task !== 'ENABLE_CHANNEL' ? [{ key: 'toggle', label: '启用渠道' }] : []),
               ...(item.available_actions.includes('DELETE') ? [{ key: 'delete', label: '删除渠道', danger: true }] : []),
             ],
             onClick: ({ key }) => {
-              if (key === 'toggle') toggle.mutate(item);
+              if (key === 'toggle') confirmToggle(item);
               else confirmDelete(item);
             },
           }}

@@ -62,6 +62,8 @@ class LegacyGeoObservationOut(ContractModel):
     tested_by: uuid.UUID
     recorder: ActorSummary
     is_current: bool
+    workflow_stage: Literal["LEGACY"]
+    primary_task: Literal["VIEW_HISTORICAL_RECORD"]
     available_actions: list[Literal["CORRECT"]]
     created_at: datetime
 
@@ -143,6 +145,10 @@ class ManualGeoObservationOut(ContractModel):
     tested_by: uuid.UUID
     recorder: ActorSummary
     is_current: bool
+    workflow_stage: Literal["READY", "INCOMPLETE", "SUPERSEDED"]
+    primary_task: Literal[
+        "VIEW_ANALYSIS", "CORRECT_OBSERVATION", "VIEW_CORRECTION_HISTORY"
+    ]
     available_actions: list[GeoObservationAction]
     created_at: datetime
 
@@ -195,6 +201,7 @@ class GeoInsightPublicationOption(GeoInsightOption):
 
 
 class GeoInsightFilterOptions(ContractModel):
+    products: list[GeoInsightOption]
     content_platforms: list[GeoInsightOption]
     geo_platforms: list[str]
     publications: list[GeoInsightPublicationOption]
@@ -230,16 +237,22 @@ class GeoInsightPlatformPerformance(ContractModel):
     discovery_rate: GeoInsightRateValue
     mention_rate: GeoInsightRateValue
     accuracy_rate: GeoInsightRateValue
+    primary_task: Literal["VIEW_OBSERVATION_DETAILS"]
 
 
 class GeoInsightContentPerformance(ContractModel):
     published_article_id: uuid.UUID
+    product_id: uuid.UUID
+    content_platform_id: uuid.UUID
     title: str
     content_platform: str
     observation_count: int = Field(ge=0)
     discovery_rate: GeoInsightRateValue
     mention_rate: GeoInsightRateValue
     accuracy_rate: GeoInsightRateValue
+    primary_task: Literal[
+        "VIEW_CONTENT_PERFORMANCE", "CREATE_OPTIMIZATION_TASK"
+    ]
 
 
 class GeoInsightDeclineBasis(ContractModel):
@@ -284,6 +297,9 @@ class GeoInsightCoverageItem(ContractModel):
     observation_count: int = Field(ge=0)
     mentioned_observation_count: int = Field(ge=0)
     coverage_rate: GeoInsightRateValue
+    primary_task: Literal[
+        "VIEW_OBSERVATION_DETAILS", "CREATE_OPTIMIZATION_TASK", "ADD_OBSERVATION"
+    ]
 
 
 class GeoInsightQuestionCoverage(ContractModel):
@@ -354,6 +370,45 @@ class GeoInsights(ContractModel):
     question_coverage: GeoInsightQuestionCoverage
     recommendations: list[GeoInsightRecommendation]
     data_quality: GeoInsightDataQuality
+
+
+class GeoOptimizationContentTaskCreate(ContractModel):
+    rule_code: Literal["CONTENT_DECLINE", "LONG_UNMENTIONED", "QUESTION_COVERAGE_GAP"]
+    date_from: date
+    date_to: date
+    published_article_id: uuid.UUID | None = None
+    query_topic_id: uuid.UUID | None = None
+    geo_platform: SearchPlatform | None = None
+    product_id: uuid.UUID
+    platform_profile_id: uuid.UUID
+    fact_version_id: uuid.UUID
+
+    @model_validator(mode="after")
+    def validate_source_identity(self) -> GeoOptimizationContentTaskCreate:
+        """每类优化规则必须携带可由服务端复算的唯一异常身份。"""
+        if self.date_from > self.date_to:
+            raise ValueError("开始日期不能晚于结束日期")
+        if self.rule_code in {"CONTENT_DECLINE", "LONG_UNMENTIONED"}:
+            if self.published_article_id is None:
+                raise ValueError("内容表现异常必须指定发布成果")
+        elif self.query_topic_id is None or self.geo_platform is None:
+            raise ValueError("问题覆盖异常必须指定问题主题和 GEO 平台")
+        return self
+
+
+class GeoContentDeclineBasis(ContractModel):
+    rule_code: Literal["CONTENT_DECLINE"]
+    item: GeoInsightDecliningContent
+
+
+class GeoLongUnmentionedBasis(ContractModel):
+    rule_code: Literal["LONG_UNMENTIONED"]
+    item: GeoInsightLongUnmentionedContent
+
+
+class GeoQuestionCoverageGapBasis(ContractModel):
+    rule_code: Literal["QUESTION_COVERAGE_GAP"]
+    item: GeoInsightCoverageItem
 
 
 class DashboardSummary(ContractModel):

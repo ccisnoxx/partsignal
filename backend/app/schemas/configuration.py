@@ -86,6 +86,7 @@ class QueryTopicUpdate(QueryTopicCreate):
 class QueryTopicOut(QueryTopicCreate):
     id: uuid.UUID
     available_actions: list[Literal["UPDATE"]]
+    primary_task: Literal["USE_FOR_OBSERVATION"]
     revision: int
     created_at: datetime
 
@@ -195,6 +196,8 @@ class PlatformProfileOut(ContractModel):
     platform_prompt: PlatformPromptReference | None
     configuration_complete: bool
     platform_account_count: int = Field(ge=0)
+    workflow_stage: Literal["DISABLED", "GENERATION_UNCONFIGURED", "OPERATIONAL"]
+    primary_task: Literal["ENABLE_PLATFORM", "CONFIGURE_GENERATION", "VIEW_PLATFORM_OPERATION"]
     available_actions: list[Literal["UPDATE", "ENABLE", "DISABLE", "DELETE"]]
     updated_at: datetime | None
 
@@ -244,6 +247,7 @@ class PlatformTypeUpdate(PlatformTypeCreate):
 class PlatformTypeOut(PlatformTypeCreate):
     id: uuid.UUID
     available_actions: list[Literal["UPDATE", "DELETE"]]
+    primary_task: Literal["EDIT_CATEGORY"]
     revision: int
     created_by: uuid.UUID
     created_at: datetime
@@ -309,6 +313,7 @@ class AIChannelHeaderOut(ContractModel):
     is_sensitive: bool
     is_configured: bool
     available_actions: list[Literal["UPDATE", "DELETE"]]
+    primary_task: Literal["EDIT_HEADER", "RECONFIGURE_HEADER"]
     value: str | None = None
 
 
@@ -405,6 +410,10 @@ class AIChannelOut(ContractModel):
     enabled_models: list[AIChannelModelSummary]
     latest_test_status: AIModelTestStatus
     last_tested_at: datetime | None
+    workflow_stage: Literal["INCOMPLETE", "UNVERIFIED", "READY_TO_ENABLE", "RUNNING"]
+    primary_task: Literal[
+        "COMPLETE_CONFIGURATION", "TEST_MODEL", "ENABLE_CHANNEL", "VIEW_RUNTIME"
+    ]
     available_actions: list[
         Literal[
             "UPDATE",
@@ -438,6 +447,10 @@ class AIChannelSummary(ContractModel):
     enabled_model_count: int = Field(ge=0)
     latest_test_status: AIModelTestStatus
     last_tested_at: datetime | None
+    workflow_stage: Literal["INCOMPLETE", "UNVERIFIED", "READY_TO_ENABLE", "RUNNING"]
+    primary_task: Literal[
+        "COMPLETE_CONFIGURATION", "TEST_MODEL", "ENABLE_CHANNEL", "VIEW_RUNTIME"
+    ]
     available_actions: list[
         Literal[
             "UPDATE",
@@ -528,6 +541,16 @@ class AIModelOut(AIModelCreate):
     test_status: AIModelTestStatus
     last_tested_at: datetime | None = None
     last_test_error_summary: str | None = None
+    workflow_stage: Literal[
+        "UNTESTED", "TEST_FAILED", "READY_TO_ENABLE", "CHANNEL_DISABLED", "RUNNING"
+    ]
+    primary_task: Literal[
+        "TEST_CONNECTION",
+        "VIEW_FAILURE_AND_RETRY",
+        "ENABLE_MODEL",
+        "ENABLE_CHANNEL",
+        "VIEW_MODEL_RUNTIME",
+    ]
     available_actions: list[Literal["UPDATE", "TEST", "ENABLE", "DISABLE", "DELETE"]]
     revision: int
     created_by: uuid.UUID
@@ -541,6 +564,8 @@ class AIModelList(ContractModel):
 
 class DiscoveredModel(ContractModel):
     model_id: str
+    configured: bool
+    primary_task: Literal["ADD_MODEL", "VIEW_CONFIGURED_MODEL"]
 
 
 class DiscoveredModelList(ContractModel):

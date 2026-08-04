@@ -7,25 +7,23 @@ from typing import Literal
 from app.models.content import ContentVersion
 from app.models.product_facts import FactVersion
 
-FactAction = Literal["submit", "approve", "request-changes", "retire"]
+FactAction = Literal["approve", "request-changes", "retire"]
 ContentAction = Literal["submit-review", "approve", "request-changes"]
-FactReviewAction = Literal["SUBMIT", "APPROVE", "REQUEST_CHANGES", "RETIRE"]
+FactReviewAction = Literal["APPROVE", "REQUEST_CHANGES", "RETIRE"]
 ContentReviewAction = Literal["SUBMIT_REVIEW", "APPROVE", "REQUEST_CHANGES"]
 
 FACT_TRANSITIONS: dict[FactAction, tuple[frozenset[str], str]] = {
-    "submit": (frozenset({"DRAFT", "CHANGES_REQUESTED"}), "PENDING_REVIEW"),
     "approve": (frozenset({"PENDING_REVIEW"}), "APPROVED"),
     "request-changes": (frozenset({"PENDING_REVIEW"}), "CHANGES_REQUESTED"),
     "retire": (frozenset({"APPROVED"}), "RETIRED"),
 }
 FACT_REVIEW_ACTIONS: dict[FactAction, FactReviewAction] = {
-    "submit": "SUBMIT",
     "approve": "APPROVE",
     "request-changes": "REQUEST_CHANGES",
     "retire": "RETIRE",
 }
 CONTENT_TRANSITIONS: dict[ContentAction, tuple[frozenset[str], str]] = {
-    "submit-review": (frozenset({"DRAFT", "CHANGES_REQUESTED"}), "PENDING_REVIEW"),
+    "submit-review": (frozenset({"DRAFT"}), "PENDING_REVIEW"),
     "approve": (frozenset({"PENDING_REVIEW"}), "APPROVED"),
     "request-changes": (frozenset({"PENDING_REVIEW"}), "CHANGES_REQUESTED"),
 }

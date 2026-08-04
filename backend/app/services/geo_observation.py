@@ -15,7 +15,7 @@ from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, not_found
 from app.models.configuration import PlatformProfile, QueryTopic
-from app.models.content import ContentTask, ContentVersion
+from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
 from app.models.geo_files import (
     GeoObservation,
     GeoObservationAttachment,
@@ -23,14 +23,16 @@ from app.models.geo_files import (
     GeoObservationPublication,
 )
 from app.models.identity import User
-from app.models.product_facts import Product
+from app.models.product_facts import FactVersion, Product
 from app.models.publication import PublicationWork, PublishedArticle, PublishedContentIssue
 from app.schemas import geo_files as geo_schema
-from app.schemas.content import ActorSummary
+from app.schemas.content import ActorSummary, ContentTaskCreate
 from app.schemas.geo_files import (
     GeoAccuracy,
     GeoArticleResultOut,
     GeoCitation,
+    GeoContentDeclineBasis,
+    GeoLongUnmentionedBasis,
     GeoMetrics,
     GeoObservationAction,
     GeoObservationCreate,
@@ -38,11 +40,14 @@ from app.schemas.geo_files import (
     GeoObservationList,
     GeoObservationOut,
     GeoObservationSortOrder,
+    GeoOptimizationContentTaskCreate,
     GeoPublicationCandidate,
+    GeoQuestionCoverageGapBasis,
     LegacyGeoObservationOut,
     LegacyRecommendation,
     ManualGeoObservationOut,
 )
+from app.services.content_planning import create_content_task
 from app.services.file_records import schedule_unreferenced_file, verified_files
 
 
@@ -75,6 +80,7 @@ class GeoInsightFilters:
 
     date_from: date | None = None
     date_to: date | None = None
+    product_id: uuid.UUID | None = None
     content_platform_id: uuid.UUID | None = None
     geo_platform: str | None = None
     published_article_id: uuid.UUID | None = None
@@ -86,6 +92,7 @@ class _GeoInsightRow:
     observation_id: uuid.UUID
     tested_at: datetime
     query_topic_id: uuid.UUID | None
+    product_id: uuid.UUID
     geo_platform: str
     published_article_id: uuid.UUID
     title: str
@@ -422,6 +429,32 @@ def geo_observations_out(
                 ManualGeoObservationOut.model_validate(
                     {
                         **common,
+                        "workflow_stage": (
+                            "SUPERSEDED"
+                            if not is_current
+                            else (
+                                "READY"
+                                if observation.query_topic_id is not None
+                                and all(
+                                    item.discovered is not None and item.mentioned is not None
+                                    for item in article_results
+                                )
+                                else "INCOMPLETE"
+                            )
+                        ),
+                        "primary_task": (
+                            "VIEW_CORRECTION_HISTORY"
+                            if not is_current
+                            else (
+                                "VIEW_ANALYSIS"
+                                if observation.query_topic_id is not None
+                                and all(
+                                    item.discovered is not None and item.mentioned is not None
+                                    for item in article_results
+                                )
+                                else "CORRECT_OBSERVATION"
+                            )
+                        ),
                         "query_topic_id": observation.query_topic_id,
                         "search_platform": observation.search_platform,
                         "search_query": observation.search_query,
@@ -435,6 +468,8 @@ def geo_observations_out(
             LegacyGeoObservationOut.model_validate(
                 {
                     **common,
+                    "workflow_stage": "LEGACY",
+                    "primary_task": "VIEW_HISTORICAL_RECORD",
                     "query_topic_id": observation.query_topic_id,
                     "actual_prompt": observation.actual_prompt,
                     "model_name": observation.model_name,
@@ -645,6 +680,13 @@ def _geo_insight_filter_options(db: Session) -> geo_schema.GeoInsightFilterOptio
         db.scalars(select(QueryTopic).order_by(QueryTopic.canonical_question, QueryTopic.id))
     )
     return geo_schema.GeoInsightFilterOptions(
+        products=[
+            geo_schema.GeoInsightOption(
+                id=product.id,
+                label=f"{product.brand} {product.part_number}",
+            )
+            for product in db.scalars(select(Product).order_by(Product.brand, Product.part_number))
+        ],
         content_platforms=[
             geo_schema.GeoInsightOption(id=platform_id, label=platforms[platform_id])
             for platform_id in sorted(platforms, key=lambda item: (platforms[item], str(item)))
@@ -670,6 +712,7 @@ def _validate_geo_insight_filters(
 ) -> None:
     """拒绝不属于权威选项集合的 ID 或精确字符串。"""
     checks = (
+        (filters.product_id, {item.id for item in options.products}, "产品"),
         (
             filters.content_platform_id,
             {item.id for item in options.content_platforms},
@@ -702,6 +745,7 @@ def _geo_insight_rows(
             GeoObservation.id,
             GeoObservation.tested_at,
             GeoObservation.query_topic_id,
+            GeoObservation.product_id,
             GeoObservation.search_platform,
             GeoObservationPublication.published_article_id,
             PublicationWork.actual_title,
@@ -738,6 +782,8 @@ def _geo_insight_rows(
         )
     if filters.geo_platform is not None:
         query = query.where(GeoObservation.search_platform == filters.geo_platform)
+    if filters.product_id is not None:
+        query = query.where(GeoObservation.product_id == filters.product_id)
     if filters.query_topic_id is not None:
         query = query.where(GeoObservation.query_topic_id == filters.query_topic_id)
     return [
@@ -745,6 +791,7 @@ def _geo_insight_rows(
             observation_id=observation_id,
             tested_at=tested_at,
             query_topic_id=query_topic_id,
+            product_id=product_id,
             geo_platform=geo_platform,
             published_article_id=published_article_id,
             title=actual_title or content_title,
@@ -759,6 +806,7 @@ def _geo_insight_rows(
             observation_id,
             tested_at,
             query_topic_id,
+            product_id,
             geo_platform,
             published_article_id,
             actual_title,
@@ -902,6 +950,8 @@ def _content_performance(
     first = rows[0]
     return geo_schema.GeoInsightContentPerformance(
         published_article_id=first.published_article_id,
+        product_id=first.product_id,
+        content_platform_id=first.content_platform_id,
         title=first.title,
         content_platform=first.content_platform,
         observation_count=len({row.observation_id for row in rows}),
@@ -912,6 +962,7 @@ def _content_performance(
             _RATE_PREDICATES["accuracy_rate"],
             eligible=_RATE_ELIGIBILITY["accuracy_rate"],
         ),
+        primary_task="VIEW_CONTENT_PERFORMANCE",
     )
 
 
@@ -979,7 +1030,11 @@ def _content_rankings(
         if not bases:
             continue
         declining.append(
-            geo_schema.GeoInsightDecliningContent(**current_performance.model_dump(), basis=bases)
+            geo_schema.GeoInsightDecliningContent(
+                **current_performance.model_dump(exclude={"primary_task"}),
+                primary_task="CREATE_OPTIMIZATION_TASK",
+                basis=bases,
+            )
         )
         decline_sort[publication_id] = (
             max(declines.values()),
@@ -1024,7 +1079,8 @@ def _content_rankings(
             since = last_mentioned or first.published_at
             long_unmentioned.append(
                 geo_schema.GeoInsightLongUnmentionedContent(
-                    **_content_performance(rows).model_dump(),
+                    **_content_performance(rows).model_dump(exclude={"primary_task"}),
+                    primary_task="CREATE_OPTIMIZATION_TASK",
                     unmentioned_days=(current_to - _utc_date(since)).days,
                     last_mentioned_at=last_mentioned,
                 )
@@ -1096,6 +1152,15 @@ def _question_coverage(
                     observation_count=len(samples),
                     mentioned_observation_count=mentioned_count,
                     coverage_rate=rate,
+                    primary_task=(
+                        "VIEW_OBSERVATION_DETAILS"
+                        if status == "STABLE"
+                        else (
+                            "ADD_OBSERVATION"
+                            if status == "INSUFFICIENT_DATA"
+                            else "CREATE_OPTIMIZATION_TASK"
+                        )
+                    ),
                 )
             )
     return geo_schema.GeoInsightQuestionCoverage(
@@ -1128,6 +1193,7 @@ def _platform_performance(
                 _RATE_PREDICATES["accuracy_rate"],
                 eligible=_RATE_ELIGIBILITY["accuracy_rate"],
             ),
+            primary_task="VIEW_OBSERVATION_DETAILS",
         )
         for platform, platform_rows in sorted(grouped.items())
     ]
@@ -1428,6 +1494,128 @@ def get_geo_insights(db: Session, *, filters: GeoInsightFilters) -> geo_schema.G
             unavailable_sections=unavailable,
         ),
     )
+
+
+def create_geo_optimization_content_task(
+    *,
+    db: Session,
+    payload: GeoOptimizationContentTaskCreate,
+    actor: User,
+    request_id: str,
+    idempotency_key: str,
+) -> ContentTask:
+    """复算仍成立的明确 GEO 异常，并原子保存内容任务与来源快照。"""
+    filters = GeoInsightFilters(
+        date_from=payload.date_from,
+        date_to=payload.date_to,
+        geo_platform=payload.geo_platform,
+        published_article_id=payload.published_article_id,
+        query_topic_id=payload.query_topic_id,
+    )
+    insights = get_geo_insights(db, filters=filters)
+    basis: GeoContentDeclineBasis | GeoLongUnmentionedBasis | GeoQuestionCoverageGapBasis
+    if payload.rule_code == "CONTENT_DECLINE":
+        declining_item = next(
+            (
+                candidate
+                for candidate in insights.content_rankings.declining
+                if candidate.published_article_id == payload.published_article_id
+            ),
+            None,
+        )
+        if declining_item is None:
+            raise AppError("GEO_INSIGHT_STALE", "指定内容表现下降异常已不再成立", 409)
+        basis = GeoContentDeclineBasis(rule_code="CONTENT_DECLINE", item=declining_item)
+    elif payload.rule_code == "LONG_UNMENTIONED":
+        unmentioned_item = next(
+            (
+                candidate
+                for candidate in insights.content_rankings.long_unmentioned
+                if candidate.published_article_id == payload.published_article_id
+            ),
+            None,
+        )
+        if unmentioned_item is None:
+            raise AppError("GEO_INSIGHT_STALE", "指定长期未提及异常已不再成立", 409)
+        basis = GeoLongUnmentionedBasis(rule_code="LONG_UNMENTIONED", item=unmentioned_item)
+    else:
+        coverage_item = next(
+            (
+                candidate
+                for candidate in insights.question_coverage.matrix
+                if candidate.query_topic_id == payload.query_topic_id
+                and candidate.geo_platform == payload.geo_platform
+                and candidate.status in {"OCCASIONAL", "UNCOVERED"}
+            ),
+            None,
+        )
+        if coverage_item is None:
+            raise AppError("GEO_INSIGHT_STALE", "指定问题覆盖异常已不再成立或样本不足", 409)
+        basis = GeoQuestionCoverageGapBasis(
+            rule_code="QUESTION_COVERAGE_GAP",
+            item=coverage_item,
+        )
+
+    if payload.published_article_id is not None:
+        article = db.get(PublishedArticle, payload.published_article_id)
+        work = db.get(PublicationWork, payload.published_article_id)
+        source_task = db.get(ContentTask, work.content_task_id) if work is not None else None
+        if article is None or source_task is None:
+            raise AppError("GEO_INSIGHT_STALE", "指定发布成果已不存在", 409)
+        if (
+            source_task.product_id != payload.product_id
+            or source_task.platform_profile_id != payload.platform_profile_id
+        ):
+            raise AppError("VALIDATION_ERROR", "优化任务的产品或内容平台与来源成果不一致", 422)
+
+    fact = db.get(FactVersion, payload.fact_version_id)
+    if fact is None or fact.product_id != payload.product_id or fact.status != "APPROVED":
+        raise AppError("FACT_NOT_APPROVED", "优化任务必须选择该产品的已批准事实版本", 409)
+
+    existing = db.scalar(
+        select(ContentTask).where(ContentTask.idempotency_key == idempotency_key)
+    )
+    if existing is not None:
+        source = db.get(ContentTaskGeoSource, existing.id)
+        if (
+            source is None
+            or source.rule_code != payload.rule_code
+            or source.date_from != payload.date_from
+            or source.date_to != payload.date_to
+            or source.published_article_id != payload.published_article_id
+            or source.query_topic_id != payload.query_topic_id
+            or source.geo_platform != payload.geo_platform
+        ):
+            raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一内容任务创建请求", 409)
+        return existing
+
+    task = create_content_task(
+        db=db,
+        payload=ContentTaskCreate(
+            product_id=payload.product_id,
+            fact_version_id=payload.fact_version_id,
+            platform_profile_id=payload.platform_profile_id,
+        ),
+        actor=actor,
+        request_id=request_id,
+        idempotency_key=idempotency_key,
+        commit=False,
+    )
+    db.add(
+        ContentTaskGeoSource(
+            content_task_id=task.id,
+            rule_code=payload.rule_code,
+            date_from=payload.date_from,
+            date_to=payload.date_to,
+            published_article_id=payload.published_article_id,
+            query_topic_id=payload.query_topic_id,
+            geo_platform=payload.geo_platform,
+            basis_snapshot=basis.model_dump(mode="json"),
+            created_by=actor.id,
+        )
+    )
+    db.commit()
+    return task
 
 
 def geo_publication_candidates(

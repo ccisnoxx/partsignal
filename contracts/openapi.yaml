@@ -397,18 +397,20 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactVersionList'}
+  /api/v1/products/{product_id}/fact-review-submissions:
+    parameters: [{$ref: '#/components/parameters/ProductId'}]
     post:
       tags: [product-facts]
-      operationId: createFactVersion
+      operationId: submitProductFactReview
       parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
       requestBody:
         required: true
         content:
           application/json:
-            schema: {$ref: '#/components/schemas/CreateVersionRequest'}
+            schema: {$ref: '#/components/schemas/FactReviewSubmissionRequest'}
       responses:
         '201':
-          description: 已从工作区创建不可变快照
+          description: 已从事实工作区原子创建待审核快照
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactVersion'}
@@ -444,17 +446,6 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactReviewContext'}
-  /api/v1/fact-versions/{fact_version_id}/submit:
-    post:
-      tags: [review]
-      operationId: submitFactVersion
-      parameters:
-        - {$ref: '#/components/parameters/FactVersionId'}
-        - {$ref: '#/components/parameters/CsrfHeader'}
-      requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
-      responses:
-        '200': {$ref: '#/components/responses/FactVersionResponse'}
-        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/fact-versions/{fact_version_id}/approve:
     post:
       tags: [review]
@@ -1500,6 +1491,17 @@ paths:
       requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
       responses:
         '200': {$ref: '#/components/responses/ContentVersionResponse'}
+  /api/v1/content-versions/{content_version_id}/abandon:
+    post:
+      tags: [production]
+      operationId: abandonContentVersion
+      parameters:
+        - {$ref: '#/components/parameters/ContentVersionId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/ContentVersionResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/approve:
     post:
       tags: [review]
@@ -1936,6 +1938,28 @@ paths:
                 $ref: '#/components/schemas/PublicationWork'
         '422':
           $ref: '#/components/responses/ErrorResponse'
+  /api/v1/publication-works/{work_id}/content-version:
+    post:
+      tags: [publication]
+      operationId: switchPublicationContentVersion
+      parameters:
+        - name: work_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/PublicationContentVersionSwitchRequest'}
+      responses:
+        '200':
+          description: 发布工作已切换到同任务当前批准版本
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublicationWork'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-works/{work_id}/close:
     post:
       tags:
@@ -2363,6 +2387,7 @@ paths:
       parameters:
         - {name: date_from, in: query, schema: {type: string, format: date}}
         - {name: date_to, in: query, schema: {type: string, format: date}}
+        - {name: product_id, in: query, schema: {type: string, format: uuid}}
         - {name: content_platform_id, in: query, schema: {type: string, format: uuid}}
         - {name: geo_platform, in: query, schema: {type: string, maxLength: 160}}
         - {name: published_article_id, in: query, schema: {type: string, format: uuid}}
@@ -2385,6 +2410,26 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/DashboardSummary'}
+  /api/v1/geo-insights/optimization-content-tasks:
+    post:
+      tags: [observation]
+      operationId: createGeoOptimizationContentTask
+      parameters:
+        - {$ref: '#/components/parameters/CsrfHeader'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/GeoOptimizationContentTaskCreate'}
+      responses:
+        '201':
+          description: 已创建带不可变 GEO 来源快照的内容任务
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentTask'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/files/upload-intents:
     post:
       tags: [files]
@@ -2579,7 +2624,7 @@ components:
     User:
       type: object
       additionalProperties: false
-      required: [id, username, display_name, account_type, is_active, must_change_password, available_actions, revision, created_at]
+      required: [id, username, display_name, account_type, is_active, must_change_password, workflow_stage, primary_task, available_actions, revision, created_at]
       properties:
         id: {type: string, format: uuid}
         username: {type: string}
@@ -2587,6 +2632,8 @@ components:
         account_type: {$ref: '#/components/schemas/AccountType'}
         is_active: {type: boolean}
         must_change_password: {type: boolean}
+        workflow_stage: {type: string, enum: [FIRST_PASSWORD_CHANGE, ACTIVE, DISABLED]}
+        primary_task: {type: string, enum: [MANAGE_LOGIN_SECURITY, MANAGE_USER, ENABLE_USER]}
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, RESET_PASSWORD, ENABLE, DISABLE, DELETE]}
@@ -2717,7 +2764,7 @@ components:
     AuditLog:
       type: object
       additionalProperties: false
-      required: [id, actor_id, actor, business_module, action, target_type, target_id, outcome, change_summary, request_id, created_at]
+      required: [id, actor_id, actor, business_module, action, target_type, target_id, outcome, change_summary, primary_task, request_id, created_at]
       properties:
         id: {type: string, format: uuid}
         actor_id: {type: [string, 'null'], format: uuid}
@@ -2731,6 +2778,7 @@ components:
         target_id: {type: [string, 'null']}
         outcome: {$ref: '#/components/schemas/AuditOutcome'}
         change_summary: {type: object, additionalProperties: true}
+        primary_task: {type: string, const: VIEW_LOG_DETAIL}
         request_id: {type: string}
         created_at: {type: string, format: date-time}
     AuditLogList:
@@ -2765,13 +2813,15 @@ components:
     Product:
       type: object
       additionalProperties: false
-      required: [id, part_number, brand, category, status, available_actions, revision, created_at, updated_at]
+      required: [id, part_number, brand, category, status, workflow_stage, primary_task, available_actions, revision, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         part_number: {type: string}
         brand: {type: string}
         category: {type: string}
         status: {$ref: '#/components/schemas/ProductStatus'}
+        workflow_stage: {type: string, enum: [FACTS_EMPTY, FACTS_EDITING, FACT_REVIEW_PENDING, FACT_CHANGES_REQUESTED, FACT_APPROVED, RETIRED]}
+        primary_task: {type: string, enum: [ENTER_FACTS, SUBMIT_FACT_REVIEW, REVIEW_FACT, REVISE_FACT, CREATE_CONTENT_TASK, VIEW_FACT_HISTORY]}
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, DELETE]}
@@ -2824,14 +2874,15 @@ components:
         classification: {$ref: '#/components/schemas/Confidentiality'}
         available_actions:
           type: array
-          items: {type: string, enum: [SAVE, CREATE_VERSION]}
+          items: {type: string, enum: [SAVE, SUBMIT_REVIEW]}
         revision: {type: integer, minimum: 0}
-    FactVersionStatus: {type: string, enum: [DRAFT, PENDING_REVIEW, CHANGES_REQUESTED, APPROVED, RETIRED]}
-    CreateVersionRequest:
+    FactVersionStatus: {type: string, enum: [PENDING_REVIEW, CHANGES_REQUESTED, APPROVED, RETIRED]}
+    FactReviewSubmissionRequest:
       type: object
       additionalProperties: false
-      required: [change_summary]
+      required: [expected_revision, change_summary]
       properties:
+        expected_revision: {type: integer, minimum: 0}
         change_summary: {type: string, minLength: 1}
     CommandRequest:
       type: object
@@ -2856,7 +2907,7 @@ components:
     FactVersion:
       type: object
       additionalProperties: false
-      required: [id, product_id, version, status, body_markdown, classification, change_summary, available_actions, revision, created_by, created_at]
+      required: [id, product_id, version, status, body_markdown, classification, change_summary, primary_task, available_actions, revision, created_by, created_at]
       properties:
         id: {type: string, format: uuid}
         product_id: {type: string, format: uuid}
@@ -2865,9 +2916,10 @@ components:
         body_markdown: {type: string}
         classification: {$ref: '#/components/schemas/Confidentiality'}
         change_summary: {type: string}
+        primary_task: {type: string, enum: [REVIEW_FACT, CREATE_CONTENT_TASK, REVISE_FACT, VIEW_FACT_HISTORY]}
         available_actions:
           type: array
-          items: {type: string, enum: [SUBMIT, APPROVE, REQUEST_CHANGES, RETIRE, DELETE]}
+          items: {type: string, enum: [APPROVE, REQUEST_CHANGES, RETIRE, DELETE]}
         revision: {type: integer}
         created_by: {type: string, format: uuid}
         approved_by: {type: [string, 'null'], format: uuid}
@@ -2901,12 +2953,13 @@ components:
       allOf:
         - {$ref: '#/components/schemas/QueryTopicCreate'}
         - type: object
-          required: [id, available_actions, revision, created_at]
+          required: [id, available_actions, primary_task, revision, created_at]
           properties:
             id: {type: string, format: uuid}
             available_actions:
               type: array
               items: {type: string, enum: [UPDATE]}
+            primary_task: {type: string, const: USE_FOR_OBSERVATION}
             revision: {type: integer}
             created_at: {type: string, format: date-time}
     QueryTopicList:
@@ -3022,7 +3075,7 @@ components:
     PlatformProfile:
       type: object
       additionalProperties: false
-      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, platform_prompt, configuration_complete, platform_account_count, available_actions, updated_at]
+      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, platform_prompt, configuration_complete, platform_account_count, workflow_stage, primary_task, available_actions, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string, minLength: 1, maxLength: 160}
@@ -3046,6 +3099,8 @@ components:
             - {type: 'null'}
         configuration_complete: {type: boolean, description: 当前具体平台已绑定 Prompt，可用于系统 AI 生成}
         platform_account_count: {type: integer, minimum: 0}
+        workflow_stage: {type: string, enum: [DISABLED, GENERATION_UNCONFIGURED, OPERATIONAL]}
+        primary_task: {type: string, enum: [ENABLE_PLATFORM, CONFIGURE_GENERATION, VIEW_PLATFORM_OPERATION]}
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, ENABLE, DISABLE, DELETE]}
@@ -3114,7 +3169,7 @@ components:
     PlatformType:
       type: object
       additionalProperties: false
-      required: [id, name, slug, available_actions, revision, created_by, created_at, updated_at]
+      required: [id, name, slug, available_actions, primary_task, revision, created_by, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string, minLength: 1}
@@ -3122,6 +3177,7 @@ components:
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, DELETE]}
+        primary_task: {type: string, const: EDIT_CATEGORY}
         revision: {type: integer}
         created_by: {type: string, format: uuid}
         created_at: {type: string, format: date-time}
@@ -3205,7 +3261,7 @@ components:
     AIChannelHeader:
       type: object
       additionalProperties: false
-      required: [id, name, is_sensitive, is_configured, available_actions]
+      required: [id, name, is_sensitive, is_configured, available_actions, primary_task]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
@@ -3214,6 +3270,7 @@ components:
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, DELETE]}
+        primary_task: {type: string, enum: [EDIT_HEADER, RECONFIGURE_HEADER]}
         value: {type: [string, 'null']}
     AIChannelHeaderCreate:
       type: object
@@ -3267,7 +3324,7 @@ components:
     AIChannel:
       type: object
       additionalProperties: false
-      required: [id, name, description, protocol_type, provider_brand, base_url, timeout_seconds, is_enabled, api_key_configured, api_key_updated_at, headers, enabled_models, latest_test_status, last_tested_at, available_actions, revision, created_by, created_at, updated_at]
+      required: [id, name, description, protocol_type, provider_brand, base_url, timeout_seconds, is_enabled, api_key_configured, api_key_updated_at, headers, enabled_models, latest_test_status, last_tested_at, workflow_stage, primary_task, available_actions, revision, created_by, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
@@ -3283,6 +3340,8 @@ components:
         enabled_models: {type: array, items: {$ref: '#/components/schemas/AIChannelModelSummary'}}
         latest_test_status: {$ref: '#/components/schemas/AIModelTestStatus'}
         last_tested_at: {type: [string, 'null'], format: date-time}
+        workflow_stage: {type: string, enum: [INCOMPLETE, UNVERIFIED, READY_TO_ENABLE, RUNNING]}
+        primary_task: {type: string, enum: [COMPLETE_CONFIGURATION, TEST_MODEL, ENABLE_CHANNEL, VIEW_RUNTIME]}
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, REPLACE_API_KEY, ENABLE, DISABLE, DELETE, DISCOVER_MODELS, CREATE_HEADER, CREATE_MODEL]}
@@ -3306,7 +3365,7 @@ components:
     AIChannelSummary:
       type: object
       additionalProperties: false
-      required: [id, name, description, protocol_type, provider_brand, base_url, is_enabled, api_key_configured, header_count, enabled_model_count, latest_test_status, last_tested_at, available_actions, revision]
+      required: [id, name, description, protocol_type, provider_brand, base_url, is_enabled, api_key_configured, header_count, enabled_model_count, latest_test_status, last_tested_at, workflow_stage, primary_task, available_actions, revision]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
@@ -3320,6 +3379,8 @@ components:
         enabled_model_count: {type: integer, minimum: 0}
         latest_test_status: {$ref: '#/components/schemas/AIModelTestStatus'}
         last_tested_at: {type: [string, 'null'], format: date-time}
+        workflow_stage: {type: string, enum: [INCOMPLETE, UNVERIFIED, READY_TO_ENABLE, RUNNING]}
+        primary_task: {type: string, enum: [COMPLETE_CONFIGURATION, TEST_MODEL, ENABLE_CHANNEL, VIEW_RUNTIME]}
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, REPLACE_API_KEY, ENABLE, DISABLE, DELETE, DISCOVER_MODELS, CREATE_HEADER, CREATE_MODEL]}
@@ -3391,7 +3452,7 @@ components:
     AIModel:
       type: object
       additionalProperties: false
-      required: [id, channel_id, display_name, model_id, request_parameters, is_enabled, test_status, available_actions, revision, created_by, created_at, updated_at]
+      required: [id, channel_id, display_name, model_id, request_parameters, is_enabled, test_status, workflow_stage, primary_task, available_actions, revision, created_by, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         channel_id: {type: string, format: uuid}
@@ -3402,6 +3463,8 @@ components:
         test_status: {$ref: '#/components/schemas/AIModelTestStatus'}
         last_tested_at: {type: [string, 'null'], format: date-time}
         last_test_error_summary: {type: [string, 'null']}
+        workflow_stage: {type: string, enum: [UNTESTED, TEST_FAILED, READY_TO_ENABLE, CHANNEL_DISABLED, RUNNING]}
+        primary_task: {type: string, enum: [TEST_CONNECTION, VIEW_FAILURE_AND_RETRY, ENABLE_MODEL, ENABLE_CHANNEL, VIEW_MODEL_RUNTIME]}
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, TEST, ENABLE, DISABLE, DELETE]}
@@ -3418,9 +3481,11 @@ components:
     DiscoveredModel:
       type: object
       additionalProperties: false
-      required: [model_id]
+      required: [model_id, configured, primary_task]
       properties:
         model_id: {type: string}
+        configured: {type: boolean}
+        primary_task: {type: string, enum: [ADD_MODEL, VIEW_CONFIGURED_MODEL]}
     DiscoveredModelList:
       type: object
       additionalProperties: false
@@ -3440,11 +3505,14 @@ components:
       allOf:
         - {$ref: '#/components/schemas/ContentTaskCreate'}
         - type: object
-          required: [id, query_topic_id, source_published_content_issue_id, available_actions, status, revision, created_by, created_at]
+          required: [id, query_topic_id, source_published_content_issue_id, current_content_version_id, workflow_stage, primary_task, available_actions, status, revision, created_by, created_at]
           properties:
             id: {type: string, format: uuid}
             query_topic_id: {type: [string, 'null'], format: uuid}
             source_published_content_issue_id: {type: [string, 'null'], format: uuid}
+            current_content_version_id: {type: [string, 'null'], format: uuid}
+            workflow_stage: {type: string, enum: [NO_DRAFT, GENERATING, GENERATION_FAILED, DRAFT, REVIEW_PENDING, CHANGES_REQUESTED, APPROVED, PUBLISHING, VERIFIED, CANCELLED]}
+            primary_task: {type: string, enum: [CREATE_FIRST_DRAFT, VIEW_GENERATION_PROGRESS, HANDLE_GENERATION_FAILURE, EDIT_AND_SUBMIT_REVIEW, REVIEW_CONTENT, REVISE_CONTENT, START_PUBLICATION, CONTINUE_PUBLICATION, VIEW_FULL_LINEAGE, VIEW_CANCELLATION]}
             available_actions:
               type: array
               items: {type: string, enum: [CANCEL, DELETE, CREATE_GENERATION_JOB, CREATE_MANUAL_VERSION]}
@@ -3538,13 +3606,15 @@ components:
     GenerationJob:
       type: object
       additionalProperties: false
-      required: [id, content_task_id, job_type, source_content_version_id, status, available_actions, attempt_count, created_at]
+      required: [id, content_task_id, job_type, source_content_version_id, status, workflow_stage, primary_task, available_actions, attempt_count, created_at]
       properties:
         id: {type: string, format: uuid}
         content_task_id: {type: string, format: uuid}
         job_type: {$ref: '#/components/schemas/GenerationJobType'}
         source_content_version_id: {type: [string, 'null'], format: uuid}
         status: {$ref: '#/components/schemas/GenerationJobStatus'}
+        workflow_stage: {type: string, enum: [IN_PROGRESS, SUCCEEDED, RETRYABLE_FAILURE, HISTORICAL_FAILURE]}
+        primary_task: {type: string, enum: [VIEW_EXECUTION_PROGRESS, VIEW_GENERATED_CONTENT, HANDLE_FAILURE, VIEW_FAILURE]}
         available_actions:
           type: array
           items: {type: string, enum: [RETRY]}
@@ -3711,7 +3781,7 @@ components:
       required: [items]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/GenerationJob'}}
-    ContentVersionStatus: {type: string, enum: [DRAFT, PENDING_REVIEW, CHANGES_REQUESTED, APPROVED, SUPERSEDED]}
+    ContentVersionStatus: {type: string, enum: [DRAFT, PENDING_REVIEW, CHANGES_REQUESTED, APPROVED, SUPERSEDED, ABANDONED]}
     QualityIssue:
       type: object
       additionalProperties: false
@@ -3723,7 +3793,7 @@ components:
     ContentVersion:
       type: object
       additionalProperties: false
-      required: [id, task_id, fact_version_id, source_job_id, based_on_id, version, source_type, title, summary, body_markdown, tags, content_hash, status, available_actions, revision, quality_issues, created_by, created_at]
+      required: [id, task_id, fact_version_id, source_job_id, based_on_id, version, source_type, title, summary, body_markdown, tags, content_hash, status, workflow_stage, primary_task, available_actions, revision, quality_issues, created_by, created_at]
       properties:
         id: {type: string, format: uuid}
         task_id: {type: string, format: uuid}
@@ -3738,9 +3808,11 @@ components:
         tags: {type: array, items: {type: string}}
         content_hash: {type: string}
         status: {$ref: '#/components/schemas/ContentVersionStatus'}
+        workflow_stage: {type: string, enum: [CURRENT_DRAFT, CURRENT_REVIEW_PENDING, CURRENT_CHANGES_REQUESTED, CURRENT_APPROVED, CURRENT_PUBLISHING, PUBLISHED, HISTORICAL]}
+        primary_task: {type: string, enum: [EDIT_AND_SUBMIT_REVIEW, REVIEW_CONTENT, CREATE_REVISION, START_PUBLICATION, CONTINUE_PUBLICATION, VIEW_PUBLICATION_RESULT, VIEW_VERSION_HISTORY]}
         available_actions:
           type: array
-          items: {type: string, enum: [CREATE_REVISION, CREATE_HUMANIZATION_JOB, SUBMIT_REVIEW, APPROVE, REQUEST_CHANGES]}
+          items: {type: string, enum: [CREATE_REVISION, CREATE_HUMANIZATION_JOB, SUBMIT_REVIEW, APPROVE, REQUEST_CHANGES, ABANDON]}
         revision: {type: integer}
         quality_issues: {type: array, items: {$ref: '#/components/schemas/QualityIssue'}}
         created_by: {type: string, format: uuid}
@@ -3801,7 +3873,7 @@ components:
         comment: {type: string}
         actor: {$ref: '#/components/schemas/ActorSummary'}
         created_at: {type: string, format: date-time}
-    FactReviewAction: {type: string, enum: [SUBMIT, APPROVE, REQUEST_CHANGES, RETIRE]}
+    FactReviewAction: {type: string, enum: [APPROVE, REQUEST_CHANGES, RETIRE]}
     ContentReviewAction: {type: string, enum: [SUBMIT_REVIEW, APPROVE, REQUEST_CHANGES]}
     FactReviewContext:
       type: object
@@ -3880,10 +3952,12 @@ components:
       allOf:
         - {$ref: '#/components/schemas/PlatformAccountCreate'}
         - type: object
-          required: [id, is_active, available_actions, revision]
+          required: [id, is_active, workflow_stage, primary_task, available_actions, revision]
           properties:
             id: {type: string, format: uuid}
             is_active: {type: boolean}
+            workflow_stage: {type: string, enum: [PLATFORM_DISABLED, ACCOUNT_DISABLED, OPERATIONAL]}
+            primary_task: {type: string, enum: [HANDLE_PLATFORM, ENABLE_ACCOUNT, MANAGE_ACCOUNT]}
             available_actions:
               type: array
               items: {type: string, enum: [UPDATE, ENABLE, DISABLE, DELETE]}
@@ -3932,12 +4006,9 @@ components:
             const: START
           type: array
           title: Available Actions
-        primary_action:
-          anyOf:
-          - type: string
-            const: START
-          - type: 'null'
-          title: Primary Action
+        primary_task:
+          type: string
+          const: START_PUBLICATION
       additionalProperties: false
       type: object
       required:
@@ -3947,7 +4018,7 @@ components:
       - platform_profile_name
       - matching_accounts
       - available_actions
-      - primary_action
+      - primary_task
       title: PublicationReadyItem
     PublicationWorkbenchSummary:
       properties:
@@ -4003,6 +4074,14 @@ components:
       - platform_account_id
       - section_url
       title: PublicationWorkCreate
+    PublicationContentVersionSwitchRequest:
+      type: object
+      additionalProperties: false
+      required: [content_version_id, expected_revision, comment]
+      properties:
+        content_version_id: {type: string, format: uuid}
+        expected_revision: {type: integer, minimum: 0}
+        comment: {type: string, minLength: 1}
     PublicationWork:
       properties:
         id:
@@ -4098,6 +4177,12 @@ components:
             format: date-time
           - type: 'null'
           title: Latest Verification At
+        workflow_stage:
+          type: string
+          enum: [PREPARING, PLATFORM_REVIEW, AWAITING_VERIFICATION, ACTION_REQUIRED, COMPLETED, CLOSED]
+        primary_task:
+          type: string
+          enum: [CONTINUE_PREPARATION, REGISTER_RESULT, RUN_FIRST_VERIFICATION, FIX_AND_REVERIFY, VIEW_COMPLETION, VIEW_CLOSURE]
         available_actions:
           items:
             type: string
@@ -4106,20 +4191,10 @@ components:
             - MARK_PLATFORM_REVIEW
             - REGISTER_RESULT
             - VERIFY
+            - SWITCH_CONTENT_VERSION
             - CLOSE
           type: array
           title: Available Actions
-        primary_action:
-          anyOf:
-          - type: string
-            enum:
-            - UPDATE_PREPARATION
-            - MARK_PLATFORM_REVIEW
-            - REGISTER_RESULT
-            - VERIFY
-            - CLOSE
-          - type: 'null'
-          title: Primary Action
         content_hash:
           type: string
           title: Content Hash
@@ -4179,8 +4254,9 @@ components:
       - updated_at
       - latest_verification_outcome
       - latest_verification_at
+      - workflow_stage
+      - primary_task
       - available_actions
-      - primary_action
       - content_hash
       - closed_by
       - closed_at
@@ -4226,6 +4302,7 @@ components:
           - PLATFORM_REVIEW_MARKED
           - RESULT_REGISTERED
           - VERIFICATION_FAILED
+          - CONTENT_VERSION_CHANGED
           - COMPLETED
           - CLOSED
           title: Action
@@ -4235,6 +4312,8 @@ components:
           - type: 'null'
         to_status:
           $ref: '#/components/schemas/PublicationWorkStatus'
+        from_content_version_id: {type: [string, 'null'], format: uuid}
+        to_content_version_id: {type: [string, 'null'], format: uuid}
         comment:
           type: string
           title: Comment
@@ -4253,6 +4332,8 @@ components:
       - action
       - from_status
       - to_status
+      - from_content_version_id
+      - to_content_version_id
       - comment
       - actor_id
       - created_at
@@ -4263,6 +4344,9 @@ components:
           type: string
           format: uuid
           title: Id
+        content_version_id:
+          type: string
+          format: uuid
         outcome:
           $ref: '#/components/schemas/PublicationVerificationOutcome'
         actual_title_snapshot:
@@ -4293,6 +4377,7 @@ components:
       type: object
       required:
       - id
+      - content_version_id
       - outcome
       - actual_title_snapshot
       - final_url_snapshot
@@ -4423,6 +4508,12 @@ components:
             format: date-time
           - type: 'null'
           title: Latest Verification At
+        workflow_stage:
+          type: string
+          enum: [PREPARING, PLATFORM_REVIEW, AWAITING_VERIFICATION, ACTION_REQUIRED, COMPLETED, CLOSED]
+        primary_task:
+          type: string
+          enum: [CONTINUE_PREPARATION, REGISTER_RESULT, RUN_FIRST_VERIFICATION, FIX_AND_REVERIFY, VIEW_COMPLETION, VIEW_CLOSURE]
         available_actions:
           items:
             type: string
@@ -4431,20 +4522,10 @@ components:
             - MARK_PLATFORM_REVIEW
             - REGISTER_RESULT
             - VERIFY
+            - SWITCH_CONTENT_VERSION
             - CLOSE
           type: array
           title: Available Actions
-        primary_action:
-          anyOf:
-          - type: string
-            enum:
-            - UPDATE_PREPARATION
-            - MARK_PLATFORM_REVIEW
-            - REGISTER_RESULT
-            - VERIFY
-            - CLOSE
-          - type: 'null'
-          title: Primary Action
       additionalProperties: false
       type: object
       required:
@@ -4470,8 +4551,9 @@ components:
       - updated_at
       - latest_verification_outcome
       - latest_verification_at
+      - workflow_stage
+      - primary_task
       - available_actions
-      - primary_action
       title: PublicationWorkListItem
     PublicationPreparationUpdate:
       properties:
@@ -4635,6 +4717,10 @@ components:
           type: string
           format: uuid
           title: Task Id
+        product_id:
+          type: string
+          format: uuid
+          title: Product Id
         content_version_id:
           type: string
           format: uuid
@@ -4682,26 +4768,33 @@ components:
         has_open_issue:
           type: boolean
           title: Has Open Issue
+        open_issue_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Open Issue Id
         retired:
           type: boolean
           title: Retired
+        workflow_stage:
+          type: string
+          enum: [HEALTHY, OPEN_ISSUE, RETIRED]
+        primary_task:
+          type: string
+          enum: [START_PRODUCT_OBSERVATION, HANDLE_CONTENT_ISSUE, VIEW_HISTORY]
         available_actions:
           items:
             type: string
             const: OPEN_ISSUE
           type: array
           title: Available Actions
-        primary_action:
-          anyOf:
-          - type: string
-            const: OPEN_ISSUE
-          - type: 'null'
-          title: Primary Action
       additionalProperties: false
       type: object
       required:
       - id
       - task_id
+      - product_id
       - content_version_id
       - content_title
       - content_version
@@ -4715,9 +4808,11 @@ components:
       - published_at
       - verified_at
       - has_open_issue
+      - open_issue_id
       - retired
+      - workflow_stage
+      - primary_task
       - available_actions
-      - primary_action
       title: PublishedArticleListItem
     PublishedArticle:
       properties:
@@ -4729,6 +4824,10 @@ components:
           type: string
           format: uuid
           title: Task Id
+        product_id:
+          type: string
+          format: uuid
+          title: Product Id
         content_version_id:
           type: string
           format: uuid
@@ -4776,21 +4875,27 @@ components:
         has_open_issue:
           type: boolean
           title: Has Open Issue
+        open_issue_id:
+          anyOf:
+          - type: string
+            format: uuid
+          - type: 'null'
+          title: Open Issue Id
         retired:
           type: boolean
           title: Retired
+        workflow_stage:
+          type: string
+          enum: [HEALTHY, OPEN_ISSUE, RETIRED]
+        primary_task:
+          type: string
+          enum: [START_PRODUCT_OBSERVATION, HANDLE_CONTENT_ISSUE, VIEW_HISTORY]
         available_actions:
           items:
             type: string
             const: OPEN_ISSUE
           type: array
           title: Available Actions
-        primary_action:
-          anyOf:
-          - type: string
-            const: OPEN_ISSUE
-          - type: 'null'
-          title: Primary Action
         section_url:
           type: string
           maxLength: 2083
@@ -4812,6 +4917,7 @@ components:
       required:
       - id
       - task_id
+      - product_id
       - content_version_id
       - content_title
       - content_version
@@ -4825,9 +4931,11 @@ components:
       - published_at
       - verified_at
       - has_open_issue
+      - open_issue_id
       - retired
+      - workflow_stage
+      - primary_task
       - available_actions
-      - primary_action
       - section_url
       - content_hash
       - verification
@@ -4971,6 +5079,12 @@ components:
             format: uuid
           - type: 'null'
           title: Repair Task Id
+        workflow_stage:
+          type: string
+          enum: [OPEN, REPAIRING, AWAITING_RESOLUTION, RESOLVED]
+        primary_task:
+          type: string
+          enum: [HANDLE_CONTENT_ISSUE, CONTINUE_REPAIR, CONFIRM_RESOLUTION, VIEW_RESOLUTION]
         available_actions:
           items:
             type: string
@@ -4979,14 +5093,6 @@ components:
             - RESOLVE
           type: array
           title: Available Actions
-        primary_action:
-          anyOf:
-          - type: string
-            enum:
-            - CREATE_REPAIR_TASK
-            - RESOLVE
-          - type: 'null'
-          title: Primary Action
         opened_by:
           type: string
           format: uuid
@@ -5017,8 +5123,9 @@ components:
       - final_url
       - revision
       - repair_task_id
+      - workflow_stage
+      - primary_task
       - available_actions
-      - primary_action
       - opened_by
       - resolved_by
       - article
@@ -5111,6 +5218,12 @@ components:
             format: uuid
           - type: 'null'
           title: Repair Task Id
+        workflow_stage:
+          type: string
+          enum: [OPEN, REPAIRING, AWAITING_RESOLUTION, RESOLVED]
+        primary_task:
+          type: string
+          enum: [HANDLE_CONTENT_ISSUE, CONTINUE_REPAIR, CONFIRM_RESOLUTION, VIEW_RESOLUTION]
         available_actions:
           items:
             type: string
@@ -5119,14 +5232,6 @@ components:
             - RESOLVE
           type: array
           title: Available Actions
-        primary_action:
-          anyOf:
-          - type: string
-            enum:
-            - CREATE_REPAIR_TASK
-            - RESOLVE
-          - type: 'null'
-          title: Primary Action
       additionalProperties: false
       type: object
       required:
@@ -5145,8 +5250,9 @@ components:
       - final_url
       - revision
       - repair_task_id
+      - workflow_stage
+      - primary_task
       - available_actions
-      - primary_action
       title: PublishedContentIssueListItem
     PublishedContentRepairContext:
       properties:
@@ -5342,10 +5448,24 @@ components:
         attachment_file_ids: {type: array, uniqueItems: true, items: {type: string, format: uuid}}
         notes: {type: string}
         supersedes_id: {type: [string, 'null'], format: uuid}
+    GeoOptimizationContentTaskCreate:
+      type: object
+      additionalProperties: false
+      required: [rule_code, date_from, date_to, product_id, platform_profile_id, fact_version_id]
+      properties:
+        rule_code: {type: string, enum: [CONTENT_DECLINE, LONG_UNMENTIONED, QUESTION_COVERAGE_GAP]}
+        date_from: {type: string, format: date}
+        date_to: {type: string, format: date}
+        published_article_id: {type: [string, 'null'], format: uuid}
+        query_topic_id: {type: [string, 'null'], format: uuid}
+        geo_platform: {type: [string, 'null'], minLength: 1, maxLength: 160}
+        product_id: {type: string, format: uuid}
+        platform_profile_id: {type: string, format: uuid}
+        fact_version_id: {type: string, format: uuid}
     LegacyGeoObservation:
       type: object
       additionalProperties: false
-      required: [observation_kind, id, query_topic_id, product_id, product_label, actual_prompt, model_name, tested_at, web_search_enabled, answer_summary, mentioned, recommendation, accuracy, citations, published_article_ids, attachment_file_ids, notes, tested_by, recorder, is_current, available_actions, created_at]
+      required: [observation_kind, id, query_topic_id, product_id, product_label, actual_prompt, model_name, tested_at, web_search_enabled, answer_summary, mentioned, recommendation, accuracy, citations, published_article_ids, attachment_file_ids, notes, tested_by, recorder, is_current, workflow_stage, primary_task, available_actions, created_at]
       properties:
         observation_kind: {type: string, const: LEGACY_MODEL_RESULT}
         id: {type: string, format: uuid}
@@ -5369,6 +5489,8 @@ components:
         tested_by: {type: string, format: uuid}
         recorder: {$ref: '#/components/schemas/ActorSummary'}
         is_current: {type: boolean}
+        workflow_stage: {type: string, const: LEGACY}
+        primary_task: {type: string, const: VIEW_HISTORICAL_RECORD}
         available_actions:
           type: array
           items: {type: string, const: CORRECT}
@@ -5376,7 +5498,7 @@ components:
     ManualGeoObservation:
       type: object
       additionalProperties: false
-      required: [observation_kind, id, query_topic_id, product_id, product_label, search_platform, search_query, tested_at, article_results, attachment_file_ids, notes, supersedes_id, tested_by, recorder, is_current, available_actions, created_at]
+      required: [observation_kind, id, query_topic_id, product_id, product_label, search_platform, search_query, tested_at, article_results, attachment_file_ids, notes, supersedes_id, tested_by, recorder, is_current, workflow_stage, primary_task, available_actions, created_at]
       properties:
         observation_kind: {type: string, const: MANUAL_ARTICLE_SEARCH}
         id: {type: string, format: uuid}
@@ -5393,6 +5515,8 @@ components:
         tested_by: {type: string, format: uuid}
         recorder: {$ref: '#/components/schemas/ActorSummary'}
         is_current: {type: boolean}
+        workflow_stage: {type: string, enum: [READY, INCOMPLETE, SUPERSEDED]}
+        primary_task: {type: string, enum: [VIEW_ANALYSIS, CORRECT_OBSERVATION, VIEW_CORRECTION_HISTORY]}
         available_actions:
           type: array
           items: {type: string, enum: [CORRECT, DELETE]}
@@ -5463,8 +5587,9 @@ components:
     GeoInsightFilterOptions:
       type: object
       additionalProperties: false
-      required: [content_platforms, geo_platforms, publications, query_topics]
+      required: [products, content_platforms, geo_platforms, publications, query_topics]
       properties:
+        products: {type: array, items: {$ref: '#/components/schemas/GeoInsightOption'}}
         content_platforms: {type: array, items: {$ref: '#/components/schemas/GeoInsightOption'}}
         geo_platforms: {type: array, items: {type: string}}
         publications: {type: array, items: {$ref: '#/components/schemas/GeoInsightPublicationOption'}}
@@ -5504,25 +5629,29 @@ components:
     GeoInsightPlatformPerformance:
       type: object
       additionalProperties: false
-      required: [geo_platform, observation_count, discovery_rate, mention_rate, accuracy_rate]
+      required: [geo_platform, observation_count, discovery_rate, mention_rate, accuracy_rate, primary_task]
       properties:
         geo_platform: {type: string}
         observation_count: {type: integer, minimum: 0}
         discovery_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
         mention_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
         accuracy_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
+        primary_task: {type: string, const: VIEW_OBSERVATION_DETAILS}
     GeoInsightContentPerformance:
       type: object
       additionalProperties: false
-      required: [published_article_id, title, content_platform, observation_count, discovery_rate, mention_rate, accuracy_rate]
+      required: [published_article_id, product_id, content_platform_id, title, content_platform, observation_count, discovery_rate, mention_rate, accuracy_rate, primary_task]
       properties:
         published_article_id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        content_platform_id: {type: string, format: uuid}
         title: {type: string}
         content_platform: {type: string}
         observation_count: {type: integer, minimum: 0}
         discovery_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
         mention_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
         accuracy_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
+        primary_task: {type: string, enum: [VIEW_CONTENT_PERFORMANCE, CREATE_OPTIMIZATION_TASK]}
     GeoInsightDeclineBasis:
       type: object
       additionalProperties: false
@@ -5567,7 +5696,7 @@ components:
     GeoInsightCoverageItem:
       type: object
       additionalProperties: false
-      required: [query_topic_id, canonical_question, geo_platform, status, observation_count, mentioned_observation_count, coverage_rate]
+      required: [query_topic_id, canonical_question, geo_platform, status, observation_count, mentioned_observation_count, coverage_rate, primary_task]
       properties:
         query_topic_id: {type: string, format: uuid}
         canonical_question: {type: string}
@@ -5576,6 +5705,7 @@ components:
         observation_count: {type: integer, minimum: 0}
         mentioned_observation_count: {type: integer, minimum: 0}
         coverage_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
+        primary_task: {type: string, enum: [VIEW_OBSERVATION_DETAILS, CREATE_OPTIMIZATION_TASK, ADD_OBSERVATION]}
     GeoInsightQuestionCoverage:
       type: object
       additionalProperties: false

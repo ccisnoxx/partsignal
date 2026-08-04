@@ -152,10 +152,10 @@ test('窄屏只允许 TableRegion 内横向滚动，并保留键盘操作', asyn
   await expect(userTable).toBeFocused();
   await userTable.press('Tab');
   expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe('BODY');
-  const moreActions = page.getByRole('button', { name: /更多操作：/ }).first();
+  const moreActions = page.getByRole('button', { name: '更多操作：content_editor' });
   await moreActions.focus();
   await moreActions.press('Enter');
-  await expect(page.getByRole('menuitem', { name: '重置临时密码' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: '停用用户' })).toBeVisible();
   await page.keyboard.press('Escape');
 
   const pageSize = page.getByLabel('每页数量');
@@ -172,7 +172,7 @@ test('窄屏只允许 TableRegion 内横向滚动，并保留键盘操作', asyn
 
   await page.setViewportSize({ width: 768, height: 900 });
   await openWorkbench(page, workbenches[1]);
-  const viewPlatform = page.getByRole('button', { name: /查看平台：/ }).first();
+  const viewPlatform = page.getByRole('button', { name: '查看平台运营' }).first();
   await viewPlatform.focus();
   await viewPlatform.press('Enter');
   const platformDrawer = page.getByRole('dialog');

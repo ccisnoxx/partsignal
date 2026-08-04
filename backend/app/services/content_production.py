@@ -194,6 +194,7 @@ def _validate_humanization_source(task: ContentTask, source: ContentVersion) -> 
         raise AppError("HUMANIZATION_SOURCE_INVALID", "终态任务不能自然化内容", 409)
     if (
         source.task_id != task.id
+        or task.current_content_version_id != source.id
         or source.fact_version_id != task.fact_version_id
         or source.source_type != "AI"
         or source.status not in {"DRAFT", "CHANGES_REQUESTED"}
@@ -407,6 +408,10 @@ def create_generation_job(
         raise not_found("内容任务")
     if task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "只有 OPEN 内容任务可以生成草稿", 409)
+    if task.current_content_version_id is not None and db.scalar(
+        select(GenerationJob.id).where(GenerationJob.idempotency_key == idempotency_key)
+    ) is None:
+        raise AppError("CONTENT_MAINLINE_EXISTS", "任务已有当前内容版本，不能重复创建首稿", 409)
     model = db.get(AIModel, payload.ai_model_id)
     if model is None:
         raise not_found("AI 模型")
@@ -706,6 +711,8 @@ def _create_human_content(
     )
     db.add(content)
     db.flush()
+    task.current_content_version_id = content.id
+    task.revision += 1
     return content
 
 
@@ -723,6 +730,8 @@ def create_manual_content_version(
         raise not_found("内容任务")
     if task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "终态任务不能创建人工首稿", 409)
+    if task.current_content_version_id is not None:
+        raise AppError("CONTENT_MAINLINE_EXISTS", "任务已有当前内容版本，不能重复创建首稿", 409)
     _require_approved_task_fact(db, task)
     content = _create_human_content(
         db=db,
@@ -757,7 +766,7 @@ def create_content_revision(
     actor: User,
     request_id: str,
 ) -> ContentVersion:
-    """基于任意 AI 或人工版本创建不可变人工修订。"""
+    """仅基于任务当前版本创建不可变人工修订并推进主线。"""
     source = db.get(ContentVersion, content_version_id)
     if source is None:
         raise not_found("内容版本")
@@ -766,6 +775,10 @@ def create_content_revision(
         raise AppError("INVALID_STATE_TRANSITION", "终态任务不能创建内容修订", 409)
     if source.task_id != task.id or source.fact_version_id != task.fact_version_id:
         raise AppError("GENERATION_SNAPSHOT_INVALID", "内容版本与任务事实不一致", 409)
+    if task.current_content_version_id != source.id:
+        raise AppError("CONTENT_VERSION_NOT_CURRENT", "只能基于任务当前内容版本创建修订", 409)
+    if source.status not in {"DRAFT", "CHANGES_REQUESTED", "APPROVED"}:
+        raise AppError("INVALID_STATE_TRANSITION", "当前内容版本不能创建修订", 409)
     _require_approved_task_fact(db, task)
     content = _create_human_content(
         db=db,
@@ -795,3 +808,67 @@ def create_content_revision(
     )
     db.commit()
     return content
+
+
+def abandon_content_version(
+    *,
+    db: Session,
+    content_version_id: uuid.UUID,
+    expected_revision: int,
+    comment: str,
+    actor: User,
+    request_id: str,
+) -> ContentVersion:
+    """放弃当前草稿或退回稿，并恢复最近批准版本作为任务主线。"""
+    source = db.get(ContentVersion, content_version_id)
+    if source is None:
+        raise not_found("内容版本")
+    task = db.scalar(select(ContentTask).where(ContentTask.id == source.task_id).with_for_update())
+    source = db.scalar(
+        select(ContentVersion).where(ContentVersion.id == content_version_id).with_for_update()
+    )
+    if task is None or source is None:
+        raise not_found("内容版本")
+    if source.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "内容版本已被其他请求修改", 409)
+    if task.current_content_version_id != source.id:
+        raise AppError("CONTENT_VERSION_NOT_CURRENT", "只能放弃任务当前内容版本", 409)
+    if source.status not in {"DRAFT", "CHANGES_REQUESTED"}:
+        raise AppError("INVALID_STATE_TRANSITION", "当前内容版本不能放弃", 409)
+    previous = db.scalar(
+        select(ContentVersion)
+        .where(
+            ContentVersion.task_id == task.id,
+            ContentVersion.status == "APPROVED",
+            ContentVersion.id != source.id,
+        )
+        .order_by(ContentVersion.version.desc())
+        .limit(1)
+    )
+    source.status = "ABANDONED"
+    source.revision += 1
+    task.current_content_version_id = previous.id if previous is not None else None
+    task.revision += 1
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.CONTENT_PRODUCTION,
+            action="content_version.abandoned",
+            target_type="ContentVersion",
+            target_id=source.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="当前内容版本已放弃",
+            details={
+                "facts": {
+                    "restored_content_version_id": (
+                        str(previous.id) if previous is not None else None
+                    ),
+                    "comment": comment,
+                }
+            },
+        ),
+    )
+    db.commit()
+    return source

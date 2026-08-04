@@ -25,16 +25,16 @@
 
 ## 验收标准
 
-- [ ] AC1：部署前工作树干净、分支为 `main`，`HEAD == origin/main`，远端包含 `72c4dd3`、`d96ec2d`、`e5f9b64` 及经批准的本任务规划提交。
-- [ ] AC2：`make staging-redeploy-fast` 成功生成不可覆盖的新 release，脚本自动探针通过且 `current` 指向该 release。
-- [ ] AC3：公网 `live`、`ready` 和首页标题通过独立复核，PostgreSQL 与 Redis 状态为 `ok`。
-- [ ] AC4：桌面 `/publications` 显示“待处理 / 发布成果 / 历史记录”，首屏可见行动区，无页面级横向滚动或遮挡。
-- [ ] AC5：375×900 下发布工作和开放问题使用移动列表；关键操作入口可见，打开详情后 Drawer 占满可用宽度并可关闭、恢复焦点。
-- [ ] AC6：现有失败核验工作仍显示为需处理，发布成果保持只读，已关闭工作和已解决问题只在历史视图出现；若某类现有数据为空，页面必须显示真实空态，不创建数据补齐。
-- [ ] AC7：页面操作只来自服务端 `primary_action` / `available_actions`，当前权限下不存在删除入口或前端猜测动作；验收不执行任何命令动作。
-- [ ] AC8：登录、工作台和发布管理控制台无应用级 error，关键请求无认证、脚本、资源或路由失败。
-- [ ] AC9：10 分钟观察后公网 `ready`、API、前端、Worker、Scheduler、PostgreSQL、Redis 与 `fake-oss` 仍正常，未发现本次发布引入的持续错误。
-- [ ] AC10：任务记录包含部署 commit、新 release、前一 release、验证结果、失败处置或残余风险，且不含秘密或业务正文。
+- [x] AC1：部署前工作树干净、分支为 `main`，`HEAD == origin/main`，远端包含 `72c4dd3`、`d96ec2d`、`e5f9b64` 及经批准的本任务规划提交。
+- [x] AC2：`make staging-redeploy-fast` 成功生成不可覆盖的新 release，脚本自动探针通过且 `current` 指向该 release。
+- [x] AC3：公网 `live`、`ready` 和首页标题通过独立复核，PostgreSQL 与 Redis 状态为 `ok`。
+- [x] AC4：桌面 `/publications` 显示“待处理 / 发布成果 / 历史记录”，首屏可见行动区，无页面级横向滚动或遮挡。
+- [x] AC5：375×900 下发布工作和开放问题使用移动列表；关键操作入口可见，打开详情后 Drawer 占满可用宽度并可关闭、恢复焦点。
+- [x] AC6：现有失败核验工作仍显示为需处理，发布成果保持只读，已关闭工作和已解决问题只在历史视图出现；若某类现有数据为空，页面必须显示真实空态，不创建数据补齐。
+- [x] AC7：页面操作只来自服务端 `primary_action` / `available_actions`，当前权限下不存在删除入口或前端猜测动作；验收不执行任何命令动作。
+- [x] AC8：登录、工作台和发布管理控制台无应用级 error，关键请求无认证、脚本、资源或路由失败。
+- [x] AC9：10 分钟观察后公网 `ready`、API、前端、Worker、Scheduler、PostgreSQL、Redis 与 `fake-oss` 仍正常，未发现本次发布引入的持续错误。
+- [x] AC10：任务记录包含部署 commit、新 release、前一 release、验证结果、失败处置或残余风险，且不含秘密或业务正文。
 
 ## 范围外
 

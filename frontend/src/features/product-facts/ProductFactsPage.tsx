@@ -247,14 +247,14 @@ export function ProductFactsPage() {
                 : <TableRegion label="事实版本列表"><Table<FactVersion>
                   rowKey="id"
                   dataSource={versions.data.items}
-                  scroll={{ x: 1000 }}
+                  scroll={{ x: 970 }}
                   columns={[
                     { title: '版本', dataIndex: 'version', width: 90, render: (value) => `V${value}` },
-                    { title: '状态', dataIndex: 'status', width: 130, render: (value) => <StatusTag status={value} /> },
-                    { title: '数据分级', dataIndex: 'classification', width: 120, render: (value) => <StatusTag status={value} /> },
+                    { title: '状态', dataIndex: 'status', width: 120, render: (value) => <StatusTag status={value} /> },
+                    { title: '数据分级', dataIndex: 'classification', width: 110, render: (value) => <StatusTag status={value} /> },
                     { title: '变更说明', dataIndex: 'change_summary', width: 260, ellipsis: true, render: (value) => <TableCellText text={value} /> },
-                    { title: '创建时间', dataIndex: 'created_at', width: 180, render: (value) => new Date(value).toLocaleString('zh-CN') },
-                    { title: '操作', width: 250, fixed: 'right', render: (_, version) => <Space>
+                    { title: '创建时间', dataIndex: 'created_at', width: 170, render: (value) => new Date(value).toLocaleString('zh-CN') },
+                    { title: '操作', width: 220, fixed: 'right', render: (_, version) => <Space>
                       <Button size="small" type="primary" onClick={() => {
                         if (version.primary_task === 'REVIEW_FACT' || version.primary_task === 'VIEW_FACT_HISTORY') setReviewTarget(version);
                         else if (version.primary_task === 'CREATE_CONTENT_TASK') navigate(`/tasks?product_id=${productId}&fact_version_id=${version.id}`);

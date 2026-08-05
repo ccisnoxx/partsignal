@@ -301,7 +301,7 @@ function TaskList() {
             }}
             locale={{ emptyText: <NoData description={items.length ? '没有符合当前筛选条件的任务' : '暂无内容任务'} /> }}
             rowClassName={(row) => row.latest_generation_status === 'FAILED' ? 'task-row-generation-failed' : ''}
-            scroll={{ x: 860 }}
+            scroll={{ x: 980 }}
             columns={[
               {
                 title: '产品',
@@ -764,16 +764,16 @@ function TaskDetail({ taskId }: { taskId: string }) {
           : jobs.data.items.length ? <TableRegion label="AI 作业列表"><Table
             rowKey="id"
             dataSource={jobs.data.items}
-            scroll={{ x: 980 }}
+            scroll={{ x: 970 }}
             pagination={false}
             columns={[
-              { title: '类型', dataIndex: 'job_type', width: 110, render: (value) => value === 'HUMANIZE' ? '自然化' : '原始生成' },
-              { title: '源版本', dataIndex: 'source_content_version_id', width: 150, render: (value) => value ? <Link to={`/content/${value}`}>{value.slice(0, 8)}</Link> : '—' },
+              { title: '类型', dataIndex: 'job_type', width: 100, render: (value) => value === 'HUMANIZE' ? '自然化' : '原始生成' },
+              { title: '源版本', dataIndex: 'source_content_version_id', width: 100, render: (value) => value ? <Link to={`/content/${value}`}>{value.slice(0, 8)}</Link> : '—' },
               { title: '状态', dataIndex: 'status', width: 110, render: (value) => <StatusTag status={value} /> },
-              { title: '结果', dataIndex: 'content_version_id', width: 150, render: (value) => value ? <Link to={`/content/${value}`}>打开草稿</Link> : '—' },
-              { title: '失败原因', dataIndex: 'error_summary', width: 250, ellipsis: true, render: (value) => value ? <TableCellText text={value} /> : '—' },
-              { title: '耗时 / Token', width: 180, render: (_, row) => `${row.response_duration_ms ?? '—'} ms / ${row.total_tokens ?? '—'}` },
-              { title: '操作', width: 150, fixed: 'right', render: (_, row) => <Button size="small" type="primary" loading={retryJob.isPending && retryTarget?.id === row.id} onClick={() => {
+              { title: '结果', dataIndex: 'content_version_id', width: 110, render: (value) => value ? <Link to={`/content/${value}`}>打开草稿</Link> : '—' },
+              { title: '失败原因', dataIndex: 'error_summary', width: 220, ellipsis: true, render: (value) => value ? <TableCellText text={value} /> : '—' },
+              { title: '耗时 / Token', width: 160, render: (_, row) => `${row.response_duration_ms ?? '—'} ms / ${row.total_tokens ?? '—'}` },
+              { title: '操作', width: 170, fixed: 'right', render: (_, row) => <Button size="small" type="primary" loading={retryJob.isPending && retryTarget?.id === row.id} onClick={() => {
                 if (row.primary_task === 'VIEW_GENERATED_CONTENT' && row.content_version_id) navigate(`/content/${row.content_version_id}`);
                 else if (row.primary_task === 'HANDLE_FAILURE' && row.available_actions.includes('RETRY')) setRetryTarget(row);
                 else setSelectedJobId(row.id);
@@ -799,8 +799,8 @@ function TaskDetail({ taskId }: { taskId: string }) {
             dataSource={versions.data.items}
             scroll={{ x: 880 }}
             columns={[
-              { title: '版本', dataIndex: 'version', render: (value, row) => <Link className="data-code" to={`/content/${row.id}`}>V{value}</Link> },
-              { title: '标题', dataIndex: 'title', width: 320, ellipsis: true, render: (value) => <TableCellText text={value} /> },
+              { title: '版本', dataIndex: 'version', width: 80, render: (value, row) => <Link className="data-code" to={`/content/${row.id}`}>V{value}</Link> },
+              { title: '标题', dataIndex: 'title', ellipsis: true, render: (value) => <TableCellText text={value} /> },
               { title: '来源', dataIndex: 'source_type', width: 100, render: (value) => <StatusTag status={value} /> },
               { title: '状态', dataIndex: 'status', width: 140, render: (value) => <StatusTag status={value} /> },
               { title: '质量问题', dataIndex: 'quality_issues', width: 100, render: (issues: Schema<'QualityIssue'>[]) => issues.length },

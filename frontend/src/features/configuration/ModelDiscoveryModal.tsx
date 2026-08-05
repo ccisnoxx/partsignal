@@ -38,11 +38,11 @@ export function ModelDiscoveryModal({ open, models, loading, addingModelId, fetc
           loading={loading}
           dataSource={filteredModels}
           pagination={{ pageSize: 10, hideOnSinglePage: true }}
-          scroll={{ x: 620 }}
+          scroll={{ x: 610 }}
           locale={{ emptyText: loading ? '正在获取模型' : '渠道未返回可用模型' }}
           columns={[
             { title: 'model_id', dataIndex: 'model_id', width: 380, ellipsis: true, render: (value) => <TableCellText text={value} mono /> },
-            { title: '状态', width: 120, render: (_, row) => row.configured ? '已配置' : '未配置' },
+            { title: '状态', width: 90, render: (_, row) => row.configured ? '已配置' : '未配置' },
             { title: '操作', width: 140, fixed: 'right', render: (_, row) => <Button type="primary" size="small" disabled={!!addingModelId} loading={addingModelId === row.model_id} onClick={() => row.primary_task === 'ADD_MODEL' ? onAdd(row.model_id) : onViewConfigured(row.model_id)}>{row.primary_task === 'ADD_MODEL' ? '添加模型' : '查看已配置模型'}</Button> },
           ]}
         />

@@ -258,32 +258,32 @@ function PlatformAccountsPanel({
           rowKey="id"
           loading={accounts.isLoading}
           dataSource={accounts.data?.items}
-          scroll={{ x: 900 }}
+          scroll={{ x: 880 }}
           columns={[
             {
               title: '平台',
               dataIndex: 'platform_profile_id',
-              width: 180,
+              width: 150,
               render: (value) => <TableCellText text={platformNames.get(value) ?? value} />,
             },
-            { title: '业务标签', dataIndex: 'label', width: 220, ellipsis: true, render: (value) => <TableCellText text={value} /> },
+            { title: '业务标签', dataIndex: 'label', width: 180, ellipsis: true, render: (value) => <TableCellText text={value} /> },
             {
               title: '运营账号标识（内部）',
               dataIndex: 'account_identifier',
-              width: 280,
+              width: 260,
               ellipsis: true,
               render: (value) => <TableCellText text={value} mono />,
             },
             {
               title: '状态',
               dataIndex: 'is_active',
-              width: 110,
+              width: 100,
               render: (active) => <StatusTag status={active ? 'ACTIVE' : 'RETIRED'} />,
             },
             {
               title: '操作',
               fixed: 'right',
-              width: 220,
+              width: 190,
               render: (_, account) => (
                 <Space size={4}>
                   <Button

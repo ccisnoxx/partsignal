@@ -189,6 +189,37 @@ async function expectTableRegionBounded(page: Page, region: Locator, context: st
     expect(cell.keyboardReachable, `${context} 省略文本无法通过键盘访问`).toBe(true);
     expect(cell.rowHeight, `${context} 长文本改变了行高`).toBeLessThanOrEqual(cell.originalRowHeight + 1);
   }
+  const compactControls = await region.locator([
+    '.ant-table-tbody > tr:visible:not(.ant-table-placeholder):not(.ant-table-measure-row) > td .ant-btn:visible',
+    '.ant-table-tbody > tr:visible:not(.ant-table-placeholder):not(.ant-table-measure-row) > td .ant-tag:visible',
+    '.ant-table-tbody > tr:visible:not(.ant-table-placeholder):not(.ant-table-measure-row) > td .ant-checkbox-wrapper:visible',
+    '.ant-table-tbody > tr:visible:not(.ant-table-placeholder):not(.ant-table-measure-row) > td .ant-select:visible',
+    '.ant-table-tbody > tr:visible:not(.ant-table-placeholder):not(.ant-table-measure-row) > td time:visible',
+  ].join(', ')).evaluateAll((elements) => elements.map((element) => {
+    const cell = element.closest<HTMLElement>('td');
+    if (!cell) throw new Error('紧凑控件缺少表格单元格');
+    const elementRect = element.getBoundingClientRect();
+    const cellRect = cell.getBoundingClientRect();
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    const textRects: DOMRect[] = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      textRects.push(...range.getClientRects());
+    }
+    return {
+      label: element.getAttribute('aria-label') ?? element.textContent?.trim() ?? element.tagName,
+      contained: elementRect.left >= cellRect.left - 1 && elementRect.right <= cellRect.right + 1,
+      clipped: element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1,
+      wrapped: textRects.length > 1 && new Set(textRects.map((rect) => Math.round(rect.top))).size > 1,
+    };
+  }));
+  for (const control of compactControls) {
+    expect(control.contained, `${context} 紧凑控件越出单元格：${control.label}`).toBe(true);
+    expect(control.clipped, `${context} 紧凑控件内容被裁切：${control.label}`).toBe(false);
+    expect(control.wrapped, `${context} 紧凑控件文字换行：${control.label}`).toBe(false);
+  }
   const fixedCellBackgrounds = await region.locator('.ant-table-cell-fix-right:visible, .ant-table-cell-fix-end:visible').evaluateAll(
     (elements) => elements.map((element) => getComputedStyle(element).backgroundColor),
   );

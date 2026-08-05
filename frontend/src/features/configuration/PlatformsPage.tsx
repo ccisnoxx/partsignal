@@ -367,7 +367,7 @@ export function PlatformsPage() {
               rowKey="id"
               loading={{ spinning: platforms.isLoading || platformTypes.isLoading || platformPrompts.isLoading, description: '正在加载平台列表' }}
               dataSource={platformItems}
-              scroll={{ x: 900, y: 'calc(100dvh - 473px)' }}
+              scroll={{ x: 1200, y: 'calc(100dvh - 473px)' }}
               locale={{ emptyText: <NoData description={hasFilters ? '没有符合当前筛选条件的平台' : '暂无具体平台'} /> }}
               rowClassName={(profile) => profile.id === selectedPlatformId ? 'platform-row-selected' : ''}
               pagination={{
@@ -392,7 +392,7 @@ export function PlatformsPage() {
                 { title: '当前 Prompt', width: 160, ellipsis: true, render: (_, profile) => profile.platform_prompt ? <TableCellText text={profile.platform_prompt.name} /> : <StatusTag compact status="PROMPT_MISSING" /> },
                 { title: '发布账号数量', dataIndex: 'platform_account_count', width: 86 },
                 { title: '更新时间', dataIndex: 'updated_at', width: 124, render: (value: string | null) => value ? <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> : '—' },
-                { title: '操作', fixed: 'right', width: 210, render: (_, profile) => <Space size={4}><Button data-platform-view={profile.id} type="primary" size="small" onClick={(event) => profile.primary_task === 'ENABLE_PLATFORM' ? confirmToggle(profile, restoreFocus) : openDetail(profile.id, event.currentTarget)}>{platformTaskLabels[profile.primary_task]}</Button>{rowMenu(profile).items?.length ? <Dropdown trigger={['click']} menu={rowMenu(profile)}><Tooltip title={`更多操作：${profile.name}`}><Button {...focusReturnTargetProps} type="text" size="small" aria-label={`更多操作：${profile.name}`} icon={<EllipsisOutlined />} loading={(toggleProfile.isPending || removeProfile.isPending) && (toggleProfile.variables?.id === profile.id || removeProfile.variables?.id === profile.id)} /></Tooltip></Dropdown> : null}</Space> },
+                { title: '操作', fixed: 'right', width: 180, render: (_, profile) => <Space size={4}><Button data-platform-view={profile.id} type="primary" size="small" onClick={(event) => profile.primary_task === 'ENABLE_PLATFORM' ? confirmToggle(profile, restoreFocus) : openDetail(profile.id, event.currentTarget)}>{platformTaskLabels[profile.primary_task]}</Button>{rowMenu(profile).items?.length ? <Dropdown trigger={['click']} menu={rowMenu(profile)}><Tooltip title={`更多操作：${profile.name}`}><Button {...focusReturnTargetProps} type="text" size="small" aria-label={`更多操作：${profile.name}`} icon={<EllipsisOutlined />} loading={(toggleProfile.isPending || removeProfile.isPending) && (toggleProfile.variables?.id === profile.id || removeProfile.variables?.id === profile.id)} /></Tooltip></Dropdown> : null}</Space> },
               ]}
             />
           </TableRegion>}

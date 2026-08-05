@@ -370,7 +370,7 @@ export function UserManagementPage() {
                   loading={users.isLoading}
                   dataSource={items}
                   pagination={false}
-                  scroll={{ x: 980 }}
+                  scroll={{ x: 1100 }}
                   rowSelection={{
                     selectedRowKeys: selectedIds,
                     preserveSelectedRowKeys: false,
@@ -378,13 +378,13 @@ export function UserManagementPage() {
                   }}
                   locale={{ emptyText: <NoData description="当前筛选没有用户" action={hasFilters ? <Button onClick={resetFilters}>清除筛选</Button> : undefined} /> }}
                   columns={[
-                    { title: '用户名', dataIndex: 'username', width: 260, ellipsis: true, render: (value: string, row) => <Space><Avatar className="user-management-avatar" aria-label={`${row.username} 的头像`} icon={<UserOutlined />}>{row.display_name.slice(0, 1)}</Avatar><TableCellText text={value} mono /></Space> },
-                    { title: '显示名称', dataIndex: 'display_name', width: 220, ellipsis: true, render: (value: string) => <TableCellText text={value} /> },
-                    { title: '账号类型', dataIndex: 'account_type', width: 120, render: (value: string) => <StatusTag compact status={value} /> },
-                    { title: '状态', dataIndex: 'is_active', width: 105, render: (value: boolean) => <StatusTag compact status={value ? 'ENABLED' : 'DISABLED'} /> },
-                    { title: '必须修改密码', dataIndex: 'must_change_password', width: 135, render: (value: boolean) => <Tag className={`user-management-boolean user-management-boolean-${value ? 'yes' : 'no'}`}>{value ? '是' : '否'}</Tag> },
-                    { title: '创建时间', dataIndex: 'created_at', width: 168, render: (value: string) => <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> },
-                    { title: '操作', fixed: 'right', width: 200, render: (_, row) => <Space size={4}><Button type="primary" size="small" onClick={() => {
+                    { title: '用户名', dataIndex: 'username', ellipsis: true, render: (value: string, row) => <Space><Avatar className="user-management-avatar" aria-label={`${row.username} 的头像`} icon={<UserOutlined />}>{row.display_name.slice(0, 1)}</Avatar><TableCellText text={value} mono /></Space> },
+                    { title: '显示名称', dataIndex: 'display_name', width: 200, ellipsis: true, render: (value: string) => <TableCellText text={value} /> },
+                    { title: '账号类型', dataIndex: 'account_type', width: 110, render: (value: string) => <StatusTag compact status={value} /> },
+                    { title: '状态', dataIndex: 'is_active', width: 90, render: (value: boolean) => <StatusTag compact status={value ? 'ENABLED' : 'DISABLED'} /> },
+                    { title: '必须修改密码', dataIndex: 'must_change_password', width: 105, render: (value: boolean) => <Tag className={`user-management-boolean user-management-boolean-${value ? 'yes' : 'no'}`}>{value ? '是' : '否'}</Tag> },
+                    { title: '创建时间', dataIndex: 'created_at', width: 160, render: (value: string) => <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> },
+                    { title: '操作', fixed: 'right', width: 180, render: (_, row) => <Space size={4}><Button type="primary" size="small" onClick={() => {
                       if (row.primary_task === 'MANAGE_LOGIN_SECURITY') { resetPassword.reset(); setResetting(row); }
                       else if (row.primary_task === 'ENABLE_USER') confirmToggle(row);
                       else { update.reset(); setEditing(row); }

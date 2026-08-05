@@ -444,11 +444,11 @@ export function AIChannelDetailPage() {
     <div className="ai-request-key-card"><span><KeyOutlined /><span><strong>API Key</strong><small>{data.api_key_configured ? '已安全配置（••••••）' : '尚未配置'}</small></span></span>{data.available_actions.includes('REPLACE_API_KEY') && <Button onClick={() => setKeyOpen(true)}>重新配置</Button>}</div>
     <div className="ai-section-heading"><strong>请求 Header</strong>{data.available_actions.includes('CREATE_HEADER') && <Button size="small" icon={<PlusOutlined />} onClick={() => setHeaderOpen(true)}>新增</Button>}</div>
     {data.headers.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未配置请求 Header" /> : <TableRegion label="请求 Header 列表"><Table<Header>
-      size="small" rowKey="id" dataSource={data.headers} pagination={false} scroll={{ x: 500 }} columns={[
-        { title: '名称', dataIndex: 'name', width: 150, ellipsis: true, render: (value) => <TableCellText text={value} mono /> },
+      size="small" rowKey="id" dataSource={data.headers} pagination={false} scroll={{ x: 524 }} columns={[
+        { title: '名称', dataIndex: 'name', width: 130, ellipsis: true, render: (value) => <TableCellText text={value} mono /> },
         { title: '类型', dataIndex: 'is_sensitive', width: 64, render: (value) => <Tag>{value ? '敏感' : '普通'}</Tag> },
-        { title: '值', width: 180, ellipsis: true, render: (_, row) => row.is_sensitive ? '••••••' : row.value ? <TableCellText text={row.value} mono /> : '—' },
-        { title: '操作', fixed: 'right', width: 210, render: (_, row) => <Space size={4}><Button type="primary" size="small" onClick={() => setEditingHeader(row)}>{headerTaskLabels[row.primary_task]}</Button>{row.available_actions.includes('DELETE') && <Dropdown trigger={['click']} menu={{
+        { title: '值', width: 160, ellipsis: true, render: (_, row) => row.is_sensitive ? '••••••' : row.value ? <TableCellText text={row.value} mono /> : '—' },
+        { title: '操作', fixed: 'right', width: 170, render: (_, row) => <Space size={4}><Button type="primary" size="small" onClick={() => setEditingHeader(row)}>{headerTaskLabels[row.primary_task]}</Button>{row.available_actions.includes('DELETE') && <Dropdown trigger={['click']} menu={{
           items: [{ key: 'delete', label: '删除', danger: true }],
           onClick: () => modal.confirm({ title: `删除 Header“${row.name}”？`, content: '删除后会停用该渠道及其全部模型，并把全部模型的测试状态重置为“未测试”、清除最近测试信息；重新测试并启用前不可用于生成。此操作不可恢复。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteHeader.mutateAsync(row.id), afterClose: restoreFocus }),
         }}><Button {...focusReturnTargetProps} size="small" type="text" icon={<DownOutlined />} aria-label={`更多操作：Header ${row.name}`} /></Dropdown>}</Space> },
@@ -460,8 +460,8 @@ export function AIChannelDetailPage() {
     {modelError && <Alert role="alert" type="error" showIcon title={errorMessage(modelError)} />}
     <div className="ai-section-heading"><strong>模型管理</strong><Space size={4}>{data.available_actions.includes('DISCOVER_MODELS') && <Button size="small" onClick={() => { setDiscoveryOpen(true); setDiscovered([]); discover.reset(); discover.mutate(); }}>获取模型</Button>}{data.available_actions.includes('CREATE_MODEL') && <Button size="small" type="primary" onClick={() => setModelOpen(true)}>添加</Button>}</Space></div>
     {models.isLoading ? <QueryLoading label="正在加载模型" /> : models.error || !models.data ? <QueryFailure error={models.error ?? new Error('模型列表不存在')} onRetry={() => void models.refetch()} /> : models.data.items.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="尚未配置模型" /> : <TableRegion label="模型列表"><Table<AIModel>
-      size="small" rowKey="id" dataSource={models.data.items} pagination={false} scroll={{ x: 680 }} onRow={(row) => ({ id: `ai-model-${encodeURIComponent(row.model_id)}` })} columns={[
-        { title: '模型', width: 210, render: (_, row) => <span className="ai-model-name"><TableCellText text={row.display_name} /><TableCellText text={row.model_id} mono /></span> },
+      size="small" rowKey="id" dataSource={models.data.items} pagination={false} scroll={{ x: 560 }} onRow={(row) => ({ id: `ai-model-${encodeURIComponent(row.model_id)}` })} columns={[
+        { title: '模型', render: (_, row) => <span className="ai-model-name"><TableCellText text={row.display_name} /><TableCellText text={row.model_id} mono /></span> },
         { title: '测试', dataIndex: 'test_status', width: 76, render: (value) => <StatusTag compact status={value} /> },
         { title: '启用', dataIndex: 'is_enabled', width: 64, render: (value) => <StatusTag compact status={value ? 'ENABLED' : 'DISABLED'} /> },
         { title: '操作', fixed: 'right', width: 210, render: (_, row) => <Space size={2}>
@@ -508,13 +508,13 @@ export function AIChannelDetailPage() {
   const logsContent = <div className="ai-detail-section">
     <div className="ai-section-heading"><strong>操作日志</strong></div>
     {logs.isLoading ? <QueryLoading label="正在加载操作日志" /> : logs.error || !logs.data ? <QueryFailure error={logs.error ?? new Error('操作日志不存在')} onRetry={() => void logs.refetch()} /> : logs.data.items.length === 0 ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无渠道操作日志" /> : <TableRegion label="渠道操作日志"><Table<Schema<'AuditLog'>>
-      size="small" rowKey="id" dataSource={logs.data.items} pagination={{ current: logPage, pageSize: 20, total: logs.data.total, showSizeChanger: false, onChange: setLogPage }} scroll={{ x: 940 }} columns={[
+      size="small" rowKey="id" dataSource={logs.data.items} pagination={{ current: logPage, pageSize: 20, total: logs.data.total, showSizeChanger: false, onChange: setLogPage }} scroll={{ x: 974 }} columns={[
         { title: '时间', dataIndex: 'created_at', width: 142, render: (value) => new Date(value).toLocaleString('zh-CN') },
-        { title: '动作', dataIndex: 'action', width: 160, ellipsis: true, render: (value) => <TableCellText text={value} /> },
-        { title: '操作者', dataIndex: 'actor_id', width: 130, ellipsis: true, render: (value) => <TableCellText text={userNames.get(value) ?? value} /> },
+        { title: '动作', dataIndex: 'action', width: 140, ellipsis: true, render: (value) => <TableCellText text={value} /> },
+        { title: '操作者', dataIndex: 'actor_id', width: 120, ellipsis: true, render: (value) => <TableCellText text={userNames.get(value) ?? value} /> },
         { title: '执行结果', dataIndex: 'outcome', width: 82, render: (value) => <StatusTag compact status={value} /> },
-        { title: '对象', width: 190, ellipsis: true, render: (_, row) => <TableCellText text={`${row.target_type} / ${row.target_id}`} mono /> },
-        { title: '请求 ID', dataIndex: 'request_id', width: 220, ellipsis: true, render: (value) => <TableCellText text={value} mono /> },
+        { title: '对象', width: 180, ellipsis: true, render: (_, row) => <TableCellText text={`${row.target_type} / ${row.target_id}`} mono /> },
+        { title: '请求 ID', dataIndex: 'request_id', width: 180, ellipsis: true, render: (value) => <TableCellText text={value} mono /> },
         { title: '操作', fixed: 'right', width: 130, render: (_, row) => <Button type="primary" size="small" onClick={() => setSelectedLogId(row.id)}>查看日志详情</Button> },
       ]}
     /></TableRegion>}

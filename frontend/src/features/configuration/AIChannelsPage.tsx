@@ -315,11 +315,11 @@ export function AIChannelsPage() {
       },
     },
     {
-      title: '状态', dataIndex: 'is_enabled', width: 50,
+      title: '状态', dataIndex: 'is_enabled', width: 60,
       render: (enabled: boolean) => <StatusTag compact status={enabled ? 'ENABLED' : 'DISABLED'} />,
     },
     {
-      title: 'API 根地址', dataIndex: 'base_url', ellipsis: true,
+      title: 'API 根地址', dataIndex: 'base_url', width: 190, ellipsis: true,
       render: (value: string) => <TableCellText text={value} />,
     },
     {
@@ -461,7 +461,7 @@ export function AIChannelsPage() {
                   dataSource={channels.data.items}
                   columns={columns}
                   pagination={false}
-                  scroll={{ x: 630 }}
+                  scroll={{ x: 832 }}
                   rowClassName={(item) => item.id === channelId ? 'ai-channel-row-selected' : ''}
                 />
               </TableRegion>

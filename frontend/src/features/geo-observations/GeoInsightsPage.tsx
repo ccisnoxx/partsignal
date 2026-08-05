@@ -236,9 +236,9 @@ const platformColumns: TableColumnsType<PlatformPerformance> = [
     ),
   },
   { title: '观测次数', dataIndex: 'observation_count', width: 72 },
-  { title: '发现率', dataIndex: 'discovery_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-blue)" /> },
-  { title: '提及率', dataIndex: 'mention_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-green)" /> },
-  { title: '准确率', dataIndex: 'accuracy_rate', width: 96, render: (value) => <RateBar value={value} color="var(--ps-geo-series-teal)" /> },
+  { title: '发现率', dataIndex: 'discovery_rate', width: 112, render: (value) => <RateBar value={value} color="var(--ps-geo-series-blue)" /> },
+  { title: '提及率', dataIndex: 'mention_rate', width: 112, render: (value) => <RateBar value={value} color="var(--ps-geo-series-green)" /> },
+  { title: '准确率', dataIndex: 'accuracy_rate', width: 112, render: (value) => <RateBar value={value} color="var(--ps-geo-series-teal)" /> },
 ];
 
 function RateBar({ value, color }: { value: Schema<'GeoInsightRateValue'>; color: string }) {
@@ -353,7 +353,7 @@ function PlatformPerformanceCard({ rows, filters, interactive, unavailable }: { 
             <span><i className="is-accuracy" />准确率</span>
           </div>
           <TableRegion label="GEO 平台表现">
-            <Table rowKey="geo_platform" size="small" pagination={false} dataSource={rows} columns={columns} scroll={{ x: 650 }} />
+            <Table rowKey="geo_platform" size="small" pagination={false} dataSource={rows} columns={columns} scroll={{ x: interactive ? 718 : 588 }} />
           </TableRegion>
         </>
       ) : <NoData description={unavailable ?? '当前筛选范围暂无平台表现数据'} />}

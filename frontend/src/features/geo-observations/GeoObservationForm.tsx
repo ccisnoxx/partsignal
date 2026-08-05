@@ -269,13 +269,13 @@ export function GeoObservationForm({
               rowKey="published_article_id"
               dataSource={articleRows}
               pagination={false}
-              scroll={{ x: 890 }}
+              scroll={{ x: 780 }}
               columns={[
-                { title: '文章', dataIndex: 'title', width: 280, ellipsis: true, render: (value) => <TableCellText text={value} /> },
-                { title: '平台', dataIndex: 'platform_name', width: 150, ellipsis: true, render: (value) => <TableCellText text={value} /> },
+                { title: '文章', dataIndex: 'title', width: 180, ellipsis: true, render: (value) => <TableCellText text={value} /> },
+                { title: '平台', dataIndex: 'platform_name', width: 110, ellipsis: true, render: (value) => <TableCellText text={value} /> },
                 { title: '链接', dataIndex: 'final_url', width: 110, render: (url) => <a href={url} target="_blank" rel="noreferrer">查看文章</a> },
                 {
-                  title: '发现', width: 100, render: (_, item, index) => <>
+                  title: '发现', width: 120, render: (_, item, index) => <>
                     <Form.Item name={['article_results', index, 'published_article_id']} hidden><Input /></Form.Item>
                     {correctionRecord?.article_results[index]?.discovered === null ? (
                       <Form.Item
@@ -303,7 +303,7 @@ export function GeoObservationForm({
                   </>,
                 },
                 {
-                  title: '提及', width: 100, render: (_, item, index) => (
+                  title: '提及', width: 120, render: (_, item, index) => (
                     correctionRecord?.article_results[index]?.mentioned === null ? (
                       <Form.Item
                         name={['article_results', index, 'mentioned']}

@@ -886,8 +886,8 @@
 .ai-channel-table .ant-table-tbody > tr.ai-channel-row-selected > .ant-table-cell-fix-end { background: color-mix(in srgb, var(--ps-action-primary) 4%, var(--ps-bg-surface)) !important; }
 .ai-channel-table .ant-table-cell-fix-end .ant-space { gap: 2px !important; }
 .ai-channel-table .ant-table-cell-fix-end-shadow::after { box-shadow: none !important; }
-.ai-channel-table .ant-table-cell-fix-end .ant-btn,
-.platform-table-panel .ant-table-tbody > tr > td:last-child .ant-btn { width: 24px; min-width: 24px; height: 24px; padding-inline: 0; border: 1px solid var(--ps-border-subtle); border-radius: var(--ps-radius-sm); background: color-mix(in srgb, var(--ps-bg-surface) 82%, transparent); }
+.ai-channel-table .ant-table-cell-fix-end .ant-btn-icon-only,
+.platform-table-panel .ant-table-tbody > tr > td:last-child .ant-btn-icon-only { width: 24px; min-width: 24px; height: 24px; padding-inline: 0; border: 1px solid var(--ps-border-subtle); border-radius: var(--ps-radius-sm); background: color-mix(in srgb, var(--ps-bg-surface) 82%, transparent); }
 .ai-channel-name-cell { display: flex; align-items: center; gap: 8px; min-width: 0; color: inherit; text-decoration: none; }
 .ai-channel-table :is(th, td):first-child { padding-left: 10px; }
 .ai-channel-name-cell > span:last-child, .ai-model-name { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
@@ -1063,7 +1063,7 @@
   .platform-filter-grid { grid-template-columns: minmax(0, 1fr); }
   .platform-filter-field, .platform-filter-field .ant-select, .platform-filter-grid > .ant-btn { width: 100%; }
   .platform-filter-grid :is(.ant-input-affix-wrapper, .ant-select, .ant-btn) { min-height: 44px; }
-  .platform-table-panel .ant-table-tbody > tr > td:last-child .ant-btn { width: 44px; min-width: 44px; height: 44px; }
+  .platform-table-panel .ant-table-tbody > tr > td:last-child .ant-btn-icon-only { width: 44px; min-width: 44px; height: 44px; }
   .platform-table-panel .ant-pagination { justify-content: flex-start; padding-inline: 0; }
   .platform-table-panel .ant-pagination-options { position: static; margin-left: auto; }
   .platform-detail-footer { position: sticky; bottom: 0; }

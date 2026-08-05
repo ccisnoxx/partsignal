@@ -83,7 +83,7 @@ export function GeoTopicsPage() {
             rowKey="id"
             loading={topics.isLoading}
             dataSource={topics.data?.items}
-            scroll={{ x: 780 }}
+            scroll={{ x: 990 }}
             columns={[
               { title: '标准问题', dataIndex: 'canonical_question', width: 320, ellipsis: true, render: (value) => <TableCellText text={value} /> },
               {

@@ -65,7 +65,7 @@ make verify 全量完成门禁
 
 ### 4.6 内容批准后的发布主入口
 
-服务端 `primary_task=START_PUBLICATION` 已正确表达当前主动作，缺陷只在前端动作目标：内容版本行必须进入 `/publications?content_version_id=<version-id>`，发布工作台从服务端 `publication-ready-items` 中精确恢复该版本并打开既有开始发布确认表单。继续发布和查看成果仍按 `content_task_id` 进入已有发布工作，不复制发布表单或写命令。
+服务端 `primary_task=START_PUBLICATION` 表达用户当前应进入发布准备，但 `publication-ready-items` 只有在目标平台至少存在一个启用发布账号时才包含该版本。内容版本行进入 `/publications?content_version_id=<version-id>&platform_profile_id=<profile-id>`：就绪时从服务端投影精确恢复版本并打开既有开始发布确认表单；未就绪时明确展示服务端拒绝结果，并链接到该平台的发布账号配置。继续发布和查看成果仍按 `content_task_id` 进入已有发布工作，不复制发布表单、写命令或就绪判断。
 
 ## 5. 失败归因与修复规则
 

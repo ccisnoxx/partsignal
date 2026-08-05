@@ -636,6 +636,7 @@ export function PublicationsPage() {
   const platformAccountId = searchParams.get('platform_account_id') ?? undefined;
   const contentTaskId = searchParams.get('content_task_id') ?? undefined;
   const requestedContentVersionId = searchParams.get('content_version_id') ?? undefined;
+  const requestedPlatformProfileId = searchParams.get('platform_profile_id') ?? undefined;
   const referenceMode = !!(platformAccountId || contentTaskId);
   const workStatus = workStatuses.includes(rawStatus as Schema<'PublicationWorkStatus'>)
     ? rawStatus as Schema<'PublicationWorkStatus'>
@@ -721,6 +722,7 @@ export function PublicationsPage() {
   const requestedActionTarget: ActionTarget | null = requestedReadyItem
     ? { kind: 'ready', resource: requestedReadyItem, action: 'START' }
     : null;
+  const requestedReadyUnavailable = !!requestedContentVersionId && ready.isSuccess && !requestedReadyItem;
   const worksQueryPage = referenceMode ? page : tab === 'history' ? page : workPage;
   const worksPageParam = referenceMode || tab === 'history' ? 'page' : 'work_page';
   const worksQueryStatus = referenceMode ? undefined : tab === 'history' ? 'CLOSED' : workStatus;
@@ -876,6 +878,16 @@ export function PublicationsPage() {
     <div className="page-stack publication-workbench">
       <PageHeader eyebrow="人工发布与公开内容" title="发布管理" description="优先处理当前发布工作与公开内容问题，成果和历史记录用于追溯。" />
       <Card className="publication-panel">
+        {requestedReadyUnavailable && (
+          <Alert
+            className="form-alert"
+            type="warning"
+            showIcon
+            title="该内容当前不能开始发布"
+            description="服务端未将该版本列入待开始内容。请先为目标平台新增并启用发布账号；若已有可用账号，请返回内容任务确认是否已创建发布工作或上下文状态已变化。"
+            action={<Button href={`/settings?tab=accounts${requestedPlatformProfileId ? `&platform_profile_id=${requestedPlatformProfileId}` : ''}`}>配置发布账号</Button>}
+          />
+        )}
         {!referenceMode && <Tabs
           activeKey={tab}
           onChange={(key) => updateUrl({ tab: key, page: '1', work_page: null, issue_page: null, selected: null, kind: null, status: key === 'history' ? 'CLOSED' : null })}

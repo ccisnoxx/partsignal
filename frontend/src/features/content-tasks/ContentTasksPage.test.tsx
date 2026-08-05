@@ -171,6 +171,7 @@ test('批准内容的开始发布动作直接进入对应发布流程', async ()
   expect(await screen.findByRole('heading', { name: '发布管理' })).toBeInTheDocument();
   expect(screen.getByTestId('location-pathname')).toHaveTextContent('/publications');
   expect(screen.getByTestId('location-search')).toHaveTextContent(`content_version_id=${approvedVersion.id}`);
+  expect(screen.getByTestId('location-search')).toHaveTextContent(`platform_profile_id=${task.platform_profile_id}`);
 });
 
 test('次级查询失败不遮蔽任务身份和返回入口', async () => {

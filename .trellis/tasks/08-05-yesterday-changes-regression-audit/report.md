@@ -52,10 +52,10 @@
 
 ### 3.3 批准内容点击“开始发布”后没有后续
 
-- 当前结论：这是 `e426d7b` 引入的前端产品回归。目标内容版本 `fa4d5cde-4a9d-4251-96ef-a7c0146f412e` 在线上数据库中为当前 `APPROVED` 版本，来源任务仍为 `OPEN`，且没有任何 `publication_work`；点击并未发起发布命令。
+- 当前结论：这里同时存在一个前端产品回归和一个真实业务前置条件。目标内容版本 `fa4d5cde-4a9d-4251-96ef-a7c0146f412e` 在线上数据库中为当前 `APPROVED` 版本，来源任务仍为 `OPEN`，且没有任何 `publication_work`；目标知乎平台也没有任何发布账号，因此服务端按合同返回空的 `publication-ready-items`。
 - 根因：`ContentTasksPage.tsx` 在昨日开始消费 typed `primary_task` 作为按钮文案，但任务行目标仍固定为 `/tasks/<id>`，内容版本行目标仍固定为 `/content/<id>`。因此“开始发布”只会重新进入审核详情，而该页面在批准后没有发布入口，形成死路。
-- 修复：内容任务 feature 按 `START_PUBLICATION`、`CONTINUE_PUBLICATION` 和 `VIEW_PUBLICATION_RESULT` 进入发布工作台；开始发布携带精确 `content_version_id`，发布工作台从服务端待开始投影恢复该版本并打开原有确认表单。没有复制表单、写命令、权限或状态判断。
-- 验证：修复后的两条精确回归测试通过；两个受影响测试文件共 30 项通过；前端完整 Vitest 27 个文件、187 项通过；TypeScript 和相关 ESLint 通过。
+- 修复：内容任务 feature 按 `START_PUBLICATION`、`CONTINUE_PUBLICATION` 和 `VIEW_PUBLICATION_RESULT` 进入发布工作台；开始发布携带精确 `content_version_id` 和 `platform_profile_id`。服务端投影包含目标时打开原有确认表单；不包含时明确提示当前不能开始发布，并链接到该平台的发布账号配置。没有复制表单、写命令、权限或服务端就绪判断。
+- 验证：提交 `556da53` 已发布为 `mvp-20260805-145321-556da5314d6f`；公网真实浏览器确认按钮进入精确发布 URL、全部相关 GET 为 200 且控制台无错误，同时确认空账号导致待开始投影为空。最终三条精确回归测试、TypeScript 和相关 ESLint 通过。
 - 严重度与影响：P1，所有从内容任务/版本主动作进入发布的用户都可能被错误导航阻断；服务端状态和历史没有损坏。
 
 ## 4. 缺陷台账

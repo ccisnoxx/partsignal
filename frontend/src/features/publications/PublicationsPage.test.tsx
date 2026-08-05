@@ -181,12 +181,13 @@ const issueDetail = {
   article: articleItem,
 } satisfies Schema<'PublishedContentIssue'>;
 
-function installResponses({ onVerify, onClose, onSwitch, onWorks, workTotal = 1 }: {
+function installResponses({ onVerify, onClose, onSwitch, onWorks, workTotal = 1, readyItems = [readyItem] }: {
   onVerify?: (request: Request) => void;
   onClose?: (request: Request) => void;
   onSwitch?: (request: Request) => void;
   onWorks?: (url: URL) => void;
   workTotal?: number;
+  readyItems?: Schema<'PublicationReadyItem'>[];
 } = {}) {
   let closed = false;
   mockFetch((request) => {
@@ -194,7 +195,7 @@ function installResponses({ onVerify, onClose, onSwitch, onWorks, workTotal = 1 
     if (url.pathname.endsWith('/auth/me')) return { body: user };
     if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
     if (url.pathname.endsWith('/publication-workbench-summary')) return { body: summary };
-    if (url.pathname.endsWith('/publication-ready-items')) return { body: { items: [readyItem] } };
+    if (url.pathname.endsWith('/publication-ready-items')) return { body: { items: readyItems } };
     if (url.pathname.endsWith('/publication-works') && request.method === 'GET') {
       onWorks?.(url);
       const historical = url.searchParams.get('status') === 'CLOSED';
@@ -296,6 +297,18 @@ test('内容任务深链直接恢复对应内容的开始发布弹窗', async ()
   render(<App />);
 
   expect(await findDialog('开始发布')).toBeInTheDocument();
+});
+
+test('深链内容不满足发布条件时明确引导配置目标平台账号', async () => {
+  window.history.pushState({}, '', `/publications?content_version_id=${readyItem.content_version.id}&platform_profile_id=${readyItem.platform_profile_id}`);
+  installResponses({ readyItems: [] });
+  render(<App />);
+
+  expect(await screen.findByText('该内容当前不能开始发布')).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '配置发布账号' })).toHaveAttribute(
+    'href',
+    `/settings?tab=accounts&platform_profile_id=${readyItem.platform_profile_id}`,
+  );
 });
 
 test('混合待处理视图只按显式 kind 恢复问题详情', async () => {

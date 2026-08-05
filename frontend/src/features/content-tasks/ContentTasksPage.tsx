@@ -105,8 +105,10 @@ function taskPrimaryHref(row: ContentTaskListItem) {
   return `/tasks/${row.id}`;
 }
 
-function contentPrimaryHref(row: ContentVersion) {
-  if (row.primary_task === 'START_PUBLICATION') return `/publications?content_version_id=${row.id}`;
+function contentPrimaryHref(row: ContentVersion, platformProfileId: string) {
+  if (row.primary_task === 'START_PUBLICATION') {
+    return `/publications?content_version_id=${row.id}&platform_profile_id=${platformProfileId}`;
+  }
   if (row.primary_task === 'CONTINUE_PUBLICATION' || row.primary_task === 'VIEW_PUBLICATION_RESULT') {
     return `/publications?content_task_id=${row.task_id}`;
   }
@@ -805,7 +807,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
               { title: '操作', width: 220, fixed: 'right', render: (_, row) => {
                 const canHumanize = row.available_actions.includes('CREATE_HUMANIZATION_JOB');
                 return <Space size={4}>
-                  <Button size="small" type="primary" onClick={() => navigate(contentPrimaryHref(row))}>{contentTaskLabels[row.primary_task]}</Button>
+                  <Button size="small" type="primary" onClick={() => navigate(contentPrimaryHref(row, task.data.platform_profile_id))}>{contentTaskLabels[row.primary_task]}</Button>
                   {canHumanize && <Button size="small" onClick={() => setHumanizeSource(row)}>自然化</Button>}
                 </Space>;
               } },

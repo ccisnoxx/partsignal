@@ -159,7 +159,7 @@ function PermanentDeleteTaskModal({
 }) {
   const { message } = App.useApp();
   const [confirmation, setConfirmation] = useState('');
-  const preview = useQuery({
+  const deletionPreview = useQuery({
     queryKey: ['content-task-permanent-deletion-preview', taskId],
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/permanent-deletion-preview', {
       params: { path: { content_task_id: taskId! } },
@@ -169,11 +169,11 @@ function PermanentDeleteTaskModal({
   });
   const remove = useMutation({
     mutationFn: async () => {
-      if (!taskId || !preview.data) throw new Error('永久删除预览尚未加载');
+      if (!taskId || !deletionPreview.data) throw new Error('永久删除预览尚未加载');
       return ensureSuccess(await api.POST('/api/v1/content-tasks/{content_task_id}/permanent-delete', {
         params: { path: { content_task_id: taskId }, header: csrfHeader() },
         body: {
-          expected_revision: preview.data.revision,
+          expected_revision: deletionPreview.data.revision,
           confirmation_text: confirmation,
         },
       }));
@@ -191,7 +191,7 @@ function PermanentDeleteTaskModal({
       await onDeleted();
     },
   });
-  const counts = preview.data?.counts;
+  const counts = deletionPreview.data?.counts;
 
   return <Modal
     title="永久删除内容任务"
@@ -206,7 +206,7 @@ function PermanentDeleteTaskModal({
     okText="永久删除"
     cancelText="取消"
     confirmLoading={remove.isPending}
-    okButtonProps={{ danger: true, disabled: confirmation !== '永久删除' || !preview.data }}
+    okButtonProps={{ danger: true, disabled: confirmation !== '永久删除' || !deletionPreview.data }}
     width={720}
     destroyOnHidden
   >
@@ -217,8 +217,8 @@ function PermanentDeleteTaskModal({
         title="此操作不可恢复"
         description="只删除 PartSignal 内部任务、内容、发布与独占 GEO 历史；不会检查或删除外部页面。"
       />
-      {preview.isLoading && <QueryLoading label="正在计算永久删除范围" />}
-      {preview.error && <QueryFailure error={preview.error} onRetry={() => void preview.refetch()} />}
+      {deletionPreview.isLoading && <QueryLoading label="正在计算永久删除范围" />}
+      {deletionPreview.error && <QueryFailure error={deletionPreview.error} onRetry={() => void deletionPreview.refetch()} />}
       {counts && <Descriptions size="small" column={{ xs: 1, sm: 2 }} items={[
         { label: '内容版本 / 审核', children: `${counts.content_versions} / ${counts.content_review_records}` },
         { label: '生成作业', children: counts.generation_jobs },
@@ -229,9 +229,9 @@ function PermanentDeleteTaskModal({
         { label: '独占 GEO 更正链', children: counts.exclusive_geo_observation_chains },
         { label: '附件关系', children: counts.attachment_relations },
       ]} />}
-      {!!preview.data?.external_urls.length && <div>
+      {!!deletionPreview.data?.external_urls.length && <div>
         <Typography.Text strong>外部页面（不会删除）</Typography.Text>
-        <ul>{preview.data.external_urls.map((url) => <li key={url}><a href={url} target="_blank" rel="noreferrer">{url}</a></li>)}</ul>
+        <ul>{deletionPreview.data.external_urls.map((url) => <li key={url}><a href={url} target="_blank" rel="noreferrer">{url}</a></li>)}</ul>
       </div>}
       <Form.Item label={<>输入 <Typography.Text code>永久删除</Typography.Text> 继续</>} required>
         <Input

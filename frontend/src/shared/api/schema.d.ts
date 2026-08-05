@@ -2944,11 +2944,6 @@ export interface components {
              * Format: uuid
              */
             platform_account_id: string;
-            /**
-             * Section Url
-             * Format: uri
-             */
-            section_url: string;
         };
         PublicationContentVersionSwitchRequest: {
             /** Format: uuid */
@@ -2993,11 +2988,6 @@ export interface components {
             platform_account_label: string;
             /** Account Identifier */
             account_identifier: string;
-            /**
-             * Section Url
-             * Format: uri
-             */
-            section_url: string;
             /** Actual Title */
             actual_title: string | null;
             /** Final Url */
@@ -3176,11 +3166,6 @@ export interface components {
             platform_account_label: string;
             /** Account Identifier */
             account_identifier: string;
-            /**
-             * Section Url
-             * Format: uri
-             */
-            section_url: string;
             /** Actual Title */
             actual_title: string | null;
             /** Final Url */
@@ -3220,11 +3205,6 @@ export interface components {
              * Format: uuid
              */
             platform_account_id: string;
-            /**
-             * Section Url
-             * Format: uri
-             */
-            section_url: string;
             /** Expected Revision */
             expected_revision: number;
             /** Comment */
@@ -3433,11 +3413,6 @@ export interface components {
             primary_task: "START_PRODUCT_OBSERVATION" | "HANDLE_CONTENT_ISSUE" | "VIEW_HISTORY";
             /** Available Actions */
             available_actions: "OPEN_ISSUE"[];
-            /**
-             * Section Url
-             * Format: uri
-             */
-            section_url: string;
             /** Content Hash */
             content_hash: string;
             verification: components["schemas"]["PublicationVerification"];

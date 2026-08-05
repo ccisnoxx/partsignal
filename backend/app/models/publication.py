@@ -115,7 +115,6 @@ class PublicationWork(Base):
         UUID(as_uuid=True), ForeignKey("platform_accounts.id", ondelete="RESTRICT"), nullable=False
     )
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    section_url: Mapped[str] = mapped_column(Text, nullable=False)
     actual_title: Mapped[str | None] = mapped_column(Text)
     final_url: Mapped[str | None] = mapped_column(Text)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

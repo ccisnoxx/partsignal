@@ -424,7 +424,6 @@ def create_publication_work(
         if (
             existing.content_version_id != payload.content_version_id
             or existing.platform_account_id != payload.platform_account_id
-            or existing.section_url != str(payload.section_url)
         ):
             raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一发布工作", 409)
         return publication_work_out(db, existing)
@@ -457,8 +456,6 @@ def create_publication_work(
         raise AppError("INVALID_STATE_TRANSITION", "终态内容任务不能开始新发布", 409)
     if task.platform_profile_id != profile.id:
         raise AppError("PUBLICATION_PLATFORM_MISMATCH", "发布账号平台与内容任务锁定平台不一致", 422)
-    if not domain_allowed(str(payload.section_url), profile.allowed_domains):
-        raise AppError("VALIDATION_ERROR", "栏目 URL 不属于平台允许域名", 422)
     _ensure_unique_identity(
         db,
         content_version_id=content.id,
@@ -472,7 +469,6 @@ def create_publication_work(
         platform_profile_id=profile.id,
         platform_account_id=account.id,
         content_hash=content.content_hash,
-        section_url=str(payload.section_url),
         status="PREPARING",
         created_by=actor.id,
     )
@@ -575,7 +571,7 @@ def update_publication_preparation(
     actor: User,
     request_id: str,
 ) -> PublicationWorkOut:
-    """在准备或平台处理中修正账号和栏目。"""
+    """在准备或平台处理中修正发布账号。"""
     work = _lock_work(db, work_id, payload.expected_revision)
     if work.status not in {"PREPARING", "PLATFORM_REVIEW"}:
         raise AppError("INVALID_STATE_TRANSITION", "当前发布工作不能修改准备信息", 409)
@@ -584,10 +580,7 @@ def update_publication_preparation(
         raise AppError("PUBLICATION_PLATFORM_MISMATCH", "发布账号必须属于工作锁定平台", 422)
     if not account.is_active:
         raise AppError("PLATFORM_ACCOUNT_DISABLED", "平台账号已停用", 409)
-    if not domain_allowed(str(payload.section_url), profile.allowed_domains):
-        raise AppError("VALIDATION_ERROR", "栏目 URL 不属于平台允许域名", 422)
     work.platform_account_id = account.id
-    work.section_url = str(payload.section_url)
     work.revision += 1
     _work_event(
         db,

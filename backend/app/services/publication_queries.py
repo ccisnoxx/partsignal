@@ -327,7 +327,6 @@ def _work_list_item(
             "platform_account_id": work.platform_account_id,
             "platform_account_label": row.platform_account_label,
             "account_identifier": row.account_identifier,
-            "section_url": work.section_url,
             "actual_title": work.actual_title,
             "final_url": work.final_url,
             "published_at": work.published_at,
@@ -559,7 +558,6 @@ def published_article_out(db: Session, article: PublishedArticle) -> PublishedAr
     )
     return PublishedArticleOut(
         **item.model_dump(),
-        section_url=work.section_url,
         content_hash=work.content_hash,
         verification=PublicationVerificationOut.model_validate(verification),
         issues=[PublishedContentIssueHistoryItem.model_validate(issue) for issue in issues],

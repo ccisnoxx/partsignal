@@ -217,7 +217,6 @@ test('准备共享视觉验收数据', async ({ page }) => {
     data: {
       content_version_id: content.id,
       platform_account_id: account.id,
-      section_url: 'https://visual.example.invalid/board',
     },
   }));
   const reviewWork = await post<{ revision: number }>(page, `/api/v1/publication-works/${publication.id}/platform-review`, csrf, {

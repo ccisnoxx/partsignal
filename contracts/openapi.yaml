@@ -4133,18 +4133,11 @@ components:
           type: string
           format: uuid
           title: Platform Account Id
-        section_url:
-          type: string
-          maxLength: 2083
-          minLength: 1
-          format: uri
-          title: Section Url
       additionalProperties: false
       type: object
       required:
       - content_version_id
       - platform_account_id
-      - section_url
       title: PublicationWorkCreate
     PublicationContentVersionSwitchRequest:
       type: object
@@ -4191,12 +4184,6 @@ components:
         account_identifier:
           type: string
           title: Account Identifier
-        section_url:
-          type: string
-          maxLength: 2083
-          minLength: 1
-          format: uri
-          title: Section Url
         actual_title:
           anyOf:
           - type: string
@@ -4314,7 +4301,6 @@ components:
       - platform_account_id
       - platform_account_label
       - account_identifier
-      - section_url
       - actual_title
       - final_url
       - published_at
@@ -4522,12 +4508,6 @@ components:
         account_identifier:
           type: string
           title: Account Identifier
-        section_url:
-          type: string
-          maxLength: 2083
-          minLength: 1
-          format: uri
-          title: Section Url
         actual_title:
           anyOf:
           - type: string
@@ -4611,7 +4591,6 @@ components:
       - platform_account_id
       - platform_account_label
       - account_identifier
-      - section_url
       - actual_title
       - final_url
       - published_at
@@ -4633,12 +4612,6 @@ components:
           type: string
           format: uuid
           title: Platform Account Id
-        section_url:
-          type: string
-          maxLength: 2083
-          minLength: 1
-          format: uri
-          title: Section Url
         expected_revision:
           type: integer
           minimum: 0.0
@@ -4651,7 +4624,6 @@ components:
       type: object
       required:
       - platform_account_id
-      - section_url
       - expected_revision
       - comment
       title: PublicationPreparationUpdate
@@ -4968,12 +4940,6 @@ components:
             const: OPEN_ISSUE
           type: array
           title: Available Actions
-        section_url:
-          type: string
-          maxLength: 2083
-          minLength: 1
-          format: uri
-          title: Section Url
         content_hash:
           type: string
           title: Content Hash
@@ -5008,7 +4974,6 @@ components:
       - workflow_stage
       - primary_task
       - available_actions
-      - section_url
       - content_hash
       - verification
       - issues

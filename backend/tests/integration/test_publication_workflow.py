@@ -212,7 +212,6 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                 payload=PublicationWorkCreate(
                     content_version_id=content.id,
                     platform_account_id=account.id,
-                    section_url="https://community.example.invalid/section",
                 ),
                 actor=user,
                 request_id="publication-create",
@@ -223,13 +222,27 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                 payload=PublicationWorkCreate(
                     content_version_id=content.id,
                     platform_account_id=account.id,
-                    section_url="https://community.example.invalid/section",
                 ),
                 actor=user,
                 request_id="publication-create-repeat",
                 idempotency_key="publication-create-key",
             )
             assert repeated.id == work.id
+            with pytest.raises(AppError) as invalid_result:
+                register_publication_result(
+                    db=db,
+                    work_id=work.id,
+                    payload=PublicationResultUpdate(
+                        actual_title="公开测试器件选型",
+                        final_url="https://wrong.example.invalid/articles/ps",
+                        published_at="2026-08-03T08:00:00Z",
+                        expected_revision=work.revision,
+                        comment="登记错误域名",
+                    ),
+                    actor=user,
+                    request_id="publication-result-invalid-domain",
+                )
+            assert invalid_result.value.code == "VALIDATION_ERROR"
             work = register_publication_result(
                 db=db,
                 work_id=work.id,
@@ -432,7 +445,6 @@ def test_close_work_cancels_source_task_without_published_article() -> None:
                 payload=PublicationWorkCreate(
                     content_version_id=content.id,
                     platform_account_id=account.id,
-                    section_url="https://community.example.invalid/section",
                 ),
                 actor=user,
                 request_id="publication-close-create",

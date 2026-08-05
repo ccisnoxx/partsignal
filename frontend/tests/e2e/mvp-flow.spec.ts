@@ -749,7 +749,7 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
 
   const publication = await body<{ id: string; revision: number }>(await page.request.post('/api/v1/publication-works', {
     headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-publication-${suffix}` },
-    data: { content_version_id: reviewedRevision.id, platform_account_id: account.id, section_url: 'https://forum.example.invalid/board' },
+    data: { content_version_id: reviewedRevision.id, platform_account_id: account.id },
   }));
   const reviewWork = await command(page, `/api/v1/publication-works/${publication.id}/platform-review`, csrf, { expected_revision: publication.revision, comment: '平台处理中' });
   const resultWork = await body<{ revision: number }>(await page.request.put(`/api/v1/publication-works/${publication.id}/result`, {

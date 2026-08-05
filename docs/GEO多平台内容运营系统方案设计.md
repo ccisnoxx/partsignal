@@ -635,7 +635,7 @@ MVP 只实现可确定的检查，不建设复杂规则引擎：
 
 页面不永久占用右侧空白；只有选中候选、工作、成果或问题时打开 Drawer，关闭后保留当前页签、筛选和分页 URL 状态。
 
-开始工作只提交锁定的 `content_version_id`、匹配 `platform_account_id` 和目标 `section_url`。登记结果提交实际标题、最终 URL、带时区发布时间、非空说明和可选结果证据 ID。进入平台处理、核验、关闭、打开问题、创建修复任务和解决问题都使用各自严格请求模型；不存在多可选字段的通用 command。
+开始工作只提交锁定的 `content_version_id` 和匹配的 `platform_account_id`。登记结果提交实际标题、最终 URL、带时区发布时间、非空说明和可选结果证据 ID。进入平台处理、核验、关闭、打开问题、创建修复任务和解决问题都使用各自严格请求模型；不存在多可选字段的通用 command。
 
 账号字段保持单选，并明确提示“本篇文章只能选择一个账号”。同一具体平台可维护多个运营账号，但系统不提供多选、批量分发或同文轮换账号；缺少账号时的入口必须携带当前 `platform_profile_id`，直接打开筛选后的发布账号页。
 
@@ -844,7 +844,7 @@ MVP 实现前两个能力；`Publisher` 只作为未来扩展边界记录在设�
 | `generation_jobs` | `id`, `task_id`, `ai_channel_id`, `ai_model_id`, `input_snapshot`, `status`, `provider_request_id`, `response_duration_ms`, token 用量, `created_by` |
 | `content_versions` | `id`, `task_id`, `source_job_id`, `source_version_id`, `version`, `title`, `summary`, `body_markdown`, `tags`, `status`, `content_hash` |
 | `review_records` | `id`, `target_type`, `target_id`, `decision`, `comments`, `reviewer_id` |
-| `publication_works` | `id`, `content_version_id`, `platform_account_id`, `section_url`, 结果字段, `status`, `revision` |
+| `publication_works` | `id`, `content_version_id`, `platform_account_id`, 结果字段, `status`, `revision` |
 | `publication_work_events` | `id`, `publication_work_id`, `action`, `from_status`, `to_status`, `comment`, `actor_id` |
 | `publication_verifications` | `id`, `publication_work_id`, 结果快照, `outcome`, `comment`, `actor_id` |
 | `published_articles` | `id`, `verification_id`, `created_at`；ID 与完成工作一致 |

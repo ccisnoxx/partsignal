@@ -252,7 +252,7 @@ result = cleanup_platform_logo_files(storage=storage)
 
 ## 场景：发布工作、只读成果与发布后问题
 
-- 当前数据库 revision：`0034_publication_redesign`，`down_revision = "0033_task_owned_history_delete"`；历史 revision 与 `migration_schema_v1.py` 保持冻结。
+- 当前发布结构由 `0034_publication_redesign` 建立，并由 `0035_business_workflow`、`0036_remove_section_url` 前向收敛；历史 revision 与 `migration_schema_v1.py` 保持冻结。
 - `PublicationWork` 唯一拥有发布过程当前状态；`PublicationWorkEvent` 与 `PublicationVerification` 是追加式历史，`PublishedArticle` 是首次成功核验形成的只读公开成果，`PublishedContentIssue` 只描述成功发布后的页面问题。
 - `COMPLETED` 表示工作曾通过首次核验。成功核验、同 ID `PublishedArticle` 创建和来源 `ContentTask.COMPLETED` 必须同事务提交；失败核验只追加快照并进入 `ACTION_REQUIRED`，不得完成或取消任务。
 - 非终态工作只能通过带原因和说明的关闭命令进入 `CLOSED`，并原子取消来源任务；发布工作、事件、核验、成果和问题都不得物理删除。
@@ -260,6 +260,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - `PublishedContentIssue` 只能从 revision 0 的 `OPEN` 开始，文章绑定与打开事实不可变；唯一状态变化是带处理结果、非空说明和单次 revision 递增的 `OPEN -> RESOLVED`。
 - 修复任务来源 `source_published_content_issue_id` 一旦写入不可改绑且唯一。创建修复任务与解决问题是独立命令，任何一方不得从另一方状态推断完成。
 - `0034` 只允许在旧发布与 GEO 依赖表全部为空时替换结构；发现数据必须汇总阻断表并以 PostgreSQL `55000` 失败。迁移和 downgrade 不猜测新旧业务语义。
+- `0036` 删除没有稳定业务含义的 `publication_works.section_url`。开始发布只绑定内容版本和账号，准备更新只变更账号；真实公开位置仍由结果登记的 `final_url` 持有并校验允许域名。被删值不迁移到替代列，downgrade 以 `55000` 拒绝并要求恢复升级前备份。
 
 ## 场景：具体平台启停与管理实时投影
 

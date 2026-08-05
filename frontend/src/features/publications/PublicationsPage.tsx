@@ -196,7 +196,6 @@ function ActionModalContent({ target, onClose }: { target: ActionTarget; onClose
     if (target.kind === 'work') {
       form.setFieldsValue({
         platform_account_id: target.resource.platform_account_id,
-        section_url: target.resource.section_url,
         actual_title: target.resource.actual_title,
         final_url: target.resource.final_url,
       });
@@ -211,7 +210,6 @@ function ActionModalContent({ target, onClose }: { target: ActionTarget; onClose
           body: {
             content_version_id: target.resource.content_version.id,
             platform_account_id: values.platform_account_id!,
-            section_url: values.section_url!,
           },
         }));
       }
@@ -222,7 +220,6 @@ function ActionModalContent({ target, onClose }: { target: ActionTarget; onClose
             params,
             body: {
               platform_account_id: values.platform_account_id!,
-              section_url: values.section_url!,
               expected_revision: target.resource.revision,
               comment: values.comment!,
             },
@@ -343,19 +340,15 @@ function ActionModalContent({ target, onClose }: { target: ActionTarget; onClose
       {contentVersions.error && <QueryFailure error={contentVersions.error} onRetry={() => void contentVersions.refetch()} />}
       <Form form={form} layout="vertical" onFinish={(values) => command.mutate(values)}>
         {target.action === 'START' && (
-          <>
-            <Form.Item name="platform_account_id" label="发布账号" rules={[{ required: true, message: '请选择发布账号' }]}>
-              <Select options={target.resource.matching_accounts.map((account) => ({ value: account.id, label: `${account.label} · ${account.account_identifier}` }))} />
-            </Form.Item>
-            <Form.Item name="section_url" label="栏目地址" rules={[{ required: true, type: 'url', message: '请输入有效栏目地址' }]}><Input /></Form.Item>
-          </>
+          <Form.Item name="platform_account_id" label="发布账号" rules={[{ required: true, message: '请选择发布账号' }]}>
+            <Select options={target.resource.matching_accounts.map((account) => ({ value: account.id, label: `${account.label} · ${account.account_identifier}` }))} />
+          </Form.Item>
         )}
         {target.action === 'UPDATE_PREPARATION' && (
           <>
             <Form.Item name="platform_account_id" label="发布账号" rules={[{ required: true, message: '请选择发布账号' }]}>
               <Select loading={accounts.isLoading} options={accounts.data?.items.filter((account) => account.is_active).map((account) => ({ value: account.id, label: `${account.label} · ${account.account_identifier}` }))} />
             </Form.Item>
-            <Form.Item name="section_url" label="栏目地址" rules={[{ required: true, type: 'url', message: '请输入有效栏目地址' }]}><Input /></Form.Item>
           </>
         )}
         {target.action === 'REGISTER_RESULT' && (
@@ -497,7 +490,6 @@ function DetailDrawer({
           { label: '内容', children: `${work.data.content_title} · V${work.data.content_version}` },
           { label: '阶段', children: <StatusTag status={work.data.status} /> },
           { label: '平台 / 账号', children: `${work.data.platform_profile_name} · ${work.data.platform_account_label}` },
-          { label: '栏目地址', children: <a href={work.data.section_url} target="_blank" rel="noreferrer">{work.data.section_url}</a> },
           { label: '实际标题', children: work.data.actual_title ?? '尚未登记' },
           { label: '最终地址', children: work.data.final_url ? <a href={work.data.final_url} target="_blank" rel="noreferrer">{work.data.final_url}</a> : '尚未登记' },
           { label: '发布时间', children: formatDateTime(work.data.published_at) },

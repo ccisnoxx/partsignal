@@ -34,7 +34,6 @@ const workItem = {
   platform_account_id: '50000000-0000-4000-8000-000000000001',
   platform_account_label: '内容运营账号',
   account_identifier: 'operator',
-  section_url: 'https://community.example.invalid/articles',
   actual_title: 'PS-001 选型文章',
   final_url: 'https://community.example.invalid/articles/ps-001',
   published_at: '2026-08-03T01:00:00Z',
@@ -90,6 +89,19 @@ const summary = {
   open_issue_count: 1,
 } satisfies Schema<'PublicationWorkbenchSummary'>;
 
+const platformAccount = {
+  id: workItem.platform_account_id,
+  platform_profile_id: workItem.platform_profile_id,
+  label: workItem.platform_account_label,
+  account_identifier: workItem.account_identifier,
+  is_active: true,
+  workflow_stage: 'OPERATIONAL',
+  primary_task: 'MANAGE_ACCOUNT',
+  available_actions: ['UPDATE', 'DISABLE'],
+  deletion: null,
+  revision: 1,
+} satisfies Schema<'PlatformAccount'>;
+
 const readyItem = {
   content_version: {
     id: '30000000-0000-4000-8000-000000000002',
@@ -116,7 +128,7 @@ const readyItem = {
   task_id: '20000000-0000-4000-8000-000000000002',
   platform_profile_id: '40000000-0000-4000-8000-000000000001',
   platform_profile_name: '工程师社区',
-  matching_accounts: [],
+  matching_accounts: [platformAccount],
   available_actions: ['START'],
   primary_task: 'START_PUBLICATION',
 } satisfies Schema<'PublicationReadyItem'>;
@@ -181,11 +193,14 @@ const issueDetail = {
   article: articleItem,
 } satisfies Schema<'PublishedContentIssue'>;
 
-function installResponses({ onVerify, onClose, onSwitch, onWorks, workTotal = 1, readyItems = [readyItem] }: {
+function installResponses({ onCreate, onPreparation, onVerify, onClose, onSwitch, onWorks, activeWork = workItem, workTotal = 1, readyItems = [readyItem] }: {
+  onCreate?: (request: Request) => void;
+  onPreparation?: (request: Request) => void;
   onVerify?: (request: Request) => void;
   onClose?: (request: Request) => void;
   onSwitch?: (request: Request) => void;
   onWorks?: (url: URL) => void;
+  activeWork?: Schema<'PublicationWorkListItem'>;
   workTotal?: number;
   readyItems?: Schema<'PublicationReadyItem'>[];
 } = {}) {
@@ -199,8 +214,13 @@ function installResponses({ onVerify, onClose, onSwitch, onWorks, workTotal = 1,
     if (url.pathname.endsWith('/publication-works') && request.method === 'GET') {
       onWorks?.(url);
       const historical = url.searchParams.get('status') === 'CLOSED';
-      return { body: { items: closed || historical ? [] : [workItem], page: Number(url.searchParams.get('page') ?? 1), page_size: 20, total: closed || historical ? 0 : workTotal } };
+      return { body: { items: closed || historical ? [] : [activeWork], page: Number(url.searchParams.get('page') ?? 1), page_size: 20, total: closed || historical ? 0 : workTotal } };
     }
+    if (url.pathname.endsWith('/publication-works') && request.method === 'POST') {
+      onCreate?.(request);
+      return { body: workDetail, status: 201 };
+    }
+    if (url.pathname.endsWith('/platform-accounts')) return { body: { items: [platformAccount] } };
     if (url.pathname.endsWith('/published-articles')) return { body: { items: [articleItem], page: 1, page_size: 20, total: 1 } };
     if (url.pathname.endsWith('/published-content-issues')) {
       const resolved = url.searchParams.get('status') === 'RESOLVED';
@@ -208,7 +228,11 @@ function installResponses({ onVerify, onClose, onSwitch, onWorks, workTotal = 1,
     }
     if (url.pathname.endsWith(`/content-tasks/${workItem.task_id}/content-versions`)) return { body: { items: [switchCandidate] } };
     if (url.pathname.endsWith(`/published-content-issues/${issueId}`)) return { body: issueDetail };
-    if (url.pathname.endsWith(`/publication-works/${workId}`)) return { body: workDetail };
+    if (url.pathname.endsWith(`/publication-works/${workId}/preparation`)) {
+      onPreparation?.(request);
+      return { body: { ...workDetail, ...activeWork, revision: activeWork.revision + 1 } };
+    }
+    if (url.pathname.endsWith(`/publication-works/${workId}`)) return { body: { ...workDetail, ...activeWork } };
     if (url.pathname.endsWith(`/publication-works/${workId}/content-version`)) {
       onSwitch?.(request);
       return { body: { ...workDetail, content_version_id: switchCandidate.id, content_title: switchCandidate.title, content_version: switchCandidate.version, revision: 4 } };
@@ -297,6 +321,67 @@ test('内容任务深链直接恢复对应内容的开始发布弹窗', async ()
   render(<App />);
 
   expect(await findDialog('开始发布')).toBeInTheDocument();
+});
+
+test('开始发布只提交内容版本和发布账号', async () => {
+  let submitted: Promise<Schema<'PublicationWorkCreate'>> | undefined;
+  window.history.pushState({}, '', `/publications?content_version_id=${readyItem.content_version.id}`);
+  installResponses({
+    onCreate: (request) => {
+      submitted = request.clone().json() as Promise<Schema<'PublicationWorkCreate'>>;
+    },
+  });
+  render(<App />);
+
+  const dialog = await findDialog('开始发布');
+  expect(within(dialog).queryByText('栏目地址')).not.toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole('combobox', { name: '发布账号' }));
+  await userEvent.click(await screen.findByText('内容运营账号 · operator'));
+  await userEvent.click(within(dialog).getByRole('button', { name: '确认提交' }));
+
+  await waitFor(() => expect(submitted).toBeDefined());
+  await expect(submitted).resolves.toEqual({
+    content_version_id: readyItem.content_version.id,
+    platform_account_id: platformAccount.id,
+  });
+});
+
+test('调整准备信息只提交账号、revision 和说明', async () => {
+  let submitted: Promise<Schema<'PublicationPreparationUpdate'>> | undefined;
+  const preparingWork = {
+    ...workItem,
+    actual_title: null,
+    final_url: null,
+    published_at: null,
+    status: 'PREPARING',
+    revision: 0,
+    latest_verification_outcome: null,
+    latest_verification_at: null,
+    workflow_stage: 'PREPARING',
+    primary_task: 'CONTINUE_PREPARATION',
+    available_actions: ['UPDATE_PREPARATION', 'MARK_PLATFORM_REVIEW', 'REGISTER_RESULT', 'CLOSE'],
+  } satisfies Schema<'PublicationWorkListItem'>;
+  window.history.pushState({}, '', '/publications?tab=works');
+  installResponses({
+    activeWork: preparingWork,
+    onPreparation: (request) => {
+      submitted = request.clone().json() as Promise<Schema<'PublicationPreparationUpdate'>>;
+    },
+  });
+  render(<App />);
+
+  await userEvent.click(await screen.findByRole('button', { name: '继续发布准备' }));
+  const dialog = await findDialog('调整准备信息');
+  expect(within(dialog).queryByText('栏目地址')).not.toBeInTheDocument();
+  await userEvent.type(within(dialog).getByRole('textbox', { name: '操作说明' }), '继续使用当前运营账号');
+  await userEvent.click(within(dialog).getByRole('button', { name: '确认提交' }));
+
+  await waitFor(() => expect(submitted).toBeDefined());
+  await expect(submitted).resolves.toEqual({
+    platform_account_id: platformAccount.id,
+    expected_revision: preparingWork.revision,
+    comment: '继续使用当前运营账号',
+  });
 });
 
 test('深链内容不满足发布条件时明确引导配置目标平台账号', async () => {

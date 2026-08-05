@@ -128,12 +128,10 @@ class PublishedContentIssueResolution(StrEnum):
 class PublicationWorkCreate(ContractModel):
     content_version_id: uuid.UUID
     platform_account_id: uuid.UUID
-    section_url: HttpUrl
 
 
 class PublicationPreparationUpdate(ContractModel):
     platform_account_id: uuid.UUID
-    section_url: HttpUrl
     expected_revision: int = Field(ge=0)
     comment: NonblankText
 
@@ -272,7 +270,6 @@ class PublicationWorkListItem(ContractModel):
     platform_account_id: uuid.UUID
     platform_account_label: str
     account_identifier: str
-    section_url: HttpUrl
     actual_title: str | None
     final_url: HttpUrl | None
     published_at: datetime | None
@@ -356,7 +353,6 @@ class PublishedArticleListItem(ContractModel):
 
 
 class PublishedArticleOut(PublishedArticleListItem):
-    section_url: HttpUrl
     content_hash: str
     verification: PublicationVerificationOut
     issues: list[PublishedContentIssueHistoryItem]

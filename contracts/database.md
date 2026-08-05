@@ -302,6 +302,14 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 `content_task_geo_sources` 按内容任务一对一冻结 GEO 异常规则、分析周期、来源文章或问题、GEO 平台和结构化依据。来源行只允许插入，不允许更新或删除；创建服务必须重新计算当前洞察并与内容任务同事务写入。该迁移包含新的不可逆业务历史，downgrade 固定以 `55000` 拒绝，恢复使用迁移前备份或前向修复。
 
+### 0036 Remove Publication Section URL
+
+版本文件 `0036_remove_publication_section_url.py` 紧跟 `0035_business_workflow`，Alembic revision 为 `0036_remove_section_url`。该 revision 删除没有稳定跨平台含义的 `publication_works.section_url`；开始发布只绑定 `content_version_id` 与 `platform_account_id`，准备更新只允许变更账号并提交 revision 和说明。
+
+迁移先以 0035 的当前定义替换 `partsignal_guard_publication_work()`，仅从准备阶段冻结条件移除栏目地址比较，再删除列；账号冻结、身份不可变、结果登记、状态转换、终态冻结和历史不可删除规则保持不变。真实公开位置只由结果登记的 `final_url` 保存，并继续匹配具体平台允许域名。
+
+既有栏目地址按已确认的无效数据直接丢弃，不转存到影子列、JSON 或历史表。该值无法确定性恢复，downgrade 固定以 PostgreSQL `55000` 拒绝，恢复必须使用迁移前备份。
+
 ## State Machines
 
 ```text

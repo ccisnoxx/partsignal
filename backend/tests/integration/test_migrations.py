@@ -282,7 +282,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0035_business_workflow",)
+            assert cursor.fetchone() == ("0036_remove_section_url",)
             cursor.execute(
                 "SELECT tablename FROM pg_tables "
                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
@@ -435,10 +435,10 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
             text=True,
         )
         assert downgrade.returncode != 0
-        assert "0035 无法安全降级" in downgrade.stdout + downgrade.stderr
+        assert "0036 无法安全降级" in downgrade.stdout + downgrade.stderr
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0035_business_workflow",)
+            assert cursor.fetchone() == ("0036_remove_section_url",)
 
 
 @pytest.mark.integration
@@ -3670,6 +3670,119 @@ def test_business_workflow_migration_backfills_and_guards_authoritative_owners()
             )
             assert downgrade.returncode != 0
             assert "0035 无法安全降级" in downgrade.stdout + downgrade.stderr
+
+
+@pytest.mark.integration
+def test_remove_publication_section_url_migration_preserves_work_and_guards() -> None:
+    """0036 只删除栏目地址，并保留发布工作数据和最终守卫。"""
+    with temporary_database("partsignal_remove_section_url") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0034_publication_redesign")
+        ids = _seed_business_workflow_base(test_url)
+        work_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO publication_works "
+                "(id, idempotency_key, content_version_id, platform_profile_id, "
+                "platform_account_id, content_hash, section_url, status, revision, created_by) "
+                "VALUES (%s, %s, %s, %s, %s, %s, "
+                "'https://migration.invalid/section', 'PREPARING', 0, %s)",
+                (
+                    work_id,
+                    f"work-{work_id.hex}",
+                    ids["content"],
+                    ids["profile"],
+                    ids["account"],
+                    "a" * 64,
+                    ids["actor"],
+                ),
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "0035_business_workflow")
+        run_alembic(env, backend_dir, "0036_remove_section_url")
+
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'publication_works' "
+                "AND column_name = 'section_url'"
+            )
+            assert cursor.fetchone() is None
+            cursor.execute(
+                "SELECT content_task_id, content_version_id, platform_profile_id, "
+                "platform_account_id, content_hash, status, revision, created_by "
+                "FROM publication_works WHERE id = %s",
+                (work_id,),
+            )
+            assert cursor.fetchone() == (
+                ids["task"],
+                ids["content"],
+                ids["profile"],
+                ids["account"],
+                "a" * 64,
+                "PREPARING",
+                0,
+                ids["actor"],
+            )
+            cursor.execute(
+                "SELECT pg_get_functiondef("
+                "'partsignal_guard_publication_work()'::regprocedure)"
+            )
+            assert "section_url" not in cursor.fetchone()[0]
+
+            second_account_id = uuid.uuid4()
+            cursor.execute(
+                "INSERT INTO platform_accounts "
+                "(id, platform_profile_id, label, account_identifier, is_active, revision) "
+                "VALUES (%s, %s, '0036 迁移账号', %s, true, 0)",
+                (
+                    second_account_id,
+                    ids["profile"],
+                    f"account-{second_account_id.hex[:12]}",
+                ),
+            )
+            cursor.execute(
+                "UPDATE publication_works SET actual_title = '迁移内容', "
+                "final_url = 'https://migration.invalid/article', published_at = now(), "
+                "status = 'AWAITING_VERIFICATION', revision = 1 WHERE id = %s",
+                (work_id,),
+            )
+            connection.commit()
+
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE publication_works SET platform_account_id = %s, revision = 2 "
+                    "WHERE id = %s",
+                    (second_account_id, work_id),
+                )
+            connection.rollback()
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute("DELETE FROM publication_works WHERE id = %s", (work_id,))
+            connection.rollback()
+
+        downgrade = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "alembic",
+                "downgrade",
+                "0035_business_workflow",
+            ],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "0036 无法安全降级" in downgrade.stdout + downgrade.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("SELECT version_num FROM alembic_version")
+            assert cursor.fetchone() == ("0036_remove_section_url",)
 
 
 @pytest.mark.integration

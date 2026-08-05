@@ -30,6 +30,49 @@ class AuditOutcome(StrEnum):
     DENIED = "DENIED"
 
 
+RETAINED_AUDIT_ACTIONS = frozenset(
+    {
+        "user.created",
+        "user.updated",
+        "user.deleted",
+        "user.exported",
+        "user.password_changed",
+        "user.password_reset",
+        "ai_channel.created",
+        "ai_channel.updated",
+        "ai_channel.deleted",
+        "ai_channel.api_key_replaced",
+        "ai_channel.enabled",
+        "ai_channel.disabled",
+        "ai_channel_header.created",
+        "ai_channel_header.updated",
+        "ai_channel_header.deleted",
+        "ai_model.created",
+        "ai_model.updated",
+        "ai_model.deleted",
+        "ai_model.enabled",
+        "ai_model.disabled",
+        "platform_profile.enabled",
+        "platform_profile.disabled",
+        "platform_prompt.created",
+        "platform_prompt.updated",
+        "platform_prompt.deleted",
+        "content_humanization_prompt.saved",
+        "fact_version.approve",
+        "content_version.approve",
+        "publication_work.completed",
+        "product.deleted",
+        "fact_version.deleted",
+        "content_task.deleted",
+        "content_task.permanently_deleted",
+        "platform_type.deleted",
+        "platform_profile.deleted",
+        "platform_account.deleted",
+        "geo_observation.deleted",
+    }
+)
+
+
 @dataclass(frozen=True, slots=True)
 class AuditEntry:
     """一次追加式审计写入所需的完整字段。"""

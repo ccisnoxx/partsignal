@@ -89,7 +89,7 @@ const platformPrompt = {
   created_at: channel.created_at,
   updated_at: channel.updated_at,
   bound_platform_count: 1,
-  available_actions: ['UPDATE'] as const,
+  available_actions: ['UPDATE', 'DELETE'] as const,
   bound_platforms: [{ id: 'profile-ready', name: '工程师社区', slug: 'engineer-community' }],
 };
 const unusedPlatformPrompt = {
@@ -103,7 +103,7 @@ const unusedPlatformPrompt = {
 };
 const platforms = [
   { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: null, logo: null, revision: 0, is_active: false, platform_prompt: null, configuration_complete: false, platform_account_count: 0, workflow_stage: 'DISABLED' as const, primary_task: 'ENABLE_PLATFORM' as const, available_actions: ['UPDATE', 'ENABLE', 'DELETE'] as const, deletion: { blockers: [] }, updated_at: null },
-  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, workflow_stage: 'OPERATIONAL' as const, primary_task: 'VIEW_PLATFORM_OPERATION' as const, available_actions: ['UPDATE', 'DISABLE'] as const, deletion: { blockers: [{ type: 'CONTENT_TASK' as const, count: 3 }, { type: 'PLATFORM_ACCOUNT' as const, count: 2 }] }, updated_at: channel.updated_at },
+  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, workflow_stage: 'OPERATIONAL' as const, primary_task: 'VIEW_PLATFORM_OPERATION' as const, available_actions: ['UPDATE', 'DISABLE'] as const, deletion: { blockers: [{ type: 'CONTENT_TASK' as const, count: 3 }] }, updated_at: channel.updated_at },
 ];
 const humanizationPrompt = { template_markdown: '保持事实，只改善表达。', available_actions: ['UPDATE'] as const, revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
 let channelItems = [channelSummary];
@@ -114,7 +114,7 @@ let generationJobs: Schema<'GenerationJob'>[] = [];
 const previewTask: Schema<'ContentTaskListItem'> = {
   id: 'task-preview', product_id: 'product-1', fact_version_id: 'fact-1', platform_profile_id: 'profile-ready',
   query_topic_id: null,
-  source_published_content_issue_id: null, current_content_version_id: null, workflow_stage: 'NO_DRAFT', primary_task: 'CREATE_FIRST_DRAFT', available_actions: ['CREATE_GENERATION_JOB', 'CANCEL'], status: 'OPEN', revision: 1, created_by: 'user-1', created_at: channel.created_at,
+  source_published_content_issue_id: null, current_content_version_id: null, workflow_stage: 'NO_DRAFT', primary_task: 'CREATE_FIRST_DRAFT', available_actions: ['CREATE_GENERATION_JOB', 'CANCEL'], status: 'OPEN', archived_at: null, revision: 1, created_by: 'user-1', created_at: channel.created_at,
   deletion: null,
   product: { id: 'product-1', brand: 'PartSignal', part_number: 'PS-100' }, platform: { id: 'profile-ready', name: '工程师社区', website_url: platforms[1]!.website_url, logo: platforms[1]!.logo }, latest_generation_status: null,
 };
@@ -281,21 +281,20 @@ test('平台删除确认说明配置范围、保留对象和引用阻断', async
   await user.click(await screen.findByRole('button', { name: '更多操作：待配置平台' }));
   await user.click(await screen.findByRole('menuitem', { name: '删除平台' }));
   const dialog = await findRcDialog('删除平台“待配置平台”？');
-  expect(within(dialog).getByText('将删除平台配置；Prompt 模板不会随之删除。存在内容任务或平台账号引用时服务端会拒绝，既有历史不会被改写。此操作不可恢复。')).toBeInTheDocument();
+  expect(within(dialog).getByText('将删除平台配置及 0 个平台账号；不会删除内容任务、终态发布历史或 Prompt。此操作不可恢复。')).toBeInTheDocument();
   expect(within(dialog).queryByText(/物理删除/)).not.toBeInTheDocument();
   await user.click(within(dialog).getByRole('button', { name: /取\s*消/ }));
 });
 
-test('平台被引用时分别下钻内容任务和发布账号', async () => {
+test('平台存在进行中任务时只下钻任务引用', async () => {
   const user = userEvent.setup();
   renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
   await user.click(await screen.findByRole('button', { name: '更多操作：工程师社区' }));
   await user.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
   expect(screen.getByText('内容任务：3')).toBeInTheDocument();
-  expect(screen.getAllByRole('link', { name: '查看引用' }).map((link) => link.getAttribute('href'))).toEqual(expect.arrayContaining([
+  expect(screen.getAllByRole('link', { name: '查看引用' }).map((link) => link.getAttribute('href'))).toEqual([
     '/tasks?platform_profile_id=profile-ready',
-    '/settings?tab=accounts&platform_profile_id=profile-ready',
-  ]));
+  ]);
 });
 
 test('平台管理从 URL 请求服务端筛选并恢复聚合详情', async () => {
@@ -454,6 +453,24 @@ test('共享 Prompt 按 revision 保存、展示影响范围并保护本地草�
     }),
   ));
   expect(await screen.findByText('已保存')).toBeInTheDocument();
+});
+
+test('删除绑定中 Prompt 展示自动解绑平台范围', async () => {
+  const user = userEvent.setup();
+  renderWithQuery(<PlatformPromptsPage />, [`/configuration/prompts?tab=platform&platform_prompt_id=${platformPrompt.id}`]);
+  expect(await screen.findByDisplayValue(platformPrompt.template_markdown)).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: /删除 Prompt$/ }));
+  expect(await screen.findByText('将自动解绑 1 个平台：')).toBeInTheDocument();
+  expect(screen.getByText(/Prompt 前不能发起新内容生成/)).toBeInTheDocument();
+  expect(screen.getAllByText('工程师社区').length).toBeGreaterThan(1);
+  await user.click(screen.getAllByRole('button', { name: /删除 Prompt$/ }).at(-1)!);
+  await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
+    '/api/v1/platform-prompts/{platform_prompt_id}',
+    expect.objectContaining({ params: expect.objectContaining({
+      path: { platform_prompt_id: platformPrompt.id },
+      query: { expected_revision: platformPrompt.revision },
+    }) }),
+  ));
 });
 
 test('Prompt 草稿只确认一次后完成站内导航', async () => {

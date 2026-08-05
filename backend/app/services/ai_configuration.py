@@ -905,58 +905,20 @@ def test_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id: 
         )
     except AppError as error:
         test_status = "FAILED"
-        test_error_code: str | None = error.code
         error_summary: str | None = error.message[:500]
     else:
         test_status = "PASSED"
-        test_error_code = None
         error_summary = None
     # 外部调用期间配置可能被其他事务修改；当前会话不会在 commit 后自动过期对象。
     db.expire_all()
     model, channel = lock_model_configuration(db, model_id)
     if model.revision != model_revision or channel.revision != channel_revision:
-        append_audit(
-            db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.CONFIGURATION,
-                action="ai_model.tested",
-                target_type="AIModel",
-                target_id=model.id,
-                request_id=request_id,
-                outcome=AuditOutcome.FAILED,
-                result_message="AI 模型测试失败",
-                error_code="REVISION_CONFLICT",
-                details={"facts": {"channel_id": str(channel.id)}},
-            ),
-        )
-        db.commit()
         raise AppError("REVISION_CONFLICT", "测试期间 AI 配置已变更，请重新测试", 409)
     model.test_status = test_status
     model.last_test_error_summary = error_summary
     model.last_tested_at = datetime.now(UTC)
     model.is_enabled = False
     model.revision += 1
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_model.tested",
-            target_type="AIModel",
-            target_id=model.id,
-            request_id=request_id,
-            outcome=(AuditOutcome.FAILED if test_status == "FAILED" else AuditOutcome.SUCCESS),
-            result_message=("AI 模型测试失败" if test_status == "FAILED" else "AI 模型测试通过"),
-            error_code=test_error_code,
-            details={
-                "facts": {
-                    "channel_id": str(channel.id),
-                    "test_status": test_status,
-                }
-            },
-        ),
-    )
     db.commit()
     return model
 
@@ -964,54 +926,20 @@ def test_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id: 
 def discover_ai_channel_models(
     *, db: Session, channel_id: uuid.UUID, actor: User, request_id: str
 ) -> list[str]:
-    """使用渠道真实配置发现模型，并为成功或安全失败追加审计。"""
+    """使用渠道真实配置发现模型。"""
     channel = db.get(AIChannel, channel_id)
     if channel is None:
         raise not_found("AI 渠道")
     require_supported_protocol(channel.protocol_type)
     api_key, headers = request_credentials(db, channel)
-    try:
-        model_ids = OpenAICompatibleClient(
-            allow_local_http=settings.ai_allow_local_http
-        ).discover_models(
-            base_url=channel.base_url,
-            api_key=api_key,
-            headers=headers,
-            timeout_seconds=channel.timeout_seconds,
-        )
-    except AppError as error:
-        append_audit(
-            db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.CONFIGURATION,
-                action="ai_channel.models_discovered",
-                target_type="AIChannel",
-                target_id=channel.id,
-                request_id=request_id,
-                outcome=AuditOutcome.FAILED,
-                result_message="AI 模型发现失败",
-                error_code=error.code,
-            ),
-        )
-        db.commit()
-        raise
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="ai_channel.models_discovered",
-            target_type="AIChannel",
-            target_id=channel.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="AI 模型发现完成",
-            details={"facts": {"model_count": len(model_ids)}},
-        ),
+    return OpenAICompatibleClient(
+        allow_local_http=settings.ai_allow_local_http
+    ).discover_models(
+        base_url=channel.base_url,
+        api_key=api_key,
+        headers=headers,
+        timeout_seconds=channel.timeout_seconds,
     )
-    db.commit()
-    return model_ids
 
 
 def set_model_enabled(

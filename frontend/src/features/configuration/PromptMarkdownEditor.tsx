@@ -1,7 +1,7 @@
 /** Prompt Markdown 的唯一正文编辑器，提供行号、草稿统计和显式保存状态。 */
 import { DeleteOutlined, SaveOutlined } from '@ant-design/icons';
 import { Alert, Button, Popconfirm, Space, Typography } from 'antd';
-import { useMemo, useState, type UIEvent } from 'react';
+import { useMemo, useState, type ReactNode, type UIEvent } from 'react';
 
 export type PromptSaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'error' | 'conflict';
 
@@ -24,6 +24,7 @@ type PromptMarkdownEditorProps = {
   outputLength: string;
   canDelete?: boolean;
   deleting?: boolean;
+  deleteDescription?: ReactNode;
   onChange: (value: string) => void;
   onSave: () => void;
   onDelete?: () => void;
@@ -40,6 +41,7 @@ export function PromptMarkdownEditor({
   outputLength,
   canDelete,
   deleting,
+  deleteDescription,
   onChange,
   onSave,
   onDelete,
@@ -69,7 +71,7 @@ export function PromptMarkdownEditor({
       <Space size={8} wrap>
         {canDelete && onDelete && <Popconfirm
           title="删除当前 Prompt？"
-          description="仅未被平台绑定的 Prompt 可以删除；历史生成快照不会被改写。"
+          description={deleteDescription ?? '删除后不可恢复；历史生成快照不会被改写。'}
           okText="删除 Prompt"
           cancelText="取消"
           okButtonProps={{ danger: true, loading: deleting }}

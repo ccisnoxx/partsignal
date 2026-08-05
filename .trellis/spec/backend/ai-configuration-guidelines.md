@@ -41,7 +41,7 @@
 - 渠道和生成页面统一展示 `AT_MOST_ONCE + 显式手动重试`。发送前可在同次已批准地址集合内建立连接；开始发送后不自动重放。用户重试必须创建带 `retry_of_id` 的新作业并复制原快照，不能增加“重试次数”渠道字段。
 - 只有绑定 `FactVersion.classification=PUBLIC` 且 Markdown 正文非空时才能调用第三方模型；任务不保存第二份分级、用户 Prompt 或结构化事实副本。
 - 平台 Prompt 是可复用模板库：`GET/POST /api/v1/platform-prompts` 与 `GET/PUT/DELETE /api/v1/platform-prompts/{platform_prompt_id}`。一个平台通过可空 `platform_prompt_id` 最多绑定一份当前模板，一份模板可绑定多个平台；不得恢复类型级 Prompt、双读、默认 Prompt 或兼容回退。
-- Prompt 名称全局唯一。PUT 与 DELETE 都必须携带当前 `expected_revision`；服务锁定模板行后比较修订号，过期命令返回 `REVISION_CONFLICT`。被任一平台绑定的模板不得删除，平台删除或换绑不得级联删除模板。
+- Prompt 名称全局唯一。PUT 与 DELETE 都必须携带当前 `expected_revision`；服务锁定模板行后比较修订号，过期命令返回 `REVISION_CONFLICT`。Prompt 删除与平台换绑复用同一个事务 advisory lock；删除会原子解绑全部当前平台并递增平台 revision，平台删除仍不级联删除模板。
 - 平台集合的可空 `platform_prompt` 摘要只能批量投影当前外键目标；配置完整性只由绑定是否存在派生，不得保存 `prompt_configured`、`prompt_updated_at` 或其他平行汇总字段。
 - 文章自然化只使用 `content_humanization_prompts.id=1` 的全局当前 Prompt。迁移不得种子默认值；管理员通过 `GET/PUT /api/v1/content-humanization-prompt` 首次创建或按 revision 更新，不提供删除、平台副本、用户临时 Prompt 或代码回退。
 - 配置页输出预览必须创建现有 `GENERATE` 或 `HUMANIZE` 作业，并按任务级作业列表中的返回 Job ID 轮询后读取不可变 `ContentVersion`；不得新增无痕模型调用、预览专用结果源，或为显示预览读取含完整输入快照的作业详情。未保存的 Prompt 草稿不能用于预览。
@@ -94,7 +94,7 @@
 - 迁移测试：`0008_files -> head` 账号映射、旧权限表删除、新配置表/约束/触发器和有损回滚策略。
 - 契约测试：`make contract-check` 验证 FastAPI/OpenAPI 语义和前端生成类型无漂移。
 - 端到端测试：真实 HTTP 测试替身完成模型发现、测试和生成；确定性生成器只用于明确的单元/开发场景，不能伪装成真实云端成功。
-- Prompt 管理断言：平台列表批量返回当前模板摘要，共享更新列出全部受影响平台，绑定模板拒绝删除，未绑定模板按 revision 删除；配置页两类输出预览创建真实作业和 AI `DRAFT`，并对 Markdown 结果做安全清理。
+- Prompt 管理断言：平台列表批量返回当前模板摘要，共享更新列出全部受影响平台，绑定模板按 revision 原子解绑删除并使新生成显式缺配置，历史作业快照不变；配置页两类输出预览创建真实作业和 AI `DRAFT`，并对 Markdown 结果做安全清理。
 - 并发断言：作业创建锁定任务并读取当前平台 Prompt 与冻结事实；过期租约后的迟到响应不能写入成功结果。
 - 恢复断言：首次投递缺失、Broker 已接受但元数据未提交、重复消息和并发恢复均至多产生一次供应商调用和一个内容版本。
 - 模型测试并发断言：外部调用期间配置可更新，但旧测试结果不得覆盖更新后的 `UNTESTED` 状态。

@@ -298,8 +298,9 @@ def seed_generation_job(
         cursor.execute(
             "INSERT INTO content_tasks "
             "(id, query_topic_id, product_id, fact_version_id, platform_profile_id, "
+            "platform_profile_name_snapshot, platform_website_url_snapshot, "
             "status, revision, created_by) "
-            "VALUES (%s, %s, %s, %s, %s, 'OPEN', 0, %s)",
+            "VALUES (%s, %s, %s, %s, %s, '测试平台', NULL, 'OPEN', 0, %s)",
             (
                 ids["task"],
                 ids["topic"],

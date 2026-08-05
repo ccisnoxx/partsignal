@@ -928,6 +928,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content-tasks/{content_task_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["archiveContentTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-tasks/{content_task_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restoreContentTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-tasks/{content_task_id}/permanent-deletion-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getContentTaskPermanentDeletionPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/content-tasks/{content_task_id}/permanent-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["permanentlyDeleteContentTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content-tasks/{content_task_id}/generation-jobs": {
         parameters: {
             query?: never;
@@ -2472,6 +2536,8 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** Format: uuid */
+            platform_profile_id: string | null;
+            /** Format: uuid */
             query_topic_id: string | null;
             /** Format: uuid */
             source_published_content_issue_id: string | null;
@@ -2481,7 +2547,7 @@ export interface components {
             workflow_stage: "NO_DRAFT" | "GENERATING" | "GENERATION_FAILED" | "DRAFT" | "REVIEW_PENDING" | "CHANGES_REQUESTED" | "APPROVED" | "PUBLISHING" | "VERIFIED" | "CANCELLED";
             /** @enum {string} */
             primary_task: "CREATE_FIRST_DRAFT" | "VIEW_GENERATION_PROGRESS" | "HANDLE_GENERATION_FAILURE" | "EDIT_AND_SUBMIT_REVIEW" | "REVIEW_CONTENT" | "REVISE_CONTENT" | "START_PUBLICATION" | "CONTINUE_PUBLICATION" | "VIEW_FULL_LINEAGE" | "VIEW_CANCELLATION";
-            available_actions: ("CANCEL" | "DELETE" | "CREATE_GENERATION_JOB" | "CREATE_MANUAL_VERSION")[];
+            available_actions: ("CANCEL" | "DELETE" | "ARCHIVE" | "RESTORE" | "PERMANENT_DELETE" | "CREATE_GENERATION_JOB" | "CREATE_MANUAL_VERSION")[];
             deletion: components["schemas"]["DeletionProjection"] | null;
             status: components["schemas"]["ContentTaskStatus"];
             revision: number;
@@ -2489,6 +2555,8 @@ export interface components {
             created_by: string;
             /** Format: date-time */
             created_at: string;
+            /** Format: date-time */
+            archived_at: string | null;
         };
         ContentTaskList: {
             items: components["schemas"]["ContentTaskListItem"][];
@@ -2501,7 +2569,7 @@ export interface components {
         };
         ContentTaskPlatformSummary: {
             /** Format: uuid */
-            id: string;
+            id: string | null;
             name: string;
             /** Format: uri */
             website_url: string | null;
@@ -2511,6 +2579,32 @@ export interface components {
             product: components["schemas"]["ContentTaskProductSummary"];
             platform: components["schemas"]["ContentTaskPlatformSummary"];
             latest_generation_status: components["schemas"]["GenerationJobStatus"] | null;
+        };
+        ContentTaskPermanentDeletionCounts: {
+            content_versions: number;
+            content_review_records: number;
+            generation_jobs: number;
+            publication_works: number;
+            publication_events: number;
+            publication_verifications: number;
+            published_articles: number;
+            published_content_issues: number;
+            geo_article_relations: number;
+            exclusive_geo_observation_chains: number;
+            attachment_relations: number;
+        };
+        ContentTaskPermanentDeletionPreview: {
+            /** Format: uuid */
+            task_id: string;
+            revision: number;
+            counts: components["schemas"]["ContentTaskPermanentDeletionCounts"];
+            external_urls: string[];
+            /** @constant */
+            confirmation_text: "永久删除";
+        };
+        ContentTaskPermanentDeleteRequest: {
+            expected_revision: number;
+            confirmation_text: string;
         };
         GenerationOptionModel: {
             /** Format: uuid */
@@ -2976,14 +3070,14 @@ export interface components {
              * Platform Profile Id
              * Format: uuid
              */
-            platform_profile_id: string;
+            platform_profile_id: string | null;
             /** Platform Profile Name */
             platform_profile_name: string;
             /**
              * Platform Account Id
              * Format: uuid
              */
-            platform_account_id: string;
+            platform_account_id: string | null;
             /** Platform Account Label */
             platform_account_label: string;
             /** Account Identifier */
@@ -3154,14 +3248,14 @@ export interface components {
              * Platform Profile Id
              * Format: uuid
              */
-            platform_profile_id: string;
+            platform_profile_id: string | null;
             /** Platform Profile Name */
             platform_profile_name: string;
             /**
              * Platform Account Id
              * Format: uuid
              */
-            platform_account_id: string;
+            platform_account_id: string | null;
             /** Platform Account Label */
             platform_account_label: string;
             /** Account Identifier */
@@ -3300,14 +3394,14 @@ export interface components {
              * Platform Profile Id
              * Format: uuid
              */
-            platform_profile_id: string;
+            platform_profile_id: string | null;
             /** Platform Profile Name */
             platform_profile_name: string;
             /**
              * Platform Account Id
              * Format: uuid
              */
-            platform_account_id: string;
+            platform_account_id: string | null;
             /** Platform Account Label */
             platform_account_label: string;
             /** Account Identifier */
@@ -3372,14 +3466,14 @@ export interface components {
              * Platform Profile Id
              * Format: uuid
              */
-            platform_profile_id: string;
+            platform_profile_id: string | null;
             /** Platform Profile Name */
             platform_profile_name: string;
             /**
              * Platform Account Id
              * Format: uuid
              */
-            platform_account_id: string;
+            platform_account_id: string | null;
             /** Platform Account Label */
             platform_account_label: string;
             /** Account Identifier */
@@ -5362,7 +5456,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 已删除未被任何平台绑定的 Prompt */
+            /** @description 已原子解绑全部平台并删除 Prompt */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -6135,6 +6229,8 @@ export interface operations {
                 filter_product_id?: string;
                 /** @description 仅返回直接绑定该事实版本的内容任务 */
                 filter_fact_version_id?: string;
+                /** @description 默认只返回当前任务；归档视图必须显式选择 */
+                archive_status?: "ACTIVE" | "ARCHIVED" | "ALL";
             };
             header?: never;
             path?: never;
@@ -6217,7 +6313,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 已删除已取消任务及其未批准、未发布的任务自有生产历史 */
+            /** @description 已删除未成功发布的完整内部任务聚合 */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -6276,6 +6372,119 @@ export interface operations {
                 };
             };
             409: components["responses"]["ErrorResponse"];
+        };
+    };
+    archiveContentTask: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                content_task_id: components["parameters"]["ContentTaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RevisionRequest"];
+        responses: {
+            /** @description 已归档完成任务，仅改变默认可见性 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTask"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    restoreContentTask: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                content_task_id: components["parameters"]["ContentTaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RevisionRequest"];
+        responses: {
+            /** @description 已恢复归档任务，不改变业务状态 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTask"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    getContentTaskPermanentDeletionPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                content_task_id: components["parameters"]["ContentTaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已归档任务的实时内部删除范围和登记 URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTaskPermanentDeletionPreview"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    permanentlyDeleteContentTask: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                content_task_id: components["parameters"]["ContentTaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentTaskPermanentDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description 已永久删除内部任务聚合；不处理外部页面 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listGenerationJobs: {

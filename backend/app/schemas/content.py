@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from enum import StrEnum
 from typing import Annotated, Any, Literal
 
 from pydantic import Field, HttpUrl, model_validator
@@ -16,6 +17,14 @@ from app.schemas.product_facts import Confidentiality, FactVersionOut
 GenerationJobStatus = Literal["PENDING", "RUNNING", "SUCCEEDED", "FAILED"]
 
 
+class ContentTaskArchiveStatus(StrEnum):
+    """任务列表的归档可见范围。"""
+
+    ACTIVE = "ACTIVE"
+    ARCHIVED = "ARCHIVED"
+    ALL = "ALL"
+
+
 ContentTag = Annotated[str, Field(min_length=1, pattern=r"\S")]
 
 
@@ -25,7 +34,10 @@ class ContentTaskCreate(ContractModel):
     platform_profile_id: uuid.UUID
 
 
-class ContentTaskOut(ContentTaskCreate):
+class ContentTaskOut(ContractModel):
+    product_id: uuid.UUID
+    fact_version_id: uuid.UUID
+    platform_profile_id: uuid.UUID | None
     id: uuid.UUID
     query_topic_id: uuid.UUID | None
     source_published_content_issue_id: uuid.UUID | None
@@ -55,13 +67,22 @@ class ContentTaskOut(ContentTaskCreate):
         "VIEW_CANCELLATION",
     ]
     available_actions: list[
-        Literal["CANCEL", "DELETE", "CREATE_GENERATION_JOB", "CREATE_MANUAL_VERSION"]
+        Literal[
+            "CANCEL",
+            "DELETE",
+            "ARCHIVE",
+            "RESTORE",
+            "PERMANENT_DELETE",
+            "CREATE_GENERATION_JOB",
+            "CREATE_MANUAL_VERSION",
+        ]
     ]
     deletion: DeletionProjection | None
     status: Literal["OPEN", "COMPLETED", "CANCELLED"]
     revision: int
     created_by: uuid.UUID
     created_at: datetime
+    archived_at: datetime | None
 
 
 class ContentTaskProductSummary(ContractModel):
@@ -71,7 +92,7 @@ class ContentTaskProductSummary(ContractModel):
 
 
 class ContentTaskPlatformSummary(ContractModel):
-    id: uuid.UUID
+    id: uuid.UUID | None
     name: str
     website_url: HttpUrl | None
     logo: PlatformLogoOut | None
@@ -85,6 +106,35 @@ class ContentTaskListItem(ContentTaskOut):
 
 class ContentTaskList(ContractModel):
     items: list[ContentTaskListItem]
+
+
+class ContentTaskPermanentDeletionCounts(ContractModel):
+    """管理员永久删除前展示的内部记录范围。"""
+
+    content_versions: int = Field(ge=0)
+    content_review_records: int = Field(ge=0)
+    generation_jobs: int = Field(ge=0)
+    publication_works: int = Field(ge=0)
+    publication_events: int = Field(ge=0)
+    publication_verifications: int = Field(ge=0)
+    published_articles: int = Field(ge=0)
+    published_content_issues: int = Field(ge=0)
+    geo_article_relations: int = Field(ge=0)
+    exclusive_geo_observation_chains: int = Field(ge=0)
+    attachment_relations: int = Field(ge=0)
+
+
+class ContentTaskPermanentDeletionPreview(ContractModel):
+    task_id: uuid.UUID
+    revision: int = Field(ge=0)
+    counts: ContentTaskPermanentDeletionCounts
+    external_urls: list[HttpUrl]
+    confirmation_text: Literal["永久删除"]
+
+
+class ContentTaskPermanentDeleteRequest(ContractModel):
+    expected_revision: int = Field(ge=0)
+    confirmation_text: str
 
 
 class GenerationOptionModel(ContractModel):

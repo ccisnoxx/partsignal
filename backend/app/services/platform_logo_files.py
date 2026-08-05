@@ -14,8 +14,6 @@ from PIL import Image, UnidentifiedImageError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.audit import append_audit
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
 from app.errors import AppError
 from app.models.geo_files import FileRecord
@@ -223,27 +221,6 @@ def create_platform_logo_candidate(
     persisted_file.status = "VERIFIED"
     persisted_file.verified_at = verified_at
     persisted_file.cleanup_after = verified_at + UNCONFIRMED_RETENTION
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="platform_logo.candidate_imported",
-            target_type="FileRecord",
-            target_id=persisted_file.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="平台官网 Logo 候选已导入",
-            details={
-                "facts": {
-                    "provider": "ICON_HORSE",
-                    "hostname": hostname,
-                    "content_type": content_type,
-                    "size": len(data),
-                }
-            },
-        ),
-    )
     db.commit()
     expires_at = datetime.now(UTC) + timedelta(seconds=settings.download_url_ttl_seconds)
     return PlatformLogoCandidate(

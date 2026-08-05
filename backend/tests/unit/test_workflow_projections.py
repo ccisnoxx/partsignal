@@ -117,16 +117,10 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
     assert deletable_product.available_actions == ["UPDATE", "DELETE"]
     assert deletable_product.deletion.model_dump() == {"blockers": []}
 
-    product_session = _ScalarSequenceSession(
-        [[(product.id, "CONTENT_TASK", 2)], []]
-    )
-    product_out = products_out(
-        cast(Session, product_session), [product], can_delete=True
-    )[0]
+    product_session = _ScalarSequenceSession([[(product.id, "CONTENT_TASK", 2)], []])
+    product_out = products_out(cast(Session, product_session), [product], can_delete=True)[0]
     assert product_out.available_actions == ["UPDATE"]
-    assert product_out.deletion.model_dump() == {
-        "blockers": [{"type": "CONTENT_TASK", "count": 2}]
-    }
+    assert product_out.deletion.model_dump() == {"blockers": [{"type": "CONTENT_TASK", "count": 2}]}
 
     fact = _fact(product)
     fact_out = fact_versions_out(
@@ -135,9 +129,7 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
         can_delete=True,
     )[0]
     assert "DELETE" not in fact_out.available_actions
-    assert fact_out.deletion.model_dump() == {
-        "blockers": [{"type": "CONTENT_VERSION", "count": 3}]
-    }
+    assert fact_out.deletion.model_dump() == {"blockers": [{"type": "CONTENT_VERSION", "count": 3}]}
 
     now = datetime(2026, 8, 4, tzinfo=UTC)
     platform_type = PlatformType(
@@ -170,17 +162,12 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
         is_active=True,
     )
     profile_session = _ScalarSequenceSession(
-        [[], [], [], [(profile.id, 2)], [(profile.id, 3)], []]
+        [[], [], [], [(profile.id, 2)], [(profile.id, 3)], [], []]
     )
-    profile_out = platform_profiles_out(
-        cast(Session, profile_session), [profile], can_manage=True
-    )[0]
-    assert profile_out.deletion.model_dump() == {
-        "blockers": [
-            {"type": "CONTENT_TASK", "count": 3},
-            {"type": "PLATFORM_ACCOUNT", "count": 2},
-        ]
-    }
+    profile_out = platform_profiles_out(cast(Session, profile_session), [profile], can_manage=True)[
+        0
+    ]
+    assert profile_out.deletion.model_dump() == {"blockers": [{"type": "CONTENT_TASK", "count": 3}]}
 
     account = PlatformAccount(
         id=uuid.uuid4(),
@@ -204,6 +191,8 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
         product_id=product.id,
         fact_version_id=fact.id,
         platform_profile_id=profile.id,
+        platform_profile_name_snapshot=profile.name,
+        platform_website_url_snapshot=None,
         status="CANCELLED",
         revision=0,
         created_by=uuid.uuid4(),
@@ -221,15 +210,15 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
                     [],
                     [],
                     [],
-                    [(task.id, "GEO_OPTIMIZATION_SOURCE", 2)],
+                    [],
+                    [],
                 ]
             ),
         ),
         [task],
     )[0]
-    assert task_out.deletion.model_dump() == {
-        "blockers": [{"type": "GEO_OPTIMIZATION_SOURCE", "count": 2}]
-    }
+    assert task_out.deletion.model_dump() == {"blockers": []}
+    assert "DELETE" in task_out.available_actions
 
     actor = User(
         id=uuid.uuid4(),
@@ -263,9 +252,7 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
                 {"tuples": lambda self: [(disabled.id, 5)]},
             )()
 
-    disabled_out = users_out(
-        cast(Session, UserProjectionSession()), [disabled], actor=actor
-    )[0]
+    disabled_out = users_out(cast(Session, UserProjectionSession()), [disabled], actor=actor)[0]
     assert disabled_out.deletion.model_dump() == {
         "blockers": [{"type": "USER_BUSINESS_HISTORY", "count": 5}]
     }
@@ -283,8 +270,8 @@ def test_product_deletion_projection_keeps_fixed_query_count_for_multiple_rows()
     assert one.scalar_calls == many.scalar_calls == 2
 
 
-def test_content_task_delete_locks_then_rechecks_geo_source_blocker() -> None:
-    """删除任务必须锁定目标，并按命令时事实报告 GEO 来源引用。"""
+def test_completed_content_task_delete_requires_archive_before_scope_query() -> None:
+    """已完成任务不能绕过归档直接进入聚合删除。"""
     product = _product()
     fact = _fact(product)
     task = ContentTask(
@@ -292,7 +279,9 @@ def test_content_task_delete_locks_then_rechecks_geo_source_blocker() -> None:
         product_id=product.id,
         fact_version_id=fact.id,
         platform_profile_id=uuid.uuid4(),
-        status="CANCELLED",
+        platform_profile_name_snapshot="历史平台",
+        platform_website_url_snapshot=None,
+        status="COMPLETED",
         revision=0,
         created_by=uuid.uuid4(),
         created_at=datetime(2026, 8, 4, tzinfo=UTC),
@@ -300,15 +289,12 @@ def test_content_task_delete_locks_then_rechecks_geo_source_blocker() -> None:
 
     class DeleteSession:
         def __init__(self) -> None:
-            self.scalar_values = iter([task, 0, 2])
+            self.scalar_values = iter([task])
             self.scalar_statements: list[object] = []
 
         def scalar(self, statement: object) -> object:
             self.scalar_statements.append(statement)
             return next(self.scalar_values)
-
-        def scalars(self, _statement: object) -> list[object]:
-            return []
 
     session = DeleteSession()
     actor = User(id=uuid.uuid4(), account_type="ADMIN")
@@ -322,10 +308,7 @@ def test_content_task_delete_locks_then_rechecks_geo_source_blocker() -> None:
         )
 
     assert "FOR UPDATE" in str(session.scalar_statements[0])
-    assert error.value.code == "CONTENT_TASK_IN_USE"
-    assert error.value.details == {
-        "references": [{"type": "GEO_OPTIMIZATION_SOURCE", "count": 2}]
-    }
+    assert error.value.code == "CONTENT_TASK_REQUIRES_ARCHIVE"
 
 
 def test_publication_reference_filter_includes_terminal_history() -> None:
@@ -374,6 +357,8 @@ def _content_projection(rows: int) -> tuple[list[str], int]:
         product_id=product.id,
         fact_version_id=fact.id,
         platform_profile_id=uuid.uuid4(),
+        platform_profile_name_snapshot="内容平台",
+        platform_website_url_snapshot=None,
         status="OPEN",
         revision=0,
         created_by=uuid.uuid4(),
@@ -435,12 +420,15 @@ def test_ai_channel_stage_is_exhaustive(
     passed_model_count: int,
     expected: tuple[str, str],
 ) -> None:
-    assert ai_channel_stage(
-        is_enabled=is_enabled,
-        api_key_configured=api_key_configured,
-        model_count=model_count,
-        passed_model_count=passed_model_count,
-    ) == expected
+    assert (
+        ai_channel_stage(
+            is_enabled=is_enabled,
+            api_key_configured=api_key_configured,
+            model_count=model_count,
+            passed_model_count=passed_model_count,
+        )
+        == expected
+    )
 
 
 def test_ai_model_stage_requires_channel_and_model_readiness() -> None:

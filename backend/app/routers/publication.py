@@ -9,10 +9,8 @@ from typing import Annotated
 from fastapi import APIRouter, Header, Query, Request, status
 from sqlalchemy import select
 
-from app.audit import commit_audit
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser, assert_account_types
-from app.errors import AppError, not_found
+from app.errors import not_found
 from app.models.identity import User
 from app.models.publication import (
     PlatformAccount,
@@ -101,60 +99,14 @@ router = APIRouter(prefix="/api/v1", tags=["publication"])
 ContentEditor = EngineerUser
 
 
-def _commit_command_failure(
-    *,
-    db: DbSession,
-    actor_id: uuid.UUID,
-    request_id: str,
-    action: str,
-    target_type: str,
-    target_id: uuid.UUID | None,
-    error: AppError,
-) -> None:
-    """回滚业务事务后独立记录关键发布命令失败。"""
-    db.rollback()
-    denied = error.code == "PERMISSION_DENIED"
-    commit_audit(
-        db,
-        AuditEntry(
-            actor_id=actor_id,
-            business_module=AuditModule.PUBLICATION,
-            action=action,
-            target_type=target_type,
-            target_id=target_id,
-            request_id=request_id,
-            outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
-            result_message="发布命令被拒绝" if denied else "发布命令未完成",
-            error_code=error.code,
-        ),
-    )
-
-
 def _run_publication_command[CommandResult](
     *,
-    db: DbSession,
     actor: User,
-    request_id: str,
-    action: str,
-    target_type: str,
-    target_id: uuid.UUID | None,
     command: Callable[[], CommandResult],
 ) -> CommandResult:
-    """执行关键发布命令，并在业务事务失败后独立保存审计。"""
-    try:
-        assert_account_types(actor, (AccountType.ADMIN, AccountType.ENGINEER))
-        return command()
-    except AppError as error:
-        _commit_command_failure(
-            db=db,
-            actor_id=actor.id,
-            request_id=request_id,
-            action=action,
-            target_type=target_type,
-            target_id=target_id,
-            error=error,
-        )
-        raise
+    """执行工程师或管理员发布命令。"""
+    assert_account_types(actor, (AccountType.ADMIN, AccountType.ENGINEER))
+    return command()
 
 
 @router.get(
@@ -352,25 +304,13 @@ def delete_platform_account(
     admin: CurrentUser,
     _csrf: CsrfProtected,
 ) -> None:
-    try:
-        assert_account_types(admin, (AccountType.ADMIN,))
-        delete_platform_account_command(
-            db=db,
-            platform_account_id=platform_account_id,
-            actor=admin,
-            request_id=request.state.request_id,
-        )
-    except AppError as error:
-        _commit_command_failure(
-            db=db,
-            actor_id=admin.id,
-            request_id=request.state.request_id,
-            action="platform_account.deleted",
-            target_type="PlatformAccount",
-            target_id=platform_account_id,
-            error=error,
-        )
-        raise
+    assert_account_types(admin, (AccountType.ADMIN,))
+    delete_platform_account_command(
+        db=db,
+        platform_account_id=platform_account_id,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
 
 
 @router.post(
@@ -387,26 +327,14 @@ def create_work(
     _csrf: CsrfProtected,
     idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
 ) -> PublicationWorkOut:
-    try:
-        assert_account_types(editor, (AccountType.ADMIN, AccountType.ENGINEER))
-        return create_publication_work(
-            db=db,
-            payload=payload,
-            actor=editor,
-            request_id=request.state.request_id,
-            idempotency_key=idempotency_key,
-        )
-    except AppError as error:
-        _commit_command_failure(
-            db=db,
-            actor_id=editor.id,
-            request_id=request.state.request_id,
-            action="publication_work.created",
-            target_type="PublicationWork",
-            target_id=None,
-            error=error,
-        )
-        raise
+    assert_account_types(editor, (AccountType.ADMIN, AccountType.ENGINEER))
+    return create_publication_work(
+        db=db,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+        idempotency_key=idempotency_key,
+    )
 
 
 @router.get(
@@ -461,12 +389,7 @@ def update_preparation(
     _csrf: CsrfProtected,
 ) -> PublicationWorkOut:
     return _run_publication_command(
-        db=db,
         actor=editor,
-        request_id=request.state.request_id,
-        action="publication_work.preparation_updated",
-        target_type="PublicationWork",
-        target_id=work_id,
         command=lambda: update_publication_preparation(
             db=db,
             work_id=work_id,
@@ -491,12 +414,7 @@ def mark_platform_review(
     _csrf: CsrfProtected,
 ) -> PublicationWorkOut:
     return _run_publication_command(
-        db=db,
         actor=editor,
-        request_id=request.state.request_id,
-        action="publication_work.platform_review_marked",
-        target_type="PublicationWork",
-        target_id=work_id,
         command=lambda: mark_publication_platform_review(
             db=db,
             work_id=work_id,
@@ -521,12 +439,7 @@ def register_result(
     _csrf: CsrfProtected,
 ) -> PublicationWorkOut:
     return _run_publication_command(
-        db=db,
         actor=editor,
-        request_id=request.state.request_id,
-        action="publication_work.result_registered",
-        target_type="PublicationWork",
-        target_id=work_id,
         command=lambda: register_publication_result(
             db=db,
             work_id=work_id,
@@ -551,12 +464,7 @@ def switch_content_version(
     _csrf: CsrfProtected,
 ) -> PublicationWorkOut:
     return _run_publication_command(
-        db=db,
         actor=editor,
-        request_id=request.state.request_id,
-        action="publication_work.content_version_changed",
-        target_type="PublicationWork",
-        target_id=work_id,
         command=lambda: switch_publication_content_version(
             db=db,
             work_id=work_id,
@@ -581,16 +489,7 @@ def verify_work(
     _csrf: CsrfProtected,
 ) -> PublicationWorkOut:
     return _run_publication_command(
-        db=db,
         actor=editor,
-        request_id=request.state.request_id,
-        action=(
-            "publication_work.verification_failed"
-            if payload.outcome.value == "FAILED"
-            else "publication_work.completed"
-        ),
-        target_type="PublicationWork",
-        target_id=work_id,
         command=lambda: verify_publication_work(
             db=db,
             work_id=work_id,
@@ -615,12 +514,7 @@ def close_work(
     _csrf: CsrfProtected,
 ) -> PublicationWorkOut:
     return _run_publication_command(
-        db=db,
         actor=editor,
-        request_id=request.state.request_id,
-        action="publication_work.closed",
-        target_type="PublicationWork",
-        target_id=work_id,
         command=lambda: close_publication_work(
             db=db,
             work_id=work_id,
@@ -674,12 +568,7 @@ def open_content_issue(
     _csrf: CsrfProtected,
 ) -> PublishedContentIssueOut:
     return _run_publication_command(
-        db=db,
         actor=editor,
-        request_id=request.state.request_id,
-        action="published_content_issue.opened",
-        target_type="PublishedArticle",
-        target_id=article_id,
         command=lambda: open_published_content_issue(
             db=db,
             article_id=article_id,
@@ -754,12 +643,7 @@ def create_published_content_repair_task(
     _csrf: CsrfProtected,
 ) -> ContentTaskOut:
     task = _run_publication_command(
-        db=db,
         actor=editor,
-        request_id=request.state.request_id,
-        action="published_content_issue.repair_task_created",
-        target_type="PublishedContentIssue",
-        target_id=issue_id,
         command=lambda: create_repair_task(
             db=db,
             issue_id=issue_id,
@@ -785,12 +669,7 @@ def resolve_content_issue(
     _csrf: CsrfProtected,
 ) -> PublishedContentIssueOut:
     return _run_publication_command(
-        db=db,
         actor=editor,
-        request_id=request.state.request_id,
-        action="published_content_issue.resolved",
-        target_type="PublishedContentIssue",
-        target_id=issue_id,
         command=lambda: resolve_published_content_issue(
             db=db,
             issue_id=issue_id,

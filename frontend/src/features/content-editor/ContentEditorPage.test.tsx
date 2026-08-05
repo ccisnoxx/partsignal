@@ -52,6 +52,7 @@ const context = {
     available_actions: [],
     deletion: null,
     status: 'OPEN',
+    archived_at: null,
     revision: 0,
     created_by: content.created_by,
     created_at: content.created_at,

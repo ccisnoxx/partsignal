@@ -265,9 +265,9 @@ class PublicationWorkListItem(ContractModel):
     content_version_id: uuid.UUID
     content_title: str
     content_version: int
-    platform_profile_id: uuid.UUID
+    platform_profile_id: uuid.UUID | None
     platform_profile_name: str
-    platform_account_id: uuid.UUID
+    platform_account_id: uuid.UUID | None
     platform_account_label: str
     account_identifier: str
     actual_title: str | None
@@ -335,9 +335,9 @@ class PublishedArticleListItem(ContractModel):
     content_version_id: uuid.UUID
     content_title: str
     content_version: int
-    platform_profile_id: uuid.UUID
+    platform_profile_id: uuid.UUID | None
     platform_profile_name: str
-    platform_account_id: uuid.UUID
+    platform_account_id: uuid.UUID | None
     platform_account_label: str
     account_identifier: str
     actual_title: str

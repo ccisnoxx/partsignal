@@ -7,7 +7,7 @@ import io
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import Select
@@ -24,7 +24,7 @@ from app.models.configuration import (
 )
 from app.models.content import ContentTask
 from app.models.identity import User
-from app.models.publication import PlatformAccount
+from app.models.publication import PlatformAccount, PublicationWork
 from app.schemas.common import RevisionRequest
 from app.schemas.configuration import (
     ContentHumanizationPromptPut,
@@ -49,9 +49,22 @@ from app.services.platform_logo_files import (
     lock_platform_logo_change,
     schedule_detached_platform_logo,
 )
-from app.services.projections import platform_profile_out, platform_profiles_out
+from app.services.projections import (
+    IN_FLIGHT_PUBLICATION_STATUSES,
+    platform_profile_out,
+    platform_profiles_out,
+)
 
 HUMANIZATION_PROMPT_SINGLETON_ID = 1
+PLATFORM_PROMPT_BINDING_LOCK = "platform-prompt-bindings"
+
+
+def lock_platform_prompt_bindings(db: Session) -> None:
+    """串行化低频 Prompt 绑定变更与解绑删除。"""
+    db.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": PLATFORM_PROMPT_BINDING_LOCK},
+    )
 
 
 def _platform_search_conditions(q: str | None) -> list[ColumnElement[bool]]:
@@ -305,23 +318,10 @@ def set_platform_profile_enabled(
 def create_platform_type(
     *, db: Session, payload: PlatformTypeCreate, actor: User, request_id: str
 ) -> PlatformType:
-    """创建平台类型并在同一事务追加审计。"""
+    """创建平台类型。"""
     item = PlatformType(name=payload.name.strip(), slug=payload.slug, created_by=actor.id)
     db.add(item)
     db.flush()
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="platform_type.created",
-            target_type="PlatformType",
-            target_id=item.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="平台类型已创建",
-        ),
-    )
     db.commit()
     return item
 
@@ -394,20 +394,6 @@ def update_platform_type(
     item.name = payload.name.strip()
     item.slug = payload.slug
     item.revision += 1
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="platform_type.updated",
-            target_type="PlatformType",
-            target_id=item.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="平台类型已更新",
-            details={"facts": {"revision": item.revision}},
-        ),
-    )
     db.commit()
     return item
 
@@ -471,7 +457,7 @@ def _platform_prompt_detail(db: Session, prompt: PlatformPrompt) -> PlatformProm
             "bound_platform_count": len(bound_platforms),
             "available_actions": [
                 "UPDATE",
-                *([] if bound_platforms else ["DELETE"]),
+                "DELETE",
             ],
             "bound_platforms": [
                 {"id": profile.id, "name": profile.name, "slug": profile.slug}
@@ -501,7 +487,7 @@ def list_platform_prompts(db: Session) -> PlatformPromptList:
                     "bound_platform_count": int(bound_count),
                     "available_actions": [
                         "UPDATE",
-                        *([] if bound_count else ["DELETE"]),
+                        "DELETE",
                     ],
                 }
             )
@@ -707,6 +693,7 @@ def delete_platform_prompt(
     request_id: str,
 ) -> None:
     """仅删除调用方已读取的 Prompt revision，并追加脱敏审计。"""
+    lock_platform_prompt_bindings(db)
     prompt = db.scalar(
         select(PlatformPrompt)
         .where(PlatformPrompt.id == platform_prompt_id)
@@ -716,20 +703,17 @@ def delete_platform_prompt(
         raise not_found("平台 Prompt")
     if prompt.revision != expected_revision:
         raise AppError("REVISION_CONFLICT", "平台 Prompt 已被其他请求修改", 409)
-    bound_platform_count = int(
-        db.scalar(
-            select(func.count())
-            .select_from(PlatformProfile)
+    bound_platforms = list(
+        db.scalars(
+            select(PlatformProfile)
             .where(PlatformProfile.platform_prompt_id == prompt.id)
+            .order_by(PlatformProfile.id)
+            .with_for_update()
         )
-        or 0
     )
-    if bound_platform_count:
-        raise in_use(
-            "PLATFORM_PROMPT_IN_USE",
-            "平台 Prompt",
-            [("PLATFORM_PROFILE", "具体平台", bound_platform_count)],
-        )
+    for profile in bound_platforms:
+        profile.platform_prompt_id = None
+        profile.revision += 1
     deleted_revision = prompt.revision
     db.delete(prompt)
     append_audit(
@@ -743,7 +727,12 @@ def delete_platform_prompt(
             request_id=request_id,
             outcome=AuditOutcome.SUCCESS,
             result_message="平台 Prompt 已删除",
-            details={"facts": {"revision": deleted_revision}},
+        details={
+            "facts": {
+                "revision": deleted_revision,
+                "unbound_platform_count": len(bound_platforms),
+            }
+        },
         ),
     )
     db.commit()
@@ -758,6 +747,7 @@ def update_platform_profile(
     request_id: str,
 ) -> PlatformProfile:
     """锁定平台并校验类型存在后更新配置。"""
+    lock_platform_prompt_bindings(db)
     profile = db.scalar(
         select(PlatformProfile).where(PlatformProfile.id == platform_profile_id).with_for_update()
     )
@@ -775,13 +765,6 @@ def update_platform_profile(
         )
         if selected_prompt_id is None:
             raise not_found("平台 Prompt")
-    previous_platform_type_id = profile.platform_type_id
-    previous_platform_prompt_id = profile.platform_prompt_id
-    previous_allowed_domain_count = len(profile.allowed_domains)
-    previous_website_configured = profile.website_url is not None
-    previous_logo_configured = (
-        profile.logo_file_id is not None or profile.logo_external_url is not None
-    )
     logo_changed = "logo" in payload.model_fields_set
     previous_logo_file_id = profile.logo_file_id
     logo_file_id = (
@@ -805,64 +788,6 @@ def update_platform_profile(
     db.flush()
     if logo_changed and previous_logo_file_id != logo_file_id:
         schedule_detached_platform_logo(db, previous_logo_file_id)
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="platform_profile.updated",
-            target_type="PlatformProfile",
-            target_id=profile.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="平台配置已更新",
-            details={
-                "changes": [
-                    {
-                        "field": "platform_type_id",
-                        "before": (
-                            str(previous_platform_type_id)
-                            if previous_platform_type_id is not None
-                            else None
-                        ),
-                        "after": str(profile.platform_type_id),
-                    },
-                    {
-                        "field": "allowed_domain_count",
-                        "before": previous_allowed_domain_count,
-                        "after": len(profile.allowed_domains),
-                    },
-                    {
-                        "field": "template_binding_id",
-                        "before": (
-                            str(previous_platform_prompt_id)
-                            if previous_platform_prompt_id is not None
-                            else None
-                        ),
-                        "after": (
-                            str(profile.platform_prompt_id)
-                            if profile.platform_prompt_id is not None
-                            else None
-                        ),
-                    },
-                    {
-                        "field": "website_configured",
-                        "before": previous_website_configured,
-                        "after": profile.website_url is not None,
-                    },
-                    {
-                        "field": "logo_configured",
-                        "before": previous_logo_configured,
-                        "after": (
-                            profile.logo_file_id is not None
-                            or profile.logo_external_url is not None
-                        ),
-                    },
-                ],
-                "facts": {"revision": profile.revision},
-            },
-        ),
-    )
     db.commit()
     return profile
 
@@ -870,12 +795,14 @@ def update_platform_profile(
 def delete_platform_profile(
     *, db: Session, platform_profile_id: uuid.UUID, actor: User, request_id: str
 ) -> None:
-    """仅删除没有任务和账号直接引用的具体平台。"""
+    """删除已停用且没有活动业务的具体平台及配置账号。"""
     profile = db.scalar(
         select(PlatformProfile).where(PlatformProfile.id == platform_profile_id).with_for_update()
     )
     if profile is None:
         raise not_found("平台")
+    if profile.is_active:
+        raise AppError("INVALID_STATE_TRANSITION", "请先停用平台再删除", 409)
     references = [
         (
             "CONTENT_TASK",
@@ -884,19 +811,25 @@ def delete_platform_profile(
                 db.scalar(
                     select(func.count())
                     .select_from(ContentTask)
-                    .where(ContentTask.platform_profile_id == profile.id)
+                    .where(
+                        ContentTask.platform_profile_id == profile.id,
+                        ContentTask.status == "OPEN",
+                    )
                 )
                 or 0
             ),
         ),
         (
-            "PLATFORM_ACCOUNT",
-            "平台账号",
+            "PUBLICATION_WORK",
+            "进行中发布工作",
             int(
                 db.scalar(
                     select(func.count())
-                    .select_from(PlatformAccount)
-                    .where(PlatformAccount.platform_profile_id == profile.id)
+                    .select_from(PublicationWork)
+                    .where(
+                        PublicationWork.platform_profile_id == profile.id,
+                        PublicationWork.status.in_(IN_FLIGHT_PUBLICATION_STATUSES),
+                    )
                 )
                 or 0
             ),
@@ -905,6 +838,14 @@ def delete_platform_profile(
     if any(count for _, _, count in references):
         raise in_use("PLATFORM_PROFILE_IN_USE", "平台", references)
     previous_logo_file_id = profile.logo_file_id
+    account_count = int(
+        db.scalar(
+            select(func.count())
+            .select_from(PlatformAccount)
+            .where(PlatformAccount.platform_profile_id == profile.id)
+        )
+        or 0
+    )
     lock_platform_logo_change(
         db,
         current_file_id=previous_logo_file_id,
@@ -921,6 +862,7 @@ def delete_platform_profile(
             request_id=request_id,
             outcome=AuditOutcome.SUCCESS,
             result_message="平台已删除",
+            details={"facts": {"platform_account_count": account_count}},
         ),
     )
     db.delete(profile)

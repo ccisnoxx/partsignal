@@ -40,8 +40,9 @@ class DeletionProjection(ContractModel):
 - 认证自服务复用 `UserOut` 时显式返回 `available_actions: []`；管理接口使用 actor-aware 投影，不另建平行 DTO。
 - mutation 成功后使用响应或失效既有 query 取得重新投影的动作；竞态拒绝后刷新资源，不加兼容分支。
 - presenter 和 Pydantic serializer 内不得逐行查询数据库。涉及引用门禁的集合先批量取得 id 集合，再在内存投影。
-- 产品、事实版本、平台类型、具体平台、发布账号、已取消内容任务和停用用户的资源 Schema 必须包含 required nullable `deletion`。无删除管理上下文时为 `null`；允许删除时为 `{ "blockers": [] }` 并同时包含 `DELETE`；存在直接引用时返回非空阻断数组且不包含 `DELETE`。
-- `deletion.blockers[*]` 只统计服务端权威的直接引用类型和正整数数量。写命令锁定目标后必须重新统计并返回相同结构化引用，不能把读投影当授权，也不能级联、强制删除或改写不可变历史。
+- 产品、事实版本、平台类型、具体平台、发布账号、内容任务和停用用户的资源 Schema 必须包含 required nullable `deletion`。无删除管理上下文时为 `null`；普通删除允许时为 `{ "blockers": [] }` 并同时包含 `DELETE`；存在当前命令的真实阻断时返回非空数组且不包含 `DELETE`。
+- `deletion.blockers[*]` 只统计服务端权威的当前阻断类型和正整数数量。平台只统计 `OPEN` 任务和非终态发布工作，账号只统计非终态发布工作；平台账号总数是删除影响而不是阻断。写命令锁定目标后必须重新统计，不能把读投影当授权。
+- 内容任务归档使用独立 `archived_at`：未归档完成任务返回 `ARCHIVE`，已归档任务返回 `RESTORE`，且仅管理员同时获得 `PERMANENT_DELETE`。已归档任务不再返回编辑、生成、取消或普通 `DELETE`。
 
 ## 4. 校验与错误矩阵
 
@@ -56,7 +57,9 @@ class DeletionProjection(ContractModel):
 | token 不属于该资源的 typed union | 后端类型/Schema 或生成前端类型检查失败；不得增加字符串别名 |
 | 调用方没有删除管理上下文 | `deletion=null`；不得伪造空阻断数组或 `DELETE` |
 | 具有删除资格且没有直接引用 | `deletion.blockers=[]`，并包含 `DELETE` |
-| 存在一个或多个直接引用 | 返回类型与数量，不包含 `DELETE`；删除命令返回结构化 `409` |
+| 存在一个或多个当前阻断 | 返回类型与数量，不包含 `DELETE`；删除命令返回结构化 `409` |
+| 平台仅有终态任务/工作或账号 | 停用后可返回 `DELETE`；确认层展示账号清理影响，任务不会级联 |
+| 任务 `COMPLETED` 且未归档 / 已归档管理员 | 返回 `ARCHIVE` / `RESTORE + PERMANENT_DELETE` |
 | 读投影后新增引用 | 删除命令在锁内重新统计并拒绝；不得相信过期 `DELETE` token |
 
 ## 5. Good / Base / Bad
@@ -64,7 +67,7 @@ class DeletionProjection(ContractModel):
 - Good：失败且父任务仍为开放态的生成作业返回 `workflow_stage=RETRYABLE_FAILURE`、`primary_task=HANDLE_FAILURE` 和 `RETRY`；前端先打开失败处理，用户确认后才执行重试。
 - Base：旧快照失败作业返回 `HISTORICAL_FAILURE`、`VIEW_FAILURE` 和空动作数组；页面只读展示，也不从 `status === "FAILED"` 自行补回重试。
 - Bad：前端使用 `isAdmin && row.status === "DISABLED"` 推导主任务或删除，或后端在逐行 presenter 中查询引用关系。
-- Good：停用用户存在六条业务历史引用时返回 `deletion.blockers=[{type: "USER_BUSINESS_HISTORY", count: 6}]`，删除命令锁内复核后返回同一引用口径。
+- Good：停用平台仅有终态发布历史和两个账号时返回空阻断与 `DELETE`；删除命令锁内复核活动业务，账号随平台清理，任务/工作通过快照保留。
 - Base：具有管理上下文且没有引用的产品返回空阻断数组和 `DELETE`；认证自服务中的用户投影返回 `deletion=null`。
 - Bad：只移除 `DELETE`、把阻断原因留给外键异常，或把历史行级联删除后再删除目标。
 
@@ -75,7 +78,7 @@ class DeletionProjection(ContractModel):
 - 引用型列表：用查询计数证明增加资源行数不会线性增加动作资格查询。
 - 前端测试：使用相同角色/状态、不同 `primary_task` 或 `available_actions` 的 fixture，分别断言主入口和具体命令只随各自投影变化。
 - 合同验证：运行 `make contract-check`、后端 mypy 和前端 typecheck。
-- 七类受约束删除投影：至少覆盖 `null`、空阻断和非空阻断，并断言 `DELETE` 与阻断数组一致；集合投影用查询计数或固定次数 fake 证明无 N+1。
+- 受约束删除投影至少覆盖 `null`、空阻断和非空阻断，并断言 `DELETE` 与阻断数组一致；任务另覆盖 `ARCHIVE`、`RESTORE`、管理员 `PERMANENT_DELETE`，集合投影用查询计数或固定次数 fake 证明无 N+1。
 - 删除命令集成测试：覆盖读后新增引用竞态，断言目标与引用历史保持不变且返回结构化类型和数量。
 
 ## 7. Wrong vs Correct

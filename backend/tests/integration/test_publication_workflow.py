@@ -19,9 +19,9 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
-from app.models.configuration import PlatformProfile, PlatformType, QueryTopic
+from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType, QueryTopic
 from app.models.content import ContentTask, ContentVersion
-from app.models.identity import User
+from app.models.identity import AuditLog, User
 from app.models.product_facts import FactReviewRecord, FactVersion, Product
 from app.models.publication import (
     PlatformAccount,
@@ -30,6 +30,8 @@ from app.models.publication import (
     PublicationWorkEvent,
     PublishedArticle,
 )
+from app.schemas.common import RevisionRequest
+from app.schemas.content import ContentTaskPermanentDeleteRequest
 from app.schemas.product_facts import FactReviewSubmissionRequest, ProductFactsDraftUpdate
 from app.schemas.publication import (
     PublicationContentVersionSwitchRequest,
@@ -42,12 +44,22 @@ from app.schemas.publication import (
     PublishedContentRepairTaskCreate,
 )
 from app.services.geo_observation import geo_publication_candidates
+from app.services.platform_configuration import (
+    delete_platform_profile,
+    delete_platform_prompt,
+    set_platform_profile_enabled,
+)
 from app.services.product_facts import replace_product_facts, submit_fact_review
 from app.services.publication import (
+    archive_content_task,
     close_publication_work,
     create_publication_work,
     create_repair_task,
+    delete_content_task,
+    delete_platform_account,
     open_published_content_issue,
+    permanently_delete_content_task,
+    preview_content_task_permanent_deletion,
     register_publication_result,
     resolve_published_content_issue,
     switch_publication_content_version,
@@ -149,6 +161,8 @@ def _seed_graph(db: Session, *, content_hash: str = "a" * 64) -> dict[str, objec
         product_id=product.id,
         fact_version_id=fact.id,
         platform_profile_id=profile.id,
+        platform_profile_name_snapshot=profile.name,
+        platform_website_url_snapshot=profile.website_url,
         created_by=user.id,
     )
     db.add(task)
@@ -406,12 +420,6 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                 candidate.published_article_id
                 for candidate in geo_publication_candidates(db, product.id)
             ] == [work.id]
-            persisted_work = db.get(PublicationWork, work.id)
-            assert persisted_work is not None
-            db.delete(persisted_work)
-            with pytest.raises(DBAPIError):
-                db.commit()
-            db.rollback()
             with pytest.raises(DBAPIError):
                 db.execute(
                     update(PublicationWork)
@@ -419,12 +427,226 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                     .values(status="ACTION_REQUIRED")
                 )
             db.rollback()
-            article = db.get(PublishedArticle, work.id)
-            assert article is not None
-            db.delete(article)
-            with pytest.raises(DBAPIError):
-                db.commit()
+
+
+@pytest.mark.integration
+def test_content_task_delete_and_archive_permanent_delete_lifecycle() -> None:
+    """未发布任务直接聚合删除，成功任务归档后可立即永久删除。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            ordinary = _seed_graph(db, content_hash="c" * 64)
+            ordinary_task = ordinary["task"]
+            ordinary_content = ordinary["content"]
+            actor = ordinary["user"]
+            assert isinstance(ordinary_task, ContentTask)
+            assert isinstance(ordinary_content, ContentVersion)
+            assert isinstance(actor, User)
+
+            delete_content_task(
+                db=db,
+                task_id=ordinary_task.id,
+                actor=actor,
+                request_id="ordinary-task-delete",
+            )
+            assert db.get(ContentTask, ordinary_task.id) is None
+            assert db.get(ContentVersion, ordinary_content.id) is None
+            assert db.scalar(
+                select(AuditLog).where(
+                    AuditLog.action == "content_task.deleted",
+                    AuditLog.target_id == str(ordinary_task.id),
+                )
+            ) is not None
+
+            permanent = _seed_graph(db, content_hash="d" * 64)
+            task = permanent["task"]
+            content = permanent["content"]
+            account = permanent["account"]
+            actor = permanent["user"]
+            assert isinstance(task, ContentTask)
+            assert isinstance(content, ContentVersion)
+            assert isinstance(account, PlatformAccount)
+            assert isinstance(actor, User)
+            work = create_publication_work(
+                db=db,
+                payload=PublicationWorkCreate(
+                    content_version_id=content.id,
+                    platform_account_id=account.id,
+                ),
+                actor=actor,
+                request_id="permanent-work-create",
+                idempotency_key="permanent-work-key",
+            )
+            work = register_publication_result(
+                db=db,
+                work_id=work.id,
+                payload=PublicationResultUpdate(
+                    actual_title="待永久删除文章",
+                    final_url="https://community.example.invalid/articles/delete",
+                    published_at="2026-08-06T08:00:00Z",
+                    expected_revision=work.revision,
+                    comment="登记测试文章",
+                ),
+                actor=actor,
+                request_id="permanent-work-result",
+            )
+            verify_publication_work(
+                db=db,
+                work_id=work.id,
+                payload=PublicationVerificationCreate(
+                    outcome="PASSED",
+                    content_matches=True,
+                    expected_revision=work.revision,
+                    comment="",
+                ),
+                actor=actor,
+                request_id="permanent-work-verify",
+            )
+            task = db.get(ContentTask, task.id)
+            assert task is not None
+            archived = archive_content_task(
+                db=db,
+                task_id=task.id,
+                expected_revision=task.revision,
+            )
+            preview = preview_content_task_permanent_deletion(db=db, task_id=task.id)
+            assert preview.counts.published_articles == 1
+            assert [str(url) for url in preview.external_urls] == [
+                "https://community.example.invalid/articles/delete"
+            ]
+            permanently_delete_content_task(
+                db=db,
+                task_id=task.id,
+                payload=ContentTaskPermanentDeleteRequest(
+                    expected_revision=archived.revision,
+                    confirmation_text="永久删除",
+                ),
+                actor=actor,
+                request_id="permanent-task-delete",
+            )
+            assert db.get(ContentTask, task.id) is None
+            assert db.get(PublishedArticle, work.id) is None
+            tombstone = db.scalar(
+                select(AuditLog).where(
+                    AuditLog.action == "content_task.permanently_deleted",
+                    AuditLog.target_id == str(task.id),
+                )
+            )
+            assert tombstone is not None
+            assert tombstone.details == {}
+
+
+@pytest.mark.integration
+def test_platform_prompt_platform_profile_and_platform_account_deletion_lifecycle() -> None:
+    """配置删除自动解绑，但不级联删除任务或终态发布历史。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db, content_hash="e" * 64)
+            actor = graph["user"]
+            profile = graph["profile"]
+            task = graph["task"]
+            content = graph["content"]
+            account = graph["account"]
+            assert isinstance(actor, User)
+            assert isinstance(profile, PlatformProfile)
+            assert isinstance(task, ContentTask)
+            assert isinstance(content, ContentVersion)
+            assert isinstance(account, PlatformAccount)
+
+            prompt = PlatformPrompt(
+                name=f"删除测试 Prompt {uuid.uuid4().hex[:8]}",
+                template_markdown="只使用已批准事实。",
+                updated_by=actor.id,
+            )
+            db.add(prompt)
+            db.flush()
+            profile.platform_prompt_id = prompt.id
+            profile.revision += 1
+            db.commit()
+            bound_revision = profile.revision
+            delete_platform_prompt(
+                db=db,
+                platform_prompt_id=prompt.id,
+                expected_revision=prompt.revision,
+                actor=actor,
+                request_id="bound-prompt-delete",
+            )
+            assert db.get(PlatformPrompt, prompt.id) is None
+            db.refresh(profile)
+            assert profile.platform_prompt_id is None
+            assert profile.revision == bound_revision + 1
+
+            work = create_publication_work(
+                db=db,
+                payload=PublicationWorkCreate(
+                    content_version_id=content.id,
+                    platform_account_id=account.id,
+                ),
+                actor=actor,
+                request_id="configuration-work-create",
+                idempotency_key="configuration-work-key",
+            )
+            profile = set_platform_profile_enabled(
+                db=db,
+                platform_profile_id=profile.id,
+                payload=RevisionRequest(expected_revision=profile.revision),
+                actor=actor,
+                request_id="configuration-platform-disable",
+                enabled=False,
+            )
+            with pytest.raises(AppError) as blocked:
+                delete_platform_profile(
+                    db=db,
+                    platform_profile_id=profile.id,
+                    actor=actor,
+                    request_id="configuration-platform-blocked",
+                )
+            assert blocked.value.code == "PLATFORM_PROFILE_IN_USE"
             db.rollback()
+            db.refresh(actor)
+
+            closed = close_publication_work(
+                db=db,
+                work_id=work.id,
+                payload=PublicationWorkCloseRequest(
+                    reason="BUSINESS_CANCELLED",
+                    comment="配置删除测试",
+                    expected_revision=work.revision,
+                ),
+                actor=actor,
+                request_id="configuration-work-close",
+            )
+            delete_platform_account(
+                db=db,
+                platform_account_id=account.id,
+                actor=actor,
+                request_id="configuration-account-delete",
+            )
+            assert db.get(PlatformAccount, account.id) is None
+            retained_work = db.get(PublicationWork, closed.id)
+            assert retained_work is not None
+            assert retained_work.platform_account_id is None
+            assert retained_work.platform_account_label_snapshot == account.label
+
+            profile_id = profile.id
+            profile_name = profile.name
+            delete_platform_profile(
+                db=db,
+                platform_profile_id=profile_id,
+                actor=actor,
+                request_id="configuration-platform-delete",
+            )
+            assert db.get(PlatformProfile, profile_id) is None
+            db.expire_all()
+            retained_task = db.get(ContentTask, task.id)
+            retained_work = db.get(PublicationWork, work.id)
+            assert retained_task is not None
+            assert retained_task.platform_profile_id is None
+            assert retained_task.platform_profile_name_snapshot == profile_name
+            assert retained_work is not None
+            assert retained_work.platform_profile_id is None
+            assert retained_work.platform_profile_name_snapshot == profile_name
 
 
 @pytest.mark.integration

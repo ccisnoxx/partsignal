@@ -8,7 +8,12 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+from app.audit_types import (
+    RETAINED_AUDIT_ACTIONS,
+    AuditEntry,
+    AuditModule,
+    AuditOutcome,
+)
 from app.models.identity import AuditLog
 
 SENSITIVE_KEYS = {
@@ -35,7 +40,6 @@ SENSITIVE_KEYS = {
     "prompt",
     "response",
 }
-_ERROR_CODE_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]{0,99}$")
 _DETAIL_KEYS = frozenset({"changes", "facts"})
 _CHANGE_KEYS = frozenset({"field", "before", "after"})
 
@@ -84,6 +88,10 @@ def validate_audit_entry(entry: AuditEntry) -> None:
         raise ValueError("审计业务模块必须使用 AuditModule")
     if not isinstance(entry.outcome, AuditOutcome):
         raise ValueError("审计执行结果必须使用 AuditOutcome")
+    if entry.outcome != AuditOutcome.SUCCESS:
+        raise ValueError("永久审计只允许记录成功结果")
+    if entry.action not in RETAINED_AUDIT_ACTIONS:
+        raise ValueError("审计动作不在永久保留白名单中")
     if not isinstance(entry.actor_id, uuid.UUID):
         raise ValueError("审计操作者必须是真实用户 UUID")
     if entry.target_id is not None and not isinstance(entry.target_id, uuid.UUID | str):
@@ -110,13 +118,8 @@ def validate_audit_entry(entry: AuditEntry) -> None:
         or len(entry.result_message) > 500
     ):
         raise ValueError("审计结果说明长度必须为 1 至 500 个字符")
-    if entry.outcome == AuditOutcome.SUCCESS and entry.error_code is not None:
+    if entry.error_code is not None:
         raise ValueError("成功审计不能包含错误码")
-    if entry.outcome != AuditOutcome.SUCCESS and entry.error_code is None:
-        raise ValueError("失败或拒绝审计必须包含稳定错误码")
-    if entry.error_code is not None and not _ERROR_CODE_PATTERN.fullmatch(entry.error_code):
-        raise ValueError("审计错误码格式无效")
-
     if set(entry.details) - _DETAIL_KEYS:
         raise ValueError("审计详情只允许 changes 和 facts")
     changes = entry.details.get("changes", [])
@@ -155,11 +158,3 @@ def _audit_record(entry: AuditEntry) -> AuditLog:
 def append_audit(db: Session, entry: AuditEntry) -> None:
     """在调用者当前业务事务内追加安全审计，不自行提交。"""
     db.add(_audit_record(entry))
-
-
-def commit_audit(source_db: Session, entry: AuditEntry) -> None:
-    """在业务事务已回滚后，向同一数据库使用独立短事务提交失败或拒绝审计。"""
-    if entry.outcome == AuditOutcome.SUCCESS:
-        raise ValueError("独立审计事务只允许 FAILED 或 DENIED")
-    with Session(bind=source_db.get_bind()) as audit_db, audit_db.begin():
-        audit_db.add(_audit_record(entry))

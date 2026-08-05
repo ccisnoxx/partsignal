@@ -27,7 +27,7 @@ Managed by Trellis. Edits outside this block are preserved; edits inside may be 
 - PostgreSQL is the sole source of business state. Redis is used only as the Celery broker.
 - Markdown is the sole editable source for content bodies. Do not store independently editable HTML or editor JSON.
 - AI output may create drafts only. Unknown product facts must fail explicitly; do not guess, substitute zeros, or add fuzzy compatibility logic.
-- Approved facts and content must not be modified in place. Publishing records and GEO observations must preserve history.
+- Approved facts and content must not be modified in place. Publishing and GEO records remain immutable while retained; administrator permanent deletion of an explicitly archived content-task aggregate is the sole cross-history deletion exception.
 - New or materially changed business code should include necessary Chinese comments, docstrings, logs, and error messages.
 - Read the relevant documentation and contracts before implementation. If a contract is unclear, report it to the main agent; do not invent compatibility fields or a second type system.
 - Tests must clearly distinguish development adapters from real external services. Do not hide unimplemented business behavior behind fixed-success paths.

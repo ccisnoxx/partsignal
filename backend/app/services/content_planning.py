@@ -8,8 +8,6 @@ from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.audit import append_audit
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.errors import AppError, not_found
 from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType, QueryTopic
 from app.models.content import ContentTask
@@ -22,7 +20,7 @@ from app.schemas.configuration import (
     QueryTopicUpdate,
 )
 from app.schemas.content import ContentTaskCreate
-from app.services.platform_configuration import lock_active_platform
+from app.services.platform_configuration import lock_active_platform, lock_platform_prompt_bindings
 from app.services.platform_logo_files import lock_platform_logo_change
 
 
@@ -41,7 +39,7 @@ def query_topic_out(topic: QueryTopic) -> QueryTopicOut:
 def create_query_topic(
     *, db: Session, payload: QueryTopicCreate, actor: User, request_id: str
 ) -> QueryTopic:
-    """创建目标问题并追加审计。"""
+    """创建目标问题。"""
     topic = QueryTopic(
         canonical_question=payload.canonical_question.strip(),
         intent_type=payload.intent_type.value,
@@ -49,19 +47,6 @@ def create_query_topic(
     )
     db.add(topic)
     db.flush()
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONTENT_PLANNING,
-            action="query_topic.created",
-            target_type="QueryTopic",
-            target_id=topic.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="目标问题已创建",
-        ),
-    )
     db.commit()
     return topic
 
@@ -84,20 +69,6 @@ def update_query_topic(
     topic.intent_type = payload.intent_type.value
     topic.variants = payload.variants
     topic.revision += 1
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONTENT_PLANNING,
-            action="query_topic.updated",
-            target_type="QueryTopic",
-            target_id=topic.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="目标问题已更新",
-            details={"facts": {"revision": topic.revision}},
-        ),
-    )
     db.commit()
     return topic
 
@@ -106,6 +77,7 @@ def create_platform_profile(
     *, db: Session, payload: PlatformProfileCreate, actor: User, request_id: str
 ) -> PlatformProfile:
     """创建稳定平台身份，不隐式创建 Prompt。"""
+    lock_platform_prompt_bindings(db)
     if db.get(PlatformType, payload.platform_type_id) is None:
         raise not_found("平台类型")
     if payload.platform_prompt_id is not None:
@@ -142,29 +114,6 @@ def create_platform_profile(
         if db.scalar(select(PlatformProfile.id).where(PlatformProfile.slug == payload.slug)):
             raise AppError("PLATFORM_SLUG_EXISTS", "平台 slug 已存在", 409) from error
         raise
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONFIGURATION,
-            action="platform_profile.created",
-            target_type="PlatformProfile",
-            target_id=profile.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="平台配置已创建",
-            details={
-                "facts": {
-                    "platform_type_id": str(profile.platform_type_id),
-                    "template_binding_id": (
-                        str(profile.platform_prompt_id)
-                        if profile.platform_prompt_id is not None
-                        else None
-                    ),
-                }
-            },
-        ),
-    )
     db.commit()
     return profile
 
@@ -212,31 +161,14 @@ def create_content_task(
         product_id=payload.product_id,
         fact_version_id=payload.fact_version_id,
         platform_profile_id=profile.id,
+        platform_profile_name_snapshot=profile.name,
+        platform_website_url_snapshot=profile.website_url,
         query_topic_id=None,
         idempotency_key=idempotency_key,
         created_by=actor.id,
     )
     db.add(task)
     db.flush()
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONTENT_PLANNING,
-            action="content_task.created",
-            target_type="ContentTask",
-            target_id=task.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="内容任务已创建",
-            details={
-                "facts": {
-                    "fact_version_id": str(task.fact_version_id),
-                    "platform_profile_id": str(task.platform_profile_id),
-                }
-            },
-        ),
-    )
     if commit:
         db.commit()
     return task

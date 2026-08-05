@@ -282,7 +282,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0036_remove_section_url",)
+            assert cursor.fetchone() == ("0037_simplify_deletion_lifecycle",)
             cursor.execute(
                 "SELECT tablename FROM pg_tables "
                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
@@ -435,10 +435,10 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
             text=True,
         )
         assert downgrade.returncode != 0
-        assert "0036 无法安全降级" in downgrade.stdout + downgrade.stderr
+        assert "0037 无法安全降级" in downgrade.stdout + downgrade.stderr
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0036_remove_section_url",)
+            assert cursor.fetchone() == ("0037_simplify_deletion_lifecycle",)
 
 
 @pytest.mark.integration
@@ -3783,6 +3783,151 @@ def test_remove_publication_section_url_migration_preserves_work_and_guards() ->
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
             assert cursor.fetchone() == ("0036_remove_section_url",)
+
+
+@pytest.mark.integration
+def test_simplify_deletion_lifecycle_backfills_snapshots_and_trims_audit() -> None:
+    """0037 回填历史身份、收缩审计，并让终态历史脱离平台配置。"""
+    with temporary_database("partsignal_simplify_deletion") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0034_publication_redesign")
+        ids = _seed_business_workflow_base(test_url)
+        work_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO publication_works "
+                "(id, idempotency_key, content_version_id, platform_profile_id, "
+                "platform_account_id, content_hash, section_url, status, revision, created_by) "
+                "VALUES (%s, %s, %s, %s, %s, %s, "
+                "'https://migration.invalid/section', 'PREPARING', 0, %s)",
+                (
+                    work_id,
+                    f"work-{work_id.hex}",
+                    ids["content"],
+                    ids["profile"],
+                    ids["account"],
+                    "a" * 64,
+                    ids["actor"],
+                ),
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "0035_business_workflow")
+        run_alembic(env, backend_dir, "0036_remove_section_url")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.executemany(
+                "INSERT INTO audit_logs "
+                "(id, actor_id, business_module, action, target_type, target_id, outcome, "
+                "result_message, error_code, request_id, details) "
+                "VALUES (%s, %s, 'IDENTITY', %s, 'User', %s, %s, %s, %s, %s, '{}'::jsonb)",
+                [
+                    (
+                        uuid.uuid4(),
+                        ids["actor"],
+                        "user.created",
+                        str(ids["actor"]),
+                        "SUCCESS",
+                        "保留审计",
+                        None,
+                        "0037-keep",
+                    ),
+                    (
+                        uuid.uuid4(),
+                        ids["actor"],
+                        "content_task.created",
+                        str(ids["task"]),
+                        "SUCCESS",
+                        "清理动作",
+                        None,
+                        "0037-remove-action",
+                    ),
+                    (
+                        uuid.uuid4(),
+                        ids["actor"],
+                        "user.updated",
+                        str(ids["actor"]),
+                        "FAILED",
+                        "清理失败结果",
+                        "REVISION_CONFLICT",
+                        "0037-remove-outcome",
+                    ),
+                ],
+            )
+            connection.commit()
+
+        run_alembic(env, backend_dir, "0037_simplify_deletion_lifecycle")
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT platform_profile_name_snapshot, archived_at "
+                "FROM content_tasks WHERE id = %s",
+                (ids["task"],),
+            )
+            assert cursor.fetchone() == ("0035 迁移平台", None)
+            cursor.execute(
+                "SELECT platform_profile_name_snapshot, platform_account_label_snapshot, "
+                "account_identifier_snapshot FROM publication_works WHERE id = %s",
+                (work_id,),
+            )
+            assert cursor.fetchone() == (
+                "0035 迁移平台",
+                "0035 迁移账号",
+                f"account-{ids['account'].hex[:12]}",
+            )
+            cursor.execute("SELECT action, outcome FROM audit_logs ORDER BY request_id")
+            assert cursor.fetchall() == [("user.created", "SUCCESS")]
+
+            cursor.execute(
+                "UPDATE publication_works SET status = 'CLOSED', revision = 1, "
+                "close_reason = 'BUSINESS_CANCELLED', close_comment = '迁移删除平台测试', "
+                "closed_by = %s, closed_at = now() WHERE id = %s",
+                (ids["actor"], work_id),
+            )
+            cursor.execute(
+                "UPDATE content_tasks SET status = 'CANCELLED', revision = 1 WHERE id = %s",
+                (ids["task"],),
+            )
+            cursor.execute("DELETE FROM platform_profiles WHERE id = %s", (ids["profile"],))
+            connection.commit()
+
+            cursor.execute(
+                "SELECT platform_profile_id, platform_profile_name_snapshot "
+                "FROM content_tasks WHERE id = %s",
+                (ids["task"],),
+            )
+            assert cursor.fetchone() == (None, "0035 迁移平台")
+            cursor.execute(
+                "SELECT platform_profile_id, platform_account_id, "
+                "platform_profile_name_snapshot, platform_account_label_snapshot "
+                "FROM publication_works WHERE id = %s",
+                (work_id,),
+            )
+            assert cursor.fetchone() == (
+                None,
+                None,
+                "0035 迁移平台",
+                "0035 迁移账号",
+            )
+
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE content_versions SET title = '禁止改写' WHERE id = %s",
+                    (ids["content"],),
+                )
+            connection.rollback()
+
+        downgrade = subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0036_remove_section_url"],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "0037 无法安全降级" in downgrade.stdout + downgrade.stderr
 
 
 @pytest.mark.integration

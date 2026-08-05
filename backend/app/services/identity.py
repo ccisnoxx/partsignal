@@ -572,26 +572,6 @@ def bulk_update_user_status(
         except AppError as error:
             if error.code not in _BULK_ITEM_ERROR_CODES:
                 raise
-            append_audit(
-                db,
-                AuditEntry(
-                    actor_id=actor.id,
-                    business_module=AuditModule.IDENTITY,
-                    action="user.updated",
-                    target_type="User",
-                    target_id=item.user_id,
-                    request_id=request_id,
-                    outcome=AuditOutcome.FAILED,
-                    result_message="用户状态更新失败",
-                    error_code=error.code,
-                    details={
-                        "facts": {
-                            "source": "BULK_STATUS",
-                            "status": payload.status.value,
-                        }
-                    },
-                ),
-            )
             failures[item.user_id] = UserBulkStatusFailure(
                 user_id=item.user_id,
                 code=error.code,

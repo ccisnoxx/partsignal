@@ -299,8 +299,11 @@ export function PlatformPromptsPage() {
           refetchType: 'none',
         }),
         queryClient.invalidateQueries({ queryKey: queryKeys.platformPrompts.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }),
+        queryClient.invalidateQueries({ queryKey: ['platform-profile'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.optionsAll }),
       ]);
-      message.success('未绑定的 Prompt 已删除');
+      message.success('Prompt 已删除，关联平台已自动解绑');
     },
   });
 
@@ -500,6 +503,13 @@ export function PlatformPromptsPage() {
                   outputLength="由 Prompt 定义"
                   canDelete={tab === 'platform' && !!prompt.data?.available_actions.includes('DELETE')}
                   deleting={removePrompt.isPending}
+                  deleteDescription={prompt.data && <Space orientation="vertical" size={4}>
+                    <span>将自动解绑 {prompt.data.bound_platform_count} 个平台：</span>
+                    <span>{prompt.data.bound_platforms.length
+                      ? prompt.data.bound_platforms.map((platform) => platform.name).join('、')
+                      : '无关联平台'}</span>
+                    <span>解绑后平台在重新绑定 Prompt 前不能发起新内容生成；历史快照保持不变。</span>
+                  </Space>}
                   onChange={(draft) => mutateEditor({ draft })}
                   onSave={submitCurrent}
                   onDelete={() => removePrompt.mutate()}
@@ -518,7 +528,7 @@ export function PlatformPromptsPage() {
           <ul>
             <li><SafetyCertificateOutlined /><span><strong>消息原样发送</strong><small>system 为平台绑定 Prompt，user 为已批准事实 Markdown。</small></span></li>
             <li><SafetyCertificateOutlined /><span><strong>共享影响透明</strong><small>保存前列出全部绑定平台，revision 冲突不会覆盖新值。</small></span></li>
-            <li><SafetyCertificateOutlined /><span><strong>删除受约束</strong><small>被任一平台绑定的 Prompt 不能删除。</small></span></li>
+            <li><SafetyCertificateOutlined /><span><strong>删除自动解绑</strong><small>删除 Prompt 会原子解绑全部关联平台，历史快照保持不变。</small></span></li>
             <li><SafetyCertificateOutlined /><span><strong>AI 只创建草稿</strong><small>输出通过人工审核后才能进入发布流程。</small></span></li>
           </ul>
         </Card>

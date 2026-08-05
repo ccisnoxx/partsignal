@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
@@ -22,8 +23,13 @@ from app.models.content import (
     ContentTaskGeoSource,
     ContentVersion,
 )
-from app.models.geo_files import FileRecord
-from app.models.identity import User
+from app.models.geo_files import (
+    FileRecord,
+    GeoObservationAttachment,
+    GeoObservationCitation,
+    GeoObservationPublication,
+)
+from app.models.identity import AuditLog, User
 from app.models.product_facts import FactVersion, Product
 from app.models.publication import (
     PlatformAccount,
@@ -35,6 +41,11 @@ from app.models.publication import (
     PublishedContentIssue,
 )
 from app.schemas.common import RevisionRequest
+from app.schemas.content import (
+    ContentTaskPermanentDeleteRequest,
+    ContentTaskPermanentDeletionCounts,
+    ContentTaskPermanentDeletionPreview,
+)
 from app.schemas.publication import (
     PlatformAccountCreate,
     PlatformAccountUpdate,
@@ -51,7 +62,11 @@ from app.schemas.publication import (
     PublishedContentIssueResolveRequest,
     PublishedContentRepairTaskCreate,
 )
-from app.services.file_records import verified_files
+from app.services.file_records import schedule_unreferenced_file, verified_files
+from app.services.geo_observation import (
+    _delete_manual_observation_chain,
+    _lock_manual_observation_chain,
+)
 from app.services.platform_configuration import lock_active_platform
 from app.services.projections import IN_FLIGHT_PUBLICATION_STATUSES
 from app.services.publication_queries import (
@@ -60,6 +75,26 @@ from app.services.publication_queries import (
     published_content_issue_out,
     task_for_work,
 )
+
+
+@dataclass(slots=True)
+class _TaskDeletionScope:
+    """一次任务聚合删除在当前事务内重新计算出的精确范围。"""
+
+    jobs: list[GenerationJob]
+    versions: list[ContentVersion]
+    reviews: list[ContentReviewRecord]
+    works: list[PublicationWork]
+    events: list[PublicationWorkEvent]
+    verifications: list[PublicationVerification]
+    articles: list[PublishedArticle]
+    issues: list[PublishedContentIssue]
+    publication_file_ids: list[uuid.UUID]
+    exclusive_geo_chain_roots: list[uuid.UUID]
+    exclusive_geo_observation_ids: list[uuid.UUID]
+    exclusive_geo_file_ids: list[uuid.UUID]
+    geo_article_relation_count: int
+    external_urls: list[str]
 
 
 def _audit(
@@ -213,15 +248,6 @@ def create_platform_account(
     account = PlatformAccount(**payload.model_dump())
     db.add(account)
     _flush_platform_account(db)
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action="platform_account.created",
-        target_type="PlatformAccount",
-        target_id=account.id,
-        message="发布账号已创建",
-    )
     db.commit()
     return account
 
@@ -249,15 +275,6 @@ def update_platform_account(
     account.account_identifier = payload.account_identifier
     account.revision += 1
     _flush_platform_account(db)
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action="platform_account.updated",
-        target_type="PlatformAccount",
-        target_id=account.id,
-        message="发布账号已更新",
-    )
     db.commit()
     return account
 
@@ -277,15 +294,6 @@ def set_platform_account_enabled(
         raise AppError("REVISION_CONFLICT", "发布账号已被其他请求修改", 409)
     account.is_active = enabled
     account.revision += 1
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action=f"platform_account.{'enabled' if enabled else 'disabled'}",
-        target_type="PlatformAccount",
-        target_id=account.id,
-        message=f"发布账号已{'启用' if enabled else '停用'}",
-    )
     db.commit()
     return account
 
@@ -293,13 +301,16 @@ def set_platform_account_enabled(
 def delete_platform_account(
     *, db: Session, platform_account_id: uuid.UUID, actor: User, request_id: str
 ) -> None:
-    """仅删除没有发布工作引用的账号。"""
+    """删除没有非终态发布工作的账号，终态历史继续使用快照。"""
     _profile, account = _lock_platform_account(db, platform_account_id)
     work_count = int(
         db.scalar(
             select(func.count())
             .select_from(PublicationWork)
-            .where(PublicationWork.platform_account_id == account.id)
+            .where(
+                PublicationWork.platform_account_id == account.id,
+                PublicationWork.status.in_(NONTERMINAL_WORK_STATUSES),
+            )
         )
         or 0
     )
@@ -467,7 +478,10 @@ def create_publication_work(
         content_task_id=task.id,
         content_version_id=content.id,
         platform_profile_id=profile.id,
+        platform_profile_name_snapshot=profile.name,
         platform_account_id=account.id,
+        platform_account_label_snapshot=account.label,
+        account_identifier_snapshot=account.account_identifier,
         content_hash=content.content_hash,
         status="PREPARING",
         created_by=actor.id,
@@ -481,15 +495,6 @@ def create_publication_work(
         from_status=None,
         comment="开始发布工作",
         actor=actor,
-    )
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action="publication_work.created",
-        target_type="PublicationWork",
-        target_id=work.id,
-        message="发布工作已创建",
     )
     return _finish_work_command(db, work)
 
@@ -542,24 +547,6 @@ def switch_publication_content_version(
         from_content_version_id=previous_content_version_id,
         to_content_version_id=candidate.id,
     )
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action="publication_work.content_version_changed",
-        target_type="PublicationWork",
-        target_id=work.id,
-        message="发布工作内容版本已切换",
-        details={
-            "changes": [
-                {
-                    "field": "content_version_id",
-                    "before": str(previous_content_version_id),
-                    "after": str(candidate.id),
-                }
-            ]
-        },
-    )
     return _finish_work_command(db, work)
 
 
@@ -581,6 +568,8 @@ def update_publication_preparation(
     if not account.is_active:
         raise AppError("PLATFORM_ACCOUNT_DISABLED", "平台账号已停用", 409)
     work.platform_account_id = account.id
+    work.platform_account_label_snapshot = account.label
+    work.account_identifier_snapshot = account.account_identifier
     work.revision += 1
     _work_event(
         db,
@@ -589,15 +578,6 @@ def update_publication_preparation(
         from_status=work.status,
         comment=payload.comment,
         actor=actor,
-    )
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action="publication_work.preparation_updated",
-        target_type="PublicationWork",
-        target_id=work.id,
-        message="发布准备信息已更新",
     )
     return _finish_work_command(db, work)
 
@@ -624,15 +604,6 @@ def mark_publication_platform_review(
         from_status=previous,
         comment=payload.comment,
         actor=actor,
-    )
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action="publication_work.platform_review_marked",
-        target_type="PublicationWork",
-        target_id=work.id,
-        message="发布工作已进入平台处理中",
     )
     return _finish_work_command(db, work)
 
@@ -682,15 +653,6 @@ def register_publication_result(
         from_status=previous,
         comment=payload.comment,
         actor=actor,
-    )
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action="publication_work.result_registered",
-        target_type="PublicationWork",
-        target_id=work.id,
-        message="发布结果已登记",
     )
     return _finish_work_command(db, work)
 
@@ -749,19 +711,16 @@ def verify_publication_work(
         comment=payload.comment or "首次核验通过",
         actor=actor,
     )
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action=(
-            "publication_work.verification_failed"
-            if payload.outcome.value == "FAILED"
-            else "publication_work.completed"
-        ),
-        target_type="PublicationWork",
-        target_id=work.id,
-        message=message,
-    )
+    if payload.outcome.value == "PASSED":
+        _audit(
+            db,
+            actor=actor,
+            request_id=request_id,
+            action="publication_work.completed",
+            target_type="PublicationWork",
+            target_id=work.id,
+            message=message,
+        )
     return _finish_work_command(db, work)
 
 
@@ -799,16 +758,6 @@ def close_publication_work(
         from_status=previous,
         comment=payload.comment,
         actor=actor,
-    )
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action="publication_work.closed",
-        target_type="PublicationWork",
-        target_id=work.id,
-        message="发布工作已关闭",
-        details={"facts": {"reason": payload.reason.value}},
     )
     return _finish_work_command(db, work)
 
@@ -851,15 +800,6 @@ def open_published_content_issue(
     )
     db.add(issue)
     db.flush()
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action="published_content_issue.opened",
-        target_type="PublishedContentIssue",
-        target_id=issue.id,
-        message="发布后内容问题已打开",
-    )
     result = published_content_issue_out(db, issue)
     db.commit()
     return result
@@ -898,6 +838,8 @@ def create_repair_task(
     product = db.get(Product, original_task.product_id)
     if product is None or product.status != "ACTIVE":
         raise AppError("INVALID_STATE_TRANSITION", "已停用产品不能创建修复任务", 409)
+    if work.platform_profile_id is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "原发布平台已删除，不能创建修复任务", 409)
     profile = lock_active_platform(db, work.platform_profile_id)
     if (
         original_task.query_topic_id is not None
@@ -919,21 +861,13 @@ def create_repair_task(
         product_id=original_task.product_id,
         fact_version_id=fact.id,
         platform_profile_id=profile.id,
+        platform_profile_name_snapshot=profile.name,
+        platform_website_url_snapshot=profile.website_url,
         source_published_content_issue_id=issue.id,
         created_by=actor.id,
     )
     db.add(task)
     db.flush()
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action="published_content_issue.repair_task_created",
-        target_type="PublishedContentIssue",
-        target_id=issue.id,
-        message="发布修复任务已创建",
-        details={"facts": {"repair_task_id": str(task.id)}},
-    )
     db.commit()
     return task
 
@@ -962,20 +896,344 @@ def resolve_published_content_issue(
     issue.resolved_at = datetime.now(UTC)
     issue.resolution_outcome = payload.outcome.value
     issue.resolution_comment = payload.comment
-    _audit(
-        db,
-        actor=actor,
-        request_id=request_id,
-        action="published_content_issue.resolved",
-        target_type="PublishedContentIssue",
-        target_id=issue.id,
-        message="发布后内容问题已解决",
-        details={"facts": {"outcome": payload.outcome.value}},
-    )
     db.flush()
     result = published_content_issue_out(db, issue)
     db.commit()
     return result
+
+
+def _task_deletion_scope(db: Session, task: ContentTask) -> _TaskDeletionScope:
+    """锁定任务聚合并计算普通/永久删除共用的精确范围。"""
+    jobs = list(
+        db.scalars(
+            select(GenerationJob)
+            .where(GenerationJob.content_task_id == task.id)
+            .order_by(GenerationJob.id)
+            .with_for_update()
+        )
+    )
+    versions = list(
+        db.scalars(
+            select(ContentVersion)
+            .where(ContentVersion.task_id == task.id)
+            .order_by(ContentVersion.id)
+            .with_for_update()
+        )
+    )
+    version_ids = [version.id for version in versions]
+    reviews = (
+        list(
+            db.scalars(
+                select(ContentReviewRecord)
+                .where(ContentReviewRecord.content_version_id.in_(version_ids))
+                .order_by(ContentReviewRecord.id)
+            )
+        )
+        if version_ids
+        else []
+    )
+    works = list(
+        db.scalars(
+            select(PublicationWork)
+            .where(PublicationWork.content_task_id == task.id)
+            .order_by(PublicationWork.id)
+            .with_for_update()
+        )
+    )
+    work_ids = [work.id for work in works]
+    events = (
+        list(
+            db.scalars(
+                select(PublicationWorkEvent)
+                .where(PublicationWorkEvent.publication_work_id.in_(work_ids))
+                .order_by(PublicationWorkEvent.id)
+            )
+        )
+        if work_ids
+        else []
+    )
+    verifications = (
+        list(
+            db.scalars(
+                select(PublicationVerification)
+                .where(PublicationVerification.publication_work_id.in_(work_ids))
+                .order_by(PublicationVerification.id)
+            )
+        )
+        if work_ids
+        else []
+    )
+    articles = (
+        list(
+            db.scalars(
+                select(PublishedArticle)
+                .where(PublishedArticle.id.in_(work_ids))
+                .order_by(PublishedArticle.id)
+            )
+        )
+        if work_ids
+        else []
+    )
+    article_ids = [article.id for article in articles]
+    issues = (
+        list(
+            db.scalars(
+                select(PublishedContentIssue)
+                .where(PublishedContentIssue.published_article_id.in_(article_ids))
+                .order_by(PublishedContentIssue.id)
+            )
+        )
+        if article_ids
+        else []
+    )
+    publication_file_ids = (
+        list(
+            db.scalars(
+                select(PublicationAttachment.file_id)
+                .where(PublicationAttachment.publication_work_id.in_(work_ids))
+                .distinct()
+                .order_by(PublicationAttachment.file_id)
+            )
+        )
+        if work_ids
+        else []
+    )
+    geo_article_relation_count = 0
+    exclusive_roots: list[uuid.UUID] = []
+    exclusive_observation_ids: list[uuid.UUID] = []
+    exclusive_file_ids: list[uuid.UUID] = []
+    if article_ids:
+        relation_counts = (
+            int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(GeoObservationPublication)
+                    .where(GeoObservationPublication.published_article_id.in_(article_ids))
+                )
+                or 0
+            ),
+            int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(GeoObservationCitation)
+                    .where(GeoObservationCitation.published_article_id.in_(article_ids))
+                )
+                or 0
+            ),
+            int(
+                db.scalar(
+                    select(func.count())
+                    .select_from(ContentTaskGeoSource)
+                    .where(ContentTaskGeoSource.published_article_id.in_(article_ids))
+                )
+                or 0
+            ),
+        )
+        geo_article_relation_count = sum(relation_counts)
+        affected_observation_ids = list(
+            db.scalars(
+                select(GeoObservationPublication.observation_id)
+                .where(GeoObservationPublication.published_article_id.in_(article_ids))
+                .distinct()
+                .order_by(GeoObservationPublication.observation_id)
+            )
+        )
+        seen_roots: set[uuid.UUID] = set()
+        for observation_id in affected_observation_ids:
+            _product, chain = _lock_manual_observation_chain(db, observation_id)
+            root_id = chain[0].id
+            if root_id in seen_roots:
+                continue
+            seen_roots.add(root_id)
+            chain_ids = [node.id for node in chain]
+            other_relation = db.scalar(
+                select(GeoObservationPublication.observation_id)
+                .where(
+                    GeoObservationPublication.observation_id.in_(chain_ids),
+                    GeoObservationPublication.published_article_id.not_in(article_ids),
+                )
+                .limit(1)
+            )
+            if other_relation is not None:
+                continue
+            exclusive_roots.append(root_id)
+            exclusive_observation_ids.extend(chain_ids)
+        if exclusive_observation_ids:
+            exclusive_file_ids = list(
+                db.scalars(
+                    select(GeoObservationAttachment.file_id)
+                    .where(
+                        GeoObservationAttachment.observation_id.in_(
+                            exclusive_observation_ids
+                        )
+                    )
+                    .distinct()
+                    .order_by(GeoObservationAttachment.file_id)
+                )
+            )
+    return _TaskDeletionScope(
+        jobs=jobs,
+        versions=versions,
+        reviews=reviews,
+        works=works,
+        events=events,
+        verifications=verifications,
+        articles=articles,
+        issues=issues,
+        publication_file_ids=publication_file_ids,
+        exclusive_geo_chain_roots=exclusive_roots,
+        exclusive_geo_observation_ids=exclusive_observation_ids,
+        exclusive_geo_file_ids=exclusive_file_ids,
+        geo_article_relation_count=geo_article_relation_count,
+        external_urls=sorted({work.final_url for work in works if work.final_url is not None}),
+    )
+
+
+def _permanent_deletion_preview(
+    task: ContentTask, scope: _TaskDeletionScope
+) -> ContentTaskPermanentDeletionPreview:
+    return ContentTaskPermanentDeletionPreview(
+        task_id=task.id,
+        revision=task.revision,
+        counts=ContentTaskPermanentDeletionCounts(
+            content_versions=len(scope.versions),
+            content_review_records=len(scope.reviews),
+            generation_jobs=len(scope.jobs),
+            publication_works=len(scope.works),
+            publication_events=len(scope.events),
+            publication_verifications=len(scope.verifications),
+            published_articles=len(scope.articles),
+            published_content_issues=len(scope.issues),
+            geo_article_relations=scope.geo_article_relation_count,
+            exclusive_geo_observation_chains=len(scope.exclusive_geo_chain_roots),
+            attachment_relations=(
+                len(scope.publication_file_ids) + len(scope.exclusive_geo_file_ids)
+            ),
+        ),
+        external_urls=scope.external_urls,
+        confirmation_text="永久删除",
+    )
+
+
+def preview_content_task_permanent_deletion(
+    *, db: Session, task_id: uuid.UUID
+) -> ContentTaskPermanentDeletionPreview:
+    """返回管理员确认永久删除所需的实时内部范围。"""
+    task = db.scalar(select(ContentTask).where(ContentTask.id == task_id).with_for_update())
+    if task is None:
+        raise not_found("内容任务")
+    if task.archived_at is None:
+        raise AppError("CONTENT_TASK_NOT_ARCHIVED", "内容任务必须先归档", 409)
+    return _permanent_deletion_preview(task, _task_deletion_scope(db, task))
+
+
+def _delete_audit_targets(
+    db: Session, targets: dict[str, list[uuid.UUID]]
+) -> None:
+    """只清理本次已删除对象的旧审计。"""
+    for target_type, target_ids in targets.items():
+        if target_ids:
+            db.execute(
+                delete(AuditLog).where(
+                    AuditLog.target_type == target_type,
+                    AuditLog.target_id.in_([str(target_id) for target_id in target_ids]),
+                )
+            )
+
+
+def _delete_task_core(db: Session, task: ContentTask, scope: _TaskDeletionScope) -> None:
+    """删除发布前后共用的任务自有记录，不提交事务。"""
+    work_ids = [work.id for work in scope.works]
+    version_ids = [version.id for version in scope.versions]
+    if work_ids:
+        db.execute(
+            delete(PublicationAttachment).where(
+                PublicationAttachment.publication_work_id.in_(work_ids)
+            )
+        )
+        db.execute(
+            delete(PublicationWorkEvent).where(
+                PublicationWorkEvent.publication_work_id.in_(work_ids)
+            )
+        )
+        db.execute(
+            delete(PublicationVerification).where(
+                PublicationVerification.publication_work_id.in_(work_ids)
+            )
+        )
+        db.execute(delete(PublicationWork).where(PublicationWork.id.in_(work_ids)))
+    db.execute(
+        delete(ContentTaskGeoSource).where(ContentTaskGeoSource.content_task_id == task.id)
+    )
+    db.scalar(select(func.set_config("partsignal.content_task_delete_id", str(task.id), True)))
+    task.current_content_version_id = None
+    db.flush()
+    if version_ids:
+        db.execute(
+            update(ContentVersion)
+            .where(ContentVersion.id.in_(version_ids))
+            .values(source_job_id=None)
+        )
+    db.execute(delete(GenerationJob).where(GenerationJob.content_task_id == task.id))
+    if version_ids:
+        db.execute(
+            delete(ContentReviewRecord).where(
+                ContentReviewRecord.content_version_id.in_(version_ids)
+            )
+        )
+        db.execute(delete(ContentVersion).where(ContentVersion.id.in_(version_ids)))
+    db.execute(delete(ContentTask).where(ContentTask.id == task.id))
+    cleanup_time = datetime.now(UTC)
+    for file_id in scope.publication_file_ids:
+        schedule_unreferenced_file(db, file_id, cleanup_after=cleanup_time)
+
+
+def _task_audit_targets(
+    task: ContentTask, scope: _TaskDeletionScope
+) -> dict[str, list[uuid.UUID]]:
+    return {
+        "ContentTask": [task.id],
+        "GenerationJob": [item.id for item in scope.jobs],
+        "ContentVersion": [item.id for item in scope.versions],
+        "PublicationWork": [item.id for item in scope.works],
+        "PublishedArticle": [item.id for item in scope.articles],
+        "PublishedContentIssue": [item.id for item in scope.issues],
+        "GeoObservation": scope.exclusive_geo_observation_ids,
+    }
+
+
+def archive_content_task(
+    *, db: Session, task_id: uuid.UUID, expected_revision: int
+) -> ContentTask:
+    """归档已完成任务，仅改变默认可见性。"""
+    task = db.scalar(select(ContentTask).where(ContentTask.id == task_id).with_for_update())
+    if task is None:
+        raise not_found("内容任务")
+    if task.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "内容任务已被其他请求修改", 409)
+    if task.status != "COMPLETED" or task.archived_at is not None:
+        raise AppError("INVALID_STATE_TRANSITION", "只有未归档的已完成任务可以归档", 409)
+    task.archived_at = datetime.now(UTC)
+    task.revision += 1
+    db.commit()
+    return task
+
+
+def restore_content_task(
+    *, db: Session, task_id: uuid.UUID, expected_revision: int
+) -> ContentTask:
+    """恢复已归档任务，不改变其业务状态。"""
+    task = db.scalar(select(ContentTask).where(ContentTask.id == task_id).with_for_update())
+    if task is None:
+        raise not_found("内容任务")
+    if task.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "内容任务已被其他请求修改", 409)
+    if task.archived_at is None:
+        raise AppError("INVALID_STATE_TRANSITION", "内容任务尚未归档", 409)
+    task.archived_at = None
+    task.revision += 1
+    db.commit()
+    return task
 
 
 def cancel_content_task(
@@ -1007,110 +1265,34 @@ def cancel_content_task(
         raise AppError("PUBLICATION_IN_FLIGHT", "任务存在进行中的发布，必须先关闭发布工作", 409)
     task.status = "CANCELLED"
     task.revision += 1
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONTENT_PLANNING,
-            action="content_task.cancelled",
-            target_type="ContentTask",
-            target_id=task.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="内容任务已取消",
-            details={"facts": {"comment": comment, "revision": task.revision}},
-        ),
-    )
     db.commit()
     return task
 
 
 def delete_content_task(*, db: Session, task_id: uuid.UUID, actor: User, request_id: str) -> None:
-    """删除已取消且没有受保护历史的任务及其草稿生成数据。"""
-    task = db.scalar(
-        select(ContentTask).where(ContentTask.id == task_id).with_for_update()
-    )
+    """删除没有成功发布或 GEO 关系的完整未归档任务聚合。"""
+    task = db.scalar(select(ContentTask).where(ContentTask.id == task_id).with_for_update())
     if task is None:
         raise not_found("内容任务")
-    if task.status != "CANCELLED":
-        raise AppError("INVALID_STATE_TRANSITION", "只有已取消的内容任务可以删除", 409)
-    jobs = list(
-        db.scalars(
-            select(GenerationJob)
-            .where(GenerationJob.content_task_id == task_id)
-            .order_by(GenerationJob.id)
-            .with_for_update()
+    if task.archived_at is not None:
+        raise AppError("CONTENT_TASK_REQUIRES_ARCHIVE", "已归档任务必须使用永久删除", 409)
+    if task.status not in {"OPEN", "CANCELLED"}:
+        raise AppError(
+            "CONTENT_TASK_REQUIRES_ARCHIVE",
+            "已完成任务必须先归档",
+            409,
         )
-    )
-    versions = list(
-        db.scalars(
-            select(ContentVersion)
-            .where(ContentVersion.task_id == task_id)
-            .order_by(ContentVersion.id)
-            .with_for_update()
+    scope = _task_deletion_scope(db, task)
+    if any(job.status in {"PENDING", "RUNNING"} for job in scope.jobs):
+        raise AppError("CONTENT_TASK_BUSY", "任务仍有运行中的生成作业", 409)
+    if scope.articles or scope.geo_article_relation_count:
+        raise AppError(
+            "CONTENT_TASK_REQUIRES_ARCHIVE",
+            "成功发布或产生 GEO 关系的任务必须先归档",
+            409,
         )
-    )
-    version_ids = [version.id for version in versions]
-    protected_content_count = sum(
-        version.status in {"APPROVED", "SUPERSEDED"} for version in versions
-    )
-    work_count = int(
-        db.scalar(
-            select(func.count(PublicationWork.id)).where(
-                PublicationWork.content_task_id == task.id
-            )
-        )
-        or 0
-    )
-    repair_source_count = int(task.source_published_content_issue_id is not None)
-    geo_source_count = int(
-        db.scalar(
-            select(func.count(ContentTaskGeoSource.content_task_id)).where(
-                ContentTaskGeoSource.content_task_id == task.id
-            )
-        )
-        or 0
-    )
-    if protected_content_count or work_count or repair_source_count or geo_source_count:
-        raise in_use(
-            "CONTENT_TASK_IN_USE",
-            "内容任务",
-            [
-                ("PROTECTED_CONTENT_VERSION", "已批准内容历史", protected_content_count),
-                ("PUBLICATION_WORK", "发布工作", work_count),
-                ("PUBLISHED_CONTENT_ISSUE", "发布问题修复来源", repair_source_count),
-                ("GEO_OPTIMIZATION_SOURCE", "GEO 优化来源", geo_source_count),
-            ],
-        )
-    review_count = (
-        int(
-            db.scalar(
-                select(func.count(ContentReviewRecord.id)).where(
-                    ContentReviewRecord.content_version_id.in_(version_ids)
-                )
-            )
-            or 0
-        )
-        if version_ids
-        else 0
-    )
-    db.scalar(select(func.set_config("partsignal.content_task_delete_id", str(task.id), True)))
-    task.current_content_version_id = None
-    db.flush()
-    if version_ids:
-        db.execute(
-            update(ContentVersion)
-            .where(ContentVersion.id.in_(version_ids))
-            .values(source_job_id=None)
-        )
-    db.execute(delete(GenerationJob).where(GenerationJob.content_task_id == task.id))
-    if version_ids:
-        db.execute(
-            delete(ContentReviewRecord).where(
-                ContentReviewRecord.content_version_id.in_(version_ids)
-            )
-        )
-        db.execute(delete(ContentVersion).where(ContentVersion.id.in_(version_ids)))
+    _delete_audit_targets(db, _task_audit_targets(task, scope))
+    _delete_task_core(db, task, scope)
     append_audit(
         db,
         AuditEntry(
@@ -1124,12 +1306,64 @@ def delete_content_task(*, db: Session, task_id: uuid.UUID, actor: User, request
             result_message="内容任务已删除",
             details={
                 "facts": {
-                    "generation_job_count": len(jobs),
-                    "content_version_count": len(versions),
-                    "content_review_record_count": review_count,
+                    "generation_job_count": len(scope.jobs),
+                    "content_version_count": len(scope.versions),
+                    "content_review_record_count": len(scope.reviews),
+                    "publication_work_count": len(scope.works),
                 }
             },
         ),
     )
-    db.execute(delete(ContentTask).where(ContentTask.id == task.id))
+    db.commit()
+
+
+def permanently_delete_content_task(
+    *,
+    db: Session,
+    task_id: uuid.UUID,
+    payload: ContentTaskPermanentDeleteRequest,
+    actor: User,
+    request_id: str,
+) -> None:
+    """永久删除已归档任务的完整内部聚合，并保留最小墓碑。"""
+    task = db.scalar(select(ContentTask).where(ContentTask.id == task_id).with_for_update())
+    if task is None:
+        raise not_found("内容任务")
+    if task.archived_at is None:
+        raise AppError("CONTENT_TASK_NOT_ARCHIVED", "内容任务必须先归档", 409)
+    if task.revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "内容任务已被其他请求修改", 409)
+    if payload.confirmation_text != "永久删除":
+        raise AppError(
+            "PERMANENT_DELETE_CONFIRMATION_MISMATCH",
+            "永久删除确认文本不匹配",
+            422,
+        )
+    scope = _task_deletion_scope(db, task)
+    if any(job.status in {"PENDING", "RUNNING"} for job in scope.jobs):
+        raise AppError("CONTENT_TASK_BUSY", "任务仍有运行中的生成作业", 409)
+    for root_id in scope.exclusive_geo_chain_roots:
+        _delete_manual_observation_chain(db, root_id)
+    article_ids = [article.id for article in scope.articles]
+    issue_ids = [issue.id for issue in scope.issues]
+    if issue_ids:
+        db.execute(delete(PublishedContentIssue).where(PublishedContentIssue.id.in_(issue_ids)))
+    if article_ids:
+        db.execute(delete(PublishedArticle).where(PublishedArticle.id.in_(article_ids)))
+    _delete_audit_targets(db, _task_audit_targets(task, scope))
+    _delete_task_core(db, task, scope)
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.CONTENT_PLANNING,
+            action="content_task.permanently_deleted",
+            target_type="ContentTask",
+            target_id=task.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="内容任务已永久删除",
+            details={},
+        ),
+    )
     db.commit()

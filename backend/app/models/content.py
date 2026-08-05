@@ -32,6 +32,15 @@ class ContentTask(Base):
     __table_args__ = (
         UniqueConstraint("idempotency_key", name="uq_content_tasks_idempotency_key"),
         Index("ix_content_tasks_platform_profile_created_at", "platform_profile_id", "created_at"),
+        Index("ix_content_tasks_archived_at_created_at", "archived_at", "created_at"),
+        CheckConstraint(
+            "status <> 'OPEN' OR platform_profile_id IS NOT NULL",
+            name="open_requires_platform",
+        ),
+        CheckConstraint(
+            "archived_at IS NULL OR status = 'COMPLETED'",
+            name="archive_completed",
+        ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     query_topic_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -52,14 +61,15 @@ class ContentTask(Base):
             use_alter=True,
         ),
     )
-    platform_profile_id: Mapped[uuid.UUID] = mapped_column(
+    platform_profile_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("platform_profiles.id", ondelete="RESTRICT"),
-        nullable=False,
+        ForeignKey("platform_profiles.id", ondelete="SET NULL"),
     )
+    platform_profile_name_snapshot: Mapped[str] = mapped_column(String(160), nullable=False)
+    platform_website_url_snapshot: Mapped[str | None] = mapped_column(Text)
     source_published_content_issue_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("published_content_issues.id", ondelete="RESTRICT"),
+        ForeignKey("published_content_issues.id", ondelete="SET NULL"),
         unique=True,
     )
     idempotency_key: Mapped[str | None] = mapped_column(String(128))
@@ -71,6 +81,7 @@ class ContentTask(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class ContentVersion(Base):
@@ -165,10 +176,6 @@ class ContentTaskGeoSource(Base):
             name="ck_content_task_geo_sources_period",
         ),
         CheckConstraint(
-            "published_article_id IS NOT NULL OR query_topic_id IS NOT NULL",
-            name="ck_content_task_geo_sources_identity",
-        ),
-        CheckConstraint(
             "jsonb_typeof(basis_snapshot) = 'object'",
             name="ck_content_task_geo_sources_snapshot_object",
         ),
@@ -182,7 +189,7 @@ class ContentTaskGeoSource(Base):
     date_from: Mapped[date] = mapped_column(Date, nullable=False)
     date_to: Mapped[date] = mapped_column(Date, nullable=False)
     published_article_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("published_articles.id", ondelete="RESTRICT")
+        UUID(as_uuid=True), ForeignKey("published_articles.id", ondelete="SET NULL")
     )
     query_topic_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("query_topics.id", ondelete="RESTRICT")

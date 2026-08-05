@@ -1158,8 +1158,8 @@ def test_audit_log_query_detail_filters_and_current_actor_projection() -> None:
 
 
 @pytest.mark.integration
-def test_user_status_commands_record_success_failed_and_denied() -> None:
-    """单个和批量启停写入真实结果，失败或拒绝不得改变用户状态。"""
+def test_user_status_commands_record_success_only() -> None:
+    """单个和批量启停只审计成功结果，失败或拒绝不得改变用户状态。"""
     with temporary_database() as database_url:
         engine = create_engine(database_url)
         session_factory = sessionmaker(bind=engine, expire_on_commit=False)
@@ -1280,8 +1280,6 @@ def test_user_status_commands_record_success_failed_and_denied() -> None:
                 )
             }
             assert outcomes == {
-                "identity-status-denied": ("DENIED", "PERMISSION_DENIED"),
-                "identity-status-failed": ("FAILED", "REVISION_CONFLICT"),
                 "identity-status-success": ("SUCCESS", None),
             }
             mixed = list(
@@ -1292,7 +1290,6 @@ def test_user_status_commands_record_success_failed_and_denied() -> None:
                 )
             )
             assert [(audit.target_id, audit.outcome, audit.error_code) for audit in mixed] == [
-                (str(missing_id), "FAILED", "NOT_FOUND"),
                 (str(target.id), "SUCCESS", None),
             ]
         engine.dispose()

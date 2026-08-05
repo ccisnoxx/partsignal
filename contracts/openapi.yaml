@@ -793,7 +793,7 @@ paths:
           schema: {type: integer, minimum: 0}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
-        '204': {description: 已删除未被任何平台绑定的 Prompt}
+        '204': {description: 已原子解绑全部平台并删除 Prompt}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
@@ -1268,6 +1268,10 @@ paths:
           in: query
           description: 仅返回直接绑定该事实版本的内容任务
           schema: {type: string, format: uuid}
+        - name: archive_status
+          in: query
+          description: 默认只返回当前任务；归档视图必须显式选择
+          schema: {type: string, enum: [ACTIVE, ARCHIVED, ALL], default: ACTIVE}
       responses:
         '200':
           description: 内容任务列表
@@ -1309,7 +1313,7 @@ paths:
       operationId: deleteContentTask
       parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
       responses:
-        '204': {description: 已删除已取消任务及其未批准、未发布的任务自有生产历史}
+        '204': {description: 已删除未成功发布的完整内部任务聚合}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
@@ -1341,6 +1345,76 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/content-tasks/{content_task_id}/archive:
+    post:
+      tags: [planning]
+      operationId: archiveContentTask
+      parameters:
+        - {$ref: '#/components/parameters/ContentTaskId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
+      responses:
+        '200':
+          description: 已归档完成任务，仅改变默认可见性
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentTask'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/content-tasks/{content_task_id}/restore:
+    post:
+      tags: [planning]
+      operationId: restoreContentTask
+      parameters:
+        - {$ref: '#/components/parameters/ContentTaskId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
+      responses:
+        '200':
+          description: 已恢复归档任务，不改变业务状态
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentTask'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/content-tasks/{content_task_id}/permanent-deletion-preview:
+    get:
+      tags: [planning]
+      operationId: getContentTaskPermanentDeletionPreview
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      responses:
+        '200':
+          description: 已归档任务的实时内部删除范围和登记 URL
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentTaskPermanentDeletionPreview'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/content-tasks/{content_task_id}/permanent-delete:
+    post:
+      tags: [planning]
+      operationId: permanentlyDeleteContentTask
+      parameters:
+        - {$ref: '#/components/parameters/ContentTaskId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ContentTaskPermanentDeleteRequest'}
+      responses:
+        '204': {description: 已永久删除内部任务聚合；不处理外部页面}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/generation-jobs:
     get:
       tags: [production]
@@ -3569,9 +3643,10 @@ components:
       allOf:
         - {$ref: '#/components/schemas/ContentTaskCreate'}
         - type: object
-          required: [id, query_topic_id, source_published_content_issue_id, current_content_version_id, workflow_stage, primary_task, available_actions, deletion, status, revision, created_by, created_at]
+          required: [id, platform_profile_id, query_topic_id, source_published_content_issue_id, current_content_version_id, workflow_stage, primary_task, available_actions, deletion, status, revision, created_by, created_at, archived_at]
           properties:
             id: {type: string, format: uuid}
+            platform_profile_id: {type: [string, 'null'], format: uuid}
             query_topic_id: {type: [string, 'null'], format: uuid}
             source_published_content_issue_id: {type: [string, 'null'], format: uuid}
             current_content_version_id: {type: [string, 'null'], format: uuid}
@@ -3579,7 +3654,7 @@ components:
             primary_task: {type: string, enum: [CREATE_FIRST_DRAFT, VIEW_GENERATION_PROGRESS, HANDLE_GENERATION_FAILURE, EDIT_AND_SUBMIT_REVIEW, REVIEW_CONTENT, REVISE_CONTENT, START_PUBLICATION, CONTINUE_PUBLICATION, VIEW_FULL_LINEAGE, VIEW_CANCELLATION]}
             available_actions:
               type: array
-              items: {type: string, enum: [CANCEL, DELETE, CREATE_GENERATION_JOB, CREATE_MANUAL_VERSION]}
+              items: {type: string, enum: [CANCEL, DELETE, ARCHIVE, RESTORE, PERMANENT_DELETE, CREATE_GENERATION_JOB, CREATE_MANUAL_VERSION]}
             deletion:
               anyOf:
                 - {$ref: '#/components/schemas/DeletionProjection'}
@@ -3588,6 +3663,7 @@ components:
             revision: {type: integer}
             created_by: {type: string, format: uuid}
             created_at: {type: string, format: date-time}
+            archived_at: {type: [string, 'null'], format: date-time}
     ContentTaskList:
       type: object
       additionalProperties: false
@@ -3607,7 +3683,7 @@ components:
       additionalProperties: false
       required: [id, name, website_url, logo]
       properties:
-        id: {type: string, format: uuid}
+        id: {type: [string, 'null'], format: uuid}
         name: {type: string}
         website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
         logo:
@@ -3626,6 +3702,41 @@ components:
               anyOf:
                 - {$ref: '#/components/schemas/GenerationJobStatus'}
                 - {type: 'null'}
+    ContentTaskPermanentDeletionCounts:
+      type: object
+      additionalProperties: false
+      required: [content_versions, content_review_records, generation_jobs, publication_works, publication_events, publication_verifications, published_articles, published_content_issues, geo_article_relations, exclusive_geo_observation_chains, attachment_relations]
+      properties:
+        content_versions: {type: integer, minimum: 0}
+        content_review_records: {type: integer, minimum: 0}
+        generation_jobs: {type: integer, minimum: 0}
+        publication_works: {type: integer, minimum: 0}
+        publication_events: {type: integer, minimum: 0}
+        publication_verifications: {type: integer, minimum: 0}
+        published_articles: {type: integer, minimum: 0}
+        published_content_issues: {type: integer, minimum: 0}
+        geo_article_relations: {type: integer, minimum: 0}
+        exclusive_geo_observation_chains: {type: integer, minimum: 0}
+        attachment_relations: {type: integer, minimum: 0}
+    ContentTaskPermanentDeletionPreview:
+      type: object
+      additionalProperties: false
+      required: [task_id, revision, counts, external_urls, confirmation_text]
+      properties:
+        task_id: {type: string, format: uuid}
+        revision: {type: integer, minimum: 0}
+        counts: {$ref: '#/components/schemas/ContentTaskPermanentDeletionCounts'}
+        external_urls:
+          type: array
+          items: {type: string, format: uri, minLength: 1, maxLength: 2083}
+        confirmation_text: {type: string, const: 永久删除}
+    ContentTaskPermanentDeleteRequest:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, confirmation_text]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
+        confirmation_text: {type: string}
     GenerationOptionModel:
       type: object
       additionalProperties: false
@@ -4168,14 +4279,14 @@ components:
           type: integer
           title: Content Version
         platform_profile_id:
-          type: string
+          type: [string, 'null']
           format: uuid
           title: Platform Profile Id
         platform_profile_name:
           type: string
           title: Platform Profile Name
         platform_account_id:
-          type: string
+          type: [string, 'null']
           format: uuid
           title: Platform Account Id
         platform_account_label:
@@ -4492,14 +4603,14 @@ components:
           type: integer
           title: Content Version
         platform_profile_id:
-          type: string
+          type: [string, 'null']
           format: uuid
           title: Platform Profile Id
         platform_profile_name:
           type: string
           title: Platform Profile Name
         platform_account_id:
-          type: string
+          type: [string, 'null']
           format: uuid
           title: Platform Account Id
         platform_account_label:
@@ -4776,14 +4887,14 @@ components:
           type: integer
           title: Content Version
         platform_profile_id:
-          type: string
+          type: [string, 'null']
           format: uuid
           title: Platform Profile Id
         platform_profile_name:
           type: string
           title: Platform Profile Name
         platform_account_id:
-          type: string
+          type: [string, 'null']
           format: uuid
           title: Platform Account Id
         platform_account_label:
@@ -4883,14 +4994,14 @@ components:
           type: integer
           title: Content Version
         platform_profile_id:
-          type: string
+          type: [string, 'null']
           format: uuid
           title: Platform Profile Id
         platform_profile_name:
           type: string
           title: Platform Profile Name
         platform_account_id:
-          type: string
+          type: [string, 'null']
           format: uuid
           title: Platform Account Id
         platform_account_label:

@@ -62,6 +62,7 @@ const task = {
   product_id: 'product-1',
   platform_profile_id: 'platform-1',
   status: 'OPEN',
+  archived_at: null,
   available_actions: ['CANCEL', 'CREATE_GENERATION_JOB', 'CREATE_MANUAL_VERSION'],
   deletion: null,
   fact_version_id: 'fact-version-1',
@@ -510,7 +511,7 @@ test('列表用真实任务状态生成摘要，并将客户端筛选写入 URL'
 
   expect(await screen.findByLabelText('PartSignal PS-01')).toBeInTheDocument();
   expect(screen.getByText('当前平台：工程师社区')).toBeInTheDocument();
-  expect(apiMocks.GET).toHaveBeenCalledWith('/api/v1/content-tasks', { params: { query: { platform_profile_id: 'platform-1' } } });
+  expect(apiMocks.GET).toHaveBeenCalledWith('/api/v1/content-tasks', { params: { query: { archive_status: 'ACTIVE', platform_profile_id: 'platform-1' } } });
   expect(screen.getByRole('heading', { name: '内容任务台' })).toBeInTheDocument();
   expect(within(screen.getByText('全部任务').closest('.metric-tile') as HTMLElement).getByText('3')).toBeInTheDocument();
   expect(within(screen.getByText('进行中任务').closest('.metric-tile') as HTMLElement).getByText('1')).toBeInTheDocument();
@@ -595,7 +596,7 @@ test('任务列表直接呈现服务端允许的取消和删除操作', async ()
   await user.click(screen.getByRole('button', { name: '更多操作：PartSignal PS-02' }));
   await user.click(await screen.findByRole('menuitem', { name: '删除任务' }));
   const deleteDialog = within(await screen.findByRole('dialog'));
-  expect(deleteDialog.getByText(/生成作业、审核记录、草稿和未批准内容/)).toBeInTheDocument();
+  expect(deleteDialog.getByText(/内容版本、审核记录、生成作业和未成功发布历史/)).toBeInTheDocument();
   expect(deleteDialog.queryByText('物理删除')).not.toBeInTheDocument();
   await user.click(deleteDialog.getByRole('button', { name: '确认删除' }));
   await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
@@ -604,25 +605,96 @@ test('任务列表直接呈现服务端允许的取消和删除操作', async ()
   ));
 });
 
-test('已取消任务被不可变历史引用时提供精确查看入口', async () => {
+test('当前任务可归档，归档筛选中可恢复', async () => {
   const user = userEvent.setup();
-  const blocked = listTask(2, 'CANCELLED', {
-    available_actions: [],
-    deletion: { blockers: [
-      { type: 'PROTECTED_CONTENT_VERSION', count: 1 },
-      { type: 'PUBLICATION_WORK', count: 1 },
-    ] },
+  const completed = listTask(1, 'COMPLETED', { available_actions: ['ARCHIVE'] });
+  const archived = listTask(2, 'COMPLETED', {
+    available_actions: ['RESTORE'],
+    archived_at: '2026-07-20T08:30:00Z',
   });
-  apiMocks.GET.mockImplementation((path: string) => path === '/api/v1/content-tasks' ? result({ items: [blocked] }) : result(undefined, 404));
-  renderPage(<Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes>, ['/tasks']);
+  apiMocks.GET.mockImplementation((path: string, options?: { params?: { query?: { archive_status?: string } } }) => {
+    if (path !== '/api/v1/content-tasks') throw new Error(`未声明测试请求：${path}`);
+    return result({ items: options?.params?.query?.archive_status === 'ARCHIVED' ? [archived] : [completed] });
+  });
+  apiMocks.POST.mockImplementation((_path: string, options: { body: { expected_revision: number } }) => result({
+    ...completed,
+    archived_at: '2026-07-20T08:30:00Z',
+    revision: options.body.expected_revision + 1,
+  }));
+  renderPage(<><LocationProbe /><Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes></>, ['/tasks']);
 
-  await user.click(await screen.findByRole('button', { name: /更多操作/ }));
-  await user.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
-  expect(screen.getByText('已批准内容历史：1')).toBeInTheDocument();
-  expect(screen.getAllByRole('link', { name: '查看历史' }).map((link) => link.getAttribute('href'))).toEqual(expect.arrayContaining([
-    '/tasks/task-2#task-versions',
-    '/publications?content_task_id=task-2',
-  ]));
+  await user.click(await screen.findByRole('button', { name: '更多操作：PartSignal PS-01' }));
+  await user.click(await screen.findByRole('menuitem', { name: '归档任务' }));
+  let dialog = within(await screen.findByRole('dialog'));
+  expect(dialog.getByText(/发布、GEO 和外部页面均保持不变/)).toBeInTheDocument();
+  await user.click(dialog.getByRole('button', { name: '确认归档' }));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/content-tasks/{content_task_id}/archive',
+    expect.objectContaining({ body: { expected_revision: completed.revision } }),
+  ));
+
+  await user.click(screen.getByRole('tab', { name: '已归档' }));
+  expect(screen.getByTestId('location-search')).toHaveTextContent('archive_status=ARCHIVED');
+  await user.click(await screen.findByRole('button', { name: '更多操作：PartSignal PS-02' }));
+  await user.click(await screen.findByRole('menuitem', { name: '恢复任务' }));
+  dialog = within(await screen.findByRole('dialog'));
+  expect(dialog.getByText(/不会把业务状态改回进行中/)).toBeInTheDocument();
+  await user.click(dialog.getByRole('button', { name: '确认恢复' }));
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/content-tasks/{content_task_id}/restore',
+    expect.objectContaining({ body: { expected_revision: archived.revision } }),
+  ));
+});
+
+test('归档任务永久删除必须先读预览并输入固定文本', async () => {
+  const user = userEvent.setup();
+  const archived = listTask(2, 'COMPLETED', {
+    available_actions: ['RESTORE', 'PERMANENT_DELETE'],
+    archived_at: '2026-07-20T08:30:00Z',
+    revision: 3,
+  });
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks') return result({ items: [archived] });
+    if (path === '/api/v1/content-tasks/{content_task_id}/permanent-deletion-preview') return result({
+      task_id: archived.id,
+      revision: archived.revision,
+      counts: {
+        content_versions: 2,
+        content_review_records: 1,
+        generation_jobs: 1,
+        publication_works: 1,
+        publication_events: 3,
+        publication_verifications: 1,
+        published_articles: 1,
+        published_content_issues: 0,
+        geo_article_relations: 1,
+        exclusive_geo_observation_chains: 0,
+        attachment_relations: 2,
+      },
+      external_urls: ['https://example.invalid/article'],
+      confirmation_text: '永久删除',
+    });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  apiMocks.POST.mockResolvedValue({ response: new Response(null, { status: 204 }) });
+  renderPage(<Routes><Route path="/tasks" element={<ContentTasksPage />} /></Routes>, ['/tasks?archive_status=ARCHIVED']);
+
+  await user.click(await screen.findByRole('button', { name: '更多操作：PartSignal PS-02' }));
+  await user.click(await screen.findByRole('menuitem', { name: '永久删除' }));
+  const dialog = within(await screen.findByRole('dialog', { name: '永久删除内容任务' }));
+  expect(await dialog.findByText('此操作不可恢复')).toBeInTheDocument();
+  expect(dialog.getByRole('link', { name: 'https://example.invalid/article' })).toHaveAttribute('href', 'https://example.invalid/article');
+  const confirmButton = dialog.getByRole('button', { name: '永久删除' });
+  expect(confirmButton).toBeDisabled();
+  await user.type(dialog.getByRole('textbox', { name: '永久删除确认文本' }), '永久删除');
+  expect(confirmButton).toBeEnabled();
+  await user.click(confirmButton);
+  await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
+    '/api/v1/content-tasks/{content_task_id}/permanent-delete',
+    expect.objectContaining({
+      body: { expected_revision: archived.revision, confirmation_text: '永久删除' },
+    }),
+  ));
 });
 
 test('详情取消弹窗的次按钮、关闭图标和 Escape 均不提交并恢复焦点', async () => {
@@ -672,7 +744,7 @@ test('仅按服务端 DELETE 动作确认删除并返回任务列表', async () 
 
   await user.click(await screen.findByRole('button', { name: '删除任务' }));
   const dialog = await screen.findByRole('dialog');
-  expect(within(dialog).getByText(/生成作业、审核记录、草稿和未批准内容/)).toBeInTheDocument();
+  expect(within(dialog).getByText(/内容版本、审核记录、生成作业和未成功发布历史/)).toBeInTheDocument();
   expect(within(dialog).queryByText('物理删除')).not.toBeInTheDocument();
   await user.click(within(dialog).getByRole('button', { name: '确认删除' }));
 

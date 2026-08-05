@@ -9,8 +9,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query, Request, Response, status
 
-from app.audit import commit_audit
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+from app.audit_types import AuditModule, AuditOutcome
 from app.config import settings
 from app.deps import (
     AdminUser,
@@ -227,43 +226,13 @@ def bulk_update_user_status(
     _csrf: CsrfProtected,
 ) -> UserBulkStatusResult:
     """在一个事务中执行最多一百项用户状态更新。"""
-    try:
-        assert_account_types(actor, (AccountType.ADMIN,))
-        succeeded, failures = bulk_update_user_status_command(
-            db=db,
-            payload=payload,
-            actor=actor,
-            request_id=request.state.request_id,
-        )
-    except AppError as error:
-        db.rollback()
-        outcome = AuditOutcome.DENIED if error.code == "PERMISSION_DENIED" else AuditOutcome.FAILED
-        for item in payload.items:
-            commit_audit(
-                db,
-                AuditEntry(
-                    actor_id=actor.id,
-                    business_module=AuditModule.IDENTITY,
-                    action="user.updated",
-                    target_type="User",
-                    target_id=item.user_id,
-                    request_id=request.state.request_id,
-                    outcome=outcome,
-                    result_message=(
-                        "用户状态更新被拒绝"
-                        if outcome == AuditOutcome.DENIED
-                        else "用户状态更新失败"
-                    ),
-                    error_code=error.code,
-                    details={
-                        "facts": {
-                            "source": "BULK_STATUS",
-                            "status": payload.status.value,
-                        }
-                    },
-                )
-            )
-        raise
+    assert_account_types(actor, (AccountType.ADMIN,))
+    succeeded, failures = bulk_update_user_status_command(
+        db=db,
+        payload=payload,
+        actor=actor,
+        request_id=request.state.request_id,
+    )
     return UserBulkStatusResult(
         succeeded=present_managed_users(db, succeeded, actor=actor),
         failures=failures,
@@ -305,44 +274,14 @@ def update_user(
     actor: CurrentUser,
     _csrf: CsrfProtected,
 ) -> UserOut:
-    try:
-        assert_account_types(actor, (AccountType.ADMIN,))
-        user = update_user_command(
-            db=db,
-            user_id=user_id,
-            payload=payload,
-            actor=actor,
-            request_id=request.state.request_id,
-        )
-    except AppError as error:
-        db.rollback()
-        outcome = AuditOutcome.DENIED if error.code == "PERMISSION_DENIED" else AuditOutcome.FAILED
-        commit_audit(
-            db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.IDENTITY,
-                action="user.updated",
-                target_type="User",
-                target_id=user_id,
-                request_id=request.state.request_id,
-                outcome=outcome,
-                result_message=(
-                    "用户状态更新被拒绝" if outcome == AuditOutcome.DENIED else "用户状态更新失败"
-                ),
-                error_code=error.code,
-                details={
-                    "facts": {
-                        "status": (
-                            UserStatus.ENABLED.value
-                            if payload.is_active
-                            else UserStatus.DISABLED.value
-                        )
-                    }
-                },
-            )
-        )
-        raise
+    assert_account_types(actor, (AccountType.ADMIN,))
+    user = update_user_command(
+        db=db,
+        user_id=user_id,
+        payload=payload,
+        actor=actor,
+        request_id=request.state.request_id,
+    )
     return present_managed_user(db, user, actor=actor)
 
 

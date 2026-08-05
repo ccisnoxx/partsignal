@@ -203,7 +203,7 @@ test('发布账号删除确认说明引用阻断和不可恢复性', async () =>
     selector: '.ant-modal-confirm-title',
   })).closest<HTMLElement>('[role="dialog"]');
   expect(dialog).not.toBeNull();
-  expect(within(dialog!).getByText('存在发布工作引用时服务端会拒绝。此操作不可恢复。')).toBeInTheDocument();
+  expect(within(dialog!).getByText('只有进行中的发布工作会阻止删除；终态历史会保留创建时的账号快照。此操作不可恢复。')).toBeInTheDocument();
   expect(within(dialog!).queryByText(/物理删除/)).not.toBeInTheDocument();
   fireEvent.click(within(dialog!).getByRole('button', { name: /取\s*消/ }));
 });

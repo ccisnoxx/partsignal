@@ -110,73 +110,74 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 正确：按三个请求模型保留已批准边界，并同步服务端、OpenAPI、前端表单与测试：`UserCreate=12`、`ResetPasswordRequest=8`、`ChangePasswordRequest=8`。
 
-## 场景：受约束删除用户与内容任务
+## 场景：开发阶段删除、归档与配置解耦
 
 ### 1. 范围与触发条件
 
-- 修改用户、内容任务删除 API，或 `audit_logs.actor_id ON DELETE SET NULL` 与追加式审计门禁时适用。
-- 删除只用于尚未承担业务历史的停用账号，以及没有批准、发布或修复历史的已取消任务。任务自有的生成作业、审核记录、草稿和未批准内容可在同一事务中清理。
+- 修改用户、内容任务、平台、平台账号、平台 Prompt 删除，任务归档/恢复、发布/GEO 聚合删除、审计保留或 revision `0037_simplify_deletion_lifecycle` 时适用。
+- 该场景只为开发阶段提供简单清理能力；不建立通用级联框架、归档表、审计保留期任务、外部页面删除验证或兼容状态机。
 
 ### 2. 签名
 
+- 普通删除：`DELETE /api/v1/content-tasks/{content_task_id}`，`ENGINEER | ADMIN`，成功返回 `204`。
+- 归档/恢复：`POST /api/v1/content-tasks/{id}/archive|restore`，请求 `{expected_revision}`，返回重新投影的任务。
+- 永久删除：`GET /api/v1/content-tasks/{id}/permanent-deletion-preview` 与 `POST /api/v1/content-tasks/{id}/permanent-delete`；后者仅 `ADMIN`，请求 `{expected_revision, confirmation_text: "永久删除"}`，成功返回 `204`。
+- 配置删除：既有 Prompt、平台和平台账号 DELETE 路径；Prompt 继续校验 `expected_revision`，平台必须先停用。
 - 用户：`DELETE /api/v1/users/{user_id}`，管理员权限和 CSRF，成功返回 `204`。
-- 内容任务：`DELETE /api/v1/content-tasks/{content_task_id}`，内容编辑权限和 CSRF，成功返回 `204`。
-- 密码边界：`UserCreate.temporary_password` 最少 12 位；`ResetPasswordRequest.temporary_password` 与 `ChangePasswordRequest.new_password` 最少 8 位。
-- 数据库 revision：用户门禁为 `0027_audit_user_delete_guard`；任务自有历史删除门禁为 `0033_task_owned_history_delete`。
+- 数据库 revision：`0037_simplify_deletion_lifecycle`，`down_revision = "0036_remove_section_url"`，不可安全降级。
 
 ### 3. 契约
 
-- 用户删除先锁定 `users` 表与目标行，仅接受 `is_active=false`。`sessions` 由既有 `CASCADE` 清理，业务归属继续由既有 `RESTRICT` 阻断。
-- 删除事务通过 `set_config('partsignal.user_delete_id', <uuid>, true)` 声明目标。审计触发器还必须满足 `pg_trigger_depth() > 1`、`OLD.actor_id=<uuid>`、`NEW.actor_id IS NULL`，且除 `actor_id` 外整行完全相等。
-- 内容任务删除仅接受 `CANCELLED`，按稳定 UUID 顺序锁定任务的生成作业、内容版本和任务行；存在 `APPROVED`/`SUPERSEDED` 内容、任一 `PublicationWork` 或 `source_published_content_issue_id` 时阻断。
-- 删除事务通过 `set_config('partsignal.content_task_delete_id', <uuid>, true)` 仅为匹配任务开放 `content_versions.source_job_id=NULL` 和审核记录删除，随后清理任务自有生成作业、审核记录、未批准版本与任务；产品、事实、平台、发布和 GEO 历史不级联。
-- 任务详情与列表使用同一批量保护历史查询，满足上述条件时投影 `available_actions=["DELETE"]`；删除服务仍须在锁内重新校验。
-- 成功后分别追加 `user.deleted` 或 `content_task.deleted`；不得记录密码或删除历史审计行。
+- `ContentTask.archived_at` 是与业务状态正交的可空标记。归档只接受未归档 `COMPLETED`，恢复只接受已归档任务；两者只更新 `archived_at` 与 revision，不写审计、不改状态或下游历史。
+- 普通删除接受未归档 `OPEN | CANCELLED`，拒绝 `PENDING | RUNNING` 生成作业以及任一成功文章或 GEO 文章关系；它删除任务拥有的生成、内容、审核与未成功发布工作，并清理这些目标的旧审计。
+- 永久删除只接受已归档任务、管理员权限、匹配 revision 与固定确认文本。服务在锁内重算范围，删除任务拥有的内容与发布聚合；人工 GEO 更正链仅在删除后失去全部文章关系时整链删除，共享 GEO 和共享文件保留，最后只写空 `details` 的最小墓碑。
+- 任务和发布工作都冻结平台名称；任务还冻结网站 URL，发布工作还冻结账号标签与账号标识。平台删除必须先停用，仅由 `OPEN` 任务或非终态发布工作阻断，账号随平台删除，但任务绝不级联删除；终态历史实时配置外键置空后从快照展示。
+- 单独账号删除仅由非终态发布工作阻断。Prompt 删除与平台绑定修改复用一个事务 advisory lock；删除时锁定全部绑定平台，置空绑定、递增各平台 revision，再删除 Prompt。历史生成作业继续只读不可变快照。
+- 审计只接受 `RETAINED_AUDIT_ACTIONS` 白名单内的 `SUCCESS`。迁移一次性删除所有失败/拒绝和白名单外历史；运行时没有审计删除 API，只有任务聚合删除按精确目标清理旧审计。
+- 用户删除规则保持独立：只接受停用且无业务引用的用户，会话级联清理；匹配历史审计的 `actor_id` 仍可受约束置空，其他字段 UPDATE 继续拒绝。
 
 ### 4. 校验与错误矩阵
 
 | 条件 | 结果 |
 |---|---|
-| 用户不存在 / 任务不存在 | `404` |
-| 用户仍启用 | `409 USER_ACTIVE` |
-| 用户仍有任一 `RESTRICT` 业务引用 | `409 USER_IN_USE` |
-| 任务不是 `CANCELLED` | `409 INVALID_STATE_TRANSITION` |
-| 任务存在批准/曾批准内容、发布工作或发布后问题修复来源 | `409 CONTENT_TASK_IN_USE`，返回真实非零引用 |
-| 手工更新审计、目标 UUID 错配、同时修改其他字段或删除审计行 | PostgreSQL `55000` |
-| 重置临时密码为 7 位 / 8 位 | `422 VALIDATION_ERROR` / `204` |
+| 普通删除遇到运行中作业 | `409 CONTENT_TASK_BUSY`，聚合不变 |
+| 普通删除遇到成功文章或 GEO 文章关系 | `409 CONTENT_TASK_REQUIRES_ARCHIVE` |
+| 归档非 `COMPLETED` / 恢复未归档任务 | `409 INVALID_STATE_TRANSITION` |
+| 永久删除未归档任务 / revision 过期 / 确认文本错误 | `409 CONTENT_TASK_NOT_ARCHIVED` / `409 REVISION_CONFLICT` / `422 PERMANENT_DELETE_CONFIRMATION_MISMATCH` |
+| 平台仍启用 / 存在 `OPEN` 任务或非终态工作 | `409 INVALID_STATE_TRANSITION` / 结构化 `PLATFORM_PROFILE_IN_USE` |
+| 账号存在非终态工作 | 结构化 `409 PLATFORM_ACCOUNT_IN_USE`；仅有终态工作时可删 |
+| Prompt 删除与平台换绑并发 | advisory lock 串行化；结果是完整解绑删除或完整换绑，不允许部分状态 |
+| 用户仍启用 / 仍有业务引用 | `409 USER_ACTIVE` / `409 USER_IN_USE` |
+| 手工修改批准、发布、GEO 历史或审计 | PostgreSQL `55000`；显式聚合 DELETE 不等于允许原地 UPDATE |
 
 ### 5. 正常、基础与失败案例
 
-- 正常：管理员删除无业务引用的停用账号，会话消失，旧审计行保留且操作者为空，新的删除审计保留执行管理员和目标 UUID。
-- 基础：已取消任务连同生成作业、审核记录、草稿和未批准内容版本删除；外链平台、产品与事实版本保持不变。
-- 失败：仅设置事务变量后直接执行 `UPDATE audit_logs SET actor_id=NULL`，或删除带业务历史的用户/任务，事务失败且目标数据保持原状。
+- 正常：已成功发布任务先归档，管理员查看实时计数和外部 URL，输入 `永久删除` 后一次删除内部任务、发布和独占 GEO 聚合；外部文章不校验也不删除，共享观测保留。
+- 基础：未成功发布的 `OPEN | CANCELLED` 测试任务一键删除；平台停用后删除，内部账号随平台清理，终态任务/工作仍可通过快照读取。
+- 失败：平台仍有 `OPEN` 任务，或永久删除时 revision 已变化，整个事务拒绝且不产生墓碑；不得用前端隐藏按钮或强制级联绕过。
 
 ### 6. 必需测试
 
-- PostgreSQL 迁移测试断言合法外键级联成功，手工 UPDATE、错配目标、其他字段 UPDATE、审计 DELETE 继续返回 `55000`，并覆盖 `0026 ↔ 0027`。
-- 身份集成测试断言权限、CSRF、启用状态、业务引用、会话级联、审计保留、管理员实时总数和 8/7 位密码边界。
-- 内容集成测试断言状态门禁、任务自有历史级联、批准/发布/修复历史阻断、权限、成功审计和 `204`；迁移测试覆盖事务变量错配和审核记录手工更新/删除仍返回 `55000`。
-- 契约与前端测试断言 OpenAPI/生成类型一致，危险操作只从服务端动作或停用状态展示，并经过确认。
+- PostgreSQL 迁移测试断言快照确定性回填、可空实时外键、平台不级联任务、终态账号解绑、历史 UPDATE 继续拒绝、审计白名单清理和 downgrade `55000`。
+- 集成测试覆盖普通删除、归档、恢复、管理员永久删除、共享/独占 GEO、文件调度、最小墓碑、工程师权限和锁内竞态复核。
+- 配置集成测试覆盖绑定 Prompt 原子解绑、活动任务阻止平台删除、终态历史允许平台/账号删除以及快照读模型。
+- 身份测试继续覆盖停用用户、业务引用、会话清理与受约束审计操作者置空。
+- OpenAPI/生成类型、前端组件和 Playwright 回归必须覆盖危险确认文案、固定确认输入、默认排除归档和删除后的缓存刷新。
 
 ### 7. 错误与正确示例
 
-错误：只设置可伪造的事务变量便允许应用直接改写审计。
+错误：平台删除直接级联任务，或用“存在任何历史”永久阻断所有清理。
 
-```sql
-IF current_setting('partsignal.user_delete_id', true) = OLD.actor_id::text THEN
-  RETURN NEW;
-END IF;
+```python
+db.delete(platform)  # content_tasks 也随外键级联删除
 ```
 
-正确：同时限定外键级联触发深度、目标 UUID、唯一字段变化，并由业务外键决定能否删除。
+正确：把当前配置与终态历史解耦，只在平台仍承担活动业务时阻断；任务聚合必须从任务自己的显式命令删除。
 
-```sql
-IF pg_trigger_depth() > 1
-   AND current_setting('partsignal.user_delete_id', true) = OLD.actor_id::text
-   AND OLD.actor_id IS NOT NULL AND NEW.actor_id IS NULL
-   AND to_jsonb(NEW) - 'actor_id' = to_jsonb(OLD) - 'actor_id' THEN
-  RETURN NEW;
-END IF;
+```python
+if open_task_count or in_flight_work_count:
+    raise in_use("PLATFORM_PROFILE_IN_USE", ...)
+db.delete(platform)  # 账号清理；任务保留，终态历史改读冻结快照
 ```
 
 ## 场景：生成作业补投递与租约恢复
@@ -255,7 +256,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - 当前发布结构由 `0034_publication_redesign` 建立，并由 `0035_business_workflow`、`0036_remove_section_url` 前向收敛；历史 revision 与 `migration_schema_v1.py` 保持冻结。
 - `PublicationWork` 唯一拥有发布过程当前状态；`PublicationWorkEvent` 与 `PublicationVerification` 是追加式历史，`PublishedArticle` 是首次成功核验形成的只读公开成果，`PublishedContentIssue` 只描述成功发布后的页面问题。
 - `COMPLETED` 表示工作曾通过首次核验。成功核验、同 ID `PublishedArticle` 创建和来源 `ContentTask.COMPLETED` 必须同事务提交；失败核验只追加快照并进入 `ACTION_REQUIRED`，不得完成或取消任务。
-- 非终态工作只能通过带原因和说明的关闭命令进入 `CLOSED`，并原子取消来源任务；发布工作、事件、核验、成果和问题都不得物理删除。
+- 非终态工作只能通过带原因和说明的关闭命令进入 `CLOSED`，并原子取消来源任务；这些对象不能单项物理删除，唯一聚合例外是管理员永久删除其已归档来源任务。
 - 平台、账号、内容版本和内容哈希绑定由应用服务给出结构化错误，并由 PostgreSQL 约束或触发器最终保护。测试必须同时覆盖 API 与直接数据库写入。
 - `PublishedContentIssue` 只能从 revision 0 的 `OPEN` 开始，文章绑定与打开事实不可变；唯一状态变化是带处理结果、非空说明和单次 revision 递增的 `OPEN -> RESOLVED`。
 - 修复任务来源 `source_published_content_issue_id` 一旦写入不可改绑且唯一。创建修复任务与解决问题是独立命令，任何一方不得从另一方状态推断完成。
@@ -291,13 +292,13 @@ result = cleanup_platform_logo_files(storage=storage)
 - 保存事实时去除空白后的 Markdown 必须非空，原文和分级原样保存；创建事实版本只冻结当前工作区两个字段。已批准或已被内容引用的版本不得原地修改。
 - `PlatformProfileVersion` 表、API、前端路由及任务中的受众、内容角度、转化目标、格式、长度、用户 Prompt、平台类型快照和 canonical URL 已物理删除；不得建立兼容字段或第二来源。
 - 创建任务只校验产品、该产品的 `APPROVED` 非空事实版本和启用平台。平台通过可空外键绑定零或一份可复用 Prompt；缺少绑定不阻止任务或人工首稿，只阻止系统 AI 作业。
-- 普通任务创建先按命名请求键获取 PostgreSQL 事务 advisory lock，再读取唯一的 `content_tasks.idempotency_key`。只有首次插入追加创建审计；历史任务和发布修复任务保持空值，Redis 不保存幂等状态。
+- 普通任务创建先按命名请求键获取 PostgreSQL 事务 advisory lock，再读取唯一的 `content_tasks.idempotency_key`。重放不产生额外副作用；历史任务和发布修复任务保持空值，Redis 不保存幂等状态。
 - `content_tasks.idempotency_key` 只属于服务端创建幂等控制；任务列表与详情必须复用同一响应基础投影排除该字段，并继续由禁止额外字段的响应模型检查合同漂移。
 - 原始 AI 请求必须恰好发送两条消息：`system.content == PlatformPrompt.template_markdown`，`user.content == FactVersion.body_markdown`；不得增加前缀、拼接任务要求、补默认安全规则或重写空白。
 - 人工首稿创建 `source_type=HUMAN`、`status=DRAFT`、`source_job_id=NULL`、`based_on_id=NULL`，随后与 AI 草稿共用修订、审核和人工发布链。
 - `ContentRevisionCreate.tags` 必须至少包含一个标签，且每个标签至少包含一个非空白字符；人工首稿与人工修订前端复用同一必填规则，服务端请求模型仍是最终校验权威。标签不自动 trim、去重、补默认值或增加未批准的数量/长度限制。
 - 发布工作、平台账号和修复任务沿用 `ContentTask.platform_profile_id`；修复任务只允许重新选择同产品的批准事实版本，并继承原文章任务的平台。
-- 被平台绑定的 Prompt 不可删除；换绑或清空绑定后，新 AI 生成必须使用新绑定或显式失败。历史作业继续从不可变快照读取，v2 可按原快照重试，v1 禁止重试。
+- Prompt 可按 revision 删除；服务在同一事务自动解绑全部当前平台并递增平台 revision。删除后新 AI 生成因缺少绑定显式失败，历史作业继续从不可变快照读取，v2 可按原快照重试，v1 禁止重试。
 
 ### 4. 校验与错误矩阵
 
@@ -477,32 +478,30 @@ if submitted_ids != candidate_ids:
 
 文章 URL 始终从 `PublishedArticle` 对应的冻结发布工作读取，前端不得提交或覆盖该值。
 
-## 场景：追加式审计结果与失败事务
+## 场景：成功动作白名单审计
 
 ### 1. 范围与签名
 
-- 数据库 revision：`0024_audit_outcome`，`down_revision = "0023_rename_platform_website_url"`。
-- `audit_logs` 是业务审计唯一来源；表级触发器继续拒绝业务运行时的 `UPDATE` 与 `DELETE`。
-- 每条事件必须明确 `business_module`、`action`、`outcome` 和非敏感 `result_message`；`target_id` 允许为空，用于命令尚未创建业务对象时的失败或拒绝。
-- `outcome` 只允许 `SUCCESS | FAILED | DENIED`。请求 ID 允许重复，但只接受 1–100 个可打印 ASCII 字符。
+- 当前边界由 `0037_simplify_deletion_lifecycle` 和 `backend/app/audit_types.py::RETAINED_AUDIT_ACTIONS` 共同固定。
+- `audit_logs` 是唯一业务审计来源；新写入必须包含 `business_module`、白名单 `action`、`outcome=SUCCESS`、非敏感 `result_message` 和可定位目标。
+- 请求 ID 允许重复，但只接受 1–100 个可打印 ASCII 字符。
 
 ### 2. 事务与覆盖边界
 
 - 成功审计使用 `append_audit`，与业务写入同一事务提交或回滚。
-- 仅事实版本状态转换、内容提交与审核、发布登记、GEO 观测、平台与规则、平台 Prompt、AI 渠道与模型、用户状态与管理员标识、用户导出九类关键命令，在业务事务回滚后使用 `commit_audit` 独立记录 `FAILED` 或 `DENIED`。
-- 其他既有写命令暂时只记录成功事件；不得用中间件、全局开关、第二张审计表或批量异常捕获伪造失败覆盖。
-- 请求解析、身份认证、会话与 CSRF 失败不属于业务命令审计。
+- 失败、拒绝、读取、普通工作流推进以及其他白名单外动作不写业务审计；真实错误继续由 API 响应和服务日志暴露，不使用 no-op 或独立事务伪造审计。
+- 任务普通/永久删除会精确删除被移除目标的旧审计；永久删除只保留一条 `content_task.permanently_deleted` 空详情墓碑。没有通用审计删除 API。
 
 ### 3. 数据安全与查询
 
 - `details` 只保存结构化 `changes` 与 `facts`；写入前递归拒绝敏感键，读取时再按业务模块正向白名单投影字段。
 - 关键词只匹配操作者、业务模块、动作、对象类型、对象标识、请求 ID、结果说明与错误码等已批准字段，不执行 `details::text` 搜索。
-- 列表按 `(created_at DESC, id DESC)` 稳定排序。操作者信息使用当前用户投影；用户删除后事件仍保留，投影为空。
-- 历史回填必须对已知 `action + target_type` 组合精确映射，未知组合中止迁移；AI 调用失败必须映射为真实失败，不能按旧成功默认回填。
+- 列表按 `(created_at DESC, id DESC)` 稳定排序。操作者信息使用当前用户投影；用户删除后保留的事件仍可读，投影为空。
+- `0037` 迁移使用自身冻结白名单，一次性删除全部非成功及白名单外历史，不导入运行时常量。
 
 ### 4. 降级与必需测试
 
-- 存在任一空 `target_id` 时，降级必须在恢复非空约束前以 PostgreSQL `55000` 失败并整体回滚。
-- 迁移测试覆盖空库升级、历史模块与结果回填、追加式触发器和不可安全降级。
-- 单元与集成测试覆盖九类关键命令的 `SUCCESS / FAILED / DENIED`、原业务事务回滚、审计独立提交、敏感键拒绝、字段白名单、稳定分页和管理员权限。
+- 审计历史清理不可逆；`0037` downgrade 必须以 PostgreSQL `55000` 失败并要求恢复迁移前备份。
+- 迁移测试覆盖白名单保留、非成功/白名单外清理、业务表不变、UPDATE 门禁和不可安全降级。
+- 单元与集成测试覆盖非白名单写入显式失败、保留动作 `SUCCESS`、敏感键拒绝、字段白名单、稳定分页和管理员权限。
 - 前端测试覆盖默认北京时间近三天、URL 可分享筛选、手动与 30 秒可见页刷新、空态/错误态、右侧详情以及敏感字段不展示。

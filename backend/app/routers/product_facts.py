@@ -7,8 +7,6 @@ import uuid
 from fastapi import APIRouter, Query, Request, status
 from sqlalchemy import func, or_, select
 
-from app.audit import commit_audit
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.deps import (
     AdminUser,
     CsrfProtected,
@@ -17,7 +15,7 @@ from app.deps import (
     EngineerUser,
     assert_account_types,
 )
-from app.errors import AppError, not_found
+from app.errors import not_found
 from app.models.product_facts import (
     FactVersion,
     Product,
@@ -218,34 +216,14 @@ def submit_product_fact_review(
     editor: CurrentUser,
     _csrf: CsrfProtected,
 ) -> FactVersionOut:
-    request_id = request.state.request_id
-    try:
-        assert_account_types(editor, (AccountType.ADMIN, AccountType.ENGINEER))
-        version = submit_fact_review_command(
-            db=db,
-            product_id=product_id,
-            payload=payload,
-            actor=editor,
-            request_id=request_id,
-        )
-    except AppError as error:
-        db.rollback()
-        denied = error.code == "PERMISSION_DENIED"
-        commit_audit(
-            db,
-            AuditEntry(
-                actor_id=editor.id,
-                business_module=AuditModule.PRODUCT_FACTS,
-                action="fact_version.submitted",
-                target_type="FactVersion",
-                target_id=None,
-                request_id=request_id,
-                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
-                result_message="事实版本提交审核被拒绝" if denied else "事实版本提交审核未完成",
-                error_code=error.code,
-            ),
-        )
-        raise
+    assert_account_types(editor, (AccountType.ADMIN, AccountType.ENGINEER))
+    version = submit_fact_review_command(
+        db=db,
+        product_id=product_id,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+    )
     return fact_version_out(db, version, can_delete=editor.account_type == "ADMIN")
 
 

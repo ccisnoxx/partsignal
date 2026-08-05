@@ -165,20 +165,6 @@ def create_product(*, db: Session, payload: ProductCreate, actor: User, request_
     )
     db.add(product)
     db.flush()
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.PRODUCT_FACTS,
-            action="product.created",
-            target_type="Product",
-            target_id=product.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="产品已创建",
-            details={"facts": {"status": product.status}},
-        ),
-    )
     db.commit()
     return product
 
@@ -215,7 +201,6 @@ def update_product(
             "产品已有批准事实版本，型号、品牌和分类不能原地修改",
             409,
         )
-    previous_status = product.status
     product.part_number = payload.part_number.strip()
     product.normalized_part_number = normalize_identity(payload.part_number)
     product.brand = payload.brand.strip()
@@ -223,29 +208,6 @@ def update_product(
     product.category = payload.category.strip()
     product.status = payload.status.value
     product.revision += 1
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.PRODUCT_FACTS,
-            action="product.updated",
-            target_type="Product",
-            target_id=product.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="产品已更新",
-            details={
-                "changes": [
-                    {
-                        "field": "status",
-                        "before": previous_status,
-                        "after": product.status,
-                    }
-                ],
-                "facts": {"revision": product.revision},
-            },
-        ),
-    )
     db.commit()
     return product
 
@@ -405,20 +367,6 @@ def replace_product_facts(
     product.facts_body_markdown = payload.body_markdown
     product.facts_classification = payload.classification.value
     product.facts_revision += 1
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.PRODUCT_FACTS,
-            action="product_facts.replaced",
-            target_type="Product",
-            target_id=product.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="产品事实工作区已更新",
-            details={"facts": {"revision": product.facts_revision}},
-        ),
-    )
     db.commit()
     return product_facts_draft_out(db, product)
 
@@ -477,26 +425,6 @@ def submit_fact_review(
             comment=payload.change_summary,
             actor_id=actor.id,
         )
-    )
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.PRODUCT_FACTS,
-            action="fact_version.submitted",
-            target_type="FactVersion",
-            target_id=version.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="事实版本已提交审核",
-            details={
-                "facts": {
-                    "product_id": str(product.id),
-                    "version": next_version,
-                    "status": version.status,
-                }
-            },
-        ),
     )
     db.commit()
     return version

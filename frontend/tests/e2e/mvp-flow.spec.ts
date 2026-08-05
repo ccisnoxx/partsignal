@@ -271,7 +271,7 @@ async function expectTextInPaginatedTable(page: Page, tableLabel: string, text: 
   await expect(targetRow).toBeVisible();
 }
 
-test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ page }, testInfo) => {
+test('批准事实到人工发布、GEO 观测及删除与归档生命周期保持完整追溯', async ({ page, browser }, testInfo) => {
   const suffix = randomUUID().slice(0, 8);
   const timeoutProviderModelId = `e2e-timeout-model-${suffix}`;
   const csrf = await login(page, 'admin');
@@ -652,21 +652,13 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   expect(retriedTimeoutDetail.retry_of_id).toBe(timeoutJob.id);
   expect(retriedTimeoutDetail.input_snapshot).toEqual(failedTimeoutJob.input_snapshot);
   expect(await body<{ count: number }>(await page.request.get(`http://127.0.0.1:9001/e2e/calls/${timeoutProviderModelId}`))).toEqual({ count: 4 });
-  const unboundProfile = await body<{ revision: number }>(await page.request.patch(`/api/v1/platform-profiles/${profile.id}`, {
-    headers: { 'X-CSRF-Token': csrf },
-    data: {
-      expected_revision: profile.revision,
-      name: profile.name,
-      allowed_domains: profile.allowed_domains,
-      platform_type_id: platformType.id,
-      platform_prompt_id: null,
-      website_url: profile.website_url,
-    },
-  }));
   expect((await page.request.delete(`/api/v1/platform-prompts/${platformPrompt.id}?expected_revision=${updatedPlatformPrompt.revision}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  const unboundProfileDetail = await body<{ profile: { revision: number; platform_prompt: null } }>(await page.request.get(`/api/v1/platform-profiles/${profile.id}`));
+  const unboundProfile = unboundProfileDetail.profile;
+  expect(unboundProfile.platform_prompt).toBeNull();
   const noPromptTask = await createContentTask(page, csrf, taskPayload, `e2e-no-prompt-task-${suffix}`);
   expect((await page.request.post(`/api/v1/content-tasks/${noPromptTask.id as string}/generation-jobs`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-generation-no-prompt-${suffix}` }, data: { ai_model_id: model.id, platform_prompt_id: platformPrompt.id, platform_prompt_revision: updatedPlatformPrompt.revision } })).status()).toBe(409);
-  const replacementPrompt = await body<{ id: string }>(await page.request.post('/api/v1/platform-prompts', {
+  const replacementPrompt = await body<{ id: string; revision: number }>(await page.request.post('/api/v1/platform-prompts', {
     headers: { 'X-CSRF-Token': csrf },
     data: {
       name: `E2E 恢复 Prompt ${suffix}`,
@@ -1077,10 +1069,16 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const repairModal = page.getByRole('dialog', { name: '创建修复任务' });
   await repairModal.getByRole('combobox', { name: '修复所用事实版本' }).click();
   await page.getByText(/^V1 ·/).last().click();
+  const repairTaskCreated = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && new URL(response.url()).pathname === `/api/v1/published-content-issues/${issue.id}/repair-task`
+    && response.status() === 201
+  ));
   await repairModal.getByRole('button', { name: '确认提交' }).click();
+  const createdRepairTask = await body<{ id: string }>(await repairTaskCreated);
   const issueWithRepair = await body<{ status: string; repair_task_id: string | null }>(await page.request.get(`/api/v1/published-content-issues/${issue.id}`));
   expect(issueWithRepair.status).toBe('OPEN');
-  expect(issueWithRepair.repair_task_id).not.toBeNull();
+  expect(issueWithRepair.repair_task_id).toBe(createdRepairTask.id);
 
   await issueDrawer.getByRole('button', { name: /更多操作：内容问题/ }).click();
   await page.getByRole('menuitem', { name: '解决内容问题' }).click();
@@ -1088,7 +1086,13 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   await resolveModal.getByRole('combobox', { name: '处理结果' }).click();
   await page.getByText('已恢复，可继续观测', { exact: true }).last().click();
   await resolveModal.getByRole('textbox', { name: '操作说明' }).fill('E2E 已创建并确认修复任务');
+  const issueResolved = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && new URL(response.url()).pathname === `/api/v1/published-content-issues/${issue.id}/resolve`
+    && response.status() === 200
+  ));
   await resolveModal.getByRole('button', { name: '确认提交' }).click();
+  await issueResolved;
   expect((await body<{ status: string }>(await page.request.get(`/api/v1/published-content-issues/${issue.id}`))).status).toBe('RESOLVED');
   expect((await page.request.delete(`/api/v1/ai-channels/${channel.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.delete(`/api/v1/ai-channels/${secondChannel.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
@@ -1096,6 +1100,105 @@ test('批准事实到人工发布和 GEO 观测保持完整追溯', async ({ pag
   const historicalJob = await body<{ input_snapshot: { model: { model_id: string }; system_message: string } }>(await page.request.get(`/api/v1/generation-jobs/${job.id}`));
   expect(historicalJob.input_snapshot.model.model_id).toBe('e2e-model');
   expect(historicalJob.input_snapshot.system_message).toBe(platformPromptMarkdown);
+
+  await page.goto(`/tasks/${noPromptTask.id as string}`);
+  await page.getByRole('button', { name: '删除任务' }).click();
+  const ordinaryDeleteDialog = page.getByRole('dialog', { name: '删除内容任务？' });
+  await ordinaryDeleteDialog.getByRole('button', { name: '确认删除' }).click();
+  await expect(page).toHaveURL(/\/tasks$/);
+  expect((await page.request.get(`/api/v1/content-tasks/${noPromptTask.id as string}`)).status()).toBe(404);
+
+  const latestProfile = (await body<{ profile: { revision: number } }>(await page.request.get(`/api/v1/platform-profiles/${profile.id}`))).profile;
+  await command(page, `/api/v1/platform-profiles/${profile.id}/disable`, csrf, { expected_revision: latestProfile.revision });
+  const activeTaskBlockedDeletion = await page.request.delete(`/api/v1/platform-profiles/${profile.id}`, { headers: { 'X-CSRF-Token': csrf } });
+  expect(activeTaskBlockedDeletion.status()).toBe(409);
+  expect(await activeTaskBlockedDeletion.json()).toMatchObject({
+    error: { details: { references: expect.arrayContaining([expect.objectContaining({ type: 'CONTENT_TASK' })]) } },
+  });
+
+  const platformTasks = await body<{ items: Array<{ id: string; status: string }> }>(
+    await page.request.get(`/api/v1/content-tasks?page=1&page_size=100&archive_status=ACTIVE&platform_profile_id=${profile.id}`),
+  );
+  for (const openTask of platformTasks.items.filter((item) => item.status === 'OPEN')) {
+    expect((await page.request.delete(`/api/v1/content-tasks/${openTask.id}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  }
+  expect((await page.request.delete(`/api/v1/platform-profiles/${profile.id}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  expect((await page.request.get(`/api/v1/platform-profiles/${profile.id}`)).status()).toBe(404);
+  expect(await body<{ platform_profile_id: string | null }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`))).toMatchObject({ platform_profile_id: null });
+
+  await page.goto(`/tasks/${task.id as string}`);
+  await expect(page.getByText(`E2E 论坛 ${suffix}`, { exact: true }).first()).toBeVisible();
+  await page.getByRole('button', { name: '归档任务' }).click();
+  await page.getByRole('dialog', { name: '归档内容任务？' }).getByRole('button', { name: '确认归档' }).click();
+  await expect(page.getByRole('button', { name: '恢复任务' })).toBeVisible();
+
+  const archivedTask = await body<{ revision: number }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`));
+  const lifecycleEngineerName = `lifecycle-engineer-${suffix}`;
+  const lifecycleEngineerPassword = `Lifecycle-${suffix}-ready`;
+  const lifecycleEngineer = await body<{ id: string }>(await page.request.post('/api/v1/users', {
+    headers: { 'X-CSRF-Token': csrf },
+    data: {
+      username: lifecycleEngineerName,
+      display_name: `删除验证工程师 ${suffix}`,
+      temporary_password: `Lifecycle-${suffix}-temp`,
+      account_type: 'ENGINEER',
+    },
+  }));
+  const lifecycleEngineerContext = await browser.newContext({
+    baseURL: process.env.PARTSIGNAL_E2E_BASE_URL ?? 'http://127.0.0.1:5173',
+  });
+  const lifecycleEngineerPage = await lifecycleEngineerContext.newPage();
+  await lifecycleEngineerPage.goto('/login');
+  await lifecycleEngineerPage.getByLabel('账号').fill(lifecycleEngineerName);
+  await lifecycleEngineerPage.getByLabel('密码').fill(`Lifecycle-${suffix}-temp`);
+  await lifecycleEngineerPage.getByRole('button', { name: /登\s*录/ }).click();
+  await expect(lifecycleEngineerPage).toHaveURL(/\/change-password$/);
+  await lifecycleEngineerPage.getByLabel('当前密码').fill(`Lifecycle-${suffix}-temp`);
+  await lifecycleEngineerPage.getByLabel('新密码').fill(lifecycleEngineerPassword);
+  await lifecycleEngineerPage.getByRole('button', { name: '更新密码' }).click();
+  await expect(lifecycleEngineerPage).toHaveURL(/\/$/);
+  const lifecycleEngineerCsrf = await body<{ csrf_token: string }>(await lifecycleEngineerPage.request.get('/api/v1/auth/csrf'));
+  expect((await lifecycleEngineerPage.request.post(`/api/v1/content-tasks/${task.id as string}/permanent-delete`, {
+    headers: { 'X-CSRF-Token': lifecycleEngineerCsrf.csrf_token },
+    data: { expected_revision: archivedTask.revision, confirmation_text: '永久删除' },
+  })).status()).toBe(403);
+  await lifecycleEngineerContext.close();
+
+  await page.getByRole('button', { name: '恢复任务' }).click();
+  await page.getByRole('dialog', { name: '恢复内容任务？' }).getByRole('button', { name: '确认恢复' }).click();
+  await expect(page.getByRole('button', { name: '归档任务' })).toBeVisible();
+  await page.getByRole('button', { name: '归档任务' }).click();
+  await page.getByRole('dialog', { name: '归档内容任务？' }).getByRole('button', { name: '确认归档' }).click();
+  await expect(page.getByRole('button', { name: '永久删除' })).toBeVisible();
+  await page.getByRole('button', { name: '永久删除' }).click();
+  const permanentDeleteDialog = page.getByRole('dialog', { name: '永久删除内容任务' });
+  await expect(permanentDeleteDialog.getByText('此操作不可恢复')).toBeVisible();
+  await expect(permanentDeleteDialog.getByRole('link', { name: `https://forum.example.invalid/posts/${suffix}` })).toBeVisible();
+  const permanentDeleteButton = permanentDeleteDialog.getByRole('button', { name: '永久删除' });
+  await expect(permanentDeleteButton).toBeDisabled();
+  await permanentDeleteDialog.getByRole('textbox', { name: '永久删除确认文本' }).fill('永久删除');
+  await permanentDeleteButton.click();
+  await expect(page).toHaveURL(/\/tasks\?archive_status=ARCHIVED$/);
+  expect((await page.request.get(`/api/v1/content-tasks/${task.id as string}`)).status()).toBe(404);
+
+  const lifecycleEngineerUsers = await body<{ items: Array<{ id: string; display_name: string; account_type: 'ENGINEER'; is_active: boolean; revision: number }> }>(
+    await page.request.get(`/api/v1/users?q=${lifecycleEngineerName}&page=1&page_size=100`),
+  );
+  const lifecycleEngineerUser = lifecycleEngineerUsers.items.find((item) => item.id === lifecycleEngineer.id);
+  expect(lifecycleEngineerUser).toBeTruthy();
+  const disabledLifecycleEngineer = await body<{ revision: number }>(await page.request.patch(`/api/v1/users/${lifecycleEngineer.id}`, {
+    headers: { 'X-CSRF-Token': csrf },
+    data: {
+      expected_revision: lifecycleEngineerUser!.revision,
+      display_name: lifecycleEngineerUser!.display_name,
+      account_type: lifecycleEngineerUser!.account_type,
+      is_active: false,
+    },
+  }));
+  expect(disabledLifecycleEngineer.revision).toBeGreaterThan(lifecycleEngineerUser!.revision);
+  expect((await page.request.delete(`/api/v1/users/${lifecycleEngineer.id}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  expect((await page.request.delete(`/api/v1/platform-prompts/${replacementPrompt.id}?expected_revision=${replacementPrompt.revision}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  expect((await page.request.delete(`/api/v1/platform-types/${platformType.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '总览' })).toBeVisible();
 });

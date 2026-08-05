@@ -55,11 +55,21 @@ const taskSectionIds = ['task-context', 'task-entry', 'task-versions'];
 const taskPageSize = 10;
 type TaskStatus = Schema<'ContentTaskStatus'>;
 type TaskStatusFilter = 'ALL' | TaskStatus;
+type TaskArchiveStatus = NonNullable<ContentTaskListQuery['archive_status']>;
+type TaskLifecycleAction = 'ARCHIVE' | 'RESTORE';
+type TaskMenuAction = 'CANCEL' | 'DELETE' | 'ARCHIVE' | 'RESTORE' | 'PERMANENT_DELETE';
 const taskStatusOptions: ReadonlyArray<{ value: TaskStatus; label: string }> = [
   { value: 'OPEN', label: '进行中' },
   { value: 'COMPLETED', label: '已完成' },
   { value: 'CANCELLED', label: '已取消' },
 ];
+const taskMenuLabels: Record<TaskMenuAction, string> = {
+  CANCEL: '取消任务',
+  DELETE: '删除任务',
+  ARCHIVE: '归档任务',
+  RESTORE: '恢复任务',
+  PERMANENT_DELETE: '永久删除',
+};
 const taskDateFormatter = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
   month: '2-digit',
@@ -105,9 +115,10 @@ function taskPrimaryHref(row: ContentTaskListItem) {
   return `/tasks/${row.id}`;
 }
 
-function contentPrimaryHref(row: ContentVersion, platformProfileId: string) {
+function contentPrimaryHref(row: ContentVersion, platformProfileId?: string | null) {
   if (row.primary_task === 'START_PUBLICATION') {
-    return `/publications?content_version_id=${row.id}&platform_profile_id=${platformProfileId}`;
+    const profileQuery = platformProfileId ? `&platform_profile_id=${platformProfileId}` : '';
+    return `/publications?content_version_id=${row.id}${profileQuery}`;
   }
   if (row.primary_task === 'CONTINUE_PUBLICATION' || row.primary_task === 'VIEW_PUBLICATION_RESULT') {
     return `/publications?content_task_id=${row.task_id}`;
@@ -119,6 +130,14 @@ function isTaskStatus(value: string): value is TaskStatus {
   return taskStatusOptions.some((option) => option.value === value);
 }
 
+function isTaskArchiveStatus(value: string): value is TaskArchiveStatus {
+  return value === 'ACTIVE' || value === 'ARCHIVED';
+}
+
+function isTaskMenuAction(value: string): value is TaskMenuAction {
+  return value in taskMenuLabels;
+}
+
 function taskDeletionLink(taskId: string, issueId?: string | null) {
   return (blocker: DeletionBlocker): DeletionReferenceLink | undefined => {
     if (blocker.type === 'PROTECTED_CONTENT_VERSION') return { href: `/tasks/${taskId}#task-versions`, label: '查看历史' };
@@ -127,6 +146,104 @@ function taskDeletionLink(taskId: string, issueId?: string | null) {
     if (blocker.type === 'GEO_OPTIMIZATION_SOURCE') return { href: `/tasks/${taskId}`, label: '查看历史' };
     return undefined;
   };
+}
+
+function PermanentDeleteTaskModal({
+  taskId,
+  onClose,
+  onDeleted,
+}: {
+  taskId?: string;
+  onClose: () => void;
+  onDeleted: () => void | Promise<void>;
+}) {
+  const { message } = App.useApp();
+  const [confirmation, setConfirmation] = useState('');
+  const preview = useQuery({
+    queryKey: ['content-task-permanent-deletion-preview', taskId],
+    queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/permanent-deletion-preview', {
+      params: { path: { content_task_id: taskId! } },
+    })),
+    enabled: !!taskId,
+    staleTime: 0,
+  });
+  const remove = useMutation({
+    mutationFn: async () => {
+      if (!taskId || !preview.data) throw new Error('永久删除预览尚未加载');
+      return ensureSuccess(await api.POST('/api/v1/content-tasks/{content_task_id}/permanent-delete', {
+        params: { path: { content_task_id: taskId }, header: csrfHeader() },
+        body: {
+          expected_revision: preview.data.revision,
+          confirmation_text: confirmation,
+        },
+      }));
+    },
+    onSuccess: async () => {
+      setConfirmation('');
+      message.success('内容任务及其内部历史已永久删除');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.publications.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.geo.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.auditLogs }),
+      ]);
+      await onDeleted();
+    },
+  });
+  const counts = preview.data?.counts;
+
+  return <Modal
+    title="永久删除内容任务"
+    open={!!taskId}
+    onCancel={() => {
+      if (!remove.isPending) {
+        setConfirmation('');
+        onClose();
+      }
+    }}
+    onOk={() => remove.mutate()}
+    okText="永久删除"
+    cancelText="取消"
+    confirmLoading={remove.isPending}
+    okButtonProps={{ danger: true, disabled: confirmation !== '永久删除' || !preview.data }}
+    width={720}
+    destroyOnHidden
+  >
+    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+      <Alert
+        type="error"
+        showIcon
+        title="此操作不可恢复"
+        description="只删除 PartSignal 内部任务、内容、发布与独占 GEO 历史；不会检查或删除外部页面。"
+      />
+      {preview.isLoading && <QueryLoading label="正在计算永久删除范围" />}
+      {preview.error && <QueryFailure error={preview.error} onRetry={() => void preview.refetch()} />}
+      {counts && <Descriptions size="small" column={{ xs: 1, sm: 2 }} items={[
+        { label: '内容版本 / 审核', children: `${counts.content_versions} / ${counts.content_review_records}` },
+        { label: '生成作业', children: counts.generation_jobs },
+        { label: '发布工作 / 事件', children: `${counts.publication_works} / ${counts.publication_events}` },
+        { label: '核验 / 文章', children: `${counts.publication_verifications} / ${counts.published_articles}` },
+        { label: '发布后问题', children: counts.published_content_issues },
+        { label: 'GEO 文章关系', children: counts.geo_article_relations },
+        { label: '独占 GEO 更正链', children: counts.exclusive_geo_observation_chains },
+        { label: '附件关系', children: counts.attachment_relations },
+      ]} />}
+      {!!preview.data?.external_urls.length && <div>
+        <Typography.Text strong>外部页面（不会删除）</Typography.Text>
+        <ul>{preview.data.external_urls.map((url) => <li key={url}><a href={url} target="_blank" rel="noreferrer">{url}</a></li>)}</ul>
+      </div>}
+      <Form.Item label={<>输入 <Typography.Text code>永久删除</Typography.Text> 继续</>} required>
+        <Input
+          aria-label="永久删除确认文本"
+          value={confirmation}
+          onChange={(event) => setConfirmation(event.target.value)}
+          autoComplete="off"
+        />
+      </Form.Item>
+      {remove.error && <Alert role="alert" type="error" showIcon title={errorMessage(remove.error)} />}
+    </Space>
+  </Modal>;
 }
 
 export function ContentTasksPage() {
@@ -142,13 +259,18 @@ function TaskList() {
   const [open, setOpen] = useState(!!requestedProductId);
   const [cancelTarget, setCancelTarget] = useState<ContentTaskListItem>();
   const [deletionTarget, setDeletionTarget] = useState<ContentTaskListItem>();
+  const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<ContentTaskListItem>();
   const cancelTriggerRef = useRef<HTMLElement>(null);
   const { rememberFocusTarget, restoreFocus } = useFocusReturn();
   const rawPage = searchParams.get('page');
   const rawStatus = searchParams.get('status');
+  const rawArchiveStatus = searchParams.get('archive_status');
   const page = rawPage && /^[1-9]\d*$/.test(rawPage) ? Number(rawPage) : 1;
   const keyword = searchParams.get('q') ?? '';
   const status: TaskStatusFilter = rawStatus && isTaskStatus(rawStatus) ? rawStatus : 'ALL';
+  const archiveStatus: TaskArchiveStatus = rawArchiveStatus && isTaskArchiveStatus(rawArchiveStatus)
+    ? rawArchiveStatus
+    : 'ACTIVE';
   const platformProfileId = searchParams.get('platform_profile_id') ?? undefined;
   const filterProductId = searchParams.get('filter_product_id') ?? undefined;
   const filterFactVersionId = searchParams.get('filter_fact_version_id') ?? undefined;
@@ -156,6 +278,7 @@ function TaskList() {
     if (!cancelTarget) cancelTriggerRef.current?.focus({ preventScroll: true });
   }, [cancelTarget]);
   const taskListQuery: ContentTaskListQuery = {
+    archive_status: archiveStatus,
     ...(platformProfileId ? { platform_profile_id: platformProfileId } : {}),
     ...(filterProductId ? { filter_product_id: filterProductId } : {}),
     ...(filterFactVersionId ? { filter_fact_version_id: filterFactVersionId } : {}),
@@ -202,26 +325,53 @@ function TaskList() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all });
     },
   });
+  const lifecycleTask = useMutation({
+    mutationFn: async ({ task, action }: { task: ContentTaskListItem; action: TaskLifecycleAction }) => {
+      const params = {
+        path: { content_task_id: task.id },
+        header: csrfHeader(),
+      };
+      const body = { expected_revision: task.revision };
+      return action === 'ARCHIVE'
+        ? unwrap(await api.POST('/api/v1/content-tasks/{content_task_id}/archive', { params, body }))
+        : unwrap(await api.POST('/api/v1/content-tasks/{content_task_id}/restore', { params, body }));
+    },
+    onSuccess: async (_, { action }) => {
+      message.success(action === 'ARCHIVE' ? '内容任务已归档' : '内容任务已恢复');
+      await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all });
+    },
+  });
   const confirmDeleteTask = (target: ContentTaskListItem) => modal.confirm({
     title: '删除内容任务？',
-    content: '将同时删除该任务的生成作业、审核记录、草稿和未批准内容。已批准或已有发布、GEO、修复历史时服务端会拒绝；操作不可恢复。',
+    content: '将同时删除该任务的内容版本、审核记录、生成作业和未成功发布历史。成功文章或 GEO 关系需要先归档；操作不可恢复。',
     okText: '确认删除',
     cancelText: '取消',
     okButtonProps: { danger: true },
     onOk: () => deleteTask.mutateAsync(target),
     afterClose: restoreFocus,
   });
+  const confirmLifecycleTask = (target: ContentTaskListItem, action: TaskLifecycleAction) => modal.confirm({
+    title: action === 'ARCHIVE' ? '归档内容任务？' : '恢复内容任务？',
+    content: action === 'ARCHIVE'
+      ? '归档后任务会从当前列表隐藏，发布、GEO 和外部页面均保持不变。'
+      : '恢复只让任务重新出现在当前列表，不会把业务状态改回进行中。',
+    okText: action === 'ARCHIVE' ? '确认归档' : '确认恢复',
+    cancelText: '取消',
+    onOk: () => lifecycleTask.mutateAsync({ task: target, action }),
+    afterClose: restoreFocus,
+  });
 
   useEffect(() => {
-    if ((rawPage !== null && !/^[1-9]\d*$/.test(rawPage)) || (rawStatus !== null && !isTaskStatus(rawStatus)) || (tasks.data && page > maxPage)) {
+    if ((rawPage !== null && !/^[1-9]\d*$/.test(rawPage)) || (rawStatus !== null && !isTaskStatus(rawStatus)) || (rawArchiveStatus !== null && !isTaskArchiveStatus(rawArchiveStatus)) || (tasks.data && page > maxPage)) {
       const next = new URLSearchParams(searchParams);
       next.delete('page');
       if (rawStatus !== null && !isTaskStatus(rawStatus)) next.delete('status');
+      if (rawArchiveStatus !== null && !isTaskArchiveStatus(rawArchiveStatus)) next.delete('archive_status');
       setSearchParams(next, { replace: true });
     }
-  }, [maxPage, page, rawPage, rawStatus, searchParams, setSearchParams, tasks.data]);
+  }, [maxPage, page, rawArchiveStatus, rawPage, rawStatus, searchParams, setSearchParams, tasks.data]);
 
-  const setFilter = (key: 'q' | 'status' | 'platform_profile_id' | 'filter_product_id' | 'filter_fact_version_id', value?: string, replace = false) => {
+  const setFilter = (key: 'q' | 'status' | 'archive_status' | 'platform_profile_id' | 'filter_product_id' | 'filter_fact_version_id', value?: string, replace = false) => {
     const next = new URLSearchParams(searchParams);
     if (value) next.set(key, value); else next.delete(key);
     next.delete('page');
@@ -263,6 +413,14 @@ function TaskList() {
         <Button aria-label="重置筛选" icon={<ReloadOutlined />} disabled={!keyword && status === 'ALL' && !filterProductId && !filterFactVersionId} onClick={resetFilters}>重置筛选</Button>
       </div>
       <Tabs
+        activeKey={archiveStatus}
+        onChange={(value) => setFilter('archive_status', value === 'ACTIVE' ? undefined : value)}
+        items={[
+          { key: 'ACTIVE', label: '当前任务' },
+          { key: 'ARCHIVED', label: '已归档' },
+        ]}
+      />
+      <Tabs
         className="tasks-status-tabs"
         activeKey={status}
         onChange={(value) => setFilter('status', value === 'ALL' ? undefined : value)}
@@ -286,7 +444,7 @@ function TaskList() {
       extra={<Typography.Text className="tasks-table-summary">显示 {filteredTasks.length} / {items.length} 条</Typography.Text>}
     >
       {tasks.error ? <QueryFailure error={tasks.error} onRetry={() => void tasks.refetch()} /> : <div aria-busy={tasks.isLoading}>
-        {(cancelTask.error || deleteTask.error) && <DeletionError error={cancelTask.error ?? deleteTask.error} resolveLink={deleteTask.variables ? taskDeletionLink(deleteTask.variables.id, deleteTask.variables.source_published_content_issue_id) : undefined} />}
+        {(cancelTask.error || deleteTask.error || lifecycleTask.error) && <DeletionError error={cancelTask.error ?? deleteTask.error ?? lifecycleTask.error} resolveLink={deleteTask.variables ? taskDeletionLink(deleteTask.variables.id, deleteTask.variables.source_published_content_issue_id) : undefined} />}
         <TableRegion label="内容任务列表">
           <Table<ContentTaskListItem>
             rowKey="id"
@@ -324,7 +482,7 @@ function TaskList() {
                 width: 160,
                 fixed: 'right',
                 render: (_, row) => {
-                  const secondaryActions = row.available_actions.filter((action) => action === 'CANCEL' || action === 'DELETE');
+                  const secondaryActions = row.available_actions.filter(isTaskMenuAction);
                   const hasDeletionConditions = !row.available_actions.includes('DELETE') && !!row.deletion?.blockers.length;
                   const moreButton = (
                     <Button
@@ -332,7 +490,7 @@ function TaskList() {
                       icon={<MoreOutlined />}
                       aria-label={`更多操作：${row.product.brand} ${row.product.part_number}`}
                       disabled={secondaryActions.length === 0 && !hasDeletionConditions}
-                      loading={deleteTask.isPending && deleteTask.variables?.id === row.id}
+                      loading={(deleteTask.isPending && deleteTask.variables?.id === row.id) || (lifecycleTask.isPending && lifecycleTask.variables?.task.id === row.id)}
                       onFocus={(event) => {
                         cancelTriggerRef.current = event.currentTarget;
                         rememberFocusTarget(event.currentTarget);
@@ -351,14 +509,18 @@ function TaskList() {
                         items: [
                           ...secondaryActions.map((action) => ({
                             key: action,
-                            label: action === 'CANCEL' ? '取消任务' : '删除任务',
-                            danger: true,
+                            label: taskMenuLabels[action],
+                            danger: action === 'CANCEL' || action === 'DELETE' || action === 'PERMANENT_DELETE',
                             onClick: () => {
                               if (action === 'CANCEL') {
                                 cancelTriggerRef.current?.focus({ preventScroll: true });
                                 setCancelTarget(row);
-                              } else {
+                              } else if (action === 'DELETE') {
                                 confirmDeleteTask(row);
+                              } else if (action === 'PERMANENT_DELETE') {
+                                setPermanentDeleteTarget(row);
+                              } else {
+                                confirmLifecycleTask(row, action);
                               }
                             },
                           })),
@@ -366,7 +528,7 @@ function TaskList() {
                         ],
                       }}
                     >{moreButton}</Dropdown> : (
-                      <Tooltip title="服务端当前未返回可执行操作；已批准或已有下游历史的任务不能删除。">
+                      <Tooltip title="服务端当前未返回可执行操作；可能存在进行中作业或当前账号无权操作。">
                         <span tabIndex={0} aria-label="当前任务没有可执行操作">{moreButton}</span>
                       </Tooltip>
                     )}
@@ -379,6 +541,11 @@ function TaskList() {
       </div>}
     </Card>
     <DeletionGuidanceModal open={!!deletionTarget} resourceLabel="内容任务" blockers={deletionTarget?.deletion?.blockers ?? []} refreshing={tasks.isFetching} resolveLink={deletionTarget ? taskDeletionLink(deletionTarget.id, deletionTarget.source_published_content_issue_id) : () => undefined} onClose={() => setDeletionTarget(undefined)} onRefresh={async () => { await tasks.refetch(); setDeletionTarget(undefined); }} />
+    <PermanentDeleteTaskModal
+      taskId={permanentDeleteTarget?.id}
+      onClose={() => setPermanentDeleteTarget(undefined)}
+      onDeleted={() => setPermanentDeleteTarget(undefined)}
+    />
     <TaskCreateModal
       open={open}
       initialProductId={requestedProductId}
@@ -516,6 +683,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const activeSection = useActiveSection(taskSectionIds);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [deletionOpen, setDeletionOpen] = useState(false);
+  const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false);
   const [replacementOpen, setReplacementOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [autoAiOpen, setAutoAiOpen] = useState(aiOpenRequested);
@@ -531,8 +699,10 @@ function TaskDetail({ taskId }: { taskId: string }) {
     staleTime: QUERY_STALE_TIME.detail,
   });
   const taskList = useQuery({
-    queryKey: queryKeys.contentTasks.list({}),
-    queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks')),
+    queryKey: queryKeys.contentTasks.list({ archive_status: 'ALL' }),
+    queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks', {
+      params: { query: { archive_status: 'ALL' } },
+    })),
     staleTime: QUERY_STALE_TIME.businessList,
   });
   const fact = useQuery({
@@ -634,6 +804,22 @@ function TaskDetail({ taskId }: { taskId: string }) {
       navigate('/tasks');
     },
   });
+  const lifecycleTask = useMutation({
+    mutationFn: async ({ action, revision }: { action: TaskLifecycleAction; revision: number }) => {
+      const params = { path: { content_task_id: taskId }, header: csrfHeader() };
+      const body = { expected_revision: revision };
+      return action === 'ARCHIVE'
+        ? unwrap(await api.POST('/api/v1/content-tasks/{content_task_id}/archive', { params, body }))
+        : unwrap(await api.POST('/api/v1/content-tasks/{content_task_id}/restore', { params, body }));
+    },
+    onSuccess: async (_, { action }) => {
+      message.success(action === 'ARCHIVE' ? '内容任务已归档' : '内容任务已恢复');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.detail(taskId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }),
+      ]);
+    },
+  });
   const latestJob = jobs.data?.items[0];
   const jobDetailId = selectedJobId ?? latestJob?.id;
   const jobDetail = useQuery({
@@ -662,7 +848,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
   }
 
   const summary = taskList.data?.items.find((item) => item.id === taskId);
-  const mutationError = createJob.error ?? createHumanizationJob.error ?? retryJob.error ?? taskCommand.error;
+  const mutationError = createJob.error ?? createHumanizationJob.error ?? retryJob.error ?? taskCommand.error ?? lifecycleTask.error;
   const isOpen = task.data.status === 'OPEN';
   const factIsPublic = fact.data?.classification === 'PUBLIC';
   const canGenerate = task.data.available_actions.includes('CREATE_GENERATION_JOB');
@@ -685,19 +871,38 @@ function TaskDetail({ taskId }: { taskId: string }) {
     <PageHeader
       eyebrow={`任务 / ${taskId.slice(0, 8)}`}
       title={summary ? `${summary.product.brand} ${summary.product.part_number}` : '内容任务详情'}
-      description={summary ? `目标平台：${summary.platform.name}` : `平台 ${task.data.platform_profile_id.slice(0, 8)}`}
+      description={summary
+        ? `目标平台：${summary.platform.name}`
+        : task.data.platform_profile_id
+          ? `平台 ${task.data.platform_profile_id.slice(0, 8)}`
+          : '历史平台配置已删除'}
       breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: '任务详情' }]}
       actions={<>
         <StatusTag status={task.data.status} />
         {task.data.available_actions.includes('CANCEL') && <Button danger onClick={() => setCancelOpen(true)}>取消任务</Button>}
         {task.data.available_actions.includes('DELETE') && <Button danger loading={deleteTask.isPending} onClick={() => modal.confirm({
           title: '删除内容任务？',
-          content: '将同时删除该任务的生成作业、审核记录、草稿和未批准内容。已批准或已有发布、GEO、修复历史时服务端会拒绝；操作不可恢复。',
+          content: '将同时删除该任务的内容版本、审核记录、生成作业和未成功发布历史。成功文章或 GEO 关系需要先归档；操作不可恢复。',
           okText: '确认删除',
           cancelText: '取消',
           okButtonProps: { danger: true },
           onOk: () => deleteTask.mutate(),
         })}>删除任务</Button>}
+        {task.data.available_actions.includes('ARCHIVE') && <Button loading={lifecycleTask.isPending} onClick={() => modal.confirm({
+          title: '归档内容任务？',
+          content: '归档后任务会从当前列表隐藏，发布、GEO 和外部页面均保持不变。',
+          okText: '确认归档',
+          cancelText: '取消',
+          onOk: () => lifecycleTask.mutateAsync({ action: 'ARCHIVE', revision: task.data.revision }),
+        })}>归档任务</Button>}
+        {task.data.available_actions.includes('RESTORE') && <Button loading={lifecycleTask.isPending} onClick={() => modal.confirm({
+          title: '恢复内容任务？',
+          content: '恢复只让任务重新出现在当前列表，不会把业务状态改回进行中。',
+          okText: '确认恢复',
+          cancelText: '取消',
+          onOk: () => lifecycleTask.mutateAsync({ action: 'RESTORE', revision: task.data.revision }),
+        })}>恢复任务</Button>}
+        {task.data.available_actions.includes('PERMANENT_DELETE') && <Button danger onClick={() => setPermanentDeleteOpen(true)}>永久删除</Button>}
         {!task.data.available_actions.includes('DELETE') && !!task.data.deletion?.blockers.length && <Button onClick={() => setDeletionOpen(true)}>查看删除条件</Button>}
       </>}
     />
@@ -709,8 +914,8 @@ function TaskDetail({ taskId }: { taskId: string }) {
         description={task.data.status === 'OPEN'
           ? '服务端当前未返回取消操作，通常表示存在进行中的发布流程；详情暂时保持只读。'
           : task.data.status === 'CANCELLED'
-            ? '已批准、发布、GEO 或发布修复历史会保留该任务，不能删除。'
-            : '任务已完成，详情保持只读。'}
+            ? '当前任务仍有进行中作业或当前账号无删除权限。'
+            : '任务已完成，具备权限的人员可归档后继续处理。'}
       />
     )}
     {mutationError && <Alert type="error" title={errorMessage(mutationError)} />}
@@ -726,7 +931,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
       <Descriptions column={{ xs: 1, md: 2 }} items={[
         { label: '产品', children: summary ? `${summary.product.brand} ${summary.product.part_number}` : <span className="data-code">{task.data.product_id}</span> },
         { label: '冻结事实版本', children: fact.data ? <Space><span>V{fact.data.version}</span><StatusTag status={fact.data.classification} /></Space> : <span className="data-code">{task.data.fact_version_id}</span> },
-        { label: '目标平台', children: summary?.platform.name ?? <span className="data-code">{task.data.platform_profile_id}</span> },
+        { label: '目标平台', children: summary?.platform.name ?? (task.data.platform_profile_id ? <span className="data-code">{task.data.platform_profile_id}</span> : '历史平台配置已删除') },
         { label: '任务创建时间', children: <time dateTime={task.data.created_at}>{taskDateFormatter.format(new Date(task.data.created_at))}</time> },
       ]} />
     </Card>
@@ -816,6 +1021,15 @@ function TaskDetail({ taskId }: { taskId: string }) {
     </Card>
 
     <DeletionGuidanceModal open={deletionOpen} resourceLabel="内容任务" blockers={task.data.deletion?.blockers ?? []} refreshing={task.isFetching} resolveLink={taskDeletionLink(taskId, task.data.source_published_content_issue_id)} onClose={() => setDeletionOpen(false)} onRefresh={async () => { await task.refetch(); setDeletionOpen(false); }} />
+    <PermanentDeleteTaskModal
+      taskId={permanentDeleteOpen ? taskId : undefined}
+      onClose={() => setPermanentDeleteOpen(false)}
+      onDeleted={() => {
+        setPermanentDeleteOpen(false);
+        queryClient.removeQueries({ queryKey: queryKeys.contentTasks.detail(taskId) });
+        navigate('/tasks?archive_status=ARCHIVED');
+      }}
+    />
 
     <Modal title="取消任务" open={cancelOpen} onCancel={() => setCancelOpen(false)} footer={null} destroyOnHidden>
       <Form<Schema<'CommandRequest'>> layout="vertical" initialValues={{ expected_revision: task.data.revision, comment: '' }} onFinish={(body) => taskCommand.mutate(body)}>

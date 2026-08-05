@@ -1755,29 +1755,6 @@ def create_geo_observation(
     db.add_all(
         GeoObservationAttachment(observation_id=observation.id, file_id=file.id) for file in files
     )
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.GEO_OBSERVATION,
-            action="geo_observation.created",
-            target_type="GeoObservation",
-            target_id=observation.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="GEO 观测已创建",
-            details={
-                "facts": {
-                    "product_id": str(payload.product_id),
-                    "supersedes_id": (
-                        str(payload.supersedes_id) if payload.supersedes_id else None
-                    ),
-                    "article_count": len(payload.article_results),
-                    "attachment_count": len(files),
-                }
-            },
-        ),
-    )
     db.commit()
     return observation
 
@@ -1869,6 +1846,39 @@ def delete_geo_observation(
     request_id: str,
 ) -> None:
     """原子删除任一人工观测所属的完整更正链，并安排无引用证据清理。"""
+    chain, article_result_count, attachment_relation_count = (
+        _delete_manual_observation_chain(db, observation_id)
+    )
+    root_id = chain[0].id
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.GEO_OBSERVATION,
+            action="geo_observation.deleted",
+            target_type="GeoObservation",
+            target_id=root_id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="GEO 观测更正链已删除",
+            details={
+                "facts": {
+                    "root_observation_id": str(root_id),
+                    "observation_count": len(chain),
+                    "article_result_count": article_result_count,
+                    "attachment_count": attachment_relation_count,
+                }
+            },
+        ),
+    )
+    db.commit()
+
+
+def _delete_manual_observation_chain(
+    db: Session,
+    observation_id: uuid.UUID,
+) -> tuple[list[GeoObservation], int, int]:
+    """删除完整人工更正链但不提交、不写审计，供聚合删除复用。"""
     _, chain = _lock_manual_observation_chain(db, observation_id)
     chain_ids = [node.id for node in chain]
     attachment_ids = list(
@@ -1918,26 +1928,4 @@ def delete_geo_observation(
     cleanup_time = datetime.now(UTC)
     for file_id in attachment_ids:
         schedule_unreferenced_file(db, file_id, cleanup_after=cleanup_time)
-    root_id = chain[0].id
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.GEO_OBSERVATION,
-            action="geo_observation.deleted",
-            target_type="GeoObservation",
-            target_id=root_id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="GEO 观测更正链已删除",
-            details={
-                "facts": {
-                    "root_observation_id": str(root_id),
-                    "observation_count": len(chain),
-                    "article_result_count": article_result_count,
-                    "attachment_count": attachment_relation_count,
-                }
-            },
-        ),
-    )
-    db.commit()
+    return chain, article_result_count, attachment_relation_count

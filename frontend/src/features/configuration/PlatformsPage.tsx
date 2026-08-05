@@ -260,7 +260,7 @@ export function PlatformsPage() {
 
   const confirmDelete = (profile: PlatformProfile, afterClose?: () => void) => modal.confirm({
     title: `删除平台“${profile.name}”？`,
-    content: '将删除平台配置；Prompt 模板不会随之删除。存在内容任务或平台账号引用时服务端会拒绝，既有历史不会被改写。此操作不可恢复。',
+    content: `将删除平台配置及 ${profile.platform_account_count} 个平台账号；不会删除内容任务、终态发布历史或 Prompt。此操作不可恢复。`,
     okText: '删除', cancelText: '取消', okButtonProps: { danger: true },
     onOk: () => removeProfile.mutateAsync(profile),
     afterClose,

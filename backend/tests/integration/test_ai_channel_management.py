@@ -372,14 +372,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                     )
                 )
             }
-            assert failure_logs["ai-discovery-failed"].outcome == "FAILED"
-            assert failure_logs["ai-discovery-failed"].error_code == "AI_UPSTREAM_FAILURE"
-            assert failure_logs["ai-model-test-conflict"].outcome == "FAILED"
-            assert failure_logs["ai-model-test-conflict"].error_code == "REVISION_CONFLICT"
-            assert all(
-                "第三方原始异常不应进入审计" not in f"{item.details}{item.result_message}"
-                for item in failure_logs.values()
-            )
+            assert failure_logs == {}
             assert all(not contains_sensitive_key(item.details) for item in audit_logs)
             assert all(first_api_key not in str(item.details) for item in audit_logs)
             assert all(replacement_api_key not in str(item.details) for item in audit_logs)

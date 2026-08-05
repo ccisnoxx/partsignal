@@ -290,14 +290,23 @@ def _work_context_query() -> Any:
             ContentTask.id.label("task_id"),
             ContentVersion.title.label("content_title"),
             ContentVersion.version.label("content_version"),
-            PlatformProfile.name.label("platform_profile_name"),
-            PlatformAccount.label.label("platform_account_label"),
-            PlatformAccount.account_identifier,
+            func.coalesce(
+                PlatformProfile.name,
+                PublicationWork.platform_profile_name_snapshot,
+            ).label("platform_profile_name"),
+            func.coalesce(
+                PlatformAccount.label,
+                PublicationWork.platform_account_label_snapshot,
+            ).label("platform_account_label"),
+            func.coalesce(
+                PlatformAccount.account_identifier,
+                PublicationWork.account_identifier_snapshot,
+            ).label("account_identifier"),
         )
         .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
         .join(ContentTask, ContentTask.id == PublicationWork.content_task_id)
-        .join(PlatformProfile, PlatformProfile.id == PublicationWork.platform_profile_id)
-        .join(PlatformAccount, PlatformAccount.id == PublicationWork.platform_account_id)
+        .outerjoin(PlatformProfile, PlatformProfile.id == PublicationWork.platform_profile_id)
+        .outerjoin(PlatformAccount, PlatformAccount.id == PublicationWork.platform_account_id)
     )
 
 
@@ -471,9 +480,18 @@ def _article_context_query() -> Any:
             ContentTask.product_id,
             ContentVersion.title.label("content_title"),
             ContentVersion.version.label("content_version"),
-            PlatformProfile.name.label("platform_profile_name"),
-            PlatformAccount.label.label("platform_account_label"),
-            PlatformAccount.account_identifier,
+            func.coalesce(
+                PlatformProfile.name,
+                PublicationWork.platform_profile_name_snapshot,
+            ).label("platform_profile_name"),
+            func.coalesce(
+                PlatformAccount.label,
+                PublicationWork.platform_account_label_snapshot,
+            ).label("platform_account_label"),
+            func.coalesce(
+                PlatformAccount.account_identifier,
+                PublicationWork.account_identifier_snapshot,
+            ).label("account_identifier"),
         )
         .join(PublicationWork, PublicationWork.id == PublishedArticle.id)
         .join(
@@ -481,8 +499,8 @@ def _article_context_query() -> Any:
         )
         .join(ContentVersion, ContentVersion.id == PublicationVerification.content_version_id)
         .join(ContentTask, ContentTask.id == PublicationWork.content_task_id)
-        .join(PlatformProfile, PlatformProfile.id == PublicationWork.platform_profile_id)
-        .join(PlatformAccount, PlatformAccount.id == PublicationWork.platform_account_id)
+        .outerjoin(PlatformProfile, PlatformProfile.id == PublicationWork.platform_profile_id)
+        .outerjoin(PlatformAccount, PlatformAccount.id == PublicationWork.platform_account_id)
     )
 
 

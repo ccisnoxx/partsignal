@@ -50,7 +50,7 @@ class PlatformAccount(Base):
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)
     platform_profile_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("platform_profiles.id", ondelete="RESTRICT"), nullable=False
+        UUID(as_uuid=True), ForeignKey("platform_profiles.id", ondelete="CASCADE"), nullable=False
     )
     label: Mapped[str] = mapped_column(String(160), nullable=False)
     account_identifier: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -91,6 +91,11 @@ class PublicationWork(Base):
             "('PLATFORM_REJECTED', 'BUSINESS_CANCELLED', 'OTHER')",
             name="close_reason_valid",
         ),
+        CheckConstraint(
+            "status IN ('COMPLETED', 'CLOSED') OR "
+            "(platform_profile_id IS NOT NULL AND platform_account_id IS NOT NULL)",
+            name="live_configuration",
+        ),
         Index(
             "uq_publication_works_active_platform_hash",
             "platform_profile_id",
@@ -108,12 +113,15 @@ class PublicationWork(Base):
     content_version_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("content_versions.id", ondelete="RESTRICT"), nullable=False
     )
-    platform_profile_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("platform_profiles.id", ondelete="RESTRICT"), nullable=False
+    platform_profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_profiles.id", ondelete="SET NULL")
     )
-    platform_account_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("platform_accounts.id", ondelete="RESTRICT"), nullable=False
+    platform_profile_name_snapshot: Mapped[str] = mapped_column(String(160), nullable=False)
+    platform_account_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("platform_accounts.id", ondelete="SET NULL")
     )
+    platform_account_label_snapshot: Mapped[str] = mapped_column(String(160), nullable=False)
+    account_identifier_snapshot: Mapped[str] = mapped_column(String(200), nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     actual_title: Mapped[str | None] = mapped_column(Text)
     final_url: Mapped[str | None] = mapped_column(Text)

@@ -166,7 +166,7 @@ function ActionModalContent({ target, onClose }: { target: ActionTarget; onClose
   const { message } = App.useApp();
   const [attachments, setAttachments] = useState<Schema<'FileRecord'>[]>([]);
   const platformId = target.kind === 'ready' || target.kind === 'work'
-    ? target.resource.platform_profile_id
+    ? target.resource.platform_profile_id ?? undefined
     : undefined;
   const issueId = target.kind === 'issue' ? target.resource.id : '';
   const accounts = useQuery({

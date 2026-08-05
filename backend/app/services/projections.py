@@ -18,11 +18,11 @@ from app.models.configuration import (
     PlatformPrompt,
     PlatformType,
 )
-from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
+from app.models.content import ContentTask, ContentVersion
 from app.models.geo_files import FileRecord
 from app.models.identity import AuditLog
 from app.models.product_facts import FactVersion, Product
-from app.models.publication import PlatformAccount, PublicationWork
+from app.models.publication import PlatformAccount, PublicationWork, PublishedArticle
 from app.schemas.configuration import (
     PlatformLogoExternalOut,
     PlatformLogoOut,
@@ -74,7 +74,10 @@ def platform_accounts_out(
         account_id: int(count)
         for account_id, count in db.execute(
             select(PublicationWork.platform_account_id, func.count(PublicationWork.id))
-            .where(PublicationWork.platform_account_id.in_(account_ids))
+            .where(
+                PublicationWork.platform_account_id.in_(account_ids),
+                PublicationWork.status.in_(IN_FLIGHT_PUBLICATION_STATUSES),
+            )
             .group_by(PublicationWork.platform_account_id)
         ).tuples()
     }
@@ -98,8 +101,7 @@ def platform_accounts_out(
         payload = {
             field: getattr(account, field)
             for field in PlatformAccountOut.model_fields
-            if field
-            not in {"available_actions", "deletion", "workflow_stage", "primary_task"}
+            if field not in {"available_actions", "deletion", "workflow_stage", "primary_task"}
         }
         payload["available_actions"] = actions
         payload["deletion"] = {"blockers": blockers} if can_delete else None
@@ -123,82 +125,47 @@ def platform_account_out(
     return platform_accounts_out(db, [account], can_delete=can_delete)[0]
 
 
-def _content_task_deletion_blockers(
-    db: Session,
-    task_ids: list[uuid.UUID],
-) -> dict[uuid.UUID, list[dict[str, object]]]:
-    """批量统计已取消任务的全部直接删除阻断引用。"""
-    if not task_ids:
-        return {}
-    direct_references = union_all(
-        select(
-            ContentVersion.task_id.label("task_id"),
-            literal("PROTECTED_CONTENT_VERSION").label("blocker_type"),
-        ).where(
-            ContentVersion.task_id.in_(task_ids),
-            ContentVersion.status.in_(("APPROVED", "SUPERSEDED")),
-        ),
-        select(
-            PublicationWork.content_task_id.label("task_id"),
-            literal("PUBLICATION_WORK").label("blocker_type"),
-        ).where(PublicationWork.content_task_id.in_(task_ids)),
-        select(
-            ContentTask.id.label("task_id"),
-            literal("PUBLISHED_CONTENT_ISSUE").label("blocker_type"),
-        ).where(
-            ContentTask.id.in_(task_ids),
-            ContentTask.source_published_content_issue_id.is_not(None),
-        ),
-        select(
-            ContentTaskGeoSource.content_task_id.label("task_id"),
-            literal("GEO_OPTIMIZATION_SOURCE").label("blocker_type"),
-        ).where(ContentTaskGeoSource.content_task_id.in_(task_ids)),
-    ).subquery()
-    counts = {
-        (task_id, blocker_type): int(count)
-        for task_id, blocker_type, count in db.execute(
-            select(
-                direct_references.c.task_id,
-                direct_references.c.blocker_type,
-                func.count(),
-            ).group_by(
-                direct_references.c.task_id,
-                direct_references.c.blocker_type,
-            )
-        ).tuples()
-    }
-    return {
-        task_id: [
-            {"type": blocker_type, "count": count}
-            for blocker_type in (
-                "PROTECTED_CONTENT_VERSION",
-                "PUBLICATION_WORK",
-                "PUBLISHED_CONTENT_ISSUE",
-                "GEO_OPTIMIZATION_SOURCE",
-            )
-            if (count := counts.get((task_id, blocker_type), 0))
-        ]
-        for task_id in task_ids
-    }
-
-
 def _content_task_available_actions(
     task: ContentTask,
     *,
     has_in_flight_publication: bool,
-    has_protected_history: bool,
+    can_delete: bool,
+    can_permanently_delete: bool,
     can_generate: bool,
     can_create_manual_version: bool,
 ) -> list[
-    Literal["CANCEL", "DELETE", "CREATE_GENERATION_JOB", "CREATE_MANUAL_VERSION"]
+    Literal[
+        "CANCEL",
+        "DELETE",
+        "ARCHIVE",
+        "RESTORE",
+        "PERMANENT_DELETE",
+        "CREATE_GENERATION_JOB",
+        "CREATE_MANUAL_VERSION",
+    ]
 ]:
     """按服务端状态与历史门禁给出当前真正可执行的任务动作。"""
     actions: list[
-        Literal["CANCEL", "DELETE", "CREATE_GENERATION_JOB", "CREATE_MANUAL_VERSION"]
+        Literal[
+            "CANCEL",
+            "DELETE",
+            "ARCHIVE",
+            "RESTORE",
+            "PERMANENT_DELETE",
+            "CREATE_GENERATION_JOB",
+            "CREATE_MANUAL_VERSION",
+        ]
     ] = []
+    if task.archived_at is not None:
+        actions.append("RESTORE")
+        if can_permanently_delete:
+            actions.append("PERMANENT_DELETE")
+        return actions
+    if task.status == "COMPLETED":
+        return ["ARCHIVE"]
     if task.status == "OPEN" and not has_in_flight_publication:
         actions.append("CANCEL")
-    if task.status == "CANCELLED" and not has_protected_history:
+    if can_delete:
         actions.append("DELETE")
     if can_generate:
         actions.append("CREATE_GENERATION_JOB")
@@ -208,17 +175,24 @@ def _content_task_available_actions(
 
 
 def _content_task_payload(task: ContentTask) -> dict[str, object]:
-    """构造不暴露服务端幂等键的内容任务响应基础载荷。"""
+    """构造不暴露幂等键和内部显示快照的任务响应载荷。"""
     return {
         column.name: getattr(task, column.name)
         for column in task.__table__.columns
-        if column.name != "idempotency_key"
+        if column.name
+        not in {
+            "idempotency_key",
+            "platform_profile_name_snapshot",
+            "platform_website_url_snapshot",
+        }
     }
 
 
-def content_task_out(db: Session, task: ContentTask) -> ContentTaskOut:
+def content_task_out(
+    db: Session, task: ContentTask, *, can_permanently_delete: bool = False
+) -> ContentTaskOut:
     """复用列表批量投影口径返回单个任务。"""
-    item = content_tasks_out(db, [task])[0]
+    item = content_tasks_out(db, [task], can_permanently_delete=can_permanently_delete)[0]
     return ContentTaskOut.model_validate(
         {field: getattr(item, field) for field in ContentTaskOut.model_fields}
     )
@@ -274,11 +248,16 @@ def content_versions_out(db: Session, contents: list[ContentVersion]) -> list[Co
             and fact.status == "APPROVED"
             and fact.body_markdown.strip()
         )
-        if fact_ready and is_current and content.status in {
-            "DRAFT",
-            "CHANGES_REQUESTED",
-            "APPROVED",
-        }:
+        if (
+            fact_ready
+            and is_current
+            and content.status
+            in {
+                "DRAFT",
+                "CHANGES_REQUESTED",
+                "APPROVED",
+            }
+        ):
             actions.append("CREATE_REVISION")
         product = products_by_id.get(task.product_id) if task is not None else None
         actual_hash = content_hash(
@@ -484,8 +463,22 @@ def platform_profiles_out(
         profile_id: int(count)
         for profile_id, count in db.execute(
             select(ContentTask.platform_profile_id, func.count(ContentTask.id))
-            .where(ContentTask.platform_profile_id.in_(profile_ids))
+            .where(
+                ContentTask.platform_profile_id.in_(profile_ids),
+                ContentTask.status == "OPEN",
+            )
             .group_by(ContentTask.platform_profile_id)
+        ).tuples()
+    }
+    active_work_counts = {
+        profile_id: int(count)
+        for profile_id, count in db.execute(
+            select(PublicationWork.platform_profile_id, func.count(PublicationWork.id))
+            .where(
+                PublicationWork.platform_profile_id.in_(profile_ids),
+                PublicationWork.status.in_(IN_FLIGHT_PUBLICATION_STATUSES),
+            )
+            .group_by(PublicationWork.platform_profile_id)
         ).tuples()
     }
     profile_id_strings = [str(profile_id) for profile_id in profile_ids]
@@ -570,11 +563,11 @@ def platform_profiles_out(
                             *(
                                 [
                                     {
-                                        "type": "PLATFORM_ACCOUNT",
-                                        "count": account_counts[profile.id],
+                                        "type": "PUBLICATION_WORK",
+                                        "count": active_work_counts[profile.id],
                                     }
                                 ]
-                                if profile.id in account_counts
+                                if profile.id in active_work_counts
                                 else []
                             ),
                         ]
@@ -588,8 +581,9 @@ def platform_profiles_out(
                         "DISABLE" if profile.is_active else "ENABLE",
                         *(
                             ["DELETE"]
-                            if account_counts.get(profile.id, 0) == 0
+                            if not profile.is_active
                             and task_counts.get(profile.id, 0) == 0
+                            and active_work_counts.get(profile.id, 0) == 0
                             else []
                         ),
                     ]
@@ -603,14 +597,21 @@ def platform_profiles_out(
     ]
 
 
-def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTaskListItem]:
+def content_tasks_out(
+    db: Session,
+    tasks: list[ContentTask],
+    *,
+    can_permanently_delete: bool = False,
+) -> list[ContentTaskListItem]:
     """批量聚合列表展示字段，生成状态与平台品牌均不触发逐行查询。"""
     if not tasks:
         return []
     task_ids = [task.id for task in tasks]
     product_ids = {task.product_id for task in tasks}
     fact_ids = {task.fact_version_id for task in tasks}
-    platform_ids = {task.platform_profile_id for task in tasks}
+    platform_ids = {
+        task.platform_profile_id for task in tasks if task.platform_profile_id is not None
+    }
     products_by_id = {
         product.id: product
         for product in db.scalars(select(Product).where(Product.id.in_(product_ids)))
@@ -671,6 +672,21 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
         for task_id, work in works_by_task.items()
         if work.status in IN_FLIGHT_PUBLICATION_STATUSES
     }
+    busy_task_ids = set(
+        db.scalars(
+            select(GenerationJob.content_task_id).where(
+                GenerationJob.content_task_id.in_(task_ids),
+                GenerationJob.status.in_(("PENDING", "RUNNING")),
+            )
+        )
+    )
+    published_task_ids = set(
+        db.scalars(
+            select(PublicationWork.content_task_id)
+            .join(PublishedArticle, PublishedArticle.id == PublicationWork.id)
+            .where(PublicationWork.content_task_id.in_(task_ids))
+        )
+    )
     current_ids = {
         task.current_content_version_id
         for task in tasks
@@ -680,17 +696,17 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
         content.id: content
         for content in db.scalars(select(ContentVersion).where(ContentVersion.id.in_(current_ids)))
     }
-    deletion_blockers_by_task = _content_task_deletion_blockers(
-        db,
-        [task.id for task in tasks if task.status == "CANCELLED"],
-    )
     items: list[ContentTaskListItem] = []
     for task in tasks:
         product = products_by_id.get(task.product_id)
         fact = facts_by_id.get(task.fact_version_id)
-        platform = platforms_by_id.get(task.platform_profile_id)
-        if product is None or fact is None or platform is None:
-            raise RuntimeError(f"内容任务 {task.id} 的产品或平台关联不存在")
+        platform = (
+            platforms_by_id.get(task.platform_profile_id)
+            if task.platform_profile_id is not None
+            else None
+        )
+        if product is None or fact is None:
+            raise RuntimeError(f"内容任务 {task.id} 的产品或事实关联不存在")
         fact_ready = bool(
             task.status == "OPEN"
             and fact.product_id == task.product_id
@@ -727,26 +743,30 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
         else:
             raise RuntimeError(f"内容任务 {task.id} 的当前版本状态无效")
         payload = _content_task_payload(task)
-        payload["available_actions"] = _content_task_available_actions(
+        available_actions = _content_task_available_actions(
             task,
             has_in_flight_publication=task.id in in_flight_task_ids,
-            has_protected_history=bool(deletion_blockers_by_task.get(task.id)),
             can_generate=bool(
                 fact_ready
                 and current is None
                 and latest_generation_status not in {"PENDING", "RUNNING"}
                 and fact.classification == "PUBLIC"
                 and product.status == "ACTIVE"
+                and platform is not None
                 and platform.is_active
                 and platform.platform_prompt_id is not None
             ),
             can_create_manual_version=bool(fact_ready and current is None),
+            can_delete=bool(
+                task.archived_at is None
+                and task.status != "COMPLETED"
+                and task.id not in busy_task_ids
+                and task.id not in published_task_ids
+            ),
+            can_permanently_delete=can_permanently_delete,
         )
-        payload["deletion"] = (
-            {"blockers": deletion_blockers_by_task.get(task.id, [])}
-            if task.status == "CANCELLED"
-            else None
-        )
+        payload["available_actions"] = available_actions
+        payload["deletion"] = {"blockers": []} if "DELETE" in available_actions else None
         payload["workflow_stage"] = workflow_stage
         payload["primary_task"] = primary_task
         payload["product"] = ContentTaskProductSummary(
@@ -756,10 +776,20 @@ def content_tasks_out(db: Session, tasks: list[ContentTask]) -> list[ContentTask
         )
         payload["platform"] = ContentTaskPlatformSummary.model_validate(
             {
-                "id": platform.id,
-                "name": platform.name,
-                "website_url": platform.website_url,
-                "logo": _platform_logo_out(platform, logo_files_by_id, logo_expires_at),
+                "id": platform.id if platform is not None else None,
+                "name": (
+                    platform.name if platform is not None else task.platform_profile_name_snapshot
+                ),
+                "website_url": (
+                    platform.website_url
+                    if platform is not None
+                    else task.platform_website_url_snapshot
+                ),
+                "logo": (
+                    _platform_logo_out(platform, logo_files_by_id, logo_expires_at)
+                    if platform is not None
+                    else None
+                ),
             }
         )
         payload["latest_generation_status"] = latest_generation_status

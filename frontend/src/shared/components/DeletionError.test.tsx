@@ -1,11 +1,11 @@
-/** 验证受约束删除向导展示直接引用、历史边界和服务端重新检查入口。 */
+/** 验证受约束删除向导展示当前阻断、下钻和服务端重新检查入口。 */
 import { App as AntApp } from 'antd';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, test, vi } from 'vitest';
 import { DeletionGuidanceModal } from './DeletionError';
 
-test('引用下钻在新标签打开，并明确不可变历史不能删除', async () => {
+test('引用下钻在新标签打开，并明确由服务端重新校验', async () => {
   const refresh = vi.fn();
   const user = userEvent.setup();
   render(
@@ -30,7 +30,7 @@ test('引用下钻在新标签打开，并明确不可变历史不能删除', as
   expect(screen.getByText('发布工作：1')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: '查看引用' })).toHaveAttribute('target', '_blank');
   expect(screen.getByRole('link', { name: '查看历史' })).toHaveAttribute('href', '/publications?content_task_id=task-1');
-  expect(screen.getByText(/不可变历史只能查看/)).toBeInTheDocument();
+  expect(screen.getByText(/不会绕过服务端的引用和权限校验/)).toBeInTheDocument();
 
   await user.click(screen.getByRole('button', { name: '重新检查' }));
   expect(refresh).toHaveBeenCalledOnce();

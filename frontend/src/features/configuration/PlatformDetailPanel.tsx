@@ -110,7 +110,7 @@ export function PlatformDetailPanel({
         {profile.available_actions.includes('DELETE') && <Button danger loading={deleteLoading} onClick={() => onDelete(profile)}>删除平台</Button>}
         {!profile.available_actions.includes('DELETE') && !!profile.deletion?.blockers.length && <Button onClick={() => onViewDeletion(profile)}>查看删除条件</Button>}
       </div>
-      <Alert type="warning" showIcon={false} title="存在内容任务或发布账号引用时不能删除平台；如需停止新业务，请停用平台。" />
+      <Alert type="warning" showIcon={false} title="存在进行中内容任务或发布工作时不能删除平台；如需停止新业务，请停用平台。" />
     </div>
   </aside>;
 }

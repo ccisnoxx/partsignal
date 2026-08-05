@@ -12,8 +12,6 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.audit import append_audit
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
 from app.errors import AppError, not_found
 from app.models.ai_generation import (
@@ -425,20 +423,6 @@ def create_generation_job(
         platform_prompt_revision=payload.platform_prompt_revision,
     )
     if created:
-        append_audit(
-            db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.CONTENT_PRODUCTION,
-                action="generation_job.created",
-                target_type="GenerationJob",
-                target_id=job.id,
-                request_id=request_id,
-                outcome=AuditOutcome.SUCCESS,
-                result_message="内容生成作业已创建",
-                details={"facts": {"task_id": str(job.content_task_id)}},
-            ),
-        )
         db.commit()
         _dispatch_job(job)
         db.refresh(job)
@@ -518,25 +502,6 @@ def create_humanization_job(
             raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一生成请求", 409) from error
         raise AppError("HUMANIZATION_ALREADY_ACTIVE", "该源版本已有活动自然化作业", 409) from error
     if created:
-        append_audit(
-            db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.CONTENT_PRODUCTION,
-                action="humanization_job.created",
-                target_type="GenerationJob",
-                target_id=job.id,
-                request_id=request_id,
-                outcome=AuditOutcome.SUCCESS,
-                result_message="内容自然化作业已创建",
-                details={
-                    "facts": {
-                        "source_content_version_id": str(source.id),
-                        "task_id": str(job.content_task_id),
-                    }
-                },
-            ),
-        )
         db.commit()
         _dispatch_job(job)
         db.refresh(job)
@@ -617,25 +582,6 @@ def retry_generation_job(
         db=db, task=task, idempotency_key=idempotency_key, actor=actor, retry_of=previous
     )
     if created:
-        append_audit(
-            db,
-            AuditEntry(
-                actor_id=actor.id,
-                business_module=AuditModule.CONTENT_PRODUCTION,
-                action="generation_job.retried",
-                target_type="GenerationJob",
-                target_id=job.id,
-                request_id=request_id,
-                outcome=AuditOutcome.SUCCESS,
-                result_message="内容生成作业已重试",
-                details={
-                    "facts": {
-                        "retry_of_id": str(previous.id),
-                        "task_id": str(job.content_task_id),
-                    }
-                },
-            ),
-        )
         db.commit()
         _dispatch_job(job)
         db.refresh(job)
@@ -740,20 +686,6 @@ def create_manual_content_version(
         actor=actor,
         based_on_id=None,
     )
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONTENT_PRODUCTION,
-            action="content_version.manual_created",
-            target_type="ContentVersion",
-            target_id=content.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="内容人工首稿已创建",
-            details={"facts": {"task_id": str(task.id), "version": content.version}},
-        ),
-    )
     db.commit()
     return content
 
@@ -786,25 +718,6 @@ def create_content_revision(
         payload=payload,
         actor=actor,
         based_on_id=source.id,
-    )
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONTENT_PRODUCTION,
-            action="content_version.revised",
-            target_type="ContentVersion",
-            target_id=content.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="内容人工修订已创建",
-            details={
-                "facts": {
-                    "based_on_id": str(source.id),
-                    "version": content.version,
-                }
-            },
-        ),
     )
     db.commit()
     return content
@@ -849,26 +762,5 @@ def abandon_content_version(
     source.revision += 1
     task.current_content_version_id = previous.id if previous is not None else None
     task.revision += 1
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONTENT_PRODUCTION,
-            action="content_version.abandoned",
-            target_type="ContentVersion",
-            target_id=source.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message="当前内容版本已放弃",
-            details={
-                "facts": {
-                    "restored_content_version_id": (
-                        str(previous.id) if previous is not None else None
-                    ),
-                    "comment": comment,
-                }
-            },
-        ),
-    )
     db.commit()
     return source

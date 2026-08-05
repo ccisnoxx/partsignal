@@ -71,7 +71,7 @@ export function DeletionGuidanceModal({
   >
     <Alert type="warning" showIcon title="请先处理以下直接引用" description={<DeletionBlockerList blockers={blockers} resolveLink={resolveLink} />} />
     <Typography.Paragraph type="secondary" style={{ marginTop: 16, marginBottom: 0 }}>
-      跳转目标会按自身规则继续显示可处理操作；不可变历史只能查看，系统不会级联或强制删除。
+      跳转目标会按自身规则继续显示可处理操作；系统不会绕过服务端的引用和权限校验。
     </Typography.Paragraph>
   </Modal>;
 }

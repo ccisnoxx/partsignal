@@ -206,7 +206,6 @@ def transition_fact_version(
         )
     if action == "request-changes" and not comment.strip():
         raise AppError("REVIEW_COMMENT_REQUIRED", "退回意见不能为空", 422)
-    previous_status = version.status
     version.status = target
     version.revision += 1
     if action == "approve":
@@ -220,33 +219,21 @@ def transition_fact_version(
             actor_id=actor.id,
         )
     )
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.PRODUCT_FACTS,
-            action=f"fact_version.{action}",
-            target_type="FactVersion",
-            target_id=version.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message={
-                "approve": "事实版本已审核通过",
-                "request-changes": "事实版本已退回修改",
-                "retire": "事实版本已退役",
-            }[action],
-            details={
-                "changes": [
-                    {
-                        "field": "status",
-                        "before": previous_status,
-                        "after": version.status,
-                    }
-                ],
-                "facts": {"revision": version.revision},
-            },
-        ),
-    )
+    if action == "approve":
+        append_audit(
+            db,
+            AuditEntry(
+                actor_id=actor.id,
+                business_module=AuditModule.PRODUCT_FACTS,
+                action="fact_version.approve",
+                target_type="FactVersion",
+                target_id=version.id,
+                request_id=request_id,
+                outcome=AuditOutcome.SUCCESS,
+                result_message="事实版本已审核通过",
+                details={"facts": {"revision": version.revision}},
+            ),
+        )
     db.commit()
     return fact_version_out(db, version, can_delete=actor.account_type == "ADMIN")
 
@@ -299,7 +286,6 @@ def transition_content_version(
             previous.status = "SUPERSEDED"
             previous.revision += 1
             db.flush()
-    previous_status = content.status
     content.status = target
     content.revision += 1
     db.add(
@@ -310,32 +296,20 @@ def transition_content_version(
             actor_id=actor.id,
         )
     )
-    append_audit(
-        db,
-        AuditEntry(
-            actor_id=actor.id,
-            business_module=AuditModule.CONTENT_REVIEW,
-            action=f"content_version.{action}",
-            target_type="ContentVersion",
-            target_id=content.id,
-            request_id=request_id,
-            outcome=AuditOutcome.SUCCESS,
-            result_message={
-                "submit-review": "内容版本已提交审核",
-                "approve": "内容版本已审核通过",
-                "request-changes": "内容版本已退回修改",
-            }[action],
-            details={
-                "changes": [
-                    {
-                        "field": "status",
-                        "before": previous_status,
-                        "after": content.status,
-                    }
-                ],
-                "facts": {"revision": content.revision},
-            },
-        ),
-    )
+    if action == "approve":
+        append_audit(
+            db,
+            AuditEntry(
+                actor_id=actor.id,
+                business_module=AuditModule.CONTENT_REVIEW,
+                action="content_version.approve",
+                target_type="ContentVersion",
+                target_id=content.id,
+                request_id=request_id,
+                outcome=AuditOutcome.SUCCESS,
+                result_message="内容版本已审核通过",
+                details={"facts": {"revision": content.revision}},
+            ),
+        )
     db.commit()
     return content_version_out(db, content)

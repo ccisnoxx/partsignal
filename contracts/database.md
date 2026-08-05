@@ -8,7 +8,7 @@
 - Alembic is the only schema migration entry point. API and Worker never run migrations on startup.
 - Revisions `0001` through `0008` use `app.migration_schema_v1` as a frozen metadata snapshot; future runtime model changes must add a new revision and must not edit that snapshot.
 - JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
-- Review records, publication work events, publication verifications, observations, and audit logs are append-only。`0027` 仅在物理删除停用用户时允许把该用户对应的 `audit_logs.actor_id` 从原 UUID 置空；`0029` 仅允许管理员按完整更正链物理删除人工 GEO 观测；`0033` 仅允许清理匹配已取消任务的审核记录和未批准生产历史。`0034` 移除发布业务对象的日常物理删除能力；其他审计字段、任意未声明删除和普通 UPDATE 仍被数据库触发器拒绝。
+- Review records, publication work events, publication verifications, observations, and audit logs cannot be modified in place。`0027` 仅在物理删除停用用户时允许把匹配 `audit_logs.actor_id` 置空；`0029` 允许管理员按完整更正链删除人工 GEO 观测；`0037` 允许普通删除未成功发布的任务聚合，并允许管理员永久删除已归档任务聚合。发布与 GEO 历史在保留期间仍禁止原地改写，删除只能从显式业务命令进入。
 
 ## Migration Order
 
@@ -186,7 +186,7 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 平台配置完整性、账号数量和引用次数均为 PostgreSQL 实时投影。平台引用数直接统计 `content_tasks.platform_profile_id` 的唯一 `ContentTask.id`；最近 30 天使用同一 UTC `as_of` 和半开区间 `[as_of - 30 days, as_of)`，历史数不设时间下界。`content_tasks(platform_profile_id, created_at)` 与 `platform_accounts(platform_profile_id, is_active)` 支持聚合；`audit_logs(target_type, target_id, created_at DESC)` 支持平台创建、编辑、启用和停用的真实时间投影。无对应审计时返回 `NULL`，不得使用迁移时间补造。
 
-平台物理删除在任一内容任务或平台账号存在时返回结构化 `409`，不得自动停用、级联删除或改写历史。`0023` 降级会删除启停状态，只能在业务确认可丢失当前停用事实后执行；旧迁移与冻结的 `migration_schema_v1.py` 保持不变。
+在 `0023` 的初始合同中，任一内容任务或平台账号都会阻断平台物理删除。`0037` 已把当前规则收缩为“先停用，仅 `OPEN` 任务和非终态发布工作阻断”，并允许清理平台账号但绝不级联任务。`0023` 降级会删除启停状态，只能在业务确认可丢失当前停用事实后执行；旧迁移与冻结的 `migration_schema_v1.py` 保持不变。
 
 ### 0024 Audit Outcome
 
@@ -194,9 +194,9 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 历史 action/target 组合必须先通过迁移内的完整分类校验，再回填模块。既有同事务追加记录默认为 `SUCCESS`；只有 `ai_model.tested` 的失败测试和 `ai_channel.models_discovered` 的已记录失败按其稳定字段精确回填为 `FAILED`，其他历史结果不得从自由文本或 HTTP 状态猜测。迁移新增 `audit_logs(created_at DESC, id DESC)` 以保证全局分页稳定；既有目标时间索引保留。
 
-成功业务状态和成功审计仍在一个事务内提交。经批准的九类关键命令在业务错误或权限拒绝时先回滚业务事务，再使用独立短事务追加 `FAILED` 或 `DENIED`；其他现有写命令暂时保持成功审计。请求解析、未登录、失效会话、强制改密和 CSRF 失败属于访问边界，不写业务审计。`details` 只保存服务端白名单 `changes/facts` 或经明确兼容投影的历史安全字段，API 不返回原始 JSONB，也不对其全文检索。
+`0024` 当时让九类关键命令在业务回滚后以独立事务追加 `FAILED` 或 `DENIED`。`0037` 已移除该运行时行为并清理对应历史；当前只允许保留白名单内的 `SUCCESS` 与业务状态同事务提交。`details` 只保存白名单 `changes/facts`，API 不返回原始 JSONB，也不对其全文检索。
 
-审计时间按 UTC 存储和传输，查询时间窗采用半开区间 `[created_from, created_to)`。`actor_id` 使用 `SET NULL`，响应中的姓名和账号类型是当前用户目录投影而非历史快照。`request_id` 允许重复，只用于关联链路，并限制为 1 至 100 个可打印 ASCII 字符。`0027` 之前的通用 append-only 触发器禁止全部 `UPDATE/DELETE`；当前专用触发器仍禁止 DELETE 和普通 UPDATE，只放行受约束的操作者置空。若存在空 `target_id` 的失败创建记录，降级必须拒绝恢复 `NOT NULL`，不得删除或篡改历史。
+审计时间按 UTC 存储和传输，查询时间窗采用半开区间 `[created_from, created_to)`。`actor_id` 使用 `SET NULL`，响应中的姓名和账号类型是当前用户目录投影而非历史快照。`request_id` 允许重复，只用于关联链路，并限制为 1 至 100 个可打印 ASCII 字符。`0037` 后专用触发器禁止普通 UPDATE，只放行受约束的操作者置空；任务聚合删除可精确删除旧目标审计，但没有通用审计删除 API。
 
 ### 0025 Markdown Facts And Direct Platform Tasks
 
@@ -270,7 +270,7 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 迁移为每条旧 Prompt 保留原正文、revision、操作者和时间，并使用旧 `platform_profile_id` 作为新 Prompt UUID；名称确定为“平台名称（slug）”。复制和回绑完成后校验行数、正文与绑定关系，任一不一致都中止迁移。降级只允许每份 Prompt 恰好绑定一个平台且不存在未绑定模板，否则以 PostgreSQL `55000` 拒绝；迁移不按正文合并或猜测归属。
 
-Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理端明确展示全部受影响平台。被任一平台绑定的 Prompt 不可删除，平台删除或换绑不级联删除模板；只有未绑定模板可按 revision 物理删除。新原始生成请求同时提交所确认的 Prompt UUID 与 revision，服务端锁定任务、平台及其当前绑定后重新校验，变化时返回 `PLATFORM_PROMPT_CHANGED`，不得使用过期确认。
+Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理端明确展示全部受影响平台。`0037` 起删除 Prompt 会在同一事务自动解绑全部当前平台并递增其 revision；平台删除仍不删除模板。新原始生成请求同时提交所确认的 Prompt UUID 与 revision，服务端锁定任务、平台及其当前绑定后重新校验，变化时返回 `PLATFORM_PROMPT_CHANGED`，不得使用过期确认。
 
 新原始生成快照只写 `content-markdown-v3`，除既有最终消息、平台、事实、渠道和模型外，还冻结 Prompt 的 UUID、名称与 revision。`content-markdown-v2` 仅作为明确的历史类型继续读取并按原快照重试；后续换绑、更新或删除当前配置都不改变历史作业。自然化继续使用 `humanization-markdown-v2`。
 
@@ -290,7 +290,7 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 发布工作使用 `PREPARING | PLATFORM_REVIEW | AWAITING_VERIFICATION | ACTION_REQUIRED | COMPLETED | CLOSED`。失败核验只追加当时标题、URL、发布时间和说明快照，并把工作置为 `ACTION_REQUIRED`；后续结果修正仍发生在同一工作上。首次成功核验原子创建与工作同 ID 的 `PublishedArticle`，并完成工作和来源任务。显式关闭必须保存原因、说明、操作者和时间，并原子取消来源任务。成功成果不再回退；后续问题由 `PublishedContentIssue OPEN -> RESOLVED` 独立表达，创建修复任务不会自动解决问题。
 
-工作终态字段、成果、事件、核验和问题历史由触发器冻结或限制为契约允许的状态变化，任何发布业务对象 DELETE 均被拒绝。GEO 新观测只能引用没有 `OPEN` 问题且从未以 `RETIRED` 解决问题的 `PublishedArticle`；打开问题与创建观测锁定同一文章，避免资格竞态。
+工作终态字段、成果、事件、核验和问题历史由触发器冻结或限制为契约允许的状态变化。`0037` 起仍禁止日常单项删除，但管理员永久删除已归档任务时可在同一事务删除该任务拥有的发布聚合。GEO 新观测只能引用没有 `OPEN` 问题且从未以 `RETIRED` 解决问题的 `PublishedArticle`；打开问题与创建观测锁定同一文章，避免资格竞态。
 
 ### 0035 Business Workflow Primary Tasks
 
@@ -306,9 +306,21 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 版本文件 `0036_remove_publication_section_url.py` 紧跟 `0035_business_workflow`，Alembic revision 为 `0036_remove_section_url`。该 revision 删除没有稳定跨平台含义的 `publication_works.section_url`；开始发布只绑定 `content_version_id` 与 `platform_account_id`，准备更新只允许变更账号并提交 revision 和说明。
 
-迁移先以 0035 的当前定义替换 `partsignal_guard_publication_work()`，仅从准备阶段冻结条件移除栏目地址比较，再删除列；账号冻结、身份不可变、结果登记、状态转换、终态冻结和历史不可删除规则保持不变。真实公开位置只由结果登记的 `final_url` 保存，并继续匹配具体平台允许域名。
+迁移先以 0035 的当前定义替换 `partsignal_guard_publication_work()`，仅从准备阶段冻结条件移除栏目地址比较，再删除列；账号冻结、身份不可变、结果登记和状态转换规则保持不变。`0037` 后终态历史仍不可原地修改，但可随已归档任务聚合永久删除。真实公开位置只由结果登记的 `final_url` 保存，并继续匹配具体平台允许域名。
 
 既有栏目地址按已确认的无效数据直接丢弃，不转存到影子列、JSON 或历史表。该值无法确定性恢复，downgrade 固定以 PostgreSQL `55000` 拒绝，恢复必须使用迁移前备份。
+
+### 0037 Simplified Deletion Lifecycle
+
+版本文件 `0037_simplify_deletion_lifecycle.py` 紧跟 `0036_remove_section_url`。`content_tasks` 新增正交的可空 `archived_at`、必填平台名称快照与可空网站 URL 快照；`publication_works` 新增必填平台名称、账号标签和账号标识快照。迁移只从升级时仍受强外键保护的当前行确定性回填，任何缺失都以 PostgreSQL `55000` 中止，不猜测历史显示值。
+
+归档只接受未归档 `COMPLETED` 任务；恢复只清空 `archived_at`，两者都校验并递增 revision，不改变业务状态。默认任务列表只返回未归档任务，`archive_status=ARCHIVED|ALL` 才读取归档范围。普通删除接受未归档 `OPEN | CANCELLED` 任务，拒绝运行中生成作业以及任何成功文章或 GEO 文章关系；它删除任务拥有的草稿、审核、生成和未成功发布工作，但不触碰外部页面。
+
+管理员永久删除只接受已归档任务、匹配 revision 和固定确认文本 `永久删除`。服务锁定并重新计算范围，删除任务拥有的内容、发布成果与问题、发布事件和核验；只删除失去全部文章关系的人工 GEO 更正链，共享 GEO 记录与共享文件保留。删除旧目标审计后只写一条 `content_task.permanently_deleted` 空详情墓碑。归档、恢复及永久删除都不验证或删除外部页面。
+
+平台删除仍要求先停用，并在存在 `OPEN` 内容任务或非终态发布工作时拒绝；它绝不级联删除任务。平台账号随平台删除，终态任务与工作把实时平台/账号外键置空后使用标量快照显示。单独账号删除只由非终态发布工作阻断。Prompt 删除通过共享事务 advisory lock 串行化绑定变更，在同一事务自动解绑全部平台、递增平台 revision 后删除模板；历史生成作业继续读取不可变输入快照。
+
+审计写入收缩为 `RETAINED_AUDIT_ACTIONS` 中的成功事件。迁移删除全部 `FAILED | DENIED` 以及白名单外历史，并把审计门禁收窄为禁止 UPDATE；业务层没有通用审计删除 API，只在任务聚合删除时按精确目标清理旧审计。该迁移、历史审计清理和已执行永久删除不可逆，downgrade 固定以 `55000` 拒绝并要求恢复升级前备份。
 
 ## State Machines
 
@@ -321,6 +333,7 @@ ContentVersion: DRAFT -> PENDING_REVIEW -> APPROVED -> SUPERSEDED
 
 ContentTask: OPEN -> CANCELLED
              OPEN -- first successful PublicationVerification --> COMPLETED
+             COMPLETED -- archive/restore --> COMPLETED
 
 GenerationJob: PENDING -> RUNNING -> SUCCEEDED | FAILED
                (applies to both GENERATE and HUMANIZE)
@@ -360,14 +373,14 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - Sensitive AI values are encrypted with the deployment master key and never returned, audited, logged, or copied into generation snapshots.
 - A platform type referenced by a platform profile cannot be deleted. Platform types do not own Prompts after `0014`.
 - A concrete platform binds zero or one current Prompt, while one Prompt may be shared by multiple platforms. Missing binding keeps the platform selectable for manual content tasks but makes system AI generation unavailable.
-- Platform Prompt update and deletion require optimistic revision matching against the locked template row. A bound Prompt cannot be deleted; platform deletion or rebinding never cascades to the template.
+- Platform Prompt update and deletion require optimistic revision matching against the locked template row. Prompt deletion atomically unbinds every current platform and increments each platform revision; platform deletion never deletes the template.
 - A concrete platform's `is_active` state is independent from configuration completeness. A disabled platform remains manageable but cannot be used to create a content task, repair task, platform account, or publication work; disabling never mutates existing accounts, configuration, or history.
 - Platform completeness, account counts, and task-reference counts are real-time read projections. Completeness is true when the current platform Prompt exists; a task reference is counted once through `content_tasks.platform_profile_id`.
 - A concrete platform stores at most one Logo source. New writes only accept a `VERIFIED`, `PUBLIC`, `PLATFORM_LOGO` file; `logo_external_url` remains a nullable read-only legacy field until a later migration, and `website_url` remains an explicit nullable URI.
 - File cleanup uses the three actual current-head file foreign keys as its deletion authority. Unconfirmed files retain their configured grace period, detached previously used files retain seven days, and object deletion remains retryable through `DELETING` before a `DELETED` tombstone is recorded.
-- Product, fact version, platform profile, platform account, platform type, and user physical deletion is admin-only. Services lock the target, count direct references where applicable, and return structured `409` conflicts; they never cascade, reassign, or rewrite immutable business history except for the explicitly guarded audit actor nulling in `0027`.
-- A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform profile requires no content tasks or platform accounts; a platform account requires no `PublicationWork`; a platform type requires no platform profiles.
-- 已取消内容任务可连同其生成作业、审核记录和未批准内容版本物理删除；存在 `APPROVED`/`SUPERSEDED` 内容、任一 `PublicationWork` 或非空 `source_published_content_issue_id` 时必须阻断，其他任务状态不可删除。
+- Product, fact version, platform profile, platform account, platform type, and user physical deletion is admin-only. Services lock targets and return structured `409` conflicts; the only configured cascades are the approved Prompt auto-unbind, platform-owned account cleanup, and task-aggregate deletion paths.
+- A product can be physically deleted only when no `FactVersion`, `ContentTask`, or `GeoObservation` directly references it. A platform profile must first be disabled and requires no `OPEN` content task or nonterminal `PublicationWork`; deleting it never deletes a task. A platform account requires no nonterminal `PublicationWork`; a platform type requires no platform profiles.
+- 未归档 `OPEN | CANCELLED` 内容任务可连同其任务聚合删除，但运行中的生成作业、成功文章或 GEO 文章关系阻断普通删除。`COMPLETED` 任务只能先归档；管理员随后可按固定确认文本永久删除整个内部任务聚合，共享 GEO 与文件保留。
 - Channel deletion cascades to Headers and models. Historical job foreign keys become null while their immutable snapshots remain readable.
 - A model can be enabled only after its own successful test. A channel can be enabled only when at least one child model has passed testing.
 - A generation job performs at most one provider call. Expired worker leases fail explicitly; retries create a new job and preserve the original non-sensitive snapshot. Original-generation v2/v3 snapshots may retry from their frozen input; legacy v1 snapshots are read-only.
@@ -384,11 +397,11 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A failed verification appends an immutable snapshot and leaves the work pending in `ACTION_REQUIRED`; it never creates an article or completes/cancels the task.
 - Task completion has no public manual command. The first successful verification atomically creates the read-only `PublishedArticle` and completes the open source task; completed tasks never revert.
 - A nonterminal work may only end without success through explicit close with a structured reason and non-blank comment; close atomically cancels the source task.
-- Publication works, events, verifications, articles and issues cannot be physically deleted through business APIs. Published results are immutable; later page problems use `PublishedContentIssue` rather than rewriting the article.
+- Publication works, events, verifications, articles and issues cannot be individually deleted through business APIs. Published results remain immutable in place; the only aggregate exception is administrator permanent deletion of their archived source task.
 - Repair-task creation and issue resolution are separate explicit commands. A repaired issue remains `OPEN` until explicitly resolved, and resolving it does not complete the repair task.
 - Fact and content review records are append-only, and every request-changes command requires a non-blank comment.
 - Observation accuracy `UNJUDGEABLE` is excluded from the accuracy-rate denominator.
-- Manual GEO observations cover every currently eligible `PublishedArticle` for one product and store one independent `discovered`, `mentioned`, and optional `accuracy` result per article. Articles with an open issue or a historical `RETIRED` outcome are ineligible. Evidence screenshots are optional; corrections aggregate ancestor evidence for reads without duplicating file links. Administrators may delete only the complete manual correction chain through the guarded `0029` path.
+- Manual GEO observations cover every currently eligible `PublishedArticle` for one product and store one independent `discovered`, `mentioned`, and optional `accuracy` result per article. Articles with an open issue or a historical `RETIRED` outcome are ineligible. Evidence screenshots are optional; corrections aggregate ancestor evidence for reads without duplicating file links. Administrators may delete a complete manual correction chain directly; archived-task permanent deletion removes only chains that lose every article relation.
 - Historical GEO publication associations with null insight facts remain explicitly incomplete and never enter manual insight denominators.
 - GEO 优化任务必须与一条不可变 `content_task_geo_sources` 来源快照同事务创建；服务端重新计算异常，拒绝客户端伪造、过期或数据不足的依据。
-- Audit log details must not contain passwords, session cookies, AccessKeys, model keys, or unpublished source documents.
+- Audit log details must not contain passwords, session cookies, AccessKeys, model keys, or unpublished source documents. Runtime audit accepts only retained successful actions; task aggregate deletion may remove old target logs and preserve one minimal deletion tombstone.

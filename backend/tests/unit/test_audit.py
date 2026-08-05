@@ -1,4 +1,4 @@
-"""验证审计强契约、事务边界和双重安全投影。"""
+"""验证永久审计白名单、事务边界和双重安全投影。"""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import cast
 import pytest
 from sqlalchemy.orm import Session
 
-from app.audit import append_audit, commit_audit, validate_audit_entry
+from app.audit import append_audit, validate_audit_entry
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.models.identity import AuditLog
 from app.services.audit_logs import project_audit_log
@@ -81,23 +81,13 @@ def test_audit_details_reject_unknown_shapes_and_sensitive_nested_keys(
         validate_audit_entry(audit_entry(details=details))
 
 
-def test_audit_outcome_requires_stable_error_semantics() -> None:
+def test_audit_only_accepts_successful_allowlisted_actions() -> None:
     with pytest.raises(ValueError, match="成功审计不能包含错误码"):
         validate_audit_entry(audit_entry(error_code="REVISION_CONFLICT"))
-    with pytest.raises(ValueError, match="必须包含稳定错误码"):
+    with pytest.raises(ValueError, match="只允许记录成功结果"):
         validate_audit_entry(audit_entry(outcome=AuditOutcome.FAILED))
-    with pytest.raises(ValueError, match="错误码格式无效"):
-        validate_audit_entry(
-            audit_entry(
-                outcome=AuditOutcome.DENIED,
-                error_code="permission denied",
-            )
-        )
-
-
-def test_commit_audit_rejects_success_outcome() -> None:
-    with pytest.raises(ValueError, match="只允许 FAILED 或 DENIED"):
-        commit_audit(cast(Session, object()), audit_entry())
+    with pytest.raises(ValueError, match="白名单"):
+        validate_audit_entry(audit_entry(action="content_task.created"))
 
 
 def test_read_projection_ignores_unknown_and_sensitive_stored_details() -> None:

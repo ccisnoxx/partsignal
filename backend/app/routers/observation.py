@@ -9,8 +9,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy import func, select
 
-from app.audit import commit_audit
-from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.deps import (
     CsrfProtected,
     CurrentUser,
@@ -195,34 +193,13 @@ def delete_geo_observation(
     _csrf: CsrfProtected,
 ) -> None:
     """仅由管理员处置完整的人工 GEO 更正链。"""
-    actor_id = admin.id
-    command_request_id = request.state.request_id
-    try:
-        assert_account_types(admin, (AccountType.ADMIN,))
-        delete_geo_observation_command(
-            db=db,
-            observation_id=observation_id,
-            actor=admin,
-            request_id=command_request_id,
-        )
-    except AppError as error:
-        db.rollback()
-        denied = error.code == "PERMISSION_DENIED"
-        commit_audit(
-            db,
-            AuditEntry(
-                actor_id=actor_id,
-                business_module=AuditModule.GEO_OBSERVATION,
-                action="geo_observation.deleted",
-                target_type="GeoObservation",
-                target_id=observation_id,
-                request_id=command_request_id,
-                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
-                result_message="GEO 观测删除被拒绝" if denied else "GEO 观测删除未完成",
-                error_code=error.code,
-            ),
-        )
-        raise
+    assert_account_types(admin, (AccountType.ADMIN,))
+    delete_geo_observation_command(
+        db=db,
+        observation_id=observation_id,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
 
 
 @router.get(
@@ -252,31 +229,10 @@ def create_geo_observation(
     analyst: CurrentUser,
     _csrf: CsrfProtected,
 ) -> GeoObservationOut:
-    actor_id = analyst.id
-    command_request_id = request.state.request_id
-    try:
-        assert_account_types(analyst, (AccountType.ADMIN, AccountType.ENGINEER))
-        observation = create_geo_observation_command(
-            db=db, payload=payload, actor=analyst, request_id=command_request_id
-        )
-    except AppError as error:
-        db.rollback()
-        denied = error.code == "PERMISSION_DENIED"
-        commit_audit(
-            db,
-            AuditEntry(
-                actor_id=actor_id,
-                business_module=AuditModule.GEO_OBSERVATION,
-                action="geo_observation.created",
-                target_type="GeoObservation",
-                target_id=None,
-                request_id=command_request_id,
-                outcome=AuditOutcome.DENIED if denied else AuditOutcome.FAILED,
-                result_message="GEO 观测创建被拒绝" if denied else "GEO 观测创建未完成",
-                error_code=error.code,
-            )
-        )
-        raise
+    assert_account_types(analyst, (AccountType.ADMIN, AccountType.ENGINEER))
+    observation = create_geo_observation_command(
+        db=db, payload=payload, actor=analyst, request_id=request.state.request_id
+    )
     return get_geo_observation_service(db, observation.id, actor=analyst)
 
 

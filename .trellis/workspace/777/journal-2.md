@@ -476,3 +476,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 73: 线上回归根因修复与重新部署
+
+**Date**: 2026-08-05
+**Task**: 线上回归根因修复与重新部署
+**Branch**: `main`
+
+### Summary
+
+完成昨日改动全站回归，修复 Hostdzire Docker hairpin 防火墙与内容批准后的发布入口；两次快速重部署成功，真实浏览器确认发布表单可使用新增测试账号打开，未提交发布工作。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `556da53` | (see git log) |
+| `c0f0307` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

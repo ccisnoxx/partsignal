@@ -1,11 +1,17 @@
 /** 验证内容审核页清理 HTML、展示冻结事实和历史，并要求显式批准。 */
+import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { vi } from 'vitest';
-import { App } from '../../app/App';
+import { App as AntApp } from 'antd';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { afterEach, beforeEach, vi } from 'vitest';
+import { queryClient } from '../../app/queryClient';
+import { ThemeProvider } from '../../app/ThemeProvider';
+import { setCsrfToken } from '../../shared/api/client';
 import type { Schema } from '../../shared/api/types';
 import { CONTENT_TAG_ERROR } from '../../shared/contentValidation';
 import { mockFetch } from '../../test/fetchMock';
+import { ContentEditorPage } from './ContentEditorPage';
 import { RevisionForm } from './RevisionForm';
 
 const content = {
@@ -105,6 +111,29 @@ function commonPageResponse(path: string) {
   return undefined;
 }
 
+function renderPage() {
+  return render(
+    <ThemeProvider>
+      <AntApp>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/content/:contentVersionId" element={<ContentEditorPage />} />
+            </Routes>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </AntApp>
+    </ThemeProvider>,
+  );
+}
+
+beforeEach(() => {
+  queryClient.clear();
+  setCsrfToken('x'.repeat(32));
+});
+
+afterEach(() => setCsrfToken(null));
+
 function renderApprovedReviewPage() {
   window.history.pushState({}, '', `/content/${content.id}`);
   mockFetch((request) => {
@@ -115,7 +144,7 @@ function renderApprovedReviewPage() {
     if (path.endsWith('/review-context')) return { body: context };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
-  return render(<App />);
+  return renderPage();
 }
 
 function renderChangesRequestedReviewPage() {
@@ -127,7 +156,7 @@ function renderChangesRequestedReviewPage() {
     if (path.endsWith('/review-context')) return { body: { ...context, content: { ...content, status: 'CHANGES_REQUESTED' } } satisfies Schema<'ContentReviewContext'> };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
-  return render(<App />);
+  return renderPage();
 }
 
 test('展示冻结审核事实和安全预览', async () => {
@@ -182,7 +211,7 @@ test('审核上下文失败时不渲染状态操作', async () => {
     if (path.endsWith('/review-context')) return { status: 500, body: { error: { code: 'REVIEW_CONTEXT_INCOMPLETE', message: '审核上下文不完整', request_id: 'review-failure' } } };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
-  render(<App />);
+  renderPage();
   expect(await screen.findByText('加载失败', {}, { timeout: 3000 })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /批准内容/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /退回修改/ })).not.toBeInTheDocument();
@@ -299,7 +328,7 @@ test('按服务端严重级别区分阻断问题和优化建议，并展示真�
     };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
-  render(<App />);
+  renderPage();
   const totals = await screen.findByLabelText('质量问题统计');
   expect(within(totals).getByText('1', { selector: '.review-count-danger' })).toBeInTheDocument();
   expect(within(totals).getByText('1', { selector: '.review-count-warning' })).toBeInTheDocument();
@@ -321,7 +350,7 @@ test('人工修订失败时保留未保存内容并给出就地反馈', async ()
     if (path.endsWith('/review-context')) return { body: { ...context, content: { ...content, status: 'CHANGES_REQUESTED' }, available_actions: ['SUBMIT_REVIEW'] } satisfies Schema<'ContentReviewContext'> };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
-  render(<App />);
+  renderPage();
   await userEvent.click(await screen.findByRole('tab', { name: '编辑' }));
   const createButton = screen.getByRole('button', { name: /创建新版本/ });
   expect(createButton).toBeDisabled();
@@ -345,7 +374,7 @@ test('已批准版本保持只读且不渲染人工修订与审核操作', async
     if (path.endsWith('/review-context')) return { body: { ...context, content: { ...content, status: 'APPROVED', available_actions: [] }, task: { ...context.task, status: 'COMPLETED', available_actions: [] }, available_actions: [] } satisfies Schema<'ContentReviewContext'> };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
-  render(<App />);
+  renderPage();
   expect(await screen.findByText('当前状态没有可执行审核操作')).toBeInTheDocument();
   expect(screen.queryByRole('tab', { name: '编辑' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /批准内容|退回修改|提交审核/ })).not.toBeInTheDocument();
@@ -371,7 +400,7 @@ test('所属任务进入终态后未批准版本也不提供人工修订入口',
     }
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
-  render(<App />);
+  renderPage();
   expect(await screen.findByRole('heading', { name: '替代方案', level: 1 })).toBeInTheDocument();
   expect(screen.queryByRole('tab', { name: '编辑' })).not.toBeInTheDocument();
   expect(screen.getByText('已完成', { exact: true })).toBeInTheDocument();
@@ -387,7 +416,7 @@ test('审核请求失败时保留服务端状态并展示明确错误', async ()
     if (path.endsWith('/review-context')) return { body: { ...context, available_actions: ['REQUEST_CHANGES'] } satisfies Schema<'ContentReviewContext'> };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
-  render(<App />);
+  renderPage();
   await userEvent.click(await screen.findByRole('button', { name: /退回修改/ }));
   await userEvent.type(screen.getByRole('textbox', { name: '审核意见' }), '需要补充事实依据');
   await userEvent.click(screen.getByRole('button', { name: /确\s*认/ }));

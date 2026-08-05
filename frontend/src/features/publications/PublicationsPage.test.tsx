@@ -1,9 +1,16 @@
 /** 发布工作台测试服务端动作投影、URL 恢复和危险关闭确认。 */
+import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { App } from '../../app/App';
+import { App as AntApp } from 'antd';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { afterEach, beforeEach } from 'vitest';
+import { queryClient } from '../../app/queryClient';
+import { ThemeProvider } from '../../app/ThemeProvider';
+import { setCsrfToken } from '../../shared/api/client';
 import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
+import { PublicationsPage } from './PublicationsPage';
 
 const workId = '61000000-0000-4000-8000-000000000001';
 const articleId = '64000000-0000-4000-8000-000000000001';
@@ -193,6 +200,29 @@ const issueDetail = {
   article: articleItem,
 } satisfies Schema<'PublishedContentIssue'>;
 
+function renderPage() {
+  return render(
+    <ThemeProvider>
+      <AntApp>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/publications" element={<PublicationsPage />} />
+            </Routes>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </AntApp>
+    </ThemeProvider>,
+  );
+}
+
+beforeEach(() => {
+  queryClient.clear();
+  setCsrfToken('x'.repeat(32));
+});
+
+afterEach(() => setCsrfToken(null));
+
 function installResponses({ onCreate, onPreparation, onVerify, onClose, onSwitch, onWorks, activeWork = workItem, workTotal = 1, readyItems = [readyItem] }: {
   onCreate?: (request: Request) => void;
   onPreparation?: (request: Request) => void;
@@ -255,7 +285,7 @@ test('删除引用模式按账号精确筛选并包含终态发布历史', async
   installResponses({ onWorks: (url) => workRequests.push(url) });
   window.history.pushState({}, '', `/publications?platform_account_id=${workItem.platform_account_id}`);
 
-  render(<App />);
+  renderPage();
   expect(await screen.findByText('正在查看删除阻断引用')).toBeInTheDocument();
   expect(screen.getByText(/包括已完成和已关闭历史/)).toBeInTheDocument();
   await waitFor(() => expect(workRequests.length).toBeGreaterThan(0));
@@ -269,7 +299,7 @@ test('删除引用模式翻页使用通用 page 参数', async () => {
   installResponses({ workTotal: 21, onWorks: (url) => workRequests.push(url) });
   window.history.pushState({}, '', `/publications?platform_account_id=${workItem.platform_account_id}`);
 
-  render(<App />);
+  renderPage();
   await operator.click(await screen.findByTitle('2'));
 
   await waitFor(() => expect(workRequests.some((url) => url.searchParams.get('page') === '2')).toBe(true));
@@ -290,7 +320,7 @@ async function findDialog(title: string) {
 test('URL 恢复需处理工作详情，动作完全来自服务端投影', async () => {
   window.history.pushState({}, '', `/publications?tab=works&status=ACTION_REQUIRED&work_page=1&kind=work&selected=${workId}`);
   installResponses();
-  render(<App />);
+  renderPage();
 
   const drawer = await findDialog('发布工作详情');
   await waitFor(() => expect(within(drawer).getAllByText('公开页面正文不一致')).not.toHaveLength(0));
@@ -304,7 +334,7 @@ test('URL 恢复需处理工作详情，动作完全来自服务端投影', asyn
 test('默认待处理视图按问题、当前工作和待开始内容组织', async () => {
   window.history.pushState({}, '', '/publications');
   installResponses();
-  render(<App />);
+  renderPage();
 
   expect(await screen.findByRole('tab', { name: '待处理' })).toHaveAttribute('aria-selected', 'true');
   expect(screen.getByRole('tab', { name: '发布成果' })).toBeInTheDocument();
@@ -318,7 +348,7 @@ test('默认待处理视图按问题、当前工作和待开始内容组织', as
 test('内容任务深链直接恢复对应内容的开始发布弹窗', async () => {
   window.history.pushState({}, '', `/publications?content_version_id=${readyItem.content_version.id}`);
   installResponses();
-  render(<App />);
+  renderPage();
 
   expect(await findDialog('开始发布')).toBeInTheDocument();
 });
@@ -331,7 +361,7 @@ test('开始发布只提交内容版本和发布账号', async () => {
       submitted = request.clone().json() as Promise<Schema<'PublicationWorkCreate'>>;
     },
   });
-  render(<App />);
+  renderPage();
 
   const dialog = await findDialog('开始发布');
   expect(within(dialog).queryByText('栏目地址')).not.toBeInTheDocument();
@@ -368,7 +398,7 @@ test('调整准备信息只提交账号、revision 和说明', async () => {
       submitted = request.clone().json() as Promise<Schema<'PublicationPreparationUpdate'>>;
     },
   });
-  render(<App />);
+  renderPage();
 
   await userEvent.click(await screen.findByRole('button', { name: '继续发布准备' }));
   const dialog = await findDialog('调整准备信息');
@@ -387,7 +417,7 @@ test('调整准备信息只提交账号、revision 和说明', async () => {
 test('深链内容不满足发布条件时明确引导配置目标平台账号', async () => {
   window.history.pushState({}, '', `/publications?content_version_id=${readyItem.content_version.id}&platform_profile_id=${readyItem.platform_profile_id}`);
   installResponses({ readyItems: [] });
-  render(<App />);
+  renderPage();
 
   expect(await screen.findByText('该内容当前不能开始发布')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: '配置发布账号' })).toHaveAttribute(
@@ -399,7 +429,7 @@ test('深链内容不满足发布条件时明确引导配置目标平台账号',
 test('混合待处理视图只按显式 kind 恢复问题详情', async () => {
   window.history.pushState({}, '', `/publications?tab=works&kind=issue&selected=${issueId}`);
   installResponses();
-  render(<App />);
+  renderPage();
 
   const drawer = await findDialog('内容问题详情');
   expect(await within(drawer).findByText('公开页面已下线')).toBeInTheDocument();
@@ -416,7 +446,7 @@ test('历史记录只查询已关闭工作或已解决问题，不重复发布�
     return originalFetch(input, init);
   }) as typeof window.fetch;
   try {
-    render(<App />);
+    renderPage();
     expect(await screen.findByRole('tab', { name: '历史记录' })).toHaveAttribute('aria-selected', 'true');
     await waitFor(() => expect(requests.some((url) => new URL(url).searchParams.get('status') === 'CLOSED')).toBe(true));
     expect(requests.some((url) => new URL(url).pathname.endsWith('/published-articles'))).toBe(false);
@@ -429,7 +459,7 @@ test('首次核验失败提交明确结果并继续保留待处理动作', async
   let submitted: Promise<Schema<'PublicationVerificationCreate'>> | undefined;
   window.history.pushState({}, '', '/publications?tab=works&status=ACTION_REQUIRED');
   installResponses({ onVerify: (request) => { submitted = request.clone().json() as Promise<Schema<'PublicationVerificationCreate'>>; } });
-  render(<App />);
+  renderPage();
 
   await userEvent.click(await screen.findByRole('button', { name: '修复并重新核验' }));
   const dialog = await findDialog('核验发布结果');
@@ -452,7 +482,7 @@ test('核验成功前可在原发布工作中切换同任务批准版本', async
   let submitted: Promise<Schema<'PublicationContentVersionSwitchRequest'>> | undefined;
   window.history.pushState({}, '', '/publications?tab=works&status=ACTION_REQUIRED');
   installResponses({ onSwitch: (request) => { submitted = request.clone().json() as Promise<Schema<'PublicationContentVersionSwitchRequest'>>; } });
-  render(<App />);
+  renderPage();
 
   await userEvent.click(await screen.findByRole('button', { name: /更多操作：PS-001 选型文章/ }));
   await userEvent.click(await screen.findByText('切换待发布版本'));
@@ -474,7 +504,7 @@ test('更多操作中的关闭命令展示不可恢复影响并取消来源任�
   let submitted: Promise<Schema<'PublicationWorkCloseRequest'>> | undefined;
   window.history.pushState({}, '', '/publications?tab=works');
   installResponses({ onClose: (request) => { submitted = request.clone().json() as Promise<Schema<'PublicationWorkCloseRequest'>>; } });
-  render(<App />);
+  renderPage();
 
   await userEvent.click(await screen.findByRole('button', { name: /更多操作：PS-001 选型文章/ }));
   await userEvent.click(await screen.findByText('关闭发布工作'));

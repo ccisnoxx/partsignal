@@ -1,10 +1,16 @@
 /** 验证用户管理只消费服务端统计、筛选分页和命令结果。 */
+import { QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { vi } from 'vitest';
-import { App } from '../../app/App';
+import { App as AntApp } from 'antd';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { beforeEach, vi } from 'vitest';
+import { queryClient } from '../../app/queryClient';
+import { ThemeProvider } from '../../app/ThemeProvider';
 import type { Schema } from '../../shared/api/types';
 import { mockFetch } from '../../test/fetchMock';
+import { AuthProvider } from '../auth/AuthProvider';
+import { UserManagementPage } from './UserManagementPage';
 
 const admin = {
   id: '10000000-0000-4000-8000-000000000001', username: 'admin', display_name: '管理员',
@@ -46,6 +52,26 @@ function userList(items: Schema<'User'>[], query: URLSearchParams): Schema<'User
   };
 }
 
+function renderPage() {
+  return render(
+    <ThemeProvider>
+      <AntApp>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <AuthProvider>
+              <Routes>
+                <Route path="/users" element={<UserManagementPage />} />
+              </Routes>
+            </AuthProvider>
+          </BrowserRouter>
+        </QueryClientProvider>
+      </AntApp>
+    </ThemeProvider>,
+  );
+}
+
+beforeEach(() => queryClient.clear());
+
 test('默认请求启用用户并以服务端 summary 渲染五张统计卡', async () => {
   const requests: URL[] = [];
   window.history.pushState({}, '', '/users');
@@ -60,7 +86,7 @@ test('默认请求启用用户并以服务端 summary 渲染五张统计卡', as
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   expect(await screen.findByRole('heading', { name: '用户管理' })).toBeInTheDocument();
   await waitFor(() => expect(requests[0]?.searchParams.get('status')).toBe('ENABLED'));
   expect(requests[0]?.searchParams.get('page')).toBe('1');
@@ -98,7 +124,7 @@ test('停用用户有业务历史时显示查看条件并下钻审计记录', as
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   await user.click(await screen.findByRole('button', { name: '更多操作：inactive-engineer' }));
   await user.click(screen.getByRole('menuitem', { name: /查看删除条件/ }));
   expect(screen.getByText('业务历史：6')).toBeInTheDocument();
@@ -119,7 +145,7 @@ test('清理非法 URL，并由筛选和分页参数直接驱动服务端请求'
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   expect(await screen.findByText('inactive-engineer')).toBeInTheDocument();
   await waitFor(() => expect(window.location.search).toBe('?q=admin&account_type=ADMIN&status=DISABLED&page=2&page_size=50'));
   expect(requests[0]?.searchParams.get('q')).toBe('admin');
@@ -149,7 +175,7 @@ test('批量停用展示服务端逐项失败，不把部分成功伪装成全�
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   await screen.findByText('active-engineer');
   const checkboxes = screen.getAllByRole('checkbox');
   fireEvent.click(checkboxes[1]!);
@@ -178,7 +204,7 @@ test('创建用户只提交临时密码字段，并在关闭后销毁敏感表�
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   await screen.findByRole('heading', { name: '用户管理' });
   fireEvent.click(screen.getByRole('button', { name: '新增用户' }));
   const dialog = await screen.findByRole('dialog');
@@ -216,7 +242,7 @@ test('停用用户经影响确认后删除并刷新当前列表', async () => {
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   await screen.findByText('inactive-engineer');
   fireEvent.click(screen.getByRole('button', { name: '更多操作：inactive-engineer' }));
   await userEvent.click(await screen.findByRole('menuitem', { name: /删除用户/ }));
@@ -245,7 +271,7 @@ test('用户删除被业务引用阻断时保留当前行并展示错误', async
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   await screen.findByText('inactive-engineer');
   fireEvent.click(screen.getByRole('button', { name: '更多操作：inactive-engineer' }));
   await userEvent.click(await screen.findByRole('menuitem', { name: /删除用户/ }));
@@ -270,7 +296,7 @@ test('重置临时密码只在八位边界提交，七位留在表单校验', as
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   await screen.findByText('inactive-engineer');
   fireEvent.click(screen.getByRole('button', { name: '更多操作：inactive-engineer' }));
   await userEvent.click(await screen.findByRole('menuitem', { name: /重置临时密码/ }));
@@ -308,7 +334,7 @@ test('按文本解析中文 CSV，触发下载并释放对象 URL', async () => 
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   expect(await screen.findByText('admin')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '导出列表' }));
 
@@ -337,7 +363,7 @@ test('导出 JSON 错误沿用现有错误展示且不创建下载', async () =>
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
   });
 
-  render(<App />);
+  renderPage();
   expect(await screen.findByText('admin')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: '导出列表' }));
 

@@ -543,3 +543,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 75: 审计并修复全站表格列宽
+
+**Date**: 2026-08-05
+**Task**: 审计并修复全站表格列宽
+**Branch**: `main`
+
+### Summary
+
+审计 25 张业务表，修复 16 张表格列宽与文字按钮压缩问题，补充有界控件浏览器回归并更新前端规范。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6ab2e99` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

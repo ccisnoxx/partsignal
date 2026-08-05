@@ -57,7 +57,8 @@ jobs:
       - run: make contract-check
       - run: make lint
       - run: make typecheck
-      - run: make test-unit
+      - run: uv run --project backend pytest backend/tests/unit
+      - run: npm --prefix frontend run test:visual-contract
       - run: uv run --project backend pytest backend/tests/integration
       - run: make build
       - run: npm --prefix frontend exec -- playwright install --with-deps chromium
@@ -67,3 +68,19 @@ jobs:
         env:
           PARTSIGNAL_BACKEND_IMAGE: partsignal-backend
           PARTSIGNAL_VERSION: test
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --prefix frontend
+      - run: npm exec -- vitest run --shard=${{ matrix.shard }}/2 --maxWorkers=1
+        working-directory: frontend

@@ -43,7 +43,7 @@
 
 ## 验收标准
 
-- [ ] AC1：任意 `push` 或 PR 更新不会创建新的 `ci` workflow run；GitHub Actions 页面仍可通过 `workflow_dispatch` 手动启动完整 CI。
+- [x] AC1：任意 `push` 或 PR 更新不会创建新的 `ci` workflow run；GitHub Actions 页面仍可通过 `workflow_dispatch` 手动启动完整 CI。
 - [x] AC2：手动 CI 保留合同、lint、typecheck、后端单元/集成、前端单元、构建、E2E 和 Compose 配置检查，不成为部署前置条件。
 - [x] AC3：Hostdzire Runbook 明确 push、手动 CI 与实际归档上传发布三者边界，代码与文档无冲突。
 - [x] AC4：最新失败的 7 个前端测试文件全部零失败、零跳过、无 30 秒测试超时；原有业务、权限、路由、确认和请求断言未弱化。

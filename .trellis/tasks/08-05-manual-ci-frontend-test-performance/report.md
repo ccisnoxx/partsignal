@@ -2,7 +2,7 @@
 
 ## 已完成变更
 
-- `.github/workflows/ci.yml` 仅保留 `workflow_dispatch`；现有 `verify` job 内容未改。
+- `.github/workflows/ci.yml` 仅保留 `workflow_dispatch`；远端单 job 验证不达标后，按预设门槛把前端 Vitest 拆为原生 2 路 shard、每路 1 worker。主 `verify` job 继续执行后端单测和一次视觉契约测试，不复制其他检查。
 - Hostdzire Runbook 明确：push 只同步备份和发布来源，手动 CI 提供完整质量反馈但不是发布门禁。
 - 内容审核、发布工作台、用户管理三组页面业务测试改为本文件内的最小页面级 harness；未修改生产代码、断言、测试超时、worker、cleanup 或告警处理。
 - 新增 GitHub Actions 执行规范，固化手动触发与发布边界。
@@ -20,7 +20,7 @@
 | 7 个历史慢文件（105 tests） | 198.08s | 168.54s | -14.9%，全部通过 |
 | 完整前端门禁（190 + 24 tests） | 247.14s | 218.83s / 218.93s | 连续两次全部通过 |
 
-最新 GitHub run `30987954494` 的旧版 Vitest 为 1095.48 秒并有 13 个 30 秒超时；本地优化后两轮完整 Vitest 均无 30 秒超时。页面级改造文件逐项超过 20% 改善，因此没有扩大改动面或启用分片。
+旧 GitHub run `30987954494` 的 Vitest 为 1095.48 秒并有 13 个 30 秒超时；本地优化后两轮完整 Vitest 均无 30 秒超时。推送后的手动 run `30999781929` 再次证明单 job runner 不达标：Vitest 运行 958.88 秒，27 文件中 23 个通过、4 个失败，190 个测试中 184 个通过、6 个因 30 秒超时失败。因此按设计启用原生 2 路分片，没有提高超时或修改业务断言。
 
 ## 已运行验证
 
@@ -29,10 +29,11 @@
 - `npm --prefix frontend run lint`：通过。
 - `npm --prefix frontend run typecheck`：通过。
 - workflow YAML 解析和 trigger 搜索：通过，只发现 `workflow_dispatch`。
+- 本地分片复核：shard 1 为 14 files、81 tests，177.94s；shard 2 为 13 files、109 tests，263.57s；两片合计 27 files、190 tests，全部通过。
+- 独立视觉契约：24 tests，全部通过。
 - `git diff --check`：通过。
 
 ## 待远端验证
 
-- 当前未提交、未推送，符合项目禁止自动提交和推送的规则。
-- 取得用户提交与推送授权后，需确认 push 没有创建自动 `ci` run，再手动触发唯一新 run。
-- 手动 run 需确认 Vitest 零超时且不超过 10 分钟；只有届时仍不达标才按设计启用 Vitest 原生 2 路 shard。
+- 手动 CI 配置已随 `e806cdb` 推送；该 push 未产生自动 run，手动入口正常创建 run `30999781929`。
+- 2 路分片调整和本报告更新尚未提交、推送。取得用户确认后提交并推送，再手动触发一次 CI，确认两路 Vitest 均零超时且各自不超过 10 分钟。

@@ -576,3 +576,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 76: 手动 CI 与前端测试性能收尾
+
+**Date**: 2026-08-05
+**Task**: 手动 CI 与前端测试性能收尾
+**Branch**: `main`
+
+### Summary
+
+将 GitHub Actions 收敛为手动触发，优化三个慢测试文件并保留两路 Vitest 分片；记录 runner 偏慢和既有 E2E 问题为非部署门禁的残余风险。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e806cdb` | (see git log) |
+| `a2e50bf` | (see git log) |
+| `65e3b38` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

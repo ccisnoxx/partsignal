@@ -70,7 +70,7 @@ git diff --check
 - [x] 按项目规则展示提交计划并取得确认后提交到 `main`；未自动推送。
 - [x] 用户明确授权后推送；push 本身未创建自动 run，`workflow_dispatch` 产生唯一新 run `30999781929`。
 - [x] 手动 run 的单 job Vitest 为 958.88 秒并出现 6 个 30 秒超时，已确认不能保持单 job。
-- [ ] 已按设计拆出原生 2 shard、每 shard 1 worker；本地两片与视觉契约均通过，待提交、推送并重新运行手动 CI。
+- [x] 已按设计拆出原生 2 shard、每 shard 1 worker；远端两片均通过。Shard 2 为 633.29s，用户接受手动备用 CI 的残余耗时并明确停止增加 shard。
 
 ## 6. 完成检查
 

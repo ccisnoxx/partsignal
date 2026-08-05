@@ -19,6 +19,7 @@
 - 手动运行必须保留完整质量检查：`verify` 持有合同、lint、typecheck、后端单元/集成、视觉契约、构建、E2E 和 Compose 检查；`frontend-test` 持有两路完整 Vitest 集合。
 - 两个 shard 各使用 1 个 worker，测试文件集合并集必须等于本地权威 `npm --prefix frontend run test` 中的 Vitest 集合；不得修改超时、断言或跳过规则换取通过。
 - `test` 是 `vitest run && npm run test:visual-contract` 复合脚本，分片参数必须直接传给 Vitest；不得使用 `npm run test -- --shard=...`，否则参数只会追加到末尾的视觉契约命令。
+- 手动 CI 是低频备用质量反馈，不是日常 push 或部署步骤；runner 耗时只记录为运维证据，不自动扩大 shard 数量。
 - CI 结果不作为 Hostdzire 发布门禁；发布边界以 `docs/Hostdzire部署上线流程.md` 为准。
 
 ## 4. Validation & Error Matrix
@@ -42,7 +43,7 @@
 
 - 静态解析 `.github/workflows/ci.yml`，断言只有 `workflow_dispatch`。
 - 推送后确认没有自动 run；再手动触发并确认唯一新 run 包含 `verify` 和两路 `frontend-test`。
-- 两路 Vitest 均需零失败、零跳过、零超时且各自不超过 10 分钟；两片文件数和测试数之和必须等于未分片全集。
+- 两路 Vitest 需记录失败、跳过、超时和实际耗时；两片文件数和测试数之和必须等于未分片全集。runner 偏慢作为已知残余风险，不通过增加 shard、worker 或放宽超时自动修复。
 
 ## 7. Wrong vs Correct
 

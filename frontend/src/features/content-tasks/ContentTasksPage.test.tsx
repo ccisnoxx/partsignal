@@ -112,6 +112,7 @@ function listTask(index: number, status: 'OPEN' | 'COMPLETED' | 'CANCELLED', ove
 function LocationProbe() {
   const location = useLocation();
   return <>
+    <output data-testid="location-pathname">{location.pathname}</output>
     <output data-testid="location-search">{location.search}</output>
     <output data-testid="location-state">{JSON.stringify(location.state)}</output>
   </>;
@@ -134,6 +135,42 @@ beforeEach(() => {
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') return result(undefined, 503);
     throw new Error(`未声明测试请求：${path}`);
   });
+});
+
+test('批准内容的开始发布动作直接进入对应发布流程', async () => {
+  const user = userEvent.setup();
+  const approvedVersion = {
+    id: 'version-approved', task_id: taskId, fact_version_id: task.fact_version_id,
+    source_job_id: null, based_on_id: null, version: 1, source_type: 'HUMAN',
+    title: '已批准内容', summary: '摘要', body_markdown: '正文', tags: ['test'],
+    content_hash: 'a'.repeat(64), status: 'APPROVED', workflow_stage: 'CURRENT_APPROVED',
+    primary_task: 'START_PUBLICATION', available_actions: [], revision: 1, quality_issues: [],
+    created_by: 'user-1', created_at: task.created_at,
+  };
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}') return result({
+      ...task,
+      current_content_version_id: approvedVersion.id,
+      workflow_stage: 'CURRENT_APPROVED',
+      primary_task: 'START_PUBLICATION',
+    });
+    if (path === '/api/v1/content-tasks') return result({ items: [] });
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
+    if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result({ items: [approvedVersion] });
+    if (path.includes('/generation-jobs') || path.includes('/generation-options')) return result(undefined, 503);
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  renderPage(
+    <><LocationProbe /><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/publications" element={<h1>发布管理</h1>} /></Routes></>,
+    [`/tasks/${taskId}`],
+  );
+
+  const versions = await screen.findByRole('region', { name: '内容版本列表' });
+  await user.click(within(versions).getByRole('button', { name: '开始发布' }));
+
+  expect(await screen.findByRole('heading', { name: '发布管理' })).toBeInTheDocument();
+  expect(screen.getByTestId('location-pathname')).toHaveTextContent('/publications');
+  expect(screen.getByTestId('location-search')).toHaveTextContent(`content_version_id=${approvedVersion.id}`);
 });
 
 test('次级查询失败不遮蔽任务身份和返回入口', async () => {

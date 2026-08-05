@@ -290,6 +290,14 @@ test('默认待处理视图按问题、当前工作和待开始内容组织', as
   expect(screen.queryByRole('tab', { name: '内容问题' })).not.toBeInTheDocument();
 });
 
+test('内容任务深链直接恢复对应内容的开始发布弹窗', async () => {
+  window.history.pushState({}, '', `/publications?content_version_id=${readyItem.content_version.id}`);
+  installResponses();
+  render(<App />);
+
+  expect(await findDialog('开始发布')).toBeInTheDocument();
+});
+
 test('混合待处理视图只按显式 kind 恢复问题详情', async () => {
   window.history.pushState({}, '', `/publications?tab=works&kind=issue&selected=${issueId}`);
   installResponses();

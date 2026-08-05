@@ -88,6 +88,37 @@ chmod 700 /root/partsignal/shared /root/partsignal/backups
 
 不得占用其他服务端口；PartSignal 只使用主 Runbook 记录的三个回环端口。
 
+#### 3.1.1 Docker bridge 回连宿主机公网 HTTPS
+
+外部服务域名可能因 GeoDNS 或同机部署解析为 Hostdzire 自身公网 IP。容器访问这类
+HTTPS 地址时，流量从 Docker bridge 进入宿主机 INPUT 链；默认 `DROP` 策略必须保留，
+只增加以下两条持久规则：
+
+```text
+-A INPUT -d <HOSTDZIRE_PUBLIC_IP>/32 -i docker0 -p tcp -m tcp --dport 443 -j ACCEPT
+-A INPUT -d <HOSTDZIRE_PUBLIC_IP>/32 -i br+ -p tcp -m tcp --dport 443 -j ACCEPT
+```
+
+`br+` 是 iptables 的接口前缀匹配，覆盖所有 Docker 用户自定义 bridge；`docker0`
+覆盖默认 bridge。规则不绑定某个 Compose 网段或易变的 `br-<network-id>`，但目标仍
+严格限定为宿主机自身公网 IP 的 TCP 443。不得改成无接口约束的 RFC1918 来源放行，
+不得同步开放 22、80 或其他宿主机端口；Docker `internal: true` 网络仍保持自己的
+路由隔离。
+
+修改前为 `/etc/iptables/rules.v4` 创建带时间戳的权限保留备份。先在临时副本或最终
+文件执行 `iptables-restore --test`，再用等价的 `iptables -C` / `iptables -I` 更新
+运行时；任一步失败都恢复持久文件并删除本次新增规则。完成后至少验证：
+
+```sh
+iptables -S INPUT | grep -E 'docker0|br\+'
+iptables-restore --test < /etc/iptables/rules.v4
+nginx -t
+```
+
+从两个不同项目 bridge 无凭据访问目标 HTTPS，应在 5 秒内得到明确 401/403；从容器
+连接宿主机公网 IP 的 22/80 仍应失败，443 应成功。最后重新运行公网 smoke、API
+ready 和容器健康检查。不得使用已公开的真实 AI 密钥完成网络验证。
+
 ### 3.2 首次生成共享环境文件
 
 先以待部署 `origin/main` 的 `.env.example` 只读核对必填项，不在本地仓库创建 `.env.staging`。以下命令只在 Hostdzire 执行，且只允许创建不存在的目标文件：
@@ -473,6 +504,7 @@ PARTSIGNAL_VERSION="$PREVIOUS_RELEASE" \
 | API 偶发 `upstream prematurely closed connection` 502 | 只读核对 Nginx 故障时间窗、API `RestartCount`、OOM 与相邻健康请求，再确认 API upstream 为 `30s < 35s`；不得增加代理或业务重试 |
 | API 重建后短暂 reset | 使用有上限的重试；持续失败时检查 API 日志，不忽略为成功 |
 | 生成作业不推进 | 检查 Worker、Scheduler、Redis Broker 和 PostgreSQL 作业状态；Redis 不是业务状态源 |
+| 宿主机访问外部 AI 正常、容器访问同一域名 TCP 超时 | 比较宿主机与容器 DNS；若域名解析为宿主机自身公网 IP，核对第 3.1.1 节 Docker bridge → 公网 443 精确规则，不放宽其他端口 |
 | AI 凭据无法解密 | 恢复匹配主密钥或显式重新录入；不得静默回退 |
 | SSH `Permission denied (publickey)` | 用指定 OpenSSH 配置对 `hostdzire` 做只读身份探测，不手工拼接主机、端口或身份文件 |
 | 公网 E2E 返回 `AI_URL_FORBIDDEN` | 安全策略正常；纵向 E2E 只在隔离的本地或 CI 环境执行 |

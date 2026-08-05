@@ -635,6 +635,7 @@ export function PublicationsPage() {
   const rawStatus = searchParams.get('status');
   const platformAccountId = searchParams.get('platform_account_id') ?? undefined;
   const contentTaskId = searchParams.get('content_task_id') ?? undefined;
+  const requestedContentVersionId = searchParams.get('content_version_id') ?? undefined;
   const referenceMode = !!(platformAccountId || contentTaskId);
   const workStatus = workStatuses.includes(rawStatus as Schema<'PublicationWorkStatus'>)
     ? rawStatus as Schema<'PublicationWorkStatus'>
@@ -716,6 +717,10 @@ export function PublicationsPage() {
     queryFn: async () => unwrap(await api.GET('/api/v1/publication-ready-items')),
     enabled: tab === 'works' && !referenceMode,
   });
+  const requestedReadyItem = ready.data?.items.find((row) => row.content_version.id === requestedContentVersionId);
+  const requestedActionTarget: ActionTarget | null = requestedReadyItem
+    ? { kind: 'ready', resource: requestedReadyItem, action: 'START' }
+    : null;
   const worksQueryPage = referenceMode ? page : tab === 'history' ? page : workPage;
   const worksPageParam = referenceMode || tab === 'history' ? 'page' : 'work_page';
   const worksQueryStatus = referenceMode ? undefined : tab === 'history' ? 'CLOSED' : workStatus;
@@ -920,7 +925,10 @@ export function PublicationsPage() {
         </section>}
       </Card>
       <DetailDrawer kind={selectedKind} selected={selected} onClose={() => updateUrl({ selected: null, kind: null })} onAction={setActionTarget} onOpenDetail={openDetail} restoreFocus={restoreFocus} />
-      <ActionModal target={actionTarget} onClose={() => setActionTarget(null)} />
+      <ActionModal target={actionTarget ?? requestedActionTarget} onClose={() => {
+        setActionTarget(null);
+        if (requestedContentVersionId) updateUrl({ content_version_id: null });
+      }} />
     </div>
   );
 }

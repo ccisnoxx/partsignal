@@ -99,6 +99,20 @@ const contentTaskLabels: Record<ContentVersion['primary_task'], string> = {
   VIEW_VERSION_HISTORY: '查看历史版本',
 };
 
+function taskPrimaryHref(row: ContentTaskListItem) {
+  if (row.primary_task === 'START_PUBLICATION') return '/publications';
+  if (row.primary_task === 'CONTINUE_PUBLICATION') return `/publications?content_task_id=${row.id}`;
+  return `/tasks/${row.id}`;
+}
+
+function contentPrimaryHref(row: ContentVersion) {
+  if (row.primary_task === 'START_PUBLICATION') return `/publications?content_version_id=${row.id}`;
+  if (row.primary_task === 'CONTINUE_PUBLICATION' || row.primary_task === 'VIEW_PUBLICATION_RESULT') {
+    return `/publications?content_task_id=${row.task_id}`;
+  }
+  return `/content/${row.id}`;
+}
+
 function isTaskStatus(value: string): value is TaskStatus {
   return taskStatusOptions.some((option) => option.value === value);
 }
@@ -328,7 +342,7 @@ function TaskList() {
                     />
                   );
                   return <Space size={2}>
-                    <Link className="task-row-action" aria-label={`${taskPrimaryLabels[row.primary_task]}：${row.product.brand} ${row.product.part_number}`} to={`/tasks/${row.id}`}>{taskPrimaryLabels[row.primary_task]} <RightOutlined /></Link>
+                    <Link className="task-row-action" aria-label={`${taskPrimaryLabels[row.primary_task]}：${row.product.brand} ${row.product.part_number}`} to={taskPrimaryHref(row)}>{taskPrimaryLabels[row.primary_task]} <RightOutlined /></Link>
                     {(secondaryActions.length || hasDeletionConditions) ? <Dropdown
                       trigger={['click']}
                       menu={{
@@ -791,7 +805,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
               { title: '操作', width: 220, fixed: 'right', render: (_, row) => {
                 const canHumanize = row.available_actions.includes('CREATE_HUMANIZATION_JOB');
                 return <Space size={4}>
-                  <Button size="small" type="primary" onClick={() => navigate(`/content/${row.id}`)}>{contentTaskLabels[row.primary_task]}</Button>
+                  <Button size="small" type="primary" onClick={() => navigate(contentPrimaryHref(row))}>{contentTaskLabels[row.primary_task]}</Button>
                   {canHumanize && <Button size="small" onClick={() => setHumanizeSource(row)}>自然化</Button>}
                 </Space>;
               } },

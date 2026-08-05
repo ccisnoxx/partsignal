@@ -37,6 +37,7 @@
 | 回环端口 | API `19000`、开发对象存储 `19001`、前端 `19080` |
 | 外层 Nginx | `1.29.3` 或更高；Hostdzire 当前已确认 `1.29.8` |
 | 公网安全头权威 | 仓库 `deploy/nginx/partsignal-security-headers.conf`；宿主机运行副本 `/etc/nginx/snippets/partsignal-security-headers.conf` |
+| Docker 回连宿主机 HTTPS | `/etc/iptables/rules.v4` 只允许 `docker0` 与 `br-*` 到宿主机自身公网 IP 的 TCP 443；不开放其他宿主机端口 |
 
 服务器连接只使用 `/Users/sc/.ssh/config`：`hostdzire` 是部署、上传、配置和常规运维的唯一写入目标；`dmit` 仅用于公网入口异常时的只读诊断。不得向 `dmit` 上传文件、修改配置或重启服务。
 
@@ -117,6 +118,11 @@ make staging-redeploy-fast
 完整浏览器验收必须通过真实公网域名在本机执行，不在服务器或容器安装浏览器，不用 `curl` 代替真实渲染。只读检查 `/login`、工作台和 `/configuration/ai`；不得输出或持久化密码，不创建业务数据或修改线上配置。详细安全步骤见[附录第 4.6 节](./Hostdzire部署附录.md#46-完整验收与更新-current)。
 
 公网环境固定 `AI_ALLOW_LOCAL_HTTP=false`。依赖回环 Mock Provider 的纵向 E2E 只在本地或 CI 隔离环境运行，不得为测试放宽公网安全策略。
+
+外部 AI FQDN 可能因 GeoDNS 解析为 Hostdzire 自身公网 IP。此时容器请求会从 Docker
+bridge 进入宿主机 INPUT 链；`/etc/iptables/rules.v4` 必须保留附录第 3.1.1 节的两条
+精确规则，使所有 Docker bridge 只能回连宿主机公网 TCP 443。不得按单个 Compose
+网段临时放行，也不得开放 22、80 或其他宿主机端口。
 
 项目安全头必须包含 CSP、`Strict-Transport-Security: max-age=31536000`、`Cross-Origin-Opener-Policy: same-origin`、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff` 和 `Referrer-Policy: strict-origin-when-cross-origin`。CSP 的 `script-src` 只允许 `'self'`，并强制 `trusted-types dompurify; require-trusted-types-for 'script'`；`node deploy/scripts/check-nginx-security.mjs` 必须确认外置主题脚本先于 React 且 HTML 零内联脚本。不得改用 `script-src 'unsafe-inline'`、宽松 default policy 或依赖宿主机共享安全 snippet。
 

@@ -138,3 +138,64 @@ Uvicorn API command: --timeout-keep-alive 35
 Wrong: Uvicorn 5s + Nginx 长期保留连接 → 增加 proxy retry
 Correct: Nginx 30s < Uvicorn 35s → 代理先淘汰连接 → 不增加重试
 ```
+
+## 9. Scenario: Docker bridge 回连宿主机公网 HTTPS
+
+### 9.1 Scope / Trigger
+
+当容器访问的公网 FQDN 因 GeoDNS 或同机部署解析为 Hostdzire 自身公网 IP 时，流量会从
+Docker bridge 进入宿主机 INPUT 链。所有 Docker 项目需要复用宿主机 HTTPS 时使用本契约；
+普通公网出站、容器间通信和宿主机其他端口不在此放行范围。
+
+### 9.2 Signatures
+
+持久规则固定写入 `/etc/iptables/rules.v4`，运行时规则必须与之等价：
+
+```text
+-A INPUT -d <HOSTDZIRE_PUBLIC_IP>/32 -i docker0 -p tcp -m tcp --dport 443 -j ACCEPT
+-A INPUT -d <HOSTDZIRE_PUBLIC_IP>/32 -i br+ -p tcp -m tcp --dport 443 -j ACCEPT
+```
+
+其中 `br+` 是 iptables 的接口前缀匹配，覆盖当前和未来的 Docker 用户自定义 bridge；
+`docker0` 单独覆盖默认 bridge。
+
+### 9.3 Contracts
+
+- 只允许 Docker bridge 回连宿主机自身公网 IP 的 TCP 443；不得同步开放 22、80 或其他端口。
+- 不按某个 Compose 项目的临时网段或 bridge ID 写规则；网络重建后仍应匹配 `docker0` 与 `br-*`。
+- 不使用无接口约束的 `172.16.0.0/12` 放行，避免伪造 RFC1918 来源扩大宿主机入口。
+- `internal: true` 网络仍由 Docker 路由边界隔离；INPUT 规则不得被解释为授予外部默认路由。
+- 修改前备份持久文件，先执行 `iptables-restore --test`，再应用等价运行时规则；失败必须恢复文件并删除本次新增运行时规则。
+- 外部 AI 验证只使用无效诊断凭据确认 401/403 和耗时，不读取或调用已公开的真实密钥。
+
+### 9.4 Validation & Error Matrix
+
+| 条件 | 处理 |
+| --- | --- |
+| 宿主机请求成功、容器 TCP 连接同一公网 IP 超时 | 核对 FQDN 是否解析到宿主机自身 IP，以及 INPUT 默认策略和 bridge 规则 |
+| `iptables-restore --test` 失败 | 不应用运行时规则，恢复持久文件备份 |
+| 容器访问宿主机 22/80 变为可达 | 立即回滚；规则范围过宽 |
+| 443 可达但供应商仍返回 401/403 | hairpin 已恢复，进入凭据/权限排障，不扩大防火墙 |
+| 443 可达但应用仍报超时 | 核对 TLS、应用超时和 Nginx `request_time`，不增加重试或静默 fallback |
+| 公网 smoke、Nginx 或容器健康失败 | 保留现场并回滚本次规则 |
+
+### 9.5 Good / Base / Bad Cases
+
+- Good：`docker0` 与 `br+` 仅命中宿主机公网 443；多个项目 bridge 均快速得到供应商明确 HTTP 响应，22/80 继续超时。
+- Base：目标 FQDN 不解析到宿主机自身 IP；无需 hairpin 规则，按普通公网出站排障。
+- Bad：只放行单个 Compose 网段导致其他项目继续失败，或放行整个私网来源到全部宿主机端口。
+
+### 9.6 Tests Required
+
+- 枚举 `docker network inspect`，确认 bridge 项目与接口命名边界。
+- `iptables-restore --test < /etc/iptables/rules.v4` 通过，运行时 `iptables -S INPUT` 存在两条等价规则。
+- 从至少两个不同项目 bridge 无凭据访问目标 HTTPS，5 秒内返回明确 401/403；PartSignal API 容器使用实际固定 DNS 传输做同样检查。
+- 从容器连接宿主机公网 IP 的 22/80 仍失败，443 成功。
+- `nginx -t`、公网 smoke、API ready 和关键容器健康均通过。
+
+### 9.7 Wrong vs Correct
+
+```text
+Wrong: 只放行 172.24.0.0/16，或允许 172.16.0.0/12 访问宿主机全部端口
+Correct: docker0 + br+ → 仅宿主机公网 IP:443 → 持久/运行时一致并验证其他端口仍关闭
+```

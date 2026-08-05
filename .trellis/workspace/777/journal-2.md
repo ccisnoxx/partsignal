@@ -510,3 +510,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 74: 移除发布栏目地址并完成生产部署
+
+**Date**: 2026-08-05
+**Task**: 移除发布栏目地址并完成生产部署
+**Branch**: `main`
+
+### Summary
+
+完整移除发布流程 section_url，新增 0036 有损迁移并保留 final_url 校验；合同、后端、前端、测试与规范同步。提交推送后按 Hostdzire 完整流程备份、隔离恢复、迁移并部署 release mvp-20260805-160140-43aae2b02434，公网与登录后只读验收通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `43aae2b` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

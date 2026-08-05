@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 73
+- **Total Sessions**: 74
 - **Last Active**: 2026-08-05
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~512 | Active |
+| `journal-2.md` | ~545 | Active |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 74 | 2026-08-05 | 移除发布栏目地址并完成生产部署 | `43aae2b` | `main` |
 | 73 | 2026-08-05 | 线上回归根因修复与重新部署 | `556da53`, `c0f0307` | `main` |
 | 72 | 2026-08-04 | 完成全站受约束删除引用向导 | `e426d7b`, `949dc98` | `main` |
 | 71 | 2026-08-04 | 发布管理 UI/UX 重构生产上线 | `90efafd`, `d6e7d67` | `main` |

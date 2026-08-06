@@ -32,11 +32,12 @@ import {
 } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { api, csrfHeader, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
+import { api, csrfHeader, ensureSuccess, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { Schema } from '../../shared/api/types';
 import { NoData, QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
 import { DirectUpload } from '../../shared/components/DirectUpload';
+import { DeletionError, DeletionGuidanceModal, type DeletionBlocker } from '../../shared/components/DeletionError';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { StatusTag } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
@@ -53,6 +54,7 @@ type Article = Schema<'PublishedArticle'>;
 type IssueItem = Schema<'PublishedContentIssueListItem'>;
 type Issue = Schema<'PublishedContentIssue'>;
 type WorkAction = Work['available_actions'][number];
+type ArticleAction = Article['available_actions'][number];
 type IssueAction = Issue['available_actions'][number];
 type WorkPrimaryTask = WorkItem['primary_task'];
 type ArticlePrimaryTask = ArticleItem['primary_task'];
@@ -60,14 +62,16 @@ type IssuePrimaryTask = IssueItem['primary_task'];
 type ActionTarget =
   | { kind: 'ready'; resource: ReadyItem; action: 'START' }
   | { kind: 'work'; resource: WorkItem | Work; action: WorkAction }
-  | { kind: 'article'; resource: ArticleItem | Article; action: 'OPEN_ISSUE' }
+  | { kind: 'article'; resource: ArticleItem | Article; action: Extract<ArticleAction, 'OPEN_ISSUE'> }
   | { kind: 'issue'; resource: IssueItem | Issue; action: IssueAction };
+type ArticleTarget = ArticleItem | Article;
+type ActionLabelKey = ActionTarget['action'] | Extract<ArticleAction, 'PERMANENT_DELETE'>;
 
 const PAGE_SIZE = 20;
 const workStatuses: Schema<'PublicationWorkStatus'>[] = [
   'ACTION_REQUIRED', 'AWAITING_VERIFICATION', 'PLATFORM_REVIEW', 'PREPARING',
 ];
-const actionLabels: Record<ActionTarget['action'], string> = {
+const actionLabels: Record<ActionLabelKey, string> = {
   START: '开始发布',
   UPDATE_PREPARATION: '调整准备信息',
   MARK_PLATFORM_REVIEW: '标记平台处理中',
@@ -76,6 +80,7 @@ const actionLabels: Record<ActionTarget['action'], string> = {
   SWITCH_CONTENT_VERSION: '切换待发布版本',
   CLOSE: '关闭发布工作',
   OPEN_ISSUE: '登记内容问题',
+  PERMANENT_DELETE: '永久删除',
   CREATE_REPAIR_TASK: '创建修复任务',
   RESOLVE: '解决内容问题',
 };
@@ -129,28 +134,37 @@ function ActionButtons({
   accessibleLabel,
   onPrimary,
   onAction,
+  onDeletionBlocked,
 }: {
-  resource: { available_actions: readonly string[] };
-  primaryLabel: string;
+  resource: {
+    available_actions: readonly string[];
+    deletion?: { blockers: DeletionBlocker[] } | null;
+  };
+  primaryLabel: string | null;
   primaryAction: string | null;
   accessibleLabel: string;
   onPrimary: () => void;
   onAction: (action: string) => void;
+  onDeletionBlocked?: () => void;
 }) {
   const secondary = resource.available_actions.filter((action) => action !== primaryAction);
+  const hasDeletionBlockers = !!resource.deletion?.blockers.length && !!onDeletionBlocked;
   return (
     <Space className="publication-action-buttons" size={4}>
-      <Button size="small" type="primary" onClick={onPrimary}>{primaryLabel}</Button>
-      {secondary.length > 0 && (
+      {primaryLabel && <Button size="small" type="primary" onClick={onPrimary}>{primaryLabel}</Button>}
+      {(secondary.length > 0 || hasDeletionBlockers) && (
         <Dropdown
           trigger={['click']}
           menu={{
-            items: secondary.map((action) => ({
-              key: action,
-              label: actionLabels[action as ActionTarget['action']],
-              danger: action === 'CLOSE',
-            })),
-            onClick: ({ key }) => onAction(key),
+            items: [
+              ...secondary.map((action) => ({
+                key: action,
+                label: actionLabels[action as ActionLabelKey],
+                danger: action === 'CLOSE' || action === 'PERMANENT_DELETE',
+              })),
+              ...(hasDeletionBlockers ? [{ key: 'VIEW_DELETE_CONDITIONS', label: '查看删除条件' }] : []),
+            ],
+            onClick: ({ key }) => key === 'VIEW_DELETE_CONDITIONS' ? onDeletionBlocked?.() : onAction(key),
           }}
         >
           <Button size="small" type="text" icon={<MoreOutlined />} aria-label={`更多操作：${accessibleLabel}`} />
@@ -436,11 +450,106 @@ function ActionModal({ target, onClose }: { target: ActionTarget | null; onClose
   return <ActionModalContent key={`${target.kind}-${targetId}-${target.action}`} target={target} onClose={onClose} />;
 }
 
+function PermanentDeleteArticleModal({
+  target,
+  onClose,
+  onDeleted,
+}: {
+  target: ArticleTarget | null;
+  onClose: () => void;
+  onDeleted: () => void | Promise<void>;
+}) {
+  const { message } = App.useApp();
+  const queryClient = useQueryClient();
+  const [confirmation, setConfirmation] = useState('');
+  const preview = useQuery({
+    queryKey: queryKeys.publications.articleDeletionPreview(target?.id ?? ''),
+    queryFn: async () => unwrap(await api.GET('/api/v1/published-articles/{article_id}/permanent-deletion-preview', {
+      params: { path: { article_id: target!.id } },
+    })),
+    enabled: !!target,
+    staleTime: 0,
+  });
+  const remove = useMutation({
+    mutationFn: async () => {
+      if (!target || !preview.data) throw new Error('发布成果永久删除预览尚未加载');
+      return ensureSuccess(await api.POST('/api/v1/published-articles/{article_id}/permanent-delete', {
+        params: { path: { article_id: target.id }, header: csrfHeader() },
+        body: {
+          expected_revision: preview.data.revision,
+          confirmation_text: confirmation,
+        },
+      }));
+    },
+    onSuccess: async () => {
+      const articleId = target!.id;
+      setConfirmation('');
+      message.success('发布成果及其内部历史已永久删除');
+      await onDeleted();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.publications.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.publications.article(articleId), refetchType: 'none' }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.geo.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.auditLogs }),
+      ]);
+    },
+  });
+  return (
+    <Modal
+      title="永久删除发布成果"
+      open={!!target}
+      okText="永久删除"
+      okButtonProps={{ danger: true, disabled: confirmation !== '永久删除' || !preview.data }}
+      confirmLoading={remove.isPending}
+      onCancel={onClose}
+      onOk={() => remove.mutate()}
+      destroyOnHidden
+    >
+      <Alert
+        className="form-alert"
+        type="warning"
+        showIcon
+        title="该操作不可恢复，且不会删除外部公开页面。"
+        description="来源内容和批准版本会保留，来源任务恢复为可再次发布；已有修复任务保留并解除来源问题关联。"
+      />
+      {preview.isLoading && <QueryLoading label="正在计算发布成果永久删除范围" />}
+      {preview.error && <QueryFailure error={preview.error} onRetry={() => void preview.refetch()} />}
+      {remove.error && <DeletionError error={remove.error} />}
+      {preview.data && (
+        <Descriptions
+          column={1}
+          size="small"
+          items={[
+            { label: '公开页面', children: <a href={preview.data.external_url} target="_blank" rel="noreferrer">{preview.data.external_url}</a> },
+            { label: '发布事件', children: preview.data.counts.publication_events },
+            { label: '核验记录', children: preview.data.counts.publication_verifications },
+            { label: '内容问题', children: preview.data.counts.published_content_issues },
+            { label: '附件关系', children: preview.data.counts.attachment_relations },
+            { label: '保留并解绑的修复任务', children: preview.data.counts.detached_repair_tasks },
+          ]}
+        />
+      )}
+      <Typography.Paragraph>
+        输入 <Typography.Text code>永久删除</Typography.Text> 继续
+      </Typography.Paragraph>
+      <Input
+        aria-label="发布成果永久删除确认文本"
+        value={confirmation}
+        onChange={(event) => setConfirmation(event.target.value)}
+      />
+    </Modal>
+  );
+}
+
 function DetailDrawer({
   kind,
   selected,
   onClose,
   onAction,
+  onPermanentDelete,
+  onDeletionBlocked,
   onOpenDetail,
   restoreFocus,
 }: {
@@ -448,6 +557,8 @@ function DetailDrawer({
   selected: string | null;
   onClose: () => void;
   onAction: (target: ActionTarget) => void;
+  onPermanentDelete: (target: ArticleTarget) => void;
+  onDeletionBlocked: (target: ArticleTarget) => void;
   onOpenDetail: (kind: ResourceKind, id: string) => void;
   restoreFocus: () => void;
 }) {
@@ -502,7 +613,7 @@ function DetailDrawer({
   } else if (activeKind === 'article' && article.data) {
     content = (
       <Space orientation="vertical" size="large" className="detail-stack">
-        <Alert type="info" showIcon title="发布成果为只读历史，不提供修改或删除。" />
+        <Alert type="info" showIcon title="成果正文与核验历史不可原地修改；管理员可在无 GEO 下游引用时永久删除整个发布聚合。" />
         <Descriptions column={1} size="small" items={[
           { label: '内容', children: `${article.data.content_title} · V${article.data.content_version}` },
           { label: '实际标题', children: article.data.actual_title },
@@ -545,11 +656,11 @@ function DetailDrawer({
         />
       );
     }
-  } else if (activeKind === 'article' && article.data && article.data.primary_task !== 'VIEW_HISTORY') {
+  } else if (activeKind === 'article' && article.data) {
     actions = (
       <ActionButtons
         resource={article.data}
-        primaryLabel={articleTaskLabels[article.data.primary_task]}
+        primaryLabel={article.data.primary_task === 'VIEW_HISTORY' ? null : articleTaskLabels[article.data.primary_task]}
         primaryAction={null}
         accessibleLabel={article.data.actual_title}
         onPrimary={() => {
@@ -559,7 +670,10 @@ function DetailDrawer({
             onOpenDetail('issue', article.data.open_issue_id);
           }
         }}
-        onAction={(action) => onAction({ kind: 'article', resource: article.data!, action: action as 'OPEN_ISSUE' })}
+        onAction={(action) => action === 'PERMANENT_DELETE'
+          ? onPermanentDelete(article.data!)
+          : onAction({ kind: 'article', resource: article.data!, action: action as 'OPEN_ISSUE' })}
+        onDeletionBlocked={() => onDeletionBlocked(article.data!)}
       />
     );
   } else if (activeKind === 'issue' && issue.data && issue.data.primary_task !== 'VIEW_RESOLUTION') {
@@ -608,9 +722,12 @@ function DetailDrawer({
 
 export function PublicationsPage() {
   const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [actionTarget, setActionTarget] = useState<ActionTarget | null>(null);
+  const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<ArticleTarget | null>(null);
+  const [deletionBlockedTarget, setDeletionBlockedTarget] = useState<ArticleTarget | null>(null);
   const screens = Grid.useBreakpoint();
   const mobile = screens.md === false;
   const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
@@ -669,7 +786,10 @@ export function PublicationsPage() {
           else void message.error('发布成果缺少开放问题标识，无法进入处理工作区');
         } else openDetail('article', row.id);
       }}
-      onAction={(action) => setActionTarget({ kind: 'article', resource: row, action: action as 'OPEN_ISSUE' })}
+      onAction={(action) => action === 'PERMANENT_DELETE'
+        ? setPermanentDeleteTarget(row)
+        : setActionTarget({ kind: 'article', resource: row, action: action as 'OPEN_ISSUE' })}
+      onDeletionBlocked={() => setDeletionBlockedTarget(row)}
     />
   );
   const issueActions = (row: IssueItem) => {
@@ -928,11 +1048,45 @@ export function PublicationsPage() {
           {historyStatus === 'CLOSED' ? workCollection : issueCollection}
         </section>}
       </Card>
-      <DetailDrawer kind={selectedKind} selected={selected} onClose={() => updateUrl({ selected: null, kind: null })} onAction={setActionTarget} onOpenDetail={openDetail} restoreFocus={restoreFocus} />
+      <DetailDrawer
+        kind={selectedKind}
+        selected={selected}
+        onClose={() => updateUrl({ selected: null, kind: null })}
+        onAction={setActionTarget}
+        onPermanentDelete={setPermanentDeleteTarget}
+        onDeletionBlocked={setDeletionBlockedTarget}
+        onOpenDetail={openDetail}
+        restoreFocus={restoreFocus}
+      />
       <ActionModal target={actionTarget ?? requestedActionTarget} onClose={() => {
         setActionTarget(null);
         if (requestedContentVersionId) updateUrl({ content_version_id: null });
       }} />
+      <PermanentDeleteArticleModal
+        key={permanentDeleteTarget?.id ?? 'closed'}
+        target={permanentDeleteTarget}
+        onClose={() => setPermanentDeleteTarget(null)}
+        onDeleted={() => {
+          setPermanentDeleteTarget(null);
+          updateUrl({ selected: null, kind: null });
+        }}
+      />
+      <DeletionGuidanceModal
+        open={!!deletionBlockedTarget}
+        resourceLabel="发布成果"
+        blockers={deletionBlockedTarget?.deletion?.blockers ?? []}
+        resolveLink={(blocker) => blocker.type === 'GEO_OBSERVATION' && deletionBlockedTarget
+          ? { href: `/observations/insights?published_article_id=${deletionBlockedTarget.id}`, label: '查看引用' }
+          : undefined}
+        onClose={() => setDeletionBlockedTarget(null)}
+        onRefresh={async () => {
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: queryKeys.publications.all }),
+            queryClient.invalidateQueries({ queryKey: queryKeys.geo.all }),
+          ]);
+          setDeletionBlockedTarget(null);
+        }}
+      />
     </div>
   );
 }

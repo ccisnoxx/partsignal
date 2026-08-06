@@ -167,9 +167,11 @@ const articleItem = {
   has_open_issue: true,
   open_issue_id: issueId,
   retired: false,
+  revision: 1,
   workflow_stage: 'OPEN_ISSUE',
   primary_task: 'HANDLE_CONTENT_ISSUE',
   available_actions: ['OPEN_ISSUE'],
+  deletion: null,
 } satisfies Schema<'PublishedArticleListItem'>;
 
 const issueItem = {
@@ -223,14 +225,30 @@ beforeEach(() => {
 
 afterEach(() => setCsrfToken(null));
 
-function installResponses({ onCreate, onPreparation, onVerify, onClose, onSwitch, onWorks, activeWork = workItem, workTotal = 1, readyItems = [readyItem] }: {
+function installResponses({
+  onCreate,
+  onPreparation,
+  onVerify,
+  onClose,
+  onSwitch,
+  onWorks,
+  onDeleteArticle,
+  activeWork = workItem,
+  activeArticle = articleItem,
+  articleDeletionPreview,
+  workTotal = 1,
+  readyItems = [readyItem],
+}: {
   onCreate?: (request: Request) => void;
   onPreparation?: (request: Request) => void;
   onVerify?: (request: Request) => void;
   onClose?: (request: Request) => void;
   onSwitch?: (request: Request) => void;
   onWorks?: (url: URL) => void;
+  onDeleteArticle?: (request: Request) => void;
   activeWork?: Schema<'PublicationWorkListItem'>;
+  activeArticle?: Schema<'PublishedArticleListItem'>;
+  articleDeletionPreview?: Schema<'PublishedArticlePermanentDeletionPreview'>;
   workTotal?: number;
   readyItems?: Schema<'PublicationReadyItem'>[];
 } = {}) {
@@ -251,7 +269,15 @@ function installResponses({ onCreate, onPreparation, onVerify, onClose, onSwitch
       return { body: workDetail, status: 201 };
     }
     if (url.pathname.endsWith('/platform-accounts')) return { body: { items: [platformAccount] } };
-    if (url.pathname.endsWith('/published-articles')) return { body: { items: [articleItem], page: 1, page_size: 20, total: 1 } };
+    if (url.pathname.endsWith(`/published-articles/${articleId}/permanent-deletion-preview`)) {
+      if (!articleDeletionPreview) throw new Error('测试未提供发布成果永久删除预览');
+      return { body: articleDeletionPreview };
+    }
+    if (url.pathname.endsWith(`/published-articles/${articleId}/permanent-delete`)) {
+      onDeleteArticle?.(request);
+      return { body: undefined, status: 204 };
+    }
+    if (url.pathname.endsWith('/published-articles')) return { body: { items: [activeArticle], page: 1, page_size: 20, total: 1 } };
     if (url.pathname.endsWith('/published-content-issues')) {
       const resolved = url.searchParams.get('status') === 'RESOLVED';
       return { body: { items: resolved ? [] : [issueItem], page: 1, page_size: 20, total: resolved ? 0 : 1 } };
@@ -453,6 +479,87 @@ test('历史记录只查询已关闭工作或已解决问题，不重复发布�
   } finally {
     window.fetch = originalFetch;
   }
+});
+
+test('无 GEO 依赖的发布成果展示删除范围并提交固定确认文本', async () => {
+  const operator = userEvent.setup();
+  let submitted: Promise<Schema<'PublishedArticlePermanentDeleteRequest'>> | undefined;
+  const deletableArticle = {
+    ...articleItem,
+    has_open_issue: false,
+    open_issue_id: null,
+    workflow_stage: 'HEALTHY',
+    primary_task: 'START_PRODUCT_OBSERVATION',
+    available_actions: ['OPEN_ISSUE', 'PERMANENT_DELETE'],
+    deletion: { blockers: [] },
+  } satisfies Schema<'PublishedArticleListItem'>;
+  const preview = {
+    article_id: articleId,
+    revision: deletableArticle.revision,
+    counts: {
+      publication_events: 3,
+      publication_verifications: 1,
+      published_content_issues: 2,
+      detached_repair_tasks: 1,
+      attachment_relations: 2,
+    },
+    external_url: deletableArticle.final_url,
+    confirmation_text: '永久删除',
+  } satisfies Schema<'PublishedArticlePermanentDeletionPreview'>;
+  window.history.pushState({}, '', '/publications?tab=articles');
+  installResponses({
+    activeArticle: deletableArticle,
+    articleDeletionPreview: preview,
+    onDeleteArticle: (request) => {
+      submitted = request.clone().json() as Promise<Schema<'PublishedArticlePermanentDeleteRequest'>>;
+    },
+  });
+  renderPage();
+
+  await operator.click(await screen.findByRole('button', { name: /更多操作：PS-001 已发布成果/ }));
+  await operator.click(await screen.findByText('永久删除'));
+  const dialog = await findDialog('永久删除发布成果');
+  expect(await within(dialog).findByText('该操作不可恢复，且不会删除外部公开页面。')).toBeInTheDocument();
+  expect(within(dialog).getByText('3')).toBeInTheDocument();
+  expect(within(dialog).getByText('保留并解绑的修复任务')).toBeInTheDocument();
+  const confirmButton = within(dialog).getByRole('button', { name: '永久删除' });
+  expect(confirmButton).toBeDisabled();
+  await operator.type(within(dialog).getByLabelText('发布成果永久删除确认文本'), '永久删除');
+  expect(confirmButton).toBeEnabled();
+  await operator.click(confirmButton);
+
+  await waitFor(() => expect(submitted).toBeDefined());
+  await expect(submitted).resolves.toEqual({
+    expected_revision: deletableArticle.revision,
+    confirmation_text: '永久删除',
+  });
+});
+
+test('存在 GEO 下游依赖时隐藏删除命令并精确展示阻断项', async () => {
+  const operator = userEvent.setup();
+  const blockedArticle = {
+    ...articleItem,
+    deletion: {
+      blockers: [
+        { type: 'GEO_OBSERVATION', count: 2 },
+        { type: 'GEO_OPTIMIZATION_SOURCE', count: 1 },
+      ],
+    },
+  } satisfies Schema<'PublishedArticleListItem'>;
+  window.history.pushState({}, '', '/publications?tab=articles');
+  installResponses({ activeArticle: blockedArticle });
+  renderPage();
+
+  await operator.click(await screen.findByRole('button', { name: /更多操作：PS-001 已发布成果/ }));
+  expect(screen.queryByText('永久删除')).not.toBeInTheDocument();
+  await operator.click(screen.getByText('查看删除条件'));
+  const dialog = await findDialog('发布成果暂时不能删除');
+  expect(within(dialog).getByText('GEO 观测：2')).toBeInTheDocument();
+  expect(within(dialog).getByText('GEO 优化来源：1')).toBeInTheDocument();
+  expect(within(dialog).getByRole('link', { name: '查看引用' })).toHaveAttribute(
+    'href',
+    `/observations/insights?published_article_id=${articleId}`,
+  );
 });
 
 test('首次核验失败提交明确结果并继续保留待处理动作', async () => {

@@ -1500,6 +1500,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/published-articles/{article_id}/permanent-deletion-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Published Article Permanent Deletion */
+        get: operations["previewPublishedArticlePermanentDeletion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/published-articles/{article_id}/permanent-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Permanently Delete Published Article */
+        post: operations["permanentlyDeletePublishedArticle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/published-articles/{article_id}/issues": {
         parameters: {
             query?: never;
@@ -3430,12 +3464,15 @@ export interface components {
             open_issue_id: string | null;
             /** Retired */
             retired: boolean;
+            /** Revision */
+            revision: number;
             /** @enum {string} */
             workflow_stage: "HEALTHY" | "OPEN_ISSUE" | "RETIRED";
             /** @enum {string} */
             primary_task: "START_PRODUCT_OBSERVATION" | "HANDLE_CONTENT_ISSUE" | "VIEW_HISTORY";
             /** Available Actions */
-            available_actions: "OPEN_ISSUE"[];
+            available_actions: ("OPEN_ISSUE" | "PERMANENT_DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
         };
         /** PublishedArticleOut */
         PublishedArticle: {
@@ -3502,17 +3539,41 @@ export interface components {
             open_issue_id: string | null;
             /** Retired */
             retired: boolean;
+            /** Revision */
+            revision: number;
             /** @enum {string} */
             workflow_stage: "HEALTHY" | "OPEN_ISSUE" | "RETIRED";
             /** @enum {string} */
             primary_task: "START_PRODUCT_OBSERVATION" | "HANDLE_CONTENT_ISSUE" | "VIEW_HISTORY";
             /** Available Actions */
-            available_actions: "OPEN_ISSUE"[];
+            available_actions: ("OPEN_ISSUE" | "PERMANENT_DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
             /** Content Hash */
             content_hash: string;
             verification: components["schemas"]["PublicationVerification"];
             /** Issues */
             issues: components["schemas"]["PublishedContentIssueHistoryItem"][];
+        };
+        PublishedArticlePermanentDeletionCounts: {
+            publication_events: number;
+            publication_verifications: number;
+            published_content_issues: number;
+            detached_repair_tasks: number;
+            attachment_relations: number;
+        };
+        PublishedArticlePermanentDeletionPreview: {
+            /** Format: uuid */
+            article_id: string;
+            revision: number;
+            counts: components["schemas"]["PublishedArticlePermanentDeletionCounts"];
+            /** Format: uri */
+            external_url: string;
+            /** @constant */
+            confirmation_text: "永久删除";
+        };
+        PublishedArticlePermanentDeleteRequest: {
+            expected_revision: number;
+            confirmation_text: string;
         };
         /** PublishedContentIssueHistoryItem */
         PublishedContentIssueHistoryItem: {
@@ -7382,6 +7443,63 @@ export interface operations {
                     "application/json": components["schemas"]["PublishedArticle"];
                 };
             };
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    previewPublishedArticlePermanentDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 发布成果的实时内部删除范围；不处理外部页面 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedArticlePermanentDeletionPreview"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
+    permanentlyDeletePublishedArticle: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublishedArticlePermanentDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description 已永久删除内部发布聚合并恢复来源任务；不处理外部页面 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

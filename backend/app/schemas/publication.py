@@ -23,7 +23,7 @@ PublicationWorkAction = Literal[
     "SWITCH_CONTENT_VERSION",
     "CLOSE",
 ]
-PublishedArticleAction = Literal["OPEN_ISSUE"]
+PublishedArticleAction = Literal["OPEN_ISSUE", "PERMANENT_DELETE"]
 PublishedContentIssueAction = Literal["CREATE_REPAIR_TASK", "RESOLVE"]
 
 
@@ -347,9 +347,11 @@ class PublishedArticleListItem(ContractModel):
     has_open_issue: bool
     open_issue_id: uuid.UUID | None
     retired: bool
+    revision: int = Field(ge=0)
     workflow_stage: Literal["HEALTHY", "OPEN_ISSUE", "RETIRED"]
     primary_task: Literal["START_PRODUCT_OBSERVATION", "HANDLE_CONTENT_ISSUE", "VIEW_HISTORY"]
     available_actions: list[PublishedArticleAction]
+    deletion: DeletionProjection | None
 
 
 class PublishedArticleOut(PublishedArticleListItem):
@@ -363,6 +365,29 @@ class PublishedArticleList(ContractModel):
     page: int = Field(ge=1)
     page_size: int = Field(ge=1)
     total: int = Field(ge=0)
+
+
+class PublishedArticlePermanentDeletionCounts(ContractModel):
+    """管理员删除发布成果前展示的内部记录范围。"""
+
+    publication_events: int = Field(ge=0)
+    publication_verifications: int = Field(ge=0)
+    published_content_issues: int = Field(ge=0)
+    detached_repair_tasks: int = Field(ge=0)
+    attachment_relations: int = Field(ge=0)
+
+
+class PublishedArticlePermanentDeletionPreview(ContractModel):
+    article_id: uuid.UUID
+    revision: int = Field(ge=0)
+    counts: PublishedArticlePermanentDeletionCounts
+    external_url: HttpUrl
+    confirmation_text: Literal["永久删除"]
+
+
+class PublishedArticlePermanentDeleteRequest(ContractModel):
+    expected_revision: int = Field(ge=0)
+    confirmation_text: str
 
 
 class PublishedContentIssueListItem(PublishedContentIssueHistoryItem):

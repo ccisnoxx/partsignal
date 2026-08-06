@@ -10,14 +10,18 @@ from typing import Any
 
 import bleach
 import markdown
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, select, union
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session
 
 from app.errors import AppError, not_found
 from app.models.configuration import PlatformProfile, QueryTopic
-from app.models.content import ContentTask, ContentVersion
-from app.models.geo_files import FileRecord
+from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
+from app.models.geo_files import (
+    FileRecord,
+    GeoObservationCitation,
+    GeoObservationPublication,
+)
 from app.models.product_facts import FactVersion, Product
 from app.models.publication import (
     PlatformAccount,
@@ -28,6 +32,7 @@ from app.models.publication import (
     PublishedArticle,
     PublishedContentIssue,
 )
+from app.schemas.common import DeletionBlocker, DeletionProjection
 from app.schemas.publication import (
     FactVersionCandidate,
     FileRecordOut,
@@ -127,6 +132,40 @@ def published_article_actions(
     return actions, "HEALTHY", "START_PRODUCT_OBSERVATION"
 
 
+def published_article_deletion_blockers(
+    db: Session, article_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[DeletionBlocker]]:
+    """批量返回发布成果的独立 GEO 下游引用。"""
+    blockers: dict[uuid.UUID, list[DeletionBlocker]] = {
+        article_id: [] for article_id in article_ids
+    }
+    if not article_ids:
+        return blockers
+    observation_refs = union(
+        select(
+            GeoObservationPublication.published_article_id.label("article_id"),
+            GeoObservationPublication.observation_id.label("observation_id"),
+        ).where(GeoObservationPublication.published_article_id.in_(article_ids)),
+        select(
+            GeoObservationCitation.published_article_id.label("article_id"),
+            GeoObservationCitation.observation_id.label("observation_id"),
+        ).where(GeoObservationCitation.published_article_id.in_(article_ids)),
+    ).subquery()
+    for article_id, count in db.execute(
+        select(observation_refs.c.article_id, func.count()).group_by(observation_refs.c.article_id)
+    ):
+        blockers[article_id].append(DeletionBlocker(type="GEO_OBSERVATION", count=int(count)))
+    for article_id, count in db.execute(
+        select(ContentTaskGeoSource.published_article_id, func.count())
+        .where(ContentTaskGeoSource.published_article_id.in_(article_ids))
+        .group_by(ContentTaskGeoSource.published_article_id)
+    ):
+        blockers[article_id].append(
+            DeletionBlocker(type="GEO_OPTIMIZATION_SOURCE", count=int(count))
+        )
+    return blockers
+
+
 def published_content_issue_actions(
     *, status: str, repair_task_id: uuid.UUID | None, repair_task_status: str | None
 ) -> tuple[list[PublishedContentIssueAction], str, str]:
@@ -209,9 +248,7 @@ def list_publication_ready_items(
 ) -> PublicationReadyItemList:
     """实时返回尚未开始且满足平台身份约束的发布就绪项。"""
     work_for_task = (
-        select(PublicationWork.id)
-        .where(PublicationWork.content_task_id == ContentTask.id)
-        .exists()
+        select(PublicationWork.id).where(PublicationWork.content_task_id == ContentTask.id).exists()
     )
     active_same_hash = (
         select(PublicationWork.id)
@@ -232,6 +269,7 @@ def list_publication_ready_items(
             ContentTask.current_content_version_id == ContentVersion.id,
             FactVersion.status == "APPROVED",
             ContentTask.status == "OPEN",
+            ContentTask.archived_at.is_(None),
             PlatformProfile.is_active.is_(True),
             ~work_for_task,
             ~active_same_hash,
@@ -408,9 +446,7 @@ def list_publication_works(
     count_query = select(func.count()).select_from(PublicationWork)
     if platform_account_id is not None:
         query = query.where(PublicationWork.platform_account_id == platform_account_id)
-        count_query = count_query.where(
-            PublicationWork.platform_account_id == platform_account_id
-        )
+        count_query = count_query.where(PublicationWork.platform_account_id == platform_account_id)
     if content_task_id is not None:
         query = query.where(PublicationWork.content_task_id == content_task_id)
         count_query = count_query.where(PublicationWork.content_task_id == content_task_id)
@@ -505,7 +541,11 @@ def _article_context_query() -> Any:
 
 
 def _article_item(
-    row: Row[Any], issue_rows: list[tuple[uuid.UUID, str, str | None]]
+    row: Row[Any],
+    issue_rows: list[tuple[uuid.UUID, str, str | None]],
+    *,
+    can_delete: bool,
+    deletion_blockers: list[DeletionBlocker],
 ) -> PublishedArticleListItem:
     article, work, verification = row[0], row[1], row[2]
     open_issue_id = next(
@@ -517,6 +557,11 @@ def _article_item(
         has_open_issue=has_open_issue,
         retired=retired,
     )
+    deletion = None
+    if can_delete:
+        deletion = DeletionProjection(blockers=deletion_blockers)
+        if not deletion_blockers:
+            actions.append("PERMANENT_DELETE")
     if work.actual_title is None or work.final_url is None or work.published_at is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布成果缺少冻结结果", 409)
     return PublishedArticleListItem.model_validate(
@@ -539,14 +584,18 @@ def _article_item(
             "has_open_issue": has_open_issue,
             "open_issue_id": open_issue_id,
             "retired": retired,
+            "revision": work.revision,
             "workflow_stage": workflow_stage,
             "primary_task": primary_task,
             "available_actions": actions,
+            "deletion": deletion,
         }
     )
 
 
-def published_article_out(db: Session, article: PublishedArticle) -> PublishedArticleOut:
+def published_article_out(
+    db: Session, article: PublishedArticle, *, can_delete: bool = False
+) -> PublishedArticleOut:
     """投影只读发布成果及其历史问题。"""
     row = db.execute(
         _article_context_query().where(PublishedArticle.id == article.id)
@@ -560,12 +609,18 @@ def published_article_out(db: Session, article: PublishedArticle) -> PublishedAr
                 PublishedContentIssue.id,
                 PublishedContentIssue.status,
                 PublishedContentIssue.resolution_outcome,
-            ).where(
-                PublishedContentIssue.published_article_id == article.id
-            )
+            ).where(PublishedContentIssue.published_article_id == article.id)
         )
     ]
-    item = _article_item(row, issue_rows)
+    blockers = (
+        published_article_deletion_blockers(db, [article.id])[article.id] if can_delete else []
+    )
+    item = _article_item(
+        row,
+        issue_rows,
+        can_delete=can_delete,
+        deletion_blockers=blockers,
+    )
     work, verification = row[1], row[2]
     issues = list(
         db.scalars(
@@ -582,7 +637,9 @@ def published_article_out(db: Session, article: PublishedArticle) -> PublishedAr
     )
 
 
-def list_published_articles(db: Session, *, page: int, page_size: int) -> PublishedArticleList:
+def list_published_articles(
+    db: Session, *, page: int, page_size: int, can_delete: bool = False
+) -> PublishedArticleList:
     """按首次核验时间倒序分页返回发布成果。"""
     total = int(db.scalar(select(func.count()).select_from(PublishedArticle)) or 0)
     rows = db.execute(
@@ -592,9 +649,9 @@ def list_published_articles(db: Session, *, page: int, page_size: int) -> Publis
         .limit(page_size)
     ).all()
     article_ids = [row[0].id for row in rows]
-    issue_states: defaultdict[
-        uuid.UUID, list[tuple[uuid.UUID, str, str | None]]
-    ] = defaultdict(list)
+    issue_states: defaultdict[uuid.UUID, list[tuple[uuid.UUID, str, str | None]]] = defaultdict(
+        list
+    )
     if article_ids:
         for article_id, issue_id, issue_status, outcome in db.execute(
             select(
@@ -605,8 +662,21 @@ def list_published_articles(db: Session, *, page: int, page_size: int) -> Publis
             ).where(PublishedContentIssue.published_article_id.in_(article_ids))
         ):
             issue_states[article_id].append((issue_id, issue_status, outcome))
+    deletion_blockers = (
+        published_article_deletion_blockers(db, article_ids)
+        if can_delete
+        else {article_id: [] for article_id in article_ids}
+    )
     return PublishedArticleList(
-        items=[_article_item(row, issue_states[row[0].id]) for row in rows],
+        items=[
+            _article_item(
+                row,
+                issue_states[row[0].id],
+                can_delete=can_delete,
+                deletion_blockers=deletion_blockers[row[0].id],
+            )
+            for row in rows
+        ],
         page=page,
         page_size=page_size,
         total=total,
@@ -696,9 +766,9 @@ def list_published_content_issues(
         if article_ids
         else {}
     )
-    issue_states: defaultdict[
-        uuid.UUID, list[tuple[uuid.UUID, str, str | None]]
-    ] = defaultdict(list)
+    issue_states: defaultdict[uuid.UUID, list[tuple[uuid.UUID, str, str | None]]] = defaultdict(
+        list
+    )
     if article_ids:
         for article_id, issue_id, issue_status, outcome in db.execute(
             select(
@@ -727,7 +797,12 @@ def list_published_content_issues(
         row = article_rows.get(issue.published_article_id)
         if row is None:
             raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
-        article = _article_item(row, issue_states[issue.published_article_id])
+        article = _article_item(
+            row,
+            issue_states[issue.published_article_id],
+            can_delete=False,
+            deletion_blockers=[],
+        )
         repair_task = repair_tasks.get(issue.id)
         repair_task_id = repair_task[0] if repair_task is not None else None
         actions, workflow_stage, primary_task = published_content_issue_actions(
@@ -758,9 +833,7 @@ def list_published_content_issues(
 def publication_workbench_summary(db: Session) -> PublicationWorkbenchSummary:
     """返回发布工作台五个互斥运营口径。"""
     work_for_task = (
-        select(PublicationWork.id)
-        .where(PublicationWork.content_task_id == ContentTask.id)
-        .exists()
+        select(PublicationWork.id).where(PublicationWork.content_task_id == ContentTask.id).exists()
     )
     active_same_hash = (
         select(PublicationWork.id)
@@ -783,6 +856,7 @@ def publication_workbench_summary(db: Session) -> PublicationWorkbenchSummary:
                 ContentTask.current_content_version_id == ContentVersion.id,
                 FactVersion.status == "APPROVED",
                 ContentTask.status == "OPEN",
+                ContentTask.archived_at.is_(None),
                 PlatformProfile.is_active.is_(True),
                 ~work_for_task,
                 ~active_same_hash,

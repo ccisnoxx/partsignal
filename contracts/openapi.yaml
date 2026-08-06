@@ -2178,6 +2178,79 @@ paths:
                 $ref: '#/components/schemas/PublishedArticle'
         '422':
           $ref: '#/components/responses/ErrorResponse'
+  /api/v1/published-articles/{article_id}/permanent-deletion-preview:
+    get:
+      tags:
+      - publication
+      summary: Preview Published Article Permanent Deletion
+      operationId: previewPublishedArticlePermanentDeletion
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: article_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Article Id
+      responses:
+        '200':
+          description: 发布成果的实时内部删除范围；不处理外部页面
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedArticlePermanentDeletionPreview'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/published-articles/{article_id}/permanent-delete:
+    post:
+      tags:
+      - publication
+      summary: Permanently Delete Published Article
+      operationId: permanentlyDeletePublishedArticle
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: article_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Article Id
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          title: X-Csrf-Token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishedArticlePermanentDeleteRequest'
+      responses:
+        '204':
+          description: 已永久删除内部发布聚合并恢复来源任务；不处理外部页面
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
   /api/v1/published-articles/{article_id}/issues:
     post:
       tags:
@@ -4956,6 +5029,10 @@ components:
         retired:
           type: boolean
           title: Retired
+        revision:
+          type: integer
+          minimum: 0
+          title: Revision
         workflow_stage:
           type: string
           enum: [HEALTHY, OPEN_ISSUE, RETIRED]
@@ -4965,9 +5042,13 @@ components:
         available_actions:
           items:
             type: string
-            const: OPEN_ISSUE
+            enum: [OPEN_ISSUE, PERMANENT_DELETE]
           type: array
           title: Available Actions
+        deletion:
+          anyOf:
+          - $ref: '#/components/schemas/DeletionProjection'
+          - type: 'null'
       additionalProperties: false
       type: object
       required:
@@ -4989,9 +5070,11 @@ components:
       - has_open_issue
       - open_issue_id
       - retired
+      - revision
       - workflow_stage
       - primary_task
       - available_actions
+      - deletion
       title: PublishedArticleListItem
     PublishedArticle:
       properties:
@@ -5063,6 +5146,10 @@ components:
         retired:
           type: boolean
           title: Retired
+        revision:
+          type: integer
+          minimum: 0
+          title: Revision
         workflow_stage:
           type: string
           enum: [HEALTHY, OPEN_ISSUE, RETIRED]
@@ -5072,9 +5159,13 @@ components:
         available_actions:
           items:
             type: string
-            const: OPEN_ISSUE
+            enum: [OPEN_ISSUE, PERMANENT_DELETE]
           type: array
           title: Available Actions
+        deletion:
+          anyOf:
+          - $ref: '#/components/schemas/DeletionProjection'
+          - type: 'null'
         content_hash:
           type: string
           title: Content Hash
@@ -5106,13 +5197,78 @@ components:
       - has_open_issue
       - open_issue_id
       - retired
+      - revision
       - workflow_stage
       - primary_task
       - available_actions
+      - deletion
       - content_hash
       - verification
       - issues
       title: PublishedArticleOut
+    PublishedArticlePermanentDeletionCounts:
+      properties:
+        publication_events:
+          type: integer
+          minimum: 0
+        publication_verifications:
+          type: integer
+          minimum: 0
+        published_content_issues:
+          type: integer
+          minimum: 0
+        detached_repair_tasks:
+          type: integer
+          minimum: 0
+        attachment_relations:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+      type: object
+      required:
+      - publication_events
+      - publication_verifications
+      - published_content_issues
+      - detached_repair_tasks
+      - attachment_relations
+    PublishedArticlePermanentDeletionPreview:
+      properties:
+        article_id:
+          type: string
+          format: uuid
+        revision:
+          type: integer
+          minimum: 0
+        counts:
+          $ref: '#/components/schemas/PublishedArticlePermanentDeletionCounts'
+        external_url:
+          type: string
+          maxLength: 2083
+          minLength: 1
+          format: uri
+        confirmation_text:
+          type: string
+          const: 永久删除
+      additionalProperties: false
+      type: object
+      required:
+      - article_id
+      - revision
+      - counts
+      - external_url
+      - confirmation_text
+    PublishedArticlePermanentDeleteRequest:
+      properties:
+        expected_revision:
+          type: integer
+          minimum: 0
+        confirmation_text:
+          type: string
+      additionalProperties: false
+      type: object
+      required:
+      - expected_revision
+      - confirmation_text
     PublishedContentIssueHistoryItem:
       properties:
         id:

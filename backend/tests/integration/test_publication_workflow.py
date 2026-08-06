@@ -8,29 +8,36 @@ import sys
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 import psycopg
 import pytest
 from psycopg import sql
-from sqlalchemy import create_engine, func, select, update
+from sqlalchemy import create_engine, delete, func, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
 from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType, QueryTopic
 from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
-from app.models.geo_files import GeoObservation
+from app.models.geo_files import (
+    FileRecord,
+    GeoObservation,
+    GeoObservationCitation,
+    GeoObservationPublication,
+)
 from app.models.identity import AuditLog, User
 from app.models.product_facts import FactReviewRecord, FactVersion, Product
 from app.models.publication import (
     PlatformAccount,
+    PublicationAttachment,
     PublicationVerification,
     PublicationWork,
     PublicationWorkEvent,
     PublishedArticle,
+    PublishedContentIssue,
 )
 from app.schemas.common import RevisionRequest
 from app.schemas.content import ContentTaskPermanentDeleteRequest
@@ -41,6 +48,7 @@ from app.schemas.publication import (
     PublicationVerificationCreate,
     PublicationWorkCloseRequest,
     PublicationWorkCreate,
+    PublishedArticlePermanentDeleteRequest,
     PublishedContentIssueCreate,
     PublishedContentIssueResolveRequest,
     PublishedContentRepairTaskCreate,
@@ -62,13 +70,19 @@ from app.services.publication import (
     delete_platform_account,
     open_published_content_issue,
     permanently_delete_content_task,
+    permanently_delete_published_article,
     preview_content_task_permanent_deletion,
+    preview_published_article_permanent_deletion,
     register_publication_result,
     resolve_published_content_issue,
+    restore_content_task,
     switch_publication_content_version,
     verify_publication_work,
 )
-from app.services.publication_queries import list_publication_ready_items
+from app.services.publication_queries import (
+    list_publication_ready_items,
+    list_published_articles,
+)
 from app.services.review import transition_fact_version
 
 
@@ -206,6 +220,61 @@ def _seed_graph(db: Session, *, content_hash: str = "a" * 64) -> dict[str, objec
     }
 
 
+def _complete_publication(
+    db: Session,
+    graph: dict[str, object],
+    *,
+    suffix: str,
+    attachment_file_ids: list[uuid.UUID] | None = None,
+) -> PublicationWork:
+    """通过公开服务完成一条可用于删除测试的发布聚合。"""
+    actor = graph["user"]
+    content = graph["content"]
+    account = graph["account"]
+    assert isinstance(actor, User)
+    assert isinstance(content, ContentVersion)
+    assert isinstance(account, PlatformAccount)
+    work = create_publication_work(
+        db=db,
+        payload=PublicationWorkCreate(
+            content_version_id=content.id,
+            platform_account_id=account.id,
+        ),
+        actor=actor,
+        request_id=f"{suffix}-create",
+        idempotency_key=f"{suffix}-key",
+    )
+    work = register_publication_result(
+        db=db,
+        work_id=work.id,
+        payload=PublicationResultUpdate(
+            actual_title=f"删除测试文章 {suffix}",
+            final_url=f"https://community.example.invalid/articles/{suffix}",
+            published_at="2026-08-06T08:00:00Z",
+            expected_revision=work.revision,
+            comment="登记删除测试文章",
+            attachment_file_ids=attachment_file_ids or [],
+        ),
+        actor=actor,
+        request_id=f"{suffix}-result",
+    )
+    verify_publication_work(
+        db=db,
+        work_id=work.id,
+        payload=PublicationVerificationCreate(
+            outcome="PASSED",
+            content_matches=True,
+            expected_revision=work.revision,
+            comment="",
+        ),
+        actor=actor,
+        request_id=f"{suffix}-verify",
+    )
+    completed = db.get(PublicationWork, work.id)
+    assert completed is not None
+    return completed
+
+
 @pytest.mark.integration
 def test_query_topic_delete_requires_no_direct_business_references() -> None:
     """问题删除必须复核三类直接引用、revision 和成功审计。"""
@@ -275,12 +344,15 @@ def test_query_topic_delete_requires_no_direct_business_references() -> None:
                 ]
             }
             assert db.get(QueryTopic, topic.id) is not None
-            assert db.scalar(
-                select(AuditLog).where(
-                    AuditLog.action == "query_topic.deleted",
-                    AuditLog.target_id == str(topic.id),
+            assert (
+                db.scalar(
+                    select(AuditLog).where(
+                        AuditLog.action == "query_topic.deleted",
+                        AuditLog.target_id == str(topic.id),
+                    )
                 )
-            ) is None
+                is None
+            )
 
             race_topic = QueryTopic(
                 canonical_question="读取后才产生引用的问题",
@@ -315,9 +387,7 @@ def test_query_topic_delete_requires_no_direct_business_references() -> None:
                     request_id="query-topic-raced",
                 )
             assert raced.value.code == "QUERY_TOPIC_IN_USE"
-            assert raced.value.details == {
-                "references": [{"type": "GEO_OBSERVATION", "count": 1}]
-            }
+            assert raced.value.details == {"references": [{"type": "GEO_OBSERVATION", "count": 1}]}
             assert db.get(QueryTopic, race_topic.id) is not None
 
             stale_topic = QueryTopic(
@@ -623,12 +693,15 @@ def test_content_task_delete_and_archive_permanent_delete_lifecycle() -> None:
             )
             assert db.get(ContentTask, ordinary_task.id) is None
             assert db.get(ContentVersion, ordinary_content.id) is None
-            assert db.scalar(
-                select(AuditLog).where(
-                    AuditLog.action == "content_task.deleted",
-                    AuditLog.target_id == str(ordinary_task.id),
+            assert (
+                db.scalar(
+                    select(AuditLog).where(
+                        AuditLog.action == "content_task.deleted",
+                        AuditLog.target_id == str(ordinary_task.id),
+                    )
                 )
-            ) is not None
+                is not None
+            )
 
             permanent = _seed_graph(db, content_hash="d" * 64)
             task = permanent["task"]
@@ -706,6 +779,352 @@ def test_content_task_delete_and_archive_permanent_delete_lifecycle() -> None:
             )
             assert tombstone is not None
             assert tombstone.details == {}
+
+
+@pytest.mark.integration
+def test_published_article_permanent_delete_restores_source_task_and_owned_history() -> None:
+    """成果删除清理自有历史、保留修复任务和批准内容，并遵守归档可见性。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db, content_hash="f" * 64)
+            actor = graph["user"]
+            task = graph["task"]
+            content = graph["content"]
+            fact = graph["fact"]
+            assert isinstance(actor, User)
+            assert isinstance(task, ContentTask)
+            assert isinstance(content, ContentVersion)
+            assert isinstance(fact, FactVersion)
+            actor.account_type = "ADMIN"
+            now = datetime.now(UTC)
+            evidence = FileRecord(
+                category="OPERATION_SCREENSHOT",
+                original_filename="delete-proof.png",
+                object_key=f"integration/{uuid.uuid4()}/delete-proof.png",
+                content_type="image/png",
+                size=128,
+                sha256="1" * 64,
+                access_level="INTERNAL",
+                status="VERIFIED",
+                uploader_id=actor.id,
+                upload_expires_at=now + timedelta(days=1),
+                verified_at=now,
+            )
+            db.add(evidence)
+            db.commit()
+            work = _complete_publication(
+                db,
+                graph,
+                suffix="article-delete-owned",
+                attachment_file_ids=[evidence.id],
+            )
+            issue = open_published_content_issue(
+                db=db,
+                article_id=work.id,
+                payload=PublishedContentIssueCreate(
+                    kind="CONTENT_CHANGED",
+                    description="删除前保留修复任务的测试问题",
+                ),
+                actor=actor,
+                request_id="article-delete-issue",
+            )
+            repair_task = create_repair_task(
+                db=db,
+                issue_id=issue.id,
+                payload=PublishedContentRepairTaskCreate(
+                    fact_version_id=fact.id,
+                    expected_issue_revision=issue.revision,
+                ),
+                actor=actor,
+                request_id="article-delete-repair",
+            )
+            task = db.get(ContentTask, task.id)
+            assert task is not None
+            archived = archive_content_task(
+                db=db,
+                task_id=task.id,
+                expected_revision=task.revision,
+            )
+
+            non_admin = list_published_articles(
+                db,
+                page=1,
+                page_size=20,
+                can_delete=False,
+            ).items[0]
+            admin = list_published_articles(
+                db,
+                page=1,
+                page_size=20,
+                can_delete=True,
+            ).items[0]
+            assert non_admin.deletion is None
+            assert "PERMANENT_DELETE" not in non_admin.available_actions
+            assert admin.deletion is not None and admin.deletion.blockers == []
+            assert "PERMANENT_DELETE" in admin.available_actions
+
+            preview = preview_published_article_permanent_deletion(
+                db=db,
+                article_id=work.id,
+            )
+            assert preview.revision == work.revision
+            assert preview.counts.model_dump() == {
+                "publication_events": 3,
+                "publication_verifications": 1,
+                "published_content_issues": 1,
+                "detached_repair_tasks": 1,
+                "attachment_relations": 1,
+            }
+
+            with pytest.raises(DBAPIError):
+                db.execute(
+                    delete(PublicationWorkEvent).where(
+                        PublicationWorkEvent.publication_work_id == work.id
+                    )
+                )
+                db.commit()
+            db.rollback()
+            with pytest.raises(AppError) as stale:
+                permanently_delete_published_article(
+                    db=db,
+                    article_id=work.id,
+                    payload=PublishedArticlePermanentDeleteRequest(
+                        expected_revision=work.revision + 1,
+                        confirmation_text="永久删除",
+                    ),
+                    actor=actor,
+                    request_id="article-delete-stale",
+                )
+            assert stale.value.code == "REVISION_CONFLICT"
+            db.rollback()
+            assert db.get(PublishedArticle, work.id) is not None
+            assert (
+                db.scalar(
+                    select(AuditLog).where(
+                        AuditLog.action == "published_article.permanently_deleted",
+                        AuditLog.target_id == str(work.id),
+                    )
+                )
+                is None
+            )
+
+            permanently_delete_published_article(
+                db=db,
+                article_id=work.id,
+                payload=PublishedArticlePermanentDeleteRequest(
+                    expected_revision=work.revision,
+                    confirmation_text="永久删除",
+                ),
+                actor=actor,
+                request_id="article-delete-success",
+            )
+            assert db.get(PublicationWork, work.id) is None
+            assert db.get(PublishedArticle, work.id) is None
+            assert db.get(PublishedContentIssue, issue.id) is None
+            assert (
+                db.scalar(
+                    select(func.count(PublicationWorkEvent.id)).where(
+                        PublicationWorkEvent.publication_work_id == work.id
+                    )
+                )
+                == 0
+            )
+            assert (
+                db.scalar(
+                    select(func.count(PublicationVerification.id)).where(
+                        PublicationVerification.publication_work_id == work.id
+                    )
+                )
+                == 0
+            )
+            assert db.get(PublicationAttachment, (work.id, evidence.id)) is None
+            retained_repair = db.get(ContentTask, repair_task.id)
+            assert retained_repair is not None
+            assert retained_repair.source_published_content_issue_id is None
+            retained_task = db.get(ContentTask, archived.id)
+            assert retained_task is not None
+            assert retained_task.status == "OPEN"
+            assert retained_task.archived_at == archived.archived_at
+            assert retained_task.current_content_version_id == content.id
+            assert db.get(ContentVersion, content.id) is not None
+            db.refresh(evidence)
+            assert evidence.cleanup_after is not None
+            assert list_publication_ready_items(db, can_delete_accounts=False).items == []
+            restored = restore_content_task(
+                db=db,
+                task_id=retained_task.id,
+                expected_revision=retained_task.revision,
+            )
+            ready_ids = [
+                item.content_version.id
+                for item in list_publication_ready_items(
+                    db,
+                    can_delete_accounts=False,
+                ).items
+            ]
+            assert restored.status == "OPEN"
+            assert ready_ids == [content.id]
+            tombstone = db.scalar(
+                select(AuditLog).where(
+                    AuditLog.action == "published_article.permanently_deleted",
+                    AuditLog.target_id == str(work.id),
+                )
+            )
+            assert tombstone is not None
+            assert tombstone.details == {}
+
+
+@pytest.mark.integration
+def test_published_article_delete_blocks_distinct_geo_history_and_optimization_source() -> None:
+    """两张观测关系按观测去重，优化来源独立计数，数据库最终守卫不解绑历史。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db, content_hash="7" * 64)
+            source_graph = _seed_graph(db, content_hash="8" * 64)
+            actor = graph["user"]
+            product = graph["product"]
+            topic = graph["topic"]
+            source_task = source_graph["task"]
+            assert isinstance(actor, User)
+            assert isinstance(product, Product)
+            assert isinstance(topic, QueryTopic)
+            assert isinstance(source_task, ContentTask)
+            actor.account_type = "ADMIN"
+            db.commit()
+            work = _complete_publication(db, graph, suffix="article-delete-blocked")
+            before_reference = next(
+                item
+                for item in list_published_articles(
+                    db,
+                    page=1,
+                    page_size=20,
+                    can_delete=True,
+                ).items
+                if item.id == work.id
+            )
+            assert "PERMANENT_DELETE" in before_reference.available_actions
+            observation = GeoObservation(
+                observation_kind="MANUAL_ARTICLE_SEARCH",
+                query_topic_id=topic.id,
+                product_id=product.id,
+                search_platform="测试搜索平台",
+                search_query=topic.canonical_question,
+                tested_at=datetime(2026, 8, 6, tzinfo=UTC),
+                notes="同一观测同时命中发布集合和引用",
+                tested_by=actor.id,
+            )
+            db.add(observation)
+            db.flush()
+            db.add_all(
+                [
+                    GeoObservationPublication(
+                        observation_id=observation.id,
+                        published_article_id=work.id,
+                        discovered=True,
+                        mentioned=True,
+                        accuracy="ACCURATE",
+                    ),
+                    GeoObservationCitation(
+                        observation_id=observation.id,
+                        url="https://community.example.invalid/articles/article-delete-blocked",
+                        source_type="PUBLISHED_ARTICLE",
+                        published_article_id=work.id,
+                    ),
+                    ContentTaskGeoSource(
+                        content_task_id=source_task.id,
+                        rule_code="CONTENT_DECLINE",
+                        date_from=date(2026, 8, 1),
+                        date_to=date(2026, 8, 6),
+                        published_article_id=work.id,
+                        basis_snapshot={"source": "integration-test"},
+                        created_by=actor.id,
+                    ),
+                ]
+            )
+            db.commit()
+
+            projected = list_published_articles(
+                db,
+                page=1,
+                page_size=20,
+                can_delete=True,
+            ).items
+            target = next(item for item in projected if item.id == work.id)
+            assert "PERMANENT_DELETE" not in target.available_actions
+            assert target.deletion is not None
+            assert [item.model_dump() for item in target.deletion.blockers] == [
+                {"type": "GEO_OBSERVATION", "count": 1},
+                {"type": "GEO_OPTIMIZATION_SOURCE", "count": 1},
+            ]
+            with pytest.raises(AppError) as blocked:
+                preview_published_article_permanent_deletion(
+                    db=db,
+                    article_id=work.id,
+                )
+            assert blocked.value.code == "PUBLISHED_ARTICLE_IN_USE"
+            assert blocked.value.details == {
+                "references": [
+                    {"type": "GEO_OBSERVATION", "count": 1},
+                    {"type": "GEO_OPTIMIZATION_SOURCE", "count": 1},
+                ]
+            }
+            db.rollback()
+            with pytest.raises(AppError) as raced:
+                permanently_delete_published_article(
+                    db=db,
+                    article_id=work.id,
+                    payload=PublishedArticlePermanentDeleteRequest(
+                        expected_revision=work.revision,
+                        confirmation_text="永久删除",
+                    ),
+                    actor=actor,
+                    request_id="article-delete-raced",
+                )
+            assert raced.value.code == "PUBLISHED_ARTICLE_IN_USE"
+            assert raced.value.details == blocked.value.details
+            db.rollback()
+            db.scalar(
+                select(
+                    func.set_config(
+                        "partsignal.published_article_delete_id",
+                        str(work.id),
+                        True,
+                    )
+                )
+            )
+            with pytest.raises(DBAPIError):
+                db.execute(delete(PublishedArticle).where(PublishedArticle.id == work.id))
+                db.commit()
+            db.rollback()
+            assert db.get(PublishedArticle, work.id) is not None
+            assert db.get(GeoObservation, observation.id) is not None
+            assert (
+                db.get(
+                    GeoObservationPublication,
+                    (observation.id, work.id),
+                )
+                is not None
+            )
+            assert (
+                db.scalar(
+                    select(func.count(GeoObservationCitation.id)).where(
+                        GeoObservationCitation.published_article_id == work.id
+                    )
+                )
+                == 1
+            )
+            assert db.get(ContentTaskGeoSource, source_task.id) is not None
+            assert (
+                db.scalar(
+                    select(AuditLog).where(
+                        AuditLog.action == "published_article.permanently_deleted",
+                        AuditLog.target_id == str(work.id),
+                    )
+                )
+                is None
+            )
 
 
 @pytest.mark.integration
@@ -862,8 +1281,9 @@ def test_close_work_cancels_source_task_without_published_article() -> None:
 
 
 @pytest.mark.integration
-def test_fact_workspace_submission_creates_one_pending_snapshot_and_new_revision_after_return(
-) -> None:
+def test_fact_workspace_submission_creates_one_pending_snapshot_and_new_revision_after_return() -> (
+    None
+):
     """事实提交一步冻结待审核版本，退回后只能从工作区创建新版本。"""
     with temporary_database() as database_url:
         engine = create_engine(database_url)

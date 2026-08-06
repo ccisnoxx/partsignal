@@ -9,7 +9,14 @@ from typing import Annotated
 from fastapi import APIRouter, Header, Query, Request, status
 from sqlalchemy import select
 
-from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser, assert_account_types
+from app.deps import (
+    AdminUser,
+    CsrfProtected,
+    CurrentUser,
+    DbSession,
+    EngineerUser,
+    assert_account_types,
+)
 from app.errors import not_found
 from app.models.identity import User
 from app.models.publication import (
@@ -40,6 +47,8 @@ from app.schemas.publication import (
     PublicationWorkStatus,
     PublishedArticleList,
     PublishedArticleOut,
+    PublishedArticlePermanentDeleteRequest,
+    PublishedArticlePermanentDeletionPreview,
     PublishedContentIssueCreate,
     PublishedContentIssueList,
     PublishedContentIssueOut,
@@ -55,6 +64,8 @@ from app.services.publication import (
     create_repair_task,
     mark_publication_platform_review,
     open_published_content_issue,
+    permanently_delete_published_article,
+    preview_published_article_permanent_deletion,
     register_publication_result,
     require_publishable,
     resolve_published_content_issue,
@@ -532,11 +543,16 @@ def close_work(
 )
 def list_published_articles(
     db: DbSession,
-    _user: CurrentUser,
+    user: CurrentUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ) -> PublishedArticleList:
-    return list_published_articles_service(db, page=page, page_size=page_size)
+    return list_published_articles_service(
+        db,
+        page=page,
+        page_size=page_size,
+        can_delete=user.account_type == AccountType.ADMIN.value,
+    )
 
 
 @router.get(
@@ -545,12 +561,49 @@ def list_published_articles(
     operation_id="getPublishedArticle",
 )
 def get_published_article(
-    article_id: uuid.UUID, db: DbSession, _user: CurrentUser
+    article_id: uuid.UUID, db: DbSession, user: CurrentUser
 ) -> PublishedArticleOut:
     article = db.get(PublishedArticle, article_id)
     if article is None:
         raise not_found("发布成果")
-    return published_article_out(db, article)
+    return published_article_out(
+        db,
+        article,
+        can_delete=user.account_type == AccountType.ADMIN.value,
+    )
+
+
+@router.get(
+    "/published-articles/{article_id}/permanent-deletion-preview",
+    response_model=PublishedArticlePermanentDeletionPreview,
+    operation_id="previewPublishedArticlePermanentDeletion",
+)
+def preview_article_permanent_deletion(
+    article_id: uuid.UUID, db: DbSession, _admin: AdminUser
+) -> PublishedArticlePermanentDeletionPreview:
+    return preview_published_article_permanent_deletion(db=db, article_id=article_id)
+
+
+@router.post(
+    "/published-articles/{article_id}/permanent-delete",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="permanentlyDeletePublishedArticle",
+)
+def permanently_delete_article(
+    article_id: uuid.UUID,
+    payload: PublishedArticlePermanentDeleteRequest,
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
+) -> None:
+    permanently_delete_published_article(
+        db=db,
+        article_id=article_id,
+        payload=payload,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
 
 
 @router.post(

@@ -144,6 +144,16 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   ]) {
     expect((await engineerPage.request.delete(path, { headers: { 'X-CSRF-Token': engineerCsrf.csrf_token } })).status()).toBe(403);
   }
+  expect((await engineerPage.request.get(
+    `/api/v1/published-articles/${nonexistentId}/permanent-deletion-preview`,
+  )).status()).toBe(403);
+  expect((await engineerPage.request.post(
+    `/api/v1/published-articles/${nonexistentId}/permanent-delete`,
+    {
+      headers: { 'X-CSRF-Token': engineerCsrf.csrf_token },
+      data: { expected_revision: 0, confirmation_text: '永久删除' },
+    },
+  )).status()).toBe(403);
   expect((await engineerPage.request.post('/api/v1/platform-types', {
     headers: { 'X-CSRF-Token': engineerCsrf.csrf_token },
     data: { name: '越权类型', slug: `forbidden-${suffix}` },
@@ -834,10 +844,15 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   await expect(page).toHaveURL(/tab=articles/);
   await page.getByRole('button', { name: `E2E ${suffix}`, exact: true }).click();
   const publicationDrawer = page.getByRole('dialog', { name: '发布成果详情' });
-  await expect(publicationDrawer.getByText('发布成果为只读历史，不提供修改或删除。')).toBeVisible();
+  await expect(publicationDrawer.getByText('成果正文与核验历史不可原地修改；管理员可在无 GEO 下游引用时永久删除整个发布聚合。')).toBeVisible();
   await expect(publicationDrawer.getByRole('link', { name: `https://forum.example.invalid/posts/${suffix}` })).toBeVisible();
   await expect(publicationDrawer.getByRole('button', { name: '开始产品观测' })).toBeVisible();
-  await expect(publicationDrawer.getByRole('button', { name: /删除/ })).toHaveCount(0);
+  await publicationDrawer.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '永久删除' }).click();
+  const articleDeleteDialog = page.getByRole('dialog', { name: '永久删除发布成果' });
+  await expect(articleDeleteDialog.getByText('该操作不可恢复，且不会删除外部公开页面。')).toBeVisible();
+  await expect(articleDeleteDialog.getByRole('button', { name: '永久删除' })).toBeDisabled();
+  await articleDeleteDialog.getByRole('button', { name: /取\s*消/ }).click();
   await publicationDrawer.getByRole('button', { name: '关闭' }).click();
   await expect(publicationDrawer).not.toBeVisible();
 
@@ -1162,6 +1177,16 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
     headers: { 'X-CSRF-Token': lifecycleEngineerCsrf.csrf_token },
     data: { expected_revision: archivedTask.revision, confirmation_text: '永久删除' },
   })).status()).toBe(403);
+  expect((await lifecycleEngineerPage.request.get(
+    `/api/v1/published-articles/${publication.id}/permanent-deletion-preview`,
+  )).status()).toBe(403);
+  expect((await lifecycleEngineerPage.request.post(
+    `/api/v1/published-articles/${publication.id}/permanent-delete`,
+    {
+      headers: { 'X-CSRF-Token': lifecycleEngineerCsrf.csrf_token },
+      data: { expected_revision: 0, confirmation_text: '永久删除' },
+    },
+  )).status()).toBe(403);
   await lifecycleEngineerContext.close();
 
   await page.getByRole('button', { name: '恢复任务' }).click();

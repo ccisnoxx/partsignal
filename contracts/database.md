@@ -290,7 +290,7 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 发布工作使用 `PREPARING | PLATFORM_REVIEW | AWAITING_VERIFICATION | ACTION_REQUIRED | COMPLETED | CLOSED`。失败核验只追加当时标题、URL、发布时间和说明快照，并把工作置为 `ACTION_REQUIRED`；后续结果修正仍发生在同一工作上。首次成功核验原子创建与工作同 ID 的 `PublishedArticle`，并完成工作和来源任务。显式关闭必须保存原因、说明、操作者和时间，并原子取消来源任务。成功成果不再回退；后续问题由 `PublishedContentIssue OPEN -> RESOLVED` 独立表达，创建修复任务不会自动解决问题。
 
-工作终态字段、成果、事件、核验和问题历史由触发器冻结或限制为契约允许的状态变化。`0037` 起仍禁止日常单项删除，但管理员永久删除已归档任务时可在同一事务删除该任务拥有的发布聚合。GEO 新观测只能引用没有 `OPEN` 问题且从未以 `RETIRED` 解决问题的 `PublishedArticle`；打开问题与创建观测锁定同一文章，避免资格竞态。
+工作终态字段、成果、事件、核验和问题历史由触发器冻结或限制为契约允许的状态变化。`0038` 起只有两类精确事务上下文可以删除发布历史：管理员永久删除已归档来源任务，或管理员永久删除一条没有 GEO 下游引用的成果聚合；未声明或错配目标的直接 DELETE 以 PostgreSQL `55000` 拒绝。GEO 新观测只能引用没有 `OPEN` 问题且从未以 `RETIRED` 解决问题的 `PublishedArticle`；打开问题、创建观测和删除成果锁定同一文章，避免资格竞态。
 
 ### 0035 Business Workflow Primary Tasks
 
@@ -317,6 +317,8 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 归档只接受未归档 `COMPLETED` 任务；恢复只清空 `archived_at`，两者都校验并递增 revision，不改变业务状态。默认任务列表只返回未归档任务，`archive_status=ARCHIVED|ALL` 才读取归档范围。普通删除接受未归档 `OPEN | CANCELLED` 任务，拒绝运行中生成作业以及任何成功文章或 GEO 文章关系；它删除任务拥有的草稿、审核、生成和未成功发布工作，但不触碰外部页面。
 
 管理员永久删除只接受已归档任务、匹配 revision 和固定确认文本 `永久删除`。服务锁定并重新计算范围，删除任务拥有的内容、发布成果与问题、发布事件和核验；只删除失去全部文章关系的人工 GEO 更正链，共享 GEO 记录与共享文件保留。删除旧目标审计后只写一条 `content_task.permanently_deleted` 空详情墓碑。归档、恢复及永久删除都不验证或删除外部页面。
+
+发布成果永久删除只接受管理员、匹配同 ID `PublicationWork.revision` 和固定确认文本 `永久删除`。`GeoObservationPublication` 与 `GeoObservationCitation` 按去重观测数投影为 `GEO_OBSERVATION`，`ContentTaskGeoSource` 投影为 `GEO_OPTIMIZATION_SOURCE`；任一引用存在都返回结构化 `409 PUBLISHED_ARTICLE_IN_USE`，不得依赖现有 `CASCADE` / `SET NULL` 静默解绑。无阻断时，事务删除成果拥有的工作、事件、核验、附件关系和内容问题，保留修复任务并解除其来源问题，保留批准内容，把来源任务恢复为 `OPEN` 并递增 revision；若任务已归档则保留 `archived_at`，恢复后才重新进入待发布。删除旧目标审计后写入 `published_article.permanently_deleted` 最小墓碑，且不验证或删除外部页面。
 
 平台删除仍要求先停用，并在存在 `OPEN` 内容任务或非终态发布工作时拒绝；它绝不级联删除任务。平台账号随平台删除，终态任务与工作把实时平台/账号外键置空后使用标量快照显示。单独账号删除只由非终态发布工作阻断。Prompt 删除通过共享事务 advisory lock 串行化绑定变更，在同一事务自动解绑全部平台、递增平台 revision 后删除模板；历史生成作业继续读取不可变输入快照。
 

@@ -40,7 +40,7 @@ from app.models.publication import (
     PublishedArticle,
     PublishedContentIssue,
 )
-from app.schemas.common import RevisionRequest
+from app.schemas.common import DeletionBlocker, RevisionRequest
 from app.schemas.content import (
     ContentTaskPermanentDeleteRequest,
     ContentTaskPermanentDeletionCounts,
@@ -57,6 +57,9 @@ from app.schemas.publication import (
     PublicationWorkCloseRequest,
     PublicationWorkCreate,
     PublicationWorkOut,
+    PublishedArticlePermanentDeleteRequest,
+    PublishedArticlePermanentDeletionCounts,
+    PublishedArticlePermanentDeletionPreview,
     PublishedContentIssueCreate,
     PublishedContentIssueOut,
     PublishedContentIssueResolveRequest,
@@ -72,6 +75,7 @@ from app.services.projections import IN_FLIGHT_PUBLICATION_STATUSES
 from app.services.publication_queries import (
     NONTERMINAL_WORK_STATUSES,
     publication_work_out,
+    published_article_deletion_blockers,
     published_content_issue_out,
     task_for_work,
 )
@@ -95,6 +99,21 @@ class _TaskDeletionScope:
     exclusive_geo_file_ids: list[uuid.UUID]
     geo_article_relation_count: int
     external_urls: list[str]
+
+
+@dataclass(slots=True)
+class _PublishedArticleDeletionScope:
+    """一次成果永久删除在当前事务内锁定的完整范围。"""
+
+    task: ContentTask
+    work: PublicationWork
+    article: PublishedArticle
+    events: list[PublicationWorkEvent]
+    verifications: list[PublicationVerification]
+    issues: list[PublishedContentIssue]
+    publication_file_ids: list[uuid.UUID]
+    detached_repair_task_count: int
+    blockers: list[DeletionBlocker]
 
 
 def _audit(
@@ -902,6 +921,201 @@ def resolve_published_content_issue(
     return result
 
 
+def _published_article_deletion_scope(
+    db: Session, article_id: uuid.UUID
+) -> _PublishedArticleDeletionScope:
+    """按任务、工作、成果的稳定顺序锁定成果删除范围。"""
+    task_id = db.scalar(
+        select(PublicationWork.content_task_id)
+        .join(PublishedArticle, PublishedArticle.id == PublicationWork.id)
+        .where(PublishedArticle.id == article_id)
+    )
+    if task_id is None:
+        raise not_found("发布成果")
+    task = db.scalar(select(ContentTask).where(ContentTask.id == task_id).with_for_update())
+    work = db.scalar(
+        select(PublicationWork).where(PublicationWork.id == article_id).with_for_update()
+    )
+    article = db.scalar(
+        select(PublishedArticle).where(PublishedArticle.id == article_id).with_for_update()
+    )
+    if task is None or work is None or article is None:
+        raise not_found("发布成果")
+    if work.content_task_id != task.id or work.status != "COMPLETED" or task.status != "COMPLETED":
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布成果完成闭环不完整", 409)
+    events = list(
+        db.scalars(
+            select(PublicationWorkEvent)
+            .where(PublicationWorkEvent.publication_work_id == work.id)
+            .order_by(PublicationWorkEvent.id)
+            .with_for_update()
+        )
+    )
+    verifications = list(
+        db.scalars(
+            select(PublicationVerification)
+            .where(PublicationVerification.publication_work_id == work.id)
+            .order_by(PublicationVerification.id)
+            .with_for_update()
+        )
+    )
+    issues = list(
+        db.scalars(
+            select(PublishedContentIssue)
+            .where(PublishedContentIssue.published_article_id == article.id)
+            .order_by(PublishedContentIssue.id)
+            .with_for_update()
+        )
+    )
+    issue_ids = [issue.id for issue in issues]
+    publication_file_ids = list(
+        db.scalars(
+            select(PublicationAttachment.file_id)
+            .where(PublicationAttachment.publication_work_id == work.id)
+            .order_by(PublicationAttachment.file_id)
+        )
+    )
+    repair_task_count = (
+        int(
+            db.scalar(
+                select(func.count())
+                .select_from(ContentTask)
+                .where(ContentTask.source_published_content_issue_id.in_(issue_ids))
+            )
+            or 0
+        )
+        if issue_ids
+        else 0
+    )
+    return _PublishedArticleDeletionScope(
+        task=task,
+        work=work,
+        article=article,
+        events=events,
+        verifications=verifications,
+        issues=issues,
+        publication_file_ids=publication_file_ids,
+        detached_repair_task_count=repair_task_count,
+        blockers=published_article_deletion_blockers(db, [article.id])[article.id],
+    )
+
+
+def _raise_if_published_article_in_use(scope: _PublishedArticleDeletionScope) -> None:
+    if not scope.blockers:
+        return
+    labels = {
+        "GEO_OBSERVATION": "GEO 观测",
+        "GEO_OPTIMIZATION_SOURCE": "GEO 优化来源",
+    }
+    raise in_use(
+        "PUBLISHED_ARTICLE_IN_USE",
+        "发布成果",
+        [
+            (blocker.type.value, labels[blocker.type.value], blocker.count)
+            for blocker in scope.blockers
+        ],
+    )
+
+
+def preview_published_article_permanent_deletion(
+    *, db: Session, article_id: uuid.UUID
+) -> PublishedArticlePermanentDeletionPreview:
+    """返回管理员确认成果永久删除所需的实时范围。"""
+    scope = _published_article_deletion_scope(db, article_id)
+    _raise_if_published_article_in_use(scope)
+    if scope.work.final_url is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布成果缺少公开地址", 409)
+    return PublishedArticlePermanentDeletionPreview(
+        article_id=scope.article.id,
+        revision=scope.work.revision,
+        counts=PublishedArticlePermanentDeletionCounts(
+            publication_events=len(scope.events),
+            publication_verifications=len(scope.verifications),
+            published_content_issues=len(scope.issues),
+            detached_repair_tasks=scope.detached_repair_task_count,
+            attachment_relations=len(scope.publication_file_ids),
+        ),
+        external_url=scope.work.final_url,
+        confirmation_text="永久删除",
+    )
+
+
+def permanently_delete_published_article(
+    *,
+    db: Session,
+    article_id: uuid.UUID,
+    payload: PublishedArticlePermanentDeleteRequest,
+    actor: User,
+    request_id: str,
+) -> None:
+    """永久删除无 GEO 引用的发布聚合，并恢复来源任务。"""
+    scope = _published_article_deletion_scope(db, article_id)
+    if scope.work.revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "发布成果已被其他请求修改", 409)
+    if payload.confirmation_text != "永久删除":
+        raise AppError(
+            "PERMANENT_DELETE_CONFIRMATION_MISMATCH",
+            "永久删除确认文本不匹配",
+            422,
+        )
+    _raise_if_published_article_in_use(scope)
+    db.scalar(
+        select(
+            func.set_config(
+                "partsignal.published_article_delete_id",
+                str(scope.article.id),
+                True,
+            )
+        )
+    )
+    _delete_audit_targets(
+        db,
+        {
+            "PublicationWork": [scope.work.id],
+            "PublishedArticle": [scope.article.id],
+            "PublishedContentIssue": [issue.id for issue in scope.issues],
+        },
+    )
+    if scope.issues:
+        db.execute(
+            delete(PublishedContentIssue).where(
+                PublishedContentIssue.id.in_([issue.id for issue in scope.issues])
+            )
+        )
+    db.execute(delete(PublishedArticle).where(PublishedArticle.id == scope.article.id))
+    db.execute(
+        delete(PublicationAttachment).where(
+            PublicationAttachment.publication_work_id == scope.work.id
+        )
+    )
+    db.execute(
+        delete(PublicationWorkEvent).where(
+            PublicationWorkEvent.publication_work_id == scope.work.id
+        )
+    )
+    db.execute(
+        delete(PublicationVerification).where(
+            PublicationVerification.publication_work_id == scope.work.id
+        )
+    )
+    db.execute(delete(PublicationWork).where(PublicationWork.id == scope.work.id))
+    scope.task.status = "OPEN"
+    scope.task.revision += 1
+    cleanup_time = datetime.now(UTC)
+    for file_id in scope.publication_file_ids:
+        schedule_unreferenced_file(db, file_id, cleanup_after=cleanup_time)
+    _audit(
+        db,
+        actor=actor,
+        request_id=request_id,
+        action="published_article.permanently_deleted",
+        target_type="PublishedArticle",
+        target_id=scope.article.id,
+        message="发布成果及其内部历史已永久删除，来源任务已恢复",
+    )
+    db.commit()
+
+
 def _task_deletion_scope(db: Session, task: ContentTask) -> _TaskDeletionScope:
     """锁定任务聚合并计算普通/永久删除共用的精确范围。"""
     jobs = list(
@@ -1062,11 +1276,7 @@ def _task_deletion_scope(db: Session, task: ContentTask) -> _TaskDeletionScope:
             exclusive_file_ids = list(
                 db.scalars(
                     select(GeoObservationAttachment.file_id)
-                    .where(
-                        GeoObservationAttachment.observation_id.in_(
-                            exclusive_observation_ids
-                        )
-                    )
+                    .where(GeoObservationAttachment.observation_id.in_(exclusive_observation_ids))
                     .distinct()
                     .order_by(GeoObservationAttachment.file_id)
                 )
@@ -1127,9 +1337,7 @@ def preview_content_task_permanent_deletion(
     return _permanent_deletion_preview(task, _task_deletion_scope(db, task))
 
 
-def _delete_audit_targets(
-    db: Session, targets: dict[str, list[uuid.UUID]]
-) -> None:
+def _delete_audit_targets(db: Session, targets: dict[str, list[uuid.UUID]]) -> None:
     """只清理本次已删除对象的旧审计。"""
     for target_type, target_ids in targets.items():
         if target_ids:
@@ -1143,6 +1351,7 @@ def _delete_audit_targets(
 
 def _delete_task_core(db: Session, task: ContentTask, scope: _TaskDeletionScope) -> None:
     """删除发布前后共用的任务自有记录，不提交事务。"""
+    db.scalar(select(func.set_config("partsignal.content_task_delete_id", str(task.id), True)))
     work_ids = [work.id for work in scope.works]
     version_ids = [version.id for version in scope.versions]
     if work_ids:
@@ -1162,10 +1371,7 @@ def _delete_task_core(db: Session, task: ContentTask, scope: _TaskDeletionScope)
             )
         )
         db.execute(delete(PublicationWork).where(PublicationWork.id.in_(work_ids)))
-    db.execute(
-        delete(ContentTaskGeoSource).where(ContentTaskGeoSource.content_task_id == task.id)
-    )
-    db.scalar(select(func.set_config("partsignal.content_task_delete_id", str(task.id), True)))
+    db.execute(delete(ContentTaskGeoSource).where(ContentTaskGeoSource.content_task_id == task.id))
     task.current_content_version_id = None
     db.flush()
     if version_ids:
@@ -1188,9 +1394,7 @@ def _delete_task_core(db: Session, task: ContentTask, scope: _TaskDeletionScope)
         schedule_unreferenced_file(db, file_id, cleanup_after=cleanup_time)
 
 
-def _task_audit_targets(
-    task: ContentTask, scope: _TaskDeletionScope
-) -> dict[str, list[uuid.UUID]]:
+def _task_audit_targets(task: ContentTask, scope: _TaskDeletionScope) -> dict[str, list[uuid.UUID]]:
     return {
         "ContentTask": [task.id],
         "GenerationJob": [item.id for item in scope.jobs],
@@ -1202,9 +1406,7 @@ def _task_audit_targets(
     }
 
 
-def archive_content_task(
-    *, db: Session, task_id: uuid.UUID, expected_revision: int
-) -> ContentTask:
+def archive_content_task(*, db: Session, task_id: uuid.UUID, expected_revision: int) -> ContentTask:
     """归档已完成任务，仅改变默认可见性。"""
     task = db.scalar(select(ContentTask).where(ContentTask.id == task_id).with_for_update())
     if task is None:
@@ -1219,9 +1421,7 @@ def archive_content_task(
     return task
 
 
-def restore_content_task(
-    *, db: Session, task_id: uuid.UUID, expected_revision: int
-) -> ContentTask:
+def restore_content_task(*, db: Session, task_id: uuid.UUID, expected_revision: int) -> ContentTask:
     """恢复已归档任务，不改变其业务状态。"""
     task = db.scalar(select(ContentTask).where(ContentTask.id == task_id).with_for_update())
     if task is None:
@@ -1342,6 +1542,7 @@ def permanently_delete_content_task(
     scope = _task_deletion_scope(db, task)
     if any(job.status in {"PENDING", "RUNNING"} for job in scope.jobs):
         raise AppError("CONTENT_TASK_BUSY", "任务仍有运行中的生成作业", 409)
+    db.scalar(select(func.set_config("partsignal.content_task_delete_id", str(task.id), True)))
     for root_id in scope.exclusive_geo_chain_roots:
         _delete_manual_observation_chain(db, root_id)
     article_ids = [article.id for article in scope.articles]

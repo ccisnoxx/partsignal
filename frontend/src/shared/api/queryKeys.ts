@@ -82,6 +82,7 @@ export const queryKeys = {
     work: (id: string) => ['publications', 'work', id] as const,
     articles: (page: number, pageSize: number) => ['publications', 'articles', { page, pageSize }] as const,
     article: (id: string) => ['publications', 'article', id] as const,
+    articleDeletionPreview: (id: string) => ['publications', 'article-deletion-preview', id] as const,
     issues: (page: number, pageSize: number, status?: string) => ['publications', 'issues', { page, pageSize, status }] as const,
     issue: (id: string) => ['publications', 'issue', id] as const,
     repair: (id: string) => ['publications', 'repair', id] as const,

@@ -90,6 +90,7 @@ type DeletionLinkResolver = (blocker: DeletionBlocker) =>
 - 受约束物理删除对象存在非空 `deletion.blockers` 时，更多菜单显示“查看删除条件”，不得悄悄隐藏全部删除相关入口。共享组件只显示当前阻断类型、数量和新标签页链接；精确筛选 URL 与文案由当前 feature 提供。
 - 平台账号数量和 Prompt 绑定数量属于确认影响，不是阻断。平台确认必须明确账号随平台清理、任务不级联；Prompt 确认必须列出自动解绑平台。前端不得自行级联、轮询猜测或本地补回动作。
 - 内容任务默认只请求 `archive_status=ACTIVE`。`ARCHIVE`、`RESTORE` 和 `PERMANENT_DELETE` 只消费服务端动作；永久删除先读取预览，展示分项数量、外部 URL 与不可恢复提示，并要求输入固定文本 `永久删除` 后才提交。
+- 发布成果同样只消费服务端 `deletion` 与 `PERMANENT_DELETE`：无 GEO 阻断时读取实时预览并确认，存在阻断时复用“查看删除条件”；前端不得按问题状态或页面列表推断资格。
 
 #### 4. 校验与错误矩阵
 

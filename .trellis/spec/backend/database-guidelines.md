@@ -256,7 +256,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - 当前发布结构由 `0034_publication_redesign` 建立，并由 `0035_business_workflow`、`0036_remove_section_url` 前向收敛；历史 revision 与 `migration_schema_v1.py` 保持冻结。
 - `PublicationWork` 唯一拥有发布过程当前状态；`PublicationWorkEvent` 与 `PublicationVerification` 是追加式历史，`PublishedArticle` 是首次成功核验形成的只读公开成果，`PublishedContentIssue` 只描述成功发布后的页面问题。
 - `COMPLETED` 表示工作曾通过首次核验。成功核验、同 ID `PublishedArticle` 创建和来源 `ContentTask.COMPLETED` 必须同事务提交；失败核验只追加快照并进入 `ACTION_REQUIRED`，不得完成或取消任务。
-- 非终态工作只能通过带原因和说明的关闭命令进入 `CLOSED`，并原子取消来源任务；这些对象不能单项物理删除，唯一聚合例外是管理员永久删除其已归档来源任务。
+- 非终态工作只能通过带原因和说明的关闭命令进入 `CLOSED`，并原子取消来源任务；发布对象不得裸删，只允许两种显式聚合删除：管理员永久删除已归档来源任务，或管理员在成果没有 GEO 观测/引用及 GEO 优化来源时永久删除单个发布聚合。后者必须删除成果拥有的工作、事件、核验、附件关系与问题，保留批准内容和修复任务，并将来源任务恢复为 `OPEN`；数据库守卫必须在事务内复核删除语境与 GEO 依赖。
 - 平台、账号、内容版本和内容哈希绑定由应用服务给出结构化错误，并由 PostgreSQL 约束或触发器最终保护。测试必须同时覆盖 API 与直接数据库写入。
 - `PublishedContentIssue` 只能从 revision 0 的 `OPEN` 开始，文章绑定与打开事实不可变；唯一状态变化是带处理结果、非空说明和单次 revision 递增的 `OPEN -> RESOLVED`。
 - 修复任务来源 `source_published_content_issue_id` 一旦写入不可改绑且唯一。创建修复任务与解决问题是独立命令，任何一方不得从另一方状态推断完成。

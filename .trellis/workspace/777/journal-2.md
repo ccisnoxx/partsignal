@@ -721,3 +721,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 80: 受控删除发布成果
+
+**Date**: 2026-08-06
+**Task**: 受控删除发布成果
+**Branch**: `main`
+
+### Summary
+
+实现管理员受控永久删除无 GEO 下游引用的发布成果聚合，补齐数据库最终守卫、服务端依赖投影、前端确认交互、回归测试与权威规范。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4949929` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

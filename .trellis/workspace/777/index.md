@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 80
+- **Total Sessions**: 81
 - **Last Active**: 2026-08-06
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~756 | Active |
+| `journal-2.md` | ~790 | Active |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 81 | 2026-08-06 | 推送并重新部署生产环境 | `4829a85`, `d7ca503` | `main` |
 | 80 | 2026-08-06 | 受控删除发布成果 | `4949929` | `main` |
 | 79 | 2026-08-06 | 实现 GEO 问题受约束删除 | `fdfadea` | `main` |
 | 78 | 2026-08-06 | 生产环境全业务流程验收与搜索误报复核 | - | `main` |

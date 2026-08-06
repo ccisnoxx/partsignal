@@ -754,3 +754,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 81: 推送并重新部署生产环境
+
+**Date**: 2026-08-06
+**Task**: 推送并重新部署生产环境
+**Branch**: `main`
+
+### Summary
+
+将 main 非强制推送至 origin，完成 Hostdzire 全量部署、迁移前备份、Alembic 0038 升级、公网与浏览器只读验收，并将 current 更新到 mvp-20260806-152447-4829a8584574；未执行生产业务写入。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4829a85` | (see git log) |
+| `d7ca503` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

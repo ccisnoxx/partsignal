@@ -282,7 +282,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0037_simplify_deletion_lifecycle",)
+            assert cursor.fetchone() == ("0040_content_draft_management",)
             cursor.execute(
                 "SELECT tablename FROM pg_tables "
                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
@@ -435,10 +435,10 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
             text=True,
         )
         assert downgrade.returncode != 0
-        assert "0037 无法安全降级" in downgrade.stdout + downgrade.stderr
+        assert "0040 无法安全降级" in downgrade.stdout + downgrade.stderr
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0037_simplify_deletion_lifecycle",)
+            assert cursor.fetchone() == ("0040_content_draft_management",)
 
 
 @pytest.mark.integration
@@ -3256,9 +3256,7 @@ def test_reusable_platform_prompt_migration_preserves_rows_and_guards_downgrade(
             text=True,
         )
         assert downgrade.returncode != 0
-        assert "Prompt 已共享或未绑定，无法无损降级" in (
-            downgrade.stdout + downgrade.stderr
-        )
+        assert "Prompt 已共享或未绑定，无法无损降级" in (downgrade.stdout + downgrade.stderr)
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
             assert cursor.fetchone() == ("0031_reusable_platform_prompts",)
@@ -3350,9 +3348,7 @@ def test_content_task_creation_idempotency_migration_preserves_history_and_downg
                 "WHERE table_schema = 'public' AND table_name = 'content_tasks' "
                 "AND constraint_type = 'UNIQUE'"
             )
-            assert "uq_content_tasks_idempotency_key" in {
-                row[0] for row in cursor.fetchall()
-            }
+            assert "uq_content_tasks_idempotency_key" in {row[0] for row in cursor.fetchall()}
             cursor.execute(
                 "INSERT INTO content_tasks "
                 "(id, product_id, fact_version_id, platform_profile_id, status, revision, "
@@ -3376,9 +3372,7 @@ def test_content_task_creation_idempotency_migration_preserves_history_and_downg
                     ("content-task-migration-key", ids["second"]),
                 )
             connection.rollback()
-            cursor.execute(
-                "SELECT count(*) FROM content_tasks WHERE idempotency_key IS NULL"
-            )
+            cursor.execute("SELECT count(*) FROM content_tasks WHERE idempotency_key IS NULL")
             assert cursor.fetchone() == (1,)
 
         subprocess.run(
@@ -3729,8 +3723,7 @@ def test_remove_publication_section_url_migration_preserves_work_and_guards() ->
                 ids["actor"],
             )
             cursor.execute(
-                "SELECT pg_get_functiondef("
-                "'partsignal_guard_publication_work()'::regprocedure)"
+                "SELECT pg_get_functiondef('partsignal_guard_publication_work()'::regprocedure)"
             )
             assert "section_url" not in cursor.fetchone()[0]
 
@@ -3973,3 +3966,68 @@ def test_business_workflow_migration_blocks_ambiguous_fact_history_atomically() 
                 "WHERE table_name = 'content_tasks' AND column_name = 'current_content_version_id'"
             )
             assert cursor.fetchone() is None
+
+
+@pytest.mark.integration
+def test_content_draft_management_migration_limits_update_and_delete_windows() -> None:
+    """0040 只允许当前人工未审核草稿保存，并要求精确删除事务语境。"""
+    with temporary_database("partsignal_content_draft_management") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0034_publication_redesign")
+        ids = _seed_business_workflow_base(test_url)
+        run_alembic(env, backend_dir, "head")
+        draft_id = uuid.uuid4()
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO content_versions "
+                "(id, task_id, fact_version_id, based_on_id, version, source_type, title, "
+                "summary, body_markdown, tags, content_hash, status, revision, quality_issues, "
+                "change_summary, created_by) VALUES "
+                "(%s, %s, %s, %s, 2, 'HUMAN', '人工草稿', '初始摘要', '初始正文', "
+                "ARRAY['草稿'], %s, 'DRAFT', 0, '[]'::jsonb, '人工草稿', %s)",
+                (
+                    draft_id,
+                    ids["task"],
+                    ids["fact"],
+                    ids["content"],
+                    "b" * 64,
+                    ids["actor"],
+                ),
+            )
+            cursor.execute(
+                "UPDATE content_tasks SET current_content_version_id = %s WHERE id = %s",
+                (draft_id, ids["task"]),
+            )
+            cursor.execute(
+                "UPDATE content_versions SET title = '已保存人工草稿', revision = 1 WHERE id = %s",
+                (draft_id,),
+            )
+            connection.commit()
+
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute("DELETE FROM content_versions WHERE id = %s", (draft_id,))
+            connection.rollback()
+
+            cursor.execute(
+                "UPDATE content_tasks SET current_content_version_id = %s WHERE id = %s",
+                (ids["content"], ids["task"]),
+            )
+            cursor.execute(
+                "SELECT set_config('partsignal.content_version_delete_id', %s, true)",
+                (str(draft_id),),
+            )
+            cursor.execute("DELETE FROM content_versions WHERE id = %s", (draft_id,))
+            connection.commit()
+            cursor.execute("SELECT count(*) FROM content_versions WHERE id = %s", (draft_id,))
+            assert cursor.fetchone() == (0,)
+
+            cursor.execute(
+                "SELECT set_config('partsignal.content_version_delete_id', %s, true)",
+                (str(ids["content"]),),
+            )
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute("DELETE FROM content_versions WHERE id = %s", (ids["content"],))
+            connection.rollback()

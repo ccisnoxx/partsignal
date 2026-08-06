@@ -121,3 +121,33 @@ def test_content_revision_routes_reject_invalid_tags(path: str, tags: list[str])
     payload = response.json()["error"]
     assert payload["code"] == "VALIDATION_ERROR"
     assert any(issue["loc"][:2] == ["body", "tags"] for issue in payload["details"]["errors"])
+
+
+def test_content_draft_update_rejects_empty_tags_before_business_command() -> None:
+    """人工草稿原地保存继续使用内容标签请求边界。"""
+    csrf_token = "contract-test-csrf-token-more-than-32-characters"
+    current_session = SimpleNamespace(
+        user=SimpleNamespace(account_type="ENGINEER"),
+        csrf_hash=hash_token(csrf_token),
+    )
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_current_session] = lambda: current_session
+    try:
+        response = TestClient(app).put(
+            f"/api/v1/content-versions/{uuid.uuid4()}",
+            headers={"X-CSRF-Token": csrf_token},
+            json={
+                "expected_revision": 0,
+                "title": "标题",
+                "summary": "摘要",
+                "body_markdown": "正文",
+                "tags": [],
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    payload = response.json()["error"]
+    assert payload["code"] == "VALIDATION_ERROR"
+    assert any(issue["loc"][:2] == ["body", "tags"] for issue in payload["details"]["errors"])

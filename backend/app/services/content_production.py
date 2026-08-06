@@ -12,8 +12,10 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.audit import append_audit
+from app.audit_types import AuditEntry, AuditModule, AuditOutcome
 from app.config import settings
-from app.errors import AppError, not_found
+from app.errors import AppError, in_use, not_found
 from app.models.ai_generation import (
     AIChannel,
     AIModel,
@@ -25,6 +27,7 @@ from app.models.configuration import (
     PlatformPrompt,
 )
 from app.models.content import (
+    ContentReviewRecord,
     ContentTask,
     ContentVersion,
 )
@@ -34,6 +37,7 @@ from app.models.product_facts import (
     Product,
 )
 from app.schemas.content import (
+    ContentDraftUpdate,
     ContentRevisionCreate,
     GenerationFactSnapshot,
     GenerationSnapshot,
@@ -48,6 +52,7 @@ from app.schemas.geo_files import GeneratedDraft
 from app.schemas.product_facts import Confidentiality
 from app.services.ai_configuration import require_supported_protocol
 from app.services.content_lineage import resolve_content_ai_lineage
+from app.services.content_version_policy import content_version_delete_references
 from app.services.generation import (
     GENERATION_CONTRACT_VERSION,
     HUMANIZATION_CONTRACT_VERSION,
@@ -284,9 +289,7 @@ def _create_job(
 ) -> tuple[GenerationJob, bool]:
     """创建幂等作业；同一键不能被另一业务请求复用。"""
     original_generation = retry_of is None and source is None
-    if original_generation and (
-        platform_prompt_id is None or platform_prompt_revision is None
-    ):
+    if original_generation and (platform_prompt_id is None or platform_prompt_revision is None):
         raise AppError("PLATFORM_PROMPT_REQUIRED", "必须确认平台当前 Prompt", 422)
     existing = db.scalar(
         select(GenerationJob).where(GenerationJob.idempotency_key == idempotency_key)
@@ -406,9 +409,13 @@ def create_generation_job(
         raise not_found("内容任务")
     if task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "只有 OPEN 内容任务可以生成草稿", 409)
-    if task.current_content_version_id is not None and db.scalar(
-        select(GenerationJob.id).where(GenerationJob.idempotency_key == idempotency_key)
-    ) is None:
+    if (
+        task.current_content_version_id is not None
+        and db.scalar(
+            select(GenerationJob.id).where(GenerationJob.idempotency_key == idempotency_key)
+        )
+        is None
+    ):
         raise AppError("CONTENT_MAINLINE_EXISTS", "任务已有当前内容版本，不能重复创建首稿", 409)
     model = db.get(AIModel, payload.ai_model_id)
     if model is None:
@@ -592,12 +599,24 @@ def _validated_manual_draft(payload: ContentRevisionCreate) -> GeneratedDraft:
     """复用严格文章结构，并把人工输入错误留在请求边界。"""
     if not payload.change_summary.strip():
         raise AppError("VALIDATION_ERROR", "变更说明不能为空白", 422)
+    return _validated_content_fields(
+        title=payload.title,
+        summary=payload.summary,
+        body_markdown=payload.body_markdown,
+        tags=payload.tags,
+    )
+
+
+def _validated_content_fields(
+    *, title: str, summary: str, body_markdown: str, tags: list[str]
+) -> GeneratedDraft:
+    """以生成结果的同一结构校验人工可编辑正文。"""
     try:
         return GeneratedDraft(
-            title=payload.title,
-            summary=payload.summary,
-            body_markdown=payload.body_markdown,
-            tags=payload.tags,
+            title=title,
+            summary=summary,
+            body_markdown=body_markdown,
+            tags=tags,
         )
     except ValidationError as error:
         raise AppError("VALIDATION_ERROR", "标题、摘要、正文和标签均必须填写", 422) from error
@@ -709,7 +728,9 @@ def create_content_revision(
         raise AppError("GENERATION_SNAPSHOT_INVALID", "内容版本与任务事实不一致", 409)
     if task.current_content_version_id != source.id:
         raise AppError("CONTENT_VERSION_NOT_CURRENT", "只能基于任务当前内容版本创建修订", 409)
-    if source.status not in {"DRAFT", "CHANGES_REQUESTED", "APPROVED"}:
+    if source.status not in {"DRAFT", "CHANGES_REQUESTED", "APPROVED"} or (
+        source.status == "DRAFT" and source.source_type != "AI"
+    ):
         raise AppError("INVALID_STATE_TRANSITION", "当前内容版本不能创建修订", 409)
     _require_approved_task_fact(db, task)
     content = _create_human_content(
@@ -721,6 +742,131 @@ def create_content_revision(
     )
     db.commit()
     return content
+
+
+def update_content_draft(
+    *,
+    db: Session,
+    content_version_id: uuid.UUID,
+    payload: ContentDraftUpdate,
+    actor: User,
+    request_id: str,
+) -> ContentVersion:
+    """原地保存任务当前的人工未审核草稿。"""
+    identity = db.get(ContentVersion, content_version_id)
+    if identity is None:
+        raise not_found("内容版本")
+    task = db.scalar(
+        select(ContentTask).where(ContentTask.id == identity.task_id).with_for_update()
+    )
+    content = db.scalar(
+        select(ContentVersion).where(ContentVersion.id == content_version_id).with_for_update()
+    )
+    if task is None or content is None:
+        raise not_found("内容版本")
+    if content.revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "内容版本已被其他请求修改", 409)
+    if task.current_content_version_id != content.id:
+        raise AppError("CONTENT_VERSION_NOT_CURRENT", "只能保存任务当前内容版本", 409)
+    if (
+        task.status != "OPEN"
+        or content.source_type != "HUMAN"
+        or content.source_job_id is not None
+        or content.status != "DRAFT"
+    ):
+        raise AppError("INVALID_STATE_TRANSITION", "当前内容版本不能原地保存", 409)
+    if (
+        db.scalar(
+            select(ContentReviewRecord.id).where(
+                ContentReviewRecord.content_version_id == content.id
+            )
+        )
+        is not None
+    ):
+        raise AppError("INVALID_STATE_TRANSITION", "已进入审核的内容版本不能原地保存", 409)
+
+    draft = _validated_content_fields(
+        title=payload.title,
+        summary=payload.summary,
+        body_markdown=payload.body_markdown,
+        tags=payload.tags,
+    )
+    quality_issues: list[dict[str, str]] = []
+    add_near_duplicate_warning(db, task, draft, quality_issues)
+    content.title = draft.title
+    content.summary = draft.summary
+    content.body_markdown = draft.body_markdown
+    content.tags = draft.tags
+    content.content_hash = content_hash(draft.title, draft.summary, draft.body_markdown, draft.tags)
+    content.quality_issues = quality_issues
+    content.revision += 1
+    db.commit()
+    return content
+
+
+def delete_content_draft(
+    *,
+    db: Session,
+    content_version_id: uuid.UUID,
+    expected_revision: int,
+    actor: User,
+    request_id: str,
+) -> None:
+    """彻底删除无审核和下游引用的人工草稿。"""
+    identity = db.get(ContentVersion, content_version_id)
+    if identity is None:
+        raise not_found("内容版本")
+    task = db.scalar(
+        select(ContentTask).where(ContentTask.id == identity.task_id).with_for_update()
+    )
+    content = db.scalar(
+        select(ContentVersion).where(ContentVersion.id == content_version_id).with_for_update()
+    )
+    if task is None or content is None:
+        raise not_found("内容版本")
+    if content.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "内容版本已被其他请求修改", 409)
+    if (
+        content.source_type != "HUMAN"
+        or content.source_job_id is not None
+        or content.status not in {"DRAFT", "ABANDONED"}
+    ):
+        raise AppError("INVALID_STATE_TRANSITION", "只有人工未审核草稿可以彻底删除", 409)
+
+    references = content_version_delete_references(db, [content.id])[content.id]
+    if references:
+        raise in_use("CONTENT_VERSION_IN_USE", "内容草稿", references)
+
+    if content.based_on_id is not None:
+        parent = db.get(ContentVersion, content.based_on_id)
+        if parent is None or parent.task_id != task.id:
+            raise AppError("INVALID_STATE_TRANSITION", "内容草稿的直接父版本无效", 409)
+    if task.current_content_version_id == content.id:
+        task.current_content_version_id = content.based_on_id
+        task.revision += 1
+        db.flush()
+
+    deleted_version = content.version
+    db.scalar(
+        select(func.set_config("partsignal.content_version_delete_id", str(content.id), True))
+    )
+    db.delete(content)
+    db.flush()
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.CONTENT_PRODUCTION,
+            action="content_version.deleted",
+            target_type="ContentVersion",
+            target_id=content_version_id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="人工未审核草稿已彻底删除",
+            details={"facts": {"task_id": str(task.id), "version": deleted_version}},
+        ),
+    )
+    db.commit()
 
 
 def abandon_content_version(
@@ -746,7 +892,9 @@ def abandon_content_version(
         raise AppError("REVISION_CONFLICT", "内容版本已被其他请求修改", 409)
     if task.current_content_version_id != source.id:
         raise AppError("CONTENT_VERSION_NOT_CURRENT", "只能放弃任务当前内容版本", 409)
-    if source.status not in {"DRAFT", "CHANGES_REQUESTED"}:
+    if source.status not in {"DRAFT", "CHANGES_REQUESTED"} or (
+        source.status == "DRAFT" and source.source_type != "AI"
+    ):
         raise AppError("INVALID_STATE_TRANSITION", "当前内容版本不能放弃", 409)
     previous = db.scalar(
         select(ContentVersion)

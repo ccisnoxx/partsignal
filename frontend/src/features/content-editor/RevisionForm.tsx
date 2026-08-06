@@ -11,12 +11,16 @@ type RevisionDraft = Schema<'ContentRevisionCreate'>;
 
 export function RevisionForm({
   content,
+  mode,
+  saved,
   loading,
   error,
   onDirtyChange,
   onSubmit,
 }: {
   content: ContentVersion;
+  mode: 'save' | 'revision';
+  saved: boolean;
   loading: boolean;
   error?: unknown;
   onDirtyChange: (dirty: boolean) => void;
@@ -65,7 +69,9 @@ export function RevisionForm({
       <Alert
         type="info"
         showIcon
-        title="人工修订会创建新的不可变内容版本，Markdown 仍是唯一可编辑正文源。"
+        title={mode === 'save'
+          ? '当前人工草稿尚未提交审核，可直接编辑并保存到原版本。'
+          : '人工修订会创建新的不可变内容版本，Markdown 仍是唯一可编辑正文源。'}
       />
       <Tabs
         activeKey={view}
@@ -84,9 +90,9 @@ export function RevisionForm({
         <Form.Item className="revision-editor-field" name="body_markdown" label="Markdown 正文" rules={[{ required: true, whitespace: true, message: '请输入 Markdown 正文' }]}>
           <Input.TextArea rows={22} className="markdown-source revision-markdown-source" />
         </Form.Item>
-        <Form.Item name="change_summary" label="变更说明" rules={[{ required: true, whitespace: true, message: '请说明本次修改' }]}>
+        {mode === 'revision' && <Form.Item name="change_summary" label="变更说明" rules={[{ required: true, whitespace: true, message: '请说明本次修改' }]}>
           <Input placeholder="说明为什么创建这个新版本" />
-        </Form.Item>
+        </Form.Item>}
       </div>
       <section hidden={view !== 'preview'} className="revision-preview" aria-label="人工修订预览">
         <Typography.Title level={3}>{draft.title || '未填写标题'}</Typography.Title>
@@ -95,15 +101,18 @@ export function RevisionForm({
         <article className="markdown-preview" dangerouslySetInnerHTML={{ __html: preview }} />
       </section>
       <div ref={errorRef} tabIndex={-1}>
-        {error ? <Alert role="alert" type="error" showIcon title="创建修订失败" description={errorMessage(error)} /> : null}
+        {error ? <Alert role="alert" type="error" showIcon title={mode === 'save' ? '保存草稿失败' : '创建修订失败'} description={errorMessage(error)} /> : null}
       </div>
       <div className="form-save-bar revision-save-bar" aria-live="polite">
         <div className="form-save-feedback">
-          <Typography.Text strong>{loading ? '正在创建新版本' : error ? '创建失败，修订内容仍保留' : dirty ? '有未保存修改' : '尚未修改'}</Typography.Text>
-          <Typography.Text type="secondary">提交成功后将打开新版本，不会修改当前版本。</Typography.Text>
+          <Typography.Text strong>{loading
+            ? mode === 'save' ? '正在保存草稿' : '正在创建新版本'
+            : error ? mode === 'save' ? '保存失败，修改仍保留' : '创建失败，修订内容仍保留'
+              : dirty ? '有未保存修改' : saved ? '已保存' : '尚未修改'}</Typography.Text>
+          <Typography.Text type="secondary">{mode === 'save' ? '保存不会创建新版本；提交审核后将不可原地编辑。' : '提交成功后将打开新版本，不会修改当前版本。'}</Typography.Text>
         </div>
         <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={loading} disabled={!dirty}>
-          创建新版本
+          {mode === 'save' ? '保存草稿' : '创建新版本'}
         </Button>
       </div>
     </Form>

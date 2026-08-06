@@ -379,6 +379,8 @@ class ContentVersionOut(ContractModel):
     ]
     available_actions: list[
         Literal[
+            "SAVE",
+            "DELETE",
             "CREATE_REVISION",
             "CREATE_HUMANIZATION_JOB",
             "SUBMIT_REVIEW",
@@ -399,6 +401,16 @@ class ContentRevisionCreate(ContractModel):
     body_markdown: str = Field(min_length=1)
     tags: list[ContentTag] = Field(min_length=1)
     change_summary: str = Field(min_length=1)
+
+
+class ContentDraftUpdate(ContractModel):
+    """提交审核前覆盖当前人工草稿的可编辑字段。"""
+
+    expected_revision: int = Field(ge=0)
+    title: str = Field(min_length=1)
+    summary: str = Field(min_length=1)
+    body_markdown: str = Field(min_length=1)
+    tags: list[ContentTag] = Field(min_length=1)
 
 
 class ContentVersionList(ContractModel):

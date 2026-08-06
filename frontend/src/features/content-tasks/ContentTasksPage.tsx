@@ -32,7 +32,7 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
 import { ApiError, api, csrfHeader, ensureSuccess, errorMessage, newIdempotencyKey, unwrap } from '../../shared/api/client';
 import { platformProfilesQueryOptions, productsQueryOptions } from '../../shared/api/queryOptions';
@@ -233,7 +233,7 @@ function PermanentDeleteTaskModal({
       {deletionPreview.error && <QueryFailure error={deletionPreview.error} onRetry={() => void deletionPreview.refetch()} />}
       {counts && <Descriptions size="small" column={{ xs: 1, sm: 2 }} items={[
         { label: '内容版本 / 审核', children: `${counts.content_versions} / ${counts.content_review_records}` },
-        { label: '生成作业', children: counts.generation_jobs },
+        { label: 'AI 生成记录', children: counts.generation_jobs },
         { label: '发布工作 / 事件', children: `${counts.publication_works} / ${counts.publication_events}` },
         { label: '核验 / 文章', children: `${counts.publication_verifications} / ${counts.published_articles}` },
         { label: '发布后问题', children: counts.published_content_issues },
@@ -355,7 +355,7 @@ function TaskList() {
   });
   const confirmDeleteTask = (target: ContentTaskListItem) => modal.confirm({
     title: '删除内容任务？',
-    content: '将同时删除该任务的内容版本、审核记录、生成作业和未成功发布历史。成功文章或 GEO 关系需要先归档；操作不可恢复。',
+    content: '将同时删除该任务的内容版本、审核记录、AI 生成记录和未成功发布历史。成功文章或 GEO 关系需要先归档；操作不可恢复。',
     okText: '确认删除',
     cancelText: '取消',
     okButtonProps: { danger: true },
@@ -540,7 +540,7 @@ function TaskList() {
                         ],
                       }}
                     >{moreButton}</Dropdown> : (
-                      <Tooltip title="服务端当前未返回可执行操作；可能存在进行中作业或当前账号无权操作。">
+                      <Tooltip title="服务端当前未返回可执行操作；可能存在进行中的 AI 生成或当前账号无权操作。">
                         <span tabIndex={0} aria-label="当前任务没有可执行操作">{moreButton}</span>
                       </Tooltip>
                     )}
@@ -599,17 +599,24 @@ function TaskCreateModal({
   open,
   initialProductId,
   initialFactVersionId,
+  initialPlatformProfileId,
+  preferLatestApprovedFact = false,
+  sourceFactVersionId,
   onClose,
   onCreated,
 }: {
   open: boolean;
   initialProductId?: string;
   initialFactVersionId?: string;
+  initialPlatformProfileId?: string;
+  preferLatestApprovedFact?: boolean;
+  sourceFactVersionId?: string;
   onClose: () => void;
-  onCreated?: (created: Schema<'ContentTask'>, factIsPublic: boolean) => void | Promise<void>;
+  onCreated?: (created: Schema<'ContentTask'>) => void | Promise<void>;
 }) {
   const [form] = Form.useForm<Schema<'ContentTaskCreate'>>();
   const productId = Form.useWatch('product_id', form);
+  const factVersionId = Form.useWatch('fact_version_id', form);
   const idempotencyKey = useRef<string | undefined>(undefined);
   useEffect(() => {
     idempotencyKey.current = open ? newIdempotencyKey() : undefined;
@@ -618,9 +625,10 @@ function TaskCreateModal({
       form.setFieldsValue({
         product_id: initialProductId,
         fact_version_id: initialFactVersionId,
+        platform_profile_id: initialPlatformProfileId,
       });
     }
-  }, [form, initialFactVersionId, initialProductId, open]);
+  }, [form, initialFactVersionId, initialPlatformProfileId, initialProductId, open]);
   const products = useQuery({ ...productsQueryOptions(), enabled: open });
   const platforms = useQuery({ ...platformProfilesQueryOptions(), enabled: open });
   const facts = useQuery({
@@ -629,29 +637,54 @@ function TaskCreateModal({
     enabled: open && !!productId,
     staleTime: QUERY_STALE_TIME.detail,
   });
+  const approvedFacts = useMemo(
+    () => facts.data?.items.filter((item) => item.status === 'APPROVED').sort((left, right) => right.version - left.version) ?? [],
+    [facts.data?.items],
+  );
+  const latestApprovedFact = approvedFacts[0];
+  const sourceFact = facts.data?.items.find((item) => item.id === sourceFactVersionId);
+  const selectedFact = facts.data?.items.find((item) => item.id === factVersionId);
+  const initialPlatformAvailable = !initialPlatformProfileId
+    || platforms.data?.items.some((item) => item.id === initialPlatformProfileId && item.is_active);
+  useEffect(() => {
+    if (!open || !preferLatestApprovedFact || !productId || !facts.data || form.getFieldValue('fact_version_id')) return;
+    form.setFieldValue('fact_version_id', latestApprovedFact?.id);
+  }, [facts.data, form, latestApprovedFact?.id, open, preferLatestApprovedFact, productId]);
+  useEffect(() => {
+    if (open && platforms.data && !initialPlatformAvailable) form.setFieldValue('platform_profile_id', undefined);
+  }, [form, initialPlatformAvailable, open, platforms.data]);
   const create = useMutation({
     mutationFn: async ({ body, key }: { body: Schema<'ContentTaskCreate'>; key: string }) => unwrap(await api.POST(
       '/api/v1/content-tasks',
       { params: { header: { ...csrfHeader(), 'Idempotency-Key': key } }, body },
     )),
-    onSuccess: async (created, { body }) => {
-      const selectedFact = facts.data?.items.find((item) => item.id === body.fact_version_id);
+    onSuccess: async (created) => {
       idempotencyKey.current = undefined;
       onClose();
       await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all });
-      await onCreated?.(created, selectedFact?.classification === 'PUBLIC');
+      await onCreated?.(created);
     },
   });
   const dependencyError = products.error ?? platforms.error ?? facts.error;
   const dependenciesLoading = products.isLoading || platforms.isLoading || (!!productId && facts.isLoading);
 
-  return <Modal title="创建内容任务" open={open} onCancel={() => {
+  return <Modal title={preferLatestApprovedFact ? '基于当前上下文新建任务' : '创建内容任务'} open={open} onCancel={() => {
     idempotencyKey.current = undefined;
     onClose();
   }} footer={null} width={680} destroyOnHidden>
     {create.error && <Alert role="alert" className="form-alert" type="error" title={errorMessage(create.error)} />}
     {dependencyError && <QueryFailure error={dependencyError} onRetry={() => { void products.refetch(); void platforms.refetch(); if (productId) void facts.refetch(); }} />}
     {dependenciesLoading && <QueryLoading label="正在加载任务前置数据" />}
+    {preferLatestApprovedFact && sourceFact && selectedFact && <Alert
+      className="form-alert"
+      type={sourceFact.id === selectedFact.id ? 'info' : 'warning'}
+      showIcon
+      title={sourceFact.id === selectedFact.id
+        ? `沿用最新已批准事实版本 V${selectedFact.version}`
+        : `事实版本将从 V${sourceFact.version} 更新为 V${selectedFact.version}`}
+      description="新任务默认使用该产品最新已批准事实版本，仍可在创建前手动调整。"
+    />}
+    {platforms.data && !initialPlatformAvailable && <Alert className="form-alert" type="warning" showIcon title="原任务平台当前不可用，请重新选择目标平台。" />}
     <Form<Schema<'ContentTaskCreate'>>
       form={form}
       layout="vertical"
@@ -668,7 +701,7 @@ function TaskCreateModal({
         }} options={products.data?.items.map((item) => ({ value: item.id, label: `${item.brand} ${item.part_number}` }))} />
       </Form.Item>
       <Form.Item name="fact_version_id" label="已批准事实版本" rules={[{ required: true, message: '请选择已批准事实版本' }]}>
-        <Select disabled={!productId} options={facts.data?.items.filter((item) => item.status === 'APPROVED').map((item) => ({
+        <Select disabled={!productId} options={approvedFacts.map((item) => ({
           value: item.id,
           label: `V${item.version} · ${item.classification} · ${item.change_summary}`,
         }))} />
@@ -685,12 +718,7 @@ function TaskCreateModal({
 }
 
 function TaskDetail({ taskId }: { taskId: string }) {
-  const location = useLocation();
   const navigate = useNavigate();
-  const aiOpenRequested = typeof location.state === 'object'
-    && location.state !== null
-    && 'openAiGeneration' in location.state
-    && location.state.openAiGeneration === true;
   const { message, modal } = App.useApp();
   const activeSection = useActiveSection(taskSectionIds);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -698,7 +726,6 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const [permanentDeleteOpen, setPermanentDeleteOpen] = useState(false);
   const [replacementOpen, setReplacementOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
-  const [autoAiOpen, setAutoAiOpen] = useState(aiOpenRequested);
   const [aiOpen, setAiOpen] = useState(false);
   const [modelId, setModelId] = useState<string>();
   const [humanizeSource, setHumanizeSource] = useState<ContentVersion>();
@@ -739,8 +766,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
     staleTime: QUERY_STALE_TIME.workbench,
     refetchInterval: (query) => query.state.data?.items.some((job) => ['PENDING', 'RUNNING'].includes(job.status)) ? 2000 : false,
   });
-  const generationDialogOpen = aiOpen
-    || (autoAiOpen && !!task.data?.available_actions.includes('CREATE_GENERATION_JOB'));
+  const generationDialogOpen = aiOpen;
   const options = useQuery({
     queryKey: queryKeys.contentTasks.options(taskId),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/generation-options', { params: { path: { content_task_id: taskId } } })),
@@ -761,10 +787,9 @@ function TaskDetail({ taskId }: { taskId: string }) {
       }));
     },
     onSuccess: async () => {
-      setAutoAiOpen(false);
       setAiOpen(false);
       setModelId(undefined);
-      message.success('生成作业已创建');
+      message.success('AI 生成记录已创建');
       await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.jobs(taskId) });
     },
   });
@@ -779,7 +804,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
     onSuccess: async () => {
       setHumanizeSource(undefined);
       setHumanizeModelId(undefined);
-      message.success('自然化作业已创建');
+      message.success('自然化生成记录已创建');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.jobs(taskId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.versions(taskId) }),
@@ -853,15 +878,6 @@ function TaskDetail({ taskId }: { taskId: string }) {
     if (succeededJobs) void queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.versions(taskId) });
   }, [succeededJobs, taskId]);
 
-  useEffect(() => {
-    if (!autoAiOpen) return;
-    // 新任务的弹窗意图仅在当前详情实例生效；清除路由状态后，刷新不会重复打开。
-    navigate(
-      { pathname: location.pathname, search: location.search, hash: location.hash },
-      { replace: true, state: null },
-    );
-  }, [autoAiOpen, location.hash, location.pathname, location.search, navigate]);
-
   if (task.isLoading) return <QueryLoading label="正在加载内容任务" />;
   if (task.error instanceof ApiError && task.error.code === 'NOT_FOUND') {
     return <div className="page-stack"><PageHeader title="内容任务" breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: '任务详情' }]} /><NoData description="内容任务不存在或已删除" action={<Button onClick={() => navigate('/tasks', { replace: true })}>返回任务列表</Button>} /></div>;
@@ -876,10 +892,12 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const factIsPublic = fact.data?.classification === 'PUBLIC';
   const canGenerate = task.data.available_actions.includes('CREATE_GENERATION_JOB');
   const canCreateManualVersion = task.data.available_actions.includes('CREATE_MANUAL_VERSION');
-  const replacementRequired = !canGenerate;
-  const generationBlockReason = !isOpen
-    ? '当前任务已结束，历史任务保持只读，不能新增 AI 草稿。请创建新任务后继续。'
-    : fact.error
+  const currentVersion = versions.data?.items.find((item) => item.id === task.data.current_content_version_id);
+  const showFirstDraftEntry = isOpen && task.data.workflow_stage === 'NO_DRAFT';
+  const showCurrentWork = isOpen && !showFirstDraftEntry && !!currentVersion;
+  const showGenerationProgress = isOpen && !showFirstDraftEntry && !!versions.data && !currentVersion;
+  const showJobRecords = jobs.isLoading || !!jobs.error || !!jobs.data?.items.length;
+  const generationBlockReason = fact.error
       ? '事实版本加载失败，暂时无法确认是否允许发送给第三方模型。'
       : fact.data && !factIsPublic
         ? `事实分级为 ${fact.data.classification}，不能发送给第三方模型。请创建新任务并选择 PUBLIC 事实版本。`
@@ -905,7 +923,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
         {task.data.available_actions.includes('CANCEL') && <Button danger onClick={() => setCancelOpen(true)}>取消任务</Button>}
         {task.data.available_actions.includes('DELETE') && <Button danger loading={deleteTask.isPending} onClick={() => modal.confirm({
           title: '删除内容任务？',
-          content: '将同时删除该任务的内容版本、审核记录、生成作业和未成功发布历史。成功文章或 GEO 关系需要先归档；操作不可恢复。',
+          content: '将同时删除该任务的内容版本、审核记录、AI 生成记录和未成功发布历史。成功文章或 GEO 关系需要先归档；操作不可恢复。',
           okText: '确认删除',
           cancelText: '取消',
           okButtonProps: { danger: true },
@@ -937,7 +955,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
         description={task.data.status === 'OPEN'
           ? '服务端当前未返回取消操作，通常表示存在进行中的发布流程；详情暂时保持只读。'
           : task.data.status === 'CANCELLED'
-            ? '当前任务仍有进行中作业或当前账号无删除权限。'
+            ? '当前任务仍有进行中的 AI 生成或当前账号无删除权限。'
             : '任务已完成，具备权限的人员可归档后继续处理。'}
       />
     )}
@@ -945,7 +963,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
     {deleteTask.error && <DeletionError error={deleteTask.error} resolveLink={taskDeletionLink(taskId, task.data.source_published_content_issue_id)} />}
     <nav className="form-section-nav" aria-label="内容任务章节">
       <a href="#task-context" aria-current={activeSection === 'task-context' ? 'location' : undefined}>任务上下文</a>
-      <a href="#task-entry" aria-current={activeSection === 'task-entry' ? 'location' : undefined}>首稿入口</a>
+      <a href="#task-entry" aria-current={activeSection === 'task-entry' ? 'location' : undefined}>内容工作</a>
       <a href="#task-versions" aria-current={activeSection === 'task-versions' ? 'location' : undefined}>内容版本</a>
     </nav>
 
@@ -960,36 +978,47 @@ function TaskDetail({ taskId }: { taskId: string }) {
     </Card>
 
     <section id="task-entry" className="task-stage-grid workspace-section">
-      <Card title="02A / 系统 AI 生成" className="workspace-panel">
+      {showFirstDraftEntry && <Card title="02A / 系统 AI 生成" className="workspace-panel">
         {generationBlockReason
           ? <Alert type={fact.error && isOpen ? 'error' : 'warning'} showIcon title="当前不能生成 AI 草稿" description={generationBlockReason} />
           : <Alert type="info" showIcon title="打开弹窗后确认平台当前 Prompt，再选择已启用模型创建草稿。" />}
         <Typography.Paragraph>模型只接收已确认的 Prompt 和冻结事实 Markdown；手工录入不受 Prompt 配置影响。</Typography.Paragraph>
-        {replacementRequired
-          ? <Button type="primary" icon={<PlusOutlined />} onClick={() => setReplacementOpen(true)}>新建内容任务</Button>
-          : <Button
-              type="primary"
-              icon={<ThunderboltOutlined />}
-              loading={fact.isLoading}
-              disabled={!canGenerate}
-              onClick={() => {
-                setModelId(undefined);
-                createJob.reset();
-                setAiOpen(true);
-              }}
-            >生成 AI 草稿</Button>}
-      </Card>
-      <Card title="02B / 手动录入" className="workspace-panel">
-        <Alert type="info" showIcon title="可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 作业。" />
+        <Button
+          type="primary"
+          icon={<ThunderboltOutlined />}
+          loading={fact.isLoading}
+          disabled={!canGenerate}
+          onClick={() => {
+            setModelId(undefined);
+            createJob.reset();
+            setAiOpen(true);
+          }}
+        >生成 AI 草稿</Button>
+      </Card>}
+      {showFirstDraftEntry && <Card title="02B / 手动录入" className="workspace-panel">
+        <Alert type="info" showIcon title="可直接粘贴人工撰写或外部模型生成的 Markdown；不会创建 AI 生成记录。" />
         <Typography.Paragraph>手动首稿与 AI 草稿进入同一内容版本、审核和人工发布流程。</Typography.Paragraph>
         <Button type="primary" disabled={!canCreateManualVersion} onClick={() => setManualOpen(true)}>录入首个人工草稿</Button>
-      </Card>
+      </Card>}
+      {showCurrentWork && <Card title="02 / 当前内容工作" className="workspace-panel">
+        <Space wrap><StatusTag status={currentVersion.source_type} /><StatusTag status={currentVersion.status} /><span>V{currentVersion.version}</span></Space>
+        <Typography.Paragraph>{currentVersion.title}</Typography.Paragraph>
+        <Button type="primary" onClick={() => navigate(contentPrimaryHref(currentVersion, task.data.platform_profile_id))}>{contentTaskLabels[currentVersion.primary_task]}</Button>
+      </Card>}
+      {showGenerationProgress && <Card title="02 / 当前内容生产" className="workspace-panel">
+        <Alert type="info" showIcon title="当前没有可编辑内容版本，请在下方 AI 生成记录中查看进度或失败原因。" />
+      </Card>}
+      {!isOpen && <Card title="新一轮内容生产" className="workspace-panel">
+        <Alert type="info" showIcon title="历史任务保持只读；新的内容生产与发布周期需要创建新任务。" />
+        <Typography.Paragraph>沿用当前产品和有效平台，事实版本默认选择该产品最新已批准版本。</Typography.Paragraph>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setReplacementOpen(true)}>基于当前上下文新建任务</Button>
+      </Card>}
     </section>
 
-    <Card title="AI 作业" className="workspace-panel">
-      {jobs.isLoading ? <QueryLoading label="正在加载 AI 作业" />
-        : jobs.error || !jobs.data ? <QueryFailure error={jobs.error ?? new Error('AI 作业列表不存在')} onRetry={() => void jobs.refetch()} />
-          : jobs.data.items.length ? <TableRegion label="AI 作业列表"><Table
+    {showJobRecords && <Card title="AI 生成记录" className="workspace-panel">
+      {jobs.isLoading ? <QueryLoading label="正在加载 AI 生成记录" />
+        : jobs.error || !jobs.data ? <QueryFailure error={jobs.error ?? new Error('AI 生成记录不存在')} onRetry={() => void jobs.refetch()} />
+          : <TableRegion label="AI 生成记录列表"><Table
             rowKey="id"
             dataSource={jobs.data.items}
             scroll={{ x: 970 }}
@@ -1007,11 +1036,11 @@ function TaskDetail({ taskId }: { taskId: string }) {
                 else setSelectedJobId(row.id);
               }}>{generationTaskLabels[row.primary_task]}</Button> },
             ]}
-          /></TableRegion> : <Typography.Text type="secondary">尚无 AI 作业。</Typography.Text>}
-      {jobDetail.isLoading && <QueryLoading label="正在加载最新作业追溯" />}
+          /></TableRegion>}
+      {jobDetail.isLoading && <QueryLoading label="正在加载最新 AI 生成追溯" />}
       {jobDetail.error && <QueryFailure error={jobDetail.error} onRetry={() => void jobDetail.refetch()} />}
-    </Card>
-    {jobDetail.data && <Card title="作业追溯快照">
+    </Card>}
+    {showJobRecords && jobDetail.data && <Card title="AI 生成追溯快照">
       <Descriptions column={1} items={[
         { label: '契约版本', children: <span className="data-code">{jobDetail.data.input_snapshot.contract_version}</span> },
         { label: '渠道 / 模型', children: `${String(jobDetail.data.input_snapshot.channel.name)} / ${String(jobDetail.data.input_snapshot.model.model_id)}` },
@@ -1072,15 +1101,17 @@ function TaskDetail({ taskId }: { taskId: string }) {
       confirmLoading={retryJob.isPending}
       destroyOnHidden
     >
-      <Alert type="warning" showIcon title="重试会创建新的生成作业，并可能产生外部模型调用费用；原失败作业保持不变。" />
+      <Alert type="warning" showIcon title="重试会创建新的 AI 生成记录，并可能产生外部模型调用费用；原失败记录保持不变。" />
       {retryTarget?.error_summary && <Typography.Paragraph>{retryTarget.error_summary}</Typography.Paragraph>}
     </Modal>
     <TaskCreateModal
       open={replacementOpen}
+      initialProductId={task.data.product_id}
+      initialPlatformProfileId={task.data.platform_profile_id ?? undefined}
+      preferLatestApprovedFact
+      sourceFactVersionId={task.data.fact_version_id}
       onClose={() => setReplacementOpen(false)}
-      onCreated={(created, createdFactIsPublic) => navigate(`/tasks/${created.id}`, {
-        state: createdFactIsPublic ? { openAiGeneration: true } : null,
-      })}
+      onCreated={(created) => navigate(`/tasks/${created.id}`)}
     />
     {manualOpen && <ManualDraftModal
       taskId={taskId}
@@ -1095,7 +1126,6 @@ function TaskDetail({ taskId }: { taskId: string }) {
       title="生成 AI 草稿"
       open={generationDialogOpen}
       onCancel={() => {
-        setAutoAiOpen(false);
         setAiOpen(false);
         setModelId(undefined);
         createJob.reset();
@@ -1162,7 +1192,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
       open={!!humanizeSource}
       onCancel={() => { setHumanizeSource(undefined); setHumanizeModelId(undefined); }}
       onOk={() => createHumanizationJob.mutate()}
-      okText="创建自然化作业"
+      okText="创建自然化生成记录"
       confirmLoading={createHumanizationJob.isPending}
       okButtonProps={{ disabled: !humanizeModelId }}
       destroyOnHidden
@@ -1230,7 +1260,7 @@ function ManualDraftModal({
       onValuesChange={(_, values) => setDraft({ ...values, tags: values.tags ?? [] })}
       onFinish={(body) => create.mutate(body)}
     >
-      <Alert type="info" showIcon title="提交后直接创建 HUMAN DRAFT，不会创建或计入 AI 作业。" />
+      <Alert type="info" showIcon title="提交后直接创建人工草稿，不会创建或计入 AI 生成记录。" />
       <Tabs activeKey={view} onChange={(key) => setView(key as 'edit' | 'preview')} items={[
         { key: 'edit', label: '编辑 Markdown' },
         { key: 'preview', label: '安全预览' },

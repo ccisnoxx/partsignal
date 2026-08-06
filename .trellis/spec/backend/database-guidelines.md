@@ -285,6 +285,8 @@ result = cleanup_platform_logo_files(storage=storage)
 - 普通任务创建要求 8–128 字符 `Idempotency-Key`；同键同三字段返回原任务，同键异载荷返回 `409 IDEMPOTENCY_CONFLICT`，不同键允许相同业务输入。
 - 系统首稿：`POST /api/v1/content-tasks/{id}/generation-jobs`，请求体为 `{ai_model_id, platform_prompt_id, platform_prompt_revision}`。
 - 人工首稿：`POST /api/v1/content-tasks/{id}/manual-versions`，请求体复用 `ContentRevisionCreate`。
+- 人工草稿保存：`PUT /api/v1/content-versions/{id}`，请求 `{expected_revision, title, summary, body_markdown, tags}`，返回原 ID 的新 revision 投影。
+- 人工草稿删除：`DELETE /api/v1/content-versions/{id}?expected_revision=<revision>`，成功返回 `204`。
 - 生成快照：新原始作业只写 `content-markdown-v3`，自然化只写 `humanization-markdown-v2`；`content-markdown-v2` 可按原快照读取和重试，旧 v1 只读。
 
 ### 3. 契约
@@ -296,6 +298,8 @@ result = cleanup_platform_logo_files(storage=storage)
 - `content_tasks.idempotency_key` 只属于服务端创建幂等控制；任务列表与详情必须复用同一响应基础投影排除该字段，并继续由禁止额外字段的响应模型检查合同漂移。
 - 原始 AI 请求必须恰好发送两条消息：`system.content == PlatformPrompt.template_markdown`，`user.content == FactVersion.body_markdown`；不得增加前缀、拼接任务要求、补默认安全规则或重写空白。
 - 人工首稿创建 `source_type=HUMAN`、`status=DRAFT`、`source_job_id=NULL`、`based_on_id=NULL`，随后与 AI 草稿共用修订、审核和人工发布链。
+- 当前 `OPEN` 任务上的未审核人工 `DRAFT` 是内容载荷唯一原地保存窗口：必须锁定任务和版本、校验 revision、当前指针与零审核记录，只允许更新标题、摘要、Markdown、标签、哈希和质量问题。AI 草稿与进入审核后的全部内容不可原地更新。
+- 只有没有审核、子版本、生成来源/结果、发布工作/事件/核验引用的人工 `DRAFT | ABANDONED` 可彻底删除。当前版本删除前只恢复直接父版本或置空；AI 草稿不允许删除。资格批量投影和持锁写命令复用同一直接引用口径，PostgreSQL 精确事务语境与外键负责最终竞态门禁。
 - `ContentRevisionCreate.tags` 必须至少包含一个标签，且每个标签至少包含一个非空白字符；人工首稿与人工修订前端复用同一必填规则，服务端请求模型仍是最终校验权威。标签不自动 trim、去重、补默认值或增加未批准的数量/长度限制。
 - 发布工作、平台账号和修复任务沿用 `ContentTask.platform_profile_id`；修复任务只允许重新选择同产品的批准事实版本，并继承原文章任务的平台。
 - Prompt 可按 revision 删除；服务在同一事务自动解绑全部当前平台并递增平台 revision。删除后新 AI 生成因缺少绑定显式失败，历史作业继续从不可变快照读取，v2 可按原快照重试，v1 禁止重试。
@@ -312,6 +316,8 @@ result = cleanup_platform_logo_files(storage=storage)
 | 系统 AI 使用非 `PUBLIC` 事实 | `409 AI_DATA_CLASSIFICATION_FORBIDDEN` |
 | 当前平台 Prompt 不存在 | `409 PLATFORM_PROMPT_MISSING`，不得回退 |
 | 人工首稿提交到终态任务 | `409 INVALID_STATE_TRANSITION` |
+| 保存非当前、AI、已审核或非 `DRAFT` 内容 | `409 CONTENT_VERSION_NOT_CURRENT` 或 `409 INVALID_STATE_TRANSITION` |
+| 删除 AI 草稿或有直接引用的人工草稿 | `409 INVALID_STATE_TRANSITION` 或 `409 CONTENT_VERSION_IN_USE` |
 | 重试 legacy 生成快照 | `409 LEGACY_GENERATION_RETRY_FORBIDDEN` |
 | 删除被任务或内容版本引用的事实版本 | `409 FACT_VERSION_IN_USE`，返回真实非零引用 |
 
@@ -319,18 +325,26 @@ result = cleanup_platform_logo_files(storage=storage)
 
 - 正常：管理员保存公开 Markdown、批准版本、选择平台建任务，再选择模型生成 AI 草稿；供应商收到的平台 Prompt 与事实正文逐字相同。
 - 基础：同样的任务不配置模型也能直接粘贴网页版豆包、DeepSeek 或其他工具输出，创建人工 `DRAFT` 并进入审核。
+- 基础：当前人工 `DRAFT` 保存后 ID、版本号与 lineage 不变，revision、哈希和质量问题按新正文更新；无引用时删除并恢复直接父指针或置空。
 - 失败：Prompt 被删后继续生成时显式失败；不得把安全规则、受众、角度或长度从已删除任务字段拼回请求。
+- 失败：AI 草稿、已审核草稿或新增下游引用后继续保存/删除时显式 `409`，原载荷、指针和引用保持不变。
 
 ### 6. 必需测试
 
 - 契约测试断言任务创建仅三个字段、人工首稿接口存在、平台规则 Schema/路径和旧任务字段不存在。
 - PostgreSQL 迁移测试断言确定性 Markdown 回填、最严格分级、任务平台唯一回填、旧表/列删除、活动旧作业阻断和有损 downgrade 拒绝。
 - 单元/集成测试断言生成请求恰好两条原始消息、人工 lineage 四字段、非公开事实/缺 Prompt/legacy retry 明确失败。
+- 单元/集成测试断言人工草稿保存的 revision 冲突与字段边界，删除的全部直接引用、当前指针恢复、最小审计、数据库 UPDATE/DELETE 守卫，以及批量投影查询次数不随版本数增长。
 - 前端测试断言 Markdown 是唯一事实编辑器，任务仅选择产品/事实/平台，AI 与人工入口并列，规则页面和旧字段不可达。
+- 前端测试断言 `SAVE | DELETE` 只随服务端动作出现，保存栏覆盖未修改、未保存、保存中、已保存和失败，危险删除必须二次确认。
 - 契约、请求边界和前端组件测试共同断言空数组、全空白标签与删除最后一个标签均不创建内容版本；恢复有效标签后提交原 payload，直接绕过前端仍返回结构化 `422 VALIDATION_ERROR`。
 - E2E 使用真实 HTTP 替身断言 system/user 内容逐字相同，并覆盖人工首稿到审核、发布的共用链路。
 
 ### 7. 错误与正确示例
+
+错误：前端按 `status === 'DRAFT'` 自行显示保存或删除，或服务端只依赖按钮隐藏和最终外键异常。
+
+正确：列表、详情和命令响应复用批量直接引用策略投影 `SAVE | DELETE`；写命令持锁复核 revision、来源、状态、审核与引用，PostgreSQL 触发器和外键再做最终竞态保护。
 
 错误：为兼容旧任务继续拼接受众、角度或固定安全前缀。
 

@@ -34,7 +34,7 @@ This historical revision created six fixed roles. Revision `0009` migrates them 
 
 `generation_jobs`, `content_versions`.
 
-`generation_jobs.idempotency_key` is unique. Redis carries only the job UUID. A unique `content_versions.source_job_id` prevents duplicate drafts. Worker execution rechecks the current task, product, and approved fact before and after generation; expired `RUNNING` leases are recovered from PostgreSQL by Celery Beat. Content title, summary, Markdown body, tags, fact references, and hash are immutable after insert.
+`generation_jobs.idempotency_key` is unique. Redis carries only the job UUID. A unique `content_versions.source_job_id` prevents duplicate drafts. Worker execution rechecks the current task, product, and approved fact before and after generation; expired `RUNNING` leases are recovered from PostgreSQL by Celery Beat. AI content and every content version that has entered review are immutable. The current unreviewed `HUMAN DRAFT` is the sole payload-update window and is protected by task ownership, revision, review-history, and database-trigger checks.
 
 ### 0005 Content Review
 
@@ -328,6 +328,14 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 版本文件 `0039_published_article_delete_missing_platform.py` 紧跟 `0038_published_article_delete`，不新增列或重写数据。归档状态检查扩展为 `archived_at IS NULL OR status IN ('OPEN', 'COMPLETED', 'CANCELLED')`，使成果删除后因原平台已删除而取消的来源任务继续保留正交归档标记；`OPEN` 仍必须绑定实时平台。若已经存在归档 `CANCELLED` 任务，downgrade 以 PostgreSQL `55000` 拒绝，否则恢复 `0038` 的归档状态集合。
 
+### 0040 Content Draft Management
+
+版本文件 `0040_content_draft_management.py` 紧跟 `0039_article_delete_platform`，不新增业务表或列。当前 `OPEN` 任务指向的人工 `DRAFT` 在没有审核记录时可按 revision 原地保存标题、摘要、Markdown、标签、内容哈希和质量问题；版本号、事实、来源、lineage、变更说明和创建信息保持不变。AI 草稿、历史版本、退回版本以及已进入审核的内容继续不可变。
+
+人工 `DRAFT | ABANDONED` 只有在没有审核、子版本、生成来源/结果、发布工作、发布事件或核验引用时才可彻底删除。当前草稿删除前把任务指针恢复到直接父版本或置空；历史草稿不改变指针。应用层在持锁状态返回结构化引用，事务再设置精确 `partsignal.content_version_delete_id`；数据库 DELETE 守卫与现有 `RESTRICT` 外键负责最终竞态保护。AI 草稿不进入该删除窗口。
+
+删除审计 `content_version.deleted` 只保存任务 UUID 和内容版本号，不保存标题、摘要、正文、标签、Prompt、模型响应或变更说明。草稿旧值与已删除正文无法确定性重建，因此 downgrade 以 PostgreSQL `55000` 拒绝，只允许前滚修复或恢复升级前备份。
+
 ## State Machines
 
 ```text
@@ -360,7 +368,7 @@ FileRecord: PENDING -> VERIFIED | FAILED | ABORTED | DELETING
             VERIFIED | FAILED | ABORTED -> DELETING -> DELETED
 ```
 
-State changes not shown above are invalid. A rejected immutable fact or content version is a terminal historical conclusion; correction creates a new immutable version from the editable fact workspace or current content lineage. Frozen payloads are never rewritten.
+State changes not shown above are invalid. A rejected immutable fact or content version is a terminal historical conclusion; correction creates a new immutable version from the editable fact workspace or current content lineage. Only the current unreviewed `HUMAN DRAFT` may be saved in place; every frozen payload remains immutable.
 
 ## Required Constraints
 
@@ -371,9 +379,10 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A product has one Markdown fact workspace protected by `facts_revision`; new fact versions freeze its non-blank Markdown and classification.
 - 每个产品至多一个 `PENDING_REVIEW` 事实版本；工作区提交直接创建该不可变版本，不存在版本级草稿或原版本重提。
 - Approved fact versions permit status-only transition to `RETIRED`; all other columns are immutable.
-- Content versions permit only valid status transitions; publishable fields are immutable.
+- 内容版本只允许有效状态转换。当前、未审核的人工 `DRAFT` 可按 revision 保存可编辑载荷；AI 草稿以及提交审核后的全部版本不可原地修改。
 - `content_tasks.current_content_version_id` 是内容主线唯一权威，必须为空或指向同任务版本；审核、修订、自然化、待发布资格和发布版本切换只接受当前版本。
 - 每个任务至多一个 `PENDING_REVIEW` 内容版本；放弃当前草稿或退回版本后，指针恢复到该任务最近批准版本，没有批准版本时置空。
+- 无直接引用的人工 `DRAFT | ABANDONED` 可通过精确单版本删除事务清理；AI 草稿、审核历史和任何生成/发布下游引用均阻断删除。
 - `users.account_type` is the only permission source. `ADMIN` includes all `ENGINEER` abilities and exclusively manages users and configuration.
 - At least one active `ADMIN` must remain after every user account-type or active-state update.
 - 用户物理删除仅限管理员操作停用账号；会话级联清理，审计操作者按 `0027` 受约束置空，任何业务历史引用都阻断删除。用户实时 `admin_total` 统计全部 `ADMIN`，包括停用账号。

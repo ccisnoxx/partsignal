@@ -85,7 +85,7 @@ class ContentTask(Base):
 
 
 class ContentVersion(Base):
-    """正文不可原地编辑的 Markdown 内容版本。"""
+    """提交审核后不可变；当前人工未审核草稿可受控保存。"""
 
     __tablename__ = "content_versions"
     __table_args__ = (
@@ -167,8 +167,7 @@ class ContentTaskGeoSource(Base):
     __tablename__ = "content_task_geo_sources"
     __table_args__ = (
         CheckConstraint(
-            "rule_code IN ('CONTENT_DECLINE', 'LONG_UNMENTIONED', "
-            "'QUESTION_COVERAGE_GAP')",
+            "rule_code IN ('CONTENT_DECLINE', 'LONG_UNMENTIONED', 'QUESTION_COVERAGE_GAP')",
             name="ck_content_task_geo_sources_rule_code",
         ),
         CheckConstraint(

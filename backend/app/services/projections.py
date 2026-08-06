@@ -42,6 +42,10 @@ from app.schemas.content import (
 )
 from app.schemas.product_facts import FactVersionOut
 from app.schemas.publication import PlatformAccountOut
+from app.services.content_version_policy import (
+    content_version_delete_references,
+    content_version_is_deletable,
+)
 from app.services.generation import content_hash
 from app.services.review_policy import content_review_actions, fact_review_actions
 from app.services.storage import get_evidence_storage
@@ -233,6 +237,7 @@ def content_versions_out(db: Session, contents: list[ContentVersion]) -> list[Co
             select(PublicationWork).where(PublicationWork.content_task_id.in_(task_ids))
         )
     }
+    delete_references = content_version_delete_references(db, [content.id for content in contents])
     items: list[ContentVersionOut] = []
     for content in contents:
         task = tasks_by_id.get(content.task_id)
@@ -257,6 +262,7 @@ def content_versions_out(db: Session, contents: list[ContentVersion]) -> list[Co
                 "CHANGES_REQUESTED",
                 "APPROVED",
             }
+            and (content.status != "DRAFT" or content.source_type == "AI")
         ):
             actions.append("CREATE_REVISION")
         product = products_by_id.get(task.product_id) if task is not None else None
@@ -283,8 +289,21 @@ def content_versions_out(db: Session, contents: list[ContentVersion]) -> list[Co
             actions.append("CREATE_HUMANIZATION_JOB")
         if fact is not None and is_current:
             actions.extend(content_review_actions(content, fact))
-        if is_current and content.status in {"DRAFT", "CHANGES_REQUESTED"}:
+        if (
+            is_current
+            and content.source_type == "HUMAN"
+            and content.source_job_id is None
+            and content.status == "DRAFT"
+            and fact_ready
+        ):
+            actions.append("SAVE")
+        if is_current and (
+            content.status == "CHANGES_REQUESTED"
+            or (content.status == "DRAFT" and content.source_type == "AI")
+        ):
             actions.append("ABANDON")
+        if content_version_is_deletable(content, delete_references[content.id]):
+            actions.append("DELETE")
         work = works_by_task.get(content.task_id)
         if (
             work is not None

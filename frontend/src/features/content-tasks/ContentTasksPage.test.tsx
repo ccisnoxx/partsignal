@@ -327,22 +327,10 @@ test('人工首稿把服务端结构化标签错误映射回字段', async () =>
   expect(requestError).toHaveTextContent('请求数据不符合接口契约');
 });
 
-test('历史任务说明阻断原因，创建新任务后自动进入 AI 生成弹窗', async () => {
+test('历史任务从独立入口按最新事实续建，且不自动打开 AI 生成', async () => {
   const user = userEvent.setup();
-  const completedTask = { ...task, status: 'COMPLETED', available_actions: [] };
+  const completedTask = { ...task, status: 'COMPLETED', workflow_stage: 'VERIFIED', primary_task: 'VIEW_FULL_LINEAGE', available_actions: [] };
   const newTask = { ...task, id: 'task-2' };
-  const options = {
-    platform_profile_id: task.platform_profile_id,
-    platform_profile_name: '工程师社区',
-    platform_prompt: {
-      id: 'prompt-1',
-      name: '工程师社区 Prompt',
-      revision: 2,
-      template_markdown: '只使用批准事实。',
-    },
-    humanization_prompt_configured: true,
-    models: [{ id: 'model-1', channel_id: 'channel-1', channel_name: '受控渠道', display_name: '生成模型', model_id: 'model-a' }],
-  };
   apiMocks.GET.mockImplementation((path: string, request?: { params?: { path?: Record<string, string> } }) => {
     if (path === '/api/v1/content-tasks/{content_task_id}') {
       return result(request?.params?.path?.content_task_id === newTask.id ? newTask : completedTask);
@@ -351,7 +339,6 @@ test('历史任务说明阻断原因，创建新任务后自动进入 AI 生成�
     if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
     if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result({ items: [] });
     if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result({ items: [] });
-    if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') return result(options);
     if (path === '/api/v1/products') {
       return result({ items: [{ id: task.product_id, brand: 'PartSignal', part_number: 'PS-01' }], page: 1, page_size: 100, total: 1 });
     }
@@ -367,27 +354,27 @@ test('历史任务说明阻断原因，创建新任务后自动进入 AI 生成�
   });
   renderPage(<><LocationProbe /><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes></>, [`/tasks/${taskId}`]);
 
-  expect(await screen.findByText('当前任务已结束，历史任务保持只读，不能新增 AI 草稿。请创建新任务后继续。')).toBeInTheDocument();
+  expect(await screen.findByText('历史任务保持只读；新的内容生产与发布周期需要创建新任务。')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /生成 AI 草稿/ })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: /新建内容任务/ }));
-  const createDialog = await screen.findByRole('dialog', { name: '创建内容任务' });
-  await user.click(within(createDialog).getByRole('combobox', { name: '产品' }));
-  await user.click(await screen.findByText('PartSignal PS-01', { selector: '.ant-select-item-option-content' }));
-  await user.click(within(createDialog).getByRole('combobox', { name: '已批准事实版本' }));
-  await user.click(await screen.findByText('V1 · PUBLIC · 批准事实'));
-  await user.click(within(createDialog).getByRole('combobox', { name: '目标平台' }));
-  await user.click(await screen.findByText('工程师社区', { selector: '.ant-select-item-option-content' }));
+  expect(screen.queryByText('02A / 系统 AI 生成')).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByText('AI 生成记录')).not.toBeInTheDocument());
+  await user.click(screen.getByRole('button', { name: /基于当前上下文新建任务/ }));
+  const createDialog = await screen.findByRole('dialog', { name: '基于当前上下文新建任务' });
+  expect(await within(createDialog).findByText('沿用最新已批准事实版本 V1')).toBeInTheDocument();
+  expect(within(createDialog).getByText('PartSignal PS-01')).toBeInTheDocument();
+  expect(within(createDialog).getByText('工程师社区')).toBeInTheDocument();
   await user.click(within(createDialog).getByRole('button', { name: '创建任务' }));
 
-  expect(await screen.findByRole('dialog', { name: '生成 AI 草稿' })).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId('location-pathname')).toHaveTextContent('/tasks/task-2'));
+  expect(screen.queryByRole('dialog', { name: '生成 AI 草稿' })).not.toBeInTheDocument();
   await waitFor(() => expect(screen.getByTestId('location-state')).toHaveTextContent('null'));
-  expect(apiMocks.GET).toHaveBeenCalledWith(
+  expect(apiMocks.GET).not.toHaveBeenCalledWith(
     '/api/v1/content-tasks/{content_task_id}/generation-options',
-    expect.objectContaining({ params: { path: { content_task_id: newTask.id } } }),
+    expect.anything(),
   );
 });
 
-test('非 PUBLIC 新任务清除自动打开意图但不请求生成选项', async () => {
+test('旧的自动打开路由状态不再触发 AI 生成选项请求', async () => {
   const internalFact = { ...factVersion, classification: 'INTERNAL' };
   const internalTask = { ...task, available_actions: ['CANCEL', 'CREATE_MANUAL_VERSION'] };
   apiMocks.GET.mockImplementation((path: string) => {
@@ -405,7 +392,6 @@ test('非 PUBLIC 新任务清除自动打开意图但不请求生成选项', asy
 
   expect(await screen.findByText('事实分级为 INTERNAL，不能发送给第三方模型。请创建新任务并选择 PUBLIC 事实版本。')).toBeInTheDocument();
   expect(screen.queryByRole('dialog', { name: '生成 AI 草稿' })).not.toBeInTheDocument();
-  await waitFor(() => expect(screen.getByTestId('location-state')).toHaveTextContent('null'));
   expect(apiMocks.GET).not.toHaveBeenCalledWith(
     '/api/v1/content-tasks/{content_task_id}/generation-options',
     expect.anything(),
@@ -596,7 +582,7 @@ test('任务列表直接呈现服务端允许的取消和删除操作', async ()
   await user.click(screen.getByRole('button', { name: '更多操作：PartSignal PS-02' }));
   await user.click(await screen.findByRole('menuitem', { name: '删除任务' }));
   const deleteDialog = within(await screen.findByRole('dialog'));
-  expect(deleteDialog.getByText(/内容版本、审核记录、生成作业和未成功发布历史/)).toBeInTheDocument();
+  expect(deleteDialog.getByText(/内容版本、审核记录、AI 生成记录和未成功发布历史/)).toBeInTheDocument();
   expect(deleteDialog.queryByText('物理删除')).not.toBeInTheDocument();
   await user.click(deleteDialog.getByRole('button', { name: '确认删除' }));
   await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
@@ -744,7 +730,7 @@ test('仅按服务端 DELETE 动作确认删除并返回任务列表', async () 
 
   await user.click(await screen.findByRole('button', { name: '删除任务' }));
   const dialog = await screen.findByRole('dialog');
-  expect(within(dialog).getByText(/内容版本、审核记录、生成作业和未成功发布历史/)).toBeInTheDocument();
+  expect(within(dialog).getByText(/内容版本、审核记录、AI 生成记录和未成功发布历史/)).toBeInTheDocument();
   expect(within(dialog).queryByText('物理删除')).not.toBeInTheDocument();
   await user.click(within(dialog).getByRole('button', { name: '确认删除' }));
 
@@ -948,7 +934,7 @@ test('失败作业只按服务端 RETRY 动作显示重试入口', async () => {
   ));
 });
 
-test('对合格 AI 版本选择模型并创建自然化作业', async () => {
+test('对合格 AI 版本选择模型并创建自然化生成记录', async () => {
   const user = userEvent.setup();
   const source = {
     id: 'version-1', task_id: taskId, fact_version_id: task.fact_version_id,
@@ -990,7 +976,7 @@ test('对合格 AI 版本选择模型并创建自然化作业', async () => {
   await user.click(await screen.findByRole('button', { name: '自然化' }));
   await user.click(screen.getByRole('combobox', { name: '自然化模型' }));
   await user.click(await screen.findByText(/自然化模型 \(model-a\)/));
-  await user.click(screen.getByRole('button', { name: '创建自然化作业' }));
+  await user.click(screen.getByRole('button', { name: '创建自然化生成记录' }));
   await waitFor(() => expect(apiMocks.POST).toHaveBeenCalledWith(
     '/api/v1/content-versions/{content_version_id}/humanization-jobs',
     expect.objectContaining({

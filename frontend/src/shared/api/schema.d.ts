@@ -1096,9 +1096,9 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getContentVersion"];
-        put?: never;
+        put: operations["updateContentDraft"];
         post?: never;
-        delete?: never;
+        delete: operations["deleteContentDraft"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2902,7 +2902,7 @@ export interface components {
             workflow_stage: "CURRENT_DRAFT" | "CURRENT_REVIEW_PENDING" | "CURRENT_CHANGES_REQUESTED" | "CURRENT_APPROVED" | "CURRENT_PUBLISHING" | "PUBLISHED" | "HISTORICAL";
             /** @enum {string} */
             primary_task: "EDIT_AND_SUBMIT_REVIEW" | "REVIEW_CONTENT" | "CREATE_REVISION" | "START_PUBLICATION" | "CONTINUE_PUBLICATION" | "VIEW_PUBLICATION_RESULT" | "VIEW_VERSION_HISTORY";
-            available_actions: ("CREATE_REVISION" | "CREATE_HUMANIZATION_JOB" | "SUBMIT_REVIEW" | "APPROVE" | "REQUEST_CHANGES" | "ABANDON")[];
+            available_actions: ("SAVE" | "DELETE" | "CREATE_REVISION" | "CREATE_HUMANIZATION_JOB" | "SUBMIT_REVIEW" | "APPROVE" | "REQUEST_CHANGES" | "ABANDON")[];
             revision: number;
             quality_issues: components["schemas"]["QualityIssue"][];
             /** Format: uuid */
@@ -2916,6 +2916,13 @@ export interface components {
             body_markdown: string;
             tags: string[];
             change_summary: string;
+        };
+        ContentDraftUpdate: {
+            expected_revision: number;
+            title: string;
+            summary: string;
+            body_markdown: string;
+            tags: string[];
         };
         ContentVersionList: {
             items: components["schemas"]["ContentVersion"][];
@@ -6779,6 +6786,59 @@ export interface operations {
                     "application/json": components["schemas"]["ContentVersion"];
                 };
             };
+        };
+    };
+    updateContentDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                content_version_id: components["parameters"]["ContentVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContentDraftUpdate"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ContentVersionResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    deleteContentDraft: {
+        parameters: {
+            query: {
+                expected_revision: number;
+            };
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                content_version_id: components["parameters"]["ContentVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已彻底删除符合条件的人工未审核草稿 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     getContentReviewContext: {

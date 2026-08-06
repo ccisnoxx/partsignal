@@ -31,7 +31,7 @@ import {
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { QUERY_STALE_TIME, queryClient } from '../../app/queryClient';
-import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
+import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { ContentVersion, Schema } from '../../shared/api/types';
 import { QueryFailure, QueryLoading } from '../../shared/components/AsyncState';
@@ -185,6 +185,7 @@ export function ContentEditorPage() {
   const navigate = useNavigate();
   const [action, setAction] = useState<ReviewAction>();
   const [revisionDirty, setRevisionDirty] = useState(false);
+  const [savedDraft, setSavedDraft] = useState<{ id: string; revision: number }>();
   const revisionDirtyRef = useRef(false);
   const [modal, modalContext] = Modal.useModal();
   const [queueOpen, setQueueOpen] = useState(() => window.matchMedia('(min-width: 769px)').matches);
@@ -235,6 +236,48 @@ export function ContentEditorPage() {
       setRevisionDirty(false);
       await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.versions(created.task_id) });
       window.location.assign(`/content/${created.id}`);
+    },
+  });
+  const saveDraft = useMutation({
+    mutationFn: async (body: Schema<'ContentRevisionCreate'>) => unwrap(await api.PUT('/api/v1/content-versions/{content_version_id}', {
+      params: { path: { content_version_id: contentVersionId }, header: csrfHeader() },
+      body: {
+        expected_revision: context.data!.content.revision,
+        title: body.title,
+        summary: body.summary,
+        body_markdown: body.body_markdown,
+        tags: body.tags,
+      },
+    })),
+    onSuccess: async (saved) => {
+      setRevisionDirtyState(false);
+      setSavedDraft({ id: saved.id, revision: saved.revision });
+      message.success('人工草稿已保存');
+      queryClient.setQueryData<ReviewContext>(queryKeys.contentVersions.review(contentVersionId), (current) => current
+        ? { ...current, content: saved }
+        : current);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.versions(saved.task_id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentVersions.detail(saved.id) }),
+      ]);
+    },
+  });
+  const deleteDraft = useMutation({
+    mutationFn: async (version: ContentVersion) => ensureSuccess(await api.DELETE('/api/v1/content-versions/{content_version_id}', {
+      params: {
+        path: { content_version_id: version.id },
+        query: { expected_revision: version.revision },
+        header: csrfHeader(),
+      },
+    })),
+    onSuccess: async (_, version) => {
+      setRevisionDirtyState(false);
+      message.success('人工未审核草稿已删除');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.versions(version.task_id) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.detail(version.task_id) }),
+      ]);
+      navigate(`/tasks/${version.task_id}`);
     },
   });
   const command = useMutation({
@@ -309,12 +352,14 @@ export function ContentEditorPage() {
 
   const review = context.data;
   const current = review.content;
+  const canSave = current.available_actions.includes('SAVE');
   const canRevise = current.available_actions.includes('CREATE_REVISION');
+  const editorMode = canSave ? 'save' : canRevise ? 'revision' : undefined;
   const blockingIssues = current.quality_issues.filter((issue) => issue.severity === 'BLOCKING');
   const warningIssues = current.quality_issues.filter((issue) => issue.severity === 'WARNING');
   const safeHtml = renderSanitizedMarkdown(current.body_markdown);
   const taskSummary = tasks.data?.items.find((item) => item.id === current.task_id);
-  const actionPending = command.isPending || revise.isPending;
+  const actionPending = command.isPending || revise.isPending || saveDraft.isPending || deleteDraft.isPending;
   const documentOverview = (
     <section className="review-document-overview" aria-label="内容摘要与标签">
       <div>
@@ -403,6 +448,14 @@ export function ContentEditorPage() {
               )}
               actions={<Space>
                 <StatusTag status={current.status} />
+                {current.available_actions.includes('DELETE') && <Button danger loading={deleteDraft.isPending} onClick={() => modal.confirm({
+                  title: '彻底删除人工未审核草稿？',
+                  content: '该草稿及未保存修改都会被永久删除，操作不可恢复。若它是当前版本，任务会恢复到直接父版本或“尚未创建首稿”。',
+                  okText: '确认彻底删除',
+                  cancelText: '继续编辑',
+                  okButtonProps: { danger: true },
+                  onOk: () => deleteDraft.mutateAsync(current),
+                })}>彻底删除草稿</Button>}
                 {current.available_actions.includes('ABANDON') && <Button danger loading={abandon.isPending} onClick={() => modal.confirm({
                   title: '放弃当前内容版本？',
                   content: '该版本会进入只读历史；任务将恢复到最近批准版本，没有批准版本时回到“尚未创建首稿”。此操作不可撤销。',
@@ -415,12 +468,21 @@ export function ContentEditorPage() {
             />
             <Tabs
               className="review-document-tabs"
-              defaultActiveKey={canRevise ? 'revision' : 'preview'}
+              defaultActiveKey={editorMode ? 'revision' : 'preview'}
               items={[
-                ...(canRevise ? [{
+                ...(editorMode ? [{
                   key: 'revision',
                   label: <Space size={6}><EditOutlined aria-hidden />编辑</Space>,
-                  children: <section id="review-revision" aria-label="创建人工修订"><RevisionForm content={current} loading={revise.isPending} error={revise.error} onDirtyChange={setRevisionDirtyState} onSubmit={(body) => revise.mutate(body)} /></section>,
+                  children: <section id="review-revision" aria-label={editorMode === 'save' ? '编辑人工草稿' : '创建人工修订'}><RevisionForm
+                    key={`${current.id}:${current.revision}:${editorMode}`}
+                    content={current}
+                    mode={editorMode}
+                    saved={savedDraft?.id === current.id && savedDraft.revision === current.revision}
+                    loading={editorMode === 'save' ? saveDraft.isPending : revise.isPending}
+                    error={editorMode === 'save' ? saveDraft.error : revise.error}
+                    onDirtyChange={setRevisionDirtyState}
+                    onSubmit={(body) => editorMode === 'save' ? saveDraft.mutate(body) : revise.mutate(body)}
+                  /></section>,
                 }] : []),
                 {
                   key: 'preview',

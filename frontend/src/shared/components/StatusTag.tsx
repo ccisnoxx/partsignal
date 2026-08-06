@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 
 const statusLabels: Record<string, string> = {
   ENABLED: '已启用', DISABLED: '已停用', ACTIVE: '启用', RETIRED: '已停用', DRAFT: '草稿', PENDING_REVIEW: '待审核',
-  CHANGES_REQUESTED: '需修改', APPROVED: '已批准', SUPERSEDED: '已取代',
+  CHANGES_REQUESTED: '需修改', APPROVED: '已批准', SUPERSEDED: '已取代', ABANDONED: '已放弃',
   OPEN: '进行中', COMPLETED: '已完成', CANCELLED: '已取消',
   PENDING: '排队中', RUNNING: '生成中', SUCCEEDED: '成功', SUCCESS: '成功', FAILED: '失败', DENIED: '被拒绝',
   PREPARING: '准备发布', PLATFORM_REVIEW: '平台审核中', AWAITING_VERIFICATION: '待核验',
@@ -42,7 +42,7 @@ const statusTones: Record<string, StatusTone> = {
   ADMIN: 'admin',
   PENDING_REVIEW: 'warning', PENDING: 'warning', PREPARING: 'warning', PLATFORM_REVIEW: 'warning', AWAITING_VERIFICATION: 'warning', ACTION_REQUIRED: 'danger', WARNING: 'warning', DENIED: 'warning',
   CANDIDATE: 'warning', PARTIAL: 'warning', HISTORICAL: 'warning', CHANGES_REQUESTED: 'warning', 'request-changes': 'warning', REQUEST_CHANGES: 'warning',
-  DISABLED: 'neutral', FAILED: 'danger', REJECTED: 'danger', VERIFICATION_FAILED: 'danger', RESTRICTED: 'danger', BLOCKING: 'danger', INCORRECT: 'danger', MISSING_EVIDENCE: 'danger',
+  DISABLED: 'neutral', ABANDONED: 'neutral', FAILED: 'danger', REJECTED: 'danger', VERIFICATION_FAILED: 'danger', RESTRICTED: 'danger', BLOCKING: 'danger', INCORRECT: 'danger', MISSING_EVIDENCE: 'danger',
   HIGH: 'danger', MEDIUM: 'warning', LOW: 'info', STABLE: 'success', OCCASIONAL: 'warning', UNCOVERED: 'danger', INSUFFICIENT_DATA: 'neutral',
   PROMPT_CONFIGURED: 'success', PROMPT_MISSING: 'warning', ACTIVE_RULE_MISSING: 'danger',
 };
@@ -53,5 +53,9 @@ const toneIcons: Partial<Record<StatusTone, ReactNode>> = {
 
 export function StatusTag({ status, compact = false }: { status: string; compact?: boolean }) {
   const tone = statusTones[status] ?? 'neutral';
-  return <Tag className={`status-tag status-tag-${tone}${compact ? ' status-tag-compact' : ''}`} icon={compact ? undefined : toneIcons[tone]}>{statusLabels[status] ?? status}</Tag>;
+  return <Tag className={`status-tag status-tag-${tone}${compact ? ' status-tag-compact' : ''}`} icon={compact ? undefined : toneIcons[tone]}>{statusLabel(status)}</Tag>;
+}
+
+export function statusLabel(status: string) {
+  return statusLabels[status] ?? status;
 }

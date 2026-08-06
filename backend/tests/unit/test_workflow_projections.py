@@ -47,7 +47,14 @@ class _ScalarSequenceSession:
         """为聚合投影返回支持 ``tuples`` 的最小结果。"""
         self.scalar_calls += 1
         rows = next(self.rows)
-        return type("TupleResult", (), {"tuples": lambda self: rows})()
+        return type(
+            "TupleResult",
+            (),
+            {
+                "tuples": lambda self: rows,
+                "__iter__": lambda self: iter(rows),
+            },
+        )()
 
     def get(self, _model: type[object], _identity: object) -> None:
         return None
@@ -295,11 +302,13 @@ def test_query_topic_deletion_projection_respects_admin_and_all_direct_reference
         cast(
             Session,
             _ScalarSequenceSession(
-                [[
-                    (topic.id, "CONTENT_TASK", 2),
-                    (topic.id, "GEO_OPTIMIZATION_SOURCE", 3),
-                    (topic.id, "GEO_OBSERVATION", 4),
-                ]]
+                [
+                    [
+                        (topic.id, "CONTENT_TASK", 2),
+                        (topic.id, "GEO_OPTIMIZATION_SOURCE", 3),
+                        (topic.id, "GEO_OBSERVATION", 4),
+                    ]
+                ]
             ),
         ),
         [topic],
@@ -315,9 +324,7 @@ def test_query_topic_deletion_projection_respects_admin_and_all_direct_reference
     }
 
     engineer_session = _ScalarSequenceSession([])
-    engineer = query_topics_out(
-        cast(Session, engineer_session), [topic], can_delete=False
-    )[0]
+    engineer = query_topics_out(cast(Session, engineer_session), [topic], can_delete=False)[0]
     assert engineer.available_actions == ["UPDATE"]
     assert engineer.deletion is None
     assert engineer_session.scalar_calls == 0
@@ -329,9 +336,7 @@ def test_query_topic_deletion_projection_keeps_fixed_query_count_for_multiple_ro
     many = _ScalarSequenceSession([[]])
 
     query_topics_out(cast(Session, one), [_query_topic()], can_delete=True)
-    query_topics_out(
-        cast(Session, many), [_query_topic(), _query_topic()], can_delete=True
-    )
+    query_topics_out(cast(Session, many), [_query_topic(), _query_topic()], can_delete=True)
 
     assert one.scalar_calls == many.scalar_calls == 1
 
@@ -415,7 +420,9 @@ def test_publication_reference_filter_includes_terminal_history() -> None:
     assert "publication_works.status IN" in str(default_session.statements[1])
 
 
-def _content_projection(rows: int) -> tuple[list[str], int]:
+def _content_projection(
+    rows: int, *, source_type: str = "HUMAN"
+) -> tuple[list[tuple[str, list[str]]], int]:
     product = _product()
     fact = _fact(product)
     task = ContentTask(
@@ -437,10 +444,10 @@ def _content_projection(rows: int) -> tuple[list[str], int]:
             id=uuid.uuid4(),
             task_id=task.id,
             fact_version_id=fact.id,
-            source_job_id=None,
+            source_job_id=uuid.uuid4() if source_type == "AI" else None,
             based_on_id=None,
             version=version,
-            source_type="HUMAN",
+            source_type=source_type,
             title="标题",
             summary="摘要",
             body_markdown=body,
@@ -455,9 +462,18 @@ def _content_projection(rows: int) -> tuple[list[str], int]:
         )
         contents.append(content)
     task.current_content_version_id = contents[0].id
-    session = _ScalarSequenceSession([[task], [fact], [product], [], []])
+    delete_references = [
+        [],
+        [(contents[0].id, rows - 1)] if rows > 1 else [],
+        [],
+        [],
+        [],
+        [],
+        [],
+    ]
+    session = _ScalarSequenceSession([[task], [fact], [product], [], [], *delete_references])
     projected = content_versions_out(cast(Session, session), contents)
-    return [item.primary_task for item in projected], session.scalar_calls
+    return [(item.primary_task, item.available_actions) for item in projected], session.scalar_calls
 
 
 def test_content_current_pointer_controls_primary_task_without_n_plus_one_queries() -> None:
@@ -465,9 +481,19 @@ def test_content_current_pointer_controls_primary_task_without_n_plus_one_querie
     one_tasks, one_queries = _content_projection(1)
     two_tasks, two_queries = _content_projection(2)
 
-    assert one_tasks == ["EDIT_AND_SUBMIT_REVIEW"]
-    assert two_tasks == ["EDIT_AND_SUBMIT_REVIEW", "VIEW_VERSION_HISTORY"]
-    assert one_queries == two_queries == 5
+    assert one_tasks == [("EDIT_AND_SUBMIT_REVIEW", ["SUBMIT_REVIEW", "SAVE", "DELETE"])]
+    assert two_tasks == [
+        ("EDIT_AND_SUBMIT_REVIEW", ["SUBMIT_REVIEW", "SAVE"]),
+        ("VIEW_VERSION_HISTORY", ["DELETE"]),
+    ]
+    assert one_queries == two_queries == 12
+
+
+def test_ai_draft_keeps_revision_and_abandon_actions_without_delete() -> None:
+    """AI 草稿保留可追溯修订与放弃动作，不能进入人工草稿删除窗口。"""
+    tasks, _queries = _content_projection(1, source_type="AI")
+
+    assert tasks == [("EDIT_AND_SUBMIT_REVIEW", ["CREATE_REVISION", "SUBMIT_REVIEW", "ABANDON"])]
 
 
 @pytest.mark.parametrize(

@@ -18,7 +18,7 @@ Pydantic Schema 按接口领域放在 `app.schemas` 子模块，调用方直接�
 
 PostgreSQL 保存全部业务状态。Redis 只传递 Celery 消息，消息只包含 `generation_job_id`。对象存储保存文件字节，数据库保存文件元数据、哈希和业务引用。
 
-`FactVersion`、`ContentVersion`、AI 作业输入快照、发布工作事件、核验快照、发布成果、GEO 观测和审计记录构成不可变历史。每个产品只有一份以 `facts_revision` 保护的可编辑 Markdown 事实工作区；提交审核直接冻结 `PENDING_REVIEW` 版本，不存在事实版本 `DRAFT`。`ContentTask.current_content_version_id` 是审核和发布候选的唯一内容主线；首稿、AI 结果、自然化和修订都创建新当前版本，放弃草稿记为 `ABANDONED`，被退回版本必须创建修订。平台只维护一个可选的当前 Prompt，不存在任务 Prompt 或平台规则版本。模型输出不自报事实或证据 ID，追溯以作业快照和绑定事实版本为准。
+`FactVersion`、提交审核后的 `ContentVersion`、全部 AI 内容与作业输入快照、发布工作事件、核验快照、发布成果、GEO 观测和审计记录构成不可变历史。每个产品只有一份以 `facts_revision` 保护的可编辑 Markdown 事实工作区；提交审核直接冻结 `PENDING_REVIEW` 版本，不存在事实版本 `DRAFT`。内容侧唯一可变窗口是当前、未审核的 `HUMAN DRAFT`：可按 revision 原地保存；没有审核、子版本、生成或发布引用的人工 `DRAFT | ABANDONED` 可受控物理删除，AI 草稿始终只能放弃。`ContentTask.current_content_version_id` 是审核和发布候选的唯一内容主线；删除当前人工草稿时只恢复其直接父版本或置空，被退回版本必须创建修订。平台只维护一个可选的当前 Prompt，不存在任务 Prompt 或平台规则版本。模型输出不自报事实或证据 ID，追溯以作业快照和绑定事实版本为准。
 
 ## 发布与审核应用服务
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Request, status
+from fastapi import APIRouter, Header, Query, Request, status
 from sqlalchemy import select
 
 from app.deps import (
@@ -37,6 +37,7 @@ from app.schemas.common import (
 )
 from app.schemas.content import (
     ContentDiff,
+    ContentDraftUpdate,
     ContentReviewContext,
     ContentRevisionCreate,
     ContentVersionList,
@@ -65,9 +66,15 @@ from app.services.content_production import (
 from app.services.content_production import (
     create_manual_content_version as create_manual_content_version_command,
 )
+from app.services.content_production import (
+    delete_content_draft as delete_content_draft_command,
+)
 from app.services.content_production import generation_job_retryable
 from app.services.content_production import (
     retry_generation_job as retry_generation_job_command,
+)
+from app.services.content_production import (
+    update_content_draft as update_content_draft_command,
 )
 from app.services.projections import content_diff, content_version_out, content_versions_out
 from app.services.review import get_content_review_context, transition_content_version
@@ -347,6 +354,53 @@ def get_content_version(
     if content is None:
         raise not_found("内容版本")
     return content_version_out(db, content)
+
+
+@router.put(
+    "/content-versions/{content_version_id}",
+    response_model=ContentVersionOut,
+    operation_id="updateContentDraft",
+)
+def update_content_draft(
+    content_version_id: uuid.UUID,
+    payload: ContentDraftUpdate,
+    request: Request,
+    db: DbSession,
+    editor: ContentEditor,
+    _csrf: CsrfProtected,
+) -> ContentVersionOut:
+    """保存任务当前的人工未审核草稿。"""
+    content = update_content_draft_command(
+        db=db,
+        content_version_id=content_version_id,
+        payload=payload,
+        actor=editor,
+        request_id=request.state.request_id,
+    )
+    return content_version_out(db, content)
+
+
+@router.delete(
+    "/content-versions/{content_version_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deleteContentDraft",
+)
+def delete_content_draft(
+    content_version_id: uuid.UUID,
+    expected_revision: Annotated[int, Query(ge=0)],
+    request: Request,
+    db: DbSession,
+    editor: ContentEditor,
+    _csrf: CsrfProtected,
+) -> None:
+    """彻底删除符合条件的人工未审核草稿。"""
+    delete_content_draft_command(
+        db=db,
+        content_version_id=content_version_id,
+        expected_revision=expected_revision,
+        actor=editor,
+        request_id=request.state.request_id,
+    )
 
 
 @router.get(

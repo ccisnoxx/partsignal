@@ -217,6 +217,7 @@ const actionLabels: Record<string, string> = {
   'generation_job.retried': '重试内容生成作业',
   'humanization_job.created': '创建自然化作业',
   'content_version.manual_created': '创建人工内容',
+  'content_version.deleted': '删除人工未审核草稿',
   'content_version.revised': '修订内容',
   'content_version.submit-review': '提交内容审核',
   'content_version.approve': '审核通过',

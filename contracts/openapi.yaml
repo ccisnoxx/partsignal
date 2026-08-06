@@ -1552,6 +1552,40 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentVersion'}
+    put:
+      tags: [production]
+      operationId: updateContentDraft
+      parameters:
+        - {$ref: '#/components/parameters/ContentVersionId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ContentDraftUpdate'}
+      responses:
+        '200': {$ref: '#/components/responses/ContentVersionResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
+    delete:
+      tags: [production]
+      operationId: deleteContentDraft
+      parameters:
+        - {$ref: '#/components/parameters/ContentVersionId'}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+        - name: expected_revision
+          in: query
+          required: true
+          schema: {type: integer, minimum: 0}
+      responses:
+        '204': {description: 已彻底删除符合条件的人工未审核草稿}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/review-context:
     get:
       tags: [review]
@@ -4088,7 +4122,7 @@ components:
         primary_task: {type: string, enum: [EDIT_AND_SUBMIT_REVIEW, REVIEW_CONTENT, CREATE_REVISION, START_PUBLICATION, CONTINUE_PUBLICATION, VIEW_PUBLICATION_RESULT, VIEW_VERSION_HISTORY]}
         available_actions:
           type: array
-          items: {type: string, enum: [CREATE_REVISION, CREATE_HUMANIZATION_JOB, SUBMIT_REVIEW, APPROVE, REQUEST_CHANGES, ABANDON]}
+          items: {type: string, enum: [SAVE, DELETE, CREATE_REVISION, CREATE_HUMANIZATION_JOB, SUBMIT_REVIEW, APPROVE, REQUEST_CHANGES, ABANDON]}
         revision: {type: integer}
         quality_issues: {type: array, items: {$ref: '#/components/schemas/QualityIssue'}}
         created_by: {type: string, format: uuid}
@@ -4106,6 +4140,19 @@ components:
           minItems: 1
           items: {type: string, minLength: 1, pattern: '\S'}
         change_summary: {type: string, minLength: 1}
+    ContentDraftUpdate:
+      type: object
+      additionalProperties: false
+      required: [expected_revision, title, summary, body_markdown, tags]
+      properties:
+        expected_revision: {type: integer, minimum: 0}
+        title: {type: string, minLength: 1}
+        summary: {type: string, minLength: 1}
+        body_markdown: {type: string, minLength: 1}
+        tags:
+          type: array
+          minItems: 1
+          items: {type: string, minLength: 1, pattern: '\S'}
     ContentVersionList:
       type: object
       additionalProperties: false

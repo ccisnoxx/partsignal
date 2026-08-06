@@ -39,7 +39,7 @@ import { NoData, QueryFailure, QueryLoading } from '../../shared/components/Asyn
 import { DirectUpload } from '../../shared/components/DirectUpload';
 import { DeletionError, DeletionGuidanceModal, type DeletionBlocker } from '../../shared/components/DeletionError';
 import { PageHeader } from '../../shared/components/PageHeader';
-import { StatusTag } from '../../shared/components/StatusTag';
+import { StatusTag, statusLabel } from '../../shared/components/StatusTag';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
 import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
@@ -422,7 +422,7 @@ function ActionModalContent({ target, onClose }: { target: ActionTarget; onClose
         )}
         {target.action === 'CREATE_REPAIR_TASK' && (
           <Form.Item name="fact_version_id" label="修复所用事实版本" rules={[{ required: true, message: '请选择事实版本' }]}>
-            <Select loading={repair.isLoading} options={repair.data?.fact_candidates.map((candidate) => ({ value: candidate.version.id, label: `V${candidate.version.version} · ${candidate.version.status}` }))} />
+            <Select loading={repair.isLoading} options={repair.data?.fact_candidates.map((candidate) => ({ value: candidate.version.id, label: `V${candidate.version.version} · ${statusLabel(candidate.version.status)}` }))} />
           </Form.Item>
         )}
         {target.action === 'RESOLVE' && (

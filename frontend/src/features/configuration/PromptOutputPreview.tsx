@@ -139,7 +139,7 @@ export function PromptOutputPreview({ mode, platformProfileId, dirty, promptConf
     },
     onSuccess: async (job) => {
       setJobContext({ id: job.id, taskId: job.content_task_id, initial: job });
-      message.success('真实预览作业已创建');
+      message.success('真实预览生成记录已创建');
       await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.jobs(job.content_task_id) });
     },
   });
@@ -161,10 +161,10 @@ export function PromptOutputPreview({ mode, platformProfileId, dirty, promptConf
       <Alert
         type="info"
         showIcon
-        title="预览会创建可审计的真实 AI 作业和 DRAFT，不会进行无痕临时调用。"
+        title="预览会创建可审计的真实 AI 生成记录和草稿，不会进行无痕临时调用。"
       />
       {dirty && <Alert type="warning" showIcon title="请先保存当前 Prompt，再创建使用新配置的预览。" />}
-      {!promptConfigured && <Alert type="warning" showIcon title="当前 Prompt 尚未配置，无法创建预览作业。" />}
+      {!promptConfigured && <Alert type="warning" showIcon title="当前 Prompt 尚未配置，无法创建预览生成记录。" />}
       {queryError && <QueryFailure error={queryError} onRetry={() => {
         void tasks.refetch();
         if (taskId) { void options.refetch(); void versions.refetch(); }
@@ -222,15 +222,15 @@ export function PromptOutputPreview({ mode, platformProfileId, dirty, promptConf
     </div>
     <div className="prompt-preview-result" aria-live="polite">
       {currentJob && <div className="prompt-preview-job">
-        <Space size={6} wrap><StatusTag status={currentJob.status} /><Typography.Text type="secondary">作业 {currentJob.id.slice(0, 8)}</Typography.Text></Space>
+        <Space size={6} wrap><StatusTag status={currentJob.status} /><Typography.Text type="secondary">生成记录 {currentJob.id.slice(0, 8)}</Typography.Text></Space>
         {currentJob.status === 'FAILED' && <Alert type="error" showIcon title={currentJob.error_code ?? '生成失败'} description={currentJob.error_summary ?? '服务端未返回可公开的失败摘要'} />}
       </div>}
-      {currentJob && ['PENDING', 'RUNNING'].includes(currentJob.status) && <div className="prompt-preview-loading"><Spin /><Typography.Text type="secondary">作业执行中，正在读取任务级状态…</Typography.Text></div>}
+      {currentJob && ['PENDING', 'RUNNING'].includes(currentJob.status) && <div className="prompt-preview-loading"><Spin /><Typography.Text type="secondary">生成执行中，正在读取任务级状态…</Typography.Text></div>}
       {currentJob?.status === 'SUCCEEDED' && content.isLoading && <div className="prompt-preview-loading"><Spin /><Typography.Text type="secondary">正在读取不可变草稿…</Typography.Text></div>}
       {content.data ? <PreviewArticle content={content.data} /> : !currentJob && <Empty image={<EyeOutlined />} description="选择真实任务和模型后生成预览" />}
     </div>
     <footer>
-      {jobContext ? <Typography.Text type="secondary">当前结果属于既有作业快照；Prompt 后续修改不会改写它。</Typography.Text> : <Link to="/tasks">前往内容任务</Link>}
+      {jobContext ? <Typography.Text type="secondary">当前结果属于既有生成快照；Prompt 后续修改不会改写它。</Typography.Text> : <Link to="/tasks">前往内容任务</Link>}
     </footer>
     <Modal
       title={content.data ? `输出预览 · ${content.data.title}` : '输出预览'}

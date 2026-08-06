@@ -92,6 +92,29 @@ const previousContent = {
   created_at: '2026-07-09T00:00:00Z',
 } satisfies Schema<'ContentVersion'>;
 
+const manualDraft = {
+  ...content,
+  source_job_id: null,
+  source_type: 'HUMAN',
+  status: 'DRAFT',
+  workflow_stage: 'CURRENT_DRAFT',
+  primary_task: 'EDIT_AND_SUBMIT_REVIEW',
+  available_actions: ['SAVE', 'SUBMIT_REVIEW', 'DELETE'],
+  revision: 0,
+} satisfies Schema<'ContentVersion'>;
+
+const manualDraftContext = {
+  ...context,
+  content: manualDraft,
+  task: {
+    ...context.task,
+    workflow_stage: 'DRAFT',
+    primary_task: 'EDIT_AND_SUBMIT_REVIEW',
+    current_content_version_id: manualDraft.id,
+  },
+  available_actions: ['SUBMIT_REVIEW'],
+} satisfies Schema<'ContentReviewContext'>;
+
 const taskListItem = {
   ...context.task,
   product: { id: context.task.product_id, brand: 'PartSignal', part_number: 'PS-001' },
@@ -120,6 +143,7 @@ function renderPage() {
           <BrowserRouter>
             <Routes>
               <Route path="/content/:contentVersionId" element={<ContentEditorPage />} />
+              <Route path="/tasks/:taskId" element={<h1>内容任务详情</h1>} />
             </Routes>
           </BrowserRouter>
         </QueryClientProvider>
@@ -250,6 +274,8 @@ test('人工修订删除最后一个标签后阻止提交，恢复后保留原 p
   render(
     <RevisionForm
       content={{ ...content, status: 'CHANGES_REQUESTED' }}
+      mode="revision"
+      saved={false}
       loading={false}
       onDirtyChange={() => undefined}
       onSubmit={onSubmit}
@@ -364,6 +390,68 @@ test('人工修订失败时保留未保存内容并给出就地反馈', async ()
   expect(alert?.parentElement).toHaveFocus();
   expect(screen.getByText('修订保存失败')).toBeInTheDocument();
   expect(changeSummary).toHaveValue('补充证据边界');
+});
+
+test('当前人工草稿原地保存且不创建新版本', async () => {
+  const requestBodies: Array<Promise<unknown>> = [];
+  const saved = { ...manualDraft, title: '已保存人工草稿', revision: 1 } satisfies Schema<'ContentVersion'>;
+  window.history.pushState({}, '', `/content/${content.id}`);
+  mockFetch((request) => {
+    const path = new URL(request.url).pathname;
+    const common = commonPageResponse(path);
+    if (common) return common;
+    if (path.endsWith('/review-context')) return { body: manualDraftContext };
+    if (request.method === 'PUT' && path === `/api/v1/content-versions/${content.id}`) {
+      requestBodies.push(request.clone().json());
+      return { body: saved };
+    }
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+  renderPage();
+
+  await userEvent.click(await screen.findByRole('tab', { name: '编辑' }));
+  expect(screen.queryByRole('textbox', { name: '变更说明' })).not.toBeInTheDocument();
+  const title = screen.getByRole('textbox', { name: '标题' });
+  await userEvent.clear(title);
+  await userEvent.type(title, saved.title);
+  await userEvent.click(screen.getByRole('button', { name: /保存草稿/ }));
+
+  expect(await screen.findByRole('heading', { name: saved.title, level: 1 })).toBeInTheDocument();
+  expect(screen.getByText('已保存')).toBeInTheDocument();
+  expect(await requestBodies[0]).toEqual({
+    expected_revision: 0,
+    title: saved.title,
+    summary: manualDraft.summary,
+    body_markdown: manualDraft.body_markdown,
+    tags: manualDraft.tags,
+  });
+  expect(window.location.pathname).toBe(`/content/${content.id}`);
+});
+
+test('人工未审核草稿按服务端 DELETE 动作确认后彻底删除', async () => {
+  const deleteUrls: string[] = [];
+  window.history.pushState({}, '', `/content/${content.id}`);
+  mockFetch((request) => {
+    const path = new URL(request.url).pathname;
+    const common = commonPageResponse(path);
+    if (common) return common;
+    if (path.endsWith('/review-context')) return { body: manualDraftContext };
+    if (request.method === 'DELETE' && path === `/api/v1/content-versions/${content.id}`) {
+      deleteUrls.push(request.url);
+      return { body: null };
+    }
+    throw new Error(`未声明的测试请求：${request.method} ${path}`);
+  });
+  renderPage();
+
+  await userEvent.click(await screen.findByRole('button', { name: '彻底删除草稿' }));
+  const dialog = (await screen.findByText('彻底删除人工未审核草稿？', { selector: '.ant-modal-confirm-title' })).closest<HTMLElement>('[role="dialog"]');
+  expect(dialog).not.toBeNull();
+  await userEvent.click(within(dialog!).getByRole('button', { name: '确认彻底删除' }));
+
+  await waitFor(() => expect(window.location.pathname).toBe(`/tasks/${content.task_id}`));
+  expect(deleteUrls).toHaveLength(1);
+  expect(new URL(deleteUrls[0]!).searchParams.get('expected_revision')).toBe('0');
 });
 
 test('已批准版本保持只读且不渲染人工修订与审核操作', async () => {

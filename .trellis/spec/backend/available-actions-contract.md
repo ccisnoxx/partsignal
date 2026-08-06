@@ -40,8 +40,9 @@ class DeletionProjection(ContractModel):
 - 认证自服务复用 `UserOut` 时显式返回 `available_actions: []`；管理接口使用 actor-aware 投影，不另建平行 DTO。
 - mutation 成功后使用响应或失效既有 query 取得重新投影的动作；竞态拒绝后刷新资源，不加兼容分支。
 - presenter 和 Pydantic serializer 内不得逐行查询数据库。涉及引用门禁的集合先批量取得 id 集合，再在内存投影。
-- 产品、事实版本、平台类型、具体平台、发布账号、内容任务和停用用户的资源 Schema 必须包含 required nullable `deletion`。无删除管理上下文时为 `null`；普通删除允许时为 `{ "blockers": [] }` 并同时包含 `DELETE`；存在当前命令的真实阻断时返回非空数组且不包含 `DELETE`。
+- 产品、事实版本、GEO 问题、平台类型、具体平台、发布账号、内容任务和停用用户的资源 Schema 必须包含 required nullable `deletion`。无删除管理上下文时为 `null`；普通删除允许时为 `{ "blockers": [] }` 并同时包含 `DELETE`；存在当前命令的真实阻断时返回非空数组且不包含 `DELETE`。
 - `deletion.blockers[*]` 只统计服务端权威的当前阻断类型和正整数数量。平台只统计 `OPEN` 任务和非终态发布工作，账号只统计非终态发布工作；平台账号总数是删除影响而不是阻断。写命令锁定目标后必须重新统计，不能把读投影当授权。
+- GEO 问题只向 `ADMIN` 投影删除管理上下文；内容任务、GEO 优化来源和 GEO 观测是三类独立直接阻断。删除命令必须校验当前 revision，并在目标行锁内复核相同引用，数据库 `ON DELETE RESTRICT` 继续作为最终门禁。
 - 内容任务归档使用独立 `archived_at`：未归档完成任务返回 `ARCHIVE`，已归档任务返回 `RESTORE`，且仅管理员同时获得 `PERMANENT_DELETE`。已归档任务不再返回编辑、生成、取消或普通 `DELETE`。
 
 ## 4. 校验与错误矩阵

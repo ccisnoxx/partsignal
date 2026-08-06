@@ -1,17 +1,19 @@
 /** GEO 问题库页面，维护人工观测使用的问题主题。 */
-import { PlusOutlined } from '@ant-design/icons';
+import { DownOutlined, PlusOutlined } from '@ant-design/icons';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Form, Input, Modal, Select, Space, Table } from 'antd';
+import { Alert, App, Button, Card, Dropdown, Form, Input, Modal, Select, Space, Table } from 'antd';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { queryClient } from '../../app/queryClient';
-import { api, csrfHeader, errorMessage, unwrap } from '../../shared/api/client';
+import { api, csrfHeader, ensureSuccess, errorMessage, unwrap } from '../../shared/api/client';
 import { queryTopicsQueryOptions } from '../../shared/api/queryOptions';
 import { queryKeys } from '../../shared/api/queryKeys';
 import type { QueryTopic, Schema } from '../../shared/api/types';
+import { DeletionError, DeletionGuidanceModal, type DeletionBlocker } from '../../shared/components/DeletionError';
 import { PageHeader } from '../../shared/components/PageHeader';
 import { TableCellText } from '../../shared/components/TableCellText';
 import { TableRegion } from '../../shared/components/TableRegion';
+import { useFocusReturn } from '../../shared/hooks/useFocusReturn';
 
 const intentOptions: Array<{ label: string; value: Schema<'IntentType'> }> = [
   { label: '品牌', value: 'BRAND' },
@@ -26,6 +28,9 @@ const intentLabels = new Map(intentOptions.map((item) => [item.value, item.label
 export function GeoTopicsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<QueryTopic>();
+  const [deletionTarget, setDeletionTarget] = useState<QueryTopic>();
+  const { message, modal } = App.useApp();
+  const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
   const navigate = useNavigate();
   const topics = useQuery(queryTopicsQueryOptions());
   const create = useMutation({
@@ -54,6 +59,37 @@ export function GeoTopicsPage() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.queryTopics });
     },
   });
+  const remove = useMutation({
+    mutationFn: async (topic: QueryTopic) => ensureSuccess(await api.DELETE('/api/v1/query-topics/{query_topic_id}', {
+      params: {
+        path: { query_topic_id: topic.id },
+        query: { expected_revision: topic.revision },
+        header: csrfHeader(),
+      },
+    })),
+    onSuccess: async () => {
+      message.success('GEO 问题已删除');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.queryTopics }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.geo.all }),
+      ]);
+    },
+    onError: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.queryTopics });
+    },
+  });
+  const confirmDelete = (topic: QueryTopic) => modal.confirm({
+    title: `删除 GEO 问题“${topic.canonical_question}”？`,
+    content: '此操作不可恢复。系统只会删除该问题，不会删除任何内容任务、GEO 优化来源或观测历史；发现引用时服务端会拒绝。',
+    okText: '删除',
+    cancelText: '取消',
+    okButtonProps: { danger: true },
+    onOk: () => remove.mutate(topic),
+    afterClose: restoreFocus,
+  });
+  const deletionLink = (topic: QueryTopic) => (blocker: DeletionBlocker) => blocker.type === 'GEO_OBSERVATION'
+    ? { href: `/observations?query_topic_id=${topic.id}&all_time=true&include_history=true`, label: '查看历史' as const }
+    : undefined;
 
   return (
     <div className="page-stack">
@@ -70,6 +106,7 @@ export function GeoTopicsPage() {
           </Button>
         )}
       >
+        {remove.error && <DeletionError error={remove.error} resolveLink={remove.variables ? deletionLink(remove.variables) : undefined} />}
         {(topics.error || create.error || update.error) && (
           <Alert
             role="alert"
@@ -102,7 +139,7 @@ export function GeoTopicsPage() {
               {
                 title: '操作',
                 fixed: 'right',
-                width: 210,
+                width: 280,
                 render: (_, row) => (
                   <Space size={4}>
                     <Button
@@ -113,6 +150,26 @@ export function GeoTopicsPage() {
                       使用此问题观测
                     </Button>
                     <Button size="small" onClick={() => setEditing(row)}>编辑</Button>
+                    {(row.available_actions.includes('DELETE') || row.deletion?.blockers.length) && (
+                      <Dropdown
+                        trigger={['click']}
+                        menu={{
+                          items: row.available_actions.includes('DELETE')
+                            ? [{ key: 'delete', label: '删除', danger: true }]
+                            : [{ key: 'conditions', label: '查看删除条件' }],
+                          onClick: ({ key }) => key === 'delete' ? confirmDelete(row) : setDeletionTarget(row),
+                        }}
+                      >
+                        <Button
+                          {...focusReturnTargetProps}
+                          size="small"
+                          aria-label={`更多操作：${row.canonical_question}`}
+                          loading={remove.isPending && remove.variables?.id === row.id}
+                        >
+                          更多 <DownOutlined />
+                        </Button>
+                      </Dropdown>
+                    )}
                   </Space>
                 ),
               },
@@ -120,6 +177,18 @@ export function GeoTopicsPage() {
           />
         </TableRegion>
       </Card>
+      <DeletionGuidanceModal
+        open={!!deletionTarget}
+        resourceLabel={`GEO 问题“${deletionTarget?.canonical_question ?? ''}”`}
+        blockers={deletionTarget?.deletion?.blockers ?? []}
+        refreshing={topics.isFetching}
+        resolveLink={deletionTarget ? deletionLink(deletionTarget) : () => undefined}
+        onClose={() => setDeletionTarget(undefined)}
+        onRefresh={async () => {
+          await topics.refetch();
+          setDeletionTarget(undefined);
+        }}
+      />
       <Modal
         title={editing ? '编辑 GEO 问题' : '新增 GEO 问题'}
         open={open || !!editing}

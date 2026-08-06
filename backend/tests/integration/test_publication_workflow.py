@@ -8,6 +8,7 @@ import sys
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import UTC, date, datetime
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
@@ -20,7 +21,8 @@ from sqlalchemy.orm import Session
 
 from app.errors import AppError
 from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType, QueryTopic
-from app.models.content import ContentTask, ContentVersion
+from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
+from app.models.geo_files import GeoObservation
 from app.models.identity import AuditLog, User
 from app.models.product_facts import FactReviewRecord, FactVersion, Product
 from app.models.publication import (
@@ -43,6 +45,7 @@ from app.schemas.publication import (
     PublishedContentIssueResolveRequest,
     PublishedContentRepairTaskCreate,
 )
+from app.services.content_planning import delete_query_topic, query_topics_out
 from app.services.geo_observation import geo_publication_candidates
 from app.services.platform_configuration import (
     delete_platform_profile,
@@ -196,10 +199,179 @@ def _seed_graph(db: Session, *, content_hash: str = "a" * 64) -> dict[str, objec
         "product": product,
         "fact": fact,
         "profile": profile,
+        "topic": topic,
         "task": task,
         "content": content,
         "account": account,
     }
+
+
+@pytest.mark.integration
+def test_query_topic_delete_requires_no_direct_business_references() -> None:
+    """问题删除必须复核三类直接引用、revision 和成功审计。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            product = graph["product"]
+            task = graph["task"]
+            topic = graph["topic"]
+            assert isinstance(actor, User)
+            assert isinstance(product, Product)
+            assert isinstance(task, ContentTask)
+            assert isinstance(topic, QueryTopic)
+            actor.account_type = "ADMIN"
+            db.commit()
+
+            db.add_all(
+                [
+                    ContentTaskGeoSource(
+                        content_task_id=task.id,
+                        rule_code="QUESTION_COVERAGE_GAP",
+                        date_from=date(2026, 8, 1),
+                        date_to=date(2026, 8, 6),
+                        query_topic_id=topic.id,
+                        basis_snapshot={"source": "integration-test"},
+                        created_by=actor.id,
+                    ),
+                    GeoObservation(
+                        observation_kind="MANUAL_ARTICLE_SEARCH",
+                        query_topic_id=topic.id,
+                        product_id=product.id,
+                        search_platform="测试搜索平台",
+                        search_query=topic.canonical_question,
+                        tested_at=datetime(2026, 8, 6, tzinfo=UTC),
+                        notes="删除阻断测试",
+                        tested_by=actor.id,
+                    ),
+                ]
+            )
+            db.commit()
+
+            projected = query_topics_out(db, [topic], can_delete=True)[0]
+            assert projected.available_actions == ["UPDATE"]
+            assert projected.deletion.model_dump() == {
+                "blockers": [
+                    {"type": "CONTENT_TASK", "count": 1},
+                    {"type": "GEO_OPTIMIZATION_SOURCE", "count": 1},
+                    {"type": "GEO_OBSERVATION", "count": 1},
+                ]
+            }
+            with pytest.raises(AppError) as blocked:
+                delete_query_topic(
+                    db=db,
+                    query_topic_id=topic.id,
+                    expected_revision=topic.revision,
+                    actor=actor,
+                    request_id="query-topic-blocked",
+                )
+            assert blocked.value.code == "QUERY_TOPIC_IN_USE"
+            assert blocked.value.details == {
+                "references": [
+                    {"type": "CONTENT_TASK", "count": 1},
+                    {"type": "GEO_OPTIMIZATION_SOURCE", "count": 1},
+                    {"type": "GEO_OBSERVATION", "count": 1},
+                ]
+            }
+            assert db.get(QueryTopic, topic.id) is not None
+            assert db.scalar(
+                select(AuditLog).where(
+                    AuditLog.action == "query_topic.deleted",
+                    AuditLog.target_id == str(topic.id),
+                )
+            ) is None
+
+            race_topic = QueryTopic(
+                canonical_question="读取后才产生引用的问题",
+                intent_type="PRODUCT",
+                variants=["并发引用测试"],
+            )
+            db.add(race_topic)
+            db.commit()
+            assert query_topics_out(db, [race_topic], can_delete=True)[0].available_actions == [
+                "UPDATE",
+                "DELETE",
+            ]
+            db.add(
+                GeoObservation(
+                    observation_kind="MANUAL_ARTICLE_SEARCH",
+                    query_topic_id=race_topic.id,
+                    product_id=product.id,
+                    search_platform="测试搜索平台",
+                    search_query=race_topic.canonical_question,
+                    tested_at=datetime(2026, 8, 6, tzinfo=UTC),
+                    notes="读取投影后新增引用",
+                    tested_by=actor.id,
+                )
+            )
+            db.commit()
+            with pytest.raises(AppError) as raced:
+                delete_query_topic(
+                    db=db,
+                    query_topic_id=race_topic.id,
+                    expected_revision=race_topic.revision,
+                    actor=actor,
+                    request_id="query-topic-raced",
+                )
+            assert raced.value.code == "QUERY_TOPIC_IN_USE"
+            assert raced.value.details == {
+                "references": [{"type": "GEO_OBSERVATION", "count": 1}]
+            }
+            assert db.get(QueryTopic, race_topic.id) is not None
+
+            stale_topic = QueryTopic(
+                canonical_question="revision 变化的问题",
+                intent_type="PRODUCT",
+                variants=["revision 测试"],
+            )
+            db.add(stale_topic)
+            db.commit()
+            with pytest.raises(AppError) as stale:
+                delete_query_topic(
+                    db=db,
+                    query_topic_id=stale_topic.id,
+                    expected_revision=stale_topic.revision + 1,
+                    actor=actor,
+                    request_id="query-topic-stale",
+                )
+            assert stale.value.code == "REVISION_CONFLICT"
+            assert db.get(QueryTopic, stale_topic.id) is not None
+
+            deletable_topic = QueryTopic(
+                canonical_question="尚未使用的问题",
+                intent_type="PRODUCT",
+                variants=["待删除测试问题"],
+            )
+            db.add(deletable_topic)
+            db.commit()
+            deleted_id = deletable_topic.id
+            deleted_revision = deletable_topic.revision
+            delete_query_topic(
+                db=db,
+                query_topic_id=deleted_id,
+                expected_revision=deleted_revision,
+                actor=actor,
+                request_id="query-topic-delete",
+            )
+            assert db.get(QueryTopic, deleted_id) is None
+            audit = db.scalar(
+                select(AuditLog).where(
+                    AuditLog.action == "query_topic.deleted",
+                    AuditLog.target_id == str(deleted_id),
+                )
+            )
+            assert audit is not None
+            assert audit.details == {"facts": {"revision": deleted_revision}}
+            with pytest.raises(AppError) as repeated:
+                delete_query_topic(
+                    db=db,
+                    query_topic_id=deleted_id,
+                    expected_revision=deleted_revision,
+                    actor=actor,
+                    request_id="query-topic-delete-repeat",
+                )
+            assert repeated.value.code == "NOT_FOUND"
 
 
 @pytest.mark.integration

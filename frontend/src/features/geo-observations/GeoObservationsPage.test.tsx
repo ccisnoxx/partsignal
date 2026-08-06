@@ -123,6 +123,7 @@ const topic = {
   intent_type: 'REPLACEMENT',
   variants: ['PS-001 如何替代？'],
   available_actions: ['UPDATE'],
+  deletion: null,
   primary_task: 'USE_FOR_OBSERVATION',
   revision: 0,
   created_at: '2026-07-18T00:00:00Z',

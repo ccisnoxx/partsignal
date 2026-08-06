@@ -26,6 +26,65 @@ def test_live_health_does_not_require_external_dependencies() -> None:
 
 
 @pytest.mark.parametrize(
+    ("account_type", "headers", "expected_status", "expected_code"),
+    [
+        (
+            "ENGINEER",
+            {"X-CSRF-Token": "contract-test-csrf-token-more-than-32-characters"},
+            403,
+            "PERMISSION_DENIED",
+        ),
+        ("ADMIN", {}, 422, "VALIDATION_ERROR"),
+        (
+            "ADMIN",
+            {"X-CSRF-Token": "wrong-contract-test-csrf-token-more-than-32-chars"},
+            403,
+            "CSRF_INVALID",
+        ),
+    ],
+)
+def test_query_topic_delete_rejects_non_admin_and_missing_csrf(
+    account_type: str,
+    headers: dict[str, str],
+    expected_status: int,
+    expected_code: str,
+) -> None:
+    """删除问题的权限和 CSRF 必须在进入业务命令前拒绝。"""
+    csrf_token = "contract-test-csrf-token-more-than-32-characters"
+    current_session = SimpleNamespace(
+        user=SimpleNamespace(account_type=account_type),
+        csrf_hash=hash_token(csrf_token),
+    )
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_current_session] = lambda: current_session
+    try:
+        response = TestClient(app).delete(
+            f"/api/v1/query-topics/{uuid.uuid4()}?expected_revision=0",
+            headers=headers,
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == expected_status
+    assert response.json()["error"]["code"] == expected_code
+
+
+def test_query_topic_delete_rejects_anonymous_request() -> None:
+    """匿名请求必须在访问删除命令前返回统一认证错误。"""
+    app.dependency_overrides[get_db] = lambda: object()
+    try:
+        response = TestClient(app).delete(
+            f"/api/v1/query-topics/{uuid.uuid4()}?expected_revision=0",
+            headers={"X-CSRF-Token": "contract-test-csrf-token-more-than-32-characters"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "AUTH_REQUIRED"
+
+
+@pytest.mark.parametrize(
     ("path", "tags"),
     [
         ("/api/v1/content-tasks/{id}/manual-versions", []),

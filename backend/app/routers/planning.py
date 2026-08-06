@@ -40,7 +40,8 @@ from app.services.content_planning import (
     create_platform_profile as create_platform_profile_command,
 )
 from app.services.content_planning import create_query_topic as create_query_topic_command
-from app.services.content_planning import query_topic_out
+from app.services.content_planning import delete_query_topic as delete_query_topic_command
+from app.services.content_planning import query_topic_out, query_topics_out
 from app.services.content_planning import update_query_topic as update_query_topic_command
 from app.services.platform_configuration import (
     list_platform_profiles as list_platform_profiles_query,
@@ -68,9 +69,11 @@ SystemAdmin = AdminUser
 
 
 @router.get("/query-topics", response_model=QueryTopicList, operation_id="listQueryTopics")
-def list_query_topics(db: DbSession, _user: CurrentUser) -> QueryTopicList:
+def list_query_topics(db: DbSession, user: CurrentUser) -> QueryTopicList:
     topics = list(db.scalars(select(QueryTopic).order_by(QueryTopic.created_at)))
-    return QueryTopicList(items=[query_topic_out(topic) for topic in topics])
+    return QueryTopicList(
+        items=query_topics_out(db, topics, can_delete=user.account_type == "ADMIN")
+    )
 
 
 @router.post(
@@ -89,7 +92,7 @@ def create_query_topic(
     topic = create_query_topic_command(
         db=db, payload=payload, actor=editor, request_id=request.state.request_id
     )
-    return query_topic_out(topic)
+    return query_topic_out(db, topic, can_delete=editor.account_type == "ADMIN")
 
 
 @router.patch(
@@ -112,7 +115,30 @@ def update_query_topic(
         actor=editor,
         request_id=request.state.request_id,
     )
-    return query_topic_out(topic)
+    return query_topic_out(db, topic, can_delete=editor.account_type == "ADMIN")
+
+
+@router.delete(
+    "/query-topics/{query_topic_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    operation_id="deleteQueryTopic",
+)
+def delete_query_topic(
+    query_topic_id: uuid.UUID,
+    expected_revision: Annotated[int, Query(ge=0)],
+    request: Request,
+    db: DbSession,
+    admin: AdminUser,
+    _csrf: CsrfProtected,
+) -> None:
+    """删除管理员当前读取且没有业务历史引用的 GEO 问题。"""
+    delete_query_topic_command(
+        db=db,
+        query_topic_id=query_topic_id,
+        expected_revision=expected_revision,
+        actor=admin,
+        request_id=request.state.request_id,
+    )
 
 
 @router.get(

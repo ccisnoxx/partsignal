@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select, text
+from sqlalchemy import func, literal, select, text, union_all
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.errors import AppError, not_found
+from app.audit import append_audit
+from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+from app.errors import AppError, in_use, not_found
 from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType, QueryTopic
-from app.models.content import ContentTask
+from app.models.content import ContentTask, ContentTaskGeoSource
+from app.models.geo_files import GeoObservation
 from app.models.identity import User
 from app.models.product_facts import FactVersion, Product
 from app.schemas.configuration import (
@@ -23,17 +26,82 @@ from app.schemas.content import ContentTaskCreate
 from app.services.platform_configuration import lock_active_platform, lock_platform_prompt_bindings
 from app.services.platform_logo_files import lock_platform_logo_change
 
+_QUERY_TOPIC_BLOCKERS = (
+    ("CONTENT_TASK", "内容任务"),
+    ("GEO_OPTIMIZATION_SOURCE", "GEO 优化来源"),
+    ("GEO_OBSERVATION", "GEO 观测"),
+)
 
-def query_topic_out(topic: QueryTopic) -> QueryTopicOut:
-    """投影目标问题及其当前编辑动作。"""
-    payload = {
-        field: getattr(topic, field)
-        for field in QueryTopicOut.model_fields
-        if field not in {"available_actions", "primary_task"}
+
+def _query_topic_reference_counts(
+    db: Session, topic_ids: list[uuid.UUID]
+) -> dict[tuple[uuid.UUID, str], int]:
+    """批量统计所有会阻断问题删除的直接引用。"""
+    if not topic_ids:
+        return {}
+    direct_references = union_all(
+        select(
+            ContentTask.query_topic_id.label("resource_id"),
+            literal("CONTENT_TASK").label("blocker_type"),
+        ).where(ContentTask.query_topic_id.in_(topic_ids)),
+        select(
+            ContentTaskGeoSource.query_topic_id.label("resource_id"),
+            literal("GEO_OPTIMIZATION_SOURCE").label("blocker_type"),
+        ).where(ContentTaskGeoSource.query_topic_id.in_(topic_ids)),
+        select(
+            GeoObservation.query_topic_id.label("resource_id"),
+            literal("GEO_OBSERVATION").label("blocker_type"),
+        ).where(GeoObservation.query_topic_id.in_(topic_ids)),
+    ).subquery()
+    return {
+        (resource_id, blocker_type): int(count)
+        for resource_id, blocker_type, count in db.execute(
+            select(
+                direct_references.c.resource_id,
+                direct_references.c.blocker_type,
+                func.count(),
+            ).group_by(
+                direct_references.c.resource_id,
+                direct_references.c.blocker_type,
+            )
+        ).tuples()
     }
-    payload["available_actions"] = ["UPDATE"]
-    payload["primary_task"] = "USE_FOR_OBSERVATION"
-    return QueryTopicOut.model_validate(payload)
+
+
+def query_topics_out(
+    db: Session, topics: list[QueryTopic], *, can_delete: bool
+) -> list[QueryTopicOut]:
+    """批量投影目标问题，并仅向管理员公开删除资格。"""
+    if not topics:
+        return []
+    reference_counts = (
+        _query_topic_reference_counts(db, [topic.id for topic in topics]) if can_delete else {}
+    )
+    items: list[QueryTopicOut] = []
+    for topic in topics:
+        blockers = [
+            {"type": blocker_type, "count": count}
+            for blocker_type, _label in _QUERY_TOPIC_BLOCKERS
+            if (count := reference_counts.get((topic.id, blocker_type), 0))
+        ]
+        payload = {
+            field: getattr(topic, field)
+            for field in QueryTopicOut.model_fields
+            if field not in {"available_actions", "deletion", "primary_task"}
+        }
+        payload["available_actions"] = [
+            "UPDATE",
+            *(["DELETE"] if can_delete and not blockers else []),
+        ]
+        payload["deletion"] = {"blockers": blockers} if can_delete else None
+        payload["primary_task"] = "USE_FOR_OBSERVATION"
+        items.append(QueryTopicOut.model_validate(payload))
+    return items
+
+
+def query_topic_out(db: Session, topic: QueryTopic, *, can_delete: bool) -> QueryTopicOut:
+    """投影单个目标问题及其当前动作。"""
+    return query_topics_out(db, [topic], can_delete=can_delete)[0]
 
 
 def create_query_topic(
@@ -71,6 +139,48 @@ def update_query_topic(
     topic.revision += 1
     db.commit()
     return topic
+
+
+def delete_query_topic(
+    *,
+    db: Session,
+    query_topic_id: uuid.UUID,
+    expected_revision: int,
+    actor: User,
+    request_id: str,
+) -> None:
+    """仅删除当前 revision 且没有任何业务历史引用的目标问题。"""
+    topic = db.scalar(
+        select(QueryTopic).where(QueryTopic.id == query_topic_id).with_for_update()
+    )
+    if topic is None:
+        raise not_found("目标问题")
+    if topic.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "目标问题已被其他请求修改", 409)
+    reference_counts = _query_topic_reference_counts(db, [topic.id])
+    references = [
+        (blocker_type, label, reference_counts.get((topic.id, blocker_type), 0))
+        for blocker_type, label in _QUERY_TOPIC_BLOCKERS
+    ]
+    if any(count for _, _, count in references):
+        raise in_use("QUERY_TOPIC_IN_USE", "目标问题", references)
+    deleted_revision = topic.revision
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.CONTENT_PLANNING,
+            action="query_topic.deleted",
+            target_type="QueryTopic",
+            target_id=topic.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="GEO 问题已删除",
+            details={"facts": {"revision": deleted_revision}},
+        ),
+    )
+    db.delete(topic)
+    db.commit()
 
 
 def create_platform_profile(

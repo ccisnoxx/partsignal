@@ -525,6 +525,26 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/QueryTopic'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+    delete:
+      tags: [planning]
+      operationId: deleteQueryTopic
+      parameters:
+        - name: query_topic_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+        - name: expected_revision
+          in: query
+          required: true
+          schema: {type: integer, minimum: 0}
+        - {$ref: '#/components/parameters/CsrfHeader'}
+      responses:
+        '204': {description: 目标问题已删除}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-profiles:
     get:
       tags: [planning]
@@ -3083,12 +3103,16 @@ components:
       allOf:
         - {$ref: '#/components/schemas/QueryTopicCreate'}
         - type: object
-          required: [id, available_actions, primary_task, revision, created_at]
+          required: [id, available_actions, deletion, primary_task, revision, created_at]
           properties:
             id: {type: string, format: uuid}
             available_actions:
               type: array
-              items: {type: string, enum: [UPDATE]}
+              items: {type: string, enum: [UPDATE, DELETE]}
+            deletion:
+              anyOf:
+                - {$ref: '#/components/schemas/DeletionProjection'}
+                - {type: 'null'}
             primary_task: {type: string, const: USE_FOR_OBSERVATION}
             revision: {type: integer}
             created_at: {type: string, format: date-time}

@@ -136,6 +136,12 @@
 - 首次核验成功前，同一 `PublicationWork` 可切换到同任务、同平台的当前已批准版本。每次切换追加前后版本事件，每次核验冻结当时内容版本，最终成果只读投影成功核验的版本。
 - GEO 内容下降、长期未提及和问题覆盖缺口只能通过服务端重算后创建优化任务。`content_task_geo_sources` 与任务原子保存规则、分析周期、关联成果或问题及指标快照；客户端不能自报异常或猜测内容平台。
 
+### 2.13 2026-08-06 GEO 问题受约束删除
+
+- 只有管理员可以永久删除尚未进入业务历史的 GEO 问题；工程师仍可新增、编辑和使用问题，但响应中的删除管理投影为 `null`。
+- `content_tasks.query_topic_id`、`content_task_geo_sources.query_topic_id` 和 `geo_observations.query_topic_id` 任一存在时均阻断删除。列表返回每类直接引用数量，命令在目标行锁内按当前 revision 重新统计并返回结构化冲突。
+- 删除不解绑、不级联或改写任何内容任务、GEO 优化来源与观测历史；现有 `ON DELETE RESTRICT` 保持最终完整性门禁。成功只删除问题本身并写入 `query_topic.deleted` 审计。
+
 ## 3. 背景与业务问题
 
 公司需要推广电子元器件国产替代产品。当用户在豆包、DeepSeek、Grok 等具备联网搜索能力的 AI 产品中查询进口型号的国产替代、兼容料号、参数对比或替换方案时，希望公司的产品能够被准确检索、提及或引用。
@@ -702,7 +708,7 @@ Drawer 的锁定上下文直接来自对应资源详情投影。旧发布详情�
 
 当前 GEO 观测以产品、真实问题主题、人工搜索网站、实际搜索词和已发布文章为维度。操作人员在站外网站实际搜索后登记证据，系统不维护固定搜索网站枚举，也不自动联网复查。
 
-`QueryTopic` 保存配置问题全集。新内容任务不创建该关联；新 `MANUAL_ARTICLE_SEARCH` 观测必须明确选择一个真实问题主题，同时保留实际搜索词，系统不得按文本相似度猜测关联。补采前人工观测的空关联保持历史原值并从洞察分母排除。
+`QueryTopic` 保存配置问题全集。新内容任务不创建该关联；新 `MANUAL_ARTICLE_SEARCH` 观测必须明确选择一个真实问题主题，同时保留实际搜索词，系统不得按文本相似度猜测关联。补采前人工观测的空关联保持历史原值并从洞察分母排除。管理员只能删除同时没有内容任务、GEO 优化来源和观测记录直接引用的问题；任何历史引用都保留问题并显示精确阻断数量，工程师不获得删除能力。
 
 ### 13.2 单次观测字段
 
@@ -837,7 +843,7 @@ MVP 实现前两个能力；`Publisher` 只作为未来扩展边界记录在设�
 | `users` | `id`, `username`, `display_name`, `account_type`, `is_active`, `must_change_password`, `revision` |
 | `products` | `id`, `part_number`, `brand`, `category`, `status`, `facts_body_markdown`, `facts_classification`, `facts_revision` |
 | `fact_versions` | `id`, `product_id`, `version`, `body_markdown`, `classification`, `status`, `approved_by` |
-| `query_topics` | `id`, `canonical_question`, `intent_type`, `variants_json`, `status` |
+| `query_topics` | `id`, `canonical_question`, `intent_type`, `variants`, `revision`, `created_at` |
 | `platform_types` | `id`, `name`, `slug`, `revision`, `created_by` |
 | `platform_prompts` | `id`, `name`, `template_markdown`, `revision`, `updated_by` |
 | `platform_profiles` | `id`, `platform_type_id`, `platform_prompt_id`, `name`, `slug`, `official_url`, `allowed_domains`, `revision` |
@@ -863,6 +869,7 @@ MVP 实现前两个能力；`Publisher` 只作为未来扩展边界记录在设�
 - 关键状态使用明确枚举，不使用自由文本。
 - `platform_prompts` 保存可复用模板；删除绑定模板会在同一事务自动解绑全部平台。`generation_jobs.input_snapshot` 创建后不可修改，是 Prompt、模型和输入的历史权威。
 - `platform_types` 由管理员动态维护唯一 Slug；被具体平台引用时不能删除。
+- `query_topics` 只允许管理员删除没有内容任务、GEO 优化来源或观测记录引用的行；三类外键保持 `RESTRICT`，不得级联清理历史。
 - 内容任务直接引用活动具体平台；系统 AI 作业冻结该平台当前 Prompt 和事实 Markdown，人工首稿不创建作业。
 - 发布工作只能绑定已批准内容，且平台账号必须与任务直接绑定的具体平台一致；发布成果只能由首次成功核验形成。
 - `body_markdown` 是文章唯一可编辑正文；HTML 和纯文本是按需派生结果，不在多个字段中重复维护可变正文。

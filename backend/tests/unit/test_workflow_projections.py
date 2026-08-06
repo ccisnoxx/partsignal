@@ -10,12 +10,13 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
-from app.models.configuration import PlatformProfile, PlatformType
+from app.models.configuration import PlatformProfile, PlatformType, QueryTopic
 from app.models.content import ContentTask, ContentVersion
 from app.models.identity import User
 from app.models.product_facts import FactVersion, Product
 from app.models.publication import PlatformAccount
 from app.services.ai_configuration import ai_channel_stage, ai_model_stage
+from app.services.content_planning import query_topics_out
 from app.services.generation import content_hash
 from app.services.identity import users_out
 from app.services.platform_configuration import platform_types_out
@@ -82,6 +83,17 @@ def _fact(product: Product, *, status: str = "APPROVED") -> FactVersion:
         change_summary="审核快照",
         revision=0,
         created_by=uuid.uuid4(),
+        created_at=datetime(2026, 8, 4, tzinfo=UTC),
+    )
+
+
+def _query_topic() -> QueryTopic:
+    return QueryTopic(
+        id=uuid.uuid4(),
+        canonical_question="如何选择测试器件？",
+        intent_type="PRODUCT",
+        variants=["测试器件选型"],
+        revision=0,
         created_at=datetime(2026, 8, 4, tzinfo=UTC),
     )
 
@@ -268,6 +280,60 @@ def test_product_deletion_projection_keeps_fixed_query_count_for_multiple_rows()
     products_out(cast(Session, many), [_product(), _product()], can_delete=True)
 
     assert one.scalar_calls == many.scalar_calls == 2
+
+
+def test_query_topic_deletion_projection_respects_admin_and_all_direct_references() -> None:
+    """问题删除资格只向管理员投影，并逐类返回全部直接引用。"""
+    topic = _query_topic()
+    deletable = query_topics_out(
+        cast(Session, _ScalarSequenceSession([[]])), [topic], can_delete=True
+    )[0]
+    assert deletable.available_actions == ["UPDATE", "DELETE"]
+    assert deletable.deletion.model_dump() == {"blockers": []}
+
+    blocked = query_topics_out(
+        cast(
+            Session,
+            _ScalarSequenceSession(
+                [[
+                    (topic.id, "CONTENT_TASK", 2),
+                    (topic.id, "GEO_OPTIMIZATION_SOURCE", 3),
+                    (topic.id, "GEO_OBSERVATION", 4),
+                ]]
+            ),
+        ),
+        [topic],
+        can_delete=True,
+    )[0]
+    assert blocked.available_actions == ["UPDATE"]
+    assert blocked.deletion.model_dump() == {
+        "blockers": [
+            {"type": "CONTENT_TASK", "count": 2},
+            {"type": "GEO_OPTIMIZATION_SOURCE", "count": 3},
+            {"type": "GEO_OBSERVATION", "count": 4},
+        ]
+    }
+
+    engineer_session = _ScalarSequenceSession([])
+    engineer = query_topics_out(
+        cast(Session, engineer_session), [topic], can_delete=False
+    )[0]
+    assert engineer.available_actions == ["UPDATE"]
+    assert engineer.deletion is None
+    assert engineer_session.scalar_calls == 0
+
+
+def test_query_topic_deletion_projection_keeps_fixed_query_count_for_multiple_rows() -> None:
+    """问题数量增加时，三类引用仍由一次批量查询投影。"""
+    one = _ScalarSequenceSession([[]])
+    many = _ScalarSequenceSession([[]])
+
+    query_topics_out(cast(Session, one), [_query_topic()], can_delete=True)
+    query_topics_out(
+        cast(Session, many), [_query_topic(), _query_topic()], can_delete=True
+    )
+
+    assert one.scalar_calls == many.scalar_calls == 1
 
 
 def test_completed_content_task_delete_requires_archive_before_scope_query() -> None:

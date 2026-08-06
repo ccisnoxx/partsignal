@@ -440,7 +440,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["deleteQueryTopic"];
         options?: never;
         head?: never;
         patch: operations["updateQueryTopic"];
@@ -2092,7 +2092,8 @@ export interface components {
         QueryTopic: components["schemas"]["QueryTopicCreate"] & {
             /** Format: uuid */
             id: string;
-            available_actions: "UPDATE"[];
+            available_actions: ("UPDATE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
             /** @constant */
             primary_task: "USE_FOR_OBSERVATION";
             revision: number;
@@ -5037,6 +5038,35 @@ export interface operations {
                     "application/json": components["schemas"]["QueryTopic"];
                 };
             };
+        };
+    };
+    deleteQueryTopic: {
+        parameters: {
+            query: {
+                expected_revision: number;
+            };
+            header: {
+                "X-CSRF-Token": components["parameters"]["CsrfHeader"];
+            };
+            path: {
+                query_topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 目标问题已删除 */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     updateQueryTopic: {

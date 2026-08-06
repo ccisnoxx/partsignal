@@ -883,7 +883,7 @@ def get_published_content_repair_context(
         article=published_article_out(db, article),
         original_task=content_task_out(db, task),
         product=product_out(db, product, can_delete=can_delete),
-        query_topic=query_topic_out(topic) if topic is not None else None,
+        query_topic=query_topic_out(db, topic, can_delete=False) if topic is not None else None,
         platform_profile_id=profile.id,
         platform_profile_name=profile.name,
         original_fact_version=fact_version_out(db, original_fact, can_delete=can_delete),

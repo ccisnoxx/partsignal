@@ -85,7 +85,8 @@ class QueryTopicUpdate(QueryTopicCreate):
 
 class QueryTopicOut(QueryTopicCreate):
     id: uuid.UUID
-    available_actions: list[Literal["UPDATE"]]
+    available_actions: list[Literal["UPDATE", "DELETE"]]
+    deletion: DeletionProjection | None
     primary_task: Literal["USE_FOR_OBSERVATION"]
     revision: int
     created_at: datetime

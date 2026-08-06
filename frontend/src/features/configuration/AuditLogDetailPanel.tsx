@@ -206,6 +206,7 @@ const actionLabels: Record<string, string> = {
 
   'query_topic.created': '创建搜索问题',
   'query_topic.updated': '更新搜索问题',
+  'query_topic.deleted': '删除 GEO 问题',
   'content_task.created': '创建内容任务',
   'content_task.cancelled': '取消内容任务',
   'content_task.deleted': '删除内容任务',
@@ -299,6 +300,7 @@ const targetTypeLabels: Record<string, string> = {
   Product: '产品',
   PublicationWork: '发布工作',
   PublishedContentIssue: '已发布内容问题',
+  QueryTopic: 'GEO 问题',
   User: '用户',
 };
 

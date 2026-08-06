@@ -48,14 +48,14 @@
 
 ## Acceptance Criteria
 
-- [ ] `main` 以非强制方式推送成功，推送后本地 `HEAD` 与 `origin/main` 完全一致，发布包来自该权威提交。
-- [ ] Hostdzire 创建唯一新 release，链接既有 `0600` 环境文件，迁移前备份文件非空且未清理任何历史资产。
-- [ ] 完整部署脚本成功，PostgreSQL revision 为 `0038_published_article_delete`，PartSignal 全部容器健康且回环 API/前端探针通过。
-- [ ] 公网 `live`、`ready`、首页、缓存头、安全头和对象存储代理验收通过，Nginx 配置有效。
-- [ ] 真实浏览器只读验收通过登录、Dashboard、AI 配置、GEO 问题库与发布成果页；控制台和关键请求无应用级失败。
-- [ ] GEO 问题删除与发布成果永久删除入口按服务端投影显示，但线上验收不修改或删除任何业务数据。
-- [ ] 只有全部验收通过后 `current` 才指向新 release；失败时保留旧 `current` 或按已确认兼容边界处理，不伪造成功。
-- [ ] 部署结果记录 release ID、权威 commit、备份存在性、迁移版本、验收结论和剩余风险，不包含任何凭据。
+- [x] `main` 以非强制方式推送成功，推送后本地 `HEAD` 与 `origin/main` 完全一致，发布包来自该权威提交。
+- [x] Hostdzire 创建唯一新 release，链接既有 `0600` 环境文件，迁移前备份文件非空且未清理任何历史资产。
+- [x] 完整部署脚本成功，PostgreSQL revision 为 `0038_published_article_delete`，PartSignal 全部容器健康且回环 API/前端探针通过。
+- [x] 公网 `live`、`ready`、首页、缓存头、安全头和对象存储代理验收通过，Nginx 配置有效。
+- [x] 真实浏览器只读验收通过登录、Dashboard、AI 配置、GEO 问题库与发布成果页；控制台和关键请求无应用级失败。
+- [x] GEO 问题删除与发布成果永久删除入口按服务端投影显示，但线上验收不修改或删除任何业务数据。
+- [x] 只有全部验收通过后 `current` 才指向新 release；失败时保留旧 `current` 或按已确认兼容边界处理，不伪造成功。
+- [x] 部署结果记录 release ID、权威 commit、备份存在性、迁移版本、验收结论和剩余风险，不包含任何凭据。
 
 ## Out of Scope
 

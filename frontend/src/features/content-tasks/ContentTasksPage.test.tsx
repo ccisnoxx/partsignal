@@ -180,7 +180,7 @@ test('次级查询失败不遮蔽任务身份和返回入口', async () => {
   renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /></Routes>, [`/tasks/${taskId}`]);
 
   expect(await screen.findByRole('heading', { name: 'PartSignal PS-01' })).toBeInTheDocument();
-  expect(screen.getByText('fact-version-1')).toBeInTheDocument();
+  expect(await screen.findByText('V1')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /返回任务列表/ })).toBeInTheDocument();
   await waitFor(() => expect(screen.getAllByText('加载失败')).toHaveLength(2), { timeout: 3_000 });
   await user.click(screen.getByRole('button', { name: /生成 AI 草稿/ }));
@@ -753,6 +753,77 @@ test('仅按服务端 DELETE 动作确认删除并返回任务列表', async () 
     { params: { path: { content_task_id: taskId }, header: { 'X-CSRF-Token': 'test' } } },
   ));
   expect(await screen.findByRole('heading', { name: '任务列表' })).toBeInTheDocument();
+  expect(apiMocks.GET.mock.calls.filter(([path]) => path === '/api/v1/content-tasks/{content_task_id}')).toHaveLength(1);
+});
+
+test('详情永久删除后返回归档列表且不再请求已删除任务', async () => {
+  const user = userEvent.setup();
+  const archivedTask = {
+    ...task,
+    status: 'COMPLETED',
+    archived_at: '2026-07-20T08:30:00Z',
+    available_actions: ['RESTORE', 'PERMANENT_DELETE'],
+    revision: 3,
+  };
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}') return result(archivedTask);
+    if (path === '/api/v1/content-tasks') return result({ items: [listTask(1, 'COMPLETED', archivedTask)] });
+    if (path === '/api/v1/fact-versions/{fact_version_id}') return result(factVersion);
+    if (path === '/api/v1/content-tasks/{content_task_id}/content-versions') return result({ items: [] });
+    if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') return result({ items: [] });
+    if (path === '/api/v1/content-tasks/{content_task_id}/permanent-deletion-preview') return result({
+      task_id: taskId,
+      revision: archivedTask.revision,
+      counts: {
+        content_versions: 1,
+        content_review_records: 1,
+        generation_jobs: 0,
+        publication_works: 1,
+        publication_events: 1,
+        publication_verifications: 1,
+        published_articles: 1,
+        published_content_issues: 0,
+        geo_article_relations: 1,
+        exclusive_geo_observation_chains: 1,
+        attachment_relations: 0,
+      },
+      external_urls: [],
+      confirmation_text: '永久删除',
+    });
+    throw new Error(`未声明测试请求：${path}`);
+  });
+  apiMocks.POST.mockResolvedValue({ response: new Response(null, { status: 204 }) });
+  renderPage(
+    <><LocationProbe /><Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes></>,
+    [`/tasks/${taskId}`],
+  );
+
+  await user.click(await screen.findByRole('button', { name: '永久删除' }));
+  const dialog = within(await screen.findByRole('dialog', { name: '永久删除内容任务' }));
+  await user.type(dialog.getByRole('textbox', { name: '永久删除确认文本' }), '永久删除');
+  await user.click(dialog.getByRole('button', { name: '永久删除' }));
+
+  expect(await screen.findByRole('heading', { name: '任务列表' })).toBeInTheDocument();
+  expect(screen.getByTestId('location-search')).toHaveTextContent('archive_status=ARCHIVED');
+  expect(apiMocks.GET.mock.calls.filter(([path]) => path === '/api/v1/content-tasks/{content_task_id}')).toHaveLength(1);
+});
+
+test('直接访问不存在任务只请求身份并显示返回入口', async () => {
+  apiMocks.GET.mockImplementation((path: string) => {
+    if (path === '/api/v1/content-tasks/{content_task_id}') {
+      return Promise.resolve({
+        error: { error: { code: 'NOT_FOUND', message: '内容任务不存在' } },
+        response: new Response(null, { status: 404 }),
+      });
+    }
+    throw new Error(`不存在任务不应请求次级资源：${path}`);
+  });
+
+  renderPage(<Routes><Route path="/tasks/:taskId" element={<ContentTasksPage />} /><Route path="/tasks" element={<h1>任务列表</h1>} /></Routes>, [`/tasks/${taskId}`]);
+
+  expect(await screen.findByText('内容任务不存在或已删除')).toBeInTheDocument();
+  expect(apiMocks.GET).toHaveBeenCalledTimes(1);
+  expect(apiMocks.GET).toHaveBeenCalledWith('/api/v1/content-tasks/{content_task_id}', expect.anything());
 });
 
 test('任务删除失败保留详情并展示服务端错误', async () => {

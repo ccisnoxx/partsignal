@@ -66,6 +66,26 @@ await Promise.all([
 
 回归测试必须同时断言：成功删除后不再请求该详情；列表刷新不会重新选中该 ID；失败时原详情和错误保留；普通直接访问不存在 ID 仍展示明确 `NOT_FOUND`。
 
+### 跨标签页刷新删除投影
+
+“查看引用”在新标签页打开时，各标签页拥有独立的 QueryClient。新标签页删除引用对象后，原标签页不会收到 mutation 的缓存失效通知，因此承载删除投影的集合查询必须在窗口重新获得焦点时重新读取服务端状态：
+
+```tsx
+const resources = useQuery({
+  ...resourceQueryOptions(query),
+  refetchOnWindowFocus: 'always',
+});
+
+const currentTarget = target
+  ? resources.data?.items.find((item) => item.id === target.id)
+  : undefined;
+```
+
+- 删除条件弹窗的本地目标只用于提供 ID；当前阻断条件必须按该 ID 从最新 query data 派生，不能继续用点击时的完整行快照渲染。
+- 引用清除后，原页应关闭已失效的条件弹窗，并根据新的 `available_actions/deletion` 展示删除动作。
+- 不要为此新增轮询、全局 store 或 `BroadcastChannel`；窗口焦点刷新已经覆盖当前人工跨标签页操作流程。
+- 回归测试应模拟失焦、服务端投影变化、重新聚焦，并断言发生重新请求、条件弹窗关闭且删除动作出现。
+
 ---
 
 ## Common Mistakes

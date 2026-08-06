@@ -148,6 +148,15 @@ function taskDeletionLink(taskId: string, issueId?: string | null) {
   };
 }
 
+function removeContentTaskFromListCache(taskId: string) {
+  queryClient.setQueriesData<Schema<'ContentTaskList'>>(
+    { queryKey: queryKeys.contentTasks.all },
+    (current) => current
+      ? { ...current, items: current.items.filter((item) => item.id !== taskId) }
+      : current,
+  );
+}
+
 function PermanentDeleteTaskModal({
   taskId,
   onClose,
@@ -179,16 +188,19 @@ function PermanentDeleteTaskModal({
       }));
     },
     onSuccess: async () => {
+      const deletedTaskId = taskId!;
       setConfirmation('');
       message.success('内容任务及其内部历史已永久删除');
+      removeContentTaskFromListCache(deletedTaskId);
+      await onDeleted();
       await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.detail(deletedTaskId), refetchType: 'none' }),
         queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.publications.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.geo.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.platformProfiles.all }),
         queryClient.invalidateQueries({ queryKey: queryKeys.auditLogs }),
       ]);
-      await onDeleted();
     },
   });
   const counts = deletionPreview.data?.counts;
@@ -697,28 +709,33 @@ function TaskDetail({ taskId }: { taskId: string }) {
     queryKey: queryKeys.contentTasks.detail(taskId),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}', { params: { path: { content_task_id: taskId } } })),
     staleTime: QUERY_STALE_TIME.detail,
+    retry: (failureCount, error) => !(error instanceof ApiError && error.code === 'NOT_FOUND') && failureCount < 1,
   });
+  const taskReady = !!task.data && !task.isFetching;
   const taskList = useQuery({
     queryKey: queryKeys.contentTasks.list({ archive_status: 'ALL' }),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks', {
       params: { query: { archive_status: 'ALL' } },
     })),
+    enabled: taskReady,
     staleTime: QUERY_STALE_TIME.businessList,
   });
   const fact = useQuery({
     queryKey: queryKeys.products.factVersion(task.data?.fact_version_id),
     queryFn: async () => unwrap(await api.GET('/api/v1/fact-versions/{fact_version_id}', { params: { path: { fact_version_id: task.data!.fact_version_id } } })),
-    enabled: !!task.data,
+    enabled: taskReady,
     staleTime: QUERY_STALE_TIME.detail,
   });
   const versions = useQuery({
     queryKey: queryKeys.contentTasks.versions(taskId),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/content-versions', { params: { path: { content_task_id: taskId } } })),
+    enabled: taskReady,
     staleTime: QUERY_STALE_TIME.detail,
   });
   const jobs = useQuery({
     queryKey: queryKeys.contentTasks.jobs(taskId),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/generation-jobs', { params: { path: { content_task_id: taskId } } })),
+    enabled: taskReady,
     staleTime: QUERY_STALE_TIME.workbench,
     refetchInterval: (query) => query.state.data?.items.some((job) => ['PENDING', 'RUNNING'].includes(job.status)) ? 2000 : false,
   });
@@ -727,7 +744,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const options = useQuery({
     queryKey: queryKeys.contentTasks.options(taskId),
     queryFn: async () => unwrap(await api.GET('/api/v1/content-tasks/{content_task_id}/generation-options', { params: { path: { content_task_id: taskId } } })),
-    enabled: generationDialogOpen || !!humanizeSource,
+    enabled: taskReady && (generationDialogOpen || !!humanizeSource),
     staleTime: 0,
     retry: false,
   });
@@ -799,9 +816,12 @@ function TaskDetail({ taskId }: { taskId: string }) {
     })),
     onSuccess: async () => {
       message.success('内容任务已删除');
-      queryClient.removeQueries({ queryKey: queryKeys.contentTasks.detail(taskId) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all });
-      navigate('/tasks');
+      removeContentTaskFromListCache(taskId);
+      navigate('/tasks', { replace: true });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.detail(taskId), refetchType: 'none' }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.contentTasks.all }),
+      ]);
     },
   });
   const lifecycleTask = useMutation({
@@ -825,7 +845,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
   const jobDetail = useQuery({
     queryKey: queryKeys.generationJob(jobDetailId),
     queryFn: async () => unwrap(await api.GET('/api/v1/generation-jobs/{generation_job_id}', { params: { path: { generation_job_id: jobDetailId! } } })),
-    enabled: !!jobDetailId,
+    enabled: taskReady && !!jobDetailId,
     staleTime: QUERY_STALE_TIME.detail,
   });
   const succeededJobs = jobs.data?.items.filter((job) => job.status === 'SUCCEEDED').map((job) => job.id).join(',');
@@ -843,6 +863,9 @@ function TaskDetail({ taskId }: { taskId: string }) {
   }, [autoAiOpen, location.hash, location.pathname, location.search, navigate]);
 
   if (task.isLoading) return <QueryLoading label="正在加载内容任务" />;
+  if (task.error instanceof ApiError && task.error.code === 'NOT_FOUND') {
+    return <div className="page-stack"><PageHeader title="内容任务" breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: '任务详情' }]} /><NoData description="内容任务不存在或已删除" action={<Button onClick={() => navigate('/tasks', { replace: true })}>返回任务列表</Button>} /></div>;
+  }
   if (task.error || !task.data) {
     return <div className="page-stack"><Button type="link" onClick={() => navigate('/tasks')}>← 返回任务列表</Button><PageHeader title="内容任务" breadcrumbs={[{ title: <Link to="/tasks">内容任务</Link> }, { title: '任务详情' }]} /><QueryFailure error={task.error ?? new Error('内容任务不存在')} onRetry={() => void task.refetch()} /></div>;
   }
@@ -1026,8 +1049,7 @@ function TaskDetail({ taskId }: { taskId: string }) {
       onClose={() => setPermanentDeleteOpen(false)}
       onDeleted={() => {
         setPermanentDeleteOpen(false);
-        queryClient.removeQueries({ queryKey: queryKeys.contentTasks.detail(taskId) });
-        navigate('/tasks?archive_status=ARCHIVED');
+        navigate('/tasks?archive_status=ARCHIVED', { replace: true });
       }}
     />
 

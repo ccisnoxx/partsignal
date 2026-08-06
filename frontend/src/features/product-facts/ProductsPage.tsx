@@ -40,7 +40,17 @@ export function ProductsPage() {
   const [modal, modalContext] = Modal.useModal();
   const { message } = App.useApp();
   const { focusReturnTargetProps, restoreFocus } = useFocusReturn();
-  const products = useQuery(productsQueryOptions(search));
+  const products = useQuery({
+    ...productsQueryOptions(search),
+    // “查看引用”会打开新标签页；返回当前页时必须重新读取删除资格。
+    refetchOnWindowFocus: 'always',
+  });
+  const currentDeletionTarget = deletionTarget
+    ? products.data?.items.find((item) => item.id === deletionTarget.id)
+    : undefined;
+  const blockedDeletionTarget = currentDeletionTarget?.deletion?.blockers.length
+    ? currentDeletionTarget
+    : undefined;
   useEffect(() => {
     if ((rawPage !== null && !/^[1-9]\d*$/.test(rawPage)) || (products.data && page > Math.max(1, Math.ceil(products.data.items.length / 20)))) {
       const next = new URLSearchParams(searchParams);
@@ -123,7 +133,7 @@ export function ProductsPage() {
           </Space> },
         ]} /></TableRegion>}
       </Card>
-      <DeletionGuidanceModal open={!!deletionTarget} resourceLabel={`产品“${deletionTarget?.part_number ?? ''}”`} blockers={deletionTarget?.deletion?.blockers ?? []} refreshing={products.isFetching} resolveLink={deletionTarget ? deletionLink(deletionTarget) : () => undefined} onClose={() => setDeletionTarget(undefined)} onRefresh={async () => { await products.refetch(); setDeletionTarget(undefined); }} />
+      <DeletionGuidanceModal open={!!blockedDeletionTarget} resourceLabel={`产品“${blockedDeletionTarget?.part_number ?? ''}”`} blockers={blockedDeletionTarget?.deletion?.blockers ?? []} refreshing={products.isFetching} resolveLink={blockedDeletionTarget ? deletionLink(blockedDeletionTarget) : () => undefined} onClose={() => setDeletionTarget(undefined)} onRefresh={async () => { await products.refetch(); setDeletionTarget(undefined); }} />
       <Modal rootClassName="products-create-dialog" title="新增产品" open={createOpen} onCancel={requestCloseCreate} footer={null} closable={!create.isPending} keyboard={!create.isPending} mask={{ closable: !create.isPending }} destroyOnHidden>
         <div ref={createErrorRef} tabIndex={-1}>
           {create.error && <Alert role="alert" className="form-alert" type="error" showIcon title={errorMessage(create.error)} />}

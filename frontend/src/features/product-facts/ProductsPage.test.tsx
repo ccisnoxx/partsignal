@@ -1,5 +1,5 @@
 /** 验证产品搜索与分页由 URL 恢复，并能随浏览器历史同步。 */
-import { QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
@@ -58,6 +58,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  focusManager.setFocused(undefined);
   setCsrfToken(null);
   vi.restoreAllMocks();
 });
@@ -118,6 +119,34 @@ test('产品被引用时展示删除条件并下钻任务与不可变观测历�
   expect(screen.getByText('内容任务：2')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: '查看引用' })).toHaveAttribute('href', `/tasks?filter_product_id=${blocked.id}`);
   expect(screen.getByRole('link', { name: '查看历史' })).toHaveAttribute('href', `/observations?product_id=${blocked.id}&all_time=true`);
+});
+
+test('从引用标签页返回后重新读取产品删除资格', async () => {
+  const user = userEvent.setup();
+  let blocked = true;
+  const product = products[1]!;
+  mockFetch((request) => {
+    const url = new URL(request.url);
+    if (request.method === 'GET' && url.pathname === '/api/v1/products') {
+      const item = blocked
+        ? { ...product, deletion: { blockers: [{ type: 'FACT_VERSION' as const, count: 1 }] } }
+        : { ...product, available_actions: ['UPDATE', 'DELETE'], deletion: { blockers: [] } };
+      return { body: { items: [item], page: 1, page_size: 100, total: 1 } };
+    }
+    throw new Error(`未声明测试请求：${request.method} ${url.pathname}`);
+  });
+
+  renderPage('/products');
+  await user.click(await screen.findByRole('button', { name: '更多操作：DEMO-002' }));
+  await user.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
+  expect(await screen.findByRole('dialog', { name: '产品“DEMO-002”暂时不能删除' })).toBeInTheDocument();
+
+  blocked = false;
+  focusManager.setFocused(false);
+  focusManager.setFocused(true);
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '产品“DEMO-002”暂时不能删除' })).not.toBeInTheDocument());
+  await user.click(screen.getByRole('button', { name: '更多操作：DEMO-002' }));
+  expect(await screen.findByRole('menuitem', { name: '删除' })).toBeInTheDocument();
 });
 
 test('创建产品先聚焦首个错误，并在关闭前保护未保存输入', async () => {

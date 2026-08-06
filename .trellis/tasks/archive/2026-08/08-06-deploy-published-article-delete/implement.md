@@ -46,7 +46,7 @@ git diff --check
 - [x] 恢复本地 `.playwright-cli/`，确认没有丢失或覆盖原目录。
 - [x] 记录发布 commit、release ID、备份非空、迁移版本和验收结果；敏感信息不得进入任务或日志。
 - [x] 使用 `trellis-check` 核对完成条件；失败现场按 `design.md` 矩阵处理，不把部分成功标记为完成。
-- [ ] 完成后执行 `trellis-finish-work` 归档任务并记录会话。归档/日志提交不自动进行第二次生产部署。
+- [x] 完成后执行 `trellis-finish-work` 归档任务并记录会话。归档/日志提交不自动进行第二次生产部署。
 
 ## 部署结果
 

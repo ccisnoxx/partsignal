@@ -611,3 +611,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 77: 收缩删除生命周期并修复删除后路由
+
+**Date**: 2026-08-06
+**Task**: 收缩删除生命周期并修复删除后路由
+**Branch**: `main`
+
+### Summary
+
+完成管理员永久删除、历史清理与平台停用约束，并修复跨标签页删除资格缓存和已删除任务详情的 404 请求链。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cc99fe1` | (see git log) |
+| `30cf6f4` | (see git log) |
+| `6835fbd` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

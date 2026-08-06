@@ -318,11 +318,15 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 管理员永久删除只接受已归档任务、匹配 revision 和固定确认文本 `永久删除`。服务锁定并重新计算范围，删除任务拥有的内容、发布成果与问题、发布事件和核验；只删除失去全部文章关系的人工 GEO 更正链，共享 GEO 记录与共享文件保留。删除旧目标审计后只写一条 `content_task.permanently_deleted` 空详情墓碑。归档、恢复及永久删除都不验证或删除外部页面。
 
-发布成果永久删除只接受管理员、匹配同 ID `PublicationWork.revision` 和固定确认文本 `永久删除`。`GeoObservationPublication` 与 `GeoObservationCitation` 按去重观测数投影为 `GEO_OBSERVATION`，`ContentTaskGeoSource` 投影为 `GEO_OPTIMIZATION_SOURCE`；任一引用存在都返回结构化 `409 PUBLISHED_ARTICLE_IN_USE`，不得依赖现有 `CASCADE` / `SET NULL` 静默解绑。无阻断时，事务删除成果拥有的工作、事件、核验、附件关系和内容问题，保留修复任务并解除其来源问题，保留批准内容，把来源任务恢复为 `OPEN` 并递增 revision；若任务已归档则保留 `archived_at`，恢复后才重新进入待发布。删除旧目标审计后写入 `published_article.permanently_deleted` 最小墓碑，且不验证或删除外部页面。
+发布成果永久删除只接受管理员、匹配同 ID `PublicationWork.revision` 和固定确认文本 `永久删除`。`GeoObservationPublication` 与 `GeoObservationCitation` 按去重观测数投影为 `GEO_OBSERVATION`，`ContentTaskGeoSource` 投影为 `GEO_OPTIMIZATION_SOURCE`；任一引用存在都返回结构化 `409 PUBLISHED_ARTICLE_IN_USE`，不得依赖现有 `CASCADE` / `SET NULL` 静默解绑。无阻断时，事务删除成果拥有的工作、事件、核验、附件关系和内容问题，保留修复任务并解除其来源问题，保留批准内容；来源任务仍绑定实时平台时恢复为 `OPEN`，平台已经删除且外键为空时转为 `CANCELLED`，两者都递增 revision。任务若已归档则保留 `archived_at`；恢复归档后，`OPEN` 可重新进入待发布，`CANCELLED` 保持已取消。删除旧目标审计后写入 `published_article.permanently_deleted` 最小墓碑，且不验证或删除外部页面。
 
 平台删除仍要求先停用，并在存在 `OPEN` 内容任务或非终态发布工作时拒绝；它绝不级联删除任务。平台账号随平台删除，终态任务与工作把实时平台/账号外键置空后使用标量快照显示。单独账号删除只由非终态发布工作阻断。Prompt 删除通过共享事务 advisory lock 串行化绑定变更，在同一事务自动解绑全部平台、递增平台 revision 后删除模板；历史生成作业继续读取不可变输入快照。
 
 审计写入收缩为 `RETAINED_AUDIT_ACTIONS` 中的成功事件。迁移删除全部 `FAILED | DENIED` 以及白名单外历史，并把审计门禁收窄为禁止 UPDATE；业务层没有通用审计删除 API，只在任务聚合删除时按精确目标清理旧审计。该迁移、历史审计清理和已执行永久删除不可逆，downgrade 固定以 `55000` 拒绝并要求恢复升级前备份。
+
+### 0039 Published Article Delete Missing Platform
+
+版本文件 `0039_published_article_delete_missing_platform.py` 紧跟 `0038_published_article_delete`，不新增列或重写数据。归档状态检查扩展为 `archived_at IS NULL OR status IN ('OPEN', 'COMPLETED', 'CANCELLED')`，使成果删除后因原平台已删除而取消的来源任务继续保留正交归档标记；`OPEN` 仍必须绑定实时平台。若已经存在归档 `CANCELLED` 任务，downgrade 以 PostgreSQL `55000` 拒绝，否则恢复 `0038` 的归档状态集合。
 
 ## State Machines
 
@@ -335,7 +339,8 @@ ContentVersion: DRAFT -> PENDING_REVIEW -> APPROVED -> SUPERSEDED
 
 ContentTask: OPEN -> CANCELLED
              OPEN -- first successful PublicationVerification --> COMPLETED
-             COMPLETED -- archive/restore --> COMPLETED
+             COMPLETED -- permanent article delete --> OPEN | CANCELLED
+             OPEN | COMPLETED | CANCELLED -- archive/restore --> same status
 
 GenerationJob: PENDING -> RUNNING -> SUCCEEDED | FAILED
                (applies to both GENERATE and HUMANIZE)

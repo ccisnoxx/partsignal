@@ -512,7 +512,7 @@ function PermanentDeleteArticleModal({
         type="warning"
         showIcon
         title="该操作不可恢复，且不会删除外部公开页面。"
-        description="来源内容和批准版本会保留，来源任务恢复为可再次发布；已有修复任务保留并解除来源问题关联。"
+        description="来源内容和批准版本会保留；原平台仍存在时，来源任务恢复为待发布；原平台已删除时，来源任务转为已取消。已有修复任务保留并解除来源问题关联。"
       />
       {preview.isLoading && <QueryLoading label="正在计算发布成果永久删除范围" />}
       {preview.error && <QueryFailure error={preview.error} onRetry={() => void preview.refetch()} />}

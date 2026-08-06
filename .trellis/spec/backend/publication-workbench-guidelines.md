@@ -26,7 +26,7 @@ PublishedContentIssue: OPEN -> RESOLVED
 - 首次成功核验在同一事务创建同 ID 的只读 `PublishedArticle`，把工作和来源 `ContentTask` 置为 `COMPLETED`，并追加事件与审计。
 - 显式关闭必须带结构化原因和非空说明，在同一事务把工作置为 `CLOSED`、来源任务置为 `CANCELLED`；关闭后不可恢复。
 - 发布后页面问题只创建 `PublishedContentIssue`。创建修复任务不会解决问题，解决问题也不会自动完成修复任务。
-- 工作、事件、核验、成果和问题禁止无上下文直接删除。管理员可永久删除没有 GEO 观测/引用或 GEO 优化来源的单条成果聚合：成果拥有的工作、事件、核验、附件关系和问题一并删除，批准内容与修复任务保留，来源任务恢复 `OPEN`。存在任一 GEO 下游引用时必须返回精确阻断；该命令和已归档任务的整聚合永久删除都不验证或删除外部页面。
+- 工作、事件、核验、成果和问题禁止无上下文直接删除。管理员可永久删除没有 GEO 观测/引用或 GEO 优化来源的单条成果聚合：成果拥有的工作、事件、核验、附件关系和问题一并删除，批准内容与修复任务保留；来源任务仍绑定平台时恢复 `OPEN`，原平台已删除时转为 `CANCELLED`。存在任一 GEO 下游引用时必须返回精确阻断；该命令和已归档任务的整聚合永久删除都不验证或删除外部页面。
 
 ### 3. HTTP 签名
 
@@ -99,7 +99,7 @@ PublishedContentIssue: OPEN -> RESOLVED
 - 成果列表与详情的 `revision` 来自同 ID `PublicationWork.revision`，不得新增第二个 revision。
 - 管理员获得 required `deletion`；无阻断时为 `{blockers: []}` 并包含 `PERMANENT_DELETE`，非管理员固定为 `null`。
 - `GEO_OBSERVATION` 是 `GeoObservationPublication` 与 `GeoObservationCitation` 涉及的去重观测数；`GEO_OPTIMIZATION_SOURCE` 是 `ContentTaskGeoSource` 直接引用数。
-- 成功删除工作、成果、事件、核验、附件关系和问题；修复任务保留并解绑问题，批准内容保留，来源任务变为 `OPEN` 且 revision 递增。原任务若已归档则保留 `archived_at`，恢复后才可重新发布。
+- 成功删除工作、成果、事件、核验、附件关系和问题；修复任务保留并解绑问题，批准内容保留。来源任务仍绑定平台时恢复 `OPEN`，原平台已删除时转为 `CANCELLED`，两种结果都递增 revision；原任务若已归档则保留 `archived_at`。
 - 外部公开页面不校验也不删除；成功只写 `published_article.permanently_deleted` 最小墓碑。
 
 ### 4. 校验与错误矩阵
@@ -115,13 +115,13 @@ PublishedContentIssue: OPEN -> RESOLVED
 
 ### 5. Good / Base / Bad
 
-- Good：管理员预览无阻断成果，按当前 revision 确认后原子删除发布聚合，来源任务恢复 `OPEN`。
+- Good：管理员预览无阻断成果，按当前 revision 确认后原子删除发布聚合；来源任务有实时平台时恢复 `OPEN`，没有实时平台时转为 `CANCELLED`。
 - Base：同一观测同时出现在发布集合和引用表，只返回一个 `GEO_OBSERVATION`；修复任务只解绑、不删除。
 - Bad：依赖 `CASCADE` / `SET NULL` 顺带清掉 GEO 历史，或为了删除成果而永久删除整个来源任务。
 
 ### 6. 必需测试
 
-- PostgreSQL 集成测试覆盖合法删除、过期 revision、读后新增引用、两张观测关系去重、优化来源、修复任务解绑、文件调度、最小墓碑及来源任务恢复。
+- PostgreSQL 集成测试覆盖合法删除、过期 revision、读后新增引用、两张观测关系去重、优化来源、修复任务解绑、文件调度、最小墓碑，以及来源平台存在/已删除时的任务状态。
 - 迁移测试覆盖未声明/错配语境和存在 GEO 引用时直接删除返回 `55000`，并回归已归档任务整聚合删除。
 - 前端组件测试覆盖实时预览、固定确认文本、外部页面提示和精确阻断；E2E 断言管理员预览成功及普通用户预览/命令均为 `403`。
 

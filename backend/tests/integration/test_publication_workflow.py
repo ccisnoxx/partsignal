@@ -976,6 +976,108 @@ def test_published_article_permanent_delete_restores_source_task_and_owned_histo
 
 
 @pytest.mark.integration
+def test_published_article_delete_cancels_source_task_when_platform_was_deleted() -> None:
+    """原平台已删除时，成果删除保留归档与批准内容并取消来源任务。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db, content_hash="6" * 64)
+            actor = graph["user"]
+            profile = graph["profile"]
+            task = graph["task"]
+            content = graph["content"]
+            assert isinstance(actor, User)
+            assert isinstance(profile, PlatformProfile)
+            assert isinstance(task, ContentTask)
+            assert isinstance(content, ContentVersion)
+            actor.account_type = "ADMIN"
+            db.commit()
+
+            work = _complete_publication(db, graph, suffix="article-delete-missing-platform")
+            task = db.get(ContentTask, task.id)
+            assert task is not None
+            archived = archive_content_task(
+                db=db,
+                task_id=task.id,
+                expected_revision=task.revision,
+            )
+            archived_at = archived.archived_at
+            archived_revision = archived.revision
+            profile = set_platform_profile_enabled(
+                db=db,
+                platform_profile_id=profile.id,
+                payload=RevisionRequest(expected_revision=profile.revision),
+                actor=actor,
+                request_id="article-delete-platform-disable",
+                enabled=False,
+            )
+            delete_platform_profile(
+                db=db,
+                platform_profile_id=profile.id,
+                actor=actor,
+                request_id="article-delete-platform-delete",
+            )
+            db.expire_all()
+            detached_task = db.get(ContentTask, task.id)
+            assert detached_task is not None
+            assert detached_task.platform_profile_id is None
+
+            permanently_delete_published_article(
+                db=db,
+                article_id=work.id,
+                payload=PublishedArticlePermanentDeleteRequest(
+                    expected_revision=work.revision,
+                    confirmation_text="永久删除",
+                ),
+                actor=actor,
+                request_id="article-delete-missing-platform-success",
+            )
+
+            assert db.get(PublicationWork, work.id) is None
+            assert db.get(PublishedArticle, work.id) is None
+            assert (
+                db.scalar(
+                    select(func.count(PublicationWorkEvent.id)).where(
+                        PublicationWorkEvent.publication_work_id == work.id
+                    )
+                )
+                == 0
+            )
+            assert (
+                db.scalar(
+                    select(func.count(PublicationVerification.id)).where(
+                        PublicationVerification.publication_work_id == work.id
+                    )
+                )
+                == 0
+            )
+            retained_task = db.get(ContentTask, task.id)
+            assert retained_task is not None
+            assert retained_task.status == "CANCELLED"
+            assert retained_task.revision == archived_revision + 1
+            assert retained_task.archived_at == archived_at
+            assert retained_task.current_content_version_id == content.id
+            assert db.get(ContentVersion, content.id) is not None
+            assert list_publication_ready_items(db, can_delete_accounts=False).items == []
+
+            restored = restore_content_task(
+                db=db,
+                task_id=retained_task.id,
+                expected_revision=retained_task.revision,
+            )
+            assert restored.status == "CANCELLED"
+            assert restored.archived_at is None
+            tombstone = db.scalar(
+                select(AuditLog).where(
+                    AuditLog.action == "published_article.permanently_deleted",
+                    AuditLog.target_id == str(work.id),
+                )
+            )
+            assert tombstone is not None
+            assert tombstone.result_message.endswith("来源任务因原平台已删除而取消")
+
+
+@pytest.mark.integration
 def test_published_article_delete_blocks_distinct_geo_history_and_optimization_source() -> None:
     """两张观测关系按观测去重，优化来源独立计数，数据库最终守卫不解绑历史。"""
     with temporary_database() as database_url:

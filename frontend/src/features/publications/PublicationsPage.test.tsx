@@ -520,6 +520,8 @@ test('无 GEO 依赖的发布成果展示删除范围并提交固定确认文本
   await operator.click(await screen.findByText('永久删除'));
   const dialog = await findDialog('永久删除发布成果');
   expect(await within(dialog).findByText('该操作不可恢复，且不会删除外部公开页面。')).toBeInTheDocument();
+  expect(within(dialog).getByText(/原平台仍存在时，来源任务恢复为待发布/)).toBeInTheDocument();
+  expect(within(dialog).getByText(/原平台已删除时，来源任务转为已取消/)).toBeInTheDocument();
   expect(within(dialog).getByText('3')).toBeInTheDocument();
   expect(within(dialog).getByText('保留并解绑的修复任务')).toBeInTheDocument();
   const confirmButton = within(dialog).getByRole('button', { name: '永久删除' });

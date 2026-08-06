@@ -1048,7 +1048,7 @@ def permanently_delete_published_article(
     actor: User,
     request_id: str,
 ) -> None:
-    """永久删除无 GEO 引用的发布聚合，并恢复来源任务。"""
+    """永久删除无 GEO 引用的发布聚合，并重置来源任务。"""
     scope = _published_article_deletion_scope(db, article_id)
     if scope.work.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "发布成果已被其他请求修改", 409)
@@ -1099,7 +1099,13 @@ def permanently_delete_published_article(
         )
     )
     db.execute(delete(PublicationWork).where(PublicationWork.id == scope.work.id))
-    scope.task.status = "OPEN"
+    # 原平台删除后任务只剩平台名称快照，不能恢复为数据库禁止的无平台开放任务。
+    if scope.task.platform_profile_id is None:
+        scope.task.status = "CANCELLED"
+        task_result_message = "来源任务因原平台已删除而取消"
+    else:
+        scope.task.status = "OPEN"
+        task_result_message = "来源任务已恢复为待发布"
     scope.task.revision += 1
     cleanup_time = datetime.now(UTC)
     for file_id in scope.publication_file_ids:
@@ -1111,7 +1117,7 @@ def permanently_delete_published_article(
         action="published_article.permanently_deleted",
         target_type="PublishedArticle",
         target_id=scope.article.id,
-        message="发布成果及其内部历史已永久删除，来源任务已恢复",
+        message=f"发布成果及其内部历史已永久删除，{task_result_message}",
     )
     db.commit()
 

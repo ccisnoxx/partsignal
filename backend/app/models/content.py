@@ -38,8 +38,8 @@ class ContentTask(Base):
             name="open_requires_platform",
         ),
         CheckConstraint(
-            "archived_at IS NULL OR status = 'COMPLETED'",
-            name="archive_completed",
+            "archived_at IS NULL OR status IN ('OPEN', 'COMPLETED', 'CANCELLED')",
+            name="archive_state",
         ),
     )
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=new_uuid)

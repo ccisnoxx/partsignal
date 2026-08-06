@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "已部署 c34c935131c6，对应 release mvp-20260806-163501-c34c935131c6；备份、0039 迁移、公网与浏览器只读验收均通过。",
   "meta": {}
 }

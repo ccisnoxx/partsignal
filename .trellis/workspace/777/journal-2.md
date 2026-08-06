@@ -825,3 +825,42 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 83: 推送并部署已删平台发布成果修复
+
+**Date**: 2026-08-06
+**Task**: 推送并部署已删平台发布成果修复
+**Branch**: `main`
+
+### Summary
+
+将已删平台来源的发布成果永久删除修复推送到 origin/main，完成 Hostdzire 全量部署、迁移前备份、Alembic 0039 升级、公网与浏览器只读验收，并更新 current。
+
+### Main Changes
+
+- 非强制推送 main，以 `c34c935` 生成不可覆盖 release `mvp-20260806-163501-c34c935131c6`。
+- 生成非空迁移前备份并完成 full 部署，数据库升级到 `0039_article_delete_platform`。
+- 通过公网、缓存、安全头、对象存储、间隔 API、真实浏览器和主机验收；未执行生产业务写入。
+
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c34c935` | chore(task): plan production deployment |
+| `6bb6c97` | chore(task): record production deployment |
+
+### Testing
+
+- 发布前合同、mypy、前端 lint/typecheck、Nginx 安全与 diff 门禁通过。
+- `preflight-integrity` 为空，Alembic 升级到 `0039_article_delete_platform`，全部容器健康。
+- 公网、缓存/安全头、对象存储、六次间隔 API、浏览器与主机验收通过；浏览器控制台 0 error/0 warning。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

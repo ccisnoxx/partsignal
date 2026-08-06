@@ -864,3 +864,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 84: 内容任务工作流与人工草稿管理优化
+
+**Date**: 2026-08-06
+**Task**: 内容任务工作流与人工草稿管理优化
+**Branch**: `main`
+
+### Summary
+
+完成内容任务生命周期入口拆分、人工未审核草稿原地保存与受控删除、AI 生成记录和状态中文化，并同步合同、迁移、测试与权威文档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8e8e26b` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

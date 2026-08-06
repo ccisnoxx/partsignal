@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 83
+- **Total Sessions**: 84
 - **Last Active**: 2026-08-06
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~864 | Active |
+| `journal-2.md` | ~899 | Active |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 84 | 2026-08-06 | 内容任务工作流与人工草稿管理优化 | `8e8e26b` | `main` |
 | 83 | 2026-08-06 | 推送并部署已删平台发布成果修复 | `c34c935`, `6bb6c97` | `main` |
 | 82 | 2026-08-06 | 修复已删平台来源的发布成果永久删除 | `7966302` | `main` |
 | 81 | 2026-08-06 | 推送并重新部署生产环境 | `4829a85`, `d7ca503` | `main` |

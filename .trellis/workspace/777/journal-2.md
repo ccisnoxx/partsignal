@@ -162,7 +162,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 永久删除成果后按实时平台外键把来源任务恢复为 `OPEN` 或转为 `CANCELLED`。
+- 新增 `0039_article_delete_platform`，允许归档任务保持 `CANCELLED`，并同步合同、规范和界面确认文案。
+- 新增平台删除真实顺序的 PostgreSQL 回归测试，保留 GEO 阻断和外部页面边界。
 
 ### Git Commits
 
@@ -780,6 +782,41 @@
 ### Testing
 
 - Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 82: 修复已删平台来源的发布成果永久删除
+
+**Date**: 2026-08-06
+**Task**: 修复已删平台来源的发布成果永久删除
+**Branch**: `main`
+
+### Summary
+
+修复永久删除发布成果时原平台已删除导致的约束冲突：来源任务改为 CANCELLED；保留平台存在时恢复 OPEN、GEO 阻断和外部页面边界，并同步数据库迁移、合同、规范、前端文案与回归测试。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7966302` | fix(publication): cancel source task when platform was deleted |
+
+### Testing
+
+- PostgreSQL 目标集成测试：3 passed。
+- 前端组件测试：15 passed；TypeScript 类型检查通过。
+- Ruff 通过；Alembic head 为 `0039_article_delete_platform`。
 
 ### Status
 

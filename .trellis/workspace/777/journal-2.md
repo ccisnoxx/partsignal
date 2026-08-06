@@ -91,7 +91,10 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 完成产品事实、AI 生成、内容审核、站内模拟发布、GEO 观测与洞察的公网业务闭环。
+- 验证普通删除以及完成任务的归档、恢复、永久删除预览和确认门禁。
+- 清理测试任务、发布与 GEO 聚合、Prompt、账号、用户、产品、平台和平台类型，并恢复知乎 Prompt、AI 渠道、模型与主题初态。
+- 独立复核全局页面搜索，确认鼠标和键盘跳转均正常；更正验收报告中的误报，未修改产品代码。
 
 ### Git Commits
 
@@ -638,6 +641,40 @@
 ### Testing
 
 - Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 78: 生产环境全业务流程验收与搜索误报复核
+
+**Date**: 2026-08-06
+**Task**: 生产环境全业务流程验收与搜索误报复核
+**Branch**: `main`
+
+### Summary
+
+使用命名 Playwright CLI 会话完成公网业务闭环、任务删除生命周期和管理页面验收；清理测试数据并恢复复用配置。后续独立浏览器复核确认全局搜索正常，原 FAIL 为自动化目标定位误报，未修改产品代码。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+(无产品代码提交；仅执行 Trellis 任务归档与会话记账。)
+
+### Testing
+
+- Playwright CLI 公网验收：最终控制台 0 error / 0 warning，最近关键 API 请求均为 200，命名会话全部关闭。
+- `npx vitest run src/app/AppLayout.test.tsx`：1 个文件、19 个测试全部通过。
+- 应用内真实浏览器：点击全局搜索可见结果进入 `/audit`；键盘 `ArrowDown` + `Enter` 进入 `/configuration/platform-types`；控制台无 error / warning。
+- 定向 Playwright E2E 重跑被共享数据准备接口既有 404 阻断，目标用例未执行；未扩大范围修复该环境问题。
 
 ### Status
 

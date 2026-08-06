@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 77
+- **Total Sessions**: 78
 - **Last Active**: 2026-08-06
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~648 | Active |
+| `journal-2.md` | ~679 | Active |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 78 | 2026-08-06 | 生产环境全业务流程验收与搜索误报复核 | - | `main` |
 | 77 | 2026-08-06 | 收缩删除生命周期并修复删除后路由 | `cc99fe1`, `30cf6f4`, `6835fbd` | `main` |
 | 76 | 2026-08-05 | 手动 CI 与前端测试性能收尾 | `e806cdb`, `a2e50bf`, `65e3b38` | `main` |
 | 75 | 2026-08-05 | 审计并修复全站表格列宽 | `6ab2e99` | `main` |

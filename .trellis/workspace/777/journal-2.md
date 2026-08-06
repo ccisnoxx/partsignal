@@ -127,7 +127,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 新增仅限 `ADMIN` 的 GEO 问题删除端点，并以 revision、目标行锁、统一引用计数和 `ON DELETE RESTRICT` 保护历史数据。
+- 前端按服务端删除投影展示危险确认或三类精确阻断，同步刷新问题库与 GEO 问题选项。
+- 同步 OpenAPI、生成类型、成功审计、Trellis 规范和 GEO 系统设计文档。
 
 ### Git Commits
 
@@ -675,6 +677,42 @@
 - `npx vitest run src/app/AppLayout.test.tsx`：1 个文件、19 个测试全部通过。
 - 应用内真实浏览器：点击全局搜索可见结果进入 `/audit`；键盘 `ArrowDown` + `Enter` 进入 `/configuration/platform-types`；控制台无 error / warning。
 - 定向 Playwright E2E 重跑被共享数据准备接口既有 404 阻断，目标用例未执行；未扩大范围修复该环境问题。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 79: 实现 GEO 问题受约束删除
+
+**Date**: 2026-08-06
+**Task**: 实现 GEO 问题受约束删除
+**Branch**: `main`
+
+### Summary
+
+实现仅 ADMIN 删除未被内容任务、GEO 优化来源或观测历史引用的 GEO 问题；同步合同、前后端交互、审计、测试与设计文档，并完成全量单元回归。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fdfadea` | feat: 支持删除未引用的 GEO 问题 |
+
+### Testing
+
+- `make contract-check`
+- PostgreSQL 集成测试：问题删除场景 1 项通过
+- `make test-unit`：后端 145 项、前端 199 项、视觉合同 24 项通过
+- Ruff、mypy、ESLint、TypeScript 与 `git diff --check` 通过
 
 ### Status
 

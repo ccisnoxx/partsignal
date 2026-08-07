@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "约束目标页面的视觉 Token、PageHeader、指标卡、图表、主题、响应式与可访问性实现。"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "约束查询状态、TableRegion、组件复用和键盘交互边界。"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "约束次级查询失败隔离、浏览器验收、测试覆盖和禁止模式。"}

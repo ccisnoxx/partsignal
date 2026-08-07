@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "核查迁移、状态转换、锁和 downgrade 门禁"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "核查前端表单、错误反馈与测试质量"}
-{"file": ".trellis/spec/frontend/type-safety.md", "reason": "核查 OpenAPI、生成类型与业务调用一致"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "核查完整数据流和所有 Logo 消费者"}
-{"file": ".trellis/tasks/07-27-automatic-logo-ingestion-and-cleanup/research/backend-lifecycle.md", "reason": "复核清理竞态、引用权威和失败重试"}
-{"file": ".trellis/tasks/07-27-automatic-logo-ingestion-and-cleanup/research/frontend-flow.md", "reason": "复核三态保存、旧外链和缓存失效"}
-{"file": ".trellis/tasks/07-27-automatic-logo-ingestion-and-cleanup/research/operations-security.md", "reason": "复核固定上游、图片验证和存储失败语义"}

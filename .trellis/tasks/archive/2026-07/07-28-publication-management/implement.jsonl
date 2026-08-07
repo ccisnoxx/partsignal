@@ -1,7 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "后端规范索引。"}
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "受约束删除、追加式事件和附件清理规范。"}
-{"file": ".trellis/spec/backend/publication-workbench-guidelines.md", "reason": "发布工作台、动作、关注事项和历史指标权威契约。"}
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "发布列表列宽、操作层级、响应式和可访问性规范。"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "一个主入口、更多菜单和危险确认规范。"}
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "发布 Tab、分页、筛选和 Drawer 的 URL 所有权。"}
-{"file": ".trellis/tasks/07-28-publication-management/research/publication-delete-and-ui.md", "reason": "发布引用图、动作缺口、关注入口和 Playwright 代理取证。"}

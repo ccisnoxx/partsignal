@@ -1,5 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "前后端与 OpenAPI 状态码数据流必须由一个权威契约贯通"}
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "TanStack Query 服务端状态、缺失态与错误态不得形成第二份状态"}
-{"file": ".trellis/spec/frontend/type-safety.md", "reason": "204 局部 null 映射与生成 OpenAPI 类型必须保持类型安全"}
-{"file": ".trellis/spec/backend/error-handling.md", "reason": "区分合法无内容与真正失败，保留服务端错误边界"}

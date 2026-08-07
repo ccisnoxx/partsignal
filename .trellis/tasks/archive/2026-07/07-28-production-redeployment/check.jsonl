@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "复核正式迁移 revision、数据保留、触发器与不可逆边界。"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "复核真实公网 Playwright、console、requests 和错误反馈。"}
-{"file": ".trellis/tasks/07-28-production-redeployment/research/hostdzire-redeployment-risk-review.md", "reason": "复核本地来源、隔离恢复、维护窗口、验收和回滚门禁均有证据。"}

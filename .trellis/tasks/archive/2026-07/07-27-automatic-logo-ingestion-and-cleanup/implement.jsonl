@@ -1,9 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "数据库迁移、行锁、RESTRICT 与状态权威约束"}
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "平台表单本地候选状态与服务端查询失效边界"}
-{"file": ".trellis/spec/frontend/type-safety.md", "reason": "OpenAPI 生成类型与三态请求契约"}
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "Logo 预览、旧外链只读与错误反馈规范"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "API、文件状态、缓存与展示的跨层数据流"}
-{"file": ".trellis/tasks/07-27-automatic-logo-ingestion-and-cleanup/research/backend-lifecycle.md", "reason": "文件状态、清理计时和并发删除研究"}
-{"file": ".trellis/tasks/07-27-automatic-logo-ingestion-and-cleanup/research/frontend-flow.md", "reason": "现有 Logo 表单、查询缓存和最小 UX 研究"}
-{"file": ".trellis/tasks/07-27-automatic-logo-ingestion-and-cleanup/research/operations-security.md", "reason": "Icon Horse、对象存储和 Celery 运行安全边界"}

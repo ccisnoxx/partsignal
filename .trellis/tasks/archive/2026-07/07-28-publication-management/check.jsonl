@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "检查发布历史、触发器反例和附件一致性。"}
-{"file": ".trellis/spec/backend/publication-workbench-guidelines.md", "reason": "检查列表投影、状态事件、关注事项和查询次数。"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "检查全部动作、URL 恢复、真实浏览器和错误反馈。"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "检查操作菜单、危险确认、表格滚动和可访问名称。"}
-{"file": ".trellis/tasks/07-28-publication-management/research/publication-delete-and-ui.md", "reason": "检查删除资格、Playwright 路径和页面缺口。"}

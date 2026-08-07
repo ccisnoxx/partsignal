@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "后端规范索引。"}
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "迁移、受约束删除与 FileRecord 生命周期规范。"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "人工事实需同步数据库、Schema、服务、OpenAPI、生成类型和页面。"}
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "观测表单、列表、洞察和真实浏览器验收规范。"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "危险操作、表格和 Drawer 交互规范。"}
-{"file": ".trellis/tasks/07-28-observation-evidence-management/research/observation-model-and-delete.md", "reason": "当前实现、删除聚合、清理所有者与风险取证。"}

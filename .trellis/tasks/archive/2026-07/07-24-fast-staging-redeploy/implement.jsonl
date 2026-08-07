@@ -1,1 +1,0 @@
-{"file": ".trellis/spec/guides/code-reuse-thinking-guide.md", "reason": "复用现有部署脚本与单一命令入口，避免复制完整部署逻辑"}

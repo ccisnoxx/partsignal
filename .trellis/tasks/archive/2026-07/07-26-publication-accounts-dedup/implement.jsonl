@@ -1,9 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "确认后端分层入口和必读规范。"}
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "遵循 PostgreSQL 迁移、历史与状态约束。"}
-{"file": ".trellis/spec/backend/publication-workbench-guidelines.md", "reason": "保持人工发布工作台、证据和服务端状态边界。"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "确认前端页面改造的规范入口。"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复用表格、菜单、表单和可访问性交互约定。"}
-{"file": ".trellis/spec/frontend/state-management.md", "reason": "保持账号平台筛选与页面路由由 URL/TanStack Query 持有。"}
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "保持设置和 GEO 页面现有视觉与响应式边界。"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "核对迁移、OpenAPI、服务与前端完整数据流。"}
-{"file": ".trellis/tasks/07-26-publication-accounts-dedup/research/codebase-evidence.md", "reason": "提供现有账号、发布门禁、导航和测试证据。"}

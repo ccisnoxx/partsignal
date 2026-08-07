@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/backend/database-guidelines.md", "reason": "复核删除不会级联业务历史、审计取舍和密码策略边界符合已批准契约。"}
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "复核危险操作层级、确认、反馈、Logo 尺寸和可访问性。"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "复核用户更多菜单与任务详情删除未复制组件或前端业务判断。"}
-{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "复核查询失效、失败展示、真实浏览器和构建质量门禁。"}
-{"file": ".trellis/spec/guides/cross-layer-thinking-guide.md", "reason": "复核 OpenAPI、Pydantic、生成类型和 UI 数据流一致。"}
-{"file": ".trellis/tasks/07-27-staging-deletion-account-fixes/research/root-cause.md", "reason": "对照真实根因检查是否修复 E2E 累积而非隐藏管理员统计。"}

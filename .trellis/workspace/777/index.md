@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 86
+- **Total Sessions**: 87
 - **Last Active**: 2026-08-08
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~965 | Active |
+| `journal-2.md` | ~998 | Active |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 87 | 2026-08-08 | Frontend V2 Foundation Bootstrap | `0552beb` | `main` |
 | 86 | 2026-08-08 | Frontend V2 Products Contract Readiness | `22ab948` | `main` |
 | 85 | 2026-08-08 | Frontend V2 Agent Rules | `3a91438` | `codex/frontend-v2-agent-rules` |
 | 84 | 2026-08-06 | 内容任务工作流与人工草稿管理优化 | `8e8e26b` | `main` |

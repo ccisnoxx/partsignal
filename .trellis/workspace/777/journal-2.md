@@ -963,3 +963,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 87: Frontend V2 Foundation Bootstrap
+
+**Date**: 2026-08-08
+**Task**: Frontend V2 Foundation Bootstrap
+**Branch**: `main`
+
+### Summary
+
+完成 frontend-v2 最小工程基础，验证安装、OpenAPI 漂移检查、lint、typecheck、测试与生产构建，并合并到 main。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `0552beb` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

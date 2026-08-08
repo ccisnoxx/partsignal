@@ -1,1 +1,191 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@theme inline {
+  --font-sans: var(--font-family-sans);
+  --font-mono: var(--font-family-mono);
+  --font-heading: var(--font-family-sans);
+
+  --color-surface-app: var(--surface-app);
+  --color-surface-panel: var(--surface-panel);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-selected: var(--surface-selected);
+  --color-overlay-scrim: var(--overlay-scrim);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+  --color-text-danger: var(--text-danger);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-border-focus: var(--border-focus);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+
+  --color-background: var(--surface-app);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--surface-panel);
+  --color-card-foreground: var(--text-primary);
+  --color-popover: var(--surface-overlay);
+  --color-popover-foreground: var(--text-primary);
+  --color-primary: var(--interaction-primary);
+  --color-primary-foreground: var(--interaction-primary-foreground);
+  --color-secondary: var(--surface-raised);
+  --color-secondary-foreground: var(--text-primary);
+  --color-muted: var(--surface-raised);
+  --color-muted-foreground: var(--text-muted);
+  --color-accent: var(--surface-selected);
+  --color-accent-foreground: var(--text-primary);
+  --color-destructive: var(--danger);
+  --color-border: var(--border-default);
+  --color-input: var(--border-default);
+  --color-ring: var(--border-focus);
+
+  --radius-sm: var(--radius-control);
+  --radius-md: var(--radius-control);
+  --radius-lg: var(--radius-panel);
+  --radius-xl: var(--radius-overlay);
+}
+
+:root {
+  color-scheme: light;
+
+  --surface-app: oklch(0.985 0.004 264);
+  --surface-panel: oklch(1 0 0);
+  --surface-raised: oklch(0.97 0.006 264);
+  --surface-overlay: oklch(1 0 0);
+  --surface-selected: oklch(0.95 0.025 255);
+  --overlay-scrim: oklch(0.2 0.02 264 / 18%);
+
+  --text-primary: oklch(0.21 0.025 264);
+  --text-secondary: oklch(0.42 0.025 264);
+  --text-muted: oklch(0.56 0.02 264);
+  --text-disabled: oklch(0.68 0.015 264);
+  --text-danger: oklch(0.5 0.2 27);
+
+  --border-subtle: oklch(0.93 0.008 264);
+  --border-default: oklch(0.87 0.012 264);
+  --border-strong: oklch(0.7 0.02 264);
+  --border-focus: oklch(0.58 0.18 255);
+
+  --success: oklch(0.49 0.13 150);
+  --warning: oklch(0.55 0.13 75);
+  --danger: oklch(0.5 0.2 27);
+  --info: oklch(0.52 0.14 245);
+
+  --interaction-primary: oklch(0.52 0.2 255);
+  --interaction-primary-hover: oklch(0.46 0.19 255);
+  --interaction-primary-active: oklch(0.4 0.17 255);
+  --interaction-primary-foreground: oklch(0.99 0 0);
+
+  --radius-control: 0.5rem;
+  --radius-panel: 0.625rem;
+  --radius-overlay: 0.75rem;
+  --focus-ring-width: 0.1875rem;
+  --focus-ring-offset: 0.125rem;
+
+  --font-family-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --type-display-size: 1.875rem;
+  --type-display-line-height: 2.25rem;
+  --type-display-weight: 600;
+  --type-page-title-size: 1.5rem;
+  --type-page-title-line-height: 2rem;
+  --type-page-title-weight: 600;
+  --type-section-title-size: 1rem;
+  --type-section-title-line-height: 1.5rem;
+  --type-section-title-weight: 600;
+  --type-body-size: 0.875rem;
+  --type-body-line-height: 1.375rem;
+  --type-body-weight: 400;
+  --type-body-sm-size: 0.75rem;
+  --type-body-sm-line-height: 1.125rem;
+  --type-body-sm-weight: 400;
+  --type-label-size: 0.75rem;
+  --type-label-line-height: 1rem;
+  --type-label-weight: 500;
+  --type-mono-size: 0.8125rem;
+  --type-mono-line-height: 1.25rem;
+  --type-mono-weight: 400;
+}
+
+@utility type-display {
+  font-size: var(--type-display-size);
+  line-height: var(--type-display-line-height);
+  font-weight: var(--type-display-weight);
+}
+
+@utility type-page-title {
+  font-size: var(--type-page-title-size);
+  line-height: var(--type-page-title-line-height);
+  font-weight: var(--type-page-title-weight);
+}
+
+@utility type-section-title {
+  font-size: var(--type-section-title-size);
+  line-height: var(--type-section-title-line-height);
+  font-weight: var(--type-section-title-weight);
+}
+
+@utility type-body {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line-height);
+  font-weight: var(--type-body-weight);
+}
+
+@utility type-body-sm {
+  font-size: var(--type-body-sm-size);
+  line-height: var(--type-body-sm-line-height);
+  font-weight: var(--type-body-sm-weight);
+}
+
+@utility type-label {
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-line-height);
+  font-weight: var(--type-label-weight);
+}
+
+@utility type-mono {
+  font-family: var(--font-family-mono);
+  font-size: var(--type-mono-size);
+  line-height: var(--type-mono-line-height);
+  font-weight: var(--type-mono-weight);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  body {
+    @apply bg-background text-foreground type-body;
+    margin: 0;
+  }
+
+  :focus-visible {
+    scroll-margin: 0.5rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

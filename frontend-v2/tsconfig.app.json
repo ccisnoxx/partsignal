@@ -11,11 +11,15 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "jsx": "react-jsx",
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noUncheckedSideEffectImports": true,
     "types": ["vite/client"]
   },
-  "include": ["src"]
+  "include": ["src", ".storybook"]
 }

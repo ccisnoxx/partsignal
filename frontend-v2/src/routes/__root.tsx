@@ -1,8 +1,11 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet } from '@tanstack/react-router';
 
+import type { AuthContextValue } from '@/app/auth/auth-provider';
+
 type RouterContext = {
   queryClient: QueryClient;
+  auth: AuthContextValue;
 };
 
 export const Route = createRootRouteWithContext<RouterContext>()({
@@ -10,9 +13,5 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 });
 
 function RootLayout() {
-  return (
-    <main className="grid min-h-screen place-items-center p-6">
-      <Outlet />
-    </main>
-  );
+  return <Outlet />;
 }

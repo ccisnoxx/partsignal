@@ -897,3 +897,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 85: Frontend V2 Agent Rules
+
+**Date**: 2026-08-08
+**Task**: Frontend V2 Agent Rules
+**Branch**: `codex/frontend-v2-agent-rules`
+
+### Summary
+
+创建 frontend-v2 目录级 AGENTS.md，固化 V2 技术栈、状态所有权、服务端动作权威、UI Pattern、开发节奏与禁止模式；完成验证、自审、提交和首次推送。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3a91438` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

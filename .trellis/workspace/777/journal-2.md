@@ -1099,3 +1099,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 91: Frontend V2 Workspace + Form + Editor Kit 收口
+
+**Date**: 2026-08-09
+**Task**: Frontend V2 Workspace + Form + Editor Kit 收口
+**Branch**: `codex/frontend-v2-workspace-form-editor-kit`
+
+### Summary
+
+完成 Workspace、RHF/Zod Form 与 CodeMirror Markdown Editor Kit；定向测试 19/19、完整 Vitest 84/84、lint、typecheck、build、Storybook build 及命名浏览器响应式/键盘/a11y 验证通过；任务已归档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `90d5696` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

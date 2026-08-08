@@ -18,6 +18,37 @@ class ProductStatus(StrEnum):
     RETIRED = "RETIRED"
 
 
+class ProductWorkflowStage(StrEnum):
+    FACTS_EMPTY = "FACTS_EMPTY"
+    FACTS_EDITING = "FACTS_EDITING"
+    FACT_REVIEW_PENDING = "FACT_REVIEW_PENDING"
+    FACT_CHANGES_REQUESTED = "FACT_CHANGES_REQUESTED"
+    FACT_APPROVED = "FACT_APPROVED"
+    RETIRED = "RETIRED"
+
+
+class ProductFactStatus(StrEnum):
+    NOT_ENTERED = "NOT_ENTERED"
+    PENDING_REVIEW = "PENDING_REVIEW"
+    CHANGES_REQUESTED = "CHANGES_REQUESTED"
+    APPROVED = "APPROVED"
+    RETIRED = "RETIRED"
+
+
+class ProductSort(StrEnum):
+    UPDATED_DESC = "UPDATED_DESC"
+    UPDATED_ASC = "UPDATED_ASC"
+    MODEL_ASC = "MODEL_ASC"
+    MODEL_DESC = "MODEL_DESC"
+
+
+class FactVersionStatus(StrEnum):
+    PENDING_REVIEW = "PENDING_REVIEW"
+    CHANGES_REQUESTED = "CHANGES_REQUESTED"
+    APPROVED = "APPROVED"
+    RETIRED = "RETIRED"
+
+
 class ProductCreate(ContractModel):
     part_number: str = Field(min_length=1)
     brand: str = Field(min_length=1)
@@ -38,14 +69,7 @@ class ProductOut(ContractModel):
     brand: str
     category: str
     status: ProductStatus
-    workflow_stage: Literal[
-        "FACTS_EMPTY",
-        "FACTS_EDITING",
-        "FACT_REVIEW_PENDING",
-        "FACT_CHANGES_REQUESTED",
-        "FACT_APPROVED",
-        "RETIRED",
-    ]
+    workflow_stage: ProductWorkflowStage
     primary_task: Literal[
         "ENTER_FACTS",
         "SUBMIT_FACT_REVIEW",
@@ -61,8 +85,18 @@ class ProductOut(ContractModel):
     updated_at: datetime
 
 
+class ProductFactSummary(ContractModel):
+    version: int = Field(ge=1)
+    status: FactVersionStatus
+
+
+class ProductListItem(ProductOut):
+    fact_status: ProductFactStatus
+    current_fact: ProductFactSummary | None
+
+
 class ProductList(ContractModel):
-    items: list[ProductOut]
+    items: list[ProductListItem]
     page: int
     page_size: int
     total: int
@@ -91,13 +125,6 @@ class ProductFactsDraft(ContractModel):
 class FactReviewSubmissionRequest(ContractModel):
     expected_revision: int = Field(ge=0)
     change_summary: str = Field(min_length=1)
-
-
-class FactVersionStatus(StrEnum):
-    PENDING_REVIEW = "PENDING_REVIEW"
-    CHANGES_REQUESTED = "CHANGES_REQUESTED"
-    APPROVED = "APPROVED"
-    RETIRED = "RETIRED"
 
 
 class FactVersionOut(ContractModel):

@@ -2014,6 +2014,15 @@ export interface components {
         };
         /** @enum {string} */
         ProductStatus: "ACTIVE" | "RETIRED";
+        /** @enum {string} */
+        ProductWorkflowStage: "FACTS_EMPTY" | "FACTS_EDITING" | "FACT_REVIEW_PENDING" | "FACT_CHANGES_REQUESTED" | "FACT_APPROVED" | "RETIRED";
+        /** @enum {string} */
+        ProductFactStatus: "NOT_ENTERED" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "APPROVED" | "RETIRED";
+        /**
+         * @default UPDATED_DESC
+         * @enum {string}
+         */
+        ProductSort: "UPDATED_DESC" | "UPDATED_ASC" | "MODEL_ASC" | "MODEL_DESC";
         Product: {
             /** Format: uuid */
             id: string;
@@ -2021,8 +2030,7 @@ export interface components {
             brand: string;
             category: string;
             status: components["schemas"]["ProductStatus"];
-            /** @enum {string} */
-            workflow_stage: "FACTS_EMPTY" | "FACTS_EDITING" | "FACT_REVIEW_PENDING" | "FACT_CHANGES_REQUESTED" | "FACT_APPROVED" | "RETIRED";
+            workflow_stage: components["schemas"]["ProductWorkflowStage"];
             /** @enum {string} */
             primary_task: "ENTER_FACTS" | "SUBMIT_FACT_REVIEW" | "REVIEW_FACT" | "REVISE_FACT" | "CREATE_CONTENT_TASK" | "VIEW_FACT_HISTORY";
             available_actions: ("UPDATE" | "DELETE")[];
@@ -2045,8 +2053,32 @@ export interface components {
             category: string;
             status: components["schemas"]["ProductStatus"];
         };
+        ProductFactSummary: {
+            version: number;
+            status: components["schemas"]["FactVersionStatus"];
+        };
+        ProductListItem: {
+            /** Format: uuid */
+            id: string;
+            part_number: string;
+            brand: string;
+            category: string;
+            status: components["schemas"]["ProductStatus"];
+            workflow_stage: components["schemas"]["ProductWorkflowStage"];
+            /** @enum {string} */
+            primary_task: "ENTER_FACTS" | "SUBMIT_FACT_REVIEW" | "REVIEW_FACT" | "REVISE_FACT" | "CREATE_CONTENT_TASK" | "VIEW_FACT_HISTORY";
+            available_actions: ("UPDATE" | "DELETE")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            revision: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            fact_status: components["schemas"]["ProductFactStatus"];
+            current_fact: components["schemas"]["ProductFactSummary"] | null;
+        };
         ProductList: {
-            items: components["schemas"]["Product"][];
+            items: components["schemas"]["ProductListItem"][];
             page: number;
             page_size: number;
             total: number;
@@ -4721,6 +4753,9 @@ export interface operations {
                 page?: components["parameters"]["Page"];
                 page_size?: components["parameters"]["PageSize"];
                 search?: string;
+                sort?: components["schemas"]["ProductSort"];
+                fact_status?: components["schemas"]["ProductFactStatus"];
+                workflow_stage?: components["schemas"]["ProductWorkflowStage"];
             };
             header?: never;
             path?: never;
@@ -4790,7 +4825,9 @@ export interface operations {
     };
     deleteProduct: {
         parameters: {
-            query?: never;
+            query: {
+                expected_revision: number;
+            };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };

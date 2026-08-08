@@ -84,6 +84,28 @@ def test_query_topic_delete_rejects_anonymous_request() -> None:
     assert response.json()["error"]["code"] == "AUTH_REQUIRED"
 
 
+@pytest.mark.parametrize("query", ["", "?expected_revision=-1"])
+def test_product_delete_requires_valid_revision_before_business_command(query: str) -> None:
+    """产品删除必须在进入数据库命令前拒绝缺失或非法 revision。"""
+    csrf_token = "contract-test-csrf-token-more-than-32-characters"
+    current_session = SimpleNamespace(
+        user=SimpleNamespace(account_type="ADMIN"),
+        csrf_hash=hash_token(csrf_token),
+    )
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_current_session] = lambda: current_session
+    try:
+        response = TestClient(app).delete(
+            f"/api/v1/products/{uuid.uuid4()}{query}",
+            headers={"X-CSRF-Token": csrf_token},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 @pytest.mark.parametrize(
     ("path", "tags"),
     [

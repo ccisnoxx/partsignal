@@ -136,7 +136,9 @@ Mutation wrapper 不直接操作页面 UI；toast/dialog 由调用层决定；ca
 
 ### ProductListItem
 
-至少包含 id/model/brand/category/workflow_stage/primary_task/fact summary/updated_at。
+至少包含 id/model/brand/category、`fact_status`、`current_fact`、`updated_at`、`workflow_stage`、`primary_task` 和 `available_actions`。`current_fact` 是 `{ version, status } | null`，指向版本号最大的不可变事实；无事实版本时显式返回 `null` 和 `fact_status=NOT_ENTERED`。`updated_at` 表示 Product、事实版本和审核记录中的最近活动时间。
+
+Products URL 与 API 查询参数显式映射：`q → search`、`pageSize → page_size`、`factStatus → fact_status`、`workflowStage → workflow_stage`。后端无需为 URL 命名增加兼容别名。
 
 ### ContentTaskListItem
 

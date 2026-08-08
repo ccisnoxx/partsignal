@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, Query, Request, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import select
 
 from app.deps import (
     AdminUser,
@@ -29,16 +30,20 @@ from app.schemas.product_facts import (
     ProductCreate,
     ProductFactsDraft,
     ProductFactsDraftUpdate,
+    ProductFactStatus,
     ProductList,
     ProductOut,
+    ProductSort,
     ProductUpdate,
+    ProductWorkflowStage,
 )
 from app.services.product_facts import (
     create_product as create_product_command,
 )
 from app.services.product_facts import delete_fact_version as delete_fact_version_command
 from app.services.product_facts import delete_product as delete_product_command
-from app.services.product_facts import product_facts_draft_out, product_out, products_out
+from app.services.product_facts import list_products as list_products_query
+from app.services.product_facts import product_facts_draft_out, product_out
 from app.services.product_facts import (
     replace_product_facts as replace_product_facts_command,
 )
@@ -61,27 +66,21 @@ def list_products(
     user: CurrentUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    search: str | None = None,
+    search: Annotated[str | None, Query(max_length=200)] = None,
+    sort: ProductSort = ProductSort.UPDATED_DESC,
+    fact_status: ProductFactStatus | None = None,
+    workflow_stage: ProductWorkflowStage | None = None,
 ) -> ProductList:
-    """分页搜索产品稳定身份。"""
-    query = select(Product)
-    count_query = select(func.count()).select_from(Product)
-    if search:
-        pattern = f"%{search.strip()}%"
-        condition = or_(Product.part_number.ilike(pattern), Product.brand.ilike(pattern))
-        query = query.where(condition)
-        count_query = count_query.where(condition)
-    total = int(db.scalar(count_query) or 0)
-    items = list(
-        db.scalars(
-            query.order_by(Product.created_at).offset((page - 1) * page_size).limit(page_size)
-        )
-    )
-    return ProductList(
-        items=products_out(db, items, can_delete=user.account_type == "ADMIN"),
+    """返回可由单次请求完整绘制的产品列表。"""
+    return list_products_query(
+        db=db,
+        can_delete=user.account_type == "ADMIN",
         page=page,
         page_size=page_size,
-        total=total,
+        search=search,
+        sort=sort,
+        fact_status=fact_status,
+        workflow_stage=workflow_stage,
     )
 
 
@@ -136,13 +135,18 @@ def update_product(
 )
 def delete_product(
     product_id: uuid.UUID,
+    expected_revision: Annotated[int, Query(ge=0)],
     request: Request,
     db: DbSession,
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> None:
     delete_product_command(
-        db=db, product_id=product_id, actor=admin, request_id=request.state.request_id
+        db=db,
+        product_id=product_id,
+        expected_revision=expected_revision,
+        actor=admin,
+        request_id=request.state.request_id,
     )
 
 

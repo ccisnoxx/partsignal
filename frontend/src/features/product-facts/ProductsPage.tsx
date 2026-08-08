@@ -80,7 +80,7 @@ export function ProductsPage() {
   useEffect(() => {
     if (create.error) createErrorRef.current?.focus();
   }, [create.error]);
-  const remove = useMutation({ mutationFn: async (product: Product) => ensureSuccess(await api.DELETE('/api/v1/products/{product_id}', { params: { path: { product_id: product.id }, header: csrfHeader() } })), onSuccess: async () => { message.success('产品已删除'); await queryClient.invalidateQueries({ queryKey: queryKeys.products.all }); } });
+  const remove = useMutation({ mutationFn: async (product: Product) => ensureSuccess(await api.DELETE('/api/v1/products/{product_id}', { params: { path: { product_id: product.id }, query: { expected_revision: product.revision }, header: csrfHeader() } })), onSuccess: async () => { message.success('产品已删除'); await queryClient.invalidateQueries({ queryKey: queryKeys.products.all }); } });
   const confirmDelete = (product: Product) => modal.confirm({ title: `删除产品“${product.part_number}”？`, content: '将删除产品及当前事实工作区；如果仍有事实版本、内容任务或 GEO 观测引用，服务端会拒绝。此操作不可恢复。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => remove.mutate(product), afterClose: restoreFocus });
   const deletionLink = (product: Product) => (blocker: DeletionBlocker) => {
     if (blocker.type === 'FACT_VERSION') return { href: `/products/${product.id}`, label: '查看引用' as const };

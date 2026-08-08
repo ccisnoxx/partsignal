@@ -15,12 +15,18 @@ from app.models.content import ContentTask, ContentVersion
 from app.models.identity import User
 from app.models.product_facts import FactVersion, Product
 from app.models.publication import PlatformAccount
+from app.schemas.product_facts import (
+    ProductFactStatus,
+    ProductOut,
+    ProductSort,
+    ProductWorkflowStage,
+)
 from app.services.ai_configuration import ai_channel_stage, ai_model_stage
 from app.services.content_planning import query_topics_out
 from app.services.generation import content_hash
 from app.services.identity import users_out
 from app.services.platform_configuration import platform_types_out
-from app.services.product_facts import products_out
+from app.services.product_facts import list_products, product_out, products_out
 from app.services.projections import (
     content_tasks_out,
     content_versions_out,
@@ -109,34 +115,122 @@ def test_product_primary_task_changes_with_workspace_and_pending_review() -> Non
     """相同产品状态下，工作区差异与待审核版本必须投影不同下一步。"""
     product = _product()
     approved = _fact(product)
-    approved_session = _ScalarSequenceSession([[], [approved]])
+    reviewed_at = datetime(2026, 8, 5, tzinfo=UTC)
+    approved_session = _ScalarSequenceSession([[], [approved], [(product.id, reviewed_at)]])
     approved_out = products_out(cast(Session, approved_session), [product], can_delete=False)[0]
     assert approved_out.primary_task == "CREATE_CONTENT_TASK"
+    assert approved_out.fact_status == "APPROVED"
+    assert approved_out.current_fact is not None
+    assert approved_out.current_fact.model_dump(mode="json") == {
+        "version": 1,
+        "status": "APPROVED",
+    }
+    assert approved_out.updated_at == reviewed_at
     assert approved_out.deletion is None
 
     product.facts_body_markdown = "已修改事实"
-    edited_session = _ScalarSequenceSession([[], [approved]])
+    edited_session = _ScalarSequenceSession([[], [approved], []])
     edited_out = products_out(cast(Session, edited_session), [product], can_delete=False)[0]
     assert edited_out.primary_task == "SUBMIT_FACT_REVIEW"
+    assert edited_out.fact_status == "APPROVED"
+    assert edited_out.current_fact is not None
+    assert edited_out.current_fact.version == 1
 
     pending = _fact(product, status="PENDING_REVIEW")
     pending.body_markdown = product.facts_body_markdown
     pending.version = 2
-    pending_session = _ScalarSequenceSession([[], [pending, approved]])
+    pending_session = _ScalarSequenceSession([[], [pending, approved], []])
     pending_out = products_out(cast(Session, pending_session), [product], can_delete=False)[0]
     assert pending_out.primary_task == "REVIEW_FACT"
+    assert pending_out.fact_status == "PENDING_REVIEW"
+    assert pending_out.current_fact is not None
+    assert pending_out.current_fact.version == 2
+
+    detail_session = _ScalarSequenceSession([[], [approved], []])
+    detail = product_out(cast(Session, detail_session), product, can_delete=False)
+    assert type(detail) is ProductOut
+    assert "current_fact" not in detail.model_dump()
+
+
+def test_product_fact_summary_covers_empty_changes_requested_and_retired() -> None:
+    """事实显示状态必须覆盖无版本、待修订和已停用快照。"""
+    empty = _product(body="")
+    empty_out = products_out(
+        cast(Session, _ScalarSequenceSession([[], [], []])), [empty], can_delete=False
+    )[0]
+    assert empty_out.workflow_stage == "FACTS_EMPTY"
+    assert empty_out.fact_status == "NOT_ENTERED"
+    assert empty_out.current_fact is None
+
+    changes = _product()
+    changes_fact = _fact(changes, status="CHANGES_REQUESTED")
+    changes_out = products_out(
+        cast(Session, _ScalarSequenceSession([[], [changes_fact], []])),
+        [changes],
+        can_delete=False,
+    )[0]
+    assert changes_out.workflow_stage == "FACT_CHANGES_REQUESTED"
+    assert changes_out.primary_task == "REVISE_FACT"
+    assert changes_out.fact_status == "CHANGES_REQUESTED"
+
+    retired = _product()
+    retired.status = "RETIRED"
+    retired_fact = _fact(retired, status="RETIRED")
+    retired_out = products_out(
+        cast(Session, _ScalarSequenceSession([[], [retired_fact], []])),
+        [retired],
+        can_delete=False,
+    )[0]
+    assert retired_out.workflow_stage == "RETIRED"
+    assert retired_out.primary_task == "VIEW_FACT_HISTORY"
+    assert retired_out.fact_status == "RETIRED"
+
+
+def test_product_list_filters_before_pagination_and_uses_stable_model_sort() -> None:
+    """派生事实筛选必须先于分页，型号排序以产品 ID 稳定打破并列。"""
+    first = _product(body="")
+    first.part_number = "PS-EMPTY"
+    second = _product()
+    second.part_number = "PS-SAME"
+    third = _product()
+    third.part_number = "PS-SAME"
+    approved_second = _fact(second)
+    approved_third = _fact(third)
+    session = _ScalarSequenceSession(
+        [
+            [third, first, second],
+            [],
+            [approved_third, approved_second],
+            [],
+        ]
+    )
+
+    result = list_products(
+        db=cast(Session, session),
+        can_delete=False,
+        page=1,
+        page_size=1,
+        search=None,
+        sort=ProductSort.MODEL_ASC,
+        fact_status=ProductFactStatus.APPROVED,
+        workflow_stage=ProductWorkflowStage.FACT_APPROVED,
+    )
+
+    assert result.total == 2
+    assert len(result.items) == 1
+    assert result.items[0].id == min(second.id, third.id, key=str)
 
 
 def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() -> None:
     """七类对象都以同一 ``deletion`` 结构表达当前直接引用。"""
     product = _product()
     deletable_product = products_out(
-        cast(Session, _ScalarSequenceSession([[], []])), [product], can_delete=True
+        cast(Session, _ScalarSequenceSession([[], [], []])), [product], can_delete=True
     )[0]
     assert deletable_product.available_actions == ["UPDATE", "DELETE"]
     assert deletable_product.deletion.model_dump() == {"blockers": []}
 
-    product_session = _ScalarSequenceSession([[(product.id, "CONTENT_TASK", 2)], []])
+    product_session = _ScalarSequenceSession([[(product.id, "CONTENT_TASK", 2)], [], []])
     product_out = products_out(cast(Session, product_session), [product], can_delete=True)[0]
     assert product_out.available_actions == ["UPDATE"]
     assert product_out.deletion.model_dump() == {"blockers": [{"type": "CONTENT_TASK", "count": 2}]}
@@ -280,13 +374,13 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
 
 def test_product_deletion_projection_keeps_fixed_query_count_for_multiple_rows() -> None:
     """增加产品行数不能把删除引用投影退化成逐行查询。"""
-    one = _ScalarSequenceSession([[], []])
-    many = _ScalarSequenceSession([[], []])
+    one = _ScalarSequenceSession([[], [], []])
+    many = _ScalarSequenceSession([[], [], []])
 
     products_out(cast(Session, one), [_product()], can_delete=True)
     products_out(cast(Session, many), [_product(), _product()], can_delete=True)
 
-    assert one.scalar_calls == many.scalar_calls == 2
+    assert one.scalar_calls == many.scalar_calls == 3
 
 
 def test_query_topic_deletion_projection_respects_admin_and_all_direct_references() -> None:

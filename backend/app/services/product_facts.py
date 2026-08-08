@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import delete, func, literal, select, union_all
 from sqlalchemy.orm import Session
@@ -23,8 +24,13 @@ from app.schemas.product_facts import (
     ProductCreate,
     ProductFactsDraft,
     ProductFactsDraftUpdate,
+    ProductFactStatus,
+    ProductList,
+    ProductListItem,
     ProductOut,
+    ProductSort,
     ProductUpdate,
+    ProductWorkflowStage,
 )
 
 
@@ -38,8 +44,8 @@ def products_out(
     products: list[Product],
     *,
     can_delete: bool,
-) -> list[ProductOut]:
-    """批量投影产品编辑与无引用删除动作。"""
+) -> list[ProductListItem]:
+    """批量投影产品流程、事实摘要与无引用删除动作。"""
     if not products:
         return []
     product_ids = [product.id for product in products]
@@ -83,8 +89,17 @@ def products_out(
         latest_by_product.setdefault(version.product_id, version)
         if version.status == "PENDING_REVIEW":
             pending_by_product[version.product_id] = version
+    review_activity = {
+        product_id: reviewed_at
+        for product_id, reviewed_at in db.execute(
+            select(FactVersion.product_id, func.max(FactReviewRecord.created_at))
+            .join(FactReviewRecord, FactReviewRecord.fact_version_id == FactVersion.id)
+            .where(FactVersion.product_id.in_(product_ids))
+            .group_by(FactVersion.product_id)
+        ).tuples()
+    }
 
-    items: list[ProductOut] = []
+    items: list[ProductListItem] = []
     for product in products:
         blockers = [
             {"type": blocker_type, "count": count}
@@ -123,13 +138,79 @@ def products_out(
         payload["deletion"] = {"blockers": blockers} if can_delete else None
         payload["workflow_stage"] = workflow_stage
         payload["primary_task"] = primary_task
-        items.append(ProductOut.model_validate(payload))
+        payload["fact_status"] = latest.status if latest else "NOT_ENTERED"
+        payload["current_fact"] = (
+            {"version": latest.version, "status": latest.status} if latest else None
+        )
+        activity_times = [
+            timestamp
+            for timestamp in (
+                product.updated_at,
+                latest.created_at if latest else None,
+                latest.approved_at if latest else None,
+                review_activity.get(product.id),
+            )
+            if isinstance(timestamp, datetime)
+        ]
+        payload["updated_at"] = max(activity_times)
+        items.append(ProductListItem.model_validate(payload))
     return items
 
 
 def product_out(db: Session, product: Product, *, can_delete: bool) -> ProductOut:
     """投影单个产品及其当前动作。"""
-    return products_out(db, [product], can_delete=can_delete)[0]
+    item = products_out(db, [product], can_delete=can_delete)[0]
+    return ProductOut.model_validate(
+        {field: getattr(item, field) for field in ProductOut.model_fields}
+    )
+
+
+def list_products(
+    *,
+    db: Session,
+    can_delete: bool,
+    page: int,
+    page_size: int,
+    search: str | None,
+    sort: ProductSort,
+    fact_status: ProductFactStatus | None,
+    workflow_stage: ProductWorkflowStage | None,
+) -> ProductList:
+    """以单一批量投影完成产品列表筛选、排序和分页。"""
+    query = select(Product)
+    if search is not None and (term := search.strip()):
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        query = query.where(
+            Product.part_number.ilike(pattern, escape="\\")
+            | Product.brand.ilike(pattern, escape="\\")
+        )
+    projected = products_out(db, list(db.scalars(query)), can_delete=can_delete)
+    if fact_status is not None:
+        projected = [item for item in projected if item.fact_status == fact_status]
+    if workflow_stage is not None:
+        projected = [item for item in projected if item.workflow_stage == workflow_stage]
+
+    # ponytail: 当前规模先复用唯一业务投影；产品量实测造成压力时再下推 SQL read projection。
+    projected.sort(key=lambda item: str(item.id))
+    if sort in {ProductSort.MODEL_ASC, ProductSort.MODEL_DESC}:
+        projected.sort(
+            key=lambda item: (item.part_number.casefold(), item.brand.casefold()),
+            reverse=sort == ProductSort.MODEL_DESC,
+        )
+    else:
+        projected.sort(
+            key=lambda item: item.updated_at,
+            reverse=sort == ProductSort.UPDATED_DESC,
+        )
+    total = len(projected)
+    start = (page - 1) * page_size
+    return ProductList(
+        items=projected[start : start + page_size],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 def product_facts_draft_out(db: Session, product: Product) -> ProductFactsDraft:
@@ -212,11 +293,20 @@ def update_product(
     return product
 
 
-def delete_product(*, db: Session, product_id: uuid.UUID, actor: User, request_id: str) -> None:
-    """仅删除没有历史引用的产品及其当前事实工作区。"""
+def delete_product(
+    *,
+    db: Session,
+    product_id: uuid.UUID,
+    expected_revision: int,
+    actor: User,
+    request_id: str,
+) -> None:
+    """仅删除客户端当前读取且没有历史引用的产品。"""
     product = db.scalar(select(Product).where(Product.id == product_id).with_for_update())
     if product is None:
         raise not_found("产品")
+    if product.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "产品已被其他请求修改", 409)
     references = [
         (
             "FACT_VERSION",

@@ -57,7 +57,7 @@ Pattern：Table。
 | 最近更新 | 相对时间 + tooltip 精确时间 |
 | 操作 | Primary + `•••` |
 
-Primary 由 `primary_task` 映射：`ENTER_FACTS`→录入事实、`REVIEW_FACT`→审核、`REVISE_FACT`→修订、`CREATE_CONTENT_TASK`→创建内容。
+Primary 由 `primary_task` 穷尽映射：`ENTER_FACTS`→录入事实、`SUBMIT_FACT_REVIEW`→提交审核、`REVIEW_FACT`→审核、`REVISE_FACT`→修订、`CREATE_CONTENT_TASK`→创建内容、`VIEW_FACT_HISTORY`→查看事实历史。
 
 点击产品名称/行进入 `/products/$productId`，不常驻“查看”。
 

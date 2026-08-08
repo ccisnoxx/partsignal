@@ -41,7 +41,13 @@ from app.models.publication import (
 )
 from app.schemas.common import RevisionRequest
 from app.schemas.content import ContentTaskPermanentDeleteRequest
-from app.schemas.product_facts import FactReviewSubmissionRequest, ProductFactsDraftUpdate
+from app.schemas.product_facts import (
+    FactReviewSubmissionRequest,
+    ProductFactsDraftUpdate,
+    ProductFactStatus,
+    ProductSort,
+    ProductWorkflowStage,
+)
 from app.schemas.publication import (
     PublicationContentVersionSwitchRequest,
     PublicationResultUpdate,
@@ -60,7 +66,12 @@ from app.services.platform_configuration import (
     delete_platform_prompt,
     set_platform_profile_enabled,
 )
-from app.services.product_facts import replace_product_facts, submit_fact_review
+from app.services.product_facts import (
+    delete_product,
+    list_products,
+    replace_product_facts,
+    submit_fact_review,
+)
 from app.services.publication import (
     archive_content_task,
     close_publication_work,
@@ -1476,3 +1487,281 @@ def test_fact_workspace_submission_creates_one_pending_snapshot_and_new_revision
                 )
                 == 3
             )
+
+
+@pytest.mark.integration
+def test_product_list_projects_filters_sorts_and_paginates_current_fact() -> None:
+    """产品列表由一个 read model 返回事实摘要，并在分页前完成派生筛选。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            actor = User(
+                username=f"product-list-{uuid.uuid4().hex[:10]}",
+                display_name="产品列表测试用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            empty = Product(
+                part_number="PS-EMPTY",
+                normalized_part_number=f"empty-{uuid.uuid4().hex}",
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex}",
+                category="MCU",
+                facts_body_markdown="",
+                updated_at=datetime(2026, 8, 1, tzinfo=UTC),
+            )
+            approved = Product(
+                part_number="PS-APPROVED",
+                normalized_part_number=f"approved-{uuid.uuid4().hex}",
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex}",
+                category="MCU",
+                facts_body_markdown="## 已批准事实",
+                facts_classification="PUBLIC",
+                updated_at=datetime(2026, 8, 2, tzinfo=UTC),
+            )
+            pending = Product(
+                part_number="PS-PENDING",
+                normalized_part_number=f"pending-{uuid.uuid4().hex}",
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex}",
+                category="MCU",
+                facts_body_markdown="## 待审核事实",
+                facts_classification="PUBLIC",
+                updated_at=datetime(2026, 8, 3, tzinfo=UTC),
+            )
+            literal = Product(
+                part_number="PS%LITERAL",
+                normalized_part_number=f"literal-{uuid.uuid4().hex}",
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex}",
+                category="MCU",
+                facts_body_markdown="",
+                updated_at=datetime(2026, 8, 4, tzinfo=UTC),
+            )
+            db.add_all([actor, empty, approved, pending, literal])
+            db.flush()
+            approved_fact = FactVersion(
+                product_id=approved.id,
+                version=1,
+                status="APPROVED",
+                body_markdown=approved.facts_body_markdown,
+                classification="PUBLIC",
+                change_summary="批准",
+                revision=1,
+                created_by=actor.id,
+                approved_by=actor.id,
+                created_at=datetime(2026, 8, 5, tzinfo=UTC),
+                approved_at=datetime(2026, 8, 6, tzinfo=UTC),
+            )
+            pending_fact = FactVersion(
+                product_id=pending.id,
+                version=2,
+                status="PENDING_REVIEW",
+                body_markdown=pending.facts_body_markdown,
+                classification="PUBLIC",
+                change_summary="提交审核",
+                revision=0,
+                created_by=actor.id,
+                created_at=datetime(2026, 8, 7, tzinfo=UTC),
+            )
+            db.add_all([approved_fact, pending_fact])
+            db.flush()
+            db.add_all(
+                [
+                    FactReviewRecord(
+                        fact_version_id=approved_fact.id,
+                        action="approve",
+                        comment="批准",
+                        actor_id=actor.id,
+                        created_at=datetime(2026, 8, 6, tzinfo=UTC),
+                    ),
+                    FactReviewRecord(
+                        fact_version_id=pending_fact.id,
+                        action="submit-review",
+                        comment="提交审核",
+                        actor_id=actor.id,
+                        created_at=datetime(2026, 8, 8, tzinfo=UTC),
+                    ),
+                ]
+            )
+            db.commit()
+
+            filtered = list_products(
+                db=db,
+                can_delete=False,
+                page=1,
+                page_size=1,
+                search=None,
+                sort=ProductSort.MODEL_ASC,
+                fact_status=ProductFactStatus.PENDING_REVIEW,
+                workflow_stage=ProductWorkflowStage.FACT_REVIEW_PENDING,
+            )
+            assert filtered.total == 1
+            assert filtered.items[0].id == pending.id
+            assert filtered.items[0].current_fact is not None
+            assert filtered.items[0].current_fact.version == 2
+            assert filtered.items[0].updated_at == datetime(2026, 8, 8, tzinfo=UTC)
+
+            ordered = list_products(
+                db=db,
+                can_delete=False,
+                page=1,
+                page_size=2,
+                search=None,
+                sort=ProductSort.UPDATED_DESC,
+                fact_status=None,
+                workflow_stage=None,
+            )
+            assert ordered.total == 4
+            assert [item.id for item in ordered.items] == [pending.id, approved.id]
+
+            updated_asc = list_products(
+                db=db,
+                can_delete=False,
+                page=1,
+                page_size=20,
+                search=None,
+                sort=ProductSort.UPDATED_ASC,
+                fact_status=None,
+                workflow_stage=None,
+            )
+            updated_desc = list_products(
+                db=db,
+                can_delete=False,
+                page=1,
+                page_size=20,
+                search=None,
+                sort=ProductSort.UPDATED_DESC,
+                fact_status=None,
+                workflow_stage=None,
+            )
+            assert [item.id for item in updated_desc.items] == list(
+                reversed([item.id for item in updated_asc.items])
+            )
+
+            model_asc = list_products(
+                db=db,
+                can_delete=False,
+                page=1,
+                page_size=20,
+                search=None,
+                sort=ProductSort.MODEL_ASC,
+                fact_status=None,
+                workflow_stage=None,
+            )
+            model_desc = list_products(
+                db=db,
+                can_delete=False,
+                page=1,
+                page_size=20,
+                search=None,
+                sort=ProductSort.MODEL_DESC,
+                fact_status=None,
+                workflow_stage=None,
+            )
+            assert [item.id for item in model_desc.items] == list(
+                reversed([item.id for item in model_asc.items])
+            )
+
+            literal_search = list_products(
+                db=db,
+                can_delete=False,
+                page=1,
+                page_size=20,
+                search="%",
+                sort=ProductSort.MODEL_ASC,
+                fact_status=None,
+                workflow_stage=None,
+            )
+            assert [item.id for item in literal_search.items] == [literal.id]
+
+
+@pytest.mark.integration
+def test_product_delete_checks_revision_then_revalidates_references() -> None:
+    """产品删除先拒绝过期 revision，再拒绝读投影后新增的业务引用。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            admin = User(
+                username=f"product-delete-{uuid.uuid4().hex[:10]}",
+                display_name="产品删除测试管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            stale = Product(
+                part_number="PS-STALE",
+                normalized_part_number=f"stale-{uuid.uuid4().hex}",
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex}",
+                category="MCU",
+                revision=1,
+            )
+            referenced = Product(
+                part_number="PS-REFERENCED",
+                normalized_part_number=f"referenced-{uuid.uuid4().hex}",
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex}",
+                category="MCU",
+                facts_body_markdown="## 待审核事实",
+                facts_classification="PUBLIC",
+            )
+            clean = Product(
+                part_number="PS-CLEAN",
+                normalized_part_number=f"clean-{uuid.uuid4().hex}",
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex}",
+                category="MCU",
+            )
+            db.add_all([admin, stale, referenced, clean])
+            db.flush()
+            db.add(
+                FactVersion(
+                    product_id=referenced.id,
+                    version=1,
+                    status="PENDING_REVIEW",
+                    body_markdown=referenced.facts_body_markdown,
+                    classification="PUBLIC",
+                    change_summary="读后新增引用",
+                    revision=0,
+                    created_by=admin.id,
+                )
+            )
+            db.commit()
+
+            with pytest.raises(AppError) as stale_error:
+                delete_product(
+                    db=db,
+                    product_id=stale.id,
+                    expected_revision=0,
+                    actor=admin,
+                    request_id="product-delete-stale",
+                )
+            assert stale_error.value.code == "REVISION_CONFLICT"
+            db.rollback()
+            assert db.get(Product, stale.id) is not None
+
+            with pytest.raises(AppError) as referenced_error:
+                delete_product(
+                    db=db,
+                    product_id=referenced.id,
+                    expected_revision=referenced.revision,
+                    actor=admin,
+                    request_id="product-delete-referenced",
+                )
+            assert referenced_error.value.code == "PRODUCT_IN_USE"
+            assert referenced_error.value.details == {
+                "references": [{"type": "FACT_VERSION", "count": 1}]
+            }
+            db.rollback()
+            assert db.get(Product, referenced.id) is not None
+
+            clean_id = clean.id
+            delete_product(
+                db=db,
+                product_id=clean_id,
+                expected_revision=clean.revision,
+                actor=admin,
+                request_id="product-delete-clean",
+            )
+            assert db.get(Product, clean_id) is None

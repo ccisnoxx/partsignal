@@ -299,7 +299,10 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/Page'}
         - {$ref: '#/components/parameters/PageSize'}
-        - {name: search, in: query, schema: {type: string}}
+        - {name: search, in: query, schema: {type: string, maxLength: 200}}
+        - {name: sort, in: query, schema: {$ref: '#/components/schemas/ProductSort'}}
+        - {name: fact_status, in: query, schema: {$ref: '#/components/schemas/ProductFactStatus'}}
+        - {name: workflow_stage, in: query, schema: {$ref: '#/components/schemas/ProductWorkflowStage'}}
       responses:
         '200':
           description: 产品列表
@@ -355,6 +358,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/ProductId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+        - {name: expected_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
       responses:
         '204': {description: 已删除未被历史引用的产品及当前事实工作区}
         '403': {$ref: '#/components/responses/ErrorResponse'}
@@ -3059,6 +3063,16 @@ components:
         actions: {type: array, items: {type: string}}
         target_types: {type: array, items: {type: string}}
     ProductStatus: {type: string, enum: [ACTIVE, RETIRED]}
+    ProductWorkflowStage:
+      type: string
+      enum: [FACTS_EMPTY, FACTS_EDITING, FACT_REVIEW_PENDING, FACT_CHANGES_REQUESTED, FACT_APPROVED, RETIRED]
+    ProductFactStatus:
+      type: string
+      enum: [NOT_ENTERED, PENDING_REVIEW, CHANGES_REQUESTED, APPROVED, RETIRED]
+    ProductSort:
+      type: string
+      enum: [UPDATED_DESC, UPDATED_ASC, MODEL_ASC, MODEL_DESC]
+      default: UPDATED_DESC
     Product:
       type: object
       additionalProperties: false
@@ -3069,7 +3083,7 @@ components:
         brand: {type: string}
         category: {type: string}
         status: {$ref: '#/components/schemas/ProductStatus'}
-        workflow_stage: {type: string, enum: [FACTS_EMPTY, FACTS_EDITING, FACT_REVIEW_PENDING, FACT_CHANGES_REQUESTED, FACT_APPROVED, RETIRED]}
+        workflow_stage: {$ref: '#/components/schemas/ProductWorkflowStage'}
         primary_task: {type: string, enum: [ENTER_FACTS, SUBMIT_FACT_REVIEW, REVIEW_FACT, REVISE_FACT, CREATE_CONTENT_TASK, VIEW_FACT_HISTORY]}
         available_actions:
           type: array
@@ -3099,12 +3113,46 @@ components:
         brand: {type: string}
         category: {type: string}
         status: {$ref: '#/components/schemas/ProductStatus'}
+    ProductFactSummary:
+      type: object
+      additionalProperties: false
+      required: [version, status]
+      properties:
+        version: {type: integer, minimum: 1}
+        status: {$ref: '#/components/schemas/FactVersionStatus'}
+    ProductListItem:
+      type: object
+      additionalProperties: false
+      required: [id, part_number, brand, category, status, workflow_stage, primary_task, available_actions, deletion, revision, created_at, updated_at, fact_status, current_fact]
+      properties:
+        id: {type: string, format: uuid}
+        part_number: {type: string}
+        brand: {type: string}
+        category: {type: string}
+        status: {$ref: '#/components/schemas/ProductStatus'}
+        workflow_stage: {$ref: '#/components/schemas/ProductWorkflowStage'}
+        primary_task: {type: string, enum: [ENTER_FACTS, SUBMIT_FACT_REVIEW, REVIEW_FACT, REVISE_FACT, CREATE_CONTENT_TASK, VIEW_FACT_HISTORY]}
+        available_actions:
+          type: array
+          items: {type: string, enum: [UPDATE, DELETE]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
+        revision: {type: integer}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: string, format: date-time}
+        fact_status: {$ref: '#/components/schemas/ProductFactStatus'}
+        current_fact:
+          anyOf:
+            - {$ref: '#/components/schemas/ProductFactSummary'}
+            - {type: 'null'}
     ProductList:
       type: object
       additionalProperties: false
       required: [items, page, page_size, total]
       properties:
-        items: {type: array, items: {$ref: '#/components/schemas/Product'}}
+        items: {type: array, items: {$ref: '#/components/schemas/ProductListItem'}}
         page: {type: integer}
         page_size: {type: integer}
         total: {type: integer}

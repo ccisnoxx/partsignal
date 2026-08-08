@@ -216,7 +216,7 @@ function AccountMenu({ auth }: { auth: AuthContextValue }) {
   if (auth.error) {
     return (
       <div className="flex items-center gap-2" role="alert">
-        <span className="hidden text-xs text-text-danger sm:inline">账户状态读取失败</span>
+        <span className="text-xs text-text-danger">账户状态读取失败</span>
         <Button variant="outline" size="sm" onClick={() => void auth.refresh()}>重试</Button>
       </div>
     );

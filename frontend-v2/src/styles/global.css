@@ -189,3 +189,109 @@
     }
   }
 }
+
+@layer components {
+  .ps-table-region {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-panel);
+    background: var(--surface-panel);
+    outline: none;
+  }
+
+  .ps-table-region:focus-visible {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 var(--focus-ring-width) color-mix(in oklch, var(--border-focus) 35%, transparent);
+  }
+
+  .ps-table {
+    width: 100%;
+    min-width: 52rem;
+    border-collapse: collapse;
+    font-size: var(--type-body-sm-size);
+    line-height: var(--type-body-sm-line-height);
+  }
+
+  .ps-table th,
+  .ps-table td {
+    min-width: 0;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 0.625rem 0.75rem;
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  .ps-table th {
+    height: 2.75rem;
+    background: var(--surface-raised);
+    color: var(--text-secondary);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .ps-table td {
+    height: 3.25rem;
+  }
+
+  .ps-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .ps-table tbody tr:hover td,
+  .ps-table tbody tr:focus-within td {
+    background: color-mix(in oklch, var(--surface-selected) 55%, var(--surface-panel));
+  }
+
+  .ps-table [data-column-role='primary'] {
+    min-width: 15rem;
+  }
+
+  .ps-table [data-column-role='primary'] .table-cell-ellipsis {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ps-table [data-column-role='status'],
+  .ps-table [data-column-role='date'] {
+    white-space: nowrap;
+  }
+
+  .ps-table [data-column-role='numeric'] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ps-table [data-column-role='actions'] {
+    position: sticky;
+    right: 0;
+    z-index: 1;
+    width: 9rem;
+    min-width: 9rem;
+    max-width: 9rem;
+    background: var(--surface-panel);
+    box-shadow: -1px 0 0 var(--border-subtle);
+  }
+
+  .ps-table th[data-column-role='actions'] {
+    z-index: 2;
+    background: var(--surface-raised);
+  }
+
+  @media (max-width: 1023px) {
+    .ps-table [data-column-role='metadata'] {
+      display: none;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .ps-table [data-column-role='numeric'],
+    .ps-table [data-column-role='date'] {
+      display: none;
+    }
+  }
+}

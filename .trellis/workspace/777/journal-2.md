@@ -1029,3 +1029,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 89: Frontend V2 App Shell 与 Router Metadata
+
+**Date**: 2026-08-08
+**Task**: Frontend V2 App Shell 与 Router Metadata
+**Branch**: `codex/frontend-v2-app-shell-router-metadata`
+
+### Summary
+
+完成 Frontend V2 响应式 App Shell、Router metadata、真实会话边界、最小路由、测试与浏览器验收。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cea4656` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

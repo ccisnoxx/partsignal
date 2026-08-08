@@ -930,3 +930,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 86: Frontend V2 Products Contract Readiness
+
+**Date**: 2026-08-08
+**Task**: Frontend V2 Products Contract Readiness
+**Branch**: `main`
+
+### Summary
+
+完成 Products List 单请求 read model、服务端 typed workflow/action 投影、查询能力与 DELETE revision 守卫；合同、后端、测试及最小 V1 同步已验证并合并。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `22ab948` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

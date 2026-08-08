@@ -197,7 +197,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 添加 `@tanstack/react-table`，建立不拥有 domain、URL schema 或数据请求的可组合 Table Kit。
+- 实现受控筛选、排序、分页、选择，以及单一 Primary、overflow、危险确认和禁用原因合同。
+- 增加仅供 Storybook/test 使用的 server table demo、11 个边界场景和组件回归测试。
 
 ### Git Commits
 
@@ -207,7 +209,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- `table-kit.test.tsx`：10/10 通过；完整 Vitest：7 个文件、65/65 通过。
+- frontend-v2 lint、typecheck、production build、Storybook build、`git diff --check` 和禁止范围审计通过。
+- 命名 `playwright-cli` session 在 375/768/1024/1440 完成 overflow、144px action zone、键盘、焦点和状态场景验收，结束后已关闭并确认无遗留 browser/server。
 
 ### Status
 
@@ -1050,6 +1054,39 @@
 | Hash | Message |
 |------|---------|
 | `cea4656` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 90: Frontend V2 Table Kit
+
+**Date**: 2026-08-09
+**Task**: Frontend V2 Table Kit
+**Branch**: `codex/frontend-v2-table-kit`
+
+### Summary
+
+建立可由 domain 自行组合的最小 Table Kit，完成受控状态、行与批量操作、Storybook 场景、组件测试和四档响应式浏览器验收。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `eb8af61` | (see git log) |
 
 ### Testing
 

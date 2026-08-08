@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 89
-- **Last Active**: 2026-08-08
+- **Total Sessions**: 90
+- **Last Active**: 2026-08-09
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1064 | Active |
+| `journal-2.md` | ~1097 | Active |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 90 | 2026-08-09 | Frontend V2 Table Kit | `eb8af61` | `codex/frontend-v2-table-kit` |
 | 89 | 2026-08-08 | Frontend V2 App Shell 与 Router Metadata | `cea4656` | `codex/frontend-v2-app-shell-router-metadata` |
 | 88 | 2026-08-08 | 完成 Frontend V2 Tokens + Core Primitives | `25be980` | `codex/frontend-v2-tokens-core-primitives` |
 | 87 | 2026-08-08 | Frontend V2 Foundation Bootstrap | `0552beb` | `main` |

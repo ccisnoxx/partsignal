@@ -47,7 +47,7 @@ PartSignal 应从“后台管理系统”升级为“电子元器件内容生产
 | [04-design-system-and-interaction-spec.md](./04-design-system-and-interaction-spec.md) | Design System、Table Kit、Workspace Kit、交互规范 |
 | [05-business-actions-state-and-api-contract.md](./05-business-actions-state-and-api-contract.md) | `workflow_stage`、`primary_task`、`available_actions` 与 Action Registry |
 | [06-code-architecture-and-project-structure.md](./06-code-architecture-and-project-structure.md) | V2 目录、Domain Vertical Slice、依赖规则 |
-| [07-migration-plan.md](./07-migration-plan.md) | 分阶段重构顺序、交付物与退出条件 |
+| [07-migration-plan.md](./07-migration-plan.md) | 总体实施路线、Task/分支规则、新会话接续、质量门禁与 Cutover |
 | [08-testing-quality-and-acceptance.md](./08-testing-quality-and-acceptance.md) | 单测、组件测试、E2E、视觉与响应式验收 |
 | [09-architecture-decisions.md](./09-architecture-decisions.md) | 关键 ADR / 不选方案 / 长期约束 |
 
@@ -71,6 +71,8 @@ PartSignal 应从“后台管理系统”升级为“电子元器件内容生产
 当前主要路由包括：`/`、`/products`、`/tasks`、`/content/:contentVersionId`、`/publications`、`/observations`、`/settings`、`/users`、`/audit`、`/configuration/*`。V2 会重新定义页面边界，而不是机械迁移。
 
 ## 6. 开发使用方式
+
+后续每个 V2 新会话先读取 `07-migration-plan.md`，再按其中的最小上下文矩阵加载当前 Task 直接相关的蓝图。不要在单个会话中连续实现多个 Task，也不要仅为熟悉项目重复加载全部文档。
 
 每一个 V2 PR 都应回答：
 

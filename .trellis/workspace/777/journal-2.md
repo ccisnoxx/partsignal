@@ -346,7 +346,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 新增产品级事实审核 context、紧邻版本 Diff 和窄审核动作合同，并同步后端、两套生成客户端与权威文档。
+- 实现 Frontend V2 只读 Fact Review 工作台、Approve/Request Changes、revision 冲突和 canonical context 刷新。
+- 补齐合同、后端集成、Frontend V1/V2 单元测试与四档响应式 Playwright 场景。
 
 ### Git Commits
 
@@ -357,7 +359,10 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- `make contract-check` 通过。
+- 后端 46 个定向单元测试和 1 个 PostgreSQL 集成测试通过；Ruff、Mypy 通过。
+- Frontend V1 10 个兼容测试与 typecheck 通过。
+- Frontend V2 26 个定向测试、lint、typecheck、build 与 10 个 Playwright 场景通过。
 
 ### Status
 
@@ -1339,6 +1344,39 @@
 |------|---------|
 | `006814c` | (see git log) |
 | `a463f4b` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 98: Frontend V2 Fact Review
+
+**Date**: 2026-08-09
+**Task**: Frontend V2 Fact Review
+**Branch**: `codex/frontend-v2-fact-review`
+
+### Summary
+
+完成产品级事实审核 read-model、只读工作台、审核命令与全链路验证；未实现 Evidence、Blocking Issues 或 Content Review 抽象。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cfd80c4` | (see git log) |
 
 ### Testing
 

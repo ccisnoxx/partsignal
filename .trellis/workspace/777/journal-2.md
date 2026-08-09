@@ -309,7 +309,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 新增 `/products/new` RHF + Zod 表单、DirtyGuard、结构化错误映射与 canonical Product 导航。
+- 修复 `ProductCreate` trim/1..160、`PRODUCT_ALREADY_EXISTS` 唯一约束竞态和 POST 非 2xx OpenAPI 响应。
+- 扩展 generated types、Products typed Playwright fixture、业务文档与 Trellis specs。
 
 ### Git Commits
 
@@ -319,7 +321,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- `make contract-check`、backend contract unit 20 项、真实 PostgreSQL integration 1 项通过。
+- backend ruff/mypy、V1 typecheck、V2 unit/component 15 项、lint/typecheck/build 通过。
+- Products List + New Product production-artifact Playwright mobile/desktop 共 22 项通过。
 
 ### Status
 
@@ -1228,6 +1232,39 @@
 | Hash | Message |
 |------|---------|
 | `dc9c551` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 95: Frontend V2 Phase 2.3 — New Product
+
+**Date**: 2026-08-09
+**Task**: Frontend V2 Phase 2.3 — New Product
+**Branch**: `codex/frontend-v2-new-product`
+
+### Summary
+
+完成 /products/new 创建产品 vertical slice，修复 ProductCreate 空白、长度、重复冲突与 OpenAPI 错误响应契约；必需 contract、backend、frontend 和 Playwright 验证通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8eacdc1` | (see git log) |
 
 ### Testing
 

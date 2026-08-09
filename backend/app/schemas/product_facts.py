@@ -121,10 +121,22 @@ class ProductFactsDraftUpdate(ContractModel):
     classification: Confidentiality
 
 
+class ProductFactsProductContext(ContractModel):
+    id: uuid.UUID
+    part_number: str
+    brand: str
+    category: str
+    status: ProductStatus
+    workflow_stage: ProductWorkflowStage
+
+
 class ProductFactsDraft(ContractModel):
     product_id: uuid.UUID
+    product: ProductFactsProductContext
     body_markdown: str
     classification: Confidentiality
+    approved_fact: ProductFactSummary | None
+    pending_fact: ProductFactSummary | None
     available_actions: list[Literal["SAVE", "SUBMIT_REVIEW"]]
     revision: int = Field(ge=0)
 
@@ -132,6 +144,14 @@ class ProductFactsDraft(ContractModel):
 class FactReviewSubmissionRequest(ContractModel):
     expected_revision: int = Field(ge=0)
     change_summary: str = Field(min_length=1)
+
+    @field_validator("change_summary")
+    @classmethod
+    def require_non_blank_summary(cls, value: str) -> str:
+        """拒绝空白审核摘要，同时保留合法原文。"""
+        if not value.strip():
+            raise ValueError("变更摘要不能为空")
+        return value
 
 
 class FactVersionOut(ContractModel):

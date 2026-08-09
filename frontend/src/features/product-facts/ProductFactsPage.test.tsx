@@ -18,8 +18,18 @@ const secondVersionId = '20000000-0000-4000-8000-000000000002';
 const product = { id: productId, part_number: 'DEMO-001', brand: 'DEMO', category: 'MCU', status: 'ACTIVE', workflow_stage: 'FACTS_EDITING', primary_task: 'SUBMIT_FACT_REVIEW', available_actions: ['UPDATE'], deletion: null, revision: 0, facts_revision: 0, created_at: '2026-07-16T00:00:00Z', updated_at: '2026-07-16T00:00:00Z' };
 const initialDraft: Schema<'ProductFactsDraft'> = {
   product_id: productId,
+  product: {
+    id: productId,
+    part_number: 'DEMO-001',
+    brand: 'DEMO',
+    category: 'MCU',
+    status: 'ACTIVE',
+    workflow_stage: 'FACTS_EDITING',
+  },
   body_markdown: '# 产品事实\n\n初始正文',
   classification: 'PUBLIC',
+  approved_fact: null,
+  pending_fact: null,
   available_actions: ['SAVE', 'SUBMIT_REVIEW'],
   revision: 0,
 };

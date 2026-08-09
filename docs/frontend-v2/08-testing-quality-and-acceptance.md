@@ -159,6 +159,8 @@ Phase 2.3 的 `/products/new` 由 `tests/e2e/new-product.spec.ts` 复用同一 f
 
 Phase 2.4 的 `/products/$productId` 由 `tests/e2e/product-detail.spec.ts` 复用并扩展同一 fixture。fixture 使用 generated `ProductDetail`/`ProductUpdate`，只返回已经定义的 read-model fixture，所有未声明 API 请求显式失败；测试必须证明页面只请求一个 detail endpoint，不在浏览器跨域 join。覆盖 List/New → Detail、direct/refresh/Back/Forward、breadcrumb/sidebar、事实与跨域摘要有/无数据、服务端 Activity 顺序、primary/overflow token、UPDATE canonical refresh、DELETE blocker/revision、404/403/retry、375/768/1024/1440、keyboard/focus，以及 console/pageerror/requestfailed 审计。它仍是 production-artifact 前端页面测试，不冒充完整真实业务 E2E。
 
+Phase 2.5 的 `/products/$productId/facts` 由 `tests/e2e/fact-workspace.spec.ts` 继续复用 generated-type `products.fixture.ts`。fixture 使用 `ProductFactsDraft`、`ProductFactsDraftUpdate`、`FactReviewSubmissionRequest` 与 `FactVersion`，并拒绝任何未声明 API；测试证明页面只用一个 facts read model，不请求 Product Detail 或自行 join。覆盖 direct/refresh、空 Markdown、loading、404/403/retry、服务端 action token、save canonical response、`expected_revision`/CSRF、Ctrl/Cmd+S、revision conflict 本地保留与显式 reload、提交后停留原路由并刷新 actions、DirtyGuard、键盘焦点、375/768/1024/1440 无横向溢出，以及 console/pageerror/requestfailed 审计。真实 PostgreSQL snapshot 不可变性由 backend integration test 证明；该前端 fixture 不冒充完整业务闭环，也不进入 Fact Review。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

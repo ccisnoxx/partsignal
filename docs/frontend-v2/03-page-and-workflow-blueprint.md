@@ -83,17 +83,19 @@ Pattern：Workspace。
 
 ```text
 ┌───────────────┬──────────────────────────┬──────────────────┐
-│ Product       │ Fact Markdown            │ Evidence/Status  │
+│ Product       │ Fact Markdown            │ Status/Data      │
 │ Context       │                          │                  │
 │ 型号/品牌/类别 │ CodeMirror               │ 数据级别         │
-│ 当前批准 v3   │                          │ Evidence URLs    │
+│ 当前批准 v3   │                          │ Workflow stage   │
 │ 待审核 v4     │                          │ Revision         │
 └───────────────┴──────────────────────────┴──────────────────┘
 
                               [提交事实审核]
 ```
 
-Markdown 是唯一编辑源；提交后创建不可变 `PENDING_REVIEW` snapshot。
+页面只请求 `GET /api/v1/products/{product_id}/facts`，一次获得只读 Product Context、Markdown 草稿、数据级别、revision、当前批准/待审核摘要、workflow stage 与 `available_actions`，不得在浏览器拼接 Product Detail 或事实版本接口。当前权威数据模型没有 Evidence URL；本页不恢复旧 evidence 表，也不创建 Markdown 之外的第二个可编辑事实来源。
+
+Markdown 是唯一编辑源。保存与提交都发送当前基线的 `expected_revision`；保存成功采用服务端 canonical workspace response，冲突时保留本地内容并提供显式 reload。提交只允许 clean 草稿，服务端从已保存内容创建不可变 `PENDING_REVIEW` snapshot，页面刷新 actions 和摘要但停留当前路由。动作入口只由 `available_actions` 决定；DirtyGuard 覆盖应用内导航与浏览器离开。
 
 ## 3.5 `/products/$productId/facts/review`
 

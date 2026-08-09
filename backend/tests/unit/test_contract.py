@@ -57,6 +57,67 @@ def test_product_detail_contract_is_compact_and_update_has_matching_limits() -> 
         assert update["properties"][field_name]["maxLength"] == 160
 
 
+def test_fact_workspace_contract_is_a_complete_single_read_model() -> None:
+    """Facts endpoint 必须一次返回完整上下文并声明真实错误边界。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    path = document["paths"]["/api/v1/products/{product_id}/facts"]
+    submission = document["paths"]["/api/v1/products/{product_id}/fact-review-submissions"][
+        "post"
+    ]
+    draft = document["components"]["schemas"]["ProductFactsDraft"]
+    context = document["components"]["schemas"]["ProductFactsProductContext"]
+
+    assert set(path["get"]["responses"]) == {"200", "401", "403", "404"}
+    assert set(path["put"]["responses"]) == {"200", "401", "403", "404", "409", "422"}
+    assert set(submission["responses"]) == {"201", "401", "403", "404", "409", "422"}
+    assert set(draft["required"]) == {
+        "product_id",
+        "product",
+        "body_markdown",
+        "classification",
+        "approved_fact",
+        "pending_fact",
+        "available_actions",
+        "revision",
+    }
+    assert set(context["required"]) == {
+        "id",
+        "part_number",
+        "brand",
+        "category",
+        "status",
+        "workflow_stage",
+    }
+
+
+def test_fact_review_submission_rejects_blank_summary_before_business_command() -> None:
+    """事实提交摘要只含空白时必须在请求边界返回字段级 422。"""
+    csrf_token = "contract-test-csrf-token-more-than-32-characters"
+    current_session = SimpleNamespace(
+        user=SimpleNamespace(account_type="ENGINEER"),
+        csrf_hash=hash_token(csrf_token),
+    )
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_current_session] = lambda: current_session
+    try:
+        response = TestClient(app).post(
+            f"/api/v1/products/{uuid.uuid4()}/fact-review-submissions",
+            headers={"X-CSRF-Token": csrf_token},
+            json={"expected_revision": 0, "change_summary": "   "},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    payload = response.json()["error"]
+    assert payload["code"] == "VALIDATION_ERROR"
+    assert any(
+        issue["loc"][:2] == ["body", "change_summary"]
+        for issue in payload["details"]["errors"]
+    )
+
+
 @pytest.mark.parametrize("field_name", ["part_number", "brand", "category"])
 def test_product_update_rejects_blank_identity_before_business_command(field_name: str) -> None:
     """产品基本信息更新必须在请求边界拒绝空白字段。"""

@@ -86,6 +86,81 @@ const currentTarget = target
 - 不要为此新增轮询、全局 store 或 `BroadcastChannel`；窗口焦点刷新已经覆盖当前人工跨标签页操作流程。
 - 回归测试应模拟失焦、服务端投影变化、重新聚焦，并断言发生重新请求、条件弹窗关闭且删除动作出现。
 
+## 可编辑 Workspace 的服务端状态与本地草稿合同
+
+### 1. 适用范围 / 触发条件
+
+当页面同时持有服务端 read model、可编辑本地草稿、`revision` 和服务端动作 token 时适用。本合同以产品事实工作台为已实现基线，防止后台刷新、参数切换或过期请求覆盖尚未保存的 Markdown。
+
+### 2. 签名
+
+```text
+GET  /api/v1/products/{product_id}/facts
+PUT  /api/v1/products/{product_id}/facts
+POST /api/v1/products/{product_id}/fact-review-submissions
+
+query key: ["products", "facts", productId]
+PUT body:  ProductFactsDraftUpdate
+POST body: FactReviewSubmissionRequest
+```
+
+路由参数变化必须形成新的编辑身份；复用同一页面组件时以 `productId` 作为 `key` 或在身份边界显式重建表单，不能只比较 revision。
+
+### 3. 合同
+
+- GET 一次返回 `product`、`body_markdown`、`classification`、`approved_fact`、`pending_fact`、`available_actions` 和 `revision`；浏览器不得再请求 Product Detail 或事实版本列表自行拼接。
+- `body_markdown` 与 `classification` 是页面本地表单；Product Context、版本摘要和动作仍属于 TanStack Query server state。
+- `SAVE`、`SUBMIT_REVIEW` 的存在只由 `available_actions` 决定；dirty、非空校验和 mutation pending 只控制已返回动作的 enabled 状态。
+- PUT/POST 都携带当前基线 `expected_revision`。PUT 成功必须以 canonical `ProductFactsDraft` 更新 query cache、表单和 revision；POST 成功后重新读取 workspace actions，且不跳转未实现的审核页面。
+- mutation 前取消同 key 的在途 GET，防止旧响应覆盖 canonical cache。后台 refetch 失败但已有 data 时保留编辑器和 DirtyGuard，并单独展示可重试错误；只有初始请求无 data 时才替换为整页错误态。
+- dirty 表单不接受后台 query reset；`REVISION_CONFLICT` 保留本地值，只有用户显式 reload 才采用服务端值。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 服务端结果 | 前端处理 |
+| --- | --- | --- |
+| `body_markdown` 仅空白 | `422 VALIDATION_ERROR` | 字段 / ErrorSummary 显示，不伪造保存成功 |
+| `change_summary` 仅空白 | 请求边界 `422` | Dialog 字段错误并保持打开 |
+| `expected_revision` 过期 | `409 REVISION_CONFLICT` | 保留草稿、显示 request ID 和显式 reload |
+| 已有 `PENDING_REVIEW` | `409 FACT_REVIEW_PENDING` | 刷新服务端动作，不本地推导状态 |
+| 产品为 `RETIRED` | `409 INVALID_STATE_TRANSITION` | read model 无写动作；绕过 UI 仍失败 |
+| 背景 GET 失败且 cache 有 data | query error + stale data | 保留表单/DirtyGuard，显示“刷新失败”与重试 |
+| 初始 GET 为 403/404 | ErrorEnvelope | 专用整页状态并保留 request ID |
+
+### 5. Good / Base / Bad
+
+- Good：保存成功后立即采用 PUT canonical response，revision 前进，dirty 清除；随后只失效相关列表/详情投影。
+- Base：窗口聚焦刷新失败时继续显示当前服务端快照和本地 dirty Markdown，用户可保存或重试刷新。
+- Bad：`if (query.error) return <Failure />` 无条件卸载已有 data 的编辑器，或用 `status === "ACTIVE"` 在页面补出提交动作。
+
+### 6. 必需测试
+
+- Contract：GET/PUT/POST 响应码和 `ProductFactsDraft` required 字段；运行 `make contract-check` 并比较 generated clients。
+- Backend unit/integration：固定查询数、action/guard 对称、stale SAVE/SUBMIT、RETIRED、pending 唯一性，以及保存后既有 snapshot 正文不变。
+- Frontend component：canonical save、dirty background-refetch failure、同 revision 跨产品切换、409 本地保留/显式 reload、403/404 request ID。
+- Playwright：单 GET、Ctrl/Cmd+S、DirtyGuard、提交后停留、SAVE/POST conflict、loading/empty/error，以及 375/768/1024/1440 无页面级横向溢出。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```tsx
+if (facts.error) return <FactWorkspaceFailure />;
+const canSubmit = workspace.product.status === 'ACTIVE';
+```
+
+这会在背景刷新失败时卸载 dirty 草稿，并在客户端复制服务端资格规则。
+
+#### Correct
+
+```tsx
+if (!facts.data && facts.error) return <FactWorkspaceFailure />;
+const actions = resolveFactWorkspaceActions(workspace, actionOptions);
+return <FactWorkspacePage key={productId} />;
+```
+
+有缓存数据时继续呈现编辑器并单独显示刷新错误；业务动作来自服务端 token，路由身份变化重建本地表单。
+
 ---
 
 ## Common Mistakes

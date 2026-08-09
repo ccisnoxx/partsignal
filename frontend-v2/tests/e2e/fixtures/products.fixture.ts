@@ -10,10 +10,15 @@ type Product = components['schemas']['Product'];
 type ProductDetail = components['schemas']['ProductDetail'];
 type ProductCreate = components['schemas']['ProductCreate'];
 type ProductUpdate = components['schemas']['ProductUpdate'];
+type ProductFactsDraft = components['schemas']['ProductFactsDraft'];
+type ProductFactsDraftUpdate = components['schemas']['ProductFactsDraftUpdate'];
+type FactReviewSubmissionRequest = components['schemas']['FactReviewSubmissionRequest'];
+type FactVersion = components['schemas']['FactVersion'];
 type ProductsListMode = 'success' | 'empty' | 'error' | 'loading';
 type ProductCreateMode = 'success' | 'duplicate' | 'validation' | 'forbidden' | 'pending';
 type ProductDetailMode = 'success' | 'not-found' | 'forbidden' | 'error';
 type ProductMutationMode = 'success' | 'revision-conflict';
+type ProductFactsMode = 'success' | 'not-found' | 'forbidden' | 'error' | 'loading';
 
 type ProductCreateRequest = {
   body: ProductCreate;
@@ -22,6 +27,8 @@ type ProductCreateRequest = {
 
 type ProductUpdateRequest = { body: ProductUpdate; csrfToken: string | null; productId: string };
 type ProductDeleteRequest = { csrfToken: string | null; expectedRevision: number | null; productId: string };
+type ProductFactsSaveRequest = { body: ProductFactsDraftUpdate; csrfToken: string | null; productId: string };
+type ProductFactsSubmitRequest = { body: FactReviewSubmissionRequest; csrfToken: string | null; productId: string };
 
 type ProductsApiController = {
   productRequests: URL[];
@@ -29,8 +36,12 @@ type ProductsApiController = {
   createRequests: ProductCreateRequest[];
   updateRequests: ProductUpdateRequest[];
   deleteRequests: ProductDeleteRequest[];
+  factRequests: URL[];
+  factSaveRequests: ProductFactsSaveRequest[];
+  factSubmitRequests: ProductFactsSubmitRequest[];
   releaseCreate: () => void;
   releaseLoading: () => void;
+  releaseFactsLoading: () => void;
   setCreateMode: (mode: ProductCreateMode) => void;
   setDeleteMode: (mode: ProductMutationMode) => void;
   setDetail: (detail: ProductDetail) => void;
@@ -38,6 +49,10 @@ type ProductsApiController = {
   setItems: (items: ProductListItem[]) => void;
   setMode: (mode: ProductsListMode) => void;
   setUpdateMode: (mode: ProductMutationMode) => void;
+  setFactWorkspace: (workspace: ProductFactsDraft) => void;
+  setFactsMode: (mode: ProductFactsMode) => void;
+  setFactSaveMode: (mode: ProductMutationMode) => void;
+  setFactSubmitMode: (mode: ProductMutationMode) => void;
 };
 
 type ProductsFixtures = {
@@ -130,7 +145,7 @@ function createProductDetail(item: ProductListItem): ProductDetail {
       brand: item.brand,
       category: item.category,
       status: item.status,
-      workflow_stage: item.workflow_stage,
+      workflow_stage: item.status === 'RETIRED' ? 'RETIRED' : 'FACTS_EDITING',
       primary_task: item.primary_task,
       available_actions: item.available_actions,
       deletion: item.deletion,
@@ -147,6 +162,26 @@ function createProductDetail(item: ProductListItem): ProductDetail {
   };
 }
 
+function createProductFacts(item: ProductListItem): ProductFactsDraft {
+  return {
+    product_id: item.id,
+    product: {
+      id: item.id,
+      part_number: item.part_number,
+      brand: item.brand,
+      category: item.category,
+      status: item.status,
+      workflow_stage: item.workflow_stage,
+    },
+    body_markdown: '## 产品事实\n\n- 工作电压：3.3V',
+    classification: 'INTERNAL',
+    approved_fact: null,
+    pending_fact: null,
+    available_actions: item.status === 'RETIRED' ? [] : ['SAVE', 'SUBMIT_REVIEW'],
+    revision: 3,
+  };
+}
+
 const test = base.extend<ProductsFixtures>({
   productsApi: [async ({ page }, use) => {
     let items = createProducts();
@@ -155,14 +190,22 @@ const test = base.extend<ProductsFixtures>({
     let detailMode: ProductDetailMode = 'success';
     let updateMode: ProductMutationMode = 'success';
     let deleteMode: ProductMutationMode = 'success';
+    let factsMode: ProductFactsMode = 'success';
+    let factSaveMode: ProductMutationMode = 'success';
+    let factSubmitMode: ProductMutationMode = 'success';
     let detailOverride: ProductDetail | undefined;
+    let factsOverride: ProductFactsDraft | undefined;
     let releaseLoading: (() => void) | undefined;
     let releaseCreate: (() => void) | undefined;
+    let releaseFactsLoading: (() => void) | undefined;
     const productRequests: URL[] = [];
     const detailRequests: URL[] = [];
     const createRequests: ProductCreateRequest[] = [];
     const updateRequests: ProductUpdateRequest[] = [];
     const deleteRequests: ProductDeleteRequest[] = [];
+    const factRequests: URL[] = [];
+    const factSaveRequests: ProductFactsSaveRequest[] = [];
+    const factSubmitRequests: ProductFactsSubmitRequest[] = [];
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
 
@@ -194,6 +237,110 @@ const test = base.extend<ProductsFixtures>({
       }
       if (request.method() === 'GET' && url.pathname === '/api/v1/auth/csrf') {
         await route.fulfill({ status: 200, json: { csrf_token: 'products-e2e-csrf' } satisfies components['schemas']['CsrfToken'] });
+        return;
+      }
+      const factsMatch = url.pathname.match(/^\/api\/v1\/products\/([^/]+)\/facts$/);
+      if (factsMatch && request.method() === 'GET') {
+        factRequests.push(url);
+        if (factsMode === 'loading') {
+          await new Promise<void>((resolve) => { releaseFactsLoading = resolve; });
+        }
+        if (factsMode !== 'success' && factsMode !== 'loading') {
+          const response = factsMode === 'not-found'
+            ? { status: 404, code: 'PRODUCT_NOT_FOUND', message: '产品不存在' }
+            : factsMode === 'forbidden'
+              ? { status: 403, code: 'PERMISSION_DENIED', message: '没有查看事实工作台的权限' }
+              : { status: 503, code: 'PRODUCT_FACTS_UNAVAILABLE', message: '事实工作台服务暂不可用' };
+          await route.fulfill({
+            status: response.status,
+            json: { error: { code: response.code, message: response.message, details: {}, request_id: `req-facts-${factsMode}` } } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        const item = items.find((candidate) => candidate.id === factsMatch[1]);
+        const workspace = factsOverride?.product_id === factsMatch[1]
+          ? factsOverride
+          : item ? createProductFacts(item) : undefined;
+        if (!workspace) {
+          await route.fulfill({
+            status: 404,
+            json: { error: { code: 'PRODUCT_NOT_FOUND', message: '产品不存在', details: {}, request_id: 'req-facts-missing' } } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        await route.fulfill({ status: 200, json: workspace });
+        return;
+      }
+      if (factsMatch && request.method() === 'PUT') {
+        const body = request.postDataJSON() as ProductFactsDraftUpdate;
+        factSaveRequests.push({ body, productId: factsMatch[1], csrfToken: request.headers()['x-csrf-token'] ?? null });
+        if (factSaveMode === 'revision-conflict') {
+          await route.fulfill({
+            status: 409,
+            json: { error: { code: 'REVISION_CONFLICT', message: '事实工作区已被其他请求修改', details: {}, request_id: 'req-facts-conflict' } } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        const item = items.find((candidate) => candidate.id === factsMatch[1]);
+        const current = factsOverride?.product_id === factsMatch[1]
+          ? factsOverride
+          : item ? createProductFacts(item) : undefined;
+        if (!current) {
+          await route.fulfill({ status: 404, json: { error: { code: 'PRODUCT_NOT_FOUND', message: '产品不存在', details: {}, request_id: 'req-facts-save-missing' } } });
+          return;
+        }
+        factsOverride = {
+          ...current,
+          body_markdown: body.body_markdown,
+          classification: body.classification,
+          revision: current.revision + 1,
+        };
+        await route.fulfill({ status: 200, json: factsOverride });
+        return;
+      }
+      const factSubmissionMatch = url.pathname.match(/^\/api\/v1\/products\/([^/]+)\/fact-review-submissions$/);
+      if (factSubmissionMatch && request.method() === 'POST') {
+        const body = request.postDataJSON() as FactReviewSubmissionRequest;
+        factSubmitRequests.push({ body, productId: factSubmissionMatch[1], csrfToken: request.headers()['x-csrf-token'] ?? null });
+        if (factSubmitMode === 'revision-conflict') {
+          await route.fulfill({
+            status: 409,
+            json: { error: { code: 'REVISION_CONFLICT', message: '事实工作区已被其他请求修改', details: {}, request_id: 'req-facts-submit-conflict' } } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        const item = items.find((candidate) => candidate.id === factSubmissionMatch[1]);
+        const current = factsOverride?.product_id === factSubmissionMatch[1]
+          ? factsOverride
+          : item ? createProductFacts(item) : undefined;
+        if (!current) {
+          await route.fulfill({ status: 404, json: { error: { code: 'PRODUCT_NOT_FOUND', message: '产品不存在', details: {}, request_id: 'req-facts-submit-missing' } } });
+          return;
+        }
+        const version = {
+          id: '10000000-0000-4000-8000-000000000003',
+          product_id: current.product_id,
+          version: 3,
+          status: 'PENDING_REVIEW',
+          body_markdown: current.body_markdown,
+          classification: current.classification,
+          change_summary: body.change_summary,
+          primary_task: 'REVIEW_FACT',
+          available_actions: ['APPROVE', 'REQUEST_CHANGES'],
+          deletion: null,
+          revision: 0,
+          created_by: user.id,
+          approved_by: null,
+          created_at: '2026-08-09T11:00:00Z',
+          approved_at: null,
+        } satisfies FactVersion;
+        factsOverride = {
+          ...current,
+          product: { ...current.product, workflow_stage: 'FACT_REVIEW_PENDING' },
+          pending_fact: { version: version.version, status: version.status },
+          available_actions: ['SAVE'],
+        };
+        await route.fulfill({ status: 201, json: version });
         return;
       }
       if (request.method() === 'GET' && url.pathname === '/api/v1/products') {
@@ -360,6 +507,9 @@ const test = base.extend<ProductsFixtures>({
       createRequests,
       deleteRequests,
       detailRequests,
+      factRequests,
+      factSaveRequests,
+      factSubmitRequests,
       productRequests,
       updateRequests,
       releaseCreate: () => {
@@ -372,6 +522,11 @@ const test = base.extend<ProductsFixtures>({
         mode = 'success';
         releaseLoading();
       },
+      releaseFactsLoading: () => {
+        if (!releaseFactsLoading) throw new Error('Fact Workspace loading 请求尚未开始');
+        factsMode = 'success';
+        releaseFactsLoading();
+      },
       setCreateMode: (nextMode) => { createMode = nextMode; },
       setDeleteMode: (nextMode) => { deleteMode = nextMode; },
       setDetail: (detail) => { detailOverride = detail; },
@@ -379,6 +534,10 @@ const test = base.extend<ProductsFixtures>({
       setItems: (nextItems) => { items = nextItems; },
       setMode: (nextMode) => { mode = nextMode; },
       setUpdateMode: (nextMode) => { updateMode = nextMode; },
+      setFactWorkspace: (workspace) => { factsOverride = workspace; },
+      setFactsMode: (nextMode) => { factsMode = nextMode; },
+      setFactSaveMode: (nextMode) => { factSaveMode = nextMode; },
+      setFactSubmitMode: (nextMode) => { factSubmitMode = nextMode; },
     });
 
     expect(unexpectedRequests, 'Products 页面不得依赖未声明的 API').toEqual([]);
@@ -386,5 +545,12 @@ const test = base.extend<ProductsFixtures>({
   }, { auto: true }],
 });
 
-export { createProductDetail, createProducts, expect, test };
-export type { Product, ProductCreate, ProductDetail, ProductListItem, ProductsApiController };
+export { createProductDetail, createProductFacts, createProducts, expect, test };
+export type {
+  Product,
+  ProductCreate,
+  ProductDetail,
+  ProductFactsDraft,
+  ProductListItem,
+  ProductsApiController,
+};

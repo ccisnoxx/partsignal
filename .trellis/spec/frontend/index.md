@@ -18,7 +18,7 @@
 | [目录结构](./directory-structure.md) | 模块组织与文件布局 | 待完善 |
 | [组件规范](./component-guidelines.md) | 组件模式、属性与组合方式 | 待完善 |
 | [Hook 规范](./hook-guidelines.md) | 自定义 Hook 与数据获取模式 | 待完善 |
-| [状态管理](./state-management.md) | 本地状态、全局状态与服务端状态 | 待完善 |
+| [状态管理](./state-management.md) | 本地状态、全局状态、服务端状态与可编辑 Workspace 合同 | 有效 |
 | [质量规范](./quality-guidelines.md) | 代码标准与禁止模式 | 待完善 |
 | [类型安全](./type-safety.md) | 类型模式与校验 | 待完善 |
 | [资源动作投影合同](../backend/available-actions-contract.md) | typed `available_actions` 的跨层响应与消费边界 | 有效 |

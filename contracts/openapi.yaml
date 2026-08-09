@@ -391,10 +391,13 @@ paths:
       operationId: getProductFactsDraft
       responses:
         '200':
-          description: 当前事实工作区
+          description: 单次请求可完整绘制的当前事实工作区
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ProductFactsDraft'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
     put:
       tags: [product-facts]
       operationId: replaceProductFactsDraft
@@ -410,7 +413,11 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ProductFactsDraft'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}/fact-versions:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     get:
@@ -439,6 +446,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactVersion'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/fact-versions/{fact_version_id}:
     parameters: [{$ref: '#/components/parameters/FactVersionId'}]
@@ -3302,14 +3313,34 @@ components:
         expected_revision: {type: integer, minimum: 0}
         body_markdown: {type: string, minLength: 1}
         classification: {$ref: '#/components/schemas/Confidentiality'}
+    ProductFactsProductContext:
+      type: object
+      additionalProperties: false
+      required: [id, part_number, brand, category, status, workflow_stage]
+      properties:
+        id: {type: string, format: uuid}
+        part_number: {type: string}
+        brand: {type: string}
+        category: {type: string}
+        status: {$ref: '#/components/schemas/ProductStatus'}
+        workflow_stage: {$ref: '#/components/schemas/ProductWorkflowStage'}
     ProductFactsDraft:
       type: object
       additionalProperties: false
-      required: [product_id, body_markdown, classification, available_actions, revision]
+      required: [product_id, product, body_markdown, classification, approved_fact, pending_fact, available_actions, revision]
       properties:
         product_id: {type: string, format: uuid}
+        product: {$ref: '#/components/schemas/ProductFactsProductContext'}
         body_markdown: {type: string}
         classification: {$ref: '#/components/schemas/Confidentiality'}
+        approved_fact:
+          anyOf:
+            - {$ref: '#/components/schemas/ProductFactSummary'}
+            - {type: 'null'}
+        pending_fact:
+          anyOf:
+            - {$ref: '#/components/schemas/ProductFactSummary'}
+            - {type: 'null'}
         available_actions:
           type: array
           items: {type: string, enum: [SAVE, SUBMIT_REVIEW]}

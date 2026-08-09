@@ -62,8 +62,8 @@ ProductEditor = EngineerUser
 ProductReviewer = EngineerUser
 
 
-def _product_detail_snapshot(db: DbSession) -> None:
-    """在认证读取前为详情请求建立一致的 PostgreSQL 快照。"""
+def _product_read_snapshot(db: DbSession) -> None:
+    """在认证读取前为产品聚合请求建立一致的 PostgreSQL 快照。"""
     db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
 
 
@@ -122,7 +122,7 @@ def get_product(product_id: uuid.UUID, db: DbSession, user: CurrentUser) -> Prod
     "/products/{product_id}/detail",
     response_model=ProductDetail,
     operation_id="getProductDetail",
-    dependencies=[Depends(_product_detail_snapshot)],
+    dependencies=[Depends(_product_read_snapshot)],
 )
 def get_product_detail(
     product_id: uuid.UUID,
@@ -176,6 +176,7 @@ def delete_product(
     "/products/{product_id}/facts",
     response_model=ProductFactsDraft,
     operation_id="getProductFactsDraft",
+    dependencies=[Depends(_product_read_snapshot)],
 )
 def get_product_facts(
     product_id: uuid.UUID, db: DbSession, _user: CurrentUser

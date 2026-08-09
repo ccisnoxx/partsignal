@@ -12,6 +12,10 @@ type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
 type Product = components['schemas']['Product'];
 type ProductDetail = components['schemas']['ProductDetail'];
+type ProductFactsDraft = components['schemas']['ProductFactsDraft'];
+type ProductFactsDraftUpdate = components['schemas']['ProductFactsDraftUpdate'];
+type FactReviewSubmissionRequest = components['schemas']['FactReviewSubmissionRequest'];
+type FactVersion = components['schemas']['FactVersion'];
 type ProductUpdate = components['schemas']['ProductUpdate'];
 
 class ProductRequestError extends Error {
@@ -30,6 +34,8 @@ const productsKeys = {
   list: (params: ProductsApiParams) => ['products', 'list', params] as const,
   details: () => ['products', 'detail'] as const,
   detail: (productId: string) => ['products', 'detail', productId] as const,
+  facts: () => ['products', 'facts'] as const,
+  fact: (productId: string) => ['products', 'facts', productId] as const,
 };
 
 function productsListQueryOptions(search: ProductsSearch) {
@@ -63,6 +69,57 @@ function productDetailQueryOptions(productId: string) {
     retryOnMount: false,
     staleTime: 30_000,
   });
+}
+
+function productFactsQueryOptions(productId: string) {
+  return queryOptions({
+    queryKey: productsKeys.fact(productId),
+    queryFn: async (): Promise<ProductFactsDraft> => {
+      const result = await api.GET('/api/v1/products/{product_id}/facts', {
+        params: { path: { product_id: productId } },
+      });
+      if (!result.data) throw productRequestError('读取事实工作区', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
+async function replaceProductFacts(
+  productId: string,
+  body: ProductFactsDraftUpdate,
+  csrfToken: string | null,
+): Promise<ProductFactsDraft> {
+  if (!csrfToken) throw new ProductRequestError('缺少会话安全令牌，无法保存事实工作区');
+  const result = await api.PUT('/api/v1/products/{product_id}/facts', {
+    body,
+    params: {
+      path: { product_id: productId },
+      header: { 'X-CSRF-Token': csrfToken },
+    },
+  });
+  if (result.data) return result.data;
+  throw productRequestError('保存事实工作区', result);
+}
+
+async function submitProductFactReview(
+  productId: string,
+  body: FactReviewSubmissionRequest,
+  csrfToken: string | null,
+): Promise<FactVersion> {
+  if (!csrfToken) throw new ProductRequestError('缺少会话安全令牌，无法提交事实审核');
+  const result = await api.POST('/api/v1/products/{product_id}/fact-review-submissions', {
+    body,
+    params: {
+      path: { product_id: productId },
+      header: { 'X-CSRF-Token': csrfToken },
+    },
+  });
+  if (result.data) return result.data;
+  throw productRequestError('提交事实审核', result);
 }
 
 async function updateProduct(
@@ -166,8 +223,11 @@ export {
   deleteProduct,
   mapProductFormError,
   productDetailQueryOptions,
+  productFactsQueryOptions,
   productRequestError,
   productsKeys,
   productsListQueryOptions,
+  replaceProductFacts,
+  submitProductFactReview,
   updateProduct,
 };

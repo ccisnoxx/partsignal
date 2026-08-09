@@ -146,6 +146,14 @@ Products URL 与 API 查询参数显式映射：`q → search`、`pageSize → p
 
 该投影在单个 PostgreSQL `REPEATABLE READ` 请求事务内形成，并以固定次数批量查询相关实体；浏览器不得调用事实、内容、发布、GEO 或审计接口自行 join。Activity 的权威来源是各领域追加记录及 Product 成功审计，按 `timestamp DESC, kind ASC, source id DESC` 排序后由服务端截取最近 10 项；前端不合并或重新排序多个时间线。
 
+### ProductFactsDraft
+
+`GET /api/v1/products/{product_id}/facts` 是 `/products/$productId/facts` 的独立 workspace read model，一次返回 compact Product Context、唯一可编辑的 `body_markdown`、`classification`、workspace `revision`、当前 approved/pending fact 摘要、typed `workflow_stage` 和 `available_actions`。当前 database contract 不包含 Evidence URL，因此该 read model 不提供 evidence 字段，浏览器也不得从旧接口恢复第二套事实来源。
+
+`SAVE` 与 `SUBMIT_REVIEW` 的入口是否存在只由 `available_actions` 决定；客户端 dirty、pending 与非空校验只影响已返回动作的 enabled 状态。`PUT /facts` 接收 `ProductFactsDraftUpdate.expected_revision` 并返回 canonical `ProductFactsDraft`；客户端只用该响应更新正文、分级、revision 和 cache。`POST /fact-review-submissions` 接收 `FactReviewSubmissionRequest.expected_revision` 与非空 `change_summary`，服务端从当前已保存 workspace 创建不可变 `PENDING_REVIEW` snapshot；成功后客户端重新读取 workspace actions，不跳转尚未实现的 Fact Review。
+
+两个写入口都由服务端在锁内重新校验产品状态、pending snapshot 和 revision。`REVISION_CONFLICT` 不得静默覆盖：客户端保留本地表单与冲突请求 ID，只有用户显式 reload 才采用最新 canonical workspace。
+
 ### ContentTaskListItem
 
 至少包含 id/identifier/product/platform/workflow_stage/primary_task/current content summary/updated_at。

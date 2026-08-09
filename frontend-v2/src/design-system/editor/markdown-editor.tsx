@@ -55,12 +55,23 @@ function MarkdownPreview({ ariaLabel = 'Markdown 预览', className, value }: Ma
 
 type CodeMirrorSurfaceProps = {
   ariaLabel: string;
+  ariaDescribedBy?: string;
+  ariaInvalid?: boolean;
+  id?: string;
   onChange?: (value: string) => void;
   readOnly: boolean;
   value: string;
 };
 
-function CodeMirrorSurface({ ariaLabel, onChange, readOnly, value }: CodeMirrorSurfaceProps) {
+function CodeMirrorSurface({
+  ariaDescribedBy,
+  ariaInvalid,
+  ariaLabel,
+  id,
+  onChange,
+  readOnly,
+  value,
+}: CodeMirrorSurfaceProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -84,7 +95,12 @@ function CodeMirrorSurface({ ariaLabel, onChange, readOnly, value }: CodeMirrorS
         basicSetup,
         markdown(),
         EditorView.lineWrapping,
-        EditorView.contentAttributes.of({ 'aria-label': ariaLabel }),
+        EditorView.contentAttributes.of({
+          'aria-label': ariaLabel,
+          ...(ariaDescribedBy ? { 'aria-describedby': ariaDescribedBy } : {}),
+          ...(ariaInvalid ? { 'aria-invalid': 'true' } : {}),
+          ...(id ? { id } : {}),
+        }),
         EditorState.readOnly.of(readOnly),
         EditorView.editable.of(!readOnly),
         EditorView.updateListener.of((update) => {
@@ -114,7 +130,7 @@ function CodeMirrorSurface({ ariaLabel, onChange, readOnly, value }: CodeMirrorS
       view.destroy();
       viewRef.current = null;
     };
-  }, [ariaLabel, readOnly]);
+  }, [ariaDescribedBy, ariaInvalid, ariaLabel, id, readOnly]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -137,8 +153,11 @@ type MarkdownEditorConflict = {
 type MarkdownEditorBaseProps = {
   value: string;
   ariaLabel: string;
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
   conflict?: MarkdownEditorConflict;
   defaultMode?: MarkdownEditorMode;
+  id?: string;
   className?: string;
 };
 
@@ -158,11 +177,14 @@ type MarkdownEditorProps = MarkdownEditorBaseProps & (
 );
 
 function MarkdownEditor({
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
   ariaLabel,
   className,
   conflict,
   defaultMode = 'edit',
   dirty = false,
+  id,
   onChange,
   readOnly = false,
   revision,
@@ -203,7 +225,15 @@ function MarkdownEditor({
           </div>
         </div>
         <TabsContent className="mt-0" value="edit">
-          <CodeMirrorSurface ariaLabel={ariaLabel} onChange={onChange} readOnly={readOnly} value={value} />
+          <CodeMirrorSurface
+            ariaDescribedBy={ariaDescribedBy}
+            ariaInvalid={ariaInvalid}
+            ariaLabel={ariaLabel}
+            id={id}
+            onChange={onChange}
+            readOnly={readOnly}
+            value={value}
+          />
         </TabsContent>
         <TabsContent className="mt-0" value="preview">
           <MarkdownPreview value={previewValue} />

@@ -2190,11 +2190,23 @@ export interface components {
             body_markdown: string;
             classification: components["schemas"]["Confidentiality"];
         };
+        ProductFactsProductContext: {
+            /** Format: uuid */
+            id: string;
+            part_number: string;
+            brand: string;
+            category: string;
+            status: components["schemas"]["ProductStatus"];
+            workflow_stage: components["schemas"]["ProductWorkflowStage"];
+        };
         ProductFactsDraft: {
             /** Format: uuid */
             product_id: string;
+            product: components["schemas"]["ProductFactsProductContext"];
             body_markdown: string;
             classification: components["schemas"]["Confidentiality"];
+            approved_fact: components["schemas"]["ProductFactSummary"] | null;
+            pending_fact: components["schemas"]["ProductFactSummary"] | null;
             available_actions: ("SAVE" | "SUBMIT_REVIEW")[];
             revision: number;
         };
@@ -5021,7 +5033,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 当前事实工作区 */
+            /** @description 单次请求可完整绘制的当前事实工作区 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5030,6 +5042,9 @@ export interface operations {
                     "application/json": components["schemas"]["ProductFactsDraft"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     replaceProductFactsDraft: {
@@ -5058,7 +5073,11 @@ export interface operations {
                     "application/json": components["schemas"]["ProductFactsDraft"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listFactVersions: {
@@ -5109,6 +5128,10 @@ export interface operations {
                     "application/json": components["schemas"]["FactVersion"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

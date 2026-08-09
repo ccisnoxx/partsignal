@@ -23,9 +23,20 @@ from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
 from app.models.geo_files import GeoObservation, GeoObservationPublication
 from app.models.identity import AuditLog, User
 from app.models.product_facts import FactReviewRecord, FactVersion, Product
-from app.schemas.product_facts import ProductCreate, ProductUpdate
+from app.schemas.product_facts import (
+    FactReviewSubmissionRequest,
+    ProductCreate,
+    ProductFactsDraftUpdate,
+    ProductUpdate,
+)
 from app.services.product_detail import product_detail_out
-from app.services.product_facts import create_product, update_product
+from app.services.product_facts import (
+    create_product,
+    product_facts_draft_out,
+    replace_product_facts,
+    submit_fact_review,
+    update_product,
+)
 from tests.integration.test_publication_workflow import (
     _complete_publication,
     _seed_graph,
@@ -46,6 +57,24 @@ def _statement_count(engine: Engine, product_id: uuid.UUID, actor_id: uuid.UUID)
             actor = db.get(User, actor_id)
             assert actor is not None
             product_detail_out(db, product_id, actor=actor)
+    finally:
+        event.remove(engine, "before_cursor_execute", record_statement)
+    return count
+
+
+def _facts_statement_count(engine: Engine, product_id: uuid.UUID) -> int:
+    count = 0
+
+    def record_statement(*_args: object) -> None:
+        nonlocal count
+        count += 1
+
+    event.listen(engine, "before_cursor_execute", record_statement)
+    try:
+        with Session(engine, expire_on_commit=False) as db:
+            product = db.get(Product, product_id)
+            assert product is not None
+            product_facts_draft_out(db, product)
     finally:
         event.remove(engine, "before_cursor_execute", record_statement)
     return count
@@ -303,3 +332,220 @@ def test_product_update_maps_duplicate_and_writes_audit_only_on_success() -> Non
             assert db.scalar(
                 select(func.count(AuditLog.id)).where(AuditLog.action == "product.updated")
             ) == 1
+
+
+@pytest.mark.integration
+def test_fact_workspace_read_model_uses_one_snapshot_and_fixed_query_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """事实工作台在同一 repeatable-read 中返回上下文、版本与动作。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            actor = User(
+                username=f"fact-workspace-read-{uuid.uuid4().hex[:10]}",
+                display_name="事实工作台读取用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            product = Product(
+                part_number="PS-READ",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex[:8]}",
+                category="MCU",
+                facts_body_markdown="## 当前事实",
+                facts_classification="INTERNAL",
+                facts_revision=3,
+            )
+            db.add_all([actor, product])
+            db.flush()
+            db.add(
+                FactVersion(
+                    product_id=product.id,
+                    version=1,
+                    status="APPROVED",
+                    body_markdown="## 已批准事实",
+                    classification="PUBLIC",
+                    change_summary="初次批准",
+                    created_by=actor.id,
+                    approved_at=datetime.now(UTC),
+                )
+            )
+            db.commit()
+            product_id = product.id
+            actor_id = actor.id
+
+        sparse_count = _facts_statement_count(engine, product_id)
+        with Session(engine, expire_on_commit=False) as db:
+            db.add_all(
+                FactVersion(
+                    product_id=product_id,
+                    version=version,
+                    status="RETIRED",
+                    body_markdown=f"## 历史事实 {version}",
+                    classification="PUBLIC",
+                    change_summary="历史版本",
+                    created_by=actor_id,
+                )
+                for version in range(2, 8)
+            )
+            db.commit()
+        assert _facts_statement_count(engine, product_id) == sparse_count
+
+        captured: dict[str, str] = {}
+        real_projection = product_routes.product_facts_draft_out
+
+        def inspected_projection(db: Session, product: Product) -> object:
+            captured["isolation"] = str(db.scalar(text("SHOW transaction_isolation")))
+            return real_projection(db, product)
+
+        monkeypatch.setattr(product_routes, "product_facts_draft_out", inspected_projection)
+
+        def database_session() -> Iterator[Session]:
+            with Session(engine, expire_on_commit=False) as db:
+                yield db
+
+        with Session(engine, expire_on_commit=False) as db:
+            actor = db.get(User, actor_id)
+            assert actor is not None
+        app.dependency_overrides[get_db] = database_session
+        app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(user=actor)
+        try:
+            response = TestClient(app).get(f"/api/v1/products/{product_id}/facts")
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["product"]["part_number"] == "PS-READ"
+        assert payload["approved_fact"] == {"version": 1, "status": "APPROVED"}
+        assert payload["revision"] == 3
+        assert captured["isolation"] == "repeatable read"
+
+
+@pytest.mark.integration
+def test_fact_workspace_commands_preserve_conflicts_and_immutable_snapshot() -> None:
+    """保存与提交复核 revision，待审核快照不随后续工作区修改。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            actor = User(
+                username=f"fact-workspace-write-{uuid.uuid4().hex[:10]}",
+                display_name="事实工作台写入用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            product = Product(
+                part_number="PS-WRITE",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex[:8]}",
+                category="MCU",
+            )
+            db.add_all([actor, product])
+            db.commit()
+
+            saved = replace_product_facts(
+                db=db,
+                product_id=product.id,
+                payload=ProductFactsDraftUpdate(
+                    expected_revision=0,
+                    body_markdown="## 已保存事实\n\n原样内容。",
+                    classification="INTERNAL",
+                ),
+                actor=actor,
+                request_id="fact-workspace-save",
+            )
+            assert saved.revision == 1
+            assert saved.body_markdown == "## 已保存事实\n\n原样内容。"
+            assert saved.available_actions == ["SAVE", "SUBMIT_REVIEW"]
+
+            with pytest.raises(AppError) as stale_save:
+                replace_product_facts(
+                    db=db,
+                    product_id=product.id,
+                    payload=ProductFactsDraftUpdate(
+                        expected_revision=0,
+                        body_markdown="## 过期保存",
+                        classification="PUBLIC",
+                    ),
+                    actor=actor,
+                    request_id="fact-workspace-stale-save",
+                )
+            assert stale_save.value.code == "REVISION_CONFLICT"
+            db.rollback()
+
+            with pytest.raises(AppError) as stale_submit:
+                submit_fact_review(
+                    db=db,
+                    product_id=product.id,
+                    payload=FactReviewSubmissionRequest(
+                        expected_revision=0,
+                        change_summary="过期提交",
+                    ),
+                    actor=actor,
+                    request_id="fact-workspace-stale-submit",
+                )
+            assert stale_submit.value.code == "REVISION_CONFLICT"
+            db.rollback()
+
+            snapshot = submit_fact_review(
+                db=db,
+                product_id=product.id,
+                payload=FactReviewSubmissionRequest(
+                    expected_revision=1,
+                    change_summary="提交已保存事实",
+                ),
+                actor=actor,
+                request_id="fact-workspace-submit",
+            )
+            assert snapshot.status == "PENDING_REVIEW"
+            assert snapshot.body_markdown == saved.body_markdown
+            assert snapshot.classification == saved.classification.value
+
+            revised = replace_product_facts(
+                db=db,
+                product_id=product.id,
+                payload=ProductFactsDraftUpdate(
+                    expected_revision=1,
+                    body_markdown="## 提交后的工作区修改",
+                    classification="RESTRICTED",
+                ),
+                actor=actor,
+                request_id="fact-workspace-save-after-submit",
+            )
+            assert revised.revision == 2
+            assert revised.available_actions == ["SAVE"]
+            db.refresh(snapshot)
+            assert snapshot.body_markdown == "## 已保存事实\n\n原样内容。"
+            assert snapshot.classification == "INTERNAL"
+
+            product.status = "RETIRED"
+            db.commit()
+            with pytest.raises(AppError) as retired_save:
+                replace_product_facts(
+                    db=db,
+                    product_id=product.id,
+                    payload=ProductFactsDraftUpdate(
+                        expected_revision=2,
+                        body_markdown="## 不应保存",
+                        classification="PUBLIC",
+                    ),
+                    actor=actor,
+                    request_id="fact-workspace-retired-save",
+                )
+            assert retired_save.value.code == "INVALID_STATE_TRANSITION"
+            db.rollback()
+            with pytest.raises(AppError) as retired_submit:
+                submit_fact_review(
+                    db=db,
+                    product_id=product.id,
+                    payload=FactReviewSubmissionRequest(
+                        expected_revision=2,
+                        change_summary="不应提交",
+                    ),
+                    actor=actor,
+                    request_id="fact-workspace-retired-submit",
+                )
+            assert retired_submit.value.code == "INVALID_STATE_TRANSITION"

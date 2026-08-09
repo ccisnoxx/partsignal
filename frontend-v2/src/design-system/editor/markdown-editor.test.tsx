@@ -126,4 +126,22 @@ describe('Markdown Editor Kit', () => {
     await user.click(screen.getByRole('button', { name: '重新加载最新版本' }));
     expect(reload).toHaveBeenCalledOnce();
   });
+
+  it('把 FormField 的标签、说明和错误语义传给 CodeMirror textbox', () => {
+    render(
+      <MarkdownEditor
+        aria-describedby="fact-description fact-error"
+        aria-invalid
+        ariaLabel="事实 Markdown"
+        id="fact-body"
+        onChange={vi.fn()}
+        value="正文"
+      />,
+    );
+
+    const editor = screen.getByRole('textbox', { name: '事实 Markdown' });
+    expect(editor).toHaveAttribute('id', 'fact-body');
+    expect(editor).toHaveAttribute('aria-describedby', 'fact-description fact-error');
+    expect(editor).toHaveAttribute('aria-invalid', 'true');
+  });
 });

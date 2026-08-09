@@ -26,7 +26,12 @@ from app.services.content_planning import query_topics_out
 from app.services.generation import content_hash
 from app.services.identity import users_out
 from app.services.platform_configuration import platform_types_out
-from app.services.product_facts import list_products, product_out, products_out
+from app.services.product_facts import (
+    list_products,
+    product_facts_draft_out,
+    product_out,
+    products_out,
+)
 from app.services.projections import (
     content_tasks_out,
     content_versions_out,
@@ -184,6 +189,62 @@ def test_product_fact_summary_covers_empty_changes_requested_and_retired() -> No
     assert retired_out.workflow_stage == "RETIRED"
     assert retired_out.primary_task == "VIEW_FACT_HISTORY"
     assert retired_out.fact_status == "RETIRED"
+
+
+def test_fact_workspace_projects_context_versions_and_server_actions() -> None:
+    """工作台上下文、版本摘要和动作必须来自同一次服务端投影。"""
+    product = _product()
+    approved = _fact(product)
+    pending = _fact(product, status="PENDING_REVIEW")
+    pending.version = 2
+    pending.body_markdown = product.facts_body_markdown
+    active_session = _ScalarSequenceSession([[pending, approved]])
+
+    workspace = product_facts_draft_out(cast(Session, active_session), product)
+
+    assert workspace.product.model_dump(mode="json") == {
+        "id": str(product.id),
+        "part_number": "PS-001",
+        "brand": "PartSignal",
+        "category": "MCU",
+        "status": "ACTIVE",
+        "workflow_stage": "FACT_REVIEW_PENDING",
+    }
+    assert workspace.approved_fact is not None
+    assert workspace.approved_fact.model_dump(mode="json") == {
+        "version": 1,
+        "status": "APPROVED",
+    }
+    assert workspace.pending_fact is not None
+    assert workspace.pending_fact.model_dump(mode="json") == {
+        "version": 2,
+        "status": "PENDING_REVIEW",
+    }
+    assert workspace.available_actions == ["SAVE"]
+    assert active_session.scalar_calls == 1
+
+    product.status = "RETIRED"
+    retired = product_facts_draft_out(
+        cast(Session, _ScalarSequenceSession([[pending, approved]])),
+        product,
+    )
+    assert retired.product.workflow_stage == "RETIRED"
+    assert retired.available_actions == []
+
+
+def test_fact_workspace_changes_requested_can_be_resubmitted() -> None:
+    """待修订快照没有 pending 锁时仍由服务端开放重新提交。"""
+    product = _product()
+    changes = _fact(product, status="CHANGES_REQUESTED")
+    workspace = product_facts_draft_out(
+        cast(Session, _ScalarSequenceSession([[changes]])),
+        product,
+    )
+
+    assert workspace.product.workflow_stage == "FACT_CHANGES_REQUESTED"
+    assert workspace.pending_fact is not None
+    assert workspace.pending_fact.status == "CHANGES_REQUESTED"
+    assert workspace.available_actions == ["SAVE", "SUBMIT_REVIEW"]
 
 
 def test_product_list_filters_before_pagination_and_uses_stable_model_sort() -> None:

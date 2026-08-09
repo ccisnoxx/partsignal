@@ -1,0 +1,33 @@
+{
+  "id": "frontend-v2-product-facts-e2e-review",
+  "name": "frontend-v2-product-facts-e2e-review",
+  "title": "Frontend V2 Phase 2.8 — Product Facts 完整 E2E 与 Vertical Slice 抽象回顾",
+  "description": "以真实 PostgreSQL、FastAPI 和 V2 production artifact 验证 Product Facts Flow A/B，并审查 vertical slice 的最小抽象边界。",
+  "status": "completed",
+  "dev_type": "frontend",
+  "scope": "cross-module",
+  "package": "frontend-v2",
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-09",
+  "completedAt": "2026-08-10",
+  "branch": "codex/frontend-v2-product-facts-e2e-review",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "frontend-v2/tests/e2e",
+    "frontend-v2/playwright.config.ts",
+    "deploy/scripts/e2e-local.sh",
+    "frontend-v2/src/domains/product",
+    "docs/frontend-v2/07-migration-plan.md",
+    "docs/frontend-v2/08-testing-quality-and-acceptance.md"
+  ],
+  "notes": "实施与 required validation 已完成，等待用户确认 commit/archive/merge；Phase 2 exit gate 因 Fact History gap 仍为 NOT_MET。",
+  "meta": {}
+}

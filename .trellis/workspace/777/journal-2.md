@@ -234,7 +234,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- `/products` 使用单次 generated `ProductListItem` projection 完成服务端搜索、筛选、排序和分页。
+- URL search schema、状态展示与服务端 action projection 均按 Products domain 边界实现；UPDATE 编辑入口保留为显式 UX blocker。
+- Products production-artifact Playwright 接管业务路由测试，Foundation smoke 保留 App Shell 职责。
 
 ### Git Commits
 
@@ -244,7 +246,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- `make contract-check`、V2 `api:check`、lint、typecheck、production build 与 `git diff --check` 通过。
+- 针对性 unit/component 共 14 项、完整 V2 unit suite 共 95 项通过。
+- Products/Foundation Playwright 在 mobile/desktop project 共 14 项通过，覆盖 375/768/1024/1440、URL 恢复、动作与页面状态。
 
 ### Status
 
@@ -1153,6 +1157,39 @@
 | Hash | Message |
 |------|---------|
 | `01a1940` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 93: Frontend V2 Products List 收口
+
+**Date**: 2026-08-09
+**Task**: Frontend V2 Products List 收口
+**Branch**: `codex/frontend-v2-products-list`
+
+### Summary
+
+完成 /products 产品事实列表、typed projection、URL 状态恢复、服务端动作映射与 production-artifact Playwright 验收；归档 Phase 2.1。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4e21412` | (see git log) |
 
 ### Testing
 

@@ -1132,3 +1132,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 92: Frontend V2 Quality Entry Integration 收口
+
+**Date**: 2026-08-09
+**Task**: Frontend V2 Quality Entry Integration 收口
+**Branch**: `codex/frontend-v2-quality-entry-integration`
+
+### Summary
+
+根质量入口与手动 CI 已覆盖 V1/V2，并增加 V2 Foundation production-build Playwright smoke；V2 定向 smoke 与非 E2E 门禁通过，3 项既有 V1 E2E 基线失败按用户决定暂不处理。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `01a1940` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

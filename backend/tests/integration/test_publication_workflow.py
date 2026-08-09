@@ -43,6 +43,7 @@ from app.schemas.common import RevisionRequest
 from app.schemas.content import ContentTaskPermanentDeleteRequest
 from app.schemas.product_facts import (
     FactReviewSubmissionRequest,
+    ProductCreate,
     ProductFactsDraftUpdate,
     ProductFactStatus,
     ProductSort,
@@ -67,6 +68,7 @@ from app.services.platform_configuration import (
     set_platform_profile_enabled,
 )
 from app.services.product_facts import (
+    create_product,
     delete_product,
     list_products,
     replace_product_facts,
@@ -1487,6 +1489,55 @@ def test_fact_workspace_submission_creates_one_pending_snapshot_and_new_revision
                 )
                 == 3
             )
+
+
+@pytest.mark.integration
+def test_product_create_maps_normalized_duplicate_to_stable_field_error() -> None:
+    """数据库唯一约束竞态必须在服务边界映射为可定位的产品重复错误。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            actor = User(
+                username=f"product-create-{uuid.uuid4().hex[:10]}",
+                display_name="产品创建测试用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            db.add(actor)
+            db.commit()
+
+            created = create_product(
+                db=db,
+                payload=ProductCreate(
+                    part_number="PS-001",
+                    brand="Part Signal",
+                    category="MCU",
+                ),
+                actor=actor,
+                request_id="product-create-first",
+            )
+
+            with pytest.raises(AppError) as raised:
+                create_product(
+                    db=db,
+                    payload=ProductCreate(
+                        part_number=" ps 001 ",
+                        brand="part-signal",
+                        category="处理器",
+                    ),
+                    actor=actor,
+                    request_id="product-create-duplicate",
+                )
+
+            error = raised.value
+            assert error.code == "PRODUCT_ALREADY_EXISTS"
+            assert error.status_code == 409
+            assert [item["loc"] for item in error.details["errors"]] == [
+                ["body", "part_number"],
+                ["body", "brand"],
+            ]
+            assert db.scalar(select(func.count(Product.id))) == 1
+            assert db.get(Product, created.id) is not None
 
 
 @pytest.mark.integration

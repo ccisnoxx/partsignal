@@ -372,7 +372,7 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 
 ## Required Constraints
 
-- Product identity is unique by normalized brand plus part number.
+- `products.part_number`、`products.brand` 与 `products.category` 的保存值均须去除两侧空白、非空且不超过 160 字符；产品身份由规范化后的品牌与型号组合唯一确定。
 - 非空 `content_tasks.idempotency_key` 全局唯一；普通任务创建先按命名请求键获取 PostgreSQL 事务 advisory lock，再判断重放或执行当前业务校验。三字段业务输入本身不唯一。
 - Version numbers are unique within their owner: product fact or content task.
 - Product or content-task owner rows are locked while allocating the next version number.

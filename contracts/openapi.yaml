@@ -324,6 +324,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Product'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     get:
@@ -3100,9 +3104,9 @@ components:
       additionalProperties: false
       required: [part_number, brand, category]
       properties:
-        part_number: {type: string, minLength: 1}
-        brand: {type: string, minLength: 1}
-        category: {type: string, minLength: 1}
+        part_number: {type: string, minLength: 1, maxLength: 160}
+        brand: {type: string, minLength: 1, maxLength: 160}
+        category: {type: string, minLength: 1, maxLength: 160}
     ProductUpdate:
       type: object
       additionalProperties: false

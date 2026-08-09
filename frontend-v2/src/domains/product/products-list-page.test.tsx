@@ -89,6 +89,7 @@ describe('ProductsListPage', () => {
     renderProducts();
 
     expect(await screen.findByRole('heading', { name: '产品事实' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '新建产品' })).toHaveAttribute('href', '/products/new');
     expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
       '产品', '类别', '事实状态', '当前事实', '最近更新', '操作',
     ]);

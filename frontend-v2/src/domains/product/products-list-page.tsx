@@ -23,7 +23,7 @@ import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
 import { Badge } from '@/design-system/primitives/badge';
-import { Button } from '@/design-system/primitives/button';
+import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
   Dialog,
   DialogClose,
@@ -152,9 +152,12 @@ function ProductsListPage({ csrfToken, onSearchChange, search }: ProductsListPag
 
   return (
     <section className="space-y-4" aria-labelledby="products-list-title">
-      <header className="space-y-1">
-        <h1 id="products-list-title" className="type-page-title">产品事实</h1>
-        <p className="max-w-3xl text-text-secondary">查看产品当前事实状态，并进入服务端指定的下一项工作。</p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h1 id="products-list-title" className="type-page-title">产品事实</h1>
+          <p className="max-w-3xl text-text-secondary">查看产品当前事实状态，并进入服务端指定的下一项工作。</p>
+        </div>
+        <Link className={buttonVariants()} to="/products/new">新建产品</Link>
       </header>
 
       {remove.error && (

@@ -129,7 +129,7 @@ test('Products 在目标宽度无页面级横向溢出且键盘焦点可操作',
   await search.press('Enter');
   await expect(page).toHaveURL(/q=PS-0004/);
   const more = page.getByRole('button', { name: '更多操作：PS-0004' });
-  await more.focus();
+  await expect(more).toBeVisible();
   await more.press('Enter');
   const menu = page.getByRole('menu');
   await expect(menu).toBeVisible();

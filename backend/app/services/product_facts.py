@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import delete, func, literal, select, union_all
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.audit import append_audit
@@ -238,14 +239,40 @@ def product_facts_draft_out(db: Session, product: Product) -> ProductFactsDraft:
 def create_product(*, db: Session, payload: ProductCreate, actor: User, request_id: str) -> Product:
     """创建公司产品，不推断任何产品参数。"""
     product = Product(
-        part_number=payload.part_number.strip(),
+        part_number=payload.part_number,
         normalized_part_number=normalize_identity(payload.part_number),
-        brand=payload.brand.strip(),
+        brand=payload.brand,
         normalized_brand=normalize_identity(payload.brand),
-        category=payload.category.strip(),
+        category=payload.category,
     )
     db.add(product)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError as error:
+        constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+        if constraint_name == "uq_products_normalized_brand":
+            db.rollback()
+            message = "品牌与产品型号组合已存在"
+            raise AppError(
+                "PRODUCT_ALREADY_EXISTS",
+                message,
+                409,
+                {
+                    "errors": [
+                        {
+                            "loc": ["body", "part_number"],
+                            "msg": message,
+                            "type": "product_already_exists",
+                        },
+                        {
+                            "loc": ["body", "brand"],
+                            "msg": message,
+                            "type": "product_already_exists",
+                        },
+                    ]
+                },
+            ) from error
+        raise
     db.commit()
     return product
 

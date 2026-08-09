@@ -15,6 +15,7 @@ import { Route as AppAdminRouteRouteImport } from './routes/_app/_admin/route'
 import { Route as AppProductsRouteRouteImport } from './routes/_app/products/route'
 import { Route as AppProductsIndexRouteImport } from './routes/_app/products/index'
 import { Route as AppProductsProductIdRouteImport } from './routes/_app/products/$productId'
+import { Route as AppProductsNewRouteImport } from './routes/_app/products/new'
 import { Route as AppAdminSystemUsersRouteImport } from './routes/_app/_admin/system.users'
 
 const AppRouteRoute = AppRouteRouteImport.update({
@@ -45,6 +46,11 @@ const AppProductsProductIdRoute = AppProductsProductIdRouteImport.update({
   path: '/$productId',
   getParentRoute: () => AppProductsRouteRoute,
 } as any)
+const AppProductsNewRoute = AppProductsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppProductsRouteRoute,
+} as any)
 const AppAdminSystemUsersRoute = AppAdminSystemUsersRouteImport.update({
   id: '/system/users',
   path: '/system/users',
@@ -55,12 +61,14 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/products': typeof AppProductsRouteRouteWithChildren
   '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/new': typeof AppProductsNewRoute
   '/products/': typeof AppProductsIndexRoute
   '/system/users': typeof AppAdminSystemUsersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/products/$productId': typeof AppProductsProductIdRoute
+  '/products/new': typeof AppProductsNewRoute
   '/products': typeof AppProductsIndexRoute
   '/system/users': typeof AppAdminSystemUsersRoute
 }
@@ -71,15 +79,26 @@ export interface FileRoutesById {
   '/_app/products': typeof AppProductsRouteRouteWithChildren
   '/_app/': typeof AppIndexRoute
   '/_app/products/$productId': typeof AppProductsProductIdRoute
+  '/_app/products/new': typeof AppProductsNewRoute
   '/_app/products/': typeof AppProductsIndexRoute
   '/_app/_admin/system/users': typeof AppAdminSystemUsersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/products' | '/products/$productId' | '/products/' | '/system/users'
+    | '/'
+    | '/products'
+    | '/products/$productId'
+    | '/products/new'
+    | '/products/'
+    | '/system/users'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/products/$productId' | '/products' | '/system/users'
+  to:
+    | '/'
+    | '/products/$productId'
+    | '/products/new'
+    | '/products'
+    | '/system/users'
   id:
     | '__root__'
     | '/_app'
@@ -87,6 +106,7 @@ export interface FileRouteTypes {
     | '/_app/products'
     | '/_app/'
     | '/_app/products/$productId'
+    | '/_app/products/new'
     | '/_app/products/'
     | '/_app/_admin/system/users'
   fileRoutesById: FileRoutesById
@@ -139,6 +159,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductsProductIdRouteImport
       parentRoute: typeof AppProductsRouteRoute
     }
+    '/_app/products/new': {
+      id: '/_app/products/new'
+      path: '/new'
+      fullPath: '/products/new'
+      preLoaderRoute: typeof AppProductsNewRouteImport
+      parentRoute: typeof AppProductsRouteRoute
+    }
     '/_app/_admin/system/users': {
       id: '/_app/_admin/system/users'
       path: '/system/users'
@@ -163,11 +190,13 @@ const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(
 
 interface AppProductsRouteRouteChildren {
   AppProductsProductIdRoute: typeof AppProductsProductIdRoute
+  AppProductsNewRoute: typeof AppProductsNewRoute
   AppProductsIndexRoute: typeof AppProductsIndexRoute
 }
 
 const AppProductsRouteRouteChildren: AppProductsRouteRouteChildren = {
   AppProductsProductIdRoute: AppProductsProductIdRoute,
+  AppProductsNewRoute: AppProductsNewRoute,
   AppProductsIndexRoute: AppProductsIndexRoute,
 }
 

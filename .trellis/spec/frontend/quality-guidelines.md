@@ -120,7 +120,7 @@ npm --prefix frontend-v2 run e2e -- [Playwright arguments...]
 - 根 `bootstrap`、`contract-check`、`lint`、`typecheck`、`test-unit`、`build` 和 `e2e` 必须顺序保留 V1 命令并运行对应 V2 script；任一命令非零时 target 失败。
 - V2 Playwright 由 `frontend-v2/playwright.config.ts` 管理，`webServer` 必须先执行 `npm run build` 再运行 `vite preview`；不得以 Vite dev server 代替 production artifact。
 - Foundation smoke 只通过显式 `foundationApi` fixture 隔离匿名 `GET /api/v1/auth/me`，负责 `/` 的 App Shell 与导航入口；其他 API、页面异常、失败请求或失败静态资源均使测试失败。
-- 已落地的业务 route 从 Foundation smoke 迁移到独立 production-artifact spec。Products 使用 `products.fixture.ts` 中 generated `ProductListItem` 约束的显式 API projection；未声明 API 必须失败，fixture 不得进入运行时代码，也不得宣称为完整后端业务 E2E。
+- 已落地的业务 route 从 Foundation smoke 迁移到独立 production-artifact spec。Products 使用 `products.fixture.ts` 中 generated `ProductListItem`/`ProductCreate`/`Product` 约束的显式 API projection 与 mutation；未声明 API 必须失败，fixture 不得进入运行时代码，也不得宣称为完整后端业务 E2E。
 - `frontend-v2/vite.config.ts` 必须在保留 Vitest 默认 exclude 的基础上排除 `tests/e2e/**`，避免 Playwright spec 被 Vitest 当成 unit suite。
 
 ### 4. 验证与错误矩阵
@@ -144,6 +144,7 @@ npm --prefix frontend-v2 run e2e -- [Playwright arguments...]
 
 - `npm --prefix frontend-v2 run e2e -- tests/e2e/foundation-smoke.spec.ts`：两个 project 均通过。
 - `npm --prefix frontend-v2 run e2e -- tests/e2e/products-list.spec.ts`：Products route 的 typed fixture、URL 恢复、业务动作、状态、键盘和四档宽度均通过。
+- `npm --prefix frontend-v2 run e2e -- tests/e2e/new-product.spec.ts`：新建产品 production artifact 的结构化错误、CSRF/body、pending、DirtyGuard、canonical navigation、列表失效、375/1440 与运行时错误审计均通过。
 - V1/V2 `api:check`、lint、typecheck、test 和 build 分别通过。
 - 修改后的根 targets 通过，最后运行 `make verify`。
 

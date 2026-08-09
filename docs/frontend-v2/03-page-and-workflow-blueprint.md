@@ -61,13 +61,21 @@ Primary 由 `primary_task` 穷尽映射：`ENTER_FACTS`→录入事实、`SUBMIT
 
 点击产品名称/行进入 `/products/$productId`，不常驻“查看”。
 
-## 3.2 `/products/$productId`
+PageHeader 只提供一个 `[新建产品]` Primary，进入 `/products/new`；创建资格不由前端角色推断，最终权限由服务端判断。
+
+## 3.2 `/products/new`
+
+Pattern：Form。页面只收集产品型号、品牌和类别，三个字段去除两侧空白后必填且不超过 160 字符。表单使用 Form Kit 与 DirtyGuard；pending 时禁止重复提交和造成状态丢失的操作，服务端字段错误进入字段与 ErrorSummary，其他错误进入 form summary，并始终展示 `request_id`。
+
+成功创建后失效 Products list query，并依据 canonical `Product.id` 进入 `/products/$productId`；不得把 `Product` 写成 `ProductListItem` cache，也不得跳转尚未实现的 Fact Workspace。Cancel 返回 `/products`。
+
+## 3.3 `/products/$productId`
 
 Pattern：Detail。
 
 展示型号、品牌、类别、当前批准事实、待审核事实、内容任务摘要、发布成果摘要、GEO 摘要、Activity。详情页不承担事实正文编辑。
 
-## 3.3 `/products/$productId/facts`
+## 3.4 `/products/$productId/facts`
 
 Pattern：Workspace。
 
@@ -85,7 +93,7 @@ Pattern：Workspace。
 
 Markdown 是唯一编辑源；提交后创建不可变 `PENDING_REVIEW` snapshot。
 
-## 3.4 `/products/$productId/facts/review`
+## 3.5 `/products/$productId/facts/review`
 
 Pattern：Workspace。左侧不可变 Fact Snapshot/Evidence，右侧 Diff、Blocking Issues、Review History；底部 `[退回修改] [批准事实]`。
 

@@ -155,6 +155,8 @@ Foundation 尚未接管真实业务后端。测试只能通过显式命名的 Pl
 
 自 Products List 起，`/products` direct URL、refresh、Back/Forward、search normalization、业务数据和行级动作由 `tests/e2e/products-list.spec.ts` 与 generated-type `products.fixture.ts` 接管。该 fixture 仅验证前端 production-artifact 页面/路由，不代表完整后端业务 E2E；Phase 2.8 再验证 Product Facts 真实闭环。
 
+Phase 2.3 的 `/products/new` 由 `tests/e2e/new-product.spec.ts` 复用同一 fixture，fixture 的 POST 分支使用 generated `ProductCreate`/`Product` 约束并显式拒绝未声明 API。测试覆盖列表入口、direct URL/refresh、breadcrumb/sidebar、客户端与服务端字段错误、duplicate/forbidden、CSRF/body、pending 防重复、DirtyGuard Cancel/Back、canonical success navigation、列表后续重新获取、375/1440、键盘焦点，以及 console/pageerror/requestfailed 审计；它仍是 production-artifact 前端页面测试，不冒充真实后端 E2E。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

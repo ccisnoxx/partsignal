@@ -5,6 +5,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 
 from app.db import get_db
@@ -17,6 +18,59 @@ from app.tools.contract_check import check
 def test_runtime_openapi_matches_frozen_operations() -> None:
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
     assert check(contract) == []
+
+
+def test_product_create_contract_declares_input_limits_and_error_responses() -> None:
+    """冻结创建产品的长度边界与可预期错误响应。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    operation = document["paths"]["/api/v1/products"]["post"]
+    product_create = document["components"]["schemas"]["ProductCreate"]
+
+    assert set(operation["responses"]) == {"201", "401", "403", "409", "422"}
+    for field_name in ("part_number", "brand", "category"):
+        assert product_create["properties"][field_name]["minLength"] == 1
+        assert product_create["properties"][field_name]["maxLength"] == 160
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value"),
+    [
+        ("part_number", "   "),
+        ("brand", "   "),
+        ("category", "   "),
+        ("part_number", "P" * 161),
+        ("brand", "B" * 161),
+        ("category", "C" * 161),
+    ],
+)
+def test_product_create_rejects_blank_and_overlong_fields_before_business_command(
+    field_name: str,
+    invalid_value: str,
+) -> None:
+    """产品创建请求必须按实际保存值校验非空与 160 字符上限。"""
+    csrf_token = "contract-test-csrf-token-more-than-32-characters"
+    current_session = SimpleNamespace(
+        user=SimpleNamespace(account_type="ENGINEER"),
+        csrf_hash=hash_token(csrf_token),
+    )
+    body = {"part_number": "PS-001", "brand": "PartSignal", "category": "MCU"}
+    body[field_name] = invalid_value
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_current_session] = lambda: current_session
+    try:
+        response = TestClient(app).post(
+            "/api/v1/products",
+            headers={"X-CSRF-Token": csrf_token},
+            json=body,
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    payload = response.json()["error"]
+    assert payload["code"] == "VALIDATION_ERROR"
+    assert any(issue["loc"][:2] == ["body", field_name] for issue in payload["details"]["errors"])
 
 
 def test_live_health_does_not_require_external_dependencies() -> None:

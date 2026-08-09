@@ -6,13 +6,24 @@ import type { components } from '../../../src/shared/api/generated/schema';
 
 type ProductListItem = components['schemas']['ProductListItem'];
 type ProductList = components['schemas']['ProductList'];
-type ProductMode = 'success' | 'empty' | 'error' | 'loading';
+type Product = components['schemas']['Product'];
+type ProductCreate = components['schemas']['ProductCreate'];
+type ProductsListMode = 'success' | 'empty' | 'error' | 'loading';
+type ProductCreateMode = 'success' | 'duplicate' | 'validation' | 'forbidden' | 'pending';
+
+type ProductCreateRequest = {
+  body: ProductCreate;
+  csrfToken: string | null;
+};
 
 type ProductsApiController = {
   productRequests: URL[];
+  createRequests: ProductCreateRequest[];
+  releaseCreate: () => void;
   releaseLoading: () => void;
+  setCreateMode: (mode: ProductCreateMode) => void;
   setItems: (items: ProductListItem[]) => void;
-  setMode: (mode: ProductMode) => void;
+  setMode: (mode: ProductsListMode) => void;
 };
 
 type ProductsFixtures = {
@@ -100,15 +111,23 @@ function listProducts(items: ProductListItem[], url: URL): ProductList {
 const test = base.extend<ProductsFixtures>({
   productsApi: [async ({ page }, use) => {
     let items = createProducts();
-    let mode: ProductMode = 'success';
+    let mode: ProductsListMode = 'success';
+    let createMode: ProductCreateMode = 'success';
     let releaseLoading: (() => void) | undefined;
+    let releaseCreate: (() => void) | undefined;
     const productRequests: URL[] = [];
+    const createRequests: ProductCreateRequest[] = [];
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
 
     page.on('console', (message) => {
-      // 预期且已由页面处理的 503 仍会被 Chromium 记录为资源错误，不属于未处理异常。
-      if (mode === 'error' && message.text().includes('503 (Service Unavailable)')) return;
+      // fixture 明确返回且页面已处理的非 2xx 仍会被 Chromium 记录为资源错误。
+      if ([
+        '503 (Service Unavailable)',
+        '409 (Conflict)',
+        '422 (Unprocessable Entity)',
+        '403 (Forbidden)',
+      ].some((status) => message.text().includes(status))) return;
       if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`);
     });
     page.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`));
@@ -142,18 +161,94 @@ const test = base.extend<ProductsFixtures>({
         await route.fulfill({ status: 200, json: data });
         return;
       }
+      if (request.method() === 'POST' && url.pathname === '/api/v1/products') {
+        const body = request.postDataJSON() as ProductCreate;
+        createRequests.push({ body, csrfToken: request.headers()['x-csrf-token'] ?? null });
+        if (createMode === 'pending') {
+          await new Promise<void>((resolve) => { releaseCreate = resolve; });
+        }
+        if (createMode === 'duplicate') {
+          await route.fulfill({
+            status: 409,
+            json: {
+              error: {
+                code: 'PRODUCT_ALREADY_EXISTS',
+                message: '品牌与产品型号组合已存在',
+                details: {
+                  errors: [
+                    { loc: ['body', 'part_number'], msg: '品牌与产品型号组合已存在', type: 'product_already_exists' },
+                    { loc: ['body', 'brand'], msg: '品牌与产品型号组合已存在', type: 'product_already_exists' },
+                  ],
+                },
+                request_id: 'req-product-duplicate',
+              },
+            } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        if (createMode === 'validation') {
+          await route.fulfill({
+            status: 422,
+            json: {
+              error: {
+                code: 'VALIDATION_ERROR',
+                message: '请求数据不符合接口契约',
+                details: { errors: [{ loc: ['body', 'category'], msg: '类别不受支持', type: 'value_error' }] },
+                request_id: 'req-product-validation',
+              },
+            } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        if (createMode === 'forbidden') {
+          await route.fulfill({
+            status: 403,
+            json: {
+              error: {
+                code: 'PERMISSION_DENIED',
+                message: '没有创建产品的权限',
+                details: {},
+                request_id: 'req-product-forbidden',
+              },
+            } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        const product = {
+          id: '00000000-0000-4000-8000-999999999999',
+          ...body,
+          status: 'ACTIVE',
+          workflow_stage: 'FACTS_EMPTY',
+          primary_task: 'ENTER_FACTS',
+          available_actions: ['UPDATE', 'DELETE'],
+          deletion: { blockers: [] },
+          revision: 0,
+          created_at: '2026-08-09T08:00:00Z',
+          updated_at: '2026-08-09T08:00:00Z',
+        } satisfies Product;
+        items = [{ ...product, fact_status: 'NOT_ENTERED', current_fact: null }, ...items];
+        await route.fulfill({ status: 201, json: product });
+        return;
+      }
 
       unexpectedRequests.push(`${request.method()} ${url.pathname}`);
       await route.fulfill({ status: 501, json: { error: { code: 'PRODUCTS_FIXTURE_UNEXPECTED_API', message: 'Products 页面发起了未声明的 API 请求' } } });
     });
 
     await use({
+      createRequests,
       productRequests,
+      releaseCreate: () => {
+        if (!releaseCreate) throw new Error('Product create pending 请求尚未开始');
+        createMode = 'success';
+        releaseCreate();
+      },
       releaseLoading: () => {
         if (!releaseLoading) throw new Error('Products loading 请求尚未开始');
         mode = 'success';
         releaseLoading();
       },
+      setCreateMode: (nextMode) => { createMode = nextMode; },
       setItems: (nextItems) => { items = nextItems; },
       setMode: (nextMode) => { mode = nextMode; },
     });
@@ -164,4 +259,4 @@ const test = base.extend<ProductsFixtures>({
 });
 
 export { createProducts, expect, test };
-export type { ProductListItem, ProductsApiController };
+export type { Product, ProductCreate, ProductListItem, ProductsApiController };

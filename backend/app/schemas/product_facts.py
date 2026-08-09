@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.schemas.base import ContractModel
 from app.schemas.common import DeletionProjection
@@ -50,9 +50,15 @@ class FactVersionStatus(StrEnum):
 
 
 class ProductCreate(ContractModel):
-    part_number: str = Field(min_length=1)
-    brand: str = Field(min_length=1)
-    category: str = Field(min_length=1)
+    part_number: str = Field(min_length=1, max_length=160)
+    brand: str = Field(min_length=1, max_length=160)
+    category: str = Field(min_length=1, max_length=160)
+
+    @field_validator("part_number", "brand", "category", mode="before")
+    @classmethod
+    def strip_product_identity(cls, value: object) -> object:
+        """在请求边界去除两侧空白，使空白与长度校验作用于实际保存值。"""
+        return value.strip() if isinstance(value, str) else value
 
 
 class ProductUpdate(ContractModel):

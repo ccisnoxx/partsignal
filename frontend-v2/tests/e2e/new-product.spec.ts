@@ -57,6 +57,8 @@ test('POST 使用 trim body 与 CSRF，pending 防重复，成功清除 DirtyGua
 
   productsApi.releaseCreate();
   await expect(page).toHaveURL('/products/00000000-0000-4000-8000-999999999999');
+  await expect(page.getByRole('heading', { level: 1, name: 'PS-NEW-001' })).toBeVisible();
+  expect(productsApi.detailRequests).toHaveLength(1);
   await expect(page.getByRole('dialog', { name: '要离开当前页面吗？' })).toHaveCount(0);
 
   const listRequestsBefore = productsApi.productRequests.length;

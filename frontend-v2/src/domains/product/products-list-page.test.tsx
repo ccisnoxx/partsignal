@@ -105,7 +105,7 @@ describe('ProductsListPage', () => {
     });
 
     await userEvent.click(screen.getByRole('button', { name: `更多操作：${product.part_number}` }));
-    expect(await screen.findByRole('menuitem', { name: /编辑产品.*V2 编辑入口待定义/ })).toHaveAttribute('aria-disabled', 'true');
+    expect(await screen.findByRole('menuitem', { name: '编辑产品' })).toHaveAttribute('href', `/products/${product.id}`);
     expect(screen.getByRole('menuitem', { name: '删除产品' })).toBeInTheDocument();
   });
 

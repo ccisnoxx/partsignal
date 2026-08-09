@@ -7,23 +7,37 @@ import type { components } from '../../../src/shared/api/generated/schema';
 type ProductListItem = components['schemas']['ProductListItem'];
 type ProductList = components['schemas']['ProductList'];
 type Product = components['schemas']['Product'];
+type ProductDetail = components['schemas']['ProductDetail'];
 type ProductCreate = components['schemas']['ProductCreate'];
+type ProductUpdate = components['schemas']['ProductUpdate'];
 type ProductsListMode = 'success' | 'empty' | 'error' | 'loading';
 type ProductCreateMode = 'success' | 'duplicate' | 'validation' | 'forbidden' | 'pending';
+type ProductDetailMode = 'success' | 'not-found' | 'forbidden' | 'error';
+type ProductMutationMode = 'success' | 'revision-conflict';
 
 type ProductCreateRequest = {
   body: ProductCreate;
   csrfToken: string | null;
 };
 
+type ProductUpdateRequest = { body: ProductUpdate; csrfToken: string | null; productId: string };
+type ProductDeleteRequest = { csrfToken: string | null; expectedRevision: number | null; productId: string };
+
 type ProductsApiController = {
   productRequests: URL[];
+  detailRequests: URL[];
   createRequests: ProductCreateRequest[];
+  updateRequests: ProductUpdateRequest[];
+  deleteRequests: ProductDeleteRequest[];
   releaseCreate: () => void;
   releaseLoading: () => void;
   setCreateMode: (mode: ProductCreateMode) => void;
+  setDeleteMode: (mode: ProductMutationMode) => void;
+  setDetail: (detail: ProductDetail) => void;
+  setDetailMode: (mode: ProductDetailMode) => void;
   setItems: (items: ProductListItem[]) => void;
   setMode: (mode: ProductsListMode) => void;
+  setUpdateMode: (mode: ProductMutationMode) => void;
 };
 
 type ProductsFixtures = {
@@ -108,15 +122,47 @@ function listProducts(items: ProductListItem[], url: URL): ProductList {
   };
 }
 
+function createProductDetail(item: ProductListItem): ProductDetail {
+  return {
+    product: {
+      id: item.id,
+      part_number: item.part_number,
+      brand: item.brand,
+      category: item.category,
+      status: item.status,
+      workflow_stage: item.workflow_stage,
+      primary_task: item.primary_task,
+      available_actions: item.available_actions,
+      deletion: item.deletion,
+      revision: item.revision,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+    },
+    approved_fact: null,
+    pending_fact: null,
+    content: { task_count: 0, latest_task: null },
+    publishing: { published_article_count: 0, latest: null },
+    geo: { observation_count: 0, article_result_count: 0, discovery_rate: null, mention_rate: null, accuracy_rate: null },
+    activity: [],
+  };
+}
+
 const test = base.extend<ProductsFixtures>({
   productsApi: [async ({ page }, use) => {
     let items = createProducts();
     let mode: ProductsListMode = 'success';
     let createMode: ProductCreateMode = 'success';
+    let detailMode: ProductDetailMode = 'success';
+    let updateMode: ProductMutationMode = 'success';
+    let deleteMode: ProductMutationMode = 'success';
+    let detailOverride: ProductDetail | undefined;
     let releaseLoading: (() => void) | undefined;
     let releaseCreate: (() => void) | undefined;
     const productRequests: URL[] = [];
+    const detailRequests: URL[] = [];
     const createRequests: ProductCreateRequest[] = [];
+    const updateRequests: ProductUpdateRequest[] = [];
+    const deleteRequests: ProductDeleteRequest[] = [];
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
 
@@ -125,13 +171,18 @@ const test = base.extend<ProductsFixtures>({
       if ([
         '503 (Service Unavailable)',
         '409 (Conflict)',
+        '404 (Not Found)',
         '422 (Unprocessable Entity)',
         '403 (Forbidden)',
       ].some((status) => message.text().includes(status))) return;
       if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`);
     });
     page.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`));
-    page.on('requestfailed', (request) => runtimeErrors.push(`requestfailed: ${request.method()} ${request.url()}`));
+    page.on('requestfailed', (request) => {
+      // refresh/Back/成功删除后的导航会取消上一文档尚未收尾的请求，不属于页面运行错误。
+      if (request.failure()?.errorText === 'net::ERR_ABORTED') return;
+      runtimeErrors.push(`requestfailed: ${request.method()} ${request.url()}`);
+    });
 
     await page.route('**/api/v1/**', async (route) => {
       const request = route.request();
@@ -159,6 +210,32 @@ const test = base.extend<ProductsFixtures>({
         }
         const data = listProducts(mode === 'empty' ? [] : items, url);
         await route.fulfill({ status: 200, json: data });
+        return;
+      }
+      const detailMatch = url.pathname.match(/^\/api\/v1\/products\/([^/]+)\/detail$/);
+      if (request.method() === 'GET' && detailMatch) {
+        detailRequests.push(url);
+        if (detailMode !== 'success') {
+          const response = detailMode === 'not-found'
+            ? { status: 404, code: 'PRODUCT_NOT_FOUND', message: '产品不存在' }
+            : detailMode === 'forbidden'
+              ? { status: 403, code: 'PERMISSION_DENIED', message: '没有查看该产品的权限' }
+              : { status: 503, code: 'PRODUCT_DETAIL_UNAVAILABLE', message: '产品详情服务暂不可用' };
+          await route.fulfill({
+            status: response.status,
+            json: { error: { code: response.code, message: response.message, details: {}, request_id: `req-detail-${detailMode}` } } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        const item = items.find((candidate) => candidate.id === detailMatch[1]);
+        if (!item && detailOverride?.product.id !== detailMatch[1]) {
+          await route.fulfill({
+            status: 404,
+            json: { error: { code: 'PRODUCT_NOT_FOUND', message: '产品不存在', details: {}, request_id: 'req-detail-missing' } } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        await route.fulfill({ status: 200, json: detailOverride?.product.id === detailMatch[1] ? detailOverride : createProductDetail(item!) });
         return;
       }
       if (request.method() === 'POST' && url.pathname === '/api/v1/products') {
@@ -231,13 +308,60 @@ const test = base.extend<ProductsFixtures>({
         return;
       }
 
+      const productMatch = url.pathname.match(/^\/api\/v1\/products\/([^/]+)$/);
+      if (request.method() === 'PATCH' && productMatch) {
+        const body = request.postDataJSON() as ProductUpdate;
+        updateRequests.push({ body, productId: productMatch[1], csrfToken: request.headers()['x-csrf-token'] ?? null });
+        if (updateMode === 'revision-conflict') {
+          await route.fulfill({
+            status: 409,
+            json: { error: { code: 'REVISION_CONFLICT', message: '产品已被其他请求更新', details: {}, request_id: 'req-update-conflict' } } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        const itemIndex = items.findIndex((item) => item.id === productMatch[1]);
+        const current = detailOverride?.product.id === productMatch[1]
+          ? detailOverride.product
+          : itemIndex >= 0 ? createProductDetail(items[itemIndex]).product : undefined;
+        if (!current) {
+          await route.fulfill({ status: 404, json: { error: { code: 'PRODUCT_NOT_FOUND', message: '产品不存在', details: {}, request_id: 'req-update-missing' } } });
+          return;
+        }
+        const product: Product = { ...current, ...body, revision: current.revision + 1, updated_at: '2026-08-09T10:00:00Z' };
+        if (itemIndex >= 0) items[itemIndex] = { ...items[itemIndex], ...product };
+        detailOverride = { ...(detailOverride ?? createProductDetail(items[itemIndex])), product };
+        await route.fulfill({ status: 200, json: product });
+        return;
+      }
+      if (request.method() === 'DELETE' && productMatch) {
+        deleteRequests.push({
+          productId: productMatch[1],
+          expectedRevision: Number(url.searchParams.get('expected_revision')) || null,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+        });
+        if (deleteMode === 'revision-conflict') {
+          await route.fulfill({
+            status: 409,
+            json: { error: { code: 'REVISION_CONFLICT', message: '产品已被其他请求更新', details: {}, request_id: 'req-delete-conflict' } } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        items = items.filter((item) => item.id !== productMatch[1]);
+        detailOverride = undefined;
+        await route.fulfill({ status: 204 });
+        return;
+      }
+
       unexpectedRequests.push(`${request.method()} ${url.pathname}`);
       await route.fulfill({ status: 501, json: { error: { code: 'PRODUCTS_FIXTURE_UNEXPECTED_API', message: 'Products 页面发起了未声明的 API 请求' } } });
     });
 
     await use({
       createRequests,
+      deleteRequests,
+      detailRequests,
       productRequests,
+      updateRequests,
       releaseCreate: () => {
         if (!releaseCreate) throw new Error('Product create pending 请求尚未开始');
         createMode = 'success';
@@ -249,8 +373,12 @@ const test = base.extend<ProductsFixtures>({
         releaseLoading();
       },
       setCreateMode: (nextMode) => { createMode = nextMode; },
+      setDeleteMode: (nextMode) => { deleteMode = nextMode; },
+      setDetail: (detail) => { detailOverride = detail; },
+      setDetailMode: (nextMode) => { detailMode = nextMode; },
       setItems: (nextItems) => { items = nextItems; },
       setMode: (nextMode) => { mode = nextMode; },
+      setUpdateMode: (nextMode) => { updateMode = nextMode; },
     });
 
     expect(unexpectedRequests, 'Products 页面不得依赖未声明的 API').toEqual([]);
@@ -258,5 +386,5 @@ const test = base.extend<ProductsFixtures>({
   }, { auto: true }],
 });
 
-export { createProducts, expect, test };
-export type { Product, ProductCreate, ProductListItem, ProductsApiController };
+export { createProductDetail, createProducts, expect, test };
+export type { Product, ProductCreate, ProductDetail, ProductListItem, ProductsApiController };

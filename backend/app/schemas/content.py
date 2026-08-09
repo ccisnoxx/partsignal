@@ -15,6 +15,18 @@ from app.schemas.configuration import PlatformLogoOut
 from app.schemas.product_facts import Confidentiality, FactVersionOut
 
 GenerationJobStatus = Literal["PENDING", "RUNNING", "SUCCEEDED", "FAILED"]
+ContentTaskWorkflowStage = Literal[
+    "NO_DRAFT",
+    "GENERATING",
+    "GENERATION_FAILED",
+    "DRAFT",
+    "REVIEW_PENDING",
+    "CHANGES_REQUESTED",
+    "APPROVED",
+    "PUBLISHING",
+    "VERIFIED",
+    "CANCELLED",
+]
 
 
 class ContentTaskArchiveStatus(StrEnum):
@@ -42,18 +54,7 @@ class ContentTaskOut(ContractModel):
     query_topic_id: uuid.UUID | None
     source_published_content_issue_id: uuid.UUID | None
     current_content_version_id: uuid.UUID | None
-    workflow_stage: Literal[
-        "NO_DRAFT",
-        "GENERATING",
-        "GENERATION_FAILED",
-        "DRAFT",
-        "REVIEW_PENDING",
-        "CHANGES_REQUESTED",
-        "APPROVED",
-        "PUBLISHING",
-        "VERIFIED",
-        "CANCELLED",
-    ]
+    workflow_stage: ContentTaskWorkflowStage
     primary_task: Literal[
         "CREATE_FIRST_DRAFT",
         "VIEW_GENERATION_PROGRESS",

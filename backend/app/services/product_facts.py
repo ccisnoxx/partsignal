@@ -40,6 +40,34 @@ def normalize_identity(value: str) -> str:
     return "".join(character for character in value.casefold().strip() if character.isalnum())
 
 
+def _product_identity_conflict(db: Session, error: IntegrityError) -> None:
+    """只把已确认的产品身份唯一约束映射为稳定字段错误。"""
+    constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+    if constraint_name != "uq_products_normalized_brand":
+        raise error
+    db.rollback()
+    message = "品牌与产品型号组合已存在"
+    raise AppError(
+        "PRODUCT_ALREADY_EXISTS",
+        message,
+        409,
+        {
+            "errors": [
+                {
+                    "loc": ["body", "part_number"],
+                    "msg": message,
+                    "type": "product_already_exists",
+                },
+                {
+                    "loc": ["body", "brand"],
+                    "msg": message,
+                    "type": "product_already_exists",
+                },
+            ]
+        },
+    ) from error
+
+
 def products_out(
     db: Session,
     products: list[Product],
@@ -249,30 +277,21 @@ def create_product(*, db: Session, payload: ProductCreate, actor: User, request_
     try:
         db.flush()
     except IntegrityError as error:
-        constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
-        if constraint_name == "uq_products_normalized_brand":
-            db.rollback()
-            message = "品牌与产品型号组合已存在"
-            raise AppError(
-                "PRODUCT_ALREADY_EXISTS",
-                message,
-                409,
-                {
-                    "errors": [
-                        {
-                            "loc": ["body", "part_number"],
-                            "msg": message,
-                            "type": "product_already_exists",
-                        },
-                        {
-                            "loc": ["body", "brand"],
-                            "msg": message,
-                            "type": "product_already_exists",
-                        },
-                    ]
-                },
-            ) from error
-        raise
+        _product_identity_conflict(db, error)
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PRODUCT_FACTS,
+            action="product.created",
+            target_type="Product",
+            target_id=product.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="产品已创建",
+            details={"facts": {"status": product.status, "revision": product.revision}},
+        ),
+    )
     db.commit()
     return product
 
@@ -316,6 +335,24 @@ def update_product(
     product.category = payload.category.strip()
     product.status = payload.status.value
     product.revision += 1
+    try:
+        db.flush()
+    except IntegrityError as error:
+        _product_identity_conflict(db, error)
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.PRODUCT_FACTS,
+            action="product.updated",
+            target_type="Product",
+            target_id=product.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="产品基本信息已更新",
+            details={"facts": {"status": product.status, "revision": product.revision}},
+        ),
+    )
     db.commit()
     return product
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import { ProductCreateRequestError, mapProductCreateError } from './new-product.api';
+import { mapProductCreateError } from './new-product.api';
 import { newProductFormSchema, toProductCreate } from './new-product.model';
+import { ProductRequestError } from './product.api';
 
 describe('newProductFormSchema', () => {
   it('trim 三个字段并映射为 generated ProductCreate', () => {
@@ -27,8 +28,9 @@ describe('newProductFormSchema', () => {
 
 describe('mapProductCreateError', () => {
   it('只按结构化 loc 映射批准字段并保留 request_id', () => {
-    const mapped = mapProductCreateError(new ProductCreateRequestError(
+    const mapped = mapProductCreateError(new ProductRequestError(
       '品牌与产品型号组合已存在',
+      409,
       {
         code: 'PRODUCT_ALREADY_EXISTS',
         message: '品牌与产品型号组合已存在',
@@ -53,8 +55,9 @@ describe('mapProductCreateError', () => {
   });
 
   it('无法定位的错误进入 form summary，不解析 message', () => {
-    const mapped = mapProductCreateError(new ProductCreateRequestError(
+    const mapped = mapProductCreateError(new ProductRequestError(
       '没有创建产品的权限',
+      403,
       {
         code: 'PERMISSION_DENIED',
         message: '没有创建产品的权限',

@@ -10,6 +10,12 @@
 - JSONB is limited to immutable generation snapshots, structured generation output, and audit details. Editable product facts use one Markdown body on `products`; platform rules and normalized fact subgraphs no longer exist after `0025`.
 - Review records, publication work events, publication verifications, observations, and audit logs cannot be modified in place。`0027` 仅在物理删除停用用户时允许把匹配 `audit_logs.actor_id` 置空；`0029` 允许管理员按完整更正链删除人工 GEO 观测；`0037` 允许普通删除未成功发布的任务聚合，并允许管理员永久删除已归档任务聚合。发布与 GEO 历史在保留期间仍禁止原地改写，删除只能从显式业务命令进入。
 
+## Product Detail Read Projection
+
+`GET /api/v1/products/{product_id}/detail` 不持久化第二份业务状态。服务在同一 PostgreSQL `REPEATABLE READ` 请求事务中，从 `products`、`fact_versions`、`content_tasks`、`publication_works`/`published_articles`、当前 GEO correction tails 及各领域追加记录批量形成 compact projection；查询次数不得随关联行数线性增加。GEO rate 沿用现有 GeoMetrics 分母，分母为零时返回 `NULL`。
+
+Product Activity 的权威记录依次来自 `product.created/product.updated` 成功审计、`fact_review_records`、`content_tasks.created_at`、`content_review_records`、`publication_work_events` 与 `geo_observations.created_at`。服务统一按 `timestamp DESC, kind ASC, source id DESC` 排序并截取最近 10 项；不得使用 mutable `updated_at`、Audit target 递归或浏览器合并来补造时间线。`product.created` 与 `product.updated` 作为成功审计和对应业务写入同事务追加，不回填历史记录，也不需要数据库迁移。
+
 ## Migration Order
 
 ### 0001 Identity And Audit

@@ -120,7 +120,8 @@ npm --prefix frontend-v2 run e2e -- [Playwright arguments...]
 - 根 `bootstrap`、`contract-check`、`lint`、`typecheck`、`test-unit`、`build` 和 `e2e` 必须顺序保留 V1 命令并运行对应 V2 script；任一命令非零时 target 失败。
 - V2 Playwright 由 `frontend-v2/playwright.config.ts` 管理，`webServer` 必须先执行 `npm run build` 再运行 `vite preview`；不得以 Vite dev server 代替 production artifact。
 - Foundation smoke 只通过显式 `foundationApi` fixture 隔离匿名 `GET /api/v1/auth/me`，负责 `/` 的 App Shell 与导航入口；其他 API、页面异常、失败请求或失败静态资源均使测试失败。
-- 已落地的业务 route 从 Foundation smoke 迁移到独立 production-artifact spec。Products 使用 `products.fixture.ts` 中 generated `ProductListItem`/`ProductCreate`/`Product` 约束的显式 API projection 与 mutation；未声明 API 必须失败，fixture 不得进入运行时代码，也不得宣称为完整后端业务 E2E。
+- 已落地的业务 route 从 Foundation smoke 迁移到独立 production-artifact spec。Products 使用 `products.fixture.ts` 中 generated `ProductListItem`/`ProductCreate`/`Product`/`ProductDetail`/`ProductUpdate` 约束的显式 API projection 与 mutation；未声明 API 必须失败，fixture 不得进入运行时代码，也不得宣称为完整后端业务 E2E。
+- Product Detail 只允许 `GET /api/v1/products/{id}/detail` 获取页面 server state。fixture 返回已经定义的 read-model 数据，不复制 backend 选择、join 或 Activity 排序逻辑；浏览器发起 Facts/Content/Publication/GEO/Audit 请求必须作为未声明 API 失败。
 - `frontend-v2/vite.config.ts` 必须在保留 Vitest 默认 exclude 的基础上排除 `tests/e2e/**`，避免 Playwright spec 被 Vitest 当成 unit suite。
 
 ### 4. 验证与错误矩阵
@@ -131,7 +132,9 @@ npm --prefix frontend-v2 run e2e -- [Playwright arguments...]
 | V2 production build/preview 未就绪 | Playwright webServer 启动失败，不执行固定成功测试 |
 | 未声明 `/api/v1/**` 请求 | `foundationApi` 记录请求并使 smoke 失败 |
 | Products 页面请求 Facts/Versions/Actions join | `productsApi` 记录为未声明请求并使业务 spec 失败 |
-| route chunk 在下一次导航前仍加载 | 测试先等待目标页面渲染，不过滤 `requestfailed` |
+| Product Detail fixture 收到第二条跨域 summary 请求 | 测试失败；修复页面 query 边界，不扩展 fixture 模拟客户端 join |
+| 预期 404/403/409/503 响应 | 页面必须显示已定义 UX；fixture 只忽略 Chromium 对这些已处理响应的资源 console 文案 |
+| route chunk 或普通 API 真实失败 | `requestfailed` 使测试失败；只有测试主动 refresh/Back/Forward 或成功删除导航产生的 `net::ERR_ABORTED` 可排除 |
 | Playwright spec 被 Vitest 导入 | V2 unit 门禁失败，修复测试发现边界而非跳过 suite |
 
 ### 5. Good / Base / Bad
@@ -145,14 +148,15 @@ npm --prefix frontend-v2 run e2e -- [Playwright arguments...]
 - `npm --prefix frontend-v2 run e2e -- tests/e2e/foundation-smoke.spec.ts`：两个 project 均通过。
 - `npm --prefix frontend-v2 run e2e -- tests/e2e/products-list.spec.ts`：Products route 的 typed fixture、URL 恢复、业务动作、状态、键盘和四档宽度均通过。
 - `npm --prefix frontend-v2 run e2e -- tests/e2e/new-product.spec.ts`：新建产品 production artifact 的结构化错误、CSRF/body、pending、DirtyGuard、canonical navigation、列表失效、375/1440 与运行时错误审计均通过。
+- `npm --prefix frontend-v2 run e2e -- tests/e2e/product-detail.spec.ts`：单 detail API、summary 有/无、服务端 Activity/action、UPDATE/DELETE、404/403/retry、375/768/1024/1440、keyboard/focus 与运行时错误审计均通过。
 - V1/V2 `api:check`、lint、typecheck、test 和 build 分别通过。
 - 修改后的根 targets 通过，最后运行 `make verify`。
 
 ### 7. Wrong vs Correct
 
 ```text
-Wrong: Foundation 继续覆盖业务占位页 + 运行时固定成功 fallback + 忽略未知 console/request failure
-Correct: production build + vite preview + Foundation/业务 typed fixture 分责 + 未声明请求/运行时错误直接失败
+Wrong: Foundation 继续覆盖业务占位页 + Product Detail 客户端 join + 运行时固定成功 fallback + 忽略未知 console/request failure
+Correct: production build + vite preview + Foundation/业务 typed fixture 分责 + 单一 ProductDetail read model + 未声明请求/运行时错误直接失败
 ```
 
 ## 浏览器与 jsdom 测试边界

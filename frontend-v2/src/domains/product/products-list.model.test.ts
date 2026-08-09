@@ -1,19 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ProductListItem } from './products-list.model';
+import {
+  formatExactProductTime,
+  formatRelativeProductTime,
+  productFactStatusRegistry,
+  productWorkflowStageRegistry,
+  resolveProductOverflowActions,
+  resolveProductPrimaryAction,
+  type ProductListItem,
+} from './product.model';
 import {
   canonicalProductsSearchRecord,
   formatCurrentFact,
-  formatExactProductTime,
-  formatRelativeProductTime,
   isCanonicalProductsSearch,
-  productFactStatusRegistry,
   productSortToSorting,
-  productWorkflowStageRegistry,
   productsSearchSchema,
   productsSearchToApiParams,
-  resolveProductOverflowActions,
-  resolveProductPrimaryAction,
   sortingToProductSort,
 } from './products-list.model';
 
@@ -115,21 +117,21 @@ describe('Products list model', () => {
   });
 
   it('UPDATE blocker、DELETE 与删除条件只消费服务端 projection', () => {
-    expect(resolveProductOverflowActions(product, false)).toEqual([
-      expect.objectContaining({ key: 'UPDATE', enabled: false, disabledReason: 'V2 编辑入口待定义' }),
+    expect(resolveProductOverflowActions(product, { deleting: false, surface: 'list' })).toEqual([
+      expect.objectContaining({ key: 'UPDATE', enabled: true, href: `/products/${product.id}` }),
     ]);
     expect(resolveProductOverflowActions({
       ...product,
       available_actions: ['UPDATE', 'DELETE'],
       deletion: { blockers: [] },
-    }, false)).toEqual([
-      expect.objectContaining({ key: 'UPDATE', enabled: false }),
+    }, { deleting: false, surface: 'list' })).toEqual([
+      expect.objectContaining({ key: 'UPDATE', enabled: true }),
       expect.objectContaining({ key: 'DELETE', enabled: true, intent: 'danger' }),
     ]);
     expect(resolveProductOverflowActions({
       ...product,
       deletion: { blockers: [{ type: 'CONTENT_TASK', count: 2 }] },
-    }, false)).toEqual([
+    }, { deleting: false, surface: 'list' })).toEqual([
       expect.objectContaining({ key: 'UPDATE' }),
       expect.objectContaining({ key: 'VIEW_DELETE_CONDITIONS', command: 'view-delete-conditions' }),
     ]);
@@ -137,8 +139,11 @@ describe('Products list model', () => {
       ...product,
       available_actions: ['DELETE'],
       deletion: { blockers: [{ type: 'CONTENT_TASK', count: 2 }] },
-    }, false)).toThrow('矛盾的 DELETE projection');
-    expect(() => resolveProductOverflowActions({ ...product, available_actions: ['UNKNOWN' as never] }, false))
+    }, { deleting: false, surface: 'list' })).toThrow('矛盾的 DELETE projection');
+    expect(() => resolveProductOverflowActions(
+      { ...product, available_actions: ['UNKNOWN' as never] },
+      { deleting: false, surface: 'list' },
+    ))
       .toThrow('未处理的合同 token');
   });
 

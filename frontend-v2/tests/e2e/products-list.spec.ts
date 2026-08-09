@@ -83,7 +83,8 @@ test('Products 行只呈现服务端 primary、overflow 与删除条件', async 
     .toHaveAttribute('href', '/products/00000000-0000-4000-8000-000000000002/facts');
 
   await page.getByRole('button', { name: '更多操作：PS-0002' }).click();
-  await expect(page.getByRole('menuitem', { name: /编辑产品.*V2 编辑入口待定义/ })).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByRole('menuitem', { name: '编辑产品' }))
+    .toHaveAttribute('href', '/products/00000000-0000-4000-8000-000000000002');
   await page.getByRole('menuitem', { name: '查看删除条件' }).click();
   const dialog = page.getByRole('dialog', { name: '产品“PS-0002”暂时不能删除' });
   await expect(dialog).toContainText('内容任务');
@@ -133,7 +134,7 @@ test('Products 在目标宽度无页面级横向溢出且键盘焦点可操作',
   await more.press('Enter');
   const menu = page.getByRole('menu');
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole('menuitem', { name: '删除产品' })).toBeFocused();
+  await expect(menu.getByRole('menuitem', { name: '编辑产品' })).toHaveAttribute('data-highlighted');
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
 });

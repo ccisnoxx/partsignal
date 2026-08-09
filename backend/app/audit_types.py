@@ -63,6 +63,8 @@ RETAINED_AUDIT_ACTIONS = frozenset(
         "content_version.deleted",
         "publication_work.completed",
         "published_article.permanently_deleted",
+        "product.created",
+        "product.updated",
         "product.deleted",
         "fact_version.deleted",
         "content_task.deleted",

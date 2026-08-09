@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy import select
 
 from app.deps import (
@@ -23,6 +23,7 @@ from app.models.product_facts import (
 )
 from app.schemas.common import AccountType, CommandRequest, RequestChangesCommand
 from app.schemas.content import FactReviewContext
+from app.schemas.product_detail import ProductDetail
 from app.schemas.product_facts import (
     FactReviewSubmissionRequest,
     FactVersionList,
@@ -37,6 +38,7 @@ from app.schemas.product_facts import (
     ProductUpdate,
     ProductWorkflowStage,
 )
+from app.services.product_detail import product_detail_out
 from app.services.product_facts import (
     create_product as create_product_command,
 )
@@ -58,6 +60,11 @@ router = APIRouter(prefix="/api/v1", tags=["product-facts", "review"])
 
 ProductEditor = EngineerUser
 ProductReviewer = EngineerUser
+
+
+def _product_detail_snapshot(db: DbSession) -> None:
+    """在认证读取前为详情请求建立一致的 PostgreSQL 快照。"""
+    db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
 
 
 @router.get("/products", response_model=ProductList, operation_id="listProducts")
@@ -109,6 +116,21 @@ def get_product(product_id: uuid.UUID, db: DbSession, user: CurrentUser) -> Prod
     if product is None:
         raise not_found("产品")
     return product_out(db, product, can_delete=user.account_type == "ADMIN")
+
+
+@router.get(
+    "/products/{product_id}/detail",
+    response_model=ProductDetail,
+    operation_id="getProductDetail",
+    dependencies=[Depends(_product_detail_snapshot)],
+)
+def get_product_detail(
+    product_id: uuid.UUID,
+    db: DbSession,
+    user: CurrentUser,
+) -> ProductDetail:
+    """返回可由单次请求完整绘制的 Product Detail。"""
+    return product_detail_out(db, product_id, actor=user)
 
 
 @router.patch("/products/{product_id}", response_model=ProductOut, operation_id="updateProduct")

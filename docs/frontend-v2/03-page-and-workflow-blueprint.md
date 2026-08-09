@@ -73,7 +73,9 @@ Pattern：Form。页面只收集产品型号、品牌和类别，三个字段去
 
 Pattern：Detail。
 
-展示型号、品牌、类别、当前批准事实、待审核事实、内容任务摘要、发布成果摘要、GEO 摘要、Activity。详情页不承担事实正文编辑。
+页面按 Header → Summary → Metadata → Facts → Content → Publishing → GEO → Activity 展示型号、品牌、类别、产品状态、workflow stage、当前批准事实、当前待审核或待修订事实、内容任务摘要、发布成果摘要、GEO 指标与最近 Activity。空摘要明确显示“暂无”，历史事实只链接后续 readonly route，详情页不展示或编辑事实正文。
+
+页面只请求 `GET /api/v1/products/{product_id}/detail`。`primary_task` 形成唯一 Primary，`available_actions` 进入 overflow；前端不从状态、事实或关联数量推导动作。Products List 的 UPDATE 进入本详情页，详情 Dialog 只编辑型号、品牌、类别和产品状态，并提交 `ProductUpdate.expected_revision`；`REVISION_CONFLICT` 与 `IMMUTABLE_VERSION` 都显示服务端错误并刷新 canonical detail。
 
 ## 3.4 `/products/$productId/facts`
 

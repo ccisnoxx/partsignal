@@ -49,7 +49,7 @@ class FactVersionStatus(StrEnum):
     RETIRED = "RETIRED"
 
 
-class ProductCreate(ContractModel):
+class _ProductIdentity(ContractModel):
     part_number: str = Field(min_length=1, max_length=160)
     brand: str = Field(min_length=1, max_length=160)
     category: str = Field(min_length=1, max_length=160)
@@ -61,11 +61,12 @@ class ProductCreate(ContractModel):
         return value.strip() if isinstance(value, str) else value
 
 
-class ProductUpdate(ContractModel):
+class ProductCreate(_ProductIdentity):
+    pass
+
+
+class ProductUpdate(_ProductIdentity):
     expected_revision: int = Field(ge=0)
-    part_number: str
-    brand: str
-    category: str
     status: ProductStatus
 
 

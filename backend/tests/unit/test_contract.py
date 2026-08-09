@@ -33,6 +33,61 @@ def test_product_create_contract_declares_input_limits_and_error_responses() -> 
         assert product_create["properties"][field_name]["maxLength"] == 160
 
 
+def test_product_detail_contract_is_compact_and_update_has_matching_limits() -> None:
+    """详情读模型不得泄漏正文，更新字段必须与创建字段保持同一边界。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    operation = document["paths"]["/api/v1/products/{product_id}/detail"]["get"]
+    detail = document["components"]["schemas"]["ProductDetail"]
+    update = document["components"]["schemas"]["ProductUpdate"]
+
+    assert set(operation["responses"]) == {"200", "401", "403", "404"}
+    assert set(detail["required"]) == {
+        "product",
+        "approved_fact",
+        "pending_fact",
+        "content",
+        "publishing",
+        "geo",
+        "activity",
+    }
+    assert "body_markdown" not in str(detail)
+    for field_name in ("part_number", "brand", "category"):
+        assert update["properties"][field_name]["minLength"] == 1
+        assert update["properties"][field_name]["maxLength"] == 160
+
+
+@pytest.mark.parametrize("field_name", ["part_number", "brand", "category"])
+def test_product_update_rejects_blank_identity_before_business_command(field_name: str) -> None:
+    """产品基本信息更新必须在请求边界拒绝空白字段。"""
+    csrf_token = "contract-test-csrf-token-more-than-32-characters"
+    current_session = SimpleNamespace(
+        user=SimpleNamespace(account_type="ENGINEER"),
+        csrf_hash=hash_token(csrf_token),
+    )
+    body = {
+        "expected_revision": 0,
+        "part_number": "PS-001",
+        "brand": "PartSignal",
+        "category": "MCU",
+        "status": "ACTIVE",
+    }
+    body[field_name] = "   "
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_current_session] = lambda: current_session
+    try:
+        response = TestClient(app).patch(
+            f"/api/v1/products/{uuid.uuid4()}",
+            headers={"X-CSRF-Token": csrf_token},
+            json=body,
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
 @pytest.mark.parametrize(
     ("field_name", "invalid_value"),
     [

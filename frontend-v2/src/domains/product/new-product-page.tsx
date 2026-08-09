@@ -20,7 +20,7 @@ import {
   type NewProductField,
   type NewProductFormValues,
 } from './new-product.model';
-import { productsKeys } from './products-list.api';
+import { productsKeys } from './product.api';
 
 type NewProductPageProps = {
   csrfToken: string | null;

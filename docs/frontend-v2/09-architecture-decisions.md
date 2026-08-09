@@ -94,6 +94,14 @@ Analytics 使用自己的 Pattern/ECharts，不强行复用 CRUD Table 视觉。
 
 Design System Pattern 必须有 Storybook/component coverage；关键 domain workflow 用 E2E。
 
+## ADR-021：Product Detail 使用独立一致性 Read Model
+
+**Decision**：`/products/$productId` 只消费 `GET /api/v1/products/{product_id}/detail`；既有 Product response 不增加跨域摘要。服务端在同一个 PostgreSQL `REPEATABLE READ` 请求事务内批量形成 compact facts/content/publishing/GEO projection，并返回已排序 typed Activity。
+
+**Why**：现有单项接口不能完整按产品筛选发布数据，浏览器多请求会引入 join、waterfall、N+1 和 snapshot 不一致。独立 schema 也避免污染 Product create/update、Products List 与 repair context。
+
+**Action ownership**：页面原样消费 Product `primary_task`、`available_actions`、`deletion` 和 `revision`。Products List 的 UPDATE 链接 Product Detail；详情内短 Dialog 是产品基本信息的 canonical edit surface，不新增猜测性的 `/edit` route，也不编辑事实正文。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

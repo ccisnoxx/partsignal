@@ -355,7 +355,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Product'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [product-facts]
       operationId: deleteProduct
@@ -367,6 +370,20 @@ paths:
         '204': {description: 已删除未被历史引用的产品及当前事实工作区}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/products/{product_id}/detail:
+    parameters: [{$ref: '#/components/parameters/ProductId'}]
+    get:
+      tags: [product-facts]
+      operationId: getProductDetail
+      responses:
+        '200':
+          description: 单次请求可完整绘制的产品详情读模型
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProductDetail'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}/facts:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     get:
@@ -3113,10 +3130,126 @@ components:
       required: [expected_revision, part_number, brand, category, status]
       properties:
         expected_revision: {type: integer, minimum: 0}
-        part_number: {type: string}
-        brand: {type: string}
-        category: {type: string}
+        part_number: {type: string, minLength: 1, maxLength: 160}
+        brand: {type: string, minLength: 1, maxLength: 160}
+        category: {type: string, minLength: 1, maxLength: 160}
         status: {$ref: '#/components/schemas/ProductStatus'}
+    ProductDetailApprovedFact:
+      type: object
+      additionalProperties: false
+      required: [id, version, status, classification, approved_at]
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        status: {type: string, enum: [APPROVED]}
+        classification: {$ref: '#/components/schemas/Confidentiality'}
+        approved_at: {type: [string, 'null'], format: date-time}
+    ProductDetailPendingFact:
+      type: object
+      additionalProperties: false
+      required: [id, version, status, classification, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        status: {type: string, enum: [PENDING_REVIEW, CHANGES_REQUESTED]}
+        classification: {$ref: '#/components/schemas/Confidentiality'}
+        created_at: {type: string, format: date-time}
+    ProductDetailContentTaskSummary:
+      type: object
+      additionalProperties: false
+      required: [task_id, workflow_stage, created_at]
+      properties:
+        task_id: {type: string, format: uuid}
+        workflow_stage: {type: string, enum: [NO_DRAFT, GENERATING, GENERATION_FAILED, DRAFT, REVIEW_PENDING, CHANGES_REQUESTED, APPROVED, PUBLISHING, VERIFIED, CANCELLED]}
+        created_at: {type: string, format: date-time}
+    ProductDetailContentSummary:
+      type: object
+      additionalProperties: false
+      required: [task_count, latest_task]
+      properties:
+        task_count: {type: integer, minimum: 0}
+        latest_task:
+          anyOf:
+            - {$ref: '#/components/schemas/ProductDetailContentTaskSummary'}
+            - {type: 'null'}
+    ProductDetailPublishingLatest:
+      type: object
+      additionalProperties: false
+      required: [work_id, article_id, status, actual_title, updated_at]
+      properties:
+        work_id: {type: string, format: uuid}
+        article_id: {type: [string, 'null'], format: uuid}
+        status: {$ref: '#/components/schemas/PublicationWorkStatus'}
+        actual_title: {type: [string, 'null']}
+        updated_at: {type: string, format: date-time}
+    ProductDetailPublishingSummary:
+      type: object
+      additionalProperties: false
+      required: [published_article_count, latest]
+      properties:
+        published_article_count: {type: integer, minimum: 0}
+        latest:
+          anyOf:
+            - {$ref: '#/components/schemas/ProductDetailPublishingLatest'}
+            - {type: 'null'}
+    ProductDetailGeoSummary:
+      type: object
+      additionalProperties: false
+      required: [observation_count, article_result_count, discovery_rate, mention_rate, accuracy_rate]
+      properties:
+        observation_count: {type: integer, minimum: 0}
+        article_result_count: {type: integer, minimum: 0}
+        discovery_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
+        mention_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
+        accuracy_rate: {type: [number, 'null'], minimum: 0, maximum: 1}
+    ProductDetailActivityKind:
+      type: string
+      enum: [PRODUCT, FACT_REVIEW, CONTENT_TASK, CONTENT_REVIEW, PUBLICATION, GEO_OBSERVATION]
+    ProductDetailActivityTargetKind:
+      type: string
+      enum: [PRODUCT, FACT_VERSION, CONTENT_TASK, CONTENT_VERSION, PUBLICATION_WORK, GEO_OBSERVATION]
+    ProductDetailActivityTarget:
+      type: object
+      additionalProperties: false
+      required: [kind, id, label]
+      properties:
+        kind: {$ref: '#/components/schemas/ProductDetailActivityTargetKind'}
+        id: {type: string, format: uuid}
+        label: {type: string}
+    ProductDetailActivityItem:
+      type: object
+      additionalProperties: false
+      required: [id, kind, label, timestamp, actor, target]
+      properties:
+        id: {type: string, format: uuid}
+        kind: {$ref: '#/components/schemas/ProductDetailActivityKind'}
+        label: {type: string}
+        timestamp: {type: string, format: date-time}
+        actor:
+          anyOf:
+            - {$ref: '#/components/schemas/ActorSummary'}
+            - {type: 'null'}
+        target: {$ref: '#/components/schemas/ProductDetailActivityTarget'}
+    ProductDetail:
+      type: object
+      additionalProperties: false
+      required: [product, approved_fact, pending_fact, content, publishing, geo, activity]
+      properties:
+        product: {$ref: '#/components/schemas/Product'}
+        approved_fact:
+          anyOf:
+            - {$ref: '#/components/schemas/ProductDetailApprovedFact'}
+            - {type: 'null'}
+        pending_fact:
+          anyOf:
+            - {$ref: '#/components/schemas/ProductDetailPendingFact'}
+            - {type: 'null'}
+        content: {$ref: '#/components/schemas/ProductDetailContentSummary'}
+        publishing: {$ref: '#/components/schemas/ProductDetailPublishingSummary'}
+        geo: {$ref: '#/components/schemas/ProductDetailGeoSummary'}
+        activity:
+          type: array
+          items: {$ref: '#/components/schemas/ProductDetailActivityItem'}
     ProductFactSummary:
       type: object
       additionalProperties: false

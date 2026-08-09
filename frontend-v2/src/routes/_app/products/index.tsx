@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, stripSearchParams } from '@tanstack/react-router';
 
-import { productsListQueryOptions } from '@/domains/product/products-list.api';
+import { productsListQueryOptions } from '@/domains/product/product.api';
 import { ProductsListPage } from '@/domains/product/products-list-page';
 import {
   isCanonicalProductsSearch,

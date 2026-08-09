@@ -519,3 +519,58 @@ if submitted_ids != candidate_ids:
 - 迁移测试覆盖白名单保留、非成功/白名单外清理、业务表不变、UPDATE 门禁和不可安全降级。
 - 单元与集成测试覆盖非白名单写入显式失败、保留动作 `SUCCESS`、敏感键拒绝、字段白名单、稳定分页和管理员权限。
 - 前端测试覆盖默认北京时间近三天、URL 可分享筛选、手动与 30 秒可见页刷新、空态/错误态、右侧详情以及敏感字段不展示。
+
+## 场景：Product Detail 跨域只读投影
+
+### 1. 范围与触发条件
+
+- 修改 `/products/{product_id}/detail`、Product Detail compact summary、产品级 Activity 或产品基本信息更新时适用。
+- 该场景不新增表、缓存、物化视图或通用 aggregate framework；`products` 及各领域历史表继续持有唯一业务状态。
+
+### 2. 签名
+
+- `GET /api/v1/products/{product_id}/detail -> ProductDetail`。
+- `PATCH /api/v1/products/{product_id}` 请求 `ProductUpdate={expected_revision,part_number,brand,category,status}`，返回 canonical `Product`。
+- detail route 在任何 session 查询前设置 `REPEATABLE READ`；`product_detail_out(db, product_id, actor)` 在同一请求事务内形成完整响应。
+
+### 3. 契约
+
+- `ProductDetail` 只包含 `product`、`approved_fact`、`pending_fact`、`content`、`publishing`、`geo`、`activity`；跨域字段只返回 compact count/status/rate 和必要 link ID，不返回正文、完整领域对象、审核说明或 Audit details。
+- approved 取最高版本 `APPROVED`；pending 只在最高版本为 `PENDING_REVIEW | CHANGES_REQUESTED` 时返回。GEO rate 沿用当前 correction tails 的 GeoMetrics 口径，零分母返回 `null`。
+- Activity 来源固定为 Product 成功审计、Fact/Content review record、ContentTask creation、PublicationWorkEvent 与 GeoObservation creation；服务端按 `timestamp DESC, kind ASC, source id DESC` 排序并截取 10 条。未知 action 必须显式失败，禁止使用 mutable `updated_at` 或递归 Audit target 补造事件。
+- Product create/update 成功审计与业务写入同事务提交；`REVISION_CONFLICT`、`IMMUTABLE_VERSION`、唯一冲突或其他失败不得留下成功审计。
+- 所有关联查询按集合批量读取并建立 map；不得在 serializer 或相关行循环内调用单项 detail projection。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 结果 |
+|---|---|
+| Product 不存在 | `404 PRODUCT_NOT_FOUND` |
+| `expected_revision` 过期 | `409 REVISION_CONFLICT`，产品与审计不变 |
+| 已有批准事实且修改型号/品牌/类别 | `409 IMMUTABLE_VERSION`，不得由前端猜测字段资格 |
+| normalized brand + part number 冲突 | `409 PRODUCT_ALREADY_EXISTS`，返回精确字段位置 |
+| Activity 遇到未声明 action | 显式程序错误并由测试暴露，不返回猜测 label |
+| 关联记录从 1 增长到 N | SQL statement 次数保持固定，不产生 N+1 |
+
+### 5. 正常、基础与失败案例
+
+- Good：一个 repeatable-read 请求批量形成 facts/content/publishing/GEO/Activity，前端直接渲染服务端顺序。
+- Base：产品没有任何关联记录时返回 nullable summary、零 count、nullable rate 和空 Activity，不伪造成功数据。
+- Bad：浏览器依次请求五个列表并 join，或服务循环调用 `published_article_out`，导致 snapshot 漂移或查询数随行增长。
+
+### 6. 必需测试
+
+- Contract test 断言独立 endpoint/schema、必填字段、无正文、Product 原合同不变及 ProductUpdate `1..160`。
+- PostgreSQL 集成测试断言 facts 选择、全部摘要口径、Activity source/order/actor/target、404 和 Product mutation audit。
+- 用 sparse/dense 两组相关数据断言 statement count 相同，并用 `SHOW transaction_isolation` 证明 route 为 `repeatable read`。
+- 两套 generated TypeScript type 必须由 OpenAPI 重新生成并通过 contract check；前端测试证明只有一条 detail API 请求。
+
+### 7. 错误与正确示例
+
+```python
+# Wrong：逐项调用 detail serializer，产生 N+1 和不同时间点的快照。
+articles = [published_article_out(db, article) for article in articles]
+
+# Correct：按 product-scoped ID 集合批量查询 compact 字段，在同一事务内组装 map。
+rows = db.execute(product_publication_summary_query(product_id)).all()
+```

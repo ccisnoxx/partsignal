@@ -140,6 +140,12 @@ Mutation wrapper 不直接操作页面 UI；toast/dialog 由调用层决定；ca
 
 Products URL 与 API 查询参数显式映射：`q → search`、`pageSize → page_size`、`factStatus → fact_status`、`workflowStage → workflow_stage`。后端无需为 URL 命名增加兼容别名。
 
+### ProductDetail
+
+`GET /api/v1/products/{product_id}/detail` 是 `/products/$productId` 的独立 read model；既有 `GET /products/{product_id}` 继续只返回 `Product`。详情响应只包含页面实际消费的 compact projection：canonical `Product`、当前 approved/pending fact 摘要、内容任务数量与最近阶段、发布成果数量与最近结果、GEO compact metrics，以及服务端已排序的 typed Activity。不得返回事实或内容正文、完整跨域对象、review comment 或 Audit details。
+
+该投影在单个 PostgreSQL `REPEATABLE READ` 请求事务内形成，并以固定次数批量查询相关实体；浏览器不得调用事实、内容、发布、GEO 或审计接口自行 join。Activity 的权威来源是各领域追加记录及 Product 成功审计，按 `timestamp DESC, kind ASC, source id DESC` 排序后由服务端截取最近 10 项；前端不合并或重新排序多个时间线。
+
 ### ContentTaskListItem
 
 至少包含 id/identifier/product/platform/workflow_stage/primary_task/current content summary/updated_at。

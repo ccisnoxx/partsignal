@@ -278,6 +278,24 @@ export interface paths {
         patch: operations["updateProduct"];
         trace?: never;
     };
+    "/api/v1/products/{product_id}/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: components["parameters"]["ProductId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getProductDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/products/{product_id}/facts": {
         parameters: {
             query?: never;
@@ -2052,6 +2070,88 @@ export interface components {
             brand: string;
             category: string;
             status: components["schemas"]["ProductStatus"];
+        };
+        ProductDetailApprovedFact: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            /** @enum {string} */
+            status: "APPROVED";
+            classification: components["schemas"]["Confidentiality"];
+            /** Format: date-time */
+            approved_at: string | null;
+        };
+        ProductDetailPendingFact: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            /** @enum {string} */
+            status: "PENDING_REVIEW" | "CHANGES_REQUESTED";
+            classification: components["schemas"]["Confidentiality"];
+            /** Format: date-time */
+            created_at: string;
+        };
+        ProductDetailContentTaskSummary: {
+            /** Format: uuid */
+            task_id: string;
+            /** @enum {string} */
+            workflow_stage: "NO_DRAFT" | "GENERATING" | "GENERATION_FAILED" | "DRAFT" | "REVIEW_PENDING" | "CHANGES_REQUESTED" | "APPROVED" | "PUBLISHING" | "VERIFIED" | "CANCELLED";
+            /** Format: date-time */
+            created_at: string;
+        };
+        ProductDetailContentSummary: {
+            task_count: number;
+            latest_task: components["schemas"]["ProductDetailContentTaskSummary"] | null;
+        };
+        ProductDetailPublishingLatest: {
+            /** Format: uuid */
+            work_id: string;
+            /** Format: uuid */
+            article_id: string | null;
+            status: components["schemas"]["PublicationWorkStatus"];
+            actual_title: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ProductDetailPublishingSummary: {
+            published_article_count: number;
+            latest: components["schemas"]["ProductDetailPublishingLatest"] | null;
+        };
+        ProductDetailGeoSummary: {
+            observation_count: number;
+            article_result_count: number;
+            discovery_rate: number | null;
+            mention_rate: number | null;
+            accuracy_rate: number | null;
+        };
+        /** @enum {string} */
+        ProductDetailActivityKind: "PRODUCT" | "FACT_REVIEW" | "CONTENT_TASK" | "CONTENT_REVIEW" | "PUBLICATION" | "GEO_OBSERVATION";
+        /** @enum {string} */
+        ProductDetailActivityTargetKind: "PRODUCT" | "FACT_VERSION" | "CONTENT_TASK" | "CONTENT_VERSION" | "PUBLICATION_WORK" | "GEO_OBSERVATION";
+        ProductDetailActivityTarget: {
+            kind: components["schemas"]["ProductDetailActivityTargetKind"];
+            /** Format: uuid */
+            id: string;
+            label: string;
+        };
+        ProductDetailActivityItem: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["ProductDetailActivityKind"];
+            label: string;
+            /** Format: date-time */
+            timestamp: string;
+            actor: components["schemas"]["ActorSummary"] | null;
+            target: components["schemas"]["ProductDetailActivityTarget"];
+        };
+        ProductDetail: {
+            product: components["schemas"]["Product"];
+            approved_fact: components["schemas"]["ProductDetailApprovedFact"] | null;
+            pending_fact: components["schemas"]["ProductDetailPendingFact"] | null;
+            content: components["schemas"]["ProductDetailContentSummary"];
+            publishing: components["schemas"]["ProductDetailPublishingSummary"];
+            geo: components["schemas"]["ProductDetailGeoSummary"];
+            activity: components["schemas"]["ProductDetailActivityItem"][];
         };
         ProductFactSummary: {
             version: number;
@@ -4879,7 +4979,35 @@ export interface operations {
                     "application/json": components["schemas"]["Product"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getProductDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: components["parameters"]["ProductId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 单次请求可完整绘制的产品详情读模型 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductDetail"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     getProductFactsDraft: {

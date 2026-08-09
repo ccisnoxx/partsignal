@@ -1,18 +1,14 @@
 import { z } from 'zod';
 
 import type { components } from '@/shared/api/generated/schema';
+import { productIdentityField } from './product.model';
 
 type ProductCreate = components['schemas']['ProductCreate'];
 
-const productField = (label: string) => z.string()
-  .trim()
-  .min(1, `${label}不能为空`)
-  .max(160, `${label}不能超过 160 个字符`);
-
 const newProductFormSchema = z.object({
-  part_number: productField('产品型号'),
-  brand: productField('品牌'),
-  category: productField('类别'),
+  part_number: productIdentityField('产品型号'),
+  brand: productIdentityField('品牌'),
+  category: productIdentityField('类别'),
 });
 
 type NewProductFormValues = z.infer<typeof newProductFormSchema>;

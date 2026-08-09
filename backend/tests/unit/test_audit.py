@@ -90,6 +90,18 @@ def test_audit_only_accepts_successful_allowlisted_actions() -> None:
         validate_audit_entry(audit_entry(action="content_task.created"))
 
 
+@pytest.mark.parametrize("action", ["product.created", "product.updated"])
+def test_product_write_actions_are_retained(action: str) -> None:
+    """Product Detail Activity 依赖的产品写入必须属于成功审计白名单。"""
+    validate_audit_entry(
+        audit_entry(
+            business_module=AuditModule.PRODUCT_FACTS,
+            action=action,
+            target_type="Product",
+        )
+    )
+
+
 def test_read_projection_ignores_unknown_and_sensitive_stored_details() -> None:
     record = AuditLog(
         id=uuid.uuid4(),

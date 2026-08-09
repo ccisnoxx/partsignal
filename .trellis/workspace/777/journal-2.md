@@ -344,28 +344,34 @@
 
 完成发布管理跨层重构、E2E 回归恢复、本地与预发布数据库重建、备份恢复验证、部署及 UAT；失败核验后复核成功与显式关闭分支均通过。
 
-### Main Changes
+### 主要变更
 
-- Detailed change bullets were not supplied; see the summary above.
+- 新增独立 Product Detail read-model contract，由后端在单次一致性投影中返回产品、事实、内容、发布、GEO 与已排序 Activity 摘要。
+- 实现 `/products/$productId` Product domain 页面、查询预取、错误分流、服务端动作映射，以及基本信息 UPDATE 和 revision-aware DELETE 体验。
+- 同步 OpenAPI、两套 generated frontend types、frontend-v2 架构/交互/迁移/验收文档与稳定 Trellis 规则。
 
-### Git Commits
+### Git 提交
 
 | Hash | Message |
 |------|---------|
 | `12b2352` | (see git log) |
 | `deb4286` | (see git log) |
 
-### Testing
+### 验证
 
-- Validation was not recorded for this session.
+- `make contract-check`
+- Backend Ruff、Mypy（71 files）、目标 unit tests（35）、PostgreSQL integration tests（2）
+- Frontend V1 typecheck；Frontend V2 API check、unit/component tests（31）、lint、typecheck、build
+- Product Detail Playwright（34），并完成 console、pageerror、requestfailed 审计
+- Trellis task validate 与 `git diff --check main...HEAD`
 
-### Status
+### 状态
 
-[OK] **Completed**
+[OK] **已完成**
 
-### Next Steps
+### 后续
 
-- None - task complete
+- 无；本 Task 已完成并归档，不开始下一项业务开发。
 
 
 ## Session 69: 发布管理重构快速重新上线
@@ -1265,6 +1271,40 @@
 | Hash | Message |
 |------|---------|
 | `8eacdc1` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 96: Frontend V2 Product Detail
+
+**Date**: 2026-08-09
+**Task**: Frontend V2 Product Detail
+**Branch**: `codex/frontend-v2-product-detail`
+
+### Summary
+
+完成 Product Detail 单请求 read model、Product domain 第二消费者抽象、UPDATE/DELETE UX、文档一致性核对与完整验证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e732aa8` | (see git log) |
+| `2076588` | (see git log) |
 
 ### Testing
 

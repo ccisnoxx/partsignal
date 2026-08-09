@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 95
+- **Total Sessions**: 96
 - **Last Active**: 2026-08-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1275 | Active |
+| `journal-2.md` | ~1313 | Active |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 96 | 2026-08-09 | Frontend V2 Product Detail | `e732aa8`, `2076588` | `codex/frontend-v2-product-detail` |
 | 95 | 2026-08-09 | Frontend V2 Phase 2.3 — New Product | `8eacdc1` | `codex/frontend-v2-new-product` |
 | 94 | 2026-08-09 | Frontend V2 Phase 2.2 Products List 抽象回顾 | `dc9c551` | `codex/frontend-v2-products-list-abstraction-review` |
 | 93 | 2026-08-09 | Frontend V2 Products List 收口 | `4e21412` | `codex/frontend-v2-products-list` |

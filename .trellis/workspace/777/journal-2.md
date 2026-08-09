@@ -271,7 +271,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 修复删除条件重新检查后无条件关闭弹窗的问题，继续由最新 Product query projection 决定弹窗状态。
+- 收窄 AppShell 测试中的 Product API mock，并删除 unit/component/E2E 之间的重复覆盖。
+- 完成 Product domain、Design System/shared 归属复核；未新增 shared abstraction、依赖、路由或业务能力。
 
 ### Git Commits
 
@@ -281,7 +283,10 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- Targeted Vitest：3 files、15 tests 通过。
+- Frontend V2 lint、typecheck 通过。
+- Products Playwright：mobile/desktop 共 10 tests 通过，使用 production artifact。
+- `git diff --check` 与 Trellis task validation 通过。
 
 ### Status
 
@@ -1190,6 +1195,39 @@
 | Hash | Message |
 |------|---------|
 | `4e21412` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 94: Frontend V2 Phase 2.2 Products List 抽象回顾
+
+**Date**: 2026-08-09
+**Task**: Frontend V2 Phase 2.2 Products List 抽象回顾
+**Branch**: `codex/frontend-v2-products-list-abstraction-review`
+
+### Summary
+
+完成 Products List 抽象回顾：修复删除条件刷新后错误关闭，收窄 AppShell mock，去除跨测试层重复；针对性 Vitest、lint、typecheck 与 Products Playwright 通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `dc9c551` | (see git log) |
 
 ### Testing
 

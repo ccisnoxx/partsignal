@@ -1426,3 +1426,42 @@
 ### 后续
 
 - Task 已完成并归档；不在本次收尾中开始 Phase 2.8。
+
+
+## Session 100: Frontend V2 Phase 2.8 Product Facts 真实 E2E 收口
+
+**Date**: 2026-08-10
+**Task**: Frontend V2 Phase 2.8 Product Facts 真实 E2E 收口
+**Branch**: `codex/frontend-v2-product-facts-e2e-review`
+
+### 摘要
+
+完成 Product Facts 两条真实 PostgreSQL/FastAPI/V2 production artifact 闭环，复用既有 E2E orchestration，并完成有证据的 confidentiality 映射去重与 Phase 2 缺口记录。
+
+### 主要变更
+
+- 新增 Flow A/Flow B 真实栈 Playwright，用 V2 页面执行全部业务状态变更。
+- 最小扩展既有 `deploy/scripts/e2e-local.sh`，运行 V2 production artifact 并复用独立数据库生命周期。
+- 合并 Product confidentiality 映射的重复来源，未新增通用测试或页面抽象。
+- 明确 Content Task UI 与 Fact History 列表缺口，Phase 2 exit gate 保持未满足。
+
+### Git 提交
+
+| Hash | Message |
+|------|---------|
+| `d4fd333` | (see git log) |
+
+### 验证
+
+- V2 真实栈 Product Facts Flow A/Flow B：2/2 通过。
+- Product domain 单测：63/63 通过；PostgreSQL integration：5/5 通过。
+- V2 lint、typecheck、production build、`make contract-check` 通过。
+- 完整 fixture/V1 套件仍有已记录的范围外失败，未伪报全绿。
+
+### 状态
+
+[OK] **已完成**
+
+### 后续
+
+- Phase 3 实现 Content Task UI；另建独立 task 补齐 Fact History 列表。

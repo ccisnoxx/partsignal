@@ -27,16 +27,16 @@
 
 ## 验收标准
 
-- [ ] 直接访问 `/products/{id}/facts` 只发一个 Workspace GET 即可绘制全部上下文。
-- [ ] ACTIVE 空工作区可编辑并保存；canonical revision 更新，dirty 状态清除。
-- [ ] stale SAVE/SUBMIT 返回 `REVISION_CONFLICT`，本地 Markdown 保留，显式 reload 后才采用最新服务端值。
-- [ ] 保存后的草稿可提交审核，返回 `PENDING_REVIEW vN`，页面不跳转 Fact Review，refetch 后服务端动作与 pending 摘要更新。
-- [ ] 后续 Workspace 保存不会修改既有 FactVersion snapshot；已有 pending 时不可重复提交。
-- [ ] RETIRED 工作区只读且无动作，服务端拒绝绕过 UI 的保存/提交请求。
-- [ ] 空白 Markdown 和空白 change summary 在服务端边界失败，合法 Markdown 原样保存。
-- [ ] DirtyGuard、错误状态、成功 live feedback、keyboard/focus 和四档响应式行为有自动化覆盖。
-- [ ] OpenAPI、runtime schema、V1/V2 generated clients、backend 和 frontend 类型一致。
-- [ ] required validation 全部通过，diff 不包含 Fact Review、数据库迁移、新依赖或无关修改。
+- [x] 直接访问 `/products/{id}/facts` 只发一个 Workspace GET 即可绘制全部上下文。
+- [x] ACTIVE 空工作区可编辑并保存；canonical revision 更新，dirty 状态清除。
+- [x] stale SAVE/SUBMIT 返回 `REVISION_CONFLICT`，本地 Markdown 保留，显式 reload 后才采用最新服务端值。
+- [x] 保存后的草稿可提交审核，返回 `PENDING_REVIEW vN`，页面不跳转 Fact Review，refetch 后服务端动作与 pending 摘要更新。
+- [x] 后续 Workspace 保存不会修改既有 FactVersion snapshot；已有 pending 时不可重复提交。
+- [x] RETIRED 工作区只读且无动作，服务端拒绝绕过 UI 的保存/提交请求。
+- [x] 空白 Markdown 和空白 change summary 在服务端边界失败，合法 Markdown 原样保存。
+- [x] DirtyGuard、错误状态、成功 live feedback、keyboard/focus 和四档响应式行为有自动化覆盖。
+- [x] OpenAPI、runtime schema、V1/V2 generated clients、backend 和 frontend 类型一致。
+- [x] required validation 全部通过，diff 不包含 Fact Review、数据库迁移、新依赖或无关修改。
 
 ## 排除项
 

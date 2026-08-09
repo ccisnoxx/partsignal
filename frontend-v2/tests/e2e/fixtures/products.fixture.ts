@@ -171,7 +171,7 @@ function createProductFacts(item: ProductListItem): ProductFactsDraft {
       brand: item.brand,
       category: item.category,
       status: item.status,
-      workflow_stage: item.workflow_stage,
+      workflow_stage: item.status === 'RETIRED' ? 'RETIRED' : 'FACTS_EDITING',
     },
     body_markdown: '## 产品事实\n\n- 工作电压：3.3V',
     classification: 'INTERNAL',

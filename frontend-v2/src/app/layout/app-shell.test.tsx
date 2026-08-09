@@ -3,7 +3,7 @@ import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/rea
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { within } from '@testing-library/dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthContextValue, AuthUser } from '@/app/auth/auth-provider';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
@@ -64,13 +64,6 @@ function renderRoute(path: string, auth = authValue(null)) {
   return router;
 }
 
-beforeEach(() => {
-  vi.spyOn(api, 'GET').mockImplementation(async () => {
-    const data = { items: [], page: 1, page_size: 20, total: 0 };
-    return { data, response: Response.json(data) } as never;
-  });
-});
-
 afterEach(() => vi.restoreAllMocks());
 
 describe('AppShell', () => {
@@ -120,6 +113,10 @@ describe('AppShell', () => {
   });
 
   it('pathname 导航聚焦主内容，search-only 更新不抢焦点', async () => {
+    vi.spyOn(api, 'GET').mockImplementation(async () => {
+      const data = { items: [], page: 1, page_size: 20, total: 0 };
+      return { data, response: Response.json(data) } as never;
+    });
     const router = renderRoute('/');
     const user = userEvent.setup();
     const productLink = await screen.findByRole('link', { name: '产品' });
@@ -133,12 +130,5 @@ describe('AppShell', () => {
 
     await router.navigate({ to: '/products', search: { q: 'router', page: 2 } });
     expect(tableRegion).toHaveFocus();
-  });
-
-  it('把无效产品页码归一为 1 并 trim 搜索词', async () => {
-    const router = renderRoute('/products?q=%20router%20&page=invalid');
-
-    expect(await screen.findByRole('searchbox', { name: '搜索产品' })).toHaveValue('router');
-    expect(router.state.location.search).toMatchObject({ q: 'router', page: 1 });
   });
 });

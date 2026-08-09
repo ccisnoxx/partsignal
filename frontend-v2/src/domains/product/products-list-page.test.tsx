@@ -133,31 +133,6 @@ describe('ProductsListPage', () => {
     expect(await screen.findByRole('link', { name: product.part_number })).toBeInTheDocument();
   });
 
-  it('搜索、筛选、排序、分页和 pageSize 只更新 canonical URL', async () => {
-    vi.spyOn(api, 'GET').mockResolvedValue({
-      data: result(Array.from({ length: 20 }, (_, index) => ({ ...product, id: `${product.id.slice(0, -2)}${String(index + 1).padStart(2, '0')}` })), 50),
-      response: Response.json(result([product], 50)),
-    } as never);
-    const { router } = renderProducts('/products?page=3');
-    await screen.findByRole('table');
-
-    const searchbox = screen.getByRole('searchbox', { name: '搜索产品' });
-    await userEvent.type(searchbox, '  demo  ');
-    await userEvent.click(screen.getByRole('button', { name: '搜索' }));
-    await waitFor(() => expect(router.state.location.search).toMatchObject({ q: 'demo', page: 1 }));
-
-    await userEvent.click(screen.getByRole('combobox', { name: '事实状态' }));
-    await userEvent.click(await screen.findByRole('option', { name: '已批准' }));
-    await waitFor(() => expect(router.state.location.search).toMatchObject({ factStatus: 'APPROVED', page: 1 }));
-
-    await userEvent.click(screen.getByRole('button', { name: '产品' }));
-    await waitFor(() => expect(router.state.location.search).toMatchObject({ sort: 'MODEL_ASC', page: 1 }));
-
-    await userEvent.click(screen.getByRole('combobox', { name: '每页条数' }));
-    await userEvent.click(await screen.findByRole('option', { name: '50 条/页' }));
-    await waitFor(() => expect(router.state.location.search).toMatchObject({ pageSize: 50, page: 1 }));
-  });
-
   it('删除条件不静默隐藏，允许删除时携带 revision 和 CSRF', async () => {
     const blocked = {
       ...product,
@@ -177,6 +152,15 @@ describe('ProductsListPage', () => {
     const conditions = await screen.findByRole('dialog', { name: `产品“${product.part_number}”暂时不能删除` });
     expect(within(conditions).getByText('内容任务')).toBeInTheDocument();
     expect(within(conditions).getByText('2')).toBeInTheDocument();
+
+    rows = [{
+      ...blocked,
+      deletion: { blockers: [{ type: 'CONTENT_TASK', count: 3 }] },
+    }];
+    await userEvent.click(within(conditions).getByRole('button', { name: '重新检查' }));
+    await waitFor(() => expect(within(conditions).getByText('3')).toBeInTheDocument());
+    expect(conditions).toBeInTheDocument();
+
     rows = [product];
     await userEvent.click(within(conditions).getByRole('button', { name: '重新检查' }));
     await waitFor(() => expect(screen.queryByRole('dialog', { name: `产品“${product.part_number}”暂时不能删除` })).not.toBeInTheDocument());

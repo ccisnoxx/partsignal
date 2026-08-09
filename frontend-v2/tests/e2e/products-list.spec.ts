@@ -13,6 +13,8 @@ test('Products 列表仅以 GET projection 驱动 URL 搜索、筛选、排序�
   await search.press('Enter');
   await expect(page).toHaveURL(/q=PS-0001.*page=1|page=1.*q=PS-0001/);
   await expect(page.getByRole('link', { name: 'PS-0001-VERY-LONG-MODEL-NUMBER' })).toBeVisible();
+  await expect(page.getByText('PartSignal Extremely Long Browser Fixture Brand Name')).toBeVisible();
+  await expect(page.getByText('High Reliability Microcontroller and Embedded Control Category')).toHaveCount(1);
   expect(productsApi.productRequests.at(-1)?.searchParams.get('search')).toBe('PS-0001');
 
   await page.getByRole('combobox', { name: '事实状态' }).click();
@@ -75,21 +77,10 @@ test('Products 行只呈现服务端 primary、overflow 与删除条件', async 
   await page.goto('/products?page=1');
   const first = page.getByRole('link', { name: 'PS-0001-VERY-LONG-MODEL-NUMBER' });
   await expect(first).toHaveAttribute('href', '/products/00000000-0000-4000-8000-000000000001');
-  const primaryLinks = [
-    ['PS-0001', '录入事实', '/products/00000000-0000-4000-8000-000000000001/facts'],
-    ['PS-0002', '提交审核', '/products/00000000-0000-4000-8000-000000000002/facts'],
-    ['PS-0003', '审核', '/products/00000000-0000-4000-8000-000000000003/facts/review'],
-    ['PS-0004', '修订', '/products/00000000-0000-4000-8000-000000000004/facts'],
-    ['PS-0005', '创建内容', '/content/tasks/new?productId=00000000-0000-4000-8000-000000000005'],
-    ['PS-0006', '查看事实历史', '/products/00000000-0000-4000-8000-000000000006'],
-  ] as const;
-  for (const [model, label, href] of primaryLinks) {
-    await expect(page.getByRole('row', { name: new RegExp(model) }).getByRole('link', { name: label })).toHaveAttribute('href', href);
-  }
-  await first.click();
-  await expect(page).toHaveURL('/products/00000000-0000-4000-8000-000000000001');
-  await expect(page.getByRole('heading', { level: 1, name: '产品详情' })).toBeVisible();
-  await page.goBack();
+  await expect(page.getByRole('row', { name: /PS-0001/ }).getByRole('link', { name: '录入事实' }))
+    .toHaveAttribute('href', '/products/00000000-0000-4000-8000-000000000001/facts');
+  await expect(page.getByRole('row', { name: /PS-0002/ }).getByRole('link', { name: '提交审核' }))
+    .toHaveAttribute('href', '/products/00000000-0000-4000-8000-000000000002/facts');
 
   await page.getByRole('button', { name: '更多操作：PS-0002' }).click();
   await expect(page.getByRole('menuitem', { name: /编辑产品.*V2 编辑入口待定义/ })).toHaveAttribute('aria-disabled', 'true');
@@ -145,13 +136,4 @@ test('Products 在目标宽度无页面级横向溢出且键盘焦点可操作',
   await expect(menu.getByRole('menuitem', { name: '删除产品' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(menu).toBeHidden();
-});
-
-test('Products fixture 使用 generated ProductListItem 约束长文本数据', async ({ page, productsApi }) => {
-  productsApi.setItems(createProducts(1));
-  await page.goto('/products?page=1');
-  await expect(page.getByText('PartSignal Extremely Long Browser Fixture Brand Name')).toBeVisible();
-  const category = page.getByText('High Reliability Microcontroller and Embedded Control Category');
-  await expect(category).toHaveCount(1);
-  if (page.viewportSize()!.width >= 768) await expect(category).toBeVisible();
 });

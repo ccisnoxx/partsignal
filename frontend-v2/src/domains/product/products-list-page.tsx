@@ -245,7 +245,6 @@ function ProductsListPage({ csrfToken, onSearchChange, search }: ProductsListPag
         onClose={() => setConditionsProductId(null)}
         onRefresh={async () => {
           await products.refetch();
-          setConditionsProductId(null);
         }}
       />
     </section>

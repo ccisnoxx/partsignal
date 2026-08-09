@@ -9,6 +9,7 @@ bootstrap:
 	@test -f .env || cp .env.example .env
 	$(UV) sync --project backend --all-extras
 	npm --prefix frontend ci
+	npm --prefix frontend-v2 ci
 
 contract-generate:
 	npm --prefix frontend run api:generate
@@ -16,6 +17,7 @@ contract-generate:
 contract-check:
 	$(UV) run --project backend python -m app.tools.contract_check contracts/openapi.yaml
 	npm --prefix frontend run api:check
+	npm --prefix frontend-v2 run api:check
 
 dev:
 	@test -f .env || cp .env.example .env
@@ -36,24 +38,29 @@ seed-demo:
 lint:
 	$(UV) run --project backend ruff check backend
 	npm --prefix frontend run lint
+	npm --prefix frontend-v2 run lint
 
 typecheck:
 	$(UV) run --project backend mypy --config-file backend/pyproject.toml backend/app
 	npm --prefix frontend run typecheck
+	npm --prefix frontend-v2 run typecheck
 
 test-unit:
 	$(UV) run --project backend pytest backend/tests/unit
 	npm --prefix frontend run test
+	npm --prefix frontend-v2 run test
 
 test-integration:
 	$(COMPOSE) run --rm backend-test
 
 e2e:
 	deploy/scripts/e2e-local.sh
+	npm --prefix frontend-v2 run e2e
 
 build:
 	docker build -f backend/Dockerfile -t partsignal-backend:test backend
 	docker build -f frontend/Dockerfile -t partsignal-frontend:test frontend
+	npm --prefix frontend-v2 run build
 
 verify: contract-check lint typecheck test-unit test-integration build e2e
 	$(COMPOSE) config --quiet

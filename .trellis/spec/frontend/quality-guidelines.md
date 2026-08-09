@@ -102,6 +102,57 @@ vite --config vite.config.ts [vite arguments...]
 - 真实浏览器在浅色、深色、跟随系统三种模式下检查 375/768/1024/1440px、实际 200% 缩放和键盘链；宽表只能在 `TableRegion` 内溢出。
 - `emulateMedia`、主题或响应式状态切换可能重挂载布局。切换后的几何断言必须重新查询当前已连接节点，并先轮询关键尺寸稳定；不得把旧节点的零尺寸误判为生产 CSS 缺陷。
 
+## 场景：V1/V2 根质量入口与 V2 Foundation Smoke
+
+### 1. 适用范围
+
+- 修改根 `Makefile`、Frontend V2 测试脚本或 Foundation Playwright smoke 时适用。
+
+### 2. 命令签名
+
+```bash
+make bootstrap contract-check lint typecheck test-unit build e2e verify
+npm --prefix frontend-v2 run e2e -- [Playwright arguments...]
+```
+
+### 3. 合同
+
+- 根 `bootstrap`、`contract-check`、`lint`、`typecheck`、`test-unit`、`build` 和 `e2e` 必须顺序保留 V1 命令并运行对应 V2 script；任一命令非零时 target 失败。
+- V2 Playwright 由 `frontend-v2/playwright.config.ts` 管理，`webServer` 必须先执行 `npm run build` 再运行 `vite preview`；不得以 Vite dev server 代替 production artifact。
+- Foundation smoke 只通过显式 `foundationApi` fixture 隔离匿名 `GET /api/v1/auth/me`；其他 API、页面异常、失败请求或失败静态资源均使测试失败。
+- `frontend-v2/vite.config.ts` 必须在保留 Vitest 默认 exclude 的基础上排除 `tests/e2e/**`，避免 Playwright spec 被 Vitest 当成 unit suite。
+
+### 4. 验证与错误矩阵
+
+| 条件 | 预期结果 |
+| --- | --- |
+| V1 或 V2 npm script 失败 | 对应 Make target 与 `make verify` 非零退出 |
+| V2 production build/preview 未就绪 | Playwright webServer 启动失败，不执行固定成功测试 |
+| 未声明 `/api/v1/**` 请求 | `foundationApi` 记录请求并使 smoke 失败 |
+| route chunk 在下一次导航前仍加载 | 测试先等待目标页面渲染，不过滤 `requestfailed` |
+| Playwright spec 被 Vitest 导入 | V2 unit 门禁失败，修复测试发现边界而非跳过 suite |
+
+### 5. Good / Base / Bad
+
+- Good：`make verify` 同时覆盖 V1/V2，V2 smoke 对真实 build artifact 验证 375/1440 的 App Shell 与 Router。
+- Base：Foundation 使用明确 fixture 且不请求业务数据；真实业务 E2E 从 Products List Task 开始。
+- Bad：删除 V1 检查、在运行时代码加入 mock fallback、过滤 console/request failure，或用 dev server 冒充 production smoke。
+
+### 6. 必需测试
+
+- `npm --prefix frontend-v2 run e2e -- tests/e2e/foundation-smoke.spec.ts`：两个 project 均通过。
+- V1/V2 `api:check`、lint、typecheck、test 和 build 分别通过。
+- 修改后的根 targets 通过，最后运行 `make verify`。
+
+### 7. Wrong vs Correct
+
+```text
+Wrong: Vite dev server + 固定成功 API fallback + 忽略 console/request failure
+Correct: production build + vite preview + 显式匿名 fixture + 未声明请求/运行时错误直接失败
+```
+
+## 浏览器与 jsdom 测试边界
+
 ```ts
 // 错误：媒体切换前解析元素，重挂载后可能继续量测失效节点。
 const content = await page.locator('.app-content').elementHandle();

@@ -143,6 +143,16 @@ insight anomaly → server revalidate → create optimization task。
 
 生产构建必须对真实 build artifact 跑 smoke，而不只跑 Vite dev server。
 
+### 13.1 Foundation Production Artifact Smoke
+
+Phase 1 Foundation 使用 `frontend-v2/playwright.config.ts`，由 Playwright `webServer` 先执行 production build，再通过 `vite preview` 服务当前 `dist`。同一 smoke 分别在 375×900 和 1440×1000 验证：
+
+- `/`、`/products` direct URL 与 `/products` refresh；
+- App Shell、desktop Sidebar、mobile navigation、breadcrumb 与 active navigation；
+- 未捕获异常、`console.error`、失败请求和失败静态资源均为失败。
+
+Foundation 尚未接管真实业务后端。测试只能通过显式命名的 Playwright fixture 隔离认证启动请求；fixture 不得进入运行时代码，任何未声明 API 请求必须失败。本 smoke 不读取 Products 业务数据，也不替代自 Products List 起的真实业务 Playwright。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

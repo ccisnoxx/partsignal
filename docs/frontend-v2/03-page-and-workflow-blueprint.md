@@ -99,7 +99,11 @@ Markdown 是唯一编辑源。保存与提交都发送当前基线的 `expected_
 
 ## 3.5 `/products/$productId/facts/review`
 
-Pattern：Workspace。左侧不可变 Fact Snapshot/Evidence，右侧 Diff、Blocking Issues、Review History；底部 `[退回修改] [批准事实]`。
+Pattern：Workspace。页面只请求 `GET /api/v1/products/{product_id}/fact-review-context`，由服务端优先定位唯一 `PENDING_REVIEW` 版本，否则返回该产品最新 FactVersion；产品存在但没有事实版本时返回 empty context。浏览器不得通过 Product Detail、Facts 或版本列表拼接审核目标。
+
+主区使用只读 Markdown Preview 展示不可变 Fact Snapshot；上下文区显示数据级别、版本、状态、提交摘要和 revision；参考区显示服务端基于紧邻前序 FactVersion 计算的 Diff，以及仅属于目标 `fact_version_id` 的 Review History。当前事实模型没有 Evidence 或 Blocking Issues，本页不恢复 Evidence，也不创建页面本地质量规则或占位结果。
+
+底部动作只消费 `available_actions` 中的 `APPROVE` / `REQUEST_CHANGES`。两者发送 CSRF 与 `expected_revision`，退回意见必须非空；服务端仍最终校验权限、状态、revision 和意见。成功后采用 canonical FactVersion 并刷新当前 context，409 不自动重放命令，审核完成后停留当前 route。
 
 ## 3.5 Fact History
 

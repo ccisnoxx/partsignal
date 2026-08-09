@@ -14,8 +14,11 @@ type Product = components['schemas']['Product'];
 type ProductDetail = components['schemas']['ProductDetail'];
 type ProductFactsDraft = components['schemas']['ProductFactsDraft'];
 type ProductFactsDraftUpdate = components['schemas']['ProductFactsDraftUpdate'];
+type ProductFactReviewWorkspace = components['schemas']['ProductFactReviewWorkspace'];
 type FactReviewSubmissionRequest = components['schemas']['FactReviewSubmissionRequest'];
 type FactVersion = components['schemas']['FactVersion'];
+type CommandRequest = components['schemas']['CommandRequest'];
+type RequestChangesCommand = components['schemas']['RequestChangesCommand'];
 type ProductUpdate = components['schemas']['ProductUpdate'];
 
 class ProductRequestError extends Error {
@@ -36,6 +39,7 @@ const productsKeys = {
   detail: (productId: string) => ['products', 'detail', productId] as const,
   facts: () => ['products', 'facts'] as const,
   fact: (productId: string) => ['products', 'facts', productId] as const,
+  factReview: (productId: string) => ['products', 'fact-review', productId] as const,
 };
 
 function productsListQueryOptions(search: ProductsSearch) {
@@ -88,6 +92,23 @@ function productFactsQueryOptions(productId: string) {
   });
 }
 
+function productFactReviewQueryOptions(productId: string) {
+  return queryOptions({
+    queryKey: productsKeys.factReview(productId),
+    queryFn: async (): Promise<ProductFactReviewWorkspace> => {
+      const result = await api.GET('/api/v1/products/{product_id}/fact-review-context', {
+        params: { path: { product_id: productId } },
+      });
+      if (!result.data) throw productRequestError('读取事实审核工作台', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
 async function replaceProductFacts(
   productId: string,
   body: ProductFactsDraftUpdate,
@@ -120,6 +141,41 @@ async function submitProductFactReview(
   });
   if (result.data) return result.data;
   throw productRequestError('提交事实审核', result);
+}
+
+async function approveFactVersion(
+  factVersionId: string,
+  expectedRevision: number,
+  csrfToken: string | null,
+): Promise<FactVersion> {
+  if (!csrfToken) throw new ProductRequestError('缺少会话安全令牌，无法批准事实版本');
+  const body = { expected_revision: expectedRevision, comment: '' } satisfies CommandRequest;
+  const result = await api.POST('/api/v1/fact-versions/{fact_version_id}/approve', {
+    body,
+    params: {
+      path: { fact_version_id: factVersionId },
+      header: { 'X-CSRF-Token': csrfToken },
+    },
+  });
+  if (result.data) return result.data;
+  throw productRequestError('批准事实版本', result);
+}
+
+async function requestFactVersionChanges(
+  factVersionId: string,
+  body: RequestChangesCommand,
+  csrfToken: string | null,
+): Promise<FactVersion> {
+  if (!csrfToken) throw new ProductRequestError('缺少会话安全令牌，无法退回事实版本');
+  const result = await api.POST('/api/v1/fact-versions/{fact_version_id}/request-changes', {
+    body,
+    params: {
+      path: { fact_version_id: factVersionId },
+      header: { 'X-CSRF-Token': csrfToken },
+    },
+  });
+  if (result.data) return result.data;
+  throw productRequestError('退回事实版本', result);
 }
 
 async function updateProduct(
@@ -220,14 +276,17 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
 
 export {
   ProductRequestError,
+  approveFactVersion,
   deleteProduct,
   mapProductFormError,
   productDetailQueryOptions,
+  productFactReviewQueryOptions,
   productFactsQueryOptions,
   productRequestError,
   productsKeys,
   productsListQueryOptions,
   replaceProductFacts,
+  requestFactVersionChanges,
   submitProductFactReview,
   updateProduct,
 };

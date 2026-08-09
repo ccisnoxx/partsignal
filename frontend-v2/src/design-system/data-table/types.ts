@@ -14,6 +14,7 @@ interface ActionConfirmation {
   title: string;
   description: string;
   confirmLabel?: string;
+  intent?: 'default' | 'destructive';
 }
 
 type PrimaryRowAction = ActionTarget & {

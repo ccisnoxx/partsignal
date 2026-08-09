@@ -373,7 +373,8 @@ messages = [
 
 ### 2. 签名
 
-- 读取接口：`GET /api/v1/fact-versions/{fact_version_id}/review-context`。
+- 精确版本读取接口：`GET /api/v1/fact-versions/{fact_version_id}/review-context`。
+- 产品级工作台读取接口：`GET /api/v1/products/{product_id}/fact-review-context`，由服务端优先选择唯一 `PENDING_REVIEW`，否则选择最新 FactVersion。
 - 审核记录 owner：`fact_review_records.fact_version_id -> fact_versions.id`。
 - 业务审计 owner：`audit_logs.target_type="FactVersion"` 且 `target_id=<fact_version_id>`。
 
@@ -381,7 +382,9 @@ messages = [
 
 - `FactReviewContext.fact_version.id` 必须等于路径 `fact_version_id`。
 - `review_history` 每项 `target_id` 必须等于同一路径 ID，只返回该版本自身的追加式审核记录。
-- 前端按选中版本 ID 请求并原样展示服务端投影，不增加产品级拼接、兼容过滤或第二 owner。
+- 两个 context 都必须把 `review_history` 精确限制在目标版本；产品级工作台不得改为产品聚合历史。
+- 前端按 route 对应的单一 context 请求原样展示服务端投影，不增加 Product Detail、Facts、Versions 拼接、兼容过滤或第二 owner。
+- Fact Diff 只比较目标版本与同产品紧邻前序版本；首版本为 `null`，不按批准状态跳过版本。
 - 内容审核仍可按同一任务累计到目标内容版本；不得因事实版本修复改动 `_content_history`。
 - 若未来需要产品级时间线，必须新增明确命名和分区的独立契约，不能复用版本详情冒充。
 
@@ -392,6 +395,7 @@ messages = [
 | `fact_version_id` 不存在 | `404`，不返回其他版本历史 |
 | 同产品 V1、V2 都有审核记录 | V1、V2 上下文各自只返回自己的记录 |
 | 审核命令成功 | 同事务追加精确版本的 `FactReviewRecord` 与 `FactVersion` 审计 |
+| 产品级工作台选择目标 | 唯一 pending 优先，否则最新版本；无版本返回 empty context |
 | 产品级时间线不存在 | 不回退到 `product_id` 聚合 |
 
 ### 5. 正常、基础与失败案例
@@ -404,7 +408,7 @@ messages = [
 
 - PostgreSQL 集成测试创建同产品 V1、V2，分别执行不同状态命令，断言两个上下文的 `target_id/action/comment` 不交叉。
 - 同一测试断言对应审计的 `target_type/target_id` 精确指向各自版本。
-- 前端组件测试点击 V2 行，断言请求 V2 `review-context` 且不展示 V1-only 事件。
+- 前端组件测试断言 productId route 只请求产品级 context，且目标历史不展示兄弟版本事件。
 - 契约测试与生成类型检查必须通过；响应字段结构保持不变。
 
 ### 7. 错误与正确示例

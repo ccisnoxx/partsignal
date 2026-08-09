@@ -39,6 +39,7 @@ from app.schemas.content import (
     ContentTaskProductSummary,
     ContentVersionOut,
     DiffLine,
+    FactVersionDiff,
 )
 from app.schemas.product_facts import FactVersionOut
 from app.schemas.publication import PlatformAccountOut
@@ -816,10 +817,10 @@ def content_tasks_out(
     return items
 
 
-def content_diff(left: ContentVersion, right: ContentVersion) -> ContentDiff:
+def _markdown_diff(left_markdown: str, right_markdown: str) -> list[DiffLine]:
     """按 Markdown 行生成稳定差异，不解释正文语义。"""
-    left_lines = left.body_markdown.splitlines()
-    right_lines = right.body_markdown.splitlines()
+    left_lines = left_markdown.splitlines()
+    right_lines = right_markdown.splitlines()
     matcher = difflib.SequenceMatcher(a=left_lines, b=right_lines, autojunk=False)
     lines: list[DiffLine] = []
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
@@ -839,4 +840,21 @@ def content_diff(left: ContentVersion, right: ContentVersion) -> ContentDiff:
                 DiffLine(kind="ADD", old_line=None, new_line=j + 1, text=right_lines[j])
                 for j in range(j1, j2)
             )
-    return ContentDiff(left_id=left.id, right_id=right.id, lines=lines)
+    return lines
+
+
+def content_diff(left: ContentVersion, right: ContentVersion) -> ContentDiff:
+    return ContentDiff(
+        left_id=left.id,
+        right_id=right.id,
+        lines=_markdown_diff(left.body_markdown, right.body_markdown),
+    )
+
+
+def fact_version_diff(left: FactVersion, right: FactVersion) -> FactVersionDiff:
+    """比较两个不可变事实版本的 Markdown 正文。"""
+    return FactVersionDiff(
+        left_id=left.id,
+        right_id=right.id,
+        lines=_markdown_diff(left.body_markdown, right.body_markdown),
+    )

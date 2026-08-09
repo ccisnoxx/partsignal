@@ -12,7 +12,11 @@ from pydantic import Field, HttpUrl, model_validator
 from app.schemas.base import ContractModel
 from app.schemas.common import DeletionProjection
 from app.schemas.configuration import PlatformLogoOut
-from app.schemas.product_facts import Confidentiality, FactVersionOut
+from app.schemas.product_facts import (
+    Confidentiality,
+    FactVersionOut,
+    ProductFactsProductContext,
+)
 
 GenerationJobStatus = Literal["PENDING", "RUNNING", "SUCCEEDED", "FAILED"]
 ContentTaskWorkflowStage = Literal[
@@ -431,6 +435,12 @@ class ContentDiff(ContractModel):
     lines: list[DiffLine]
 
 
+class FactVersionDiff(ContractModel):
+    left_id: uuid.UUID
+    right_id: uuid.UUID
+    lines: list[DiffLine]
+
+
 class ActorSummary(ContractModel):
     id: uuid.UUID
     username: str
@@ -449,8 +459,21 @@ class ReviewRecord(ContractModel):
 
 class FactReviewContext(ContractModel):
     fact_version: FactVersionOut
+    diff: FactVersionDiff | None
     available_actions: list[Literal["APPROVE", "REQUEST_CHANGES", "RETIRE"]]
     review_history: list[ReviewRecord]
+
+
+class ProductFactReviewTarget(ContractModel):
+    fact_version: FactVersionOut
+    diff: FactVersionDiff | None
+    available_actions: list[Literal["APPROVE", "REQUEST_CHANGES"]]
+    review_history: list[ReviewRecord]
+
+
+class ProductFactReviewWorkspace(ContractModel):
+    product: ProductFactsProductContext
+    review: ProductFactReviewTarget | None
 
 
 class GenerationTrace(ContractModel):

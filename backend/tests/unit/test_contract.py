@@ -91,6 +91,45 @@ def test_fact_workspace_contract_is_a_complete_single_read_model() -> None:
     }
 
 
+def test_fact_review_contract_locates_target_and_declares_command_errors() -> None:
+    """产品级审核上下文必须完整，写命令必须声明真实错误边界。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    schemas = document["components"]["schemas"]
+
+    product_context = paths["/api/v1/products/{product_id}/fact-review-context"]["get"]
+    exact_context = paths["/api/v1/fact-versions/{fact_version_id}/review-context"]["get"]
+    approve = paths["/api/v1/fact-versions/{fact_version_id}/approve"]["post"]
+    request_changes = paths["/api/v1/fact-versions/{fact_version_id}/request-changes"]["post"]
+
+    assert set(product_context["responses"]) == {"200", "401", "403", "404"}
+    assert set(exact_context["responses"]) == {"200", "401", "403", "404"}
+    assert set(approve["responses"]) == {"200", "401", "403", "404", "409", "422"}
+    assert set(request_changes["responses"]) == {
+        "200",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+    }
+    assert set(schemas["FactReviewContext"]["required"]) == {
+        "fact_version",
+        "diff",
+        "available_actions",
+        "review_history",
+    }
+    assert schemas["FactReviewDecision"]["enum"] == ["APPROVE", "REQUEST_CHANGES"]
+    assert set(schemas["ProductFactReviewTarget"]["required"]) == {
+        "fact_version",
+        "diff",
+        "available_actions",
+        "review_history",
+    }
+    assert set(schemas["ProductFactReviewWorkspace"]["required"]) == {"product", "review"}
+
+
 def test_fact_review_submission_rejects_blank_summary_before_business_command() -> None:
     """事实提交摘要只含空白时必须在请求边界返回字段级 422。"""
     csrf_token = "contract-test-csrf-token-more-than-32-characters"

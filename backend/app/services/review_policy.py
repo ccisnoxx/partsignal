@@ -10,6 +10,7 @@ from app.models.product_facts import FactVersion
 FactAction = Literal["approve", "request-changes", "retire"]
 ContentAction = Literal["submit-review", "approve", "request-changes"]
 FactReviewAction = Literal["APPROVE", "REQUEST_CHANGES", "RETIRE"]
+FactReviewDecision = Literal["APPROVE", "REQUEST_CHANGES"]
 ContentReviewAction = Literal["SUBMIT_REVIEW", "APPROVE", "REQUEST_CHANGES"]
 
 FACT_TRANSITIONS: dict[FactAction, tuple[frozenset[str], str]] = {
@@ -41,6 +42,13 @@ def fact_review_actions(fact: FactVersion) -> list[FactReviewAction]:
         for action, (sources, _target) in FACT_TRANSITIONS.items()
         if fact.status in sources
     ]
+
+
+def fact_review_decisions(fact: FactVersion) -> list[FactReviewDecision]:
+    """只投影事实审核工作台可执行的决策动作。"""
+    actions = fact_review_actions(fact)
+    decisions: tuple[FactReviewDecision, ...] = ("APPROVE", "REQUEST_CHANGES")
+    return [decision for decision in decisions if decision in actions]
 
 
 def content_review_actions(

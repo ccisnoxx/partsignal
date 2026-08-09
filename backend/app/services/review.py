@@ -1,4 +1,4 @@
-"""事实与内容审核状态机及冻结证据读取投影。"""
+"""事实与内容审核状态机及不可变快照读取投影。"""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from app.models.identity import User
 from app.models.product_facts import (
     FactReviewRecord,
     FactVersion,
+    Product,
 )
 from app.schemas.content import (
     ActorSummary,
@@ -28,14 +29,18 @@ from app.schemas.content import (
     FactReviewContext,
     GenerationTrace,
     HumanizationTrace,
+    ProductFactReviewTarget,
+    ProductFactReviewWorkspace,
     ReviewRecord,
 )
-from app.schemas.product_facts import FactVersionOut
+from app.schemas.product_facts import FactVersionOut, ProductFactsProductContext
 from app.services.content_lineage import ContentAILineage, resolve_content_ai_lineage
+from app.services.product_facts import product_workflow
 from app.services.projections import (
     content_diff,
     content_task_out,
     content_version_out,
+    fact_version_diff,
     fact_version_out,
 )
 from app.services.review_policy import (
@@ -45,6 +50,7 @@ from app.services.review_policy import (
     FactAction,
     content_review_actions,
     fact_review_actions,
+    fact_review_decisions,
 )
 
 
@@ -110,10 +116,64 @@ def get_fact_review_context(
     fact = db.get(FactVersion, fact_version_id)
     if fact is None:
         raise not_found("事实版本")
+    previous = db.scalar(
+        select(FactVersion)
+        .where(
+            FactVersion.product_id == fact.product_id,
+            FactVersion.version < fact.version,
+        )
+        .order_by(FactVersion.version.desc())
+        .limit(1)
+    )
     return FactReviewContext(
         fact_version=fact_version_out(db, fact, can_delete=can_delete),
+        diff=fact_version_diff(previous, fact) if previous is not None else None,
         available_actions=fact_review_actions(fact),
         review_history=_fact_history(db, fact),
+    )
+
+
+def get_product_fact_review_context(
+    db: Session, product_id: uuid.UUID, *, can_delete: bool
+) -> ProductFactReviewWorkspace:
+    """返回产品 route 可单次绘制的事实审核上下文。"""
+    product = db.get(Product, product_id)
+    if product is None:
+        raise not_found("产品")
+    versions = list(
+        db.scalars(
+            select(FactVersion)
+            .where(FactVersion.product_id == product.id)
+            .order_by(FactVersion.version.desc())
+        )
+    )
+    latest = versions[0] if versions else None
+    pending = next((version for version in versions if version.status == "PENDING_REVIEW"), None)
+    workflow_stage, _primary_task = product_workflow(
+        product,
+        latest,
+        has_pending=pending is not None,
+    )
+    product_context = ProductFactsProductContext(
+        id=product.id,
+        part_number=product.part_number,
+        brand=product.brand,
+        category=product.category,
+        status=product.status,
+        workflow_stage=workflow_stage,
+    )
+    target = pending or latest
+    if target is None:
+        return ProductFactReviewWorkspace(product=product_context, review=None)
+    previous = next((version for version in versions if version.version < target.version), None)
+    return ProductFactReviewWorkspace(
+        product=product_context,
+        review=ProductFactReviewTarget(
+            fact_version=fact_version_out(db, target, can_delete=can_delete),
+            diff=fact_version_diff(previous, target) if previous is not None else None,
+            available_actions=fact_review_decisions(target),
+            review_history=_fact_history(db, target),
+        ),
     )
 
 

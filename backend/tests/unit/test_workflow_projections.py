@@ -35,12 +35,14 @@ from app.services.product_facts import (
 from app.services.projections import (
     content_tasks_out,
     content_versions_out,
+    fact_version_diff,
     fact_versions_out,
     platform_accounts_out,
     platform_profiles_out,
 )
 from app.services.publication import delete_content_task
 from app.services.publication_queries import list_publication_works
+from app.services.review_policy import fact_review_decisions
 
 
 class _ScalarSequenceSession:
@@ -245,6 +247,29 @@ def test_fact_workspace_changes_requested_can_be_resubmitted() -> None:
     assert workspace.pending_fact is not None
     assert workspace.pending_fact.status == "CHANGES_REQUESTED"
     assert workspace.available_actions == ["SAVE", "SUBMIT_REVIEW"]
+
+
+def test_fact_review_diff_and_decisions_use_immutable_versions() -> None:
+    """事实审核 Diff 比较紧邻快照，决策动作不泄漏 RETIRE。"""
+    product = _product()
+    previous = _fact(product, status="CHANGES_REQUESTED")
+    previous.body_markdown = "# 事实\n\n旧参数"
+    target = _fact(product, status="PENDING_REVIEW")
+    target.version = 2
+    target.body_markdown = "# 事实\n\n新参数"
+
+    diff = fact_version_diff(previous, target)
+
+    assert diff.left_id == previous.id
+    assert diff.right_id == target.id
+    assert [(line.kind, line.text) for line in diff.lines] == [
+        ("EQUAL", "# 事实"),
+        ("EQUAL", ""),
+        ("DELETE", "旧参数"),
+        ("ADD", "新参数"),
+    ]
+    assert fact_review_decisions(target) == ["APPROVE", "REQUEST_CHANGES"]
+    assert fact_review_decisions(_fact(product, status="APPROVED")) == []
 
 
 def test_product_list_filters_before_pagination_and_uses_stable_model_sort() -> None:

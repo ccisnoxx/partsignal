@@ -161,6 +161,8 @@ Phase 2.4 的 `/products/$productId` 由 `tests/e2e/product-detail.spec.ts` 复�
 
 Phase 2.5 的 `/products/$productId/facts` 由 `tests/e2e/fact-workspace.spec.ts` 继续复用 generated-type `products.fixture.ts`。fixture 使用 `ProductFactsDraft`、`ProductFactsDraftUpdate`、`FactReviewSubmissionRequest` 与 `FactVersion`，并拒绝任何未声明 API；测试证明页面只用一个 facts read model，不请求 Product Detail 或自行 join。覆盖 direct/refresh、空 Markdown、loading、404/403/retry、服务端 action token、save canonical response、`expected_revision`/CSRF、Ctrl/Cmd+S、revision conflict 本地保留与显式 reload、提交后停留原路由并刷新 actions、DirtyGuard、键盘焦点、375/768/1024/1440 无横向溢出，以及 console/pageerror/requestfailed 审计。真实 PostgreSQL snapshot 不可变性由 backend integration test 证明；该前端 fixture 不冒充完整业务闭环，也不进入 Fact Review。
 
+Phase 2.6 的 `/products/$productId/facts/review` 由 `tests/e2e/fact-review.spec.ts` 复用 generated-type `products.fixture.ts`。fixture 只允许一个产品级 review context GET 和精确版本 approve/request-changes 命令，拒绝 Product Detail、Facts、Versions 或 exact-context join。覆盖 direct/refresh、empty、404/403/retry、不可变 sanitized Markdown、metadata、服务端 Diff、目标版本专属 Review History、action token、CSRF/`expected_revision`、canonical response 后 context 刷新、空白退回意见、409 不重放、Dialog 键盘与焦点恢复、375/768/1024/1440 无横向溢出，以及 console/pageerror/requestfailed 审计。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

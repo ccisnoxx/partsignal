@@ -189,6 +189,7 @@ test('V2 审核详情只请求并展示 V2 自身历史', async () => {
   reviewContexts = {
     [versionId]: {
       fact_version: factVersion,
+      diff: null,
       available_actions: ['APPROVE'],
       review_history: [{
         id: '40000000-0000-4000-8000-000000000001',
@@ -202,6 +203,7 @@ test('V2 审核详情只请求并展示 V2 自身历史', async () => {
     },
     [secondVersionId]: {
       fact_version: secondFactVersion,
+      diff: null,
       available_actions: ['APPROVE'],
       review_history: [{
         id: '40000000-0000-4000-8000-000000000002',

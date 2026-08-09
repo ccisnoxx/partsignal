@@ -332,6 +332,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/products/{product_id}/fact-review-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: components["parameters"]["ProductId"];
+            };
+            cookie?: never;
+        };
+        get: operations["getProductFactReviewContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/products/{product_id}/fact-review-submissions": {
         parameters: {
             query?: never;
@@ -3085,6 +3103,13 @@ export interface components {
             right_id: string;
             lines: components["schemas"]["DiffLine"][];
         };
+        FactVersionDiff: {
+            /** Format: uuid */
+            left_id: string;
+            /** Format: uuid */
+            right_id: string;
+            lines: components["schemas"]["DiffLine"][];
+        };
         ActorSummary: {
             /** Format: uuid */
             id: string;
@@ -3106,11 +3131,24 @@ export interface components {
         /** @enum {string} */
         FactReviewAction: "APPROVE" | "REQUEST_CHANGES" | "RETIRE";
         /** @enum {string} */
+        FactReviewDecision: "APPROVE" | "REQUEST_CHANGES";
+        /** @enum {string} */
         ContentReviewAction: "SUBMIT_REVIEW" | "APPROVE" | "REQUEST_CHANGES";
         FactReviewContext: {
             fact_version: components["schemas"]["FactVersion"];
+            diff: components["schemas"]["FactVersionDiff"] | null;
             available_actions: components["schemas"]["FactReviewAction"][];
             review_history: components["schemas"]["ReviewRecord"][];
+        };
+        ProductFactReviewTarget: {
+            fact_version: components["schemas"]["FactVersion"];
+            diff: components["schemas"]["FactVersionDiff"] | null;
+            available_actions: components["schemas"]["FactReviewDecision"][];
+            review_history: components["schemas"]["ReviewRecord"][];
+        };
+        ProductFactReviewWorkspace: {
+            product: components["schemas"]["ProductFactsProductContext"];
+            review: components["schemas"]["ProductFactReviewTarget"] | null;
         };
         GenerationTrace: {
             /** Format: uuid */
@@ -5102,6 +5140,31 @@ export interface operations {
             };
         };
     };
+    getProductFactReviewContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: components["parameters"]["ProductId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 单次请求可完整绘制的当前事实审核工作台 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductFactReviewWorkspace"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+        };
+    };
     submitProductFactReview: {
         parameters: {
             query?: never;
@@ -5202,6 +5265,9 @@ export interface operations {
                     "application/json": components["schemas"]["FactReviewContext"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
         };
     };
     approveFactVersion: {
@@ -5218,8 +5284,11 @@ export interface operations {
         requestBody: components["requestBodies"]["CommandRequest"];
         responses: {
             200: components["responses"]["FactVersionResponse"];
+            401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     requestFactVersionChanges: {
@@ -5236,6 +5305,11 @@ export interface operations {
         requestBody: components["requestBodies"]["RequestChangesCommand"];
         responses: {
             200: components["responses"]["FactVersionResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     retireFactVersion: {

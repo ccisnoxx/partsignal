@@ -50,7 +50,11 @@ function ActionConfirmationDialog({
         </DialogHeader>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>取消</DialogClose>
-          <Button onClick={onConfirm} type="button" variant="destructive">
+          <Button
+            onClick={onConfirm}
+            type="button"
+            variant={confirmation?.intent ?? 'destructive'}
+          >
             {confirmation?.confirmLabel ?? '确认执行'}
           </Button>
         </DialogFooter>

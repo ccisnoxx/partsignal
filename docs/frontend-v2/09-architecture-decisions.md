@@ -102,6 +102,12 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Action ownership**：页面原样消费 Product `primary_task`、`available_actions`、`deletion` 和 `revision`。Products List 的 UPDATE 链接 Product Detail；详情内短 Dialog 是产品基本信息的 canonical edit surface，不新增猜测性的 `/edit` route，也不编辑事实正文。
 
+## ADR-022：Fact Review 使用产品级目标定位 Read Model
+
+**Decision**：`/products/$productId/facts/review` 只消费 `GET /api/v1/products/{product_id}/fact-review-context`。服务端优先定位唯一 `PENDING_REVIEW` FactVersion，否则返回最新版本；无版本返回 `review: null`。客户端不请求 Product Detail、Facts 或 Versions 猜测目标。
+
+**Review evidence**：事实审核上下文只包含不可变 Markdown snapshot、metadata、紧邻前序版本的服务端 Diff、目标版本自己的追加式 Review History，以及窄动作 `APPROVE | REQUEST_CHANGES`。当前事实模型没有 Evidence 或 Blocking Issues。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

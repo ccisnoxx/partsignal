@@ -22,7 +22,7 @@ from app.models.product_facts import (
     Product,
 )
 from app.schemas.common import AccountType, CommandRequest, RequestChangesCommand
-from app.schemas.content import FactReviewContext
+from app.schemas.content import FactReviewContext, ProductFactReviewWorkspace
 from app.schemas.product_detail import ProductDetail
 from app.schemas.product_facts import (
     FactReviewSubmissionRequest,
@@ -54,7 +54,11 @@ from app.services.product_facts import (
     update_product as update_product_command,
 )
 from app.services.projections import fact_version_out, fact_versions_out
-from app.services.review import get_fact_review_context, transition_fact_version
+from app.services.review import (
+    get_fact_review_context,
+    get_product_fact_review_context,
+    transition_fact_version,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["product-facts", "review"])
 
@@ -255,6 +259,23 @@ def submit_product_fact_review(
 
 
 @router.get(
+    "/products/{product_id}/fact-review-context",
+    response_model=ProductFactReviewWorkspace,
+    operation_id="getProductFactReviewContext",
+    dependencies=[Depends(_product_read_snapshot)],
+)
+def product_fact_review_context(
+    product_id: uuid.UUID, db: DbSession, user: CurrentUser
+) -> ProductFactReviewWorkspace:
+    """返回可由单次请求完整绘制的事实审核工作台。"""
+    return get_product_fact_review_context(
+        db,
+        product_id,
+        can_delete=user.account_type == "ADMIN",
+    )
+
+
+@router.get(
     "/fact-versions/{fact_version_id}",
     response_model=FactVersionOut,
     operation_id="getFactVersion",
@@ -292,11 +313,12 @@ def delete_fact_version(
     "/fact-versions/{fact_version_id}/review-context",
     response_model=FactReviewContext,
     operation_id="getFactReviewContext",
+    dependencies=[Depends(_product_read_snapshot)],
 )
 def fact_review_context(
     fact_version_id: uuid.UUID, db: DbSession, user: CurrentUser
 ) -> FactReviewContext:
-    """返回冻结事实证据和当前版本自身的追加式审核历史。"""
+    """返回不可变事实快照、差异和当前版本自身的审核历史。"""
     return get_fact_review_context(
         db, fact_version_id, can_delete=user.account_type == "ADMIN"
     )

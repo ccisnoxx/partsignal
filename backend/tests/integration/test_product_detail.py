@@ -29,6 +29,7 @@ from app.schemas.product_facts import (
     ProductFactsDraftUpdate,
     ProductUpdate,
 )
+from app.security import hash_token
 from app.services.product_detail import product_detail_out
 from app.services.product_facts import (
     create_product,
@@ -422,6 +423,193 @@ def test_fact_workspace_read_model_uses_one_snapshot_and_fixed_query_count(
         assert payload["approved_fact"] == {"version": 1, "status": "APPROVED"}
         assert payload["revision"] == 3
         assert captured["isolation"] == "repeatable read"
+
+
+@pytest.mark.integration
+def test_fact_review_context_locates_target_and_commands_refresh_canonical_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """产品级审核上下文定位唯一目标，命令保留 revision 与精确历史边界。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        csrf_token = "fact-review-csrf-token-more-than-32-characters"
+        with Session(engine, expire_on_commit=False) as db:
+            actor = User(
+                username=f"fact-review-{uuid.uuid4().hex[:10]}",
+                display_name="事实审核测试用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            product = Product(
+                part_number="PS-REVIEW",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex[:8]}",
+                category="MCU",
+                facts_body_markdown="# 当前事实\n\n新参数",
+                facts_classification="PUBLIC",
+            )
+            empty_product = Product(
+                part_number="PS-EMPTY-REVIEW",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex[:8]}",
+                category="MCU",
+            )
+            db.add_all([actor, product, empty_product])
+            db.flush()
+            previous = FactVersion(
+                product_id=product.id,
+                version=1,
+                status="CHANGES_REQUESTED",
+                body_markdown="# 当前事实\n\n旧参数",
+                classification="PUBLIC",
+                change_summary="初次提交",
+                created_by=actor.id,
+            )
+            db.add(previous)
+            db.flush()
+            db.add(
+                FactReviewRecord(
+                    fact_version_id=previous.id,
+                    action="request-changes",
+                    comment="旧版本意见",
+                    actor_id=actor.id,
+                )
+            )
+            db.commit()
+            target = submit_fact_review(
+                db=db,
+                product_id=product.id,
+                payload=FactReviewSubmissionRequest(
+                    expected_revision=product.facts_revision,
+                    change_summary="修订参数",
+                ),
+                actor=actor,
+                request_id="fact-review-submit",
+            )
+            actor_id = actor.id
+            product_id = product.id
+            empty_product_id = empty_product.id
+            target_id = target.id
+
+        captured: dict[str, str] = {}
+        real_projection = product_routes.get_product_fact_review_context
+
+        def inspected_projection(
+            db: Session, product_id: uuid.UUID, *, can_delete: bool
+        ) -> object:
+            captured["isolation"] = str(db.scalar(text("SHOW transaction_isolation")))
+            return real_projection(db, product_id, can_delete=can_delete)
+
+        monkeypatch.setattr(
+            product_routes,
+            "get_product_fact_review_context",
+            inspected_projection,
+        )
+
+        def database_session() -> Iterator[Session]:
+            with Session(engine, expire_on_commit=False) as db:
+                yield db
+
+        with Session(engine, expire_on_commit=False) as db:
+            actor = db.get(User, actor_id)
+            assert actor is not None
+        current_session = SimpleNamespace(user=actor, csrf_hash=hash_token(csrf_token))
+        app.dependency_overrides[get_db] = database_session
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        client = TestClient(app)
+        try:
+            response = client.get(f"/api/v1/products/{product_id}/fact-review-context")
+            empty = client.get(
+                f"/api/v1/products/{empty_product_id}/fact-review-context"
+            )
+            missing = client.get(
+                f"/api/v1/products/{uuid.uuid4()}/fact-review-context"
+            )
+            blank = client.post(
+                f"/api/v1/fact-versions/{target_id}/request-changes",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": 0, "comment": "   "},
+            )
+            stale = client.post(
+                f"/api/v1/fact-versions/{target_id}/approve",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": 99, "comment": ""},
+            )
+            returned = client.post(
+                f"/api/v1/fact-versions/{target_id}/request-changes",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": 0, "comment": "  请补充条件  "},
+            )
+
+            with Session(engine, expire_on_commit=False) as db:
+                actor = db.get(User, actor_id)
+                assert actor is not None
+                workspace = replace_product_facts(
+                    db=db,
+                    product_id=product_id,
+                    payload=ProductFactsDraftUpdate(
+                        expected_revision=0,
+                        body_markdown="# 当前事实\n\n最终参数",
+                        classification="PUBLIC",
+                    ),
+                    actor=actor,
+                    request_id="fact-review-revise",
+                )
+                approved_target = submit_fact_review(
+                    db=db,
+                    product_id=product_id,
+                    payload=FactReviewSubmissionRequest(
+                        expected_revision=workspace.revision,
+                        change_summary="最终修订",
+                    ),
+                    actor=actor,
+                    request_id="fact-review-resubmit",
+                )
+                approved_target_id = approved_target.id
+
+            approved = client.post(
+                f"/api/v1/fact-versions/{approved_target_id}/approve",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": 0, "comment": "审核通过"},
+            )
+            refreshed = client.get(
+                f"/api/v1/products/{product_id}/fact-review-context"
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["review"]["fact_version"]["id"] == str(target_id)
+        assert payload["review"]["available_actions"] == ["APPROVE", "REQUEST_CHANGES"]
+        assert payload["review"]["diff"]["left_id"] == str(previous.id)
+        assert payload["review"]["diff"]["right_id"] == str(target_id)
+        assert [item["comment"] for item in payload["review"]["review_history"]] == [
+            "修订参数"
+        ]
+        assert captured["isolation"] == "repeatable read"
+        assert empty.status_code == 200
+        assert empty.json()["review"] is None
+        assert missing.status_code == 404
+        assert blank.status_code == 422
+        assert blank.json()["error"]["code"] == "VALIDATION_ERROR"
+        assert stale.status_code == 409
+        assert stale.json()["error"]["code"] == "REVISION_CONFLICT"
+        assert returned.status_code == 200
+        assert returned.json()["status"] == "CHANGES_REQUESTED"
+        assert returned.json()["revision"] == 1
+        assert approved.status_code == 200
+        assert approved.json()["status"] == "APPROVED"
+        assert refreshed.status_code == 200
+        refreshed_review = refreshed.json()["review"]
+        assert refreshed_review["fact_version"]["id"] == str(approved_target_id)
+        assert refreshed_review["available_actions"] == []
+        assert [item["action"] for item in refreshed_review["review_history"]] == [
+            "submit-review",
+            "approve",
+        ]
 
 
 @pytest.mark.integration

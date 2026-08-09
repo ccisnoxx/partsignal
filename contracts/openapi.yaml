@@ -429,6 +429,20 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactVersionList'}
+  /api/v1/products/{product_id}/fact-review-context:
+    parameters: [{$ref: '#/components/parameters/ProductId'}]
+    get:
+      tags: [review]
+      operationId: getProductFactReviewContext
+      responses:
+        '200':
+          description: 单次请求可完整绘制的当前事实审核工作台
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProductFactReviewWorkspace'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}/fact-review-submissions:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     post:
@@ -482,6 +496,9 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactReviewContext'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/fact-versions/{fact_version_id}/approve:
     post:
       tags: [review]
@@ -492,8 +509,11 @@ paths:
       requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
       responses:
         '200': {$ref: '#/components/responses/FactVersionResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/fact-versions/{fact_version_id}/request-changes:
     post:
       tags: [review]
@@ -504,6 +524,11 @@ paths:
       requestBody: {$ref: '#/components/requestBodies/RequestChangesCommand'}
       responses:
         '200': {$ref: '#/components/responses/FactVersionResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/fact-versions/{fact_version_id}/retire:
     post:
       tags: [review]
@@ -4392,6 +4417,14 @@ components:
         left_id: {type: string, format: uuid}
         right_id: {type: string, format: uuid}
         lines: {type: array, items: {$ref: '#/components/schemas/DiffLine'}}
+    FactVersionDiff:
+      type: object
+      additionalProperties: false
+      required: [left_id, right_id, lines]
+      properties:
+        left_id: {type: string, format: uuid}
+        right_id: {type: string, format: uuid}
+        lines: {type: array, items: {$ref: '#/components/schemas/DiffLine'}}
     ActorSummary:
       type: object
       additionalProperties: false
@@ -4413,15 +4446,44 @@ components:
         actor: {$ref: '#/components/schemas/ActorSummary'}
         created_at: {type: string, format: date-time}
     FactReviewAction: {type: string, enum: [APPROVE, REQUEST_CHANGES, RETIRE]}
+    FactReviewDecision: {type: string, enum: [APPROVE, REQUEST_CHANGES]}
     ContentReviewAction: {type: string, enum: [SUBMIT_REVIEW, APPROVE, REQUEST_CHANGES]}
     FactReviewContext:
       type: object
       additionalProperties: false
-      required: [fact_version, available_actions, review_history]
+      required: [fact_version, diff, available_actions, review_history]
       properties:
         fact_version: {$ref: '#/components/schemas/FactVersion'}
+        diff:
+          anyOf:
+            - {$ref: '#/components/schemas/FactVersionDiff'}
+            - {type: 'null'}
         available_actions: {type: array, items: {$ref: '#/components/schemas/FactReviewAction'}}
         review_history: {type: array, items: {$ref: '#/components/schemas/ReviewRecord'}}
+    ProductFactReviewTarget:
+      type: object
+      additionalProperties: false
+      required: [fact_version, diff, available_actions, review_history]
+      properties:
+        fact_version: {$ref: '#/components/schemas/FactVersion'}
+        diff:
+          anyOf:
+            - {$ref: '#/components/schemas/FactVersionDiff'}
+            - {type: 'null'}
+        available_actions:
+          type: array
+          items: {$ref: '#/components/schemas/FactReviewDecision'}
+        review_history: {type: array, items: {$ref: '#/components/schemas/ReviewRecord'}}
+    ProductFactReviewWorkspace:
+      type: object
+      additionalProperties: false
+      required: [product, review]
+      properties:
+        product: {$ref: '#/components/schemas/ProductFactsProductContext'}
+        review:
+          anyOf:
+            - {$ref: '#/components/schemas/ProductFactReviewTarget'}
+            - {type: 'null'}
     GenerationTrace:
       type: object
       additionalProperties: false

@@ -15,6 +15,7 @@ type ProductStatus = components['schemas']['ProductStatus'];
 type ProductPrimaryTask = Product['primary_task'];
 type ProductAvailableAction = Product['available_actions'][number];
 type ProductDeletionBlocker = components['schemas']['DeletionBlocker'];
+type Confidentiality = components['schemas']['Confidentiality'];
 type ProductStatusTone = 'outline' | 'secondary' | 'success' | 'warning' | 'info';
 
 type ProductStatusPresentation = {
@@ -44,6 +45,12 @@ const productStatusRegistry = {
   ACTIVE: { label: '启用', tone: 'success', description: '产品可继续推进业务流程' },
   RETIRED: { label: '停用', tone: 'secondary', description: '产品已停止推进新业务' },
 } satisfies Record<ProductStatus, ProductStatusPresentation>;
+
+const confidentialityRegistry = {
+  PUBLIC: '公开',
+  INTERNAL: '内部',
+  RESTRICTED: '受限',
+} satisfies Record<Confidentiality, string>;
 
 const productIdentityField = (label: string) => z.string()
   .trim()
@@ -175,6 +182,7 @@ function assertNever(value: never): never {
 }
 
 export {
+  confidentialityRegistry,
   formatExactProductTime,
   formatRelativeProductTime,
   getProductDeletionBlockerLabel,

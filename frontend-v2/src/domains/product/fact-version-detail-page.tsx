@@ -8,12 +8,15 @@ import { Skeleton } from '@/design-system/primitives/skeleton';
 import { DetailSection } from '@/design-system/workspace/detail-section';
 import { Timeline, type TimelineItem } from '@/design-system/workspace/timeline';
 import type { components } from '@/shared/api/generated/schema';
-import { confidentialityRegistry } from './product-detail.model';
 import {
   factVersionQueryOptions,
   ProductRequestError,
 } from './product.api';
-import { formatExactProductTime, productFactStatusRegistry } from './product.model';
+import {
+  confidentialityRegistry,
+  formatExactProductTime,
+  productFactStatusRegistry,
+} from './product.model';
 
 type FactVersion = components['schemas']['FactVersion'];
 

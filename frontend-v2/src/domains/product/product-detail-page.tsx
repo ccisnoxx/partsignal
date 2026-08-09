@@ -36,7 +36,6 @@ import {
   updateProduct,
 } from './product.api';
 import {
-  confidentialityRegistry,
   contentStageRegistry,
   formatProductRate,
   mapProductUpdateError,
@@ -52,6 +51,7 @@ import {
 } from './product-detail.model';
 import { ProductDeletionConditionsDialog } from './product-deletion-dialog';
 import {
+  confidentialityRegistry,
   formatExactProductTime,
   productStatusRegistry,
   productWorkflowStageRegistry,

@@ -348,7 +348,9 @@ Phase 1 退出条件：Storybook 可运行；App Shell responsive；demo server 
 Table → Form/Detail → Workspace → Review → Immutable Detail
 ```
 
-退出条件：create、enter facts、submit、review、request changes、revise、approve、create content task 主流程通过；业务页面没有自造 action UI；Products Playwright 覆盖 URL、响应式与关键动作。
+退出条件：create、enter facts、submit、review、request changes、revise、approve 主流程通过；批准后服务端投影 `CREATE_CONTENT_TASK`，V2 生成 `/content/tasks/new?productId=...` 的 Phase 3 交接链接；业务页面没有自造 action UI；Products Playwright 覆盖 URL、响应式与关键动作。New Content Task 的完整 UI 创建步骤属于 Phase 3，不得用占位页面计入 Phase 2。
+
+Phase 2.8 审计确认 Fact History 仍只有单版本 readonly Detail，没有版本历史列表的 query、route 和 page；`VIEW_FACT_HISTORY` 返回 Product Detail 不能替代完整历史扫描。该缺口由独立后续 Task `frontend-v2-fact-history` 决定 URL、owner 和 read model。在该缺口关闭前，Phase 2 exit gate 保持未满足。
 
 ## 8. Phase 3 — Content
 

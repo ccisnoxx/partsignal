@@ -9,7 +9,6 @@ type ProductUpdate = components['schemas']['ProductUpdate'];
 type ProductUpdateField = keyof ProductUpdateFormValues;
 type ContentStage = NonNullable<ProductDetail['content']['latest_task']>['workflow_stage'];
 type PublicationStatus = NonNullable<ProductDetail['publishing']['latest']>['status'];
-type Confidentiality = components['schemas']['Confidentiality'];
 
 const productUpdateFormSchema = z.object({
   part_number: productIdentityField('产品型号'),
@@ -26,12 +25,6 @@ const productUpdateFields = new Set<ProductUpdateField>([
   'category',
   'status',
 ]);
-
-const confidentialityRegistry = {
-  PUBLIC: '公开',
-  INTERNAL: '内部',
-  RESTRICTED: '受限',
-} satisfies Record<Confidentiality, string>;
 
 const contentStageRegistry = {
   NO_DRAFT: '尚无首稿',
@@ -122,7 +115,6 @@ function assertNever(value: never): never {
 }
 
 export {
-  confidentialityRegistry,
   contentStageRegistry,
   formatProductRate,
   mapProductUpdateError,

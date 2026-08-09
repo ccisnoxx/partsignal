@@ -12,7 +12,7 @@ export APP_ENV=test
 export CONTENT_GENERATOR=openai-compatible
 export AI_ALLOW_LOCAL_HTTP=true
 export AI_CREDENTIAL_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-export CORS_ALLOWED_ORIGINS=http://127.0.0.1:5173
+export CORS_ALLOWED_ORIGINS=http://127.0.0.1:5173,http://127.0.0.1:4174
 
 root=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 source_database_url=$DATABASE_URL
@@ -27,11 +27,13 @@ worker_pid=
 scheduler_pid=
 frontend_pid=
 preview_pid=
+v2_preview_pid=
 ai_pid=
 
 cleanup() {
   status=$?
   trap - EXIT INT TERM
+  test -z "$v2_preview_pid" || kill "$v2_preview_pid" 2>/dev/null || true
   test -z "$preview_pid" || kill "$preview_pid" 2>/dev/null || true
   test -z "$frontend_pid" || kill "$frontend_pid" 2>/dev/null || true
   test -z "$ai_pid" || kill "$ai_pid" 2>/dev/null || true
@@ -73,6 +75,7 @@ IFS= read -r DATABASE_URL <"$storage_dir/database-url"
 export DATABASE_URL
 backend/.venv/bin/alembic -c backend/alembic.ini upgrade head
 npm --prefix frontend run build
+VITE_API_BASE_URL=http://127.0.0.1:8000 npm --prefix frontend-v2 run build
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
 PARTSIGNAL_SEED_ENGINEER_PASSWORD=$PARTSIGNAL_SEED_ENGINEER_PASSWORD \
   backend/.venv/bin/python -m app.cli seed-demo
@@ -96,12 +99,15 @@ npm --prefix frontend run dev -- --host 127.0.0.1 --config vite.config.ts &
 frontend_pid=$!
 (cd "$root/frontend" && exec npm exec -- vite preview --host 127.0.0.1 --port 4173 --strictPort) &
 preview_pid=$!
+(cd "$root/frontend-v2" && exec npm exec -- vite preview --host 127.0.0.1 --port 4174 --strictPort) &
+v2_preview_pid=$!
 
 attempt=0
 until curl --fail --silent http://127.0.0.1:8000/api/health/ready >/dev/null \
   && curl --fail --silent http://127.0.0.1:9001/v1/models >/dev/null \
   && curl --fail --silent http://127.0.0.1:5173 >/dev/null \
-  && curl --fail --silent http://127.0.0.1:4173 >/dev/null; do
+  && curl --fail --silent http://127.0.0.1:4173 >/dev/null \
+  && curl --fail --silent http://127.0.0.1:4174 >/dev/null; do
   attempt=$((attempt + 1))
   if test "$attempt" -ge 60; then
     printf '%s\n' "PartSignal E2E 服务在 60 秒内未就绪" >&2
@@ -110,6 +116,12 @@ until curl --fail --silent http://127.0.0.1:8000/api/health/ready >/dev/null \
   sleep 1
 done
 
+PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
+PARTSIGNAL_E2E_API_BASE_URL=http://127.0.0.1:8000 \
+PARTSIGNAL_E2E_REAL_STACK=1 \
+PARTSIGNAL_E2E_V2_BASE_URL=http://127.0.0.1:4174 \
+  npm --prefix frontend-v2 run e2e -- \
+  tests/e2e/product-facts-real-stack.spec.ts --project=foundation-desktop
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
 PARTSIGNAL_E2E_PRODUCTION_BASE_URL=http://127.0.0.1:4173 \
   npm --prefix frontend run e2e -- "$@"

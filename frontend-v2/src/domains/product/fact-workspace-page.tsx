@@ -36,7 +36,6 @@ import {
   replaceProductFacts,
   submitProductFactReview,
 } from './product.api';
-import { confidentialityRegistry } from './product-detail.model';
 import {
   factReviewSubmissionSchema,
   factWorkspaceErrorKind,
@@ -53,6 +52,7 @@ import {
   type FactWorkspaceFormValues,
 } from './fact-workspace.model';
 import {
+  confidentialityRegistry,
   productFactStatusRegistry,
   productStatusRegistry,
   productWorkflowStageRegistry,

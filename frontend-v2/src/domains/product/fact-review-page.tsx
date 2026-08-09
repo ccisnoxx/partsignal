@@ -43,6 +43,7 @@ import {
   requestFactVersionChanges,
 } from './product.api';
 import {
+  confidentialityRegistry,
   productFactStatusRegistry,
   productStatusRegistry,
   productWorkflowStageRegistry,
@@ -54,12 +55,6 @@ type FactReviewPageProps = {
   productId: string;
   csrfToken: string | null;
 };
-
-const classificationLabels = {
-  PUBLIC: '公开',
-  INTERNAL: '内部',
-  RESTRICTED: '受限',
-} satisfies Record<FactVersion['classification'], string>;
 
 function FactReviewPage({ csrfToken, productId }: FactReviewPageProps) {
   const review = useQuery(productFactReviewQueryOptions(productId));
@@ -298,7 +293,7 @@ function FactReviewContextPanel({
       <dl className="space-y-3 text-sm">
         <Metadata label="品牌" value={workspace.product.brand} />
         <Metadata label="类别" value={workspace.product.category} />
-        <Metadata label="数据级别" value={classificationLabels[target.fact_version.classification]} />
+        <Metadata label="数据级别" value={confidentialityRegistry[target.fact_version.classification]} />
         <Metadata label="版本" mono value={`v${target.fact_version.version}`} />
         <Metadata label="状态" value={productFactStatusRegistry[target.fact_version.status].label} />
         <Metadata label="提交摘要" value={target.fact_version.change_summary} />

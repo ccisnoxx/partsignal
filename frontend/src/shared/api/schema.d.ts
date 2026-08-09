@@ -5218,6 +5218,10 @@ export interface operations {
                     "application/json": components["schemas"]["FactVersion"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     deleteFactVersion: {

@@ -105,9 +105,17 @@ Pattern：Workspace。页面只请求 `GET /api/v1/products/{product_id}/fact-re
 
 底部动作只消费 `available_actions` 中的 `APPROVE` / `REQUEST_CHANGES`。两者发送 CSRF 与 `expected_revision`，退回意见必须非空；服务端仍最终校验权限、状态、revision 和意见。成功后采用 canonical FactVersion 并刷新当前 context，409 不自动重放命令，审核完成后停留当前 route。
 
-## 3.5 Fact History
+## 3.6 Fact History
 
 历史列表列：版本、状态、数据级别、变更摘要、提交人、提交时间。**没有操作列**。点击行进入 `/products/$productId/facts/versions/$versionId` 只读 Detail。
+
+当前蓝图尚未确定历史列表的独立 URL、数据入口或页面 owner；该缺口必须由后续独立 Task 决策，Fact Version Detail 不得为此新增列表路由或客户端拼接版本集合。
+
+## 3.7 `/products/$productId/facts/versions/$versionId`
+
+Pattern：readonly Detail。页面只请求 `GET /api/v1/fact-versions/{fact_version_id}`，展示版本号、状态、不可变 Markdown snapshot、数据级别、change summary、revision、版本与产品 UUID、创建信息，以及存在时的审批信息。人员按现有合同显示 UUID；不得额外请求用户、Product Detail、Facts、Review Context 或版本列表补全上下文。
+
+响应的 `FactVersion.product_id` 必须与 URL `productId` 大小写不敏感地精确一致；不一致时阻断全部 snapshot 内容，并显示该版本不存在或不属于当前产品。页面明确标记 readonly/immutable，不使用表单、CodeMirror、DirtyGuard、保存或自动保存，也不展示或推导 APPROVE、REQUEST_CHANGES、RETIRE、DELETE 等命令。
 
 ---
 

@@ -19,6 +19,7 @@ import { Route as AppProductsNewRouteImport } from './routes/_app/products/new'
 import { Route as AppAdminSystemUsersRouteImport } from './routes/_app/_admin/system.users'
 import { Route as AppProductsProductIdFactsRouteImport } from './routes/_app/products/$productId_.facts'
 import { Route as AppProductsProductIdFactsReviewRouteImport } from './routes/_app/products/$productId_.facts_.review'
+import { Route as AppProductsProductIdFactsVersionsVersionIdRouteImport } from './routes/_app/products/$productId_.facts_.versions_.$versionId'
 
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
@@ -70,6 +71,12 @@ const AppProductsProductIdFactsReviewRoute =
     path: '/$productId/facts/review',
     getParentRoute: () => AppProductsRouteRoute,
   } as any)
+const AppProductsProductIdFactsVersionsVersionIdRoute =
+  AppProductsProductIdFactsVersionsVersionIdRouteImport.update({
+    id: '/$productId_/facts_/versions_/$versionId',
+    path: '/$productId/facts/versions/$versionId',
+    getParentRoute: () => AppProductsRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/system/users': typeof AppAdminSystemUsersRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
+  '/products/$productId/facts/versions/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
@@ -89,6 +97,7 @@ export interface FileRoutesByTo {
   '/system/users': typeof AppAdminSystemUsersRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
+  '/products/$productId/facts/versions/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -102,6 +111,7 @@ export interface FileRoutesById {
   '/_app/_admin/system/users': typeof AppAdminSystemUsersRoute
   '/_app/products/$productId_/facts': typeof AppProductsProductIdFactsRoute
   '/_app/products/$productId_/facts_/review': typeof AppProductsProductIdFactsReviewRoute
+  '/_app/products/$productId_/facts_/versions_/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
     | '/system/users'
     | '/products/$productId/facts'
     | '/products/$productId/facts/review'
+    | '/products/$productId/facts/versions/$versionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -123,6 +134,7 @@ export interface FileRouteTypes {
     | '/system/users'
     | '/products/$productId/facts'
     | '/products/$productId/facts/review'
+    | '/products/$productId/facts/versions/$versionId'
   id:
     | '__root__'
     | '/_app'
@@ -135,6 +147,7 @@ export interface FileRouteTypes {
     | '/_app/_admin/system/users'
     | '/_app/products/$productId_/facts'
     | '/_app/products/$productId_/facts_/review'
+    | '/_app/products/$productId_/facts_/versions_/$versionId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -213,6 +226,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductsProductIdFactsReviewRouteImport
       parentRoute: typeof AppProductsRouteRoute
     }
+    '/_app/products/$productId_/facts_/versions_/$versionId': {
+      id: '/_app/products/$productId_/facts_/versions_/$versionId'
+      path: '/$productId/facts/versions/$versionId'
+      fullPath: '/products/$productId/facts/versions/$versionId'
+      preLoaderRoute: typeof AppProductsProductIdFactsVersionsVersionIdRouteImport
+      parentRoute: typeof AppProductsRouteRoute
+    }
   }
 }
 
@@ -234,6 +254,7 @@ interface AppProductsRouteRouteChildren {
   AppProductsIndexRoute: typeof AppProductsIndexRoute
   AppProductsProductIdFactsRoute: typeof AppProductsProductIdFactsRoute
   AppProductsProductIdFactsReviewRoute: typeof AppProductsProductIdFactsReviewRoute
+  AppProductsProductIdFactsVersionsVersionIdRoute: typeof AppProductsProductIdFactsVersionsVersionIdRoute
 }
 
 const AppProductsRouteRouteChildren: AppProductsRouteRouteChildren = {
@@ -242,6 +263,8 @@ const AppProductsRouteRouteChildren: AppProductsRouteRouteChildren = {
   AppProductsIndexRoute: AppProductsIndexRoute,
   AppProductsProductIdFactsRoute: AppProductsProductIdFactsRoute,
   AppProductsProductIdFactsReviewRoute: AppProductsProductIdFactsReviewRoute,
+  AppProductsProductIdFactsVersionsVersionIdRoute:
+    AppProductsProductIdFactsVersionsVersionIdRoute,
 }
 
 const AppProductsRouteRouteWithChildren =

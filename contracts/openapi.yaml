@@ -476,6 +476,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactVersion'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [product-facts]
       operationId: deleteFactVersion

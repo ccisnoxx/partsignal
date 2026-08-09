@@ -40,6 +40,7 @@ const productsKeys = {
   facts: () => ['products', 'facts'] as const,
   fact: (productId: string) => ['products', 'facts', productId] as const,
   factReview: (productId: string) => ['products', 'fact-review', productId] as const,
+  factVersion: (versionId: string) => ['products', 'fact-version', versionId] as const,
 };
 
 function productsListQueryOptions(search: ProductsSearch) {
@@ -100,6 +101,23 @@ function productFactReviewQueryOptions(productId: string) {
         params: { path: { product_id: productId } },
       });
       if (!result.data) throw productRequestError('读取事实审核工作台', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
+function factVersionQueryOptions(versionId: string) {
+  return queryOptions({
+    queryKey: productsKeys.factVersion(versionId),
+    queryFn: async (): Promise<FactVersion> => {
+      const result = await api.GET('/api/v1/fact-versions/{fact_version_id}', {
+        params: { path: { fact_version_id: versionId } },
+      });
+      if (!result.data) throw productRequestError('读取事实版本详情', result);
       return result.data;
     },
     refetchOnWindowFocus: 'always',
@@ -278,6 +296,7 @@ export {
   ProductRequestError,
   approveFactVersion,
   deleteProduct,
+  factVersionQueryOptions,
   mapProductFormError,
   productDetailQueryOptions,
   productFactReviewQueryOptions,

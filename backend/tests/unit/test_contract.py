@@ -99,11 +99,25 @@ def test_fact_review_contract_locates_target_and_declares_command_errors() -> No
     schemas = document["components"]["schemas"]
 
     product_context = paths["/api/v1/products/{product_id}/fact-review-context"]["get"]
+    version_detail = paths["/api/v1/fact-versions/{fact_version_id}"]["get"]
     exact_context = paths["/api/v1/fact-versions/{fact_version_id}/review-context"]["get"]
     approve = paths["/api/v1/fact-versions/{fact_version_id}/approve"]["post"]
     request_changes = paths["/api/v1/fact-versions/{fact_version_id}/request-changes"]["post"]
 
     assert set(product_context["responses"]) == {"200", "401", "403", "404"}
+    assert set(version_detail["responses"]) == {"200", "401", "403", "404", "422"}
+    assert {
+        "id",
+        "product_id",
+        "version",
+        "status",
+        "body_markdown",
+        "classification",
+        "change_summary",
+        "revision",
+        "created_by",
+        "created_at",
+    } <= set(schemas["FactVersion"]["required"])
     assert set(exact_context["responses"]) == {"200", "401", "403", "404"}
     assert set(approve["responses"]) == {"200", "401", "403", "404", "409", "422"}
     assert set(request_changes["responses"]) == {

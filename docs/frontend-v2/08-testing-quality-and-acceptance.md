@@ -163,6 +163,8 @@ Phase 2.5 的 `/products/$productId/facts` 由 `tests/e2e/fact-workspace.spec.ts
 
 Phase 2.6 的 `/products/$productId/facts/review` 由 `tests/e2e/fact-review.spec.ts` 复用 generated-type `products.fixture.ts`。fixture 只允许一个产品级 review context GET 和精确版本 approve/request-changes 命令，拒绝 Product Detail、Facts、Versions 或 exact-context join。覆盖 direct/refresh、empty、404/403/retry、不可变 sanitized Markdown、metadata、服务端 Diff、目标版本专属 Review History、action token、CSRF/`expected_revision`、canonical response 后 context 刷新、空白退回意见、409 不重放、Dialog 键盘与焦点恢复、375/768/1024/1440 无横向溢出，以及 console/pageerror/requestfailed 审计。
 
+Phase 2.7 的 `/products/$productId/facts/versions/$versionId` 由 `tests/e2e/fact-version-detail.spec.ts` 继续复用 generated-type `products.fixture.ts`。fixture 只允许精确 FactVersion GET，拒绝 Product Detail、Facts、Review Context 或 Versions list join；从 Product Detail 进入时仅额外允许既有 detail 请求。覆盖 Product Detail 链接、direct/refresh、不可变 sanitized Markdown、version/status/classification/change summary/revision/创建与可选审批 metadata、approved/pending/changes-requested、URL productId 与响应 product_id 不一致时阻断内容、loading、404/403/retry、375/768/1024/1440 无横向溢出、keyboard/focus，以及 console/pageerror/requestfailed 审计。本页不验证命令，不冒充 Fact History 列表或 Phase 2.8 真实后端闭环。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

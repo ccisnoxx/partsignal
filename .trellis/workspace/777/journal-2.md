@@ -1317,3 +1317,37 @@
 ### 后续
 
 - 无；本 Task 已完成并归档，不开始下一项业务开发。
+
+
+## Session 97: Frontend V2 Fact Workspace
+
+**Date**: 2026-08-09
+**Task**: Frontend V2 Fact Workspace
+**Branch**: `codex/frontend-v2-fact-workspace`
+
+### Summary
+
+完成 Fact Workspace contract-first vertical slice、并发冲突与不可变审核快照、Frontend V2 工作台交互和跨层验证；Task 已归档，未进入 Fact Review。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `006814c` | (see git log) |
+| `a463f4b` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

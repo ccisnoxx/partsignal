@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 98
+- **Total Sessions**: 99
 - **Last Active**: 2026-08-09
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1386 | Active |
+| `journal-2.md` | ~1424 | Active |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 99 | 2026-08-09 | Frontend V2 Fact Version readonly Detail | `51757df` | `codex/frontend-v2-fact-version-detail` |
 | 98 | 2026-08-09 | Frontend V2 Fact Review | `cfd80c4` | `codex/frontend-v2-fact-review` |
 | 97 | 2026-08-09 | Frontend V2 Fact Workspace | `006814c`, `a463f4b` | `codex/frontend-v2-fact-workspace` |
 | 96 | 2026-08-09 | Frontend V2 Product Detail | `e732aa8`, `2076588` | `codex/frontend-v2-product-detail` |

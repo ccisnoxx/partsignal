@@ -1389,3 +1389,40 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 99: Frontend V2 Fact Version readonly Detail
+
+**Date**: 2026-08-09
+**Task**: Frontend V2 Fact Version readonly Detail
+**Branch**: `codex/frontend-v2-fact-version-detail`
+
+### Summary
+
+实现并验证事实版本只读详情，补齐 getFactVersion 错误合同、生成类型、组件与 production-artifact Playwright 覆盖；未扩展 Fact History 或 Phase 2.8。
+
+### 主要变更
+
+- 新增 `/products/$productId/facts/versions/$versionId` 只读详情路由、页面和精确 FactVersion query。
+- 补齐 `getFactVersion` 既有运行时错误响应合同并同步 V1/V2 generated types。
+- 添加组件测试、production-artifact Playwright 覆盖，并更新 Frontend V2 蓝图与测试文档。
+
+### Git 提交
+
+| Hash | Message |
+|------|---------|
+| `51757df` | `feat(frontend-v2): add readonly fact version detail` |
+
+### 验证
+
+- `make contract-generate`、`npm --prefix frontend-v2 run api:generate`、`make contract-check` 通过。
+- 后端目标合同测试、Frontend V2 目标组件测试、lint、typecheck 与 production build 通过。
+- Fact Version Detail Playwright 在 mobile/desktop projects 共 8 项通过；`git diff --check` 通过。
+
+### 状态
+
+[OK] **已完成**
+
+### 后续
+
+- Task 已完成并归档；不在本次收尾中开始 Phase 2.8。

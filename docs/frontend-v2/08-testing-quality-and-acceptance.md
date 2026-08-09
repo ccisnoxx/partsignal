@@ -147,11 +147,13 @@ insight anomaly → server revalidate → create optimization task。
 
 Phase 1 Foundation 使用 `frontend-v2/playwright.config.ts`，由 Playwright `webServer` 先执行 production build，再通过 `vite preview` 服务当前 `dist`。同一 smoke 分别在 375×900 和 1440×1000 验证：
 
-- `/`、`/products` direct URL 与 `/products` refresh；
-- App Shell、desktop Sidebar、mobile navigation、breadcrumb 与 active navigation；
+- `/` direct URL 与 refresh；
+- App Shell、desktop Sidebar、mobile navigation 与业务导航入口；
 - 未捕获异常、`console.error`、失败请求和失败静态资源均为失败。
 
-Foundation 尚未接管真实业务后端。测试只能通过显式命名的 Playwright fixture 隔离认证启动请求；fixture 不得进入运行时代码，任何未声明 API 请求必须失败。本 smoke 不读取 Products 业务数据，也不替代自 Products List 起的真实业务 Playwright。
+Foundation 尚未接管真实业务后端。测试只能通过显式命名的 Playwright fixture 隔离认证启动请求；fixture 不得进入运行时代码，任何未声明 API 请求必须失败。
+
+自 Products List 起，`/products` direct URL、refresh、Back/Forward、search normalization、业务数据和行级动作由 `tests/e2e/products-list.spec.ts` 与 generated-type `products.fixture.ts` 接管。该 fixture 仅验证前端 production-artifact 页面/路由，不代表完整后端业务 E2E；Phase 2.8 再验证 Product Facts 真实闭环。
 
 ## 14. Deployment Smoke
 

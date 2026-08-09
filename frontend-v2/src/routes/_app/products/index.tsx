@@ -1,27 +1,44 @@
-import { createFileRoute, Link } from '@tanstack/react-router';
-import { z } from 'zod';
+import { createFileRoute, redirect, stripSearchParams } from '@tanstack/react-router';
 
-const productsSearchSchema = z.object({
-  q: z.string().trim().max(200).optional(),
-  page: z.coerce.number().int().positive().catch(1),
-});
+import { productsListQueryOptions } from '@/domains/product/products-list.api';
+import { ProductsListPage } from '@/domains/product/products-list-page';
+import {
+  isCanonicalProductsSearch,
+  productsSearchSchema,
+} from '@/domains/product/products-list.model';
 
 export const Route = createFileRoute('/_app/products/')({
   validateSearch: productsSearchSchema,
-  component: ProductsFoundation,
+  search: {
+    middlewares: [
+      ({ search, next }) => next(productsSearchSchema.parse(search)),
+      stripSearchParams({ pageSize: 20, sort: 'UPDATED_DESC' }),
+    ],
+  },
+  beforeLoad: ({ location, search }) => {
+    if (!isCanonicalProductsSearch(location.search, search)) {
+      throw redirect({ to: '/products', search, replace: true });
+    }
+  },
+  loaderDeps: ({ search }) => search,
+  loader: ({ context, deps }) => {
+    const options = productsListQueryOptions(deps);
+    if (!context.queryClient.getQueryState(options.queryKey)) {
+      void context.queryClient.prefetchQuery(options);
+    }
+  },
+  component: ProductsRoute,
 });
 
-function ProductsFoundation() {
-  const { q, page } = Route.useSearch();
+function ProductsRoute() {
+  const search = Route.useSearch();
+  const { auth } = Route.useRouteContext();
+  const navigate = Route.useNavigate();
   return (
-    <section className="space-y-3">
-      <div>
-        <h1 className="type-page-title">产品</h1>
-        <p className="text-text-secondary">当前页码：{page}；搜索词：{q || '无'}</p>
-      </div>
-      <Link className="text-primary underline-offset-4 hover:underline" to="/products/$productId" params={{ productId: 'router-foundation' }}>
-        查看产品详情路由
-      </Link>
-    </section>
+    <ProductsListPage
+      csrfToken={auth.csrfToken}
+      onSearchChange={(nextSearch) => void navigate({ search: nextSearch })}
+      search={search}
+    />
   );
 }

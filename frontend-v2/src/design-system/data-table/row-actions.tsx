@@ -1,7 +1,7 @@
 import { MoreHorizontalIcon } from 'lucide-react';
 import { useState } from 'react';
 
-import { Button } from '@/design-system/primitives/button';
+import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
   Dialog,
   DialogClose,
@@ -102,9 +102,9 @@ function PrimaryAction({ action, onCommand }: { action: PrimaryRowAction; onComm
   }
 
   return (
-    <Button className="max-w-24 truncate" render={<a href={action.href} />} variant="ghost">
+    <a className={buttonVariants({ className: 'max-w-24 truncate', variant: 'ghost' })} href={action.href}>
       {action.label}
-    </Button>
+    </a>
   );
 }
 

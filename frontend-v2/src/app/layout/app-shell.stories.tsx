@@ -26,6 +26,7 @@ const engineer: AuthUser = { ...admin, id: '00000000-0000-4000-8000-000000000002
 function storyAuth(user: AuthUser | null, state?: 'loading' | 'error'): AuthContextValue {
   return {
     user,
+    csrfToken: user ? 'storybook-csrf-token' : null,
     isLoading: state === 'loading',
     isSigningOut: false,
     error: state === 'error' ? new Error('认证服务暂时不可用') : null,

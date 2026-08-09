@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures/foundation.fixture';
 
-test('production artifact 支持 App Shell、deep link 与响应式导航', async ({ page }, testInfo) => {
+test('production artifact 支持 App Shell 与响应式导航', async ({ page }, testInfo) => {
   const runtimeErrors: string[] = [];
   const staticResourceTypes = new Set(['script', 'stylesheet', 'image', 'font']);
 
@@ -26,33 +26,16 @@ test('production artifact 支持 App Shell、deep link 与响应式导航', asyn
     await page.getByRole('button', { name: '打开主导航' }).click();
     const navigation = page.getByRole('dialog');
     await expect(navigation).toBeVisible();
-    await navigation.getByRole('link', { name: '产品' }).click();
+    await expect(navigation.getByRole('link', { name: '产品' })).toBeVisible();
+    await page.keyboard.press('Escape');
     await expect(navigation).toBeHidden();
   } else {
     const sidebar = page.locator('aside');
     await expect(sidebar).toBeVisible();
-    await sidebar.getByRole('link', { name: '产品' }).click();
+    await expect(sidebar.getByRole('link', { name: '产品' })).toBeVisible();
   }
-  await expect(page).toHaveURL('/products?page=1');
-  await expect(page.getByRole('heading', { level: 1, name: '产品' })).toBeVisible();
-
-  const deepLinkResponse = await page.goto('/products');
-  expect(deepLinkResponse?.ok()).toBe(true);
-  await expect(page.getByRole('heading', { level: 1, name: '产品' })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('heading', { level: 1, name: '产品' })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: '面包屑' })).toContainText('产品');
-
-  if (testInfo.project.name === 'foundation-mobile') {
-    await page.getByRole('button', { name: '打开主导航' }).click();
-    const navigation = page.getByRole('dialog');
-    await expect(navigation.getByRole('link', { name: '产品' })).toHaveAttribute('aria-current', 'page');
-    await page.keyboard.press('Escape');
-    await expect(navigation).toBeHidden();
-  } else {
-    await expect(page.locator('aside').getByRole('link', { name: '产品' }))
-      .toHaveAttribute('aria-current', 'page');
-  }
+  await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
 
   expect(runtimeErrors, '页面不得出现未捕获异常或失败静态资源').toEqual([]);
 });

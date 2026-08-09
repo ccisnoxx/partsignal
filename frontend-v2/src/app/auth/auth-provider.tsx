@@ -13,6 +13,7 @@ type AuthSession = {
 
 type AuthContextValue = {
   user: AuthUser | null;
+  csrfToken: string | null;
   isLoading: boolean;
   isSigningOut: boolean;
   error: unknown;
@@ -71,6 +72,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const user = session.data?.user ?? null;
   const value: AuthContextValue = {
     user,
+    csrfToken: session.data?.csrfToken ?? null,
     isLoading: session.isLoading,
     isSigningOut: logout.isPending,
     error: session.error,

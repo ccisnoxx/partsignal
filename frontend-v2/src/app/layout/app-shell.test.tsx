@@ -1,12 +1,14 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { within } from '@testing-library/dom';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthContextValue, AuthUser } from '@/app/auth/auth-provider';
+import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
+import { api } from '@/shared/api/client';
 
 const engineer: AuthUser = {
   id: '00000000-0000-4000-8000-000000000002',
@@ -35,6 +37,7 @@ const admin: AuthUser = {
 function authValue(user: AuthUser | null): AuthContextValue {
   return {
     user,
+    csrfToken: user ? 'test-csrf-token' : null,
     isLoading: false,
     isSigningOut: false,
     error: null,
@@ -51,9 +54,24 @@ function renderRoute(path: string, auth = authValue(null)) {
     history: createMemoryHistory({ initialEntries: [path] }),
     context: { queryClient, auth },
   });
-  render(<RouterProvider router={router} context={{ queryClient, auth }} />);
+  render(
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <RouterProvider router={router} context={{ queryClient, auth }} />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
   return router;
 }
+
+beforeEach(() => {
+  vi.spyOn(api, 'GET').mockImplementation(async () => {
+    const data = { items: [], page: 1, page_size: 20, total: 0 };
+    return { data, response: Response.json(data) } as never;
+  });
+});
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('AppShell', () => {
   it('由 match metadata 激活父级导航并生成详情面包屑', async () => {
@@ -106,20 +124,21 @@ describe('AppShell', () => {
     const user = userEvent.setup();
     const productLink = await screen.findByRole('link', { name: '产品' });
     await user.click(productLink);
-    await screen.findByRole('heading', { name: '产品' });
+    await screen.findByRole('heading', { name: '产品事实' });
 
     const main = screen.getByRole('main');
     await waitFor(() => expect(main).toHaveFocus());
-    const detailLink = screen.getByRole('link', { name: '查看产品详情路由' });
-    detailLink.focus();
+    const tableRegion = screen.getByRole('region', { name: '产品事实列表' });
+    tableRegion.focus();
 
     await router.navigate({ to: '/products', search: { q: 'router', page: 2 } });
-    expect(detailLink).toHaveFocus();
+    expect(tableRegion).toHaveFocus();
   });
 
   it('把无效产品页码归一为 1 并 trim 搜索词', async () => {
-    renderRoute('/products?q=%20router%20&page=invalid');
+    const router = renderRoute('/products?q=%20router%20&page=invalid');
 
-    expect(await screen.findByText('当前页码：1；搜索词：router')).toBeInTheDocument();
+    expect(await screen.findByRole('searchbox', { name: '搜索产品' })).toHaveValue('router');
+    expect(router.state.location.search).toMatchObject({ q: 'router', page: 1 });
   });
 });

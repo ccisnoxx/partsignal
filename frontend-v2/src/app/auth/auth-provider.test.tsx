@@ -30,7 +30,7 @@ function AuthProbe() {
   if (auth.error) return <p>读取失败</p>;
   return (
     <div>
-      <p>{auth.user ? `${auth.user.display_name}:${auth.isAdmin}` : '匿名'}</p>
+      <p>{auth.user ? `${auth.user.display_name}:${auth.isAdmin}:${auth.csrfToken}` : '匿名'}</p>
       {auth.user && <button onClick={() => void auth.signOut()}>退出</button>}
     </div>
   );
@@ -70,7 +70,7 @@ describe('AuthProvider', () => {
     } as never);
 
     renderAuth();
-    expect(await screen.findByText('系统管理员:true')).toBeInTheDocument();
+    expect(await screen.findByText('系统管理员:true:csrf-token')).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: '退出' }));
 

@@ -119,7 +119,8 @@ npm --prefix frontend-v2 run e2e -- [Playwright arguments...]
 
 - 根 `bootstrap`、`contract-check`、`lint`、`typecheck`、`test-unit`、`build` 和 `e2e` 必须顺序保留 V1 命令并运行对应 V2 script；任一命令非零时 target 失败。
 - V2 Playwright 由 `frontend-v2/playwright.config.ts` 管理，`webServer` 必须先执行 `npm run build` 再运行 `vite preview`；不得以 Vite dev server 代替 production artifact。
-- Foundation smoke 只通过显式 `foundationApi` fixture 隔离匿名 `GET /api/v1/auth/me`；其他 API、页面异常、失败请求或失败静态资源均使测试失败。
+- Foundation smoke 只通过显式 `foundationApi` fixture 隔离匿名 `GET /api/v1/auth/me`，负责 `/` 的 App Shell 与导航入口；其他 API、页面异常、失败请求或失败静态资源均使测试失败。
+- 已落地的业务 route 从 Foundation smoke 迁移到独立 production-artifact spec。Products 使用 `products.fixture.ts` 中 generated `ProductListItem` 约束的显式 API projection；未声明 API 必须失败，fixture 不得进入运行时代码，也不得宣称为完整后端业务 E2E。
 - `frontend-v2/vite.config.ts` 必须在保留 Vitest 默认 exclude 的基础上排除 `tests/e2e/**`，避免 Playwright spec 被 Vitest 当成 unit suite。
 
 ### 4. 验证与错误矩阵
@@ -129,26 +130,28 @@ npm --prefix frontend-v2 run e2e -- [Playwright arguments...]
 | V1 或 V2 npm script 失败 | 对应 Make target 与 `make verify` 非零退出 |
 | V2 production build/preview 未就绪 | Playwright webServer 启动失败，不执行固定成功测试 |
 | 未声明 `/api/v1/**` 请求 | `foundationApi` 记录请求并使 smoke 失败 |
+| Products 页面请求 Facts/Versions/Actions join | `productsApi` 记录为未声明请求并使业务 spec 失败 |
 | route chunk 在下一次导航前仍加载 | 测试先等待目标页面渲染，不过滤 `requestfailed` |
 | Playwright spec 被 Vitest 导入 | V2 unit 门禁失败，修复测试发现边界而非跳过 suite |
 
 ### 5. Good / Base / Bad
 
-- Good：`make verify` 同时覆盖 V1/V2，V2 smoke 对真实 build artifact 验证 375/1440 的 App Shell 与 Router。
-- Base：Foundation 使用明确 fixture 且不请求业务数据；真实业务 E2E 从 Products List Task 开始。
-- Bad：删除 V1 检查、在运行时代码加入 mock fallback、过滤 console/request failure，或用 dev server 冒充 production smoke。
+- Good：`make verify` 同时覆盖 V1/V2；Foundation 验证 App Shell，Products spec 在同一真实 build artifact 上验证业务 route、URL/API mapping 和 375/768/1024/1440。
+- Base：Foundation 使用明确 fixture 且不请求业务数据；业务 spec 使用 generated type fixture 并明确前端测试边界。
+- Bad：继续让 Foundation 假装验证已落地业务页、在运行时代码加入 mock fallback、客户端 join、过滤未知 console/request failure，或把 fixture 测试宣称为真实业务闭环。
 
 ### 6. 必需测试
 
 - `npm --prefix frontend-v2 run e2e -- tests/e2e/foundation-smoke.spec.ts`：两个 project 均通过。
+- `npm --prefix frontend-v2 run e2e -- tests/e2e/products-list.spec.ts`：Products route 的 typed fixture、URL 恢复、业务动作、状态、键盘和四档宽度均通过。
 - V1/V2 `api:check`、lint、typecheck、test 和 build 分别通过。
 - 修改后的根 targets 通过，最后运行 `make verify`。
 
 ### 7. Wrong vs Correct
 
 ```text
-Wrong: Vite dev server + 固定成功 API fallback + 忽略 console/request failure
-Correct: production build + vite preview + 显式匿名 fixture + 未声明请求/运行时错误直接失败
+Wrong: Foundation 继续覆盖业务占位页 + 运行时固定成功 fallback + 忽略未知 console/request failure
+Correct: production build + vite preview + Foundation/业务 typed fixture 分责 + 未声明请求/运行时错误直接失败
 ```
 
 ## 浏览器与 jsdom 测试边界

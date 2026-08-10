@@ -232,6 +232,84 @@ return <FactHistoryPage productId={productId} search={search} />;
 
 ---
 
+## New Content Task 的 URL、Options 与幂等合同
+
+### 1. 适用范围 / 触发条件
+
+实现或修改 `/content/tasks/new`、普通 `ContentTask` 创建、Product Facts 的 `CREATE_CONTENT_TASK` handoff 或创建成功返回列表时适用。该合同只覆盖任务上下文选择，不包含详情、编辑、生成、人工首稿、审核或发布。
+
+### 2. 签名
+
+```text
+URL:  /content/tasks/new?productId=<uuid>
+GET:  /api/v1/content-tasks/creation-options?requested_product_id=<uuid>
+POST: /api/v1/content-tasks
+body: ContentTaskCreate(product_id, fact_version_id, platform_profile_id)
+query key: ["content", "tasks", "creation-options", requestedProductId | null]
+header: Idempotency-Key = crypto.randomUUID()
+```
+
+### 3. 合同
+
+- `productId` 是唯一 URL 表单状态。合法 UUID trim 后转小写并请求服务端资格；纯空或非法值保留为明确页面状态，不发送非法 `requested_product_id`。用户显式更换 Product 写入新的历史项，refresh 与 Back/Forward 恢复 Product。
+- options 一次返回活动 Product、每个 Product 的非空 `APPROVED` FactVersion 和活动 PlatformProfile；`requested_product.eligibility` 只接受 `ELIGIBLE | NOT_FOUND | PRODUCT_INACTIVE | NO_APPROVED_FACTS`。浏览器不得请求 Product list 后逐产品加载 facts，也不得按 raw status 推导最终资格。
+- Product 改变时只清除 `fact_version_id`，保留独立的 Platform 选择；Fact 下拉只能消费当前 Product 的 `approved_fact_versions`。URL handoff 切换必须先确认 options 的 `requested_product.product_id` 与 URL 匹配，避免 placeholder cache 覆盖当前表单。
+- payload 严格来自 generated `ContentTaskCreate` 三字段。Topic/GEO Source、Content Intent、audience、angle、conversion goal、format、length、generation/manual mode、notes、Prompt 和 AI model 都不得进入表单、DTO 或请求。
+- 页面以 `useRef` 保存 `{payloadSignature, key}`。同一 payload 的失败重试复用 key；rerender 不换 key；payload 明确变化或收到 `IDEMPOTENCY_CONFLICT` 后生成新 key；成功后废弃旧 key。pending ref 与按钮禁用共同阻止双击重复请求。
+- options 只负责显示范围，POST 仍由服务端在事务锁内重新校验产品、事实和平台。平台缺 Prompt 不阻止任务或后续人工首稿，只能由未来系统 AI generation job 拒绝。
+- 成功后先清除 dirty 与旧 key，失效 `contentKeys.lists()`，返回 canonical `/content/tasks` 并通过一次性 history state 显示成功反馈；Task Detail 未实现时不得创建占位 route 或跳转详情。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 页面处理 |
+| --- | --- |
+| `productId` 为空或非法 | 明确提示，不请求非法 UUID，不自动选择 Product |
+| handoff 为 `NOT_FOUND / PRODUCT_INACTIVE / NO_APPROVED_FACTS` | 展示精确状态；用户可显式选择其他合格 Product |
+| 无合格 Product / 无活动 Platform | 展示 Product Facts / 平台配置引导，不伪造空选项或选择停用资源 |
+| options 初始失败 | 保留独立 error + retry；不渲染可提交的猜测选项 |
+| 客户端缺少三字段 | FormField 与 ErrorSummary 同时定位；不发 POST |
+| 服务端字段 validation | 只把三个已知 body 字段映射回字段；未知 issue 留在 form summary |
+| `FACT_NOT_APPROVED`、平台停用、403、404、409 | 保留选择，展示服务端 message 与 request ID |
+| `IDEMPOTENCY_CONFLICT` | 保留选择并废弃冲突 key；下一次提交生成新 key |
+| 成功 | 列表 query 失效、dirty 清除、返回列表并显示一次性成功状态 |
+
+### 5. Good / Base / Bad
+
+- Good：从 Product Detail handoff 进入，服务端确认 `ELIGIBLE` 后预选 Product；用户选 Fact 和 Platform，用一个 UUID key 创建并返回刷新后的列表。
+- Base：handoff Product 已停用，页面明确提示且不自动改选；用户手动选择其他 Product 后只重选 Fact，原 Platform 保留。
+- Bad：`GET /products -> N × GET /fact-versions -> GET /platform-profiles`，或按 `status` 在浏览器拼资格；这会产生 waterfall、不同快照和第二套业务规则。
+
+### 6. 必需测试
+
+- Contract/backend：冻结三字段 body、options schema/权限/空态/稳定排序/固定查询数，以及 POST 资格、幂等冲突、并发唯一和 options 过期复核。
+- Component：URL normalization、handoff、dependent Fact、Platform 保留、三字段 payload、key 生命周期、loading/empty/error、DirtyGuard、pending、字段/form error 与成功失效导航。
+- Fixture Playwright：列表与 Product Detail 入口、direct/refresh/Back/Forward、非法/失效 handoff、精确 body/header、错误/request ID、四档宽度、键盘/焦点及未声明 API 失败。
+- Real stack：复用 Product Facts Flow A，批准事实后经真实 handoff 创建 ContentTask 并返回列表；不得新增第二套 orchestration 或进入 Task Detail。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```tsx
+const products = await listProducts();
+const facts = await Promise.all(products.map((product) => listFactVersions(product.id)));
+const key = productId;
+```
+
+这会在浏览器复制资格、形成 N+1，并把业务 ID 冒充唯一幂等键。
+
+#### Correct
+
+```tsx
+const options = useQuery(contentTaskCreationOptionsQueryOptions(productId));
+const key = current.signature === signature ? current.key : crypto.randomUUID();
+await createContentTask(body, csrfToken, key);
+```
+
+选择范围来自单一 read model；同载荷失败重试复用随机 key，POST 仍由服务端最终校验。
+
+---
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

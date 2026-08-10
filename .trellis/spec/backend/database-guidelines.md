@@ -349,6 +349,7 @@ result = cleanup_platform_logo_files(storage=storage)
 - 工作区：`products.facts_body_markdown TEXT NOT NULL`、`products.facts_classification PUBLIC|INTERNAL|RESTRICTED`、`products.facts_revision`。
 - 冻结版本：`fact_versions.body_markdown`、`fact_versions.classification`；不得恢复 `snapshot_json`。
 - 任务：`ContentTaskCreate(product_id, fact_version_id, platform_profile_id)`；`content_tasks` 直接外键到 `platform_profiles`。
+- 创建选项：`GET /api/v1/content-tasks/creation-options?requested_product_id=<uuid>` 返回 `products[].approved_fact_versions[]`、`platforms[]` 和可空 `requested_product`；读请求使用 `REPEATABLE READ`。
 - 普通任务创建要求 8–128 字符 `Idempotency-Key`；同键同三字段返回原任务，同键异载荷返回 `409 IDEMPOTENCY_CONFLICT`，不同键允许相同业务输入。
 - 系统首稿：`POST /api/v1/content-tasks/{id}/generation-jobs`，请求体为 `{ai_model_id, platform_prompt_id, platform_prompt_revision}`。
 - 人工首稿：`POST /api/v1/content-tasks/{id}/manual-versions`，请求体复用 `ContentRevisionCreate`。
@@ -377,8 +378,10 @@ result = cleanup_platform_logo_files(storage=storage)
 | 条件 | 结果 |
 |---|---|
 | 事实 Markdown 为空白 | 请求校验失败，不递增 `facts_revision` |
-| 事实版本不属于产品、非 `APPROVED` 或正文为空 | `409 INVALID_STATE_TRANSITION`，不创建任务/首稿 |
+| 事实版本不属于产品 | `422 VALIDATION_ERROR`，不创建任务 |
+| 产品停用、事实非 `APPROVED` 或正文为空 | `409 FACT_NOT_APPROVED`，不创建任务/首稿 |
 | 平台不存在或已停用 | `404` 或 `409 PLATFORM_DISABLED` |
+| handoff 产品不存在、停用或没有非空批准事实 | options 返回 `NOT_FOUND`、`PRODUCT_INACTIVE` 或 `NO_APPROVED_FACTS`；不替换为其他产品 |
 | 缺少或长度非法的任务请求键 | `422 VALIDATION_ERROR`，不创建任务 |
 | 同键异载荷 | `409 IDEMPOTENCY_CONFLICT`，原任务不变 |
 | 系统 AI 使用非 `PUBLIC` 事实 | `409 AI_DATA_CLASSIFICATION_FORBIDDEN` |
@@ -400,6 +403,8 @@ result = cleanup_platform_logo_files(storage=storage)
 ### 6. 必需测试
 
 - 契约测试断言任务创建仅三个字段、人工首稿接口存在、平台规则 Schema/路径和旧任务字段不存在。
+- PostgreSQL integration 断言 creation options 只含活动产品、同产品非空批准事实和活动平台，排序稳定、空态正确、statement count 不随产品数增长，并证明 options 过期后 POST 仍持锁拒绝。
+- 普通任务创建 integration 断言 product/fact/platform 一致性、同键同载荷重放、同键异载荷冲突和并发同键只创建一行。
 - PostgreSQL 迁移测试断言确定性 Markdown 回填、最严格分级、任务平台唯一回填、旧表/列删除、活动旧作业阻断和有损 downgrade 拒绝。
 - 单元/集成测试断言生成请求恰好两条原始消息、人工 lineage 四字段、非公开事实/缺 Prompt/legacy retry 明确失败。
 - 单元/集成测试断言人工草稿保存的 revision 冲突与字段边界，删除的全部直接引用、当前指针恢复、最小审计、数据库 UPDATE/DELETE 守卫，以及批量投影查询次数不随版本数增长。

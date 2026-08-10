@@ -14,7 +14,7 @@
 - [x] 扩展 `content.fixture.ts` 与 `new-content-task.spec.ts`，所有未声明 API 继续失败。
 - [x] 扩展既有 Product Facts real-stack Flow A，复用 `deploy/scripts/e2e-local.sh`。
 - [x] 运行 required validation、`trellis-check`、diff/依赖/范围/文案自审。
-- [ ] 停在 commit plan 前；提交、合并、归档、删分支和 push 均等待用户确认。
+- [x] 实施提交 `326df9f` 已完成；Trellis bookkeeping、归档、合并和删分支继续分别等待用户确认，不 push。
 
 ## 预计文件
 

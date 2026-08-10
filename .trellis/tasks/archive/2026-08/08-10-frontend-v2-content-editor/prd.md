@@ -29,7 +29,7 @@
 
 ## 集成验收
 
-- [ ] Core 和 AI Production 分别通过各自 required validation 并独立归档。
-- [ ] OpenAPI、生成类型、backend projection、V2 页面、fixture、real-stack 与权威文档一致。
-- [ ] current pointer、不可变边界、revision conflict、action token 和 V1 兼容均有直接测试证据。
-- [ ] 父任务最终自审未夹带 Review、Publication 或通用框架。
+- [x] Core 和 AI Production 分别通过各自 required validation 并独立归档。
+- [x] OpenAPI、生成类型、backend projection、V2 页面、fixture、real-stack 与权威文档一致。
+- [x] current pointer、不可变边界、revision conflict、action token 和 V1 兼容均有直接测试证据。
+- [x] 父任务最终自审未夹带 Review、Publication 或通用框架。

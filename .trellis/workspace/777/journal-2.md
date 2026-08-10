@@ -421,11 +421,13 @@
 
 按前端视觉系统重构发布管理信息架构、桌面与移动呈现和详情交互，补齐真实浏览器回归及用户批准资产。
 
-### Main Changes
+### 主要变更
 
-- Detailed change bullets were not supplied; see the summary above.
+- 新增 Content Version Detail compact read model、`0042` migration 与一致读 API。
+- 实现 `/content/versions/$versionId` 不可变详情页、Content domain query owner 与 canonical links。
+- 补齐 component、fixture Playwright、独立 real-stack、合同和直接受影响文档。
 
-### Git Commits
+### Git 提交
 
 | Hash | Message |
 |------|---------|
@@ -1738,3 +1740,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 109: Frontend V2 Content Version Detail
+
+**Date**: 2026-08-11
+**Task**: Frontend V2 Content Version Detail
+**Branch**: `codex/frontend-v2-content-version-detail`
+
+### Summary
+
+实现不可变 Content Version 详情的 compact read model、数据库更新时间、Frontend V2 只读页面及跨层验证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c07a7be` | `feat(content): add immutable content version detail` |
+
+### 验证
+
+- OpenAPI generate、contract check、backend contract/migration/integration tests 通过。
+- Frontend V2 component、lint、typecheck、build 与 fixture Playwright 通过。
+- 隔离 real-stack 中 V2 7/7、所选 V1 smoke 12/12 通过；`git diff --check` 通过。
+
+### 状态
+
+[OK] **已完成**
+
+### 后续
+
+- 无，任务已完成。

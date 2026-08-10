@@ -998,6 +998,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content-tasks/{content_task_id}/review-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getContentTaskReviewContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content-tasks/{content_task_id}/generation-options": {
         parameters: {
             query?: never;
@@ -7223,6 +7239,31 @@ export interface operations {
             422: components["responses"]["ErrorResponse"];
         };
     };
+    getContentTaskReviewContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                content_task_id: components["parameters"]["ContentTaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 任务当前主线的正文、冻结事实、差异、追溯与完整审核历史 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentReviewContext"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+        };
+    };
     getContentTaskGenerationOptions: {
         parameters: {
             query?: never;
@@ -7660,6 +7701,8 @@ export interface operations {
                     "application/json": components["schemas"]["ContentReviewContext"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
         };
     };
@@ -7739,8 +7782,11 @@ export interface operations {
         requestBody: components["requestBodies"]["CommandRequest"];
         responses: {
             200: components["responses"]["ContentVersionResponse"];
+            401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     requestContentVersionChanges: {
@@ -7757,6 +7803,11 @@ export interface operations {
         requestBody: components["requestBodies"]["RequestChangesCommand"];
         responses: {
             200: components["responses"]["ContentVersionResponse"];
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     compareContentVersions: {

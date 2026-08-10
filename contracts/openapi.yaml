@@ -1501,6 +1501,20 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/content-tasks/{content_task_id}/review-context:
+    get:
+      tags: [review]
+      operationId: getContentTaskReviewContext
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      responses:
+        '200':
+          description: 任务当前主线的正文、冻结事实、差异、追溯与完整审核历史
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentReviewContext'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/generation-options:
     get:
       tags: [production]
@@ -1760,6 +1774,8 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentReviewContext'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/revisions:
     post:
@@ -1811,8 +1827,11 @@ paths:
       requestBody: {$ref: '#/components/requestBodies/CommandRequest'}
       responses:
         '200': {$ref: '#/components/responses/ContentVersionResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/request-changes:
     post:
       tags: [review]
@@ -1823,6 +1842,11 @@ paths:
       requestBody: {$ref: '#/components/requestBodies/RequestChangesCommand'}
       responses:
         '200': {$ref: '#/components/responses/ContentVersionResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/compare/{other_version_id}:
     get:
       tags: [review]

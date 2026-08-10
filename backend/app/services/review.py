@@ -185,16 +185,16 @@ def _source_ai_lineage(db: Session, content: ContentVersion) -> ContentAILineage
         raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容 AI 追溯链不完整", 409) from error
 
 
-def get_content_review_context(
-    db: Session, content_version_id: uuid.UUID, *, can_delete_fact: bool
+def _content_review_context(
+    db: Session,
+    content: ContentVersion,
+    task: ContentTask,
+    *,
+    can_delete_fact: bool,
 ) -> ContentReviewContext:
-    """从不可变内容、任务事实和生成快照装配一次审核读取投影。"""
-    content = db.get(ContentVersion, content_version_id)
-    if content is None:
-        raise not_found("内容版本")
-    task = db.get(ContentTask, content.task_id)
+    """从已确认属于同一任务的内容版本装配审核投影。"""
     fact = db.get(FactVersion, content.fact_version_id)
-    if task is None or fact is None or task.fact_version_id != fact.id:
+    if fact is None or content.task_id != task.id or task.fact_version_id != fact.id:
         raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容审核绑定的任务或事实不完整", 409)
     comparison = None
     comparison_source = db.get(ContentVersion, content.based_on_id) if content.based_on_id else None
@@ -238,6 +238,44 @@ def get_content_review_context(
             else []
         ),
         review_history=_content_history(db, content),
+    )
+
+
+def get_content_review_context(
+    db: Session, content_version_id: uuid.UUID, *, can_delete_fact: bool
+) -> ContentReviewContext:
+    """按精确内容版本返回不可变审核上下文。"""
+    content = db.get(ContentVersion, content_version_id)
+    if content is None:
+        raise not_found("内容版本")
+    task = db.get(ContentTask, content.task_id)
+    if task is None:
+        raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容审核绑定的任务不存在", 409)
+    return _content_review_context(
+        db,
+        content,
+        task,
+        can_delete_fact=can_delete_fact,
+    )
+
+
+def get_content_task_review_context(
+    db: Session, content_task_id: uuid.UUID, *, can_delete_fact: bool
+) -> ContentReviewContext:
+    """按任务当前主线返回可由 Review route 一次绘制的审核上下文。"""
+    task = db.get(ContentTask, content_task_id)
+    if task is None:
+        raise not_found("内容任务")
+    if task.current_content_version_id is None:
+        raise AppError("CONTENT_REVIEW_NOT_AVAILABLE", "内容任务当前没有可审核版本", 409)
+    content = db.get(ContentVersion, task.current_content_version_id)
+    if content is None or content.task_id != task.id:
+        raise AppError("REVIEW_CONTEXT_INCOMPLETE", "内容任务当前主线不完整", 409)
+    return _content_review_context(
+        db,
+        content,
+        task,
+        can_delete_fact=can_delete_fact,
     )
 
 
@@ -316,9 +354,7 @@ def transition_content_version(
         raise not_found("内容版本")
     if content.revision != expected_revision:
         raise AppError("REVISION_CONFLICT", "内容版本已被其他请求修改", 409)
-    task = db.scalar(
-        select(ContentTask).where(ContentTask.id == content.task_id).with_for_update()
-    )
+    task = db.scalar(select(ContentTask).where(ContentTask.id == content.task_id).with_for_update())
     if task is None or task.current_content_version_id != content.id:
         raise AppError("CONTENT_VERSION_NOT_CURRENT", "只有任务当前内容版本可以审核", 409)
     expected, target = CONTENT_TRANSITIONS[action]

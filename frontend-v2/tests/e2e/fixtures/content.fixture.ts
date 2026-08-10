@@ -9,10 +9,12 @@ type ContentTask = components['schemas']['ContentTask'];
 type ContentTaskDetail = components['schemas']['ContentTaskDetail'];
 type ContentTaskCreate = components['schemas']['ContentTaskCreate'];
 type ContentEditorContext = components['schemas']['ContentEditorContext'];
+type ContentReviewContext = components['schemas']['ContentReviewContext'];
 type ContentVersion = components['schemas']['ContentVersion'];
 type ContentRevisionCreate = components['schemas']['ContentRevisionCreate'];
 type ContentDraftUpdate = components['schemas']['ContentDraftUpdate'];
 type CommandRequest = components['schemas']['CommandRequest'];
+type RequestChangesCommand = components['schemas']['RequestChangesCommand'];
 type CreationOptions = components['schemas']['ContentTaskCreationOptions'];
 type GenerationJob = components['schemas']['GenerationJob'];
 type GenerationJobDetail = components['schemas']['GenerationJobDetail'];
@@ -35,6 +37,8 @@ type CreateMode =
 type DetailMode = 'success' | 'empty' | 'cancelled' | 'error' | 'loading' | 'not-found' | 'forbidden';
 type EditorMode = 'no-current' | 'human-draft' | 'ai-draft' | 'changes-requested' | 'review-pending';
 type EditorMutationMode = 'success' | 'revision-conflict';
+type ReviewMode = 'review-pending' | 'blocking' | 'approved' | 'changes-requested' | 'readonly' | 'loading' | 'error';
+type ReviewMutationMode = 'success' | 'revision-conflict' | 'validation';
 type AiOutcome = 'success' | 'failure';
 type LifecycleBody =
   | components['schemas']['CommandRequest']
@@ -82,6 +86,13 @@ type EditorDeleteRequest = {
   expectedRevision: number | null;
 };
 
+type ReviewCommandRequest = {
+  body: CommandRequest | RequestChangesCommand;
+  csrfToken: string | null;
+  command: 'approve' | 'request-changes';
+  contentVersionId: string;
+};
+
 type AiJobRequest = {
   body: HumanizationJobCreate | OriginalGenerationJobCreate | null;
   csrfToken: string | null;
@@ -105,10 +116,13 @@ type ContentApiController = {
   generationOptionsRequests: URL[];
   listRequests: URL[];
   lifecycleRequests: LifecycleRequest[];
+  reviewCommandRequests: ReviewCommandRequest[];
+  reviewContextRequests: URL[];
   releaseCreate: () => void;
   releaseDetailLoading: () => void;
   releaseLoading: () => void;
   releaseOptionsLoading: () => void;
+  releaseReviewLoading: () => void;
   setCreateMode: (mode: CreateMode) => void;
   setCreationOptionsMode: (mode: CreationOptionsMode) => void;
   setDetailMode: (mode: DetailMode) => void;
@@ -116,6 +130,8 @@ type ContentApiController = {
   setEditorMutationMode: (mode: EditorMutationMode) => void;
   setListMode: (mode: ContentTaskListMode) => void;
   setMutationMode: (mode: MutationMode) => void;
+  setReviewMode: (mode: ReviewMode) => void;
+  setReviewMutationMode: (mode: ReviewMutationMode) => void;
   setAiOutcome: (outcome: AiOutcome) => void;
 };
 
@@ -131,6 +147,7 @@ const creationFactId = '20000000-0000-4000-8000-000000000201';
 const secondCreationFactId = '20000000-0000-4000-8000-000000000202';
 const createdTaskId = '00000000-0000-4000-8000-999999999998';
 const editorTaskId = '00000000-0000-4000-8000-000000000002';
+const reviewTaskId = editorTaskId;
 const editorContentId = '30000000-0000-4000-8000-000000000002';
 const editorPreviousContentId = '30000000-0000-4000-8000-000000000102';
 const generationJobId = '40000000-0000-4000-8000-000000000201';
@@ -613,6 +630,117 @@ function contentEditorContext(item: ContentTaskListItem, mode: EditorMode): Cont
   };
 }
 
+function contentReviewContext(item: ContentTaskListItem, mode: ReviewMode): ContentReviewContext {
+  const base = editorVersion(item.id, 'review-pending');
+  if (!base) throw new Error('Content Review fixture 缺少待审核版本');
+  const approved = mode === 'approved';
+  const changesRequested = mode === 'changes-requested';
+  const content: ContentVersion = {
+    ...base,
+    source_job_id: generationJobId,
+    title: 'PS-0002 平台适配指南',
+    body_markdown: '# Canonical 内容\n\n工作电压为 3.3 V。',
+    status: approved ? 'APPROVED' : changesRequested ? 'CHANGES_REQUESTED' : 'PENDING_REVIEW',
+    workflow_stage: approved
+      ? 'CURRENT_APPROVED'
+      : changesRequested
+        ? 'CURRENT_CHANGES_REQUESTED'
+        : 'CURRENT_REVIEW_PENDING',
+    primary_task: approved
+      ? 'START_PUBLICATION'
+      : changesRequested
+        ? 'CREATE_REVISION'
+        : 'REVIEW_CONTENT',
+    available_actions: approved
+      ? []
+      : changesRequested
+        ? ['CREATE_REVISION']
+        : ['APPROVE', 'REQUEST_CHANGES'],
+    quality_issues: [
+      ...(mode === 'blocking'
+        ? [{ code: 'MISSING_SOURCE', severity: 'BLOCKING' as const, message: '缺少来源说明' }]
+        : []),
+      { code: 'LONG_TITLE', severity: 'WARNING', message: '标题可能过长' },
+    ],
+  };
+  return {
+    content,
+    task: {
+      ...commandResponse(item),
+      current_content_version_id: content.id,
+      workflow_stage: approved ? 'APPROVED' : changesRequested ? 'CHANGES_REQUESTED' : 'REVIEW_PENDING',
+      primary_task: approved
+        ? 'START_PUBLICATION'
+        : changesRequested
+          ? 'REVISE_CONTENT'
+          : 'REVIEW_CONTENT',
+    },
+    fact_version: {
+      id: item.fact_version_id,
+      product_id: item.product_id,
+      version: 3,
+      status: 'APPROVED',
+      body_markdown: '## 批准事实\n\n- 工作电压：3.3 V\n- 温度范围：-40°C 至 85°C',
+      classification: 'PUBLIC',
+      change_summary: '批准公开事实',
+      primary_task: 'CREATE_CONTENT_TASK',
+      available_actions: ['RETIRE'],
+      deletion: null,
+      revision: 1,
+      created_by: user.id,
+      approved_by: user.id,
+      created_at: '2026-08-09T06:00:00Z',
+      approved_at: '2026-08-09T07:00:00Z',
+    },
+    diff: {
+      left_id: editorPreviousContentId,
+      right_id: content.id,
+      lines: [
+        { kind: 'DELETE', old_line: 1, new_line: null, text: '旧正文' },
+        { kind: 'ADD', old_line: null, new_line: 1, text: 'Canonical 内容' },
+      ],
+    },
+    generation_trace: {
+      job_id: generationJobId,
+      input_snapshot: {
+        adapter_name: 'openai-compatible-chat-completions',
+        contract_version: 'content-markdown-v3',
+        channel: { id: generationChannelId, timeout_seconds: 10 },
+        model: { id: generationModelId, model_id: 'fixture-model', request_parameters: {} },
+        platform_profile: { id: platformId, name: platform.name, slug: platform.slug },
+        platform_prompt: {
+          id: generationPromptId,
+          name: generationOptions.platform_prompt.name,
+          revision: generationOptions.platform_prompt.revision,
+        },
+        fact_version: {
+          id: item.fact_version_id,
+          product_id: item.product_id,
+          version: 3,
+          classification: 'PUBLIC',
+        },
+        system_message: generationOptions.platform_prompt.template_markdown,
+        user_message: '## 锁定事实\n\n- 工作电压：3.3 V',
+      },
+    },
+    humanization_traces: [],
+    available_actions: mode === 'review-pending'
+      ? ['APPROVE', 'REQUEST_CHANGES']
+      : mode === 'blocking'
+        ? ['REQUEST_CHANGES']
+        : [],
+    review_history: [{
+      id: '90000000-0000-4000-8000-000000000001',
+      target_id: content.id,
+      target_version: content.version,
+      action: 'submit-review',
+      comment: '请审核平台适配',
+      actor: { id: user.id, username: user.username, display_name: user.display_name },
+      created_at: '2026-08-10T08:30:00Z',
+    }],
+  };
+}
+
 function createdHumanEditorVersion(
   context: ContentEditorContext,
   body: ContentRevisionCreate,
@@ -768,6 +896,8 @@ const test = base.extend<ContentFixtures>({
     let detailMode: DetailMode = 'success';
     let editorMode: EditorMode = 'human-draft';
     let editorMutationMode: EditorMutationMode = 'success';
+    let reviewMode: ReviewMode = 'review-pending';
+    let reviewMutationMode: ReviewMutationMode = 'success';
     let aiOutcome: AiOutcome = 'success';
     let generationJobPolls = 0;
     let generationJobs: GenerationJob[] = [];
@@ -775,10 +905,15 @@ const test = base.extend<ContentFixtures>({
       items.find((item) => item.id === editorTaskId) ?? items[1],
       editorMode,
     );
+    let reviewContextState = contentReviewContext(
+      items.find((item) => item.id === reviewTaskId) ?? items[1],
+      reviewMode,
+    );
     let releaseLoading: (() => void) | undefined;
     let releaseOptionsLoading: (() => void) | undefined;
     let releaseCreate: (() => void) | undefined;
     let releaseDetailLoading: (() => void) | undefined;
+    let releaseReviewLoading: (() => void) | undefined;
     const creationOptionsRequests: URL[] = [];
     const createRequests: CreateRequest[] = [];
     const detailRequests: URL[] = [];
@@ -793,6 +928,8 @@ const test = base.extend<ContentFixtures>({
     const generationOptionsRequests: URL[] = [];
     const listRequests: URL[] = [];
     const lifecycleRequests: LifecycleRequest[] = [];
+    const reviewCommandRequests: ReviewCommandRequest[] = [];
+    const reviewContextRequests: URL[] = [];
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
 
@@ -1102,6 +1239,111 @@ const test = base.extend<ContentFixtures>({
           latest_generation: compactGeneration(created),
         };
         await route.fulfill({ status: 202, json: created });
+        return;
+      }
+      const reviewContextMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/review-context$/);
+      if (method === 'GET' && reviewContextMatch) {
+        reviewContextRequests.push(url);
+        if (reviewMode === 'loading') {
+          await new Promise<void>((resolve) => { releaseReviewLoading = resolve; });
+        }
+        if (reviewMode === 'error') {
+          await route.fulfill({
+            status: 503,
+            json: errorEnvelope(
+              'CONTENT_REVIEW_UNAVAILABLE',
+              '内容审核上下文暂不可用',
+              'req-content-review-load',
+            ),
+          });
+          return;
+        }
+        if (reviewContextMatch[1] !== reviewContextState.task.id) {
+          await route.fulfill({
+            status: 404,
+            json: errorEnvelope('NOT_FOUND', '内容任务不存在', 'req-content-review-not-found'),
+          });
+          return;
+        }
+        await route.fulfill({ status: 200, json: reviewContextState });
+        return;
+      }
+      const reviewCommandMatch = url.pathname.match(
+        /^\/api\/v1\/content-versions\/([^/]+)\/(approve|request-changes)$/,
+      );
+      if (method === 'POST' && reviewCommandMatch) {
+        const command = reviewCommandMatch[2] as ReviewCommandRequest['command'];
+        const body = request.postDataJSON() as CommandRequest | RequestChangesCommand;
+        reviewCommandRequests.push({
+          body,
+          command,
+          contentVersionId: reviewCommandMatch[1],
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+        });
+        if (reviewMutationMode === 'revision-conflict') {
+          reviewContextState = {
+            ...reviewContextState,
+            content: {
+              ...reviewContextState.content,
+              revision: reviewContextState.content.revision + 1,
+            },
+          };
+          await route.fulfill({
+            status: 409,
+            json: errorEnvelope(
+              'REVISION_CONFLICT',
+              '内容版本已被其他请求修改',
+              'req-content-review-conflict',
+            ),
+          });
+          return;
+        }
+        if (reviewMutationMode === 'validation' && command === 'request-changes') {
+          await route.fulfill({
+            status: 422,
+            json: errorEnvelope(
+              'VALIDATION_ERROR',
+              '请求数据不符合接口契约',
+              'req-content-review-validation',
+              { errors: [{ loc: ['body', 'comment'], msg: '审核意见至少需要 5 个字符' }] },
+            ),
+          });
+          return;
+        }
+        const approved = command === 'approve';
+        const canonical: ContentVersion = {
+          ...reviewContextState.content,
+          status: approved ? 'APPROVED' : 'CHANGES_REQUESTED',
+          workflow_stage: approved ? 'CURRENT_APPROVED' : 'CURRENT_CHANGES_REQUESTED',
+          primary_task: approved ? 'START_PUBLICATION' : 'CREATE_REVISION',
+          available_actions: approved ? [] : ['CREATE_REVISION'],
+          revision: reviewContextState.content.revision + 1,
+        };
+        reviewContextState = {
+          ...reviewContextState,
+          content: canonical,
+          task: {
+            ...reviewContextState.task,
+            workflow_stage: approved ? 'APPROVED' : 'CHANGES_REQUESTED',
+            primary_task: approved ? 'START_PUBLICATION' : 'REVISE_CONTENT',
+          },
+          available_actions: [],
+          review_history: [
+            ...reviewContextState.review_history,
+            {
+              id: approved
+                ? '90000000-0000-4000-8000-000000000002'
+                : '90000000-0000-4000-8000-000000000003',
+              target_id: canonical.id,
+              target_version: canonical.version,
+              action: command,
+              comment: body.comment,
+              actor: { id: user.id, username: user.username, display_name: user.display_name },
+              created_at: '2026-08-10T09:00:00Z',
+            },
+          ],
+        };
+        await route.fulfill({ status: 200, json: canonical });
         return;
       }
       const editorContextMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/editor-context$/);
@@ -1461,6 +1703,8 @@ const test = base.extend<ContentFixtures>({
       generationOptionsRequests,
       listRequests,
       lifecycleRequests,
+      reviewCommandRequests,
+      reviewContextRequests,
       releaseCreate: () => {
         if (!releaseCreate) throw new Error('Content create 请求尚未开始');
         createMode = 'success';
@@ -1480,6 +1724,11 @@ const test = base.extend<ContentFixtures>({
         if (!releaseOptionsLoading) throw new Error('Content options loading 请求尚未开始');
         creationOptionsMode = 'success';
         releaseOptionsLoading();
+      },
+      releaseReviewLoading: () => {
+        if (!releaseReviewLoading) throw new Error('Content Review loading 请求尚未开始');
+        reviewMode = 'review-pending';
+        releaseReviewLoading();
       },
       setCreateMode: (mode) => { createMode = mode; },
       setCreationOptionsMode: (mode) => { creationOptionsMode = mode; },
@@ -1506,6 +1755,23 @@ const test = base.extend<ContentFixtures>({
       setEditorMutationMode: (mode) => { editorMutationMode = mode; },
       setListMode: (mode) => { listMode = mode; },
       setMutationMode: (mode) => { mutationMode = mode; },
+      setReviewMode: (mode) => {
+        reviewMode = mode;
+        if (mode === 'loading' || mode === 'error') return;
+        const item = items.find((candidate) => candidate.id === reviewTaskId) ?? items[1];
+        item.workflow_stage = mode === 'approved'
+          ? 'APPROVED'
+          : mode === 'changes-requested'
+            ? 'CHANGES_REQUESTED'
+            : 'REVIEW_PENDING';
+        item.primary_task = mode === 'approved'
+          ? 'START_PUBLICATION'
+          : mode === 'changes-requested'
+            ? 'REVISE_CONTENT'
+            : 'REVIEW_CONTENT';
+        reviewContextState = contentReviewContext(item, mode);
+      },
+      setReviewMutationMode: (mode) => { reviewMutationMode = mode; },
       setAiOutcome: (outcome) => { aiOutcome = outcome; },
     });
 
@@ -1523,6 +1789,7 @@ export {
   inactiveProductId,
   noFactsProductId,
   platformId,
+  reviewTaskId,
   secondCreationProductId,
   test,
 };

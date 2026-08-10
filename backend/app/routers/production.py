@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Query, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy import func, select
 
 from app.deps import (
@@ -77,11 +77,20 @@ from app.services.content_production import (
     update_content_draft as update_content_draft_command,
 )
 from app.services.projections import content_diff, content_version_out, content_versions_out
-from app.services.review import get_content_review_context, transition_content_version
+from app.services.review import (
+    get_content_review_context,
+    get_content_task_review_context,
+    transition_content_version,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["production", "review"])
 
 ContentEditor = EngineerUser
+
+
+def _content_review_snapshot(db: DbSession) -> None:
+    """在解析任务当前主线前建立一致的 PostgreSQL 读取快照。"""
+    db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
 
 
 def generation_jobs_out(db: DbSession, jobs: list[GenerationJob]) -> list[GenerationJobOut]:
@@ -419,6 +428,23 @@ def delete_content_draft(
         expected_revision=expected_revision,
         actor=editor,
         request_id=request.state.request_id,
+    )
+
+
+@router.get(
+    "/content-tasks/{content_task_id}/review-context",
+    response_model=ContentReviewContext,
+    operation_id="getContentTaskReviewContext",
+    dependencies=[Depends(_content_review_snapshot)],
+)
+def content_task_review_context(
+    content_task_id: uuid.UUID, db: DbSession, user: CurrentUser
+) -> ContentReviewContext:
+    """返回只按任务当前主线形成的一致内容审核快照。"""
+    return get_content_task_review_context(
+        db,
+        content_task_id,
+        can_delete_fact=user.account_type == "ADMIN",
     )
 
 

@@ -2,7 +2,7 @@
 
 ## 1. Scope / Trigger
 
-本地或 CI 运行根 `make e2e` 时适用。V1 与 V2 Product Facts/Content Editor/AI Production 真实栈 Playwright 使用真实
+本地或 CI 运行根 `make e2e` 时适用。V1 与 V2 Product Facts/Content Editor/AI Production/Content Review 真实栈 Playwright 使用真实
 PostgreSQL、Redis、API、Worker、对象存储和浏览器，每次运行必须拥有独立数据库与临时
 存储；V2 fixture-based 页面测试继续只验证 production build artifact，不冒充真实业务闭环。
 
@@ -24,7 +24,7 @@ npm --prefix frontend-v2 run e2e -- [playwright arguments...]
 - 对象存储和 Celery beat 文件只写入本次 `mktemp -d` 创建的目录。
 - 退出时无论测试成功、失败或收到信号，都停止本次进程、删除本次数据库和临时目录。
 - 清理输出使用 `E2E_CLEANUP target=value status=deleted`；测试成功但清理失败时，脚本仍以非零状态退出。
-- 根 `make e2e` 先通过 `e2e-local.sh` 在同一隔离栈运行 V2 Product Facts、Content Editor 与 AI Production 真实 flow，再运行 V1 suite；成功并清理后运行 V2 fixture-based 页面 suite，任一阶段失败时根 target 非零。
+- 根 `make e2e` 先通过 `e2e-local.sh` 在同一隔离栈运行 V2 Product Facts、Content Editor、AI Production 与 Content Review 真实 flow，再运行 V1 suite；成功并清理后运行 V2 fixture-based 页面 suite，任一阶段失败时根 target 非零。
 - V2 Product Facts 与 AI Production gate 必须早于 V1 suite；否则既有 V1 失败会在 `set -e` 下跳过 V2 真实闭环门禁。
 - V2 `webServer` 必须执行 production build 后通过 `vite preview` 服务当前 artifact，不使用 Vite dev server。
 - `deploy/scripts/e2e-local.sh` 必须在同一隔离数据库生命周期内以 `VITE_API_BASE_URL` 构建并启动 V2 production preview，再运行 Product Facts 与 AI Production 真实栈 spec；不得另建数据库、seed 或清理入口。
@@ -63,7 +63,7 @@ npm --prefix frontend-v2 run e2e -- [playwright arguments...]
 - 至少运行一个真实 Playwright 用例，确认生产/开发壳层按需就绪。
 - 分别验证成功和测试失败路径都输出数据库、存储 `status=deleted`，且对应资源已不存在。
 - `npm --prefix frontend-v2 run e2e -- tests/e2e/foundation-smoke.spec.ts` 必须在 375×900 与 1440×1000 均通过，并确认 `/`、`/products` deep link/refresh、App Shell、导航和静态资源错误审计。
-- `deploy/scripts/e2e-local.sh` 必须实际运行 `tests/e2e/product-facts-real-stack.spec.ts` 与 `tests/e2e/content-ai-real-stack.spec.ts --project=foundation-desktop`；前者覆盖批准交接、退回修订和独立 Content Editor 人工首稿 → 保存 → 提交，后者覆盖真实 Worker generation、人性化、超时失败和 exact snapshot retry。
+- `deploy/scripts/e2e-local.sh` 必须实际运行 `tests/e2e/product-facts-real-stack.spec.ts`、`tests/e2e/content-ai-real-stack.spec.ts` 与 `tests/e2e/content-review-real-stack.spec.ts --project=foundation-desktop`；Product Facts 覆盖批准交接、退回修订和独立 Content Editor 人工首稿 → 保存 → 提交，AI Production 覆盖真实 Worker generation、人性化、超时失败和 exact snapshot retry，Content Review 使用独立任务覆盖 approve 与 request-changes canonical 闭环。
 - V1 E2E 前运行 `lsof -nP -iTCP:5173 -sTCP:LISTEN`；存在非本次 listener 时记录 PID/命令并阻塞，不运行误指向外部服务的门禁。
 - V1 E2E 前确认 `REDIS_URL` 对应逻辑库未被其他 Worker/Scheduler 使用；复用本机 Redis 时，先只读确认目标逻辑库为空，再把该独占 URL 传给本次 API、Worker 和 Scheduler。
 - 最后运行 `make e2e`；完整 Phase 1 门禁运行 `make verify`。

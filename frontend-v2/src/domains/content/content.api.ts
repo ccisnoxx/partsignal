@@ -13,10 +13,12 @@ type ContentTaskCreate = components['schemas']['ContentTaskCreate'];
 type ContentTaskCreationOptions = components['schemas']['ContentTaskCreationOptions'];
 type ContentTaskDetail = components['schemas']['ContentTaskDetail'];
 type ContentEditorContext = components['schemas']['ContentEditorContext'];
+type ContentReviewContext = components['schemas']['ContentReviewContext'];
 type ContentRevisionCreate = components['schemas']['ContentRevisionCreate'];
 type ContentDraftUpdate = components['schemas']['ContentDraftUpdate'];
 type ContentVersion = components['schemas']['ContentVersion'];
 type CommandRequest = components['schemas']['CommandRequest'];
+type RequestChangesCommand = components['schemas']['RequestChangesCommand'];
 type GenerationJob = components['schemas']['GenerationJob'];
 type GenerationJobDetail = components['schemas']['GenerationJobDetail'];
 type GenerationJobList = components['schemas']['GenerationJobList'];
@@ -47,6 +49,10 @@ const contentKeys = {
   editorContexts: () => ['content', 'tasks', 'editor-context'] as const,
   editorContext: (taskId: string) => (
     ['content', 'tasks', 'editor-context', taskId] as const
+  ),
+  reviewContexts: () => ['content', 'tasks', 'review-context'] as const,
+  reviewContext: (taskId: string) => (
+    ['content', 'tasks', 'review-context', taskId] as const
   ),
   generationOptions: (taskId: string) => (
     ['content', 'tasks', taskId, 'generation-options'] as const
@@ -189,6 +195,23 @@ function contentEditorContextQueryOptions(taskId: string) {
   });
 }
 
+function contentReviewContextQueryOptions(taskId: string) {
+  return queryOptions({
+    queryKey: contentKeys.reviewContext(taskId),
+    queryFn: async (): Promise<ContentReviewContext> => {
+      const result = await api.GET('/api/v1/content-tasks/{content_task_id}/review-context', {
+        params: { path: { content_task_id: taskId } },
+      });
+      if (!result.data) throw contentRequestError('读取内容审核上下文', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
 function contentTaskDetailQueryOptions(taskId: string) {
   return queryOptions({
     queryKey: contentKeys.detail(taskId),
@@ -307,6 +330,43 @@ async function abandonContentVersion(
   csrfToken: string | null,
 ): Promise<ContentVersion> {
   return commandContentVersion('abandon', versionId, body, csrfToken);
+}
+
+async function approveContentVersion(
+  versionId: string,
+  expectedRevision: number,
+  csrfToken: string | null,
+): Promise<ContentVersion> {
+  const token = requireCsrfToken(csrfToken, '批准内容');
+  const result = await api.POST('/api/v1/content-versions/{content_version_id}/approve', {
+    body: { expected_revision: expectedRevision, comment: '' },
+    params: {
+      path: { content_version_id: versionId },
+      header: { 'X-CSRF-Token': token },
+    },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError('批准内容', result);
+}
+
+async function requestContentVersionChanges(
+  versionId: string,
+  body: RequestChangesCommand,
+  csrfToken: string | null,
+): Promise<ContentVersion> {
+  const token = requireCsrfToken(csrfToken, '退回内容修改');
+  const result = await api.POST(
+    '/api/v1/content-versions/{content_version_id}/request-changes',
+    {
+      body,
+      params: {
+        path: { content_version_id: versionId },
+        header: { 'X-CSRF-Token': token },
+      },
+    },
+  );
+  if (result.data) return result.data;
+  throw contentRequestError('退回内容修改', result);
 }
 
 async function commandContentVersion(
@@ -577,13 +637,17 @@ function contentTaskDetailErrorKind(error: unknown): 'not-found' | 'forbidden' |
 }
 
 const contentEditorContextErrorKind = contentTaskDetailErrorKind;
+const contentReviewContextErrorKind = contentTaskDetailErrorKind;
 
 export {
   ContentRequestError,
+  approveContentVersion,
   archiveContentTask,
   cancelContentTask,
   contentEditorContextErrorKind,
   contentEditorContextQueryOptions,
+  contentReviewContextErrorKind,
+  contentReviewContextQueryOptions,
   contentTaskCreationOptionsQueryOptions,
   contentTaskDetailErrorKind,
   contentTaskDetailQueryOptions,
@@ -605,6 +669,7 @@ export {
   generationOptionsQueryOptions,
   mapContentTaskCreateError,
   restoreContentTask,
+  requestContentVersionChanges,
   retryGenerationJob,
   submitContentVersion,
   abandonContentVersion,

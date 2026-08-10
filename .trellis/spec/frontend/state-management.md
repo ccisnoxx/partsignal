@@ -377,6 +377,75 @@ await queryClient.invalidateQueries({ queryKey: contentKeys.lists() });
 
 ---
 
+## Content Review 的当前主线快照与审核命令合同
+
+### 1. Scope / Trigger
+
+- 修改 `/content/tasks/$taskId/review`、Content Review query key、task-scoped review read model 或内容批准/退回交互时适用。
+- 该边界只覆盖当前主线审核，不扩张为 Content History、Version Detail 或跨领域 Review framework。
+
+### 2. Signatures
+
+```text
+URL:  /content/tasks/$taskId/review
+GET:  /api/v1/content-tasks/{content_task_id}/review-context
+POST: /api/v1/content-versions/{content_version_id}/approve
+POST: /api/v1/content-versions/{content_version_id}/request-changes
+
+query key: ["content", "tasks", "review-context", taskId]
+approve body: CommandRequest(expected_revision, comment)
+request changes body: RequestChangesCommand(expected_revision, comment)
+```
+
+### 3. Contracts
+
+- `ContentTask.current_content_version_id` 是 route 当前内容主线的唯一权威。GET 必须在一个 PostgreSQL `REPEATABLE READ` 请求中解析该指针，并复用唯一 `ContentReviewContext` 返回 content、task、fact Markdown、canonical diff、quality issues、generation/humanization snapshot、review history 和 `available_actions`。
+- 页面首屏只读取 task-scoped Review Context；不得先请求 Task Detail、Editor Context、ContentVersion、FactVersion、GenerationJob 或审核列表后在浏览器 join。
+- canonical Markdown、事实版本、生成快照和历史审核记录只读。页面不生成事实一致性或平台适配 verdict，只展示服务端证据供人工判断。
+- 审核按钮只消费 Context 顶层 `available_actions` 中的 `APPROVE` / `REQUEST_CHANGES`；不得按 content/task status、账号类型或权限 Hook 补动作。命令端仍重新校验账号、current pointer、状态、事实资格、blocking issues、CSRF 和 `expected_revision`。
+- mutation 成功后先采用命令返回的 canonical ContentVersion 防止旧画面继续可操作，再重新读取 task Review Context，并失效 Content list/detail/editor projection。不得用 mutation response 伪造完整 Context。
+- `409` 保留退回 Dialog 输入和 `request_id`，禁用旧动作并重新读取 canonical Context；命令不得自动重放。request changes 的 comment trim 后必须非空，客户端校验不替代服务端 `422`。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 页面处理 |
+| --- | --- |
+| task 不存在 | `404` 专用只读错误态，保留返回任务入口 |
+| task 没有 current content / 追溯不完整 | 结构化 `409`，显示 message 与 `request_id`，不请求其他版本 fallback |
+| Context 无审核 token | 保持 canonical workspace 只读，不从 status 补按钮 |
+| request changes 意见空白 | 字段与 ErrorSummary 同时提示，不发送 POST |
+| CSRF / permission / 字段错误 | 显示结构化错误；Dialog 输入保持不变 |
+| `expected_revision` 或 current pointer 冲突 | 保留意见与 request ID，刷新 Context，不 replay |
+| mutation 成功但 Context refetch 失败 | 保留 canonical command response，标记上下文陈旧并提供重试，不恢复旧动作 |
+
+### 5. Good / Base / Bad Cases
+
+- Good：direct URL 以 `taskId` 一次读取当前版本，用户按服务端 token 批准；页面重新读取后显示 `APPROVED` 且无审核动作。
+- Base：`CHANGES_REQUESTED`、`APPROVED` 或 tokenless `REVIEW_PENDING` 返回完整证据但保持只读。
+- Bad：先 GET Task Detail 得到版本 ID，再 GET version review context；或用 `status === "PENDING_REVIEW"` 补批准按钮；或在 409 后自动重试原命令。
+
+### 6. Tests Required
+
+- Contract/backend：task route 与唯一 DTO 生成一致；current pointer、`REPEATABLE READ`、404/409、diff/fact/snapshot/history/actions，以及命令 CSRF/revision/意见校验/不可变输入。
+- Component：单 query、只读状态、token 动作、成功 canonical refetch、409 输入与 request ID 保留、loading/error/retry 和 Dialog focus return。
+- Fixture Playwright：direct/refresh/Back/Forward、375/768/1024/1440、未声明 API/console/pageerror/requestfailed 审计，以及冲突命令只提交一次。
+- Real stack：approve 与 request-changes 使用相互独立的数据，通过真实 API、PostgreSQL、CSRF、revision 和最终 Context 验证 append-only history。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：客户端先 join 身份，再按状态重建审核资格。
+const task = await getTaskDetail(taskId);
+const context = await getContentReviewContext(task.current_content_version_id);
+const canApprove = context.content.status === 'PENDING_REVIEW';
+
+// Correct：单一当前主线快照决定展示动作，命令仍由服务端最终守卫。
+const context = useQuery(contentReviewContextQueryOptions(taskId));
+const canApprove = context.data?.available_actions.includes('APPROVE') ?? false;
+```
+
+---
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

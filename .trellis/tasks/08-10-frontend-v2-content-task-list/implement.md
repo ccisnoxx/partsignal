@@ -40,14 +40,18 @@ PARTSIGNAL_TEST_DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.
   UV_CACHE_DIR=.cache/uv uv run --project backend \
   pytest backend/tests/integration/test_publication_workflow.py::test_content_task_delete_and_archive_permanent_delete_lifecycle -q
 
-npm --prefix frontend run test -- \
+cd frontend && npm exec -- vitest run \
   src/features/content-tasks/ContentTasksPage.test.tsx \
   src/features/content-editor/ContentEditorPage.test.tsx \
   src/features/configuration/ConfigurationPages.test.tsx
+cd ..
 
 npm --prefix frontend-v2 run test -- \
+  src/app/navigation.test.ts \
+  src/domains/product/product-detail-page.test.tsx \
   src/domains/content/content-task-list.model.test.ts \
-  src/domains/content/content-task-list-page.test.tsx
+  src/domains/content/content-task-list-page.test.tsx \
+  src/design-system/data-table/table-kit.test.tsx
 
 npm --prefix frontend-v2 run build
 npm --prefix frontend-v2 run e2e -- tests/e2e/content-task-list.spec.ts

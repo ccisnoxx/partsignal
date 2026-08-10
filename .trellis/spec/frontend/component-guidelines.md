@@ -219,3 +219,4 @@ token: {
 - 不要用整行点击替代明确链接或按钮。
 - 不要用内部滚动容器、滚动轮询或定时器实现章节当前态。
 - 不要在前端为已删除任务字段保留隐藏表单、默认值或兼容 payload；生成要求只有平台 Prompt 一个来源。
+- 受控 Base UI Dialog 需要用 `finalFocus` 返回真实触发元素；不要按当前目标 ID 给整个 Dialog Root 设置会在关闭时变化的 React `key`，否则 Root 会在执行焦点恢复前被替换。需要清空本地输入时使用 `onOpenChangeComplete(false)`。

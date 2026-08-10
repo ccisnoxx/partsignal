@@ -698,9 +698,21 @@ def test_content_task_delete_and_archive_permanent_delete_lifecycle() -> None:
             assert isinstance(ordinary_content, ContentVersion)
             assert isinstance(actor, User)
 
+            with pytest.raises(AppError) as conflict:
+                delete_content_task(
+                    db=db,
+                    task_id=ordinary_task.id,
+                    expected_revision=ordinary_task.revision + 1,
+                    actor=actor,
+                    request_id="ordinary-task-stale-delete",
+                )
+            assert conflict.value.code == "REVISION_CONFLICT"
+            db.rollback()
+
             delete_content_task(
                 db=db,
                 task_id=ordinary_task.id,
+                expected_revision=ordinary_task.revision,
                 actor=actor,
                 request_id="ordinary-task-delete",
             )

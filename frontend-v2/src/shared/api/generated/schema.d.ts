@@ -2797,6 +2797,9 @@ export interface components {
         };
         ContentTaskList: {
             items: components["schemas"]["ContentTaskListItem"][];
+            page: number;
+            page_size: number;
+            total: number;
         };
         ContentTaskProductSummary: {
             /** Format: uuid */
@@ -2812,10 +2815,21 @@ export interface components {
             website_url: string | null;
             logo: components["schemas"]["PlatformLogo"] | null;
         };
+        ContentTaskCurrentContentSummary: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            /** @enum {string} */
+            source_type: "AI" | "HUMAN";
+        };
         ContentTaskListItem: components["schemas"]["ContentTask"] & {
+            identifier: string;
             product: components["schemas"]["ContentTaskProductSummary"];
             platform: components["schemas"]["ContentTaskPlatformSummary"];
+            current_content: components["schemas"]["ContentTaskCurrentContentSummary"] | null;
             latest_generation_status: components["schemas"]["GenerationJobStatus"] | null;
+            /** Format: date-time */
+            updated_at: string;
         };
         ContentTaskPermanentDeletionCounts: {
             content_versions: number;
@@ -6660,6 +6674,10 @@ export interface operations {
     listContentTasks: {
         parameters: {
             query?: {
+                /** @description 按任务标识、产品品牌、型号或平台名称搜索 */
+                q?: string;
+                /** @description 按服务端聚合的当前阶段筛选 */
+                workflow_stage?: "NO_DRAFT" | "GENERATING" | "GENERATION_FAILED" | "DRAFT" | "REVIEW_PENDING" | "CHANGES_REQUESTED" | "APPROVED" | "PUBLISHING" | "VERIFIED" | "CANCELLED";
                 /** @description 仅返回直接绑定该平台的内容任务 */
                 platform_profile_id?: string;
                 /** @description 仅返回直接绑定该产品的内容任务 */
@@ -6668,6 +6686,10 @@ export interface operations {
                 filter_fact_version_id?: string;
                 /** @description 默认只返回当前任务；归档视图必须显式选择 */
                 archive_status?: "ACTIVE" | "ARCHIVED" | "ALL";
+                /** @description 与 page_size 同时提供时启用服务端分页；同时省略时保留 V1 全量语义 */
+                page?: number;
+                /** @description 与 page 同时提供时启用服务端分页 */
+                page_size?: 10 | 20 | 50;
             };
             header?: never;
             path?: never;
@@ -6685,6 +6707,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     createContentTask: {
@@ -6739,7 +6762,9 @@ export interface operations {
     };
     deleteContentTask: {
         parameters: {
-            query?: never;
+            query: {
+                expected_revision: number;
+            };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };
@@ -6761,6 +6786,7 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getContentTaskGenerationOptions: {

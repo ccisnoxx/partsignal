@@ -1,12 +1,18 @@
 import type { StaticDataRouteOption } from '@tanstack/react-router';
-import { BoxesIcon, LayoutDashboardIcon, UsersIcon, type LucideIcon } from 'lucide-react';
+import {
+  BoxesIcon,
+  LayoutDashboardIcon,
+  ListTodoIcon,
+  UsersIcon,
+  type LucideIcon,
+} from 'lucide-react';
 
-type NavId = 'workbench' | 'products' | 'users';
+type NavId = 'workbench' | 'products' | 'content-tasks' | 'users';
 
 type NavigationItem = {
   id: NavId;
   label: string;
-  to: '/' | '/products' | '/system/users';
+  to: '/' | '/products' | '/content/tasks' | '/system/users';
   icon: LucideIcon;
   adminOnly?: boolean;
 };
@@ -39,6 +45,12 @@ const navigationSections: readonly NavigationSection[] = [
     items: [
       { id: 'workbench', label: '工作台', to: '/', icon: LayoutDashboardIcon },
       { id: 'products', label: '产品', to: '/products', icon: BoxesIcon },
+    ],
+  },
+  {
+    label: '内容运营',
+    items: [
+      { id: 'content-tasks', label: '内容任务', to: '/content/tasks', icon: ListTodoIcon },
     ],
   },
   {

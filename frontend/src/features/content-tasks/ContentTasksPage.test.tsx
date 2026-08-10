@@ -587,7 +587,13 @@ test('任务列表直接呈现服务端允许的取消和删除操作', async ()
   await user.click(deleteDialog.getByRole('button', { name: '确认删除' }));
   await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
     '/api/v1/content-tasks/{content_task_id}',
-    { params: { path: { content_task_id: cancelledTask.id }, header: { 'X-CSRF-Token': 'test' } } },
+    {
+      params: {
+        path: { content_task_id: cancelledTask.id },
+        query: { expected_revision: cancelledTask.revision },
+        header: { 'X-CSRF-Token': 'test' },
+      },
+    },
   ));
 });
 
@@ -736,7 +742,13 @@ test('仅按服务端 DELETE 动作确认删除并返回任务列表', async () 
 
   await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
     '/api/v1/content-tasks/{content_task_id}',
-    { params: { path: { content_task_id: taskId }, header: { 'X-CSRF-Token': 'test' } } },
+    {
+      params: {
+        path: { content_task_id: taskId },
+        query: { expected_revision: cancelledTask.revision },
+        header: { 'X-CSRF-Token': 'test' },
+      },
+    },
   ));
   expect(await screen.findByRole('heading', { name: '任务列表' })).toBeInTheDocument();
   expect(apiMocks.GET.mock.calls.filter(([path]) => path === '/api/v1/content-tasks/{content_task_id}')).toHaveLength(1);

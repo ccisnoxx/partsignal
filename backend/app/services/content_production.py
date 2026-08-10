@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
@@ -800,6 +801,7 @@ def update_content_draft(
     content.content_hash = content_hash(draft.title, draft.summary, draft.body_markdown, draft.tags)
     content.quality_issues = quality_issues
     content.revision += 1
+    task.updated_at = datetime.now(UTC)
     db.commit()
     return content
 

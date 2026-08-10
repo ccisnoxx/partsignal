@@ -330,7 +330,11 @@ function TaskList() {
   const deleteTask = useMutation({
     mutationFn: async (task: ContentTaskListItem) =>
       ensureSuccess(await api.DELETE('/api/v1/content-tasks/{content_task_id}', {
-        params: { path: { content_task_id: task.id }, header: csrfHeader() },
+        params: {
+          path: { content_task_id: task.id },
+          query: { expected_revision: task.revision },
+          header: csrfHeader(),
+        },
       })),
     onSuccess: async () => {
       message.success('内容任务已删除');
@@ -837,7 +841,11 @@ function TaskDetail({ taskId }: { taskId: string }) {
   });
   const deleteTask = useMutation({
     mutationFn: async () => ensureSuccess(await api.DELETE('/api/v1/content-tasks/{content_task_id}', {
-      params: { path: { content_task_id: taskId }, header: csrfHeader() },
+      params: {
+        path: { content_task_id: taskId },
+        query: { expected_revision: task.data!.revision },
+        header: csrfHeader(),
+      },
     })),
     onSuccess: async () => {
       message.success('内容任务已删除');

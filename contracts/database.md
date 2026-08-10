@@ -320,7 +320,7 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 版本文件 `0037_simplify_deletion_lifecycle.py` 紧跟 `0036_remove_section_url`。`content_tasks` 新增正交的可空 `archived_at`、必填平台名称快照与可空网站 URL 快照；`publication_works` 新增必填平台名称、账号标签和账号标识快照。迁移只从升级时仍受强外键保护的当前行确定性回填，任何缺失都以 PostgreSQL `55000` 中止，不猜测历史显示值。
 
-归档只接受未归档 `COMPLETED` 任务；恢复只清空 `archived_at`，两者都校验并递增 revision，不改变业务状态。默认任务列表只返回未归档任务，`archive_status=ARCHIVED|ALL` 才读取归档范围。普通删除接受未归档 `OPEN | CANCELLED` 任务，拒绝运行中生成作业以及任何成功文章或 GEO 文章关系；它删除任务拥有的草稿、审核、生成和未成功发布工作，但不触碰外部页面。
+归档只接受未归档 `COMPLETED` 任务；恢复只清空 `archived_at`，两者都校验并递增 revision，不改变业务状态。默认任务列表只返回未归档任务，`archive_status=ARCHIVED|ALL` 才读取归档范围。普通删除校验 `expected_revision`，只接受未归档 `OPEN | CANCELLED` 任务，拒绝运行中生成作业以及任何成功文章或 GEO 文章关系；它删除任务拥有的草稿、审核、生成和未成功发布工作，但不触碰外部页面。
 
 管理员永久删除只接受已归档任务、匹配 revision 和固定确认文本 `永久删除`。服务锁定并重新计算范围，删除任务拥有的内容、发布成果与问题、发布事件和核验；只删除失去全部文章关系的人工 GEO 更正链，共享 GEO 记录与共享文件保留。删除旧目标审计后只写一条 `content_task.permanently_deleted` 空详情墓碑。归档、恢复及永久删除都不验证或删除外部页面。
 
@@ -341,6 +341,14 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 人工 `DRAFT | ABANDONED` 只有在没有审核、子版本、生成来源/结果、发布工作、发布事件或核验引用时才可彻底删除。当前草稿删除前把任务指针恢复到直接父版本或置空；历史草稿不改变指针。应用层在持锁状态返回结构化引用，事务再设置精确 `partsignal.content_version_delete_id`；数据库 DELETE 守卫与现有 `RESTRICT` 外键负责最终竞态保护。AI 草稿不进入该删除窗口。
 
 删除审计 `content_version.deleted` 只保存任务 UUID 和内容版本号，不保存标题、摘要、正文、标签、Prompt、模型响应或变更说明。草稿旧值与已删除正文无法确定性重建，因此 downgrade 以 PostgreSQL `55000` 拒绝，只允许前滚修复或恢复升级前备份。
+
+### 0041 Content Task List
+
+版本文件 `0041_content_task_list.py` 紧跟 `0040_content_draft_management`。`content_tasks` 新增非空 `updated_at`，历史值确定性回填为 `created_at`；任务自身变更由 ORM 更新该时间，当前人工草稿原地保存显式触碰任务时间。`(archived_at, updated_at, id)` 索引支持默认归档范围与稳定排序。
+
+内容任务列表的“最近更新”不保存第二套业务状态。读投影取任务时间、当前主线版本创建时间、生成作业活动时间、审核记录时间和发布工作时间的最大值，并按 `updated_at DESC, id DESC` 排序。当前内容摘要只能通过 `content_tasks.current_content_version_id` 读取，禁止选择版本号最大值代替主线。
+
+普通任务删除在行锁内校验调用方必填的 `expected_revision`，不匹配返回 `REVISION_CONFLICT`；删除范围与阻断条件仍由服务端在同一事务最终复核。
 
 ## State Machines
 

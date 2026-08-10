@@ -119,7 +119,7 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 ### 2. 签名
 
-- 普通删除：`DELETE /api/v1/content-tasks/{content_task_id}`，`ENGINEER | ADMIN`，成功返回 `204`。
+- 普通删除：`DELETE /api/v1/content-tasks/{content_task_id}?expected_revision=<revision>`，`ENGINEER | ADMIN`，成功返回 `204`。
 - 归档/恢复：`POST /api/v1/content-tasks/{id}/archive|restore`，请求 `{expected_revision}`，返回重新投影的任务。
 - 永久删除：`GET /api/v1/content-tasks/{id}/permanent-deletion-preview` 与 `POST /api/v1/content-tasks/{id}/permanent-delete`；后者仅 `ADMIN`，请求 `{expected_revision, confirmation_text: "永久删除"}`，成功返回 `204`。
 - 配置删除：既有 Prompt、平台和平台账号 DELETE 路径；Prompt 继续校验 `expected_revision`，平台必须先停用。
@@ -142,6 +142,7 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 |---|---|
 | 普通删除遇到运行中作业 | `409 CONTENT_TASK_BUSY`，聚合不变 |
 | 普通删除遇到成功文章或 GEO 文章关系 | `409 CONTENT_TASK_REQUIRES_ARCHIVE` |
+| 普通删除的 `expected_revision` 过期 | `409 REVISION_CONFLICT`，聚合不变 |
 | 归档非 `COMPLETED` / 恢复未归档任务 | `409 INVALID_STATE_TRANSITION` |
 | 永久删除未归档任务 / revision 过期 / 确认文本错误 | `409 CONTENT_TASK_NOT_ARCHIVED` / `409 REVISION_CONFLICT` / `422 PERMANENT_DELETE_CONFIRMATION_MISMATCH` |
 | 平台仍启用 / 存在 `OPEN` 任务或非终态工作 | `409 INVALID_STATE_TRANSITION` / 结构化 `PLATFORM_PROFILE_IN_USE` |
@@ -178,6 +179,72 @@ db.delete(platform)  # content_tasks 也随外键级联删除
 if open_task_count or in_flight_work_count:
     raise in_use("PLATFORM_PROFILE_IN_USE", ...)
 db.delete(platform)  # 账号清理；任务保留，终态历史改读冻结快照
+```
+
+## 场景：Content Task List 服务端读模型
+
+### 1. Scope / Trigger
+
+- 修改 `/content/tasks`、`GET /api/v1/content-tasks`、`ContentTaskListItem`、任务阶段筛选、列表分页或任务最近活动时间时适用。
+- 本场景只拥有列表读模型，不建立 Content workspace context、通用 workflow framework、客户端 join 或第二套 ContentTask 状态定义。
+
+### 2. Signatures
+
+```text
+GET /api/v1/content-tasks
+  ?q=<text>
+  &workflow_stage=<ContentTaskWorkflowStage>
+  &archive_status=ACTIVE|ARCHIVED|ALL
+  &platform_profile_id=<uuid>
+  &page=<positive-int>&page_size=10|20|50
+
+ContentTaskList = { items, page, page_size, total }
+ContentTaskListItem += { identifier, current_content, updated_at }
+DB revision: 0041_content_task_list
+```
+
+### 3. Contracts
+
+- 同一 endpoint 采用显式双模式：`page/page_size` 同时省略时返回完整匹配集合，保持 V1 语义；同时提供时由 PostgreSQL 分页；只提供一个时拒绝。
+- `q` 由服务端匹配 `identifier`、产品品牌/型号和平台名称；`workflow_stage` 直接筛选与详情共用的权威 SQL 投影。浏览器不得抓取全量后再搜索、筛选或分页。
+- `identifier` 固定为 `CT-` 加任务 UUID 前八位大写字符，仅用于展示与搜索；不新增业务编号状态。
+- `current_content` 只通过 `ContentTask.current_content_version_id` 读取 `{id, version, source_type}`，不得选择最大版本号。
+- `updated_at` 投影取任务时间、当前主线创建时间、生成活动、审核记录和发布工作的最大真实时间，按 `(updated_at DESC, id DESC)` 稳定排序；人工草稿原地保存必须触碰任务时间。
+- 列表、详情和命令响应共用 `workflow_stage/primary_task` 资格规则；`available_actions/deletion` 继续由批量投影生成，查询次数不得随行数线性增长。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 结果 |
+| --- | --- |
+| `page/page_size` 同时省略 | `200` 完整匹配集合，`page=1`、`page_size=total` |
+| 只提供一个分页参数 | `422 VALIDATION_ERROR` |
+| `page < 1`、未知 page size/stage 或非法 UUID | `422 VALIDATION_ERROR` |
+| 当前内容指针为空 | `current_content=null`，页面显示“暂无” |
+| 历史存在更大版本号但指针指向旧版本 | 返回指针版本，不猜“最新” |
+| 列表从 1 行增至 N 行 | SQL statement 数保持固定 |
+
+### 5. Good / Base / Bad Cases
+
+- Good：一次分页请求返回六列、权威阶段、唯一主操作、overflow token 和总数，刷新与 Back/Forward 可由 URL 恢复。
+- Base：无当前内容时返回 `null`，无筛选结果返回空 `items` 与真实 `total=0`，不补零或追加查询。
+- Bad：浏览器逐行读取 ContentVersion/GenerationJob/Product/Platform，或从 raw status 重建阶段、动作、排序和分页。
+
+### 6. Tests Required
+
+- Contract：OpenAPI、运行时 schema、V1/V2 generated types 一致，冻结双模式分页与必填列表字段。
+- PostgreSQL integration：搜索、阶段/平台/归档筛选、10/20/50 分页、稳定排序、current pointer 与 fixed statement count。
+- Frontend component：固定六列、typed action registry、URL normalization、loading/empty/filtered-empty/error 和 lifecycle error mapping。
+- Production-artifact Playwright：direct/refresh/Back/Forward、搜索/筛选/分页、归档、409 单次请求、375/768/1024/1440、键盘/焦点和未声明 API 失败。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：用浏览器状态拼出列表业务语义。
+const stage = task.status === 'OPEN' && job.status === 'FAILED' ? 'GENERATION_FAILED' : 'DRAFT';
+
+// Correct：列表只显示服务端同一 read model 的投影。
+const stage = task.workflow_stage;
+const current = task.current_content;
 ```
 
 ## 场景：生成作业补投递与租约恢复

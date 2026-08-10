@@ -167,6 +167,8 @@ Phase 2.7 的 `/products/$productId/facts/versions/$versionId` 由 `tests/e2e/fa
 
 Fact History 的 `/products/$productId/facts/versions?page=1&pageSize=20` 由 `tests/e2e/fact-history.spec.ts` 复用同一 generated-type fixture。fixture 只允许分页 `ProductFactHistoryList` GET 和被点击的精确 FactVersion GET，所有未声明 API 继续失败；测试覆盖 `VIEW_FACT_HISTORY` canonical route、direct/refresh/Back/Forward、服务端顺序、六列且无操作列、readonly detail link、URL product boundary、loading/empty/404/403/retry、无业务命令、四档响应式、keyboard/focus 与浏览器运行时错误审计。
 
+Phase 3.1 的 `/content/tasks?archiveStatus=ACTIVE&page=1&pageSize=20` 由 `tests/e2e/content-task-list.spec.ts` 和 generated-type `content.fixture.ts` 接管。fixture 只允许认证、ContentTaskList、平台筛选参考、永久删除 preview 与本页生命周期命令，其他 API 必须失败；测试覆盖 direct/refresh/Back/Forward、服务端搜索/阶段/平台/归档筛选与分页、固定六列、服务端 stage/primary/overflow、loading/empty/filtered-empty/error/retry、CSRF/comment/revision、永久删除实时范围、409 不重放、375/768/1024/1440、键盘/Dialog 焦点返回及 console/pageerror/requestfailed 审计。该 fixture 只验证 production artifact；Phase 3 的完整 Content 真实闭环保留到 E2E 检查点。
+
 ### 13.2 Product Facts 真实栈闭环
 
 Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e2e-local.sh` 在现有隔离生命周期内显式开启。脚本创建进程唯一 PostgreSQL、执行 migration/seed、启动真实 FastAPI，并以 `VITE_API_BASE_URL` 构建 V2 后运行 4174 `vite preview`；不得使用 Vite dev server、共享开发数据库或第二套 orchestration。

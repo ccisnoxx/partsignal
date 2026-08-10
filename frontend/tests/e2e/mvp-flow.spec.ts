@@ -1131,11 +1131,16 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
     error: { details: { references: expect.arrayContaining([expect.objectContaining({ type: 'CONTENT_TASK' })]) } },
   });
 
-  const platformTasks = await body<{ items: Array<{ id: string; status: string }> }>(
-    await page.request.get(`/api/v1/content-tasks?page=1&page_size=100&archive_status=ACTIVE&platform_profile_id=${profile.id}`),
+  const platformTasks = await body<{
+    items: Array<{ id: string; revision: number; status: string }>;
+  }>(
+    await page.request.get(`/api/v1/content-tasks?archive_status=ACTIVE&platform_profile_id=${profile.id}`),
   );
   for (const openTask of platformTasks.items.filter((item) => item.status === 'OPEN')) {
-    expect((await page.request.delete(`/api/v1/content-tasks/${openTask.id}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+    expect((await page.request.delete(
+      `/api/v1/content-tasks/${openTask.id}?expected_revision=${openTask.revision}`,
+      { headers: { 'X-CSRF-Token': csrf } },
+    )).status()).toBe(204);
   }
   expect((await page.request.delete(`/api/v1/platform-profiles/${profile.id}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.get(`/api/v1/platform-profiles/${profile.id}`)).status()).toBe(404);

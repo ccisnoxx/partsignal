@@ -1363,6 +1363,14 @@ paths:
       tags: [planning]
       operationId: listContentTasks
       parameters:
+        - name: q
+          in: query
+          description: 按任务标识、产品品牌、型号或平台名称搜索
+          schema: {type: string, maxLength: 200}
+        - name: workflow_stage
+          in: query
+          description: 按服务端聚合的当前阶段筛选
+          schema: {type: string, enum: [NO_DRAFT, GENERATING, GENERATION_FAILED, DRAFT, REVIEW_PENDING, CHANGES_REQUESTED, APPROVED, PUBLISHING, VERIFIED, CANCELLED]}
         - name: platform_profile_id
           in: query
           description: 仅返回直接绑定该平台的内容任务
@@ -1379,6 +1387,14 @@ paths:
           in: query
           description: 默认只返回当前任务；归档视图必须显式选择
           schema: {type: string, enum: [ACTIVE, ARCHIVED, ALL], default: ACTIVE}
+        - name: page
+          in: query
+          description: 与 page_size 同时提供时启用服务端分页；同时省略时保留 V1 全量语义
+          schema: {type: integer, minimum: 1}
+        - name: page_size
+          in: query
+          description: 与 page 同时提供时启用服务端分页
+          schema: {type: integer, enum: [10, 20, 50]}
       responses:
         '200':
           description: 内容任务列表
@@ -1386,6 +1402,7 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTaskList'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [planning]
       operationId: createContentTask
@@ -1418,13 +1435,19 @@ paths:
     delete:
       tags: [planning]
       operationId: deleteContentTask
-      parameters: [{$ref: '#/components/parameters/CsrfHeader'}]
+      parameters:
+        - {$ref: '#/components/parameters/CsrfHeader'}
+        - name: expected_revision
+          in: query
+          required: true
+          schema: {type: integer, minimum: 0}
       responses:
         '204': {description: 已删除未成功发布的完整内部任务聚合}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/generation-options:
     get:
       tags: [production]
@@ -4088,9 +4111,12 @@ components:
     ContentTaskList:
       type: object
       additionalProperties: false
-      required: [items]
+      required: [items, page, page_size, total]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/ContentTaskListItem'}}
+        page: {type: integer, minimum: 1}
+        page_size: {type: integer, minimum: 0}
+        total: {type: integer, minimum: 0}
     ContentTaskProductSummary:
       type: object
       additionalProperties: false
@@ -4111,18 +4137,32 @@ components:
           anyOf:
             - {$ref: '#/components/schemas/PlatformLogo'}
             - {type: 'null'}
+    ContentTaskCurrentContentSummary:
+      type: object
+      additionalProperties: false
+      required: [id, version, source_type]
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        source_type: {type: string, enum: [AI, HUMAN]}
     ContentTaskListItem:
       allOf:
         - {$ref: '#/components/schemas/ContentTask'}
         - type: object
-          required: [product, platform, latest_generation_status]
+          required: [identifier, product, platform, current_content, latest_generation_status, updated_at]
           properties:
+            identifier: {type: string, pattern: '^CT-[0-9A-F]{8}$'}
             product: {$ref: '#/components/schemas/ContentTaskProductSummary'}
             platform: {$ref: '#/components/schemas/ContentTaskPlatformSummary'}
+            current_content:
+              anyOf:
+                - {$ref: '#/components/schemas/ContentTaskCurrentContentSummary'}
+                - {type: 'null'}
             latest_generation_status:
               anyOf:
                 - {$ref: '#/components/schemas/GenerationJobStatus'}
                 - {type: 'null'}
+            updated_at: {type: string, format: date-time}
     ContentTaskPermanentDeletionCounts:
       type: object
       additionalProperties: false

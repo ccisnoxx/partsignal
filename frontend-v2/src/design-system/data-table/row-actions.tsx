@@ -1,5 +1,5 @@
 import { MoreHorizontalIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
@@ -32,18 +32,20 @@ import type {
 
 type ActionConfirmationDialogProps = {
   confirmation: ActionConfirmation | null;
+  finalFocus?: { current: HTMLElement | null };
   onConfirm: () => void;
   onOpenChange: (open: boolean) => void;
 };
 
 function ActionConfirmationDialog({
   confirmation,
+  finalFocus,
   onConfirm,
   onOpenChange,
 }: ActionConfirmationDialogProps) {
   return (
     <Dialog onOpenChange={(open) => onOpenChange(open)} open={confirmation !== null}>
-      <DialogContent>
+      <DialogContent finalFocus={finalFocus}>
         <DialogHeader>
           <DialogTitle>{confirmation?.title}</DialogTitle>
           <DialogDescription>{confirmation?.description}</DialogDescription>
@@ -65,7 +67,7 @@ function ActionConfirmationDialog({
 
 type RowActionsProps = {
   objectLabel: string;
-  onCommand: (command: string) => void;
+  onCommand: (command: string, focusReturn?: HTMLElement | null) => void;
   overflow: readonly OverflowRowAction[];
   primary?: PrimaryRowAction;
 };
@@ -92,7 +94,7 @@ function DisabledPrimaryAction({ action }: { action: PrimaryRowAction }) {
   );
 }
 
-function PrimaryAction({ action, onCommand }: { action: PrimaryRowAction; onCommand: (command: string) => void }) {
+function PrimaryAction({ action, onCommand }: { action: PrimaryRowAction; onCommand: RowActionsProps['onCommand'] }) {
   if (!action.enabled) {
     return <DisabledPrimaryAction action={action} />;
   }
@@ -114,14 +116,21 @@ function PrimaryAction({ action, onCommand }: { action: PrimaryRowAction; onComm
 
 function RowActions({ objectLabel, onCommand, overflow, primary }: RowActionsProps) {
   const [pendingAction, setPendingAction] = useState<OverflowRowAction | null>(null);
+  const overflowTriggerRef = useRef<HTMLButtonElement>(null);
 
   function runAction(action: OverflowRowAction) {
     if (!action.enabled) return;
-    if (action.confirmation) {
+    if (action.confirmation && action.confirmation !== 'custom') {
       setPendingAction(action);
       return;
     }
-    if (action.command) onCommand(action.command);
+    if (action.command) {
+      if (action.confirmation === 'custom') {
+        onCommand(action.command, overflowTriggerRef.current);
+      } else {
+        onCommand(action.command);
+      }
+    }
   }
 
   function confirmAction() {
@@ -136,7 +145,14 @@ function RowActions({ objectLabel, onCommand, overflow, primary }: RowActionsPro
         {overflow.length > 0 && (
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<IconButton aria-label={`更多操作：${objectLabel}`} type="button" variant="ghost" />}
+              render={(
+                <IconButton
+                  aria-label={`更多操作：${objectLabel}`}
+                  ref={overflowTriggerRef}
+                  type="button"
+                  variant="ghost"
+                />
+              )}
             >
               <MoreHorizontalIcon />
             </DropdownMenuTrigger>
@@ -188,7 +204,12 @@ function RowActions({ objectLabel, onCommand, overflow, primary }: RowActionsPro
         )}
       </div>
       <ActionConfirmationDialog
-        confirmation={pendingAction?.confirmation ?? null}
+        confirmation={
+          pendingAction?.confirmation && pendingAction.confirmation !== 'custom'
+            ? pendingAction.confirmation
+            : null
+        }
+        finalFocus={overflowTriggerRef}
         onConfirm={confirmAction}
         onOpenChange={(open) => {
           if (!open) setPendingAction(null);

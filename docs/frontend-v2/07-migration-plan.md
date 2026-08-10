@@ -357,6 +357,8 @@ Phase 2.8 审计发现的 Fact History 缺口已由 `frontend-v2-fact-history` �
 
 按 Task 依次实现：Content Task List、New Task、Task Detail、Content Editor、Content Review、Content Version readonly Detail、完整 E2E、vertical slice 抽象回顾。
 
+Phase 3.1 `frontend-v2-content-task-list` 已实现 `/content/tasks`：扩展同一 ContentTask list endpoint 的兼容双模式分页，补齐 identifier/current mainline summary/updated_at 与权威 stage projection；V2 使用独立 Content domain query keys/action registry、固定六列表格、URL 恢复及列表生命周期命令。既有 V1 在省略分页参数时继续取得完整集合；New Task、Detail、Editor、Review、Publication 和 Content History 仍属于后续 Task。
+
 关键约束：
 
 - 以 `ContentTask.current_content_version_id` 为当前内容主线；

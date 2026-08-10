@@ -12,11 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAdminRouteRouteImport } from './routes/_app/_admin/route'
+import { Route as AppContentRouteRouteImport } from './routes/_app/content/route'
 import { Route as AppProductsRouteRouteImport } from './routes/_app/products/route'
+import { Route as AppContentTasksRouteRouteImport } from './routes/_app/content/tasks/route'
 import { Route as AppProductsIndexRouteImport } from './routes/_app/products/index'
 import { Route as AppProductsProductIdRouteImport } from './routes/_app/products/$productId'
 import { Route as AppProductsNewRouteImport } from './routes/_app/products/new'
 import { Route as AppAdminSystemUsersRouteImport } from './routes/_app/_admin/system.users'
+import { Route as AppContentTasksIndexRouteImport } from './routes/_app/content/tasks/index'
 import { Route as AppProductsProductIdFactsRouteImport } from './routes/_app/products/$productId_.facts'
 import { Route as AppProductsProductIdFactsReviewRouteImport } from './routes/_app/products/$productId_.facts_.review'
 import { Route as AppProductsProductIdFactsVersionsRouteImport } from './routes/_app/products/$productId_.facts_.versions'
@@ -35,10 +38,20 @@ const AppAdminRouteRoute = AppAdminRouteRouteImport.update({
   id: '/_admin',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppContentRouteRoute = AppContentRouteRouteImport.update({
+  id: '/content',
+  path: '/content',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppProductsRouteRoute = AppProductsRouteRouteImport.update({
   id: '/products',
   path: '/products',
   getParentRoute: () => AppRouteRoute,
+} as any)
+const AppContentTasksRouteRoute = AppContentTasksRouteRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => AppContentRouteRoute,
 } as any)
 const AppProductsIndexRoute = AppProductsIndexRouteImport.update({
   id: '/',
@@ -59,6 +72,11 @@ const AppAdminSystemUsersRoute = AppAdminSystemUsersRouteImport.update({
   id: '/system/users',
   path: '/system/users',
   getParentRoute: () => AppAdminRouteRoute,
+} as any)
+const AppContentTasksIndexRoute = AppContentTasksIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppContentTasksRouteRoute,
 } as any)
 const AppProductsProductIdFactsRoute =
   AppProductsProductIdFactsRouteImport.update({
@@ -87,23 +105,28 @@ const AppProductsProductIdFactsVersionsVersionIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/content': typeof AppContentRouteRouteWithChildren
   '/products': typeof AppProductsRouteRouteWithChildren
+  '/content/tasks': typeof AppContentTasksRouteRouteWithChildren
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
   '/products/': typeof AppProductsIndexRoute
   '/system/users': typeof AppAdminSystemUsersRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
+  '/content/tasks/': typeof AppContentTasksIndexRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
   '/products/$productId/facts/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/products/$productId/facts/versions/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/content': typeof AppContentRouteRouteWithChildren
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
   '/products': typeof AppProductsIndexRoute
   '/system/users': typeof AppAdminSystemUsersRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
+  '/content/tasks': typeof AppContentTasksIndexRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
   '/products/$productId/facts/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/products/$productId/facts/versions/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
@@ -112,13 +135,16 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteRouteWithChildren
   '/_app/_admin': typeof AppAdminRouteRouteWithChildren
+  '/_app/content': typeof AppContentRouteRouteWithChildren
   '/_app/products': typeof AppProductsRouteRouteWithChildren
   '/_app/': typeof AppIndexRoute
+  '/_app/content/tasks': typeof AppContentTasksRouteRouteWithChildren
   '/_app/products/$productId': typeof AppProductsProductIdRoute
   '/_app/products/new': typeof AppProductsNewRoute
   '/_app/products/': typeof AppProductsIndexRoute
   '/_app/_admin/system/users': typeof AppAdminSystemUsersRoute
   '/_app/products/$productId_/facts': typeof AppProductsProductIdFactsRoute
+  '/_app/content/tasks/': typeof AppContentTasksIndexRoute
   '/_app/products/$productId_/facts_/review': typeof AppProductsProductIdFactsReviewRoute
   '/_app/products/$productId_/facts_/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/_app/products/$productId_/facts_/versions_/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
@@ -127,23 +153,28 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/content'
     | '/products'
+    | '/content/tasks'
     | '/products/$productId'
     | '/products/new'
     | '/products/'
     | '/system/users'
     | '/products/$productId/facts'
+    | '/content/tasks/'
     | '/products/$productId/facts/review'
     | '/products/$productId/facts/versions'
     | '/products/$productId/facts/versions/$versionId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/content'
     | '/products/$productId'
     | '/products/new'
     | '/products'
     | '/system/users'
     | '/products/$productId/facts'
+    | '/content/tasks'
     | '/products/$productId/facts/review'
     | '/products/$productId/facts/versions'
     | '/products/$productId/facts/versions/$versionId'
@@ -151,13 +182,16 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/_app/_admin'
+    | '/_app/content'
     | '/_app/products'
     | '/_app/'
+    | '/_app/content/tasks'
     | '/_app/products/$productId'
     | '/_app/products/new'
     | '/_app/products/'
     | '/_app/_admin/system/users'
     | '/_app/products/$productId_/facts'
+    | '/_app/content/tasks/'
     | '/_app/products/$productId_/facts_/review'
     | '/_app/products/$productId_/facts_/versions'
     | '/_app/products/$productId_/facts_/versions_/$versionId'
@@ -190,12 +224,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/content': {
+      id: '/_app/content'
+      path: '/content'
+      fullPath: '/content'
+      preLoaderRoute: typeof AppContentRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/products': {
       id: '/_app/products'
       path: '/products'
       fullPath: '/products'
       preLoaderRoute: typeof AppProductsRouteRouteImport
       parentRoute: typeof AppRouteRoute
+    }
+    '/_app/content/tasks': {
+      id: '/_app/content/tasks'
+      path: '/tasks'
+      fullPath: '/content/tasks'
+      preLoaderRoute: typeof AppContentTasksRouteRouteImport
+      parentRoute: typeof AppContentRouteRoute
     }
     '/_app/products/': {
       id: '/_app/products/'
@@ -224,6 +272,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/system/users'
       preLoaderRoute: typeof AppAdminSystemUsersRouteImport
       parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/content/tasks/': {
+      id: '/_app/content/tasks/'
+      path: '/'
+      fullPath: '/content/tasks/'
+      preLoaderRoute: typeof AppContentTasksIndexRouteImport
+      parentRoute: typeof AppContentTasksRouteRoute
     }
     '/_app/products/$productId_/facts': {
       id: '/_app/products/$productId_/facts'
@@ -268,6 +323,29 @@ const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(
   AppAdminRouteRouteChildren,
 )
 
+interface AppContentTasksRouteRouteChildren {
+  AppContentTasksIndexRoute: typeof AppContentTasksIndexRoute
+}
+
+const AppContentTasksRouteRouteChildren: AppContentTasksRouteRouteChildren = {
+  AppContentTasksIndexRoute: AppContentTasksIndexRoute,
+}
+
+const AppContentTasksRouteRouteWithChildren =
+  AppContentTasksRouteRoute._addFileChildren(AppContentTasksRouteRouteChildren)
+
+interface AppContentRouteRouteChildren {
+  AppContentTasksRouteRoute: typeof AppContentTasksRouteRouteWithChildren
+}
+
+const AppContentRouteRouteChildren: AppContentRouteRouteChildren = {
+  AppContentTasksRouteRoute: AppContentTasksRouteRouteWithChildren,
+}
+
+const AppContentRouteRouteWithChildren = AppContentRouteRoute._addFileChildren(
+  AppContentRouteRouteChildren,
+)
+
 interface AppProductsRouteRouteChildren {
   AppProductsProductIdRoute: typeof AppProductsProductIdRoute
   AppProductsNewRoute: typeof AppProductsNewRoute
@@ -295,12 +373,14 @@ const AppProductsRouteRouteWithChildren =
 
 interface AppRouteRouteChildren {
   AppAdminRouteRoute: typeof AppAdminRouteRouteWithChildren
+  AppContentRouteRoute: typeof AppContentRouteRouteWithChildren
   AppProductsRouteRoute: typeof AppProductsRouteRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAdminRouteRoute: AppAdminRouteRouteWithChildren,
+  AppContentRouteRoute: AppContentRouteRouteWithChildren,
   AppProductsRouteRoute: AppProductsRouteRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }

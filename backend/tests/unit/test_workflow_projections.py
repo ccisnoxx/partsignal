@@ -406,7 +406,7 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
                     [fact],
                     [profile],
                     [],
-                    [],
+                    [(task.id, None, "CANCELLED", "VIEW_CANCELLATION", now)],
                     [],
                     [],
                     [],
@@ -554,6 +554,7 @@ def test_completed_content_task_delete_requires_archive_before_scope_query() -> 
         delete_content_task(
             db=cast(Session, session),
             task_id=task.id,
+            expected_revision=task.revision,
             actor=actor,
             request_id="delete-task-test",
         )

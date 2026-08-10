@@ -196,11 +196,13 @@ to
 
 ```text
 /products?q=tps&factStatus=PENDING_REVIEW&page=2
-/content/tasks?platformId=...&workflowStage=CONTENT_REVIEW&page=1
+/content/tasks?archiveStatus=ACTIVE&platformId=...&workflowStage=REVIEW_PENDING&page=1&pageSize=20
 /geo/observations?productId=...&geoPlatform=chatgpt&accuracy=INCORRECT&from=2026-07-01&to=2026-08-01&page=3
 ```
 
 ## 10. URL 状态边界
+
+Content Task List 固定使用 `q/workflowStage/archiveStatus/platformId/page/pageSize`；canonical 默认 URL 显式保留 `archiveStatus=ACTIVE&page=1&pageSize=20`。这些字段全部映射到后端权威搜索、筛选和分页，不保存列配置或客户端视图。
 
 必须进入 URL：搜索、筛选、sort、pagination、日期范围、analytics 维度、具有业务意义的 workspace section。
 

@@ -1475,11 +1475,20 @@ def cancel_content_task(
     return task
 
 
-def delete_content_task(*, db: Session, task_id: uuid.UUID, actor: User, request_id: str) -> None:
+def delete_content_task(
+    *,
+    db: Session,
+    task_id: uuid.UUID,
+    expected_revision: int,
+    actor: User,
+    request_id: str,
+) -> None:
     """删除没有成功发布或 GEO 关系的完整未归档任务聚合。"""
     task = db.scalar(select(ContentTask).where(ContentTask.id == task_id).with_for_update())
     if task is None:
         raise not_found("内容任务")
+    if task.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "内容任务已被其他请求修改", 409)
     if task.archived_at is not None:
         raise AppError("CONTENT_TASK_REQUIRES_ARCHIVE", "已归档任务必须使用永久删除", 409)
     if task.status not in {"OPEN", "CANCELLED"}:

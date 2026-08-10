@@ -117,6 +117,7 @@ const manualDraftContext = {
 
 const taskListItem = {
   ...context.task,
+  identifier: 'CT-25000000',
   product: { id: context.task.product_id, brand: 'PartSignal', part_number: 'PS-001' },
   platform: {
     id: '25000000-0000-4000-8000-000000000001',
@@ -124,13 +125,19 @@ const taskListItem = {
     website_url: null,
     logo: null,
   },
+  current_content: {
+    id: context.task.current_content_version_id!,
+    version: context.content.version,
+    source_type: context.content.source_type,
+  },
   latest_generation_status: null,
+  updated_at: context.task.created_at,
 } satisfies Schema<'ContentTaskListItem'>;
 
 function commonPageResponse(path: string) {
   if (path.endsWith('/auth/me')) return { body: { id: content.created_by, username: 'editor', display_name: '编辑', account_type: 'ENGINEER', is_active: true, must_change_password: false, workflow_stage: 'ACTIVE', primary_task: 'MANAGE_USER', available_actions: [], deletion: null, revision: 1, created_at: content.created_at } satisfies Schema<'User'> };
   if (path.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
-  if (path === '/api/v1/content-tasks') return { body: { items: [taskListItem] } satisfies Schema<'ContentTaskList'> };
+  if (path === '/api/v1/content-tasks') return { body: { items: [taskListItem], page: 1, page_size: 1, total: 1 } satisfies Schema<'ContentTaskList'> };
   if (path === `/api/v1/content-tasks/${content.task_id}/content-versions`) return { body: { items: [content, previousContent] } satisfies Schema<'ContentVersionList'> };
   return undefined;
 }

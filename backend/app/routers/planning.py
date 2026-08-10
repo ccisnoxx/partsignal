@@ -32,6 +32,7 @@ from app.schemas.content import (
     ContentTaskOut,
     ContentTaskPermanentDeleteRequest,
     ContentTaskPermanentDeletionPreview,
+    ContentTaskWorkflowStage,
 )
 from app.services.content_planning import (
     create_content_task as create_content_task_command,
@@ -43,10 +44,11 @@ from app.services.content_planning import create_query_topic as create_query_top
 from app.services.content_planning import delete_query_topic as delete_query_topic_command
 from app.services.content_planning import query_topic_out, query_topics_out
 from app.services.content_planning import update_query_topic as update_query_topic_command
+from app.services.content_task_queries import list_content_tasks as list_content_tasks_query
 from app.services.platform_configuration import (
     list_platform_profiles as list_platform_profiles_query,
 )
-from app.services.projections import content_task_out, content_tasks_out, platform_profile_out
+from app.services.projections import content_task_out, platform_profile_out
 from app.services.publication import (
     archive_content_task as archive_content_task_service,
 )
@@ -189,29 +191,26 @@ def create_platform_profile(
 def list_content_tasks(
     db: DbSession,
     user: CurrentUser,
+    q: str | None = Query(None, max_length=200),
+    workflow_stage: ContentTaskWorkflowStage | None = None,
     platform_profile_id: uuid.UUID | None = None,
     filter_product_id: uuid.UUID | None = None,
     filter_fact_version_id: uuid.UUID | None = None,
     archive_status: ContentTaskArchiveStatus = ContentTaskArchiveStatus.ACTIVE,
+    page: int | None = Query(None, ge=1),
+    page_size: Annotated[Literal[10, 20, 50] | None, BeforeValidator(int), Query()] = None,
 ) -> ContentTaskList:
-    query = select(ContentTask)
-    if platform_profile_id is not None:
-        query = query.where(ContentTask.platform_profile_id == platform_profile_id)
-    if filter_product_id is not None:
-        query = query.where(ContentTask.product_id == filter_product_id)
-    if filter_fact_version_id is not None:
-        query = query.where(ContentTask.fact_version_id == filter_fact_version_id)
-    if archive_status == ContentTaskArchiveStatus.ACTIVE:
-        query = query.where(ContentTask.archived_at.is_(None))
-    elif archive_status == ContentTaskArchiveStatus.ARCHIVED:
-        query = query.where(ContentTask.archived_at.is_not(None))
-    tasks = list(db.scalars(query.order_by(ContentTask.created_at.desc())))
-    return ContentTaskList(
-        items=content_tasks_out(
-            db,
-            tasks,
-            can_permanently_delete=user.account_type == "ADMIN",
-        )
+    return list_content_tasks_query(
+        db=db,
+        q=q,
+        workflow_stage=workflow_stage,
+        platform_profile_id=platform_profile_id,
+        filter_product_id=filter_product_id,
+        filter_fact_version_id=filter_fact_version_id,
+        archive_status=archive_status,
+        page=page,
+        page_size=page_size,
+        can_permanently_delete=user.account_type == "ADMIN",
     )
 
 
@@ -227,9 +226,7 @@ def create_content_task(
     db: DbSession,
     editor: ContentEditor,
     _csrf: CsrfProtected,
-    idempotency_key: Annotated[
-        str, Header(alias="Idempotency-Key", min_length=8, max_length=128)
-    ],
+    idempotency_key: Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)],
 ) -> ContentTaskOut:
     task = create_content_task_command(
         db=db,
@@ -238,9 +235,7 @@ def create_content_task(
         request_id=request.state.request_id,
         idempotency_key=idempotency_key,
     )
-    return content_task_out(
-        db, task, can_permanently_delete=editor.account_type == "ADMIN"
-    )
+    return content_task_out(db, task, can_permanently_delete=editor.account_type == "ADMIN")
 
 
 @router.get(
@@ -264,6 +259,7 @@ def get_content_task(
 )
 def delete_content_task(
     content_task_id: uuid.UUID,
+    expected_revision: Annotated[int, Query(ge=0)],
     request: Request,
     db: DbSession,
     editor: ContentEditor,
@@ -273,6 +269,7 @@ def delete_content_task(
     delete_content_task_service(
         db=db,
         task_id=content_task_id,
+        expected_revision=expected_revision,
         actor=editor,
         request_id=request.state.request_id,
     )
@@ -319,9 +316,7 @@ def archive_content_task(
         task_id=content_task_id,
         expected_revision=payload.expected_revision,
     )
-    return content_task_out(
-        db, task, can_permanently_delete=editor.account_type == "ADMIN"
-    )
+    return content_task_out(db, task, can_permanently_delete=editor.account_type == "ADMIN")
 
 
 @router.post(
@@ -341,9 +336,7 @@ def restore_content_task(
         task_id=content_task_id,
         expected_revision=payload.expected_revision,
     )
-    return content_task_out(
-        db, task, can_permanently_delete=editor.account_type == "ADMIN"
-    )
+    return content_task_out(db, task, can_permanently_delete=editor.account_type == "ADMIN")
 
 
 @router.get(
@@ -356,9 +349,7 @@ def get_content_task_permanent_deletion_preview(
     db: DbSession,
     _admin: AdminUser,
 ) -> ContentTaskPermanentDeletionPreview:
-    return preview_content_task_permanent_deletion_service(
-        db=db, task_id=content_task_id
-    )
+    return preview_content_task_permanent_deletion_service(db=db, task_id=content_task_id)
 
 
 @router.post(

@@ -113,10 +113,11 @@ let generationJobs: Schema<'GenerationJob'>[] = [];
 
 const previewTask: Schema<'ContentTaskListItem'> = {
   id: 'task-preview', product_id: 'product-1', fact_version_id: 'fact-1', platform_profile_id: 'profile-ready',
+  identifier: 'CT-TASKPREV',
   query_topic_id: null,
   source_published_content_issue_id: null, current_content_version_id: null, workflow_stage: 'NO_DRAFT', primary_task: 'CREATE_FIRST_DRAFT', available_actions: ['CREATE_GENERATION_JOB', 'CANCEL'], status: 'OPEN', archived_at: null, revision: 1, created_by: 'user-1', created_at: channel.created_at,
   deletion: null,
-  product: { id: 'product-1', brand: 'PartSignal', part_number: 'PS-100' }, platform: { id: 'profile-ready', name: '工程师社区', website_url: platforms[1]!.website_url, logo: platforms[1]!.logo }, latest_generation_status: null,
+  product: { id: 'product-1', brand: 'PartSignal', part_number: 'PS-100' }, platform: { id: 'profile-ready', name: '工程师社区', website_url: platforms[1]!.website_url, logo: platforms[1]!.logo }, current_content: null, latest_generation_status: null, updated_at: channel.updated_at,
 };
 const previewSource: Schema<'ContentVersion'> = { id: 'version-source', task_id: previewTask.id, fact_version_id: 'fact-1', source_job_id: 'job-source', based_on_id: null, version: 1, source_type: 'AI', title: '源草稿', summary: '源摘要', body_markdown: '源正文', tags: ['源'], content_hash: 'hash-source', status: 'DRAFT', workflow_stage: 'CURRENT_DRAFT', primary_task: 'EDIT_AND_SUBMIT_REVIEW', available_actions: ['CREATE_HUMANIZATION_JOB'], revision: 0, quality_issues: [], created_by: 'user-1', created_at: channel.created_at };
 const previewContent: Schema<'ContentVersion'> = { ...previewSource, id: 'version-preview', source_job_id: 'job-preview', based_on_id: previewSource.id, version: 2, title: '真实预览标题', summary: '真实预览摘要', body_markdown: '[危险链接](javascript:alert(1))\n\n<script>globalThis.compromised=true</script>\n\n安全正文', tags: ['真实', '草稿'], content_hash: 'hash-preview' };

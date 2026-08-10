@@ -33,7 +33,7 @@ type OverflowRowAction =
       intent: 'secondary';
       enabled: boolean;
       disabledReason?: string;
-      confirmation?: ActionConfirmation;
+      confirmation?: ActionConfirmation | 'custom';
     })
   | (ActionTarget & {
       key: string;
@@ -41,7 +41,7 @@ type OverflowRowAction =
       intent: 'danger';
       enabled: boolean;
       disabledReason?: string;
-      confirmation: ActionConfirmation;
+      confirmation: ActionConfirmation | 'custom';
     });
 
 type RowAction = PrimaryRowAction | OverflowRowAction;

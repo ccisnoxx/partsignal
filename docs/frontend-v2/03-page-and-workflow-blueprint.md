@@ -138,6 +138,10 @@ Pattern：Table。
 
 普通列表不同时展示 Task Status、Generation Status、Content Status、Publication Status；由服务端 `workflow_stage` 聚合成用户理解的当前阶段。
 
+列表一次消费 `ContentTaskListItem`：任务标识、Product/Platform summary、当前主线摘要、`workflow_stage`、`primary_task`、`available_actions`、`deletion/revision` 与 `updated_at` 均由服务端投影。`q/workflowStage/archiveStatus/platformId/page/pageSize` 进入 canonical URL 并由服务端处理；页面不得请求 ContentVersion、GenerationJob、Product、Publication 等接口补行。
+
+列表直接实现 `CANCEL/DELETE/ARCHIVE/RESTORE/PERMANENT_DELETE`；生成与人工首稿 token 只链接 Task Editor。永久删除必须先读取实时 preview 并使用其 revision 和确认文本，所有 Dialog 关闭后恢复 overflow 触发器焦点。
+
 ## 4.2 `/content/tasks/new`
 
 Pattern：Form。字段建议：Product、Approved Fact Version、Target Platform、Topic/GEO Source、Content Intent、generation/manual mode、notes。

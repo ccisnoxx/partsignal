@@ -116,6 +116,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **UI ownership**：Fact History 是无操作列的 readonly Table；`VIEW_FACT_HISTORY` 指向该 canonical route，版本链接进入既有 immutable Detail。排序、命令资格和 Product context 均不由浏览器推导。
 
+## ADR-024：Content Task List 扩展既有 endpoint 的兼容双模式
+
+**Decision**：`/content/tasks` 继续消费 `GET /api/v1/content-tasks`。显式 `page + page_size` 启用服务端搜索、阶段/归档/平台筛选、稳定排序和分页；两者都省略时保留 V1 完整集合语义。现有 `ContentTaskListItem` 增加 identifier、current mainline summary 和 updated_at，不新增 V2 endpoint 或客户端 DTO。
+
+**Why**：现有批量投影已拥有 ContentTask workflow/action 权威且没有 N+1，缺口只是列表字段和查询能力；新增 endpoint 会复制同一领域 read model。兼容双模式避免破坏 V1 本地搜索、统计、分页和 Detail/Editor 的既有调用，又不引入 `view=v2`、feature flag 或客户端版本判断。
+
+**Lifecycle ownership**：普通 DELETE 补齐必填 `expected_revision` 并在行锁内复核；CANCEL/ARCHIVE/RESTORE/PERMANENT_DELETE 继续使用各自既有 command/preview 合同。V2 只按 `primary_task/available_actions/deletion` 呈现入口，409 刷新 projection 但不自动重放。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

@@ -103,14 +103,28 @@ class ContentTaskPlatformSummary(ContractModel):
     logo: PlatformLogoOut | None
 
 
+class ContentTaskCurrentContentSummary(ContractModel):
+    """内容任务当前主线的最小列表摘要。"""
+
+    id: uuid.UUID
+    version: int = Field(ge=1)
+    source_type: Literal["AI", "HUMAN"]
+
+
 class ContentTaskListItem(ContentTaskOut):
+    identifier: str = Field(pattern=r"^CT-[0-9A-F]{8}$")
     product: ContentTaskProductSummary
     platform: ContentTaskPlatformSummary
+    current_content: ContentTaskCurrentContentSummary | None
     latest_generation_status: GenerationJobStatus | None
+    updated_at: datetime
 
 
 class ContentTaskList(ContractModel):
     items: list[ContentTaskListItem]
+    page: int = Field(ge=1)
+    page_size: int = Field(ge=0)
+    total: int = Field(ge=0)
 
 
 class ContentTaskPermanentDeletionCounts(ContractModel):

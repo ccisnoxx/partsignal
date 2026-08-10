@@ -7,8 +7,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from sqlalchemy import func, literal, select, union_all
-from sqlalchemy.orm import Session
+from sqlalchemy import String, and_, case, cast, func, literal, select, union_all
+from sqlalchemy.orm import Session, aliased
+from sqlalchemy.sql.selectable import Subquery
 
 from app.config import settings
 from app.models.ai_generation import GenerationJob
@@ -18,7 +19,7 @@ from app.models.configuration import (
     PlatformPrompt,
     PlatformType,
 )
-from app.models.content import ContentTask, ContentVersion
+from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
 from app.models.geo_files import FileRecord
 from app.models.identity import AuditLog
 from app.models.product_facts import FactVersion, Product
@@ -33,6 +34,7 @@ from app.schemas.configuration import (
 )
 from app.schemas.content import (
     ContentDiff,
+    ContentTaskCurrentContentSummary,
     ContentTaskListItem,
     ContentTaskOut,
     ContentTaskPlatformSummary,
@@ -191,6 +193,135 @@ def _content_task_payload(task: ContentTask) -> dict[str, object]:
             "platform_website_url_snapshot",
         }
     }
+
+
+def content_task_workflow_projection(task_ids: list[uuid.UUID] | None = None) -> Subquery:
+    """以单一 SQL 投影生成列表筛选和详情共用的任务阶段。"""
+    ranked_generate_jobs = (
+        select(
+            GenerationJob.content_task_id.label("task_id"),
+            GenerationJob.status.label("status"),
+            func.row_number()
+            .over(
+                partition_by=GenerationJob.content_task_id,
+                order_by=(GenerationJob.created_at.desc(), GenerationJob.id.desc()),
+            )
+            .label("position"),
+        )
+        .where(GenerationJob.job_type == "GENERATE")
+        .subquery()
+    )
+    latest_generate_job = (
+        select(ranked_generate_jobs.c.task_id, ranked_generate_jobs.c.status)
+        .where(ranked_generate_jobs.c.position == 1)
+        .subquery()
+    )
+    latest_generation_activity = (
+        select(
+            GenerationJob.content_task_id.label("task_id"),
+            func.max(
+                func.coalesce(
+                    GenerationJob.finished_at,
+                    GenerationJob.started_at,
+                    GenerationJob.created_at,
+                )
+            ).label("updated_at"),
+        )
+        .group_by(GenerationJob.content_task_id)
+        .subquery()
+    )
+    latest_review = (
+        select(
+            ContentVersion.task_id.label("task_id"),
+            func.max(ContentReviewRecord.created_at).label("updated_at"),
+        )
+        .join(
+            ContentReviewRecord,
+            ContentReviewRecord.content_version_id == ContentVersion.id,
+        )
+        .group_by(ContentVersion.task_id)
+        .subquery()
+    )
+    current = aliased(ContentVersion, name="current_content")
+    has_work = PublicationWork.id.is_not(None)
+    stage = cast(
+        case(
+            (ContentTask.status == "CANCELLED", "CANCELLED"),
+            (and_(has_work, PublicationWork.status == "COMPLETED"), "VERIFIED"),
+            (has_work, "PUBLISHING"),
+            (
+                and_(
+                    current.id.is_(None),
+                    latest_generate_job.c.status.in_(("PENDING", "RUNNING")),
+                ),
+                "GENERATING",
+            ),
+            (
+                and_(current.id.is_(None), latest_generate_job.c.status == "FAILED"),
+                "GENERATION_FAILED",
+            ),
+            (current.id.is_(None), "NO_DRAFT"),
+            (current.status == "DRAFT", "DRAFT"),
+            (current.status == "PENDING_REVIEW", "REVIEW_PENDING"),
+            (current.status == "CHANGES_REQUESTED", "CHANGES_REQUESTED"),
+            (current.status == "APPROVED", "APPROVED"),
+        ),
+        String,
+    ).label("workflow_stage")
+    primary_task = cast(
+        case(
+            (ContentTask.status == "CANCELLED", "VIEW_CANCELLATION"),
+            (
+                and_(has_work, PublicationWork.status == "COMPLETED"),
+                "VIEW_FULL_LINEAGE",
+            ),
+            (has_work, "CONTINUE_PUBLICATION"),
+            (
+                and_(
+                    current.id.is_(None),
+                    latest_generate_job.c.status.in_(("PENDING", "RUNNING")),
+                ),
+                "VIEW_GENERATION_PROGRESS",
+            ),
+            (
+                and_(current.id.is_(None), latest_generate_job.c.status == "FAILED"),
+                "HANDLE_GENERATION_FAILURE",
+            ),
+            (current.id.is_(None), "CREATE_FIRST_DRAFT"),
+            (current.status == "DRAFT", "EDIT_AND_SUBMIT_REVIEW"),
+            (current.status == "PENDING_REVIEW", "REVIEW_CONTENT"),
+            (current.status == "CHANGES_REQUESTED", "REVISE_CONTENT"),
+            (current.status == "APPROVED", "START_PUBLICATION"),
+        ),
+        String,
+    ).label("primary_task")
+    query = (
+        select(
+            ContentTask.id.label("task_id"),
+            latest_generate_job.c.status.label("latest_generation_status"),
+            stage,
+            primary_task,
+            func.greatest(
+                ContentTask.updated_at,
+                current.created_at,
+                latest_generation_activity.c.updated_at,
+                latest_review.c.updated_at,
+                PublicationWork.updated_at,
+            ).label("updated_at"),
+        )
+        .select_from(ContentTask)
+        .outerjoin(current, current.id == ContentTask.current_content_version_id)
+        .outerjoin(latest_generate_job, latest_generate_job.c.task_id == ContentTask.id)
+        .outerjoin(
+            latest_generation_activity,
+            latest_generation_activity.c.task_id == ContentTask.id,
+        )
+        .outerjoin(latest_review, latest_review.c.task_id == ContentTask.id)
+        .outerjoin(PublicationWork, PublicationWork.content_task_id == ContentTask.id)
+    )
+    if task_ids is not None:
+        query = query.where(ContentTask.id.in_(task_ids))
+    return query.subquery()
 
 
 def content_task_out(
@@ -656,30 +787,30 @@ def content_tasks_out(
         for file in db.scalars(select(FileRecord).where(FileRecord.id.in_(logo_file_ids)))
     }
     logo_expires_at = datetime.now(UTC) + timedelta(seconds=settings.download_url_ttl_seconds)
-    ranked_generate_jobs = (
+    workflow_projection = content_task_workflow_projection(task_ids)
+    workflow_rows = db.execute(
         select(
-            GenerationJob.content_task_id.label("task_id"),
-            GenerationJob.status.label("status"),
-            func.row_number()
-            .over(
-                partition_by=GenerationJob.content_task_id,
-                order_by=(GenerationJob.created_at.desc(), GenerationJob.id.desc()),
-            )
-            .label("position"),
+            workflow_projection.c.task_id,
+            workflow_projection.c.latest_generation_status,
+            workflow_projection.c.workflow_stage,
+            workflow_projection.c.primary_task,
+            workflow_projection.c.updated_at,
         )
-        .where(
-            GenerationJob.content_task_id.in_(task_ids),
-            GenerationJob.job_type == "GENERATE",
-        )
-        .subquery()
-    )
-    latest_generation_by_task: dict[uuid.UUID, str] = {
-        task_id: status
-        for task_id, status in db.execute(
-            select(ranked_generate_jobs.c.task_id, ranked_generate_jobs.c.status).where(
-                ranked_generate_jobs.c.position == 1
-            )
-        ).tuples()
+    ).tuples()
+    workflow_by_task = {
+        task_id: {
+            "latest_generation_status": latest_generation_status,
+            "workflow_stage": workflow_stage,
+            "primary_task": primary_task,
+            "updated_at": updated_at,
+        }
+        for (
+            task_id,
+            latest_generation_status,
+            workflow_stage,
+            primary_task,
+            updated_at,
+        ) in workflow_rows
     }
     works_by_task = {
         work.content_task_id: work
@@ -733,35 +864,15 @@ def content_tasks_out(
             and fact.status == "APPROVED"
             and fact.body_markdown.strip()
         )
-        latest_generation_status = latest_generation_by_task.get(task.id)
+        workflow = workflow_by_task.get(task.id)
+        if workflow is None or workflow["workflow_stage"] is None:
+            raise RuntimeError(f"内容任务 {task.id} 的当前版本状态无效")
+        latest_generation_status = workflow["latest_generation_status"]
         current = (
             current_by_id.get(task.current_content_version_id)
             if task.current_content_version_id is not None
             else None
         )
-        work = works_by_task.get(task.id)
-        if task.status == "CANCELLED":
-            workflow_stage, primary_task = "CANCELLED", "VIEW_CANCELLATION"
-        elif work is not None and work.status == "COMPLETED":
-            workflow_stage, primary_task = "VERIFIED", "VIEW_FULL_LINEAGE"
-        elif work is not None:
-            workflow_stage, primary_task = "PUBLISHING", "CONTINUE_PUBLICATION"
-        elif current is None and latest_generation_status in {"PENDING", "RUNNING"}:
-            workflow_stage, primary_task = "GENERATING", "VIEW_GENERATION_PROGRESS"
-        elif current is None and latest_generation_status == "FAILED":
-            workflow_stage, primary_task = "GENERATION_FAILED", "HANDLE_GENERATION_FAILURE"
-        elif current is None:
-            workflow_stage, primary_task = "NO_DRAFT", "CREATE_FIRST_DRAFT"
-        elif current.status == "DRAFT":
-            workflow_stage, primary_task = "DRAFT", "EDIT_AND_SUBMIT_REVIEW"
-        elif current.status == "PENDING_REVIEW":
-            workflow_stage, primary_task = "REVIEW_PENDING", "REVIEW_CONTENT"
-        elif current.status == "CHANGES_REQUESTED":
-            workflow_stage, primary_task = "CHANGES_REQUESTED", "REVISE_CONTENT"
-        elif current.status == "APPROVED":
-            workflow_stage, primary_task = "APPROVED", "START_PUBLICATION"
-        else:
-            raise RuntimeError(f"内容任务 {task.id} 的当前版本状态无效")
         payload = _content_task_payload(task)
         available_actions = _content_task_available_actions(
             task,
@@ -787,8 +898,9 @@ def content_tasks_out(
         )
         payload["available_actions"] = available_actions
         payload["deletion"] = {"blockers": []} if "DELETE" in available_actions else None
-        payload["workflow_stage"] = workflow_stage
-        payload["primary_task"] = primary_task
+        payload["workflow_stage"] = workflow["workflow_stage"]
+        payload["primary_task"] = workflow["primary_task"]
+        payload["identifier"] = f"CT-{str(task.id)[:8].upper()}"
         payload["product"] = ContentTaskProductSummary(
             id=product.id,
             brand=product.brand,
@@ -813,6 +925,18 @@ def content_tasks_out(
             }
         )
         payload["latest_generation_status"] = latest_generation_status
+        payload["current_content"] = (
+            ContentTaskCurrentContentSummary.model_validate(
+                {
+                    "id": current.id,
+                    "version": current.version,
+                    "source_type": current.source_type,
+                }
+            )
+            if current is not None
+            else None
+        )
+        payload["updated_at"] = workflow["updated_at"]
         items.append(ContentTaskListItem.model_validate(payload))
     return items
 

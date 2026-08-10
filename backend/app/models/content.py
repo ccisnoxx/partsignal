@@ -33,6 +33,7 @@ class ContentTask(Base):
         UniqueConstraint("idempotency_key", name="uq_content_tasks_idempotency_key"),
         Index("ix_content_tasks_platform_profile_created_at", "platform_profile_id", "created_at"),
         Index("ix_content_tasks_archived_at_created_at", "archived_at", "created_at"),
+        Index("ix_content_tasks_archived_at_updated_at", "archived_at", "updated_at", "id"),
         CheckConstraint(
             "status <> 'OPEN' OR platform_profile_id IS NOT NULL",
             name="open_requires_platform",
@@ -80,6 +81,9 @@ class ContentTask(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

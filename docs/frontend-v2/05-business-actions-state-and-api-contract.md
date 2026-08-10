@@ -162,7 +162,9 @@ Products URL 与 API 查询参数显式映射：`q → search`、`pageSize → p
 
 ### ContentTaskListItem
 
-至少包含 id/identifier/product/platform/workflow_stage/primary_task/current content summary/updated_at。
+`GET /api/v1/content-tasks` 返回 `{items,page,page_size,total}`。显式同时提供 `page/page_size` 时服务端分页；两者同时省略时保留 V1 完整集合语义，只提供一个返回 `422`。服务端处理 `q`、`workflow_stage`、`archive_status` 和 `platform_profile_id`，并按 `updated_at DESC, id DESC` 稳定排序。
+
+Item 必填 id/identifier/product/platform/workflow_stage/primary_task/available_actions/deletion/revision/current content summary/updated_at。`current_content={id,version,source_type}|null` 只来自 `ContentTask.current_content_version_id`；`identifier` 为 `CT-` 加 UUID 前八位大写字符。列表不消费 raw statuses 推导阶段或动作。
 
 ### PublicationWorkListItem
 

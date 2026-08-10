@@ -385,7 +385,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 新增 Product 专用分页 `listProductFactHistory` 窄投影，保留 V1 `listFactVersions` 语义不变。
+- 新增 V2 readonly Fact History 路由、六列表格与 canonical navigation，不引入通用 History framework。
+- 扩展 generated-type fixture 与既有真实栈 Flow B，并同步 code-spec、ADR 和 Phase 2 gate 文档。
 
 ### Git Commits
 
@@ -395,7 +397,10 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- `make contract-check`、`make lint typecheck` 通过。
+- PostgreSQL integration 6/6、V1 Vitest 203/203、V2 component/unit 28/28 通过。
+- V2 production build 与 fixture Playwright 26/26 通过。
+- 隔离真实栈 Product Facts Flow A/B 2/2、V1 trusted-types 7/7 通过；临时数据库和存储已清理。
 
 ### Status
 

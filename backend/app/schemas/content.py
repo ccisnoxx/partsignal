@@ -502,6 +502,80 @@ class ReviewRecord(ContractModel):
     created_at: datetime
 
 
+class ContentVersionDetailContent(ContractModel):
+    """只读详情页消费的内容版本 canonical 字段。"""
+
+    id: uuid.UUID
+    task_id: uuid.UUID
+    fact_version_id: uuid.UUID
+    source_job_id: uuid.UUID | None
+    based_on_id: uuid.UUID | None
+    version: int = Field(ge=1)
+    source_type: Literal["AI", "HUMAN"]
+    status: Literal[
+        "DRAFT", "PENDING_REVIEW", "CHANGES_REQUESTED", "APPROVED", "SUPERSEDED", "ABANDONED"
+    ]
+    is_current: bool
+    title: str
+    summary: str
+    body_markdown: str
+    tags: list[str]
+    content_hash: str
+    change_summary: str
+    creator: ActorSummary
+    created_at: datetime
+    updated_at: datetime | None
+
+
+class ContentVersionFactSummary(ContractModel):
+    """详情页链接事实版本所需的最小身份。"""
+
+    id: uuid.UUID
+    product_id: uuid.UUID
+    version: int = Field(ge=1)
+    status: Literal["PENDING_REVIEW", "CHANGES_REQUESTED", "APPROVED", "RETIRED"]
+    classification: Confidentiality
+
+
+class ContentVersionPromptSnapshot(ContractModel):
+    """生成步骤中可审计但不含凭据的 Prompt 快照。"""
+
+    kind: Literal["PLATFORM", "HUMANIZATION", "LEGACY"]
+    id: uuid.UUID | None
+    name: str | None
+    revision: int | None = Field(ge=0)
+    template_markdown: str | None
+    system_message: str
+    user_message: str
+
+
+class ContentVersionLineageStep(ContractModel):
+    """目标版本祖先链上的一项紧凑生成快照。"""
+
+    job_id: uuid.UUID
+    job_type: Literal["GENERATE", "HUMANIZE"]
+    source_content_version_id: uuid.UUID | None
+    contract_version: str
+    channel: dict[str, Any]
+    model: dict[str, Any]
+    prompt: ContentVersionPromptSnapshot
+
+
+class ContentVersionGenerationLineage(ContractModel):
+    original_generation: ContentVersionLineageStep
+    humanizations: list[ContentVersionLineageStep]
+
+
+class ContentVersionDetail(ContractModel):
+    """单请求形成的不可变 Content Version 详情快照。"""
+
+    content: ContentVersionDetailContent
+    fact_version: ContentVersionFactSummary
+    generation_lineage: ContentVersionGenerationLineage | None
+    review_result: ReviewRecord | None
+    review_timeline: list[ReviewRecord]
+
+
 class FactReviewContext(ContractModel):
     fact_version: FactVersionOut
     diff: FactVersionDiff | None

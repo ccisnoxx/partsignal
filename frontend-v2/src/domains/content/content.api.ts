@@ -17,6 +17,7 @@ type ContentReviewContext = components['schemas']['ContentReviewContext'];
 type ContentRevisionCreate = components['schemas']['ContentRevisionCreate'];
 type ContentDraftUpdate = components['schemas']['ContentDraftUpdate'];
 type ContentVersion = components['schemas']['ContentVersion'];
+type ContentVersionDetail = components['schemas']['ContentVersionDetail'];
 type CommandRequest = components['schemas']['CommandRequest'];
 type RequestChangesCommand = components['schemas']['RequestChangesCommand'];
 type GenerationJob = components['schemas']['GenerationJob'];
@@ -53,6 +54,10 @@ const contentKeys = {
   reviewContexts: () => ['content', 'tasks', 'review-context'] as const,
   reviewContext: (taskId: string) => (
     ['content', 'tasks', 'review-context', taskId] as const
+  ),
+  versionDetails: () => ['content', 'versions', 'detail'] as const,
+  versionDetail: (versionId: string) => (
+    ['content', 'versions', 'detail', versionId] as const
   ),
   generationOptions: (taskId: string) => (
     ['content', 'tasks', taskId, 'generation-options'] as const
@@ -220,6 +225,24 @@ function contentTaskDetailQueryOptions(taskId: string) {
         params: { path: { content_task_id: taskId } },
       });
       if (!result.data) throw contentRequestError('读取内容任务详情', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
+function contentVersionDetailQueryOptions(versionId: string) {
+  return queryOptions({
+    queryKey: contentKeys.versionDetail(versionId),
+    queryFn: async (): Promise<ContentVersionDetail> => {
+      const result = await api.GET(
+        '/api/v1/content-versions/{content_version_id}/detail',
+        { params: { path: { content_version_id: versionId } } },
+      );
+      if (!result.data) throw contentRequestError('读取内容版本详情', result);
       return result.data;
     },
     refetchOnWindowFocus: 'always',
@@ -638,6 +661,7 @@ function contentTaskDetailErrorKind(error: unknown): 'not-found' | 'forbidden' |
 
 const contentEditorContextErrorKind = contentTaskDetailErrorKind;
 const contentReviewContextErrorKind = contentTaskDetailErrorKind;
+const contentVersionDetailErrorKind = contentTaskDetailErrorKind;
 
 export {
   ContentRequestError,
@@ -651,6 +675,8 @@ export {
   contentTaskCreationOptionsQueryOptions,
   contentTaskDetailErrorKind,
   contentTaskDetailQueryOptions,
+  contentVersionDetailErrorKind,
+  contentVersionDetailQueryOptions,
   contentKeys,
   contentPlatformReferencesQueryOptions,
   contentRequestError,

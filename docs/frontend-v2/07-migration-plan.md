@@ -374,6 +374,8 @@ Phase 3.4 拆为两个可独立 review 的 Task。`frontend-v2-content-editor-co
 
 Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readonly matrix、current pointer、DirtyGuard、browser navigation，以及 AI 生成/失败/重试/自然化均由 component、fixture Playwright 和相互独立的 Human/AI real-stack flow 覆盖。Content Review 的 approve/request changes 与 readonly history 继续由后续页面 Task 关闭，不并入 Editor PR。
 
+`frontend-v2-content-version-detail` 实现 `/content/versions/$versionId`：新增 compact `ContentVersionDetail` read model，在 `REPEATABLE READ` 中一次装配不可变内容、Fact identity、creator/change summary、nullable updated time、generation lineage 与目标版本 review timeline。Content domain 复用既有纯 UI Pattern，但保留自己的 query key、状态/时间映射和错误边界；页面没有任何写命令，也不改变 current pointer。component、generated-type fixture Playwright 和独立 real-stack HUMAN 读取流程负责证明 direct/refresh/navigation、六种状态、AI/HUMAN、snapshot 有无、只读性与 canonical Task 返回链接；Content History、Publication Workspace 和通用 Version Detail framework 仍不在本 Task。
+
 ## 9. Phase 4 — Publishing
 
 按三个独立生命周期实施：

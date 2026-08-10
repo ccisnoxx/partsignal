@@ -142,6 +142,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **AI command ownership**：generation/retry/humanization 使用各自稳定 `Idempotency-Key`；Prompt/model 由用户明确确认，但 generation snapshot 只由服务端冻结。retry 只提交原 job ID，服务端验证它仍是任务实际 latest job 并精确复制 snapshot。Humanization 创建新 GenerationJob 与 based-on ContentVersion，不修改源版本。
 
+## ADR-027：Content Version Detail 使用 compact immutable read model
+
+**Decision**：`/content/versions/$versionId` 只消费 `GET /api/v1/content-versions/{content_version_id}/detail`。既有 ContentVersion response 缺少 change summary、更新时间、creator、Prompt/model/generation 与 review snapshot；页面又不能通过 Editor/Review/Generation 多接口拼装，因此服务端在单个 `REPEATABLE READ` 请求内一次返回页面实际消费的 compact snapshot。
+
+**Boundary**：响应包含不可变内容、Fact identity、creator、`change_summary`、nullable `updated_at`、current-pointer 布尔值、compact generation lineage 和目标版本 review timeline；不包含动作、完整 Task、Fact Markdown、全部作业或版本历史。`content_versions.updated_at` 对迁移前历史记录保持 `NULL`，新记录使用数据库默认值并随允许的 HUMAN DRAFT 更新；不伪造历史更新时间。
+
+**UI ownership**：本路由对所有 status/source/current-pointer 组合始终只读，不推导或调用任何命令，也不切换 current pointer。Content domain 直接复用 MarkdownPreview、DetailSection、Timeline 与 Badge，不创建跨 Fact/Content 的 Version Detail framework；业务 query key、错误分类、状态、时间和 timeline 投影仍由 Content owner 管理。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

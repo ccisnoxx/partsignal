@@ -42,6 +42,7 @@ import {
   type RequestChangesValues,
 } from './content-review.model';
 import { contentWorkflowStageRegistry } from './content-task-list.model';
+import { contentVersionStatusRegistry } from './content-version.model';
 
 type ContentDiff = components['schemas']['ContentDiff'];
 type QualityIssue = components['schemas']['QualityIssue'];
@@ -50,15 +51,6 @@ type ContentReviewPageProps = {
   taskId: string;
   csrfToken: string | null;
 };
-
-const contentStatusRegistry = {
-  DRAFT: { label: '草稿', tone: 'info' },
-  PENDING_REVIEW: { label: '待审核', tone: 'warning' },
-  CHANGES_REQUESTED: { label: '已退回修改', tone: 'warning' },
-  APPROVED: { label: '已批准', tone: 'success' },
-  SUPERSEDED: { label: '历史版本', tone: 'secondary' },
-  ABANDONED: { label: '已放弃', tone: 'secondary' },
-} as const satisfies Record<ContentVersion['status'], StatusPresentation>;
 
 type StatusPresentation = {
   label: string;
@@ -233,7 +225,7 @@ function ContentReviewWorkspace({
         </div>
         <div className="flex flex-wrap gap-2">
           <StatusBadge presentation={contentWorkflowStageRegistry[context.task.workflow_stage]} />
-          <StatusBadge presentation={contentStatusRegistry[context.content.status]} />
+          <StatusBadge presentation={contentVersionStatusRegistry[context.content.status]} />
         </div>
       </header>
 
@@ -292,7 +284,7 @@ function ContentReviewContextPanel({ context }: { context: ContentReviewContext 
         <Metadata label="任务" mono value={context.task.id} />
         <Metadata label="内容版本" mono value={`v${context.content.version}`} />
         <Metadata label="来源" value={context.content.source_type === 'AI' ? 'AI' : '人工'} />
-        <Metadata label="状态" value={contentStatusRegistry[context.content.status].label} />
+        <Metadata label="状态" value={contentVersionStatusRegistry[context.content.status].label} />
         <Metadata label="Revision" mono value={String(context.content.revision)} />
         <Metadata label="事实版本" mono value={`v${context.fact_version.version}`} />
         <Metadata label="平台配置" mono value={context.task.platform_profile_id ?? '未绑定'} />

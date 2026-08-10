@@ -40,6 +40,7 @@ from app.schemas.content import (
     ContentDraftUpdate,
     ContentReviewContext,
     ContentRevisionCreate,
+    ContentVersionDetail,
     ContentVersionList,
     ContentVersionOut,
     GenerationJobDetail,
@@ -76,6 +77,7 @@ from app.services.content_production import (
 from app.services.content_production import (
     update_content_draft as update_content_draft_command,
 )
+from app.services.content_version_detail import get_content_version_detail
 from app.services.projections import content_diff, content_version_out, content_versions_out
 from app.services.review import (
     get_content_review_context,
@@ -382,6 +384,19 @@ def get_content_version(
     if content is None:
         raise not_found("内容版本")
     return content_version_out(db, content)
+
+
+@router.get(
+    "/content-versions/{content_version_id}/detail",
+    response_model=ContentVersionDetail,
+    operation_id="getContentVersionDetail",
+    dependencies=[Depends(_content_review_snapshot)],
+)
+def content_version_detail(
+    content_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
+) -> ContentVersionDetail:
+    """返回可由详情 route 单次绘制的一致只读快照。"""
+    return get_content_version_detail(db, content_version_id)
 
 
 @router.put(

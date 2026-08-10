@@ -350,6 +350,12 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 内容任务列表的“最近更新”不保存第二套业务状态。读投影取任务时间、当前主线版本创建时间、生成作业活动时间、审核记录时间和发布工作时间的最大值，并按 `updated_at DESC, id DESC` 排序。当前内容摘要只能通过 `content_tasks.current_content_version_id` 读取，禁止选择版本号最大值代替主线。
 
+### 0042 Content Version Detail
+
+版本文件 `0042_content_version_detail.py` 紧跟 `0041_content_task_list`。`content_versions` 新增可空 `updated_at`：升级不回填旧行，只为后续 INSERT 设置数据库默认值；ORM 只在既有合同允许的人工草稿保存、审核状态/revision 转换和旧批准版本转 `SUPERSEDED` 时写入真实更新时间。`null` 表示该历史版本没有可证明的更新时间，不得使用迁移时间、任务时间或审核时间补造。
+
+Content Version Detail 是一次 `REPEATABLE READ` 只读投影。它只读取目标版本、任务当前指针、Fact Version identity、创建者、目标祖先链上的生成/自然化 Prompt 与 model snapshot，以及按既有顺序累计的审核记录；不返回完整 Task、Fact Markdown、Diff、无关 GenerationJob、版本列表或动作投影。`review_result` 必须取目标版本自身最后一条真实审核记录，`is_current` 只比较 `content_tasks.current_content_version_id`，两者都不得从版本状态推导。
+
 普通任务删除在行锁内校验调用方必填的 `expected_revision`，不匹配返回 `REVISION_CONFLICT`；删除范围与阻断条件仍由服务端在同一事务最终复核。
 
 ### Content Task Detail 读取快照

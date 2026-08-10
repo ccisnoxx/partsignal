@@ -125,6 +125,7 @@ PARTSIGNAL_E2E_V2_BASE_URL=http://127.0.0.1:4174 \
   tests/e2e/product-facts-real-stack.spec.ts \
   tests/e2e/content-ai-real-stack.spec.ts \
   tests/e2e/content-review-real-stack.spec.ts \
+  tests/e2e/content-version-detail-real-stack.spec.ts \
   --project=foundation-desktop
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
 PARTSIGNAL_E2E_PRODUCTION_BASE_URL=http://127.0.0.1:4173 \

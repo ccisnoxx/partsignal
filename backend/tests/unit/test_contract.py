@@ -106,6 +106,31 @@ def test_content_task_detail_contract_is_one_compact_read_model() -> None:
     ]
 
 
+def test_content_version_detail_contract_is_readonly_and_compact() -> None:
+    """详情合同不得复用动作投影或返回浏览器需要再次拼接的完整资源。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    operation = document["paths"]["/api/v1/content-versions/{content_version_id}/detail"]["get"]
+    schemas = document["components"]["schemas"]
+    detail = schemas["ContentVersionDetail"]
+    content = schemas["ContentVersionDetailContent"]
+
+    assert set(operation["responses"]) == {"200", "401", "403", "404", "409", "422"}
+    assert set(detail["required"]) == {
+        "content",
+        "fact_version",
+        "generation_lineage",
+        "review_result",
+        "review_timeline",
+    }
+    assert {"change_summary", "creator", "updated_at", "is_current"} <= set(content["required"])
+    assert "available_actions" not in str(detail)
+    assert "primary_task" not in str(detail)
+    assert "quality_issues" not in str(detail)
+    assert "change_summary" not in schemas["ContentVersion"]["properties"]
+    assert "updated_at" not in schemas["ContentVersion"]["properties"]
+
+
 def test_content_task_creation_options_enforce_engineer_and_uuid_boundaries() -> None:
     """选项读模型与创建命令共用工程师权限，并在边界拒绝非法 UUID。"""
     app.dependency_overrides[get_db] = lambda: object()
@@ -157,9 +182,7 @@ def test_fact_workspace_contract_is_a_complete_single_read_model() -> None:
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
     document = yaml.safe_load(contract.read_text(encoding="utf-8"))
     path = document["paths"]["/api/v1/products/{product_id}/facts"]
-    submission = document["paths"]["/api/v1/products/{product_id}/fact-review-submissions"][
-        "post"
-    ]
+    submission = document["paths"]["/api/v1/products/{product_id}/fact-review-submissions"]["post"]
     draft = document["components"]["schemas"]["ProductFactsDraft"]
     context = document["components"]["schemas"]["ProductFactsProductContext"]
 
@@ -261,8 +284,7 @@ def test_fact_review_submission_rejects_blank_summary_before_business_command() 
     payload = response.json()["error"]
     assert payload["code"] == "VALIDATION_ERROR"
     assert any(
-        issue["loc"][:2] == ["body", "change_summary"]
-        for issue in payload["details"]["errors"]
+        issue["loc"][:2] == ["body", "change_summary"] for issue in payload["details"]["errors"]
     )
 
 

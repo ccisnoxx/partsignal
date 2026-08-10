@@ -20,9 +20,9 @@ import {
   contentWorkflowStageRegistry,
   formatExactContentTaskTime,
 } from './content-task-list.model';
+import { contentVersionStatusRegistry } from './content-version.model';
 
 type ContentTaskDetail = components['schemas']['ContentTaskDetail'];
-type ContentStatus = NonNullable<ContentTaskDetail['current_content']>['status'];
 type FactStatus = ContentTaskDetail['fact']['status'];
 type GenerationStatus = NonNullable<ContentTaskDetail['generation']>['status'];
 type PublicationStatus = NonNullable<ContentTaskDetail['publishing']>['work']['status'];
@@ -39,14 +39,6 @@ type ContentTaskDetailPageProps = {
   taskId: string;
 };
 
-const contentStatusLabels = {
-  DRAFT: '草稿',
-  PENDING_REVIEW: '待审核',
-  CHANGES_REQUESTED: '待修订',
-  APPROVED: '已批准',
-  SUPERSEDED: '已替代',
-  ABANDONED: '已放弃',
-} satisfies Record<ContentStatus, string>;
 const factStatusLabels = {
   PENDING_REVIEW: '待审核',
   CHANGES_REQUESTED: '待修订',
@@ -218,7 +210,10 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
                 )}
               />
               <Metadata label="来源" value={data.current_content.source_type === 'AI' ? 'AI' : '人工'} />
-              <Metadata label="状态" value={contentStatusLabels[data.current_content.status]} />
+              <Metadata
+                label="状态"
+                value={contentVersionStatusRegistry[data.current_content.status].label}
+              />
               <Metadata label="标题" value={data.current_content.title} />
               <Metadata className="sm:col-span-2 lg:col-span-4" label="摘要" value={data.current_content.summary} />
             </dl>
@@ -245,7 +240,10 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
         <DetailSection title="审核摘要" description="只描述当前主线内容，不加载 Review Context 或 Diff。">
           {data.review ? (
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Metadata label="当前状态" value={contentStatusLabels[data.review.status]} />
+              <Metadata
+                label="当前状态"
+                value={contentVersionStatusRegistry[data.review.status].label}
+              />
               <Metadata
                 label="最近结果"
                 value={data.review.latest_result

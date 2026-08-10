@@ -80,7 +80,8 @@ def _fact_history(db: Session, fact: FactVersion) -> list[ReviewRecord]:
     ]
 
 
-def _content_history(db: Session, content: ContentVersion) -> list[ReviewRecord]:
+def content_review_history(db: Session, content: ContentVersion) -> list[ReviewRecord]:
+    """返回目标版本时点可见的累计审核记录。"""
     rows = db.execute(
         select(ContentReviewRecord, ContentVersion.version, User)
         .join(ContentVersion, ContentVersion.id == ContentReviewRecord.content_version_id)
@@ -237,7 +238,7 @@ def _content_review_context(
             if task.current_content_version_id == content.id
             else []
         ),
-        review_history=_content_history(db, content),
+        review_history=content_review_history(db, content),
     )
 
 

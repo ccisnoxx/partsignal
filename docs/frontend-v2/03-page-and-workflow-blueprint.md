@@ -185,7 +185,11 @@ Review Context 应一次加载 content、diff、quality issues、fact markdown�
 
 ## 4.6 `/content/versions/$versionId`
 
-Pattern：Detail。展示 title/summary/Markdown、source AI/HUMAN、fact version、Prompt/model snapshot、content hash、creator、change note、review result、timeline。不可直接修改。
+Pattern：immutable Detail。页面只消费 `GET /api/v1/content-versions/{content_version_id}/detail`，一次展示 title、summary、Markdown、tags、version/status、AI/HUMAN source、对应 Fact Version、compact Prompt/model/generation lineage、content hash、creator、change summary、目标版本自己的 review result/timeline，以及创建和更新时间。响应同时明确该版本是否为 `ContentTask.current_content_version_id`；页面只展示该事实，不改变主线。
+
+该 read model 在单个 PostgreSQL `REPEATABLE READ` 请求内形成一致 snapshot，不返回完整 ContentTask、Fact Markdown、全部 GenerationJob 或内容历史。历史记录的 `updated_at` 允许为空并显示明确缺失状态；没有 generation 或 review snapshot 时显示“暂无”，不得请求 Editor Context、Review Context 或 GenerationJob 接口补齐。
+
+所有 Content Version（包括当前 HUMAN DRAFT）在本路由都只读。页面不使用表单、CodeMirror、DirtyGuard 或 workflow action，不提供 SAVE、DELETE、APPROVE、REQUEST_CHANGES、ABANDON，也不按 status 推导动作。返回入口使用所属 `/content/tasks/$taskId` canonical link，对应事实使用 Product Fact Version canonical link；本页不复制 Editor、Review Workspace、Content History 或 Publication Workspace。
 
 ---
 

@@ -11,6 +11,7 @@ type ContentTaskCreate = components['schemas']['ContentTaskCreate'];
 type ContentEditorContext = components['schemas']['ContentEditorContext'];
 type ContentReviewContext = components['schemas']['ContentReviewContext'];
 type ContentVersion = components['schemas']['ContentVersion'];
+type ContentVersionDetail = components['schemas']['ContentVersionDetail'];
 type ContentRevisionCreate = components['schemas']['ContentRevisionCreate'];
 type ContentDraftUpdate = components['schemas']['ContentDraftUpdate'];
 type CommandRequest = components['schemas']['CommandRequest'];
@@ -39,6 +40,7 @@ type EditorMode = 'no-current' | 'human-draft' | 'ai-draft' | 'changes-requested
 type EditorMutationMode = 'success' | 'revision-conflict';
 type ReviewMode = 'review-pending' | 'blocking' | 'approved' | 'changes-requested' | 'readonly' | 'loading' | 'error';
 type ReviewMutationMode = 'success' | 'revision-conflict' | 'validation';
+type VersionDetailMode = 'success' | 'loading' | 'not-found' | 'forbidden' | 'error';
 type AiOutcome = 'success' | 'failure';
 type LifecycleBody =
   | components['schemas']['CommandRequest']
@@ -114,15 +116,18 @@ type ContentApiController = {
   generationJobDetailRequests: URL[];
   generationJobListRequests: URL[];
   generationOptionsRequests: URL[];
+  getVersionDetail: () => ContentVersionDetail;
   listRequests: URL[];
   lifecycleRequests: LifecycleRequest[];
   reviewCommandRequests: ReviewCommandRequest[];
   reviewContextRequests: URL[];
+  versionDetailRequests: URL[];
   releaseCreate: () => void;
   releaseDetailLoading: () => void;
   releaseLoading: () => void;
   releaseOptionsLoading: () => void;
   releaseReviewLoading: () => void;
+  releaseVersionDetailLoading: () => void;
   setCreateMode: (mode: CreateMode) => void;
   setCreationOptionsMode: (mode: CreationOptionsMode) => void;
   setDetailMode: (mode: DetailMode) => void;
@@ -132,6 +137,8 @@ type ContentApiController = {
   setMutationMode: (mode: MutationMode) => void;
   setReviewMode: (mode: ReviewMode) => void;
   setReviewMutationMode: (mode: ReviewMutationMode) => void;
+  setVersionDetail: (detail: ContentVersionDetail) => void;
+  setVersionDetailMode: (mode: VersionDetailMode) => void;
   setAiOutcome: (outcome: AiOutcome) => void;
 };
 
@@ -156,6 +163,8 @@ const humanizationJobId = '40000000-0000-4000-8000-000000000203';
 const generationModelId = '80000000-0000-4000-8000-000000000201';
 const generationChannelId = '80000000-0000-4000-8000-000000000202';
 const generationPromptId = '80000000-0000-4000-8000-000000000203';
+const contentVersionTaskId = '00000000-0000-4000-8000-000000000001';
+const contentVersionDetailId = '30000000-0000-4000-8000-000000000001';
 
 const user = {
   id: '00000000-0000-4000-8000-000000000099',
@@ -493,6 +502,70 @@ function contentTaskDetail(item: ContentTaskListItem, empty = false): ContentTas
         },
       },
     ],
+  };
+}
+
+function contentVersionDetail(item: ContentTaskListItem): ContentVersionDetail {
+  const versionId = item.current_content?.id ?? contentVersionDetailId;
+  const reviewRecord = {
+    id: '90000000-0000-4000-8000-000000000101',
+    target_id: versionId,
+    target_version: item.current_content?.version ?? 1,
+    action: 'request-changes',
+    comment: '请补充平台适配说明',
+    actor: { id: user.id, username: user.username, display_name: user.display_name },
+    created_at: '2026-08-10T09:00:00Z',
+  } satisfies components['schemas']['ReviewRecord'];
+  return {
+    content: {
+      id: versionId,
+      task_id: item.id,
+      fact_version_id: item.fact_version_id,
+      source_job_id: generationJobId,
+      based_on_id: null,
+      version: item.current_content?.version ?? 1,
+      source_type: 'AI',
+      status: 'CHANGES_REQUESTED',
+      is_current: true,
+      title: `${item.product.part_number} 长生命周期器件选型指南`,
+      summary: '冻结的 Content Version 摘要。',
+      body_markdown: `# Canonical 正文\n\n<script>不得执行</script>\n\n${'长正文与 Markdown 列表。 '.repeat(80)}`,
+      tags: ['MCU', '长生命周期', '工程师社区'],
+      content_hash: 'a'.repeat(64),
+      change_summary: '根据审核意见补充平台适配与来源说明。',
+      creator: { id: user.id, username: user.username, display_name: user.display_name },
+      created_at: '2026-08-10T08:00:00Z',
+      updated_at: '2026-08-10T09:00:00Z',
+    },
+    fact_version: {
+      id: item.fact_version_id,
+      product_id: item.product_id,
+      version: 3,
+      status: 'APPROVED',
+      classification: 'PUBLIC',
+    },
+    generation_lineage: {
+      original_generation: {
+        job_id: generationJobId,
+        job_type: 'GENERATE',
+        source_content_version_id: null,
+        contract_version: 'content-markdown-v3',
+        channel: { id: generationChannelId, name: 'Fixture 渠道' },
+        model: { id: generationModelId, display_name: 'Fixture 模型', model_id: 'fixture-model' },
+        prompt: {
+          kind: 'PLATFORM',
+          id: generationPromptId,
+          name: 'Fixture 平台 Prompt',
+          revision: 3,
+          template_markdown: null,
+          system_message: 'Fixture system message',
+          user_message: 'Fixture user message',
+        },
+      },
+      humanizations: [],
+    },
+    review_result: reviewRecord,
+    review_timeline: [reviewRecord],
   };
 }
 
@@ -898,6 +971,7 @@ const test = base.extend<ContentFixtures>({
     let editorMutationMode: EditorMutationMode = 'success';
     let reviewMode: ReviewMode = 'review-pending';
     let reviewMutationMode: ReviewMutationMode = 'success';
+    let versionDetailMode: VersionDetailMode = 'success';
     let aiOutcome: AiOutcome = 'success';
     let generationJobPolls = 0;
     let generationJobs: GenerationJob[] = [];
@@ -909,11 +983,15 @@ const test = base.extend<ContentFixtures>({
       items.find((item) => item.id === reviewTaskId) ?? items[1],
       reviewMode,
     );
+    let versionDetailState = contentVersionDetail(
+      items.find((item) => item.id === contentVersionTaskId) ?? items[0],
+    );
     let releaseLoading: (() => void) | undefined;
     let releaseOptionsLoading: (() => void) | undefined;
     let releaseCreate: (() => void) | undefined;
     let releaseDetailLoading: (() => void) | undefined;
     let releaseReviewLoading: (() => void) | undefined;
+    let releaseVersionDetailLoading: (() => void) | undefined;
     const creationOptionsRequests: URL[] = [];
     const createRequests: CreateRequest[] = [];
     const detailRequests: URL[] = [];
@@ -930,6 +1008,7 @@ const test = base.extend<ContentFixtures>({
     const lifecycleRequests: LifecycleRequest[] = [];
     const reviewCommandRequests: ReviewCommandRequest[] = [];
     const reviewContextRequests: URL[] = [];
+    const versionDetailRequests: URL[] = [];
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
 
@@ -1239,6 +1318,53 @@ const test = base.extend<ContentFixtures>({
           latest_generation: compactGeneration(created),
         };
         await route.fulfill({ status: 202, json: created });
+        return;
+      }
+      const versionDetailMatch = url.pathname.match(
+        /^\/api\/v1\/content-versions\/([^/]+)\/detail$/,
+      );
+      if (method === 'GET' && versionDetailMatch) {
+        versionDetailRequests.push(url);
+        if (versionDetailMode === 'loading') {
+          await new Promise<void>((resolve) => { releaseVersionDetailLoading = resolve; });
+        }
+        if (versionDetailMode === 'error') {
+          await route.fulfill({
+            status: 503,
+            json: errorEnvelope(
+              'CONTENT_VERSION_DETAIL_UNAVAILABLE',
+              '内容版本详情暂不可用',
+              'req-content-version-detail',
+            ),
+          });
+          return;
+        }
+        if (versionDetailMode === 'not-found' || versionDetailMode === 'forbidden') {
+          const forbidden = versionDetailMode === 'forbidden';
+          await route.fulfill({
+            status: forbidden ? 403 : 404,
+            json: errorEnvelope(
+              forbidden ? 'PERMISSION_DENIED' : 'NOT_FOUND',
+              forbidden ? '没有读取内容版本的权限' : '内容版本不存在',
+              forbidden
+                ? 'req-content-version-detail-forbidden'
+                : 'req-content-version-detail-not-found',
+            ),
+          });
+          return;
+        }
+        if (versionDetailMatch[1] !== versionDetailState.content.id) {
+          await route.fulfill({
+            status: 404,
+            json: errorEnvelope(
+              'NOT_FOUND',
+              '内容版本不存在',
+              'req-content-version-detail-not-found',
+            ),
+          });
+          return;
+        }
+        await route.fulfill({ status: 200, json: versionDetailState });
         return;
       }
       const reviewContextMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/review-context$/);
@@ -1701,10 +1827,12 @@ const test = base.extend<ContentFixtures>({
       generationJobDetailRequests,
       generationJobListRequests,
       generationOptionsRequests,
+      getVersionDetail: () => versionDetailState,
       listRequests,
       lifecycleRequests,
       reviewCommandRequests,
       reviewContextRequests,
+      versionDetailRequests,
       releaseCreate: () => {
         if (!releaseCreate) throw new Error('Content create 请求尚未开始');
         createMode = 'success';
@@ -1729,6 +1857,11 @@ const test = base.extend<ContentFixtures>({
         if (!releaseReviewLoading) throw new Error('Content Review loading 请求尚未开始');
         reviewMode = 'review-pending';
         releaseReviewLoading();
+      },
+      releaseVersionDetailLoading: () => {
+        if (!releaseVersionDetailLoading) throw new Error('Content Version Detail loading 请求尚未开始');
+        versionDetailMode = 'success';
+        releaseVersionDetailLoading();
       },
       setCreateMode: (mode) => { createMode = mode; },
       setCreationOptionsMode: (mode) => { creationOptionsMode = mode; },
@@ -1772,6 +1905,8 @@ const test = base.extend<ContentFixtures>({
         reviewContextState = contentReviewContext(item, mode);
       },
       setReviewMutationMode: (mode) => { reviewMutationMode = mode; },
+      setVersionDetail: (detail) => { versionDetailState = detail; },
+      setVersionDetailMode: (mode) => { versionDetailMode = mode; },
       setAiOutcome: (outcome) => { aiOutcome = outcome; },
     });
 
@@ -1782,6 +1917,8 @@ const test = base.extend<ContentFixtures>({
 
 export {
   createdTaskId,
+  contentVersionDetailId,
+  contentVersionTaskId,
   creationFactId,
   creationProductId,
   editorTaskId,

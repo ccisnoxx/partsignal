@@ -175,6 +175,8 @@ Phase 3.3 的 `/content/tasks/$taskId` 继续使用同一 generated-type fixture
 
 Phase 3.4 的 `/content/tasks/$taskId/editor` 继续扩展 generated-type `content.fixture.ts`。首屏只允许一个精确 Editor Context GET；manual/revision/save/submit/delete/abandon 与 generation/retry/humanization 只开放对应 token 的既有 command，未声明 API 继续失败。`tests/e2e/content-editor.spec.ts` 除 Core 的人工首稿、保存、修订、提交、readonly matrix、CSRF/revision、DirtyGuard、Preview/Diff 与响应式矩阵外，还覆盖 generation-options 按需加载、Prompt/model 明确确认、稳定幂等键、active-only polling、terminal refetch、progress/success/failure、按需 detail、原 job retry 和新版本 humanization；仍不覆盖审核决定。
 
+`/content/versions/$versionId` 由 `tests/e2e/content-version-detail.spec.ts` 和 generated-type Content fixture 覆盖。fixture 只允许一个精确 `ContentVersionDetail` GET，Editor/Review Context、GenerationJob、版本历史和所有 mutation 都必须失败；测试覆盖 Task Detail 入口、direct/refresh/Back/Forward、canonical Task/Fact link、HUMAN/AI、六种 ContentVersion status、当前/历史版本始终只读、snapshot 有无、Markdown sanitize/长正文/tags/change summary、legacy nullable updated time、loading/404/403/error/retry、375/768/1024/1440、键盘及 console/pageerror/requestfailed 审计。`tests/e2e/content-version-detail-real-stack.spec.ts` 在隔离 production preview 中创建真实 HUMAN 版本并完成独立只读 GET；响应固定查询次数和 snapshot 一致性由 backend integration test 证明。
+
 ### 13.2 Product Facts 真实栈闭环
 
 Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e2e-local.sh` 在现有隔离生命周期内显式开启。脚本创建进程唯一 PostgreSQL、执行 migration/seed、启动真实 FastAPI，并以 `VITE_API_BASE_URL` 构建 V2 后运行 4174 `vite preview`；不得使用 Vite dev server、共享开发数据库或第二套 orchestration。

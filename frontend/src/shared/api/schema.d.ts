@@ -1238,6 +1238,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content-versions/{content_version_id}/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getContentVersionDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content-versions/{content_version_id}/revisions": {
         parameters: {
             query?: never;
@@ -3548,6 +3564,81 @@ export interface components {
             actor: components["schemas"]["ActorSummary"];
             /** Format: date-time */
             created_at: string;
+        };
+        ContentVersionDetailContent: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            fact_version_id: string;
+            /** Format: uuid */
+            source_job_id: string | null;
+            /** Format: uuid */
+            based_on_id: string | null;
+            version: number;
+            /** @enum {string} */
+            source_type: "AI" | "HUMAN";
+            status: components["schemas"]["ContentVersionStatus"];
+            is_current: boolean;
+            title: string;
+            summary: string;
+            body_markdown: string;
+            tags: string[];
+            content_hash: string;
+            change_summary: string;
+            creator: components["schemas"]["ActorSummary"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string | null;
+        };
+        ContentVersionFactSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            product_id: string;
+            version: number;
+            status: components["schemas"]["FactVersionStatus"];
+            classification: components["schemas"]["Confidentiality"];
+        };
+        ContentVersionPromptSnapshot: {
+            /** @enum {string} */
+            kind: "PLATFORM" | "HUMANIZATION" | "LEGACY";
+            /** Format: uuid */
+            id: string | null;
+            name: string | null;
+            revision: number | null;
+            template_markdown: string | null;
+            system_message: string;
+            user_message: string;
+        };
+        ContentVersionLineageStep: {
+            /** Format: uuid */
+            job_id: string;
+            /** @enum {string} */
+            job_type: "GENERATE" | "HUMANIZE";
+            /** Format: uuid */
+            source_content_version_id: string | null;
+            contract_version: string;
+            channel: {
+                [key: string]: unknown;
+            };
+            model: {
+                [key: string]: unknown;
+            };
+            prompt: components["schemas"]["ContentVersionPromptSnapshot"];
+        };
+        ContentVersionGenerationLineage: {
+            original_generation: components["schemas"]["ContentVersionLineageStep"];
+            humanizations: components["schemas"]["ContentVersionLineageStep"][];
+        };
+        ContentVersionDetail: {
+            content: components["schemas"]["ContentVersionDetailContent"];
+            fact_version: components["schemas"]["ContentVersionFactSummary"];
+            generation_lineage: components["schemas"]["ContentVersionGenerationLineage"] | null;
+            review_result: components["schemas"]["ReviewRecord"] | null;
+            review_timeline: components["schemas"]["ReviewRecord"][];
         };
         /** @enum {string} */
         FactReviewAction: "APPROVE" | "REQUEST_CHANGES" | "RETIRE";
@@ -7704,6 +7795,33 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+        };
+    };
+    getContentVersionDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                content_version_id: components["parameters"]["ContentVersionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 不可变内容版本详情快照 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVersionDetail"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     createContentRevision: {

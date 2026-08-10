@@ -1777,6 +1777,22 @@ paths:
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/content-versions/{content_version_id}/detail:
+    get:
+      tags: [production]
+      operationId: getContentVersionDetail
+      parameters: [{$ref: '#/components/parameters/ContentVersionId'}]
+      responses:
+        '200':
+          description: 不可变内容版本详情快照
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentVersionDetail'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-versions/{content_version_id}/revisions:
     post:
       tags: [production]
@@ -5048,6 +5064,90 @@ components:
         comment: {type: string}
         actor: {$ref: '#/components/schemas/ActorSummary'}
         created_at: {type: string, format: date-time}
+    ContentVersionDetailContent:
+      type: object
+      additionalProperties: false
+      required: [id, task_id, fact_version_id, source_job_id, based_on_id, version, source_type, status, is_current, title, summary, body_markdown, tags, content_hash, change_summary, creator, created_at, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        task_id: {type: string, format: uuid}
+        fact_version_id: {type: string, format: uuid}
+        source_job_id: {type: [string, 'null'], format: uuid}
+        based_on_id: {type: [string, 'null'], format: uuid}
+        version: {type: integer, minimum: 1}
+        source_type: {type: string, enum: [AI, HUMAN]}
+        status: {$ref: '#/components/schemas/ContentVersionStatus'}
+        is_current: {type: boolean}
+        title: {type: string}
+        summary: {type: string}
+        body_markdown: {type: string}
+        tags: {type: array, items: {type: string}}
+        content_hash: {type: string}
+        change_summary: {type: string}
+        creator: {$ref: '#/components/schemas/ActorSummary'}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: [string, 'null'], format: date-time}
+    ContentVersionFactSummary:
+      type: object
+      additionalProperties: false
+      required: [id, product_id, version, status, classification]
+      properties:
+        id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        status: {$ref: '#/components/schemas/FactVersionStatus'}
+        classification: {$ref: '#/components/schemas/Confidentiality'}
+    ContentVersionPromptSnapshot:
+      type: object
+      additionalProperties: false
+      required: [kind, id, name, revision, template_markdown, system_message, user_message]
+      properties:
+        kind: {type: string, enum: [PLATFORM, HUMANIZATION, LEGACY]}
+        id: {type: [string, 'null'], format: uuid}
+        name: {type: [string, 'null']}
+        revision: {type: [integer, 'null'], minimum: 0}
+        template_markdown: {type: [string, 'null']}
+        system_message: {type: string}
+        user_message: {type: string}
+    ContentVersionLineageStep:
+      type: object
+      additionalProperties: false
+      required: [job_id, job_type, source_content_version_id, contract_version, channel, model, prompt]
+      properties:
+        job_id: {type: string, format: uuid}
+        job_type: {type: string, enum: [GENERATE, HUMANIZE]}
+        source_content_version_id: {type: [string, 'null'], format: uuid}
+        contract_version: {type: string}
+        channel: {type: object, additionalProperties: true}
+        model: {type: object, additionalProperties: true}
+        prompt: {$ref: '#/components/schemas/ContentVersionPromptSnapshot'}
+    ContentVersionGenerationLineage:
+      type: object
+      additionalProperties: false
+      required: [original_generation, humanizations]
+      properties:
+        original_generation: {$ref: '#/components/schemas/ContentVersionLineageStep'}
+        humanizations:
+          type: array
+          items: {$ref: '#/components/schemas/ContentVersionLineageStep'}
+    ContentVersionDetail:
+      type: object
+      additionalProperties: false
+      required: [content, fact_version, generation_lineage, review_result, review_timeline]
+      properties:
+        content: {$ref: '#/components/schemas/ContentVersionDetailContent'}
+        fact_version: {$ref: '#/components/schemas/ContentVersionFactSummary'}
+        generation_lineage:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentVersionGenerationLineage'}
+            - {type: 'null'}
+        review_result:
+          anyOf:
+            - {$ref: '#/components/schemas/ReviewRecord'}
+            - {type: 'null'}
+        review_timeline:
+          type: array
+          items: {$ref: '#/components/schemas/ReviewRecord'}
     FactReviewAction: {type: string, enum: [APPROVE, REQUEST_CHANGES, RETIRE]}
     FactReviewDecision: {type: string, enum: [APPROVE, REQUEST_CHANGES]}
     ContentReviewAction: {type: string, enum: [SUBMIT_REVIEW, APPROVE, REQUEST_CHANGES]}

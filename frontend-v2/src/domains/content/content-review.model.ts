@@ -4,6 +4,7 @@ import type { StickyAction } from '@/design-system/workspace/sticky-action-bar';
 import type { TimelineItem } from '@/design-system/workspace/timeline';
 import type { components } from '@/shared/api/generated/schema';
 import { ContentRequestError } from './content.api';
+import { contentReviewActionLabel, formatContentVersionTime } from './content-version.model';
 
 type ContentReviewContext = components['schemas']['ContentReviewContext'];
 type ContentReviewDecision = 'APPROVE' | 'REQUEST_CHANGES';
@@ -128,9 +129,9 @@ function resolveContentReviewAction(
 function contentReviewTimelineItems(context: ContentReviewContext): TimelineItem[] {
   return context.review_history.map((record) => ({
     id: record.id,
-    title: reviewActionLabel(record.action),
+    title: contentReviewActionLabel(record.action),
     description: record.comment || undefined,
-    meta: `${record.actor.display_name} · ${formatDateTime(record.created_at)}`,
+    meta: `${record.actor.display_name} · ${formatContentVersionTime(record.created_at)}`,
   }));
 }
 
@@ -139,22 +140,6 @@ function replaceCanonicalContentVersion(
   canonical: ContentVersion,
 ): ContentReviewContext {
   return context.content.id === canonical.id ? { ...context, content: canonical } : context;
-}
-
-function reviewActionLabel(action: string) {
-  switch (action) {
-    case 'submit-review': return '提交审核';
-    case 'approve': return '批准内容';
-    case 'request-changes': return '退回修改';
-    default: return `审核记录 · ${action}`;
-  }
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value));
 }
 
 export {

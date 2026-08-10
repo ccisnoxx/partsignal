@@ -188,6 +188,12 @@ AI Production 只消费 `CREATE_GENERATION_JOB`、`CREATE_HUMANIZATION_JOB` 与 
 
 Editor 只消费 task/version 的 `primary_task` 与 `available_actions`。人工首稿和修订发送完整 `ContentRevisionCreate`（含 `change_summary`）；当前可编辑 HUMAN DRAFT 保存发送 `ContentDraftUpdate`（含 `expected_revision`，不含 `change_summary`）；提交审核发送 canonical revision 的 `CommandRequest`。409 保留本地表单，只允许用户显式重新加载，禁止自动覆盖、合并或重放。
 
+### ContentVersionDetail
+
+`GET /api/v1/content-versions/{content_version_id}/detail` 是 `/content/versions/$versionId` 的专用只读 read model。基础 `GET /content-versions/{id}` 继续返回 command/context 共用的 `ContentVersion`，不为详情页加入跨域 snapshot。新响应在单个 PostgreSQL `REPEATABLE READ` 请求内一次返回完整不可变内容、compact Fact identity、creator、`change_summary`、nullable `updated_at`、是否为 task 当前指针、基于真实 source/based-on 链路的 compact generation lineage，以及只属于目标版本的 review result/timeline。
+
+响应不包含 `available_actions`、完整 ContentTask、Fact Markdown、全部 GenerationJob、全部版本历史或 Publication Context。无 generation/review snapshot 时显式返回 `null`/空数组；浏览器不得调用 Editor Context、Review Context 或 GenerationJob 形成 waterfall。页面对所有 source/status/current-pointer 组合均只读，不从 status 推导命令，也不得修改 `ContentTask.current_content_version_id`。
+
 ### PublicationWorkListItem
 
 至少包含 content/product/platform/account/workflow_stage/primary_task/latest event/updated_at。

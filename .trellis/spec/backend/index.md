@@ -22,6 +22,7 @@ This directory contains guidelines for backend development. Fill in each file wi
 | [Logging Guidelines](./logging-guidelines.md) | Structured logging, log levels | To fill |
 | [AI 配置与生成边界](./ai-configuration-guidelines.md) | 渠道凭据、网络边界、作业快照与真实模型调用 | Active |
 | [资源动作投影合同](./available-actions-contract.md) | typed `available_actions`、服务端最终守卫、前端消费与批量投影边界 | Active |
+| [Content Version Detail 不可变详情合同](./content-version-detail-contract.md) | compact consistent read、nullable 更新时间、只读前端与跨层测试边界 | Active |
 
 ---
 

@@ -22,6 +22,7 @@
 | [质量规范](./quality-guidelines.md) | 代码标准与禁止模式 | 待完善 |
 | [类型安全](./type-safety.md) | 类型模式与校验 | 待完善 |
 | [资源动作投影合同](../backend/available-actions-contract.md) | typed `available_actions` 的跨层响应与消费边界 | 有效 |
+| [Content Version Detail 不可变详情合同](../backend/content-version-detail-contract.md) | 单一 detail read model、不可变页面与错误/测试边界 | 有效 |
 
 ---
 

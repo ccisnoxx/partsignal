@@ -282,7 +282,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0040_content_draft_management",)
+            assert cursor.fetchone() == ("0042_content_version_detail",)
             cursor.execute(
                 "SELECT tablename FROM pg_tables "
                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
@@ -438,7 +438,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
         assert "0040 无法安全降级" in downgrade.stdout + downgrade.stderr
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0040_content_draft_management",)
+            assert cursor.fetchone() == ("0042_content_version_detail",)
 
 
 @pytest.mark.integration
@@ -4031,3 +4031,63 @@ def test_content_draft_management_migration_limits_update_and_delete_windows() -
             with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
                 cursor.execute("DELETE FROM content_versions WHERE id = %s", (ids["content"],))
             connection.rollback()
+
+
+@pytest.mark.integration
+def test_content_version_detail_migration_preserves_unknown_legacy_time() -> None:
+    """0042 不伪造旧版本时间，并为新版本写入数据库默认值。"""
+    with temporary_database("partsignal_content_version_detail") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0034_publication_redesign")
+        ids = _seed_business_workflow_base(test_url)
+        run_alembic(env, backend_dir, "0041_content_task_list")
+        run_alembic(env, backend_dir, "0042_content_version_detail")
+
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT updated_at FROM content_versions WHERE id = %s",
+                (ids["content"],),
+            )
+            assert cursor.fetchone() == (None,)
+
+            new_id = uuid.uuid4()
+            cursor.execute(
+                "INSERT INTO content_versions "
+                "(id, task_id, fact_version_id, based_on_id, version, source_type, title, "
+                "summary, body_markdown, tags, content_hash, status, revision, quality_issues, "
+                "change_summary, created_by) VALUES "
+                "(%s, %s, %s, %s, 2, 'HUMAN', '新内容', '新摘要', '新正文', "
+                "ARRAY['新'], %s, 'ABANDONED', 0, '[]'::jsonb, '新版本', %s)",
+                (
+                    new_id,
+                    ids["task"],
+                    ids["fact"],
+                    ids["content"],
+                    "c" * 64,
+                    ids["actor"],
+                ),
+            )
+            cursor.execute(
+                "SELECT created_at, updated_at FROM content_versions WHERE id = %s",
+                (new_id,),
+            )
+            created_at, updated_at = cursor.fetchone()
+            assert updated_at is not None
+            assert updated_at >= created_at
+            connection.commit()
+
+        subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0041_content_task_list"],
+            check=True,
+            env=env,
+            cwd=backend_dir,
+        )
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'content_versions' AND column_name = 'updated_at'"
+            )
+            assert cursor.fetchone() is None

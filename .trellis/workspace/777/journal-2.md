@@ -1465,3 +1465,36 @@
 ### 后续
 
 - Phase 3 实现 Content Task UI；另建独立 task 补齐 Fact History 列表。
+
+
+## Session 101: 完成 Frontend V2 Fact History
+
+**Date**: 2026-08-10
+**Task**: 完成 Frontend V2 Fact History
+**Branch**: `codex/frontend-v2-fact-history`
+
+### Summary
+
+完成 Product Fact History 分页 read model、V2 readonly 历史列表与真实栈 Flow B 扩展，Phase 2 exit gate 改判为 MET。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d025c6e` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

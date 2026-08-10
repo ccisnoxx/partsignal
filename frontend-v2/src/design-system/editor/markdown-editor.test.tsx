@@ -55,7 +55,7 @@ describe('Markdown Editor Kit', () => {
     expect(screen.getByText('未保存')).toBeInTheDocument();
   });
 
-  it('Edit/Preview 切换后渲染基础 CommonMark', async () => {
+  it('Edit/Split/Preview 切换后复用受控正文和安全预览', async () => {
     const user = userEvent.setup();
     render(<MarkdownEditor ariaLabel="正文 Markdown" onChange={vi.fn()} value={'# 标题\n\n- 项目'} />);
 
@@ -64,6 +64,9 @@ describe('Markdown Editor Kit', () => {
     expect(screen.getByRole('list')).toHaveTextContent('项目');
     await user.click(screen.getByRole('tab', { name: '编辑' }));
     expect(screen.getByRole('textbox', { name: '正文 Markdown' })).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: '分屏' }));
+    expect(screen.getByRole('textbox', { name: '正文 Markdown分屏编辑' })).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: '正文 Markdown分屏预览' })).toHaveTextContent('项目');
   });
 
   it('Preview 阻断 raw HTML、script/event handler、javascript URL 和图片', () => {

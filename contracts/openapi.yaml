@@ -1485,6 +1485,22 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/content-tasks/{content_task_id}/editor-context:
+    get:
+      tags: [planning]
+      operationId: getContentEditorContext
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      responses:
+        '200':
+          description: Content Editor 首屏一致快照
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentEditorContext'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/generation-options:
     get:
       tags: [production]
@@ -4517,6 +4533,126 @@ components:
         activity:
           type: array
           items: {$ref: '#/components/schemas/ContentTaskDetailActivityItem'}
+    ContentEditorProduct:
+      type: object
+      additionalProperties: false
+      required: [id, brand, part_number, category, status]
+      properties:
+        id: {type: string, format: uuid}
+        brand: {type: string}
+        part_number: {type: string}
+        category: {type: string}
+        status: {$ref: '#/components/schemas/ProductStatus'}
+    ContentEditorFact:
+      type: object
+      additionalProperties: false
+      required: [id, version, status, classification, body_markdown]
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        status: {$ref: '#/components/schemas/FactVersionStatus'}
+        classification: {$ref: '#/components/schemas/Confidentiality'}
+        body_markdown: {type: string}
+    ContentEditorComparisonContent:
+      type: object
+      additionalProperties: false
+      required: [id, version, source_type, status, title]
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        source_type: {type: string, enum: [AI, HUMAN]}
+        status: {$ref: '#/components/schemas/ContentVersionStatus'}
+        title: {type: string}
+    ContentEditorSnapshotChannel:
+      type: object
+      additionalProperties: false
+      required: [id, name, protocol_type]
+      properties:
+        id: {type: [string, 'null'], format: uuid}
+        name: {type: [string, 'null']}
+        protocol_type: {type: [string, 'null']}
+    ContentEditorSnapshotModel:
+      type: object
+      additionalProperties: false
+      required: [id, display_name, model_id]
+      properties:
+        id: {type: [string, 'null'], format: uuid}
+        display_name: {type: [string, 'null']}
+        model_id: {type: [string, 'null']}
+    ContentEditorPromptIdentity:
+      type: object
+      additionalProperties: false
+      required: [id, name, revision]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        revision: {type: integer, minimum: 0}
+    ContentEditorGenerationLineage:
+      type: object
+      additionalProperties: false
+      required: [job_id, contract_version, channel, model, platform_prompt]
+      properties:
+        job_id: {type: string, format: uuid}
+        contract_version: {type: string}
+        channel: {$ref: '#/components/schemas/ContentEditorSnapshotChannel'}
+        model: {$ref: '#/components/schemas/ContentEditorSnapshotModel'}
+        platform_prompt:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentEditorPromptIdentity'}
+            - {type: 'null'}
+    ContentEditorHumanizationLineage:
+      type: object
+      additionalProperties: false
+      required: [job_id, source_content_version_id, contract_version, channel, model, prompt_revision]
+      properties:
+        job_id: {type: string, format: uuid}
+        source_content_version_id: {type: string, format: uuid}
+        contract_version: {type: string}
+        channel: {$ref: '#/components/schemas/ContentEditorSnapshotChannel'}
+        model: {$ref: '#/components/schemas/ContentEditorSnapshotModel'}
+        prompt_revision: {type: integer, minimum: 0}
+    ContentEditorLineage:
+      type: object
+      additionalProperties: false
+      required: [generation, humanizations]
+      properties:
+        generation: {$ref: '#/components/schemas/ContentEditorGenerationLineage'}
+        humanizations:
+          type: array
+          items: {$ref: '#/components/schemas/ContentEditorHumanizationLineage'}
+    ContentEditorContext:
+      type: object
+      additionalProperties: false
+      required: [task, product, platform, locked_fact_version, current_content, comparison_content, diff, latest_generation, current_lineage, source]
+      properties:
+        task: {$ref: '#/components/schemas/ContentTaskDetailTask'}
+        product: {$ref: '#/components/schemas/ContentEditorProduct'}
+        platform: {$ref: '#/components/schemas/ContentTaskDetailPlatform'}
+        locked_fact_version: {$ref: '#/components/schemas/ContentEditorFact'}
+        current_content:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentVersion'}
+            - {type: 'null'}
+        comparison_content:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentEditorComparisonContent'}
+            - {type: 'null'}
+        diff:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentDiff'}
+            - {type: 'null'}
+        latest_generation:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailGeneration'}
+            - {type: 'null'}
+        current_lineage:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentEditorLineage'}
+            - {type: 'null'}
+        source:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailSource'}
+            - {type: 'null'}
     ContentTaskPermanentDeletionCounts:
       type: object
       additionalProperties: false

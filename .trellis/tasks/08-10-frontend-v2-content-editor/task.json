@@ -1,0 +1,29 @@
+{
+  "id": "frontend-v2-content-editor",
+  "name": "frontend-v2-content-editor",
+  "title": "Frontend V2 Content Editor",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "contracts,backend,frontend-v2,docs",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-10",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-10-frontend-v2-content-editor-core",
+    "08-10-frontend-v2-content-ai-production"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

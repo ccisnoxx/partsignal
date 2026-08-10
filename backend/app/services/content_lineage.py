@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
@@ -42,7 +43,19 @@ class ContentAILineage:
 
 
 def resolve_content_ai_lineage(db: Session, content: ContentVersion) -> ContentAILineage | None:
-    """沿 `based_on_id` 解析 AI 调用链；纯人工链返回空。"""
+    """批量读取任务版本和作业后解析 AI 调用链；纯人工链返回空。"""
+    versions = list(
+        db.scalars(select(ContentVersion).where(ContentVersion.task_id == content.task_id))
+    )
+    versions_by_id = {item.id: item for item in versions}
+    versions_by_id.setdefault(content.id, content)
+    source_job_ids = {
+        item.source_job_id for item in versions_by_id.values() if item.source_job_id is not None
+    }
+    jobs_by_id = {
+        item.id: item
+        for item in db.scalars(select(GenerationJob).where(GenerationJob.id.in_(source_job_ids)))
+    }
     current = content
     visited: set[object] = set()
     generation_job: GenerationJob | None = None
@@ -55,7 +68,7 @@ def resolve_content_ai_lineage(db: Session, content: ContentVersion) -> ContentA
         if current.task_id != content.task_id or current.fact_version_id != content.fact_version_id:
             raise AppError("GENERATION_SNAPSHOT_INVALID", "内容修订链跨越了任务或事实版本", 409)
         if current.source_job_id is not None:
-            job = db.get(GenerationJob, current.source_job_id)
+            job = jobs_by_id.get(current.source_job_id)
             if job is None or job.content_task_id != content.task_id:
                 raise AppError("GENERATION_SNAPSHOT_INVALID", "内容源作业不存在或任务不一致", 409)
             try:
@@ -107,7 +120,7 @@ def resolve_content_ai_lineage(db: Session, content: ContentVersion) -> ContentA
                 ) from error
         if current.based_on_id is None:
             break
-        parent = db.get(ContentVersion, current.based_on_id)
+        parent = versions_by_id.get(current.based_on_id)
         if parent is None:
             raise AppError("GENERATION_SNAPSHOT_INVALID", "内容修订链不完整", 409)
         current = parent

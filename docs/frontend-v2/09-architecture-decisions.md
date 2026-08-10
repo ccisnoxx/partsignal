@@ -132,6 +132,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **UI ownership**：Primary/overflow 只消费服务端 `primary_task/available_actions/deletion/revision`。List 与 Detail 仅在 Content domain 内共享最小 action/lifecycle 边界；不创建 design-system 业务组件、通用 aggregate framework 或 workflow engine。后续页面只使用已确定 canonical link，本期不创建占位页面。
 
+## ADR-026：Content Editor 拆分同步 Core 与异步 AI Production
+
+**Decision**：Phase 3.4 不合并为一个超大 Task。Core 只交付 Task 路由的同步人工编辑闭环；AI generation、progress/failure、exact snapshot retry 与 humanization 进入后续 `frontend-v2-content-ai-production`。两者共享既有 Content/Generation 合同与服务端 action token，不共享新的前端 workflow framework。
+
+**Editor snapshot**：Core 首屏只消费 `GET /api/v1/content-tasks/{content_task_id}/editor-context`。服务端在 `REPEATABLE READ` 中按 `current_content_version_id` 装配当前 ContentVersion、锁定 Fact Markdown、服务端 Diff、quality issues、compact generation/lineage/source；不返回完整 Review/Publication Context、全部版本或全部作业历史。AI options 与 exact snapshot 只在后续用户触发时读取。
+
+**Mutation ownership**：页面仅显示 Editor surface 的服务端 action token。Manual/revision 创建新 HUMAN DRAFT；SAVE 只更新当前可变 HUMAN DRAFT；SUBMIT_REVIEW 要求表单已保存；DELETE 与 ABANDON 保持不同语义。AI DRAFT、CHANGES_REQUESTED、审核中和已批准版本不可原地编辑，客户端不按 version/created_at 选择主线或恢复父版本。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

@@ -10,6 +10,7 @@ import {
 import type { components } from '../../src/shared/api/generated/schema';
 
 type AuthSession = components['schemas']['AuthSession'];
+type ContentEditorContext = components['schemas']['ContentEditorContext'];
 type PlatformProfile = components['schemas']['PlatformProfile'];
 type PlatformType = components['schemas']['PlatformType'];
 type ProductDetail = components['schemas']['ProductDetail'];
@@ -291,4 +292,77 @@ test('Flow B：退回后修订产生新版本，审核历史严格归属当前 F
   expect(finalTarget.review_history.every((record) => record.target_id === secondVersionId)).toBe(true);
   expect(finalTarget.review_history.map((record) => record.comment)).not.toContain(firstSummary);
   expect(finalTarget.review_history.map((record) => record.comment)).not.toContain(returnComment);
+});
+
+test('Flow C：独立 ContentTask 经人工首稿、保存后提交审核', async ({ page }) => {
+  const session = await login(page);
+  const platformName = await createActivePlatform(page, session.csrf_token);
+  const product = await createProduct(page, 'CE-C');
+  const factMarker = `content-editor-fact-${product.suffix}`;
+  await enterFactsAndSubmit(
+    page,
+    `# Content Editor Fact ${factMarker}\n\n- 工作电压：3.3 V`,
+    `批准 ${factMarker}`,
+  );
+
+  await openProductsList(page);
+  const reviewRow = await productRow(page, product.partNumber);
+  await reviewRow.getByRole('link', { name: '审核', exact: true }).click();
+  await page.getByRole('button', { name: '批准事实' }).click();
+  await page.getByRole('dialog', { name: /批准事实版本 v\d+？/ })
+    .getByRole('button', { name: '确认批准' })
+    .click();
+  await expect(page.getByText(/事实版本 v\d+ 已批准/).first()).toBeVisible();
+
+  await openProductsList(page);
+  const approvedRow = await productRow(page, product.partNumber);
+  await approvedRow.getByRole('link', { name: product.partNumber, exact: true }).click();
+  const detail = await apiGet<ProductDetail>(page, `/api/v1/products/${product.productId}/detail`);
+  if (!detail.approved_fact) throw new Error('Content Editor 真实闭环缺少已批准 FactVersion');
+  await page.getByRole('link', { name: '创建内容', exact: true }).click();
+  await page.getByRole('combobox', { name: '已批准事实版本' }).click();
+  await page.getByRole('option', { name: `v${detail.approved_fact.version} · 公开` }).click();
+  await page.getByRole('combobox', { name: '目标平台' }).click();
+  await page.getByRole('option', { name: platformName }).click();
+  await page.getByRole('button', { name: '创建', exact: true }).click();
+  await expect(page).toHaveURL(/\/content\/tasks\/[0-9a-f-]+$/i);
+  await page.getByRole('link', { name: '创建初稿' }).click();
+  await expect(page).toHaveURL(/\/content\/tasks\/[0-9a-f-]+\/editor$/i);
+
+  await page.getByRole('textbox', { name: '标题' }).fill(`人工首稿 ${product.suffix}`);
+  await page.getByRole('textbox', { name: '摘要' }).fill('真实栈人工首稿摘要');
+  await page.getByRole('textbox', { name: '标签' }).fill('真实栈\n工业,控制');
+  await page.getByRole('textbox', { name: '变更说明' }).fill('创建真实栈人工首稿');
+  await page.getByRole('textbox', { name: '内容 Markdown' })
+    .fill(`# 人工首稿 ${product.suffix}\n\n基于已批准事实。`);
+  await page.getByRole('button', { name: '创建人工首稿' }).click();
+  await expect(page.getByRole('button', { name: '保存草稿' })).toBeVisible();
+
+  const savedTitle = `已保存人工稿 ${product.suffix}`;
+  await page.getByRole('textbox', { name: '标题' }).fill(savedTitle);
+  await page.getByRole('textbox', { name: '内容 Markdown' })
+    .fill(`# 已保存人工稿 ${product.suffix}\n\n工作电压为 3.3 V。`);
+  await page.getByRole('button', { name: '保存草稿' }).click();
+  await expect(page.getByText(/已保存 · Revision \d+/)).toBeVisible();
+  await page.getByRole('button', { name: '提交审核' }).click();
+  const submit = page.getByRole('dialog', { name: '提交内容审核' });
+  await submit.getByRole('textbox', { name: '备注（可选）' }).fill('真实栈提交审核');
+  await submit.getByRole('button', { name: '确认提交审核' }).click();
+  await expect(submit).toBeHidden();
+  await expect(page.getByText('只读').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: '提交审核' })).toHaveCount(0);
+
+  const taskId = new URL(page.url()).pathname.split('/').at(-2);
+  if (!taskId) throw new Error('Content Editor URL 缺少 taskId');
+  const context = await apiGet<ContentEditorContext>(
+    page,
+    `/api/v1/content-tasks/${taskId}/editor-context`,
+  );
+  expect(context.task.id).toBe(taskId);
+  expect(context.task.workflow_stage).toBe('REVIEW_PENDING');
+  expect(context.current_content).toMatchObject({
+    title: savedTitle,
+    source_type: 'HUMAN',
+    status: 'PENDING_REVIEW',
+  });
 });

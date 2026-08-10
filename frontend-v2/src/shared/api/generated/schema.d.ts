@@ -982,6 +982,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content-tasks/{content_task_id}/editor-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getContentEditorContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content-tasks/{content_task_id}/generation-options": {
         parameters: {
             query?: never;
@@ -3088,6 +3104,83 @@ export interface components {
             publishing: components["schemas"]["ContentTaskDetailPublishing"] | null;
             source: components["schemas"]["ContentTaskDetailSource"] | null;
             activity: components["schemas"]["ContentTaskDetailActivityItem"][];
+        };
+        ContentEditorProduct: {
+            /** Format: uuid */
+            id: string;
+            brand: string;
+            part_number: string;
+            category: string;
+            status: components["schemas"]["ProductStatus"];
+        };
+        ContentEditorFact: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            status: components["schemas"]["FactVersionStatus"];
+            classification: components["schemas"]["Confidentiality"];
+            body_markdown: string;
+        };
+        ContentEditorComparisonContent: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            /** @enum {string} */
+            source_type: "AI" | "HUMAN";
+            status: components["schemas"]["ContentVersionStatus"];
+            title: string;
+        };
+        ContentEditorSnapshotChannel: {
+            /** Format: uuid */
+            id: string | null;
+            name: string | null;
+            protocol_type: string | null;
+        };
+        ContentEditorSnapshotModel: {
+            /** Format: uuid */
+            id: string | null;
+            display_name: string | null;
+            model_id: string | null;
+        };
+        ContentEditorPromptIdentity: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            revision: number;
+        };
+        ContentEditorGenerationLineage: {
+            /** Format: uuid */
+            job_id: string;
+            contract_version: string;
+            channel: components["schemas"]["ContentEditorSnapshotChannel"];
+            model: components["schemas"]["ContentEditorSnapshotModel"];
+            platform_prompt: components["schemas"]["ContentEditorPromptIdentity"] | null;
+        };
+        ContentEditorHumanizationLineage: {
+            /** Format: uuid */
+            job_id: string;
+            /** Format: uuid */
+            source_content_version_id: string;
+            contract_version: string;
+            channel: components["schemas"]["ContentEditorSnapshotChannel"];
+            model: components["schemas"]["ContentEditorSnapshotModel"];
+            prompt_revision: number;
+        };
+        ContentEditorLineage: {
+            generation: components["schemas"]["ContentEditorGenerationLineage"];
+            humanizations: components["schemas"]["ContentEditorHumanizationLineage"][];
+        };
+        ContentEditorContext: {
+            task: components["schemas"]["ContentTaskDetailTask"];
+            product: components["schemas"]["ContentEditorProduct"];
+            platform: components["schemas"]["ContentTaskDetailPlatform"];
+            locked_fact_version: components["schemas"]["ContentEditorFact"];
+            current_content: components["schemas"]["ContentVersion"] | null;
+            comparison_content: components["schemas"]["ContentEditorComparisonContent"] | null;
+            diff: components["schemas"]["ContentDiff"] | null;
+            latest_generation: components["schemas"]["ContentTaskDetailGeneration"] | null;
+            current_lineage: components["schemas"]["ContentEditorLineage"] | null;
+            source: components["schemas"]["ContentTaskDetailSource"] | null;
         };
         ContentTaskPermanentDeletionCounts: {
             content_versions: number;
@@ -7100,6 +7193,33 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getContentEditorContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                content_task_id: components["parameters"]["ContentTaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Content Editor 首屏一致快照 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentEditorContext"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

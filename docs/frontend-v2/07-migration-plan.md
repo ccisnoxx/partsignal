@@ -363,6 +363,8 @@ Phase 3.2 `frontend-v2-new-content-task` 实现 `/content/tasks/new`：以三字
 
 Phase 3.3 `frontend-v2-content-task-detail` 实现 `/content/tasks/$taskId`：新增独立 `ContentTaskDetail` read model，在 `REPEATABLE READ` 中一次装配 compact task/product/platform/fact/current content/generation/review/publishing/source/activity snapshot；V2 页面只请求该 endpoint。Content domain 内最小复用 List 已有 lifecycle commands/action registry，New Task 成功改入 canonical Detail。Editor、AI/Manual Draft、Humanization、Review、Content Version Detail、Publication Workspace 与 Content History 仍是后续独立 Task。
 
+Phase 3.4 拆为两个可独立 review 的 Task。`frontend-v2-content-editor-core` 实现 `/content/tasks/$taskId/editor`、单一 `ContentEditorContext`、人工首稿、人工 revision、当前 HUMAN DRAFT 保存、Preview/Split/服务端 Diff、提交审核及 token 驱动的 delete/abandon；不实现审核决定或异步生产。后续 `frontend-v2-content-ai-production` 再实现 generation-options、创建/轮询/失败、exact snapshot retry 与 humanization，并独立验证 worker、幂等和历史输入重放。
+
 关键约束：
 
 - 以 `ContentTask.current_content_version_id` 为当前内容主线；
@@ -370,7 +372,7 @@ Phase 3.3 `frontend-v2-content-task-detail` 实现 `/content/tasks/$taskId`：�
 - CodeMirror、Preview、Diff、Fact reference、Generation snapshot、Quality warnings、DirtyGuard、StickyActionBar 通过稳定 Pattern 提供；
 - Review Context 若存在 waterfall，应先补服务端 context endpoint。
 
-退出条件：AI/Human draft、approve/reject、revision、readonly history、dirty guard、browser navigation 全覆盖。
+Phase 3.4 Core 退出条件：人工首稿、保存、修订、提交、readonly matrix、current pointer、DirtyGuard、browser navigation、fixture 与独立 Human real-stack flow 全覆盖；AI Production 以独立 Task 的生成/重试/自然化验收关闭。Content Review 的 approve/request changes 与 readonly history 继续由后续页面 Task 关闭，不并入 Editor PR。
 
 ## 9. Phase 4 — Publishing
 

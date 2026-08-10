@@ -23,6 +23,7 @@ import { Route as AppContentTasksIndexRouteImport } from './routes/_app/content/
 import { Route as AppContentTasksTaskIdRouteImport } from './routes/_app/content/tasks/$taskId'
 import { Route as AppContentTasksNewRouteImport } from './routes/_app/content/tasks/new'
 import { Route as AppProductsProductIdFactsRouteImport } from './routes/_app/products/$productId_.facts'
+import { Route as AppContentTasksTaskIdEditorRouteImport } from './routes/_app/content/tasks/$taskId_.editor'
 import { Route as AppProductsProductIdFactsReviewRouteImport } from './routes/_app/products/$productId_.facts_.review'
 import { Route as AppProductsProductIdFactsVersionsRouteImport } from './routes/_app/products/$productId_.facts_.versions'
 import { Route as AppProductsProductIdFactsVersionsVersionIdRouteImport } from './routes/_app/products/$productId_.facts_.versions_.$versionId'
@@ -96,6 +97,12 @@ const AppProductsProductIdFactsRoute =
     path: '/$productId/facts',
     getParentRoute: () => AppProductsRouteRoute,
   } as any)
+const AppContentTasksTaskIdEditorRoute =
+  AppContentTasksTaskIdEditorRouteImport.update({
+    id: '/$taskId_/editor',
+    path: '/$taskId/editor',
+    getParentRoute: () => AppContentTasksRouteRoute,
+  } as any)
 const AppProductsProductIdFactsReviewRoute =
   AppProductsProductIdFactsReviewRouteImport.update({
     id: '/$productId_/facts_/review',
@@ -128,6 +135,7 @@ export interface FileRoutesByFullPath {
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/content/tasks/': typeof AppContentTasksIndexRoute
+  '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
   '/products/$productId/facts/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/products/$productId/facts/versions/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
@@ -143,6 +151,7 @@ export interface FileRoutesByTo {
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/content/tasks': typeof AppContentTasksIndexRoute
+  '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
   '/products/$productId/facts/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/products/$productId/facts/versions/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
@@ -163,6 +172,7 @@ export interface FileRoutesById {
   '/_app/content/tasks/new': typeof AppContentTasksNewRoute
   '/_app/products/$productId_/facts': typeof AppProductsProductIdFactsRoute
   '/_app/content/tasks/': typeof AppContentTasksIndexRoute
+  '/_app/content/tasks/$taskId_/editor': typeof AppContentTasksTaskIdEditorRoute
   '/_app/products/$productId_/facts_/review': typeof AppProductsProductIdFactsReviewRoute
   '/_app/products/$productId_/facts_/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/_app/products/$productId_/facts_/versions_/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
@@ -182,6 +192,7 @@ export interface FileRouteTypes {
     | '/content/tasks/new'
     | '/products/$productId/facts'
     | '/content/tasks/'
+    | '/content/tasks/$taskId/editor'
     | '/products/$productId/facts/review'
     | '/products/$productId/facts/versions'
     | '/products/$productId/facts/versions/$versionId'
@@ -197,6 +208,7 @@ export interface FileRouteTypes {
     | '/content/tasks/new'
     | '/products/$productId/facts'
     | '/content/tasks'
+    | '/content/tasks/$taskId/editor'
     | '/products/$productId/facts/review'
     | '/products/$productId/facts/versions'
     | '/products/$productId/facts/versions/$versionId'
@@ -216,6 +228,7 @@ export interface FileRouteTypes {
     | '/_app/content/tasks/new'
     | '/_app/products/$productId_/facts'
     | '/_app/content/tasks/'
+    | '/_app/content/tasks/$taskId_/editor'
     | '/_app/products/$productId_/facts_/review'
     | '/_app/products/$productId_/facts_/versions'
     | '/_app/products/$productId_/facts_/versions_/$versionId'
@@ -325,6 +338,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductsProductIdFactsRouteImport
       parentRoute: typeof AppProductsRouteRoute
     }
+    '/_app/content/tasks/$taskId_/editor': {
+      id: '/_app/content/tasks/$taskId_/editor'
+      path: '/$taskId/editor'
+      fullPath: '/content/tasks/$taskId/editor'
+      preLoaderRoute: typeof AppContentTasksTaskIdEditorRouteImport
+      parentRoute: typeof AppContentTasksRouteRoute
+    }
     '/_app/products/$productId_/facts_/review': {
       id: '/_app/products/$productId_/facts_/review'
       path: '/$productId/facts/review'
@@ -365,12 +385,14 @@ interface AppContentTasksRouteRouteChildren {
   AppContentTasksTaskIdRoute: typeof AppContentTasksTaskIdRoute
   AppContentTasksNewRoute: typeof AppContentTasksNewRoute
   AppContentTasksIndexRoute: typeof AppContentTasksIndexRoute
+  AppContentTasksTaskIdEditorRoute: typeof AppContentTasksTaskIdEditorRoute
 }
 
 const AppContentTasksRouteRouteChildren: AppContentTasksRouteRouteChildren = {
   AppContentTasksTaskIdRoute: AppContentTasksTaskIdRoute,
   AppContentTasksNewRoute: AppContentTasksNewRoute,
   AppContentTasksIndexRoute: AppContentTasksIndexRoute,
+  AppContentTasksTaskIdEditorRoute: AppContentTasksTaskIdEditorRoute,
 }
 
 const AppContentTasksRouteRouteWithChildren =

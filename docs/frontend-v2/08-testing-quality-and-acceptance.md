@@ -173,6 +173,8 @@ Phase 3.2 的 `/content/tasks/new` 继续扩展同一 generated-type `content.fi
 
 Phase 3.3 的 `/content/tasks/$taskId` 继续使用同一 generated-type fixture，但页面只允许一个精确 Detail GET 与明确 lifecycle command；Task List、FactVersion、ContentVersion、GenerationJob、Review、Publication 或 GEO join 均作为未声明请求失败。`tests/e2e/content-task-detail.spec.ts` 覆盖 List/New 入口、direct/refresh/Back/Forward、完整与空 compact sections、服务端 primary、409 canonical refetch、404/403/retry、archived verified readonly、375/768/1024/1440、键盘/Dialog focus return 和浏览器错误审计。
 
+Phase 3.4 Core 的 `/content/tasks/$taskId/editor` 继续扩展 generated-type `content.fixture.ts`。首屏只允许一个精确 Editor Context GET；manual/revision/save/submit/delete/abandon 只开放对应 token 的既有 command，未声明 API 继续失败。`tests/e2e/content-editor.spec.ts` 覆盖 List/Detail 入口、direct/refresh、无草稿人工首稿、当前 HUMAN DRAFT 保存、AI DRAFT 与 CHANGES_REQUESTED 新建修订、提交审核、DELETE/ABANDON 的不同语义及 canonical 主线、CSRF/`expected_revision`、409 保留本地输入、Ctrl/Cmd+S、Preview/Split/服务端 Diff、quality/reference、DirtyGuard、375/768/1024/1440、键盘/焦点和浏览器错误审计；不覆盖 generation/retry/humanization 或审核决定。
+
 ### 13.2 Product Facts 真实栈闭环
 
 Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e2e-local.sh` 在现有隔离生命周期内显式开启。脚本创建进程唯一 PostgreSQL、执行 migration/seed、启动真实 FastAPI，并以 `VITE_API_BASE_URL` 构建 V2 后运行 4174 `vite preview`；不得使用 Vite dev server、共享开发数据库或第二套 orchestration。
@@ -181,6 +183,7 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 
 - Flow A：create → enter/save facts → submit → review/approve → Product Detail handoff → `/content/tasks/new?productId=...` → 选择真实 approved FactVersion 与 active Platform → 创建 ContentTask → 进入真实 `/content/tasks/$taskId`，由单一 read model 验证 Product、approved FactVersion、Platform 与 `CREATE_FIRST_DRAFT`；不创建 AI job 或人工首稿、不进入 Editor。随后继续验证 immutable Fact Version Detail。
 - Flow B：create → submit → request changes → revise/save → resubmit → approve，并通过页面断言目标从 `FactVersion v1` 前进到 `v2`，最终 review history 的每条 `target_id` 都只属于新版本；随后从 Product Detail 打开真实 Fact History，断言服务端顺序为 v2、v1，并从列表进入 v2 readonly Detail。
+- Flow C：使用独立 ContentTask 从 Task Detail 进入 Editor，完成 manual first draft → save → submit review；每步重新读取 Editor Context，验证 canonical version/revision/action 与 `current_content_version_id` 主线，不创建 GenerationJob，也不复用 Flow A/B 的互斥状态数据。
 
 默认 `npm --prefix frontend-v2 run e2e` 继续运行 fixture-based 页面矩阵，真实栈 spec 在没有显式开关时 skip；完整根 E2E 先在隔离栈运行 V1 与 V2 真实闭环，再运行 V2 fixture suite。真实闭环不重复 loading、404、四档响应式和键盘矩阵。
 

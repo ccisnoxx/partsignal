@@ -8,6 +8,11 @@ type ContentTaskListItem = components['schemas']['ContentTaskListItem'];
 type ContentTask = components['schemas']['ContentTask'];
 type ContentTaskDetail = components['schemas']['ContentTaskDetail'];
 type ContentTaskCreate = components['schemas']['ContentTaskCreate'];
+type ContentEditorContext = components['schemas']['ContentEditorContext'];
+type ContentVersion = components['schemas']['ContentVersion'];
+type ContentRevisionCreate = components['schemas']['ContentRevisionCreate'];
+type ContentDraftUpdate = components['schemas']['ContentDraftUpdate'];
+type CommandRequest = components['schemas']['CommandRequest'];
 type CreationOptions = components['schemas']['ContentTaskCreationOptions'];
 type ProductDetail = components['schemas']['ProductDetail'];
 type ContentTaskListMode = 'success' | 'empty' | 'error' | 'loading';
@@ -23,6 +28,8 @@ type CreateMode =
   | 'idempotency-conflict'
   | 'forbidden';
 type DetailMode = 'success' | 'empty' | 'cancelled' | 'error' | 'loading' | 'not-found' | 'forbidden';
+type EditorMode = 'no-current' | 'human-draft' | 'ai-draft' | 'changes-requested' | 'review-pending';
+type EditorMutationMode = 'success' | 'revision-conflict';
 type LifecycleBody =
   | components['schemas']['CommandRequest']
   | components['schemas']['RevisionRequest']
@@ -43,10 +50,41 @@ type CreateRequest = {
   idempotencyKey: string | null;
 };
 
+type EditorRevisionRequest = {
+  body: ContentRevisionCreate;
+  csrfToken: string | null;
+  contentVersionId: string | null;
+  taskId: string | null;
+};
+
+type EditorSaveRequest = {
+  body: ContentDraftUpdate;
+  csrfToken: string | null;
+  contentVersionId: string;
+};
+
+type EditorCommandRequest = {
+  body: CommandRequest;
+  csrfToken: string | null;
+  command: 'submit-review' | 'abandon';
+  contentVersionId: string;
+};
+
+type EditorDeleteRequest = {
+  csrfToken: string | null;
+  contentVersionId: string;
+  expectedRevision: number | null;
+};
+
 type ContentApiController = {
   createRequests: CreateRequest[];
   creationOptionsRequests: URL[];
   detailRequests: URL[];
+  editorCommandRequests: EditorCommandRequest[];
+  editorContextRequests: URL[];
+  editorDeleteRequests: EditorDeleteRequest[];
+  editorRevisionRequests: EditorRevisionRequest[];
+  editorSaveRequests: EditorSaveRequest[];
   listRequests: URL[];
   lifecycleRequests: LifecycleRequest[];
   releaseCreate: () => void;
@@ -56,6 +94,8 @@ type ContentApiController = {
   setCreateMode: (mode: CreateMode) => void;
   setCreationOptionsMode: (mode: CreationOptionsMode) => void;
   setDetailMode: (mode: DetailMode) => void;
+  setEditorMode: (mode: EditorMode) => void;
+  setEditorMutationMode: (mode: EditorMutationMode) => void;
   setListMode: (mode: ContentTaskListMode) => void;
   setMutationMode: (mode: MutationMode) => void;
 };
@@ -71,6 +111,9 @@ const noFactsProductId = '10000000-0000-4000-8000-000000000204';
 const creationFactId = '20000000-0000-4000-8000-000000000201';
 const secondCreationFactId = '20000000-0000-4000-8000-000000000202';
 const createdTaskId = '00000000-0000-4000-8000-999999999998';
+const editorTaskId = '00000000-0000-4000-8000-000000000002';
+const editorContentId = '30000000-0000-4000-8000-000000000002';
+const editorPreviousContentId = '30000000-0000-4000-8000-000000000102';
 
 const user = {
   id: '00000000-0000-4000-8000-000000000099',
@@ -392,6 +435,167 @@ function contentTaskDetail(item: ContentTaskListItem, empty = false): ContentTas
   };
 }
 
+function editorVersion(taskId: string, mode: EditorMode): ContentVersion | null {
+  if (mode === 'no-current') return null;
+  const aiDraft = mode === 'ai-draft';
+  const changesRequested = mode === 'changes-requested';
+  const reviewPending = mode === 'review-pending';
+  return {
+    id: editorContentId,
+    task_id: taskId,
+    fact_version_id: '20000000-0000-4000-8000-000000000002',
+    source_job_id: aiDraft ? '40000000-0000-4000-8000-000000000002' : null,
+    based_on_id: editorPreviousContentId,
+    version: 2,
+    source_type: aiDraft ? 'AI' : 'HUMAN',
+    title: changesRequested ? '待修订内容' : aiDraft ? 'AI 原始草稿' : '当前人工草稿',
+    summary: 'Content Editor fixture 摘要',
+    body_markdown: '# 当前正文\n\n工作电压为 3.3 V。',
+    tags: ['工业,控制', '选型'],
+    content_hash: 'a'.repeat(64),
+    status: reviewPending ? 'PENDING_REVIEW' : changesRequested ? 'CHANGES_REQUESTED' : 'DRAFT',
+    workflow_stage: reviewPending
+      ? 'CURRENT_REVIEW_PENDING'
+      : changesRequested
+        ? 'CURRENT_CHANGES_REQUESTED'
+        : 'CURRENT_DRAFT',
+    primary_task: reviewPending
+      ? 'REVIEW_CONTENT'
+      : changesRequested
+        ? 'CREATE_REVISION'
+        : 'EDIT_AND_SUBMIT_REVIEW',
+    available_actions: reviewPending
+      ? ['APPROVE', 'REQUEST_CHANGES']
+      : changesRequested
+        ? ['CREATE_REVISION', 'ABANDON']
+        : aiDraft
+          ? ['CREATE_REVISION', 'CREATE_HUMANIZATION_JOB', 'SUBMIT_REVIEW', 'ABANDON']
+          : ['SAVE', 'DELETE', 'SUBMIT_REVIEW'],
+    revision: 2,
+    quality_issues: [{ code: 'MISSING_SOURCE', severity: 'WARNING', message: '建议补充来源说明' }],
+    created_by: user.id,
+    created_at: '2026-08-10T08:00:00Z',
+  };
+}
+
+function contentEditorContext(item: ContentTaskListItem, mode: EditorMode): ContentEditorContext {
+  const current = editorVersion(item.id, mode);
+  const aiDraft = mode === 'ai-draft';
+  const noCurrent = mode === 'no-current';
+  const changesRequested = mode === 'changes-requested';
+  const reviewPending = mode === 'review-pending';
+  return {
+    task: {
+      id: item.id,
+      identifier: item.identifier,
+      status: item.status,
+      workflow_stage: noCurrent
+        ? 'NO_DRAFT'
+        : reviewPending
+          ? 'REVIEW_PENDING'
+          : changesRequested
+            ? 'CHANGES_REQUESTED'
+            : 'DRAFT',
+      primary_task: noCurrent
+        ? 'CREATE_FIRST_DRAFT'
+        : reviewPending
+          ? 'REVIEW_CONTENT'
+          : changesRequested
+            ? 'REVISE_CONTENT'
+            : 'EDIT_AND_SUBMIT_REVIEW',
+      available_actions: noCurrent ? ['CREATE_MANUAL_VERSION', 'CANCEL'] : ['CANCEL'],
+      deletion: item.deletion,
+      revision: item.revision,
+      created_by: item.created_by,
+      created_at: item.created_at,
+      archived_at: item.archived_at,
+    },
+    product: { ...item.product, category: 'MCU', status: 'ACTIVE' },
+    platform: item.platform,
+    locked_fact_version: {
+      id: item.fact_version_id,
+      version: 3,
+      status: 'APPROVED',
+      classification: 'PUBLIC',
+      body_markdown: '## 锁定事实\n\n- 工作电压：3.3 V\n- 工作温度：-40°C 至 85°C',
+    },
+    current_content: current,
+    comparison_content: current ? {
+      id: editorPreviousContentId,
+      version: 1,
+      source_type: 'AI',
+      status: 'DRAFT',
+      title: '上一版本',
+    } : null,
+    diff: current ? {
+      left_id: editorPreviousContentId,
+      right_id: current.id,
+      lines: [
+        { kind: 'DELETE', old_line: 1, new_line: null, text: '旧正文' },
+        { kind: 'ADD', old_line: null, new_line: 1, text: '当前正文' },
+      ],
+    } : null,
+    latest_generation: aiDraft ? {
+      id: '40000000-0000-4000-8000-000000000002',
+      job_type: 'GENERATE',
+      status: 'SUCCEEDED',
+      attempt_count: 1,
+      error_code: null,
+      error_summary: null,
+      created_at: '2026-08-10T07:55:00Z',
+      started_at: '2026-08-10T07:56:00Z',
+      finished_at: '2026-08-10T07:57:00Z',
+    } : null,
+    current_lineage: aiDraft ? {
+      generation: {
+        job_id: '40000000-0000-4000-8000-000000000002',
+        contract_version: '2',
+        channel: { id: '80000000-0000-4000-8000-000000000001', name: 'Fixture Channel', protocol_type: 'OPENAI_COMPATIBLE' },
+        model: { id: '80000000-0000-4000-8000-000000000002', display_name: 'Fixture Model', model_id: 'fixture-model' },
+        platform_prompt: { id: '80000000-0000-4000-8000-000000000003', name: 'Content Prompt', revision: 4 },
+      },
+      humanizations: [],
+    } : null,
+    source: {
+      query_topic: {
+        id: '60000000-0000-4000-8000-000000000002',
+        canonical_question: `如何选择 ${item.product.part_number}？`,
+      },
+      geo_optimization: null,
+      published_content_issue: null,
+    },
+  };
+}
+
+function createdHumanEditorVersion(
+  context: ContentEditorContext,
+  body: ContentRevisionCreate,
+  basedOnId: string | null,
+): ContentVersion {
+  return {
+    id: '30000000-0000-4000-8000-000000000202',
+    task_id: context.task.id,
+    fact_version_id: context.locked_fact_version.id,
+    source_job_id: null,
+    based_on_id: basedOnId,
+    version: (context.current_content?.version ?? 0) + 1,
+    source_type: 'HUMAN',
+    title: body.title,
+    summary: body.summary,
+    body_markdown: body.body_markdown,
+    tags: body.tags,
+    content_hash: 'b'.repeat(64),
+    status: 'DRAFT',
+    workflow_stage: 'CURRENT_DRAFT',
+    primary_task: 'EDIT_AND_SUBMIT_REVIEW',
+    available_actions: ['SAVE', 'DELETE', 'SUBMIT_REVIEW'],
+    revision: 0,
+    quality_issues: [],
+    created_by: user.id,
+    created_at: '2026-08-10T12:00:00Z',
+  };
+}
+
 function errorEnvelope(
   code: string,
   message: string,
@@ -411,6 +615,12 @@ const test = base.extend<ContentFixtures>({
     let creationOptionsMode: CreationOptionsMode = 'success';
     let createMode: CreateMode = 'success';
     let detailMode: DetailMode = 'success';
+    let editorMode: EditorMode = 'human-draft';
+    let editorMutationMode: EditorMutationMode = 'success';
+    let editorContextState = contentEditorContext(
+      items.find((item) => item.id === editorTaskId) ?? items[1],
+      editorMode,
+    );
     let releaseLoading: (() => void) | undefined;
     let releaseOptionsLoading: (() => void) | undefined;
     let releaseCreate: (() => void) | undefined;
@@ -418,6 +628,11 @@ const test = base.extend<ContentFixtures>({
     const creationOptionsRequests: URL[] = [];
     const createRequests: CreateRequest[] = [];
     const detailRequests: URL[] = [];
+    const editorContextRequests: URL[] = [];
+    const editorDeleteRequests: EditorDeleteRequest[] = [];
+    const editorRevisionRequests: EditorRevisionRequest[] = [];
+    const editorSaveRequests: EditorSaveRequest[] = [];
+    const editorCommandRequests: EditorCommandRequest[] = [];
     const listRequests: URL[] = [];
     const lifecycleRequests: LifecycleRequest[] = [];
     const unexpectedRequests: string[] = [];
@@ -573,6 +788,20 @@ const test = base.extend<ContentFixtures>({
         });
         return;
       }
+      const editorContextMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/editor-context$/);
+      if (method === 'GET' && editorContextMatch) {
+        editorContextRequests.push(url);
+        if (editorContextMatch[1] !== editorContextState.task.id) {
+          const item = items.find((candidate) => candidate.id === editorContextMatch[1]);
+          if (!item) {
+            await route.fulfill({ status: 404, json: errorEnvelope('NOT_FOUND', '内容任务不存在', 'req-content-editor-not-found') });
+            return;
+          }
+          editorContextState = contentEditorContext(item, editorMode);
+        }
+        await route.fulfill({ status: 200, json: editorContextState });
+        return;
+      }
       const detailMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/detail$/);
       if (method === 'GET' && detailMatch) {
         detailRequests.push(url);
@@ -612,6 +841,160 @@ const test = base.extend<ContentFixtures>({
           };
         }
         await route.fulfill({ status: 200, json: response });
+        return;
+      }
+      const manualVersionMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/manual-versions$/);
+      if (method === 'POST' && manualVersionMatch) {
+        const body = request.postDataJSON() as ContentRevisionCreate;
+        editorRevisionRequests.push({
+          body,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+          contentVersionId: null,
+          taskId: manualVersionMatch[1],
+        });
+        const current = createdHumanEditorVersion(editorContextState, body, null);
+        editorContextState = {
+          ...editorContextState,
+          task: { ...editorContextState.task, workflow_stage: 'DRAFT', primary_task: 'EDIT_AND_SUBMIT_REVIEW', available_actions: ['CANCEL'] },
+          current_content: current,
+          comparison_content: null,
+          diff: null,
+        };
+        await route.fulfill({ status: 201, json: current });
+        return;
+      }
+      const revisionMatch = url.pathname.match(/^\/api\/v1\/content-versions\/([^/]+)\/revisions$/);
+      if (method === 'POST' && revisionMatch) {
+        const body = request.postDataJSON() as ContentRevisionCreate;
+        const source = editorContextState.current_content;
+        editorRevisionRequests.push({
+          body,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+          contentVersionId: revisionMatch[1],
+          taskId: null,
+        });
+        const current = createdHumanEditorVersion(editorContextState, body, revisionMatch[1]);
+        editorContextState = {
+          ...editorContextState,
+          task: { ...editorContextState.task, workflow_stage: 'DRAFT', primary_task: 'EDIT_AND_SUBMIT_REVIEW' },
+          current_content: current,
+          comparison_content: source ? {
+            id: source.id,
+            version: source.version,
+            source_type: source.source_type,
+            status: source.status,
+            title: source.title,
+          } : null,
+          diff: source ? {
+            left_id: source.id,
+            right_id: current.id,
+            lines: [{ kind: 'ADD', old_line: null, new_line: 1, text: current.body_markdown }],
+          } : null,
+        };
+        await route.fulfill({ status: 201, json: current });
+        return;
+      }
+      const contentVersionMatch = url.pathname.match(/^\/api\/v1\/content-versions\/([^/]+)$/);
+      if (method === 'PUT' && contentVersionMatch) {
+        const body = request.postDataJSON() as ContentDraftUpdate;
+        editorSaveRequests.push({
+          body,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+          contentVersionId: contentVersionMatch[1],
+        });
+        const current = editorContextState.current_content;
+        if (!current) {
+          await route.fulfill({ status: 409, json: errorEnvelope('NO_CURRENT_CONTENT', '当前没有可保存的内容', 'req-content-editor-empty') });
+          return;
+        }
+        if (editorMutationMode === 'revision-conflict') {
+          editorContextState = {
+            ...editorContextState,
+            current_content: { ...current, title: '服务端最新标题', revision: current.revision + 1 },
+          };
+          await route.fulfill({ status: 409, json: errorEnvelope('REVISION_CONFLICT', '内容版本已被其他请求修改', 'req-content-editor-conflict') });
+          return;
+        }
+        const canonical: ContentVersion = {
+          ...current,
+          title: body.title,
+          summary: body.summary,
+          body_markdown: body.body_markdown,
+          tags: body.tags,
+          revision: current.revision + 1,
+        };
+        editorContextState = { ...editorContextState, current_content: canonical };
+        await route.fulfill({ status: 200, json: canonical });
+        return;
+      }
+      const contentCommandMatch = url.pathname.match(/^\/api\/v1\/content-versions\/([^/]+)\/(submit-review|abandon)$/);
+      if (method === 'POST' && contentCommandMatch) {
+        const command = contentCommandMatch[2] as EditorCommandRequest['command'];
+        const body = request.postDataJSON() as CommandRequest;
+        editorCommandRequests.push({
+          body,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+          command,
+          contentVersionId: contentCommandMatch[1],
+        });
+        const current = editorContextState.current_content;
+        if (!current) {
+          await route.fulfill({ status: 409, json: errorEnvelope('NO_CURRENT_CONTENT', '当前没有内容版本', 'req-content-editor-empty') });
+          return;
+        }
+        const canonical: ContentVersion = command === 'submit-review'
+          ? {
+              ...current,
+              status: 'PENDING_REVIEW',
+              workflow_stage: 'CURRENT_REVIEW_PENDING',
+              primary_task: 'REVIEW_CONTENT',
+              available_actions: ['APPROVE', 'REQUEST_CHANGES'],
+              revision: current.revision + 1,
+            }
+          : {
+              ...current,
+              status: 'ABANDONED',
+              workflow_stage: 'HISTORICAL',
+              primary_task: 'VIEW_VERSION_HISTORY',
+              available_actions: [],
+              revision: current.revision + 1,
+            };
+        if (command === 'submit-review') {
+          editorContextState = {
+            ...editorContextState,
+            task: { ...editorContextState.task, workflow_stage: 'REVIEW_PENDING', primary_task: 'REVIEW_CONTENT' },
+            current_content: canonical,
+          };
+        } else {
+          const item = items.find((candidate) => candidate.id === editorTaskId) ?? items[1];
+          editorContextState = contentEditorContext(item, 'no-current');
+        }
+        await route.fulfill({ status: 200, json: canonical });
+        return;
+      }
+      if (method === 'DELETE' && contentVersionMatch) {
+        editorDeleteRequests.push({
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+          contentVersionId: contentVersionMatch[1],
+          expectedRevision: Number(url.searchParams.get('expected_revision')) || null,
+        });
+        const item = items.find((candidate) => candidate.id === editorTaskId) ?? items[1];
+        const restored = contentEditorContext(item, 'ai-draft');
+        const restoredContent = restored.current_content;
+        if (!restoredContent) throw new Error('DELETE fixture 缺少可恢复的父版本');
+        editorContextState = {
+          ...restored,
+          current_content: {
+            ...restoredContent,
+            id: editorPreviousContentId,
+            based_on_id: null,
+            version: 1,
+            title: '父级 AI 草稿',
+          },
+          comparison_content: null,
+          diff: null,
+        };
+        await route.fulfill({ status: 204, body: '' });
         return;
       }
       if (method === 'POST' && url.pathname === '/api/v1/content-tasks') {
@@ -751,6 +1134,11 @@ const test = base.extend<ContentFixtures>({
       createRequests,
       creationOptionsRequests,
       detailRequests,
+      editorCommandRequests,
+      editorContextRequests,
+      editorDeleteRequests,
+      editorRevisionRequests,
+      editorSaveRequests,
       listRequests,
       lifecycleRequests,
       releaseCreate: () => {
@@ -776,6 +1164,12 @@ const test = base.extend<ContentFixtures>({
       setCreateMode: (mode) => { createMode = mode; },
       setCreationOptionsMode: (mode) => { creationOptionsMode = mode; },
       setDetailMode: (mode) => { detailMode = mode; },
+      setEditorMode: (mode) => {
+        editorMode = mode;
+        const item = items.find((candidate) => candidate.id === editorTaskId) ?? items[1];
+        editorContextState = contentEditorContext(item, mode);
+      },
+      setEditorMutationMode: (mode) => { editorMutationMode = mode; },
       setListMode: (mode) => { listMode = mode; },
       setMutationMode: (mode) => { mutationMode = mode; },
     });
@@ -789,6 +1183,7 @@ export {
   createdTaskId,
   creationFactId,
   creationProductId,
+  editorTaskId,
   expect,
   inactiveProductId,
   noFactsProductId,

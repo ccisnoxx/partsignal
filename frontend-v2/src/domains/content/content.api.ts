@@ -12,6 +12,11 @@ type ContentTask = components['schemas']['ContentTask'];
 type ContentTaskCreate = components['schemas']['ContentTaskCreate'];
 type ContentTaskCreationOptions = components['schemas']['ContentTaskCreationOptions'];
 type ContentTaskDetail = components['schemas']['ContentTaskDetail'];
+type ContentEditorContext = components['schemas']['ContentEditorContext'];
+type ContentRevisionCreate = components['schemas']['ContentRevisionCreate'];
+type ContentDraftUpdate = components['schemas']['ContentDraftUpdate'];
+type ContentVersion = components['schemas']['ContentVersion'];
+type CommandRequest = components['schemas']['CommandRequest'];
 type ContentTaskCommandTarget = Pick<ContentTask, 'id' | 'revision'>;
 type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
@@ -33,6 +38,10 @@ const contentKeys = {
   list: (params: ContentTaskListApiParams) => ['content', 'tasks', 'list', params] as const,
   details: () => ['content', 'tasks', 'detail'] as const,
   detail: (taskId: string) => ['content', 'tasks', 'detail', taskId] as const,
+  editorContexts: () => ['content', 'tasks', 'editor-context'] as const,
+  editorContext: (taskId: string) => (
+    ['content', 'tasks', 'editor-context', taskId] as const
+  ),
   platformReferences: () => ['content', 'tasks', 'platform-references'] as const,
   permanentDeletionPreview: (taskId: string) => (
     ['content', 'tasks', taskId, 'permanent-deletion-preview'] as const
@@ -41,6 +50,23 @@ const contentKeys = {
     ['content', 'tasks', 'creation-options', requestedProductId ?? null] as const
   ),
 };
+
+function contentEditorContextQueryOptions(taskId: string) {
+  return queryOptions({
+    queryKey: contentKeys.editorContext(taskId),
+    queryFn: async (): Promise<ContentEditorContext> => {
+      const result = await api.GET('/api/v1/content-tasks/{content_task_id}/editor-context', {
+        params: { path: { content_task_id: taskId } },
+      });
+      if (!result.data) throw contentRequestError('读取内容编辑器', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
 
 function contentTaskDetailQueryOptions(taskId: string) {
   return queryOptions({
@@ -93,6 +119,111 @@ async function createContentTask(
   });
   if (result.data) return result.data;
   throw contentRequestError('创建内容任务', result);
+}
+
+async function createManualContentVersion(
+  taskId: string,
+  body: ContentRevisionCreate,
+  csrfToken: string | null,
+): Promise<ContentVersion> {
+  const token = requireCsrfToken(csrfToken, '创建人工首稿');
+  const result = await api.POST('/api/v1/content-tasks/{content_task_id}/manual-versions', {
+    body,
+    params: {
+      path: { content_task_id: taskId },
+      header: { 'X-CSRF-Token': token },
+    },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError('创建人工首稿', result);
+}
+
+async function createContentRevision(
+  versionId: string,
+  body: ContentRevisionCreate,
+  csrfToken: string | null,
+): Promise<ContentVersion> {
+  const token = requireCsrfToken(csrfToken, '创建内容修订');
+  const result = await api.POST('/api/v1/content-versions/{content_version_id}/revisions', {
+    body,
+    params: {
+      path: { content_version_id: versionId },
+      header: { 'X-CSRF-Token': token },
+    },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError('创建内容修订', result);
+}
+
+async function updateContentDraft(
+  versionId: string,
+  body: ContentDraftUpdate,
+  csrfToken: string | null,
+): Promise<ContentVersion> {
+  const token = requireCsrfToken(csrfToken, '保存内容草稿');
+  const result = await api.PUT('/api/v1/content-versions/{content_version_id}', {
+    body,
+    params: {
+      path: { content_version_id: versionId },
+      header: { 'X-CSRF-Token': token },
+    },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError('保存内容草稿', result);
+}
+
+async function submitContentVersion(
+  versionId: string,
+  body: CommandRequest,
+  csrfToken: string | null,
+): Promise<ContentVersion> {
+  return commandContentVersion('submit-review', versionId, body, csrfToken);
+}
+
+async function abandonContentVersion(
+  versionId: string,
+  body: CommandRequest,
+  csrfToken: string | null,
+): Promise<ContentVersion> {
+  return commandContentVersion('abandon', versionId, body, csrfToken);
+}
+
+async function commandContentVersion(
+  command: 'submit-review' | 'abandon',
+  versionId: string,
+  body: CommandRequest,
+  csrfToken: string | null,
+): Promise<ContentVersion> {
+  const action = command === 'submit-review' ? '提交内容审核' : '放弃内容版本';
+  const token = requireCsrfToken(csrfToken, action);
+  const path = command === 'submit-review'
+    ? '/api/v1/content-versions/{content_version_id}/submit-review'
+    : '/api/v1/content-versions/{content_version_id}/abandon';
+  const result = await api.POST(path, {
+    body,
+    params: {
+      path: { content_version_id: versionId },
+      header: { 'X-CSRF-Token': token },
+    },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError(action, result);
+}
+
+async function deleteContentDraft(
+  versionId: string,
+  expectedRevision: number,
+  csrfToken: string | null,
+) {
+  const token = requireCsrfToken(csrfToken, '删除内容草稿');
+  const result = await api.DELETE('/api/v1/content-versions/{content_version_id}', {
+    params: {
+      path: { content_version_id: versionId },
+      query: { expected_revision: expectedRevision },
+      header: { 'X-CSRF-Token': token },
+    },
+  });
+  if (!result.response.ok) throw contentRequestError('删除内容草稿', result);
 }
 
 type ContentTaskCreateField = keyof ContentTaskCreate;
@@ -324,10 +455,14 @@ function contentTaskDetailErrorKind(error: unknown): 'not-found' | 'forbidden' |
   return 'generic';
 }
 
+const contentEditorContextErrorKind = contentTaskDetailErrorKind;
+
 export {
   ContentRequestError,
   archiveContentTask,
   cancelContentTask,
+  contentEditorContextErrorKind,
+  contentEditorContextQueryOptions,
   contentTaskCreationOptionsQueryOptions,
   contentTaskDetailErrorKind,
   contentTaskDetailQueryOptions,
@@ -336,10 +471,16 @@ export {
   contentRequestError,
   contentTaskListQueryOptions,
   createContentTask,
+  createContentRevision,
+  createManualContentVersion,
+  deleteContentDraft,
   deleteContentTask,
   permanentDeletionPreviewQueryOptions,
   permanentlyDeleteContentTask,
   mapContentTaskCreateError,
   restoreContentTask,
+  submitContentVersion,
+  abandonContentVersion,
+  updateContentDraft,
 };
 export type { ContentTaskCommandTarget, ContentTaskCreateErrorMapping };

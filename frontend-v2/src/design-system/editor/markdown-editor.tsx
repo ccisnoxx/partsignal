@@ -143,7 +143,7 @@ function CodeMirrorSurface({
   return <div className="overflow-hidden rounded-b-lg bg-surface-panel [&_.cm-editor]:min-w-0" ref={hostRef} />;
 }
 
-type MarkdownEditorMode = 'edit' | 'preview';
+type MarkdownEditorMode = 'edit' | 'split' | 'preview';
 
 type MarkdownEditorConflict = {
   message: string;
@@ -208,13 +208,14 @@ function MarkdownEditor({
       )}
       <Tabs
         onValueChange={(value) => {
-          if (value === 'edit' || value === 'preview') setMode(value);
+          if (value === 'edit' || value === 'split' || value === 'preview') setMode(value);
         }}
         value={mode}
       >
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-surface-raised px-3 py-2">
           <TabsList aria-label="编辑模式" variant="line">
             <TabsTrigger className="text-text-secondary" value="edit">编辑</TabsTrigger>
+            <TabsTrigger className="text-text-secondary" value="split">分屏</TabsTrigger>
             <TabsTrigger className="text-text-secondary" value="preview">预览</TabsTrigger>
           </TabsList>
           <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary">
@@ -237,6 +238,19 @@ function MarkdownEditor({
         </TabsContent>
         <TabsContent className="mt-0" value="preview">
           <MarkdownPreview value={previewValue} />
+        </TabsContent>
+        <TabsContent className="mt-0" value="split">
+          <div className="grid min-w-0 divide-y divide-border-subtle lg:grid-cols-2 lg:divide-x lg:divide-y-0">
+            <CodeMirrorSurface
+              ariaDescribedBy={ariaDescribedBy}
+              ariaInvalid={ariaInvalid}
+              ariaLabel={`${ariaLabel}分屏编辑`}
+              onChange={onChange}
+              readOnly={readOnly}
+              value={value}
+            />
+            <MarkdownPreview ariaLabel={`${ariaLabel}分屏预览`} value={previewValue} />
+          </div>
         </TabsContent>
       </Tabs>
     </section>

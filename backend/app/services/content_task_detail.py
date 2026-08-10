@@ -67,9 +67,7 @@ _PUBLICATION_ACTIVITY_SUMMARIES = {
 }
 _GEO_BASIS_ADAPTER: TypeAdapter[
     GeoContentDeclineBasis | GeoLongUnmentionedBasis | GeoQuestionCoverageGapBasis
-] = TypeAdapter(
-    GeoContentDeclineBasis | GeoLongUnmentionedBasis | GeoQuestionCoverageGapBasis
-)
+] = TypeAdapter(GeoContentDeclineBasis | GeoLongUnmentionedBasis | GeoQuestionCoverageGapBasis)
 
 
 def _compact_geo_basis(snapshot: dict[str, Any]) -> dict[str, Any]:
@@ -230,6 +228,57 @@ def _activity_items(
     return items
 
 
+def content_task_source_out(db: Session, task: ContentTask) -> ContentTaskDetailSource | None:
+    """复用权威来源关系形成紧凑来源摘要。"""
+    geo_source = db.scalar(
+        select(ContentTaskGeoSource).where(ContentTaskGeoSource.content_task_id == task.id)
+    )
+    topic_id = task.query_topic_id or (
+        geo_source.query_topic_id if geo_source is not None else None
+    )
+    query_topic = db.scalar(select(QueryTopic).where(QueryTopic.id == topic_id))
+    issue = db.scalar(
+        select(PublishedContentIssue).where(
+            PublishedContentIssue.id == task.source_published_content_issue_id
+        )
+    )
+
+    if query_topic is None and geo_source is None and issue is None:
+        return None
+    return ContentTaskDetailSource.model_validate(
+        {
+            "query_topic": (
+                {"id": query_topic.id, "canonical_question": query_topic.canonical_question}
+                if query_topic is not None
+                else None
+            ),
+            "geo_optimization": (
+                {
+                    "rule_code": geo_source.rule_code,
+                    "date_from": geo_source.date_from,
+                    "date_to": geo_source.date_to,
+                    "published_article_id": geo_source.published_article_id,
+                    "geo_platform": geo_source.geo_platform,
+                    "basis": _compact_geo_basis(geo_source.basis_snapshot),
+                }
+                if geo_source is not None
+                else None
+            ),
+            "published_content_issue": (
+                {
+                    "id": issue.id,
+                    "kind": issue.kind,
+                    "status": issue.status,
+                    "published_article_id": issue.published_article_id,
+                    "opened_at": issue.opened_at,
+                }
+                if issue is not None
+                else None
+            ),
+        }
+    )
+
+
 def content_task_detail_out(
     db: Session,
     task_id: uuid.UUID,
@@ -285,19 +334,7 @@ def content_task_detail_out(
         .where(PublicationWork.content_task_id == task.id)
     ).one_or_none()
 
-    geo_source = db.scalar(
-        select(ContentTaskGeoSource).where(ContentTaskGeoSource.content_task_id == task.id)
-    )
-    topic_id = task.query_topic_id or (
-        geo_source.query_topic_id if geo_source is not None else None
-    )
-    query_topic = db.scalar(select(QueryTopic).where(QueryTopic.id == topic_id))
-    issue = db.scalar(
-        select(PublishedContentIssue).where(
-            PublishedContentIssue.id == task.source_published_content_issue_id
-        )
-    )
-
+    source_payload = content_task_source_out(db, task)
     activity_rows = _activity_rows(db, task.id)
     actor_ids = {row.actor_id for row in activity_rows}
     if latest_review is not None:
@@ -339,41 +376,6 @@ def content_task_detail_out(
             "work": {"id": work.id, "status": work.status, "updated_at": work.updated_at},
             "result": result,
         }
-
-    source_payload = None
-    if query_topic is not None or geo_source is not None or issue is not None:
-        source_payload = ContentTaskDetailSource.model_validate(
-            {
-                "query_topic": (
-                    {"id": query_topic.id, "canonical_question": query_topic.canonical_question}
-                    if query_topic is not None
-                    else None
-                ),
-                "geo_optimization": (
-                    {
-                        "rule_code": geo_source.rule_code,
-                        "date_from": geo_source.date_from,
-                        "date_to": geo_source.date_to,
-                        "published_article_id": geo_source.published_article_id,
-                        "geo_platform": geo_source.geo_platform,
-                        "basis": _compact_geo_basis(geo_source.basis_snapshot),
-                    }
-                    if geo_source is not None
-                    else None
-                ),
-                "published_content_issue": (
-                    {
-                        "id": issue.id,
-                        "kind": issue.kind,
-                        "status": issue.status,
-                        "published_article_id": issue.published_article_id,
-                        "opened_at": issue.opened_at,
-                    }
-                    if issue is not None
-                    else None
-                ),
-            }
-        )
 
     return ContentTaskDetail.model_validate(
         {

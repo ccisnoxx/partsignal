@@ -35,7 +35,9 @@ from app.schemas.content import (
     ContentTaskPermanentDeletionPreview,
     ContentTaskWorkflowStage,
 )
+from app.schemas.content_editor import ContentEditorContext
 from app.schemas.content_task_detail import ContentTaskDetail
+from app.services.content_editor import content_editor_context_out
 from app.services.content_planning import (
     create_content_task as create_content_task_command,
 )
@@ -289,6 +291,21 @@ def get_content_task_detail(
     user: CurrentUser,
 ) -> ContentTaskDetail:
     return content_task_detail_out(db, content_task_id, actor=user)
+
+
+@router.get(
+    "/content-tasks/{content_task_id}/editor-context",
+    response_model=ContentEditorContext,
+    operation_id="getContentEditorContext",
+    dependencies=[Depends(_content_task_read_snapshot)],
+)
+def get_content_editor_context(
+    content_task_id: uuid.UUID,
+    db: DbSession,
+    user: CurrentUser,
+) -> ContentEditorContext:
+    """返回只按当前主线形成的 Content Editor 首屏快照。"""
+    return content_editor_context_out(db, content_task_id, actor=user)
 
 
 @router.delete(

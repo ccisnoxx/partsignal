@@ -178,6 +178,14 @@ Item 必填 id/identifier/product/platform/workflow_stage/primary_task/available
 
 投影在单个 PostgreSQL `REPEATABLE READ` 请求内以固定查询次数形成。`current_content` 只解析 `ContentTask.current_content_version_id`；latest generation、当前主线 review、publication/source 与 Activity 的选择、排序和最多十项均由服务端完成。历史平台缺失时服务端返回冻结 identity；普通任务没有真实 Query Topic、GEO source 或 repair issue 时 `source=null`，不得制造空对象。客户端只请求该 endpoint，不把 Detail 写进 ListItem cache，不用旧 list row 覆盖 Detail；command 成功或 404/409 时失效对应 detail 与 list canonical cache，不自动重放命令。
 
+### ContentEditorContext
+
+`GET /api/v1/content-tasks/{content_task_id}/editor-context` 是 `/content/tasks/$taskId/editor` 的首屏一致读模型。一次返回 compact task/product/platform、锁定且不可变的 FactVersion Markdown、由 `current_content_version_id` 唯一定位的完整当前 ContentVersion、服务端选择的比较基线与 `ContentDiff`、最近 generation 摘要、当前主线的 compact AI lineage 和真实 source；当前指针为空时 `current_content/comparison_content/diff/current_lineage` 均为 `null`，指针无效时显式返回冲突错误。
+
+该 endpoint 在单个 PostgreSQL `REPEATABLE READ` 请求内以固定查询次数形成，不包含完整 Review/Publication Context、全部版本历史、全部 GenerationJob 历史或完整 generation snapshot。generation-options、exact job snapshot/retry、humanization options 与 destructive preview 仍按用户触发单独请求；其中 AI Production 属于后续 Task，Core 页面不提前请求或呈现这些能力。
+
+Editor 只消费 task/version 的 `primary_task` 与 `available_actions`。人工首稿和修订发送完整 `ContentRevisionCreate`（含 `change_summary`）；当前可编辑 HUMAN DRAFT 保存发送 `ContentDraftUpdate`（含 `expected_revision`，不含 `change_summary`）；提交审核发送 canonical revision 的 `CommandRequest`。409 保留本地表单，只允许用户显式重新加载，禁止自动覆盖、合并或重放。
+
 ### PublicationWorkListItem
 
 至少包含 content/product/platform/account/workflow_stage/primary_task/latest event/updated_at。
@@ -188,9 +196,9 @@ Item 必填 id/identifier/product/platform/workflow_stage/primary_task/available
 
 ## 14. Workspace Read Model
 
-复杂 Workspace 应有专用 endpoint/context，例如 `GET /content/tasks/{id}/review-context` 一次返回：task、current immutable version、diff、fact snapshot、generation snapshot、quality issues、review history、primary_task、available_actions。
+复杂 Workspace 应使用按 surface 收窄的专用 endpoint/context。Editor 使用 `GET /content-tasks/{id}/editor-context`；Review 可使用独立 review context，一次返回审核所需的 immutable version、diff、fact/generation snapshot、quality issues、review history 和审核动作。
 
-这样避免 6–10 个 API waterfall 和 snapshot 不一致。
+这样避免 6–10 个 API waterfall 和 snapshot 不一致，也避免把 Editor、Review、Publication 与完整历史塞进万能 context。
 
 ## 15. Workbench Aggregate
 

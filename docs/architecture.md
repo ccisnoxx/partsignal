@@ -28,6 +28,8 @@ PostgreSQL 保存全部业务状态。Redis 只传递 Celery 消息，消息只�
 
 Content Task readonly Detail 使用独立 `ContentTaskDetail` read model，在单个 PostgreSQL `REPEATABLE READ` 请求内批量投影任务、锁定上下文、当前主线、生成、审核、发布、真实来源与最近 Activity。基础 `ContentTask` 仍是 command canonical response；详情不得把正文、Diff、完整 Review Context 或 Publication aggregate 塞入该实体，也不得由浏览器跨接口 join。`current_content` 只解析 `ContentTask.current_content_version_id`，审核与发布摘要都围绕该主线或任务唯一发布工作形成。
 
+Content Editor 使用独立 `ContentEditorContext` read model，在同样的一致读事务中按 `current_content_version_id` 返回完整当前内容、锁定 Fact Markdown、服务端比较基线与 Diff、quality issues、compact generation lineage 和真实 source。它不包含完整 Review/Publication Context、全部版本或全部作业历史；generation options、exact retry snapshot 和 humanization options 仅在相应用户动作发生后读取。浏览器只按 task/version action token 提供人工首稿、修订、当前 HUMAN DRAFT 保存、提交、删除或放弃，不按版本号或时间重建主线与可编辑资格。
+
 ## 外部适配器
 
 内容生成固定接入 OpenAI-compatible Chat Completions，不探测 Responses API 或其他协议。原始生成与可选自然化共用 `generation_jobs`、同一个 Celery task、补投递、租约恢复和指标来源；`job_type` 只选择严格快照和落库关系，不建立第二套队列。原始生成恰好发送两条消息：system 原样使用任务平台的当前 Prompt，user 原样使用绑定 `FactVersion.body_markdown`；缺少 Prompt 或事实分级不是 `PUBLIC` 时明确失败，不增加固定前缀、任务要求或回退。用户也可绕过系统 AI，直接创建 `HUMAN DRAFT` 首稿，后续与 AI 草稿共用审核和发布链。渠道凭据由部署主密钥认证加密；每次请求只解析一次完整地址集合，只连接批准 `sockaddr`，并在发送敏感 Header 前校验实际 TCP peer。TLS SNI、证书身份和 Host 保留原 hostname；禁止重定向、超限响应、生产非公网地址和发送后的地址切换。单个 AI 作业最多调用供应商一次；Celery Beat 只补投递超龄 `PENDING`，过期 `RUNNING` 显式失败，重试创建新作业并复制原 v2 快照，旧 v1 快照不得重试。Redis 仍只承载 UUID 消息，不保存业务状态、正文、Prompt 或数据分级。

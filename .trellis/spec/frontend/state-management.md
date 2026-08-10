@@ -163,6 +163,16 @@ return <FactWorkspacePage key={productId} />;
 
 ---
 
+## Content Editor 的 Context、表单与 mutation 边界
+
+- query key 为 `contentKeys.editorContext(taskId)`，首屏只读取一个 Editor Context；task detail/list、version 与 job keys 继续由 Content API owner 统一登记，页面不得临时拼 key。
+- TanStack Query 持有 task/product/platform/fact/current/diff/lineage/source snapshot；RHF 持有 title/summary/body/tags/change summary；tab、编辑模式和 Dialog 留在 React local state，不进入 URL 或全局 Store。
+- Manual/revision 成功后重读 context/detail/list；SAVE 成功采用 canonical ContentVersion 重设表单和 revision，再重读受影响 projection；SUBMIT/DELETE/ABANDON 后只由服务端 context 确定新主线和动作。
+- dirty 时禁止隐式保存后提交。`REVISION_CONFLICT` 保留本地输入和 request ID，只有显式 reload 才采用最新 context；Preview/Split/Diff 切换不得改变 form value、dirty baseline 或触发离开确认。
+- 当前指针切换后旧 ContentVersion cache 仍是历史只读；不得用最大 version、created_at、列表末项或 mutation 响应写入错误的 context shape。
+
+---
+
 ## 只读 Product Fact History 的 URL 与 Read Model 合同
 
 ### 1. 适用范围 / 触发条件

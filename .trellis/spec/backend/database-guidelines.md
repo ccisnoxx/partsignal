@@ -713,3 +713,26 @@ current = await db.scalar(
     select(ContentVersion).where(ContentVersion.id == task.current_content_version_id)
 )
 ```
+
+---
+
+## 场景：Content Editor 首屏一致性投影
+
+### 1. Scope / Trigger
+
+- 修改 `GET /api/v1/content-tasks/{content_task_id}/editor-context`、当前内容编辑主线、服务端 Diff 或 compact generation lineage 时适用。
+- 该 read model 只服务 Editor 首屏，不吸收完整 Review/Publication Context、全部版本历史、全部作业历史或用户触发后才需要的 AI options/snapshot。
+
+### 2. Contracts
+
+- route 在 PostgreSQL `REPEATABLE READ` 中调用专用 projection，并保持固定 statement 数。
+- `current_content` 只能由 `ContentTask.current_content_version_id` 解析；指针为空返回 `null`，指针不存在、跨任务或绑定其他 FactVersion 时显式 `409 EDITOR_CONTEXT_INCOMPLETE`，不得回退到最大版本或最近时间。
+- comparison 优先使用当前版本 `based_on_id`，否则使用同任务紧邻前一版本；Diff 由服务端计算。没有基线时 comparison 与 Diff 均为 `null`。
+- 当前完整 `ContentVersion` 自带 quality issues、revision 和 typed actions；锁定 FactVersion 返回 immutable Markdown。generation/source/lineage 只返回绘制 Reference panel 所需摘要。
+- 人工首稿、修订、保存、提交、删除和放弃继续由既有 command service 持锁复核；Editor Context 只是动作投影，不是授权凭证。
+
+### 3. Tests Required
+
+- Contract 冻结独立 endpoint/schema 和两套 generated TypeScript types。
+- PostgreSQL integration 覆盖 no current、pointer 高版本干扰、AI lineage、人工首稿、保存、提交、退回修订、历史不可变、404/无效指针、fixed query count 与 `repeatable read`。
+- 真实栈使用独立任务完成 manual first draft → save → submit，并逐步重读 context 验证 canonical pointer/revision/action；不得创建虚假 GenerationJob。

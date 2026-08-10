@@ -138,7 +138,9 @@ Design System 只知道 UI 语义。例如 `<RowActions primary={...} overflow={
 
 ## 12. Editor
 
-CodeMirror wrapper、toolbar、preview、diff、stats、dirty indicator 应形成稳定 Design System/Editor pattern，而不是只存在于某个页面。
+`/content/tasks/$taskId/editor` 的 route 只组合 Content domain 页面；`content-editor-page.tsx` 拥有 Workspace、RHF 表单与 mutation 协调，`content-editor.model.ts` 拥有 action/payload/error 的纯映射，`content.api.ts` 是 Content query keys 和 API 调用的唯一来源。TanStack Query 持有 Editor Context，RHF 持有文档表单，React local state 只持有 tabs、编辑模式和 Dialog；不得建立第二套全局 editor store。
+
+Design System 继续只提供 `WorkspaceShell`、`WorkspacePane`、`WorkspaceTabs`、`StickyActionBar`、`MarkdownEditor`、`MarkdownPreview`、Form Kit 与 `DirtyGuard` 等纯 UI/交互能力。当前真实缺口只为既有 `MarkdownEditor` 增加 Split mode；服务端 Diff、业务 action matrix、ContentRevisionCreate 与 ContentDraftUpdate 映射留在 Content domain，不创建通用 Editor framework、workflow engine 或业务 action 组件。
 
 ## 13. Testing Placement
 

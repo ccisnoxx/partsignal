@@ -374,7 +374,11 @@ Phase 3.4 拆为两个可独立 review 的 Task。`frontend-v2-content-editor-co
 
 Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readonly matrix、current pointer、DirtyGuard、browser navigation，以及 AI 生成/失败/重试/自然化均由 component、fixture Playwright 和相互独立的 Human/AI real-stack flow 覆盖。Content Review 的 approve/request changes 与 readonly history 继续由后续页面 Task 关闭，不并入 Editor PR。
 
+`frontend-v2-content-review` 实现 `/content/tasks/$taskId/review`：以 task-scoped `ContentReviewContext` 一次读取当前主线、Fact 依据、canonical diff、quality issues、generation/humanization snapshot 与追加式审核历史；approve/request changes 只消费服务端 action token，成功后重读 canonical context 并失效 Detail/Editor/List projection。component、fixture Playwright 和两条独立 real-stack decision flow 已覆盖只读证据、冲突/request ID 与记录追加；Content History 与跨领域 Review framework 仍不在范围内。
+
 `frontend-v2-content-version-detail` 实现 `/content/versions/$versionId`：新增 compact `ContentVersionDetail` read model，在 `REPEATABLE READ` 中一次装配不可变内容、Fact identity、creator/change summary、nullable updated time、generation lineage 与目标版本 review timeline。Content domain 复用既有纯 UI Pattern，但保留自己的 query key、状态/时间映射和错误边界；页面没有任何写命令，也不改变 current pointer。component、generated-type fixture Playwright 和独立 real-stack HUMAN 读取流程负责证明 direct/refresh/navigation、六种状态、AI/HUMAN、snapshot 有无、只读性与 canonical Task 返回链接；Content History、Publication Workspace 和通用 Version Detail framework 仍不在本 Task。
+
+`frontend-v2-content-e2e` 已关闭 Phase 3 Content 完整 E2E 缺口：复用 `deploy/scripts/e2e-local.sh` 的单一隔离生命周期，扩展既有 `content-review-real-stack.spec.ts` 而不新增 spec 或 orchestration。Flow A 通过 V2 页面连续完成 manual draft、save、submit、approve、canonical Task Detail、approved Version Detail 与 `START_PUBLICATION`；Flow B 完成 request changes、HUMAN revision、save、resubmit、approve，并证明旧版本 payload 不变、新版本成为 current pointer、review records 只关联正确目标版本。AI generation/failure/exact retry/humanization 继续由既有专项 real-stack flow 独立证明；Phase 3 仍只剩 vertical slice 抽象回顾，不提前进入 Cutover。
 
 ## 9. Phase 4 — Publishing
 

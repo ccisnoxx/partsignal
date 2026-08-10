@@ -56,11 +56,11 @@ submit → changes requested → revise → resubmit → approve。
 
 ### Content
 
-create task → generate/manual draft → edit → submit review → approve。
+create task → Task Detail → manual draft → edit/save → submit review → Content Review approve → canonical Task Detail → approved readonly Version Detail → `START_PUBLICATION`。
 
 ### Content Revision
 
-review reject → create revision → update → review。
+review reject → canonical Task Detail/Editor → create HUMAN revision → update/save → resubmit → approve → 验证旧版本不变、新 current pointer 与目标版本审核时间线。
 
 ### Publication
 
@@ -175,6 +175,8 @@ Phase 3.3 的 `/content/tasks/$taskId` 继续使用同一 generated-type fixture
 
 Phase 3.4 的 `/content/tasks/$taskId/editor` 继续扩展 generated-type `content.fixture.ts`。首屏只允许一个精确 Editor Context GET；manual/revision/save/submit/delete/abandon 与 generation/retry/humanization 只开放对应 token 的既有 command，未声明 API 继续失败。`tests/e2e/content-editor.spec.ts` 除 Core 的人工首稿、保存、修订、提交、readonly matrix、CSRF/revision、DirtyGuard、Preview/Diff 与响应式矩阵外，还覆盖 generation-options 按需加载、Prompt/model 明确确认、稳定幂等键、active-only polling、terminal refetch、progress/success/failure、按需 detail、原 job retry 和新版本 humanization；仍不覆盖审核决定。
 
+`/content/tasks/$taskId/review` 由 `tests/e2e/content-review.spec.ts` 和同一 generated-type Content fixture 覆盖。页面只允许一个 task-scoped Review Context GET 和对当前主线的 approve/request-changes command；测试覆盖 direct/refresh/Back/Forward、只读 canonical Markdown/Fact/diff/snapshot/history、token 动作、空意见、CSRF/revision、409 不重放与 request ID、375/768/1024/1440、键盘/Dialog focus return 及浏览器错误审计。fixture 不冒充完整闭环；连续业务证据由下述 Content real-stack flow 负责。
+
 `/content/versions/$versionId` 由 `tests/e2e/content-version-detail.spec.ts` 和 generated-type Content fixture 覆盖。fixture 只允许一个精确 `ContentVersionDetail` GET，Editor/Review Context、GenerationJob、版本历史和所有 mutation 都必须失败；测试覆盖 Task Detail 入口、direct/refresh/Back/Forward、canonical Task/Fact link、HUMAN/AI、六种 ContentVersion status、当前/历史版本始终只读、snapshot 有无、Markdown sanitize/长正文/tags/change summary、legacy nullable updated time、loading/404/403/error/retry、375/768/1024/1440、键盘及 console/pageerror/requestfailed 审计。`tests/e2e/content-version-detail-real-stack.spec.ts` 在隔离 production preview 中创建真实 HUMAN 版本并完成独立只读 GET；响应固定查询次数和 snapshot 一致性由 backend integration test 证明。
 
 ### 13.2 Product Facts 真实栈闭环
@@ -194,6 +196,15 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 `tests/e2e/content-ai-real-stack.spec.ts` 复用 `deploy/scripts/e2e-local.sh` 的同一隔离数据库、Redis、FastAPI、Celery Worker、fake AI provider 与 V2 production preview，并在 V1 suite 之前运行。测试不得导入 fixture 或拦截 API；V2 尚未迁移的 Prompt/AI 渠道前置配置可使用 API，Product、Fact、ContentTask、generation、retry 与 humanization 业务 mutation 必须操作 V2 页面。
 
 独立 AI flow 覆盖：V2 创建并批准虚构事实与 ContentTask；按需确认 Prompt revision/model 后生成 AI DRAFT；以 `current_content_version_id` 验证 canonical current；通过 `CREATE_HUMANIZATION_JOB` 创建新 Job/ContentVersion 并验证源版本字段不变；使用唯一 timeout model 得到真实 `AI_PROVIDER_TIMEOUT`，按需打开完整 `content-markdown-v3` snapshot；更新测试凭据后从 V2 对原 job 执行 retry，并断言新 job 的 `retry_of_id` 和 `input_snapshot` 与失败 job 精确一致。固定成功 fallback、浏览器 snapshot 拼装和共享开发服务均禁止。
+
+### 13.4 Content 完整真实栈闭环
+
+`tests/e2e/content-review-real-stack.spec.ts` 复用同一隔离 PostgreSQL、独占 Redis、FastAPI、Celery、fake AI provider 和 V2 production preview，不导入 `content.fixture.ts`、不拦截 API，也不新增 orchestration。两条 flow 各自创建唯一 Platform/Product/Fact/ContentTask/version chain；只有尚未迁移的 Platform 前置数据使用 API mutation，Product、Fact、Task、draft、save、submit、decision、revision 与 approve 全部通过 V2 页面完成。
+
+- Flow A：manual draft → edit/save → submit → approve → canonical Task Detail；页面与最终只读投影同时证明 `workflow_stage=APPROVED`、`current_content_version_id` 指向已批准版本、readonly Version Detail 审核结果为 `approve`，且服务端已投影 `START_PUBLICATION` 与 `/publishing/work` handoff。
+- Flow B：独立 v1 submit → request changes → canonical Editor 创建 HUMAN v2 → update/save → resubmit → approve；最终证明 v1 payload 不变、v2 `based_on_id` 指向 v1 并成为 current approved version，v1 的 submit/request-changes 与 v2 的 submit/approve 记录都只关联正确 `target_id/target_version`。
+
+既有 `content-ai-real-stack.spec.ts` 继续独立证明 generation、failure、exact retry 和 humanization，完整 Content flow 不重复 AI 步骤；fixture 继续专注 loading、404、四档响应式和键盘矩阵。
 
 `frontend-v2-fact-history` 已通过 contract-check、PostgreSQL integration、V1 既有调用测试、V2 component、fixture Playwright 与上述真实栈 Flow B。Fact History gap 已关闭，Phase 2 exit gate 从 `NOT_MET` 改判为 `MET`。
 

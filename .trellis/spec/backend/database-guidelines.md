@@ -661,7 +661,17 @@ rows = db.execute(product_publication_summary_query(product_id)).all()
 - 修改 `GET /api/v1/content-tasks/{content_task_id}/detail`、`ContentTaskDetail`、内容主线详情、任务 Activity 或 Detail 生命周期 cache 时适用。
 - 基础 `ContentTask` 继续作为 command canonical response；不得塞入跨域详情，也不得创建通用 aggregate/repository/workflow framework。
 
-### 2. Contracts
+### 2. Signatures
+
+```text
+GET /api/v1/content-tasks/{content_task_id}/detail
+ContentTaskDetail = {
+  task, product, platform, fact,
+  current_content, generation, review, publishing, source, activity
+}
+```
+
+### 3. Contracts
 
 - route 必须在 PostgreSQL `REPEATABLE READ` 中调用专用 projection，并以固定 statement 数完成；关联记录从 sparse 增长到 dense 不得形成 N+1。
 - `current_content` 严格通过 `ContentTask.current_content_version_id` 解析；指针为空即 `null`，不得选择最大版本号。
@@ -669,8 +679,37 @@ rows = db.execute(product_publication_summary_query(product_id)).all()
 - 历史平台删除时由服务端冻结 snapshot 返回稳定名称；普通任务没有真实来源时 `source=null`。
 - Activity 只来自任务、生成、内容版本、内容审核和发布追加记录，按 `timestamp DESC, kind ASC, source_id DESC` 排序后截取 10 项；前端不得合并或重新排序。
 
-### 3. Required tests
+### 4. Validation & Error Matrix
+
+| 条件 | 结果 |
+| --- | --- |
+| task 不存在 | `404 RESOURCE_NOT_FOUND` |
+| 当前读取政策拒绝用户 | `403`，不得返回部分 projection |
+| `current_content_version_id=null` | `current_content=null`，review 为空摘要 |
+| pointer 指向其他任务或不存在版本 | 显式 invariant failure，不回退到最大版本 |
+| 无真实 query/GEO/repair 来源 | `source=null` |
+| generation 时间相同 | 以 `id DESC` 稳定确定一条 |
+
+### 5. Good / Base / Bad Cases
+
+- Good：一次请求返回同一事务 snapshot，页面直接绘制所有 compact section。
+- Base：当前内容、生成、审核、发布和来源均不存在时返回明确 `null`/空 Activity，不补造对象。
+- Bad：浏览器分别查询 task/list/fact/version/job/review/publication/GEO，或服务端在循环中逐行加载关联。
+
+### 6. Tests Required
 
 - Contract 冻结独立 schema/endpoint，并断言基础 ContentTask 不变。
 - PostgreSQL integration 覆盖 pointer、latest job、current review、publishing/source、Activity source/order/limit、historical platform、404、权限策略、fixed query count 与 `repeatable read`。
 - 阶段矩阵至少覆盖 NO_DRAFT、GENERATING、GENERATION_FAILED、DRAFT、REVIEW_PENDING、CHANGES_REQUESTED、APPROVED、PUBLISHING、VERIFIED、CANCELLED 与 archived。
+
+### 7. Wrong vs Correct
+
+```python
+# Wrong：以最大版本代替主线。
+current = max(content_versions, key=lambda version: version.version)
+
+# Correct：只解析任务的 canonical pointer。
+current = await db.scalar(
+    select(ContentVersion).where(ContentVersion.id == task.current_content_version_id)
+)
+```

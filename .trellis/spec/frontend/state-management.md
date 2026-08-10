@@ -312,10 +312,58 @@ await createContentTask(body, csrfToken, key);
 
 ## Content Task Detail 的单一 Read Model 与 cache 合同
 
+### 1. Scope / Trigger
+
+- 修改 `/content/tasks/$taskId`、Content domain detail query key、生命周期命令缓存或 New Task 成功导航时适用。
+
+### 2. Signatures
+
+```ts
+contentKeys.detail(taskId: string)
+contentTaskDetailQueryOptions(taskId: string)
+GET /api/v1/content-tasks/{content_task_id}/detail
+```
+
+### 3. Contracts
+
 - `/content/tasks/$taskId` 只使用 `contentTaskDetailQueryOptions(taskId)` 与 `contentKeys.detail(taskId)` 请求 `GET /api/v1/content-tasks/{content_task_id}/detail`；页面内部不得拼 query key，也不得请求 List、Fact、ContentVersion、GenerationJob、Review、Publication 或 GEO 接口补字段。
 - Detail response 与 `ContentTaskListItem` cache 是不同 projection，禁止互相写入或用旧 list row 覆盖 detail。窗口重新聚焦按既有 Detail 约定重新读取，不增加轮询；Generation polling 属于后续 Editor。
 - Primary/overflow 只消费响应的 `primary_task/available_actions/deletion/revision`。Content domain 内共享 action registry 与 lifecycle command；command 成功同时失效对应 detail、lists 和必要 preview，404/409 刷新 canonical projection 但不自动重放。
 - Activity 保持服务端数组顺序；null section 显示“暂无”。404、403 与 generic retry 分开处理，Dialog 必须恢复 overflow trigger 焦点。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 处理 |
+| --- | --- |
+| Detail `404` | 显示任务不存在，不请求列表补救 |
+| Detail `403` | 显示无权访问，不泄露摘要 |
+| generic error | 显示重试入口，只重取 detail key |
+| lifecycle `409` | 显示 request ID，失效 detail/list，不自动重放 |
+| section 为 `null` | 明确显示“暂无” |
+| New Task 成功 | 清 dirty/幂等键、失效列表、按 POST response ID 进入 Detail |
+
+### 5. Good / Base / Bad Cases
+
+- Good：route loader 和页面共用一个 detail key，生命周期后刷新 canonical projection。
+- Base：后续 Editor/Review/Publication route 尚未实现时只生成已批准 href，不创建占位页。
+- Bad：用旧 List row 写入 Detail cache，或从 `workflow_stage` 推导替代 Primary。
+
+### 6. Tests Required
+
+- Component 覆盖 section mapping、空摘要、typed actions、404/403/retry、409 和焦点返回。
+- Fixture Playwright 必须拒绝未声明 API，并断言页面只读取 detail endpoint 与用户明确触发的生命周期命令。
+- New Task 测试必须断言直接进入 POST response ID 对应的 canonical Detail。
+
+### 7. Wrong vs Correct
+
+```ts
+// Wrong：页面拼 key，并以列表行覆盖详情。
+queryClient.setQueryData(['content', taskId], listRow);
+
+// Correct：key 由 Content domain 唯一拥有，命令后失效两种独立 projection。
+await queryClient.invalidateQueries({ queryKey: contentKeys.detail(taskId) });
+await queryClient.invalidateQueries({ queryKey: contentKeys.lists() });
+```
 
 ---
 

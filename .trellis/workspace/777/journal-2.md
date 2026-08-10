@@ -1775,3 +1775,41 @@
 ### 后续
 
 - 无，任务已完成。
+
+
+## 会话 110：Frontend V2 Content E2E 闭环
+
+**日期**：2026-08-11
+**任务**：Frontend V2 Content E2E 闭环
+**分支**：`codex/frontend-v2-content-e2e`
+
+### 摘要
+
+完成 Content Flow A 正常审批与 Flow B 退回修订真实栈闭环，补齐规范和验收文档，并通过 V2/V1 required validation。
+
+### 主要变更
+
+- 扩展既有 `content-review-real-stack.spec.ts`，通过 V2 页面串联两条独立 Content 闭环。
+- 补齐迁移计划、测试验收文档和 E2E 隔离契约，不新增 spec、业务页面、编排或依赖。
+
+### Git 提交
+
+| 哈希 | 提交信息 |
+|------|---------|
+| `c937844` | `test(content): close frontend v2 content e2e flows` |
+
+### 验证
+
+- `sh -n deploy/scripts/e2e-local.sh`
+- `python3 -m py_compile deploy/scripts/e2e-database.py`
+- `npm --prefix frontend-v2 run lint`
+- `npm --prefix frontend-v2 run typecheck`
+- `deploy/scripts/e2e-local.sh tests/e2e/trusted-types.spec.ts`：V2 real-stack 7/7、V1 Trusted Types 7/7 通过并完成隔离资源清理。
+
+### 状态
+
+[OK] **已完成**
+
+### 后续
+
+- 无，任务已完成。

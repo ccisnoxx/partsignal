@@ -19,6 +19,7 @@ import { Route as AppProductsNewRouteImport } from './routes/_app/products/new'
 import { Route as AppAdminSystemUsersRouteImport } from './routes/_app/_admin/system.users'
 import { Route as AppProductsProductIdFactsRouteImport } from './routes/_app/products/$productId_.facts'
 import { Route as AppProductsProductIdFactsReviewRouteImport } from './routes/_app/products/$productId_.facts_.review'
+import { Route as AppProductsProductIdFactsVersionsRouteImport } from './routes/_app/products/$productId_.facts_.versions'
 import { Route as AppProductsProductIdFactsVersionsVersionIdRouteImport } from './routes/_app/products/$productId_.facts_.versions_.$versionId'
 
 const AppRouteRoute = AppRouteRouteImport.update({
@@ -71,6 +72,12 @@ const AppProductsProductIdFactsReviewRoute =
     path: '/$productId/facts/review',
     getParentRoute: () => AppProductsRouteRoute,
   } as any)
+const AppProductsProductIdFactsVersionsRoute =
+  AppProductsProductIdFactsVersionsRouteImport.update({
+    id: '/$productId_/facts_/versions',
+    path: '/$productId/facts/versions',
+    getParentRoute: () => AppProductsRouteRoute,
+  } as any)
 const AppProductsProductIdFactsVersionsVersionIdRoute =
   AppProductsProductIdFactsVersionsVersionIdRouteImport.update({
     id: '/$productId_/facts_/versions_/$versionId',
@@ -87,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/system/users': typeof AppAdminSystemUsersRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
+  '/products/$productId/facts/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/products/$productId/facts/versions/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
 }
 export interface FileRoutesByTo {
@@ -97,6 +105,7 @@ export interface FileRoutesByTo {
   '/system/users': typeof AppAdminSystemUsersRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
+  '/products/$productId/facts/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/products/$productId/facts/versions/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
 }
 export interface FileRoutesById {
@@ -111,6 +120,7 @@ export interface FileRoutesById {
   '/_app/_admin/system/users': typeof AppAdminSystemUsersRoute
   '/_app/products/$productId_/facts': typeof AppProductsProductIdFactsRoute
   '/_app/products/$productId_/facts_/review': typeof AppProductsProductIdFactsReviewRoute
+  '/_app/products/$productId_/facts_/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/_app/products/$productId_/facts_/versions_/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
 }
 export interface FileRouteTypes {
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
     | '/system/users'
     | '/products/$productId/facts'
     | '/products/$productId/facts/review'
+    | '/products/$productId/facts/versions'
     | '/products/$productId/facts/versions/$versionId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -134,6 +145,7 @@ export interface FileRouteTypes {
     | '/system/users'
     | '/products/$productId/facts'
     | '/products/$productId/facts/review'
+    | '/products/$productId/facts/versions'
     | '/products/$productId/facts/versions/$versionId'
   id:
     | '__root__'
@@ -147,6 +159,7 @@ export interface FileRouteTypes {
     | '/_app/_admin/system/users'
     | '/_app/products/$productId_/facts'
     | '/_app/products/$productId_/facts_/review'
+    | '/_app/products/$productId_/facts_/versions'
     | '/_app/products/$productId_/facts_/versions_/$versionId'
   fileRoutesById: FileRoutesById
 }
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductsProductIdFactsReviewRouteImport
       parentRoute: typeof AppProductsRouteRoute
     }
+    '/_app/products/$productId_/facts_/versions': {
+      id: '/_app/products/$productId_/facts_/versions'
+      path: '/$productId/facts/versions'
+      fullPath: '/products/$productId/facts/versions'
+      preLoaderRoute: typeof AppProductsProductIdFactsVersionsRouteImport
+      parentRoute: typeof AppProductsRouteRoute
+    }
     '/_app/products/$productId_/facts_/versions_/$versionId': {
       id: '/_app/products/$productId_/facts_/versions_/$versionId'
       path: '/$productId/facts/versions/$versionId'
@@ -254,6 +274,7 @@ interface AppProductsRouteRouteChildren {
   AppProductsIndexRoute: typeof AppProductsIndexRoute
   AppProductsProductIdFactsRoute: typeof AppProductsProductIdFactsRoute
   AppProductsProductIdFactsReviewRoute: typeof AppProductsProductIdFactsReviewRoute
+  AppProductsProductIdFactsVersionsRoute: typeof AppProductsProductIdFactsVersionsRoute
   AppProductsProductIdFactsVersionsVersionIdRoute: typeof AppProductsProductIdFactsVersionsVersionIdRoute
 }
 
@@ -263,6 +284,8 @@ const AppProductsRouteRouteChildren: AppProductsRouteRouteChildren = {
   AppProductsIndexRoute: AppProductsIndexRoute,
   AppProductsProductIdFactsRoute: AppProductsProductIdFactsRoute,
   AppProductsProductIdFactsReviewRoute: AppProductsProductIdFactsReviewRoute,
+  AppProductsProductIdFactsVersionsRoute:
+    AppProductsProductIdFactsVersionsRoute,
   AppProductsProductIdFactsVersionsVersionIdRoute:
     AppProductsProductIdFactsVersionsVersionIdRoute,
 }

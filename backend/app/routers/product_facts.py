@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, status
+from pydantic import BeforeValidator
 from sqlalchemy import select
 
 from app.deps import (
@@ -29,6 +30,7 @@ from app.schemas.product_facts import (
     FactVersionList,
     FactVersionOut,
     ProductCreate,
+    ProductFactHistoryList,
     ProductFactsDraft,
     ProductFactsDraftUpdate,
     ProductFactStatus,
@@ -44,6 +46,9 @@ from app.services.product_facts import (
 )
 from app.services.product_facts import delete_fact_version as delete_fact_version_command
 from app.services.product_facts import delete_product as delete_product_command
+from app.services.product_facts import (
+    list_product_fact_history as list_product_fact_history_query,
+)
 from app.services.product_facts import list_products as list_products_query
 from app.services.product_facts import product_facts_draft_out, product_out
 from app.services.product_facts import (
@@ -210,6 +215,28 @@ def replace_product_facts(
         payload=payload,
         actor=editor,
         request_id=request.state.request_id,
+    )
+
+
+@router.get(
+    "/products/{product_id}/fact-history",
+    response_model=ProductFactHistoryList,
+    operation_id="listProductFactHistory",
+    dependencies=[Depends(_product_read_snapshot)],
+)
+def list_product_fact_history(
+    product_id: uuid.UUID,
+    db: DbSession,
+    _user: CurrentUser,
+    page: int = Query(1, ge=1),
+    page_size: Annotated[Literal[10, 20, 50], BeforeValidator(int), Query()] = 20,
+) -> ProductFactHistoryList:
+    """返回单次可绘制、由服务端排序的产品事实历史。"""
+    return list_product_fact_history_query(
+        db=db,
+        product_id=product_id,
+        page=page,
+        page_size=page_size,
     )
 
 

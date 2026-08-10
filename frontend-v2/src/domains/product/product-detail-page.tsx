@@ -212,6 +212,12 @@ function ProductDetailPage({ csrfToken, onDeleted, productId }: ProductDetailPag
               timestamp={detail.data.pending_fact?.created_at ?? null}
             />
           </div>
+          <a
+            className="mt-3 inline-flex min-h-11 items-center rounded-md border border-border-default px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            href={`/products/${encodeURIComponent(product.id)}/facts/versions?page=1&pageSize=20`}
+          >
+            查看完整事实版本历史
+          </a>
         </DetailSection>
 
         <DetailSection title="内容任务">

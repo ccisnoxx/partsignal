@@ -105,7 +105,7 @@ describe('Products list model', () => {
       REVIEW_FACT: ['审核', `/products/${product.id}/facts/review`],
       REVISE_FACT: ['修订', `/products/${product.id}/facts`],
       CREATE_CONTENT_TASK: ['创建内容', `/content/tasks/new?productId=${product.id}`],
-      VIEW_FACT_HISTORY: ['查看事实历史', `/products/${product.id}`],
+      VIEW_FACT_HISTORY: ['查看事实历史', `/products/${product.id}/facts/versions?page=1&pageSize=20`],
     } as const;
 
     for (const [primaryTask, [label, href]] of Object.entries(expectations)) {

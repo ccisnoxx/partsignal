@@ -109,6 +109,7 @@ V2 合并为：
 | `/products/$productId` | 产品详情 | Detail | 产品事实 |
 | `/products/$productId/facts` | 事实工作区 | Workspace | 产品事实 |
 | `/products/$productId/facts/review` | 事实审核 | Workspace | 产品事实 |
+| `/products/$productId/facts/versions?page=1&pageSize=20` | 事实版本历史 | Table | 产品事实 |
 | `/products/$productId/facts/versions/$versionId` | 事实历史版本 | Detail | 产品事实 |
 | `/content/tasks` | 内容任务 | Table | 内容任务 |
 | `/content/tasks/new` | 创建内容任务 | Form | 内容任务 |

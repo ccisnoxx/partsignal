@@ -429,6 +429,28 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/FactVersionList'}
+  /api/v1/products/{product_id}/fact-history:
+    parameters: [{$ref: '#/components/parameters/ProductId'}]
+    get:
+      tags: [product-facts]
+      operationId: listProductFactHistory
+      parameters:
+        - name: page
+          in: query
+          schema: {type: integer, minimum: 1, default: 1}
+        - name: page_size
+          in: query
+          schema: {type: integer, enum: [10, 20, 50], default: 20}
+      responses:
+        '200':
+          description: 产品事实版本历史
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProductFactHistoryList'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products/{product_id}/fact-review-context:
     parameters: [{$ref: '#/components/parameters/ProductId'}]
     get:
@@ -3433,6 +3455,29 @@ components:
       required: [items]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/FactVersion'}}
+    ProductFactHistoryItem:
+      type: object
+      additionalProperties: false
+      required: [id, product_id, version, status, classification, change_summary, created_by, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        product_id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        status: {$ref: '#/components/schemas/FactVersionStatus'}
+        classification: {$ref: '#/components/schemas/Confidentiality'}
+        change_summary: {type: string}
+        created_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+    ProductFactHistoryList:
+      type: object
+      additionalProperties: false
+      required: [product, items, page, page_size, total]
+      properties:
+        product: {$ref: '#/components/schemas/ProductFactsProductContext'}
+        items: {type: array, items: {$ref: '#/components/schemas/ProductFactHistoryItem'}}
+        page: {type: integer, minimum: 1}
+        page_size: {type: integer, enum: [10, 20, 50]}
+        total: {type: integer, minimum: 0}
     IntentType: {type: string, enum: [BRAND, PRODUCT, REPLACEMENT, COMPARISON, APPLICATION, TROUBLESHOOTING]}
     QueryTopicCreate:
       type: object

@@ -154,6 +154,12 @@ Products URL 与 API 查询参数显式映射：`q → search`、`pageSize → p
 
 两个写入口都由服务端在锁内重新校验产品状态、pending snapshot 和 revision。`REVISION_CONFLICT` 不得静默覆盖：客户端保留本地表单与冲突请求 ID，只有用户显式 reload 才采用最新 canonical workspace。
 
+### ProductFactHistoryList
+
+`GET /api/v1/products/{product_id}/fact-history` 是 `/products/$productId/facts/versions` 的 Product 专用列表 read model。响应在同一个 PostgreSQL `REPEATABLE READ` 请求内返回 `ProductFactsProductContext`、窄 `ProductFactHistoryItem[]`、`page`、`page_size` 与 `total`；item 只包含六列与 detail link 所需的版本身份、状态、数据级别、变更摘要、提交人和提交时间，不包含 Markdown、动作、删除投影或 revision。
+
+版本顺序固定由服务端 `version DESC` 决定，`page_size` 只接受 10/20/50。浏览器不得请求 Product Detail 补标题，不得重新推导业务顺序，也不得把该投影推广为 Content History 或通用 History DTO。既有 `GET /products/{product_id}/fact-versions` 保持完整详情列表合同，继续服务 V1 调用者。
+
 ### ContentTaskListItem
 
 至少包含 id/identifier/product/platform/workflow_stage/primary_task/current content summary/updated_at。

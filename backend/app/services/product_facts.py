@@ -24,8 +24,11 @@ from app.models.product_facts import (
 from app.schemas.product_facts import (
     FactReviewSubmissionRequest,
     ProductCreate,
+    ProductFactHistoryItem,
+    ProductFactHistoryList,
     ProductFactsDraft,
     ProductFactsDraftUpdate,
+    ProductFactsProductContext,
     ProductFactStatus,
     ProductList,
     ProductListItem,
@@ -258,6 +261,75 @@ def list_products(
     start = (page - 1) * page_size
     return ProductList(
         items=projected[start : start + page_size],
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
+
+
+def list_product_fact_history(
+    *,
+    db: Session,
+    product_id: uuid.UUID,
+    page: int,
+    page_size: Literal[10, 20, 50],
+) -> ProductFactHistoryList:
+    """返回带产品上下文的窄事实历史分页投影。"""
+    product = db.get(Product, product_id)
+    if product is None:
+        raise not_found("产品")
+
+    versions = list(
+        db.scalars(
+            select(FactVersion)
+            .where(FactVersion.product_id == product_id)
+            .order_by(FactVersion.version.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    )
+    latest = db.scalar(
+        select(FactVersion)
+        .where(FactVersion.product_id == product_id)
+        .order_by(FactVersion.version.desc())
+        .limit(1)
+    )
+    has_pending = (
+        db.scalar(
+            select(FactVersion.id)
+            .where(
+                FactVersion.product_id == product_id,
+                FactVersion.status == "PENDING_REVIEW",
+            )
+            .limit(1)
+        )
+        is not None
+    )
+    workflow_stage, _primary_task = product_workflow(
+        product,
+        latest,
+        has_pending=has_pending,
+    )
+    total = int(
+        db.scalar(
+            select(func.count())
+            .select_from(FactVersion)
+            .where(FactVersion.product_id == product_id)
+        )
+        or 0
+    )
+    return ProductFactHistoryList(
+        product=ProductFactsProductContext.model_validate(
+            {
+                "id": product.id,
+                "part_number": product.part_number,
+                "brand": product.brand,
+                "category": product.category,
+                "status": product.status,
+                "workflow_stage": workflow_stage,
+            }
+        ),
+        items=[ProductFactHistoryItem.model_validate(version) for version in versions],
         page=page,
         page_size=page_size,
         total=total,

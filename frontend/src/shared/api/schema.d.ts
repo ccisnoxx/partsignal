@@ -332,6 +332,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/products/{product_id}/fact-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                product_id: components["parameters"]["ProductId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listProductFactHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/products/{product_id}/fact-review-context": {
         parameters: {
             query?: never;
@@ -2271,6 +2289,28 @@ export interface components {
         };
         FactVersionList: {
             items: components["schemas"]["FactVersion"][];
+        };
+        ProductFactHistoryItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            product_id: string;
+            version: number;
+            status: components["schemas"]["FactVersionStatus"];
+            classification: components["schemas"]["Confidentiality"];
+            change_summary: string;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ProductFactHistoryList: {
+            product: components["schemas"]["ProductFactsProductContext"];
+            items: components["schemas"]["ProductFactHistoryItem"][];
+            page: number;
+            /** @enum {integer} */
+            page_size: 10 | 20 | 50;
+            total: number;
         };
         /** @enum {string} */
         IntentType: "BRAND" | "PRODUCT" | "REPLACEMENT" | "COMPARISON" | "APPLICATION" | "TROUBLESHOOTING";
@@ -5138,6 +5178,35 @@ export interface operations {
                     "application/json": components["schemas"]["FactVersionList"];
                 };
             };
+        };
+    };
+    listProductFactHistory: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: never;
+            path: {
+                product_id: components["parameters"]["ProductId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 产品事实版本历史 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProductFactHistoryList"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getProductFactReviewContext: {

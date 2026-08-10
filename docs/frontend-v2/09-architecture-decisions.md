@@ -108,6 +108,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Review evidence**：事实审核上下文只包含不可变 Markdown snapshot、metadata、紧邻前序版本的服务端 Diff、目标版本自己的追加式 Review History，以及窄动作 `APPROVE | REQUEST_CHANGES`。当前事实模型没有 Evidence 或 Blocking Issues。
 
+## ADR-023：Fact History 使用 Product 专用分页 Read Model
+
+**Decision**：`/products/$productId/facts/versions?page=1&pageSize=20` 只消费 `GET /api/v1/products/{product_id}/fact-history`。服务端在 `REPEATABLE READ` 中返回 Product identity、按 `version DESC` 排序的窄版本项和分页 metadata；页面不得再请求 Product Detail 拼标题。
+
+**Compatibility**：既有 `FactVersionList` 虽能绘制六列，但无分页、携带完整 Markdown/动作/删除投影且被 V1 三处调用。保留 `listFactVersions` 不变，避免破坏 V1；新投影只属于 Product domain，不创建通用 History API、第二套 DTO framework 或未来 Content History 抽象。
+
+**UI ownership**：Fact History 是无操作列的 readonly Table；`VIEW_FACT_HISTORY` 指向该 canonical route，版本链接进入既有 immutable Detail。排序、命令资格和 Product context 均不由浏览器推导。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

@@ -1,4 +1,4 @@
-"""Product Detail 一致读投影与产品基本信息命令的 PostgreSQL 集成测试。"""
+"""Product Detail、Product Facts 读投影与产品基本信息命令的 PostgreSQL 集成测试。"""
 
 from __future__ import annotations
 
@@ -423,6 +423,100 @@ def test_fact_workspace_read_model_uses_one_snapshot_and_fixed_query_count(
         assert payload["approved_fact"] == {"version": 1, "status": "APPROVED"}
         assert payload["revision"] == 3
         assert captured["isolation"] == "repeatable read"
+
+
+@pytest.mark.integration
+def test_fact_history_returns_narrow_server_ordered_page_and_product_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """事实历史按服务端版本顺序分页，且不泄漏详情动作字段。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            actor = User(
+                username=f"fact-history-{uuid.uuid4().hex[:10]}",
+                display_name="事实历史读取用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            product = Product(
+                part_number="PS-HISTORY",
+                normalized_part_number=uuid.uuid4().hex,
+                brand="PartSignal",
+                normalized_brand=f"partsignal-{uuid.uuid4().hex[:8]}",
+                category="MCU",
+                facts_body_markdown="## 当前事实",
+                facts_classification="INTERNAL",
+            )
+            db.add_all([actor, product])
+            db.flush()
+            db.add_all(
+                FactVersion(
+                    product_id=product.id,
+                    version=version,
+                    status="RETIRED",
+                    body_markdown=f"## 不应进入列表 {version}",
+                    classification="PUBLIC",
+                    change_summary=f"历史版本 {version}",
+                    created_by=actor.id,
+                    created_at=datetime.now(UTC) + timedelta(seconds=version),
+                )
+                for version in range(1, 13)
+            )
+            db.commit()
+            product_id = product.id
+
+        captured: dict[str, str] = {}
+        real_query = product_routes.list_product_fact_history_query
+
+        def inspected_query(**kwargs: object) -> object:
+            db = kwargs["db"]
+            assert isinstance(db, Session)
+            captured["isolation"] = str(db.scalar(text("SHOW transaction_isolation")))
+            return real_query(**kwargs)
+
+        monkeypatch.setattr(
+            product_routes,
+            "list_product_fact_history_query",
+            inspected_query,
+        )
+
+        def database_session() -> Iterator[Session]:
+            with Session(engine, expire_on_commit=False) as db:
+                yield db
+
+        app.dependency_overrides[get_db] = database_session
+        app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(user=actor)
+        try:
+            response = TestClient(app).get(
+                f"/api/v1/products/{product_id}/fact-history?page=2&page_size=10"
+            )
+            missing = TestClient(app).get(
+                f"/api/v1/products/{uuid.uuid4()}/fact-history?page=1&page_size=20"
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["product"]["id"] == str(product_id)
+        assert payload["product"]["part_number"] == "PS-HISTORY"
+        assert [item["version"] for item in payload["items"]] == [2, 1]
+        assert payload["page"] == 2
+        assert payload["page_size"] == 10
+        assert payload["total"] == 12
+        assert set(payload["items"][0]) == {
+            "id",
+            "product_id",
+            "version",
+            "status",
+            "classification",
+            "change_summary",
+            "created_by",
+            "created_at",
+        }
+        assert captured["isolation"] == "repeatable read"
+        assert missing.status_code == 404
 
 
 @pytest.mark.integration

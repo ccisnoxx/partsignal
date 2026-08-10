@@ -72,7 +72,7 @@ function resolveProductPrimaryAction(product: ProductProjection): PrimaryRowActi
     case 'CREATE_CONTENT_TASK':
       return primaryLink(action, '创建内容', `/content/tasks/new?productId=${productId}`);
     case 'VIEW_FACT_HISTORY':
-      return primaryLink(action, '查看事实历史', `/products/${productId}`);
+      return primaryLink(action, '查看事实历史', `/products/${productId}/facts/versions?page=1&pageSize=20`);
     default:
       return assertNever(action);
   }

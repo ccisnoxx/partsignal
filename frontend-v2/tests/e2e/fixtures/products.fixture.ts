@@ -14,6 +14,7 @@ type ProductFactsDraft = components['schemas']['ProductFactsDraft'];
 type ProductFactsDraftUpdate = components['schemas']['ProductFactsDraftUpdate'];
 type FactReviewSubmissionRequest = components['schemas']['FactReviewSubmissionRequest'];
 type FactVersion = components['schemas']['FactVersion'];
+type ProductFactHistoryList = components['schemas']['ProductFactHistoryList'];
 type ProductFactReviewWorkspace = components['schemas']['ProductFactReviewWorkspace'];
 type CommandRequest = components['schemas']['CommandRequest'];
 type RequestChangesCommand = components['schemas']['RequestChangesCommand'];
@@ -24,6 +25,7 @@ type ProductMutationMode = 'success' | 'revision-conflict';
 type ProductFactsMode = 'success' | 'not-found' | 'forbidden' | 'error' | 'loading';
 type FactReviewMode = 'success' | 'empty' | 'not-found' | 'forbidden' | 'error' | 'loading';
 type FactVersionMode = 'success' | 'not-found' | 'forbidden' | 'error' | 'loading';
+type FactHistoryMode = 'success' | 'empty' | 'not-found' | 'forbidden' | 'error' | 'loading';
 
 type ProductCreateRequest = {
   body: ProductCreate;
@@ -48,6 +50,7 @@ type ProductsApiController = {
   factSubmitRequests: ProductFactsSubmitRequest[];
   factReviewRequests: URL[];
   factVersionRequests: URL[];
+  factHistoryRequests: URL[];
   factApproveRequests: FactApproveRequest[];
   factRequestChangesRequests: FactRequestChangesRequest[];
   releaseCreate: () => void;
@@ -55,6 +58,7 @@ type ProductsApiController = {
   releaseFactsLoading: () => void;
   releaseFactReviewLoading: () => void;
   releaseFactVersionLoading: () => void;
+  releaseFactHistoryLoading: () => void;
   setCreateMode: (mode: ProductCreateMode) => void;
   setDeleteMode: (mode: ProductMutationMode) => void;
   setDetail: (detail: ProductDetail) => void;
@@ -72,6 +76,8 @@ type ProductsApiController = {
   setFactRequestChangesMode: (mode: ProductMutationMode) => void;
   setFactVersion: (version: FactVersion) => void;
   setFactVersionMode: (mode: FactVersionMode) => void;
+  setFactHistory: (history: ProductFactHistoryList) => void;
+  setFactHistoryMode: (mode: FactHistoryMode) => void;
 };
 
 type ProductsFixtures = {
@@ -273,6 +279,38 @@ function createFactVersion(item: ProductListItem): FactVersion {
   };
 }
 
+function createFactHistory(item: ProductListItem, url: URL): ProductFactHistoryList {
+  const page = Number(url.searchParams.get('page') ?? 1);
+  const pageSize = Number(url.searchParams.get('page_size') ?? 20) as 10 | 20 | 50;
+  const allItems = Array.from({ length: 25 }, (_, index) => {
+    const version = 25 - index;
+    return {
+      id: `10000000-0000-4000-8000-${String(version).padStart(12, '0')}`,
+      product_id: item.id,
+      version,
+      status: version === 25 ? 'APPROVED' as const : 'RETIRED' as const,
+      classification: version % 2 === 0 ? 'INTERNAL' as const : 'PUBLIC' as const,
+      change_summary: `服务端顺序版本 ${version}`,
+      created_by: user.id,
+      created_at: new Date(Date.UTC(2026, 7, 9, 0, version, 0)).toISOString(),
+    };
+  });
+  return {
+    product: {
+      id: item.id,
+      part_number: item.part_number,
+      brand: item.brand,
+      category: item.category,
+      status: item.status,
+      workflow_stage: item.workflow_stage,
+    },
+    items: allItems.slice((page - 1) * pageSize, page * pageSize),
+    page,
+    page_size: pageSize,
+    total: allItems.length,
+  };
+}
+
 const test = base.extend<ProductsFixtures>({
   productsApi: [async ({ page }, use) => {
     let items = createProducts();
@@ -286,17 +324,20 @@ const test = base.extend<ProductsFixtures>({
     let factSubmitMode: ProductMutationMode = 'success';
     let factReviewMode: FactReviewMode = 'success';
     let factVersionMode: FactVersionMode = 'success';
+    let factHistoryMode: FactHistoryMode = 'success';
     let factApproveMode: ProductMutationMode = 'success';
     let factRequestChangesMode: ProductMutationMode = 'success';
     let detailOverride: ProductDetail | undefined;
     let factsOverride: ProductFactsDraft | undefined;
     let factReviewOverride: ProductFactReviewWorkspace | undefined;
     let factVersionOverride: FactVersion | undefined;
+    let factHistoryOverride: ProductFactHistoryList | undefined;
     let releaseLoading: (() => void) | undefined;
     let releaseCreate: (() => void) | undefined;
     let releaseFactsLoading: (() => void) | undefined;
     let releaseFactReviewLoading: (() => void) | undefined;
     let releaseFactVersionLoading: (() => void) | undefined;
+    let releaseFactHistoryLoading: (() => void) | undefined;
     const productRequests: URL[] = [];
     const detailRequests: URL[] = [];
     const createRequests: ProductCreateRequest[] = [];
@@ -307,6 +348,7 @@ const test = base.extend<ProductsFixtures>({
     const factSubmitRequests: ProductFactsSubmitRequest[] = [];
     const factReviewRequests: URL[] = [];
     const factVersionRequests: URL[] = [];
+    const factHistoryRequests: URL[] = [];
     const factApproveRequests: FactApproveRequest[] = [];
     const factRequestChangesRequests: FactRequestChangesRequest[] = [];
     const unexpectedRequests: string[] = [];
@@ -340,6 +382,41 @@ const test = base.extend<ProductsFixtures>({
       }
       if (request.method() === 'GET' && url.pathname === '/api/v1/auth/csrf') {
         await route.fulfill({ status: 200, json: { csrf_token: 'products-e2e-csrf' } satisfies components['schemas']['CsrfToken'] });
+        return;
+      }
+      const factHistoryMatch = url.pathname.match(/^\/api\/v1\/products\/([^/]+)\/fact-history$/);
+      if (factHistoryMatch && request.method() === 'GET') {
+        factHistoryRequests.push(url);
+        if (factHistoryMode === 'loading') {
+          await new Promise<void>((resolve) => { releaseFactHistoryLoading = resolve; });
+        }
+        if (!['success', 'empty', 'loading'].includes(factHistoryMode)) {
+          const response = factHistoryMode === 'not-found'
+            ? { status: 404, code: 'NOT_FOUND', message: '产品不存在' }
+            : factHistoryMode === 'forbidden'
+              ? { status: 403, code: 'PERMISSION_DENIED', message: '没有查看事实历史的权限' }
+              : { status: 503, code: 'FACT_HISTORY_UNAVAILABLE', message: '事实历史服务暂不可用' };
+          await route.fulfill({
+            status: response.status,
+            json: { error: { code: response.code, message: response.message, details: {}, request_id: `req-fact-history-${factHistoryMode}` } } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        const item = items.find((candidate) => candidate.id === factHistoryMatch[1]);
+        const history = factHistoryOverride?.product.id === factHistoryMatch[1]
+          ? factHistoryOverride
+          : item ? createFactHistory(item, url) : undefined;
+        if (!history) {
+          await route.fulfill({
+            status: 404,
+            json: { error: { code: 'NOT_FOUND', message: '产品不存在', details: {}, request_id: 'req-fact-history-missing' } } satisfies components['schemas']['ErrorEnvelope'],
+          });
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          json: factHistoryMode === 'empty' ? { ...history, items: [], total: 0 } : history,
+        });
         return;
       }
       const factVersionMatch = url.pathname.match(/^\/api\/v1\/fact-versions\/([^/]+)$/);
@@ -732,6 +809,7 @@ const test = base.extend<ProductsFixtures>({
       factSubmitRequests,
       factReviewRequests,
       factVersionRequests,
+      factHistoryRequests,
       factApproveRequests,
       factRequestChangesRequests,
       productRequests,
@@ -761,6 +839,11 @@ const test = base.extend<ProductsFixtures>({
         factVersionMode = 'success';
         releaseFactVersionLoading();
       },
+      releaseFactHistoryLoading: () => {
+        if (!releaseFactHistoryLoading) throw new Error('Fact History loading 请求尚未开始');
+        factHistoryMode = 'success';
+        releaseFactHistoryLoading();
+      },
       setCreateMode: (nextMode) => { createMode = nextMode; },
       setDeleteMode: (nextMode) => { deleteMode = nextMode; },
       setDetail: (detail) => { detailOverride = detail; },
@@ -778,6 +861,8 @@ const test = base.extend<ProductsFixtures>({
       setFactRequestChangesMode: (nextMode) => { factRequestChangesMode = nextMode; },
       setFactVersion: (version) => { factVersionOverride = version; },
       setFactVersionMode: (nextMode) => { factVersionMode = nextMode; },
+      setFactHistory: (history) => { factHistoryOverride = history; },
+      setFactHistoryMode: (nextMode) => { factHistoryMode = nextMode; },
     });
 
     expect(unexpectedRequests, 'Products 页面不得依赖未声明的 API').toEqual([]);
@@ -785,7 +870,7 @@ const test = base.extend<ProductsFixtures>({
   }, { auto: true }],
 });
 
-export { createFactReviewWorkspace, createFactVersion, createProductDetail, createProductFacts, createProducts, expect, test };
+export { createFactHistory, createFactReviewWorkspace, createFactVersion, createProductDetail, createProductFacts, createProducts, expect, test };
 export type {
   Product,
   ProductCreate,
@@ -793,6 +878,7 @@ export type {
   ProductFactsDraft,
   ProductFactReviewWorkspace,
   FactVersion,
+  ProductFactHistoryList,
   ProductListItem,
   ProductsApiController,
 };

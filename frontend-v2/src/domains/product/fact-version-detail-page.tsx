@@ -151,6 +151,12 @@ function FactVersionNavigation({ productId }: { productId: string }) {
     <nav aria-label="事实版本返回导航" className="flex flex-wrap gap-2 sm:justify-end">
       <a
         className="inline-flex min-h-11 items-center rounded-md border border-border-default px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        href={`/products/${encodedProductId}/facts/versions?page=1&pageSize=20`}
+      >
+        返回事实历史
+      </a>
+      <a
+        className="inline-flex min-h-11 items-center rounded-md border border-border-default px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
         href={`/products/${encodedProductId}`}
       >
         返回产品详情

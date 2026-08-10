@@ -135,6 +135,10 @@ describe('FactVersionDetailPage', () => {
     expect(screen.getByText('事实版本已批准')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '返回产品详情' })).toHaveAttribute('href', `/products/${productId}`);
     expect(screen.getByRole('link', { name: '返回事实工作台' })).toHaveAttribute('href', `/products/${productId}/facts`);
+    expect(screen.getByRole('link', { name: '返回事实历史' })).toHaveAttribute(
+      'href',
+      `/products/${productId}/facts/versions?page=1&pageSize=20`,
+    );
     expect(get).toHaveBeenCalledOnce();
     expect(get).toHaveBeenCalledWith('/api/v1/fact-versions/{fact_version_id}', {
       params: { path: { fact_version_id: versionId } },

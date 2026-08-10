@@ -105,11 +105,13 @@ Pattern：Workspace。页面只请求 `GET /api/v1/products/{product_id}/fact-re
 
 底部动作只消费 `available_actions` 中的 `APPROVE` / `REQUEST_CHANGES`。两者发送 CSRF 与 `expected_revision`，退回意见必须非空；服务端仍最终校验权限、状态、revision 和意见。成功后采用 canonical FactVersion 并刷新当前 context，409 不自动重放命令，审核完成后停留当前 route。
 
-## 3.6 Fact History
+## 3.6 `/products/$productId/facts/versions?page=1&pageSize=20`
 
-历史列表列：版本、状态、数据级别、变更摘要、提交人、提交时间。**没有操作列**。点击行进入 `/products/$productId/facts/versions/$versionId` 只读 Detail。
+Pattern：readonly Table。历史列表列严格为版本、状态、数据级别、变更摘要、提交人、提交时间，**没有操作列**。版本链接进入 `/products/$productId/facts/versions/$versionId` 只读 Detail；页面不展示或推导任何审核、退回、停用、删除或编辑命令。
 
-当前蓝图尚未确定历史列表的独立 URL、数据入口或页面 owner；该缺口必须由后续独立 Task 决策，Fact Version Detail 不得为此新增列表路由或客户端拼接版本集合。
+页面与 query 归 `domains/product`，thin route 只管理 `page`/`pageSize` canonical search、prefetch 和导航。页面只请求 `GET /api/v1/products/{product_id}/fact-history`，一次获得 Product identity、由服务端按 `version DESC` 排好的当前页及 `total`；不得请求 Product Detail 拼标题，也不得用既有详情型 `FactVersionList` 在客户端分页或重排。`VIEW_FACT_HISTORY`、Product Detail 的完整历史入口和 Fact Version Detail 的返回入口都指向该 canonical URL。
+
+响应的 `product.id` 及每个 item 的 `product_id` 必须与 URL `productId` 大小写不敏感地精确一致；任一不一致都阻断整张表。页面明确标记只读、不可编辑，使用既有 Table loading/empty/error/retry 与分页模式，并把 `page`、`pageSize` 始终保留在 URL。
 
 ## 3.7 `/products/$productId/facts/versions/$versionId`
 

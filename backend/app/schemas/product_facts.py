@@ -176,3 +176,22 @@ class FactVersionOut(ContractModel):
 
 class FactVersionList(ContractModel):
     items: list[FactVersionOut]
+
+
+class ProductFactHistoryItem(ContractModel):
+    id: uuid.UUID
+    product_id: uuid.UUID
+    version: int = Field(ge=1)
+    status: FactVersionStatus
+    classification: Confidentiality
+    change_summary: str
+    created_by: uuid.UUID
+    created_at: datetime
+
+
+class ProductFactHistoryList(ContractModel):
+    product: ProductFactsProductContext
+    items: list[ProductFactHistoryItem]
+    page: int = Field(ge=1)
+    page_size: Literal[10, 20, 50]
+    total: int = Field(ge=0)

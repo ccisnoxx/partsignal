@@ -203,6 +203,26 @@ test('Flow B：退回后修订产生新版本，审核历史严格归属当前 F
 
   const finalTarget = await reviewContext(page, product.productId);
   const secondVersionId = finalTarget.fact_version.id;
+
+  await openProductsList(page);
+  const approvedRow = await productRow(page, product.partNumber);
+  await approvedRow.getByRole('link', { name: product.partNumber, exact: true }).click();
+  await page.getByRole('link', { name: '查看完整事实版本历史' }).click();
+  await expect(page).toHaveURL(
+    `/products/${product.productId}/facts/versions?page=1&pageSize=20`,
+  );
+  const versionLinks = page.getByRole('region', { name: '事实版本历史列表' }).getByRole('link');
+  await expect(versionLinks).toHaveCount(2);
+  await expect(versionLinks.nth(0)).toHaveText('v2');
+  await expect(versionLinks.nth(1)).toHaveText('v1');
+  await versionLinks.nth(0).click();
+  await expect(page).toHaveURL(
+    `/products/${product.productId}/facts/versions/${secondVersionId}`,
+  );
+  await expect(page.getByRole('heading', { level: 1, name: 'FactVersion v2' })).toBeVisible();
+  await expect(page.getByLabel('事实版本 v2 Markdown 快照')).toContainText('修订稿');
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+
   expect(finalTarget.fact_version.version).toBe(2);
   expect(finalTarget.fact_version.status).toBe('APPROVED');
   expect(finalTarget.available_actions).toEqual([]);

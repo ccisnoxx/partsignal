@@ -163,6 +163,75 @@ return <FactWorkspacePage key={productId} />;
 
 ---
 
+## 只读 Product Fact History 的 URL 与 Read Model 合同
+
+### 1. 适用范围 / 触发条件
+
+当 Product Fact History 需要产品标题、不可变版本扫描和可恢复分页时适用。它是 Product domain 的专用列表边界，不得推广为 Content History 或通用 History framework。
+
+### 2. 签名
+
+```text
+URL: /products/$productId/facts/versions?page=1&pageSize=20
+GET: /api/v1/products/{product_id}/fact-history?page=1&page_size=20
+operationId: listProductFactHistory
+query key: ["products", "fact-history", productId, { page, page_size }]
+```
+
+### 3. 合同
+
+- `page >= 1`；`pageSize/page_size` 只接受 `10 | 20 | 50`，默认 20，两个 URL 参数始终显式保留。
+- `ProductFactHistoryList` 返回 `product`、窄 `items`、`page`、`page_size`、`total`；item 只含 `id/product_id/version/status/classification/change_summary/created_by/created_at`。
+- 服务端在 `REPEATABLE READ` 中按 `version DESC` 排序。浏览器不得重新排序、请求 Product Detail 拼标题，或消费旧详情型 `FactVersionList` 做客户端分页。
+- 响应 `product.id` 和每个 `item.product_id` 必须与 URL `productId` 大小写不敏感地一致；任一不一致都阻断整张表。
+- 页面只读且没有操作列，不从 status 推导 `APPROVE/REQUEST_CHANGES/RETIRE/DELETE`。
+
+### 4. 校验与错误矩阵
+
+| 条件 | API / Router 结果 | 页面处理 |
+| --- | --- | --- |
+| 非法 `page/pageSize` 或额外 search | Router `replace` 到 `page=1&pageSize=20` | 只请求规范化后的 API 参数 |
+| 产品不存在 | `404 ErrorEnvelope` | 明确 not-found，无 retry |
+| 会话受限 | `403 ErrorEnvelope` | 明确 forbidden，无 retry |
+| 初始普通失败 | ErrorEnvelope / HTTP error | 表内错误与 retry |
+| 背景刷新失败且已有 data | query error + stale data | 保留只读列表并显示 retry |
+| Product/item 边界不匹配 | 200 但身份矛盾 | 阻断全部历史数据 |
+
+### 5. Good / Base / Bad
+
+- Good：从 `VIEW_FACT_HISTORY` 进入 canonical URL，一次 GET 绘制产品标题、六列和分页，点击版本进入 readonly Detail。
+- Base：空 `items` 且 `total=0` 显示 empty；当前页完全保持服务端返回顺序。
+- Bad：先 GET Product Detail，再 GET 无分页的 `fact-versions`，客户端截取、排序并从 `available_actions` 生成操作列。
+
+### 6. 必需测试
+
+- Contract/backend：OpenAPI 生成一致；10/20/50 分页、`version DESC`、窄字段、Product context、404 与 repeatable-read。
+- Component：严格六列、状态/分级、无操作列、版本链接、empty/error/retry、URL Product 边界。
+- Fixture Playwright：canonical direct/refresh/Back/Forward、分页 URL、服务端顺序、四档宽度、键盘/焦点、未声明 API 失败。
+- Real stack：复用既有 Product Facts Flow B，展示 v2、v1 并从列表进入 v2 readonly Detail；不得新增第二条 flow。
+
+### 7. Wrong vs Correct
+
+#### Wrong
+
+```tsx
+const [product, versions] = await Promise.all([getProductDetail(id), listFactVersions(id)]);
+const rows = versions.sort((left, right) => right.version - left.version);
+```
+
+这会产生浏览器 join、无界详情载荷和第二套业务顺序。
+
+#### Correct
+
+```tsx
+const history = useQuery(productFactHistoryQueryOptions(productId, search));
+return <FactHistoryPage productId={productId} search={search} />;
+```
+
+一次专用 read model 同时提供 Product identity、服务端顺序和 URL 可恢复分页。
+
+---
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

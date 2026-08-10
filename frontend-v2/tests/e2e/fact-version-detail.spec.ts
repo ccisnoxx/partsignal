@@ -72,9 +72,12 @@ test('direct navigation 展示 approved、pending、changes requested，并保�
   await expect(page.getByText('事实版本已批准')).toBeVisible();
   await expect(page.getByText('审批人', { exact: true })).toBeVisible();
 
+  const historyLink = page.getByRole('link', { name: '返回事实历史' });
   const productLink = page.getByRole('link', { name: '返回产品详情' });
   const factsLink = page.getByRole('link', { name: '返回事实工作台' });
-  await productLink.focus();
+  await historyLink.focus();
+  await page.keyboard.press('Tab');
+  await expect(productLink).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(factsLink).toBeFocused();
   await page.keyboard.press('Tab');

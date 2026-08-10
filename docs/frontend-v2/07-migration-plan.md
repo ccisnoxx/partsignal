@@ -340,7 +340,8 @@ Phase 1 退出条件：Storybook 可运行；App Shell responsive；demo server 
 5. Fact Workspace；
 6. Fact Review；
 7. Fact Version readonly Detail；
-8. Product Facts 完整 E2E 与 vertical slice 抽象回顾。
+8. Product Facts 完整 E2E 与 vertical slice 抽象回顾；
+9. Fact History 缺口关闭。
 
 验证 Pattern：
 
@@ -350,7 +351,7 @@ Table → Form/Detail → Workspace → Review → Immutable Detail
 
 退出条件：create、enter facts、submit、review、request changes、revise、approve 主流程通过；批准后服务端投影 `CREATE_CONTENT_TASK`，V2 生成 `/content/tasks/new?productId=...` 的 Phase 3 交接链接；业务页面没有自造 action UI；Products Playwright 覆盖 URL、响应式与关键动作。New Content Task 的完整 UI 创建步骤属于 Phase 3，不得用占位页面计入 Phase 2。
 
-Phase 2.8 审计确认 Fact History 仍只有单版本 readonly Detail，没有版本历史列表的 query、route 和 page；`VIEW_FACT_HISTORY` 返回 Product Detail 不能替代完整历史扫描。该缺口由独立后续 Task `frontend-v2-fact-history` 决定 URL、owner 和 read model。在该缺口关闭前，Phase 2 exit gate 保持未满足。
+Phase 2.8 审计发现的 Fact History 缺口已由 `frontend-v2-fact-history` 关闭：Product domain 提供 `/products/$productId/facts/versions?page=1&pageSize=20`、分页窄 read model、readonly Table 与 canonical navigation；既有 V1 `listFactVersions` 合同保持不变。contract/backend、component、fixture Playwright、真实栈 Flow B、V1 兼容和文档一致性 required validation 已全部通过，Phase 2 exit gate 改判为 `MET`。
 
 ## 8. Phase 3 — Content
 

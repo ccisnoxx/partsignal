@@ -3,6 +3,11 @@ import { queryOptions } from '@tanstack/react-query';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import {
+  factHistorySearchToApiParams,
+  type FactHistoryApiParams,
+  type FactHistorySearch,
+} from './fact-history.model';
+import {
   productsSearchToApiParams,
   type ProductsApiParams,
   type ProductsSearch,
@@ -15,6 +20,7 @@ type ProductDetail = components['schemas']['ProductDetail'];
 type ProductFactsDraft = components['schemas']['ProductFactsDraft'];
 type ProductFactsDraftUpdate = components['schemas']['ProductFactsDraftUpdate'];
 type ProductFactReviewWorkspace = components['schemas']['ProductFactReviewWorkspace'];
+type ProductFactHistoryList = components['schemas']['ProductFactHistoryList'];
 type FactReviewSubmissionRequest = components['schemas']['FactReviewSubmissionRequest'];
 type FactVersion = components['schemas']['FactVersion'];
 type CommandRequest = components['schemas']['CommandRequest'];
@@ -40,6 +46,9 @@ const productsKeys = {
   facts: () => ['products', 'facts'] as const,
   fact: (productId: string) => ['products', 'facts', productId] as const,
   factReview: (productId: string) => ['products', 'fact-review', productId] as const,
+  factHistory: (productId: string, params: FactHistoryApiParams) => (
+    ['products', 'fact-history', productId, params] as const
+  ),
   factVersion: (versionId: string) => ['products', 'fact-version', versionId] as const,
 };
 
@@ -101,6 +110,24 @@ function productFactReviewQueryOptions(productId: string) {
         params: { path: { product_id: productId } },
       });
       if (!result.data) throw productRequestError('读取事实审核工作台', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
+function productFactHistoryQueryOptions(productId: string, search: FactHistorySearch) {
+  const params = factHistorySearchToApiParams(search);
+  return queryOptions({
+    queryKey: productsKeys.factHistory(productId, params),
+    queryFn: async (): Promise<ProductFactHistoryList> => {
+      const result = await api.GET('/api/v1/products/{product_id}/fact-history', {
+        params: { path: { product_id: productId }, query: params },
+      });
+      if (!result.data) throw productRequestError('读取事实版本历史', result);
       return result.data;
     },
     refetchOnWindowFocus: 'always',
@@ -299,6 +326,7 @@ export {
   factVersionQueryOptions,
   mapProductFormError,
   productDetailQueryOptions,
+  productFactHistoryQueryOptions,
   productFactReviewQueryOptions,
   productFactsQueryOptions,
   productRequestError,

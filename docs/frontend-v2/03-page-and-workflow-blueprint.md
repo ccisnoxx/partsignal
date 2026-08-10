@@ -144,7 +144,11 @@ Pattern：Table。
 
 ## 4.2 `/content/tasks/new`
 
-Pattern：Form。字段建议：Product、Approved Fact Version、Target Platform、Topic/GEO Source、Content Intent、generation/manual mode、notes。
+Pattern：Form。当前 `ContentTaskCreate` 的权威字段只有 Product、Approved Fact Version、Target Platform；不得恢复 Topic/GEO Source、Content Intent、audience、angle、conversion goal、format、length、generation/manual mode、notes、Prompt 或 AI model。
+
+页面以 `GET /content-tasks/creation-options` 一次读取活动 Product 及其非空 `APPROVED` FactVersion、活动 PlatformProfile；Product 改变时清除旧 FactVersion。`productId` handoff 保留在 URL，并由服务端返回明确的合格、不存在、停用或无批准事实状态；不合格时不得静默改选。
+
+创建使用稳定 `Idempotency-Key` 调用既有 `POST /content-tasks`。服务端仍在事务锁内重新校验三项资格；平台缺 Prompt 不阻止任务创建。成功后刷新 Content Task List、清除 DirtyGuard、返回 `/content/tasks` 并显示可验证反馈；Task Detail 实现前不导航到详情占位页。
 
 ## 4.3 `/content/tasks/$taskId`
 

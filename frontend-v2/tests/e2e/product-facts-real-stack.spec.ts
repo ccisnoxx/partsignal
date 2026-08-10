@@ -10,6 +10,8 @@ import {
 import type { components } from '../../src/shared/api/generated/schema';
 
 type AuthSession = components['schemas']['AuthSession'];
+type PlatformProfile = components['schemas']['PlatformProfile'];
+type PlatformType = components['schemas']['PlatformType'];
 type ProductDetail = components['schemas']['ProductDetail'];
 type ProductFactReviewWorkspace = components['schemas']['ProductFactReviewWorkspace'];
 type ProductFactReviewTarget = components['schemas']['ProductFactReviewTarget'];
@@ -28,10 +30,34 @@ async function responseBody<T>(response: APIResponse): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function login(page: Page): Promise<void> {
-  await responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
+async function login(page: Page): Promise<AuthSession> {
+  return responseBody<AuthSession>(await page.request.post(`${apiBaseUrl}/api/v1/auth/login`, {
     data: { username: 'admin', password },
   }));
+}
+
+async function createActivePlatform(page: Page, csrfToken: string): Promise<string> {
+  const suffix = randomUUID().slice(0, 8);
+  const name = `真实闭环平台-${suffix}`;
+  const headers = { 'X-CSRF-Token': csrfToken };
+  const platformType = await responseBody<PlatformType>(await page.request.post(
+    `${apiBaseUrl}/api/v1/platform-types`,
+    { data: { name: `真实闭环平台-${suffix}`, slug: `real-stack-${suffix}` }, headers },
+  ));
+  await responseBody<PlatformProfile>(await page.request.post(
+    `${apiBaseUrl}/api/v1/platform-profiles`,
+    {
+      data: {
+        name,
+        slug: `real-stack-${suffix}`,
+        allowed_domains: [`${suffix}.example.invalid`],
+        platform_type_id: platformType.id,
+        platform_prompt_id: null,
+      },
+      headers,
+    },
+  ));
+  return name;
 }
 
 async function apiGet<T>(page: Page, path: string): Promise<T> {
@@ -98,7 +124,8 @@ async function reviewContext(page: Page, productId: string): Promise<ProductFact
 }
 
 test('Flow A：批准事实后展示不可变版本并交接 CREATE_CONTENT_TASK', async ({ page }) => {
-  await login(page);
+  const session = await login(page);
+  const platformName = await createActivePlatform(page, session.csrf_token);
   const product = await createProduct(page, 'PF-A');
   const marker = `flow-a-${product.suffix}`;
   const markdown = `# Product Facts ${marker}\n\n- 数据来源：真实 V2 页面\n- 可见级别：PUBLIC`;
@@ -129,6 +156,26 @@ test('Flow A：批准事实后展示不可变版本并交接 CREATE_CONTENT_TASK
   const detail = await apiGet<ProductDetail>(page, `/api/v1/products/${product.productId}/detail`);
   expect(detail.product.primary_task).toBe('CREATE_CONTENT_TASK');
   expect(detail.approved_fact).not.toBeNull();
+
+  await createContentLink.click();
+  await expect(page).toHaveURL(
+    `/content/tasks/new?productId=${encodeURIComponent(product.productId)}`,
+  );
+  await expect(page.getByRole('combobox', { name: '产品' })).toContainText(product.partNumber);
+  await page.getByRole('combobox', { name: '已批准事实版本' }).click();
+  await page.getByRole('option', {
+    name: `v${detail.approved_fact!.version} · 公开`,
+  }).click();
+  await page.getByRole('combobox', { name: '目标平台' }).click();
+  await page.getByRole('option', { name: platformName }).click();
+  await page.getByRole('button', { name: '创建', exact: true }).click();
+  await expect(page).toHaveURL('/content/tasks?archiveStatus=ACTIVE&page=1&pageSize=20');
+  await expect(page.getByRole('status')).toContainText('内容任务已创建');
+  await expect(page.getByRole('link', { name: product.partNumber, exact: true })).toBeVisible();
+
+  await openProductsList(page);
+  const createdProductRow = await productRow(page, product.partNumber);
+  await createdProductRow.getByRole('link', { name: product.partNumber, exact: true }).click();
   const approvedFact = page.getByRole('region', { name: '当前批准事实' });
   const versionLink = approvedFact.getByRole('link', { name: /^v\d+$/ });
   await expect(versionLink).toHaveAttribute(

@@ -10,6 +10,8 @@ import {
 } from './content-task-list.model';
 
 type ContentTask = components['schemas']['ContentTask'];
+type ContentTaskCreate = components['schemas']['ContentTaskCreate'];
+type ContentTaskCreationOptions = components['schemas']['ContentTaskCreationOptions'];
 type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
 type PermanentDeletionPreview = components['schemas']['ContentTaskPermanentDeletionPreview'];
@@ -32,7 +34,103 @@ const contentKeys = {
   permanentDeletionPreview: (taskId: string) => (
     ['content', 'tasks', taskId, 'permanent-deletion-preview'] as const
   ),
+  creationOptions: (requestedProductId?: string) => (
+    ['content', 'tasks', 'creation-options', requestedProductId ?? null] as const
+  ),
 };
+
+function contentTaskCreationOptionsQueryOptions(requestedProductId?: string) {
+  return queryOptions({
+    queryKey: contentKeys.creationOptions(requestedProductId),
+    queryFn: async (): Promise<ContentTaskCreationOptions> => {
+      const result = await api.GET('/api/v1/content-tasks/creation-options', {
+        params: { query: { requested_product_id: requestedProductId } },
+      });
+      if (!result.data) throw contentRequestError('读取创建选项', result);
+      return result.data;
+    },
+    placeholderData: (previous) => previous,
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    staleTime: 30_000,
+  });
+}
+
+async function createContentTask(
+  body: ContentTaskCreate,
+  csrfToken: string | null,
+  idempotencyKey: string,
+): Promise<ContentTask> {
+  const token = requireCsrfToken(csrfToken, '创建内容任务');
+  const result = await api.POST('/api/v1/content-tasks', {
+    body,
+    params: {
+      header: {
+        'X-CSRF-Token': token,
+        'Idempotency-Key': idempotencyKey,
+      },
+    },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError('创建内容任务', result);
+}
+
+type ContentTaskCreateField = keyof ContentTaskCreate;
+type ContentTaskCreateErrorMapping = {
+  fields: Partial<Record<ContentTaskCreateField, string>>;
+  formMessage?: string;
+  requestId?: string;
+  code?: string;
+};
+
+const contentTaskCreateFields = new Set<ContentTaskCreateField>([
+  'product_id',
+  'fact_version_id',
+  'platform_profile_id',
+]);
+
+function mapContentTaskCreateError(error: unknown): ContentTaskCreateErrorMapping {
+  if (!(error instanceof ContentRequestError) || !error.detail) {
+    return {
+      fields: {},
+      formMessage: error instanceof Error ? error.message : '创建内容任务失败',
+    };
+  }
+
+  const fields: Partial<Record<ContentTaskCreateField, string>> = {};
+  const issues = error.detail.details.errors;
+  let hasUnknownIssue = false;
+  if (Array.isArray(issues)) {
+    for (const issue of issues) {
+      if (!issue || typeof issue !== 'object') {
+        hasUnknownIssue = true;
+        continue;
+      }
+      const loc = 'loc' in issue ? issue.loc : undefined;
+      const message = 'msg' in issue ? issue.msg : undefined;
+      const field = Array.isArray(loc) && loc.length === 2 && loc[0] === 'body'
+        ? loc[1]
+        : undefined;
+      if (
+        typeof field === 'string'
+        && contentTaskCreateFields.has(field as ContentTaskCreateField)
+        && typeof message === 'string'
+      ) {
+        fields[field as ContentTaskCreateField] ??= message;
+      } else {
+        hasUnknownIssue = true;
+      }
+    }
+  }
+  return {
+    fields,
+    formMessage: Object.keys(fields).length === 0 || hasUnknownIssue
+      ? error.detail.message
+      : undefined,
+    requestId: error.detail.request_id,
+    code: error.detail.code,
+  };
+}
 
 function contentTaskListQueryOptions(search: ContentTasksSearch) {
   const params = contentTasksSearchToApiParams(search);
@@ -204,12 +302,16 @@ export {
   ContentRequestError,
   archiveContentTask,
   cancelContentTask,
+  contentTaskCreationOptionsQueryOptions,
   contentKeys,
   contentPlatformReferencesQueryOptions,
   contentRequestError,
   contentTaskListQueryOptions,
+  createContentTask,
   deleteContentTask,
   permanentDeletionPreviewQueryOptions,
   permanentlyDeleteContentTask,
+  mapContentTaskCreateError,
   restoreContentTask,
 };
+export type { ContentTaskCreateErrorMapping };

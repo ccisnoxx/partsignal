@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import {
   columnFilteringFeature,
   createColumnHelper,
@@ -92,12 +93,14 @@ type LifecycleVariables =
 
 type ContentTaskListPageProps = {
   csrfToken: string | null;
+  initialNotice?: string;
   onSearchChange: (search: ContentTasksSearch) => void;
   search: ContentTasksSearch;
 };
 
 function ContentTaskListPage({
   csrfToken,
+  initialNotice,
   onSearchChange,
   search,
 }: ContentTaskListPageProps) {
@@ -108,7 +111,7 @@ function ContentTaskListPage({
   const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<ContentTaskListItem | null>(
     null,
   );
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(initialNotice ?? null);
   const focusReturnRef = useRef<HTMLElement | null>(null);
 
   const lifecycle = useMutation({
@@ -235,7 +238,7 @@ function ContentTaskListPage({
             查看服务端聚合的当前阶段，并进入每个任务唯一的下一项主要工作。
           </p>
         </div>
-        <a className={buttonVariants()} href="/content/tasks/new">创建内容任务</a>
+        <Link className={buttonVariants()} to="/content/tasks/new">创建内容任务</Link>
       </header>
 
       {notice && (

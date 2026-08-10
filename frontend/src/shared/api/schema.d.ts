@@ -932,6 +932,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content-tasks/creation-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getContentTaskCreationOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content-tasks/{content_task_id}": {
         parameters: {
             query?: never;
@@ -2768,6 +2784,37 @@ export interface components {
             fact_version_id: string;
             /** Format: uuid */
             platform_profile_id: string;
+        };
+        ContentTaskCreationFactOption: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            classification: components["schemas"]["Confidentiality"];
+        };
+        ContentTaskCreationProductOption: {
+            /** Format: uuid */
+            id: string;
+            brand: string;
+            part_number: string;
+            approved_fact_versions: components["schemas"]["ContentTaskCreationFactOption"][];
+        };
+        ContentTaskCreationPlatformOption: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
+        ContentTaskRequestedProduct: {
+            /** Format: uuid */
+            product_id: string;
+            brand: string | null;
+            part_number: string | null;
+            /** @enum {string} */
+            eligibility: "ELIGIBLE" | "NOT_FOUND" | "PRODUCT_INACTIVE" | "NO_APPROVED_FACTS";
+        };
+        ContentTaskCreationOptions: {
+            products: components["schemas"]["ContentTaskCreationProductOption"][];
+            platforms: components["schemas"]["ContentTaskCreationPlatformOption"][];
+            requested_product: components["schemas"]["ContentTaskRequestedProduct"] | null;
         };
         ContentTask: components["schemas"]["ContentTaskCreate"] & {
             /** Format: uuid */
@@ -6735,7 +6782,37 @@ export interface operations {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getContentTaskCreationOptions: {
+        parameters: {
+            query?: {
+                /** @description 返回 URL handoff 指定产品的当前资格状态 */
+                requested_product_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 新建内容任务的当前可选产品、已批准事实版本和活动平台 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTaskCreationOptions"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getContentTask: {

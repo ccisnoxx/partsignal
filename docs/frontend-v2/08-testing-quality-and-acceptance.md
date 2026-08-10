@@ -169,13 +169,15 @@ Fact History 的 `/products/$productId/facts/versions?page=1&pageSize=20` 由 `t
 
 Phase 3.1 的 `/content/tasks?archiveStatus=ACTIVE&page=1&pageSize=20` 由 `tests/e2e/content-task-list.spec.ts` 和 generated-type `content.fixture.ts` 接管。fixture 只允许认证、ContentTaskList、平台筛选参考、永久删除 preview 与本页生命周期命令，其他 API 必须失败；测试覆盖 direct/refresh/Back/Forward、服务端搜索/阶段/平台/归档筛选与分页、固定六列、服务端 stage/primary/overflow、loading/empty/filtered-empty/error/retry、CSRF/comment/revision、永久删除实时范围、409 不重放、375/768/1024/1440、键盘/Dialog 焦点返回及 console/pageerror/requestfailed 审计。该 fixture 只验证 production artifact；Phase 3 的完整 Content 真实闭环保留到 E2E 检查点。
 
+Phase 3.2 的 `/content/tasks/new` 继续扩展同一 generated-type `content.fixture.ts`，只新增 creation-options、Product Detail handoff 和 ContentTask create 的明确分支，所有未声明 API 继续失败。`tests/e2e/new-content-task.spec.ts` 覆盖三字段合同、URL handoff 与 Back/Forward、dependent selection、options 状态、稳定 Idempotency-Key、pending 防重、结构化错误、DirtyGuard、成功返回列表和四档响应式；不进入 Task Detail、Editor、Generation、Manual Draft 或 Review。
+
 ### 13.2 Product Facts 真实栈闭环
 
 Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e2e-local.sh` 在现有隔离生命周期内显式开启。脚本创建进程唯一 PostgreSQL、执行 migration/seed、启动真实 FastAPI，并以 `VITE_API_BASE_URL` 构建 V2 后运行 4174 `vite preview`；不得使用 Vite dev server、共享开发数据库或第二套 orchestration。
 
-测试不得导入 `products.fixture.ts`，也不得用 `page.route`、`route.fulfill` 或页面本地状态模拟 Product Facts API。测试 API 只允许登录和读取最终投影；create、save、submit review、request changes、revise、resubmit 与 approve 必须操作 V2 页面。每条 flow 使用唯一数据，清理由脚本统一 drop 测试数据库，不增加逐记录删除器。
+测试不得导入 `products.fixture.ts`，也不得用 `page.route`、`route.fulfill` 或页面本地状态模拟 Product Facts API。测试 API 只允许登录、创建流程所需且 V2 尚无管理页的唯一活动平台前置配置，以及读取最终投影；Product create、facts save、submit review、request changes、revise、resubmit、approve 与 ContentTask create 必须操作 V2 页面。每条 flow 使用唯一数据，清理由脚本统一 drop 测试数据库，不增加逐记录删除器。
 
-- Flow A：create → enter/save facts → submit → review/approve → Product Detail handoff → immutable Fact Version Detail，并断言服务端 `primary_task=CREATE_CONTENT_TASK` 与 `/content/tasks/new?productId=...` href。该 href 不得被点击为不存在的 V2 页面，后端创建 ContentTask 的 integration/API 证据不得表述成 V2 Content Task UI E2E。
+- Flow A：create → enter/save facts → submit → review/approve → Product Detail handoff → `/content/tasks/new?productId=...` → 选择真实 approved FactVersion 与 active Platform → 创建 ContentTask → 返回 Content Task List 并验证任务出现；随后继续验证 immutable Fact Version Detail。全程复用同一真实 PostgreSQL/FastAPI orchestration，不进入尚未实现的 Task Detail。
 - Flow B：create → submit → request changes → revise/save → resubmit → approve，并通过页面断言目标从 `FactVersion v1` 前进到 `v2`，最终 review history 的每条 `target_id` 都只属于新版本；随后从 Product Detail 打开真实 Fact History，断言服务端顺序为 v2、v1，并从列表进入 v2 readonly Detail。
 
 默认 `npm --prefix frontend-v2 run e2e` 继续运行 fixture-based 页面矩阵，真实栈 spec 在没有显式开关时 skip；完整根 E2E 先在隔离栈运行 V1 与 V2 真实闭环，再运行 V2 fixture suite。真实闭环不重复 loading、404、四档响应式和键盘矩阵。

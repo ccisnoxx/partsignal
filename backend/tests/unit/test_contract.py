@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from app.db import get_db
 from app.deps import get_current_session
 from app.main import app
+from app.routers.planning import _content_task_read_snapshot
 from app.security import hash_token
 from app.tools.contract_check import check
 
@@ -31,6 +32,61 @@ def test_product_create_contract_declares_input_limits_and_error_responses() -> 
     for field_name in ("part_number", "brand", "category"):
         assert product_create["properties"][field_name]["minLength"] == 1
         assert product_create["properties"][field_name]["maxLength"] == 160
+
+
+def test_content_task_creation_contract_is_three_fields_with_one_options_read_model() -> None:
+    """创建任务不得恢复旧字段，可选范围由单一读模型提供。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    schemas = document["components"]["schemas"]
+
+    create = paths["/api/v1/content-tasks"]["post"]
+    options = paths["/api/v1/content-tasks/creation-options"]["get"]
+    assert set(schemas["ContentTaskCreate"]["required"]) == {
+        "product_id",
+        "fact_version_id",
+        "platform_profile_id",
+    }
+    assert set(schemas["ContentTaskCreate"]["properties"]) == set(
+        schemas["ContentTaskCreate"]["required"]
+    )
+    assert set(create["responses"]) == {"201", "401", "403", "404", "409", "422"}
+    assert set(options["responses"]) == {"200", "401", "403", "422"}
+    assert (
+        schemas["ContentTaskCreationProductOption"]["properties"]["approved_fact_versions"][
+            "minItems"
+        ]
+        == 1
+    )
+    assert schemas["ContentTaskRequestedProduct"]["properties"]["eligibility"]["enum"] == [
+        "ELIGIBLE",
+        "NOT_FOUND",
+        "PRODUCT_INACTIVE",
+        "NO_APPROVED_FACTS",
+    ]
+
+
+def test_content_task_creation_options_enforce_engineer_and_uuid_boundaries() -> None:
+    """选项读模型与创建命令共用工程师权限，并在边界拒绝非法 UUID。"""
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[_content_task_read_snapshot] = lambda: None
+    try:
+        app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(
+            user=SimpleNamespace(account_type="VIEWER")
+        )
+        assert TestClient(app).get("/api/v1/content-tasks/creation-options").status_code == 403
+
+        app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(
+            user=SimpleNamespace(account_type="ENGINEER")
+        )
+        invalid = TestClient(app).get(
+            "/api/v1/content-tasks/creation-options?requested_product_id=not-a-uuid"
+        )
+        assert invalid.status_code == 422
+        assert invalid.json()["error"]["code"] == "VALIDATION_ERROR"
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_product_detail_contract_is_compact_and_update_has_matching_limits() -> None:

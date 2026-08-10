@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Header, Query, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from pydantic import BeforeValidator
 from sqlalchemy import select
 
@@ -28,6 +28,7 @@ from app.schemas.configuration import (
 from app.schemas.content import (
     ContentTaskArchiveStatus,
     ContentTaskCreate,
+    ContentTaskCreationOptions,
     ContentTaskList,
     ContentTaskOut,
     ContentTaskPermanentDeleteRequest,
@@ -44,6 +45,9 @@ from app.services.content_planning import create_query_topic as create_query_top
 from app.services.content_planning import delete_query_topic as delete_query_topic_command
 from app.services.content_planning import query_topic_out, query_topics_out
 from app.services.content_planning import update_query_topic as update_query_topic_command
+from app.services.content_task_queries import (
+    get_content_task_creation_options as get_content_task_creation_options_query,
+)
 from app.services.content_task_queries import list_content_tasks as list_content_tasks_query
 from app.services.platform_configuration import (
     list_platform_profiles as list_platform_profiles_query,
@@ -68,6 +72,11 @@ router = APIRouter(prefix="/api/v1", tags=["planning"])
 
 ContentEditor = EngineerUser
 SystemAdmin = AdminUser
+
+
+def _content_task_read_snapshot(db: DbSession) -> None:
+    """为跨产品、事实和平台的创建选项建立一致快照。"""
+    db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
 
 
 @router.get("/query-topics", response_model=QueryTopicList, operation_id="listQueryTopics")
@@ -236,6 +245,20 @@ def create_content_task(
         idempotency_key=idempotency_key,
     )
     return content_task_out(db, task, can_permanently_delete=editor.account_type == "ADMIN")
+
+
+@router.get(
+    "/content-tasks/creation-options",
+    response_model=ContentTaskCreationOptions,
+    operation_id="getContentTaskCreationOptions",
+    dependencies=[Depends(_content_task_read_snapshot)],
+)
+def get_content_task_creation_options(
+    db: DbSession,
+    editor: ContentEditor,
+    requested_product_id: uuid.UUID | None = None,
+) -> ContentTaskCreationOptions:
+    return get_content_task_creation_options_query(db=db, requested_product_id=requested_product_id)
 
 
 @router.get(

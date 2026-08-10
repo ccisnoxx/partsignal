@@ -152,6 +152,8 @@ Manual GEO history is forward-only. Once a `MANUAL_ARTICLE_SEARCH` row exists, r
 
 `ContentTaskCreate` no longer accepts a query topic. New generation snapshots omit the `query_topic` object entirely rather than storing null, an empty object, or an invented question. Historical tasks still resolve and freeze their real query topic when creating a new generation job. Repair tasks inherit the original task's nullable link, and repair context returns a nullable query-topic projection for explicit new/legacy handling.
 
+`GET /content-tasks/creation-options` 是不持久化的创建表单 read model：用固定次数集合查询返回活动 Product 及其非空 `APPROVED` FactVersion、活动 PlatformProfile，并可返回 handoff Product 的资格原因。它只约束显示范围，不是安全控制。普通任务 POST 在同一事务内按平台、产品、事实版本顺序锁行并重新校验，options 读取后资源变化仍必须由写命令拒绝。
+
 Revision `0019` rewrites no task or immutable job snapshot. It refuses downgrade before restoring `NOT NULL` when any product-driven task exists; rollback after new writes requires a forward fix or the pre-migration PostgreSQL backup, never a placeholder query topic.
 
 ### 0020 Platform Branding And Task List Projection

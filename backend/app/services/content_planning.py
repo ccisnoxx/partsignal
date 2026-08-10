@@ -128,7 +128,9 @@ def update_query_topic(
     request_id: str,
 ) -> QueryTopic:
     """以 revision 乐观锁更新目标问题。"""
-    topic = db.scalar(select(QueryTopic).where(QueryTopic.id == query_topic_id).with_for_update())
+    topic = db.scalar(
+        select(QueryTopic).where(QueryTopic.id == query_topic_id).with_for_update()
+    )
     if topic is None:
         raise not_found("目标问题")
     if topic.revision != payload.expected_revision:
@@ -150,9 +152,7 @@ def delete_query_topic(
     request_id: str,
 ) -> None:
     """仅删除当前 revision 且没有任何业务历史引用的目标问题。"""
-    topic = db.scalar(
-        select(QueryTopic).where(QueryTopic.id == query_topic_id).with_for_update()
-    )
+    topic = db.scalar(select(QueryTopic).where(QueryTopic.id == query_topic_id).with_for_update())
     if topic is None:
         raise not_found("目标问题")
     if topic.revision != expected_revision:
@@ -255,7 +255,12 @@ def create_content_task(
         return existing
 
     profile = lock_active_platform(db, payload.platform_profile_id)
-    fact_version = db.get(FactVersion, payload.fact_version_id)
+    product = db.scalar(select(Product).where(Product.id == payload.product_id).with_for_update())
+    if product is None or product.status != "ACTIVE":
+        raise AppError("FACT_NOT_APPROVED", "已停用产品不能创建新任务", 409)
+    fact_version = db.scalar(
+        select(FactVersion).where(FactVersion.id == payload.fact_version_id).with_for_update()
+    )
     if (
         fact_version is None
         or fact_version.status != "APPROVED"
@@ -264,9 +269,6 @@ def create_content_task(
         raise AppError("FACT_NOT_APPROVED", "内容任务只能绑定非空的已批准事实版本", 409)
     if fact_version.product_id != payload.product_id:
         raise AppError("VALIDATION_ERROR", "事实版本不属于所选产品", 422)
-    product = db.get(Product, payload.product_id)
-    if product is None or product.status != "ACTIVE":
-        raise AppError("FACT_NOT_APPROVED", "已停用产品不能创建新任务", 409)
     task = ContentTask(
         product_id=payload.product_id,
         fact_version_id=payload.fact_version_id,

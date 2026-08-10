@@ -50,6 +50,37 @@ class ContentTaskCreate(ContractModel):
     platform_profile_id: uuid.UUID
 
 
+class ContentTaskCreationFactOption(ContractModel):
+    id: uuid.UUID
+    version: int = Field(ge=1)
+    classification: Confidentiality
+
+
+class ContentTaskCreationProductOption(ContractModel):
+    id: uuid.UUID
+    brand: str
+    part_number: str
+    approved_fact_versions: Annotated[list[ContentTaskCreationFactOption], Field(min_length=1)]
+
+
+class ContentTaskCreationPlatformOption(ContractModel):
+    id: uuid.UUID
+    name: str
+
+
+class ContentTaskRequestedProduct(ContractModel):
+    product_id: uuid.UUID
+    brand: str | None
+    part_number: str | None
+    eligibility: Literal["ELIGIBLE", "NOT_FOUND", "PRODUCT_INACTIVE", "NO_APPROVED_FACTS"]
+
+
+class ContentTaskCreationOptions(ContractModel):
+    products: list[ContentTaskCreationProductOption]
+    platforms: list[ContentTaskCreationPlatformOption]
+    requested_product: ContentTaskRequestedProduct | None
+
+
 class ContentTaskOut(ContractModel):
     product_id: uuid.UUID
     fact_version_id: uuid.UUID

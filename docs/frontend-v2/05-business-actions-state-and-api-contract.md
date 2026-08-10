@@ -130,6 +130,12 @@ UI 不再从 task/generation/content/publication 多个 status 自己组合业�
 
 Mutation wrapper 不直接操作页面 UI；toast/dialog 由调用层决定；cache invalidation 最小化；服务端返回 canonical object 时优先写回 cache。
 
+### New Content Task
+
+`ContentTaskCreate` 只包含 `product_id`、`fact_version_id`、`platform_profile_id`。`GET /content-tasks/creation-options` 是表单专用薄 read model，一次返回活动 Product 及其非空 `APPROVED` FactVersion、活动 PlatformProfile 和可选 `requested_product_id` 的资格结果；浏览器不得通过 Product/Fact/Platform 列表 waterfall 推导最终资格。
+
+options 只决定显示范围。`POST /content-tasks` 必须在事务锁内重新校验活动 Product、同产品非空批准事实和活动平台；缺少平台 Prompt 只影响后续系统 AI generation job。一次用户提交及同载荷失败重试复用 `crypto.randomUUID()` 生成的 `Idempotency-Key`，修改 payload 或收到 `IDEMPOTENCY_CONFLICT` 后生成新 key，成功后废弃旧 key。
+
 ## 13. UI-oriented Read Model
 
 不要把数据库模型原样暴露给列表。

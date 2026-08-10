@@ -10,13 +10,100 @@ from sqlalchemy.orm import Session
 from app.errors import AppError
 from app.models.configuration import PlatformProfile
 from app.models.content import ContentTask
-from app.models.product_facts import Product
+from app.models.product_facts import FactVersion, Product
 from app.schemas.content import (
     ContentTaskArchiveStatus,
+    ContentTaskCreationFactOption,
+    ContentTaskCreationOptions,
+    ContentTaskCreationPlatformOption,
+    ContentTaskCreationProductOption,
     ContentTaskList,
+    ContentTaskRequestedProduct,
     ContentTaskWorkflowStage,
 )
 from app.services.projections import content_task_workflow_projection, content_tasks_out
+
+
+def get_content_task_creation_options(
+    *, db: Session, requested_product_id: uuid.UUID | None
+) -> ContentTaskCreationOptions:
+    """批量返回新建任务的可选范围；写命令仍须持锁重新校验。"""
+    rows = db.execute(
+        select(Product, FactVersion)
+        .join(FactVersion, FactVersion.product_id == Product.id)
+        .where(
+            Product.status == "ACTIVE",
+            FactVersion.status == "APPROVED",
+            func.btrim(FactVersion.body_markdown) != "",
+        )
+        .order_by(
+            func.lower(Product.brand),
+            func.lower(Product.part_number),
+            Product.id,
+            FactVersion.version.desc(),
+            FactVersion.id,
+        )
+    ).all()
+    grouped: dict[
+        uuid.UUID, tuple[Product, list[ContentTaskCreationFactOption]]
+    ] = {}
+    for product, fact in rows:
+        _, facts = grouped.setdefault(product.id, (product, []))
+        facts.append(
+            ContentTaskCreationFactOption(
+                id=fact.id, version=fact.version, classification=fact.classification
+            )
+        )
+    products = [
+        ContentTaskCreationProductOption(
+            id=product.id,
+            brand=product.brand,
+            part_number=product.part_number,
+            approved_fact_versions=facts,
+        )
+        for product, facts in grouped.values()
+    ]
+
+    platforms = [
+        ContentTaskCreationPlatformOption(id=profile.id, name=profile.name)
+        for profile in db.scalars(
+            select(PlatformProfile)
+            .where(PlatformProfile.is_active.is_(True))
+            .order_by(func.lower(PlatformProfile.name), PlatformProfile.id)
+        )
+    ]
+
+    requested_product = None
+    if requested_product_id is not None:
+        eligible = grouped.get(requested_product_id)
+        if eligible is not None:
+            product, _ = eligible
+            requested_product = ContentTaskRequestedProduct(
+                product_id=requested_product_id,
+                brand=product.brand,
+                part_number=product.part_number,
+                eligibility="ELIGIBLE",
+            )
+        else:
+            product = db.get(Product, requested_product_id)
+            requested_product = ContentTaskRequestedProduct(
+                product_id=requested_product_id,
+                brand=product.brand if product is not None else None,
+                part_number=product.part_number if product is not None else None,
+                eligibility=(
+                    "NOT_FOUND"
+                    if product is None
+                    else "PRODUCT_INACTIVE"
+                    if product.status != "ACTIVE"
+                    else "NO_APPROVED_FACTS"
+                ),
+            )
+
+    return ContentTaskCreationOptions(
+        products=products,
+        platforms=platforms,
+        requested_product=requested_product,
+    )
 
 
 def list_content_tasks(

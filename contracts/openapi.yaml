@@ -1420,7 +1420,29 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/content-tasks/creation-options:
+    get:
+      tags: [planning]
+      operationId: getContentTaskCreationOptions
+      parameters:
+        - name: requested_product_id
+          in: query
+          description: 返回 URL handoff 指定产品的当前资格状态
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: 新建内容任务的当前可选产品、已批准事实版本和活动平台
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentTaskCreationOptions'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}:
     parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
     get:
@@ -4083,6 +4105,57 @@ components:
         product_id: {type: string, format: uuid}
         fact_version_id: {type: string, format: uuid}
         platform_profile_id: {type: string, format: uuid}
+    ContentTaskCreationFactOption:
+      type: object
+      additionalProperties: false
+      required: [id, version, classification]
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        classification: {$ref: '#/components/schemas/Confidentiality'}
+    ContentTaskCreationProductOption:
+      type: object
+      additionalProperties: false
+      required: [id, brand, part_number, approved_fact_versions]
+      properties:
+        id: {type: string, format: uuid}
+        brand: {type: string}
+        part_number: {type: string}
+        approved_fact_versions:
+          type: array
+          minItems: 1
+          items: {$ref: '#/components/schemas/ContentTaskCreationFactOption'}
+    ContentTaskCreationPlatformOption:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+    ContentTaskRequestedProduct:
+      type: object
+      additionalProperties: false
+      required: [product_id, brand, part_number, eligibility]
+      properties:
+        product_id: {type: string, format: uuid}
+        brand: {type: [string, 'null']}
+        part_number: {type: [string, 'null']}
+        eligibility: {type: string, enum: [ELIGIBLE, NOT_FOUND, PRODUCT_INACTIVE, NO_APPROVED_FACTS]}
+    ContentTaskCreationOptions:
+      type: object
+      additionalProperties: false
+      required: [products, platforms, requested_product]
+      properties:
+        products:
+          type: array
+          items: {$ref: '#/components/schemas/ContentTaskCreationProductOption'}
+        platforms:
+          type: array
+          items: {$ref: '#/components/schemas/ContentTaskCreationPlatformOption'}
+        requested_product:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskRequestedProduct'}
+            - {type: 'null'}
     ContentTask:
       allOf:
         - {$ref: '#/components/schemas/ContentTaskCreate'}

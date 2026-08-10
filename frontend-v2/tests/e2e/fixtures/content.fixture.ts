@@ -5,8 +5,22 @@ import { URL } from 'node:url';
 import type { components } from '../../../src/shared/api/generated/schema';
 
 type ContentTaskListItem = components['schemas']['ContentTaskListItem'];
+type ContentTask = components['schemas']['ContentTask'];
+type ContentTaskCreate = components['schemas']['ContentTaskCreate'];
+type CreationOptions = components['schemas']['ContentTaskCreationOptions'];
+type ProductDetail = components['schemas']['ProductDetail'];
 type ContentTaskListMode = 'success' | 'empty' | 'error' | 'loading';
 type MutationMode = 'success' | 'revision-conflict';
+type CreationOptionsMode = 'success' | 'empty' | 'error' | 'loading';
+type CreateMode =
+  | 'success'
+  | 'pending'
+  | 'validation'
+  | 'fact-not-approved'
+  | 'platform-disabled'
+  | 'not-found'
+  | 'idempotency-conflict'
+  | 'forbidden';
 
 type LifecycleRequest = {
   body: unknown;
@@ -16,10 +30,22 @@ type LifecycleRequest = {
   pathname: string;
 };
 
+type CreateRequest = {
+  body: ContentTaskCreate;
+  csrfToken: string | null;
+  idempotencyKey: string | null;
+};
+
 type ContentApiController = {
+  createRequests: CreateRequest[];
+  creationOptionsRequests: URL[];
   listRequests: URL[];
   lifecycleRequests: LifecycleRequest[];
+  releaseCreate: () => void;
   releaseLoading: () => void;
+  releaseOptionsLoading: () => void;
+  setCreateMode: (mode: CreateMode) => void;
+  setCreationOptionsMode: (mode: CreationOptionsMode) => void;
   setListMode: (mode: ContentTaskListMode) => void;
   setMutationMode: (mode: MutationMode) => void;
 };
@@ -27,6 +53,14 @@ type ContentApiController = {
 type ContentFixtures = { contentApi: ContentApiController };
 
 const platformId = '00000000-0000-4000-8000-000000000201';
+const secondPlatformId = '00000000-0000-4000-8000-000000000202';
+const creationProductId = '10000000-0000-4000-8000-000000000201';
+const secondCreationProductId = '10000000-0000-4000-8000-000000000202';
+const inactiveProductId = '10000000-0000-4000-8000-000000000203';
+const noFactsProductId = '10000000-0000-4000-8000-000000000204';
+const creationFactId = '20000000-0000-4000-8000-000000000201';
+const secondCreationFactId = '20000000-0000-4000-8000-000000000202';
+const createdTaskId = '00000000-0000-4000-8000-999999999998';
 
 const user = {
   id: '00000000-0000-4000-8000-000000000099',
@@ -63,6 +97,72 @@ const platform = {
   deletion: null,
   updated_at: '2026-08-09T00:00:00Z',
 } satisfies components['schemas']['PlatformProfile'];
+
+const creationOptions = {
+  products: [
+    {
+      id: creationProductId,
+      brand: 'PartSignal',
+      part_number: 'PS-CREATE-001',
+      approved_fact_versions: [
+        { id: creationFactId, version: 3, classification: 'PUBLIC' },
+        {
+          id: '20000000-0000-4000-8000-000000000211',
+          version: 2,
+          classification: 'INTERNAL',
+        },
+      ],
+    },
+    {
+      id: secondCreationProductId,
+      brand: 'PartSignal',
+      part_number: 'PS-CREATE-002',
+      approved_fact_versions: [
+        { id: secondCreationFactId, version: 1, classification: 'RESTRICTED' },
+      ],
+    },
+  ],
+  platforms: [
+    { id: platformId, name: platform.name },
+    { id: secondPlatformId, name: '开发者问答' },
+  ],
+  requested_product: null,
+} satisfies CreationOptions;
+
+const productDetail = {
+  product: {
+    id: creationProductId,
+    part_number: 'PS-CREATE-001',
+    brand: 'PartSignal',
+    category: 'MCU',
+    status: 'ACTIVE',
+    workflow_stage: 'FACT_APPROVED',
+    primary_task: 'CREATE_CONTENT_TASK',
+    available_actions: ['UPDATE'],
+    deletion: null,
+    revision: 3,
+    created_at: '2026-08-01T00:00:00Z',
+    updated_at: '2026-08-10T00:00:00Z',
+  },
+  approved_fact: {
+    id: creationFactId,
+    version: 3,
+    status: 'APPROVED',
+    classification: 'PUBLIC',
+    approved_at: '2026-08-10T00:00:00Z',
+  },
+  pending_fact: null,
+  content: { task_count: 0, latest_task: null },
+  publishing: { published_article_count: 0, latest: null },
+  geo: {
+    observation_count: 0,
+    article_result_count: 0,
+    discovery_rate: null,
+    mention_rate: null,
+    accuracy_rate: null,
+  },
+  activity: [],
+} satisfies ProductDetail;
 
 function createContentTasks(count = 45): ContentTaskListItem[] {
   const items = Array.from({ length: count }, (_, index): ContentTaskListItem => {
@@ -125,9 +225,60 @@ function createContentTasks(count = 45): ContentTaskListItem[] {
   return items;
 }
 
-function errorEnvelope(code: string, message: string, requestId: string) {
+function createdTask(body: ContentTaskCreate): ContentTask {
   return {
-    error: { code, message, details: {}, request_id: requestId },
+    ...body,
+    id: createdTaskId,
+    query_topic_id: null,
+    source_published_content_issue_id: null,
+    current_content_version_id: null,
+    workflow_stage: 'NO_DRAFT',
+    primary_task: 'CREATE_FIRST_DRAFT',
+    available_actions: ['CANCEL', 'CREATE_GENERATION_JOB', 'CREATE_MANUAL_VERSION'],
+    deletion: null,
+    status: 'OPEN',
+    revision: 0,
+    created_by: user.id,
+    created_at: '2026-08-10T12:00:00Z',
+    archived_at: null,
+  };
+}
+
+function createdListItem(body: ContentTaskCreate): ContentTaskListItem {
+  const task = createdTask(body);
+  const product = creationOptions.products.find((item) => item.id === body.product_id)
+    ?? creationOptions.products[0];
+  const targetPlatform = creationOptions.platforms.find(
+    (item) => item.id === body.platform_profile_id,
+  ) ?? creationOptions.platforms[0];
+  return {
+    ...task,
+    identifier: 'CT-00000000',
+    product: {
+      id: product.id,
+      brand: product.brand,
+      part_number: product.part_number,
+    },
+    platform: {
+      id: targetPlatform.id,
+      name: targetPlatform.name,
+      website_url: null,
+      logo: null,
+    },
+    current_content: null,
+    latest_generation_status: null,
+    updated_at: task.created_at,
+  };
+}
+
+function errorEnvelope(
+  code: string,
+  message: string,
+  requestId: string,
+  details: Record<string, unknown> = {},
+) {
+  return {
+    error: { code, message, details, request_id: requestId },
   } satisfies components['schemas']['ErrorEnvelope'];
 }
 
@@ -136,14 +287,26 @@ const test = base.extend<ContentFixtures>({
     const items = createContentTasks();
     let listMode: ContentTaskListMode = 'success';
     let mutationMode: MutationMode = 'success';
+    let creationOptionsMode: CreationOptionsMode = 'success';
+    let createMode: CreateMode = 'success';
     let releaseLoading: (() => void) | undefined;
+    let releaseOptionsLoading: (() => void) | undefined;
+    let releaseCreate: (() => void) | undefined;
+    const creationOptionsRequests: URL[] = [];
+    const createRequests: CreateRequest[] = [];
     const listRequests: URL[] = [];
     const lifecycleRequests: LifecycleRequest[] = [];
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
 
     page.on('console', (message) => {
-      if (['503 (Service Unavailable)', '409 (Conflict)'].some((status) => message.text().includes(status))) return;
+      if ([
+        '503 (Service Unavailable)',
+        '422 (Unprocessable Entity)',
+        '409 (Conflict)',
+        '404 (Not Found)',
+        '403 (Forbidden)',
+      ].some((status) => message.text().includes(status))) return;
       if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`);
     });
     page.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`));
@@ -165,6 +328,15 @@ const test = base.extend<ContentFixtures>({
         await route.fulfill({ status: 200, json: { csrf_token: 'content-e2e-csrf' } satisfies components['schemas']['CsrfToken'] });
         return;
       }
+      const productDetailMatch = url.pathname.match(/^\/api\/v1\/products\/([^/]+)\/detail$/);
+      if (
+        method === 'GET'
+        && productDetailMatch
+        && productDetailMatch[1] === creationProductId
+      ) {
+        await route.fulfill({ status: 200, json: productDetail });
+        return;
+      }
       if (method === 'GET' && url.pathname === '/api/v1/platform-profiles') {
         await route.fulfill({
           status: 200,
@@ -175,6 +347,72 @@ const test = base.extend<ContentFixtures>({
             total: 1,
             summary: { platform_total: 1, enabled_total: 1, missing_prompt_total: 0, configuration_complete_total: 1 },
           } satisfies components['schemas']['PlatformProfileList'],
+        });
+        return;
+      }
+      if (method === 'GET' && url.pathname === '/api/v1/content-tasks/creation-options') {
+        creationOptionsRequests.push(url);
+        if (creationOptionsMode === 'loading') {
+          await new Promise<void>((resolve) => { releaseOptionsLoading = resolve; });
+        }
+        if (creationOptionsMode === 'error') {
+          await route.fulfill({
+            status: 503,
+            json: errorEnvelope(
+              'CONTENT_TASK_OPTIONS_UNAVAILABLE',
+              '创建选项暂不可用',
+              'req-content-options',
+            ),
+          });
+          return;
+        }
+        if (creationOptionsMode === 'empty') {
+          await route.fulfill({
+            status: 200,
+            json: {
+              products: [],
+              platforms: [],
+              requested_product: null,
+            } satisfies CreationOptions,
+          });
+          return;
+        }
+        const requestedProductId = url.searchParams.get('requested_product_id');
+        const eligible = creationOptions.products.find(
+          (item) => item.id === requestedProductId,
+        );
+        const requestedProduct = !requestedProductId
+          ? null
+          : eligible
+            ? {
+                product_id: eligible.id,
+                brand: eligible.brand,
+                part_number: eligible.part_number,
+                eligibility: 'ELIGIBLE' as const,
+              }
+            : requestedProductId === inactiveProductId
+              ? {
+                  product_id: inactiveProductId,
+                  brand: 'PartSignal',
+                  part_number: 'PS-INACTIVE',
+                  eligibility: 'PRODUCT_INACTIVE' as const,
+                }
+              : requestedProductId === noFactsProductId
+                ? {
+                    product_id: noFactsProductId,
+                    brand: 'PartSignal',
+                    part_number: 'PS-NO-FACTS',
+                    eligibility: 'NO_APPROVED_FACTS' as const,
+                  }
+                : {
+                    product_id: requestedProductId,
+                    brand: null,
+                    part_number: null,
+                    eligibility: 'NOT_FOUND' as const,
+                  };
+        await route.fulfill({
+          status: 200,
+          json: { ...creationOptions, requested_product: requestedProduct } satisfies CreationOptions,
         });
         return;
       }
@@ -209,6 +447,79 @@ const test = base.extend<ContentFixtures>({
             total: filtered.length,
           } satisfies components['schemas']['ContentTaskList'],
         });
+        return;
+      }
+      if (method === 'POST' && url.pathname === '/api/v1/content-tasks') {
+        const body = request.postDataJSON() as ContentTaskCreate;
+        createRequests.push({
+          body,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+          idempotencyKey: request.headers()['idempotency-key'] ?? null,
+        });
+        if (createMode === 'pending') {
+          await new Promise<void>((resolve) => { releaseCreate = resolve; });
+        }
+        const failures = {
+          validation: {
+            status: 422,
+            code: 'VALIDATION_ERROR',
+            message: '请求数据不符合接口契约',
+            requestId: 'req-content-validation',
+            details: {
+              errors: [{
+                loc: ['body', 'fact_version_id'],
+                msg: '事实版本不属于所选产品',
+                type: 'value_error',
+              }],
+            },
+          },
+          'fact-not-approved': {
+            status: 409,
+            code: 'FACT_NOT_APPROVED',
+            message: '内容任务只能绑定非空的已批准事实版本',
+            requestId: 'req-content-fact',
+          },
+          'platform-disabled': {
+            status: 409,
+            code: 'PLATFORM_DISABLED',
+            message: '所选平台已停用',
+            requestId: 'req-content-platform',
+          },
+          'not-found': {
+            status: 404,
+            code: 'NOT_FOUND',
+            message: '平台配置不存在',
+            requestId: 'req-content-not-found',
+          },
+          'idempotency-conflict': {
+            status: 409,
+            code: 'IDEMPOTENCY_CONFLICT',
+            message: '幂等键已用于另一创建请求',
+            requestId: 'req-content-idempotency',
+          },
+          forbidden: {
+            status: 403,
+            code: 'PERMISSION_DENIED',
+            message: '没有创建内容任务的权限',
+            requestId: 'req-content-forbidden',
+          },
+        } as const;
+        if (createMode in failures) {
+          const failure = failures[createMode as keyof typeof failures];
+          await route.fulfill({
+            status: failure.status,
+            json: errorEnvelope(
+              failure.code,
+              failure.message,
+              failure.requestId,
+              'details' in failure ? failure.details : {},
+            ),
+          });
+          return;
+        }
+        const response = createdTask(body);
+        if (!items.some((item) => item.id === response.id)) items.unshift(createdListItem(body));
+        await route.fulfill({ status: 201, json: response });
         return;
       }
 
@@ -266,13 +577,27 @@ const test = base.extend<ContentFixtures>({
     });
 
     await use({
+      createRequests,
+      creationOptionsRequests,
       listRequests,
       lifecycleRequests,
+      releaseCreate: () => {
+        if (!releaseCreate) throw new Error('Content create 请求尚未开始');
+        createMode = 'success';
+        releaseCreate();
+      },
       releaseLoading: () => {
         if (!releaseLoading) throw new Error('Content loading 请求尚未开始');
         listMode = 'success';
         releaseLoading();
       },
+      releaseOptionsLoading: () => {
+        if (!releaseOptionsLoading) throw new Error('Content options loading 请求尚未开始');
+        creationOptionsMode = 'success';
+        releaseOptionsLoading();
+      },
+      setCreateMode: (mode) => { createMode = mode; },
+      setCreationOptionsMode: (mode) => { creationOptionsMode = mode; },
       setListMode: (mode) => { listMode = mode; },
       setMutationMode: (mode) => { mutationMode = mode; },
     });
@@ -282,4 +607,13 @@ const test = base.extend<ContentFixtures>({
   }, { auto: true }],
 });
 
-export { expect, platformId, test };
+export {
+  creationFactId,
+  creationProductId,
+  expect,
+  inactiveProductId,
+  noFactsProductId,
+  platformId,
+  secondCreationProductId,
+  test,
+};

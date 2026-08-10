@@ -75,6 +75,7 @@ function NewContentTaskPage({
   const handoff = useMemo(() => resolveProductHandoff(search), [search]);
   const requestedProductId = handoff.kind === 'valid' ? handoff.productId : undefined;
   const options = useQuery(contentTaskCreationOptionsQueryOptions(requestedProductId));
+  const currentOptions = options.isPlaceholderData ? undefined : options.data;
   const [requestId, setRequestId] = useState<string>();
   const [createdTaskId, setCreatedTaskId] = useState<string>();
   const initialized = useRef(false);
@@ -94,8 +95,8 @@ function NewContentTaskPage({
   const selectedProductId = useWatch({ control: form.control, name: 'product_id' });
 
   useEffect(() => {
-    if (!options.data) return;
-    const requested = options.data.requested_product;
+    if (!currentOptions) return;
+    const requested = currentOptions.requested_product;
     const matchesHandoff = handoff.kind === 'valid'
       ? requested?.product_id === handoff.productId
       : requested === null;
@@ -108,21 +109,23 @@ function NewContentTaskPage({
       form.reset({ ...emptyValues, product_id: eligibleProductId });
       initialized.current = true;
     } else if (form.getValues('product_id') !== eligibleProductId) {
-      form.setValue('product_id', eligibleProductId, { shouldDirty: true });
-      form.setValue('fact_version_id', '', { shouldDirty: true });
+      form.reset(
+        { ...form.getValues(), product_id: eligibleProductId, fact_version_id: '' },
+        { keepDefaultValues: true, keepErrors: true },
+      );
       form.clearErrors('fact_version_id');
     }
-  }, [form, handoff, options.data]);
+  }, [currentOptions, form, handoff]);
 
   useEffect(() => {
     if (!createdTaskId || isDirty) return;
     onCreated(createdTaskId);
   }, [createdTaskId, isDirty, onCreated]);
 
-  const selectedProduct = options.data?.products.find(
+  const selectedProduct = currentOptions?.products.find(
     (product) => product.id === selectedProductId,
   );
-  const productItems = options.data?.products.map((product) => ({
+  const productItems = currentOptions?.products.map((product) => ({
     value: product.id,
     label: `${product.brand} · ${product.part_number}`,
   })) ?? [];
@@ -130,7 +133,7 @@ function NewContentTaskPage({
     value: fact.id,
     label: `v${fact.version} · ${confidentialityLabels[fact.classification]}`,
   })) ?? [];
-  const platformItems = options.data?.platforms.map((platform) => ({
+  const platformItems = currentOptions?.platforms.map((platform) => ({
     value: platform.id,
     label: platform.name,
   })) ?? [];
@@ -197,10 +200,10 @@ function NewContentTaskPage({
 
       <HandoffStatus
         handoff={handoff}
-        options={options.isPlaceholderData ? undefined : options.data}
+        options={currentOptions}
       />
 
-      {options.isPending && (
+      {(options.isPending || options.isPlaceholderData) && (
         <div className="rounded-xl border border-border-subtle p-4 text-sm text-text-secondary" aria-busy="true">
           正在读取可选产品、事实版本和平台…
         </div>
@@ -212,15 +215,15 @@ function NewContentTaskPage({
         </div>
       )}
 
-      {options.data && (
+      {currentOptions && (
         <>
-          {options.data.products.length === 0 && (
+          {currentOptions.products.length === 0 && (
             <div className="space-y-2 rounded-xl border border-border-subtle p-4" role="status">
               <p>当前没有同时满足“产品活动且存在非空已批准事实”的产品。</p>
               <a className={buttonVariants({ variant: 'outline' })} href="/products">查看产品与事实</a>
             </div>
           )}
-          {options.data.platforms.length === 0 && (
+          {currentOptions.platforms.length === 0 && (
             <div className="rounded-xl border border-warning/30 bg-warning/10 p-4" role="status">
               当前没有活动的具体平台。请先由管理员在平台配置中启用至少一个平台。
             </div>

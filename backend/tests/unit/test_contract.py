@@ -67,6 +67,45 @@ def test_content_task_creation_contract_is_three_fields_with_one_options_read_mo
     ]
 
 
+def test_content_task_detail_contract_is_one_compact_read_model() -> None:
+    """任务详情独立于 command response，并冻结一次绘制所需的紧凑区块。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    operation = document["paths"]["/api/v1/content-tasks/{content_task_id}/detail"]["get"]
+    detail = document["components"]["schemas"]["ContentTaskDetail"]
+
+    assert set(operation["responses"]) == {"200", "401", "403", "404", "422"}
+    assert set(detail["required"]) == {
+        "task",
+        "product",
+        "platform",
+        "fact",
+        "current_content",
+        "generation",
+        "review",
+        "publishing",
+        "source",
+        "activity",
+    }
+    assert "body_markdown" not in str(detail)
+    assert document["components"]["schemas"]["ContentTask"]["allOf"][1]["required"] == [
+        "id",
+        "platform_profile_id",
+        "query_topic_id",
+        "source_published_content_issue_id",
+        "current_content_version_id",
+        "workflow_stage",
+        "primary_task",
+        "available_actions",
+        "deletion",
+        "status",
+        "revision",
+        "created_by",
+        "created_at",
+        "archived_at",
+    ]
+
+
 def test_content_task_creation_options_enforce_engineer_and_uuid_boundaries() -> None:
     """选项读模型与创建命令共用工程师权限，并在边界拒绝非法 UUID。"""
     app.dependency_overrides[get_db] = lambda: object()

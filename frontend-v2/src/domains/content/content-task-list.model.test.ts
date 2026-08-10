@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  resolveContentTaskOverflowActions,
+  resolveContentTaskPrimaryAction,
+} from './content-task-actions';
+import {
   archiveStatusRegistry,
   canonicalContentTasksSearchRecord,
   contentTasksSearchSchema,
@@ -8,8 +12,6 @@ import {
   contentWorkflowStageRegistry,
   formatCurrentContent,
   isCanonicalContentTasksSearch,
-  resolveContentTaskOverflowActions,
-  resolveContentTaskPrimaryAction,
   type ContentTaskListItem,
 } from './content-task-list.model';
 

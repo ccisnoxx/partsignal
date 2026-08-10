@@ -18,8 +18,8 @@ function NewContentTaskRoute() {
       csrfToken={auth.csrfToken}
       onCancel={() => void navigate({ to: '/content/tasks' })}
       onCreated={(taskId) => void navigate({
-        to: '/content/tasks',
-        state: (previous) => ({ ...previous, contentTaskCreated: taskId }),
+        to: '/content/tasks/$taskId',
+        params: { taskId },
       })}
       onProductIdChange={(productId) => void navigate({
         search: { productId },
@@ -27,10 +27,4 @@ function NewContentTaskRoute() {
       search={search}
     />
   );
-}
-
-declare module '@tanstack/history' {
-  interface HistoryState {
-    contentTaskCreated?: string;
-  }
 }

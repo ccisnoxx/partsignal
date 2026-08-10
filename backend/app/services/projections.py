@@ -823,21 +823,26 @@ def content_tasks_out(
         for task_id, work in works_by_task.items()
         if work.status in IN_FLIGHT_PUBLICATION_STATUSES
     }
-    busy_task_ids = set(
-        db.scalars(
-            select(GenerationJob.content_task_id).where(
+    busy_job_counts = {
+        task_id: int(count)
+        for task_id, count in db.execute(
+            select(GenerationJob.content_task_id, func.count(GenerationJob.id))
+            .where(
                 GenerationJob.content_task_id.in_(task_ids),
                 GenerationJob.status.in_(("PENDING", "RUNNING")),
             )
-        )
-    )
-    published_task_ids = set(
-        db.scalars(
-            select(PublicationWork.content_task_id)
+            .group_by(GenerationJob.content_task_id)
+        ).tuples()
+    }
+    published_article_counts = {
+        task_id: int(count)
+        for task_id, count in db.execute(
+            select(PublicationWork.content_task_id, func.count(PublishedArticle.id))
             .join(PublishedArticle, PublishedArticle.id == PublicationWork.id)
             .where(PublicationWork.content_task_id.in_(task_ids))
-        )
-    )
+            .group_by(PublicationWork.content_task_id)
+        ).tuples()
+    }
     current_ids = {
         task.current_content_version_id
         for task in tasks
@@ -891,13 +896,34 @@ def content_tasks_out(
             can_delete=bool(
                 task.archived_at is None
                 and task.status != "COMPLETED"
-                and task.id not in busy_task_ids
-                and task.id not in published_task_ids
+                and task.id not in busy_job_counts
+                and task.id not in published_article_counts
             ),
             can_permanently_delete=can_permanently_delete,
         )
         payload["available_actions"] = available_actions
-        payload["deletion"] = {"blockers": []} if "DELETE" in available_actions else None
+        blockers = [
+            *(
+                [{"type": "GENERATION_JOB", "count": busy_job_counts[task.id]}]
+                if task.id in busy_job_counts
+                else []
+            ),
+            *(
+                [
+                    {
+                        "type": "PUBLISHED_ARTICLE",
+                        "count": published_article_counts[task.id],
+                    }
+                ]
+                if task.id in published_article_counts
+                else []
+            ),
+        ]
+        payload["deletion"] = (
+            {"blockers": []}
+            if "DELETE" in available_actions
+            else {"blockers": blockers} if blockers else None
+        )
         payload["workflow_stage"] = workflow["workflow_stage"]
         payload["primary_task"] = workflow["primary_task"]
         payload["identifier"] = f"CT-{str(task.id)[:8].upper()}"

@@ -35,6 +35,7 @@ from app.schemas.content import (
     ContentTaskPermanentDeletionPreview,
     ContentTaskWorkflowStage,
 )
+from app.schemas.content_task_detail import ContentTaskDetail
 from app.services.content_planning import (
     create_content_task as create_content_task_command,
 )
@@ -45,6 +46,7 @@ from app.services.content_planning import create_query_topic as create_query_top
 from app.services.content_planning import delete_query_topic as delete_query_topic_command
 from app.services.content_planning import query_topic_out, query_topics_out
 from app.services.content_planning import update_query_topic as update_query_topic_command
+from app.services.content_task_detail import content_task_detail_out
 from app.services.content_task_queries import (
     get_content_task_creation_options as get_content_task_creation_options_query,
 )
@@ -273,6 +275,20 @@ def get_content_task(
     if task is None:
         raise not_found("内容任务")
     return content_task_out(db, task, can_permanently_delete=user.account_type == "ADMIN")
+
+
+@router.get(
+    "/content-tasks/{content_task_id}/detail",
+    response_model=ContentTaskDetail,
+    operation_id="getContentTaskDetail",
+    dependencies=[Depends(_content_task_read_snapshot)],
+)
+def get_content_task_detail(
+    content_task_id: uuid.UUID,
+    db: DbSession,
+    user: CurrentUser,
+) -> ContentTaskDetail:
+    return content_task_detail_out(db, content_task_id, actor=user)
 
 
 @router.delete(

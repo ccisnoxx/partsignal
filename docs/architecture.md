@@ -26,6 +26,8 @@ PostgreSQL 保存全部业务状态。Redis 只传递 Celery 消息，消息只�
 
 审核应用服务唯一拥有事实/内容审核状态机、非空退回意见、内容质量门禁、审核记录追加和资源操作投影。事实提交直接创建待审核快照；内容审核只接受任务当前版本，退回版本不能原样重提。`FactReviewContext` 只装配目标 `FactVersion.id` 自身的追加式审核记录和紧邻前序版本 Diff，不通过产品 ID 混入兄弟版本；产品级 `ProductFactReviewWorkspace` 优先选择唯一待审核版本，否则选择最新版本，使 productId route 可由一次一致读完整绘制。`ContentReviewContext` 继续装配同一内容任务截至目标版本的追加式历史。事实审核依据只有不可变 Markdown、分级、版本元数据、Diff 和审核历史，不存在 Evidence 或 Blocking Issues；内容审核仍从任务绑定事实 Markdown、原始生成快照和完整自然化链装配。前端不从当前事实工作区或多个独立请求拼接审核依据，Router 也不保存第二套状态转换表。
 
+Content Task readonly Detail 使用独立 `ContentTaskDetail` read model，在单个 PostgreSQL `REPEATABLE READ` 请求内批量投影任务、锁定上下文、当前主线、生成、审核、发布、真实来源与最近 Activity。基础 `ContentTask` 仍是 command canonical response；详情不得把正文、Diff、完整 Review Context 或 Publication aggregate 塞入该实体，也不得由浏览器跨接口 join。`current_content` 只解析 `ContentTask.current_content_version_id`，审核与发布摘要都围绕该主线或任务唯一发布工作形成。
+
 ## 外部适配器
 
 内容生成固定接入 OpenAI-compatible Chat Completions，不探测 Responses API 或其他协议。原始生成与可选自然化共用 `generation_jobs`、同一个 Celery task、补投递、租约恢复和指标来源；`job_type` 只选择严格快照和落库关系，不建立第二套队列。原始生成恰好发送两条消息：system 原样使用任务平台的当前 Prompt，user 原样使用绑定 `FactVersion.body_markdown`；缺少 Prompt 或事实分级不是 `PUBLIC` 时明确失败，不增加固定前缀、任务要求或回退。用户也可绕过系统 AI，直接创建 `HUMAN DRAFT` 首稿，后续与 AI 草稿共用审核和发布链。渠道凭据由部署主密钥认证加密；每次请求只解析一次完整地址集合，只连接批准 `sockaddr`，并在发送敏感 Header 前校验实际 TCP peer。TLS SNI、证书身份和 Host 保留原 hostname；禁止重定向、超限响应、生产非公网地址和发送后的地址切换。单个 AI 作业最多调用供应商一次；Celery Beat 只补投递超龄 `PENDING`，过期 `RUNNING` 显式失败，重试创建新作业并复制原 v2 快照，旧 v1 快照不得重试。Redis 仍只承载 UUID 消息，不保存业务状态、正文、Prompt 或数据分级。

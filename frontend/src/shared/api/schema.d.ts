@@ -966,6 +966,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/content-tasks/{content_task_id}/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getContentTaskDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content-tasks/{content_task_id}/generation-options": {
         parameters: {
             query?: never;
@@ -1942,7 +1958,7 @@ export interface components {
         /** @enum {string} */
         UserStatus: "ENABLED" | "DISABLED";
         /** @enum {string} */
-        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "CONTENT_VERSION" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY";
+        DeletionBlockerType: "FACT_VERSION" | "CONTENT_TASK" | "GEO_OBSERVATION" | "CONTENT_VERSION" | "GENERATION_JOB" | "PUBLISHED_ARTICLE" | "PLATFORM_PROFILE" | "PLATFORM_ACCOUNT" | "PUBLICATION_WORK" | "PROTECTED_CONTENT_VERSION" | "PUBLISHED_CONTENT_ISSUE" | "GEO_OPTIMIZATION_SOURCE" | "USER_BUSINESS_HISTORY";
         DeletionBlocker: {
             type: components["schemas"]["DeletionBlockerType"];
             count: number;
@@ -2877,6 +2893,201 @@ export interface components {
             latest_generation_status: components["schemas"]["GenerationJobStatus"] | null;
             /** Format: date-time */
             updated_at: string;
+        };
+        ContentTaskDetailTask: {
+            /** Format: uuid */
+            id: string;
+            identifier: string;
+            status: components["schemas"]["ContentTaskStatus"];
+            /** @enum {string} */
+            workflow_stage: "NO_DRAFT" | "GENERATING" | "GENERATION_FAILED" | "DRAFT" | "REVIEW_PENDING" | "CHANGES_REQUESTED" | "APPROVED" | "PUBLISHING" | "VERIFIED" | "CANCELLED";
+            /** @enum {string} */
+            primary_task: "CREATE_FIRST_DRAFT" | "VIEW_GENERATION_PROGRESS" | "HANDLE_GENERATION_FAILURE" | "EDIT_AND_SUBMIT_REVIEW" | "REVIEW_CONTENT" | "REVISE_CONTENT" | "START_PUBLICATION" | "CONTINUE_PUBLICATION" | "VIEW_FULL_LINEAGE" | "VIEW_CANCELLATION";
+            available_actions: ("CANCEL" | "DELETE" | "ARCHIVE" | "RESTORE" | "PERMANENT_DELETE" | "CREATE_GENERATION_JOB" | "CREATE_MANUAL_VERSION")[];
+            deletion: components["schemas"]["DeletionProjection"] | null;
+            revision: number;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            archived_at: string | null;
+        };
+        ContentTaskDetailProduct: {
+            /** Format: uuid */
+            id: string;
+            brand: string;
+            part_number: string;
+            status: components["schemas"]["ProductStatus"];
+        };
+        ContentTaskDetailPlatform: {
+            /** Format: uuid */
+            id: string | null;
+            name: string;
+            /** Format: uri */
+            website_url: string | null;
+            logo: components["schemas"]["PlatformLogo"] | null;
+        };
+        ContentTaskDetailFact: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            status: components["schemas"]["FactVersionStatus"];
+            classification: components["schemas"]["Confidentiality"];
+        };
+        ContentTaskDetailCurrentContent: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            /** @enum {string} */
+            source_type: "AI" | "HUMAN";
+            /** @enum {string} */
+            status: "DRAFT" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "APPROVED" | "SUPERSEDED" | "ABANDONED";
+            title: string;
+            summary: string;
+        };
+        ContentTaskDetailGeneration: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            job_type: "GENERATE" | "HUMANIZE";
+            status: components["schemas"]["GenerationJobStatus"];
+            attempt_count: number;
+            error_code: string | null;
+            error_summary: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            started_at: string | null;
+            /** Format: date-time */
+            finished_at: string | null;
+        };
+        ContentTaskDetailReviewResult: {
+            /** @enum {string} */
+            action: "submit-review" | "approve" | "request-changes";
+            actor: components["schemas"]["ActorSummary"];
+            /** Format: date-time */
+            created_at: string;
+        };
+        ContentTaskDetailReview: {
+            /** Format: uuid */
+            content_version_id: string;
+            /** @enum {string} */
+            status: "DRAFT" | "PENDING_REVIEW" | "CHANGES_REQUESTED" | "APPROVED" | "SUPERSEDED" | "ABANDONED";
+            latest_result: components["schemas"]["ContentTaskDetailReviewResult"] | null;
+        };
+        ContentTaskDetailPublicationWork: {
+            /** Format: uuid */
+            id: string;
+            status: components["schemas"]["PublicationWorkStatus"];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ContentTaskDetailPublicationResult: {
+            /** Format: uuid */
+            id: string;
+            /** @constant */
+            status: "VERIFIED";
+            actual_title: string;
+            /** Format: uri */
+            final_url: string;
+            /** Format: date-time */
+            published_at: string;
+            /** Format: date-time */
+            verified_at: string;
+        };
+        ContentTaskDetailPublishing: {
+            work: components["schemas"]["ContentTaskDetailPublicationWork"];
+            result: components["schemas"]["ContentTaskDetailPublicationResult"] | null;
+        };
+        ContentTaskDetailQueryTopic: {
+            /** Format: uuid */
+            id: string;
+            canonical_question: string;
+        };
+        ContentTaskDetailGeoContentDeclineItem: {
+            title: string;
+            content_platform: string;
+        };
+        ContentTaskDetailGeoContentDeclineBasis: {
+            /** @constant */
+            rule_code: "CONTENT_DECLINE";
+            item: components["schemas"]["ContentTaskDetailGeoContentDeclineItem"];
+        };
+        ContentTaskDetailGeoLongUnmentionedItem: {
+            title: string;
+            unmentioned_days: number;
+        };
+        ContentTaskDetailGeoLongUnmentionedBasis: {
+            /** @constant */
+            rule_code: "LONG_UNMENTIONED";
+            item: components["schemas"]["ContentTaskDetailGeoLongUnmentionedItem"];
+        };
+        ContentTaskDetailGeoQuestionCoverageItem: {
+            canonical_question: string;
+            geo_platform: string;
+        };
+        ContentTaskDetailGeoQuestionCoverageBasis: {
+            /** @constant */
+            rule_code: "QUESTION_COVERAGE_GAP";
+            item: components["schemas"]["ContentTaskDetailGeoQuestionCoverageItem"];
+        };
+        ContentTaskDetailGeoOptimization: {
+            /** @enum {string} */
+            rule_code: "CONTENT_DECLINE" | "LONG_UNMENTIONED" | "QUESTION_COVERAGE_GAP";
+            /** Format: date */
+            date_from: string;
+            /** Format: date */
+            date_to: string;
+            /** Format: uuid */
+            published_article_id: string | null;
+            geo_platform: string | null;
+            basis: components["schemas"]["ContentTaskDetailGeoContentDeclineBasis"] | components["schemas"]["ContentTaskDetailGeoLongUnmentionedBasis"] | components["schemas"]["ContentTaskDetailGeoQuestionCoverageBasis"];
+        };
+        ContentTaskDetailPublishedContentIssue: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["PublishedContentIssueKind"];
+            status: components["schemas"]["PublishedContentIssueStatus"];
+            /** Format: uuid */
+            published_article_id: string;
+            /** Format: date-time */
+            opened_at: string;
+        };
+        ContentTaskDetailSource: {
+            query_topic: components["schemas"]["ContentTaskDetailQueryTopic"] | null;
+            geo_optimization: components["schemas"]["ContentTaskDetailGeoOptimization"] | null;
+            published_content_issue: components["schemas"]["ContentTaskDetailPublishedContentIssue"] | null;
+        };
+        ContentTaskDetailActivityTarget: {
+            /** @enum {string} */
+            kind: "CONTENT_TASK" | "GENERATION_JOB" | "CONTENT_VERSION" | "PUBLICATION_WORK";
+            /** Format: uuid */
+            id: string;
+            label: string;
+        };
+        ContentTaskDetailActivityItem: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "TASK" | "GENERATION" | "CONTENT_VERSION" | "CONTENT_REVIEW" | "PUBLICATION";
+            /** Format: date-time */
+            timestamp: string;
+            actor: components["schemas"]["ActorSummary"];
+            summary: string;
+            target: components["schemas"]["ContentTaskDetailActivityTarget"];
+        };
+        ContentTaskDetail: {
+            task: components["schemas"]["ContentTaskDetailTask"];
+            product: components["schemas"]["ContentTaskDetailProduct"];
+            platform: components["schemas"]["ContentTaskDetailPlatform"];
+            fact: components["schemas"]["ContentTaskDetailFact"];
+            current_content: components["schemas"]["ContentTaskDetailCurrentContent"] | null;
+            generation: components["schemas"]["ContentTaskDetailGeneration"] | null;
+            review: components["schemas"]["ContentTaskDetailReview"] | null;
+            publishing: components["schemas"]["ContentTaskDetailPublishing"] | null;
+            source: components["schemas"]["ContentTaskDetailSource"] | null;
+            activity: components["schemas"]["ContentTaskDetailActivityItem"][];
         };
         ContentTaskPermanentDeletionCounts: {
             content_versions: number;
@@ -6863,6 +7074,32 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getContentTaskDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                content_task_id: components["parameters"]["ContentTaskId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 内容任务紧凑详情 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTaskDetail"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

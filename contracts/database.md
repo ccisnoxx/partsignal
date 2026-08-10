@@ -352,6 +352,12 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 普通任务删除在行锁内校验调用方必填的 `expected_revision`，不匹配返回 `REVISION_CONFLICT`；删除范围与阻断条件仍由服务端在同一事务最终复核。
 
+### Content Task Detail 读取快照
+
+`GET /api/v1/content-tasks/{content_task_id}/detail` 不新增表或持久化第二套状态。请求在 PostgreSQL `REPEATABLE READ` 中读取任务及其锁定 Product、FactVersion、Platform identity，并以固定次数批量查询当前内容、生成、审核、发布、真实来源与 Activity；查询次数不得随相关记录数量线性增长。
+
+当前内容只能由 `content_tasks.current_content_version_id` 解析，禁止以最大 `content_versions.version` 代替。latest generation 按 `created_at DESC, id DESC` 确定；review 只属于当前主线内容；source 只投影真实 `query_topic_id`、`content_task_geo_sources` 或 `source_published_content_issue_id` 关系。Activity 由任务、生成、内容版本、审核和发布追加记录联合，按 `timestamp DESC, kind ASC, source_id DESC` 稳定排序并截取最近 10 项，浏览器不得再次合并或排序。
+
 ## State Machines
 
 ```text

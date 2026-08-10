@@ -651,3 +651,26 @@ articles = [published_article_out(db, article) for article in articles]
 # Correct：按 product-scoped ID 集合批量查询 compact 字段，在同一事务内组装 map。
 rows = db.execute(product_publication_summary_query(product_id)).all()
 ```
+
+---
+
+## 场景：Content Task Detail 一致性投影
+
+### 1. Scope / Trigger
+
+- 修改 `GET /api/v1/content-tasks/{content_task_id}/detail`、`ContentTaskDetail`、内容主线详情、任务 Activity 或 Detail 生命周期 cache 时适用。
+- 基础 `ContentTask` 继续作为 command canonical response；不得塞入跨域详情，也不得创建通用 aggregate/repository/workflow framework。
+
+### 2. Contracts
+
+- route 必须在 PostgreSQL `REPEATABLE READ` 中调用专用 projection，并以固定 statement 数完成；关联记录从 sparse 增长到 dense 不得形成 N+1。
+- `current_content` 严格通过 `ContentTask.current_content_version_id` 解析；指针为空即 `null`，不得选择最大版本号。
+- latest generation 按 `created_at DESC, id DESC`；review 只描述当前主线内容；publishing/source 只返回页面需要且真实存在的 compact identity/status。
+- 历史平台删除时由服务端冻结 snapshot 返回稳定名称；普通任务没有真实来源时 `source=null`。
+- Activity 只来自任务、生成、内容版本、内容审核和发布追加记录，按 `timestamp DESC, kind ASC, source_id DESC` 排序后截取 10 项；前端不得合并或重新排序。
+
+### 3. Required tests
+
+- Contract 冻结独立 schema/endpoint，并断言基础 ContentTask 不变。
+- PostgreSQL integration 覆盖 pointer、latest job、current review、publishing/source、Activity source/order/limit、historical platform、404、权限策略、fixed query count 与 `repeatable read`。
+- 阶段矩阵至少覆盖 NO_DRAFT、GENERATING、GENERATION_FAILED、DRAFT、REVIEW_PENDING、CHANGES_REQUESTED、APPROVED、PUBLISHING、VERIFIED、CANCELLED 与 archived。

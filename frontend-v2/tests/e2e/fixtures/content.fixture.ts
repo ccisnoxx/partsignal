@@ -6,6 +6,7 @@ import type { components } from '../../../src/shared/api/generated/schema';
 
 type ContentTaskListItem = components['schemas']['ContentTaskListItem'];
 type ContentTask = components['schemas']['ContentTask'];
+type ContentTaskDetail = components['schemas']['ContentTaskDetail'];
 type ContentTaskCreate = components['schemas']['ContentTaskCreate'];
 type CreationOptions = components['schemas']['ContentTaskCreationOptions'];
 type ProductDetail = components['schemas']['ProductDetail'];
@@ -21,9 +22,15 @@ type CreateMode =
   | 'not-found'
   | 'idempotency-conflict'
   | 'forbidden';
+type DetailMode = 'success' | 'empty' | 'cancelled' | 'error' | 'loading' | 'not-found' | 'forbidden';
+type LifecycleBody =
+  | components['schemas']['CommandRequest']
+  | components['schemas']['RevisionRequest']
+  | components['schemas']['ContentTaskPermanentDeleteRequest']
+  | null;
 
 type LifecycleRequest = {
-  body: unknown;
+  body: LifecycleBody;
   csrfToken: string | null;
   expectedRevision: number | null;
   method: string;
@@ -39,13 +46,16 @@ type CreateRequest = {
 type ContentApiController = {
   createRequests: CreateRequest[];
   creationOptionsRequests: URL[];
+  detailRequests: URL[];
   listRequests: URL[];
   lifecycleRequests: LifecycleRequest[];
   releaseCreate: () => void;
+  releaseDetailLoading: () => void;
   releaseLoading: () => void;
   releaseOptionsLoading: () => void;
   setCreateMode: (mode: CreateMode) => void;
   setCreationOptionsMode: (mode: CreationOptionsMode) => void;
+  setDetailMode: (mode: DetailMode) => void;
   setListMode: (mode: ContentTaskListMode) => void;
   setMutationMode: (mode: MutationMode) => void;
 };
@@ -271,6 +281,117 @@ function createdListItem(body: ContentTaskCreate): ContentTaskListItem {
   };
 }
 
+function commandResponse(item: ContentTaskListItem): ContentTask {
+  return {
+    id: item.id,
+    product_id: item.product_id,
+    fact_version_id: item.fact_version_id,
+    platform_profile_id: item.platform_profile_id,
+    query_topic_id: item.query_topic_id,
+    source_published_content_issue_id: item.source_published_content_issue_id,
+    current_content_version_id: item.current_content_version_id,
+    workflow_stage: item.workflow_stage,
+    primary_task: item.primary_task,
+    available_actions: item.available_actions,
+    deletion: item.deletion,
+    status: item.status,
+    revision: item.revision,
+    created_by: item.created_by,
+    created_at: item.created_at,
+    archived_at: item.archived_at,
+  };
+}
+
+function contentTaskDetail(item: ContentTaskListItem, empty = false): ContentTaskDetail {
+  return {
+    task: {
+      id: item.id,
+      identifier: item.identifier,
+      status: item.status,
+      workflow_stage: item.workflow_stage,
+      primary_task: item.primary_task,
+      available_actions: item.available_actions,
+      deletion: item.deletion,
+      revision: item.revision,
+      created_by: item.created_by,
+      created_at: item.created_at,
+      archived_at: item.archived_at,
+    },
+    product: { ...item.product, status: 'ACTIVE' },
+    platform: item.platform,
+    fact: {
+      id: item.fact_version_id,
+      version: 3,
+      status: 'APPROVED',
+      classification: 'PUBLIC',
+    },
+    current_content: empty || !item.current_content ? null : {
+      ...item.current_content,
+      status: 'CHANGES_REQUESTED',
+      title: `${item.product.part_number} 选型指南`,
+      summary: '基于已批准事实的当前内容摘要',
+    },
+    generation: empty ? null : {
+      id: '40000000-0000-4000-8000-000000000001',
+      job_type: 'GENERATE',
+      status: 'FAILED',
+      attempt_count: 2,
+      error_code: 'MODEL_TIMEOUT',
+      error_summary: '模型响应超时',
+      created_at: '2026-08-10T08:00:00Z',
+      started_at: '2026-08-10T08:01:00Z',
+      finished_at: '2026-08-10T08:02:00Z',
+    },
+    review: empty || !item.current_content ? null : {
+      content_version_id: item.current_content.id,
+      status: 'CHANGES_REQUESTED',
+      latest_result: {
+        action: 'request-changes',
+        actor: { id: user.id, username: user.username, display_name: user.display_name },
+        created_at: '2026-08-10T09:00:00Z',
+      },
+    },
+    publishing: empty ? null : {
+      work: {
+        id: '50000000-0000-4000-8000-000000000001',
+        status: 'ACTION_REQUIRED',
+        updated_at: '2026-08-10T10:00:00Z',
+      },
+      result: null,
+    },
+    source: empty ? null : {
+      query_topic: {
+        id: '60000000-0000-4000-8000-000000000001',
+        canonical_question: `如何选择 ${item.product.part_number}？`,
+      },
+      geo_optimization: null,
+      published_content_issue: null,
+    },
+    activity: empty ? [] : [
+      {
+        id: '70000000-0000-4000-8000-000000000001',
+        kind: 'TASK',
+        timestamp: '2026-08-10T11:00:00Z',
+        actor: { id: user.id, username: user.username, display_name: user.display_name },
+        summary: '任务进入当前阶段',
+        target: { kind: 'CONTENT_TASK', id: item.id, label: item.identifier },
+      },
+      {
+        id: '70000000-0000-4000-8000-000000000002',
+        kind: 'GENERATION',
+        timestamp: '2026-08-10T10:00:00Z',
+        actor: { id: user.id, username: user.username, display_name: user.display_name },
+        summary: '生成作业失败',
+        target: {
+          kind: 'GENERATION_JOB',
+          id: '40000000-0000-4000-8000-000000000001',
+          label: '原始生成',
+        },
+      },
+    ],
+  };
+}
+
 function errorEnvelope(
   code: string,
   message: string,
@@ -289,11 +410,14 @@ const test = base.extend<ContentFixtures>({
     let mutationMode: MutationMode = 'success';
     let creationOptionsMode: CreationOptionsMode = 'success';
     let createMode: CreateMode = 'success';
+    let detailMode: DetailMode = 'success';
     let releaseLoading: (() => void) | undefined;
     let releaseOptionsLoading: (() => void) | undefined;
     let releaseCreate: (() => void) | undefined;
+    let releaseDetailLoading: (() => void) | undefined;
     const creationOptionsRequests: URL[] = [];
     const createRequests: CreateRequest[] = [];
+    const detailRequests: URL[] = [];
     const listRequests: URL[] = [];
     const lifecycleRequests: LifecycleRequest[] = [];
     const unexpectedRequests: string[] = [];
@@ -449,6 +573,47 @@ const test = base.extend<ContentFixtures>({
         });
         return;
       }
+      const detailMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/detail$/);
+      if (method === 'GET' && detailMatch) {
+        detailRequests.push(url);
+        if (detailMode === 'loading') {
+          await new Promise<void>((resolve) => { releaseDetailLoading = resolve; });
+        }
+        if (detailMode === 'error') {
+          await route.fulfill({ status: 503, json: errorEnvelope('CONTENT_TASK_DETAIL_UNAVAILABLE', '内容任务详情暂不可用', 'req-content-detail') });
+          return;
+        }
+        if (detailMode === 'not-found' || detailMode === 'forbidden') {
+          const forbidden = detailMode === 'forbidden';
+          await route.fulfill({
+            status: forbidden ? 403 : 404,
+            json: errorEnvelope(
+              forbidden ? 'PERMISSION_DENIED' : 'NOT_FOUND',
+              forbidden ? '没有读取内容任务详情的权限' : '内容任务不存在',
+              forbidden ? 'req-content-detail-forbidden' : 'req-content-detail-not-found',
+            ),
+          });
+          return;
+        }
+        const item = items.find((candidate) => candidate.id === detailMatch[1]);
+        if (!item) {
+          await route.fulfill({ status: 404, json: errorEnvelope('NOT_FOUND', '内容任务不存在', 'req-content-detail-not-found') });
+          return;
+        }
+        const response = contentTaskDetail(item, detailMode === 'empty');
+        if (detailMode === 'cancelled') {
+          response.task = {
+            ...response.task,
+            status: 'CANCELLED',
+            workflow_stage: 'CANCELLED',
+            primary_task: 'VIEW_CANCELLATION',
+            available_actions: ['DELETE'],
+            deletion: { blockers: [] },
+          };
+        }
+        await route.fulfill({ status: 200, json: response });
+        return;
+      }
       if (method === 'POST' && url.pathname === '/api/v1/content-tasks') {
         const body = request.postDataJSON() as ContentTaskCreate;
         createRequests.push({
@@ -551,8 +716,13 @@ const test = base.extend<ContentFixtures>({
       }
 
       const lifecycleMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)(?:\/(cancel|archive|restore|permanent-delete))?$/);
-      if (lifecycleMatch && (method === 'POST' || method === 'DELETE')) {
-        const body = request.postDataJSON() as unknown;
+      const command = lifecycleMatch?.[2];
+      const lifecycleMethodAllowed = lifecycleMatch && (
+        (method === 'DELETE' && command === undefined)
+        || (method === 'POST' && command !== undefined)
+      );
+      if (lifecycleMethodAllowed && lifecycleMatch) {
+        const body = request.postData() ? request.postDataJSON() as LifecycleBody : null;
         lifecycleRequests.push({
           body,
           csrfToken: request.headers()['x-csrf-token'] ?? null,
@@ -564,11 +734,12 @@ const test = base.extend<ContentFixtures>({
           await route.fulfill({ status: 409, json: errorEnvelope('REVISION_CONFLICT', '内容任务已被其他请求修改', 'req-content-conflict') });
           return;
         }
-        if (method === 'DELETE' || lifecycleMatch[2] === 'permanent-delete') {
+        if (method === 'DELETE' || command === 'permanent-delete') {
           await route.fulfill({ status: 204, body: '' });
           return;
         }
-        await route.fulfill({ status: 200, json: items.find((item) => item.id === lifecycleMatch[1]) ?? items[0] });
+        const item = items.find((candidate) => candidate.id === lifecycleMatch[1]) ?? items[0];
+        await route.fulfill({ status: 200, json: commandResponse(item) });
         return;
       }
 
@@ -579,12 +750,18 @@ const test = base.extend<ContentFixtures>({
     await use({
       createRequests,
       creationOptionsRequests,
+      detailRequests,
       listRequests,
       lifecycleRequests,
       releaseCreate: () => {
         if (!releaseCreate) throw new Error('Content create 请求尚未开始');
         createMode = 'success';
         releaseCreate();
+      },
+      releaseDetailLoading: () => {
+        if (!releaseDetailLoading) throw new Error('Content Detail loading 请求尚未开始');
+        detailMode = 'success';
+        releaseDetailLoading();
       },
       releaseLoading: () => {
         if (!releaseLoading) throw new Error('Content loading 请求尚未开始');
@@ -598,6 +775,7 @@ const test = base.extend<ContentFixtures>({
       },
       setCreateMode: (mode) => { createMode = mode; },
       setCreationOptionsMode: (mode) => { creationOptionsMode = mode; },
+      setDetailMode: (mode) => { detailMode = mode; },
       setListMode: (mode) => { listMode = mode; },
       setMutationMode: (mode) => { mutationMode = mode; },
     });
@@ -608,6 +786,7 @@ const test = base.extend<ContentFixtures>({
 });
 
 export {
+  createdTaskId,
   creationFactId,
   creationProductId,
   expect,

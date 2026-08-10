@@ -20,6 +20,7 @@ import { Route as AppProductsProductIdRouteImport } from './routes/_app/products
 import { Route as AppProductsNewRouteImport } from './routes/_app/products/new'
 import { Route as AppAdminSystemUsersRouteImport } from './routes/_app/_admin/system.users'
 import { Route as AppContentTasksIndexRouteImport } from './routes/_app/content/tasks/index'
+import { Route as AppContentTasksTaskIdRouteImport } from './routes/_app/content/tasks/$taskId'
 import { Route as AppContentTasksNewRouteImport } from './routes/_app/content/tasks/new'
 import { Route as AppProductsProductIdFactsRouteImport } from './routes/_app/products/$productId_.facts'
 import { Route as AppProductsProductIdFactsReviewRouteImport } from './routes/_app/products/$productId_.facts_.review'
@@ -79,6 +80,11 @@ const AppContentTasksIndexRoute = AppContentTasksIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppContentTasksRouteRoute,
 } as any)
+const AppContentTasksTaskIdRoute = AppContentTasksTaskIdRouteImport.update({
+  id: '/$taskId',
+  path: '/$taskId',
+  getParentRoute: () => AppContentTasksRouteRoute,
+} as any)
 const AppContentTasksNewRoute = AppContentTasksNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/products/new': typeof AppProductsNewRoute
   '/products/': typeof AppProductsIndexRoute
   '/system/users': typeof AppAdminSystemUsersRoute
+  '/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/content/tasks/': typeof AppContentTasksIndexRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/products/new': typeof AppProductsNewRoute
   '/products': typeof AppProductsIndexRoute
   '/system/users': typeof AppAdminSystemUsersRoute
+  '/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/content/tasks': typeof AppContentTasksIndexRoute
@@ -151,6 +159,7 @@ export interface FileRoutesById {
   '/_app/products/new': typeof AppProductsNewRoute
   '/_app/products/': typeof AppProductsIndexRoute
   '/_app/_admin/system/users': typeof AppAdminSystemUsersRoute
+  '/_app/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
   '/_app/content/tasks/new': typeof AppContentTasksNewRoute
   '/_app/products/$productId_/facts': typeof AppProductsProductIdFactsRoute
   '/_app/content/tasks/': typeof AppContentTasksIndexRoute
@@ -169,6 +178,7 @@ export interface FileRouteTypes {
     | '/products/new'
     | '/products/'
     | '/system/users'
+    | '/content/tasks/$taskId'
     | '/content/tasks/new'
     | '/products/$productId/facts'
     | '/content/tasks/'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/products/new'
     | '/products'
     | '/system/users'
+    | '/content/tasks/$taskId'
     | '/content/tasks/new'
     | '/products/$productId/facts'
     | '/content/tasks'
@@ -201,6 +212,7 @@ export interface FileRouteTypes {
     | '/_app/products/new'
     | '/_app/products/'
     | '/_app/_admin/system/users'
+    | '/_app/content/tasks/$taskId'
     | '/_app/content/tasks/new'
     | '/_app/products/$productId_/facts'
     | '/_app/content/tasks/'
@@ -292,6 +304,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContentTasksIndexRouteImport
       parentRoute: typeof AppContentTasksRouteRoute
     }
+    '/_app/content/tasks/$taskId': {
+      id: '/_app/content/tasks/$taskId'
+      path: '/$taskId'
+      fullPath: '/content/tasks/$taskId'
+      preLoaderRoute: typeof AppContentTasksTaskIdRouteImport
+      parentRoute: typeof AppContentTasksRouteRoute
+    }
     '/_app/content/tasks/new': {
       id: '/_app/content/tasks/new'
       path: '/new'
@@ -343,11 +362,13 @@ const AppAdminRouteRouteWithChildren = AppAdminRouteRoute._addFileChildren(
 )
 
 interface AppContentTasksRouteRouteChildren {
+  AppContentTasksTaskIdRoute: typeof AppContentTasksTaskIdRoute
   AppContentTasksNewRoute: typeof AppContentTasksNewRoute
   AppContentTasksIndexRoute: typeof AppContentTasksIndexRoute
 }
 
 const AppContentTasksRouteRouteChildren: AppContentTasksRouteRouteChildren = {
+  AppContentTasksTaskIdRoute: AppContentTasksTaskIdRoute,
   AppContentTasksNewRoute: AppContentTasksNewRoute,
   AppContentTasksIndexRoute: AppContentTasksIndexRoute,
 }

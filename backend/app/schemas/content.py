@@ -31,6 +31,27 @@ ContentTaskWorkflowStage = Literal[
     "VERIFIED",
     "CANCELLED",
 ]
+ContentTaskPrimaryTask = Literal[
+    "CREATE_FIRST_DRAFT",
+    "VIEW_GENERATION_PROGRESS",
+    "HANDLE_GENERATION_FAILURE",
+    "EDIT_AND_SUBMIT_REVIEW",
+    "REVIEW_CONTENT",
+    "REVISE_CONTENT",
+    "START_PUBLICATION",
+    "CONTINUE_PUBLICATION",
+    "VIEW_FULL_LINEAGE",
+    "VIEW_CANCELLATION",
+]
+ContentTaskAction = Literal[
+    "CANCEL",
+    "DELETE",
+    "ARCHIVE",
+    "RESTORE",
+    "PERMANENT_DELETE",
+    "CREATE_GENERATION_JOB",
+    "CREATE_MANUAL_VERSION",
+]
 
 
 class ContentTaskArchiveStatus(StrEnum):
@@ -90,29 +111,8 @@ class ContentTaskOut(ContractModel):
     source_published_content_issue_id: uuid.UUID | None
     current_content_version_id: uuid.UUID | None
     workflow_stage: ContentTaskWorkflowStage
-    primary_task: Literal[
-        "CREATE_FIRST_DRAFT",
-        "VIEW_GENERATION_PROGRESS",
-        "HANDLE_GENERATION_FAILURE",
-        "EDIT_AND_SUBMIT_REVIEW",
-        "REVIEW_CONTENT",
-        "REVISE_CONTENT",
-        "START_PUBLICATION",
-        "CONTINUE_PUBLICATION",
-        "VIEW_FULL_LINEAGE",
-        "VIEW_CANCELLATION",
-    ]
-    available_actions: list[
-        Literal[
-            "CANCEL",
-            "DELETE",
-            "ARCHIVE",
-            "RESTORE",
-            "PERMANENT_DELETE",
-            "CREATE_GENERATION_JOB",
-            "CREATE_MANUAL_VERSION",
-        ]
-    ]
+    primary_task: ContentTaskPrimaryTask
+    available_actions: list[ContentTaskAction]
     deletion: DeletionProjection | None
     status: Literal["OPEN", "COMPLETED", "CANCELLED"]
     revision: int

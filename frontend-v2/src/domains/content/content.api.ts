@@ -5,13 +5,14 @@ import type { components } from '@/shared/api/generated/schema';
 import {
   contentTasksSearchToApiParams,
   type ContentTaskListApiParams,
-  type ContentTaskListItem,
   type ContentTasksSearch,
 } from './content-task-list.model';
 
 type ContentTask = components['schemas']['ContentTask'];
 type ContentTaskCreate = components['schemas']['ContentTaskCreate'];
 type ContentTaskCreationOptions = components['schemas']['ContentTaskCreationOptions'];
+type ContentTaskDetail = components['schemas']['ContentTaskDetail'];
+type ContentTaskCommandTarget = Pick<ContentTask, 'id' | 'revision'>;
 type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
 type PermanentDeletionPreview = components['schemas']['ContentTaskPermanentDeletionPreview'];
@@ -30,6 +31,8 @@ class ContentRequestError extends Error {
 const contentKeys = {
   lists: () => ['content', 'tasks', 'list'] as const,
   list: (params: ContentTaskListApiParams) => ['content', 'tasks', 'list', params] as const,
+  details: () => ['content', 'tasks', 'detail'] as const,
+  detail: (taskId: string) => ['content', 'tasks', 'detail', taskId] as const,
   platformReferences: () => ['content', 'tasks', 'platform-references'] as const,
   permanentDeletionPreview: (taskId: string) => (
     ['content', 'tasks', taskId, 'permanent-deletion-preview'] as const
@@ -38,6 +41,23 @@ const contentKeys = {
     ['content', 'tasks', 'creation-options', requestedProductId ?? null] as const
   ),
 };
+
+function contentTaskDetailQueryOptions(taskId: string) {
+  return queryOptions({
+    queryKey: contentKeys.detail(taskId),
+    queryFn: async (): Promise<ContentTaskDetail> => {
+      const result = await api.GET('/api/v1/content-tasks/{content_task_id}/detail', {
+        params: { path: { content_task_id: taskId } },
+      });
+      if (!result.data) throw contentRequestError('读取内容任务详情', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
 
 function contentTaskCreationOptionsQueryOptions(requestedProductId?: string) {
   return queryOptions({
@@ -178,7 +198,7 @@ function permanentDeletionPreviewQueryOptions(taskId: string) {
 }
 
 async function cancelContentTask(
-  task: ContentTaskListItem,
+  task: ContentTaskCommandTarget,
   comment: string,
   csrfToken: string | null,
 ): Promise<ContentTask> {
@@ -195,14 +215,14 @@ async function cancelContentTask(
 }
 
 async function archiveContentTask(
-  task: ContentTaskListItem,
+  task: ContentTaskCommandTarget,
   csrfToken: string | null,
 ): Promise<ContentTask> {
   return reviseContentTask('archive', task, csrfToken);
 }
 
 async function restoreContentTask(
-  task: ContentTaskListItem,
+  task: ContentTaskCommandTarget,
   csrfToken: string | null,
 ): Promise<ContentTask> {
   return reviseContentTask('restore', task, csrfToken);
@@ -210,7 +230,7 @@ async function restoreContentTask(
 
 async function reviseContentTask(
   command: 'archive' | 'restore',
-  task: ContentTaskListItem,
+  task: ContentTaskCommandTarget,
   csrfToken: string | null,
 ): Promise<ContentTask> {
   const token = requireCsrfToken(csrfToken, command === 'archive' ? '归档内容任务' : '恢复内容任务');
@@ -228,7 +248,7 @@ async function reviseContentTask(
   throw contentRequestError(command === 'archive' ? '归档内容任务' : '恢复内容任务', result);
 }
 
-async function deleteContentTask(task: ContentTaskListItem, csrfToken: string | null) {
+async function deleteContentTask(task: ContentTaskCommandTarget, csrfToken: string | null) {
   const token = requireCsrfToken(csrfToken, '删除内容任务');
   const result = await api.DELETE('/api/v1/content-tasks/{content_task_id}', {
     params: {
@@ -298,11 +318,19 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
   );
 }
 
+function contentTaskDetailErrorKind(error: unknown): 'not-found' | 'forbidden' | 'generic' {
+  if (error instanceof ContentRequestError && error.status === 404) return 'not-found';
+  if (error instanceof ContentRequestError && error.status === 403) return 'forbidden';
+  return 'generic';
+}
+
 export {
   ContentRequestError,
   archiveContentTask,
   cancelContentTask,
   contentTaskCreationOptionsQueryOptions,
+  contentTaskDetailErrorKind,
+  contentTaskDetailQueryOptions,
   contentKeys,
   contentPlatformReferencesQueryOptions,
   contentRequestError,
@@ -314,4 +342,4 @@ export {
   mapContentTaskCreateError,
   restoreContentTask,
 };
-export type { ContentTaskCreateErrorMapping };
+export type { ContentTaskCommandTarget, ContentTaskCreateErrorMapping };

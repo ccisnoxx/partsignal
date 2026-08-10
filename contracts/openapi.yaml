@@ -1470,6 +1470,21 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/content-tasks/{content_task_id}/detail:
+    get:
+      tags: [planning]
+      operationId: getContentTaskDetail
+      parameters: [{$ref: '#/components/parameters/ContentTaskId'}]
+      responses:
+        '200':
+          description: 内容任务紧凑详情
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ContentTaskDetail'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-tasks/{content_task_id}/generation-options:
     get:
       tags: [production]
@@ -2982,7 +2997,7 @@ components:
       enum: [ENABLED, DISABLED]
     DeletionBlockerType:
       type: string
-      enum: [FACT_VERSION, CONTENT_TASK, GEO_OBSERVATION, CONTENT_VERSION, PLATFORM_PROFILE, PLATFORM_ACCOUNT, PUBLICATION_WORK, PROTECTED_CONTENT_VERSION, PUBLISHED_CONTENT_ISSUE, GEO_OPTIMIZATION_SOURCE, USER_BUSINESS_HISTORY]
+      enum: [FACT_VERSION, CONTENT_TASK, GEO_OBSERVATION, CONTENT_VERSION, GENERATION_JOB, PUBLISHED_ARTICLE, PLATFORM_PROFILE, PLATFORM_ACCOUNT, PUBLICATION_WORK, PROTECTED_CONTENT_VERSION, PUBLISHED_CONTENT_ISSUE, GEO_OPTIMIZATION_SOURCE, USER_BUSINESS_HISTORY]
     DeletionBlocker:
       type: object
       additionalProperties: false
@@ -4236,6 +4251,272 @@ components:
                 - {$ref: '#/components/schemas/GenerationJobStatus'}
                 - {type: 'null'}
             updated_at: {type: string, format: date-time}
+    ContentTaskDetailTask:
+      type: object
+      additionalProperties: false
+      required: [id, identifier, status, workflow_stage, primary_task, available_actions, deletion, revision, created_by, created_at, archived_at]
+      properties:
+        id: {type: string, format: uuid}
+        identifier: {type: string, pattern: '^CT-[0-9A-F]{8}$'}
+        status: {$ref: '#/components/schemas/ContentTaskStatus'}
+        workflow_stage: {type: string, enum: [NO_DRAFT, GENERATING, GENERATION_FAILED, DRAFT, REVIEW_PENDING, CHANGES_REQUESTED, APPROVED, PUBLISHING, VERIFIED, CANCELLED]}
+        primary_task: {type: string, enum: [CREATE_FIRST_DRAFT, VIEW_GENERATION_PROGRESS, HANDLE_GENERATION_FAILURE, EDIT_AND_SUBMIT_REVIEW, REVIEW_CONTENT, REVISE_CONTENT, START_PUBLICATION, CONTINUE_PUBLICATION, VIEW_FULL_LINEAGE, VIEW_CANCELLATION]}
+        available_actions:
+          type: array
+          items: {type: string, enum: [CANCEL, DELETE, ARCHIVE, RESTORE, PERMANENT_DELETE, CREATE_GENERATION_JOB, CREATE_MANUAL_VERSION]}
+        deletion:
+          anyOf:
+            - {$ref: '#/components/schemas/DeletionProjection'}
+            - {type: 'null'}
+        revision: {type: integer, minimum: 0}
+        created_by: {type: string, format: uuid}
+        created_at: {type: string, format: date-time}
+        archived_at: {type: [string, 'null'], format: date-time}
+    ContentTaskDetailProduct:
+      type: object
+      additionalProperties: false
+      required: [id, brand, part_number, status]
+      properties:
+        id: {type: string, format: uuid}
+        brand: {type: string}
+        part_number: {type: string}
+        status: {$ref: '#/components/schemas/ProductStatus'}
+    ContentTaskDetailPlatform:
+      type: object
+      additionalProperties: false
+      required: [id, name, website_url, logo]
+      properties:
+        id: {type: [string, 'null'], format: uuid}
+        name: {type: string}
+        website_url: {type: [string, 'null'], format: uri, minLength: 1, maxLength: 2083}
+        logo:
+          anyOf:
+            - {$ref: '#/components/schemas/PlatformLogo'}
+            - {type: 'null'}
+    ContentTaskDetailFact:
+      type: object
+      additionalProperties: false
+      required: [id, version, status, classification]
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        status: {$ref: '#/components/schemas/FactVersionStatus'}
+        classification: {$ref: '#/components/schemas/Confidentiality'}
+    ContentTaskDetailCurrentContent:
+      type: object
+      additionalProperties: false
+      required: [id, version, source_type, status, title, summary]
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer, minimum: 1}
+        source_type: {type: string, enum: [AI, HUMAN]}
+        status: {type: string, enum: [DRAFT, PENDING_REVIEW, CHANGES_REQUESTED, APPROVED, SUPERSEDED, ABANDONED]}
+        title: {type: string}
+        summary: {type: string}
+    ContentTaskDetailGeneration:
+      type: object
+      additionalProperties: false
+      required: [id, job_type, status, attempt_count, error_code, error_summary, created_at, started_at, finished_at]
+      properties:
+        id: {type: string, format: uuid}
+        job_type: {type: string, enum: [GENERATE, HUMANIZE]}
+        status: {$ref: '#/components/schemas/GenerationJobStatus'}
+        attempt_count: {type: integer, minimum: 0}
+        error_code: {type: [string, 'null']}
+        error_summary: {type: [string, 'null']}
+        created_at: {type: string, format: date-time}
+        started_at: {type: [string, 'null'], format: date-time}
+        finished_at: {type: [string, 'null'], format: date-time}
+    ContentTaskDetailReviewResult:
+      type: object
+      additionalProperties: false
+      required: [action, actor, created_at]
+      properties:
+        action: {type: string, enum: [submit-review, approve, request-changes]}
+        actor: {$ref: '#/components/schemas/ActorSummary'}
+        created_at: {type: string, format: date-time}
+    ContentTaskDetailReview:
+      type: object
+      additionalProperties: false
+      required: [content_version_id, status, latest_result]
+      properties:
+        content_version_id: {type: string, format: uuid}
+        status: {type: string, enum: [DRAFT, PENDING_REVIEW, CHANGES_REQUESTED, APPROVED, SUPERSEDED, ABANDONED]}
+        latest_result:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailReviewResult'}
+            - {type: 'null'}
+    ContentTaskDetailPublicationWork:
+      type: object
+      additionalProperties: false
+      required: [id, status, updated_at]
+      properties:
+        id: {type: string, format: uuid}
+        status: {$ref: '#/components/schemas/PublicationWorkStatus'}
+        updated_at: {type: string, format: date-time}
+    ContentTaskDetailPublicationResult:
+      type: object
+      additionalProperties: false
+      required: [id, status, actual_title, final_url, published_at, verified_at]
+      properties:
+        id: {type: string, format: uuid}
+        status: {type: string, const: VERIFIED}
+        actual_title: {type: string}
+        final_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+        published_at: {type: string, format: date-time}
+        verified_at: {type: string, format: date-time}
+    ContentTaskDetailPublishing:
+      type: object
+      additionalProperties: false
+      required: [work, result]
+      properties:
+        work: {$ref: '#/components/schemas/ContentTaskDetailPublicationWork'}
+        result:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailPublicationResult'}
+            - {type: 'null'}
+    ContentTaskDetailQueryTopic:
+      type: object
+      additionalProperties: false
+      required: [id, canonical_question]
+      properties:
+        id: {type: string, format: uuid}
+        canonical_question: {type: string}
+    ContentTaskDetailGeoContentDeclineItem:
+      type: object
+      additionalProperties: false
+      required: [title, content_platform]
+      properties:
+        title: {type: string}
+        content_platform: {type: string}
+    ContentTaskDetailGeoContentDeclineBasis:
+      type: object
+      additionalProperties: false
+      required: [rule_code, item]
+      properties:
+        rule_code: {type: string, const: CONTENT_DECLINE}
+        item: {$ref: '#/components/schemas/ContentTaskDetailGeoContentDeclineItem'}
+    ContentTaskDetailGeoLongUnmentionedItem:
+      type: object
+      additionalProperties: false
+      required: [title, unmentioned_days]
+      properties:
+        title: {type: string}
+        unmentioned_days: {type: integer, minimum: 0}
+    ContentTaskDetailGeoLongUnmentionedBasis:
+      type: object
+      additionalProperties: false
+      required: [rule_code, item]
+      properties:
+        rule_code: {type: string, const: LONG_UNMENTIONED}
+        item: {$ref: '#/components/schemas/ContentTaskDetailGeoLongUnmentionedItem'}
+    ContentTaskDetailGeoQuestionCoverageItem:
+      type: object
+      additionalProperties: false
+      required: [canonical_question, geo_platform]
+      properties:
+        canonical_question: {type: string}
+        geo_platform: {type: string}
+    ContentTaskDetailGeoQuestionCoverageBasis:
+      type: object
+      additionalProperties: false
+      required: [rule_code, item]
+      properties:
+        rule_code: {type: string, const: QUESTION_COVERAGE_GAP}
+        item: {$ref: '#/components/schemas/ContentTaskDetailGeoQuestionCoverageItem'}
+    ContentTaskDetailGeoOptimization:
+      type: object
+      additionalProperties: false
+      required: [rule_code, date_from, date_to, published_article_id, geo_platform, basis]
+      properties:
+        rule_code: {type: string, enum: [CONTENT_DECLINE, LONG_UNMENTIONED, QUESTION_COVERAGE_GAP]}
+        date_from: {type: string, format: date}
+        date_to: {type: string, format: date}
+        published_article_id: {type: [string, 'null'], format: uuid}
+        geo_platform: {type: [string, 'null']}
+        basis:
+          oneOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailGeoContentDeclineBasis'}
+            - {$ref: '#/components/schemas/ContentTaskDetailGeoLongUnmentionedBasis'}
+            - {$ref: '#/components/schemas/ContentTaskDetailGeoQuestionCoverageBasis'}
+    ContentTaskDetailPublishedContentIssue:
+      type: object
+      additionalProperties: false
+      required: [id, kind, status, published_article_id, opened_at]
+      properties:
+        id: {type: string, format: uuid}
+        kind: {$ref: '#/components/schemas/PublishedContentIssueKind'}
+        status: {$ref: '#/components/schemas/PublishedContentIssueStatus'}
+        published_article_id: {type: string, format: uuid}
+        opened_at: {type: string, format: date-time}
+    ContentTaskDetailSource:
+      type: object
+      additionalProperties: false
+      required: [query_topic, geo_optimization, published_content_issue]
+      properties:
+        query_topic:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailQueryTopic'}
+            - {type: 'null'}
+        geo_optimization:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailGeoOptimization'}
+            - {type: 'null'}
+        published_content_issue:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailPublishedContentIssue'}
+            - {type: 'null'}
+    ContentTaskDetailActivityTarget:
+      type: object
+      additionalProperties: false
+      required: [kind, id, label]
+      properties:
+        kind: {type: string, enum: [CONTENT_TASK, GENERATION_JOB, CONTENT_VERSION, PUBLICATION_WORK]}
+        id: {type: string, format: uuid}
+        label: {type: string}
+    ContentTaskDetailActivityItem:
+      type: object
+      additionalProperties: false
+      required: [id, kind, timestamp, actor, summary, target]
+      properties:
+        id: {type: string, format: uuid}
+        kind: {type: string, enum: [TASK, GENERATION, CONTENT_VERSION, CONTENT_REVIEW, PUBLICATION]}
+        timestamp: {type: string, format: date-time}
+        actor: {$ref: '#/components/schemas/ActorSummary'}
+        summary: {type: string}
+        target: {$ref: '#/components/schemas/ContentTaskDetailActivityTarget'}
+    ContentTaskDetail:
+      type: object
+      additionalProperties: false
+      required: [task, product, platform, fact, current_content, generation, review, publishing, source, activity]
+      properties:
+        task: {$ref: '#/components/schemas/ContentTaskDetailTask'}
+        product: {$ref: '#/components/schemas/ContentTaskDetailProduct'}
+        platform: {$ref: '#/components/schemas/ContentTaskDetailPlatform'}
+        fact: {$ref: '#/components/schemas/ContentTaskDetailFact'}
+        current_content:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailCurrentContent'}
+            - {type: 'null'}
+        generation:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailGeneration'}
+            - {type: 'null'}
+        review:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailReview'}
+            - {type: 'null'}
+        publishing:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailPublishing'}
+            - {type: 'null'}
+        source:
+          anyOf:
+            - {$ref: '#/components/schemas/ContentTaskDetailSource'}
+            - {type: 'null'}
+        activity:
+          type: array
+          items: {$ref: '#/components/schemas/ContentTaskDetailActivityItem'}
     ContentTaskPermanentDeletionCounts:
       type: object
       additionalProperties: false

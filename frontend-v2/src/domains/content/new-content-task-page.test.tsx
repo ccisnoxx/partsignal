@@ -118,7 +118,7 @@ async function renderPage(entry = '/content/tasks/new') {
         <NewContentTaskPage
           csrfToken="component-csrf"
           onCancel={() => void navigate({ to: '/content/tasks' })}
-          onCreated={() => void navigate({ to: '/content/tasks' })}
+          onCreated={(taskId) => void navigate({ to: `/content/tasks/${taskId}` })}
           onProductIdChange={(productId) => void navigate({ search: { productId } })}
           search={search}
         />
@@ -130,8 +130,13 @@ async function renderPage(entry = '/content/tasks/new') {
     path: '/content/tasks',
     component: () => <h1>内容任务列表</h1>,
   });
+  const detailRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/content/tasks/$taskId',
+    component: () => <h1>内容任务详情</h1>,
+  });
   const router = createRouter({
-    routeTree: rootRoute.addChildren([newRoute, listRoute]),
+    routeTree: rootRoute.addChildren([newRoute, listRoute, detailRoute]),
     history: createMemoryHistory({ initialEntries: [entry] }),
   });
   await router.load();
@@ -201,7 +206,7 @@ describe('NewContentTaskPage', () => {
     expect(await screen.findByRole('combobox', { name: '产品' })).toHaveTextContent('选择产品');
   });
 
-  it('只提交三字段、CSRF 与 UUID 幂等键，成功失效列表并返回', async () => {
+  it('只提交三字段、CSRF 与 UUID 幂等键，成功失效列表并进入 canonical Detail', async () => {
     mockOptions();
     const post = vi.spyOn(api, 'POST').mockResolvedValue({
       data: createdTask,
@@ -210,11 +215,12 @@ describe('NewContentTaskPage', () => {
     const uuid = vi.spyOn(crypto, 'randomUUID').mockReturnValue(
       '10000000-0000-4000-8000-000000000001',
     );
-    const { invalidateQueries } = await renderPage();
+    const { invalidateQueries, router } = await renderPage();
     await chooseValidTask();
     await userEvent.click(screen.getByRole('button', { name: '创建' }));
 
-    expect(await screen.findByRole('heading', { name: '内容任务列表' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '内容任务详情' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(`/content/tasks/${ids.task}`);
     expect(post).toHaveBeenCalledWith('/api/v1/content-tasks', {
       body: {
         product_id: ids.productA,
@@ -332,7 +338,7 @@ describe('NewContentTaskPage', () => {
     expect(screen.getByRole('combobox', { name: '产品' })).toBeDisabled();
     expect(post).toHaveBeenCalledOnce();
     resolvePost?.({ data: createdTask, response: Response.json(createdTask, { status: 201 }) });
-    expect(await screen.findByRole('heading', { name: '内容任务列表' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '内容任务详情' })).toBeInTheDocument();
   });
 
   it('options 加载、失败重试和空状态都可验证', async () => {

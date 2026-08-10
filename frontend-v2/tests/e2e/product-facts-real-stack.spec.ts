@@ -169,9 +169,20 @@ test('Flow A：批准事实后展示不可变版本并交接 CREATE_CONTENT_TASK
   await page.getByRole('combobox', { name: '目标平台' }).click();
   await page.getByRole('option', { name: platformName }).click();
   await page.getByRole('button', { name: '创建', exact: true }).click();
-  await expect(page).toHaveURL('/content/tasks?archiveStatus=ACTIVE&page=1&pageSize=20');
-  await expect(page.getByRole('status')).toContainText('内容任务已创建');
-  await expect(page.getByRole('link', { name: product.partNumber, exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/content\/tasks\/[0-9a-f-]+$/i);
+  await expect(page.getByRole('heading', { name: /^CT-/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: `PartSignal E2E · ${product.partNumber}` }))
+    .toHaveAttribute('href', `/products/${product.productId}`);
+  await expect(page.getByRole('link', { name: `v${detail.approved_fact!.version} · 已批准` }))
+    .toHaveAttribute(
+      'href',
+      `/products/${product.productId}/facts/versions/${detail.approved_fact!.id}`,
+    );
+  await expect(page.getByText(platformName, { exact: true })).toBeVisible();
+  await expect(page.getByText('CREATE_FIRST_DRAFT', { exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: '创建初稿' }))
+    .toHaveAttribute('href', /\/content\/tasks\/[0-9a-f-]+\/editor$/);
+  await expect(page).not.toHaveURL(/\/editor$/);
 
   await openProductsList(page);
   const createdProductRow = await productRow(page, product.partNumber);

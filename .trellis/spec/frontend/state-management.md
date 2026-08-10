@@ -236,7 +236,7 @@ return <FactHistoryPage productId={productId} search={search} />;
 
 ### 1. 适用范围 / 触发条件
 
-实现或修改 `/content/tasks/new`、普通 `ContentTask` 创建、Product Facts 的 `CREATE_CONTENT_TASK` handoff 或创建成功返回列表时适用。该合同只覆盖任务上下文选择，不包含详情、编辑、生成、人工首稿、审核或发布。
+实现或修改 `/content/tasks/new`、普通 `ContentTask` 创建、Product Facts 的 `CREATE_CONTENT_TASK` handoff 或创建成功进入 Detail 时适用。该合同只覆盖任务上下文选择，不包含编辑、生成、人工首稿、审核或发布。
 
 ### 2. 签名
 
@@ -257,7 +257,7 @@ header: Idempotency-Key = crypto.randomUUID()
 - payload 严格来自 generated `ContentTaskCreate` 三字段。Topic/GEO Source、Content Intent、audience、angle、conversion goal、format、length、generation/manual mode、notes、Prompt 和 AI model 都不得进入表单、DTO 或请求。
 - 页面以 `useRef` 保存 `{payloadSignature, key}`。同一 payload 的失败重试复用 key；rerender 不换 key；payload 明确变化或收到 `IDEMPOTENCY_CONFLICT` 后生成新 key；成功后废弃旧 key。pending ref 与按钮禁用共同阻止双击重复请求。
 - options 只负责显示范围，POST 仍由服务端在事务锁内重新校验产品、事实和平台。平台缺 Prompt 不阻止任务或后续人工首稿，只能由未来系统 AI generation job 拒绝。
-- 成功后先清除 dirty 与旧 key，失效 `contentKeys.lists()`，返回 canonical `/content/tasks` 并通过一次性 history state 显示成功反馈；Task Detail 未实现时不得创建占位 route 或跳转详情。
+- 成功后先清除 dirty 与旧 key，失效 `contentKeys.lists()`，并采用 POST 响应的 canonical `ContentTask.id` 进入 `/content/tasks/$taskId`；不得通过列表搜索新任务 ID，也不得创建一次性占位成功页。
 
 ### 4. 校验与错误矩阵
 
@@ -271,20 +271,20 @@ header: Idempotency-Key = crypto.randomUUID()
 | 服务端字段 validation | 只把三个已知 body 字段映射回字段；未知 issue 留在 form summary |
 | `FACT_NOT_APPROVED`、平台停用、403、404、409 | 保留选择，展示服务端 message 与 request ID |
 | `IDEMPOTENCY_CONFLICT` | 保留选择并废弃冲突 key；下一次提交生成新 key |
-| 成功 | 列表 query 失效、dirty 清除、返回列表并显示一次性成功状态 |
+| 成功 | 列表 query 失效、dirty/key 清除、进入 canonical Detail |
 
 ### 5. Good / Base / Bad
 
-- Good：从 Product Detail handoff 进入，服务端确认 `ELIGIBLE` 后预选 Product；用户选 Fact 和 Platform，用一个 UUID key 创建并返回刷新后的列表。
+- Good：从 Product Detail handoff 进入，服务端确认 `ELIGIBLE` 后预选 Product；用户选 Fact 和 Platform，用一个 UUID key 创建并进入响应 ID 对应的 Detail。
 - Base：handoff Product 已停用，页面明确提示且不自动改选；用户手动选择其他 Product 后只重选 Fact，原 Platform 保留。
 - Bad：`GET /products -> N × GET /fact-versions -> GET /platform-profiles`，或按 `status` 在浏览器拼资格；这会产生 waterfall、不同快照和第二套业务规则。
 
 ### 6. 必需测试
 
 - Contract/backend：冻结三字段 body、options schema/权限/空态/稳定排序/固定查询数，以及 POST 资格、幂等冲突、并发唯一和 options 过期复核。
-- Component：URL normalization、handoff、dependent Fact、Platform 保留、三字段 payload、key 生命周期、loading/empty/error、DirtyGuard、pending、字段/form error 与成功失效导航。
+- Component：URL normalization、handoff、dependent Fact、Platform 保留、三字段 payload、key 生命周期、loading/empty/error、DirtyGuard、pending、字段/form error 与 canonical Detail 导航。
 - Fixture Playwright：列表与 Product Detail 入口、direct/refresh/Back/Forward、非法/失效 handoff、精确 body/header、错误/request ID、四档宽度、键盘/焦点及未声明 API 失败。
-- Real stack：复用 Product Facts Flow A，批准事实后经真实 handoff 创建 ContentTask 并返回列表；不得新增第二套 orchestration 或进入 Task Detail。
+- Real stack：复用 Product Facts Flow A，批准事实后经真实 handoff 创建 ContentTask 并进入单一 read model Detail；断言 Product、Fact、Platform 与 `CREATE_FIRST_DRAFT`，不得新增第二套 orchestration 或进入 Editor。
 
 ### 7. Wrong vs Correct
 
@@ -307,6 +307,15 @@ await createContentTask(body, csrfToken, key);
 ```
 
 选择范围来自单一 read model；同载荷失败重试复用随机 key，POST 仍由服务端最终校验。
+
+---
+
+## Content Task Detail 的单一 Read Model 与 cache 合同
+
+- `/content/tasks/$taskId` 只使用 `contentTaskDetailQueryOptions(taskId)` 与 `contentKeys.detail(taskId)` 请求 `GET /api/v1/content-tasks/{content_task_id}/detail`；页面内部不得拼 query key，也不得请求 List、Fact、ContentVersion、GenerationJob、Review、Publication 或 GEO 接口补字段。
+- Detail response 与 `ContentTaskListItem` cache 是不同 projection，禁止互相写入或用旧 list row 覆盖 detail。窗口重新聚焦按既有 Detail 约定重新读取，不增加轮询；Generation polling 属于后续 Editor。
+- Primary/overflow 只消费响应的 `primary_task/available_actions/deletion/revision`。Content domain 内共享 action registry 与 lifecycle command；command 成功同时失效对应 detail、lists 和必要 preview，404/409 刷新 canonical projection 但不自动重放。
+- Activity 保持服务端数组顺序；null section 显示“暂无”。404、403 与 generic retry 分开处理，Dialog 必须恢复 overflow trigger 焦点。
 
 ---
 

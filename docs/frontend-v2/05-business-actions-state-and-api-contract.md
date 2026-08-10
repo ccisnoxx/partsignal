@@ -172,6 +172,12 @@ Products URL 与 API 查询参数显式映射：`q → search`、`pageSize → p
 
 Item 必填 id/identifier/product/platform/workflow_stage/primary_task/available_actions/deletion/revision/current content summary/updated_at。`current_content={id,version,source_type}|null` 只来自 `ContentTask.current_content_version_id`；`identifier` 为 `CT-` 加 UUID 前八位大写字符。列表不消费 raw statuses 推导阶段或动作。
 
+### ContentTaskDetail
+
+`GET /api/v1/content-tasks/{content_task_id}/detail` 是 `/content/tasks/$taskId` 的专用 read model；基础 `GET /content-tasks/{id}` 继续返回 command canonical `ContentTask`，不装配跨域详情。响应只包含页面需要的 compact task/product/platform/fact/current_content/generation/review/publishing/source/activity projection，不包含正文、Diff、完整 Review Context、Generation snapshot 或 Publication aggregate。
+
+投影在单个 PostgreSQL `REPEATABLE READ` 请求内以固定查询次数形成。`current_content` 只解析 `ContentTask.current_content_version_id`；latest generation、当前主线 review、publication/source 与 Activity 的选择、排序和最多十项均由服务端完成。历史平台缺失时服务端返回冻结 identity；普通任务没有真实 Query Topic、GEO source 或 repair issue 时 `source=null`，不得制造空对象。客户端只请求该 endpoint，不把 Detail 写进 ListItem cache，不用旧 list row 覆盖 Detail；command 成功或 404/409 时失效对应 detail 与 list canonical cache，不自动重放命令。
+
 ### PublicationWorkListItem
 
 至少包含 content/product/platform/account/workflow_stage/primary_task/latest event/updated_at。

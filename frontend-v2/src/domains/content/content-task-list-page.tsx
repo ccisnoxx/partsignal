@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import {
   columnFilteringFeature,
@@ -10,7 +10,7 @@ import {
   type PaginationState,
   useTable,
 } from '@tanstack/react-table';
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 
 import { ColumnHeader } from '@/design-system/data-table/column-header';
 import { EmptyTable } from '@/design-system/data-table/empty-table';
@@ -24,16 +24,6 @@ import type { ColumnRole } from '@/design-system/data-table/types';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/design-system/primitives/dialog';
-import { Input } from '@/design-system/primitives/input';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -43,17 +33,15 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/design-system/primitives/tooltip';
 import type { components } from '@/shared/api/generated/schema';
 import {
-  ContentRequestError,
-  archiveContentTask,
-  cancelContentTask,
-  contentKeys,
   contentPlatformReferencesQueryOptions,
   contentTaskListQueryOptions,
-  deleteContentTask,
-  permanentDeletionPreviewQueryOptions,
-  permanentlyDeleteContentTask,
-  restoreContentTask,
 } from './content.api';
+import {
+  resolveContentTaskOverflowActions,
+  resolveContentTaskPrimaryAction,
+  type ContentTaskAvailableAction,
+} from './content-task-actions';
+import { useContentTaskLifecycle } from './content-task-lifecycle';
 import {
   archiveStatusRegistry,
   contentWorkflowStageRegistry,
@@ -62,16 +50,11 @@ import {
   formatRelativeContentTaskTime,
   hasContentTaskFilters,
   normalizeContentTaskPageSize,
-  resolveContentTaskOverflowActions,
-  resolveContentTaskPrimaryAction,
-  type ContentTaskAvailableAction,
   type ContentTaskListItem,
   type ContentTaskWorkflowStage,
   type ContentTasksSearch,
 } from './content-task-list.model';
 
-type PermanentDeletionPreview = components['schemas']['ContentTaskPermanentDeletionPreview'];
-type PermanentDeletionCounts = components['schemas']['ContentTaskPermanentDeletionCounts'];
 type ContentColumnMeta = { role?: ColumnRole };
 
 const contentTableFeatures = tableFeatures({
@@ -81,89 +64,27 @@ const contentTableFeatures = tableFeatures({
   columnMeta: metaHelper<ContentColumnMeta>(),
 });
 
-type LifecycleVariables =
-  | { action: 'CANCEL'; task: ContentTaskListItem; comment: string }
-  | { action: 'DELETE' | 'ARCHIVE' | 'RESTORE'; task: ContentTaskListItem }
-  | {
-      action: 'PERMANENT_DELETE';
-      task: ContentTaskListItem;
-      preview: PermanentDeletionPreview;
-      confirmationText: string;
-    };
-
 type ContentTaskListPageProps = {
   csrfToken: string | null;
-  initialNotice?: string;
   onSearchChange: (search: ContentTasksSearch) => void;
   search: ContentTasksSearch;
 };
 
 function ContentTaskListPage({
   csrfToken,
-  initialNotice,
   onSearchChange,
   search,
 }: ContentTaskListPageProps) {
-  const queryClient = useQueryClient();
   const tasks = useQuery(contentTaskListQueryOptions(search));
   const platforms = useQuery(contentPlatformReferencesQueryOptions());
-  const [cancelTarget, setCancelTarget] = useState<ContentTaskListItem | null>(null);
-  const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<ContentTaskListItem | null>(
-    null,
-  );
-  const [notice, setNotice] = useState<string | null>(initialNotice ?? null);
-  const focusReturnRef = useRef<HTMLElement | null>(null);
-
-  const lifecycle = useMutation({
-    retry: false,
-    mutationFn: async (variables: LifecycleVariables) => {
-      switch (variables.action) {
-        case 'CANCEL':
-          return cancelContentTask(variables.task, variables.comment, csrfToken);
-        case 'DELETE':
-          return deleteContentTask(variables.task, csrfToken);
-        case 'ARCHIVE':
-          return archiveContentTask(variables.task, csrfToken);
-        case 'RESTORE':
-          return restoreContentTask(variables.task, csrfToken);
-        case 'PERMANENT_DELETE':
-          return permanentlyDeleteContentTask(
-            variables.task.id,
-            variables.preview,
-            variables.confirmationText,
-            csrfToken,
-          );
-        default:
-          return assertNever(variables);
-      }
-    },
-    onSuccess: async (_, variables) => {
-      setNotice(lifecycleSuccessMessage(variables.action));
-      if (variables.action === 'CANCEL') closeDialog(setCancelTarget);
-      if (variables.action === 'PERMANENT_DELETE') {
-        closeDialog(setPermanentDeleteTarget);
-      }
-      await queryClient.invalidateQueries({ queryKey: contentKeys.lists() });
-    },
-    onError: async (error, variables) => {
-      if (error instanceof ContentRequestError && (error.status === 404 || error.status === 409)) {
-        await queryClient.invalidateQueries({ queryKey: contentKeys.lists() });
-        if (variables.action === 'PERMANENT_DELETE') {
-          await queryClient.invalidateQueries({
-            queryKey: contentKeys.permanentDeletionPreview(variables.task.id),
-          });
-        }
-      }
-    },
-  });
-
   const rows = tasks.data?.items ?? [];
+  const lifecycle = useContentTaskLifecycle({
+    csrfToken,
+    resolveTask: (taskId) => rows.find((task) => task.id === taskId),
+  });
   const total = tasks.data?.total ?? 0;
   const pageCount = Math.ceil(total / search.pageSize);
   const pagination: PaginationState = { pageIndex: search.page - 1, pageSize: search.pageSize };
-  const pendingAction = lifecycle.isPending ? lifecycle.variables?.action : undefined;
-  const mutateLifecycle = lifecycle.mutate;
-  const resetLifecycle = lifecycle.reset;
 
   function changeSearch(changes: Partial<ContentTasksSearch>, resetPage = true) {
     onSearchChange({
@@ -173,37 +94,10 @@ function ContentTaskListPage({
     });
   }
 
-  const handleCommand = useCallback((
-    command: string,
-    task: ContentTaskListItem,
-    focusReturn?: HTMLElement | null,
-  ) => {
-    resetLifecycle();
-    setNotice(null);
-    switch (command) {
-      case 'cancel-content-task':
-        focusReturnRef.current = focusReturn ?? null;
-        setCancelTarget(task);
-        return;
-      case 'delete-content-task':
-        mutateLifecycle({ action: 'DELETE', task });
-        return;
-      case 'archive-content-task':
-        mutateLifecycle({ action: 'ARCHIVE', task });
-        return;
-      case 'restore-content-task':
-        mutateLifecycle({ action: 'RESTORE', task });
-        return;
-      case 'permanently-delete-content-task':
-        focusReturnRef.current = focusReturn ?? null;
-        setPermanentDeleteTarget(task);
-        return;
-      default:
-        throw new Error(`Content Tasks 收到未知页面命令：${command}`);
-    }
-  }, [mutateLifecycle, resetLifecycle]);
-
-  const columns = useContentTaskColumns({ onCommand: handleCommand, pendingAction });
+  const columns = useContentTaskColumns({
+    onCommand: lifecycle.handleCommand,
+    pendingAction: lifecycle.pendingAction,
+  });
   const table = useTable({
     features: contentTableFeatures,
     columns,
@@ -241,15 +135,15 @@ function ContentTaskListPage({
         <Link className={buttonVariants()} to="/content/tasks/new">创建内容任务</Link>
       </header>
 
-      {notice && (
+      {lifecycle.notice && (
         <div className="rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-success" role="status">
-          {notice}
+          {lifecycle.notice}
         </div>
       )}
       {lifecycle.error && (
         <div className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between" role="alert">
           <span>{errorMessage(lifecycle.error)}</span>
-          <Button onClick={() => lifecycle.reset()} size="sm" variant="outline">关闭</Button>
+          <Button onClick={lifecycle.reset} size="sm" variant="outline">关闭</Button>
         </div>
       )}
 
@@ -345,35 +239,7 @@ function ContentTaskListPage({
         />
       )}
 
-      <CancelTaskDialog
-        error={lifecycle.error}
-        finalFocus={() => resolveFocusReturn(focusReturnRef)}
-        onClose={() => closeDialog(setCancelTarget)}
-        onSubmit={(comment) => {
-          if (cancelTarget) lifecycle.mutate({ action: 'CANCEL', task: cancelTarget, comment });
-        }}
-        open={cancelTarget !== null}
-        pending={lifecycle.isPending && lifecycle.variables?.action === 'CANCEL'}
-        task={cancelTarget}
-      />
-      <PermanentDeleteTaskDialog
-        error={lifecycle.error}
-        finalFocus={() => resolveFocusReturn(focusReturnRef)}
-        onClose={() => closeDialog(setPermanentDeleteTarget)}
-        onSubmit={(preview, confirmationText) => {
-          if (permanentDeleteTarget) {
-            lifecycle.mutate({
-              action: 'PERMANENT_DELETE',
-              task: permanentDeleteTarget,
-              preview,
-              confirmationText,
-            });
-          }
-        }}
-        open={permanentDeleteTarget !== null}
-        pending={lifecycle.isPending && lifecycle.variables?.action === 'PERMANENT_DELETE'}
-        task={permanentDeleteTarget}
-      />
+      {lifecycle.dialogs}
     </section>
   );
 }
@@ -604,201 +470,8 @@ function ContentTaskRelativeTime({ value }: { value: string }) {
   );
 }
 
-function CancelTaskDialog({
-  error,
-  finalFocus,
-  onClose,
-  onSubmit,
-  open,
-  pending,
-  task,
-}: {
-  error: unknown;
-  finalFocus: () => HTMLElement | null;
-  onClose: () => void;
-  onSubmit: (comment: string) => void;
-  open: boolean;
-  pending: boolean;
-  task: ContentTaskListItem | null;
-}) {
-  const [comment, setComment] = useState('');
-  return (
-    <Dialog
-      onOpenChange={(next) => !next && !pending && onClose()}
-      onOpenChangeComplete={(next) => !next && setComment('')}
-      open={open}
-    >
-      <DialogContent finalFocus={finalFocus}>
-        <DialogHeader>
-          <DialogTitle>取消任务“{task?.identifier}”</DialogTitle>
-          <DialogDescription>取消后任务进入终态；请按实际情况填写说明。</DialogDescription>
-        </DialogHeader>
-        <label className="space-y-1 text-sm">
-          <span className="font-medium">取消说明</span>
-          <textarea
-            className="min-h-24 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            onChange={(event) => setComment(event.currentTarget.value)}
-            value={comment}
-          />
-        </label>
-        {Boolean(error) && (
-          <p className="text-sm text-destructive" role="alert">{errorMessage(error)}</p>
-        )}
-        <DialogFooter>
-          <DialogClose disabled={pending} render={<Button variant="outline" />}>返回</DialogClose>
-          <Button
-            disabled={pending}
-            onClick={() => onSubmit(comment)}
-            type="button"
-            variant="destructive"
-          >
-            {pending ? '正在取消…' : '确认取消'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-const deletionCountFields = [
-  ['content_versions', '内容版本'],
-  ['content_review_records', '内容审核记录'],
-  ['generation_jobs', '生成作业'],
-  ['publication_works', '发布工作'],
-  ['publication_events', '发布事件'],
-  ['publication_verifications', '发布核验'],
-  ['published_articles', '发布成果'],
-  ['published_content_issues', '内容问题'],
-  ['geo_article_relations', 'GEO 文章关系'],
-  ['exclusive_geo_observation_chains', '独占 GEO 观测链'],
-  ['attachment_relations', '附件关系'],
-] as const satisfies readonly [keyof PermanentDeletionCounts, string][];
-
-function PermanentDeleteTaskDialog({
-  error,
-  finalFocus,
-  onClose,
-  onSubmit,
-  open,
-  pending,
-  task,
-}: {
-  error: unknown;
-  finalFocus: () => HTMLElement | null;
-  onClose: () => void;
-  onSubmit: (preview: PermanentDeletionPreview, confirmationText: string) => void;
-  open: boolean;
-  pending: boolean;
-  task: ContentTaskListItem | null;
-}) {
-  const [confirmationText, setConfirmationText] = useState('');
-  const preview = useQuery({
-    ...permanentDeletionPreviewQueryOptions(task?.id ?? 'closed'),
-    enabled: open && task !== null,
-  });
-  return (
-    <Dialog
-      onOpenChange={(next) => !next && !pending && onClose()}
-      onOpenChangeComplete={(next) => !next && setConfirmationText('')}
-      open={open}
-    >
-      <DialogContent className="sm:max-w-lg" finalFocus={finalFocus}>
-        <DialogHeader>
-          <DialogTitle>永久删除任务“{task?.identifier}”</DialogTitle>
-          <DialogDescription>
-            服务端会在执行时重新计算以下范围；外部页面不会被删除。
-          </DialogDescription>
-        </DialogHeader>
-        {preview.isPending ? (
-          <p role="status">正在读取实时删除范围…</p>
-        ) : preview.error ? (
-          <div className="space-y-2" role="alert">
-            <p className="text-destructive">{errorMessage(preview.error)}</p>
-            <Button onClick={() => void preview.refetch()} variant="outline">重试</Button>
-          </div>
-        ) : preview.data ? (
-          <>
-            <dl className="grid max-h-48 grid-cols-2 gap-x-4 gap-y-1 overflow-y-auto rounded-lg border p-3">
-              {deletionCountFields.map(([field, label]) => (
-                <div className="contents" key={field}>
-                  <dt className="text-text-secondary">{label}</dt>
-                  <dd className="text-right font-mono">{preview.data.counts[field]}</dd>
-                </div>
-              ))}
-            </dl>
-            <div className="space-y-1">
-              <p className="font-medium">登记的外部 URL</p>
-              {preview.data.external_urls.length > 0 ? (
-                <ul className="max-h-24 list-disc overflow-y-auto pl-5 text-xs text-text-secondary">
-                  {preview.data.external_urls.map((url) => <li key={url}>{url}</li>)}
-                </ul>
-              ) : <p className="text-xs text-text-muted">无外部登记 URL</p>}
-            </div>
-            <label className="space-y-1 text-sm">
-              <span className="font-medium">
-                输入“{preview.data.confirmation_text}”确认永久删除
-              </span>
-              <Input
-                autoComplete="off"
-                onChange={(event) => setConfirmationText(event.currentTarget.value)}
-                value={confirmationText}
-              />
-            </label>
-          </>
-        ) : null}
-        {Boolean(error) && (
-          <p className="text-sm text-destructive" role="alert">{errorMessage(error)}</p>
-        )}
-        <DialogFooter>
-          <DialogClose disabled={pending} render={<Button variant="outline" />}>返回</DialogClose>
-          <Button
-            disabled={
-              pending
-              || !preview.data
-              || confirmationText !== preview.data.confirmation_text
-            }
-            onClick={() => preview.data && onSubmit(preview.data, confirmationText)}
-            type="button"
-            variant="destructive"
-          >
-            {pending ? '正在永久删除…' : '永久删除'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function lifecycleSuccessMessage(action: LifecycleVariables['action']) {
-  switch (action) {
-    case 'CANCEL': return '内容任务已取消。';
-    case 'DELETE': return '内容任务已删除。';
-    case 'ARCHIVE': return '内容任务已归档。';
-    case 'RESTORE': return '内容任务已恢复。';
-    case 'PERMANENT_DELETE': return '内容任务已永久删除。';
-    default: return assertNever(action);
-  }
-}
-
-function closeDialog<T>(setter: (value: T | null) => void) {
-  setter(null);
-}
-
-function resolveFocusReturn(focusReturnRef: { current: HTMLElement | null }) {
-  const previous = focusReturnRef.current;
-  if (!previous || previous.isConnected) return previous;
-  const label = previous.getAttribute('aria-label');
-  if (!label) return null;
-  return Array.from(document.querySelectorAll<HTMLElement>('[aria-label]'))
-    .find((element) => element.getAttribute('aria-label') === label) ?? null;
-}
-
-function errorMessage(error: unknown): ReactNode {
+function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
-}
-
-function assertNever(value: never): never {
-  throw new Error(`Content Tasks 收到未处理值：${String(value)}`);
 }
 
 export { ContentTaskListPage };

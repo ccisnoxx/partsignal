@@ -124,6 +124,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Lifecycle ownership**：普通 DELETE 补齐必填 `expected_revision` 并在行锁内复核；CANCEL/ARCHIVE/RESTORE/PERMANENT_DELETE 继续使用各自既有 command/preview 合同。V2 只按 `primary_task/available_actions/deletion` 呈现入口，409 刷新 projection 但不自动重放。
 
+## ADR-025：Content Task Detail 使用独立 snapshot read model
+
+**Decision**：`/content/tasks/$taskId` 只消费 `GET /api/v1/content-tasks/{content_task_id}/detail`。服务端在单个 PostgreSQL `REPEATABLE READ` 请求内以固定次数装配 compact task、锁定上下文、当前主线、生成、审核、发布、真实来源与最近十项 typed Activity；前端不跨域 join、不选择“最新”版本，也不重排 Activity。
+
+**Boundary**：基础 `ContentTask` 保持 command canonical response，不承载跨域详情；Detail response 也不包含正文、Diff、完整 Review Context、Generation snapshot 或 Publication Workspace。`current_content` 严格来自 `current_content_version_id`，历史平台 fallback 与 source 是否存在由服务端决定。
+
+**UI ownership**：Primary/overflow 只消费服务端 `primary_task/available_actions/deletion/revision`。List 与 Detail 仅在 Content domain 内共享最小 action/lifecycle 边界；不创建 design-system 业务组件、通用 aggregate framework 或 workflow engine。后续页面只使用已确定 canonical link，本期不创建占位页面。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

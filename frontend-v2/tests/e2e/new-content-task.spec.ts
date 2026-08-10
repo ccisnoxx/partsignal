@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import {
+  createdTaskId,
   creationFactId,
   creationProductId,
   expect,
@@ -69,6 +70,7 @@ test('productId direct/refresh/Back/Forward 恢复，非法、不存在、停用
 
   await choose(page, '产品', 'PartSignal · PS-CREATE-002');
   await expect(page).toHaveURL(`/content/tasks/new?productId=${secondCreationProductId}`);
+  await expect(page.getByRole('status')).toContainText('PS-CREATE-002');
   await expect(page.getByRole('combobox', { name: '产品' })).toContainText('PS-CREATE-002');
   await page.goBack();
   await expect(page).toHaveURL(`/content/tasks/new?productId=${creationProductId}`);
@@ -114,9 +116,8 @@ test('Product 只显示所属 approved facts，换 Product 清除旧事实，Pla
   await expect(page.getByRole('option', { name: '开发者问答' })).toBeVisible();
 });
 
-test('POST 发送精确 ContentTaskCreate 与稳定 Idempotency-Key，pending 防重，成功回列表重新获取', async ({ page, contentApi }) => {
+test('POST 发送精确 ContentTaskCreate 与稳定 Idempotency-Key，pending 防重，成功进入 canonical Detail', async ({ page, contentApi }) => {
   await page.goto(listUrl);
-  const listRequestsBefore = contentApi.listRequests.length;
   await page.getByRole('link', { name: '创建内容任务', exact: true }).click();
   await choose(page, '产品', 'PartSignal · PS-CREATE-001');
   await fillCreationForm(page);
@@ -139,10 +140,10 @@ test('POST 发送精确 ContentTaskCreate 与稳定 Idempotency-Key，pending �
   await expect(page.getByRole('combobox', { name: '产品' })).toBeDisabled();
 
   contentApi.releaseCreate();
-  await expect(page).toHaveURL(listUrl);
-  await expect(page.getByRole('status')).toContainText('内容任务已创建');
-  await expect(page.getByRole('link', { name: 'PS-CREATE-001' })).toBeVisible();
-  await expect.poll(() => contentApi.listRequests.length).toBeGreaterThan(listRequestsBefore);
+  await expect(page).toHaveURL(`/content/tasks/${createdTaskId}`);
+  await expect(page.getByRole('heading', { level: 1, name: 'CT-00000000' })).toBeVisible();
+  expect(contentApi.detailRequests.at(-1)?.pathname)
+    .toBe(`/api/v1/content-tasks/${createdTaskId}/detail`);
   await expect(page.getByRole('dialog', { name: '要离开当前页面吗？' })).toHaveCount(0);
 });
 
@@ -178,7 +179,7 @@ test('失败保留选择与同键重试，字段错误、403/404/409 与 IDEMPOT
     .toContainText('req-content-idempotency');
   contentApi.setCreateMode('success');
   await page.getByRole('button', { name: '创建', exact: true }).click();
-  await expect(page).toHaveURL(listUrl);
+  await expect(page).toHaveURL(`/content/tasks/${createdTaskId}`);
   expect(contentApi.createRequests.at(-1)?.idempotencyKey).not.toBe(retryKey);
 });
 

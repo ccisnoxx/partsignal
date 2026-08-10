@@ -148,11 +148,13 @@ Pattern：Form。当前 `ContentTaskCreate` 的权威字段只有 Product、Appr
 
 页面以 `GET /content-tasks/creation-options` 一次读取活动 Product 及其非空 `APPROVED` FactVersion、活动 PlatformProfile；Product 改变时清除旧 FactVersion。`productId` handoff 保留在 URL，并由服务端返回明确的合格、不存在、停用或无批准事实状态；不合格时不得静默改选。
 
-创建使用稳定 `Idempotency-Key` 调用既有 `POST /content-tasks`。服务端仍在事务锁内重新校验三项资格；平台缺 Prompt 不阻止任务创建。成功后刷新 Content Task List、清除 DirtyGuard、返回 `/content/tasks` 并显示可验证反馈；Task Detail 实现前不导航到详情占位页。
+创建使用稳定 `Idempotency-Key` 调用既有 `POST /content-tasks`。服务端仍在事务锁内重新校验三项资格；平台缺 Prompt 不阻止任务创建。成功后采用响应中的 canonical `ContentTask.id`，失效 Content Task List、清除 DirtyGuard 与幂等键，并进入 `/content/tasks/$taskId`；不得通过列表搜索新任务 ID。
 
 ## 4.3 `/content/tasks/$taskId`
 
-Pattern：Detail / Workspace Shell。展示 Product、Target Platform、Current Fact Version、Current Content Version、Generation Job、Review、Publishing、Timeline、Source GEO context。Primary Action 始终消费服务端 `primary_task`。
+Pattern：Detail / Workspace Shell。页面只消费 `GET /api/v1/content-tasks/{content_task_id}/detail`，一次展示 Task identity、锁定的 Product/Fact/Platform、严格由 `current_content_version_id` 解析的 Current Content、最近相关 Generation Job、当前主线 Review、Publishing、真实 Source Context 与服务端已排序的最近十项 Activity。空摘要明确显示“暂无”。
+
+专用 read model 在单个 PostgreSQL `REPEATABLE READ` 请求中形成一致 snapshot，并以固定次数批量查询完成；浏览器不得请求 Task List、FactVersion、ContentVersion、GenerationJob、Review、Publication 或 GEO 接口自行 join，也不得重排 Activity。Primary Action 始终消费服务端 `primary_task`；后续 Editor/Review/Publication 页面未实现时只生成 routing blueprint 已确定的 canonical link，不在 Detail 内复制工作流或创建占位成功页。生命周期 overflow 复用 Content domain 的 CANCEL/DELETE/ARCHIVE/RESTORE/PERMANENT_DELETE command、revision conflict、deletion blockers、request ID 与 Dialog focus return。
 
 ## 4.4 `/content/tasks/$taskId/editor`
 

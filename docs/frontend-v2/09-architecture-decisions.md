@@ -134,11 +134,13 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 ## ADR-026：Content Editor 拆分同步 Core 与异步 AI Production
 
-**Decision**：Phase 3.4 不合并为一个超大 Task。Core 只交付 Task 路由的同步人工编辑闭环；AI generation、progress/failure、exact snapshot retry 与 humanization 进入后续 `frontend-v2-content-ai-production`。两者共享既有 Content/Generation 合同与服务端 action token，不共享新的前端 workflow framework。
+**Decision**：Phase 3.4 不合并为一个超大 Task。Core 先交付 Task 路由的同步人工编辑闭环；`frontend-v2-content-ai-production` 再在同一 Editor surface 交付 AI generation、progress/failure、exact snapshot retry 与 humanization。两者共享既有 Content/Generation 合同与服务端 action token，不共享新的前端 workflow framework。
 
-**Editor snapshot**：Core 首屏只消费 `GET /api/v1/content-tasks/{content_task_id}/editor-context`。服务端在 `REPEATABLE READ` 中按 `current_content_version_id` 装配当前 ContentVersion、锁定 Fact Markdown、服务端 Diff、quality issues、compact generation/lineage/source；不返回完整 Review/Publication Context、全部版本或全部作业历史。AI options 与 exact snapshot 只在后续用户触发时读取。
+**Editor snapshot**：首屏只消费 `GET /api/v1/content-tasks/{content_task_id}/editor-context`。服务端在 `REPEATABLE READ` 中按 `current_content_version_id` 装配当前 ContentVersion、锁定 Fact Markdown、服务端 Diff、quality issues、compact generation/lineage/source；不返回完整 Review/Publication Context、全部版本或全部作业历史。AI options 与 exact snapshot 只在用户触发时读取；summary polling 仅在 tracked job 为 `PENDING/RUNNING` 时运行，terminal 后停止并重新读取 Editor Context。
 
 **Mutation ownership**：页面仅显示 Editor surface 的服务端 action token。Manual/revision 创建新 HUMAN DRAFT；SAVE 只更新当前可变 HUMAN DRAFT；SUBMIT_REVIEW 要求表单已保存；DELETE 与 ABANDON 保持不同语义。AI DRAFT、CHANGES_REQUESTED、审核中和已批准版本不可原地编辑，客户端不按 version/created_at 选择主线或恢复父版本。
+
+**AI command ownership**：generation/retry/humanization 使用各自稳定 `Idempotency-Key`；Prompt/model 由用户明确确认，但 generation snapshot 只由服务端冻结。retry 只提交原 job ID，服务端验证它仍是任务实际 latest job 并精确复制 snapshot。Humanization 创建新 GenerationJob 与 based-on ContentVersion，不修改源版本。
 
 ## 后续建议 ADR
 

@@ -182,7 +182,9 @@ Item 必填 id/identifier/product/platform/workflow_stage/primary_task/available
 
 `GET /api/v1/content-tasks/{content_task_id}/editor-context` 是 `/content/tasks/$taskId/editor` 的首屏一致读模型。一次返回 compact task/product/platform、锁定且不可变的 FactVersion Markdown、由 `current_content_version_id` 唯一定位的完整当前 ContentVersion、服务端选择的比较基线与 `ContentDiff`、最近 generation 摘要、当前主线的 compact AI lineage 和真实 source；当前指针为空时 `current_content/comparison_content/diff/current_lineage` 均为 `null`，指针无效时显式返回冲突错误。
 
-该 endpoint 在单个 PostgreSQL `REPEATABLE READ` 请求内以固定查询次数形成，不包含完整 Review/Publication Context、全部版本历史、全部 GenerationJob 历史或完整 generation snapshot。generation-options、exact job snapshot/retry、humanization options 与 destructive preview 仍按用户触发单独请求；其中 AI Production 属于后续 Task，Core 页面不提前请求或呈现这些能力。
+该 endpoint 在单个 PostgreSQL `REPEATABLE READ` 请求内以固定查询次数形成，不包含完整 Review/Publication Context、全部版本历史、全部 GenerationJob 历史或完整 generation snapshot。generation-options、exact job snapshot/retry、humanization options 与 destructive preview 仍按用户触发单独请求。
+
+AI Production 只消费 `CREATE_GENERATION_JOB`、`CREATE_HUMANIZATION_JOB` 与 GenerationJob 的 `RETRY` token。`GET /generation-options` 只在确认 Dialog 打开后读取，Prompt revision 和 model 不设浏览器默认值；create/retry/humanization 的同一命令重试复用稳定 `Idempotency-Key`。浏览器不拼装 snapshot，只对已提交或 Editor Context 指向的 `PENDING/RUNNING` job 轮询窄 `GenerationJobList`；观察到 terminal 后停止轮询并失效 Editor Context，当前内容仍只采用服务端 `current_content_version_id`。完整 `GenerationJobDetail.input_snapshot` 只在用户查看时读取，retry 只发送原 job ID。服务端只允许实际 latest job retry，并原样复制其 `input_snapshot`；humanization 创建新 GenerationJob 和基于源版本的新 ContentVersion，源版本不可变。
 
 Editor 只消费 task/version 的 `primary_task` 与 `available_actions`。人工首稿和修订发送完整 `ContentRevisionCreate`（含 `change_summary`）；当前可编辑 HUMAN DRAFT 保存发送 `ContentDraftUpdate`（含 `expected_revision`，不含 `change_summary`）；提交审核发送 canonical revision 的 `CommandRequest`。409 保留本地表单，只允许用户显式重新加载，禁止自动覆盖、合并或重放。
 

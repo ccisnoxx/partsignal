@@ -17,6 +17,12 @@ type ContentRevisionCreate = components['schemas']['ContentRevisionCreate'];
 type ContentDraftUpdate = components['schemas']['ContentDraftUpdate'];
 type ContentVersion = components['schemas']['ContentVersion'];
 type CommandRequest = components['schemas']['CommandRequest'];
+type GenerationJob = components['schemas']['GenerationJob'];
+type GenerationJobDetail = components['schemas']['GenerationJobDetail'];
+type GenerationJobList = components['schemas']['GenerationJobList'];
+type GenerationOptions = components['schemas']['GenerationOptions'];
+type HumanizationJobCreate = components['schemas']['HumanizationJobCreate'];
+type OriginalGenerationJobCreate = components['schemas']['OriginalGenerationJobCreate'];
 type ContentTaskCommandTarget = Pick<ContentTask, 'id' | 'revision'>;
 type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
@@ -42,6 +48,13 @@ const contentKeys = {
   editorContext: (taskId: string) => (
     ['content', 'tasks', 'editor-context', taskId] as const
   ),
+  generationOptions: (taskId: string) => (
+    ['content', 'tasks', taskId, 'generation-options'] as const
+  ),
+  generationJobs: (taskId: string) => (
+    ['content', 'tasks', taskId, 'generation-jobs'] as const
+  ),
+  generationJob: (jobId: string) => ['content', 'generation-jobs', jobId] as const,
   platformReferences: () => ['content', 'tasks', 'platform-references'] as const,
   permanentDeletionPreview: (taskId: string) => (
     ['content', 'tasks', taskId, 'permanent-deletion-preview'] as const
@@ -50,6 +63,114 @@ const contentKeys = {
     ['content', 'tasks', 'creation-options', requestedProductId ?? null] as const
   ),
 };
+
+function generationOptionsQueryOptions(taskId: string) {
+  return queryOptions({
+    queryKey: contentKeys.generationOptions(taskId),
+    queryFn: async (): Promise<GenerationOptions> => {
+      const result = await api.GET(
+        '/api/v1/content-tasks/{content_task_id}/generation-options',
+        { params: { path: { content_task_id: taskId } } },
+      );
+      if (!result.data) throw contentRequestError('读取 AI 生成选项', result);
+      return result.data;
+    },
+    retry: false,
+    staleTime: 0,
+  });
+}
+
+function generationJobsQueryOptions(taskId: string, trackedJobId: string | null) {
+  return queryOptions({
+    enabled: trackedJobId !== null,
+    queryKey: contentKeys.generationJobs(taskId),
+    queryFn: async (): Promise<GenerationJobList> => {
+      const result = await api.GET(
+        '/api/v1/content-tasks/{content_task_id}/generation-jobs',
+        { params: { path: { content_task_id: taskId } } },
+      );
+      if (!result.data) throw contentRequestError('读取生成作业', result);
+      return result.data;
+    },
+    refetchInterval: (query) => {
+      const tracked = query.state.data?.items.find((job) => job.id === trackedJobId);
+      return tracked?.status === 'PENDING' || tracked?.status === 'RUNNING' ? 2_000 : false;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    staleTime: 0,
+  });
+}
+
+function generationJobDetailQueryOptions(jobId: string) {
+  return queryOptions({
+    queryKey: contentKeys.generationJob(jobId),
+    queryFn: async (): Promise<GenerationJobDetail> => {
+      const result = await api.GET('/api/v1/generation-jobs/{generation_job_id}', {
+        params: { path: { generation_job_id: jobId } },
+      });
+      if (!result.data) throw contentRequestError('读取完整生成作业快照', result);
+      return result.data;
+    },
+    retry: false,
+    staleTime: 0,
+  });
+}
+
+async function createGenerationJob(
+  taskId: string,
+  body: OriginalGenerationJobCreate,
+  csrfToken: string | null,
+  idempotencyKey: string,
+): Promise<GenerationJob> {
+  const token = requireCsrfToken(csrfToken, '创建生成作业');
+  const result = await api.POST('/api/v1/content-tasks/{content_task_id}/generation-jobs', {
+    body,
+    params: {
+      path: { content_task_id: taskId },
+      header: { 'X-CSRF-Token': token, 'Idempotency-Key': idempotencyKey },
+    },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError('创建生成作业', result);
+}
+
+async function createHumanizationJob(
+  versionId: string,
+  body: HumanizationJobCreate,
+  csrfToken: string | null,
+  idempotencyKey: string,
+): Promise<GenerationJob> {
+  const token = requireCsrfToken(csrfToken, '创建自然化作业');
+  const result = await api.POST(
+    '/api/v1/content-versions/{content_version_id}/humanization-jobs',
+    {
+      body,
+      params: {
+        path: { content_version_id: versionId },
+        header: { 'X-CSRF-Token': token, 'Idempotency-Key': idempotencyKey },
+      },
+    },
+  );
+  if (result.data) return result.data;
+  throw contentRequestError('创建自然化作业', result);
+}
+
+async function retryGenerationJob(
+  jobId: string,
+  csrfToken: string | null,
+  idempotencyKey: string,
+): Promise<GenerationJob> {
+  const token = requireCsrfToken(csrfToken, '重试生成作业');
+  const result = await api.POST('/api/v1/generation-jobs/{generation_job_id}/retry', {
+    params: {
+      path: { generation_job_id: jobId },
+      header: { 'X-CSRF-Token': token, 'Idempotency-Key': idempotencyKey },
+    },
+  });
+  if (result.data) return result.data;
+  throw contentRequestError('重试生成作业', result);
+}
 
 function contentEditorContextQueryOptions(taskId: string) {
   return queryOptions({
@@ -472,13 +593,19 @@ export {
   contentTaskListQueryOptions,
   createContentTask,
   createContentRevision,
+  createGenerationJob,
+  createHumanizationJob,
   createManualContentVersion,
   deleteContentDraft,
   deleteContentTask,
   permanentDeletionPreviewQueryOptions,
   permanentlyDeleteContentTask,
+  generationJobDetailQueryOptions,
+  generationJobsQueryOptions,
+  generationOptionsQueryOptions,
   mapContentTaskCreateError,
   restoreContentTask,
+  retryGenerationJob,
   submitContentVersion,
   abandonContentVersion,
   updateContentDraft,

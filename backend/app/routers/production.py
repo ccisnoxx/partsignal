@@ -6,7 +6,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Header, Query, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.deps import (
     CsrfProtected,
@@ -91,9 +91,28 @@ def generation_jobs_out(db: DbSession, jobs: list[GenerationJob]) -> list[Genera
         task.id: task
         for task in db.scalars(select(ContentTask).where(ContentTask.id.in_(task_ids)))
     }
-    latest_by_task: dict[uuid.UUID, uuid.UUID] = {}
-    for job in sorted(jobs, key=lambda item: (item.created_at, item.id), reverse=True):
-        latest_by_task.setdefault(job.content_task_id, job.id)
+    ranked_jobs = (
+        select(
+            GenerationJob.id,
+            GenerationJob.content_task_id,
+            func.row_number()
+            .over(
+                partition_by=GenerationJob.content_task_id,
+                order_by=(GenerationJob.created_at.desc(), GenerationJob.id.desc()),
+            )
+            .label("position"),
+        )
+        .where(GenerationJob.content_task_id.in_(task_ids))
+        .subquery()
+    )
+    latest_by_task = {
+        task_id: job_id
+        for job_id, task_id in db.execute(
+            select(ranked_jobs.c.id, ranked_jobs.c.content_task_id).where(
+                ranked_jobs.c.position == 1
+            )
+        ).tuples()
+    }
     items: list[GenerationJobOut] = []
     for job in jobs:
         retryable = bool(
@@ -253,7 +272,7 @@ def list_generation_jobs(
         db.scalars(
             select(GenerationJob)
             .where(GenerationJob.content_task_id == content_task_id)
-            .order_by(GenerationJob.created_at.desc())
+            .order_by(GenerationJob.created_at.desc(), GenerationJob.id.desc())
         )
     )
     return GenerationJobList(items=generation_jobs_out(db, jobs))

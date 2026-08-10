@@ -14,6 +14,11 @@ type ContentRevisionCreate = components['schemas']['ContentRevisionCreate'];
 type ContentDraftUpdate = components['schemas']['ContentDraftUpdate'];
 type CommandRequest = components['schemas']['CommandRequest'];
 type CreationOptions = components['schemas']['ContentTaskCreationOptions'];
+type GenerationJob = components['schemas']['GenerationJob'];
+type GenerationJobDetail = components['schemas']['GenerationJobDetail'];
+type GenerationOptions = components['schemas']['GenerationOptions'];
+type HumanizationJobCreate = components['schemas']['HumanizationJobCreate'];
+type OriginalGenerationJobCreate = components['schemas']['OriginalGenerationJobCreate'];
 type ProductDetail = components['schemas']['ProductDetail'];
 type ContentTaskListMode = 'success' | 'empty' | 'error' | 'loading';
 type MutationMode = 'success' | 'revision-conflict';
@@ -30,6 +35,7 @@ type CreateMode =
 type DetailMode = 'success' | 'empty' | 'cancelled' | 'error' | 'loading' | 'not-found' | 'forbidden';
 type EditorMode = 'no-current' | 'human-draft' | 'ai-draft' | 'changes-requested' | 'review-pending';
 type EditorMutationMode = 'success' | 'revision-conflict';
+type AiOutcome = 'success' | 'failure';
 type LifecycleBody =
   | components['schemas']['CommandRequest']
   | components['schemas']['RevisionRequest']
@@ -76,7 +82,16 @@ type EditorDeleteRequest = {
   expectedRevision: number | null;
 };
 
+type AiJobRequest = {
+  body: HumanizationJobCreate | OriginalGenerationJobCreate | null;
+  csrfToken: string | null;
+  idempotencyKey: string | null;
+  kind: 'generate' | 'humanize' | 'retry';
+  targetId: string;
+};
+
 type ContentApiController = {
+  aiJobRequests: AiJobRequest[];
   createRequests: CreateRequest[];
   creationOptionsRequests: URL[];
   detailRequests: URL[];
@@ -85,6 +100,9 @@ type ContentApiController = {
   editorDeleteRequests: EditorDeleteRequest[];
   editorRevisionRequests: EditorRevisionRequest[];
   editorSaveRequests: EditorSaveRequest[];
+  generationJobDetailRequests: URL[];
+  generationJobListRequests: URL[];
+  generationOptionsRequests: URL[];
   listRequests: URL[];
   lifecycleRequests: LifecycleRequest[];
   releaseCreate: () => void;
@@ -98,6 +116,7 @@ type ContentApiController = {
   setEditorMutationMode: (mode: EditorMutationMode) => void;
   setListMode: (mode: ContentTaskListMode) => void;
   setMutationMode: (mode: MutationMode) => void;
+  setAiOutcome: (outcome: AiOutcome) => void;
 };
 
 type ContentFixtures = { contentApi: ContentApiController };
@@ -114,6 +133,12 @@ const createdTaskId = '00000000-0000-4000-8000-999999999998';
 const editorTaskId = '00000000-0000-4000-8000-000000000002';
 const editorContentId = '30000000-0000-4000-8000-000000000002';
 const editorPreviousContentId = '30000000-0000-4000-8000-000000000102';
+const generationJobId = '40000000-0000-4000-8000-000000000201';
+const retryJobId = '40000000-0000-4000-8000-000000000202';
+const humanizationJobId = '40000000-0000-4000-8000-000000000203';
+const generationModelId = '80000000-0000-4000-8000-000000000201';
+const generationChannelId = '80000000-0000-4000-8000-000000000202';
+const generationPromptId = '80000000-0000-4000-8000-000000000203';
 
 const user = {
   id: '00000000-0000-4000-8000-000000000099',
@@ -181,6 +206,25 @@ const creationOptions = {
   ],
   requested_product: null,
 } satisfies CreationOptions;
+
+const generationOptions = {
+  platform_profile_id: platformId,
+  platform_profile_name: platform.name,
+  platform_prompt: {
+    id: generationPromptId,
+    name: 'Fixture Content Prompt',
+    revision: 4,
+    template_markdown: '# Fixture Prompt\n\n只能使用已批准事实。',
+  },
+  humanization_prompt_configured: true,
+  models: [{
+    id: generationModelId,
+    channel_id: generationChannelId,
+    channel_name: 'Fixture Channel',
+    display_name: 'Fixture Model',
+    model_id: 'fixture-model',
+  }],
+} satisfies GenerationOptions;
 
 const productDetail = {
   product: {
@@ -503,7 +547,9 @@ function contentEditorContext(item: ContentTaskListItem, mode: EditorMode): Cont
           : changesRequested
             ? 'REVISE_CONTENT'
             : 'EDIT_AND_SUBMIT_REVIEW',
-      available_actions: noCurrent ? ['CREATE_MANUAL_VERSION', 'CANCEL'] : ['CANCEL'],
+      available_actions: noCurrent
+        ? ['CREATE_GENERATION_JOB', 'CREATE_MANUAL_VERSION', 'CANCEL']
+        : ['CANCEL'],
       deletion: item.deletion,
       revision: item.revision,
       created_by: item.created_by,
@@ -596,6 +642,111 @@ function createdHumanEditorVersion(
   };
 }
 
+function generationJob(overrides: Partial<GenerationJob> = {}): GenerationJob {
+  return {
+    id: generationJobId,
+    content_task_id: editorTaskId,
+    job_type: 'GENERATE',
+    source_content_version_id: null,
+    status: 'PENDING',
+    workflow_stage: 'IN_PROGRESS',
+    primary_task: 'VIEW_EXECUTION_PROGRESS',
+    available_actions: [],
+    attempt_count: 0,
+    content_version_id: null,
+    retry_of_id: null,
+    error_code: null,
+    error_summary: null,
+    provider_request_id: null,
+    response_duration_ms: null,
+    prompt_tokens: null,
+    completion_tokens: null,
+    total_tokens: null,
+    created_at: '2026-08-10T12:00:00Z',
+    started_at: null,
+    finished_at: null,
+    ...overrides,
+  };
+}
+
+function generationJobDetail(job: GenerationJob): GenerationJobDetail {
+  return {
+    ...job,
+    input_snapshot: {
+      adapter_name: 'openai-compatible-chat-completions',
+      contract_version: 'content-markdown-v3',
+      channel: { id: generationChannelId, timeout_seconds: 10 },
+      model: {
+        id: generationModelId,
+        model_id: 'fixture-model',
+        request_parameters: {},
+      },
+      platform_profile: { id: platformId, name: platform.name, slug: platform.slug },
+      platform_prompt: {
+        id: generationPromptId,
+        name: generationOptions.platform_prompt.name,
+        revision: generationOptions.platform_prompt.revision,
+      },
+      fact_version: {
+        id: '20000000-0000-4000-8000-000000000002',
+        product_id: '10000000-0000-4000-8000-000000000002',
+        version: 3,
+        classification: 'PUBLIC',
+      },
+      system_message: generationOptions.platform_prompt.template_markdown,
+      user_message: '## 锁定事实\n\n- 工作电压：3.3 V',
+    },
+  };
+}
+
+function completedAiVersion(
+  context: ContentEditorContext,
+  job: GenerationJob,
+): ContentVersion {
+  const source = context.current_content;
+  return {
+    id: job.content_version_id ?? '30000000-0000-4000-8000-000000000302',
+    task_id: context.task.id,
+    fact_version_id: context.locked_fact_version.id,
+    source_job_id: job.id,
+    based_on_id: job.job_type === 'HUMANIZE' ? source?.id ?? null : null,
+    version: (source?.version ?? 0) + 1,
+    source_type: 'AI',
+    title: job.job_type === 'HUMANIZE' ? '自然化后的 AI 草稿' : 'AI 生成首稿',
+    summary: '由 fixture Worker 生成的内容摘要',
+    body_markdown: '# AI 正文\n\n工作电压为 3.3 V。',
+    tags: ['AI', '选型'],
+    content_hash: 'c'.repeat(64),
+    status: 'DRAFT',
+    workflow_stage: 'CURRENT_DRAFT',
+    primary_task: 'EDIT_AND_SUBMIT_REVIEW',
+    available_actions: [
+      'CREATE_REVISION',
+      'CREATE_HUMANIZATION_JOB',
+      'SUBMIT_REVIEW',
+      'ABANDON',
+    ],
+    revision: 0,
+    quality_issues: [],
+    created_by: user.id,
+    created_at: '2026-08-10T12:00:02Z',
+  };
+}
+
+function compactGeneration(job: GenerationJob): NonNullable<ContentEditorContext['latest_generation']> {
+  return {
+    id: job.id,
+    job_type: job.job_type,
+    status: job.status,
+    attempt_count: job.attempt_count,
+    error_code: job.error_code ?? null,
+    error_summary: job.error_summary ?? null,
+    created_at: job.created_at,
+    started_at: job.started_at ?? null,
+    finished_at: job.finished_at ?? null,
+  };
+}
+
 function errorEnvelope(
   code: string,
   message: string,
@@ -617,6 +768,9 @@ const test = base.extend<ContentFixtures>({
     let detailMode: DetailMode = 'success';
     let editorMode: EditorMode = 'human-draft';
     let editorMutationMode: EditorMutationMode = 'success';
+    let aiOutcome: AiOutcome = 'success';
+    let generationJobPolls = 0;
+    let generationJobs: GenerationJob[] = [];
     let editorContextState = contentEditorContext(
       items.find((item) => item.id === editorTaskId) ?? items[1],
       editorMode,
@@ -633,6 +787,10 @@ const test = base.extend<ContentFixtures>({
     const editorRevisionRequests: EditorRevisionRequest[] = [];
     const editorSaveRequests: EditorSaveRequest[] = [];
     const editorCommandRequests: EditorCommandRequest[] = [];
+    const aiJobRequests: AiJobRequest[] = [];
+    const generationJobDetailRequests: URL[] = [];
+    const generationJobListRequests: URL[] = [];
+    const generationOptionsRequests: URL[] = [];
     const listRequests: URL[] = [];
     const lifecycleRequests: LifecycleRequest[] = [];
     const unexpectedRequests: string[] = [];
@@ -786,6 +944,164 @@ const test = base.extend<ContentFixtures>({
             total: filtered.length,
           } satisfies components['schemas']['ContentTaskList'],
         });
+        return;
+      }
+      const generationOptionsMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/generation-options$/);
+      if (method === 'GET' && generationOptionsMatch) {
+        generationOptionsRequests.push(url);
+        await route.fulfill({ status: 200, json: generationOptions });
+        return;
+      }
+      const generationJobsMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/generation-jobs$/);
+      if (method === 'POST' && generationJobsMatch) {
+        const body = request.postDataJSON() as OriginalGenerationJobCreate;
+        aiJobRequests.push({
+          body,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+          idempotencyKey: request.headers()['idempotency-key'] ?? null,
+          kind: 'generate',
+          targetId: generationJobsMatch[1],
+        });
+        const created = generationJob({ id: generationJobId });
+        generationJobs = [created];
+        generationJobPolls = 0;
+        editorContextState = {
+          ...editorContextState,
+          task: {
+            ...editorContextState.task,
+            workflow_stage: 'GENERATING',
+            primary_task: 'VIEW_GENERATION_PROGRESS',
+            available_actions: ['CREATE_MANUAL_VERSION', 'CANCEL'],
+          },
+          latest_generation: compactGeneration(created),
+        };
+        await route.fulfill({ status: 202, json: created });
+        return;
+      }
+      if (method === 'GET' && generationJobsMatch) {
+        generationJobListRequests.push(url);
+        const latest = generationJobs[0];
+        if (latest && (latest.status === 'PENDING' || latest.status === 'RUNNING')) {
+          generationJobPolls += 1;
+          if (generationJobPolls >= 2) {
+            const succeeded = aiOutcome === 'success';
+            const terminal = generationJob({
+              ...latest,
+              status: succeeded ? 'SUCCEEDED' : 'FAILED',
+              workflow_stage: succeeded ? 'SUCCEEDED' : 'RETRYABLE_FAILURE',
+              primary_task: succeeded ? 'VIEW_GENERATED_CONTENT' : 'HANDLE_FAILURE',
+              available_actions: succeeded ? [] : ['RETRY'],
+              attempt_count: 1,
+              content_version_id: succeeded
+                ? '30000000-0000-4000-8000-000000000302'
+                : null,
+              error_code: succeeded ? null : 'MODEL_TIMEOUT',
+              error_summary: succeeded ? null : '模型响应超时',
+              started_at: '2026-08-10T12:00:01Z',
+              finished_at: '2026-08-10T12:00:02Z',
+            });
+            generationJobs = [terminal, ...generationJobs.slice(1)];
+            const source = editorContextState.current_content;
+            editorContextState = {
+              ...editorContextState,
+              task: {
+                ...editorContextState.task,
+                workflow_stage: succeeded ? 'DRAFT' : 'GENERATION_FAILED',
+                primary_task: succeeded ? 'EDIT_AND_SUBMIT_REVIEW' : 'HANDLE_GENERATION_FAILURE',
+                available_actions: succeeded
+                  ? ['CANCEL']
+                  : ['CREATE_GENERATION_JOB', 'CREATE_MANUAL_VERSION', 'CANCEL'],
+              },
+              current_content: succeeded
+                ? completedAiVersion(editorContextState, terminal)
+                : editorContextState.current_content,
+              comparison_content: succeeded && source ? {
+                id: source.id,
+                version: source.version,
+                source_type: source.source_type,
+                status: source.status,
+                title: source.title,
+              } : editorContextState.comparison_content,
+              latest_generation: compactGeneration(terminal),
+            };
+          } else if (latest.status === 'PENDING') {
+            const running = generationJob({
+              ...latest,
+              status: 'RUNNING',
+              started_at: '2026-08-10T12:00:01Z',
+            });
+            generationJobs = [running, ...generationJobs.slice(1)];
+            editorContextState = {
+              ...editorContextState,
+              latest_generation: compactGeneration(running),
+            };
+          }
+        }
+        await route.fulfill({
+          status: 200,
+          json: { items: generationJobs } satisfies components['schemas']['GenerationJobList'],
+        });
+        return;
+      }
+      const generationJobDetailMatch = url.pathname.match(/^\/api\/v1\/generation-jobs\/([^/]+)$/);
+      if (method === 'GET' && generationJobDetailMatch) {
+        generationJobDetailRequests.push(url);
+        const target = generationJobs.find((job) => job.id === generationJobDetailMatch[1]);
+        if (!target) {
+          await route.fulfill({ status: 404, json: errorEnvelope('NOT_FOUND', '生成作业不存在', 'req-generation-job-not-found') });
+          return;
+        }
+        await route.fulfill({ status: 200, json: generationJobDetail(target) });
+        return;
+      }
+      const generationRetryMatch = url.pathname.match(/^\/api\/v1\/generation-jobs\/([^/]+)\/retry$/);
+      if (method === 'POST' && generationRetryMatch) {
+        aiJobRequests.push({
+          body: null,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+          idempotencyKey: request.headers()['idempotency-key'] ?? null,
+          kind: 'retry',
+          targetId: generationRetryMatch[1],
+        });
+        aiOutcome = 'success';
+        const created = generationJob({ id: retryJobId, retry_of_id: generationRetryMatch[1] });
+        generationJobs = [created, ...generationJobs];
+        generationJobPolls = 0;
+        editorContextState = {
+          ...editorContextState,
+          task: {
+            ...editorContextState.task,
+            workflow_stage: 'GENERATING',
+            primary_task: 'VIEW_GENERATION_PROGRESS',
+          },
+          latest_generation: compactGeneration(created),
+        };
+        await route.fulfill({ status: 202, json: created });
+        return;
+      }
+      const humanizationMatch = url.pathname.match(/^\/api\/v1\/content-versions\/([^/]+)\/humanization-jobs$/);
+      if (method === 'POST' && humanizationMatch) {
+        const body = request.postDataJSON() as HumanizationJobCreate;
+        aiJobRequests.push({
+          body,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+          idempotencyKey: request.headers()['idempotency-key'] ?? null,
+          kind: 'humanize',
+          targetId: humanizationMatch[1],
+        });
+        aiOutcome = 'success';
+        const created = generationJob({
+          id: humanizationJobId,
+          job_type: 'HUMANIZE',
+          source_content_version_id: humanizationMatch[1],
+        });
+        generationJobs = [created, ...generationJobs];
+        generationJobPolls = 0;
+        editorContextState = {
+          ...editorContextState,
+          latest_generation: compactGeneration(created),
+        };
+        await route.fulfill({ status: 202, json: created });
         return;
       }
       const editorContextMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/editor-context$/);
@@ -1131,6 +1447,7 @@ const test = base.extend<ContentFixtures>({
     });
 
     await use({
+      aiJobRequests,
       createRequests,
       creationOptionsRequests,
       detailRequests,
@@ -1139,6 +1456,9 @@ const test = base.extend<ContentFixtures>({
       editorDeleteRequests,
       editorRevisionRequests,
       editorSaveRequests,
+      generationJobDetailRequests,
+      generationJobListRequests,
+      generationOptionsRequests,
       listRequests,
       lifecycleRequests,
       releaseCreate: () => {
@@ -1168,10 +1488,25 @@ const test = base.extend<ContentFixtures>({
         editorMode = mode;
         const item = items.find((candidate) => candidate.id === editorTaskId) ?? items[1];
         editorContextState = contentEditorContext(item, mode);
+        generationJobs = editorContextState.latest_generation
+          ? [generationJob({
+              id: editorContextState.latest_generation.id,
+              job_type: editorContextState.latest_generation.job_type,
+              status: editorContextState.latest_generation.status,
+              workflow_stage: 'SUCCEEDED',
+              primary_task: 'VIEW_GENERATED_CONTENT',
+              content_version_id: editorContextState.current_content?.id ?? null,
+              attempt_count: editorContextState.latest_generation.attempt_count,
+              started_at: editorContextState.latest_generation.started_at,
+              finished_at: editorContextState.latest_generation.finished_at,
+            })]
+          : [];
+        generationJobPolls = 0;
       },
       setEditorMutationMode: (mode) => { editorMutationMode = mode; },
       setListMode: (mode) => { listMode = mode; },
       setMutationMode: (mode) => { mutationMode = mode; },
+      setAiOutcome: (outcome) => { aiOutcome = outcome; },
     });
 
     expect(unexpectedRequests, 'Content Tasks 页面不得依赖未声明的 API').toEqual([]);

@@ -118,10 +118,13 @@ done
 
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
 PARTSIGNAL_E2E_API_BASE_URL=http://127.0.0.1:8000 \
+PARTSIGNAL_E2E_FAKE_AI_BASE_URL=http://127.0.0.1:9001 \
 PARTSIGNAL_E2E_REAL_STACK=1 \
 PARTSIGNAL_E2E_V2_BASE_URL=http://127.0.0.1:4174 \
   npm --prefix frontend-v2 run e2e -- \
-  tests/e2e/product-facts-real-stack.spec.ts --project=foundation-desktop
+  tests/e2e/product-facts-real-stack.spec.ts \
+  tests/e2e/content-ai-real-stack.spec.ts \
+  --project=foundation-desktop
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
 PARTSIGNAL_E2E_PRODUCTION_BASE_URL=http://127.0.0.1:4173 \
   npm --prefix frontend run e2e -- "$@"

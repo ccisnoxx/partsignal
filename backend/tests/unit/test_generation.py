@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -13,6 +14,7 @@ from app.models.ai_generation import AIChannel, AIModel, GenerationJob
 from app.models.configuration import PlatformProfile, PlatformPrompt
 from app.models.content import ContentTask
 from app.models.product_facts import FactVersion, Product
+from app.routers.production import generation_jobs_out
 from app.schemas.content import GenerationFactSnapshot
 from app.schemas.product_facts import Confidentiality
 from app.services.content_production import (
@@ -48,15 +50,23 @@ class SnapshotSession:
         self,
         rows: dict[type[object], object],
         scalar_rows: list[object] | None = None,
+        execute_rows: list[tuple[object, ...]] | None = None,
     ) -> None:
         self.rows = rows
         self.scalar_rows = list(scalar_rows or [])
+        self.execute_rows = list(execute_rows or [])
 
     def get(self, model_type: type[object], _identity: object) -> object | None:
         return self.rows.get(model_type)
 
     def scalar(self, _query: object) -> object | None:
         return self.scalar_rows.pop(0) if self.scalar_rows else None
+
+    def scalars(self, _query: object) -> list[object]:
+        return list(self.rows.values())
+
+    def execute(self, _query: object) -> SimpleNamespace:
+        return SimpleNamespace(tuples=lambda: self.execute_rows)
 
 
 def generation_input(*, classification: str = "PUBLIC") -> dict[str, Any]:
@@ -317,6 +327,79 @@ def test_retry_projection_requires_supported_failed_job_and_open_parent() -> Non
     task.status = "OPEN"
     job.input_snapshot = {"contract_version": "chat-json-v1"}
     assert generation_job_retryable(job, task) is False
+
+
+def test_retry_projection_uses_database_latest_job_for_single_detail() -> None:
+    task = cast(ContentTask, SimpleNamespace(id=TASK_ID, status="OPEN"))
+    job = GenerationJob(
+        id=JOB_ID,
+        content_task_id=TASK_ID,
+        idempotency_key="failed-job",
+        job_type="GENERATE",
+        source_content_version_id=None,
+        status="FAILED",
+        input_snapshot={"contract_version": "content-markdown-v3"},
+        ai_channel_id=CHANNEL_ID,
+        ai_model_id=MODEL_ID,
+        adapter_name="openai-compatible-chat-completions",
+        prompt_template_version="content-markdown-v3",
+        prompt_hash="a" * 64,
+        attempt_count=1,
+        dispatch_attempt_count=1,
+        content_version_id=None,
+        retry_of_id=None,
+        error_code="MODEL_TIMEOUT",
+        error_summary="模型响应超时",
+        provider_request_id=None,
+        response_duration_ms=None,
+        prompt_tokens=None,
+        completion_tokens=None,
+        total_tokens=None,
+        created_by=uuid.uuid4(),
+        created_at=datetime.now(UTC),
+        started_at=None,
+        finished_at=datetime.now(UTC),
+    )
+    db = cast(Any, SnapshotSession({ContentTask: task}, execute_rows=[(uuid.uuid4(), TASK_ID)]))
+
+    projected = generation_jobs_out(db, [job])[0]
+
+    assert projected.workflow_stage == "HISTORICAL_FAILURE"
+    assert projected.primary_task == "VIEW_FAILURE"
+    assert projected.available_actions == []
+
+
+def test_retry_command_rejects_non_latest_failed_job() -> None:
+    previous = cast(
+        GenerationJob,
+        SimpleNamespace(
+            id=JOB_ID,
+            content_task_id=TASK_ID,
+            job_type="GENERATE",
+            status="FAILED",
+            input_snapshot={"contract_version": "content-markdown-v3"},
+        ),
+    )
+    task = cast(ContentTask, SimpleNamespace(id=TASK_ID, status="OPEN"))
+    db = cast(
+        Any,
+        SnapshotSession(
+            {GenerationJob: previous},
+            scalar_rows=[task, uuid.uuid4()],
+        ),
+    )
+
+    with pytest.raises(AppError) as captured:
+        retry_generation_job(
+            db=db,
+            generation_job_id=JOB_ID,
+            actor=cast(Any, SimpleNamespace(id=uuid.uuid4())),
+            request_id="request-2",
+            idempotency_key="retry-current",
+        )
+
+    assert captured.value.code == "INVALID_STATE_TRANSITION"
+    assert captured.value.message == "只有最新失败作业可以重试"
 
 
 def test_generation_sources_require_public_nonblank_markdown() -> None:

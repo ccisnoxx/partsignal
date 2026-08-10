@@ -57,6 +57,74 @@ test('no-draft 创建完整人工首稿，不创建 AI lineage，并携带 CSRF'
   await expect(page.getByText('无生成作业')).toBeVisible();
 });
 
+test('AI generation 按需确认 Prompt/model，terminal 后采用服务端 current pointer', async ({ page, contentApi }) => {
+  contentApi.setEditorMode('no-current');
+  await page.goto(editorPath);
+  expect(contentApi.generationOptionsRequests).toHaveLength(0);
+
+  await page.getByRole('button', { name: 'AI 生成首稿' }).click();
+  const dialog = page.getByRole('dialog', { name: '确认 Prompt 与模型' });
+  await expect(dialog.getByText('Fixture Content Prompt')).toBeVisible();
+  await expect(dialog.getByText('Revision 4')).toBeVisible();
+  await expect(dialog.getByText('只能使用已批准事实。')).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '确认 Prompt 与模型并开始生成' })).toBeDisabled();
+  await dialog.getByRole('combobox', { name: '模型' }).click();
+  await page.getByRole('option', { name: /Fixture Model/ }).click();
+  await dialog.getByRole('button', { name: '确认 Prompt 与模型并开始生成' }).click();
+
+  await expect(page.getByText('生成作业正在执行。')).toBeVisible();
+  await expect(page.getByRole('textbox', { name: '标题' })).toHaveValue('AI 生成首稿', { timeout: 10_000 });
+  await expect(page.getByText('只读').first()).toBeVisible();
+  expect(contentApi.generationOptionsRequests).toHaveLength(1);
+  expect(contentApi.aiJobRequests).toHaveLength(1);
+  expect(contentApi.aiJobRequests[0]).toMatchObject({
+    body: {
+      ai_model_id: '80000000-0000-4000-8000-000000000201',
+      platform_prompt_id: '80000000-0000-4000-8000-000000000203',
+      platform_prompt_revision: 4,
+    },
+    csrfToken: 'content-e2e-csrf',
+    kind: 'generate',
+    targetId: editorTaskId,
+  });
+  expect(contentApi.aiJobRequests[0]?.idempotencyKey).toBeTruthy();
+  expect(contentApi.generationJobDetailRequests).toHaveLength(0);
+});
+
+test('generation failure 按需读取完整 snapshot，并只按原 job retry', async ({ page, contentApi }) => {
+  contentApi.setEditorMode('no-current');
+  contentApi.setAiOutcome('failure');
+  await page.goto(editorPath);
+  await page.getByRole('button', { name: 'AI 生成首稿' }).click();
+  const createDialog = page.getByRole('dialog', { name: '确认 Prompt 与模型' });
+  await createDialog.getByRole('combobox', { name: '模型' }).click();
+  await page.getByRole('option', { name: /Fixture Model/ }).click();
+  await createDialog.getByRole('button', { name: '确认 Prompt 与模型并开始生成' }).click();
+
+  await expect(page.getByText('MODEL_TIMEOUT：模型响应超时')).toBeVisible({ timeout: 10_000 });
+  expect(contentApi.generationJobDetailRequests).toHaveLength(0);
+  await page.getByRole('button', { name: '查看完整作业快照' }).click();
+  const detailDialog = page.getByRole('dialog', { name: '完整生成作业快照' });
+  await expect(detailDialog.getByText(/content-markdown-v3/)).toBeVisible();
+  expect(contentApi.generationJobDetailRequests).toHaveLength(1);
+  await detailDialog.getByRole('button', { name: '关闭' }).first().click();
+
+  await page.getByRole('button', { name: '按原快照重试' }).click();
+  const retryDialog = page.getByRole('dialog', { name: '按原快照重试？' });
+  await expect(retryDialog).toContainText('不读取当前 Prompt 或事实替换历史输入');
+  await retryDialog.getByRole('button', { name: '确认按原快照重试' }).click();
+  await expect(page.getByRole('textbox', { name: '标题' })).toHaveValue('AI 生成首稿', { timeout: 10_000 });
+
+  expect(contentApi.aiJobRequests).toHaveLength(2);
+  expect(contentApi.aiJobRequests[1]).toMatchObject({
+    body: null,
+    csrfToken: 'content-e2e-csrf',
+    kind: 'retry',
+    targetId: '40000000-0000-4000-8000-000000000201',
+  });
+  expect(contentApi.aiJobRequests[1]?.idempotencyKey).toBeTruthy();
+});
+
 test('HUMAN DRAFT DirtyGuard、Preview/Diff 与 Ctrl/Cmd+S 使用 canonical revision', async ({ page, contentApi }, testInfo) => {
   await page.goto(detailPath);
   await page.getByRole('link', { name: '编辑并提交审核' }).click();
@@ -122,7 +190,8 @@ test('AI DRAFT 保持源版本只读，显示 snapshot 摘要并创建 based_on 
   await page.goto(editorPath);
   await expect(page.getByText('只读').first()).toBeVisible();
   await expect(page.getByRole('textbox', { name: '标题' })).toHaveAttribute('readonly', '');
-  await expect(page.getByRole('button', { name: /批准|要求修改|自然化/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /批准|要求修改/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '创建自然化版本' })).toBeVisible();
   if (testInfo.project.name === 'foundation-mobile') {
     await page.getByRole('tab', { name: '参考' }).click();
   }
@@ -142,6 +211,29 @@ test('AI DRAFT 保持源版本只读，显示 snapshot 摘要并创建 based_on 
     contentVersionId: '30000000-0000-4000-8000-000000000002',
     taskId: null,
     body: { title: 'AI 原始草稿', change_summary: 'AI 草稿修订' },
+  });
+});
+
+test('CREATE_HUMANIZATION_JOB 创建新 job/版本，源 AI DRAFT 保持只读', async ({ page, contentApi }) => {
+  contentApi.setEditorMode('ai-draft');
+  await page.goto(editorPath);
+  const sourceId = '30000000-0000-4000-8000-000000000002';
+  await expect(page.getByRole('textbox', { name: '标题' })).toHaveValue('AI 原始草稿');
+
+  await page.getByRole('button', { name: '创建自然化版本' }).click();
+  const dialog = page.getByRole('dialog', { name: '创建自然化作业' });
+  await expect(dialog).toContainText('源版本保持不变');
+  await dialog.getByRole('combobox', { name: '模型' }).click();
+  await page.getByRole('option', { name: /Fixture Model/ }).click();
+  await dialog.getByRole('button', { name: '确认创建自然化版本' }).click();
+
+  await expect(page.getByRole('textbox', { name: '标题' })).toHaveValue('自然化后的 AI 草稿', { timeout: 10_000 });
+  await expect(page.getByRole('textbox', { name: '标题' })).toHaveAttribute('readonly', '');
+  expect(contentApi.aiJobRequests.at(-1)).toMatchObject({
+    body: { ai_model_id: '80000000-0000-4000-8000-000000000201' },
+    csrfToken: 'content-e2e-csrf',
+    kind: 'humanize',
+    targetId: sourceId,
   });
 });
 

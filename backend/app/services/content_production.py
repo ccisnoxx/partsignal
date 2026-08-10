@@ -541,6 +541,14 @@ def retry_generation_job(
     )
     if task is None or task.status != "OPEN":
         raise AppError("INVALID_STATE_TRANSITION", "内容任务不可再生成", 409)
+    latest_job_id = db.scalar(
+        select(GenerationJob.id)
+        .where(GenerationJob.content_task_id == previous.content_task_id)
+        .order_by(GenerationJob.created_at.desc(), GenerationJob.id.desc())
+        .limit(1)
+    )
+    if latest_job_id != previous.id:
+        raise AppError("INVALID_STATE_TRANSITION", "只有最新失败作业可以重试", 409)
     retry_snapshot = (
         ensure_third_party_egress_allowed(previous.input_snapshot)
         if previous.job_type == "GENERATE"

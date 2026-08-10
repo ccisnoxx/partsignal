@@ -173,7 +173,7 @@ Phase 3.2 的 `/content/tasks/new` 继续扩展同一 generated-type `content.fi
 
 Phase 3.3 的 `/content/tasks/$taskId` 继续使用同一 generated-type fixture，但页面只允许一个精确 Detail GET 与明确 lifecycle command；Task List、FactVersion、ContentVersion、GenerationJob、Review、Publication 或 GEO join 均作为未声明请求失败。`tests/e2e/content-task-detail.spec.ts` 覆盖 List/New 入口、direct/refresh/Back/Forward、完整与空 compact sections、服务端 primary、409 canonical refetch、404/403/retry、archived verified readonly、375/768/1024/1440、键盘/Dialog focus return 和浏览器错误审计。
 
-Phase 3.4 Core 的 `/content/tasks/$taskId/editor` 继续扩展 generated-type `content.fixture.ts`。首屏只允许一个精确 Editor Context GET；manual/revision/save/submit/delete/abandon 只开放对应 token 的既有 command，未声明 API 继续失败。`tests/e2e/content-editor.spec.ts` 覆盖 List/Detail 入口、direct/refresh、无草稿人工首稿、当前 HUMAN DRAFT 保存、AI DRAFT 与 CHANGES_REQUESTED 新建修订、提交审核、DELETE/ABANDON 的不同语义及 canonical 主线、CSRF/`expected_revision`、409 保留本地输入、Ctrl/Cmd+S、Preview/Split/服务端 Diff、quality/reference、DirtyGuard、375/768/1024/1440、键盘/焦点和浏览器错误审计；不覆盖 generation/retry/humanization 或审核决定。
+Phase 3.4 的 `/content/tasks/$taskId/editor` 继续扩展 generated-type `content.fixture.ts`。首屏只允许一个精确 Editor Context GET；manual/revision/save/submit/delete/abandon 与 generation/retry/humanization 只开放对应 token 的既有 command，未声明 API 继续失败。`tests/e2e/content-editor.spec.ts` 除 Core 的人工首稿、保存、修订、提交、readonly matrix、CSRF/revision、DirtyGuard、Preview/Diff 与响应式矩阵外，还覆盖 generation-options 按需加载、Prompt/model 明确确认、稳定幂等键、active-only polling、terminal refetch、progress/success/failure、按需 detail、原 job retry 和新版本 humanization；仍不覆盖审核决定。
 
 ### 13.2 Product Facts 真实栈闭环
 
@@ -186,6 +186,12 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 - Flow C：使用独立 ContentTask 从 Task Detail 进入 Editor，完成 manual first draft → save → submit review；每步重新读取 Editor Context，验证 canonical version/revision/action 与 `current_content_version_id` 主线，不创建 GenerationJob，也不复用 Flow A/B 的互斥状态数据。
 
 默认 `npm --prefix frontend-v2 run e2e` 继续运行 fixture-based 页面矩阵，真实栈 spec 在没有显式开关时 skip；完整根 E2E 先在隔离栈运行 V1 与 V2 真实闭环，再运行 V2 fixture suite。真实闭环不重复 loading、404、四档响应式和键盘矩阵。
+
+### 13.3 Content AI Production 真实栈闭环
+
+`tests/e2e/content-ai-real-stack.spec.ts` 复用 `deploy/scripts/e2e-local.sh` 的同一隔离数据库、Redis、FastAPI、Celery Worker、fake AI provider 与 V2 production preview，并在 V1 suite 之前运行。测试不得导入 fixture 或拦截 API；V2 尚未迁移的 Prompt/AI 渠道前置配置可使用 API，Product、Fact、ContentTask、generation、retry 与 humanization 业务 mutation 必须操作 V2 页面。
+
+独立 AI flow 覆盖：V2 创建并批准虚构事实与 ContentTask；按需确认 Prompt revision/model 后生成 AI DRAFT；以 `current_content_version_id` 验证 canonical current；通过 `CREATE_HUMANIZATION_JOB` 创建新 Job/ContentVersion 并验证源版本字段不变；使用唯一 timeout model 得到真实 `AI_PROVIDER_TIMEOUT`，按需打开完整 `content-markdown-v3` snapshot；更新测试凭据后从 V2 对原 job 执行 retry，并断言新 job 的 `retry_of_id` 和 `input_snapshot` 与失败 job 精确一致。固定成功 fallback、浏览器 snapshot 拼装和共享开发服务均禁止。
 
 `frontend-v2-fact-history` 已通过 contract-check、PostgreSQL integration、V1 既有调用测试、V2 component、fixture Playwright 与上述真实栈 Flow B。Fact History gap 已关闭，Phase 2 exit gate 从 `NOT_MET` 改判为 `MET`。
 

@@ -36,6 +36,7 @@ import {
   submitContentVersion,
   updateContentDraft,
 } from './content.api';
+import { ContentAiProduction } from './content-ai-production';
 import {
   contentDraftFormSchema,
   contentEditorFormSchema,
@@ -335,6 +336,8 @@ function ContentEditorWorkspace({
           返回任务详情
         </Link>
       </header>
+
+      <ContentAiProduction context={context} csrfToken={csrfToken} taskId={taskId} />
 
       <FormProvider {...form}>
         <form noValidate onSubmit={(event) => event.preventDefault()}>

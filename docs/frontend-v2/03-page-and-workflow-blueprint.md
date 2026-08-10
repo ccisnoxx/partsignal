@@ -175,6 +175,8 @@ Pattern：三栏 Workspace。
 
 编辑入口围绕 Task；`ContentTask.current_content_version_id` 决定当前内容。`/content/versions/$versionId` 只负责历史版本。
 
+AI Production 仅在服务端返回对应 action token 时显示。generation-options 在用户打开确认 Dialog 后按需读取，Prompt revision 与 model 必须明确确认；创建命令使用稳定 `Idempotency-Key`。页面只对当前 `PENDING/RUNNING` job 轮询 summary，terminal 后停止并重新读取 Editor Context；完整 job detail/snapshot 只在用户查看时读取，retry 只提交原 job ID，由服务端精确重放冻结 snapshot。Humanization 由 `CREATE_HUMANIZATION_JOB` 驱动，并创建新 GenerationJob 与新 AI DRAFT，源版本不变。
+
 ## 4.5 `/content/tasks/$taskId/review`
 
 Pattern：Workspace。主区域是 immutable Markdown，右侧 Review Panel 展示 blocking issues、warnings、fact consistency、platform adaptation、review timeline；底部 `[退回修改] [批准内容]`。

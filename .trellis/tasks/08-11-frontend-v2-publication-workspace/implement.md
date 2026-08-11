@@ -28,7 +28,7 @@
 ### 2.3 ACTION_REQUIRED Revision
 
 - 修正 Content Task 共享投影，使 `ACTION_REQUIRED` 能进入现有 revision/editor/review/approval 链。
-- 不新增 Content 或 Publication command，不修改合同、数据库或 V1。
+- 不新增 Content 或 Publication command，不修改合同、数据库或 V1 runtime/page；父任务收尾仅修正既有 V1 E2E。
 - 补完 Verification 中因该投影缺口暂缓的真实栈 Flow B。
 
 ## 3. 父任务最终集成门禁
@@ -75,16 +75,16 @@ make verify
 ## 5. 最终门禁执行结果
 
 - OpenAPI 双端生成、`make contract-check`、publication workflow 15 项、V2 targeted 16 项、V2 build、fixture E2E 10 项和 `git diff --check` 已通过；generated types 无 diff。
-- 隔离真实栈 V2 9/9 通过，含完整 Flow B，且数据库、存储和临时 Redis 均已清理。
-- 同一真实栈中 V1 51/52 通过；唯一失败是 `frontend/tests/e2e/mvp-flow.spec.ts:795` 仍期待换版后立即显示“修复并重新核验”。权威服务端合同则要求 `CONTENT_VERSION_CHANGED` 后撤回 `VERIFY`、先 `REGISTER_RESULT`。该 V1 断言在子任务开始前的 `6c664fd5` 已存在，当前授权又禁止修改 V1 runtime/test/page，因此不修改实现、不规避脚本、不归档父任务。
+- V1 E2E 已按权威合同改为 `CONTENT_VERSION_CHANGED → REGISTER_RESULT → 重新登记 → AWAITING_VERIFICATION / RUN_FIRST_VERIFICATION → 执行首次核验`，并保留移动端 44px、抽屉与焦点恢复、无横向溢出和桌面表格布局断言。
+- 关键 V1 纵向 real-stack 用例通过；父任务完整 real-stack 同轮 V2 9/9、V1 52/52 通过，数据库、对象存储和临时 Redis 均已清理。
 
 ## 6. 父任务 closeout 清单
 
-- [ ] All three child tasks are complete and independently validated.
-- [ ] Context is one request/one snapshot/fixed SQL count; no browser join or global filter remains.
-- [ ] All command/error/immutable-history guarantees match OpenAPI and database contract.
-- [ ] Implementation 与权威 V2 blueprint 中都不存在 `Target Section`。
-- [ ] Static Publishing Instruction 未被表示为 business data。
-- [ ] 未引入新 dependency、global store、generic framework、未批准 branch 或无关变更。
-- [ ] Diff 只包含已识别的任务文件，文档变更与实现一致。
-- [ ] 剩余 Out of Scope 的 Article/GEO 工作被明确说明，未创建 placeholder implementation。
+- [x] All three child tasks are complete and independently validated.
+- [x] Context is one request/one snapshot/fixed SQL count; no browser join or global filter remains.
+- [x] All command/error/immutable-history guarantees match OpenAPI and database contract.
+- [x] Implementation 与权威 V2 blueprint 中都不存在 `Target Section`。
+- [x] Static Publishing Instruction 未被表示为 business data。
+- [x] 未引入新 dependency、global store、generic framework、未批准 branch 或无关变更。
+- [x] Diff 只包含已识别的任务文件，文档变更与实现一致。
+- [x] 剩余 Out of Scope 的 Article/GEO 工作被明确说明，未创建 placeholder implementation。

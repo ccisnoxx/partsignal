@@ -40,19 +40,19 @@
 
 ## 验收标准
 
-- [ ] 三个子任务分别通过自身适用的 contract/backend/component/production-artifact/real-stack 必需门禁。
-- [ ] 工作台首次加载只请求一个 Context；Publication Package 与附件下载只在用户操作时请求。
-- [ ] Context 在 `REPEATABLE READ` 快照中返回 work、绑定 Markdown、平台上下文、合法账号选项、合法换版候选、events、verifications 与 attachments，查询数量固定。
-- [ ] 前端只消费服务端 `primary_task`、`available_actions`、账号选项和换版候选，不从 status、全局列表或内容历史重建资格。
-- [ ] 409 不自动重放；保留本地表单/已上传证据选择与 request ID，用户显式重载后才采用最新 canonical Context。
-- [ ] `PREPARING → PLATFORM_REVIEW → RESULT_REGISTERED → AWAITING_VERIFICATION → ACTION_REQUIRED → AWAITING_VERIFICATION → COMPLETED` 与任意非终态 `→ CLOSED` 均由真实后端状态机证明。
-- [ ] 失败核验、events、verifications、attachments 和 PublishedArticle 保持不可变/append-only 语义；批准内容不被工作台修改。
-- [ ] `docs/frontend-v2/03-page-and-workflow-blueprint.md` 不再声明 `Target Section`，且不出现兼容占位。
-- [ ] 375/768/1024/1280/1440/1920、200% zoom、浅/深/system、键盘、焦点恢复、reduced motion 与页面无横向溢出验收通过。
-- [ ] 父任务最终检查代码、OpenAPI、generated types、数据库合同、前端文档与两条真实栈流程一致；不把本任务宣称为完整 Publishing E2E。
+- [x] 三个子任务分别通过自身适用的 contract/backend/component/production-artifact/real-stack 必需门禁。
+- [x] 工作台首次加载只请求一个 Context；Publication Package 与附件下载只在用户操作时请求。
+- [x] Context 在 `REPEATABLE READ` 快照中返回 work、绑定 Markdown、平台上下文、合法账号选项、合法换版候选、events、verifications 与 attachments，查询数量固定。
+- [x] 前端只消费服务端 `primary_task`、`available_actions`、账号选项和换版候选，不从 status、全局列表或内容历史重建资格。
+- [x] 409 不自动重放；保留本地表单/已上传证据选择与 request ID，用户显式重载后才采用最新 canonical Context。
+- [x] `PREPARING → PLATFORM_REVIEW → RESULT_REGISTERED → AWAITING_VERIFICATION → ACTION_REQUIRED → REGISTER_RESULT → AWAITING_VERIFICATION → COMPLETED` 与任意非终态 `→ CLOSED` 均由真实后端状态机证明。
+- [x] 失败核验、events、verifications、attachments 和 PublishedArticle 保持不可变/append-only 语义；批准内容不被工作台修改。
+- [x] `docs/frontend-v2/03-page-and-workflow-blueprint.md` 不再声明 `Target Section`，且不出现兼容占位。
+- [x] 375/768/1024/1280/1440/1920、200% zoom、浅/深/system、键盘、焦点恢复、reduced motion 与页面无横向溢出验收通过。
+- [x] 父任务最终检查代码、OpenAPI、generated types、数据库合同、前端文档与两条真实栈流程一致；不把本任务宣称为完整 Publishing E2E。
 
 ## 批准门禁
 
-用户已于 2026-08-11 批准 Core 与 Verification 规划，两者已经实施、归档并合并到 `main`。Verification 归档时确认 Content Task 投影阻塞真实栈 Flow B；用户随后授权创建最小依赖子任务 `frontend-v2-publication-action-required-revision`。该子任务规划仍需独立审阅批准，完成后父任务才执行最终集成门禁。
+用户已于 2026-08-11 批准并完成 Core、Verification 与 `frontend-v2-publication-action-required-revision` 的业务实施。父任务收尾进一步确认换版后的权威动作序列为 `CONTENT_VERSION_CHANGED → REGISTER_RESULT → AWAITING_VERIFICATION / RUN_FIRST_VERIFICATION`，并获批仅修正既有 V1 E2E 的漂移；最终集成门禁已通过。
 
-唯一授权冲突已解决：允许随 OpenAPI 机械更新 `frontend/src/shared/api/schema.d.ts`，以保持两套 generated client 和 `make contract-check` 一致。该豁免不包含任何其他 V1 运行时代码、测试或页面。
+唯一授权冲突已解决：允许随 OpenAPI 机械更新 `frontend/src/shared/api/schema.d.ts`，并允许父任务收尾修改 `frontend/tests/e2e/mvp-flow.spec.ts`。实际无 generated schema diff，也未修改任何 V1 运行时代码或页面。

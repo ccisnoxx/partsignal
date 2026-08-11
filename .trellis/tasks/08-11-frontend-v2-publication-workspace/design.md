@@ -115,6 +115,7 @@ $workId route (parse params/hash, preload one Context)
 - `primary_task` chooses the single high-frequency action; `available_actions` controls secondary/overflow commands.
 - UI 不从 `status` 推导 commands。Status 只用于展示，并在测试中用于证明 server projection 一致。
 - `SWITCH_CONTENT_VERSION` is shown only when the token exists; it is enabled only when the same server Context provides a `switch_candidate`. Candidate absence is displayed as a server-projected no-option state, not replaced by a browser version lookup.
+- 换版成功后服务端投影 `CONTENT_VERSION_CHANGED / REGISTER_RESULT`；重新登记真实发布结果后投影 `AWAITING_VERIFICATION / RUN_FIRST_VERIFICATION`，UI 再执行“首次核验”。不得沿用旧版本失败态的 `FIX_AND_REVERIFY`，也不得绕过重新登记。
 - Package copy 是 read action，仅在点击后请求现有 Package endpoint，不变成 business mutation。
 - Terminal `COMPLETED`/`CLOSED` Context 完全只读。`COMPLETED` 只显示 canonical PublishedArticle identity/handoff；article route 实现不在范围内。
 
@@ -173,7 +174,7 @@ Parent: shared contract, sequence, final gate
 | Hash navigation bypasses dirty guard | Fix shared full-URL comparison with targeted test |
 | Object upload creates orphan records | Reuse existing abort/retry/retention behavior; never invent fixed-success cleanup |
 | Child 1 leaves verification unfinished | Treat `AWAITING_VERIFICATION` as explicit dependency handoff; do not call parent complete until Child 2 passes |
-| Existing V1/list behavior regresses | Preserve old Work/List endpoints and schemas; generated V1 types and targeted publication integration remain in gates |
+| Existing V1/list behavior regresses | Preserve old Work/List endpoints and schemas; generated V1 types and targeted publication integration remain in gates；V1 E2E 按服务端动作投影完成换版后重登记与首次核验 |
 | Scope expands into article/GEO | Only show canonical handoff; route implementation and GEO remain explicit out-of-scope |
 
 ## 6. 回滚点

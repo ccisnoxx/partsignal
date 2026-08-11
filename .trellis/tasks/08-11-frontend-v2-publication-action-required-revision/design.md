@@ -36,7 +36,11 @@ Workspace VERIFY FAILED
   → existing Review: APPROVE（旧批准版本 SUPERSEDED）
   → shared server projection: CONTINUE_PUBLICATION
   → Workspace Context: exact switch_candidate
-  → SWITCH_CONTENT_VERSION → REGISTER_RESULT → VERIFY PASSED
+  → SWITCH_CONTENT_VERSION
+  → CONTENT_VERSION_CHANGED / REGISTER_RESULT
+  → 重新登记真实发布结果
+  → AWAITING_VERIFICATION / RUN_FIRST_VERIFICATION
+  → VERIFY PASSED
   → Work + ContentTask COMPLETED, PublishedArticle immutable handoff
 ```
 
@@ -52,7 +56,7 @@ Workspace VERIFY FAILED
 
 - `workflow_stage` 与 `primary_task` 使用 OpenAPI 已有枚举值，响应 shape 不变，因此不更新 `contracts/openapi.yaml` 或 generated types。
 - 数据库状态与不可变历史规则不变，不更新 `contracts/database.md`，不增加 migration。
-- V1 不在消费或修改范围内；唯一既有 generated-file 豁免本任务预计不会触发。
+- V1 运行时代码和页面不在消费或修改范围内；父任务收尾只修正既有 V1 E2E，使其消费换版后的 `REGISTER_RESULT`，重新登记后再按 `RUN_FIRST_VERIFICATION` 执行首次核验。
 
 ## 5. 风险与回滚
 

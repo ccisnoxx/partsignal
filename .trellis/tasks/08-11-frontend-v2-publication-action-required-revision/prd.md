@@ -27,7 +27,7 @@
 3. 内容创建与审核继续调用现有命令和页面；不得修改批准 Markdown、绕过审核、自动 switch 或创建第二套修订流程。
 4. Publication Workspace 保持现有 task handoff 与 server-projected candidate 边界；不得请求全部 ContentVersion 或新增跨 Domain 依赖。
 5. 真实栈 Flow B 必须使用独立记录，并通过 V2 UI 完成 FAILED → Content revision/review/approval → switch → result registration → PASSED；API 只用于测试前置数据与最终只读断言。
-6. 不新增 OpenAPI 字段、数据库迁移、运行时依赖或全局状态；不修改任何 V1 运行时代码、测试或页面。若合同未变化，不机械更新 generated types。
+6. 不新增 OpenAPI 字段、数据库迁移、运行时依赖或全局状态；不修改任何 V1 运行时代码或页面。父任务收尾仅允许修正既有 V1 E2E 对换版后动作投影的漂移；若合同未变化，不机械更新 generated types。
 
 ## 验收标准
 
@@ -36,8 +36,8 @@
 - [x] 批准替代版本后，Workspace Context 只暴露该 current approved version 为 `switch_candidate`，旧 work 绑定与旧 verification snapshot 在 switch 前保持不变。
 - [x] 真实栈 Flow B 全程通过 V2 UI 完成业务命令，最终 Work/ContentTask 为 `COMPLETED`、PublishedArticle 与 work 同 ID，旧 verification 仍指向旧版本。
 - [x] 原有正常发布中的 Content Task 仍投影 `PUBLISHING / CONTINUE_PUBLICATION`，已完成任务仍投影 `VERIFIED / VIEW_FULL_LINEAGE`。
-- [ ] targeted backend integration、Frontend V2 component/production artifact、build、隔离真实栈和父任务最终门禁通过。
-- [x] 无 OpenAPI/database contract 变更、无 V1 runtime/test/page 变更、无新 dependency、无客户端资格推导。
+- [x] targeted backend integration、Frontend V2 component/production artifact、build、隔离真实栈和父任务最终门禁通过。
+- [x] 无 OpenAPI/database contract 变更、无 V1 runtime/page 变更、无新 dependency、无客户端资格推导；唯一 V1 变更是获批的 E2E 合同对齐。
 
 ## Out of Scope
 

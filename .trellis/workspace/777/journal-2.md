@@ -1882,3 +1882,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 113: 修复 Content Task Detail 历史平台 fixture
+
+**Date**: 2026-08-11
+**Task**: 修复 Content Task Detail 历史平台 fixture
+**Branch**: `main`
+
+### Summary
+
+通过生产平台删除服务合法构造历史平台已删除状态，保留 snapshot fallback、查询计数及事务隔离断言；相关 backend 验证通过，完整 make verify 的范围外 frontend E2E 失败已留证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `33e2123` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

@@ -1882,3 +1882,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 113: Frontend E2E exit gate 合同漂移
+
+**Date**: 2026-08-11
+**Task**: Frontend E2E exit gate 合同漂移
+**Branch**: `codex/frontend-e2e-exit-gate-contract-drift`
+
+### Summary
+
+对齐 Frontend Phase 3 E2E 审计、API 与 UI 合同，修复内容任务删除受控解绑回归，完整 make verify 通过并将 Phase 3 gate 重判为 MET。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8c19a59` | (see git log) |
+
+### Testing
+
+- 精确 targeted E2E、frontend lint/typecheck、backend Ruff/mypy、PostgreSQL 删除生命周期回归与 `git diff --check` 全部通过。
+- 完整 `make verify` 退出码为 `0`。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

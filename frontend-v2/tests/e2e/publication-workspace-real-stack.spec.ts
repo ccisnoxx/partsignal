@@ -324,3 +324,70 @@ test('Flow B：失败核验经内容修订审批、换版和重登记后完成�
     name: /登记发布结果|核验发布结果|切换内容版本|关闭发布工作/,
   })).toHaveCount(0);
 });
+
+test('Published Article：真实栈列表进入单请求只读详情', async ({ page }) => {
+  const suffix = randomUUID().slice(0, 8);
+  const session = await login(page);
+  const setup = await createPrerequisites(page, session.csrf_token, suffix);
+  const headers = { 'X-CSRF-Token': session.csrf_token };
+  const actualTitle = `${setup.approvedContent.title} · 成果 ${suffix}`;
+  const finalUrl = `https://${setup.domain}/articles/${suffix}`;
+  const registered = await responseBody<PublicationWork>(await page.request.put(
+    `${apiBaseUrl}/api/v1/publication-works/${setup.work.id}/result`,
+    {
+      data: {
+        actual_title: actualTitle,
+        final_url: finalUrl,
+        published_at: '2026-08-11T15:00:00Z',
+        expected_revision: setup.work.revision,
+        comment: `成果验收 ${suffix}`,
+        attachment_file_ids: [],
+      },
+      headers,
+    },
+  ));
+  await responseBody<PublicationWork>(await page.request.post(
+    `${apiBaseUrl}/api/v1/publication-works/${setup.work.id}/verifications`,
+    {
+      data: {
+        outcome: 'PASSED',
+        content_matches: true,
+        expected_revision: registered.revision,
+        comment: `真实栈核验通过 ${suffix}`,
+      },
+      headers,
+    },
+  ));
+
+  const articleRequests: Array<{ method: string; path: string }> = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.startsWith('/api/v1/published-articles')) {
+      articleRequests.push({ method: request.method(), path: url.pathname });
+    }
+  });
+
+  await page.goto(`/publishing/articles?page=1&pageSize=20&q=${encodeURIComponent(suffix)}`);
+  const articleLink = page.getByRole('link', { name: actualTitle });
+  await expect(articleLink).toBeVisible();
+  await articleLink.click();
+  await expect(page).toHaveURL(`/publishing/articles/${setup.work.id}`);
+  await expect(page.getByRole('heading', { level: 1, name: actualTitle })).toBeVisible();
+  await expect(page.getByText('只读 · 不可变快照')).toBeVisible();
+  await expect(page.getByRole('link', {
+    name: `v${setup.approvedContent.version}`,
+    exact: true,
+  }))
+    .toHaveAttribute('href', `/content/versions/${setup.approvedContent.id}`);
+  await expect(page.getByText(setup.approvedContent.content_hash, { exact: true })).toBeVisible();
+  await expect(page.getByLabel(`发布成果来源内容 v${setup.approvedContent.version} Markdown 快照`))
+    .toContainText('工作电压为 3.3 V');
+  await expect(page.getByText(`真实栈核验通过 ${suffix}`).first()).toBeVisible();
+  await expect(page.getByText('首次核验通过').first()).toBeVisible();
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /编辑|删除|核验|登记|问题/ })).toHaveCount(0);
+  expect(articleRequests).toEqual([
+    { method: 'GET', path: '/api/v1/published-articles' },
+    { method: 'GET', path: `/api/v1/published-articles/${setup.work.id}` },
+  ]);
+});

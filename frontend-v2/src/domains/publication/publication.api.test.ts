@@ -7,7 +7,10 @@ import {
   PublicationRequestError,
   publicationPackageQueryOptions,
   publicationWorkspaceContextQueryOptions,
+  publishedArticleListQueryOptions,
+  publishedArticleQueryOptions,
 } from './publication.api';
+import { articleIds, publishedArticle } from './published-article.test-fixtures';
 import { workspaceContext } from './publication-work.test-fixtures';
 
 afterEach(() => vi.restoreAllMocks());
@@ -55,5 +58,41 @@ describe('Publication API errors', () => {
     expect(get).toHaveBeenCalledTimes(1);
     await client.fetchQuery(publicationPackageQueryOptions(workspaceContext.content.id));
     expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('Article list/detail 使用独立 GET endpoint 且 list 参数来自 canonical search', async () => {
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/published-articles') {
+        const data = { items: [publishedArticle], page: 2, page_size: 10, total: 11 };
+        return { data, response: Response.json(data) } as never;
+      }
+      if (path === '/api/v1/published-articles/{article_id}') {
+        return { data: publishedArticle, response: Response.json(publishedArticle) } as never;
+      }
+      throw new Error(`未声明 GET：${path}`);
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    await client.fetchQuery(publishedArticleListQueryOptions({
+      q: '工程师社区',
+      page: 2,
+      pageSize: 10,
+      sort: 'PUBLISHED_DESC',
+    }));
+    await client.fetchQuery(publishedArticleQueryOptions(articleIds.article));
+
+    expect(get).toHaveBeenNthCalledWith(1, '/api/v1/published-articles', {
+      params: {
+        query: {
+          page: 2,
+          page_size: 10,
+          search: '工程师社区',
+          sort: 'PUBLISHED_DESC',
+        },
+      },
+    });
+    expect(get).toHaveBeenNthCalledWith(2, '/api/v1/published-articles/{article_id}', {
+      params: { path: { article_id: articleIds.article } },
+    });
   });
 });

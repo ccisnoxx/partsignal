@@ -150,6 +150,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **UI ownership**：本路由对所有 status/source/current-pointer 组合始终只读，不推导或调用任何命令，也不切换 current pointer。Content domain 直接复用 MarkdownPreview、DetailSection、Timeline 与 Badge，不创建跨 Fact/Content 的 Version Detail framework；业务 query key、错误分类、状态、时间和 timeline 投影仍由 Content owner 管理。
 
+## ADR-028：PublishedArticle 保留窄 list/detail 并扩展 immutable detail
+
+**Decision**：`/publishing/articles` 继续消费既有 `GET /api/v1/published-articles`，additive 增加服务端 `search/sort`；`/publishing/articles/$articleId` 继续消费既有 detail endpoint，additive 嵌入 `ContentVersionDetail` 与 PublicationWork events。不新增 Article Context、Content snapshot DTO 或客户端多接口 join。
+
+**Snapshot boundary**：PublishedArticle 与 PublicationWork 同 ID，固定 verification 必须为 PASSED；该 verification 的 `content_version_id` 唯一决定来源内容。平台/账号文本只读取 Work 终态 snapshot，来源 payload/hash 与 events 在单个 `REPEATABLE READ` 请求中校验和返回；live Profile/Account、ContentTask current pointer 与后续 ContentVersion status 不能改写发布时历史。
+
+**UI ownership**：Article List 是固定五列 readonly Table，Detail 复用 MarkdownPreview、DetailSection、Timeline 与 Badge。两页不消费既有 `available_actions/deletion`，不按 health/status 推导动作，也不提供编辑、删除、重新核验、Published Content Issue 或 GEO 能力；这些 workflow 保留给各自后续 canonical surface。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

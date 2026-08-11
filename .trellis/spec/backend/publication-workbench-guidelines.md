@@ -86,6 +86,70 @@ PublishedContentIssue: OPEN -> RESOLVED
 - 前端组件测试覆盖 URL 恢复、服务端动作投影、失败后继续待处理、关闭确认、只读成果和问题独立处理。
 - Playwright 覆盖批准内容到成功核验、只读成果、问题退出 GEO、修复与解决，并检查真实请求、console 与页面错误；失败复核和关闭由 PostgreSQL 集成测试与前端组件测试覆盖。
 
+## 场景：PublishedArticle 列表与不可变详情 read model
+
+### 1. 范围 / 触发条件
+
+- 修改 `/publishing/articles`、发布成果列表搜索/排序、成果详情或来源内容追溯时适用。
+- PublishedArticle 页面是只读历史 surface，不提供删除、重新核验、登记问题或 GEO 写入口。
+
+### 2. 签名
+
+```text
+GET /api/v1/published-articles?page&page_size&search&sort
+GET /api/v1/published-articles/{article_id}
+
+sort: VERIFIED_DESC | VERIFIED_ASC | PUBLISHED_DESC | PUBLISHED_ASC | TITLE_ASC | TITLE_DESC
+detail additions:
+  source_content: ContentVersionDetail
+  events: PublicationWorkEvent[]
+```
+
+### 3. 合同
+
+- 列表搜索、count、排序和分页全部由 PostgreSQL 完成；每种排序追加 `PublishedArticle.id ASC`，浏览器不得过滤当前页。
+- 列表与详情在单个 `REPEATABLE READ` 请求中形成投影。终态平台名称、账号标签和账号标识只读取 PublicationWork snapshot，不用实时配置覆盖历史。
+- 详情以 PublishedArticle 固定的 PASSED verification 决定来源 ContentVersion；复用 `ContentVersionDetail` 并返回服务端排序的 Work events，浏览器不得再请求 PublicationWork、ContentVersion 或 Verification 拼装。
+- `PublishedArticle.id == PublicationWork.id`，且 source content ID/hash、verification result snapshot 与 Work 必须一致；任一断裂都整体失败，不返回部分详情。
+- V2 只渲染结果、来源内容、成功核验、lineage、事件和健康摘要；即使响应仍为旧消费者保留 `available_actions/deletion`，该只读 surface 也不显示 mutation。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 结果 |
+| --- | --- |
+| 未认证或受限会话 | `401` / `403 ErrorEnvelope` |
+| 成果不存在 | `404 NOT_FOUND` |
+| search 超长、sort/分页非法或 UUID 非法 | `422 VALIDATION_ERROR` |
+| Work、PASSED verification、来源内容或 hash/snapshot 不一致 | `409 PUBLICATION_CONTEXT_INCOMPLETE` |
+| 合法列表或详情 | `200`，分别只执行一个 HTTP GET |
+
+### 5. Good / Base / Bad
+
+- Good：列表按服务端搜索和稳定排序分页；详情一次 GET 返回冻结结果、来源 Markdown、PASSED snapshot、lineage 与事件。
+- Base：没有 AI lineage 或 issue 历史时返回现有 nullable/空数组合同，页面显示明确空态并保持只读。
+- Bad：浏览器按 `PublicationWork.id` 再请求 Work/ContentVersion/Verification，或从 health/status 推导删除、重新核验或问题操作。
+
+### 6. 必需测试
+
+- Contract/backend：覆盖 search 转义、六种稳定排序、分页 count、终态身份 snapshot、PASSED/ID/hash/result invariant、event 顺序及 401/403/404/409/422。
+- Component：覆盖 canonical URL、五列无操作列、单 detail query、Markdown/lineage/timeline、initial/stale error 和无写控件。
+- Fixture Playwright：拒绝未声明 API，覆盖 direct/refresh/Back/Forward、375/768/1024/1440、键盘和页面级溢出。
+- Real stack：从真实成功核验成果经列表进入详情，断言浏览器业务请求只有 list/detail GET。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：同 ID 不等于允许浏览器跨资源拼快照。
+const [article, work, content] = await Promise.all([
+  getPublishedArticle(id),
+  getPublicationWork(id),
+  getContentVersion(versionId),
+]);
+
+// Correct：Publication API 一次返回成果详情所需的不可变 read model。
+const article = useQuery(publishedArticleQueryOptions(id));
+```
+
 ## 场景：受控永久删除发布成果
 
 ### 1. 范围 / 触发条件

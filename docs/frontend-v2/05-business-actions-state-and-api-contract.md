@@ -200,6 +200,14 @@ Editor 只消费 task/version 的 `primary_task` 与 `available_actions`。人�
 
 `/publishing/work` 保持三个窄读取：summary、ready items、work list 分别驱动独立 surface，不新增万能 context，也不要求三个 HTTP 响应来自同一 snapshot。Ready 候选包含暂时没有可用账号的已批准当前内容；此时 `matching_accounts=[]`、`available_actions=[]`，且 `ready_count` 使用相同候选定义。浏览器只按 `available_actions.includes("START")` 显示入口，用户必须明确选择响应中的 matching account；创建仍由服务端在事务内重新校验批准内容、current pointer、平台、账号与重复身份。
 
+### PublishedArticle List / Detail
+
+`GET /api/v1/published-articles` 以 `page/page_size/search/sort` 返回一次可绘制的成果行。`search` 覆盖 actual title、来源内容标题、final URL 和冻结平台/账号文本；`PublishedArticleSort` 只允许 `VERIFIED_DESC/ASC`、`PUBLISHED_DESC/ASC`、`TITLE_ASC/DESC`，所有顺序追加 `PublishedArticle.id ASC`。count 与 rows 使用相同搜索谓词，平台/账号展示只使用 PublicationWork 终态 snapshot，浏览器不得对分页结果本地筛选、排序或关联 live 配置。
+
+`GET /api/v1/published-articles/{article_id}` 在同一 `REPEATABLE READ` 请求内以 PublishedArticle 固定的 PASSED verification 定位来源 ContentVersion，复用 `ContentVersionDetail` 返回 immutable Markdown、Fact/generation/review lineage，并附带按 `created_at ASC, id ASC` 排序的 PublicationWork events。服务端校验 Article/Work 同 ID、verification outcome、content version ID/hash；断裂上下文返回 `PUBLICATION_CONTEXT_INCOMPLETE`，前端不跨接口补装。
+
+V2 Article List/Detail 都是 readonly surface，不消费响应中为既有消费者保留的 `available_actions/deletion`，不提供编辑、删除、重新核验或 Published Content Issue 命令。
+
 ### GeoObservationListItem
 
 直接返回 compact result facts、关联成果数量、证据摘要和 recorder，不让客户端再抓多个 detail。

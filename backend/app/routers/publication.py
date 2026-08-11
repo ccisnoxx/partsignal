@@ -50,6 +50,7 @@ from app.schemas.publication import (
     PublishedArticleOut,
     PublishedArticlePermanentDeleteRequest,
     PublishedArticlePermanentDeletionPreview,
+    PublishedArticleSort,
     PublishedContentIssueCreate,
     PublishedContentIssueList,
     PublishedContentIssueOut,
@@ -112,8 +113,8 @@ router = APIRouter(prefix="/api/v1", tags=["publication"])
 ContentEditor = EngineerUser
 
 
-def _publication_workspace_snapshot(db: DbSession) -> None:
-    """在解析发布工作及其当前内容前建立一致读取快照。"""
+def _publication_read_snapshot(db: DbSession) -> None:
+    """在解析发布聚合及关联只读投影前建立一致读取快照。"""
     db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
 
 
@@ -397,7 +398,7 @@ def get_publication_work(
     "/publication-works/{work_id}/workspace-context",
     response_model=PublicationWorkspaceContext,
     operation_id="getPublicationWorkspaceContext",
-    dependencies=[Depends(_publication_workspace_snapshot)],
+    dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_publication_workspace_context(
     work_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -559,17 +560,22 @@ def close_work(
     "/published-articles",
     response_model=PublishedArticleList,
     operation_id="listPublishedArticles",
+    dependencies=[Depends(_publication_read_snapshot)],
 )
 def list_published_articles(
     db: DbSession,
     user: CurrentUser,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    search: Annotated[str | None, Query(max_length=200)] = None,
+    sort: PublishedArticleSort = PublishedArticleSort.VERIFIED_DESC,
 ) -> PublishedArticleList:
     return list_published_articles_service(
         db,
         page=page,
         page_size=page_size,
+        search=search,
+        sort=sort,
         can_delete=user.account_type == AccountType.ADMIN.value,
     )
 
@@ -578,6 +584,7 @@ def list_published_articles(
     "/published-articles/{article_id}",
     response_model=PublishedArticleOut,
     operation_id="getPublishedArticle",
+    dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_published_article(
     article_id: uuid.UUID, db: DbSession, user: CurrentUser

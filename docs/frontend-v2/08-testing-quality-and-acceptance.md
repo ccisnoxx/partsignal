@@ -206,6 +206,12 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 
 既有 `content-ai-real-stack.spec.ts` 继续独立证明 generation、failure、exact retry 和 humanization，完整 Content flow 不重复 AI 步骤；fixture 继续专注 loading、404、四档响应式和键盘矩阵。
 
+### 13.5 Published Articles 只读成果验收
+
+`tests/e2e/published-articles.spec.ts` 扩展同一 generated-type Publication fixture，只允许 Article list/detail GET；未声明 API 继续返回 501 并使 teardown 失败。测试覆盖 canonical `q/page/pageSize/sort`、direct/refresh/Back/Forward、服务端分页与 filtered empty、固定五列无操作列、List → Detail 键盘导航、404/403/409/request ID、Markdown sanitize、来源/核验/lineage/timeline、375/768/1024/1440 和无 mutation 控件。
+
+`tests/e2e/publication-workspace-real-stack.spec.ts` 在既有隔离 PostgreSQL/FastAPI/V2 production preview 生命周期中增加独立 PublishedArticle 读取用例：API 只建立唯一完成聚合，浏览器随后只发送 Article list/detail GET，验证 Article/Work 同 ID、来源 ContentVersion ID/hash、PASSED snapshot、事件时间线和 readonly 边界。不新增第二套 orchestration，也不重复完整 ACTION_REQUIRED flow。
+
 `frontend-v2-fact-history` 已通过 contract-check、PostgreSQL integration、V1 既有调用测试、V2 component、fixture Playwright 与上述真实栈 Flow B。Fact History gap 已关闭，Phase 2 exit gate 从 `NOT_MET` 改判为 `MET`。
 
 ## 14. Deployment Smoke

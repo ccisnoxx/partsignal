@@ -2443,6 +2443,21 @@ paths:
           minimum: 1
           default: 20
           title: Page Size
+      - name: search
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 200
+          - type: 'null'
+          title: Search
+      - name: sort
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/PublishedArticleSort'
+          default: VERIFIED_DESC
       responses:
         '200':
           description: Successful Response
@@ -2450,6 +2465,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublishedArticleList'
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/published-articles/{article_id}:
@@ -2475,6 +2493,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublishedArticle'
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/published-articles/{article_id}/permanent-deletion-preview:
@@ -6334,6 +6356,13 @@ components:
           title: Content Hash
         verification:
           $ref: '#/components/schemas/PublicationVerification'
+        source_content:
+          $ref: '#/components/schemas/ContentVersionDetail'
+        events:
+          items:
+            $ref: '#/components/schemas/PublicationWorkEvent'
+          type: array
+          title: Events
         issues:
           items:
             $ref: '#/components/schemas/PublishedContentIssueHistoryItem'
@@ -6367,8 +6396,14 @@ components:
       - deletion
       - content_hash
       - verification
+      - source_content
+      - events
       - issues
       title: PublishedArticleOut
+    PublishedArticleSort:
+      type: string
+      enum: [VERIFIED_DESC, VERIFIED_ASC, PUBLISHED_DESC, PUBLISHED_ASC, TITLE_ASC, TITLE_DESC]
+      title: PublishedArticleSort
     PublishedArticlePermanentDeletionCounts:
       properties:
         publication_events:

@@ -3,6 +3,11 @@ import { queryOptions } from '@tanstack/react-query';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import {
+  publishedArticleSearchToApiParams,
+  type PublishedArticleListApiParams,
+  type PublishedArticleSearch,
+} from './published-article.model';
+import {
   publicationWorkSearchToApiParams,
   type PublicationWork,
   type PublicationWorkListApiParams,
@@ -47,6 +52,12 @@ const publicationKeys = {
   package: (contentVersionId: string) => (
     ['publication', 'packages', contentVersionId] as const
   ),
+  articleLists: () => ['publication', 'articles', 'list'] as const,
+  articleList: (params: PublishedArticleListApiParams) => (
+    ['publication', 'articles', 'list', params] as const
+  ),
+  articles: () => ['publication', 'articles', 'detail'] as const,
+  article: (articleId: string) => ['publication', 'articles', 'detail', articleId] as const,
 };
 
 const commonQueryOptions = {
@@ -118,6 +129,35 @@ function publicationPackageQueryOptions(contentVersionId: string) {
         params: { path: { content_version_id: contentVersionId } },
       });
       if (!result.data) throw publicationRequestError('读取发布包', result);
+      return result.data;
+    },
+  });
+}
+
+function publishedArticleListQueryOptions(search: PublishedArticleSearch) {
+  const params = publishedArticleSearchToApiParams(search);
+  return queryOptions({
+    ...commonQueryOptions,
+    queryKey: publicationKeys.articleList(params),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/published-articles', {
+        params: { query: params },
+      });
+      if (!result.data) throw publicationRequestError('读取发布成果列表', result);
+      return result.data;
+    },
+  });
+}
+
+function publishedArticleQueryOptions(articleId: string) {
+  return queryOptions({
+    ...commonQueryOptions,
+    queryKey: publicationKeys.article(articleId),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/published-articles/{article_id}', {
+        params: { path: { article_id: articleId } },
+      });
+      if (!result.data) throw publicationRequestError('读取发布成果详情', result);
       return result.data;
     },
   });
@@ -353,6 +393,8 @@ export {
   publicationSummaryQueryOptions,
   publicationWorkListQueryOptions,
   publicationWorkspaceContextQueryOptions,
+  publishedArticleListQueryOptions,
+  publishedArticleQueryOptions,
   registerPublicationResult,
   switchPublicationContentVersion,
   updatePublicationPreparation,

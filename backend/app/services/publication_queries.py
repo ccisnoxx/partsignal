@@ -10,7 +10,7 @@ from typing import Any
 
 import bleach
 import markdown
-from sqlalchemy import case, func, literal, select, union
+from sqlalchemy import case, func, literal, or_, select, union
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session, aliased
 
@@ -55,6 +55,7 @@ from app.schemas.publication import (
     PublishedArticleList,
     PublishedArticleListItem,
     PublishedArticleOut,
+    PublishedArticleSort,
     PublishedContentIssueAction,
     PublishedContentIssueHistoryItem,
     PublishedContentIssueList,
@@ -65,6 +66,7 @@ from app.schemas.publication import (
     VersionDifference,
 )
 from app.services.content_planning import query_topic_out
+from app.services.content_version_detail import get_content_version_detail
 from app.services.product_facts import product_out
 from app.services.projections import (
     content_task_out,
@@ -458,9 +460,7 @@ def publication_work_out(db: Session, work: PublicationWork) -> PublicationWorkO
     )
 
 
-def publication_workspace_context(
-    db: Session, work_id: uuid.UUID
-) -> PublicationWorkspaceContext:
+def publication_workspace_context(db: Session, work_id: uuid.UUID) -> PublicationWorkspaceContext:
     """用固定五条查询返回同一事务快照中的发布工作台。"""
     candidate = aliased(ContentVersion)
     candidate_fact = aliased(FactVersion)
@@ -670,8 +670,8 @@ def list_publication_works(
     )
 
 
-def _article_context_query() -> Any:
-    return (
+def _article_context_query(search: str | None = None) -> Any:
+    query = (
         select(
             PublishedArticle,
             PublicationWork,
@@ -680,18 +680,9 @@ def _article_context_query() -> Any:
             ContentTask.product_id,
             ContentVersion.title.label("content_title"),
             ContentVersion.version.label("content_version"),
-            func.coalesce(
-                PlatformProfile.name,
-                PublicationWork.platform_profile_name_snapshot,
-            ).label("platform_profile_name"),
-            func.coalesce(
-                PlatformAccount.label,
-                PublicationWork.platform_account_label_snapshot,
-            ).label("platform_account_label"),
-            func.coalesce(
-                PlatformAccount.account_identifier,
-                PublicationWork.account_identifier_snapshot,
-            ).label("account_identifier"),
+            PublicationWork.platform_profile_name_snapshot.label("platform_profile_name"),
+            PublicationWork.platform_account_label_snapshot.label("platform_account_label"),
+            PublicationWork.account_identifier_snapshot.label("account_identifier"),
         )
         .join(PublicationWork, PublicationWork.id == PublishedArticle.id)
         .join(
@@ -699,9 +690,21 @@ def _article_context_query() -> Any:
         )
         .join(ContentVersion, ContentVersion.id == PublicationVerification.content_version_id)
         .join(ContentTask, ContentTask.id == PublicationWork.content_task_id)
-        .outerjoin(PlatformProfile, PlatformProfile.id == PublicationWork.platform_profile_id)
-        .outerjoin(PlatformAccount, PlatformAccount.id == PublicationWork.platform_account_id)
     )
+    if search is not None and (term := search.strip()):
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        query = query.where(
+            or_(
+                PublicationWork.actual_title.ilike(pattern, escape="\\"),
+                ContentVersion.title.ilike(pattern, escape="\\"),
+                PublicationWork.final_url.ilike(pattern, escape="\\"),
+                PublicationWork.platform_profile_name_snapshot.ilike(pattern, escape="\\"),
+                PublicationWork.platform_account_label_snapshot.ilike(pattern, escape="\\"),
+                PublicationWork.account_identifier_snapshot.ilike(pattern, escape="\\"),
+            )
+        )
+    return query
 
 
 def _article_item(
@@ -786,6 +789,23 @@ def published_article_out(
         deletion_blockers=blockers,
     )
     work, verification = row[1], row[2]
+    source_content = get_content_version_detail(db, verification.content_version_id)
+    if (
+        verification.outcome != "PASSED"
+        or verification.actual_title_snapshot != work.actual_title
+        or verification.final_url_snapshot != work.final_url
+        or verification.published_at_snapshot != work.published_at
+        or source_content.content.id != verification.content_version_id
+        or source_content.content.content_hash != work.content_hash
+    ):
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布成果来源快照不完整", 409)
+    events = list(
+        db.scalars(
+            select(PublicationWorkEvent)
+            .where(PublicationWorkEvent.publication_work_id == article.id)
+            .order_by(PublicationWorkEvent.created_at, PublicationWorkEvent.id)
+        )
+    )
     issues = list(
         db.scalars(
             select(PublishedContentIssue)
@@ -797,18 +817,34 @@ def published_article_out(
         **item.model_dump(),
         content_hash=work.content_hash,
         verification=PublicationVerificationOut.model_validate(verification),
+        source_content=source_content,
+        events=[PublicationWorkEventOut.model_validate(event) for event in events],
         issues=[PublishedContentIssueHistoryItem.model_validate(issue) for issue in issues],
     )
 
 
 def list_published_articles(
-    db: Session, *, page: int, page_size: int, can_delete: bool = False
+    db: Session,
+    *,
+    page: int,
+    page_size: int,
+    search: str | None = None,
+    sort: PublishedArticleSort = PublishedArticleSort.VERIFIED_DESC,
+    can_delete: bool = False,
 ) -> PublishedArticleList:
-    """按首次核验时间倒序分页返回发布成果。"""
-    total = int(db.scalar(select(func.count()).select_from(PublishedArticle)) or 0)
+    """按服务端搜索与稳定顺序分页返回发布成果。"""
+    query = _article_context_query(search)
+    total = int(db.scalar(select(func.count()).select_from(query.subquery())) or 0)
+    order_by = {
+        PublishedArticleSort.VERIFIED_DESC: PublicationVerification.created_at.desc(),
+        PublishedArticleSort.VERIFIED_ASC: PublicationVerification.created_at.asc(),
+        PublishedArticleSort.PUBLISHED_DESC: PublicationWork.published_at.desc(),
+        PublishedArticleSort.PUBLISHED_ASC: PublicationWork.published_at.asc(),
+        PublishedArticleSort.TITLE_ASC: func.lower(PublicationWork.actual_title).asc(),
+        PublishedArticleSort.TITLE_DESC: func.lower(PublicationWork.actual_title).desc(),
+    }[sort]
     rows = db.execute(
-        _article_context_query()
-        .order_by(PublicationVerification.created_at.desc(), PublishedArticle.id)
+        query.order_by(order_by, PublishedArticle.id)
         .offset((page - 1) * page_size)
         .limit(page_size)
     ).all()

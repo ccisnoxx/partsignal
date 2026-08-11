@@ -4,16 +4,17 @@ import {
   LayoutDashboardIcon,
   ListTodoIcon,
   SendIcon,
+  ScrollTextIcon,
   UsersIcon,
   type LucideIcon,
 } from 'lucide-react';
 
-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing' | 'users';
+type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'users';
 
 type NavigationItem = {
   id: NavId;
   label: string;
-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/system/users';
+  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/system/users';
   icon: LucideIcon;
   adminOnly?: boolean;
 };
@@ -52,7 +53,8 @@ const navigationSections: readonly NavigationSection[] = [
     label: '内容运营',
     items: [
       { id: 'content-tasks', label: '内容任务', to: '/content/tasks', icon: ListTodoIcon },
-      { id: 'publishing', label: '发布工作', to: '/publishing/work', icon: SendIcon },
+      { id: 'publishing-work', label: '发布工作', to: '/publishing/work', icon: SendIcon },
+      { id: 'publishing-articles', label: '发布成果', to: '/publishing/articles', icon: ScrollTextIcon },
     ],
   },
   {

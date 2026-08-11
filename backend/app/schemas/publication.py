@@ -12,7 +12,12 @@ from pydantic import AfterValidator, Field, HttpUrl, model_validator
 from app.schemas.base import ContractModel, require_unique_items
 from app.schemas.common import DeletionProjection
 from app.schemas.configuration import QueryTopicOut
-from app.schemas.content import ContentTaskOut, ContentTaskProductSummary, ContentVersionOut
+from app.schemas.content import (
+    ContentTaskOut,
+    ContentTaskProductSummary,
+    ContentVersionDetail,
+    ContentVersionOut,
+)
 from app.schemas.product_facts import Confidentiality, FactVersionOut, ProductOut
 
 PublicationWorkAction = Literal[
@@ -101,6 +106,15 @@ class PublicationWorkStatus(StrEnum):
 class PublicationVerificationOutcome(StrEnum):
     PASSED = "PASSED"
     FAILED = "FAILED"
+
+
+class PublishedArticleSort(StrEnum):
+    VERIFIED_DESC = "VERIFIED_DESC"
+    VERIFIED_ASC = "VERIFIED_ASC"
+    PUBLISHED_DESC = "PUBLISHED_DESC"
+    PUBLISHED_ASC = "PUBLISHED_ASC"
+    TITLE_ASC = "TITLE_ASC"
+    TITLE_DESC = "TITLE_DESC"
 
 
 class PublicationCloseReason(StrEnum):
@@ -401,6 +415,8 @@ class PublishedArticleListItem(ContractModel):
 class PublishedArticleOut(PublishedArticleListItem):
     content_hash: str
     verification: PublicationVerificationOut
+    source_content: ContentVersionDetail
+    events: list[PublicationWorkEventOut]
     issues: list[PublishedContentIssueHistoryItem]
 
 

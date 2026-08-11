@@ -8,6 +8,7 @@ type SurfaceMode = 'success' | 'empty' | 'error' | 'loading';
 type CreateMode = 'success' | 'conflict' | 'pending';
 type CommandMode = 'success' | 'conflict' | 'pending';
 type WorkspaceErrorStatus = 401 | 403 | 404 | 409 | 422;
+type ArticleListMode = 'success' | 'empty' | 'error';
 type CreateRequest = {
   body: components['schemas']['PublicationWorkCreate'];
   csrfToken: string | null;
@@ -15,6 +16,8 @@ type CreateRequest = {
 };
 type PublicationApiController = {
   commandRequests: Array<{ method: string; path: string; body: unknown; csrfToken: string | null }>;
+  articleListRequests: URL[];
+  articleRequests: URL[];
   createRequests: CreateRequest[];
   listRequests: URL[];
   packageRequests: URL[];
@@ -27,6 +30,8 @@ type PublicationApiController = {
   releaseLoading: () => void;
   setCreateMode: (mode: CreateMode) => void;
   setCommandMode: (mode: CommandMode) => void;
+  setArticleDetailError: (status?: WorkspaceErrorStatus) => void;
+  setArticleListMode: (mode: ArticleListMode) => void;
   setReadyMode: (mode: SurfaceMode) => void;
   setSummaryMode: (mode: SurfaceMode) => void;
   setSwitchCandidate: () => void;
@@ -197,6 +202,95 @@ const workspaceContext = {
   switch_candidate: null,
 } satisfies components['schemas']['PublicationWorkspaceContext'];
 
+const publishedArticle = {
+  id: publicationIds.work,
+  task_id: publicationIds.task,
+  product_id: publicationIds.product,
+  content_version_id: publicationIds.contentVersion,
+  content_title: contentVersion.title,
+  content_version: contentVersion.version,
+  platform_profile_id: publicationIds.platform,
+  platform_profile_name: readyItem.platform_profile_name,
+  platform_account_id: publicationIds.account,
+  platform_account_label: account.label,
+  account_identifier: account.account_identifier,
+  actual_title: '公开发布：如何选择低噪声放大器',
+  final_url: 'https://community.example.com/articles/lna-selection',
+  published_at: '2026-08-11T04:00:00Z',
+  verified_at: '2026-08-11T05:00:00Z',
+  has_open_issue: false,
+  open_issue_id: null,
+  retired: false,
+  revision: 3,
+  workflow_stage: 'HEALTHY',
+  primary_task: 'START_PRODUCT_OBSERVATION',
+  available_actions: ['OPEN_ISSUE'],
+  deletion: null,
+  content_hash: contentVersion.content_hash,
+  verification: {
+    id: 'a1000000-0000-4000-8000-000000000001',
+    content_version_id: publicationIds.contentVersion,
+    outcome: 'PASSED',
+    actual_title_snapshot: '公开发布：如何选择低噪声放大器',
+    final_url_snapshot: 'https://community.example.com/articles/lna-selection',
+    published_at_snapshot: '2026-08-11T04:00:00Z',
+    comment: '公开页面与批准内容一致',
+    actor_id: publicationIds.user,
+    created_at: '2026-08-11T05:00:00Z',
+  },
+  source_content: {
+    content: {
+      id: publicationIds.contentVersion,
+      task_id: publicationIds.task,
+      fact_version_id: publicationIds.factVersion,
+      source_job_id: null,
+      based_on_id: null,
+      version: contentVersion.version,
+      source_type: 'HUMAN',
+      status: 'SUPERSEDED',
+      is_current: false,
+      title: contentVersion.title,
+      summary: '首次核验时使用的冻结内容摘要。',
+      body_markdown: '# 已批准内容\n\n<script>不得执行</script>\n\n公开发布快照正文。',
+      tags: contentVersion.tags,
+      content_hash: contentVersion.content_hash,
+      change_summary: '完成平台适配',
+      creator: {
+        id: publicationIds.user,
+        username: 'admin',
+        display_name: '系统管理员',
+      },
+      created_at: '2026-08-10T01:00:00Z',
+      updated_at: '2026-08-10T02:00:00Z',
+    },
+    fact_version: {
+      id: publicationIds.factVersion,
+      product_id: publicationIds.product,
+      version: 2,
+      status: 'APPROVED',
+      classification: 'PUBLIC',
+    },
+    generation_lineage: null,
+    review_result: null,
+    review_timeline: [],
+  },
+  events: [
+    latestEvent,
+    {
+      id: 'a2000000-0000-4000-8000-000000000002',
+      action: 'COMPLETED',
+      from_status: 'AWAITING_VERIFICATION',
+      to_status: 'COMPLETED',
+      to_content_version_id: publicationIds.contentVersion,
+      from_content_version_id: publicationIds.contentVersion,
+      comment: '首次核验通过',
+      actor_id: publicationIds.user,
+      created_at: '2026-08-11T05:00:00Z',
+    },
+  ],
+  issues: [],
+} satisfies components['schemas']['PublishedArticle'];
+
 const switchCandidate = {
   id: publicationIds.replacementContentVersion,
   version: 4,
@@ -242,6 +336,19 @@ function createWorkItems() {
   }));
 }
 
+function createArticleItems() {
+  return Array.from({ length: 25 }, (_, index): components['schemas']['PublishedArticleListItem'] => ({
+    ...publishedArticle,
+    id: index === 0
+      ? publicationIds.work
+      : `91000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+    actual_title: index === 0
+      ? publishedArticle.actual_title
+      : `发布成果 ${String(index + 1).padStart(2, '0')}`,
+    published_at: `2026-08-${String(10 - (index % 5)).padStart(2, '0')}T08:00:00Z`,
+  }));
+}
+
 function errorEnvelope(code: string, message: string, requestId: string) {
   return {
     error: { code, message, details: {}, request_id: requestId },
@@ -256,6 +363,8 @@ const test = base.extend<PublicationFixtures>({
     let createMode: CreateMode = 'success';
     let commandMode: CommandMode = 'success';
     let workspaceErrorStatus: WorkspaceErrorStatus | undefined;
+    let articleDetailErrorStatus: WorkspaceErrorStatus | undefined;
+    let articleListMode: ArticleListMode = 'success';
     let releaseCreate: (() => void) | undefined;
     let releaseCommand: (() => void) | undefined;
     let releaseSummary: (() => void) | undefined;
@@ -263,9 +372,12 @@ const test = base.extend<PublicationFixtures>({
     let releaseWorks: (() => void) | undefined;
     let readyItems = [readyItem, noAccountReadyItem];
     let workItems = createWorkItems();
+    const articleItems = createArticleItems();
     let currentWorkspace: PublicationWorkspaceContext = structuredClone(workspaceContext);
     let currentEvidence: FileRecord = evidenceFile;
     const commandRequests: Array<{ method: string; path: string; body: unknown; csrfToken: string | null }> = [];
+    const articleListRequests: URL[] = [];
+    const articleRequests: URL[] = [];
     const createRequests: CreateRequest[] = [];
     const listRequests: URL[] = [];
     const packageRequests: URL[] = [];
@@ -330,6 +442,48 @@ const test = base.extend<PublicationFixtures>({
           return;
         }
         await route.fulfill({ status: 200, json: { items: readyMode === 'empty' ? [] : readyItems } });
+        return;
+      }
+      if (method === 'GET' && url.pathname === '/api/v1/published-articles') {
+        articleListRequests.push(url);
+        if (articleListMode === 'error') {
+          await route.fulfill({ status: 409, json: errorEnvelope('PUBLICATION_CONTEXT_INCOMPLETE', '发布成果上下文不完整', 'req-articles') });
+          return;
+        }
+        const search = url.searchParams.get('search')?.toLocaleLowerCase();
+        const filtered = articleListMode === 'empty'
+          ? []
+          : articleItems.filter((item) => !search || [
+            item.actual_title,
+            item.content_title,
+            item.final_url,
+            item.platform_profile_name,
+            item.platform_account_label,
+            item.account_identifier,
+          ].some((value) => value.toLocaleLowerCase().includes(search)));
+        const pageNumber = Number(url.searchParams.get('page') ?? 1);
+        const pageSize = Number(url.searchParams.get('page_size') ?? 20);
+        await route.fulfill({
+          status: 200,
+          json: {
+            items: filtered.slice((pageNumber - 1) * pageSize, pageNumber * pageSize),
+            page: pageNumber,
+            page_size: pageSize,
+            total: filtered.length,
+          } satisfies components['schemas']['PublishedArticleList'],
+        });
+        return;
+      }
+      if (method === 'GET' && url.pathname === `/api/v1/published-articles/${publicationIds.work}`) {
+        articleRequests.push(url);
+        if (articleDetailErrorStatus) {
+          await route.fulfill({
+            status: articleDetailErrorStatus,
+            json: errorEnvelope(`ARTICLE_${articleDetailErrorStatus}`, '发布成果不可用', `req-article-${articleDetailErrorStatus}`),
+          });
+          return;
+        }
+        await route.fulfill({ status: 200, json: publishedArticle });
         return;
       }
       if (method === 'GET' && url.pathname === '/api/v1/publication-works') {
@@ -583,6 +737,8 @@ const test = base.extend<PublicationFixtures>({
     });
 
     await use({
+      articleListRequests,
+      articleRequests,
       commandRequests,
       createRequests,
       listRequests,
@@ -614,6 +770,8 @@ const test = base.extend<PublicationFixtures>({
       },
       setCreateMode: (mode) => { createMode = mode; },
       setCommandMode: (mode) => { commandMode = mode; },
+      setArticleDetailError: (status) => { articleDetailErrorStatus = status; },
+      setArticleListMode: (mode) => { articleListMode = mode; },
       setReadyMode: (mode) => { readyMode = mode; },
       setSummaryMode: (mode) => { summaryMode = mode; },
       setSwitchCandidate: () => {
@@ -628,4 +786,4 @@ const test = base.extend<PublicationFixtures>({
   }, { auto: true }],
 });
 
-export { expect, publicationIds, test };
+export { expect, publicationIds, publishedArticle, test };

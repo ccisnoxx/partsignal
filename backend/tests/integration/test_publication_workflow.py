@@ -63,6 +63,7 @@ from app.schemas.publication import (
     PublicationWorkCloseRequest,
     PublicationWorkCreate,
     PublishedArticlePermanentDeleteRequest,
+    PublishedArticleSort,
     PublishedContentIssueCreate,
     PublishedContentIssueResolveRequest,
     PublishedContentRepairTaskCreate,
@@ -109,6 +110,7 @@ from app.services.publication_queries import (
     list_published_articles,
     publication_workbench_summary,
     publication_workspace_context,
+    published_article_out,
 )
 from app.services.review import transition_content_version, transition_fact_version
 
@@ -303,6 +305,83 @@ def _complete_publication(
 
 
 @pytest.mark.integration
+def test_published_article_list_and_detail_read_models() -> None:
+    """成果列表由服务端搜索排序，详情一次返回冻结正文与发布时间线。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            first_graph = _seed_graph(db, content_hash="1" * 64)
+            second_graph = _seed_graph(db, content_hash="2" * 64)
+            first_work = _complete_publication(db, first_graph, suffix="zulu")
+            second_work = _complete_publication(db, second_graph, suffix="alpha")
+            first_profile = first_graph["profile"]
+            first_account = first_graph["account"]
+            assert isinstance(first_profile, PlatformProfile)
+            assert isinstance(first_account, PlatformAccount)
+
+            frozen_profile_name = first_profile.name
+            frozen_account_label = first_account.label
+            first_profile.name = "已修改平台名称"
+            first_account.label = "已修改账号标签"
+            db.commit()
+
+            by_title = list_published_articles(
+                db,
+                page=1,
+                page_size=20,
+                sort=PublishedArticleSort.TITLE_ASC,
+            )
+            assert by_title.total == 2
+            assert [item.id for item in by_title.items] == [second_work.id, first_work.id]
+            first_item = next(item for item in by_title.items if item.id == first_work.id)
+            assert first_item.platform_profile_name == frozen_profile_name
+            assert first_item.platform_account_label == frozen_account_label
+
+            searched = list_published_articles(
+                db,
+                page=1,
+                page_size=1,
+                search=" ZULU ",
+            )
+            assert searched.total == 1
+            assert searched.items[0].id == first_work.id
+            assert (
+                list_published_articles(
+                    db,
+                    page=1,
+                    page_size=20,
+                    search="%",
+                ).items
+                == []
+            )
+
+            stable_ids = [first_work.id, second_work.id]
+            same_published_at = list_published_articles(
+                db,
+                page=1,
+                page_size=20,
+                sort=PublishedArticleSort.PUBLISHED_DESC,
+            )
+            assert [item.id for item in same_published_at.items] == sorted(stable_ids)
+
+            article = db.get(PublishedArticle, first_work.id)
+            assert article is not None
+            detail = published_article_out(db, article)
+            content = first_graph["content"]
+            assert isinstance(content, ContentVersion)
+            assert detail.id == first_work.id == article.id
+            assert detail.verification.outcome == "PASSED"
+            assert detail.source_content.content.id == content.id
+            assert detail.source_content.content.body_markdown == content.body_markdown
+            assert detail.source_content.content.content_hash == detail.content_hash
+            assert [event.action for event in detail.events] == [
+                "CREATED",
+                "RESULT_REGISTERED",
+                "COMPLETED",
+            ]
+
+
+@pytest.mark.integration
 def test_publication_work_list_read_model_and_start_boundary() -> None:
     """发布列表一次返回所需投影，开始发布仍由命令重新校验。"""
     with temporary_database() as database_url:
@@ -324,9 +403,7 @@ def test_publication_work_list_read_model_and_start_boundary() -> None:
 
             account.is_active = False
             db.commit()
-            ready_without_account = list_publication_ready_items(
-                db, can_delete_accounts=False
-            )
+            ready_without_account = list_publication_ready_items(db, can_delete_accounts=False)
             assert len(ready_without_account.items) == 1
             assert ready_without_account.items[0].matching_accounts == []
             assert ready_without_account.items[0].available_actions == []

@@ -233,13 +233,12 @@ Pattern：Table。
 | 发布时间 | actual time |
 | 首次核验 | Passed |
 | 内容健康 | 正常 / 有开放问题 / Retired |
-| 操作 | 仅存在业务动作时 |
 
-点击标题进入 Detail。
+页面使用 canonical `q/page/pageSize/sort` URL state；搜索、六种排序、count 和分页均由服务端处理。点击 actual title 进入 Detail，URL domain 直接打开公开页面。该 readonly surface 固定五列，不展示 `available_actions`、删除或问题处理入口。
 
 ## 5.4 `/publishing/articles/$articleId`
 
-Pattern：Detail。展示 Final URL、Actual title、Publish time、Platform、Account、Approved content snapshot、First successful verification snapshot、Publication timeline、GEO references、Content Issues。成果正文和成功核验 snapshot 不允许编辑。
+Pattern：Detail。单次 `GET /api/v1/published-articles/{article_id}` 展示 Final URL、Actual title、Publish time、冻结 Platform/Account、来源 ContentVersion snapshot、First successful verification snapshot、Content/Fact/Generation lineage、Publication timeline 和只读内容健康摘要。成果正文和成功核验 snapshot 不允许编辑；GEO references 与 Published Content Issue workflow 仍由后续独立页面负责。
 
 ## 5.5 `/publishing/issues`
 

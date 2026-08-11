@@ -397,7 +397,11 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 5. Publishing 完整 E2E；
 6. vertical slice 抽象回顾。
 
-`frontend-v2-publication-work-list` 已落地第 1 项：`/publishing/work` 使用 summary、ready items、work list 三个既有窄 endpoint，展示四项运营摘要、no-account Ready 候选和固定六列 active work；START 只消费服务端 action/matching account，并携带 CSRF 与稳定幂等键。列表补齐 Product/latest event 批量投影，仍由服务端分页、筛选和稳定排序；未注册 `$workId`，Workspace、Published Articles、Published Content Issues 与完整 Publishing real-stack E2E 仍留在后续任务。
+`frontend-v2-publication-work-list` 已落地第 1 项：`/publishing/work` 使用 summary、ready items、work list 三个既有窄 endpoint，展示四项运营摘要、no-account Ready 候选和固定六列 active work；START 只消费服务端 action/matching account，并携带 CSRF 与稳定幂等键。列表补齐 Product/latest event 批量投影，仍由服务端分页、筛选和稳定排序。
+
+`frontend-v2-publication-workspace` 及其 verification/revision/handoff 前置已实现 `/publishing/work/$workId`：一个 Workspace Context 返回批准正文、冻结平台/账号、结果、附件、核验与事件；成功核验原子创建同 ID PublishedArticle，并将 COMPLETED handoff 指向 `/publishing/articles/$articleId`。父任务真实栈门禁已覆盖成功与 ACTION_REQUIRED 修订闭环。
+
+`frontend-v2-published-articles` 已落地第 3 项：注册 `/publishing/articles` 与 `/publishing/articles/$articleId`；列表以服务端 search、六种稳定 sort 和 pagination 绘制固定五列，无操作列。Detail endpoint additive 嵌入既有 `ContentVersionDetail` 与 Publication events，在单个 `REPEATABLE READ` 请求中返回来源 Markdown、Fact/generation lineage、首次 PASSED verification 和时间线；页面始终只读，不消费删除、重新核验或 issue action。Published Content Issues、Publishing 完整 E2E 与 vertical slice 抽象回顾仍留在后续任务。
 
 退出条件：`PublicationWork / PublishedArticle / PublishedContentIssue` 使用三组 URL；成功核验 snapshot 不可变；失败核验不伪装成功；动作全部 server-driven；timeline/evidence 可追溯。
 

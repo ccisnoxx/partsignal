@@ -4322,9 +4322,17 @@ export interface components {
             /** Content Hash */
             content_hash: string;
             verification: components["schemas"]["PublicationVerification"];
+            source_content: components["schemas"]["ContentVersionDetail"];
+            /** Events */
+            events: components["schemas"]["PublicationWorkEvent"][];
             /** Issues */
             issues: components["schemas"]["PublishedContentIssueHistoryItem"][];
         };
+        /**
+         * PublishedArticleSort
+         * @enum {string}
+         */
+        PublishedArticleSort: "VERIFIED_DESC" | "VERIFIED_ASC" | "PUBLISHED_DESC" | "PUBLISHED_ASC" | "TITLE_ASC" | "TITLE_DESC";
         PublishedArticlePermanentDeletionCounts: {
             publication_events: number;
             publication_verifications: number;
@@ -8568,6 +8576,8 @@ export interface operations {
             query?: {
                 page?: number;
                 page_size?: number;
+                search?: string | null;
+                sort?: components["schemas"]["PublishedArticleSort"];
             };
             header?: never;
             path?: never;
@@ -8584,6 +8594,9 @@ export interface operations {
                     "application/json": components["schemas"]["PublishedArticleList"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
@@ -8607,6 +8620,10 @@ export interface operations {
                     "application/json": components["schemas"]["PublishedArticle"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

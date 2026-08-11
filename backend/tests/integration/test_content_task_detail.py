@@ -18,6 +18,7 @@ from app.db import get_db
 from app.deps import get_current_session
 from app.main import app
 from app.models.ai_generation import GenerationJob
+from app.models.configuration import PlatformProfile
 from app.models.content import (
     ContentReviewRecord,
     ContentTask,
@@ -26,9 +27,14 @@ from app.models.content import (
 )
 from app.models.identity import User
 from app.models.publication import PublishedContentIssue
+from app.schemas.common import RevisionRequest
 from app.schemas.publication import PublicationWorkCreate
 from app.services.content_task_detail import content_task_detail_out
-from app.services.publication import create_publication_work
+from app.services.platform_configuration import (
+    delete_platform_profile,
+    set_platform_profile_enabled,
+)
+from app.services.publication import cancel_content_task, create_publication_work
 from tests.integration.test_publication_workflow import (
     _complete_publication,
     _seed_graph,
@@ -234,9 +240,11 @@ def test_content_task_detail_uses_pointer_stable_sources_and_fixed_query_count(
             task = graph["task"]
             current = graph["content"]
             topic = graph["topic"]
+            profile = graph["profile"]
             assert isinstance(actor, User)
             assert isinstance(task, ContentTask)
             assert isinstance(current, ContentVersion)
+            assert isinstance(profile, PlatformProfile)
 
             initial = content_task_detail_out(db, task.id, actor=actor)
             assert initial.current_content is not None
@@ -380,8 +388,32 @@ def test_content_task_detail_uses_pointer_stable_sources_and_fixed_query_count(
             assert repair.source.published_content_issue is not None
             assert repair.source.published_content_issue.id == issue.id
 
-            task.platform_profile_id = None
-            db.commit()
+            cancel_content_task(
+                db=db,
+                task_id=repair_task.id,
+                expected_revision=repair_task.revision,
+                comment="构造平台删除后的历史详情",
+                actor=actor,
+                request_id="content-task-detail-cancel-repair",
+            )
+            profile = set_platform_profile_enabled(
+                db=db,
+                platform_profile_id=profile.id,
+                payload=RevisionRequest(expected_revision=profile.revision),
+                actor=actor,
+                request_id="content-task-detail-disable-platform",
+                enabled=False,
+            )
+            profile_id = profile.id
+            delete_platform_profile(
+                db=db,
+                platform_profile_id=profile_id,
+                actor=actor,
+                request_id="content-task-detail-delete-platform",
+            )
+            db.expire_all()
+            assert db.get(PlatformProfile, profile_id) is None
+            assert task.platform_profile_id is None
             historical_platform = content_task_detail_out(db, task.id, actor=actor).platform
             assert historical_platform.id is None
             assert historical_platform.name == task.platform_profile_name_snapshot

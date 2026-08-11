@@ -130,6 +130,7 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 - `ContentTask.archived_at` 是与业务状态正交的可空标记。归档只接受未归档 `COMPLETED`，恢复只接受已归档任务；两者只更新 `archived_at` 与 revision，不写审计、不改状态或下游历史。
 - 普通删除接受未归档 `OPEN | CANCELLED`，拒绝 `PENDING | RUNNING` 生成作业以及任一成功文章或 GEO 文章关系；它删除任务拥有的生成、内容、审核与未成功发布工作，并清理这些目标的旧审计。
+- 聚合删除受控断开所属 AI `ContentVersion.source_job_id` 时，只允许该外键变为 `NULL`，`updated_at` 必须保持原值。SQLAlchemy Core 批量 UPDATE 必须显式写入 `updated_at=ContentVersion.updated_at`，覆盖列级 `onupdate`，避免把窄解绑窗口意外扩大为时间字段更新。
 - 永久删除只接受已归档任务、管理员权限、匹配 revision 与固定确认文本。服务在锁内重算范围，删除任务拥有的内容与发布聚合；人工 GEO 更正链仅在删除后失去全部文章关系时整链删除，共享 GEO 和共享文件保留，最后只写空 `details` 的最小墓碑。
 - 任务和发布工作都冻结平台名称；任务还冻结网站 URL，发布工作还冻结账号标签与账号标识。平台删除必须先停用，仅由 `OPEN` 任务或非终态发布工作阻断，账号随平台删除，但任务绝不级联删除；终态历史实时配置外键置空后从快照展示。
 - 单独账号删除仅由非终态发布工作阻断。Prompt 删除与平台绑定修改复用一个事务 advisory lock；删除时锁定全部绑定平台，置空绑定、递增各平台 revision，再删除 Prompt。历史生成作业继续只读不可变快照。
@@ -143,6 +144,7 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 | 普通删除遇到运行中作业 | `409 CONTENT_TASK_BUSY`，聚合不变 |
 | 普通删除遇到成功文章或 GEO 文章关系 | `409 CONTENT_TASK_REQUIRES_ARCHIVE` |
 | 普通删除的 `expected_revision` 过期 | `409 REVISION_CONFLICT`，聚合不变 |
+| 受控 `source_job_id` 解绑被 ORM 自动附带 `updated_at=now()` | PostgreSQL `55000 content version identity is immutable`，整个删除事务回滚 |
 | 归档非 `COMPLETED` / 恢复未归档任务 | `409 INVALID_STATE_TRANSITION` |
 | 永久删除未归档任务 / revision 过期 / 确认文本错误 | `409 CONTENT_TASK_NOT_ARCHIVED` / `409 REVISION_CONFLICT` / `422 PERMANENT_DELETE_CONFIRMATION_MISMATCH` |
 | 平台仍启用 / 存在 `OPEN` 任务或非终态工作 | `409 INVALID_STATE_TRANSITION` / 结构化 `PLATFORM_PROFILE_IN_USE` |
@@ -155,12 +157,12 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 - 正常：已成功发布任务先归档，管理员查看实时计数和外部 URL，输入 `永久删除` 后一次删除内部任务、发布和独占 GEO 聚合；外部文章不校验也不删除，共享观测保留。
 - 基础：未成功发布的 `OPEN | CANCELLED` 测试任务一键删除；平台停用后删除，内部账号随平台清理，终态任务/工作仍可通过快照读取。
-- 失败：平台仍有 `OPEN` 任务，或永久删除时 revision 已变化，整个事务拒绝且不产生墓碑；不得用前端隐藏按钮或强制级联绕过。
+- 失败：平台仍有 `OPEN` 任务、永久删除时 revision 已变化，或 AI 内容解绑误触 `updated_at`，整个事务拒绝且不产生墓碑；不得用前端隐藏按钮、放宽触发器或强制级联绕过。
 
 ### 6. 必需测试
 
 - PostgreSQL 迁移测试断言快照确定性回填、可空实时外键、平台不级联任务、终态账号解绑、历史 UPDATE 继续拒绝、审计白名单清理和 downgrade `55000`。
-- 集成测试覆盖普通删除、归档、恢复、管理员永久删除、共享/独占 GEO、文件调度、最小墓碑、工程师权限和锁内竞态复核。
+- 集成测试覆盖普通删除、归档、恢复、管理员永久删除、终态 AI 作业及其 AI 内容版本、共享/独占 GEO、文件调度、最小墓碑、工程师权限和锁内竞态复核。
 - 配置集成测试覆盖绑定 Prompt 原子解绑、活动任务阻止平台删除、终态历史允许平台/账号删除以及快照读模型。
 - 身份测试继续覆盖停用用户、业务引用、会话清理与受约束审计操作者置空。
 - OpenAPI/生成类型、前端组件和 Playwright 回归必须覆盖危险确认文案、固定确认输入、默认排除归档和删除后的缓存刷新。
@@ -179,6 +181,21 @@ db.delete(platform)  # content_tasks 也随外键级联删除
 if open_task_count or in_flight_work_count:
     raise in_use("PLATFORM_PROFILE_IN_USE", ...)
 db.delete(platform)  # 账号清理；任务保留，终态历史改读冻结快照
+```
+
+错误：只指定解绑字段，让 `ContentVersion.updated_at` 的 ORM `onupdate` 自动进入 SQL，超出数据库触发器允许的窄窗口。
+
+```python
+update(ContentVersion).values(source_job_id=None)
+```
+
+正确：显式保持内容更新时间原值，受控删除只断开生成作业外键。
+
+```python
+update(ContentVersion).values(
+    source_job_id=None,
+    updated_at=ContentVersion.updated_at,
+)
 ```
 
 ## 场景：Content Task List 服务端读模型

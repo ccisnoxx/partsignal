@@ -20,6 +20,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
+from app.models.ai_generation import GenerationJob
 from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType, QueryTopic
 from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
 from app.models.geo_files import (
@@ -686,7 +687,7 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
 
 @pytest.mark.integration
 def test_content_task_delete_and_archive_permanent_delete_lifecycle() -> None:
-    """未发布任务直接聚合删除，成功任务归档后可立即永久删除。"""
+    """带 AI 版本的未发布任务可聚合删除，成功任务归档后可立即永久删除。"""
     with temporary_database() as database_url:
         engine = create_engine(database_url)
         with Session(engine, expire_on_commit=False) as db:
@@ -697,6 +698,42 @@ def test_content_task_delete_and_archive_permanent_delete_lifecycle() -> None:
             assert isinstance(ordinary_task, ContentTask)
             assert isinstance(ordinary_content, ContentVersion)
             assert isinstance(actor, User)
+
+            ordinary_job = GenerationJob(
+                content_task_id=ordinary_task.id,
+                idempotency_key=f"ordinary-delete-{uuid.uuid4()}",
+                job_type="GENERATE",
+                status="SUCCEEDED",
+                input_snapshot={},
+                adapter_name="integration-test",
+                prompt_template_version="content-markdown-v3",
+                prompt_hash="e" * 64,
+                attempt_count=1,
+                created_by=actor.id,
+            )
+            db.add(ordinary_job)
+            db.flush()
+            ordinary_ai_content = ContentVersion(
+                task_id=ordinary_task.id,
+                fact_version_id=ordinary_content.fact_version_id,
+                source_job_id=ordinary_job.id,
+                version=2,
+                source_type="AI",
+                title="待删除 AI 草稿",
+                summary="验证任务聚合删除可断开作业引用",
+                body_markdown="# 待删除 AI 草稿\n\n仅用于删除生命周期集成测试。",
+                tags=["删除回归"],
+                content_hash="e" * 64,
+                status="DRAFT",
+                quality_issues=[],
+                change_summary="创建删除回归数据",
+                created_by=actor.id,
+            )
+            db.add(ordinary_ai_content)
+            db.flush()
+            ordinary_job.content_version_id = ordinary_ai_content.id
+            ordinary_task.current_content_version_id = ordinary_ai_content.id
+            db.commit()
 
             with pytest.raises(AppError) as conflict:
                 delete_content_task(
@@ -718,6 +755,8 @@ def test_content_task_delete_and_archive_permanent_delete_lifecycle() -> None:
             )
             assert db.get(ContentTask, ordinary_task.id) is None
             assert db.get(ContentVersion, ordinary_content.id) is None
+            assert db.get(ContentVersion, ordinary_ai_content.id) is None
+            assert db.get(GenerationJob, ordinary_job.id) is None
             assert (
                 db.scalar(
                     select(AuditLog).where(

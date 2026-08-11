@@ -382,6 +382,10 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-content-abstraction-review` 已完成 Content vertical slice 抽象审计：`content.api.ts`、query keys、action registry、current pointer、不可变历史和 `route → domain → design-system/shared` 所有权保持唯一且方向正确；component、generated-type fixture Playwright 与 real-stack 证明互补，没有可删除的重复测试。四个 Content route 的相同意外错误 UI 提升为一个不接收业务 DTO/token 的 `RouteError`，Detail/Review 两个只转发参数的 `StatusBadge` wrapper 已删除；Metadata、EmptyValue、业务错误映射及 Editor/Review/Version framework 均无足够证据提升。targeted component `25 passed`、四 route fixture Playwright `38 passed`、V2 typecheck/lint/build 与 `make verify` 中的 contract/API/backend/V1 门禁通过；`make verify` 的 V2 全套为 `232 passed / 1 failed`，唯一失败是既有 `app-shell.test.tsx` 未给 Product Detail loader 提供 API 响应，与本 Task diff 无关且在此前 Content Task 已有相同记录。由于本 Task 批准的 Phase 3 退出条件要求 `make verify` 全绿，Phase 3 exit gate 暂判 `NOT_MET`；应以独立 Product/AppShell 测试修复 Task 关闭该已知缺口，本 Task 不跨 domain 夹带修改。
 
+前置 `frontend-v2-content-task-detail-platform-fixture` 已修复 Content Task Detail 的 platform fixture，但当次完整 `make verify` 仍为 `49 passed / 3 failed`，因此该 Task 对 Phase 3 exit gate 的结论保持 `NOT_MET`。此记录只追加后续证据，不改写其 Task 或更早 `NOT_MET` 历史。
+
+`frontend-e2e-exit-gate-contract-drift` 重新核对 0037 后永久审计、`deleteProduct` 必填 revision 与生产 TableRegion 合同，并将三个 V1 E2E 及后续获授权暴露的稳定 locator/表格边界对齐到当前合同；同时修复 0042 ORM `updated_at onupdate` 意外扩大内容任务删除受控解绑的回归，未恢复 `ai_model.tested`，未修改审计白名单、OpenAPI、数据库 schema、migration、触发器或生产 TableRegion。精确 targeted E2E 为 `4 passed`（固定 V2 real-stack 前置另为 `7 passed`），PostgreSQL 删除生命周期回归 `1 passed`，frontend lint/typecheck、backend Ruff/mypy 与 `git diff --check` 均通过；完整 `make verify` 中 backend unit `176 passed`、V1 unit `203 passed`、V1 visual-contract `24 passed`、V2 unit `233 passed`、Docker backend integration `87 passed`、V2 real-stack 前置 `7 passed`、V1 E2E `52 passed`、V2 E2E `179 passed / 15 skipped`，双前端构建和 Compose 配置检查也全部通过，最终退出码为 `0`。当前 Phase 3 exit gate 重判为 `MET`。
+
 ## 9. Phase 4 — Publishing
 
 按三个独立生命周期实施：

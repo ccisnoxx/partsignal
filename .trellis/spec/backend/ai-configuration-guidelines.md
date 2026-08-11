@@ -27,8 +27,8 @@
 - API Key 和敏感 Header 使用 AES-256-GCM 密文保存，关联数据绑定记录 ID；响应、日志、审计和作业快照不得包含明文。
 - `AIChannel.protocol_type` 决定真实调用协议，`provider_brand` 只决定管理端身份、筛选和本地图标。当前协议只有 `openai-compatible-chat-completions`；品牌目录为 `OPENAI | ANTHROPIC | GOOGLE | AZURE_OPENAI | ZHIPU | QWEN | CUSTOM`。未知值或未登记组合必须拒绝，品牌不得改写地址或选择另一个客户端。
 - 渠道集合只返回 `AIChannelSummary`，包含身份、状态、根地址、API Key 配置状态、Header 数、启用模型数、最近测试和修订号；不得返回 Header 值、模型数组或任何密钥片段。`counts` 应用 `q` 和 `provider_brand`，但不应用 `status`。
-- 使用统计只聚合该渠道正式 `GENERATE`/`HUMANIZE` 作业，默认最近 30 天；连接测试和模型发现只进入测试状态与审计。业务作业数为时间窗内全部正式作业，成功/失败只计对应终态；成功率分母为成功加失败，平均耗时只聚合非空耗时，Token 只求和已报告值，完全未报告时返回 `null` 而非 `0`。
-- 渠道操作日志继续读取 `audit_logs`。模型 CRUD、启停、测试和发现事件通过脱敏 `channel_id` 建立渠道投影；不得复制日志表，也不得为历史缺失关联的已删除模型猜测渠道。
+- 使用统计只聚合该渠道正式 `GENERATE`/`HUMANIZE` 作业，默认最近 30 天；连接测试只回写模型最近测试状态，模型发现只返回当次远端结果，两者都不计入业务作业或永久审计。业务作业数为时间窗内全部正式作业，成功/失败只计对应终态；成功率分母为成功加失败，平均耗时只聚合非空耗时，Token 只求和已报告值，完全未报告时返回 `null` 而非 `0`。
+- 渠道操作日志继续读取 `audit_logs`。模型 CRUD 和启停事件通过脱敏 `channel_id` 建立渠道投影；不得复制日志表，也不得为历史缺失关联的已删除模型猜测渠道。
 - 作业快照冻结普通 Header、敏感 Header 名称、模型参数、平台身份、事实版本身份和最终 system/user message；执行或重试时只读取快照所列敏感 Header 的当前值。后来新增的敏感 Header 不得进入旧作业，快照所列 Header 已删除或改为普通 Header 时必须失败。
 - Chat Completions 正文必须直接解析为仅含 `title`、`summary`、`body_markdown`、`tags` 的非空 JSON 对象，不做提取、修复或补值。
 - 模型“测试连接”与正式生成必须使用不同解析边界：测试请求只发送一条内容为 `hi` 的用户消息，并仅验证标准 `choices[0].message.content` 字符串；不得用业务草稿四字段 Schema 判断连接是否可用。

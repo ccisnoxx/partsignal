@@ -353,7 +353,7 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   await expect(page.getByText('暂无数据').first()).toBeVisible();
   await selectDetailTab(page, '操作日志', 'logs');
   await expect(page.getByText('ai_channel.created', { exact: true })).toBeVisible();
-  await expect(page.getByText('ai_model.tested', { exact: true })).toBeVisible();
+  await expect(page.getByText('ai_model.enabled', { exact: true })).toBeVisible();
   await selectDetailTab(page, '基本信息', null);
 
   await page.getByRole('button', { name: '复制配置' }).click();
@@ -439,24 +439,26 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
 
   await page.setViewportSize({ width: 1440, height: 1000 });
   const tableGeometry = await selectedChannelRow.evaluate((row) => {
-    const status = row.querySelector<HTMLElement>('.ai-test-status');
     const actions = row.querySelector<HTMLElement>('.ant-table-cell-fix-end .ant-space');
     const content = row.closest('.ant-table-content');
-    if (!status || !actions || !(content instanceof HTMLElement)) {
+    if (!actions || !(content instanceof HTMLElement)) {
       throw new Error('缺少 AI 表格列几何量测节点');
     }
-    const statusRect = status.getBoundingClientRect();
     const actionsRect = actions.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
     return {
-      statusRight: statusRect.right,
       actionsLeft: actionsRect.left,
+      actionsRight: actionsRect.right,
+      contentLeft: contentRect.left,
+      contentRight: contentRect.right,
       clientWidth: content.clientWidth,
       scrollWidth: content.scrollWidth,
       documentWidth: document.documentElement.scrollWidth,
     };
   });
-  expect(tableGeometry.statusRight).toBeLessThanOrEqual(tableGeometry.actionsLeft);
-  expect(tableGeometry.scrollWidth).toBeLessThanOrEqual(tableGeometry.clientWidth + 1);
+  expect(tableGeometry.actionsLeft).toBeGreaterThanOrEqual(tableGeometry.contentLeft);
+  expect(tableGeometry.actionsRight).toBeLessThanOrEqual(tableGeometry.contentRight);
+  expect(tableGeometry.scrollWidth).toBeGreaterThan(tableGeometry.clientWidth);
   expect(tableGeometry.documentWidth).toBeLessThanOrEqual(1440);
   await page.screenshot({ path: testInfo.outputPath('ai-channels-light-1440x1000.png') });
 

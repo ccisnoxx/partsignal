@@ -134,7 +134,7 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   const engineerCsrf = await body<{ csrf_token: string }>(await engineerPage.request.get('/api/v1/auth/csrf'));
   const nonexistentId = randomUUID();
   for (const path of [
-    `/api/v1/products/${nonexistentId}`,
+    `/api/v1/products/${nonexistentId}?expected_revision=0`,
     `/api/v1/platform-types/${nonexistentId}`,
     `/api/v1/platform-profiles/${nonexistentId}`,
     `/api/v1/platform-prompts/${nonexistentId}?expected_revision=0`,
@@ -290,7 +290,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   const humanizationPromptWasConfigured = initialHumanizationPrompt.status() === 200;
   const nonexistentId = randomUUID();
   for (const path of [
-    `/api/v1/products/${nonexistentId}`,
+    `/api/v1/products/${nonexistentId}?expected_revision=0`,
     `/api/v1/platform-types/${nonexistentId}`,
     `/api/v1/platform-profiles/${nonexistentId}`,
     `/api/v1/platform-prompts/${nonexistentId}?expected_revision=0`,
@@ -582,7 +582,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
     response.request().method() === 'POST'
     && new URL(response.url()).pathname === `/api/v1/content-versions/${generatedContentId}/humanization-jobs`
   ));
-  await humanizationDialog.getByRole('button', { name: '创建自然化作业' }).click();
+  await humanizationDialog.getByRole('button', { name: '创建自然化生成记录' }).click();
   const { id: humanizationJobId } = await body<{ id: string }>(await humanizationCreated);
   let humanizedContentId: string | null | undefined;
   await expect.poll(async () => {
@@ -692,7 +692,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   const taskNavigation = page.getByRole('navigation', { name: '内容任务章节' });
   await expect(taskNavigation.getByRole('link', { name: '任务上下文' })).toHaveAttribute('aria-current', 'location');
   await expect(taskNavigation.getByRole('link', { name: '任务上下文' })).toHaveAttribute('href', '#task-context');
-  await expect(taskNavigation.getByRole('link', { name: '首稿入口' })).toHaveAttribute('href', '#task-entry');
+  await expect(taskNavigation.getByRole('link', { name: '内容工作' })).toHaveAttribute('href', '#task-entry');
   await expect(taskNavigation.getByRole('link', { name: '内容版本' })).toHaveAttribute('href', '#task-versions');
   await expect(page.locator('#task-context')).toBeVisible();
   await expect(page.locator('#task-entry')).toBeVisible();

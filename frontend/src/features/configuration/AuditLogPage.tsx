@@ -480,7 +480,7 @@ export function AuditLogPage() {
                     ),
                   }}
                   columns={[
-                    { title: '时间', dataIndex: 'created_at', width: 144, render: (value: string) => <time className="audit-time" dateTime={value}>{formatBeijingTime(value)}</time> },
+                    { title: '时间', dataIndex: 'created_at', width: 160, render: (value: string) => <time className="audit-time" dateTime={value}>{formatBeijingTime(value)}</time> },
                     { title: '操作者', width: 76, ellipsis: true, render: (_, row) => <TableCellText text={row.actor?.display_name ?? '已删除用户'} /> },
                     { title: '账号类型', width: 82, render: (_, row) => row.actor ? <StatusTag compact status={row.actor.account_type} /> : '未记录' },
                     { title: '业务模块', dataIndex: 'business_module', width: 94, render: moduleLabel },

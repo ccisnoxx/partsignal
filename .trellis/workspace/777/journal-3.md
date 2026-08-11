@@ -42,3 +42,41 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 116: Frontend V2 Publication Verification
+
+**Date**: 2026-08-11
+**Task**: Frontend V2 Publication Verification
+**Branch**: `codex/frontend-v2-publication-verification`
+
+### Summary
+
+完成 Publication Verification/Switch 闭环、后端动作投影与合同测试；真实栈 Flow B 因现有 Content 修订入口缺失按设计记录阻塞。
+
+### Main Changes
+
+- 实现 Verification FAILED/PASSED、精确候选换版、409 显式重载和完成态只读交接。
+- 修正换版后服务端动作投影：必须重新登记结果后才恢复核验。
+- 更新 OpenAPI、生成类型、后端/前端测试、production E2E 和 Publication 权威 spec。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6c664fd` | (see git log) |
+
+### Testing
+
+- Contract check、Frontend V2 lint/typecheck/build 通过。
+- 后端单元测试 11 个、独立 PostgreSQL 目标集成用例、前端目标组件测试 15 个通过。
+- Publication production E2E mobile/desktop 共 10 个通过；真实栈 Publication Flow A 通过。
+- 真实栈 Flow B 因现有 Content Task/Edit 不开放批准版本修订而按设计停止，缺口已记录在归档任务的 `implement.md`。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 父任务后续决定是否单独扩展 Content workflow，以解除真实栈 Flow B 前置缺口。

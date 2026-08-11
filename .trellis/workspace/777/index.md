@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 115
+- **Total Sessions**: 116
 - **Last Active**: 2026-08-11
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~40 | Active |
+| `journal-3.md` | ~77 | Active |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 116 | 2026-08-11 | Frontend V2 Publication Verification | `6c664fd` | `codex/frontend-v2-publication-verification` |
 | 115 | 2026-08-11 | 完成 Frontend V2 Publication Workspace Core | `1035878` | `codex/frontend-v2-publication-workspace-core` |
 | 114 | 2026-08-11 | 完成 Frontend V2 Publication Work List | `82d9820` | `codex/frontend-v2-publication-work-list` |
 | 114 | 2026-08-11 | Frontend E2E exit gate 合同漂移 | `8c19a59` | `codex/frontend-e2e-exit-gate-contract-drift` |

@@ -1949,3 +1949,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 114: 完成 Frontend V2 Publication Work List
+
+**Date**: 2026-08-11
+**Task**: 完成 Frontend V2 Publication Work List
+**Branch**: `codex/frontend-v2-publication-work-list`
+
+### Summary
+
+完成 /publishing/work 的四项运营摘要、Ready Queue、Active Publication Work Table 与 START_PUBLICATION 创建边界，并通过合同、后端、前端及 production-artifact 验证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `82d9820` | (see git log) |
+
+### Testing
+
+- `contract-check`、targeted PostgreSQL integration、backend/frontend lint 与 typecheck 通过。
+- V1 unit `203 passed`；V2 targeted `5 files / 19 tests passed`；V2 production build 通过。
+- Publication Playwright `8 passed`；375/768/1024/1440 Visual QA 与 `git diff --check` 通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

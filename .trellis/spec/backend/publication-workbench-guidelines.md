@@ -250,3 +250,54 @@ events = list_publication_events(work_id)
 # Correct：同一 repeatable-read snapshot 返回完整工作区。
 context = get_publication_workspace_context(db=db, work_id=work_id, actor=actor)
 ```
+
+## 场景：核验失败后的换版与再登记
+
+### 1. 范围 / 触发条件
+
+- 修改核验、换版、结果再登记、Workspace 动作投影或 `switch_candidate` 时适用。
+- `ACTION_REQUIRED` 不是单一动作阶段；最近事件决定当前应先修正内容、重新登记结果还是再次核验。
+
+### 2. 签名
+
+- `POST /api/v1/publication-works/{work_id}/verifications`：`{outcome: PASSED|FAILED, content_matches: boolean, expected_revision: int >= 0, comment: string}`。
+- `POST /api/v1/publication-works/{work_id}/content-version`：`{content_version_id: UUID, expected_revision: int >= 0, comment: nonblank}`。
+- 两个命令成功都返回 canonical `PublicationWork`；页面随后重读 `PublicationWorkspaceContext`。
+
+### 3. 合同
+
+- `FAILED` 追加绑定当前 `content_version_id` 的不可变核验快照并进入 `ACTION_REQUIRED`；重复失败继续追加，不覆盖历史。
+- `switch_candidate` 必须同时满足同一任务、任务当前版本、不同于工作绑定版本、内容和事实均为 `APPROVED`；Context 与 switch command 使用同一资格规则。
+- `CONTENT_VERSION_CHANGED` 后工作仍为 `ACTION_REQUIRED`，但服务端必须撤回 `VERIFY`，将 `REGISTER_RESULT` 作为 `primary_action`；只有新的 `RESULT_REGISTERED` 把工作带回 `AWAITING_VERIFICATION` 后才重新开放 `VERIFY`。
+- 换版只更新工作绑定的版本与 hash，并追加含 old/new version IDs 的事件；不得沿用旧页面结果伪造新内容已登记。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 结果 |
+| --- | --- |
+| 未登录 / 无权限 / 工作或候选不存在 | `401` / `403` / `404`，结构化 `ErrorResponse` |
+| revision 过期、状态非法、上下文不完整 | `409`，不自动重放 |
+| 候选不满足同任务当前批准版本或与当前版本相同 | `409 CONTENT_VERSION_NOT_SWITCHABLE` / `CONTENT_VERSION_UNCHANGED` |
+| payload 形状、布尔值与 outcome 不一致或换版说明为空 | `422` |
+
+### 5. Good / Base / Bad
+
+- Good：失败 → 批准候选 → 换版 → 重新登记真实结果 → 通过；旧核验仍指向旧版本，新核验指向新版本。
+- Base：失败后无候选，Context 返回 `switch_candidate=null`，页面只交接 Content Task 修正入口。
+- Bad：仅因 `status=ACTION_REQUIRED` 在换版后继续返回 `VERIFY`，让旧结果直接核验新正文。
+
+### 6. 必需测试
+
+- PostgreSQL 集成测试覆盖重复失败 append-only、candidate/command 对称、换版 old/new lineage、换版后无 `VERIFY`、再登记后恢复 `VERIFY`、通过后 Work/Task/PublishedArticle 原子终态。
+- 前端组件与 production E2E 精确断言 PASS/FAIL payload、CSRF/revision、无候选交接、409 保留输入且不重放、换版后再登记和通过后只读。
+- Contract 检查保证 FastAPI、OpenAPI 与两套生成 TypeScript 类型的 `401/403/404/409/422` 错误响应一致。
+
+### 7. Wrong vs Correct
+
+```python
+# Wrong：状态相同就始终开放核验。
+actions = publication_work_actions(work.status)
+
+# Correct：换版事件要求先重新登记结果，再允许核验。
+actions = publication_work_actions(work.status, latest_event.action)
+```

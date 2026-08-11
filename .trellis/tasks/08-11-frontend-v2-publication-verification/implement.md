@@ -102,6 +102,8 @@ DATABASE_URL=<local-postgres-url> REDIS_URL=<exclusive-local-redis-url> \
 
 Flow B 使用独立记录，并通过 V2 UI 证明：first FAILED → 现有 Content workflow 创建/审核/批准替换版本 → Workspace Context 暴露精确 candidate → switch → result registration → PASSED。最终 API read 断言 Work/Task/PublishedArticle/Event/Verification 不可变性。Cleanup 输出必须确认数据库和存储已删除。
 
+已验证阻塞：`verify_publication_work()` 的 FAILED 分支只把 Publication Work 置为 `ACTION_REQUIRED`，Content Task 当前批准版本保持 `APPROVED`；`content_task_workflow_projection()` 对任何未终态 work 继续投影 `CONTINUE_PUBLICATION`，而 `editorMode()` 仅在 `primary_task=REVISE_CONTENT` 时开放 `CREATE_REVISION`。因此现有 V2 Content Task/Edit 页面无法完成本节要求的内容修正。按 `design.md` 边界，本任务不扩展 Content Editor/Review，新 Flow B 暂不实现。
+
 ### Visual QA / review
 
 - 使用项目 `playwright-cli` skill，以明确命名的 `publication-verification-visual` session 检查 production artifact；覆盖 ACTION_REQUIRED、candidate/no-candidate、completed readonly、light/dark/system、200% zoom、keyboard 与 1280/1920 geometry。

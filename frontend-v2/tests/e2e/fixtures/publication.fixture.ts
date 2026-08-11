@@ -14,7 +14,7 @@ type CreateRequest = {
   idempotencyKey: string | null;
 };
 type PublicationApiController = {
-  commandRequests: Array<{ method: string; path: string; body: unknown }>;
+  commandRequests: Array<{ method: string; path: string; body: unknown; csrfToken: string | null }>;
   createRequests: CreateRequest[];
   listRequests: URL[];
   packageRequests: URL[];
@@ -29,6 +29,7 @@ type PublicationApiController = {
   setCommandMode: (mode: CommandMode) => void;
   setReadyMode: (mode: SurfaceMode) => void;
   setSummaryMode: (mode: SurfaceMode) => void;
+  setSwitchCandidate: () => void;
   setWorkMode: (mode: SurfaceMode) => void;
   setWorkspaceError: (status?: WorkspaceErrorStatus) => void;
 };
@@ -40,6 +41,7 @@ const publicationIds = {
   account: '10000000-0000-4000-8000-000000000001',
   contentVersion: '20000000-0000-4000-8000-000000000001',
   contentVersionNoAccount: '20000000-0000-4000-8000-000000000002',
+  replacementContentVersion: '20000000-0000-4000-8000-000000000003',
   event: '30000000-0000-4000-8000-000000000001',
   factVersion: '40000000-0000-4000-8000-000000000001',
   platform: '50000000-0000-4000-8000-000000000001',
@@ -195,6 +197,14 @@ const workspaceContext = {
   switch_candidate: null,
 } satisfies components['schemas']['PublicationWorkspaceContext'];
 
+const switchCandidate = {
+  id: publicationIds.replacementContentVersion,
+  version: 4,
+  title: '如何选择低噪声放大器（修订）',
+  summary: '失败核验后的批准修订摘要',
+  content_hash: 'replacement-approved-hash',
+} satisfies components['schemas']['PublicationWorkspaceVersionCandidate'];
+
 const evidenceFile = {
   id: 'a0000000-0000-4000-8000-000000000001',
   category: 'OPERATION_SCREENSHOT',
@@ -255,7 +265,7 @@ const test = base.extend<PublicationFixtures>({
     let workItems = createWorkItems();
     let currentWorkspace: PublicationWorkspaceContext = structuredClone(workspaceContext);
     let currentEvidence: FileRecord = evidenceFile;
-    const commandRequests: Array<{ method: string; path: string; body: unknown }> = [];
+    const commandRequests: Array<{ method: string; path: string; body: unknown; csrfToken: string | null }> = [];
     const createRequests: CreateRequest[] = [];
     const listRequests: URL[] = [];
     const packageRequests: URL[] = [];
@@ -419,10 +429,17 @@ const test = base.extend<PublicationFixtures>({
         `/api/v1/publication-works/${publicationIds.work}/preparation`,
         `/api/v1/publication-works/${publicationIds.work}/platform-review`,
         `/api/v1/publication-works/${publicationIds.work}/result`,
+        `/api/v1/publication-works/${publicationIds.work}/verifications`,
+        `/api/v1/publication-works/${publicationIds.work}/content-version`,
         `/api/v1/publication-works/${publicationIds.work}/close`,
       ];
       if (commandPaths.includes(url.pathname)) {
-        commandRequests.push({ method, path: url.pathname, body: request.postDataJSON() });
+        commandRequests.push({
+          method,
+          path: url.pathname,
+          body: request.postDataJSON(),
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+        });
         if (commandMode === 'pending') await new Promise<void>((resolve) => { releaseCommand = resolve; });
         if (commandMode === 'conflict') {
           await route.fulfill({ status: 409, json: errorEnvelope('PUBLICATION_REVISION_CONFLICT', '发布工作已变化', 'req-workspace-conflict') });
@@ -457,8 +474,74 @@ const test = base.extend<PublicationFixtures>({
               status: 'AWAITING_VERIFICATION',
               workflow_stage: 'AWAITING_VERIFICATION',
               primary_task: 'RUN_FIRST_VERIFICATION',
-              available_actions: ['VERIFY', 'CLOSE'],
+              available_actions: ['VERIFY', 'REGISTER_RESULT', 'SWITCH_CONTENT_VERSION', 'CLOSE'],
               attachments: [currentEvidence],
+            },
+          };
+        } else if (url.pathname.endsWith('/verifications')) {
+          const passed = body.outcome === 'PASSED';
+          const verification = {
+            id: `a0000000-0000-4000-8000-${String(currentWorkspace.work.verifications.length + 1).padStart(12, '0')}`,
+            content_version_id: currentWorkspace.content.id,
+            outcome: passed ? 'PASSED' : 'FAILED',
+            actual_title_snapshot: currentWorkspace.work.actual_title ?? '',
+            final_url_snapshot: currentWorkspace.work.final_url ?? '',
+            published_at_snapshot: currentWorkspace.work.published_at ?? '',
+            comment: String(body.comment),
+            actor_id: publicationIds.user,
+            created_at: `2026-08-11T0${5 + currentWorkspace.work.verifications.length}:00:00Z`,
+          } satisfies components['schemas']['PublicationVerification'];
+          currentWorkspace = {
+            ...currentWorkspace,
+            work: {
+              ...currentWorkspace.work,
+              revision,
+              status: passed ? 'COMPLETED' : 'ACTION_REQUIRED',
+              workflow_stage: passed ? 'COMPLETED' : 'ACTION_REQUIRED',
+              primary_task: passed ? 'VIEW_COMPLETION' : 'FIX_AND_REVERIFY',
+              available_actions: passed
+                ? []
+                : ['VERIFY', 'REGISTER_RESULT', 'SWITCH_CONTENT_VERSION', 'CLOSE'],
+              verifications: [...currentWorkspace.work.verifications, verification],
+              latest_verification_outcome: verification.outcome,
+              latest_verification_at: verification.created_at,
+            },
+          };
+        } else if (url.pathname.endsWith('/content-version')) {
+          if (!currentWorkspace.switch_candidate) throw new Error('Switch 命令缺少服务端候选');
+          const previousId = currentWorkspace.content.id;
+          const candidate = currentWorkspace.switch_candidate;
+          currentWorkspace = {
+            ...currentWorkspace,
+            content: {
+              ...currentWorkspace.content,
+              ...candidate,
+              body_markdown: '# 修订批准内容\n\n失败证据已修正。',
+              status: 'APPROVED',
+              task_id: currentWorkspace.content.task_id,
+              tags: ['LNA', '修订'],
+            },
+            switch_candidate: null,
+            work: {
+              ...currentWorkspace.work,
+              content_version_id: candidate.id,
+              content_title: candidate.title,
+              content_version: candidate.version,
+              content_hash: candidate.content_hash,
+              revision,
+              primary_task: 'REGISTER_RESULT',
+              available_actions: ['REGISTER_RESULT', 'SWITCH_CONTENT_VERSION', 'CLOSE'],
+              events: [...currentWorkspace.work.events, {
+                id: `30000000-0000-4000-8000-${String(currentWorkspace.work.events.length + 1).padStart(12, '0')}`,
+                action: 'CONTENT_VERSION_CHANGED',
+                from_status: 'ACTION_REQUIRED',
+                to_status: 'ACTION_REQUIRED',
+                from_content_version_id: previousId,
+                to_content_version_id: candidate.id,
+                comment: String(body.comment),
+                actor_id: publicationIds.user,
+                created_at: '2026-08-11T06:00:00Z',
+              }],
             },
           };
         } else {
@@ -533,6 +616,9 @@ const test = base.extend<PublicationFixtures>({
       setCommandMode: (mode) => { commandMode = mode; },
       setReadyMode: (mode) => { readyMode = mode; },
       setSummaryMode: (mode) => { summaryMode = mode; },
+      setSwitchCandidate: () => {
+        currentWorkspace = { ...currentWorkspace, switch_candidate: switchCandidate };
+      },
       setWorkMode: (mode) => { workMode = mode; },
       setWorkspaceError: (status) => { workspaceErrorStatus = status; },
     });

@@ -15,6 +15,8 @@ type PublicationWorkCreate = components['schemas']['PublicationWorkCreate'];
 type PublicationPreparationUpdate = components['schemas']['PublicationPreparationUpdate'];
 type PublicationPlatformReviewRequest = components['schemas']['PublicationPlatformReviewRequest'];
 type PublicationResultUpdate = components['schemas']['PublicationResultUpdate'];
+type PublicationVerificationCreate = components['schemas']['PublicationVerificationCreate'];
+type PublicationContentVersionSwitchRequest = components['schemas']['PublicationContentVersionSwitchRequest'];
 type PublicationWorkCloseRequest = components['schemas']['PublicationWorkCloseRequest'];
 type UploadIntentCreate = components['schemas']['UploadIntentCreate'];
 
@@ -193,6 +195,38 @@ async function registerPublicationResult(
   throw publicationRequestError('登记发布结果', result);
 }
 
+async function verifyPublicationWork(
+  workId: string,
+  body: PublicationVerificationCreate,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/publication-works/{work_id}/verifications', {
+    body,
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { work_id: workId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('核验发布结果', result);
+}
+
+async function switchPublicationContentVersion(
+  workId: string,
+  body: PublicationContentVersionSwitchRequest,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/publication-works/{work_id}/content-version', {
+    body,
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { work_id: workId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('切换批准内容版本', result);
+}
+
 async function closePublicationWork(
   workId: string,
   body: PublicationWorkCloseRequest,
@@ -320,6 +354,8 @@ export {
   publicationWorkListQueryOptions,
   publicationWorkspaceContextQueryOptions,
   registerPublicationResult,
+  switchPublicationContentVersion,
   updatePublicationPreparation,
+  verifyPublicationWork,
 };
 export type { PublicationStartErrorMapping };

@@ -13,7 +13,7 @@ import { workspaceContext } from './publication-work.test-fixtures';
 afterEach(() => vi.restoreAllMocks());
 
 describe('Publication API errors', () => {
-  it.each([403, 404, 409, 422])('保留 HTTP %s structured error 与 request ID', (status) => {
+  it.each([401, 403, 404, 409, 422])('保留 HTTP %s structured error 与 request ID', (status) => {
     const detail = {
       code: `PUBLICATION_${status}`,
       message: '发布命令失败',

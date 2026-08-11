@@ -22,6 +22,7 @@ import { PublicationWorkspaceActions } from './publication-workspace-actions';
 import {
   canonicalPublicationWorkspaceHash,
   publicationWorkspaceSections,
+  type PublicationWorkspaceContext,
   type PublicationWorkspaceSection,
 } from './publication-workspace.model';
 
@@ -82,14 +83,21 @@ function PublicationWorkspacePage({
   const events = work.events.map((event) => ({
     id: event.id,
     title: publicationEventRegistry[event.action],
-    description: event.comment || `${event.from_status ?? '新建'} → ${event.to_status}`,
+    description: event.action === 'CONTENT_VERSION_CHANGED'
+      ? `${event.comment} · ${event.from_content_version_id} → ${event.to_content_version_id}`
+      : event.comment || `${event.from_status ?? '新建'} → ${event.to_status}`,
     meta: <time dateTime={event.created_at}>{formatPublicationTime(event.created_at)}</time>,
   }));
   const verifications = work.verifications.map((verification) => ({
     id: verification.id,
     title: verification.outcome === 'PASSED' ? '核验通过' : '核验未通过',
     description: verification.comment || verification.final_url_snapshot,
-    meta: <time dateTime={verification.created_at}>{formatPublicationTime(verification.created_at)}</time>,
+    meta: (
+      <span className="space-x-2">
+        <time dateTime={verification.created_at}>{formatPublicationTime(verification.created_at)}</time>
+        <span className="font-mono text-xs">版本 {verification.content_version_id}</span>
+      </span>
+    ),
   }));
 
   async function copyPackage() {
@@ -197,16 +205,10 @@ function PublicationWorkspacePage({
       </div>
       <div id="verification">
         <DetailSection title="核验">
-          {work.available_actions.includes('VERIFY') ? (
-            <p className="rounded-lg border border-info/30 bg-info/5 p-3 text-sm text-info">
-              当前工作已等待核验；核验能力由下一子任务交付。
-            </p>
-          ) : (
-            <p className="text-sm text-text-secondary">当前没有待执行的核验动作。</p>
-          )}
+          <VerificationStatus context={context} />
         </DetailSection>
       </div>
-      <div id="content-version">
+      <div id="content-version" tabIndex={-1}>
         <DetailSection
           actions={<Button onClick={() => void copyPackage()} size="sm" type="button" variant="outline">复制发布包</Button>}
           description={`批准内容 v${context.content.version}，只读且绑定工作哈希。`}
@@ -214,9 +216,12 @@ function PublicationWorkspacePage({
         >
           <MarkdownPreview ariaLabel="批准发布内容" value={context.content.body_markdown} />
           {context.switch_candidate && (
-            <p className="m-4 rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
-              已有批准候选 v{context.switch_candidate.version}；版本切换由下一子任务交付。
-            </p>
+            <dl className="m-4 grid gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm sm:grid-cols-2">
+              <ContextValue label="候选版本" value={`v${context.switch_candidate.version}`} />
+              <ContextValue label="候选标题" value={context.switch_candidate.title} />
+              <ContextValue label="候选摘要" value={context.switch_candidate.summary} />
+              <ContextValue label="候选哈希" value={context.switch_candidate.content_hash} mono />
+            </dl>
           )}
         </DetailSection>
       </div>
@@ -225,7 +230,9 @@ function PublicationWorkspacePage({
           <p className="text-sm text-text-secondary">
             {work.status === 'CLOSED'
               ? `${work.close_reason ?? '未知原因'}：${work.close_comment ?? '无说明'}`
-              : '工作仍在进行；只有服务端返回 CLOSE 动作时才能关闭。'}
+              : work.status === 'COMPLETED'
+                ? '工作已完成并冻结为只读，无需关闭。'
+                : '工作仍在进行；只有服务端返回 CLOSE 动作时才能关闭。'}
           </p>
         </DetailSection>
       </div>
@@ -278,6 +285,8 @@ function PublicationWorkspacePage({
         onReload={async () => {
           const refreshed = await query.refetch();
           if (refreshed.error) throw refreshed.error;
+          if (!refreshed.data) throw new Error('重载发布工作台后未返回 Context');
+          return refreshed.data;
         }}
       />
     </section>
@@ -291,6 +300,48 @@ function ContextValue({ label, mono = false, value }: { label: string; mono?: bo
       <dd className={mono ? 'break-all font-mono text-xs' : 'break-words text-text-primary'}>{value}</dd>
     </div>
   );
+}
+
+function VerificationStatus({ context }: { context: PublicationWorkspaceContext }) {
+  const { work } = context;
+  const latest = work.verifications.at(-1);
+  if (work.status === 'COMPLETED') {
+    return (
+      <div className="space-y-2 rounded-lg border border-success/30 bg-success/5 p-3 text-sm">
+        <p className="font-medium text-success">核验通过，发布成果已冻结为只读。</p>
+        <p className="break-all">PublishedArticle ID：<span className="font-mono">{work.id}</span></p>
+        <a className="text-primary underline underline-offset-2" href={`/publishing/articles/${work.id}`}>
+          前往发布成果详情
+        </a>
+      </div>
+    );
+  }
+  if (work.status === 'ACTION_REQUIRED') {
+    if (work.primary_task === 'REGISTER_RESULT') {
+      return (
+        <p className="rounded-lg border border-info/30 bg-info/5 p-3 text-sm text-info">
+          内容版本已切换，请重新登记真实发布结果后再核验。
+        </p>
+      );
+    }
+    return (
+      <div className="space-y-3">
+        <p className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-sm text-warning">
+          {latest?.comment || '最近一次核验未通过，请修正内容后复核。'}
+        </p>
+        <a className="inline-flex min-h-11 items-center text-primary underline underline-offset-2" href={`/content/tasks/${work.task_id}`}>
+          打开 Content Task 修正批准内容
+        </a>
+        {!context.switch_candidate && (
+          <p className="text-sm text-text-secondary">服务端尚未提供合法批准候选；本页不会请求或筛选版本列表。</p>
+        )}
+      </div>
+    );
+  }
+  if (work.available_actions.includes('VERIFY')) {
+    return <p className="rounded-lg border border-info/30 bg-info/5 p-3 text-sm text-info">发布结果已登记，可以开始人工核验。</p>;
+  }
+  return <p className="text-sm text-text-secondary">当前没有待执行的核验动作。</p>;
 }
 
 function primaryTaskLabel(task: string) {

@@ -10,7 +10,7 @@ from typing import Any
 
 import bleach
 import markdown
-from sqlalchemy import case, func, select, union
+from sqlalchemy import case, func, literal, select, union
 from sqlalchemy.engine import Row
 from sqlalchemy.orm import Session, aliased
 
@@ -84,6 +84,7 @@ NONTERMINAL_WORK_STATUSES = (
 
 def publication_work_actions(
     status: str,
+    latest_event_action: str | None,
 ) -> tuple[list[PublicationWorkAction], str]:
     """返回发布工作当前可执行动作及唯一主动作。"""
     actions_by_status: dict[str, list[PublicationWorkAction]] = {
@@ -114,6 +115,8 @@ def publication_work_actions(
         ],
     }
     actions = actions_by_status.get(status, [])
+    if status == "ACTION_REQUIRED" and latest_event_action == "CONTENT_VERSION_CHANGED":
+        actions = ["REGISTER_RESULT", "SWITCH_CONTENT_VERSION", "CLOSE"]
     primary_task = {
         "PREPARING": "CONTINUE_PREPARATION",
         "PLATFORM_REVIEW": "REGISTER_RESULT",
@@ -122,6 +125,8 @@ def publication_work_actions(
         "COMPLETED": "VIEW_COMPLETION",
         "CLOSED": "VIEW_CLOSURE",
     }[status]
+    if status == "ACTION_REQUIRED" and latest_event_action == "CONTENT_VERSION_CHANGED":
+        primary_task = "REGISTER_RESULT"
     return actions, primary_task
 
 
@@ -368,7 +373,7 @@ def _work_list_item(
     work = row[0]
     if latest_event is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作缺少状态事件", 409)
-    actions, primary_task = publication_work_actions(work.status)
+    actions, primary_task = publication_work_actions(work.status, latest_event.action)
     return PublicationWorkListItem.model_validate(
         {
             "id": work.id,
@@ -511,22 +516,21 @@ def publication_workspace_context(
             .order_by(FileRecord.created_at, FileRecord.id)
         )
     )
-    actions, _primary_task = publication_work_actions(work.status)
+    item = _work_list_item(
+        row,
+        verifications[-1] if verifications else None,
+        events[-1] if events else None,
+    )
     accounts = list(
         db.scalars(
             select(PlatformAccount)
             .where(
                 PlatformAccount.platform_profile_id == work.platform_profile_id,
                 PlatformAccount.is_active.is_(True),
-                "UPDATE_PREPARATION" in actions,
+                literal("UPDATE_PREPARATION" in item.available_actions),
             )
             .order_by(PlatformAccount.label, PlatformAccount.id)
         )
-    )
-    item = _work_list_item(
-        row,
-        verifications[-1] if verifications else None,
-        events[-1] if events else None,
     )
     work_out = PublicationWorkOut(
         **item.model_dump(),
@@ -541,7 +545,7 @@ def publication_workspace_context(
     switch_candidate = None
     candidate_content = row[13]
     if (
-        "SWITCH_CONTENT_VERSION" in actions
+        "SWITCH_CONTENT_VERSION" in item.available_actions
         and candidate_content is not None
         and row.candidate_fact_id is not None
     ):

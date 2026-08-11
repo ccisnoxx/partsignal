@@ -911,7 +911,7 @@ def test_query_topic_delete_requires_no_direct_business_references() -> None:
 
 @pytest.mark.integration
 def test_failed_verification_remains_pending_then_completes_and_opens_issue() -> None:
-    """失败核验不产生成果，复核成功才完成任务并允许发布后问题。"""
+    """失败记录可追加；换版后必须重新登记结果，复核成功才产生成果。"""
     with temporary_database() as database_url:
         engine = create_engine(database_url)
         with Session(engine, expire_on_commit=False) as db:
@@ -992,6 +992,23 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
             assert failed.status == "ACTION_REQUIRED"
             assert db.get(PublishedArticle, work.id) is None
             assert db.get(ContentTask, content.task_id).status == "OPEN"
+            no_candidate = publication_workspace_context(db, work.id)
+            assert no_candidate.switch_candidate is None
+            assert "VERIFY" in no_candidate.work.available_actions
+
+            repeated_failed = verify_publication_work(
+                db=db,
+                work_id=work.id,
+                payload=PublicationVerificationCreate(
+                    outcome="FAILED",
+                    content_matches=False,
+                    expected_revision=failed.revision,
+                    comment="复查后页面正文仍未同步",
+                ),
+                actor=user,
+                request_id="publication-verification-failed-repeat",
+            )
+            assert repeated_failed.status == "ACTION_REQUIRED"
 
             content.status = "SUPERSEDED"
             content.revision += 1
@@ -1019,12 +1036,17 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
             task.current_content_version_id = revised_content.id
             db.commit()
 
+            candidate_context = publication_workspace_context(db, work.id)
+            assert candidate_context.switch_candidate is not None
+            assert candidate_context.switch_candidate.id == revised_content.id
+            assert candidate_context.switch_candidate.content_hash == revised_content.content_hash
+
             switched = switch_publication_content_version(
                 db=db,
                 work_id=work.id,
                 payload=PublicationContentVersionSwitchRequest(
                     content_version_id=revised_content.id,
-                    expected_revision=failed.revision,
+                    expected_revision=repeated_failed.revision,
                     comment="切换到修订批准版本",
                 ),
                 actor=user,
@@ -1040,13 +1062,37 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
             assert switch_event is not None
             assert switch_event.from_content_version_id == content.id
             assert switch_event.to_content_version_id == revised_content.id
+            switched_context = publication_workspace_context(db, work.id)
+            assert switched_context.content.id == revised_content.id
+            assert switched_context.switch_candidate is None
+            assert "VERIFY" not in switched_context.work.available_actions
+            assert switched_context.work.primary_task == "REGISTER_RESULT"
+            assert [item.content_version_id for item in switched_context.work.verifications] == [
+                content.id,
+                content.id,
+            ]
+            reregistered = register_publication_result(
+                db=db,
+                work_id=work.id,
+                payload=PublicationResultUpdate(
+                    actual_title="公开测试器件选型（修订）",
+                    final_url="https://community.example.invalid/articles/ps-revised",
+                    published_at="2026-08-03T09:00:00Z",
+                    expected_revision=switched.revision,
+                    comment="换版后重新登记公开结果",
+                ),
+                actor=user,
+                request_id="publication-result-reregistered",
+            )
+            assert reregistered.status == "AWAITING_VERIFICATION"
+            assert "VERIFY" in reregistered.available_actions
             completed = verify_publication_work(
                 db=db,
                 work_id=work.id,
                 payload=PublicationVerificationCreate(
                     outcome="PASSED",
                     content_matches=True,
-                    expected_revision=switched.revision,
+                    expected_revision=reregistered.revision,
                     comment="页面修正后复核通过",
                 ),
                 actor=user,
@@ -1061,7 +1107,7 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                         PublicationVerification.publication_work_id == work.id
                     )
                 )
-                == 2
+                == 3
             )
             verification_versions = list(
                 db.scalars(
@@ -1070,7 +1116,7 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                     .order_by(PublicationVerification.created_at)
                 )
             )
-            assert verification_versions == [content.id, revised_content.id]
+            assert verification_versions == [content.id, content.id, revised_content.id]
             with pytest.raises(AppError) as terminal_switch:
                 switch_publication_content_version(
                     db=db,

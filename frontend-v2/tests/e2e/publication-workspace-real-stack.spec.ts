@@ -164,7 +164,7 @@ test('Flow A：V2 UI 完成准备、平台审核、截图上传与结果登记',
   await expect(dialog.getByText(new RegExp(`已校验：publication-${suffix}\\.png`))).toBeVisible();
   await dialog.getByRole('button', { name: '确认提交' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByText('当前工作已等待核验；核验能力由下一子任务交付。')).toBeVisible();
+  await expect(page.getByText('发布结果已登记，可以开始人工核验。')).toBeVisible();
 
   const context = await responseBody<PublicationWorkspaceContext>(await page.request.get(
     `${apiBaseUrl}/api/v1/publication-works/${setup.work.id}/workspace-context`,

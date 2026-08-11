@@ -93,8 +93,16 @@ make verify
 
 ## 5. 启动前检查
 
-- [ ] 用户已明确批准本版 `prd.md`、`design.md` 与 `implement.md`。
-- [ ] 主工作区处于干净最新 `main`；规划产物已有明确提交处理方案。
-- [ ] 激活本子任务后，按项目单分支规则直接在 `main` 实施；除非用户再次明确批准，不创建新的临时分支。
-- [ ] 不修改 V1 runtime/test/page，不新增合同字段、依赖或迁移。
+- [x] 用户已明确批准本版 `prd.md`、`design.md` 与 `implement.md`。
+- [x] 主工作区处于干净最新 `main`；规划产物已有明确提交处理方案。
+- [x] 激活本子任务后，按项目单分支规则直接在 `main` 实施；除非用户再次明确批准，不创建新的临时分支。
+- [x] 不修改 V1 runtime/test/page，不新增合同字段、依赖或迁移。
 - [ ] 实施完成后展示 commit plan，未经确认不提交、不 push。
+
+## 6. 实施与验证结果
+
+- 服务端共享投影已打通 `ACTION_REQUIRED` 下的修订、审核、退回和继续发布入口，并以当前版本的不可变 FAILED verification snapshot 区分换版前后。
+- Backend targeted 2 项、父任务完整 publication workflow 15 项、V2 targeted 16 项、V2 build 与 fixture E2E 10 项通过。
+- 隔离真实栈中 V2 9/9 通过，Flow B 完成 FAILED → Content Editor/Review → switch → result → PASSED；隔离数据库、存储目录和临时 Redis 已清理。
+- OpenAPI 生成、`make contract-check` 与 `git diff --check` 通过，generated types 无 diff，未修改 V1、合同、数据库、依赖或生产前端代码。
+- 父任务最终真实栈门禁尚未全绿：V1 `frontend/tests/e2e/mvp-flow.spec.ts:795` 仍期待换版后的“修复并重新核验”，但服务端权威合同要求 `CONTENT_VERSION_CHANGED` 后先 `REGISTER_RESULT`。该断言来自本子任务之前的 `6c664fd5`，且用户禁止修改 V1 runtime/test/page；因此任务保持 `in_progress`，不归档父任务。

@@ -270,6 +270,7 @@ context = get_publication_workspace_context(db=db, work_id=work_id, actor=actor)
 - `switch_candidate` 必须同时满足同一任务、任务当前版本、不同于工作绑定版本、内容和事实均为 `APPROVED`；Context 与 switch command 使用同一资格规则。
 - `CONTENT_VERSION_CHANGED` 后工作仍为 `ACTION_REQUIRED`，但服务端必须撤回 `VERIFY`，将 `REGISTER_RESULT` 作为 `primary_action`；只有新的 `RESULT_REGISTERED` 把工作带回 `AWAITING_VERIFICATION` 后才重新开放 `VERIFY`。
 - 换版只更新工作绑定的版本与 hash，并追加含 old/new version IDs 的事件；不得沿用旧页面结果伪造新内容已登记。
+- Content Task 的共享投影只在当前批准版本既是 work 绑定版本、又存在同版本 `FAILED PublicationVerification` 时返回 `PUBLISHING / REVISE_CONTENT`；换版会更新 `work.content_version_id`，因此不能仅比较 current/work ID。切到尚无失败快照的新版本后必须返回 `PUBLISHING / CONTINUE_PUBLICATION`，旧版本失败快照不得污染新版本入口。
 
 ### 4. 校验与错误矩阵
 
@@ -288,7 +289,7 @@ context = get_publication_workspace_context(db=db, work_id=work_id, actor=actor)
 
 ### 6. 必需测试
 
-- PostgreSQL 集成测试覆盖重复失败 append-only、candidate/command 对称、换版 old/new lineage、换版后无 `VERIFY`、再登记后恢复 `VERIFY`、通过后 Work/Task/PublishedArticle 原子终态。
+- PostgreSQL 集成测试覆盖重复失败 append-only、Content Task 修订/审核投影、candidate/command 对称、换版 old/new lineage、换版后 Content Task 继续发布且 Work 无 `VERIFY`、再登记后恢复 `VERIFY`、通过后 Work/Task/PublishedArticle 原子终态。
 - 前端组件与 production E2E 精确断言 PASS/FAIL payload、CSRF/revision、无候选交接、409 保留输入且不重放、换版后再登记和通过后只读。
 - Contract 检查保证 FastAPI、OpenAPI 与两套生成 TypeScript 类型的 `401/403/404/409/422` 错误响应一致。
 
@@ -298,6 +299,7 @@ context = get_publication_workspace_context(db=db, work_id=work_id, actor=actor)
 # Wrong：状态相同就始终开放核验。
 actions = publication_work_actions(work.status)
 
-# Correct：换版事件要求先重新登记结果，再允许核验。
+# Correct：换版事件要求先重新登记结果；Content Task 只按当前版本自己的失败快照进入修订。
 actions = publication_work_actions(work.status, latest_event.action)
+needs_revision = failed_verification.content_version_id == work.content_version_id
 ```

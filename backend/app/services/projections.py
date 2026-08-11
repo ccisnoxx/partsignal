@@ -23,7 +23,12 @@ from app.models.content import ContentReviewRecord, ContentTask, ContentVersion
 from app.models.geo_files import FileRecord
 from app.models.identity import AuditLog
 from app.models.product_facts import FactVersion, Product
-from app.models.publication import PlatformAccount, PublicationWork, PublishedArticle
+from app.models.publication import (
+    PlatformAccount,
+    PublicationVerification,
+    PublicationWork,
+    PublishedArticle,
+)
 from app.schemas.configuration import (
     PlatformLogoExternalOut,
     PlatformLogoOut,
@@ -244,10 +249,29 @@ def content_task_workflow_projection(task_ids: list[uuid.UUID] | None = None) ->
     )
     current = aliased(ContentVersion, name="current_content")
     has_work = PublicationWork.id.is_not(None)
+    action_required = and_(has_work, PublicationWork.status == "ACTION_REQUIRED")
+    current_version_failed_verification = (
+        select(PublicationVerification.id)
+        .where(
+            PublicationVerification.publication_work_id == PublicationWork.id,
+            PublicationVerification.content_version_id == current.id,
+            PublicationVerification.outcome == "FAILED",
+        )
+        .exists()
+    )
     stage = cast(
         case(
             (ContentTask.status == "CANCELLED", "CANCELLED"),
             (and_(has_work, PublicationWork.status == "COMPLETED"), "VERIFIED"),
+            (and_(action_required, current.status == "DRAFT"), "DRAFT"),
+            (
+                and_(action_required, current.status == "PENDING_REVIEW"),
+                "REVIEW_PENDING",
+            ),
+            (
+                and_(action_required, current.status == "CHANGES_REQUESTED"),
+                "CHANGES_REQUESTED",
+            ),
             (has_work, "PUBLISHING"),
             (
                 and_(
@@ -274,6 +298,27 @@ def content_task_workflow_projection(task_ids: list[uuid.UUID] | None = None) ->
             (
                 and_(has_work, PublicationWork.status == "COMPLETED"),
                 "VIEW_FULL_LINEAGE",
+            ),
+            (
+                and_(action_required, current.status == "DRAFT"),
+                "EDIT_AND_SUBMIT_REVIEW",
+            ),
+            (
+                and_(action_required, current.status == "PENDING_REVIEW"),
+                "REVIEW_CONTENT",
+            ),
+            (
+                and_(action_required, current.status == "CHANGES_REQUESTED"),
+                "REVISE_CONTENT",
+            ),
+            (
+                and_(
+                    action_required,
+                    current.id == PublicationWork.content_version_id,
+                    current.status == "APPROVED",
+                    current_version_failed_verification,
+                ),
+                "REVISE_CONTENT",
             ),
             (has_work, "CONTINUE_PUBLICATION"),
             (

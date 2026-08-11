@@ -41,7 +41,11 @@ from app.models.publication import (
     PublishedContentIssue,
 )
 from app.schemas.common import RevisionRequest
-from app.schemas.content import ContentTaskPermanentDeleteRequest
+from app.schemas.content import (
+    ContentDraftUpdate,
+    ContentRevisionCreate,
+    ContentTaskPermanentDeleteRequest,
+)
 from app.schemas.product_facts import (
     FactReviewSubmissionRequest,
     ProductCreate,
@@ -64,6 +68,7 @@ from app.schemas.publication import (
     PublishedContentRepairTaskCreate,
 )
 from app.services.content_planning import delete_query_topic, query_topics_out
+from app.services.content_production import create_content_revision, update_content_draft
 from app.services.geo_observation import geo_publication_candidates
 from app.services.platform_configuration import (
     delete_platform_profile,
@@ -77,6 +82,7 @@ from app.services.product_facts import (
     replace_product_facts,
     submit_fact_review,
 )
+from app.services.projections import content_task_out
 from app.services.publication import (
     archive_content_task,
     close_publication_work,
@@ -104,7 +110,7 @@ from app.services.publication_queries import (
     publication_workbench_summary,
     publication_workspace_context,
 )
-from app.services.review import transition_fact_version
+from app.services.review import transition_content_version, transition_fact_version
 
 
 def _psycopg_url(value: str) -> str:
@@ -1009,32 +1015,117 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                 request_id="publication-verification-failed-repeat",
             )
             assert repeated_failed.status == "ACTION_REQUIRED"
-
-            content.status = "SUPERSEDED"
-            content.revision += 1
-            db.flush()
-            revised_content = ContentVersion(
-                task_id=content.task_id,
-                fact_version_id=content.fact_version_id,
-                based_on_id=content.id,
-                version=2,
-                source_type="HUMAN",
-                title="测试器件选型（修订）",
-                summary="冻结事实摘要",
-                body_markdown="# 测试器件\n\n修订后的公开正文。",
-                tags=["PS"],
-                content_hash="c" * 64,
-                status="APPROVED",
-                quality_issues=[],
-                change_summary="根据失败核验修订",
-                created_by=user.id,
-            )
-            db.add(revised_content)
-            db.flush()
             task = db.get(ContentTask, content.task_id)
             assert task is not None
-            task.current_content_version_id = revised_content.id
-            db.commit()
+            action_required_task = content_task_out(db, task)
+            assert (
+                action_required_task.workflow_stage,
+                action_required_task.primary_task,
+            ) == ("PUBLISHING", "REVISE_CONTENT")
+
+            first_revision = create_content_revision(
+                db=db,
+                content_version_id=content.id,
+                payload=ContentRevisionCreate(
+                    title="测试器件选型（初次修订）",
+                    summary="冻结事实摘要",
+                    body_markdown="# 测试器件\n\n初次修订后的公开正文。",
+                    tags=["PS"],
+                    change_summary="根据失败核验创建修订",
+                ),
+                actor=user,
+                request_id="publication-content-revision-first",
+            )
+            db.refresh(task)
+            draft_task = content_task_out(db, task)
+            assert (draft_task.workflow_stage, draft_task.primary_task) == (
+                "DRAFT",
+                "EDIT_AND_SUBMIT_REVIEW",
+            )
+            saved_revision = update_content_draft(
+                db=db,
+                content_version_id=first_revision.id,
+                payload=ContentDraftUpdate(
+                    expected_revision=first_revision.revision,
+                    title=first_revision.title,
+                    summary=first_revision.summary,
+                    body_markdown="# 测试器件\n\n已保存的初次修订正文。",
+                    tags=first_revision.tags,
+                ),
+                actor=user,
+                request_id="publication-content-revision-save",
+            )
+            submitted_revision = transition_content_version(
+                db=db,
+                content_version_id=saved_revision.id,
+                expected_revision=saved_revision.revision,
+                comment="提交失败核验修订",
+                actor=user,
+                request_id="publication-content-revision-submit",
+                action="submit-review",
+            )
+            db.refresh(task)
+            review_task = content_task_out(db, task)
+            assert (review_task.workflow_stage, review_task.primary_task) == (
+                "REVIEW_PENDING",
+                "REVIEW_CONTENT",
+            )
+            returned_revision = transition_content_version(
+                db=db,
+                content_version_id=submitted_revision.id,
+                expected_revision=submitted_revision.revision,
+                comment="补充失败核验修正说明",
+                actor=user,
+                request_id="publication-content-revision-return",
+                action="request-changes",
+            )
+            db.refresh(task)
+            returned_task = content_task_out(db, task)
+            assert (returned_task.workflow_stage, returned_task.primary_task) == (
+                "CHANGES_REQUESTED",
+                "REVISE_CONTENT",
+            )
+            final_draft = create_content_revision(
+                db=db,
+                content_version_id=returned_revision.id,
+                payload=ContentRevisionCreate(
+                    title="测试器件选型（修订）",
+                    summary="冻结事实摘要",
+                    body_markdown="# 测试器件\n\n修订后的公开正文。",
+                    tags=["PS"],
+                    change_summary="根据审核意见完成修订",
+                ),
+                actor=user,
+                request_id="publication-content-revision-final",
+            )
+            final_submitted = transition_content_version(
+                db=db,
+                content_version_id=final_draft.id,
+                expected_revision=final_draft.revision,
+                comment="重新提交失败核验修订",
+                actor=user,
+                request_id="publication-content-revision-resubmit",
+                action="submit-review",
+            )
+            revised_content = transition_content_version(
+                db=db,
+                content_version_id=final_submitted.id,
+                expected_revision=final_submitted.revision,
+                comment="批准失败核验替代版本",
+                actor=user,
+                request_id="publication-content-revision-approve",
+                action="approve",
+            )
+            db.refresh(task)
+            approved_task = content_task_out(db, task)
+            assert (approved_task.workflow_stage, approved_task.primary_task) == (
+                "PUBLISHING",
+                "CONTINUE_PUBLICATION",
+            )
+            db.refresh(content)
+            assert content.status == "SUPERSEDED"
+            assert revised_content.status == "APPROVED"
+            assert revised_content.based_on_id == returned_revision.id
 
             candidate_context = publication_workspace_context(db, work.id)
             assert candidate_context.switch_candidate is not None
@@ -1053,6 +1144,12 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                 request_id="publication-version-switch",
             )
             assert switched.content_version_id == revised_content.id
+            db.refresh(task)
+            switched_task = content_task_out(db, task)
+            assert (switched_task.workflow_stage, switched_task.primary_task) == (
+                "PUBLISHING",
+                "CONTINUE_PUBLICATION",
+            )
             switch_event = db.scalar(
                 select(PublicationWorkEvent).where(
                     PublicationWorkEvent.publication_work_id == work.id,

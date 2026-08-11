@@ -9,6 +9,7 @@
 ```text
 PublicationWork ACTION_REQUIRED
 ├── current == work.content_version_id && APPROVED
+│   && FAILED verification.content_version_id == current.id
 │   └── PUBLISHING / REVISE_CONTENT
 ├── current DRAFT
 │   └── DRAFT / EDIT_AND_SUBMIT_REVIEW
@@ -16,9 +17,11 @@ PublicationWork ACTION_REQUIRED
 │   └── REVIEW_PENDING / REVIEW_CONTENT
 ├── current CHANGES_REQUESTED
 │   └── CHANGES_REQUESTED / REVISE_CONTENT
-└── current APPROVED && current != work.content_version_id
+└── current APPROVED && 当前版本没有 FAILED verification
     └── PUBLISHING / CONTINUE_PUBLICATION
 ```
+
+换版命令会同时更新 `work.content_version_id`，因此不能只用 `current != work.content_version_id` 区分换版前后。投影必须关联不可变 verification snapshot：失败仍绑定当前 work 版本时进入修订；切到尚未失败的新版本后继续重新登记结果，旧版本的失败快照不得污染新版本入口。
 
 其他 Publication Work 状态继续使用现有投影：未终态为 `PUBLISHING / CONTINUE_PUBLICATION`，完成态为 `VERIFIED / VIEW_FULL_LINEAGE`。不增加 enum、DTO、endpoint、数据库字段或 helper abstraction。
 

@@ -18,11 +18,11 @@
 ## 需求
 
 1. 服务端 Content Task 投影必须在 Publication Work 为 `ACTION_REQUIRED` 时反映当前内容的真实下一步：
-   - 当前版本仍是 work 绑定的批准版本：`PUBLISHING / REVISE_CONTENT`；
+   - 当前批准版本仍是 work 绑定版本，且该版本已有 FAILED verification：`PUBLISHING / REVISE_CONTENT`；
    - 新 HUMAN draft：`DRAFT / EDIT_AND_SUBMIT_REVIEW`；
    - 待审核版本：`REVIEW_PENDING / REVIEW_CONTENT`；
    - 被退回版本：`CHANGES_REQUESTED / REVISE_CONTENT`；
-   - 新批准版本成为当前指针且不同于 work 绑定版本：`PUBLISHING / CONTINUE_PUBLICATION`。
+   - 新批准版本成为当前指针，或 work 已切换到尚无失败快照的新版本：`PUBLISHING / CONTINUE_PUBLICATION`。
 2. 列表、详情、Editor Context 与 Review Context 必须继续复用同一个 `content_task_workflow_projection()`；前端不得从 Publication status 或 ContentVersion status 自行计算入口。
 3. 内容创建与审核继续调用现有命令和页面；不得修改批准 Markdown、绕过审核、自动 switch 或创建第二套修订流程。
 4. Publication Workspace 保持现有 task handoff 与 server-projected candidate 边界；不得请求全部 ContentVersion 或新增跨 Domain 依赖。
@@ -31,13 +31,13 @@
 
 ## 验收标准
 
-- [ ] 失败核验后 Content Task 的 canonical 主入口为“修订内容”，Editor 可基于当前批准版本创建 HUMAN revision。
-- [ ] revision 创建后，Content Task 依次投影编辑、审核、退回修订或批准后的继续发布入口；所有写命令仍执行既有服务端守卫。
-- [ ] 批准替代版本后，Workspace Context 只暴露该 current approved version 为 `switch_candidate`，旧 work 绑定与旧 verification snapshot 在 switch 前保持不变。
-- [ ] 真实栈 Flow B 全程通过 V2 UI 完成业务命令，最终 Work/ContentTask 为 `COMPLETED`、PublishedArticle 与 work 同 ID，旧 verification 仍指向旧版本。
-- [ ] 原有正常发布中的 Content Task 仍投影 `PUBLISHING / CONTINUE_PUBLICATION`，已完成任务仍投影 `VERIFIED / VIEW_FULL_LINEAGE`。
+- [x] 失败核验后 Content Task 的 canonical 主入口为“修订内容”，Editor 可基于当前批准版本创建 HUMAN revision。
+- [x] revision 创建后，Content Task 依次投影编辑、审核、退回修订或批准后的继续发布入口；所有写命令仍执行既有服务端守卫。
+- [x] 批准替代版本后，Workspace Context 只暴露该 current approved version 为 `switch_candidate`，旧 work 绑定与旧 verification snapshot 在 switch 前保持不变。
+- [x] 真实栈 Flow B 全程通过 V2 UI 完成业务命令，最终 Work/ContentTask 为 `COMPLETED`、PublishedArticle 与 work 同 ID，旧 verification 仍指向旧版本。
+- [x] 原有正常发布中的 Content Task 仍投影 `PUBLISHING / CONTINUE_PUBLICATION`，已完成任务仍投影 `VERIFIED / VIEW_FULL_LINEAGE`。
 - [ ] targeted backend integration、Frontend V2 component/production artifact、build、隔离真实栈和父任务最终门禁通过。
-- [ ] 无 OpenAPI/database contract 变更、无 V1 runtime/test/page 变更、无新 dependency、无客户端资格推导。
+- [x] 无 OpenAPI/database contract 变更、无 V1 runtime/test/page 变更、无新 dependency、无客户端资格推导。
 
 ## Out of Scope
 

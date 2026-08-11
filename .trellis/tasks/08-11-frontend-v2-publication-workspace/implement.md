@@ -72,7 +72,13 @@ make verify
 
 这些命令是可选门禁，因为本能力限定于 Publication Workspace，且明确排除完整 Publishing E2E checkpoint。若共享合同或核心状态变更证明影响更广，则在 closeout 前把对应命令升级为必需并记录原因。
 
-## 5. 父任务 closeout 清单
+## 5. 最终门禁执行结果
+
+- OpenAPI 双端生成、`make contract-check`、publication workflow 15 项、V2 targeted 16 项、V2 build、fixture E2E 10 项和 `git diff --check` 已通过；generated types 无 diff。
+- 隔离真实栈 V2 9/9 通过，含完整 Flow B，且数据库、存储和临时 Redis 均已清理。
+- 同一真实栈中 V1 51/52 通过；唯一失败是 `frontend/tests/e2e/mvp-flow.spec.ts:795` 仍期待换版后立即显示“修复并重新核验”。权威服务端合同则要求 `CONTENT_VERSION_CHANGED` 后撤回 `VERIFY`、先 `REGISTER_RESULT`。该 V1 断言在子任务开始前的 `6c664fd5` 已存在，当前授权又禁止修改 V1 runtime/test/page，因此不修改实现、不规避脚本、不归档父任务。
+
+## 6. 父任务 closeout 清单
 
 - [ ] All three child tasks are complete and independently validated.
 - [ ] Context is one request/one snapshot/fixed SQL count; no browser join or global filter remains.

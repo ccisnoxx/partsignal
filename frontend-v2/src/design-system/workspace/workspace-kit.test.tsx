@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Button } from '@/design-system/primitives/button';
 import { Skeleton } from '@/design-system/primitives/skeleton';
 import { DetailSection } from '@/design-system/workspace/detail-section';
+import { RouteError } from '@/design-system/workspace/route-error';
 import { StickyActionBar } from '@/design-system/workspace/sticky-action-bar';
 import { Timeline } from '@/design-system/workspace/timeline';
 import { WorkspaceShell } from '@/design-system/workspace/workspace-shell';
@@ -42,6 +43,16 @@ const slots = {
 };
 
 describe('Workspace Kit', () => {
+  it('RouteError 保留页面标题、错误信息和重试入口', async () => {
+    const retry = vi.fn();
+    render(<RouteError error={new Error('读取页面失败')} onRetry={retry} title="页面发生意外错误" />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('页面发生意外错误');
+    expect(screen.getByRole('alert')).toHaveTextContent('读取页面失败');
+    await userEvent.click(screen.getByRole('button', { name: '重试' }));
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
   it('窄屏只渲染一份 Main-first tabs，并支持键盘切换侧栏', async () => {
     const user = userEvent.setup();
     render(<WorkspaceShell ariaLabel="事实工作区" {...slots} />);

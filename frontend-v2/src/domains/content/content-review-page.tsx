@@ -52,11 +52,6 @@ type ContentReviewPageProps = {
   csrfToken: string | null;
 };
 
-type StatusPresentation = {
-  label: string;
-  tone: 'outline' | 'secondary' | 'success' | 'warning' | 'info';
-};
-
 function ContentReviewPage({ csrfToken, taskId }: ContentReviewPageProps) {
   const review = useQuery(contentReviewContextQueryOptions(taskId));
   const [contextStale, setContextStale] = useState(false);
@@ -224,8 +219,12 @@ function ContentReviewWorkspace({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <StatusBadge presentation={contentWorkflowStageRegistry[context.task.workflow_stage]} />
-          <StatusBadge presentation={contentVersionStatusRegistry[context.content.status]} />
+          <Badge variant={contentWorkflowStageRegistry[context.task.workflow_stage].tone}>
+            {contentWorkflowStageRegistry[context.task.workflow_stage].label}
+          </Badge>
+          <Badge variant={contentVersionStatusRegistry[context.content.status].tone}>
+            {contentVersionStatusRegistry[context.content.status].label}
+          </Badge>
         </div>
       </header>
 
@@ -572,10 +571,6 @@ function Metadata({ label, mono = false, value }: { label: string; mono?: boolea
       <dd className={mono ? 'break-all font-mono text-right text-text-primary' : 'break-words text-right text-text-primary'}>{value}</dd>
     </div>
   );
-}
-
-function StatusBadge({ presentation }: { presentation: StatusPresentation }) {
-  return <Badge variant={presentation.tone}>{presentation.label}</Badge>;
 }
 
 export { ContentReviewPage };

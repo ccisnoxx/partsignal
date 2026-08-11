@@ -127,10 +127,9 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
           <DetailSection title="摘要" description="服务端投影的当前阶段、下一步和 canonical command state。">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <SummaryItem label="Workflow stage">
-                <StatusBadge
-                  label={contentWorkflowStageRegistry[data.task.workflow_stage].label}
-                  tone={contentWorkflowStageRegistry[data.task.workflow_stage].tone}
-                />
+                <Badge variant={contentWorkflowStageRegistry[data.task.workflow_stage].tone}>
+                  {contentWorkflowStageRegistry[data.task.workflow_stage].label}
+                </Badge>
               </SummaryItem>
               <SummaryItem label="下一步">
                 <span>{primary.label}</span>
@@ -139,12 +138,11 @@ function ContentTaskDetailPage({ csrfToken, onDeleted, taskId }: ContentTaskDeta
                 </code>
               </SummaryItem>
               <SummaryItem label="任务状态">
-                <StatusBadge
-                  label={data.task.status === 'OPEN'
+                <Badge variant={data.task.status === 'OPEN' ? 'info' : 'secondary'}>
+                  {data.task.status === 'OPEN'
                     ? '进行中'
                     : data.task.status === 'COMPLETED' ? '已完成' : '已取消'}
-                  tone={data.task.status === 'OPEN' ? 'info' : 'secondary'}
-                />
+                </Badge>
               </SummaryItem>
               <SummaryItem label="Revision">
                 <span className="font-mono">{data.task.revision}</span>
@@ -432,16 +430,6 @@ function Metadata({
       </dd>
     </div>
   );
-}
-
-function StatusBadge({
-  label,
-  tone,
-}: {
-  label: string;
-  tone: 'outline' | 'secondary' | 'success' | 'warning' | 'info';
-}) {
-  return <Badge variant={tone}>{label}</Badge>;
 }
 
 function EmptyValue() {

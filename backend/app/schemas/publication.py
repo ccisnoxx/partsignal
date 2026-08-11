@@ -12,7 +12,7 @@ from pydantic import AfterValidator, Field, HttpUrl, model_validator
 from app.schemas.base import ContractModel, require_unique_items
 from app.schemas.common import DeletionProjection
 from app.schemas.configuration import QueryTopicOut
-from app.schemas.content import ContentTaskOut, ContentVersionOut
+from app.schemas.content import ContentTaskOut, ContentTaskProductSummary, ContentVersionOut
 from app.schemas.product_facts import Confidentiality, FactVersionOut, ProductOut
 
 PublicationWorkAction = Literal[
@@ -265,6 +265,7 @@ class PublicationWorkListItem(ContractModel):
     content_version_id: uuid.UUID
     content_title: str
     content_version: int
+    product: ContentTaskProductSummary
     platform_profile_id: uuid.UUID | None
     platform_profile_name: str
     platform_account_id: uuid.UUID | None
@@ -279,6 +280,7 @@ class PublicationWorkListItem(ContractModel):
     close_comment: str | None
     created_at: datetime
     updated_at: datetime
+    latest_event: PublicationWorkEventOut
     latest_verification_outcome: PublicationVerificationOutcome | None
     latest_verification_at: datetime | None
     workflow_stage: Literal[

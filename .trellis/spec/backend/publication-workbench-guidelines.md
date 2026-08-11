@@ -40,6 +40,10 @@ PublishedContentIssue: OPEN -> RESOLVED
 - `GET /api/v1/published-content-issues` 与 `GET /api/v1/published-content-issues/{issue_id}`
 - `GET /api/v1/published-content-issues/{issue_id}/repair-context`
 
+`GET /publication-ready-items` 的候选定义不以账号存在为门禁：暂时没有启用 matching account 的批准当前内容仍返回，投影为 `matching_accounts=[]`、`available_actions=[]`，且 summary `ready_count` 使用相同口径。START 资格只能由服务端 `available_actions` 表达；客户端不得从 ContentVersion status 或账号数量推导。
+
+`GET /publication-works` 默认分页非终态工作。ListItem 必填复用的 `ContentTaskProductSummary` 与 `PublicationWorkEvent latest_event`；Product 通过 ContentTask → Product join，latest event 必须对当前页 work IDs 批量选择，不得逐行查询。有效 work 缺 event 返回 `PUBLICATION_CONTEXT_INCOMPLETE`，不得返回 nullable/default event。Frontend V2 的列表页继续独立读取 summary、ready、work list；这些 surface 不做客户端 join，也不为短暂跨请求差异新增万能 context，命令资格由 POST 事务复核。
+
 命令：
 
 - `POST /api/v1/publication-works`：只接收 `content_version_id` 与 `platform_account_id`
@@ -177,6 +181,7 @@ permanently_delete_published_article(
 ### 6. 必需测试
 
 - 组件测试精确断言创建请求只有两个字段，准备更新请求只有账号、revision 和说明。
+- Publication list 回归必须覆盖 no-account Ready、Product/latest event、查询次数不随当前页行数增长，以及 approved/current/account/duplicate/idempotency START 边界。
 - PostgreSQL 迁移测试断言旧行其余数据不变、列已删除、守卫不再引用该列且不可逆降级返回 `55000`。
 - 发布流程集成测试断言合法结果可登记，错误域名仍返回 `VALIDATION_ERROR`。
 - 合同检查断言 FastAPI、OpenAPI 与生成 TypeScript 类型一致。

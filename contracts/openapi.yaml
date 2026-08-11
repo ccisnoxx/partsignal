@@ -1904,6 +1904,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationReadyItemList'
+        '401': {$ref: '#/components/responses/ErrorResponse'}
       security:
       - sessionCookie: []
   /api/v1/publication-workbench-summary:
@@ -1919,6 +1920,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationWorkbenchSummary'
+        '401': {$ref: '#/components/responses/ErrorResponse'}
       security:
       - sessionCookie: []
   /api/v1/platform-accounts:
@@ -2056,6 +2058,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationWork'
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
     get:
@@ -2116,6 +2122,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationWorkList'
+        '401': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/publication-works/{work_id}:
@@ -5304,11 +5311,13 @@ components:
           type: string
           title: Platform Profile Name
         matching_accounts:
+          description: 当前具体平台的启用账号；为空时该候选仍保留，但不能开始发布。
           items:
             $ref: '#/components/schemas/PlatformAccount'
           type: array
           title: Matching Accounts
         available_actions:
+          description: 仅当服务端允许且存在匹配账号时包含 START。
           items:
             type: string
             const: START
@@ -5331,6 +5340,7 @@ components:
     PublicationWorkbenchSummary:
       properties:
         ready_count:
+          description: 尚未创建发布工作的批准内容候选数，包含暂时没有可用账号的候选。
           type: integer
           minimum: 0.0
           title: Ready Count
@@ -5403,6 +5413,8 @@ components:
         content_version:
           type: integer
           title: Content Version
+        product:
+          $ref: '#/components/schemas/ContentTaskProductSummary'
         platform_profile_id:
           type: [string, 'null']
           format: uuid
@@ -5462,6 +5474,8 @@ components:
           type: string
           format: date-time
           title: Updated At
+        latest_event:
+          $ref: '#/components/schemas/PublicationWorkEvent'
         latest_verification_outcome:
           anyOf:
           - $ref: '#/components/schemas/PublicationVerificationOutcome'
@@ -5532,6 +5546,7 @@ components:
       - content_version_id
       - content_title
       - content_version
+      - product
       - platform_profile_id
       - platform_profile_name
       - platform_account_id
@@ -5546,6 +5561,7 @@ components:
       - close_comment
       - created_at
       - updated_at
+      - latest_event
       - latest_verification_outcome
       - latest_verification_at
       - workflow_stage
@@ -5727,6 +5743,8 @@ components:
         content_version:
           type: integer
           title: Content Version
+        product:
+          $ref: '#/components/schemas/ContentTaskProductSummary'
         platform_profile_id:
           type: [string, 'null']
           format: uuid
@@ -5786,6 +5804,8 @@ components:
           type: string
           format: date-time
           title: Updated At
+        latest_event:
+          $ref: '#/components/schemas/PublicationWorkEvent'
         latest_verification_outcome:
           anyOf:
           - $ref: '#/components/schemas/PublicationVerificationOutcome'
@@ -5822,6 +5842,7 @@ components:
       - content_version_id
       - content_title
       - content_version
+      - product
       - platform_profile_id
       - platform_profile_name
       - platform_account_id
@@ -5836,6 +5857,7 @@ components:
       - close_comment
       - created_at
       - updated_at
+      - latest_event
       - latest_verification_outcome
       - latest_verification_at
       - workflow_stage

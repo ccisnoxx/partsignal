@@ -458,7 +458,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 将四个 Content route 的重复错误 UI 收敛为纯 UI `RouteError`。
+- 删除 Content Task Detail 与 Content Review 中两个只转发参数的 `StatusBadge` wrapper。
+- 持久化抽象审计、所有权矩阵和 Phase 3 `NOT_MET` gate，范围外缺口交由独立 Task。
 
 ### Git Commits
 
@@ -469,7 +471,8 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- Targeted component `25/25`、Content fixture Playwright `38/38`、V2 typecheck/lint/build 通过。
+- `make verify` 除既有 `app-shell.test.tsx` Product Detail loader mock 缺口外通过；V2 unit/component 为 `232/233`，未在本任务重复或越界修复。
 
 ### Status
 
@@ -1813,3 +1816,36 @@
 ### 后续
 
 - 无，任务已完成。
+
+
+## Session 111: Frontend V2 Content Abstraction Review
+
+**Date**: 2026-08-11
+**Task**: Frontend V2 Content Abstraction Review
+**Branch**: `codex/frontend-v2-content-abstraction-review`
+
+### Summary
+
+完成 Content vertical slice 抽象审计与最小简化；Phase 3 exit gate 因既有 AppShell/Product Detail loader 测试缺口保持 NOT_MET，建议独立任务处理。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `61ed036` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

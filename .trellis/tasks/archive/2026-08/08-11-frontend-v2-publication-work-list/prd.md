@@ -57,20 +57,20 @@
 
 ## Acceptance Criteria
 
-- [ ] `PublicationReadyItem` 的字段 shape 保持复用，但查询能返回 no-account 候选，START 完全由服务端 actions 投影。
-- [ ] `PublicationWorkListItem` 一次响应足以画出固定六列，包含必填 `product` 和 `latest_event`，前端不做逐行请求或 join。
-- [ ] summary、ready items、work list 继续使用三个现有窄 endpoint；没有新增 workbench context。
-- [ ] summary 只显示四个蓝图指标；不显示现有 `open_issue_count`，也不从完整 work 集合计算指标。
-- [ ] URL canonicalization、direct URL、refresh、Back、Forward、status filter、pagination 和 URL 恢复通过测试。
-- [ ] Ready loading/error/empty/no-account、账号明确选择、START 显示规则通过测试。
-- [ ] POST 精确发送两个字段并携带 CSRF 和稳定 Idempotency-Key；pending 防重，409 不自动重放。
-- [ ] 404/403/409/422 显示结构化信息与 request ID；失败保留账号选择。
-- [ ] 成功使用响应中的 canonical ID，回到默认第一页并失效 summary、ready、work lists 和直接受影响的 Content projections。
-- [ ] Work Table 的六列、服务端 stage、primary/overflow、全局 empty/filtered empty 和独立错误状态通过 component coverage。
-- [ ] 375/768/1024/1440、keyboard、Dialog focus return、console/pageerror/requestfailed audit 通过 production-artifact Playwright。
-- [ ] backend targeted tests 直接证明 START_PUBLICATION 创建边界，以及 Product/latest event/no-account/固定查询次数投影。
-- [ ] contract-check、generated types、targeted backend/frontend tests、V2 lint/typecheck/build 和 targeted Playwright 均通过。
-- [ ] 未实现任何 Out of Scope 项；无新依赖、无数据库迁移、无 V1 runtime/UI 修改。
+- [x] `PublicationReadyItem` 的字段 shape 保持复用，但查询能返回 no-account 候选，START 完全由服务端 actions 投影。
+- [x] `PublicationWorkListItem` 一次响应足以画出固定六列，包含必填 `product` 和 `latest_event`，前端不做逐行请求或 join。
+- [x] summary、ready items、work list 继续使用三个现有窄 endpoint；没有新增 workbench context。
+- [x] summary 只显示四个蓝图指标；不显示现有 `open_issue_count`，也不从完整 work 集合计算指标。
+- [x] URL canonicalization、direct URL、refresh、Back、Forward、status filter、pagination 和 URL 恢复通过测试。
+- [x] Ready loading/error/empty/no-account、账号明确选择、START 显示规则通过测试。
+- [x] POST 精确发送两个字段并携带 CSRF 和稳定 Idempotency-Key；pending 防重，409 不自动重放。
+- [x] 404/403/409/422 显示结构化信息与 request ID；失败保留账号选择。
+- [x] 成功使用响应中的 canonical ID，回到默认第一页并失效 summary、ready、work lists 和直接受影响的 Content projections。
+- [x] Work Table 的六列、服务端 stage、primary/overflow、全局 empty/filtered empty 和独立错误状态通过 component coverage。
+- [x] 375/768/1024/1440、keyboard、Dialog focus return、console/pageerror/requestfailed audit 通过 production-artifact Playwright。
+- [x] backend targeted tests 直接证明 START_PUBLICATION 创建边界，以及 Product/latest event/no-account/固定查询次数投影。
+- [x] contract-check、generated types、targeted backend/frontend tests、V2 lint/typecheck/build 和 targeted Playwright 均通过。
+- [x] 未实现任何 Out of Scope 项；无新依赖、无数据库迁移、无 V1 runtime/UI 修改。
 
 ## Notes
 

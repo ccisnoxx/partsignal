@@ -246,7 +246,7 @@ def task_for_work(db: Session, work: PublicationWork) -> ContentTask:
 def list_publication_ready_items(
     db: Session, *, can_delete_accounts: bool
 ) -> PublicationReadyItemList:
-    """实时返回尚未开始且满足平台身份约束的发布就绪项。"""
+    """实时返回尚未开始的发布候选及服务端可执行动作。"""
     work_for_task = (
         select(PublicationWork.id).where(PublicationWork.content_task_id == ContentTask.id).exists()
     )
@@ -273,12 +273,6 @@ def list_publication_ready_items(
             PlatformProfile.is_active.is_(True),
             ~work_for_task,
             ~active_same_hash,
-            select(PlatformAccount.id)
-            .where(
-                PlatformAccount.platform_profile_id == PlatformProfile.id,
-                PlatformAccount.is_active.is_(True),
-            )
-            .exists(),
         )
         .order_by(ContentVersion.created_at.desc(), ContentVersion.id)
     ).all()
@@ -313,7 +307,7 @@ def list_publication_ready_items(
                 platform_profile_id=profile.id,
                 platform_profile_name=profile.name,
                 matching_accounts=accounts_by_profile[profile.id],
-                available_actions=["START"],
+                available_actions=["START"] if accounts_by_profile[profile.id] else [],
                 primary_task="START_PUBLICATION",
             )
             for content, task, profile in rows
@@ -328,6 +322,9 @@ def _work_context_query() -> Any:
             ContentTask.id.label("task_id"),
             ContentVersion.title.label("content_title"),
             ContentVersion.version.label("content_version"),
+            Product.id.label("product_id"),
+            Product.brand.label("product_brand"),
+            Product.part_number.label("product_part_number"),
             func.coalesce(
                 PlatformProfile.name,
                 PublicationWork.platform_profile_name_snapshot,
@@ -343,6 +340,7 @@ def _work_context_query() -> Any:
         )
         .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
         .join(ContentTask, ContentTask.id == PublicationWork.content_task_id)
+        .join(Product, Product.id == ContentTask.product_id)
         .outerjoin(PlatformProfile, PlatformProfile.id == PublicationWork.platform_profile_id)
         .outerjoin(PlatformAccount, PlatformAccount.id == PublicationWork.platform_account_id)
     )
@@ -358,9 +356,13 @@ def _latest_verification(db: Session, work_id: uuid.UUID) -> PublicationVerifica
 
 
 def _work_list_item(
-    row: Row[Any], latest: PublicationVerification | None
+    row: Row[Any],
+    latest_verification: PublicationVerification | None,
+    latest_event: PublicationWorkEvent | None,
 ) -> PublicationWorkListItem:
     work = row[0]
+    if latest_event is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作缺少状态事件", 409)
     actions, primary_task = publication_work_actions(work.status)
     return PublicationWorkListItem.model_validate(
         {
@@ -369,6 +371,11 @@ def _work_list_item(
             "content_version_id": work.content_version_id,
             "content_title": row.content_title,
             "content_version": row.content_version,
+            "product": {
+                "id": row.product_id,
+                "brand": row.product_brand,
+                "part_number": row.product_part_number,
+            },
             "platform_profile_id": work.platform_profile_id,
             "platform_profile_name": row.platform_profile_name,
             "platform_account_id": work.platform_account_id,
@@ -383,8 +390,13 @@ def _work_list_item(
             "close_comment": work.close_comment,
             "created_at": work.created_at,
             "updated_at": work.updated_at,
-            "latest_verification_outcome": latest.outcome if latest else None,
-            "latest_verification_at": latest.created_at if latest else None,
+            "latest_event": PublicationWorkEventOut.model_validate(latest_event),
+            "latest_verification_outcome": (
+                latest_verification.outcome if latest_verification else None
+            ),
+            "latest_verification_at": (
+                latest_verification.created_at if latest_verification else None
+            ),
             "workflow_stage": work.status,
             "primary_task": primary_task,
             "available_actions": actions,
@@ -419,7 +431,11 @@ def publication_work_out(db: Session, work: PublicationWork) -> PublicationWorkO
             .order_by(FileRecord.created_at, FileRecord.id)
         )
     )
-    item = _work_list_item(row, verifications[-1] if verifications else None)
+    item = _work_list_item(
+        row,
+        verifications[-1] if verifications else None,
+        events[-1] if events else None,
+    )
     return PublicationWorkOut(
         **item.model_dump(),
         content_hash=work.content_hash,
@@ -498,8 +514,39 @@ def list_publication_works(
             .where(ranked.c.position == 1)
         ):
             latest_by_work[verification.publication_work_id] = verification
+    ranked_events = (
+        select(
+            PublicationWorkEvent,
+            func.row_number()
+            .over(
+                partition_by=PublicationWorkEvent.publication_work_id,
+                order_by=(
+                    PublicationWorkEvent.created_at.desc(),
+                    PublicationWorkEvent.id.desc(),
+                ),
+            )
+            .label("position"),
+        )
+        .where(PublicationWorkEvent.publication_work_id.in_(work_ids))
+        .subquery()
+    )
+    latest_events_by_work: dict[uuid.UUID, PublicationWorkEvent] = {}
+    if work_ids:
+        for event in db.scalars(
+            select(PublicationWorkEvent)
+            .join(ranked_events, ranked_events.c.id == PublicationWorkEvent.id)
+            .where(ranked_events.c.position == 1)
+        ):
+            latest_events_by_work[event.publication_work_id] = event
     return PublicationWorkList(
-        items=[_work_list_item(row, latest_by_work.get(row[0].id)) for row in rows],
+        items=[
+            _work_list_item(
+                row,
+                latest_by_work.get(row[0].id),
+                latest_events_by_work.get(row[0].id),
+            )
+            for row in rows
+        ],
         page=page,
         page_size=page_size,
         total=total,
@@ -831,7 +878,7 @@ def list_published_content_issues(
 
 
 def publication_workbench_summary(db: Session) -> PublicationWorkbenchSummary:
-    """返回发布工作台五个互斥运营口径。"""
+    """返回发布工作台运营摘要。"""
     work_for_task = (
         select(PublicationWork.id).where(PublicationWork.content_task_id == ContentTask.id).exists()
     )
@@ -860,12 +907,6 @@ def publication_workbench_summary(db: Session) -> PublicationWorkbenchSummary:
                 PlatformProfile.is_active.is_(True),
                 ~work_for_task,
                 ~active_same_hash,
-                select(PlatformAccount.id)
-                .where(
-                    PlatformAccount.platform_profile_id == PlatformProfile.id,
-                    PlatformAccount.is_active.is_(True),
-                )
-                .exists(),
             )
         )
         or 0

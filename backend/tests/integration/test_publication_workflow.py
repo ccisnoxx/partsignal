@@ -15,7 +15,7 @@ from urllib.parse import urlsplit, urlunsplit
 import psycopg
 import pytest
 from psycopg import sql
-from sqlalchemy import create_engine, delete, func, select, update
+from sqlalchemy import create_engine, delete, event, func, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
@@ -95,7 +95,9 @@ from app.services.publication import (
 )
 from app.services.publication_queries import (
     list_publication_ready_items,
+    list_publication_works,
     list_published_articles,
+    publication_workbench_summary,
 )
 from app.services.review import transition_fact_version
 
@@ -287,6 +289,203 @@ def _complete_publication(
     completed = db.get(PublicationWork, work.id)
     assert completed is not None
     return completed
+
+
+@pytest.mark.integration
+def test_publication_work_list_read_model_and_start_boundary() -> None:
+    """发布列表一次返回所需投影，开始发布仍由命令重新校验。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            product = graph["product"]
+            fact = graph["fact"]
+            task = graph["task"]
+            content = graph["content"]
+            account = graph["account"]
+            assert isinstance(actor, User)
+            assert isinstance(product, Product)
+            assert isinstance(fact, FactVersion)
+            assert isinstance(task, ContentTask)
+            assert isinstance(content, ContentVersion)
+            assert isinstance(account, PlatformAccount)
+
+            account.is_active = False
+            db.commit()
+            ready_without_account = list_publication_ready_items(
+                db, can_delete_accounts=False
+            )
+            assert len(ready_without_account.items) == 1
+            assert ready_without_account.items[0].matching_accounts == []
+            assert ready_without_account.items[0].available_actions == []
+            assert publication_workbench_summary(db).ready_count == 1
+
+            with pytest.raises(AppError) as disabled_account:
+                create_publication_work(
+                    db=db,
+                    payload=PublicationWorkCreate(
+                        content_version_id=content.id,
+                        platform_account_id=account.id,
+                    ),
+                    actor=actor,
+                    request_id="publication-disabled-account",
+                    idempotency_key="publication-disabled-account-key",
+                )
+            assert disabled_account.value.code == "PLATFORM_ACCOUNT_DISABLED"
+            db.rollback()
+
+            account.is_active = True
+            draft = ContentVersion(
+                task_id=task.id,
+                fact_version_id=fact.id,
+                version=2,
+                source_type="HUMAN",
+                title="未批准测试内容",
+                summary="仅用于命令边界测试",
+                body_markdown="# 未批准内容",
+                tags=["PS"],
+                content_hash="b" * 64,
+                status="DRAFT",
+                quality_issues=[],
+                change_summary="创建未批准测试版本",
+                created_by=actor.id,
+            )
+            db.add(draft)
+            db.flush()
+            task.current_content_version_id = draft.id
+            db.commit()
+
+            with pytest.raises(AppError) as not_approved:
+                create_publication_work(
+                    db=db,
+                    payload=PublicationWorkCreate(
+                        content_version_id=draft.id,
+                        platform_account_id=account.id,
+                    ),
+                    actor=actor,
+                    request_id="publication-not-approved",
+                    idempotency_key="publication-not-approved-key",
+                )
+            assert not_approved.value.code == "CONTENT_NOT_APPROVED"
+            db.rollback()
+            with pytest.raises(AppError) as not_current:
+                create_publication_work(
+                    db=db,
+                    payload=PublicationWorkCreate(
+                        content_version_id=content.id,
+                        platform_account_id=account.id,
+                    ),
+                    actor=actor,
+                    request_id="publication-not-current",
+                    idempotency_key="publication-not-current-key",
+                )
+            assert not_current.value.code == "CONTENT_VERSION_NOT_CURRENT"
+            db.rollback()
+
+            task.current_content_version_id = content.id
+            db.commit()
+            ready = list_publication_ready_items(db, can_delete_accounts=False)
+            assert ready.items[0].available_actions == ["START"]
+            work = create_publication_work(
+                db=db,
+                payload=PublicationWorkCreate(
+                    content_version_id=content.id,
+                    platform_account_id=account.id,
+                ),
+                actor=actor,
+                request_id="publication-create-list",
+                idempotency_key="publication-create-list-key",
+            )
+            assert work.product.model_dump() == {
+                "id": product.id,
+                "brand": product.brand,
+                "part_number": product.part_number,
+            }
+            assert work.latest_event.action == "CREATED"
+            assert work.latest_event.to_status == "PREPARING"
+
+            replayed = create_publication_work(
+                db=db,
+                payload=PublicationWorkCreate(
+                    content_version_id=content.id,
+                    platform_account_id=account.id,
+                ),
+                actor=actor,
+                request_id="publication-create-list-replay",
+                idempotency_key="publication-create-list-key",
+            )
+            assert replayed.id == work.id
+            with pytest.raises(AppError) as duplicate:
+                create_publication_work(
+                    db=db,
+                    payload=PublicationWorkCreate(
+                        content_version_id=content.id,
+                        platform_account_id=account.id,
+                    ),
+                    actor=actor,
+                    request_id="publication-create-list-duplicate",
+                    idempotency_key="publication-create-list-other-key",
+                )
+            assert duplicate.value.code == "PUBLICATION_IDENTITY_CONFLICT"
+            db.rollback()
+
+            statements: list[str] = []
+
+            def count_statement(
+                _connection: object,
+                _cursor: object,
+                statement: str,
+                _parameters: object,
+                _context: object,
+                _executemany: bool,
+            ) -> None:
+                statements.append(statement)
+
+            event.listen(engine, "before_cursor_execute", count_statement)
+            try:
+                first_page = list_publication_works(
+                    db,
+                    page=1,
+                    page_size=20,
+                    status_filter="PREPARING",
+                )
+                one_work_queries = len(statements)
+                assert first_page.total == 1
+                assert first_page.items[0].product.id == product.id
+                assert first_page.items[0].latest_event.action == "CREATED"
+
+                second_graph = _seed_graph(db, content_hash="c" * 64)
+                second_actor = second_graph["user"]
+                second_content = second_graph["content"]
+                second_account = second_graph["account"]
+                assert isinstance(second_actor, User)
+                assert isinstance(second_content, ContentVersion)
+                assert isinstance(second_account, PlatformAccount)
+                second_work = create_publication_work(
+                    db=db,
+                    payload=PublicationWorkCreate(
+                        content_version_id=second_content.id,
+                        platform_account_id=second_account.id,
+                    ),
+                    actor=second_actor,
+                    request_id="publication-create-list-second",
+                    idempotency_key="publication-create-list-second-key",
+                )
+                statements.clear()
+                two_items = list_publication_works(
+                    db,
+                    page=1,
+                    page_size=20,
+                    status_filter="PREPARING",
+                )
+                many_work_queries = len(statements)
+            finally:
+                event.remove(engine, "before_cursor_execute", count_statement)
+
+            assert one_work_queries == many_work_queries == 4
+            assert two_items.total == 2
+            assert {item.id for item in two_items.items} == {work.id, second_work.id}
 
 
 @pytest.mark.integration

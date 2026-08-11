@@ -196,7 +196,9 @@ Editor 只消费 task/version 的 `primary_task` 与 `available_actions`。人�
 
 ### PublicationWorkListItem
 
-至少包含 content/product/platform/account/workflow_stage/primary_task/latest event/updated_at。
+`GET /api/v1/publication-works` 默认只返回非终态工作，服务端处理 `page/page_size/status`，并按处理优先级、`updated_at DESC` 和稳定 ID 排序。`PublicationWorkListItem` 必填 content、`ContentTaskProductSummary`、platform/account、`workflow_stage`、`primary_task`、`available_actions`、`latest_event` 与 `updated_at`；Product 由 ContentTask 关联投影，latest event 在当前页 work IDs 上批量按 `created_at DESC, id DESC` 选择。有效 work 缺 event 时服务端显式失败，浏览器不得补默认事件、逐行请求或 join Product。
+
+`/publishing/work` 保持三个窄读取：summary、ready items、work list 分别驱动独立 surface，不新增万能 context，也不要求三个 HTTP 响应来自同一 snapshot。Ready 候选包含暂时没有可用账号的已批准当前内容；此时 `matching_accounts=[]`、`available_actions=[]`，且 `ready_count` 使用相同候选定义。浏览器只按 `available_actions.includes("START")` 显示入口，用户必须明确选择响应中的 matching account；创建仍由服务端在事务内重新校验批准内容、current pointer、平台、账号与重复身份。
 
 ### GeoObservationListItem
 

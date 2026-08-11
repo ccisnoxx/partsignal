@@ -33,8 +33,8 @@ describe('路由导航元数据', () => {
     ]);
 
     expect(visibleNavigationSections(false).flatMap((section) => section.items.map((item) => item.id)))
-      .toEqual(['workbench', 'products', 'content-tasks']);
+      .toEqual(['workbench', 'products', 'content-tasks', 'publishing']);
     expect(visibleNavigationSections(true).flatMap((section) => section.items.map((item) => item.id)))
-      .toEqual(['workbench', 'products', 'content-tasks', 'users']);
+      .toEqual(['workbench', 'products', 'content-tasks', 'publishing', 'users']);
   });
 });

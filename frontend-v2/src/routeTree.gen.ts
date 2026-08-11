@@ -14,16 +14,19 @@ import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAdminRouteRouteImport } from './routes/_app/_admin/route'
 import { Route as AppContentRouteRouteImport } from './routes/_app/content/route'
 import { Route as AppProductsRouteRouteImport } from './routes/_app/products/route'
+import { Route as AppPublishingRouteRouteImport } from './routes/_app/publishing/route'
 import { Route as AppContentTasksRouteRouteImport } from './routes/_app/content/tasks/route'
 import { Route as AppProductsIndexRouteImport } from './routes/_app/products/index'
 import { Route as AppProductsProductIdRouteImport } from './routes/_app/products/$productId'
 import { Route as AppProductsNewRouteImport } from './routes/_app/products/new'
+import { Route as AppPublishingWorkRouteRouteImport } from './routes/_app/publishing/work/route'
 import { Route as AppAdminSystemUsersRouteImport } from './routes/_app/_admin/system.users'
 import { Route as AppContentTasksIndexRouteImport } from './routes/_app/content/tasks/index'
 import { Route as AppContentTasksTaskIdRouteImport } from './routes/_app/content/tasks/$taskId'
 import { Route as AppContentTasksNewRouteImport } from './routes/_app/content/tasks/new'
 import { Route as AppContentVersionsVersionIdRouteImport } from './routes/_app/content/versions_.$versionId'
 import { Route as AppProductsProductIdFactsRouteImport } from './routes/_app/products/$productId_.facts'
+import { Route as AppPublishingWorkIndexRouteImport } from './routes/_app/publishing/work/index'
 import { Route as AppContentTasksTaskIdEditorRouteImport } from './routes/_app/content/tasks/$taskId_.editor'
 import { Route as AppContentTasksTaskIdReviewRouteImport } from './routes/_app/content/tasks/$taskId_.review'
 import { Route as AppProductsProductIdFactsReviewRouteImport } from './routes/_app/products/$productId_.facts_.review'
@@ -53,6 +56,11 @@ const AppProductsRouteRoute = AppProductsRouteRouteImport.update({
   path: '/products',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppPublishingRouteRoute = AppPublishingRouteRouteImport.update({
+  id: '/publishing',
+  path: '/publishing',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppContentTasksRouteRoute = AppContentTasksRouteRouteImport.update({
   id: '/tasks',
   path: '/tasks',
@@ -72,6 +80,11 @@ const AppProductsNewRoute = AppProductsNewRouteImport.update({
   id: '/new',
   path: '/new',
   getParentRoute: () => AppProductsRouteRoute,
+} as any)
+const AppPublishingWorkRouteRoute = AppPublishingWorkRouteRouteImport.update({
+  id: '/work',
+  path: '/work',
+  getParentRoute: () => AppPublishingRouteRoute,
 } as any)
 const AppAdminSystemUsersRoute = AppAdminSystemUsersRouteImport.update({
   id: '/system/users',
@@ -105,6 +118,11 @@ const AppProductsProductIdFactsRoute =
     path: '/$productId/facts',
     getParentRoute: () => AppProductsRouteRoute,
   } as any)
+const AppPublishingWorkIndexRoute = AppPublishingWorkIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppPublishingWorkRouteRoute,
+} as any)
 const AppContentTasksTaskIdEditorRoute =
   AppContentTasksTaskIdEditorRouteImport.update({
     id: '/$taskId_/editor',
@@ -140,7 +158,9 @@ export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/content': typeof AppContentRouteRouteWithChildren
   '/products': typeof AppProductsRouteRouteWithChildren
+  '/publishing': typeof AppPublishingRouteRouteWithChildren
   '/content/tasks': typeof AppContentTasksRouteRouteWithChildren
+  '/publishing/work': typeof AppPublishingWorkRouteRouteWithChildren
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
   '/products/': typeof AppProductsIndexRoute
@@ -150,6 +170,7 @@ export interface FileRoutesByFullPath {
   '/content/versions/$versionId': typeof AppContentVersionsVersionIdRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/content/tasks/': typeof AppContentTasksIndexRoute
+  '/publishing/work/': typeof AppPublishingWorkIndexRoute
   '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
   '/content/tasks/$taskId/review': typeof AppContentTasksTaskIdReviewRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
@@ -159,6 +180,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/content': typeof AppContentRouteRouteWithChildren
+  '/publishing': typeof AppPublishingRouteRouteWithChildren
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
   '/products': typeof AppProductsIndexRoute
@@ -168,6 +190,7 @@ export interface FileRoutesByTo {
   '/content/versions/$versionId': typeof AppContentVersionsVersionIdRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/content/tasks': typeof AppContentTasksIndexRoute
+  '/publishing/work': typeof AppPublishingWorkIndexRoute
   '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
   '/content/tasks/$taskId/review': typeof AppContentTasksTaskIdReviewRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
@@ -180,8 +203,10 @@ export interface FileRoutesById {
   '/_app/_admin': typeof AppAdminRouteRouteWithChildren
   '/_app/content': typeof AppContentRouteRouteWithChildren
   '/_app/products': typeof AppProductsRouteRouteWithChildren
+  '/_app/publishing': typeof AppPublishingRouteRouteWithChildren
   '/_app/': typeof AppIndexRoute
   '/_app/content/tasks': typeof AppContentTasksRouteRouteWithChildren
+  '/_app/publishing/work': typeof AppPublishingWorkRouteRouteWithChildren
   '/_app/products/$productId': typeof AppProductsProductIdRoute
   '/_app/products/new': typeof AppProductsNewRoute
   '/_app/products/': typeof AppProductsIndexRoute
@@ -191,6 +216,7 @@ export interface FileRoutesById {
   '/_app/content/versions_/$versionId': typeof AppContentVersionsVersionIdRoute
   '/_app/products/$productId_/facts': typeof AppProductsProductIdFactsRoute
   '/_app/content/tasks/': typeof AppContentTasksIndexRoute
+  '/_app/publishing/work/': typeof AppPublishingWorkIndexRoute
   '/_app/content/tasks/$taskId_/editor': typeof AppContentTasksTaskIdEditorRoute
   '/_app/content/tasks/$taskId_/review': typeof AppContentTasksTaskIdReviewRoute
   '/_app/products/$productId_/facts_/review': typeof AppProductsProductIdFactsReviewRoute
@@ -203,7 +229,9 @@ export interface FileRouteTypes {
     | '/'
     | '/content'
     | '/products'
+    | '/publishing'
     | '/content/tasks'
+    | '/publishing/work'
     | '/products/$productId'
     | '/products/new'
     | '/products/'
@@ -213,6 +241,7 @@ export interface FileRouteTypes {
     | '/content/versions/$versionId'
     | '/products/$productId/facts'
     | '/content/tasks/'
+    | '/publishing/work/'
     | '/content/tasks/$taskId/editor'
     | '/content/tasks/$taskId/review'
     | '/products/$productId/facts/review'
@@ -222,6 +251,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/content'
+    | '/publishing'
     | '/products/$productId'
     | '/products/new'
     | '/products'
@@ -231,6 +261,7 @@ export interface FileRouteTypes {
     | '/content/versions/$versionId'
     | '/products/$productId/facts'
     | '/content/tasks'
+    | '/publishing/work'
     | '/content/tasks/$taskId/editor'
     | '/content/tasks/$taskId/review'
     | '/products/$productId/facts/review'
@@ -242,8 +273,10 @@ export interface FileRouteTypes {
     | '/_app/_admin'
     | '/_app/content'
     | '/_app/products'
+    | '/_app/publishing'
     | '/_app/'
     | '/_app/content/tasks'
+    | '/_app/publishing/work'
     | '/_app/products/$productId'
     | '/_app/products/new'
     | '/_app/products/'
@@ -253,6 +286,7 @@ export interface FileRouteTypes {
     | '/_app/content/versions_/$versionId'
     | '/_app/products/$productId_/facts'
     | '/_app/content/tasks/'
+    | '/_app/publishing/work/'
     | '/_app/content/tasks/$taskId_/editor'
     | '/_app/content/tasks/$taskId_/review'
     | '/_app/products/$productId_/facts_/review'
@@ -301,6 +335,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductsRouteRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/publishing': {
+      id: '/_app/publishing'
+      path: '/publishing'
+      fullPath: '/publishing'
+      preLoaderRoute: typeof AppPublishingRouteRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/content/tasks': {
       id: '/_app/content/tasks'
       path: '/tasks'
@@ -328,6 +369,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/products/new'
       preLoaderRoute: typeof AppProductsNewRouteImport
       parentRoute: typeof AppProductsRouteRoute
+    }
+    '/_app/publishing/work': {
+      id: '/_app/publishing/work'
+      path: '/work'
+      fullPath: '/publishing/work'
+      preLoaderRoute: typeof AppPublishingWorkRouteRouteImport
+      parentRoute: typeof AppPublishingRouteRoute
     }
     '/_app/_admin/system/users': {
       id: '/_app/_admin/system/users'
@@ -370,6 +418,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/products/$productId/facts'
       preLoaderRoute: typeof AppProductsProductIdFactsRouteImport
       parentRoute: typeof AppProductsRouteRoute
+    }
+    '/_app/publishing/work/': {
+      id: '/_app/publishing/work/'
+      path: '/'
+      fullPath: '/publishing/work/'
+      preLoaderRoute: typeof AppPublishingWorkIndexRouteImport
+      parentRoute: typeof AppPublishingWorkRouteRoute
     }
     '/_app/content/tasks/$taskId_/editor': {
       id: '/_app/content/tasks/$taskId_/editor'
@@ -479,10 +534,36 @@ const AppProductsRouteRouteChildren: AppProductsRouteRouteChildren = {
 const AppProductsRouteRouteWithChildren =
   AppProductsRouteRoute._addFileChildren(AppProductsRouteRouteChildren)
 
+interface AppPublishingWorkRouteRouteChildren {
+  AppPublishingWorkIndexRoute: typeof AppPublishingWorkIndexRoute
+}
+
+const AppPublishingWorkRouteRouteChildren: AppPublishingWorkRouteRouteChildren =
+  {
+    AppPublishingWorkIndexRoute: AppPublishingWorkIndexRoute,
+  }
+
+const AppPublishingWorkRouteRouteWithChildren =
+  AppPublishingWorkRouteRoute._addFileChildren(
+    AppPublishingWorkRouteRouteChildren,
+  )
+
+interface AppPublishingRouteRouteChildren {
+  AppPublishingWorkRouteRoute: typeof AppPublishingWorkRouteRouteWithChildren
+}
+
+const AppPublishingRouteRouteChildren: AppPublishingRouteRouteChildren = {
+  AppPublishingWorkRouteRoute: AppPublishingWorkRouteRouteWithChildren,
+}
+
+const AppPublishingRouteRouteWithChildren =
+  AppPublishingRouteRoute._addFileChildren(AppPublishingRouteRouteChildren)
+
 interface AppRouteRouteChildren {
   AppAdminRouteRoute: typeof AppAdminRouteRouteWithChildren
   AppContentRouteRoute: typeof AppContentRouteRouteWithChildren
   AppProductsRouteRoute: typeof AppProductsRouteRouteWithChildren
+  AppPublishingRouteRoute: typeof AppPublishingRouteRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
 }
 
@@ -490,6 +571,7 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppAdminRouteRoute: AppAdminRouteRouteWithChildren,
   AppContentRouteRoute: AppContentRouteRouteWithChildren,
   AppProductsRouteRoute: AppProductsRouteRouteWithChildren,
+  AppPublishingRouteRoute: AppPublishingRouteRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
 }
 

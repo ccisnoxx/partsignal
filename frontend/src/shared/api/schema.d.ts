@@ -3742,16 +3742,25 @@ export interface components {
             platform_profile_id: string;
             /** Platform Profile Name */
             platform_profile_name: string;
-            /** Matching Accounts */
+            /**
+             * Matching Accounts
+             * @description 当前具体平台的启用账号；为空时该候选仍保留，但不能开始发布。
+             */
             matching_accounts: components["schemas"]["PlatformAccount"][];
-            /** Available Actions */
+            /**
+             * Available Actions
+             * @description 仅当服务端允许且存在匹配账号时包含 START。
+             */
             available_actions: "START"[];
             /** @constant */
             primary_task: "START_PUBLICATION";
         };
         /** PublicationWorkbenchSummary */
         PublicationWorkbenchSummary: {
-            /** Ready Count */
+            /**
+             * Ready Count
+             * @description 尚未创建发布工作的批准内容候选数，包含暂时没有可用账号的候选。
+             */
             ready_count: number;
             /** Active Count */
             active_count: number;
@@ -3802,6 +3811,7 @@ export interface components {
             content_title: string;
             /** Content Version */
             content_version: number;
+            product: components["schemas"]["ContentTaskProductSummary"];
             /**
              * Platform Profile Id
              * Format: uuid
@@ -3840,6 +3850,7 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            latest_event: components["schemas"]["PublicationWorkEvent"];
             latest_verification_outcome: components["schemas"]["PublicationVerificationOutcome"] | null;
             /** Latest Verification At */
             latest_verification_at: string | null;
@@ -3980,6 +3991,7 @@ export interface components {
             content_title: string;
             /** Content Version */
             content_version: number;
+            product: components["schemas"]["ContentTaskProductSummary"];
             /**
              * Platform Profile Id
              * Format: uuid
@@ -4018,6 +4030,7 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            latest_event: components["schemas"]["PublicationWorkEvent"];
             latest_verification_outcome: components["schemas"]["PublicationVerificationOutcome"] | null;
             /** Latest Verification At */
             latest_verification_at: string | null;
@@ -7992,6 +8005,7 @@ export interface operations {
                     "application/json": components["schemas"]["PublicationReadyItemList"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
         };
     };
     getPublicationWorkbenchSummary: {
@@ -8012,6 +8026,7 @@ export interface operations {
                     "application/json": components["schemas"]["PublicationWorkbenchSummary"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
         };
     };
     listPlatformAccounts: {
@@ -8199,6 +8214,7 @@ export interface operations {
                     "application/json": components["schemas"]["PublicationWorkList"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
@@ -8227,6 +8243,10 @@ export interface operations {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

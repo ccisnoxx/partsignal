@@ -397,6 +397,8 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 5. Publishing 完整 E2E；
 6. vertical slice 抽象回顾。
 
+`frontend-v2-publication-work-list` 已落地第 1 项：`/publishing/work` 使用 summary、ready items、work list 三个既有窄 endpoint，展示四项运营摘要、no-account Ready 候选和固定六列 active work；START 只消费服务端 action/matching account，并携带 CSRF 与稳定幂等键。列表补齐 Product/latest event 批量投影，仍由服务端分页、筛选和稳定排序；未注册 `$workId`，Workspace、Published Articles、Published Content Issues 与完整 Publishing real-stack E2E 仍留在后续任务。
+
 退出条件：`PublicationWork / PublishedArticle / PublishedContentIssue` 使用三组 URL；成功核验 snapshot 不可变；失败核验不伪装成功；动作全部 server-driven；timeline/evidence 可追溯。
 
 ## 10. Phase 5 — GEO

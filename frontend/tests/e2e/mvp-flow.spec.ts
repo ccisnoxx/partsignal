@@ -790,10 +790,10 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   await expect(mobileWorkList).toBeVisible();
   await expect(page.locator('.publication-panel table')).toHaveCount(0);
   const mobileWorkTitle = mobileWorkList.getByRole('button', { name: `发布改稿 ${product!.part_number} · V${publicationRevision.version}` });
-  const mobileVerify = mobileWorkList.getByRole('button', { name: '修复并重新核验' });
+  const mobileRegisterResult = mobileWorkList.getByRole('button', { name: '登记发布结果' });
   await expect(mobileWorkTitle).toBeVisible();
-  await expect(mobileVerify).toBeVisible();
-  for (const target of [mobileWorkTitle, mobileVerify]) {
+  await expect(mobileRegisterResult).toBeVisible();
+  for (const target of [mobileWorkTitle, mobileRegisterResult]) {
     const box = await target.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(44);
     expect(box?.height).toBeGreaterThanOrEqual(44);
@@ -804,6 +804,26 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   await expect(pendingDrawer.getByText('首次核验发现正文不一致', { exact: true })).toBeVisible();
   await pendingDrawer.getByRole('button', { name: '关闭' }).click();
   await expect(mobileWorkTitle).toBeFocused();
+  await mobileRegisterResult.click();
+  const resultModal = page.getByRole('dialog', { name: '登记发布结果' });
+  await resultModal.getByLabel('实际标题').fill(`E2E ${suffix} 修订`);
+  await resultModal.getByLabel('最终公开地址').fill(`https://forum.example.invalid/posts/${suffix}-revised`);
+  await resultModal.getByLabel('发布时间').fill('2026-08-11T14:00');
+  await resultModal.getByLabel('操作说明').fill('换版后重新登记真实发布结果');
+  await resultModal.getByRole('button', { name: '确认提交' }).click();
+  await expect(resultModal).toBeHidden();
+
+  await page.goto('/publications?tab=works&status=AWAITING_VERIFICATION');
+  const verificationWorkList = page.getByRole('list', { name: '发布工作移动列表' });
+  const verificationWorkTitle = verificationWorkList.getByRole('button', { name: `发布改稿 ${product!.part_number} · V${publicationRevision.version}` });
+  const mobileVerify = verificationWorkList.getByRole('listitem').filter({ hasText: `发布改稿 ${product!.part_number} · V${publicationRevision.version}` }).getByRole('button', { name: '执行首次核验' });
+  await expect(verificationWorkTitle).toBeVisible();
+  await expect(mobileVerify).toBeVisible();
+  for (const target of [verificationWorkTitle, mobileVerify]) {
+    const box = await target.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(44);
+    expect(box?.height).toBeGreaterThanOrEqual(44);
+  }
   await mobileVerify.click();
   const verifyModal = page.getByRole('dialog', { name: '核验发布结果' });
   await expect(verifyModal).toBeVisible();
@@ -811,7 +831,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBeTruthy();
 
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto('/publications?tab=works&status=ACTION_REQUIRED');
+  await page.goto('/publications?tab=works&status=AWAITING_VERIFICATION');
   const workRegion = page.getByRole('region', { name: '发布管理列表' });
   await expect(workRegion).toBeVisible();
   const workRegionBox = await workRegion.boundingBox();
@@ -821,7 +841,13 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   const desktopActionBox = await desktopWorkRow.locator('td.ant-table-cell-fix-end').boundingBox();
   expect(desktopTitleBox!.x + desktopTitleBox!.width).toBeLessThanOrEqual(desktopActionBox!.x + 1);
 
-  await command(page, `/api/v1/publication-works/${publication.id}/verifications`, csrf, { outcome: 'PASSED', content_matches: true, expected_revision: switchedWork.revision as number, comment: '复核后人工核对一致' });
+  await desktopWorkRow.getByRole('button', { name: '执行首次核验' }).click();
+  const finalVerifyModal = page.getByRole('dialog', { name: '核验发布结果' });
+  await finalVerifyModal.getByRole('combobox', { name: '核验结果' }).click();
+  await clickVisibleOption(page, '内容一致，核验通过');
+  await finalVerifyModal.getByLabel('核验说明').fill('复核后人工核对一致');
+  await finalVerifyModal.getByRole('button', { name: '确认提交' }).click();
+  await expect(finalVerifyModal).toBeHidden();
   const completedTask = await body<{ status: string }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`));
   expect(completedTask.status).toBe('COMPLETED');
   await page.goto('/publications');
@@ -842,10 +868,10 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   }
   await page.getByRole('tab', { name: '发布成果' }).click();
   await expect(page).toHaveURL(/tab=articles/);
-  await page.getByRole('button', { name: `E2E ${suffix}`, exact: true }).click();
+  await page.getByRole('button', { name: `E2E ${suffix} 修订`, exact: true }).click();
   const publicationDrawer = page.getByRole('dialog', { name: '发布成果详情' });
   await expect(publicationDrawer.getByText('成果正文与核验历史不可原地修改；管理员可在无 GEO 下游引用时永久删除整个发布聚合。')).toBeVisible();
-  await expect(publicationDrawer.getByRole('link', { name: `https://forum.example.invalid/posts/${suffix}` })).toBeVisible();
+  await expect(publicationDrawer.getByRole('link', { name: `https://forum.example.invalid/posts/${suffix}-revised` })).toBeVisible();
   await expect(publicationDrawer.getByRole('button', { name: '开始产品观测' })).toBeVisible();
   await publicationDrawer.getByRole('button', { name: /更多操作/ }).click();
   await page.getByRole('menuitem', { name: '永久删除' }).click();
@@ -895,10 +921,10 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   await geoForm.getByLabel('人工搜索平台').fill('DeepSeek E2E');
   const geoSearchQuery = `${product!.part_number} 如何替代？`;
   await geoForm.getByLabel('实际搜索词').fill(geoSearchQuery);
-  await expect(geoForm.getByText(`E2E ${suffix}`, { exact: true })).toBeVisible();
-  await geoForm.getByRole('checkbox', { name: `是否发现：E2E ${suffix}` }).check();
-  await geoForm.getByRole('checkbox', { name: `是否提及：E2E ${suffix}` }).check();
-  const accuracy = geoForm.getByRole('combobox', { name: `准确性：E2E ${suffix}` });
+  await expect(geoForm.getByText(`E2E ${suffix} 修订`, { exact: true })).toBeVisible();
+  await geoForm.getByRole('checkbox', { name: `是否发现：E2E ${suffix} 修订` }).check();
+  await geoForm.getByRole('checkbox', { name: `是否提及：E2E ${suffix} 修订` }).check();
+  const accuracy = geoForm.getByRole('combobox', { name: `准确性：E2E ${suffix} 修订` });
   await accuracy.click();
   await clickVisibleOption(page, '准确');
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
@@ -984,9 +1010,9 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   await expect(correctionForm.getByLabel('实际搜索词')).toBeDisabled();
   await expect(correctionForm.getByRole('combobox', { name: '问题主题' })).toBeDisabled();
   await expect(correctionForm.getByText('已有证据截图（1）')).toBeVisible();
-  await correctionForm.getByRole('checkbox', { name: `是否发现：E2E ${suffix}` }).check();
-  await correctionForm.getByRole('checkbox', { name: `是否提及：E2E ${suffix}` }).check();
-  const correctedAccuracy = correctionForm.getByRole('combobox', { name: `准确性：E2E ${suffix}` });
+  await correctionForm.getByRole('checkbox', { name: `是否发现：E2E ${suffix} 修订` }).check();
+  await correctionForm.getByRole('checkbox', { name: `是否提及：E2E ${suffix} 修订` }).check();
+  const correctedAccuracy = correctionForm.getByRole('combobox', { name: `准确性：E2E ${suffix} 修订` });
   await correctedAccuracy.click();
   await clickVisibleOption(page, '部分准确');
   await correctionForm.getByLabel('人工备注').fill('E2E 追加更正');
@@ -1203,7 +1229,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   await page.getByRole('button', { name: '永久删除' }).click();
   const permanentDeleteDialog = page.getByRole('dialog', { name: '永久删除内容任务' });
   await expect(permanentDeleteDialog.getByText('此操作不可恢复')).toBeVisible();
-  await expect(permanentDeleteDialog.getByRole('link', { name: `https://forum.example.invalid/posts/${suffix}` })).toBeVisible();
+  await expect(permanentDeleteDialog.getByRole('link', { name: `https://forum.example.invalid/posts/${suffix}-revised` })).toBeVisible();
   const permanentDeleteButton = permanentDeleteDialog.getByRole('button', { name: '永久删除' });
   await expect(permanentDeleteButton).toBeDisabled();
   await permanentDeleteDialog.getByRole('textbox', { name: '永久删除确认文本' }).fill('永久删除');

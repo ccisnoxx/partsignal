@@ -6,8 +6,9 @@
 2. 运行 Core targeted validation、Visual QA、`trellis-check` 和自审；展示 diff/commit plan 并取得确认后才 commit 或 merge。
 3. 把已接受的 Core 合并到 `main`，删除其临时分支；随后激活 Verification，并从新的干净 `main` 创建 `codex/frontend-v2-publication-verification`。
 4. 运行 Verification targeted validation、Visual QA、`trellis-check` 和自审；展示 diff/commit plan 并取得确认后才 commit 或 merge。
-5. 把已接受的 Verification 合并到 `main`，删除其临时分支；随后运行父任务 integration gate，核对 OpenAPI、generated types、代码、测试、database contract 与 V2 docs。
-6. 不 push。运行 Trellis archive/session bookkeeping 前，先解释其可能产生的 bookkeeping commit。
+5. Verification 已合并到 `main` 并删除临时分支。激活 `frontend-v2-publication-action-required-revision`，复用现有 Content Editor/Review 打通修订审批入口并完成真实栈 Flow B。
+6. 该依赖子任务通过 targeted validation、`trellis-check` 与用户确认的 commit plan 后提交；随后运行父任务 integration gate，核对 OpenAPI、generated types、代码、测试、database contract 与 V2 docs。
+7. 不 push。运行 Trellis archive/session bookkeeping 前，先解释其可能产生的 bookkeeping commit。
 
 ## 2. 子任务所有权
 
@@ -24,9 +25,15 @@
 - Failed/passed verification、version switch、verification history、terminal readonly handoff。
 - Real-stack Flow B：failed verification → approved replacement → switch → result/verify → `COMPLETED`。
 
+### 2.3 ACTION_REQUIRED Revision
+
+- 修正 Content Task 共享投影，使 `ACTION_REQUIRED` 能进入现有 revision/editor/review/approval 链。
+- 不新增 Content 或 Publication command，不修改合同、数据库或 V1。
+- 补完 Verification 中因该投影缺口暂缓的真实栈 Flow B。
+
 ## 3. 父任务最终集成门禁
 
-两个子任务通过后必须运行：
+三个子任务通过后必须运行：
 
 ```bash
 npm --prefix frontend run api:generate
@@ -53,7 +60,7 @@ DATABASE_URL=<local-postgres-url> REDIS_URL=<exclusive-local-redis-url> \
 git diff --check
 ```
 
-`deploy/scripts/e2e-local.sh` must be updated to include the new real-stack spec in its V2 gate and remains the sole database/storage lifecycle owner. The existing script does not support selecting one V2 real-stack spec, so the required command deliberately runs the isolated real-stack gate instead of adding a task-only selector.
+`deploy/scripts/e2e-local.sh` 已包含 `publication-workspace-real-stack.spec.ts`，继续作为唯一数据库/存储生命周期 owner。Flow B 直接扩展该 spec，不新增 task-only selector 或重复脚本入口。
 
 ## 4. 可选全仓验证
 
@@ -67,7 +74,7 @@ make verify
 
 ## 5. 父任务 closeout 清单
 
-- [ ] Both child tasks are complete and independently validated.
+- [ ] All three child tasks are complete and independently validated.
 - [ ] Context is one request/one snapshot/fixed SQL count; no browser join or global filter remains.
 - [ ] All command/error/immutable-history guarantees match OpenAPI and database contract.
 - [ ] Implementation 与权威 V2 blueprint 中都不存在 `Target Section`。

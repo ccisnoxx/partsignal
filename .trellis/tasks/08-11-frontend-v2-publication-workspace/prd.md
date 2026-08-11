@@ -4,10 +4,11 @@
 
 在 `/publishing/work/$workId` 交付 Frontend V2 的单个发布工作台，使运营人员能够以批准 Markdown 和服务端状态机为唯一依据，从 `PREPARING` 完成人工发布、结果登记、人工核验、失败后换版再核验，最终进入 `COMPLETED` 或显式 `CLOSED`。
 
-父任务只维护共同合同、实施顺序和最终集成门禁；业务实现由两个子任务承担：
+父任务只维护共同合同、实施顺序和最终集成门禁；业务实现与已验证的前置缺口由三个子任务承担：
 
 1. `frontend-v2-publication-workspace-core`：Context、工作台骨架、准备、平台审核、结果/证据、关闭，终点为 `AWAITING_VERIFICATION` 或 `CLOSED`。
-2. `frontend-v2-publication-verification`：核验、失败修正、合法版本切换、重新核验与 `COMPLETED` 只读交接。
+2. `frontend-v2-publication-verification`：核验、失败态、合法版本切换、重新核验与 `COMPLETED` 只读交接。
+3. `frontend-v2-publication-action-required-revision`：补齐失败核验后的 Content Task 修订/审核入口，并完成此前被阻塞的真实栈 Flow B。
 
 ## 已确认结论
 
@@ -39,7 +40,7 @@
 
 ## 验收标准
 
-- [ ] 两个子任务分别通过自身的 contract/backend/component/production-artifact/real-stack 必需门禁。
+- [ ] 三个子任务分别通过自身适用的 contract/backend/component/production-artifact/real-stack 必需门禁。
 - [ ] 工作台首次加载只请求一个 Context；Publication Package 与附件下载只在用户操作时请求。
 - [ ] Context 在 `REPEATABLE READ` 快照中返回 work、绑定 Markdown、平台上下文、合法账号选项、合法换版候选、events、verifications 与 attachments，查询数量固定。
 - [ ] 前端只消费服务端 `primary_task`、`available_actions`、账号选项和换版候选，不从 status、全局列表或内容历史重建资格。
@@ -52,6 +53,6 @@
 
 ## 批准门禁
 
-用户已于 2026-08-11 批准本规划。实施顺序保持为：先激活并实施 Core；Core 达到其独立验收后再激活 Verification；父任务在两个子任务完成后执行最终集成门禁。
+用户已于 2026-08-11 批准 Core 与 Verification 规划，两者已经实施、归档并合并到 `main`。Verification 归档时确认 Content Task 投影阻塞真实栈 Flow B；用户随后授权创建最小依赖子任务 `frontend-v2-publication-action-required-revision`。该子任务规划仍需独立审阅批准，完成后父任务才执行最终集成门禁。
 
 唯一授权冲突已解决：允许随 OpenAPI 机械更新 `frontend/src/shared/api/schema.d.ts`，以保持两套 generated client 和 `make contract-check` 一致。该豁免不包含任何其他 V1 运行时代码、测试或页面。

@@ -145,12 +145,13 @@ Core 命令失效 workspace Context、publication work lists/summary 和受影�
 ```text
 Parent: shared contract, sequence, final gate
 ├── Core: Context + route/shell + preparation/review/result/evidence/close
-└── Verification (depends on Core): verify/fail/switch/reverify/complete
+├── Verification (depends on Core): verify/fail/switch/reverify/complete
+└── ACTION_REQUIRED Revision (depends on both): existing Content revision/review handoff + real-stack Flow B
 ```
 
-拆分依据是独立的 workflow endpoints 与独立 real-stack 验收。Core 明确停在服务端投影的 `AWAITING_VERIFICATION` handoff，不伪造或部分实现核验；Core 验收后由 Verification 在同一路由完成闭环。
+拆分依据是独立的 workflow endpoints 与独立 real-stack 验收。Core 明确停在服务端投影的 `AWAITING_VERIFICATION` handoff；Verification 实现核验与换版 UI 后，确认现有 Content Task 投影会遮蔽 `ACTION_REQUIRED` 的修订入口。因此第三个最小依赖子任务只修正共享投影并完成真实栈 Flow B，不扩张 Publication Workspace 或 Content Editor/Review。
 
-审计后的合并范围超过约 20 个主要文件：Core 预计涉及 contract/backend/generated types、route/domain/UI/tests/E2E/docs 共约 22 个文件，Verification 再修改约 10 个已建立边界的文件。两个子任务分别拥有 Flow A 与 Flow B、独立回滚点和明确依赖，因此推荐“父任务 + 两个子任务”，而不是单任务。
+原审计后的合并范围超过约 20 个主要文件，因此 Core 与 Verification 保持独立交付。第三个子任务是在真实栈实施中发现的窄前置缺口，预计只修改共享 Content Task 投影、backend integration 和既有 real-stack spec；不把它并回已归档子任务，也不创建新框架。
 
 ## 4. 文档所有权
 

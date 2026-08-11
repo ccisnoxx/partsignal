@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "08-11-frontend-v2-publication-verification",
-    "08-11-frontend-v2-publication-workspace-core"
+    "08-11-frontend-v2-publication-workspace-core",
+    "08-11-frontend-v2-publication-action-required-revision"
   ],
   "parent": null,
   "relatedFiles": [],

@@ -9,6 +9,39 @@ import type { AuthContextValue, AuthUser } from '@/app/auth/auth-provider';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
+import type { components } from '@/shared/api/generated/schema';
+
+type ProductDetail = components['schemas']['ProductDetail'];
+
+const productId = '00000000-0000-4000-8000-000000000001';
+const productDetail = {
+  product: {
+    id: productId,
+    part_number: 'ROUTER-FOUNDATION',
+    brand: 'PartSignal',
+    category: '测试产品',
+    status: 'ACTIVE',
+    workflow_stage: 'FACTS_EMPTY',
+    primary_task: 'ENTER_FACTS',
+    available_actions: ['UPDATE', 'DELETE'],
+    deletion: { blockers: [] },
+    revision: 1,
+    created_at: '2026-08-08T00:00:00Z',
+    updated_at: '2026-08-08T00:00:00Z',
+  },
+  approved_fact: null,
+  pending_fact: null,
+  content: { task_count: 0, latest_task: null },
+  publishing: { published_article_count: 0, latest: null },
+  geo: {
+    observation_count: 0,
+    article_result_count: 0,
+    discovery_rate: null,
+    mention_rate: null,
+    accuracy_rate: null,
+  },
+  activity: [],
+} satisfies ProductDetail;
 
 const engineer: AuthUser = {
   id: '00000000-0000-4000-8000-000000000002',
@@ -68,14 +101,22 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('AppShell', () => {
   it('由 match metadata 激活父级导航并生成详情面包屑', async () => {
-    renderRoute('/products/router-foundation');
+    const get = vi.spyOn(api, 'GET').mockResolvedValue({
+      data: productDetail,
+      response: Response.json(productDetail),
+    } as never);
+    renderRoute(`/products/${productId}`);
 
-    expect(await screen.findByRole('heading', { name: '产品详情' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: productDetail.product.part_number })).toBeInTheDocument();
     const mainNavigation = screen.getByRole('navigation', { name: '主导航' });
     expect(within(mainNavigation).getByRole('link', { name: '产品' })).toHaveAttribute('aria-current', 'page');
     const breadcrumb = screen.getByRole('navigation', { name: '面包屑' });
     expect(breadcrumb).toHaveTextContent('产品');
     expect(breadcrumb).toHaveTextContent('产品详情');
+    expect(get).toHaveBeenCalledOnce();
+    expect(get).toHaveBeenCalledWith('/api/v1/products/{product_id}/detail', {
+      params: { path: { product_id: productId } },
+    });
   });
 
   it('移动导航支持打开、关闭和触发器焦点恢复', async () => {

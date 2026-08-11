@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 117
-- **Last Active**: 2026-08-11
+- **Total Sessions**: 118
+- **Last Active**: 2026-08-12
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~116 | Active |
+| `journal-3.md` | ~149 | Active |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 118 | 2026-08-12 | Frontend V2 Published Articles 收尾 | `791b9f3` | `main` |
 | 117 | 2026-08-11 | Frontend V2 Publication Workspace 收尾 | `27e0384`, `115a4ed` | `main` |
 | 116 | 2026-08-11 | Frontend V2 Publication Verification | `6c664fd` | `codex/frontend-v2-publication-verification` |
 | 115 | 2026-08-11 | 完成 Frontend V2 Publication Workspace Core | `1035878` | `codex/frontend-v2-publication-workspace-core` |

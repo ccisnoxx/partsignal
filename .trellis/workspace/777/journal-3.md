@@ -114,3 +114,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 118: Frontend V2 Published Articles 收尾
+
+**Date**: 2026-08-12
+**Task**: Frontend V2 Published Articles 收尾
+**Branch**: `main`
+
+### Summary
+
+完成 Published Articles canonical 列表与只读详情的全范围质量验证，记录真实栈证据并归档 Task。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `791b9f3` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

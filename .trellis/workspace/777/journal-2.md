@@ -1849,3 +1849,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 112: Frontend V2 AppShell Product Detail loader 测试修复
+
+**Date**: 2026-08-11
+**Task**: Frontend V2 AppShell Product Detail loader 测试修复
+**Branch**: `codex/frontend-v2-app-shell-product-detail-loader-test`
+
+### Summary
+
+补齐 AppShell Product Detail loader 的 generated-type 测试响应；targeted、typecheck、lint 与 V2 unit 全绿。Phase 3 因范围外 backend integration fixture 失败保持 NOT_MET。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f66bff8` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

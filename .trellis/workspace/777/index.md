@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-2.md`
-- **Total Sessions**: 111
+- **Total Sessions**: 112
 - **Last Active**: 2026-08-11
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-2.md` | ~1848 | Active |
+| `journal-2.md` | ~1884 | Active |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
 
@@ -30,6 +30,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 112 | 2026-08-11 | Frontend V2 AppShell Product Detail loader 测试修复 | `f66bff8` | `codex/frontend-v2-app-shell-product-detail-loader-test` |
 | 111 | 2026-08-11 | Frontend V2 Content Abstraction Review | `61ed036` | `codex/frontend-v2-content-abstraction-review` |
 | 110 | 2026-08-11 | Frontend V2 Content E2E 闭环 | `c937844` | `codex/frontend-v2-content-e2e` |
 | 109 | 2026-08-11 | Frontend V2 Content Version Detail | `c07a7be` | `codex/frontend-v2-content-version-detail` |

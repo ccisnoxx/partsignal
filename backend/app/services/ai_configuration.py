@@ -883,7 +883,7 @@ def update_ai_model(
 
 
 def test_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id: str) -> AIModel:
-    """真实测试后停用模型，并在同一回写事务追加脱敏审计。"""
+    """执行真实连接测试，并在 revision 复核后回写状态且保持模型停用。"""
     model, channel = lock_model_configuration(db, model_id)
     require_supported_protocol(channel.protocol_type)
     model_revision = model.revision

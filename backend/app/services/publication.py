@@ -1381,10 +1381,11 @@ def _delete_task_core(db: Session, task: ContentTask, scope: _TaskDeletionScope)
     task.current_content_version_id = None
     db.flush()
     if version_ids:
+        # 聚合删除只断开作业引用；显式保持更新时间，避免 ORM onupdate 扩大数据库授权窗口。
         db.execute(
             update(ContentVersion)
             .where(ContentVersion.id.in_(version_ids))
-            .values(source_job_id=None)
+            .values(source_job_id=None, updated_at=ContentVersion.updated_at)
         )
     db.execute(delete(GenerationJob).where(GenerationJob.content_task_id == task.id))
     if version_ids:

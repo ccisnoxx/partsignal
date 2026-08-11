@@ -15,7 +15,7 @@ type TableInventoryItem = { label: string; source: string; marker: string; surfa
 
 const sitewideTableInventory: TableInventoryItem[] = [
   { label: '内容任务列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="内容任务列表"', surface: 'tasks', regionLabel: '内容任务列表' },
-  { label: 'AI 作业列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="AI 作业列表"', surface: 'task-detail', regionLabel: 'AI 作业列表' },
+  { label: 'AI 生成记录列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="AI 生成记录列表"', surface: 'task-detail', regionLabel: 'AI 生成记录列表' },
   { label: '内容版本列表', source: '../../src/features/content-tasks/ContentTasksPage.tsx', marker: 'label="内容版本列表"', surface: 'task-detail', regionLabel: '内容版本列表' },
   { label: '产品事实列表', source: '../../src/features/product-facts/ProductsPage.tsx', marker: 'label="产品事实列表"', surface: 'products', regionLabel: '产品事实列表' },
   { label: '事实版本列表', source: '../../src/features/product-facts/ProductFactsPage.tsx', marker: 'label="事实版本列表"', surface: 'product-versions', regionLabel: '事实版本列表' },

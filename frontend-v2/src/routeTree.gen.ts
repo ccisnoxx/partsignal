@@ -27,6 +27,7 @@ import { Route as AppContentTasksNewRouteImport } from './routes/_app/content/ta
 import { Route as AppContentVersionsVersionIdRouteImport } from './routes/_app/content/versions_.$versionId'
 import { Route as AppProductsProductIdFactsRouteImport } from './routes/_app/products/$productId_.facts'
 import { Route as AppPublishingWorkIndexRouteImport } from './routes/_app/publishing/work/index'
+import { Route as AppPublishingWorkWorkIdRouteImport } from './routes/_app/publishing/work/$workId'
 import { Route as AppContentTasksTaskIdEditorRouteImport } from './routes/_app/content/tasks/$taskId_.editor'
 import { Route as AppContentTasksTaskIdReviewRouteImport } from './routes/_app/content/tasks/$taskId_.review'
 import { Route as AppProductsProductIdFactsReviewRouteImport } from './routes/_app/products/$productId_.facts_.review'
@@ -123,6 +124,11 @@ const AppPublishingWorkIndexRoute = AppPublishingWorkIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppPublishingWorkRouteRoute,
 } as any)
+const AppPublishingWorkWorkIdRoute = AppPublishingWorkWorkIdRouteImport.update({
+  id: '/$workId',
+  path: '/$workId',
+  getParentRoute: () => AppPublishingWorkRouteRoute,
+} as any)
 const AppContentTasksTaskIdEditorRoute =
   AppContentTasksTaskIdEditorRouteImport.update({
     id: '/$taskId_/editor',
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/content/versions/$versionId': typeof AppContentVersionsVersionIdRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
+  '/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
   '/content/tasks/': typeof AppContentTasksIndexRoute
   '/publishing/work/': typeof AppPublishingWorkIndexRoute
   '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
@@ -189,6 +196,7 @@ export interface FileRoutesByTo {
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/content/versions/$versionId': typeof AppContentVersionsVersionIdRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
+  '/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
   '/content/tasks': typeof AppContentTasksIndexRoute
   '/publishing/work': typeof AppPublishingWorkIndexRoute
   '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/_app/content/tasks/new': typeof AppContentTasksNewRoute
   '/_app/content/versions_/$versionId': typeof AppContentVersionsVersionIdRoute
   '/_app/products/$productId_/facts': typeof AppProductsProductIdFactsRoute
+  '/_app/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
   '/_app/content/tasks/': typeof AppContentTasksIndexRoute
   '/_app/publishing/work/': typeof AppPublishingWorkIndexRoute
   '/_app/content/tasks/$taskId_/editor': typeof AppContentTasksTaskIdEditorRoute
@@ -240,6 +249,7 @@ export interface FileRouteTypes {
     | '/content/tasks/new'
     | '/content/versions/$versionId'
     | '/products/$productId/facts'
+    | '/publishing/work/$workId'
     | '/content/tasks/'
     | '/publishing/work/'
     | '/content/tasks/$taskId/editor'
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | '/content/tasks/new'
     | '/content/versions/$versionId'
     | '/products/$productId/facts'
+    | '/publishing/work/$workId'
     | '/content/tasks'
     | '/publishing/work'
     | '/content/tasks/$taskId/editor'
@@ -285,6 +296,7 @@ export interface FileRouteTypes {
     | '/_app/content/tasks/new'
     | '/_app/content/versions_/$versionId'
     | '/_app/products/$productId_/facts'
+    | '/_app/publishing/work/$workId'
     | '/_app/content/tasks/'
     | '/_app/publishing/work/'
     | '/_app/content/tasks/$taskId_/editor'
@@ -426,6 +438,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPublishingWorkIndexRouteImport
       parentRoute: typeof AppPublishingWorkRouteRoute
     }
+    '/_app/publishing/work/$workId': {
+      id: '/_app/publishing/work/$workId'
+      path: '/$workId'
+      fullPath: '/publishing/work/$workId'
+      preLoaderRoute: typeof AppPublishingWorkWorkIdRouteImport
+      parentRoute: typeof AppPublishingWorkRouteRoute
+    }
     '/_app/content/tasks/$taskId_/editor': {
       id: '/_app/content/tasks/$taskId_/editor'
       path: '/$taskId/editor'
@@ -535,11 +554,13 @@ const AppProductsRouteRouteWithChildren =
   AppProductsRouteRoute._addFileChildren(AppProductsRouteRouteChildren)
 
 interface AppPublishingWorkRouteRouteChildren {
+  AppPublishingWorkWorkIdRoute: typeof AppPublishingWorkWorkIdRoute
   AppPublishingWorkIndexRoute: typeof AppPublishingWorkIndexRoute
 }
 
 const AppPublishingWorkRouteRouteChildren: AppPublishingWorkRouteRouteChildren =
   {
+    AppPublishingWorkWorkIdRoute: AppPublishingWorkWorkIdRoute,
     AppPublishingWorkIndexRoute: AppPublishingWorkIndexRoute,
   }
 

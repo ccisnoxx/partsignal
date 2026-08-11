@@ -446,6 +446,67 @@ const canApprove = context.data?.available_actions.includes('APPROVE') ?? false;
 
 ---
 
+## Publication Workspace 的 Context、hash 与 mutation 合同
+
+### 1. Scope / Trigger
+
+- 修改 `/publishing/work/$workId`、发布工作 Context query、Core action Dialog、Evidence 上传或工作区 hash 导航时适用。
+
+### 2. Signatures
+
+```text
+URL: /publishing/work/$workId#summary|preparation|result|verification|content-version|close
+GET: /api/v1/publication-works/{work_id}/workspace-context
+GET on demand: /api/v1/content-versions/{content_version_id}/publication-package
+query key: ["publication", "works", "context", workId]
+```
+
+### 3. Contracts
+
+- route loader 与页面共用唯一 Context query；首屏不得请求 work detail、content、account、attachments、verifications 或 events 后在浏览器 join。Package 只在复制按钮点击时读取。
+- hash 只接受六个已声明 section；缺失或未知值使用 `replace` 规范化为 `#summary`。刷新、Back/Forward 和 section link 必须恢复同一 Context 内的位置，不把 hash 放入 Query key。
+- RHF 持有 Dialog 输入和已完成上传的 `file_id`，TanStack Query 持有 canonical Context。动作只来自服务端 `available_actions`；Core 仅映射 `UPDATE_PREPARATION`、`MARK_PLATFORM_REVIEW`、`REGISTER_RESULT`、`CLOSE`。
+- 命令成功采用响应并失效 Context/list/summary；`409` 不 replay，保留表单和已完成上传，显式 reload 才重置为最新 Context。上传传输失败才调用 abort；complete 失败保留 intent 并重试 complete。
+- Context 背景刷新失败且已有 data 时保留工作区和 dirty guard；初始失败才显示整页 403/404/409/通用错误。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 页面处理 |
+| --- | --- |
+| 非法 UUID | 不发 Context 请求，显示明确错误 |
+| 缺失/未知 hash | `replace` 到 `#summary`，只发一次 Context 请求 |
+| Context 初始 403/404/409 | 专用整页状态并展示 `request_id` |
+| Context 背景刷新失败 | 保留 stale data、表单与重试入口 |
+| 命令 `409` | 保留输入/文件，显示冲突与显式 reload |
+| upload PUT 失败 | abort intent；不提交业务命令 |
+| upload complete 失败 | 保留 intent，仅重试 complete |
+
+### 5. Good / Base / Bad Cases
+
+- Good：direct URL 一次加载 Context，复制时才读 Package，登记结果后刷新 canonical Context。
+- Base：无结果、附件或核验时各 section 显示明确空态，仍可按 token 执行动作。
+- Bad：把六个 section 拆成独立 query，或在 `409` 后自动重放命令并清空本地文件。
+
+### 6. Tests Required
+
+- Unit/component：六个 hash、动作 token 映射、dirty 导航、409 保留/显式 reload、Evidence SHA-256 与 intent/complete 重试。
+- Fixture Playwright：单 Context、Package 按需、direct/refresh/Back/Forward、375/768/1024/1280/1440/1920、主题/键盘/焦点及未声明 API 失败。
+- Real stack：Flow A 通过真实 CSRF、signed upload、PostgreSQL revision 与最终 Context 完成登记结果。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：首屏并发多个端点，按 status 补动作。
+const [work, events, files] = useQueries(/* ... */);
+const canRegister = work.data?.status === 'PREPARING';
+
+// Correct：单一快照与服务端 token 决定展示。
+const context = useQuery(publicationWorkspaceContextQueryOptions(workId));
+const canRegister = context.data?.available_actions.includes('REGISTER_RESULT') ?? false;
+```
+
+---
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

@@ -6,7 +6,7 @@ import uuid
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Query, Request, status
+from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy import select
 
 from app.deps import (
@@ -44,6 +44,7 @@ from app.schemas.publication import (
     PublicationWorkCreate,
     PublicationWorkList,
     PublicationWorkOut,
+    PublicationWorkspaceContext,
     PublicationWorkStatus,
     PublishedArticleList,
     PublishedArticleOut,
@@ -89,6 +90,7 @@ from app.services.publication_queries import (
     get_published_content_repair_context,
     publication_work_out,
     publication_workbench_summary,
+    publication_workspace_context,
     published_article_out,
     published_content_issue_out,
     render_markdown,
@@ -108,6 +110,11 @@ from app.services.publication_queries import (
 
 router = APIRouter(prefix="/api/v1", tags=["publication"])
 ContentEditor = EngineerUser
+
+
+def _publication_workspace_snapshot(db: DbSession) -> None:
+    """在解析发布工作及其当前内容前建立一致读取快照。"""
+    db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
 
 
 def _run_publication_command[CommandResult](
@@ -384,6 +391,18 @@ def get_publication_work(
     if work is None:
         raise not_found("发布工作")
     return publication_work_out(db, work)
+
+
+@router.get(
+    "/publication-works/{work_id}/workspace-context",
+    response_model=PublicationWorkspaceContext,
+    operation_id="getPublicationWorkspaceContext",
+    dependencies=[Depends(_publication_workspace_snapshot)],
+)
+def get_publication_workspace_context(
+    work_id: uuid.UUID, db: DbSession, _user: CurrentUser
+) -> PublicationWorkspaceContext:
+    return publication_workspace_context(db, work_id)
 
 
 @router.patch(

@@ -71,6 +71,7 @@ function StickyActionBar({ actions, className, status }: StickyActionBarProps) {
           <TooltipTrigger
             render={
               <Button
+                data-action-key={action.key}
                 disabled
                 focusableWhenDisabled
                 onClick={(event) => runAction(action, event.currentTarget)}
@@ -88,6 +89,7 @@ function StickyActionBar({ actions, className, status }: StickyActionBarProps) {
 
     return (
       <Button
+        data-action-key={action.key}
         onClick={(event) => runAction(action, event.currentTarget)}
         type="button"
         variant={variant}

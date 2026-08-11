@@ -35,6 +35,7 @@ PublishedContentIssue: OPEN -> RESOLVED
 - `GET /api/v1/publication-ready-items`
 - `GET /api/v1/publication-workbench-summary`
 - `GET /api/v1/publication-works` 与 `GET /api/v1/publication-works/{work_id}`
+- `GET /api/v1/publication-works/{work_id}/workspace-context`
 - `GET /api/v1/published-articles` 与 `GET /api/v1/published-articles/{article_id}`
 - `GET /api/v1/published-articles/{article_id}/permanent-deletion-preview`
 - `GET /api/v1/published-content-issues` 与 `GET /api/v1/published-content-issues/{issue_id}`
@@ -194,4 +195,58 @@ permanently_delete_published_article(
 
 // Correct：开始发布只绑定内容和账号
 {"content_version_id":"...","platform_account_id":"..."}
+```
+
+## 场景：Publication Workspace 单一 Context 快照
+
+### 1. 范围 / 触发条件
+
+- 修改 `/publishing/work/$workId`、发布工作详情 read model、账号候选、附件/核验/事件投影时适用。
+- Context 是工作区首屏唯一读边界，避免浏览器跨多个端点 join 出不同 revision 的画面。
+
+### 2. 签名
+
+```text
+GET /api/v1/publication-works/{work_id}/workspace-context
+response: PublicationWorkspaceContext
+```
+
+### 3. 合同
+
+- 在单个 PostgreSQL `REPEATABLE READ` 请求中，以固定 5 次查询返回 `work`、`content`、`platform`、`eligible_accounts` 与可空 `switch_candidate`；实际发布结果、附件、核验、事件、动作和 revision 均由 `work` 投影承载。
+- `eligible_accounts` 只含工作锁定平台下当前启用账号，并稳定排序；当前账号即使后来停用，仍由 `work` 的实时身份或终态冻结快照返回，但不得出现在候选中。
+- 非终态工作缺实时平台或账号、工作缺批准内容、附件追溯不完整时明确返回 `409 PUBLICATION_CONTEXT_INCOMPLETE`，不得填默认对象或丢弃记录。
+- 终态工作可使用冻结平台/账号快照；数组顺序由服务端确定，前端不得重新拼接或排序。
+
+### 4. 校验与错误矩阵
+
+| 条件 | 结果 |
+| --- | --- |
+| 工作不存在 | `404 NOT_FOUND` |
+| 无读取权限 | `403 FORBIDDEN` |
+| 非终态工作缺实时平台、账号或批准内容 | `409 PUBLICATION_CONTEXT_INCOMPLETE` |
+| 关联附件文件缺失 | `409 PUBLICATION_CONTEXT_INCOMPLETE` |
+| 合法工作 | `200 PublicationWorkspaceContext` |
+
+### 5. Good / Base / Bad
+
+- Good：一次请求返回同一 revision 的工作身份、批准内容、平台、账号候选、结果和不可变历史。
+- Base：没有结果、附件或核验时返回空值/空数组，字段仍完整。
+- Bad：先读工作详情，再并发读取账号、内容、附件和事件，浏览器按时间或状态修补差异。
+
+### 6. 必需测试
+
+- PostgreSQL 集成测试覆盖完整投影、空历史、账号资格、终态冻结快照、追溯不完整错误、权限与固定查询次数。
+- Contract 检查保证 FastAPI、OpenAPI 和两套生成 TypeScript 类型一致。
+- Real-stack E2E 断言工作区首屏只读取 Context，Core 命令后重新读取 canonical Context。
+
+### 7. Wrong vs Correct
+
+```python
+# Wrong：多个独立事务的响应在浏览器拼接工作区。
+work = get_publication_work(work_id)
+events = list_publication_events(work_id)
+
+# Correct：同一 repeatable-read snapshot 返回完整工作区。
+context = get_publication_workspace_context(db=db, work_id=work_id, actor=actor)
 ```

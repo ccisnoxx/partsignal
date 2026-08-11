@@ -12,6 +12,11 @@ import {
 type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
 type PublicationWorkCreate = components['schemas']['PublicationWorkCreate'];
+type PublicationPreparationUpdate = components['schemas']['PublicationPreparationUpdate'];
+type PublicationPlatformReviewRequest = components['schemas']['PublicationPlatformReviewRequest'];
+type PublicationResultUpdate = components['schemas']['PublicationResultUpdate'];
+type PublicationWorkCloseRequest = components['schemas']['PublicationWorkCloseRequest'];
+type UploadIntentCreate = components['schemas']['UploadIntentCreate'];
 
 class PublicationRequestError extends Error {
   constructor(
@@ -31,6 +36,14 @@ const publicationKeys = {
   workLists: () => ['publication', 'works', 'list'] as const,
   workList: (params: PublicationWorkListApiParams) => (
     ['publication', 'works', 'list', params] as const
+  ),
+  workspaceContexts: () => ['publication', 'works', 'workspace-context'] as const,
+  workspaceContext: (workId: string) => (
+    ['publication', 'works', 'workspace-context', workId] as const
+  ),
+  packages: () => ['publication', 'packages'] as const,
+  package: (contentVersionId: string) => (
+    ['publication', 'packages', contentVersionId] as const
   ),
 };
 
@@ -80,6 +93,34 @@ function publicationWorkListQueryOptions(search: PublicationWorkSearch) {
   });
 }
 
+function publicationWorkspaceContextQueryOptions(workId: string) {
+  return queryOptions({
+    ...commonQueryOptions,
+    queryKey: publicationKeys.workspaceContext(workId),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/publication-works/{work_id}/workspace-context', {
+        params: { path: { work_id: workId } },
+      });
+      if (!result.data) throw publicationRequestError('读取发布工作台', result);
+      return result.data;
+    },
+  });
+}
+
+function publicationPackageQueryOptions(contentVersionId: string) {
+  return queryOptions({
+    ...commonQueryOptions,
+    queryKey: publicationKeys.package(contentVersionId),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/content-versions/{content_version_id}/publication-package', {
+        params: { path: { content_version_id: contentVersionId } },
+      });
+      if (!result.data) throw publicationRequestError('读取发布包', result);
+      return result.data;
+    },
+  });
+}
+
 async function createPublicationWork(
   body: PublicationWorkCreate,
   csrfToken: string | null,
@@ -97,6 +138,114 @@ async function createPublicationWork(
   });
   if (result.data) return result.data;
   throw publicationRequestError('开始发布', result);
+}
+
+function requireCsrfToken(csrfToken: string | null) {
+  if (!csrfToken) throw new PublicationRequestError('缺少会话安全令牌，无法执行发布操作');
+  return csrfToken;
+}
+
+async function updatePublicationPreparation(
+  workId: string,
+  body: PublicationPreparationUpdate,
+  csrfToken: string | null,
+) {
+  const result = await api.PATCH('/api/v1/publication-works/{work_id}/preparation', {
+    body,
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { work_id: workId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('更新发布准备信息', result);
+}
+
+async function markPublicationPlatformReview(
+  workId: string,
+  body: PublicationPlatformReviewRequest,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/publication-works/{work_id}/platform-review', {
+    body,
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { work_id: workId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('标记平台处理中', result);
+}
+
+async function registerPublicationResult(
+  workId: string,
+  body: PublicationResultUpdate,
+  csrfToken: string | null,
+) {
+  const result = await api.PUT('/api/v1/publication-works/{work_id}/result', {
+    body,
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { work_id: workId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('登记发布结果', result);
+}
+
+async function closePublicationWork(
+  workId: string,
+  body: PublicationWorkCloseRequest,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/publication-works/{work_id}/close', {
+    body,
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { work_id: workId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('关闭发布工作', result);
+}
+
+async function createFileUploadIntent(body: UploadIntentCreate, csrfToken: string | null) {
+  const result = await api.POST('/api/v1/files/upload-intents', {
+    body,
+    params: { header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) } },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('创建证据上传意图', result);
+}
+
+async function completeFileUpload(fileId: string, csrfToken: string | null) {
+  const result = await api.POST('/api/v1/files/{file_id}/complete', {
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { file_id: fileId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('确认文件上传', result);
+}
+
+async function abortFileUpload(fileId: string, csrfToken: string | null) {
+  const result = await api.POST('/api/v1/files/{file_id}/abort', {
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { file_id: fileId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('中止文件上传', result);
+}
+
+async function getFileDownloadUrl(fileId: string) {
+  const result = await api.GET('/api/v1/files/{file_id}/download-url', {
+    params: { path: { file_id: fileId } },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('读取附件下载地址', result);
 }
 
 type PublicationStartErrorMapping = {
@@ -117,6 +266,8 @@ function mapPublicationStartError(error: unknown): PublicationStartErrorMapping 
   }
   return { message: error instanceof Error ? error.message : '开始发布失败' };
 }
+
+const mapPublicationError = mapPublicationStartError;
 
 function publicationRequestError(
   action: string,
@@ -153,11 +304,22 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
 
 export {
   PublicationRequestError,
+  abortFileUpload,
+  closePublicationWork,
+  completeFileUpload,
   createPublicationWork,
+  createFileUploadIntent,
+  getFileDownloadUrl,
+  mapPublicationError,
   mapPublicationStartError,
+  markPublicationPlatformReview,
   publicationKeys,
+  publicationPackageQueryOptions,
   publicationReadyItemsQueryOptions,
   publicationSummaryQueryOptions,
   publicationWorkListQueryOptions,
+  publicationWorkspaceContextQueryOptions,
+  registerPublicationResult,
+  updatePublicationPreparation,
 };
 export type { PublicationStartErrorMapping };

@@ -52,6 +52,8 @@ from app.schemas.product_facts import (
 )
 from app.schemas.publication import (
     PublicationContentVersionSwitchRequest,
+    PublicationPlatformReviewRequest,
+    PublicationPreparationUpdate,
     PublicationResultUpdate,
     PublicationVerificationCreate,
     PublicationWorkCloseRequest,
@@ -82,6 +84,7 @@ from app.services.publication import (
     create_repair_task,
     delete_content_task,
     delete_platform_account,
+    mark_publication_platform_review,
     open_published_content_issue,
     permanently_delete_content_task,
     permanently_delete_published_article,
@@ -91,6 +94,7 @@ from app.services.publication import (
     resolve_published_content_issue,
     restore_content_task,
     switch_publication_content_version,
+    update_publication_preparation,
     verify_publication_work,
 )
 from app.services.publication_queries import (
@@ -98,6 +102,7 @@ from app.services.publication_queries import (
     list_publication_works,
     list_published_articles,
     publication_workbench_summary,
+    publication_workspace_context,
 )
 from app.services.review import transition_fact_version
 
@@ -486,6 +491,253 @@ def test_publication_work_list_read_model_and_start_boundary() -> None:
             assert one_work_queries == many_work_queries == 4
             assert two_items.total == 2
             assert {item.id for item in two_items.items} == {work.id, second_work.id}
+
+
+@pytest.mark.integration
+def test_publication_workspace_context_is_consistent_and_bounded() -> None:
+    """工作台 Context 用固定查询返回批准正文、合法账号和换版候选。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            task = graph["task"]
+            content = graph["content"]
+            profile = graph["profile"]
+            account = graph["account"]
+            assert isinstance(actor, User)
+            assert isinstance(task, ContentTask)
+            assert isinstance(content, ContentVersion)
+            assert isinstance(profile, PlatformProfile)
+            assert isinstance(account, PlatformAccount)
+            profile.website_url = "https://community.example.invalid"
+            alternate_account = PlatformAccount(
+                platform_profile_id=profile.id,
+                label="备用运营账号",
+                account_identifier=f"alternate-{uuid.uuid4().hex[:8]}",
+            )
+            disabled_account = PlatformAccount(
+                platform_profile_id=profile.id,
+                label="停用账号",
+                account_identifier=f"disabled-{uuid.uuid4().hex[:8]}",
+                is_active=False,
+            )
+            db.add_all([alternate_account, disabled_account])
+            db.commit()
+            work = create_publication_work(
+                db=db,
+                payload=PublicationWorkCreate(
+                    content_version_id=content.id,
+                    platform_account_id=account.id,
+                ),
+                actor=actor,
+                request_id="workspace-create",
+                idempotency_key="workspace-create-key",
+            )
+
+            content.status = "SUPERSEDED"
+            content.revision += 1
+            replacement = ContentVersion(
+                task_id=task.id,
+                fact_version_id=content.fact_version_id,
+                based_on_id=content.id,
+                version=2,
+                source_type="HUMAN",
+                title="测试器件选型（修订）",
+                summary="修订后的冻结摘要",
+                body_markdown="# 修订正文\n\n典型工作电压仍为 3.3 V。",
+                tags=["PS", "修订"],
+                content_hash="d" * 64,
+                status="APPROVED",
+                quality_issues=[],
+                change_summary="发布前修订",
+                created_by=actor.id,
+            )
+            db.add(replacement)
+            db.flush()
+            task.current_content_version_id = replacement.id
+            db.commit()
+            db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+
+            statements: list[str] = []
+
+            def count_statement(
+                _connection: object,
+                _cursor: object,
+                statement: str,
+                _parameters: object,
+                _context: object,
+                _executemany: bool,
+            ) -> None:
+                statements.append(statement)
+
+            event.listen(engine, "before_cursor_execute", count_statement)
+            try:
+                context = publication_workspace_context(db, work.id)
+            finally:
+                event.remove(engine, "before_cursor_execute", count_statement)
+
+            assert len(statements) == 5
+            assert context.work.id == work.id
+            assert context.content.id == content.id
+            assert context.content.body_markdown == content.body_markdown
+            assert context.platform.id == profile.id
+            assert str(context.platform.website_url).rstrip("/") == profile.website_url
+            assert [option.id for option in context.eligible_accounts] == [
+                alternate_account.id,
+                account.id,
+            ]
+            assert context.switch_candidate is not None
+            assert context.switch_candidate.id == replacement.id
+            assert context.switch_candidate.content_hash == replacement.content_hash
+
+            db.commit()
+            db.add_all(
+                [
+                    PlatformAccount(
+                        platform_profile_id=profile.id,
+                        label=f"批量账号 {index:02d}",
+                        account_identifier=f"bulk-{index:02d}-{uuid.uuid4().hex[:8]}",
+                    )
+                    for index in range(12)
+                ]
+            )
+            db.commit()
+            db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+            statements.clear()
+            event.listen(engine, "before_cursor_execute", count_statement)
+            try:
+                expanded_context = publication_workspace_context(db, work.id)
+            finally:
+                event.remove(engine, "before_cursor_execute", count_statement)
+            assert len(statements) == 5
+            assert len(expanded_context.eligible_accounts) == 14
+
+            with pytest.raises(AppError) as missing:
+                publication_workspace_context(db, uuid.uuid4())
+            assert missing.value.status_code == 404
+
+
+@pytest.mark.integration
+def test_publication_workspace_core_commands_evidence_and_close() -> None:
+    """准备、平台审核、证据结果和独立关闭均沿用真实服务端状态机。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db)
+            actor = graph["user"]
+            content = graph["content"]
+            profile = graph["profile"]
+            account = graph["account"]
+            assert isinstance(actor, User)
+            assert isinstance(content, ContentVersion)
+            assert isinstance(profile, PlatformProfile)
+            assert isinstance(account, PlatformAccount)
+            alternate_account = PlatformAccount(
+                platform_profile_id=profile.id,
+                label="结果登记账号",
+                account_identifier=f"result-{uuid.uuid4().hex[:8]}",
+            )
+            now = datetime.now(UTC)
+            evidence = FileRecord(
+                category="OPERATION_SCREENSHOT",
+                original_filename="publication-proof.png",
+                object_key=f"integration/{uuid.uuid4()}/publication-proof.png",
+                content_type="image/png",
+                size=256,
+                sha256="2" * 64,
+                access_level="INTERNAL",
+                status="VERIFIED",
+                uploader_id=actor.id,
+                upload_expires_at=now + timedelta(days=1),
+                verified_at=now,
+            )
+            db.add_all([alternate_account, evidence])
+            db.commit()
+            work = create_publication_work(
+                db=db,
+                payload=PublicationWorkCreate(
+                    content_version_id=content.id,
+                    platform_account_id=account.id,
+                ),
+                actor=actor,
+                request_id="workspace-core-create",
+                idempotency_key="workspace-core-create-key",
+            )
+            prepared = update_publication_preparation(
+                db=db,
+                work_id=work.id,
+                payload=PublicationPreparationUpdate(
+                    platform_account_id=alternate_account.id,
+                    expected_revision=work.revision,
+                    comment="改用结果登记账号",
+                ),
+                actor=actor,
+                request_id="workspace-core-preparation",
+            )
+            reviewed = mark_publication_platform_review(
+                db=db,
+                work_id=work.id,
+                payload=PublicationPlatformReviewRequest(
+                    expected_revision=prepared.revision,
+                    comment="已提交外部平台审核",
+                ),
+                actor=actor,
+                request_id="workspace-core-review",
+            )
+            result = register_publication_result(
+                db=db,
+                work_id=work.id,
+                payload=PublicationResultUpdate(
+                    actual_title="公开测试器件选型",
+                    final_url="https://community.example.invalid/articles/workspace-core",
+                    published_at="2026-08-11T08:00:00Z",
+                    expected_revision=reviewed.revision,
+                    comment="登记真实公开结果",
+                    attachment_file_ids=[evidence.id],
+                ),
+                actor=actor,
+                request_id="workspace-core-result",
+            )
+            assert result.status == "AWAITING_VERIFICATION"
+            assert [attachment.id for attachment in result.attachments] == [evidence.id]
+            assert [item.action for item in result.events] == [
+                "CREATED",
+                "PREPARATION_UPDATED",
+                "PLATFORM_REVIEW_MARKED",
+                "RESULT_REGISTERED",
+            ]
+
+            closing_graph = _seed_graph(db, content_hash="e" * 64)
+            closing_actor = closing_graph["user"]
+            closing_content = closing_graph["content"]
+            closing_account = closing_graph["account"]
+            assert isinstance(closing_actor, User)
+            assert isinstance(closing_content, ContentVersion)
+            assert isinstance(closing_account, PlatformAccount)
+            closing_work = create_publication_work(
+                db=db,
+                payload=PublicationWorkCreate(
+                    content_version_id=closing_content.id,
+                    platform_account_id=closing_account.id,
+                ),
+                actor=closing_actor,
+                request_id="workspace-close-create",
+                idempotency_key="workspace-close-create-key",
+            )
+            closed = close_publication_work(
+                db=db,
+                work_id=closing_work.id,
+                payload=PublicationWorkCloseRequest(
+                    reason="BUSINESS_CANCELLED",
+                    comment="业务决定停止发布",
+                    expected_revision=closing_work.revision,
+                ),
+                actor=closing_actor,
+                request_id="workspace-close",
+            )
+            assert closed.status == "CLOSED"
+            assert db.get(ContentTask, closing_content.task_id).status == "CANCELLED"
 
 
 @pytest.mark.integration

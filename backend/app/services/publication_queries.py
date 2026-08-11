@@ -12,7 +12,7 @@ import bleach
 import markdown
 from sqlalchemy import case, func, select, union
 from sqlalchemy.engine import Row
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.errors import AppError, not_found
 from app.models.configuration import PlatformProfile, QueryTopic
@@ -46,6 +46,11 @@ from app.schemas.publication import (
     PublicationWorkList,
     PublicationWorkListItem,
     PublicationWorkOut,
+    PublicationWorkspaceAccountOption,
+    PublicationWorkspaceContent,
+    PublicationWorkspaceContext,
+    PublicationWorkspacePlatform,
+    PublicationWorkspaceVersionCandidate,
     PublishedArticleAction,
     PublishedArticleList,
     PublishedArticleListItem,
@@ -445,6 +450,114 @@ def publication_work_out(db: Session, work: PublicationWork) -> PublicationWorkO
         events=[PublicationWorkEventOut.model_validate(event) for event in events],
         verifications=[PublicationVerificationOut.model_validate(item) for item in verifications],
         attachments=[FileRecordOut.model_validate(file) for file in files],
+    )
+
+
+def publication_workspace_context(
+    db: Session, work_id: uuid.UUID
+) -> PublicationWorkspaceContext:
+    """用固定五条查询返回同一事务快照中的发布工作台。"""
+    candidate = aliased(ContentVersion)
+    candidate_fact = aliased(FactVersion)
+    row = db.execute(
+        _work_context_query()
+        .add_columns(
+            ContentVersion,
+            PlatformProfile.website_url.label("platform_website_url"),
+            ContentTask.platform_website_url_snapshot,
+            candidate,
+            candidate_fact.id.label("candidate_fact_id"),
+        )
+        .outerjoin(
+            candidate,
+            (candidate.id == ContentTask.current_content_version_id)
+            & (candidate.id != PublicationWork.content_version_id)
+            & (candidate.task_id == PublicationWork.content_task_id)
+            & (candidate.status == "APPROVED"),
+        )
+        .outerjoin(
+            candidate_fact,
+            (candidate_fact.id == candidate.fact_version_id)
+            & (candidate_fact.status == "APPROVED"),
+        )
+        .where(PublicationWork.id == work_id)
+    ).one_or_none()
+    if row is None:
+        if db.get(PublicationWork, work_id) is None:
+            raise not_found("发布工作")
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作锁定上下文不完整", 409)
+
+    work = row[0]
+    content = row[10]
+    events = list(
+        db.scalars(
+            select(PublicationWorkEvent)
+            .where(PublicationWorkEvent.publication_work_id == work.id)
+            .order_by(PublicationWorkEvent.created_at, PublicationWorkEvent.id)
+        )
+    )
+    verifications = list(
+        db.scalars(
+            select(PublicationVerification)
+            .where(PublicationVerification.publication_work_id == work.id)
+            .order_by(PublicationVerification.created_at, PublicationVerification.id)
+        )
+    )
+    files = list(
+        db.scalars(
+            select(FileRecord)
+            .join(PublicationAttachment, PublicationAttachment.file_id == FileRecord.id)
+            .where(PublicationAttachment.publication_work_id == work.id)
+            .order_by(FileRecord.created_at, FileRecord.id)
+        )
+    )
+    actions, _primary_task = publication_work_actions(work.status)
+    accounts = list(
+        db.scalars(
+            select(PlatformAccount)
+            .where(
+                PlatformAccount.platform_profile_id == work.platform_profile_id,
+                PlatformAccount.is_active.is_(True),
+                "UPDATE_PREPARATION" in actions,
+            )
+            .order_by(PlatformAccount.label, PlatformAccount.id)
+        )
+    )
+    item = _work_list_item(
+        row,
+        verifications[-1] if verifications else None,
+        events[-1] if events else None,
+    )
+    work_out = PublicationWorkOut(
+        **item.model_dump(),
+        content_hash=work.content_hash,
+        closed_by=work.closed_by,
+        closed_at=work.closed_at,
+        created_by=work.created_by,
+        events=[PublicationWorkEventOut.model_validate(event) for event in events],
+        verifications=[PublicationVerificationOut.model_validate(item) for item in verifications],
+        attachments=[FileRecordOut.model_validate(file) for file in files],
+    )
+    switch_candidate = None
+    candidate_content = row[13]
+    if (
+        "SWITCH_CONTENT_VERSION" in actions
+        and candidate_content is not None
+        and row.candidate_fact_id is not None
+    ):
+        switch_candidate = PublicationWorkspaceVersionCandidate.model_validate(candidate_content)
+    return PublicationWorkspaceContext(
+        work=work_out,
+        content=PublicationWorkspaceContent.model_validate(content),
+        platform=PublicationWorkspacePlatform(
+            id=work.platform_profile_id,
+            name=row.platform_profile_name,
+            website_url=row.platform_website_url or row.platform_website_url_snapshot,
+        ),
+        eligible_accounts=[
+            PublicationWorkspaceAccountOption.model_validate(account) for account in accounts
+        ],
+        switch_candidate=switch_candidate,
     )
 
 

@@ -1499,6 +1499,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/publication-works/{work_id}/workspace-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Publication Workspace Context */
+        get: operations["getPublicationWorkspaceContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/publication-works/{work_id}/preparation": {
         parameters: {
             query?: never;
@@ -3695,6 +3712,46 @@ export interface components {
             body_text: string;
             tags: string[];
             content_hash: string;
+        };
+        PublicationWorkspaceContent: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            task_id: string;
+            version: number;
+            status: components["schemas"]["ContentVersionStatus"];
+            title: string;
+            summary: string;
+            body_markdown: string;
+            tags: string[];
+            content_hash: string;
+        };
+        PublicationWorkspacePlatform: {
+            /** Format: uuid */
+            id: string | null;
+            name: string;
+            website_url: string | null;
+        };
+        PublicationWorkspaceAccountOption: {
+            /** Format: uuid */
+            id: string;
+            label: string;
+            account_identifier: string;
+        };
+        PublicationWorkspaceVersionCandidate: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            title: string;
+            summary: string;
+            content_hash: string;
+        };
+        PublicationWorkspaceContext: {
+            work: components["schemas"]["PublicationWork"];
+            content: components["schemas"]["PublicationWorkspaceContent"];
+            platform: components["schemas"]["PublicationWorkspacePlatform"];
+            eligible_accounts: components["schemas"]["PublicationWorkspaceAccountOption"][];
+            switch_candidate: components["schemas"]["PublicationWorkspaceVersionCandidate"] | null;
         };
         PlatformAccountCreate: {
             /** Format: uuid */
@@ -7984,7 +8041,11 @@ export interface operations {
                     "application/json": components["schemas"]["PublicationPackage"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listPublicationReadyItems: {
@@ -8270,6 +8331,37 @@ export interface operations {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPublicationWorkspaceContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 同一 PostgreSQL 快照中的发布工作台上下文 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationWorkspaceContext"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
@@ -8299,6 +8391,10 @@ export interface operations {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
@@ -8328,6 +8424,10 @@ export interface operations {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
@@ -8357,6 +8457,10 @@ export interface operations {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
@@ -8444,6 +8548,10 @@ export interface operations {
                     "application/json": components["schemas"]["PublicationWork"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

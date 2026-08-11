@@ -30,12 +30,12 @@ function DirtyGuard({
   const blocker = useBlocker({
     disabled: !when,
     enableBeforeUnload: when,
-    shouldBlockFn: ({ current, next }) => {
-      const shouldBlock = current.pathname !== next.pathname;
-      if (shouldBlock && document.activeElement instanceof HTMLElement) {
+    shouldBlockFn: () => {
+      // TanStack 的 blocker 会丢弃 hash；脏表单期间拦截每次真实导航，才能覆盖 path/search/hash。
+      if (document.activeElement instanceof HTMLElement) {
         returnFocusRef.current = document.activeElement;
       }
-      return shouldBlock;
+      return true;
     },
     withResolver: true,
   });

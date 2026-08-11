@@ -312,6 +312,48 @@ class PublicationWorkOut(PublicationWorkListItem):
     attachments: list[FileRecordOut]
 
 
+class PublicationWorkspaceContent(ContractModel):
+    id: uuid.UUID
+    task_id: uuid.UUID
+    version: int
+    status: Literal[
+        "DRAFT", "PENDING_REVIEW", "CHANGES_REQUESTED", "APPROVED", "SUPERSEDED", "ABANDONED"
+    ]
+    title: str
+    summary: str
+    body_markdown: str
+    tags: list[str]
+    content_hash: str
+
+
+class PublicationWorkspacePlatform(ContractModel):
+    id: uuid.UUID | None
+    name: str
+    website_url: HttpUrl | None
+
+
+class PublicationWorkspaceAccountOption(ContractModel):
+    id: uuid.UUID
+    label: str
+    account_identifier: str
+
+
+class PublicationWorkspaceVersionCandidate(ContractModel):
+    id: uuid.UUID
+    version: int
+    title: str
+    summary: str
+    content_hash: str
+
+
+class PublicationWorkspaceContext(ContractModel):
+    work: PublicationWorkOut
+    content: PublicationWorkspaceContent
+    platform: PublicationWorkspacePlatform
+    eligible_accounts: list[PublicationWorkspaceAccountOption]
+    switch_candidate: PublicationWorkspaceVersionCandidate | None
+
+
 class PublicationWorkList(ContractModel):
     items: list[PublicationWorkListItem]
     page: int = Field(ge=1)

@@ -216,9 +216,11 @@ Active Work Table：
 
 ## 5.2 `/publishing/work/$workId`
 
-Pattern：Workspace。包含 Approved Content、Publishing Instruction、Account、Target Section、Current Stage、Evidence、Verification History、Publication Event Timeline。
+Pattern：Workspace。页面只请求 `GET /api/v1/publication-works/{work_id}/workspace-context`，一次获得工作、平台与账号身份、批准 Markdown、最新实际发布结果、附件、核验历史、事件时间线和服务端动作。发布包只在用户点击复制时按需请求，不进入首屏 waterfall。
 
-可能动作：复制发布包、登记结果、执行核验、重新核验、切换批准版本、关闭工作。所有写操作尊重服务端 revision/current state。
+主区只读展示 Approved Content Markdown；上下文区展示 Platform、Account 和 Current Stage，不恢复跨平台无意义的 Target Section。结果区展示已登记的 actual title、final URL 与发布时间；Evidence、Verification History 和 Publication Event Timeline 都按服务端顺序呈现。
+
+动作只消费 `available_actions` 中的 `UPDATE_PREPARATION`、`MARK_PLATFORM_REVIEW`、`REGISTER_RESULT`、`VERIFY`、`SWITCH_CONTENT_VERSION` 与 `CLOSE`。Core 实现前四个写动作和发布包复制；核验与切换批准版本进入后续任务。所有命令携带当前 `expected_revision`，成功后采用 canonical response 并刷新 Context；`409` 保留本地表单与已完成上传，只有显式 reload 才丢弃草稿。
 
 ## 5.3 `/publishing/articles`
 

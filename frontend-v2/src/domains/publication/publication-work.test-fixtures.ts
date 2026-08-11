@@ -138,6 +138,32 @@ const publicationSummary = {
   open_issue_count: 99,
 } satisfies components['schemas']['PublicationWorkbenchSummary'];
 
+const workspaceContext = {
+  work: createdWork,
+  content: {
+    id: contentVersion.id,
+    task_id: contentVersion.task_id,
+    version: contentVersion.version,
+    status: contentVersion.status,
+    title: contentVersion.title,
+    summary: contentVersion.summary,
+    body_markdown: contentVersion.body_markdown,
+    tags: contentVersion.tags,
+    content_hash: contentVersion.content_hash,
+  },
+  platform: {
+    id: publicationIds.platform,
+    name: readyItem.platform_profile_name,
+    website_url: 'https://community.example.com/',
+  },
+  eligible_accounts: [{
+    id: account.id,
+    label: account.label,
+    account_identifier: account.account_identifier,
+  }],
+  switch_candidate: null,
+} satisfies components['schemas']['PublicationWorkspaceContext'];
+
 export {
   account,
   createdWork,
@@ -146,4 +172,5 @@ export {
   publicationSummary,
   readyItem,
   workListItem,
+  workspaceContext,
 };

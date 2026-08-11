@@ -6,24 +6,35 @@ import type { components } from '../../../src/shared/api/generated/schema';
 
 type SurfaceMode = 'success' | 'empty' | 'error' | 'loading';
 type CreateMode = 'success' | 'conflict' | 'pending';
+type CommandMode = 'success' | 'conflict' | 'pending';
+type WorkspaceErrorStatus = 401 | 403 | 404 | 409 | 422;
 type CreateRequest = {
   body: components['schemas']['PublicationWorkCreate'];
   csrfToken: string | null;
   idempotencyKey: string | null;
 };
 type PublicationApiController = {
+  commandRequests: Array<{ method: string; path: string; body: unknown }>;
   createRequests: CreateRequest[];
   listRequests: URL[];
+  packageRequests: URL[];
   readyRequests: URL[];
   summaryRequests: URL[];
+  uploadRequests: Array<{ method: string; path: string }>;
+  workspaceRequests: URL[];
+  releaseCommand: () => void;
   releaseCreate: () => void;
   releaseLoading: () => void;
   setCreateMode: (mode: CreateMode) => void;
+  setCommandMode: (mode: CommandMode) => void;
   setReadyMode: (mode: SurfaceMode) => void;
   setSummaryMode: (mode: SurfaceMode) => void;
   setWorkMode: (mode: SurfaceMode) => void;
+  setWorkspaceError: (status?: WorkspaceErrorStatus) => void;
 };
 type PublicationFixtures = { publicationApi: PublicationApiController };
+type PublicationWorkspaceContext = components['schemas']['PublicationWorkspaceContext'];
+type FileRecord = components['schemas']['FileRecord'];
 
 const publicationIds = {
   account: '10000000-0000-4000-8000-000000000001',
@@ -158,6 +169,45 @@ const publicationSummary = {
   open_issue_count: 99,
 } satisfies components['schemas']['PublicationWorkbenchSummary'];
 
+const workspaceContext = {
+  work: createdWork,
+  content: {
+    id: contentVersion.id,
+    task_id: contentVersion.task_id,
+    version: contentVersion.version,
+    status: contentVersion.status,
+    title: contentVersion.title,
+    summary: contentVersion.summary,
+    body_markdown: contentVersion.body_markdown,
+    tags: contentVersion.tags,
+    content_hash: contentVersion.content_hash,
+  },
+  platform: {
+    id: publicationIds.platform,
+    name: readyItem.platform_profile_name,
+    website_url: 'https://community.example.com/',
+  },
+  eligible_accounts: [{
+    id: account.id,
+    label: account.label,
+    account_identifier: account.account_identifier,
+  }],
+  switch_candidate: null,
+} satisfies components['schemas']['PublicationWorkspaceContext'];
+
+const evidenceFile = {
+  id: 'a0000000-0000-4000-8000-000000000001',
+  category: 'OPERATION_SCREENSHOT',
+  original_filename: 'publication-proof.png',
+  object_key: 'evidence/publication-proof.png',
+  content_type: 'image/png',
+  size: 8,
+  sha256: 'fixture-sha256',
+  access_level: 'INTERNAL',
+  status: 'PENDING',
+  created_at: '2026-08-11T03:00:00Z',
+} satisfies components['schemas']['FileRecord'];
+
 const user = {
   id: publicationIds.user,
   username: 'admin',
@@ -194,21 +244,30 @@ const test = base.extend<PublicationFixtures>({
     let readyMode: SurfaceMode = 'success';
     let workMode: SurfaceMode = 'success';
     let createMode: CreateMode = 'success';
+    let commandMode: CommandMode = 'success';
+    let workspaceErrorStatus: WorkspaceErrorStatus | undefined;
     let releaseCreate: (() => void) | undefined;
+    let releaseCommand: (() => void) | undefined;
     let releaseSummary: (() => void) | undefined;
     let releaseReady: (() => void) | undefined;
     let releaseWorks: (() => void) | undefined;
     let readyItems = [readyItem, noAccountReadyItem];
     let workItems = createWorkItems();
+    let currentWorkspace: PublicationWorkspaceContext = structuredClone(workspaceContext);
+    let currentEvidence: FileRecord = evidenceFile;
+    const commandRequests: Array<{ method: string; path: string; body: unknown }> = [];
     const createRequests: CreateRequest[] = [];
     const listRequests: URL[] = [];
+    const packageRequests: URL[] = [];
     const readyRequests: URL[] = [];
     const summaryRequests: URL[] = [];
+    const uploadRequests: Array<{ method: string; path: string }> = [];
+    const workspaceRequests: URL[] = [];
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
 
     page.on('console', (message) => {
-      if (['503 (Service Unavailable)', '409 (Conflict)']
+      if (['401 (Unauthorized)', '403 (Forbidden)', '404 (Not Found)', '409 (Conflict)', '422 (Unprocessable Content)', '422 (Unprocessable Entity)', '503 (Service Unavailable)']
         .some((status) => message.text().includes(status))) return;
       if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`);
     });
@@ -216,6 +275,11 @@ const test = base.extend<PublicationFixtures>({
     page.on('requestfailed', (request) => {
       if (request.failure()?.errorText === 'net::ERR_ABORTED') return;
       runtimeErrors.push(`requestfailed: ${request.method()} ${request.url()}`);
+    });
+
+    await page.route('**/e2e-storage/**', async (route) => {
+      uploadRequests.push({ method: route.request().method(), path: new URL(route.request().url()).pathname });
+      await route.fulfill({ status: 200, body: 'stored' });
     });
 
     await page.route('**/api/v1/**', async (route) => {
@@ -282,6 +346,139 @@ const test = base.extend<PublicationFixtures>({
         });
         return;
       }
+      if (method === 'GET' && url.pathname === `/api/v1/publication-works/${publicationIds.work}/workspace-context`) {
+        workspaceRequests.push(url);
+        if (workspaceErrorStatus) {
+          await route.fulfill({
+            status: workspaceErrorStatus,
+            json: errorEnvelope(`WORKSPACE_${workspaceErrorStatus}`, '发布工作台不可用', `req-workspace-${workspaceErrorStatus}`),
+          });
+          return;
+        }
+        await route.fulfill({ status: 200, json: currentWorkspace });
+        return;
+      }
+      if (method === 'GET' && url.pathname === `/api/v1/content-versions/${publicationIds.contentVersion}/publication-package`) {
+        packageRequests.push(url);
+        await route.fulfill({
+          status: 200,
+          json: {
+            content_version_id: contentVersion.id,
+            fact_version_id: publicationIds.factVersion,
+            title: contentVersion.title,
+            body_markdown: contentVersion.body_markdown,
+            body_html: '<h1>已批准内容</h1>',
+            body_text: '已批准内容',
+            tags: contentVersion.tags,
+            content_hash: contentVersion.content_hash,
+          } satisfies components['schemas']['PublicationPackage'],
+        });
+        return;
+      }
+      if (method === 'POST' && url.pathname === '/api/v1/files/upload-intents') {
+        uploadRequests.push({ method, path: url.pathname });
+        currentEvidence = {
+          ...evidenceFile,
+          original_filename: (request.postDataJSON() as components['schemas']['UploadIntentCreate']).original_filename,
+        };
+        await route.fulfill({
+          status: 201,
+          json: {
+            file: currentEvidence,
+            upload: {
+              method: 'PUT',
+              url: `http://127.0.0.1:4174/e2e-storage/${currentEvidence.id}`,
+              headers: { 'x-e2e-upload': 'publication' },
+              fields: {},
+              expires_at: '2026-08-11T03:05:00Z',
+            },
+          } satisfies components['schemas']['UploadIntent'],
+        });
+        return;
+      }
+      if (method === 'POST' && url.pathname === `/api/v1/files/${evidenceFile.id}/complete`) {
+        uploadRequests.push({ method, path: url.pathname });
+        currentEvidence = { ...currentEvidence, status: 'VERIFIED', verified_at: '2026-08-11T03:01:00Z' };
+        await route.fulfill({ status: 200, json: currentEvidence });
+        return;
+      }
+      if (method === 'POST' && url.pathname === `/api/v1/files/${evidenceFile.id}/abort`) {
+        uploadRequests.push({ method, path: url.pathname });
+        currentEvidence = { ...currentEvidence, status: 'ABORTED' };
+        await route.fulfill({ status: 200, json: currentEvidence });
+        return;
+      }
+      if (method === 'GET' && url.pathname === `/api/v1/files/${evidenceFile.id}/download-url`) {
+        await route.fulfill({
+          status: 200,
+          json: { url: `http://127.0.0.1:4174/e2e-storage/${evidenceFile.id}`, expires_at: '2026-08-11T03:05:00Z' },
+        });
+        return;
+      }
+      const commandPaths = [
+        `/api/v1/publication-works/${publicationIds.work}/preparation`,
+        `/api/v1/publication-works/${publicationIds.work}/platform-review`,
+        `/api/v1/publication-works/${publicationIds.work}/result`,
+        `/api/v1/publication-works/${publicationIds.work}/close`,
+      ];
+      if (commandPaths.includes(url.pathname)) {
+        commandRequests.push({ method, path: url.pathname, body: request.postDataJSON() });
+        if (commandMode === 'pending') await new Promise<void>((resolve) => { releaseCommand = resolve; });
+        if (commandMode === 'conflict') {
+          await route.fulfill({ status: 409, json: errorEnvelope('PUBLICATION_REVISION_CONFLICT', '发布工作已变化', 'req-workspace-conflict') });
+          return;
+        }
+        const body = request.postDataJSON() as Record<string, unknown>;
+        const revision = currentWorkspace.work.revision + 1;
+        if (url.pathname.endsWith('/preparation')) {
+          currentWorkspace = { ...currentWorkspace, work: { ...currentWorkspace.work, revision, platform_account_id: String(body.platform_account_id) } };
+        } else if (url.pathname.endsWith('/platform-review')) {
+          currentWorkspace = {
+            ...currentWorkspace,
+            eligible_accounts: [],
+            work: {
+              ...currentWorkspace.work,
+              revision,
+              status: 'PLATFORM_REVIEW',
+              workflow_stage: 'PLATFORM_REVIEW',
+              primary_task: 'REGISTER_RESULT',
+              available_actions: ['REGISTER_RESULT', 'CLOSE'],
+            },
+          };
+        } else if (url.pathname.endsWith('/result')) {
+          currentWorkspace = {
+            ...currentWorkspace,
+            work: {
+              ...currentWorkspace.work,
+              actual_title: String(body.actual_title),
+              final_url: String(body.final_url),
+              published_at: String(body.published_at),
+              revision,
+              status: 'AWAITING_VERIFICATION',
+              workflow_stage: 'AWAITING_VERIFICATION',
+              primary_task: 'RUN_FIRST_VERIFICATION',
+              available_actions: ['VERIFY', 'CLOSE'],
+              attachments: [currentEvidence],
+            },
+          };
+        } else {
+          currentWorkspace = {
+            ...currentWorkspace,
+            work: {
+              ...currentWorkspace.work,
+              revision,
+              status: 'CLOSED',
+              workflow_stage: 'CLOSED',
+              primary_task: 'VIEW_CLOSURE',
+              available_actions: [],
+              close_reason: String(body.reason) as components['schemas']['PublicationCloseReason'],
+              close_comment: String(body.comment),
+            },
+          };
+        }
+        await route.fulfill({ status: 200, json: currentWorkspace.work });
+        return;
+      }
       if (method === 'POST' && url.pathname === '/api/v1/publication-works') {
         createRequests.push({
           body: request.postDataJSON() as components['schemas']['PublicationWorkCreate'],
@@ -303,10 +500,19 @@ const test = base.extend<PublicationFixtures>({
     });
 
     await use({
+      commandRequests,
       createRequests,
       listRequests,
+      packageRequests,
       readyRequests,
       summaryRequests,
+      uploadRequests,
+      workspaceRequests,
+      releaseCommand: () => {
+        if (!releaseCommand) throw new Error('Publication command pending 请求尚未开始');
+        commandMode = 'success';
+        releaseCommand();
+      },
       releaseCreate: () => {
         if (!releaseCreate) throw new Error('Publication create pending 请求尚未开始');
         createMode = 'success';
@@ -324,9 +530,11 @@ const test = base.extend<PublicationFixtures>({
         releaseWorks();
       },
       setCreateMode: (mode) => { createMode = mode; },
+      setCommandMode: (mode) => { commandMode = mode; },
       setReadyMode: (mode) => { readyMode = mode; },
       setSummaryMode: (mode) => { summaryMode = mode; },
       setWorkMode: (mode) => { workMode = mode; },
+      setWorkspaceError: (status) => { workspaceErrorStatus = status; },
     });
 
     expect(unexpectedRequests, 'Publication Work 页面不得依赖未声明 API').toEqual([]);

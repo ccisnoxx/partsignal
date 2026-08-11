@@ -1890,7 +1890,11 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PublicationPackage'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-ready-items:
     get:
       tags:
@@ -2148,8 +2152,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationWork'
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
+  /api/v1/publication-works/{work_id}/workspace-context:
+    get:
+      tags: [publication]
+      summary: Get Publication Workspace Context
+      operationId: getPublicationWorkspaceContext
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: work_id
+          in: path
+          required: true
+          schema: {type: string, format: uuid}
+      responses:
+        '200':
+          description: 同一 PostgreSQL 快照中的发布工作台上下文
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PublicationWorkspaceContext'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/publication-works/{work_id}/preparation:
     patch:
       tags:
@@ -2186,6 +2217,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationWork'
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/publication-works/{work_id}/platform-review:
@@ -2224,6 +2259,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationWork'
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/publication-works/{work_id}/result:
@@ -2262,6 +2301,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationWork'
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/publication-works/{work_id}/verifications:
@@ -2360,6 +2403,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublicationWork'
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/published-articles:
@@ -5243,6 +5290,64 @@ components:
         body_text: {type: string}
         tags: {type: array, items: {type: string}}
         content_hash: {type: string}
+    PublicationWorkspaceContent:
+      type: object
+      additionalProperties: false
+      required: [id, task_id, version, status, title, summary, body_markdown, tags, content_hash]
+      properties:
+        id: {type: string, format: uuid}
+        task_id: {type: string, format: uuid}
+        version: {type: integer}
+        status: {$ref: '#/components/schemas/ContentVersionStatus'}
+        title: {type: string}
+        summary: {type: string}
+        body_markdown: {type: string}
+        tags: {type: array, items: {type: string}}
+        content_hash: {type: string}
+    PublicationWorkspacePlatform:
+      type: object
+      additionalProperties: false
+      required: [id, name, website_url]
+      properties:
+        id: {type: [string, 'null'], format: uuid}
+        name: {type: string}
+        website_url:
+          anyOf:
+            - {type: string, format: uri, minLength: 1, maxLength: 2083}
+            - {type: 'null'}
+    PublicationWorkspaceAccountOption:
+      type: object
+      additionalProperties: false
+      required: [id, label, account_identifier]
+      properties:
+        id: {type: string, format: uuid}
+        label: {type: string}
+        account_identifier: {type: string}
+    PublicationWorkspaceVersionCandidate:
+      type: object
+      additionalProperties: false
+      required: [id, version, title, summary, content_hash]
+      properties:
+        id: {type: string, format: uuid}
+        version: {type: integer}
+        title: {type: string}
+        summary: {type: string}
+        content_hash: {type: string}
+    PublicationWorkspaceContext:
+      type: object
+      additionalProperties: false
+      required: [work, content, platform, eligible_accounts, switch_candidate]
+      properties:
+        work: {$ref: '#/components/schemas/PublicationWork'}
+        content: {$ref: '#/components/schemas/PublicationWorkspaceContent'}
+        platform: {$ref: '#/components/schemas/PublicationWorkspacePlatform'}
+        eligible_accounts:
+          type: array
+          items: {$ref: '#/components/schemas/PublicationWorkspaceAccountOption'}
+        switch_candidate:
+          anyOf:
+            - {$ref: '#/components/schemas/PublicationWorkspaceVersionCandidate'}
+            - {type: 'null'}
     PlatformAccountCreate:
       type: object
       additionalProperties: false

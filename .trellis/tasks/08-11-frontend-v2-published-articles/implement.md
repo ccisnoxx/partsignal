@@ -136,3 +136,32 @@ make verify
 - [x] Blocking open questions 为零。
 - [x] 用户在最新 planning summary 之后明确批准实施。
 - [x] Task 已在 `main` 进入实施阶段。
+
+## 7. Final validation results（2026-08-12）
+
+工作实现提交：`791b9f3 feat: add published article read-only views`。
+
+### Required validation
+
+| 范围 | 实际命令 | 结果 |
+| --- | --- | --- |
+| OpenAPI 双端生成 | `npm --prefix frontend-v2 run api:generate`；`npm --prefix frontend run api:generate` | 通过；两端 generated schema 可复现，生成后工作区无差异。 |
+| 合同一致性 | `make contract-check` | 通过；FastAPI、`contracts/openapi.yaml`、V1/V2 generated types 一致。 |
+| Backend publication integration | `PARTSIGNAL_TEST_DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55432/partsignal UV_CACHE_DIR=.cache/uv uv run --project backend pytest backend/tests/integration/test_publication_workflow.py -q` | 通过；16 个测试全部通过。 |
+| Published Articles component/model | `npm --prefix frontend-v2 run test -- src/domains/publication/publication.api.test.ts src/domains/publication/published-article.model.test.ts src/domains/publication/published-article-list-page.test.tsx src/domains/publication/published-article-detail-page.test.tsx` | 通过；4 个文件、18 个测试全部通过，耗时 812 ms。 |
+| Frontend V2 static/build | `npm --prefix frontend-v2 run lint`；`npm --prefix frontend-v2 run typecheck`；`npm --prefix frontend-v2 run build` | 全部通过；build 仅报告既有大 chunk 非阻断 warning。 |
+| Fixture Playwright | `npm --prefix frontend-v2 run e2e -- tests/e2e/published-articles.spec.ts` | 通过；mobile/desktop 共 6 个测试，覆盖 canonical URL、单请求边界、错误、键盘、375/768/1024/1440 与根页面无横向溢出，耗时 8.3 s。 |
+| Independent real stack | `DATABASE_URL=postgresql+psycopg://partsignal:partsignal_dev@127.0.0.1:55432/partsignal REDIS_URL=redis://127.0.0.1:56379/0 deploy/scripts/e2e-local.sh`（加载本地 `.env`） | Published Article 独立用例通过（446 ms）：真实 PostgreSQL/FastAPI/V2 production preview 下由完成成果进入列表和详情，浏览器 Article 请求严格为两个 GET。脚本整体 9 passed / 1 failed；失败是未被本提交修改的 `content-ai-real-stack.spec.ts`，Celery 报 28800 秒时钟漂移后 AI 标题保持空值并超时。按失败归因规则未重跑、未越界修复。隔离数据库与临时存储均成功清理。 |
+| Diff hygiene | `git diff --check`；`git status --short` | 通过；写回本节前工作区干净，无生成漂移。 |
+
+### Trellis check / acceptance review
+
+- `trellis-check` 已核对 contract → backend schema/router/query → generated types → Publication domain/route → component/fixture/real-stack 的读取链；未发现客户端 join、本地分页过滤、status 动作推导、mutation UI、新依赖或通用框架。
+- `frontend/` 的唯一变更仍是用户批准的 generated `src/shared/api/schema.d.ts`；V1 runtime、页面和测试没有改动。
+- PublishedArticle 与 PublicationWork 同 ID、固定 PASSED verification、来源 ContentVersion ID/hash、冻结平台/账号 snapshot、事件顺序及结构化错误边界与代码、OpenAPI、测试和文档一致。
+- Visual QA 由 production-artifact Playwright 在 375/768/1024/1440、键盘焦点、表格语义、外链标签和页面级溢出上提供自动证据；本 Task 未创建或更新需人工批准的视觉基线。
+- `contracts/database.md` 未更新：本 Task 没有 migration 或持久化 invariant 变化，仅消费既有不可变约束并扩展 read model。
+
+### Optional validation
+
+- 未运行完整 V2 unit/E2E、`make test-integration` 或 `make verify`；required targeted backend、component、production-artifact fixture 和独立真实栈已经直接覆盖本 Task。唯一观察到的跨任务失败已在上表归因，不扩大当前 Task。

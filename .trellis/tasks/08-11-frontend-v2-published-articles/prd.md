@@ -102,17 +102,17 @@
 
 ## Acceptance Criteria
 
-- [ ] `/publishing/articles?page=1&pageSize=20` 可 direct/refresh/Back/Forward，未知或非法 search 被 canonical replace，且只发一个 list GET。
-- [ ] q、三组可见排序列与分页全部映射到服务端参数；页面没有本地过滤、分页截取或跨接口 join。
-- [ ] 列表严格显示五列且无操作列；actual title 链接 canonical detail，URL domain、长标题和健康状态在四档宽度可读。
-- [ ] `/publishing/articles/$articleId` 只发一个 detail GET，并显示公开结果、冻结平台/账号、来源 Markdown snapshot、首次 PASSED verification、lineage 与 publication timeline。
-- [ ] Article/Work/verification/source content ID 与 hash 边界由 backend integration test 证明；断裂上下文返回结构化 409，不渲染部分拼装结果。
-- [ ] Publication Workspace `COMPLETED` 链接进入同 ID Article Detail；Article ID 与 Work ID 相同。
-- [ ] ADMIN 与 ENGINEER 均可读；401/403/404/409/422 的 OpenAPI、runtime 与页面行为一致并显示 request ID。
-- [ ] 页面没有 form、contenteditable、mutation request、删除 preview、issue/GEO/verification action，也不按 status 推导业务动作。
-- [ ] fixture Playwright 拒绝未声明 API；独立真实栈从已完成发布成果进入列表与详情，浏览器业务请求均为 GET。
-- [ ] 375/768/1024/1440、keyboard、visible focus、table semantics、external-link label、无页面级横向溢出通过。
-- [ ] OpenAPI、backend、两套 generated types、V2 docs/tests 一致；`contracts/database.md` 无需更新，因为没有持久化 invariant 变化。
+- [x] `/publishing/articles?page=1&pageSize=20` 可 direct/refresh/Back/Forward，未知或非法 search 被 canonical replace，且只发一个 list GET。
+- [x] q、三组可见排序列与分页全部映射到服务端参数；页面没有本地过滤、分页截取或跨接口 join。
+- [x] 列表严格显示五列且无操作列；actual title 链接 canonical detail，URL domain、长标题和健康状态在四档宽度可读。
+- [x] `/publishing/articles/$articleId` 只发一个 detail GET，并显示公开结果、冻结平台/账号、来源 Markdown snapshot、首次 PASSED verification、lineage 与 publication timeline。
+- [x] Article/Work/verification/source content ID 与 hash 边界由 backend integration test 证明；断裂上下文返回结构化 409，不渲染部分拼装结果。
+- [x] Publication Workspace `COMPLETED` 链接进入同 ID Article Detail；Article ID 与 Work ID 相同。
+- [x] ADMIN 与 ENGINEER 均可读；401/403/404/409/422 的 OpenAPI、runtime 与页面行为一致并显示 request ID。
+- [x] 页面没有 form、contenteditable、mutation request、删除 preview、issue/GEO/verification action，也不按 status 推导业务动作。
+- [x] fixture Playwright 拒绝未声明 API；独立真实栈从已完成发布成果进入列表与详情，浏览器业务请求均为 GET。
+- [x] 375/768/1024/1440、keyboard、visible focus、table semantics、external-link label、无页面级横向溢出通过。
+- [x] OpenAPI、backend、两套 generated types、V2 docs/tests 一致；`contracts/database.md` 无需更新，因为没有持久化 invariant 变化。
 
 ## 实施授权
 

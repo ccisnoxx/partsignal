@@ -80,3 +80,37 @@
 ### Next Steps
 
 - 父任务后续决定是否单独扩展 Content workflow，以解除真实栈 Flow B 前置缺口。
+
+
+## Session 117: Frontend V2 Publication Workspace 收尾
+
+**Date**: 2026-08-11
+**Task**: Frontend V2 Publication Workspace 收尾
+**Branch**: `main`
+
+### Summary
+
+对齐 V1 Publication 换版后的真实结果重登记与首次核验流程，完成父任务全量集成门禁，并归档 ACTION_REQUIRED Revision 子任务及 Publication Workspace 父任务。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `27e0384` | (see git log) |
+| `115a4ed` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

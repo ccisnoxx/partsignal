@@ -403,7 +403,9 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-published-articles` 已落地第 3 项：注册 `/publishing/articles` 与 `/publishing/articles/$articleId`；列表以服务端 search、六种稳定 sort 和 pagination 绘制固定五列，无操作列。Detail endpoint additive 嵌入既有 `ContentVersionDetail` 与 Publication events，在单个 `REPEATABLE READ` 请求中返回来源 Markdown、Fact/generation lineage、首次 PASSED verification 和时间线。
 
-`frontend-v2-published-content-issues` 已落地第 4 项：注册 `/publishing/issues` 与 `/publishing/issues/$issueId`，列表只消费现有批量 Issue DTO，Workspace 使用新的单一 `issue + article + repair_task` Context；Article detail 只按服务端 token 登记或交接问题。repair options 按需读取，create repair 与 resolve 保持独立，cancelled repair task 不再产生不可执行的继续修复入口。Publishing 完整真实栈 E2E 与 vertical slice 抽象回顾仍留在后续任务。
+`frontend-v2-published-content-issues` 已落地第 4 项：注册 `/publishing/issues` 与 `/publishing/issues/$issueId`，列表只消费现有批量 Issue DTO，Workspace 使用新的单一 `issue + article + repair_task` Context；Article detail 只按服务端 token 登记或交接问题。repair options 按需读取，create repair 与 resolve 保持独立，cancelled repair task 不再产生不可执行的继续修复入口。vertical slice 抽象回顾仍留在后续任务。
+
+`frontend-v2-publishing-e2e` 已落地第 5 项：扩展既有 `publication-workspace-real-stack.spec.ts`，由 V2 UI 连续完成 Ready Queue 开始发布、准备与平台复核、结果登记、PASSED 核验、只读 PublishedArticle、登记内容问题、创建修复 ContentTask、按服务端 `primary_task` 继续修复并解决问题；既有 Flow B 继续证明 FAILED → ACTION_REQUIRED → 内容修订审批 → 换版 → 重登记 → PASSED。最终只读断言覆盖来源 Content snapshot、verification、publication event、Article issue history 与 Issue/repair-task 投影不可变性。门禁复用 `deploy/scripts/e2e-local.sh` 的隔离 PostgreSQL、Redis、FastAPI、对象存储和 V2 production preview，V2 10 条与指定 V1 7 条均通过，数据库和临时存储由脚本精确删除。Phase 4 仅剩第 6 项抽象回顾。
 
 退出条件：`PublicationWork / PublishedArticle / PublishedContentIssue` 使用三组 URL；成功核验 snapshot 不可变；失败核验不伪装成功；动作全部 server-driven；timeline/evidence 可追溯。
 

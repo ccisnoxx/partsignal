@@ -64,15 +64,15 @@ review reject → canonical Task Detail/Editor → create HUMAN revision → upd
 
 ### Publication
 
-approved content → start work → register result → verify success → PublishedArticle。
+approved content → start work → register result → verify success → PublishedArticle。连续真实栈验收必须从 Ready Queue 通过 V2 UI 开始发布，并验证成功核验后成果、来源内容 snapshot、verification 与 publication events 保持只读。
 
 ### Failed Verification
 
-verify fail → ACTION_REQUIRED → update/switch version → reverify。
+verify fail → ACTION_REQUIRED → Content revision/review/approval → switch version → re-register result → reverify PASSED；动作资格必须来自服务端 `primary_task / available_actions`。
 
 ### Post-Publication Issue
 
-open issue → create repair task → resolve issue。
+PublishedArticle → open issue → create repair task → 按服务端主任务进入 repair ContentTask → resolve issue；最终只读投影必须保留 Article issue history、Issue resolution 与修复任务来源关联。
 
 Issue 页面级门禁还需分别证明：列表与 Workspace 首屏各只有一个 canonical GET；repair-context 只在动作打开后读取；OPEN/COMPLETED/CANCELLED repair 与 RESOLVED 的主任务只随服务端投影变化；409 保留输入且不 replay；Article 登记成功使用响应 ID 进入 Workspace。fixture 必须拒绝未声明 API，覆盖 375/768/1024/1280/1440 与页面根无横向溢出。
 
@@ -213,6 +213,15 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 `tests/e2e/published-articles.spec.ts` 扩展同一 generated-type Publication fixture，只允许 Article list/detail GET；未声明 API 继续返回 501 并使 teardown 失败。测试覆盖 canonical `q/page/pageSize/sort`、direct/refresh/Back/Forward、服务端分页与 filtered empty、固定五列无操作列、List → Detail 键盘导航、404/403/409/request ID、Markdown sanitize、来源/核验/lineage/timeline、375/768/1024/1440 和无 mutation 控件。
 
 `tests/e2e/publication-workspace-real-stack.spec.ts` 在既有隔离 PostgreSQL/FastAPI/V2 production preview 生命周期中增加独立 PublishedArticle 读取用例：API 只建立唯一完成聚合，浏览器随后只发送 Article list/detail GET，验证 Article/Work 同 ID、来源 ContentVersion ID/hash、PASSED snapshot、事件时间线和 readonly 边界。不新增第二套 orchestration，也不重复完整 ACTION_REQUIRED flow。
+
+### 13.6 Publishing 完整真实栈闭环
+
+`tests/e2e/publication-workspace-real-stack.spec.ts` 继续复用 `deploy/scripts/e2e-local.sh` 的单一隔离 PostgreSQL、独占 Redis、FastAPI、对象存储和 V2 production preview 生命周期；不新增 fixture、spec 或 orchestration。测试 API 只用于唯一前置数据和最终只读投影，新增连续业务命令均由 V2 UI 完成。
+
+- Flow A：Ready Queue → start work → preparation/account switch → platform review/screenshot → register result → PASSED → immutable PublishedArticle → open `CONTENT_CHANGED` issue → create repair ContentTask → Issues List 依据服务端 `primary_task` 进入修复任务 → resolve `RESTORED`。最终只读断言锁定 Work/Article 同 ID、批准 ContentVersion ID/hash/Markdown/Fact snapshot、PASSED verification snapshot、完整 publication events、Article issue history、Issue resolution history，以及 repair task 的来源 Issue、`NO_DRAFT / CREATE_FIRST_DRAFT` 和空 current pointer。
+- Flow B：保留既有 FAILED → ACTION_REQUIRED → Content HUMAN revision/save/review/approve → switch version → re-register result → PASSED，证明旧发布结果与失败核验 snapshot 不变、新批准版本成为完成成果来源。
+
+完整门禁通过 V2 real-stack `10 passed` 与指定 V1 Trusted Types `7 passed`；退出码为 0，并由脚本报告隔离数据库、对象存储目录 `status=deleted`。该验收不进入 Publishing 抽象回顾、GEO，也不要求生产代码、OpenAPI、数据库或依赖变更。
 
 `frontend-v2-fact-history` 已通过 contract-check、PostgreSQL integration、V1 既有调用测试、V2 component、fixture Playwright 与上述真实栈 Flow B。Fact History gap 已关闭，Phase 2 exit gate 从 `NOT_MET` 改判为 `MET`。
 

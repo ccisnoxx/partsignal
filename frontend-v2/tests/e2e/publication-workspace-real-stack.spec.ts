@@ -17,6 +17,7 @@ type ContentVersion = components['schemas']['ContentVersion'];
 type PublicationWork = components['schemas']['PublicationWork'];
 type PublicationWorkspaceContext = components['schemas']['PublicationWorkspaceContext'];
 type PublishedArticle = components['schemas']['PublishedArticle'];
+type PublishedContentIssueWorkspaceContext = components['schemas']['PublishedContentIssueWorkspaceContext'];
 
 const realStackEnabled = process.env.PARTSIGNAL_E2E_REAL_STACK === '1';
 const apiBaseUrl = process.env.PARTSIGNAL_E2E_API_BASE_URL ?? 'http://127.0.0.1:8000';
@@ -118,26 +119,55 @@ async function createPrerequisites(page: Page, csrfToken: string, suffix: string
     `${apiBaseUrl}/api/v1/content-versions/${pendingContent.id}/approve`,
     { data: { expected_revision: pendingContent.revision, comment: `批准发布稿 ${suffix}` }, headers },
   ));
-  const work = await responseBody<PublicationWork>(await page.request.post(
-    `${apiBaseUrl}/api/v1/publication-works`,
-    {
-      data: { content_version_id: approvedContent.id, platform_account_id: firstAccount.id },
-      headers: { ...headers, 'Idempotency-Key': randomUUID() },
-    },
-  ));
-  return { approvedContent, domain, secondAccount, work };
+  return { approvedContent, approvedFact, domain, firstAccount, secondAccount, task };
 }
 
-test('Flow A：V2 UI 完成准备、平台审核、截图上传与结果登记', async ({ page }) => {
+async function createPublicationWork(
+  page: Page,
+  csrfToken: string,
+  contentVersionId: string,
+  platformAccountId: string,
+) {
+  return responseBody<PublicationWork>(await page.request.post(
+    `${apiBaseUrl}/api/v1/publication-works`,
+    {
+      data: { content_version_id: contentVersionId, platform_account_id: platformAccountId },
+      headers: { 'X-CSRF-Token': csrfToken, 'Idempotency-Key': randomUUID() },
+    },
+  ));
+}
+
+test('Flow A：V2 UI 从开始发布连续完成成果、修复任务与问题解决', async ({ page }) => {
   const suffix = randomUUID().slice(0, 8);
   const session = await login(page);
   const setup = await createPrerequisites(page, session.csrf_token, suffix);
 
-  await page.goto(`/publishing/work/${setup.work.id}#preparation`);
+  await page.goto('/publishing/work?page=1&pageSize=20');
+  const readyCard = page.locator('article').filter({ hasText: setup.approvedContent.title });
+  await expect(readyCard.getByRole('button', { name: '开始发布' })).toBeVisible();
+  await readyCard.getByRole('button', { name: '开始发布' }).click();
+  let dialog = page.getByRole('dialog', { name: `开始发布“${setup.approvedContent.title}”` });
+  await dialog.getByRole('combobox', { name: '发布账号' }).click();
+  await page.getByRole('option', {
+    name: `${setup.firstAccount.label} · ${setup.firstAccount.account_identifier}`,
+  }).click();
+  await dialog.getByRole('button', { name: '确认开始' }).click();
+  await expect(dialog).toBeHidden();
+
+  const activeRow = page.locator('tbody tr').filter({ hasText: setup.approvedContent.title });
+  const continuePreparation = activeRow.getByRole('link', { name: '继续准备' });
+  const workHref = await continuePreparation.getAttribute('href');
+  const workId = workHref?.match(/^\/publishing\/work\/([^#]+)#preparation$/)?.[1];
+  if (!workId) throw new Error('UI START 后未返回合法的继续准备链接');
+  await expect(page.locator('[role="status"]').filter({
+    hasText: `已创建发布工作：${workId}`,
+  })).toBeVisible();
+  await continuePreparation.click();
+  await expect(page).toHaveURL(`/publishing/work/${workId}#preparation`);
   await expect(page.locator('#publication-workspace-title')).toHaveText(setup.approvedContent.title);
 
   await page.getByRole('button', { name: '更新准备信息' }).click();
-  let dialog = page.getByRole('dialog', { name: '更新准备信息' });
+  dialog = page.getByRole('dialog', { name: '更新准备信息' });
   await dialog.getByRole('combobox', { name: '发布账号' }).click();
   await page.getByRole('option', { name: new RegExp(setup.secondAccount.label) }).click();
   await dialog.getByRole('textbox', { name: '备注' }).fill(`切换到复核账号 ${suffix}`);
@@ -168,28 +198,226 @@ test('Flow A：V2 UI 完成准备、平台审核、截图上传与结果登记',
   await expect(dialog).toBeHidden();
   await expect(page.getByText('发布结果已登记，可以开始人工核验。')).toBeVisible();
 
-  const context = await responseBody<PublicationWorkspaceContext>(await page.request.get(
-    `${apiBaseUrl}/api/v1/publication-works/${setup.work.id}/workspace-context`,
+  await page.getByRole('button', { name: '核验发布结果' }).click();
+  dialog = page.getByRole('dialog', { name: '核验发布结果' });
+  const verificationComment = `直接核验通过 ${suffix}`;
+  await dialog.getByRole('radio', { name: '一致，通过本次核验' }).check();
+  await dialog.getByRole('textbox', { name: '核验说明' }).fill(verificationComment);
+  await dialog.getByRole('button', { name: '确认提交' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText('核验通过，发布成果已冻结为只读。')).toBeVisible();
+  await expect(page.getByRole('button', {
+    name: /登记发布结果|核验发布结果|切换内容版本|关闭发布工作/,
+  })).toHaveCount(0);
+
+  const articleLink = page.getByRole('link', { name: '前往发布成果详情' });
+  await expect(articleLink).toHaveAttribute('href', `/publishing/articles/${workId}`);
+  await articleLink.click();
+  await expect(page).toHaveURL(`/publishing/articles/${workId}`);
+  await expect(page.getByRole('heading', { level: 1, name: actualTitle })).toBeVisible();
+  await expect(page.getByText(setup.approvedContent.content_hash, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '登记内容问题' })).toBeVisible();
+
+  await page.getByRole('button', { name: '登记内容问题' }).click();
+  dialog = page.getByRole('dialog', { name: `登记“${actualTitle}”的内容问题` });
+  await dialog.getByRole('combobox', { name: '问题类型' }).click();
+  await page.getByRole('option', { name: '公开内容发生变化' }).click();
+  const issueDescription = `公开页面正文发生变化 ${suffix}`;
+  await dialog.getByRole('textbox', { name: '问题描述' }).fill(issueDescription);
+  await dialog.getByRole('button', { name: '确认登记' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/publishing\/issues\/[0-9a-f-]+#issue$/);
+  const issueId = page.url().match(/\/publishing\/issues\/([^#]+)#issue$/)?.[1];
+  if (!issueId) throw new Error('UI 登记问题后未进入合法的 Issue Workspace');
+
+  await expect(page.getByRole('button', { name: '创建修复任务' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '解决内容问题' })).toBeVisible();
+  await page.getByRole('button', { name: '创建修复任务' }).click();
+  dialog = page.getByRole('dialog', { name: '创建修复任务' });
+  await dialog.getByRole('combobox', { name: '修复依据' }).click();
+  await page.getByRole('option', {
+    name: `FactVersion v${setup.approvedFact.version} · ${setup.approvedFact.change_summary}`,
+  }).click();
+  await dialog.getByRole('button', { name: '确认创建' }).click();
+  await expect(dialog).toBeHidden();
+  const repairTaskLink = page.locator('#repair a[href^="/content/tasks/"]');
+  await expect(repairTaskLink).toBeVisible();
+  const repairTaskHref = await repairTaskLink.getAttribute('href');
+  const repairTaskId = repairTaskHref?.match(/^\/content\/tasks\/([^/]+)$/)?.[1];
+  if (!repairTaskId) throw new Error('UI 创建修复任务后未返回合法的 ContentTask 链接');
+
+  await page.goto('/publishing/issues?status=OPEN&page=1&pageSize=20');
+  const issueRow = page.locator('tbody tr').filter({ hasText: actualTitle });
+  const continueRepair = issueRow.getByRole('link', { name: '继续修复' });
+  await expect(continueRepair).toHaveAttribute('href', `/content/tasks/${repairTaskId}`);
+  await continueRepair.click();
+  await expect(page).toHaveURL(`/content/tasks/${repairTaskId}`);
+  await expect(page.getByText('CREATE_FIRST_DRAFT', { exact: true })).toBeVisible();
+  const currentContentSection = page.getByRole('heading', { level: 2, name: '当前内容' })
+    .locator('..').locator('..').locator('..');
+  await expect(currentContentSection.getByText('暂无', { exact: true })).toBeVisible();
+  const sourceIssueLink = page.getByRole('link', { name: '内容发生变化 · OPEN' });
+  await expect(sourceIssueLink).toHaveAttribute('href', `/publishing/issues/${issueId}`);
+  await sourceIssueLink.click();
+  await expect(page).toHaveURL(`/publishing/issues/${issueId}#issue`);
+
+  await page.getByRole('button', { name: '解决内容问题' }).click();
+  dialog = page.getByRole('dialog', { name: '解决内容问题' });
+  const resolutionComment = `公开页面已恢复 ${suffix}`;
+  await dialog.getByRole('textbox', { name: '解决说明' }).fill(resolutionComment);
+  await dialog.getByRole('button', { name: '确认解决' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText('已恢复', { exact: true })).toBeVisible();
+  await expect(page.getByText(resolutionComment, { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /创建修复任务|解决内容问题/ })).toHaveCount(0);
+
+  const finalContext = await responseBody<PublicationWorkspaceContext>(await page.request.get(
+    `${apiBaseUrl}/api/v1/publication-works/${workId}/workspace-context`,
   ));
-  expect(context.work.status).toBe('AWAITING_VERIFICATION');
-  expect(context.work.actual_title).toBe(actualTitle);
-  expect(context.work.final_url).toBe(finalUrl);
-  expect(context.work.content_hash).toBe(setup.approvedContent.content_hash);
-  expect(context.work.attachments).toHaveLength(1);
-  expect(context.work.attachments[0]?.status).toBe('VERIFIED');
-  expect(context.work.events.map((event) => event.action)).toEqual([
-    'CREATED', 'PREPARATION_UPDATED', 'PLATFORM_REVIEW_MARKED', 'RESULT_REGISTERED',
+  const article = await responseBody<PublishedArticle>(await page.request.get(
+    `${apiBaseUrl}/api/v1/published-articles/${workId}`,
+  ));
+  const issueContext = await responseBody<PublishedContentIssueWorkspaceContext>(await page.request.get(
+    `${apiBaseUrl}/api/v1/published-content-issues/${issueId}/workspace-context`,
+  ));
+  const repairTask = await responseBody<ContentTaskDetail>(await page.request.get(
+    `${apiBaseUrl}/api/v1/content-tasks/${repairTaskId}/detail`,
+  ));
+
+  expect(finalContext.work).toMatchObject({
+    id: workId,
+    task_id: setup.task.id,
+    content_version_id: setup.approvedContent.id,
+    content_hash: setup.approvedContent.content_hash,
+    platform_account_id: setup.secondAccount.id,
+    platform_account_label: setup.secondAccount.label,
+    account_identifier: setup.secondAccount.account_identifier,
+    actual_title: actualTitle,
+    final_url: finalUrl,
+    status: 'COMPLETED',
+    primary_task: 'VIEW_COMPLETION',
+    available_actions: [],
+  });
+  expect(finalContext.work.attachments).toHaveLength(1);
+  expect(finalContext.work.attachments[0]?.status).toBe('VERIFIED');
+  expect(finalContext.work.verifications).toHaveLength(1);
+  expect(finalContext.work.verifications[0]).toMatchObject({
+    outcome: 'PASSED',
+    content_version_id: setup.approvedContent.id,
+    actual_title_snapshot: actualTitle,
+    final_url_snapshot: finalUrl,
+    published_at_snapshot: finalContext.work.published_at,
+    comment: verificationComment,
+  });
+  expect(finalContext.work.events.map((event) => event.action)).toEqual([
+    'CREATED',
+    'PREPARATION_UPDATED',
+    'PLATFORM_REVIEW_MARKED',
+    'RESULT_REGISTERED',
+    'COMPLETED',
   ]);
+
+  expect(article).toMatchObject({
+    id: workId,
+    task_id: setup.task.id,
+    content_version_id: setup.approvedContent.id,
+    content_hash: setup.approvedContent.content_hash,
+    platform_account_id: setup.secondAccount.id,
+    platform_account_label: setup.secondAccount.label,
+    account_identifier: setup.secondAccount.account_identifier,
+    actual_title: actualTitle,
+    final_url: finalUrl,
+    published_at: finalContext.work.published_at,
+    has_open_issue: false,
+    open_issue_id: null,
+    workflow_stage: 'HEALTHY',
+  });
+  expect(article.verification).toEqual(finalContext.work.verifications[0]);
+  expect(article.events).toEqual(finalContext.work.events);
+  expect(article.source_content.content).toMatchObject({
+    id: setup.approvedContent.id,
+    task_id: setup.task.id,
+    fact_version_id: setup.approvedFact.id,
+    version: setup.approvedContent.version,
+    title: setup.approvedContent.title,
+    summary: setup.approvedContent.summary,
+    body_markdown: setup.approvedContent.body_markdown,
+    tags: setup.approvedContent.tags,
+    content_hash: setup.approvedContent.content_hash,
+  });
+  expect(article.source_content.fact_version).toMatchObject({
+    id: setup.approvedFact.id,
+    version: setup.approvedFact.version,
+    status: 'APPROVED',
+  });
+  expect(article.issues).toEqual([expect.objectContaining({
+    id: issueId,
+    kind: 'CONTENT_CHANGED',
+    description: issueDescription,
+    status: 'RESOLVED',
+    resolution_outcome: 'RESTORED',
+    resolution_comment: resolutionComment,
+  })]);
+
+  expect(issueContext.issue).toMatchObject({
+    id: issueId,
+    kind: 'CONTENT_CHANGED',
+    description: issueDescription,
+    published_article_id: workId,
+    repair_task_id: repairTaskId,
+    status: 'RESOLVED',
+    revision: 1,
+    workflow_stage: 'RESOLVED',
+    primary_task: 'VIEW_RESOLUTION',
+    available_actions: [],
+    opened_by: session.user.id,
+    resolution_outcome: 'RESTORED',
+    resolution_comment: resolutionComment,
+    resolved_by: session.user.id,
+  });
+  expect(issueContext.article.verification).toEqual(article.verification);
+  expect(issueContext.article.events).toEqual(article.events);
+  expect(issueContext.article.source_content).toEqual(article.source_content);
+  expect(issueContext.repair_task).toMatchObject({
+    id: repairTaskId,
+    product_id: setup.task.product_id,
+    fact_version_id: setup.approvedFact.id,
+    platform_profile_id: setup.task.platform_profile_id,
+    source_published_content_issue_id: issueId,
+    current_content_version_id: null,
+    status: 'OPEN',
+    workflow_stage: 'NO_DRAFT',
+    primary_task: 'CREATE_FIRST_DRAFT',
+  });
+  expect(repairTask.task).toMatchObject({
+    id: repairTaskId,
+    status: 'OPEN',
+    workflow_stage: 'NO_DRAFT',
+    primary_task: 'CREATE_FIRST_DRAFT',
+  });
+  expect(repairTask.current_content).toBeNull();
+  expect(repairTask.source?.published_content_issue).toMatchObject({
+    id: issueId,
+    kind: 'CONTENT_CHANGED',
+    status: 'RESOLVED',
+    published_article_id: workId,
+  });
 });
 
 test('Flow B：失败核验经内容修订审批、换版和重登记后完成发布', async ({ page }) => {
   const suffix = randomUUID().slice(0, 8);
   const session = await login(page);
   const setup = await createPrerequisites(page, session.csrf_token, suffix);
+  const work = await createPublicationWork(
+    page,
+    session.csrf_token,
+    setup.approvedContent.id,
+    setup.firstAccount.id,
+  );
   const firstTitle = `${setup.approvedContent.title} · 首次发布`;
   const firstUrl = `https://${setup.domain}/articles/${suffix}-first`;
 
-  await page.goto(`/publishing/work/${setup.work.id}#result`);
+  await page.goto(`/publishing/work/${work.id}#result`);
   await expect(page.locator('#publication-workspace-title')).toHaveText(setup.approvedContent.title);
   await page.getByRole('button', { name: '登记发布结果' }).click();
   let dialog = page.getByRole('dialog', { name: '登记发布结果' });
@@ -210,11 +438,11 @@ test('Flow B：失败核验经内容修订审批、换版和重登记后完成�
   await expect(page.getByText(failureComment).first()).toBeVisible();
 
   await page.getByRole('link', { name: '打开 Content Task 修正批准内容' }).click();
-  await expect(page).toHaveURL(`/content/tasks/${setup.work.task_id}`);
+  await expect(page).toHaveURL(`/content/tasks/${work.task_id}`);
   const reviseLink = page.getByRole('link', { name: '修订内容' });
   await expect(reviseLink).toHaveAttribute(
     'href',
-    `/content/tasks/${setup.work.task_id}/editor`,
+    `/content/tasks/${work.task_id}/editor`,
   );
   await reviseLink.click();
   await expect(page.getByText('新人工修订')).toBeVisible();
@@ -238,9 +466,9 @@ test('Flow B：失败核验经内容修订审批、换版和重登记后完成�
   await expect(dialog).toBeHidden();
 
   await page.getByRole('link', { name: '返回任务详情', exact: true }).click();
-  await expect(page).toHaveURL(`/content/tasks/${setup.work.task_id}`);
+  await expect(page).toHaveURL(`/content/tasks/${work.task_id}`);
   await page.getByRole('link', { name: '审核内容' }).click();
-  await expect(page).toHaveURL(`/content/tasks/${setup.work.task_id}/review`);
+  await expect(page).toHaveURL(`/content/tasks/${work.task_id}/review`);
   await expect(page.locator('#content-review-title')).toHaveText(revisedTitle);
   await page.getByRole('button', { name: '批准内容' }).click();
   await page.getByRole('dialog', { name: /批准内容版本 v\d+？/ })
@@ -249,22 +477,14 @@ test('Flow B：失败核验经内容修订审批、换版和重登记后完成�
   await expect(page.getByText(/内容版本 v\d+ 已批准/).first()).toBeVisible();
 
   await page.getByRole('link', { name: '返回任务详情', exact: true }).click();
-  await expect(page).toHaveURL(`/content/tasks/${setup.work.task_id}`);
+  await expect(page).toHaveURL(`/content/tasks/${work.task_id}`);
   const continueLink = page.getByRole('link', { name: '继续发布' });
-  await expect(continueLink).toHaveAttribute('href', `/publishing/work/${setup.work.id}`);
+  await expect(continueLink).toHaveAttribute('href', `/publishing/work/${work.id}`);
   await continueLink.click();
-
-  const candidateContext = await responseBody<PublicationWorkspaceContext>(await page.request.get(
-    `${apiBaseUrl}/api/v1/publication-works/${setup.work.id}/workspace-context`,
-  ));
-  expect(candidateContext.work.status).toBe('ACTION_REQUIRED');
-  expect(candidateContext.work.content_version_id).toBe(setup.approvedContent.id);
-  expect(candidateContext.switch_candidate).toMatchObject({ title: revisedTitle });
-  const revisedContentId = candidateContext.switch_candidate?.id;
-  if (!revisedContentId) throw new Error('内容批准后未返回合法换版候选');
 
   await page.getByRole('button', { name: '切换内容版本' }).click();
   dialog = page.getByRole('dialog', { name: '切换内容版本' });
+  await expect(dialog.getByText(revisedTitle, { exact: true })).toBeVisible();
   await dialog.getByRole('textbox', { name: '换版说明' }).fill(`采用批准修订 ${suffix}`);
   await dialog.getByRole('button', { name: '确认提交' }).click();
   await expect(dialog).toBeHidden();
@@ -291,9 +511,12 @@ test('Flow B：失败核验经内容修订审批、换版和重登记后完成�
   await expect(page.getByText('核验通过，发布成果已冻结为只读。')).toBeVisible();
 
   const finalContext = await responseBody<PublicationWorkspaceContext>(await page.request.get(
-    `${apiBaseUrl}/api/v1/publication-works/${setup.work.id}/workspace-context`,
+    `${apiBaseUrl}/api/v1/publication-works/${work.id}/workspace-context`,
   ));
+  const revisedContentId = finalContext.content.id;
   expect(finalContext.work.status).toBe('COMPLETED');
+  expect(revisedContentId).not.toBe(setup.approvedContent.id);
+  expect(finalContext.content.title).toBe(revisedTitle);
   expect(finalContext.content.id).toBe(revisedContentId);
   expect(finalContext.work.verifications.map((item) => [item.outcome, item.content_version_id]))
     .toEqual([
@@ -309,7 +532,7 @@ test('Flow B：失败核验经内容修订审批、换版和重登记后完成�
     'COMPLETED',
   ]);
   const task = await responseBody<ContentTaskDetail>(await page.request.get(
-    `${apiBaseUrl}/api/v1/content-tasks/${setup.work.task_id}/detail`,
+    `${apiBaseUrl}/api/v1/content-tasks/${work.task_id}/detail`,
   ));
   expect(task.task).toMatchObject({
     status: 'COMPLETED',
@@ -317,9 +540,9 @@ test('Flow B：失败核验经内容修订审批、换版和重登记后完成�
     primary_task: 'VIEW_FULL_LINEAGE',
   });
   const article = await responseBody<PublishedArticle>(await page.request.get(
-    `${apiBaseUrl}/api/v1/published-articles/${setup.work.id}`,
+    `${apiBaseUrl}/api/v1/published-articles/${work.id}`,
   ));
-  expect(article.id).toBe(setup.work.id);
+  expect(article.id).toBe(work.id);
   await expect(page.getByRole('button', {
     name: /登记发布结果|核验发布结果|切换内容版本|关闭发布工作/,
   })).toHaveCount(0);
@@ -329,17 +552,23 @@ test('Published Article：真实栈列表进入单请求只读详情', async ({ 
   const suffix = randomUUID().slice(0, 8);
   const session = await login(page);
   const setup = await createPrerequisites(page, session.csrf_token, suffix);
+  const work = await createPublicationWork(
+    page,
+    session.csrf_token,
+    setup.approvedContent.id,
+    setup.firstAccount.id,
+  );
   const headers = { 'X-CSRF-Token': session.csrf_token };
   const actualTitle = `${setup.approvedContent.title} · 成果 ${suffix}`;
   const finalUrl = `https://${setup.domain}/articles/${suffix}`;
   const registered = await responseBody<PublicationWork>(await page.request.put(
-    `${apiBaseUrl}/api/v1/publication-works/${setup.work.id}/result`,
+    `${apiBaseUrl}/api/v1/publication-works/${work.id}/result`,
     {
       data: {
         actual_title: actualTitle,
         final_url: finalUrl,
         published_at: '2026-08-11T15:00:00Z',
-        expected_revision: setup.work.revision,
+        expected_revision: work.revision,
         comment: `成果验收 ${suffix}`,
         attachment_file_ids: [],
       },
@@ -347,7 +576,7 @@ test('Published Article：真实栈列表进入单请求只读详情', async ({ 
     },
   ));
   await responseBody<PublicationWork>(await page.request.post(
-    `${apiBaseUrl}/api/v1/publication-works/${setup.work.id}/verifications`,
+    `${apiBaseUrl}/api/v1/publication-works/${work.id}/verifications`,
     {
       data: {
         outcome: 'PASSED',
@@ -371,7 +600,7 @@ test('Published Article：真实栈列表进入单请求只读详情', async ({ 
   const articleLink = page.getByRole('link', { name: actualTitle });
   await expect(articleLink).toBeVisible();
   await articleLink.click();
-  await expect(page).toHaveURL(`/publishing/articles/${setup.work.id}`);
+  await expect(page).toHaveURL(`/publishing/articles/${work.id}`);
   await expect(page.getByRole('heading', { level: 1, name: actualTitle })).toBeVisible();
   await expect(page.getByText('只读 · 不可变快照')).toBeVisible();
   await expect(page.getByRole('link', {
@@ -385,9 +614,10 @@ test('Published Article：真实栈列表进入单请求只读详情', async ({ 
   await expect(page.getByText(`真实栈核验通过 ${suffix}`).first()).toBeVisible();
   await expect(page.getByText('首次核验通过').first()).toBeVisible();
   await expect(page.getByRole('textbox')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /编辑|删除|核验|登记|问题/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '登记内容问题' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /编辑|删除|核验|重新登记/ })).toHaveCount(0);
   expect(articleRequests).toEqual([
     { method: 'GET', path: '/api/v1/published-articles' },
-    { method: 'GET', path: `/api/v1/published-articles/${setup.work.id}` },
+    { method: 'GET', path: `/api/v1/published-articles/${work.id}` },
   ]);
 });

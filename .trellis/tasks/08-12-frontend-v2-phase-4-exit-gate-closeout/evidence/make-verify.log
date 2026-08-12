@@ -1,0 +1,93 @@
+PHASE4_GATE candidate=65b332e51499fb76e27feabcd1e4129b60b69ff9
+PHASE4_GATE started_at=2026-08-12 14:47:13 +0800
+PHASE4_GATE command=make verify
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend python -m app.tools.contract_check contracts/openapi.yaml
+FastAPI 运行时操作与 OpenAPI 0.1.1 递归 Schema 语义一致。
+npm --prefix frontend run api:check
+
+> partsignal-frontend@0.1.0 api:check
+> node scripts/check-openapi.mjs
+
+✨ openapi-typescript 7.13.0
+🚀 ../contracts/openapi.yaml → /var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/partsignal-openapi-H5VRx2/schema.d.ts [100.6ms]
+OpenAPI 类型与冻结契约一致。
+npm --prefix frontend-v2 run api:check
+
+> partsignal-frontend-v2@0.1.0 api:check
+> node scripts/check-openapi.mjs
+
+✨ openapi-typescript 7.13.0
+🚀 ../contracts/openapi.yaml → /var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/partsignal-v2-openapi-NgJhyM/schema.d.ts [99.5ms]
+OpenAPI 类型与根合同一致。
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend ruff check backend
+All checks passed!
+npm --prefix frontend run lint
+
+> partsignal-frontend@0.1.0 lint
+> eslint . --max-warnings 0 && node scripts/check-theme-colors.mjs
+
+npm --prefix frontend-v2 run lint
+
+> partsignal-frontend-v2@0.1.0 lint
+> eslint . --max-warnings 0
+
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend mypy --config-file backend/pyproject.toml backend/app
+Success: no issues found in 77 source files
+npm --prefix frontend run typecheck
+
+> partsignal-frontend@0.1.0 typecheck
+> tsc -b --pretty false
+
+npm --prefix frontend-v2 run typecheck
+
+> partsignal-frontend-v2@0.1.0 typecheck
+> tsc -b --pretty false
+
+UV_CACHE_DIR=/Users/sc/PycharmProjects/partsignal/.cache/uv uv run --project backend pytest backend/tests/unit
+........................................................................ [ 39%]
+........................................................................ [ 79%]
+.............................F.......                                    [100%]
+=================================== FAILURES ===================================
+_________ test_publication_reference_filter_includes_terminal_history __________
+
+    def test_publication_reference_filter_includes_terminal_history() -> None:
+        """引用模式不附加待办状态门禁，默认工作台仍只查询非终态。"""
+
+        class QueryCaptureSession:
+            def __init__(self) -> None:
+                self.statements: list[object] = []
+
+            def scalar(self, statement: object) -> int:
+                self.statements.append(statement)
+                return 0
+
+            def execute(self, statement: object) -> Any:
+                self.statements.append(statement)
+                return type("Rows", (), {"all": lambda self: []})()
+
+        account_id = uuid.uuid4()
+        reference_session = QueryCaptureSession()
+        list_publication_works(
+            cast(Session, reference_session),
+            page=1,
+            page_size=20,
+            status_filter=None,
+            platform_account_id=account_id,
+        )
+        reference_sql = str(reference_session.statements[1])
+        assert "publication_works.platform_account_id" in reference_sql
+>       assert "publication_works.status IN" not in reference_sql
+E       AssertionError: assert 'publication...ks.status IN' not in 'SELECT publ...SET :param_8'
+E
+E         'publication_works.status IN' is contained here:
+E           ASE WHEN (publication_works.status IN (__[POSTCOMPILE_status_1])) THEN platform_profiles.name ELSE publication_works.platform_profile_name_snapshot END AS platform_profile_name, CASE WHEN (publication_works.status IN (__[POSTCOMPILE_status_1])) THEN platform_accounts.label ELSE publication_works.platform_account_label_snapshot END AS platform_account_label, CASE WHEN (publication_works.status IN (__[POSTCOMPILE_status_1])) THEN platform_accounts.account_identifier ELSE publication_works.account_identifier_snapshot END AS...
+E
+E         ...Full output truncated (5 lines hidden), use '-vv' to show
+
+backend/tests/unit/test_workflow_projections.py:592: AssertionError
+=========================== short test summary info ============================
+FAILED backend/tests/unit/test_workflow_projections.py::test_publication_reference_filter_includes_terminal_history
+1 failed, 180 passed in 3.28s
+make: *** [test-unit] Error 1
+PHASE4_GATE finished_at=2026-08-12 14:47:31 +0800
+PHASE4_GATE exit_code=2

@@ -1,0 +1,11 @@
+PHASE4_CLEANUP checked_at=2026-08-12 14:48:56 +0800
+PHASE4_CLEANUP e2e_stage_reached=no
+PHASE4_CLEANUP candidate_databases=none
+PHASE4_CLEANUP redis_dbsize=0
+PHASE4_CLEANUP redis_celery=0
+PHASE4_CLEANUP redis_unacked=0
+PHASE4_CLEANUP redis_unacked_index=0
+PHASE4_CLEANUP redis_keys=0
+PHASE4_CLEANUP redis_clients_db15
+id=477380 addr=127.0.0.1:60148 laddr=127.0.0.1:6379 fd=23 name= age=0 idle=0 flags=N db=15 sub=0 psub=0 ssub=0 multi=-1 watch=0 qbuf=26 qbuf-free=20448 argv-mem=10 multi-mem=0 rbs=16384 rbp=16384 obl=0 oll=0 omem=0 tot-mem=37786 events=r cmd=client|list user=default redir=-1 resp=2 lib-name= lib-ver=
+PHASE4_CLEANUP listeners

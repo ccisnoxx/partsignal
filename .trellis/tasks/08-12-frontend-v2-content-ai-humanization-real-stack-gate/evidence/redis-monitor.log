@@ -1,0 +1,42 @@
+Traceback (most recent call last):
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/redis/connection.py", line 378, in connect
+    sock = self.retry.call_with_retry(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/redis/retry.py", line 62, in call_with_retry
+    return do()
+           ^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/redis/connection.py", line 379, in <lambda>
+    lambda: self._connect(), lambda error: self.disconnect(error)
+            ^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/redis/connection.py", line 732, in _connect
+    for res in socket.getaddrinfo(
+               ^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/lib/python3.12/socket.py", line 978, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 8] nodename nor servname provided, or not known
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "<stdin>", line 11, in <module>
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/redis/commands/core.py", line 3045, in scan_iter
+    cursor, data = self.scan(
+                   ^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/redis/commands/core.py", line 3020, in scan
+    return self.execute_command("SCAN", *pieces, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/redis/client.py", line 605, in execute_command
+    return self._execute_command(*args, **options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/redis/client.py", line 611, in _execute_command
+    conn = self.connection or pool.get_connection()
+                              ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/redis/utils.py", line 183, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/redis/connection.py", line 1483, in get_connection
+    connection.connect()
+  File "/Users/sc/PycharmProjects/partsignal/backend/.venv/lib/python3.12/site-packages/redis/connection.py", line 384, in connect
+    raise ConnectionError(self._error_message(e))
+redis.exceptions.ConnectionError: Error 8 connecting to redis:6379. nodename nor servname provided, or not known.

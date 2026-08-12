@@ -1,0 +1,2 @@
+{"observed_at": "2026-08-12T05:58:20.435136+00:00", "event": "monitor_started", "storage": ".trellis/tasks/08-12-frontend-v2-content-ai-humanization-real-stack-gate/evidence/runtime/partsignal-e2e-storage.zT72jo"}
+{"observed_at": "2026-08-12T05:58:20.435294+00:00", "jobs": [], "redis_error": "ConnectionError"}

@@ -122,7 +122,8 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
       activeJobsSeen.current.add(trackedJobId);
       return;
     }
-    if (!activeJobsSeen.current.has(trackedJobId)) return;
+    // 创建响应可能已是 terminal；本组件提交的 job 仍需刷新服务端主线。
+    if (!activeJobsSeen.current.has(trackedJobId) && submittedJob?.id !== trackedJobId) return;
     if (terminalRefetched.current.has(trackedJobId)) return;
     terminalRefetched.current.add(trackedJobId);
     void Promise.all([
@@ -130,7 +131,7 @@ function ContentAiProduction({ context, csrfToken, taskId }: ContentAiProduction
       queryClient.invalidateQueries({ queryKey: contentKeys.details(), refetchType: 'none' }),
       queryClient.invalidateQueries({ queryKey: contentKeys.lists(), refetchType: 'none' }),
     ]);
-  }, [queryClient, taskId, trackedJobId, trackedStatus]);
+  }, [queryClient, submittedJob?.id, taskId, trackedJobId, trackedStatus]);
 
   function openProduction(nextMode: ProductionMode) {
     setError(undefined);

@@ -1,0 +1,9 @@
+recorded_at=2026-08-12T14:24:25+0800
+database=partsignal_e2e_20260812_60179 exists=0
+storage=.trellis/tasks/08-12-frontend-v2-content-ai-humanization-real-stack-gate/evidence/runtime/partsignal-e2e-storage.raKDLb exists=0
+listeners=5173,4173,4174,8000,9001,19009 count=0
+redis_db=15 external_clients=0
+redis_keys_before_flush=_kombu.binding.celery
+redis_dbsize_before_flush=1
+redis_flush=OK
+redis_dbsize_after_flush=0

@@ -14,6 +14,7 @@ type AIModel = components['schemas']['AIModel'];
 type AuthSession = components['schemas']['AuthSession'];
 type ContentEditorContext = components['schemas']['ContentEditorContext'];
 type ContentVersion = components['schemas']['ContentVersion'];
+type GenerationJob = components['schemas']['GenerationJob'];
 type GenerationJobDetail = components['schemas']['GenerationJobDetail'];
 type PlatformProfile = components['schemas']['PlatformProfile'];
 type PlatformPrompt = components['schemas']['PlatformPromptDetail'];
@@ -291,18 +292,43 @@ test('AI Production：成功、自然化、失败详情与 exact snapshot retry'
   );
 
   await page.getByRole('button', { name: '创建自然化版本' }).click();
+  const humanizationResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && response.url().endsWith(`/api/v1/content-versions/${sourceId}/humanization-jobs`)
+  ));
   await selectModelAndSubmit(
     page,
     '创建自然化作业',
     successModel.model.display_name,
     '确认创建自然化版本',
   );
+  const humanizationResponse = await humanizationResponsePromise;
+  expect(humanizationResponse.status()).toBe(202);
+  const humanizationRequestId = await humanizationResponse.headerValue('x-request-id');
+  expect(humanizationRequestId).toBeTruthy();
+  const humanizationJob = await humanizationResponse.json() as GenerationJob;
+  expect(humanizationJob).toMatchObject({
+    job_type: 'HUMANIZE',
+    source_content_version_id: sourceId,
+  });
+  expect(['PENDING', 'RUNNING', 'SUCCEEDED']).toContain(humanizationJob.status);
+  console.info(JSON.stringify({
+    event: 'E2E_HUMANIZATION_RESPONSE',
+    job_id: humanizationJob.id,
+    request_id: humanizationRequestId,
+    status: humanizationJob.status,
+  }));
+  await expect(page.getByText(`Job ${humanizationJob.id}`)).toBeVisible();
   await expect(page.getByText('自然化次数：1')).toBeVisible({ timeout: 30_000 });
   const humanizedContext = await apiGet<ContentEditorContext>(
     page,
     `/api/v1/content-tasks/${successTaskId}/editor-context`,
   );
   const humanized = humanizedContext.current_content!;
+  const humanizationDetail = await apiGet<GenerationJobDetail>(
+    page,
+    `/api/v1/generation-jobs/${humanizationJob.id}`,
+  );
   const sourceAfterHumanization = await apiGet<ContentVersion>(
     page,
     `/api/v1/content-versions/${sourceId}`,
@@ -311,10 +337,31 @@ test('AI Production：成功、自然化、失败详情与 exact snapshot retry'
     .toEqual(immutableContentFields(sourceBeforeHumanization));
   expect(humanized).toMatchObject({
     based_on_id: sourceId,
-    source_job_id: humanizedContext.latest_generation?.id,
+    source_job_id: humanizationJob.id,
     source_type: 'AI',
     status: 'DRAFT',
   });
+  expect(humanizedContext.latest_generation?.id).toBe(humanizationJob.id);
+  expect(humanizationDetail).toMatchObject({
+    attempt_count: 1,
+    content_version_id: humanized.id,
+    id: humanizationJob.id,
+    job_type: 'HUMANIZE',
+    provider_request_id: 'e2e-provider-request',
+    source_content_version_id: sourceId,
+    status: 'SUCCEEDED',
+  });
+  expect(humanizationDetail.response_duration_ms).not.toBeNull();
+  console.info(JSON.stringify({
+    attempt_count: humanizationDetail.attempt_count,
+    content_version_id: humanizationDetail.content_version_id,
+    event: 'E2E_HUMANIZATION_TERMINAL',
+    finished_at: humanizationDetail.finished_at,
+    job_id: humanizationDetail.id,
+    provider_request_id: humanizationDetail.provider_request_id,
+    started_at: humanizationDetail.started_at,
+    status: humanizationDetail.status,
+  }));
 
   const failedTaskId = await createContentTask(page, product.productId, platform.name);
   await page.getByRole('button', { name: 'AI 生成首稿' }).click();

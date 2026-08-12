@@ -347,23 +347,29 @@ describe('ContentAiProduction', () => {
     );
   });
 
-  it('CREATE_HUMANIZATION_JOB 只提交源版本、模型和稳定幂等键', async () => {
-    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+  it('humanization 首次返回 terminal 时刷新 Editor Context 且不继续轮询', async () => {
+    const humanization = job({
+      job_type: 'HUMANIZE',
+      source_content_version_id: ids.content,
+      status: 'SUCCEEDED',
+      workflow_stage: 'SUCCEEDED',
+      primary_task: 'VIEW_GENERATED_CONTENT',
+      content_version_id: ids.retry,
+      finished_at: '2026-08-10T00:00:02Z',
+    });
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
       if (path === '/api/v1/content-tasks/{content_task_id}/generation-options') {
         return response(generationOptions);
       }
       if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') {
-        return response({ items: [job({ job_type: 'HUMANIZE', source_content_version_id: ids.content })] });
+        return response({ items: [humanization] });
       }
       throw new Error(`未声明 GET：${path}`);
     });
-    const humanization = job({
-      job_type: 'HUMANIZE',
-      source_content_version_id: ids.content,
-    });
     const post = vi.spyOn(api, 'POST').mockResolvedValue(response(humanization, 202));
     const user = userEvent.setup();
-    renderProduction(context({ current: version() }));
+    const queryClient = renderProduction(context({ current: version() }));
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
 
     await user.click(screen.getByRole('button', { name: '创建自然化版本' }));
     const dialog = await screen.findByRole('dialog', { name: '创建自然化作业' });
@@ -386,6 +392,25 @@ describe('ContentAiProduction', () => {
         },
       },
     );
+    await waitFor(() => expect(screen.getByText(`Job ${ids.job}`)).toBeInTheDocument());
+    const invalidations = invalidate.mock.calls as unknown as Array<[{ queryKey?: readonly unknown[] }]>;
+    await waitFor(() => expect(invalidate).toHaveBeenCalledWith({
+      exact: true,
+      queryKey: contentKeysForEditor(),
+    }));
+    expect(invalidations.filter(([filters]) => (
+      filters.queryKey?.toString() === contentKeysForEditor().toString()
+    ))).toHaveLength(1);
+
+    const getCalls = get.mock.calls as unknown as Array<[string]>;
+    const generationJobReads = getCalls.filter(([path]) => (
+      path === '/api/v1/content-tasks/{content_task_id}/generation-jobs'
+    )).length;
+    vi.useFakeTimers();
+    await vi.advanceTimersByTimeAsync(4_000);
+    expect(getCalls.filter(([path]) => (
+      path === '/api/v1/content-tasks/{content_task_id}/generation-jobs'
+    ))).toHaveLength(generationJobReads);
   });
 });
 

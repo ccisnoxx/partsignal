@@ -1,0 +1,12 @@
+PHASE4_CLEANUP checked_at=2026-08-12 15:59:31 +0800
+PHASE4_CLEANUP e2e_stage_reached=no
+PHASE4_CLEANUP candidate_databases=none
+PHASE4_CLEANUP redis_celery=0
+PHASE4_CLEANUP redis_unacked=0
+PHASE4_CLEANUP redis_unacked_index=0
+PHASE4_CLEANUP redis_external_clients=0
+PHASE4_CLEANUP redis_binding_keys=0
+PHASE4_CLEANUP redis_dbsize=0
+PHASE4_CLEANUP listeners=none
+PHASE4_CLEANUP storage=not-created
+PHASE4_CLEANUP status=passed

@@ -255,3 +255,40 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 122: Publication Work 投影合同修正
+
+**Date**: 2026-08-12
+**Task**: Publication Work 投影合同修正
+**Branch**: `codex/frontend-v2-publication-work-projection-contract-correction`
+
+### Summary
+
+关闭 Phase 4 F-14/F-15：统一 PublicationWork 非终态 live 与终态 frozen identity 投影，补齐结构化 409/OpenAPI/生成类型及回归验证；Phase 4 整体仍为 NOT_MET。
+
+### Main Changes
+
+- 在共享 `_work_context_query()` 中按 Work 状态选择 live identity 或 frozen snapshot，并在 `_work_list_item()` 统一返回缺失上下文的结构化 409。
+- 为 Work List 补齐 OpenAPI `403/409 ErrorResponse`，通过现有命令同步生成 V1/V2 TypeScript schema。
+- 增加三读取面对称、终态 rename/delete、malformed list 409、错误矩阵与固定查询数回归；迁移计划仅关闭 F-14/F-15。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `eea4c10b89c8631d00d125f4acfd64eec9447945` | (see git log) |
+
+### Testing
+
+- Target unit/contract 4 tests 通过；四个 PostgreSQL integration 节点均有绿色结果，List/Workspace 查询数保持 4/5。
+- 两套 schema generation、contract-check、targeted Ruff、backend mypy、V1/V2 typecheck、Task validation、trellis-check 与 diff check 通过。
+- 按范围未运行完整 backend suite、`make verify`、完整 Publishing E2E 或 build；Phase 4 整体仍为 `NOT_MET`。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 本 Task 已完成并归档；范围外 blocker 与 Phase 4 最终门禁继续由各自独立 Task 处理。

@@ -37,17 +37,66 @@ Questions to answer:
 
 ### GEO 更正表单边界
 
-- GEO 更正表单以待更正详情响应作为全部业务字段和逐篇事实的唯一初值来源，不得再用当前文章候选列表重建或覆盖原结论。
-- 补采前 `discovered/mentioned = null` 表示历史未采集，必须保留未知并要求用户显式选择，不能用未勾选或 `false` 代替。
-- 历史证据只做聚合展示；更正请求只提交本次新增证据。当前文章集合与链尾仍由服务端事务校验，前端不补造缺失事实。
+#### 1. Scope / Trigger
 
-```tsx
-const articleRows = correctionRecord
-  ? correctionRecord.article_results
-  : publications.data?.items ?? [];
+- 修改 `/geo/observations/$observationId/correct`、correction context、append-only payload、冲突刷新或 GEO 更正证据上传时适用。
+- 不适用于 New Observation、Legacy 更正、Topics/Insights/Print 或通用 Form/Workspace 抽象。
+
+#### 2. Signatures
+
+```text
+URL:  /geo/observations/$observationId/correct
+GET:  /api/v1/geo-observations/{observation_id}/correction-context
+POST: /api/v1/geo-observations
+GET response: GeoObservationCorrectionContext
+POST body: GeoObservationCreate
+query key: ["geo", "observations", "correction-context", observationId]
 ```
 
-回归测试至少断言：详情值正确预填；只改一个逐篇字段时其余载荷保持原值；`null` 未确认时不发请求；POST 携带原记录 `supersedes_id` 且不复制历史附件。服务端返回 `GEO_PUBLICATIONS_CHANGED` 或非链尾冲突时直接展示错误，不从候选列表补造默认结论。
+#### 3. Contracts
+
+- GET 在一个 `REPEATABLE READ` 请求中组合既有 `ManualGeoObservationDetail`、服务端当前 Published Article 候选及尾节点初始事实、历史空 Query Topic 的可选项。浏览器不得并发 Detail、候选和 Topics 自行 join。
+- route loader 只使用 `detail.chain_tail_id` canonical replace；冲突后的内部 replace 必须设置 `ignoreBlocker: true`，否则 DirtyGuard 会阻断服务端新尾更新。表单以 `chain_root_id` 为编辑身份，同链 canonical 更新保留草稿，跨链时重建。
+- Product、Search Platform、Search Query 和非空 Query Topic 从上下文冻结且不进入表单。表单只持有 `query_topic_id` 空值例外、本次 `tested_at`、完整当前 `article_results`、本次 `attachment_file_ids` 和新 Notes。
+- 候选仍在尾结果中时继承事实；新候选及历史 `null` 保持 `null` 并要求显式选择；退出候选只在历史显示。历史 Evidence 只读，POST 只携带本次完成上传的 ID。
+- `supersedes_id` 只取最近一次成功加载的 `detail.chain_tail_id`。当前 POST 没有 `Idempotency-Key`；同步提交锁与 mutation pending 只防止同页面并发。
+- 成功先清 dirty，失效 GEO lists/details/correction contexts、新 Detail 与 Product Detail，再按 POST response ID 进入 canonical Detail。
+
+#### 4. Validation & Error Matrix
+
+| 条件 | 页面处理 |
+| --- | --- |
+| Legacy、无权限、缺失或坏链 | 409/403/404 明确整页错误，不回退 New/旧 GET |
+| 历史 Topic 为空且未选择/无选项 | 阻止提交，保留真实空值 |
+| 任一候选 discovered/mentioned 为 `null` | 字段与 ErrorSummary 报错，不发 POST |
+| `422` 可编辑字段错误 | 映射对应字段；冻结/未知位置留在 form summary |
+| `GEO_PUBLICATIONS_CHANGED` / `REVISION_CONFLICT` | 禁用旧上下文，不 replay；保留草稿、Evidence 与 request ID |
+| 显式刷新 | 按文章 ID 保留仍有效事实，新增保持 `null`，移除退出候选，并采用服务端新尾 |
+| upload complete 失败 | 保留 intent，只重试 complete |
+
+#### 5. Good / Base / Bad Cases
+
+- Good：单一 context 绘制只读历史和当前候选；用户完成未知事实后，用服务端尾单次 append POST，并按响应 ID 进入新 Detail。
+- Base：提交期间候选或尾变化，页面不重放；显式刷新保留仍有效事实、Notes、时间和新 Evidence 后要求人工再次提交。
+- Bad：用历史文章结果充当当前候选；从 URL/`is_current` 猜尾；复制历史附件；默认 `false`；409 后自动改 body 重放；用普通 navigate 让 DirtyGuard 阻断内部 canonical replace。
+
+#### 6. Tests Required
+
+- Contract/backend：generated context、历史 ID→尾、权限/Legacy、候选新增退出、空 Topic、固定查询数、append-only、冻结字段、证据不可复用、原链不变和失败无半成品。
+- API/model/component：严格 context assertion、初值/payload、只提交新 Evidence、pending 单 POST、DirtyGuard、两类冲突不 replay、显式刷新合并、内部 canonical replace 与缓存失效。
+- Production fixture：未声明 API 失败；覆盖 Detail 入口/direct/refresh、404/403/Legacy、上传重试、权限变化、响应 ID handoff、键盘和 375/768/1024/1440。
+
+#### 7. Wrong vs Correct
+
+```tsx
+// Wrong：历史结果不是当前资格集合，URL 也不是权威尾。
+const articleRows = detail.correction_history.at(-1)?.observation.article_results ?? [];
+await createGeoObservation({ ...values, article_results: articleRows, supersedes_id: observationId });
+
+// Correct：服务端 context 同时拥有当前候选和权威尾。
+const context = useQuery(geoObservationCorrectionContextQueryOptions(observationId));
+await createGeoObservation(toGeoObservationCorrectionCreate(context.data!, values), csrfToken);
+```
 
 ---
 

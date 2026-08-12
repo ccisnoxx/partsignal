@@ -41,6 +41,7 @@ import { Route as AppPublishingWorkIndexRouteImport } from './routes/_app/publis
 import { Route as AppPublishingWorkWorkIdRouteImport } from './routes/_app/publishing/work/$workId'
 import { Route as AppContentTasksTaskIdEditorRouteImport } from './routes/_app/content/tasks/$taskId_.editor'
 import { Route as AppContentTasksTaskIdReviewRouteImport } from './routes/_app/content/tasks/$taskId_.review'
+import { Route as AppGeoObservationsObservationIdCorrectRouteImport } from './routes/_app/geo/observations/$observationId_.correct'
 import { Route as AppProductsProductIdFactsReviewRouteImport } from './routes/_app/products/$productId_.facts_.review'
 import { Route as AppProductsProductIdFactsVersionsRouteImport } from './routes/_app/products/$productId_.facts_.versions'
 import { Route as AppProductsProductIdFactsVersionsVersionIdRouteImport } from './routes/_app/products/$productId_.facts_.versions_.$versionId'
@@ -214,6 +215,12 @@ const AppContentTasksTaskIdReviewRoute =
     path: '/$taskId/review',
     getParentRoute: () => AppContentTasksRouteRoute,
   } as any)
+const AppGeoObservationsObservationIdCorrectRoute =
+  AppGeoObservationsObservationIdCorrectRouteImport.update({
+    id: '/$observationId_/correct',
+    path: '/$observationId/correct',
+    getParentRoute: () => AppGeoObservationsRouteRoute,
+  } as any)
 const AppProductsProductIdFactsReviewRoute =
   AppProductsProductIdFactsReviewRouteImport.update({
     id: '/$productId_/facts_/review',
@@ -264,6 +271,7 @@ export interface FileRoutesByFullPath {
   '/publishing/work/': typeof AppPublishingWorkIndexRoute
   '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
   '/content/tasks/$taskId/review': typeof AppContentTasksTaskIdReviewRoute
+  '/geo/observations/$observationId/correct': typeof AppGeoObservationsObservationIdCorrectRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
   '/products/$productId/facts/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/products/$productId/facts/versions/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
@@ -293,6 +301,7 @@ export interface FileRoutesByTo {
   '/publishing/work': typeof AppPublishingWorkIndexRoute
   '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
   '/content/tasks/$taskId/review': typeof AppContentTasksTaskIdReviewRoute
+  '/geo/observations/$observationId/correct': typeof AppGeoObservationsObservationIdCorrectRoute
   '/products/$productId/facts/review': typeof AppProductsProductIdFactsReviewRoute
   '/products/$productId/facts/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/products/$productId/facts/versions/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
@@ -331,6 +340,7 @@ export interface FileRoutesById {
   '/_app/publishing/work/': typeof AppPublishingWorkIndexRoute
   '/_app/content/tasks/$taskId_/editor': typeof AppContentTasksTaskIdEditorRoute
   '/_app/content/tasks/$taskId_/review': typeof AppContentTasksTaskIdReviewRoute
+  '/_app/geo/observations/$observationId_/correct': typeof AppGeoObservationsObservationIdCorrectRoute
   '/_app/products/$productId_/facts_/review': typeof AppProductsProductIdFactsReviewRoute
   '/_app/products/$productId_/facts_/versions': typeof AppProductsProductIdFactsVersionsRoute
   '/_app/products/$productId_/facts_/versions_/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
@@ -368,6 +378,7 @@ export interface FileRouteTypes {
     | '/publishing/work/'
     | '/content/tasks/$taskId/editor'
     | '/content/tasks/$taskId/review'
+    | '/geo/observations/$observationId/correct'
     | '/products/$productId/facts/review'
     | '/products/$productId/facts/versions'
     | '/products/$productId/facts/versions/$versionId'
@@ -397,6 +408,7 @@ export interface FileRouteTypes {
     | '/publishing/work'
     | '/content/tasks/$taskId/editor'
     | '/content/tasks/$taskId/review'
+    | '/geo/observations/$observationId/correct'
     | '/products/$productId/facts/review'
     | '/products/$productId/facts/versions'
     | '/products/$productId/facts/versions/$versionId'
@@ -434,6 +446,7 @@ export interface FileRouteTypes {
     | '/_app/publishing/work/'
     | '/_app/content/tasks/$taskId_/editor'
     | '/_app/content/tasks/$taskId_/review'
+    | '/_app/geo/observations/$observationId_/correct'
     | '/_app/products/$productId_/facts_/review'
     | '/_app/products/$productId_/facts_/versions'
     | '/_app/products/$productId_/facts_/versions_/$versionId'
@@ -669,6 +682,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppContentTasksTaskIdReviewRouteImport
       parentRoute: typeof AppContentTasksRouteRoute
     }
+    '/_app/geo/observations/$observationId_/correct': {
+      id: '/_app/geo/observations/$observationId_/correct'
+      path: '/$observationId/correct'
+      fullPath: '/geo/observations/$observationId/correct'
+      preLoaderRoute: typeof AppGeoObservationsObservationIdCorrectRouteImport
+      parentRoute: typeof AppGeoObservationsRouteRoute
+    }
     '/_app/products/$productId_/facts_/review': {
       id: '/_app/products/$productId_/facts_/review'
       path: '/$productId/facts/review'
@@ -742,6 +762,7 @@ interface AppGeoObservationsRouteRouteChildren {
   AppGeoObservationsObservationIdRoute: typeof AppGeoObservationsObservationIdRoute
   AppGeoObservationsNewRoute: typeof AppGeoObservationsNewRoute
   AppGeoObservationsIndexRoute: typeof AppGeoObservationsIndexRoute
+  AppGeoObservationsObservationIdCorrectRoute: typeof AppGeoObservationsObservationIdCorrectRoute
 }
 
 const AppGeoObservationsRouteRouteChildren: AppGeoObservationsRouteRouteChildren =
@@ -749,6 +770,8 @@ const AppGeoObservationsRouteRouteChildren: AppGeoObservationsRouteRouteChildren
     AppGeoObservationsObservationIdRoute: AppGeoObservationsObservationIdRoute,
     AppGeoObservationsNewRoute: AppGeoObservationsNewRoute,
     AppGeoObservationsIndexRoute: AppGeoObservationsIndexRoute,
+    AppGeoObservationsObservationIdCorrectRoute:
+      AppGeoObservationsObservationIdCorrectRoute,
   }
 
 const AppGeoObservationsRouteRouteWithChildren =

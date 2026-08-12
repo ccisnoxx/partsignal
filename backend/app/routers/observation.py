@@ -27,6 +27,7 @@ from app.schemas.geo_files import (
     GeoAccuracy,
     GeoInsights,
     GeoMetrics,
+    GeoObservationCorrectionContext,
     GeoObservationCreate,
     GeoObservationDetail,
     GeoObservationKind,
@@ -61,6 +62,9 @@ from app.services.geo_observation import (
 )
 from app.services.geo_observation import (
     get_geo_observation as get_geo_observation_service,
+)
+from app.services.geo_observation import (
+    get_geo_observation_correction_context as get_geo_observation_correction_context_service,
 )
 from app.services.geo_observation import (
     get_geo_observation_detail as get_geo_observation_detail_service,
@@ -258,6 +262,22 @@ def get_geo_observation_detail(
 ) -> GeoObservationDetail:
     """返回 Frontend V2 单请求可绘制的只读观测详情。"""
     return get_geo_observation_detail_service(db, observation_id, actor=user)
+
+
+@router.get(
+    "/geo-observations/{observation_id}/correction-context",
+    response_model=GeoObservationCorrectionContext,
+    operation_id="getGeoObservationCorrectionContext",
+    dependencies=[Depends(_geo_observation_read_snapshot)],
+)
+def get_geo_observation_correction_context(
+    observation_id: uuid.UUID,
+    db: DbSession,
+    analyst: CurrentUser,
+) -> GeoObservationCorrectionContext:
+    """返回仅供当前人工观测追加更正的工作台上下文。"""
+    assert_account_types(analyst, (AccountType.ADMIN, AccountType.ENGINEER))
+    return get_geo_observation_correction_context_service(db, observation_id, actor=analyst)
 
 
 @router.delete(

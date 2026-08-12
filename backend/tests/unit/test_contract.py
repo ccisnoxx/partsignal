@@ -150,6 +150,38 @@ def test_geo_observation_detail_contract_is_one_readonly_generated_union() -> No
     ]["schema"] == {"$ref": "#/components/schemas/GeoObservation"}
 
 
+def test_geo_observation_correction_context_reuses_detail_and_append_contract() -> None:
+    """更正上下文只补当前候选，写入继续复用追加式 ObservationCreate。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    schemas = document["components"]["schemas"]
+    operation = paths["/api/v1/geo-observations/{observation_id}/correction-context"]["get"]
+
+    assert operation["operationId"] == "getGeoObservationCorrectionContext"
+    assert set(operation["responses"]) == {"200", "401", "403", "404", "409", "422"}
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/GeoObservationCorrectionContext"
+    }
+    context = schemas["GeoObservationCorrectionContext"]
+    assert set(context["required"]) == {
+        "detail",
+        "correction_article_results",
+        "query_topic_options",
+    }
+    assert context["properties"]["detail"] == {
+        "$ref": "#/components/schemas/ManualGeoObservationDetail"
+    }
+    assert context["properties"]["correction_article_results"]["items"] == {
+        "$ref": "#/components/schemas/GeoArticleResult"
+    }
+    assert context["properties"]["query_topic_options"]["items"] == {
+        "$ref": "#/components/schemas/GeoObservationDetailQueryTopic"
+    }
+    assert "supersedes_id" in schemas["GeoObservationCreate"]["properties"]
+    assert "/api/v1/geo-observations/{observation_id}/correction" not in paths
+
+
 def test_published_content_issue_contract_has_one_workspace_read_model_and_real_errors() -> None:
     """内容问题列表、工作区与命令必须声明同一 structured error 边界。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"

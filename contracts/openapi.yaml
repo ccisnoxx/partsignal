@@ -3005,6 +3005,23 @@ paths:
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/geo-observations/{observation_id}/correction-context:
+    get:
+      tags: [observation]
+      operationId: getGeoObservationCorrectionContext
+      parameters:
+        - {name: observation_id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Frontend V2 GEO 更正工作台上下文；一次返回只读历史与当前文章候选
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GeoObservationCorrectionContext'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-metrics:
     get:
       tags: [observation]
@@ -7280,6 +7297,18 @@ components:
           type: array
           minItems: 1
           items: {$ref: '#/components/schemas/GeoObservationCorrectionHistoryItem'}
+    GeoObservationCorrectionContext:
+      type: object
+      additionalProperties: false
+      required: [detail, correction_article_results, query_topic_options]
+      properties:
+        detail: {$ref: '#/components/schemas/ManualGeoObservationDetail'}
+        correction_article_results:
+          type: array
+          items: {$ref: '#/components/schemas/GeoArticleResult'}
+        query_topic_options:
+          type: array
+          items: {$ref: '#/components/schemas/GeoObservationDetailQueryTopic'}
     GeoObservationDetail:
       oneOf:
         - {$ref: '#/components/schemas/LegacyGeoObservationDetail'}

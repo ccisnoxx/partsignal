@@ -1884,6 +1884,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/geo-observations/{observation_id}/correction-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGeoObservationCorrectionContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/geo-metrics": {
         parameters: {
             query?: never;
@@ -4837,6 +4853,11 @@ export interface components {
             chain_tail_id: string;
             product: components["schemas"]["GeoObservationListProduct"];
             correction_history: components["schemas"]["GeoObservationCorrectionHistoryItem"][];
+        };
+        GeoObservationCorrectionContext: {
+            detail: components["schemas"]["ManualGeoObservationDetail"];
+            correction_article_results: components["schemas"]["GeoArticleResult"][];
+            query_topic_options: components["schemas"]["GeoObservationDetailQueryTopic"][];
         };
         GeoObservationDetail: components["schemas"]["LegacyGeoObservationDetail"] | components["schemas"]["ManualGeoObservationDetail"];
         GeoObservationList: {
@@ -9246,6 +9267,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GeoObservationDetail"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoObservationCorrectionContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                observation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Frontend V2 GEO 更正工作台上下文；一次返回只读历史与当前文章候选 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoObservationCorrectionContext"];
                 };
             };
             401: components["responses"]["ErrorResponse"];

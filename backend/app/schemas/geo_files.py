@@ -142,7 +142,9 @@ class ManualGeoObservationOut(ContractModel):
     search_query: str
     tested_at: datetime
     article_results: list[GeoArticleResultOut]
-    attachment_file_ids: list[uuid.UUID]
+    attachment_file_ids: Annotated[list[uuid.UUID], AfterValidator(require_unique_items)] = Field(
+        json_schema_extra={"uniqueItems": True}
+    )
     notes: str
     supersedes_id: uuid.UUID | None
     tested_by: uuid.UUID
@@ -258,6 +260,14 @@ class ManualGeoObservationDetail(ContractModel):
     chain_tail_id: uuid.UUID
     product: GeoObservationListProduct
     correction_history: list[GeoObservationCorrectionHistoryItem] = Field(min_length=1)
+
+
+class GeoObservationCorrectionContext(ContractModel):
+    """更正工作台一次读取的不可变历史与当前候选快照。"""
+
+    detail: ManualGeoObservationDetail
+    correction_article_results: list[GeoArticleResultOut]
+    query_topic_options: list[GeoObservationDetailQueryTopic]
 
 
 GeoObservationDetail = Annotated[

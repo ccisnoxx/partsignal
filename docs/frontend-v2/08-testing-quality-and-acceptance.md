@@ -84,7 +84,9 @@ Observation List 的 required evidence 分为两层：PostgreSQL integration 证
 
 Observation Detail required evidence 分为三层：PostgreSQL integration 证明任意 selected node 的 root→tail 顺序、直接 evidence/继承 ID、Legacy/Manual 完整投影、终态文章 snapshot、actor actions 与固定查询次数；API/model/component tests 冻结 generated union、identity/chain assertion、404/403/409/普通错误和 readonly branch；production-artifact strict fixture 只允许 auth、一个 Detail GET 与 token 允许的 DELETE，覆盖 List/direct/refresh/Back/Forward、完整 chain/evidence/articles、New POST ID handoff、Dialog focus 及 375/768/1024/1440 无根级溢出。未声明 API 必须返回 501 并在 teardown 失败。
 
-Observation List、New Observation 与 Detail slice 不新增 GEO real-stack spec：Correction Workspace 尚未实现，当前 backend integration、API/model unit 与 production-artifact fixture 分别验证真实合同和 UI 边界。完整 `new observation → detail → correction` 真实闭环必须在这些页面到齐后进入唯一隔离编排，不能用 API fixture 冒充。
+Correction Workspace required evidence 分为三层：PostgreSQL integration 证明权限、历史 ID→当前尾、候选新增/退出、历史空 Topic、append-only POST、冻结字段、证据不可复用、冲突无半成品及原链不变；API/model/page tests 证明 generated context、表单边界、权威 `supersedes_id`、只提交新证据、pending 防重、两类 409 不 replay、显式刷新按文章 ID 合并及 canonical replace；production-artifact strict fixture 只允许 auth、correction context、通用 POST、三阶段上传和精确 Detail GET，覆盖 Detail 入口/direct/refresh、404/403/Legacy、权限变化、上传 complete 重试、DirtyGuard、焦点及 375/768/1024/1440 无根级溢出。
+
+Observation List、New Observation、Detail 与 Correction Workspace 已形成页面级接口闭环，但这些 fixture 不冒充 GEO real-stack。完整 `new observation → detail → correction` 真实闭环仍须在后续独立 Task 中进入现有唯一隔离编排。
 
 ### GEO Optimization
 
@@ -238,6 +240,10 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 ### 13.8 New GEO Observation 页面验收
 
 `tests/e2e/new-geo-observation.spec.ts` 在 `geo.fixture.ts` 上叠加 generated-type `new-geo.fixture.ts`，只开放 Product、Query Topic、GEO Published Article candidates、创建命令、三阶段文件上传和创建 ID 对应的精确 Detail GET；未声明 API 在 teardown 失败。API/model/component tests 覆盖权威 query、结构化 read/create error、显式事实、payload 字段边界、SHA-256、PUT/POST transfer 与 complete retry；production-artifact E2E 覆盖 List 入口、direct/refresh、candidate loading/empty、客户端 required validation、附件、CSRF、无 Idempotency-Key 的 pending 单 POST、`GEO_PUBLICATIONS_CHANGED` 显式刷新且不 replay、POST ID canonical Detail handoff 且不搜索 List、DirtyGuard、Back/Forward、键盘焦点和 375/768/1024/1440 页面根无横向溢出。fixture 不代表 GEO 完整 real-stack 闭环。
+
+### 13.9 GEO Observation Correction Workspace 页面验收
+
+`tests/e2e/geo-observation-correction.spec.ts` 使用独立 generated-type `geo-correction.fixture.ts`，只开放认证、Manual Detail 入口、correction-context、通用 Observation POST、三阶段文件上传和创建 ID 对应的精确 Detail GET；未声明 API 在 teardown 失败。后端 integration 与 contract tests 覆盖 append-only、服务端资格/尾/候选/冻结字段/证据边界；API/model/page tests 覆盖严格上下文、初值、payload、错误映射、pending 防重、缓存失效、DirtyGuard 和冲突合并。production-artifact E2E 覆盖历史 ID canonical replace、完整只读历史、上传 complete 失败/重试、CSRF、无 Idempotency-Key、两类 409 不 replay、显式刷新保留草稿/证据并采用新尾、404/403/Legacy/提交时权限变化、响应 ID handoff、键盘与 375/768/1024/1440 页面根无横向溢出。fixture 不代表 GEO 完整 real-stack 闭环。
 
 ## 14. Deployment Smoke
 

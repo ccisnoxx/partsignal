@@ -7,7 +7,10 @@ import {
   type GeoObservationListApiParams,
   type GeoObservationSearch,
 } from './geo-observation-list.model';
-import { assertGeoObservationDetail } from './geo-observation-detail.model';
+import {
+  assertGeoObservationCorrectionContext,
+  assertGeoObservationDetail,
+} from './geo-observation-detail.model';
 
 type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
@@ -34,11 +37,33 @@ const geoKeys = {
   detail: (observationId: string) => (
     ['geo', 'observations', 'detail', observationId] as const
   ),
+  correctionContexts: () => ['geo', 'observations', 'correction-context'] as const,
+  correctionContext: (observationId: string) => (
+    ['geo', 'observations', 'correction-context', observationId] as const
+  ),
   topics: () => ['geo', 'query-topics'] as const,
   publicationCandidates: (productId: string) => (
     ['geo', 'observation-publications', productId] as const
   ),
 };
+
+function geoObservationCorrectionContextQueryOptions(observationId: string) {
+  return queryOptions({
+    queryKey: geoKeys.correctionContext(observationId),
+    queryFn: async () => {
+      const result = await api.GET(
+        '/api/v1/geo-observations/{observation_id}/correction-context',
+        { params: { path: { observation_id: observationId } } },
+      );
+      if (!result.data) throw geoRequestError('读取 GEO 更正上下文', result);
+      return assertGeoObservationCorrectionContext(result.data, observationId);
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 0,
+  });
+}
 
 function geoObservationDetailQueryOptions(observationId: string) {
   return queryOptions({
@@ -208,6 +233,7 @@ export {
   deleteGeoObservation,
   GeoRequestError,
   geoKeys,
+  geoObservationCorrectionContextQueryOptions,
   geoObservationDetailQueryOptions,
   geoObservationListQueryOptions,
   geoPublicationCandidatesQueryOptions,

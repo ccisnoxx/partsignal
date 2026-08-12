@@ -39,6 +39,7 @@ from app.schemas.geo_files import (
     GeoLongUnmentionedBasis,
     GeoMetrics,
     GeoObservationAction,
+    GeoObservationCorrectionContext,
     GeoObservationCorrectionHistoryItem,
     GeoObservationCreate,
     GeoObservationDetail,
@@ -1082,6 +1083,68 @@ def get_geo_observation_detail(
         product=product,
         published_articles=publications,
         evidence=evidence[target.id],
+    )
+
+
+def get_geo_observation_correction_context(
+    db: Session,
+    observation_id: uuid.UUID,
+    *,
+    actor: User,
+) -> GeoObservationCorrectionContext:
+    """返回服务端裁决的当前更正尾节点、历史与文章候选快照。"""
+    detail = get_geo_observation_detail(db, observation_id, actor=actor)
+    if not isinstance(detail, ManualGeoObservationDetail):
+        raise AppError("INVALID_STATE_TRANSITION", "旧模型 GEO 观测不能追加更正", 409)
+
+    tail = detail.correction_history[-1]
+    if "CORRECT" not in tail.observation.available_actions:
+        raise AppError("PERMISSION_DENIED", "当前账号没有执行此操作的权限", 403)
+
+    tail_results = {
+        result.published_article_id: result for result in tail.observation.article_results
+    }
+    correction_article_results = [
+        GeoArticleResultOut(
+            published_article_id=candidate.published_article_id,
+            discovered=(
+                tail_results[candidate.published_article_id].discovered
+                if candidate.published_article_id in tail_results
+                else None
+            ),
+            mentioned=(
+                tail_results[candidate.published_article_id].mentioned
+                if candidate.published_article_id in tail_results
+                else None
+            ),
+            accuracy=(
+                tail_results[candidate.published_article_id].accuracy
+                if candidate.published_article_id in tail_results
+                else None
+            ),
+            title=candidate.title,
+            platform_name=candidate.platform_name,
+            final_url=candidate.final_url,
+        )
+        for candidate in geo_publication_candidates(db, detail.product.id)
+    ]
+    query_topic_options = (
+        [
+            GeoObservationDetailQueryTopic(
+                id=topic.id,
+                canonical_question=topic.canonical_question,
+            )
+            for topic in db.scalars(
+                select(QueryTopic).order_by(QueryTopic.canonical_question, QueryTopic.id)
+            )
+        ]
+        if tail.query_topic is None
+        else []
+    )
+    return GeoObservationCorrectionContext(
+        detail=detail,
+        correction_article_results=correction_article_results,
+        query_topic_options=query_topic_options,
     )
 
 

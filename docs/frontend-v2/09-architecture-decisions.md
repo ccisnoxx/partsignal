@@ -172,7 +172,7 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Why**：完整 DTO 携带 notes、citations、文章与附件详情，仍缺少列表直接需要的 Product label、统一 platform、compact outcomes 和关联/证据计数。扩展旧 DTO 会污染 V1 与详情合同，浏览器 join 或逐行补请求又会制造 waterfall、N+1 与分页后本地语义错误；additive 窄投影把列表事实放回唯一服务端 owner。
 
-**UI ownership**：页面复用既有 TableShell、FilterBar、RowActions、Pagination 和 TanStack Router/Query/Table pattern，不新增通用 DataTable 或 GEO status enum。`available_actions` 是更正/删除的唯一呈现依据；List 输出 Detail 与 Correction canonical anchors，Detail 已由 ADR-031 落地，Correction 仍不注册 placeholder route。当前数据库未变化，manual discovered/mentioned 的非空约束继续权威，accuracy 未评估由 compact counts 表达。
+**UI ownership**：页面复用既有 TableShell、FilterBar、RowActions、Pagination 和 TanStack Router/Query/Table pattern，不新增通用 DataTable 或 GEO status enum。`available_actions` 是更正/删除的唯一呈现依据；List 输出 Detail 与 Correction canonical anchors，两者分别由 ADR-031 与 ADR-032 落地。当前数据库未变化，manual discovered/mentioned 的非空约束继续权威，accuracy 未评估由 compact counts 表达。
 
 ## ADR-031：GEO Observation Detail 使用窄 generated union read model
 
@@ -181,6 +181,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 **Snapshot boundary**：服务端在 `REPEATABLE READ` 中通过 recursive CTE 确定唯一 root，并校验、排列 root→tail；selected/root/tail 和 original/selected/tail 标记均由响应明确表达。文章使用 PublicationWork 终态 snapshot，证据只从节点直接 attachment 关系读取；浏览器不得跨旧 GET、Article 或 File endpoint join，也不得按 `created_at/is_current/supersedes_id` 重排或推导动作。
 
 **UI ownership**：所有 Observation 与 Correction 始终 readonly。Detail 与 List 仅在 GEO domain 内共享最小 action resolver；CORRECT 永远指向服务端链尾 canonical Correction URL，DELETE 只消费 tail token 并复用现有命令和 Dialog。New Observation 成功后直接消费 POST response ID 进入 Detail；不创建通用 Detail/History framework，现有 Timeline 只增加承载只读节点内容的 optional slot。
+
+## ADR-032：GEO Correction 使用组合 Detail 的专用读取上下文与通用 append POST
+
+**Decision**：`/geo/observations/$observationId/correct` 只消费 additive `GET /api/v1/geo-observations/{observation_id}/correction-context`；该响应直接组合既有 `ManualGeoObservationDetail`、当前 Published Article 候选初值和历史空 Query Topic 的选项。写入继续使用 `POST /api/v1/geo-observations` 与 `GeoObservationCreate.supersedes_id`，不增加 Correction command、数据库字段或兼容 DTO。
+
+**Snapshot boundary**：读取在单个 `REPEATABLE READ` 事务中确定 actor 的 `CORRECT` 资格、权威尾、当前候选和 Topic 规则。Product、Platform、Search Query 与非空 Topic 由上下文冻结；历史结果和证据只读。`GEO_PUBLICATIONS_CHANGED` / `REVISION_CONFLICT` 不自动重放，只有显式刷新才按文章 ID 合并仍有效草稿，并以服务端新尾 replace URL；提交仍由服务端锁内复核所有不变量。
+
+**UI ownership**：Correction 使用专用 form model 并复用现有 WorkspaceShell、DirtyGuard、StickyActionBar 与 GeoEvidenceUpload；不把 New/Correction 合并为通用 GEO Form，也不引入全局草稿 store。成功只使用 POST 响应 ID 进入新 Detail。页面级 strict fixture 证明 production artifact 状态机，完整真实栈 GEO 闭环保留给后续独立 Task。
 
 ## 后续建议 ADR
 

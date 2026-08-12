@@ -1,6 +1,7 @@
 import type { components } from '@/shared/api/generated/schema';
 
 type GeoObservationDetail = components['schemas']['GeoObservationDetail'];
+type GeoObservationCorrectionContext = components['schemas']['GeoObservationCorrectionContext'];
 type LegacyGeoObservationDetail = components['schemas']['LegacyGeoObservationDetail'];
 type ManualGeoObservationDetail = components['schemas']['ManualGeoObservationDetail'];
 type ManualHistoryItem = components['schemas']['GeoObservationCorrectionHistoryItem'];
@@ -51,7 +52,7 @@ function assertGeoObservationDetail(
     if (
       item.observation.product_id !== detail.product.id
       || item.observation.supersedes_id !== previousId
-      || item.observation.query_topic_id !== item.query_topic?.id
+      || item.observation.query_topic_id !== (item.query_topic?.id ?? null)
       || item.observation.is_current !== item.is_chain_tail
       || (!item.is_chain_tail && item.observation.available_actions.length > 0)
       || item.is_original !== (index === 0)
@@ -70,6 +71,27 @@ function assertGeoObservationDetail(
     throw contractMismatch('服务端 primary task 缺少对应动作资格');
   }
   return detail;
+}
+
+function assertGeoObservationCorrectionContext(
+  context: GeoObservationCorrectionContext,
+  requestedId: string,
+): GeoObservationCorrectionContext {
+  assertGeoObservationDetail(context.detail, requestedId);
+  const tail = tailManualHistory(context.detail);
+  const articleIds = context.correction_article_results.map(
+    (item) => item.published_article_id,
+  );
+  const topicIds = context.query_topic_options.map((item) => item.id);
+  if (
+    !tail.observation.available_actions.includes('CORRECT')
+    || new Set(articleIds).size !== articleIds.length
+    || new Set(topicIds).size !== topicIds.length
+    || (tail.query_topic !== null && context.query_topic_options.length > 0)
+  ) {
+    throw contractMismatch('更正上下文的动作、候选或 Query Topic 选项不一致');
+  }
+  return context;
 }
 
 function selectedManualHistory(detail: ManualGeoObservationDetail): ManualHistoryItem {
@@ -106,6 +128,7 @@ function contractMismatch(reason: string) {
 
 export {
   accuracyLabels,
+  assertGeoObservationCorrectionContext,
   assertGeoObservationDetail,
   formatAccuracy,
   formatBoolean,
@@ -116,6 +139,7 @@ export {
 };
 export type {
   GeoObservationDetail,
+  GeoObservationCorrectionContext,
   LegacyGeoObservationDetail,
   ManualGeoObservationDetail,
   ManualHistoryItem,

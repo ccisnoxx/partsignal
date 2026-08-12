@@ -170,7 +170,8 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 将页面拥有的 `productId` canonical URL 同步标记为 `ignoreBlocker`，保留 Cancel、Back/Forward 和成功创建导航的 DirtyGuard 合同。
+- 加强 New Content Task component 与 production-artifact E2E 回归，覆盖继续编辑、放弃修改、URL/表单/焦点保留及成功创建。
 
 ### Git Commits
 
@@ -180,7 +181,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- 精确 blocker 测试：1 passed / 8 skipped。
+- New Content Task component：9 passed；shared DirtyGuard：1 passed；V2 unit：282 passed。
+- frontend-v2 typecheck、lint、production-artifact E2E（10 passed）与 `git diff --check` 均通过。
 
 ### Status
 
@@ -188,7 +191,7 @@
 
 ### Next Steps
 
-- None - task complete
+- Task 已归档；未 merge、push，Content AI timeout 保持范围外。
 
 
 ## Session 120: Frontend V2 Publishing 完整真实栈 E2E
@@ -292,3 +295,36 @@
 ### Next Steps
 
 - 本 Task 已完成并归档；范围外 blocker 与 Phase 4 最终门禁继续由各自独立 Task 处理。
+
+
+## Session 123: Frontend V2 New Content Task DirtyGuard Gate
+
+**Date**: 2026-08-12
+**Task**: Frontend V2 New Content Task DirtyGuard Gate
+**Branch**: `codex/frontend-v2-new-content-task-dirty-guard-gate`
+
+### Summary
+
+修复 New Content Task 页面自有 productId canonical URL 同步被 DirtyGuard 误拦截的问题，并补齐 Cancel、Back/Forward 与成功创建回归。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `6f90b08` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

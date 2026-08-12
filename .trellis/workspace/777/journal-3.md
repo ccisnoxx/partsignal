@@ -398,3 +398,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 126: Publication Work Reference Filter Unit Contract Correction
+
+**Date**: 2026-08-12
+**Task**: Publication Work Reference Filter Unit Contract Correction
+**Branch**: `codex/frontend-v2-publication-work-reference-filter-unit-contract-correction`
+
+### Summary
+
+修正 Publication Work 引用筛选单元测试的 SQLAlchemy WHERE 断言粒度，保留生产 live/frozen projection，并完成 backend unit gate、Ruff、Trellis 检查与归档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `fcb6c1d` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

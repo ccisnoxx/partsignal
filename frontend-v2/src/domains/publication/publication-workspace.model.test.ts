@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import type { components } from '@/shared/api/generated/schema';
-import { createdWork, workspaceContext } from './publication-work.test-fixtures';
+import { workspaceContext } from './publication-work.test-fixtures';
 import {
   canonicalPublicationWorkspaceHash,
   isCanonicalPublicationWorkspaceHash,
-  publicationCoreActions,
   publicationVerificationPayload,
   publicationWorkspaceActions,
   publicationWorkspaceSections,
@@ -20,20 +19,6 @@ describe('Publication workspace model', () => {
     expect(canonicalPublicationWorkspaceHash('unknown')).toBe('summary');
     expect(isCanonicalPublicationWorkspaceHash('')).toBe(false);
     expect(isCanonicalPublicationWorkspaceHash('summary')).toBe(true);
-  });
-
-  it('只把服务端 token 映射为 Core 动作，不伪造 Verify/Switch', () => {
-    const work = {
-      ...createdWork,
-      available_actions: [
-        'UPDATE_PREPARATION', 'MARK_PLATFORM_REVIEW', 'VERIFY', 'SWITCH_CONTENT_VERSION', 'CLOSE',
-      ],
-    } as typeof createdWork;
-    expect(publicationCoreActions(work).map(({ action, intent }) => [action, intent])).toEqual([
-      ['UPDATE_PREPARATION', 'primary'],
-      ['MARK_PLATFORM_REVIEW', 'secondary'],
-      ['CLOSE', 'danger'],
-    ]);
   });
 
   it('只按 token 与精确 candidate 呈现 Verification 动作', () => {

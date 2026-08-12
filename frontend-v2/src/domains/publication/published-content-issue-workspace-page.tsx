@@ -79,6 +79,19 @@ function PublishedContentIssueWorkspacePage({
   const article = context.article;
   const content = article.source_content.content;
   const stage = issueStageRegistry[issue.workflow_stage];
+  const resolutionLabel = issue.resolution_outcome === 'RESTORED'
+    ? '已恢复'
+    : issue.resolution_outcome === 'RETIRED'
+      ? '已退役'
+      : undefined;
+  if (issue.status === 'RESOLVED' && !resolutionLabel) {
+    return (
+      <section className="space-y-3 rounded-xl border border-danger/30 bg-danger/5 p-6" role="alert">
+        <h1 className="type-page-title">内容问题上下文不完整</h1>
+        <p className="text-sm text-danger">已解决的问题缺少明确的 resolution outcome，未展示任何解决记录。</p>
+      </section>
+    );
+  }
   const history: TimelineItem[] = [
     {
       id: `${issue.id}-opened`,
@@ -200,7 +213,7 @@ function PublishedContentIssueWorkspacePage({
         <DetailSection description="解决记录一经提交不可编辑；解决问题不会修改修复任务状态。" title="解决记录">
           {issue.status === 'RESOLVED' ? (
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
-              <ContextValue label="结果" value={issue.resolution_outcome === 'RESTORED' ? '已恢复' : '已退役'} />
+              <ContextValue label="结果" value={resolutionLabel} />
               <ContextValue label="解决时间" value={issue.resolved_at ? formatPublicationTime(issue.resolved_at) : '未记录'} />
               <ContextValue label="解决人 ID" mono value={issue.resolved_by ?? '未记录'} />
               <ContextValue label="最终修订号" value={String(issue.revision)} />

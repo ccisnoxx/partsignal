@@ -6,15 +6,7 @@ type PublicationWorkspaceContext = components['schemas']['PublicationWorkspaceCo
 type PublicationWork = components['schemas']['PublicationWork'];
 type PublicationAvailableAction = PublicationWork['available_actions'][number];
 type PublicationVerificationCreate = components['schemas']['PublicationVerificationCreate'];
-type PublicationCoreAction = Extract<
-  PublicationAvailableAction,
-  'UPDATE_PREPARATION' | 'MARK_PLATFORM_REVIEW' | 'REGISTER_RESULT' | 'CLOSE'
->;
-type PublicationVerificationAction = Extract<
-  PublicationAvailableAction,
-  'VERIFY' | 'SWITCH_CONTENT_VERSION'
->;
-type PublicationWorkspaceAction = PublicationCoreAction | PublicationVerificationAction;
+type PublicationWorkspaceAction = PublicationAvailableAction;
 
 const publicationWorkspaceSections = [
   'summary',
@@ -58,24 +50,6 @@ const primaryTaskAction = {
   VIEW_COMPLETION: undefined,
   VIEW_CLOSURE: undefined,
 } satisfies Record<PublicationWork['primary_task'], PublicationWorkspaceAction | undefined>;
-
-function publicationCoreActions(work: PublicationWork) {
-  const actions = work.available_actions.filter(
-    (action): action is PublicationCoreAction => (
-      action !== 'VERIFY' && action !== 'SWITCH_CONTENT_VERSION'
-    ),
-  );
-  const primary = primaryTaskAction[work.primary_task];
-  return actions.map((action) => ({
-    action,
-    ...publicationActionPresentation[action],
-    intent: action === 'CLOSE'
-      ? 'danger' as const
-      : action === primary
-        ? 'primary' as const
-        : 'secondary' as const,
-  }));
-}
 
 function publicationWorkspaceActions(context: PublicationWorkspaceContext) {
   const primary = primaryTaskAction[context.work.primary_task];
@@ -146,7 +120,6 @@ export {
   isCanonicalPublicationWorkspaceHash,
   platformReviewFormSchema,
   preparationFormSchema,
-  publicationCoreActions,
   publicationVerificationPayload,
   publicationWorkspaceActions,
   publicationWorkspaceSections,
@@ -155,8 +128,6 @@ export {
   verificationFormSchema,
 };
 export type {
-  PublicationCoreAction,
-  PublicationVerificationAction,
   PublicationWorkspaceAction,
   PublicationWorkspaceContext,
   PublicationWorkspaceSection,

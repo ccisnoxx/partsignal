@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
 import {
-  mapPublicationStartError,
+  mapPublicationError,
   PublicationRequestError,
   publicationPackageQueryOptions,
   publicationWorkspaceContextQueryOptions,
@@ -25,7 +25,7 @@ describe('Publication API errors', () => {
       details: {},
       request_id: `req-publication-${status}`,
     };
-    expect(mapPublicationStartError(new PublicationRequestError(detail.message, status, detail)))
+    expect(mapPublicationError(new PublicationRequestError(detail.message, status, detail)))
       .toEqual({
         message: detail.message,
         requestId: detail.request_id,

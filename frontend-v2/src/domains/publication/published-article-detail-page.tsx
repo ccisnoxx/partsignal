@@ -78,6 +78,11 @@ function PublishedArticleDetailPage({
         article={article.data}
         csrfToken={csrfToken}
         onIssueOpened={onIssueOpened}
+        onReload={async () => {
+          const refreshed = await article.refetch();
+          if (refreshed.error) throw refreshed.error;
+          if (!refreshed.data) throw new Error('重载发布成果后未返回 Article');
+        }}
       />
     </div>
   );
@@ -92,10 +97,11 @@ function matchesArticleIdentity(article: PublishedArticle, articleId: string) {
     && (article.primary_task !== 'HANDLE_CONTENT_ISSUE' || Boolean(article.open_issue_id));
 }
 
-function PublishedArticleDetailView({ article, csrfToken, onIssueOpened }: {
+function PublishedArticleDetailView({ article, csrfToken, onIssueOpened, onReload }: {
   article: PublishedArticle;
   csrfToken: string | null;
   onIssueOpened: (issue: PublishedContentIssue) => Promise<void> | void;
+  onReload: () => Promise<void>;
 }) {
   const content = article.source_content.content;
   const fact = article.source_content.fact_version;
@@ -127,7 +133,12 @@ function PublishedArticleDetailView({ article, csrfToken, onIssueOpened }: {
             <a className={navLinkClass} href={`/publishing/issues/${article.open_issue_id}#issue`}>处理内容问题</a>
           )}
           {article.available_actions.includes('OPEN_ISSUE') && (
-            <OpenIssueDialog article={article} csrfToken={csrfToken} onIssueOpened={onIssueOpened} />
+            <OpenIssueDialog
+              article={article}
+              csrfToken={csrfToken}
+              onIssueOpened={onIssueOpened}
+              onReload={onReload}
+            />
           )}
         </nav>
       </header>
@@ -233,16 +244,18 @@ function PublishedArticleDetailView({ article, csrfToken, onIssueOpened }: {
   );
 }
 
-function OpenIssueDialog({ article, csrfToken, onIssueOpened }: {
+function OpenIssueDialog({ article, csrfToken, onIssueOpened, onReload }: {
   article: PublishedArticle;
   csrfToken: string | null;
   onIssueOpened: (issue: PublishedContentIssue) => Promise<void> | void;
+  onReload: () => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<'PAGE_UNAVAILABLE' | 'CONTENT_CHANGED' | 'OTHER'>('PAGE_UNAVAILABLE');
   const [description, setDescription] = useState('');
   const [fieldError, setFieldError] = useState<string>();
   const [serverError, setServerError] = useState<PublicationStartErrorMapping>();
+  const [contextStale, setContextStale] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const mutation = useMutation({
     mutationFn: (body: { kind: typeof kind; description: string }) => (
@@ -261,6 +274,7 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened }: {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (mutation.isPending || contextStale) return;
     setFieldError(undefined);
     setServerError(undefined);
     const parsed = openIssueFormSchema.safeParse({ kind, description });
@@ -272,6 +286,18 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened }: {
       const issue = await mutation.mutateAsync(parsed.data);
       await onIssueOpened(issue);
       setOpen(false);
+    } catch (error) {
+      const mapped = mapPublicationError(error);
+      setServerError(mapped);
+      if (mapped.status === 409) setContextStale(true);
+    }
+  }
+
+  async function reloadArticle() {
+    try {
+      await onReload();
+      setContextStale(false);
+      setServerError(undefined);
     } catch (error) {
       setServerError(mapPublicationError(error));
     }
@@ -287,6 +313,7 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened }: {
             setDescription('');
             setFieldError(undefined);
             setServerError(undefined);
+            setContextStale(false);
           }
         }}
         open={open}
@@ -298,10 +325,15 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened }: {
           </DialogHeader>
           <form className="space-y-4" onSubmit={submit}>
             <ErrorSummary errors={errors} title="内容问题未登记" />
+            {contextStale && (
+              <Button onClick={() => void reloadArticle()} type="button" variant="outline">
+                显式重载发布成果
+              </Button>
+            )}
             <label className="block space-y-1.5" htmlFor="published-issue-kind">
               <span className="font-medium">问题类型</span>
               <Select
-                disabled={mutation.isPending}
+                disabled={mutation.isPending || contextStale}
                 items={Object.entries(issueKindLabels).map(([value, label]) => ({ value, label }))}
                 onValueChange={(value) => value && setKind(value as typeof kind)}
                 value={kind}
@@ -318,7 +350,7 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened }: {
               <span className="font-medium">问题描述</span>
               <textarea
                 className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm"
-                disabled={mutation.isPending}
+                disabled={mutation.isPending || contextStale}
                 id="published-issue-description"
                 onChange={(event) => setDescription(event.target.value)}
                 value={description}
@@ -326,7 +358,7 @@ function OpenIssueDialog({ article, csrfToken, onIssueOpened }: {
             </label>
             <DialogFooter>
               <DialogClose disabled={mutation.isPending} render={<Button variant="outline" />}>取消</DialogClose>
-              <Button disabled={mutation.isPending} type="submit">
+              <Button disabled={mutation.isPending || contextStale} type="submit">
                 {mutation.isPending ? '正在登记…' : '确认登记'}
               </Button>
             </DialogFooter>

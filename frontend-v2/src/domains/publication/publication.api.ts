@@ -441,7 +441,7 @@ type PublicationStartErrorMapping = {
   status?: number;
 };
 
-function mapPublicationStartError(error: unknown): PublicationStartErrorMapping {
+function mapPublicationError(error: unknown): PublicationStartErrorMapping {
   if (error instanceof PublicationRequestError) {
     return {
       message: error.detail?.message ?? error.message,
@@ -452,8 +452,6 @@ function mapPublicationStartError(error: unknown): PublicationStartErrorMapping 
   }
   return { message: error instanceof Error ? error.message : '开始发布失败' };
 }
-
-const mapPublicationError = mapPublicationStartError;
 
 function publicationRequestError(
   action: string,
@@ -498,7 +496,6 @@ export {
   createFileUploadIntent,
   getFileDownloadUrl,
   mapPublicationError,
-  mapPublicationStartError,
   markPublicationPlatformReview,
   publicationKeys,
   publicationPackageQueryOptions,

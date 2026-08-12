@@ -21,7 +21,7 @@ import {
 } from '@/design-system/primitives/select';
 import {
   createPublicationWork,
-  mapPublicationStartError,
+  mapPublicationError,
   type PublicationStartErrorMapping,
 } from './publication.api';
 import type { PublicationReadyItem, PublicationWork } from './publication-work.model';
@@ -105,7 +105,7 @@ function StartPublicationDialog({
       await onCreated(work);
       setOpen(false);
     } catch (error) {
-      const mapped = mapPublicationStartError(error);
+      const mapped = mapPublicationError(error);
       setServerError(mapped);
       if (mapped.code === 'IDEMPOTENCY_CONFLICT') idempotency.current = undefined;
       if (mapped.status === 409) await onConflict(item.task_id);

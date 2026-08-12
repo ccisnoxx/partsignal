@@ -90,6 +90,42 @@ describe('PublishedArticleDetailPage', () => {
     expect(onIssueOpened).toHaveBeenCalledWith(issue);
   });
 
+  it('OPEN_ISSUE 409 保留输入且不重放，显式重载后只消费最新 Article 投影', async () => {
+    const user = userEvent.setup();
+    const issueId = 'b0000000-0000-4000-8000-00000000000b';
+    const refreshedArticle = {
+      ...publishedArticle,
+      has_open_issue: true,
+      open_issue_id: issueId,
+      workflow_stage: 'OPEN_ISSUE',
+      primary_task: 'HANDLE_CONTENT_ISSUE',
+      available_actions: [],
+    };
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(response(publishedArticle))
+      .mockResolvedValueOnce(response(refreshedArticle));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(errorResponse(409));
+    renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: '登记内容问题' }));
+    const description = screen.getByRole('textbox', { name: '问题描述' });
+    await user.type(description, '保留这段问题描述');
+    await user.click(screen.getByRole('button', { name: '确认登记' }));
+
+    expect(await screen.findByText('请求 ID：req-409')).toBeInTheDocument();
+    expect(description).toHaveValue('保留这段问题描述');
+    expect(screen.getByRole('button', { name: '确认登记' })).toBeDisabled();
+    expect(post).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: '显式重载发布成果' }));
+
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole('link', { name: '处理内容问题' }))
+      .toHaveAttribute('href', `/publishing/issues/${issueId}#issue`);
+    expect(screen.queryByRole('dialog', { name: /登记/ })).not.toBeInTheDocument();
+  });
+
   it.each([
     [404, '未找到发布成果'],
     [403, '无法访问发布成果'],

@@ -119,6 +119,10 @@ function PublishedContentIssueWorkspaceActions({
       setServerError({ message: '修复选项已变化，请显式重载最新问题。', status: 409 });
       return;
     }
+    if (!repair.data.fact_candidates.some(({ version }) => version.id === parsed.data.factVersionId)) {
+      setFieldError('所选 Fact Version 已不在最新候选中，请重新选择');
+      return;
+    }
     try {
       const task = await mutation.mutateAsync({
         action: 'CREATE_REPAIR_TASK',
@@ -159,7 +163,11 @@ function PublishedContentIssueWorkspaceActions({
 
   async function reloadContext() {
     try {
-      const latest = await onReload();
+      const [latest, refreshedRepair] = await Promise.all([
+        onReload(),
+        openAction === 'CREATE_REPAIR_TASK' ? repair.refetch() : undefined,
+      ]);
+      if (refreshedRepair?.error) throw refreshedRepair.error;
       setContextStale(false);
       setServerError(undefined);
       if (openAction && !latest.issue.available_actions.includes(openAction)) {

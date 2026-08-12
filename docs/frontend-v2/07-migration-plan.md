@@ -407,6 +407,8 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-publishing-e2e` 已落地第 5 项：扩展既有 `publication-workspace-real-stack.spec.ts`，由 V2 UI 连续完成 Ready Queue 开始发布、准备与平台复核、结果登记、PASSED 核验、只读 PublishedArticle、登记内容问题、创建修复 ContentTask、按服务端 `primary_task` 继续修复并解决问题；既有 Flow B 继续证明 FAILED → ACTION_REQUIRED → 内容修订审批 → 换版 → 重登记 → PASSED。最终只读断言覆盖来源 Content snapshot、verification、publication event、Article issue history 与 Issue/repair-task 投影不可变性。门禁复用 `deploy/scripts/e2e-local.sh` 的隔离 PostgreSQL、Redis、FastAPI、对象存储和 V2 production preview，V2 10 条与指定 V1 7 条均通过，数据库和临时存储由脚本精确删除。Phase 4 仅剩第 6 项抽象回顾。
 
+`frontend-v2-publishing-abstraction-review` 已完成第 6 项的前端白名单调整：Article `OPEN_ISSUE` 与 Issue repair 的 409 现在保持输入、禁止自动 replay，并通过显式重读 canonical Article/Workspace/repair context 恢复；resolved Issue 缺少 `resolution_outcome` 时显式失败，不再猜测为 retired；同时删除无生产消费者的 `publicationCoreActions` 与无语义 error mapper alias。Publication domain 12 files / 48 tests、targeted 4 files / 22 tests、typecheck、lint、build、三个 fixture specs 11 tests，以及 Publishing 三条 real-stack flow 均通过；没有新增 shared framework，也没有删除互补测试。Phase 4 Exit Gate 仍为 `NOT_MET`：Work list/detail/workspace 的 name/label/identifier 投影尚未按非终态 live、终态 frozen snapshot 规则收敛，`GET /api/v1/publication-works` 可实际返回的 409 尚未写入 OpenAPI；此外当次完整 `make verify` 仍有范围外 Content DirtyGuard unit failure，完整 `make e2e` 仍有范围外 Content AI real-stack timeout。上述 blocker 必须由各自 owner 的独立 Task 关闭并重跑最终门禁；不得据此提前进入 GEO。
+
 退出条件：`PublicationWork / PublishedArticle / PublishedContentIssue` 使用三组 URL；成功核验 snapshot 不可变；失败核验不伪装成功；动作全部 server-driven；timeline/evidence 可追溯。
 
 ## 10. Phase 5 — GEO

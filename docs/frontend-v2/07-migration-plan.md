@@ -419,9 +419,11 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 按 Task 实现 Observation List、New Observation、Observation Detail、Correction Workspace、Topics、Insights、Print、完整 E2E 和抽象回顾。
 
-`frontend-v2-geo-observation-list` 已实现本阶段第一个独立 slice：`/geo/observations` 使用 additive `GET /api/v1/geo-observations/list-items` 完成链尾 compact projection、服务端搜索/筛选/排序/分页、八列 Table、URL state、服务端动作投影和严格 fixture E2E。V1 完整列表接口保持不变；Detail/Correction 仅建立 canonical href，New Observation、Detail 页面、Correction Workspace、Topics、Insights、Print、真实栈 GEO 闭环与抽象回顾仍由后续 Task 交付，因此 Phase 5 退出条件尚未评估为 MET。
+`frontend-v2-geo-observation-list` 已实现本阶段第一个独立 slice：`/geo/observations` 使用 additive `GET /api/v1/geo-observations/list-items` 完成链尾 compact projection、服务端搜索/筛选/排序/分页、八列 Table、URL state、服务端动作投影和严格 fixture E2E。V1 完整列表接口保持不变；List 已使用 Detail/Correction canonical href。
 
-`frontend-v2-new-geo-observation` 已交付 `/geo/observations/new` 人工创建 Workspace：复用既有 Product 搜索、Query Topic、GEO Published Article 候选与文件上传合同，逐篇显式记录 discovered/mentioned/accuracy，并提供 pending 防重、结构化错误、候选冲突显式刷新、DirtyGuard 与 canonical List handoff。当前真实读取不构成 waterfall，未增加 creation-options；POST 不增加未经合同支持的 `Idempotency-Key`，也不提交 correction `supersedes_id` 或 legacy recommendation/citation。Observation Detail、Correction Workspace、Topics、Insights、Print、完整 GEO real-stack 闭环和抽象回顾仍未实现，Phase 5 退出条件继续为 `NOT_MET`。
+`frontend-v2-new-geo-observation` 已交付 `/geo/observations/new` 人工创建 Workspace：复用既有 Product 搜索、Query Topic、GEO Published Article 候选与文件上传合同，逐篇显式记录 discovered/mentioned/accuracy，并提供 pending 防重、结构化错误、候选冲突显式刷新和 DirtyGuard。`frontend-v2-geo-observation-detail` 落地后，成功 handoff 已改为直接使用 POST response ID 进入 canonical Detail，不经 List 搜索 ID。
+
+`frontend-v2-geo-observation-detail` 已注册 `/geo/observations/$observationId`：additive Detail read model 在一个 `REPEATABLE READ` 请求中返回 Legacy 完整事实或 Manual root→tail correction history、Product/Query Topic、Published Articles、direct evidence 与 actor-aware actions；旧 GET/collection/POST 保持兼容。页面支持 List/direct/refresh/Back/Forward、两类只读结果、完整 history、404/403/409/普通错误、retry、DELETE confirmation 和四档响应式；strict generated-type fixture 拒绝浏览器 join。Correction Workspace、Topics、Insights、Print、完整 GEO real-stack 闭环和抽象回顾仍未实现，Phase 5 退出条件继续为 `NOT_MET`。
 
 退出条件：Correction append-only；Topic 删除能显示业务引用；Insights filter 可通过 URL 恢复；print 与 screen 使用同一 read model；375px 不出现不可用的宽表。
 

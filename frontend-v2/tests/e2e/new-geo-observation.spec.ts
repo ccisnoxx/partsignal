@@ -1,8 +1,17 @@
 import type { Page } from '@playwright/test';
 
-import { candidates, expect, fileRecord, product, test, topic } from './fixtures/new-geo.fixture';
+import {
+  candidates,
+  createdObservationId,
+  expect,
+  fileRecord,
+  product,
+  test,
+  topic,
+} from './fixtures/new-geo.fixture';
 
 const canonicalList = '/geo/observations?page=1&pageSize=20';
+const canonicalDetail = `/geo/observations/${createdObservationId}`;
 const newRoute = '/geo/observations/new';
 
 async function showPanel(page: Page, name: '逐篇观测结果' | '观测上下文' | '证据与备注') {
@@ -89,7 +98,11 @@ test('候选 empty 提供可用出口且阻止创建', async ({ page, newGeoApi 
   );
 });
 
-test('客户端校验显式事实；上传后 POST 防重复并 canonical handoff', async ({ page, newGeoApi }) => {
+test('客户端校验显式事实；上传后 POST 防重复并 canonical handoff', async ({
+  page,
+  geoApi,
+  newGeoApi,
+}) => {
   await page.goto(newRoute);
   await chooseContext(page);
   await showPanel(page, '观测上下文');
@@ -138,7 +151,12 @@ test('客户端校验显式事实；上传后 POST 防重复并 canonical handof
   await expect(page.getByRole('button', { name: '取消' })).toBeDisabled();
 
   newGeoApi.releaseCreate();
-  await expect(page).toHaveURL(canonicalList);
+  await expect(page).toHaveURL(canonicalDetail);
+  await expect(page.getByRole('heading', { name: '如何选择低噪声放大器？' })).toBeVisible();
+  expect(newGeoApi.detailRequests).toHaveLength(1);
+  expect(geoApi.listRequests.some(
+    (request) => request.searchParams.get('search') === createdObservationId,
+  )).toBe(false);
   await expect(page.getByRole('dialog', { name: '要离开当前页面吗？' })).toHaveCount(0);
 });
 
@@ -158,7 +176,7 @@ test('候选冲突不重放创建，显式刷新后保留输入并允许人工�
   await showPanel(page, '逐篇观测结果');
   await expect(page.getByLabel('实际搜索问题')).toHaveValue('  如何选择低噪声放大器？  ');
   await page.getByRole('button', { name: '创建 Observation' }).click();
-  await expect(page).toHaveURL(canonicalList);
+  await expect(page).toHaveURL(canonicalDetail);
   expect(newGeoApi.createRequests).toHaveLength(2);
 });
 

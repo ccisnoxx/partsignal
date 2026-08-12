@@ -95,6 +95,61 @@ def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
     )
 
 
+def test_geo_observation_detail_contract_is_one_readonly_generated_union() -> None:
+    """V2 Detail 一次返回两类完整事实，基础 GeoObservation 合同保持不变。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    schemas = document["components"]["schemas"]
+    operation = paths["/api/v1/geo-observations/{observation_id}/detail"]["get"]
+
+    assert set(operation["responses"]) == {"200", "401", "403", "404", "409", "422"}
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/GeoObservationDetail"
+    }
+    assert schemas["GeoObservationDetail"]["discriminator"] == {
+        "propertyName": "observation_kind",
+        "mapping": {
+            "LEGACY_MODEL_RESULT": "#/components/schemas/LegacyGeoObservationDetail",
+            "MANUAL_ARTICLE_SEARCH": "#/components/schemas/ManualGeoObservationDetail",
+        },
+    }
+    assert set(schemas["LegacyGeoObservationDetail"]["required"]) == {
+        "observation_kind",
+        "observation",
+        "query_topic",
+        "product",
+        "published_articles",
+        "evidence",
+    }
+    assert set(schemas["ManualGeoObservationDetail"]["required"]) == {
+        "observation_kind",
+        "selected_observation_id",
+        "chain_root_id",
+        "chain_tail_id",
+        "product",
+        "correction_history",
+    }
+    assert set(schemas["GeoObservationCorrectionHistoryItem"]["required"]) == {
+        "observation",
+        "query_topic",
+        "evidence",
+        "is_original",
+        "is_selected",
+        "is_chain_tail",
+    }
+    assert schemas["GeoObservationDetailEvidence"]["properties"] == {
+        "file": {"$ref": "#/components/schemas/FileRecord"},
+        "download": {"$ref": "#/components/schemas/SignedUrl"},
+    }
+    assert paths["/api/v1/geo-observations/{observation_id}"]["get"]["responses"]["200"][
+        "content"
+    ]["application/json"]["schema"] == {"$ref": "#/components/schemas/GeoObservation"}
+    assert paths["/api/v1/geo-observations"]["post"]["responses"]["201"]["content"][
+        "application/json"
+    ]["schema"] == {"$ref": "#/components/schemas/GeoObservation"}
+
+
 def test_published_content_issue_contract_has_one_workspace_read_model_and_real_errors() -> None:
     """内容问题列表、工作区与命令必须声明同一 structured error 边界。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"

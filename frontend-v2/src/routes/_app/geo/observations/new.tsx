@@ -17,9 +17,9 @@ function NewGeoObservationRoute() {
         to: '/geo/observations',
         search: { page: 1, pageSize: 20 },
       })}
-      onCreated={() => void navigate({
-        to: '/geo/observations',
-        search: { page: 1, pageSize: 20 },
+      onCreated={(observationId) => void navigate({
+        to: '/geo/observations/$observationId',
+        params: { observationId },
       })}
     />
   );

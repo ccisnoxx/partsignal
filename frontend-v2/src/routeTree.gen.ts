@@ -30,6 +30,7 @@ import { Route as AppContentTasksTaskIdRouteImport } from './routes/_app/content
 import { Route as AppContentTasksNewRouteImport } from './routes/_app/content/tasks/new'
 import { Route as AppContentVersionsVersionIdRouteImport } from './routes/_app/content/versions_.$versionId'
 import { Route as AppGeoObservationsIndexRouteImport } from './routes/_app/geo/observations/index'
+import { Route as AppGeoObservationsObservationIdRouteImport } from './routes/_app/geo/observations/$observationId'
 import { Route as AppGeoObservationsNewRouteImport } from './routes/_app/geo/observations/new'
 import { Route as AppProductsProductIdFactsRouteImport } from './routes/_app/products/$productId_.facts'
 import { Route as AppPublishingArticlesIndexRouteImport } from './routes/_app/publishing/articles/index'
@@ -150,6 +151,12 @@ const AppGeoObservationsIndexRoute = AppGeoObservationsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppGeoObservationsRouteRoute,
 } as any)
+const AppGeoObservationsObservationIdRoute =
+  AppGeoObservationsObservationIdRouteImport.update({
+    id: '/$observationId',
+    path: '/$observationId',
+    getParentRoute: () => AppGeoObservationsRouteRoute,
+  } as any)
 const AppGeoObservationsNewRoute = AppGeoObservationsNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -244,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/content/versions/$versionId': typeof AppContentVersionsVersionIdRoute
+  '/geo/observations/$observationId': typeof AppGeoObservationsObservationIdRoute
   '/geo/observations/new': typeof AppGeoObservationsNewRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/publishing/articles/$articleId': typeof AppPublishingArticlesArticleIdRoute
@@ -272,6 +280,7 @@ export interface FileRoutesByTo {
   '/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
   '/content/tasks/new': typeof AppContentTasksNewRoute
   '/content/versions/$versionId': typeof AppContentVersionsVersionIdRoute
+  '/geo/observations/$observationId': typeof AppGeoObservationsObservationIdRoute
   '/geo/observations/new': typeof AppGeoObservationsNewRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/publishing/articles/$articleId': typeof AppPublishingArticlesArticleIdRoute
@@ -309,6 +318,7 @@ export interface FileRoutesById {
   '/_app/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
   '/_app/content/tasks/new': typeof AppContentTasksNewRoute
   '/_app/content/versions_/$versionId': typeof AppContentVersionsVersionIdRoute
+  '/_app/geo/observations/$observationId': typeof AppGeoObservationsObservationIdRoute
   '/_app/geo/observations/new': typeof AppGeoObservationsNewRoute
   '/_app/products/$productId_/facts': typeof AppProductsProductIdFactsRoute
   '/_app/publishing/articles/$articleId': typeof AppPublishingArticlesArticleIdRoute
@@ -345,6 +355,7 @@ export interface FileRouteTypes {
     | '/content/tasks/$taskId'
     | '/content/tasks/new'
     | '/content/versions/$versionId'
+    | '/geo/observations/$observationId'
     | '/geo/observations/new'
     | '/products/$productId/facts'
     | '/publishing/articles/$articleId'
@@ -373,6 +384,7 @@ export interface FileRouteTypes {
     | '/content/tasks/$taskId'
     | '/content/tasks/new'
     | '/content/versions/$versionId'
+    | '/geo/observations/$observationId'
     | '/geo/observations/new'
     | '/products/$productId/facts'
     | '/publishing/articles/$articleId'
@@ -409,6 +421,7 @@ export interface FileRouteTypes {
     | '/_app/content/tasks/$taskId'
     | '/_app/content/tasks/new'
     | '/_app/content/versions_/$versionId'
+    | '/_app/geo/observations/$observationId'
     | '/_app/geo/observations/new'
     | '/_app/products/$productId_/facts'
     | '/_app/publishing/articles/$articleId'
@@ -579,6 +592,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppGeoObservationsIndexRouteImport
       parentRoute: typeof AppGeoObservationsRouteRoute
     }
+    '/_app/geo/observations/$observationId': {
+      id: '/_app/geo/observations/$observationId'
+      path: '/$observationId'
+      fullPath: '/geo/observations/$observationId'
+      preLoaderRoute: typeof AppGeoObservationsObservationIdRouteImport
+      parentRoute: typeof AppGeoObservationsRouteRoute
+    }
     '/_app/geo/observations/new': {
       id: '/_app/geo/observations/new'
       path: '/new'
@@ -719,12 +739,14 @@ const AppContentRouteRouteWithChildren = AppContentRouteRoute._addFileChildren(
 )
 
 interface AppGeoObservationsRouteRouteChildren {
+  AppGeoObservationsObservationIdRoute: typeof AppGeoObservationsObservationIdRoute
   AppGeoObservationsNewRoute: typeof AppGeoObservationsNewRoute
   AppGeoObservationsIndexRoute: typeof AppGeoObservationsIndexRoute
 }
 
 const AppGeoObservationsRouteRouteChildren: AppGeoObservationsRouteRouteChildren =
   {
+    AppGeoObservationsObservationIdRoute: AppGeoObservationsObservationIdRoute,
     AppGeoObservationsNewRoute: AppGeoObservationsNewRoute,
     AppGeoObservationsIndexRoute: AppGeoObservationsIndexRoute,
   }

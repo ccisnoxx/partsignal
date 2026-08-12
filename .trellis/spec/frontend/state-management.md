@@ -544,7 +544,7 @@ query keys: ["geo", "query-topics"]
 - `discovered/mentioned` 初始为未选择状态并要求显式布尔值；`accuracy` 可为 null。POST 仍在事务内锁定 Product、重算完整候选集合并校验 VERIFIED `OPERATION_SCREENSHOT`。
 - 附件沿用 upload-intent → signed PUT/POST → complete；transfer 失败 abort，complete 失败只重试 complete。SHA-256 与对象存储 transfer 可以共享纯协议函数，领域 API、状态和错误不得抽成万能 Upload framework。
 - 当前 POST 没有服务端幂等合同，不发送 `Idempotency-Key`。同步提交锁与 mutation pending 只防止同页面并发；失败后必须由用户显式重试。
-- 成功清 dirty，失效 GEO lists 与对应 Product detail，并导航 `/geo/observations?page=1&pageSize=20`。Detail 未实现时不得导航响应 ID 或创建占位页。
+- 成功清 dirty，失效 GEO lists 与对应 Product detail，并使用 POST 响应的 canonical Observation ID 导航 `/geo/observations/$observationId`；不得通过 List 搜索 ID 或创建占位页。
 
 ### 4. Validation & Error Matrix
 
@@ -561,7 +561,7 @@ query keys: ["geo", "query-topics"]
 
 ### 5. Good / Base / Bad Cases
 
-- Good：用户选择 Product 后读取完整资格候选，逐篇显式判断并单次 POST；成功回到已实现 List。
+- Good：用户选择 Product 后读取完整资格候选，逐篇显式判断并单次 POST；成功使用响应 ID 进入已实现的 canonical Detail。
 - Base：填写期间候选变化，页面保留仍有效事实并要求用户确认新增候选后再次提交。
 - Bad：拉取多个 Published Article 分页后客户端过滤，默认 `false`，在 409 后自动重放，或把 `supersedes_id` 带入新建请求。
 
@@ -584,6 +584,77 @@ await createGeoObservation({ ...values, article_results: articleResults, superse
 const candidates = useQuery(geoPublicationCandidatesQueryOptions(productId));
 const articleResults = syncArticleResults(candidates.data?.items ?? [], previous);
 await createGeoObservation(toGeoObservationCreate(values), csrfToken);
+```
+
+---
+
+## GEO Observation Detail 的单一 Read Model 与只读更正链合同
+
+### 1. Scope / Trigger
+
+- 修改 `/geo/observations/$observationId`、GEO Detail read model、历史链展示、Detail 动作或 New Observation 成功交接时适用。
+- 本合同只覆盖只读 Detail；不实现 Correction Workspace、原地编辑、Topics、Insights、Print 或通用 Detail/History framework。
+
+### 2. Signatures
+
+```text
+URL: /geo/observations/$observationId
+GET: /api/v1/geo-observations/{observation_id}/detail
+operationId: getGeoObservationDetail
+query key: ["geo", "observations", "detail", observationId]
+response: GeoObservationDetail = LegacyGeoObservationDetail | ManualGeoObservationDetail
+```
+
+### 3. Contracts
+
+- endpoint 在 PostgreSQL `REPEATABLE READ` 中一次形成页面快照。Legacy 返回完整记录、Query Topic、Product、Published Articles 和 direct evidence；Manual 返回 selected/root/tail、Product 与服务端排列的完整 root→tail correction history。
+- chain 的顺序、完整性、原记录、selected node、当前链尾、证据归属与 tail actions 都由服务端投影。浏览器不得遍历 `supersedes_id`、按时间或 `is_current` 重建链，也不得按角色/status 推导动作。
+- Published Article 使用终态 `PublicationWork` snapshot；evidence 只从节点直接拥有的 attachment 关系批量读取 `VERIFIED FileRecord` 并返回同次签发的短期地址。页面不得请求旧 Observation GET、Product、Topic、Article、FileRecord 或 download-url 补装。
+- Legacy 才显示 answer summary、recommendation 和 citations；Manual 才显示逐篇 discovered、mentioned 和 accuracy。nullable 历史事实保持未知，不转换为 `false`、零或猜测文案。
+- 所有节点只读。CORRECT 只使用 tail `primary_task/available_actions` 指向 `/geo/observations/{chainTailId}/correct`；DELETE 只在 tail 返回 token 时复用现有确认命令，写入口仍重新校验真实状态。
+- DELETE 成功先 replace 到 canonical List，再以 `refetchType: 'none'` 失效已知链节点 Detail keys，并刷新 GEO lists 与 Product Detail；不得在活动 observer 上 `removeQueries` 后误重取已删除资源。
+- New Observation 成功清 dirty、完成精准失效后，直接使用 POST response ID 进入 Detail；不得通过 List 搜索 ID。
+
+### 4. Validation & Error Matrix
+
+| 条件 | API / 页面处理 |
+| --- | --- |
+| URL 非 UUID | route boundary 显式失败，不发送 Detail GET |
+| 目标不存在 | `404 ErrorEnvelope`，不请求 List fallback |
+| 会话无权读取 | `403 ErrorEnvelope`，不显示资源事实 |
+| chain 分支/断裂/身份不一致 | `409 REVISION_CONFLICT`，不返回部分历史 |
+| Product、Topic、recorder、成果 URL 或 evidence 不可绘制 | `409 GEO_OBSERVATION_CONTEXT_INCOMPLETE` |
+| initial 普通失败 | 显示 request ID 与 retry，只重取 Detail key |
+| cached refresh 失败 | 保留只读快照并显示显式重试 |
+| response selected/root/tail/Topic 标记矛盾 | 前端 identity assertion 阻断 payload，不降级旧 GET |
+| DELETE 失败 | 保留页面和错误，不 replay；成功后不再请求已删除 Detail |
+
+### 5. Good / Base / Bad Cases
+
+- Good：从任意历史节点 URL 一次 GET 得到同一完整 root→tail 链，页面明确原记录、当前查看和当前链尾，动作只指向 tail。
+- Base：Legacy 没有 correction history，Manual 历史 Topic/accuracy 为空时显示真实未知；两者都保持只读。
+- Bad：先读基础 Observation，再逐篇请求 Article/File；从 `supersedes_id` 或最大 `created_at` 猜 tail；按 `isAdmin` 补 DELETE；New 创建后搜索列表寻找 ID。
+
+### 6. Tests Required
+
+- Contract/backend：冻结 generated discriminator、401/403/404/409/422；PostgreSQL integration 覆盖 Legacy、Manual 任意 selected node、direct evidence、终态文章 snapshot、Admin/Engineer actions、404/409 和固定 SQL statement count。
+- Component：覆盖 generated union、identity/chain assertions、两类事实边界、tail actions、loading、404/403/409/普通错误、cached refresh、retry 与 DELETE focus/cache。
+- Production-artifact fixture：拒绝未声明 API，覆盖 List/direct/refresh/Back/Forward、New POST ID handoff、完整 history/evidence/articles、DELETE、375/768/1024/1440 和键盘焦点。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：浏览器 join 并按原始状态推导当前动作。
+const observation = await getGeoObservation(id);
+const files = await Promise.all(observation.attachment_file_ids.map(getFileRecord));
+const canCorrect = observation.is_current && observation.workflow_stage === 'INCOMPLETE';
+
+// Correct：单一 generated read model 与服务端 token 决定展示。
+const detail = useQuery(geoObservationDetailQueryOptions(id));
+const tail = detail.data?.observation_kind === 'MANUAL_ARTICLE_SEARCH'
+  ? detail.data.correction_history.at(-1)
+  : undefined;
+const canCorrect = tail?.observation.available_actions.includes('CORRECT') ?? false;
 ```
 
 ---

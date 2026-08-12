@@ -16,6 +16,7 @@ from pydantic import (
 )
 
 from app.schemas.base import ContractModel, require_unique_items
+from app.schemas.common import SignedUrl
 from app.schemas.content import ActorSummary, ContentTag
 from app.schemas.product_facts import Confidentiality
 from app.schemas.publication import FileRecordOut
@@ -213,6 +214,56 @@ class GeoObservationListPage(ContractModel):
     page: int = Field(ge=1)
     page_size: GeoObservationPageSize
     total: int = Field(ge=0)
+
+
+class GeoObservationDetailQueryTopic(ContractModel):
+    id: uuid.UUID
+    canonical_question: str = Field(min_length=1)
+
+
+class GeoObservationDetailPublication(ContractModel):
+    id: uuid.UUID
+    title: str = Field(min_length=1)
+    platform_name: str = Field(min_length=1)
+    final_url: HttpUrl
+
+
+class GeoObservationDetailEvidence(ContractModel):
+    file: FileRecordOut
+    download: SignedUrl
+
+
+class GeoObservationCorrectionHistoryItem(ContractModel):
+    observation: ManualGeoObservationOut
+    query_topic: GeoObservationDetailQueryTopic | None
+    evidence: list[GeoObservationDetailEvidence]
+    is_original: bool
+    is_selected: bool
+    is_chain_tail: bool
+
+
+class LegacyGeoObservationDetail(ContractModel):
+    observation_kind: Literal["LEGACY_MODEL_RESULT"]
+    observation: LegacyGeoObservationOut
+    query_topic: GeoObservationDetailQueryTopic
+    product: GeoObservationListProduct
+    published_articles: list[GeoObservationDetailPublication]
+    evidence: list[GeoObservationDetailEvidence]
+
+
+class ManualGeoObservationDetail(ContractModel):
+    observation_kind: Literal["MANUAL_ARTICLE_SEARCH"]
+    selected_observation_id: uuid.UUID
+    chain_root_id: uuid.UUID
+    chain_tail_id: uuid.UUID
+    product: GeoObservationListProduct
+    correction_history: list[GeoObservationCorrectionHistoryItem] = Field(min_length=1)
+
+
+GeoObservationDetail = Annotated[
+    LegacyGeoObservationDetail | ManualGeoObservationDetail,
+    Field(discriminator="observation_kind"),
+]
 
 
 class GeoMetrics(ContractModel):

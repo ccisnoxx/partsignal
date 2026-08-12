@@ -7,6 +7,7 @@ type TimelineItem = {
   title: string;
   description?: string;
   meta?: ReactNode;
+  content?: ReactNode;
 };
 
 type TimelineProps = {
@@ -30,6 +31,7 @@ function Timeline({ className, emptyMessage = '暂无记录', items }: TimelineP
             {item.meta && <div className="text-xs text-text-muted">{item.meta}</div>}
           </div>
           {item.description && <p className="mt-1 text-sm text-text-secondary">{item.description}</p>}
+          {item.content && <div className="mt-3">{item.content}</div>}
         </li>
       ))}
     </ol>

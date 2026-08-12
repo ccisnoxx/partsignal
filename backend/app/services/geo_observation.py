@@ -14,10 +14,12 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+from app.config import settings
 from app.errors import AppError, not_found
 from app.models.configuration import PlatformProfile, QueryTopic
 from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
 from app.models.geo_files import (
+    FileRecord,
     GeoObservation,
     GeoObservationAttachment,
     GeoObservationCitation,
@@ -27,6 +29,7 @@ from app.models.identity import User
 from app.models.product_facts import FactVersion, Product
 from app.models.publication import PublicationWork, PublishedArticle, PublishedContentIssue
 from app.schemas import geo_files as geo_schema
+from app.schemas.common import SignedUrl
 from app.schemas.content import ActorSummary, ContentTaskCreate
 from app.schemas.geo_files import (
     GeoAccuracy,
@@ -36,7 +39,12 @@ from app.schemas.geo_files import (
     GeoLongUnmentionedBasis,
     GeoMetrics,
     GeoObservationAction,
+    GeoObservationCorrectionHistoryItem,
     GeoObservationCreate,
+    GeoObservationDetail,
+    GeoObservationDetailEvidence,
+    GeoObservationDetailPublication,
+    GeoObservationDetailQueryTopic,
     GeoObservationKind,
     GeoObservationList,
     GeoObservationListIndicator,
@@ -51,12 +59,16 @@ from app.schemas.geo_files import (
     GeoOptimizationContentTaskCreate,
     GeoPublicationCandidate,
     GeoQuestionCoverageGapBasis,
+    LegacyGeoObservationDetail,
     LegacyGeoObservationOut,
     LegacyRecommendation,
+    ManualGeoObservationDetail,
     ManualGeoObservationOut,
 )
+from app.schemas.publication import FileRecordOut
 from app.services.content_planning import create_content_task
 from app.services.file_records import schedule_unreferenced_file, verified_files
+from app.services.storage import get_evidence_storage
 
 
 @dataclass(frozen=True, slots=True)
@@ -476,15 +488,13 @@ def geo_observations_out(
             GeoObservationPublication,
             PublicationWork,
             ContentVersion.title,
-            PlatformProfile.name,
+            PublicationWork.platform_profile_name_snapshot,
         )
         .join(
             PublicationWork,
             PublicationWork.id == GeoObservationPublication.published_article_id,
         )
         .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
-        .join(ContentTask, ContentTask.id == ContentVersion.task_id)
-        .join(PlatformProfile, PlatformProfile.id == ContentTask.platform_profile_id)
         .where(GeoObservationPublication.observation_id.in_(observation_ids))
         .order_by(GeoObservationPublication.observation_id, PublicationWork.id)
     ).all():
@@ -584,7 +594,11 @@ def geo_observations_out(
                                     item.discovered is not None and item.mentioned is not None
                                     for item in article_results
                                 )
-                                else "CORRECT_OBSERVATION"
+                                else (
+                                    "CORRECT_OBSERVATION"
+                                    if "CORRECT" in available_actions
+                                    else "VIEW_CORRECTION_HISTORY"
+                                )
                             )
                         ),
                         "query_topic_id": observation.query_topic_id,
@@ -857,6 +871,218 @@ def get_geo_observation(
     if observation is None:
         raise not_found("GEO 观测")
     return geo_observations_out(db, [observation], actor=actor)[0]
+
+
+def _manual_observation_chain(
+    db: Session,
+    target: GeoObservation,
+) -> list[GeoObservation]:
+    """用固定次数查询校验并返回人工更正链的 root→tail 顺序。"""
+    ancestor_chain = (
+        select(GeoObservation.id, GeoObservation.supersedes_id)
+        .where(GeoObservation.id == target.id)
+        .cte("geo_detail_ancestor_chain", recursive=True)
+    )
+    parent = aliased(GeoObservation)
+    ancestor_chain = ancestor_chain.union(
+        select(parent.id, parent.supersedes_id).join(
+            ancestor_chain,
+            parent.id == ancestor_chain.c.supersedes_id,
+        )
+    )
+    ancestor_rows = db.execute(select(ancestor_chain)).all()
+    root_ids = [node_id for node_id, supersedes_id in ancestor_rows if supersedes_id is None]
+    if len(root_ids) != 1 or target.id not in {node_id for node_id, _ in ancestor_rows}:
+        raise AppError("REVISION_CONFLICT", "GEO 观测更正链不完整", 409)
+
+    descendant_chain = (
+        select(GeoObservation.id)
+        .where(GeoObservation.id == root_ids[0])
+        .cte("geo_detail_descendant_chain", recursive=True)
+    )
+    child = aliased(GeoObservation)
+    descendant_chain = descendant_chain.union(
+        select(child.id).join(
+            descendant_chain,
+            child.supersedes_id == descendant_chain.c.id,
+        )
+    )
+    nodes = list(
+        db.scalars(
+            select(GeoObservation).join(
+                descendant_chain,
+                descendant_chain.c.id == GeoObservation.id,
+            )
+        )
+    )
+    nodes_by_id = {node.id: node for node in nodes}
+    if target.id not in nodes_by_id or len(nodes_by_id) != len(nodes):
+        raise AppError("REVISION_CONFLICT", "GEO 观测更正链不完整", 409)
+
+    successors: dict[uuid.UUID, list[GeoObservation]] = defaultdict(list)
+    for node in nodes:
+        if (
+            node.observation_kind != "MANUAL_ARTICLE_SEARCH"
+            or node.product_id != target.product_id
+            or node.search_platform != target.search_platform
+            or node.search_query != target.search_query
+        ):
+            raise AppError("REVISION_CONFLICT", "GEO 观测更正链不完整", 409)
+        if node.supersedes_id is not None:
+            successors[node.supersedes_id].append(node)
+
+    ordered = [nodes_by_id[root_ids[0]]]
+    ordered_ids = {ordered[0].id}
+    while next_nodes := successors.get(ordered[-1].id, []):
+        if len(next_nodes) != 1 or next_nodes[0].id in ordered_ids:
+            raise AppError("REVISION_CONFLICT", "GEO 观测更正链存在分支", 409)
+        ordered.append(next_nodes[0])
+        ordered_ids.add(next_nodes[0].id)
+    if len(ordered) != len(nodes):
+        raise AppError("REVISION_CONFLICT", "GEO 观测更正链不完整", 409)
+    return ordered
+
+
+def _geo_observation_detail_evidence(
+    db: Session,
+    observations: list[GeoObservation],
+) -> dict[uuid.UUID, list[GeoObservationDetailEvidence]]:
+    """一次读取各节点直接拥有的已验证证据，并统一签发短期地址。"""
+    evidence: dict[uuid.UUID, list[GeoObservationDetailEvidence]] = defaultdict(list)
+    expires_at = datetime.now(UTC) + timedelta(seconds=settings.download_url_ttl_seconds)
+    storage = get_evidence_storage()
+    for observation_id, file in db.execute(
+        select(GeoObservationAttachment.observation_id, FileRecord)
+        .join(FileRecord, FileRecord.id == GeoObservationAttachment.file_id)
+        .where(GeoObservationAttachment.observation_id.in_([item.id for item in observations]))
+        .order_by(GeoObservationAttachment.observation_id, FileRecord.id)
+    ).all():
+        if file.status != "VERIFIED":
+            raise AppError(
+                "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                "GEO 观测关联的证据文件不可读取",
+                409,
+            )
+        evidence[observation_id].append(
+            GeoObservationDetailEvidence(
+                file=FileRecordOut.model_validate(file),
+                download=SignedUrl(
+                    url=storage.download_url(file.object_key, expires_at),
+                    expires_at=expires_at,
+                ),
+            )
+        )
+    return evidence
+
+
+def get_geo_observation_detail(
+    db: Session,
+    observation_id: uuid.UUID,
+    *,
+    actor: User,
+) -> GeoObservationDetail:
+    """聚合返回 V2 页面可一次绘制的只读 GEO 详情。"""
+    target = db.get(GeoObservation, observation_id)
+    if target is None:
+        raise not_found("GEO 观测")
+    observations = (
+        _manual_observation_chain(db, target)
+        if target.observation_kind == "MANUAL_ARTICLE_SEARCH"
+        else [target]
+    )
+    outputs = geo_observations_out(db, observations, actor=actor)
+    outputs_by_id = {item.id: item for item in outputs}
+    product = GeoObservationListProduct(
+        id=outputs[0].product_id,
+        label=outputs[0].product_label,
+    )
+
+    topic_ids = {item.query_topic_id for item in observations if item.query_topic_id is not None}
+    topics = {
+        topic.id: GeoObservationDetailQueryTopic(
+            id=topic.id,
+            canonical_question=topic.canonical_question,
+        )
+        for topic in db.scalars(select(QueryTopic).where(QueryTopic.id.in_(topic_ids)))
+    }
+    if len(topics) != len(topic_ids):
+        raise AppError(
+            "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+            "GEO 观测关联的问题主题不存在",
+            409,
+        )
+    evidence = _geo_observation_detail_evidence(db, observations)
+
+    if target.observation_kind == "MANUAL_ARTICLE_SEARCH":
+        history: list[GeoObservationCorrectionHistoryItem] = []
+        for index, node in enumerate(observations):
+            output = outputs_by_id[node.id]
+            if not isinstance(output, ManualGeoObservationOut):
+                raise AppError("REVISION_CONFLICT", "GEO 观测更正链类型不一致", 409)
+            if not output.article_results:
+                raise AppError(
+                    "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                    "人工 GEO 观测缺少关联成果事实",
+                    409,
+                )
+            history.append(
+                GeoObservationCorrectionHistoryItem(
+                    observation=output,
+                    query_topic=(
+                        topics[node.query_topic_id] if node.query_topic_id is not None else None
+                    ),
+                    evidence=evidence[node.id],
+                    is_original=index == 0,
+                    is_selected=node.id == observation_id,
+                    is_chain_tail=index == len(observations) - 1,
+                )
+            )
+        return ManualGeoObservationDetail(
+            observation_kind="MANUAL_ARTICLE_SEARCH",
+            selected_observation_id=observation_id,
+            chain_root_id=observations[0].id,
+            chain_tail_id=observations[-1].id,
+            product=product,
+            correction_history=history,
+        )
+
+    output = outputs_by_id[target.id]
+    if not isinstance(output, LegacyGeoObservationOut) or target.query_topic_id is None:
+        raise AppError(
+            "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+            "旧模型 GEO 观测上下文不完整",
+            409,
+        )
+    publication_ids = output.published_article_ids
+    publications = [
+        GeoObservationDetailPublication(
+            id=publication.id,
+            title=publication.actual_title or content_title,
+            platform_name=publication.platform_profile_name_snapshot,
+            final_url=publication.final_url,
+        )
+        for publication, content_title in db.execute(
+            select(PublicationWork, ContentVersion.title)
+            .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
+            .where(PublicationWork.id.in_(publication_ids))
+            .order_by(PublicationWork.id)
+        ).all()
+        if publication.final_url is not None
+    ]
+    if len(publications) != len(publication_ids):
+        raise AppError(
+            "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+            "旧模型 GEO 观测关联的发布成果不存在",
+            409,
+        )
+    return LegacyGeoObservationDetail(
+        observation_kind="LEGACY_MODEL_RESULT",
+        observation=output,
+        query_topic=topics[target.query_topic_id],
+        product=product,
+        published_articles=publications,
+        evidence=evidence[target.id],
+    )
 
 
 def get_geo_metrics(db: Session, *, filters: GeoObservationFilters, actor: User) -> GeoMetrics:

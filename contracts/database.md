@@ -144,6 +144,8 @@ The create service locks the product and all current eligible publication rows, 
 
 Correction is an append-only service operation over the existing schema: it creates a new `MANUAL_ARTICLE_SEARCH` row whose `supersedes_id` points to the current manual row. The service rejects already-superseded targets and changes to the product, search platform, or search query. No new table, column, index, migration, or duplicated summary field is introduced for the records page.
 
+Frontend V2 Observation Detail 同样不新增持久化字段。`GET /geo-observations/{observation_id}/detail` 在单个 `REPEATABLE READ` 请求中，由 requested node 通过 recursive CTE 找到唯一 root，再读取全部后继并由服务端校验、排列为 root→tail；响应明确给出 selected/root/tail 与原记录、当前查看、链尾标记，浏览器不得遍历 `supersedes_id` 或按时间猜测当前节点。Product、Query Topic、recorder、逐篇 Published Article 事实、Legacy citation 和附件均按完整链 ID 集合批量读取；Article 展示使用 `PublicationWork` 终态平台 snapshot、实际标题与 final URL，证据只从节点直接拥有的 attachment 关系读取 `FileRecord` 并统一签发短期 URL。既有 `attachment_file_ids` 继续表示祖先继承后的可见 ID，但 Detail 的证据归属只以节点内直接 evidence 为准。缺少链、Product、Topic、recorder、Article URL 或可读文件时返回稳定 409，不做跨接口补装或默认值推断。
+
 Manual GEO history is forward-only. Once a `MANUAL_ARTICLE_SEARCH` row exists, revision `0018` refuses downgrade because removing the discriminator, search fields, or article results would destroy immutable business meaning.
 
 ### 0019 Product-Driven Content Tasks

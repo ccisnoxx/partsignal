@@ -20,7 +20,7 @@ import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
-import type { ColumnRole, OverflowRowAction } from '@/design-system/data-table/types';
+import type { ColumnRole } from '@/design-system/data-table/types';
 import { Button, buttonVariants } from '@/design-system/primitives/button';
 import { Input } from '@/design-system/primitives/input';
 import {
@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/design-system/primitives/select';
 import { deleteGeoObservation, geoKeys, geoObservationListQueryOptions } from './geo.api';
+import { resolveGeoObservationOverflowActions } from './geo-observation-actions';
 import {
   accuracyLabels,
   accuracyValues,
@@ -304,7 +305,12 @@ function useGeoObservationColumns({
         <RowActions
           objectLabel={row.original.query_text}
           onCommand={(command) => onCommand(command, row.original)}
-          overflow={geoObservationActions(row.original, deletingId === row.original.id)}
+          overflow={resolveGeoObservationOverflowActions({
+            actions: row.original.available_actions,
+            deleting: deletingId === row.original.id,
+            label: row.original.query_text,
+            observationId: row.original.id,
+          })}
         />
       ),
     }),
@@ -333,40 +339,6 @@ function GeoObservationOutcomes({ outcomes }: { outcomes: GeoObservationListItem
       <p>{formatGeoObservationIndicator('准确', outcomes.accuracy)}</p>
     </div>
   );
-}
-
-function geoObservationActions(
-  observation: GeoObservationListItem,
-  deleting: boolean,
-): OverflowRowAction[] {
-  return observation.available_actions.map((action): OverflowRowAction => {
-    if (action === 'CORRECT') {
-      return {
-        key: 'correct',
-        label: '更正',
-        href: `/geo/observations/${observation.id}/correct`,
-        intent: 'secondary',
-        enabled: true,
-      };
-    }
-    if (action === 'DELETE') {
-      return {
-        key: 'delete',
-        label: deleting ? '删除中…' : '删除',
-        command: 'delete-observation',
-        intent: 'danger',
-        enabled: !deleting,
-        disabledReason: deleting ? '正在删除' : undefined,
-        confirmation: {
-          title: '删除 GEO 观测',
-          description: `将永久删除“${observation.query_text}”的完整更正链。此操作无法撤销。`,
-          confirmLabel: '确认删除',
-          intent: 'destructive',
-        },
-      };
-    }
-    return assertNever(action);
-  });
 }
 
 const clearFilters = {
@@ -468,10 +440,6 @@ function GeoObservationFilters({
       searchLabel="搜索 GEO 观测"
     />
   );
-}
-
-function assertNever(value: never): never {
-  throw new Error(`GEO Observations 收到未知动作：${String(value)}`);
 }
 
 function errorMessage(error: unknown) {

@@ -48,7 +48,7 @@ type QueryTopicList = components['schemas']['QueryTopicList'];
 type NewGeoObservationPageProps = {
   csrfToken: string | null;
   onCancel: () => void;
-  onCreated: () => void;
+  onCreated: (observationId: string) => void;
 };
 
 const fieldIds: Record<Exclude<NewGeoObservationField, 'article_results' | 'attachment_file_ids'>, string> = {
@@ -72,7 +72,7 @@ function NewGeoObservationPage({
   const [requestId, setRequestId] = useState<string>();
   const [candidateStale, setCandidateStale] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<FileRecord[]>([]);
-  const [created, setCreated] = useState(false);
+  const [createdId, setCreatedId] = useState<string>();
   const submitting = useRef(false);
   const formElement = useRef<HTMLFormElement>(null);
   const form = useForm<NewGeoObservationFormValues>({
@@ -106,21 +106,21 @@ function NewGeoObservationPage({
   }, [candidates.data, form, isDirty]);
 
   useEffect(() => {
-    if (created && !isDirty) onCreated();
-  }, [created, isDirty, onCreated]);
+    if (createdId && !isDirty) onCreated(createdId);
+  }, [createdId, isDirty, onCreated]);
 
   async function submit(values: NewGeoObservationFormValues) {
     form.clearErrors();
     setRequestId(undefined);
     create.reset();
     try {
-      await create.mutateAsync(values);
+      const observation = await create.mutateAsync(values);
       form.reset(values);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: geoKeys.lists() }),
         queryClient.invalidateQueries({ queryKey: productsKeys.detail(values.product_id) }),
       ]);
-      setCreated(true);
+      setCreatedId(observation.id);
     } catch (error) {
       const mapped = mapGeoObservationCreateError(error);
       for (const [field, message] of Object.entries(mapped.fields)) {

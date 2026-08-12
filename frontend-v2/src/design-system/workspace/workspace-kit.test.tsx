@@ -168,11 +168,18 @@ describe('Workspace Kit', () => {
   it('DetailSection 与 Timeline 暴露结构语义和空态', () => {
     const { rerender } = render(
       <DetailSection title="版本详情" description="不可变快照">
-        <Timeline items={[{ id: '1', title: '已提交审核', description: '由内容工程师提交', meta: '10:30' }]} />
+        <Timeline items={[{
+          id: '1',
+          title: '已提交审核',
+          description: '由内容工程师提交',
+          meta: '10:30',
+          content: <p>只读审核事实</p>,
+        }]} />
       </DetailSection>,
     );
     expect(screen.getByRole('heading', { name: '版本详情' })).toBeInTheDocument();
     expect(screen.getByRole('list')).toHaveTextContent('已提交审核');
+    expect(screen.getByText('只读审核事实')).toBeInTheDocument();
 
     rerender(<Timeline items={[]} />);
     expect(screen.getByText('暂无记录')).toBeInTheDocument();

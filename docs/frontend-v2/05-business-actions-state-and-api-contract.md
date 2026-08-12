@@ -220,7 +220,13 @@ Workspace 首屏不得并发 issue detail、Article detail 和 ContentTask detai
 
 query 显式固定为 `search/product_id/geo_platform/accuracy/date_from/date_to/sort/page/page_size`。`search` 由服务端匹配 canonical question、raw prompt/search query、Product brand/part number；其他筛选、`OBSERVED_DESC|OBSERVED_ASC` 排序、count 和 `10|20|50` 分页也全部在服务端完成。URL 的 `q/productId/geoPlatform/accuracy/from/to/sort/page/pageSize` 只按这一组名称映射，不提供 alias；浏览器不得对分页结果本地过滤、排序、join Product/Query Topic 或逐行补请求。
 
-manual 的 discovered/mentioned 由数据库约束保证完整，accuracy 的 null/`UNJUDGEABLE` 通过 `positive_count/assessed_count/total_count` 明确表达未评估；legacy `discovered=null` 表示未采集。投影缺少 Product、recorder、query、platform、manual result 或必填事实时返回结构化 409，不以 0 或空文案补齐。`CORRECT` 与 `DELETE` 只按服务端 `available_actions` 显示；详情和更正暂时只提供 `/geo/observations/{id}` 与 `/geo/observations/{id}/correct` canonical link，不创建占位页面。
+manual 的 discovered/mentioned 由数据库约束保证完整，accuracy 的 null/`UNJUDGEABLE` 通过 `positive_count/assessed_count/total_count` 明确表达未评估；legacy `discovered=null` 表示未采集。投影缺少 Product、recorder、query、platform、manual result 或必填事实时返回结构化 409，不以 0 或空文案补齐。`CORRECT` 与 `DELETE` 只按服务端 `available_actions` 显示；`/geo/observations/{id}` 已是 canonical readonly Detail，`/geo/observations/{id}/correct` 仍只作为后续 Correction Workspace URL。
+
+### GeoObservationDetail
+
+`GET /api/v1/geo-observations/{observation_id}/detail` 是 V2 Detail 唯一 read model；既有单条 GET、collection 与 POST 继续返回基础 `GeoObservation` 供 V1 和 command canonical response 使用。新响应以 `observation_kind` generated discriminator 分为 Legacy 与 Manual：Legacy 返回完整旧记录、Query Topic、Product、展开的 Published Articles 和 evidence；Manual 返回 selected/root/tail、Product 与服务端排序的完整 root→tail correction history，每个节点包含完整 `ManualGeoObservation`、nullable Query Topic 和该节点直接新增的 evidence。
+
+Detail 在单个 `REPEATABLE READ` 请求中批量读取链、recorder、文章事实/终态 snapshot、citation 和 FileRecord，并统一签发 evidence 短期 URL。浏览器不得逐文件、逐成果或跨旧 GET join，也不得根据 `created_at/is_current/supersedes_id` 重排历史或推导资格。Legacy 才显示 answer summary、recommendation 和 citation；Manual 才显示逐篇 discovered、mentioned 和 accuracy，历史 null 保持“未记录/未判断”。所有节点均 readonly；CORRECT 指向服务端给出的链尾 canonical URL，DELETE 只在链尾 `available_actions` 包含 token 时复用既有确认命令。
 
 ### New GeoObservation
 
@@ -228,7 +234,7 @@ manual 的 discovered/mentioned 由数据库约束保证完整，accuracy 的 nu
 
 创建只提交 `GeoObservationCreate`：逐篇 `discovered` 与 `mentioned` 必须由用户显式选择，`accuracy` 可为空，附件必须先完成既有 upload-intent → object store → complete 流程；新建请求不提交 `supersedes_id`，也不承载 legacy `recommendation/citation`。当前 POST 合同没有 `Idempotency-Key`，前端以同步提交锁和 pending 禁用保证单次请求；409 `GEO_PUBLICATIONS_CHANGED` 只允许显式重读候选并保留仍有效输入，不自动 replay。
 
-创建成功后失效 GEO List 与受影响 Product Detail cache，并导航 `/geo/observations?page=1&pageSize=20`。Observation Detail 尚未实现时不得根据响应 ID 导航到不存在的页面或创建成功占位页。新建页只创建根观测，Correction 继续由后端 append-only 命令及锁内资格校验负责，原 Observation 不可在本页修改。
+创建成功后失效 GEO List 与受影响 Product Detail cache，并直接使用 POST canonical response 的 `id` 导航 `/geo/observations/{id}`；不得通过 List 搜索发现新 ID。新建页只创建根观测，Correction 继续由后端 append-only 命令及锁内资格校验负责，原 Observation 不可在本页修改。
 
 ## 14. Workspace Read Model
 

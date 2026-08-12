@@ -6,6 +6,7 @@ import {
   createGeoObservation,
   deleteGeoObservation,
   GeoRequestError,
+  geoObservationDetailQueryOptions,
   geoObservationListQueryOptions,
   geoPublicationCandidatesQueryOptions,
   queryTopicsQueryOptions,
@@ -15,6 +16,65 @@ import { geoObservationSearchSchema } from './geo-observation-list.model';
 afterEach(() => vi.restoreAllMocks());
 
 describe('GEO API', () => {
+  it('详情只请求 generated 聚合 endpoint 并校验请求身份', async () => {
+    const observationId = '10000000-0000-4000-8000-000000000001';
+    const data = {
+      observation_kind: 'MANUAL_ARTICLE_SEARCH',
+      selected_observation_id: observationId,
+      chain_root_id: observationId,
+      chain_tail_id: observationId,
+      product: { id: '20000000-0000-4000-8000-000000000001', label: 'PartSignal PS-1' },
+      correction_history: [{
+        observation: {
+          observation_kind: 'MANUAL_ARTICLE_SEARCH',
+          id: observationId,
+          query_topic_id: '30000000-0000-4000-8000-000000000001',
+          product_id: '20000000-0000-4000-8000-000000000001',
+          product_label: 'PartSignal PS-1',
+          search_platform: 'DeepSeek',
+          search_query: '真实搜索词',
+          tested_at: '2026-08-12T08:00:00Z',
+          article_results: [],
+          attachment_file_ids: [],
+          notes: '',
+          supersedes_id: null,
+          tested_by: '40000000-0000-4000-8000-000000000001',
+          recorder: {
+            id: '40000000-0000-4000-8000-000000000001',
+            username: 'engineer',
+            display_name: '内容工程师',
+          },
+          is_current: true,
+          workflow_stage: 'READY',
+          primary_task: 'VIEW_ANALYSIS',
+          available_actions: ['CORRECT'],
+          created_at: '2026-08-12T08:01:00Z',
+        },
+        query_topic: {
+          id: '30000000-0000-4000-8000-000000000001',
+          canonical_question: '标准问题',
+        },
+        evidence: [],
+        is_original: true,
+        is_selected: true,
+        is_chain_tail: true,
+      }],
+    } as const;
+    const get = vi.spyOn(api, 'GET').mockResolvedValue({
+      data,
+      response: Response.json(data),
+    } as never);
+    const queryClient = new QueryClient();
+
+    await expect(queryClient.fetchQuery(
+      geoObservationDetailQueryOptions(observationId),
+    )).resolves.toEqual(data);
+    expect(get).toHaveBeenCalledWith(
+      '/api/v1/geo-observations/{observation_id}/detail',
+      { params: { path: { observation_id: observationId } } },
+    );
+  });
+
   it('列表只请求 generated compact endpoint', async () => {
     const data = { items: [], page: 1, page_size: 20, total: 0 } as const;
     const get = vi.spyOn(api, 'GET').mockResolvedValue({

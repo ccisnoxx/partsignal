@@ -1868,6 +1868,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/geo-observations/{observation_id}/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getGeoObservationDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/geo-metrics": {
         parameters: {
             query?: never;
@@ -4770,6 +4786,59 @@ export interface components {
             created_at: string;
         };
         GeoObservation: components["schemas"]["LegacyGeoObservation"] | components["schemas"]["ManualGeoObservation"];
+        GeoObservationDetailQueryTopic: {
+            /** Format: uuid */
+            id: string;
+            canonical_question: string;
+        };
+        GeoObservationDetailPublication: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            platform_name: string;
+            /** Format: uri */
+            final_url: string;
+        };
+        GeoObservationDetailEvidence: {
+            file: components["schemas"]["FileRecord"];
+            download: components["schemas"]["SignedUrl"];
+        };
+        GeoObservationCorrectionHistoryItem: {
+            observation: components["schemas"]["ManualGeoObservation"];
+            query_topic: components["schemas"]["GeoObservationDetailQueryTopic"] | null;
+            evidence: components["schemas"]["GeoObservationDetailEvidence"][];
+            is_original: boolean;
+            is_selected: boolean;
+            is_chain_tail: boolean;
+        };
+        LegacyGeoObservationDetail: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            observation_kind: "LEGACY_MODEL_RESULT";
+            observation: components["schemas"]["LegacyGeoObservation"];
+            query_topic: components["schemas"]["GeoObservationDetailQueryTopic"];
+            product: components["schemas"]["GeoObservationListProduct"];
+            published_articles: components["schemas"]["GeoObservationDetailPublication"][];
+            evidence: components["schemas"]["GeoObservationDetailEvidence"][];
+        };
+        ManualGeoObservationDetail: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            observation_kind: "MANUAL_ARTICLE_SEARCH";
+            /** Format: uuid */
+            selected_observation_id: string;
+            /** Format: uuid */
+            chain_root_id: string;
+            /** Format: uuid */
+            chain_tail_id: string;
+            product: components["schemas"]["GeoObservationListProduct"];
+            correction_history: components["schemas"]["GeoObservationCorrectionHistoryItem"][];
+        };
+        GeoObservationDetail: components["schemas"]["LegacyGeoObservationDetail"] | components["schemas"]["ManualGeoObservationDetail"];
         GeoObservationList: {
             items: components["schemas"]["GeoObservation"][];
             page: number;
@@ -9125,7 +9194,11 @@ export interface operations {
                     "application/json": components["schemas"]["GeoObservation"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     deleteGeoObservation: {
@@ -9147,6 +9220,33 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getGeoObservationDetail: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                observation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Frontend V2 GEO 观测只读详情；一次返回成果、证据与完整更正链 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoObservationDetail"];
+                };
             };
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];

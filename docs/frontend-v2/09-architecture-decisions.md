@@ -172,7 +172,15 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Why**：完整 DTO 携带 notes、citations、文章与附件详情，仍缺少列表直接需要的 Product label、统一 platform、compact outcomes 和关联/证据计数。扩展旧 DTO 会污染 V1 与详情合同，浏览器 join 或逐行补请求又会制造 waterfall、N+1 与分页后本地语义错误；additive 窄投影把列表事实放回唯一服务端 owner。
 
-**UI ownership**：页面复用既有 TableShell、FilterBar、RowActions、Pagination 和 TanStack Router/Query/Table pattern，不新增通用 DataTable 或 GEO status enum。`available_actions` 是更正/删除的唯一呈现依据；详情与更正尚未实现时只输出 canonical native anchors，不注册 placeholder route，也不复制 Detail 能力。当前数据库未变化，manual discovered/mentioned 的非空约束继续权威，accuracy 未评估由 compact counts 表达。
+**UI ownership**：页面复用既有 TableShell、FilterBar、RowActions、Pagination 和 TanStack Router/Query/Table pattern，不新增通用 DataTable 或 GEO status enum。`available_actions` 是更正/删除的唯一呈现依据；List 输出 Detail 与 Correction canonical anchors，Detail 已由 ADR-031 落地，Correction 仍不注册 placeholder route。当前数据库未变化，manual discovered/mentioned 的非空约束继续权威，accuracy 未评估由 compact counts 表达。
+
+## ADR-031：GEO Observation Detail 使用窄 generated union read model
+
+**Decision**：`/geo/observations/$observationId` 只消费 additive `GET /api/v1/geo-observations/{observation_id}/detail`。既有单条 GET、collection 与 POST 基础 `GeoObservation` 保持不变；新 read model 以 `observation_kind` 区分 Legacy 单记录与 Manual 完整 correction chain，一次返回 Query Topic、Product、Published Articles、direct evidence/签名地址和服务端动作投影。
+
+**Snapshot boundary**：服务端在 `REPEATABLE READ` 中通过 recursive CTE 确定唯一 root，并校验、排列 root→tail；selected/root/tail 和 original/selected/tail 标记均由响应明确表达。文章使用 PublicationWork 终态 snapshot，证据只从节点直接 attachment 关系读取；浏览器不得跨旧 GET、Article 或 File endpoint join，也不得按 `created_at/is_current/supersedes_id` 重排或推导动作。
+
+**UI ownership**：所有 Observation 与 Correction 始终 readonly。Detail 与 List 仅在 GEO domain 内共享最小 action resolver；CORRECT 永远指向服务端链尾 canonical Correction URL，DELETE 只消费 tail token 并复用现有命令和 Dialog。New Observation 成功后直接消费 POST response ID 进入 Detail；不创建通用 Detail/History framework，现有 Timeline 只增加承载只读节点内容的 optional slot。
 
 ## 后续建议 ADR
 

@@ -19,6 +19,7 @@ type CreateRequest = {
 type NewGeoApiController = {
   candidateRequests: URL[];
   createRequests: CreateRequest[];
+  detailRequests: URL[];
   uploadRequests: string[];
   releaseCandidates: () => void;
   releaseCreate: () => void;
@@ -84,6 +85,8 @@ const fileRecord = {
   created_at: '2026-08-12T00:00:00Z',
 } satisfies components['schemas']['FileRecord'];
 
+const createdObservationId = '70000000-0000-4000-8000-000000000001';
+
 function errorEnvelope(code: string, message: string, requestId: string) {
   return {
     error: { code, message, details: {}, request_id: requestId },
@@ -98,6 +101,7 @@ const test = base.extend<NewGeoFixtures>({
     let releaseCreate: (() => void) | undefined;
     const candidateRequests: URL[] = [];
     const createRequests: CreateRequest[] = [];
+    const detailRequests: URL[] = [];
     const uploadRequests: string[] = [];
     const unexpectedRequests: string[] = [];
 
@@ -154,7 +158,7 @@ const test = base.extend<NewGeoFixtures>({
           status: 201,
           json: {
             observation_kind: 'MANUAL_ARTICLE_SEARCH',
-            id: '70000000-0000-4000-8000-000000000001',
+            id: createdObservationId,
             query_topic_id: body.query_topic_id,
             product_id: body.product_id,
             product_label: `${product.brand} ${product.part_number}`,
@@ -178,6 +182,85 @@ const test = base.extend<NewGeoFixtures>({
             available_actions: ['CORRECT', 'DELETE'],
             created_at: '2026-08-12T09:00:00Z',
           } satisfies components['schemas']['ManualGeoObservation'],
+        });
+        return;
+      }
+      if (
+        method === 'GET'
+        && url.pathname === `/api/v1/geo-observations/${createdObservationId}/detail`
+      ) {
+        detailRequests.push(url);
+        const body = createRequests.at(-1)?.body;
+        if (!body) {
+          await route.fulfill({
+            status: 409,
+            json: errorEnvelope(
+              'NEW_GEO_DETAIL_BEFORE_CREATE',
+              '尚未创建 canonical observation',
+              'req-new-geo-detail',
+            ),
+          });
+          return;
+        }
+        const observation = {
+          observation_kind: 'MANUAL_ARTICLE_SEARCH',
+          id: createdObservationId,
+          query_topic_id: body.query_topic_id,
+          product_id: body.product_id,
+          product_label: `${product.brand} ${product.part_number}`,
+          search_platform: body.search_platform,
+          search_query: body.search_query,
+          tested_at: body.tested_at,
+          article_results: body.article_results.map((item) => {
+            const candidate = candidates.find(
+              (value) => value.published_article_id === item.published_article_id,
+            );
+            if (!candidate) throw new Error(`创建响应包含未知成果：${item.published_article_id}`);
+            return {
+              ...item,
+              title: candidate.title,
+              platform_name: candidate.platform_name,
+              final_url: candidate.final_url,
+            };
+          }),
+          attachment_file_ids: body.attachment_file_ids ?? [],
+          notes: body.notes,
+          supersedes_id: null,
+          tested_by: geoIds.admin,
+          recorder: {
+            id: geoIds.admin,
+            username: 'geo-admin',
+            display_name: 'GEO 系统管理员',
+          },
+          is_current: true,
+          workflow_stage: 'READY',
+          primary_task: 'VIEW_ANALYSIS',
+          available_actions: ['CORRECT', 'DELETE'],
+          created_at: '2026-08-12T09:00:00Z',
+        } satisfies components['schemas']['ManualGeoObservation'];
+        await route.fulfill({
+          status: 200,
+          json: {
+            observation_kind: 'MANUAL_ARTICLE_SEARCH',
+            selected_observation_id: createdObservationId,
+            chain_root_id: createdObservationId,
+            chain_tail_id: createdObservationId,
+            product: { id: product.id, label: `${product.brand} ${product.part_number}` },
+            correction_history: [{
+              observation,
+              query_topic: { id: topic.id, canonical_question: topic.canonical_question },
+              evidence: body.attachment_file_ids?.length ? [{
+                file: { ...fileRecord, status: 'VERIFIED' },
+                download: {
+                  url: 'https://files.example.test/geo-proof.png',
+                  expires_at: '2026-08-12T10:00:00Z',
+                },
+              }] : [],
+              is_original: true,
+              is_selected: true,
+              is_chain_tail: true,
+            }],
+          } satisfies components['schemas']['ManualGeoObservationDetail'],
         });
         return;
       }
@@ -215,6 +298,7 @@ const test = base.extend<NewGeoFixtures>({
     await use({
       candidateRequests,
       createRequests,
+      detailRequests,
       uploadRequests,
       releaseCandidates: () => releaseCandidates?.(),
       releaseCreate: () => releaseCreate?.(),
@@ -226,4 +310,12 @@ const test = base.extend<NewGeoFixtures>({
   }, { auto: true }],
 });
 
-export { candidates, expect, fileRecord, product, test, topic };
+export {
+  candidates,
+  createdObservationId,
+  expect,
+  fileRecord,
+  product,
+  test,
+  topic,
+};

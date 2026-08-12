@@ -2970,7 +2970,11 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoObservation'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [observation]
       operationId: deleteGeoObservation
@@ -2979,6 +2983,23 @@ paths:
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 人工观测完整更正链已删除}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/geo-observations/{observation_id}/detail:
+    get:
+      tags: [observation]
+      operationId: getGeoObservationDetail
+      parameters:
+        - {name: observation_id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Frontend V2 GEO 观测只读详情；一次返回成果、证据与完整更正链
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/GeoObservationDetail'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
@@ -7191,6 +7212,83 @@ components:
         mapping:
           LEGACY_MODEL_RESULT: '#/components/schemas/LegacyGeoObservation'
           MANUAL_ARTICLE_SEARCH: '#/components/schemas/ManualGeoObservation'
+    GeoObservationDetailQueryTopic:
+      type: object
+      additionalProperties: false
+      required: [id, canonical_question]
+      properties:
+        id: {type: string, format: uuid}
+        canonical_question: {type: string, minLength: 1}
+    GeoObservationDetailPublication:
+      type: object
+      additionalProperties: false
+      required: [id, title, platform_name, final_url]
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string, minLength: 1}
+        platform_name: {type: string, minLength: 1}
+        final_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
+    GeoObservationDetailEvidence:
+      type: object
+      additionalProperties: false
+      required: [file, download]
+      properties:
+        file: {$ref: '#/components/schemas/FileRecord'}
+        download: {$ref: '#/components/schemas/SignedUrl'}
+    GeoObservationCorrectionHistoryItem:
+      type: object
+      additionalProperties: false
+      required: [observation, query_topic, evidence, is_original, is_selected, is_chain_tail]
+      properties:
+        observation: {$ref: '#/components/schemas/ManualGeoObservation'}
+        query_topic:
+          anyOf:
+            - {$ref: '#/components/schemas/GeoObservationDetailQueryTopic'}
+            - {type: 'null'}
+        evidence:
+          type: array
+          items: {$ref: '#/components/schemas/GeoObservationDetailEvidence'}
+        is_original: {type: boolean}
+        is_selected: {type: boolean}
+        is_chain_tail: {type: boolean}
+    LegacyGeoObservationDetail:
+      type: object
+      additionalProperties: false
+      required: [observation_kind, observation, query_topic, product, published_articles, evidence]
+      properties:
+        observation_kind: {type: string, const: LEGACY_MODEL_RESULT}
+        observation: {$ref: '#/components/schemas/LegacyGeoObservation'}
+        query_topic: {$ref: '#/components/schemas/GeoObservationDetailQueryTopic'}
+        product: {$ref: '#/components/schemas/GeoObservationListProduct'}
+        published_articles:
+          type: array
+          items: {$ref: '#/components/schemas/GeoObservationDetailPublication'}
+        evidence:
+          type: array
+          items: {$ref: '#/components/schemas/GeoObservationDetailEvidence'}
+    ManualGeoObservationDetail:
+      type: object
+      additionalProperties: false
+      required: [observation_kind, selected_observation_id, chain_root_id, chain_tail_id, product, correction_history]
+      properties:
+        observation_kind: {type: string, const: MANUAL_ARTICLE_SEARCH}
+        selected_observation_id: {type: string, format: uuid}
+        chain_root_id: {type: string, format: uuid}
+        chain_tail_id: {type: string, format: uuid}
+        product: {$ref: '#/components/schemas/GeoObservationListProduct'}
+        correction_history:
+          type: array
+          minItems: 1
+          items: {$ref: '#/components/schemas/GeoObservationCorrectionHistoryItem'}
+    GeoObservationDetail:
+      oneOf:
+        - {$ref: '#/components/schemas/LegacyGeoObservationDetail'}
+        - {$ref: '#/components/schemas/ManualGeoObservationDetail'}
+      discriminator:
+        propertyName: observation_kind
+        mapping:
+          LEGACY_MODEL_RESULT: '#/components/schemas/LegacyGeoObservationDetail'
+          MANUAL_ARTICLE_SEARCH: '#/components/schemas/ManualGeoObservationDetail'
     GeoObservationList:
       type: object
       additionalProperties: false

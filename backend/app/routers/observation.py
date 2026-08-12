@@ -28,6 +28,7 @@ from app.schemas.geo_files import (
     GeoInsights,
     GeoMetrics,
     GeoObservationCreate,
+    GeoObservationDetail,
     GeoObservationKind,
     GeoObservationList,
     GeoObservationListPage,
@@ -62,6 +63,9 @@ from app.services.geo_observation import (
     get_geo_observation as get_geo_observation_service,
 )
 from app.services.geo_observation import (
+    get_geo_observation_detail as get_geo_observation_detail_service,
+)
+from app.services.geo_observation import (
     list_geo_observation_items as list_geo_observation_items_service,
 )
 from app.services.geo_observation import (
@@ -71,6 +75,11 @@ from app.services.projections import content_task_out
 from app.services.publication_queries import NONTERMINAL_WORK_STATUSES, open_issue_count
 
 router = APIRouter(prefix="/api/v1", tags=["observation"])
+
+
+def _geo_observation_read_snapshot(db: DbSession) -> None:
+    """为跨更正链、成果与证据的详情读取建立一致快照。"""
+    db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
 
 
 def geo_observation_filters(
@@ -234,6 +243,21 @@ def get_geo_observation(
 ) -> GeoObservationOut:
     """返回一条观测详情，纠正历史也可以直接读取。"""
     return get_geo_observation_service(db, observation_id, actor=user)
+
+
+@router.get(
+    "/geo-observations/{observation_id}/detail",
+    response_model=GeoObservationDetail,
+    operation_id="getGeoObservationDetail",
+    dependencies=[Depends(_geo_observation_read_snapshot)],
+)
+def get_geo_observation_detail(
+    observation_id: uuid.UUID,
+    db: DbSession,
+    user: CurrentUser,
+) -> GeoObservationDetail:
+    """返回 Frontend V2 单请求可绘制的只读观测详情。"""
+    return get_geo_observation_detail_service(db, observation_id, actor=user)
 
 
 @router.delete(

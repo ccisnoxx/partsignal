@@ -7,6 +7,7 @@ import {
   type GeoObservationListApiParams,
   type GeoObservationSearch,
 } from './geo-observation-list.model';
+import { assertGeoObservationDetail } from './geo-observation-detail.model';
 
 type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
@@ -29,11 +30,32 @@ const geoKeys = {
   list: (params: GeoObservationListApiParams) => (
     ['geo', 'observations', 'list', params] as const
   ),
+  details: () => ['geo', 'observations', 'detail'] as const,
+  detail: (observationId: string) => (
+    ['geo', 'observations', 'detail', observationId] as const
+  ),
   topics: () => ['geo', 'query-topics'] as const,
   publicationCandidates: (productId: string) => (
     ['geo', 'observation-publications', productId] as const
   ),
 };
+
+function geoObservationDetailQueryOptions(observationId: string) {
+  return queryOptions({
+    queryKey: geoKeys.detail(observationId),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/geo-observations/{observation_id}/detail', {
+        params: { path: { observation_id: observationId } },
+      });
+      if (!result.data) throw geoRequestError('读取 GEO 观测详情', result);
+      return assertGeoObservationDetail(result.data, observationId);
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
 
 function geoObservationListQueryOptions(search: GeoObservationSearch) {
   const params = geoObservationSearchToApiParams(search);
@@ -186,6 +208,7 @@ export {
   deleteGeoObservation,
   GeoRequestError,
   geoKeys,
+  geoObservationDetailQueryOptions,
   geoObservationListQueryOptions,
   geoPublicationCandidatesQueryOptions,
   queryTopicsQueryOptions,

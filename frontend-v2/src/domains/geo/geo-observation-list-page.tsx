@@ -21,7 +21,7 @@ import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole, OverflowRowAction } from '@/design-system/data-table/types';
-import { Button } from '@/design-system/primitives/button';
+import { Button, buttonVariants } from '@/design-system/primitives/button';
 import { Input } from '@/design-system/primitives/input';
 import {
   Select,
@@ -130,11 +130,14 @@ function GeoObservationListPage({
 
   return (
     <section aria-labelledby="geo-observation-list-title" className="min-w-0 space-y-4">
-      <header className="space-y-1">
-        <h1 className="type-page-title" id="geo-observation-list-title">GEO 观测记录</h1>
-        <p className="max-w-3xl text-text-secondary">
-          查看服务端汇总的发现、提及和准确性结果，并进入每条观测的规范地址。
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="type-page-title" id="geo-observation-list-title">GEO 观测记录</h1>
+          <p className="max-w-3xl text-text-secondary">
+            查看服务端汇总的发现、提及和准确性结果，并进入每条观测的规范地址。
+          </p>
+        </div>
+        <a className={buttonVariants()} href="/geo/observations/new">新建 Observation</a>
       </header>
 
       {remove.error && (

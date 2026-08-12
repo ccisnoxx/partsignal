@@ -222,6 +222,14 @@ query 显式固定为 `search/product_id/geo_platform/accuracy/date_from/date_to
 
 manual 的 discovered/mentioned 由数据库约束保证完整，accuracy 的 null/`UNJUDGEABLE` 通过 `positive_count/assessed_count/total_count` 明确表达未评估；legacy `discovered=null` 表示未采集。投影缺少 Product、recorder、query、platform、manual result 或必填事实时返回结构化 409，不以 0 或空文案补齐。`CORRECT` 与 `DELETE` 只按服务端 `available_actions` 显示；详情和更正暂时只提供 `/geo/observations/{id}` 与 `/geo/observations/{id}/correct` canonical link，不创建占位页面。
 
+### New GeoObservation
+
+`/geo/observations/new` 直接组合既有权威接口：Product 使用服务端分页搜索，Query Topic 使用 `GET /api/v1/query-topics`，选择 Product 后使用 `GET /api/v1/geo-observation-publications?product_id=...` 读取完整合格 Published Article 候选。当前首屏没有真实 waterfall 或一致性缺口，因此不增加 creation-options read model，浏览器也不得跨分页 join 或自行推导文章资格。
+
+创建只提交 `GeoObservationCreate`：逐篇 `discovered` 与 `mentioned` 必须由用户显式选择，`accuracy` 可为空，附件必须先完成既有 upload-intent → object store → complete 流程；新建请求不提交 `supersedes_id`，也不承载 legacy `recommendation/citation`。当前 POST 合同没有 `Idempotency-Key`，前端以同步提交锁和 pending 禁用保证单次请求；409 `GEO_PUBLICATIONS_CHANGED` 只允许显式重读候选并保留仍有效输入，不自动 replay。
+
+创建成功后失效 GEO List 与受影响 Product Detail cache，并导航 `/geo/observations?page=1&pageSize=20`。Observation Detail 尚未实现时不得根据响应 ID 导航到不存在的页面或创建成功占位页。新建页只创建根观测，Correction 继续由后端 append-only 命令及锁内资格校验负责，原 Observation 不可在本页修改。
+
 ## 14. Workspace Read Model
 
 复杂 Workspace 应使用按 surface 收窄的专用 endpoint/context。Editor 使用 `GET /content-tasks/{id}/editor-context`；Review 可使用独立 review context，一次返回审核所需的 immutable version、diff、fact/generation snapshot、quality issues、review history 和审核动作。

@@ -97,6 +97,10 @@ describe('GeoObservationListPage', () => {
     renderGeo();
 
     expect(await screen.findByRole('heading', { name: 'GEO 观测记录' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '新建 Observation' })).toHaveAttribute(
+      'href',
+      '/geo/observations/new',
+    );
     expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
       '查询', 'GEO 平台', '发现 / 提及 / 准确', '关联成果', '证据', '记录人', '观测时间', '操作',
     ]);

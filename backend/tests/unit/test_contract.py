@@ -81,6 +81,18 @@ def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
     assert "422" in paths["/api/v1/geo-observations/{observation_id}"]["delete"][
         "responses"
     ]
+    assert set(paths["/api/v1/geo-observation-publications"]["get"]["responses"]) == {
+        "200", "401", "403", "404", "422"
+    }
+    assert set(paths["/api/v1/geo-observations"]["post"]["responses"]) == {
+        "201", "401", "403", "404", "409", "422"
+    }
+    assert set(schemas["GeoArticleResultCreate"]["required"]) == {
+        "published_article_id", "discovered", "mentioned", "accuracy"
+    }
+    assert not {"recommendation", "citation"} & set(
+        schemas["GeoArticleResultCreate"]["properties"]
+    )
 
 
 def test_published_content_issue_contract_has_one_workspace_read_model_and_real_errors() -> None:

@@ -517,6 +517,77 @@ const canRegister = context.data?.available_actions.includes('REGISTER_RESULT') 
 
 ---
 
+## New GEO Observation 的候选、表单与 append-only 边界
+
+### 1. Scope / Trigger
+
+- 修改 `/geo/observations/new`、人工 GEO 创建合同、Published Article 候选读取或 GEO 证据上传时适用。
+- 该边界只创建根 Observation；Detail 与 Correction 必须由各自 Task 实现。
+
+### 2. Signatures
+
+```text
+URL:  /geo/observations/new
+GET:  /api/v1/products?search=...&page=1&page_size=20
+GET:  /api/v1/query-topics
+GET:  /api/v1/geo-observation-publications?product_id=<uuid>
+POST: /api/v1/geo-observations
+body: GeoObservationCreate
+query keys: ["geo", "query-topics"]
+            ["geo", "observation-publications", productId]
+```
+
+### 3. Contracts
+
+- Product 使用既有服务端搜索，Query Topic 使用权威集合；Published Article 只使用 GEO eligibility endpoint，并在 Product 选择后读取。浏览器不得通过通用 Published Article 分页接口 join 或推导资格；没有真实首屏 waterfall 时不增加 creation-options。
+- `GeoObservationCreate` 只提交 `product_id/query_topic_id/search_platform/search_query/tested_at/article_results/attachment_file_ids/notes`。新建页省略 correction 专用 `supersedes_id`；人工逐篇结果只含 `published_article_id/discovered/mentioned/accuracy`，不得恢复 legacy recommendation/citation。
+- `discovered/mentioned` 初始为未选择状态并要求显式布尔值；`accuracy` 可为 null。POST 仍在事务内锁定 Product、重算完整候选集合并校验 VERIFIED `OPERATION_SCREENSHOT`。
+- 附件沿用 upload-intent → signed PUT/POST → complete；transfer 失败 abort，complete 失败只重试 complete。SHA-256 与对象存储 transfer 可以共享纯协议函数，领域 API、状态和错误不得抽成万能 Upload framework。
+- 当前 POST 没有服务端幂等合同，不发送 `Idempotency-Key`。同步提交锁与 mutation pending 只防止同页面并发；失败后必须由用户显式重试。
+- 成功清 dirty，失效 GEO lists 与对应 Product detail，并导航 `/geo/observations?page=1&pageSize=20`。Detail 未实现时不得导航响应 ID 或创建占位页。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 页面处理 |
+| --- | --- |
+| Product / Query Topic 缺失，platform/query 空白，时间无效 | FormField + ErrorSummary；不发 POST |
+| 任一候选 discovered/mentioned 未选择 | 定位到对应 article fieldset；不以 false 默认 |
+| 候选为空 | 阻止提交，并提供 Published Articles 已实现页面出口 |
+| options/candidates 读取失败 | 所属区块显示 error + retry，不伪造空成功 |
+| create `422` | 已知 location 映射字段；未知 issue 保留 form summary 与 request ID |
+| create `403/404` | 保留输入，显示结构化请求错误 |
+| `409 GEO_PUBLICATIONS_CHANGED` | 禁用提交，显式重读；按 Article ID 保留仍有效值，不 replay |
+| upload transfer / complete 失败 | transfer abort；complete 保留 intent 并仅重试 complete |
+
+### 5. Good / Base / Bad Cases
+
+- Good：用户选择 Product 后读取完整资格候选，逐篇显式判断并单次 POST；成功回到已实现 List。
+- Base：填写期间候选变化，页面保留仍有效事实并要求用户确认新增候选后再次提交。
+- Bad：拉取多个 Published Article 分页后客户端过滤，默认 `false`，在 409 后自动重放，或把 `supersedes_id` 带入新建请求。
+
+### 6. Tests Required
+
+- Contract/API：候选与创建响应矩阵、generated clients、精确 query/body/CSRF、无 Idempotency-Key。
+- Unit/component：候选同步、显式布尔校验、payload 排除 legacy/correction 字段、结构化 issue、SHA-256、PUT/POST、complete retry。
+- Fixture Playwright：List 入口、direct/refresh、loading/empty/error/retry、附件、pending 单 POST、409 不 replay、canonical handoff、DirtyGuard、Back/Forward 与 375/768/1024/1440。
+- 完整 `new → detail → correction` real-stack 只能在 Detail/Correction 到齐后加入唯一隔离编排，fixture 不得冒充。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：客户端推导资格、默认事实并发送 correction/legacy 字段。
+const articles = await listPublishedArticles();
+const articleResults = articles.map((article) => ({ ...article, discovered: false }));
+await createGeoObservation({ ...values, article_results: articleResults, supersedes_id: null });
+
+// Correct：候选与合同来自权威端点；新候选保持未选择。
+const candidates = useQuery(geoPublicationCandidatesQueryOptions(productId));
+const articleResults = syncArticleResults(candidates.data?.items ?? [], previous);
+await createGeoObservation(toGeoObservationCreate(values), csrfToken);
+```
+
+---
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

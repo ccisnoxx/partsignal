@@ -421,6 +421,8 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-geo-observation-list` 已实现本阶段第一个独立 slice：`/geo/observations` 使用 additive `GET /api/v1/geo-observations/list-items` 完成链尾 compact projection、服务端搜索/筛选/排序/分页、八列 Table、URL state、服务端动作投影和严格 fixture E2E。V1 完整列表接口保持不变；Detail/Correction 仅建立 canonical href，New Observation、Detail 页面、Correction Workspace、Topics、Insights、Print、真实栈 GEO 闭环与抽象回顾仍由后续 Task 交付，因此 Phase 5 退出条件尚未评估为 MET。
 
+`frontend-v2-new-geo-observation` 已交付 `/geo/observations/new` 人工创建 Workspace：复用既有 Product 搜索、Query Topic、GEO Published Article 候选与文件上传合同，逐篇显式记录 discovered/mentioned/accuracy，并提供 pending 防重、结构化错误、候选冲突显式刷新、DirtyGuard 与 canonical List handoff。当前真实读取不构成 waterfall，未增加 creation-options；POST 不增加未经合同支持的 `Idempotency-Key`，也不提交 correction `supersedes_id` 或 legacy recommendation/citation。Observation Detail、Correction Workspace、Topics、Insights、Print、完整 GEO real-stack 闭环和抽象回顾仍未实现，Phase 5 退出条件继续为 `NOT_MET`。
+
 退出条件：Correction append-only；Topic 删除能显示业务引用；Insights filter 可通过 URL 恢复；print 与 screen 使用同一 read model；375px 不出现不可用的宽表。
 
 ## 11. Phase 6 — Configuration

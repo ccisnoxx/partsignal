@@ -10,6 +10,8 @@ import {
 
 type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
+type GeoObservationCreate = components['schemas']['GeoObservationCreate'];
+type UploadIntentCreate = components['schemas']['UploadIntentCreate'];
 
 class GeoRequestError extends Error {
   constructor(
@@ -26,6 +28,10 @@ const geoKeys = {
   lists: () => ['geo', 'observations', 'list'] as const,
   list: (params: GeoObservationListApiParams) => (
     ['geo', 'observations', 'list', params] as const
+  ),
+  topics: () => ['geo', 'query-topics'] as const,
+  publicationCandidates: (productId: string) => (
+    ['geo', 'observation-publications', productId] as const
   ),
 };
 
@@ -47,6 +53,82 @@ function geoObservationListQueryOptions(search: GeoObservationSearch) {
   });
 }
 
+function queryTopicsQueryOptions() {
+  return queryOptions({
+    queryKey: geoKeys.topics(),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/query-topics');
+      if (!result.data) throw geoRequestError('读取 GEO 问题主题', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
+function geoPublicationCandidatesQueryOptions(productId: string) {
+  return queryOptions({
+    queryKey: geoKeys.publicationCandidates(productId),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/geo-observation-publications', {
+        params: { query: { product_id: productId } },
+      });
+      if (!result.data) throw geoRequestError('读取产品 Published Article 候选', result);
+      return result.data;
+    },
+    enabled: productId.length > 0,
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 0,
+  });
+}
+
+async function createGeoObservation(body: GeoObservationCreate, csrfToken: string | null) {
+  const result = await api.POST('/api/v1/geo-observations', {
+    body,
+    params: { header: { 'X-CSRF-Token': requireCsrfToken(csrfToken, '创建 GEO 观测') } },
+  });
+  if (result.data) return result.data;
+  throw geoRequestError('创建 GEO 观测', result);
+}
+
+async function createGeoFileUploadIntent(
+  body: UploadIntentCreate,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/files/upload-intents', {
+    body,
+    params: { header: { 'X-CSRF-Token': requireCsrfToken(csrfToken, '上传 GEO 证据') } },
+  });
+  if (result.data) return result.data;
+  throw geoRequestError('创建 GEO 证据上传意图', result);
+}
+
+async function completeGeoFileUpload(fileId: string, csrfToken: string | null) {
+  const result = await api.POST('/api/v1/files/{file_id}/complete', {
+    params: {
+      path: { file_id: fileId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken, '确认 GEO 证据上传') },
+    },
+  });
+  if (result.data) return result.data;
+  throw geoRequestError('确认 GEO 证据上传', result);
+}
+
+async function abortGeoFileUpload(fileId: string, csrfToken: string | null) {
+  const result = await api.POST('/api/v1/files/{file_id}/abort', {
+    params: {
+      path: { file_id: fileId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken, '中止 GEO 证据上传') },
+    },
+  });
+  if (result.data) return result.data;
+  throw geoRequestError('中止 GEO 证据上传', result);
+}
+
 async function deleteGeoObservation(observationId: string, csrfToken: string | null) {
   if (!csrfToken) throw new GeoRequestError('缺少会话安全令牌，无法删除 GEO 观测');
   const result = await api.DELETE('/api/v1/geo-observations/{observation_id}', {
@@ -56,6 +138,11 @@ async function deleteGeoObservation(observationId: string, csrfToken: string | n
     },
   });
   if (!result.response.ok) throw geoRequestError('删除 GEO 观测', result);
+}
+
+function requireCsrfToken(csrfToken: string | null, action: string) {
+  if (csrfToken) return csrfToken;
+  throw new GeoRequestError(`缺少会话安全令牌，无法${action}`);
 }
 
 function geoRequestError(
@@ -92,8 +179,14 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
 }
 
 export {
+  abortGeoFileUpload,
+  completeGeoFileUpload,
+  createGeoFileUploadIntent,
+  createGeoObservation,
   deleteGeoObservation,
   GeoRequestError,
   geoKeys,
   geoObservationListQueryOptions,
+  geoPublicationCandidatesQueryOptions,
+  queryTopicsQueryOptions,
 };

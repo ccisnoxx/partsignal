@@ -5,25 +5,25 @@ import { Input } from '@/design-system/primitives/input';
 import type { components } from '@/shared/api/generated/schema';
 import { sha256File, transferFile } from '@/shared/api/file-transfer';
 import {
-  abortFileUpload,
-  completeFileUpload,
-  createFileUploadIntent,
-} from './publication.api';
+  abortGeoFileUpload,
+  completeGeoFileUpload,
+  createGeoFileUploadIntent,
+} from './geo.api';
 
 type FileRecord = components['schemas']['FileRecord'];
 type UploadIntent = components['schemas']['UploadIntent'];
 
-type PublicationEvidenceUploadProps = {
+type GeoEvidenceUploadProps = {
   csrfToken: string | null;
   disabled?: boolean;
   onUploaded: (file: FileRecord) => void;
 };
 
-function PublicationEvidenceUpload({
+function GeoEvidenceUpload({
   csrfToken,
   disabled = false,
   onUploaded,
-}: PublicationEvidenceUploadProps) {
+}: GeoEvidenceUploadProps) {
   const [phase, setPhase] = useState<'idle' | 'uploading' | 'completing' | 'failed'>('idle');
   const [error, setError] = useState<string>();
   const [pendingIntent, setPendingIntent] = useState<UploadIntent>();
@@ -32,14 +32,14 @@ function PublicationEvidenceUpload({
     setPhase('completing');
     setError(undefined);
     try {
-      const verified = await completeFileUpload(intent.file.id, csrfToken);
+      const verified = await completeGeoFileUpload(intent.file.id, csrfToken);
       setPendingIntent(undefined);
       setPhase('idle');
       onUploaded(verified);
     } catch (reason) {
       setPendingIntent(intent);
       setPhase('failed');
-      setError(reason instanceof Error ? reason.message : '确认文件上传失败');
+      setError(errorMessage(reason, '确认 GEO 证据上传失败'));
     }
   }
 
@@ -47,7 +47,7 @@ function PublicationEvidenceUpload({
     setPhase('uploading');
     setError(undefined);
     setPendingIntent(undefined);
-    const intent = await createFileUploadIntent({
+    const intent = await createGeoFileUploadIntent({
       access_level: 'INTERNAL',
       category: 'OPERATION_SCREENSHOT',
       content_type: file.type || 'application/octet-stream',
@@ -60,9 +60,9 @@ function PublicationEvidenceUpload({
       await transferFile(file, intent);
     } catch (reason) {
       try {
-        await abortFileUpload(intent.file.id, csrfToken);
+        await abortGeoFileUpload(intent.file.id, csrfToken);
       } catch {
-        // 原始对象传输错误更有诊断价值；中止失败由服务端过期清理兜底。
+        // 原始传输错误更有诊断价值；未完成 intent 仍由服务端过期清理。
       }
       throw reason;
     }
@@ -70,12 +70,11 @@ function PublicationEvidenceUpload({
   }
 
   const busy = phase === 'uploading' || phase === 'completing';
-
   return (
     <div className="space-y-2">
       <Input
         accept="image/*"
-        aria-label="上传发布证据截图"
+        aria-label="上传 GEO 证据截图"
         disabled={disabled || busy || Boolean(pendingIntent)}
         onChange={(event) => {
           const file = event.currentTarget.files?.[0];
@@ -83,12 +82,16 @@ function PublicationEvidenceUpload({
           if (!file) return;
           void upload(file).catch((reason: unknown) => {
             setPhase('failed');
-            setError(reason instanceof Error ? reason.message : '上传证据失败');
+            setError(errorMessage(reason, '上传 GEO 证据失败'));
           });
         }}
         type="file"
       />
-      {busy && <p aria-live="polite" className="text-sm text-text-secondary">{phase === 'uploading' ? '正在上传证据…' : '正在校验证据…'}</p>}
+      {busy && (
+        <p aria-live="polite" className="text-sm text-text-secondary">
+          {phase === 'uploading' ? '正在上传 GEO 证据…' : '正在校验 GEO 证据…'}
+        </p>
+      )}
       {error && (
         <div className="flex flex-wrap items-center gap-2" role="alert">
           <span className="text-sm text-destructive">{error}</span>
@@ -109,5 +112,9 @@ function PublicationEvidenceUpload({
   );
 }
 
-export { PublicationEvidenceUpload };
-export type { PublicationEvidenceUploadProps };
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+export { GeoEvidenceUpload };
+export type { GeoEvidenceUploadProps };

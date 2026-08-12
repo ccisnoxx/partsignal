@@ -94,7 +94,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 扩展 `publication-workspace-real-stack.spec.ts` 的 Flow A，由 V2 UI 连续完成发布成功与发布后问题处理。
+- 保留 Flow B 的 FAILED 换版恢复语义，并把流程中 API 读取收敛到最终只读断言。
+- 更新 Phase 4 迁移计划、测试验收规范与 E2E 隔离契约。
 
 ### Git Commits
 
@@ -105,7 +107,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- Frontend V2 lint、typecheck、shell syntax、Python compile、Trellis validate 与 diff check 通过。
+- 隔离真实栈 V2 `10 passed`，指定 V1 Trusted Types `7 passed`，退出码 0。
+- PostgreSQL、对象存储和 Redis DB 15 清理断言通过。
 
 ### Status
 
@@ -168,6 +172,39 @@
 | Hash | Message |
 |------|---------|
 | `f48d5e5` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 120: Frontend V2 Publishing 完整真实栈 E2E
+
+**Date**: 2026-08-12
+**Task**: Frontend V2 Publishing 完整真实栈 E2E
+**Branch**: `main`
+
+### Summary
+
+扩展既有 Publication Workspace real-stack Flow A，连续证明 UI START、PASSED、PublishedArticle、内容问题、修复任务与解决闭环；保留 FAILED 换版恢复 Flow B，并同步 Phase 4 与 E2E 隔离验收证据。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bea31e0` | (see git log) |
 
 ### Testing
 

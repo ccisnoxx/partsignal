@@ -243,7 +243,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 新增 compact `GeoObservationListItem` contract 与独立 list endpoint，保留既有 V1 full-resource list 行为。
+- 实现 `/geo/observations` 的 URL state、server query、TanStack Query/Table 列表、服务端动作 gating 与 canonical Detail/Correction links。
+- 建立 GEO fixture Playwright E2E，并同步 backend integration、generated types 与 Frontend V2 权威文档。
 
 ### Git Commits
 
@@ -253,7 +255,11 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- `make contract-check` 通过。
+- Backend contract unit tests 34 passed；GEO list integration test 1 passed；目标 ruff 与 mypy 通过。
+- Frontend V2 目标 Vitest 12 passed；lint、typecheck、build 与 Frontend V1 typecheck 通过。
+- GEO fixture Playwright E2E 10 passed，覆盖 mobile/desktop 与 375/768/1024/1440 viewport。
+- `git diff --check` 与 Trellis task validation 通过。
 
 ### Status
 
@@ -261,7 +267,7 @@
 
 ### Next Steps
 
-- None - task complete
+- 推荐下一独立 Task：Frontend V2 GEO Observation Detail。
 
 
 ## Session 122: Publication Work 投影合同修正
@@ -485,6 +491,39 @@
 | Hash | Message |
 |------|---------|
 | `da3f855527aae7241133a2c0e9063caae6e34687` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 129: Frontend V2 GEO Observation List
+
+**Date**: 2026-08-12
+**Task**: Frontend V2 GEO Observation List
+**Branch**: `codex/frontend-v2-geo-observation-list`
+
+### Summary
+
+完成 /geo/observations 服务端列表 vertical slice：新增 compact read model、明确 URL/API query 映射、V2 列表与 fixture E2E；required validation 全部通过，Task 已归档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5476aaeb094563447fbc52634bae973344ba0849` | (see git log) |
 
 ### Testing
 

@@ -10,16 +10,21 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import urlsplit, urlunsplit
 
 import psycopg
 import pytest
+from fastapi.testclient import TestClient
 from psycopg import sql
 from sqlalchemy import create_engine, delete, event, func, select, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
+from app.db import get_db
+from app.deps import get_current_session
 from app.errors import AppError
+from app.main import app
 from app.models.ai_generation import GenerationJob
 from app.models.configuration import PlatformProfile, PlatformPrompt, PlatformType, QueryTopic
 from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
@@ -109,6 +114,7 @@ from app.services.publication_queries import (
     list_publication_works,
     list_published_articles,
     list_published_content_issues,
+    publication_work_out,
     publication_workbench_summary,
     publication_workspace_context,
     published_article_out,
@@ -384,6 +390,214 @@ def test_published_article_list_and_detail_read_models() -> None:
 
 
 @pytest.mark.integration
+def test_publication_work_read_surfaces_use_state_aware_identity() -> None:
+    """三个读取面统一使用非终态实时身份与终态冻结快照。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            def assert_identity(
+                work_id: uuid.UUID,
+                expected: tuple[str, str, str],
+                *,
+                live_ids_present: bool,
+            ) -> None:
+                with Session(engine, expire_on_commit=False) as read_db:
+                    persisted = read_db.get(PublicationWork, work_id)
+                    assert persisted is not None
+                    listed = list_publication_works(
+                        read_db,
+                        page=1,
+                        page_size=20,
+                        status_filter=None,
+                        content_task_id=persisted.content_task_id,
+                    )
+                    assert listed.total == 1
+                    detail = publication_work_out(read_db, persisted)
+                    workspace = publication_workspace_context(read_db, work_id)
+                    for projected in (listed.items[0], detail, workspace.work):
+                        assert (
+                            projected.platform_profile_name,
+                            projected.platform_account_label,
+                            projected.account_identifier,
+                        ) == expected
+                        assert (projected.platform_profile_id is not None) is live_ids_present
+                        assert (projected.platform_account_id is not None) is live_ids_present
+                    assert workspace.platform.name == expected[0]
+
+            closed_graph = _seed_graph(db, content_hash="3" * 64)
+            closed_actor = closed_graph["user"]
+            closed_content = closed_graph["content"]
+            closed_profile = closed_graph["profile"]
+            closed_account = closed_graph["account"]
+            assert isinstance(closed_actor, User)
+            assert isinstance(closed_content, ContentVersion)
+            assert isinstance(closed_profile, PlatformProfile)
+            assert isinstance(closed_account, PlatformAccount)
+            closed_snapshot = (
+                closed_profile.name,
+                closed_account.label,
+                closed_account.account_identifier,
+            )
+            active_work = create_publication_work(
+                db=db,
+                payload=PublicationWorkCreate(
+                    content_version_id=closed_content.id,
+                    platform_account_id=closed_account.id,
+                ),
+                actor=closed_actor,
+                request_id="identity-live-create",
+                idempotency_key="identity-live-create-key",
+            )
+            live_identity = ("实时平台名称", "实时账号标签", "live-account")
+            (
+                closed_profile.name,
+                closed_account.label,
+                closed_account.account_identifier,
+            ) = live_identity
+            db.commit()
+            assert_identity(active_work.id, live_identity, live_ids_present=True)
+
+            persisted_active = db.get(PublicationWork, active_work.id)
+            assert persisted_active is not None
+            closed_work = close_publication_work(
+                db=db,
+                work_id=persisted_active.id,
+                payload=PublicationWorkCloseRequest(
+                    reason="BUSINESS_CANCELLED",
+                    comment="验证关闭工作冻结身份",
+                    expected_revision=persisted_active.revision,
+                ),
+                actor=closed_actor,
+                request_id="identity-close",
+            )
+            assert_identity(closed_work.id, closed_snapshot, live_ids_present=True)
+
+            closed_account_id = closed_account.id
+            closed_profile_id = closed_profile.id
+            delete_platform_account(
+                db=db,
+                platform_account_id=closed_account_id,
+                actor=closed_actor,
+                request_id="identity-closed-account-delete",
+            )
+            disabled_closed_profile = set_platform_profile_enabled(
+                db=db,
+                platform_profile_id=closed_profile_id,
+                payload=RevisionRequest(expected_revision=closed_profile.revision),
+                actor=closed_actor,
+                request_id="identity-closed-profile-disable",
+                enabled=False,
+            )
+            delete_platform_profile(
+                db=db,
+                platform_profile_id=disabled_closed_profile.id,
+                actor=closed_actor,
+                request_id="identity-closed-profile-delete",
+            )
+            assert_identity(closed_work.id, closed_snapshot, live_ids_present=False)
+
+            completed_graph = _seed_graph(db, content_hash="4" * 64)
+            completed_actor = completed_graph["user"]
+            completed_profile = completed_graph["profile"]
+            completed_account = completed_graph["account"]
+            assert isinstance(completed_actor, User)
+            assert isinstance(completed_profile, PlatformProfile)
+            assert isinstance(completed_account, PlatformAccount)
+            completed_snapshot = (
+                completed_profile.name,
+                completed_account.label,
+                completed_account.account_identifier,
+            )
+            completed_work = _complete_publication(
+                db,
+                completed_graph,
+                suffix="identity-completed",
+            )
+            completed_profile.name = "完成后实时平台名称"
+            completed_account.label = "完成后实时账号标签"
+            completed_account.account_identifier = "completed-live-account"
+            db.commit()
+            assert_identity(completed_work.id, completed_snapshot, live_ids_present=True)
+
+            completed_account_id = completed_account.id
+            completed_profile_id = completed_profile.id
+            delete_platform_account(
+                db=db,
+                platform_account_id=completed_account_id,
+                actor=completed_actor,
+                request_id="identity-completed-account-delete",
+            )
+            disabled_completed_profile = set_platform_profile_enabled(
+                db=db,
+                platform_profile_id=completed_profile_id,
+                payload=RevisionRequest(expected_revision=completed_profile.revision),
+                actor=completed_actor,
+                request_id="identity-completed-profile-disable",
+                enabled=False,
+            )
+            delete_platform_profile(
+                db=db,
+                platform_profile_id=disabled_completed_profile.id,
+                actor=completed_actor,
+                request_id="identity-completed-profile-delete",
+            )
+            assert_identity(completed_work.id, completed_snapshot, live_ids_present=False)
+
+
+@pytest.mark.integration
+def test_publication_work_list_malformed_context_returns_structured_409() -> None:
+    """列表遇到缺失状态事件的工作时通过真实 HTTP 返回 ErrorEnvelope。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db, content_hash="5" * 64)
+            actor = graph["user"]
+            task = graph["task"]
+            content = graph["content"]
+            profile = graph["profile"]
+            account = graph["account"]
+            assert isinstance(actor, User)
+            assert isinstance(task, ContentTask)
+            assert isinstance(content, ContentVersion)
+            assert isinstance(profile, PlatformProfile)
+            assert isinstance(account, PlatformAccount)
+            malformed_work = PublicationWork(
+                idempotency_key="malformed-list-context-key",
+                content_task_id=task.id,
+                content_version_id=content.id,
+                platform_profile_id=profile.id,
+                platform_profile_name_snapshot=profile.name,
+                platform_account_id=account.id,
+                platform_account_label_snapshot=account.label,
+                account_identifier_snapshot=account.account_identifier,
+                content_hash=content.content_hash,
+                status="PREPARING",
+                created_by=actor.id,
+            )
+            db.add(malformed_work)
+            db.commit()
+
+            def database_session() -> Iterator[Session]:
+                with Session(engine, expire_on_commit=False) as request_db:
+                    yield request_db
+
+            app.dependency_overrides[get_db] = database_session
+            app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(user=actor)
+            try:
+                response = TestClient(app).get(
+                    f"/api/v1/publication-works?content_task_id={task.id}"
+                )
+            finally:
+                app.dependency_overrides.clear()
+
+            assert response.status_code == 409
+            error = response.json()["error"]
+            assert error["code"] == "PUBLICATION_CONTEXT_INCOMPLETE"
+            assert error["message"] == "发布工作缺少状态事件"
+            assert error["request_id"]
+
+
+@pytest.mark.integration
 def test_publication_work_list_read_model_and_start_boundary() -> None:
     """发布列表一次返回所需投影，开始发布仍由命令重新校验。"""
     with temporary_database() as database_url:
@@ -562,6 +776,21 @@ def test_publication_work_list_read_model_and_start_boundary() -> None:
                     request_id="publication-create-list-second",
                     idempotency_key="publication-create-list-second-key",
                 )
+                db.add_all(
+                    [
+                        PublicationWorkEvent(
+                            publication_work_id=work.id,
+                            action="PREPARATION_UPDATED",
+                            from_status="PREPARING",
+                            to_status="PREPARING",
+                            comment=f"列表批量历史 {index}",
+                            actor_id=actor.id,
+                            created_at=datetime.now(UTC) + timedelta(seconds=index + 1),
+                        )
+                        for index in range(12)
+                    ]
+                )
+                db.commit()
                 statements.clear()
                 two_items = list_publication_works(
                     db,
@@ -687,6 +916,20 @@ def test_publication_workspace_context_is_consistent_and_bounded() -> None:
                     for index in range(12)
                 ]
             )
+            db.add_all(
+                [
+                    PublicationWorkEvent(
+                        publication_work_id=work.id,
+                        action="PREPARATION_UPDATED",
+                        from_status="PREPARING",
+                        to_status="PREPARING",
+                        comment=f"工作台批量历史 {index}",
+                        actor_id=actor.id,
+                        created_at=datetime.now(UTC) + timedelta(seconds=index + 1),
+                    )
+                    for index in range(12)
+                ]
+            )
             db.commit()
             db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
             statements.clear()
@@ -697,6 +940,7 @@ def test_publication_workspace_context_is_consistent_and_bounded() -> None:
                 event.remove(engine, "before_cursor_execute", count_statement)
             assert len(statements) == 5
             assert len(expanded_context.eligible_accounts) == 14
+            assert len(expanded_context.work.events) == 13
 
             with pytest.raises(AppError) as missing:
                 publication_workspace_context(db, uuid.uuid4())

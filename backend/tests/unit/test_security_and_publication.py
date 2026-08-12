@@ -2,6 +2,7 @@
 
 import uuid
 from typing import cast
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic import ValidationError
@@ -15,6 +16,7 @@ from app.security import generate_token, hash_password, hash_token, verify_passw
 from app.services.file_records import verified_files
 from app.services.publication import domain_allowed
 from app.services.publication_queries import (
+    _work_list_item,
     publication_work_actions,
     published_article_actions,
     published_content_issue_actions,
@@ -112,6 +114,26 @@ def test_publication_actions_have_one_server_projected_primary_task() -> None:
             repair_task_id=None,
             repair_task_status=None,
         )
+
+
+@pytest.mark.parametrize(
+    "missing_field",
+    ("platform_profile_name", "platform_account_label", "account_identifier"),
+)
+def test_publication_work_projection_rejects_missing_live_identity(missing_field: str) -> None:
+    """非终态身份投影缺少任一实时字段时必须返回结构化 409。"""
+    row = MagicMock()
+    row.__getitem__.return_value = MagicMock(status="PREPARING")
+    row.platform_profile_name = "当前平台"
+    row.platform_account_label = "当前账号"
+    row.account_identifier = "current-account"
+    setattr(row, missing_field, None)
+
+    with pytest.raises(AppError) as error:
+        _work_list_item(row, None, MagicMock(action="CREATED"))
+
+    assert error.value.code == "PUBLICATION_CONTEXT_INCOMPLETE"
+    assert error.value.status_code == 409
 
 
 def test_verified_files_rejects_duplicate_or_unverified_attachments() -> None:

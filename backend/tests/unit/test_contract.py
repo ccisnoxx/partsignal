@@ -45,6 +45,27 @@ def test_published_content_issue_contract_has_one_workspace_read_model_and_real_
         }
 
 
+def test_publication_work_read_contract_matches_runtime_error_matrix() -> None:
+    """三个工作读取面必须声明共享认证与上下文错误。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+
+    list_responses = paths["/api/v1/publication-works"]["get"]["responses"]
+    assert set(list_responses) == {"200", "401", "403", "409", "422"}
+    for status in ("401", "403", "409", "422"):
+        assert list_responses[status] == {"$ref": "#/components/responses/ErrorResponse"}
+
+    for path in (
+        "/api/v1/publication-works/{work_id}",
+        "/api/v1/publication-works/{work_id}/workspace-context",
+    ):
+        responses = paths[path]["get"]["responses"]
+        assert set(responses) == {"200", "401", "403", "404", "409", "422"}
+        for status in ("401", "403", "404", "409", "422"):
+            assert responses[status] == {"$ref": "#/components/responses/ErrorResponse"}
+
+
 def test_product_create_contract_declares_input_limits_and_error_responses() -> None:
     """冻结创建产品的长度边界与可预期错误响应。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"

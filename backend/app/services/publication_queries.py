@@ -333,6 +333,8 @@ def list_publication_ready_items(
 
 
 def _work_context_query() -> Any:
+    """按工作状态统一选择实时或冻结的显示身份。"""
+    use_live_identity = PublicationWork.status.in_(NONTERMINAL_WORK_STATUSES)
     return (
         select(
             PublicationWork,
@@ -342,17 +344,17 @@ def _work_context_query() -> Any:
             Product.id.label("product_id"),
             Product.brand.label("product_brand"),
             Product.part_number.label("product_part_number"),
-            func.coalesce(
-                PlatformProfile.name,
-                PublicationWork.platform_profile_name_snapshot,
+            case(
+                (use_live_identity, PlatformProfile.name),
+                else_=PublicationWork.platform_profile_name_snapshot,
             ).label("platform_profile_name"),
-            func.coalesce(
-                PlatformAccount.label,
-                PublicationWork.platform_account_label_snapshot,
+            case(
+                (use_live_identity, PlatformAccount.label),
+                else_=PublicationWork.platform_account_label_snapshot,
             ).label("platform_account_label"),
-            func.coalesce(
-                PlatformAccount.account_identifier,
-                PublicationWork.account_identifier_snapshot,
+            case(
+                (use_live_identity, PlatformAccount.account_identifier),
+                else_=PublicationWork.account_identifier_snapshot,
             ).label("account_identifier"),
         )
         .join(ContentVersion, ContentVersion.id == PublicationWork.content_version_id)
@@ -380,6 +382,16 @@ def _work_list_item(
     work = row[0]
     if latest_event is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作缺少状态事件", 409)
+    # 非终态查询只选择实时配置，终态查询只选择冻结快照；空值统一表示上下文损坏。
+    if any(
+        value is None
+        for value in (
+            row.platform_profile_name,
+            row.platform_account_label,
+            row.account_identifier,
+        )
+    ):
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作缺少平台或账号上下文", 409)
     actions, primary_task = publication_work_actions(work.status, latest_event.action)
     return PublicationWorkListItem.model_validate(
         {

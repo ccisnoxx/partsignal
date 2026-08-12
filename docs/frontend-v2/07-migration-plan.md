@@ -409,6 +409,8 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-publishing-abstraction-review` 已完成第 6 项的前端白名单调整：Article `OPEN_ISSUE` 与 Issue repair 的 409 现在保持输入、禁止自动 replay，并通过显式重读 canonical Article/Workspace/repair context 恢复；resolved Issue 缺少 `resolution_outcome` 时显式失败，不再猜测为 retired；同时删除无生产消费者的 `publicationCoreActions` 与无语义 error mapper alias。Publication domain 12 files / 48 tests、targeted 4 files / 22 tests、typecheck、lint、build、三个 fixture specs 11 tests，以及 Publishing 三条 real-stack flow 均通过；没有新增 shared framework，也没有删除互补测试。Phase 4 Exit Gate 仍为 `NOT_MET`：Work list/detail/workspace 的 name/label/identifier 投影尚未按非终态 live、终态 frozen snapshot 规则收敛，`GET /api/v1/publication-works` 可实际返回的 409 尚未写入 OpenAPI；此外当次完整 `make verify` 仍有范围外 Content DirtyGuard unit failure，完整 `make e2e` 仍有范围外 Content AI real-stack timeout。上述 blocker 必须由各自 owner 的独立 Task 关闭并重跑最终门禁；不得据此提前进入 GEO。
 
+`publication-work-projection-contract-correction` 已关闭上述 F-14/F-15：Work List、Detail 与 Workspace Context 继续共用 `_work_context_query()` → `_work_list_item()`，非终态显示身份只读 live Profile/Account 且缺失时返回 `PUBLICATION_CONTEXT_INCOMPLETE` / 409，`COMPLETED` / `CLOSED` 在 live rename/delete 后只读 Work frozen snapshot；List OpenAPI 与两套生成类型现声明 runtime 的 `403/409 ErrorResponse`。Target unit/contract 4 tests、四个 PostgreSQL integration 节点、固定 4/5 queries、contract-check、Ruff、mypy、V1/V2 typecheck 与 diff check 均通过，未增加 website snapshot、前端 fallback、状态机、权限或数据库变化。该专项 blocker 已关闭，但 Phase 4 整体仍为 `NOT_MET`：范围外 Content DirtyGuard、Content AI timeout 及最终候选门禁仍由各自 owner 处理，本 Task 不进入最终 closeout 或 GEO。
+
 退出条件：`PublicationWork / PublishedArticle / PublishedContentIssue` 使用三组 URL；成功核验 snapshot 不可变；失败核验不伪装成功；动作全部 server-driven；timeline/evidence 可追溯。
 
 ## 10. Phase 5 — GEO

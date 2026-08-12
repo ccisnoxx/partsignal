@@ -536,3 +536,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 130: 完成 Frontend V2 New GEO Observation
+
+**Date**: 2026-08-12
+**Task**: 完成 Frontend V2 New GEO Observation
+**Branch**: `codex/frontend-v2-new-geo-observation`
+
+### Summary
+
+实现 /geo/observations/new 人工创建 Workspace、权威候选与证据上传、结构化错误和 canonical handoff；同步合同、生成类型、文档与 generated-type E2E，并完成验证和归档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b3e2b4f` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

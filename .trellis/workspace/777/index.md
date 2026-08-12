@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 127
+- **Total Sessions**: 128
 - **Last Active**: 2026-08-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~466 | Active |
+| `journal-3.md` | ~499 | Active |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 128 | 2026-08-12 | Frontend V2 Phase 4 最终退出门禁 MET | `da3f855527aae7241133a2c0e9063caae6e34687` | `main` |
 | 127 | 2026-08-12 | Frontend V2 Phase 4 最终退出门禁环境失败收尾 | `bc59e2b00479044bea1d41a360d5865fc8612066` | `main` |
 | 126 | 2026-08-12 | Publication Work Reference Filter Unit Contract Correction | `fcb6c1d` | `codex/frontend-v2-publication-work-reference-filter-unit-contract-correction` |
 | 125 | 2026-08-12 | Frontend V2 Phase 4 Exit Gate Closeout | `d4165c3` | `codex/frontend-v2-phase-4-exit-gate-closeout` |

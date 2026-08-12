@@ -464,3 +464,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 128: Frontend V2 Phase 4 最终退出门禁 MET
+
+**Date**: 2026-08-12
+**Task**: Frontend V2 Phase 4 最终退出门禁 MET
+**Branch**: `main`
+
+### Summary
+
+在最终 main 候选上以仅导出宿主机 DATABASE_URL 和独占 REDIS_URL 的环境运行唯一一次 make verify，全部合同、质量、构建、real-stack、V1/V2 E2E 与 Compose 门禁通过；cleanup 完成，Phase 4 六类最终判定均为 MET。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `da3f855527aae7241133a2c0e9063caae6e34687` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

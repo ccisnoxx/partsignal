@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 124
+- **Total Sessions**: 125
 - **Last Active**: 2026-08-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~363 | Active |
+| `journal-3.md` | ~396 | Active |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 125 | 2026-08-12 | Frontend V2 Phase 4 Exit Gate Closeout | `d4165c3` | `codex/frontend-v2-phase-4-exit-gate-closeout` |
 | 124 | 2026-08-12 | Frontend V2 Content AI Humanization Real-Stack Gate | `0a27716` | `codex/frontend-v2-content-ai-humanization-real-stack-gate` |
 | 123 | 2026-08-12 | Frontend V2 New Content Task DirtyGuard Gate | `6f90b08` | `codex/frontend-v2-new-content-task-dirty-guard-gate` |
 | 122 | 2026-08-12 | Publication Work 投影合同修正 | `eea4c10b89c8631d00d125f4acfd64eec9447945` | `codex/frontend-v2-publication-work-projection-contract-correction` |

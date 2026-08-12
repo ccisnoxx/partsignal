@@ -206,7 +206,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 保存唯一 `make verify` 的完整输出、退出码与 cleanup 复核，六类 Phase DoD 最终判定为 Engineering `NOT_MET`、总 Gate `NOT_MET`。
+- 将失败归因为 backend Publication unit test 的整条 SQL 文本断言误匹配 SELECT projection；未修改生产代码、测试、合同或权威 `07/08/09`。
+- 建议独立 `publication-work-reference-filter-unit-contract-correction`，本 Task 未创建或实施该后续工作。
 
 ### Git Commits
 
@@ -216,7 +218,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- `make verify`：contract/API checks、Ruff、V1/V2 lint、mypy、V1/V2 typecheck 通过；backend unit `180 passed / 1 failed`，退出码 2，随后按归因规则停止。
+- E2E 未启动；无临时数据库、对象存储或服务进程，Redis DB 15 最终 `DBSIZE=0`，相关端口无 listener。
+- `trellis-check`、Task validation、`git diff --check` 与 generated types/`07/08/09` 无漂移检查通过。
 
 ### Status
 
@@ -349,6 +353,39 @@
 | Hash | Message |
 |------|---------|
 | `0a27716` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 125: Frontend V2 Phase 4 Exit Gate Closeout
+
+**Date**: 2026-08-12
+**Task**: Frontend V2 Phase 4 Exit Gate Closeout
+**Branch**: `codex/frontend-v2-phase-4-exit-gate-closeout`
+
+### Summary
+
+在最终候选 65b332e 上仅运行一次 make verify；backend unit 因 Publication 引用筛选 SQL 文本断言误匹配 SELECT projection 而 180 passed / 1 failed，Gate 保持 NOT_MET。已记录 TEST 归因、cleanup 与独立修复 Task 建议，未修改生产代码或权威 Phase 状态。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d4165c3` | (see git log) |
 
 ### Testing
 

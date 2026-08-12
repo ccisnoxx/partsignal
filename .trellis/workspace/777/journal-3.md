@@ -569,3 +569,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 131: Frontend V2 GEO Observation Detail
+
+**Date**: 2026-08-12
+**Task**: Frontend V2 GEO Observation Detail
+**Branch**: `main`
+
+### Summary
+
+交付 GEO Observation canonical readonly Detail、服务端完整更正链 read model、evidence/Published Article 聚合、服务端动作投影和 New POST ID handoff，并完成 required validation。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `433c540` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

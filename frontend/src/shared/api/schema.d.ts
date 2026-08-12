@@ -1836,6 +1836,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/geo-observations/list-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listGeoObservationItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/geo-observations/{observation_id}": {
         parameters: {
             query?: never;
@@ -4758,6 +4774,46 @@ export interface components {
             items: components["schemas"]["GeoObservation"][];
             page: number;
             page_size: number;
+            total: number;
+        };
+        /** @enum {string} */
+        GeoObservationListSort: "OBSERVED_DESC" | "OBSERVED_ASC";
+        GeoObservationListProduct: {
+            /** Format: uuid */
+            id: string;
+            label: string;
+        };
+        GeoObservationListIndicator: {
+            positive_count: number;
+            assessed_count: number;
+            total_count: number;
+        };
+        GeoObservationListOutcomes: {
+            discovered: components["schemas"]["GeoObservationListIndicator"] | null;
+            mentioned: components["schemas"]["GeoObservationListIndicator"];
+            accuracy: components["schemas"]["GeoObservationListIndicator"];
+        };
+        GeoObservationListItem: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            observation_kind: "LEGACY_MODEL_RESULT" | "MANUAL_ARTICLE_SEARCH";
+            query_text: string;
+            product: components["schemas"]["GeoObservationListProduct"];
+            geo_platform: string;
+            outcomes: components["schemas"]["GeoObservationListOutcomes"];
+            related_achievement_count: number;
+            evidence_count: number;
+            recorder: components["schemas"]["ActorSummary"];
+            /** Format: date-time */
+            observed_at: string;
+            available_actions: ("CORRECT" | "DELETE")[];
+        };
+        GeoObservationListPage: {
+            items: components["schemas"]["GeoObservationListItem"][];
+            page: number;
+            /** @enum {integer} */
+            page_size: 10 | 20 | 50;
             total: number;
         };
         GeoMetrics: {
@@ -9007,6 +9063,40 @@ export interface operations {
             };
         };
     };
+    listGeoObservationItems: {
+        parameters: {
+            query?: {
+                search?: string;
+                product_id?: string;
+                geo_platform?: string;
+                accuracy?: components["schemas"]["AccuracyStatus"];
+                date_from?: string;
+                date_to?: string;
+                sort?: components["schemas"]["GeoObservationListSort"];
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Frontend V2 GEO 观测紧凑列表；只返回纠正链尾 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeoObservationListPage"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
     getGeoObservation: {
         parameters: {
             query?: never;
@@ -9054,6 +9144,7 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getGeoMetrics: {

@@ -80,6 +80,10 @@ Issue 页面级门禁还需分别证明：列表与 Workspace 首屏各只有一
 
 new observation → detail → correction → original remains immutable。
 
+Observation List 的 required evidence 分为两层：PostgreSQL integration 证明链尾选择、两类观测 compact projection、canonical/Product/platform/accuracy/date filter、稳定排序/分页、证据继承、固定批量查询与 actor-aware actions；generated-type production fixture 证明页面只调用 list-items 与明确 delete，不请求 Product、Query Topic、旧完整列表或 Detail。fixture 覆盖八列、canonical links、无“查看详情”、action gating、loading/empty/filtered-empty/error/retry、URL→API 一一映射、分页、键盘/Dialog 焦点返回，以及 375/768/1024/1440 页面根无横向溢出。
+
+本 slice 不新增 GEO real-stack spec：New/Detail/Correction 尚未实现，当前 backend integration 与 production-artifact fixture 分别验证真实 read model 和 UI 边界。完整 `new observation → detail → correction` 真实闭环必须在这些页面到齐后进入唯一隔离编排，不能用 API fixture 冒充。
+
 ### GEO Optimization
 
 insight anomaly → server revalidate → create optimization task。
@@ -224,6 +228,10 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 完整门禁通过 V2 real-stack `10 passed` 与指定 V1 Trusted Types `7 passed`；退出码为 0，并由脚本报告隔离数据库、对象存储目录 `status=deleted`。该验收不进入 Publishing 抽象回顾、GEO，也不要求生产代码、OpenAPI、数据库或依赖变更。
 
 `frontend-v2-fact-history` 已通过 contract-check、PostgreSQL integration、V1 既有调用测试、V2 component、fixture Playwright 与上述真实栈 Flow B。Fact History gap 已关闭，Phase 2 exit gate 从 `NOT_MET` 改判为 `MET`。
+
+### 13.7 GEO Observation List 页面验收
+
+`tests/e2e/geo-observations.spec.ts` 使用独立 generated-type `geo.fixture.ts`。fixture 只允许认证、`GET /api/v1/geo-observations/list-items` 和有资格行的 DELETE；其他 API 返回 501，并在 teardown 将请求与浏览器运行时错误作为失败。组件与 fixture 同时覆盖 URL canonicalization、server query mapping、八列/长文本/compact indicators、actions、状态、retry、分页、CSRF、单次删除、Dialog cancel focus return 和四档响应式；它只证明 V2 production artifact，不代表 GEO 完整业务闭环。
 
 ## 14. Deployment Smoke
 

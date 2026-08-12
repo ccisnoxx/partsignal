@@ -166,6 +166,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **UI ownership**：Issues List 固定六列，Workspace 只拥有 issue report、repair/resolution 与不可变关联历史；实际修复内容仍在 `/content/tasks/$taskId`。当前合同没有 issue attachment/evidence upload，页面不渲染占位能力。
 
+## ADR-030：GEO Observation List 使用 additive compact read model
+
+**Decision**：`/geo/observations` 只消费新增 `GET /api/v1/geo-observations/list-items`。既有 collection endpoint 保留完整 `GeoObservation` 响应供 V1 使用；新 endpoint 统一 legacy/manual 的列表字段、只返回纠正链尾，并在服务端完成 Product/query search、platform/accuracy/date filter、稳定排序、分页、证据继承和 actor-aware actions。
+
+**Why**：完整 DTO 携带 notes、citations、文章与附件详情，仍缺少列表直接需要的 Product label、统一 platform、compact outcomes 和关联/证据计数。扩展旧 DTO 会污染 V1 与详情合同，浏览器 join 或逐行补请求又会制造 waterfall、N+1 与分页后本地语义错误；additive 窄投影把列表事实放回唯一服务端 owner。
+
+**UI ownership**：页面复用既有 TableShell、FilterBar、RowActions、Pagination 和 TanStack Router/Query/Table pattern，不新增通用 DataTable 或 GEO status enum。`available_actions` 是更正/删除的唯一呈现依据；详情与更正尚未实现时只输出 canonical native anchors，不注册 placeholder route，也不复制 Detail 能力。当前数据库未变化，manual discovered/mentioned 的非空约束继续权威，accuracy 未评估由 compact counts 表达。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

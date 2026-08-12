@@ -216,7 +216,11 @@ Workspace 首屏不得并发 issue detail、Article detail 和 ContentTask detai
 
 ### GeoObservationListItem
 
-直接返回 compact result facts、关联成果数量、证据摘要和 recorder，不让客户端再抓多个 detail。
+`GET /api/v1/geo-observations/list-items` 是 `/geo/observations` 的 V2 专用紧凑 read model；既有 `GET /api/v1/geo-observations` 继续返回完整 `GeoObservation` 并服务 V1。新响应只包含链尾观测的标准问题/搜索词、Product identity、统一 GEO 平台、发现/提及/准确 compact counts、关联成果数量、证据数量、recorder、观测时间与 `available_actions`，不含 notes、citation、文章 URL、attachment ID 或详情正文。
+
+query 显式固定为 `search/product_id/geo_platform/accuracy/date_from/date_to/sort/page/page_size`。`search` 由服务端匹配 canonical question、raw prompt/search query、Product brand/part number；其他筛选、`OBSERVED_DESC|OBSERVED_ASC` 排序、count 和 `10|20|50` 分页也全部在服务端完成。URL 的 `q/productId/geoPlatform/accuracy/from/to/sort/page/pageSize` 只按这一组名称映射，不提供 alias；浏览器不得对分页结果本地过滤、排序、join Product/Query Topic 或逐行补请求。
+
+manual 的 discovered/mentioned 由数据库约束保证完整，accuracy 的 null/`UNJUDGEABLE` 通过 `positive_count/assessed_count/total_count` 明确表达未评估；legacy `discovered=null` 表示未采集。投影缺少 Product、recorder、query、platform、manual result 或必填事实时返回结构化 409，不以 0 或空文案补齐。`CORRECT` 与 `DELETE` 只按服务端 `available_actions` 显示；详情和更正暂时只提供 `/geo/observations/{id}` 与 `/geo/observations/{id}/correct` canonical link，不创建占位页面。
 
 ## 14. Workspace Read Model
 

@@ -40,6 +40,7 @@ describe('路由导航元数据', () => {
         'publishing-work',
         'publishing-articles',
         'publishing-issues',
+        'geo-observations',
       ]);
     expect(visibleNavigationSections(true).flatMap((section) => section.items.map((item) => item.id)))
       .toEqual([
@@ -49,6 +50,7 @@ describe('路由导航元数据', () => {
         'publishing-work',
         'publishing-articles',
         'publishing-issues',
+        'geo-observations',
         'users',
       ]);
   });

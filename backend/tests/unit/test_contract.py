@@ -21,6 +21,68 @@ def test_runtime_openapi_matches_frozen_operations() -> None:
     assert check(contract) == []
 
 
+def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
+    """V2 列表使用独立紧凑读模型，V1 完整列表合同保持原样。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    schemas = document["components"]["schemas"]
+    operation = paths["/api/v1/geo-observations/list-items"]["get"]
+
+    assert [parameter["name"] for parameter in operation["parameters"]] == [
+        "search",
+        "product_id",
+        "geo_platform",
+        "accuracy",
+        "date_from",
+        "date_to",
+        "sort",
+        "page",
+        "page_size",
+    ]
+    assert operation["parameters"][-1]["schema"]["enum"] == [10, 20, 50]
+    assert set(operation["responses"]) == {"200", "401", "403", "409", "422"}
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/GeoObservationListPage"
+    }
+
+    item = schemas["GeoObservationListItem"]
+    assert set(item["required"]) == {
+        "id",
+        "observation_kind",
+        "query_text",
+        "product",
+        "geo_platform",
+        "outcomes",
+        "related_achievement_count",
+        "evidence_count",
+        "recorder",
+        "observed_at",
+        "available_actions",
+    }
+    assert not {
+        "notes",
+        "citations",
+        "article_results",
+        "attachment_file_ids",
+        "workflow_stage",
+        "primary_task",
+    } & set(item["properties"])
+    assert item["properties"]["available_actions"]["items"]["enum"] == [
+        "CORRECT",
+        "DELETE",
+    ]
+    assert schemas["GeoObservationListPage"]["properties"]["items"]["items"] == {
+        "$ref": "#/components/schemas/GeoObservationListItem"
+    }
+    assert paths["/api/v1/geo-observations"]["get"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"] == {"$ref": "#/components/schemas/GeoObservationList"}
+    assert "422" in paths["/api/v1/geo-observations/{observation_id}"]["delete"][
+        "responses"
+    ]
+
+
 def test_published_content_issue_contract_has_one_workspace_read_model_and_real_errors() -> None:
     """内容问题列表、工作区与命令必须声明同一 structured error 边界。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"

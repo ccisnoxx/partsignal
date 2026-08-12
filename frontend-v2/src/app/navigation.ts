@@ -1,6 +1,7 @@
 import type { StaticDataRouteOption } from '@tanstack/react-router';
 import {
   BoxesIcon,
+  EyeIcon,
   LayoutDashboardIcon,
   ListTodoIcon,
   MessageSquareWarningIcon,
@@ -10,12 +11,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'users';
+type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-observations' | 'users';
 
 type NavigationItem = {
   id: NavId;
   label: string;
-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/system/users';
+  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/observations' | '/system/users';
   icon: LucideIcon;
   adminOnly?: boolean;
 };
@@ -57,6 +58,12 @@ const navigationSections: readonly NavigationSection[] = [
       { id: 'publishing-work', label: '发布工作', to: '/publishing/work', icon: SendIcon },
       { id: 'publishing-articles', label: '发布成果', to: '/publishing/articles', icon: ScrollTextIcon },
       { id: 'publishing-issues', label: '内容问题', to: '/publishing/issues', icon: MessageSquareWarningIcon },
+    ],
+  },
+  {
+    label: 'GEO',
+    items: [
+      { id: 'geo-observations', label: '观测记录', to: '/geo/observations', icon: EyeIcon },
     ],
   },
   {

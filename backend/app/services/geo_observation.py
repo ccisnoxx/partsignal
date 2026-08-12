@@ -10,6 +10,7 @@ from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import Select, delete, exists, func, literal, or_, select
 from sqlalchemy.orm import Session, aliased
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.audit import append_audit
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
@@ -38,7 +39,14 @@ from app.schemas.geo_files import (
     GeoObservationCreate,
     GeoObservationKind,
     GeoObservationList,
+    GeoObservationListIndicator,
+    GeoObservationListItem,
+    GeoObservationListOutcomes,
+    GeoObservationListPage,
+    GeoObservationListProduct,
+    GeoObservationListSort,
     GeoObservationOut,
+    GeoObservationPageSize,
     GeoObservationSortOrder,
     GeoOptimizationContentTaskCreate,
     GeoPublicationCandidate,
@@ -72,6 +80,18 @@ class GeoObservationFilters:
     recorder_search: str | None = None
     only_mine: bool = False
     include_history: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class GeoObservationListFilters:
+    """Frontend V2 紧凑列表唯一支持的服务端筛选。"""
+
+    search: str | None = None
+    product_id: uuid.UUID | None = None
+    geo_platform: str | None = None
+    accuracy: GeoAccuracy | None = None
+    date_from: date | None = None
+    date_to: date | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -110,26 +130,44 @@ def _contains_pattern(value: str) -> str:
     return f"%{escaped}%"
 
 
+def _current_observation_clause() -> ColumnElement[bool]:
+    """返回纠正链尾谓词，旧列表与 V2 紧凑列表共用同一所有权。"""
+    superseding = aliased(GeoObservation)
+    return ~exists(select(superseding.id).where(superseding.supersedes_id == GeoObservation.id))
+
+
+def _apply_observation_date_range(
+    query: Select[tuple[GeoObservation]],
+    *,
+    date_from: date | None,
+    date_to: date | None,
+) -> Select[tuple[GeoObservation]]:
+    """统一按 UTC 自然日应用观测时间闭区间筛选。"""
+    if date_from is not None:
+        query = query.where(
+            GeoObservation.tested_at
+            >= datetime.combine(date_from, datetime.min.time(), tzinfo=UTC)
+        )
+    if date_to is not None:
+        query = query.where(
+            GeoObservation.tested_at
+            < datetime.combine(date_to + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
+        )
+    return query
+
+
 def geo_observation_query(
     filters: GeoObservationFilters, *, actor_id: uuid.UUID
 ) -> Select[tuple[GeoObservation]]:
     """构造列表与指标唯一共用的观测筛选查询。"""
     query = select(GeoObservation)
     if not filters.include_history:
-        superseding = aliased(GeoObservation)
-        query = query.where(
-            ~exists(select(superseding.id).where(superseding.supersedes_id == GeoObservation.id))
-        )
-    if filters.date_from is not None:
-        query = query.where(
-            GeoObservation.tested_at
-            >= datetime.combine(filters.date_from, datetime.min.time(), tzinfo=UTC)
-        )
-    if filters.date_to is not None:
-        query = query.where(
-            GeoObservation.tested_at
-            < datetime.combine(filters.date_to + timedelta(days=1), datetime.min.time(), tzinfo=UTC)
-        )
+        query = query.where(_current_observation_clause())
+    query = _apply_observation_date_range(
+        query,
+        date_from=filters.date_from,
+        date_to=filters.date_to,
+    )
     if filters.observation_kind is not None:
         query = query.where(GeoObservation.observation_kind == filters.observation_kind)
     if filters.product_id is not None:
@@ -258,31 +296,99 @@ def geo_observation_query(
     return query
 
 
-def geo_observations_out(
-    db: Session, observations: list[GeoObservation], *, actor: User
-) -> list[GeoObservationOut]:
-    """批量投影视图上下文，列表循环不再调用详情查询。"""
-    if not observations:
-        return []
-    observation_ids = [item.id for item in observations]
-    product_ids = {item.product_id for item in observations}
-    recorder_ids = {item.tested_by for item in observations}
-
-    products = {
-        product.id: product
-        for product in db.scalars(select(Product).where(Product.id.in_(product_ids)))
-    }
-    recorders = {
-        user.id: user for user in db.scalars(select(User).where(User.id.in_(recorder_ids)))
-    }
-    superseded_ids = set(
-        db.scalars(
-            select(GeoObservation.supersedes_id).where(
-                GeoObservation.supersedes_id.in_(observation_ids)
+def geo_observation_list_query(
+    filters: GeoObservationListFilters,
+) -> Select[tuple[GeoObservation]]:
+    """构造 V2 列表的唯一服务端搜索、筛选与链尾查询。"""
+    query = select(GeoObservation).where(_current_observation_clause())
+    query = _apply_observation_date_range(
+        query,
+        date_from=filters.date_from,
+        date_to=filters.date_to,
+    )
+    if filters.product_id is not None:
+        query = query.where(GeoObservation.product_id == filters.product_id)
+    if filters.search is not None:
+        pattern = _contains_pattern(filters.search)
+        query = query.where(
+            or_(
+                GeoObservation.actual_prompt.ilike(pattern, escape="\\"),
+                GeoObservation.search_query.ilike(pattern, escape="\\"),
+                exists(
+                    select(QueryTopic.id).where(
+                        QueryTopic.id == GeoObservation.query_topic_id,
+                        QueryTopic.canonical_question.ilike(pattern, escape="\\"),
+                    )
+                ),
+                exists(
+                    select(Product.id).where(
+                        Product.id == GeoObservation.product_id,
+                        or_(
+                            Product.brand.ilike(pattern, escape="\\"),
+                            Product.part_number.ilike(pattern, escape="\\"),
+                        ),
+                    )
+                ),
             )
         )
-    )
+    if filters.geo_platform is not None:
+        normalized_platform = filters.geo_platform.lower()
+        query = query.where(
+            or_(
+                (
+                    (GeoObservation.observation_kind == "LEGACY_MODEL_RESULT")
+                    & (func.lower(GeoObservation.model_name) == normalized_platform)
+                ),
+                (
+                    (GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH")
+                    & (func.lower(GeoObservation.search_platform) == normalized_platform)
+                ),
+            )
+        )
+    if filters.accuracy is not None:
+        manual_accuracy = exists(
+            select(GeoObservationPublication.observation_id).where(
+                GeoObservationPublication.observation_id == GeoObservation.id,
+                GeoObservationPublication.accuracy == filters.accuracy,
+            )
+        )
+        query = query.where(
+            or_(
+                (
+                    (GeoObservation.observation_kind == "LEGACY_MODEL_RESULT")
+                    & (GeoObservation.accuracy == filters.accuracy)
+                ),
+                (
+                    (GeoObservation.observation_kind == "MANUAL_ARTICLE_SEARCH")
+                    & manual_accuracy
+                ),
+            )
+        )
+    return query
 
+
+def _geo_observation_actions(
+    observation: GeoObservation,
+    *,
+    actor: User,
+    is_current: bool,
+) -> list[GeoObservationAction]:
+    """从当前链尾、观测类型与操作者投影唯一动作集合。"""
+    if not is_current or observation.observation_kind != "MANUAL_ARTICLE_SEARCH":
+        return []
+    actions: list[GeoObservationAction] = []
+    if actor.account_type in {"ADMIN", "ENGINEER"}:
+        actions.append("CORRECT")
+    if actor.account_type == "ADMIN":
+        actions.append("DELETE")
+    return actions
+
+
+def _geo_observation_attachment_ids(
+    db: Session,
+    observations: list[GeoObservation],
+) -> dict[uuid.UUID, list[uuid.UUID]]:
+    """批量返回各观测可见证据，人工纠正链继承祖先截图。"""
     attachments: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
     manual_ids = [
         item.id for item in observations if item.observation_kind == "MANUAL_ARTICLE_SEARCH"
@@ -331,6 +437,35 @@ def geo_observations_out(
             .order_by(GeoObservationAttachment.observation_id, GeoObservationAttachment.file_id)
         ).all():
             attachments[observation_id].append(file_id)
+    return attachments
+
+
+def geo_observations_out(
+    db: Session, observations: list[GeoObservation], *, actor: User
+) -> list[GeoObservationOut]:
+    """批量投影视图上下文，列表循环不再调用详情查询。"""
+    if not observations:
+        return []
+    observation_ids = [item.id for item in observations]
+    product_ids = {item.product_id for item in observations}
+    recorder_ids = {item.tested_by for item in observations}
+
+    products = {
+        product.id: product
+        for product in db.scalars(select(Product).where(Product.id.in_(product_ids)))
+    }
+    recorders = {
+        user.id: user for user in db.scalars(select(User).where(User.id.in_(recorder_ids)))
+    }
+    superseded_ids = set(
+        db.scalars(
+            select(GeoObservation.supersedes_id).where(
+                GeoObservation.supersedes_id.in_(observation_ids)
+            )
+        )
+    )
+
+    attachments = _geo_observation_attachment_ids(db, observations)
 
     relations: dict[
         uuid.UUID,
@@ -366,8 +501,6 @@ def geo_observations_out(
         citations[citation.observation_id].append(citation)
 
     outputs: list[GeoObservationOut] = []
-    can_correct = actor.account_type in {"ADMIN", "ENGINEER"}
-    can_delete = actor.account_type == "ADMIN"
     for observation in observations:
         product = products.get(observation.product_id)
         recorder = recorders.get(observation.tested_by)
@@ -378,12 +511,11 @@ def geo_observations_out(
                 409,
             )
         is_current = observation.id not in superseded_ids
-        available_actions: list[GeoObservationAction] = []
-        if is_current and observation.observation_kind == "MANUAL_ARTICLE_SEARCH":
-            if can_correct:
-                available_actions.append("CORRECT")
-            if can_delete:
-                available_actions.append("DELETE")
+        available_actions = _geo_observation_actions(
+            observation,
+            actor=actor,
+            is_current=is_current,
+        )
         common = {
             "observation_kind": observation.observation_kind,
             "id": observation.id,
@@ -494,6 +626,197 @@ def geo_observations_out(
             )
         )
     return outputs
+
+
+def _boolean_list_indicator(values: list[bool | None]) -> GeoObservationListIndicator:
+    """把可空布尔事实压缩为正向、已评估与总数。"""
+    return GeoObservationListIndicator(
+        positive_count=sum(value is True for value in values),
+        assessed_count=sum(value is not None for value in values),
+        total_count=len(values),
+    )
+
+
+def _accuracy_list_indicator(values: list[str | None]) -> GeoObservationListIndicator:
+    """准确率的已评估分母排除未判断与 UNJUDGEABLE。"""
+    return GeoObservationListIndicator(
+        positive_count=sum(value == "ACCURATE" for value in values),
+        assessed_count=sum(value is not None and value != "UNJUDGEABLE" for value in values),
+        total_count=len(values),
+    )
+
+
+def geo_observation_list_items_out(
+    db: Session,
+    observations: list[GeoObservation],
+    *,
+    actor: User,
+) -> list[GeoObservationListItem]:
+    """批量投影 V2 列表需要的紧凑事实，不读取详情正文或文章元数据。"""
+    if not observations:
+        return []
+    observation_ids = [observation.id for observation in observations]
+    product_ids = {observation.product_id for observation in observations}
+    recorder_ids = {observation.tested_by for observation in observations}
+    topic_ids = {
+        observation.query_topic_id
+        for observation in observations
+        if observation.query_topic_id is not None
+    }
+    products = {
+        product.id: product
+        for product in db.scalars(select(Product).where(Product.id.in_(product_ids)))
+    }
+    recorders = {
+        recorder.id: recorder
+        for recorder in db.scalars(select(User).where(User.id.in_(recorder_ids)))
+    }
+    topics = {
+        topic.id: topic
+        for topic in db.scalars(select(QueryTopic).where(QueryTopic.id.in_(topic_ids)))
+    }
+    relations: dict[uuid.UUID, list[GeoObservationPublication]] = defaultdict(list)
+    for relation in db.scalars(
+        select(GeoObservationPublication)
+        .where(GeoObservationPublication.observation_id.in_(observation_ids))
+        .order_by(
+            GeoObservationPublication.observation_id,
+            GeoObservationPublication.published_article_id,
+        )
+    ):
+        relations[relation.observation_id].append(relation)
+    attachments = _geo_observation_attachment_ids(db, observations)
+
+    items: list[GeoObservationListItem] = []
+    for observation in observations:
+        product = products.get(observation.product_id)
+        recorder = recorders.get(observation.tested_by)
+        topic = (
+            topics.get(observation.query_topic_id)
+            if observation.query_topic_id is not None
+            else None
+        )
+        query_text = (
+            topic.canonical_question
+            if topic is not None
+            else observation.search_query or observation.actual_prompt
+        )
+        geo_platform = (
+            observation.search_platform
+            if observation.observation_kind == "MANUAL_ARTICLE_SEARCH"
+            else observation.model_name
+        )
+        if product is None or recorder is None or not query_text or not query_text.strip():
+            raise AppError(
+                "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                "GEO 观测关联的产品、问题或记录人不存在",
+                409,
+            )
+        if not geo_platform or not geo_platform.strip():
+            raise AppError(
+                "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                "GEO 观测缺少平台信息",
+                409,
+            )
+        observation_relations = relations[observation.id]
+        if observation.observation_kind == "MANUAL_ARTICLE_SEARCH":
+            if not observation_relations:
+                raise AppError(
+                    "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                    "人工 GEO 观测缺少关联成果事实",
+                    409,
+                )
+            if any(
+                relation.discovered is None or relation.mentioned is None
+                for relation in observation_relations
+            ):
+                raise AppError(
+                    "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                    "人工 GEO 观测缺少发现或提及事实",
+                    409,
+                )
+            outcomes = GeoObservationListOutcomes(
+                discovered=_boolean_list_indicator(
+                    [relation.discovered for relation in observation_relations]
+                ),
+                mentioned=_boolean_list_indicator(
+                    [relation.mentioned for relation in observation_relations]
+                ),
+                accuracy=_accuracy_list_indicator(
+                    [relation.accuracy for relation in observation_relations]
+                ),
+            )
+        else:
+            if observation.mentioned is None or observation.accuracy is None:
+                raise AppError(
+                    "GEO_OBSERVATION_CONTEXT_INCOMPLETE",
+                    "旧 GEO 观测缺少提及或准确性事实",
+                    409,
+                )
+            outcomes = GeoObservationListOutcomes(
+                discovered=None,
+                mentioned=_boolean_list_indicator([observation.mentioned]),
+                accuracy=_accuracy_list_indicator([observation.accuracy]),
+            )
+        items.append(
+            GeoObservationListItem(
+                id=observation.id,
+                observation_kind=observation.observation_kind,
+                query_text=query_text.strip(),
+                product=GeoObservationListProduct(
+                    id=product.id,
+                    label=f"{product.brand} {product.part_number}",
+                ),
+                geo_platform=geo_platform.strip(),
+                outcomes=outcomes,
+                related_achievement_count=len(observation_relations),
+                evidence_count=len(attachments[observation.id]),
+                recorder=ActorSummary(
+                    id=recorder.id,
+                    username=recorder.username,
+                    display_name=recorder.display_name,
+                ),
+                observed_at=observation.tested_at,
+                available_actions=_geo_observation_actions(
+                    observation,
+                    actor=actor,
+                    is_current=True,
+                ),
+            )
+        )
+    return items
+
+
+def list_geo_observation_items(
+    db: Session,
+    *,
+    filters: GeoObservationListFilters,
+    actor: User,
+    page: int,
+    page_size: GeoObservationPageSize,
+    sort: GeoObservationListSort,
+) -> GeoObservationListPage:
+    """返回 Frontend V2 唯一使用的链尾紧凑列表。"""
+    query = geo_observation_list_query(filters)
+    total = int(db.scalar(select(func.count()).select_from(query.subquery())) or 0)
+    tested_at_order = (
+        GeoObservation.tested_at.asc()
+        if sort == "OBSERVED_ASC"
+        else GeoObservation.tested_at.desc()
+    )
+    observations = list(
+        db.scalars(
+            query.order_by(tested_at_order, GeoObservation.id.asc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    )
+    return GeoObservationListPage(
+        items=geo_observation_list_items_out(db, observations, actor=actor),
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
 
 
 def list_geo_observations(

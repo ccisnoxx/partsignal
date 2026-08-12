@@ -30,7 +30,10 @@ from app.schemas.geo_files import (
     GeoObservationCreate,
     GeoObservationKind,
     GeoObservationList,
+    GeoObservationListPage,
+    GeoObservationListSort,
     GeoObservationOut,
+    GeoObservationPageSize,
     GeoObservationSortOrder,
     GeoOptimizationContentTaskCreate,
     GeoPublicationCandidateList,
@@ -39,6 +42,7 @@ from app.schemas.geo_files import (
 from app.services.geo_observation import (
     GeoInsightFilters,
     GeoObservationFilters,
+    GeoObservationListFilters,
     create_geo_optimization_content_task,
     geo_publication_candidates,
 )
@@ -56,6 +60,9 @@ from app.services.geo_observation import (
 )
 from app.services.geo_observation import (
     get_geo_observation as get_geo_observation_service,
+)
+from app.services.geo_observation import (
+    list_geo_observation_items as list_geo_observation_items_service,
 )
 from app.services.geo_observation import (
     list_geo_observations as list_geo_observations_service,
@@ -146,6 +153,31 @@ def geo_insight_filters(
     )
 
 
+def geo_observation_list_filters(
+    search: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+    product_id: uuid.UUID | None = None,
+    geo_platform: Annotated[str | None, Query(min_length=1, max_length=160)] = None,
+    accuracy: GeoAccuracy | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+) -> GeoObservationListFilters:
+    """校验 V2 列表唯一公开的搜索与筛选参数。"""
+    if date_from is not None and date_to is not None and date_from > date_to:
+        raise AppError("VALIDATION_ERROR", "开始日期不能晚于结束日期", 422)
+    if search is not None and not search.strip():
+        raise AppError("VALIDATION_ERROR", "搜索词不能为空", 422)
+    if geo_platform is not None and not geo_platform.strip():
+        raise AppError("VALIDATION_ERROR", "GEO 平台不能为空", 422)
+    return GeoObservationListFilters(
+        search=search.strip() if search is not None else None,
+        product_id=product_id,
+        geo_platform=geo_platform.strip() if geo_platform is not None else None,
+        accuracy=accuracy,
+        date_from=date_from,
+        date_to=date_to,
+    )
+
+
 @router.get(
     "/geo-observations", response_model=GeoObservationList, operation_id="listGeoObservations"
 )
@@ -165,6 +197,30 @@ def list_geo_observations(
         page=page,
         page_size=page_size,
         sort_order=sort_order,
+    )
+
+
+@router.get(
+    "/geo-observations/list-items",
+    response_model=GeoObservationListPage,
+    operation_id="listGeoObservationItems",
+)
+def list_geo_observation_items(
+    db: DbSession,
+    user: CurrentUser,
+    filters: Annotated[GeoObservationListFilters, Depends(geo_observation_list_filters)],
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[GeoObservationPageSize, Query()] = 20,
+    sort: GeoObservationListSort = "OBSERVED_DESC",
+) -> GeoObservationListPage:
+    """返回 Frontend V2 使用的 GEO 观测紧凑列表。"""
+    return list_geo_observation_items_service(
+        db,
+        filters=filters,
+        actor=user,
+        page=page,
+        page_size=page_size,
+        sort=sort,
     )
 
 

@@ -23,6 +23,8 @@ from app.schemas.publication import FileRecordOut
 GeoObservationKind = Literal["LEGACY_MODEL_RESULT", "MANUAL_ARTICLE_SEARCH"]
 GeoObservationAction = Literal["CORRECT", "DELETE"]
 GeoObservationSortOrder = Literal["ASC", "DESC"]
+GeoObservationListSort = Literal["OBSERVED_DESC", "OBSERVED_ASC"]
+GeoObservationPageSize = Literal[10, 20, 50]
 LegacyRecommendation = Literal["NONE", "CANDIDATE", "RECOMMENDED"]
 GeoAccuracy = Literal["ACCURATE", "PARTIAL", "INCORRECT", "UNJUDGEABLE"]
 
@@ -164,6 +166,53 @@ class GeoObservationList(ContractModel):
     page: int
     page_size: int
     total: int
+
+
+class GeoObservationListProduct(ContractModel):
+    id: uuid.UUID
+    label: str = Field(min_length=1)
+
+
+class GeoObservationListIndicator(ContractModel):
+    positive_count: int = Field(ge=0)
+    assessed_count: int = Field(ge=0)
+    total_count: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def validate_counts(self) -> GeoObservationListIndicator:
+        """紧凑指标必须保留正向、已评估与总数的包含关系。"""
+        if not self.positive_count <= self.assessed_count <= self.total_count:
+            raise ValueError("GEO 指标计数必须满足正向数不大于已评估数且不大于总数")
+        return self
+
+
+class GeoObservationListOutcomes(ContractModel):
+    discovered: GeoObservationListIndicator | None
+    mentioned: GeoObservationListIndicator
+    accuracy: GeoObservationListIndicator
+
+
+class GeoObservationListItem(ContractModel):
+    id: uuid.UUID
+    observation_kind: GeoObservationKind
+    query_text: str = Field(min_length=1)
+    product: GeoObservationListProduct
+    geo_platform: str = Field(min_length=1, max_length=160)
+    outcomes: GeoObservationListOutcomes
+    related_achievement_count: int = Field(ge=0)
+    evidence_count: int = Field(ge=0)
+    recorder: ActorSummary
+    observed_at: datetime
+    available_actions: Annotated[
+        list[GeoObservationAction], AfterValidator(require_unique_items)
+    ] = Field(json_schema_extra={"uniqueItems": True})
+
+
+class GeoObservationListPage(ContractModel):
+    items: list[GeoObservationListItem]
+    page: int = Field(ge=1)
+    page_size: GeoObservationPageSize
+    total: int = Field(ge=0)
 
 
 class GeoMetrics(ContractModel):

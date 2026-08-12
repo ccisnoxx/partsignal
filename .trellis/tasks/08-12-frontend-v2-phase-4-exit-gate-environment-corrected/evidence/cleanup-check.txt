@@ -1,0 +1,14 @@
+PHASE4_CLEANUP checked_at=2026-08-12 16:35 +0800
+PHASE4_CLEANUP database=partsignal_e2e_20260812_66472 exists=false status=deleted
+PHASE4_CLEANUP storage=/var/folders/m5/j06tv2sn1hn93d6f33j559jm0000gn/T/partsignal-e2e-storage.wRFthJ exists=false status=deleted
+PHASE4_CLEANUP ports=8000,9001,5173,4173,4174,19009 unknown_listeners=none
+PHASE4_CLEANUP redis_logical_db=15
+PHASE4_CLEANUP redis_external_db15_clients=0
+PHASE4_CLEANUP redis_queue_keys=none
+PHASE4_CLEANUP redis_other_keys=none
+PHASE4_CLEANUP redis_binding_keys_before=_kombu.binding.celery,_kombu.binding.generation-reliability-a5f0df3cc4564370b948209f4fc39a13
+PHASE4_CLEANUP redis_binding_cleanup=exact deleted=2
+PHASE4_CLEANUP redis_dbsize_final=0
+PHASE4_CLEANUP status=passed
+
+说明：16:33 的首次审计使用 psycopg 直接读取 SQLAlchemy URL，连接参数解析失败，未发生清理写入；16:34 的第二次审计保守地把 Redis 全部 logical DB 客户端计为外部客户端，因此跳过 binding 删除。最终审计按隔离规范只统计 db=15 客户端，在独占、queue/unacked/other keys 均为空后删除上述两个精确 binding key，未使用通配删除或 FLUSHDB。

@@ -119,7 +119,10 @@ async function renderPage(entry = '/content/tasks/new') {
           csrfToken="component-csrf"
           onCancel={() => void navigate({ to: '/content/tasks' })}
           onCreated={(taskId) => void navigate({ to: `/content/tasks/${taskId}` })}
-          onProductIdChange={(productId) => void navigate({ search: { productId } })}
+          onProductIdChange={(productId) => void navigate({
+            ignoreBlocker: true,
+            search: { productId },
+          })}
           search={search}
         />
       );
@@ -191,9 +194,11 @@ describe('NewContentTaskPage', () => {
     await choose('已批准事实版本', 'v2 · 内部');
     await choose('产品', 'PartSignal · PS-B');
 
+    await waitFor(() => expect(router.state.location.search).toEqual({ productId: ids.productB }));
+    expect(await screen.findByRole('status')).toHaveTextContent('PS-B');
+    expect(screen.queryByRole('dialog', { name: '要离开当前页面吗？' })).not.toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: '已批准事实版本' })).toHaveTextContent('选择事实版本');
     expect(screen.getByRole('combobox', { name: '目标平台' })).toHaveTextContent('技术社区');
-    await waitFor(() => expect(router.state.location.search).toEqual({ productId: ids.productB }));
     expect(get).toHaveBeenLastCalledWith('/api/v1/content-tasks/creation-options', {
       params: { query: { requested_product_id: ids.productB } },
     });
@@ -365,17 +370,43 @@ describe('NewContentTaskPage', () => {
 
   it('必填错误完整关联 ErrorSummary，DirtyGuard 覆盖 Cancel', async () => {
     mockOptions();
-    await renderPage();
+    const user = userEvent.setup();
+    const { router } = await renderPage();
     await screen.findByRole('combobox', { name: '产品' });
-    await userEvent.click(screen.getByRole('button', { name: '创建' }));
+    await user.click(screen.getByRole('button', { name: '创建' }));
     const summary = await screen.findByRole('alert', { name: '请修正以下问题' });
     expect(within(summary).getByText('请选择产品')).toBeInTheDocument();
+    expect(within(summary).getByText('请选择已批准事实版本')).toBeInTheDocument();
+    expect(within(summary).getByText('请选择目标平台')).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: '产品' })).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('combobox', { name: '已批准事实版本' }))
+      .toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('combobox', { name: '目标平台' }))
+      .toHaveAttribute('aria-invalid', 'true');
 
     await choose('产品', 'PartSignal · PS-A');
-    await userEvent.click(screen.getByRole('button', { name: '取消' }));
-    const dialog = await screen.findByRole('dialog', { name: '要离开当前页面吗？' });
-    await userEvent.click(within(dialog).getByRole('button', { name: '继续编辑' }));
+    await waitFor(() => expect(router.state.location.search).toEqual({ productId: ids.productA }));
+    expect(await screen.findByRole('status')).toHaveTextContent('PS-A');
+    await choose('已批准事实版本', 'v2 · 内部');
+    await choose('目标平台', '技术社区');
+
+    const cancel = screen.getByRole('button', { name: '取消' });
+    await user.click(cancel);
+    let dialog = await screen.findByRole('dialog', { name: '要离开当前页面吗？' });
+    await user.click(within(dialog).getByRole('button', { name: '继续编辑' }));
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
     expect(screen.getByRole('heading', { name: '创建内容任务' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '产品' })).toHaveTextContent('PS-A');
+    expect(screen.getByRole('combobox', { name: '已批准事实版本' })).toHaveTextContent('v2 · 内部');
+    expect(screen.getByRole('combobox', { name: '目标平台' })).toHaveTextContent('技术社区');
+    expect(router.state.location.pathname).toBe('/content/tasks/new');
+    expect(router.state.location.search).toEqual({ productId: ids.productA });
+    await waitFor(() => expect(cancel).toHaveFocus());
+
+    await user.click(cancel);
+    dialog = await screen.findByRole('dialog', { name: '要离开当前页面吗？' });
+    await user.click(within(dialog).getByRole('button', { name: '放弃修改并离开' }));
+    expect(await screen.findByRole('heading', { name: '内容任务列表' })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/content/tasks');
   });
 });

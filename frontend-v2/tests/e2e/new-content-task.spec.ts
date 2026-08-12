@@ -68,17 +68,6 @@ test('productId direct/refresh/Back/Forward 恢复，非法、不存在、停用
   await page.reload();
   await expect(page.getByRole('combobox', { name: '产品' })).toContainText('PS-CREATE-001');
 
-  await choose(page, '产品', 'PartSignal · PS-CREATE-002');
-  await expect(page).toHaveURL(`/content/tasks/new?productId=${secondCreationProductId}`);
-  await expect(page.getByRole('status')).toContainText('PS-CREATE-002');
-  await expect(page.getByRole('combobox', { name: '产品' })).toContainText('PS-CREATE-002');
-  await page.goBack();
-  await expect(page).toHaveURL(`/content/tasks/new?productId=${creationProductId}`);
-  await expect(page.getByRole('status')).toContainText('PS-CREATE-001');
-  await expect(page.getByRole('combobox', { name: '产品' })).toContainText('PS-CREATE-001');
-  await page.goForward();
-  await expect(page.getByRole('combobox', { name: '产品' })).toContainText('PS-CREATE-002');
-
   for (const [value, message] of [
     ['', 'productId 为空'],
     ['not-a-uuid', '不是有效 UUID'],
@@ -93,6 +82,39 @@ test('productId direct/refresh/Back/Forward 恢复，非法、不存在、停用
   await expect(page.getByRole('alert')).toContainText('没有非空的已批准事实版本');
   await expect(page.getByRole('alert').getByRole('link', { name: '进入产品事实' }))
     .toHaveAttribute('href', `/products/${noFactsProductId}/facts`);
+
+  await page.goto(`/content/tasks/new?productId=${creationProductId}`);
+  await expect(page.getByRole('combobox', { name: '产品' })).toContainText('PS-CREATE-001');
+  await choose(page, '已批准事实版本', 'v3 · 公开');
+  await choose(page, '目标平台', '工程师社区');
+  await choose(page, '产品', 'PartSignal · PS-CREATE-002');
+  await expect(page).toHaveURL(`/content/tasks/new?productId=${secondCreationProductId}`);
+  await expect(page.getByRole('status')).toContainText('PS-CREATE-002');
+  await expect(page.getByRole('combobox', { name: '已批准事实版本' })).toContainText('选择事实版本');
+  await expect(page.getByRole('combobox', { name: '目标平台' })).toContainText('工程师社区');
+  await expect(page.getByRole('dialog', { name: '要离开当前页面吗？' })).toHaveCount(0);
+
+  await page.goBack();
+  let dialog = page.getByRole('dialog', { name: '要离开当前页面吗？' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: '继续编辑' }).click();
+  await expect(page).toHaveURL(`/content/tasks/new?productId=${secondCreationProductId}`);
+  await expect(page.getByRole('combobox', { name: '产品' })).toContainText('PS-CREATE-002');
+
+  await page.goBack();
+  dialog = page.getByRole('dialog', { name: '要离开当前页面吗？' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: '放弃修改并离开' }).click();
+  await expect(page).toHaveURL(`/content/tasks/new?productId=${creationProductId}`);
+  await expect(page.getByRole('status')).toContainText('PS-CREATE-001');
+  await expect(page.getByRole('combobox', { name: '产品' })).toContainText('PS-CREATE-001');
+
+  await page.goForward();
+  dialog = page.getByRole('dialog', { name: '要离开当前页面吗？' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: '放弃修改并离开' }).click();
+  await expect(page).toHaveURL(`/content/tasks/new?productId=${secondCreationProductId}`);
+  await expect(page.getByRole('combobox', { name: '产品' })).toContainText('PS-CREATE-002');
 });
 
 test('Product 只显示所属 approved facts，换 Product 清除旧事实，Platform 只显示活动具体平台', async ({ page }) => {
@@ -210,7 +232,13 @@ test('DirtyGuard 覆盖 Cancel', async ({ page }) => {
   await dialog.getByRole('button', { name: '继续编辑' }).click();
   await expect(page).toHaveURL('/content/tasks/new');
   await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: '目标平台' })).toContainText('工程师社区');
   await expect(cancel).toBeFocused();
+
+  await cancel.click();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: '放弃修改并离开' }).click();
+  await expect(page).toHaveURL(listUrl);
 });
 
 test('DirtyGuard 覆盖浏览器 Back', async ({ page }) => {

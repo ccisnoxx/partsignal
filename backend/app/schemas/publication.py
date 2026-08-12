@@ -471,6 +471,12 @@ class PublishedContentIssueOut(PublishedContentIssueListItem):
     article: PublishedArticleListItem
 
 
+class PublishedContentIssueWorkspaceContext(ContractModel):
+    issue: PublishedContentIssueOut
+    article: PublishedArticleOut
+    repair_task: ContentTaskOut | None
+
+
 class PublishedContentIssueList(ContractModel):
     items: list[PublishedContentIssueListItem]
     page: int = Field(ge=1)

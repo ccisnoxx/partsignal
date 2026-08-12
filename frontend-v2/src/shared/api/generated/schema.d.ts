@@ -1736,6 +1736,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/published-content-issues/{issue_id}/workspace-context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Published Content Issue Workspace Context */
+        get: operations["getPublishedContentIssueWorkspaceContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/published-content-issues/{issue_id}/repair-context": {
         parameters: {
             query?: never;
@@ -4463,6 +4480,12 @@ export interface components {
             page_size: number;
             /** Total */
             total: number;
+        };
+        /** PublishedContentIssueWorkspaceContext */
+        PublishedContentIssueWorkspaceContext: {
+            issue: components["schemas"]["PublishedContentIssue"];
+            article: components["schemas"]["PublishedArticle"];
+            repair_task: components["schemas"]["ContentTask"] | null;
         };
         /** PublishedContentIssueListItem */
         PublishedContentIssueListItem: {
@@ -8710,6 +8733,10 @@ export interface operations {
                     "application/json": components["schemas"]["PublishedContentIssue"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
@@ -8735,6 +8762,9 @@ export interface operations {
                     "application/json": components["schemas"]["PublishedContentIssueList"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
@@ -8758,6 +8788,37 @@ export interface operations {
                     "application/json": components["schemas"]["PublishedContentIssue"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPublishedContentIssueWorkspaceContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                issue_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishedContentIssueWorkspaceContext"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
@@ -8781,6 +8842,10 @@ export interface operations {
                     "application/json": components["schemas"]["PublishedContentRepairContext"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
@@ -8810,6 +8875,10 @@ export interface operations {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };
@@ -8839,6 +8908,10 @@ export interface operations {
                     "application/json": components["schemas"]["PublishedContentIssue"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
     };

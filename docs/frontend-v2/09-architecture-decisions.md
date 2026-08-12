@@ -156,7 +156,15 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Snapshot boundary**：PublishedArticle 与 PublicationWork 同 ID，固定 verification 必须为 PASSED；该 verification 的 `content_version_id` 唯一决定来源内容。平台/账号文本只读取 Work 终态 snapshot，来源 payload/hash 与 events 在单个 `REPEATABLE READ` 请求中校验和返回；live Profile/Account、ContentTask current pointer 与后续 ContentVersion status 不能改写发布时历史。
 
-**UI ownership**：Article List 是固定五列 readonly Table，Detail 复用 MarkdownPreview、DetailSection、Timeline 与 Badge。两页不消费既有 `available_actions/deletion`，不按 health/status 推导动作，也不提供编辑、删除、重新核验、Published Content Issue 或 GEO 能力；这些 workflow 保留给各自后续 canonical surface。
+**UI ownership**：Article List 是固定五列 readonly Table，Detail 复用 MarkdownPreview、DetailSection、Timeline 与 Badge。成果 payload 始终不可编辑；Detail 只消费 `OPEN_ISSUE` 或 `HANDLE_CONTENT_ISSUE + open_issue_id` 交接 Issue lifecycle，不按 health/status 推导资格，也不提供成果删除、重新核验或 GEO 能力。
+
+## ADR-029：PublishedContentIssue 使用单一 Workspace Context
+
+**Decision**：`/publishing/issues` 复用既有批量 list DTO；`/publishing/issues/$issueId` 新增窄 `GET /api/v1/published-content-issues/{issue_id}/workspace-context`，返回 `issue + immutable article + nullable repair_task`。既有 `repair-context` 只在创建修复任务时按需读取 Fact 候选，不扩成首屏万能载荷。
+
+**Snapshot boundary**：issue list/detail/workspace/repair-context 均在单个 `REPEATABLE READ` 请求内投影。Workspace 校验 Issue/Article、PASSED verification、来源 ContentVersion ID/hash 与 repair source identity；浏览器不得跨请求 join。`CANCELLED` repair task 与 `COMPLETED` 一样进入待确认解决，但不代表 issue 已解决。
+
+**UI ownership**：Issues List 固定六列，Workspace 只拥有 issue report、repair/resolution 与不可变关联历史；实际修复内容仍在 `/content/tasks/$taskId`。当前合同没有 issue attachment/evidence upload，页面不渲染占位能力。
 
 ## 后续建议 ADR
 

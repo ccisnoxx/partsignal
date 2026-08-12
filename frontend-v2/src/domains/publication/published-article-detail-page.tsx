@@ -1,14 +1,37 @@
-import { useQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { MarkdownPreview } from '@/design-system/editor/markdown-editor';
+import { ErrorSummary, type ErrorSummaryItem } from '@/design-system/forms/form-layout';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/design-system/primitives/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/design-system/primitives/select';
 import { Skeleton } from '@/design-system/primitives/skeleton';
 import { DetailSection } from '@/design-system/workspace/detail-section';
 import { Timeline, type TimelineItem } from '@/design-system/workspace/timeline';
 import type { components } from '@/shared/api/generated/schema';
-import { PublicationRequestError, publishedArticleQueryOptions } from './publication.api';
+import {
+  PublicationRequestError,
+  mapPublicationError,
+  openPublishedContentIssue,
+  publishedArticleQueryOptions,
+  type PublicationStartErrorMapping,
+} from './publication.api';
 import {
   formatPublicationTime,
   publicationEventLabels,
@@ -16,11 +39,24 @@ import {
   publishedArticleUrlDomain,
   type PublishedArticle,
 } from './published-article.model';
+import {
+  issueKindLabels,
+  openIssueFormSchema,
+  type PublishedContentIssue,
+} from './published-content-issue.model';
 
-type PublishedArticleDetailPageProps = { articleId: string };
+type PublishedArticleDetailPageProps = {
+  articleId: string;
+  csrfToken: string | null;
+  onIssueOpened: (issue: PublishedContentIssue) => Promise<void> | void;
+};
 type LineageStep = components['schemas']['ContentVersionLineageStep'];
 
-function PublishedArticleDetailPage({ articleId }: PublishedArticleDetailPageProps) {
+function PublishedArticleDetailPage({
+  articleId,
+  csrfToken,
+  onIssueOpened,
+}: PublishedArticleDetailPageProps) {
   const article = useQuery(publishedArticleQueryOptions(articleId));
 
   if (article.isPending) return <PublishedArticleSkeleton articleId={articleId} />;
@@ -38,7 +74,11 @@ function PublishedArticleDetailPage({ articleId }: PublishedArticleDetailPagePro
           <Button onClick={() => void article.refetch()} variant="outline">重试刷新</Button>
         </section>
       )}
-      <PublishedArticleDetailView article={article.data} />
+      <PublishedArticleDetailView
+        article={article.data}
+        csrfToken={csrfToken}
+        onIssueOpened={onIssueOpened}
+      />
     </div>
   );
 }
@@ -48,10 +88,15 @@ function matchesArticleIdentity(article: PublishedArticle, articleId: string) {
     && article.content_version_id === article.verification.content_version_id
     && article.content_version_id === article.source_content.content.id
     && article.content_hash === article.source_content.content.content_hash
-    && article.verification.outcome === 'PASSED';
+    && article.verification.outcome === 'PASSED'
+    && (article.primary_task !== 'HANDLE_CONTENT_ISSUE' || Boolean(article.open_issue_id));
 }
 
-function PublishedArticleDetailView({ article }: { article: PublishedArticle }) {
+function PublishedArticleDetailView({ article, csrfToken, onIssueOpened }: {
+  article: PublishedArticle;
+  csrfToken: string | null;
+  onIssueOpened: (issue: PublishedContentIssue) => Promise<void> | void;
+}) {
   const content = article.source_content.content;
   const fact = article.source_content.fact_version;
   const stage = publishedArticleStageRegistry[article.workflow_stage];
@@ -78,6 +123,12 @@ function PublishedArticleDetailView({ article }: { article: PublishedArticle }) 
         <nav aria-label="发布成果导航" className="flex flex-wrap gap-2 sm:justify-end">
           <a className={navLinkClass} href="/publishing/articles?page=1&pageSize=20">返回成果列表</a>
           <a className={navLinkClass} href={article.final_url} rel="noreferrer" target="_blank">打开公开页面</a>
+          {article.primary_task === 'HANDLE_CONTENT_ISSUE' && article.open_issue_id && (
+            <a className={navLinkClass} href={`/publishing/issues/${article.open_issue_id}#issue`}>处理内容问题</a>
+          )}
+          {article.available_actions.includes('OPEN_ISSUE') && (
+            <OpenIssueDialog article={article} csrfToken={csrfToken} onIssueOpened={onIssueOpened} />
+          )}
         </nav>
       </header>
 
@@ -162,13 +213,15 @@ function PublishedArticleDetailView({ article }: { article: PublishedArticle }) 
           <Timeline emptyMessage="没有发布事件。" items={eventItems} />
         </DetailSection>
 
-        <DetailSection description="本页只展示已有 issue 历史，不提供登记、处理或重新核验操作。" title="内容健康">
+        <DetailSection description="问题登记使用服务端 OPEN_ISSUE 动作；处理与解决交接到 canonical Issue Workspace。" title="内容健康">
           <p className="font-medium">{stage.label} · {article.issues.length} 条历史问题</p>
           {article.issues.length > 0 && (
             <ul className="mt-3 space-y-2 text-sm text-text-secondary">
               {article.issues.map((issue) => (
                 <li className="rounded-lg border border-border-subtle p-3" key={issue.id}>
-                  <span className="font-medium text-text-primary">{issue.kind}</span>
+                  <a className="font-medium text-link hover:underline" href={`/publishing/issues/${issue.id}#issue`}>
+                    {issueKindLabels[issue.kind]}
+                  </a>
                   {' · '}{issue.status}{' · '}{issue.description}
                 </li>
               ))}
@@ -177,6 +230,110 @@ function PublishedArticleDetailView({ article }: { article: PublishedArticle }) 
         </DetailSection>
       </div>
     </article>
+  );
+}
+
+function OpenIssueDialog({ article, csrfToken, onIssueOpened }: {
+  article: PublishedArticle;
+  csrfToken: string | null;
+  onIssueOpened: (issue: PublishedContentIssue) => Promise<void> | void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [kind, setKind] = useState<'PAGE_UNAVAILABLE' | 'CONTENT_CHANGED' | 'OTHER'>('PAGE_UNAVAILABLE');
+  const [description, setDescription] = useState('');
+  const [fieldError, setFieldError] = useState<string>();
+  const [serverError, setServerError] = useState<PublicationStartErrorMapping>();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const mutation = useMutation({
+    mutationFn: (body: { kind: typeof kind; description: string }) => (
+      openPublishedContentIssue(article.id, body, csrfToken)
+    ),
+  });
+  const errors: ErrorSummaryItem[] = [
+    ...(fieldError ? [{ id: 'description', fieldId: 'published-issue-description', message: fieldError }] : []),
+    ...(serverError ? [
+      { id: 'server', message: serverError.message },
+      ...(serverError.requestId
+        ? [{ id: 'request-id', message: `请求 ID：${serverError.requestId}` }]
+        : []),
+    ] : []),
+  ];
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFieldError(undefined);
+    setServerError(undefined);
+    const parsed = openIssueFormSchema.safeParse({ kind, description });
+    if (!parsed.success) {
+      setFieldError(parsed.error.issues[0]?.message ?? '请检查问题描述');
+      return;
+    }
+    try {
+      const issue = await mutation.mutateAsync(parsed.data);
+      await onIssueOpened(issue);
+      setOpen(false);
+    } catch (error) {
+      setServerError(mapPublicationError(error));
+    }
+  }
+
+  return (
+    <>
+      <Button onClick={() => setOpen(true)} ref={triggerRef} type="button">登记内容问题</Button>
+      <Dialog
+        onOpenChange={(next) => !mutation.isPending && setOpen(next)}
+        onOpenChangeComplete={(next) => {
+          if (!next) {
+            setDescription('');
+            setFieldError(undefined);
+            setServerError(undefined);
+          }
+        }}
+        open={open}
+      >
+        <DialogContent finalFocus={() => triggerRef.current} showCloseButton={!mutation.isPending}>
+          <DialogHeader>
+            <DialogTitle>登记“{article.actual_title}”的内容问题</DialogTitle>
+            <DialogDescription>问题类型与描述提交后不可编辑；服务端会重新校验成果资格。</DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={submit}>
+            <ErrorSummary errors={errors} title="内容问题未登记" />
+            <label className="block space-y-1.5" htmlFor="published-issue-kind">
+              <span className="font-medium">问题类型</span>
+              <Select
+                disabled={mutation.isPending}
+                items={Object.entries(issueKindLabels).map(([value, label]) => ({ value, label }))}
+                onValueChange={(value) => value && setKind(value as typeof kind)}
+                value={kind}
+              >
+                <SelectTrigger id="published-issue-kind"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(issueKindLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="block space-y-1.5" htmlFor="published-issue-description">
+              <span className="font-medium">问题描述</span>
+              <textarea
+                className="min-h-28 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-sm"
+                disabled={mutation.isPending}
+                id="published-issue-description"
+                onChange={(event) => setDescription(event.target.value)}
+                value={description}
+              />
+            </label>
+            <DialogFooter>
+              <DialogClose disabled={mutation.isPending} render={<Button variant="outline" />}>取消</DialogClose>
+              <Button disabled={mutation.isPending} type="submit">
+                {mutation.isPending ? '正在登记…' : '确认登记'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

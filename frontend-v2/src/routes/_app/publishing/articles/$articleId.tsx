@@ -1,7 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 
-import { publishedArticleQueryOptions } from '@/domains/publication/publication.api';
+import {
+  publicationKeys,
+  publishedArticleQueryOptions,
+} from '@/domains/publication/publication.api';
 import { PublishedArticleDetailPage } from '@/domains/publication/published-article-detail-page';
 
 export const Route = createFileRoute('/_app/publishing/articles/$articleId')({
@@ -25,5 +28,25 @@ export const Route = createFileRoute('/_app/publishing/articles/$articleId')({
 
 function PublishedArticleRoute() {
   const { articleId } = Route.useParams();
-  return <PublishedArticleDetailPage articleId={articleId} />;
+  const { auth, queryClient } = Route.useRouteContext();
+  const navigate = Route.useNavigate();
+  return (
+    <PublishedArticleDetailPage
+      articleId={articleId}
+      csrfToken={auth.csrfToken}
+      onIssueOpened={async (issue) => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: publicationKeys.article(articleId) }),
+          queryClient.invalidateQueries({ queryKey: publicationKeys.articleLists() }),
+          queryClient.invalidateQueries({ queryKey: publicationKeys.issueLists() }),
+          queryClient.invalidateQueries({ queryKey: publicationKeys.summary() }),
+        ]);
+        await navigate({
+          to: '/publishing/issues/$issueId',
+          params: { issueId: issue.id },
+          hash: 'issue',
+        });
+      }}
+    />
+  );
 }

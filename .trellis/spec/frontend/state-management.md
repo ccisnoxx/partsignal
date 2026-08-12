@@ -507,6 +507,16 @@ const canRegister = context.data?.available_actions.includes('REGISTER_RESULT') 
 
 ---
 
+## Published Content Issue 的 URL、Context 与命令状态
+
+- `/publishing/issues` 的 `status/page/pageSize` 由 URL 唯一持有；默认显式为 `OPEN/1/20`，`ALL` 只在 API 参数中省略 status。
+- `/publishing/issues/$issueId` 首屏只读取 `issueWorkspaceContext(issueId)`；Issue、Article、repair task、来源 Markdown、首次核验和事件不得由多个 query 拼接。
+- Workspace hash 只接受 `issue/article/repair/resolution/history`，不进入 query key。repair-context 只在 `CREATE_REPAIR_TASK` Dialog 打开后读取，候选不是客户端授权。
+- Dialog 输入留在页面本地；命令 409 保留输入并标记 Context stale，只有显式 reload 才重读 tokens。成功命令失效 Issue/Article/summary/Content Task projections并重读 canonical Context，不把 mutation response 填进另一种 Context shape。
+- Article payload 保持只读；`OPEN_ISSUE` 只创建独立 Issue，成功后使用响应 ID 导航。已有问题只按 `primary_task + open_issue_id` 交接，不按 health/status 猜资格。
+
+---
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

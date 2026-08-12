@@ -108,9 +108,11 @@ from app.services.publication_queries import (
     list_publication_ready_items,
     list_publication_works,
     list_published_articles,
+    list_published_content_issues,
     publication_workbench_summary,
     publication_workspace_context,
     published_article_out,
+    published_content_issue_workspace_context,
 )
 from app.services.review import transition_content_version, transition_fact_version
 
@@ -1320,6 +1322,17 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
             )
             assert issue.status == "OPEN"
             assert geo_publication_candidates(db, product.id) == []
+            issue_list = list_published_content_issues(
+                db,
+                page=1,
+                page_size=20,
+                status_filter="OPEN",
+            )
+            assert [item.id for item in issue_list.items] == [issue.id]
+            assert issue_list.items[0].primary_task == "HANDLE_CONTENT_ISSUE"
+            issue_workspace = published_content_issue_workspace_context(db, issue.id)
+            assert issue_workspace.issue.article.id == issue_workspace.article.id == work.id
+            assert issue_workspace.repair_task is None
             repair_task = create_repair_task(
                 db=db,
                 issue_id=issue.id,
@@ -1331,6 +1344,11 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                 request_id="publication-repair-task",
             )
             assert repair_task.source_published_content_issue_id == issue.id
+            repair_workspace = published_content_issue_workspace_context(db, issue.id)
+            assert repair_workspace.issue.status == "OPEN"
+            assert repair_workspace.issue.primary_task == "CONTINUE_REPAIR"
+            assert repair_workspace.repair_task is not None
+            assert repair_workspace.repair_task.id == repair_task.id
             resolved = resolve_published_content_issue(
                 db=db,
                 issue_id=issue.id,
@@ -1343,6 +1361,10 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                 request_id="publication-issue-resolve",
             )
             assert resolved.status == "RESOLVED"
+            resolved_workspace = published_content_issue_workspace_context(db, issue.id)
+            assert resolved_workspace.issue.primary_task == "VIEW_RESOLUTION"
+            assert resolved_workspace.repair_task is not None
+            assert resolved_workspace.repair_task.status == "OPEN"
             assert [
                 candidate.published_article_id
                 for candidate in geo_publication_candidates(db, product.id)

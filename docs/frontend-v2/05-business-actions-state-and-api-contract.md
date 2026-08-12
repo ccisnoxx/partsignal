@@ -107,7 +107,7 @@ UI 不再从 task/generation/content/publication 多个 status 自己组合业�
 
 ## 9. Published Content Issue
 
-`CREATE_REPAIR_TASK`、`RESOLVE_ISSUE` 是独立动作。修复任务创建成功不等于 issue 已解决，前端不能本地自动推导 resolved。
+`CREATE_REPAIR_TASK`、`RESOLVE` 是独立动作。修复任务创建成功不等于 issue 已解决，前端不能本地自动推导 resolved。OPEN 问题的修复任务为 `OPEN` 时主任务是 `CONTINUE_REPAIR`；修复任务为 `COMPLETED` 或 `CANCELLED` 时都进入 `AWAITING_RESOLUTION / CONFIRM_RESOLUTION`，仍需显式提交解决记录。
 
 ## 10. Content Version 单主线
 
@@ -206,7 +206,13 @@ Editor 只消费 task/version 的 `primary_task` 与 `available_actions`。人�
 
 `GET /api/v1/published-articles/{article_id}` 在同一 `REPEATABLE READ` 请求内以 PublishedArticle 固定的 PASSED verification 定位来源 ContentVersion，复用 `ContentVersionDetail` 返回 immutable Markdown、Fact/generation/review lineage，并附带按 `created_at ASC, id ASC` 排序的 PublicationWork events。服务端校验 Article/Work 同 ID、verification outcome、content version ID/hash；断裂上下文返回 `PUBLICATION_CONTEXT_INCOMPLETE`，前端不跨接口补装。
 
-V2 Article List/Detail 都是 readonly surface，不消费响应中为既有消费者保留的 `available_actions/deletion`，不提供编辑、删除、重新核验或 Published Content Issue 命令。
+V2 Article List 保持 readonly 且无操作列。Detail 的成果 payload 仍不可编辑，但消费 `OPEN_ISSUE` 或 `HANDLE_CONTENT_ISSUE + open_issue_id` 完成 Issue lifecycle 的最小交接；不提供成果编辑、删除、重新核验或 GEO 命令。
+
+### PublishedContentIssue List / Workspace
+
+`GET /api/v1/published-content-issues` 只按服务端 `status/page/page_size` 分页，列表 DTO 已包含六列、repair task ID 和动作投影；浏览器不得逐行读取 Article/Task。`GET /api/v1/published-content-issues/{issue_id}/workspace-context` 在单个 `REPEATABLE READ` 请求内返回 `issue + article + repair_task`，并校验 Issue/Article、PASSED verification、来源 ContentVersion ID/hash 与 repair source identity。
+
+Workspace 首屏不得并发 issue detail、Article detail 和 ContentTask detail。`repair-context` 只属于动作选项，在 `CREATE_REPAIR_TASK` Dialog 打开时读取；POST 仍在锁内重新验证 revision、Fact 资格与唯一 repair source。409 保留本地输入且不自动重放，显式 reload 后重新消费服务端 tokens。
 
 ### GeoObservationListItem
 

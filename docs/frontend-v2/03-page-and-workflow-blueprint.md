@@ -234,11 +234,11 @@ Pattern：Table。
 | 首次核验 | Passed |
 | 内容健康 | 正常 / 有开放问题 / Retired |
 
-页面使用 canonical `q/page/pageSize/sort` URL state；搜索、六种排序、count 和分页均由服务端处理。点击 actual title 进入 Detail，URL domain 直接打开公开页面。该 readonly surface 固定五列，不展示 `available_actions`、删除或问题处理入口。
+页面使用 canonical `q/page/pageSize/sort` URL state；搜索、六种排序、count 和分页均由服务端处理。点击 actual title 进入 Detail，URL domain 直接打开公开页面。该 readonly list 固定五列，不展示操作列。
 
 ## 5.4 `/publishing/articles/$articleId`
 
-Pattern：Detail。单次 `GET /api/v1/published-articles/{article_id}` 展示 Final URL、Actual title、Publish time、冻结 Platform/Account、来源 ContentVersion snapshot、First successful verification snapshot、Content/Fact/Generation lineage、Publication timeline 和只读内容健康摘要。成果正文和成功核验 snapshot 不允许编辑；GEO references 与 Published Content Issue workflow 仍由后续独立页面负责。
+Pattern：Detail。单次 `GET /api/v1/published-articles/{article_id}` 展示 Final URL、Actual title、Publish time、冻结 Platform/Account、来源 ContentVersion snapshot、First successful verification snapshot、Content/Fact/Generation lineage、Publication timeline 和只读内容健康摘要。成果正文和成功核验 snapshot 不允许编辑；页面只按 `OPEN_ISSUE` token 提供 `kind + description` 短 Dialog，成功后进入 canonical Issue Workspace。已有开放问题按 `primary_task + open_issue_id` 交接，GEO 仍由独立页面负责。
 
 ## 5.5 `/publishing/issues`
 
@@ -253,11 +253,11 @@ Pattern：Table。
 | 修复任务 | Task link / 未创建 |
 | 操作 | Primary + `•••` |
 
-Primary 可能是 `CREATE_REPAIR_TASK` 或 `RESOLVE_ISSUE`。
+默认 canonical URL 为 `status=OPEN&page=1&pageSize=20`；`ALL` 只在 API 请求中省略 status。Primary 由 `primary_task` 与所需 token/ID 共同约束：创建修复任务、继续修复、确认解决或查看解决记录。
 
 ## 5.6 `/publishing/issues/$issueId`
 
-Pattern：Workspace。包含 Published Article context、Issue detail、evidence、repair task、resolution note、timeline。
+Pattern：Workspace。首屏只读 `GET /api/v1/published-content-issues/{issue_id}/workspace-context`，一次返回 Issue、不可变 Published Article detail 与可空 repair task。章节为 `issue/article/repair/resolution/history`；当前 evidence 只指 issue description、Final URL、冻结 Markdown、首次 PASSED verification 和 Publication events，不存在附件上传。Fact 候选只在打开 `CREATE_REPAIR_TASK` Dialog 时读取既有 `repair-context`。
 
 ---
 

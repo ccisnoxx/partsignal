@@ -29,7 +29,8 @@ test('从五列成果表以键盘进入单请求只读详情', async ({ page, pu
   await expect(page.getByRole('link', { name: '打开公开页面' })).toHaveAttribute('target', '_blank');
   await expect(page.getByRole('textbox')).toHaveCount(0);
   await expect(page.locator('.cm-editor, [contenteditable="true"]')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /编辑|删除|核验|登记|问题/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '登记内容问题' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /编辑|删除|核验/ })).toHaveCount(0);
   expect(publicationApi.articleListRequests).toHaveLength(1);
   expect(publicationApi.articleRequests).toHaveLength(1);
   expect(publicationApi.commandRequests).toHaveLength(0);

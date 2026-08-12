@@ -3,18 +3,19 @@ import {
   BoxesIcon,
   LayoutDashboardIcon,
   ListTodoIcon,
+  MessageSquareWarningIcon,
   SendIcon,
   ScrollTextIcon,
   UsersIcon,
   type LucideIcon,
 } from 'lucide-react';
 
-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'users';
+type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'users';
 
 type NavigationItem = {
   id: NavId;
   label: string;
-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/system/users';
+  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/system/users';
   icon: LucideIcon;
   adminOnly?: boolean;
 };
@@ -55,6 +56,7 @@ const navigationSections: readonly NavigationSection[] = [
       { id: 'content-tasks', label: '内容任务', to: '/content/tasks', icon: ListTodoIcon },
       { id: 'publishing-work', label: '发布工作', to: '/publishing/work', icon: SendIcon },
       { id: 'publishing-articles', label: '发布成果', to: '/publishing/articles', icon: ScrollTextIcon },
+      { id: 'publishing-issues', label: '内容问题', to: '/publishing/issues', icon: MessageSquareWarningIcon },
     ],
   },
   {

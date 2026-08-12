@@ -9,6 +9,8 @@ import {
   publicationWorkspaceContextQueryOptions,
   publishedArticleListQueryOptions,
   publishedArticleQueryOptions,
+  publishedContentIssueListQueryOptions,
+  publishedContentIssueWorkspaceQueryOptions,
 } from './publication.api';
 import { articleIds, publishedArticle } from './published-article.test-fixtures';
 import { workspaceContext } from './publication-work.test-fixtures';
@@ -94,5 +96,38 @@ describe('Publication API errors', () => {
     expect(get).toHaveBeenNthCalledWith(2, '/api/v1/published-articles/{article_id}', {
       params: { path: { article_id: articleIds.article } },
     });
+  });
+
+  it('Issue list 与 Workspace 各自只使用一个 canonical GET', async () => {
+    const issue = {
+      id: 'b0000000-0000-4000-8000-00000000000b',
+      published_article_id: articleIds.article,
+    };
+    const workspace = { issue, article: publishedArticle, repair_task: null };
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/published-content-issues') {
+        const data = { items: [issue], page: 3, page_size: 50, total: 101 };
+        return { data, response: Response.json(data) } as never;
+      }
+      if (path === '/api/v1/published-content-issues/{issue_id}/workspace-context') {
+        return { data: workspace, response: Response.json(workspace) } as never;
+      }
+      throw new Error(`未声明 GET：${path}`);
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    await client.fetchQuery(publishedContentIssueListQueryOptions({
+      status: 'ALL', page: 3, pageSize: 50,
+    }));
+    await client.fetchQuery(publishedContentIssueWorkspaceQueryOptions(issue.id));
+
+    expect(get).toHaveBeenNthCalledWith(1, '/api/v1/published-content-issues', {
+      params: { query: { page: 3, page_size: 50, status: undefined } },
+    });
+    expect(get).toHaveBeenNthCalledWith(
+      2,
+      '/api/v1/published-content-issues/{issue_id}/workspace-context',
+      { params: { path: { issue_id: issue.id } } },
+    );
   });
 });

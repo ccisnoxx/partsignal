@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
@@ -8,11 +9,15 @@ import { articleIds, publishedArticle } from './published-article.test-fixtures'
 
 afterEach(() => vi.restoreAllMocks());
 
-function renderDetail(articleId = articleIds.article) {
+function renderDetail(articleId = articleIds.article, onIssueOpened = vi.fn()) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={queryClient}>
-      <PublishedArticleDetailPage articleId={articleId} />
+      <PublishedArticleDetailPage
+        articleId={articleId}
+        csrfToken="csrf-token-for-published-article-tests"
+        onIssueOpened={onIssueOpened}
+      />
     </QueryClientProvider>,
   );
 }
@@ -51,11 +56,38 @@ describe('PublishedArticleDetailPage', () => {
     expect(screen.getByRole('link', { name: '打开公开页面' })).toHaveAttribute('target', '_blank');
     expect(screen.getByRole('link', { name: 'v3' })).toHaveAttribute('href', `/content/versions/${articleIds.content}`);
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /删除|编辑|核验|登记|问题/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '登记内容问题' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /删除|编辑|核验/ })).not.toBeInTheDocument();
     expect(get).toHaveBeenCalledOnce();
     expect(get).toHaveBeenCalledWith('/api/v1/published-articles/{article_id}', {
       params: { path: { article_id: articleIds.article } },
     });
+  });
+
+  it('只按 OPEN_ISSUE token 提交两字段问题并交接 canonical response', async () => {
+    const user = userEvent.setup();
+    const onIssueOpened = vi.fn();
+    const issue = {
+      id: 'b0000000-0000-4000-8000-00000000000b',
+      kind: 'PAGE_UNAVAILABLE',
+      description: '公开页面返回 404',
+    };
+    vi.spyOn(api, 'GET').mockResolvedValue(response(publishedArticle));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(response(issue, 201));
+    renderDetail(articleIds.article, onIssueOpened);
+
+    await user.click(await screen.findByRole('button', { name: '登记内容问题' }));
+    await user.type(screen.getByRole('textbox', { name: '问题描述' }), issue.description);
+    await user.click(screen.getByRole('button', { name: '确认登记' }));
+
+    expect(post).toHaveBeenCalledWith('/api/v1/published-articles/{article_id}/issues', {
+      body: { kind: 'PAGE_UNAVAILABLE', description: issue.description },
+      params: {
+        header: { 'X-CSRF-Token': 'csrf-token-for-published-article-tests' },
+        path: { article_id: articleIds.article },
+      },
+    });
+    expect(onIssueOpened).toHaveBeenCalledWith(issue);
   });
 
   it.each([

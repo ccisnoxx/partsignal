@@ -19,6 +19,9 @@ type PublicationApiController = {
   articleListRequests: URL[];
   articleRequests: URL[];
   createRequests: CreateRequest[];
+  issueListRequests: URL[];
+  issueRepairRequests: URL[];
+  issueWorkspaceRequests: URL[];
   listRequests: URL[];
   packageRequests: URL[];
   readyRequests: URL[];
@@ -32,6 +35,7 @@ type PublicationApiController = {
   setCommandMode: (mode: CommandMode) => void;
   setArticleDetailError: (status?: WorkspaceErrorStatus) => void;
   setArticleListMode: (mode: ArticleListMode) => void;
+  seedIssue: () => void;
   setReadyMode: (mode: SurfaceMode) => void;
   setSummaryMode: (mode: SurfaceMode) => void;
   setSwitchCandidate: () => void;
@@ -55,6 +59,8 @@ const publicationIds = {
   taskNoAccount: '70000000-0000-4000-8000-000000000002',
   user: '80000000-0000-4000-8000-000000000001',
   work: '90000000-0000-4000-8000-000000000001',
+  issue: 'b0000000-0000-4000-8000-000000000001',
+  repairTask: 'c0000000-0000-4000-8000-000000000001',
 } as const;
 
 const contentVersion = {
@@ -291,6 +297,114 @@ const publishedArticle = {
   issues: [],
 } satisfies components['schemas']['PublishedArticle'];
 
+function createIssue(
+  article: components['schemas']['PublishedArticle'],
+  kind: components['schemas']['PublishedContentIssueKind'] = 'CONTENT_CHANGED',
+  description = '公开页面正文与首次核验快照不一致。',
+) {
+  return {
+    id: publicationIds.issue,
+    kind,
+    description,
+    status: 'OPEN',
+    opened_at: '2026-08-12T01:00:00Z',
+    resolved_at: null,
+    resolution_outcome: null,
+    resolution_comment: null,
+    published_article_id: article.id,
+    content_title: article.content_title,
+    platform_profile_name: article.platform_profile_name,
+    actual_title: article.actual_title,
+    final_url: article.final_url,
+    revision: 0,
+    repair_task_id: null,
+    workflow_stage: 'OPEN',
+    primary_task: 'HANDLE_CONTENT_ISSUE',
+    available_actions: ['CREATE_REPAIR_TASK', 'RESOLVE'],
+    opened_by: publicationIds.user,
+    resolved_by: null,
+    article,
+  } satisfies components['schemas']['PublishedContentIssue'];
+}
+
+const repairTask = {
+  product_id: publicationIds.product,
+  fact_version_id: publicationIds.factVersion,
+  platform_profile_id: publicationIds.platform,
+  id: publicationIds.repairTask,
+  query_topic_id: null,
+  source_published_content_issue_id: publicationIds.issue,
+  current_content_version_id: null,
+  workflow_stage: 'NO_DRAFT',
+  primary_task: 'CREATE_FIRST_DRAFT',
+  available_actions: ['CANCEL'],
+  deletion: null,
+  status: 'OPEN',
+  revision: 0,
+  created_by: publicationIds.user,
+  created_at: '2026-08-12T02:00:00Z',
+  archived_at: null,
+} satisfies components['schemas']['ContentTask'];
+
+const repairFactVersion = {
+  id: publicationIds.factVersion,
+  product_id: publicationIds.product,
+  version: 2,
+  status: 'APPROVED',
+  body_markdown: '# 已批准事实\n\n最新事实内容。',
+  classification: 'PUBLIC',
+  change_summary: '批准修复依据',
+  primary_task: 'CREATE_CONTENT_TASK',
+  available_actions: [],
+  deletion: null,
+  revision: 1,
+  created_by: publicationIds.user,
+  approved_by: publicationIds.user,
+  created_at: '2026-08-09T00:00:00Z',
+  approved_at: '2026-08-09T01:00:00Z',
+} satisfies components['schemas']['FactVersion'];
+
+function createRepairContext(
+  issue: components['schemas']['PublishedContentIssue'],
+  article: components['schemas']['PublishedArticle'],
+) {
+  return {
+    issue,
+    article,
+    original_task: {
+      ...repairTask,
+      id: publicationIds.task,
+      source_published_content_issue_id: null,
+    },
+    product: {
+      id: publicationIds.product,
+      part_number: 'PS-LNA-01',
+      brand: 'PartSignal',
+      category: '放大器',
+      status: 'ACTIVE',
+      workflow_stage: 'FACT_APPROVED',
+      primary_task: 'CREATE_CONTENT_TASK',
+      available_actions: ['UPDATE'],
+      deletion: null,
+      revision: 1,
+      created_at: '2026-08-08T00:00:00Z',
+      updated_at: '2026-08-09T00:00:00Z',
+    },
+    query_topic: null,
+    platform_profile_id: publicationIds.platform,
+    platform_profile_name: article.platform_profile_name,
+    original_fact_version: repairFactVersion,
+    fact_candidates: [{
+      version: repairFactVersion,
+      difference: {
+        from_id: repairFactVersion.id,
+        to_id: repairFactVersion.id,
+        changes: [],
+      },
+    }],
+  } satisfies components['schemas']['PublishedContentRepairContext'];
+}
+
 const switchCandidate = {
   id: publicationIds.replacementContentVersion,
   version: 4,
@@ -373,12 +487,18 @@ const test = base.extend<PublicationFixtures>({
     let readyItems = [readyItem, noAccountReadyItem];
     let workItems = createWorkItems();
     const articleItems = createArticleItems();
+    let currentArticle: components['schemas']['PublishedArticle'] = structuredClone(publishedArticle);
+    let currentIssue: components['schemas']['PublishedContentIssue'] | undefined;
+    let currentRepairTask: components['schemas']['ContentTask'] | null = null;
     let currentWorkspace: PublicationWorkspaceContext = structuredClone(workspaceContext);
     let currentEvidence: FileRecord = evidenceFile;
     const commandRequests: Array<{ method: string; path: string; body: unknown; csrfToken: string | null }> = [];
     const articleListRequests: URL[] = [];
     const articleRequests: URL[] = [];
     const createRequests: CreateRequest[] = [];
+    const issueListRequests: URL[] = [];
+    const issueRepairRequests: URL[] = [];
+    const issueWorkspaceRequests: URL[] = [];
     const listRequests: URL[] = [];
     const packageRequests: URL[] = [];
     const readyRequests: URL[] = [];
@@ -387,6 +507,34 @@ const test = base.extend<PublicationFixtures>({
     const workspaceRequests: URL[] = [];
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
+
+    function seedCurrentIssue(
+      kind: components['schemas']['PublishedContentIssueKind'] = 'CONTENT_CHANGED',
+      description?: string,
+    ) {
+      const opened = createIssue(currentArticle, kind, description);
+      currentArticle = {
+        ...currentArticle,
+        has_open_issue: true,
+        open_issue_id: opened.id,
+        workflow_stage: 'OPEN_ISSUE',
+        primary_task: 'HANDLE_CONTENT_ISSUE',
+        available_actions: [],
+        issues: [{
+          id: opened.id,
+          kind: opened.kind,
+          description: opened.description,
+          status: opened.status,
+          opened_at: opened.opened_at,
+          resolved_at: opened.resolved_at,
+          resolution_outcome: opened.resolution_outcome,
+          resolution_comment: opened.resolution_comment,
+        }],
+      };
+      currentIssue = { ...opened, article: currentArticle };
+      currentRepairTask = null;
+      return currentIssue;
+    }
 
     page.on('console', (message) => {
       if (['401 (Unauthorized)', '403 (Forbidden)', '404 (Not Found)', '409 (Conflict)', '422 (Unprocessable Content)', '422 (Unprocessable Entity)', '503 (Service Unavailable)']
@@ -483,7 +631,115 @@ const test = base.extend<PublicationFixtures>({
           });
           return;
         }
-        await route.fulfill({ status: 200, json: publishedArticle });
+        await route.fulfill({ status: 200, json: currentArticle });
+        return;
+      }
+      if (method === 'POST' && url.pathname === `/api/v1/published-articles/${publicationIds.work}/issues`) {
+        const body = request.postDataJSON() as components['schemas']['PublishedContentIssueCreate'];
+        commandRequests.push({
+          method,
+          path: url.pathname,
+          body,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+        });
+        const opened = seedCurrentIssue(body.kind, body.description);
+        await route.fulfill({ status: 201, json: opened });
+        return;
+      }
+      if (method === 'GET' && url.pathname === '/api/v1/published-content-issues') {
+        issueListRequests.push(url);
+        const status = url.searchParams.get('status');
+        const items = currentIssue && (!status || currentIssue.status === status)
+          ? [currentIssue]
+          : [];
+        await route.fulfill({
+          status: 200,
+          json: {
+            items,
+            page: Number(url.searchParams.get('page') ?? 1),
+            page_size: Number(url.searchParams.get('page_size') ?? 20),
+            total: items.length,
+          } satisfies components['schemas']['PublishedContentIssueList'],
+        });
+        return;
+      }
+      if (method === 'GET' && url.pathname === `/api/v1/published-content-issues/${publicationIds.issue}/workspace-context`) {
+        issueWorkspaceRequests.push(url);
+        if (!currentIssue) {
+          await route.fulfill({ status: 404, json: errorEnvelope('NOT_FOUND', '内容问题不存在', 'req-issue-404') });
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          json: {
+            issue: currentIssue,
+            article: currentArticle,
+            repair_task: currentRepairTask,
+          } satisfies components['schemas']['PublishedContentIssueWorkspaceContext'],
+        });
+        return;
+      }
+      if (method === 'GET' && url.pathname === `/api/v1/published-content-issues/${publicationIds.issue}/repair-context`) {
+        issueRepairRequests.push(url);
+        if (!currentIssue) {
+          await route.fulfill({ status: 404, json: errorEnvelope('NOT_FOUND', '内容问题不存在', 'req-issue-repair-404') });
+          return;
+        }
+        await route.fulfill({ status: 200, json: createRepairContext(currentIssue, currentArticle) });
+        return;
+      }
+      if (method === 'POST' && url.pathname === `/api/v1/published-content-issues/${publicationIds.issue}/repair-task`) {
+        const body = request.postDataJSON() as components['schemas']['PublishedContentRepairTaskCreate'];
+        commandRequests.push({
+          method,
+          path: url.pathname,
+          body,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+        });
+        if (!currentIssue) throw new Error('创建修复任务前缺少内容问题');
+        currentRepairTask = repairTask;
+        currentIssue = {
+          ...currentIssue,
+          repair_task_id: repairTask.id,
+          workflow_stage: 'REPAIRING',
+          primary_task: 'CONTINUE_REPAIR',
+          available_actions: ['RESOLVE'],
+        };
+        await route.fulfill({ status: 201, json: repairTask });
+        return;
+      }
+      if (method === 'POST' && url.pathname === `/api/v1/published-content-issues/${publicationIds.issue}/resolve`) {
+        const body = request.postDataJSON() as components['schemas']['PublishedContentIssueResolveRequest'];
+        commandRequests.push({
+          method,
+          path: url.pathname,
+          body,
+          csrfToken: request.headers()['x-csrf-token'] ?? null,
+        });
+        if (!currentIssue) throw new Error('解决前缺少内容问题');
+        currentArticle = {
+          ...currentArticle,
+          has_open_issue: false,
+          open_issue_id: null,
+          retired: body.outcome === 'RETIRED',
+          workflow_stage: body.outcome === 'RETIRED' ? 'RETIRED' : 'HEALTHY',
+          primary_task: body.outcome === 'RETIRED' ? 'VIEW_HISTORY' : 'START_PRODUCT_OBSERVATION',
+          available_actions: body.outcome === 'RETIRED' ? [] : ['OPEN_ISSUE'],
+        };
+        currentIssue = {
+          ...currentIssue,
+          status: 'RESOLVED',
+          resolved_at: '2026-08-12T03:00:00Z',
+          resolution_outcome: body.outcome,
+          resolution_comment: body.comment,
+          revision: currentIssue.revision + 1,
+          workflow_stage: 'RESOLVED',
+          primary_task: 'VIEW_RESOLUTION',
+          available_actions: [],
+          resolved_by: publicationIds.user,
+          article: currentArticle,
+        };
+        await route.fulfill({ status: 200, json: currentIssue });
         return;
       }
       if (method === 'GET' && url.pathname === '/api/v1/publication-works') {
@@ -741,6 +997,9 @@ const test = base.extend<PublicationFixtures>({
       articleRequests,
       commandRequests,
       createRequests,
+      issueListRequests,
+      issueRepairRequests,
+      issueWorkspaceRequests,
       listRequests,
       packageRequests,
       readyRequests,
@@ -772,6 +1031,7 @@ const test = base.extend<PublicationFixtures>({
       setCommandMode: (mode) => { commandMode = mode; },
       setArticleDetailError: (status) => { articleDetailErrorStatus = status; },
       setArticleListMode: (mode) => { articleListMode = mode; },
+      seedIssue: () => { seedCurrentIssue(); },
       setReadyMode: (mode) => { readyMode = mode; },
       setSummaryMode: (mode) => { summaryMode = mode; },
       setSwitchCandidate: () => {

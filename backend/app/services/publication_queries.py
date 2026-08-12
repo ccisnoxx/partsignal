@@ -61,6 +61,7 @@ from app.schemas.publication import (
     PublishedContentIssueList,
     PublishedContentIssueListItem,
     PublishedContentIssueOut,
+    PublishedContentIssueWorkspaceContext,
     PublishedContentRepairContext,
     VersionChange,
     VersionDifference,
@@ -182,17 +183,21 @@ def published_content_issue_actions(
     *, status: str, repair_task_id: uuid.UUID | None, repair_task_status: str | None
 ) -> tuple[list[PublishedContentIssueAction], str, str]:
     """返回内容问题当前可执行动作及唯一主动作。"""
-    if status != "OPEN":
+    if status == "RESOLVED":
         return [], "RESOLVED", "VIEW_RESOLUTION"
+    if status != "OPEN":
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题状态无效", 409)
     actions: list[PublishedContentIssueAction] = []
     if repair_task_id is None:
         actions.append("CREATE_REPAIR_TASK")
     actions.append("RESOLVE")
     if repair_task_id is None:
         return actions, "OPEN", "HANDLE_CONTENT_ISSUE"
-    if repair_task_status != "COMPLETED":
+    if repair_task_status == "OPEN":
         return actions, "REPAIRING", "CONTINUE_REPAIR"
-    return actions, "AWAITING_RESOLUTION", "CONFIRM_RESOLUTION"
+    if repair_task_status in ("COMPLETED", "CANCELLED"):
+        return actions, "AWAITING_RESOLUTION", "CONFIRM_RESOLUTION"
+    raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的修复任务状态无效", 409)
 
 
 ALLOWED_HTML_TAGS = [
@@ -898,6 +903,15 @@ def published_content_issue_out(
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
     article_out = published_article_out(db, article)
     repair_task = _issue_repair_task(db, issue.id)
+    return _published_content_issue_out(issue, article_out, repair_task)
+
+
+def _published_content_issue_out(
+    issue: PublishedContentIssue,
+    article: PublishedArticleOut,
+    repair_task: ContentTask | None,
+) -> PublishedContentIssueOut:
+    """使用同一成果快照投影内容问题，避免 Workspace 重复装配。"""
     repair_task_id = repair_task.id if repair_task is not None else None
     actions, workflow_stage, primary_task = published_content_issue_actions(
         status=issue.status,
@@ -908,10 +922,10 @@ def published_content_issue_out(
         {
             "id": issue.id,
             "published_article_id": issue.published_article_id,
-            "content_title": article_out.content_title,
-            "platform_profile_name": article_out.platform_profile_name,
-            "actual_title": article_out.actual_title,
-            "final_url": article_out.final_url,
+            "content_title": article.content_title,
+            "platform_profile_name": article.platform_profile_name,
+            "actual_title": article.actual_title,
+            "final_url": article.final_url,
             "kind": issue.kind,
             "description": issue.description,
             "status": issue.status,
@@ -927,10 +941,31 @@ def published_content_issue_out(
             "primary_task": primary_task,
             "available_actions": actions,
             "article": {
-                field: getattr(article_out, field)
+                field: getattr(article, field)
                 for field in PublishedArticleListItem.model_fields
             },
         }
+    )
+
+
+def published_content_issue_workspace_context(
+    db: Session, issue_id: uuid.UUID
+) -> PublishedContentIssueWorkspaceContext:
+    """在单一数据库快照中返回内容问题、成果与修复任务。"""
+    issue = db.get(PublishedContentIssue, issue_id)
+    if issue is None:
+        raise not_found("发布后内容问题")
+    article = db.get(PublishedArticle, issue.published_article_id)
+    if article is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
+    article_out = published_article_out(db, article)
+    repair_task = _issue_repair_task(db, issue.id)
+    if repair_task is not None and repair_task.source_published_content_issue_id != issue.id:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的修复任务身份不一致", 409)
+    return PublishedContentIssueWorkspaceContext(
+        issue=_published_content_issue_out(issue, article_out, repair_task),
+        article=article_out,
+        repair_task=content_task_out(db, repair_task) if repair_task is not None else None,
     )
 
 
@@ -1115,12 +1150,9 @@ def get_published_content_repair_context(
     db: Session, issue_id: uuid.UUID, *, can_delete: bool
 ) -> PublishedContentRepairContext:
     """返回问题修复所需的锁定业务上下文和事实候选。"""
-    issue = db.get(PublishedContentIssue, issue_id)
-    if issue is None:
-        raise not_found("发布后内容问题")
-    article = db.get(PublishedArticle, issue.published_article_id)
-    work = db.get(PublicationWork, article.id) if article else None
-    if work is None or article is None:
+    workspace = published_content_issue_workspace_context(db, issue_id)
+    work = db.get(PublicationWork, workspace.article.id)
+    if work is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "内容问题关联的发布成果不存在", 409)
     task = task_for_work(db, work)
     product = db.get(Product, task.product_id)
@@ -1147,8 +1179,8 @@ def get_published_content_repair_context(
         "classification": original_fact.classification,
     }
     return PublishedContentRepairContext(
-        issue=published_content_issue_out(db, issue),
-        article=published_article_out(db, article),
+        issue=workspace.issue,
+        article=workspace.article,
         original_task=content_task_out(db, task),
         product=product_out(db, product, can_delete=can_delete),
         query_topic=query_topic_out(db, topic, can_delete=False) if topic is not None else None,

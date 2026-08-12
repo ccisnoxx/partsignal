@@ -2608,6 +2608,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublishedContentIssue'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/published-content-issues:
@@ -2651,6 +2659,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublishedContentIssueList'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/published-content-issues/{issue_id}:
@@ -2676,6 +2690,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublishedContentIssue'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+  /api/v1/published-content-issues/{issue_id}/workspace-context:
+    get:
+      tags:
+      - publication
+      summary: Get Published Content Issue Workspace Context
+      operationId: getPublishedContentIssueWorkspaceContext
+      security:
+      - sessionCookie: []
+      parameters:
+      - name: issue_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+          title: Issue Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublishedContentIssueWorkspaceContext'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/published-content-issues/{issue_id}/repair-context:
@@ -2701,6 +2756,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublishedContentRepairContext'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/published-content-issues/{issue_id}/repair-task:
@@ -2739,6 +2802,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ContentTask'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/published-content-issues/{issue_id}/resolve:
@@ -2777,6 +2848,14 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PublishedContentIssue'
+        '401':
+          $ref: '#/components/responses/ErrorResponse'
+        '403':
+          $ref: '#/components/responses/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
         '422':
           $ref: '#/components/responses/ErrorResponse'
   /api/v1/geo-observation-publications:
@@ -6683,6 +6762,23 @@ components:
       - page_size
       - total
       title: PublishedContentIssueList
+    PublishedContentIssueWorkspaceContext:
+      properties:
+        issue:
+          $ref: '#/components/schemas/PublishedContentIssue'
+        article:
+          $ref: '#/components/schemas/PublishedArticle'
+        repair_task:
+          anyOf:
+          - $ref: '#/components/schemas/ContentTask'
+          - type: 'null'
+      additionalProperties: false
+      type: object
+      required:
+      - issue
+      - article
+      - repair_task
+      title: PublishedContentIssueWorkspaceContext
     PublishedContentIssueListItem:
       properties:
         id:

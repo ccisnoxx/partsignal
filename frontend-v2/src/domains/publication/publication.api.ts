@@ -3,6 +3,11 @@ import { queryOptions } from '@tanstack/react-query';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import {
+  issueSearchToApiParams,
+  type PublishedContentIssueListApiParams,
+  type PublishedContentIssueSearch,
+} from './published-content-issue.model';
+import {
   publishedArticleSearchToApiParams,
   type PublishedArticleListApiParams,
   type PublishedArticleSearch,
@@ -24,6 +29,9 @@ type PublicationVerificationCreate = components['schemas']['PublicationVerificat
 type PublicationContentVersionSwitchRequest = components['schemas']['PublicationContentVersionSwitchRequest'];
 type PublicationWorkCloseRequest = components['schemas']['PublicationWorkCloseRequest'];
 type UploadIntentCreate = components['schemas']['UploadIntentCreate'];
+type PublishedContentIssueCreate = components['schemas']['PublishedContentIssueCreate'];
+type PublishedContentRepairTaskCreate = components['schemas']['PublishedContentRepairTaskCreate'];
+type PublishedContentIssueResolveRequest = components['schemas']['PublishedContentIssueResolveRequest'];
 
 class PublicationRequestError extends Error {
   constructor(
@@ -58,6 +66,18 @@ const publicationKeys = {
   ),
   articles: () => ['publication', 'articles', 'detail'] as const,
   article: (articleId: string) => ['publication', 'articles', 'detail', articleId] as const,
+  issueLists: () => ['publication', 'issues', 'list'] as const,
+  issueList: (params: PublishedContentIssueListApiParams) => (
+    ['publication', 'issues', 'list', params] as const
+  ),
+  issueWorkspaceContexts: () => ['publication', 'issues', 'workspace-context'] as const,
+  issueWorkspaceContext: (issueId: string) => (
+    ['publication', 'issues', 'workspace-context', issueId] as const
+  ),
+  issueRepairContexts: () => ['publication', 'issues', 'repair-context'] as const,
+  issueRepairContext: (issueId: string) => (
+    ['publication', 'issues', 'repair-context', issueId] as const
+  ),
 };
 
 const commonQueryOptions = {
@@ -163,6 +183,50 @@ function publishedArticleQueryOptions(articleId: string) {
   });
 }
 
+function publishedContentIssueListQueryOptions(search: PublishedContentIssueSearch) {
+  const params = issueSearchToApiParams(search);
+  return queryOptions({
+    ...commonQueryOptions,
+    queryKey: publicationKeys.issueList(params),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/published-content-issues', {
+        params: { query: params },
+      });
+      if (!result.data) throw publicationRequestError('读取内容问题列表', result);
+      return result.data;
+    },
+  });
+}
+
+function publishedContentIssueWorkspaceQueryOptions(issueId: string) {
+  return queryOptions({
+    ...commonQueryOptions,
+    queryKey: publicationKeys.issueWorkspaceContext(issueId),
+    queryFn: async () => {
+      const result = await api.GET(
+        '/api/v1/published-content-issues/{issue_id}/workspace-context',
+        { params: { path: { issue_id: issueId } } },
+      );
+      if (!result.data) throw publicationRequestError('读取内容问题工作区', result);
+      return result.data;
+    },
+  });
+}
+
+function publishedContentRepairContextQueryOptions(issueId: string) {
+  return queryOptions({
+    ...commonQueryOptions,
+    queryKey: publicationKeys.issueRepairContext(issueId),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/published-content-issues/{issue_id}/repair-context', {
+        params: { path: { issue_id: issueId } },
+      });
+      if (!result.data) throw publicationRequestError('读取内容修复选项', result);
+      return result.data;
+    },
+  });
+}
+
 async function createPublicationWork(
   body: PublicationWorkCreate,
   csrfToken: string | null,
@@ -185,6 +249,54 @@ async function createPublicationWork(
 function requireCsrfToken(csrfToken: string | null) {
   if (!csrfToken) throw new PublicationRequestError('缺少会话安全令牌，无法执行发布操作');
   return csrfToken;
+}
+
+async function openPublishedContentIssue(
+  articleId: string,
+  body: PublishedContentIssueCreate,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/published-articles/{article_id}/issues', {
+    body,
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { article_id: articleId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('登记内容问题', result);
+}
+
+async function createPublishedContentRepairTask(
+  issueId: string,
+  body: PublishedContentRepairTaskCreate,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/published-content-issues/{issue_id}/repair-task', {
+    body,
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { issue_id: issueId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('创建内容修复任务', result);
+}
+
+async function resolvePublishedContentIssue(
+  issueId: string,
+  body: PublishedContentIssueResolveRequest,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/published-content-issues/{issue_id}/resolve', {
+    body,
+    params: {
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+      path: { issue_id: issueId },
+    },
+  });
+  if (result.data) return result.data;
+  throw publicationRequestError('解决内容问题', result);
 }
 
 async function updatePublicationPreparation(
@@ -381,6 +493,7 @@ export {
   abortFileUpload,
   closePublicationWork,
   completeFileUpload,
+  createPublishedContentRepairTask,
   createPublicationWork,
   createFileUploadIntent,
   getFileDownloadUrl,
@@ -395,7 +508,12 @@ export {
   publicationWorkspaceContextQueryOptions,
   publishedArticleListQueryOptions,
   publishedArticleQueryOptions,
+  publishedContentIssueListQueryOptions,
+  publishedContentIssueWorkspaceQueryOptions,
+  publishedContentRepairContextQueryOptions,
+  openPublishedContentIssue,
   registerPublicationResult,
+  resolvePublishedContentIssue,
   switchPublicationContentVersion,
   updatePublicationPreparation,
   verifyPublicationWork,

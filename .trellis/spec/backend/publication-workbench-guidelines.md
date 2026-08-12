@@ -39,7 +39,10 @@ PublishedContentIssue: OPEN -> RESOLVED
 - `GET /api/v1/published-articles` 与 `GET /api/v1/published-articles/{article_id}`
 - `GET /api/v1/published-articles/{article_id}/permanent-deletion-preview`
 - `GET /api/v1/published-content-issues` 与 `GET /api/v1/published-content-issues/{issue_id}`
+- `GET /api/v1/published-content-issues/{issue_id}/workspace-context`
 - `GET /api/v1/published-content-issues/{issue_id}/repair-context`
+
+内容问题 list/detail/workspace/repair-context 必须各自在一个 `REPEATABLE READ` 请求中完成。Workspace Context 只返回 canonical Issue、不可变 Article detail 与可空 repair task；浏览器不得 join Article/Task。repair task 为 `OPEN` 时投影 `REPAIRING / CONTINUE_REPAIR`，为 `COMPLETED` 或 `CANCELLED` 时投影 `AWAITING_RESOLUTION / CONFIRM_RESOLUTION`；两种终止状态都不自动解决 issue。
 
 `GET /publication-ready-items` 的候选定义不以账号存在为门禁：暂时没有启用 matching account 的批准当前内容仍返回，投影为 `matching_accounts=[]`、`available_actions=[]`，且 summary `ready_count` 使用相同口径。START 资格只能由服务端 `available_actions` 表达；客户端不得从 ContentVersion status 或账号数量推导。
 

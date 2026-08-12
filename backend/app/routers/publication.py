@@ -56,6 +56,7 @@ from app.schemas.publication import (
     PublishedContentIssueOut,
     PublishedContentIssueResolveRequest,
     PublishedContentIssueStatus,
+    PublishedContentIssueWorkspaceContext,
     PublishedContentRepairContext,
     PublishedContentRepairTaskCreate,
 )
@@ -94,6 +95,7 @@ from app.services.publication_queries import (
     publication_workspace_context,
     published_article_out,
     published_content_issue_out,
+    published_content_issue_workspace_context,
     render_markdown,
 )
 from app.services.publication_queries import (
@@ -662,6 +664,7 @@ def open_content_issue(
     "/published-content-issues",
     response_model=PublishedContentIssueList,
     operation_id="listPublishedContentIssues",
+    dependencies=[Depends(_publication_read_snapshot)],
 )
 def list_published_content_issues(
     db: DbSession,
@@ -682,6 +685,7 @@ def list_published_content_issues(
     "/published-content-issues/{issue_id}",
     response_model=PublishedContentIssueOut,
     operation_id="getPublishedContentIssue",
+    dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_published_content_issue(
     issue_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -693,9 +697,22 @@ def get_published_content_issue(
 
 
 @router.get(
+    "/published-content-issues/{issue_id}/workspace-context",
+    response_model=PublishedContentIssueWorkspaceContext,
+    operation_id="getPublishedContentIssueWorkspaceContext",
+    dependencies=[Depends(_publication_read_snapshot)],
+)
+def get_published_content_issue_workspace_context(
+    issue_id: uuid.UUID, db: DbSession, _user: CurrentUser
+) -> PublishedContentIssueWorkspaceContext:
+    return published_content_issue_workspace_context(db, issue_id)
+
+
+@router.get(
     "/published-content-issues/{issue_id}/repair-context",
     response_model=PublishedContentRepairContext,
     operation_id="getPublishedContentRepairContext",
+    dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_repair_context(
     issue_id: uuid.UUID, db: DbSession, user: CurrentUser

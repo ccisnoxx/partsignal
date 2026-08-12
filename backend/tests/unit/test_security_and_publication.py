@@ -95,6 +95,23 @@ def test_publication_actions_have_one_server_projected_primary_task() -> None:
     assert published_content_issue_actions(
         status="OPEN", repair_task_id=repair_task_id, repair_task_status="OPEN"
     ) == (["RESOLVE"], "REPAIRING", "CONTINUE_REPAIR")
+    for terminal_status in ("COMPLETED", "CANCELLED"):
+        assert published_content_issue_actions(
+            status="OPEN",
+            repair_task_id=repair_task_id,
+            repair_task_status=terminal_status,
+        ) == (["RESOLVE"], "AWAITING_RESOLUTION", "CONFIRM_RESOLUTION")
+    assert published_content_issue_actions(
+        status="RESOLVED",
+        repair_task_id=repair_task_id,
+        repair_task_status="CANCELLED",
+    ) == ([], "RESOLVED", "VIEW_RESOLUTION")
+    with pytest.raises(AppError, match="内容问题状态无效"):
+        published_content_issue_actions(
+            status="UNKNOWN",
+            repair_task_id=None,
+            repair_task_status=None,
+        )
 
 
 def test_verified_files_rejects_duplicate_or_unverified_attachments() -> None:

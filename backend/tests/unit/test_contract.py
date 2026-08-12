@@ -21,6 +21,30 @@ def test_runtime_openapi_matches_frozen_operations() -> None:
     assert check(contract) == []
 
 
+def test_published_content_issue_contract_has_one_workspace_read_model_and_real_errors() -> None:
+    """内容问题列表、工作区与命令必须声明同一 structured error 边界。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    context = document["components"]["schemas"]["PublishedContentIssueWorkspaceContext"]
+
+    assert set(context["required"]) == {"issue", "article", "repair_task"}
+    assert set(paths["/api/v1/published-content-issues"]["get"]["responses"]) == {
+        "200", "401", "403", "409", "422"
+    }
+    for path, method, success in (
+        ("/api/v1/published-articles/{article_id}/issues", "post", "201"),
+        ("/api/v1/published-content-issues/{issue_id}", "get", "200"),
+        ("/api/v1/published-content-issues/{issue_id}/workspace-context", "get", "200"),
+        ("/api/v1/published-content-issues/{issue_id}/repair-context", "get", "200"),
+        ("/api/v1/published-content-issues/{issue_id}/repair-task", "post", "201"),
+        ("/api/v1/published-content-issues/{issue_id}/resolve", "post", "200"),
+    ):
+        assert set(paths[path][method]["responses"]) == {
+            success, "401", "403", "404", "409", "422"
+        }
+
+
 def test_product_create_contract_declares_input_limits_and_error_responses() -> None:
     """冻结创建产品的长度边界与可预期错误响应。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"

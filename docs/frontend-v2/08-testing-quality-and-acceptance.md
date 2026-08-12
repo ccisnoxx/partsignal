@@ -74,6 +74,8 @@ verify fail → ACTION_REQUIRED → update/switch version → reverify。
 
 open issue → create repair task → resolve issue。
 
+Issue 页面级门禁还需分别证明：列表与 Workspace 首屏各只有一个 canonical GET；repair-context 只在动作打开后读取；OPEN/COMPLETED/CANCELLED repair 与 RESOLVED 的主任务只随服务端投影变化；409 保留输入且不 replay；Article 登记成功使用响应 ID 进入 Workspace。fixture 必须拒绝未声明 API，覆盖 375/768/1024/1280/1440 与页面根无横向溢出。
+
 ### GEO
 
 new observation → detail → correction → original remains immutable。

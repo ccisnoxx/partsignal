@@ -8,13 +8,14 @@ from typing import Any, cast
 
 import pytest
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import Select
 
 from app.errors import AppError
 from app.models.configuration import PlatformProfile, PlatformType, QueryTopic
 from app.models.content import ContentTask, ContentVersion
 from app.models.identity import User
 from app.models.product_facts import FactVersion, Product
-from app.models.publication import PlatformAccount
+from app.models.publication import PlatformAccount, PublicationWork
 from app.schemas.product_facts import (
     ProductFactStatus,
     ProductOut,
@@ -41,7 +42,7 @@ from app.services.projections import (
     platform_profiles_out,
 )
 from app.services.publication import delete_content_task
-from app.services.publication_queries import list_publication_works
+from app.services.publication_queries import NONTERMINAL_WORK_STATUSES, list_publication_works
 from app.services.review_policy import fact_review_decisions
 
 
@@ -587,9 +588,9 @@ def test_publication_reference_filter_includes_terminal_history() -> None:
         status_filter=None,
         platform_account_id=account_id,
     )
-    reference_sql = str(reference_session.statements[1])
-    assert "publication_works.platform_account_id" in reference_sql
-    assert "publication_works.status IN" not in reference_sql
+    reference_where = cast(Select[Any], reference_session.statements[1]).whereclause
+    assert reference_where is not None
+    assert reference_where.compare(PublicationWork.platform_account_id == account_id)
 
     default_session = QueryCaptureSession()
     list_publication_works(
@@ -598,7 +599,9 @@ def test_publication_reference_filter_includes_terminal_history() -> None:
         page_size=20,
         status_filter=None,
     )
-    assert "publication_works.status IN" in str(default_session.statements[1])
+    default_where = cast(Select[Any], default_session.statements[1]).whereclause
+    assert default_where is not None
+    assert default_where.compare(PublicationWork.status.in_(NONTERMINAL_WORK_STATUSES))
 
 
 def _content_projection(

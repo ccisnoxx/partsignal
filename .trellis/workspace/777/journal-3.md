@@ -132,7 +132,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- Article `OPEN_ISSUE` 与 Issue repair 409 改为保留输入、禁止 replay，并通过显式 canonical refetch 恢复。
+- Resolved Issue 缺失 `resolution_outcome` 时显式失败；删除死 `publicationCoreActions` 与 error mapper alias。
+- 审计确认三资源、薄 route、server-driven actions、单请求 read model 与既有 Design System ownership 保持成立。
 
 ### Git Commits
 
@@ -142,7 +144,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- Publication domain 12 files / 48 tests、targeted 4 files / 22 tests、typecheck、lint、build 与 Publishing fixture 11 tests 通过。
+- Publishing 三条 real-stack flow 通过；`trellis-check`、Task validation 与 `git diff --check` 通过。
+- 最终 `make verify` 为 V2 unit 281 passed / 1 个范围外 Content DirtyGuard failure；完整 `make e2e` 为 9 passed / 1 个范围外 Content AI timeout，因此 Phase 4 Gate 保持 `NOT_MET`。
 
 ### Status
 
@@ -150,7 +154,8 @@
 
 ### Next Steps
 
-- None - task complete
+- 独立批准 `publication-work-projection-contract-correction`，关闭 F-14 Work snapshot projection 与 F-15 list 409 OpenAPI 缺口。
+- 范围外 Content unit/real-stack blocker 由对应 owner 修复后，重新运行最终 `make verify` 与完整 `make e2e`；不得提前进入 GEO。
 
 
 ## Session 119: Frontend V2 Published Content Issues List + Workspace
@@ -205,6 +210,39 @@
 | Hash | Message |
 |------|---------|
 | `bea31e0` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 121: Frontend V2 Publishing 抽象回顾收尾
+
+**Date**: 2026-08-12
+**Task**: Frontend V2 Publishing 抽象回顾收尾
+**Branch**: `codex/frontend-v2-publishing-abstraction-review`
+
+### Summary
+
+完成 Publishing vertical slice 抽象审计与获准的最小修正；专项验证通过，Phase 4 因 F-14/F-15 及范围外完整门禁失败保持 NOT_MET，Task 已归档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9754056` | (see git log) |
 
 ### Testing
 

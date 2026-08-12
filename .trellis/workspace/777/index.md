@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 120
+- **Total Sessions**: 121
 - **Last Active**: 2026-08-12
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~215 | Active |
+| `journal-3.md` | ~252 | Active |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 121 | 2026-08-12 | Frontend V2 Publishing 抽象回顾收尾 | `9754056` | `codex/frontend-v2-publishing-abstraction-review` |
 | 120 | 2026-08-12 | Frontend V2 Publishing 完整真实栈 E2E | `bea31e0` | `main` |
 | 119 | 2026-08-12 | Frontend V2 Published Content Issues List + Workspace | `f48d5e5` | `codex/frontend-v2-published-content-issues` |
 | 118 | 2026-08-12 | Frontend V2 Published Articles 收尾 | `791b9f3` | `main` |

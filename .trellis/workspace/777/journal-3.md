@@ -147,3 +147,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 119: Frontend V2 Published Content Issues List + Workspace
+
+**Date**: 2026-08-12
+**Task**: Frontend V2 Published Content Issues List + Workspace
+**Branch**: `codex/frontend-v2-published-content-issues`
+
+### Summary
+
+完成 Published Content Issues 列表与 Workspace、统一服务端快照读模型与动作合同，并通过合同、后端、前端及 Playwright 定向验证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `f48d5e5` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

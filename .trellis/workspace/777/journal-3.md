@@ -431,3 +431,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 127: Frontend V2 Phase 4 最终退出门禁环境失败收尾
+
+**Date**: 2026-08-12
+**Task**: Frontend V2 Phase 4 最终退出门禁环境失败收尾
+**Branch**: `main`
+
+### Summary
+
+在候选 51bf9c0 上唯一运行 make verify；因整个 .env 被导出导致 backend production Settings 单测受 AI_ALLOW_LOCAL_HTTP 污染，Gate 判定 NOT_MET。cleanup、trellis-check 与 diff 自审完成，未修改生产代码或测试。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `bc59e2b00479044bea1d41a360d5865fc8612066` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

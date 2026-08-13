@@ -5,8 +5,8 @@
 - [x] 父规划已批准拆分，Core 子 Task 已创建为 planning。
 - [x] Core PRD、design、implement 已形成可 review 版本。
 - [x] 用户明确批准本 Core 最新规划并授权 implementation。
-- [ ] 批准后重新核对 primary workspace 在 clean main、父/Preview均未 start。
-- [ ] 运行 `task.py start` 指向 Core，再创建唯一临时分支 `codex/frontend-v2-prompt-workspace-core`。
+- [x] 批准后重新核对 primary workspace 在 clean main、父/Preview均未 start。
+- [x] 运行 `task.py start` 指向 Core，再创建唯一临时分支 `codex/frontend-v2-prompt-workspace-core`。
 
 ## 1. Ordered Implementation
 
@@ -26,6 +26,7 @@
 npm --prefix frontend-v2 run test -- \
   src/app/navigation.test.ts \
   src/design-system/forms/dirty-guard.test.tsx \
+  src/design-system/workspace/workspace-kit.test.tsx \
   src/domains/configuration/prompt-workspace.model.test.ts \
   src/domains/configuration/prompt-workspace-page.test.tsx \
   src/domains/configuration/platform-workspace-page.test.tsx
@@ -50,14 +51,14 @@ make verify
 
 ## 4. Self-review
 
-- [ ] 同一 Prompt list endpoint只有一个 query owner，无 alias或双 cache。
-- [ ] 无客户端分页/排序/join/资格推导，无 Humanization/Preview scaffolding。
-- [ ] action/error exhaustive；409不 replay，本地草稿保留。
-- [ ] DirtyGuard默认行为不变，q-only只在同 editor identity放行。
-- [ ] create/update/delete只失效矩阵消费者，历史 Job/Version不触碰。
-- [ ] MarkdownEditor/WorkspaceShell/StickyActionBar原样复用，无新依赖/通用抽象。
-- [ ] Core不渲染 Preview占位或 fixture假成功。
-- [ ] comments/developer-visible text完成中文 touched-scope检查。
+- [x] 同一 Prompt list endpoint只有一个 query owner，无 alias或双 cache。
+- [x] 无客户端分页/排序/join/资格推导，无 Humanization/Preview scaffolding。
+- [x] action/error exhaustive；409不 replay，本地草稿保留。
+- [x] DirtyGuard默认行为不变，q-only只在同 editor identity放行。
+- [x] create/update/delete只失效矩阵消费者，历史 Job/Version不触碰。
+- [x] MarkdownEditor/StickyActionBar原样复用；WorkspaceShell只启用 Base UI `keepMounted` 保留窄屏草稿，无新依赖/通用抽象。
+- [x] Core不渲染 Preview占位或 fixture假成功。
+- [x] comments/developer-visible text完成中文 touched-scope检查。
 
 ## 5. Delivery Gate
 

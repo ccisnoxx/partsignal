@@ -15,7 +15,7 @@
 ## 2. URL 与 DirtyGuard
 
 ```ts
-type PromptWorkspaceSearch = { q?: string; promptId?: string; new?: '1' };
+type PromptWorkspaceSearch = { q?: string; promptId?: string; new?: 1 };
 ```
 
 `canonicalPromptWorkspaceSearchRecord` 与 `isCanonicalPromptWorkspaceSearch` 使用项目现有显式 record 比较模式。new 与 promptId 冲突时只保留 new；未知字段删除。
@@ -58,9 +58,9 @@ PromptWorkspacePage
 - URL：TanStack Router。
 - Name/Markdown/baseline/dirty：RHF。
 - Dialog target、focus return、saved announcement、conflict：local React state。
-- form identity：`new` 或 `prompt:{id}:{revision}`；只有获准 identity change 才 reset。
+- form identity：`new` 或 `prompt:{id}`；同身份的后台 revision 仅在 clean 时更新基线，只有获准 identity change 才重建表单。
 
-WorkspaceShell 现有 1280px 断点直接满足三栏/Tabs，不新增媒体逻辑。
+WorkspaceShell 现有 1280px 断点直接满足三栏/Tabs，不新增媒体逻辑；窄屏 TabsPanel 使用 Base UI 原生 `keepMounted`，避免切到 Library 搜索时卸载 dirty 编辑器。
 
 ## 5. Mutation 与 action
 
@@ -84,7 +84,7 @@ POST canonical form -> set returned Detail -> reset clean -> replace URL为 prom
 |---|---|---|
 | create | set returned Prompt Detail | Prompt list |
 | update | set returned Prompt Detail | Prompt list、Platform lists/details、all generation-options |
-| delete | remove selected Detail | Prompt list、Platform lists/details、Content lists/details/editor contexts、all generation-options |
+| delete | list 过滤已删除项；旧 Detail 以 `refetchType: 'none'` 失效 | Prompt list、Platform lists/details、Content lists/details/editor contexts、all generation-options |
 | Platform bind/unbind | Platform owner采用 response | Prompt list/details、Content lists/details/editor contexts、all generation-options |
 
 跨域组合放在 route callback；Configuration 同域 Prompt invalidation留在页面/API owner。历史 Job/Version不失效。
@@ -105,6 +105,7 @@ POST canonical form -> set returned Detail -> reset clean -> replace URL为 prom
 - `frontend-v2/src/routes/_app/_admin/settings.prompts.tsx`（新增）
 - `frontend-v2/src/routeTree.gen.ts`（生成）
 - `frontend-v2/src/design-system/forms/dirty-guard.tsx` / test
+- `frontend-v2/src/design-system/workspace/workspace-shell.tsx` / test
 - `frontend-v2/src/domains/configuration/prompt.api.ts`（新增）
 - `frontend-v2/src/domains/configuration/prompt-workspace.model.ts` / test（新增）
 - `frontend-v2/src/domains/configuration/prompt-workspace-page.tsx` / test（新增）

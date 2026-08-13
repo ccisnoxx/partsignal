@@ -43,12 +43,15 @@ import {
   platformAccountsQueryOptions,
   platformDetailQueryOptions,
   platformKeys,
-  platformPromptOptionsQueryOptions,
   runPlatformCommand,
   setPlatformAccountEnabled,
   updatePlatformAccount,
   updatePlatformProfile,
 } from './platform.api';
+import {
+  platformPromptListQueryOptions,
+  promptKeys,
+} from './prompt.api';
 import {
   deletionBlockerLabel,
   platformStatusRegistry,
@@ -140,7 +143,10 @@ function PlatformWorkspacePage({
         ? [queryClient.invalidateQueries({ queryKey: platformKeys.accounts(platformId) })]
         : []),
       ...(kind === 'generation'
-        ? [queryClient.invalidateQueries({ queryKey: platformKeys.promptOptions() })]
+        ? [
+            queryClient.invalidateQueries({ queryKey: promptKeys.lists() }),
+            queryClient.invalidateQueries({ queryKey: promptKeys.details() }),
+          ]
         : []),
       onConsumersChanged(kind),
     ]);
@@ -1088,7 +1094,7 @@ function PlatformGenerationSection({
   onUpdated: (profile: PlatformProfile) => Promise<void>;
 }) {
   const canUpdate = detail.profile.available_actions.includes('UPDATE');
-  const prompts = useQuery(platformPromptOptionsQueryOptions(active && canUpdate));
+  const prompts = useQuery(platformPromptListQueryOptions(active && canUpdate));
   const form = useForm<PlatformGenerationFormValues>({
     defaultValues: platformToGenerationValues(detail.profile),
     resolver: zodResolver(platformGenerationFormSchema),

@@ -61,7 +61,7 @@ function WorkspaceTabs({ main, context, reference }: WorkspaceTabsProps) {
         ))}
       </TabsList>
       {slots.map((slot) => (
-        <TabsContent key={slot.area} value={slot.area}>
+        <TabsContent keepMounted key={slot.area} value={slot.area}>
           <WorkspacePane area={slot.area} label={slot.label}>{slot.content}</WorkspacePane>
         </TabsContent>
       ))}

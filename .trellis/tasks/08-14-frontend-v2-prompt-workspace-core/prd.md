@@ -80,23 +80,23 @@
 - Platform Workspace 改用同一 Prompt list key，不保留 `platformKeys.promptOptions()` 第二权威。
 - create：set returned detail，invalidate Prompt list。
 - update：set detail；invalidate Prompt list、Platform lists/details、all Content generation-options。
-- delete：remove detail；invalidate Prompt list、Platform lists/details、Content task lists/details/editor contexts、all generation-options。
+- delete：先从 list 投影过滤已删除项，旧 detail 以 `refetchType: 'none'` 失效；再 invalidate Prompt list、Platform lists/details、Content task lists/details/editor contexts、all generation-options。
 - Platform bind/unbind：在现有 Platform invalidation 基础上补 Prompt list/details，以及受影响 Content task/action/generation-options consumers。
 - 不清空 QueryClient，不触碰历史 GenerationJob/ContentVersion cache。
 
 ## 5. 验收标准
 
-- [ ] ADMIN 可见 entry并进入；ENGINEER 无 entry且 route/API 403。
-- [ ] q/promptId/new canonicalization、direct/refresh/Back/Forward 与空选择成立。
-- [ ] Library/Detail loading、empty、stale、404、403、error/retry 成立。
-- [ ] create/update/delete payload、CSRF、expected revision 与 canonical response处理准确。
-- [ ] name/Markdown validation、Ctrl/Cmd+S、pending 防重、name conflict 与 revision reload 成立。
-- [ ] DirtyGuard 阻止 identity/route/unload，允许 safe q-only navigation。
-- [ ] Bound Platforms、影响确认、handoff link、delete focus return成立。
-- [ ] single Prompt query owner和精确 cache invalidation由 tests证明。
-- [ ] 375/768/1024 Tabs、1440 三栏，页面根无横向溢出。
-- [ ] fixture 未声明 API、非预期非 2xx、console/page/request error均使测试失败。
-- [ ] 页面没有 Preview 占位、Humanization Tab、新依赖或通用框架。
+- [x] ADMIN 可见 entry并进入；ENGINEER 无 entry且 route/API 403。
+- [x] q/promptId/new canonicalization、direct/refresh/Back/Forward 与空选择成立。
+- [x] Library/Detail loading、empty、stale、404、403、error/retry 成立。
+- [x] create/update/delete payload、CSRF、expected revision 与 canonical response处理准确。
+- [x] name/Markdown validation、Ctrl/Cmd+S、pending 防重、name conflict 与 revision reload 成立。
+- [x] DirtyGuard 阻止 identity/route/unload，允许 safe q-only navigation。
+- [x] Bound Platforms、影响确认、handoff link、delete focus return成立。
+- [x] single Prompt query owner和精确 cache invalidation由 tests证明。
+- [x] 375/768/1024 Tabs、1440 三栏，页面根无横向溢出。
+- [x] fixture 未声明 API、非预期非 2xx、console/page/request error均使测试失败。
+- [x] 页面没有 Preview 占位、Humanization Tab、新依赖或通用框架。
 
 ## 6. 排除项
 

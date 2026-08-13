@@ -69,6 +69,23 @@ describe('Workspace Kit', () => {
     expect(screen.getByText('上下文内容')).toBeVisible();
   });
 
+  it('窄屏切换工作区面板时保留未提交的本地状态', async () => {
+    const user = userEvent.setup();
+    render(
+      <WorkspaceShell
+        ariaLabel="编辑工作区"
+        context={slots.context}
+        main={{ label: '正文', content: <input aria-label="编辑草稿" /> }}
+      />,
+    );
+
+    await user.type(screen.getByRole('textbox', { name: '编辑草稿' }), '未保存草稿');
+    await user.click(screen.getByRole('tab', { name: '上下文' }));
+    await user.click(screen.getByRole('tab', { name: '正文' }));
+
+    expect(screen.getByRole('textbox', { name: '编辑草稿' })).toHaveValue('未保存草稿');
+  });
+
   it('桌面渲染固定三槽，主区域使用弹性最大列', () => {
     render(<WorkspaceShell ariaLabel="事实工作区" {...slots} />);
     switchToDesktop();

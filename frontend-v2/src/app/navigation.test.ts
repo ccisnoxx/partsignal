@@ -58,6 +58,7 @@ describe('路由导航元数据', () => {
         'geo-topics',
         'geo-observations',
         'platforms',
+        'prompts',
         'users',
       ]);
   });

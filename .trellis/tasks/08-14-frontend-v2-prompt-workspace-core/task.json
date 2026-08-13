@@ -12,7 +12,7 @@
   "assignee": "777",
   "createdAt": "2026-08-14",
   "completedAt": null,
-  "branch": null,
+  "branch": "codex/frontend-v2-prompt-workspace-core",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,

@@ -44,7 +44,6 @@ const platformKeys = {
   accounts: (platformId: string) => (
     ['configuration', 'platforms', platformId, 'accounts'] as const
   ),
-  promptOptions: () => ['configuration', 'platforms', 'prompt-options'] as const,
   types: () => ['configuration', 'platforms', 'types'] as const,
 };
 
@@ -107,20 +106,6 @@ function platformAccountsQueryOptions(platformId: string, enabled: boolean) {
         params: { query: { platform_profile_id: platformId } },
       });
       if (!result.data) throw platformRequestError('读取平台发布账号', result);
-      return result.data;
-    },
-    retry: false,
-    staleTime: 30_000,
-  });
-}
-
-function platformPromptOptionsQueryOptions(enabled: boolean) {
-  return queryOptions({
-    enabled,
-    queryKey: platformKeys.promptOptions(),
-    queryFn: async () => {
-      const result = await api.GET('/api/v1/platform-prompts');
-      if (!result.data) throw platformRequestError('读取 Prompt 选项', result);
       return result.data;
     },
     retry: false,
@@ -379,7 +364,6 @@ export {
   platformKeys,
   platformListQueryOptions,
   platformTypeListQueryOptions,
-  platformPromptOptionsQueryOptions,
   runPlatformCommand,
   setPlatformAccountEnabled,
   updatePlatformAccount,

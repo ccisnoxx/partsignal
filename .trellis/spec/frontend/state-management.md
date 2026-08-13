@@ -25,8 +25,8 @@ Questions to answer:
 <!-- Local state, global state, server state, URL state -->
 
 - **服务端状态**：使用既有 query key、stale time 和显式失效规则。
-- **URL 视图状态**：搜索、Tab、分页和“显示停用账号”等可恢复视图写入查询参数。当前参数包括产品 `q/page`、任务与观测 `page`、平台管理 `q/platform_type_id/status/configuration_status/page/page_size/platform`、Prompt 管理 `tab/platform_prompt_id/new`、平台关联页 `platform_profile_id`、发布工作台 `tab/page/status/selected`、用户 `q/account_type/status/page/page_size`。用户页默认只查启用账号并从 URL 省略该默认值；`status=DISABLED` 只查停用账号，`status=ALL` 查询全部，状态选择器和“显示停用账号”开关只能投影这一份状态。平台管理筛选与分页读取服务端平台集合契约；Prompt 模板列表读取独立模板端点，短暂名称搜索只过滤已加载模板，不推断平台绑定；发布工作台的 `tab=works|articles|issues` 决定资源类型，`status` 只筛选当前 Tab 的服务端状态，`selected` 只保存当前详情身份，切换 Tab 或分页时必须清理不再适用的筛选与详情身份。
-- **页面本地状态**：Modal、Dropdown 目标、Ant Form 实例、dirty/error section 和尚未提交的输入。Prompt 名称与 Markdown 草稿以“标签 + 模板或新建态”身份隔离，保存或显式重新加载才更新基线；任务、源版本、模型选择、AI 生成弹窗模型和当前预览 Job 留在页面本地，不进入 URL 或全局 Store。
+- **URL 视图状态**：搜索、Tab、分页和“显示停用账号”等可恢复视图写入查询参数。当前参数包括产品 `q/page`、任务与观测 `page`、平台管理 `q/platform_type_id/status/configuration_status/page/page_size/platform`、Prompt 管理 `q/promptId/new=1`、平台关联页 `platform_profile_id`、发布工作台 `tab/page/status/selected`、用户 `q/account_type/status/page/page_size`。用户页默认只查启用账号并从 URL 省略该默认值；`status=DISABLED` 只查停用账号，`status=ALL` 查询全部，状态选择器和“显示停用账号”开关只能投影这一份状态。平台管理筛选与分页读取服务端平台集合契约；Prompt 模板列表读取独立模板端点，`q` 只过滤已加载模板且不改变 `promptId/new` 编辑身份；发布工作台的 `tab=works|articles|issues` 决定资源类型，`status` 只筛选当前 Tab 的服务端状态，`selected` 只保存当前详情身份，切换 Tab 或分页时必须清理不再适用的筛选与详情身份。
+- **页面本地状态**：Modal、Dropdown 目标、Ant Form 实例、dirty/error section 和尚未提交的输入。Prompt 名称与 Markdown 草稿以 `promptId` 或 `new=1` 身份隔离，保存或显式重新加载才更新基线；任务、源版本、模型选择、AI 生成弹窗模型和当前预览 Job 留在页面本地，不进入 URL 或全局 Store。
 - **主题状态**：只由 `ThemeProvider` 维护，禁止页面复制主题状态。从显式主题切回 `system` 时立即重新读取当前 `matchMedia` 结果，不沿用离开系统模式前的解析值。
 
 ---
@@ -727,6 +727,67 @@ const canOptimize = row.status === 'UNCOVERED';
 // Correct：Router 拥有筛选，服务端 action 拥有资格。
 const search = Route.useSearch();
 const action = row.optimization_action;
+```
+
+## 场景：Prompt Workspace Core 的 URL、草稿与共享查询
+
+### 1. Scope / Trigger
+
+- 修改 `/settings/prompts`、Prompt CRUD、Platform Prompt options、DirtyGuard 导航或 Workspace 窄屏面板生命周期时适用。
+- 本场景不包含 AI Preview、Prompt 绑定 mutation、历史版本或通用 Prompt framework。
+
+### 2. Signatures
+
+```text
+URL: /settings/prompts?q=<name>&promptId=<uuid> | new=1
+GET/POST: /api/v1/platform-prompts
+GET/PUT/DELETE: /api/v1/platform-prompts/{platform_prompt_id}
+query keys: ["configuration", "prompts", "list"]
+            ["configuration", "prompts", "detail", promptId]
+```
+
+### 3. Contracts
+
+- 路由位于既有 ADMIN boundary；`q` trim 后最长 200，`promptId` 只接受 lowercase UUID，`new=1` 优先于 `promptId`，未知或非法参数用 `replace` 清理。空 URL 不自动选择首项，合法但不存在的 ID 保留并显示 404。
+- `prompt.api.ts` 是 Prompt list/detail/mutation/query key 的唯一 owner；Platform Generation 复用同一 list key，不保留 options alias 或第二份 cache。
+- list 是服务端稳定排序的完整集合，浏览器只按名称过滤；Detail 只在选择后读取。UPDATE/DELETE 只消费 `available_actions`，未知或重复 token 显式失败。
+- RHF 持有名称、Markdown 与 dirty baseline。保存采用 mutation canonical response 更新 Detail、表单和 revision；dirty 时后台刷新不得 reset，`REVISION_CONFLICT` 只允许显式 reload。
+- DirtyGuard 只放行同 pathname、同 `promptId/new` 身份的 `q` 变化；切换身份、离开路由和 unload 继续阻断。窄屏 `WorkspaceShell` 的 TabsPanel 必须 `keepMounted`，否则切到 Library 更新 `q` 会卸载编辑器并丢失草稿。
+- 删除成功先让已删除编辑器退出 dirty 生命周期，再投影过滤 list、清除 URL 身份，以 `refetchType: 'none'` 失效旧 Detail并刷新 list；不得在活动 observer 上 `removeQueries`。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 页面处理 |
+| --- | --- |
+| name 空白/超过 300，Markdown 空白 | FormField + ErrorSummary；不发 mutation |
+| Detail 403/404 | 专用状态并保留合法 URL |
+| name 冲突 | 映射 name 字段与 request ID |
+| revision 冲突 | 保留草稿，禁用旧 baseline 重试，提供 reload |
+| list/detail 背景刷新失败且有 data | 保留 Workspace，显示局部 retry |
+| 未知/重复 action 或未知字段 issue | 显式错误，不推导兼容行为 |
+
+### 5. Good / Base / Bad Cases
+
+- Good：dirty 编辑器切到 Library 搜索后返回，草稿和 revision baseline 不变；Ctrl/Cmd+S 只提交一次当前 revision。
+- Base：空选择只显示引导；选择 404 ID 不改 URL；删除带未保存草稿的当前 Prompt 后仍进入清除身份的 canonical URL。
+- Bad：Platform 与 Prompt 页面各自创建 list key；Tab 切换卸载表单；删除后先 `removeQueries` 导致旧 Detail重新 GET。
+
+### 6. Tests Required
+
+- Model/component：URL canonicalization、action/error穷尽、create/update/delete payload、CSRF/revision、q-only DirtyGuard、409 reload、403/404、精确 cache invalidation。
+- Workspace Kit：窄屏面板切换后未提交本地状态仍存在。
+- Production fixture：ADMIN 导航、CRUD、Ctrl/Cmd+S、影响确认、Back/Forward、375/768/1024/1440 根无溢出及未声明请求失败。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：隐藏面板卸载编辑器，Platform 再维护一份 Prompt options key。
+<TabsContent value="main">{editor}</TabsContent>
+useQuery({ queryKey: platformKeys.promptOptions() });
+
+// Correct：保留工作区本地状态，两个消费者共用 Prompt owner。
+<TabsContent keepMounted value="main">{editor}</TabsContent>
+useQuery(platformPromptListQueryOptions());
 ```
 
 ## 场景：Platform Workspace 的 URL、延迟查询与共享 revision

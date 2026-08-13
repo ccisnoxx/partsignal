@@ -153,10 +153,16 @@ function GeoObservationListPage({
           <Button onClick={() => void observations.refetch()} size="sm" variant="outline">重试刷新</Button>
         </div>
       )}
+      {search.queryTopicId && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/30 bg-info/10 p-3 text-sm" role="status">
+          <span>Query Topic Observation 筛选：{search.queryTopicId}</span>
+          <Button onClick={() => changeSearch({ queryTopicId: undefined })} size="sm" variant="outline">清除此引用筛选</Button>
+        </div>
+      )}
 
       <TableToolbar>
         <GeoObservationFilters
-          key={`${search.q ?? ''}-${search.productId ?? ''}-${search.geoPlatform ?? ''}`}
+          key={`${search.q ?? ''}-${search.productId ?? ''}-${search.queryTopicId ?? ''}-${search.geoPlatform ?? ''}`}
           onChange={(changes) => changeSearch(changes)}
           search={search}
         />
@@ -344,6 +350,7 @@ function GeoObservationOutcomes({ outcomes }: { outcomes: GeoObservationListItem
 const clearFilters = {
   q: undefined,
   productId: undefined,
+  queryTopicId: undefined,
   geoPlatform: undefined,
   accuracy: undefined,
   from: undefined,

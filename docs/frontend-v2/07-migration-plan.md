@@ -425,7 +425,9 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-geo-observation-detail` 已注册 `/geo/observations/$observationId`：additive Detail read model 在一个 `REPEATABLE READ` 请求中返回 Legacy 完整事实或 Manual root→tail correction history、Product/Query Topic、Published Articles、direct evidence 与 actor-aware actions；旧 GET/collection/POST 保持兼容。页面支持 List/direct/refresh/Back/Forward、两类只读结果、完整 history、404/403/409/普通错误、retry、DELETE confirmation 和四档响应式；strict generated-type fixture 拒绝浏览器 join。
 
-`frontend-v2-geo-observation-correction-workspace` 已注册 `/geo/observations/$observationId/correct`：新增 additive correction-context GET，在同一 `REPEATABLE READ` 事务中组合既有 Manual Detail、权威尾节点、当前 Published Article 候选初值和历史空 Topic 的可选项；写入继续复用通用 append-only POST。页面冻结 Product/Platform/Search Query/非空 Topic，只允许填写本次时间、当前文章事实、新 Evidence 与 Notes；两类 409 不自动 replay，显式刷新按文章 ID 合并草稿并按服务端新尾 replace URL，成功直接使用响应 ID 进入新 Detail。contract/backend integration、API/model/page tests 与 strict generated-type production fixture 覆盖权限、不可变历史、上传重试、防重复、错误恢复、DirtyGuard 和四档宽度。Topics、Insights、Print、完整 GEO real-stack 闭环和抽象回顾仍未实现，Phase 5 退出条件继续为 `NOT_MET`。
+`frontend-v2-geo-observation-correction-workspace` 已注册 `/geo/observations/$observationId/correct`：新增 additive correction-context GET，在同一 `REPEATABLE READ` 事务中组合既有 Manual Detail、权威尾节点、当前 Published Article 候选初值和历史空 Topic 的可选项；写入继续复用通用 append-only POST。页面冻结 Product/Platform/Search Query/非空 Topic，只允许填写本次时间、当前文章事实、新 Evidence 与 Notes；两类 409 不自动 replay，显式刷新按文章 ID 合并草稿并按服务端新尾 replace URL，成功直接使用响应 ID 进入新 Detail。contract/backend integration、API/model/page tests 与 strict generated-type production fixture 覆盖权限、不可变历史、上传重试、防重复、错误恢复、DirtyGuard 和四档宽度。
+
+`frontend-v2-geo-topics` 已注册 `/geo/topics`：保留旧完整 Query Topic 列表供 V1、New Observation 与 Correction Workspace 使用，新增窄 `list-items` read model 负责服务端搜索、排序、分页、三类批量业务引用和 actor-aware actions。固定五列 Table 支持 URL state、开始观测 handoff、短 Dialog 创建/编辑、revision conflict 显式 reload、服务端允许时删除和 canonical 引用筛选链接；strict generated-type fixture 覆盖状态、键盘焦点及四档宽度。Insights、Print、完整 GEO real-stack 闭环和抽象回顾仍未实现，Phase 5 退出条件继续为 `NOT_MET`。
 
 退出条件：Correction append-only；Topic 删除能显示业务引用；Insights filter 可通过 URL 恢复；print 与 screen 使用同一 read model；375px 不出现不可用的宽表。
 

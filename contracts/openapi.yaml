@@ -590,6 +590,31 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/QueryTopic'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/query-topics/list-items:
+    get:
+      tags: [planning]
+      operationId: listQueryTopicItems
+      parameters:
+        - {name: q, in: query, schema: {type: string, minLength: 1, maxLength: 200}}
+        - name: sort
+          in: query
+          schema:
+            $ref: '#/components/schemas/QueryTopicListSort'
+            default: QUESTION_ASC
+        - {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+        - {name: page_size, in: query, schema: {type: integer, enum: [10, 20, 50], default: 20}}
+      responses:
+        '200':
+          description: Frontend V2 使用的 Query Topic 服务端搜索、排序与分页列表
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/QueryTopicListPage'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/query-topics/{query_topic_id}:
     patch:
       tags: [planning]
@@ -611,7 +636,11 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/QueryTopic'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [planning]
       operationId: deleteQueryTopic
@@ -1383,6 +1412,14 @@ paths:
           in: query
           description: 仅返回直接绑定该事实版本的内容任务
           schema: {type: string, format: uuid}
+        - name: query_topic_id
+          in: query
+          description: 与 query_topic_reference 同时提供，精确筛选 Query Topic 直接引用
+          schema: {type: string, format: uuid}
+        - name: query_topic_reference
+          in: query
+          description: 与 query_topic_id 同时提供，区分内容任务或 GEO 优化来源引用
+          schema: {$ref: '#/components/schemas/ContentTaskQueryTopicReference'}
         - name: archive_status
           in: query
           description: 默认只返回当前任务；归档视图必须显式选择
@@ -2941,6 +2978,7 @@ paths:
         - {name: accuracy, in: query, schema: {$ref: '#/components/schemas/AccuracyStatus'}}
         - {name: date_from, in: query, schema: {type: string, format: date}}
         - {name: date_to, in: query, schema: {type: string, format: date}}
+        - {name: query_topic_id, in: query, schema: {type: string, format: uuid}}
         - name: sort
           in: query
           schema:
@@ -3842,7 +3880,7 @@ components:
       properties:
         canonical_question: {type: string, minLength: 1}
         intent_type: {$ref: '#/components/schemas/IntentType'}
-        variants: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
+        variants: {type: array, minItems: 1, uniqueItems: true, items: {type: string, minLength: 1}}
     QueryTopicUpdate:
       type: object
       additionalProperties: false
@@ -3851,7 +3889,7 @@ components:
         expected_revision: {type: integer, minimum: 0}
         canonical_question: {type: string, minLength: 1}
         intent_type: {$ref: '#/components/schemas/IntentType'}
-        variants: {type: array, minItems: 1, uniqueItems: true, items: {type: string}}
+        variants: {type: array, minItems: 1, uniqueItems: true, items: {type: string, minLength: 1}}
     QueryTopic:
       allOf:
         - {$ref: '#/components/schemas/QueryTopicCreate'}
@@ -3875,6 +3913,33 @@ components:
       required: [items]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/QueryTopic'}}
+    QueryTopicListSort:
+      type: string
+      enum: [QUESTION_ASC, QUESTION_DESC, INTENT_ASC, INTENT_DESC]
+    QueryTopicReferenceSummary:
+      type: object
+      additionalProperties: false
+      required: [content_task_count, geo_optimization_count, observation_count]
+      properties:
+        content_task_count: {type: integer, minimum: 0}
+        geo_optimization_count: {type: integer, minimum: 0}
+        observation_count: {type: integer, minimum: 0}
+    QueryTopicListItem:
+      allOf:
+        - {$ref: '#/components/schemas/QueryTopic'}
+        - type: object
+          required: [references]
+          properties:
+            references: {$ref: '#/components/schemas/QueryTopicReferenceSummary'}
+    QueryTopicListPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, page_size, total]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/QueryTopicListItem'}}
+        page: {type: integer, minimum: 1}
+        page_size: {type: integer, enum: [10, 20, 50]}
+        total: {type: integer, minimum: 0}
     PlatformProfileCreate:
       type: object
       additionalProperties: false
@@ -4501,6 +4566,9 @@ components:
         page: {type: integer, minimum: 1}
         page_size: {type: integer, minimum: 0}
         total: {type: integer, minimum: 0}
+    ContentTaskQueryTopicReference:
+      type: string
+      enum: [CONTENT_TASK, GEO_OPTIMIZATION_SOURCE]
     ContentTaskProductSummary:
       type: object
       additionalProperties: false

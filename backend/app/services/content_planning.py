@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import func, literal, select, text, union_all
+from sqlalchemy import exists, func, literal, select, text, union_all
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -19,7 +19,12 @@ from app.models.product_facts import FactVersion, Product
 from app.schemas.configuration import (
     PlatformProfileCreate,
     QueryTopicCreate,
+    QueryTopicListItem,
+    QueryTopicListPage,
+    QueryTopicListSort,
     QueryTopicOut,
+    QueryTopicPageSize,
+    QueryTopicReferenceSummary,
     QueryTopicUpdate,
 )
 from app.schemas.content import ContentTaskCreate
@@ -68,22 +73,34 @@ def _query_topic_reference_counts(
     }
 
 
+def _query_topic_blockers(
+    reference_counts: dict[tuple[uuid.UUID, str], int], topic_id: uuid.UUID
+) -> list[dict[str, str | int]]:
+    """按稳定类型顺序返回一个问题的非零删除阻断。"""
+    return [
+        {"type": blocker_type, "count": count}
+        for blocker_type, _label in _QUERY_TOPIC_BLOCKERS
+        if (count := reference_counts.get((topic_id, blocker_type), 0))
+    ]
+
+
 def query_topics_out(
-    db: Session, topics: list[QueryTopic], *, can_delete: bool
+    db: Session,
+    topics: list[QueryTopic],
+    *,
+    can_delete: bool,
+    reference_counts: dict[tuple[uuid.UUID, str], int] | None = None,
 ) -> list[QueryTopicOut]:
     """批量投影目标问题，并仅向管理员公开删除资格。"""
     if not topics:
         return []
-    reference_counts = (
-        _query_topic_reference_counts(db, [topic.id for topic in topics]) if can_delete else {}
-    )
+    if reference_counts is None:
+        reference_counts = (
+            _query_topic_reference_counts(db, [topic.id for topic in topics]) if can_delete else {}
+        )
     items: list[QueryTopicOut] = []
     for topic in topics:
-        blockers = [
-            {"type": blocker_type, "count": count}
-            for blocker_type, _label in _QUERY_TOPIC_BLOCKERS
-            if (count := reference_counts.get((topic.id, blocker_type), 0))
-        ]
+        blockers = _query_topic_blockers(reference_counts, topic.id)
         payload = {
             field: getattr(topic, field)
             for field in QueryTopicOut.model_fields
@@ -99,6 +116,75 @@ def query_topics_out(
     return items
 
 
+def list_query_topic_items(
+    *,
+    db: Session,
+    q: str | None,
+    sort: QueryTopicListSort,
+    page: int,
+    page_size: QueryTopicPageSize,
+    can_delete: bool,
+) -> QueryTopicListPage:
+    """返回 V2 使用的服务端搜索、排序、分页和引用摘要。"""
+    query = select(QueryTopic)
+    if q is not None:
+        term = q.strip()
+        if not term:
+            raise AppError("VALIDATION_ERROR", "搜索词不能为空", 422)
+        escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        variant = func.unnest(QueryTopic.variants).column_valued("variant")
+        query = query.where(
+            QueryTopic.canonical_question.ilike(pattern, escape="\\")
+            | exists(
+                select(1).where(variant.ilike(pattern, escape="\\"))
+            )
+        )
+
+    total = int(db.scalar(select(func.count()).select_from(query.subquery())) or 0)
+    primary_order = {
+        QueryTopicListSort.QUESTION_ASC: func.lower(QueryTopic.canonical_question).asc(),
+        QueryTopicListSort.QUESTION_DESC: func.lower(QueryTopic.canonical_question).desc(),
+        QueryTopicListSort.INTENT_ASC: QueryTopic.intent_type.asc(),
+        QueryTopicListSort.INTENT_DESC: QueryTopic.intent_type.desc(),
+    }[sort]
+    topics = list(
+        db.scalars(
+            query.order_by(primary_order, QueryTopic.id.asc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    )
+    reference_counts = _query_topic_reference_counts(db, [topic.id for topic in topics])
+    projected = query_topics_out(
+        db,
+        topics,
+        can_delete=can_delete,
+        reference_counts=reference_counts,
+    )
+    items = [
+        QueryTopicListItem.model_validate(
+            {
+                **item.model_dump(),
+                "references": QueryTopicReferenceSummary(
+                    content_task_count=reference_counts.get((item.id, "CONTENT_TASK"), 0),
+                    geo_optimization_count=reference_counts.get(
+                        (item.id, "GEO_OPTIMIZATION_SOURCE"), 0
+                    ),
+                    observation_count=reference_counts.get((item.id, "GEO_OBSERVATION"), 0),
+                ),
+            }
+        )
+        for item in projected
+    ]
+    return QueryTopicListPage(
+        items=items,
+        page=page,
+        page_size=page_size,
+        total=total,
+    )
+
+
 def query_topic_out(db: Session, topic: QueryTopic, *, can_delete: bool) -> QueryTopicOut:
     """投影单个目标问题及其当前动作。"""
     return query_topics_out(db, [topic], can_delete=can_delete)[0]
@@ -109,12 +195,26 @@ def create_query_topic(
 ) -> QueryTopic:
     """创建目标问题。"""
     topic = QueryTopic(
-        canonical_question=payload.canonical_question.strip(),
+        canonical_question=payload.canonical_question,
         intent_type=payload.intent_type.value,
         variants=payload.variants,
     )
     db.add(topic)
     db.flush()
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.CONTENT_PLANNING,
+            action="query_topic.created",
+            target_type="QueryTopic",
+            target_id=topic.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="GEO 问题已创建",
+            details={"facts": {"revision": topic.revision}},
+        ),
+    )
     db.commit()
     return topic
 
@@ -135,10 +235,24 @@ def update_query_topic(
         raise not_found("目标问题")
     if topic.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "目标问题已被其他请求修改", 409)
-    topic.canonical_question = payload.canonical_question.strip()
+    topic.canonical_question = payload.canonical_question
     topic.intent_type = payload.intent_type.value
     topic.variants = payload.variants
     topic.revision += 1
+    append_audit(
+        db,
+        AuditEntry(
+            actor_id=actor.id,
+            business_module=AuditModule.CONTENT_PLANNING,
+            action="query_topic.updated",
+            target_type="QueryTopic",
+            target_id=topic.id,
+            request_id=request_id,
+            outcome=AuditOutcome.SUCCESS,
+            result_message="GEO 问题已更新",
+            details={"facts": {"revision": topic.revision}},
+        ),
+    )
     db.commit()
     return topic
 

@@ -5,6 +5,7 @@ import {
   emptyGeoObservationValues,
   mapGeoObservationCreateError,
   newGeoObservationFormSchema,
+  newGeoObservationSearchSchema,
   syncArticleResults,
   toGeoObservationCreate,
 } from './new-geo-observation.model';
@@ -27,6 +28,15 @@ const candidates = [
 ];
 
 describe('New GEO Observation model', () => {
+  it('handoff 只接受明确的 Query Topic UUID', () => {
+    expect(newGeoObservationSearchSchema.parse({
+      queryTopicId: '30000000-0000-4000-8000-000000000001',
+      extra: 'drop',
+    })).toEqual({ queryTopicId: '30000000-0000-4000-8000-000000000001' });
+    expect(newGeoObservationSearchSchema.safeParse({ queryTopicId: 'bad-id' }).success)
+      .toBe(false);
+  });
+
   it('新候选保持未选择，刷新只保留仍有效文章的显式事实', () => {
     const initial = syncArticleResults(candidates, []);
     expect(initial.map(({ discovered, mentioned }) => ({ discovered, mentioned }))).toEqual([

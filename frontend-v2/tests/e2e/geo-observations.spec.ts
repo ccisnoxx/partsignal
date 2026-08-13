@@ -74,6 +74,15 @@ test('URL 参数逐项映射 API，支持排序、分页和 canonical replace', 
   await expect(page).toHaveURL(canonical);
 });
 
+test('Query Topic resolve URL 精确映射服务端筛选并可清除', async ({ page, geoApi }) => {
+  const topicId = '40000000-0000-4000-8000-000000000001';
+  await page.goto(`/geo/observations?queryTopicId=${topicId}&page=1&pageSize=20`);
+  await expect(page.getByText(`Query Topic Observation 筛选：${topicId}`)).toBeVisible();
+  expect(geoApi.listRequests.at(-1)?.searchParams.get('query_topic_id')).toBe(topicId);
+  await page.getByRole('button', { name: '清除此引用筛选' }).click();
+  await expect(page).toHaveURL(canonical);
+});
+
 test('loading、empty、filtered-empty、error 与 retry 诚实可见', async ({ page, geoApi }) => {
   geoApi.setListMode('loading');
   await page.goto(canonical);

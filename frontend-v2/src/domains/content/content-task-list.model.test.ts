@@ -56,6 +56,8 @@ describe('Content task list model', () => {
       workflowStage: 'REVIEW_PENDING',
       archiveStatus: 'ARCHIVED',
       platformId: task.platform_profile_id,
+      queryTopicId: '00000000-0000-4000-8000-000000000006',
+      queryTopicReference: 'GEO_OPTIMIZATION_SOURCE',
       page: '2',
       pageSize: '50',
       unknown: 'remove-me',
@@ -66,6 +68,8 @@ describe('Content task list model', () => {
       workflowStage: 'REVIEW_PENDING',
       archiveStatus: 'ARCHIVED',
       platformId: task.platform_profile_id,
+      queryTopicId: '00000000-0000-4000-8000-000000000006',
+      queryTopicReference: 'GEO_OPTIMIZATION_SOURCE',
       page: 2,
       pageSize: 50,
     });
@@ -74,6 +78,8 @@ describe('Content task list model', () => {
       workflow_stage: 'REVIEW_PENDING',
       archive_status: 'ARCHIVED',
       platform_profile_id: task.platform_profile_id,
+      query_topic_id: '00000000-0000-4000-8000-000000000006',
+      query_topic_reference: 'GEO_OPTIMIZATION_SOURCE',
       page: 2,
       page_size: 50,
     });
@@ -82,8 +88,22 @@ describe('Content task list model', () => {
       workflowStage: 'REVIEW_PENDING',
       archiveStatus: 'ARCHIVED',
       platformId: task.platform_profile_id,
+      queryTopicId: '00000000-0000-4000-8000-000000000006',
+      queryTopicReference: 'GEO_OPTIMIZATION_SOURCE',
       page: 2,
       pageSize: 50,
+    });
+  });
+
+  it('Query Topic 引用筛选必须成对出现', () => {
+    expect(contentTasksSearchSchema.parse({
+      queryTopicId: '00000000-0000-4000-8000-000000000006',
+    })).toEqual({
+      archiveStatus: 'ACTIVE',
+      page: 1,
+      pageSize: 20,
+      queryTopicId: undefined,
+      queryTopicReference: undefined,
     });
   });
 

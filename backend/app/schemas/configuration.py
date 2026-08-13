@@ -9,7 +9,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Literal
 
-from pydantic import AfterValidator, Field, HttpUrl, model_validator
+from pydantic import AfterValidator, Field, HttpUrl, StringConstraints, model_validator
 
 from app.schemas.base import ContractModel, require_unique_items
 from app.schemas.common import DeletionProjection, SignedUrl
@@ -71,10 +71,21 @@ class IntentType(StrEnum):
     TROUBLESHOOTING = "TROUBLESHOOTING"
 
 
+QueryTopicText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+QueryTopicPageSize = Literal[10, 20, 50]
+
+
+class QueryTopicListSort(StrEnum):
+    QUESTION_ASC = "QUESTION_ASC"
+    QUESTION_DESC = "QUESTION_DESC"
+    INTENT_ASC = "INTENT_ASC"
+    INTENT_DESC = "INTENT_DESC"
+
+
 class QueryTopicCreate(ContractModel):
-    canonical_question: str = Field(min_length=1)
+    canonical_question: QueryTopicText
     intent_type: IntentType
-    variants: Annotated[list[str], AfterValidator(require_unique_items)] = Field(
+    variants: Annotated[list[QueryTopicText], AfterValidator(require_unique_items)] = Field(
         min_length=1, json_schema_extra={"uniqueItems": True}
     )
 
@@ -94,6 +105,23 @@ class QueryTopicOut(QueryTopicCreate):
 
 class QueryTopicList(ContractModel):
     items: list[QueryTopicOut]
+
+
+class QueryTopicReferenceSummary(ContractModel):
+    content_task_count: int = Field(ge=0)
+    geo_optimization_count: int = Field(ge=0)
+    observation_count: int = Field(ge=0)
+
+
+class QueryTopicListItem(QueryTopicOut):
+    references: QueryTopicReferenceSummary
+
+
+class QueryTopicListPage(ContractModel):
+    items: list[QueryTopicListItem]
+    page: int = Field(ge=1)
+    page_size: QueryTopicPageSize
+    total: int = Field(ge=0)
 
 
 class PlatformLogoUploadInput(ContractModel):

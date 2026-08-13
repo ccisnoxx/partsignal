@@ -146,10 +146,18 @@ function ContentTaskListPage({
           <Button onClick={lifecycle.reset} size="sm" variant="outline">关闭</Button>
         </div>
       )}
+      {search.queryTopicId && search.queryTopicReference && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/30 bg-info/10 p-3 text-sm" role="status">
+          <span>
+            Query Topic 引用筛选：{search.queryTopicReference === 'CONTENT_TASK' ? 'Content Task' : 'GEO Optimization 来源'} · {search.queryTopicId}
+          </span>
+          <Button onClick={() => changeSearch({ queryTopicId: undefined, queryTopicReference: undefined })} size="sm" variant="outline">清除此引用筛选</Button>
+        </div>
+      )}
 
       <TableToolbar>
         <ContentTaskFilters
-          key={`${search.q ?? ''}-${search.platformId ?? ''}`}
+          key={`${search.q ?? ''}-${search.platformId ?? ''}-${search.queryTopicId ?? ''}`}
           onChange={(changes) => changeSearch(changes)}
           platformItems={platforms.data?.items ?? []}
           search={search}
@@ -196,6 +204,8 @@ function ContentTaskListPage({
                   workflowStage: undefined,
                   archiveStatus: 'ACTIVE',
                   platformId: undefined,
+                  queryTopicId: undefined,
+                  queryTopicReference: undefined,
                 })}
                 variant="outline"
               >
@@ -360,6 +370,8 @@ function ContentTaskFilters({
           workflowStage: undefined,
           archiveStatus: 'ACTIVE',
           platformId: undefined,
+          queryTopicId: undefined,
+          queryTopicReference: undefined,
         });
       }}
       onSubmit={() => onChange({ q: query.trim() || undefined })}
@@ -370,6 +382,7 @@ function ContentTaskFilters({
         && !search.q
         && !search.workflowStage
         && !search.platformId
+        && !search.queryTopicId
         && search.archiveStatus === 'ACTIVE'
       }
       searchLabel="搜索内容任务"

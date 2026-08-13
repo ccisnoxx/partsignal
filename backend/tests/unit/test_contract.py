@@ -36,6 +36,7 @@ def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
         "accuracy",
         "date_from",
         "date_to",
+        "query_topic_id",
         "sort",
         "page",
         "page_size",
@@ -93,6 +94,39 @@ def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
     assert not {"recommendation", "citation"} & set(
         schemas["GeoArticleResultCreate"]["properties"]
     )
+
+
+def test_query_topic_list_contract_preserves_full_list_and_adds_v2_read_model() -> None:
+    """V1 选项列表保持全量语义，V2 列表独立提供分页与引用摘要。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    schemas = document["components"]["schemas"]
+    operation = paths["/api/v1/query-topics/list-items"]["get"]
+
+    assert [parameter["name"] for parameter in operation["parameters"]] == [
+        "q",
+        "sort",
+        "page",
+        "page_size",
+    ]
+    assert operation["parameters"][-1]["schema"]["enum"] == [10, 20, 50]
+    assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/QueryTopicListPage"
+    }
+    assert paths["/api/v1/query-topics"]["get"]["responses"]["200"]["content"][
+        "application/json"
+    ]["schema"] == {"$ref": "#/components/schemas/QueryTopicList"}
+    assert set(schemas["QueryTopicReferenceSummary"]["required"]) == {
+        "content_task_count",
+        "geo_optimization_count",
+        "observation_count",
+    }
+    assert schemas["QueryTopicListItem"]["allOf"][1]["required"] == ["references"]
+    for name in ("QueryTopicCreate", "QueryTopicUpdate"):
+        variants = schemas[name]["properties"]["variants"]
+        assert variants["items"]["minLength"] == 1
+        assert variants["uniqueItems"] is True
 
 
 def test_geo_observation_detail_contract_is_one_readonly_generated_union() -> None:

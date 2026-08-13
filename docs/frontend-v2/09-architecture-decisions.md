@@ -190,6 +190,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **UI ownership**：Correction 使用专用 form model 并复用现有 WorkspaceShell、DirtyGuard、StickyActionBar 与 GeoEvidenceUpload；不把 New/Correction 合并为通用 GEO Form，也不引入全局草稿 store。成功只使用 POST 响应 ID 进入新 Detail。页面级 strict fixture 证明 production artifact 状态机，完整真实栈 GEO 闭环保留给后续独立 Task。
 
+## ADR-033：Query Topic 保留完整 options 并新增窄 V2 list-items
+
+**Decision**：`/geo/topics` 只消费 additive `GET /api/v1/query-topics/list-items`，由服务端完成 canonical question/variant search、稳定排序、分页、三类业务引用批量摘要和 actor-aware actions。既有 `GET /api/v1/query-topics` 保持完整 `QueryTopicList` 语义，继续服务 V1、New Observation 与 Correction Workspace；不增加 `view=v2`、兼容字段或 Query Topic Detail endpoint。
+
+**Why**：完整 options 是现有表单消费者需要的稳定合同，但 V2 Table 需要服务端分页和所有角色可见的跨域引用摘要；直接扩展旧 endpoint 会破坏完整列表语义，浏览器逐行 join 又会制造 N+1。一个窄 read model 是兼容现有消费者且不复制 mutation 合同的最小边界，无需数据库迁移。
+
+**Ownership**：Query Topic 服务以同一批量引用查询同时形成 Content Task、GEO Optimization source 和 Observation count；`deletion` 仍只向 ADMIN 投影，开始观测、编辑和删除只消费 `primary_task/available_actions/deletion`。创建/编辑使用短 Dialog，PATCH/DELETE 409 保留草稿并只允许显式 reload；引用 resolve links 只进入已实现且支持精确 Topic filter 的 Content Task 或 Observation 列表。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

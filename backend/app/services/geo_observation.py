@@ -105,6 +105,7 @@ class GeoObservationListFilters:
     accuracy: GeoAccuracy | None = None
     date_from: date | None = None
     date_to: date | None = None
+    query_topic_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -321,6 +322,8 @@ def geo_observation_list_query(
     )
     if filters.product_id is not None:
         query = query.where(GeoObservation.product_id == filters.product_id)
+    if filters.query_topic_id is not None:
+        query = query.where(GeoObservation.query_topic_id == filters.query_topic_id)
     if filters.search is not None:
         pattern = _contains_pattern(filters.search)
         query = query.where(

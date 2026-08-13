@@ -22,7 +22,10 @@ from app.schemas.configuration import (
     PlatformProfileStatus,
     QueryTopicCreate,
     QueryTopicList,
+    QueryTopicListPage,
+    QueryTopicListSort,
     QueryTopicOut,
+    QueryTopicPageSize,
     QueryTopicUpdate,
 )
 from app.schemas.content import (
@@ -33,6 +36,7 @@ from app.schemas.content import (
     ContentTaskOut,
     ContentTaskPermanentDeleteRequest,
     ContentTaskPermanentDeletionPreview,
+    ContentTaskQueryTopicReference,
     ContentTaskWorkflowStage,
 )
 from app.schemas.content_editor import ContentEditorContext
@@ -46,6 +50,7 @@ from app.services.content_planning import (
 )
 from app.services.content_planning import create_query_topic as create_query_topic_command
 from app.services.content_planning import delete_query_topic as delete_query_topic_command
+from app.services.content_planning import list_query_topic_items as list_query_topic_items_query
 from app.services.content_planning import query_topic_out, query_topics_out
 from app.services.content_planning import update_query_topic as update_query_topic_command
 from app.services.content_task_detail import content_task_detail_out
@@ -88,6 +93,30 @@ def list_query_topics(db: DbSession, user: CurrentUser) -> QueryTopicList:
     topics = list(db.scalars(select(QueryTopic).order_by(QueryTopic.created_at)))
     return QueryTopicList(
         items=query_topics_out(db, topics, can_delete=user.account_type == "ADMIN")
+    )
+
+
+@router.get(
+    "/query-topics/list-items",
+    response_model=QueryTopicListPage,
+    operation_id="listQueryTopicItems",
+)
+def list_query_topic_items(
+    db: DbSession,
+    user: CurrentUser,
+    q: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+    sort: QueryTopicListSort = QueryTopicListSort.QUESTION_ASC,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[QueryTopicPageSize, Query()] = 20,
+) -> QueryTopicListPage:
+    """返回 Frontend V2 使用的 Query Topic 紧凑列表。"""
+    return list_query_topic_items_query(
+        db=db,
+        q=q,
+        sort=sort,
+        page=page,
+        page_size=page_size,
+        can_delete=user.account_type == "ADMIN",
     )
 
 
@@ -209,6 +238,8 @@ def list_content_tasks(
     platform_profile_id: uuid.UUID | None = None,
     filter_product_id: uuid.UUID | None = None,
     filter_fact_version_id: uuid.UUID | None = None,
+    query_topic_id: uuid.UUID | None = None,
+    query_topic_reference: ContentTaskQueryTopicReference | None = None,
     archive_status: ContentTaskArchiveStatus = ContentTaskArchiveStatus.ACTIVE,
     page: int | None = Query(None, ge=1),
     page_size: Annotated[Literal[10, 20, 50] | None, BeforeValidator(int), Query()] = None,
@@ -220,6 +251,8 @@ def list_content_tasks(
         platform_profile_id=platform_profile_id,
         filter_product_id=filter_product_id,
         filter_fact_version_id=filter_fact_version_id,
+        query_topic_id=query_topic_id,
+        query_topic_reference=query_topic_reference,
         archive_status=archive_status,
         page=page,
         page_size=page_size,

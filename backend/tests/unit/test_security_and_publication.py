@@ -53,6 +53,22 @@ def test_contract_unique_items_are_enforced_at_request_boundary() -> None:
         )
 
 
+def test_query_topic_text_is_trimmed_before_unique_validation() -> None:
+    payload = QueryTopicCreate(
+        canonical_question="  DEMO-001 如何选用？  ",
+        intent_type="PRODUCT",
+        variants=["  DEMO-001 选型  ", "DEMO-001 参数"],
+    )
+    assert payload.canonical_question == "DEMO-001 如何选用？"
+    assert payload.variants == ["DEMO-001 选型", "DEMO-001 参数"]
+    with pytest.raises(ValidationError, match="列表项不得重复"):
+        QueryTopicCreate(
+            canonical_question="DEMO-001 如何选用？",
+            intent_type="PRODUCT",
+            variants=["DEMO-001 选型", "  DEMO-001 选型  "],
+        )
+
+
 def test_markdown_render_strips_executable_html() -> None:
     body_html, body_text = render_markdown("# 标题\n<script>alert(1)</script>\n正文")
     assert "<script" not in body_html

@@ -4,6 +4,7 @@ import {
   EyeIcon,
   LayoutDashboardIcon,
   ListTodoIcon,
+  MessagesSquareIcon,
   MessageSquareWarningIcon,
   SendIcon,
   ScrollTextIcon,
@@ -11,12 +12,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-observations' | 'users';
+type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-topics' | 'geo-observations' | 'users';
 
 type NavigationItem = {
   id: NavId;
   label: string;
-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/observations' | '/system/users';
+  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/topics' | '/geo/observations' | '/system/users';
   icon: LucideIcon;
   adminOnly?: boolean;
 };
@@ -63,6 +64,7 @@ const navigationSections: readonly NavigationSection[] = [
   {
     label: 'GEO',
     items: [
+      { id: 'geo-topics', label: '问题主题', to: '/geo/topics', icon: MessagesSquareIcon },
       { id: 'geo-observations', label: '观测记录', to: '/geo/observations', icon: EyeIcon },
     ],
   },

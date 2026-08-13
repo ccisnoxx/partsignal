@@ -37,6 +37,12 @@ const articleResultSchema = z.object({
   accuracy: z.enum(accuracyValues).nullable(),
 });
 
+const newGeoObservationSearchSchema = z.object({
+  queryTopicId: z.uuid().optional(),
+});
+
+type NewGeoObservationSearch = z.output<typeof newGeoObservationSearchSchema>;
+
 const newGeoObservationFormSchema = z.object({
   product_id: requiredId('产品'),
   query_topic_id: requiredId('Query Topic'),
@@ -179,6 +185,7 @@ export {
   emptyGeoObservationValues,
   localDateTime,
   mapGeoObservationCreateError,
+  newGeoObservationSearchSchema,
   newGeoObservationFormSchema,
   syncArticleResults,
   toGeoObservationCreate,
@@ -189,4 +196,5 @@ export type {
   GeoPublicationCandidate,
   NewGeoObservationField,
   NewGeoObservationFormValues,
+  NewGeoObservationSearch,
 };

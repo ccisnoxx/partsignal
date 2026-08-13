@@ -320,6 +320,7 @@ def test_geo_observation_list_is_compact_server_filtered_and_actor_projected() -
                 GeoObservationListFilters(search=manual_topic.canonical_question),
                 GeoObservationListFilters(search=manual_product.part_number),
                 GeoObservationListFilters(product_id=manual_product.id),
+                GeoObservationListFilters(query_topic_id=manual_topic.id),
                 GeoObservationListFilters(geo_platform="deepseek"),
                 GeoObservationListFilters(accuracy="ACCURATE"),
                 GeoObservationListFilters(date_from=datetime(2026, 8, 10, tzinfo=UTC).date()),

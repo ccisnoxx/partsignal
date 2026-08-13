@@ -62,6 +62,13 @@ class ContentTaskArchiveStatus(StrEnum):
     ALL = "ALL"
 
 
+class ContentTaskQueryTopicReference(StrEnum):
+    """内容任务列表支持的 Query Topic 直接引用类型。"""
+
+    CONTENT_TASK = "CONTENT_TASK"
+    GEO_OPTIMIZATION_SOURCE = "GEO_OPTIMIZATION_SOURCE"
+
+
 ContentTag = Annotated[str, Field(min_length=1, pattern=r"\S")]
 
 

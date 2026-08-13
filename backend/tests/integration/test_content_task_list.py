@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine, event
@@ -11,9 +11,10 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from app.errors import AppError
-from app.models.content import ContentTask, ContentVersion
+from app.models.content import ContentTask, ContentTaskGeoSource, ContentVersion
+from app.models.identity import User
 from app.models.product_facts import Product
-from app.schemas.content import ContentTaskArchiveStatus
+from app.schemas.content import ContentTaskArchiveStatus, ContentTaskQueryTopicReference
 from app.services.content_task_queries import list_content_tasks
 from tests.integration.test_publication_workflow import _seed_graph, temporary_database
 
@@ -35,6 +36,8 @@ def _statement_count(engine: Engine, *, product_id: uuid.UUID | None) -> int:
                 platform_profile_id=None,
                 filter_product_id=product_id,
                 filter_fact_version_id=None,
+                query_topic_id=None,
+                query_topic_reference=None,
                 archive_status=ContentTaskArchiveStatus.ACTIVE,
                 page=1,
                 page_size=10,
@@ -61,6 +64,8 @@ def test_content_task_list_is_server_filtered_paged_and_pointer_authoritative() 
             assert isinstance(second_task, ContentTask)
             assert isinstance(first_product, Product)
             assert isinstance(first_content, ContentVersion)
+            first_user = first["user"]
+            assert isinstance(first_user, User)
 
             historical = ContentVersion(
                 task_id=first_task.id,
@@ -104,6 +109,8 @@ def test_content_task_list_is_server_filtered_paged_and_pointer_authoritative() 
                 platform_profile_id=first_task.platform_profile_id,
                 filter_product_id=None,
                 filter_fact_version_id=None,
+                query_topic_id=None,
+                query_topic_reference=None,
                 archive_status=ContentTaskArchiveStatus.ACTIVE,
                 page=1,
                 page_size=10,
@@ -126,6 +133,8 @@ def test_content_task_list_is_server_filtered_paged_and_pointer_authoritative() 
                 platform_profile_id=None,
                 filter_product_id=None,
                 filter_fact_version_id=None,
+                query_topic_id=None,
+                query_topic_reference=None,
                 archive_status=ContentTaskArchiveStatus.ACTIVE,
                 page=1,
                 page_size=10,
@@ -148,6 +157,8 @@ def test_content_task_list_is_server_filtered_paged_and_pointer_authoritative() 
                 platform_profile_id=None,
                 filter_product_id=None,
                 filter_fact_version_id=None,
+                query_topic_id=None,
+                query_topic_reference=None,
                 archive_status=ContentTaskArchiveStatus.ACTIVE,
                 page=2,
                 page_size=10,
@@ -162,6 +173,8 @@ def test_content_task_list_is_server_filtered_paged_and_pointer_authoritative() 
                 platform_profile_id=None,
                 filter_product_id=None,
                 filter_fact_version_id=None,
+                query_topic_id=None,
+                query_topic_reference=None,
                 archive_status=ContentTaskArchiveStatus.ACTIVE,
                 page=None,
                 page_size=None,
@@ -177,6 +190,8 @@ def test_content_task_list_is_server_filtered_paged_and_pointer_authoritative() 
                     platform_profile_id=None,
                     filter_product_id=None,
                     filter_fact_version_id=None,
+                    query_topic_id=None,
+                    query_topic_reference=None,
                     archive_status=ContentTaskArchiveStatus.ACTIVE,
                     page=1,
                     page_size=None,
@@ -187,6 +202,65 @@ def test_content_task_list_is_server_filtered_paged_and_pointer_authoritative() 
                 engine, product_id=None
             )
 
+            direct = list_content_tasks(
+                db=db,
+                q=None,
+                workflow_stage=None,
+                platform_profile_id=None,
+                filter_product_id=None,
+                filter_fact_version_id=None,
+                query_topic_id=first_task.query_topic_id,
+                query_topic_reference=ContentTaskQueryTopicReference.CONTENT_TASK,
+                archive_status=ContentTaskArchiveStatus.ALL,
+                page=1,
+                page_size=10,
+                can_permanently_delete=False,
+            )
+            assert [item.id for item in direct.items] == [first_task.id]
+
+            db.add(
+                ContentTaskGeoSource(
+                    content_task_id=second_task.id,
+                    rule_code="QUESTION_COVERAGE_GAP",
+                    date_from=date(2026, 8, 1),
+                    date_to=date(2026, 8, 13),
+                    query_topic_id=first_task.query_topic_id,
+                    basis_snapshot={"source": "query-topic-list-test"},
+                    created_by=first_user.id,
+                )
+            )
+            db.commit()
+            optimization_source = list_content_tasks(
+                db=db,
+                q=None,
+                workflow_stage=None,
+                platform_profile_id=None,
+                filter_product_id=None,
+                filter_fact_version_id=None,
+                query_topic_id=first_task.query_topic_id,
+                query_topic_reference=ContentTaskQueryTopicReference.GEO_OPTIMIZATION_SOURCE,
+                archive_status=ContentTaskArchiveStatus.ALL,
+                page=1,
+                page_size=10,
+                can_permanently_delete=False,
+            )
+            assert [item.id for item in optimization_source.items] == [second_task.id]
+            with pytest.raises(AppError, match="必须同时提供"):
+                list_content_tasks(
+                    db=db,
+                    q=None,
+                    workflow_stage=None,
+                    platform_profile_id=None,
+                    filter_product_id=None,
+                    filter_fact_version_id=None,
+                    query_topic_id=first_task.query_topic_id,
+                    query_topic_reference=None,
+                    archive_status=ContentTaskArchiveStatus.ALL,
+                    page=1,
+                    page_size=10,
+                    can_permanently_delete=False,
+                )
+
             first_task.archived_at = datetime.now(UTC)
             db.commit()
             archived = list_content_tasks(
@@ -196,6 +270,8 @@ def test_content_task_list_is_server_filtered_paged_and_pointer_authoritative() 
                 platform_profile_id=None,
                 filter_product_id=None,
                 filter_fact_version_id=None,
+                query_topic_id=None,
+                query_topic_reference=None,
                 archive_status=ContentTaskArchiveStatus.ARCHIVED,
                 page=1,
                 page_size=10,

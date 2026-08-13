@@ -65,6 +65,17 @@ test('Content Tasks URL 支持 direct、refresh、Back/Forward，并规范化非
   await expect(page).toHaveURL(canonical);
 });
 
+test('Query Topic 两类 resolve URL 成对映射服务端筛选并可清除', async ({ page, contentApi }) => {
+  const topicId = '40000000-0000-4000-8000-000000000001';
+  await page.goto(`/content/tasks?queryTopicId=${topicId}&queryTopicReference=GEO_OPTIMIZATION_SOURCE&archiveStatus=ALL&page=1&pageSize=20`);
+  await expect(page.getByText(new RegExp(`GEO Optimization 来源 · ${topicId}`))).toBeVisible();
+  const params = contentApi.listRequests.at(-1)?.searchParams;
+  expect(params?.get('query_topic_id')).toBe(topicId);
+  expect(params?.get('query_topic_reference')).toBe('GEO_OPTIMIZATION_SOURCE');
+  await page.getByRole('button', { name: '清除此引用筛选' }).click();
+  await expect(page).toHaveURL('/content/tasks?archiveStatus=ALL&page=1&pageSize=20');
+});
+
 test('Content lifecycle 使用服务端 token、CSRF、comment 和 revision，409 不重放', async ({ page, contentApi }) => {
   await page.goto(canonical);
   const more = page.getByRole('button', { name: '更多操作：CT-00000001' });

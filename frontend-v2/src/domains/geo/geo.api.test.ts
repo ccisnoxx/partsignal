@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { api } from '@/shared/api/client';
 import {
   createGeoObservation,
+  createQueryTopic,
+  deleteQueryTopic,
   deleteGeoObservation,
   GeoRequestError,
   geoObservationCorrectionContextQueryOptions,
@@ -11,8 +13,11 @@ import {
   geoObservationListQueryOptions,
   geoPublicationCandidatesQueryOptions,
   queryTopicsQueryOptions,
+  queryTopicListQueryOptions,
+  updateQueryTopic,
 } from './geo.api';
 import { geoObservationSearchSchema } from './geo-observation-list.model';
+import { queryTopicSearchSchema } from './query-topic-list.model';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -156,6 +161,7 @@ describe('GEO API', () => {
         query: {
           search: '测试',
           product_id: undefined,
+          query_topic_id: undefined,
           geo_platform: undefined,
           accuracy: undefined,
           date_from: undefined,
@@ -164,6 +170,53 @@ describe('GEO API', () => {
           page: 1,
           page_size: 20,
         },
+      },
+    });
+  });
+
+  it('Query Topic list-items 与三个命令只使用 generated contract', async () => {
+    const list = { items: [], page: 1, page_size: 20, total: 0 } as const;
+    const topic = {
+      id: '40000000-0000-4000-8000-000000000001',
+      canonical_question: '标准问题',
+      intent_type: 'PRODUCT',
+      variants: ['变体'],
+      available_actions: ['UPDATE', 'DELETE'],
+      deletion: { blockers: [] },
+      primary_task: 'USE_FOR_OBSERVATION',
+      revision: 1,
+      created_at: '2026-08-13T00:00:00Z',
+    } as const;
+    const get = vi.spyOn(api, 'GET').mockResolvedValue({ data: list, response: Response.json(list) } as never);
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({ data: topic, response: Response.json(topic) } as never);
+    const patch = vi.spyOn(api, 'PATCH').mockResolvedValue({ data: topic, response: Response.json(topic) } as never);
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({ response: new Response(null, { status: 204 }) } as never);
+    const client = new QueryClient();
+    const body: Parameters<typeof createQueryTopic>[0] = {
+      canonical_question: '标准问题', intent_type: 'PRODUCT', variants: ['变体'],
+    };
+
+    await client.fetchQuery(queryTopicListQueryOptions(queryTopicSearchSchema.parse({})));
+    await createQueryTopic(body, 'csrf');
+    await updateQueryTopic(topic.id, { ...body, expected_revision: 1 }, 'csrf');
+    await deleteQueryTopic(topic.id, 1, 'csrf');
+
+    expect(get).toHaveBeenCalledWith('/api/v1/query-topics/list-items', {
+      params: { query: { q: undefined, sort: 'QUESTION_ASC', page: 1, page_size: 20 } },
+    });
+    expect(post).toHaveBeenCalledWith('/api/v1/query-topics', {
+      body,
+      params: { header: { 'X-CSRF-Token': 'csrf' } },
+    });
+    expect(patch).toHaveBeenCalledWith('/api/v1/query-topics/{query_topic_id}', {
+      body: { ...body, expected_revision: 1 },
+      params: { path: { query_topic_id: topic.id }, header: { 'X-CSRF-Token': 'csrf' } },
+    });
+    expect(remove).toHaveBeenCalledWith('/api/v1/query-topics/{query_topic_id}', {
+      params: {
+        path: { query_topic_id: topic.id },
+        query: { expected_revision: 1 },
+        header: { 'X-CSRF-Token': 'csrf' },
       },
     });
   });

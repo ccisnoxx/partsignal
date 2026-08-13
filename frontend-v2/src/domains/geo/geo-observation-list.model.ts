@@ -58,6 +58,7 @@ function normalizeSort(value: unknown) {
 const geoObservationSearchSchema = z.object({
   q: z.preprocess((value) => normalizeText(value, 200), z.string().max(200).optional()),
   productId: z.preprocess(normalizeUuid, z.uuid().optional()),
+  queryTopicId: z.preprocess(normalizeUuid, z.uuid().optional()),
   geoPlatform: z.preprocess(
     (value) => normalizeText(value, 160),
     z.string().max(160).optional(),
@@ -81,6 +82,7 @@ function geoObservationSearchToApiParams(
   return {
     search: search.q,
     product_id: search.productId,
+    query_topic_id: search.queryTopicId,
     geo_platform: search.geoPlatform,
     accuracy: search.accuracy,
     date_from: search.from,
@@ -100,6 +102,7 @@ function canonicalGeoObservationSearchRecord(
   };
   if (search.q) record.q = search.q;
   if (search.productId) record.productId = search.productId;
+  if (search.queryTopicId) record.queryTopicId = search.queryTopicId;
   if (search.geoPlatform) record.geoPlatform = search.geoPlatform;
   if (search.accuracy) record.accuracy = search.accuracy;
   if (search.from) record.from = search.from;
@@ -127,6 +130,7 @@ function hasGeoObservationFilters(search: GeoObservationSearch) {
   return Boolean(
     search.q
     || search.productId
+    || search.queryTopicId
     || search.geoPlatform
     || search.accuracy
     || search.from

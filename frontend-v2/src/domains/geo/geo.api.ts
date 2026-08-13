@@ -8,6 +8,12 @@ import {
   type GeoObservationSearch,
 } from './geo-observation-list.model';
 import {
+  queryTopicSearchToApiParams,
+  type QueryTopicCreate,
+  type QueryTopicSearch,
+  type QueryTopicUpdate,
+} from './query-topic-list.model';
+import {
   assertGeoObservationCorrectionContext,
   assertGeoObservationDetail,
 } from './geo-observation-detail.model';
@@ -42,6 +48,11 @@ const geoKeys = {
     ['geo', 'observations', 'correction-context', observationId] as const
   ),
   topics: () => ['geo', 'query-topics'] as const,
+  topicOptions: () => ['geo', 'query-topics', 'options'] as const,
+  topicLists: () => ['geo', 'query-topics', 'list'] as const,
+  topicList: (params: ReturnType<typeof queryTopicSearchToApiParams>) => (
+    ['geo', 'query-topics', 'list', params] as const
+  ),
   publicationCandidates: (productId: string) => (
     ['geo', 'observation-publications', productId] as const
   ),
@@ -102,7 +113,7 @@ function geoObservationListQueryOptions(search: GeoObservationSearch) {
 
 function queryTopicsQueryOptions() {
   return queryOptions({
-    queryKey: geoKeys.topics(),
+    queryKey: geoKeys.topicOptions(),
     queryFn: async () => {
       const result = await api.GET('/api/v1/query-topics');
       if (!result.data) throw geoRequestError('读取 GEO 问题主题', result);
@@ -113,6 +124,65 @@ function queryTopicsQueryOptions() {
     retryOnMount: false,
     staleTime: 30_000,
   });
+}
+
+function queryTopicListQueryOptions(search: QueryTopicSearch) {
+  const params = queryTopicSearchToApiParams(search);
+  return queryOptions({
+    queryKey: geoKeys.topicList(params),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/query-topics/list-items', {
+        params: { query: params },
+      });
+      if (!result.data) throw geoRequestError('读取 Query Topic 列表', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
+async function createQueryTopic(body: QueryTopicCreate, csrfToken: string | null) {
+  const result = await api.POST('/api/v1/query-topics', {
+    body,
+    params: { header: { 'X-CSRF-Token': requireCsrfToken(csrfToken, '创建 Query Topic') } },
+  });
+  if (result.data) return result.data;
+  throw geoRequestError('创建 Query Topic', result);
+}
+
+async function updateQueryTopic(
+  topicId: string,
+  body: QueryTopicUpdate,
+  csrfToken: string | null,
+) {
+  const result = await api.PATCH('/api/v1/query-topics/{query_topic_id}', {
+    body,
+    params: {
+      path: { query_topic_id: topicId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken, '更新 Query Topic') },
+    },
+  });
+  if (result.data) return result.data;
+  throw geoRequestError('更新 Query Topic', result);
+}
+
+async function deleteQueryTopic(
+  topicId: string,
+  expectedRevision: number,
+  csrfToken: string | null,
+) {
+  const result = await api.DELETE('/api/v1/query-topics/{query_topic_id}', {
+    params: {
+      path: { query_topic_id: topicId },
+      query: { expected_revision: expectedRevision },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken, '删除 Query Topic') },
+    },
+  });
+  if (result.response.ok) return;
+  throw geoRequestError('删除 Query Topic', result);
 }
 
 function geoPublicationCandidatesQueryOptions(productId: string) {
@@ -230,6 +300,8 @@ export {
   completeGeoFileUpload,
   createGeoFileUploadIntent,
   createGeoObservation,
+  createQueryTopic,
+  deleteQueryTopic,
   deleteGeoObservation,
   GeoRequestError,
   geoKeys,
@@ -238,4 +310,6 @@ export {
   geoObservationListQueryOptions,
   geoPublicationCandidatesQueryOptions,
   queryTopicsQueryOptions,
+  queryTopicListQueryOptions,
+  updateQueryTopic,
 };

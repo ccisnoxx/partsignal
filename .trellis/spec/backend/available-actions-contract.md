@@ -43,6 +43,7 @@ class DeletionProjection(ContractModel):
 - 产品、事实版本、GEO 问题、平台类型、具体平台、发布账号、内容任务、发布成果和停用用户的资源 Schema 必须包含 required nullable `deletion`。无删除管理上下文时为 `null`；普通删除允许时为 `{ "blockers": [] }` 并同时包含 `DELETE`；发布成果使用 `PERMANENT_DELETE`；存在当前命令的真实阻断时返回非空数组且不包含对应删除动作。
 - `deletion.blockers[*]` 只统计服务端权威的当前阻断类型和正整数数量。平台只统计 `OPEN` 任务和非终态发布工作，账号只统计非终态发布工作；平台账号总数是删除影响而不是阻断。写命令锁定目标后必须重新统计，不能把读投影当授权。
 - GEO 问题只向 `ADMIN` 投影删除管理上下文；内容任务、GEO 优化来源和 GEO 观测是三类独立直接阻断。删除命令必须校验当前 revision，并在目标行锁内复核相同引用，数据库 `ON DELETE RESTRICT` 继续作为最终门禁。
+- GEO 问题列表的三类业务引用摘要对所有可读取该列表的角色可见，并与 ADMIN-only `deletion.blockers` 由同一批量引用查询形成；摘要只用于展示和 canonical resolve links，前端不得据此推导 `USE_FOR_OBSERVATION`、`UPDATE` 或 `DELETE`。集合级创建仍是页面动作，不新增 `CREATE` 资源 token；更新和删除命令必须提交 `expected_revision`，409 只允许显式刷新且不得自动重放。
 - 内容任务归档使用独立 `archived_at`：未归档完成任务返回 `ARCHIVE`，已归档任务返回 `RESTORE`，且仅管理员同时获得 `PERMANENT_DELETE`。已归档任务不再返回编辑、生成、取消或普通 `DELETE`。
 - 发布成果只向管理员投影删除管理上下文；没有 GEO 观测/引用或 GEO 优化来源时返回 `PERMANENT_DELETE`，否则按去重观测数和直接优化来源数投影阻断。写命令复用同 ID 发布工作的 revision，并在锁内复核。
 
@@ -103,3 +104,68 @@ const canRetry = row.available_actions.includes('RETRY');
 服务端投影决定主入口与可尝试命令，命令处理器仍在写入时校验真实状态。
 
 删除合同同理：错误做法是只返回 `available_actions=[]` 或依赖数据库外键文本；正确做法是同时返回 required nullable `deletion`，并在命令锁内复核同一组直接引用。
+
+## 8. 场景：Query Topic V2 列表、引用与 revision 冲突
+
+### 8.1 适用范围 / 触发条件
+
+实现或修改 Query Topic 列表、创建、更新、删除、开始观测 handoff 或业务引用入口时适用。旧完整 options 与 V2 Table 是两个读取面，但写命令、动作资格、引用统计和 revision 仍只有一个服务端 owner。
+
+### 8.2 签名
+
+```text
+GET    /api/v1/query-topics
+GET    /api/v1/query-topics/list-items?q&sort&page&page_size
+POST   /api/v1/query-topics
+PATCH  /api/v1/query-topics/{query_topic_id}  QueryTopicUpdate.expected_revision
+DELETE /api/v1/query-topics/{query_topic_id}?expected_revision=...
+```
+
+旧 GET 必须继续返回完整 `QueryTopicList`；`list-items` 返回 `QueryTopicListPage`，每项包含 `references`、`primary_task`、`available_actions`、`deletion` 和 `revision`。不得把旧 GET 改成默认分页，也不得增加 Query Topic Detail endpoint 补偿列表缺口。
+
+### 8.3 合同
+
+- `q/sort/page/page_size` 的搜索、稳定排序、count 和分页由服务端完成；浏览器不得对当前页二次筛排。
+- Query Topic 服务对当前页 ID 一次批量统计 `CONTENT_TASK`、`GEO_OPTIMIZATION_SOURCE`、`GEO_OBSERVATION`；`references` 对所有读取角色可见，`deletion` 仍只向 `ADMIN` 投影。
+- `USE_FOR_OBSERVATION` 是唯一主入口；前端只用响应 ID 形成 `/geo/observations/new?queryTopicId={id}`，不得根据 intent 或引用数推导资格。
+- `canonical_question` 与 variants 的 trim、非空、trim 后精确去重和首次顺序由服务端请求 schema 权威执行；前端校验只提供即时反馈。
+- PATCH/DELETE 必须提交 `expected_revision`。409 后保留本地编辑输入或删除目标，禁用旧 revision 再提交，只有显式 reload canonical 数据后才能再次确认。
+- `QUERY_TOPIC_IN_USE` 必须返回最新引用类型和正整数数量；前端使用固定 canonical resolve links，不请求逐行引用详情。
+
+### 8.4 校验与错误矩阵
+
+| 条件 | 预期结果 |
+| --- | --- |
+| `q` 为空白、page 非正数或 page_size 不在 `10/20/50` | 422；不得静默改写 API 请求 |
+| PATCH revision 过期 | `REVISION_CONFLICT` / 409；草稿保留，显式 reload 前禁止再次提交 |
+| DELETE revision 过期 | `REVISION_CONFLICT` / 409；不删除、不自动重放 |
+| DELETE 锁内发现任一直接引用 | `QUERY_TOPIC_IN_USE` / 409，返回全部非零类型与数量 |
+| 非 ADMIN 读取列表 | `references` 完整，`deletion=null`，不含 `DELETE` |
+| ADMIN 且三类引用均为零 | `deletion.blockers=[]` 且 `available_actions` 包含 `DELETE` |
+| 合法但超出总页数 | 返回真实 `total` 与空 items；前端提供返回有效页的显式入口 |
+
+### 8.5 Good / Base / Bad
+
+- Good：V2 list-items 批量返回三类引用，ADMIN deletion 复用同一 counts map，命令再在锁内复核。
+- Base：旧完整 GET 继续给 New Observation 和 Correction Workspace 提供全部 Topic options。
+- Bad：浏览器逐行查询引用、从本地 count 推导 DELETE/UPDATE/开始观测，或 409 后自动重放 PATCH/DELETE。
+
+### 8.6 必需测试
+
+- OpenAPI/runtime contract：旧 `QueryTopicList` 保持完整，新 `QueryTopicListPage` 的 query、分页和引用字段精确生成到 V1/V2 types。
+- PostgreSQL integration：覆盖 canonical/variant search、稳定 sort/page、三类引用、所有角色摘要、ADMIN deletion、固定查询次数、revision conflict 和审计。
+- 目标列表 integration：Content Task 两类引用和 GEO Observation 引用 URL 精确映射服务端筛选。
+- generated-type strict fixture：拒绝未声明 API，覆盖 URL 恢复、五列、handoff、create/edit/delete、409 不 replay、引用竞态、焦点和 375/768/1024/1440 根无溢出。
+
+### 8.7 Wrong vs Correct
+
+```tsx
+// Wrong：客户端引用数不是动作资格。
+const canDelete = topic.references.observation_count === 0;
+
+// Correct：只消费服务端 token；命令仍会锁内复核。
+const canDelete = topic.available_actions.includes('DELETE');
+const handoff = topic.primary_task === 'USE_FOR_OBSERVATION'
+  ? `/geo/observations/new?queryTopicId=${topic.id}`
+  : undefined;
+```

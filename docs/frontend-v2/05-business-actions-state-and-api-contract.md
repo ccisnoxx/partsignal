@@ -214,6 +214,14 @@ V2 Article List 保持 readonly 且无操作列。Detail 的成果 payload 仍�
 
 Workspace 首屏不得并发 issue detail、Article detail 和 ContentTask detail。`repair-context` 只属于动作选项，在 `CREATE_REPAIR_TASK` Dialog 打开时读取；POST 仍在锁内重新验证 revision、Fact 资格与唯一 repair source。409 保留本地输入且不自动重放，显式 reload 后重新消费服务端 tokens。
 
+### QueryTopicListItem
+
+`GET /api/v1/query-topics/list-items` 是 `/geo/topics` 的 V2 专用分页 read model；既有 `GET /api/v1/query-topics` 继续返回完整 `QueryTopicList`，供 V1、New Observation 和 Correction Workspace 读取全部选项。新 endpoint 只接受 `q/sort/page/page_size`，由服务端完成 canonical question 与 variants 搜索、稳定排序、count 和分页，不把完整列表语义改成分页，也不允许浏览器对当前页二次筛选或排序。
+
+每个 item 一次返回 canonical question、intent、稳定 variants、`primary_task`、`available_actions`、`revision`、ADMIN-only `deletion`，以及所有角色可见的三类业务引用摘要：Content Task 直接引用、GEO Optimization 来源、Observation。引用由 Query Topic 服务 owner 使用同一组批量查询形成；浏览器不得逐行补请求，也不得从引用数量推导开始观测、编辑或删除资格。`USE_FOR_OBSERVATION` 是唯一主入口并携带 canonical `/geo/observations/new?queryTopicId=...` handoff；三类引用链接只进入已实现且可精确筛选的 Content Task 或 Observation 列表。
+
+create/update 入口使用短 Dialog；canonical question 与 variants 的 trim、空值拒绝、去重和稳定顺序由服务端请求 schema 统一保证。PATCH/DELETE 必须提交 `expected_revision`；409 保留本地编辑输入且不得自动重放，只有显式 reload 才恢复服务端 canonical revision。DELETE 只在服务端同时投影 `DELETE` 和空 blocker 时执行；成功 mutation 失效完整 Topic options、V2 Topic list，以及 New Observation、Correction Context、GEO/Content 引用消费者的真实 query keys。
+
 ### GeoObservationListItem
 
 `GET /api/v1/geo-observations/list-items` 是 `/geo/observations` 的 V2 专用紧凑 read model；既有 `GET /api/v1/geo-observations` 继续返回完整 `GeoObservation` 并服务 V1。新响应只包含链尾观测的标准问题/搜索词、Product identity、统一 GEO 平台、发现/提及/准确 compact counts、关联成果数量、证据数量、recorder、观测时间与 `available_actions`，不含 notes、citation、文章 URL、attachment ID 或详情正文。

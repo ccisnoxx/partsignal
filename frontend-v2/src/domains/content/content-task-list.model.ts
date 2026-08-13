@@ -10,6 +10,9 @@ type ContentTaskArchiveStatus = NonNullable<
 type ContentTaskListApiParams = NonNullable<
   operations['listContentTasks']['parameters']['query']
 >;
+type ContentTaskQueryTopicReference = NonNullable<
+  ContentTaskListApiParams['query_topic_reference']
+>;
 type StatusTone = 'outline' | 'secondary' | 'success' | 'warning' | 'info';
 
 type StatusPresentation = {
@@ -33,6 +36,10 @@ const workflowStageValues = [
 const archiveStatusValues = ['ACTIVE', 'ARCHIVED', 'ALL'] as const satisfies readonly NonNullable<
   ContentTaskArchiveStatus
 >[];
+const queryTopicReferenceValues = [
+  'CONTENT_TASK',
+  'GEO_OPTIMIZATION_SOURCE',
+] as const satisfies readonly ContentTaskQueryTopicReference[];
 
 const contentWorkflowStageRegistry = {
   NO_DRAFT: { label: '待创建初稿', tone: 'outline', description: '任务尚无当前内容' },
@@ -75,6 +82,13 @@ function normalizePlatformId(value: unknown) {
   return typeof value === 'string' && z.uuid().safeParse(value).success ? value : undefined;
 }
 
+function normalizeQueryTopicReference(value: unknown) {
+  return typeof value === 'string'
+    && queryTopicReferenceValues.some((reference) => reference === value)
+    ? value
+    : undefined;
+}
+
 const contentTasksSearchSchema = z.object({
   q: z.preprocess(normalizeSearchText, z.string().max(200).optional()),
   workflowStage: z.preprocess(
@@ -86,12 +100,21 @@ const contentTasksSearchSchema = z.object({
     z.enum(archiveStatusValues),
   ).default('ACTIVE'),
   platformId: z.preprocess(normalizePlatformId, z.uuid().optional()),
+  queryTopicId: z.preprocess(normalizePlatformId, z.uuid().optional()),
+  queryTopicReference: z.preprocess(
+    normalizeQueryTopicReference,
+    z.enum(queryTopicReferenceValues).optional(),
+  ),
   page: z.coerce.number().int().positive().catch(1).default(1),
   pageSize: z.coerce.number()
     .pipe(z.union([z.literal(10), z.literal(20), z.literal(50)]))
     .catch(20)
     .default(20),
-});
+}).transform((value) => (
+  Boolean(value.queryTopicId) === Boolean(value.queryTopicReference)
+    ? value
+    : { ...value, queryTopicId: undefined, queryTopicReference: undefined }
+));
 
 type ContentTasksSearch = z.output<typeof contentTasksSearchSchema>;
 
@@ -101,6 +124,8 @@ function contentTasksSearchToApiParams(search: ContentTasksSearch): ContentTaskL
     workflow_stage: search.workflowStage,
     archive_status: search.archiveStatus,
     platform_profile_id: search.platformId,
+    query_topic_id: search.queryTopicId,
+    query_topic_reference: search.queryTopicReference,
     page: search.page,
     page_size: search.pageSize,
   };
@@ -117,6 +142,8 @@ function canonicalContentTasksSearchRecord(
   if (search.q) record.q = search.q;
   if (search.workflowStage) record.workflowStage = search.workflowStage;
   if (search.platformId) record.platformId = search.platformId;
+  if (search.queryTopicId) record.queryTopicId = search.queryTopicId;
+  if (search.queryTopicReference) record.queryTopicReference = search.queryTopicReference;
   return record;
 }
 
@@ -140,6 +167,7 @@ function hasContentTaskFilters(search: ContentTasksSearch) {
     search.q
     || search.workflowStage
     || search.platformId
+    || search.queryTopicId
     || search.archiveStatus !== 'ACTIVE',
   );
 }

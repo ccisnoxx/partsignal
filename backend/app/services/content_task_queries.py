@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.errors import AppError
 from app.models.configuration import PlatformProfile
-from app.models.content import ContentTask
+from app.models.content import ContentTask, ContentTaskGeoSource
 from app.models.product_facts import FactVersion, Product
 from app.schemas.content import (
     ContentTaskArchiveStatus,
@@ -18,6 +18,7 @@ from app.schemas.content import (
     ContentTaskCreationPlatformOption,
     ContentTaskCreationProductOption,
     ContentTaskList,
+    ContentTaskQueryTopicReference,
     ContentTaskRequestedProduct,
     ContentTaskWorkflowStage,
 )
@@ -114,6 +115,8 @@ def list_content_tasks(
     platform_profile_id: uuid.UUID | None,
     filter_product_id: uuid.UUID | None,
     filter_fact_version_id: uuid.UUID | None,
+    query_topic_id: uuid.UUID | None,
+    query_topic_reference: ContentTaskQueryTopicReference | None,
     archive_status: ContentTaskArchiveStatus,
     page: int | None,
     page_size: int | None,
@@ -122,6 +125,12 @@ def list_content_tasks(
     """返回兼容全量模式或成对分页的内容任务列表。"""
     if (page is None) != (page_size is None):
         raise AppError("VALIDATION_ERROR", "page 与 page_size 必须同时提供或同时省略", 422)
+    if (query_topic_id is None) != (query_topic_reference is None):
+        raise AppError(
+            "VALIDATION_ERROR",
+            "query_topic_id 与 query_topic_reference 必须同时提供或同时省略",
+            422,
+        )
 
     projection = content_task_workflow_projection()
     query = (
@@ -156,6 +165,14 @@ def list_content_tasks(
         query = query.where(ContentTask.product_id == filter_product_id)
     if filter_fact_version_id is not None:
         query = query.where(ContentTask.fact_version_id == filter_fact_version_id)
+    if query_topic_id is not None:
+        if query_topic_reference == ContentTaskQueryTopicReference.CONTENT_TASK:
+            query = query.where(ContentTask.query_topic_id == query_topic_id)
+        else:
+            query = query.join(
+                ContentTaskGeoSource,
+                ContentTaskGeoSource.content_task_id == ContentTask.id,
+            ).where(ContentTaskGeoSource.query_topic_id == query_topic_id)
     if archive_status == ContentTaskArchiveStatus.ACTIVE:
         query = query.where(ContentTask.archived_at.is_(None))
     elif archive_status == ContentTaskArchiveStatus.ARCHIVED:

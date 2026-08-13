@@ -82,11 +82,13 @@ new observation → detail → correction → original remains immutable。
 
 Observation List 的 required evidence 分为两层：PostgreSQL integration 证明链尾选择、两类观测 compact projection、canonical/Product/platform/accuracy/date filter、稳定排序/分页、证据继承、固定批量查询与 actor-aware actions；generated-type production fixture 证明页面只调用 list-items 与明确 delete，不请求 Product、Query Topic、旧完整列表或 Detail。fixture 覆盖八列、canonical links、无“查看详情”、action gating、loading/empty/filtered-empty/error/retry、URL→API 一一映射、分页、键盘/Dialog 焦点返回，以及 375/768/1024/1440 页面根无横向溢出。
 
+GEO Topics 的 required evidence 同样分为两层：PostgreSQL integration 证明完整列表兼容、服务端 search/sort/page、三类批量引用、所有角色可见摘要、ADMIN deletion、revision lock、审计和 mutation 最终守卫；generated-type strict fixture 只允许 auth/CSRF、Topic list-items、显式完整 reload 与 POST/PATCH/DELETE，并在 teardown 拒绝未声明 API。fixture 覆盖固定五列、compact variants、服务端 primary handoff、canonical 引用链接、URL direct/refresh/Back/Forward、loading/empty/filtered-empty/error/retry/pagination、409 保留输入且不 replay、Dialog 焦点返回，以及 375/768/1024/1440 页面根无横向溢出。New Observation 与两个引用目标列表只补精确 handoff/filter 证据，不扩成完整 GEO E2E。
+
 Observation Detail required evidence 分为三层：PostgreSQL integration 证明任意 selected node 的 root→tail 顺序、直接 evidence/继承 ID、Legacy/Manual 完整投影、终态文章 snapshot、actor actions 与固定查询次数；API/model/component tests 冻结 generated union、identity/chain assertion、404/403/409/普通错误和 readonly branch；production-artifact strict fixture 只允许 auth、一个 Detail GET 与 token 允许的 DELETE，覆盖 List/direct/refresh/Back/Forward、完整 chain/evidence/articles、New POST ID handoff、Dialog focus 及 375/768/1024/1440 无根级溢出。未声明 API 必须返回 501 并在 teardown 失败。
 
 Correction Workspace required evidence 分为三层：PostgreSQL integration 证明权限、历史 ID→当前尾、候选新增/退出、历史空 Topic、append-only POST、冻结字段、证据不可复用、冲突无半成品及原链不变；API/model/page tests 证明 generated context、表单边界、权威 `supersedes_id`、只提交新证据、pending 防重、两类 409 不 replay、显式刷新按文章 ID 合并及 canonical replace；production-artifact strict fixture 只允许 auth、correction context、通用 POST、三阶段上传和精确 Detail GET，覆盖 Detail 入口/direct/refresh、404/403/Legacy、权限变化、上传 complete 重试、DirtyGuard、焦点及 375/768/1024/1440 无根级溢出。
 
-Observation List、New Observation、Detail 与 Correction Workspace 已形成页面级接口闭环，但这些 fixture 不冒充 GEO real-stack。完整 `new observation → detail → correction` 真实闭环仍须在后续独立 Task 中进入现有唯一隔离编排。
+Observation List、New Observation、Detail、Correction Workspace 与 Topics 已形成页面级接口闭环，但这些 fixture 不冒充 GEO real-stack。完整 `new observation → detail → correction` 真实闭环仍须在后续独立 Task 中进入现有唯一隔离编排。
 
 ### GEO Optimization
 

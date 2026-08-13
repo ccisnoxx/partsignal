@@ -484,6 +484,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/query-topics/list-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listQueryTopicItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/query-topics/{query_topic_id}": {
         parameters: {
             query?: never;
@@ -2501,6 +2517,23 @@ export interface components {
         QueryTopicList: {
             items: components["schemas"]["QueryTopic"][];
         };
+        /** @enum {string} */
+        QueryTopicListSort: "QUESTION_ASC" | "QUESTION_DESC" | "INTENT_ASC" | "INTENT_DESC";
+        QueryTopicReferenceSummary: {
+            content_task_count: number;
+            geo_optimization_count: number;
+            observation_count: number;
+        };
+        QueryTopicListItem: components["schemas"]["QueryTopic"] & {
+            references: components["schemas"]["QueryTopicReferenceSummary"];
+        };
+        QueryTopicListPage: {
+            items: components["schemas"]["QueryTopicListItem"][];
+            page: number;
+            /** @enum {integer} */
+            page_size: 10 | 20 | 50;
+            total: number;
+        };
         PlatformProfileCreate: {
             name: string;
             slug: string;
@@ -2994,6 +3027,8 @@ export interface components {
             page_size: number;
             total: number;
         };
+        /** @enum {string} */
+        ContentTaskQueryTopicReference: "CONTENT_TASK" | "GEO_OPTIMIZATION_SOURCE";
         ContentTaskProductSummary: {
             /** Format: uuid */
             id: string;
@@ -6164,6 +6199,37 @@ export interface operations {
                     "application/json": components["schemas"]["QueryTopic"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
+        };
+    };
+    listQueryTopicItems: {
+        parameters: {
+            query?: {
+                q?: string;
+                sort?: components["schemas"]["QueryTopicListSort"];
+                page?: number;
+                page_size?: 10 | 20 | 50;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Frontend V2 使用的 Query Topic 服务端搜索、排序与分页列表 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueryTopicListPage"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     deleteQueryTopic: {
@@ -6221,7 +6287,11 @@ export interface operations {
                     "application/json": components["schemas"]["QueryTopic"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listPlatformProfiles: {
@@ -7389,6 +7459,10 @@ export interface operations {
                 filter_product_id?: string;
                 /** @description 仅返回直接绑定该事实版本的内容任务 */
                 filter_fact_version_id?: string;
+                /** @description 与 query_topic_reference 同时提供，精确筛选 Query Topic 直接引用 */
+                query_topic_id?: string;
+                /** @description 与 query_topic_id 同时提供，区分内容任务或 GEO 优化来源引用 */
+                query_topic_reference?: components["schemas"]["ContentTaskQueryTopicReference"];
                 /** @description 默认只返回当前任务；归档视图必须显式选择 */
                 archive_status?: "ACTIVE" | "ARCHIVED" | "ALL";
                 /** @description 与 page_size 同时提供时启用服务端分页；同时省略时保留 V1 全量语义 */
@@ -9170,6 +9244,7 @@ export interface operations {
                 accuracy?: components["schemas"]["AccuracyStatus"];
                 date_from?: string;
                 date_to?: string;
+                query_topic_id?: string;
                 sort?: components["schemas"]["GeoObservationListSort"];
                 page?: number;
                 page_size?: 10 | 20 | 50;

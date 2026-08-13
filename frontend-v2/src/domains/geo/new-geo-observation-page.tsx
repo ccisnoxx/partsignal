@@ -49,6 +49,7 @@ type NewGeoObservationPageProps = {
   csrfToken: string | null;
   onCancel: () => void;
   onCreated: (observationId: string) => void;
+  queryTopicId?: string;
 };
 
 const fieldIds: Record<Exclude<NewGeoObservationField, 'article_results' | 'attachment_file_ids'>, string> = {
@@ -65,6 +66,7 @@ function NewGeoObservationPage({
   csrfToken,
   onCancel,
   onCreated,
+  queryTopicId,
 }: NewGeoObservationPageProps) {
   const queryClient = useQueryClient();
   const [productSearch, setProductSearch] = useState('');
@@ -73,6 +75,7 @@ function NewGeoObservationPage({
   const [candidateStale, setCandidateStale] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<FileRecord[]>([]);
   const [createdId, setCreatedId] = useState<string>();
+  const appliedQueryTopicId = useRef<string | undefined>(undefined);
   const submitting = useRef(false);
   const formElement = useRef<HTMLFormElement>(null);
   const form = useForm<NewGeoObservationFormValues>({
@@ -95,6 +98,26 @@ function NewGeoObservationPage({
     ),
   });
   const isDirty = form.formState.isDirty;
+  const handoffError = queryTopicId
+    && topics.data
+    && !topics.data.items.some((topic) => topic.id === queryTopicId)
+    ? `URL 指定的 Query Topic 不存在：${queryTopicId}`
+    : undefined;
+
+  useEffect(() => {
+    if (!queryTopicId) {
+      appliedQueryTopicId.current = undefined;
+      return;
+    }
+    if (!topics.data) return;
+    if (!topics.data.items.some((topic) => topic.id === queryTopicId)) return;
+    if (appliedQueryTopicId.current === queryTopicId) return;
+    form.setValue('query_topic_id', queryTopicId, {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+    appliedQueryTopicId.current = queryTopicId;
+  }, [form, queryTopicId, topics.data]);
 
   useEffect(() => {
     if (!candidates.data) return;
@@ -170,6 +193,7 @@ function NewGeoObservationPage({
     || topics.isPending
     || Boolean(products.error)
     || Boolean(topics.error)
+    || Boolean(handoffError)
     || !topics.data?.items.length
     || candidateStale
     || !selectedProductId
@@ -192,6 +216,7 @@ function NewGeoObservationPage({
         candidateStale,
         candidates: candidates.data?.items.length ?? 0,
         createPending: create.isPending,
+        handoffError: Boolean(handoffError),
         productsFailed: Boolean(products.error),
         productsPending: products.isPending,
         selectedProductId,
@@ -230,6 +255,7 @@ function NewGeoObservationPage({
               content: (
                 <ContextPanel
                   createPending={create.isPending}
+                  handoffError={handoffError}
                   onProductSearch={() => setProductSearch(productSearchInput.trim())}
                   onProductSearchInput={setProductSearchInput}
                   productSearchInput={productSearchInput}
@@ -296,6 +322,7 @@ function NewGeoObservationPage({
 
 function ContextPanel({
   createPending,
+  handoffError,
   onProductChange,
   onProductSearch,
   onProductSearchInput,
@@ -304,6 +331,7 @@ function ContextPanel({
   topics,
 }: {
   createPending: boolean;
+  handoffError?: string;
   onProductChange: (productId: string) => void;
   onProductSearch: () => void;
   onProductSearchInput: (value: string) => void;
@@ -367,6 +395,7 @@ function ContextPanel({
             />
             {topics.isPending && <p aria-live="polite" className="mt-2 text-sm text-text-secondary">正在读取 Query Topic…</p>}
             {topics.error && <QueryProblem error={topics.error} onRetry={() => void topics.refetch()} />}
+            {handoffError && <p className="mt-2 text-sm text-destructive" role="alert">{handoffError}</p>}
             {topics.data && topicItems.length === 0 && (
               <p className="mt-2 text-sm text-warning" role="status">当前没有 Query Topic，暂时无法创建 Observation。</p>
             )}
@@ -647,6 +676,7 @@ function submitDisabledReason(state: {
   candidateStale: boolean;
   candidates: number;
   createPending: boolean;
+  handoffError: boolean;
   productsFailed: boolean;
   productsPending: boolean;
   selectedProductId: string;
@@ -657,6 +687,7 @@ function submitDisabledReason(state: {
   if (state.createPending) return '正在创建观测';
   if (state.productsPending || state.topicsPending) return '正在读取创建选项';
   if (state.productsFailed || state.topicsFailed) return '创建选项读取失败';
+  if (state.handoffError) return 'URL 指定的 Query Topic 不存在';
   if (state.topics === 0) return '当前没有可用 Query Topic';
   if (!state.selectedProductId) return '请先选择 Product';
   if (state.candidateStale) return '请先重新读取 Published Article 候选';

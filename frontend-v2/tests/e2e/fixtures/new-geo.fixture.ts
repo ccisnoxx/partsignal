@@ -50,7 +50,7 @@ const topic = {
   id: '40000000-0000-4000-8000-000000000001',
   canonical_question: '如何选择低噪声放大器？',
   intent_type: 'PRODUCT',
-  variants: [],
+  variants: ['低噪声放大器选型'],
   available_actions: ['UPDATE'],
   deletion: { blockers: [] },
   primary_task: 'USE_FOR_OBSERVATION',

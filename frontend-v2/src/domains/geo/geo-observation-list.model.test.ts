@@ -15,6 +15,7 @@ describe('GEO Observation list model', () => {
     const search = geoObservationSearchSchema.parse({
       q: '  测试问题  ',
       productId: '00000000-0000-4000-8000-000000000001',
+      queryTopicId: '00000000-0000-4000-8000-000000000002',
       geoPlatform: '  DeepSeek  ',
       accuracy: 'PARTIAL',
       from: '2026-08-01',
@@ -28,6 +29,7 @@ describe('GEO Observation list model', () => {
     expect(search).toEqual({
       q: '测试问题',
       productId: '00000000-0000-4000-8000-000000000001',
+      queryTopicId: '00000000-0000-4000-8000-000000000002',
       geoPlatform: 'DeepSeek',
       accuracy: 'PARTIAL',
       from: '2026-08-01',
@@ -39,6 +41,7 @@ describe('GEO Observation list model', () => {
     expect(geoObservationSearchToApiParams(search)).toEqual({
       search: '测试问题',
       product_id: search.productId,
+      query_topic_id: search.queryTopicId,
       geo_platform: 'DeepSeek',
       accuracy: 'PARTIAL',
       date_from: '2026-08-01',

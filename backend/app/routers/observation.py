@@ -173,6 +173,7 @@ def geo_observation_list_filters(
     accuracy: GeoAccuracy | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    query_topic_id: uuid.UUID | None = None,
 ) -> GeoObservationListFilters:
     """校验 V2 列表唯一公开的搜索与筛选参数。"""
     if date_from is not None and date_to is not None and date_from > date_to:
@@ -188,6 +189,7 @@ def geo_observation_list_filters(
         accuracy=accuracy,
         date_from=date_from,
         date_to=date_to,
+        query_topic_id=query_topic_id,
     )
 
 

@@ -2,24 +2,24 @@
 
 ## 0. Start Gate
 
-- [ ] Core 已验证、提交、归档、fast-forward 合入 `main`，且其临时分支已删除。
-- [ ] 用户批准本 Task 最新 `prd.md / design.md / implement.md`。
-- [ ] 主工作目录位于更新后的干净 `main`，无未识别改动。
-- [ ] 用户确认唯一临时分支 `codex/frontend-v2-platform-workspace-accounts`。
-- [ ] 通过 gate 后才运行 `task.py start` 并创建分支。
+- [x] Core 已验证、提交、归档、fast-forward 合入 `main`，且其临时分支已删除。
+- [x] 用户批准本 Task 最新 `prd.md / design.md / implement.md`。
+- [x] 主工作目录位于更新后的干净 `main`，无未识别改动。
+- [x] 用户确认唯一临时分支 `codex/frontend-v2-platform-workspace-accounts`。
+- [x] 通过 gate 后才运行 `task.py start` 并创建分支。
 
 ## 1. Ordered Implementation
 
-- [ ] Contract first：Account DELETE 增加 required revision；Account List 不增加集合 `CREATE` token。
-- [ ] Backend projection/command：确认现有 row actor projection；delete 锁内 revision + PublicationWork blocker；唯一性预检/constraint 共用结构化字段错误 owner。
-- [ ] Backend tests：ADMIN/ENGINEER、platform disabled、fixed query count、CRUD、预检与真实 PostgreSQL 唯一约束字段错误、stale delete、blocker。
-- [ ] 生成 V1/V2 schema并运行 contract check。
-- [ ] V1 只更新 Account DELETE 调用与直接测试。
-- [ ] V2 Account API/model：CRUD/status/delete、collection/row token 穷尽 mapping。
-- [ ] UI：create/edit Dialog、status/delete/blocker、409 reload、focus return、375 mobile actions。
-- [ ] 精确失效 Platform 与 Publication consumers。
-- [ ] 扩展 Core fixture/Playwright，不创建第二套 route/fixture。
-- [ ] 更新直接相关 spec/docs并执行 diff 自审。
+- [x] Contract first：Account DELETE 增加 required revision；Account List 不增加集合 `CREATE` token。
+- [x] Backend projection/command：确认现有 row actor projection；delete 锁内 revision + PublicationWork blocker；唯一性预检/constraint 共用结构化字段错误 owner。
+- [x] Backend tests：ADMIN/ENGINEER、platform disabled、fixed query count、CRUD、预检与真实 PostgreSQL 唯一约束字段错误、stale delete、blocker。
+- [x] 生成 V1/V2 schema并运行 contract check。
+- [x] V1 只更新 Account DELETE 调用与直接测试。
+- [x] V2 Account API/model：CRUD/status/delete、collection/row token 穷尽 mapping。
+- [x] UI：create/edit Dialog、status/delete/blocker、409 reload、focus return、375 mobile actions。
+- [x] 精确失效 Platform 与 Publication consumers。
+- [x] 扩展 Core fixture/Playwright，不创建第二套 route/fixture。
+- [x] 更新直接相关 spec/docs并执行 diff 自审。
 
 ## 2. Required Validation
 
@@ -66,8 +66,16 @@ Phase 6 完整 real-stack E2E 和其他 Domain E2E 继续留给后续独立 Task
 
 ## 4. Completion Gate
 
-- [ ] Required checks 实际通过或逐项说明未运行原因。
-- [ ] 自审无 optional revision、先 GET 后 DELETE、client eligibility、重复 Account owner 或终态 snapshot 误失效。
-- [ ] 报告 changed files、contract/backend、action ownership、revision、cache、实际测试、跳过项、风险和文档一致性。
-- [ ] 提交前提供 commit plan 并等待确认；不自动 push/PR。
+- [x] Required checks 实际通过或逐项说明未运行原因。
+- [x] 自审无 optional revision、先 GET 后 DELETE、client eligibility、重复 Account owner 或终态 snapshot 误失效。
+- [x] 报告 changed files、contract/backend、action ownership、revision、cache、实际测试、跳过项、风险和文档一致性。
+- [x] 提交前提供 commit plan 并等待确认；不自动 push/PR。
 - [ ] 提交、归档、fast-forward 合入 main、删除本地分支后，父 Task 才可完成。
+
+## 5. Validation Evidence
+
+- OpenAPI：两套 `api:generate` 与 `make contract-check` 通过。
+- Backend：targeted unit `59 passed`；PostgreSQL integration `4 passed`；相关 Ruff 通过。
+- Frontend：V1 Settings `7 passed`；V2 model/component `18 passed`；lint、typecheck、production build 通过。
+- Production artifact：Platform Workspace Playwright mobile/desktop `14 passed`，覆盖 375/768/1024/1440。
+- Optional：`make verify`、全域 E2E 与 Phase 6 real-stack 未运行，因 Required checks 已直接覆盖本 Task，且这些入口属于可选或后续独立任务。

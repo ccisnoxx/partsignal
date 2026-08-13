@@ -226,6 +226,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Scope boundary**：Core 只读展示账号标签、内部标识与状态。账号 CRUD、actor-aware actions、revision delete 与 blocker 属于拆分后的 `frontend-v2-platform-workspace-accounts`；不为将来能力预建通用 Settings Workspace、CRUD registry 或媒体框架。
 
+## ADR-037：Platform Account 复用行级动作投影，集合创建保持页面动作
+
+**Decision**：Accounts Tab 复用既有 `PlatformAccountList` 与 CRUD/enable/disable endpoints，不新增 Workspace Account DTO、`CREATE` token、路由或通用 CRUD 框架。创建是页面级动作；行级入口穷尽消费 `primary_task/available_actions/deletion/revision`，不读取 `isAdmin` 推导资格。
+
+**Concurrency and error boundary**：Account DELETE 收紧为 required `expected_revision` query。服务在既有 Platform → Account 锁序内先比较 revision，再实时统计非终态 PublicationWork；PublicationWork 创建使用同一锁序。同平台 normalized identifier 继续由数据库唯一约束权威保证，预检与约束竞态共享 `PLATFORM_ACCOUNT_IDENTIFIER_EXISTS` 字段错误。
+
+**UI and cache boundary**：create/edit 使用局部 RHF+Zod Dialog，status/delete/blocker 使用既有 RowActions 与 Dialog；409 保留输入或确认上下文并要求显式 reload。375px 使用局部移动卡片，较宽视口使用 TableShell，不改变全局 Table Kit。Configuration domain 失效 Platform list/detail/accounts，route 只组合 Publication ready/work list/workspace context；冻结 PublishedArticle snapshot 与 Content caches 不失效。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

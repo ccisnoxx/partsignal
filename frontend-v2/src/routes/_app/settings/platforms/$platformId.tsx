@@ -6,6 +6,7 @@ import { contentKeys } from '@/domains/content/content.api';
 import { platformDetailQueryOptions } from '@/domains/configuration/platform.api';
 import {
   PlatformWorkspacePage,
+  type PlatformAccountMutationKind,
   type PlatformMutationKind,
 } from '@/domains/configuration/platform-workspace-page';
 import {
@@ -87,9 +88,23 @@ function PlatformWorkspaceRoute() {
     await Promise.all(invalidations);
   }
 
+  async function invalidateAccountConsumers(kind: PlatformAccountMutationKind) {
+    const invalidations = [
+      queryClient.invalidateQueries({ queryKey: publicationKeys.readyItems() }),
+      queryClient.invalidateQueries({ queryKey: publicationKeys.workspaceContexts() }),
+    ];
+    if (kind === 'update' || kind === 'delete') {
+      invalidations.push(
+        queryClient.invalidateQueries({ queryKey: publicationKeys.workLists() }),
+      );
+    }
+    await Promise.all(invalidations);
+  }
+
   return (
     <PlatformWorkspacePage
       csrfToken={auth.csrfToken}
+      onAccountConsumersChanged={invalidateAccountConsumers}
       onConsumersChanged={invalidateConsumers}
       onDeleted={() => navigate({
         to: '/settings/platforms',

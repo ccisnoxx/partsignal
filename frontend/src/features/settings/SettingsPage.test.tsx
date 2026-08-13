@@ -102,6 +102,7 @@ function installAccountApi(initialAccount?: Schema<'PlatformAccount'>) {
       account = { ...account, is_active: true, workflow_stage: 'OPERATIONAL', primary_task: 'MANAGE_ACCOUNT', available_actions: ['UPDATE', 'DISABLE'], revision: account.revision + 1 };
       return { body: account };
     }
+    if (request.method === 'DELETE') return { status: 204 };
     throw new Error(`未声明的测试请求：${request.method} ${path}`);
   });
   return writes;
@@ -211,6 +212,21 @@ test('发布账号删除确认说明引用阻断和不可恢复性', async () =>
   expect(within(dialog!).getByText('只有进行中的发布工作会阻止删除；终态历史会保留创建时的账号快照。此操作不可恢复。')).toBeInTheDocument();
   expect(within(dialog!).queryByText(/物理删除/)).not.toBeInTheDocument();
   fireEvent.click(within(dialog!).getByRole('button', { name: /取\s*消/ }));
+});
+
+test('发布账号删除提交当前 revision', async () => {
+  const writes = installAccountApi();
+  render(<App />);
+  const page = await accountPage();
+  fireEvent.click(await page.findByRole('button', { name: '更多操作：主运营账号' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+  const dialog = (await screen.findByText('删除发布账号“主运营账号”？', {
+    selector: '.ant-modal-confirm-title',
+  })).closest<HTMLElement>('[role="dialog"]');
+  fireEvent.click(within(dialog!).getByRole('button', { name: /^删\s*除$/ }));
+  await waitFor(() => expect(writes.some((request) => request.method === 'DELETE')).toBe(true));
+  const request = writes.find((item) => item.method === 'DELETE');
+  expect(new URL(request!.url).searchParams.get('expected_revision')).toBe('0');
 });
 
 test('编辑为同平台规范化重复标识时在弹窗显示服务端冲突', async () => {

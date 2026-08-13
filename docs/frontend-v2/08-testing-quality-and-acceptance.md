@@ -265,7 +265,7 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 
 `tests/e2e/platform-workspace.spec.ts` 在 Platform fixture 上叠加 generated-type Workspace fixture，只允许 actor-aware Detail、当前平台 Accounts、Prompt references、单次 Platform PATCH 和显式 Logo candidate；未声明 API、未声明非 2xx、page error 与 request failure 均在 teardown 失败。backend integration 固定 ADMIN/ENGINEER action 差异、404、同一 `REPEATABLE READ` 快照和 sparse/dense 查询次数；contract check 固定 Detail type options。
 
-model/component/production-artifact tests 覆盖 UUID 与唯一 Tab canonicalization、List handoff、direct/refresh/Back/Forward、Overview dirty/cancel/save、Slug 只读、Logo SVG 拒绝与 candidate 二次确认、Accounts 按需只读清单、Prompt options/bind/unbind、409 草稿保留与显式 reload、403/404/error/retry、DirtyGuard、read-only projection、精确 cache invalidation，以及 375/768/1024/1440 页面根无横向溢出。该 fixture 不覆盖拆分后的账号 CRUD，也不替代 Phase 6 完整真实栈 E2E。
+model/component/production-artifact tests 覆盖 UUID 与唯一 Tab canonicalization、List handoff、direct/refresh/Back/Forward、Overview dirty/cancel/save、Slug 只读、Logo SVG 拒绝与 candidate 二次确认、Accounts 按需读取与创建/编辑/启停/删除/blocker、账号字段冲突与 revision reload、Prompt options/bind/unbind、403/404/error/retry、DirtyGuard、read-only projection、精确 cache invalidation，以及 375/768/1024/1440 页面根无横向溢出。后端 contract/integration 另证明角色投影、normalized unique 竞态、stale DELETE、PublicationWork blocker 与固定 query count；该 fixture 不替代 Phase 6 完整真实栈 E2E。
 
 ## 14. Deployment Smoke
 

@@ -37,7 +37,7 @@
 - 375px 使用移动列表/卡片，label、identifier、status、primary/overflow actions 均可达。
 - create/edit 使用 React Hook Form + Zod Dialog；不增加 credential 字段。
 - 行级 primary/overflow 只消费 server tokens；`HANDLE_PLATFORM` 返回 Overview。
-- blocker 显示 `PUBLICATION_WORK` 数量和既有精确下钻；无 blocker 且含 DELETE 才显示危险确认。
+- blocker 显示 `PUBLICATION_WORK` 数量；当前 Publication Work List 没有账号筛选合同，因此不伪造“精确下钻”。无 blocker 且含 DELETE 才显示危险确认。
 - 409 保留表单或 Dialog 上下文，要求显式 reload；identifier conflict 定位字段。
 - Dialog 关闭、保存或命令完成后焦点返回真实触发器。
 
@@ -49,16 +49,16 @@
 
 ## 4. Acceptance Criteria
 
-- [ ] ADMIN/ENGINEER 均可读取和 create/update/enable/disable；仅 ADMIN 得到 delete projection 和入口。
-- [ ] create 作为页面动作对当前两个真实角色可达；平台停用提交由服务端明确拒绝，前端不按 `isAdmin` 或 row token 补集合资格。
-- [ ] empty/create/edit/enable/disable/delete/blocker 都有 component 和 production-artifact 证据。
-- [ ] create/update 的预检与真实约束竞态都使用相同稳定字段错误和 `account_identifier` 位置，表单输入保留。
-- [ ] update/status/delete 始终提交当前 revision；stale delete 返回 `REVISION_CONFLICT` 且无副作用。
-- [ ] 删除前实时复核非终态 PublicationWork；只有终态历史时允许删除。
-- [ ] unknown token 显式失败；409 不自动重放。
-- [ ] mutation cache invalidation 精确命中 Platform 与非终态 Publication consumers。
-- [ ] 375px 无不可操作宽表，Dialog 和 RowActions 焦点正确返回。
-- [ ] OpenAPI、runtime schema、两套 generated types、V1/V2 调用、测试和直接相关文档一致。
+- [x] ADMIN/ENGINEER 均可读取和 create/update/enable/disable；仅 ADMIN 得到 delete projection 和入口。
+- [x] create 作为页面动作对当前两个真实角色可达；平台停用提交由服务端明确拒绝，前端不按 `isAdmin` 或 row token 补集合资格。
+- [x] empty/create/edit/enable/disable/delete/blocker 都有 component 和 production-artifact 证据。
+- [x] create/update 的预检与真实约束竞态都使用相同稳定字段错误和 `account_identifier` 位置，表单输入保留。
+- [x] update/status/delete 始终提交当前 revision；stale delete 返回 `REVISION_CONFLICT` 且无副作用。
+- [x] 删除前实时复核非终态 PublicationWork；只有终态历史时允许删除。
+- [x] unknown token 显式失败；409 不自动重放。
+- [x] mutation cache invalidation 精确命中 Platform 与非终态 Publication consumers。
+- [x] 375px 无不可操作宽表，Dialog 和 RowActions 焦点正确返回。
+- [x] OpenAPI、runtime schema、两套 generated types、V1/V2 调用、测试和直接相关文档一致。
 
 ## 5. Out of Scope
 

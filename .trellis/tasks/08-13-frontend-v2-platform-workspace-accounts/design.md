@@ -53,6 +53,7 @@ PlatformAccountsSection
 - create/edit 表单只持有 label 与 account_identifier；edit baseline 额外保存 row revision。
 - `UPDATE / ENABLE / DISABLE / DELETE` 使用 generated token 穷尽 switch。
 - `HANDLE_PLATFORM` 指向同 route 的 `?tab=overview`；该导航仍经过 DirtyGuard。
+- blocker 展示服务端投影的 `PUBLICATION_WORK` 数量。当前 Publication Work List 没有账号筛选合同，本 Task 不扩展该列表，也不把普通列表链接冒充精确下钻。
 - 409 不关闭 Dialog；显式 reload 丢弃当前表单后 refetch accounts/detail。
 - Base UI Dialog 使用既有 final focus 机制，不用 React key 重挂 Root。
 

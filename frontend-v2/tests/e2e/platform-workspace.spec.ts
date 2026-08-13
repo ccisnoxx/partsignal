@@ -24,7 +24,7 @@ test('Platform List 进入 canonical Workspace，Tab URL 支持 refresh/back/for
 
   await page.getByRole('tab', { name: '发布账号' }).click();
   await expect(page).toHaveURL(`/settings/platforms/${platformId}?tab=accounts`);
-  await expect(page.getByText('Workspace 运营账号')).toBeVisible();
+  await expect(page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 运营账号' })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('tab', { name: '发布账号' })).toHaveAttribute('aria-selected', 'true');
 
@@ -83,7 +83,9 @@ test('Logo 手工上传只接受图片并通过 PLATFORM_LOGO 生命周期，移
   page,
   platformWorkspaceApi,
 }) => {
+  const csrf = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/v1/auth/csrf');
   await page.goto(`/settings/platforms/${platformId}?tab=overview`);
+  await csrf;
   await page.getByLabel('上传平台 Logo').setInputFiles({
     name: 'workspace-logo.png',
     mimeType: 'image/png',
@@ -114,9 +116,9 @@ test('Accounts 保持移动端可达，Generation 绑定/解绑并在 409 保留
   platformWorkspaceApi,
 }) => {
   await page.goto(`/settings/platforms/${platformId}?tab=accounts`);
-  await expect(page.getByText('Workspace 运营账号')).toBeVisible();
-  await expect(page.getByText('workspace-main')).toBeVisible();
-  await expect(page.getByText('Workspace 停用账号')).toBeVisible();
+  await expect(page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 运营账号' })).toBeVisible();
+  await expect(page.locator('tr:visible, li:visible').filter({ hasText: 'workspace-main' })).toBeVisible();
+  await expect(page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 停用账号' })).toBeVisible();
   await expect(page.getByRole('columnheader', { name: '平台' })).toHaveCount(0);
 
   await page.getByRole('tab', { name: '生成配置' }).click();
@@ -135,6 +137,49 @@ test('Accounts 保持移动端可达，Generation 绑定/解绑并在 409 保留
   await expect(page.getByRole('alert')).toContainText('平台已被其他请求修改');
   await expect(prompt).toContainText('不绑定 Prompt');
   await expect(page.getByRole('button', { name: '重新加载服务端版本' })).toBeVisible();
+});
+
+test('Accounts 创建、编辑、停用与删除在响应式产物中保持 revision 闭环', async ({
+  page,
+  platformWorkspaceApi,
+}) => {
+  await page.goto(`/settings/platforms/${platformId}?tab=accounts`);
+  const create = page.getByRole('button', { name: '创建发布账号' });
+  await create.click();
+  let dialog = page.getByRole('dialog', { name: '创建发布账号' });
+  await dialog.getByRole('textbox', { name: '业务标签' }).fill('Workspace 新账号');
+  await dialog.getByRole('textbox', { name: '内部账号标识' }).fill('workspace-new');
+  await dialog.getByRole('button', { name: '创建账号' }).click();
+  await expect(create).toBeFocused();
+  const created = page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 新账号' });
+  await expect(created).toBeVisible();
+  await created.getByRole('button', { name: '编辑账号' }).click();
+  dialog = page.getByRole('dialog', { name: '编辑发布账号' });
+  await dialog.getByRole('textbox', { name: '业务标签' }).fill('Workspace 已编辑账号');
+  await dialog.getByRole('button', { name: '保存账号' }).click();
+  await expect(page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 已编辑账号' })).toBeVisible();
+
+  let more = page.getByRole('button', { name: '更多操作：Workspace 已编辑账号' });
+  await more.click();
+  await page.getByRole('menuitem', { name: '停用账号' }).click();
+  dialog = page.getByRole('dialog', { name: '停用发布账号“Workspace 已编辑账号”？' });
+  await dialog.getByRole('button', { name: '确认停用' }).click();
+  await expect(more).toBeFocused();
+  await expect(page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 已编辑账号' })).toBeVisible();
+
+  more = page.getByRole('button', { name: '更多操作：Workspace 已编辑账号' });
+  await more.click();
+  await page.getByRole('menuitem', { name: '删除账号' }).click();
+  dialog = page.getByRole('dialog', { name: '删除发布账号“Workspace 已编辑账号”？' });
+  await dialog.getByRole('button', { name: '确认删除' }).click();
+  await expect(page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 已编辑账号' })).toHaveCount(0);
+
+  expect(platformWorkspaceApi.accountRequests).toMatchObject([
+    { method: 'POST', body: { platform_profile_id: platformId, label: 'Workspace 新账号', account_identifier: 'workspace-new' } },
+    { method: 'PATCH', expectedRevision: 0 },
+    { method: 'POST', expectedRevision: 1 },
+    { method: 'DELETE', expectedRevision: 2 },
+  ]);
 });
 
 test('DirtyGuard 覆盖 Tab 离开；404/403/error retry 分别呈现', async ({
@@ -189,6 +234,6 @@ test('375/768/1024/1440 无页面横向溢出，read-only projection 不加载 P
   }
 
   await page.getByRole('tab', { name: '发布账号' }).click();
-  await expect(page.getByText('Workspace 运营账号')).toBeVisible();
-  await expect(page.getByText('workspace-main')).toBeVisible();
+  await expect(page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 运营账号' })).toBeVisible();
+  await expect(page.locator('tr:visible, li:visible').filter({ hasText: 'workspace-main' })).toBeVisible();
 });

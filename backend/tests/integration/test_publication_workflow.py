@@ -477,6 +477,7 @@ def test_publication_work_read_surfaces_use_state_aware_identity() -> None:
             delete_platform_account(
                 db=db,
                 platform_account_id=closed_account_id,
+                expected_revision=closed_account.revision,
                 actor=closed_actor,
                 request_id="identity-closed-account-delete",
             )
@@ -525,6 +526,7 @@ def test_publication_work_read_surfaces_use_state_aware_identity() -> None:
             delete_platform_account(
                 db=db,
                 platform_account_id=completed_account_id,
+                expected_revision=completed_account.revision,
                 actor=completed_actor,
                 request_id="identity-completed-account-delete",
             )
@@ -2319,6 +2321,7 @@ def test_platform_prompt_platform_profile_and_platform_account_deletion_lifecycl
             delete_platform_account(
                 db=db,
                 platform_account_id=account.id,
+                expected_revision=account.revision,
                 actor=actor,
                 request_id="configuration-account-delete",
             )

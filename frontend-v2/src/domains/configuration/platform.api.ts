@@ -11,6 +11,9 @@ import {
 
 type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
+type PlatformAccount = components['schemas']['PlatformAccount'];
+type PlatformAccountCreate = components['schemas']['PlatformAccountCreate'];
+type PlatformAccountUpdate = components['schemas']['PlatformAccountUpdate'];
 type PlatformProfileDetail = components['schemas']['PlatformProfileDetail'];
 type PlatformProfileUpdate = components['schemas']['PlatformProfileUpdate'];
 type UploadIntentCreate = components['schemas']['UploadIntentCreate'];
@@ -119,6 +122,68 @@ async function updatePlatformProfile(
   });
   if (result.data) return result.data;
   throw platformRequestError('更新平台', result);
+}
+
+async function createPlatformAccount(
+  body: PlatformAccountCreate,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/platform-accounts', {
+    body,
+    params: { header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) } },
+  });
+  if (result.data) return result.data;
+  throw platformRequestError('创建发布账号', result);
+}
+
+async function updatePlatformAccount(
+  accountId: string,
+  body: PlatformAccountUpdate,
+  csrfToken: string | null,
+) {
+  const result = await api.PATCH('/api/v1/platform-accounts/{platform_account_id}', {
+    body,
+    params: {
+      path: { platform_account_id: accountId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw platformRequestError('更新发布账号', result);
+}
+
+async function setPlatformAccountEnabled(
+  account: PlatformAccount,
+  enabled: boolean,
+  csrfToken: string | null,
+) {
+  const path = enabled
+    ? '/api/v1/platform-accounts/{platform_account_id}/enable' as const
+    : '/api/v1/platform-accounts/{platform_account_id}/disable' as const;
+  const result = await api.POST(path, {
+    body: { expected_revision: account.revision },
+    params: {
+      path: { platform_account_id: account.id },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw platformRequestError(enabled ? '启用发布账号' : '停用发布账号', result);
+}
+
+async function deletePlatformAccount(
+  account: PlatformAccount,
+  csrfToken: string | null,
+) {
+  const result = await api.DELETE('/api/v1/platform-accounts/{platform_account_id}', {
+    params: {
+      path: { platform_account_id: account.id },
+      query: { expected_revision: account.revision },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.response.ok) return;
+  throw platformRequestError('删除发布账号', result);
 }
 
 async function createPlatformLogoCandidate(
@@ -237,13 +302,17 @@ export {
   PlatformRequestError,
   abortPlatformLogoUpload,
   completePlatformLogoUpload,
+  createPlatformAccount,
   createPlatformLogoCandidate,
   createPlatformLogoUploadIntent,
+  deletePlatformAccount,
   platformAccountsQueryOptions,
   platformDetailQueryOptions,
   platformKeys,
   platformListQueryOptions,
   platformPromptOptionsQueryOptions,
   runPlatformCommand,
+  setPlatformAccountEnabled,
+  updatePlatformAccount,
   updatePlatformProfile,
 };

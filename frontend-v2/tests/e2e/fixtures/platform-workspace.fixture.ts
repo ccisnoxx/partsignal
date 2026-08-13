@@ -1,4 +1,4 @@
-/** Platform Workspace production-artifact fixture；只声明 Core 实际请求。 */
+/** Platform Workspace production-artifact fixture；只声明 Workspace 实际请求。 */
 import { expect, test as base, createPlatformProfiles } from './platforms.fixture';
 import type { components } from '../../../src/shared/api/generated/schema';
 
@@ -12,6 +12,12 @@ type WorkspaceUpdateRequest = {
 };
 
 type PlatformWorkspaceApiController = {
+  accountRequests: Array<{
+    body?: unknown;
+    expectedRevision?: number;
+    method: string;
+    path: string;
+  }>;
   candidateRequests: string[];
   detailRequests: string[];
   uploadRequests: components['schemas']['UploadIntentCreate'][];
@@ -71,6 +77,33 @@ const test = base.extend<WorkspaceFixtures>({
     const candidateRequests: string[] = [];
     const uploadRequests: components['schemas']['UploadIntentCreate'][] = [];
     const updateRequests: WorkspaceUpdateRequest[] = [];
+    const accountRequests: PlatformWorkspaceApiController['accountRequests'] = [];
+    const platformAccounts: components['schemas']['PlatformAccount'][] = [
+      {
+        platform_profile_id: profiles[0]!.id,
+        label: 'Workspace 运营账号',
+        account_identifier: 'workspace-main',
+        id: '30000000-0000-4000-8000-000000000001',
+        is_active: true,
+        workflow_stage: 'OPERATIONAL',
+        primary_task: 'MANAGE_ACCOUNT',
+        available_actions: ['UPDATE', 'DISABLE', 'DELETE'],
+        deletion: { blockers: [] },
+        revision: 2,
+      },
+      {
+        platform_profile_id: profiles[0]!.id,
+        label: 'Workspace 停用账号',
+        account_identifier: 'workspace-disabled',
+        id: '30000000-0000-4000-8000-000000000002',
+        is_active: false,
+        workflow_stage: 'ACCOUNT_DISABLED',
+        primary_task: 'ENABLE_ACCOUNT',
+        available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+        deletion: { blockers: [] },
+        revision: 1,
+      },
+    ];
 
     await page.route('**/workspace-logo-upload', async (route) => {
       await route.fulfill({ status: 200, body: '' });
@@ -128,35 +161,76 @@ const test = base.extend<WorkspaceFixtures>({
         await route.fulfill({
           status: 200,
           json: {
-            items: [
-              {
-                platform_profile_id: platformId,
-                label: 'Workspace 运营账号',
-                account_identifier: 'workspace-main',
-                id: '30000000-0000-4000-8000-000000000001',
-                is_active: true,
-                workflow_stage: 'OPERATIONAL',
-                primary_task: 'MANAGE_ACCOUNT',
-                available_actions: readOnly ? [] : ['UPDATE', 'DISABLE'],
-                deletion: readOnly ? null : { blockers: [] },
-                revision: 2,
-              },
-              {
-                platform_profile_id: platformId,
-                label: 'Workspace 停用账号',
-                account_identifier: 'workspace-disabled',
-                id: '30000000-0000-4000-8000-000000000002',
-                is_active: false,
-                workflow_stage: 'ACCOUNT_DISABLED',
-                primary_task: 'ENABLE_ACCOUNT',
-                available_actions: readOnly ? [] : ['UPDATE', 'ENABLE'],
-                deletion: readOnly ? null : { blockers: [] },
-                revision: 1,
-              },
-            ],
+            items: platformAccounts
+              .filter((account) => account.platform_profile_id === platformId)
+              .map((account) => readOnly
+                ? { ...account, available_actions: [], deletion: null }
+                : account),
           } satisfies components['schemas']['PlatformAccountList'],
         });
         return;
+      }
+
+      if (request.method() === 'POST' && url.pathname === '/api/v1/platform-accounts') {
+        const body = request.postDataJSON() as components['schemas']['PlatformAccountCreate'];
+        accountRequests.push({ method: 'POST', path: url.pathname, body });
+        const created: components['schemas']['PlatformAccount'] = {
+          ...body,
+          id: '30000000-0000-4000-8000-000000000099',
+          is_active: true,
+          workflow_stage: 'OPERATIONAL',
+          primary_task: 'MANAGE_ACCOUNT',
+          available_actions: ['UPDATE', 'DISABLE', 'DELETE'],
+          deletion: { blockers: [] },
+          revision: 0,
+        };
+        platformAccounts.push(created);
+        await route.fulfill({ status: 201, json: created });
+        return;
+      }
+
+      const accountMatch = url.pathname.match(/^\/api\/v1\/platform-accounts\/([^/]+)(?:\/(enable|disable))?$/);
+      if (accountMatch) {
+        const index = platformAccounts.findIndex((account) => account.id === accountMatch[1]);
+        if (index < 0) {
+          await route.fulfill({ status: 404, json: errorEnvelope(404) });
+          return;
+        }
+        const current = platformAccounts[index]!;
+        if (request.method() === 'PATCH' && !accountMatch[2]) {
+          const body = request.postDataJSON() as components['schemas']['PlatformAccountUpdate'];
+          accountRequests.push({ method: 'PATCH', path: url.pathname, body, expectedRevision: body.expected_revision });
+          platformAccounts[index] = {
+            ...current,
+            label: body.label,
+            account_identifier: body.account_identifier,
+            revision: current.revision + 1,
+          };
+          await route.fulfill({ status: 200, json: platformAccounts[index] });
+          return;
+        }
+        if (request.method() === 'POST' && accountMatch[2]) {
+          const body = request.postDataJSON() as { expected_revision: number };
+          const enabled = accountMatch[2] === 'enable';
+          accountRequests.push({ method: 'POST', path: url.pathname, body, expectedRevision: body.expected_revision });
+          platformAccounts[index] = {
+            ...current,
+            is_active: enabled,
+            workflow_stage: enabled ? 'OPERATIONAL' : 'ACCOUNT_DISABLED',
+            primary_task: enabled ? 'MANAGE_ACCOUNT' : 'ENABLE_ACCOUNT',
+            available_actions: enabled ? ['UPDATE', 'DISABLE', 'DELETE'] : ['UPDATE', 'ENABLE', 'DELETE'],
+            revision: current.revision + 1,
+          };
+          await route.fulfill({ status: 200, json: platformAccounts[index] });
+          return;
+        }
+        if (request.method() === 'DELETE' && !accountMatch[2]) {
+          const expectedRevision = Number(url.searchParams.get('expected_revision'));
+          accountRequests.push({ method: 'DELETE', path: url.pathname, expectedRevision });
+          platformAccounts.splice(index, 1);
+          await route.fulfill({ status: 204, body: '' });
+          return;
+        }
       }
 
       if (request.method() === 'GET' && url.pathname === '/api/v1/platform-prompts') {
@@ -281,6 +355,7 @@ const test = base.extend<WorkspaceFixtures>({
     });
 
     await use({
+      accountRequests,
       candidateRequests,
       detailRequests,
       uploadRequests,

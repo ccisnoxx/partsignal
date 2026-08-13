@@ -198,6 +198,8 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 在 `0023` 的初始合同中，任一内容任务或平台账号都会阻断平台物理删除。`0037` 已把当前规则收缩为“先停用，仅 `OPEN` 任务和非终态发布工作阻断”，并允许清理平台账号但绝不级联任务。`0023` 降级会删除启停状态，只能在业务确认可丢失当前停用事实后执行；旧迁移与冻结的 `migration_schema_v1.py` 保持不变。
 
+平台账号删除必须提交当前 `expected_revision`。服务按 Platform → Account 固定顺序锁行，先比较 revision，再在同一持锁事务实时统计非终态 `PublicationWork`；PublicationWork 创建遵循相同锁序，因此不能穿透删除复核。只有终态历史时允许删除账号，历史继续读取冻结的账号 label/identifier snapshot。同平台账号标识的 `lower(btrim(account_identifier))` 唯一性由 `uq_platform_accounts_profile_identifier_normalized` 权威保证；业务预检与约束竞态统一返回 `PLATFORM_ACCOUNT_IDENTIFIER_EXISTS`，不得由客户端先 GET 或解析数据库文本替代并发控制。
+
 ### 0024 Audit Outcome
 
 版本 `0024` 紧跟 `0023_platform_management`，继续以现有 `audit_logs` 作为唯一业务审计来源。表新增必填 `business_module`、`outcome`、`result_message` 和可空 `error_code`；`outcome` 只允许 `SUCCESS | FAILED | DENIED`，`business_module` 只允许契约声明的九个模块。失败的创建命令尚无真实对象，因此 `target_id` 改为可空；任何读取方都必须显式处理该状态，不得补造 UUID。

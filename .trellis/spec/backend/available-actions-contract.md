@@ -232,3 +232,62 @@ const canOptimize = row.status === 'UNCOVERED' && user.account_type === 'ADMIN';
 const action = row.optimization_action;
 const canOptimize = row.primary_task === 'CREATE_OPTIMIZATION_TASK' && action !== null;
 ```
+
+## 10. Platform Account actor projection 与 revision 删除
+
+### 10.1 Scope / Trigger
+
+实现或修改 Platform Account list projection、创建/编辑/启停/删除、账号标识唯一性或 Workspace Accounts 消费时适用。该合同防止浏览器复制角色规则，也防止 stale DELETE 越过实时 PublicationWork blocker。
+
+### 10.2 Signatures
+
+```text
+GET    /api/v1/platform-accounts?platform_profile_id=<uuid>
+POST   /api/v1/platform-accounts
+PATCH  /api/v1/platform-accounts/{id}  PlatformAccountUpdate.expected_revision
+POST   /api/v1/platform-accounts/{id}/enable|disable  RevisionRequest.expected_revision
+DELETE /api/v1/platform-accounts/{id}?expected_revision=<required int >= 0>
+DB     uq_platform_accounts_profile_identifier_normalized
+```
+
+### 10.3 Contracts
+
+- 集合创建是页面动作，不新增 `CREATE` row token。ADMIN/ENGINEER 均可尝试创建；POST 锁定 Platform 后最终拒绝停用平台。
+- 两类角色均获得 UPDATE 与 ENABLE/DISABLE；仅 ADMIN 获得 `deletion` 与 DELETE。平台停用时 row 使用 `PLATFORM_DISABLED/HANDLE_PLATFORM`，既有账号编辑与启停仍按 actor 投影。
+- DELETE 按 Platform → Account 固定顺序持锁，先比较 revision，再统计非终态 PublicationWork；PublicationWork 创建使用同一锁序。终态历史只保留账号 snapshot，不阻断删除。
+- normalized identifier 由 `lower(btrim(account_identifier))` 数据库约束权威保证；预检与约束竞态共用 `PLATFORM_ACCOUNT_IDENTIFIER_EXISTS`，`details.errors[].loc=["body","account_identifier"]`。
+
+### 10.4 Validation & Error Matrix
+
+| 条件 | 结果 |
+| --- | --- |
+| ENGINEER 删除 | `403`，不进入删除命令 |
+| 平台停用时创建 | `409 PLATFORM_DISABLED` |
+| normalized identifier 重复 | `409 PLATFORM_ACCOUNT_IDENTIFIER_EXISTS`，定位 `body.account_identifier` |
+| DELETE revision 过期 | `409 REVISION_CONFLICT`，不查询结果冒充成功、不删除 |
+| 存在非终态 PublicationWork | `409 PLATFORM_ACCOUNT_IN_USE` 与 `PUBLICATION_WORK` count |
+| 只有终态 PublicationWork | 删除成功，历史 snapshot 保留 |
+
+### 10.5 Good / Base / Bad Cases
+
+- Good：ADMIN 使用 row revision 删除无非终态工作的账号；服务锁内复核后返回 204。
+- Base：ENGINEER 读取相同行并获得编辑/启停动作，但 `deletion=null` 且无 DELETE。
+- Bad：浏览器按 `isAdmin` 拼动作、先 GET 最新 revision 再 DELETE、把 revision 设为 optional，或解析数据库英文错误文本。
+
+### 10.6 Tests Required
+
+- Contract/runtime/generated：DELETE query required、minimum 0，V1/V2 schema 同步。
+- PostgreSQL integration：ADMIN/ENGINEER CRUD、停用平台 create、normalized precheck/constraint、stale delete、live blocker、terminal history、固定 query count。
+- Frontend model/component：token 穷尽 mapping、字段错误、409 保留与显式 reload、精确 cache invalidation、焦点恢复。
+- Production artifact：创建/编辑/启停/删除、375px actions、desktop table、runtime/console audit。
+
+### 10.7 Wrong vs Correct
+
+```ts
+// Wrong：GET 最新值会把用户确认偷换成另一个 revision。
+await refetchAccount(account.id);
+await deleteAccount(account.id, latest.revision);
+
+// Correct：提交用户看到并确认的 canonical row revision；冲突后显式 reload。
+await deleteAccount(account.id, account.revision);
+```

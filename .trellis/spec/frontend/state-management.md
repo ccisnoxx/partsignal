@@ -789,6 +789,14 @@ const detail = useQuery(platformDetailQueryOptions(platformId));
 const canEdit = detail.data?.profile.available_actions.includes('UPDATE') ?? false;
 ```
 
+## Platform Workspace Account State
+
+- Accounts 只在 `tab=accounts` 时读取 `platformKeys.accounts(platformId)`；RHF 只持有 create/edit Dialog 的 `label/accountIdentifier`，edit baseline 额外使用服务端 row revision。不得复制 Account DTO 或按 `isAdmin` 推导 row action。
+- 集合创建是页面动作。Primary/overflow 必须穷尽消费 `primary_task/available_actions/deletion`：`HANDLE_PLATFORM` 返回 Overview，UPDATE/ENABLE/DISABLE/DELETE 只映射现有 token；未知 token 显式失败。
+- update/status/delete 始终提交打开 Dialog 时的 canonical row revision。`REVISION_CONFLICT` 保留输入或确认上下文并禁用旧 baseline 重试，显式 reload 当前 Accounts/Detail 后才允许再次确认；normalized identifier error 只按 `details.errors[].loc` 定位字段。
+- mutation 后由 Configuration domain 失效 Platform lists/current detail/current accounts；route composition 失效 Publication ready items/work lists/workspace contexts。不得清空 QueryClient、失效 Content queries 或刷新冻结 PublishedArticle snapshot。
+- 响应式只切换同一数据的 TableShell 与 375px 卡片呈现；label、identifier、status、primary/overflow actions 在两个 surface 都必须可达，Dialog 关闭后焦点返回真实触发器。
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

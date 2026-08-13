@@ -153,7 +153,11 @@ function PlatformAccountsPanel({
     mutationFn: async (account: PlatformAccount) =>
       ensureSuccess(
         await api.DELETE('/api/v1/platform-accounts/{platform_account_id}', {
-          params: { path: { platform_account_id: account.id }, header: csrfHeader() },
+          params: {
+            path: { platform_account_id: account.id },
+            query: { expected_revision: account.revision },
+            header: csrfHeader(),
+          },
         }),
       ),
     onSuccess: async () => {

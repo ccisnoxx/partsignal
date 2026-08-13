@@ -339,3 +339,11 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - `REVISION_CONFLICT` 保留未提交字段、Logo 或 Prompt 选择，不自动重放；只有用户显式 reload 才放弃草稿并采用服务端新 baseline。
 - Logo 上传复用通用文件 transfer 与现有 `PLATFORM_LOGO` 生命周期。SVG 在浏览器边界明确拒绝；官网候选必须显式请求、预览和再次确认，保存 Platform PATCH 前不得进入平台投影。
 - Platform mutation 精确失效 Platform List、当前 Detail，以及受状态/身份/Prompt 影响的 Content creation/reference/generation options 和 Publication ready/workspace 消费者；删除后移除已删除平台的 Detail/Accounts cache。不得清空整个 QueryClient。
+
+## 24. Platform Workspace 发布账号动作与并发边界
+
+- Accounts Tab 按 `platform_profile_id` 延迟读取既有 `PlatformAccountList`，不重复平台列。集合级创建是页面动作，不新增 `CREATE` row token；当前 ADMIN/ENGINEER 均可尝试创建，停用平台仍由 POST 锁内返回 `PLATFORM_DISABLED`。
+- 行级 Primary/overflow 只穷尽映射 `primary_task/available_actions/deletion/revision`。ADMIN 与 ENGINEER 均获得 UPDATE 和启停动作，仅 ADMIN 获得 deletion/DELETE；平台停用投影 `HANDLE_PLATFORM`，但既有账号编辑与启停仍由服务端动作决定。
+- UPDATE、ENABLE、DISABLE 和 DELETE 都提交当前账号 revision。DELETE 使用 required `expected_revision` query；服务端按 Platform → Account 固定顺序锁定后先拒绝 stale revision，再实时复核非终态 PublicationWork。409 保留 Dialog/表单上下文，只有显式 reload 才采用新 baseline，禁止自动重放。
+- 同平台账号标识以数据库 `lower(btrim(account_identifier))` 唯一约束为权威。预检与约束竞态统一返回 `PLATFORM_ACCOUNT_IDENTIFIER_EXISTS`，并用 `details.errors[].loc=["body","account_identifier"]` 定位字段；浏览器不解析错误 message 判断冲突。
+- Account mutation 只失效 Platform lists/current detail/current accounts，以及 Publication ready items/work lists/workspace contexts 中的实际消费者；不失效冻结的 PublishedArticle snapshot，也不触碰 Content queries。

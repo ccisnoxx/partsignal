@@ -204,6 +204,25 @@ def _platform_account_identifier_exists(
     return db.scalar(query.limit(1)) is not None
 
 
+def _platform_account_identifier_conflict() -> AppError:
+    """返回可定位到账号标识字段的稳定重复错误。"""
+    message = "该平台已存在相同的运营账号标识"
+    return AppError(
+        "PLATFORM_ACCOUNT_IDENTIFIER_EXISTS",
+        message,
+        409,
+        {
+            "errors": [
+                {
+                    "loc": ["body", "account_identifier"],
+                    "msg": message,
+                    "type": "platform_account_identifier_exists",
+                }
+            ]
+        },
+    )
+
+
 def _flush_platform_account(db: Session) -> None:
     try:
         db.flush()
@@ -211,11 +230,7 @@ def _flush_platform_account(db: Session) -> None:
         constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
         if constraint_name == "uq_platform_accounts_profile_identifier_normalized":
             db.rollback()
-            raise AppError(
-                "PLATFORM_ACCOUNT_IDENTIFIER_EXISTS",
-                "该平台已存在相同的运营账号标识",
-                409,
-            ) from error
+            raise _platform_account_identifier_conflict() from error
         raise
 
 
@@ -263,7 +278,7 @@ def create_platform_account(
         platform_profile_id=payload.platform_profile_id,
         account_identifier=payload.account_identifier,
     ):
-        raise AppError("PLATFORM_ACCOUNT_IDENTIFIER_EXISTS", "该平台已存在相同的运营账号标识", 409)
+        raise _platform_account_identifier_conflict()
     account = PlatformAccount(**payload.model_dump())
     db.add(account)
     _flush_platform_account(db)
@@ -289,7 +304,7 @@ def update_platform_account(
         account_identifier=payload.account_identifier,
         exclude_account_id=account.id,
     ):
-        raise AppError("PLATFORM_ACCOUNT_IDENTIFIER_EXISTS", "该平台已存在相同的运营账号标识", 409)
+        raise _platform_account_identifier_conflict()
     account.label = payload.label
     account.account_identifier = payload.account_identifier
     account.revision += 1
@@ -318,10 +333,17 @@ def set_platform_account_enabled(
 
 
 def delete_platform_account(
-    *, db: Session, platform_account_id: uuid.UUID, actor: User, request_id: str
+    *,
+    db: Session,
+    platform_account_id: uuid.UUID,
+    expected_revision: int,
+    actor: User,
+    request_id: str,
 ) -> None:
     """删除没有非终态发布工作的账号，终态历史继续使用快照。"""
     _profile, account = _lock_platform_account(db, platform_account_id)
+    if account.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "发布账号已被其他请求修改", 409)
     work_count = int(
         db.scalar(
             select(func.count())

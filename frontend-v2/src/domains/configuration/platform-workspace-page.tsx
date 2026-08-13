@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState, type ReactNode } from 'react';
-import { FormProvider, useForm, useWatch } from 'react-hook-form';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { FormProvider, useForm, useWatch, type FieldPath } from 'react-hook-form';
 
 import { RowActions } from '@/design-system/data-table/row-actions';
+import { TableShell } from '@/design-system/data-table/table-shell';
 import { DirtyGuard } from '@/design-system/forms/dirty-guard';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary, FormActions } from '@/design-system/forms/form-layout';
@@ -35,13 +36,17 @@ import { sha256File, transferFile } from '@/shared/api/file-transfer';
 import {
   abortPlatformLogoUpload,
   completePlatformLogoUpload,
+  createPlatformAccount,
   createPlatformLogoCandidate,
   createPlatformLogoUploadIntent,
+  deletePlatformAccount,
   platformAccountsQueryOptions,
   platformDetailQueryOptions,
   platformKeys,
   platformPromptOptionsQueryOptions,
   runPlatformCommand,
+  setPlatformAccountEnabled,
+  updatePlatformAccount,
   updatePlatformProfile,
 } from './platform.api';
 import {
@@ -55,14 +60,23 @@ import {
 } from './platform-list.model';
 import {
   isPlatformRevisionConflict,
+  mapPlatformAccountFormError,
+  platformAccountFormSchema,
+  platformAccountFormValues,
   platformDetailErrorKind,
   platformGenerationFormSchema,
   platformOverviewFormSchema,
   platformToGenerationValues,
   platformToOverviewValues,
   platformWorkspaceTabs,
+  resolvePlatformAccountOverflowActions,
+  resolvePlatformAccountPrimaryAction,
+  toPlatformAccountCreate,
+  toPlatformAccountUpdate,
   toPlatformGenerationUpdate,
   toPlatformOverviewUpdate,
+  type PlatformAccountCommand,
+  type PlatformAccountFormValues,
   type PlatformGenerationFormValues,
   type PlatformLogoChange,
   type PlatformOverviewFormValues,
@@ -73,11 +87,13 @@ import {
 type PlatformAccount = components['schemas']['PlatformAccount'];
 type PlatformLogoCandidate = components['schemas']['PlatformLogoCandidate'];
 type PlatformMutationKind = 'identity' | 'status' | 'delete' | 'generation';
+type PlatformAccountMutationKind = 'create' | 'update' | 'status' | 'delete';
 const maximumPlatformLogoBytes = 2 * 1024 * 1024;
 
 type PlatformWorkspacePageProps = {
   csrfToken: string | null;
   onConsumersChanged: (kind: PlatformMutationKind) => Promise<void>;
+  onAccountConsumersChanged: (kind: PlatformAccountMutationKind) => Promise<void>;
   onDeleted: () => Promise<void> | void;
   onTabChange: (tab: PlatformWorkspaceTab) => Promise<void> | void;
   platformId: string;
@@ -86,6 +102,7 @@ type PlatformWorkspacePageProps = {
 
 function PlatformWorkspacePage({
   csrfToken,
+  onAccountConsumersChanged,
   onConsumersChanged,
   onDeleted,
   onTabChange,
@@ -224,7 +241,12 @@ function PlatformWorkspacePage({
           />
         </TabsContent>
         <TabsContent className="pt-3" value="accounts">
-          <PlatformAccountsSection active={tab === 'accounts'} platformId={platformId} />
+          <PlatformAccountsSection
+            active={tab === 'accounts'}
+            csrfToken={csrfToken}
+            onConsumersChanged={onAccountConsumersChanged}
+            platformId={platformId}
+          />
         </TabsContent>
         <TabsContent className="pt-3" value="generation">
           <PlatformGenerationSection
@@ -603,39 +625,441 @@ function PlatformLogoField({
   );
 }
 
-function PlatformAccountsSection({ active, platformId }: { active: boolean; platformId: string }) {
+type AccountEditorTarget = {
+  account?: PlatformAccount;
+  focusReturn: HTMLElement | null;
+};
+
+type AccountCommandTarget = {
+  account: PlatformAccount;
+  command: Exclude<PlatformAccountCommand, 'edit-account' | 'view-account-delete-conditions'>;
+  focusReturn: HTMLElement | null;
+};
+
+type AccountBlockerTarget = {
+  account: PlatformAccount;
+  focusReturn: HTMLElement | null;
+};
+
+function PlatformAccountsSection({
+  active,
+  csrfToken,
+  onConsumersChanged,
+  platformId,
+}: {
+  active: boolean;
+  csrfToken: string | null;
+  onConsumersChanged: (kind: PlatformAccountMutationKind) => Promise<void>;
+  platformId: string;
+}) {
+  const queryClient = useQueryClient();
   const accounts = useQuery(platformAccountsQueryOptions(platformId, active));
+  const createTrigger = useRef<HTMLButtonElement>(null);
+  const [editor, setEditor] = useState<AccountEditorTarget>();
+  const [commandTarget, setCommandTarget] = useState<AccountCommandTarget>();
+  const [blockerTarget, setBlockerTarget] = useState<AccountBlockerTarget>();
+
+  async function invalidateAccount(kind: PlatformAccountMutationKind) {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: platformKeys.lists() }),
+      queryClient.invalidateQueries({ queryKey: platformKeys.detail(platformId) }),
+      queryClient.invalidateQueries({ queryKey: platformKeys.accounts(platformId) }),
+      onConsumersChanged(kind),
+    ]);
+  }
+
+  async function reloadAccount(accountId: string) {
+    await queryClient.invalidateQueries({ queryKey: platformKeys.detail(platformId) });
+    const fresh = await accounts.refetch();
+    return fresh.data?.items.find((account) => account.id === accountId);
+  }
+
+  function handleCommand(
+    command: string,
+    account: PlatformAccount,
+    focusReturn?: HTMLElement | null,
+  ) {
+    const target = focusReturn ?? document.activeElement as HTMLElement | null;
+    if (command === 'edit-account') {
+      setEditor({ account, focusReturn: target });
+      return;
+    }
+    if (command === 'view-account-delete-conditions') {
+      setBlockerTarget({ account, focusReturn: target });
+      return;
+    }
+    if (command === 'enable-account' || command === 'disable-account' || command === 'delete-account') {
+      setCommandTarget({
+        account,
+        command,
+        focusReturn: command === 'delete-account' ? createTrigger.current : target,
+      });
+      return;
+    }
+    throw new Error(`Platform Accounts 收到未知命令：${command}`);
+  }
+
+  const items = accounts.data?.items ?? [];
   return (
     <section aria-labelledby="platform-accounts-title" className="rounded-xl border border-border-subtle bg-surface-panel p-4">
-      <div className="mb-4">
-        <h2 className="type-section-title" id="platform-accounts-title">发布账号</h2>
-        <p className="mt-1 text-sm text-text-muted">Core 仅提供平台上下文中的只读账号清单；账号管理在后续独立 Task 实现。</p>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="type-section-title" id="platform-accounts-title">发布账号</h2>
+          <p className="mt-1 text-sm text-text-muted">管理业务标签和内部账号标识；不保存凭据。</p>
+        </div>
+        <Button
+          onClick={() => setEditor({ focusReturn: createTrigger.current })}
+          ref={createTrigger}
+          type="button"
+        >
+          创建发布账号
+        </Button>
       </div>
       {accounts.isPending ? (
-        <div aria-busy="true" className="grid gap-3 sm:grid-cols-2"><Skeleton className="h-24" /><Skeleton className="h-24" /></div>
+        <div aria-busy="true" className="space-y-3"><Skeleton className="h-12" /><Skeleton className="h-12" /></div>
       ) : accounts.error ? (
         <Notice actionLabel="重试" message={errorMessage(accounts.error)} onAction={() => void accounts.refetch()} />
-      ) : accounts.data?.items.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border-default p-6 text-center text-text-muted">当前平台没有发布账号。</p>
+      ) : items.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-border-default p-6 text-center text-text-muted">当前平台没有发布账号，可从此处创建第一个账号。</p>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {accounts.data?.items.map((account) => <PlatformAccountCard account={account} key={account.id} />)}
-        </ul>
+        <>
+          <div className="hidden sm:block">
+            <TableShell regionLabel="当前平台发布账号">
+              <thead>
+                <tr>
+                  <th data-column-role="primary" scope="col">业务标签</th>
+                  <th data-column-role="metadata" scope="col">内部账号标识</th>
+                  <th data-column-role="status" scope="col">状态</th>
+                  <th data-column-role="actions" scope="col">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((account) => (
+                  <tr key={account.id}>
+                    <td data-column-role="primary">{account.label}</td>
+                    <td className="break-all font-mono" data-column-role="metadata">{account.account_identifier}</td>
+                    <td data-column-role="status"><PlatformAccountStatus account={account} /></td>
+                    <td data-column-role="actions">
+                      <PlatformAccountActions account={account} onCommand={handleCommand} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </TableShell>
+          </div>
+          <ul className="space-y-3 sm:hidden">
+            {items.map((account) => (
+              <li className="min-w-0 rounded-lg border border-border-subtle p-3" key={account.id}>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="break-words font-medium text-text-primary">{account.label}</p>
+                  <PlatformAccountStatus account={account} />
+                </div>
+                <p className="mt-2 break-all font-mono text-sm text-text-secondary">{account.account_identifier}</p>
+                {account.workflow_stage === 'PLATFORM_DISABLED' && (
+                  <p className="mt-2 text-xs text-warning">平台已停用，账号当前不可用于新发布。</p>
+                )}
+                <div className="mt-2 border-t border-border-subtle pt-2">
+                  <PlatformAccountActions account={account} onCommand={handleCommand} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
+
+      {editor && (
+        <PlatformAccountEditorDialog
+          csrfToken={csrfToken}
+          onClose={() => setEditor(undefined)}
+          onReload={reloadAccount}
+          onSaved={async (kind) => {
+            await invalidateAccount(kind);
+            setEditor(undefined);
+          }}
+          platformId={platformId}
+          target={editor}
+        />
+      )}
+      {commandTarget && (
+        <PlatformAccountCommandDialog
+          csrfToken={csrfToken}
+          onClose={() => setCommandTarget(undefined)}
+          onReload={reloadAccount}
+          onSaved={async (kind) => {
+            await invalidateAccount(kind);
+            setCommandTarget(undefined);
+          }}
+          target={commandTarget}
+        />
+      )}
+      <PlatformAccountBlockersDialog
+        onClose={() => setBlockerTarget(undefined)}
+        target={blockerTarget}
+      />
     </section>
   );
 }
 
-function PlatformAccountCard({ account }: { account: PlatformAccount }) {
+function PlatformAccountActions({
+  account,
+  onCommand,
+}: {
+  account: PlatformAccount;
+  onCommand: (command: string, account: PlatformAccount, focusReturn?: HTMLElement | null) => void;
+}) {
   return (
-    <li className="min-w-0 rounded-lg border border-border-subtle p-3">
-      <div className="flex items-start justify-between gap-3">
-        <p className="break-words font-medium text-text-primary">{account.label}</p>
-        <Badge variant={account.is_active ? 'success' : 'secondary'}>{account.is_active ? 'Enabled' : 'Disabled'}</Badge>
-      </div>
-      <p className="mt-2 break-all font-mono text-sm text-text-secondary">{account.account_identifier}</p>
-      {account.workflow_stage === 'PLATFORM_DISABLED' && <p className="mt-2 text-xs text-warning">平台已停用，账号当前不可用于新发布。</p>}
-    </li>
+    <RowActions
+      objectLabel={account.label}
+      onCommand={(command, focusReturn) => onCommand(command, account, focusReturn)}
+      overflow={resolvePlatformAccountOverflowActions(account)}
+      primary={resolvePlatformAccountPrimaryAction(account)}
+    />
+  );
+}
+
+function PlatformAccountStatus({ account }: { account: PlatformAccount }) {
+  return (
+    <Badge variant={account.is_active ? 'success' : 'secondary'}>
+      {account.is_active ? 'Enabled' : 'Disabled'}
+    </Badge>
+  );
+}
+
+function PlatformAccountEditorDialog({
+  csrfToken,
+  onClose,
+  onReload,
+  onSaved,
+  platformId,
+  target,
+}: {
+  csrfToken: string | null;
+  onClose: () => void;
+  onReload: (accountId: string) => Promise<PlatformAccount | undefined>;
+  onSaved: (kind: 'create' | 'update') => Promise<void>;
+  platformId: string;
+  target: AccountEditorTarget;
+}) {
+  const [account, setAccount] = useState(target.account);
+  const [requestId, setRequestId] = useState<string>();
+  const [reloadError, setReloadError] = useState<string>();
+  const form = useForm<PlatformAccountFormValues>({
+    defaultValues: platformAccountFormValues(account),
+    resolver: zodResolver(platformAccountFormSchema),
+  });
+  const save = useMutation({
+    mutationFn: (values: PlatformAccountFormValues) => account
+      ? updatePlatformAccount(account.id, toPlatformAccountUpdate(values, account), csrfToken)
+      : createPlatformAccount(toPlatformAccountCreate(values, platformId), csrfToken),
+  });
+
+  async function submit(values: PlatformAccountFormValues) {
+    form.clearErrors();
+    setRequestId(undefined);
+    save.reset();
+    try {
+      await save.mutateAsync(values);
+      await onSaved(account ? 'update' : 'create');
+    } catch (error) {
+      const mapped = mapPlatformAccountFormError(error);
+      for (const [field, message] of Object.entries(mapped.fields)) {
+        form.setError(field as FieldPath<PlatformAccountFormValues>, { type: 'server', message });
+      }
+      if (mapped.formMessage) {
+        form.setError('root.server', { type: 'server', message: mapped.formMessage });
+      }
+      setRequestId(mapped.requestId);
+    }
+  }
+
+  async function reloadCanonical() {
+    if (!account) return;
+    setReloadError(undefined);
+    try {
+      const fresh = await onReload(account.id);
+      if (!fresh) throw new Error('该发布账号已不存在');
+      setAccount(fresh);
+      form.reset(platformAccountFormValues(fresh));
+      form.clearErrors();
+      save.reset();
+      setRequestId(undefined);
+    } catch (error) {
+      setReloadError(errorMessage(error));
+    }
+  }
+
+  const conflict = isPlatformRevisionConflict(save.error);
+  const summary = platformAccountFormSummary(form.formState.errors, requestId);
+  return (
+    <Dialog onOpenChange={(open) => { if (!open && !save.isPending) onClose(); }} open>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg" finalFocus={() => target.focusReturn} showCloseButton={!save.isPending}>
+        <DialogHeader>
+          <DialogTitle>{account ? '编辑发布账号' : '创建发布账号'}</DialogTitle>
+          <DialogDescription>只保存业务标签和内部账号标识，不填写 API key、密码或其他凭据。</DialogDescription>
+        </DialogHeader>
+        <FormProvider {...form}>
+          <form className="space-y-4" id="platform-account-form" noValidate onSubmit={form.handleSubmit(submit)}>
+            <ErrorSummary errors={summary} />
+            {conflict && account && (
+              <div className="space-y-2 rounded-lg border border-warning/30 bg-warning/10 p-3" role="alert">
+                <p>该账号已被其他请求修改。当前输入已保留，不会自动重放。</p>
+                <Button onClick={() => void reloadCanonical()} type="button" variant="outline">重新加载服务端版本</Button>
+                {reloadError && <p className="text-sm text-destructive">{reloadError}</p>}
+              </div>
+            )}
+            <FormField<PlatformAccountFormValues, 'label'>
+              id="platform-account-label"
+              label="业务标签"
+              name="label"
+              required
+              render={(context) => (
+                <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={save.isPending} id={context.inputId} maxLength={160} />
+              )}
+            />
+            <FormField<PlatformAccountFormValues, 'accountIdentifier'>
+              description="同一平台内按去除首尾空格并忽略大小写保持唯一。"
+              id="platform-account-identifier"
+              label="内部账号标识"
+              name="accountIdentifier"
+              required
+              render={(context) => (
+                <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={save.isPending} id={context.inputId} maxLength={200} />
+              )}
+            />
+          </form>
+        </FormProvider>
+        <DialogFooter>
+          <DialogClose disabled={save.isPending} render={<Button variant="outline" />}>取消</DialogClose>
+          <Button disabled={save.isPending || conflict} form="platform-account-form" type="submit">
+            {save.isPending ? '保存中…' : account ? '保存账号' : '创建账号'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function platformAccountFormSummary(
+  errors: ReturnType<typeof useForm<PlatformAccountFormValues>>['formState']['errors'],
+  requestId?: string,
+) {
+  const summary = [];
+  if (errors.label?.message) summary.push({ id: 'label', fieldId: 'platform-account-label', message: errors.label.message });
+  if (errors.accountIdentifier?.message) summary.push({ id: 'identifier', fieldId: 'platform-account-identifier', message: errors.accountIdentifier.message });
+  if (errors.root?.server?.message) summary.push({ id: 'server', message: errors.root.server.message });
+  if (requestId) summary.push({ id: 'request', message: `请求 ID：${requestId}` });
+  return summary;
+}
+
+function PlatformAccountCommandDialog({
+  csrfToken,
+  onClose,
+  onReload,
+  onSaved,
+  target,
+}: {
+  csrfToken: string | null;
+  onClose: () => void;
+  onReload: (accountId: string) => Promise<PlatformAccount | undefined>;
+  onSaved: (kind: 'status' | 'delete') => Promise<void>;
+  target: AccountCommandTarget;
+}) {
+  const [account, setAccount] = useState(target.account);
+  const [reloadMessage, setReloadMessage] = useState<string>();
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (target.command === 'enable-account') return setPlatformAccountEnabled(account, true, csrfToken);
+      if (target.command === 'disable-account') return setPlatformAccountEnabled(account, false, csrfToken);
+      if (target.command === 'delete-account') return deletePlatformAccount(account, csrfToken);
+      throw new Error(`Platform Account Dialog 收到未知命令：${target.command}`);
+    },
+  });
+
+  async function confirm() {
+    try {
+      await mutation.mutateAsync();
+      await onSaved(target.command === 'delete-account' ? 'delete' : 'status');
+    } catch {
+      // mutation.error 统一展示；409 保持 Dialog 和本次确认上下文。
+    }
+  }
+
+  async function reloadCanonical() {
+    setReloadMessage(undefined);
+    try {
+      const fresh = await onReload(account.id);
+      if (!fresh) {
+        setReloadMessage('该发布账号已不存在。');
+        return;
+      }
+      setAccount(fresh);
+      mutation.reset();
+      setReloadMessage(`已加载 revision ${fresh.revision}，请重新确认。`);
+    } catch (error) {
+      setReloadMessage(errorMessage(error));
+    }
+  }
+
+  const conflict = isPlatformRevisionConflict(mutation.error);
+  const deleting = target.command === 'delete-account';
+  const enabling = target.command === 'enable-account';
+  const title = deleting ? `删除发布账号“${account.label}”？` : `${enabling ? '启用' : '停用'}发布账号“${account.label}”？`;
+  return (
+    <Dialog onOpenChange={(open) => { if (!open && !mutation.isPending) onClose(); }} open>
+      <DialogContent finalFocus={() => target.focusReturn} showCloseButton={!mutation.isPending}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            {deleting
+              ? '服务端会使用当前 revision 重新校验非终态 PublicationWork；删除后不可恢复。'
+              : enabling
+                ? '启用后仍需平台本身可用，账号才可用于新发布。'
+                : '停用后该账号不能用于新发布，既有历史记录保持不变。'}
+          </DialogDescription>
+        </DialogHeader>
+        {mutation.error && <p className="text-sm text-destructive" role="alert">{errorMessage(mutation.error)}</p>}
+        {conflict && (
+          <Button onClick={() => void reloadCanonical()} type="button" variant="outline">重新加载服务端版本</Button>
+        )}
+        {reloadMessage && <p className="text-sm text-text-secondary" role="status">{reloadMessage}</p>}
+        <DialogFooter>
+          <DialogClose disabled={mutation.isPending} render={<Button variant="outline" />}>取消</DialogClose>
+          <Button
+            disabled={mutation.isPending || conflict}
+            onClick={() => void confirm()}
+            type="button"
+            variant={deleting ? 'destructive' : 'default'}
+          >
+            {mutation.isPending ? '处理中…' : deleting ? '确认删除' : enabling ? '确认启用' : '确认停用'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PlatformAccountBlockersDialog({
+  onClose,
+  target,
+}: {
+  onClose: () => void;
+  target?: AccountBlockerTarget;
+}) {
+  return (
+    <Dialog onOpenChange={(open) => !open && onClose()} open={Boolean(target)}>
+      <DialogContent finalFocus={() => target?.focusReturn ?? null}>
+        <DialogHeader>
+          <DialogTitle>发布账号暂时不能删除</DialogTitle>
+          <DialogDescription>“{target?.account.label}”存在服务端投影的直接阻断；删除时仍会实时复核。</DialogDescription>
+        </DialogHeader>
+        <ul className="list-disc space-y-1 pl-5">
+          {target?.account.deletion?.blockers.map((blocker) => (
+            <li key={blocker.type}>{deletionBlockerLabel(blocker)}：{blocker.count}</li>
+          ))}
+        </ul>
+        <DialogFooter><DialogClose render={<Button variant="outline" />}>关闭</DialogClose></DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -879,4 +1303,8 @@ function errorMessage(error: unknown) {
 }
 
 export { PlatformWorkspacePage };
-export type { PlatformMutationKind, PlatformWorkspacePageProps };
+export type {
+  PlatformAccountMutationKind,
+  PlatformMutationKind,
+  PlatformWorkspacePageProps,
+};

@@ -371,6 +371,8 @@ result = cleanup_platform_logo_files(storage=storage)
 - 汇总基于未筛选全集，`total` 基于筛选结果；`platform_type_options` 来自全集并按 `lower(name), id` 稳定排序。更新时间只读取真实平台审计，缺失时返回 `NULL`，不得用迁移时间补造。
 - 没有管理权限时，服务端返回 `primary_task=null`、空 `available_actions` 和 `deletion=null`；前端不得自行推导权限。启停和删除命令必须在行锁内校验 revision、状态和阻断项；同态启停返回 `INVALID_STATE_TRANSITION`，删除必须携带 revision，账号只作为清理影响而非删除阻断项。
 - Detail 与 List 必须调用同一个 Platform projection 和稳定类型 options owner。Detail 不携带账号行或全部 Prompt；账号和 Prompt reference 按 Tab 延迟读取，避免首屏 waterfall 与巨型响应。
+- Platform Account DELETE 使用 `DELETE /api/v1/platform-accounts/{id}?expected_revision=<revision>`，query 必填。服务复用 Platform → Account 锁序并在持锁期间先校验 revision、后统计非终态 PublicationWork；PublicationWork 创建使用同一锁序，终态历史只保留账号 snapshot，不阻断删除。
+- 同平台 `lower(btrim(account_identifier))` 唯一性以 `uq_platform_accounts_profile_identifier_normalized` 为最终权威。业务预检与该约束的 `IntegrityError` 路径必须返回相同 `PLATFORM_ACCOUNT_IDENTIFIER_EXISTS` 与 `body.account_identifier` 字段错误；未知约束错误不得吞掉或改写。
 
 ### 4. 状态与异常矩阵
 

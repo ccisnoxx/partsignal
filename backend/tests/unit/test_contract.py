@@ -212,6 +212,15 @@ def test_platform_list_contract_exposes_readiness_options_and_delete_revision() 
         "required": True,
         "schema": {"type": "integer", "minimum": 0},
     }
+    account_delete_parameters = paths["/api/v1/platform-accounts/{platform_account_id}"][
+        "delete"
+    ]["parameters"]
+    assert account_delete_parameters[1] == {
+        "name": "expected_revision",
+        "in": "query",
+        "required": True,
+        "schema": {"type": "integer", "minimum": 0},
+    }
 
 
 def test_geo_observation_detail_contract_is_one_readonly_generated_union() -> None:

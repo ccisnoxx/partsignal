@@ -2032,6 +2032,7 @@ paths:
       operationId: deletePlatformAccount
       parameters:
         - {name: platform_account_id, in: path, required: true, schema: {type: string, format: uuid}}
+        - {name: expected_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已删除未被发布工作引用的平台账号}

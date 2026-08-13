@@ -320,6 +320,7 @@ def disable_platform_account(
 )
 def delete_platform_account(
     platform_account_id: uuid.UUID,
+    expected_revision: Annotated[int, Query(ge=0)],
     request: Request,
     db: DbSession,
     admin: CurrentUser,
@@ -329,6 +330,7 @@ def delete_platform_account(
     delete_platform_account_command(
         db=db,
         platform_account_id=platform_account_id,
+        expected_revision=expected_revision,
         actor=admin,
         request_id=request.state.request_id,
     )

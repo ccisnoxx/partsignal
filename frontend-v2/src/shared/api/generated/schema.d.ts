@@ -8432,7 +8432,9 @@ export interface operations {
     };
     deletePlatformAccount: {
         parameters: {
-            query?: never;
+            query: {
+                expected_revision: number;
+            };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };

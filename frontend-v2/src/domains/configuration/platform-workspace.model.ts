@@ -1,8 +1,12 @@
 import { z } from 'zod';
 
+import type { OverflowRowAction, PrimaryRowAction } from '@/design-system/data-table/types';
 import type { components } from '@/shared/api/generated/schema';
 import { PlatformRequestError } from './platform.api';
 
+type PlatformAccount = components['schemas']['PlatformAccount'];
+type PlatformAccountCreate = components['schemas']['PlatformAccountCreate'];
+type PlatformAccountUpdate = components['schemas']['PlatformAccountUpdate'];
 type PlatformProfile = components['schemas']['PlatformProfile'];
 type PlatformProfileDetail = components['schemas']['PlatformProfileDetail'];
 type PlatformProfileUpdate = components['schemas']['PlatformProfileUpdate'];
@@ -75,6 +79,21 @@ const platformGenerationFormSchema = z.object({
 
 type PlatformGenerationFormValues = z.infer<typeof platformGenerationFormSchema>;
 
+const platformAccountFormSchema = z.object({
+  label: z.string().trim().min(1, '请输入业务标签').max(160, '业务标签不能超过 160 个字符'),
+  accountIdentifier: z.string().trim()
+    .min(1, '请输入内部账号标识')
+    .max(200, '内部账号标识不能超过 200 个字符'),
+});
+
+type PlatformAccountFormValues = z.infer<typeof platformAccountFormSchema>;
+type PlatformAccountCommand =
+  | 'edit-account'
+  | 'enable-account'
+  | 'disable-account'
+  | 'delete-account'
+  | 'view-account-delete-conditions';
+
 function platformToOverviewValues(profile: PlatformProfile): PlatformOverviewFormValues {
   return {
     name: profile.name,
@@ -122,6 +141,156 @@ function toPlatformGenerationUpdate(
   };
 }
 
+function platformAccountFormValues(account?: PlatformAccount): PlatformAccountFormValues {
+  return {
+    label: account?.label ?? '',
+    accountIdentifier: account?.account_identifier ?? '',
+  };
+}
+
+function toPlatformAccountCreate(
+  values: PlatformAccountFormValues,
+  platformId: string,
+): PlatformAccountCreate {
+  return {
+    platform_profile_id: platformId,
+    label: values.label.trim(),
+    account_identifier: values.accountIdentifier.trim(),
+  };
+}
+
+function toPlatformAccountUpdate(
+  values: PlatformAccountFormValues,
+  account: PlatformAccount,
+): PlatformAccountUpdate {
+  return {
+    label: values.label.trim(),
+    account_identifier: values.accountIdentifier.trim(),
+    expected_revision: account.revision,
+  };
+}
+
+function resolvePlatformAccountPrimaryAction(account: PlatformAccount): PrimaryRowAction {
+  switch (account.primary_task) {
+    case 'HANDLE_PLATFORM':
+      return {
+        key: account.primary_task,
+        label: '处理平台',
+        intent: 'primary',
+        enabled: true,
+        href: `/settings/platforms/${account.platform_profile_id}?tab=overview`,
+      };
+    case 'ENABLE_ACCOUNT':
+      return {
+        key: account.primary_task,
+        label: '启用账号',
+        intent: 'primary',
+        enabled: true,
+        command: 'enable-account',
+      };
+    case 'MANAGE_ACCOUNT':
+      return {
+        key: account.primary_task,
+        label: '编辑账号',
+        intent: 'primary',
+        enabled: true,
+        command: 'edit-account',
+      };
+    default:
+      return assertNever(account.primary_task);
+  }
+}
+
+function resolvePlatformAccountOverflowActions(account: PlatformAccount): OverflowRowAction[] {
+  const actions = account.available_actions.flatMap((action): OverflowRowAction[] => {
+    switch (action) {
+      case 'UPDATE':
+        return account.primary_task === 'MANAGE_ACCOUNT' ? [] : [{
+          key: action,
+          label: '编辑账号',
+          intent: 'secondary',
+          enabled: true,
+          command: 'edit-account',
+        }];
+      case 'ENABLE':
+        return account.primary_task === 'ENABLE_ACCOUNT' ? [] : [{
+          key: action,
+          label: '启用账号',
+          intent: 'secondary',
+          enabled: true,
+          command: 'enable-account',
+          confirmation: 'custom',
+        }];
+      case 'DISABLE':
+        return [{
+          key: action,
+          label: '停用账号',
+          intent: 'secondary',
+          enabled: true,
+          command: 'disable-account',
+          confirmation: 'custom',
+        }];
+      case 'DELETE':
+        return [{
+          key: action,
+          label: '删除账号',
+          intent: 'danger',
+          enabled: true,
+          command: 'delete-account',
+          confirmation: 'custom',
+        }];
+      default:
+        return assertNever(action);
+    }
+  });
+  if (account.deletion?.blockers.length) {
+    actions.push({
+      key: 'VIEW_DELETE_CONDITIONS',
+      label: '查看删除条件',
+      intent: 'secondary',
+      enabled: true,
+      command: 'view-account-delete-conditions',
+      confirmation: 'custom',
+    });
+  }
+  return actions;
+}
+
+function mapPlatformAccountFormError(error: unknown) {
+  if (!(error instanceof PlatformRequestError) || !error.detail) {
+    return { fields: {}, formMessage: error instanceof Error ? error.message : '发布账号请求失败' };
+  }
+  const fields: Partial<Record<keyof PlatformAccountFormValues, string>> = {};
+  const issues = error.detail.details.errors;
+  let unknownIssue = false;
+  if (Array.isArray(issues)) {
+    for (const issue of issues) {
+      if (!issue || typeof issue !== 'object') {
+        unknownIssue = true;
+        continue;
+      }
+      const loc = 'loc' in issue ? issue.loc : undefined;
+      const message = 'msg' in issue ? issue.msg : undefined;
+      if (!Array.isArray(loc) || loc.length !== 2 || loc[0] !== 'body' || typeof message !== 'string') {
+        unknownIssue = true;
+        continue;
+      }
+      if (loc[1] === 'label') fields.label ??= message;
+      else if (loc[1] === 'account_identifier') fields.accountIdentifier ??= message;
+      else unknownIssue = true;
+    }
+  }
+  return {
+    fields,
+    formMessage: Object.keys(fields).length === 0 || unknownIssue ? error.detail.message : undefined,
+    requestId: error.detail.request_id,
+  };
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Platform Account API 返回未知动作：${String(value)}`);
+}
+
 function platformDetailErrorKind(error: unknown): 'not-found' | 'forbidden' | 'generic' {
   if (!(error instanceof PlatformRequestError)) return 'generic';
   if (error.status === 404) return 'not-found';
@@ -137,17 +306,26 @@ export {
   isCanonicalPlatformWorkspaceSearch,
   isPlatformRevisionConflict,
   platformDetailErrorKind,
+  mapPlatformAccountFormError,
+  platformAccountFormSchema,
+  platformAccountFormValues,
   platformGenerationFormSchema,
   platformOverviewFormSchema,
   platformToGenerationValues,
   platformToOverviewValues,
   platformWorkspaceSearchSchema,
   platformWorkspaceTabs,
+  resolvePlatformAccountOverflowActions,
+  resolvePlatformAccountPrimaryAction,
+  toPlatformAccountCreate,
+  toPlatformAccountUpdate,
   toPlatformGenerationUpdate,
   toPlatformOverviewUpdate,
 };
 export type {
   PlatformGenerationFormValues,
+  PlatformAccountCommand,
+  PlatformAccountFormValues,
   PlatformLogoChange,
   PlatformOverviewFormValues,
   PlatformProfileDetail,

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,6 +12,7 @@ import type { components } from '@/shared/api/generated/schema';
 
 type PlatformProfile = components['schemas']['PlatformProfile'];
 type PlatformProfileDetail = components['schemas']['PlatformProfileDetail'];
+type PlatformAccount = components['schemas']['PlatformAccount'];
 
 const platformId = '00000000-0000-4000-8000-000000000001';
 const typeId = '00000000-0000-4000-8000-000000000010';
@@ -104,7 +105,7 @@ const accounts = {
       is_active: true,
       workflow_stage: 'OPERATIONAL',
       primary_task: 'MANAGE_ACCOUNT',
-      available_actions: ['UPDATE', 'DISABLE'],
+      available_actions: ['UPDATE', 'DISABLE', 'DELETE'],
       deletion: { blockers: [] },
       revision: 1,
     },
@@ -116,7 +117,7 @@ const accounts = {
       is_active: false,
       workflow_stage: 'ACCOUNT_DISABLED',
       primary_task: 'ENABLE_ACCOUNT',
-      available_actions: ['UPDATE', 'ENABLE'],
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
       deletion: { blockers: [] },
       revision: 2,
     },
@@ -193,8 +194,8 @@ describe('PlatformWorkspacePage', () => {
 
     await userEvent.click(screen.getByRole('tab', { name: '发布账号' }));
     await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'accounts' }));
-    expect(await screen.findByText('运营主账号')).toBeInTheDocument();
-    expect(screen.getByText('community-main')).toBeInTheDocument();
+    expect((await screen.findAllByText('运营主账号')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('community-main').length).toBeGreaterThan(0);
     expect(screen.queryByRole('columnheader', { name: '平台' })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('tab', { name: '生成配置' }));
@@ -377,5 +378,236 @@ describe('PlatformWorkspacePage', () => {
     renderWorkspace();
     expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: '重试' })).not.toBeInTheDocument();
+  });
+
+  it('ADMIN 在平台上下文完成账号创建与编辑，并精确失效消费者', async () => {
+    const currentAccounts: components['schemas']['PlatformAccountList'] = structuredClone(accounts);
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/platform-profiles/{platform_profile_id}') return response(workspaceDetail());
+      if (path === '/api/v1/platform-accounts') return response(currentAccounts);
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    const post = vi.spyOn(api, 'POST').mockImplementation(async (path, options) => {
+      if (path === '/api/v1/platform-accounts') {
+        const body = (options as unknown as { body: components['schemas']['PlatformAccountCreate'] }).body;
+        const created: PlatformAccount = {
+          ...body,
+          id: '00000000-0000-4000-8000-000000000032',
+          is_active: true,
+          workflow_stage: 'OPERATIONAL',
+          primary_task: 'MANAGE_ACCOUNT',
+          available_actions: ['UPDATE', 'DISABLE', 'DELETE'],
+          deletion: { blockers: [] },
+          revision: 0,
+        };
+        currentAccounts.items.push(created);
+        return response(created);
+      }
+      if (path === '/api/v1/platform-accounts/{platform_account_id}/enable') {
+        const body = (options as unknown as { body: { expected_revision: number } }).body;
+        const current = currentAccounts.items[1]!;
+        expect(body.expected_revision).toBe(current.revision);
+        const updated: PlatformAccount = {
+          ...current,
+          is_active: true,
+          workflow_stage: 'OPERATIONAL',
+          primary_task: 'MANAGE_ACCOUNT',
+          available_actions: ['UPDATE', 'DISABLE', 'DELETE'],
+          revision: current.revision + 1,
+        };
+        currentAccounts.items[1] = updated;
+        return response(updated);
+      }
+      throw new Error(`测试收到未声明 POST：${path}`);
+    });
+    const patch = vi.spyOn(api, 'PATCH').mockImplementation(async (_path, options) => {
+      const body = (options as unknown as { body: components['schemas']['PlatformAccountUpdate'] }).body;
+      const current = currentAccounts.items[0]!;
+      expect(body.expected_revision).toBe(current.revision);
+      const updated = {
+        ...current,
+        label: body.label,
+        account_identifier: body.account_identifier,
+        revision: current.revision + 1,
+      };
+      currentAccounts.items[0] = updated;
+      return response(updated);
+    });
+    const { queryClient } = renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`);
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const createButton = await screen.findByRole('button', { name: '创建发布账号' });
+    await userEvent.click(createButton);
+    let dialog = screen.getByRole('dialog', { name: '创建发布账号' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '业务标签' }), '备用账号');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '内部账号标识' }), 'community-backup');
+    await userEvent.click(within(dialog).getByRole('button', { name: '创建账号' }));
+    await waitFor(() => expect(post).toHaveBeenCalledWith(
+      '/api/v1/platform-accounts',
+      expect.objectContaining({
+        body: {
+          platform_profile_id: platformId,
+          label: '备用账号',
+          account_identifier: 'community-backup',
+        },
+      }),
+    ));
+    await waitFor(() => expect(createButton).toHaveFocus());
+
+    await userEvent.click(screen.getAllByRole('button', { name: '编辑账号' })[0]!);
+    dialog = screen.getByRole('dialog', { name: '编辑发布账号' });
+    const label = within(dialog).getByRole('textbox', { name: '业务标签' });
+    await userEvent.clear(label);
+    await userEvent.type(label, '主运营账号');
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存账号' }));
+    await waitFor(() => expect(patch).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '编辑发布账号' })).not.toBeInTheDocument());
+    await screen.findAllByText('主运营账号');
+
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['configuration', 'platforms', 'list'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['configuration', 'platforms', 'detail', platformId] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['configuration', 'platforms', platformId, 'accounts'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['publication', 'ready-items'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['publication', 'works', 'workspace-context'] });
+  });
+
+  it('账号停用与删除提交各自当前 revision', async () => {
+    const currentAccounts: components['schemas']['PlatformAccountList'] = structuredClone(accounts);
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/platform-profiles/{platform_profile_id}') return response(workspaceDetail());
+      if (path === '/api/v1/platform-accounts') return response(currentAccounts);
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    const post = vi.spyOn(api, 'POST').mockImplementation(async (_path, options) => {
+      const body = (options as unknown as { body: { expected_revision: number } }).body;
+      const current = currentAccounts.items[0]!;
+      expect(body.expected_revision).toBe(current.revision);
+      const updated: PlatformAccount = {
+        ...current,
+        is_active: false,
+        workflow_stage: 'ACCOUNT_DISABLED',
+        primary_task: 'ENABLE_ACCOUNT',
+        available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+        revision: current.revision + 1,
+      };
+      currentAccounts.items[0] = updated;
+      return response(updated);
+    });
+    const remove = vi.spyOn(api, 'DELETE').mockImplementation(async (_path, options) => {
+      const params = (options as unknown as {
+        params: { query: { expected_revision: number }; path: { platform_account_id: string } };
+      }).params;
+      const current = currentAccounts.items.find((item) => item.id === params.path.platform_account_id)!;
+      expect(params.query.expected_revision).toBe(current.revision);
+      currentAccounts.items = currentAccounts.items.filter((item) => item.id !== current.id);
+      return { response: new Response(null, { status: 204 }) } as never;
+    });
+    renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`);
+    await screen.findAllByText('运营主账号');
+
+    await userEvent.click(screen.getAllByRole('button', { name: '更多操作：运营主账号' })[0]!);
+    let menu = await screen.findByRole('menu', { name: '更多操作：运营主账号' });
+    fireEvent.click(within(menu).getByRole('menuitem', { name: '停用账号' }));
+    let dialog = await screen.findByRole('dialog', { name: '停用发布账号“运营主账号”？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认停用' }));
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '停用发布账号“运营主账号”？' })).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getAllByRole('button', { name: '更多操作：运营主账号' })[0]!);
+    menu = await screen.findByRole('menu', { name: '更多操作：运营主账号' });
+    fireEvent.click(within(menu).getByRole('menuitem', { name: '删除账号' }));
+    dialog = await screen.findByRole('dialog', { name: '删除发布账号“运营主账号”？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+    await waitFor(() => expect(remove).toHaveBeenCalled());
+  });
+
+  it('账号字段冲突与 revision conflict 保留输入，显式 reload 后才接受 canonical', async () => {
+    const currentAccounts: components['schemas']['PlatformAccountList'] = structuredClone(accounts);
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/platform-profiles/{platform_profile_id}') return response(workspaceDetail());
+      if (path === '/api/v1/platform-accounts') return response(currentAccounts);
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    vi.spyOn(api, 'POST').mockResolvedValue({
+      error: { error: {
+        code: 'PLATFORM_ACCOUNT_IDENTIFIER_EXISTS',
+        message: '该平台已存在相同的运营账号标识',
+        details: { errors: [{ loc: ['body', 'account_identifier'], msg: '账号标识已存在' }] },
+        request_id: 'req-account-duplicate',
+      } },
+      response: Response.json({}, { status: 409 }),
+    } as never);
+    vi.spyOn(api, 'PATCH').mockResolvedValue({
+      error: { error: {
+        code: 'REVISION_CONFLICT',
+        message: '发布账号已被其他请求修改',
+        details: {},
+        request_id: 'req-account-conflict',
+      } },
+      response: Response.json({}, { status: 409 }),
+    } as never);
+    renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`);
+
+    await userEvent.click(await screen.findByRole('button', { name: '创建发布账号' }));
+    let dialog = screen.getByRole('dialog', { name: '创建发布账号' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '业务标签' }), '重复账号');
+    const identifier = within(dialog).getByRole('textbox', { name: '内部账号标识' });
+    await userEvent.type(identifier, ' COMMUNITY-MAIN ');
+    await userEvent.click(within(dialog).getByRole('button', { name: '创建账号' }));
+    expect((await within(dialog).findAllByText('账号标识已存在')).length).toBeGreaterThan(0);
+    expect(identifier).toHaveValue(' COMMUNITY-MAIN ');
+    await userEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '创建发布账号' })).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getAllByRole('button', { name: '编辑账号' })[0]!);
+    dialog = screen.getByRole('dialog', { name: '编辑发布账号' });
+    const label = within(dialog).getByRole('textbox', { name: '业务标签' });
+    await userEvent.clear(label);
+    await userEvent.type(label, '未提交名称');
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存账号' }));
+    expect(await within(dialog).findByText(/当前输入已保留/)).toBeInTheDocument();
+    expect(label).toHaveValue('未提交名称');
+
+    currentAccounts.items[0] = { ...currentAccounts.items[0]!, label: '服务端名称', revision: 9 };
+    await userEvent.click(within(dialog).getByRole('button', { name: '重新加载服务端版本' }));
+    await waitFor(() => expect(label).toHaveValue('服务端名称'));
+  });
+
+  it('blocker 与 ENGINEER 无删除 projection 均只按服务端动作展示', async () => {
+    const blocked: components['schemas']['PlatformAccountList'] = {
+      items: [{
+        ...accounts.items[0] as PlatformAccount,
+        available_actions: ['UPDATE', 'DISABLE'],
+        deletion: { blockers: [{ type: 'PUBLICATION_WORK', count: 2 }] },
+      }],
+    };
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/platform-profiles/{platform_profile_id}') return response(workspaceDetail());
+      if (path === '/api/v1/platform-accounts') return response(blocked);
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`, {
+      ...auth,
+      user: { ...adminUser, account_type: 'ENGINEER' },
+      isAdmin: false,
+    });
+    expect(await screen.findByRole('button', { name: '创建发布账号' })).toBeInTheDocument();
+    await screen.findAllByText('运营主账号');
+    await userEvent.click(screen.getAllByRole('button', { name: '更多操作：运营主账号' })[0]!);
+    expect(screen.queryByRole('menuitem', { name: '删除账号' })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('menuitem', { name: '查看删除条件' }));
+    const dialog = await screen.findByRole('dialog', { name: '发布账号暂时不能删除' });
+    expect(within(dialog).getByText(/发布工作：2/)).toBeInTheDocument();
+  });
+
+  it('账号空状态保持页面级创建入口', async () => {
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/platform-profiles/{platform_profile_id}') return response(workspaceDetail());
+      if (path === '/api/v1/platform-accounts') return response({ items: [] });
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`);
+    expect(await screen.findByText(/创建第一个账号/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '创建发布账号' })).toBeInTheDocument();
   });
 });

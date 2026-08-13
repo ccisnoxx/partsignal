@@ -1,18 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
+import type { components } from '@/shared/api/generated/schema';
 import { PlatformRequestError } from './platform.api';
 import type { PlatformProfile } from './platform-list.model';
 import {
   isCanonicalPlatformWorkspaceSearch,
   isPlatformRevisionConflict,
+  mapPlatformAccountFormError,
+  platformAccountFormSchema,
+  platformAccountFormValues,
   platformDetailErrorKind,
   platformOverviewFormSchema,
   platformToGenerationValues,
   platformToOverviewValues,
   platformWorkspaceSearchSchema,
+  resolvePlatformAccountOverflowActions,
+  resolvePlatformAccountPrimaryAction,
+  toPlatformAccountCreate,
+  toPlatformAccountUpdate,
   toPlatformGenerationUpdate,
   toPlatformOverviewUpdate,
 } from './platform-workspace.model';
+
+type PlatformAccount = components['schemas']['PlatformAccount'];
 
 const profile: PlatformProfile = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -44,6 +54,19 @@ const profile: PlatformProfile = {
   available_actions: ['UPDATE', 'DISABLE'],
   deletion: { blockers: [] },
   updated_at: '2026-08-12T00:00:00Z',
+};
+
+const account: PlatformAccount = {
+  id: '00000000-0000-4000-8000-000000000030',
+  platform_profile_id: profile.id,
+  label: '运营主账号',
+  account_identifier: 'community-main',
+  is_active: true,
+  workflow_stage: 'OPERATIONAL',
+  primary_task: 'MANAGE_ACCOUNT',
+  available_actions: ['UPDATE', 'DISABLE', 'DELETE'],
+  deletion: { blockers: [] },
+  revision: 3,
 };
 
 describe('Platform Workspace model', () => {
@@ -100,5 +123,54 @@ describe('Platform Workspace model', () => {
       details: {},
       request_id: 'req-conflict',
     }))).toBe(true);
+  });
+
+  it('Account 表单只映射合同字段并携带当前 revision', () => {
+    const values = platformAccountFormValues(account);
+    expect(platformAccountFormSchema.parse(values)).toEqual(values);
+    expect(toPlatformAccountCreate({ label: ' 新账号 ', accountIdentifier: ' account-new ' }, profile.id)).toEqual({
+      platform_profile_id: profile.id,
+      label: '新账号',
+      account_identifier: 'account-new',
+    });
+    expect(toPlatformAccountUpdate({ label: ' 新标签 ', accountIdentifier: ' updated ' }, account)).toEqual({
+      label: '新标签',
+      account_identifier: 'updated',
+      expected_revision: 3,
+    });
+  });
+
+  it('Account 行动作穷尽消费服务端 projection，不从角色推导', () => {
+    expect(resolvePlatformAccountPrimaryAction(account)).toMatchObject({ command: 'edit-account' });
+    expect(resolvePlatformAccountOverflowActions(account).map((action) => action.command)).toEqual([
+      'disable-account',
+      'delete-account',
+    ]);
+    expect(resolvePlatformAccountPrimaryAction({
+      ...account,
+      workflow_stage: 'PLATFORM_DISABLED',
+      primary_task: 'HANDLE_PLATFORM',
+      available_actions: ['UPDATE', 'DISABLE'],
+      deletion: null,
+    })).toMatchObject({ href: `/settings/platforms/${profile.id}?tab=overview` });
+    expect(() => resolvePlatformAccountOverflowActions({
+      ...account,
+      available_actions: ['UNKNOWN' as never],
+    })).toThrow('Platform Account API 返回未知动作');
+  });
+
+  it('Account normalized unique error 定位内部账号标识字段', () => {
+    expect(mapPlatformAccountFormError(new PlatformRequestError('重复', 409, {
+      code: 'PLATFORM_ACCOUNT_IDENTIFIER_EXISTS',
+      message: '该平台已存在相同的运营账号标识',
+      details: {
+        errors: [{ loc: ['body', 'account_identifier'], msg: '账号标识已存在' }],
+      },
+      request_id: 'req-account-duplicate',
+    }))).toEqual({
+      fields: { accountIdentifier: '账号标识已存在' },
+      formMessage: undefined,
+      requestId: 'req-account-duplicate',
+    });
   });
 });

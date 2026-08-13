@@ -1,37 +1,43 @@
 # 技术设计
 
+## 0. 最终实现状态
+
+本设计已通过两个顺序子 Task 落地：Core 交付 Workspace Shell、actor-aware Detail、Overview、Logo、平台生命周期和 Generation；Accounts 在同一路由与查询所有权上补齐账号 CRUD、状态、删除并发和 blocker。两个子 Task 均已归档并进入 `main`，父 Task 没有独立业务分支或业务代码提交。
+
+最终实现保持本设计的关键边界：首屏复用一个 `PlatformProfileDetail`，Accounts 与 Prompt options 按需加载；权限、action、readiness、blocker 与 revision 由服务端权威投影；Platform/Account mutation 使用精确 query-key invalidation；没有新增通用 Workspace、CRUD、媒体或 Action Registry 框架。
+
 ## 1. 结论摘要
 
-- 现有 `PlatformProfileDetail` 的字段边界基本足以支撑 Workspace Shell 与 Overview，但 runtime 只允许 ADMIN，且固定以 `can_manage=True` 投影；这是 Workspace read 的首要缺口。
-- Detail 内部会顺序读取 Platform、账号聚合、任务引用和动作投影，却尚未建立 `REPEATABLE READ` 快照；作为 Workspace 首屏必须补齐这一现有项目惯例。
-- Detail 缺少平台类型编辑选项。为避免首屏再请求 Platform List 或管理员专用的完整 Platform Type CRUD list，建议在 Detail 中加入稳定的 `platform_type_options: PlatformTypeSummary[]`。
+- `PlatformProfileDetail` 已支撑 Workspace Shell 与 Overview；runtime 允许全部现有认证角色读取，并按 actor 投影管理动作。
+- Detail 在首次查询前建立 `REPEATABLE READ` 快照，以固定查询读取 Platform、账号聚合、任务引用和动作投影。
+- Detail 已加入稳定的 `platform_type_options: PlatformTypeSummary[]`，首屏不再请求 Platform List 或完整 Platform Type CRUD list。
 - Platform update 已是一个锁定 Platform revision 的完整 PATCH；Logo、Prompt bind/unbind 都在该命令中原子更新，不需要新写 endpoint。
 - 现有 Prompt List 不含 Markdown 正文，已是可复用的 reference/options read model；只在管理员编辑 Generation 时按需加载。
-- 现有 Account List 和 action projection 已对当前两个角色正确区分管理能力：两者可 UPDATE/ENABLE/DISABLE，仅 ADMIN 得到 deletion/DELETE。唯一结构性缺口是 DELETE 不携带 revision。
+- Account List 和 action projection 对当前两个角色正确区分管理能力：两者可 UPDATE/ENABLE/DISABLE，仅 ADMIN 得到 deletion/DELETE；DELETE 已要求 `expected_revision`。
 - Logo candidate、上传、绑定、解绑和延迟清理已完整存在；前端只需编排现有生命周期。
-- 完整交付会同时修改 Configuration 和 Publication 两个业务 owner，建议按 Core / Accounts 拆为两个 Task。
+- 完整交付跨越 Configuration 和 Publication 两个业务 owner，已按 Core / Accounts 两个 Task 顺序完成。
 
-## 2. Gap analysis
+## 2. Gap analysis（已关闭）
 
-| 蓝图/要求 | 当前实现 | 判断与最小方案 |
+| 蓝图/要求 | 最终实现 | 状态 |
 |---|---|---|
-| `/settings/platforms/$platformId` | Platform List 只输出 href；route/page 不存在 | 新增一个 canonical file route 和 Configuration domain page |
-| 三个可恢复区域 | 不存在 | `tab=overview|accounts|generation`，默认显式 overview，未知/额外参数 replace |
-| 首屏单 read model | `GET /platform-profiles/{id}` 已返回 profile、account summary、reference summary | 复用并改为 actor-aware；不新增 Workspace endpoint |
-| 全角色只读 Workspace | Detail router 使用 `AdminUser` | 改为 `CurrentUser`，按 actor 传 `can_manage` |
-| 首屏快照一致性 | Detail 由多条查询组成，route 未设置事务隔离级别 | 请求开始、首次查询前设置 `REPEATABLE READ`；不新增 endpoint |
-| Platform Type 编辑选项 | Detail 只有当前 type；Platform List 才有稳定 options | Detail additive 增加 `platform_type_options`，固定批量查询 |
+| `/settings/platforms/$platformId` | canonical file route 与 Configuration Workspace page 已交付 | 已关闭 |
+| 三个可恢复区域 | `tab=overview|accounts|generation` 已由 Router 持有并 canonicalize | 已关闭 |
+| 首屏单 read model | `GET /platform-profiles/{id}` 返回 profile、account/reference summary 与 type options | 已关闭；未新增 Workspace endpoint |
+| 全角色只读 Workspace | Detail 使用 `CurrentUser` 并按 actor 投影 | 已关闭 |
+| 首屏快照一致性 | Detail 在首次查询前设置 `REPEATABLE READ` | 已关闭 |
+| Platform Type 编辑选项 | Detail 已包含稳定 `platform_type_options` | 已关闭 |
 | Platform update | 已有完整 `PlatformProfileUpdate`，含 revision/name/domains/type/prompt/website/logo | 直接复用；Slug 不在 update，保持只读 |
 | readiness、Prompt/账号/引用摘要 | Detail 已具备 | 直接消费服务端字段，不在浏览器推导 |
 | Logo | candidate +通用上传+三态 PATCH+延迟清理已实现 | 复用；只新增 Platform scoped UI，不抽象通用媒体层 |
 | Accounts read/actions | list 按 platform filter；projection 固定批量查询 | tab 按需加载；UI 穷尽 token |
 | Account 权限 | ADMIN/ENGINEER 均可写状态/身份；DELETE 仅 ADMIN | 与真实两角色合同一致，无需新角色模型 |
 | Account create | create 是集合级页面动作，现有两个真实角色均可调用 | 不增加资源 token，不使用 `isAdmin`；平台停用由 POST 最终拒绝 |
-| Account DELETE 并发 | 无 `expected_revision` | required query 参数贯穿 OpenAPI/router/service/V1/V2/tests；锁后先校验 revision |
-| Account blocker/唯一性 | 非终态 PublicationWork 实时阻断；normalized unique constraint 已存在，但唯一冲突缺标准字段位置 | blocker 直接消费 projection；预检/constraint 统一补 `account_identifier` 字段错误 |
+| Account DELETE 并发 | required `expected_revision` 已贯穿 OpenAPI/router/service/V1/V2/tests | 已关闭；锁后先校验 revision |
+| Account blocker/唯一性 | blocker 消费服务端 projection；预检/constraint 共用 `account_identifier` 字段错误 | 已关闭 |
 | Prompt options | `PlatformPromptListItem` 是 reference + 管理 metadata，无 Markdown | ADMIN 在 Generation 编辑时按需复用；不 GET Prompt Detail |
 | 动态 breadcrumb | App Shell 只支持 static route metadata | 保持现有模式：静态“平台工作区”，真实名称在页面 H1；不扩展全局 metadata contract |
-| 响应式账号表 | 无 V2 Account surface | ≥768 使用现有 Table/RowActions；375 使用同源 mobile list，不保留不可操作宽表 |
+| 响应式账号表 | ≥768 使用现有 Table/RowActions；375 使用同源 mobile list | 已关闭 |
 
 ## 3. 权限矩阵
 
@@ -40,7 +46,7 @@
 | 能力 | ADMIN | ENGINEER | 权威来源 |
 |---|---:|---:|---|
 | 读取 Platform List | 是 | 是 | `CurrentUser` + actor-aware list projection |
-| 读取 Workspace Detail | 应为是 | 应为是 | 本 Task 将 Detail 改为 `CurrentUser` |
+| 读取 Workspace Detail | 是 | 是 | `CurrentUser` + actor-aware Detail projection |
 | 更新/启停/删除 Platform | 是 | 否 | Platform `available_actions/deletion` + ADMIN endpoint |
 | 发现/上传/绑定/移除 Logo | 是 | 否 | Platform UPDATE / Logo candidate endpoint；上传 endpoint 接受两角色，但 Platform 写仍 ADMIN |
 | 读取 Accounts tab | 是 | 是 | Account List `CurrentUser` |
@@ -237,7 +243,7 @@ Content/Publication 的跨域失效由 route composition callback 使用各 doma
 
 ## 11. Contract/backend 决定
 
-### 必须修改
+### 已完成
 
 1. `PlatformProfileDetail` additive 增加 `platform_type_options`。
 2. Detail endpoint 从 ADMIN-only 改为 all-authenticated，并按 actor 投影 Platform action/deletion。
@@ -252,9 +258,9 @@ Content/Publication 的跨域失效由 route composition callback 使用各 doma
 - Account create/update/status endpoint 或角色依赖。
 - Prompt Detail/Markdown、Platform Type CRUD、凭据模型。
 
-## 12. 预计修改文件
+## 12. 实际交付边界
 
-以下是审计后的影响面，实施时只保留真实需要的文件。
+实际变更由两个子 Task 分别记录；父 Task 不产生业务文件变更。以下保留最终 owner 边界：
 
 ### Core
 

@@ -2,9 +2,9 @@
 
 ## 1. 背景与目标
 
-Frontend V2 已交付 `/settings/platforms` Platform List，但名称链接指向的
-`/settings/platforms/$platformId` 尚未实现。当前平台详情、发布账号、Prompt 绑定和 Logo
-生命周期分散在既有 API 与 V1 页面中，且平台详情读取仍只允许管理员。
+Frontend V2 已在两个获批子 Task 中交付 `/settings/platforms/$platformId` Platform
+Workspace。Core 统一了平台详情、概览、Logo、平台生命周期和 Prompt 绑定；Accounts 在同一
+Workspace 中补齐发布账号管理闭环。
 
 本需求的最终目标是在一个 canonical Platform Workspace 中统一“平台身份、发布账号、生成配置”三种心智：
 
@@ -23,14 +23,14 @@ Workspace 必须以服务端 read model、action projection 和 revision 为权�
 1. Platform Workspace Core：actor-aware Detail、Workspace Shell、概览、Logo、平台生命周期、生成配置。
 2. Platform Workspace Accounts：账号 CRUD/启停/删除、actor-aware action、删除 revision、PublicationWork blocker。
 
-用户已批准拆为两个连续、可独立 review 的子 Task。当前 Task 作为父规划与最终一致性 owner，不创建业务分支、不直接实施。
+用户已批准并完成两个连续、可独立 review 的子 Task。当前 Task 作为父规划与最终一致性 owner，未创建业务分支，也没有独立业务代码提交。
 
 已批准验收边界：
 
 - `frontend-v2-platform-workspace-core`：交付 canonical route、三个 URL tab、完整概览和生成配置；发布账号区域按需读取并提供只读列表，使三个区域均可恢复、可访问，但不开放账号写动作。
 - `frontend-v2-platform-workspace-accounts`：在同一账号区域补齐 create/update/enable/disable/delete、blocker、revision conflict、移动端动作与账号 mutation cache ownership。
 
-Core 必须完成验证、提交、归档并 fast-forward 合入 `main` 后，Accounts 才能从更新后的 `main` 启动；树关系不能代替子 Task 自身写明的依赖。
+实际交付遵守了顺序 gate：Core 完成验证、提交、归档并 fast-forward 合入 `main` 后，Accounts 才从更新后的 `main` 启动。
 
 ## 3. 功能要求
 
@@ -100,18 +100,18 @@ Core 必须完成验证、提交、归档并 fast-forward 合入 `main` 后，Ac
 
 ## 5. 验收标准
 
-- [ ] Platform List 名称可进入 canonical Workspace，direct URL、refresh、Back、Forward 恢复正确 tab。
-- [ ] 首屏只读取一个 actor-aware、`REPEATABLE READ` 的 Platform Detail/Context，不请求 Platform List 搜索当前行，不产生无条件多接口 waterfall。
-- [ ] Overview、Accounts、Generation 三个区域均使用真实 generated contract 和服务端投影。
-- [ ] ADMIN/ENGINEER 权限差异与服务端 endpoint 一致；403/404/普通错误可恢复。
-- [ ] Platform 表单、Generation 选择和 Account 表单具备 dirty/cancel/save/409 显式 reload 行为。
-- [ ] Platform 生命周期复用 List owner；账号 action mapping 穷尽 typed token。
-- [ ] Logo 已有/缺失/候选/上传/替换/移除使用现有文件生命周期，不接受 SVG，不绑定未确认外部候选。
-- [ ] Account create/update/enable/disable/delete 使用当前 revision；数据库唯一性和 PublicationWork blocker 仍为最终权威。
-- [ ] Mutation 只失效矩阵中有真实消费者的 query 前缀，不清空整个 QueryClient。
-- [ ] 375px 无不可操作宽表；四档宽度无页面根横向溢出。
-- [ ] generated-type strict production fixture 拒绝未声明 API，并审计 console/page/request errors。
-- [ ] 直接相关 contract、spec、Frontend V2 文档与实现一致。
+- [x] Platform List 名称可进入 canonical Workspace，direct URL、refresh、Back、Forward 恢复正确 tab。
+- [x] 首屏只读取一个 actor-aware、`REPEATABLE READ` 的 Platform Detail/Context，不请求 Platform List 搜索当前行，不产生无条件多接口 waterfall。
+- [x] Overview、Accounts、Generation 三个区域均使用真实 generated contract 和服务端投影。
+- [x] ADMIN/ENGINEER 权限差异与服务端 endpoint 一致；403/404/普通错误可恢复。
+- [x] Platform 表单、Generation 选择和 Account 表单具备 dirty/cancel/save/409 显式 reload 行为。
+- [x] Platform 生命周期复用 List owner；账号 action mapping 穷尽 typed token。
+- [x] Logo 已有/缺失/候选/上传/替换/移除使用现有文件生命周期，不接受 SVG，不绑定未确认外部候选。
+- [x] Account create/update/enable/disable/delete 使用当前 revision；数据库唯一性和 PublicationWork blocker 仍为最终权威。
+- [x] Mutation 只失效矩阵中有真实消费者的 query 前缀，不清空整个 QueryClient。
+- [x] 375px 无不可操作宽表；四档宽度无页面根横向溢出。
+- [x] generated-type strict production fixture 拒绝未声明 API，并审计 console/page/request errors。
+- [x] 直接相关 contract、spec、Frontend V2 文档与实现一致。
 
 ## 6. 明确排除
 
@@ -120,8 +120,11 @@ Core 必须完成验证、提交、归档并 fast-forward 合入 `main` 后，Ac
 - 新依赖、Redux、通用跨域 state store、客户端业务状态机、无关 backend/frontend 清理。
 - Phase 6 完整 real-stack E2E、Phase 6 抽象回顾和其他 domain E2E。
 
-## 7. Git 与停止点
+## 7. 最终交付状态
 
-- 当前仅允许规划文件；不得创建/切换分支、修改业务代码、提交、push 或创建 PR。
-- 父 Task 不使用业务分支。Core 候选分支为 `codex/frontend-v2-platform-workspace-core`，Accounts 候选分支为 `codex/frontend-v2-platform-workspace-accounts`。
-- 每个子 Task 的最新规划和唯一分支仍需用户批准；不得因本次拆分批准直接运行 `task.py start`。
+- Core：交付提交 `30ae3f67 feat(frontend-v2): add platform workspace core`，归档提交 `f7887c23`。
+- Accounts：交付提交 `e669a492 feat(frontend-v2): add platform account workspace`，归档提交 `23ff00d8`。
+- 两个子 Task 均已完成各自 Required validation、归档并进入 `main`；验证证据保存在各自归档的 `implement.md`。
+- 父 Task 没有独立业务分支和独立代码提交，只负责拆分、顺序 gate 与最终一致性收口。
+- 本次父 Task 收口不修改业务代码，也不重复运行子 Task 已通过的测试。
+- Phase 6 下一项为 Platform Type subsettings；本 Task 不创建或启动该后续 Task。

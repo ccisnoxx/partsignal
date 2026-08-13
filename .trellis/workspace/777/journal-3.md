@@ -912,3 +912,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 141: 完成 Frontend V2 Platform Workspace 父任务收口
+
+**Date**: 2026-08-13
+**Task**: 完成 Frontend V2 Platform Workspace 父任务收口
+**Branch**: `main`
+
+### Summary
+
+核对 Core 与 Accounts 均已交付、验证、归档并进入 main；更新父任务 PRD、设计和实施记录，归档父任务。父任务无独立业务分支或业务代码提交，Phase 6 下一项为 Platform Type subsettings。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `30ae3f67` | (see git log) |
+| `e669a492` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

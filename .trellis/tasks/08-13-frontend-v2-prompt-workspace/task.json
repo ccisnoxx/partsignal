@@ -1,0 +1,29 @@
+{
+  "id": "frontend-v2-prompt-workspace",
+  "name": "frontend-v2-prompt-workspace",
+  "title": "Frontend V2 Prompt Workspace",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-13",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-14-frontend-v2-prompt-workspace-core",
+    "08-14-frontend-v2-prompt-workspace-preview"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

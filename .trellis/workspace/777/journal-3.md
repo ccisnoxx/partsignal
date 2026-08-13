@@ -319,7 +319,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 交付 `/geo/insights` 单一 read model 页面、URL 筛选、趋势明细、drill-down 与优化 Dialog。
+- 新增 0043 历史平台 UUID 快照迁移，并实现 actor-aware action、锁内最终复算与完整幂等比较。
+- 更新 OpenAPI、数据库合同、Frontend V2 文档、Trellis 规范及严格 E2E fixture。
 
 ### Git Commits
 
@@ -329,7 +331,10 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- `make contract-check`、OpenAPI 双次生成一致性检查通过。
+- Backend unit 45、integration 3、Ruff、mypy 通过。
+- Frontend V2 targeted unit 20、lint、typecheck、build 通过；V1 typecheck 通过。
+- Insights E2E 10、New GEO Observation E2E 14 通过。
 
 ### Status
 
@@ -656,6 +661,39 @@
 | Hash | Message |
 |------|---------|
 | `a3f1c87` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 134: Frontend V2 GEO Insights
+
+**Date**: 2026-08-13
+**Task**: Frontend V2 GEO Insights
+**Branch**: `main`
+
+### Summary
+
+实现 /geo/insights 单一 read model 页面、0043 历史平台身份快照、actor-aware 优化任务与严格 fixture 验证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `661baf3` | (see git log) |
 
 ### Testing
 

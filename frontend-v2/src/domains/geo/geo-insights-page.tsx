@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useForm, useWatch, type UseFormRegisterReturn } from 'react-hook-form';
 
 import { Button, buttonVariants } from '@/design-system/primitives/button';
@@ -13,7 +13,6 @@ import {
   DialogTitle,
 } from '@/design-system/primitives/dialog';
 import { Input } from '@/design-system/primitives/input';
-import { TableShell } from '@/design-system/data-table/table-shell';
 import { contentKeys, contentTaskCreationOptionsQueryOptions } from '@/domains/content/content.api';
 import { productsKeys } from '@/domains/product/product.api';
 import type { components } from '@/shared/api/generated/schema';
@@ -24,24 +23,22 @@ import {
   mapGeoOptimizationError,
 } from './geo.api';
 import {
-  contentInsightHref,
-  coverageInsightHref,
   defaultGeoInsightDates,
-  formatInsightChange,
-  formatInsightRate,
+  formatInsightGeneratedAt,
+  geoInsightPrintHref,
   geoOptimizationTargetSchema,
-  observationListHref,
   toGeoOptimizationCreate,
   type GeoInsightSearch,
   type GeoOptimizationTarget,
   type GeoOptimizationTargetField,
 } from './geo-insights.model';
+import {
+  GeoInsightsReport,
+  type OptimizationContext,
+} from './geo-insights-report';
 
 type GeoInsights = components['schemas']['GeoInsights'];
 type GeoInsightOptimizationAction = components['schemas']['GeoInsightOptimizationAction'];
-type GeoInsightRateTrend = components['schemas']['GeoInsightRateTrend'];
-type GeoInsightContentPerformance = components['schemas']['GeoInsightContentPerformance'];
-type GeoInsightCoverageItem = components['schemas']['GeoInsightCoverageItem'];
 
 type GeoInsightsPageProps = {
   csrfToken: string | null;
@@ -49,20 +46,6 @@ type GeoInsightsPageProps = {
   onSearchChange: (search: GeoInsightSearch) => void;
   search: GeoInsightSearch;
 };
-
-type OptimizationContext = {
-  action: GeoInsightOptimizationAction;
-  initialPlatformId?: string;
-  initialProductId?: string;
-  label: string;
-};
-
-const coverageLabels = {
-  STABLE: '稳定覆盖',
-  OCCASIONAL: '偶尔提及',
-  UNCOVERED: '未覆盖',
-  INSUFFICIENT_DATA: '样本不足',
-} satisfies Record<GeoInsightCoverageItem['status'], string>;
 
 function GeoInsightsPage({
   csrfToken,
@@ -91,12 +74,15 @@ function GeoInsightsPage({
   const data = insights.data;
   return (
     <section className="min-w-0 space-y-8" aria-labelledby="geo-insights-title">
-      <header className="space-y-1">
-        <h1 className="type-page-title" id="geo-insights-title">GEO 洞察</h1>
-        <p className="text-text-secondary">基于当前链尾人工观测与逐篇发布内容关系，定位值得跟进的内容与问题。</p>
-        <p className="text-sm text-text-tertiary">
-          当前周期 {data.period.current.date_from} 至 {data.period.current.date_to} · 生成于 {new Date(data.generated_at).toLocaleString('zh-CN')}
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="type-page-title" id="geo-insights-title">GEO 洞察</h1>
+          <p className="text-text-secondary">基于当前链尾人工观测与逐篇发布内容关系，定位值得跟进的内容与问题。</p>
+          <p className="text-sm text-text-tertiary">
+            当前周期 {data.period.current.date_from} 至 {data.period.current.date_to} · 生成于 {formatInsightGeneratedAt(data.generated_at)}
+          </p>
+        </div>
+        <a className={buttonVariants({ variant: 'outline' })} href={geoInsightPrintHref(search)}>打印报告</a>
       </header>
 
       <InsightsFilters
@@ -113,67 +99,7 @@ function GeoInsightsPage({
         </div>
       )}
 
-      <section aria-labelledby="trend-title" className="space-y-3">
-        <h2 className="type-section-title" id="trend-title">核心趋势</h2>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <TrendCard label="发现率" trend={data.trends.discovery_rate} />
-          <TrendCard label="提及率" trend={data.trends.mention_rate} />
-          <TrendCard label="准确率" trend={data.trends.accuracy_rate} />
-        </div>
-      </section>
-
-      <InsightSection title="平台表现">
-        <TableShell regionLabel="GEO 平台表现">
-          <thead><tr><th>平台</th><th>样本</th><th>发现率</th><th>提及率</th><th>准确率</th><th>操作</th></tr></thead>
-          <tbody>{data.platform_performance.map((item) => (
-            <tr key={item.geo_platform}>
-              <td>{item.geo_platform}</td><td>{item.observation_count}</td>
-              <td>{formatInsightRate(item.discovery_rate)}</td><td>{formatInsightRate(item.mention_rate)}</td><td>{formatInsightRate(item.accuracy_rate)}</td>
-              <td><a className={buttonVariants({ size: 'sm', variant: 'outline' })} href={observationListHref(data.period.current, { geoPlatform: item.geo_platform })}>查看观测</a></td>
-            </tr>
-          ))}</tbody>
-        </TableShell>
-        {data.platform_performance.length === 0 && <EmptyMessage>当前筛选范围没有平台表现数据。</EmptyMessage>}
-      </InsightSection>
-
-      <InsightSection title="内容表现">
-        <ContentTable items={data.content_rankings.best} label="最佳内容" onOptimize={setOptimization} period={data.period.current} />
-        <ContentTable items={data.content_rankings.declining} label="下降内容" onOptimize={setOptimization} period={data.period.current} />
-        <ContentTable items={data.content_rankings.long_unmentioned} label="长期未提及" onOptimize={setOptimization} period={data.period.current} />
-      </InsightSection>
-
-      <InsightSection title="问题覆盖">
-        <p className="text-sm text-text-secondary">
-          稳定 {data.question_coverage.by_status.stable} · 偶尔 {data.question_coverage.by_status.occasional} · 未覆盖 {data.question_coverage.by_status.uncovered} · 样本不足 {data.question_coverage.by_status.insufficient_data}
-        </p>
-        <TableShell regionLabel="问题覆盖矩阵">
-          <thead><tr><th>问题</th><th>GEO 平台</th><th>状态</th><th>样本</th><th>覆盖率</th><th>操作</th></tr></thead>
-          <tbody>{data.question_coverage.matrix.map((item) => (
-            <tr key={`${item.query_topic_id}:${item.geo_platform}`}>
-              <td>{item.canonical_question}</td><td>{item.geo_platform}</td><td>{coverageLabels[item.status]}</td>
-              <td>{item.mentioned_observation_count}/{item.observation_count}</td><td>{formatInsightRate(item.coverage_rate)}</td>
-              <td><CoverageAction item={item} onOptimize={setOptimization} period={data.period.current} /></td>
-            </tr>
-          ))}</tbody>
-        </TableShell>
-        {data.question_coverage.matrix.length === 0 && <EmptyMessage>当前筛选范围没有问题覆盖数据。</EmptyMessage>}
-      </InsightSection>
-
-      <InsightSection title="建议">
-        <div className="grid gap-3 md:grid-cols-2">
-          {data.recommendations.map((item, index) => (
-            <article className="rounded-xl border border-border-subtle p-4" key={`${item.rule_code}:${index}`}>
-              <p className="text-xs font-medium text-text-secondary">{item.priority}</p>
-              <h3 className="font-medium">{item.title}</h3>
-              <p className="mt-2 text-sm text-text-secondary">{item.basis_text}</p>
-              <p className="mt-2 text-xs text-text-tertiary">影响关系：{item.impact_relationship_count}</p>
-            </article>
-          ))}
-        </div>
-        {data.recommendations.length === 0 && <EmptyMessage>当前没有服务端建议。</EmptyMessage>}
-      </InsightSection>
-
-      <DataQuality data={data} />
+      <GeoInsightsReport data={data} onOptimize={setOptimization} variant="screen" />
 
       {optimization && (
         <OptimizationDialog
@@ -230,79 +156,6 @@ function FilterSelect({ label, onChange, options, value }: { label: string; onCh
         <option value="">全部</option>{options.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
       </select>
     </label>
-  );
-}
-
-function TrendCard({ label, trend }: { label: string; trend: GeoInsightRateTrend }) {
-  const drawable = trend.points.map((point, index) => ({ index, value: point.value })).filter((point) => point.value !== null);
-  return (
-    <article className="min-w-0 space-y-3 rounded-xl border border-border-subtle p-4">
-      <div>
-        <h3 className="font-medium">{label}</h3>
-        <p className="text-2xl font-semibold">{formatInsightRate(trend.current)}</p>
-        <p className="text-sm text-text-secondary">当前 {trend.current.numerator}/{trend.current.denominator} · 上一周期 {formatInsightRate(trend.previous)}（{trend.previous.numerator}/{trend.previous.denominator}）</p>
-        <p className="text-sm text-text-secondary">{formatInsightChange(trend)}</p>
-      </div>
-      <svg aria-hidden="true" className="h-24 w-full" preserveAspectRatio="none" viewBox="0 0 100 40">
-        {drawable.map((point, index) => {
-          const previous = drawable[index - 1];
-          if (!previous || point.index !== previous.index + 1) return null;
-          const denominator = Math.max(trend.points.length - 1, 1);
-          return <line key={point.index} stroke="currentColor" strokeWidth="1.5" x1={(previous.index / denominator) * 100} x2={(point.index / denominator) * 100} y1={38 - (previous.value ?? 0) * 36} y2={38 - (point.value ?? 0) * 36} />;
-        })}
-      </svg>
-      <details><summary className="cursor-pointer text-sm">查看精确数据</summary>
-        <TableShell regionLabel={`${label}每日精确数据`}><thead><tr><th>日期</th><th>分子</th><th>分母</th><th>比率</th></tr></thead><tbody>{trend.points.map((point) => <tr key={point.date}><td>{point.date}</td><td>{point.numerator}</td><td>{point.denominator}</td><td>{formatInsightRate(point)}</td></tr>)}</tbody></TableShell>
-      </details>
-    </article>
-  );
-}
-
-function InsightSection({ children, title }: { children: ReactNode; title: string }) {
-  return <section className="min-w-0 space-y-3"><h2 className="type-section-title">{title}</h2>{children}</section>;
-}
-
-function EmptyMessage({ children }: { children: ReactNode }) {
-  return <p className="rounded-xl border border-dashed border-border-subtle p-4 text-sm text-text-secondary">{children}</p>;
-}
-
-function ContentTable({ items, label, onOptimize, period }: { items: readonly GeoInsightContentPerformance[]; label: string; onOptimize: (context: OptimizationContext) => void; period: GeoInsights['period']['current'] }) {
-  return (
-    <div className="space-y-2"><h3 className="font-medium">{label}</h3>
-      <TableShell regionLabel={label}><thead><tr><th>内容</th><th>平台</th><th>样本</th><th>发现率</th><th>提及率</th><th>准确率</th><th>操作</th></tr></thead>
-        <tbody>{items.map((item) => <tr key={item.published_article_id}><td>{item.title}</td><td>{item.content_platform}</td><td>{item.observation_count}</td><td>{formatInsightRate(item.discovery_rate)}</td><td>{formatInsightRate(item.mention_rate)}</td><td>{formatInsightRate(item.accuracy_rate)}</td><td><ContentAction item={item} onOptimize={onOptimize} period={period} /></td></tr>)}</tbody>
-      </TableShell>{items.length === 0 && <EmptyMessage>没有{label}。</EmptyMessage>}
-    </div>
-  );
-}
-
-function ContentAction({ item, onOptimize, period }: { item: GeoInsightContentPerformance; onOptimize: (context: OptimizationContext) => void; period: GeoInsights['period']['current'] }) {
-  const href = contentInsightHref(item, period);
-  if (href) return <a className={buttonVariants({ size: 'sm', variant: 'outline' })} href={href}>查看内容</a>;
-  const action = item.optimization_action;
-  if (!action) throw new Error('GEO Content Performance 缺少服务端优化来源');
-  return <Button onClick={() => onOptimize({ action, initialPlatformId: item.content_platform_id, initialProductId: item.product_id, label: item.title })} size="sm" type="button">创建优化任务</Button>;
-}
-
-function CoverageAction({ item, onOptimize, period }: { item: GeoInsightCoverageItem; onOptimize: (context: OptimizationContext) => void; period: GeoInsights['period']['current'] }) {
-  const href = coverageInsightHref(item, period);
-  if (href) return <a className={buttonVariants({ size: 'sm', variant: 'outline' })} href={href}>{item.primary_task === 'ADD_OBSERVATION' ? '补充观测' : '查看观测'}</a>;
-  const action = item.optimization_action;
-  if (!action) throw new Error('GEO Coverage 缺少服务端优化来源');
-  return <Button onClick={() => onOptimize({ action, label: `${item.canonical_question} · ${item.geo_platform}` })} size="sm" type="button">创建优化任务</Button>;
-}
-
-function DataQuality({ data }: { data: GeoInsights }) {
-  return (
-    <section className="space-y-3 rounded-xl border border-border-subtle p-4" aria-labelledby="data-quality-title">
-      <h2 className="type-section-title" id="data-quality-title">数据质量</h2>
-      <p>有效观测 {data.data_quality.eligible_observation_count}；排除未完成观测 {data.data_quality.excluded_incomplete_observation_count}；排除不完整关系 {data.data_quality.excluded_incomplete_relation_count}。</p>
-      {(data.data_quality.excluded_incomplete_observation_count > 0
-        || data.data_quality.excluded_incomplete_relation_count > 0) && (
-        <p className="text-sm text-warning" role="status">当前结果只包含完整数据；部分观测或关系已被排除。</p>
-      )}
-      {data.data_quality.unavailable_sections.map((item) => <p className="text-sm text-warning" key={item.code}>{item.message}</p>)}
-    </section>
   );
 }
 

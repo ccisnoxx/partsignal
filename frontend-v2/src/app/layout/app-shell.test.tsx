@@ -172,4 +172,16 @@ describe('AppShell', () => {
     await router.navigate({ to: '/products', search: { q: 'router', page: 2 } });
     expect(tableRegion).toHaveFocus();
   });
+
+  it('打印路由保留鉴权上下文但不渲染应用导航与账户外壳', async () => {
+    vi.spyOn(api, 'GET').mockImplementation(() => new Promise(() => undefined));
+    renderRoute('/geo/insights/print?from=2026-07-15&to=2026-08-13', authValue(admin));
+
+    expect(await screen.findByText('正在生成打印报告…')).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveClass('geo-insights-print-shell');
+    expect(screen.queryByRole('navigation', { name: '主导航' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: '面包屑' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /系统管理员/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '跳到主内容' })).not.toBeInTheDocument();
+  });
 });

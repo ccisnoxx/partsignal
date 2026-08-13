@@ -276,4 +276,6 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 
 `tests/e2e/geo-insights.spec.ts` 使用 generated-type strict fixture 验证 canonical 七参数映射、direct/refresh/Back/Forward/reset、loading/error/retry/empty/partial/unavailable、三项趋势精确表格、服务端 drill-down、Recommendation 无伪链接、按需 creation-options、优化 POST header/body、409 不自动重放、响应 ID 导航和四档根无溢出。fixture 未声明 API、page error 与非预期 console error 均失败。
 
+同一 fixture 的 Print read-only gate 只允许 auth 与一个 Insights GET，并复用同一 success/empty payload；测试断言七参数 API 映射、筛选人类标签、全部只读 sections、三个直接可见精确表、无操作/Dialog/普通导航/options/mutation，以及 `window.print()` 调用。Playwright 两个 project 分别量测 375/768 与 1024/1440 根无溢出，并用 Print media 验证控件隐藏、重复表头和 row/短卡片分页规则；不生成 PDF。该证据仍不替代完整 GEO real-stack E2E。
+
 后端 required gate 另覆盖 OpenAPI、历史平台 UUID migration、repeatable-read read model、actor-aware action、Coverage 最终复算和同 key 并发唯一。该 strict fixture 不替代明确排除的完整 GEO real-stack E2E。

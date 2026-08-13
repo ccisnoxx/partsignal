@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   resolveActiveNavId,
+  resolveAppLayout,
   resolveBreadcrumbs,
   visibleNavigationSections,
   type MetadataMatch,
@@ -57,5 +58,13 @@ describe('路由导航元数据', () => {
         'geo-observations',
         'users',
       ]);
+  });
+
+  it('只由最深显式路由切换打印布局', () => {
+    expect(resolveAppLayout(matches(
+      { pathname: '/geo/insights', staticData: {} },
+      { pathname: '/geo/insights/print', staticData: { layout: 'print' } },
+    ))).toBe('print');
+    expect(resolveAppLayout(matches({ pathname: '/geo/insights', staticData: {} }))).toBe('app');
   });
 });

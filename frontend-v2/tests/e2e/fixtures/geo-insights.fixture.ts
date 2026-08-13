@@ -13,6 +13,7 @@ type InsightsController = {
   createRequests: Array<{ body: OptimizationCreate; csrf: string | null; key: string | null }>;
   setInsightsMode: (mode: InsightsMode) => void;
   setCreateMode: (mode: CreateMode) => void;
+  setReadOnly: (readOnly: boolean) => void;
   releaseLoading: () => void;
 };
 
@@ -105,6 +106,7 @@ const test = base.extend<{ insightsApi: InsightsController }>({
   insightsApi: [async ({ page }, use) => {
     let insightsMode: InsightsMode = 'success';
     let createMode: CreateMode = 'success';
+    let readOnly = false;
     let releaseInsights: (() => void) | undefined;
     const insightRequests: URL[] = [];
     const optionRequests: URL[] = [];
@@ -124,6 +126,10 @@ const test = base.extend<{ insightsApi: InsightsController }>({
         if (insightsMode === 'loading') await new Promise<void>((resolve) => { releaseInsights = resolve; });
         if (insightsMode === 'error') return route.fulfill({ status: 409, json: errorEnvelope('GEO_INSIGHT_CONTEXT_INCOMPLETE', '洞察上下文变化', 'req-insights') });
         return route.fulfill({ status: 200, json: insightsMode === 'empty' ? emptyInsights : insights });
+      }
+      if (readOnly) {
+        unexpected.push(`${method} ${url.pathname}`);
+        return route.fulfill({ status: 501, json: errorEnvelope('UNEXPECTED_API', '打印页只能读取 GEO Insights', 'req-unexpected') });
       }
       if (method === 'GET' && url.pathname === '/api/v1/content-tasks/creation-options') {
         optionRequests.push(url); return route.fulfill({ status: 200, json: creationOptions });
@@ -153,6 +159,7 @@ const test = base.extend<{ insightsApi: InsightsController }>({
       releaseLoading: () => { insightsMode = 'success'; releaseInsights?.(); },
       setInsightsMode: (mode) => { insightsMode = mode; },
       setCreateMode: (mode) => { createMode = mode; },
+      setReadOnly: (value) => { readOnly = value; },
     });
     expect(unexpected, 'Insights 页面不得请求未声明 API').toEqual([]);
     expect(runtimeErrors, 'Insights 页面不得产生运行时错误').toEqual([]);

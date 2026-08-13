@@ -1,6 +1,7 @@
 import { expect, ids, insights, test } from './fixtures/geo-insights.fixture';
 
 const canonical = '/geo/insights?from=2026-07-15&to=2026-08-13';
+const printCanonical = `/geo/insights/print?from=2026-07-15&to=2026-08-13&productId=${ids.product}&contentPlatformId=${ids.platform}&geoPlatform=DeepSeek&publishedArticleId=${ids.article}&queryTopicId=${ids.topic}`;
 
 test('direct URL 映射筛选并完整呈现 read model、替代数据和精确 drill-down', async ({ page, insightsApi }, testInfo) => {
   await page.goto(`${canonical}&geoPlatform=DeepSeek`);
@@ -89,4 +90,106 @@ test('stale/409 不自动重放，保留选择并要求显式刷新', async ({ p
   await expect(page.getByLabel('已批准事实版本')).toHaveValue(ids.fact);
   await expect(page.getByRole('button', { name: '创建任务' })).toBeEnabled();
   expect(insightsApi.createRequests).toHaveLength(1);
+});
+
+test('打印报告使用相同查询，只呈现只读数据并调用浏览器打印', async ({ page, insightsApi }, testInfo) => {
+  insightsApi.setReadOnly(true);
+  await page.addInitScript(() => {
+    const state = window as typeof window & { __printCalls: number };
+    state.__printCalls = 0;
+    window.print = () => { state.__printCalls += 1; };
+  });
+  await page.goto(printCanonical);
+
+  await expect(page.getByRole('heading', { name: 'GEO 洞察打印报告' })).toBeVisible();
+  expect(insightsApi.insightRequests).toHaveLength(1);
+  expect(Object.fromEntries(insightsApi.insightRequests[0]!.searchParams)).toEqual({
+    date_from: '2026-07-15',
+    date_to: '2026-08-13',
+    product_id: ids.product,
+    content_platform_id: ids.platform,
+    geo_platform: 'DeepSeek',
+    published_article_id: ids.article,
+    query_topic_id: ids.topic,
+  });
+  await expect(page.getByText('PartSignal PS-LNA')).toBeVisible();
+  await expect(page.getByText('PS-LNA 优化指南 · 官网')).toBeVisible();
+  await expect(page.getByRole('definition').filter({ hasText: '如何选择 LNA？' })).toBeVisible();
+  await expect(page.getByText(insights.analysis_unit, { exact: true })).toBeVisible();
+  await expect(page.getByText(new Date(insights.generated_at).toLocaleString('zh-CN'), { exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: /每日精确数据/ })).toHaveCount(3);
+  await expect(page.getByText('较上一周期 +100%')).toHaveCount(3);
+  await expect(page.locator('summary')).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: '操作' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '创建优化任务' })).toHaveCount(0);
+  await expect(page.locator('form')).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('aside')).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: '主导航' })).toHaveCount(0);
+  await expect(page.getByRole('navigation', { name: '面包屑' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /管理员/ })).toHaveCount(0);
+  await expect(page.getByText('运营工作台')).toHaveCount(0);
+  expect(insightsApi.optionRequests).toHaveLength(0);
+  expect(insightsApi.createRequests).toHaveLength(0);
+
+  await page.getByRole('button', { name: '打印' }).click();
+  expect(await page.evaluate(() => (window as typeof window & { __printCalls: number }).__printCalls)).toBe(1);
+
+  const widths = testInfo.project.name === 'foundation-mobile' ? [375, 768] : [1024, 1440];
+  for (const width of widths) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+
+  await page.emulateMedia({ media: 'print', colorScheme: 'light', reducedMotion: 'reduce' });
+  await expect(page.getByRole('button', { name: '打印' })).toBeHidden();
+  await expect(page.getByRole('region', { name: '发现率每日精确数据' })).toBeVisible();
+  expect(await page.locator('.geo-insights-print-shell').evaluate((element) => getComputedStyle(element).printColorAdjust)).toBe('exact');
+  expect(await page.locator('.geo-insights-report-table thead').first().evaluate((element) => getComputedStyle(element).display)).toBe('table-header-group');
+  expect(await page.locator('.geo-insights-report-table').first().evaluate((element) => {
+    const parent = element.parentElement;
+    return parent !== null && element.scrollWidth <= parent.clientWidth;
+  })).toBe(true);
+  expect(await page.locator('.geo-insights-report-table tbody tr').first().evaluate((element) => getComputedStyle(element).breakInside)).toMatch(/avoid/);
+  expect(await page.locator('.geo-insights-print-card').first().evaluate((element) => getComputedStyle(element).breakInside)).toMatch(/avoid/);
+});
+
+test('Screen 打印入口完整保留七项筛选并支持浏览器历史', async ({ page }) => {
+  const screenCanonical = printCanonical.replace('/print', '');
+  await page.goto(screenCanonical);
+  const printLink = page.getByRole('link', { name: '打印报告' });
+  await expect(printLink).toHaveAttribute('href', printCanonical);
+  await printLink.click();
+  await expect(page).toHaveURL(printCanonical);
+  await page.goBack();
+  await expect(page).toHaveURL(screenCanonical);
+  await page.goForward();
+  await expect(page).toHaveURL(printCanonical);
+});
+
+test('打印报告规范化参数，并区分 loading、error、empty 与 unavailable', async ({ page, insightsApi }) => {
+  insightsApi.setReadOnly(true);
+  insightsApi.setInsightsMode('loading');
+  await page.goto('/geo/insights/print?from=bad&ignored=x');
+  await expect(page).toHaveURL(/\/geo\/insights\/print\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/);
+  await expect(page.getByText('正在生成打印报告…')).toBeVisible();
+  insightsApi.releaseLoading();
+  await expect(page.getByRole('heading', { name: 'GEO 洞察打印报告' })).toBeVisible();
+
+  insightsApi.setInsightsMode('error');
+  await page.reload();
+  await expect(page.getByRole('alert')).toContainText('洞察上下文变化');
+  await page.emulateMedia({ media: 'print' });
+  await expect(page.getByRole('button', { name: '重试' })).toBeHidden();
+  await expect(page.getByRole('button', { name: '清除筛选' })).toBeHidden();
+  await page.emulateMedia({ media: 'screen' });
+  insightsApi.setInsightsMode('success');
+  await page.getByRole('button', { name: '重试' }).click();
+  await expect(page.getByRole('heading', { name: 'GEO 洞察打印报告' })).toBeVisible();
+
+  insightsApi.setInsightsMode('empty');
+  await page.reload();
+  await expect(page.getByText('当前范围没有完整观测')).toBeVisible();
+  await expect(page.getByText('当前没有服务端建议。')).toBeVisible();
+  await expect(page.getByText('暂无数据')).toHaveCount(6);
 });

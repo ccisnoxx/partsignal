@@ -315,8 +315,10 @@ V2 不手写与 OpenAPI 重复的 API DTO 类型；允许独立 form schema、UI
 https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8F%B0%E5%86%85%E5%AE%B9%E8%BF%90%E8%90%A5%E7%B3%BB%E7%BB%9F%E6%96%B9%E6%A1%88%E8%AE%BE%E8%AE%A1.md
 ## 21. GEO Insights read model 与优化任务
 
-- `/geo/insights` 只使用 `GET /api/v1/geo-insights` 绘制筛选选项、趋势、平台、内容、覆盖、建议与数据质量；浏览器不组合 Observation 分页接口计算指标。
+- `/geo/insights` 与 `/geo/insights/print` 只使用同一个 `GET /api/v1/geo-insights` read model 绘制筛选选项、趋势、平台、内容、覆盖、建议与数据质量；浏览器不组合 Observation 分页接口计算指标。
 - canonical URL 固定为 `from/to/productId/contentPlatformId/geoPlatform/publishedArticleId/queryTopicId`，显式映射七个 API query 参数；日期缺失时写回 UTC 当日及前 29 日。
+- Print 复用 Screen 的 URL schema、query key、格式化与报告 rows；只从响应 `filter_options` 读取筛选标签，缺失已选标签时显式失败，不显示 UUID fallback。
+- Print route 保留鉴权与 Query provider，但移除普通 AppShell 导航、账户和面包屑；不读取 creation-options、不发 mutation，打印仅调用浏览器原生 `window.print()`。
 - 内容与覆盖行只消费服务端 `primary_task` 和 required nullable `optimization_action`。前端不根据 section、status、rate 或 Recommendation 推断优化资格。
 - 优化 Dialog 按需复用 Content Task creation-options，完整 source+target body 的相同人工重试复用 `Idempotency-Key`；409/stale 不自动重放，保留输入并要求显式刷新 Insights 与 options。
 - 成功采用 POST 响应 ID 进入 Content Task Detail，并失效 Insights、Content Task list、目标 Product detail；Coverage 来源另失效 Topic list。

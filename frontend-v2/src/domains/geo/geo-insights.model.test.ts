@@ -5,7 +5,9 @@ import {
   coverageInsightHref,
   defaultGeoInsightDates,
   formatInsightChange,
+  formatInsightGeneratedAt,
   formatInsightRate,
+  geoInsightPrintHref,
   geoInsightSearchSchema,
   geoInsightSearchToApiParams,
   isCanonicalGeoInsightSearch,
@@ -37,9 +39,11 @@ describe('GEO Insights URL 与动作模型', () => {
     });
     expect(isCanonicalGeoInsightSearch({ ...search }, search)).toBe(true);
     expect(isCanonicalGeoInsightSearch({ ...search, ignored: 'x' }, search)).toBe(false);
+    expect(geoInsightPrintHref(search)).toBe(`/geo/insights/print?from=2026-07-15&to=2026-08-13&productId=${productId}&contentPlatformId=${platformId}&geoPlatform=DeepSeek&publishedArticleId=${articleId}&queryTopicId=${topicId}`);
   });
 
   it('不把空分母或不可比较变化伪装成 0%', () => {
+    expect(formatInsightGeneratedAt('2026-08-13T00:00:00Z')).toContain('2026');
     expect(formatInsightRate({ numerator: 0, denominator: 0, value: null })).toBe('暂无数据');
     expect(formatInsightRate({ numerator: 0, denominator: 2, value: 0 })).toBe('0%');
     expect(formatInsightChange({ current: { numerator: 1, denominator: 2, value: 0.5 }, previous: { numerator: 0, denominator: 0, value: null }, change: null, points: [] })).toBe('上一周期暂无样本');

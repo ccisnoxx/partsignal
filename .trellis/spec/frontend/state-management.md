@@ -659,16 +659,17 @@ const canCorrect = tail?.observation.available_actions.includes('CORRECT') ?? fa
 
 ---
 
-## GEO Insights 的 URL、单 GET 与优化 Dialog
+## GEO Insights Screen/Print 的 URL、单 GET 与优化 Dialog
 
 ### 1. Scope / Trigger
 
-实现或修改 `/geo/insights` route、筛选、趋势、drill-down、优化 Dialog 或 Coverage→New Observation handoff 时适用。筛选可分享状态、服务端 read model 与未提交 target 表单必须保持三个独立 owner。
+实现或修改 `/geo/insights`、`/geo/insights/print`、筛选、趋势、drill-down、优化 Dialog 或 Coverage→New Observation handoff 时适用。筛选可分享状态、服务端 read model 与未提交 target 表单必须保持三个独立 owner。
 
 ### 2. Signatures
 
 ```text
 URL: /geo/insights?from&to&productId&contentPlatformId&geoPlatform&publishedArticleId&queryTopicId
+Print URL: /geo/insights/print?from&to&productId&contentPlatformId&geoPlatform&publishedArticleId&queryTopicId
 GET: /api/v1/geo-insights?date_from&date_to&product_id&content_platform_id&geo_platform&published_article_id&query_topic_id
 query key: ["geo", "insights", apiParams]
 Dialog options: /api/v1/content-tasks/creation-options?requested_product_id=...
@@ -679,7 +680,11 @@ Dialog POST: /api/v1/geo-insights/optimization-content-tasks
 
 - URL 由 Router 持有七个参数；缺省日期写回 UTC 当日及前 29 日。筛选草稿只在未提交的表单实例内存在，提交后由 URL 重建，不进入全局 Store。
 - 页面 server state 只有 `geoKeys.insight(apiParams)` 的单一 Insights read model；creation-options 只在优化 Dialog 打开时读取，不用于补 Dashboard。
+- Screen/Print 必须共用 URL schema、API 参数映射、query key、rate/change/generated time formatter 和 GEO 域报告 rows；不得创建 Print DTO、query key、客户端指标或第二 read model。
+- Print 保留鉴权与 Query provider，但通过 route metadata 移除普通导航、账户和面包屑；不渲染筛选、drill-down、操作列或 Dialog，不读取 creation-options、不发 mutation。
+- Print 筛选标签只能从同一 Insights 响应 `filter_options` 解析；已选 ID 缺少标签时显式失败，不能显示 UUID 或猜测名称。打印直接调用 `window.print()`。
 - rate 的 `denominator=0/value=null` 显示“暂无数据”；局部 SVG `aria-hidden`，原生 `<details>` 表格提供日期、分子、分母与精确值。
+- Screen 保留原生 `<details>`；Print 直接显示相同三个精确表。375px 只用局部 CSS 把同一 table DOM 卡片化，Print media 保留语义 table、重复表头并避免拆分 row/短卡片。
 - Dialog 保存 `{signature,key}`。完整 source+target body 相同时人工重试复用 key；字段/source 改变、关闭、成功、幂等冲突或 stale 后显式 reload 都废弃旧 key。不得自动 retry POST。
 - 409/stale 保留表单和 request ID、禁用旧上下文；显式同时刷新 Insights/options，只有同一 action 和全部已选 ID 仍存在才允许继续，否则关闭旧 Dialog或保持字段错误。
 - 成功按响应 ID 导航，并精确失效 Insights、Content list、Product detail；Coverage 来源另失效 Topic list。
@@ -692,6 +697,7 @@ Dialog POST: /api/v1/geo-insights/optimization-content-tasks
 | `from > to` 或合法但不存在的 ID | 保留 URL，显示服务端 422/404 与 retry/reset |
 | GET 初始失败 | 整页 error + retry + reset |
 | cached refresh 失败 | 保留旧 read model，显示刷新错误 |
+| Print 已选 ID 不在响应 options | 显式整页错误 + retry + reset，不回退 UUID |
 | denominator 为零 / previous 无样本 | “暂无数据” / “上一周期暂无样本”，不显示 `0%` 变化 |
 | POST 409/stale | 保留三项 target 与 request ID，禁用提交，不自动 replay |
 | reload 后 action 或 option 消失 | 关闭旧 action 或给对应字段错误，继续禁用 |
@@ -699,9 +705,9 @@ Dialog POST: /api/v1/geo-insights/optimization-content-tasks
 
 ### 5. Good / Base / Bad Cases
 
-- Good：direct URL 一次 GET 恢复全部筛选；打开服务端允许的行才加载 options，同 body 人工重试保持 key。
+- Good：Screen/Print direct URL 以同一 query key 一次 GET 恢复全部筛选；Print 只读，Screen 打开服务端允许的行才加载 options，同 body 人工重试保持 key。
 - Base：Recommendation 没有 V2-safe target 时只展示；Coverage 样本不足进入带 Topic+GEO Platform 的 New Observation。
-- Bad：组合多个分页 endpoint 计算 Dashboard、把 null rate 转成零、根据 status 补优化按钮或把筛选复制进全局 Store。
+- Bad：为 Print 创建第二 schema/read model、读取 options/mutation、组合多个分页 endpoint 计算 Dashboard、把 null rate 转成零、根据 status 补优化按钮或把筛选复制进全局 Store。
 
 ### 6. Tests Required
 

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-observations' | 'users';
+type AppLayout = 'app' | 'print';
 
 type NavigationItem = {
   id: NavId;
@@ -42,6 +43,7 @@ declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
     navId?: NavId;
     breadcrumb?: string;
+    layout?: AppLayout;
   }
 }
 
@@ -94,6 +96,14 @@ function resolveBreadcrumbs(matches: readonly MetadataMatch[]): BreadcrumbItem[]
   );
 }
 
+function resolveAppLayout(matches: readonly MetadataMatch[]): AppLayout {
+  for (let index = matches.length - 1; index >= 0; index -= 1) {
+    const layout = matches[index]?.staticData.layout;
+    if (layout) return layout;
+  }
+  return 'app';
+}
+
 function visibleNavigationSections(isAdmin: boolean): NavigationSection[] {
   return navigationSections
     .map((section) => ({
@@ -106,7 +116,8 @@ function visibleNavigationSections(isAdmin: boolean): NavigationSection[] {
 export {
   navigationSections,
   resolveActiveNavId,
+  resolveAppLayout,
   resolveBreadcrumbs,
   visibleNavigationSections,
 };
-export type { BreadcrumbItem, MetadataMatch, NavId, NavigationItem, NavigationSection };
+export type { AppLayout, BreadcrumbItem, MetadataMatch, NavId, NavigationItem, NavigationSection };

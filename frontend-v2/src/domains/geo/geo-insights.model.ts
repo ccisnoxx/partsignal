@@ -94,6 +94,10 @@ function canonicalGeoInsightSearchRecord(search: GeoInsightSearch) {
   }).filter((entry): entry is [string, string] => entry[1] !== undefined));
 }
 
+function geoInsightPrintHref(search: GeoInsightSearch) {
+  return `/geo/insights/print?${new URLSearchParams(canonicalGeoInsightSearchRecord(search)).toString()}`;
+}
+
 function isCanonicalGeoInsightSearch(
   raw: Record<string, unknown>,
   search: GeoInsightSearch,
@@ -121,6 +125,10 @@ function formatInsightChange(trend: GeoInsightRateTrend) {
     signDisplay: 'always',
   }).format(trend.change);
   return `较上一周期 ${value}`;
+}
+
+function formatInsightGeneratedAt(value: string) {
+  return new Date(value).toLocaleString('zh-CN');
 }
 
 function observationListHref(
@@ -236,7 +244,9 @@ export {
   coverageInsightHref,
   defaultGeoInsightDates,
   formatInsightChange,
+  formatInsightGeneratedAt,
   formatInsightRate,
+  geoInsightPrintHref,
   geoInsightSearchSchema,
   geoInsightSearchToApiParams,
   geoOptimizationTargetSchema,

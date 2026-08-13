@@ -429,7 +429,9 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-geo-topics` 已注册 `/geo/topics`：保留旧完整 Query Topic 列表供 V1、New Observation 与 Correction Workspace 使用，新增窄 `list-items` read model 负责服务端搜索、排序、分页、三类批量业务引用和 actor-aware actions。固定五列 Table 支持 URL state、开始观测 handoff、短 Dialog 创建/编辑、revision conflict 显式 reload、服务端允许时删除和 canonical 引用筛选链接；strict generated-type fixture 覆盖状态、键盘焦点及四档宽度。
 
-`frontend-v2-geo-insights` 已注册 `/geo/insights`：一个 repeatable-read read model 提供七参数筛选、三项趋势、平台/内容/覆盖、建议与数据质量；actor-aware action source 驱动按需优化 Dialog。PublicationWork 冻结平台 UUID/名称保证平台删除后的历史筛选；局部 SVG + 精确表格替代图表依赖。Coverage 可 handoff Topic+GEO Platform 到 New Observation。Print、完整 GEO real-stack 闭环和抽象回顾仍未实现，Phase 5 退出条件继续为 `NOT_MET`。
+`frontend-v2-geo-insights` 已注册 `/geo/insights`：一个 repeatable-read read model 提供七参数筛选、三项趋势、平台/内容/覆盖、建议与数据质量；actor-aware action source 驱动按需优化 Dialog。PublicationWork 冻结平台 UUID/名称保证平台删除后的历史筛选；局部 SVG + 精确表格替代图表依赖。Coverage 可 handoff Topic+GEO Platform 到 New Observation。
+
+`frontend-v2-geo-insights-print` 已注册 `/geo/insights/print`：Screen/Print 共用七参数 URL、query key、单 GET read model、趋势格式化和 GEO 域报告体；Print 从同一响应解析筛选标签，移除普通 AppShell 与全部筛选、drill-down、优化 Dialog、creation-options 和 mutation，仅保留原生浏览器打印。局部响应式表格在 375px 卡片化，768/1024/1440 保持语义 table，Print media 重复表头并避免拆分行/短卡片。完整 GEO real-stack 闭环和抽象回顾仍未实现，Phase 5 退出条件继续为 `NOT_MET`。
 
 退出条件：Correction append-only；Topic 删除能显示业务引用；Insights filter 可通过 URL 恢复；print 与 screen 使用同一 read model；375px 不出现不可用的宽表。
 

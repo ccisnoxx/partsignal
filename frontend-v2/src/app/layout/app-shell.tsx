@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { AuthContextValue } from '@/app/auth/auth-provider';
 import {
   resolveActiveNavId,
+  resolveAppLayout,
   resolveBreadcrumbs,
   visibleNavigationSections,
   type BreadcrumbItem,
@@ -44,10 +45,24 @@ function AppShell({ auth, children }: AppShellProps) {
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const activeNavId = resolveActiveNavId(matches);
   const breadcrumbs = resolveBreadcrumbs(matches);
+  const layout = resolveAppLayout(matches);
 
   useEffect(() => {
     mainRef.current?.focus({ preventScroll: true });
   }, [pathname]);
+
+  if (layout === 'print') {
+    return (
+      <main
+        className="geo-insights-print-shell min-h-screen bg-surface-panel p-3 text-text-primary outline-none sm:p-5"
+        id="main-content"
+        ref={mainRef}
+        tabIndex={-1}
+      >
+        <div className="mx-auto max-w-[70rem]">{children}</div>
+      </main>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface-app text-text-primary lg:grid lg:grid-cols-[13rem_minmax(0,1fr)]">

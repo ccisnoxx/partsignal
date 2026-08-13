@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { geoInsightsQueryOptions } from './geo.api';
+import { GeoInsightsPrintPage } from './geo-insights-print-page';
 import { GeoInsightsPage } from './geo-insights-page';
 
 const articleId = '10000000-0000-4000-8000-000000000001';
@@ -64,6 +66,7 @@ describe('GeoInsightsPage', () => {
     expect(await screen.findByRole('heading', { name: 'GEO 洞察' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'GEO 平台表现' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: '问题覆盖矩阵' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '打印报告' })).toHaveAttribute('href', '/geo/insights/print?from=2026-07-15&to=2026-08-13');
     expect(screen.getByText('提及率下降')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '优先优化内容' })).not.toBeInTheDocument();
     expect(screen.getAllByText('较上一周期 +100%')).toHaveLength(3);
@@ -74,5 +77,50 @@ describe('GeoInsightsPage', () => {
     await userEvent.selectOptions(screen.getByLabelText('GEO 平台'), 'DeepSeek');
     await userEvent.click(screen.getByRole('button', { name: '应用筛选' }));
     expect(onSearchChange).toHaveBeenCalledWith({ from: '2026-07-15', to: '2026-08-13', geoPlatform: 'DeepSeek' });
+  });
+
+  it('打印页复用同一 read model，但只呈现带标签的只读报告', async () => {
+    const get = vi.spyOn(api, 'GET').mockResolvedValue({ data: insights, response: Response.json(insights) } as never);
+    const print = vi.spyOn(window, 'print').mockImplementation(() => undefined);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><GeoInsightsPrintPage onSearchChange={vi.fn()} search={{ from: '2026-07-15', to: '2026-08-13', productId, contentPlatformId: platformId, geoPlatform: 'DeepSeek', publishedArticleId: articleId, queryTopicId: topicId }} /></QueryClientProvider>);
+
+    expect(await screen.findByRole('heading', { name: 'GEO 洞察打印报告' })).toBeInTheDocument();
+    expect(screen.getByText('PartSignal PS-LNA')).toBeInTheDocument();
+    expect(screen.getAllByText('PS-LNA 优化指南 · 官网')).toHaveLength(1);
+    expect(screen.getByRole('region', { name: '发现率每日精确数据' })).toBeInTheDocument();
+    expect(screen.queryByText('查看精确数据')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '创建优化任务' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /查看|补充/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: '操作' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '打印' }));
+    expect(print).toHaveBeenCalledOnce();
+    expect(get).toHaveBeenCalledOnce();
+  });
+
+  it('打印筛选缺少服务端标签时显式失败并允许清除筛选', async () => {
+    const onSearchChange = vi.fn();
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: { ...insights, filter_options: { ...insights.filter_options, products: [] } },
+      response: Response.json(insights),
+    } as never);
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><GeoInsightsPrintPage onSearchChange={onSearchChange} search={{ from: '2026-07-15', to: '2026-08-13', productId }} /></QueryClientProvider>);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('缺少所选产品的服务端标签');
+    await userEvent.click(screen.getByRole('button', { name: '清除筛选' }));
+    expect(onSearchChange).toHaveBeenCalledWith({ from: expect.any(String), to: expect.any(String) });
+  });
+
+  it('打印报告刷新失败时保留上一次成功快照', async () => {
+    const search = { from: '2026-07-15', to: '2026-08-13' };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const options = geoInsightsQueryOptions(search);
+    client.setQueryData(options.queryKey, insights);
+    vi.spyOn(api, 'GET').mockRejectedValue(new Error('刷新错误'));
+    render(<QueryClientProvider client={client}><GeoInsightsPrintPage onSearchChange={vi.fn()} search={search} /></QueryClientProvider>);
+
+    expect(await screen.findByRole('heading', { name: 'GEO 洞察打印报告' })).toBeInTheDocument();
+    await client.refetchQueries({ queryKey: options.queryKey });
+    expect(await screen.findByRole('alert')).toHaveTextContent('刷新失败，当前仍显示上一次成功快照。刷新错误');
+    expect(screen.getByText('提及率下降')).toBeInTheDocument();
   });
 });

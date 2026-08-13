@@ -846,3 +846,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 139: 完成 Frontend V2 Platform Workspace Core
+
+**Date**: 2026-08-13
+**Task**: 完成 Frontend V2 Platform Workspace Core
+**Branch**: `codex/frontend-v2-platform-workspace-core`
+
+### Summary
+
+交付 actor-aware Platform Workspace Detail、Overview 与 Logo、只读 Accounts、Generation 绑定、精确缓存失效及定向回归；Core 已归档，Accounts 保持 planning。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `30ae3f6` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

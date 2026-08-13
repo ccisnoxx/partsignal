@@ -2597,6 +2597,11 @@ export interface components {
         PlatformProfileStatus: "ENABLED" | "DISABLED";
         /** @enum {string} */
         PlatformConfigurationStatus: "COMPLETE" | "INCOMPLETE";
+        /**
+         * @description 平台 Prompt 与启用发布账号共同决定的列表就绪状态
+         * @enum {string}
+         */
+        PlatformReadinessStatus: "COMPLETE" | "MISSING_PROMPT" | "MISSING_ACCOUNT";
         PlatformTypeSummary: {
             /** Format: uuid */
             id: string;
@@ -2628,11 +2633,15 @@ export interface components {
             platform_prompt: components["schemas"]["PlatformPromptReference"] | null;
             /** @description 当前具体平台已绑定 Prompt，可用于系统 AI 生成 */
             configuration_complete: boolean;
+            /** @description 当前平台的全部发布账号数，包含启用与停用账号 */
             platform_account_count: number;
+            /** @description 当前平台可用于发布的启用账号数 */
+            enabled_platform_account_count: number;
+            readiness_status: components["schemas"]["PlatformReadinessStatus"];
             /** @enum {string} */
             workflow_stage: "DISABLED" | "GENERATION_UNCONFIGURED" | "OPERATIONAL";
-            /** @enum {string} */
-            primary_task: "ENABLE_PLATFORM" | "CONFIGURE_GENERATION" | "VIEW_PLATFORM_OPERATION";
+            /** @description 当前用户无平台管理权限时为 null */
+            primary_task: ("ENABLE_PLATFORM" | "CONFIGURE_GENERATION" | "VIEW_PLATFORM_OPERATION") | null;
             available_actions: ("UPDATE" | "ENABLE" | "DISABLE" | "DELETE")[];
             deletion: components["schemas"]["DeletionProjection"] | null;
             /**
@@ -2646,6 +2655,9 @@ export interface components {
             enabled_total: number;
             missing_prompt_total: number;
             configuration_complete_total: number;
+            readiness_complete_total: number;
+            /** @description 已有 Prompt 但没有启用发布账号的平台数 */
+            missing_account_total: number;
         };
         PlatformProfileList: {
             items: components["schemas"]["PlatformProfile"][];
@@ -2655,6 +2667,8 @@ export interface components {
             /** @description 应用当前筛选后的平台总数 */
             total: number;
             summary: components["schemas"]["PlatformProfileSummary"];
+            /** @description 当前用户可读取的全部平台类型选项，按名称和 ID 稳定排序 */
+            platform_type_options: components["schemas"]["PlatformTypeSummary"][];
         };
         PlatformAccountSummary: {
             total: number;
@@ -6318,6 +6332,8 @@ export interface operations {
                 platform_type_id?: string;
                 status?: components["schemas"]["PlatformProfileStatus"];
                 configuration_status?: components["schemas"]["PlatformConfigurationStatus"];
+                /** @description 按 Prompt 与启用发布账号共同决定的互斥就绪状态筛选 */
+                readiness_status?: components["schemas"]["PlatformReadinessStatus"];
                 /** @description 与 page_size 同时提供时启用服务端分页；两者都省略时返回完整参考集合 */
                 page?: number;
                 /** @description 与 page 同时提供时启用服务端分页 */
@@ -6460,7 +6476,9 @@ export interface operations {
     };
     deletePlatformProfile: {
         parameters: {
-            query?: never;
+            query: {
+                expected_revision: number;
+            };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };
@@ -6471,7 +6489,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 已删除未被内容任务或平台账号引用的平台 */
+            /** @description 已删除停用且没有开放内容任务或非终态发布工作的具体平台；平台账号随聚合清理 */
             204: {
                 headers: {
                     [name: string]: unknown;

@@ -322,3 +322,10 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - 内容与覆盖行只消费服务端 `primary_task` 和 required nullable `optimization_action`。前端不根据 section、status、rate 或 Recommendation 推断优化资格。
 - 优化 Dialog 按需复用 Content Task creation-options，完整 source+target body 的相同人工重试复用 `Idempotency-Key`；409/stale 不自动重放，保留输入并要求显式刷新 Insights 与 options。
 - 成功采用 POST 响应 ID 进入 Content Task Detail，并失效 Insights、Content Task list、目标 Product detail；Coverage 来源另失效 Topic list。
+
+## 22. Platform List readiness 与管理命令
+
+- `/settings/platforms` 继续使用 `GET /api/v1/platform-profiles`。显式 `page/page_size` 启用服务端搜索、类型/启停/readiness 筛选和分页；两者都省略时保留既有完整参考集合语义。
+- `configuration_complete` 与 `configuration_status` 只表达是否绑定 Prompt。独立 `readiness_status` 按“缺 Prompt优先；否则零启用账号为缺账号；其余完整”投影；`enabled_platform_account_count` 才是“N 个可用”的权威数量，`platform_account_count` 继续表示全部账号。
+- 同一响应返回不受当前筛选影响的 readiness summary 和按名称、ID 稳定排序的 `platform_type_options`。普通已认证用户获得 `primary_task=null`、空 actions 与 `deletion=null`；浏览器不得通过管理员 Platform Type endpoint 或当前页反推选项与权限。
+- ENABLE、DISABLE 与 DELETE 都提交当前行 revision；DELETE 使用 required `expected_revision` query。409 只提示并刷新 canonical list，不自动重放。服务端在行锁内重新校验 revision、目标状态、权限与实时 blocker。

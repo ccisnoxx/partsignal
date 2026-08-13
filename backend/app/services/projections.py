@@ -648,9 +648,13 @@ def platform_profiles_out(
         for item in db.scalars(select(PlatformType).where(PlatformType.id.in_(platform_type_ids)))
     }
     account_counts = {
-        profile_id: int(count)
-        for profile_id, count in db.execute(
-            select(PlatformAccount.platform_profile_id, func.count(PlatformAccount.id))
+        profile_id: (int(total), int(enabled))
+        for profile_id, total, enabled in db.execute(
+            select(
+                PlatformAccount.platform_profile_id,
+                func.count(PlatformAccount.id),
+                func.count(PlatformAccount.id).filter(PlatformAccount.is_active.is_(True)),
+            )
             .where(PlatformAccount.platform_profile_id.in_(profile_ids))
             .group_by(PlatformAccount.platform_profile_id)
         ).tuples()
@@ -739,15 +743,29 @@ def platform_profiles_out(
                     )
                 ),
                 "primary_task": (
-                    "ENABLE_PLATFORM"
-                    if not profile.is_active
+                    (
+                        "ENABLE_PLATFORM"
+                        if not profile.is_active
+                        else (
+                            "VIEW_PLATFORM_OPERATION"
+                            if profile.platform_prompt_id is not None
+                            else "CONFIGURE_GENERATION"
+                        )
+                    )
+                    if can_manage
+                    else None
+                ),
+                "platform_account_count": account_counts.get(profile.id, (0, 0))[0],
+                "enabled_platform_account_count": account_counts.get(profile.id, (0, 0))[1],
+                "readiness_status": (
+                    "MISSING_PROMPT"
+                    if profile.platform_prompt_id is None
                     else (
-                        "VIEW_PLATFORM_OPERATION"
-                        if profile.platform_prompt_id is not None
-                        else "CONFIGURE_GENERATION"
+                        "COMPLETE"
+                        if account_counts.get(profile.id, (0, 0))[1] > 0
+                        else "MISSING_ACCOUNT"
                     )
                 ),
-                "platform_account_count": account_counts.get(profile.id, 0),
                 "deletion": (
                     {
                         "blockers": [

@@ -257,6 +257,10 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 
 `frontend-v2-geo-abstraction-review` 用最小 frontend-only 回归关闭 route-valid 大写 UUID、GEO mutation 缓存消费者遗漏和输入 primitive 漂移。targeted Vitest 覆盖 Detail identity、Observation 删除 consumers、Correction consumers、Insights Select 与 Textarea primitive，共 `6 files / 36 tests`；`geo-insights.spec.ts` 在 mobile/desktop 两个 project 上 `16 passed`，证明 Base UI Select 的筛选、Optimization target、stale 保留、URL、打印与四档布局仍成立。OpenAPI generated check、lint、typecheck 和 production build 通过；任务未改变后端、数据库、OpenAPI、上传、append-only command 或真实栈 orchestration，因此 13.10 的 V2 `12 passed` 与 V1 Trusted Types `7 passed` 继续作为 Phase 5 连续业务证据，不机械重跑。
 
+### 13.12 Platform List 页面验收
+
+`tests/e2e/platform-list.spec.ts` 使用独立 generated-type `platforms.fixture.ts`，只允许认证、CSRF、PlatformProfile list 和服务端投影允许的 enable/disable/delete；未声明 API 与浏览器运行时错误在 teardown 失败。contract/backend tests 覆盖 readiness 优先级、可用账号聚合、筛选/分页/稳定排序、全局 summary/type options、ADMIN/ENGINEER 投影、固定查询次数、同态状态拒绝与 DELETE stale revision。model/component/production-artifact tests 覆盖 canonical URL、七列、三态与缺失值、loading/empty/error/stale/越界页、Primary/overflow/blocker/焦点/409、refresh/Back/Forward、canonical Workspace handoff，以及 375/768/1024/1440 页面根无横向溢出。该 fixture 不替代 Phase 6 后续完整真实栈 E2E。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

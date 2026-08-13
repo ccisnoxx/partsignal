@@ -208,6 +208,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 - 决定：375px Screen media 只以 CSS `data-label` 将同一语义 table 卡片化；Print media 保留 table DOM、重复表头并控制 row/短卡片分页，不引入 PDF 服务、Puppeteer 或全局 `@page`。
 - 边界：不为 Recommendation 猜测 V2 链接，不把 strict fixture 宣称为完整 real-stack E2E。
 
+## ADR-035：Platform List 扩展既有双模式 collection，并分离 readiness
+
+**Decision**：`/settings/platforms` 继续消费 `GET /api/v1/platform-profiles`，显式分页时完成服务端搜索、类型/状态/readiness 筛选；省略分页时保留 V1 与 Content options 的完整参考集合语义。不新增 V2 endpoint、客户端 DTO、数据库列或 migration。
+
+**Read model ownership**：旧 `configuration_*` 保持 Prompt-only 语义；独立 `readiness_status` 以缺 Prompt、缺启用账号、完整三态表达列表就绪度。账号 total/enabled 在同一次批量查询中聚合，summary 不受当前筛选影响，类型 options 由同一响应稳定提供。普通用户的 Primary/actions/deletion 由服务端归零，浏览器不推导权限或业务状态。
+
+**Mutation boundary**：ENABLE/DISABLE/DELETE 都使用 canonical row revision，DELETE 将 `expected_revision` 收紧为 required query，并仅同步 V1 既有直接调用。409 刷新列表但不自动重放；行锁内 revision、目标状态、权限和实时 blocker 仍由服务端最终裁决。Platform 名称和导航动作只输出后续 Workspace 的 canonical href，本 Task 不创建占位 route。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

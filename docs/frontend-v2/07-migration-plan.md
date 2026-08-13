@@ -443,6 +443,8 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 依次实现 Platform List、Platform Workspace、Platform Type subsettings、Prompt Workspace、AI Channel List、AI Channel Workspace、E2E 和抽象回顾。
 
+`frontend-v2-platform-list` 已交付 Phase 6 的第一个 slice：注册所有已认证用户可见的 `/settings/platforms` 与导航入口，复用并扩展既有 PlatformProfile collection read model，提供服务端 readiness 三态、可用账号数、全局摘要、类型 options、actor-aware actions 和 revision mutation。固定七列表格支持 canonical URL 搜索/筛选/分页、完整状态与四档响应式；Platform Workspace、类型/账号/Prompt/AI 管理与完整真实栈 E2E 仍由后续 Task 完成。
+
 退出条件：平台与账号形成统一心智；Platform Type 不占 Sidebar；API key/secret 不出现在列表和日志；Prompt dirty/revision 完整；AI table action 统一。
 
 ## 12. Phase 7 — System

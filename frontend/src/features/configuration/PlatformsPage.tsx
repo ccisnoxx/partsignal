@@ -72,7 +72,7 @@ type PlatformBrandingFormValues = {
 };
 type PlatformCreateFormValues = PlatformBrandingFormValues & { slug: string };
 type PlatformUpdateFormValues = PlatformBrandingFormValues & { expected_revision: number };
-const platformTaskLabels: Record<PlatformProfile['primary_task'], string> = {
+const platformTaskLabels: Record<NonNullable<PlatformProfile['primary_task']>, string> = {
   ENABLE_PLATFORM: '重新启用',
   CONFIGURE_GENERATION: '配置系统生成',
   VIEW_PLATFORM_OPERATION: '查看平台运营',
@@ -224,7 +224,7 @@ export function PlatformsPage() {
   });
   const removeProfile = useMutation({
     mutationFn: async (profile: PlatformProfile) => ensureSuccess(await api.DELETE('/api/v1/platform-profiles/{platform_profile_id}', {
-      params: { path: { platform_profile_id: profile.id }, header: csrfHeader() },
+      params: { path: { platform_profile_id: profile.id }, query: { expected_revision: profile.revision }, header: csrfHeader() },
     })),
     onSuccess: async (_, profile) => {
       message.success('平台已删除');
@@ -392,7 +392,7 @@ export function PlatformsPage() {
                 { title: '当前 Prompt', width: 160, ellipsis: true, render: (_, profile) => profile.platform_prompt ? <TableCellText text={profile.platform_prompt.name} /> : <StatusTag compact status="PROMPT_MISSING" /> },
                 { title: '发布账号数量', dataIndex: 'platform_account_count', width: 86 },
                 { title: '更新时间', dataIndex: 'updated_at', width: 124, render: (value: string | null) => value ? <time dateTime={value}>{dateTimeFormatter.format(new Date(value))}</time> : '—' },
-                { title: '操作', fixed: 'right', width: 180, render: (_, profile) => <Space size={4}><Button data-platform-view={profile.id} type="primary" size="small" onClick={(event) => profile.primary_task === 'ENABLE_PLATFORM' ? confirmToggle(profile, restoreFocus) : openDetail(profile.id, event.currentTarget)}>{platformTaskLabels[profile.primary_task]}</Button>{rowMenu(profile).items?.length ? <Dropdown trigger={['click']} menu={rowMenu(profile)}><Tooltip title={`更多操作：${profile.name}`}><Button {...focusReturnTargetProps} type="text" size="small" aria-label={`更多操作：${profile.name}`} icon={<EllipsisOutlined />} loading={(toggleProfile.isPending || removeProfile.isPending) && (toggleProfile.variables?.id === profile.id || removeProfile.variables?.id === profile.id)} /></Tooltip></Dropdown> : null}</Space> },
+                { title: '操作', fixed: 'right', width: 180, render: (_, profile) => <Space size={4}>{profile.primary_task ? <Button data-platform-view={profile.id} type="primary" size="small" onClick={(event) => profile.primary_task === 'ENABLE_PLATFORM' ? confirmToggle(profile, restoreFocus) : openDetail(profile.id, event.currentTarget)}>{platformTaskLabels[profile.primary_task]}</Button> : null}{rowMenu(profile).items?.length ? <Dropdown trigger={['click']} menu={rowMenu(profile)}><Tooltip title={`更多操作：${profile.name}`}><Button {...focusReturnTargetProps} type="text" size="small" aria-label={`更多操作：${profile.name}`} icon={<EllipsisOutlined />} loading={(toggleProfile.isPending || removeProfile.isPending) && (toggleProfile.variables?.id === profile.id || removeProfile.variables?.id === profile.id)} /></Tooltip></Dropdown> : null}</Space> },
               ]}
             />
           </TableRegion>}

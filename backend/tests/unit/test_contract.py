@@ -160,6 +160,49 @@ def test_query_topic_list_contract_preserves_full_list_and_adds_v2_read_model() 
         assert variants["uniqueItems"] is True
 
 
+def test_platform_list_contract_exposes_readiness_options_and_delete_revision() -> None:
+    """平台列表由服务端投影就绪度，删除必须提交 canonical revision。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    schemas = document["components"]["schemas"]
+    operation = paths["/api/v1/platform-profiles"]["get"]
+
+    assert [parameter["name"] for parameter in operation["parameters"]] == [
+        "q",
+        "platform_type_id",
+        "status",
+        "configuration_status",
+        "readiness_status",
+        "page",
+        "page_size",
+    ]
+    assert schemas["PlatformReadinessStatus"]["enum"] == [
+        "COMPLETE",
+        "MISSING_PROMPT",
+        "MISSING_ACCOUNT",
+    ]
+    assert {
+        "enabled_platform_account_count",
+        "readiness_status",
+        "primary_task",
+    } <= set(schemas["PlatformProfile"]["required"])
+    assert schemas["PlatformProfileList"]["properties"]["platform_type_options"] == {
+        "type": "array",
+        "description": "当前用户可读取的全部平台类型选项，按名称和 ID 稳定排序",
+        "items": {"$ref": "#/components/schemas/PlatformTypeSummary"},
+    }
+    delete_parameters = paths["/api/v1/platform-profiles/{platform_profile_id}"]["delete"][
+        "parameters"
+    ]
+    assert delete_parameters[1] == {
+        "name": "expected_revision",
+        "in": "query",
+        "required": True,
+        "schema": {"type": "integer", "minimum": 0},
+    }
+
+
 def test_geo_observation_detail_contract_is_one_readonly_generated_union() -> None:
     """V2 Detail 一次返回两类完整事实，基础 GeoObservation 合同保持不变。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"

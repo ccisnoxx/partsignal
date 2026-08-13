@@ -102,8 +102,8 @@ const unusedPlatformPrompt = {
   bound_platforms: [],
 };
 const platforms = [
-  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: null, logo: null, revision: 0, is_active: false, platform_prompt: null, configuration_complete: false, platform_account_count: 0, workflow_stage: 'DISABLED' as const, primary_task: 'ENABLE_PLATFORM' as const, available_actions: ['UPDATE', 'ENABLE', 'DELETE'] as const, deletion: { blockers: [] }, updated_at: null },
-  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, workflow_stage: 'OPERATIONAL' as const, primary_task: 'VIEW_PLATFORM_OPERATION' as const, available_actions: ['UPDATE', 'DISABLE'] as const, deletion: { blockers: [{ type: 'CONTENT_TASK' as const, count: 3 }] }, updated_at: channel.updated_at },
+  { id: 'profile-empty', name: '待配置平台', slug: 'pending-platform', allowed_domains: ['pending.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: null, logo: null, revision: 0, is_active: false, platform_prompt: null, configuration_complete: false, platform_account_count: 0, enabled_platform_account_count: 0, readiness_status: 'MISSING_PROMPT' as const, workflow_stage: 'DISABLED' as const, primary_task: 'ENABLE_PLATFORM' as const, available_actions: ['UPDATE', 'ENABLE', 'DELETE'] as const, deletion: { blockers: [] }, updated_at: null },
+  { id: 'profile-ready', name: '工程师社区', slug: 'engineer-community', allowed_domains: ['community.example.invalid'], platform_type_id: platformType.id, platform_type: { id: platformType.id, name: platformType.name, slug: platformType.slug }, website_url: 'https://community.example.invalid/', logo: { source: 'EXTERNAL' as const, url: 'https://cdn.example.invalid/community.png' }, revision: 1, is_active: true, platform_prompt: { id: platformPrompt.id, name: platformPrompt.name, revision: platformPrompt.revision, updated_at: platformPrompt.updated_at }, configuration_complete: true, platform_account_count: 2, enabled_platform_account_count: 2, readiness_status: 'COMPLETE' as const, workflow_stage: 'OPERATIONAL' as const, primary_task: 'VIEW_PLATFORM_OPERATION' as const, available_actions: ['UPDATE', 'DISABLE'] as const, deletion: { blockers: [{ type: 'CONTENT_TASK' as const, count: 3 }] }, updated_at: channel.updated_at },
 ];
 const humanizationPrompt = { template_markdown: '保持事实，只改善表达。', available_actions: ['UPDATE'] as const, revision: 1, updated_by: 'user-1', created_at: channel.created_at, updated_at: channel.updated_at };
 let channelItems = [channelSummary];
@@ -180,7 +180,7 @@ beforeEach(() => {
     if (path === '/api/v1/ai-channels/{channel_id}/audit-logs') return result({ items: [{ id: 'audit-1', actor_id: 'user-1', actor: { id: 'user-1', display_name: '系统管理员', account_type: 'ADMIN' }, business_module: 'CONFIGURATION', action: 'ai_model.tested', target_type: 'AIModel', target_id: model.id, outcome: 'SUCCESS', change_summary: { test_status: 'PASSED' }, request_id: 'request-1', created_at: channel.updated_at }], page: 1, page_size: 20, total: 1 });
     if (path === '/api/v1/users') return result({ items: [{ id: 'user-1', username: 'admin', display_name: '系统管理员', account_type: 'ADMIN', is_active: true, must_change_password: false, available_actions: ['UPDATE', 'DISABLE'], revision: 0, created_at: channel.created_at }], page: 1, page_size: 20, total: 1 });
     if (path === '/api/v1/platform-profiles') {
-      return result({ items: platformItems, page: 1, page_size: 10, total: platformItems.length, summary: { platform_total: platformItems.length, enabled_total: platformItems.filter((item) => item.is_active).length, missing_prompt_total: platformItems.filter((item) => !item.platform_prompt).length, configuration_complete_total: platformItems.filter((item) => item.configuration_complete).length } });
+      return result({ items: platformItems, page: 1, page_size: 10, total: platformItems.length, summary: { platform_total: platformItems.length, enabled_total: platformItems.filter((item) => item.is_active).length, missing_prompt_total: 1, configuration_complete_total: 1, readiness_complete_total: 1, missing_account_total: 0 }, platform_type_options: [{ id: platformType.id, name: platformType.name, slug: platformType.slug }] });
     }
     if (path === '/api/v1/audit-logs') return result({ items: [{ id: 'audit-rule-1', actor_id: 'user-1', actor: { id: 'user-1', display_name: '系统管理员', account_type: 'ADMIN' }, business_module: 'CONFIGURATION', action: 'platform_profile_version.created', target_type: 'PlatformProfileVersion', target_id: options?.params?.path?.platform_profile_version_id ?? 'version-1', outcome: 'SUCCESS', change_summary: {}, request_id: 'request-rule-1', created_at: channel.created_at }], page: 1, page_size: 100, total: 1 });
     if (path === '/api/v1/platform-types') return result({ items: [platformType] });
@@ -276,7 +276,7 @@ test('平台列表明确展示 Prompt 配置状态', async () => {
   expect(screen.queryByRole('heading', { name: '平台详情' })).not.toBeInTheDocument();
 });
 
-test('平台删除确认说明配置范围、保留对象和引用阻断', async () => {
+test('平台删除确认说明配置范围并提交 canonical revision', async () => {
   const user = userEvent.setup();
   renderWithQuery(<PlatformsPage />, ['/configuration/platforms']);
   await user.click(await screen.findByRole('button', { name: '更多操作：待配置平台' }));
@@ -284,7 +284,14 @@ test('平台删除确认说明配置范围、保留对象和引用阻断', async
   const dialog = await findRcDialog('删除平台“待配置平台”？');
   expect(within(dialog).getByText('将删除平台配置及 0 个平台账号；不会删除内容任务、终态发布历史或 Prompt。此操作不可恢复。')).toBeInTheDocument();
   expect(within(dialog).queryByText(/物理删除/)).not.toBeInTheDocument();
-  await user.click(within(dialog).getByRole('button', { name: /取\s*消/ }));
+  await user.click(within(dialog).getByRole('button', { name: /删\s*除/ }));
+  await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
+    '/api/v1/platform-profiles/{platform_profile_id}',
+    expect.objectContaining({ params: expect.objectContaining({
+      path: { platform_profile_id: 'profile-empty' },
+      query: { expected_revision: 0 },
+    }) }),
+  ));
 });
 
 test('平台存在进行中任务时只下钻任务引用', async () => {

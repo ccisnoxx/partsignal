@@ -491,6 +491,7 @@ def test_publication_work_read_surfaces_use_state_aware_identity() -> None:
             delete_platform_profile(
                 db=db,
                 platform_profile_id=disabled_closed_profile.id,
+                expected_revision=disabled_closed_profile.revision,
                 actor=closed_actor,
                 request_id="identity-closed-profile-delete",
             )
@@ -538,6 +539,7 @@ def test_publication_work_read_surfaces_use_state_aware_identity() -> None:
             delete_platform_profile(
                 db=db,
                 platform_profile_id=disabled_completed_profile.id,
+                expected_revision=disabled_completed_profile.revision,
                 actor=completed_actor,
                 request_id="identity-completed-profile-delete",
             )
@@ -2016,6 +2018,7 @@ def test_published_article_delete_cancels_source_task_when_platform_was_deleted(
             delete_platform_profile(
                 db=db,
                 platform_profile_id=profile.id,
+                expected_revision=profile.revision,
                 actor=actor,
                 request_id="article-delete-platform-delete",
             )
@@ -2294,6 +2297,7 @@ def test_platform_prompt_platform_profile_and_platform_account_deletion_lifecycl
                 delete_platform_profile(
                     db=db,
                     platform_profile_id=profile.id,
+                    expected_revision=profile.revision,
                     actor=actor,
                     request_id="configuration-platform-blocked",
                 )
@@ -2329,6 +2333,7 @@ def test_platform_prompt_platform_profile_and_platform_account_deletion_lifecycl
             delete_platform_profile(
                 db=db,
                 platform_profile_id=profile_id,
+                expected_revision=profile.revision,
                 actor=actor,
                 request_id="configuration-platform-delete",
             )

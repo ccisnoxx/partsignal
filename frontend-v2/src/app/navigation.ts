@@ -9,17 +9,18 @@ import {
   MessageSquareWarningIcon,
   SendIcon,
   ScrollTextIcon,
+  Settings2Icon,
   UsersIcon,
   type LucideIcon,
 } from 'lucide-react';
 
-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-observations' | 'users';
+type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-observations' | 'platforms' | 'users';
 type AppLayout = 'app' | 'print';
 
 type NavigationItem = {
   id: NavId;
   label: string;
-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/observations' | '/system/users';
+  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/observations' | '/settings/platforms' | '/system/users';
   icon: LucideIcon;
   adminOnly?: boolean;
 };
@@ -70,6 +71,12 @@ const navigationSections: readonly NavigationSection[] = [
       { id: 'geo-insights', label: '洞察', to: '/geo/insights', icon: ChartSplineIcon },
       { id: 'geo-topics', label: '问题主题', to: '/geo/topics', icon: MessagesSquareIcon },
       { id: 'geo-observations', label: '观测记录', to: '/geo/observations', icon: EyeIcon },
+    ],
+  },
+  {
+    label: '业务配置',
+    items: [
+      { id: 'platforms', label: '平台与账号', to: '/settings/platforms', icon: Settings2Icon },
     ],
   },
   {

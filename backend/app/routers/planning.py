@@ -20,6 +20,7 @@ from app.schemas.configuration import (
     PlatformProfileList,
     PlatformProfileOut,
     PlatformProfileStatus,
+    PlatformReadinessStatus,
     QueryTopicCreate,
     QueryTopicList,
     QueryTopicListPage,
@@ -195,6 +196,7 @@ def list_platform_profiles(
     platform_type_id: uuid.UUID | None = None,
     profile_status: Annotated[PlatformProfileStatus | None, Query(alias="status")] = None,
     configuration_status: PlatformConfigurationStatus | None = None,
+    readiness_status: PlatformReadinessStatus | None = None,
     page: int | None = Query(None, ge=1),
     page_size: Annotated[Literal[10, 20, 50] | None, BeforeValidator(int), Query()] = None,
 ) -> PlatformProfileList:
@@ -204,6 +206,7 @@ def list_platform_profiles(
         platform_type_id=platform_type_id,
         profile_status=profile_status,
         configuration_status=configuration_status,
+        readiness_status=readiness_status,
         page=page,
         page_size=page_size,
         can_manage=user.account_type == "ADMIN",

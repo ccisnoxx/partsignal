@@ -595,6 +595,7 @@ def disable_platform_profile(
 )
 def delete_platform_profile(
     platform_profile_id: uuid.UUID,
+    expected_revision: Annotated[int, Query(ge=0)],
     request: Request,
     db: DbSession,
     admin: AdminUser,
@@ -603,6 +604,7 @@ def delete_platform_profile(
     delete_platform_profile_command(
         db=db,
         platform_profile_id=platform_profile_id,
+        expected_revision=expected_revision,
         actor=admin,
         request_id=request.state.request_id,
     )

@@ -40,9 +40,11 @@ from app.schemas.configuration import (
     PlatformPromptList,
     PlatformPromptListItem,
     PlatformPromptUpdate,
+    PlatformReadinessStatus,
     PlatformReferenceSummary,
     PlatformTypeCreate,
     PlatformTypeOut,
+    PlatformTypeSummary,
     PlatformTypeUpdate,
 )
 from app.services.platform_logo_files import (
@@ -87,6 +89,7 @@ def _filtered_platform_profiles_query(
     platform_type_id: uuid.UUID | None,
     profile_status: PlatformProfileStatus | None,
     configuration_status: PlatformConfigurationStatus | None,
+    readiness_status: PlatformReadinessStatus | None,
 ) -> Select[tuple[PlatformProfile]]:
     """构造列表与 CSV 共用的平台筛选和稳定排序。"""
     conditions = _platform_search_conditions(q)
@@ -102,6 +105,25 @@ def _filtered_platform_profiles_query(
             if configuration_status == PlatformConfigurationStatus.COMPLETE
             else PlatformProfile.platform_prompt_id.is_(None)
         )
+    if readiness_status is not None:
+        enabled_account_exists = (
+            select(PlatformAccount.id)
+            .where(
+                PlatformAccount.platform_profile_id == PlatformProfile.id,
+                PlatformAccount.is_active.is_(True),
+            )
+            .exists()
+        )
+        if readiness_status == PlatformReadinessStatus.MISSING_PROMPT:
+            conditions.append(PlatformProfile.platform_prompt_id.is_(None))
+        elif readiness_status == PlatformReadinessStatus.MISSING_ACCOUNT:
+            conditions.extend(
+                [PlatformProfile.platform_prompt_id.is_not(None), ~enabled_account_exists]
+            )
+        else:
+            conditions.extend(
+                [PlatformProfile.platform_prompt_id.is_not(None), enabled_account_exists]
+            )
     return (
         select(PlatformProfile)
         .outerjoin(PlatformType, PlatformType.id == PlatformProfile.platform_type_id)
@@ -112,6 +134,16 @@ def _filtered_platform_profiles_query(
 
 def _platform_summary(db: Session) -> PlatformProfileSummary:
     """实时统计全部获权平台，结果不受管理列表筛选影响。"""
+    enabled_accounts = (
+        select(
+            PlatformAccount.platform_profile_id.label("platform_profile_id"),
+            func.count(PlatformAccount.id).label("enabled_count"),
+        )
+        .where(PlatformAccount.is_active.is_(True))
+        .group_by(PlatformAccount.platform_profile_id)
+        .subquery()
+    )
+    enabled_count = func.coalesce(enabled_accounts.c.enabled_count, 0)
     totals = db.execute(
         select(
             func.count(PlatformProfile.id),
@@ -120,6 +152,19 @@ def _platform_summary(db: Session) -> PlatformProfileSummary:
             func.count(PlatformProfile.id).filter(
                 PlatformProfile.platform_prompt_id.is_not(None)
             ),
+            func.count(PlatformProfile.id).filter(
+                PlatformProfile.platform_prompt_id.is_not(None),
+                enabled_count > 0,
+            ),
+            func.count(PlatformProfile.id).filter(
+                PlatformProfile.platform_prompt_id.is_not(None),
+                enabled_count == 0,
+            ),
+        )
+        .select_from(PlatformProfile)
+        .outerjoin(
+            enabled_accounts,
+            enabled_accounts.c.platform_profile_id == PlatformProfile.id,
         )
     ).one()
     return PlatformProfileSummary(
@@ -127,6 +172,8 @@ def _platform_summary(db: Session) -> PlatformProfileSummary:
         enabled_total=int(totals[1]),
         missing_prompt_total=int(totals[2]),
         configuration_complete_total=int(totals[3]),
+        readiness_complete_total=int(totals[4]),
+        missing_account_total=int(totals[5]),
     )
 
 
@@ -137,6 +184,7 @@ def list_platform_profiles(
     platform_type_id: uuid.UUID | None,
     profile_status: PlatformProfileStatus | None,
     configuration_status: PlatformConfigurationStatus | None,
+    readiness_status: PlatformReadinessStatus | None,
     page: int | None,
     page_size: int | None,
     can_manage: bool,
@@ -149,6 +197,7 @@ def list_platform_profiles(
         platform_type_id=platform_type_id,
         profile_status=profile_status,
         configuration_status=configuration_status,
+        readiness_status=readiness_status,
     )
     total = int(db.scalar(select(func.count()).select_from(query.order_by(None).subquery())) or 0)
     if page is None:
@@ -164,6 +213,12 @@ def list_platform_profiles(
         page_size=response_page_size,
         total=total,
         summary=_platform_summary(db),
+        platform_type_options=[
+            PlatformTypeSummary.model_validate(item)
+            for item in db.scalars(
+                select(PlatformType).order_by(func.lower(PlatformType.name), PlatformType.id)
+            )
+        ],
     )
 
 
@@ -183,6 +238,7 @@ def export_platform_profiles(
                 platform_type_id=platform_type_id,
                 profile_status=profile_status,
                 configuration_status=configuration_status,
+                readiness_status=None,
             )
         )
     )
@@ -291,6 +347,12 @@ def set_platform_profile_enabled(
         raise not_found("平台")
     if profile.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "平台已被其他请求修改", 409)
+    if profile.is_active == enabled:
+        raise AppError(
+            "INVALID_STATE_TRANSITION",
+            f"平台已经处于{'启用' if enabled else '停用'}状态",
+            409,
+        )
     previous_enabled = profile.is_active
     profile.is_active = enabled
     profile.revision += 1
@@ -793,14 +855,21 @@ def update_platform_profile(
 
 
 def delete_platform_profile(
-    *, db: Session, platform_profile_id: uuid.UUID, actor: User, request_id: str
+    *,
+    db: Session,
+    platform_profile_id: uuid.UUID,
+    expected_revision: int,
+    actor: User,
+    request_id: str,
 ) -> None:
-    """删除已停用且没有活动业务的具体平台及配置账号。"""
+    """按 revision 删除已停用且没有活动业务的平台聚合。"""
     profile = db.scalar(
         select(PlatformProfile).where(PlatformProfile.id == platform_profile_id).with_for_update()
     )
     if profile is None:
         raise not_found("平台")
+    if profile.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "平台已被其他请求修改", 409)
     if profile.is_active:
         raise AppError("INVALID_STATE_TRANSITION", "请先停用平台再删除", 409)
     references = [

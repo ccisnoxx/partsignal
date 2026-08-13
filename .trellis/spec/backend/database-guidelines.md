@@ -347,12 +347,51 @@ result = cleanup_platform_logo_files(storage=storage)
 - `0034` 只允许在旧发布与 GEO 依赖表全部为空时替换结构；发现数据必须汇总阻断表并以 PostgreSQL `55000` 失败。迁移和 downgrade 不猜测新旧业务语义。
 - `0036` 删除没有稳定业务含义的 `publication_works.section_url`。开始发布只绑定内容版本和账号，准备更新只变更账号；真实公开位置仍由结果登记的 `final_url` 持有并校验允许域名。被删值不迁移到替代列，downgrade 以 `55000` 拒绝并要求恢复升级前备份。
 
-## 场景：具体平台启停与管理实时投影
+## 场景：具体平台启停、列表 readiness 与 revision 命令
 
-- `platform_profiles.is_active` 是平台启停的唯一持久状态；配置完整性只表示存在当前 `PlatformPrompt`，不再依赖规则版本。
+### 1. 范围与触发条件
+
+- 修改平台列表、配置完整性/readiness 投影、筛选分页、汇总选项、启停或删除命令，以及 V1/V2 平台管理消费者时适用。
+- 本场景只扩展实时读模型和 revision 命令，不新增数据库列、快照或迁移，也不引入第二套权限或状态来源。
+
+### 2. 签名
+
+- `GET /api/v1/platform-profiles` 支持 `q`、`platform_type_id`、`status`、`configuration_status`、`readiness_status`、`page`、`page_size`。
+- `PlatformProfile` 增加 `readiness_status`、`enabled_platform_account_count` 和可空 `primary_task`；`PlatformProfileSummary` 增加 `readiness_complete_total`、`missing_account_total`；`PlatformProfileList` 增加 `platform_type_options`。
+- 启停请求为 `POST /api/v1/platform-profiles/{id}/enable|disable`，请求体使用 `RevisionRequest(expected_revision)`。
+- 删除请求为 `DELETE /api/v1/platform-profiles/{id}?expected_revision=<revision>`；`expected_revision` 必填。
+
+### 3. 契约
+
+- `platform_profiles.is_active` 是平台启停的唯一持久状态；既有 `configuration_complete/configuration_status` 只表示存在当前 `PlatformPrompt`。readiness 是独立实时投影：缺 Prompt 优先为 `MISSING_PROMPT`，已有 Prompt 但没有启用账号为 `MISSING_ACCOUNT`，其余为 `COMPLETE`；不得混用语义或保存派生状态。
 - 停用后仍允许查看、编辑、维护 Prompt 及重新启用，但新建普通/修复 `ContentTask`、`PlatformAccount` 或 `PublicationWork` 必须先以 `FOR UPDATE` 锁定平台并返回 `PLATFORM_DISABLED`；不得停用既有账号或改写 Prompt、任务、发布及观测历史。
-- 平台管理汇总、配置完整性、账号数量和引用数量只做 PostgreSQL 实时投影，不保存快照或派生列。引用数直接按 `ContentTask.platform_profile_id` 统计唯一任务；最近 30 天使用同一 UTC `as_of` 的半开区间 `[as_of - 30 days, as_of)`。
-- 平台列表筛选、稳定排序、分页和 CSV 导出复用同一查询条件；无分页参数时保留完整参考集合语义，`page` 与 `page_size` 只能成对出现。更新时间只读取真实平台审计，缺失时返回 `NULL`，不得用迁移时间补造。
+- 平台管理汇总、配置完整性、账号数量和引用数量只做 PostgreSQL 实时投影。账号批量聚合必须在同一次查询中区分全部账号与 `is_active=true` 的可用账号；引用数按 `ContentTask.platform_profile_id` 统计唯一任务；最近 30 天使用同一 UTC `as_of` 的半开区间 `[as_of - 30 days, as_of)`。
+- 列表筛选、稳定排序和分页复用同一查询条件；无分页参数时保留完整参考集合语义，`page` 与 `page_size` 只能成对出现。`readiness_status` 只筛选 readiness，旧 `configuration_status` 继续筛选 Prompt-only 完整性；CSV 导出保持既有筛选合同。
+- 汇总基于未筛选全集，`total` 基于筛选结果；`platform_type_options` 来自全集并按 `lower(name), id` 稳定排序。更新时间只读取真实平台审计，缺失时返回 `NULL`，不得用迁移时间补造。
+- 没有管理权限时，服务端返回 `primary_task=null`、空 `available_actions` 和 `deletion=null`；前端不得自行推导权限。启停和删除命令必须在行锁内校验 revision、状态和阻断项；同态启停返回 `INVALID_STATE_TRANSITION`，删除必须携带 revision，账号只作为清理影响而非删除阻断项。
+
+### 4. 状态与异常矩阵
+
+- 缺 Prompt（无论账号数）→ `MISSING_PROMPT`；有 Prompt 且启用账号为 0 → `MISSING_ACCOUNT`；有 Prompt 且至少一个启用账号 → `COMPLETE`。
+- 只传 `page` 或只传 `page_size` → `422`；无管理权限读取 → 管理字段为空；无权限变更 → `403`。
+- 同态启停 → `409 INVALID_STATE_TRANSITION`；过期 revision → `409 REVISION_CONFLICT` 且不修改数据；删除启用平台 → `409 INVALID_STATE_TRANSITION`；存在阻断引用 → `PLATFORM_PROFILE_IN_USE`。
+
+### 5. 正例、基线与反例
+
+- 正例：一次 PostgreSQL 投影返回分页行、批量账号计数、readiness、全集汇总和稳定类型选项，命令携带当前 revision。
+- 基线：不传分页参数仍返回完整参考集合；已停用平台仍可读取和维护 Prompt，并可使用当前 revision 重新启用。
+- 反例：客户端根据 Prompt/账号自行推导 readiness 或删除权限；从当前页生成类型选项；把 `expected_revision` 设为可选并重放写命令；逐行查询账号或引用数量。
+
+### 6. 测试要求
+
+- 合同生成与运行时测试覆盖新增字段、筛选参数、分页成对校验和删除 revision；PostgreSQL 集成测试覆盖三种 readiness、缺 Prompt 优先级、搜索筛选、分页、全集汇总、稳定选项、角色投影、查询次数及启停删除命令。
+- 前端组件、生产 fixture 与 Playwright 覆盖状态筛选、分页、权限动作、并发冲突刷新和 V1 删除兼容调用。
+
+### 7. 错误与正确示例
+
+错误：前端通过 `configuration_complete && platform_account_count > 0` 推导 readiness，并在删除请求中省略 revision。
+
+正确：服务端返回 `readiness_status`、`enabled_platform_account_count` 和权限动作；客户端把当前 `revision` 原样传给启停或删除命令。
 
 ## 场景：Markdown 产品事实与双首稿内容生产
 

@@ -362,12 +362,15 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
         is_active=True,
     )
     profile_session = _ScalarSequenceSession(
-        [[], [], [], [(profile.id, 2)], [(profile.id, 3)], [], []]
+        [[], [], [], [(profile.id, 2, 1)], [(profile.id, 3)], [], []]
     )
     profile_out = platform_profiles_out(cast(Session, profile_session), [profile], can_manage=True)[
         0
     ]
     assert profile_out.deletion.model_dump() == {"blockers": [{"type": "CONTENT_TASK", "count": 3}]}
+    assert profile_out.platform_account_count == 2
+    assert profile_out.enabled_platform_account_count == 1
+    assert profile_out.readiness_status == "MISSING_PROMPT"
 
     account = PlatformAccount(
         id=uuid.uuid4(),

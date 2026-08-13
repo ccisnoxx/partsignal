@@ -679,6 +679,10 @@ paths:
         - name: configuration_status
           in: query
           schema: {$ref: '#/components/schemas/PlatformConfigurationStatus'}
+        - name: readiness_status
+          in: query
+          description: 按 Prompt 与启用发布账号共同决定的互斥就绪状态筛选
+          schema: {$ref: '#/components/schemas/PlatformReadinessStatus'}
         - name: page
           in: query
           description: 与 page_size 同时提供时启用服务端分页；两者都省略时返回完整参考集合
@@ -806,9 +810,13 @@ paths:
       operationId: deletePlatformProfile
       parameters:
         - {$ref: '#/components/parameters/PlatformProfileId'}
+        - name: expected_revision
+          in: query
+          required: true
+          schema: {type: integer, minimum: 0}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
-        '204': {description: 已删除未被内容任务或平台账号引用的平台}
+        '204': {description: 已删除停用且没有开放内容任务或非终态发布工作的具体平台；平台账号随聚合清理}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
@@ -4030,6 +4038,10 @@ components:
     PlatformConfigurationStatus:
       type: string
       enum: [COMPLETE, INCOMPLETE]
+    PlatformReadinessStatus:
+      type: string
+      description: 平台 Prompt 与启用发布账号共同决定的列表就绪状态
+      enum: [COMPLETE, MISSING_PROMPT, MISSING_ACCOUNT]
     PlatformTypeSummary:
       type: object
       additionalProperties: false
@@ -4050,7 +4062,7 @@ components:
     PlatformProfile:
       type: object
       additionalProperties: false
-      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, platform_prompt, configuration_complete, platform_account_count, workflow_stage, primary_task, available_actions, deletion, updated_at]
+      required: [id, name, slug, allowed_domains, platform_type_id, platform_type, website_url, logo, revision, is_active, platform_prompt, configuration_complete, platform_account_count, enabled_platform_account_count, readiness_status, workflow_stage, primary_task, available_actions, deletion, updated_at]
       properties:
         id: {type: string, format: uuid}
         name: {type: string, minLength: 1, maxLength: 160}
@@ -4073,9 +4085,15 @@ components:
             - {$ref: '#/components/schemas/PlatformPromptReference'}
             - {type: 'null'}
         configuration_complete: {type: boolean, description: 当前具体平台已绑定 Prompt，可用于系统 AI 生成}
-        platform_account_count: {type: integer, minimum: 0}
+        platform_account_count: {type: integer, minimum: 0, description: 当前平台的全部发布账号数，包含启用与停用账号}
+        enabled_platform_account_count: {type: integer, minimum: 0, description: 当前平台可用于发布的启用账号数}
+        readiness_status: {$ref: '#/components/schemas/PlatformReadinessStatus'}
         workflow_stage: {type: string, enum: [DISABLED, GENERATION_UNCONFIGURED, OPERATIONAL]}
-        primary_task: {type: string, enum: [ENABLE_PLATFORM, CONFIGURE_GENERATION, VIEW_PLATFORM_OPERATION]}
+        primary_task:
+          anyOf:
+            - {type: string, enum: [ENABLE_PLATFORM, CONFIGURE_GENERATION, VIEW_PLATFORM_OPERATION]}
+            - {type: 'null'}
+          description: 当前用户无平台管理权限时为 null
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, ENABLE, DISABLE, DELETE]}
@@ -4087,22 +4105,28 @@ components:
     PlatformProfileSummary:
       type: object
       additionalProperties: false
-      required: [platform_total, enabled_total, missing_prompt_total, configuration_complete_total]
+      required: [platform_total, enabled_total, missing_prompt_total, configuration_complete_total, readiness_complete_total, missing_account_total]
       properties:
         platform_total: {type: integer, minimum: 0}
         enabled_total: {type: integer, minimum: 0}
         missing_prompt_total: {type: integer, minimum: 0}
         configuration_complete_total: {type: integer, minimum: 0}
+        readiness_complete_total: {type: integer, minimum: 0}
+        missing_account_total: {type: integer, minimum: 0, description: 已有 Prompt 但没有启用发布账号的平台数}
     PlatformProfileList:
       type: object
       additionalProperties: false
-      required: [items, page, page_size, total, summary]
+      required: [items, page, page_size, total, summary, platform_type_options]
       properties:
         items: {type: array, items: {$ref: '#/components/schemas/PlatformProfile'}}
         page: {type: integer, minimum: 1}
         page_size: {type: integer, minimum: 0, description: 无分页模式等于 total，空集合为 0}
         total: {type: integer, minimum: 0, description: 应用当前筛选后的平台总数}
         summary: {$ref: '#/components/schemas/PlatformProfileSummary'}
+        platform_type_options:
+          type: array
+          description: 当前用户可读取的全部平台类型选项，按名称和 ID 稳定排序
+          items: {$ref: '#/components/schemas/PlatformTypeSummary'}
     PlatformAccountSummary:
       type: object
       additionalProperties: false

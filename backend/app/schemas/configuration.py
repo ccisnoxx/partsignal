@@ -196,6 +196,14 @@ class PlatformConfigurationStatus(StrEnum):
     INCOMPLETE = "INCOMPLETE"
 
 
+class PlatformReadinessStatus(StrEnum):
+    """平台 Prompt 与启用发布账号共同决定的列表就绪状态。"""
+
+    COMPLETE = "COMPLETE"
+    MISSING_PROMPT = "MISSING_PROMPT"
+    MISSING_ACCOUNT = "MISSING_ACCOUNT"
+
+
 class PlatformTypeSummary(ContractModel):
     id: uuid.UUID
     name: str
@@ -225,8 +233,12 @@ class PlatformProfileOut(ContractModel):
     platform_prompt: PlatformPromptReference | None
     configuration_complete: bool
     platform_account_count: int = Field(ge=0)
+    enabled_platform_account_count: int = Field(ge=0)
+    readiness_status: PlatformReadinessStatus
     workflow_stage: Literal["DISABLED", "GENERATION_UNCONFIGURED", "OPERATIONAL"]
-    primary_task: Literal["ENABLE_PLATFORM", "CONFIGURE_GENERATION", "VIEW_PLATFORM_OPERATION"]
+    primary_task: (
+        Literal["ENABLE_PLATFORM", "CONFIGURE_GENERATION", "VIEW_PLATFORM_OPERATION"] | None
+    )
     available_actions: list[Literal["UPDATE", "ENABLE", "DISABLE", "DELETE"]]
     deletion: DeletionProjection | None
     updated_at: datetime | None
@@ -237,6 +249,8 @@ class PlatformProfileSummary(ContractModel):
     enabled_total: int = Field(ge=0)
     missing_prompt_total: int = Field(ge=0)
     configuration_complete_total: int = Field(ge=0)
+    readiness_complete_total: int = Field(ge=0)
+    missing_account_total: int = Field(ge=0)
 
 
 class PlatformProfileList(ContractModel):
@@ -245,6 +259,7 @@ class PlatformProfileList(ContractModel):
     page_size: int = Field(ge=0)
     total: int = Field(ge=0)
     summary: PlatformProfileSummary
+    platform_type_options: list[PlatformTypeSummary]
 
 
 class PlatformAccountSummary(ContractModel):

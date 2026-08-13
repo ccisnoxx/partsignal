@@ -408,6 +408,7 @@ def test_content_task_detail_uses_pointer_stable_sources_and_fixed_query_count(
             delete_platform_profile(
                 db=db,
                 platform_profile_id=profile_id,
+                expected_revision=profile.revision,
                 actor=actor,
                 request_id="content-task-detail-delete-platform",
             )

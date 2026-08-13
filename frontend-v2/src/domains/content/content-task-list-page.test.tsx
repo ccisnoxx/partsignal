@@ -89,7 +89,10 @@ const emptyPlatforms = {
     enabled_total: 0,
     missing_prompt_total: 0,
     configuration_complete_total: 0,
+    readiness_complete_total: 0,
+    missing_account_total: 0,
   },
+  platform_type_options: [],
 } satisfies PlatformProfileList;
 
 function taskList(items: ContentTaskListItem[], total = items.length): ContentTaskList {

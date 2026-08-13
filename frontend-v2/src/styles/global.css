@@ -289,6 +289,22 @@
   }
 
   @media (max-width: 767px) {
+    .platform-list-table {
+      min-width: 100%;
+      table-layout: fixed;
+    }
+
+    .platform-list-table [data-column-role='primary'] {
+      min-width: 0;
+      width: 38%;
+    }
+
+    .platform-list-table [data-column-role='actions'] {
+      width: 5rem;
+      min-width: 5rem;
+      max-width: 5rem;
+    }
+
     .ps-table [data-column-role='numeric'],
     .ps-table [data-column-role='date'] {
       display: none;

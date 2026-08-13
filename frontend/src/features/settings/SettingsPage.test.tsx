@@ -35,6 +35,8 @@ const profile = {
   platform_prompt: null,
   configuration_complete: false,
   platform_account_count: 1,
+  enabled_platform_account_count: 1,
+  readiness_status: 'MISSING_PROMPT',
   workflow_stage: 'GENERATION_UNCONFIGURED',
   primary_task: 'CONFIGURE_GENERATION',
   available_actions: [],
@@ -53,7 +55,10 @@ function platformList() {
       enabled_total: 1,
       missing_prompt_total: 1,
       configuration_complete_total: 0,
+      readiness_complete_total: 0,
+      missing_account_total: 0,
     },
+    platform_type_options: [],
   } satisfies Schema<'PlatformProfileList'>;
 }
 

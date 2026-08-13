@@ -193,8 +193,10 @@ const platform = {
   revision: 1,
   is_active: true,
   platform_prompt: null,
-  configuration_complete: true,
+  configuration_complete: false,
   platform_account_count: 1,
+  enabled_platform_account_count: 1,
+  readiness_status: 'MISSING_PROMPT',
   workflow_stage: 'OPERATIONAL',
   primary_task: 'VIEW_PLATFORM_OPERATION',
   available_actions: ['UPDATE', 'DISABLE'],
@@ -1058,7 +1060,8 @@ const test = base.extend<ContentFixtures>({
             page: 1,
             page_size: 1,
             total: 1,
-            summary: { platform_total: 1, enabled_total: 1, missing_prompt_total: 0, configuration_complete_total: 1 },
+            summary: { platform_total: 1, enabled_total: 1, missing_prompt_total: 1, configuration_complete_total: 0, readiness_complete_total: 0, missing_account_total: 0 },
+            platform_type_options: [],
           } satisfies components['schemas']['PlatformProfileList'],
         });
         return;

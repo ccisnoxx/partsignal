@@ -355,9 +355,13 @@ Pattern：Table。
 
 ## 7.2 `/settings/platforms/$platformId`
 
-Pattern：Workspace。顶部 `[概览] [发布账号] [生成配置]`。
+Pattern：Workspace。canonical URL 使用 `?tab=overview|accounts|generation`，顶部固定 `[概览] [发布账号] [生成配置]`，刷新与前进/后退都恢复同一区域。
 
-账号表在平台上下文中不重复“平台”列：业务标签、内部账号标识、状态、操作。
+首屏只读取一个 actor-aware Platform Detail：Header 展示 Logo、名称、类型、启停与 readiness；Overview 展示身份、Prompt/账号/引用摘要、revision 和更新时间。ADMIN 可用同一 revision PATCH 编辑名称、类型、官网、allowed domains、Logo 或 Prompt 绑定；ENGINEER 读取同一 Workspace，但动作字段由服务端归零。Slug 创建后只读。
+
+Logo 只接受经 `PLATFORM_LOGO` 上传意图或用户显式导入并确认的官网候选，不接受 SVG，不直接引用外部候选。Generation 只选择或解除现有 Prompt，不编辑 Markdown；409 保留选择并要求显式 reload。
+
+账号区进入时按平台按需读取，且不重复“平台”列。Core 先交付业务标签、内部账号标识与状态的响应式只读清单；创建、编辑、启停、删除和 blocker 由独立 `frontend-v2-platform-workspace-accounts` Task 交付。
 
 ## 7.3 `/settings/platforms/types`
 

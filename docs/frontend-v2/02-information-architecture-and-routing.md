@@ -90,7 +90,7 @@ V2 合并为：
 平台与账号
    ↓
 平台 Workspace
-   ├── 基本信息
+   ├── 概览
    ├── 发布账号
    └── 生成配置
 ```
@@ -132,7 +132,7 @@ V2 合并为：
 | `/geo/topics` | GEO 问题库 | Table | GEO 问题库 |
 | `/settings/platforms` | 平台与账号 | Table | 平台与账号 |
 | `/settings/platforms/types` | 平台分类 | Settings Table | 平台与账号 |
-| `/settings/platforms/$platformId` | 平台 Workspace | Workspace | 平台与账号 |
+| `/settings/platforms/$platformId?tab=overview|accounts|generation` | 平台 Workspace | Workspace | 平台与账号 |
 | `/settings/prompts` | Prompt 管理 | List + Workspace | Prompt |
 | `/settings/ai` | AI 渠道 | Table | AI 渠道 |
 | `/settings/ai/$channelId` | AI 渠道配置 | Workspace | AI 渠道 |

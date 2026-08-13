@@ -76,7 +76,7 @@ describe('平台列表 URL 与动作模型', () => {
   it('穷尽解析 primary 与 available actions，并拒绝矛盾 DELETE', () => {
     expect(resolvePlatformPrimaryAction(platform())).toMatchObject({
       label: '配置生成',
-      href: '/settings/platforms/00000000-0000-4000-8000-000000000001',
+      href: '/settings/platforms/00000000-0000-4000-8000-000000000001?tab=generation',
     });
     expect(resolvePlatformPrimaryAction(platform({ primary_task: null }))).toBeUndefined();
 

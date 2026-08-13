@@ -114,8 +114,11 @@ function normalizePlatformPageSize(value: number): PlatformSearch['pageSize'] {
   throw new Error(`平台列表收到未知分页大小：${value}`);
 }
 
-function platformWorkspaceHref(platformId: string) {
-  return `/settings/platforms/${encodeURIComponent(platformId)}`;
+function platformWorkspaceHref(
+  platformId: string,
+  tab: 'overview' | 'accounts' | 'generation' = 'overview',
+) {
+  return `/settings/platforms/${encodeURIComponent(platformId)}?tab=${tab}`;
 }
 
 function resolvePlatformPrimaryAction(platform: PlatformProfile): PrimaryRowAction | undefined {
@@ -131,9 +134,9 @@ function resolvePlatformPrimaryAction(platform: PlatformProfile): PrimaryRowActi
         command: 'enable-platform',
       };
     case 'CONFIGURE_GENERATION':
-      return primaryLink(action, '配置生成', platform.id);
+      return primaryLink(action, '配置生成', platform.id, 'generation');
     case 'VIEW_PLATFORM_OPERATION':
-      return primaryLink(action, '查看运营', platform.id);
+      return primaryLink(action, '查看运营', platform.id, 'overview');
     default:
       return assertNever(action);
   }
@@ -143,13 +146,14 @@ function primaryLink(
   key: PlatformPrimaryTask,
   label: string,
   platformId: string,
+  tab: 'overview' | 'accounts' | 'generation',
 ): PrimaryRowAction {
   return {
     key,
     label,
     intent: 'primary',
     enabled: true,
-    href: platformWorkspaceHref(platformId),
+    href: platformWorkspaceHref(platformId, tab),
   };
 }
 

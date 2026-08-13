@@ -445,6 +445,8 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-platform-list` 已交付 Phase 6 的第一个 slice：注册所有已认证用户可见的 `/settings/platforms` 与导航入口，复用并扩展既有 PlatformProfile collection read model，提供服务端 readiness 三态、可用账号数、全局摘要、类型 options、actor-aware actions 和 revision mutation。固定七列表格支持 canonical URL 搜索/筛选/分页、完整状态与四档响应式；Platform Workspace、类型/账号/Prompt/AI 管理与完整真实栈 E2E 仍由后续 Task 完成。
 
+`frontend-v2-platform-workspace-core` 已交付 `/settings/platforms/$platformId?tab=overview|accounts|generation`：一个 repeatable-read、actor-aware Detail 支撑 Header/Overview 首屏，ADMIN 编辑平台身份、Logo 和 Prompt 绑定，ENGINEER 使用同一只读 Workspace；Accounts 进入时只加载当前平台的响应式只读账号清单，Generation 进入时按权限加载稳定 Prompt references。三个 Tab 支持 refresh/Back/Forward，两个表单使用同一 Platform revision、409 保留草稿并显式 reload，mutation 精确失效 Configuration/Content/Publication 消费者。账号 CRUD/action projection 继续由获批拆分的 `frontend-v2-platform-workspace-accounts` 单独完成；Platform Types 是 Core 合入并完成 Accounts 后的下一阶段项。
+
 退出条件：平台与账号形成统一心智；Platform Type 不占 Sidebar；API key/secret 不出现在列表和日志；Prompt dirty/revision 完整；AI table action 统一。
 
 ## 12. Phase 7 — System

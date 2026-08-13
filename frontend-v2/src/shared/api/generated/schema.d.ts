@@ -2687,6 +2687,8 @@ export interface components {
             profile: components["schemas"]["PlatformProfile"];
             account_summary: components["schemas"]["PlatformAccountSummary"];
             reference_summary: components["schemas"]["PlatformReferenceSummary"];
+            /** @description 当前用户可读取的全部平台类型选项，按名称和 ID 稳定排序 */
+            platform_type_options: components["schemas"]["PlatformTypeSummary"][];
         };
         PlatformTypeCreate: {
             name: string;

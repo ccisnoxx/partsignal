@@ -55,6 +55,7 @@ const columnRoles = [
 
 type PlatformListPageProps = {
   csrfToken: string | null;
+  onPlatformChanged: (kind: 'status' | 'delete', platformId: string) => Promise<void>;
   onSearchChange: (search: PlatformSearch) => Promise<void> | void;
   search: PlatformSearch;
 };
@@ -63,7 +64,12 @@ type CommandVariables = { command: PlatformCommand; platform: PlatformProfile };
 type BlockerTarget = { platform: PlatformProfile; focusReturn: HTMLElement | null };
 type EnableTarget = { platform: PlatformProfile; focusReturn: HTMLElement | null };
 
-function PlatformListPage({ csrfToken, onSearchChange, search }: PlatformListPageProps) {
+function PlatformListPage({
+  csrfToken,
+  onPlatformChanged,
+  onSearchChange,
+  search,
+}: PlatformListPageProps) {
   const queryClient = useQueryClient();
   const platforms = useQuery(platformListQueryOptions(search));
   const [blockerTarget, setBlockerTarget] = useState<BlockerTarget>();
@@ -86,7 +92,19 @@ function PlatformListPage({ csrfToken, onSearchChange, search }: PlatformListPag
       runPlatformCommand(command, platform, csrfToken)
     ),
     onSuccess: async (_result, variables) => {
-      await queryClient.invalidateQueries({ queryKey: platformKeys.lists() });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: platformKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.detail(variables.platform.id) }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.accounts(variables.platform.id) }),
+        onPlatformChanged(
+          variables.command === 'delete-platform' ? 'delete' : 'status',
+          variables.platform.id,
+        ),
+      ]);
+      if (variables.command === 'delete-platform') {
+        queryClient.removeQueries({ queryKey: platformKeys.detail(variables.platform.id) });
+        queryClient.removeQueries({ queryKey: platformKeys.accounts(variables.platform.id) });
+      }
       if (variables.command === 'delete-platform' && rows.length === 1 && search.page > 1) {
         changeSearch({ page: search.page - 1 }, false);
       }

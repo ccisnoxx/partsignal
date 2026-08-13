@@ -216,6 +216,16 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Mutation boundary**：ENABLE/DISABLE/DELETE 都使用 canonical row revision，DELETE 将 `expected_revision` 收紧为 required query，并仅同步 V1 既有直接调用。409 刷新列表但不自动重放；行锁内 revision、目标状态、权限和实时 blocker 仍由服务端最终裁决。Platform 名称和导航动作只输出后续 Workspace 的 canonical href，本 Task 不创建占位 route。
 
+## ADR-036：Platform Workspace Core 扩展既有 Detail 并按 Tab 延迟读取
+
+**Decision**：`/settings/platforms/$platformId?tab=overview|accounts|generation` 首屏继续消费既有 Platform Detail endpoint，additive 增加稳定 `platform_type_options`，并把读取权限从 ADMIN 扩为 CurrentUser。响应在 `REPEATABLE READ` 中显式接收 `can_manage`，复用 Platform List 的 Platform projection；不新增巨型 Workspace DTO、客户端 DTO 或数据库字段。
+
+**Request boundary**：Detail 是 Shell/Overview 唯一首屏业务请求。Accounts 只在对应 Tab 按 `platform_profile_id` 读取；Prompt references 只在可管理用户进入 Generation 时读取。账号明细和全部 Prompt 不进入 Detail，浏览器也不从 Platform List 搜索当前平台或抓 Prompt Detail 拼 options。
+
+**Mutation and draft boundary**：Overview 与 Generation 是两个独立 RHF+Zod 草稿，但每次写入都提交当前 Detail revision 的单个完整 `PlatformProfileUpdate`，并保留另一表面的权威字段。Logo 只绑定 verified `PLATFORM_LOGO` FileRecord；外部候选必须二次确认。409 保留草稿且不 replay，显式 reload 才采用新 baseline。跨域 cache 组合留在 route，Configuration domain 只拥有 Platform List/Detail/Accounts/Prompt keys。
+
+**Scope boundary**：Core 只读展示账号标签、内部标识与状态。账号 CRUD、actor-aware actions、revision delete 与 blocker 属于拆分后的 `frontend-v2-platform-workspace-accounts`；不为将来能力预建通用 Settings Workspace、CRUD registry 或媒体框架。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

@@ -1,0 +1,29 @@
+{
+  "id": "frontend-v2-platform-workspace",
+  "name": "frontend-v2-platform-workspace",
+  "title": "Frontend V2 Platform Workspace",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "fullstack",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-13",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-13-frontend-v2-platform-workspace-core",
+    "08-13-frontend-v2-platform-workspace-accounts"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

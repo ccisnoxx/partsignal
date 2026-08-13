@@ -16,6 +16,7 @@ type PlatformCommandRequest = {
 };
 
 type PlatformsApiController = {
+  allowHttpError: (status: number) => void;
   commandRequests: PlatformCommandRequest[];
   listRequests: URL[];
 };
@@ -141,9 +142,19 @@ const test = base.extend<PlatformFixtures>({
     const commandRequests: PlatformCommandRequest[] = [];
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
+    const allowedHttpErrors: number[] = [];
 
     page.on('console', (message) => {
-      if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`);
+      if (message.type() !== 'error') return;
+      const text = message.text();
+      const expectedIndex = allowedHttpErrors.findIndex((status) => (
+        text.includes(`status of ${status}`)
+      ));
+      if (expectedIndex >= 0) {
+        allowedHttpErrors.splice(expectedIndex, 1);
+        return;
+      }
+      runtimeErrors.push(`console.error: ${text}`);
     });
     page.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`));
     page.on('requestfailed', (request) => {
@@ -218,7 +229,11 @@ const test = base.extend<PlatformFixtures>({
       });
     });
 
-    await use({ commandRequests, listRequests });
+    await use({
+      allowHttpError: (status) => allowedHttpErrors.push(status),
+      commandRequests,
+      listRequests,
+    });
     expect(unexpectedRequests, '平台列表不得依赖未声明的 API').toEqual([]);
     expect(runtimeErrors, '平台列表不得出现未处理浏览器错误').toEqual([]);
   }, { auto: true }],

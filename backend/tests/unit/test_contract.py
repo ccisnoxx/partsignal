@@ -192,6 +192,17 @@ def test_platform_list_contract_exposes_readiness_options_and_delete_revision() 
         "description": "当前用户可读取的全部平台类型选项，按名称和 ID 稳定排序",
         "items": {"$ref": "#/components/schemas/PlatformTypeSummary"},
     }
+    assert set(schemas["PlatformProfileDetail"]["required"]) == {
+        "profile",
+        "account_summary",
+        "reference_summary",
+        "platform_type_options",
+    }
+    assert schemas["PlatformProfileDetail"]["properties"]["platform_type_options"] == {
+        "type": "array",
+        "description": "当前用户可读取的全部平台类型选项，按名称和 ID 稳定排序",
+        "items": {"$ref": "#/components/schemas/PlatformTypeSummary"},
+    }
     delete_parameters = paths["/api/v1/platform-profiles/{platform_profile_id}"]["delete"][
         "parameters"
     ]

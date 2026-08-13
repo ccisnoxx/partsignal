@@ -177,6 +177,16 @@ def _platform_summary(db: Session) -> PlatformProfileSummary:
     )
 
 
+def _platform_type_options(db: Session) -> list[PlatformTypeSummary]:
+    """按稳定顺序返回平台编辑与筛选共用的类型选项。"""
+    return [
+        PlatformTypeSummary.model_validate(item)
+        for item in db.scalars(
+            select(PlatformType).order_by(func.lower(PlatformType.name), PlatformType.id)
+        )
+    ]
+
+
 def list_platform_profiles(
     *,
     db: Session,
@@ -213,12 +223,7 @@ def list_platform_profiles(
         page_size=response_page_size,
         total=total,
         summary=_platform_summary(db),
-        platform_type_options=[
-            PlatformTypeSummary.model_validate(item)
-            for item in db.scalars(
-                select(PlatformType).order_by(func.lower(PlatformType.name), PlatformType.id)
-            )
-        ],
+        platform_type_options=_platform_type_options(db),
     )
 
 
@@ -278,6 +283,7 @@ def get_platform_profile_detail(
     db: Session,
     platform_profile_id: uuid.UUID,
     *,
+    can_manage: bool,
     as_of: datetime | None = None,
 ) -> PlatformProfileDetail:
     """聚合平台当前配置、账号和同一时点的任务引用摘要。"""
@@ -300,7 +306,7 @@ def get_platform_profile_detail(
             ),
         ).where(ContentTask.platform_profile_id == profile.id)
     ).one()
-    profile_projection = platform_profile_out(db, profile, can_manage=True)
+    profile_projection = platform_profile_out(db, profile, can_manage=can_manage)
     enabled = int(account_enabled)
     total = int(account_total)
     return PlatformProfileDetail(
@@ -315,6 +321,7 @@ def get_platform_profile_detail(
             recent_30_days=int(recent),
             all_time=int(all_time),
         ),
+        platform_type_options=_platform_type_options(db),
     )
 
 

@@ -62,6 +62,11 @@ const contentKeys = {
   generationOptions: (taskId: string) => (
     ['content', 'tasks', taskId, 'generation-options'] as const
   ),
+  isGenerationOptions: (queryKey: readonly unknown[]) => (
+    queryKey[0] === 'content'
+    && queryKey[1] === 'tasks'
+    && queryKey[3] === 'generation-options'
+  ),
   generationJobs: (taskId: string) => (
     ['content', 'tasks', taskId, 'generation-jobs'] as const
   ),
@@ -73,6 +78,7 @@ const contentKeys = {
   creationOptions: (requestedProductId?: string) => (
     ['content', 'tasks', 'creation-options', requestedProductId ?? null] as const
   ),
+  creationOptionsRoot: () => ['content', 'tasks', 'creation-options'] as const,
 };
 
 function generationOptionsQueryOptions(taskId: string) {

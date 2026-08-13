@@ -278,6 +278,7 @@ class PlatformProfileDetail(ContractModel):
     profile: PlatformProfileOut
     account_summary: PlatformAccountSummary
     reference_summary: PlatformReferenceSummary
+    platform_type_options: list[PlatformTypeSummary]
 
 
 class PlatformTypeCreate(ContractModel):

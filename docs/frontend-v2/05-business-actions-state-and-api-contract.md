@@ -329,3 +329,13 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - `configuration_complete` 与 `configuration_status` 只表达是否绑定 Prompt。独立 `readiness_status` 按“缺 Prompt优先；否则零启用账号为缺账号；其余完整”投影；`enabled_platform_account_count` 才是“N 个可用”的权威数量，`platform_account_count` 继续表示全部账号。
 - 同一响应返回不受当前筛选影响的 readiness summary 和按名称、ID 稳定排序的 `platform_type_options`。普通已认证用户获得 `primary_task=null`、空 actions 与 `deletion=null`；浏览器不得通过管理员 Platform Type endpoint 或当前页反推选项与权限。
 - ENABLE、DISABLE 与 DELETE 都提交当前行 revision；DELETE 使用 required `expected_revision` query。409 只提示并刷新 canonical list，不自动重放。服务端在行锁内重新校验 revision、目标状态、权限与实时 blocker。
+
+## 23. Platform Workspace Core read model 与 revision 编辑
+
+- `/settings/platforms/$platformId` 首屏只消费 `GET /api/v1/platform-profiles/{platform_profile_id}`。响应在一次 `REPEATABLE READ` 中返回 `profile/account_summary/reference_summary/platform_type_options`；不得先读 Platform List 搜索当前行，也不得无条件 waterfall Account、Prompt 或 Type endpoints。
+- Detail 对所有当前已认证角色开放。ADMIN 的 `profile.primary_task/available_actions/deletion` 复用 Platform List 投影；ENGINEER 得到 `primary_task=null`、空 actions 与 `deletion=null`。写 endpoint 继续由服务端最终校验 ADMIN，浏览器不通过 `isAdmin` 补动作。
+- canonical Tab 为 `overview|accounts|generation`。Accounts 仅进入时按平台读取；Prompt options 仅 ADMIN 进入 Generation 时读取。Prompt options 使用既有稳定 reference list，不读取 Prompt Detail 拼候选。
+- Overview 和 Generation 各自持有 RHF+Zod 草稿，但共享 Detail 的当前 Platform revision。Overview PATCH 保留当前 Prompt；Generation PATCH 保留当前身份字段；任一保存只发送一个完整 `PlatformProfileUpdate`，不得拆成多个 PATCH。
+- `REVISION_CONFLICT` 保留未提交字段、Logo 或 Prompt 选择，不自动重放；只有用户显式 reload 才放弃草稿并采用服务端新 baseline。
+- Logo 上传复用通用文件 transfer 与现有 `PLATFORM_LOGO` 生命周期。SVG 在浏览器边界明确拒绝；官网候选必须显式请求、预览和再次确认，保存 Platform PATCH 前不得进入平台投影。
+- Platform mutation 精确失效 Platform List、当前 Detail，以及受状态/身份/Prompt 影响的 Content creation/reference/generation options 和 Publication ready/workspace 消费者；删除后移除已删除平台的 Detail/Accounts cache。不得清空整个 QueryClient。

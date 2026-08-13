@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BeforeValidator, HttpUrl
 from sqlalchemy import select
 
@@ -164,6 +164,11 @@ from app.services.platform_logo_files import (
 from app.services.projections import platform_profile_out
 
 router = APIRouter(prefix="/api/v1", tags=["configuration"])
+
+
+def _platform_profile_read_snapshot(db: DbSession) -> None:
+    """为平台 Workspace 首屏建立一致的 PostgreSQL 读取快照。"""
+    db.connection(execution_options={"isolation_level": "REPEATABLE READ"})
 
 
 def channel_out(channel: AIChannel) -> AIChannelOut:
@@ -390,13 +395,18 @@ def export_platform_profiles(
     "/platform-profiles/{platform_profile_id}",
     response_model=PlatformProfileDetail,
     operation_id="getPlatformProfile",
+    dependencies=[Depends(_platform_profile_read_snapshot)],
 )
 def get_platform_profile(
     platform_profile_id: uuid.UUID,
     db: DbSession,
-    _admin: AdminUser,
+    user: CurrentUser,
 ) -> PlatformProfileDetail:
-    return get_platform_profile_detail_query(db, platform_profile_id)
+    return get_platform_profile_detail_query(
+        db,
+        platform_profile_id,
+        can_manage=user.account_type == AccountType.ADMIN.value,
+    )
 
 
 @router.get(

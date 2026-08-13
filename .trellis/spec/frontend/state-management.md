@@ -729,6 +729,66 @@ const search = Route.useSearch();
 const action = row.optimization_action;
 ```
 
+## 场景：Platform Workspace 的 URL、延迟查询与共享 revision
+
+### 1. Scope / Trigger
+
+- 修改 `/settings/platforms/$platformId`、Platform Overview、Logo、Prompt 绑定或 Workspace 查询失效时适用。
+- 本场景不拥有 Account 写操作、Prompt 编辑器、Platform Type CRUD 或通用 Settings Workspace。
+
+### 2. Signatures
+
+```text
+URL: /settings/platforms/$platformId?tab=overview|accounts|generation
+GET: /api/v1/platform-profiles/{platform_profile_id}
+PATCH: /api/v1/platform-profiles/{platform_profile_id}
+query keys: ["configuration", "platforms", "detail", platformId]
+            ["configuration", "platforms", "accounts", platformId]
+```
+
+### 3. Contracts
+
+- Tab 只由 Router search 持有；非法、缺失或额外参数 replace 为单一 canonical search。首屏 server state 只有 `platformKeys.detail(platformId)`。
+- Accounts 与 Prompt options 分别在对应 Tab 按需启用；无 `UPDATE` action 时 Generation 不读取管理员 Prompt options，也不得按角色自行补动作。
+- Overview 与 Generation 使用独立表单，但都从 Detail 的 Platform revision 建 baseline。PATCH 必须一次提交完整 `PlatformProfileUpdate` 并保留另一表面的权威字段。
+- Configuration domain 拥有 List/Detail/Accounts/Prompt query keys；Content 与 Publication 失效由 route composition 调用各自 key owner。删除后移除目标 Detail/Accounts，禁止无边界 `QueryClient.clear()`。
+- Logo upload/candidate 在 PATCH 保存前只是 transient form state；未确认 candidate 不进入 payload，未绑定文件不失效 Platform cache，生命周期清理由服务端负责。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 页面处理 |
+| --- | --- |
+| 非 UUID 或大写 UUID | 请求前失败 / replace 为小写 canonical UUID |
+| 缺失、未知或额外 search | replace 为唯一 `?tab=overview` |
+| Detail 初始 403/404/普通错误 | 专用整页状态；普通错误提供 retry |
+| Detail 背景刷新失败 | 保留 stale Workspace 与表单，提供显式重试 |
+| PATCH `409 REVISION_CONFLICT` | 保留草稿或 Prompt 选择，只有显式 reload 才 reset |
+| 无 `UPDATE` token | Overview/Generation 只读，不请求 Prompt options |
+
+### 5. Good / Base / Bad Cases
+
+- Good：首屏一次 Detail，进入 Accounts/Generation 后才读取窄 options；保存一次 PATCH 并精确失效消费者。
+- Base：ENGINEER 读取同一 Workspace，但管理动作为空且 Generation 不读取管理 options。
+- Bad：先读 Platform List 搜当前项、并发拼装四个首屏端点、按 `isAdmin` 推导动作，或在 409 后自动重放 mutation。
+
+### 6. Tests Required
+
+- Model/component：UUID/search canonicalization、三个 Tab、权限投影、dirty/cancel/save、Logo 生命周期、409 保留和精确 cache invalidation。
+- Contract/backend：Detail ADMIN/ENGINEER、固定 query count、repeatable-read、Platform revision 与 runtime/generated schema 一致性。
+- Production-artifact fixture：List 进入、direct/refresh/Back/Forward、403/404/error/retry、DirtyGuard、焦点和 375/768/1024/1440。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：客户端拼详情并自行判断管理员权限。
+const profile = list.items.find((item) => item.id === platformId);
+const canEdit = auth.isAdmin;
+
+// Correct：消费 actor-aware Detail 与服务端动作。
+const detail = useQuery(platformDetailQueryOptions(platformId));
+const canEdit = detail.data?.profile.available_actions.includes('UPDATE') ?? false;
+```
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

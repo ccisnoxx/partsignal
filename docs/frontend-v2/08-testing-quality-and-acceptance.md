@@ -261,6 +261,12 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 
 `tests/e2e/platform-list.spec.ts` 使用独立 generated-type `platforms.fixture.ts`，只允许认证、CSRF、PlatformProfile list 和服务端投影允许的 enable/disable/delete；未声明 API 与浏览器运行时错误在 teardown 失败。contract/backend tests 覆盖 readiness 优先级、可用账号聚合、筛选/分页/稳定排序、全局 summary/type options、ADMIN/ENGINEER 投影、固定查询次数、同态状态拒绝与 DELETE stale revision。model/component/production-artifact tests 覆盖 canonical URL、七列、三态与缺失值、loading/empty/error/stale/越界页、Primary/overflow/blocker/焦点/409、refresh/Back/Forward、canonical Workspace handoff，以及 375/768/1024/1440 页面根无横向溢出。该 fixture 不替代 Phase 6 后续完整真实栈 E2E。
 
+### 13.13 Platform Workspace Core 验收
+
+`tests/e2e/platform-workspace.spec.ts` 在 Platform fixture 上叠加 generated-type Workspace fixture，只允许 actor-aware Detail、当前平台 Accounts、Prompt references、单次 Platform PATCH 和显式 Logo candidate；未声明 API、未声明非 2xx、page error 与 request failure 均在 teardown 失败。backend integration 固定 ADMIN/ENGINEER action 差异、404、同一 `REPEATABLE READ` 快照和 sparse/dense 查询次数；contract check 固定 Detail type options。
+
+model/component/production-artifact tests 覆盖 UUID 与唯一 Tab canonicalization、List handoff、direct/refresh/Back/Forward、Overview dirty/cancel/save、Slug 只读、Logo SVG 拒绝与 candidate 二次确认、Accounts 按需只读清单、Prompt options/bind/unbind、409 草稿保留与显式 reload、403/404/error/retry、DirtyGuard、read-only projection、精确 cache invalidation，以及 375/768/1024/1440 页面根无横向溢出。该 fixture 不覆盖拆分后的账号 CRUD，也不替代 Phase 6 完整真实栈 E2E。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

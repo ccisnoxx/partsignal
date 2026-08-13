@@ -51,9 +51,9 @@ test('Platform List 刷新与历史恢复搜索状态，名称点击交接 canon
   await expect(page.getByRole('link', { name: '工程师社区 004' })).toBeVisible();
   await page.goForward();
   const handoff = page.getByRole('link', { name: '工程师社区 005' });
-  await expect(handoff).toHaveAttribute('href', '/settings/platforms/00000000-0000-4000-8000-000000000005');
+  await expect(handoff).toHaveAttribute('href', '/settings/platforms/00000000-0000-4000-8000-000000000005?tab=overview');
   await handoff.click();
-  await expect(page).toHaveURL('/settings/platforms/00000000-0000-4000-8000-000000000005');
+  await expect(page).toHaveURL('/settings/platforms/00000000-0000-4000-8000-000000000005?tab=overview');
 });
 
 test('Platform List 呈现服务端 Primary、overflow、删除条件与 revision command', async ({ page, platformsApi }) => {
@@ -61,7 +61,7 @@ test('Platform List 呈现服务端 Primary、overflow、删除条件与 revisio
   const firstRow = page.getByRole('row', { name: /工程师社区 001/ });
   await expect(firstRow.getByRole('link', { name: '查看运营' })).toHaveAttribute(
     'href',
-    '/settings/platforms/00000000-0000-4000-8000-000000000001',
+    '/settings/platforms/00000000-0000-4000-8000-000000000001?tab=overview',
   );
 
   await firstRow.getByRole('button', { name: /更多操作/ }).click();

@@ -47,6 +47,7 @@ import { Route as AppPublishingIssuesIssueIdRouteImport } from './routes/_app/pu
 import { Route as AppPublishingWorkIndexRouteImport } from './routes/_app/publishing/work/index'
 import { Route as AppPublishingWorkWorkIdRouteImport } from './routes/_app/publishing/work/$workId'
 import { Route as AppSettingsPlatformsIndexRouteImport } from './routes/_app/settings/platforms/index'
+import { Route as AppSettingsPlatformsPlatformIdRouteImport } from './routes/_app/settings/platforms/$platformId'
 import { Route as AppContentTasksTaskIdEditorRouteImport } from './routes/_app/content/tasks/$taskId_.editor'
 import { Route as AppContentTasksTaskIdReviewRouteImport } from './routes/_app/content/tasks/$taskId_.review'
 import { Route as AppGeoObservationsObservationIdCorrectRouteImport } from './routes/_app/geo/observations/$observationId_.correct'
@@ -253,6 +254,12 @@ const AppSettingsPlatformsIndexRoute =
     path: '/',
     getParentRoute: () => AppSettingsPlatformsRouteRoute,
   } as any)
+const AppSettingsPlatformsPlatformIdRoute =
+  AppSettingsPlatformsPlatformIdRouteImport.update({
+    id: '/$platformId',
+    path: '/$platformId',
+    getParentRoute: () => AppSettingsPlatformsRouteRoute,
+  } as any)
 const AppContentTasksTaskIdEditorRoute =
   AppContentTasksTaskIdEditorRouteImport.update({
     id: '/$taskId_/editor',
@@ -319,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/publishing/articles/$articleId': typeof AppPublishingArticlesArticleIdRoute
   '/publishing/issues/$issueId': typeof AppPublishingIssuesIssueIdRoute
   '/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
+  '/settings/platforms/$platformId': typeof AppSettingsPlatformsPlatformIdRoute
   '/content/tasks/': typeof AppContentTasksIndexRoute
   '/geo/insights/': typeof AppGeoInsightsIndexRoute
   '/geo/observations/': typeof AppGeoObservationsIndexRoute
@@ -354,6 +362,7 @@ export interface FileRoutesByTo {
   '/publishing/articles/$articleId': typeof AppPublishingArticlesArticleIdRoute
   '/publishing/issues/$issueId': typeof AppPublishingIssuesIssueIdRoute
   '/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
+  '/settings/platforms/$platformId': typeof AppSettingsPlatformsPlatformIdRoute
   '/content/tasks': typeof AppContentTasksIndexRoute
   '/geo/insights': typeof AppGeoInsightsIndexRoute
   '/geo/observations': typeof AppGeoObservationsIndexRoute
@@ -401,6 +410,7 @@ export interface FileRoutesById {
   '/_app/publishing/articles/$articleId': typeof AppPublishingArticlesArticleIdRoute
   '/_app/publishing/issues/$issueId': typeof AppPublishingIssuesIssueIdRoute
   '/_app/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
+  '/_app/settings/platforms/$platformId': typeof AppSettingsPlatformsPlatformIdRoute
   '/_app/content/tasks/': typeof AppContentTasksIndexRoute
   '/_app/geo/insights/': typeof AppGeoInsightsIndexRoute
   '/_app/geo/observations/': typeof AppGeoObservationsIndexRoute
@@ -447,6 +457,7 @@ export interface FileRouteTypes {
     | '/publishing/articles/$articleId'
     | '/publishing/issues/$issueId'
     | '/publishing/work/$workId'
+    | '/settings/platforms/$platformId'
     | '/content/tasks/'
     | '/geo/insights/'
     | '/geo/observations/'
@@ -482,6 +493,7 @@ export interface FileRouteTypes {
     | '/publishing/articles/$articleId'
     | '/publishing/issues/$issueId'
     | '/publishing/work/$workId'
+    | '/settings/platforms/$platformId'
     | '/content/tasks'
     | '/geo/insights'
     | '/geo/observations'
@@ -528,6 +540,7 @@ export interface FileRouteTypes {
     | '/_app/publishing/articles/$articleId'
     | '/_app/publishing/issues/$issueId'
     | '/_app/publishing/work/$workId'
+    | '/_app/settings/platforms/$platformId'
     | '/_app/content/tasks/'
     | '/_app/geo/insights/'
     | '/_app/geo/observations/'
@@ -816,6 +829,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsPlatformsIndexRouteImport
       parentRoute: typeof AppSettingsPlatformsRouteRoute
     }
+    '/_app/settings/platforms/$platformId': {
+      id: '/_app/settings/platforms/$platformId'
+      path: '/$platformId'
+      fullPath: '/settings/platforms/$platformId'
+      preLoaderRoute: typeof AppSettingsPlatformsPlatformIdRouteImport
+      parentRoute: typeof AppSettingsPlatformsRouteRoute
+    }
     '/_app/content/tasks/$taskId_/editor': {
       id: '/_app/content/tasks/$taskId_/editor'
       path: '/$taskId/editor'
@@ -1056,11 +1076,13 @@ const AppPublishingRouteRouteWithChildren =
   AppPublishingRouteRoute._addFileChildren(AppPublishingRouteRouteChildren)
 
 interface AppSettingsPlatformsRouteRouteChildren {
+  AppSettingsPlatformsPlatformIdRoute: typeof AppSettingsPlatformsPlatformIdRoute
   AppSettingsPlatformsIndexRoute: typeof AppSettingsPlatformsIndexRoute
 }
 
 const AppSettingsPlatformsRouteRouteChildren: AppSettingsPlatformsRouteRouteChildren =
   {
+    AppSettingsPlatformsPlatformIdRoute: AppSettingsPlatformsPlatformIdRoute,
     AppSettingsPlatformsIndexRoute: AppSettingsPlatformsIndexRoute,
   }
 

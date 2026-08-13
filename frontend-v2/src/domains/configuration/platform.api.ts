@@ -11,6 +11,9 @@ import {
 
 type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
+type PlatformProfileDetail = components['schemas']['PlatformProfileDetail'];
+type PlatformProfileUpdate = components['schemas']['PlatformProfileUpdate'];
+type UploadIntentCreate = components['schemas']['UploadIntentCreate'];
 
 class PlatformRequestError extends Error {
   constructor(
@@ -28,6 +31,13 @@ const platformKeys = {
   list: (params: ReturnType<typeof platformSearchToApiParams>) => (
     ['configuration', 'platforms', 'list', params] as const
   ),
+  detail: (platformId: string) => (
+    ['configuration', 'platforms', 'detail', platformId] as const
+  ),
+  accounts: (platformId: string) => (
+    ['configuration', 'platforms', platformId, 'accounts'] as const
+  ),
+  promptOptions: () => ['configuration', 'platforms', 'prompt-options'] as const,
 };
 
 function platformListQueryOptions(search: PlatformSearch) {
@@ -46,6 +56,115 @@ function platformListQueryOptions(search: PlatformSearch) {
     retryOnMount: false,
     staleTime: 30_000,
   });
+}
+
+function platformDetailQueryOptions(platformId: string) {
+  return queryOptions({
+    queryKey: platformKeys.detail(platformId),
+    queryFn: async (): Promise<PlatformProfileDetail> => {
+      const result = await api.GET('/api/v1/platform-profiles/{platform_profile_id}', {
+        params: { path: { platform_profile_id: platformId } },
+      });
+      if (!result.data) throw platformRequestError('读取平台工作区', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
+function platformAccountsQueryOptions(platformId: string, enabled: boolean) {
+  return queryOptions({
+    enabled,
+    queryKey: platformKeys.accounts(platformId),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/platform-accounts', {
+        params: { query: { platform_profile_id: platformId } },
+      });
+      if (!result.data) throw platformRequestError('读取平台发布账号', result);
+      return result.data;
+    },
+    retry: false,
+    staleTime: 30_000,
+  });
+}
+
+function platformPromptOptionsQueryOptions(enabled: boolean) {
+  return queryOptions({
+    enabled,
+    queryKey: platformKeys.promptOptions(),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/platform-prompts');
+      if (!result.data) throw platformRequestError('读取 Prompt 选项', result);
+      return result.data;
+    },
+    retry: false,
+    staleTime: 30_000,
+  });
+}
+
+async function updatePlatformProfile(
+  platformId: string,
+  body: PlatformProfileUpdate,
+  csrfToken: string | null,
+) {
+  const result = await api.PATCH('/api/v1/platform-profiles/{platform_profile_id}', {
+    body,
+    params: {
+      path: { platform_profile_id: platformId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw platformRequestError('更新平台', result);
+}
+
+async function createPlatformLogoCandidate(
+  websiteUrl: string,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/platform-logo-candidates', {
+    body: { website_url: websiteUrl },
+    params: { header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) } },
+  });
+  if (result.data) return result.data;
+  throw platformRequestError('导入官网 Logo 候选', result);
+}
+
+async function createPlatformLogoUploadIntent(
+  body: UploadIntentCreate,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/files/upload-intents', {
+    body,
+    params: { header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) } },
+  });
+  if (result.data) return result.data;
+  throw platformRequestError('创建 Logo 上传意图', result);
+}
+
+async function completePlatformLogoUpload(fileId: string, csrfToken: string | null) {
+  const result = await api.POST('/api/v1/files/{file_id}/complete', {
+    params: {
+      path: { file_id: fileId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw platformRequestError('确认 Logo 上传', result);
+}
+
+async function abortPlatformLogoUpload(fileId: string, csrfToken: string | null) {
+  const result = await api.POST('/api/v1/files/{file_id}/abort', {
+    params: {
+      path: { file_id: fileId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw platformRequestError('中止 Logo 上传', result);
 }
 
 async function runPlatformCommand(
@@ -116,7 +235,15 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
 
 export {
   PlatformRequestError,
+  abortPlatformLogoUpload,
+  completePlatformLogoUpload,
+  createPlatformLogoCandidate,
+  createPlatformLogoUploadIntent,
+  platformAccountsQueryOptions,
+  platformDetailQueryOptions,
   platformKeys,
   platformListQueryOptions,
+  platformPromptOptionsQueryOptions,
   runPlatformCommand,
+  updatePlatformProfile,
 };

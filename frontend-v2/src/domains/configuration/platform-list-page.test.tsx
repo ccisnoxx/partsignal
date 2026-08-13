@@ -151,7 +151,7 @@ describe('PlatformListPage', () => {
     expect(screen.getByRole('region', { name: '全部平台摘要' })).toHaveTextContent('缺 Prompt 1 · 缺账号 1');
     expect(screen.getByRole('link', { name: '工程师社区' })).toHaveAttribute(
       'href',
-      '/settings/platforms/00000000-0000-4000-8000-000000000001',
+      '/settings/platforms/00000000-0000-4000-8000-000000000001?tab=overview',
     );
     expect(screen.getByText('2 个可用')).toBeInTheDocument();
     expect(screen.getByText('未归类')).toBeInTheDocument();
@@ -175,7 +175,7 @@ describe('PlatformListPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '更多操作：工程师社区' }));
     expect(await screen.findByRole('menuitem', { name: '编辑平台' })).toHaveAttribute(
       'href',
-      '/settings/platforms/00000000-0000-4000-8000-000000000001',
+      '/settings/platforms/00000000-0000-4000-8000-000000000001?tab=overview',
     );
     expect(screen.getByRole('menuitem', { name: '停用平台' })).toBeInTheDocument();
   });

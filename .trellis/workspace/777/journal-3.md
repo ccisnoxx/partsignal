@@ -357,7 +357,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 注册 canonical `/geo/insights/print`，复用 Screen 的七参数 schema、API 映射、query options 与 generated `GeoInsights`。
+- 提取 GEO 域共享报告体；Print composition 移除筛选、业务动作、Dialog 与普通 AppShell，并直接展示趋势精确表。
+- 增加原生 `window.print()`、375/768/1024/1440 响应式与 Print media 规则，同步 strict fixture、稳定 spec 和 Frontend V2 权威文档。
 
 ### Git Commits
 
@@ -367,7 +369,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- Targeted Vitest：4 files / 16 tests passed。
+- Targeted Playwright：2 projects / 16 tests passed。
+- `api:check`、typecheck、lint、production build、`git diff --check` 与 Trellis task validation 均通过。
 
 ### Status
 
@@ -694,6 +698,39 @@
 | Hash | Message |
 |------|---------|
 | `661baf3` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 135: Frontend V2 GEO Insights Print
+
+**Date**: 2026-08-13
+**Task**: Frontend V2 GEO Insights Print
+**Branch**: `codex/frontend-v2-geo-insights-print`
+
+### Summary
+
+实现 /geo/insights/print：复用 Screen 七参数 URL、单一 Insights GET/query key 和共享报告体，提供只读 Print shell、原生 window.print、响应式/打印样式及严格 fixture 验收；required validation 全部通过。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `270256b` | (see git log) |
 
 ### Testing
 

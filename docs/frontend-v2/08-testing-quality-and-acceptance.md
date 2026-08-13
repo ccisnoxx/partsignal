@@ -247,6 +247,12 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 
 `tests/e2e/geo-observation-correction.spec.ts` 使用独立 generated-type `geo-correction.fixture.ts`，只开放认证、Manual Detail 入口、correction-context、通用 Observation POST、三阶段文件上传和创建 ID 对应的精确 Detail GET；未声明 API 在 teardown 失败。后端 integration 与 contract tests 覆盖 append-only、服务端资格/尾/候选/冻结字段/证据边界；API/model/page tests 覆盖严格上下文、初值、payload、错误映射、pending 防重、缓存失效、DirtyGuard 和冲突合并。production-artifact E2E 覆盖历史 ID canonical replace、完整只读历史、上传 complete 失败/重试、CSRF、无 Idempotency-Key、两类 409 不 replay、显式刷新保留草稿/证据并采用新尾、404/403/Legacy/提交时权限变化、响应 ID handoff、键盘与 375/768/1024/1440 页面根无横向溢出。fixture 不代表 GEO 完整 real-stack 闭环。
 
+### 13.10 GEO 完整真实栈闭环
+
+`tests/e2e/geo-real-stack.spec.ts` 复用 `deploy/scripts/e2e-local.sh` 的单一隔离 PostgreSQL、独占 Redis、FastAPI、对象存储和 V2 production preview 生命周期；不导入 fixture、不拦截 API，也不新增 orchestration。Flow A 由 V2 New UI 创建带真实 evidence 的 root Observation，经 Detail 的服务端动作进入 Correction Workspace，再用第二份 evidence 追加 tail；Detail/List UI 与最终 API 同时证明 root payload 不变、祖先附件与节点 direct evidence 分离、`supersedes_id` 正确且列表只投影 tail。Flow B 只用 API 建立确定性的两周期 observation 前置，从真实 Insights `CONTENT_DECLINE` 打开按需 options，通过单次幂等 POST 创建 Optimization ContentTask，并由 Task Detail UI/API 证明 Product、Platform、Fact 与不可变 GEO source snapshot。
+
+真实浏览器暴露的 `GET /api/v1/geo-observations/list-items?page_size=20` 422 已在 router owner 通过显式整数预解析最小修复，并由实际 TestClient 查询字符串回归覆盖。完整门禁通过 V2 real-stack `12 passed` 与指定 V1 Trusted Types `7 passed`；退出码为 0，脚本删除隔离数据库与对象存储，事后核验六个端口释放并只精确删除独占 Redis 中本次 Celery binding key。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

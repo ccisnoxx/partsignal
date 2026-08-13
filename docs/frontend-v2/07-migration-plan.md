@@ -431,7 +431,9 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-geo-insights` 已注册 `/geo/insights`：一个 repeatable-read read model 提供七参数筛选、三项趋势、平台/内容/覆盖、建议与数据质量；actor-aware action source 驱动按需优化 Dialog。PublicationWork 冻结平台 UUID/名称保证平台删除后的历史筛选；局部 SVG + 精确表格替代图表依赖。Coverage 可 handoff Topic+GEO Platform 到 New Observation。
 
-`frontend-v2-geo-insights-print` 已注册 `/geo/insights/print`：Screen/Print 共用七参数 URL、query key、单 GET read model、趋势格式化和 GEO 域报告体；Print 从同一响应解析筛选标签，移除普通 AppShell 与全部筛选、drill-down、优化 Dialog、creation-options 和 mutation，仅保留原生浏览器打印。局部响应式表格在 375px 卡片化，768/1024/1440 保持语义 table，Print media 重复表头并避免拆分行/短卡片。完整 GEO real-stack 闭环和抽象回顾仍未实现，Phase 5 退出条件继续为 `NOT_MET`。
+`frontend-v2-geo-insights-print` 已注册 `/geo/insights/print`：Screen/Print 共用七参数 URL、query key、单 GET read model、趋势格式化和 GEO 域报告体；Print 从同一响应解析筛选标签，移除普通 AppShell 与全部筛选、drill-down、优化 Dialog、creation-options 和 mutation，仅保留原生浏览器打印。局部响应式表格在 375px 卡片化，768/1024/1440 保持语义 table，Print media 重复表头并避免拆分行/短卡片。
+
+`frontend-v2-geo-e2e` 已关闭完整 GEO real-stack 闭环缺口：Flow A 通过 V2 New、Detail、Correction 与 List 连续证明真实附件上传、append-only correction、祖先附件投影、节点 direct evidence、原记录不可变和链尾唯一；Flow B 从真实 Insights `CONTENT_DECLINE` 创建带幂等键的 Optimization ContentTask，并在 Task Detail UI/API 证明不可变 GEO source。过程中发现并最小修复 `list-items?page_size=20` 未将查询字符串解析为整数的问题，TestClient 回归锁定合法值。唯一 required gate 为 V2 real-stack `12 passed`、V1 Trusted Types `7 passed`，退出码 0，数据库、对象存储、端口与独占 Redis 均完成精确清理。Phase 5 仅剩 vertical slice 抽象回顾，因此退出条件继续为 `NOT_MET`。
 
 退出条件：Correction append-only；Topic 删除能显示业务引用；Insights filter 可通过 URL 恢复；print 与 screen 使用同一 read model；375px 不出现不可用的宽表。
 

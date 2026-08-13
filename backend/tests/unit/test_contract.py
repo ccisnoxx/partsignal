@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from app.db import get_db
 from app.deps import get_current_session
 from app.main import app
+from app.routers import observation as observation_router
 from app.routers.planning import _content_task_read_snapshot
 from app.security import hash_token
 from app.tools.contract_check import check
@@ -94,6 +95,36 @@ def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
     assert not {"recommendation", "citation"} & set(
         schemas["GeoArticleResultCreate"]["properties"]
     )
+
+
+def test_geo_observation_list_accepts_page_size_from_query_string(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """合法分页值必须从 HTTP 查询字符串解析为整数。"""
+    received_page_sizes: list[int] = []
+
+    def list_items(_db: object, **kwargs: object) -> dict[str, object]:
+        page_size = kwargs["page_size"]
+        assert isinstance(page_size, int)
+        received_page_sizes.append(page_size)
+        return {"items": [], "page": 1, "page_size": page_size, "total": 0}
+
+    monkeypatch.setattr(observation_router, "list_geo_observation_items_service", list_items)
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(
+        user=SimpleNamespace(account_type="ADMIN")
+    )
+    try:
+        response = TestClient(app).get(
+            "/api/v1/geo-observations/list-items",
+            params={"page_size": 20},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["page_size"] == 20
+    assert received_page_sizes == [20]
 
 
 def test_query_topic_list_contract_preserves_full_list_and_adds_v2_read_model() -> None:

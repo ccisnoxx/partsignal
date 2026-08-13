@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query, Request, status
+from pydantic import BeforeValidator
 from sqlalchemy import func, select
 
 from app.deps import (
@@ -225,7 +226,7 @@ def list_geo_observation_items(
     user: CurrentUser,
     filters: Annotated[GeoObservationListFilters, Depends(geo_observation_list_filters)],
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[GeoObservationPageSize, Query()] = 20,
+    page_size: Annotated[GeoObservationPageSize, BeforeValidator(int), Query()] = 20,
     sort: GeoObservationListSort = "OBSERVED_DESC",
 ) -> GeoObservationListPage:
     """返回 Frontend V2 使用的 GEO 观测紧凑列表。"""

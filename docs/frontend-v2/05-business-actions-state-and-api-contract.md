@@ -347,3 +347,11 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - UPDATE、ENABLE、DISABLE 和 DELETE 都提交当前账号 revision。DELETE 使用 required `expected_revision` query；服务端按 Platform → Account 固定顺序锁定后先拒绝 stale revision，再实时复核非终态 PublicationWork。409 保留 Dialog/表单上下文，只有显式 reload 才采用新 baseline，禁止自动重放。
 - 同平台账号标识以数据库 `lower(btrim(account_identifier))` 唯一约束为权威。预检与约束竞态统一返回 `PLATFORM_ACCOUNT_IDENTIFIER_EXISTS`，并用 `details.errors[].loc=["body","account_identifier"]` 定位字段；浏览器不解析错误 message 判断冲突。
 - Account mutation 只失效 Platform lists/current detail/current accounts，以及 Publication ready items/work lists/workspace contexts 中的实际消费者；不失效冻结的 PublishedArticle snapshot，也不触碰 Content queries。
+
+## 25. Platform Type Settings 合同
+
+- `/settings/platforms/types` 只在既有 ADMIN route boundary 下读取 `GET /api/v1/platform-types`；服务端四个 CRUD endpoint 均继续以 ADMIN 为最终权限权威，不提供 ENGINEER 只读模式。Platform List/Workspace 仅向管理员显示 subsettings 入口，Platform Type 不占 Sidebar、不创建 Detail route。
+- 列表固定展示 Name、Slug、`platform_count`、overflow。`platform_count` 是全部 Enabled/Disabled PlatformProfile 的直接引用总数，由服务端与 deletion blocker 同一 grouped query 投影；列表按 `lower(name), id` 稳定排序，客户端不得另取 Platform List 计数或排序。
+- `primary_task=EDIT_CATEGORY` 是服务端任务语义，不产生独立 Primary button。UPDATE、DELETE 与查看非空 blocker 全部进入 overflow；未知 action/primary/blocker 必须显式失败。只有包含 DELETE 且 blocker 为空时才进入确认删除。
+- create/update Dialog 只提交 Name 与 Slug；name 由服务端 trim 且不唯一，slug 不自动规范化、数据库唯一并可修改。PATCH body 与 DELETE query 都提交 canonical revision；服务端锁行后先校验 revision，DELETE 再复核 PlatformProfile 引用，分别返回 `REVISION_CONFLICT` 与 `PLATFORM_TYPE_IN_USE`。
+- 409 保留表单或删除上下文，不自动 GET/replay；显式 reload 才采用服务端 baseline。成功 mutation 精确失效 Type settings、全部 Platform lists 与全部 Platform details，覆盖 options 和名称消费者，不触碰 Account/Prompt/Content/Publication cache。

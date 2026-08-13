@@ -223,6 +223,48 @@ def test_platform_list_contract_exposes_readiness_options_and_delete_revision() 
     }
 
 
+def test_platform_type_contract_exposes_count_bounds_and_delete_revision() -> None:
+    """平台类型列表直接提供权威数量，写合同与数据库边界一致。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    schemas = document["components"]["schemas"]
+
+    platform_type = schemas["PlatformType"]
+    assert "platform_count" in platform_type["required"]
+    assert platform_type["properties"]["platform_count"] == {
+        "type": "integer",
+        "minimum": 0,
+        "description": "直接引用该类型的全部 PlatformProfile 数，包含 Enabled 与 Disabled",
+    }
+    for name in ("PlatformTypeCreate", "PlatformTypeUpdate", "PlatformType"):
+        assert schemas[name]["properties"]["name"]["maxLength"] == 160
+        assert schemas[name]["properties"]["slug"]["maxLength"] == 100
+
+    delete_parameters = paths["/api/v1/platform-types/{platform_type_id}"]["delete"][
+        "parameters"
+    ]
+    assert delete_parameters[1] == {
+        "name": "expected_revision",
+        "in": "query",
+        "required": True,
+        "description": "当前平台类型 revision",
+        "schema": {"type": "integer", "minimum": 0},
+    }
+    assert set(paths["/api/v1/platform-types"]["get"]["responses"]) == {
+        "200", "401", "403"
+    }
+    assert set(paths["/api/v1/platform-types"]["post"]["responses"]) == {
+        "201", "401", "403", "409", "422"
+    }
+    assert set(paths["/api/v1/platform-types/{platform_type_id}"]["patch"]["responses"]) == {
+        "200", "401", "403", "404", "409", "422"
+    }
+    assert set(paths["/api/v1/platform-types/{platform_type_id}"]["delete"]["responses"]) == {
+        "204", "401", "403", "404", "409", "422"
+    }
+
+
 def test_geo_observation_detail_contract_is_one_readonly_generated_union() -> None:
     """V2 Detail 一次返回两类完整事实，基础 GeoObservation 合同保持不变。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"

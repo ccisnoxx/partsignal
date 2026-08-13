@@ -397,6 +397,14 @@ result = cleanup_platform_logo_files(storage=storage)
 
 正确：服务端返回 `readiness_status`、`enabled_platform_account_count` 和权限动作；客户端把当前 `revision` 原样传给启停或删除命令。
 
+## 场景：Platform Type Settings 投影与 revision 删除
+
+- `GET /api/v1/platform-types`、POST、PATCH、DELETE 均只允许 ADMIN；普通用户不获得只读类型管理模式。
+- `PlatformType.platform_count` 是全部直接 `PlatformProfile` 引用数，包含 Enabled 与 Disabled；必须与 deletion blocker 在同一 grouped query 中批量计算，列表固定使用 `lower(name), id`，不得逐行查询或客户端计数。
+- `name` 不唯一，由请求 schema trim 后限制 1–160；`slug` 限制 1–100 且只接受小写字母、数字、连字符，允许更新。只有 `uq_platform_types_slug` 映射为 `409 PLATFORM_TYPE_SLUG_EXISTS` 与 `body.slug` 字段错误，未知 IntegrityError 继续抛出。
+- PATCH 使用 body `expected_revision`；DELETE 使用 required query `expected_revision`。两者锁行后先比较 revision；DELETE 再统计 PlatformProfile，非零返回 `PLATFORM_TYPE_IN_USE`，不得自动 GET 或重放。
+- contract/integration tests 必须覆盖 runtime OpenAPI、一致字段边界、ADMIN 403、稳定顺序、Enabled/Disabled count/blocker、create/update constraint、stale DELETE 优先级及 sparse/dense 固定两查询。
+
 ## 场景：Markdown 产品事实与双首稿内容生产
 
 ### 1. 范围与触发条件

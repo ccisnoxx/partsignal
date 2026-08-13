@@ -94,17 +94,20 @@ function result(items: PlatformProfile[], total = items.length): PlatformProfile
   };
 }
 
-function renderPlatforms(entry = '/settings/platforms?page=1&pageSize=20') {
+function renderPlatforms(
+  entry = '/settings/platforms?page=1&pageSize=20',
+  authContext = auth,
+) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [entry] }),
-    context: { queryClient, auth },
+    context: { queryClient, auth: authContext },
   });
   const view = render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <RouterProvider router={router} context={{ queryClient, auth }} />
+        <RouterProvider router={router} context={{ queryClient, auth: authContext }} />
       </TooltipProvider>
     </QueryClientProvider>,
   );
@@ -145,6 +148,10 @@ describe('PlatformListPage', () => {
 
     const { view } = renderPlatforms();
     expect(await screen.findByRole('heading', { name: '平台与账号' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '管理平台类型' })).toHaveAttribute(
+      'href',
+      '/settings/platforms/types',
+    );
     expect(screen.getAllByRole('columnheader').map((header) => header.textContent)).toEqual([
       '平台', '类型', '配置状态', '发布账号', '状态', '更新时间', '操作',
     ]);
@@ -178,6 +185,21 @@ describe('PlatformListPage', () => {
       '/settings/platforms/00000000-0000-4000-8000-000000000001?tab=overview',
     );
     expect(screen.getByRole('menuitem', { name: '停用平台' })).toBeInTheDocument();
+  });
+
+  it('ENGINEER 可读平台列表但不显示平台类型 subsettings 入口', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([platform()]),
+      response: Response.json(result([platform()])),
+    } as never);
+    renderPlatforms('/settings/platforms?page=1&pageSize=20', {
+      ...auth,
+      user: { ...admin, account_type: 'ENGINEER' },
+      isAdmin: false,
+    });
+
+    expect(await screen.findByRole('heading', { name: '平台与账号' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '管理平台类型' })).not.toBeInTheDocument();
   });
 
   it('区分 loading、filtered empty 与 error retry，并由 URL 恢复搜索', async () => {

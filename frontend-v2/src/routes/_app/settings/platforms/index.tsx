@@ -37,6 +37,7 @@ function PlatformsRoute() {
   const navigate = Route.useNavigate();
   return (
     <PlatformListPage
+      canManagePlatformTypes={auth.isAdmin}
       csrfToken={auth.csrfToken}
       onPlatformChanged={async (kind) => {
         await Promise.all([

@@ -103,6 +103,7 @@ function PlatformWorkspaceRoute() {
 
   return (
     <PlatformWorkspacePage
+      canManagePlatformTypes={auth.isAdmin}
       csrfToken={auth.csrfToken}
       onAccountConsumersChanged={invalidateAccountConsumers}
       onConsumersChanged={invalidateConsumers}

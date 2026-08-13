@@ -267,6 +267,12 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 
 model/component/production-artifact tests 覆盖 UUID 与唯一 Tab canonicalization、List handoff、direct/refresh/Back/Forward、Overview dirty/cancel/save、Slug 只读、Logo SVG 拒绝与 candidate 二次确认、Accounts 按需读取与创建/编辑/启停/删除/blocker、账号字段冲突与 revision reload、Prompt options/bind/unbind、403/404/error/retry、DirtyGuard、read-only projection、精确 cache invalidation，以及 375/768/1024/1440 页面根无横向溢出。后端 contract/integration 另证明角色投影、normalized unique 竞态、stale DELETE、PublicationWork blocker 与固定 query count；该 fixture 不替代 Phase 6 完整真实栈 E2E。
 
+### 13.14 Platform Type Settings 验收
+
+`tests/e2e/platform-types.spec.ts` 在 Platform Workspace fixture 上叠加 generated-type Platform Type fixture，只新增 ADMIN/ENGINEER auth override 与 Platform Type CRUD 合同；未声明 API、未声明非 2xx、console error、page error 和 request failure 继续由基础 fixture teardown 失败。mobile/desktop 两个 project 覆盖从 Platform List/Workspace 进入、direct/refresh/Back/Forward、固定四列与权威数量、create/edit/delete、update/delete revision conflict、本地输入保留与显式 reload、PlatformProfile blocker 链接、ENGINEER route/server 403、error retry、焦点和 375/768/1024/1440 无根级横向溢出。
+
+model/component tests 另覆盖 loading/empty/stale refresh、未知 action/primary/blocker、slug 字段错误、Dialog 焦点和只失效 Type list/Platform lists/Platform details；backend contract/PostgreSQL integration 覆盖 name/slug 边界、真实唯一约束、Enabled/Disabled count/blocker、稳定排序、stale DELETE 优先级、ADMIN 403 与 sparse/dense 固定两查询。本 fixture 不替代 Phase 6 完整 real-stack E2E。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

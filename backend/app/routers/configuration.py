@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BeforeValidator, HttpUrl
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.deps import (
     AdminUser,
@@ -295,7 +295,9 @@ def put_content_humanization_prompt(
 
 @router.get("/platform-types", response_model=PlatformTypeList, operation_id="listPlatformTypes")
 def list_platform_types(db: DbSession, _admin: AdminUser) -> PlatformTypeList:
-    items = list(db.scalars(select(PlatformType).order_by(PlatformType.created_at)))
+    items = list(
+        db.scalars(select(PlatformType).order_by(func.lower(PlatformType.name), PlatformType.id))
+    )
     return PlatformTypeList(items=platform_types_out(db, items))
 
 
@@ -351,6 +353,7 @@ def update_platform_type(
 )
 def delete_platform_type(
     platform_type_id: uuid.UUID,
+    expected_revision: Annotated[int, Query(ge=0)],
     request: Request,
     db: DbSession,
     admin: AdminUser,
@@ -359,6 +362,7 @@ def delete_platform_type(
     delete_platform_type_command(
         db=db,
         platform_type_id=platform_type_id,
+        expected_revision=expected_revision,
         actor=admin,
         request_id=request.state.request_id,
     )

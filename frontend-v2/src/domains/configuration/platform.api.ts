@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { queryOptions, type QueryClient } from '@tanstack/react-query';
 
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
@@ -16,6 +16,9 @@ type PlatformAccountCreate = components['schemas']['PlatformAccountCreate'];
 type PlatformAccountUpdate = components['schemas']['PlatformAccountUpdate'];
 type PlatformProfileDetail = components['schemas']['PlatformProfileDetail'];
 type PlatformProfileUpdate = components['schemas']['PlatformProfileUpdate'];
+type PlatformType = components['schemas']['PlatformType'];
+type PlatformTypeCreate = components['schemas']['PlatformTypeCreate'];
+type PlatformTypeUpdate = components['schemas']['PlatformTypeUpdate'];
 type UploadIntentCreate = components['schemas']['UploadIntentCreate'];
 
 class PlatformRequestError extends Error {
@@ -37,11 +40,28 @@ const platformKeys = {
   detail: (platformId: string) => (
     ['configuration', 'platforms', 'detail', platformId] as const
   ),
+  details: () => ['configuration', 'platforms', 'detail'] as const,
   accounts: (platformId: string) => (
     ['configuration', 'platforms', platformId, 'accounts'] as const
   ),
   promptOptions: () => ['configuration', 'platforms', 'prompt-options'] as const,
+  types: () => ['configuration', 'platforms', 'types'] as const,
 };
+
+function platformTypeListQueryOptions() {
+  return queryOptions({
+    queryKey: platformKeys.types(),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/platform-types');
+      if (!result.data) throw platformRequestError('读取平台类型', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
 
 function platformListQueryOptions(search: PlatformSearch) {
   const params = platformSearchToApiParams(search);
@@ -122,6 +142,51 @@ async function updatePlatformProfile(
   });
   if (result.data) return result.data;
   throw platformRequestError('更新平台', result);
+}
+
+async function createPlatformType(body: PlatformTypeCreate, csrfToken: string | null) {
+  const result = await api.POST('/api/v1/platform-types', {
+    body,
+    params: { header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) } },
+  });
+  if (result.data) return result.data;
+  throw platformRequestError('创建平台类型', result);
+}
+
+async function updatePlatformType(
+  platformTypeId: string,
+  body: PlatformTypeUpdate,
+  csrfToken: string | null,
+) {
+  const result = await api.PATCH('/api/v1/platform-types/{platform_type_id}', {
+    body,
+    params: {
+      path: { platform_type_id: platformTypeId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw platformRequestError('更新平台类型', result);
+}
+
+async function deletePlatformType(platformType: PlatformType, csrfToken: string | null) {
+  const result = await api.DELETE('/api/v1/platform-types/{platform_type_id}', {
+    params: {
+      path: { platform_type_id: platformType.id },
+      query: { expected_revision: platformType.revision },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.response.ok) return;
+  throw platformRequestError('删除平台类型', result);
+}
+
+async function invalidatePlatformTypeConsumers(queryClient: QueryClient) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: platformKeys.types() }),
+    queryClient.invalidateQueries({ queryKey: platformKeys.lists() }),
+    queryClient.invalidateQueries({ queryKey: platformKeys.details() }),
+  ]);
 }
 
 async function createPlatformAccount(
@@ -305,14 +370,19 @@ export {
   createPlatformAccount,
   createPlatformLogoCandidate,
   createPlatformLogoUploadIntent,
+  createPlatformType,
   deletePlatformAccount,
+  deletePlatformType,
+  invalidatePlatformTypeConsumers,
   platformAccountsQueryOptions,
   platformDetailQueryOptions,
   platformKeys,
   platformListQueryOptions,
+  platformTypeListQueryOptions,
   platformPromptOptionsQueryOptions,
   runPlatformCommand,
   setPlatformAccountEnabled,
   updatePlatformAccount,
   updatePlatformProfile,
+  updatePlatformType,
 };

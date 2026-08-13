@@ -2691,7 +2691,9 @@ export interface components {
             platform_type_options: components["schemas"]["PlatformTypeSummary"][];
         };
         PlatformTypeCreate: {
+            /** @description 服务端 trim 后保存，不要求唯一 */
             name: string;
+            /** @description 数据库唯一；客户端与服务端均不自动规范化 */
             slug: string;
         };
         PlatformTypeUpdate: {
@@ -2704,6 +2706,8 @@ export interface components {
             id: string;
             name: string;
             slug: string;
+            /** @description 直接引用该类型的全部 PlatformProfile 数，包含 Enabled 与 Disabled */
+            platform_count: number;
             available_actions: ("UPDATE" | "DELETE")[];
             deletion: components["schemas"]["DeletionProjection"] | null;
             /** @constant */
@@ -6794,7 +6798,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 平台类型列表 */
+            /** @description 按 lower(name)、id 稳定排序的平台类型列表 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -6803,6 +6807,8 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformTypeList"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
         };
     };
     createPlatformType: {
@@ -6829,11 +6835,18 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformType"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     deletePlatformType: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description 当前平台类型 revision */
+                expected_revision: number;
+            };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };
@@ -6851,7 +6864,11 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     updatePlatformType: {
@@ -6880,7 +6897,11 @@ export interface operations {
                     "application/json": components["schemas"]["PlatformType"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listAIChannels: {

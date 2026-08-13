@@ -975,10 +975,12 @@ paths:
       operationId: listPlatformTypes
       responses:
         '200':
-          description: 平台类型列表
+          description: 按 lower(name)、id 稳定排序的平台类型列表
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformTypeList'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
     post:
       tags: [configuration]
       operationId: createPlatformType
@@ -994,6 +996,10 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformType'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/platform-types/{platform_type_id}:
     patch:
       tags: [configuration]
@@ -1013,15 +1019,24 @@ paths:
             application/json:
               schema: {$ref: '#/components/schemas/PlatformType'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
     delete:
       tags: [configuration]
       operationId: deletePlatformType
       parameters:
         - {$ref: '#/components/parameters/PlatformTypeId'}
+        - {name: expected_revision, in: query, required: true, description: 当前平台类型 revision, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已删除未被引用的平台类型}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels:
     get:
       tags: [configuration]
@@ -4164,24 +4179,25 @@ components:
       additionalProperties: false
       required: [name, slug]
       properties:
-        name: {type: string, minLength: 1}
-        slug: {type: string, pattern: '^[a-z0-9-]+$'}
+        name: {type: string, minLength: 1, maxLength: 160, description: 服务端 trim 后保存，不要求唯一}
+        slug: {type: string, minLength: 1, maxLength: 100, pattern: '^[a-z0-9-]+$', description: 数据库唯一；客户端与服务端均不自动规范化}
     PlatformTypeUpdate:
       type: object
       additionalProperties: false
       required: [expected_revision, name, slug]
       properties:
         expected_revision: {type: integer, minimum: 0}
-        name: {type: string, minLength: 1}
-        slug: {type: string, pattern: '^[a-z0-9-]+$'}
+        name: {type: string, minLength: 1, maxLength: 160}
+        slug: {type: string, minLength: 1, maxLength: 100, pattern: '^[a-z0-9-]+$'}
     PlatformType:
       type: object
       additionalProperties: false
-      required: [id, name, slug, available_actions, deletion, primary_task, revision, created_by, created_at, updated_at]
+      required: [id, name, slug, platform_count, available_actions, deletion, primary_task, revision, created_by, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
-        name: {type: string, minLength: 1}
-        slug: {type: string, pattern: '^[a-z0-9-]+$'}
+        name: {type: string, minLength: 1, maxLength: 160}
+        slug: {type: string, minLength: 1, maxLength: 100, pattern: '^[a-z0-9-]+$'}
+        platform_count: {type: integer, minimum: 0, description: 直接引用该类型的全部 PlatformProfile 数，包含 Enabled 与 Disabled}
         available_actions:
           type: array
           items: {type: string, enum: [UPDATE, DELETE]}

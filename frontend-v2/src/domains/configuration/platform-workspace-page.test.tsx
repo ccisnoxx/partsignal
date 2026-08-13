@@ -188,6 +188,10 @@ describe('PlatformWorkspacePage', () => {
     const { router } = renderWorkspace();
 
     expect(await screen.findByRole('heading', { level: 1, name: '工程师社区' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '管理平台类型' })).toHaveAttribute(
+      'href',
+      '/settings/platforms/types',
+    );
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(get).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('navigation', { name: '面包屑' })).toHaveTextContent('平台工作区');
@@ -357,6 +361,7 @@ describe('PlatformWorkspacePage', () => {
     });
     expect(await screen.findByText('当前账号可读取绑定关系，但没有修改生成配置的服务端动作。')).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: '绑定 Prompt' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '管理平台类型' })).not.toBeInTheDocument();
     expect(get).toHaveBeenCalledOnce();
   });
 

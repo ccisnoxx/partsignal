@@ -345,6 +345,7 @@ def test_seven_constrained_delete_projections_distinguish_empty_and_blocked() ->
         cast(Session, _ScalarSequenceSession([[(platform_type.id, 2)]])),
         [platform_type],
     )[0]
+    assert type_out.platform_count == 2
     assert type_out.deletion.blockers[0].type == "PLATFORM_PROFILE"
     assert "DELETE" not in type_out.available_actions
 

@@ -797,6 +797,14 @@ const canEdit = detail.data?.profile.available_actions.includes('UPDATE') ?? fal
 - mutation 后由 Configuration domain 失效 Platform lists/current detail/current accounts；route composition 失效 Publication ready items/work lists/workspace contexts。不得清空 QueryClient、失效 Content queries 或刷新冻结 PublishedArticle snapshot。
 - 响应式只切换同一数据的 TableShell 与 375px 卡片呈现；label、identifier、status、primary/overflow actions 在两个 surface 都必须可达，Dialog 关闭后焦点返回真实触发器。
 
+## Platform Type Settings State
+
+- `/settings/platforms/types` 位于既有 pathless ADMIN boundary；Platform List/Workspace 只用 `isAdmin` 控制 subsettings 导航可见性，API 权限仍由服务端最终拒绝。页面不占 Sidebar、不创建 Detail route。
+- TanStack Query 持有 `platformKeys.types()`；RHF+Zod 只持有 Name/Slug Dialog，Dialog target 与 focus return 使用本地 state。每行穷尽消费 `primary_task/available_actions/deletion/revision`，全部动作进入 overflow；未知 token、primary 或 blocker 显式失败。
+- update/delete `REVISION_CONFLICT` 保留输入或确认上下文，禁用旧 baseline 重试；只有显式 reload 类型列表后才采用新 revision，禁止自动重放。blocker 链接固定进入 `/settings/platforms?platformTypeId={id}&page=1&pageSize=20`。
+- create/update/delete 成功只失效 Type settings、全部 Platform lists、全部 Platform details；这三类查询分别承载 settings、列表 options/名称和 Workspace options/header。不得失效 Account/Prompt/Content/Publication 或清空 QueryClient。
+- 宽屏使用固定四列 TableShell；375px 使用局部 card-row，Name、Slug、platform_count 和 overflow 在两个 surface 都必须可达，不修改全局 Table Kit。
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

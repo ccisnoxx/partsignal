@@ -282,8 +282,8 @@ class PlatformProfileDetail(ContractModel):
 
 
 class PlatformTypeCreate(ContractModel):
-    name: str = Field(min_length=1)
-    slug: str = Field(pattern=r"^[a-z0-9-]+$")
+    name: PlatformName
+    slug: str = Field(min_length=1, max_length=100, pattern=r"^[a-z0-9-]+$")
 
 
 class PlatformTypeUpdate(PlatformTypeCreate):
@@ -292,6 +292,7 @@ class PlatformTypeUpdate(PlatformTypeCreate):
 
 class PlatformTypeOut(PlatformTypeCreate):
     id: uuid.UUID
+    platform_count: int = Field(ge=0)
     available_actions: list[Literal["UPDATE", "DELETE"]]
     deletion: DeletionProjection | None
     primary_task: Literal["EDIT_CATEGORY"]

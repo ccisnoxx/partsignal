@@ -10,7 +10,7 @@ import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
 import { Badge } from '@/design-system/primitives/badge';
-import { Button } from '@/design-system/primitives/button';
+import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
   Dialog,
   DialogClose,
@@ -54,6 +54,7 @@ const columnRoles = [
 ] as const satisfies readonly ColumnRole[];
 
 type PlatformListPageProps = {
+  canManagePlatformTypes: boolean;
   csrfToken: string | null;
   onPlatformChanged: (kind: 'status' | 'delete', platformId: string) => Promise<void>;
   onSearchChange: (search: PlatformSearch) => Promise<void> | void;
@@ -65,6 +66,7 @@ type BlockerTarget = { platform: PlatformProfile; focusReturn: HTMLElement | nul
 type EnableTarget = { platform: PlatformProfile; focusReturn: HTMLElement | null };
 
 function PlatformListPage({
+  canManagePlatformTypes,
   csrfToken,
   onPlatformChanged,
   onSearchChange,
@@ -143,11 +145,18 @@ function PlatformListPage({
 
   return (
     <section aria-labelledby="platform-list-title" className="min-w-0 space-y-4">
-      <header className="space-y-1">
-        <h1 className="type-page-title" id="platform-list-title">平台与账号</h1>
-        <p className="max-w-3xl text-text-secondary">
-          查看平台配置与可用发布账号，并从服务端指定的动作继续管理。
-        </p>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="type-page-title" id="platform-list-title">平台与账号</h1>
+          <p className="max-w-3xl text-text-secondary">
+            查看平台配置与可用发布账号，并从服务端指定的动作继续管理。
+          </p>
+        </div>
+        {canManagePlatformTypes && (
+          <a className={buttonVariants({ variant: 'outline' })} href="/settings/platforms/types">
+            管理平台类型
+          </a>
+        )}
       </header>
 
       {platforms.data && <PlatformSummary summary={platforms.data.summary} />}

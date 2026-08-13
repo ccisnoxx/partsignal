@@ -1,10 +1,10 @@
 /** 验证平台类型在被具体平台引用时提供删除条件下钻。 */
 import { QueryClientProvider } from '@tanstack/react-query';
-import { App as AntApp } from 'antd';
+import { App as AntApp, Modal } from 'antd';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { queryClient } from '../../app/queryClient';
 import { ThemeProvider } from '../../app/ThemeProvider';
 import type { Schema } from '../../shared/api/types';
@@ -36,6 +36,7 @@ beforeEach(() => {
         id: 'type-1',
         name: '技术社区',
         slug: 'technical-community',
+        platform_count: 2,
         available_actions: ['UPDATE'],
         deletion: { blockers: [{ type: 'PLATFORM_PROFILE', count: 2 }] },
         primary_task: 'EDIT_CATEGORY',
@@ -49,6 +50,8 @@ beforeEach(() => {
   });
 });
 
+afterEach(() => vi.restoreAllMocks());
+
 test('被引用时显示数量和精确平台筛选，不显示删除命令', async () => {
   const user = userEvent.setup();
   render(
@@ -60,4 +63,44 @@ test('被引用时显示数量和精确平台筛选，不显示删除命令', as
   await user.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
   expect(await screen.findByText('具体平台：2')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: '查看引用' })).toHaveAttribute('href', '/configuration/platforms?platform_type_id=type-1');
+});
+
+test('删除平台类型提交当前 revision', async () => {
+  vi.spyOn(Modal, 'useModal').mockReturnValue([
+    { confirm: (options: { onOk?: () => unknown }) => void options.onOk?.() },
+    null,
+  ] as never);
+  apiMocks.GET.mockResolvedValueOnce({
+    data: {
+      items: [{
+        id: 'type-delete',
+        name: '可删除类型',
+        slug: 'deletable',
+        platform_count: 0,
+        available_actions: ['UPDATE', 'DELETE'],
+        deletion: { blockers: [] },
+        primary_task: 'EDIT_CATEGORY',
+        revision: 3,
+        created_by: 'user-1',
+        created_at: '2026-08-04T00:00:00Z',
+        updated_at: '2026-08-04T00:00:00Z',
+      }],
+    } satisfies Schema<'PlatformTypeList'>,
+    response: new Response(null, { status: 200 }),
+  });
+  apiMocks.DELETE.mockResolvedValue({ response: new Response(null, { status: 204 }) });
+  const user = userEvent.setup();
+  render(
+    <ThemeProvider><AntApp><QueryClientProvider client={queryClient}><MemoryRouter><PlatformTypesPage /></MemoryRouter></QueryClientProvider></AntApp></ThemeProvider>,
+  );
+
+  await user.click(await screen.findByRole('button', { name: '更多操作：可删除类型' }));
+  await user.click(screen.getByRole('menuitem', { name: '删除' }));
+
+  await vi.waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
+      '/api/v1/platform-types/{platform_type_id}',
+      expect.objectContaining({
+        params: expect.objectContaining({ query: { expected_revision: 3 } }),
+      }),
+    ));
 });

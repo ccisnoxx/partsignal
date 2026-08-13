@@ -388,15 +388,41 @@ def create_platform_type(
     *, db: Session, payload: PlatformTypeCreate, actor: User, request_id: str
 ) -> PlatformType:
     """创建平台类型。"""
-    item = PlatformType(name=payload.name.strip(), slug=payload.slug, created_by=actor.id)
+    item = PlatformType(name=payload.name, slug=payload.slug, created_by=actor.id)
     db.add(item)
-    db.flush()
+    _flush_platform_type(db)
     db.commit()
     return item
 
 
+def _flush_platform_type(db: Session) -> None:
+    """只把平台类型 slug 唯一约束映射为稳定字段错误。"""
+    try:
+        db.flush()
+    except IntegrityError as error:
+        constraint_name = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+        if constraint_name != "uq_platform_types_slug":
+            raise
+        db.rollback()
+        message = "平台类型 slug 已存在"
+        raise AppError(
+            "PLATFORM_TYPE_SLUG_EXISTS",
+            message,
+            409,
+            {
+                "errors": [
+                    {
+                        "loc": ["body", "slug"],
+                        "msg": message,
+                        "type": "platform_type_slug_exists",
+                    }
+                ]
+            },
+        ) from error
+
+
 def platform_types_out(db: Session, items: list[PlatformType]) -> list[PlatformTypeOut]:
-    """批量投影平台类型及无平台引用时的删除动作。"""
+    """批量投影平台总数及无平台引用时的删除动作。"""
     if not items:
         return []
     item_ids = [item.id for item in items]
@@ -414,8 +440,10 @@ def platform_types_out(db: Session, items: list[PlatformType]) -> list[PlatformT
                 **{
                     field: getattr(item, field)
                     for field in PlatformTypeOut.model_fields
-                    if field not in {"available_actions", "deletion", "primary_task"}
+                    if field
+                    not in {"available_actions", "deletion", "platform_count", "primary_task"}
                 },
+                "platform_count": profile_counts.get(item.id, 0),
                 "primary_task": "EDIT_CATEGORY",
                 "deletion": {
                     "blockers": (
@@ -460,22 +488,30 @@ def update_platform_type(
         raise not_found("平台类型")
     if item.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "平台类型已被其他请求修改", 409)
-    item.name = payload.name.strip()
+    item.name = payload.name
     item.slug = payload.slug
     item.revision += 1
+    _flush_platform_type(db)
     db.commit()
     return item
 
 
 def delete_platform_type(
-    *, db: Session, platform_type_id: uuid.UUID, actor: User, request_id: str
+    *,
+    db: Session,
+    platform_type_id: uuid.UUID,
+    expected_revision: int,
+    actor: User,
+    request_id: str,
 ) -> None:
-    """仅删除未被具体平台引用的平台类型。"""
+    """先校验 revision，再删除未被具体平台引用的平台类型。"""
     item = db.scalar(
         select(PlatformType).where(PlatformType.id == platform_type_id).with_for_update()
     )
     if item is None:
         raise not_found("平台类型")
+    if item.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "平台类型已被其他请求修改", 409)
     profile_count = int(
         db.scalar(
             select(func.count())

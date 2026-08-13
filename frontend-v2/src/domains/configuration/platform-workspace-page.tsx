@@ -9,7 +9,7 @@ import { DirtyGuard } from '@/design-system/forms/dirty-guard';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary, FormActions } from '@/design-system/forms/form-layout';
 import { Badge } from '@/design-system/primitives/badge';
-import { Button } from '@/design-system/primitives/button';
+import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
   Dialog,
   DialogClose,
@@ -91,6 +91,7 @@ type PlatformAccountMutationKind = 'create' | 'update' | 'status' | 'delete';
 const maximumPlatformLogoBytes = 2 * 1024 * 1024;
 
 type PlatformWorkspacePageProps = {
+  canManagePlatformTypes: boolean;
   csrfToken: string | null;
   onConsumersChanged: (kind: PlatformMutationKind) => Promise<void>;
   onAccountConsumersChanged: (kind: PlatformAccountMutationKind) => Promise<void>;
@@ -101,6 +102,7 @@ type PlatformWorkspacePageProps = {
 };
 
 function PlatformWorkspacePage({
+  canManagePlatformTypes,
   csrfToken,
   onAccountConsumersChanged,
   onConsumersChanged,
@@ -189,12 +191,19 @@ function PlatformWorkspacePage({
 
   return (
     <article aria-labelledby="platform-workspace-title" className="min-w-0 space-y-4">
-      <a
-        className="inline-flex min-h-8 items-center rounded-md text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-        href="/settings/platforms?page=1&pageSize=20"
-      >
-        返回 Platform List
-      </a>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <a
+          className="inline-flex min-h-8 items-center rounded-md text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          href="/settings/platforms?page=1&pageSize=20"
+        >
+          返回 Platform List
+        </a>
+        {canManagePlatformTypes && (
+          <a className={buttonVariants({ variant: 'outline' })} href="/settings/platforms/types">
+            管理平台类型
+          </a>
+        )}
+      </div>
 
       <PlatformWorkspaceHeader
         onCommand={handleCommand}

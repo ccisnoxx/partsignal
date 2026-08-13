@@ -234,6 +234,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **UI and cache boundary**：create/edit 使用局部 RHF+Zod Dialog，status/delete/blocker 使用既有 RowActions 与 Dialog；409 保留输入或确认上下文并要求显式 reload。375px 使用局部移动卡片，较宽视口使用 TableShell，不改变全局 Table Kit。Configuration domain 失效 Platform list/detail/accounts，route 只组合 Publication ready/work list/workspace context；冻结 PublishedArticle snapshot 与 Content caches 不失效。
 
+## ADR-038：Platform Type 复用既有管理合同并补权威引用数量
+
+**Decision**：`/settings/platforms/types` 作为“平台与账号”的 ADMIN-only subsettings 继续复用 `/api/v1/platform-types`，不新增 V2 endpoint、Detail route、Sidebar 项、数据库列或通用 CRUD/Settings 框架。列表固定 Name、Slug、平台数量和 overflow；`primary_task=EDIT_CATEGORY` 只表达服务端任务语义，不强制独立 Primary button。
+
+**Read model and field boundary**：`platform_count` 与 deletion blocker 在一个 grouped query 中统计全部 Enabled/Disabled PlatformProfile，列表按 `lower(name), id` 稳定排序。name 由请求 schema trim、允许重复；slug 不自动规范化、允许更新，并只把真实 `uq_platform_types_slug` 约束映射为稳定字段错误。
+
+**Concurrency, permission and cache boundary**：PATCH body 与 DELETE query 都要求 canonical revision。DELETE 锁行后先比较 revision，再实时复核 PlatformProfile 引用，明确区分 `REVISION_CONFLICT` 与 `PLATFORM_TYPE_IN_USE`。route 与四个 endpoint 都维持 ADMIN 边界；List/Workspace 的入口隐藏只负责 UX。create/update/delete 只失效 Type settings、全部 Platform lists 与全部 Platform details，覆盖 options 和名称消费者，不清 QueryClient 或触碰其他 domain。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

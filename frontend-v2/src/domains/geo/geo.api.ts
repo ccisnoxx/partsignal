@@ -8,6 +8,12 @@ import {
   type GeoObservationSearch,
 } from './geo-observation-list.model';
 import {
+  geoInsightSearchToApiParams,
+  type GeoInsightSearch,
+  type GeoInsightsApiParams,
+  type GeoOptimizationTargetField,
+} from './geo-insights.model';
+import {
   queryTopicSearchToApiParams,
   type QueryTopicCreate,
   type QueryTopicSearch,
@@ -22,6 +28,7 @@ type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
 type GeoObservationCreate = components['schemas']['GeoObservationCreate'];
 type UploadIntentCreate = components['schemas']['UploadIntentCreate'];
+type GeoOptimizationContentTaskCreate = components['schemas']['GeoOptimizationContentTaskCreate'];
 
 class GeoRequestError extends Error {
   constructor(
@@ -35,6 +42,8 @@ class GeoRequestError extends Error {
 }
 
 const geoKeys = {
+  insights: () => ['geo', 'insights'] as const,
+  insight: (params: GeoInsightsApiParams) => ['geo', 'insights', params] as const,
   lists: () => ['geo', 'observations', 'list'] as const,
   list: (params: GeoObservationListApiParams) => (
     ['geo', 'observations', 'list', params] as const
@@ -57,6 +66,24 @@ const geoKeys = {
     ['geo', 'observation-publications', productId] as const
   ),
 };
+
+function geoInsightsQueryOptions(search: GeoInsightSearch) {
+  const params = geoInsightSearchToApiParams(search);
+  return queryOptions({
+    queryKey: geoKeys.insight(params),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/geo-insights', {
+        params: { query: params },
+      });
+      if (!result.data) throw geoRequestError('读取 GEO 洞察', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
 
 function geoObservationCorrectionContextQueryOptions(observationId: string) {
   return queryOptions({
@@ -212,6 +239,76 @@ async function createGeoObservation(body: GeoObservationCreate, csrfToken: strin
   throw geoRequestError('创建 GEO 观测', result);
 }
 
+async function createGeoOptimizationContentTask(
+  body: GeoOptimizationContentTaskCreate,
+  csrfToken: string | null,
+  idempotencyKey: string,
+) {
+  const result = await api.POST('/api/v1/geo-insights/optimization-content-tasks', {
+    body,
+    params: {
+      header: {
+        'X-CSRF-Token': requireCsrfToken(csrfToken, '创建 GEO 优化任务'),
+        'Idempotency-Key': idempotencyKey,
+      },
+    },
+  });
+  if (result.data) return result.data;
+  throw geoRequestError('创建 GEO 优化任务', result);
+}
+
+type GeoOptimizationErrorMapping = {
+  fields: Partial<Record<GeoOptimizationTargetField, string>>;
+  formMessage?: string;
+  requestId?: string;
+  code?: string;
+  stale: boolean;
+};
+
+function mapGeoOptimizationError(error: unknown): GeoOptimizationErrorMapping {
+  if (!(error instanceof GeoRequestError) || !error.detail) {
+    return {
+      fields: {},
+      formMessage: error instanceof Error ? error.message : '创建 GEO 优化任务失败',
+      stale: false,
+    };
+  }
+  const allowed = new Set<GeoOptimizationTargetField>([
+    'product_id', 'platform_profile_id', 'fact_version_id',
+  ]);
+  const fields: Partial<Record<GeoOptimizationTargetField, string>> = {};
+  const issues = error.detail.details.errors;
+  let unknownIssue = false;
+  if (Array.isArray(issues)) {
+    for (const issue of issues) {
+      if (!issue || typeof issue !== 'object') {
+        unknownIssue = true;
+        continue;
+      }
+      const loc = 'loc' in issue ? issue.loc : undefined;
+      const message = 'msg' in issue ? issue.msg : undefined;
+      const field = Array.isArray(loc) && loc.length === 2 && loc[0] === 'body'
+        ? loc[1]
+        : undefined;
+      if (typeof field === 'string' && allowed.has(field as GeoOptimizationTargetField)
+        && typeof message === 'string') {
+        fields[field as GeoOptimizationTargetField] ??= message;
+      } else {
+        unknownIssue = true;
+      }
+    }
+  }
+  return {
+    fields,
+    formMessage: Object.keys(fields).length === 0 || unknownIssue
+      ? error.detail.message
+      : undefined,
+    requestId: error.detail.request_id,
+    code: error.detail.code,
+    stale: error.status === 409,
+  };
+}
+
 async function createGeoFileUploadIntent(
   body: UploadIntentCreate,
   csrfToken: string | null,
@@ -300,16 +397,19 @@ export {
   completeGeoFileUpload,
   createGeoFileUploadIntent,
   createGeoObservation,
+  createGeoOptimizationContentTask,
   createQueryTopic,
   deleteQueryTopic,
   deleteGeoObservation,
   GeoRequestError,
   geoKeys,
+  geoInsightsQueryOptions,
   geoObservationCorrectionContextQueryOptions,
   geoObservationDetailQueryOptions,
   geoObservationListQueryOptions,
   geoPublicationCandidatesQueryOptions,
   queryTopicsQueryOptions,
   queryTopicListQueryOptions,
+  mapGeoOptimizationError,
   updateQueryTopic,
 };

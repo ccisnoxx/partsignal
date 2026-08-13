@@ -169,3 +169,66 @@ const handoff = topic.primary_task === 'USE_FOR_OBSERVATION'
   ? `/geo/observations/new?queryTopicId=${topic.id}`
   : undefined;
 ```
+
+## 9. GEO Insights 的 actor-aware 命令 source
+
+### 9.1 Scope / Trigger
+
+实现或修改 `/api/v1/geo-insights` 的内容/覆盖动作投影、优化 Content Task 命令、历史平台身份或幂等处理时适用。该合同防止前端从指标推断资格，也防止读投影、最终复算与幂等 replay 使用不同 source/target。
+
+### 9.2 Signatures
+
+```text
+GET  /api/v1/geo-insights?date_from&date_to&product_id&content_platform_id&geo_platform&published_article_id&query_topic_id
+POST /api/v1/geo-insights/optimization-content-tasks
+header: X-CSRF-Token, Idempotency-Key
+body: GeoOptimizationContentTaskCreate(rule_code, date_from, date_to,
+      published_article_id?, query_topic_id?, geo_platform?,
+      product_id, platform_profile_id, fact_version_id)
+DB: publication_works.platform_profile_id_snapshot UUID NULL, no foreign key
+```
+
+### 9.3 Contracts
+
+- `GeoInsightContentPerformance` 与 `GeoInsightCoverageItem` 必须返回 required nullable `optimization_action`。它是命令 source，不是授权凭证；命令仍须在锁内按当前事实复算。
+- Declining、Long Unmentioned、Occasional、Uncovered 只有 actor 为 `ADMIN/ENGINEER` 且该异常支持命令时返回 action，并同时令 `primary_task=CREATE_OPTIMIZATION_TASK`；其它行返回 `null` 与精确查看/补样本任务。
+- action 只携带 rule、period 和互斥来源身份：内容规则只带 Article；Coverage 规则只带 Topic+GEO Platform。前端不得按数组、status、rate 或 Recommendation 重构。
+- GET 使用一次 `REPEATABLE READ`；Published Article 的 Content Platform ID/name 读取 PublicationWork 冻结快照，不依赖可删除实时平台。
+- 相同 key 必须先取得 `content-task-create:{key}` advisory transaction lock，再比较完整 target 与 immutable source；相同 payload 返回原任务，不同 payload 冲突。Coverage 复算必须包含所选 Product 与 Content Platform。
+
+### 9.4 Validation & Error Matrix
+
+| 条件 | 结果 |
+| --- | --- |
+| 内容 action 缺 Article 或携带 Topic/平台 | response schema 或请求 schema 拒绝 |
+| Coverage action 缺 Topic/平台或携带 Article | response schema 或请求 schema 拒绝 |
+| actor 不是 ADMIN/ENGINEER | action 为 `null`，保留查看/补样本任务 |
+| 读后异常、Article 或 Coverage 变化 | `409 GEO_INSIGHT_STALE`，不创建、不自动 replay |
+| 同 key、完整 source+target 相同 | 返回原 Content Task |
+| 同 key、任一 source/target 不同 | `409 IDEMPOTENCY_CONFLICT` |
+| PublishedArticle 无法回填平台 UUID | 0043 upgrade 以 PostgreSQL `55000` 原子失败 |
+| snapshot 已成为唯一身份时 downgrade | 以 PostgreSQL `55000` 拒绝降级 |
+
+### 9.5 Good / Base / Bad Cases
+
+- Good：ADMIN 读取 Declining row 得到可直接合并三项 target 的 action；命令按同一周期、Article、Product/Platform 复算后原子创建任务与 GEO source。
+- Base：Viewer 读取相同行只得到 `VIEW_CONTENT_PERFORMANCE`；Coverage 样本不足只得到 `ADD_OBSERVATION`。
+- Bad：前端按 `status === "UNCOVERED"` 构造 rule，或命令只比较 GEO source、不比较 Product/Platform/Fact。
+
+### 9.6 Tests Required
+
+- Contract/unit：required nullable action、primary/action 一致性、互斥来源、401/403/409/422。
+- PostgreSQL integration：repeatable-read、平台删除后 frozen UUID 精确筛选、Coverage target 复算、同 key 两线程唯一和异 payload 冲突。
+- Migration：backfill、insert/update guard、删除实时平台后保留、预检回滚与 downgrade 拒绝。
+- Frontend generated-type fixture：只对 non-null action 开 Dialog，精确 body/header、409 不 replay、响应 ID 导航。
+
+### 9.7 Wrong vs Correct
+
+```tsx
+// Wrong：浏览器复制异常规则。
+const canOptimize = row.status === 'UNCOVERED' && user.account_type === 'ADMIN';
+
+// Correct：只消费服务端 source；POST 仍会最终复算。
+const action = row.optimization_action;
+const canOptimize = row.primary_task === 'CREATE_OPTIMIZATION_TASK' && action !== null;
+```

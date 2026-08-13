@@ -28,6 +28,7 @@ function NewGeoObservationRoute() {
         params: { observationId },
       })}
       queryTopicId={search.queryTopicId}
+      geoPlatform={search.geoPlatform}
     />
   );
 }

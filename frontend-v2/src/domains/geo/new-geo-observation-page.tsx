@@ -50,6 +50,7 @@ type NewGeoObservationPageProps = {
   onCancel: () => void;
   onCreated: (observationId: string) => void;
   queryTopicId?: string;
+  geoPlatform?: string;
 };
 
 const fieldIds: Record<Exclude<NewGeoObservationField, 'article_results' | 'attachment_file_ids'>, string> = {
@@ -67,6 +68,7 @@ function NewGeoObservationPage({
   onCancel,
   onCreated,
   queryTopicId,
+  geoPlatform,
 }: NewGeoObservationPageProps) {
   const queryClient = useQueryClient();
   const [productSearch, setProductSearch] = useState('');
@@ -76,6 +78,7 @@ function NewGeoObservationPage({
   const [uploadedFiles, setUploadedFiles] = useState<FileRecord[]>([]);
   const [createdId, setCreatedId] = useState<string>();
   const appliedQueryTopicId = useRef<string | undefined>(undefined);
+  const appliedGeoPlatform = useRef<string | undefined>(undefined);
   const submitting = useRef(false);
   const formElement = useRef<HTMLFormElement>(null);
   const form = useForm<NewGeoObservationFormValues>({
@@ -118,6 +121,20 @@ function NewGeoObservationPage({
     });
     appliedQueryTopicId.current = queryTopicId;
   }, [form, queryTopicId, topics.data]);
+
+  useEffect(() => {
+    if (!geoPlatform) {
+      appliedGeoPlatform.current = undefined;
+      return;
+    }
+    if (appliedGeoPlatform.current === geoPlatform) return;
+    if (form.getFieldState('search_platform').isDirty) return;
+    form.setValue('search_platform', geoPlatform, {
+      shouldDirty: false,
+      shouldValidate: true,
+    });
+    appliedGeoPlatform.current = geoPlatform;
+  }, [form, geoPlatform]);
 
   useEffect(() => {
     if (!candidates.data) return;

@@ -198,6 +198,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Ownership**：Query Topic 服务以同一批量引用查询同时形成 Content Task、GEO Optimization source 和 Observation count；`deletion` 仍只向 ADMIN 投影，开始观测、编辑和删除只消费 `primary_task/available_actions/deletion`。创建/编辑使用短 Dialog，PATCH/DELETE 409 保留草稿并只允许显式 reload；引用 resolve links 只进入已实现且支持精确 Topic filter 的 Content Task 或 Observation 列表。
 
+## ADR-034：GEO Insights 单 read model、冻结平台身份与局部 SVG
+
+- 决定：页面以单个 `GET /api/v1/geo-insights` 为指标、筛选选项和动作来源；命令 Dialog 只按需读取既有 Content Task creation-options。
+- 决定：`PublicationWork` 同时冻结无外键平台 UUID 与名称。实时 PlatformProfile 可删除，历史 PublishedArticle/GEO 关系仍保持精确身份；无法回填时 migration 显式失败。
+- 决定：`optimization_action` 是 actor-aware、required nullable 的服务端 source projection；写命令在 advisory lock 内按完整 source+target 重算并校验幂等。
+- 决定：三个单指标趋势使用局部 SVG 与原生精确表格，不安装 ECharts，不创建通用 Analytics/Chart framework。
+- 边界：不注册 Print，不为 Recommendation 猜测 V2 链接，不把 strict fixture 宣称为完整 real-stack E2E。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

@@ -216,6 +216,38 @@ def test_geo_observation_correction_context_reuses_detail_and_append_contract() 
     assert "/api/v1/geo-observations/{observation_id}/correction" not in paths
 
 
+def test_geo_insight_contract_projects_actor_aware_optimization_source() -> None:
+    """洞察行直接携带可提交来源，页面不得按区块或状态重建规则。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    schemas = document["components"]["schemas"]
+
+    assert set(paths["/api/v1/geo-insights"]["get"]["responses"]) == {
+        "200",
+        "401",
+        "404",
+        "422",
+    }
+    assert set(
+        paths["/api/v1/geo-insights/optimization-content-tasks"]["post"]["responses"]
+    ) == {"201", "401", "403", "409", "422"}
+    assert set(schemas["GeoInsightOptimizationAction"]["required"]) == {
+        "rule_code",
+        "date_from",
+        "date_to",
+        "published_article_id",
+        "query_topic_id",
+        "geo_platform",
+    }
+    for name in ("GeoInsightContentPerformance", "GeoInsightCoverageItem"):
+        assert "optimization_action" in schemas[name]["required"]
+        assert schemas[name]["properties"]["optimization_action"]["anyOf"] == [
+            {"$ref": "#/components/schemas/GeoInsightOptimizationAction"},
+            {"type": "null"},
+        ]
+
+
 def test_published_content_issue_contract_has_one_workspace_read_model_and_real_errors() -> None:
     """内容问题列表、工作区与命令必须声明同一 structured error 边界。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"

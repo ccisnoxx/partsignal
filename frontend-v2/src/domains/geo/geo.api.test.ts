@@ -3,11 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { api } from '@/shared/api/client';
 import {
+  createGeoOptimizationContentTask,
   createGeoObservation,
   createQueryTopic,
   deleteQueryTopic,
   deleteGeoObservation,
   GeoRequestError,
+  geoInsightsQueryOptions,
   geoObservationCorrectionContextQueryOptions,
   geoObservationDetailQueryOptions,
   geoObservationListQueryOptions,
@@ -16,6 +18,7 @@ import {
   queryTopicListQueryOptions,
   updateQueryTopic,
 } from './geo.api';
+import { geoInsightSearchSchema } from './geo-insights.model';
 import { geoObservationSearchSchema } from './geo-observation-list.model';
 import { queryTopicSearchSchema } from './query-topic-list.model';
 
@@ -322,5 +325,43 @@ describe('GEO API', () => {
     });
     await expect(deleteGeoObservation('id', null)).rejects.toBeInstanceOf(GeoRequestError);
     expect(remove).toHaveBeenCalledOnce();
+  });
+
+  it('Insights GET 映射七个筛选，优化 POST 原样携带 body 与稳定 key', async () => {
+    const get = vi.spyOn(api, 'GET').mockResolvedValue({
+      data: { generated_at: '2026-08-13T00:00:00Z' },
+      response: Response.json({ generated_at: '2026-08-13T00:00:00Z' }),
+    } as never);
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({
+      data: { id: 'task-1' }, response: Response.json({ id: 'task-1' }),
+    } as never);
+    const search = geoInsightSearchSchema.parse({
+      from: '2026-07-15', to: '2026-08-13',
+      productId: '10000000-0000-4000-8000-000000000001',
+      contentPlatformId: '20000000-0000-4000-8000-000000000001',
+      geoPlatform: 'DeepSeek',
+      publishedArticleId: '30000000-0000-4000-8000-000000000001',
+      queryTopicId: '40000000-0000-4000-8000-000000000001',
+    });
+    const client = new QueryClient();
+    await client.fetchQuery(geoInsightsQueryOptions(search));
+    expect(get).toHaveBeenCalledWith('/api/v1/geo-insights', { params: { query: {
+      date_from: '2026-07-15', date_to: '2026-08-13',
+      product_id: search.productId, content_platform_id: search.contentPlatformId,
+      geo_platform: 'DeepSeek', published_article_id: search.publishedArticleId,
+      query_topic_id: search.queryTopicId,
+    } } });
+
+    const body: Parameters<typeof createGeoOptimizationContentTask>[0] = {
+      rule_code: 'QUESTION_COVERAGE_GAP', date_from: search.from, date_to: search.to,
+      query_topic_id: search.queryTopicId, geo_platform: 'DeepSeek',
+      product_id: search.productId!, platform_profile_id: search.contentPlatformId!,
+      fact_version_id: '50000000-0000-4000-8000-000000000001',
+    };
+    await createGeoOptimizationContentTask(body, 'csrf', 'stable-key');
+    expect(post).toHaveBeenCalledWith('/api/v1/geo-insights/optimization-content-tasks', {
+      body,
+      params: { header: { 'X-CSRF-Token': 'csrf', 'Idempotency-Key': 'stable-key' } },
+    });
   });
 });

@@ -272,3 +272,8 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 ## 19. Definition of Done
 
 一个页面只有同时满足 Product + Architecture + Contract + Test + Responsive + Accessibility + Production Build，才算 V2 可迁移页面。
+## 20. GEO Insights 验收边界
+
+`tests/e2e/geo-insights.spec.ts` 使用 generated-type strict fixture 验证 canonical 七参数映射、direct/refresh/Back/Forward/reset、loading/error/retry/empty/partial/unavailable、三项趋势精确表格、服务端 drill-down、Recommendation 无伪链接、按需 creation-options、优化 POST header/body、409 不自动重放、响应 ID 导航和四档根无溢出。fixture 未声明 API、page error 与非预期 console error 均失败。
+
+后端 required gate 另覆盖 OpenAPI、历史平台 UUID migration、repeatable-read read model、actor-aware action、Coverage 最终复算和同 key 并发唯一。该 strict fixture 不替代明确排除的完整 GEO real-stack E2E。

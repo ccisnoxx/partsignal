@@ -73,19 +73,21 @@ test('列表 Primary、直接访问和刷新都进入 canonical 创建 Workspace
   await expect(page.getByRole('navigation', { name: '面包屑' })).toContainText('新建 Observation');
 });
 
-test('queryTopicId handoff 支持 direct URL 与刷新，不存在时明确阻止提交', async ({ page }) => {
-  const handoff = `${newRoute}?queryTopicId=${topic.id}`;
+test('queryTopicId 与 geoPlatform handoff 支持 direct URL 与刷新，不存在 Topic 时明确阻止提交', async ({ page }) => {
+  const handoff = `${newRoute}?queryTopicId=${topic.id}&geoPlatform=DeepSeek`;
   await page.goto(handoff);
   await showPanel(page, '观测上下文');
   await expect(page.getByRole('combobox', { name: 'Query Topic' })).toContainText(
     topic.canonical_question,
   );
+  await expect(page.getByLabel('GEO platform')).toHaveValue('DeepSeek');
   await page.reload();
   await expect(page).toHaveURL(handoff);
   await showPanel(page, '观测上下文');
   await expect(page.getByRole('combobox', { name: 'Query Topic' })).toContainText(
     topic.canonical_question,
   );
+  await expect(page.getByLabel('GEO platform')).toHaveValue('DeepSeek');
 
   const missing = '40000000-0000-4000-8000-000000000099';
   await page.goto(`${newRoute}?queryTopicId=${missing}`);

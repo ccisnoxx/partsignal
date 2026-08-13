@@ -4091,3 +4091,141 @@ def test_content_version_detail_migration_preserves_unknown_legacy_time() -> Non
                 "WHERE table_name = 'content_versions' AND column_name = 'updated_at'"
             )
             assert cursor.fetchone() is None
+
+
+def _seed_completed_publication_for_0043(
+    test_url: str,
+    ids: dict[str, uuid.UUID],
+) -> tuple[uuid.UUID, uuid.UUID]:
+    """在 0042 结构上写入一条真实完成的发布成果。"""
+    work_id, verification_id = uuid.uuid4(), uuid.uuid4()
+    with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO publication_works "
+            "(id, idempotency_key, content_task_id, content_version_id, "
+            "platform_profile_id, platform_profile_name_snapshot, platform_account_id, "
+            "platform_account_label_snapshot, account_identifier_snapshot, content_hash, "
+            "status, revision, created_by) VALUES "
+            "(%s, %s, %s, %s, %s, '0035 迁移平台', %s, '0035 迁移账号', %s, %s, "
+            "'PREPARING', 0, %s)",
+            (
+                work_id,
+                f"0043-work-{work_id.hex}",
+                ids["task"],
+                ids["content"],
+                ids["profile"],
+                ids["account"],
+                f"account-{ids['account'].hex[:12]}",
+                "a" * 64,
+                ids["actor"],
+            ),
+        )
+        cursor.execute(
+            "UPDATE publication_works SET actual_title = '0043 发布成果', "
+            "final_url = 'https://migration.invalid/0043', published_at = now(), "
+            "status = 'AWAITING_VERIFICATION', revision = 1 WHERE id = %s",
+            (work_id,),
+        )
+        cursor.execute(
+            "INSERT INTO publication_verifications "
+            "(id, publication_work_id, content_version_id, outcome, "
+            "actual_title_snapshot, final_url_snapshot, published_at_snapshot, "
+            "comment, actor_id) SELECT %s, id, content_version_id, 'PASSED', "
+            "actual_title, final_url, published_at, '0043 通过核验', %s "
+            "FROM publication_works WHERE id = %s",
+            (verification_id, ids["actor"], work_id),
+        )
+        cursor.execute(
+            "UPDATE publication_works SET status = 'COMPLETED', revision = 2 WHERE id = %s",
+            (work_id,),
+        )
+        cursor.execute(
+            "UPDATE content_tasks SET status = 'COMPLETED', revision = revision + 1 "
+            "WHERE id = %s",
+            (ids["task"],),
+        )
+        cursor.execute(
+            "INSERT INTO published_articles (id, verification_id) VALUES (%s, %s)",
+            (work_id, verification_id),
+        )
+        connection.commit()
+    return work_id, verification_id
+
+
+@pytest.mark.integration
+def test_0043_geo_insight_platform_identity() -> None:
+    """0043 冻结已发布平台 UUID，并拒绝猜测或丢失唯一历史身份。"""
+    with temporary_database("partsignal_geo_insight_identity") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0034_publication_redesign")
+        ids = _seed_business_workflow_base(test_url)
+        run_alembic(env, backend_dir, "0042_content_version_detail")
+        work_id, _ = _seed_completed_publication_for_0043(test_url, ids)
+        run_alembic(env, backend_dir, "0043_geo_platform_identity")
+
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT platform_profile_id_snapshot FROM publication_works WHERE id = %s",
+                (work_id,),
+            )
+            assert cursor.fetchone() == (ids["profile"],)
+
+            with pytest.raises(psycopg.errors.ObjectNotInPrerequisiteState):
+                cursor.execute(
+                    "UPDATE publication_works SET platform_profile_id_snapshot = %s, "
+                    "revision = revision + 1 WHERE id = %s",
+                    (uuid.uuid4(), work_id),
+                )
+            connection.rollback()
+
+            cursor.execute("DELETE FROM platform_profiles WHERE id = %s", (ids["profile"],))
+            connection.commit()
+            cursor.execute(
+                "SELECT platform_profile_id, platform_profile_id_snapshot "
+                "FROM publication_works WHERE id = %s",
+                (work_id,),
+            )
+            assert cursor.fetchone() == (None, ids["profile"])
+
+        downgrade = subprocess.run(
+            [sys.executable, "-m", "alembic", "downgrade", "0042_content_version_detail"],
+            check=False,
+            env=env,
+            cwd=backend_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert downgrade.returncode != 0
+        assert "冻结平台 UUID 已成为唯一身份" in downgrade.stdout + downgrade.stderr
+
+    with temporary_database("partsignal_geo_insight_identity_missing") as (
+        test_url,
+        env,
+        backend_dir,
+    ):
+        run_alembic(env, backend_dir, "0034_publication_redesign")
+        ids = _seed_business_workflow_base(test_url)
+        run_alembic(env, backend_dir, "0042_content_version_detail")
+        _seed_completed_publication_for_0043(test_url, ids)
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute("DELETE FROM platform_profiles WHERE id = %s", (ids["profile"],))
+            connection.commit()
+
+        upgrade = run_alembic(
+            env,
+            backend_dir,
+            "0043_geo_platform_identity",
+            check=False,
+        )
+        assert upgrade.returncode != 0
+        assert "已发布成果缺少可恢复的平台 UUID" in upgrade.stdout + upgrade.stderr
+        with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name = 'publication_works' "
+                "AND column_name = 'platform_profile_id_snapshot'"
+            )
+            assert cursor.fetchone() is None

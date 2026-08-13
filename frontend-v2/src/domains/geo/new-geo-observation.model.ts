@@ -39,6 +39,7 @@ const articleResultSchema = z.object({
 
 const newGeoObservationSearchSchema = z.object({
   queryTopicId: z.uuid().optional(),
+  geoPlatform: z.string().trim().min(1).max(160).optional(),
 });
 
 type NewGeoObservationSearch = z.output<typeof newGeoObservationSearchSchema>;

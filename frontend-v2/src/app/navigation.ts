@@ -1,6 +1,7 @@
 import type { StaticDataRouteOption } from '@tanstack/react-router';
 import {
   BoxesIcon,
+  ChartSplineIcon,
   EyeIcon,
   LayoutDashboardIcon,
   ListTodoIcon,
@@ -12,12 +13,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-topics' | 'geo-observations' | 'users';
+type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-observations' | 'users';
 
 type NavigationItem = {
   id: NavId;
   label: string;
-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/topics' | '/geo/observations' | '/system/users';
+  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/observations' | '/system/users';
   icon: LucideIcon;
   adminOnly?: boolean;
 };
@@ -64,6 +65,7 @@ const navigationSections: readonly NavigationSection[] = [
   {
     label: 'GEO',
     items: [
+      { id: 'geo-insights', label: '洞察', to: '/geo/insights', icon: ChartSplineIcon },
       { id: 'geo-topics', label: '问题主题', to: '/geo/topics', icon: MessagesSquareIcon },
       { id: 'geo-observations', label: '观测记录', to: '/geo/observations', icon: EyeIcon },
     ],

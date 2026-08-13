@@ -566,6 +566,7 @@ def test_publication_work_list_malformed_context_returns_structured_409() -> Non
                 content_task_id=task.id,
                 content_version_id=content.id,
                 platform_profile_id=profile.id,
+                platform_profile_id_snapshot=profile.id,
                 platform_profile_name_snapshot=profile.name,
                 platform_account_id=account.id,
                 platform_account_label_snapshot=account.label,

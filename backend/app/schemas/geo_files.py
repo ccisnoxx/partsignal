@@ -350,6 +350,15 @@ class GeoInsightPlatformPerformance(ContractModel):
     primary_task: Literal["VIEW_OBSERVATION_DETAILS"]
 
 
+class GeoInsightOptimizationAction(ContractModel):
+    rule_code: Literal["CONTENT_DECLINE", "LONG_UNMENTIONED", "QUESTION_COVERAGE_GAP"]
+    date_from: date
+    date_to: date
+    published_article_id: uuid.UUID | None
+    query_topic_id: uuid.UUID | None
+    geo_platform: SearchPlatform | None
+
+
 class GeoInsightContentPerformance(ContractModel):
     published_article_id: uuid.UUID
     product_id: uuid.UUID
@@ -363,6 +372,24 @@ class GeoInsightContentPerformance(ContractModel):
     primary_task: Literal[
         "VIEW_CONTENT_PERFORMANCE", "CREATE_OPTIMIZATION_TASK"
     ]
+    optimization_action: GeoInsightOptimizationAction | None
+
+    @model_validator(mode="after")
+    def validate_optimization_action(self) -> GeoInsightContentPerformance:
+        """保证主任务与内容异常来源保持同一权威身份。"""
+        if self.primary_task == "CREATE_OPTIMIZATION_TASK":
+            action = self.optimization_action
+            if (
+                action is None
+                or action.rule_code not in {"CONTENT_DECLINE", "LONG_UNMENTIONED"}
+                or action.published_article_id != self.published_article_id
+                or action.query_topic_id is not None
+                or action.geo_platform is not None
+            ):
+                raise ValueError("内容优化主任务必须携带匹配的发布成果来源")
+        elif self.optimization_action is not None:
+            raise ValueError("内容查看主任务不能携带优化来源")
+        return self
 
 
 class GeoInsightDeclineBasis(ContractModel):
@@ -410,6 +437,24 @@ class GeoInsightCoverageItem(ContractModel):
     primary_task: Literal[
         "VIEW_OBSERVATION_DETAILS", "CREATE_OPTIMIZATION_TASK", "ADD_OBSERVATION"
     ]
+    optimization_action: GeoInsightOptimizationAction | None
+
+    @model_validator(mode="after")
+    def validate_optimization_action(self) -> GeoInsightCoverageItem:
+        """保证覆盖主任务与问题、平台来源保持一致。"""
+        if self.primary_task == "CREATE_OPTIMIZATION_TASK":
+            action = self.optimization_action
+            if (
+                action is None
+                or action.rule_code != "QUESTION_COVERAGE_GAP"
+                or action.published_article_id is not None
+                or action.query_topic_id != self.query_topic_id
+                or action.geo_platform != self.geo_platform
+            ):
+                raise ValueError("覆盖优化主任务必须携带匹配的问题与平台来源")
+        elif self.optimization_action is not None:
+            raise ValueError("覆盖查看或补样本主任务不能携带优化来源")
+        return self
 
 
 class GeoInsightQuestionCoverage(ContractModel):
@@ -499,9 +544,17 @@ class GeoOptimizationContentTaskCreate(ContractModel):
         if self.date_from > self.date_to:
             raise ValueError("开始日期不能晚于结束日期")
         if self.rule_code in {"CONTENT_DECLINE", "LONG_UNMENTIONED"}:
-            if self.published_article_id is None:
+            if (
+                self.published_article_id is None
+                or self.query_topic_id is not None
+                or self.geo_platform is not None
+            ):
                 raise ValueError("内容表现异常必须指定发布成果")
-        elif self.query_topic_id is None or self.geo_platform is None:
+        elif (
+            self.published_article_id is not None
+            or self.query_topic_id is None
+            or self.geo_platform is None
+        ):
             raise ValueError("问题覆盖异常必须指定问题主题和 GEO 平台")
         return self
 

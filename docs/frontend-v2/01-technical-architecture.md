@@ -28,7 +28,7 @@ V2 不以“最少迁移成本”为优化目标，而以“产品质量 + 长�
 | API Client | openapi-fetch |
 | Markdown Editor | CodeMirror 6 |
 | Markdown Render | unified/marked + DOMPurify |
-| Charts | ECharts |
+| Charts | 当前 GEO Insights 使用局部 SVG；出现多轴、缩放、brush 或大数据量后再评估 ECharts |
 | Unit Tests | Vitest |
 | Component Tests | Testing Library |
 | E2E | Playwright |
@@ -150,7 +150,7 @@ Markdown 是内容唯一可编辑正文源。V2 使用 CodeMirror 6，并提供�
 
 ## 11. Charts
 
-GEO Analytics 推荐 ECharts。Analytics table/chart 与 CRUD Table 是不同 Pattern，不为了“统一”强行共享所有布局。
+GEO Analytics 不预先引入图表依赖。当前三个单指标日趋势使用局部 SVG，并以原生 `<details>` 内真实表格提供精确、可访问的等价数据；只有多轴、缩放、brush 或大数据量需求出现后才评估 ECharts。Analytics table/chart 与 CRUD Table 是不同 Pattern，不为了“统一”强行共享所有布局。
 
 ## 12. 状态分层
 

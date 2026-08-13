@@ -659,6 +659,69 @@ const canCorrect = tail?.observation.available_actions.includes('CORRECT') ?? fa
 
 ---
 
+## GEO Insights 的 URL、单 GET 与优化 Dialog
+
+### 1. Scope / Trigger
+
+实现或修改 `/geo/insights` route、筛选、趋势、drill-down、优化 Dialog 或 Coverage→New Observation handoff 时适用。筛选可分享状态、服务端 read model 与未提交 target 表单必须保持三个独立 owner。
+
+### 2. Signatures
+
+```text
+URL: /geo/insights?from&to&productId&contentPlatformId&geoPlatform&publishedArticleId&queryTopicId
+GET: /api/v1/geo-insights?date_from&date_to&product_id&content_platform_id&geo_platform&published_article_id&query_topic_id
+query key: ["geo", "insights", apiParams]
+Dialog options: /api/v1/content-tasks/creation-options?requested_product_id=...
+Dialog POST: /api/v1/geo-insights/optimization-content-tasks
+```
+
+### 3. Contracts
+
+- URL 由 Router 持有七个参数；缺省日期写回 UTC 当日及前 29 日。筛选草稿只在未提交的表单实例内存在，提交后由 URL 重建，不进入全局 Store。
+- 页面 server state 只有 `geoKeys.insight(apiParams)` 的单一 Insights read model；creation-options 只在优化 Dialog 打开时读取，不用于补 Dashboard。
+- rate 的 `denominator=0/value=null` 显示“暂无数据”；局部 SVG `aria-hidden`，原生 `<details>` 表格提供日期、分子、分母与精确值。
+- Dialog 保存 `{signature,key}`。完整 source+target body 相同时人工重试复用 key；字段/source 改变、关闭、成功、幂等冲突或 stale 后显式 reload 都废弃旧 key。不得自动 retry POST。
+- 409/stale 保留表单和 request ID、禁用旧上下文；显式同时刷新 Insights/options，只有同一 action 和全部已选 ID 仍存在才允许继续，否则关闭旧 Dialog或保持字段错误。
+- 成功按响应 ID 导航，并精确失效 Insights、Content list、Product detail；Coverage 来源另失效 Topic list。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 页面处理 |
+| --- | --- |
+| URL 缺日期或含非法 primitive/未知 key | replace 为显式默认日期并移除无效项 |
+| `from > to` 或合法但不存在的 ID | 保留 URL，显示服务端 422/404 与 retry/reset |
+| GET 初始失败 | 整页 error + retry + reset |
+| cached refresh 失败 | 保留旧 read model，显示刷新错误 |
+| denominator 为零 / previous 无样本 | “暂无数据” / “上一周期暂无样本”，不显示 `0%` 变化 |
+| POST 409/stale | 保留三项 target 与 request ID，禁用提交，不自动 replay |
+| reload 后 action 或 option 消失 | 关闭旧 action 或给对应字段错误，继续禁用 |
+| POST 成功 | 失效精确 keys，使用响应 ID 进入 Detail |
+
+### 5. Good / Base / Bad Cases
+
+- Good：direct URL 一次 GET 恢复全部筛选；打开服务端允许的行才加载 options，同 body 人工重试保持 key。
+- Base：Recommendation 没有 V2-safe target 时只展示；Coverage 样本不足进入带 Topic+GEO Platform 的 New Observation。
+- Bad：组合多个分页 endpoint 计算 Dashboard、把 null rate 转成零、根据 status 补优化按钮或把筛选复制进全局 Store。
+
+### 6. Tests Required
+
+- Model/API：UTC 默认日期、七参数映射、null/zero 文案、primary/action identity、精确 href、POST body/header 与 structured error。
+- Component：所有 section、partial/unavailable、精确趋势表格、Recommendation 无伪链接、Dialog target 与 cache invalidation。
+- Production fixture：direct/refresh/Back/Forward/reset、loading/error/retry/empty、stale 不 replay、响应 ID 导航、未声明 API 失败及 375/768/1024/1440 根无溢出。
+- New Observation：`queryTopicId+geoPlatform` direct URL 与 refresh 均只初始化非 dirty 字段。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：把可恢复筛选和异常资格复制进页面状态。
+const [filters] = useState(loadFilters());
+const canOptimize = row.status === 'UNCOVERED';
+
+// Correct：Router 拥有筛选，服务端 action 拥有资格。
+const search = Route.useSearch();
+const action = row.optimization_action;
+```
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

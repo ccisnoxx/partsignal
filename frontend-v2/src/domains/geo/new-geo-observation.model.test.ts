@@ -28,6 +28,16 @@ const candidates = [
 ];
 
 describe('New GEO Observation model', () => {
+  it('接收精确 Topic 与 GEO 平台 handoff，并拒绝空平台', () => {
+    expect(newGeoObservationSearchSchema.parse({
+      queryTopicId: '10000000-0000-4000-8000-000000000001',
+      geoPlatform: '  DeepSeek  ',
+    })).toEqual({
+      queryTopicId: '10000000-0000-4000-8000-000000000001',
+      geoPlatform: 'DeepSeek',
+    });
+    expect(newGeoObservationSearchSchema.safeParse({ geoPlatform: '  ' }).success).toBe(false);
+  });
   it('handoff 只接受明确的 Query Topic UUID', () => {
     expect(newGeoObservationSearchSchema.parse({
       queryTopicId: '30000000-0000-4000-8000-000000000001',

@@ -40,6 +40,7 @@ describe('路由导航元数据', () => {
         'publishing-work',
         'publishing-articles',
         'publishing-issues',
+        'geo-insights',
         'geo-topics',
         'geo-observations',
       ]);
@@ -51,6 +52,7 @@ describe('路由导航元数据', () => {
         'publishing-work',
         'publishing-articles',
         'publishing-issues',
+        'geo-insights',
         'geo-topics',
         'geo-observations',
         'users',

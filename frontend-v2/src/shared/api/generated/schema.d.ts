@@ -4742,6 +4742,7 @@ export interface components {
             /** Format: uuid */
             supersedes_id?: string | null;
         };
+        /** @description 内容规则只携带 published_article_id；覆盖规则只携带 query_topic_id 与 geo_platform。目标 Product、Platform Profile 与 Fact Version 由命令端重新校验。 */
         GeoOptimizationContentTaskCreate: {
             /** @enum {string} */
             rule_code: "CONTENT_DECLINE" | "LONG_UNMENTIONED" | "QUESTION_COVERAGE_GAP";
@@ -5009,6 +5010,19 @@ export interface components {
             /** @constant */
             primary_task: "VIEW_OBSERVATION_DETAILS";
         };
+        GeoInsightOptimizationAction: {
+            /** @enum {string} */
+            rule_code: "CONTENT_DECLINE" | "LONG_UNMENTIONED" | "QUESTION_COVERAGE_GAP";
+            /** Format: date */
+            date_from: string;
+            /** Format: date */
+            date_to: string;
+            /** Format: uuid */
+            published_article_id: string | null;
+            /** Format: uuid */
+            query_topic_id: string | null;
+            geo_platform: string | null;
+        };
         GeoInsightContentPerformance: {
             /** Format: uuid */
             published_article_id: string;
@@ -5024,6 +5038,7 @@ export interface components {
             accuracy_rate: components["schemas"]["GeoInsightRateValue"];
             /** @enum {string} */
             primary_task: "VIEW_CONTENT_PERFORMANCE" | "CREATE_OPTIMIZATION_TASK";
+            optimization_action: components["schemas"]["GeoInsightOptimizationAction"] | null;
         };
         GeoInsightDeclineBasis: {
             /** @enum {string} */
@@ -5063,6 +5078,7 @@ export interface components {
             coverage_rate: components["schemas"]["GeoInsightRateValue"];
             /** @enum {string} */
             primary_task: "VIEW_OBSERVATION_DETAILS" | "CREATE_OPTIMIZATION_TASK" | "ADD_OBSERVATION";
+            optimization_action: components["schemas"]["GeoInsightOptimizationAction"] | null;
         };
         GeoInsightQuestionCoverage: {
             by_status: components["schemas"]["GeoInsightCoverageCounts"];
@@ -9442,6 +9458,7 @@ export interface operations {
                     "application/json": components["schemas"]["GeoInsights"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };
@@ -9491,6 +9508,8 @@ export interface operations {
                     "application/json": components["schemas"]["ContentTask"];
                 };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
             422: components["responses"]["ErrorResponse"];
         };

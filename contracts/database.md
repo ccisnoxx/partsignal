@@ -356,6 +356,10 @@ Prompt 更新锁定模板行并比较 `expected_revision`；保存前由管理�
 
 版本文件 `0042_content_version_detail.py` 紧跟 `0041_content_task_list`。`content_versions` 新增可空 `updated_at`：升级不回填旧行，只为后续 INSERT 设置数据库默认值；ORM 只在既有合同允许的人工草稿保存、审核状态/revision 转换和旧批准版本转 `SUPERSEDED` 时写入真实更新时间。`null` 表示该历史版本没有可证明的更新时间，不得使用迁移时间、任务时间或审核时间补造。
 
+### 0043 GEO Insight Platform Identity
+
+版本文件 `0043_geo_insight_platform_identity.py` 紧跟 `0042_content_version_detail`。`publication_works.platform_profile_id_snapshot UUID NULL` 无外键地冻结创建时的平台 UUID，与既有 `platform_profile_name_snapshot` 共同成为 Published Article、GEO Detail 和 GEO Insights 的历史平台身份 owner；实时 `platform_profile_id` 仍保持 `SET NULL` 删除语义。升级只从尚存在的实时 UUID 确定性回填；任一 Published Article 无法回填时以 PostgreSQL `55000` 原子中止，不按名称、审计或随机值猜测身份。新发布工作必须同时写入与实时平台一致的 snapshot，后续更新守卫禁止修改；列只为已经丢失实时身份的非 Published Article 历史保持可空。若任一发布工作已经失去实时平台 UUID，降级会丢失冻结身份，因此迁移以 `55000` 拒绝降级。
+
 Content Version Detail 是一次 `REPEATABLE READ` 只读投影。它只读取目标版本、任务当前指针、Fact Version identity、创建者、目标祖先链上的生成/自然化 Prompt 与 model snapshot，以及按既有顺序累计的审核记录；不返回完整 Task、Fact Markdown、Diff、无关 GenerationJob、版本列表或动作投影。`review_result` 必须取目标版本自身最后一条真实审核记录，`is_current` 只比较 `content_tasks.current_content_version_id`，两者都不得从版本状态推导。
 
 普通任务删除在行锁内校验调用方必填的 `expected_revision`，不匹配返回 `REVISION_CONFLICT`；删除范围与阻断条件仍由服务端在同一事务最终复核。
@@ -436,6 +440,7 @@ State changes not shown above are invalid. A rejected immutable fact or content 
 - A manual first draft creates a `HUMAN DRAFT` content version with null generation and parent lineage, then uses the same review and publication gates as AI content.
 - A publication work can reference only an approved content version whose fact is not retired at creation time.
 - A publication account profile must equal the content task's locked platform profile; both the application service and PostgreSQL enforce it.
+- A publication work freezes the selected platform in `platform_profile_id_snapshot` without a foreign key. Published Article and GEO history read this UUID plus `platform_profile_name_snapshot`; deleting the live platform may null only the live foreign key and must not alter either snapshot.
 - A concrete platform may own multiple publication accounts, but their internal identifiers are unique by `lower(btrim(account_identifier))`; disabled accounts retain identity and historical references but are excluded from new publication candidates.
 - A publication work selects exactly one account. One content task has at most one work, and one `platform_profile_id + content_hash` has at most one non-closed work.
 - 非终态发布工作仅可切换到同任务、同平台的当前批准版本；切换事件记录前后版本，每次核验记录当时版本，成功成果永久读取成功核验快照。

@@ -3106,6 +3106,7 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/GeoInsights'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/dashboard/summary:
@@ -3136,6 +3137,8 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/ContentTask'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
         '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/files/upload-intents:
@@ -7218,6 +7221,7 @@ components:
     GeoOptimizationContentTaskCreate:
       type: object
       additionalProperties: false
+      description: 内容规则只携带 published_article_id；覆盖规则只携带 query_topic_id 与 geo_platform。目标 Product、Platform Profile 与 Fact Version 由命令端重新校验。
       required: [rule_code, date_from, date_to, product_id, platform_profile_id, fact_version_id]
       properties:
         rule_code: {type: string, enum: [CONTENT_DECLINE, LONG_UNMENTIONED, QUESTION_COVERAGE_GAP]}
@@ -7550,10 +7554,21 @@ components:
         mention_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
         accuracy_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
         primary_task: {type: string, const: VIEW_OBSERVATION_DETAILS}
+    GeoInsightOptimizationAction:
+      type: object
+      additionalProperties: false
+      required: [rule_code, date_from, date_to, published_article_id, query_topic_id, geo_platform]
+      properties:
+        rule_code: {type: string, enum: [CONTENT_DECLINE, LONG_UNMENTIONED, QUESTION_COVERAGE_GAP]}
+        date_from: {type: string, format: date}
+        date_to: {type: string, format: date}
+        published_article_id: {type: [string, 'null'], format: uuid}
+        query_topic_id: {type: [string, 'null'], format: uuid}
+        geo_platform: {type: [string, 'null'], minLength: 1, maxLength: 160}
     GeoInsightContentPerformance:
       type: object
       additionalProperties: false
-      required: [published_article_id, product_id, content_platform_id, title, content_platform, observation_count, discovery_rate, mention_rate, accuracy_rate, primary_task]
+      required: [published_article_id, product_id, content_platform_id, title, content_platform, observation_count, discovery_rate, mention_rate, accuracy_rate, primary_task, optimization_action]
       properties:
         published_article_id: {type: string, format: uuid}
         product_id: {type: string, format: uuid}
@@ -7565,6 +7580,10 @@ components:
         mention_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
         accuracy_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
         primary_task: {type: string, enum: [VIEW_CONTENT_PERFORMANCE, CREATE_OPTIMIZATION_TASK]}
+        optimization_action:
+          anyOf:
+            - {$ref: '#/components/schemas/GeoInsightOptimizationAction'}
+            - {type: 'null'}
     GeoInsightDeclineBasis:
       type: object
       additionalProperties: false
@@ -7609,7 +7628,7 @@ components:
     GeoInsightCoverageItem:
       type: object
       additionalProperties: false
-      required: [query_topic_id, canonical_question, geo_platform, status, observation_count, mentioned_observation_count, coverage_rate, primary_task]
+      required: [query_topic_id, canonical_question, geo_platform, status, observation_count, mentioned_observation_count, coverage_rate, primary_task, optimization_action]
       properties:
         query_topic_id: {type: string, format: uuid}
         canonical_question: {type: string}
@@ -7619,6 +7638,10 @@ components:
         mentioned_observation_count: {type: integer, minimum: 0}
         coverage_rate: {$ref: '#/components/schemas/GeoInsightRateValue'}
         primary_task: {type: string, enum: [VIEW_OBSERVATION_DETAILS, CREATE_OPTIMIZATION_TASK, ADD_OBSERVATION]}
+        optimization_action:
+          anyOf:
+            - {$ref: '#/components/schemas/GeoInsightOptimizationAction'}
+            - {type: 'null'}
     GeoInsightQuestionCoverage:
       type: object
       additionalProperties: false

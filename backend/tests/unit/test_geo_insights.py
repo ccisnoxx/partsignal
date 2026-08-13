@@ -17,8 +17,10 @@ from app.models.product_facts import FactVersion
 from app.models.publication import PublicationWork, PublishedArticle
 from app.schemas.geo_files import (
     GeoInsightCoverageCounts,
+    GeoInsightCoverageItem,
     GeoInsightDeclineBasis,
     GeoInsightDecliningContent,
+    GeoInsightOptimizationAction,
     GeoInsightQuestionCoverage,
     GeoInsightRateValue,
     GeoOptimizationContentTaskCreate,
@@ -113,6 +115,7 @@ def test_unknown_accuracy_does_not_create_a_false_decline() -> None:
         [],
         current_from=current_date,
         current_to=current_date,
+        can_optimize=True,
         unavailable=unavailable,
     )
     coverage = GeoInsightQuestionCoverage(
@@ -162,6 +165,7 @@ def test_best_content_does_not_rank_unknown_accuracy_as_zero() -> None:
         [],
         current_from=current_date,
         current_to=current_date,
+        can_optimize=True,
         unavailable=[],
     )
 
@@ -171,16 +175,26 @@ def test_best_content_does_not_rank_unknown_accuracy_as_zero() -> None:
 class _GeoCommandSession:
     """为优化任务命令保留精确所有者读取与原子写入语义。"""
 
-    def __init__(self, rows: dict[type[object], object]) -> None:
+    def __init__(
+        self,
+        rows: dict[type[object], object],
+        *,
+        existing: object | None = None,
+    ) -> None:
         self.rows = rows
+        self.existing = existing
         self.added: list[object] = []
+        self.executed: list[object] = []
         self.committed = False
 
     def get(self, model: type[object], _identity: object) -> object | None:
         return self.rows.get(model)
 
-    def scalar(self, _statement: object) -> None:
-        return None
+    def scalar(self, _statement: object) -> object | None:
+        return self.existing
+
+    def execute(self, statement: object, _parameters: object) -> None:
+        self.executed.append(statement)
 
     def add(self, value: object) -> None:
         self.added.append(value)
@@ -211,6 +225,14 @@ def test_geo_optimization_recomputes_and_freezes_authoritative_source(
         mention_rate=rate,
         accuracy_rate=rate,
         primary_task="CREATE_OPTIMIZATION_TASK",
+        optimization_action=GeoInsightOptimizationAction(
+            rule_code="CONTENT_DECLINE",
+            date_from=date(2026, 7, 1),
+            date_to=date(2026, 7, 31),
+            published_article_id=article_id,
+            query_topic_id=None,
+            geo_platform=None,
+        ),
         basis=[
             GeoInsightDeclineBasis(
                 metric="mention_rate",
@@ -228,7 +250,10 @@ def test_geo_optimization_recomputes_and_freezes_authoritative_source(
     session = _GeoCommandSession(
         {
             PublishedArticle: SimpleNamespace(id=article_id),
-            PublicationWork: SimpleNamespace(content_task_id=uuid.uuid4()),
+            PublicationWork: SimpleNamespace(
+                content_task_id=uuid.uuid4(),
+                platform_profile_id_snapshot=platform_id,
+            ),
             ContentTask: source_task,
             FactVersion: SimpleNamespace(
                 id=fact_id,
@@ -266,6 +291,7 @@ def test_geo_optimization_recomputes_and_freezes_authoritative_source(
     assert source.content_task_id == task_id
     assert source.basis_snapshot["rule_code"] == "CONTENT_DECLINE"
     assert source.basis_snapshot["item"]["published_article_id"] == str(article_id)
+    assert session.executed
     assert session.committed
 
 
@@ -281,9 +307,10 @@ def test_geo_optimization_rejects_stale_client_anomaly(
             question_coverage=SimpleNamespace(matrix=[]),
         ),
     )
+    session = _GeoCommandSession({})
     with pytest.raises(AppError) as captured:
         create_geo_optimization_content_task(
-            db=cast(Session, object()),
+            db=cast(Session, session),
             payload=GeoOptimizationContentTaskCreate(
                 rule_code="CONTENT_DECLINE",
                 date_from=date(2026, 7, 1),
@@ -293,9 +320,154 @@ def test_geo_optimization_rejects_stale_client_anomaly(
                 platform_profile_id=uuid.uuid4(),
                 fact_version_id=uuid.uuid4(),
             ),
-            actor=cast(Any, SimpleNamespace(id=uuid.uuid4())),
+            actor=cast(
+                Any,
+                SimpleNamespace(id=uuid.uuid4(), account_type="ENGINEER"),
+            ),
             request_id="geo-stale",
             idempotency_key="geo-stale-key",
         )
 
     assert captured.value.code == "GEO_INSIGHT_STALE"
+
+
+def test_geo_optimization_idempotency_compares_target_and_source() -> None:
+    """同一键只有完整目标与不可变来源都一致时才允许重放。"""
+    product_id, platform_id, fact_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    article_id = uuid.uuid4()
+    existing = SimpleNamespace(
+        id=uuid.uuid4(),
+        product_id=product_id,
+        platform_profile_id=platform_id,
+        fact_version_id=fact_id,
+    )
+    source = SimpleNamespace(
+        rule_code="CONTENT_DECLINE",
+        date_from=date(2026, 7, 1),
+        date_to=date(2026, 7, 31),
+        published_article_id=article_id,
+        query_topic_id=None,
+        geo_platform=None,
+    )
+    session = _GeoCommandSession(
+        {ContentTaskGeoSource: source},
+        existing=existing,
+    )
+    base = {
+        "rule_code": "CONTENT_DECLINE",
+        "date_from": date(2026, 7, 1),
+        "date_to": date(2026, 7, 31),
+        "published_article_id": article_id,
+        "product_id": product_id,
+        "platform_profile_id": platform_id,
+        "fact_version_id": fact_id,
+    }
+
+    replay = create_geo_optimization_content_task(
+        db=cast(Session, session),
+        payload=GeoOptimizationContentTaskCreate(**base),
+        actor=cast(User, SimpleNamespace(id=uuid.uuid4(), account_type="ENGINEER")),
+        request_id="geo-replay",
+        idempotency_key="geo-replay-key",
+    )
+    assert replay is existing
+
+    with pytest.raises(AppError) as captured:
+        create_geo_optimization_content_task(
+            db=cast(Session, session),
+            payload=GeoOptimizationContentTaskCreate(
+                **{**base, "fact_version_id": uuid.uuid4()}
+            ),
+            actor=cast(User, SimpleNamespace(id=uuid.uuid4(), account_type="ENGINEER")),
+            request_id="geo-replay-conflict",
+            idempotency_key="geo-replay-key",
+        )
+    assert captured.value.code == "IDEMPOTENCY_CONFLICT"
+
+
+def test_coverage_optimization_recomputes_with_selected_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Coverage 最终资格必须使用 Dialog 选中的 Product 与 Platform。"""
+    product_id, platform_id, fact_id, topic_id = (
+        uuid.uuid4(),
+        uuid.uuid4(),
+        uuid.uuid4(),
+        uuid.uuid4(),
+    )
+    actor = cast(User, SimpleNamespace(id=uuid.uuid4(), account_type="ENGINEER"))
+    rate = GeoInsightRateValue(numerator=1, denominator=3, value=1 / 3)
+    coverage = GeoInsightCoverageItem(
+        query_topic_id=topic_id,
+        canonical_question="如何选择测试器件？",
+        geo_platform="Perplexity",
+        status="OCCASIONAL",
+        observation_count=3,
+        mentioned_observation_count=1,
+        coverage_rate=rate,
+        primary_task="CREATE_OPTIMIZATION_TASK",
+        optimization_action=GeoInsightOptimizationAction(
+            rule_code="QUESTION_COVERAGE_GAP",
+            date_from=date(2026, 7, 1),
+            date_to=date(2026, 7, 31),
+            published_article_id=None,
+            query_topic_id=topic_id,
+            geo_platform="Perplexity",
+        ),
+    )
+    captured_filters: list[GeoInsightFilters] = []
+
+    def current_insights(
+        _db: Session,
+        *,
+        filters: GeoInsightFilters,
+        actor: User,
+    ) -> object:
+        captured_filters.append(filters)
+        assert actor is not None
+        return SimpleNamespace(
+            content_rankings=SimpleNamespace(declining=[], long_unmentioned=[]),
+            question_coverage=SimpleNamespace(matrix=[coverage]),
+        )
+
+    created = SimpleNamespace(id=uuid.uuid4())
+    monkeypatch.setattr(geo_observation, "get_geo_insights", current_insights)
+    monkeypatch.setattr(geo_observation, "create_content_task", lambda **_kwargs: created)
+    session = _GeoCommandSession(
+        {
+            FactVersion: SimpleNamespace(
+                id=fact_id,
+                product_id=product_id,
+                status="APPROVED",
+            )
+        }
+    )
+
+    result = create_geo_optimization_content_task(
+        db=cast(Session, session),
+        payload=GeoOptimizationContentTaskCreate(
+            rule_code="QUESTION_COVERAGE_GAP",
+            date_from=date(2026, 7, 1),
+            date_to=date(2026, 7, 31),
+            query_topic_id=topic_id,
+            geo_platform="Perplexity",
+            product_id=product_id,
+            platform_profile_id=platform_id,
+            fact_version_id=fact_id,
+        ),
+        actor=actor,
+        request_id="geo-coverage",
+        idempotency_key="geo-coverage-key",
+    )
+
+    assert result is created
+    assert captured_filters == [
+        GeoInsightFilters(
+            date_from=date(2026, 7, 1),
+            date_to=date(2026, 7, 31),
+            product_id=product_id,
+            content_platform_id=platform_id,
+            geo_platform="Perplexity",
+            query_topic_id=topic_id,
+        )
+    ]

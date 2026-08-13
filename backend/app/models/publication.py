@@ -116,6 +116,7 @@ class PublicationWork(Base):
     platform_profile_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platform_profiles.id", ondelete="SET NULL")
     )
+    platform_profile_id_snapshot: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     platform_profile_name_snapshot: Mapped[str] = mapped_column(String(160), nullable=False)
     platform_account_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("platform_accounts.id", ondelete="SET NULL")

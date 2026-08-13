@@ -348,14 +348,19 @@ def get_geo_metrics(
     return get_geo_metrics_service(db, filters=filters, actor=user)
 
 
-@router.get("/geo-insights", response_model=GeoInsights, operation_id="getGeoInsights")
+@router.get(
+    "/geo-insights",
+    response_model=GeoInsights,
+    operation_id="getGeoInsights",
+    dependencies=[Depends(_geo_observation_read_snapshot)],
+)
 def get_geo_insights(
     db: DbSession,
-    _user: CurrentUser,
+    user: CurrentUser,
     filters: Annotated[GeoInsightFilters, Depends(geo_insight_filters)],
 ) -> GeoInsights:
     """返回同一筛选口径下的全部人工 GEO 洞察。"""
-    return get_geo_insights_service(db, filters=filters)
+    return get_geo_insights_service(db, filters=filters, actor=user)
 
 
 @router.post(

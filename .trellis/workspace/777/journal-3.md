@@ -813,3 +813,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 138: 完成 Frontend V2 Platform List
+
+**Date**: 2026-08-13
+**Task**: 完成 Frontend V2 Platform List
+**Branch**: `codex/frontend-v2-platform-list`
+
+### Summary
+
+交付 /settings/platforms，扩展平台 readiness/read model 与 revision 命令，完成 V1 DELETE revision 兼容及全套 targeted validation。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `90f3e27` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

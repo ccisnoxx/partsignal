@@ -394,7 +394,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- GEO Detail 对 route-valid UUID 采用大小写不敏感的身份比较，同时保留真实错配失败。
+- 补齐 Observation 与 Topic mutation 的 Insights、Topic list 和精准 Product Detail 缓存失效。
+- GEO 输入控件回归既有 Design System primitive，并同步测试、frontend spec 与 Phase 5 文档。
 
 ### Git Commits
 
@@ -404,7 +406,9 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- Targeted Vitest：`6 files / 36 tests passed`。
+- GEO Insights Playwright：`16 passed`。
+- `api:check`、lint、typecheck、production build 与 `git diff --check` 通过。
 
 ### Status
 
@@ -764,6 +768,39 @@
 | Hash | Message |
 |------|---------|
 | `937c2a2` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 137: 完成 Frontend V2 GEO abstraction review
+
+**Date**: 2026-08-13
+**Task**: 完成 Frontend V2 GEO abstraction review
+**Branch**: `codex/frontend-v2-geo-abstraction-review`
+
+### Summary
+
+关闭 UUID 身份比较、GEO mutation 缓存消费者与 Design System 输入边界缺口；目标测试和前端质量门禁通过，Phase 5 评定为 MET。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `12401d6` | (see git log) |
 
 ### Testing
 

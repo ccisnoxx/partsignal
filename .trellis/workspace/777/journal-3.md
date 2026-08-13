@@ -879,3 +879,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 140: 完成 Frontend V2 Platform Workspace Accounts
+
+**Date**: 2026-08-13
+**Task**: 完成 Frontend V2 Platform Workspace Accounts
+**Branch**: `codex/frontend-v2-platform-workspace-accounts`
+
+### Summary
+
+完成平台 Workspace 发布账号管理闭环：补齐 actor-aware actions、revision-safe delete、唯一性错误、精准缓存失效、响应式 UI 与定向验证，并归档子任务。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `e669a492` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

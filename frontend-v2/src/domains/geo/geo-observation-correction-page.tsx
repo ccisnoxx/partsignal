@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from '@/design-system/primitives/select';
 import { Skeleton } from '@/design-system/primitives/skeleton';
+import { Textarea } from '@/design-system/primitives/textarea';
 import { StickyActionBar, type StickyAction } from '@/design-system/workspace/sticky-action-bar';
 import { WorkspaceShell } from '@/design-system/workspace/workspace-shell';
 import { productsKeys } from '@/domains/product/product.api';
@@ -75,7 +76,6 @@ GeoObservationCorrectionField,
   tested_at: 'geo-correction-tested-at',
   notes: 'geo-correction-notes',
 };
-const textareaClass = 'min-h-24 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-text-primary outline-none focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-muted disabled:text-text-secondary';
 const conflictCodes = new Set(['GEO_PUBLICATIONS_CHANGED', 'REVISION_CONFLICT']);
 
 function GeoObservationCorrectionPage(props: GeoObservationCorrectionPageProps) {
@@ -160,6 +160,8 @@ function CorrectionFormPage({
         queryClient.invalidateQueries({ queryKey: geoKeys.details() }),
         queryClient.invalidateQueries({ queryKey: geoKeys.correctionContexts() }),
         queryClient.invalidateQueries({ queryKey: geoKeys.detail(observation.id) }),
+        queryClient.invalidateQueries({ queryKey: geoKeys.insights() }),
+        queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() }),
         queryClient.invalidateQueries({
           queryKey: productsKeys.detail(context.detail.product.id),
         }),
@@ -577,10 +579,9 @@ function CorrectionReferencePanel({
         label="更正原因 / Notes"
         name="notes"
         render={(field) => (
-          <textarea
+          <Textarea
             {...inputAria(field)}
             {...field.field}
-            className={textareaClass}
             disabled={disabled}
             id={field.inputId}
             rows={6}

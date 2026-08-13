@@ -6,9 +6,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthContextValue, AuthUser } from '@/app/auth/auth-provider';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
+import { productsKeys } from '@/domains/product/product.api';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { geoKeys } from './geo.api';
 
 type GeoObservationListItem = components['schemas']['GeoObservationListItem'];
 type GeoObservationListPage = components['schemas']['GeoObservationListPage'];
@@ -188,7 +190,8 @@ describe('GeoObservationListPage', () => {
       rows = [];
       return { response: new Response(null, { status: 204 }) } as never;
     });
-    renderGeo();
+    const { queryClient } = renderGeo();
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
 
     const trigger = await screen.findByRole('button', { name: `更多操作：${observation.query_text}` });
     await userEvent.click(trigger);
@@ -211,6 +214,20 @@ describe('GeoObservationListPage', () => {
       },
     });
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: geoKeys.lists() });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: geoKeys.details(),
+      refetchType: 'none',
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: geoKeys.correctionContexts(),
+      refetchType: 'none',
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: geoKeys.insights() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: geoKeys.topicLists() });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: productsKeys.detail(observation.product.id),
+    });
   });
 
   it('排序与分页只更新 canonical URL 并由服务端重新请求', async () => {

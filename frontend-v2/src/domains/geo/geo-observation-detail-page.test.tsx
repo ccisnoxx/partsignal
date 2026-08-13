@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthContextValue, AuthUser } from '@/app/auth/auth-provider';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
+import { productsKeys } from '@/domains/product/product.api';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
@@ -302,6 +303,47 @@ describe('GeoObservationDetailPage', () => {
     expect(alert).toHaveTextContent('刷新失败，已保留当前只读详情');
     expect(alert).toHaveTextContent('req-refresh');
     expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('删除完整更正链后失效所有真实消费者且不重取旧 Detail', async () => {
+    const data = manualDetail();
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/geo-observations/{observation_id}/detail') {
+        return { data, response: Response.json(data) } as never;
+      }
+      const empty = { items: [], page: 1, page_size: 20, total: 0 };
+      return { data: empty, response: Response.json(empty) } as never;
+    });
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    const { queryClient } = renderDetail(data);
+    const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await userEvent.click(await screen.findByRole('button', { name: /更多操作/ }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+    const dialog = await screen.findByRole('dialog', { name: '删除 GEO 观测' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+
+    await waitFor(() => expect(remove).toHaveBeenCalledOnce());
+    await waitFor(() => expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: geoKeys.detail(rootId),
+      refetchType: 'none',
+    }));
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: geoKeys.detail(tailId),
+      refetchType: 'none',
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: geoKeys.correctionContexts(),
+      refetchType: 'none',
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: geoKeys.lists() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: geoKeys.insights() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: geoKeys.topicLists() });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: productsKeys.detail(productId),
+    });
   });
 
   it('非法 UUID 在路由边界失败且不发送 Detail 请求', async () => {

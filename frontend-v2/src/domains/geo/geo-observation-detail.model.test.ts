@@ -73,6 +73,7 @@ describe('GeoObservationDetail model', () => {
     const value = detail();
 
     expect(assertGeoObservationDetail(value, rootId)).toBe(value);
+    expect(assertGeoObservationDetail(value, rootId.toUpperCase())).toBe(value);
     expect(selectedManualHistory(value).observation.id).toBe(rootId);
     expect(tailManualHistory(value).observation.id).toBe(tailId);
   });

@@ -30,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/design-system/primitives/select';
+import { productsKeys } from '@/domains/product/product.api';
 import { deleteGeoObservation, geoKeys, geoObservationListQueryOptions } from './geo.api';
 import { resolveGeoObservationOverflowActions } from './geo-observation-actions';
 import {
@@ -70,9 +71,23 @@ function GeoObservationListPage({
   const queryClient = useQueryClient();
   const observations = useQuery(geoObservationListQueryOptions(search));
   const remove = useMutation({
-    mutationFn: (observationId: string) => deleteGeoObservation(observationId, csrfToken),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: geoKeys.lists() });
+    mutationFn: (observation: GeoObservationListItem) => (
+      deleteGeoObservation(observation.id, csrfToken)
+    ),
+    onSuccess: async (_data, observation) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: geoKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: geoKeys.details(), refetchType: 'none' }),
+        queryClient.invalidateQueries({
+          queryKey: geoKeys.correctionContexts(),
+          refetchType: 'none',
+        }),
+        queryClient.invalidateQueries({ queryKey: geoKeys.insights() }),
+        queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() }),
+        queryClient.invalidateQueries({
+          queryKey: productsKeys.detail(observation.product.id),
+        }),
+      ]);
     },
   });
   const rows = observations.data?.items ?? [];
@@ -91,14 +106,14 @@ function GeoObservationListPage({
 
   function handleCommand(command: string, observation: GeoObservationListItem) {
     if (command === 'delete-observation') {
-      remove.mutate(observation.id);
+      remove.mutate(observation);
       return;
     }
     throw new Error(`GEO Observations 收到未知页面命令：${command}`);
   }
 
   const columns = useGeoObservationColumns({
-    deletingId: remove.isPending ? remove.variables : undefined,
+    deletingId: remove.isPending ? remove.variables.id : undefined,
     onCommand: handleCommand,
   });
   const table = useTable({

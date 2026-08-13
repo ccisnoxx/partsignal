@@ -544,7 +544,7 @@ query keys: ["geo", "query-topics"]
 - `discovered/mentioned` 初始为未选择状态并要求显式布尔值；`accuracy` 可为 null。POST 仍在事务内锁定 Product、重算完整候选集合并校验 VERIFIED `OPERATION_SCREENSHOT`。
 - 附件沿用 upload-intent → signed PUT/POST → complete；transfer 失败 abort，complete 失败只重试 complete。SHA-256 与对象存储 transfer 可以共享纯协议函数，领域 API、状态和错误不得抽成万能 Upload framework。
 - 当前 POST 没有服务端幂等合同，不发送 `Idempotency-Key`。同步提交锁与 mutation pending 只防止同页面并发；失败后必须由用户显式重试。
-- 成功清 dirty，失效 GEO lists 与对应 Product detail，并使用 POST 响应的 canonical Observation ID 导航 `/geo/observations/$observationId`；不得通过 List 搜索 ID 或创建占位页。
+- 成功清 dirty，失效 GEO lists、Insights、Query Topic list-items 与对应 Product detail，并使用 POST 响应的 canonical Observation ID 导航 `/geo/observations/$observationId`；不得通过 List 搜索 ID 或创建占位页。
 
 ### 4. Validation & Error Matrix
 
@@ -608,11 +608,12 @@ response: GeoObservationDetail = LegacyGeoObservationDetail | ManualGeoObservati
 ### 3. Contracts
 
 - endpoint 在 PostgreSQL `REPEATABLE READ` 中一次形成页面快照。Legacy 返回完整记录、Query Topic、Product、Published Articles 和 direct evidence；Manual 返回 selected/root/tail、Product 与服务端排列的完整 root→tail correction history。
+- route-valid UUID 与服务端规范化 UUID 按大小写不敏感的身份比较；响应内部链身份仍保持精确比较，真正错配必须阻断。
 - chain 的顺序、完整性、原记录、selected node、当前链尾、证据归属与 tail actions 都由服务端投影。浏览器不得遍历 `supersedes_id`、按时间或 `is_current` 重建链，也不得按角色/status 推导动作。
 - Published Article 使用终态 `PublicationWork` snapshot；evidence 只从节点直接拥有的 attachment 关系批量读取 `VERIFIED FileRecord` 并返回同次签发的短期地址。页面不得请求旧 Observation GET、Product、Topic、Article、FileRecord 或 download-url 补装。
 - Legacy 才显示 answer summary、recommendation 和 citations；Manual 才显示逐篇 discovered、mentioned 和 accuracy。nullable 历史事实保持未知，不转换为 `false`、零或猜测文案。
 - 所有节点只读。CORRECT 只使用 tail `primary_task/available_actions` 指向 `/geo/observations/{chainTailId}/correct`；DELETE 只在 tail 返回 token 时复用现有确认命令，写入口仍重新校验真实状态。
-- DELETE 成功先 replace 到 canonical List，再以 `refetchType: 'none'` 失效已知链节点 Detail keys，并刷新 GEO lists 与 Product Detail；不得在活动 observer 上 `removeQueries` 后误重取已删除资源。
+- DELETE 成功先 replace 到 canonical List，再以 `refetchType: 'none'` 失效已知链节点 Detail 与 Correction Context keys，并刷新 GEO lists、Insights、Query Topic list-items 与对应 Product Detail；不得在活动 observer 上 `removeQueries` 后误重取已删除资源。
 - New Observation 成功清 dirty、完成精准失效后，直接使用 POST response ID 进入 Detail；不得通过 List 搜索 ID。
 
 ### 4. Validation & Error Matrix

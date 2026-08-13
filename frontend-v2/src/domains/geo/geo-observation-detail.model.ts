@@ -19,13 +19,17 @@ const recommendationLabels = {
   RECOMMENDED: '已推荐',
 } as const;
 
+function sameUuid(left: string, right: string) {
+  return left.toLowerCase() === right.toLowerCase();
+}
+
 function assertGeoObservationDetail(
   detail: GeoObservationDetail,
   requestedId: string,
 ): GeoObservationDetail {
   if (detail.observation_kind === 'LEGACY_MODEL_RESULT') {
     if (
-      detail.observation.id !== requestedId
+      !sameUuid(detail.observation.id, requestedId)
       || detail.observation.product_id !== detail.product.id
       || detail.observation.query_topic_id !== detail.query_topic.id
     ) {
@@ -36,7 +40,7 @@ function assertGeoObservationDetail(
 
   const history = detail.correction_history;
   if (
-    detail.selected_observation_id !== requestedId
+    !sameUuid(detail.selected_observation_id, requestedId)
     || history.length === 0
     || history[0]?.observation.id !== detail.chain_root_id
     || history.at(-1)?.observation.id !== detail.chain_tail_id
@@ -56,7 +60,7 @@ function assertGeoObservationDetail(
       || item.observation.is_current !== item.is_chain_tail
       || (!item.is_chain_tail && item.observation.available_actions.length > 0)
       || item.is_original !== (index === 0)
-      || item.is_selected !== (item.observation.id === requestedId)
+      || item.is_selected !== sameUuid(item.observation.id, requestedId)
       || item.is_chain_tail !== (index === history.length - 1)
     ) {
       throw contractMismatch('人工观测更正链顺序与节点标记不一致');

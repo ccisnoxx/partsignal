@@ -60,7 +60,7 @@ query key: ["geo", "observations", "correction-context", observationId]
 - Product、Search Platform、Search Query 和非空 Query Topic 从上下文冻结且不进入表单。表单只持有 `query_topic_id` 空值例外、本次 `tested_at`、完整当前 `article_results`、本次 `attachment_file_ids` 和新 Notes。
 - 候选仍在尾结果中时继承事实；新候选及历史 `null` 保持 `null` 并要求显式选择；退出候选只在历史显示。历史 Evidence 只读，POST 只携带本次完成上传的 ID。
 - `supersedes_id` 只取最近一次成功加载的 `detail.chain_tail_id`。当前 POST 没有 `Idempotency-Key`；同步提交锁与 mutation pending 只防止同页面并发。
-- 成功先清 dirty，失效 GEO lists/details/correction contexts、新 Detail 与 Product Detail，再按 POST response ID 进入 canonical Detail。
+- 成功先清 dirty，失效 GEO lists/details/correction contexts、新 Detail、Insights、Query Topic list-items 与 Product Detail，再按 POST response ID 进入 canonical Detail。
 
 #### 4. Validation & Error Matrix
 

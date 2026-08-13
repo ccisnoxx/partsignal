@@ -88,7 +88,7 @@ Observation Detail required evidence 分为三层：PostgreSQL integration 证�
 
 Correction Workspace required evidence 分为三层：PostgreSQL integration 证明权限、历史 ID→当前尾、候选新增/退出、历史空 Topic、append-only POST、冻结字段、证据不可复用、冲突无半成品及原链不变；API/model/page tests 证明 generated context、表单边界、权威 `supersedes_id`、只提交新证据、pending 防重、两类 409 不 replay、显式刷新按文章 ID 合并及 canonical replace；production-artifact strict fixture 只允许 auth、correction context、通用 POST、三阶段上传和精确 Detail GET，覆盖 Detail 入口/direct/refresh、404/403/Legacy、权限变化、上传 complete 重试、DirtyGuard、焦点及 375/768/1024/1440 无根级溢出。
 
-Observation List、New Observation、Detail、Correction Workspace 与 Topics 已形成页面级接口闭环，但这些 fixture 不冒充 GEO real-stack。完整 `new observation → detail → correction` 真实闭环仍须在后续独立 Task 中进入现有唯一隔离编排。
+Observation List、New Observation、Detail、Correction Workspace 与 Topics 的 fixture 只证明页面级接口闭环，不冒充 GEO real-stack；完整 `new observation → detail → correction` 已由 13.10 的独立真实栈流程在现有唯一隔离编排中证明。
 
 ### GEO Optimization
 
@@ -252,6 +252,10 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 `tests/e2e/geo-real-stack.spec.ts` 复用 `deploy/scripts/e2e-local.sh` 的单一隔离 PostgreSQL、独占 Redis、FastAPI、对象存储和 V2 production preview 生命周期；不导入 fixture、不拦截 API，也不新增 orchestration。Flow A 由 V2 New UI 创建带真实 evidence 的 root Observation，经 Detail 的服务端动作进入 Correction Workspace，再用第二份 evidence 追加 tail；Detail/List UI 与最终 API 同时证明 root payload 不变、祖先附件与节点 direct evidence 分离、`supersedes_id` 正确且列表只投影 tail。Flow B 只用 API 建立确定性的两周期 observation 前置，从真实 Insights `CONTENT_DECLINE` 打开按需 options，通过单次幂等 POST 创建 Optimization ContentTask，并由 Task Detail UI/API 证明 Product、Platform、Fact 与不可变 GEO source snapshot。
 
 真实浏览器暴露的 `GET /api/v1/geo-observations/list-items?page_size=20` 422 已在 router owner 通过显式整数预解析最小修复，并由实际 TestClient 查询字符串回归覆盖。完整门禁通过 V2 real-stack `12 passed` 与指定 V1 Trusted Types `7 passed`；退出码为 0，脚本删除隔离数据库与对象存储，事后核验六个端口释放并只精确删除独占 Redis 中本次 Celery binding key。
+
+### 13.11 GEO vertical slice 抽象回顾
+
+`frontend-v2-geo-abstraction-review` 用最小 frontend-only 回归关闭 route-valid 大写 UUID、GEO mutation 缓存消费者遗漏和输入 primitive 漂移。targeted Vitest 覆盖 Detail identity、Observation 删除 consumers、Correction consumers、Insights Select 与 Textarea primitive，共 `6 files / 36 tests`；`geo-insights.spec.ts` 在 mobile/desktop 两个 project 上 `16 passed`，证明 Base UI Select 的筛选、Optimization target、stale 保留、URL、打印与四档布局仍成立。OpenAPI generated check、lint、typecheck 和 production build 通过；任务未改变后端、数据库、OpenAPI、上传、append-only command 或真实栈 orchestration，因此 13.10 的 V2 `12 passed` 与 V1 Trusted Types `7 passed` 继续作为 Phase 5 连续业务证据，不机械重跑。
 
 ## 14. Deployment Smoke
 

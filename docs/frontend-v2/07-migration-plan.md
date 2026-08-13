@@ -433,7 +433,9 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-geo-insights-print` 已注册 `/geo/insights/print`：Screen/Print 共用七参数 URL、query key、单 GET read model、趋势格式化和 GEO 域报告体；Print 从同一响应解析筛选标签，移除普通 AppShell 与全部筛选、drill-down、优化 Dialog、creation-options 和 mutation，仅保留原生浏览器打印。局部响应式表格在 375px 卡片化，768/1024/1440 保持语义 table，Print media 重复表头并避免拆分行/短卡片。
 
-`frontend-v2-geo-e2e` 已关闭完整 GEO real-stack 闭环缺口：Flow A 通过 V2 New、Detail、Correction 与 List 连续证明真实附件上传、append-only correction、祖先附件投影、节点 direct evidence、原记录不可变和链尾唯一；Flow B 从真实 Insights `CONTENT_DECLINE` 创建带幂等键的 Optimization ContentTask，并在 Task Detail UI/API 证明不可变 GEO source。过程中发现并最小修复 `list-items?page_size=20` 未将查询字符串解析为整数的问题，TestClient 回归锁定合法值。唯一 required gate 为 V2 real-stack `12 passed`、V1 Trusted Types `7 passed`，退出码 0，数据库、对象存储、端口与独占 Redis 均完成精确清理。Phase 5 仅剩 vertical slice 抽象回顾，因此退出条件继续为 `NOT_MET`。
+`frontend-v2-geo-e2e` 已关闭完整 GEO real-stack 闭环缺口：Flow A 通过 V2 New、Detail、Correction 与 List 连续证明真实附件上传、append-only correction、祖先附件投影、节点 direct evidence、原记录不可变和链尾唯一；Flow B 从真实 Insights `CONTENT_DECLINE` 创建带幂等键的 Optimization ContentTask，并在 Task Detail UI/API 证明不可变 GEO source。过程中发现并最小修复 `list-items?page_size=20` 未将查询字符串解析为整数的问题，TestClient 回归锁定合法值。唯一 required gate 为 V2 real-stack `12 passed`、V1 Trusted Types `7 passed`，退出码 0，数据库、对象存储、端口与独占 Redis 均完成精确清理。该检查点当时仅剩 vertical slice 抽象回顾，因此退出条件继续为 `NOT_MET`。
+
+`frontend-v2-geo-abstraction-review` 已完成最后一项抽象回顾：route/API/read model/action/append-only/Screen-Print 所有权保持唯一，没有新增通用框架或依赖。审计关闭三个真实缺口：Detail/Correction 对 route-valid 大写 UUID 的身份比较改为大小写不敏感；Observation create/correct/delete 与 Topic mutation 补齐 Insights、Topic 引用摘要和精准 Product Detail 的缓存失效；New/Correction/Insights 输入统一回到最小 Textarea 与既有 Select primitive。targeted component/model 为 `6 files / 36 tests`，Insights production-artifact Playwright 两个 project 为 `16 passed`，OpenAPI generated check、lint、typecheck 与 production build 均通过；最近 GEO real-stack `12 passed` 与 V1 Trusted Types `7 passed` 因本任务未改后端、数据库、OpenAPI、上传或 append-only command 而作为直接闭环证据保留。最终未解决 P0/P1/P2 为 `0`，Phase 5 Exit Gate 改判为 `MET`。
 
 退出条件：Correction append-only；Topic 删除能显示业务引用；Insights filter 可通过 URL 恢复；print 与 screen 使用同一 read model；375px 不出现不可用的宽表。
 

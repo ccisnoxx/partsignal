@@ -60,7 +60,13 @@ function GeoObservationDetailPage({
           queryKey: geoKeys.detail(id),
           refetchType: 'none',
         })),
+        queryClient.invalidateQueries({
+          queryKey: geoKeys.correctionContexts(),
+          refetchType: 'none',
+        }),
         queryClient.invalidateQueries({ queryKey: geoKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: geoKeys.insights() }),
+        queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() }),
         ...(productId
           ? [queryClient.invalidateQueries({ queryKey: productsKeys.detail(productId) })]
           : []),

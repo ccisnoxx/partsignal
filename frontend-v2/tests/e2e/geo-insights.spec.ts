@@ -26,7 +26,8 @@ test('direct URL 映射筛选并完整呈现 read model、替代数据和精确 
 
 test('筛选写回 canonical URL，reset 与浏览器历史恢复', async ({ page, insightsApi }) => {
   await page.goto(canonical);
-  await page.getByRole('combobox', { name: 'GEO 平台', exact: true }).selectOption('DeepSeek');
+  await page.getByRole('combobox', { name: 'GEO 平台', exact: true }).click();
+  await page.getByRole('option', { name: 'DeepSeek', exact: true }).click();
   await page.getByRole('button', { name: '应用筛选' }).click();
   await expect(page).toHaveURL(`${canonical}&geoPlatform=DeepSeek`);
   expect(insightsApi.insightRequests.at(-1)?.searchParams.get('geo_platform')).toBe('DeepSeek');
@@ -63,7 +64,8 @@ test('优化 Dialog 按需读取 options，以响应 ID 导航并携带稳定命
   await page.getByRole('button', { name: '创建优化任务' }).click();
   await expect(page.getByRole('dialog', { name: '创建 GEO 优化任务' })).toBeVisible();
   expect(insightsApi.optionRequests).toHaveLength(1);
-  await page.getByLabel('已批准事实版本').selectOption(ids.fact);
+  await page.getByRole('combobox', { name: '已批准事实版本' }).click();
+  await page.getByRole('option', { name: 'v3 · PUBLIC' }).click();
   await page.getByRole('button', { name: '创建任务' }).click();
   await expect(page).toHaveURL(`/content/tasks/${ids.task}`);
   expect(insightsApi.createRequests).toHaveLength(1);
@@ -78,16 +80,19 @@ test('stale/409 不自动重放，保留选择并要求显式刷新', async ({ p
   insightsApi.setCreateMode('stale');
   await page.goto(canonical);
   await page.getByRole('button', { name: '创建优化任务' }).click();
-  await page.getByLabel('已批准事实版本').selectOption(ids.fact);
+  await page.getByRole('combobox', { name: '已批准事实版本' }).click();
+  await page.getByRole('option', { name: 'v3 · PUBLIC' }).click();
   await page.getByRole('button', { name: '创建任务' }).click();
   await expect(page.getByText('洞察已经变化', { exact: true })).toBeVisible();
   await expect(page.getByText('请求 ID：req-stale')).toBeVisible();
-  await expect(page.getByLabel('已批准事实版本')).toHaveValue(ids.fact);
+  await expect(page.getByRole('combobox', { name: '已批准事实版本' }))
+    .toContainText('v3 · PUBLIC');
   await expect(page.getByRole('button', { name: '创建任务' })).toBeDisabled();
   expect(insightsApi.createRequests).toHaveLength(1);
   await page.getByRole('button', { name: '重新加载洞察' }).click();
   await expect(page.getByRole('dialog', { name: '创建 GEO 优化任务' })).toBeVisible();
-  await expect(page.getByLabel('已批准事实版本')).toHaveValue(ids.fact);
+  await expect(page.getByRole('combobox', { name: '已批准事实版本' }))
+    .toContainText('v3 · PUBLIC');
   await expect(page.getByRole('button', { name: '创建任务' })).toBeEnabled();
   expect(insightsApi.createRequests).toHaveLength(1);
 });

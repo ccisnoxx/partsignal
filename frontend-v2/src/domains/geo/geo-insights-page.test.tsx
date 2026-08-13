@@ -74,7 +74,8 @@ describe('GeoInsightsPage', () => {
     expect(screen.getByRole('region', { name: '发现率每日精确数据' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '补充观测' })).toHaveAttribute('href', `/geo/observations/new?queryTopicId=${topicId}&geoPlatform=DeepSeek`);
 
-    await userEvent.selectOptions(screen.getByLabelText('GEO 平台'), 'DeepSeek');
+    await userEvent.click(screen.getByRole('combobox', { name: 'GEO 平台' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'DeepSeek' }));
     await userEvent.click(screen.getByRole('button', { name: '应用筛选' }));
     expect(onSearchChange).toHaveBeenCalledWith({ from: '2026-07-15', to: '2026-08-13', geoPlatform: 'DeepSeek' });
   });

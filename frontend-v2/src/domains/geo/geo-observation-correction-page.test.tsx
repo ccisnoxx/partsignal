@@ -13,6 +13,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
+import { productsKeys } from '@/domains/product/product.api';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { geoKeys, geoObservationCorrectionContextQueryOptions } from './geo.api';
@@ -299,6 +300,11 @@ describe('GeoObservationCorrectionPage', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: geoKeys.details() });
     expect(invalidateQueries).toHaveBeenCalledWith({
       queryKey: geoKeys.correctionContexts(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: geoKeys.insights() });
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: geoKeys.topicLists() });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: productsKeys.detail(productId),
     });
   });
 

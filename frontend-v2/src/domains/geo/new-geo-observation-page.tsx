@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/design-system/primitives/select';
+import { Textarea } from '@/design-system/primitives/textarea';
 import { StickyActionBar, type StickyAction } from '@/design-system/workspace/sticky-action-bar';
 import { WorkspaceShell } from '@/design-system/workspace/workspace-shell';
 import { productsKeys, productsListQueryOptions } from '@/domains/product/product.api';
@@ -61,7 +62,6 @@ const fieldIds: Record<Exclude<NewGeoObservationField, 'article_results' | 'atta
   tested_at: 'new-geo-tested-at',
   notes: 'new-geo-notes',
 };
-const textareaClass = 'min-h-24 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-text-primary outline-none focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-muted disabled:text-text-secondary';
 
 function NewGeoObservationPage({
   csrfToken,
@@ -158,6 +158,8 @@ function NewGeoObservationPage({
       form.reset(values);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: geoKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: geoKeys.insights() }),
+        queryClient.invalidateQueries({ queryKey: geoKeys.topicLists() }),
         queryClient.invalidateQueries({ queryKey: productsKeys.detail(values.product_id) }),
       ]);
       setCreatedId(observation.id);
@@ -462,7 +464,7 @@ function MainPanel({
         name="search_query"
         required
         render={(context) => (
-          <textarea {...inputAria(context)} {...context.field} className={textareaClass} disabled={createPending} id={context.inputId} rows={3} />
+          <Textarea {...inputAria(context)} {...context.field} disabled={createPending} id={context.inputId} rows={3} />
         )}
       />
       <div className="space-y-3">
@@ -536,7 +538,7 @@ function ReferencePanel({
         label="Notes"
         name="notes"
         render={(context) => (
-          <textarea {...inputAria(context)} {...context.field} className={textareaClass} disabled={createPending} id={context.inputId} rows={5} />
+          <Textarea {...inputAria(context)} {...context.field} disabled={createPending} id={context.inputId} rows={5} />
         )}
       />
     </div>

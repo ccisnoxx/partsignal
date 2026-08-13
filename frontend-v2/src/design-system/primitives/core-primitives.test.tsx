@@ -39,6 +39,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/design-system/primitives/tabs';
+import { Textarea } from '@/design-system/primitives/textarea';
 import {
   Tooltip,
   TooltipContent,
@@ -47,6 +48,11 @@ import {
 } from '@/design-system/primitives/tooltip';
 
 describe('PartSignal core primitives', () => {
+  it('Textarea 保留原生多行输入语义', () => {
+    render(<Textarea aria-label="备注" />);
+    expect(screen.getByRole('textbox', { name: '备注' })).toHaveAttribute('data-slot', 'textarea');
+  });
+
   it('IconButton 复用 Button 并要求可访问名称', () => {
     render(
       <IconButton aria-label="更多操作" variant="ghost">

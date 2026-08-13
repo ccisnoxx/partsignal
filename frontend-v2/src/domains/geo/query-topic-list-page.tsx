@@ -126,6 +126,7 @@ function QueryTopicListPage({
       queryClient.invalidateQueries({ queryKey: geoKeys.lists() }),
       queryClient.invalidateQueries({ queryKey: geoKeys.details() }),
       queryClient.invalidateQueries({ queryKey: geoKeys.correctionContexts() }),
+      queryClient.invalidateQueries({ queryKey: geoKeys.insights() }),
       queryClient.invalidateQueries({ queryKey: contentKeys.details() }),
       queryClient.invalidateQueries({ queryKey: contentKeys.editorContexts() }),
     ]);

@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useForm, useWatch, type UseFormRegisterReturn } from 'react-hook-form';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 
 import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
@@ -13,6 +13,13 @@ import {
   DialogTitle,
 } from '@/design-system/primitives/dialog';
 import { Input } from '@/design-system/primitives/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/design-system/primitives/select';
 import { contentKeys, contentTaskCreationOptionsQueryOptions } from '@/domains/content/content.api';
 import { productsKeys } from '@/domains/product/product.api';
 import type { components } from '@/shared/api/generated/schema';
@@ -150,14 +157,31 @@ function FilterDate({ label, onChange, value }: { label: string; onChange: (valu
 }
 
 function FilterSelect({ label, onChange, options, value }: { label: string; onChange: (value: string | undefined) => void; options: readonly { id: string; label: string }[]; value?: string }) {
+  const labelId = useId();
+  const items = [
+    { value: allFilterValue, label: '全部' },
+    ...options.map((item) => ({ value: item.id, label: item.label })),
+  ];
   return (
-    <label className="min-w-0 space-y-1 text-sm"><span>{label}</span>
-      <select className="h-8 w-full min-w-0 rounded-lg border border-input bg-background px-2 text-sm" onChange={(event) => onChange(event.target.value || undefined)} value={value ?? ''}>
-        <option value="">全部</option>{options.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-      </select>
-    </label>
+    <div className="min-w-0 space-y-1 text-sm">
+      <span id={labelId}>{label}</span>
+      <Select
+        items={items}
+        onValueChange={(next) => next && onChange(next === allFilterValue ? undefined : next)}
+        value={value ?? allFilterValue}
+      >
+        <SelectTrigger aria-labelledby={labelId} className="w-full min-w-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent alignItemWithTrigger={false}>
+          {items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
+
+const allFilterValue = '__all__';
 
 function findOptimizationAction(
   data: GeoInsights,
@@ -186,6 +210,8 @@ function OptimizationDialog({ context, csrfToken, onClose, onCreated, onReload }
   const [requestId, setRequestId] = useState<string>();
   const form = useForm<GeoOptimizationTarget>({ defaultValues: { product_id: '', platform_profile_id: '', fact_version_id: '' }, resolver: zodResolver(geoOptimizationTargetSchema) });
   const productId = useWatch({ control: form.control, name: 'product_id' });
+  const platformId = useWatch({ control: form.control, name: 'platform_profile_id' });
+  const factVersionId = useWatch({ control: form.control, name: 'fact_version_id' });
   const initialized = useRef(false);
   const submitting = useRef(false);
   const create = useMutation({ mutationFn: ({ body, key }: { body: ReturnType<typeof toGeoOptimizationCreate>; key: string }) => createGeoOptimizationContentTask(body, csrfToken, key) });
@@ -266,9 +292,9 @@ function OptimizationDialog({ context, csrfToken, onClose, onCreated, onReload }
         {options.data && <form className="space-y-4" onSubmit={handleSubmit}>
           {form.formState.errors.root?.server?.message && <p className="text-destructive" role="alert">{form.formState.errors.root.server.message}</p>}
           {requestId && <p className="text-sm text-text-secondary">请求 ID：{requestId}</p>}
-          <NativeTaskSelect error={form.formState.errors.product_id?.message} label="产品" options={options.data.products.map((item) => ({ id: item.id, label: `${item.brand} · ${item.part_number}` }))} register={form.register('product_id', { onChange: () => form.setValue('fact_version_id', '') })} />
-          <NativeTaskSelect error={form.formState.errors.platform_profile_id?.message} label="目标平台" options={options.data.platforms.map((item) => ({ id: item.id, label: item.name }))} register={form.register('platform_profile_id')} />
-          <NativeTaskSelect error={form.formState.errors.fact_version_id?.message} label="已批准事实版本" options={(product?.approved_fact_versions ?? []).map((item) => ({ id: item.id, label: `v${item.version} · ${item.classification}` }))} register={form.register('fact_version_id')} />
+          <TaskSelect error={form.formState.errors.product_id?.message} label="产品" onChange={(value) => { form.setValue('product_id', value, { shouldDirty: true, shouldValidate: true }); form.setValue('fact_version_id', '', { shouldDirty: true, shouldValidate: true }); }} options={options.data.products.map((item) => ({ id: item.id, label: `${item.brand} · ${item.part_number}` }))} value={productId} />
+          <TaskSelect error={form.formState.errors.platform_profile_id?.message} label="目标平台" onChange={(value) => form.setValue('platform_profile_id', value, { shouldDirty: true, shouldValidate: true })} options={options.data.platforms.map((item) => ({ id: item.id, label: item.name }))} value={platformId} />
+          <TaskSelect error={form.formState.errors.fact_version_id?.message} label="已批准事实版本" onChange={(value) => form.setValue('fact_version_id', value, { shouldDirty: true, shouldValidate: true })} options={(product?.approved_fact_versions ?? []).map((item) => ({ id: item.id, label: `v${item.version} · ${item.classification}` }))} value={factVersionId} />
           {stale && <div className="space-y-2 rounded-lg border border-warning/30 bg-warning/10 p-3" role="alert"><p>洞察来源或目标上下文已经变化。表单已保留，请重新加载后从最新洞察发起。</p><Button onClick={() => void reload()} type="button" variant="outline">重新加载洞察</Button></div>}
           <DialogFooter><Button disabled={create.isPending || stale} type="submit">{create.isPending ? '正在创建…' : '创建任务'}</Button><Button onClick={onClose} type="button" variant="outline">取消</Button></DialogFooter>
         </form>}
@@ -277,8 +303,11 @@ function OptimizationDialog({ context, csrfToken, onClose, onCreated, onReload }
   );
 }
 
-function NativeTaskSelect({ error, label, options, register }: { error?: string; label: string; options: readonly { id: string; label: string }[]; register: UseFormRegisterReturn }) {
-  return <label className="block space-y-1 text-sm"><span>{label}</span><select aria-invalid={Boolean(error)} className="h-9 w-full rounded-lg border border-input bg-background px-2" {...register}><option value="">请选择</option>{options.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select>{error && <span className="text-destructive">{error}</span>}</label>;
+function TaskSelect({ error, label, onChange, options, value }: { error?: string; label: string; onChange: (value: string) => void; options: readonly { id: string; label: string }[]; value: string }) {
+  const labelId = useId();
+  const errorId = useId();
+  const items = options.map((item) => ({ value: item.id, label: item.label }));
+  return <div className="block space-y-1 text-sm"><span id={labelId}>{label}</span><Select items={items} onValueChange={(next) => next && onChange(next)} value={value || null}><SelectTrigger aria-describedby={error ? errorId : undefined} aria-invalid={Boolean(error)} aria-labelledby={labelId} className="w-full"><SelectValue placeholder="请选择" /></SelectTrigger><SelectContent alignItemWithTrigger={false}>{items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent></Select>{error && <span className="text-destructive" id={errorId}>{error}</span>}</div>;
 }
 
 function resetFilters(): GeoInsightSearch {

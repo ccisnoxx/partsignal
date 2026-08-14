@@ -449,7 +449,9 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-platform-types` 已交付 ADMIN-only `/settings/platforms/types`。页面作为“平台与账号”的 subsettings 从 List/Workspace 进入，不占 Sidebar；固定 Name/Slug/平台数量/overflow 四列与 375px card-row 消费服务端 action/deletion/revision。后端增加包含 Enabled/Disabled PlatformProfile 的两查询 `platform_count` 投影、`lower(name), id` 顺序、slug 结构化约束错误和 required DELETE revision；三类 mutation 只失效 Type settings、Platform lists 与 Platform details。
 
-`frontend-v2-prompt-workspace-core` 与 `frontend-v2-prompt-workspace-preview` 已完成并合入 `main`。Core 交付 ADMIN-only `/settings/prompts`、独立导航、canonical `q/promptId/new`、Prompt Library/Detail/CRUD、revision/dirty/Bound Platforms、单一 Prompt query owner 与响应式 Workspace；Preview 新增 ADMIN-only 窄 Options read model，复用 ContentTask `CREATE_GENERATION_JOB` action 与既有 GenerationJob → immutable ContentVersion 链路，覆盖显式 context/model、真实首稿确认、稳定幂等、active-only polling、terminal result/failure 与精确 cache invalidation。两个子任务均已通过各自 required validation、归档并删除临时分支；没有数据库 migration、新依赖、preview 专用状态或 Humanization 配置入口。Phase 6 下一项为 `frontend-v2-ai-channel-list`。
+`frontend-v2-prompt-workspace-core` 与 `frontend-v2-prompt-workspace-preview` 已完成并合入 `main`。Core 交付 ADMIN-only `/settings/prompts`、独立导航、canonical `q/promptId/new`、Prompt Library/Detail/CRUD、revision/dirty/Bound Platforms、单一 Prompt query owner 与响应式 Workspace；Preview 新增 ADMIN-only 窄 Options read model，复用 ContentTask `CREATE_GENERATION_JOB` action 与既有 GenerationJob → immutable ContentVersion 链路，覆盖显式 context/model、真实首稿确认、稳定幂等、active-only polling、terminal result/failure 与精确 cache invalidation。两个子任务均已通过各自 required validation、归档并删除临时分支；没有数据库 migration、新依赖、preview 专用状态或 Humanization 配置入口。
+
+`frontend-v2-ai-channel-list` 已实现 ADMIN-only `/settings/ai`：收紧既有 Summary 的敏感字段边界，补模型总数与服务端配置状态，使用 canonical `q/status/provider/sort/page/pageSize`、固定七列表格和四档响应式；Primary/overflow 只映射服务端 token，启停/删除统一提交 revision，冲突不自动重放，并精确失效 Prompt Preview 与 Content generation-options。AI Channel Workspace、完整 Configuration real-stack E2E 与抽象回顾仍属于后续 Task。
 
 退出条件：平台与账号形成统一心智；Platform Type 不占 Sidebar；API key/secret 不出现在列表和日志；Prompt dirty/revision 完整；AI table action 统一。
 

@@ -279,6 +279,10 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 `prompt-workspace-page.test.tsx` 覆盖 new/dirty/revision gate、context/model 无默认、真实副作用确认、失败后同 signature key、返回 Job 追踪、terminal cache 与不可变 ContentVersion；既有 Platform Workspace 和 Content AI Production tests 证明共享失效及 generation command 行为未漂移。`tests/e2e/prompt-workspace.spec.ts` 的 generated-type strict fixture 只增加 Preview Options、existing GenerationJob POST/Task Job List 和基础 ContentVersion GET，未声明 API 与运行时错误继续失败；mobile/desktop 覆盖 loading、empty、error/retry、pending/success/failure、terminal stop、任务/版本 identity、全屏结果和 375/768/1024/1440 根无溢出。既有 `content-ai-real-stack.spec.ts` 已证明同一 POST→Worker→provider→ContentVersion 链路，因此本 Task 不复制 provider flow；fixture 不冒充完整真实栈。
 
+### 13.16 AI Channel List 页面验收
+
+`tests/e2e/ai-channel-list.spec.ts` 使用独立 generated-type `ai-channels.fixture.ts`，只允许认证、CSRF、安全 Channel list 与 revision enable/disable/delete；未声明 API 和浏览器运行时错误在 teardown 失败。contract/backend tests 冻结无 base URL 的 Summary、模型总数/配置状态、名称/描述搜索、固定三查询、启停 no-op 与 DELETE stale revision。model/component/production-artifact tests 覆盖 canonical URL、固定七列、四类 Primary、完整 overflow、future Workspace href、loading/empty/error/stale/越界、409 不重放、ADMIN/ENGINEER route/server 403、敏感字段缺失、键盘焦点，以及 375/768/1024/1440 页面根无横向溢出。该 fixture 不替代 Phase 6 后续 AI Workspace 与完整真实栈 E2E。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

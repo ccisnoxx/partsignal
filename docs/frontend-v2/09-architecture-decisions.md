@@ -250,6 +250,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **UI and command boundary**：Configuration domain 拥有 Preview UI 与 query key，但只导入 Content domain 的公开 GenerationJob/JobList/ContentVersion API，不导入 Content 内部页面组件或复制状态机。context/model 必须显式选择，确认文案揭示普通首稿副作用；同 signature 的未成功请求复用 key，只追踪 create response Job ID，terminal 后读取 Version，不打开完整 snapshot、不自动 retry。Prompt/Platform mutation 只失效当前 read models；历史 Job/Version 保持原快照含义。
 
+## ADR-040：AI Channel List 收紧安全摘要并复用既有 collection
+
+**Decision**：`/settings/ai` 继续消费既有 `GET /api/v1/ai-channels`，不新增 V2 endpoint、数据库字段、依赖或通用 Settings/Table framework。`AIChannelSummary` 删除 base URL，增加服务端模型总数和 `READY|NEEDS_SETUP` 配置状态；完整连接信息继续只属于既有 Detail。
+
+**Action and concurrency boundary**：Primary/overflow 只穷尽映射服务端 token。列表直接命令限 ENABLE/DISABLE/DELETE，启停返回安全 Summary，删除改为 required revision query，三者都在行锁内比较 revision，启停另拒绝 no-op。409 保留当前 cache 且不 replay，只有显式 reload 才读取 canonical list。
+
+**UI and scope boundary**：1024px 以上使用固定七列；768/375px 用同一 row 在主单元格重复必要摘要，不创建第二套卡片数据。未来 Workspace 只通过 canonical href 交接，本 Task 不注册 `$channelId`、不提供创建入口，也不读取 detail/models/headers。命令成功由 route 组合失效 AI lists、Prompt Preview Options 与 Content generation-options。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

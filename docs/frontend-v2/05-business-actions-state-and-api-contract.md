@@ -363,3 +363,10 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - 浏览器仅在已保存、clean、Detail/options Prompt ID 与 revision 一致时允许确认；context/model 无默认。命令继续调用 `POST /content-tasks/{id}/generation-jobs`，payload 只含 options 返回的 Prompt ID/revision 和显式模型。同一未创建成功的 command signature 重试复用 key，payload 改变、成功或 `IDEMPOTENCY_CONFLICT` 后废弃旧 key；同步 pending 锁防止双击。
 - 页面只跟踪 create response 的 Job ID，并只在该 Job `PENDING/RUNNING` 时轮询 exact task Job list。`FAILED` 只显示公开 code/summary；`SUCCEEDED` 按 `content_version_id` 读取既有不可变 ContentVersion，不读取 GenerationJob detail/snapshot 拼结果，也不自动 retry 或伪造成功。
 - create 与 terminal 精确失效 Preview Options、Content Task list/detail/editor contexts；create 另刷新 exact task Job list。Prompt update/delete 与 Platform bind/unbind 失效 Preview Options root。历史 Job/Version 不因当前 Prompt 或绑定变化而失效、重写或改标。
+
+## 27. AI Channel List 安全投影与 revision 命令
+
+- `/settings/ai` 只读取 `GET /api/v1/ai-channels` 的 `AIChannelSummary`。列表摘要不含 base URL、API Key、Header 名/值或模型数组；`q` 只搜索名称/描述，模型总数、启用数、最近连接结果和 `configuration_status` 均由同一固定三查询服务端投影。
+- `configuration_status=READY` 只表示已配置 Key 且至少有一个模型；业务阶段、Primary 和可尝试动作继续分别由 `workflow_stage/primary_task/available_actions` 权威决定，浏览器不得互相推导。
+- `ENABLE_CHANNEL` 是唯一列表 Primary command；`TEST_MODEL` 和配置/运行入口只生成未来 Workspace href。overflow 过滤重复 ENABLE，其他 enable/disable/delete 均由服务端按行锁、revision、no-op 和实时门禁重新裁决。
+- 启停 body 与删除 query 都提交 canonical revision。成功只失效 AI lists、Prompt Preview Options root 和 Content generation-options；409 不失效、不自动重放，用户显式 reload 后才采用新列表。

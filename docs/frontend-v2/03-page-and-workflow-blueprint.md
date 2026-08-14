@@ -402,6 +402,8 @@ Pattern：Table。
 
 列表不直接展示 API key、headers、完整 base URL。
 
+该页为 ADMIN-only，canonical URL 使用 `q/status/provider/sort/page/pageSize`，筛选与分页完全由服务端执行。名称与配置类动作只生成未来 `/settings/ai/$channelId?tab=basic|request|models|usage` handoff；本页不注册 Workspace，也不提供创建入口。启用、停用和删除提交当前 revision，409 只允许显式重新加载，不自动重放。768px 与 375px 在主单元格重复 Provider/Protocol、模型、连接和配置摘要，并保留状态与操作列。
+
 ## 7.6 `/settings/ai/$channelId`
 
 Pattern：Workspace。建议 sections：基本、请求、模型、使用、日志。Models 表只保留模型、状态、连接测试、最近测试、操作。

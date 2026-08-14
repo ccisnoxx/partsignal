@@ -25,7 +25,7 @@ Questions to answer:
 <!-- Local state, global state, server state, URL state -->
 
 - **服务端状态**：使用既有 query key、stale time 和显式失效规则。
-- **URL 视图状态**：搜索、Tab、分页和“显示停用账号”等可恢复视图写入查询参数。当前参数包括产品 `q/page`、任务与观测 `page`、平台管理 `q/platform_type_id/status/configuration_status/page/page_size/platform`、Prompt 管理 `q/promptId/new=1`、平台关联页 `platform_profile_id`、发布工作台 `tab/page/status/selected`、用户 `q/account_type/status/page/page_size`。用户页默认只查启用账号并从 URL 省略该默认值；`status=DISABLED` 只查停用账号，`status=ALL` 查询全部，状态选择器和“显示停用账号”开关只能投影这一份状态。平台管理筛选与分页读取服务端平台集合契约；Prompt 模板列表读取独立模板端点，`q` 只过滤已加载模板且不改变 `promptId/new` 编辑身份；发布工作台的 `tab=works|articles|issues` 决定资源类型，`status` 只筛选当前 Tab 的服务端状态，`selected` 只保存当前详情身份，切换 Tab 或分页时必须清理不再适用的筛选与详情身份。
+- **URL 视图状态**：搜索、Tab、分页和“显示停用账号”等可恢复视图写入查询参数。当前参数包括产品 `q/page`、任务与观测 `page`、平台管理 `q/platform_type_id/status/configuration_status/page/page_size/platform`、AI 渠道 `q/status/provider/sort/page/pageSize`、Prompt 管理 `q/promptId/new=1`、平台关联页 `platform_profile_id`、发布工作台 `tab/page/status/selected`、用户 `q/account_type/status/page/page_size`。用户页默认只查启用账号并从 URL 省略该默认值；`status=DISABLED` 只查停用账号，`status=ALL` 查询全部，状态选择器和“显示停用账号”开关只能投影这一份状态。平台与 AI 渠道筛选、排序和分页读取各自服务端集合契约；Prompt 模板列表读取独立模板端点，`q` 只过滤已加载模板且不改变 `promptId/new` 编辑身份；发布工作台的 `tab=works|articles|issues` 决定资源类型，`status` 只筛选当前 Tab 的服务端状态，`selected` 只保存当前详情身份，切换 Tab 或分页时必须清理不再适用的筛选与详情身份。
 - **页面本地状态**：Modal、Dropdown 目标、Ant Form 实例、dirty/error section 和尚未提交的输入。Prompt 名称与 Markdown 草稿以 `promptId` 或 `new=1` 身份隔离，保存或显式重新加载才更新基线；任务、源版本、模型选择、AI 生成弹窗模型和当前预览 Job 留在页面本地，不进入 URL 或全局 Store。
 - **主题状态**：只由 `ThemeProvider` 维护，禁止页面复制主题状态。从显式主题切回 `system` 时立即重新读取当前 `matchMedia` 结果，不沿用离开系统模式前的解析值。
 
@@ -865,6 +865,63 @@ const canEdit = detail.data?.profile.available_actions.includes('UPDATE') ?? fal
 - update/delete `REVISION_CONFLICT` 保留输入或确认上下文，禁用旧 baseline 重试；只有显式 reload 类型列表后才采用新 revision，禁止自动重放。blocker 链接固定进入 `/settings/platforms?platformTypeId={id}&page=1&pageSize=20`。
 - create/update/delete 成功只失效 Type settings、全部 Platform lists、全部 Platform details；这三类查询分别承载 settings、列表 options/名称和 Workspace options/header。不得失效 Account/Prompt/Content/Publication 或清空 QueryClient。
 - 宽屏使用固定四列 TableShell；375px 使用局部 card-row，Name、Slug、platform_count 和 overflow 在两个 surface 都必须可达，不修改全局 Table Kit。
+
+## AI Channel List State
+
+### 1. Scope / Trigger
+
+- 修改 `/settings/ai`、AI 渠道列表查询、行级启停/删除、缓存失效或列表响应式时适用。
+
+### 2. Signatures
+
+```text
+URL: /settings/ai?q&status&provider&sort&page&pageSize
+GET: /api/v1/ai-channels?q&status&provider_brand&sort&page&page_size
+POST: /api/v1/ai-channels/{channel_id}/enable|disable { expected_revision }
+DELETE: /api/v1/ai-channels/{channel_id}?expected_revision=...
+query keys: ["configuration", "ai-channels", "list", apiParams]
+```
+
+### 3. Contracts
+
+- 路由位于既有 ADMIN boundary；URL 只持有可恢复的 `q/status/provider/sort/page/pageSize`，并显式映射到 API `provider_brand/page_size`。列表只消费安全 `AIChannelSummary`，不得读取 Detail、模型或 Header endpoint 补行数据。
+- `workflow_stage/primary_task/available_actions` 只做穷尽动作映射。未来 Workspace href 固定为 `/settings/ai/$channelId?tab=basic|request|models|usage`；本列表只直接执行 ENABLE、DISABLE、DELETE，且分别提交当前行 revision。
+- 命令成功失效 AI Channel lists、Prompt Preview Options root 和全部 Content generation-options。列表不提供创建入口，也不预建 Workspace route。
+- 1024px 及以上显示固定七列；768/375px 在主单元格重复 Provider/Protocol、模型、连接与配置摘要，隐藏对应独立列，但保留 Enabled/Disabled 和 RowActions。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 页面处理 |
+| --- | --- |
+| 非法或未知 search | `replace` 为 canonical URL，不发送猜测参数 |
+| 初始 GET 失败 | 整表错误与显式重试 |
+| cached refresh 失败 | 保留旧列表并显示局部重试 |
+| `REVISION_CONFLICT` | 保留 cache，不自动 replay；用户显式重新加载列表 |
+| 其他命令失败 | 保留当前行并显示结构化错误，不把所有 HTTP 409 当作 revision 冲突 |
+
+### 5. Good / Base / Bad Cases
+
+- Good：刷新、Back/Forward 恢复同一筛选；行命令携带当前 revision，成功后只失效真实消费者。
+- Base：无渠道、筛选为空和页码越界分别显示专用状态；移动端仍可读全部状态与动作。
+- Bad：按角色或状态推导动作、读取 Detail 补表格、在 409 后自动重放，或把 base URL/凭据放进列表响应。
+
+### 6. Tests Required
+
+- Model/component：search canonicalization、API 参数映射、token 穷尽、未来 href、三类 revision command、loading/error/empty/overflow 与冲突显式 reload。
+- Contract/PostgreSQL：安全字段、名称/描述搜索、固定三查询、配置状态、同态拒绝和 revision 冲突。
+- Production fixture：ADMIN/403、未声明 API 失败、响应无敏感字段、375/768/1024/1440 根无溢出和键盘 RowActions。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：按状态补动作，并通过 Detail 请求拼每一行。
+const canEnable = !channel.is_enabled && channel.latest_test_status === 'PASSED';
+const detail = await getAIChannel(channel.id);
+
+// Correct：消费安全列表投影与服务端动作 token。
+const primary = resolveAIChannelPrimaryAction(channel);
+const overflow = resolveAIChannelOverflowActions(channel, mutation.isPending);
+```
 
 ## Common Mistakes
 

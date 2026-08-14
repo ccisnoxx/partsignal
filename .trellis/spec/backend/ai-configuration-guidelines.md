@@ -27,14 +27,14 @@
 - `AI_ALLOW_LOCAL_HTTP=true` 只允许 `development`/`test` 的回环 HTTP 地址；公网仍使用 HTTPS，私网、链路本地和混合解析结果均拒绝。
 - API Key 和敏感 Header 使用 AES-256-GCM 密文保存，关联数据绑定记录 ID；响应、日志、审计和作业快照不得包含明文。
 - `AIChannel.protocol_type` 决定真实调用协议，`provider_brand` 只决定管理端身份、筛选和本地图标。当前协议只有 `openai-compatible-chat-completions`；品牌目录为 `OPENAI | ANTHROPIC | GOOGLE | AZURE_OPENAI | ZHIPU | QWEN | CUSTOM`。未知值或未登记组合必须拒绝，品牌不得改写地址或选择另一个客户端。
-- 渠道集合只返回 `AIChannelSummary`，包含身份、状态、根地址、API Key 配置状态、Header 数、启用模型数、最近测试和修订号；不得返回 Header 值、模型数组或任何密钥片段。`counts` 应用 `q` 和 `provider_brand`，但不应用 `status`。
+- 渠道集合只返回 `AIChannelSummary`，包含身份、状态、API Key 配置状态、Header 数、模型总数、启用模型数、最近测试、服务端 `configuration_status` 与修订号；不得返回 base URL、Header 名/值、模型数组或任何密钥片段。`configuration_status=READY` 仅表示 Key 已配置且至少存在一个模型，否则为 `NEEDS_SETUP`。`q` 只搜索名称和描述；`counts` 应用 `q` 和 `provider_brand`，但不应用 `status`。列表固定为 counts、total、当前页三条 SQL，不得随行数增加查询。
 - 使用统计只聚合该渠道正式 `GENERATE`/`HUMANIZE` 作业，默认最近 30 天；连接测试只回写模型最近测试状态，模型发现只返回当次远端结果，两者都不计入业务作业或永久审计。业务作业数为时间窗内全部正式作业，成功/失败只计对应终态；成功率分母为成功加失败，平均耗时只聚合非空耗时，Token 只求和已报告值，完全未报告时返回 `null` 而非 `0`。
 - 渠道操作日志继续读取 `audit_logs`。模型 CRUD 和启停事件通过脱敏 `channel_id` 建立渠道投影；不得复制日志表，也不得为历史缺失关联的已删除模型猜测渠道。
 - 作业快照冻结普通 Header、敏感 Header 名称、模型参数、平台身份、事实版本身份和最终 system/user message；执行或重试时只读取快照所列敏感 Header 的当前值。后来新增的敏感 Header 不得进入旧作业，快照所列 Header 已删除或改为普通 Header 时必须失败。
 - Chat Completions 正文必须直接解析为仅含 `title`、`summary`、`body_markdown`、`tags` 的非空 JSON 对象，不做提取、修复或补值。
 - 模型“测试连接”与正式生成必须使用不同解析边界：测试请求只发送一条内容为 `hi` 的用户消息，并仅验证标准 `choices[0].message.content` 字符串；不得用业务草稿四字段 Schema 判断连接是否可用。
 - 模型写操作按“渠道行 -> 模型行”顺序加锁。模型测试在读取配置后释放行锁，外部调用结束再按渠道和模型修订号回写；测试期间配置变化返回 `REVISION_CONFLICT`。
-- 渠道与 Header 物理删除必须先以 `SELECT ... FOR UPDATE` 锁定删除目标，再追加成功审计和执行副作用。同一目标的两个并发 DELETE 必须分别返回 `204`、`404`；只能产生一条成功审计，Header 删除引起的渠道/模型失效和 revision 递增也只能执行一次。
+- 渠道 DELETE 必须提交 non-negative `expected_revision` query；锁定目标后先比较 revision，过期返回 `REVISION_CONFLICT`。渠道启停也在 revision 后拒绝同态目标并返回 `INVALID_STATE_TRANSITION`，且只返回安全 `AIChannelSummary`。渠道与 Header 物理删除必须先以 `SELECT ... FOR UPDATE` 锁定删除目标，再追加成功审计和执行副作用。同一目标的两个并发 DELETE 必须分别返回 `204`、`404`；只能产生一条成功审计，Header 删除引起的渠道/模型失效和 revision 递增也只能执行一次。
 - API 提交 Job 后的 Broker 故障不得把业务作业改为失败；Beat 只补投递超龄 `PENDING`，Worker 只有完成原子 `PENDING -> RUNNING` 声明后才能调用供应商。
 - `RUNNING` 租约必须按冻结快照的 `timeout_seconds + GENERATION_FINALIZE_GRACE_SECONDS` 计算；租约过期形成 `FAILED/WORKER_LOST`，不得自动再次调用供应商。
 - 每次真实请求只解析一次完整 A/AAAA 集合并整体校验，只连接该集合中的 `sockaddr`；实际 TCP peer 必须在发送 Authorization 或敏感 Header 前属于批准集合。HTTPS 始终用原 hostname 完成 SNI、证书身份和 Host。
@@ -68,7 +68,7 @@
 - `model`、`messages`、`stream` 出现在自定义参数 -> 请求校验失败。
 - 未知 `protocol_type`、未知 `provider_brand` 或未登记品牌—协议组合 -> 请求校验失败；不得按名称、URL 或品牌猜测协议。
 - 非法列表页码、`page_size` 不属于 `10|20|50`、未知排序或统计周期 -> 请求校验失败；不得静默改成默认值。
-- 渠道或模型未启用、模型未测试 -> `AI_CONFIGURATION_DISABLED` 或 `AI_MODEL_NOT_TESTED`。
+- 渠道或模型未启用、模型未测试 -> `AI_CONFIGURATION_DISABLED` 或 `AI_MODEL_NOT_TESTED`；渠道启停同态请求 -> `INVALID_STATE_TRANSITION`；渠道启停/删除 revision 过期 -> `REVISION_CONFLICT`。
 - 配置行已物理删除 -> `AI_CONFIGURATION_DELETED`，不得用快照中的非敏感信息猜测调用。
 - 同一渠道或 Header 已被另一个并发 DELETE 提交 -> HTTP `404`；不得再次返回 `204`、追加成功审计或重复失效关联配置。
 - 快照所列敏感 Header 已删除或改为普通 Header -> `AI_CONFIGURATION_DELETED`，不得省略该 Header 或改用后来新增的 Header。
@@ -109,7 +109,7 @@
 - 快照 Header 断言：只发送快照锁定的普通 Header 和敏感 Header 名称；敏感值取当前配置，新增名称被忽略，缺失名称返回 `AI_CONFIGURATION_DELETED`。
 - 固定地址断言：混合公网/私网解析整体拒绝；连接只能使用首次解析集合；peer 越界时零 HTTP 字节；真实本地 CA/HTTPS 替身验证 SNI、证书 hostname 和 Host。
 - 事实断言：第三方创建和 Worker 执行都拒绝非 `PUBLIC` 或空白事实；legacy 快照重试明确返回 `LEGACY_GENERATION_RETRY_FORBIDDEN`。
-- 渠道管理断言：迁移把旧渠道协议回填为当前协议、品牌回填 `CUSTOM` 而不猜测，运行时无数据库默认；列表搜索/筛选/稳定排序/分页/分类数量、最近测试、统计可空口径和审计归属均由 PostgreSQL 集成测试覆盖。
+- 渠道管理断言：迁移把旧渠道协议回填为当前协议、品牌回填 `CUSTOM` 而不猜测，运行时无数据库默认；安全列表字段、名称/描述搜索、筛选/稳定排序/分页/分类数量、最近测试、固定三查询、配置状态、启停同态拒绝、DELETE revision、统计可空口径和审计归属均由契约与 PostgreSQL 集成测试覆盖。
 - 安全断言：普通用户读取返回 403，写请求缺少 CSRF 被拒绝；创建、换 Key、敏感 Header 表单关闭后 React Query mutation state 不保留明文，读取/审计/复制/浏览器存储均无明文。
 - 端到端断言：真实本机 HTTP 协议替身覆盖模型发现、成功与失败测试，确认测试后模型保持停用并需手动启用；替身不得用前端路由或固定成功响应代替服务端调用。
 

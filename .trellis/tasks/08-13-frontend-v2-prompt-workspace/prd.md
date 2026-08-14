@@ -12,7 +12,7 @@
 - 页面、Sidebar 与后端 API 均保持 ADMIN 边界；不扩大 ENGINEER 的 Prompt 管理权限。
 - `ContentHumanizationPrompt` 不进入本 Task。
 
-## 2. Gap Analysis
+## 2. 最终交付基线
 
 ### 2.1 已具备
 
@@ -25,14 +25,14 @@
 - V2 Content AI Production 已有稳定 Idempotency-Key、GenerationJob 创建、按返回 Job ID 轮询任务 Job list、terminal 停止、失败摘要和不可变 ContentVersion 读取模式。
 - 既有真实栈 `content-ai-real-stack.spec.ts` 已证明 provider、Worker、snapshot、ContentVersion、retry 与 humanization 的完整生成链路。
 
-### 2.2 缺口
+### 2.2 已关闭缺口
 
-- V2 没有 `/settings/prompts` route、独立 Sidebar entry、Prompt domain query owner、工作区页面或 production-artifact tests。
-- 现有 `platform.api.ts` 仅为 Platform Workspace 暂时持有 Prompt reference query；Library、Detail 与 mutations 尚无唯一 V2 owner。
-- 当前没有按某一 Prompt 返回“真实可生成 ContentTask + 可用模型”的窄 read model。V1 通过 ContentTask list、generation-options 和客户端 `available_actions` 筛选形成 waterfall，不可迁移。
-- Prompt Workspace 的 canonical `q/promptId/new`、dirty-safe 搜索导航、冲突 reload、影响确认和 cache matrix 尚未实现。
-- Platform bind/unbind 现有 invalidation 未覆盖 Prompt Detail/Preview options 与全部受影响 Content action projections；本任务需在触及该集成点时补齐真实消费者。
-- V2 文档目前只有三栏蓝图和 ADR，没有记录真实 Preview 的“普通内容首稿副作用”与专用 options read model。
+- `/settings/prompts`、独立 ADMIN Sidebar entry、Prompt domain query owner、List + Workspace 页面与 production-artifact tests 已由 Core 交付。
+- Prompt list/detail/mutations 已统一归属 `prompt.api.ts`；Platform Workspace 复用同一 Prompt list key，不再维护第二 owner。
+- Preview 已通过 ADMIN-only 窄 read model 返回真实可生成 ContentTask 与可用模型，最终资格复用服务端 `CREATE_GENERATION_JOB` action projection，没有迁移 V1 waterfall。
+- canonical `q/promptId/new`、dirty-safe 搜索导航、冲突 reload、影响确认、幂等生成与完整 cache matrix 均已实现并验证。
+- Platform bind/unbind、Prompt update/delete、Preview create/terminal 已精确失效 Prompt/Content 的真实消费者，历史 Job/Version 不被重写。
+- V2 03/05/08/09 与 Trellis frontend/backend 规范已同步 Core/Preview 的页面、合同、测试和架构边界。
 
 ## 3. 范围结论
 
@@ -134,40 +134,33 @@
 
 ### Core
 
-- [ ] ADMIN route、Sidebar、direct/refresh/Back/Forward 与 ENGINEER route/server 403 成立。
-- [ ] q/promptId/new canonicalization、空选择、搜索、选择和新建可恢复。
-- [ ] Library/Detail loading、stale refresh、empty、404、403、error/retry 完整。
-- [ ] create/update/delete 使用准确合同与 action；unknown action 显式失败。
-- [ ] dirty、Ctrl/Cmd+S、409 保留、显式 reload、impact confirmation 与 focus return 成立。
-- [ ] Bound Platforms 使用 Detail 且只 handoff 到 Platform Workspace。
-- [ ] 375/768/1024 使用 Tabs，1440 使用三栏；页面根无横向溢出。
-- [ ] Core 不渲染假 Preview；右侧只展示 Bound Platforms 与生成边界说明。
+- [x] ADMIN route、Sidebar、direct/refresh/Back/Forward 与 ENGINEER route/server 403 成立。
+- [x] q/promptId/new canonicalization、空选择、搜索、选择和新建可恢复。
+- [x] Library/Detail loading、stale refresh、empty、404、403、error/retry 完整。
+- [x] create/update/delete 使用准确合同与 action；unknown action 显式失败。
+- [x] dirty、Ctrl/Cmd+S、409 保留、显式 reload、impact confirmation 与 focus return 成立。
+- [x] Bound Platforms 使用 Detail 且只 handoff 到 Platform Workspace。
+- [x] 375/768/1024 使用 Tabs，1440 使用三栏；页面根无横向溢出。
+- [x] Core 不渲染假 Preview；Preview 由后续子任务在同一 reference pane 增量加入。
 
 ### Preview
 
-- [ ] 新 Preview Options 是 ADMIN-only、固定查询次数、无 N+1 的窄 read model。
-- [ ] contexts 只包含当前 action projection 允许生成、且平台绑定目标 Prompt 的任务。
-- [ ] Prompt revision、模型与 Test Context 均由服务端响应明确提供；无客户端 join/资格推导。
-- [ ] Preview 显式确认、稳定幂等、PENDING/RUNNING/SUCCEEDED/FAILED、terminal stop 与 immutable result 成立。
-- [ ] Preview 副作用使用普通 GenerationJob/ContentVersion；不创建第二业务状态或无审计请求。
-- [ ] create、terminal 和 Platform bind/unbind 精确失效真实消费者，不清空 QueryClient。
-- [ ] 现有 Content AI real-stack 证据继续有效；本 Task 不重复整套 provider flow。
+- [x] 新 Preview Options 是 ADMIN-only、固定查询次数、无 N+1 的窄 read model。
+- [x] contexts 只包含当前 action projection 允许生成、且平台绑定目标 Prompt 的任务。
+- [x] Prompt revision、模型与 Test Context 均由服务端响应明确提供；无客户端 join/资格推导。
+- [x] Preview 显式确认、稳定幂等、PENDING/RUNNING/SUCCEEDED/FAILED、terminal stop 与 immutable result 成立。
+- [x] Preview 副作用使用普通 GenerationJob/ContentVersion；不创建第二业务状态或无审计请求。
+- [x] create、terminal 和 Platform bind/unbind 精确失效真实消费者，不清空 QueryClient。
+- [x] 现有 Content AI real-stack 证据继续有效；本 Task 未重复整套 provider flow。
 
-## 7. 已批准拆分
+## 7. 最终子任务交付
 
-用户已批准拆为两个顺序 Task；本父 Task 只持有规划与最终一致性：
+| 子任务 | 实际交付 | 实现提交 | 归档提交 | 状态 |
+| --- | --- | --- | --- | --- |
+| `frontend-v2-prompt-workspace-core` | ADMIN route/nav、Library/Detail/CRUD、Bound Platforms、dirty/revision、responsive Workspace 与 Prompt cache owner | `2705b806` | `cc32778a` | completed |
+| `frontend-v2-prompt-workspace-preview` | Preview Options 合同/backend、真实 GenerationJob/ContentVersion Preview、轮询、缓存、测试与文档 | `158006b6` | `f1797710` | completed |
 
-1. `frontend-v2-prompt-workspace-core`
-   - 纯 frontend：route/nav、Library、Detail、CRUD、Bound Platforms、dirty/revision、responsive shell、缓存 owner。
-   - 不渲染 Preview 占位或假结果；右侧先只展示 Bound Platforms。
-   - 候选分支：`codex/frontend-v2-prompt-workspace-core`。
-2. `frontend-v2-prompt-workspace-preview`
-   - 依赖 Core：OpenAPI、ADMIN-only Preview Options、backend read model、真实 Job/ContentVersion UI、异步状态与跨域 invalidation。
-   - 候选分支：`codex/frontend-v2-prompt-workspace-preview`。
-
-理由：Core 可独立交付完整 Prompt 管理；Preview 会同时触及 Configuration、Content、OpenAPI、PostgreSQL query projection、异步 Worker 证据与 production-artifact 状态矩阵。拆分减少单次 review 面，并且不要求 Core 用假数据满足三栏蓝图。
-
-两个子 Task 已以 planning 状态创建并挂到本父 Task；尚未 start、创建分支或修改业务代码。
+两个子任务均已验证、归档、fast-forward 合入 `main`，临时分支已删除。原拆分理由成立：Core 独立交付管理闭环，Preview 再同步扩展 Configuration、Content、OpenAPI 与异步证据，没有用假 Preview 污染 Core。
 
 ## 8. 明确排除项
 
@@ -180,9 +173,9 @@
 - 通用 Prompt/Workspace/Preview/AI workflow framework、Redux、新依赖、机械拆文件。
 - 旧 frontend 重构、Workbench、Cutover、Phase 6 完整 real-stack E2E 与抽象回顾。
 
-## 9. 风险与未解决问题
+## 9. 最终边界与后续
 
 - Prompt Detail 的 bound platform 集合不是与 DELETE 一起提交的并发 token。UI 会在确认前 refetch，服务端实际删除仍原子且权威；若未来要求“确认列表与实际解绑集合严格相等”，需另立合同变更，不在本 Task 猜测 binding hash。
 - Preview 是普通 Content 首稿生成，不是可重复沙箱；一个 context 成功后会失去再次生成资格。确认文案、empty state 与任务链接必须准确表达该副作用。
 - ContentHumanizationPrompt 的未来 V2 配置入口没有已批准决定；只记录为后续产品问题，不阻塞 Platform Prompt Workspace。
-- 子 Task 的最新独立规划仍需通过 phase-transition review；在用户再次批准前，父子 Task 均保持 planning 且没有业务分支。
+- 本父任务没有未关闭的验收缺口。后续 Phase 6 工作按迁移计划进入 `frontend-v2-ai-channel-list`，不在本任务继续扩展 Prompt/Humanization/AI 配置范围。

@@ -20,21 +20,21 @@ backend production router
 
 Configuration 拥有页面、URL、Prompt cache 与 Preview UI；Content backend 继续拥有生成资格、命令、Job、snapshot 与 ContentVersion。
 
-## 2. 已批准 Task 边界
+## 2. 已交付 Task 边界
 
 ### Core
 
-- 子 Task：`.trellis/tasks/08-14-frontend-v2-prompt-workspace-core`。
-- 只实现 Prompt 管理与可扩展的三槽 Workspace。
+- 归档：`.trellis/tasks/archive/2026-08/08-14-frontend-v2-prompt-workspace-core`；实现提交 `2705b806`。
+- 已实现 Prompt 管理与可扩展的三槽 Workspace。
 - 桌面三栏为 Library / Editor / Bound Platforms；不显示“即将推出”Preview，也不使用 fixture 假结果。
-- 不修改 OpenAPI、backend、数据库或 Content domain。
+- 未修改 OpenAPI、backend、数据库或 Content domain。
 
 ### Preview
 
-- 子 Task：`.trellis/tasks/08-14-frontend-v2-prompt-workspace-preview`。
-- 在 Core 右侧 reference pane 中把真实 Preview 放在 Bound Platforms 上方。
+- 归档：`.trellis/tasks/archive/2026-08/08-14-frontend-v2-prompt-workspace-preview`；实现提交 `158006b6`。
+- 已在 Core 右侧 reference pane 中把真实 Preview 放在 Bound Platforms 上方。
 - 新增一个 read-only options endpoint；所有写入与异步读取复用现有 Content API。
-- 不修改 Prompt CRUD 与生成状态机。
+- 未修改 Prompt CRUD 与生成状态机。
 
 ## 3. URL State
 
@@ -76,7 +76,7 @@ promptKeys.detail(promptId)                [..., promptId]
 - Prompt Detail 只由 `prompt.api.ts` 读取。
 - Prompt create/update/delete 与结构化 `PromptRequestError` 由同文件拥有。
 - Content generation functions/query options 保持在 `content.api.ts`；Prompt Workspace 只导入其公开 exports，不导入 Content UI 或 model 内部状态机。
-- Preview Task 实施时才新增 `promptKeys.previewOptionsRoot()/previewOptions(promptId)`；Core 不保留未使用 query-key 脚手架。
+- Preview 已新增 `promptKeys.previewOptionsRoot()/previewOptions(promptId)`；Core 阶段没有预建未使用 query-key 脚手架。
 
 ## 5. Library / Detail / Editor 数据边界
 
@@ -115,7 +115,7 @@ AdminBoundary
       │  │  ├─ ErrorSummary / conflict reload
       │  │  └─ StickyActionBar
       │  └─ reference: PromptReferencePane
-      │     ├─ PromptPreview（Preview Task 才加入）
+      │     ├─ PromptPreview（由 Preview 子任务交付）
       │     ├─ BoundPlatforms
       │     └─ GenerationBoundaryNote
       ├─ UpdateImpactDialog
@@ -244,16 +244,19 @@ Platform mutation 已有 Platform list/detail invalidation，表中只列本任�
 - MarkdownPreview 继续 sanitize、skip raw HTML、禁止图片；长名称/Markdown/Job ID可换行或滚动，不造成根级横向溢出。
 - StickyActionBar 保留 safe-area padding，不覆盖 editor 底部。
 
-## 13. 预计修改文件
+## 13. 实际交付范围
 
-### Core Task
+### Core Task（`2705b806`）
 
+- `.trellis/spec/frontend/state-management.md`
 - `frontend-v2/src/app/navigation.ts`
 - `frontend-v2/src/app/navigation.test.ts`
 - `frontend-v2/src/routes/_app/_admin/settings.prompts.tsx`（新增）
 - `frontend-v2/src/routeTree.gen.ts`（生成）
 - `frontend-v2/src/design-system/forms/dirty-guard.tsx`
 - `frontend-v2/src/design-system/forms/dirty-guard.test.tsx`
+- `frontend-v2/src/design-system/workspace/workspace-shell.tsx`
+- `frontend-v2/src/design-system/workspace/workspace-kit.test.tsx`
 - `frontend-v2/src/domains/configuration/prompt.api.ts`（新增）
 - `frontend-v2/src/domains/configuration/prompt-workspace.model.ts`（新增）
 - `frontend-v2/src/domains/configuration/prompt-workspace.model.test.ts`（新增）
@@ -265,26 +268,29 @@ Platform mutation 已有 Platform list/detail invalidation，表中只列本任�
 - `frontend-v2/tests/e2e/fixtures/prompt-workspace.fixture.ts`（新增）
 - `frontend-v2/tests/e2e/prompt-workspace.spec.ts`（新增）
 
-### Preview Task
+### Preview Task（`158006b6`）
 
+- `.trellis/spec/backend/ai-configuration-guidelines.md`
 - `contracts/openapi.yaml`
 - `backend/app/schemas/content.py`
 - `backend/app/routers/production.py`
 - `backend/app/services/content_task_queries.py`
 - `backend/tests/integration/test_prompt_preview_options.py`（新增）
-- `frontend/src/shared/api/generated/schema.d.ts`（生成，仅合同兼容）
+- `frontend/src/shared/api/schema.d.ts`（生成，仅合同兼容）
 - `frontend-v2/src/shared/api/generated/schema.d.ts`（生成）
 - `frontend-v2/src/domains/content/content.api.ts`
-- Core 中的 `prompt.api.ts`、`prompt-workspace.model.ts/page.tsx` 及 tests
+- `frontend-v2/src/domains/configuration/prompt-preview.tsx`（新增）
+- Core 中的 `prompt.api.ts`、`prompt-workspace-page.tsx` 及 tests
+- Core 中的 Prompt/Platform routes
 - Core 中的 Prompt fixture/spec
 - `docs/frontend-v2/03-page-and-workflow-blueprint.md`
 - `docs/frontend-v2/05-business-actions-state-and-api-contract.md`
 - `docs/frontend-v2/08-testing-quality-and-acceptance.md`
 - `docs/frontend-v2/09-architecture-decisions.md`
 
-不预计修改数据库 schema、migration、`contracts/database.md`、依赖清单或 Trellis stable specs。若实施审计发现实际合同不同，先回到规划审批，不编码兼容 fallback。
+最终未修改数据库 schema、migration、`contracts/database.md` 或依赖清单；仅同步了直接相关 frontend/backend Trellis stable specs。实现没有加入兼容 fallback。
 
-## 14. 风险控制
+## 14. 最终风险边界
 
 - Bound Platforms confirmation 使用 intent 时最新 Detail；服务端 transaction 仍是实际解绑权威。当前合同不提供 binding-set revision，本任务不伪造严格 snapshot confirmation。
 - Preview 成功会推进真实 ContentTask 主线。确认文案、任务链接和 context 移除必须把它当业务副作用，而非“测试数据”。

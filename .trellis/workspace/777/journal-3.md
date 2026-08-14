@@ -1122,3 +1122,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 147: AI Channel Workspace Core
+
+**Date**: 2026-08-14
+**Task**: AI Channel Workspace Core
+**Branch**: `codex/frontend-v2-ai-channel-workspace-core`
+
+### Summary
+
+完成 Header 安全合同与删除 revision、V1 原子消费者、V2 AI Channel 创建及 Basic/Request Workspace、严格 E2E 和规范同步；未改数据库，不 push、不创建 PR。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4dc71c2c` | (see git log) |
+| `cd3139b0` | (see git log) |
+| `68be8fc0` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

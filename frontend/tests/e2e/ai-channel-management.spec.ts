@@ -122,7 +122,7 @@ async function createVisualChannel(
   ));
   const testedModel = await body<{ revision: number }>(await page.request.post(
     `/api/v1/ai-models/${model.id}/test`,
-    { headers: { 'X-CSRF-Token': csrf } },
+    { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: model.revision } },
   ));
   await body(await page.request.post(`/api/v1/ai-models/${model.id}/enable`, {
     headers: { 'X-CSRF-Token': csrf },
@@ -633,6 +633,7 @@ test('普通工程师无法通过直接路由或 API 访问 AI 渠道配置', as
     expect(await forbiddenCreate.text()).not.toContain(forbiddenSecret);
     expect((await engineerPage.request.post(`/api/v1/ai-models/${randomUUID()}/test`, {
       headers: { 'X-CSRF-Token': engineerCsrf.csrf_token },
+      data: { expected_revision: 0 },
     })).status()).toBe(403);
   } finally {
     await engineerContext.close();

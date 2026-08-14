@@ -267,6 +267,7 @@ export function AIChannelsPage() {
   const testConnection = useMutation({
     mutationFn: async (model: AIModel) => unwrap(await api.POST('/api/v1/ai-models/{model_id}/test', {
       params: { path: { model_id: model.id }, header: csrfHeader() },
+      body: { expected_revision: model.revision },
     })),
     onSuccess: async (tested) => {
       if (tested.test_status === 'PASSED') message.success('连接测试成功，模型当前保持停用');

@@ -927,13 +927,17 @@ const overflow = resolveAIChannelOverflowActions(channel, mutation.isPending);
 
 ### 1. Scope / Trigger
 
-- 修改 `/settings/ai/$channelId`、渠道创建 handoff、Basic/Request 草稿、API Key/Header mutation、动作投影或相关 cache invalidation 时适用。
+- 修改 `/settings/ai/$channelId`、渠道创建 handoff、Basic/Request 草稿、Models、API Key/Header mutation、动作投影或相关 cache invalidation 时适用。
 
 ### 2. Signatures
 
 ```text
-URL:    /settings/ai/{lowercase_uuid}?tab=basic|request
+URL:    /settings/ai/{lowercase_uuid}?tab=basic|request|models
 GET:    /api/v1/ai-channels/{channel_id}
+GET:    /api/v1/ai-channels/{channel_id}/models
+POST:   /api/v1/ai-channels/{channel_id}/discover-models RevisionRequest(channel revision)
+POST:   /api/v1/ai-models/{model_id}/test RevisionRequest(model revision)
+DELETE: /api/v1/ai-models/{model_id}?expected_revision=...
 PATCH:  /api/v1/ai-channels/{channel_id} AIChannelUpdate(expected_revision + 完整配置)
 PUT:    /api/v1/ai-channels/{channel_id}/api-key AIChannelApiKeyReplace
 POST:   /api/v1/ai-channels/{channel_id}/headers AIChannelHeaderCreate
@@ -944,12 +948,13 @@ keys:   aiChannelKeys.detail/models/logs(channelId), aiChannelKeys.lists()
 
 ### 3. Contracts
 
-- 路由位于既有 ADMIN boundary；UUID 必须 lowercase，search 规范化为单一 `tab`。`models/usage/logs` 在对应 slice 交付前返回 route-level not-found，且不得发起 Detail 请求。
-- `ai-channel.api.ts` 是 List/Detail/mutation/query key 的唯一 owner。Basic 与 Request 共用一个 RHF 草稿和渠道 revision baseline；切换这两个 Tab 保留草稿，离开编辑面才由 DirtyGuard 阻断。
+- 路由位于既有 ADMIN boundary；UUID 必须 lowercase，search 规范化为单一 `tab`。`usage/logs` 在对应 slice 交付前返回 route-level not-found，且不得发起 Detail 请求。
+- `ai-channel.api.ts` 是 List/Detail/Models mutation/query key 的唯一 owner。Basic 与 Request 共用一个 RHF 草稿和渠道 revision baseline；配置 form owner 只在这两个 Tab 挂载。切换两者保留草稿；离开到 Models 先由 DirtyGuard 阻断，确认后卸载表单。
+- Models 只在 `tab=models` 时读取集合。发现使用渠道 revision 且结果只保留在 Dialog；create 无 revision，edit/test/enable/disable/delete 使用当前模型 revision。JSON 表单只接受 object 并拒绝 `model/messages/stream`；409 保留编辑草稿或当前投影，只允许显式 reload，不 replay。
 - 配置 PATCH 始终发送完整 `AIChannelUpdate`。成功采用 canonical response；失败不得 optimistic update、自动 replay 或失效消费者。
 - API Key 与所有 Header 值只写不回显；secret mutation 使用 `gcTime=0`，关闭、成功、失败都清空输入。Header 读取只含名称、敏感标记、配置状态和动作，创建/更新提交完整替换值，删除提交当前 `expected_channel_revision`。
-- channel/Header action token 必须穷尽消费；未知、重复或矛盾投影显式失败。Core 未交付的 Models/Runtime 主任务只能显示明确禁用态，不得链接未交付 tab。
-- 成功 mutation 精确失效 AI lists/models/logs、Prompt Preview Options 与 Content generation-options；删除另移除 exact Detail 并返回 canonical List。
+- channel/Header/model action token 必须穷尽消费；未知、重复或矛盾投影显式失败。`TEST_MODEL` 进入 Models；未交付 Runtime 主任务保持明确禁用。
+- discovery 不失效 cache。model create/test 只刷新 AI list/detail/models 及各自真实日志消费者；model update/enable/disable/delete 才另失效 Prompt Preview Options 与 Content generation-options。失败或 409 不写、不失效。
 
 ### 4. Validation & Error Matrix
 
@@ -957,7 +962,9 @@ keys:   aiChannelKeys.detail/models/logs(channelId), aiChannelKeys.lists()
 | --- | --- |
 | UUID 大写、tab 缺失/非法或有额外 search | `replace` 为 lowercase UUID 与单一 canonical tab |
 | UUID 非法 | Detail 请求前显式失败 |
-| `models/usage/logs` | route-level not-found，不请求 Detail |
+| `usage/logs` | route-level not-found，不请求 Detail |
+| Models 初始失败 / stale refresh 失败 | 显式 retry；有 stale data 时保留表格 |
+| model `REVISION_CONFLICT` | 保留草稿或当前投影，冻结旧 revision，只允许显式 reload |
 | 配置 `REVISION_CONFLICT` | 保留非敏感草稿，禁用旧 revision 重试，只允许显式 reload |
 | API Key/Header mutation 失败 | 清空 secret；不写 cache、不 invalidate、不 replay |
 | 未知/重复/矛盾 action token | 显式错误，不按状态或角色补动作 |
@@ -966,13 +973,13 @@ keys:   aiChannelKeys.detail/models/logs(channelId), aiChannelKeys.lists()
 
 - Good：Basic 修改名称后切到 Request 修改 base URL，使用同一 revision 一次提交完整 payload；成功采用 canonical Detail。
 - Base：Header 读取只显示名称、敏感标记和“已配置（不回显）”；编辑普通 Header 也从空替换值开始。
-- Bad：为两个 Tab 建 partial PATCH；把 API Key/Header value 放进 Query key/cache；409 后自动重放；按 `is_enabled` 或角色推导动作；给未交付 tab 返回 200 占位。
+- Bad：为两个配置 Tab 建 partial PATCH；把 API Key/Header value 放进 Query key/cache；用渠道 revision 测试模型；给 create 伪造 revision；409 后自动重放；按 `is_enabled` 或角色推导动作。
 
 ### 6. Tests Required
 
-- Contract/backend：Header projection 无 `value`，Header DELETE query required/minimum 0，stale 409、并发单 204/单审计及 secret redaction。
-- Model/component：UUID/search canonicalization、delivered gate、共享草稿、完整 payload、action 穷尽、409 reload、secret 清理、Header revision 与精确 invalidation。
-- Production fixture：未知 API 501 + teardown fail；覆盖 List handoff、direct/refresh/history、dirty、409、secret sentinel、ADMIN、键盘/焦点和 375/768/1024/1440 根无溢出。
+- Contract/backend：Header projection 与删除 revision；discovery/test/delete required revision；外部调用前后竞态、模型 no-op、stale 无审计及 secret redaction。
+- Model/component：UUID/search canonicalization、lazy Models query、配置 form owner 卸载、JSON 边界、action 穷尽、各命令 revision、409 reload、secret 清理与精确 invalidation。
+- Production fixture：未知 API 501 + teardown fail；覆盖 List handoff、direct/refresh/history、dirty、discovery/CRUD/test/toggle/delete、409、secret sentinel、ADMIN、键盘/焦点和 375/768/1024/1440 根无溢出。
 
 ### 7. Wrong vs Correct
 

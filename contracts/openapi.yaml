@@ -1243,6 +1243,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIChannelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 远端模型标识，仅供选择且不落库
@@ -1252,6 +1253,8 @@ paths:
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
         '502': {$ref: '#/components/responses/ErrorResponse'}
         '504': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/headers:
@@ -1373,12 +1376,15 @@ paths:
       operationId: deleteAIModel
       parameters:
         - {$ref: '#/components/parameters/AIModelId'}
+        - {name: expected_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已物理删除模型}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-models/{model_id}/test:
     post:
       tags: [configuration]
@@ -1386,6 +1392,7 @@ paths:
       parameters:
         - {$ref: '#/components/parameters/AIModelId'}
         - {$ref: '#/components/parameters/CsrfHeader'}
+      requestBody: {$ref: '#/components/requestBodies/RevisionRequest'}
       responses:
         '200':
           description: 已执行不含业务数据的模型测试
@@ -1396,6 +1403,7 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
         '502': {$ref: '#/components/responses/ErrorResponse'}
         '504': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-models/{model_id}/enable:

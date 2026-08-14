@@ -40,8 +40,9 @@ test('List 创建后进入 canonical Workspace，并支持 direct/refresh/histor
 
   const detailCount = aiChannelWorkspaceApi.detailRequests.length;
   await page.goto(`/settings/ai/${channelId}?tab=models`);
-  await expect(page.getByRole('heading', { name: '该 AI 渠道区域尚未交付' })).toBeVisible();
-  expect(aiChannelWorkspaceApi.detailRequests).toHaveLength(detailCount);
+  await expect(page.getByRole('heading', { name: '模型管理' })).toBeVisible();
+  await expect(page.getByRole('row', { name: /Workspace Model/ })).toBeVisible();
+  expect(aiChannelWorkspaceApi.detailRequests).toHaveLength(detailCount + 1);
 });
 
 test('Basic/Request 共享草稿，dirty guard 与 409 显式 reload 成立', async ({

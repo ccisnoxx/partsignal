@@ -715,9 +715,18 @@ def create_ai_model(
     return model
 
 
-def delete_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id: str) -> None:
+def delete_ai_model(
+    *,
+    db: Session,
+    model_id: uuid.UUID,
+    expected_revision: int,
+    actor: User,
+    request_id: str,
+) -> None:
     """按统一锁序删除模型并追加审计。"""
     model, channel = lock_model_configuration(db, model_id)
+    if model.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
     append_audit(
         db,
         AuditEntry(
@@ -912,9 +921,18 @@ def update_ai_model(
     return model
 
 
-def test_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id: str) -> AIModel:
+def test_ai_model(
+    *,
+    db: Session,
+    model_id: uuid.UUID,
+    payload: RevisionRequest,
+    actor: User,
+    request_id: str,
+) -> AIModel:
     """执行真实连接测试，并在 revision 复核后回写状态且保持模型停用。"""
     model, channel = lock_model_configuration(db, model_id)
+    if model.revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
     require_supported_protocol(channel.protocol_type)
     model_revision = model.revision
     channel_revision = channel.revision
@@ -954,22 +972,49 @@ def test_ai_model(*, db: Session, model_id: uuid.UUID, actor: User, request_id: 
 
 
 def discover_ai_channel_models(
-    *, db: Session, channel_id: uuid.UUID, actor: User, request_id: str
+    *,
+    db: Session,
+    channel_id: uuid.UUID,
+    payload: RevisionRequest,
+    actor: User,
+    request_id: str,
 ) -> list[str]:
-    """使用渠道真实配置发现模型。"""
-    channel = db.get(AIChannel, channel_id)
+    """使用渠道 revision 快照发现模型，并拒绝外部调用期间的配置竞态。"""
+    channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
     if channel is None:
         raise not_found("AI 渠道")
+    if channel.revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
     require_supported_protocol(channel.protocol_type)
+    channel_revision = channel.revision
     api_key, headers = request_credentials(db, channel)
-    return OpenAICompatibleClient(
-        allow_local_http=settings.ai_allow_local_http
-    ).discover_models(
-        base_url=channel.base_url,
-        api_key=api_key,
-        headers=headers,
-        timeout_seconds=channel.timeout_seconds,
-    )
+    base_url = channel.base_url
+    timeout_seconds = channel.timeout_seconds
+    db.commit()
+    try:
+        model_ids = OpenAICompatibleClient(
+            allow_local_http=settings.ai_allow_local_http
+        ).discover_models(
+            base_url=base_url,
+            api_key=api_key,
+            headers=headers,
+            timeout_seconds=timeout_seconds,
+        )
+    except AppError as error:
+        provider_error: AppError | None = error
+        model_ids = []
+    else:
+        provider_error = None
+    db.expire_all()
+    channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
+    if channel is None:
+        raise not_found("AI 渠道")
+    if channel.revision != channel_revision:
+        raise AppError("REVISION_CONFLICT", "模型发现期间 AI 渠道配置已变更，请重新发现", 409)
+    db.commit()
+    if provider_error is not None:
+        raise provider_error
+    return model_ids
 
 
 def set_model_enabled(
@@ -985,6 +1030,8 @@ def set_model_enabled(
     model, channel = lock_model_configuration(db, model_id)
     if model.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 模型已被其他请求修改", 409)
+    if model.is_enabled == enabled:
+        raise AppError("INVALID_STATE_TRANSITION", "AI 模型已经处于目标状态", 409)
     if enabled and not can_enable_ai_model(model):
         raise AppError("AI_MODEL_NOT_TESTED", "模型必须先通过连接测试", 409)
     model.is_enabled = enabled

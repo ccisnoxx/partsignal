@@ -149,7 +149,7 @@ test('准备共享视觉验收数据', async ({ page }) => {
     model_id: 'e2e-model',
     request_parameters: { temperature: 0 },
   });
-  const testedModel = await post<{ revision: number }>(page, `/api/v1/ai-models/${model.id}/test`, csrf, undefined);
+  const testedModel = await post<{ revision: number }>(page, `/api/v1/ai-models/${model.id}/test`, csrf, { expected_revision: model.revision });
   await post(page, `/api/v1/ai-models/${model.id}/enable`, csrf, { expected_revision: testedModel.revision });
   await post(page, `/api/v1/ai-channels/${channel.id}/enable`, csrf, { expected_revision: secondHeader.revision });
 

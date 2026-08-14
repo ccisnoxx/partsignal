@@ -873,6 +873,7 @@ def delete_ai_channel(
 )
 def discover_ai_channel_models(
     channel_id: uuid.UUID,
+    payload: RevisionRequest,
     request: Request,
     db: DbSession,
     admin: AdminUser,
@@ -881,6 +882,7 @@ def discover_ai_channel_models(
     model_ids = discover_ai_channel_models_command(
         db=db,
         channel_id=channel_id,
+        payload=payload,
         actor=admin,
         request_id=request.state.request_id,
     )
@@ -1038,16 +1040,18 @@ def update_ai_model(
 @router.post("/ai-models/{model_id}/test", response_model=AIModelOut, operation_id="testAIModel")
 def test_ai_model(
     model_id: uuid.UUID,
+    payload: RevisionRequest,
     request: Request,
     db: DbSession,
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> AIModelOut:
     model = test_ai_model_command(
-            db=db,
-            model_id=model_id,
-            actor=admin,
-            request_id=request.state.request_id,
+        db=db,
+        model_id=model_id,
+        payload=payload,
+        actor=admin,
+        request_id=request.state.request_id,
     )
     channel = db.get(AIChannel, model.channel_id)
     return model_out(model, channel_enabled=bool(channel and channel.is_enabled))
@@ -1108,11 +1112,16 @@ def disable_ai_model(
 )
 def delete_ai_model(
     model_id: uuid.UUID,
+    expected_revision: Annotated[int, Query(ge=0)],
     request: Request,
     db: DbSession,
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> None:
     delete_ai_model_command(
-        db=db, model_id=model_id, actor=admin, request_id=request.state.request_id
+        db=db,
+        model_id=model_id,
+        expected_revision=expected_revision,
+        actor=admin,
+        request_id=request.state.request_id,
     )

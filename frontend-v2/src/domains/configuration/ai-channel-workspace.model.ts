@@ -8,10 +8,13 @@ type AIChannel = components['schemas']['AIChannel'];
 type AIChannelCreate = components['schemas']['AIChannelCreate'];
 type AIChannelUpdate = components['schemas']['AIChannelUpdate'];
 type AIChannelHeader = components['schemas']['AIChannelHeader'];
+type AIModel = components['schemas']['AIModel'];
+type AIModelCreate = components['schemas']['AIModelCreate'];
+type AIModelUpdate = components['schemas']['AIModelUpdate'];
 type AIProviderBrand = components['schemas']['AIProviderBrand'];
 
 const aiChannelWorkspaceTabs = ['basic', 'request', 'models', 'usage', 'logs'] as const;
-const deliveredAIChannelWorkspaceTabs = ['basic', 'request'] as const;
+const deliveredAIChannelWorkspaceTabs = ['basic', 'request', 'models'] as const;
 type AIChannelWorkspaceTab = typeof aiChannelWorkspaceTabs[number];
 
 function normalizeTab(value: unknown): AIChannelWorkspaceTab {
@@ -33,7 +36,7 @@ function isCanonicalAIChannelWorkspaceSearch(
   return Object.keys(raw).length === 1 && raw.tab === search.tab;
 }
 
-function isDeliveredAIChannelWorkspaceTab(tab: AIChannelWorkspaceTab): tab is 'basic' | 'request' {
+function isDeliveredAIChannelWorkspaceTab(tab: AIChannelWorkspaceTab): tab is 'basic' | 'request' | 'models' {
   return deliveredAIChannelWorkspaceTabs.some((item) => item === tab);
 }
 
@@ -44,7 +47,8 @@ function shouldBlockAIChannelWorkspaceNavigation(
   if (current.pathname !== next.pathname) return true;
   const currentTab = aiChannelWorkspaceSearchSchema.parse(current.search).tab;
   const nextTab = aiChannelWorkspaceSearchSchema.parse(next.search).tab;
-  return !(isDeliveredAIChannelWorkspaceTab(currentTab) && isDeliveredAIChannelWorkspaceTab(nextTab));
+  const configurationTabs: AIChannelWorkspaceTab[] = ['basic', 'request'];
+  return !(configurationTabs.includes(currentTab) && configurationTabs.includes(nextTab));
 }
 
 const providerValues = [
@@ -82,6 +86,37 @@ const aiChannelHeaderFormSchema = z.object({
 
 type AIChannelHeaderFormValues = z.infer<typeof aiChannelHeaderFormSchema>;
 
+const reservedModelParameters = new Set(['model', 'messages', 'stream']);
+
+function parseAIModelRequestParameters(value: string): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error('请求参数必须是有效 JSON');
+  }
+  if (parsed === null || Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error('请求参数必须是 JSON 对象');
+  }
+  const reserved = Object.keys(parsed).filter((key) => reservedModelParameters.has(key));
+  if (reserved.length > 0) throw new Error(`请求参数包含系统保留字段：${reserved.sort().join(', ')}`);
+  return parsed as Record<string, unknown>;
+}
+
+const aiModelFormSchema = z.object({
+  displayName: z.string().trim().min(1, '请输入显示名称'),
+  modelId: z.string().trim().min(1, '请输入 Model ID'),
+  requestParametersJson: z.string().superRefine((value, context) => {
+    try {
+      parseAIModelRequestParameters(value);
+    } catch (error) {
+      context.addIssue({ code: 'custom', message: error instanceof Error ? error.message : '请求参数无效' });
+    }
+  }),
+});
+
+type AIModelFormValues = z.infer<typeof aiModelFormSchema>;
+
 function aiChannelConfigurationFormValues(channel: AIChannel): AIChannelConfigurationFormValues {
   return {
     name: channel.name,
@@ -107,6 +142,27 @@ function aiChannelCreateFormValues(): AIChannelCreateFormValues {
 
 function aiChannelHeaderFormValues(header?: AIChannelHeader): AIChannelHeaderFormValues {
   return { name: header?.name ?? '', value: '', isSensitive: header?.is_sensitive ?? false };
+}
+
+function aiModelFormValues(model?: AIModel, discoveredModelId = ''): AIModelFormValues {
+  const modelId = model?.model_id ?? discoveredModelId;
+  return {
+    displayName: model?.display_name ?? modelId,
+    modelId,
+    requestParametersJson: JSON.stringify(model?.request_parameters ?? {}, null, 2),
+  };
+}
+
+function toAIModelCreate(values: AIModelFormValues): AIModelCreate {
+  return {
+    display_name: values.displayName.trim(),
+    model_id: values.modelId.trim(),
+    request_parameters: parseAIModelRequestParameters(values.requestParametersJson),
+  };
+}
+
+function toAIModelUpdate(values: AIModelFormValues, expectedRevision: number): AIModelUpdate {
+  return { ...toAIModelCreate(values), expected_revision: expectedRevision };
 }
 
 function toAIChannelCreate(values: AIChannelCreateFormValues): AIChannelCreate {
@@ -146,12 +202,16 @@ function toAIChannelHeaderInput(values: AIChannelHeaderFormValues) {
 
 function resolveAIChannelWorkspaceActions(channel: AIChannel): {
   canCreateHeader: boolean;
+  canCreateModel: boolean;
+  canDiscoverModels: boolean;
   canReplaceApiKey: boolean;
   canUpdate: boolean;
   overflow: OverflowRowAction[];
   primary: PrimaryRowAction;
 } {
   let canCreateHeader = false;
+  let canCreateModel = false;
+  let canDiscoverModels = false;
   let canReplaceApiKey = false;
   let canUpdate = false;
   const overflow: OverflowRowAction[] = [];
@@ -162,6 +222,8 @@ function resolveAIChannelWorkspaceActions(channel: AIChannel): {
     if (action === 'UPDATE') canUpdate = true;
     else if (action === 'REPLACE_API_KEY') canReplaceApiKey = true;
     else if (action === 'CREATE_HEADER') canCreateHeader = true;
+    else if (action === 'CREATE_MODEL') canCreateModel = true;
+    else if (action === 'DISCOVER_MODELS') canDiscoverModels = true;
     else if (action === 'ENABLE' || action === 'DISABLE' || action === 'DELETE') {
       if (action === 'ENABLE' && channel.is_enabled) throw new Error(`AI 渠道 ${channel.id} 返回矛盾的 ENABLE 动作`);
       if (action === 'DISABLE' && !channel.is_enabled) throw new Error(`AI 渠道 ${channel.id} 返回矛盾的 DISABLE 动作`);
@@ -184,7 +246,7 @@ function resolveAIChannelWorkspaceActions(channel: AIChannel): {
           intent: action === 'DELETE' ? 'destructive' : 'default',
         },
       });
-    } else if (action !== 'DISCOVER_MODELS' && action !== 'CREATE_MODEL') {
+    } else {
       throw new Error(`AI 渠道 ${channel.id} 返回未知动作：${action}`);
     }
   }
@@ -196,13 +258,103 @@ function resolveAIChannelWorkspaceActions(channel: AIChannel): {
     if (channel.is_enabled || !seen.has('ENABLE')) throw new Error(`AI 渠道 ${channel.id} 返回矛盾的 ENABLE projection`);
     primary = { key: primaryTask, label: '启用渠道', intent: 'primary', enabled: true, command: 'enable-channel' };
   } else if (primaryTask === 'TEST_MODEL') {
-    primary = { key: primaryTask, label: '测试模型', intent: 'primary', enabled: false, disabledReason: '模型管理将在后续任务交付', href: '#' };
+    primary = { key: primaryTask, label: '测试模型', intent: 'primary', enabled: true, command: 'show-models' };
   } else if (primaryTask === 'VIEW_RUNTIME') {
     primary = { key: primaryTask, label: '查看运行', intent: 'primary', enabled: false, disabledReason: '使用与日志将在后续任务交付', href: '#' };
   } else {
     throw new Error(`AI 渠道 ${channel.id} 返回未知主任务：${primaryTask}`);
   }
-  return { canCreateHeader, canReplaceApiKey, canUpdate, overflow, primary };
+  return {
+    canCreateHeader,
+    canCreateModel,
+    canDiscoverModels,
+    canReplaceApiKey,
+    canUpdate,
+    overflow,
+    primary,
+  };
+}
+
+function resolveAIModelActions(model: AIModel): {
+  overflow: OverflowRowAction[];
+  primary: PrimaryRowAction;
+} {
+  const seen = new Set<string>();
+  const overflow: OverflowRowAction[] = [];
+  const primaryTask = model.primary_task;
+  const primaryCommand = {
+    TEST_CONNECTION: 'test-model',
+    VIEW_FAILURE_AND_RETRY: 'test-model',
+    ENABLE_MODEL: 'enable-model',
+    ENABLE_CHANNEL: 'enable-channel',
+    VIEW_MODEL_RUNTIME: 'view-runtime',
+  }[primaryTask];
+  const primaryLabels = {
+    TEST_CONNECTION: '测试连接',
+    VIEW_FAILURE_AND_RETRY: '查看失败并重试',
+    ENABLE_MODEL: '启用模型',
+    ENABLE_CHANNEL: '启用所属渠道',
+    VIEW_MODEL_RUNTIME: '查看运行',
+  } satisfies Record<AIModel['primary_task'], string>;
+
+  for (const action of model.available_actions as string[]) {
+    if (seen.has(action)) throw new Error(`AI 模型 ${model.id} 返回重复动作：${action}`);
+    seen.add(action);
+    if (action === 'ENABLE' && model.is_enabled) throw new Error(`AI 模型 ${model.id} 返回矛盾的 ENABLE 动作`);
+    if (action === 'DISABLE' && !model.is_enabled) throw new Error(`AI 模型 ${model.id} 返回矛盾的 DISABLE 动作`);
+    if (
+      (action === 'TEST' && primaryCommand === 'test-model')
+      || (action === 'ENABLE' && primaryCommand === 'enable-model')
+    ) continue;
+    if (action === 'UPDATE') {
+      overflow.push({ key: action, label: '编辑模型', intent: 'secondary', enabled: true, command: 'edit-model' });
+    } else if (action === 'TEST') {
+      overflow.push({ key: action, label: '测试连接', intent: 'secondary', enabled: true, command: 'test-model', confirmation: 'custom' });
+    } else if (action === 'ENABLE' || action === 'DISABLE') {
+      const label = action === 'ENABLE' ? '启用模型' : '停用模型';
+      overflow.push({
+        key: action,
+        label,
+        intent: 'secondary',
+        enabled: true,
+        command: action === 'ENABLE' ? 'enable-model' : 'disable-model',
+        confirmation: {
+          title: `${label}“${model.display_name}”？`,
+          description: action === 'ENABLE' ? '服务端会重新校验当前测试结论与修订。' : '停用后新的 AI 调用不会再选择该模型。',
+          confirmLabel: label,
+        },
+      });
+    } else if (action === 'DELETE') {
+      overflow.push({
+        key: action,
+        label: '删除模型',
+        intent: 'danger',
+        enabled: true,
+        command: 'delete-model',
+        confirmation: {
+          title: `删除模型“${model.display_name}”？`,
+          description: '模型配置会被删除；历史业务快照保持不变。',
+          confirmLabel: '删除模型',
+          intent: 'destructive',
+        },
+      });
+    } else {
+      throw new Error(`AI 模型 ${model.id} 返回未知动作：${action}`);
+    }
+  }
+
+  if (primaryCommand === 'enable-model' && !seen.has('ENABLE')) {
+    throw new Error(`AI 模型 ${model.id} 的 ENABLE_MODEL 缺少 ENABLE 动作`);
+  }
+  if (primaryCommand === 'test-model' && !seen.has('TEST')) {
+    throw new Error(`AI 模型 ${model.id} 的测试主任务缺少 TEST 动作`);
+  }
+  return {
+    overflow,
+    primary: primaryCommand === 'view-runtime'
+      ? { key: primaryTask, label: primaryLabels[primaryTask], intent: 'primary', enabled: false, disabledReason: 'Runtime 将在后续任务交付', href: '#' }
+      : { key: primaryTask, label: primaryLabels[primaryTask], intent: 'primary', enabled: true, command: primaryCommand },
+  };
 }
 
 function resolveAIChannelHeaderActions(header: AIChannelHeader) {
@@ -248,16 +400,21 @@ export {
   aiChannelHeaderFormValues,
   aiChannelWorkspaceSearchSchema,
   aiChannelWorkspaceTabs,
+  aiModelFormSchema,
+  aiModelFormValues,
   isAIChannelRevisionConflict,
   isCanonicalAIChannelWorkspaceSearch,
   isDeliveredAIChannelWorkspaceTab,
   providerValues,
   resolveAIChannelHeaderActions,
+  resolveAIModelActions,
   resolveAIChannelWorkspaceActions,
   shouldBlockAIChannelWorkspaceNavigation,
   toAIChannelCreate,
   toAIChannelHeaderInput,
   toAIChannelUpdate,
+  toAIModelCreate,
+  toAIModelUpdate,
 };
 export type {
   AIChannel,
@@ -266,6 +423,8 @@ export type {
   AIChannelCreateFormValues,
   AIChannelHeader,
   AIChannelHeaderFormValues,
+  AIModel,
+  AIModelFormValues,
   AIChannelWorkspaceSearch,
   AIChannelWorkspaceTab,
 };

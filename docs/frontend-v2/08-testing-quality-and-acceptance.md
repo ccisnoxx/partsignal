@@ -287,6 +287,10 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 `tests/e2e/ai-channel-workspace-core.spec.ts` 在 List 严格 fixture 上只声明创建、Detail、完整 PATCH、API Key 与 Header Core 请求；未知 API 与浏览器错误仍由 teardown 失败。contract/backend tests 冻结 Header projection 无值、Header DELETE required channel revision 与 409。model/component/production-artifact tests 覆盖 List 创建 handoff、direct/refresh/Back/Forward、UUID/tab canonicalization、Basic/Request 共享草稿、DirtyGuard、完整 update、409 不重放与显式 reload、API Key/Header sentinel、删除 revision、ADMIN、键盘焦点及 375/768/1024/1440 根无溢出。
 
+### 13.18 AI Channel Workspace Models 页面验收
+
+`tests/e2e/ai-channel-workspace-models.spec.ts` 复用并扩展同一 generated-type strict fixture，只声明 Models list/discovery/create/update/test/enable/disable/delete。contract/backend 覆盖 discovery/test/delete required revision、调用前后竞态、模型 no-op 与 stale 无成功审计；model/component 覆盖 JSON object/reserved keys、typed action、lazy query、配置 form owner 卸载、单次真实测试确认、current revision 与 409 no replay。production-artifact 覆盖完整模型闭环、焦点/DirtyGuard 和 375/768/1024/1440 根无溢出；fixture 不冒充真实 Provider，真实调用仍由既有 AI 管理与 Content AI real-stack E2E 证明。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

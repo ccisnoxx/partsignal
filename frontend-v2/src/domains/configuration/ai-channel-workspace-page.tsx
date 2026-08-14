@@ -33,6 +33,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/design-system/primit
 import { Textarea } from '@/design-system/primitives/textarea';
 import { DetailSection } from '@/design-system/workspace/detail-section';
 import { StickyActionBar, type StickyAction } from '@/design-system/workspace/sticky-action-bar';
+import { AIChannelModelsSection } from './ai-channel-models-section';
 import {
   aiChannelDetailQueryOptions,
   aiChannelKeys,
@@ -65,7 +66,7 @@ import {
   type AIChannelHeaderFormValues,
 } from './ai-channel-workspace.model';
 
-type AIChannelMutationKind = 'identity' | 'connection' | 'status' | 'delete';
+type AIChannelMutationKind = 'identity' | 'connection' | 'models' | 'status' | 'delete';
 
 type AIChannelHeaderTarget = {
   focusReturn: HTMLElement | null;
@@ -77,8 +78,8 @@ type AIChannelWorkspacePageProps = {
   csrfToken: string | null;
   onConsumersChanged: (kind: AIChannelMutationKind) => Promise<void>;
   onDeleted: () => Promise<void> | void;
-  onTabChange: (tab: 'basic' | 'request') => Promise<void> | void;
-  tab: 'basic' | 'request';
+  onTabChange: (tab: 'basic' | 'request' | 'models') => Promise<void> | void;
+  tab: 'basic' | 'request' | 'models';
 };
 
 function AIChannelWorkspacePage(props: AIChannelWorkspacePageProps) {
@@ -87,11 +88,21 @@ function AIChannelWorkspacePage(props: AIChannelWorkspacePageProps) {
   if (!detail.data) {
     return <AIChannelWorkspaceFailure error={detail.error} onRetry={() => void detail.refetch()} />;
   }
+  if (props.tab === 'models') {
+    return (
+      <LoadedAIChannelModelsWorkspace
+        {...props}
+        channel={detail.data}
+        onReload={async () => (await detail.refetch()).data}
+      />
+    );
+  }
   return (
     <LoadedAIChannelWorkspace
       {...props}
       channel={detail.data}
       onReload={async () => (await detail.refetch()).data}
+      tab={props.tab}
     />
   );
 }
@@ -105,9 +116,10 @@ function LoadedAIChannelWorkspace({
   onReload,
   onTabChange,
   tab,
-}: AIChannelWorkspacePageProps & {
+}: Omit<AIChannelWorkspacePageProps, 'tab'> & {
   channel: AIChannel;
   onReload: () => Promise<AIChannel | undefined>;
+  tab: 'basic' | 'request';
 }) {
   const queryClient = useQueryClient();
   const [draftBaseline, setDraftBaseline] = useState(channel);
@@ -232,7 +244,7 @@ function LoadedAIChannelWorkspace({
       <AIChannelWorkspaceHeader
         channel={baseline}
         onCommand={handleLifecycle}
-        onOpenBasic={() => void onTabChange('basic')}
+        onNavigate={(nextTab) => void onTabChange(nextTab)}
         pending={lifecycle.isPending}
       />
 
@@ -261,7 +273,7 @@ function LoadedAIChannelWorkspace({
         <form className="overflow-hidden rounded-xl border border-border-subtle bg-surface-panel" noValidate onSubmit={form.handleSubmit(submit)}>
           <Tabs
             onValueChange={(value) => {
-              if (value !== 'basic' && value !== 'request') throw new Error(`AI Channel Workspace 收到未知 Tab：${value}`);
+              if (value !== 'basic' && value !== 'request' && value !== 'models') throw new Error(`AI Channel Workspace 收到未知 Tab：${value}`);
               void onTabChange(value);
             }}
             value={tab}
@@ -269,6 +281,7 @@ function LoadedAIChannelWorkspace({
             <TabsList aria-label="AI 渠道工作区区域" className="mx-4 mt-3 max-w-[calc(100%-2rem)] overflow-x-auto" variant="line">
               <TabsTrigger value="basic">基本信息</TabsTrigger>
               <TabsTrigger value="request">请求配置</TabsTrigger>
+              <TabsTrigger value="models">模型管理</TabsTrigger>
             </TabsList>
             <ErrorSummary className="m-4 mb-0" errors={save.error ? [{ id: 'server', message: errorMessage(save.error) }] : []} />
             {conflict && (
@@ -331,15 +344,106 @@ function LoadedAIChannelWorkspace({
   );
 }
 
+function LoadedAIChannelModelsWorkspace({
+  channel,
+  channelId,
+  csrfToken,
+  onConsumersChanged,
+  onDeleted,
+  onReload,
+  onTabChange,
+}: Omit<AIChannelWorkspacePageProps, 'tab'> & {
+  channel: AIChannel;
+  onReload: () => Promise<AIChannel | undefined>;
+}) {
+  const queryClient = useQueryClient();
+  const lifecycle = useMutation({
+    mutationFn: (command: 'enable-channel' | 'disable-channel' | 'delete-channel') => (
+      runAIChannelCommand(command, channel, csrfToken)
+    ),
+    onSuccess: async (_result, command) => {
+      if (command === 'delete-channel') {
+        queryClient.removeQueries({ queryKey: aiChannelKeys.detail(channelId) });
+        queryClient.removeQueries({ queryKey: aiChannelKeys.models(channelId) });
+        queryClient.removeQueries({ queryKey: aiChannelKeys.logs(channelId) });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: aiChannelKeys.lists() }),
+          onConsumersChanged('delete'),
+        ]);
+        await onDeleted();
+        return;
+      }
+      const fresh = await onReload();
+      if (!fresh) throw new Error('状态变更后无法读取 AI 渠道');
+      queryClient.setQueryData(aiChannelKeys.detail(channelId), fresh);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: aiChannelKeys.lists() }),
+        queryClient.invalidateQueries({ queryKey: aiChannelKeys.models(channelId) }),
+        onConsumersChanged('status'),
+      ]);
+    },
+  });
+
+  function handleLifecycle(command: string) {
+    if (command === 'enable-channel' || command === 'disable-channel' || command === 'delete-channel') {
+      lifecycle.mutate(command);
+      return;
+    }
+    throw new Error(`AI Channel Models Workspace 收到未知命令：${command}`);
+  }
+
+  return (
+    <article aria-labelledby="ai-channel-workspace-title" className="min-w-0 space-y-4">
+      <Link className="inline-flex min-h-8 items-center rounded-md text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50" search={{ page: 1, pageSize: 20 }} to="/settings/ai">
+        返回 AI 渠道列表
+      </Link>
+      <AIChannelWorkspaceHeader
+        channel={channel}
+        onCommand={handleLifecycle}
+        onNavigate={(nextTab) => void onTabChange(nextTab)}
+        pending={lifecycle.isPending}
+      />
+      {lifecycle.error && (
+        <Notice
+          actionLabel={isAIChannelRevisionConflict(lifecycle.error) ? '重新加载渠道' : '关闭'}
+          message={errorMessage(lifecycle.error)}
+          onAction={() => {
+            if (isAIChannelRevisionConflict(lifecycle.error)) void onReload().then(() => lifecycle.reset());
+            else lifecycle.reset();
+          }}
+        />
+      )}
+      <Tabs onValueChange={(value) => {
+        if (value !== 'basic' && value !== 'request' && value !== 'models') throw new Error(`AI Channel Workspace 收到未知 Tab：${value}`);
+        void onTabChange(value);
+      }} value="models">
+        <TabsList aria-label="AI 渠道工作区区域" className="max-w-full overflow-x-auto" variant="line">
+          <TabsTrigger value="basic">基本信息</TabsTrigger>
+          <TabsTrigger value="request">请求配置</TabsTrigger>
+          <TabsTrigger value="models">模型管理</TabsTrigger>
+        </TabsList>
+        <TabsContent value="models">
+          <AIChannelModelsSection
+            channel={channel}
+            csrfToken={csrfToken}
+            onConsumersChanged={() => onConsumersChanged('models')}
+            onEnableChannel={() => lifecycle.mutate('enable-channel')}
+          />
+        </TabsContent>
+      </Tabs>
+    </article>
+  );
+}
+
 function AIChannelWorkspaceHeader({
   channel,
   onCommand,
-  onOpenBasic,
+  onNavigate,
   pending,
 }: {
   channel: AIChannel;
   onCommand: (command: string) => void;
-  onOpenBasic: () => void;
+  onNavigate: (tab: 'basic' | 'models') => void;
   pending: boolean;
 }) {
   const capabilities = resolveAIChannelWorkspaceActions(channel);
@@ -358,7 +462,11 @@ function AIChannelWorkspaceHeader({
       <div className="min-w-0 md:min-w-56">
         <RowActions
           objectLabel={channel.name}
-          onCommand={(command) => command === 'show-basic' ? onOpenBasic() : onCommand(command)}
+          onCommand={(command) => {
+            if (command === 'show-basic') onNavigate('basic');
+            else if (command === 'show-models') onNavigate('models');
+            else onCommand(command);
+          }}
           overflow={capabilities.overflow.map((action) => ({
             ...action,
             enabled: action.enabled && !pending,

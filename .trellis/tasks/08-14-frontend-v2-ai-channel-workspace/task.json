@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "08-14-frontend-v2-ai-channel-workspace-core"
+    "08-14-frontend-v2-ai-channel-workspace-core",
+    "08-14-frontend-v2-ai-channel-workspace-models"
   ],
   "parent": null,
   "relatedFiles": [],

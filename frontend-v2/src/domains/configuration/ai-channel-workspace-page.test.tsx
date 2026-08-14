@@ -11,6 +11,7 @@ import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 
 type AIChannel = components['schemas']['AIChannel'];
+type AIModel = components['schemas']['AIModel'];
 
 const channelId = '00000000-0000-4000-8000-000000000001';
 const admin: AuthUser = {
@@ -72,6 +73,28 @@ function channel(overrides: Partial<AIChannel> = {}): AIChannel {
   };
 }
 
+function model(overrides: Partial<AIModel> = {}): AIModel {
+  return {
+    id: '00000000-0000-4000-8000-000000000010',
+    channel_id: channelId,
+    display_name: 'GPT Test',
+    model_id: 'gpt-test',
+    request_parameters: { temperature: 0 },
+    is_enabled: false,
+    test_status: 'UNTESTED',
+    last_tested_at: null,
+    last_test_error_summary: null,
+    workflow_stage: 'UNTESTED',
+    primary_task: 'TEST_CONNECTION',
+    available_actions: ['UPDATE', 'TEST', 'DELETE'],
+    revision: 2,
+    created_by: admin.id,
+    created_at: '2026-08-14T08:00:00Z',
+    updated_at: '2026-08-14T08:00:00Z',
+    ...overrides,
+  };
+}
+
 function renderWorkspace(entry = `/settings/ai/${channelId}?tab=basic`) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createRouter({
@@ -103,7 +126,7 @@ function conflict() {
 afterEach(() => vi.restoreAllMocks());
 
 describe('AIChannelWorkspacePage', () => {
-  it('canonicalize UUID/tab，且未交付 tab 与非法 UUID 都不发送 Detail 请求', async () => {
+  it('canonicalize UUID/tab，Models 延迟查询，未交付 tab 与非法 UUID 不发送 Detail 请求', async () => {
     const get = vi.spyOn(api, 'GET').mockResolvedValue(success(channel()));
     const canonical = renderWorkspace(`/settings/ai/${channelId.toUpperCase()}`);
     expect(await screen.findByRole('heading', { name: '生产 OpenAI' })).toBeInTheDocument();
@@ -114,15 +137,98 @@ describe('AIChannelWorkspacePage', () => {
     canonical.queryClient.clear();
 
     get.mockClear();
-    const unavailable = renderWorkspace(`/settings/ai/${channelId}?tab=models`);
+    get.mockImplementation(async (path) => path === '/api/v1/ai-channels/{channel_id}/models'
+      ? success({ items: [] })
+      : success(channel()));
+    const models = renderWorkspace(`/settings/ai/${channelId}?tab=models`);
+    expect(await screen.findByText('尚未配置模型。可手工新增，或从远端发现后选择添加。')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect((get.mock.calls as unknown as Array<[string]>).map(([path]) => path)).toEqual([
+      '/api/v1/ai-channels/{channel_id}',
+      '/api/v1/ai-channels/{channel_id}/models',
+    ]);
+    models.view.unmount();
+    models.queryClient.clear();
+
+    get.mockClear();
+    const unavailable = renderWorkspace(`/settings/ai/${channelId}?tab=usage`);
     expect(await screen.findByRole('heading', { name: '该 AI 渠道区域尚未交付' })).toBeInTheDocument();
     expect(get).not.toHaveBeenCalled();
     unavailable.view.unmount();
     unavailable.queryClient.clear();
 
+    get.mockClear();
     renderWorkspace('/settings/ai/not-a-uuid?tab=basic');
     expect(await screen.findByText(/不是有效 UUID/)).toBeInTheDocument();
     expect(get).not.toHaveBeenCalled();
+  });
+
+  it('确认离开脏配置后卸载表单 owner，再回 Basic 使用 canonical baseline', async () => {
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => (
+      path === '/api/v1/ai-channels/{channel_id}/models'
+        ? success({ items: [] })
+        : success(channel())
+    ));
+    renderWorkspace();
+    const name = await screen.findByRole('textbox', { name: '渠道名称' });
+    await userEvent.clear(name);
+    await userEvent.type(name, '未保存名称');
+    await userEvent.click(screen.getByRole('tab', { name: '模型管理' }));
+    const guard = await screen.findByRole('dialog', { name: '要离开当前页面吗？' });
+    await userEvent.click(within(guard).getByRole('button', { name: '放弃修改并离开' }));
+    expect(await screen.findByText('尚未配置模型。可手工新增，或从远端发现后选择添加。')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: '渠道名称' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: '基本信息' }));
+    expect(await screen.findByRole('textbox', { name: '渠道名称' })).toHaveValue('生产 OpenAI');
+    expect((get.mock.calls as unknown as Array<[string]>).filter(([path]) => path === '/api/v1/ai-channels/{channel_id}/models')).toHaveLength(1);
+  });
+
+  it('Models discovery/test/delete 使用各自 current revision 且真实测试只发送一次', async () => {
+    const currentModel = model();
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => (
+      path === '/api/v1/ai-channels/{channel_id}/models'
+        ? success({ items: [currentModel] })
+        : success(channel())
+    ));
+    const post = vi.spyOn(api, 'POST').mockImplementation(async (path) => {
+      if (path === '/api/v1/ai-channels/{channel_id}/discover-models') {
+        return success({ items: [{ model_id: 'remote-new', configured: false, primary_task: 'ADD_MODEL' }] });
+      }
+      return success(model({ test_status: 'PASSED', revision: 3 }));
+    });
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({ response: new Response(null, { status: 204 }) } as never);
+    renderWorkspace(`/settings/ai/${channelId}?tab=models`);
+
+    await userEvent.click(await screen.findByRole('button', { name: '发现模型' }));
+    expect(await screen.findByText('remote-new')).toBeInTheDocument();
+    expect(post).toHaveBeenCalledWith('/api/v1/ai-channels/{channel_id}/discover-models', {
+      body: { expected_revision: 4 },
+      params: { path: { channel_id: channelId }, header: { 'X-CSRF-Token': auth.csrfToken } },
+    });
+    const discoveryDialog = screen.getByRole('dialog', { name: '发现远端模型' });
+    await userEvent.click(within(discoveryDialog).getAllByRole('button', { name: '关闭' }).at(-1)!);
+
+    await userEvent.click(screen.getByRole('button', { name: '测试连接' }));
+    const testDialog = await screen.findByRole('dialog', { name: '测试模型“GPT Test”？' });
+    await userEvent.click(within(testDialog).getByRole('button', { name: '开始测试' }));
+    await waitFor(() => expect((post.mock.calls as unknown as Array<[string]>).filter(([path]) => path === '/api/v1/ai-models/{model_id}/test')).toHaveLength(1));
+    expect(post).toHaveBeenCalledWith('/api/v1/ai-models/{model_id}/test', {
+      body: { expected_revision: 2 },
+      params: { path: { model_id: currentModel.id }, header: { 'X-CSRF-Token': auth.csrfToken } },
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: '更多操作：模型 GPT Test' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除模型' }));
+    const deleteDialog = await screen.findByRole('dialog', { name: '删除模型“GPT Test”？' });
+    await userEvent.click(within(deleteDialog).getByRole('button', { name: '删除模型' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledOnce());
+    expect(remove).toHaveBeenCalledWith('/api/v1/ai-models/{model_id}', {
+      params: {
+        path: { model_id: currentModel.id },
+        query: { expected_revision: 2 },
+        header: { 'X-CSRF-Token': auth.csrfToken },
+      },
+    });
   });
 
   it('Basic/Request 互切保留草稿并提交完整 update', async () => {

@@ -163,6 +163,13 @@ target = db.get(AIChannel, channel_id)
 target = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
 ```
 
+### AI 模型管理 revision 与外部调用边界
+
+- 模型发现接收渠道 `RevisionRequest`；锁定渠道并在调用前比较 revision，复制调用配置后释放事务，Provider 返回或公开失败后重新锁定并复核渠道 revision。调用期间配置变化返回 `REVISION_CONFLICT` 并丢弃远端结果；不自动重试、不落库、不审计、不计 Usage。
+- 模型测试接收模型 `RevisionRequest`；真实调用前比较模型 revision，调用后继续按 `channel -> model` 锁序复核渠道与模型 snapshot revision。成功或失败都只写安全测试状态/摘要，并保持模型停用；冲突不写测试结果。
+- 模型启停在锁内先比较模型 revision，再拒绝同态目标；删除在既有 `channel -> model` 锁序内于审计和删除前比较 required `expected_revision`。stale 与 no-op 都不得递增 revision 或写成功审计。
+- `AIModelCreate` 不携带 expected revision；新模型还没有自身 revision，调用方不得用 `0` 或渠道 revision 伪造。
+
 ```tsx
 // 错误：客户端复制任务资格，并轮询“最新作业”。
 const context = tasks.find((task) => task.status === 'OPEN');

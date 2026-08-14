@@ -15,6 +15,9 @@ type AIChannelCreate = components['schemas']['AIChannelCreate'];
 type AIChannelUpdate = components['schemas']['AIChannelUpdate'];
 type AIChannelHeaderCreate = components['schemas']['AIChannelHeaderCreate'];
 type AIChannelHeaderUpdate = components['schemas']['AIChannelHeaderUpdate'];
+type AIModel = components['schemas']['AIModel'];
+type AIModelCreate = components['schemas']['AIModelCreate'];
+type AIModelUpdate = components['schemas']['AIModelUpdate'];
 type AIChannelCommandTarget = Pick<AIChannel, 'id' | 'revision'>;
 
 class AIChannelRequestError extends Error {
@@ -69,6 +72,112 @@ function aiChannelDetailQueryOptions(channelId: string) {
     retryOnMount: false,
     staleTime: 30_000,
   });
+}
+
+function aiChannelModelsQueryOptions(channelId: string) {
+  return queryOptions({
+    queryKey: aiChannelKeys.models(channelId),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/ai-channels/{channel_id}/models', {
+        params: { path: { channel_id: channelId } },
+      });
+      if (!result.data) throw aiChannelRequestError('读取 AI 模型列表', result);
+      return result.data;
+    },
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
+async function discoverAIChannelModels(
+  channel: AIChannelCommandTarget,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/ai-channels/{channel_id}/discover-models', {
+    body: { expected_revision: channel.revision },
+    params: {
+      path: { channel_id: channel.id },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw aiChannelRequestError('发现远端模型', result);
+}
+
+async function createAIModel(
+  channelId: string,
+  payload: AIModelCreate,
+  csrfToken: string | null,
+) {
+  const result = await api.POST('/api/v1/ai-channels/{channel_id}/models', {
+    body: payload,
+    params: {
+      path: { channel_id: channelId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw aiChannelRequestError('创建 AI 模型', result);
+}
+
+async function updateAIModel(
+  modelId: string,
+  payload: AIModelUpdate,
+  csrfToken: string | null,
+) {
+  const result = await api.PATCH('/api/v1/ai-models/{model_id}', {
+    body: payload,
+    params: {
+      path: { model_id: modelId },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw aiChannelRequestError('更新 AI 模型', result);
+}
+
+async function testAIModel(model: Pick<AIModel, 'id' | 'revision'>, csrfToken: string | null) {
+  const result = await api.POST('/api/v1/ai-models/{model_id}/test', {
+    body: { expected_revision: model.revision },
+    params: {
+      path: { model_id: model.id },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw aiChannelRequestError('测试 AI 模型', result);
+}
+
+async function setAIModelEnabled(
+  model: Pick<AIModel, 'id' | 'revision'>,
+  enabled: boolean,
+  csrfToken: string | null,
+) {
+  const path = enabled
+    ? '/api/v1/ai-models/{model_id}/enable' as const
+    : '/api/v1/ai-models/{model_id}/disable' as const;
+  const result = await api.POST(path, {
+    body: { expected_revision: model.revision },
+    params: {
+      path: { model_id: model.id },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.data) return result.data;
+  throw aiChannelRequestError(enabled ? '启用 AI 模型' : '停用 AI 模型', result);
+}
+
+async function deleteAIModel(model: Pick<AIModel, 'id' | 'revision'>, csrfToken: string | null) {
+  const result = await api.DELETE('/api/v1/ai-models/{model_id}', {
+    params: {
+      path: { model_id: model.id },
+      query: { expected_revision: model.revision },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.response.ok) return;
+  throw aiChannelRequestError('删除 AI 模型', result);
 }
 
 async function createAIChannel(payload: AIChannelCreate, csrfToken: string | null) {
@@ -232,11 +341,18 @@ export {
   aiChannelDetailQueryOptions,
   aiChannelKeys,
   aiChannelListQueryOptions,
+  aiChannelModelsQueryOptions,
   createAIChannel,
   createAIChannelHeader,
+  createAIModel,
+  deleteAIModel,
   deleteAIChannelHeader,
+  discoverAIChannelModels,
   replaceAIChannelApiKey,
   runAIChannelCommand,
+  setAIModelEnabled,
+  testAIModel,
   updateAIChannel,
   updateAIChannelHeader,
+  updateAIModel,
 };

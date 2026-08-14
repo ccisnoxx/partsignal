@@ -52,7 +52,7 @@ export const Route = createFileRoute('/_app/_admin/settings/ai_/$channelId')({
     <section className="space-y-2 rounded-xl border border-border-subtle bg-surface-panel p-5" role="alert">
       <p className="type-label text-text-muted">404</p>
       <h1 className="type-page-title">该 AI 渠道区域尚未交付</h1>
-      <p className="text-text-secondary">当前 Core 只提供基本信息与请求配置。</p>
+      <p className="text-text-secondary">当前已提供基本信息、请求配置与模型管理。</p>
     </section>
   ),
   errorComponent: ({ error, reset }) => (

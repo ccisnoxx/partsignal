@@ -261,6 +261,40 @@ def test_ai_channel_list_contract_is_safe_and_revisioned() -> None:
     }
     assert set(header_delete["responses"]) == {"204", "401", "403", "404", "409", "422"}
 
+    revision_body = {"$ref": "#/components/requestBodies/RevisionRequest"}
+    discovery = paths["/api/v1/ai-channels/{channel_id}/discover-models"]["post"]
+    assert discovery["requestBody"] == revision_body
+    assert set(discovery["responses"]) == {
+        "200",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+        "502",
+        "504",
+    }
+    model_test = paths["/api/v1/ai-models/{model_id}/test"]["post"]
+    assert model_test["requestBody"] == revision_body
+    assert set(model_test["responses"]) == {
+        "200",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+        "502",
+        "504",
+    }
+    model_delete = paths["/api/v1/ai-models/{model_id}"]["delete"]
+    assert model_delete["parameters"][1] == {
+        "name": "expected_revision",
+        "in": "query",
+        "required": True,
+        "schema": {"type": "integer", "minimum": 0},
+    }
+    assert set(model_delete["responses"]) == {"204", "401", "403", "404", "409", "422"}
+
 
 def test_platform_type_contract_exposes_count_bounds_and_delete_revision() -> None:
     """平台类型列表直接提供权威数量，写合同与数据库边界一致。"""

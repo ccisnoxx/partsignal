@@ -219,6 +219,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                     "X-CSRF-Token": csrf_token,
                     "X-Request-ID": "ai-discovery-failed",
                 },
+                json={"expected_revision": channel["revision"]},
             )
             assert failed_discovery.status_code == 502
             assert failed_discovery.json()["error"]["code"] == "AI_UPSTREAM_FAILURE"
@@ -267,6 +268,13 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert updated.status_code == 200
             assert updated.json()["description"] == "更新后的渠道说明"
             assert updated.json()["provider_brand"] == "QWEN"
+            stale_discovery = client.post(
+                f"/api/v1/ai-channels/{channel_id}/discover-models",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": channel["revision"]},
+            )
+            assert stale_discovery.status_code == 409
+            assert stale_discovery.json()["error"]["code"] == "REVISION_CONFLICT"
 
             replaced = client.put(
                 f"/api/v1/ai-channels/{channel_id}/api-key",
@@ -329,6 +337,30 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert current_channel.status_code == 200
             assert current_channel.json()["headers"] == []
 
+            def change_channel_during_discovery(_client: object, **_request: object) -> list[str]:
+                """模拟发现期间渠道被修改，旧远端结果不得返回。"""
+                with session_factory() as concurrent_db:
+                    concurrent_channel = concurrent_db.get(AIChannel, uuid.UUID(channel_id))
+                    assert concurrent_channel is not None
+                    concurrent_channel.description = "发现期间已修改"
+                    concurrent_channel.revision += 1
+                    concurrent_db.commit()
+                return ["stale-model"]
+
+            monkeypatch.setattr(
+                "app.services.ai_configuration.OpenAICompatibleClient.discover_models",
+                change_channel_during_discovery,
+            )
+            conflicted_discovery = client.post(
+                f"/api/v1/ai-channels/{channel_id}/discover-models",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": current_channel.json()["revision"]},
+            )
+            assert conflicted_discovery.status_code == 409
+            assert conflicted_discovery.json()["error"]["code"] == "REVISION_CONFLICT"
+            current_channel = client.get(f"/api/v1/ai-channels/{channel_id}")
+            assert current_channel.status_code == 200
+
             model = client.post(
                 f"/api/v1/ai-channels/{channel_id}/models",
                 headers={"X-CSRF-Token": csrf_token},
@@ -341,6 +373,23 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert model.status_code == 201
             model_id = uuid.UUID(model.json()["id"])
             assert model.json()["available_actions"] == ["UPDATE", "TEST", "DELETE"]
+
+            with session_factory() as db:
+                stale_model = db.get(AIModel, model_id)
+                assert stale_model is not None
+                stale_model.revision += 1
+                db.commit()
+
+            stale_test = client.post(
+                f"/api/v1/ai-models/{model_id}/test",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": model.json()["revision"]},
+            )
+            assert stale_test.status_code == 409
+            assert stale_test.json()["error"]["code"] == "REVISION_CONFLICT"
+            current_model = client.get(f"/api/v1/ai-channels/{channel_id}/models").json()["items"][
+                0
+            ]
 
             def change_model_during_test(_client: object, **_request: object) -> None:
                 """模拟外部调用期间管理员修改模型，旧测试结果不得覆盖新状态。"""
@@ -361,6 +410,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                     "X-CSRF-Token": csrf_token,
                     "X-Request-ID": "ai-model-test-conflict",
                 },
+                json={"expected_revision": current_model["revision"]},
             )
             assert conflicted_test.status_code == 409
             assert conflicted_test.json()["error"]["code"] == "REVISION_CONFLICT"
@@ -381,6 +431,33 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                 "ENABLE",
                 "DELETE",
             }
+            model_projection = models.json()["items"][0]
+            duplicate_disable_model = client.post(
+                f"/api/v1/ai-models/{model_id}/disable",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": model_projection["revision"]},
+            )
+            assert duplicate_disable_model.status_code == 409
+            assert duplicate_disable_model.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+            enabled_model = client.post(
+                f"/api/v1/ai-models/{model_id}/enable",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": model_projection["revision"]},
+            )
+            assert enabled_model.status_code == 200
+            duplicate_enable_model = client.post(
+                f"/api/v1/ai-models/{model_id}/enable",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": enabled_model.json()["revision"]},
+            )
+            assert duplicate_enable_model.status_code == 409
+            assert duplicate_enable_model.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
+            disabled_model = client.post(
+                f"/api/v1/ai-models/{model_id}/disable",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": enabled_model.json()["revision"]},
+            )
+            assert disabled_model.status_code == 200
 
             enabled = client.post(
                 f"/api/v1/ai-channels/{channel_id}/enable",
@@ -447,6 +524,30 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             }.issubset(actions)
             assert first_api_key not in audit_response.text
             assert replacement_api_key not in audit_response.text
+
+            deletable_model = client.post(
+                f"/api/v1/ai-channels/{channel_id}/models",
+                headers={"X-CSRF-Token": csrf_token},
+                json={
+                    "display_name": "待删除模型",
+                    "model_id": "delete-model",
+                    "request_parameters": {},
+                },
+            )
+            assert deletable_model.status_code == 201
+            stale_model_delete = client.delete(
+                f"/api/v1/ai-models/{deletable_model.json()['id']}",
+                headers={"X-CSRF-Token": csrf_token},
+                params={"expected_revision": deletable_model.json()["revision"] + 1},
+            )
+            assert stale_model_delete.status_code == 409
+            assert stale_model_delete.json()["error"]["code"] == "REVISION_CONFLICT"
+            deleted_model = client.delete(
+                f"/api/v1/ai-models/{deletable_model.json()['id']}",
+                headers={"X-CSRF-Token": csrf_token},
+                params={"expected_revision": deletable_model.json()["revision"]},
+            )
+            assert deleted_model.status_code == 204
 
             stale_delete = client.delete(
                 f"/api/v1/ai-channels/{channel_id}",

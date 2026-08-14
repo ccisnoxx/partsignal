@@ -266,6 +266,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Cache boundary**：Configuration domain 继续独占 AI list/detail/models/logs keys，route composition 只失效 Prompt Preview Options 与 Content generation-options 的公开 key owner。失败不 optimistic、不失效；成功按 mutation 种类精确刷新，渠道删除移除 exact Detail 后返回 canonical List。
 
+## ADR-042：AI Channel Models 复用既有资源合同并按 revision 隔离外部调用
+
+**Decision**：不新增聚合 endpoint、数据库字段、依赖或通用 CRUD framework。`tab=models` 按需读取既有 `AIModelList`，一个 domain-local Models section 持有 query、mutation 与 Dialog；Basic/Request 的 RHF owner 只在配置 surface 挂载，确认离开后卸载。
+
+**Concurrency and action boundary**：discovery 使用渠道 revision，test/update/enable/disable/delete 使用模型 revision，create 不伪造 revision。discovery/test 的 Provider 调用不持锁，但服务端在调用前后复核 snapshot；冲突丢弃结果且不重试。UI 只消费 channel/model typed action，Runtime 未交付时明确禁用。
+
+**Cache boundary**：discovery 不写 cache；create/test 只刷新 AI 投影，update/enable/disable/delete 才失效 Prompt Preview Options 与 Content generation-options。失败或 409 不 optimistic、不失效、不 replay；Usage、Job 与不可变历史不受影响。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

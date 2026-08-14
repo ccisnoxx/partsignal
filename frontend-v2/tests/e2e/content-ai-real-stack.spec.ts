@@ -142,7 +142,12 @@ async function configureModel(
     `/api/v1/ai-channels/${channel.id}/models`,
     { display_name: modelDisplayName, model_id: modelId, request_parameters: { temperature: 0 } },
   );
-  const tested = await command<AIModel>(page, csrfToken, `/api/v1/ai-models/${model.id}/test`);
+  const tested = await command<AIModel>(
+    page,
+    csrfToken,
+    `/api/v1/ai-models/${model.id}/test`,
+    { expected_revision: model.revision },
+  );
   await command<AIModel>(
     page,
     csrfToken,
@@ -408,10 +413,18 @@ test('AI Production：成功、自然化、失败详情与 exact snapshot retry'
     },
     'PATCH',
   );
+  const invalidatedModels = await responseBody<{ items: AIModel[] }>(
+    await page.request.get(`/api/v1/ai-channels/${timeoutModel.channel.id}/models`),
+  );
+  const invalidatedModel = invalidatedModels.items.find(
+    (item) => item.id === timeoutModel.model.id,
+  );
+  if (!invalidatedModel) throw new Error('真实 E2E 超时模型已不存在');
   const retested = await command<AIModel>(
     page,
     session.csrf_token,
     `/api/v1/ai-models/${timeoutModel.model.id}/test`,
+    { expected_revision: invalidatedModel.revision },
   );
   await command<AIModel>(
     page,

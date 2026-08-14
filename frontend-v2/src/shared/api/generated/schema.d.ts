@@ -7267,7 +7267,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: components["requestBodies"]["RevisionRequest"];
         responses: {
             /** @description 远端模型标识，仅供选择且不落库 */
             200: {
@@ -7281,6 +7281,8 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
             502: components["responses"]["ErrorResponse"];
             504: components["responses"]["ErrorResponse"];
         };
@@ -7436,7 +7438,9 @@ export interface operations {
     };
     deleteAIModel: {
         parameters: {
-            query?: never;
+            query: {
+                expected_revision: number;
+            };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };
@@ -7457,6 +7461,8 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     updateAIModel: {
@@ -7502,7 +7508,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: components["requestBodies"]["RevisionRequest"];
         responses: {
             /** @description 已执行不含业务数据的模型测试 */
             200: {
@@ -7517,6 +7523,7 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
             502: components["responses"]["ErrorResponse"];
             504: components["responses"]["ErrorResponse"];
         };

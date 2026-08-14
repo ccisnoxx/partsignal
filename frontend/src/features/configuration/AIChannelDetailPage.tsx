@@ -280,9 +280,13 @@ export function AIChannelDetailPage() {
     onSuccess: async () => { message.success('Header 已删除'); await invalidateChannel(channelId, true); },
   });
   const discover = useMutation({
-    mutationFn: async () => unwrap(await api.POST('/api/v1/ai-channels/{channel_id}/discover-models', {
-      params: { path: { channel_id: channelId }, header: csrfHeader() },
-    })),
+    mutationFn: async () => {
+      if (!channel.data) throw new Error('渠道未加载');
+      return unwrap(await api.POST('/api/v1/ai-channels/{channel_id}/discover-models', {
+        params: { path: { channel_id: channelId }, header: csrfHeader() },
+        body: { expected_revision: channel.data.revision },
+      }));
+    },
     onSuccess: (data) => setDiscovered(data.items),
     onSettled: async () => queryClient.invalidateQueries({ queryKey: ['ai-channel-audit-logs', channelId] }),
   });
@@ -327,6 +331,7 @@ export function AIChannelDetailPage() {
   const testModel = useMutation({
     mutationFn: async (model: AIModel) => unwrap(await api.POST('/api/v1/ai-models/{model_id}/test', {
       params: { path: { model_id: model.id }, header: csrfHeader() },
+      body: { expected_revision: model.revision },
     })),
     onSuccess: async (tested) => {
       if (tested.test_status === 'PASSED') message.success('连接测试成功，模型已保持停用');
@@ -348,7 +353,11 @@ export function AIChannelDetailPage() {
   });
   const deleteModel = useMutation({
     mutationFn: async (model: AIModel) => ensureSuccess(await api.DELETE('/api/v1/ai-models/{model_id}', {
-      params: { path: { model_id: model.id }, header: csrfHeader() },
+      params: {
+        path: { model_id: model.id },
+        query: { expected_revision: model.revision },
+        header: csrfHeader(),
+      },
     })),
     onSuccess: async () => { message.success('模型已删除'); await invalidateChannel(channelId, true); },
   });

@@ -311,6 +311,38 @@
     }
   }
 
+  .ai-channel-mobile-summary {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    .ai-channel-list-table {
+      min-width: 100%;
+      table-layout: fixed;
+    }
+
+    .ai-channel-list-table [data-column-role='primary'] {
+      min-width: 0;
+      width: auto;
+    }
+
+    .ai-channel-list-table [data-ai-column] {
+      display: none;
+    }
+
+    .ai-channel-list-table [data-column-role='actions'] {
+      width: 5rem;
+      min-width: 5rem;
+      max-width: 5rem;
+    }
+
+    .ai-channel-mobile-summary {
+      display: grid;
+      gap: 0.125rem;
+      margin-top: 0.25rem;
+    }
+  }
+
   .geo-insights-report-table-region {
     width: 100%;
     max-width: 100%;

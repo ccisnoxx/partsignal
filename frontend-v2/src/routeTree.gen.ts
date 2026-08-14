@@ -28,6 +28,7 @@ import { Route as AppPublishingArticlesRouteRouteImport } from './routes/_app/pu
 import { Route as AppPublishingIssuesRouteRouteImport } from './routes/_app/publishing/issues/route'
 import { Route as AppPublishingWorkRouteRouteImport } from './routes/_app/publishing/work/route'
 import { Route as AppSettingsPlatformsRouteRouteImport } from './routes/_app/settings/platforms/route'
+import { Route as AppAdminSettingsAiRouteImport } from './routes/_app/_admin/settings.ai'
 import { Route as AppAdminSettingsPromptsRouteImport } from './routes/_app/_admin/settings.prompts'
 import { Route as AppAdminSystemUsersRouteImport } from './routes/_app/_admin/system.users'
 import { Route as AppContentTasksIndexRouteImport } from './routes/_app/content/tasks/index'
@@ -153,6 +154,11 @@ const AppSettingsPlatformsRouteRoute =
     path: '/platforms',
     getParentRoute: () => AppSettingsRouteRoute,
   } as any)
+const AppAdminSettingsAiRoute = AppAdminSettingsAiRouteImport.update({
+  id: '/settings/ai',
+  path: '/settings/ai',
+  getParentRoute: () => AppAdminRouteRoute,
+} as any)
 const AppAdminSettingsPromptsRoute = AppAdminSettingsPromptsRouteImport.update({
   id: '/settings/prompts',
   path: '/settings/prompts',
@@ -328,6 +334,7 @@ export interface FileRoutesByFullPath {
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
   '/products/': typeof AppProductsIndexRoute
+  '/settings/ai': typeof AppAdminSettingsAiRoute
   '/settings/prompts': typeof AppAdminSettingsPromptsRoute
   '/system/users': typeof AppAdminSystemUsersRoute
   '/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
@@ -366,6 +373,7 @@ export interface FileRoutesByTo {
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
   '/products': typeof AppProductsIndexRoute
+  '/settings/ai': typeof AppAdminSettingsAiRoute
   '/settings/prompts': typeof AppAdminSettingsPromptsRoute
   '/system/users': typeof AppAdminSystemUsersRoute
   '/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
@@ -416,6 +424,7 @@ export interface FileRoutesById {
   '/_app/products/$productId': typeof AppProductsProductIdRoute
   '/_app/products/new': typeof AppProductsNewRoute
   '/_app/products/': typeof AppProductsIndexRoute
+  '/_app/_admin/settings/ai': typeof AppAdminSettingsAiRoute
   '/_app/_admin/settings/prompts': typeof AppAdminSettingsPromptsRoute
   '/_app/_admin/system/users': typeof AppAdminSystemUsersRoute
   '/_app/content/tasks/$taskId': typeof AppContentTasksTaskIdRoute
@@ -465,6 +474,7 @@ export interface FileRouteTypes {
     | '/products/$productId'
     | '/products/new'
     | '/products/'
+    | '/settings/ai'
     | '/settings/prompts'
     | '/system/users'
     | '/content/tasks/$taskId'
@@ -503,6 +513,7 @@ export interface FileRouteTypes {
     | '/products/$productId'
     | '/products/new'
     | '/products'
+    | '/settings/ai'
     | '/settings/prompts'
     | '/system/users'
     | '/content/tasks/$taskId'
@@ -552,6 +563,7 @@ export interface FileRouteTypes {
     | '/_app/products/$productId'
     | '/_app/products/new'
     | '/_app/products/'
+    | '/_app/_admin/settings/ai'
     | '/_app/_admin/settings/prompts'
     | '/_app/_admin/system/users'
     | '/_app/content/tasks/$taskId'
@@ -720,6 +732,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/platforms'
       preLoaderRoute: typeof AppSettingsPlatformsRouteRouteImport
       parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/_admin/settings/ai': {
+      id: '/_app/_admin/settings/ai'
+      path: '/settings/ai'
+      fullPath: '/settings/ai'
+      preLoaderRoute: typeof AppAdminSettingsAiRouteImport
+      parentRoute: typeof AppAdminRouteRoute
     }
     '/_app/_admin/settings/prompts': {
       id: '/_app/_admin/settings/prompts'
@@ -921,12 +940,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppAdminRouteRouteChildren {
+  AppAdminSettingsAiRoute: typeof AppAdminSettingsAiRoute
   AppAdminSettingsPromptsRoute: typeof AppAdminSettingsPromptsRoute
   AppAdminSystemUsersRoute: typeof AppAdminSystemUsersRoute
   AppAdminSettingsPlatformsTypesRoute: typeof AppAdminSettingsPlatformsTypesRoute
 }
 
 const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
+  AppAdminSettingsAiRoute: AppAdminSettingsAiRoute,
   AppAdminSettingsPromptsRoute: AppAdminSettingsPromptsRoute,
   AppAdminSystemUsersRoute: AppAdminSystemUsersRoute,
   AppAdminSettingsPlatformsTypesRoute: AppAdminSettingsPlatformsTypesRoute,

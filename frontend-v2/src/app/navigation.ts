@@ -1,6 +1,7 @@
 import type { StaticDataRouteOption } from '@tanstack/react-router';
 import {
   BoxesIcon,
+  BotIcon,
   ChartSplineIcon,
   EyeIcon,
   FileTextIcon,
@@ -15,13 +16,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-observations' | 'platforms' | 'prompts' | 'users';
+type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-observations' | 'platforms' | 'prompts' | 'ai-channels' | 'users';
 type AppLayout = 'app' | 'print';
 
 type NavigationItem = {
   id: NavId;
   label: string;
-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/observations' | '/settings/platforms' | '/settings/prompts' | '/system/users';
+  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/observations' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users';
   icon: LucideIcon;
   adminOnly?: boolean;
 };
@@ -79,6 +80,7 @@ const navigationSections: readonly NavigationSection[] = [
     items: [
       { id: 'platforms', label: '平台与账号', to: '/settings/platforms', icon: Settings2Icon },
       { id: 'prompts', label: 'Prompt 管理', to: '/settings/prompts', icon: FileTextIcon, adminOnly: true },
+      { id: 'ai-channels', label: 'AI 渠道', to: '/settings/ai', icon: BotIcon, adminOnly: true },
     ],
   },
   {

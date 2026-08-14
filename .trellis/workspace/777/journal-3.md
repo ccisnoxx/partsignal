@@ -431,7 +431,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 新增 ADMIN-only Prompt Preview Options 合同与服务端动作资格投影。
+- Prompt Workspace 复用既有 GenerationJob、任务作业列表与不可变 ContentVersion，实现显式选择、幂等提交、终态停止和结果展示。
+- 同步 OpenAPI/generated types、缓存失效、后端/组件/E2E 测试、V2 权威文档与 Trellis AI 生成规范。
 
 ### Git Commits
 
@@ -441,7 +443,10 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- `make contract-check` 与 V1/V2 `api:generate/api:check` 通过。
+- 后端 Preview Options PostgreSQL 集成测试与 Ruff 通过。
+- 前端定向单测 29 项、lint、typecheck、build 通过。
+- Prompt Workspace Playwright mobile/desktop 8 项通过，`git diff --check` 通过。
 
 ### Status
 
@@ -1000,6 +1005,39 @@
 | Hash | Message |
 |------|---------|
 | `2705b806` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 144: 完成 Prompt Workspace Preview
+
+**Date**: 2026-08-14
+**Task**: 完成 Prompt Workspace Preview
+**Branch**: `codex/frontend-v2-prompt-workspace-preview`
+
+### Summary
+
+交付 Preview Options 合同、真实 GenerationJob Preview、不可变 ContentVersion 结果、定向测试与文档规范同步，并通过全部必需验证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `158006b6` | (see git log) |
 
 ### Testing
 

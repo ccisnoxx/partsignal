@@ -228,7 +228,11 @@ export function AIChannelsPage() {
   const remove = useMutation({
     mutationFn: async (channel: AIChannelSummary) => ensureSuccess(await api.DELETE(
       '/api/v1/ai-channels/{channel_id}',
-      { params: { path: { channel_id: channel.id }, header: csrfHeader() } },
+      { params: {
+        path: { channel_id: channel.id },
+        query: { expected_revision: channel.revision },
+        header: csrfHeader(),
+      } },
     )),
     onSuccess: async (_, channel) => {
       message.success('渠道已删除');
@@ -318,10 +322,7 @@ export function AIChannelsPage() {
       title: '状态', dataIndex: 'is_enabled', width: 60,
       render: (enabled: boolean) => <StatusTag compact status={enabled ? 'ENABLED' : 'DISABLED'} />,
     },
-    {
-      title: 'API 根地址', dataIndex: 'base_url', width: 190, ellipsis: true,
-      render: (value: string) => <TableCellText text={value} />,
-    },
+    { title: '协议', dataIndex: 'protocol_type', width: 150, ellipsis: true, render: (value: string) => <TableCellText text={value} /> },
     {
       title: 'API Key', dataIndex: 'api_key_configured', width: 72,
       render: (configured: boolean) => configured
@@ -329,7 +330,8 @@ export function AIChannelsPage() {
         : <span className="ai-not-configured">未配置</span>,
     },
     { title: 'Header 数量', dataIndex: 'header_count', width: 66, align: 'center' },
-    { title: '已启用模型', dataIndex: 'enabled_model_count', width: 68, align: 'center' },
+    { title: '模型', key: 'models', width: 68, align: 'center', render: (_, item) => `${item.enabled_model_count}/${item.model_count}` },
+    { title: '配置', dataIndex: 'configuration_status', width: 72, render: (value) => <StatusTag compact status={value} /> },
     {
       title: '测试状态', key: 'test', width: 82,
       render: (_, item) => testStatus(item.latest_test_status, item.last_tested_at),
@@ -409,11 +411,11 @@ export function AIChannelsPage() {
               <Input
                 key={searchParams.get('q') ?? ''}
                 type="search"
-                aria-label="搜索渠道名称、描述或地址"
+                aria-label="搜索渠道名称或描述"
                 defaultValue={searchParams.get('q') ?? ''}
                 allowClear
                 prefix={<SearchOutlined />}
-                placeholder="搜索渠道名称、描述、地址…"
+                placeholder="搜索渠道名称或描述…"
                 onChange={(event) => {
                   if (!event.target.value) updateParams({ q: undefined, page: undefined });
                 }}

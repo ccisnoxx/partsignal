@@ -399,6 +399,11 @@ class AIChannelStatus(StrEnum):
     DISABLED = "DISABLED"
 
 
+class AIChannelConfigurationStatus(StrEnum):
+    READY = "READY"
+    NEEDS_SETUP = "NEEDS_SETUP"
+
+
 class AIChannelSort(StrEnum):
     CREATED_DESC = "CREATED_DESC"
     NAME_ASC = "NAME_ASC"
@@ -488,13 +493,14 @@ class AIChannelSummary(ContractModel):
     description: str
     protocol_type: AIProtocolType
     provider_brand: AIProviderBrand
-    base_url: HttpUrl
     is_enabled: bool
     api_key_configured: bool
     header_count: int = Field(ge=0)
+    model_count: int = Field(ge=0)
     enabled_model_count: int = Field(ge=0)
     latest_test_status: AIModelTestStatus
     last_tested_at: datetime | None
+    configuration_status: AIChannelConfigurationStatus
     workflow_stage: Literal["INCOMPLETE", "UNVERIFIED", "READY_TO_ENABLE", "RUNNING"]
     primary_task: Literal[
         "COMPLETE_CONFIGURATION", "TEST_MODEL", "ENABLE_CHANNEL", "VIEW_RUNTIME"

@@ -13,10 +13,7 @@ test.afterEach(async ({ page }) => {
   if (!csrfResponse.ok()) return;
   const { csrf_token: csrf } = await body<{ csrf_token: string }>(csrfResponse);
   for (const channelId of createdChannelIds) {
-    const response = await page.request.delete(`/api/v1/ai-channels/${channelId}`, {
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect([204, 404]).toContain(response.status());
+    expect([204, 404]).toContain(await deleteChannel(page, channelId, csrf));
   }
   createdChannelIds.clear();
 });
@@ -26,6 +23,17 @@ async function body<T>(response: APIResponse): Promise<T> {
     throw new Error(`${response.status()} ${response.url()}: ${await response.text()}`);
   }
   return response.json() as Promise<T>;
+}
+
+async function deleteChannel(page: Page, channelId: string, csrf: string) {
+  const current = await page.request.get(`/api/v1/ai-channels/${channelId}`);
+  if (current.status() === 404) return 404;
+  const channel = await body<{ revision: number }>(current);
+  const response = await page.request.delete(`/api/v1/ai-channels/${channelId}`, {
+    headers: { 'X-CSRF-Token': csrf },
+    params: { expected_revision: channel.revision },
+  });
+  return response.status();
 }
 
 async function login(page: Page): Promise<string> {
@@ -271,8 +279,8 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
       && url.pathname === '/api/v1/ai-channels'
       && url.searchParams.get('q') === visualQuery;
   });
-  await page.getByRole('searchbox', { name: '搜索渠道名称、描述或地址' }).fill(visualQuery);
-  await page.getByRole('searchbox', { name: '搜索渠道名称、描述或地址' }).press('Enter');
+  await page.getByRole('searchbox', { name: '搜索渠道名称或描述' }).fill(visualQuery);
+  await page.getByRole('searchbox', { name: '搜索渠道名称或描述' }).press('Enter');
   await searchResponse;
   await expectSelectedChannelParams(page, channel.id, { q: visualQuery });
   const enabledChannelsLoaded = page.waitForResponse((response) => {
@@ -550,10 +558,7 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   createdChannelIds.delete(channel.id);
 
   for (const fixtureChannelId of fixtureChannelIds) {
-    const response = await page.request.delete(`/api/v1/ai-channels/${fixtureChannelId}`, {
-      headers: { 'X-CSRF-Token': csrf },
-    });
-    expect(response.status()).toBe(204);
+    expect(await deleteChannel(page, fixtureChannelId, csrf)).toBe(204);
     createdChannelIds.delete(fixtureChannelId);
   }
   expect(consoleErrors).toEqual([]);

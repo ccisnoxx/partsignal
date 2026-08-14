@@ -26,6 +26,7 @@ from app.models.identity import AuditLog, User
 from app.schemas.common import AuditLogList, RevisionRequest
 from app.schemas.configuration import (
     AIChannelApiKeyReplace,
+    AIChannelConfigurationStatus,
     AIChannelCounts,
     AIChannelCreate,
     AIChannelHeaderCreate,
@@ -79,6 +80,15 @@ def ai_channel_stage(
     if not is_enabled:
         return "READY_TO_ENABLE", "ENABLE_CHANNEL"
     return "RUNNING", "VIEW_RUNTIME"
+
+
+def ai_channel_configuration_status(
+    *, api_key_configured: bool, model_count: int
+) -> AIChannelConfigurationStatus:
+    """只有凭据和至少一个模型都存在时，渠道配置才可用于后续验证。"""
+    if api_key_configured and model_count > 0:
+        return AIChannelConfigurationStatus.READY
+    return AIChannelConfigurationStatus.NEEDS_SETUP
 
 
 def ai_model_stage(model: AIModel, *, channel_enabled: bool) -> tuple[str, str]:
@@ -162,7 +172,6 @@ def _search_conditions(q: str | None) -> list[ColumnElement[bool]]:
         or_(
             AIChannel.name.ilike(pattern, escape="\\"),
             AIChannel.description.ilike(pattern, escape="\\"),
-            AIChannel.base_url.ilike(pattern, escape="\\"),
         )
     ]
 
@@ -245,7 +254,6 @@ def list_ai_channels(
         AIChannel.description,
         AIChannel.protocol_type,
         AIChannel.provider_brand,
-        AIChannel.base_url,
         AIChannel.is_enabled,
         AIChannel.api_key_ciphertext,
         AIChannel.revision,
@@ -280,13 +288,17 @@ def list_ai_channels(
                 description=row.description,
                 protocol_type=row.protocol_type,
                 provider_brand=row.provider_brand,
-                base_url=row.base_url,
                 is_enabled=row.is_enabled,
                 api_key_configured=bool(row.api_key_ciphertext),
                 header_count=row.header_count,
+                model_count=row.model_count,
                 enabled_model_count=row.enabled_model_count,
                 latest_test_status=row.latest_test_status or AIModelTestStatus.UNTESTED,
                 last_tested_at=row.last_tested_at,
+                configuration_status=ai_channel_configuration_status(
+                    api_key_configured=bool(row.api_key_ciphertext),
+                    model_count=row.model_count,
+                ),
                 workflow_stage=ai_channel_stage(
                     is_enabled=row.is_enabled,
                     api_key_configured=bool(row.api_key_ciphertext),
@@ -496,11 +508,20 @@ def create_ai_channel(
     return channel
 
 
-def delete_ai_channel(*, db: Session, channel_id: uuid.UUID, actor: User, request_id: str) -> None:
+def delete_ai_channel(
+    *,
+    db: Session,
+    channel_id: uuid.UUID,
+    expected_revision: int,
+    actor: User,
+    request_id: str,
+) -> None:
     """删除渠道及数据库约束定义的子配置。"""
     channel = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
     if channel is None:
         raise not_found("AI 渠道")
+    if channel.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
     append_audit(
         db,
         AuditEntry(
@@ -813,6 +834,8 @@ def set_channel_enabled(
         raise not_found("AI 渠道")
     if channel.revision != payload.expected_revision:
         raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
+    if channel.is_enabled == enabled:
+        raise AppError("INVALID_STATE_TRANSITION", "AI 渠道已经处于目标状态", 409)
     has_passed_model = db.scalar(
         select(AIModel.id)
         .where(AIModel.channel_id == channel.id, AIModel.test_status == "PASSED")

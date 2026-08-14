@@ -38,6 +38,7 @@ from app.schemas.configuration import (
     AIChannelOut,
     AIChannelSort,
     AIChannelStatus,
+    AIChannelSummary,
     AIChannelUpdate,
     AIChannelUsageSummary,
     AIModelCreate,
@@ -70,6 +71,7 @@ from app.schemas.configuration import (
 )
 from app.services.ai_configuration import (
     ai_channel_actions,
+    ai_channel_configuration_status,
     ai_channel_stage,
     ai_model_actions,
     ai_model_stage,
@@ -226,6 +228,50 @@ def channel_out(channel: AIChannel) -> AIChannelOut:
         created_by=channel.created_by,
         created_at=channel.created_at,
         updated_at=channel.updated_at,
+    )
+
+
+def channel_summary_out(channel: AIChannel) -> AIChannelSummary:
+    """投影不包含连接地址、凭据或 Header 值的列表安全响应。"""
+    latest_tested_model = max(
+        (model for model in channel.models if model.last_tested_at is not None),
+        key=lambda model: (model.last_tested_at, model.id),
+        default=None,
+    )
+    model_count = len(channel.models)
+    passed_model_count = sum(model.test_status == "PASSED" for model in channel.models)
+    workflow_stage, primary_task = ai_channel_stage(
+        is_enabled=channel.is_enabled,
+        api_key_configured=bool(channel.api_key_ciphertext),
+        model_count=model_count,
+        passed_model_count=passed_model_count,
+    )
+    return AIChannelSummary(
+        id=channel.id,
+        name=channel.name,
+        description=channel.description,
+        protocol_type=AIProtocolType(channel.protocol_type),
+        provider_brand=AIProviderBrand(channel.provider_brand),
+        is_enabled=channel.is_enabled,
+        api_key_configured=bool(channel.api_key_ciphertext),
+        header_count=len(channel.headers),
+        model_count=model_count,
+        enabled_model_count=sum(model.is_enabled for model in channel.models),
+        latest_test_status=AIModelTestStatus(
+            latest_tested_model.test_status if latest_tested_model else "UNTESTED"
+        ),
+        last_tested_at=latest_tested_model.last_tested_at if latest_tested_model else None,
+        configuration_status=ai_channel_configuration_status(
+            api_key_configured=bool(channel.api_key_ciphertext),
+            model_count=model_count,
+        ),
+        workflow_stage=workflow_stage,
+        primary_task=primary_task,
+        available_actions=ai_channel_actions(
+            is_enabled=channel.is_enabled,
+            has_passed_model=passed_model_count > 0,
+        ),
+        revision=channel.revision,
     )
 
 
@@ -755,7 +801,7 @@ def set_channel_enabled(
     db: DbSession,
     admin: AdminUser,
     enabled: bool,
-) -> AIChannelOut:
+) -> AIChannelSummary:
     channel = set_channel_enabled_command(
         db=db,
         channel_id=channel_id,
@@ -764,12 +810,12 @@ def set_channel_enabled(
         request_id=request.state.request_id,
         enabled=enabled,
     )
-    return channel_out(channel)
+    return channel_summary_out(channel)
 
 
 @router.post(
     "/ai-channels/{channel_id}/enable",
-    response_model=AIChannelOut,
+    response_model=AIChannelSummary,
     operation_id="enableAIChannel",
 )
 def enable_ai_channel(
@@ -779,13 +825,13 @@ def enable_ai_channel(
     db: DbSession,
     admin: AdminUser,
     _csrf: CsrfProtected,
-) -> AIChannelOut:
+) -> AIChannelSummary:
     return set_channel_enabled(channel_id, payload, request, db, admin, True)
 
 
 @router.post(
     "/ai-channels/{channel_id}/disable",
-    response_model=AIChannelOut,
+    response_model=AIChannelSummary,
     operation_id="disableAIChannel",
 )
 def disable_ai_channel(
@@ -795,7 +841,7 @@ def disable_ai_channel(
     db: DbSession,
     admin: AdminUser,
     _csrf: CsrfProtected,
-) -> AIChannelOut:
+) -> AIChannelSummary:
     return set_channel_enabled(channel_id, payload, request, db, admin, False)
 
 
@@ -806,13 +852,18 @@ def disable_ai_channel(
 )
 def delete_ai_channel(
     channel_id: uuid.UUID,
+    expected_revision: Annotated[int, Query(ge=0)],
     request: Request,
     db: DbSession,
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> None:
     delete_ai_channel_command(
-        db=db, channel_id=channel_id, actor=admin, request_id=request.state.request_id
+        db=db,
+        channel_id=channel_id,
+        expected_revision=expected_revision,
+        actor=admin,
+        request_id=request.state.request_id,
     )
 
 

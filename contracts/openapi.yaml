@@ -1058,7 +1058,7 @@ paths:
       tags: [configuration]
       operationId: listAIChannels
       parameters:
-        - {name: q, in: query, schema: {type: string, maxLength: 200}}
+        - {name: q, in: query, description: 按渠道名称或描述搜索, schema: {type: string, maxLength: 200}}
         - {name: status, in: query, schema: {$ref: '#/components/schemas/AIChannelStatus'}}
         - {name: provider_brand, in: query, schema: {$ref: '#/components/schemas/AIProviderBrand'}}
         - {name: sort, in: query, schema: {$ref: '#/components/schemas/AIChannelSort'}}
@@ -1129,12 +1129,15 @@ paths:
       operationId: deleteAIChannel
       parameters:
         - {$ref: '#/components/parameters/AIChannelId'}
+        - {name: expected_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已物理删除渠道、Header 和模型}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/usage-summary:
     get:
       tags: [configuration]
@@ -1208,11 +1211,12 @@ paths:
           description: 已启用至少存在一个通过测试模型的渠道
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/AIChannel'}
+              schema: {$ref: '#/components/schemas/AIChannelSummary'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/disable:
     post:
       tags: [configuration]
@@ -1226,11 +1230,12 @@ paths:
           description: 已停用渠道
           content:
             application/json:
-              schema: {$ref: '#/components/schemas/AIChannel'}
+              schema: {$ref: '#/components/schemas/AIChannelSummary'}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/discover-models:
     post:
       tags: [configuration]
@@ -4402,6 +4407,9 @@ components:
     AIChannelStatus:
       type: string
       enum: [ENABLED, DISABLED]
+    AIChannelConfigurationStatus:
+      type: string
+      enum: [READY, NEEDS_SETUP]
     AIChannelSort:
       type: string
       enum: [CREATED_DESC, NAME_ASC, NAME_DESC, UPDATED_DESC, LAST_TESTED_DESC]
@@ -4409,20 +4417,21 @@ components:
     AIChannelSummary:
       type: object
       additionalProperties: false
-      required: [id, name, description, protocol_type, provider_brand, base_url, is_enabled, api_key_configured, header_count, enabled_model_count, latest_test_status, last_tested_at, workflow_stage, primary_task, available_actions, revision]
+      required: [id, name, description, protocol_type, provider_brand, is_enabled, api_key_configured, header_count, model_count, enabled_model_count, latest_test_status, last_tested_at, configuration_status, workflow_stage, primary_task, available_actions, revision]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
         description: {type: string}
         protocol_type: {$ref: '#/components/schemas/AIProtocolType'}
         provider_brand: {$ref: '#/components/schemas/AIProviderBrand'}
-        base_url: {type: string, format: uri, minLength: 1, maxLength: 2083}
         is_enabled: {type: boolean}
         api_key_configured: {type: boolean}
         header_count: {type: integer, minimum: 0}
+        model_count: {type: integer, minimum: 0}
         enabled_model_count: {type: integer, minimum: 0}
         latest_test_status: {$ref: '#/components/schemas/AIModelTestStatus'}
         last_tested_at: {type: [string, 'null'], format: date-time}
+        configuration_status: {$ref: '#/components/schemas/AIChannelConfigurationStatus'}
         workflow_stage: {type: string, enum: [INCOMPLETE, UNVERIFIED, READY_TO_ENABLE, RUNNING]}
         primary_task: {type: string, enum: [COMPLETE_CONFIGURATION, TEST_MODEL, ENABLE_CHANNEL, VIEW_RUNTIME]}
         available_actions:

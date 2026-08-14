@@ -58,8 +58,9 @@ const channel = {
 };
 const channelSummary = {
   id: channel.id, name: channel.name, description: channel.description, protocol_type: channel.protocol_type,
-  provider_brand: channel.provider_brand, base_url: channel.base_url, is_enabled: channel.is_enabled,
-  api_key_configured: channel.api_key_configured, header_count: channel.headers.length, enabled_model_count: 1,
+  provider_brand: channel.provider_brand, is_enabled: channel.is_enabled,
+  api_key_configured: channel.api_key_configured, header_count: channel.headers.length,
+  model_count: 1, enabled_model_count: 1, configuration_status: 'READY' as const,
   latest_test_status: channel.latest_test_status, last_tested_at: channel.last_tested_at, revision: channel.revision,
   available_actions: channel.available_actions,
   workflow_stage: channel.workflow_stage,

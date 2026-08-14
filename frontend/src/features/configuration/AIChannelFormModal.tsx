@@ -9,7 +9,7 @@ import {
 import { Alert, Button, Form, Input, InputNumber, Modal, Select } from 'antd';
 import type { ReactNode } from 'react';
 import { errorMessage } from '../../shared/api/client';
-import type { AIChannel, AIChannelSummary, Schema } from '../../shared/api/types';
+import type { AIChannel, Schema } from '../../shared/api/types';
 
 export type AIChannelFormValues = {
   name: string;
@@ -50,7 +50,7 @@ export function AIProviderMark({ brand }: { brand: Schema<'AIProviderBrand'> }) 
 }
 
 type EditableChannel = Pick<
-  AIChannel | AIChannelSummary,
+  AIChannel,
   'name' | 'description' | 'protocol_type' | 'provider_brand' | 'base_url'
 > & { timeout_seconds?: number };
 

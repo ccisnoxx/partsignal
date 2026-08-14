@@ -223,6 +223,34 @@ def test_platform_list_contract_exposes_readiness_options_and_delete_revision() 
     }
 
 
+def test_ai_channel_list_contract_is_safe_and_revisioned() -> None:
+    """列表与行命令只暴露安全摘要，并统一使用 canonical revision。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    schemas = document["components"]["schemas"]
+    summary = schemas["AIChannelSummary"]
+
+    assert "base_url" not in summary["properties"]
+    assert {"model_count", "configuration_status"} <= set(summary["required"])
+    assert schemas["AIChannelConfigurationStatus"]["enum"] == ["READY", "NEEDS_SETUP"]
+    for operation_id in ("enable", "disable"):
+        operation = paths[f"/api/v1/ai-channels/{{channel_id}}/{operation_id}"]["post"]
+        assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/AIChannelSummary"
+        }
+        assert set(operation["responses"]) == {"200", "401", "403", "404", "409", "422"}
+
+    delete_operation = paths["/api/v1/ai-channels/{channel_id}"]["delete"]
+    assert delete_operation["parameters"][1] == {
+        "name": "expected_revision",
+        "in": "query",
+        "required": True,
+        "schema": {"type": "integer", "minimum": 0},
+    }
+    assert set(delete_operation["responses"]) == {"204", "401", "403", "404", "409", "422"}
+
+
 def test_platform_type_contract_exposes_count_bounds_and_delete_revision() -> None:
     """平台类型列表直接提供权威数量，写合同与数据库边界一致。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"

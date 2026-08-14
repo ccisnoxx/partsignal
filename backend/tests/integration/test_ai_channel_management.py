@@ -19,7 +19,8 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, select
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.audit import contains_sensitive_key
@@ -29,7 +30,9 @@ from app.errors import AppError
 from app.main import app
 from app.models.ai_generation import AIChannel, AIChannelHeader, AIModel
 from app.models.identity import AuditLog, User
+from app.schemas.configuration import AIChannelSort
 from app.security import hash_token
+from app.services.ai_configuration import list_ai_channels
 
 
 def _psycopg_url(value: str) -> str:
@@ -75,6 +78,30 @@ def temporary_database(
             admin_connection.execute(
                 sql.SQL("DROP DATABASE {} WITH (FORCE)").format(sql.Identifier(database_name))
             )
+
+
+def _ai_channel_list_statement_count(engine: Engine, *, q: str | None = None) -> int:
+    count = 0
+
+    def record_statement(*_args: object) -> None:
+        nonlocal count
+        count += 1
+
+    event.listen(engine, "before_cursor_execute", record_statement)
+    try:
+        with Session(engine) as db:
+            list_ai_channels(
+                db=db,
+                q=q,
+                channel_status=None,
+                provider_brand=None,
+                sort=AIChannelSort.CREATED_DESC,
+                page=1,
+                page_size=20,
+            )
+    finally:
+        event.remove(engine, "before_cursor_execute", record_statement)
+    return count
 
 
 @pytest.mark.integration
@@ -210,9 +237,19 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert filtered.status_code == 200, filtered.text
             assert [item["id"] for item in filtered.json()["items"]] == [channel_id]
             assert filtered.json()["counts"] == {"all": 1, "enabled": 0, "disabled": 1}
+            summary = filtered.json()["items"][0]
+            assert "base_url" not in summary
+            assert summary["model_count"] == 0
+            assert summary["enabled_model_count"] == 0
+            assert summary["configuration_status"] == "NEEDS_SETUP"
             literal_wildcard = client.get("/api/v1/ai-channels", params={"q": "%", "page_size": 10})
             assert literal_wildcard.status_code == 200
             assert literal_wildcard.json()["items"] == []
+            address_search = client.get(
+                "/api/v1/ai-channels", params={"q": "8.8.8.8", "page_size": 10}
+            )
+            assert address_search.status_code == 200
+            assert address_search.json()["items"] == []
 
             updated = client.patch(
                 f"/api/v1/ai-channels/{channel_id}",
@@ -303,6 +340,14 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert enabled.status_code == 200
             assert enabled.json()["is_enabled"] is True
             assert "DISABLE" in enabled.json()["available_actions"]
+            assert "base_url" not in enabled.json()
+            duplicate_enable = client.post(
+                f"/api/v1/ai-channels/{channel_id}/enable",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"expected_revision": enabled.json()["revision"]},
+            )
+            assert duplicate_enable.status_code == 409
+            assert duplicate_enable.json()["error"]["code"] == "INVALID_STATE_TRANSITION"
             disabled = client.post(
                 f"/api/v1/ai-channels/{channel_id}/disable",
                 headers={"X-CSRF-Token": csrf_token},
@@ -350,9 +395,17 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert first_api_key not in audit_response.text
             assert replacement_api_key not in audit_response.text
 
+            stale_delete = client.delete(
+                f"/api/v1/ai-channels/{channel_id}",
+                headers={"X-CSRF-Token": csrf_token},
+                params={"expected_revision": disabled.json()["revision"] - 1},
+            )
+            assert stale_delete.status_code == 409
+            assert stale_delete.json()["error"]["code"] == "REVISION_CONFLICT"
             deleted = client.delete(
                 f"/api/v1/ai-channels/{channel_id}",
                 headers={"X-CSRF-Token": csrf_token},
+                params={"expected_revision": disabled.json()["revision"]},
             )
             assert deleted.status_code == 204
         finally:
@@ -381,6 +434,50 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert "second-channel-key" not in second_channel.api_key_ciphertext
 
         engine.dispose()
+
+
+@pytest.mark.integration
+def test_ai_channel_list_query_count_is_constant() -> None:
+    """列表聚合固定为 counts、total 与当前页三条 SQL。"""
+    with temporary_database("head") as (_, database_url, _, _):
+        engine = create_engine(database_url)
+        try:
+            with Session(engine) as db:
+                admin = User(
+                    username=f"ai-list-admin-{uuid.uuid4().hex[:8]}",
+                    display_name="AI 列表管理员",
+                    password_hash="not-used",
+                    account_type="ADMIN",
+                )
+                db.add(admin)
+                db.commit()
+                for index in range(4):
+                    channel = AIChannel(
+                        name=f"固定查询渠道 {index}",
+                        description="查询数量不随行数增长",
+                        protocol_type="openai-compatible-chat-completions",
+                        provider_brand="CUSTOM",
+                        base_url=f"https://8.8.8.{index + 1}/v1",
+                        api_key_ciphertext="ciphertext",
+                        api_key_updated_at=datetime.now(UTC),
+                        timeout_seconds=30,
+                        created_by=admin.id,
+                    )
+                    db.add(channel)
+                    db.flush()
+                    db.add(AIModel(
+                        channel_id=channel.id,
+                        display_name=f"模型 {index}",
+                        model_id=f"model-{index}",
+                        request_parameters={},
+                        created_by=admin.id,
+                    ))
+                db.commit()
+
+            assert _ai_channel_list_statement_count(engine) == 3
+            assert _ai_channel_list_statement_count(engine, q="固定查询") == 3
+        finally:
+            engine.dispose()
 
 
 @pytest.mark.integration
@@ -513,7 +610,8 @@ def test_ai_configuration_concurrent_delete_has_single_successful_effect(
 
         try:
             channel_statuses = delete_twice(
-                f"/api/v1/ai-channels/{channel_id}", "concurrent-channel-delete"
+                f"/api/v1/ai-channels/{channel_id}?expected_revision=0",
+                "concurrent-channel-delete",
             )
             header_statuses = delete_twice(
                 f"/api/v1/ai-channel-headers/{header_id}", "concurrent-header-delete"

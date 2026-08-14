@@ -2867,6 +2867,8 @@ export interface components {
         AIProviderBrand: "OPENAI" | "ANTHROPIC" | "GOOGLE" | "AZURE_OPENAI" | "ZHIPU" | "QWEN" | "CUSTOM";
         /** @enum {string} */
         AIChannelStatus: "ENABLED" | "DISABLED";
+        /** @enum {string} */
+        AIChannelConfigurationStatus: "READY" | "NEEDS_SETUP";
         /**
          * @default CREATED_DESC
          * @enum {string}
@@ -2879,15 +2881,15 @@ export interface components {
             description: string;
             protocol_type: components["schemas"]["AIProtocolType"];
             provider_brand: components["schemas"]["AIProviderBrand"];
-            /** Format: uri */
-            base_url: string;
             is_enabled: boolean;
             api_key_configured: boolean;
             header_count: number;
+            model_count: number;
             enabled_model_count: number;
             latest_test_status: components["schemas"]["AIModelTestStatus"];
             /** Format: date-time */
             last_tested_at: string | null;
+            configuration_status: components["schemas"]["AIChannelConfigurationStatus"];
             /** @enum {string} */
             workflow_stage: "INCOMPLETE" | "UNVERIFIED" | "READY_TO_ENABLE" | "RUNNING";
             /** @enum {string} */
@@ -6969,6 +6971,7 @@ export interface operations {
     listAIChannels: {
         parameters: {
             query?: {
+                /** @description 按渠道名称或描述搜索 */
                 q?: string;
                 status?: components["schemas"]["AIChannelStatus"];
                 provider_brand?: components["schemas"]["AIProviderBrand"];
@@ -7050,7 +7053,9 @@ export interface operations {
     };
     deleteAIChannel: {
         parameters: {
-            query?: never;
+            query: {
+                expected_revision: number;
+            };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };
@@ -7071,6 +7076,8 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     updateAIChannel: {
@@ -7211,13 +7218,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AIChannel"];
+                    "application/json": components["schemas"]["AIChannelSummary"];
                 };
             };
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     disableAIChannel: {
@@ -7239,13 +7247,14 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AIChannel"];
+                    "application/json": components["schemas"]["AIChannelSummary"];
                 };
             };
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     discoverAIChannelModels: {

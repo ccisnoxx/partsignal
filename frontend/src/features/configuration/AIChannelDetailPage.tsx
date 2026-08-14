@@ -211,9 +211,16 @@ export function AIChannelDetailPage() {
     },
   });
   const deleteChannel = useMutation({
-    mutationFn: async () => ensureSuccess(await api.DELETE('/api/v1/ai-channels/{channel_id}', {
-      params: { path: { channel_id: channelId }, header: csrfHeader() },
-    })),
+    mutationFn: async () => {
+      if (!channel.data) throw new Error('渠道未加载');
+      return ensureSuccess(await api.DELETE('/api/v1/ai-channels/{channel_id}', {
+        params: {
+          path: { channel_id: channelId },
+          query: { expected_revision: channel.data.revision },
+          header: csrfHeader(),
+        },
+      }));
+    },
     onSuccess: async () => {
       message.success('AI 渠道已删除');
       queryClient.setQueriesData<Schema<'AIChannelList'>>(

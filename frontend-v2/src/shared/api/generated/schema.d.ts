@@ -2791,7 +2791,6 @@ export interface components {
             available_actions: ("UPDATE" | "DELETE")[];
             /** @enum {string} */
             primary_task: "EDIT_HEADER" | "RECONFIGURE_HEADER";
-            value?: string | null;
         };
         AIChannelHeaderCreate: {
             expected_channel_revision: number;
@@ -7037,7 +7036,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 渠道详情和非敏感 Header */
+            /** @description 渠道详情和安全 Header 元数据 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7320,7 +7319,9 @@ export interface operations {
     };
     deleteAIChannelHeader: {
         parameters: {
-            query?: never;
+            query: {
+                expected_channel_revision: number;
+            };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };
@@ -7341,6 +7342,8 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     updateAIChannelHeader: {

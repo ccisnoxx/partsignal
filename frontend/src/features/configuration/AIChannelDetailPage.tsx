@@ -267,9 +267,16 @@ export function AIChannelDetailPage() {
     onSuccess: async () => { setEditingHeader(undefined); message.success('Header 已保存'); await invalidateChannel(channelId, true); },
   });
   const deleteHeader = useMutation({
-    mutationFn: async (headerId: string) => ensureSuccess(await api.DELETE('/api/v1/ai-channel-headers/{header_id}', {
-      params: { path: { header_id: headerId }, header: csrfHeader() },
-    })),
+    mutationFn: async (headerId: string) => {
+      if (!channel.data) throw new Error('渠道未加载');
+      return ensureSuccess(await api.DELETE('/api/v1/ai-channel-headers/{header_id}', {
+        params: {
+          path: { header_id: headerId },
+          query: { expected_channel_revision: channel.data.revision },
+          header: csrfHeader(),
+        },
+      }));
+    },
     onSuccess: async () => { message.success('Header 已删除'); await invalidateChannel(channelId, true); },
   });
   const discover = useMutation({
@@ -393,9 +400,11 @@ export function AIChannelDetailPage() {
       provider_brand: data.provider_brand,
       base_url: data.base_url,
       timeout_seconds: data.timeout_seconds,
-      headers: data.headers.map((header) => header.is_sensitive
-        ? { name: header.name, is_sensitive: true, is_configured: header.is_configured }
-        : { name: header.name, is_sensitive: false, value: header.value }),
+      headers: data.headers.map((header) => ({
+        name: header.name,
+        is_sensitive: header.is_sensitive,
+        is_configured: header.is_configured,
+      })),
       models: models.data.items.map((model) => ({
         display_name: model.display_name,
         model_id: model.model_id,
@@ -404,7 +413,7 @@ export function AIChannelDetailPage() {
     };
     try {
       await navigator.clipboard.writeText(JSON.stringify(copied, null, 2));
-      message.success('已复制非敏感配置');
+      message.success('已复制安全配置摘要');
     } catch {
       message.error('浏览器拒绝写入剪贴板');
     }
@@ -454,7 +463,7 @@ export function AIChannelDetailPage() {
       size="small" rowKey="id" dataSource={data.headers} pagination={false} scroll={{ x: 524 }} columns={[
         { title: '名称', dataIndex: 'name', width: 130, ellipsis: true, render: (value) => <TableCellText text={value} mono /> },
         { title: '类型', dataIndex: 'is_sensitive', width: 64, render: (value) => <Tag>{value ? '敏感' : '普通'}</Tag> },
-        { title: '值', width: 160, ellipsis: true, render: (_, row) => row.is_sensitive ? '••••••' : row.value ? <TableCellText text={row.value} mono /> : '—' },
+        { title: '配置状态', width: 136, render: (_, row) => row.is_configured ? '已配置（不回显）' : '未配置' },
         { title: '操作', fixed: 'right', width: 170, render: (_, row) => <Space size={4}><Button type="primary" size="small" onClick={() => setEditingHeader(row)}>{headerTaskLabels[row.primary_task]}</Button>{row.available_actions.includes('DELETE') && <Dropdown trigger={['click']} menu={{
           items: [{ key: 'delete', label: '删除', danger: true }],
           onClick: () => modal.confirm({ title: `删除 Header“${row.name}”？`, content: '删除后会停用该渠道及其全部模型，并把全部模型的测试状态重置为“未测试”、清除最近测试信息；重新测试并启用前不可用于生成。此操作不可恢复。', okText: '删除', cancelText: '取消', okButtonProps: { danger: true }, onOk: () => deleteHeader.mutateAsync(row.id), afterClose: restoreFocus }),
@@ -589,7 +598,7 @@ export function AIChannelDetailPage() {
 }
 
 function HeaderModal({ open, editing, loading, onCancel, onSubmit }: { open: boolean; editing?: Header; loading: boolean; onCancel: () => void; onSubmit: (body: Omit<Schema<'AIChannelHeaderCreate'>, 'expected_channel_revision'>) => void }) {
-  return <Modal title={editing ? '编辑 Header' : '新增 Header'} open={open} onCancel={onCancel} footer={null} destroyOnHidden><Form key={editing?.id ?? 'new'} layout="vertical" initialValues={{ name: editing?.name, value: editing?.value ?? '', is_sensitive: editing?.is_sensitive ?? false }} onFinish={onSubmit}><Form.Item name="name" label="Header 名" rules={[{ required: true }]}><Input autoFocus /></Form.Item><Form.Item name="value" label="值" rules={[{ required: true }]}><Input.Password placeholder={editing?.is_sensitive ? '敏感值不会回显，请输入替换值' : undefined} /></Form.Item><Form.Item name="is_sensitive" label="类型"><Select options={[{ value: false, label: '普通' }, { value: true, label: '敏感且永不回显' }]} /></Form.Item><Button type="primary" htmlType="submit" loading={loading}>保存</Button></Form></Modal>;
+  return <Modal title={editing ? '编辑 Header' : '新增 Header'} open={open} onCancel={onCancel} footer={null} destroyOnHidden><Form key={editing?.id ?? 'new'} layout="vertical" initialValues={{ name: editing?.name, value: '', is_sensitive: editing?.is_sensitive ?? false }} onFinish={onSubmit}><Form.Item name="name" label="Header 名" rules={[{ required: true }]}><Input autoFocus /></Form.Item><Form.Item name="value" label="值" rules={[{ required: true }]}><Input.Password placeholder={editing ? '现有值不会回显，请输入替换值' : undefined} /></Form.Item><Form.Item name="is_sensitive" label="类型"><Select options={[{ value: false, label: '普通' }, { value: true, label: '敏感且永不回显' }]} /></Form.Item><Button type="primary" htmlType="submit" loading={loading}>保存</Button></Form></Modal>;
 }
 
 function ModelModal({ open, editing, loading, onCancel, onSubmit }: { open: boolean; editing?: AIModel; loading: boolean; onCancel: () => void; onSubmit: (body: ModelFormValues) => void }) {

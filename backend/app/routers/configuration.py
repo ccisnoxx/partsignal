@@ -205,7 +205,6 @@ def channel_out(channel: AIChannel) -> AIChannelOut:
                 is_configured=bool(item.encrypted_value if item.is_sensitive else item.plain_value),
                 available_actions=["UPDATE", "DELETE"],
                 primary_task="RECONFIGURE_HEADER" if item.is_sensitive else "EDIT_HEADER",
-                value=None if item.is_sensitive else item.plain_value,
             )
             for item in sorted(channel.headers, key=lambda value: value.normalized_name)
         ],
@@ -959,13 +958,18 @@ def update_ai_channel_header(
 )
 def delete_ai_channel_header(
     header_id: uuid.UUID,
+    expected_channel_revision: Annotated[int, Query(ge=0)],
     request: Request,
     db: DbSession,
     admin: AdminUser,
     _csrf: CsrfProtected,
 ) -> None:
     delete_ai_channel_header_command(
-        db=db, header_id=header_id, actor=admin, request_id=request.state.request_id
+        db=db,
+        header_id=header_id,
+        expected_channel_revision=expected_channel_revision,
+        actor=admin,
+        request_id=request.state.request_id,
     )
 
 

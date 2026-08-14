@@ -639,9 +639,14 @@ def update_ai_channel_header(
 
 
 def delete_ai_channel_header(
-    *, db: Session, header_id: uuid.UUID, actor: User, request_id: str
+    *,
+    db: Session,
+    header_id: uuid.UUID,
+    expected_channel_revision: int,
+    actor: User,
+    request_id: str,
 ) -> None:
-    """删除 Header，并撤销渠道与模型的旧测试结论。"""
+    """按渠道修订删除 Header，并撤销渠道与模型的旧测试结论。"""
     header = db.scalar(
         select(AIChannelHeader).where(AIChannelHeader.id == header_id).with_for_update()
     )
@@ -652,6 +657,8 @@ def delete_ai_channel_header(
     )
     if channel is None:
         raise not_found("AI 渠道")
+    if channel.revision != expected_channel_revision:
+        raise AppError("REVISION_CONFLICT", "AI 渠道已被其他请求修改", 409)
     db.delete(header)
     invalidate_channel_models(db, channel)
     append_audit(

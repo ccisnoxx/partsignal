@@ -390,9 +390,9 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   await command(page, `/api/v1/ai-channels/${channel.id as string}/models`, csrf, { display_name: 'E2E 手工模型', model_id: 'e2e-manual-model', request_parameters: { temperature: 0.2 } });
   const plainHeaderChannel = await command(page, `/api/v1/ai-channels/${channel.id as string}/headers`, csrf, { expected_channel_revision: channel.revision, name: 'X-E2E-Region', value: 'test', is_sensitive: false });
   const sensitiveHeaderChannel = await command(page, `/api/v1/ai-channels/${channel.id as string}/headers`, csrf, { expected_channel_revision: plainHeaderChannel.revision, name: 'X-E2E-Secret', value: 'header-secret', is_sensitive: true });
-  const projectedHeaders = sensitiveHeaderChannel.headers as Array<{ id: string; name: string; value: string | null; is_sensitive: boolean }>;
-  expect(projectedHeaders.find((item) => item.name === 'X-E2E-Secret')?.value).toBeNull();
-  expect(projectedHeaders.find((item) => item.name === 'X-E2E-Region')?.value).toBe('test');
+  const projectedHeaders = sensitiveHeaderChannel.headers as Array<{ id: string; name: string; is_sensitive: boolean }>;
+  expect(JSON.stringify(projectedHeaders)).not.toContain('header-secret');
+  expect(JSON.stringify(projectedHeaders)).not.toContain('"value"');
   expect((await page.request.post(`/api/v1/ai-channels/${channel.id as string}/headers`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_channel_revision: sensitiveHeaderChannel.revision, name: 'x-e2e-region', value: 'duplicate', is_sensitive: false } })).status()).toBe(409);
   const discovered = await body<{ items: Array<{ model_id: string }> }>(await page.request.post(`/api/v1/ai-channels/${channel.id as string}/discover-models`, { headers: { 'X-CSRF-Token': csrf } }));
   expect(discovered.items).toContainEqual(expect.objectContaining({ model_id: 'e2e-model' }));

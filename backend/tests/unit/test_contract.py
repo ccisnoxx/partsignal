@@ -250,6 +250,17 @@ def test_ai_channel_list_contract_is_safe_and_revisioned() -> None:
     }
     assert set(delete_operation["responses"]) == {"204", "401", "403", "404", "409", "422"}
 
+    header = schemas["AIChannelHeader"]
+    assert "value" not in header["properties"]
+    header_delete = paths["/api/v1/ai-channel-headers/{header_id}"]["delete"]
+    assert header_delete["parameters"][1] == {
+        "name": "expected_channel_revision",
+        "in": "query",
+        "required": True,
+        "schema": {"type": "integer", "minimum": 0},
+    }
+    assert set(header_delete["responses"]) == {"204", "401", "403", "404", "409", "422"}
+
 
 def test_platform_type_contract_exposes_count_bounds_and_delete_revision() -> None:
     """平台类型列表直接提供权威数量，写合同与数据库边界一致。"""

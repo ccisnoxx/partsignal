@@ -279,6 +279,56 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert replaced.status_code == 200
             assert replacement_api_key not in replaced.text
 
+            public_header_value = "public-header-value-must-never-be-returned"
+            secret_header_value = "secret-header-value-must-never-be-returned"
+            created_header = client.post(
+                f"/api/v1/ai-channels/{channel_id}/headers",
+                headers={"X-CSRF-Token": csrf_token},
+                json={
+                    "expected_channel_revision": replaced.json()["revision"],
+                    "name": "X-Workspace-Key",
+                    "value": public_header_value,
+                    "is_sensitive": False,
+                },
+            )
+            assert created_header.status_code == 201
+            assert public_header_value not in created_header.text
+            header_id = created_header.json()["headers"][0]["id"]
+            assert "value" not in created_header.json()["headers"][0]
+
+            updated_header = client.patch(
+                f"/api/v1/ai-channel-headers/{header_id}",
+                headers={"X-CSRF-Token": csrf_token},
+                json={
+                    "expected_channel_revision": created_header.json()["revision"],
+                    "name": "X-Workspace-Key",
+                    "value": secret_header_value,
+                    "is_sensitive": True,
+                },
+            )
+            assert updated_header.status_code == 200
+            assert secret_header_value not in updated_header.text
+            assert "value" not in updated_header.json()["headers"][0]
+
+            stale_header_delete = client.delete(
+                f"/api/v1/ai-channel-headers/{header_id}",
+                headers={"X-CSRF-Token": csrf_token},
+                params={
+                    "expected_channel_revision": updated_header.json()["revision"] - 1
+                },
+            )
+            assert stale_header_delete.status_code == 409
+            assert stale_header_delete.json()["error"]["code"] == "REVISION_CONFLICT"
+            deleted_header = client.delete(
+                f"/api/v1/ai-channel-headers/{header_id}",
+                headers={"X-CSRF-Token": csrf_token},
+                params={"expected_channel_revision": updated_header.json()["revision"]},
+            )
+            assert deleted_header.status_code == 204
+            current_channel = client.get(f"/api/v1/ai-channels/{channel_id}")
+            assert current_channel.status_code == 200
+            assert current_channel.json()["headers"] == []
+
             model = client.post(
                 f"/api/v1/ai-channels/{channel_id}/models",
                 headers={"X-CSRF-Token": csrf_token},
@@ -335,7 +385,7 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             enabled = client.post(
                 f"/api/v1/ai-channels/{channel_id}/enable",
                 headers={"X-CSRF-Token": csrf_token},
-                json={"expected_revision": replaced.json()["revision"]},
+                json={"expected_revision": current_channel.json()["revision"]},
             )
             assert enabled.status_code == 200
             assert enabled.json()["is_enabled"] is True
@@ -388,6 +438,9 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
                 "ai_channel.created",
                 "ai_channel.updated",
                 "ai_channel.api_key_replaced",
+                "ai_channel_header.created",
+                "ai_channel_header.updated",
+                "ai_channel_header.deleted",
                 "ai_model.created",
                 "ai_channel.enabled",
                 "ai_channel.disabled",
@@ -429,6 +482,8 @@ def test_ai_channel_api_enforces_permissions_contract_and_secret_redaction(
             assert all(not contains_sensitive_key(item.details) for item in audit_logs)
             assert all(first_api_key not in str(item.details) for item in audit_logs)
             assert all(replacement_api_key not in str(item.details) for item in audit_logs)
+            assert all(public_header_value not in str(item.details) for item in audit_logs)
+            assert all(secret_header_value not in str(item.details) for item in audit_logs)
             second_channel = db.get(AIChannel, uuid.UUID(second.json()["id"]))
             assert second_channel is not None
             assert "second-channel-key" not in second_channel.api_key_ciphertext
@@ -614,7 +669,8 @@ def test_ai_configuration_concurrent_delete_has_single_successful_effect(
                 "concurrent-channel-delete",
             )
             header_statuses = delete_twice(
-                f"/api/v1/ai-channel-headers/{header_id}", "concurrent-header-delete"
+                f"/api/v1/ai-channel-headers/{header_id}?expected_channel_revision=4",
+                "concurrent-header-delete",
             )
         finally:
             app.dependency_overrides.clear()

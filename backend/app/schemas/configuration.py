@@ -362,7 +362,6 @@ class AIChannelHeaderOut(ContractModel):
     is_configured: bool
     available_actions: list[Literal["UPDATE", "DELETE"]]
     primary_task: Literal["EDIT_HEADER", "RECONFIGURE_HEADER"]
-    value: str | None = None
 
 
 class AIChannelHeaderCreate(ContractModel):

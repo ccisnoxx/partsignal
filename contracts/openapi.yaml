@@ -1096,7 +1096,7 @@ paths:
       parameters: [{$ref: '#/components/parameters/AIChannelId'}]
       responses:
         '200':
-          description: 渠道详情和非敏感 Header
+          description: 渠道详情和安全 Header 元数据
           content:
             application/json:
               schema: {$ref: '#/components/schemas/AIChannel'}
@@ -1303,12 +1303,15 @@ paths:
       operationId: deleteAIChannelHeader
       parameters:
         - {$ref: '#/components/parameters/AIChannelHeaderId'}
+        - {name: expected_channel_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已删除 Header 并重置测试状态}
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/ai-channels/{channel_id}/models:
     get:
       tags: [configuration]
@@ -4320,7 +4323,6 @@ components:
           type: array
           items: {type: string, enum: [UPDATE, DELETE]}
         primary_task: {type: string, enum: [EDIT_HEADER, RECONFIGURE_HEADER]}
-        value: {type: [string, 'null']}
     AIChannelHeaderCreate:
       type: object
       additionalProperties: false

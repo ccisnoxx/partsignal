@@ -48,8 +48,8 @@ const channel = {
   latest_test_status: 'PASSED' as const, last_tested_at: '2026-07-13T09:00:00+08:00',
   created_by: 'user-1', created_at: '2026-07-13T08:00:00+08:00', updated_at: '2026-07-13T08:00:00+08:00',
   headers: [
-    { id: 'header-1', name: 'X-Public', is_sensitive: false, is_configured: true, primary_task: 'EDIT_HEADER' as const, available_actions: ['UPDATE', 'DELETE'] as const, value: 'public-value' },
-    { id: 'header-2', name: 'X-Secret', is_sensitive: true, is_configured: true, primary_task: 'RECONFIGURE_HEADER' as const, available_actions: ['UPDATE', 'DELETE'] as const, value: null },
+    { id: 'header-1', name: 'X-Public', is_sensitive: false, is_configured: true, primary_task: 'EDIT_HEADER' as const, available_actions: ['UPDATE', 'DELETE'] as const },
+    { id: 'header-2', name: 'X-Secret', is_sensitive: true, is_configured: true, primary_task: 'RECONFIGURE_HEADER' as const, available_actions: ['UPDATE', 'DELETE'] as const },
   ],
   available_actions: ['UPDATE', 'REPLACE_API_KEY', 'DISABLE', 'DELETE', 'DISCOVER_MODELS', 'CREATE_HEADER', 'CREATE_MODEL'] as const,
   workflow_stage: 'RUNNING' as const,
@@ -879,7 +879,7 @@ test('敏感 Header 在弹窗结束后从 mutation 状态清除', async () => {
   apiMocks.POST.mockResolvedValueOnce(result({
     ...channel,
     revision: channel.revision + 1,
-    headers: [...channel.headers, { id: 'header-new', name: 'X-New-Secret', is_sensitive: true, is_configured: true, value: null }],
+    headers: [...channel.headers, { id: 'header-new', name: 'X-New-Secret', is_sensitive: true, is_configured: true, primary_task: 'RECONFIGURE_HEADER' as const, available_actions: ['UPDATE', 'DELETE'] as const }],
   }));
   fireEvent.click(screen.getByRole('button', { name: /新增$/ }));
   const headerDialog = await findRcDialog('新增 Header');
@@ -894,7 +894,7 @@ test('敏感 Header 在弹窗结束后从 mutation 状态清除', async () => {
   });
 });
 
-test('复制渠道配置只写入非敏感白名单', async () => {
+test('复制渠道配置只写入安全摘要', async () => {
   const user = userEvent.setup();
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
@@ -906,20 +906,22 @@ test('复制渠道配置只写入非敏感白名单', async () => {
   await user.click(screen.getByRole('button', { name: /复制配置$/ }));
   await waitFor(() => expect(writeText).toHaveBeenCalledOnce());
   const copied = writeText.mock.calls[0]![0] as string;
-  expect(copied).toContain('public-value');
+  expect(copied).toContain('X-Public');
   expect(copied).toContain('X-Secret');
+  expect(copied).not.toContain('public-value');
   expect(copied).not.toContain('header-secret');
   expect(copied).not.toContain('api_key');
 });
 
-test('详情 Tabs 从 URL 恢复，请求配置仅显示固定掩码且敏感值不回显', async () => {
+test('详情 Tabs 从 URL 恢复，请求配置只显示 Header 安全状态', async () => {
   const user = userEvent.setup();
   renderWithQuery(
     <Routes><Route path="/configuration/ai" element={<AIChannelsPage />}><Route path="channels/:channelId" element={<AIChannelDetailPage />} /></Route></Routes>,
     ['/configuration/ai/channels/channel-1?tab=request'],
   );
   expect(await screen.findByText('已安全配置（••••••）')).toBeInTheDocument();
-  expect(screen.getByText('public-value')).toBeInTheDocument();
+  expect(screen.getAllByText('已配置（不回显）')).toHaveLength(2);
+  expect(screen.queryByText('public-value')).not.toBeInTheDocument();
   expect(screen.queryByText('header-secret')).not.toBeInTheDocument();
   await user.click(screen.getByRole('tab', { name: '模型管理' }));
   expect(await screen.findByText('内容生成模型')).toBeInTheDocument();
@@ -928,7 +930,7 @@ test('详情 Tabs 从 URL 恢复，请求配置仅显示固定掩码且敏感值
   expect(await screen.findByText('model-new')).toBeInTheDocument();
 });
 
-test('Header 删除确认说明渠道和模型失效范围', async () => {
+test('Header 删除确认说明失效范围并提交渠道 revision', async () => {
   const user = userEvent.setup();
   renderWithQuery(
     <Routes><Route path="/configuration/ai/channels/:channelId" element={<AIChannelDetailPage />} /></Routes>,
@@ -939,7 +941,14 @@ test('Header 删除确认说明渠道和模型失效范围', async () => {
   const dialog = await findRcDialog('删除 Header“X-Public”？');
   expect(within(dialog).getByText('删除后会停用该渠道及其全部模型，并把全部模型的测试状态重置为“未测试”、清除最近测试信息；重新测试并启用前不可用于生成。此操作不可恢复。')).toBeInTheDocument();
   expect(within(dialog).queryByText(/物理删除/)).not.toBeInTheDocument();
-  await user.click(within(dialog).getByRole('button', { name: /取\s*消/ }));
+  await user.click(within(dialog).getByRole('button', { name: /删\s*除/ }));
+  await waitFor(() => expect(apiMocks.DELETE).toHaveBeenCalledWith(
+    '/api/v1/ai-channel-headers/{header_id}',
+    expect.objectContaining({ params: expect.objectContaining({
+      path: { header_id: 'header-1' },
+      query: { expected_channel_revision: channel.revision },
+    }) }),
+  ));
 });
 
 test('渠道级连接测试必须显式选择模型并提示测试后停用', async () => {

@@ -248,7 +248,7 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   await headerDialog.getByRole('button', { name: /保\s*存/ }).click();
   await expect(headerDialog).not.toBeVisible();
   const sensitiveRow = page.getByRole('row').filter({ hasText: 'X-E2E-Secret' });
-  await expect(sensitiveRow.getByText('••••••', { exact: true })).toBeVisible();
+  await expect(sensitiveRow.getByText('已配置（不回显）', { exact: true })).toBeVisible();
   await expect(page.getByText(sensitiveHeader, { exact: true })).toHaveCount(0);
 
   await selectDetailTab(page, '模型管理', 'models');
@@ -370,6 +370,7 @@ test('管理员通过三栏页面完成渠道、凭据、Header、模型、测�
   expect(copied).toContain('"is_configured": true');
   expect(copied).not.toContain(apiKey);
   expect(copied).not.toContain(replacementKey);
+  expect(copied).not.toContain('ui-test');
   expect(copied).not.toContain(sensitiveHeader);
 
   const browserStorage = await page.evaluate(() => JSON.stringify({

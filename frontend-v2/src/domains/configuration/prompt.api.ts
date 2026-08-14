@@ -7,6 +7,7 @@ type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
 type PlatformPromptCreate = components['schemas']['PlatformPromptCreate'];
 type PlatformPromptDetail = components['schemas']['PlatformPromptDetail'];
+type PlatformPromptPreviewOptions = components['schemas']['PlatformPromptPreviewOptions'];
 type PlatformPromptUpdate = components['schemas']['PlatformPromptUpdate'];
 
 class PromptRequestError extends Error {
@@ -25,6 +26,10 @@ const promptKeys = {
   list: () => ['configuration', 'prompts', 'list'] as const,
   details: () => ['configuration', 'prompts', 'detail'] as const,
   detail: (promptId: string) => ['configuration', 'prompts', 'detail', promptId] as const,
+  previewOptionsRoot: () => ['configuration', 'prompts', 'preview-options'] as const,
+  previewOptions: (promptId: string) => (
+    ['configuration', 'prompts', 'preview-options', promptId] as const
+  ),
 };
 
 function platformPromptListQueryOptions(enabled = true) {
@@ -58,6 +63,24 @@ function platformPromptDetailQueryOptions(promptId: string, enabled = true) {
     retry: false,
     retryOnMount: false,
     staleTime: 30_000,
+  });
+}
+
+function platformPromptPreviewOptionsQueryOptions(promptId: string, enabled = true) {
+  return queryOptions({
+    enabled,
+    queryKey: promptKeys.previewOptions(promptId),
+    queryFn: async (): Promise<PlatformPromptPreviewOptions> => {
+      const result = await api.GET(
+        '/api/v1/platform-prompts/{platform_prompt_id}/preview-options',
+        { params: { path: { platform_prompt_id: promptId } } },
+      );
+      if (!result.data) throw promptRequestError('读取 Prompt Preview 选项', result);
+      return result.data;
+    },
+    refetchOnWindowFocus: 'always',
+    retry: false,
+    staleTime: 0,
   });
 }
 
@@ -142,6 +165,7 @@ export {
   deletePlatformPrompt,
   platformPromptDetailQueryOptions,
   platformPromptListQueryOptions,
+  platformPromptPreviewOptionsQueryOptions,
   promptKeys,
   updatePlatformPrompt,
 };

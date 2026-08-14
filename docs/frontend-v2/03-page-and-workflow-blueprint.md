@@ -380,7 +380,11 @@ Pattern：List + Workspace。
 └────────────────┴─────────────────────────┴────────────────────┘
 ```
 
-保留 revision、dirty handling、line/word count、真实 preview、bound platform。
+Prompt Library 与 Editor 继续使用完整列表、按需 Detail、revision、dirty handling 和 Markdown 唯一编辑源。右侧 Preview 位于 Bound Platforms 上方，只在 Prompt 已保存、表单 clean 且 Detail revision 与 Preview Options 一致时启用；Test Context 与模型都必须由用户显式选择，不设默认值。
+
+Preview Options 使用 ADMIN-only `GET /api/v1/platform-prompts/{platform_prompt_id}/preview-options`，只返回 Prompt identity、服务端按 `CREATE_GENERATION_JOB` 最终筛选并稳定排序的 ContentTask/Product/Platform/Fact identity，以及启用且测试通过的模型。响应不包含 Prompt/Fact Markdown、完整任务、动作、作业历史、snapshot 或凭据。
+
+确认 Dialog 必须明确说明这不是沙箱：提交会调用既有 GenerationJob command，创建普通、可审计的 AI ContentVersion，并占用所选任务的首稿位置。页面用稳定 `Idempotency-Key` 防止重复提交，只跟踪 create response 的 Job ID；仅在该 Job 为 `PENDING/RUNNING` 时轮询任务作业列表，terminal 后停止。成功按 `content_version_id` 读取既有不可变 ContentVersion 并展示正文、标签、Job/Version identity、任务链接和全屏阅读；失败只展示公开错误，不自动 retry、不读取完整 Job snapshot。Prompt 后续更新、删除或解绑不得改写既有 Job/Version 结果。
 
 ## 7.5 `/settings/ai`
 

@@ -59,6 +59,7 @@ const contentKeys = {
   versionDetail: (versionId: string) => (
     ['content', 'versions', 'detail', versionId] as const
   ),
+  version: (versionId: string) => ['content', 'versions', 'item', versionId] as const,
   generationOptions: (taskId: string) => (
     ['content', 'tasks', taskId, 'generation-options'] as const
   ),
@@ -255,6 +256,21 @@ function contentVersionDetailQueryOptions(versionId: string) {
     retry: false,
     retryOnMount: false,
     staleTime: 30_000,
+  });
+}
+
+function contentVersionQueryOptions(versionId: string) {
+  return queryOptions({
+    queryKey: contentKeys.version(versionId),
+    queryFn: async (): Promise<ContentVersion> => {
+      const result = await api.GET('/api/v1/content-versions/{content_version_id}', {
+        params: { path: { content_version_id: versionId } },
+      });
+      if (!result.data) throw contentRequestError('读取内容版本', result);
+      return result.data;
+    },
+    retry: false,
+    staleTime: Number.POSITIVE_INFINITY,
   });
 }
 
@@ -683,6 +699,7 @@ export {
   contentTaskDetailQueryOptions,
   contentVersionDetailErrorKind,
   contentVersionDetailQueryOptions,
+  contentVersionQueryOptions,
   contentKeys,
   contentPlatformReferencesQueryOptions,
   contentRequestError,

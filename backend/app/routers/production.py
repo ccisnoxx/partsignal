@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy import func, select
 
 from app.deps import (
+    AdminUser,
     CsrfProtected,
     CurrentUser,
     DbSession,
@@ -16,11 +17,7 @@ from app.deps import (
     assert_account_types,
 )
 from app.errors import AppError, not_found
-from app.models.ai_generation import (
-    AIChannel,
-    AIModel,
-    GenerationJob,
-)
+from app.models.ai_generation import GenerationJob
 from app.models.configuration import (
     ContentHumanizationPrompt,
     PlatformProfile,
@@ -46,11 +43,11 @@ from app.schemas.content import (
     GenerationJobDetail,
     GenerationJobList,
     GenerationJobOut,
-    GenerationOptionModel,
     GenerationOptions,
     GenerationPromptOption,
     HumanizationJobCreate,
     OriginalGenerationJobCreate,
+    PlatformPromptPreviewOptions,
 )
 from app.services.content_production import (
     abandon_content_version as abandon_content_version_command,
@@ -76,6 +73,10 @@ from app.services.content_production import (
 )
 from app.services.content_production import (
     update_content_draft as update_content_draft_command,
+)
+from app.services.content_task_queries import (
+    generation_model_options,
+    get_platform_prompt_preview_options,
 )
 from app.services.content_version_detail import get_content_version_detail
 from app.services.projections import content_diff, content_version_out, content_versions_out
@@ -182,16 +183,6 @@ def get_generation_options(
     )
     if prompt is None or not prompt.template_markdown.strip():
         raise AppError("PLATFORM_PROMPT_MISSING", "任务平台缺少当前 Prompt", 409)
-    rows = db.execute(
-        select(AIModel, AIChannel)
-        .join(AIChannel, AIChannel.id == AIModel.channel_id)
-        .where(
-            AIModel.is_enabled.is_(True),
-            AIModel.test_status == "PASSED",
-            AIChannel.is_enabled.is_(True),
-        )
-        .order_by(AIChannel.name, AIModel.display_name)
-    ).all()
     return GenerationOptions(
         platform_profile_id=task.platform_profile_id,
         platform_profile_name=platform_profile.name,
@@ -202,17 +193,22 @@ def get_generation_options(
             template_markdown=prompt.template_markdown,
         ),
         humanization_prompt_configured=db.get(ContentHumanizationPrompt, 1) is not None,
-        models=[
-            GenerationOptionModel(
-                id=model.id,
-                channel_id=channel.id,
-                channel_name=channel.name,
-                display_name=model.display_name,
-                model_id=model.model_id,
-            )
-            for model, channel in rows
-        ],
+        models=generation_model_options(db),
     )
+
+
+@router.get(
+    "/platform-prompts/{platform_prompt_id}/preview-options",
+    response_model=PlatformPromptPreviewOptions,
+    operation_id="getPlatformPromptPreviewOptions",
+)
+def get_prompt_preview_options(
+    platform_prompt_id: uuid.UUID,
+    db: DbSession,
+    _admin: AdminUser,
+) -> PlatformPromptPreviewOptions:
+    """返回 Prompt 当前可用于真实首稿生成的窄选项。"""
+    return get_platform_prompt_preview_options(db, platform_prompt_id)
 
 
 @router.post(

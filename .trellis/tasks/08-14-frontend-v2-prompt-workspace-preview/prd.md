@@ -9,10 +9,10 @@ Preview 用于验证已保存、已绑定 Prompt 的真实生成效果，不是�
 ## 2. 显式依赖
 
 - 父规划：`.trellis/tasks/08-13-frontend-v2-prompt-workspace`。
-- 必须等待 `.trellis/tasks/08-14-frontend-v2-prompt-workspace-core` 验证、提交、归档并 fast-forward 合入 main。
+- Core 已验证、提交、归档至 `.trellis/tasks/archive/2026-08/08-14-frontend-v2-prompt-workspace-core`，并 fast-forward 合入 main。
 - Preview 从包含 Core 的 clean main 开始，不直接建立在未合入的 Core branch/worktree 上。
 - 候选临时分支：`codex/frontend-v2-prompt-workspace-preview`。
-- 当前仅 planning；依赖未满足或用户未批准本最新规划时不得 start/建分支。
+- 用户已批准本最新规划并授权 start/建分支。
 
 ## 3. 已确认事实
 
@@ -77,19 +77,19 @@ Preview 用于验证已保存、已绑定 Prompt 的真实生成效果，不是�
 
 ## 5. 验收标准
 
-- [ ] OpenAPI、generated V1/V2 types与runtime FastAPI一致。
-- [ ] Preview Options ADMIN 200、ENGINEER 403、未知Prompt 404。
-- [ ] contexts仅包含当前Prompt绑定平台且拥有CREATE_GENERATION_JOB资格的任务，稳定排序且无N+1。
-- [ ] models仅包含channel/model enabled且model test PASSED；与generation-options共用query owner。
-- [ ] dirty/new/revision mismatch禁用Preview且有明确原因。
-- [ ] context/model无默认，用户显式选择并确认真实首稿副作用。
-- [ ] command使用既有endpoint、准确Prompt revision与stable Idempotency-Key，pending防重。
-- [ ] 只跟踪returned Job；PENDING/RUNNING polling，SUCCEEDED/FAILED terminal stop。
-- [ ] 成功读取immutable ContentVersion；失败只显示公开error，无假成功/auto retry。
-- [ ] create/terminal/Prompt/Platform mutation精确失效真实消费者。
-- [ ] production-artifact fixture覆盖pending/success/failure/empty/error和四档布局；未声明API/runtime error失败。
-- [ ] backend integration + fixture + 既有Content AI real-stack形成证据链，不重复整套provider flow。
-- [ ] 文档与合同/代码一致。
+- [x] OpenAPI、generated V1/V2 types与runtime FastAPI一致。
+- [x] Preview Options ADMIN 200、ENGINEER 403、未知Prompt 404。
+- [x] contexts仅包含当前Prompt绑定平台且拥有CREATE_GENERATION_JOB资格的任务，稳定排序且无N+1。
+- [x] models仅包含channel/model enabled且model test PASSED；与generation-options共用query owner。
+- [x] dirty/new/revision mismatch禁用Preview且有明确原因。
+- [x] context/model无默认，用户显式选择并确认真实首稿副作用。
+- [x] command使用既有endpoint、准确Prompt revision与stable Idempotency-Key，pending防重。
+- [x] 只跟踪returned Job；PENDING/RUNNING polling，SUCCEEDED/FAILED terminal stop。
+- [x] 成功读取immutable ContentVersion；失败只显示公开error，无假成功/auto retry。
+- [x] create/terminal/Prompt/Platform mutation精确失效真实消费者。
+- [x] production-artifact fixture覆盖pending/success/failure/empty/error和四档布局；未声明API/runtime error失败。
+- [x] backend integration + fixture + 既有Content AI real-stack形成证据链，不重复整套provider flow。
+- [x] 文档与合同/代码一致。
 
 ## 6. 排除项
 

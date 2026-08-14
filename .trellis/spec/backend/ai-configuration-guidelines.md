@@ -13,6 +13,7 @@
 
 - 渠道协议：`GET {base_url}/models`、`POST {base_url}/chat/completions`。
 - 创建原始作业：`POST /api/v1/content-tasks/{content_task_id}/generation-jobs`，请求体接收 `ai_model_id`、`platform_prompt_id` 和 `platform_prompt_revision`；自然化请求只接收 `ai_model_id`。
+- Prompt Preview 选项：ADMIN-only `GET /api/v1/platform-prompts/{platform_prompt_id}/preview-options`，返回 `platform_prompt`、`contexts` 和 `models`；它是只读选择范围，不是生成授权。
 - 重试作业：`POST /api/v1/generation-jobs/{generation_job_id}/retry`，复制原 `input_snapshot`。
 - 核心表：`ai_channels`、`ai_channel_headers`、`ai_models`、`generation_jobs`。
 - `generation_jobs.ai_channel_id` 和 `ai_model_id` 删除时 `SET NULL`；历史含义由 `input_snapshot` 保留。
@@ -44,7 +45,9 @@
 - Prompt 名称全局唯一。PUT 与 DELETE 都必须携带当前 `expected_revision`；服务锁定模板行后比较修订号，过期命令返回 `REVISION_CONFLICT`。Prompt 删除与平台换绑复用同一个事务 advisory lock；删除会原子解绑全部当前平台并递增平台 revision，平台删除仍不级联删除模板。
 - 平台集合的可空 `platform_prompt` 摘要只能批量投影当前外键目标；配置完整性只由绑定是否存在派生，不得保存 `prompt_configured`、`prompt_updated_at` 或其他平行汇总字段。
 - 文章自然化只使用 `content_humanization_prompts.id=1` 的全局当前 Prompt。迁移不得种子默认值；管理员通过 `GET/PUT /api/v1/content-humanization-prompt` 首次创建或按 revision 更新，不提供删除、平台副本、用户临时 Prompt 或代码回退。
-- 配置页输出预览必须创建现有 `GENERATE` 或 `HUMANIZE` 作业，并按任务级作业列表中的返回 Job ID 轮询后读取不可变 `ContentVersion`；不得新增无痕模型调用、预览专用结果源，或为显示预览读取含完整输入快照的作业详情。未保存的 Prompt 草稿不能用于预览。
+- Prompt Preview Options 的 context 必须先按当前 Prompt 绑定预筛，再由 `content_tasks_out` 的 `CREATE_GENERATION_JOB` 最终筛选并稳定排序；model 与既有 generation-options 共用 enabled channel + enabled/test `PASSED` 查询。响应只含 Prompt、Task、Product、Platform、Fact version 和 model identity，不得返回 Markdown、actions、Job history、snapshot 或凭据；稀疏/稠密结果必须保持固定查询次数。
+- 配置页输出预览只接受已保存、clean 且 Detail revision 与 options 一致的 Prompt，并要求用户显式选择 context/model。确认后必须创建现有 `GENERATE` 或 `HUMANIZE` 作业，以同 command signature 的稳定随机 `Idempotency-Key` 提交，按任务级作业列表中的返回 Job ID 轮询后读取不可变 `ContentVersion`；payload 变化或 `IDEMPOTENCY_CONFLICT` 才废弃 key。不得新增无痕模型调用、预览专用结果源、自动重试，或为显示预览读取含完整输入快照的作业详情。
+- Preview create/terminal 只失效 Preview Options 和 Content 当前 list/detail/editor projections；create 另失效 exact task Job list。Prompt update/delete 与 Platform bind/unbind 失效 Preview Options root；历史 Job/Version 不因当前配置变化而失效或改写。
 - 原始生成和自然化共用 `generation_jobs` 与一个 Celery UUID 消息。`job_type=GENERATE` 使用 `GenerationSnapshot`，`job_type=HUMANIZE` 使用 `HumanizationSnapshot`；必须按类型严格解析，不得候选解析或建立第二套队列、重试和指标来源。
 - 自然化快照冻结源版本完整正文与哈希、全局 Prompt Markdown/revision、用户选择的渠道/模型、事实版本身份和最终消息。重试只复制原快照，不读取当前 Prompt 或更换模型。
 - 内容任务直接提交 `platform_profile_id`。新原始生成作业使用 `content-markdown-v3`，服务端必须校验请求中的 Prompt UUID/revision 仍等于平台当前绑定，并冻结 Prompt 身份、名称、revision 和正文；请求仍恰好为 `system = PlatformPrompt.template_markdown`、`user = FactVersion.body_markdown`。`content-markdown-v2` 仅作为明确历史类型读取和按原快照重试，v1 快照仅供历史读取且禁止重试。
@@ -56,6 +59,7 @@
 - 实际 TCP peer 不在本次批准集合 -> `AI_URL_FORBIDDEN`，且敏感 Header 尚未发送。
 - 绑定事实版本不是 `PUBLIC` -> `AI_DATA_CLASSIFICATION_FORBIDDEN`。
 - 具体平台没有当前 Prompt -> `PLATFORM_PROMPT_MISSING`；不得回退到平台类型或其他平台 Prompt。
+- Preview Options 非 ADMIN -> `403`；Prompt 不存在 -> `404`。Options 过期不授予生成资格，原始生成命令仍按当前绑定、revision、动作与模型状态重新校验并显式失败。
 - 全局自然化 Prompt 未配置 -> `HUMANIZATION_PROMPT_MISSING`；不得使用文档建议模板或代码常量代替。
 - 自然化源不是 `OPEN` 任务中的 `AI DRAFT | CHANGES_REQUESTED`，或冻结身份/哈希失效 -> `HUMANIZATION_SOURCE_INVALID`；同源已有活动作业 -> `HUMANIZATION_ALREADY_ACTIVE`。
 - 响应超过固定上限 -> `AI_RESPONSE_TOO_LARGE`，不得继续读取或改走其他地址。
@@ -85,6 +89,9 @@
 - 错误：旧作业创建后新增敏感 Header 时，执行或重试不得把该 Header 带入请求；旧作业所需敏感 Header 不再存在时显式失败。
 - 错误：把 Humanizer-zh 当作后端 Skill 运行时，或在原始生成成功后自动串行调用自然化。
 - 正常：用户对具体合格 AI 版本选择当前可用模型，独立自然化作业创建一个 `based_on_id` 指向源版本的新 AI 草稿，源正文和状态保持不变。
+- 正常：管理员在 Prompt Workspace 显式选择 Options 返回的 context/model，确认真实首稿副作用后创建普通 `GENERATE` Job；页面只追踪返回 Job ID，终态后读取其不可变 ContentVersion。
+- 基础：Options 无 context 或 model 时显示配置空态；dirty/new/revision mismatch 时不发送生成命令，也不自动选择第一项。
+- 错误：浏览器分页拉取 ContentTask 后自行过滤 actions，或在 Prompt 更新后用旧 Options 绕过服务端重验。
 - 错误：legacy Job 快照不得重试到第三方模型；用户必须基于当前三个字段任务创建新 v3 作业。
 
 ### 6. 必需测试
@@ -94,7 +101,7 @@
 - 迁移测试：`0008_files -> head` 账号映射、旧权限表删除、新配置表/约束/触发器和有损回滚策略。
 - 契约测试：`make contract-check` 验证 FastAPI/OpenAPI 语义和前端生成类型无漂移。
 - 端到端测试：真实 HTTP 测试替身完成模型发现、测试和生成；确定性生成器只用于明确的单元/开发场景，不能伪装成真实云端成功。
-- Prompt 管理断言：平台列表批量返回当前模板摘要，共享更新列出全部受影响平台，绑定模板按 revision 原子解绑删除并使新生成显式缺配置，历史作业快照不变；配置页两类输出预览创建真实作业和 AI `DRAFT`，并对 Markdown 结果做安全清理。
+- Prompt 管理断言：平台列表批量返回当前模板摘要，共享更新列出全部受影响平台，绑定模板按 revision 原子解绑删除并使新生成显式缺配置，历史作业快照不变；Preview Options 覆盖 ADMIN/403/404、action 最终筛选、稳定排序、共享模型查询、无敏感正文与固定查询次数；配置页覆盖显式选择、stable key、returned Job polling、终态停止、公开失败和不可变 AI `DRAFT`。
 - 并发断言：作业创建锁定任务并读取当前平台 Prompt 与冻结事实；过期租约后的迟到响应不能写入成功结果。
 - 恢复断言：首次投递缺失、Broker 已接受但元数据未提交、重复消息和并发恢复均至多产生一次供应商调用和一个内容版本。
 - 模型测试并发断言：外部调用期间配置可更新，但旧测试结果不得覆盖更新后的 `UNTESTED` 状态。
@@ -154,4 +161,15 @@ target = db.get(AIChannel, channel_id)
 
 # 正确：目标行串行化后，等待者会在前一事务提交删除后得到不存在结果。
 target = db.scalar(select(AIChannel).where(AIChannel.id == channel_id).with_for_update())
+```
+
+```tsx
+// 错误：客户端复制任务资格，并轮询“最新作业”。
+const context = tasks.find((task) => task.status === 'OPEN');
+const job = jobs.items[0];
+
+// 正确：Options 只提供选择范围；写命令仍重验，并只追踪 POST 返回的 Job。
+const options = useQuery(platformPromptPreviewOptionsQueryOptions(promptId));
+const created = await createGenerationJob(contextId, body, csrfToken, idempotencyKey);
+const job = jobs.items.find((item) => item.id === created.id);
 ```

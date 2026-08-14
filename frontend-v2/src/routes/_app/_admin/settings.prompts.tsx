@@ -3,7 +3,10 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 
 import { contentKeys } from '@/domains/content/content.api';
 import { platformKeys } from '@/domains/configuration/platform.api';
-import { platformPromptListQueryOptions } from '@/domains/configuration/prompt.api';
+import {
+  platformPromptListQueryOptions,
+  promptKeys,
+} from '@/domains/configuration/prompt.api';
 import {
   PromptWorkspacePage,
   type PromptMutationKind,
@@ -46,6 +49,7 @@ function PromptWorkspaceRoute() {
   async function invalidateConsumers(kind: PromptMutationKind) {
     if (kind === 'create') return;
     const invalidations = [
+      queryClient.invalidateQueries({ queryKey: promptKeys.previewOptionsRoot() }),
       queryClient.invalidateQueries({ queryKey: platformKeys.lists() }),
       queryClient.invalidateQueries({ queryKey: platformKeys.details() }),
       queryClient.invalidateQueries({

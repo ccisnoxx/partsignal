@@ -13,10 +13,18 @@ import type { components } from '@/shared/api/generated/schema';
 
 type PlatformPromptDetail = components['schemas']['PlatformPromptDetail'];
 type PlatformPromptList = components['schemas']['PlatformPromptList'];
+type PlatformPromptPreviewOptions = components['schemas']['PlatformPromptPreviewOptions'];
 
 const promptId = '10000000-0000-4000-8000-000000000001';
 const secondPromptId = '10000000-0000-4000-8000-000000000002';
 const platformId = '20000000-0000-4000-8000-000000000001';
+const taskId = '30000000-0000-4000-8000-000000000001';
+const factVersionId = '40000000-0000-4000-8000-000000000001';
+const productId = '50000000-0000-4000-8000-000000000001';
+const channelId = '60000000-0000-4000-8000-000000000001';
+const modelId = '70000000-0000-4000-8000-000000000001';
+const jobId = '80000000-0000-4000-8000-000000000001';
+const versionId = '90000000-0000-4000-8000-000000000001';
 const adminUser: AuthUser = {
   id: '00000000-0000-4000-8000-000000000099',
   username: 'admin',
@@ -84,6 +92,83 @@ function list(): PlatformPromptList {
   };
 }
 
+function previewOptions(): PlatformPromptPreviewOptions {
+  return {
+    platform_prompt: { id: promptId, name: '技术文章 Prompt', revision: 4 },
+    contexts: [{
+      content_task_id: taskId,
+      identifier: 'CT-30000000',
+      product_id: productId,
+      brand: 'PartSignal',
+      part_number: 'PS-PREVIEW',
+      platform_profile_id: platformId,
+      platform_profile_name: '工程师社区',
+      fact_version_id: factVersionId,
+      fact_version: 2,
+    }],
+    models: [{
+      id: modelId,
+      channel_id: channelId,
+      channel_name: '测试渠道',
+      display_name: 'Preview 模型',
+      model_id: 'preview-model',
+    }],
+  };
+}
+
+function generationJob(
+  status: components['schemas']['GenerationJobStatus'],
+): components['schemas']['GenerationJob'] {
+  return {
+    id: jobId,
+    content_task_id: taskId,
+    job_type: 'GENERATE',
+    source_content_version_id: null,
+    status,
+    workflow_stage: status === 'SUCCEEDED' ? 'SUCCEEDED' : status === 'FAILED' ? 'HISTORICAL_FAILURE' : 'IN_PROGRESS',
+    primary_task: status === 'SUCCEEDED' ? 'VIEW_GENERATED_CONTENT' : status === 'FAILED' ? 'VIEW_FAILURE' : 'VIEW_EXECUTION_PROGRESS',
+    available_actions: [],
+    attempt_count: status === 'PENDING' ? 0 : 1,
+    content_version_id: status === 'SUCCEEDED' ? versionId : null,
+    retry_of_id: null,
+    error_code: status === 'FAILED' ? 'PROVIDER_ERROR' : null,
+    error_summary: status === 'FAILED' ? '供应商拒绝请求' : null,
+    provider_request_id: null,
+    response_duration_ms: null,
+    prompt_tokens: null,
+    completion_tokens: null,
+    total_tokens: null,
+    created_at: '2026-08-14T08:00:00Z',
+    started_at: status === 'PENDING' ? null : '2026-08-14T08:00:01Z',
+    finished_at: status === 'PENDING' || status === 'RUNNING' ? null : '2026-08-14T08:00:02Z',
+  };
+}
+
+function contentVersion(): components['schemas']['ContentVersion'] {
+  return {
+    id: versionId,
+    task_id: taskId,
+    fact_version_id: factVersionId,
+    source_job_id: jobId,
+    based_on_id: null,
+    version: 1,
+    source_type: 'AI',
+    title: 'Preview 生成标题',
+    summary: 'Preview 生成摘要',
+    body_markdown: '# Preview 生成正文',
+    tags: ['preview'],
+    content_hash: 'a'.repeat(64),
+    status: 'DRAFT',
+    workflow_stage: 'CURRENT_DRAFT',
+    primary_task: 'EDIT_AND_SUBMIT_REVIEW',
+    available_actions: ['SUBMIT_REVIEW'],
+    revision: 0,
+    quality_issues: [],
+    created_by: adminUser.id,
+    created_at: '2026-08-14T08:00:02Z',
+  };
+}
+
 function response<T>(data: T) {
   return { data, response: Response.json(data) } as never;
 }
@@ -119,6 +204,9 @@ function mockReads(current: () => PlatformPromptDetail = () => prompt()) {
         bound_platform_count: 0,
         bound_platforms: [],
       }));
+    }
+    if (path === '/api/v1/platform-prompts/{platform_prompt_id}/preview-options') {
+      return response(previewOptions());
     }
     throw new Error(`测试收到未声明 GET：${path}`);
   });
@@ -168,6 +256,7 @@ describe('PromptWorkspacePage', () => {
     const name = await screen.findByRole('textbox', { name: 'Prompt 名称' });
     await userEvent.clear(name);
     await userEvent.type(name, '未保存 Prompt');
+    expect(await screen.findByText(/当前 Prompt 有未保存修改/)).toBeInTheDocument();
 
     await userEvent.type(screen.getByRole('searchbox', { name: '搜索 Prompt 名称' }), '技术');
     expect(screen.queryByRole('dialog', { name: '要离开当前页面吗？' })).not.toBeInTheDocument();
@@ -294,7 +383,103 @@ describe('PromptWorkspacePage', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['configuration', 'platforms', 'list'] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['configuration', 'platforms', 'detail'] });
     expect(invalidate).toHaveBeenCalledWith({ predicate: expect.any(Function) });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ['configuration', 'prompts', 'preview-options'],
+    });
     expect(await screen.findByText('未修改 · Revision 5')).toBeInTheDocument();
+  });
+
+  it('显式选择并确认真实副作用；请求失败同签名复用 key，成功后只跟踪返回 Job 和不可变版本', async () => {
+    const get = mockReads();
+    get.mockImplementation(async (path, options) => {
+      if (path === '/api/v1/platform-prompts') return response(list());
+      if (path === '/api/v1/platform-prompts/{platform_prompt_id}') return response(prompt());
+      if (path === '/api/v1/platform-prompts/{platform_prompt_id}/preview-options') {
+        return response(previewOptions());
+      }
+      if (path === '/api/v1/content-tasks/{content_task_id}/generation-jobs') {
+        return response({ items: [generationJob('SUCCEEDED')] });
+      }
+      if (path === '/api/v1/content-versions/{content_version_id}') {
+        const id = (options as unknown as { params: { path: { content_version_id: string } } })
+          .params.path.content_version_id;
+        expect(id).toBe(versionId);
+        return response(contentVersion());
+      }
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    const post = vi.spyOn(api, 'POST')
+      .mockResolvedValueOnce({
+        error: { error: {
+          code: 'PROVIDER_UNAVAILABLE',
+          message: '创建请求暂时失败',
+          details: {},
+          request_id: 'req-preview-failed',
+        } },
+        response: Response.json({}, { status: 503 }),
+      } as never)
+      .mockResolvedValueOnce(response(generationJob('PENDING')));
+    const { queryClient } = renderWorkspace(`/settings/prompts?promptId=${promptId}`);
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    const run = await screen.findByRole('button', { name: '运行真实 Preview' });
+    expect(run).toBeDisabled();
+    await userEvent.click(screen.getByRole('combobox', { name: 'Test Context' }));
+    await userEvent.click(await screen.findByRole('option', { name: /CT-30000000/ }));
+    expect(run).toBeDisabled();
+    await userEvent.click(screen.getByRole('combobox', { name: '模型' }));
+    await userEvent.click(await screen.findByRole('option', { name: /Preview 模型/ }));
+    expect(run).toBeEnabled();
+    await userEvent.click(run);
+
+    const confirmation = await screen.findByRole('dialog', { name: '确认创建真实首稿？' });
+    expect(within(confirmation).getByText(/不是沙箱/)).toBeInTheDocument();
+    const confirm = within(confirmation).getByRole('button', { name: '确认创建真实首稿' });
+    await userEvent.click(confirm);
+    expect(await within(confirmation).findByText(/创建请求暂时失败/)).toBeInTheDocument();
+    await userEvent.click(confirm);
+
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(2));
+    const firstHeaders = (post.mock.calls[0]?.[1] as unknown as {
+      params: { header: { 'Idempotency-Key': string } };
+    }).params.header;
+    const secondHeaders = (post.mock.calls[1]?.[1] as unknown as {
+      params: { header: { 'Idempotency-Key': string } };
+    }).params.header;
+    expect(secondHeaders['Idempotency-Key']).toBe(firstHeaders['Idempotency-Key']);
+    expect(post).toHaveBeenLastCalledWith(
+      '/api/v1/content-tasks/{content_task_id}/generation-jobs',
+      {
+        body: {
+          ai_model_id: modelId,
+          platform_prompt_id: promptId,
+          platform_prompt_revision: 4,
+        },
+        params: {
+          path: { content_task_id: taskId },
+          header: {
+            'X-CSRF-Token': auth.csrfToken,
+            'Idempotency-Key': secondHeaders['Idempotency-Key'],
+          },
+        },
+      },
+    );
+    expect(await screen.findByText('Preview 生成标题')).toBeInTheDocument();
+    expect(screen.getByText(`Job ${jobId}`)).toBeInTheDocument();
+    expect(screen.getByText(`Version ${versionId}`)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '查看任务 CT-30000000' })).toHaveAttribute(
+      'href',
+      `/content/tasks/${taskId}`,
+    );
+    expect(invalidate).toHaveBeenCalledWith({
+      exact: true,
+      queryKey: ['content', 'tasks', taskId, 'generation-jobs'],
+    });
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ['configuration', 'prompts', 'preview-options'],
+    });
+    expect(get.mock.calls.some((call) => call[0] === '/api/v1/generation-jobs/{generation_job_id}'))
+      .toBe(false);
   });
 
   it('revision 冲突保留本地 Markdown，只有显式 reload 才采用服务端版本', async () => {

@@ -273,6 +273,12 @@ model/component/production-artifact tests 覆盖 UUID 与唯一 Tab canonicaliza
 
 model/component tests 另覆盖 loading/empty/stale refresh、未知 action/primary/blocker、slug 字段错误、Dialog 焦点和只失效 Type list/Platform lists/Platform details；backend contract/PostgreSQL integration 覆盖 name/slug 边界、真实唯一约束、Enabled/Disabled count/blocker、稳定排序、stale DELETE 优先级、ADMIN 403 与 sparse/dense 固定两查询。本 fixture 不替代 Phase 6 完整 real-stack E2E。
 
+### 13.15 Prompt Workspace Preview 验收
+
+`backend/tests/integration/test_prompt_preview_options.py` 以隔离 PostgreSQL 证明 ADMIN 200、ENGINEER 403、未知 Prompt 404、当前绑定、`CREATE_GENERATION_JOB` 最终资格、稳定 context 顺序、启用/测试通过模型与 sparse/dense 固定查询次数；`make contract-check` 同时冻结 runtime、OpenAPI 与 V1/V2 generated types。测试显式断言响应不含 Prompt Markdown 或 credential 字段。
+
+`prompt-workspace-page.test.tsx` 覆盖 new/dirty/revision gate、context/model 无默认、真实副作用确认、失败后同 signature key、返回 Job 追踪、terminal cache 与不可变 ContentVersion；既有 Platform Workspace 和 Content AI Production tests 证明共享失效及 generation command 行为未漂移。`tests/e2e/prompt-workspace.spec.ts` 的 generated-type strict fixture 只增加 Preview Options、existing GenerationJob POST/Task Job List 和基础 ContentVersion GET，未声明 API 与运行时错误继续失败；mobile/desktop 覆盖 loading、empty、error/retry、pending/success/failure、terminal stop、任务/版本 identity、全屏结果和 375/768/1024/1440 根无溢出。既有 `content-ai-real-stack.spec.ts` 已证明同一 POST→Worker→provider→ContentVersion 链路，因此本 Task 不复制 provider flow；fixture 不冒充完整真实栈。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

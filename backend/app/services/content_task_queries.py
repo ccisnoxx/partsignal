@@ -7,8 +7,9 @@ import uuid
 from sqlalchemy import String, cast, func, literal, or_, select
 from sqlalchemy.orm import Session
 
-from app.errors import AppError
-from app.models.configuration import PlatformProfile
+from app.errors import AppError, not_found
+from app.models.ai_generation import AIChannel, AIModel
+from app.models.configuration import PlatformProfile, PlatformPrompt
 from app.models.content import ContentTask, ContentTaskGeoSource
 from app.models.product_facts import FactVersion, Product
 from app.schemas.content import (
@@ -21,8 +22,97 @@ from app.schemas.content import (
     ContentTaskQueryTopicReference,
     ContentTaskRequestedProduct,
     ContentTaskWorkflowStage,
+    GenerationOptionModel,
+    PlatformPromptPreviewContext,
+    PlatformPromptPreviewOptions,
+    PlatformPromptSnapshot,
 )
 from app.services.projections import content_task_workflow_projection, content_tasks_out
+
+
+def generation_model_options(db: Session) -> list[GenerationOptionModel]:
+    """返回所有当前启用且测试通过的模型，供生成入口共享。"""
+    rows = db.execute(
+        select(AIModel, AIChannel)
+        .join(AIChannel, AIChannel.id == AIModel.channel_id)
+        .where(
+            AIModel.is_enabled.is_(True),
+            AIModel.test_status == "PASSED",
+            AIChannel.is_enabled.is_(True),
+        )
+        .order_by(AIChannel.name, AIModel.display_name, AIChannel.id, AIModel.id)
+    ).all()
+    return [
+        GenerationOptionModel(
+            id=model.id,
+            channel_id=channel.id,
+            channel_name=channel.name,
+            display_name=model.display_name,
+            model_id=model.model_id,
+        )
+        for model, channel in rows
+    ]
+
+
+def get_platform_prompt_preview_options(
+    db: Session,
+    platform_prompt_id: uuid.UUID,
+) -> PlatformPromptPreviewOptions:
+    """按服务端任务动作投影返回 Prompt 当前可生成的真实上下文。"""
+    prompt = db.get(PlatformPrompt, platform_prompt_id)
+    if prompt is None:
+        raise not_found("平台 Prompt")
+
+    candidates = list(
+        db.scalars(
+            select(ContentTask)
+            .join(
+                PlatformProfile,
+                PlatformProfile.id == ContentTask.platform_profile_id,
+            )
+            .where(
+                PlatformProfile.platform_prompt_id == prompt.id,
+                ContentTask.status == "OPEN",
+                ContentTask.archived_at.is_(None),
+                ContentTask.current_content_version_id.is_(None),
+            )
+            .order_by(ContentTask.updated_at.desc(), ContentTask.id.desc())
+        )
+    )
+    eligible = [
+        item
+        for item in content_tasks_out(db, candidates)
+        if "CREATE_GENERATION_JOB" in item.available_actions
+    ]
+    fact_ids = {item.fact_version_id for item in eligible}
+    facts_by_id = {
+        fact.id: fact
+        for fact in db.scalars(select(FactVersion).where(FactVersion.id.in_(fact_ids)))
+    }
+    contexts: list[PlatformPromptPreviewContext] = []
+    for item in eligible:
+        fact = facts_by_id.get(item.fact_version_id)
+        if fact is None or item.platform.id is None:
+            raise RuntimeError(f"内容任务 {item.id} 的 Preview 身份不完整")
+        contexts.append(
+            PlatformPromptPreviewContext(
+                content_task_id=item.id,
+                identifier=item.identifier,
+                product_id=item.product.id,
+                brand=item.product.brand,
+                part_number=item.product.part_number,
+                platform_profile_id=item.platform.id,
+                platform_profile_name=item.platform.name,
+                fact_version_id=fact.id,
+                fact_version=fact.version,
+            )
+        )
+
+    return PlatformPromptPreviewOptions(
+        platform_prompt=PlatformPromptSnapshot.model_validate(prompt),
+        contexts=contexts,
+        models=generation_model_options(db),
+    )
 
 
 def get_content_task_creation_options(

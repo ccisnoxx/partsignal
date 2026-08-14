@@ -355,3 +355,11 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - `primary_task=EDIT_CATEGORY` 是服务端任务语义，不产生独立 Primary button。UPDATE、DELETE 与查看非空 blocker 全部进入 overflow；未知 action/primary/blocker 必须显式失败。只有包含 DELETE 且 blocker 为空时才进入确认删除。
 - create/update Dialog 只提交 Name 与 Slug；name 由服务端 trim 且不唯一，slug 不自动规范化、数据库唯一并可修改。PATCH body 与 DELETE query 都提交 canonical revision；服务端锁行后先校验 revision，DELETE 再复核 PlatformProfile 引用，分别返回 `REVISION_CONFLICT` 与 `PLATFORM_TYPE_IN_USE`。
 - 409 保留表单或删除上下文，不自动 GET/replay；显式 reload 才采用服务端 baseline。成功 mutation 精确失效 Type settings、全部 Platform lists 与全部 Platform details，覆盖 options 和名称消费者，不触碰 Account/Prompt/Content/Publication cache。
+
+## 26. Platform Prompt Preview Options 与真实首稿命令
+
+- `GET /api/v1/platform-prompts/{platform_prompt_id}/preview-options` 是 ADMIN-only 窄 read model，返回 `platform_prompt + contexts + models`。contexts 只来自当前绑定目标 Prompt 的 OPEN、未归档、无 current content 候选，并最终复用 ContentTask `CREATE_GENERATION_JOB` action；预筛不是授权，existing POST 仍在任务锁内重验全部事实。
+- contexts 只含 Task identifier、Product、Platform 与 Fact version identity，按任务 `updated_at DESC, id DESC` 稳定排序；models 与既有 generation-options 共用启用渠道、启用模型、`test_status=PASSED` 的唯一 query owner。sparse/dense 都保持固定查询次数，不返回 Markdown、snapshot、credential 或业务历史。
+- 浏览器仅在已保存、clean、Detail/options Prompt ID 与 revision 一致时允许确认；context/model 无默认。命令继续调用 `POST /content-tasks/{id}/generation-jobs`，payload 只含 options 返回的 Prompt ID/revision 和显式模型。同一未创建成功的 command signature 重试复用 key，payload 改变、成功或 `IDEMPOTENCY_CONFLICT` 后废弃旧 key；同步 pending 锁防止双击。
+- 页面只跟踪 create response 的 Job ID，并只在该 Job `PENDING/RUNNING` 时轮询 exact task Job list。`FAILED` 只显示公开 code/summary；`SUCCEEDED` 按 `content_version_id` 读取既有不可变 ContentVersion，不读取 GenerationJob detail/snapshot 拼结果，也不自动 retry 或伪造成功。
+- create 与 terminal 精确失效 Preview Options、Content Task list/detail/editor contexts；create 另刷新 exact task Job list。Prompt update/delete 与 Platform bind/unbind 失效 Preview Options root。历史 Job/Version 不因当前 Prompt 或绑定变化而失效、重写或改标。

@@ -242,6 +242,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Concurrency, permission and cache boundary**：PATCH body 与 DELETE query 都要求 canonical revision。DELETE 锁行后先比较 revision，再实时复核 PlatformProfile 引用，明确区分 `REVISION_CONFLICT` 与 `PLATFORM_TYPE_IN_USE`。route 与四个 endpoint 都维持 ADMIN 边界；List/Workspace 的入口隐藏只负责 UX。create/update/delete 只失效 Type settings、全部 Platform lists 与全部 Platform details，覆盖 options 和名称消费者，不清 QueryClient 或触碰其他 domain。
 
+## ADR-039：Prompt Preview 复用真实生成链路与窄 Options read model
+
+**Decision**：Prompt Workspace Preview 新增唯一 ADMIN-only `GET /api/v1/platform-prompts/{platform_prompt_id}/preview-options`，但不新增 preview mutation、Job type、ContentVersion type、数据库字段或 provider 调用。提交继续使用既有 GenerationJob command；成功结果继续由既有不可变 ContentVersion 拥有。
+
+**Read model ownership**：endpoint 路径按 Prompt 定位，资格和模型查询仍由 Content production/read-query owner 管理。候选任务先按当前 Platform→Prompt 绑定收窄，再复用 `content_tasks_out` 的 `CREATE_GENERATION_JOB` action 作最终筛选；模型与 generation-options 共用一个 helper。响应只提供 UI 选择所需身份，固定查询次数，不泄露 Markdown、snapshot、credential 或历史。
+
+**UI and command boundary**：Configuration domain 拥有 Preview UI 与 query key，但只导入 Content domain 的公开 GenerationJob/JobList/ContentVersion API，不导入 Content 内部页面组件或复制状态机。context/model 必须显式选择，确认文案揭示普通首稿副作用；同 signature 的未成功请求复用 key，只追踪 create response Job ID，terminal 后读取 Version，不打开完整 snapshot、不自动 retry。Prompt/Platform mutation 只失效当前 read models；历史 Job/Version 保持原快照含义。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

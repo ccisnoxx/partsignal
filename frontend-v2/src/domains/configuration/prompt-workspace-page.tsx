@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
 import { flushSync } from 'react-dom';
 import { FormProvider, useForm, useWatch, type FieldPath } from 'react-hook-form';
 
@@ -46,6 +46,7 @@ import {
   type PromptFormValues,
   type PromptWorkspaceSearch,
 } from './prompt-workspace.model';
+import { PromptPreview } from './prompt-preview';
 
 type PlatformPromptList = components['schemas']['PlatformPromptList'];
 type PlatformPromptListItem = components['schemas']['PlatformPromptListItem'];
@@ -86,6 +87,15 @@ function PromptWorkspacePage({
   ));
   const editorIdentity = promptEditorIdentity(search);
   const creating = search.new === 1;
+  const [editorState, setEditorState] = useState({ dirty: false, identity: editorIdentity });
+  const editorDirty = editorState.identity === editorIdentity && editorState.dirty;
+  const onEditorDirtyChange = useCallback((dirty: boolean) => {
+    setEditorState((current) => (
+      current.identity === editorIdentity && current.dirty === dirty
+        ? current
+        : { dirty, identity: editorIdentity }
+    ));
+  }, [editorIdentity]);
 
   async function openDelete() {
     const result = await detail.refetch();
@@ -210,6 +220,7 @@ function PromptWorkspacePage({
               csrfToken={csrfToken}
               detail={detail}
               editorIdentity={editorIdentity}
+              onDirtyChange={onEditorDirtyChange}
               onConsumersChanged={onConsumersChanged}
               onCreated={(canonical) => onSearchChange({
                 ...(search.q ? { q: search.q } : {}),
@@ -222,16 +233,19 @@ function PromptWorkspacePage({
         reference={{
           label: '绑定平台',
           content: (
-            <PromptReferencePane
-              canDelete={Boolean(detailActions?.canDelete)}
-              creating={creating}
-              deleteButtonRef={deleteButtonRef}
-              error={!detail.data ? detail.error : undefined}
-              loading={Boolean(promptId) && detail.isPending}
-              onDelete={() => void openDelete()}
-              prompt={detail.data}
-              selected={Boolean(promptId)}
-            />
+            <>
+              <PromptPreview csrfToken={csrfToken} dirty={editorDirty} prompt={detail.data} />
+              <PromptReferencePane
+                canDelete={Boolean(detailActions?.canDelete)}
+                creating={creating}
+                deleteButtonRef={deleteButtonRef}
+                error={!detail.data ? detail.error : undefined}
+                loading={Boolean(promptId) && detail.isPending}
+                onDelete={() => void openDelete()}
+                prompt={detail.data}
+                selected={Boolean(promptId)}
+              />
+            </>
           ),
         }}
       />
@@ -330,6 +344,7 @@ function PromptEditorSurface({
   csrfToken,
   detail,
   editorIdentity,
+  onDirtyChange,
   onConsumersChanged,
   onCreated,
   promptId,
@@ -338,6 +353,7 @@ function PromptEditorSurface({
   csrfToken: string | null;
   detail: UseQueryResult<PlatformPromptDetail, Error>;
   editorIdentity: string;
+  onDirtyChange: (dirty: boolean) => void;
   onConsumersChanged: (kind: PromptMutationKind) => Promise<void>;
   onCreated: (prompt: PlatformPromptDetail) => Promise<void> | void;
   promptId?: string;
@@ -348,6 +364,7 @@ function PromptEditorSurface({
         creating
         csrfToken={csrfToken}
         key={editorIdentity}
+        onDirtyChange={onDirtyChange}
         onConsumersChanged={onConsumersChanged}
         onCreated={onCreated}
       />
@@ -363,6 +380,7 @@ function PromptEditorSurface({
     <PromptEditor
       csrfToken={csrfToken}
       key={editorIdentity}
+      onDirtyChange={onDirtyChange}
       onConsumersChanged={onConsumersChanged}
       onCreated={onCreated}
       onReload={async () => (await detail.refetch()).data}
@@ -376,6 +394,7 @@ function PromptEditor({
   csrfToken,
   onConsumersChanged,
   onCreated,
+  onDirtyChange,
   onReload,
   prompt,
 }: {
@@ -383,6 +402,7 @@ function PromptEditor({
   csrfToken: string | null;
   onConsumersChanged: (kind: PromptMutationKind) => Promise<void>;
   onCreated: (prompt: PlatformPromptDetail) => Promise<void> | void;
+  onDirtyChange: (dirty: boolean) => void;
   onReload?: () => Promise<PlatformPromptDetail | undefined>;
   prompt?: PlatformPromptDetail;
 }) {
@@ -422,6 +442,10 @@ function PromptEditor({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBaseRevision(prompt.revision);
   }, [baseRevision, form, isDirty, prompt]);
+
+  useEffect(() => {
+    onDirtyChange(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   async function submit(values: PromptFormValues) {
     form.clearErrors();

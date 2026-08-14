@@ -3,6 +3,11 @@ import {
   expect,
   firstPromptId,
   platformId,
+  previewJobId,
+  previewModelId,
+  previewTaskId,
+  previewVersionId,
+  secondPromptId,
   test,
 } from './fixtures/prompt-workspace.fixture';
 
@@ -68,6 +73,87 @@ test('管理员从导航进入 Prompt Workspace，并完成 create/update/delete
     method: 'DELETE',
     promptId: firstPromptId,
   });
+});
+
+test('Preview 显式选择并确认真实首稿，按返回 Job 轮询到不可变版本', async ({
+  page,
+  promptWorkspaceApi,
+}, testInfo) => {
+  await page.goto(`/settings/prompts?promptId=${firstPromptId}`);
+  if (testInfo.project.name === 'foundation-mobile') {
+    await page.getByRole('tab', { name: '绑定平台' }).click();
+  }
+  const run = page.getByRole('button', { name: '运行真实 Preview' });
+  await expect(run).toBeDisabled();
+  await page.getByRole('combobox', { name: 'Test Context' }).click();
+  await page.getByRole('option', { name: /CT-30000000/ }).click();
+  await expect(run).toBeDisabled();
+  await page.getByRole('combobox', { name: '模型' }).click();
+  await page.getByRole('option', { name: /Fixture Preview 模型/ }).click();
+  await expect(run).toBeEnabled();
+  await run.click();
+  const confirmation = page.getByRole('dialog', { name: '确认创建真实首稿？' });
+  await expect(confirmation.getByText(/这不是沙箱/)).toBeVisible();
+  await confirmation.getByRole('button', { name: '确认创建真实首稿' }).click();
+
+  await expect.poll(() => promptWorkspaceApi.generationRequests.length).toBe(1);
+  expect(promptWorkspaceApi.generationRequests[0]).toMatchObject({
+    body: {
+      ai_model_id: previewModelId,
+      platform_prompt_id: firstPromptId,
+      platform_prompt_revision: 4,
+    },
+    csrfToken: 'platforms-e2e-csrf',
+    taskId: previewTaskId,
+  });
+  expect(promptWorkspaceApi.generationRequests[0]?.idempotencyKey).toBeTruthy();
+  await expect(page.getByText('Fixture Preview 标题')).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByText(`Job ${previewJobId}`)).toBeVisible();
+  await expect(page.getByText(`Version ${previewVersionId}`)).toBeVisible();
+  await expect(page.getByRole('link', { name: '查看任务 CT-30000000' })).toHaveAttribute(
+    'href',
+    `/content/tasks/${previewTaskId}`,
+  );
+  await page.getByRole('button', { name: '全屏查看结果' }).click();
+  await expect(page.getByRole('dialog', { name: 'Fixture Preview 标题' })).toContainText(
+    '这是不可变 AI DRAFT。',
+  );
+});
+
+test('Preview 明确处理 empty、options error 和公开失败，且不提供自动重试', async ({
+  page,
+  platformsApi,
+  promptWorkspaceApi,
+}, testInfo) => {
+  promptWorkspaceApi.setPreviewMode('empty');
+  await page.goto(`/settings/prompts?promptId=${secondPromptId}`);
+  if (testInfo.project.name === 'foundation-mobile') {
+    await page.getByRole('tab', { name: '绑定平台' }).click();
+  }
+  await expect(page.getByText(/当前没有合格上下文/)).toBeVisible();
+  await expect(page.getByText(/当前没有已启用且测试通过的模型/)).toBeVisible();
+
+  promptWorkspaceApi.setPreviewMode('error');
+  platformsApi.allowHttpError(503);
+  await page.goto(`/settings/prompts?promptId=${firstPromptId}`);
+  if (testInfo.project.name === 'foundation-mobile') {
+    await page.getByRole('tab', { name: '绑定平台' }).click();
+  }
+  await expect(page.getByText(/Preview 选项暂时不可用/)).toBeVisible();
+  promptWorkspaceApi.setPreviewMode('normal');
+  await page.getByRole('button', { name: '重试加载 Preview 选项' }).click();
+  await expect(page.getByRole('combobox', { name: 'Test Context' })).toBeEnabled();
+
+  promptWorkspaceApi.setJobOutcome('FAILED');
+  await page.getByRole('combobox', { name: 'Test Context' }).click();
+  await page.getByRole('option', { name: /CT-30000000/ }).click();
+  await page.getByRole('combobox', { name: '模型' }).click();
+  await page.getByRole('option', { name: /Fixture Preview 模型/ }).click();
+  await page.getByRole('button', { name: '运行真实 Preview' }).click();
+  await page.getByRole('dialog', { name: '确认创建真实首稿？' })
+    .getByRole('button', { name: '确认创建真实首稿' }).click();
+  await expect(page.getByText(/PROVIDER_ERROR：Fixture 供应商拒绝请求/)).toBeVisible({ timeout: 8_000 });
+  await expect(page.getByRole('button', { name: /重试/ })).toHaveCount(0);
 });
 
 test('q-only 导航保留草稿，切换 Prompt 被阻断，四档宽度无页面横向溢出', async ({

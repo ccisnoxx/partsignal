@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { contentKeys } from '@/domains/content/content.api';
 import { platformDetailQueryOptions } from '@/domains/configuration/platform.api';
+import { promptKeys } from '@/domains/configuration/prompt.api';
 import {
   PlatformWorkspacePage,
   type PlatformAccountMutationKind,
@@ -65,9 +66,12 @@ function PlatformWorkspaceRoute() {
 
   async function invalidateConsumers(kind: PlatformMutationKind) {
     if (kind === 'generation') {
-      await queryClient.invalidateQueries({
-        predicate: (query) => contentKeys.isGenerationOptions(query.queryKey),
-      });
+      await Promise.all([
+        queryClient.invalidateQueries({
+          predicate: (query) => contentKeys.isGenerationOptions(query.queryKey),
+        }),
+        queryClient.invalidateQueries({ queryKey: promptKeys.previewOptionsRoot() }),
+      ]);
       return;
     }
 

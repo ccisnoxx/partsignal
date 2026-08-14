@@ -644,6 +644,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/platform-prompts/{platform_prompt_id}/preview-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPlatformPromptPreviewOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/content-humanization-prompt": {
         parameters: {
             query?: never;
@@ -3385,6 +3401,26 @@ export interface components {
             channel_name: string;
             display_name: string;
             model_id: string;
+        };
+        PlatformPromptPreviewContext: {
+            /** Format: uuid */
+            content_task_id: string;
+            identifier: string;
+            /** Format: uuid */
+            product_id: string;
+            brand: string;
+            part_number: string;
+            /** Format: uuid */
+            platform_profile_id: string;
+            platform_profile_name: string;
+            /** Format: uuid */
+            fact_version_id: string;
+            fact_version: number;
+        };
+        PlatformPromptPreviewOptions: {
+            platform_prompt: components["schemas"]["PlatformPromptSnapshot"];
+            contexts: components["schemas"]["PlatformPromptPreviewContext"][];
+            models: components["schemas"]["GenerationOptionModel"][];
         };
         GenerationOptions: {
             /** Format: uuid */
@@ -6733,6 +6769,32 @@ export interface operations {
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+        };
+    };
+    getPlatformPromptPreviewOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                platform_prompt_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Prompt 当前可用于真实首稿生成的任务上下文与模型 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformPromptPreviewOptions"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     getContentHumanizationPrompt: {

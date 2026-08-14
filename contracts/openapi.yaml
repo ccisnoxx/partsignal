@@ -942,6 +942,22 @@ paths:
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+  /api/v1/platform-prompts/{platform_prompt_id}/preview-options:
+    get:
+      tags: [production]
+      operationId: getPlatformPromptPreviewOptions
+      parameters:
+        - {name: platform_prompt_id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Prompt 当前可用于真实首稿生成的任务上下文与模型
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/PlatformPromptPreviewOptions'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/content-humanization-prompt:
     get:
       tags: [configuration]
@@ -5094,6 +5110,28 @@ components:
         channel_name: {type: string}
         display_name: {type: string}
         model_id: {type: string}
+    PlatformPromptPreviewContext:
+      type: object
+      additionalProperties: false
+      required: [content_task_id, identifier, product_id, brand, part_number, platform_profile_id, platform_profile_name, fact_version_id, fact_version]
+      properties:
+        content_task_id: {type: string, format: uuid}
+        identifier: {type: string, pattern: '^CT-[0-9A-F]{8}$'}
+        product_id: {type: string, format: uuid}
+        brand: {type: string}
+        part_number: {type: string}
+        platform_profile_id: {type: string, format: uuid}
+        platform_profile_name: {type: string}
+        fact_version_id: {type: string, format: uuid}
+        fact_version: {type: integer, minimum: 1}
+    PlatformPromptPreviewOptions:
+      type: object
+      additionalProperties: false
+      required: [platform_prompt, contexts, models]
+      properties:
+        platform_prompt: {$ref: '#/components/schemas/PlatformPromptSnapshot'}
+        contexts: {type: array, items: {$ref: '#/components/schemas/PlatformPromptPreviewContext'}}
+        models: {type: array, items: {$ref: '#/components/schemas/GenerationOptionModel'}}
     GenerationOptions:
       type: object
       additionalProperties: false

@@ -3,9 +3,9 @@
 ## 0. Start Gate
 
 - [x] Preview子Task已创建为planning，PRD/design/implement可review。
-- [ ] Core已验证、提交、归档并fast-forward合入main；primary workspace clean main。
-- [ ] 用户在Core合入后批准Preview最新规划并授权implementation。
-- [ ] 运行`task.py start`指向Preview，再创建唯一分支`codex/frontend-v2-prompt-workspace-preview`。
+- [x] Core已验证、提交、归档并fast-forward合入main；primary workspace clean main。
+- [x] 用户在Core合入后批准Preview最新规划并授权implementation。
+- [x] 运行`task.py start`指向Preview，再创建唯一分支`codex/frontend-v2-prompt-workspace-preview`。
 
 ## 1. Ordered Implementation
 
@@ -63,16 +63,16 @@ Phase 6完整real-stack E2E与其他domain suites不是默认gate。
 
 ## 4. Self-review
 
-- [ ] 只有read-only options新合同，无preview mutation/type/table/origin fallback。
-- [ ] 最终context资格复用CREATE_GENERATION_JOB action，mutation锁内重验。
-- [ ] models query单owner；response不泄露Markdown/snapshot/credential。
-- [ ] browser不拼snapshot、不导入Content内部UI、不自动选context/model。
-- [ ] stable key/pending防重/IDEMPOTENCY_CONFLICT处理准确。
-- [ ] tracked Job only、terminal stop、immutable Version、no auto retry/fake result。
-- [ ] Preview明确普通首稿副作用，历史记录不因当前Prompt变化而改写。
-- [ ] precise cache、fixed query count、四档layout/runtime audit。
-- [ ] code/OpenAPI/generated/docs/tests一致，无database/migration/依赖变化。
-- [ ] Python comments/docstrings/log/error与frontend developer text完成中文touched-scope检查。
+- [x] 只有read-only options新合同，无preview mutation/type/table/origin fallback。
+- [x] 最终context资格复用CREATE_GENERATION_JOB action，mutation锁内重验。
+- [x] models query单owner；response不泄露Markdown/snapshot/credential。
+- [x] browser不拼snapshot、不导入Content内部UI、不自动选context/model。
+- [x] stable key/pending防重/IDEMPOTENCY_CONFLICT处理准确。
+- [x] tracked Job only、terminal stop、immutable Version、no auto retry/fake result。
+- [x] Preview明确普通首稿副作用，历史记录不因当前Prompt变化而改写。
+- [x] precise cache、fixed query count、四档layout/runtime audit。
+- [x] code/OpenAPI/generated/docs/tests一致，无database/migration/依赖变化。
+- [x] Python comments/docstrings/log/error与frontend developer text完成中文touched-scope检查。
 
 ## 5. Delivery Gate
 

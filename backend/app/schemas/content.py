@@ -202,6 +202,34 @@ class GenerationOptionModel(ContractModel):
     model_id: str
 
 
+class PlatformPromptSnapshot(ContractModel):
+    id: uuid.UUID
+    name: str = Field(min_length=1, max_length=300)
+    revision: int = Field(ge=0)
+
+
+class PlatformPromptPreviewContext(ContractModel):
+    """Prompt Preview 可选择的最小内容任务身份。"""
+
+    content_task_id: uuid.UUID
+    identifier: str = Field(pattern=r"^CT-[0-9A-F]{8}$")
+    product_id: uuid.UUID
+    brand: str
+    part_number: str
+    platform_profile_id: uuid.UUID
+    platform_profile_name: str
+    fact_version_id: uuid.UUID
+    fact_version: int = Field(ge=1)
+
+
+class PlatformPromptPreviewOptions(ContractModel):
+    """真实首稿预览的只读上下文与模型选项。"""
+
+    platform_prompt: PlatformPromptSnapshot
+    contexts: list[PlatformPromptPreviewContext]
+    models: list[GenerationOptionModel]
+
+
 class GenerationPromptOption(ContractModel):
     id: uuid.UUID
     name: str = Field(min_length=1, max_length=300)
@@ -297,12 +325,6 @@ class MarkdownGenerationSnapshotV2(ContractModel):
     fact_version: GenerationFactSnapshot
     system_message: str
     user_message: str
-
-
-class PlatformPromptSnapshot(ContractModel):
-    id: uuid.UUID
-    name: str = Field(min_length=1, max_length=300)
-    revision: int = Field(ge=0)
 
 
 class GenerationSnapshot(ContractModel):

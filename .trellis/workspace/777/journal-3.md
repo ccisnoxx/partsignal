@@ -1087,3 +1087,38 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 146: Frontend V2 AI 渠道列表
+
+**Date**: 2026-08-14
+**Task**: Frontend V2 AI 渠道列表
+**Branch**: `main`
+
+### Summary
+
+完成 AI 渠道安全列表投影、revision 命令合同、Frontend V2 列表页、V1 兼容、自动化验证与规范同步。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7fb6c4df` | (see git log) |
+| `f3325356` | (see git log) |
+| `efbc5e27` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

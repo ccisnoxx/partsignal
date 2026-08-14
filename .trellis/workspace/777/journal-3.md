@@ -979,3 +979,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 143: 完成 Frontend V2 Prompt Workspace Core
+
+**Date**: 2026-08-14
+**Task**: 完成 Frontend V2 Prompt Workspace Core
+**Branch**: `codex/frontend-v2-prompt-workspace-core`
+
+### Summary
+
+完成 ADMIN Prompt Workspace Core、共享 Prompt query owner、revision/dirty/cache 流程与移动端草稿保留，并通过定向测试、lint、typecheck、build 和 production-artifact E2E。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `2705b806` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

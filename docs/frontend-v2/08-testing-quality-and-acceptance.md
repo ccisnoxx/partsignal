@@ -291,6 +291,10 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 `tests/e2e/ai-channel-workspace-models.spec.ts` 复用并扩展同一 generated-type strict fixture，只声明 Models list/discovery/create/update/test/enable/disable/delete。contract/backend 覆盖 discovery/test/delete required revision、调用前后竞态、模型 no-op 与 stale 无成功审计；model/component 覆盖 JSON object/reserved keys、typed action、lazy query、配置 form owner 卸载、单次真实测试确认、current revision 与 409 no replay。production-artifact 覆盖完整模型闭环、焦点/DirtyGuard 和 375/768/1024/1440 根无溢出；fixture 不冒充真实 Provider，真实调用仍由既有 AI 管理与 Content AI real-stack E2E 证明。
 
+### 13.19 AI Channel Workspace Runtime 页面验收
+
+`tests/e2e/ai-channel-workspace-runtime.spec.ts` 复用同一 strict fixture，只增加 Usage、渠道 Logs 和按需 Audit Detail；Runtime 请求只记录 method/path/query，未声明 API 与浏览器错误继续在 teardown 失败。model/component 覆盖条件式 search、active-only query、zero/null、refresh error、安全 projection、服务端 actor/分页和越界恢复；production-artifact 覆盖 period/page/pageSize、refresh/Back/Forward、Channel/Model handoff、detail Escape/focus、未知 shape 拒绝、无 Users 请求、secret sentinel 与 375/768/1024/1440 根无溢出。既有 PostgreSQL integration 冻结 Usage 口径、审计归属/actor/whitelist/权限，因此 fixture 不模拟数据库聚合权威。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

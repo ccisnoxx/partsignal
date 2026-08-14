@@ -64,10 +64,10 @@ export const Route = createFileRoute('/_app/_admin/settings/ai_/$channelId')({
 function AIChannelWorkspaceRoute() {
   const queryClient = useQueryClient();
   const { channelId } = Route.useParams();
-  const { tab } = Route.useSearch();
+  const search = Route.useSearch();
   const { auth } = Route.useRouteContext();
   const navigate = Route.useNavigate();
-  if (!isDeliveredAIChannelWorkspaceTab(tab)) throw notFound();
+  if (!isDeliveredAIChannelWorkspaceTab(search.tab)) throw notFound();
 
   async function invalidateConsumers() {
     await Promise.all([
@@ -88,8 +88,8 @@ function AIChannelWorkspaceRoute() {
         search: { page: 1, pageSize: 20 },
         replace: true,
       })}
-      onTabChange={(nextTab) => navigate({ search: { tab: nextTab } })}
-      tab={tab}
+      onSearchChange={(nextSearch) => navigate({ search: nextSearch })}
+      search={search}
     />
   );
 }

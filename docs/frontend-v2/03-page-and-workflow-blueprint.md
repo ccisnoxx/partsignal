@@ -406,13 +406,15 @@ Pattern：Table。
 
 ## 7.6 `/settings/ai/$channelId`
 
-Pattern：Workspace。canonical URL 为 `?tab=basic|request|models`，缺失 tab 归一为 `basic`；`usage/logs` 由后续 slice 交付，在此之前返回明确未交付状态且不请求 Detail。
+Pattern：Workspace。canonical URL 是条件式 union：Basic/Request/Models 只保留 `tab`；Usage 保留 `tab=usage&period=7d|30d|90d|all`（默认 `30d`）；Logs 保留 `tab=logs&page={positive}&pageSize=10|20|50`（默认 `1/20`）。canonical 修正使用 replace，用户切换使用 push，刷新与 Back/Forward 完全由 URL 恢复。
 
 Basic 与 Request 共用一个 RHF 草稿和 revision baseline。Basic 编辑名称、描述、协议与 Provider；Request 编辑 base URL、超时，并提供 API Key、普通 Header、敏感 Header 的 replacement-only mutation。所有 Header 读取只展示名称、敏感标记与“已配置（不回显）”，不得复制任何值。
 
 完整配置保存只发送一个 `AIChannelUpdate`；409 保留非敏感草稿并禁用旧 revision 重试，显式 reload 后才采用 canonical Detail。Header 删除提交当前渠道 revision。Basic/Request 切换保留草稿，进入 Models 前触发 DirtyGuard，确认后配置 form owner 卸载。
 
 Models 仅在 active Tab 读取模型集合，提供 discovery、手工 create、edit、真实 test、enable/disable 与 delete。discovery 使用渠道 revision；既有模型命令使用模型 revision；create 不伪造 revision。JSON 参数只接受 object 且拒绝系统保留字段。测试明确提示一次真实 Provider 副作用，结果无论 PASS/FAIL 都保持模型停用；409 不 optimistic、不重放，只允许显式 reload。
+
+Usage 只读取当前 period 的服务端聚合并区分真实零与 nullable“暂无数据”；Logs 只读取当前 page/pageSize 的服务端分页和 actor projection，不查询 Users、不客户端排序/分页。Audit Detail 仅在行操作后进入 Sheet，显示 CONFIGURATION 安全 allowlist；未知字段或值 shape 显式失败且不输出 raw JSON。Channel/Model 的 Runtime 主任务都进入渠道 Usage。
 
 ---
 

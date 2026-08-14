@@ -933,8 +933,13 @@ const overflow = resolveAIChannelOverflowActions(channel, mutation.isPending);
 
 ```text
 URL:    /settings/ai/{lowercase_uuid}?tab=basic|request|models
+URL:    /settings/ai/{lowercase_uuid}?tab=usage&period=7d|30d|90d|all
+URL:    /settings/ai/{lowercase_uuid}?tab=logs&page={positive}&pageSize=10|20|50
 GET:    /api/v1/ai-channels/{channel_id}
 GET:    /api/v1/ai-channels/{channel_id}/models
+GET:    /api/v1/ai-channels/{channel_id}/usage-summary?period=...
+GET:    /api/v1/ai-channels/{channel_id}/audit-logs?page=&page_size=
+GET:    /api/v1/audit-logs/{audit_log_id}
 POST:   /api/v1/ai-channels/{channel_id}/discover-models RevisionRequest(channel revision)
 POST:   /api/v1/ai-models/{model_id}/test RevisionRequest(model revision)
 DELETE: /api/v1/ai-models/{model_id}?expected_revision=...
@@ -943,26 +948,30 @@ PUT:    /api/v1/ai-channels/{channel_id}/api-key AIChannelApiKeyReplace
 POST:   /api/v1/ai-channels/{channel_id}/headers AIChannelHeaderCreate
 PATCH:  /api/v1/ai-channel-headers/{header_id} AIChannelHeaderUpdate
 DELETE: /api/v1/ai-channel-headers/{header_id}?expected_channel_revision=...
-keys:   aiChannelKeys.detail/models/logs(channelId), aiChannelKeys.lists()
+keys:   aiChannelKeys.detail/models/usageRoot/logsRoot(channelId), auditDetail(logId), lists()
 ```
 
 ### 3. Contracts
 
-- 路由位于既有 ADMIN boundary；UUID 必须 lowercase，search 规范化为单一 `tab`。`usage/logs` 在对应 slice 交付前返回 route-level not-found，且不得发起 Detail 请求。
+- 路由位于既有 ADMIN boundary；UUID 必须 lowercase。Basic/Request/Models 只保留 `tab`；Usage 显式保留 `period`（默认 `30d`）；Logs 显式保留正整数 `page` 与 `pageSize=10|20|50`（默认 `1/20`）。canonical 修正使用 replace，用户交互使用 push，URL 是唯一状态 owner。
 - `ai-channel.api.ts` 是 List/Detail/Models mutation/query key 的唯一 owner。Basic 与 Request 共用一个 RHF 草稿和渠道 revision baseline；配置 form owner 只在这两个 Tab 挂载。切换两者保留草稿；离开到 Models 先由 DirtyGuard 阻断，确认后卸载表单。
 - Models 只在 `tab=models` 时读取集合。发现使用渠道 revision 且结果只保留在 Dialog；create 无 revision，edit/test/enable/disable/delete 使用当前模型 revision。JSON 表单只接受 object 并拒绝 `model/messages/stream`；409 保留编辑草稿或当前投影，只允许显式 reload，不 replay。
 - 配置 PATCH 始终发送完整 `AIChannelUpdate`。成功采用 canonical response；失败不得 optimistic update、自动 replay 或失效消费者。
 - API Key 与所有 Header 值只写不回显；secret mutation 使用 `gcTime=0`，关闭、成功、失败都清空输入。Header 读取只含名称、敏感标记、配置状态和动作，创建/更新提交完整替换值，删除提交当前 `expected_channel_revision`。
-- channel/Header/model action token 必须穷尽消费；未知、重复或矛盾投影显式失败。`TEST_MODEL` 进入 Models；未交付 Runtime 主任务保持明确禁用。
+- Usage/Logs 只在 active Tab 读取 exact URL key。Usage 直接显示服务端统计和窗口，严格区分计数 `0` 与 nullable“暂无数据”；Logs 保持服务端顺序/分页并只用响应 actor，不请求 Users、不客户端聚合或分页。
+- Audit Detail 仅在行操作后读取，Sheet 只投影 CONFIGURATION 登记字段和 primitive/primitive-list；未知字段或 shape 显式失败，不 dump raw JSON。关闭不改变 Logs URL并恢复触发点焦点。
+- channel/Header/model action token 必须穷尽消费；未知、重复或矛盾投影显式失败。`TEST_MODEL` 进入 Models，`VIEW_RUNTIME/VIEW_MODEL_RUNTIME` 都进入渠道 Usage。
 - discovery 不失效 cache。model create/test 只刷新 AI list/detail/models 及各自真实日志消费者；model update/enable/disable/delete 才另失效 Prompt Preview Options 与 Content generation-options。失败或 409 不写、不失效。
 
 ### 4. Validation & Error Matrix
 
 | 条件 | 页面处理 |
 | --- | --- |
-| UUID 大写、tab 缺失/非法或有额外 search | `replace` 为 lowercase UUID 与单一 canonical tab |
+| UUID 大写、search 缺失/非法/跨 Tab 遗留 | `replace` 为 lowercase UUID 与当前 Tab 的条件式 canonical search |
 | UUID 非法 | Detail 请求前显式失败 |
-| `usage/logs` | route-level not-found，不请求 Detail |
+| Usage/Logs 初始失败 / stale refresh 失败 | 保留 Channel identity/tabs；区块 retry，有 stale data 时继续展示 |
+| Logs `items=[] && total>0` | 保留越界 URL，用户显式返回最后有效页 |
+| Audit Detail 403/404/未知字段值 | Sheet 内显式失败并可关闭；不得 fallback 到 raw JSON/Users |
 | Models 初始失败 / stale refresh 失败 | 显式 retry；有 stale data 时保留表格 |
 | model `REVISION_CONFLICT` | 保留草稿或当前投影，冻结旧 revision，只允许显式 reload |
 | 配置 `REVISION_CONFLICT` | 保留非敏感草稿，禁用旧 revision 重试，只允许显式 reload |
@@ -971,26 +980,30 @@ keys:   aiChannelKeys.detail/models/logs(channelId), aiChannelKeys.lists()
 
 ### 5. Good / Base / Bad Cases
 
-- Good：Basic 修改名称后切到 Request 修改 base URL，使用同一 revision 一次提交完整 payload；成功采用 canonical Detail。
-- Base：Header 读取只显示名称、敏感标记和“已配置（不回显）”；编辑普通 Header 也从空替换值开始。
-- Bad：为两个配置 Tab 建 partial PATCH；把 API Key/Header value 放进 Query key/cache；用渠道 revision 测试模型；给 create 伪造 revision；409 后自动重放；按 `is_enabled` 或角色推导动作。
+- Good：Basic 修改名称后切到 Request 修改 base URL，使用同一 revision 一次提交完整 payload；Usage/Logs 由 URL 恢复 exact 服务端投影。
+- Base：零作业保持计数 `0` 和 nullable“暂无数据”；已删除 actor 不触发 User 查询；越界日志页等待用户显式恢复。
+- Bad：为两个配置 Tab 建 partial PATCH；把 API Key/Header value 放进 Query key/cache；客户端补算 Usage/分页 Logs；查询 Users 拼 actor；raw JSON dump；409 后自动重放。
 
 ### 6. Tests Required
 
 - Contract/backend：Header projection 与删除 revision；discovery/test/delete required revision；外部调用前后竞态、模型 no-op、stale 无审计及 secret redaction。
-- Model/component：UUID/search canonicalization、lazy Models query、配置 form owner 卸载、JSON 边界、action 穷尽、各命令 revision、409 reload、secret 清理与精确 invalidation。
-- Production fixture：未知 API 501 + teardown fail；覆盖 List handoff、direct/refresh/history、dirty、discovery/CRUD/test/toggle/delete、409、secret sentinel、ADMIN、键盘/焦点和 375/768/1024/1440 根无溢出。
+- Model/component：条件式 search、lazy Models/Usage/Logs/detail query、配置 form owner 卸载、null/zero、安全审计投影、服务端分页/actor、越界恢复、action 穷尽、409 reload、secret 清理与精确 invalidation。
+- Production fixture：未知 API 501 + teardown fail；覆盖 List handoff、direct/refresh/history、dirty、Models 闭环、Runtime period/page/pageSize、on-demand detail、safe projection、secret sentinel、ADMIN、键盘/焦点和 375/768/1024/1440 根无溢出。
 
 ### 7. Wrong vs Correct
 
 ```tsx
-// Wrong：Header 值进入读取 cache，两个 Tab 各提交局部字段。
+// Wrong：Header 值进入读取 cache；Runtime 在浏览器补算并查询 Users 拼 actor。
 queryClient.setQueryData(['ai-header', id, header.value], header);
 await patchChannel({ base_url: values.baseUrl });
+const actor = users.find((user) => user.id === log.actor_id);
+const successRate = succeeded / total;
 
-// Correct：读取只持有安全 metadata，共享表单提交完整合同与同一 revision。
+// Correct：读取只持有安全 metadata；表单提交完整合同，Runtime 直接消费服务端投影。
 const payload = toAIChannelUpdate(values, channel.revision);
 await updateAIChannel(channel.id, payload, csrfToken);
+const usage = useQuery(aiChannelUsageQueryOptions(channel.id, search.period));
+const actor = log.actor;
 ```
 
 ## Common Mistakes

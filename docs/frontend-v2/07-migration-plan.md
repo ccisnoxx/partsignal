@@ -451,7 +451,7 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-prompt-workspace-core` 与 `frontend-v2-prompt-workspace-preview` 已完成并合入 `main`。Core 交付 ADMIN-only `/settings/prompts`、独立导航、canonical `q/promptId/new`、Prompt Library/Detail/CRUD、revision/dirty/Bound Platforms、单一 Prompt query owner 与响应式 Workspace；Preview 新增 ADMIN-only 窄 Options read model，复用 ContentTask `CREATE_GENERATION_JOB` action 与既有 GenerationJob → immutable ContentVersion 链路，覆盖显式 context/model、真实首稿确认、稳定幂等、active-only polling、terminal result/failure 与精确 cache invalidation。两个子任务均已通过各自 required validation、归档并删除临时分支；没有数据库 migration、新依赖、preview 专用状态或 Humanization 配置入口。
 
-`frontend-v2-ai-channel-list` 已实现 ADMIN-only `/settings/ai` 的安全 Summary、canonical 筛选分页、固定七列表格、四档响应式及 revision 命令。`frontend-v2-ai-channel-workspace-core` 在其上增加完整合同创建与 Basic/Request 配置；`frontend-v2-ai-channel-workspace-models` 继续交付 `/settings/ai/$channelId?tab=models` 的 lazy collection、discovery、CRUD、真实 test 与启停删除，并收紧调用前后 revision/no-op 合同。Usage/Logs、完整 Configuration real-stack E2E 与抽象回顾仍属于后续 Task。
+`frontend-v2-ai-channel-list` 已实现 ADMIN-only `/settings/ai` 的安全 Summary、canonical 筛选分页、固定七列表格、四档响应式及 revision 命令。Workspace Core 在其上增加完整合同创建与 Basic/Request 配置，Models 交付 lazy collection、discovery、CRUD、真实 test 与启停删除；Runtime 继续交付 URL-owned Usage period、Logs 服务端分页/actor、按需安全 Audit Detail，以及 Channel/Model Runtime handoff。完整 Configuration real-stack E2E 与抽象回顾仍属于后续 Task。
 
 退出条件：平台与账号形成统一心智；Platform Type 不占 Sidebar；API key/secret 不出现在列表和日志；Prompt dirty/revision 完整；AI table action 统一。
 

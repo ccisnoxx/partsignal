@@ -376,11 +376,17 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - 创建提交完整 `AIChannelCreate`，响应不含 API Key；成功按响应 ID 进入 `/settings/ai/$channelId?tab=basic`。Detail 是 Workspace 唯一首屏服务端状态，`basic/request` 共享一个表单与 revision baseline。
 - 配置保存提交完整 `AIChannelUpdate.expected_revision`。409 保留非敏感草稿并冻结旧 baseline，只有显式 reload 才重置；失败不得 optimistic、自动 replay 或失效消费者。
 - API Key 与普通/敏感 Header 值都只写不回显，secret mutation 不保留查询或 mutation cache。Header DELETE 使用 `expected_channel_revision`；写成功返回 canonical Detail，删除后显式重读 Detail。
-- 渠道与 Header 动作只消费服务端 token。成功精确失效 AI lists/models/logs、Prompt Preview Options 与 Content generation-options；删除另移除 exact Detail 并返回 canonical List。
+- 渠道与 Header 动作只消费服务端 token。成功精确失效 AI lists/models/logsRoot、Prompt Preview Options 与 Content generation-options；删除另移除 exact Detail/models/usageRoot/logsRoot 并返回 canonical List。
 
 ## 29. AI Channel Models revision、action 与 cache 边界
 
-- `tab=models` 才读取 `aiChannelKeys.models(channelId)`。`DISCOVER_MODELS/CREATE_MODEL` 决定集合入口，`TEST_MODEL` 导航到 Models；模型行穷尽消费自己的 `primary_task/available_actions`，Runtime 未交付时明确禁用。
+- `tab=models` 才读取 `aiChannelKeys.models(channelId)`。`DISCOVER_MODELS/CREATE_MODEL` 决定集合入口，`TEST_MODEL` 导航到 Models；模型行穷尽消费自己的 `primary_task/available_actions`，`VIEW_MODEL_RUNTIME` 进入渠道 Usage。
 - discovery body 使用当前渠道 revision，并在 Provider 调用前后由服务端复核；test body 与 enable/disable body、delete query 使用当前模型 revision。create 没有 expected revision。所有 stale/no-op 都由服务端锁内拒绝，浏览器不 optimistic、不 retry/replay。
 - discovery 结果只留在 Dialog；`ADD_MODEL` 仅预填 create，`VIEW_CONFIGURED_MODEL` 定位现有行。模型 JSON 参数只允许 object，拒绝 `model/messages/stream`。
 - discovery 不失效；create/test 只刷新 AI 投影，update/enable/disable/delete 才另失效 Prompt Preview Options root 与 Content generation-options；失败/409 不写 cache、不失效。Usage 与历史永不因此刷新或改写。
+
+## 30. AI Channel Runtime 只读统计与安全审计边界
+
+- Usage/Logs/Audit Detail 继续复用现有 ADMIN-only GET；Configuration domain 独占 `usageRoot/usage`、`logsRoot/logs` 与 `auditDetail` keys，exact key 含 period 或 page/pageSize。三类读取 `retry:false`，只挂载 active surface，互不失效。
+- Usage 直接展示服务端时间窗与聚合，计数 `0` 不等于 nullable“暂无数据”。Logs 保持服务端顺序、total/page/page_size 和 actor，不请求 Users、不客户端聚合、排序或分页；越界页保留 URL，等待用户显式返回最后有效页。
+- Audit Detail 只在 `VIEW_LOG_DETAIL` 后读取。前端只呈现 CONFIGURATION 登记字段和 primitive/list shape；未知内容显式投影失败，不 dump JSON。API Key、Header value 与完整可执行请求配置不得进入 query key、cache、DOM、console 或 fixture 输出。

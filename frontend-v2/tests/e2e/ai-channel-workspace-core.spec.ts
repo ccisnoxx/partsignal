@@ -1,5 +1,8 @@
 import { channelId, expect, test } from './fixtures/ai-channel-workspace.fixture';
 
+// 本文件会提交 replacement-only secret；Playwright trace 会记录网络请求体，必须关闭。
+test.use({ trace: 'off' });
+
 test('List 创建后进入 canonical Workspace，并支持 direct/refresh/history', async ({
   page,
   aiChannelWorkspaceApi,
@@ -21,7 +24,7 @@ test('List 创建后进入 canonical Workspace，并支持 direct/refresh/histor
     protocol_type: 'openai-compatible-chat-completions',
     provider_brand: 'CUSTOM',
     base_url: 'https://core.example.invalid/v1',
-    api_key: 'create-secret-sentinel',
+    api_key_present: true,
     timeout_seconds: 30,
   }]);
   expect(aiChannelWorkspaceApi.responsePayloads.join('\n')).not.toContain('create-secret-sentinel');
@@ -117,8 +120,8 @@ test('API Key 与 Header 只写不回显，Header 删除提交渠道 revision �
   await expect(existing).toHaveCount(0);
 
   expect(aiChannelWorkspaceApi.mutationRequests).toMatchObject([
-    { method: 'PUT', revision: 4, body: { expected_revision: 4, api_key: 'api-key-secret-sentinel' } },
-    { method: 'POST', revision: 5, body: { expected_channel_revision: 5, name: 'X-Secret-Core', value: 'header-secret-sentinel', is_sensitive: true } },
+    { method: 'PUT', revision: 4, body: { expected_revision: 4, api_key_present: true } },
+    { method: 'POST', revision: 5, body: { expected_channel_revision: 5, name: 'X-Secret-Core', value_present: true, is_sensitive: true } },
     { method: 'DELETE', revision: 6 },
   ]);
   const safeOutput = `${aiChannelWorkspaceApi.responsePayloads.join('\n')}\n${await page.locator('body').innerText()}`;

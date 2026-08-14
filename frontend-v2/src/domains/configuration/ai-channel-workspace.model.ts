@@ -14,8 +14,10 @@ type AIModelUpdate = components['schemas']['AIModelUpdate'];
 type AIProviderBrand = components['schemas']['AIProviderBrand'];
 
 const aiChannelWorkspaceTabs = ['basic', 'request', 'models', 'usage', 'logs'] as const;
-const deliveredAIChannelWorkspaceTabs = ['basic', 'request', 'models'] as const;
+const aiChannelUsagePeriods = ['7d', '30d', '90d', 'all'] as const;
+const aiChannelLogPageSizes = [10, 20, 50] as const;
 type AIChannelWorkspaceTab = typeof aiChannelWorkspaceTabs[number];
+type AIChannelUsagePeriod = typeof aiChannelUsagePeriods[number];
 
 function normalizeTab(value: unknown): AIChannelWorkspaceTab {
   return typeof value === 'string' && aiChannelWorkspaceTabs.some((tab) => tab === value)
@@ -23,9 +25,46 @@ function normalizeTab(value: unknown): AIChannelWorkspaceTab {
     : 'basic';
 }
 
-const aiChannelWorkspaceSearchSchema = z.object({
-  tab: z.preprocess(normalizeTab, z.enum(aiChannelWorkspaceTabs)),
-});
+function normalizeUsagePeriod(value: unknown): AIChannelUsagePeriod {
+  return typeof value === 'string' && aiChannelUsagePeriods.some((period) => period === value)
+    ? value as AIChannelUsagePeriod
+    : '30d';
+}
+
+function normalizePositiveInteger(value: unknown) {
+  const number = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  return Number.isSafeInteger(number) && number > 0 ? number : 1;
+}
+
+function normalizeLogPageSize(value: unknown): 10 | 20 | 50 {
+  const number = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  return aiChannelLogPageSizes.some((size) => size === number) ? number as 10 | 20 | 50 : 20;
+}
+
+function normalizeAIChannelWorkspaceSearch(value: unknown) {
+  const raw = value !== null && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const tab = normalizeTab(raw.tab);
+  if (tab === 'usage') return { tab, period: normalizeUsagePeriod(raw.period) };
+  if (tab === 'logs') {
+    return { tab, page: normalizePositiveInteger(raw.page), pageSize: normalizeLogPageSize(raw.pageSize) };
+  }
+  return { tab };
+}
+
+const aiChannelWorkspaceSearchSchema = z.preprocess(
+  normalizeAIChannelWorkspaceSearch,
+  z.discriminatedUnion('tab', [
+    z.object({ tab: z.literal('basic') }),
+    z.object({ tab: z.literal('request') }),
+    z.object({ tab: z.literal('models') }),
+    z.object({ tab: z.literal('usage'), period: z.enum(aiChannelUsagePeriods) }),
+    z.object({
+      tab: z.literal('logs'),
+      page: z.number().int().positive(),
+      pageSize: z.union([z.literal(10), z.literal(20), z.literal(50)]),
+    }),
+  ]),
+);
 
 type AIChannelWorkspaceSearch = z.output<typeof aiChannelWorkspaceSearchSchema>;
 
@@ -33,11 +72,28 @@ function isCanonicalAIChannelWorkspaceSearch(
   raw: Record<string, unknown>,
   search: AIChannelWorkspaceSearch,
 ) {
-  return Object.keys(raw).length === 1 && raw.tab === search.tab;
+  const canonical = aiChannelWorkspaceSearchForTab(search.tab, search);
+  const canonicalRecord = canonical as unknown as Record<string, unknown>;
+  const keys = Object.keys(canonical);
+  return Object.keys(raw).length === keys.length
+    && keys.every((key) => raw[key] === canonicalRecord[key]);
 }
 
-function isDeliveredAIChannelWorkspaceTab(tab: AIChannelWorkspaceTab): tab is 'basic' | 'request' | 'models' {
-  return deliveredAIChannelWorkspaceTabs.some((item) => item === tab);
+function aiChannelWorkspaceSearchForTab(
+  tab: AIChannelWorkspaceTab,
+  current?: AIChannelWorkspaceSearch,
+): AIChannelWorkspaceSearch {
+  if (tab === 'usage') {
+    return { tab, period: current?.tab === 'usage' ? current.period : '30d' };
+  }
+  if (tab === 'logs') {
+    return current?.tab === 'logs' ? current : { tab, page: 1, pageSize: 20 };
+  }
+  return { tab };
+}
+
+function isDeliveredAIChannelWorkspaceTab(tab: AIChannelWorkspaceTab) {
+  return aiChannelWorkspaceTabs.some((item) => item === tab);
 }
 
 function shouldBlockAIChannelWorkspaceNavigation(
@@ -260,7 +316,7 @@ function resolveAIChannelWorkspaceActions(channel: AIChannel): {
   } else if (primaryTask === 'TEST_MODEL') {
     primary = { key: primaryTask, label: '测试模型', intent: 'primary', enabled: true, command: 'show-models' };
   } else if (primaryTask === 'VIEW_RUNTIME') {
-    primary = { key: primaryTask, label: '查看运行', intent: 'primary', enabled: false, disabledReason: '使用与日志将在后续任务交付', href: '#' };
+    primary = { key: primaryTask, label: '查看运行', intent: 'primary', enabled: true, command: 'show-usage' };
   } else {
     throw new Error(`AI 渠道 ${channel.id} 返回未知主任务：${primaryTask}`);
   }
@@ -296,6 +352,7 @@ function resolveAIModelActions(model: AIModel): {
     ENABLE_CHANNEL: '启用所属渠道',
     VIEW_MODEL_RUNTIME: '查看运行',
   } satisfies Record<AIModel['primary_task'], string>;
+  if (!primaryCommand) throw new Error(`AI 模型 ${model.id} 返回未知主任务：${String(primaryTask)}`);
 
   for (const action of model.available_actions as string[]) {
     if (seen.has(action)) throw new Error(`AI 模型 ${model.id} 返回重复动作：${action}`);
@@ -351,9 +408,119 @@ function resolveAIModelActions(model: AIModel): {
   }
   return {
     overflow,
-    primary: primaryCommand === 'view-runtime'
-      ? { key: primaryTask, label: primaryLabels[primaryTask], intent: 'primary', enabled: false, disabledReason: 'Runtime 将在后续任务交付', href: '#' }
-      : { key: primaryTask, label: primaryLabels[primaryTask], intent: 'primary', enabled: true, command: primaryCommand },
+    primary: { key: primaryTask, label: primaryLabels[primaryTask], intent: 'primary', enabled: true, command: primaryCommand },
+  };
+}
+
+/** 这是显示完整性边界；服务端 CONFIGURATION whitelist 仍是脱敏权威。 */
+const auditActionLabels = {
+  'ai_channel.created': '创建渠道',
+  'ai_channel.updated': '更新渠道',
+  'ai_channel.deleted': '删除渠道',
+  'ai_channel.api_key_replaced': '替换 API Key',
+  'ai_channel.enabled': '启用渠道',
+  'ai_channel.disabled': '停用渠道',
+  'ai_channel_header.created': '创建 Header',
+  'ai_channel_header.updated': '更新 Header',
+  'ai_channel_header.deleted': '删除 Header',
+  'ai_model.created': '创建模型',
+  'ai_model.updated': '更新模型',
+  'ai_model.deleted': '删除模型',
+  'ai_model.enabled': '启用模型',
+  'ai_model.disabled': '停用模型',
+} as const;
+
+const auditFactLabels = {
+  account_count: '账号数量',
+  allowed_domain_count: '允许域名数量',
+  channel_id: '渠道 ID',
+  configured: '配置状态',
+  header_name: 'Header 名',
+  is_active: '启用状态',
+  is_sensitive: '敏感状态',
+  model_count: '模型数量',
+  platform_profile_id: '平台配置 ID',
+  platform_type_id: '平台类型 ID',
+  previous_active_version_id: '原活动版本 ID',
+  protocol_type: '协议类型',
+  provider_brand: 'Provider',
+  reason: '原因',
+  reference_count: '引用数量',
+  replacement_version_id: '替代版本 ID',
+  revision: '修订号',
+  status: '状态',
+  test_status: '测试状态',
+  version: '版本',
+} as const;
+
+const auditChangeLabels = {
+  allowed_domain_count: '允许域名数量',
+  is_active: '启用状态',
+  is_configured: '配置状态',
+  logo_configured: 'Logo 配置状态',
+  platform_type_id: '平台类型 ID',
+  revision: '修订号',
+  status: '状态',
+  website_configured: '网站配置状态',
+} as const;
+
+type AIChannelAuditDisplayItem = { field: string; label: string; value: string };
+type AIChannelAuditDisplayChange = {
+  after: string;
+  before: string;
+  field: string;
+  label: string;
+};
+
+function aiChannelAuditActionLabel(action: string) {
+  const label = auditActionLabels[action as keyof typeof auditActionLabels];
+  if (!label) throw new Error(`渠道审计返回未知动作：${action}`);
+  return label;
+}
+
+function formatAIChannelAuditValue(value: unknown): string {
+  if (value === null) return '空';
+  if (typeof value === 'boolean') return value ? '是' : '否';
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (Array.isArray(value) && value.every((item) => (
+    item === null || typeof item === 'boolean' || typeof item === 'string' || typeof item === 'number'
+  ))) {
+    return value.map(formatAIChannelAuditValue).join('、');
+  }
+  throw new Error('渠道审计返回不支持的字段值，已停止安全投影');
+}
+
+function projectAIChannelAuditFacts(facts: Record<string, unknown>): AIChannelAuditDisplayItem[] {
+  return Object.entries(facts).map(([field, value]) => {
+    const label = auditFactLabels[field as keyof typeof auditFactLabels];
+    if (!label) throw new Error(`渠道审计返回未登记事实字段：${field}`);
+    return { field, label, value: formatAIChannelAuditValue(value) };
+  });
+}
+
+function projectAIChannelAuditChanges(
+  changes: Array<{ field: string; before?: unknown; after?: unknown }>,
+): AIChannelAuditDisplayChange[] {
+  return changes.map((change) => {
+    const label = auditChangeLabels[change.field as keyof typeof auditChangeLabels];
+    if (!label) throw new Error(`渠道审计返回未登记变更字段：${change.field}`);
+    return {
+      field: change.field,
+      label,
+      before: Object.hasOwn(change, 'before') ? formatAIChannelAuditValue(change.before) : '历史未记录',
+      after: Object.hasOwn(change, 'after') ? formatAIChannelAuditValue(change.after) : '历史未记录',
+    };
+  });
+}
+
+function projectAIChannelAuditSummary(summary: Record<string, unknown>) {
+  const { changes, ...facts } = summary;
+  if (changes !== undefined && !Array.isArray(changes)) {
+    throw new Error('渠道审计变更摘要格式无效，已停止安全投影');
+  }
+  return {
+    changes: projectAIChannelAuditChanges((changes ?? []) as Array<{ field: string; before?: unknown; after?: unknown }>),
+    facts: projectAIChannelAuditFacts(facts),
   };
 }
 
@@ -398,6 +565,8 @@ export {
   aiChannelDetailErrorKind,
   aiChannelHeaderFormSchema,
   aiChannelHeaderFormValues,
+  aiChannelAuditActionLabel,
+  aiChannelWorkspaceSearchForTab,
   aiChannelWorkspaceSearchSchema,
   aiChannelWorkspaceTabs,
   aiModelFormSchema,
@@ -406,6 +575,9 @@ export {
   isCanonicalAIChannelWorkspaceSearch,
   isDeliveredAIChannelWorkspaceTab,
   providerValues,
+  projectAIChannelAuditChanges,
+  projectAIChannelAuditFacts,
+  projectAIChannelAuditSummary,
   resolveAIChannelHeaderActions,
   resolveAIModelActions,
   resolveAIChannelWorkspaceActions,
@@ -423,8 +595,11 @@ export type {
   AIChannelCreateFormValues,
   AIChannelHeader,
   AIChannelHeaderFormValues,
+  AIChannelAuditDisplayChange,
+  AIChannelAuditDisplayItem,
   AIModel,
   AIModelFormValues,
   AIChannelWorkspaceSearch,
   AIChannelWorkspaceTab,
+  AIChannelUsagePeriod,
 };

@@ -135,7 +135,7 @@ V2 合并为：
 | `/settings/platforms/$platformId?tab=overview|accounts|generation` | 平台 Workspace | Workspace | 平台与账号 |
 | `/settings/prompts` | Prompt 管理 | List + Workspace | Prompt |
 | `/settings/ai` | AI 渠道 | Table | AI 渠道 |
-| `/settings/ai/$channelId?tab=basic|request|models` | AI 渠道配置与模型管理 | Workspace | AI 渠道 |
+| `/settings/ai/$channelId?tab=basic|request|models|usage|logs` | AI 渠道配置、模型与 Runtime | Workspace | AI 渠道 |
 | `/system/users` | 用户 | Table | 用户 |
 | `/system/audit` | 审计日志 | Table + Detail Pane | 审计日志 |
 

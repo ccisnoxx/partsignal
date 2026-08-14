@@ -12,6 +12,9 @@ import type { components } from '@/shared/api/generated/schema';
 
 type AIChannel = components['schemas']['AIChannel'];
 type AIModel = components['schemas']['AIModel'];
+type AIChannelUsageSummary = components['schemas']['AIChannelUsageSummary'];
+type AuditLog = components['schemas']['AuditLog'];
+type AuditLogDetail = components['schemas']['AuditLogDetail'];
 
 const channelId = '00000000-0000-4000-8000-000000000001';
 const admin: AuthUser = {
@@ -95,6 +98,55 @@ function model(overrides: Partial<AIModel> = {}): AIModel {
   };
 }
 
+function usage(overrides: Partial<AIChannelUsageSummary> = {}): AIChannelUsageSummary {
+  return {
+    channel_id: channelId,
+    period: '30d',
+    period_started_at: '2026-07-15T00:00:00Z',
+    period_ended_at: '2026-08-14T00:00:00Z',
+    total_jobs: 0,
+    succeeded_jobs: 0,
+    failed_jobs: 0,
+    success_rate: null,
+    average_response_duration_ms: null,
+    prompt_tokens: null,
+    completion_tokens: null,
+    total_tokens: null,
+    last_used_at: null,
+    ...overrides,
+  };
+}
+
+function auditLog(overrides: Partial<AuditLog> = {}): AuditLog {
+  return {
+    id: '00000000-0000-4000-8000-000000000020',
+    actor_id: admin.id,
+    actor: { id: admin.id, display_name: admin.display_name, account_type: 'ADMIN' },
+    business_module: 'CONFIGURATION',
+    action: 'ai_channel.updated',
+    target_type: 'AIChannel',
+    target_id: channelId,
+    outcome: 'SUCCESS',
+    change_summary: { revision: 5, changes: [{ field: 'revision', before: 4, after: 5 }] },
+    primary_task: 'VIEW_LOG_DETAIL',
+    request_id: 'req-runtime-safe',
+    created_at: '2026-08-14T09:00:00Z',
+    ...overrides,
+  };
+}
+
+function auditDetail(overrides: Partial<AuditLogDetail> = {}): AuditLogDetail {
+  return {
+    ...auditLog(),
+    changes: [{ field: 'revision', before: 4, after: 5 }],
+    facts: { revision: 5 },
+    result_message: '渠道配置已更新',
+    error_code: null,
+    related_entry: { status: 'AVAILABLE', kind: 'AIChannel', parent_id: null },
+    ...overrides,
+  };
+}
+
 function renderWorkspace(entry = `/settings/ai/${channelId}?tab=basic`) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createRouter({
@@ -123,10 +175,17 @@ function conflict() {
   } as never;
 }
 
+function failure(status: number, message: string) {
+  return {
+    error: { error: { code: 'RUNTIME_FAILED', message, details: {}, request_id: 'req-runtime-failed' } },
+    response: Response.json({}, { status }),
+  } as never;
+}
+
 afterEach(() => vi.restoreAllMocks());
 
 describe('AIChannelWorkspacePage', () => {
-  it('canonicalize UUID/tab，Models 延迟查询，未交付 tab 与非法 UUID 不发送 Detail 请求', async () => {
+  it('canonicalize UUID/search，Models 与 Runtime 只在 active tab 查询', async () => {
     const get = vi.spyOn(api, 'GET').mockResolvedValue(success(channel()));
     const canonical = renderWorkspace(`/settings/ai/${channelId.toUpperCase()}`);
     expect(await screen.findByRole('heading', { name: '生产 OpenAI' })).toBeInTheDocument();
@@ -151,11 +210,18 @@ describe('AIChannelWorkspacePage', () => {
     models.queryClient.clear();
 
     get.mockClear();
-    const unavailable = renderWorkspace(`/settings/ai/${channelId}?tab=usage`);
-    expect(await screen.findByRole('heading', { name: '该 AI 渠道区域尚未交付' })).toBeInTheDocument();
-    expect(get).not.toHaveBeenCalled();
-    unavailable.view.unmount();
-    unavailable.queryClient.clear();
+    get.mockImplementation(async (path) => path === '/api/v1/ai-channels/{channel_id}/usage-summary'
+      ? success(usage())
+      : success(channel()));
+    const runtime = renderWorkspace(`/settings/ai/${channelId}?tab=usage&page=9`);
+    expect(await screen.findByRole('heading', { name: '使用统计' })).toBeInTheDocument();
+    expect(runtime.router.state.location.search).toEqual({ tab: 'usage', period: '30d' });
+    expect((get.mock.calls as unknown as Array<[string]>).map(([path]) => path)).toEqual([
+      '/api/v1/ai-channels/{channel_id}',
+      '/api/v1/ai-channels/{channel_id}/usage-summary',
+    ]);
+    runtime.view.unmount();
+    runtime.queryClient.clear();
 
     get.mockClear();
     renderWorkspace('/settings/ai/not-a-uuid?tab=basic');
@@ -181,6 +247,106 @@ describe('AIChannelWorkspacePage', () => {
     await userEvent.click(screen.getByRole('tab', { name: '基本信息' }));
     expect(await screen.findByRole('textbox', { name: '渠道名称' })).toHaveValue('生产 OpenAI');
     expect((get.mock.calls as unknown as Array<[string]>).filter(([path]) => path === '/api/v1/ai-channels/{channel_id}/models')).toHaveLength(1);
+  });
+
+  it('Usage 由 URL period 与服务端窗口驱动，并区分真实零、null 与 refresh error', async () => {
+    let failRefresh = false;
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/ai-channels/{channel_id}/usage-summary') {
+        return failRefresh ? failure(500, '统计暂时不可用') : success(usage());
+      }
+      return success(channel());
+    });
+    const { queryClient, router } = renderWorkspace(`/settings/ai/${channelId}?tab=usage&period=30d`);
+    expect(await screen.findByText('业务作业')).toBeInTheDocument();
+    expect(screen.getAllByText('0')).toHaveLength(3);
+    expect(screen.getAllByText('暂无数据').length).toBeGreaterThanOrEqual(5);
+    expect(screen.getByText(/统计开始/).parentElement).toHaveTextContent('2026');
+    expect(get).toHaveBeenCalledWith('/api/v1/ai-channels/{channel_id}/usage-summary', {
+      params: { path: { channel_id: channelId }, query: { period: '30d' } },
+    });
+
+    await userEvent.click(screen.getByRole('combobox', { name: '统计时间范围' }));
+    await userEvent.click(await screen.findByRole('option', { name: '最近 7 天' }));
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'usage', period: '7d' }));
+    await waitFor(() => expect(get).toHaveBeenCalledWith('/api/v1/ai-channels/{channel_id}/usage-summary', {
+      params: { path: { channel_id: channelId }, query: { period: '7d' } },
+    }));
+
+    failRefresh = true;
+    await queryClient.invalidateQueries({
+      predicate: (query) => query.queryKey.includes('usage') && query.queryKey.includes('7d'),
+    });
+    expect(await screen.findByText(/使用统计刷新失败：统计暂时不可用/)).toBeInTheDocument();
+    expect(screen.getAllByText('0')).toHaveLength(3);
+  });
+
+  it('Logs 使用服务端分页与 actor，详情按点击读取并对越界页显式恢复', async () => {
+    const row = auditLog();
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path, options) => {
+      if (path === '/api/v1/ai-channels/{channel_id}/audit-logs') {
+        const page = (options as { params: { query: { page: number } } }).params.query.page;
+        return success(page === 99
+          ? { items: [], page: 99, page_size: 10, total: 21 }
+          : { items: [row], page, page_size: 10, total: 21 });
+      }
+      if (path === '/api/v1/audit-logs/{audit_log_id}') return success(auditDetail());
+      return success(channel());
+    });
+    const { router } = renderWorkspace(`/settings/ai/${channelId}?tab=logs&page=2&pageSize=10`);
+    expect(await screen.findByRole('row', { name: /更新渠道/ })).toHaveTextContent('系统管理员');
+    expect(screen.getByRole('row', { name: /更新渠道/ })).toHaveTextContent('修订号：4 → 5');
+    expect(get).toHaveBeenCalledWith('/api/v1/ai-channels/{channel_id}/audit-logs', {
+      params: { path: { channel_id: channelId }, query: { page: 2, page_size: 10 } },
+    });
+    expect((get.mock.calls as unknown as Array<[string]>).map(([path]) => path)).not.toContain('/api/v1/users');
+    expect((get.mock.calls as unknown as Array<[string]>).map(([path]) => path)).not.toContain('/api/v1/audit-logs/{audit_log_id}');
+
+    const detailTrigger = screen.getByRole('button', { name: '查看详情' });
+    await userEvent.click(detailTrigger);
+    const sheet = await screen.findByRole('dialog', { name: '渠道操作日志详情' });
+    expect(within(sheet).getByText('渠道配置已更新')).toBeInTheDocument();
+    expect(within(sheet).getAllByText('修订号').length).toBeGreaterThanOrEqual(1);
+    expect(get).toHaveBeenCalledWith('/api/v1/audit-logs/{audit_log_id}', {
+      params: { path: { audit_log_id: row.id } },
+    });
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => expect(detailTrigger).toHaveFocus());
+
+    await router.navigate({
+      to: '/settings/ai/$channelId',
+      params: { channelId },
+      search: { tab: 'logs', page: 99, pageSize: 10 },
+    });
+    const recover = await screen.findByRole('button', { name: '返回最后有效页' });
+    expect(router.state.location.search).toEqual({ tab: 'logs', page: 99, pageSize: 10 });
+    await userEvent.click(recover);
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: 'logs', page: 3, pageSize: 10 }));
+  });
+
+  it('Channel 与 Model Runtime 主任务都进入渠道 Usage', async () => {
+    const runtimeChannel = channel({
+      is_enabled: true,
+      primary_task: 'VIEW_RUNTIME',
+      available_actions: ['UPDATE', 'DISABLE', 'DELETE'],
+    });
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/ai-channels/{channel_id}/usage-summary') return success(usage());
+      if (path === '/api/v1/ai-channels/{channel_id}/models') {
+        return success({ items: [model({ primary_task: 'VIEW_MODEL_RUNTIME', available_actions: ['UPDATE', 'DELETE'] })] });
+      }
+      return success(runtimeChannel);
+    });
+    const channelView = renderWorkspace();
+    await userEvent.click(await screen.findByRole('button', { name: '查看运行' }));
+    await waitFor(() => expect(channelView.router.state.location.search).toEqual({ tab: 'usage', period: '30d' }));
+    channelView.view.unmount();
+    channelView.queryClient.clear();
+
+    const modelView = renderWorkspace(`/settings/ai/${channelId}?tab=models`);
+    const row = await screen.findByRole('row', { name: /GPT Test/ });
+    await userEvent.click(within(row).getByRole('button', { name: '查看运行' }));
+    await waitFor(() => expect(modelView.router.state.location.search).toEqual({ tab: 'usage', period: '30d' }));
   });
 
   it('Models discovery/test/delete 使用各自 current revision 且真实测试只发送一次', async () => {

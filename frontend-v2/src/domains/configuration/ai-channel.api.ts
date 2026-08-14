@@ -18,6 +18,7 @@ type AIChannelHeaderUpdate = components['schemas']['AIChannelHeaderUpdate'];
 type AIModel = components['schemas']['AIModel'];
 type AIModelCreate = components['schemas']['AIModelCreate'];
 type AIModelUpdate = components['schemas']['AIModelUpdate'];
+type AIChannelUsagePeriod = components['schemas']['AIUsagePeriod'];
 type AIChannelCommandTarget = Pick<AIChannel, 'id' | 'revision'>;
 
 class AIChannelRequestError extends Error {
@@ -39,7 +40,15 @@ const aiChannelKeys = {
   details: () => ['configuration', 'ai-channels', 'detail'] as const,
   detail: (channelId: string) => ['configuration', 'ai-channels', 'detail', channelId] as const,
   models: (channelId: string) => ['configuration', 'ai-channels', 'models', channelId] as const,
-  logs: (channelId: string) => ['configuration', 'ai-channels', 'logs', channelId] as const,
+  usageRoot: (channelId: string) => ['configuration', 'ai-channels', 'usage', channelId] as const,
+  usage: (channelId: string, period: AIChannelUsagePeriod) => (
+    [...aiChannelKeys.usageRoot(channelId), period] as const
+  ),
+  logsRoot: (channelId: string) => ['configuration', 'ai-channels', 'logs', channelId] as const,
+  logs: (channelId: string, page: number, pageSize: number) => (
+    [...aiChannelKeys.logsRoot(channelId), page, pageSize] as const
+  ),
+  auditDetail: (auditLogId: string) => ['configuration', 'audit-logs', 'detail', auditLogId] as const,
 };
 
 function aiChannelListQueryOptions(search: AIChannelSearch) {
@@ -82,6 +91,54 @@ function aiChannelModelsQueryOptions(channelId: string) {
         params: { path: { channel_id: channelId } },
       });
       if (!result.data) throw aiChannelRequestError('读取 AI 模型列表', result);
+      return result.data;
+    },
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
+function aiChannelUsageQueryOptions(channelId: string, period: AIChannelUsagePeriod) {
+  return queryOptions({
+    queryKey: aiChannelKeys.usage(channelId, period),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/ai-channels/{channel_id}/usage-summary', {
+        params: { path: { channel_id: channelId }, query: { period } },
+      });
+      if (!result.data) throw aiChannelRequestError('读取 AI 渠道使用统计', result);
+      return result.data;
+    },
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
+function aiChannelLogsQueryOptions(channelId: string, page: number, pageSize: number) {
+  return queryOptions({
+    queryKey: aiChannelKeys.logs(channelId, page, pageSize),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/ai-channels/{channel_id}/audit-logs', {
+        params: { path: { channel_id: channelId }, query: { page, page_size: pageSize } },
+      });
+      if (!result.data) throw aiChannelRequestError('读取 AI 渠道操作日志', result);
+      return result.data;
+    },
+    retry: false,
+    retryOnMount: false,
+    staleTime: 30_000,
+  });
+}
+
+function aiChannelAuditDetailQueryOptions(auditLogId: string) {
+  return queryOptions({
+    queryKey: aiChannelKeys.auditDetail(auditLogId),
+    queryFn: async () => {
+      const result = await api.GET('/api/v1/audit-logs/{audit_log_id}', {
+        params: { path: { audit_log_id: auditLogId } },
+      });
+      if (!result.data) throw aiChannelRequestError('读取 AI 渠道日志详情', result);
       return result.data;
     },
     retry: false,
@@ -338,10 +395,13 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
 
 export {
   AIChannelRequestError,
+  aiChannelAuditDetailQueryOptions,
   aiChannelDetailQueryOptions,
   aiChannelKeys,
   aiChannelListQueryOptions,
+  aiChannelLogsQueryOptions,
   aiChannelModelsQueryOptions,
+  aiChannelUsageQueryOptions,
   createAIChannel,
   createAIChannelHeader,
   createAIModel,

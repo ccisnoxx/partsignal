@@ -53,6 +53,7 @@ type AIChannelModelsSectionProps = {
   csrfToken: string | null;
   onConsumersChanged: () => Promise<void>;
   onEnableChannel: () => void;
+  onViewRuntime: () => void;
 };
 
 type ModelDialogTarget = {
@@ -66,6 +67,7 @@ function AIChannelModelsSection({
   csrfToken,
   onConsumersChanged,
   onEnableChannel,
+  onViewRuntime,
 }: AIChannelModelsSectionProps) {
   const queryClient = useQueryClient();
   const models = useQuery(aiChannelModelsQueryOptions(channel.id));
@@ -84,7 +86,7 @@ function AIChannelModelsSection({
       queryClient.invalidateQueries({ queryKey: aiChannelKeys.detail(channel.id) }),
       queryClient.invalidateQueries({ queryKey: aiChannelKeys.models(channel.id) }),
       includeLogs
-        ? queryClient.invalidateQueries({ queryKey: aiChannelKeys.logs(channel.id) })
+        ? queryClient.invalidateQueries({ queryKey: aiChannelKeys.logsRoot(channel.id) })
         : Promise.resolve(),
       includeConsumers ? onConsumersChanged() : Promise.resolve(),
     ]);
@@ -146,6 +148,8 @@ function AIChannelModelsSection({
       remove.mutate(model);
     } else if (command === 'enable-channel') {
       onEnableChannel();
+    } else if (command === 'view-runtime') {
+      onViewRuntime();
     } else {
       throw new Error(`AI 模型行收到未知命令：${command}`);
     }

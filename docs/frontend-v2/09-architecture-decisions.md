@@ -264,15 +264,23 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Secret and concurrency boundary**：API Key 与普通/敏感 Header 值统一 replacement-only，响应投影只保留 Header 元数据；Header DELETE 使用渠道 revision。配置与 secret mutation 的 409 都不自动重放，显式 reload 才采用服务端 canonical state；secret mutation `gcTime=0` 并在所有退出路径清空输入。
 
-**Cache boundary**：Configuration domain 继续独占 AI list/detail/models/logs keys，route composition 只失效 Prompt Preview Options 与 Content generation-options 的公开 key owner。失败不 optimistic、不失效；成功按 mutation 种类精确刷新，渠道删除移除 exact Detail 后返回 canonical List。
+**Cache boundary**：Configuration domain 继续独占 AI list/detail/models/runtime keys，route composition 只失效 Prompt Preview Options 与 Content generation-options 的公开 key owner。失败不 optimistic、不失效；成功按 mutation 种类精确刷新，渠道删除移除 exact Detail/models/usageRoot/logsRoot 后返回 canonical List。
 
 ## ADR-042：AI Channel Models 复用既有资源合同并按 revision 隔离外部调用
 
 **Decision**：不新增聚合 endpoint、数据库字段、依赖或通用 CRUD framework。`tab=models` 按需读取既有 `AIModelList`，一个 domain-local Models section 持有 query、mutation 与 Dialog；Basic/Request 的 RHF owner 只在配置 surface 挂载，确认离开后卸载。
 
-**Concurrency and action boundary**：discovery 使用渠道 revision，test/update/enable/disable/delete 使用模型 revision，create 不伪造 revision。discovery/test 的 Provider 调用不持锁，但服务端在调用前后复核 snapshot；冲突丢弃结果且不重试。UI 只消费 channel/model typed action，Runtime 未交付时明确禁用。
+**Concurrency and action boundary**：discovery 使用渠道 revision，test/update/enable/disable/delete 使用模型 revision，create 不伪造 revision。discovery/test 的 Provider 调用不持锁，但服务端在调用前后复核 snapshot；冲突丢弃结果且不重试。UI 只消费 channel/model typed action；Runtime 主任务由后续 ADR-043 统一进入渠道 Usage。
 
 **Cache boundary**：discovery 不写 cache；create/test 只刷新 AI 投影，update/enable/disable/delete 才失效 Prompt Preview Options 与 Content generation-options。失败或 409 不 optimistic、不失效、不 replay；Usage、Job 与不可变历史不受影响。
+
+## ADR-043：AI Channel Runtime 复用服务端聚合与安全审计投影
+
+**Decision**：不新增 endpoint、数据库、依赖、MetricTile 或通用 Runtime framework。Workspace 最终开放五个 Tab；Usage 的 period 与 Logs 的 page/pageSize 只由条件式 canonical URL 持有。一个 domain-local Runtime section 直接消费既有 Usage Summary、渠道 AuditLogList 和全局 AuditLogDetail。
+
+**Data and safety boundary**：Usage 不在浏览器补算；Logs 不查询 Users、不客户端排序/分页。Audit Detail 只在行操作后读取，并只展示 CONFIGURATION 登记字段与 primitive/list 值；未知 key/shape 显式失败，不输出 raw JSON。Channel 与 Model Runtime 主任务都进入渠道 Usage，不建立模型级 Runtime。
+
+**Cache boundary**：Configuration domain 增加 `usageRoot/usage`、`logsRoot/logs`、`auditDetail`，全部 exact GET `retry:false`。配置 mutation 只失效 `logsRoot`，不主动刷新 Usage；删除渠道移除其 detail/models/usageRoot/logsRoot。OpenAPI、generated types、backend runtime 与数据库合同不变。
 
 ## 后续建议 ADR
 

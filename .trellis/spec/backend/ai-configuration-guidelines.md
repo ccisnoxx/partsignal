@@ -67,7 +67,7 @@
 - 密钥、密文格式或关联数据错误 -> `CREDENTIAL_DECRYPTION_FAILED`。
 - `model`、`messages`、`stream` 出现在自定义参数 -> 请求校验失败。
 - 未知 `protocol_type`、未知 `provider_brand` 或未登记品牌—协议组合 -> 请求校验失败；不得按名称、URL 或品牌猜测协议。
-- 非法列表页码、`page_size` 不属于 `10|20|50`、未知排序或统计周期 -> 请求校验失败；不得静默改成默认值。
+- 非法列表页码、OpenAPI 通用 `page_size` 超出 `1..100`、未知排序或统计周期 -> 请求校验失败；不得静默改成默认值。AI Channel List 与 Workspace 控件只提供 `10|20|50`，这是前端 canonical URL 约束，不收紧公共 API。
 - 渠道或模型未启用、模型未测试 -> `AI_CONFIGURATION_DISABLED` 或 `AI_MODEL_NOT_TESTED`；渠道启停同态请求 -> `INVALID_STATE_TRANSITION`；渠道启停/删除 revision 过期 -> `REVISION_CONFLICT`。
 - 配置行已物理删除 -> `AI_CONFIGURATION_DELETED`，不得用快照中的非敏感信息猜测调用。
 - 同一渠道或 Header 已被另一个并发 DELETE 提交 -> HTTP `404`；不得再次返回 `204`、追加成功审计或重复失效关联配置。

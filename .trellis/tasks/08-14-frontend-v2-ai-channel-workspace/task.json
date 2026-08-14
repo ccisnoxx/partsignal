@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "08-14-frontend-v2-ai-channel-workspace-core",
-    "08-14-frontend-v2-ai-channel-workspace-models"
+    "08-14-frontend-v2-ai-channel-workspace-models",
+    "08-14-frontend-v2-ai-channel-workspace-runtime"
   ],
   "parent": null,
   "relatedFiles": [],

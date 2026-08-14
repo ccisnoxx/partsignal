@@ -50,6 +50,7 @@ import { Route as AppPublishingWorkIndexRouteImport } from './routes/_app/publis
 import { Route as AppPublishingWorkWorkIdRouteImport } from './routes/_app/publishing/work/$workId'
 import { Route as AppSettingsPlatformsIndexRouteImport } from './routes/_app/settings/platforms/index'
 import { Route as AppSettingsPlatformsPlatformIdRouteImport } from './routes/_app/settings/platforms/$platformId'
+import { Route as AppAdminSettingsAiChannelIdRouteImport } from './routes/_app/_admin/settings.ai_.$channelId'
 import { Route as AppAdminSettingsPlatformsTypesRouteImport } from './routes/_app/_admin/settings.platforms.types'
 import { Route as AppContentTasksTaskIdEditorRouteImport } from './routes/_app/content/tasks/$taskId_.editor'
 import { Route as AppContentTasksTaskIdReviewRouteImport } from './routes/_app/content/tasks/$taskId_.review'
@@ -273,6 +274,12 @@ const AppSettingsPlatformsPlatformIdRoute =
     path: '/$platformId',
     getParentRoute: () => AppSettingsPlatformsRouteRoute,
   } as any)
+const AppAdminSettingsAiChannelIdRoute =
+  AppAdminSettingsAiChannelIdRouteImport.update({
+    id: '/settings/ai_/$channelId',
+    path: '/settings/ai/$channelId',
+    getParentRoute: () => AppAdminRouteRoute,
+  } as any)
 const AppAdminSettingsPlatformsTypesRoute =
   AppAdminSettingsPlatformsTypesRouteImport.update({
     id: '/settings/platforms/types',
@@ -356,6 +363,7 @@ export interface FileRoutesByFullPath {
   '/publishing/issues/': typeof AppPublishingIssuesIndexRoute
   '/publishing/work/': typeof AppPublishingWorkIndexRoute
   '/settings/platforms/': typeof AppSettingsPlatformsIndexRoute
+  '/settings/ai/$channelId': typeof AppAdminSettingsAiChannelIdRoute
   '/settings/platforms/types': typeof AppAdminSettingsPlatformsTypesRoute
   '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
   '/content/tasks/$taskId/review': typeof AppContentTasksTaskIdReviewRoute
@@ -395,6 +403,7 @@ export interface FileRoutesByTo {
   '/publishing/issues': typeof AppPublishingIssuesIndexRoute
   '/publishing/work': typeof AppPublishingWorkIndexRoute
   '/settings/platforms': typeof AppSettingsPlatformsIndexRoute
+  '/settings/ai/$channelId': typeof AppAdminSettingsAiChannelIdRoute
   '/settings/platforms/types': typeof AppAdminSettingsPlatformsTypesRoute
   '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
   '/content/tasks/$taskId/review': typeof AppContentTasksTaskIdReviewRoute
@@ -446,6 +455,7 @@ export interface FileRoutesById {
   '/_app/publishing/issues/': typeof AppPublishingIssuesIndexRoute
   '/_app/publishing/work/': typeof AppPublishingWorkIndexRoute
   '/_app/settings/platforms/': typeof AppSettingsPlatformsIndexRoute
+  '/_app/_admin/settings/ai_/$channelId': typeof AppAdminSettingsAiChannelIdRoute
   '/_app/_admin/settings/platforms/types': typeof AppAdminSettingsPlatformsTypesRoute
   '/_app/content/tasks/$taskId_/editor': typeof AppContentTasksTaskIdEditorRoute
   '/_app/content/tasks/$taskId_/review': typeof AppContentTasksTaskIdReviewRoute
@@ -496,6 +506,7 @@ export interface FileRouteTypes {
     | '/publishing/issues/'
     | '/publishing/work/'
     | '/settings/platforms/'
+    | '/settings/ai/$channelId'
     | '/settings/platforms/types'
     | '/content/tasks/$taskId/editor'
     | '/content/tasks/$taskId/review'
@@ -535,6 +546,7 @@ export interface FileRouteTypes {
     | '/publishing/issues'
     | '/publishing/work'
     | '/settings/platforms'
+    | '/settings/ai/$channelId'
     | '/settings/platforms/types'
     | '/content/tasks/$taskId/editor'
     | '/content/tasks/$taskId/review'
@@ -585,6 +597,7 @@ export interface FileRouteTypes {
     | '/_app/publishing/issues/'
     | '/_app/publishing/work/'
     | '/_app/settings/platforms/'
+    | '/_app/_admin/settings/ai_/$channelId'
     | '/_app/_admin/settings/platforms/types'
     | '/_app/content/tasks/$taskId_/editor'
     | '/_app/content/tasks/$taskId_/review'
@@ -887,6 +900,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsPlatformsPlatformIdRouteImport
       parentRoute: typeof AppSettingsPlatformsRouteRoute
     }
+    '/_app/_admin/settings/ai_/$channelId': {
+      id: '/_app/_admin/settings/ai_/$channelId'
+      path: '/settings/ai/$channelId'
+      fullPath: '/settings/ai/$channelId'
+      preLoaderRoute: typeof AppAdminSettingsAiChannelIdRouteImport
+      parentRoute: typeof AppAdminRouteRoute
+    }
     '/_app/_admin/settings/platforms/types': {
       id: '/_app/_admin/settings/platforms/types'
       path: '/settings/platforms/types'
@@ -943,6 +963,7 @@ interface AppAdminRouteRouteChildren {
   AppAdminSettingsAiRoute: typeof AppAdminSettingsAiRoute
   AppAdminSettingsPromptsRoute: typeof AppAdminSettingsPromptsRoute
   AppAdminSystemUsersRoute: typeof AppAdminSystemUsersRoute
+  AppAdminSettingsAiChannelIdRoute: typeof AppAdminSettingsAiChannelIdRoute
   AppAdminSettingsPlatformsTypesRoute: typeof AppAdminSettingsPlatformsTypesRoute
 }
 
@@ -950,6 +971,7 @@ const AppAdminRouteRouteChildren: AppAdminRouteRouteChildren = {
   AppAdminSettingsAiRoute: AppAdminSettingsAiRoute,
   AppAdminSettingsPromptsRoute: AppAdminSettingsPromptsRoute,
   AppAdminSystemUsersRoute: AppAdminSystemUsersRoute,
+  AppAdminSettingsAiChannelIdRoute: AppAdminSettingsAiChannelIdRoute,
   AppAdminSettingsPlatformsTypesRoute: AppAdminSettingsPlatformsTypesRoute,
 }
 

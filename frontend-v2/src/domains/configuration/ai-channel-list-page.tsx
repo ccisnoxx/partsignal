@@ -1,5 +1,7 @@
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
+import { FormProvider, useForm } from 'react-hook-form';
 
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { FilterBar } from '@/design-system/data-table/filter-bar';
@@ -9,6 +11,8 @@ import { TableShell } from '@/design-system/data-table/table-shell';
 import { TableSkeleton } from '@/design-system/data-table/table-skeleton';
 import { TableToolbar } from '@/design-system/data-table/table-toolbar';
 import type { ColumnRole } from '@/design-system/data-table/types';
+import { FormField } from '@/design-system/forms/form-field';
+import { ErrorSummary } from '@/design-system/forms/form-layout';
 import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import {
@@ -30,6 +34,7 @@ import {
 import {
   AIChannelRequestError,
   aiChannelListQueryOptions,
+  createAIChannel,
   runAIChannelCommand,
 } from './ai-channel.api';
 import {
@@ -46,6 +51,16 @@ import {
   type AIChannelSearch,
   type AIChannelSummary,
 } from './ai-channel-list.model';
+import {
+  aiChannelCreateFormSchema,
+  aiChannelCreateFormValues,
+  providerValues,
+  toAIChannelCreate,
+  type AIChannel,
+  type AIChannelCreateFormValues,
+} from './ai-channel-workspace.model';
+import { Input } from '@/design-system/primitives/input';
+import { Textarea } from '@/design-system/primitives/textarea';
 
 const columnRoles = [
   'primary', 'metadata', 'status', 'numeric', 'status', 'status', 'actions',
@@ -54,6 +69,7 @@ const columnRoles = [
 type AIChannelListPageProps = {
   csrfToken: string | null;
   onChannelChanged: (kind: 'status' | 'delete', channelId: string) => Promise<void>;
+  onCreated: (channel: AIChannel) => Promise<void> | void;
   onSearchChange: (search: AIChannelSearch) => Promise<void> | void;
   search: AIChannelSearch;
 };
@@ -64,11 +80,14 @@ type EnableTarget = { channel: AIChannelSummary; focusReturn: HTMLElement | null
 function AIChannelListPage({
   csrfToken,
   onChannelChanged,
+  onCreated,
   onSearchChange,
   search,
 }: AIChannelListPageProps) {
   const channels = useQuery(aiChannelListQueryOptions(search));
   const [enableTarget, setEnableTarget] = useState<EnableTarget>();
+  const [createOpen, setCreateOpen] = useState(false);
+  const createTrigger = useRef<HTMLButtonElement>(null);
   const rows = channels.data?.items ?? [];
   const total = channels.data?.total ?? 0;
   const pageCount = Math.ceil(total / search.pageSize);
@@ -122,11 +141,14 @@ function AIChannelListPage({
 
   return (
     <section aria-labelledby="ai-channel-list-title" className="min-w-0 space-y-4">
-      <header className="space-y-1">
-        <h1 className="type-page-title" id="ai-channel-list-title">AI 渠道</h1>
-        <p className="max-w-3xl text-text-secondary">
-          查看渠道、模型与连接状态，并按服务端提供的动作继续管理。
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="type-page-title" id="ai-channel-list-title">AI 渠道</h1>
+          <p className="max-w-3xl text-text-secondary">
+            查看渠道、模型与连接状态，并按服务端提供的动作继续管理。
+          </p>
+        </div>
+        <Button onClick={() => setCreateOpen(true)} ref={createTrigger} type="button">创建渠道</Button>
       </header>
 
       {channels.data && channels.error && (
@@ -251,7 +273,131 @@ function AIChannelListPage({
         }}
         target={enableTarget}
       />
+      <AIChannelCreateDialog
+        csrfToken={csrfToken}
+        finalFocus={createTrigger}
+        onClose={() => setCreateOpen(false)}
+        onCreated={onCreated}
+        open={createOpen}
+      />
     </section>
+  );
+}
+
+function AIChannelCreateDialog({
+  csrfToken,
+  finalFocus,
+  onClose,
+  onCreated,
+  open,
+}: {
+  csrfToken: string | null;
+  finalFocus: RefObject<HTMLElement | null>;
+  onClose: () => void;
+  onCreated: (channel: AIChannel) => Promise<void> | void;
+  open: boolean;
+}) {
+  const [error, setError] = useState<string>();
+  const form = useForm<AIChannelCreateFormValues>({
+    defaultValues: aiChannelCreateFormValues(),
+    resolver: zodResolver(aiChannelCreateFormSchema),
+  });
+  const create = useMutation({
+    gcTime: 0,
+    mutationFn: (values: AIChannelCreateFormValues) => (
+      createAIChannel(toAIChannelCreate(values), csrfToken)
+    ),
+  });
+
+  function close() {
+    form.reset(aiChannelCreateFormValues());
+    create.reset();
+    setError(undefined);
+    onClose();
+  }
+
+  async function submit(values: AIChannelCreateFormValues) {
+    setError(undefined);
+    let channel: AIChannel;
+    try {
+      channel = await create.mutateAsync(values);
+    } catch (reason) {
+      setError(errorMessage(reason));
+      form.setValue('apiKey', '');
+      create.reset();
+      return;
+    }
+    close();
+    await onCreated(channel);
+  }
+
+  return (
+    <Dialog onOpenChange={(nextOpen) => !nextOpen && !create.isPending && close()} open={open}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl" finalFocus={finalFocus} showCloseButton={!create.isPending}>
+        <DialogHeader>
+          <DialogTitle>创建 AI 渠道</DialogTitle>
+          <DialogDescription>创建后默认停用；API Key 只用于本次提交且不会回显。</DialogDescription>
+        </DialogHeader>
+        <FormProvider {...form}>
+          <form className="grid gap-4 sm:grid-cols-2" id="ai-channel-create-form" noValidate onSubmit={form.handleSubmit(submit)}>
+            <ErrorSummary className="sm:col-span-2" errors={error ? [{ id: 'server', message: error }] : []} />
+            <FormField<AIChannelCreateFormValues, 'name'>
+              id="ai-channel-create-name"
+              label="渠道名称"
+              name="name"
+              required
+              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoFocus disabled={create.isPending} id={context.inputId} maxLength={160} />}
+            />
+            <FormField<AIChannelCreateFormValues, 'providerBrand'>
+              id="ai-channel-create-provider"
+              label="Provider"
+              name="providerBrand"
+              required
+              render={(context) => (
+                <Select items={providerValues.map((value) => ({ label: providerRegistry[value], value }))} onValueChange={(value) => value && context.field.onChange(value)} value={context.field.value}>
+                  <SelectTrigger aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} id={context.inputId}><SelectValue /></SelectTrigger>
+                  <SelectContent>{providerValues.map((value) => <SelectItem key={value} value={value}>{providerRegistry[value]}</SelectItem>)}</SelectContent>
+                </Select>
+              )}
+            />
+            <FormField<AIChannelCreateFormValues, 'description'>
+              className="sm:col-span-2"
+              id="ai-channel-create-description"
+              label="描述"
+              name="description"
+              render={(context) => <Textarea {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={create.isPending} id={context.inputId} maxLength={500} rows={3} />}
+            />
+            <FormField<AIChannelCreateFormValues, 'baseUrl'>
+              id="ai-channel-create-base-url"
+              label="API 根地址"
+              name="baseUrl"
+              required
+              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={create.isPending} id={context.inputId} inputMode="url" placeholder="https://api.example.com/v1" />}
+            />
+            <FormField<AIChannelCreateFormValues, 'timeoutSeconds'>
+              id="ai-channel-create-timeout"
+              label="超时时间（秒）"
+              name="timeoutSeconds"
+              required
+              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} disabled={create.isPending} id={context.inputId} max={600} min={10} onChange={(event) => context.field.onChange(event.currentTarget.valueAsNumber)} type="number" />}
+            />
+            <FormField<AIChannelCreateFormValues, 'apiKey'>
+              className="sm:col-span-2"
+              description="密钥不会进入读取响应、查询缓存或诊断输出。"
+              id="ai-channel-create-api-key"
+              label="API Key"
+              name="apiKey"
+              required
+              render={(context) => <Input {...context.field} aria-describedby={context['aria-describedby']} aria-invalid={context['aria-invalid']} autoComplete="new-password" disabled={create.isPending} id={context.inputId} type="password" />}
+            />
+          </form>
+        </FormProvider>
+        <DialogFooter>
+          <DialogClose disabled={create.isPending} render={<Button variant="outline" />}>取消</DialogClose>
+          <Button disabled={create.isPending} form="ai-channel-create-form" type="submit">{create.isPending ? '创建中…' : '创建渠道'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -102,7 +102,7 @@ function renderAIChannels(
 afterEach(() => vi.restoreAllMocks());
 
 describe('AIChannelListPage', () => {
-  it('单次安全 GET 绘制固定七列、状态与未来 Workspace 链接', async () => {
+  it('单次安全 GET 绘制固定七列、状态与 canonical Workspace 链接', async () => {
     const untested = channel({
       id: '00000000-0000-4000-8000-000000000002',
       name: '待配置渠道',
@@ -136,7 +136,7 @@ describe('AIChannelListPage', () => {
       .toBeInTheDocument();
     expect(screen.getAllByText('Passed').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Needs setup').length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: /新增|创建/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '创建渠道' })).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent('api-key-sentinel');
     expect(document.body).not.toHaveTextContent('provider.example.invalid');
     expect(get).toHaveBeenCalledWith('/api/v1/ai-channels', {
@@ -179,6 +179,93 @@ describe('AIChannelListPage', () => {
     await userEvent.click(screen.getByRole('combobox', { name: '启用状态' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Disabled' }));
     await waitFor(() => expect(router.state.location.search).toMatchObject({ status: 'DISABLED', page: 1 }));
+  });
+
+  it('创建渠道只提交真实合同并进入 canonical Basic Workspace', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([]),
+      response: Response.json(result([])),
+    } as never);
+    const created = {
+      id: '00000000-0000-4000-8000-000000000009',
+      name: '新渠道',
+      description: '创建测试',
+      protocol_type: 'openai-compatible-chat-completions',
+      provider_brand: 'CUSTOM',
+      base_url: 'https://new.example.com/v1',
+      timeout_seconds: 30,
+      is_enabled: false,
+      api_key_configured: true,
+      api_key_updated_at: '2026-08-14T08:00:00Z',
+      headers: [],
+      enabled_models: [],
+      latest_test_status: 'UNTESTED',
+      last_tested_at: null,
+      workflow_stage: 'UNVERIFIED',
+      primary_task: 'TEST_MODEL',
+      available_actions: ['UPDATE', 'REPLACE_API_KEY', 'DELETE', 'DISCOVER_MODELS', 'CREATE_HEADER', 'CREATE_MODEL'],
+      revision: 0,
+      created_by: admin.id,
+      created_at: '2026-08-14T08:00:00Z',
+      updated_at: '2026-08-14T08:00:00Z',
+    } as const;
+    const post = vi.spyOn(api, 'POST').mockResolvedValue({
+      data: created,
+      response: Response.json(created, { status: 201 }),
+    } as never);
+    const { queryClient, router } = renderAIChannels();
+
+    await userEvent.click(await screen.findByRole('button', { name: '创建渠道' }));
+    const dialog = await screen.findByRole('dialog', { name: '创建 AI 渠道' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '渠道名称' }), '新渠道');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '描述' }), '创建测试');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'API 根地址' }), 'https://new.example.com/v1');
+    await userEvent.type(within(dialog).getByLabelText(/API Key/), 'create-key-sentinel');
+    await userEvent.click(within(dialog).getByRole('button', { name: '创建渠道' }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/settings/ai/${created.id}`));
+    expect(router.state.location.search).toEqual({ tab: 'basic' });
+    expect(post).toHaveBeenCalledWith('/api/v1/ai-channels', {
+      body: {
+        name: '新渠道',
+        description: '创建测试',
+        protocol_type: 'openai-compatible-chat-completions',
+        provider_brand: 'CUSTOM',
+        base_url: 'https://new.example.com/v1',
+        api_key: 'create-key-sentinel',
+        timeout_seconds: 30,
+      },
+      params: { header: { 'X-CSRF-Token': auth.csrfToken } },
+    });
+    expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables)))
+      .not.toContain('create-key-sentinel');
+    expect(document.body).not.toHaveTextContent('create-key-sentinel');
+  });
+
+  it('创建失败后清除 API Key，同时保留可修正的非敏感字段', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([]),
+      response: Response.json(result([])),
+    } as never);
+    vi.spyOn(api, 'POST').mockResolvedValue({
+      error: { error: { code: 'AI_CHANNEL_NAME_EXISTS', message: '渠道名称已存在', details: {}, request_id: 'req-ai-create' } },
+      response: Response.json({}, { status: 409 }),
+    } as never);
+    const { queryClient } = renderAIChannels();
+
+    await userEvent.click(await screen.findByRole('button', { name: '创建渠道' }));
+    const dialog = await screen.findByRole('dialog', { name: '创建 AI 渠道' });
+    await userEvent.type(within(dialog).getByRole('textbox', { name: '渠道名称' }), '重复渠道');
+    await userEvent.type(within(dialog).getByRole('textbox', { name: 'API 根地址' }), 'https://duplicate.example.com/v1');
+    const apiKey = within(dialog).getByLabelText(/API Key/);
+    await userEvent.type(apiKey, 'failed-create-secret');
+    await userEvent.click(within(dialog).getByRole('button', { name: '创建渠道' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('请求 ID：req-ai-create');
+    expect(apiKey).toHaveValue('');
+    expect(within(dialog).getByRole('textbox', { name: '渠道名称' })).toHaveValue('重复渠道');
+    expect(JSON.stringify(queryClient.getMutationCache().getAll().map((item) => item.state.variables)))
+      .not.toContain('failed-create-secret');
   });
 
   it('启用命令携带 revision；409 不自动重放或刷新', async () => {

@@ -53,6 +53,15 @@ function AIChannelListRoute() {
           }),
         ]);
       }}
+      onCreated={async (channel) => {
+        queryClient.setQueryData(aiChannelKeys.detail(channel.id), channel);
+        await queryClient.invalidateQueries({ queryKey: aiChannelKeys.lists() });
+        await navigate({
+          to: '/settings/ai/$channelId',
+          params: { channelId: channel.id },
+          search: { tab: 'basic' },
+        });
+      }}
       onSearchChange={(nextSearch) => void navigate({ search: nextSearch })}
       search={search}
     />

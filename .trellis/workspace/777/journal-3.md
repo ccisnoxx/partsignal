@@ -1050,3 +1050,40 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 145: 完成 Frontend V2 Prompt Workspace 父任务收口
+
+**Date**: 2026-08-14
+**Task**: 完成 Frontend V2 Prompt Workspace 父任务收口
+**Branch**: `main`
+
+### Summary
+
+核对 Core 与 Preview 的归档、提交、验证和跨层文档一致性，更新父任务最终完成记录与 Phase 6 迁移计划，并归档父任务。
+
+### Main Changes
+
+- 核对 Prompt Workspace Core 与 Preview 的归档目录、交付提交及其在 `main` 上的祖先关系。
+- 将父任务 PRD、设计与实施记录更新为最终完成状态，并同步 Phase 6 迁移计划的完成项和下一任务。
+- 复核代码、OpenAPI、生成类型、测试及 Frontend V2 文档的一致性，随后将父任务归档为 `completed`。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3c4ea3c` | (see git log) |
+
+### Testing
+
+- 复用 Core 已记录的定向单元/组件测试、lint、typecheck、build 与 E2E 通过证据。
+- 复用 Preview 已记录的 OpenAPI 合同检查、后端集成测试（1 项）、前端单元测试（29 项）、E2E（8 项）、lint、typecheck 与 build 通过证据。
+- 本次执行提交祖先与路径核对、跨层关键字一致性检查及 `git diff --check`；仅修改文档和 Trellis 记录，未重复运行重型测试。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

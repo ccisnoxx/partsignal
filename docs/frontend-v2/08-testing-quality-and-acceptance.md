@@ -281,7 +281,11 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 ### 13.16 AI Channel List 页面验收
 
-`tests/e2e/ai-channel-list.spec.ts` 使用独立 generated-type `ai-channels.fixture.ts`，只允许认证、CSRF、安全 Channel list 与 revision enable/disable/delete；未声明 API 和浏览器运行时错误在 teardown 失败。contract/backend tests 冻结无 base URL 的 Summary、模型总数/配置状态、名称/描述搜索、固定三查询、启停 no-op 与 DELETE stale revision。model/component/production-artifact tests 覆盖 canonical URL、固定七列、四类 Primary、完整 overflow、future Workspace href、loading/empty/error/stale/越界、409 不重放、ADMIN/ENGINEER route/server 403、敏感字段缺失、键盘焦点，以及 375/768/1024/1440 页面根无横向溢出。该 fixture 不替代 Phase 6 后续 AI Workspace 与完整真实栈 E2E。
+`tests/e2e/ai-channel-list.spec.ts` 使用独立 generated-type `ai-channels.fixture.ts`，只允许认证、CSRF、安全 Channel list 与 revision enable/disable/delete；未声明 API 和浏览器运行时错误在 teardown 失败。contract/backend tests 冻结无 base URL 的 Summary、模型总数/配置状态、名称/描述搜索、固定三查询、启停 no-op 与 DELETE stale revision。model/component/production-artifact tests 覆盖 canonical URL、固定七列、四类 Primary、完整 overflow、Workspace href、loading/empty/error/stale/越界、409 不重放、ADMIN/ENGINEER route/server 403、敏感字段缺失、键盘焦点，以及 375/768/1024/1440 页面根无横向溢出。该 fixture 不替代独立 AI Workspace 与完整真实栈 E2E。
+
+### 13.17 AI Channel Workspace Core 页面验收
+
+`tests/e2e/ai-channel-workspace-core.spec.ts` 在 List 严格 fixture 上只声明创建、Detail、完整 PATCH、API Key 与 Header Core 请求；未知 API 与浏览器错误仍由 teardown 失败。contract/backend tests 冻结 Header projection 无值、Header DELETE required channel revision 与 409。model/component/production-artifact tests 覆盖 List 创建 handoff、direct/refresh/Back/Forward、UUID/tab canonicalization、Basic/Request 共享草稿、DirtyGuard、完整 update、409 不重放与显式 reload、API Key/Header sentinel、删除 revision、ADMIN、键盘焦点及 375/768/1024/1440 根无溢出。
 
 ## 14. Deployment Smoke
 

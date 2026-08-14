@@ -402,11 +402,15 @@ Pattern：Table。
 
 列表不直接展示 API key、headers、完整 base URL。
 
-该页为 ADMIN-only，canonical URL 使用 `q/status/provider/sort/page/pageSize`，筛选与分页完全由服务端执行。名称与配置类动作只生成未来 `/settings/ai/$channelId?tab=basic|request|models|usage` handoff；本页不注册 Workspace，也不提供创建入口。启用、停用和删除提交当前 revision，409 只允许显式重新加载，不自动重放。768px 与 375px 在主单元格重复 Provider/Protocol、模型、连接和配置摘要，并保留状态与操作列。
+该页为 ADMIN-only，canonical URL 使用 `q/status/provider/sort/page/pageSize`，筛选与分页完全由服务端执行。创建提交完整渠道合同，API Key 只存在于该次 mutation，成功使用响应 ID 进入 `/settings/ai/$channelId?tab=basic`。配置类动作交接到 Workspace；启用、停用和删除提交当前 revision，409 只允许显式重新加载，不自动重放。768px 与 375px 在主单元格重复 Provider/Protocol、模型、连接和配置摘要，并保留状态与操作列。
 
 ## 7.6 `/settings/ai/$channelId`
 
-Pattern：Workspace。建议 sections：基本、请求、模型、使用、日志。Models 表只保留模型、状态、连接测试、最近测试、操作。
+Pattern：Workspace。Core canonical URL 为 `?tab=basic|request`，缺失 tab 归一为 `basic`；`models/usage/logs` 由后续 slice 交付，在此之前返回明确未交付状态且不请求 Detail。
+
+Basic 与 Request 共用一个 RHF 草稿和 revision baseline。Basic 编辑名称、描述、协议与 Provider；Request 编辑 base URL、超时，并提供 API Key、普通 Header、敏感 Header 的 replacement-only mutation。所有 Header 读取只展示名称、敏感标记与“已配置（不回显）”，不得复制任何值。
+
+完整配置保存只发送一个 `AIChannelUpdate`；409 保留非敏感草稿并禁用旧 revision 重试，显式 reload 后才采用 canonical Detail。Header 删除提交当前渠道 revision。成功 mutation 精确刷新 AI 配置及 Prompt Preview/Content generation-options 消费者；失败不 optimistic、不失效、不自动重放。Basic/Request 切换保留草稿，离开 Workspace 才触发 DirtyGuard。
 
 ---
 

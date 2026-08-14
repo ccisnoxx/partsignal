@@ -34,7 +34,7 @@
 - Chat Completions 正文必须直接解析为仅含 `title`、`summary`、`body_markdown`、`tags` 的非空 JSON 对象，不做提取、修复或补值。
 - 模型“测试连接”与正式生成必须使用不同解析边界：测试请求只发送一条内容为 `hi` 的用户消息，并仅验证标准 `choices[0].message.content` 字符串；不得用业务草稿四字段 Schema 判断连接是否可用。
 - 模型写操作按“渠道行 -> 模型行”顺序加锁。模型测试在读取配置后释放行锁，外部调用结束再按渠道和模型修订号回写；测试期间配置变化返回 `REVISION_CONFLICT`。
-- 渠道 DELETE 必须提交 non-negative `expected_revision` query；锁定目标后先比较 revision，过期返回 `REVISION_CONFLICT`。渠道启停也在 revision 后拒绝同态目标并返回 `INVALID_STATE_TRANSITION`，且只返回安全 `AIChannelSummary`。渠道与 Header 物理删除必须先以 `SELECT ... FOR UPDATE` 锁定删除目标，再追加成功审计和执行副作用。同一目标的两个并发 DELETE 必须分别返回 `204`、`404`；只能产生一条成功审计，Header 删除引起的渠道/模型失效和 revision 递增也只能执行一次。
+- 渠道 DELETE 必须提交 non-negative `expected_revision` query；Header DELETE 必须提交 non-negative `expected_channel_revision` query。两者锁定真实目标后比较所属渠道 revision，过期返回 `REVISION_CONFLICT`。渠道启停也在 revision 后拒绝同态目标并返回 `INVALID_STATE_TRANSITION`，且只返回安全 `AIChannelSummary`。渠道与 Header 物理删除必须先以 `SELECT ... FOR UPDATE` 锁定删除目标，再追加成功审计和执行副作用。同一目标的两个并发 DELETE 必须分别返回 `204`、`404`；只能产生一条成功审计，Header 删除引起的渠道/模型失效和 revision 递增也只能执行一次。
 - API 提交 Job 后的 Broker 故障不得把业务作业改为失败；Beat 只补投递超龄 `PENDING`，Worker 只有完成原子 `PENDING -> RUNNING` 声明后才能调用供应商。
 - `RUNNING` 租约必须按冻结快照的 `timeout_seconds + GENERATION_FINALIZE_GRACE_SECONDS` 计算；租约过期形成 `FAILED/WORKER_LOST`，不得自动再次调用供应商。
 - 每次真实请求只解析一次完整 A/AAAA 集合并整体校验，只连接该集合中的 `sockaddr`；实际 TCP peer 必须在发送 Authorization 或敏感 Header 前属于批准集合。HTTPS 始终用原 hostname 完成 SNI、证书身份和 Host。
@@ -82,7 +82,7 @@
 - 基础：供应商不返回 token 用量时，对应字段保存 `NULL`，不得补 `0`。
 - 管理：按描述搜索并筛选 `OPENAI` 时，列表 `total` 与 `counts` 来自同一服务端查询；切换状态只改变 `items/total`，分类数量仍保留同一搜索和品牌条件下的全部/启用/停用计数。
 - 管理：零业务作业时返回 `total_jobs=0`、成功/失败数为零，`success_rate`、平均耗时、Token 和最近使用均为 `null`；模型测试成功不改变这些统计。
-- 管理：复制配置只允许名称、描述、协议、品牌、根地址、超时、普通 Header 值、敏感 Header 名称/已配置状态和模型非敏感配置；不得复制 API Key 或敏感 Header 值。
+- 管理：复制配置只允许名称、描述、协议、品牌、根地址、超时、Header 名称/敏感标记/已配置状态和模型非敏感配置；普通与敏感 Header 值均不得读取或复制，修改时只能提交完整替换值。
 - 开发：显式开启本机 HTTP 后可连接 `127.0.0.1`/`::1` 测试服务，但不能连接 `10.0.0.0/8` 或公网 HTTP。
 - 错误：模型响应包含代码块、附加字段或正文外说明时，整个调用失败，不创建内容版本。
 - 错误：作业租约已被恢复器标记失败后，迟到响应不得覆盖终态或创建内容版本。

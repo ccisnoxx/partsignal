@@ -885,8 +885,8 @@ query keys: ["configuration", "ai-channels", "list", apiParams]
 ### 3. Contracts
 
 - 路由位于既有 ADMIN boundary；URL 只持有可恢复的 `q/status/provider/sort/page/pageSize`，并显式映射到 API `provider_brand/page_size`。列表只消费安全 `AIChannelSummary`，不得读取 Detail、模型或 Header endpoint 补行数据。
-- `workflow_stage/primary_task/available_actions` 只做穷尽动作映射。未来 Workspace href 固定为 `/settings/ai/$channelId?tab=basic|request|models|usage`；本列表只直接执行 ENABLE、DISABLE、DELETE，且分别提交当前行 revision。
-- 命令成功失效 AI Channel lists、Prompt Preview Options root 和全部 Content generation-options。列表不提供创建入口，也不预建 Workspace route。
+- `workflow_stage/primary_task/available_actions` 只做穷尽动作映射。Workspace href 固定为 `/settings/ai/$channelId?tab=basic`；本列表只直接执行 ENABLE、DISABLE、DELETE，且分别提交当前行 revision。
+- 命令成功失效 AI Channel lists、Prompt Preview Options root 和全部 Content generation-options。列表创建提交完整合同并用响应 ID 进入 canonical Workspace；API Key mutation `gcTime=0`，关闭、成功与失败都清空密钥。
 - 1024px 及以上显示固定七列；768/375px 在主单元格重复 Provider/Protocol、模型、连接与配置摘要，隐藏对应独立列，但保留 Enabled/Disabled 和 RowActions。
 
 ### 4. Validation & Error Matrix
@@ -921,6 +921,69 @@ const detail = await getAIChannel(channel.id);
 // Correct：消费安全列表投影与服务端动作 token。
 const primary = resolveAIChannelPrimaryAction(channel);
 const overflow = resolveAIChannelOverflowActions(channel, mutation.isPending);
+```
+
+## AI Channel Workspace State
+
+### 1. Scope / Trigger
+
+- 修改 `/settings/ai/$channelId`、渠道创建 handoff、Basic/Request 草稿、API Key/Header mutation、动作投影或相关 cache invalidation 时适用。
+
+### 2. Signatures
+
+```text
+URL:    /settings/ai/{lowercase_uuid}?tab=basic|request
+GET:    /api/v1/ai-channels/{channel_id}
+PATCH:  /api/v1/ai-channels/{channel_id} AIChannelUpdate(expected_revision + 完整配置)
+PUT:    /api/v1/ai-channels/{channel_id}/api-key AIChannelApiKeyReplace
+POST:   /api/v1/ai-channels/{channel_id}/headers AIChannelHeaderCreate
+PATCH:  /api/v1/ai-channel-headers/{header_id} AIChannelHeaderUpdate
+DELETE: /api/v1/ai-channel-headers/{header_id}?expected_channel_revision=...
+keys:   aiChannelKeys.detail/models/logs(channelId), aiChannelKeys.lists()
+```
+
+### 3. Contracts
+
+- 路由位于既有 ADMIN boundary；UUID 必须 lowercase，search 规范化为单一 `tab`。`models/usage/logs` 在对应 slice 交付前返回 route-level not-found，且不得发起 Detail 请求。
+- `ai-channel.api.ts` 是 List/Detail/mutation/query key 的唯一 owner。Basic 与 Request 共用一个 RHF 草稿和渠道 revision baseline；切换这两个 Tab 保留草稿，离开编辑面才由 DirtyGuard 阻断。
+- 配置 PATCH 始终发送完整 `AIChannelUpdate`。成功采用 canonical response；失败不得 optimistic update、自动 replay 或失效消费者。
+- API Key 与所有 Header 值只写不回显；secret mutation 使用 `gcTime=0`，关闭、成功、失败都清空输入。Header 读取只含名称、敏感标记、配置状态和动作，创建/更新提交完整替换值，删除提交当前 `expected_channel_revision`。
+- channel/Header action token 必须穷尽消费；未知、重复或矛盾投影显式失败。Core 未交付的 Models/Runtime 主任务只能显示明确禁用态，不得链接未交付 tab。
+- 成功 mutation 精确失效 AI lists/models/logs、Prompt Preview Options 与 Content generation-options；删除另移除 exact Detail 并返回 canonical List。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 页面处理 |
+| --- | --- |
+| UUID 大写、tab 缺失/非法或有额外 search | `replace` 为 lowercase UUID 与单一 canonical tab |
+| UUID 非法 | Detail 请求前显式失败 |
+| `models/usage/logs` | route-level not-found，不请求 Detail |
+| 配置 `REVISION_CONFLICT` | 保留非敏感草稿，禁用旧 revision 重试，只允许显式 reload |
+| API Key/Header mutation 失败 | 清空 secret；不写 cache、不 invalidate、不 replay |
+| 未知/重复/矛盾 action token | 显式错误，不按状态或角色补动作 |
+
+### 5. Good / Base / Bad Cases
+
+- Good：Basic 修改名称后切到 Request 修改 base URL，使用同一 revision 一次提交完整 payload；成功采用 canonical Detail。
+- Base：Header 读取只显示名称、敏感标记和“已配置（不回显）”；编辑普通 Header 也从空替换值开始。
+- Bad：为两个 Tab 建 partial PATCH；把 API Key/Header value 放进 Query key/cache；409 后自动重放；按 `is_enabled` 或角色推导动作；给未交付 tab 返回 200 占位。
+
+### 6. Tests Required
+
+- Contract/backend：Header projection 无 `value`，Header DELETE query required/minimum 0，stale 409、并发单 204/单审计及 secret redaction。
+- Model/component：UUID/search canonicalization、delivered gate、共享草稿、完整 payload、action 穷尽、409 reload、secret 清理、Header revision 与精确 invalidation。
+- Production fixture：未知 API 501 + teardown fail；覆盖 List handoff、direct/refresh/history、dirty、409、secret sentinel、ADMIN、键盘/焦点和 375/768/1024/1440 根无溢出。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：Header 值进入读取 cache，两个 Tab 各提交局部字段。
+queryClient.setQueryData(['ai-header', id, header.value], header);
+await patchChannel({ base_url: values.baseUrl });
+
+// Correct：读取只持有安全 metadata，共享表单提交完整合同与同一 revision。
+const payload = toAIChannelUpdate(values, channel.revision);
+await updateAIChannel(channel.id, payload, csrfToken);
 ```
 
 ## Common Mistakes

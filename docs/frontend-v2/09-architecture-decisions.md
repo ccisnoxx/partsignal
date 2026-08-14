@@ -256,7 +256,15 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Action and concurrency boundary**：Primary/overflow 只穷尽映射服务端 token。列表直接命令限 ENABLE/DISABLE/DELETE，启停返回安全 Summary，删除改为 required revision query，三者都在行锁内比较 revision，启停另拒绝 no-op。409 保留当前 cache 且不 replay，只有显式 reload 才读取 canonical list。
 
-**UI and scope boundary**：1024px 以上使用固定七列；768/375px 用同一 row 在主单元格重复必要摘要，不创建第二套卡片数据。未来 Workspace 只通过 canonical href 交接，本 Task 不注册 `$channelId`、不提供创建入口，也不读取 detail/models/headers。命令成功由 route 组合失效 AI lists、Prompt Preview Options 与 Content generation-options。
+**当时的 UI 与 scope boundary**：1024px 以上使用固定七列；768/375px 用同一 row 在主单元格重复必要摘要，不创建第二套卡片数据。该 List slice 当时只输出 canonical Workspace href，未注册 `$channelId`、创建入口或 Detail 请求；后续交付由 ADR-041 接续。命令成功由 route 组合失效 AI lists、Prompt Preview Options 与 Content generation-options。
+
+## ADR-041：AI Channel Workspace Core 复用既有 Detail 与单一配置草稿
+
+**Decision**：不新增 V2 endpoint、数据库字段、依赖或通用 Workspace framework。`/settings/ai/$channelId?tab=basic|request` 直接消费既有 `AIChannel` Detail，两个编辑面共享一个 RHF 草稿和渠道 revision baseline；未交付的 Models/Usage/Logs 不发请求。
+
+**Secret and concurrency boundary**：API Key 与普通/敏感 Header 值统一 replacement-only，响应投影只保留 Header 元数据；Header DELETE 使用渠道 revision。配置与 secret mutation 的 409 都不自动重放，显式 reload 才采用服务端 canonical state；secret mutation `gcTime=0` 并在所有退出路径清空输入。
+
+**Cache boundary**：Configuration domain 继续独占 AI list/detail/models/logs keys，route composition 只失效 Prompt Preview Options 与 Content generation-options 的公开 key owner。失败不 optimistic、不失效；成功按 mutation 种类精确刷新，渠道删除移除 exact Detail 后返回 canonical List。
 
 ## 后续建议 ADR
 

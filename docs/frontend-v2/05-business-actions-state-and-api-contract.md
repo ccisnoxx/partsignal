@@ -368,5 +368,12 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 
 - `/settings/ai` 只读取 `GET /api/v1/ai-channels` 的 `AIChannelSummary`。列表摘要不含 base URL、API Key、Header 名/值或模型数组；`q` 只搜索名称/描述，模型总数、启用数、最近连接结果和 `configuration_status` 均由同一固定三查询服务端投影。
 - `configuration_status=READY` 只表示已配置 Key 且至少有一个模型；业务阶段、Primary 和可尝试动作继续分别由 `workflow_stage/primary_task/available_actions` 权威决定，浏览器不得互相推导。
-- `ENABLE_CHANNEL` 是唯一列表 Primary command；`TEST_MODEL` 和配置/运行入口只生成未来 Workspace href。overflow 过滤重复 ENABLE，其他 enable/disable/delete 均由服务端按行锁、revision、no-op 和实时门禁重新裁决。
+- `ENABLE_CHANNEL` 是唯一列表 Primary command；`TEST_MODEL` 和配置/运行入口生成 canonical Workspace href。overflow 过滤重复 ENABLE，其他 enable/disable/delete 均由服务端按行锁、revision、no-op 和实时门禁重新裁决。
 - 启停 body 与删除 query 都提交 canonical revision。成功只失效 AI lists、Prompt Preview Options root 和 Content generation-options；409 不失效、不自动重放，用户显式 reload 后才采用新列表。
+
+## 28. AI Channel Workspace 完整配置与 secret 边界
+
+- 创建提交完整 `AIChannelCreate`，响应不含 API Key；成功按响应 ID 进入 `/settings/ai/$channelId?tab=basic`。Detail 是 Workspace 唯一首屏服务端状态，`basic/request` 共享一个表单与 revision baseline。
+- 配置保存提交完整 `AIChannelUpdate.expected_revision`。409 保留非敏感草稿并冻结旧 baseline，只有显式 reload 才重置；失败不得 optimistic、自动 replay 或失效消费者。
+- API Key 与普通/敏感 Header 值都只写不回显，secret mutation 不保留查询或 mutation cache。Header DELETE 使用 `expected_channel_revision`；写成功返回 canonical Detail，删除后显式重读 Detail。
+- 渠道与 Header 动作只消费服务端 token。成功精确失效 AI lists/models/logs、Prompt Preview Options 与 Content generation-options；删除另移除 exact Detail 并返回 canonical List。

@@ -7,7 +7,6 @@ import {
   aiChannelWorkspaceSearchForTab,
   aiChannelWorkspaceSearchSchema,
   isCanonicalAIChannelWorkspaceSearch,
-  isDeliveredAIChannelWorkspaceTab,
   projectAIChannelAuditChanges,
   projectAIChannelAuditFacts,
   projectAIChannelAuditSummary,
@@ -94,10 +93,6 @@ describe('AI Channel Workspace model', () => {
     )).toBe(false);
     expect(aiChannelWorkspaceSearchForTab('usage')).toEqual({ tab: 'usage', period: '30d' });
     expect(aiChannelWorkspaceSearchForTab('logs')).toEqual({ tab: 'logs', page: 1, pageSize: 20 });
-    expect(isDeliveredAIChannelWorkspaceTab('request')).toBe(true);
-    expect(isDeliveredAIChannelWorkspaceTab('models')).toBe(true);
-    expect(isDeliveredAIChannelWorkspaceTab('usage')).toBe(true);
-    expect(isDeliveredAIChannelWorkspaceTab('logs')).toBe(true);
   });
 
   it('模型表单只接受无保留字段的 JSON 对象，create 不伪造 revision', () => {

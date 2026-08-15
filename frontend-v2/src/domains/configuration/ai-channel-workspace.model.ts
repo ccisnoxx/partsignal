@@ -92,10 +92,6 @@ function aiChannelWorkspaceSearchForTab(
   return { tab };
 }
 
-function isDeliveredAIChannelWorkspaceTab(tab: AIChannelWorkspaceTab) {
-  return aiChannelWorkspaceTabs.some((item) => item === tab);
-}
-
 function shouldBlockAIChannelWorkspaceNavigation(
   current: { pathname: string; search: unknown },
   next: { pathname: string; search: unknown },
@@ -573,7 +569,6 @@ export {
   aiModelFormValues,
   isAIChannelRevisionConflict,
   isCanonicalAIChannelWorkspaceSearch,
-  isDeliveredAIChannelWorkspaceTab,
   providerValues,
   projectAIChannelAuditChanges,
   projectAIChannelAuditFacts,

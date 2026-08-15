@@ -21,7 +21,8 @@
   "children": [
     "08-14-frontend-v2-ai-channel-workspace-core",
     "08-14-frontend-v2-ai-channel-workspace-models",
-    "08-14-frontend-v2-ai-channel-workspace-runtime"
+    "08-14-frontend-v2-ai-channel-workspace-runtime",
+    "08-15-frontend-v2-ai-channel-workspace-closeout"
   ],
   "parent": null,
   "relatedFiles": [],

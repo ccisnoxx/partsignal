@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { createFileRoute, notFound, redirect } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 import { z } from 'zod';
 
 import { contentKeys } from '@/domains/content/content.api';
@@ -8,7 +8,6 @@ import { AIChannelWorkspacePage } from '@/domains/configuration/ai-channel-works
 import {
   aiChannelWorkspaceSearchSchema,
   isCanonicalAIChannelWorkspaceSearch,
-  isDeliveredAIChannelWorkspaceTab,
 } from '@/domains/configuration/ai-channel-workspace.model';
 import { promptKeys } from '@/domains/configuration/prompt.api';
 import { RouteError } from '@/design-system/workspace/route-error';
@@ -40,7 +39,6 @@ export const Route = createFileRoute('/_app/_admin/settings/ai_/$channelId')({
         replace: true,
       });
     }
-    if (!isDeliveredAIChannelWorkspaceTab(search.tab)) throw notFound();
   },
   loader: ({ context, params }) => {
     const options = aiChannelDetailQueryOptions(params.channelId);
@@ -48,13 +46,6 @@ export const Route = createFileRoute('/_app/_admin/settings/ai_/$channelId')({
       void context.queryClient.prefetchQuery(options);
     }
   },
-  notFoundComponent: () => (
-    <section className="space-y-2 rounded-xl border border-border-subtle bg-surface-panel p-5" role="alert">
-      <p className="type-label text-text-muted">404</p>
-      <h1 className="type-page-title">该 AI 渠道区域尚未交付</h1>
-      <p className="text-text-secondary">当前已提供基本信息、请求配置与模型管理。</p>
-    </section>
-  ),
   errorComponent: ({ error, reset }) => (
     <RouteError error={error} onRetry={reset} title="AI Channel Workspace 发生意外错误" />
   ),
@@ -67,7 +58,6 @@ function AIChannelWorkspaceRoute() {
   const search = Route.useSearch();
   const { auth } = Route.useRouteContext();
   const navigate = Route.useNavigate();
-  if (!isDeliveredAIChannelWorkspaceTab(search.tab)) throw notFound();
 
   async function invalidateConsumers() {
     await Promise.all([

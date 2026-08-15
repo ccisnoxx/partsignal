@@ -19,7 +19,7 @@ source_database_url=$DATABASE_URL
 e2e_database_name="partsignal_e2e_$(date +%Y%m%d)_$$"
 e2e_database_created=0
 storage_parent=${TMPDIR:-/tmp}
-storage_dir=$(mktemp -d "$storage_parent/partsignal-e2e-storage.XXXXXX")
+storage_dir=
 storage_endpoint=http://127.0.0.1:$PARTSIGNAL_E2E_STORAGE_PORT
 api_pid=
 storage_pid=
@@ -30,28 +30,41 @@ preview_pid=
 v2_preview_pid=
 ai_pid=
 
+stop_process() {
+  process_pid=$1
+  test -z "$process_pid" && return 0
+  kill "$process_pid" 2>/dev/null || true
+  wait "$process_pid" 2>/dev/null || true
+}
+
 cleanup() {
   status=$?
   trap - EXIT INT TERM
-  test -z "$v2_preview_pid" || kill "$v2_preview_pid" 2>/dev/null || true
-  test -z "$preview_pid" || kill "$preview_pid" 2>/dev/null || true
-  test -z "$frontend_pid" || kill "$frontend_pid" 2>/dev/null || true
-  test -z "$ai_pid" || kill "$ai_pid" 2>/dev/null || true
-  test -z "$scheduler_pid" || kill "$scheduler_pid" 2>/dev/null || true
-  test -z "$worker_pid" || kill "$worker_pid" 2>/dev/null || true
-  test -z "$storage_pid" || kill "$storage_pid" 2>/dev/null || true
-  test -z "$api_pid" || kill "$api_pid" 2>/dev/null || true
+  stop_process "$v2_preview_pid"
+  stop_process "$preview_pid"
+  stop_process "$frontend_pid"
+  stop_process "$ai_pid"
+  stop_process "$scheduler_pid"
+  stop_process "$worker_pid"
+  stop_process "$storage_pid"
+  stop_process "$api_pid"
   cleanup_status=0
+  if ! "$root/backend/.venv/bin/python" "$root/deploy/scripts/e2e-environment.py" cleanup \
+    --redis-url "$REDIS_URL" --storage-port "$PARTSIGNAL_E2E_STORAGE_PORT"; then
+    cleanup_status=1
+  fi
   if test "$e2e_database_created" -eq 1; then
     if ! DATABASE_URL="$source_database_url" "$root/backend/.venv/bin/python" \
-      "$root/deploy/scripts/e2e-database.py" drop "$e2e_database_name"; then
+      "$root/deploy/scripts/e2e-database.py" drop "$e2e_database_name" >/dev/null; then
       cleanup_status=1
+    else
+      printf '%s\n' "E2E_CLEANUP database=$e2e_database_name status=dropped"
     fi
   fi
   case "$storage_dir" in
     "$storage_parent"/partsignal-e2e-storage.*)
       if rm -rf -- "$storage_dir"; then
-        printf '%s\n' "E2E_CLEANUP storage=$storage_dir status=deleted"
+        printf '%s\n' "E2E_CLEANUP storage=$storage_dir status=removed"
       else
         cleanup_status=1
       fi
@@ -64,10 +77,12 @@ cleanup() {
   test "$status" -ne 0 && exit "$status"
   exit "$cleanup_status"
 }
+cd "$root"
+backend/.venv/bin/python deploy/scripts/e2e-environment.py preflight \
+  --redis-url "$REDIS_URL" --storage-port "$PARTSIGNAL_E2E_STORAGE_PORT"
+storage_dir=$(mktemp -d "$storage_parent/partsignal-e2e-storage.XXXXXX")
 trap cleanup EXIT
 trap 'exit 130' INT TERM
-
-cd "$root"
 DATABASE_URL="$source_database_url" backend/.venv/bin/python \
   deploy/scripts/e2e-database.py create "$e2e_database_name" >"$storage_dir/database-url"
 e2e_database_created=1
@@ -95,11 +110,11 @@ worker_pid=$!
 backend/.venv/bin/celery -A app.worker:celery_app beat \
   --loglevel=WARNING --schedule "$storage_dir/celerybeat" &
 scheduler_pid=$!
-npm --prefix frontend run dev -- --host 127.0.0.1 --config vite.config.ts &
+(cd "$root/frontend" && exec ./node_modules/.bin/vite --host 127.0.0.1 --config vite.config.ts) &
 frontend_pid=$!
-(cd "$root/frontend" && exec npm exec -- vite preview --host 127.0.0.1 --port 4173 --strictPort) &
+(cd "$root/frontend" && exec ./node_modules/.bin/vite preview --host 127.0.0.1 --port 4173 --strictPort) &
 preview_pid=$!
-(cd "$root/frontend-v2" && exec npm exec -- vite preview --host 127.0.0.1 --port 4174 --strictPort) &
+(cd "$root/frontend-v2" && exec ./node_modules/.bin/vite preview --host 127.0.0.1 --port 4174 --strictPort) &
 v2_preview_pid=$!
 
 attempt=0
@@ -122,6 +137,7 @@ PARTSIGNAL_E2E_FAKE_AI_BASE_URL=http://127.0.0.1:9001 \
 PARTSIGNAL_E2E_REAL_STACK=1 \
 PARTSIGNAL_E2E_V2_BASE_URL=http://127.0.0.1:4174 \
   npm --prefix frontend-v2 run e2e -- \
+  tests/e2e/ai-channel-configuration-real-stack.spec.ts \
   tests/e2e/product-facts-real-stack.spec.ts \
   tests/e2e/content-ai-real-stack.spec.ts \
   tests/e2e/content-review-real-stack.spec.ts \
@@ -130,5 +146,6 @@ PARTSIGNAL_E2E_V2_BASE_URL=http://127.0.0.1:4174 \
   tests/e2e/geo-real-stack.spec.ts \
   --project=foundation-desktop
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
+PARTSIGNAL_E2E_REAL_STACK=1 \
 PARTSIGNAL_E2E_PRODUCTION_BASE_URL=http://127.0.0.1:4173 \
   npm --prefix frontend run e2e -- "$@"

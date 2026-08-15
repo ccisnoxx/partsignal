@@ -295,6 +295,14 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 `tests/e2e/ai-channel-workspace-runtime.spec.ts` 复用同一 strict fixture，只增加 Usage、渠道 Logs 和按需 Audit Detail；Runtime 请求只记录 method/path/query，未声明 API 与浏览器错误继续在 teardown 失败。model/component 覆盖条件式 search、active-only query、zero/null、refresh error、安全 projection、服务端 actor/分页和越界恢复；production-artifact 覆盖 period/page/pageSize、refresh/Back/Forward、Channel/Model handoff、detail Escape/focus、未知 shape 拒绝、无 Users 请求、secret sentinel 与 375/768/1024/1440 根无溢出。既有 PostgreSQL integration 冻结 Usage 口径、审计归属/actor/whitelist/权限，因此 fixture 不模拟数据库聚合权威。
 
+### 13.20 AI Channel Configuration 完整真实栈闭环
+
+`tests/e2e/ai-channel-configuration-real-stack.spec.ts` 复用 `deploy/scripts/e2e-local.sh` 的唯一隔离 PostgreSQL、独占 Redis DB、FastAPI、Celery Worker、既有 OpenAI-compatible Provider 与 V2 production preview；不导入 fixture、不拦截 API，也不新增业务测试接口。API 只建立 Platform、Prompt、Product、Fact 与 ContentTask 前置并制造一次并发写入；渠道、Header、模型、正式 Generation 与删除收尾均由 V2 UI 发起。
+
+同一 SPA 会话先观察 Prompt Preview 与 Content generation-options 无模型，再完成 List 创建、Basic/Request 完整保存、真实 stale revision 409/no replay/reload、Header CRUD、模型发现/创建/编辑、旧 credential 失败、replacement-only 成功、模型/渠道显式启用与两个 consumer handoff。随后正式 Generation 经真实 Worker/Provider 创建 AI DRAFT；Provider 计数固定为失败测试、成功测试、正式生成各一次，discovery/test 不进入 Usage 或永久配置审计，`all` period 与 Logs 使用服务端投影收口。
+
+该真实栈 gate 只运行 desktop project；四档响应式、键盘、dirty、revision 与 secret 读取矩阵继续由 13.16–13.19 的 strict fixture suites 拥有。real-stack V1/V2 trace 在 config owner 统一关闭，成功或失败退出都必须证明数据库、临时存储、Redis、进程与固定端口已清理。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

@@ -97,6 +97,8 @@ vite --config vite.config.ts [vite arguments...]
 - 从仓库根目录运行 Playwright 时使用 `npm --prefix frontend run e2e -- <测试文件> --project=e2e`，让 npm 脚本以 `frontend/` 为工作目录并加载 `frontend/playwright.config.ts`。不得使用 `npm --prefix frontend exec -- playwright test`；当前 npm 会保留仓库根工作目录，表现为只发现空项目而不是应用测试失败。
 - 单元测试覆盖更多菜单确认链、章节 `aria-current`、dirty/error/save 状态、次级查询局部失败、URL 恢复与历史同步、pathname 焦点和工作台语义 tone；jsdom 不断言 sticky 坐标或具体颜色。
 - E2E 复用现有数据流程，断言代表性产品搜索 URL、事实章节和对象标题、内容任务/审核章节、AI 更多菜单键盘焦点及人工发布 Tab URL。
+- 含 API Key、密码或敏感 Header 的 real-stack Playwright 必须由 V1/V2 config owner 在 `PARTSIGNAL_E2E_REAL_STACK=1` 时统一关闭 trace；fixture suite 继续 `retain-on-failure`。不得依赖测试文件逐个覆盖策略，也不得事后编辑 trace、report 或日志掩盖泄漏。
+- real-stack 必须使用启动前为空的独占非 0 Redis logical DB；preflight 拒绝同库外部客户端和固定端口占用，cleanup 只删除枚举后确认属于本套件的精确 Celery/Kombu 键，并在进程 `wait` 后证明 Redis 为空和端口释放。禁止 `FLUSHDB`、通配删除或共享 DB 静默清理。
 - 长文本表格回归必须用实际触发 `scrollWidth > clientWidth` 的压力值，扫描 `td` 和动态矩阵 `th` 内登记的 `.table-cell-ellipsis`，并断言内容矩形位于所属单元格内、行高有界、交互文本可由键盘到达；代表用例还必须验证鼠标悬停和键盘聚焦都能读取完整值。复合身份的代表用例必须分别从根容器、固定图形和文本叶子触发 Tooltip，并确认焦点停靠在根容器，不能只精确 hover 内部文本。只检查 `overflow:hidden` 计算样式或页面外框不溢出不能证明列边界正确。
 - Tooltip 回归不能只断言 `role`、文本内容和 DOM 可见；代表性真实浏览器用例必须读取最终计算后的前景色与背景色，并验证普通文字对比度至少为 4.5:1，防止浮层存在但白底白字或同色不可读。
 - 真实浏览器在浅色、深色、跟随系统三种模式下检查 375/768/1024/1440px、实际 200% 缩放和键盘链；宽表只能在 `TableRegion` 内溢出。

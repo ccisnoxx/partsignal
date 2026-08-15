@@ -1,6 +1,8 @@
 /** Playwright 只连接本地/CI PartSignal 栈，不启动或访问生产服务。 */
 import { defineConfig, devices } from '@playwright/test';
 
+const realStackEnabled = process.env.PARTSIGNAL_E2E_REAL_STACK === '1';
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: false,
@@ -29,7 +31,7 @@ export default defineConfig({
   },
   use: {
     baseURL: process.env.PARTSIGNAL_E2E_BASE_URL ?? 'http://127.0.0.1:5173',
-    trace: 'retain-on-failure',
+    trace: realStackEnabled ? 'off' : 'retain-on-failure',
     ...devices['Desktop Chrome'],
   },
 });

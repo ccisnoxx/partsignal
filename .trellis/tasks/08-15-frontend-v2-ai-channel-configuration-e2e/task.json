@@ -3,7 +3,7 @@
   "name": "frontend-v2-ai-channel-configuration-e2e",
   "title": "Frontend V2 AI Channel Configuration E2E",
   "description": "在隔离真实栈上验收 Frontend V2 AI Channel Configuration 的浏览器全链路、真实 Provider 副作用、revision 冲突、消费者同步与 secret 边界。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

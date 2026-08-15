@@ -29,7 +29,7 @@ async function openPasswordPage(page: Page): Promise<void> {
 }
 
 async function selectOption(page: Page, label: string, optionName: string): Promise<void> {
-  await page.getByLabel(label).fill(optionName);
+  await page.getByRole('combobox', { name: label, exact: true }).fill(optionName);
   await page.locator('.ant-select-dropdown:visible').getByTitle(optionName, { exact: true }).click();
 }
 
@@ -135,10 +135,10 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   const nonexistentId = randomUUID();
   for (const path of [
     `/api/v1/products/${nonexistentId}?expected_revision=0`,
-    `/api/v1/platform-types/${nonexistentId}`,
-    `/api/v1/platform-profiles/${nonexistentId}`,
+    `/api/v1/platform-types/${nonexistentId}?expected_revision=0`,
+    `/api/v1/platform-profiles/${nonexistentId}?expected_revision=0`,
     `/api/v1/platform-prompts/${nonexistentId}?expected_revision=0`,
-    `/api/v1/platform-accounts/${nonexistentId}`,
+    `/api/v1/platform-accounts/${nonexistentId}?expected_revision=0`,
     `/api/v1/fact-versions/${nonexistentId}`,
     `/api/v1/users/${nonexistentId}`,
   ]) {
@@ -291,10 +291,10 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   const nonexistentId = randomUUID();
   for (const path of [
     `/api/v1/products/${nonexistentId}?expected_revision=0`,
-    `/api/v1/platform-types/${nonexistentId}`,
-    `/api/v1/platform-profiles/${nonexistentId}`,
+    `/api/v1/platform-types/${nonexistentId}?expected_revision=0`,
+    `/api/v1/platform-profiles/${nonexistentId}?expected_revision=0`,
     `/api/v1/platform-prompts/${nonexistentId}?expected_revision=0`,
-    `/api/v1/platform-accounts/${nonexistentId}`,
+    `/api/v1/platform-accounts/${nonexistentId}?expected_revision=0`,
     `/api/v1/fact-versions/${nonexistentId}`,
   ]) {
     const response = await page.request.delete(path, { headers: { 'X-CSRF-Token': csrf } });
@@ -381,7 +381,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   };
   const taskPayload = { product_id: product!.id, fact_version_id: factVersion.id, platform_profile_id: profile.id };
   expect((await page.request.post('/api/v1/platform-prompts', { headers: { 'X-CSRF-Token': csrf }, data: { name: platformPromptName, template_markdown: '禁止创建同名 Prompt' } })).status()).toBe(409);
-  const typeConflict = await page.request.delete(`/api/v1/platform-types/${platformType.id as string}`, { headers: { 'X-CSRF-Token': csrf } });
+  const typeConflict = await page.request.delete(`/api/v1/platform-types/${platformType.id as string}?expected_revision=${platformType.revision as number}`, { headers: { 'X-CSRF-Token': csrf } });
   expect(typeConflict.status()).toBe(409);
   expect((await typeConflict.json()).error.details.references).toEqual([{ type: 'PLATFORM_PROFILE', count: 1 }]);
   const channel = await command(page, '/api/v1/ai-channels', csrf, { name: `E2E 渠道 ${suffix}`, description: 'E2E 测试渠道', protocol_type: 'openai-compatible-chat-completions', provider_brand: 'CUSTOM', base_url: 'http://127.0.0.1:9001/v1', api_key: 'e2e-only-key', timeout_seconds: 30 });
@@ -396,7 +396,10 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   expect((await page.request.post(`/api/v1/ai-channels/${channel.id as string}/headers`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_channel_revision: sensitiveHeaderChannel.revision, name: 'x-e2e-region', value: 'duplicate', is_sensitive: false } })).status()).toBe(409);
   const discovered = await body<{ items: Array<{ model_id: string }> }>(await page.request.post(`/api/v1/ai-channels/${channel.id as string}/discover-models`, { headers: { 'X-CSRF-Token': csrf }, data: { expected_revision: sensitiveHeaderChannel.revision } }));
   expect(discovered.items).toContainEqual(expect.objectContaining({ model_id: 'e2e-model' }));
-  const testedModel = await command(page, `/api/v1/ai-models/${model.id as string}/test`, csrf, { expected_revision: model.revision });
+  const configuredModels = await body<{ items: Array<{ id: string; revision: number }> }>(await page.request.get(`/api/v1/ai-channels/${channel.id as string}/models`));
+  const configuredModel = configuredModels.items.find((item) => item.id === model.id);
+  expect(configuredModel).toBeTruthy();
+  const testedModel = await command(page, `/api/v1/ai-models/${model.id as string}/test`, csrf, { expected_revision: configuredModel!.revision });
   const connectionRequest = await body<{ messages: Array<{ role: string; content: string }> }>(await page.request.get('http://127.0.0.1:9001/e2e/payloads/e2e-model'));
   expect(connectionRequest.messages).toEqual([{ role: 'user', content: 'hi' }]);
   await command(page, `/api/v1/ai-models/${model.id as string}/enable`, csrf, { expected_revision: testedModel.revision });
@@ -408,7 +411,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   expect(invalidatedModels.items[0]).toMatchObject({ test_status: 'UNTESTED', is_enabled: false });
   const retestedModel = await command(page, `/api/v1/ai-models/${model.id as string}/test`, csrf, { expected_revision: invalidatedModels.items[0].revision });
   await command(page, `/api/v1/ai-models/${model.id as string}/enable`, csrf, { expected_revision: retestedModel.revision });
-  await command(page, `/api/v1/ai-channels/${channel.id as string}/enable`, csrf, { expected_revision: updatedHeaderChannel.revision });
+  const finalChannel = await command(page, `/api/v1/ai-channels/${channel.id as string}/enable`, csrf, { expected_revision: updatedHeaderChannel.revision });
   const secondPlainHeader = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/headers`, csrf, { expected_channel_revision: secondChannel.revision, name: 'X-E2E-Region', value: 'timeout-test', is_sensitive: false });
   const secondSensitiveHeader = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/headers`, csrf, { expected_channel_revision: secondPlainHeader.revision, name: 'X-E2E-Secret', value: 'timeout-secret', is_sensitive: true });
   const timeoutModel = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/models`, csrf, { display_name: 'E2E 超时模型', model_id: timeoutProviderModelId, request_parameters: {} });
@@ -417,8 +420,9 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   const enabledSecondChannel = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/enable`, csrf, { expected_revision: secondSensitiveHeader.revision });
   await page.goto('/configuration');
   await expect(page).toHaveURL(/\/configuration\/ai(?:\/channels\/[^/]+)?$/);
-  const channelRow = page.getByRole('region', { name: 'AI 渠道列表' }).getByRole('row').filter({ hasText: `E2E 渠道 ${suffix}` });
-  const headerBox = await page.getByRole('row', { name: /渠道名称 状态 API 根地址/ }).boundingBox();
+  const channelTable = page.getByRole('region', { name: 'AI 渠道列表' });
+  const channelRow = channelTable.getByRole('row').filter({ hasText: `E2E 渠道 ${suffix}` });
+  const headerBox = await channelTable.getByRole('columnheader', { name: '渠道名称' }).locator('..').boundingBox();
   const rowBox = await channelRow.boundingBox();
   expect(headerBox).not.toBeNull();
   expect(rowBox).not.toBeNull();
@@ -441,7 +445,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   await expect(page.getByRole('tab', { name: '使用统计' })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: '请求配置' }).click();
   await expect(page.getByRole('region', { name: '请求 Header 列表' })).toBeVisible();
-  await expect(page.getByText('••••••', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('已安全配置（••••••）', { exact: true })).toBeVisible();
   const headerMore = page.getByRole('button', { name: '更多操作：Header X-E2E-Region' });
   await headerMore.focus();
   await headerMore.click();
@@ -658,7 +662,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   expect(invalidatedTimeoutModel).toBeTruthy();
   const retestedTimeoutModel = await command(page, `/api/v1/ai-models/${timeoutModel.id as string}/test`, csrf, { expected_revision: invalidatedTimeoutModel!.revision });
   await command(page, `/api/v1/ai-models/${timeoutModel.id as string}/enable`, csrf, { expected_revision: retestedTimeoutModel.revision });
-  await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/enable`, csrf, { expected_revision: updatedSecondHeader.revision });
+  const finalSecondChannel = await command(page, `/api/v1/ai-channels/${secondChannel.id as string}/enable`, csrf, { expected_revision: updatedSecondHeader.revision });
   const retriedTimeoutJob = await body<{ id: string }>(await page.request.post(`/api/v1/generation-jobs/${timeoutJob.id}/retry`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-timeout-retry-${suffix}` } }));
   await expect.poll(async () => (await body<{ status: string }>(await page.request.get(`/api/v1/generation-jobs/${retriedTimeoutJob.id}`))).status, { timeout: 30_000 }).toBe('SUCCEEDED');
   const retriedTimeoutDetail = await body<{ retry_of_id: string; input_snapshot: unknown }>(await page.request.get(`/api/v1/generation-jobs/${retriedTimeoutJob.id}`));
@@ -1138,8 +1142,8 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   await resolveModal.getByRole('button', { name: '确认提交' }).click();
   await issueResolved;
   expect((await body<{ status: string }>(await page.request.get(`/api/v1/published-content-issues/${issue.id}`))).status).toBe('RESOLVED');
-  expect((await page.request.delete(`/api/v1/ai-channels/${channel.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
-  expect((await page.request.delete(`/api/v1/ai-channels/${secondChannel.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  expect((await page.request.delete(`/api/v1/ai-channels/${channel.id as string}?expected_revision=${finalChannel.revision as number}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  expect((await page.request.delete(`/api/v1/ai-channels/${secondChannel.id as string}?expected_revision=${finalSecondChannel.revision as number}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.post(`/api/v1/generation-jobs/${timeoutJob.id}/retry`, { headers: { 'X-CSRF-Token': csrf, 'Idempotency-Key': `e2e-timeout-deleted-${suffix}` } })).status()).toBe(409);
   const historicalJob = await body<{ input_snapshot: { model: { model_id: string }; system_message: string } }>(await page.request.get(`/api/v1/generation-jobs/${job.id}`));
   expect(historicalJob.input_snapshot.model.model_id).toBe('e2e-model');
@@ -1153,8 +1157,8 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   expect((await page.request.get(`/api/v1/content-tasks/${noPromptTask.id as string}`)).status()).toBe(404);
 
   const latestProfile = (await body<{ profile: { revision: number } }>(await page.request.get(`/api/v1/platform-profiles/${profile.id}`))).profile;
-  await command(page, `/api/v1/platform-profiles/${profile.id}/disable`, csrf, { expected_revision: latestProfile.revision });
-  const activeTaskBlockedDeletion = await page.request.delete(`/api/v1/platform-profiles/${profile.id}`, { headers: { 'X-CSRF-Token': csrf } });
+  const disabledProfile = await command(page, `/api/v1/platform-profiles/${profile.id}/disable`, csrf, { expected_revision: latestProfile.revision });
+  const activeTaskBlockedDeletion = await page.request.delete(`/api/v1/platform-profiles/${profile.id}?expected_revision=${disabledProfile.revision as number}`, { headers: { 'X-CSRF-Token': csrf } });
   expect(activeTaskBlockedDeletion.status()).toBe(409);
   expect(await activeTaskBlockedDeletion.json()).toMatchObject({
     error: { details: { references: expect.arrayContaining([expect.objectContaining({ type: 'CONTENT_TASK' })]) } },
@@ -1171,7 +1175,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
       { headers: { 'X-CSRF-Token': csrf } },
     )).status()).toBe(204);
   }
-  expect((await page.request.delete(`/api/v1/platform-profiles/${profile.id}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  expect((await page.request.delete(`/api/v1/platform-profiles/${profile.id}?expected_revision=${disabledProfile.revision as number}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.get(`/api/v1/platform-profiles/${profile.id}`)).status()).toBe(404);
   expect(await body<{ platform_profile_id: string | null }>(await page.request.get(`/api/v1/content-tasks/${task.id as string}`))).toMatchObject({ platform_profile_id: null });
 
@@ -1257,7 +1261,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   expect(disabledLifecycleEngineer.revision).toBeGreaterThan(lifecycleEngineerUser!.revision);
   expect((await page.request.delete(`/api/v1/users/${lifecycleEngineer.id}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.delete(`/api/v1/platform-prompts/${replacementPrompt.id}?expected_revision=${replacementPrompt.revision}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
-  expect((await page.request.delete(`/api/v1/platform-types/${platformType.id as string}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  expect((await page.request.delete(`/api/v1/platform-types/${platformType.id as string}?expected_revision=${platformType.revision as number}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: '总览' })).toBeVisible();
 });

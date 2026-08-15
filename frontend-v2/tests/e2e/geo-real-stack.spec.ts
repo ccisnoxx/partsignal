@@ -552,9 +552,14 @@ test('Flow B：真实 Insights 复算异常并创建带不可变 GEO 来源的�
   const dialog = page.getByRole('dialog', { name: '创建 GEO 优化任务' });
   await expect(dialog).toBeVisible();
   await expect.poll(() => optionRequests.length).toBe(1);
-  await expect(dialog.getByLabel('产品')).toHaveValue(setup.product.id);
-  await expect(dialog.getByLabel('目标平台')).toHaveValue(setup.platform.id);
-  await dialog.getByLabel('已批准事实版本').selectOption(setup.approvedFact.id);
+  await expect(dialog.getByRole('combobox', { name: '产品' }))
+    .toContainText(`${setup.product.brand} · ${setup.product.part_number}`);
+  await expect(dialog.getByRole('combobox', { name: '目标平台' }))
+    .toContainText(setup.platform.name);
+  await dialog.getByRole('combobox', { name: '已批准事实版本' }).click();
+  await page.getByRole('option', {
+    name: `v${setup.approvedFact.version} · ${setup.approvedFact.classification}`,
+  }).click();
 
   const createResponsePromise = page.waitForResponse((response) => (
     response.request().method() === 'POST'

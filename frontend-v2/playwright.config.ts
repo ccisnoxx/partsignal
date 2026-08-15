@@ -2,6 +2,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const externalBaseUrl = process.env.PARTSIGNAL_E2E_V2_BASE_URL;
+const realStackEnabled = process.env.PARTSIGNAL_E2E_REAL_STACK === '1';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -21,7 +22,7 @@ export default defineConfig({
   ],
   use: {
     baseURL: externalBaseUrl ?? 'http://127.0.0.1:4174',
-    trace: 'retain-on-failure',
+    trace: realStackEnabled ? 'off' : 'retain-on-failure',
   },
   webServer: externalBaseUrl ? undefined : {
     command: 'npm run build && npm exec -- vite preview --host 127.0.0.1 --port 4174 --strictPort',

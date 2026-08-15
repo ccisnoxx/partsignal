@@ -47,6 +47,13 @@ def create_completion(
     model_id = str(payload.get("model", ""))
     completion_calls[model_id] = completion_calls.get(model_id, 0) + 1
     completion_payloads[model_id] = payload
+    if model_id.startswith("e2e-config-model-"):
+        suffix = model_id.removeprefix("e2e-config-model-")
+        if (
+            authorization != f"Bearer e2e-config-replacement-key-{suffix}"
+            or x_e2e_secret != f"e2e-config-replacement-secret-{suffix}"
+        ):
+            raise HTTPException(status_code=400, detail="E2E 替换凭据未生效")
     if model_id.startswith("e2e-timeout-model-"):
         if completion_calls[model_id] == 2:
             time.sleep(11)

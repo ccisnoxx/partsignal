@@ -170,17 +170,17 @@ make verify
 
 ## 5. 自审清单
 
-- [ ] 新 spec 的目标 Workspace 行为全部由 UI 完成，API 只做前置数据、并发写入与最终只读投影。
-- [ ] old credential failure、replacement success、正式 generation 各发生一次，没有自动重放。
-- [ ] discovery/test 不被错误断言为 audit action，Logs 仅验证真实服务端审计记录。
-- [ ] 409 后 UI 不自动重放 mutation，reload 使用服务端 revision。
-- [ ] Prompt Preview 与 generation-options 在同一 SPA 会话中完成空到可用的 handoff。
-- [ ] real-stack trace 全局关闭，fixture trace 策略未退化。
-- [ ] Redis 清理仅删除精确 allowlist，不使用 DB 0、`FLUSHDB` 或 glob delete。
-- [ ] cleanup 在进程 `wait` 后执行，并证明数据库、存储、Redis 与端口均已回收。
-- [ ] 日志、附件、快照、Provider state 与错误消息均不含 secret。
-- [ ] 无 OpenAPI、生成类型、数据库或生产业务代码变化。
-- [ ] diff 不含无关 dirty 文件、第二套 runner/recorder/framework 或 speculative abstraction。
+- [x] 新 spec 的目标 Workspace 行为全部由 UI 完成，API 只做前置数据、并发写入与最终只读投影。
+- [x] old credential failure、replacement success、正式 generation 各发生一次，没有自动重放。
+- [x] discovery/test 不被错误断言为 audit action，Logs 仅验证真实服务端审计记录。
+- [x] 409 后 UI 不自动重放 mutation，reload 使用服务端 revision。
+- [x] Prompt Preview 与 generation-options 在同一 SPA 会话中完成空到可用的 handoff。
+- [x] real-stack trace 全局关闭，fixture trace 策略未退化。
+- [x] Redis 清理仅删除精确 allowlist，不使用 DB 0、`FLUSHDB` 或 glob delete。
+- [x] cleanup 在进程 `wait` 后执行，并证明数据库、存储、Redis 与端口均已回收。
+- [x] 日志、附件、快照、Provider state 与错误消息均不含 secret。
+- [x] 无 OpenAPI、生成类型、数据库或生产业务代码变化。
+- [x] diff 不含无关 dirty 文件、第二套 runner/recorder/framework 或 speculative abstraction。
 
 ## 6. 提交、合入与归档计划
 
@@ -207,3 +207,33 @@ test(e2e): close AI channel configuration real-stack flow
 - 若 CI 无法提供独占 Redis DB 14，先修正隔离条件；不得降低为 DB 0 或共享 DB 的静默清理。
 - 若 secret 已进入 trace/report，删除相关本地测试产物并修正 recorder 边界后再验证；不得提交或展示该产物。
 - 回退单位是本 Task 的单一提交；不保留半套 harness 或只验证 UI 的假成功状态。
+
+## 8. 实施与验证结果（2026-08-15）
+
+### 已实施
+
+- real-stack harness 增加 Redis/端口 preflight、精确 Redis cleanup、已登记进程 `wait`、四类 cleanup 结果标记，并让 V1/V2 real-stack config 统一关闭 trace；CI E2E step 独占 Redis DB 14。
+- fake Provider 只为 `e2e-config-model-{suffix}` 比较 replacement credential，不保存或返回 Header；新增单一 V2 Configuration real-stack 主流程，真实覆盖 409/no replay、consumer handoff、Provider 三次调用、Usage、审计与 UI 删除收尾。
+- 经用户追加授权，既有 GEO real-stack 用例改为按自定义 Select 的可见 label 断言，并通过 combobox/option 完成事实版本选择；未修改生产 GEO 实现。
+- 经用户追加授权，V1 MVP real-stack 用例补齐当前 OpenAPI 要求的 DELETE revision、读取 Header 变更后的 canonical model revision，并把旧表头/安全掩码/Ant Select locator 对齐到现有可访问语义；未修改 V1 生产实现。
+- 测试文档和 frontend/infra code-spec 已同步；OpenAPI、generated types、production backend、数据库结构、依赖均未修改。
+- touched-scope 文档检查：新增 Python 模块/函数 docstring、异常和测试 JSDoc 使用中文；machine-readable cleanup 字段保持协议字面量。
+
+### Required validation 实际结果
+
+| 检查 | 结果 |
+| --- | --- |
+| shell syntax、backend Ruff、V1/V2 lint/typecheck、contract-check、`git diff --check` | 全部通过 |
+| 新 `AI Channel Configuration 真实栈闭环` | 通过，`13.1s` |
+| V2 real-stack | `13 passed (1.1m)`；Configuration `13.1s`，GEO Flow B `1.1s` |
+| 指定 V1 E2E | `5 passed (1.4m)` |
+| 唯一 Required real-stack 总命令 | 合计 `18 passed`，最终退出 `0` |
+| secret / trace | log、附件与 metadata sentinel 扫描 clean；marker 后无 `trace.zip` |
+| cleanup | Redis DB 14 清空、六端口释放、临时数据库 drop、storage 移除；运行后 preflight 通过，剩余 E2E 数据库 `0`、本次进程 `0` |
+
+最终 Required 命令先完成全部 V2 real-stack，再完成指定 V1 AI Channel management 与 MVP flow；测试阶段和 cleanup 均零退出。V1 test-only 修复只同步已有 OpenAPI/revision 与 DOM 可访问合同，没有添加兼容字段、fallback 或业务测试接口。
+
+### Optional validation 实际结果
+
+- Required 的范围外失败触发 Configuration 聚焦扩大验证：Core/Models/Runtime 三份 production-artifact specs 在 mobile/desktop 共 `20 passed (22.3s)`。
+- 未运行完整 V2 unit 与 `make verify`：本次未修改生产 UI，聚焦 fixture 与唯一 Required real-stack 已覆盖目标边界；最终 Required 已全绿，无结果或 diff 风险要求继续扩大验证。

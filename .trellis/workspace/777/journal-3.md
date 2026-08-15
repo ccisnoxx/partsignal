@@ -1223,3 +1223,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 150: Frontend V2 AI Channel Workspace Closeout
+
+**Date**: 2026-08-15
+**Task**: Frontend V2 AI Channel Workspace Closeout
+**Branch**: `codex/frontend-v2-ai-channel-workspace-closeout`
+
+### Summary
+
+删除 AI Channel Workspace 已失效 delivered-tab gate、过期 route-level not-found 文案及对应恒真测试；Workspace 单测、lint、typecheck 和 Core/Models/Runtime Playwright 全部通过，随后归档 closeout 与父 Task。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `87a778894f2e0ea464af9611f6ecbf346da5f2db` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

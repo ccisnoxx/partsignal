@@ -168,3 +168,11 @@ make verify
 5. Required validation 全部实际通过；失败只修本变更导致且在范围内的问题，不重复无效重跑。
 6. 核对 OpenAPI、runtime、generated types、V1/V2、tests、spec/docs 一致；说明 `contracts/database.md` 无需更新的原因。
 7. 提交前展示精确 commit plan 并等待用户确认；未确认不 commit，不 push、不建 PR。
+
+## 9. 父任务最终审计补录（2026-08-15）
+
+- Models 合同与实现已随提交 `a9aafe79` 合入 `main`，子 Task 已归档；后续 Runtime 与 Closeout 没有修改 Models API、revision、cache 或 secret 边界。
+- 父任务最终审计实际通过：V1/V2 OpenAPI drift check；backend AI boundary/contract `58 passed`；PostgreSQL AI configuration integration `4 passed`；V1 Configuration component `37 passed`、lint、typecheck；V2 Workspace model/component `16 passed`、lint、typecheck；Core/Models/Runtime production-artifact Playwright `20 passed`；`git diff --check`。
+- PostgreSQL integration 覆盖 ADMIN/CSRF、Header/channel/model revision、stale/no-op、调用期间竞态、持久化和审计脱敏；V2 strict fixture 只证明 production UI，不冒充真实 Provider。
+- 原实施会话和 session journal 没有保存 V1 `ai-channel-management.spec.ts` / `mvp-flow.spec.ts` 的实际运行结果；最终审计没有把未观察结果补写为成功。完整真实后端、PostgreSQL、本机 Provider 协议替身和浏览器 Configuration 闭环由 `frontend-v2-ai-channel-configuration-e2e` 接续。
+- `contracts/database.md` 无需更新：本 Task 只收紧并发输入合同和复用既有 channel/model revision、Header 与模型持久化结构，没有 migration 或字段变化。

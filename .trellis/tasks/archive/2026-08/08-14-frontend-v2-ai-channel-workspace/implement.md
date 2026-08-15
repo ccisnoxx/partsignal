@@ -326,3 +326,13 @@ List → Create → Basic/Request → API Key/Header → Discover/Create Model
 ```
 
 Configuration E2E完成前，不把“AI Channel Workspace UI已交付”表述为“真实Configuration全链路已验收”。
+
+## 6. 最终审计与归档结果（2026-08-15）
+
+- Core、Models、Runtime 与最终 Closeout 均已合入 `main` 并归档；Closeout 删除了最终五 tab 合同下不可达的 delivered gate、过期 not-found 文案和恒真测试，没有改变业务行为。
+- 最终 Workspace route、List handoff、OpenAPI/backend、V1/V2 consumers、generated types、spec/docs、revision、dirty/conflict、cache 与 secret matrices 一致。没有数据库 migration、依赖、通用 Workspace framework、第二 action registry、第二 API/revision/state owner 或 design-system → configuration 反向依赖。
+- 最终审计实际通过：V1/V2 OpenAPI drift check；backend AI boundary/contract `58 passed`；PostgreSQL AI configuration integration `4 passed`；V1 Configuration component `37 passed`、lint、typecheck；V2 Workspace model/component `16 passed`、lint、typecheck；Core/Models/Runtime production-artifact Playwright `20 passed`；`git diff --check`。
+- Playwright 的 mobile/desktop 两个 project 与用例内断言共同覆盖 375、768、1024、1440、键盘/焦点、根无横向溢出、strict fixture 和 secret sentinel。PostgreSQL integration 覆盖 ADMIN/CSRF、revision、竞态、持久化和审计脱敏。
+- 原 Models 实施会话没有在 Task 或 journal 保存 V1 real-Provider Playwright 的实际运行结果，最终审计不补写未观察的成功；该证据与完整 Configuration 浏览器闭环由独立 `frontend-v2-ai-channel-configuration-e2e` 接续。
+- `contracts/database.md` 保持不变且理由仍成立：Workspace 复用既有 AI channel/header/model、generation job 与 audit log 持久化，不新增字段、索引或迁移。
+- 归档时主工作目录位于 clean `main`，没有遗留 `codex/frontend-v2-ai-channel-workspace*` 分支或额外 worktree。父 Task 已于 2026-08-15 归档；本节为遗漏的证据补录，不改写 Core → Models → Runtime 的历史阶段决策。

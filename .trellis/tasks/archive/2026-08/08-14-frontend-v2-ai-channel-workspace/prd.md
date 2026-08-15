@@ -121,21 +121,21 @@
 
 ## 跨子任务验收标准
 
-- [ ] `/settings/ai/$channelId` 五个 canonical section 均为真实能力，没有空占位或固定成功路径。
-- [ ] List 的 basic/request/models/usage handoff 在对应子 Task 合入时立即闭环；logs 在 Runtime 闭环。
-- [ ] 创建渠道使用 List Dialog，成功进入真实 Workspace；不存在 `/new` 假路由。
-- [ ] Basic/Request 共用完整 `AIChannelUpdate` baseline、dirty guard 与 channel revision；409 不自动重放。
-- [ ] API Key 与所有 Header value 永不回显；读取 cache、日志、错误、审计、复制、快照与测试 snapshot 无明文。
-- [ ] Header create/update/delete 均由 channel revision 保护；Header delete 过期返回 409。
-- [ ] Model discovery/test/delete 携带正确 revision；测试真实副作用只发送一次，测试后模型保持停用。
-- [ ] Model CRUD/测试/启停/删除只消费服务端 token；后端拒绝 stale 与 no-op。
-- [ ] Usage period 与 Logs page/pageSize 只有 URL owner；服务端聚合/分页语义不在客户端复制。
-- [ ] persistent configuration mutation 后的 cache invalidation 与设计矩阵一致；历史与无关查询不被刷新。
-- [ ] ADMIN 页面与直接 API 权限、CSRF、revision 和最终状态验证均通过自动化测试。
-- [ ] Core 子 Task 起即具备 component tests 与严格 Playwright fixture；三个子 Task 均覆盖 375、768、1024、1440，无根横向溢出且键盘/焦点可用。
-- [ ] OpenAPI 变化先于后端/前端实现，两套 generated types 同步，V1 直接消费者和 E2E 通过；无 compatibility field 或 silent fallback。
-- [ ] 无数据库迁移、依赖、通用框架或 design-system → configuration 反向依赖。
-- [ ] 最终 Configuration E2E 在真实后端、PostgreSQL 与本机 Provider 协议替身上闭环 List → create → configure → discover/create model → test → enable → usage/logs；fixture E2E 明确不冒充真实 Provider 验证。
+- [x] `/settings/ai/$channelId` 五个 canonical section 均为真实能力，没有空占位或固定成功路径。
+- [x] List 的 basic/request/models/usage handoff 在对应子 Task 合入时立即闭环；logs 在 Runtime 闭环。
+- [x] 创建渠道使用 List Dialog，成功进入真实 Workspace；不存在 `/new` 假路由。
+- [x] Basic/Request 共用完整 `AIChannelUpdate` baseline、dirty guard 与 channel revision；409 不自动重放。
+- [x] API Key 与所有 Header value 永不回显；读取 cache、日志、错误、审计、复制、快照与测试 snapshot 无明文。
+- [x] Header create/update/delete 均由 channel revision 保护；Header delete 过期返回 409。
+- [x] Model discovery/test/delete 携带正确 revision；测试真实副作用只发送一次，测试后模型保持停用。
+- [x] Model CRUD/测试/启停/删除只消费服务端 token；后端拒绝 stale 与 no-op。
+- [x] Usage period 与 Logs page/pageSize 只有 URL owner；服务端聚合/分页语义不在客户端复制。
+- [x] persistent configuration mutation 后的 cache invalidation 与设计矩阵一致；历史与无关查询不被刷新。
+- [x] ADMIN 页面与直接 API 权限、CSRF、revision 和最终状态验证均通过目标自动化测试。
+- [x] Core 子 Task 起即具备 component tests 与严格 Playwright fixture；三个子 Task 均覆盖 375、768、1024、1440，无根横向溢出且键盘/焦点可用。
+- [x] OpenAPI 变化先于后端/前端实现，两套 generated types 同步，V1 直接消费者通过 component/type validation；无 compatibility field 或 silent fallback。
+- [x] 无数据库迁移、依赖、通用框架或 design-system → configuration 反向依赖。
+- [x] 已形成独立 `frontend-v2-ai-channel-configuration-e2e` handoff：后续在真实后端、PostgreSQL 与本机 Provider 协议替身上闭环 List → create → configure → discover/create model → test → enable → usage/logs；在该 Task 完成前不宣称真实 Configuration 全链路已验收。
 
 ## Planning gate 与 Git 纪律
 

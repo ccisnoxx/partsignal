@@ -39,7 +39,7 @@
 - [x] 以下 Core/Models/Runtime Playwright 通过：
   `npm --prefix frontend-v2 run e2e -- tests/e2e/ai-channel-workspace-core.spec.ts tests/e2e/ai-channel-workspace-models.spec.ts tests/e2e/ai-channel-workspace-runtime.spec.ts`
 - [x] `git diff --check` 通过，diff 仅含获批的删除与 Trellis Task 记录。
-- [ ] 提交前已展示精确 commit plan 并获得用户确认；最终没有 push、PR、临时分支或活动 Workspace Task。
+- [x] 提交前已展示精确 commit plan 并获得用户确认；最终没有 push、PR、临时分支或活动 Workspace Task。
 
 ## Out of Scope
 

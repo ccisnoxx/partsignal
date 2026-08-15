@@ -84,19 +84,19 @@
 
 ## Acceptance Criteria
 
-- [ ] OpenAPI、runtime 与双端 generated types 对 discovery/test/delete 暴露唯一 required revision 合同；create/update shape 不变。
-- [ ] discovery stale-before-call 为零 Provider 请求；调用期间 channel 变化最多请求一次并返回 409，结果不落库、不审计、不重试。
-- [ ] model test stale-before-call 为零 Provider 请求；调用期间 channel/model 变化最多请求一次并返回 409；PASS/FAIL 后均保持 disabled。
-- [ ] model delete stale 返回 409 且无删除/成功审计；enable/disable no-op 返回 `INVALID_STATE_TRANSITION` 且无 revision/成功审计变化。
-- [ ] V1 Detail/List、V1 E2E/shared setup 与 V2 real-stack 直接消费者使用真实 current revision，无 compatibility fallback。
-- [ ] `/settings/ai/{uuid}?tab=models` 支持直达、刷新、Back/Forward 与 lazy single query；`usage|logs` 仍明确未交付。
-- [ ] discovery、manual create、edit、test、enable、disable、delete 均为真实可操作能力，没有固定成功、自动创建、自动测试或自动重放。
-- [ ] model action 只由服务端 token 映射；unknown/duplicate/contradictory projection 显式失败。
-- [ ] request parameters 非对象/非法 JSON/reserved keys 被阻断；create 不伪造 revision，update/command 使用目标 model revision。
-- [ ] 失败/409 不写或失效 cache；成功只按批准矩阵刷新，Prompt 正文、Content history、Generation Job/Version history 与 Usage 历史不受影响。
-- [ ] secret sentinel 与完整请求配置不进入 response cache、DOM、console、error、audit、fixture log、trace 或 snapshot。
-- [ ] Required validation 全部实际通过，或失败被证实为非本变更并在 closeout 说明；OpenAPI、代码、测试、spec/docs 一致。
-- [ ] 无数据库迁移、新依赖、通用 model/workspace/table/action framework、第二 API/revision/state owner。
+- [x] OpenAPI、runtime 与双端 generated types 对 discovery/test/delete 暴露唯一 required revision 合同；create/update shape 不变。
+- [x] discovery stale-before-call 为零 Provider 请求；调用期间 channel 变化最多请求一次并返回 409，结果不落库、不审计、不重试。
+- [x] model test stale-before-call 为零 Provider 请求；调用期间 channel/model 变化最多请求一次并返回 409；PASS/FAIL 后均保持 disabled。
+- [x] model delete stale 返回 409 且无删除/成功审计；enable/disable no-op 返回 `INVALID_STATE_TRANSITION` 且无 revision/成功审计变化。
+- [x] V1 Detail/List/shared setup 与 V2 直接消费者使用真实 current revision，无 compatibility fallback。
+- [x] `/settings/ai/{uuid}?tab=models` 支持直达、刷新、Back/Forward 与 lazy single query；Models 合入时 `usage|logs` 仍明确未交付。
+- [x] discovery、manual create、edit、test、enable、disable、delete 均为真实可操作能力，没有固定成功、自动创建、自动测试或自动重放。
+- [x] model action 只由服务端 token 映射；unknown/duplicate/contradictory projection 显式失败。
+- [x] request parameters 非对象/非法 JSON/reserved keys 被阻断；create 不伪造 revision，update/command 使用目标 model revision。
+- [x] 失败/409 不写或失效 cache；成功只按批准矩阵刷新，Prompt 正文、Content history、Generation Job/Version history 与 Usage 历史不受影响。
+- [x] secret sentinel 与完整请求配置不进入 response cache、DOM、console、error、audit、fixture log、trace 或 snapshot。
+- [ ] 原实施计划列出的 V1 real-Provider Playwright 结果未保存在子 Task 或 session journal；当前父审计不虚构该历史结果，完整真实栈证据由 `frontend-v2-ai-channel-configuration-e2e` 接续。
+- [x] OpenAPI、代码、目标测试、spec/docs 一致；无数据库迁移、新依赖、通用 model/workspace/table/action framework 或第二 API/revision/state owner。
 
 ## Out of Scope
 

@@ -281,8 +281,9 @@ describe('ContentEditorPage', () => {
     expect(screen.getByText('建议补充来源说明')).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: '内容文档' }));
     await user.click(screen.getByRole('tab', { name: 'Diff' }));
-    expect(screen.getByText(/v1 → v2/)).toBeInTheDocument();
-    expect(screen.getByText(/\+当前正文/)).toBeInTheDocument();
+    const documentPane = screen.getByRole('region', { name: '内容文档' });
+    expect(within(documentPane).getByText(/v1 → v2/)).toBeInTheDocument();
+    expect(within(documentPane).getByText(/\+当前正文/)).toBeInTheDocument();
   });
 
   it('AI DRAFT 保持只读，只能显式创建新 revision', async () => {

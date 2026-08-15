@@ -457,6 +457,10 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-configuration-abstraction-review` 已完成 route/API/model/page/test/合同所有权审计，没有新增 Settings、CRUD、Workspace、Table、Runtime、错误处理或状态管理抽象。审计以最小 frontend-only 修复关闭两处真实缺口：AI Channel 干净表单接收后台 canonical 更新时同步下一次编辑使用的 revision baseline；AI Channel List 启停/删除后精确失效工作区 keys，并在删除时移除 Detail/Models/Usage/Logs cache。Configuration targeted `12 files / 81 tests`、OpenAPI generated check、typecheck、lint、production build、contract-check 与 diff check 已通过，Configuration 未解决 P0/P1/P2 为 `0`。当前候选唯一一次 `make verify` 在 V2 unit 阶段失败：Design System token contract 7 条、Product Detail 1 条、Content Editor 1 条、Publication Workspace 1 条；这些文件相对本 Task 基线均无 diff，且失败分别对应既有 print token 重定义、过期导航期望与重复文本选择器。门禁没有进入 integration/build/E2E，本 Task 不越权修改范围外 owner；因此 Engineering 为 `NOT_MET`，Phase 6 Exit Gate 保持 `NOT_MET`。
 
+`frontend-v2-phase6-verify-blockers` 已把上述 10 个失败归因到四个测试边界并完成最小修正，production 行为保持：Design System 测试分别约束根 token 唯一性与 GEO Print 精确高对比覆盖；Product Detail、Content Editor、Publication Workspace 分别在具名 article、`内容文档` region、`发布内容与操作` region 内断言自身语义。四组目标测试为 `33 + 7 + 7 + 5 passed`，完整 V2 unit 为 `73 files / 427 tests passed`；API drift、typecheck、lint、production build、contract-check 与 diff check 均通过。
+
+当前候选按规定只运行一次 `make verify`：合同、双前端与 backend 静态检查、backend unit `193 passed`、V1 unit `205 passed`、visual contract `24 passed`、V2 unit `427 passed` 后，PostgreSQL integration 以 `114 passed / 2 failed` 停止；总退出码 `2`、耗时 `430.93s`，build、real-stack E2E 与 Compose config 未运行。两个新 P2 均来自本分支零 diff 的 backend integration owner：Content Task Detail 的 GEO coverage snapshot 缺当前必填 `optimization_action`；fresh migration head 仍期望 `0042`，实际已为 `0043`。失败路径已证明 PostgreSQL 临时数据库、Redis DB 14、storage、进程与全部测试端口无残留。本 Task 不越权扩围或第二次运行完整门禁；当前 open P0/P1/P2 为 `0/0/2`，Engineering 与 Phase 6 Exit Gate 保持 `NOT_MET`。
+
 退出条件：平台与账号形成统一心智；Platform Type 不占 Sidebar；API key/secret 不出现在列表和日志；Prompt dirty/revision 完整；AI table action 统一。
 
 ## 12. Phase 7 — System

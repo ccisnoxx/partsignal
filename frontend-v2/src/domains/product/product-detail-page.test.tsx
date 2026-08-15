@@ -149,8 +149,9 @@ describe('ProductDetailPage', () => {
     renderDetail();
 
     expect(await screen.findByRole('heading', { name: 'PS-001', level: 1 })).toBeInTheDocument();
-    expect(screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual([
-      '工作区', '内容运营', '系统管理', '摘要', '基本信息', '事实', '内容任务', '发布成果', 'GEO 摘要', '最近 Activity',
+    const detailArticle = screen.getByRole('article', { name: 'PS-001' });
+    expect(within(detailArticle).getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent)).toEqual([
+      '摘要', '基本信息', '事实', '内容任务', '发布成果', 'GEO 摘要', '最近 Activity',
     ]);
     expect(screen.getByText('CREATE_CONTENT_TASK')).toBeInTheDocument();
     expect(screen.getByText('v3')).toHaveAttribute('href', `/products/${productId}/facts/versions/${detail.approved_fact.id}`);

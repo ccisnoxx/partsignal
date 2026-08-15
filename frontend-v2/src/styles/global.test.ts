@@ -35,9 +35,29 @@ const requiredTokens = [
   'type-mono-size',
 ] as const;
 
+const printShellMatch = css.match(
+  /@media print\s*\{\s*\.geo-insights-print-shell\s*\{([\s\S]*?)\n\s*\}/,
+);
+const printShell = printShellMatch?.[1] ?? '';
+const globalCss = css.replace(printShell, '');
+
 describe('Design System token contract', () => {
   it.each(requiredTokens)('定义唯一的 --%s 权威值', (token) => {
-    expect(css.match(new RegExp(`\\s--${token}:`, 'g'))).toHaveLength(1);
+    expect(globalCss.match(new RegExp(`\\s--${token}:`, 'g'))).toHaveLength(1);
+  });
+
+  it('仅在 GEO 打印作用域定义批准的高对比 token 覆盖', () => {
+    expect(printShellMatch).not.toBeNull();
+    expect(printShell.match(/^\s*--[\w-]+:\s*[^;]+;/gm)?.map((declaration) => declaration.trim())).toEqual([
+      '--surface-panel: #fff;',
+      '--surface-raised: #f2f2f2;',
+      '--text-primary: #000;',
+      '--text-secondary: #171717;',
+      '--text-tertiary: #262626;',
+      '--border-subtle: #777;',
+      '--border-strong: #333;',
+      '--warning: #5c2b00;',
+    ]);
   });
 
   it('让 Tailwind 与 shadcn 语义引用 PartSignal token', () => {

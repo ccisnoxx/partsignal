@@ -214,7 +214,8 @@ describe('PublicationWorkspacePage', () => {
         },
       }),
     );
-    expect(await screen.findByText('公开页正文缺少参数段落')).toBeInTheDocument();
+    const mainPane = screen.getByRole('region', { name: '发布内容与操作' });
+    expect(await within(mainPane).findByText('公开页正文缺少参数段落')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '打开 Content Task 修正批准内容' })).toHaveAttribute(
       'href',
       `/content/tasks/${current.work.task_id}`,

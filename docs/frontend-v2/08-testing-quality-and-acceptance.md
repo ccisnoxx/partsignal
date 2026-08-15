@@ -313,6 +313,14 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 当前候选只运行一次 `make verify`：合同、双前端 lint/typecheck、backend unit `193 passed`、V1 unit `205 passed` 与 visual contract `24 passed` 后，在 V2 unit 以 `4 failed / 69 passed files`、`10 failed / 416 passed tests` 停止。失败为 `global.test.ts` 7 条 token 唯一性、Product Detail 导航标题 1 条、Content Editor 重复 Diff 文本 1 条、Publication Workspace 重复失败说明 1 条；对应生产/测试文件相对本 Task 基线均无 diff，Configuration `81 tests` 保持通过。由于门禁未进入 integration/build/E2E，不能以已归档真实栈结果替代当前候选 Engineering gate；Phase 6 Exit Gate 判为 `NOT_MET`，范围外失败应由各自 owner 独立关闭后重跑最终门禁。
 
+### 13.22 Phase 6 候选门禁 blocker 修复
+
+`frontend-v2-phase6-verify-blockers` 独立复现并确认四组失败均属于测试 query/作用域边界，而非 production 缺陷。Global token contract 继续要求根 token 唯一，同时精确锁定 `@media print .geo-insights-print-shell` 的八项高对比覆盖；Product Detail heading 只在具名 article 内排序；Content Editor Diff 与 Publication 当前失败说明分别在具名 Main region 内断言。没有使用 `getAllByText`、数组下标、模糊 selector、任意重复白名单或降低断言强度，也没有修改 production、API、数据库、权限、部署或依赖。
+
+四组目标结果为 Global `1 file / 33 tests / 290ms`、Product Detail `1 / 7 / 1.58s`、Content Editor `1 / 7 / 1.80s`、Publication Workspace `1 / 5 / 1.08s`；完整 V2 unit 为 `73 passed files / 427 passed tests / 12.22s`，failed/skipped 均为 `0`。OpenAPI generated check、typecheck、lint、production build、contract-check 与 diff check 均通过；build 仅保留既有大 chunk 非阻塞 warning。
+
+最终候选只运行一次 `make verify`：合同、lint/typecheck、backend unit `193 passed / 5.63s`、V1 unit `205 passed / 247.57s`、visual contract `24 passed / 0 failed / 0 skipped`、V2 unit `427 passed / 13.25s` 后，integration 以 `114 passed / 2 failed / 142.21s` 停止；总退出码 `2`、耗时 `430.93s`，build、real-stack E2E 与 Compose config 未运行。失败一是 Content Task Detail 的 `QUESTION_COVERAGE_GAP` fixture 缺当前合同要求的 `optimization_action`；失败二是 fresh migration test 在 head 已为 `0043_geo_platform_identity` 时仍期望 `0042_content_version_detail`。两处 backend owner 相对本 Task 均无 diff，归因后不扩围或重跑完整门禁。失败路径 cleanup 证明 PostgreSQL 临时数据库 `0`、Redis DB 14 `0` key 且独占容器已移除、storage 目录 `0`、E2E 进程未启动、固定六端口与 Redis 16379 均释放。当前 open P0/P1/P2 为 `0/0/2`，Phase 6 Exit Gate 保持 `NOT_MET`。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

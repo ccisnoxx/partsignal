@@ -3,7 +3,7 @@
   "name": "frontend-v2-configuration-abstraction-review",
   "title": "Frontend V2 Configuration 抽象回顾与 Exit Gate 审计",
   "description": "审计 Frontend V2 Phase 6 Configuration 的抽象边界与退出门禁，只关闭有证据的 P0/P1/P2 缺口。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

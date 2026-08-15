@@ -9,6 +9,7 @@ import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { aiChannelKeys } from './ai-channel.api';
 
 type AIChannel = components['schemas']['AIChannel'];
 type AIModel = components['schemas']['AIModel'];
@@ -430,6 +431,32 @@ describe('AIChannelWorkspacePage', () => {
       params: { path: { channel_id: channelId }, header: { 'X-CSRF-Token': auth.csrfToken } },
     });
     expect(await screen.findByText('渠道配置已保存')).toBeInTheDocument();
+  });
+
+  it('干净表单接收后台更新后使用新的 canonical revision 保存', async () => {
+    const initial = channel();
+    vi.spyOn(api, 'GET').mockResolvedValue(success(initial));
+    const patch = vi.spyOn(api, 'PATCH').mockResolvedValue(success(channel({
+      name: '本地编辑',
+      revision: 6,
+    })));
+    const { queryClient } = renderWorkspace();
+    const name = await screen.findByRole('textbox', { name: '渠道名称' });
+
+    queryClient.setQueryData(
+      aiChannelKeys.detail(channelId),
+      channel({ name: '后台更新', revision: 5 }),
+    );
+    await waitFor(() => expect(name).toHaveValue('后台更新'));
+
+    await userEvent.clear(name);
+    await userEvent.type(name, '本地编辑');
+    await userEvent.click(screen.getByRole('button', { name: '保存配置' }));
+
+    await waitFor(() => expect(patch).toHaveBeenCalledOnce());
+    expect(patch).toHaveBeenCalledWith('/api/v1/ai-channels/{channel_id}', expect.objectContaining({
+      body: expect.objectContaining({ expected_revision: 5, name: '本地编辑' }),
+    }));
   });
 
   it('409 保留非敏感草稿、禁止重放，显式 reload 才重置', async () => {

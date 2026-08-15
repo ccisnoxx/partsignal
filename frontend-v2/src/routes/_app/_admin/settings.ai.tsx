@@ -44,14 +44,23 @@ function AIChannelListRoute() {
   return (
     <AIChannelListPage
       csrfToken={auth.csrfToken}
-      onChannelChanged={async () => {
+      onChannelChanged={async (kind, channelId) => {
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: aiChannelKeys.lists() }),
+          queryClient.invalidateQueries({ queryKey: aiChannelKeys.detail(channelId) }),
+          queryClient.invalidateQueries({ queryKey: aiChannelKeys.models(channelId) }),
+          queryClient.invalidateQueries({ queryKey: aiChannelKeys.logsRoot(channelId) }),
           queryClient.invalidateQueries({ queryKey: promptKeys.previewOptionsRoot() }),
           queryClient.invalidateQueries({
             predicate: (query) => contentKeys.isGenerationOptions(query.queryKey),
           }),
         ]);
+        if (kind === 'delete') {
+          queryClient.removeQueries({ queryKey: aiChannelKeys.detail(channelId) });
+          queryClient.removeQueries({ queryKey: aiChannelKeys.models(channelId) });
+          queryClient.removeQueries({ queryKey: aiChannelKeys.usageRoot(channelId) });
+          queryClient.removeQueries({ queryKey: aiChannelKeys.logsRoot(channelId) });
+        }
       }}
       onCreated={async (channel) => {
         queryClient.setQueryData(aiChannelKeys.detail(channel.id), channel);

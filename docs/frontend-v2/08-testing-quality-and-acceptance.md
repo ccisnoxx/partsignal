@@ -303,6 +303,16 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 该真实栈 gate 只运行 desktop project；四档响应式、键盘、dirty、revision 与 secret 读取矩阵继续由 13.16–13.19 的 strict fixture suites 拥有。real-stack V1/V2 trace 在 config owner 统一关闭，成功或失败退出都必须证明数据库、临时存储、Redis、进程与固定端口已清理。
 
+归档候选实际通过 V2 real-stack `13 passed (1.1m)` 与指定 V1 E2E `5 passed (1.4m)`，合计 `18 passed`、最终退出码 `0`。其中新增 Configuration 主流程为 `13.1s`；log、附件和 metadata secret sentinel 扫描 clean，marker 后没有 `trace.zip`。cleanup 证明 Redis DB 14 为空、六端口释放、临时数据库 drop、对象存储移除，运行后 E2E 数据库与本次进程残留均为 `0`。
+
+### 13.21 Configuration vertical slice 抽象回顾
+
+`frontend-v2-configuration-abstraction-review` 对 Platform、Platform Type、Prompt、AI Channel List/Core/Models/Runtime 的 route、generated DTO、query key、form、action、revision、secret 与跨域 cache owner 做最终审计。没有发现需要新增通用 Settings/CRUD/Workspace/Table/Runtime/error framework 的稳定多消费者 invariant；三套 request error 与局部 Notice 保持 domain-local，长 Workspace 也不按文件长度机械拆分。
+
+审计新增两条最小页面回归并关闭两个数据一致性缺口：干净 AI Channel 配置表单收到 query canonical 更新后，下一次编辑继续使用新 revision；List 删除成功后移除该渠道 Detail/Models/Usage/Logs cache，启停同时精确失效 Detail/Models/Logs。Configuration targeted 为 `12 files / 81 tests`，OpenAPI generated check、typecheck、lint、production build、contract-check 与 diff check 全部通过；没有后端、数据库、OpenAPI、权限、部署、依赖或真实栈 orchestration 变化。
+
+当前候选只运行一次 `make verify`：合同、双前端 lint/typecheck、backend unit `193 passed`、V1 unit `205 passed` 与 visual contract `24 passed` 后，在 V2 unit 以 `4 failed / 69 passed files`、`10 failed / 416 passed tests` 停止。失败为 `global.test.ts` 7 条 token 唯一性、Product Detail 导航标题 1 条、Content Editor 重复 Diff 文本 1 条、Publication Workspace 重复失败说明 1 条；对应生产/测试文件相对本 Task 基线均无 diff，Configuration `81 tests` 保持通过。由于门禁未进入 integration/build/E2E，不能以已归档真实栈结果替代当前候选 Engineering gate；Phase 6 Exit Gate 判为 `NOT_MET`，范围外失败应由各自 owner 独立关闭后重跑最终门禁。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

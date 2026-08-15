@@ -151,6 +151,9 @@ function LoadedAIChannelWorkspace({
 
   useEffect(() => {
     if (dirty) return;
+    // 干净表单接收后台 canonical 更新时，也要同步下一次编辑使用的 revision。
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDraftBaseline(channel);
     form.reset(aiChannelConfigurationFormValues(channel));
   }, [channel, dirty, form]);
 

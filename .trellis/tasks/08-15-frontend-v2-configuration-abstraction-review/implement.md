@@ -128,12 +128,12 @@ make test-deploy-scripts
 
 | Category | Required evidence | Result |
 | --- | --- | --- |
-| Product | Phase 6 路由、心智模型、主要行为与服务端动作一致 | pending |
-| Engineering | targeted checks 与 `make verify` 当前候选通过 | pending |
-| UX / Accessibility | strict fixture 四档、键盘、焦点、错误/dirty/revision | pending |
-| Architecture | 单一 owner、依赖方向、无过度抽象/第二状态源 | pending |
-| Contract / Data Integrity | OpenAPI/generated/runtime、revision、secret、real-stack 一致 | pending |
-| Documentation | code/contracts/tests/docs/spec 同步 | pending |
+| Product | Phase 6 路由、心智模型、主要行为与服务端动作一致 | `MET` |
+| Engineering | targeted checks 与 `make verify` 当前候选通过 | `NOT_MET`：范围外 V2 unit 10 failures |
+| UX / Accessibility | strict fixture 四档、键盘、焦点、错误/dirty/revision | `MET` |
+| Architecture | 单一 owner、依赖方向、无过度抽象/第二状态源 | `MET` |
+| Contract / Data Integrity | OpenAPI/generated/runtime、revision、secret、real-stack 一致 | `MET` |
+| Documentation | code/contracts/tests/docs/spec 同步 | `MET` |
 
 只有六项全部 `MET` 且 open P0/P1/P2 为 0，才能把 Phase 6 标记 `MET`。
 
@@ -163,3 +163,30 @@ make test-deploy-scripts
 - 当前候选 `make verify` 暴露范围外 blocker。
 
 以上情况均停止扩大范围，保存证据并请求新授权；不得用 fallback 或降低 gate 继续。
+
+## 11. 实施与验证结果（2026-08-15）
+
+### 11.1 已实施
+
+- F-01：AI Channel 干净配置表单接收后台 canonical channel 时同步 `draftBaseline`，保证下一次编辑提交新 revision；dirty 草稿继续冻结旧 baseline。
+- F-02：AI Channel List 成功启停/删除后精确失效 Detail、Models、Logs，删除时额外移除 Detail、Models、Usage root 与 Logs root。
+- 新增两条最小页面回归；没有新增抽象、依赖、公共 API、数据库、权限、部署或业务能力。
+- 更新 `07`、`08` 与 `research/audit.md`；ADR、frontend specs、OpenAPI、generated schema 和数据库文档无需变化，因为既有稳定决策与合同未改变。
+
+### 11.2 Required validation
+
+| 检查 | 实际结果 |
+| --- | --- |
+| Configuration targeted | `12 files / 81 tests passed` |
+| V2 api:check / typecheck / lint / production build | 全部通过；build 仅有既有 chunk-size warning |
+| contract-check / git diff check | 全部通过 |
+| 最近归档 Configuration real-stack | V2 `13 passed` + 指定 V1 `5 passed`，合计 `18 passed`、退出码 `0`；secret/trace/cleanup clean |
+| 当前候选唯一一次 `make verify` | 失败：V2 unit `4 failed / 69 passed files`、`10 failed / 416 passed tests`；此前 backend unit `193 passed`、V1 unit `205 passed`、visual contract `24 passed` |
+
+### 11.3 Failure attribution 与 Gate
+
+- `frontend-v2/src/styles/global.test.ts` 7 条：现有测试要求 token 全文件唯一，但 `global.css` 的 print media 已有第二套高对比 token；两文件相对基线无 diff。
+- Product Detail 1 条：测试的 level-2 heading 顺序未包含既有 `GEO`、`业务配置` 导航组；production/test 相对基线无 diff。
+- Content Editor 1 条、Publication Workspace 1 条：测试使用单元素文本查询，但当前 production UI 各渲染两个同文案元素；production/test 相对基线无 diff。
+- 门禁在 V2 unit 停止，未启动 integration/build/E2E，因此没有本次 E2E 资源或 cleanup 状态可报告，也不允许用历史结果冒充当前候选完整通过。
+- Configuration 自身 open P0/P1/P2 为 `0`，但 Engineering 为 `NOT_MET`；Phase 6 Exit Gate 最终为 `NOT_MET`。依据 stop condition，本 Task 不越权修复 Product/Content/Publication/Design System owner，也不在环境未变化时重跑同一门禁。

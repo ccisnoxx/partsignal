@@ -9,6 +9,7 @@ import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { aiChannelKeys } from './ai-channel.api';
 
 type AIChannelSummary = components['schemas']['AIChannelSummary'];
 type AIChannelList = components['schemas']['AIChannelList'];
@@ -302,6 +303,32 @@ describe('AIChannelListPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '重新加载列表' }));
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
     expect(post).toHaveBeenCalledOnce();
+  });
+
+  it('删除成功后清除该渠道的工作区缓存', async () => {
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([channel()]),
+      response: Response.json(result([channel()])),
+    } as never);
+    vi.spyOn(api, 'DELETE').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    const { queryClient } = renderAIChannels();
+    const id = channel().id;
+    const ownedKeys = [
+      aiChannelKeys.detail(id),
+      aiChannelKeys.models(id),
+      aiChannelKeys.usage(id, '30d'),
+      aiChannelKeys.logs(id, 1, 20),
+    ] as const;
+    ownedKeys.forEach((key) => queryClient.setQueryData(key, { stale: true }));
+
+    await userEvent.click(await screen.findByRole('button', { name: '更多操作：生产 OpenAI' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除渠道' }));
+    const dialog = await screen.findByRole('dialog', { name: '删除渠道“生产 OpenAI”？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '删除渠道' }));
+
+    await waitFor(() => ownedKeys.forEach((key) => expect(queryClient.getQueryData(key)).toBeUndefined()));
   });
 
   it('区分 loading、filtered empty、越界和 ADMIN boundary', async () => {

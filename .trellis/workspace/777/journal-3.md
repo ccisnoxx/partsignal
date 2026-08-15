@@ -469,7 +469,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 新增隔离 real-stack 环境管理、清理证据与 CI Redis DB 约束。
+- 扩展 fake Provider，并新增 Frontend V2 Configuration 全链路 E2E。
+- 修复 GEO/V1 范围内的 test-only locator 与 revision 合同。
 
 ### Git Commits
 
@@ -479,7 +481,8 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- Required 静态检查全部通过；唯一 real-stack 命令共 18 项通过。
+- 扩展 AI Channel workspace E2E 共 20 项通过。
 
 ### Status
 
@@ -1244,6 +1247,39 @@
 | Hash | Message |
 |------|---------|
 | `87a778894f2e0ea464af9611f6ecbf346da5f2db` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 151: 完成 AI Channel Configuration real-stack E2E
+
+**Date**: 2026-08-15
+**Task**: 完成 AI Channel Configuration real-stack E2E
+**Branch**: `codex/frontend-v2-ai-channel-configuration-e2e`
+
+### Summary
+
+实现隔离 real-stack harness、fake Provider 最小扩展、Frontend V2 Configuration 全链路 E2E、trace/CI/测试文档收口，并完成 Required 与扩展验证。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `971921bc` | (see git log) |
 
 ### Testing
 

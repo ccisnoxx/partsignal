@@ -505,7 +505,8 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 收紧 Global token、Product Detail、Content Editor 与 Publication Workspace 的测试语义边界，production 行为保持不变。
+- 更新 Frontend V2 迁移与验收文档，并记录两个新 backend integration blocker 的权威 owner。
 
 ### Git Commits
 
@@ -515,7 +516,8 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- 四组目标测试、完整 V2 `73 files / 427 tests`、API check、typecheck、lint、build、contract-check 与 diff check 全部通过。
+- 唯一一次 `make verify` 在 integration 以 `114 passed / 2 failed` 停止；退出码 `2`，PostgreSQL、Redis、storage、进程和端口无残留。
 
 ### Status
 
@@ -523,7 +525,7 @@
 
 ### Next Steps
 
-- None - task complete
+- 以独立 Task 修复两个既有 backend integration fixture blocker 后，再运行新的最终候选门禁。
 
 
 ## Session 129: Frontend V2 GEO Observation List
@@ -1313,6 +1315,39 @@ Configuration 自身未解决 P0/P1/P2 为 0；当前候选 make verify 因范�
 | Hash | Message |
 |------|---------|
 | `d4369fd5` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 153: 修复 Frontend V2 Phase 6 verify blockers
+
+**Date**: 2026-08-15
+**Task**: 修复 Frontend V2 Phase 6 verify blockers
+**Branch**: `codex/frontend-v2-phase6-verify-blockers`
+
+### Summary
+
+关闭 10 个 Frontend V2 unit blocker；唯一候选 make verify 在两个既有 backend integration blocker 处停止，Phase 6 Exit Gate 保持 NOT_MET。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cafe3073` | (see git log) |
 
 ### Testing
 

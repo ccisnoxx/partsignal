@@ -228,6 +228,11 @@ test('DirtyGuard 覆盖 Cancel，Back/Forward 可恢复 canonical 页面；四�
   const widths = testInfo.project.name === 'foundation-mobile' ? [375, 768] : [1024, 1440];
   for (const width of widths) {
     await page.setViewportSize({ width, height: 1000 });
+    if (width < 1280) {
+      await expect(page.getByRole('tab', { name: '观测上下文' })).toBeVisible();
+    } else {
+      await expect(page.getByRole('region', { name: '观测上下文' })).toBeVisible();
+    }
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
       `${width}px 页面根不应横向溢出`,

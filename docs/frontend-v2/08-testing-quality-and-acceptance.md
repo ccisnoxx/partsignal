@@ -341,6 +341,14 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 唯一最终候选 `make verify` 非零结束、总耗时 `1144.56s`。合同与静态检查、backend unit `193 passed / 5.67s`、V1 unit `205 passed / 247.14s`、visual contract `24 passed / 0 failed / 0 skipped`、V2 unit `427 passed / 13.70s`、PostgreSQL integration `116 passed / 144.01s`、三套 production build、V2 real-stack `13 passed / 1.1m`、V1 E2E `52 passed / 5.5m` 均通过；V2 fixture E2E 为 `356 passed / 27 skipped / 1 failed / 4.4m`，Compose config 未运行。GEO Insights Reset/history 在两个 project 均通过；唯一新 P2 是未改动 `new-geo-observation.spec.ts:206` 的 desktop breakpoint/focus 时序，mobile 同场景通过，当前证据指向测试 owner 而非 production 可访问性缺陷。本 Task 不扩围或重跑。临时数据库、Redis DB 14 数据、storage、E2E process/container 与固定七端口最终均无残留。当前 open P0/P1/P2=`0/0/1`，Phase 6 Exit Gate 保持 `NOT_MET`。
 
+### 13.25 Phase 6 New GEO Observation breakpoint/focus fixture E2E blocker 修复
+
+`frontend-v2-phase6-new-geo-observation-focus-e2e-blocker` 将 1024→1440 跨越 `WorkspaceShell` 1280px DOM 分支后的时序 owner 保留在目标 Playwright 场景：每次 viewport 切换后，窄屏等待具名 `观测上下文` tab，desktop 等待同名 region，再执行根 overflow 与精确 `GEO platform` `.focus()`/`toBeFocused()`。测试没有 sleep、blind retry、模糊 selector、数组下标或弱化断言；production、fixture payload、API、数据库、权限、部署、依赖和产品行为均未改变。
+
+精确场景为 mobile/desktop `2 passed / 0 failed / 8.7s`，完整 `new-geo-observation.spec.ts` 为 `14 passed / 0 failed / 0 skipped / 20.8s`。独立完整 V2 fixture E2E 的 384 项全部 accounted：`357 passed / 27 skipped / 0 failed / 4.2m`；V2 API drift、typecheck、lint、production build、contract-check 与提前执行的 Compose dev/prod config 均通过，只有既有大 chunk 与颜色环境 warning。
+
+唯一最终候选 `make verify` 退出 `0`、`real 1124.40s`。contract、Ruff/mypy、双前端 lint/typecheck、backend unit `193 passed / 5.57s`、V1 unit `205 passed / 247.70s`、visual contract `24 passed / 496ms`、V2 unit `427 passed / 13.72s`、PostgreSQL integration `116 passed / 143.95s`、三套 production build、V2 real-stack `13 passed / 1.1m`、V1 E2E `52 passed / 5.5m`、V2 fixture E2E `357 passed / 27 skipped / 0 failed / 4.3m` 与 Compose dev/prod config 全部通过。Redis DB 14 empty/exclusive，独占 Redis container 已移除；临时 E2E database、storage、backend-test container 均为 `0`，固定七端口全部释放。最终 open P0/P1/P2=`0/0/0`，Phase 6 Exit Gate=`MET`。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

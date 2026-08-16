@@ -1360,3 +1360,36 @@ Configuration 自身未解决 P0/P1/P2 为 0；当前候选 make verify 因范�
 ### Next Steps
 
 - None - task complete
+
+
+## Session 154: Frontend V2 Phase 6 integration blocker 修复
+
+**Date**: 2026-08-16
+**Task**: Frontend V2 Phase 6 integration blocker 修复
+**Branch**: `codex/frontend-v2-phase6-integration-verify-blockers`
+
+### Summary
+
+关闭两个 backend integration test blocker；完整 integration 116 passed。唯一 make verify 在范围外 Fact Workspace V2 unit blocker 停止，Phase 6 保持 NOT_MET，cleanup 完整。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `272eeedf` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

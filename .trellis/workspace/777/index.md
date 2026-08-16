@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 153
-- **Last Active**: 2026-08-15
+- **Total Sessions**: 154
+- **Last Active**: 2026-08-16
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1360 | Active |
+| `journal-3.md` | ~1395 | Active |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 154 | 2026-08-16 | Frontend V2 Phase 6 integration blocker 修复 | `272eeedf` | `codex/frontend-v2-phase6-integration-verify-blockers` |
 | 153 | 2026-08-15 | 修复 Frontend V2 Phase 6 verify blockers | `cafe3073` | `codex/frontend-v2-phase6-verify-blockers` |
 | 152 | 2026-08-15 | 完成 Frontend V2 Configuration 抽象回顾收口 | `d4369fd5` | `codex/frontend-v2-configuration-abstraction-review` |
 | 151 | 2026-08-15 | 完成 AI Channel Configuration real-stack E2E | `971921bc` | `codex/frontend-v2-ai-channel-configuration-e2e` |

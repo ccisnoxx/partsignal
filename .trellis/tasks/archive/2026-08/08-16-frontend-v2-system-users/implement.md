@@ -266,5 +266,5 @@ make verify
 - [x] Required validation 全部实际观察为成功，或明确记录非本变更/环境 blocker；不得以“应通过”替代结果。
 - [x] OpenAPI、backend、V1/V2 generated types、tests、spec/docs 一致；没有数据库文档漂移。
 - [x] 展示 commit plan（文件组、commit message、排除文件）并获得用户确认。
-- [ ] 获批后提交到临时分支，不 push/PR。
-- [ ] 解释 archive/session bookkeeping 后归档，fast-forward 合入主工作目录 `main`，删除临时分支；最终报告 commit、验证、残余风险和未运行 optional gate。
+- [x] 获批后提交到临时分支，不 push/PR。工作提交：`abcead06`。
+- [x] 用户已授权 archive/session bookkeeping、fast-forward 合入主工作目录 `main` 和删除临时分支；后续由 Trellis 收尾步骤执行并在最终报告给出证据。

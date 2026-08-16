@@ -321,6 +321,10 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 最终候选只运行一次 `make verify`：合同、lint/typecheck、backend unit `193 passed / 5.63s`、V1 unit `205 passed / 247.57s`、visual contract `24 passed / 0 failed / 0 skipped`、V2 unit `427 passed / 13.25s` 后，integration 以 `114 passed / 2 failed / 142.21s` 停止；总退出码 `2`、耗时 `430.93s`，build、real-stack E2E 与 Compose config 未运行。失败一是 Content Task Detail 的 `QUESTION_COVERAGE_GAP` fixture 缺当前合同要求的 `optimization_action`；失败二是 fresh migration test 在 head 已为 `0043_geo_platform_identity` 时仍期望 `0042_content_version_detail`。两处 backend owner 相对本 Task 均无 diff，归因后不扩围或重跑完整门禁。失败路径 cleanup 证明 PostgreSQL 临时数据库 `0`、Redis DB 14 `0` key 且独占容器已移除、storage 目录 `0`、E2E 进程未启动、固定六端口与 Redis 16379 均释放。当前 open P0/P1/P2 为 `0/0/2`，Phase 6 Exit Gate 保持 `NOT_MET`。
 
+`frontend-v2-phase6-integration-verify-blockers` 保持 production 严格合同并修正两个 integration owner：GEO coverage fixture 使用完整一致的 `optimization_action`，fresh migration test 的两处 current-head 断言都固定为唯一 `0043_geo_platform_identity`，没有动态计算期望或改写 migration。两个精确节点分别为 `1 passed / 1.60s`、`1 passed / 2.39s`，完整 PostgreSQL integration 为 `116 passed / 141.68s`；Alembic heads、Ruff、mypy、OpenAPI/generated contract 与 diff check 全部通过，临时数据库和 one-off containers 清理为 `0`，原两个 P2 已关闭。
+
+唯一最终候选 `make verify` 于 `2026-08-16 12:52:51 +0800` 至 `12:57:37 +0800` 运行，合同、lint/typecheck、backend unit `193 passed / 5.58s`、V1 unit `205 passed / 246.53s`、visual contract `24 passed / 0 failed / 0 skipped` 通过；V2 unit 为 `72 passed / 1 failed files`、`426 passed / 1 failed tests / 13.56s`，随后退出 `2`，未运行 integration、build、real-stack E2E 或 Compose config。新失败是未改动的 `FactWorkspacePage` revision conflict 用例读取 CodeMirror 渲染 DOM `textContent` 的结果漂移；同一用例在前一候选通过，本 Task 只完成归因，不重跑或跨 owner 修复。cleanup 证明 Redis DB 14、临时 container/database/storage/process 均为 `0`，全部固定端口及独占 Redis 16379 释放。当前 open P0/P1/P2 为 `0/0/1`，Phase 6 Exit Gate 保持 `NOT_MET`。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

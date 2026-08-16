@@ -282,7 +282,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0042_content_version_detail",)
+            assert cursor.fetchone() == ("0043_geo_platform_identity",)
             cursor.execute(
                 "SELECT tablename FROM pg_tables "
                 "WHERE schemaname = 'public' AND tablename = ANY(%s)",
@@ -438,7 +438,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
         assert "0040 无法安全降级" in downgrade.stdout + downgrade.stderr
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
-            assert cursor.fetchone() == ("0042_content_version_detail",)
+            assert cursor.fetchone() == ("0043_geo_platform_identity",)
 
 
 @pytest.mark.integration

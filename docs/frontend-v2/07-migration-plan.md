@@ -461,6 +461,10 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 当前候选按规定只运行一次 `make verify`：合同、双前端与 backend 静态检查、backend unit `193 passed`、V1 unit `205 passed`、visual contract `24 passed`、V2 unit `427 passed` 后，PostgreSQL integration 以 `114 passed / 2 failed` 停止；总退出码 `2`、耗时 `430.93s`，build、real-stack E2E 与 Compose config 未运行。两个新 P2 均来自本分支零 diff 的 backend integration owner：Content Task Detail 的 GEO coverage snapshot 缺当前必填 `optimization_action`；fresh migration head 仍期望 `0042`，实际已为 `0043`。失败路径已证明 PostgreSQL 临时数据库、Redis DB 14、storage、进程与全部测试端口无残留。本 Task 不越权扩围或第二次运行完整门禁；当前 open P0/P1/P2 为 `0/0/2`，Engineering 与 Phase 6 Exit Gate 保持 `NOT_MET`。
 
+`frontend-v2-phase6-integration-verify-blockers` 已把上述两个 P2 精确归因到 integration test 工件漂移：Content Task Detail fixture 现携带与 production 冻结来源一致的 `optimization_action`；fresh migration test 在升级成功和受保护 downgrade 失败后都精确断言唯一 head `0043_geo_platform_identity`。两个目标节点分别为 `1 passed / 1.60s` 和 `1 passed / 2.39s`，完整 backend integration 为 `116 passed / 141.68s`；Alembic heads、Ruff、mypy、contract-check 与 diff check 均通过，production、schema、migration graph、API 和业务行为没有变化，原两个 P2 已关闭。
+
+当前最终候选按规定只运行一次 `make verify`：合同、双前端与 backend 静态检查、backend unit `193 passed / 5.58s`、V1 unit `205 passed / 246.53s`、visual contract `24 passed / 0 failed / 0 skipped` 后，V2 unit 以 `72 passed / 1 failed files`、`426 passed / 1 failed tests / 13.56s` 停止；总退出码 `2`，运行时间为 `2026-08-16 12:52:51 +0800` 至 `12:57:37 +0800`，integration、build、real-stack E2E 与 Compose config 未运行。新 P2 来自本 Task 零 diff 的 `fact-workspace-page.test.tsx:197`：revision conflict 用例保存 CodeMirror DOM `textContent` 后立即比较重渲染结果，本轮期望 `AO## 初始事实`、实际 `LCL## 初始事实`；同一既有测试在前一候选通过，当前证据指向未改动的 unit/CodeMirror DOM 时序 owner，但依单次门禁规则不重跑、不在本 Task 扩围。cleanup 证明 Redis DB 14 `0` key、临时 Redis/container/database/storage/process 均无残留，`8000/9001/5173/4173/4174/19009/16379` 全部释放。当前 open P0/P1/P2 为 `0/0/1`，Engineering 与 Phase 6 Exit Gate 保持 `NOT_MET`。
+
 退出条件：平台与账号形成统一心智；Platform Type 不占 Sidebar；API key/secret 不出现在列表和日志；Prompt dirty/revision 完整；AI table action 统一。
 
 ## 12. Phase 7 — System

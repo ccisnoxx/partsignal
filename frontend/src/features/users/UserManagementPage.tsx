@@ -58,6 +58,8 @@ const userTaskLabels: Record<User['primary_task'], string> = {
   ENABLE_USER: '重新启用',
 };
 
+type ResetPasswordForm = Pick<Schema<'ResetPasswordRequest'>, 'temporary_password'>;
+
 const accountTypes: Array<{ value: AccountType; label: string }> = [
   { value: 'ADMIN', label: '管理员' },
   { value: 'ENGINEER', label: '工程师' },
@@ -201,12 +203,15 @@ export function UserManagementPage() {
     onSuccess: async (saved) => { setEditing(undefined); message.success('用户信息已保存'); await Promise.all([refreshUsers(), refreshSelf([saved])]); },
   });
   const resetPassword = useMutation({
-    mutationFn: async ({ user, body }: { user: User; body: Schema<'ResetPasswordRequest'> }) => ensureSuccess(await api.POST('/api/v1/users/{user_id}/reset-password', { params: { path: { user_id: user.id }, header: csrfHeader() }, body })),
+    mutationFn: async ({ user, body }: { user: User; body: ResetPasswordForm }) => unwrap(await api.POST('/api/v1/users/{user_id}/reset-password', {
+      params: { path: { user_id: user.id }, header: csrfHeader() },
+      body: { ...body, expected_revision: user.revision },
+    })),
     onSuccess: async () => { setResetting(undefined); message.success('临时密码已更新，目标用户会话已撤销'); await refreshUsers(); },
   });
   const deleteUser = useMutation({
     mutationFn: async (user: User) => ensureSuccess(await api.DELETE('/api/v1/users/{user_id}', {
-      params: { path: { user_id: user.id }, header: csrfHeader() },
+      params: { path: { user_id: user.id }, query: { expected_revision: user.revision }, header: csrfHeader() },
     })),
     onSuccess: async () => { message.success('用户已删除'); await refreshUsers(); },
   });
@@ -451,7 +456,7 @@ export function UserManagementPage() {
       <Modal title={`重置 ${resetting?.username ?? ''} 的临时密码`} open={!!resetting} onCancel={() => { setResetting(undefined); resetPassword.reset(); }} footer={null} destroyOnHidden>
         {resetPassword.error && <OperationFailure error={resetPassword.error} title="重置失败" />}
         {resetting && (
-          <Form<Schema<'ResetPasswordRequest'>> layout="vertical" scrollToFirstError onFinish={(body) => resetPassword.mutate({ user: resetting, body })}>
+          <Form<ResetPasswordForm> layout="vertical" scrollToFirstError onFinish={(body) => resetPassword.mutate({ user: resetting, body })}>
             <Alert className="form-alert" type="warning" showIcon title="重置成功后，该用户全部活动会话会被撤销，下次登录必须修改密码。" />
             <Form.Item name="temporary_password" label="临时密码" rules={[{ required: true, min: 8 }]}><Input.Password autoComplete="new-password" /></Form.Item>
             <Button type="primary" htmlType="submit" loading={resetPassword.isPending}>重置临时密码</Button>

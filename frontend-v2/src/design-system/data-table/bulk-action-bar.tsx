@@ -23,7 +23,7 @@ function BulkActionBar({ actions, onClear, onCommand, selectedCount }: BulkActio
 
   function runAction(action: BulkAction) {
     if (!action.enabled) return;
-    if (action.confirmation) {
+    if (action.confirmation && action.confirmation !== 'custom') {
       setPendingAction(action);
       return;
     }
@@ -62,7 +62,7 @@ function BulkActionBar({ actions, onClear, onCommand, selectedCount }: BulkActio
         </div>
       </div>
       <ActionConfirmationDialog
-        confirmation={pendingAction?.confirmation ?? null}
+        confirmation={pendingAction?.confirmation === 'custom' ? null : pendingAction?.confirmation ?? null}
         onConfirm={() => {
           if (pendingAction) onCommand(pendingAction.command);
           setPendingAction(null);

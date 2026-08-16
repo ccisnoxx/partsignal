@@ -483,6 +483,8 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 依次实现 Users Table 与批量操作、Audit Table + Detail Pane、管理员权限 E2E 和抽象回顾。
 
+`frontend-v2-system-users` 已实现 `/system/users` 的 canonical server table、全局 summary、创建/编辑/reset/启停/删除/CSV、revision-bound selection 与 bulk partial feedback；OpenAPI 同步收紧 reset/delete revision 和 typed bulk failure。当前不创建 Audit route 或链接，下一独立 Task 按 `/system/audit?actorId=<user-id>` 接手 actor 筛选。
+
 退出条件：admin 权限由服务端最终验证；bulk partial failure 有明确反馈；mobile audit 使用 Sheet；Audit 无 action column。
 
 ## 13. Phase 8 — Workbench

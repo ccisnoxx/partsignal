@@ -349,6 +349,12 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 唯一最终候选 `make verify` 退出 `0`、`real 1124.40s`。contract、Ruff/mypy、双前端 lint/typecheck、backend unit `193 passed / 5.57s`、V1 unit `205 passed / 247.70s`、visual contract `24 passed / 496ms`、V2 unit `427 passed / 13.72s`、PostgreSQL integration `116 passed / 143.95s`、三套 production build、V2 real-stack `13 passed / 1.1m`、V1 E2E `52 passed / 5.5m`、V2 fixture E2E `357 passed / 27 skipped / 0 failed / 4.3m` 与 Compose dev/prod config 全部通过。Redis DB 14 empty/exclusive，独占 Redis container 已移除；临时 E2E database、storage、backend-test container 均为 `0`，固定七端口全部释放。最终 open P0/P1/P2=`0/0/0`，Phase 6 Exit Gate=`MET`。
 
+### 13.26 System Users 页面验收
+
+`user-list.model.test.ts` 冻结显式 canonical URL、snake_case API 映射、Primary/overflow 去重及重复/未知/矛盾 projection 拒绝；`user-list-page.test.tsx` 覆盖单 GET UserList、统计、创建、reset 409、secret mutation 清理和 bulk partial。`system-users.spec.ts` 显式关闭 trace，并使用 generated-type `users.fixture.ts`；fixture 只记录 operation、CSRF、revision、状态与密码长度，不保留请求密码正文，未声明 API 返回 501，teardown 汇总未知 API、console、page 与 request failure。
+
+production artifact 在两个 Playwright project 中覆盖 375/768/1024/1440 根无溢出、canonical direct/refresh/Back/Forward、筛选分页、固定列、summary、Primary/overflow/blocker、create/edit/reset 409、bulk revision/partial/selection scope、键盘菜单和 ENGINEER route boundary。后端 PostgreSQL integration 另冻结全部 Users endpoint 的 ADMIN/ENGINEER 权限、锁内 stale/no-op/session/audit 和稀疏/密集固定查询次数；fixture 不代替这些服务端合同。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

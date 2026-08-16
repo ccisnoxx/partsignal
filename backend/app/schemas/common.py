@@ -23,6 +23,14 @@ class UserStatus(StrEnum):
     DISABLED = "DISABLED"
 
 
+UserBulkStatusFailureCode = Literal[
+    "NOT_FOUND",
+    "REVISION_CONFLICT",
+    "LAST_ADMIN_REQUIRED",
+    "INVALID_STATE_TRANSITION",
+]
+
+
 class DeletionBlockerType(StrEnum):
     """受约束物理删除的稳定直接引用类型。"""
 
@@ -122,6 +130,7 @@ class UserUpdate(ContractModel):
 
 class ResetPasswordRequest(ContractModel):
     temporary_password: str = Field(min_length=8)
+    expected_revision: int = Field(ge=0)
 
 
 class ChangePasswordRequest(ContractModel):
@@ -148,7 +157,7 @@ class UserBulkStatusRequest(ContractModel):
 
 class UserBulkStatusFailure(ContractModel):
     user_id: uuid.UUID
-    code: str
+    code: UserBulkStatusFailureCode
     message: str
 
 

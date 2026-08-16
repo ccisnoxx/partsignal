@@ -292,6 +292,7 @@ def update_user(
 )
 def delete_user(
     user_id: uuid.UUID,
+    expected_revision: Annotated[int, Query(ge=0)],
     request: Request,
     db: DbSession,
     admin: AdminUser,
@@ -301,6 +302,7 @@ def delete_user(
     delete_user_command(
         db=db,
         user_id=user_id,
+        expected_revision=expected_revision,
         actor=admin,
         request_id=request.state.request_id,
     )
@@ -308,7 +310,7 @@ def delete_user(
 
 @router.post(
     "/users/{user_id}/reset-password",
-    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=UserOut,
     operation_id="resetUserPassword",
 )
 def reset_user_password(
@@ -318,14 +320,15 @@ def reset_user_password(
     db: DbSession,
     admin: AdminUser,
     _csrf: CsrfProtected,
-) -> None:
-    reset_user_password_command(
+) -> UserOut:
+    user = reset_user_password_command(
         db=db,
         user_id=user_id,
         payload=payload,
         actor=admin,
         request_id=request.state.request_id,
     )
+    return present_managed_user(db, user, actor=admin)
 
 
 @router.get("/audit-logs", response_model=AuditLogList, operation_id="listAuditLogs")

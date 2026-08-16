@@ -162,6 +162,12 @@ Wrong: Foundation 继续覆盖业务占位页 + Product Detail 客户端 join + 
 Correct: production build + vite preview + Foundation/业务 typed fixture 分责 + 单一 ProductDetail read model + 未声明请求/运行时错误直接失败
 ```
 
+## System Users 测试边界
+
+- model/component 必须覆盖 canonical URL/API 参数、动作投影拒绝、UserList 单 GET、revision payload、409 no replay、selection 漂移、bulk partial 和 secret mutation 清理。
+- `system-users.spec.ts` 必须显式 `trace: off`；generated-type fixture 不得保存 create/reset 请求正文，只允许记录密码长度等脱敏元数据，响应/DOM/console/artifact 不得包含 password/hash/session。
+- production artifact 覆盖 375/768/1024/1440、键盘菜单与焦点、ADMIN boundary、direct/refresh/Back/Forward。后端 integration 才是权限、锁、session、audit 和固定查询次数的权威，不在 fixture 复制数据库业务逻辑。
+
 ## 浏览器与 jsdom 测试边界
 
 ```ts

@@ -20,7 +20,7 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 from psycopg import sql
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import Session, sessionmaker
 
 import app.services.identity as identity_service
@@ -235,6 +235,48 @@ def test_user_query_export_and_temporary_password_flow() -> None:
         created_user_id: uuid.UUID | None = None
         try:
             assert client.get("/api/v1/users").status_code == 403
+            denied_requests = (
+                client.post(
+                    "/api/v1/users",
+                    headers={"X-CSRF-Token": csrf_token},
+                    json={
+                        "username": "denied-create",
+                        "display_name": "无权创建",
+                        "temporary_password": temporary_password,
+                        "account_type": "ENGINEER",
+                    },
+                ),
+                client.post(
+                    "/api/v1/users/bulk-status",
+                    headers={"X-CSRF-Token": csrf_token},
+                    json={
+                        "items": [{"user_id": str(engineer.id), "expected_revision": 0}],
+                        "status": "DISABLED",
+                    },
+                ),
+                client.get("/api/v1/users/export"),
+                client.patch(
+                    f"/api/v1/users/{engineer.id}",
+                    headers={"X-CSRF-Token": csrf_token},
+                    json={
+                        "expected_revision": 0,
+                        "display_name": engineer.display_name,
+                        "account_type": "ENGINEER",
+                        "is_active": True,
+                    },
+                ),
+                client.delete(
+                    f"/api/v1/users/{disabled.id}",
+                    params={"expected_revision": 0},
+                    headers={"X-CSRF-Token": csrf_token},
+                ),
+                client.post(
+                    f"/api/v1/users/{engineer.id}/reset-password",
+                    headers={"X-CSRF-Token": csrf_token},
+                    json={"temporary_password": temporary_password, "expected_revision": 0},
+                ),
+            )
+            assert [response.status_code for response in denied_requests] == [403] * 6
             current_session.user = admin
 
             first_page = client.get("/api/v1/users", params={"page_size": 2})
@@ -403,6 +445,97 @@ def test_user_query_export_and_temporary_password_flow() -> None:
 
 
 @pytest.mark.integration
+def test_user_list_query_count_is_constant() -> None:
+    """用户列表的 SQL 次数不得随当前页行数或历史引用密度增长。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+        with session_factory() as db:
+            admin = User(
+                username="query-count-admin",
+                display_name="查询计数管理员",
+                password_hash="not-used",
+                account_type="ADMIN",
+            )
+            sparse = User(
+                username="query-count-sparse",
+                display_name="稀疏用户",
+                password_hash="not-used",
+                account_type="ENGINEER",
+            )
+            dense_users = [
+                User(
+                    username=f"query-count-dense-{index:02d}",
+                    display_name=f"密集用户 {index:02d}",
+                    password_hash="not-used",
+                    account_type="ENGINEER",
+                )
+                for index in range(20)
+            ]
+            db.add_all([admin, sparse, *dense_users])
+            db.flush()
+            db.add_all(
+                PlatformType(
+                    name=f"查询计数引用 {index:02d}",
+                    slug=f"query-count-reference-{index:02d}",
+                    created_by=user.id,
+                )
+                for index, user in enumerate(dense_users)
+            )
+            db.commit()
+
+        def override_db() -> Iterator[Session]:
+            with session_factory() as db:
+                yield db
+
+        current_session = SimpleNamespace(
+            user=admin,
+            csrf_hash=hash_token("query-count-csrf-token-more-than-32-characters"),
+            last_seen_at=None,
+        )
+        app.dependency_overrides[get_db] = override_db
+        app.dependency_overrides[get_current_session] = lambda: current_session
+        client = TestClient(app)
+        statements = 0
+
+        def count_statement(*_args: Any, **_kwargs: Any) -> None:
+            nonlocal statements
+            statements += 1
+
+        event.listen(engine, "before_cursor_execute", count_statement)
+        try:
+            sparse_response = client.get(
+                "/api/v1/users", params={"q": "query-count-sparse", "page_size": 100}
+            )
+            assert sparse_response.status_code == 200, sparse_response.text
+            sparse_count = statements
+
+            statements = 0
+            dense_response = client.get(
+                "/api/v1/users", params={"q": "query-count-dense", "page_size": 100}
+            )
+            assert dense_response.status_code == 200, dense_response.text
+            assert len(dense_response.json()["items"]) == len(dense_users)
+            dense_count = statements
+
+            statements = 0
+            empty_response = client.get(
+                "/api/v1/users", params={"q": "query-count-missing", "page_size": 100}
+            )
+            assert empty_response.status_code == 200, empty_response.text
+            assert empty_response.json()["items"] == []
+            empty_count = statements
+        finally:
+            event.remove(engine, "before_cursor_execute", count_statement)
+            app.dependency_overrides.clear()
+            client.close()
+            engine.dispose()
+
+        assert sparse_count == dense_count == 5
+        assert empty_count == 3
+
+
+@pytest.mark.integration
 def test_user_delete_and_reset_password_boundaries() -> None:
     """用户删除保留审计、尊重业务外键，并只放宽重置密码到八位。"""
     with temporary_database() as database_url:
@@ -516,6 +649,7 @@ def test_user_delete_and_reset_password_boundaries() -> None:
         try:
             denied = client.delete(
                 f"/api/v1/users/{deletable_admin_id}",
+                params={"expected_revision": 0},
                 headers={"X-CSRF-Token": csrf_token},
             )
             assert denied.status_code == 403
@@ -524,6 +658,7 @@ def test_user_delete_and_reset_password_boundaries() -> None:
             current_session.user = admin
             bad_csrf = client.delete(
                 f"/api/v1/users/{deletable_admin_id}",
+                params={"expected_revision": 0},
                 headers={"X-CSRF-Token": "wrong-token-more-than-32-characters"},
             )
             assert bad_csrf.status_code == 403
@@ -531,6 +666,7 @@ def test_user_delete_and_reset_password_boundaries() -> None:
 
             active = client.delete(
                 f"/api/v1/users/{active_target_id}",
+                params={"expected_revision": 0},
                 headers={"X-CSRF-Token": csrf_token},
             )
             assert active.status_code == 409
@@ -538,6 +674,7 @@ def test_user_delete_and_reset_password_boundaries() -> None:
 
             referenced = client.delete(
                 f"/api/v1/users/{referenced_target_id}",
+                params={"expected_revision": 0},
                 headers={"X-CSRF-Token": csrf_token},
             )
             assert referenced.status_code == 409
@@ -549,16 +686,37 @@ def test_user_delete_and_reset_password_boundaries() -> None:
             seven_characters = client.post(
                 f"/api/v1/users/{reset_target_id}/reset-password",
                 headers={"X-CSRF-Token": csrf_token},
-                json={"temporary_password": "1234567"},
+                json={"temporary_password": "1234567", "expected_revision": 0},
             )
             assert seven_characters.status_code == 422
             assert seven_characters.json()["error"]["code"] == "VALIDATION_ERROR"
+            stale_reset = client.post(
+                f"/api/v1/users/{reset_target_id}/reset-password",
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "reset-user-stale",
+                },
+                json={"temporary_password": "12345678", "expected_revision": 99},
+            )
+            assert stale_reset.status_code == 409
+            assert stale_reset.json()["error"]["code"] == "REVISION_CONFLICT"
             eight_characters = client.post(
                 f"/api/v1/users/{reset_target_id}/reset-password",
                 headers={"X-CSRF-Token": csrf_token},
-                json={"temporary_password": "12345678"},
+                json={"temporary_password": "12345678", "expected_revision": 0},
             )
-            assert eight_characters.status_code == 204
+            assert eight_characters.status_code == 200
+            assert eight_characters.json()["revision"] == 1
+            assert eight_characters.json()["must_change_password"] is True
+            assert "12345678" not in eight_characters.text
+
+            own_reset = client.post(
+                f"/api/v1/users/{admin.id}/reset-password",
+                headers={"X-CSRF-Token": csrf_token},
+                json={"temporary_password": "12345678", "expected_revision": 0},
+            )
+            assert own_reset.status_code == 422
+            assert own_reset.json()["error"]["code"] == "VALIDATION_ERROR"
 
             before_delete = client.get("/api/v1/users", params={"page_size": 100})
             assert before_delete.status_code == 200
@@ -577,8 +735,19 @@ def test_user_delete_and_reset_password_boundaries() -> None:
             assert deletion_by_id[str(referenced_target_id)] == {
                 "blockers": [{"type": "USER_BUSINESS_HISTORY", "count": 1}]
             }
+            stale_delete = client.delete(
+                f"/api/v1/users/{deletable_admin_id}",
+                params={"expected_revision": 99},
+                headers={
+                    "X-CSRF-Token": csrf_token,
+                    "X-Request-ID": "delete-user-stale",
+                },
+            )
+            assert stale_delete.status_code == 409
+            assert stale_delete.json()["error"]["code"] == "REVISION_CONFLICT"
             deleted = client.delete(
                 f"/api/v1/users/{deletable_admin_id}",
+                params={"expected_revision": 0},
                 headers={
                     "X-CSRF-Token": csrf_token,
                     "X-Request-ID": "delete-user-success",
@@ -620,6 +789,14 @@ def test_user_delete_and_reset_password_boundaries() -> None:
                 "facts": {"account_type": "ADMIN", "status": "DISABLED"}
             }
             assert "12345678" not in str(deletion_audit.details)
+            assert (
+                db.scalar(
+                    select(AuditLog.id).where(
+                        AuditLog.request_id.in_(["reset-user-stale", "delete-user-stale"])
+                    )
+                )
+                is None
+            )
         engine.dispose()
 
 
@@ -756,6 +933,26 @@ def test_single_and_bulk_status_share_transaction_invariants(
                     "code": "REVISION_CONFLICT",
                     "message": "用户已被其他请求修改",
                 },
+            ]
+
+            same_state = client.post(
+                "/api/v1/users/bulk-status",
+                headers={"X-CSRF-Token": csrf_token},
+                json={
+                    "items": [
+                        {"user_id": str(second_admin.id), "expected_revision": 1},
+                    ],
+                    "status": "DISABLED",
+                },
+            )
+            assert same_state.status_code == 200
+            assert same_state.json()["succeeded"] == []
+            assert same_state.json()["failures"] == [
+                {
+                    "user_id": str(second_admin.id),
+                    "code": "INVALID_STATE_TRANSITION",
+                    "message": "用户已经处于目标状态",
+                }
             ]
 
             last_admin = client.patch(

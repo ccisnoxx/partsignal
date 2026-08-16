@@ -211,6 +211,7 @@ paths:
           in: path
           required: true
           schema: {type: string, format: uuid}
+        - {name: expected_revision, in: query, required: true, schema: {type: integer, minimum: 0}}
         - {$ref: '#/components/parameters/CsrfHeader'}
       responses:
         '204': {description: 已删除停用用户及其会话}
@@ -234,8 +235,16 @@ paths:
           application/json:
             schema: {$ref: '#/components/schemas/ResetPasswordRequest'}
       responses:
-        '204': {description: 已设置临时密码并撤销目标用户会话}
+        '200':
+          description: 已设置临时密码、撤销目标用户会话并返回安全用户投影
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/User'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
+        '403': {$ref: '#/components/responses/ErrorResponse'}
+        '404': {$ref: '#/components/responses/ErrorResponse'}
         '409': {$ref: '#/components/responses/ErrorResponse'}
+        '422': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/audit-logs:
     get:
       tags: [identity]
@@ -3449,9 +3458,10 @@ components:
     ResetPasswordRequest:
       type: object
       additionalProperties: false
-      required: [temporary_password]
+      required: [temporary_password, expected_revision]
       properties:
         temporary_password: {type: string, minLength: 8}
+        expected_revision: {type: integer, minimum: 0}
     ChangePasswordRequest:
       type: object
       additionalProperties: false
@@ -3504,7 +3514,7 @@ components:
       required: [user_id, code, message]
       properties:
         user_id: {type: string, format: uuid}
-        code: {type: string}
+        code: {type: string, enum: [NOT_FOUND, REVISION_CONFLICT, LAST_ADMIN_REQUIRED, INVALID_STATE_TRANSITION]}
         message: {type: string}
     UserBulkStatusResult:
       type: object

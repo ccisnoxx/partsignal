@@ -180,6 +180,30 @@ describe('Table Kit', () => {
     expect(onCommand).toHaveBeenCalledWith('bulk-delete');
   });
 
+  it('BulkActionBar 将 custom 确认交给业务页面', async () => {
+    const user = userEvent.setup();
+    const onCommand = vi.fn();
+    render(
+      <BulkActionBar
+        actions={[{
+          key: 'disable',
+          label: '停用',
+          command: 'bulk-disable',
+          intent: 'danger',
+          enabled: true,
+          confirmation: 'custom',
+        }]}
+        onClear={vi.fn()}
+        onCommand={onCommand}
+        selectedCount={2}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: '停用' }));
+    expect(onCommand).toHaveBeenCalledWith('bulk-disable');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('EmptyTable 和 TableSkeleton 明确区分空态、筛选空态、错误与加载', () => {
     const { rerender } = render(
       <table><EmptyTable colSpan={2} description="没有记录" kind="empty" title="暂无数据" /></table>,

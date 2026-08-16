@@ -2161,6 +2161,7 @@ export interface components {
         };
         ResetPasswordRequest: {
             temporary_password: string;
+            expected_revision: number;
         };
         ChangePasswordRequest: {
             old_password: string;
@@ -2193,7 +2194,8 @@ export interface components {
         UserBulkStatusFailure: {
             /** Format: uuid */
             user_id: string;
-            code: string;
+            /** @enum {string} */
+            code: "NOT_FOUND" | "REVISION_CONFLICT" | "LAST_ADMIN_REQUIRED" | "INVALID_STATE_TRANSITION";
             message: string;
         };
         UserBulkStatusResult: {
@@ -5601,7 +5603,9 @@ export interface operations {
     };
     deleteUser: {
         parameters: {
-            query?: never;
+            query: {
+                expected_revision: number;
+            };
             header: {
                 "X-CSRF-Token": components["parameters"]["CsrfHeader"];
             };
@@ -5671,14 +5675,20 @@ export interface operations {
             };
         };
         responses: {
-            /** @description 已设置临时密码并撤销目标用户会话 */
-            204: {
+            /** @description 已设置临时密码、撤销目标用户会话并返回安全用户投影 */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
             };
+            401: components["responses"]["ErrorResponse"];
+            403: components["responses"]["ErrorResponse"];
+            404: components["responses"]["ErrorResponse"];
             409: components["responses"]["ErrorResponse"];
+            422: components["responses"]["ErrorResponse"];
         };
     };
     listAuditLogs: {

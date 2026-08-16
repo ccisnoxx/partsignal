@@ -64,8 +64,9 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
         && item.display_name === `${rule.displayPrefix}${match[1]}`
         && item.account_type === rule.accountType;
     })) {
+      let deleteRevision = staleUser.revision;
       if (staleUser.is_active) {
-        expect((await page.request.patch(`/api/v1/users/${staleUser.id}`, {
+        const disabledUser = await body<{ revision: number }>(await page.request.patch(`/api/v1/users/${staleUser.id}`, {
           headers: { 'X-CSRF-Token': csrf },
           data: {
             expected_revision: staleUser.revision,
@@ -73,9 +74,10 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
             account_type: staleUser.account_type,
             is_active: false,
           },
-        })).ok()).toBeTruthy();
+        }));
+        deleteRevision = disabledUser.revision;
       }
-      expect((await page.request.delete(`/api/v1/users/${staleUser.id}`, {
+      expect((await page.request.delete(`/api/v1/users/${staleUser.id}?expected_revision=${deleteRevision}`, {
         headers: { 'X-CSRF-Token': csrf },
       })).status()).toBe(204);
     }
@@ -95,20 +97,20 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   expect(lastAdmin.status()).toBe(409);
 
   const username = `engineer-${suffix}`;
-  const created = await body<{ id: string }>(await page.request.post('/api/v1/users', {
+  const created = await body<{ id: string; revision: number }>(await page.request.post('/api/v1/users', {
     headers: { 'X-CSRF-Token': csrf },
     data: { username, display_name: `工程师 ${suffix}`, temporary_password: 'initial-password-only', account_type: 'ENGINEER' },
   }));
   expect((await page.request.post(`/api/v1/users/${created.id}/reset-password`, {
     headers: { 'X-CSRF-Token': csrf },
-    data: { temporary_password: '1234567' },
+    data: { temporary_password: '1234567', expected_revision: created.revision },
   })).status()).toBe(422);
   const temporaryPassword = 'Temp1234';
   const reset = await page.request.post(`/api/v1/users/${created.id}/reset-password`, {
     headers: { 'X-CSRF-Token': csrf },
-    data: { temporary_password: temporaryPassword },
+    data: { temporary_password: temporaryPassword, expected_revision: created.revision },
   });
-  expect(reset.status()).toBe(204);
+  expect(reset.status()).toBe(200);
 
   const engineerContext = await browser.newContext({
     baseURL: process.env.PARTSIGNAL_E2E_BASE_URL ?? 'http://127.0.0.1:5173',
@@ -167,7 +169,7 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   const adminInitialPassword = 'temporary-admin-initial';
   const adminReadyPassword = 'temporary-admin-ready';
   const adminNewPassword = 'temporary-admin-updated';
-  const createdAdmin = await body<{ id: string }>(await page.request.post('/api/v1/users', {
+  const createdAdmin = await body<{ id: string; revision: number }>(await page.request.post('/api/v1/users', {
     headers: { 'X-CSRF-Token': csrf },
     data: { username: adminUsername, display_name: `管理员 ${suffix}`, temporary_password: adminInitialPassword, account_type: 'ADMIN' },
   }));
@@ -192,7 +194,7 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   await login(otherAdminPage, adminUsername, adminReadyPassword);
   expect((await adminPage.request.post(`/api/v1/users/${createdAdmin.id}/reset-password`, {
     headers: { 'X-CSRF-Token': adminCsrf.csrf_token },
-    data: { temporary_password: 'self-reset-must-fail' },
+    data: { temporary_password: 'self-reset-must-fail', expected_revision: createdAdmin.revision },
   })).status()).toBe(422);
   await openPasswordPage(adminPage);
   await adminPage.getByLabel('当前密码').fill(adminReadyPassword);
@@ -207,21 +209,19 @@ test('账号类型、最后管理员、临时密码和停用会话由服务端�
   const temporaryAdmin = refreshedUsers.items.find((item) => item.id === createdAdmin.id);
   expect(engineer).toBeTruthy();
   expect(temporaryAdmin).toBeTruthy();
-  const disabled = await page.request.patch(`/api/v1/users/${engineer!.id}`, {
+  const disabled = await body<{ revision: number }>(await page.request.patch(`/api/v1/users/${engineer!.id}`, {
     headers: { 'X-CSRF-Token': csrf },
     data: { expected_revision: engineer!.revision, display_name: engineer!.display_name, account_type: 'ENGINEER', is_active: false },
-  });
-  expect(disabled.ok()).toBeTruthy();
-  const disabledAdmin = await page.request.patch(`/api/v1/users/${temporaryAdmin!.id}`, {
+  }));
+  const disabledAdmin = await body<{ revision: number }>(await page.request.patch(`/api/v1/users/${temporaryAdmin!.id}`, {
     headers: { 'X-CSRF-Token': csrf },
     data: { expected_revision: temporaryAdmin!.revision, display_name: temporaryAdmin!.display_name, account_type: 'ADMIN', is_active: false },
-  });
-  expect(disabledAdmin.ok()).toBeTruthy();
+  }));
   expect((await engineerPage.request.get('/api/v1/auth/me')).status()).toBe(401);
-  expect((await page.request.delete(`/api/v1/users/${engineer!.id}`, {
+  expect((await page.request.delete(`/api/v1/users/${engineer!.id}?expected_revision=${disabled.revision}`, {
     headers: { 'X-CSRF-Token': csrf },
   })).status()).toBe(204);
-  expect((await page.request.delete(`/api/v1/users/${temporaryAdmin!.id}`, {
+  expect((await page.request.delete(`/api/v1/users/${temporaryAdmin!.id}?expected_revision=${disabledAdmin.revision}`, {
     headers: { 'X-CSRF-Token': csrf },
   })).status()).toBe(204);
   const residualUsers = await body<{ items: TestUser[] }>(await page.request.get(`/api/v1/users?q=${suffix}&page=1&page_size=100`));
@@ -1259,7 +1259,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
     },
   }));
   expect(disabledLifecycleEngineer.revision).toBeGreaterThan(lifecycleEngineerUser!.revision);
-  expect((await page.request.delete(`/api/v1/users/${lifecycleEngineer.id}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
+  expect((await page.request.delete(`/api/v1/users/${lifecycleEngineer.id}?expected_revision=${disabledLifecycleEngineer.revision}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.delete(`/api/v1/platform-prompts/${replacementPrompt.id}?expected_revision=${replacementPrompt.revision}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   expect((await page.request.delete(`/api/v1/platform-types/${platformType.id as string}?expected_revision=${platformType.revision as number}`, { headers: { 'X-CSRF-Token': csrf } })).status()).toBe(204);
   await page.goto('/');

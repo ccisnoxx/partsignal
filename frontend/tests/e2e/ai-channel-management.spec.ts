@@ -574,7 +574,7 @@ test('普通工程师无法通过直接路由或 API 访问 AI 渠道配置', as
   const temporaryPassword = `temporary-${suffix}-password`;
   const updatedPassword = `updated-${suffix}-password`;
   const csrf = await login(page);
-  const created = await body<{ id: string }>(await page.request.post('/api/v1/users', {
+  const created = await body<{ id: string; revision: number }>(await page.request.post('/api/v1/users', {
     headers: { 'X-CSRF-Token': csrf },
     data: {
       username,
@@ -585,8 +585,8 @@ test('普通工程师无法通过直接路由或 API 访问 AI 渠道配置', as
   }));
   expect((await page.request.post(`/api/v1/users/${created.id}/reset-password`, {
     headers: { 'X-CSRF-Token': csrf },
-    data: { temporary_password: temporaryPassword },
-  })).status()).toBe(204);
+    data: { temporary_password: temporaryPassword, expected_revision: created.revision },
+  })).status()).toBe(200);
 
   const engineerContext = await browser.newContext({
     baseURL: process.env.PARTSIGNAL_E2E_BASE_URL ?? 'http://127.0.0.1:5173',

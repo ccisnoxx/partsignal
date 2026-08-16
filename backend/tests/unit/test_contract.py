@@ -22,6 +22,42 @@ def test_runtime_openapi_matches_frozen_operations() -> None:
     assert check(contract) == []
 
 
+def test_user_management_contract_is_revisioned_and_typed() -> None:
+    """用户凭据、删除和批量状态命令必须共享明确的并发合同。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    paths = document["paths"]
+    schemas = document["components"]["schemas"]
+
+    delete_parameters = paths["/api/v1/users/{user_id}"]["delete"]["parameters"]
+    assert delete_parameters[1] == {
+        "name": "expected_revision",
+        "in": "query",
+        "required": True,
+        "schema": {"type": "integer", "minimum": 0},
+    }
+
+    reset = paths["/api/v1/users/{user_id}/reset-password"]["post"]
+    assert set(reset["responses"]) == {"200", "401", "403", "404", "409", "422"}
+    assert reset["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/User"
+    }
+    assert set(schemas["ResetPasswordRequest"]["required"]) == {
+        "temporary_password",
+        "expected_revision",
+    }
+    assert schemas["ResetPasswordRequest"]["properties"]["expected_revision"] == {
+        "type": "integer",
+        "minimum": 0,
+    }
+    assert schemas["UserBulkStatusFailure"]["properties"]["code"]["enum"] == [
+        "NOT_FOUND",
+        "REVISION_CONFLICT",
+        "LAST_ADMIN_REQUIRED",
+        "INVALID_STATE_TRANSITION",
+    ]
+
+
 def test_geo_observation_list_contract_is_compact_and_preserves_v1() -> None:
     """V2 列表使用独立紧凑读模型，V1 完整列表合同保持原样。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"

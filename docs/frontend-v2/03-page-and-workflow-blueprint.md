@@ -422,11 +422,11 @@ Usage 只读取当前 period 的服务端聚合并区分真实零与 nullable“
 
 ## 8.1 `/system/users`
 
-Pattern：Table。
+Pattern：Server Table + compact global summary。canonical URL 固定显式保存 `status/page/pageSize`，并按需保存 `q/accountType`；默认是 `status=ENABLED&page=1&pageSize=20`，`ALL` 只在 URL 表达，调用 API 时省略 status。
 
 | 列 | 内容 |
 |---|---|
-| 用户 | Avatar + Display name + `@username` |
+| 用户 | Username + Display name |
 | 角色 | ADMIN / ENGINEER |
 | 状态 | Enabled / Disabled |
 | 登录安全 | 正常 / 必须修改密码 |
@@ -434,6 +434,12 @@ Pattern：Table。
 | 操作 | Primary + `•••` |
 
 只有选择用户后出现 BulkActionBar：`3 selected [启用] [停用] [清除选择]`。
+
+页面首屏只读取一次 `UserList`，其中五项 summary 是全局口径，不随当前筛选变化；列表筛选、分页、动作资格和删除 blocker 均使用服务端投影，不发逐行 Detail、Users join 或 Audit 请求。Primary 只由 `primary_task` 决定，overflow 只消费 `available_actions/deletion`；未知、重复或矛盾投影显式失败。
+
+选择保存当前 canonical 查询范围及每项 `{id, username, revision}`；查询范围变化或后台刷新发现已选项消失/revision 漂移时整体清空。批量启停提交用户看到的 revision，200 partial 后清空选择并逐项显示 username/code/message；顶层失败保留选择，批量停用保留自有确认上下文。
+
+创建、编辑、reset、单项启停和删除均使用短 Dialog。reset/delete/update 提交当前 revision；409 不自动重放或失效列表，只允许显式 reload。创建/reset 的临时密码只存在于已打开的私有 form 与当前请求；Dialog 卸载后不留在 URL、Query key、mutation cache、响应、DOM、日志或 fixture artifact。当前版本只展示删除 blocker，不提前生成 `/system/audit` 链接；后续 Audit Task 的交接 URL 是 `/system/audit?actorId=<user-id>`。
 
 ## 8.2 `/system/audit`
 

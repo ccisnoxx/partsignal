@@ -54,7 +54,7 @@ type BulkAction =
       intent: 'secondary';
       enabled: boolean;
       disabledReason?: string;
-      confirmation?: ActionConfirmation;
+      confirmation?: ActionConfirmation | 'custom';
     }
   | {
       key: string;
@@ -63,7 +63,7 @@ type BulkAction =
       intent: 'danger';
       enabled: boolean;
       disabledReason?: string;
-      confirmation: ActionConfirmation;
+      confirmation: ActionConfirmation | 'custom';
     };
 
 type EmptyTableKind = 'empty' | 'filtered-empty' | 'error';

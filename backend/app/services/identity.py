@@ -39,6 +39,7 @@ from app.schemas.common import (
     LoginRequest,
     ResetPasswordRequest,
     UserBulkStatusFailure,
+    UserBulkStatusFailureCode,
     UserBulkStatusRequest,
     UserCreate,
     UserList,
@@ -50,7 +51,12 @@ from app.schemas.common import (
 from app.security import generate_token, hash_password, hash_token, verify_password
 
 _USER_STATE_LOCK = text("LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE")
-_BULK_ITEM_ERROR_CODES = {"NOT_FOUND", "REVISION_CONFLICT", "LAST_ADMIN_REQUIRED"}
+_BULK_ITEM_ERROR_CODES: set[UserBulkStatusFailureCode] = {
+    "NOT_FOUND",
+    "REVISION_CONFLICT",
+    "LAST_ADMIN_REQUIRED",
+    "INVALID_STATE_TRANSITION",
+}
 UserResourceAction = Literal["UPDATE", "RESET_PASSWORD", "ENABLE", "DISABLE", "DELETE"]
 UserWorkflowStage = Literal["FIRST_PASSWORD_CHANGE", "ACTIVE", "DISABLED"]
 UserPrimaryTask = Literal["MANAGE_LOGIN_SECURITY", "MANAGE_USER", "ENABLE_USER"]
@@ -432,6 +438,7 @@ def _update_user_locked(
     actor: User,
     request_id: str,
     source: str | None = None,
+    require_status_change: bool = False,
 ) -> User:
     """在调用方持有用户表锁时统一执行行锁、状态约束、撤销和审计。"""
     user = db.scalar(select(User).where(User.id == user_id).with_for_update())
@@ -439,6 +446,8 @@ def _update_user_locked(
         raise not_found("用户")
     if user.revision != expected_revision:
         raise AppError("REVISION_CONFLICT", "用户已被其他请求修改", 409)
+    if require_status_change and user.is_active == is_active:
+        raise AppError("INVALID_STATE_TRANSITION", "用户已经处于目标状态", 409)
 
     display_name = payload.display_name.strip() if payload is not None else user.display_name
     account_type = payload.account_type.value if payload is not None else user.account_type
@@ -568,6 +577,7 @@ def bulk_update_user_status(
                 actor=actor,
                 request_id=request_id,
                 source="BULK_STATUS",
+                require_status_change=True,
             )
         except AppError as error:
             if error.code not in _BULK_ITEM_ERROR_CODES:
@@ -588,6 +598,7 @@ def delete_user(
     *,
     db: Session,
     user_id: uuid.UUID,
+    expected_revision: int,
     actor: User,
     request_id: str,
 ) -> None:
@@ -596,6 +607,8 @@ def delete_user(
     user = db.scalar(select(User).where(User.id == user_id).with_for_update())
     if user is None:
         raise not_found("用户")
+    if user.revision != expected_revision:
+        raise AppError("REVISION_CONFLICT", "用户已被其他请求修改", 409)
     if user.is_active:
         raise AppError("USER_ACTIVE", "启用用户不能删除，请先停用账号", 409)
     reference_count = _user_business_reference_counts(db, [user.id]).get(user.id, 0)
@@ -643,13 +656,15 @@ def reset_user_password(
     payload: ResetPasswordRequest,
     actor: User,
     request_id: str,
-) -> None:
+) -> User:
     """为其他用户设置临时密码，并立即撤销其全部会话。"""
     if user_id == actor.id:
         raise AppError("VALIDATION_ERROR", "管理员必须通过自助改密修改自己的密码", 422)
     user = db.scalar(select(User).where(User.id == user_id).with_for_update())
     if user is None:
         raise not_found("用户")
+    if user.revision != payload.expected_revision:
+        raise AppError("REVISION_CONFLICT", "用户已被其他请求修改", 409)
     user.password_hash = hash_password(payload.temporary_password)
     user.must_change_password = True
     user.revision += 1
@@ -672,3 +687,4 @@ def reset_user_password(
         ),
     )
     db.commit()
+    return user

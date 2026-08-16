@@ -292,3 +292,62 @@ await deleteAccount(account.id, latest.revision);
 // Correct：提交用户看到并确认的 canonical row revision；冲突后显式 reload。
 await deleteAccount(account.id, account.revision);
 ```
+
+## 11. User 管理 revision、bulk 与安全投影
+
+### 11.1 Scope / Trigger
+
+修改 UserList、管理员用户命令、reset/delete revision、bulk partial 或用户动作投影时适用。
+
+### 11.2 Signatures
+
+```text
+GET    /api/v1/users?q&account_type&status&page&page_size -> UserList
+PATCH  /api/v1/users/{user_id} UserUpdate(expected_revision + 完整字段) -> User
+DELETE /api/v1/users/{user_id}?expected_revision=... -> 204
+POST   /api/v1/users/{user_id}/reset-password ResetPasswordRequest(temporary_password, expected_revision) -> User
+POST   /api/v1/users/bulk-status UserBulkStatusRequest(items[{user_id, expected_revision}], status) -> UserBulkStatusResult
+```
+
+### 11.3 Contracts
+
+- UserList 是页面唯一 read model；summary 是不受筛选影响的全局计数，动作投影按当前 actor 生成。不得逐行查询或让前端按角色/状态补动作。
+- UPDATE 与 reset body、DELETE query 都必须携带当前 revision；服务端在既有锁内先拒绝 stale，再执行状态、引用、last-admin、session 与 audit 规则。
+- reset 成功返回安全 User projection，只保存密码哈希并撤销目标用户会话；stale reset 不改 hash/revision/session/audit。
+- bulk 只接受唯一 user_id，逐项锁定并要求真实状态变化；预期失败 code 固定为 `NOT_FOUND/REVISION_CONFLICT/LAST_ADMIN_REQUIRED/INVALID_STATE_TRANSITION`，意外错误回滚整个事务。
+- ADMIN 是所有用户管理 endpoint 的最终权限权威；ENGINEER 对 list/create/bulk/export/update/delete/reset 均为 403。
+
+### 11.4 Validation & Error Matrix
+
+| 条件 | 结果 |
+| --- | --- |
+| UPDATE/reset/DELETE revision 过期 | `409 REVISION_CONFLICT`，无状态、会话或成功 audit 副作用 |
+| reset 目标是当前 actor | `422 VALIDATION_ERROR`，必须走自助改密 |
+| bulk 项已是目标状态 | HTTP 200 partial 中返回 `INVALID_STATE_TRANSITION`，不增加 revision/audit |
+| bulk 项过期/不存在/违反 last-admin | HTTP 200 partial 中返回对应固定 code |
+| bulk 出现未登记错误 | 回滚整个事务，不伪造 partial success |
+| ENGINEER 调用任一管理接口 | `403`，不进入业务命令 |
+
+### 11.5 Good / Base / Bad Cases
+
+- Good：前端提交用户确认时观测的 row revision；409 保留上下文并等待显式 reload。
+- Base：UserList 一次返回当前页、全局 summary、动作与 deletion projection，页面不请求 User Detail/Audit。
+- Bad：提交前自动拉最新 revision、按 `is_active/account_type` 补动作、把 bulk 同态项当成成功。
+
+### 11.6 Tests Required
+
+- Contract/runtime/generated：delete/reset required revision、reset 200 User、bulk code enum。
+- PostgreSQL integration：stale 无副作用、reset session revoke/safe response、自操作与 last-admin、mixed partial 顺序、全 endpoint 403、空/稀疏/密集固定查询次数。
+- Frontend model/component：action token 穷尽映射、selection revision 漂移、409 不 replay、顶层 bulk 失败保留和密码缓存清理。
+- Production artifact：canonical URL、所有命令 payload、partial feedback、ADMIN 边界、四档响应式、键盘/焦点及未声明 API 失败。
+
+### 11.7 Wrong vs Correct
+
+```ts
+// Wrong：用新拉取的 revision 自动重放用户已确认的命令。
+await refetchUsers();
+await resetPassword(user.id, password, latest.revision);
+
+// Correct：提交当前投影 revision，冲突后由用户显式 reload。
+await resetPassword(user.id, password, user.revision);
+```

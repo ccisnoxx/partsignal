@@ -315,6 +315,17 @@
     display: none;
   }
 
+  .user-list-mobile-summary {
+    display: none;
+  }
+
+  .user-list-table [data-user-selection] {
+    display: table-cell;
+    width: 2.75rem;
+    min-width: 2.75rem;
+    max-width: 2.75rem;
+  }
+
   @media (max-width: 768px) {
     .ai-channel-list-table {
       min-width: 100%;
@@ -337,6 +348,32 @@
     }
 
     .ai-channel-mobile-summary {
+      display: grid;
+      gap: 0.125rem;
+      margin-top: 0.25rem;
+    }
+
+    .user-list-table {
+      min-width: 100%;
+      table-layout: fixed;
+    }
+
+    .user-list-table [data-column-role='primary'] {
+      min-width: 0;
+      width: auto;
+    }
+
+    .user-list-table [data-user-column] {
+      display: none;
+    }
+
+    .user-list-table [data-column-role='actions'] {
+      width: 5rem;
+      min-width: 5rem;
+      max-width: 5rem;
+    }
+
+    .user-list-mobile-summary {
       display: grid;
       gap: 0.125rem;
       margin-top: 0.25rem;

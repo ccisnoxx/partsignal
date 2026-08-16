@@ -390,3 +390,11 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - Usage/Logs/Audit Detail 继续复用现有 ADMIN-only GET；Configuration domain 独占 `usageRoot/usage`、`logsRoot/logs` 与 `auditDetail` keys，exact key 含 period 或 page/pageSize。三类读取 `retry:false`，只挂载 active surface，互不失效。
 - Usage 直接展示服务端时间窗与聚合，计数 `0` 不等于 nullable“暂无数据”。Logs 保持服务端顺序、total/page/page_size 和 actor，不请求 Users、不客户端聚合、排序或分页；越界页保留 URL，等待用户显式返回最后有效页。
 - Audit Detail 只在 `VIEW_LOG_DETAIL` 后读取。前端只呈现 CONFIGURATION 登记字段和 primitive/list shape；未知内容显式投影失败，不 dump JSON。API Key、Header value 与完整可执行请求配置不得进入 query key、cache、DOM、console 或 fixture 输出。
+
+## 31. UserList revision 命令与批量 partial 合同
+
+- `/system/users` 只消费 ADMIN-only `GET /api/v1/users` 的 `UserList`；服务端一次返回当前分页、全局 summary、actor-aware `primary_task/available_actions/deletion` 与 canonical revision。查询次数不随当前页行数增长，浏览器不逐行请求、不重算 summary 或动作资格。
+- canonical URL 使用 `q/accountType/status/page/pageSize`，默认显式写入 `status=ENABLED&page=1&pageSize=20`；`status=ALL` 映射为省略 API status。列表 query key 只包含规范化 API 参数。
+- PATCH、reset body 与 DELETE query 都提交用户看到的 revision。reset 成功返回安全 `User` 投影并撤销目标用户会话；响应不得包含临时密码、密码哈希或 session。stale 命令在锁内返回 `REVISION_CONFLICT`，不改状态、revision、session 或 audit。
+- bulk 每项提交 `{user_id, expected_revision}`，同状态项返回 `INVALID_STATE_TRANSITION`，并与 `NOT_FOUND/REVISION_CONFLICT/LAST_ADMIN_REQUIRED` 组成固定 code union。预期逐项失败返回 200 partial；意外事务错误仍整体失败，不伪装 partial success。
+- 成功命令只失效 Users list；成功项包含当前 actor 时等待 auth refresh。409 不失效、不 replay，并保留当前表单/确认上下文直到显式 reload。临时密码不进入 query key、错误文本、反馈、日志或 fixture 记录。

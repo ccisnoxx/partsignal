@@ -282,6 +282,14 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Cache boundary**：Configuration domain 增加 `usageRoot/usage`、`logsRoot/logs`、`auditDetail`，全部 exact GET `retry:false`。配置 mutation 只失效 `logsRoot`，不主动刷新 Usage；删除渠道移除其 detail/models/usageRoot/logsRoot。OpenAPI、generated types、backend runtime 与数据库合同不变。
 
+## ADR-044：System Users 复用单一 UserList 与 revision-bound selection
+
+**Decision**：`/system/users` 复用既有 UserList/create/update/reset/delete/bulk/export 合同，不新增 Detail read model、通用 CRUD/DataTable/Bulk registry 或客户端权限层。URL 是筛选分页唯一 owner；Primary/overflow 只穷尽消费服务端任务与动作投影。
+
+**Concurrency and safety boundary**：reset/delete 补 required revision，reset 返回安全 canonical User；bulk no-op 成为 typed partial failure。选择绑定 canonical 查询范围和行 revision，后台漂移时整体清空；409 保留当前确认或表单且不重放。密码 mutation 随私有 Dialog 卸载并使用 `gcTime=0`，strict E2E 关闭 trace且 fixture 只保留密码长度。
+
+**Deferred boundary**：本 Task 不创建 User Detail 或 Audit 路由/链接；后续 Audit Task 采用 `/system/audit?actorId=<user-id>`，并独立实现服务端筛选与移动 Sheet。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

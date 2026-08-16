@@ -1006,6 +1006,14 @@ const usage = useQuery(aiChannelUsageQueryOptions(channel.id, search.period));
 const actor = log.actor;
 ```
 
+## System Users State
+
+- canonical URL 固定由 `q/accountType/status/page/pageSize` 持有，默认显式 `status=ENABLED&page=1&pageSize=20`；`ALL` 调用 API 时省略 status。首屏只读取 UserList，不做逐行请求或客户端 summary/action 推导。
+- selection 是页面本地状态，绑定 canonical scope 和 `{id,username,revision}`。换筛选/页码/页大小立即整体清空；refetch 后已选项消失或 revision 变化也整体清空并提示，revision 未变才保留。
+- create/edit/reset 与确认 Dialog 拥有各自草稿。409 不 invalidate、不 replay；显式 reload 才卸载草稿并采用服务端 baseline。create/reset 的 password owner 随 Dialog 卸载，mutation `gcTime=0`，关闭/成功/reload 后不得留在 cache 或 DOM。
+- bulk disable 使用业务页 custom confirmation；200 partial 清空 selection 并保留脱敏 username/code/message 反馈，顶层失败保留 selection/confirm。成功只失效 Users lists，成功项包含当前 actor 时等待 auth refresh。
+- blocker 只展示服务端 count 并允许刷新列表；Audit route 未实现前不得生成 guessed href。
+
 ## Common Mistakes
 
 <!-- State management mistakes your team has made -->

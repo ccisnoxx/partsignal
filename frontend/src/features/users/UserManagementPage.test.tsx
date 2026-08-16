@@ -234,6 +234,7 @@ test('停用用户经影响确认后删除并刷新当前列表', async () => {
     if (url.pathname.endsWith('/auth/me')) return { body: admin };
     if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
     if (url.pathname === `/api/v1/users/${inactiveEngineer.id}` && request.method === 'DELETE') {
+      expect(url.searchParams.get('expected_revision')).toBe(String(inactiveEngineer.revision));
       deleteRequest = request;
       deleted = true;
       return { body: undefined, status: 204 };
@@ -262,6 +263,7 @@ test('用户删除被业务引用阻断时保留当前行并展示错误', async
     if (url.pathname.endsWith('/auth/me')) return { body: admin };
     if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
     if (url.pathname === `/api/v1/users/${inactiveEngineer.id}` && request.method === 'DELETE') {
+      expect(url.searchParams.get('expected_revision')).toBe(String(inactiveEngineer.revision));
       return {
         body: { error: { code: 'USER_IN_USE', message: '用户仍有业务历史引用，不能删除', details: {}, request_id: 'delete-user-test' } },
         status: 409,
@@ -290,7 +292,7 @@ test('重置临时密码只在八位边界提交，七位留在表单校验', as
     if (url.pathname.endsWith('/auth/csrf')) return { body: { csrf_token: 'x'.repeat(32) } };
     if (url.pathname === `/api/v1/users/${inactiveEngineer.id}/reset-password` && request.method === 'POST') {
       submittedBody = request.clone().json() as Promise<Schema<'ResetPasswordRequest'>>;
-      return { body: undefined, status: 204 };
+      return { body: { ...inactiveEngineer, must_change_password: true, revision: inactiveEngineer.revision + 1 } };
     }
     if (url.pathname.endsWith('/users')) return { body: userList([admin, inactiveEngineer], url.searchParams) };
     throw new Error(`未声明的测试请求：${request.method} ${url.pathname}`);
@@ -309,7 +311,7 @@ test('重置临时密码只在八位边界提交，七位留在表单校验', as
   await userEvent.type(passwordInput, '8');
   await userEvent.click(within(dialog).getByRole('button', { name: '重置临时密码' }));
   await waitFor(() => expect(submittedBody).toBeDefined());
-  expect(await submittedBody).toEqual({ temporary_password: '12345678' });
+  expect(await submittedBody).toEqual({ temporary_password: '12345678', expected_revision: inactiveEngineer.revision });
 });
 
 test('按文本解析中文 CSV，触发下载并释放对象 URL', async () => {

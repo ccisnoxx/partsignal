@@ -1564,3 +1564,37 @@ Configuration 自身未解决 P0/P1/P2 为 0；当前候选 make verify 因范�
 ### Next Steps
 
 - None - task complete
+
+
+## Session 160: Frontend V2 Auth Session UI
+
+**Date**: 2026-08-17
+**Task**: Frontend V2 Auth Session UI
+**Branch**: `main`
+
+### Summary
+
+完成 V2 登录、首次与自助改密、统一认证路由边界、权限 UX、退出缓存清理，以及 strict/真实栈验证；Auth Task 已归档，System Admin E2E 保持 planning。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c6ce237b` | (see git log) |
+| `10a26476` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

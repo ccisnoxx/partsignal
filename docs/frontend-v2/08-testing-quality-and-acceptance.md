@@ -361,6 +361,12 @@ production artifact 在两个 Playwright project 中覆盖 375/768/1024/1440 根
 
 `system-audit.fixture.ts` 只允许 auth/CSRF 和 list/filter-options/detail 三个 Audit GET；未声明 API 返回 501，teardown 审计 console/page/request failure，controller 不记录详情值。`system-audit.spec.ts` 显式关闭 trace，在 mobile/desktop projects 覆盖 canonical/snake_case、七列无按钮、lazy detail、click/Enter/Space、Pane/Sheet、focus/history、deleted actor、三 outcome、related/error、安全 sentinel、自动越界规范、ENGINEER boundary 及 375/768/1024/1440 根无溢出。PostgreSQL integration 另冻结权限、actor outer join、strict 409、稳定排序与固定查询次数。
 
+### 13.28 Auth Session UI 验收
+
+`frontend-v2-auth-session-ui` 实现候选使用唯一 `['auth', 'session']` Query 作为 cookie session 与 CSRF 的前端 owner：匿名与首次改密会话在共同 `_app` 边界进入 `/login` 或 `/account/security`，active session 才挂载 App Shell；登录、改密和退出均使用 generated Auth contract，改密成功后重新读取服务端 session，不在客户端推导 `must_change_password`。账户菜单提供自助改密入口，ENGINEER 直接进入 System 路由时保留 URL、聚焦 403，服务端权限仍是最终权威。
+
+`auth-provider`、providers、App Shell 与两个页面的 targeted component 为 `5 files / 23 tests`；Auth + Foundation production artifact 在 mobile/desktop 为 `4 passed`；`api:check`、lint、typecheck、production build、部署脚本语法检查均通过，后端 identity PostgreSQL integration 为 `1 passed`。唯一隔离入口实际为 V2 real-stack `14 passed`、V1 E2E `52 passed (5.5m)`、退出码 `0`；Auth strict/real-stack 均关闭 trace，并扫描测试 output，未发现测试密码。cleanup 删除 Redis DB 1 的本次 key，释放 `8000/9001/5173/4173/4174/19009`，drop 临时数据库并移除临时存储；独占 Redis container 也由调用方清理。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

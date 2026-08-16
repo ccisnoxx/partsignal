@@ -80,8 +80,11 @@ function authValue(user: AuthUser | null): AuthContextValue {
   };
 }
 
-function renderRoute(path: string, auth = authValue(null)) {
+function renderRoute(path: string, auth = authValue(engineer)) {
   const queryClient = new QueryClient();
+  queryClient.setQueryData(['auth', 'session'], auth.user
+    ? { user: auth.user, csrfToken: auth.csrfToken }
+    : null);
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [path] }),
@@ -148,6 +151,7 @@ describe('AppShell', () => {
 
     expect(await screen.findByRole('link', { name: '用户管理' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /系统管理员/ }));
+    expect(await screen.findByRole('menuitem', { name: '修改密码' })).toHaveAttribute('href', '/account/security');
     await user.click(await screen.findByRole('menuitem', { name: '退出登录' }));
 
     expect(auth.signOut).toHaveBeenCalledOnce();

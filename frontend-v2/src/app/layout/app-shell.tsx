@@ -1,5 +1,5 @@
 import { Link, useMatches, useRouterState } from '@tanstack/react-router';
-import { ChevronRightIcon, LogOutIcon, MenuIcon, UserRoundIcon } from 'lucide-react';
+import { ChevronRightIcon, KeyRoundIcon, LogOutIcon, MenuIcon, UserRoundIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { AuthContextValue } from '@/app/auth/auth-provider';
@@ -263,6 +263,10 @@ function AccountMenu({ auth }: { auth: AuthContextValue }) {
               <span className="block truncate font-normal">@{auth.user.username}</span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem render={<Link to="/account/security" />}>
+              <KeyRoundIcon />
+              修改密码
+            </DropdownMenuItem>
             <DropdownMenuItem disabled={auth.isSigningOut} onClick={() => void handleSignOut()}>
               <LogOutIcon />
               {auth.isSigningOut ? '正在退出…' : '退出登录'}

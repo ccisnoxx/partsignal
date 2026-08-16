@@ -132,6 +132,7 @@ until curl --fail --silent http://127.0.0.1:8000/api/health/ready >/dev/null \
 done
 
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
+PARTSIGNAL_SEED_ENGINEER_PASSWORD=$PARTSIGNAL_SEED_ENGINEER_PASSWORD \
 PARTSIGNAL_E2E_API_BASE_URL=http://127.0.0.1:8000 \
 PARTSIGNAL_E2E_FAKE_AI_BASE_URL=http://127.0.0.1:9001 \
 PARTSIGNAL_E2E_REAL_STACK=1 \
@@ -144,6 +145,7 @@ PARTSIGNAL_E2E_V2_BASE_URL=http://127.0.0.1:4174 \
   tests/e2e/content-version-detail-real-stack.spec.ts \
   tests/e2e/publication-workspace-real-stack.spec.ts \
   tests/e2e/geo-real-stack.spec.ts \
+  tests/e2e/auth-session-real-stack.spec.ts \
   --project=foundation-desktop
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
 PARTSIGNAL_E2E_REAL_STACK=1 \

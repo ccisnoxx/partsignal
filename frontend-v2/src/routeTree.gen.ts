@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAdminRouteRouteImport } from './routes/_app/_admin/route'
 import { Route as AppContentRouteRouteImport } from './routes/_app/content/route'
@@ -17,6 +18,7 @@ import { Route as AppGeoRouteRouteImport } from './routes/_app/geo/route'
 import { Route as AppProductsRouteRouteImport } from './routes/_app/products/route'
 import { Route as AppPublishingRouteRouteImport } from './routes/_app/publishing/route'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
+import { Route as AccountSecurityRouteImport } from './routes/account/security'
 import { Route as AppContentTasksRouteRouteImport } from './routes/_app/content/tasks/route'
 import { Route as AppGeoInsightsRouteRouteImport } from './routes/_app/geo/insights/route'
 import { Route as AppGeoObservationsRouteRouteImport } from './routes/_app/geo/observations/route'
@@ -64,6 +66,11 @@ const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -97,6 +104,11 @@ const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AppRouteRoute,
+} as any)
+const AccountSecurityRoute = AccountSecurityRouteImport.update({
+  id: '/account/security',
+  path: '/account/security',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AppContentTasksRouteRoute = AppContentTasksRouteRouteImport.update({
   id: '/tasks',
@@ -331,11 +343,13 @@ const AppProductsProductIdFactsVersionsVersionIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/login': typeof LoginRoute
   '/content': typeof AppContentRouteRouteWithChildren
   '/geo': typeof AppGeoRouteRouteWithChildren
   '/products': typeof AppProductsRouteRouteWithChildren
   '/publishing': typeof AppPublishingRouteRouteWithChildren
   '/settings': typeof AppSettingsRouteRouteWithChildren
+  '/account/security': typeof AccountSecurityRoute
   '/content/tasks': typeof AppContentTasksRouteRouteWithChildren
   '/geo/insights': typeof AppGeoInsightsRouteRouteWithChildren
   '/geo/observations': typeof AppGeoObservationsRouteRouteWithChildren
@@ -380,11 +394,13 @@ export interface FileRoutesByFullPath {
   '/products/$productId/facts/versions/$versionId': typeof AppProductsProductIdFactsVersionsVersionIdRoute
 }
 export interface FileRoutesByTo {
+  '/login': typeof LoginRoute
   '/': typeof AppIndexRoute
   '/content': typeof AppContentRouteRouteWithChildren
   '/geo': typeof AppGeoRouteRouteWithChildren
   '/publishing': typeof AppPublishingRouteRouteWithChildren
   '/settings': typeof AppSettingsRouteRouteWithChildren
+  '/account/security': typeof AccountSecurityRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
   '/products': typeof AppProductsIndexRoute
@@ -423,12 +439,14 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteRouteWithChildren
+  '/login': typeof LoginRoute
   '/_app/_admin': typeof AppAdminRouteRouteWithChildren
   '/_app/content': typeof AppContentRouteRouteWithChildren
   '/_app/geo': typeof AppGeoRouteRouteWithChildren
   '/_app/products': typeof AppProductsRouteRouteWithChildren
   '/_app/publishing': typeof AppPublishingRouteRouteWithChildren
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
+  '/account/security': typeof AccountSecurityRoute
   '/_app/': typeof AppIndexRoute
   '/_app/content/tasks': typeof AppContentTasksRouteRouteWithChildren
   '/_app/geo/insights': typeof AppGeoInsightsRouteRouteWithChildren
@@ -477,11 +495,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
     | '/content'
     | '/geo'
     | '/products'
     | '/publishing'
     | '/settings'
+    | '/account/security'
     | '/content/tasks'
     | '/geo/insights'
     | '/geo/observations'
@@ -526,11 +546,13 @@ export interface FileRouteTypes {
     | '/products/$productId/facts/versions/$versionId'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/login'
     | '/'
     | '/content'
     | '/geo'
     | '/publishing'
     | '/settings'
+    | '/account/security'
     | '/products/$productId'
     | '/products/new'
     | '/products'
@@ -568,12 +590,14 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/login'
     | '/_app/_admin'
     | '/_app/content'
     | '/_app/geo'
     | '/_app/products'
     | '/_app/publishing'
     | '/_app/settings'
+    | '/account/security'
     | '/_app/'
     | '/_app/content/tasks'
     | '/_app/geo/insights'
@@ -621,6 +645,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
+  LoginRoute: typeof LoginRoute
+  AccountSecurityRoute: typeof AccountSecurityRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -630,6 +656,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -680,6 +713,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteRouteImport
       parentRoute: typeof AppRouteRoute
+    }
+    '/account/security': {
+      id: '/account/security'
+      path: '/account/security'
+      fullPath: '/account/security'
+      preLoaderRoute: typeof AccountSecurityRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_app/content/tasks': {
       id: '/_app/content/tasks'
@@ -1235,6 +1275,8 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
+  LoginRoute: LoginRoute,
+  AccountSecurityRoute: AccountSecurityRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

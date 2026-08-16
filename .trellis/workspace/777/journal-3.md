@@ -575,7 +575,9 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- New GEO Observation 四档宽度 E2E 在跨 breakpoint 后等待当前 Workspace 可访问性分支，再执行精确焦点断言。
+- Frontend quality spec 补强响应式重挂载后的焦点/键盘重新查询规则。
+- Phase 6 权威文档按最终候选证据将 Exit Gate 更新为 `MET`。
 
 ### Git Commits
 
@@ -1453,6 +1455,41 @@ Configuration 自身未解决 P0/P1/P2 为 0；当前候选 make verify 因范�
 ### Testing
 
 - Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 157: 完成 Frontend V2 Phase 6 New GEO 焦点门禁修复
+
+**Date**: 2026-08-16
+**Task**: 完成 Frontend V2 Phase 6 New GEO 焦点门禁修复
+**Branch**: `codex/frontend-v2-phase6-new-geo-observation-focus-e2e-blocker`
+
+### Summary
+
+修复跨 1280px Workspace 重挂载后的 New GEO Observation 焦点 E2E 时序，完整 V2 E2E 与唯一 make verify 全绿，Phase 6 Exit Gate 更新为 MET，并完成 Task 归档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `07419a29` | `test(frontend-v2): stabilize New GEO focus after breakpoint` |
+
+### Testing
+
+- 精确场景 `2 passed`，完整目标 spec `14 passed`。
+- 完整 V2 fixture E2E `357 passed / 27 skipped / 0 failed`，384 项全部 accounted。
+- 唯一最终 `make verify` 退出 `0`、`real 1124.40s`；数据库、Redis、storage、container/process 与固定端口 cleanup 完整。
 
 ### Status
 

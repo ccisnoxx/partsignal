@@ -948,7 +948,7 @@ PUT:    /api/v1/ai-channels/{channel_id}/api-key AIChannelApiKeyReplace
 POST:   /api/v1/ai-channels/{channel_id}/headers AIChannelHeaderCreate
 PATCH:  /api/v1/ai-channel-headers/{header_id} AIChannelHeaderUpdate
 DELETE: /api/v1/ai-channel-headers/{header_id}?expected_channel_revision=...
-keys:   aiChannelKeys.detail/models/usageRoot/logsRoot(channelId), auditDetail(logId), lists()
+keys:   aiChannelKeys.detail/models/usageRoot/logsRoot(channelId), auditKeys.detail(logId), lists()
 ```
 
 ### 3. Contracts
@@ -959,7 +959,7 @@ keys:   aiChannelKeys.detail/models/usageRoot/logsRoot(channelId), auditDetail(l
 - 配置 PATCH 始终发送完整 `AIChannelUpdate`。成功采用 canonical response；失败不得 optimistic update、自动 replay 或失效消费者。
 - API Key 与所有 Header 值只写不回显；secret mutation 使用 `gcTime=0`，关闭、成功、失败都清空输入。Header 读取只含名称、敏感标记、配置状态和动作，创建/更新提交完整替换值，删除提交当前 `expected_channel_revision`。
 - Usage/Logs 只在 active Tab 读取 exact URL key。Usage 直接显示服务端统计和窗口，严格区分计数 `0` 与 nullable“暂无数据”；Logs 保持服务端顺序/分页并只用响应 actor，不请求 Users、不客户端聚合或分页。
-- Audit Detail 仅在行操作后读取，Sheet 只投影 CONFIGURATION 登记字段和 primitive/primitive-list；未知字段或 shape 显式失败，不 dump raw JSON。关闭不改变 Logs URL并恢复触发点焦点。
+- Audit Detail 由全局 Audit domain 持有 query key、字段投影与 renderer；仅在行操作后读取。Configuration 继续持有渠道 Logs URL、Sheet 与触发点焦点，不 dump raw JSON。
 - channel/Header/model action token 必须穷尽消费；未知、重复或矛盾投影显式失败。`TEST_MODEL` 进入 Models，`VIEW_RUNTIME/VIEW_MODEL_RUNTIME` 都进入渠道 Usage。
 - discovery 不失效 cache。model create/test 只刷新 AI list/detail/models 及各自真实日志消费者；model update/enable/disable/delete 才另失效 Prompt Preview Options 与 Content generation-options。失败或 409 不写、不失效。
 
@@ -1012,7 +1012,69 @@ const actor = log.actor;
 - selection 是页面本地状态，绑定 canonical scope 和 `{id,username,revision}`。换筛选/页码/页大小立即整体清空；refetch 后已选项消失或 revision 变化也整体清空并提示，revision 未变才保留。
 - create/edit/reset 与确认 Dialog 拥有各自草稿。409 不 invalidate、不 replay；显式 reload 才卸载草稿并采用服务端 baseline。create/reset 的 password owner 随 Dialog 卸载，mutation `gcTime=0`，关闭/成功/reload 后不得留在 cache 或 DOM。
 - bulk disable 使用业务页 custom confirmation；200 partial 清空 selection 并保留脱敏 username/code/message 反馈，顶层失败保留 selection/confirm。成功只失效 Users lists，成功项包含当前 actor 时等待 auth refresh。
-- blocker 只展示服务端 count 并允许刷新列表；Audit route 未实现前不得生成 guessed href。
+- blocker 只展示服务端 count 并允许刷新列表；`USER_BUSINESS_HISTORY` 精确链接到 `/system/audit?actorId=<user-id>`，Users 页面不读取 Audit。
+
+## System Audit State
+
+### 1. Scope / Trigger
+
+- 修改 `/system/audit`、Audit list/detail 合同、AI Channel Audit Detail 或 Users 审计 handoff 时适用。
+
+### 2. Signatures
+
+```text
+URL: /system/audit?page=&pageSize=&createdFrom=&createdTo=&actorId=&module=&action=&targetType=&targetId=&outcome=&requestId=&keyword=&logId=
+GET: /api/v1/audit-logs?page=&page_size=&created_from=&created_to=&actor_id=&business_module=&action=&target_type=&target_id=&outcome=&request_id=&keyword=
+GET: /api/v1/audit-logs/filter-options
+GET: /api/v1/audit-logs/{audit_log_id}
+keys: auditKeys.list(apiParams), auditKeys.options(), auditKeys.detail(logId)
+```
+
+### 3. Contracts
+
+- route 与三个 GET 都是 ADMIN-only；server 最终持有权限、筛选、半开时间窗、稳定排序与分页。canonical URL 由 `page/pageSize/createdFrom/createdTo/actorId/module/action/targetType/targetId/outcome/requestId/keyword/logId` 唯一持有。
+- 默认近三天时间窗在模块初始化时计算一次，URL 保存 UTC ISO，native date input 按固定北京时间 `+08:00` 转换。list key 只包含 snake_case API 参数，`logId` 不改变 list key。
+- 首屏只读取 metadata list 与 filter options；`logId` 存在时才读取 detail。不请求 Users、业务详情，不轮询、自动刷新或 mutation。
+- 固定七列表格整行负责 click/Enter/Space 详情触发；1280px 起用右 Pane，较窄视口用同一 URL/detail query 驱动 Sheet。关闭、Escape、Back 后优先恢复触发行，direct/off-page detail 回退页标题。
+- 全局详情 renderer 由 Audit domain 唯一持有，穷尽 action/field registry，只展示安全标量/一维列表。AI Channel 复用它；Users 只生成 `/system/audit?actorId=<uuid>` 链接。
+
+### 4. Validation & Error Matrix
+
+| 条件 | 结果 |
+| --- | --- |
+| blank/invalid/unknown search 或反向日期 | route replace 为完整 canonical search；反向日期整体恢复默认时间窗 |
+| list 初始失败 / stale refresh 失败 | 表格内 retry；有旧数据时保留当前列表 |
+| filter options 失败 | list 保持；当前 URL action/targetType 仍可见和清除 |
+| `items=[] && total>0 && page>lastPage` | replace 到最后有效页并移除 `logId` |
+| detail 403/404/409/transport error | Pane/Sheet 局部失败，可 retry/close；list 保持 |
+| 未知 action/field/value shape | 显式安全投影失败，不展示 raw value、JSON 或 `change_summary` |
+
+### 5. Good / Base / Bad Cases
+
+- Good：Users blocker 进入 actorId 筛选，首屏只有 list + options，整行打开 detail，关闭后焦点回到该行。
+- Base：actor 已删除时显示“用户已删除/未记录”；direct `logId` 不在当前页仍独立读取，关闭后焦点回到页标题。
+- Bad：逐行读取 detail、查询 Users 拼 actor、从当前 rows 拼 options、按 target type 猜业务详情、dump JSON、自动刷新或在客户端重建权限。
+
+### 6. Tests Required
+
+- Model：默认时间窗只计算一次、UTC/北京时间互转、camelCase→snake_case、invalid canonicalization、`logId` 不入 list key、安全 scalar/null/list 与未知字段失败。
+- Component：固定七列、无详情按钮、row Enter/Space、lazy detail、URL selection、Pane/Sheet 关闭焦点、list/options/detail 独立错误与越界 replace。
+- Contract/backend integration：metadata-only list、safe detail schema、generic 409、ADMIN/ENGINEER、actor outer join、keyword 字段、稳定排序与固定 SQL 次数。
+- Production fixture：只允许 auth/CSRF 与三个 Audit GET；覆盖 375/768/1024/1440、history、相关对象三态、projection failure、无 Users/业务请求和 sentinel 泄漏。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：列表携带详情，浏览器补 actor 和详情链接。
+const actor = users.find((item) => item.id === log.actor_id);
+const detail = JSON.stringify(log.change_summary);
+const href = targetRoutes[log.target_type](log.target_id);
+
+// Correct：列表只消费 metadata；URL logId 才触发全局 strict detail。
+const logs = useQuery(auditListQueryOptions(search));
+const detail = useQuery({ ...auditDetailQueryOptions(search.logId ?? ''), enabled: Boolean(search.logId) });
+const actor = log.actor ?? null;
+```
 
 ## Common Mistakes
 

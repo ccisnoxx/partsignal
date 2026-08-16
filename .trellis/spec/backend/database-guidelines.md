@@ -653,9 +653,9 @@ if submitted_ids != candidate_ids:
 
 ### 3. 数据安全与查询
 
-- `details` 只保存结构化 `changes` 与 `facts`；写入前递归拒绝敏感键，读取时再按业务模块正向白名单投影字段。
+- `details` 只保存结构化 `changes` 与 `facts`；写入和详情读取共用 `audit_types.py` 的业务模块正向字段白名单。值只允许标量或标量一维列表；未知字段/shape 在写入时拒绝，坏历史详情整体返回 generic `AUDIT_PROJECTION_FAILED`，列表仍只读 metadata。
 - 关键词只匹配操作者、业务模块、动作、对象类型、对象标识、请求 ID、结果说明与错误码等已批准字段，不执行 `details::text` 搜索。
-- 列表按 `(created_at DESC, id DESC)` 稳定排序。操作者信息使用当前用户投影；用户删除后保留的事件仍可读，投影为空。
+- 列表按 `(created_at DESC, id DESC)` 稳定排序。count/rows 共用条件和 actor outer join，固定两条 SQL；filter options 固定两个 `DISTINCT ORDER BY` 查询。操作者信息使用当前用户投影；用户删除后保留的事件仍可读，投影为空。
 - `0037` 迁移使用自身冻结白名单，一次性删除全部非成功及白名单外历史，不导入运行时常量。
 
 ### 4. 降级与必需测试
@@ -663,7 +663,7 @@ if submitted_ids != candidate_ids:
 - 审计历史清理不可逆；`0037` downgrade 必须以 PostgreSQL `55000` 失败并要求恢复迁移前备份。
 - 迁移测试覆盖白名单保留、非成功/白名单外清理、业务表不变、UPDATE 门禁和不可安全降级。
 - 单元与集成测试覆盖非白名单写入显式失败、保留动作 `SUCCESS`、敏感键拒绝、字段白名单、稳定分页和管理员权限。
-- 前端测试覆盖默认北京时间近三天、URL 可分享筛选、手动与 30 秒可见页刷新、空态/错误态、右侧详情以及敏感字段不展示。
+- 前端测试覆盖默认北京时间近三天、URL 可分享筛选、手动刷新、空态/错误态、按需右侧详情或 Sheet，以及敏感字段不展示；系统审计不自动刷新或轮询。
 
 ## 场景：Product Detail 跨域只读投影
 

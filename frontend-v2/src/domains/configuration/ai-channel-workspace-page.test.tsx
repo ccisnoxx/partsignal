@@ -128,7 +128,6 @@ function auditLog(overrides: Partial<AuditLog> = {}): AuditLog {
     target_type: 'AIChannel',
     target_id: channelId,
     outcome: 'SUCCESS',
-    change_summary: { revision: 5, changes: [{ field: 'revision', before: 4, after: 5 }] },
     primary_task: 'VIEW_LOG_DETAIL',
     request_id: 'req-runtime-safe',
     created_at: '2026-08-14T09:00:00Z',
@@ -295,8 +294,8 @@ describe('AIChannelWorkspacePage', () => {
       return success(channel());
     });
     const { router } = renderWorkspace(`/settings/ai/${channelId}?tab=logs&page=2&pageSize=10`);
-    expect(await screen.findByRole('row', { name: /更新渠道/ })).toHaveTextContent('系统管理员');
-    expect(screen.getByRole('row', { name: /更新渠道/ })).toHaveTextContent('修订号：4 → 5');
+    expect(await screen.findByRole('row', { name: /更新 AI 渠道/ })).toHaveTextContent('系统管理员');
+    expect(screen.getByRole('row', { name: /更新 AI 渠道/ })).not.toHaveTextContent('修订号');
     expect(get).toHaveBeenCalledWith('/api/v1/ai-channels/{channel_id}/audit-logs', {
       params: { path: { channel_id: channelId }, query: { page: 2, page_size: 10 } },
     });

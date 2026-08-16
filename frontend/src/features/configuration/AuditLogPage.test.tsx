@@ -31,7 +31,6 @@ const auditLog = {
   target_id: '30000000-0000-4000-8000-000000000001',
   outcome: 'SUCCESS',
   primary_task: 'VIEW_LOG_DETAIL',
-  change_summary: { revision: 3 },
   request_id: 'req-audit-1',
   created_at: '2026-07-23T00:00:00Z',
 } satisfies Schema<'AuditLog'>;

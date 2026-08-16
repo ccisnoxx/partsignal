@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any
 
 from sqlalchemy import ColumnElement, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.audit import contains_sensitive_key
-from app.audit_types import AuditModule, AuditOutcome
+from app.audit_types import (
+    AUDIT_CHANGE_FIELDS,
+    AUDIT_FACT_KEYS,
+    AuditModule,
+    AuditOutcome,
+    AuditSafeValue,
+    is_audit_safe_value,
+)
 from app.errors import AppError, not_found
 from app.models.ai_generation import AIChannel, AIModel
 from app.models.configuration import PlatformProfile
@@ -30,189 +36,58 @@ from app.schemas.common import (
     AuditRelatedEntry,
 )
 
-_SAFE_FACT_KEYS: dict[str, frozenset[str]] = {
-    AuditModule.IDENTITY.value: frozenset(
-        {"account_type", "is_active", "source", "status", "row_count", "revision"}
-    ),
-    AuditModule.PRODUCT_FACTS.value: frozenset(
-        {"product_id", "review_record_count", "revision", "status", "version"}
-    ),
-    AuditModule.CONTENT_PLANNING.value: frozenset(
-        {
-            "fact_version_id",
-            "platform_profile_id",
-            "platform_profile_version_id",
-            "platform_type_id",
-            "previous_active_version_id",
-            "reason",
-            "replacement_version_id",
-            "revision",
-            "status",
-            "version",
-        }
-    ),
-    AuditModule.CONTENT_PRODUCTION.value: frozenset(
-        {
-            "based_on_id",
-            "content_version_id",
-            "retry_of_id",
-            "source_content_version_id",
-            "task_id",
-            "version",
-        }
-    ),
-    AuditModule.CONTENT_REVIEW.value: frozenset({"revision", "status"}),
-    AuditModule.PUBLICATION.value: frozenset(
-        {
-            "attachment_count",
-            "content_version_id",
-            "fact_version_id",
-            "platform_profile_id",
-            "platform_profile_version_id",
-            "publication_id",
-            "publication_reference_count",
-            "repair_task_id",
-            "revision",
-            "status",
-            "status_event_count",
-            "task_id",
-            "trigger_status",
-        }
-    ),
-    AuditModule.GEO_OBSERVATION.value: frozenset(
-        {
-            "article_count",
-            "article_result_count",
-            "attachment_count",
-            "observation_count",
-            "product_id",
-            "publication_count",
-            "query_topic_id",
-            "root_observation_id",
-            "supersedes_id",
-        }
-    ),
-    AuditModule.CONFIGURATION.value: frozenset(
-        {
-            "account_count",
-            "allowed_domain_count",
-            "channel_id",
-            "configured",
-            "header_name",
-            "is_active",
-            "is_sensitive",
-            "model_count",
-            "platform_profile_id",
-            "platform_type_id",
-            "previous_active_version_id",
-            "protocol_type",
-            "provider_brand",
-            "reason",
-            "reference_count",
-            "replacement_version_id",
-            "revision",
-            "status",
-            "test_status",
-            "version",
-        }
-    ),
-    AuditModule.FILE_MANAGEMENT.value: frozenset({"access_level", "category", "size", "status"}),
-}
-_SAFE_CHANGE_FIELDS: dict[str, frozenset[str]] = {
-    AuditModule.IDENTITY.value: frozenset({"account_type", "display_name", "is_active"}),
-    AuditModule.PRODUCT_FACTS.value: frozenset({"status"}),
-    AuditModule.CONTENT_PLANNING.value: frozenset(
-        {"generation_data_classification", "generation_input_configured", "status"}
-    ),
-    AuditModule.CONTENT_PRODUCTION.value: frozenset(),
-    AuditModule.CONTENT_REVIEW.value: frozenset({"status"}),
-    AuditModule.PUBLICATION.value: frozenset({"is_active", "status"}),
-    AuditModule.GEO_OBSERVATION.value: frozenset(),
-    AuditModule.CONFIGURATION.value: frozenset(
-        {
-            "allowed_domain_count",
-            "is_active",
-            "is_configured",
-            "logo_configured",
-            "platform_type_id",
-            "revision",
-            "status",
-            "website_configured",
-        }
-    ),
-    AuditModule.FILE_MANAGEMENT.value: frozenset({"status"}),
-}
-_KEYWORD_FACT_KEYS = frozenset(
-    {
-        "account_type",
-        "category",
-        "protocol_type",
-        "provider_brand",
-        "reason",
-        "source",
-        "status",
-        "test_status",
-        "trigger_status",
-        "version",
-    }
-)
+_DETAIL_KEYS = frozenset({"changes", "facts"})
+_CHANGE_KEYS = frozenset({"field", "before", "after"})
 
 
-def _safe_value(value: Any) -> Any:
-    if value is None or isinstance(value, str | int | float | bool):
-        return value
-    if isinstance(value, list):
-        projected = [_safe_value(item) for item in value]
-        return projected if all(item is not _UNSAFE for item in projected) else _UNSAFE
-    return _UNSAFE
+def _projection_failed() -> AppError:
+    return AppError("AUDIT_PROJECTION_FAILED", "该审计详情当前无法安全展示", 409)
 
 
-_UNSAFE = object()
-
-
-def _project_details(record: AuditLog) -> tuple[list[AuditChange], dict[str, Any]]:
-    """只读取当前模块批准的摘要键，未知或异常 JSON 结构一律忽略。"""
-    details: dict[str, Any] = record.details if isinstance(record.details, dict) else {}
-    if contains_sensitive_key(details):
-        return [], {}
-    allowed = _SAFE_FACT_KEYS.get(record.business_module, frozenset())
-    nested_facts = details.get("facts")
-    raw_facts: dict[str, Any] = nested_facts if isinstance(nested_facts, dict) else details
-    facts: dict[str, Any] = {}
-    for key in allowed:
-        if key not in raw_facts:
-            continue
-        value = _safe_value(raw_facts[key])
-        if value is not _UNSAFE:
-            facts[key] = value
+def _project_details(record: AuditLog) -> tuple[list[AuditChange], dict[str, AuditSafeValue]]:
+    """严格投影登记字段；历史异常必须整条失败，不能返回不完整事实。"""
+    details = record.details
+    if (
+        not isinstance(details, dict)
+        or set(details) - _DETAIL_KEYS
+        or contains_sensitive_key(details)
+    ):
+        raise _projection_failed()
+    raw_changes = details.get("changes", [])
+    raw_facts = details.get("facts", {})
+    if not isinstance(raw_changes, list) or not isinstance(raw_facts, dict):
+        raise _projection_failed()
+    try:
+        module = AuditModule(record.business_module)
+    except ValueError as error:
+        raise _projection_failed() from error
+    if set(raw_facts) - AUDIT_FACT_KEYS[module] or any(
+        not is_audit_safe_value(value) for value in raw_facts.values()
+    ):
+        raise _projection_failed()
 
     changes: list[AuditChange] = []
-    raw_changes = details.get("changes", [])
-    allowed_changes = _SAFE_CHANGE_FIELDS.get(record.business_module, frozenset())
-    if isinstance(raw_changes, list):
-        for raw_change in raw_changes:
-            if not isinstance(raw_change, dict) or not isinstance(raw_change.get("field"), str):
-                continue
-            field = raw_change["field"]
-            if field not in allowed_changes or contains_sensitive_key({field: None}):
-                continue
-            values: dict[str, Any] = {"field": field}
-            for side in ("before", "after"):
-                if side in raw_change:
-                    value = _safe_value(raw_change[side])
-                    if value is not _UNSAFE:
-                        values[side] = value
-            if len(values) > 1:
-                changes.append(AuditChange(**values))
-    return changes, facts
+    for raw_change in raw_changes:
+        if not isinstance(raw_change, dict) or set(raw_change) - _CHANGE_KEYS:
+            raise _projection_failed()
+        field = raw_change.get("field")
+        if (
+            not isinstance(field, str)
+            or field not in AUDIT_CHANGE_FIELDS[module]
+            or ("before" not in raw_change and "after" not in raw_change)
+            or any(
+                not is_audit_safe_value(raw_change[side])
+                for side in ("before", "after")
+                if side in raw_change
+            )
+        ):
+            raise _projection_failed()
+        changes.append(AuditChange(**raw_change))
+    return changes, raw_facts
 
 
 def project_audit_log(record: AuditLog, actor: User | None) -> AuditLogOut:
     """把一条 ORM 记录和已联结操作者投影为安全列表项。"""
-    changes, facts = _project_details(record)
-    summary = dict(facts)
-    if changes:
-        summary["changes"] = [change.model_dump(exclude_unset=True) for change in changes]
     return AuditLogOut(
         id=record.id,
         actor_id=record.actor_id,
@@ -230,7 +105,6 @@ def project_audit_log(record: AuditLog, actor: User | None) -> AuditLogOut:
         target_type=record.target_type,
         target_id=record.target_id,
         outcome=AuditOutcome(record.outcome),
-        change_summary=summary,
         primary_task="VIEW_LOG_DETAIL",
         request_id=record.request_id,
         created_at=record.created_at,
@@ -292,15 +166,16 @@ def _conditions(
     if keyword is not None:
         pattern = _escaped_keyword(keyword)
         keyword_conditions: list[ColumnElement[bool]] = [
-            AuditLog.target_id.ilike(pattern, escape="\\")
+            User.username.ilike(pattern, escape="\\"),
+            User.display_name.ilike(pattern, escape="\\"),
+            AuditLog.business_module.ilike(pattern, escape="\\"),
+            AuditLog.action.ilike(pattern, escape="\\"),
+            AuditLog.target_type.ilike(pattern, escape="\\"),
+            AuditLog.target_id.ilike(pattern, escape="\\"),
+            AuditLog.request_id.ilike(pattern, escape="\\"),
+            AuditLog.result_message.ilike(pattern, escape="\\"),
+            AuditLog.error_code.ilike(pattern, escape="\\"),
         ]
-        for key in _KEYWORD_FACT_KEYS:
-            keyword_conditions.extend(
-                (
-                    AuditLog.details[key].as_string().ilike(pattern, escape="\\"),
-                    AuditLog.details["facts"][key].as_string().ilike(pattern, escape="\\"),
-                )
-            )
         conditions.append(or_(*keyword_conditions))
     return conditions
 
@@ -334,7 +209,15 @@ def list_audit_logs(
         request_id=request_id,
         keyword=keyword,
     )
-    total = int(db.scalar(select(func.count()).select_from(AuditLog).where(*conditions)) or 0)
+    total = int(
+        db.scalar(
+            select(func.count())
+            .select_from(AuditLog)
+            .outerjoin(User, User.id == AuditLog.actor_id)
+            .where(*conditions)
+        )
+        or 0
+    )
     rows = db.execute(
         select(AuditLog, User)
         .outerjoin(User, User.id == AuditLog.actor_id)
@@ -369,7 +252,11 @@ def _uuid_target(record: AuditLog) -> uuid.UUID | None:
         return None
 
 
-def _related_entry(db: Session, record: AuditLog) -> AuditRelatedEntry:
+def _related_entry(
+    db: Session,
+    record: AuditLog,
+    facts: dict[str, AuditSafeValue],
+) -> AuditRelatedEntry:
     target_id = _uuid_target(record)
     target_type = record.target_type
     if target_type == "Product":
@@ -405,7 +292,6 @@ def _related_entry(db: Session, record: AuditLog) -> AuditRelatedEntry:
         profile = db.get(PlatformProfile, target_id) if target_id is not None else None
         return _availability(target_type, profile)
     if target_type == "PlatformProfileVersion":
-        _changes, facts = _project_details(record)
         platform_profile_id = facts.get("platform_profile_id")
         return AuditRelatedEntry(
             status="MISSING",
@@ -462,5 +348,5 @@ def get_audit_log(db: Session, audit_log_id: uuid.UUID) -> AuditLogDetail:
         facts=facts,
         result_message=record.result_message,
         error_code=record.error_code,
-        related_entry=_related_entry(db, record),
+        related_entry=_related_entry(db, record, facts),
     )

@@ -206,9 +206,9 @@ The provider execution invariant remains `AT_MOST_ONCE`: after any request byte 
 
 历史 action/target 组合必须先通过迁移内的完整分类校验，再回填模块。既有同事务追加记录默认为 `SUCCESS`；只有 `ai_model.tested` 的失败测试和 `ai_channel.models_discovered` 的已记录失败按其稳定字段精确回填为 `FAILED`，其他历史结果不得从自由文本或 HTTP 状态猜测。迁移新增 `audit_logs(created_at DESC, id DESC)` 以保证全局分页稳定；既有目标时间索引保留。
 
-`0024` 当时让九类关键命令在业务回滚后以独立事务追加 `FAILED` 或 `DENIED`。`0037` 已移除该运行时行为并清理对应历史；当前只允许保留白名单内的 `SUCCESS` 与业务状态同事务提交。`details` 只保存白名单 `changes/facts`，API 不返回原始 JSONB，也不对其全文检索。
+`0024` 当时让九类关键命令在业务回滚后以独立事务追加 `FAILED` 或 `DENIED`。`0037` 已移除该运行时行为并清理对应历史；当前只允许保留白名单内的 `SUCCESS` 与业务状态同事务提交。`details` 只保存按业务模块登记的 `changes/facts`，写入边界与详情读取共用同一字段白名单；值仅允许 null/string/number/boolean 或这些标量的一维列表。列表只投影 metadata，不读取 `details`；详情遇到未知字段或不安全 shape 时整体返回 `AUDIT_PROJECTION_FAILED`，不部分展示或泄漏原始 JSONB。
 
-审计时间按 UTC 存储和传输，查询时间窗采用半开区间 `[created_from, created_to)`。`actor_id` 使用 `SET NULL`，响应中的姓名和账号类型是当前用户目录投影而非历史快照。`request_id` 允许重复，只用于关联链路，并限制为 1 至 100 个可打印 ASCII 字符。`0037` 后专用触发器禁止普通 UPDATE，只放行受约束的操作者置空；任务聚合删除可精确删除旧目标审计，但没有通用审计删除 API。
+审计时间按 UTC 存储和传输，查询时间窗采用半开区间 `[created_from, created_to)`。`actor_id` 使用 `SET NULL`，响应中的姓名和账号类型是当前用户目录投影而非历史快照。关键词只匹配当前操作者 username/display name、模块、动作、对象类型/标识、请求 ID、结果说明和错误码，不搜索 JSON details。列表的 count/rows 都 outer join 当前用户且固定为两条 SQL；filter options 固定两条去重排序 SQL。`request_id` 允许重复，只用于关联链路，并限制为 1 至 100 个可打印 ASCII 字符。`0037` 后专用触发器禁止普通 UPDATE，只放行受约束的操作者置空；任务聚合删除可精确删除旧目标审计，但没有通用审计删除 API。本次 read/write 投影收紧没有数据库 schema 或历史重写。
 
 ### 0025 Markdown Facts And Direct Platform Tasks
 

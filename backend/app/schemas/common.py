@@ -5,11 +5,11 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import Field, HttpUrl, field_validator
 
-from app.audit_types import AuditModule, AuditOutcome
+from app.audit_types import AuditModule, AuditOutcome, AuditSafeValue
 from app.schemas.base import ContractModel, require_unique_items
 
 
@@ -183,7 +183,6 @@ class AuditLogOut(ContractModel):
     target_type: str
     target_id: str | None
     outcome: AuditOutcome
-    change_summary: dict[str, Any]
     primary_task: Literal["VIEW_LOG_DETAIL"]
     request_id: str
     created_at: datetime
@@ -191,8 +190,8 @@ class AuditLogOut(ContractModel):
 
 class AuditChange(ContractModel):
     field: str
-    before: Any = None
-    after: Any = None
+    before: AuditSafeValue = None
+    after: AuditSafeValue = None
 
 
 class AuditRelatedEntry(ContractModel):
@@ -203,7 +202,7 @@ class AuditRelatedEntry(ContractModel):
 
 class AuditLogDetail(AuditLogOut):
     changes: list[AuditChange]
-    facts: dict[str, Any]
+    facts: dict[str, AuditSafeValue]
     result_message: str
     error_code: str | None
     related_entry: AuditRelatedEntry

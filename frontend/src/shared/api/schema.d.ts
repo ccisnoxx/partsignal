@@ -2212,10 +2212,12 @@ export interface components {
             display_name: string;
             account_type: components["schemas"]["AccountType"];
         };
+        AuditSafeScalar: string | number | boolean | null;
+        AuditSafeValue: components["schemas"]["AuditSafeScalar"] | components["schemas"]["AuditSafeScalar"][];
         AuditChange: {
             field: string;
-            before?: unknown;
-            after?: unknown;
+            before?: components["schemas"]["AuditSafeValue"];
+            after?: components["schemas"]["AuditSafeValue"];
         };
         AuditRelatedEntry: {
             /** @enum {string} */
@@ -2234,9 +2236,6 @@ export interface components {
             target_type: string;
             target_id: string | null;
             outcome: components["schemas"]["AuditOutcome"];
-            change_summary: {
-                [key: string]: unknown;
-            };
             /** @constant */
             primary_task: "VIEW_LOG_DETAIL";
             request_id: string;
@@ -2252,7 +2251,7 @@ export interface components {
         AuditLogDetail: components["schemas"]["AuditLog"] & {
             changes: components["schemas"]["AuditChange"][];
             facts: {
-                [key: string]: unknown;
+                [key: string]: components["schemas"]["AuditSafeValue"];
             };
             result_message: string;
             error_code: string | null;
@@ -5772,6 +5771,7 @@ export interface operations {
             401: components["responses"]["ErrorResponse"];
             403: components["responses"]["ErrorResponse"];
             404: components["responses"]["ErrorResponse"];
+            409: components["responses"]["ErrorResponse"];
         };
     };
     listProducts: {

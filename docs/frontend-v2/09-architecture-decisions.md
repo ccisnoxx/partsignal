@@ -280,7 +280,7 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Data and safety boundary**：Usage 不在浏览器补算；Logs 不查询 Users、不客户端排序/分页。Audit Detail 只在行操作后读取，并只展示 CONFIGURATION 登记字段与 primitive/list 值；未知 key/shape 显式失败，不输出 raw JSON。Channel 与 Model Runtime 主任务都进入渠道 Usage，不建立模型级 Runtime。
 
-**Cache boundary**：Configuration domain 增加 `usageRoot/usage`、`logsRoot/logs`、`auditDetail`，全部 exact GET `retry:false`。配置 mutation 只失效 `logsRoot`，不主动刷新 Usage；删除渠道移除其 detail/models/usageRoot/logsRoot。OpenAPI、generated types、backend runtime 与数据库合同不变。
+**Cache boundary**：Configuration domain 持有 `usageRoot/usage` 与 `logsRoot/logs`；detail key 后由 ADR-045 提升为全局 `auditKeys.detail(logId)` owner。配置 mutation 只失效 `logsRoot`，不主动刷新 Usage；删除渠道移除其 detail/models/usageRoot/logsRoot。
 
 ## ADR-044：System Users 复用单一 UserList 与 revision-bound selection
 
@@ -288,7 +288,15 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Concurrency and safety boundary**：reset/delete 补 required revision，reset 返回安全 canonical User；bulk no-op 成为 typed partial failure。选择绑定 canonical 查询范围和行 revision，后台漂移时整体清空；409 保留当前确认或表单且不重放。密码 mutation 随私有 Dialog 卸载并使用 `gcTime=0`，strict E2E 关闭 trace且 fixture 只保留密码长度。
 
-**Deferred boundary**：本 Task 不创建 User Detail 或 Audit 路由/链接；后续 Audit Task 采用 `/system/audit?actorId=<user-id>`，并独立实现服务端筛选与移动 Sheet。
+**Handoff boundary**：本 Task 不创建 User Detail。ADR-045 实现 `/system/audit?actorId=<user-id>`；Users 只提供精确链接，不读取 Audit。
+
+## ADR-045：System Audit 使用 metadata list、共享 strict detail 与 URL-owned selection
+
+**Decision**：ADMIN-only `/system/audit` 复用现有三个 Audit GET，不新增 DTO、数据库字段、依赖或通用 Table/JSON Viewer。`AuditLog` list item 收窄为 metadata-only；canonical URL 持有全部 server filters 与 `logId`，1280px 起渲染右 Pane，较窄视口渲染 Sheet。
+
+**Safety boundary**：`audit_types.py` 是新写入与历史详情读取的唯一模块字段 registry，值只允许标量或标量一维列表。List 不读取 details；坏历史 detail 整体返回 generic 409。前端全局 Audit owner 唯一持有 list/filter/detail query、安全投影和详情 renderer；AI Runtime 复用 detail owner，Users 只 handoff actorId。
+
+**Interaction and query boundary**：固定七列没有操作列或详情按钮，整行支持 pointer/Enter/Space，关闭/history 恢复焦点。List、filter options、detail key 分离；首屏无逐行 detail、Users/业务详情 join、mutation、polling或自动刷新。越界页由 canonical replace 回到最后有效页。
 
 ## 后续建议 ADR
 

@@ -109,7 +109,12 @@ describe('UserListPage', () => {
     expect(await screen.findByRole('menuitem', { name: '重置临时密码' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: '停用用户' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: '查看删除条件' })).toBeInTheDocument();
-    expect(document.body).not.toHaveTextContent('/system/audit');
+    await userEvent.click(screen.getByRole('menuitem', { name: '查看删除条件' }));
+    expect(await screen.findByRole('link', { name: '查看审计历史' })).toHaveAttribute(
+      'href',
+      `/system/audit?actorId=${managedUser().id}`,
+    );
+    expect(get).toHaveBeenCalledOnce();
   });
 
   it('URL 恢复筛选并在变化时回到第一页', async () => {

@@ -1223,7 +1223,6 @@ def test_audit_log_query_detail_filters_and_current_actor_projection() -> None:
                             "facts": {
                                 "status": "ACTIVE",
                                 "revision": 2,
-                                "unknown": "不得返回",
                             },
                         },
                     ),
@@ -1280,8 +1279,17 @@ def test_audit_log_query_detail_filters_and_current_actor_projection() -> None:
         app.dependency_overrides[get_current_session] = lambda: current_session
         client = TestClient(app)
         try:
+            statement_count = 0
+
+            def count_statements(*_args: object) -> None:
+                nonlocal statement_count
+                statement_count += 1
+
+            event.listen(engine, "before_cursor_execute", count_statements)
             response = client.get("/api/v1/audit-logs", params={"page_size": 100})
+            event.remove(engine, "before_cursor_execute", count_statements)
             assert response.status_code == 200, response.text
+            assert statement_count == 2
             assert [item["id"] for item in response.json()["items"]] == [
                 str(product_audit_id),
                 str(deleted_actor_audit_id),
@@ -1294,7 +1302,7 @@ def test_audit_log_query_detail_filters_and_current_actor_projection() -> None:
             }
             assert response.json()["items"][1]["actor_id"] is None
             assert response.json()["items"][1]["actor"] is None
-            assert response.json()["items"][2]["change_summary"] == {}
+            assert all("change_summary" not in item for item in response.json()["items"])
             assert "Bearer secret" not in response.text
 
             filtered = client.get(
@@ -1309,7 +1317,7 @@ def test_audit_log_query_detail_filters_and_current_actor_projection() -> None:
                     "target_id": str(product_id),
                     "outcome": "SUCCESS",
                     "request_id": "audit-query-shared",
-                    "keyword": "ACTIVE",
+                    "keyword": "当前操作者名称",
                 },
             )
             assert filtered.status_code == 200, filtered.text
@@ -1338,6 +1346,12 @@ def test_audit_log_query_detail_filters_and_current_actor_projection() -> None:
                 "parent_id": None,
             }
 
+            unsafe_detail = client.get(f"/api/v1/audit-logs/{unsafe_audit_id}")
+            assert unsafe_detail.status_code == 409
+            assert unsafe_detail.json()["error"]["code"] == "AUDIT_PROJECTION_FAILED"
+            assert "authorization" not in unsafe_detail.text
+            assert "Bearer secret" not in unsafe_detail.text
+
             options = client.get("/api/v1/audit-logs/filter-options")
             assert options.status_code == 200
             assert options.json() == {
@@ -1347,6 +1361,7 @@ def test_audit_log_query_detail_filters_and_current_actor_projection() -> None:
 
             current_session.user = actor
             assert client.get("/api/v1/audit-logs").status_code == 403
+            assert client.get("/api/v1/audit-logs/filter-options").status_code == 403
             assert client.get(f"/api/v1/audit-logs/{product_audit_id}").status_code == 403
         finally:
             app.dependency_overrides.clear()

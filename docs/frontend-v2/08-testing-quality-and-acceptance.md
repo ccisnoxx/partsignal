@@ -355,6 +355,12 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 production artifact 在两个 Playwright project 中覆盖 375/768/1024/1440 根无溢出、canonical direct/refresh/Back/Forward、筛选分页、固定列、summary、Primary/overflow/blocker、create/edit/reset 409、bulk revision/partial/selection scope、键盘菜单和 ENGINEER route boundary。后端 PostgreSQL integration 另冻结全部 Users endpoint 的 ADMIN/ENGINEER 权限、锁内 stale/no-op/session/audit 和稀疏/密集固定查询次数；fixture 不代替这些服务端合同。
 
+### 13.27 System Audit 页面验收
+
+`audit.model.test.ts` 冻结 canonical URL、UTC/北京时间互转、snake_case 映射、安全值与未知字段失败；`system-audit-page.test.tsx` 覆盖七列、row 键盘触发、lazy detail、URL selection 和焦点恢复。AI Runtime 与 Users 组件回归分别证明共享详情 owner 与 actor handoff 不产生跨域读取。
+
+`system-audit.fixture.ts` 只允许 auth/CSRF 和 list/filter-options/detail 三个 Audit GET；未声明 API 返回 501，teardown 审计 console/page/request failure，controller 不记录详情值。`system-audit.spec.ts` 显式关闭 trace，在 mobile/desktop projects 覆盖 canonical/snake_case、七列无按钮、lazy detail、click/Enter/Space、Pane/Sheet、focus/history、deleted actor、三 outcome、related/error、安全 sentinel、自动越界规范、ENGINEER boundary 及 375/768/1024/1440 根无溢出。PostgreSQL integration 另冻结权限、actor outer join、strict 409、稳定排序与固定查询次数。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

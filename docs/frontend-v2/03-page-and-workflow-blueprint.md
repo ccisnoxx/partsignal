@@ -439,13 +439,17 @@ Pattern：Server Table + compact global summary。canonical URL 固定显式保�
 
 选择保存当前 canonical 查询范围及每项 `{id, username, revision}`；查询范围变化或后台刷新发现已选项消失/revision 漂移时整体清空。批量启停提交用户看到的 revision，200 partial 后清空选择并逐项显示 username/code/message；顶层失败保留选择，批量停用保留自有确认上下文。
 
-创建、编辑、reset、单项启停和删除均使用短 Dialog。reset/delete/update 提交当前 revision；409 不自动重放或失效列表，只允许显式 reload。创建/reset 的临时密码只存在于已打开的私有 form 与当前请求；Dialog 卸载后不留在 URL、Query key、mutation cache、响应、DOM、日志或 fixture artifact。当前版本只展示删除 blocker，不提前生成 `/system/audit` 链接；后续 Audit Task 的交接 URL 是 `/system/audit?actorId=<user-id>`。
+创建、编辑、reset、单项启停和删除均使用短 Dialog。reset/delete/update 提交当前 revision；409 不自动重放或失效列表，只允许显式 reload。创建/reset 的临时密码只存在于已打开的私有 form 与当前请求；Dialog 卸载后不留在 URL、Query key、mutation cache、响应、DOM、日志或 fixture artifact。`USER_BUSINESS_HISTORY` blocker 提供精确 `/system/audit?actorId=<user-id>` 链接；Users 页面本身不读取 Audit。
 
 ## 8.2 `/system/audit`
 
 Pattern：Table + Detail Pane。
 
-列：时间、操作者、模块、动作、对象、结果、Request ID。**没有操作列**。点击 row：Desktop 右侧 Detail Pane，Mobile Sheet。
+canonical URL 显式保存 page/pageSize、近三天 UTC 时间窗、全部服务端筛选和可选 `logId`。List、filter options、detail 是三个独立只读 query；首屏不逐行读取详情，不查询 Users 或业务对象，也不自动刷新。
+
+列：时间、操作者、模块、动作、对象、结果、Request ID。**没有操作列**。整行支持 click、Enter 与 Space；1280px 起使用右侧 Detail Pane，较窄视口使用同一 `logId` 驱动的 Sheet。关闭、Escape 或 history 关闭详情后恢复触发行焦点，direct/off-page detail 回退页标题。
+
+详情只显示服务端登记的 metadata、changes、facts、result/error 和精确 related entry。标量与标量一维列表有明确 renderer；未知动作/字段/shape 或服务端 `AUDIT_PROJECTION_FAILED` 均局部显式失败，不展示 raw JSON 或 `change_summary`。
 
 ---
 

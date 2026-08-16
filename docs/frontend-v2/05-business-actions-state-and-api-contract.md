@@ -387,9 +387,15 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 
 ## 30. AI Channel Runtime 只读统计与安全审计边界
 
-- Usage/Logs/Audit Detail 继续复用现有 ADMIN-only GET；Configuration domain 独占 `usageRoot/usage`、`logsRoot/logs` 与 `auditDetail` keys，exact key 含 period 或 page/pageSize。三类读取 `retry:false`，只挂载 active surface，互不失效。
+- Usage/Logs/Audit Detail 继续复用现有 ADMIN-only GET；Configuration domain 持有 `usageRoot/usage` 与渠道 `logsRoot/logs`，全局 Audit domain 唯一持有 `auditKeys.detail(logId)`、投影与 renderer。exact key 含 period、page/pageSize 或 logId；三类读取 `retry:false`，只挂载 active surface，互不失效。
 - Usage 直接展示服务端时间窗与聚合，计数 `0` 不等于 nullable“暂无数据”。Logs 保持服务端顺序、total/page/page_size 和 actor，不请求 Users、不客户端聚合、排序或分页；越界页保留 URL，等待用户显式返回最后有效页。
 - Audit Detail 只在 `VIEW_LOG_DETAIL` 后读取。前端只呈现 CONFIGURATION 登记字段和 primitive/list shape；未知内容显式投影失败，不 dump JSON。API Key、Header value 与完整可执行请求配置不得进入 query key、cache、DOM、console 或 fixture 输出。
+
+## 32. System Audit metadata list 与 strict detail 合同
+
+- `/system/audit` 和 list/filter-options/detail 三个 GET 均为 ADMIN-only；服务端是权限、筛选、稳定分页和时间半开区间的最终权威。List 的唯一 `AuditLog` item 只含 metadata/actor，不含 `change_summary` 或 details。
+- facts 与 change before/after 只允许 null/string/number/boolean 或这些标量的一维列表。写入和读取共用按 AuditModule 划分的字段 registry；未知 key/shape 在新写入时拒绝，坏历史 detail 返回 generic `409 AUDIT_PROJECTION_FAILED`，不得部分返回。
+- keyword 只搜索当前 actor username/display name 与批准 metadata/result fields，不查询 JSON details。前端 list/options/detail query 分离，选择 `logId` 不改变 list key；页面无 mutation、业务详情 join、Users GET、raw JSON viewer 或自动刷新。
 
 ## 31. UserList revision 命令与批量 partial 合同
 

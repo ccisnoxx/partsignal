@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.audit import append_audit, validate_audit_entry
 from app.audit_types import AuditEntry, AuditModule, AuditOutcome
+from app.errors import AppError
 from app.models.identity import AuditLog
-from app.services.audit_logs import project_audit_log
+from app.services.audit_logs import _project_details, project_audit_log
 
 
 def audit_entry(**overrides: object) -> AuditEntry:
@@ -98,11 +99,23 @@ def test_product_write_actions_are_retained(action: str) -> None:
             business_module=AuditModule.PRODUCT_FACTS,
             action=action,
             target_type="Product",
+            details={},
         )
     )
 
 
-def test_read_projection_ignores_unknown_and_sensitive_stored_details() -> None:
+@pytest.mark.parametrize(
+    "details",
+    [
+        {"facts": {"unknown": "不得返回"}},
+        {"facts": {"authorization": "Bearer secret"}},
+        {"facts": {"status": [["nested"]]}},
+        {"changes": [{"field": "unapproved_profile_value", "after": "新值"}]},
+    ],
+)
+def test_detail_projection_rejects_unknown_sensitive_and_nested_values(
+    details: dict[str, object],
+) -> None:
     record = AuditLog(
         id=uuid.uuid4(),
         actor_id=None,
@@ -115,47 +128,52 @@ def test_read_projection_ignores_unknown_and_sensitive_stored_details() -> None:
         error_code=None,
         request_id="stored-audit",
         created_at=datetime.now(UTC),
-        details={
-            "facts": {
-                "status": "DISABLED",
-                "unknown": "不得返回",
-                "authorization": "Bearer secret",
-            }
-        },
+        details=details,
+    )
+
+    with pytest.raises(AppError) as raised:
+        _project_details(record)
+
+    assert raised.value.code == "AUDIT_PROJECTION_FAILED"
+    assert raised.value.status_code == 409
+    assert "unknown" not in raised.value.message
+    assert "authorization" not in raised.value.message
+
+
+def test_list_projection_does_not_read_details() -> None:
+    """列表不得因异常历史详情失败，也不得携带第二份详情摘要。"""
+    record = AuditLog(
+        id=uuid.uuid4(),
+        actor_id=None,
+        business_module="IDENTITY",
+        action="user.updated",
+        target_type="User",
+        target_id=str(uuid.uuid4()),
+        outcome="SUCCESS",
+        result_message="用户资料更新完成",
+        error_code=None,
+        request_id="stored-audit",
+        created_at=datetime.now(UTC),
+        details={"facts": {"authorization": "Bearer secret"}},
     )
 
     projected = project_audit_log(record, None)
 
     assert projected.actor is None
-    assert projected.change_summary == {}
+    assert "change_summary" not in projected.model_dump()
     assert "Bearer secret" not in str(projected.model_dump())
 
 
-def test_read_projection_ignores_unapproved_change_fields() -> None:
-    """读取边界不得因为字段名不含敏感词就返回未批准的历史变化。"""
-    record = AuditLog(
-        id=uuid.uuid4(),
-        actor_id=None,
-        business_module="IDENTITY",
-        action="user.updated",
-        target_type="User",
-        target_id=str(uuid.uuid4()),
-        outcome="SUCCESS",
-        result_message="用户资料更新完成",
-        error_code=None,
-        request_id="stored-audit",
-        created_at=datetime.now(UTC),
-        details={
-            "changes": [
-                {"field": "is_active", "before": True, "after": False},
-                {"field": "unapproved_profile_value", "before": "旧值", "after": "新值"},
-            ]
-        },
-    )
-
-    projected = project_audit_log(record, None)
-
-    assert projected.change_summary == {
-        "changes": [{"field": "is_active", "before": True, "after": False}]
-    }
-    assert "unapproved_profile_value" not in str(projected.model_dump())
+@pytest.mark.parametrize(
+    "details",
+    [
+        {"facts": {"unknown": "value"}},
+        {"facts": {"status": [["nested"]]}},
+        {"changes": [{"field": "unknown", "after": "value"}]},
+    ],
+)
+def test_write_projection_rejects_unregistered_or_nested_values(
+    details: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError):
+        validate_audit_entry(audit_entry(details=details))

@@ -79,6 +79,141 @@ RETAINED_AUDIT_ACTIONS = frozenset(
     }
 )
 
+type AuditSafeScalar = str | int | float | bool | None
+type AuditSafeValue = AuditSafeScalar | list[AuditSafeScalar]
+
+AUDIT_FACT_KEYS: dict[AuditModule, frozenset[str]] = {
+    AuditModule.IDENTITY: frozenset(
+        {"account_type", "is_active", "source", "status", "row_count", "revision"}
+    ),
+    AuditModule.PRODUCT_FACTS: frozenset(
+        {"product_id", "review_record_count", "revision", "status", "version"}
+    ),
+    AuditModule.CONTENT_PLANNING: frozenset(
+        {
+            "content_review_record_count",
+            "content_version_count",
+            "fact_version_id",
+            "generation_job_count",
+            "platform_profile_id",
+            "platform_profile_version_id",
+            "platform_type_id",
+            "previous_active_version_id",
+            "publication_work_count",
+            "reason",
+            "replacement_version_id",
+            "revision",
+            "status",
+            "version",
+        }
+    ),
+    AuditModule.CONTENT_PRODUCTION: frozenset(
+        {
+            "based_on_id",
+            "content_version_id",
+            "retry_of_id",
+            "source_content_version_id",
+            "task_id",
+            "version",
+        }
+    ),
+    AuditModule.CONTENT_REVIEW: frozenset({"revision", "status"}),
+    AuditModule.PUBLICATION: frozenset(
+        {
+            "attachment_count",
+            "content_version_id",
+            "fact_version_id",
+            "platform_profile_id",
+            "platform_profile_version_id",
+            "publication_id",
+            "publication_reference_count",
+            "repair_task_id",
+            "revision",
+            "status",
+            "status_event_count",
+            "task_id",
+            "trigger_status",
+        }
+    ),
+    AuditModule.GEO_OBSERVATION: frozenset(
+        {
+            "article_count",
+            "article_result_count",
+            "attachment_count",
+            "observation_count",
+            "product_id",
+            "publication_count",
+            "query_topic_id",
+            "root_observation_id",
+            "supersedes_id",
+        }
+    ),
+    AuditModule.CONFIGURATION: frozenset(
+        {
+            "account_count",
+            "allowed_domain_count",
+            "bound_platform_count",
+            "bound_platform_ids",
+            "channel_id",
+            "configured",
+            "header_name",
+            "is_active",
+            "is_sensitive",
+            "model_count",
+            "platform_account_count",
+            "platform_profile_id",
+            "platform_type_id",
+            "previous_active_version_id",
+            "protocol_type",
+            "provider_brand",
+            "reason",
+            "reference_count",
+            "replacement_version_id",
+            "revision",
+            "status",
+            "test_status",
+            "unbound_platform_count",
+            "version",
+        }
+    ),
+    AuditModule.FILE_MANAGEMENT: frozenset({"access_level", "category", "size", "status"}),
+}
+
+AUDIT_CHANGE_FIELDS: dict[AuditModule, frozenset[str]] = {
+    AuditModule.IDENTITY: frozenset({"account_type", "display_name", "is_active"}),
+    AuditModule.PRODUCT_FACTS: frozenset({"status"}),
+    AuditModule.CONTENT_PLANNING: frozenset(
+        {"generation_data_classification", "generation_input_configured", "status"}
+    ),
+    AuditModule.CONTENT_PRODUCTION: frozenset(),
+    AuditModule.CONTENT_REVIEW: frozenset({"status"}),
+    AuditModule.PUBLICATION: frozenset({"is_active", "status"}),
+    AuditModule.GEO_OBSERVATION: frozenset(),
+    AuditModule.CONFIGURATION: frozenset(
+        {
+            "allowed_domain_count",
+            "is_active",
+            "is_configured",
+            "logo_configured",
+            "name",
+            "platform_type_id",
+            "revision",
+            "status",
+            "website_configured",
+        }
+    ),
+    AuditModule.FILE_MANAGEMENT: frozenset({"status"}),
+}
+
+
+def is_audit_safe_value(value: Any) -> bool:
+    """审计详情只允许标量或一层标量数组。"""
+    if value is None or isinstance(value, str | int | float | bool):
+        return True
+    return isinstance(value, list) and all(
+        item is None or isinstance(item, str | int | float | bool) for item in value
+    )
+
 
 @dataclass(frozen=True, slots=True)
 class AuditEntry:

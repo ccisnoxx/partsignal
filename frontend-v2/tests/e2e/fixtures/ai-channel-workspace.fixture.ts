@@ -132,21 +132,16 @@ function createAuditLogs(): AuditLog[] {
     target_type: index % 2 === 0 ? 'AIChannel' : 'AIModel',
     target_id: index % 2 === 0 ? channelId : '92000000-0000-4000-8000-000000000001',
     outcome: 'SUCCESS',
-    change_summary: index % 2 === 0
-      ? { revision: index + 5, changes: [{ field: 'revision', before: index + 4, after: index + 5 }] }
-      : { channel_id: channelId, status: 'ENABLED' },
     primary_task: 'VIEW_LOG_DETAIL',
     request_id: `req-runtime-${index + 1}`,
     created_at: new Date(Date.UTC(2026, 7, 14, 9) - index * 60_000).toISOString(),
   }));
 }
 
-function createAuditDetail(log: AuditLog, unsafe: boolean): AuditLogDetail {
+function createAuditDetail(log: AuditLog): AuditLogDetail {
   return {
     ...log,
-    changes: unsafe
-      ? [{ field: 'revision', before: 4, after: { nested: true } }]
-      : [{ field: 'revision', before: 4, after: 5 }],
+    changes: [{ field: 'revision', before: 4, after: 5 }],
     facts: { revision: 5 },
     result_message: '配置变更已记录',
     error_code: null,
@@ -266,12 +261,16 @@ const test = aiChannelsTest.extend<WorkspaceFixtures>({
           await route.fulfill({ status, json: { error: { code: 'RUNTIME_FAILED', message: '日志详情暂时不可用', details: {}, request_id: 'req-runtime-detail-failed' } } });
           return;
         }
+        if (unsafeAuditDetail) {
+          await route.fulfill({ status: 409, json: { error: { code: 'AUDIT_PROJECTION_FAILED', message: '该审计详情当前无法安全展示', details: {}, request_id: 'req-runtime-projection-failed' } } });
+          return;
+        }
         const log = auditLogs.find((item) => item.id === auditDetailMatch[1]);
         if (!log) {
           await route.fulfill({ status: 404, json: { error: { code: 'AUDIT_LOG_NOT_FOUND', message: '审计日志不存在', details: {}, request_id: 'req-runtime-detail-404' } } });
           return;
         }
-        const body = createAuditDetail(log, unsafeAuditDetail);
+        const body = createAuditDetail(log);
         responsePayloads.push(JSON.stringify(body));
         await route.fulfill({ status: 200, json: body });
         return;

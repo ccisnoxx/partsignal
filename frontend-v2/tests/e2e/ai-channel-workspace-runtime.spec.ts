@@ -49,12 +49,13 @@ test('Channel 与 Model Runtime 主任务进入真实 Usage', async ({
 
 test('Logs 保持服务端分页和 actor，详情按需读取且未知 shape 显式失败', async ({
   page,
+  aiChannelsApi,
   aiChannelWorkspaceApi,
 }) => {
   await page.goto(`/settings/ai/${channelId}?tab=logs&page=2&pageSize=10`);
-  const firstRow = page.getByRole('row', { name: /更新渠道/ }).first();
+  const firstRow = page.getByRole('row', { name: /更新 AI 渠道/ }).first();
   await expect(firstRow).toContainText('系统管理员');
-  await expect(firstRow).toContainText('修订号');
+  await expect(firstRow).not.toContainText('修订号');
   expect(aiChannelWorkspaceApi.runtimeRequests).toEqual([{
     method: 'GET',
     path: `/api/v1/ai-channels/${channelId}/audit-logs`,
@@ -65,16 +66,16 @@ test('Logs 保持服务端分页和 actor，详情按需读取且未知 shape �
   await trigger.click();
   const sheet = page.getByRole('dialog', { name: '渠道操作日志详情' });
   await expect(sheet.getByText('配置变更已记录')).toBeVisible();
-  await expect(sheet.getByRole('link', { name: '查看关联对象' })).toBeVisible();
+  await expect(sheet.getByRole('link', { name: '查看 AI 渠道' })).toBeVisible();
   expect(aiChannelWorkspaceApi.runtimeRequests.at(-1)?.path).toMatch(/^\/api\/v1\/audit-logs\//);
   await page.keyboard.press('Escape');
   await expect(trigger).toBeFocused();
 
   aiChannelWorkspaceApi.setUnsafeAuditDetail(true);
+  aiChannelsApi.allowHttpError(409);
   const secondTrigger = page.getByRole('button', { name: '查看详情' }).nth(1);
   await secondTrigger.click();
-  await expect(page.getByRole('dialog', { name: '渠道操作日志详情' }).getByText(/安全投影失败/)).toBeVisible();
-  await expect(page.getByRole('dialog', { name: '渠道操作日志详情' })).not.toContainText('nested');
+  await expect(page.getByRole('dialog', { name: '渠道操作日志详情' }).getByRole('alert')).toContainText('该审计详情当前无法安全展示');
   await page.keyboard.press('Escape');
 
   await page.getByRole('combobox', { name: '每页条数' }).click();

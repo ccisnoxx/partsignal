@@ -3,13 +3,9 @@ import { describe, expect, it } from 'vitest';
 import {
   aiModelFormSchema,
   aiChannelConfigurationFormValues,
-  aiChannelAuditActionLabel,
   aiChannelWorkspaceSearchForTab,
   aiChannelWorkspaceSearchSchema,
   isCanonicalAIChannelWorkspaceSearch,
-  projectAIChannelAuditChanges,
-  projectAIChannelAuditFacts,
-  projectAIChannelAuditSummary,
   resolveAIChannelHeaderActions,
   resolveAIModelActions,
   resolveAIChannelWorkspaceActions,
@@ -185,23 +181,4 @@ describe('AI Channel Workspace model', () => {
     }).primary).toMatchObject({ command: 'show-usage', enabled: true });
   });
 
-  it('审计投影只接受登记字段与 primitive/list 值', () => {
-    expect(aiChannelAuditActionLabel('ai_channel.updated')).toBe('更新渠道');
-    expect(projectAIChannelAuditFacts({ revision: 5, configured: true, reason: ['manual', 2] })).toEqual([
-      { field: 'revision', label: '修订号', value: '5' },
-      { field: 'configured', label: '配置状态', value: '是' },
-      { field: 'reason', label: '原因', value: 'manual、2' },
-    ]);
-    expect(projectAIChannelAuditChanges([{ field: 'revision', before: 4, after: 5 }])).toEqual([
-      { field: 'revision', label: '修订号', before: '4', after: '5' },
-    ]);
-    expect(projectAIChannelAuditSummary({
-      revision: 5,
-      changes: [{ field: 'status', before: 'DISABLED', after: 'ENABLED' }],
-    })).toMatchObject({ facts: [{ field: 'revision' }], changes: [{ field: 'status' }] });
-    expect(() => aiChannelAuditActionLabel('ai_channel.secret_dumped')).toThrow('未知动作');
-    expect(() => projectAIChannelAuditFacts({ secret: 'hidden' })).toThrow('未登记事实字段');
-    expect(() => projectAIChannelAuditChanges([{ field: 'revision', after: { secret: true } }]))
-      .toThrow('不支持的字段值');
-  });
 });

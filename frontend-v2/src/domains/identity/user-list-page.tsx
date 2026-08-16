@@ -21,7 +21,7 @@ import type { BulkAction, ColumnRole } from '@/design-system/data-table/types';
 import { FormField } from '@/design-system/forms/form-field';
 import { ErrorSummary } from '@/design-system/forms/form-layout';
 import { Badge } from '@/design-system/primitives/badge';
-import { Button } from '@/design-system/primitives/button';
+import { Button, buttonVariants } from '@/design-system/primitives/button';
 import {
   Dialog,
   DialogClose,
@@ -816,12 +816,13 @@ function UserCommandDialog({
         <DialogContent finalFocus={{ current: target.focusReturn }}>
           <DialogHeader>
             <DialogTitle>用户 {target.user.username} 暂不可删除</DialogTitle>
-            <DialogDescription>当前存在业务历史引用；本页面不会提供尚未实现的审计入口。</DialogDescription>
+            <DialogDescription>当前存在业务历史引用；可按该用户精确筛选系统审计。</DialogDescription>
           </DialogHeader>
           <ul className="list-disc space-y-1 pl-5 text-sm">
             {target.user.deletion?.blockers.map((blocker) => <li key={blocker.type}>{blocker.type}：{blocker.count}</li>)}
           </ul>
           <DialogFooter>
+            <a className={buttonVariants({ variant: 'outline' })} href={`/system/audit?actorId=${encodeURIComponent(target.user.id)}`}>查看审计历史</a>
             <Button onClick={() => void onReload()} type="button" variant="outline">刷新列表</Button>
             <Button onClick={onClose} type="button">关闭</Button>
           </DialogFooter>

@@ -45,7 +45,7 @@ PartSignal
 
 系统                         [ADMIN]
 ├── 用户
-└── 审计日志
+└── 系统审计
 ```
 
 底部用户菜单：修改密码、退出登录。
@@ -137,7 +137,7 @@ V2 合并为：
 | `/settings/ai` | AI 渠道 | Table | AI 渠道 |
 | `/settings/ai/$channelId?tab=basic|request|models|usage|logs` | AI 渠道配置、模型与 Runtime | Workspace | AI 渠道 |
 | `/system/users` | 用户 | Table | 用户 |
-| `/system/audit` | 审计日志 | Table + Detail Pane | 审计日志 |
+| `/system/audit` | 系统审计 | Table + Detail Pane / Sheet | 系统审计 |
 
 ## 7. TanStack Router 文件结构示意
 
@@ -155,7 +155,9 @@ src/routes/
     ├── publishing/
     ├── geo/
     ├── settings/
-    └── system/
+    └── _admin/
+        ├── system.users.tsx
+        └── system.audit.tsx
 ```
 
 子路由继续按 `$id` / `facts` / `review` / `editor` 等层级展开。
@@ -198,6 +200,7 @@ to
 /products?q=tps&factStatus=PENDING_REVIEW&page=2
 /content/tasks?archiveStatus=ACTIVE&platformId=...&workflowStage=REVIEW_PENDING&page=1&pageSize=20
 /geo/observations?productId=...&geoPlatform=chatgpt&accuracy=INCORRECT&from=2026-07-01&to=2026-08-01&page=3
+/system/audit?page=1&pageSize=20&createdFrom=...&createdTo=...&actorId=...&logId=...
 ```
 
 ## 10. URL 状态边界

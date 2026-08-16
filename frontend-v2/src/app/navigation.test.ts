@@ -61,6 +61,7 @@ describe('路由导航元数据', () => {
         'prompts',
         'ai-channels',
         'users',
+        'audit',
       ]);
   });
 

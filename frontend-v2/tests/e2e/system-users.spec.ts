@@ -87,7 +87,10 @@ test('Users 创建、编辑、reset 冲突与 blocker 均遵守 revision 和敏�
   await page.getByRole('menuitem', { name: '查看删除条件' }).click();
   const blocker = page.getByRole('dialog', { name: /暂不可删除/ });
   await expect(blocker).toContainText('USER_BUSINESS_HISTORY：2');
-  await expect(blocker.getByRole('link')).toHaveCount(0);
+  await expect(blocker.getByRole('link', { name: '查看审计历史' })).toHaveAttribute(
+    'href',
+    '/system/audit?actorId=00000000-0000-4000-8000-000000000001',
+  );
   await blocker.getByRole('button', { name: '关闭' }).first().click();
   await expect(firstRow.getByRole('button', { name: /更多操作/ })).toBeFocused();
 

@@ -9,10 +9,13 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.audit_types import (
+    AUDIT_CHANGE_FIELDS,
+    AUDIT_FACT_KEYS,
     RETAINED_AUDIT_ACTIONS,
     AuditEntry,
     AuditModule,
     AuditOutcome,
+    is_audit_safe_value,
 )
 from app.models.identity import AuditLog
 
@@ -66,22 +69,6 @@ def _is_sensitive_key(key: str) -> bool:
     )
 
 
-def _validate_json_value(value: Any) -> None:
-    if value is None or isinstance(value, str | int | float | bool):
-        return
-    if isinstance(value, list):
-        for item in value:
-            _validate_json_value(item)
-        return
-    if isinstance(value, dict):
-        for key, item in value.items():
-            if not isinstance(key, str):
-                raise ValueError("审计详情对象的键必须是字符串")
-            _validate_json_value(item)
-        return
-    raise ValueError("审计详情只能包含 JSON 值")
-
-
 def validate_audit_entry(entry: AuditEntry) -> None:
     """校验结果语义、字段长度和安全摘要结构。"""
     if not isinstance(entry.business_module, AuditModule):
@@ -126,17 +113,29 @@ def validate_audit_entry(entry: AuditEntry) -> None:
     facts = entry.details.get("facts", {})
     if not isinstance(changes, list) or not isinstance(facts, dict):
         raise ValueError("审计 changes 必须是数组，facts 必须是对象")
+    if contains_sensitive_key(entry.details):
+        raise ValueError("审计详情包含禁止保存的敏感字段")
+    unknown_fact_keys = set(facts) - AUDIT_FACT_KEYS[entry.business_module]
+    if unknown_fact_keys:
+        raise ValueError("审计 facts 包含当前模块未登记字段")
+    if any(not is_audit_safe_value(value) for value in facts.values()):
+        raise ValueError("审计 facts 只能包含标量或一层标量数组")
     for change in changes:
         if not isinstance(change, dict) or set(change) - _CHANGE_KEYS:
             raise ValueError("审计变化项只允许 field、before 和 after")
         field = change.get("field")
         if not isinstance(field, str) or not field or _is_sensitive_key(field):
             raise ValueError("审计变化字段无效或属于敏感字段")
+        if field not in AUDIT_CHANGE_FIELDS[entry.business_module]:
+            raise ValueError("审计变化字段未在当前模块登记")
         if "before" not in change and "after" not in change:
             raise ValueError("审计变化项必须包含 before 或 after")
-    _validate_json_value(entry.details)
-    if contains_sensitive_key(entry.details):
-        raise ValueError("审计详情包含禁止保存的敏感字段")
+        if any(
+            not is_audit_safe_value(change[side])
+            for side in ("before", "after")
+            if side in change
+        ):
+            raise ValueError("审计变化值只能包含标量或一层标量数组")
 
 
 def _audit_record(entry: AuditEntry) -> AuditLog:

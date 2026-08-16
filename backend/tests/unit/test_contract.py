@@ -22,6 +22,24 @@ def test_runtime_openapi_matches_frozen_operations() -> None:
     assert check(contract) == []
 
 
+def test_audit_contract_separates_list_metadata_from_safe_detail() -> None:
+    """列表不携带详情副本，单条详情只允许登记后的安全值。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    schemas = document["components"]["schemas"]
+    detail_operation = document["paths"]["/api/v1/audit-logs/{audit_log_id}"]["get"]
+
+    assert "change_summary" not in schemas["AuditLog"]["properties"]
+    assert schemas["AuditChange"]["properties"]["before"] == {
+        "$ref": "#/components/schemas/AuditSafeValue"
+    }
+    assert schemas["AuditLogDetail"]["allOf"][1]["properties"]["facts"] == {
+        "type": "object",
+        "additionalProperties": {"$ref": "#/components/schemas/AuditSafeValue"},
+    }
+    assert set(detail_operation["responses"]) == {"200", "401", "403", "404", "409"}
+
+
 def test_user_management_contract_is_revisioned_and_typed() -> None:
     """用户凭据、删除和批量状态命令必须共享明确的并发合同。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"

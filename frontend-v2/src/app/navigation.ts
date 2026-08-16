@@ -3,6 +3,7 @@ import {
   BoxesIcon,
   BotIcon,
   ChartSplineIcon,
+  ClipboardListIcon,
   EyeIcon,
   FileTextIcon,
   LayoutDashboardIcon,
@@ -16,13 +17,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-observations' | 'platforms' | 'prompts' | 'ai-channels' | 'users';
+type NavId = 'workbench' | 'products' | 'content-tasks' | 'publishing-work' | 'publishing-articles' | 'publishing-issues' | 'geo-insights' | 'geo-topics' | 'geo-observations' | 'platforms' | 'prompts' | 'ai-channels' | 'users' | 'audit';
 type AppLayout = 'app' | 'print';
 
 type NavigationItem = {
   id: NavId;
   label: string;
-  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/observations' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users';
+  to: '/' | '/products' | '/content/tasks' | '/publishing/work' | '/publishing/articles' | '/publishing/issues' | '/geo/insights' | '/geo/topics' | '/geo/observations' | '/settings/platforms' | '/settings/prompts' | '/settings/ai' | '/system/users' | '/system/audit';
   icon: LucideIcon;
   adminOnly?: boolean;
 };
@@ -87,6 +88,7 @@ const navigationSections: readonly NavigationSection[] = [
     label: '系统管理',
     items: [
       { id: 'users', label: '用户管理', to: '/system/users', icon: UsersIcon, adminOnly: true },
+      { id: 'audit', label: '系统审计', to: '/system/audit', icon: ClipboardListIcon, adminOnly: true },
     ],
   },
 ];

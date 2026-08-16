@@ -301,6 +301,7 @@ paths:
         '401': {$ref: '#/components/responses/ErrorResponse'}
         '403': {$ref: '#/components/responses/ErrorResponse'}
         '404': {$ref: '#/components/responses/ErrorResponse'}
+        '409': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/products:
     get:
       tags: [product-facts]
@@ -3544,14 +3545,26 @@ components:
         id: {type: string, format: uuid}
         display_name: {type: string}
         account_type: {$ref: '#/components/schemas/AccountType'}
+    AuditSafeScalar:
+      anyOf:
+        - {type: string}
+        - {type: number}
+        - {type: integer}
+        - {type: boolean}
+        - {type: 'null'}
+    AuditSafeValue:
+      anyOf:
+        - {$ref: '#/components/schemas/AuditSafeScalar'}
+        - type: array
+          items: {$ref: '#/components/schemas/AuditSafeScalar'}
     AuditChange:
       type: object
       additionalProperties: false
       required: [field]
       properties:
         field: {type: string}
-        before: {}
-        after: {}
+        before: {$ref: '#/components/schemas/AuditSafeValue'}
+        after: {$ref: '#/components/schemas/AuditSafeValue'}
     AuditRelatedEntry:
       type: object
       additionalProperties: false
@@ -3563,7 +3576,7 @@ components:
     AuditLog:
       type: object
       additionalProperties: false
-      required: [id, actor_id, actor, business_module, action, target_type, target_id, outcome, change_summary, primary_task, request_id, created_at]
+      required: [id, actor_id, actor, business_module, action, target_type, target_id, outcome, primary_task, request_id, created_at]
       properties:
         id: {type: string, format: uuid}
         actor_id: {type: [string, 'null'], format: uuid}
@@ -3576,7 +3589,6 @@ components:
         target_type: {type: string}
         target_id: {type: [string, 'null']}
         outcome: {$ref: '#/components/schemas/AuditOutcome'}
-        change_summary: {type: object, additionalProperties: true}
         primary_task: {type: string, const: VIEW_LOG_DETAIL}
         request_id: {type: string}
         created_at: {type: string, format: date-time}
@@ -3597,7 +3609,9 @@ components:
           required: [changes, facts, result_message, error_code, related_entry]
           properties:
             changes: {type: array, items: {$ref: '#/components/schemas/AuditChange'}}
-            facts: {type: object, additionalProperties: true}
+            facts:
+              type: object
+              additionalProperties: {$ref: '#/components/schemas/AuditSafeValue'}
             result_message: {type: string}
             error_code: {type: [string, 'null']}
             related_entry: {$ref: '#/components/schemas/AuditRelatedEntry'}

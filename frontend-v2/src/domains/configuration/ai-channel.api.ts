@@ -48,7 +48,6 @@ const aiChannelKeys = {
   logs: (channelId: string, page: number, pageSize: number) => (
     [...aiChannelKeys.logsRoot(channelId), page, pageSize] as const
   ),
-  auditDetail: (auditLogId: string) => ['configuration', 'audit-logs', 'detail', auditLogId] as const,
 };
 
 function aiChannelListQueryOptions(search: AIChannelSearch) {
@@ -123,22 +122,6 @@ function aiChannelLogsQueryOptions(channelId: string, page: number, pageSize: nu
         params: { path: { channel_id: channelId }, query: { page, page_size: pageSize } },
       });
       if (!result.data) throw aiChannelRequestError('读取 AI 渠道操作日志', result);
-      return result.data;
-    },
-    retry: false,
-    retryOnMount: false,
-    staleTime: 30_000,
-  });
-}
-
-function aiChannelAuditDetailQueryOptions(auditLogId: string) {
-  return queryOptions({
-    queryKey: aiChannelKeys.auditDetail(auditLogId),
-    queryFn: async () => {
-      const result = await api.GET('/api/v1/audit-logs/{audit_log_id}', {
-        params: { path: { audit_log_id: auditLogId } },
-      });
-      if (!result.data) throw aiChannelRequestError('读取 AI 渠道日志详情', result);
       return result.data;
     },
     retry: false,
@@ -395,7 +378,6 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
 
 export {
   AIChannelRequestError,
-  aiChannelAuditDetailQueryOptions,
   aiChannelDetailQueryOptions,
   aiChannelKeys,
   aiChannelListQueryOptions,

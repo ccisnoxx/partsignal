@@ -1,11 +1,12 @@
 /** AI 渠道 Runtime 只消费服务端聚合与脱敏审计投影，URL 是筛选和分页的唯一 owner。 */
 import { useQuery } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
 import { useRef, useState } from 'react';
 
+import { AuditDetailContent, OutcomeBadge, actorLabel, formatTime } from '@/domains/audit/audit-detail-content';
+import { auditDetailQueryOptions } from '@/domains/audit/audit.api';
+import { auditActionLabel, auditOutcomeLabels } from '@/domains/audit/audit.model';
 import { TablePagination } from '@/design-system/data-table/table-pagination';
 import { TableShell } from '@/design-system/data-table/table-shell';
-import { Badge } from '@/design-system/primitives/badge';
 import { Button } from '@/design-system/primitives/button';
 import {
   Select,
@@ -25,22 +26,14 @@ import { Skeleton } from '@/design-system/primitives/skeleton';
 import { DetailSection } from '@/design-system/workspace/detail-section';
 import type { components } from '@/shared/api/generated/schema';
 import {
-  aiChannelAuditDetailQueryOptions,
   aiChannelLogsQueryOptions,
   aiChannelUsageQueryOptions,
 } from './ai-channel.api';
 import {
-  aiChannelAuditActionLabel,
-  projectAIChannelAuditChanges,
-  projectAIChannelAuditFacts,
-  projectAIChannelAuditSummary,
-  type AIChannelAuditDisplayChange,
-  type AIChannelAuditDisplayItem,
   type AIChannelWorkspaceSearch,
 } from './ai-channel-workspace.model';
 
 type AuditLog = components['schemas']['AuditLog'];
-type AuditLogDetail = components['schemas']['AuditLogDetail'];
 type UsageSearch = Extract<AIChannelWorkspaceSearch, { tab: 'usage' }>;
 type LogsSearch = Extract<AIChannelWorkspaceSearch, { tab: 'logs' }>;
 
@@ -151,23 +144,21 @@ function LogsSection({ channelId, onSearchChange, search }: AIChannelRuntimeSect
               )
             ) : (
               <TableShell regionLabel="AI 渠道操作日志">
-                <thead><tr><th data-column-role="primary" scope="col">动作</th><th className="hidden md:table-cell" data-column-role="metadata" scope="col">时间</th><th className="hidden lg:table-cell" data-column-role="metadata" scope="col">操作者</th><th className="hidden md:table-cell" data-column-role="status" scope="col">结果</th><th className="hidden xl:table-cell" data-column-role="metadata" scope="col">安全摘要</th><th data-column-role="actions" scope="col">操作</th></tr></thead>
+                <thead><tr><th data-column-role="primary" scope="col">动作</th><th className="hidden md:table-cell" data-column-role="metadata" scope="col">时间</th><th className="hidden lg:table-cell" data-column-role="metadata" scope="col">操作者</th><th className="hidden md:table-cell" data-column-role="status" scope="col">结果</th><th data-column-role="actions" scope="col">操作</th></tr></thead>
                 <tbody>
                   {logs.data.items.map((log) => (
                     <tr key={log.id}>
                       <td className="min-w-56" data-column-role="primary">
-                        <AuditAction action={log.action} />
+                        <strong className="block">{auditActionLabel(log.action)}</strong>
                         <code className="mt-1 block break-all text-xs text-text-muted">{log.request_id}</code>
                         <div className="mt-2 space-y-1 text-xs text-text-secondary md:hidden">
                           <p>{formatTime(log.created_at)}</p>
-                          <p>{actorLabel(log)} · {outcomeLabel(log.outcome)}</p>
-                          <AuditSummary summary={log.change_summary} />
+                          <p>{actorLabel(log)} · {auditOutcomeLabels[log.outcome]}</p>
                         </div>
                       </td>
                       <td className="hidden whitespace-nowrap md:table-cell" data-column-role="metadata"><time dateTime={log.created_at}>{formatTime(log.created_at)}</time></td>
                       <td className="hidden min-w-36 lg:table-cell" data-column-role="metadata"><span className="block">{log.actor?.display_name ?? '用户已删除/未记录'}</span><span className="text-xs text-text-muted">{log.actor?.account_type ?? '未记录'}</span></td>
                       <td className="hidden md:table-cell" data-column-role="status"><OutcomeBadge outcome={log.outcome} /></td>
-                      <td className="hidden max-w-80 xl:table-cell" data-column-role="metadata"><AuditSummary summary={log.change_summary} /></td>
                       <td data-column-role="actions">
                         <Button
                           onClick={(event) => {
@@ -196,7 +187,6 @@ function LogsSection({ channelId, onSearchChange, search }: AIChannelRuntimeSect
         )}
       </DetailSection>
       <AuditDetailSheet
-        channelId={channelId}
         finalFocus={finalFocus}
         onClose={() => setTarget(undefined)}
         target={target}
@@ -205,14 +195,13 @@ function LogsSection({ channelId, onSearchChange, search }: AIChannelRuntimeSect
   );
 }
 
-function AuditDetailSheet({ channelId, finalFocus, onClose, target }: {
-  channelId: string;
+function AuditDetailSheet({ finalFocus, onClose, target }: {
   finalFocus: { current: HTMLElement | null };
   onClose: () => void;
   target?: AuditLog;
 }) {
   const detail = useQuery({
-    ...aiChannelAuditDetailQueryOptions(target?.id ?? ''),
+    ...auditDetailQueryOptions(target?.id ?? ''),
     enabled: target !== undefined,
   });
   return (
@@ -225,102 +214,11 @@ function AuditDetailSheet({ channelId, finalFocus, onClose, target }: {
         <div className="space-y-5 px-4 pb-6">
           {detail.isPending ? <RuntimeSkeleton label="正在加载日志详情" /> : !detail.data ? (
             <RuntimeNotice message={errorMessage(detail.error)} onRetry={() => void detail.refetch()} />
-          ) : <AuditDetail channelId={channelId} detail={detail.data} />}
+          ) : <AuditDetailContent detail={detail.data} />}
         </div>
       </SheetContent>
     </Sheet>
   );
-}
-
-function AuditDetail({ channelId, detail }: { channelId: string; detail: AuditLogDetail }) {
-  const action = project(() => aiChannelAuditActionLabel(detail.action));
-  const changes = project(() => projectAIChannelAuditChanges(detail.changes));
-  const facts = project(() => projectAIChannelAuditFacts(detail.facts));
-  if (action.data === null) return <ProjectionError error={action.error} />;
-  if (changes.data === null) return <ProjectionError error={changes.error} />;
-  if (facts.data === null) return <ProjectionError error={facts.error} />;
-  return (
-    <>
-      <section className="space-y-3" aria-labelledby="audit-detail-identity">
-        <h3 className="type-section-title" id="audit-detail-identity">基础信息</h3>
-        <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
-          <Metadata label="时间" value={formatTime(detail.created_at)} />
-          <Metadata label="动作" value={action.data} />
-          <Metadata label="操作者" value={actorLabel(detail)} />
-          <Metadata label="执行结果" value={outcomeLabel(detail.outcome)} />
-          <Metadata label="对象" value={`${detail.target_type} / ${detail.target_id ?? '未创建'}`} />
-          <Metadata label="请求 ID" value={detail.request_id} mono />
-        </dl>
-      </section>
-      <AuditProjection changes={changes.data} facts={facts.data} />
-      <section className="space-y-2" aria-labelledby="audit-detail-result">
-        <h3 className="type-section-title" id="audit-detail-result">结果说明</h3>
-        <p className="text-sm text-text-secondary">{detail.result_message}</p>
-        {detail.error_code && <p className="font-mono text-xs text-text-muted">错误码：{detail.error_code}</p>}
-      </section>
-      <RelatedEntry channelId={channelId} detail={detail} />
-    </>
-  );
-}
-
-function AuditProjection({ changes, facts }: { changes: AIChannelAuditDisplayChange[]; facts: AIChannelAuditDisplayItem[] }) {
-  return (
-    <section className="space-y-3" aria-labelledby="audit-detail-changes">
-      <h3 className="type-section-title" id="audit-detail-changes">安全变更摘要</h3>
-      {changes.length === 0 && facts.length === 0 ? <p className="text-sm text-text-muted">此记录没有可展示的字段变化。</p> : (
-        <div className="space-y-3 text-sm">
-          {changes.map((change) => (
-            <div className="rounded-lg border border-border-subtle p-3" key={change.field}>
-              <strong>{change.label}</strong>
-              <p className="mt-1 break-words text-text-secondary">{change.before} → {change.after}</p>
-            </div>
-          ))}
-          {facts.length > 0 && <dl className="grid gap-3 sm:grid-cols-2">{facts.map((fact) => <Metadata key={fact.field} label={fact.label} value={fact.value} />)}</dl>}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function RelatedEntry({ channelId, detail }: { channelId: string; detail: AuditLogDetail }) {
-  if (detail.related_entry.status === 'MISSING') {
-    return <p className="text-sm text-text-muted">关联对象已不存在，历史审计记录保持不变。</p>;
-  }
-  const isChannel = detail.related_entry.kind === 'AIChannel' && detail.target_id === channelId;
-  const isModel = detail.related_entry.kind === 'AIModel' && detail.related_entry.parent_id === channelId;
-  if (detail.related_entry.status !== 'AVAILABLE' || (!isChannel && !isModel)) {
-    return <p className="text-sm text-text-muted">当前对象没有可用的关联入口。</p>;
-  }
-  return (
-    <Link
-      className="inline-flex min-h-8 items-center rounded-md text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-      params={{ channelId }}
-      search={isModel ? { tab: 'models' } : { tab: 'basic' }}
-      to="/settings/ai/$channelId"
-    >
-      查看关联对象
-    </Link>
-  );
-}
-
-function AuditAction({ action }: { action: string }) {
-  const result = project(() => aiChannelAuditActionLabel(action));
-  return result.data === null ? <ProjectionError compact error={result.error} /> : <strong className="block">{result.data}</strong>;
-}
-
-function AuditSummary({ summary }: { summary: Record<string, unknown> }) {
-  const result = project(() => projectAIChannelAuditSummary(summary));
-  if (result.data === null) return <ProjectionError compact error={result.error} />;
-  const text = [
-    ...result.data.changes.map((change) => `${change.label}：${change.before} → ${change.after}`),
-    ...result.data.facts.map((fact) => `${fact.label}：${fact.value}`),
-  ].join('；');
-  return <span className="block break-words">{text || '无可展示变更'}</span>;
-}
-
-function OutcomeBadge({ outcome }: { outcome: AuditLog['outcome'] }) {
-  const variant = outcome === 'SUCCESS' ? 'success' : outcome === 'FAILED' ? 'destructive' : 'warning';
-  return <Badge variant={variant}>{outcomeLabel(outcome)}</Badge>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
@@ -339,26 +237,6 @@ function RuntimeNotice({ message, onRetry }: { message: string; onRetry: () => v
   return <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" role="alert"><span>{message}</span><Button onClick={onRetry} size="sm" type="button" variant="outline">重试</Button></div>;
 }
 
-function ProjectionError({ compact = false, error }: { compact?: boolean; error: string }) {
-  return <span className={compact ? 'block text-xs text-destructive' : 'block rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive'} role="alert">安全投影失败：{error}</span>;
-}
-
-function project<T>(projection: () => T): { data: T; error: null } | { data: null; error: string } {
-  try {
-    return { data: projection(), error: null };
-  } catch (error) {
-    return { data: null, error: errorMessage(error) };
-  }
-}
-
-function actorLabel(log: AuditLog) {
-  return log.actor ? `${log.actor.display_name}（${log.actor.account_type}）` : '用户已删除/未记录';
-}
-
-function outcomeLabel(outcome: AuditLog['outcome']) {
-  return { SUCCESS: '成功', FAILED: '失败', DENIED: '已拒绝' }[outcome];
-}
-
 function formatNumber(value: number) {
   return value.toLocaleString('zh-CN');
 }
@@ -369,10 +247,6 @@ function optionalNumber(value: number | null) {
 
 function optionalTime(value: string | null) {
   return value === null ? '暂无数据' : formatTime(value);
-}
-
-function formatTime(value: string) {
-  return new Date(value).toLocaleString('zh-CN');
 }
 
 function errorMessage(error: unknown) {

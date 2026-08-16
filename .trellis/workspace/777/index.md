@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 157
+- **Total Sessions**: 158
 - **Last Active**: 2026-08-16
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1496 | Active |
+| `journal-3.md` | ~1533 | Active |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 158 | 2026-08-16 | 完成 Frontend V2 System Users | `abcead06` | `codex/frontend-v2-system-users` |
 | 157 | 2026-08-16 | 完成 Frontend V2 Phase 6 New GEO 焦点门禁修复 | `07419a29` | `codex/frontend-v2-phase6-new-geo-observation-focus-e2e-blocker` |
 | 156 | 2026-08-16 | Frontend V2 Phase 6 GEO Insights 时间敏感 E2E blocker | `70541b84` | `codex/frontend-v2-phase6-geo-insights-time-sensitive-e2e-blocker` |
 | 155 | 2026-08-16 | 关闭 Phase 6 Fact Workspace unit blocker | `994674bb` | `codex/frontend-v2-phase6-fact-workspace-unit-blocker` |

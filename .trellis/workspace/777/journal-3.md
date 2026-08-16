@@ -1498,3 +1498,36 @@ Configuration 自身未解决 P0/P1/P2 为 0；当前候选 make verify 因范�
 ### Next Steps
 
 - None - task complete
+
+
+## Session 158: 完成 Frontend V2 System Users
+
+**Date**: 2026-08-16
+**Task**: 完成 Frontend V2 System Users
+**Branch**: `codex/frontend-v2-system-users`
+
+### Summary
+
+完成 Users contract-first 修订、V1 兼容、V2 管理页面、严格测试与权威文档同步；required validation 全部通过并归档任务。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `abcead06` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

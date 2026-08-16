@@ -367,6 +367,14 @@ production artifact 在两个 Playwright project 中覆盖 375/768/1024/1440 根
 
 `auth-provider`、providers、App Shell 与两个页面的 targeted component 为 `5 files / 23 tests`；Auth + Foundation production artifact 在 mobile/desktop 为 `4 passed`；`api:check`、lint、typecheck、production build、部署脚本语法检查均通过，后端 identity PostgreSQL integration 为 `1 passed`。唯一隔离入口实际为 V2 real-stack `14 passed`、V1 E2E `52 passed (5.5m)`、退出码 `0`；Auth strict/real-stack 均关闭 trace，并扫描测试 output，未发现测试密码。cleanup 删除 Redis DB 1 的本次 key，释放 `8000/9001/5173/4173/4174/19009`，drop 临时数据库并移除临时存储；独占 Redis container 也由调用方清理。
 
+### 13.29 System Admin real-stack E2E 验收
+
+`system-admin-real-stack.spec.ts` 复用 `e2e-local.sh`、V2 production preview、generated API types 与既有 `expectSecretsAbsent`，不导入 fixture、不拦截请求且不新增 helper framework。单个 desktop 场景以两个 browser context 完成 ADMIN UI 创建、ENGINEER 首次登录/强制改密、System nav 隐藏、两个 route 403、六个真实 API 403、ADMIN reset 后旧 session `401/AUTH_REQUIRED`、bulk `1` 成功 + `1` 个 `LAST_ADMIN_REQUIRED`、create/reset/bulk Request ID 的 Audit List 筛选、按需 Detail，以及删除 ENGINEER 后 `user.password_changed` 历史与 deleted actor 投影保留。
+
+独立诊断中 API drift、shell/Python syntax、lint、typecheck、production build、strict Auth/Users/Audit Playwright `22 passed`、backend identity/audit integration `6 passed / 6.18s` 和禁止模式检查通过。未改动的 `user-list-page.test.tsx` 7 条与 `system-audit-page.test.tsx` 1 条 component 用例因自身 harness 未包裹归档 Auth UI 的 `AuthProvider` 稳定失败，已归因给既有测试 owner，本 Task 未跨域修复。
+
+唯一最终 fail-fast 入口实际为 V2 real-stack `15 passed (1.2m)`、V1 E2E `52 passed (5.5m)`、退出码 `0`、总耗时 `417s`。password、Cookie value、CSRF token 与 request body 未进入测试产物或失败输出；real-stack trace 关闭，未生成 video/screenshot/storage state/attachment。EXIT trap 删除 Redis DB 14 的本次 key、drop `partsignal_e2e_20260817_20828`、移除临时 storage 并释放 `8000/9001/5173/4173/4174/19009`；事后只读核验为 Redis DB 14 `0` key、临时数据库 `0`、storage 不存在且六端口空闲。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

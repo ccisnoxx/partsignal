@@ -487,7 +487,9 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-system-audit` 已实现 ADMIN-only `/system/audit`、metadata-only 七列表格、canonical server filters、1280px Detail Pane/较窄 Sheet、URL-owned lazy detail 与 Users actor handoff。OpenAPI/runtime/generated clients 同步移除 list `change_summary`，写入与严格详情投影共用安全字段 registry；AI Channel Runtime 复用全局 detail owner，没有数据库迁移、依赖、mutation 或自动刷新。
 
-`frontend-v2-auth-session-ui` 实现候选已补齐 `/login`、`/account/security`、`_app` 共同认证边界、账户菜单自助改密与退出后的业务缓存清理。认证动作复用唯一 Auth session Query 和 generated contract，密码不进入 Query mutation cache 或 Playwright 产物；真实改密结果由服务端重新读取。targeted component 为 `5 files / 23 tests`，strict production-artifact Auth + Foundation 为 `4 passed`，后端权威 identity integration 为 `1 passed`，唯一隔离入口为 V2 real-stack `14 passed`、V1 E2E `52 passed`，且 Redis、端口、临时数据库和存储均完成清理。该候选尚待提交与归档；`frontend-v2-system-admin-e2e` 继续保持 `planning`，归档后仍需重新审计并由用户单独批准实施。
+`frontend-v2-auth-session-ui` 已归档：`/login`、`/account/security`、`_app` 共同认证边界、账户菜单自助改密与退出后的业务缓存清理均已交付。认证动作复用唯一 Auth session Query 和 generated contract，密码不进入 Query mutation cache 或 Playwright 产物；真实改密结果由服务端重新读取。
+
+`frontend-v2-system-admin-e2e` 已复用唯一 `e2e-local.sh` 隔离生命周期补齐管理员权限闭环：ADMIN 通过 V2 UI 创建 ENGINEER，ENGINEER 首次登录并强制改密；System 导航隐藏、两个直接路由 403 与六个 ADMIN-only API 403 均由真实服务证明。ADMIN reset 后旧会话返回 `401/AUTH_REQUIRED`；bulk 同时得到 ENGINEER 成功与 seed ADMIN `LAST_ADMIN_REQUIRED`；create/reset/bulk Request ID 可在 Audit List 与 lazy Detail 追踪，用户删除后改密审计仍保留。最终入口为 V2 real-stack `15 passed`、V1 E2E `52 passed`、退出码 `0`、耗时 `417s`，且 secret scan 与数据库、Redis、storage、进程和端口清理均通过。Phase 7 下一项仅剩 System 抽象回顾。
 
 退出条件：admin 权限由服务端最终验证；bulk partial failure 有明确反馈；mobile audit 使用 Sheet；Audit 无 action column。
 

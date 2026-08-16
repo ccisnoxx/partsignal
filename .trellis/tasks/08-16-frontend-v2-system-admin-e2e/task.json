@@ -3,7 +3,7 @@
   "name": "frontend-v2-system-admin-e2e",
   "title": "Frontend V2 System Admin E2E",
   "description": "为 /system/users 与 /system/audit 建立真实 PostgreSQL、FastAPI、V2 production artifact 的 ADMIN/ENGINEER 权限闭环。",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": "test",
   "scope": "frontend-v2,deploy,docs",
   "package": "frontend-v2",
@@ -12,7 +12,7 @@
   "assignee": "777",
   "createdAt": "2026-08-16",
   "completedAt": null,
-  "branch": null,
+  "branch": "codex/frontend-v2-system-admin-e2e",
   "base_branch": "main",
   "worktree_path": null,
   "commit": null,
@@ -26,6 +26,6 @@
     "docs/frontend-v2/07-migration-plan.md",
     "docs/frontend-v2/08-testing-quality-and-acceptance.md"
   ],
-  "notes": "独立 Auth UI blocker 的实现候选与 Required validation 已通过，但尚未提交归档；本 Task 保持 planning，归档后仍需重新审计并取得单独实施批准。",
+  "notes": "Auth Session UI 已完成、验证并归档；本 Task 已解除阻塞并按用户批准启动，System Admin real-stack E2E 与 required validation 已完成，用户已确认提交与归档收尾。",
   "meta": {}
 }

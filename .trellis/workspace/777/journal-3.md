@@ -1393,3 +1393,36 @@ Configuration 自身未解决 P0/P1/P2 为 0；当前候选 make verify 因范�
 ### Next Steps
 
 - None - task complete
+
+
+## Session 155: 关闭 Phase 6 Fact Workspace unit blocker
+
+**Date**: 2026-08-16
+**Task**: 关闭 Phase 6 Fact Workspace unit blocker
+**Branch**: `codex/frontend-v2-phase6-fact-workspace-unit-blocker`
+
+### Summary
+
+稳定 Fact Workspace 与 MarkdownEditor 的 CodeMirror unit 断言；完整 V2 unit 通过，唯一 make verify 暴露独立 GEO Insights 时间敏感 fixture P2，Phase 6 Gate 保持 NOT_MET。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `994674bb` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

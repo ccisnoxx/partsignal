@@ -540,7 +540,8 @@
 
 ### Main Changes
 
-- Detailed change bullets were not supplied; see the summary above.
+- 在 GEO Insights Reset/history fixture 首次导航前，以既有 `insights.generated_at` 固定 Playwright page clock。
+- 更新 frontend quality spec、Phase 6 权威文档与 Task evidence；production 与业务行为保持不变。
 
 ### Git Commits
 
@@ -550,7 +551,8 @@
 
 ### Testing
 
-- Validation was not recorded for this session.
+- 精确场景 `2 passed / 0 failed / 7.4s`；完整 GEO Insights fixture `16 passed / 0 failed / 0 skipped / 13.3s`。
+- 唯一最终候选 `make verify` 在 V2 fixture E2E 得到 `356 passed / 27 skipped / 1 failed`；新失败为独立 New GEO Observation desktop 焦点时序 P2，Phase 6 Gate 保持 `NOT_MET`。
 
 ### Status
 
@@ -558,7 +560,7 @@
 
 ### Next Steps
 
-- None - task complete
+- 以独立 Task 处理 `new-geo-observation.spec.ts` desktop breakpoint/focus blocker。
 
 
 ## Session 130: 完成 Frontend V2 New GEO Observation
@@ -1414,6 +1416,39 @@ Configuration 自身未解决 P0/P1/P2 为 0；当前候选 make verify 因范�
 | Hash | Message |
 |------|---------|
 | `994674bb` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 156: Frontend V2 Phase 6 GEO Insights 时间敏感 E2E blocker
+
+**Date**: 2026-08-16
+**Task**: Frontend V2 Phase 6 GEO Insights 时间敏感 E2E blocker
+**Branch**: `codex/frontend-v2-phase6-geo-insights-time-sensitive-e2e-blocker`
+
+### Summary
+
+固定 GEO Insights 历史 fixture 的浏览器时间并关闭原 P2；目标测试通过，最终候选发现独立 New GEO Observation desktop 焦点时序 P2，Phase 6 Gate 保持 NOT_MET。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `70541b84` | (see git log) |
 
 ### Testing
 

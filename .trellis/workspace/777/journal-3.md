@@ -1598,3 +1598,36 @@ Configuration 自身未解决 P0/P1/P2 为 0；当前候选 make verify 因范�
 ### Next Steps
 
 - None - task complete
+
+
+## Session 161: Frontend V2 System Admin E2E 收尾
+
+**Date**: 2026-08-17
+**Task**: Frontend V2 System Admin E2E 收尾
+**Branch**: `codex/frontend-v2-system-admin-e2e`
+
+### Summary
+
+新增并验证 System Admin real-stack E2E，接入既有隔离入口，记录权限、会话撤销、批量部分成功、审计链路、敏感信息与清理证据，并完成 Task 归档。
+
+### Main Changes
+
+- Detailed change bullets were not supplied; see the summary above.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `21bcde1e` | (see git log) |
+
+### Testing
+
+- Validation was not recorded for this session.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

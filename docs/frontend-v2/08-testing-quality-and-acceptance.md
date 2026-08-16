@@ -325,6 +325,14 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 唯一最终候选 `make verify` 于 `2026-08-16 12:52:51 +0800` 至 `12:57:37 +0800` 运行，合同、lint/typecheck、backend unit `193 passed / 5.58s`、V1 unit `205 passed / 246.53s`、visual contract `24 passed / 0 failed / 0 skipped` 通过；V2 unit 为 `72 passed / 1 failed files`、`426 passed / 1 failed tests / 13.56s`，随后退出 `2`，未运行 integration、build、real-stack E2E 或 Compose config。新失败是未改动的 `FactWorkspacePage` revision conflict 用例读取 CodeMirror 渲染 DOM `textContent` 的结果漂移；同一用例在前一候选通过，本 Task 只完成归因，不重跑或跨 owner 修复。cleanup 证明 Redis DB 14、临时 container/database/storage/process 均为 `0`，全部固定端口及独占 Redis 16379 释放。当前 open P0/P1/P2 为 `0/0/1`，Phase 6 Exit Gate 保持 `NOT_MET`。
 
+### 13.23 Phase 6 Fact Workspace unit blocker 修复
+
+`frontend-v2-phase6-fact-workspace-unit-blocker` 独立目标测试为 `9 passed / 1.77s`，与完整 V2 suite 的 CodeMirror `textContent` 漂移共同确认 blocker 属于 jsdom unit assertion boundary。Fact Workspace revision conflict、background refetch failure 与 MarkdownEditor readonly toggle 三处不再缓存 `.cm-content.textContent`，改用单次输入事务、controlled Preview、字符/行数与 mutation payload 精确锁定本地 Markdown；409 的 request ID、dirty 和显式 reload 后 canonical adoption 断言均保留。production、API、数据库、权限、部署、依赖和既有 E2E 无变化。
+
+实施后的两个精确文件分别为 MarkdownEditor `1 file / 7 tests / 685ms`、Fact Workspace `1 / 9 / 1.74s`；完整 V2 unit 为 `73 passed files / 427 passed tests / 12.67s`，failed/skipped 均为 `0`。OpenAPI generated check、typecheck、lint、production build、contract-check 与 diff check 均通过，build 仅有既有大 chunk 非阻塞 warning，原 Fact Workspace P2 已关闭。
+
+唯一最终候选 `make verify` 退出 `2`、耗时 `1148.07s`。合同、lint/typecheck、backend unit `193 passed / 5.60s`、V1 unit `205 passed / 245.65s`、visual contract `24 passed / 0 failed / 0 skipped`、V2 unit `427 passed / 13.50s`、PostgreSQL integration `116 passed / 144.02s`、三套 production build、V2 real-stack `13 passed / 1.1m` 与 V1 E2E `52 passed / 5.5m` 均通过；V2 fixture E2E 为 `355 passed / 27 skipped / 2 failed / 4.5m`，Compose config 因前序失败未运行。失败仅来自未改动的 `tests/e2e/geo-insights.spec.ts:27`：Reset 断言仍固定为 fixture 周期 `2026-07-15..2026-08-13`，但 Reset 的既有 production 合同是按当前 UTC 日期生成最近 30 日，`2026-08-16` 的实际 canonical URL 为 `2026-07-18..2026-08-16`；mobile/desktop 两个 project 因同一时间敏感期望各失败一次。该新 P2 的权威 owner 是 GEO Insights fixture E2E，不属于本 Task 的两个 unit owner，故不扩围且不重跑完整门禁。cleanup 已确认 Redis DB 14、PostgreSQL 临时数据库、container、storage、process 与固定端口全部无残留，独占 Redis 容器移除且 16379 释放。当前 open P0/P1/P2 为 `0/0/1`，Phase 6 Exit Gate 保持 `NOT_MET`。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

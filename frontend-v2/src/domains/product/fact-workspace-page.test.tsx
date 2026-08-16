@@ -176,7 +176,7 @@ describe('FactWorkspacePage', () => {
     const user = userEvent.setup();
     let canonical: FactWorkspace = initialWorkspace;
     vi.spyOn(api, 'GET').mockImplementation(async () => response(canonical));
-    vi.spyOn(api, 'PUT').mockResolvedValue(response({
+    const put = vi.spyOn(api, 'PUT').mockResolvedValue(response({
       error: {
         code: 'REVISION_CONFLICT',
         message: '事实工作区已被其他请求修改',
@@ -187,18 +187,24 @@ describe('FactWorkspacePage', () => {
     renderWorkspace();
     const editor = await screen.findByRole('textbox', { name: '事实 Markdown' });
     await user.click(editor);
-    await user.keyboard('{Control>}{End}{/Control}');
-    await user.type(editor, '\nLOCAL');
-    const localBody = editor.textContent;
+    await user.paste('LOCAL\n');
+    expect(screen.getByText('13 字符 · 2 行')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '保存事实' }));
 
     expect(await screen.findByRole('alert', { name: '' })).toHaveTextContent('revision 冲突');
     expect(screen.getByText('请求 ID：req-conflict')).toBeInTheDocument();
-    expect(editor).toHaveTextContent(localBody ?? '');
+    expect(put).toHaveBeenCalledWith('/api/v1/products/{product_id}/facts', expect.objectContaining({
+      body: expect.objectContaining({ body_markdown: 'LOCAL\n## 初始事实' }),
+    }));
+    await user.click(screen.getByRole('tab', { name: '预览' }));
+    const localPreview = screen.getByRole('article', { name: 'Markdown 预览' });
+    expect(within(localPreview).getByRole('heading', { name: '初始事实' })).toBeInTheDocument();
+    expect(within(localPreview).getByText('LOCAL')).toBeInTheDocument();
 
     canonical = { ...initialWorkspace, body_markdown: '## 服务端最新事实', revision: 4 };
     await user.click(screen.getByRole('button', { name: '重新加载最新版本' }));
-    await waitFor(() => expect(screen.getByRole('textbox', { name: '事实 Markdown' })).toHaveTextContent('服务端最新事实'));
+    expect(await within(screen.getByRole('article', { name: 'Markdown 预览' })).findByRole('heading', { name: '服务端最新事实' })).toBeInTheDocument();
+    expect(screen.queryByText('LOCAL')).not.toBeInTheDocument();
     expect(screen.queryByText(/有未保存修改/)).not.toBeInTheDocument();
   });
 
@@ -218,15 +224,18 @@ describe('FactWorkspacePage', () => {
     const { queryClient } = renderWorkspace();
     const editor = await screen.findByRole('textbox', { name: '事实 Markdown' });
     await user.click(editor);
-    await user.type(editor, 'LOCAL');
-    const localBody = editor.textContent;
+    await user.paste('LOCAL\n');
+    expect(screen.getByText('13 字符 · 2 行')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: '预览' }));
 
     failRefresh = true;
     await queryClient.refetchQueries({ queryKey: ['products', 'facts', productId] });
 
     expect(await screen.findByRole('alert')).toHaveTextContent('刷新事实工作台失败，已保留当前编辑内容');
     expect(screen.getByText(/req-refresh/)).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: '事实 Markdown' })).toHaveTextContent(localBody ?? '');
+    const localPreview = screen.getByRole('article', { name: 'Markdown 预览' });
+    expect(within(localPreview).getByRole('heading', { name: '初始事实' })).toBeInTheDocument();
+    expect(within(localPreview).getByText('LOCAL')).toBeInTheDocument();
     expect(screen.getByText(/有未保存修改/)).toBeInTheDocument();
   });
 

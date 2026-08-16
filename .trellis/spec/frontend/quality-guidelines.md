@@ -182,6 +182,7 @@ expect(await page.evaluate(() => document.documentElement.scrollWidth))
 
 - `src/test/setup.ts` 只为 jsdom 明确未实现、且组件库真实调用的浏览器能力提供替身，不得通过过滤 `console` 或虚拟控制台错误隐藏未知问题。
 - jsdom 对 `@rc-component/util` 使用的 `::-webkit-scrollbar` 查询会告警后返回宿主元素样式；测试替身只对该已证实调用执行同一回退，其他未知伪元素仍应暴露。伪元素尺寸、布局和视觉正确性仍由 Playwright 验证，不能依赖该替身断言。
+- CodeMirror 的 `.cm-content` 是增量渲染的内部 DOM，不得在输入后缓存其 `textContent` 作为受控 Markdown 值。Component unit 使用 Preview、字符/行数或 mutation payload 证明 React controlled value；精确编辑 DOM 行为由 Playwright 验证。
 
 ```ts
 getComputedStyle(element, pseudoElement === '::-webkit-scrollbar' ? undefined : pseudoElement);

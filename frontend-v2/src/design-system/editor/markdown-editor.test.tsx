@@ -102,12 +102,15 @@ describe('Markdown Editor Kit', () => {
     render(<ToggleReadonlyEditor />);
     const editor = screen.getByRole('textbox', { name: '可切换正文' });
     await user.click(editor);
-    await user.keyboard('{Control>}{End}{/Control}');
-    await user.type(editor, '更新');
-    const latestValue = editor.textContent;
+    await user.paste('更新');
+    expect(screen.getByText('6 字符 · 1 行')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: '预览' }));
+    expect(screen.getByRole('article', { name: 'Markdown 预览' })).toHaveTextContent('更新初始正文');
     await user.click(screen.getByRole('button', { name: '切换只读' }));
 
-    expect(screen.getByRole('textbox', { name: '可切换正文' })).toHaveTextContent(latestValue ?? '');
+    expect(screen.getByRole('article', { name: 'Markdown 预览' })).toHaveTextContent('更新初始正文');
+    expect(screen.getByText('只读快照')).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: '编辑' }));
     expect(screen.getByRole('textbox', { name: '可切换正文' })).toHaveAttribute('contenteditable', 'false');
   });
 

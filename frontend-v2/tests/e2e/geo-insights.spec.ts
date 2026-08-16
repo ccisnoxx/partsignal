@@ -25,6 +25,7 @@ test('direct URL 映射筛选并完整呈现 read model、替代数据和精确 
 });
 
 test('筛选写回 canonical URL，reset 与浏览器历史恢复', async ({ page, insightsApi }) => {
+  await page.clock.setFixedTime(insights.generated_at);
   await page.goto(canonical);
   await page.getByRole('combobox', { name: 'GEO 平台', exact: true }).click();
   await page.getByRole('option', { name: 'DeepSeek', exact: true }).click();

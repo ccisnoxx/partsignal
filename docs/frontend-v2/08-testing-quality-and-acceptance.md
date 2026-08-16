@@ -333,6 +333,14 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 唯一最终候选 `make verify` 退出 `2`、耗时 `1148.07s`。合同、lint/typecheck、backend unit `193 passed / 5.60s`、V1 unit `205 passed / 245.65s`、visual contract `24 passed / 0 failed / 0 skipped`、V2 unit `427 passed / 13.50s`、PostgreSQL integration `116 passed / 144.02s`、三套 production build、V2 real-stack `13 passed / 1.1m` 与 V1 E2E `52 passed / 5.5m` 均通过；V2 fixture E2E 为 `355 passed / 27 skipped / 2 failed / 4.5m`，Compose config 因前序失败未运行。失败仅来自未改动的 `tests/e2e/geo-insights.spec.ts:27`：Reset 断言仍固定为 fixture 周期 `2026-07-15..2026-08-13`，但 Reset 的既有 production 合同是按当前 UTC 日期生成最近 30 日，`2026-08-16` 的实际 canonical URL 为 `2026-07-18..2026-08-16`；mobile/desktop 两个 project 因同一时间敏感期望各失败一次。该新 P2 的权威 owner 是 GEO Insights fixture E2E，不属于本 Task 的两个 unit owner，故不扩围且不重跑完整门禁。cleanup 已确认 Redis DB 14、PostgreSQL 临时数据库、container、storage、process 与固定端口全部无残留，独占 Redis 容器移除且 16379 释放。当前 open P0/P1/P2 为 `0/0/1`，Phase 6 Exit Gate 保持 `NOT_MET`。
 
+### 13.24 Phase 6 GEO Insights 时间敏感 fixture E2E blocker 修复
+
+`frontend-v2-phase6-geo-insights-time-sensitive-e2e-blocker` 确认 production `defaultGeoInsightDates()` 的当前 UTC 日最近 30 日合同及其 model unit 正确；失败来自固定在 `2026-08-13` 的 fixture 没有控制测试浏览器时间。唯一失败场景现于首次导航前以既有 `insights.generated_at` 调用 Playwright `page.clock.setFixedTime()`，没有修改 canonical URL、Reset/history 断言、fixture payload、production、API、数据库、权限、部署或依赖，也没有新增 helper、动态 wall-clock 期望或宽松匹配。
+
+精确场景为 mobile/desktop `2 passed / 0 failed / 7.4s`；完整 `geo-insights.spec.ts` 为 `16 passed / 0 failed / 0 skipped / 13.3s`。V2 typecheck、lint、两次 Playwright production build、Task validation 与 diff check 均通过，只保留既有大 chunk 和颜色环境 warning，原 GEO Insights P2 已关闭。
+
+唯一最终候选 `make verify` 非零结束、总耗时 `1144.56s`。合同与静态检查、backend unit `193 passed / 5.67s`、V1 unit `205 passed / 247.14s`、visual contract `24 passed / 0 failed / 0 skipped`、V2 unit `427 passed / 13.70s`、PostgreSQL integration `116 passed / 144.01s`、三套 production build、V2 real-stack `13 passed / 1.1m`、V1 E2E `52 passed / 5.5m` 均通过；V2 fixture E2E 为 `356 passed / 27 skipped / 1 failed / 4.4m`，Compose config 未运行。GEO Insights Reset/history 在两个 project 均通过；唯一新 P2 是未改动 `new-geo-observation.spec.ts:206` 的 desktop breakpoint/focus 时序，mobile 同场景通过，当前证据指向测试 owner 而非 production 可访问性缺陷。本 Task 不扩围或重跑。临时数据库、Redis DB 14 数据、storage、E2E process/container 与固定七端口最终均无残留。当前 open P0/P1/P2=`0/0/1`，Phase 6 Exit Gate 保持 `NOT_MET`。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

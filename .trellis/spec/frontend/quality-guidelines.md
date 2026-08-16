@@ -103,6 +103,7 @@ vite --config vite.config.ts [vite arguments...]
 - Tooltip 回归不能只断言 `role`、文本内容和 DOM 可见；代表性真实浏览器用例必须读取最终计算后的前景色与背景色，并验证普通文字对比度至少为 4.5:1，防止浮层存在但白底白字或同色不可读。
 - 真实浏览器在浅色、深色、跟随系统三种模式下检查 375/768/1024/1440px、实际 200% 缩放和键盘链；宽表只能在 `TableRegion` 内溢出。
 - `emulateMedia`、主题或响应式状态切换可能重挂载布局。切换后的几何断言必须重新查询当前已连接节点，并先轮询关键尺寸稳定；不得把旧节点的零尺寸误判为生产 CSS 缺陷。
+- 固定日期 fixture 覆盖依赖当前时间的默认值、Reset 或历史恢复时，必须在首次导航前用 Playwright Clock 将浏览器时间固定为 fixture 的权威 timestamp；不得改用 wall clock 动态期望或宽松 URL 匹配掩盖漂移。
 
 ## 场景：V1/V2 根质量入口与 V2 Foundation Smoke
 

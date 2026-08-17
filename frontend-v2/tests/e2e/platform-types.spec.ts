@@ -136,14 +136,12 @@ test('blocker、编辑冲突和删除冲突均保留服务端权威与显式 rel
   );
 });
 
-test('非管理员由 route 与 server 双重拒绝', async ({ page, platformTypesApi }) => {
+test('非管理员由 route 在业务请求前拒绝', async ({ page, platformTypesApi }) => {
   platformTypesApi.setEngineer();
   await page.goto('/settings/platforms/types');
   await expect(page.getByRole('heading', { name: '无权访问系统管理' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '平台类型' })).toHaveCount(0);
-  await expect.poll(() => (
-    platformTypesApi.requests.filter((request) => request.method === 'GET').length
-  )).toBeGreaterThan(0);
+  expect(platformTypesApi.requests.filter((request) => request.method === 'GET')).toHaveLength(0);
 });
 
 test('error retry 与 375/768/1024/1440 production artifact 均保持四字段和动作可达', async ({

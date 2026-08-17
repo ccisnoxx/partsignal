@@ -1,0 +1,34 @@
+{
+  "id": "frontend-v2-platform-types-non-admin-e2e",
+  "name": "frontend-v2-platform-types-non-admin-e2e",
+  "title": "Frontend V2 Platform Types 非管理员 E2E",
+  "description": "修正 Platform Types 非管理员 production-artifact E2E 的 route/server 所有权矛盾，不改权限合同或产品行为。",
+  "status": "in_progress",
+  "dev_type": "testing",
+  "scope": "Platform Types ENGINEER route-boundary E2E orchestration",
+  "package": "frontend-v2",
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-17",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-17-frontend-v2-system-abstraction-review",
+  "relatedFiles": [
+    "frontend-v2/tests/e2e/platform-types.spec.ts",
+    "frontend-v2/tests/e2e/fixtures/platform-types.fixture.ts"
+  ],
+  "notes": "独立 Phase 7 blocker；最小 E2E 所有权修正与 Required Validation 已完成，等待 commit plan 批准。完整门禁留给 Exit Gate Recheck。",
+  "meta": {
+    "runtime_behavior_change": false,
+    "fixture_projects": 2,
+    "backend_permission_owner_unchanged": true,
+    "full_gate_deferred": true
+  }
+}

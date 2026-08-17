@@ -20,7 +20,8 @@
   "subtasks": [],
   "children": [
     "08-17-frontend-v2-auth-route-test-harness",
-    "08-17-frontend-v2-fact-review-409-revision-e2e"
+    "08-17-frontend-v2-fact-review-409-revision-e2e",
+    "08-17-frontend-v2-platform-types-non-admin-e2e"
   ],
   "parent": null,
   "relatedFiles": [

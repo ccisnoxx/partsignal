@@ -94,13 +94,6 @@ const test = base.extend<PlatformTypeFixtures>({
 
       if (url.pathname === '/api/v1/platform-types' && request.method() === 'GET') {
         requests.push({ method: 'GET', path: url.pathname, csrfToken: null });
-        if (engineer) {
-          await route.fulfill({
-            status: 403,
-            json: errorEnvelope('PERMISSION_DENIED', '当前账号不能管理平台类型'),
-          });
-          return;
-        }
         if (nextListFailure) {
           nextListFailure = false;
           await route.fulfill({
@@ -255,7 +248,6 @@ const test = base.extend<PlatformTypeFixtures>({
       },
       setEngineer: () => {
         engineer = true;
-        platformsApi.allowHttpError(403);
       },
     });
   }, { auto: true }],

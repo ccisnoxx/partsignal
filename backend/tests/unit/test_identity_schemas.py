@@ -30,8 +30,11 @@ def test_temporary_password_minimum_lengths_remain_unchanged() -> None:
     ).temporary_password == "123456789012"
 
     with pytest.raises(ValidationError):
-        ResetPasswordRequest(temporary_password="1234567")
+        ResetPasswordRequest(temporary_password="1234567", expected_revision=0)
     assert (
-        ResetPasswordRequest(temporary_password="12345678").temporary_password
+        ResetPasswordRequest(
+            temporary_password="12345678",
+            expected_revision=0,
+        ).temporary_password
         == "12345678"
     )

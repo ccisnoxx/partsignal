@@ -14,12 +14,8 @@ export const Route = createFileRoute('/_app/_admin')({
     <RouteError error={error} onRetry={reset} title="无法验证系统管理权限" />
   ),
   notFoundComponent: AdminForbidden,
-  component: AdminBoundary,
+  component: Outlet,
 });
-
-function AdminBoundary() {
-  return <Outlet />;
-}
 
 function AdminForbidden() {
   const forbiddenRef = useRef<HTMLElement>(null);

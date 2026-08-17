@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthContextValue } from '@/app/auth/auth-provider';
+import { authSessionQueryKey, type AuthContextValue } from '@/app/auth/auth-provider';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
@@ -63,6 +63,8 @@ function success<T>(data: T) {
 
 function renderAudit() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  if (!auth.user || !auth.csrfToken) throw new Error('系统审计测试必须提供登录会话');
+  queryClient.setQueryData(authSessionQueryKey, { user: auth.user, csrfToken: auth.csrfToken });
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: ['/system/audit?createdFrom=2026-08-13T00%3A00%3A00.000Z&createdTo=2026-08-16T00%3A00%3A00.000Z&page=1&pageSize=20'] }),
@@ -105,5 +107,30 @@ describe('SystemAuditPage', () => {
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(router.state.location.search).not.toHaveProperty('logId'));
     await waitFor(() => expect(row).toHaveFocus());
+  });
+
+  it('时间范围为空时保留当前 URL 并显示校验错误', async () => {
+    let listRequests = 0;
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/audit-logs/filter-options') return success({ actions: [], target_types: [] });
+      if (path === '/api/v1/audit-logs') {
+        listRequests += 1;
+        return success({ items: [], page: 1, page_size: 20, total: 0 });
+      }
+      throw new Error(`意外请求：${path}`);
+    });
+    const router = renderAudit();
+
+    expect(await screen.findByRole('heading', { name: '系统审计' })).toBeInTheDocument();
+    expect(listRequests).toBeGreaterThan(0);
+    const listRequestCount = listRequests;
+    const search = router.state.location.search;
+
+    await userEvent.clear(screen.getByLabelText('开始时间（北京时间）'));
+    await userEvent.click(screen.getByRole('button', { name: '搜索' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('开始时间和结束时间不能为空。');
+    expect(router.state.location.search).toEqual(search);
+    expect(listRequests).toBe(listRequestCount);
   });
 });

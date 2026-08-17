@@ -231,6 +231,10 @@ function AuditFilters({ actions, onChange, search, targetTypes }: {
   const [rangeError, setRangeError] = useState<string>();
 
   function submit() {
+    if (!draft.createdFrom || !draft.createdTo) {
+      setRangeError('开始时间和结束时间不能为空。');
+      return;
+    }
     const createdFrom = fromBeijingDateTimeInput(draft.createdFrom);
     const createdTo = fromBeijingDateTimeInput(draft.createdTo);
     if (new Date(createdFrom) >= new Date(createdTo)) {

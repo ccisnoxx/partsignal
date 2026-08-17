@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { AuthContextValue } from '@/app/auth/auth-provider';
+import { authSessionQueryKey, type AuthContextValue } from '@/app/auth/auth-provider';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
@@ -69,6 +69,8 @@ function result(items: User[], total = items.length): UserList {
 
 function renderUsers(entry = '/system/users?status=ENABLED&page=1&pageSize=20') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  if (!auth.user || !auth.csrfToken) throw new Error('用户管理测试必须提供登录会话');
+  queryClient.setQueryData(authSessionQueryKey, { user: auth.user, csrfToken: auth.csrfToken });
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [entry] }),

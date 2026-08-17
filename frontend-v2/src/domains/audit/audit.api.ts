@@ -19,10 +19,8 @@ class AuditRequestError extends Error {
 }
 
 const auditKeys = {
-  lists: () => ['audit', 'list'] as const,
   list: (params: ReturnType<typeof auditSearchToApiParams>) => ['audit', 'list', params] as const,
   options: () => ['audit', 'filter-options'] as const,
-  details: () => ['audit', 'detail'] as const,
   detail: (auditLogId: string) => ['audit', 'detail', auditLogId] as const,
 };
 

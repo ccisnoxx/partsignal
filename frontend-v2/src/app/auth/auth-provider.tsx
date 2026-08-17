@@ -134,5 +134,5 @@ function useAuthActions() {
   };
 }
 
-export { AuthProvider, getAuthRouteUser, useAuth, useAuthActions };
+export { AuthProvider, authSessionQueryKey, getAuthRouteUser, useAuth, useAuthActions };
 export type { AuthContextValue, AuthUser };

@@ -18,7 +18,9 @@
   "commit": null,
   "pr_url": null,
   "subtasks": [],
-  "children": [],
+  "children": [
+    "08-17-frontend-v2-auth-route-test-harness"
+  ],
   "parent": null,
   "relatedFiles": [
     "frontend-v2/src/app/auth/auth-provider.tsx",

@@ -1,14 +1,15 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { authSessionQueryKey, type AuthContextValue } from '@/app/auth/auth-provider';
+import type { AuthContextValue } from '@/app/auth/auth-provider';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
 
 type User = components['schemas']['User'];
 type UserList = components['schemas']['UserList'];
@@ -68,9 +69,7 @@ function result(items: User[], total = items.length): UserList {
 }
 
 function renderUsers(entry = '/system/users?status=ENABLED&page=1&pageSize=20') {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  if (!auth.user || !auth.csrfToken) throw new Error('用户管理测试必须提供登录会话');
-  queryClient.setQueryData(authSessionQueryKey, { user: auth.user, csrfToken: auth.csrfToken });
+  const queryClient = createAuthenticatedTestQueryClient(auth);
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: [entry] }),

@@ -1,14 +1,15 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { authSessionQueryKey, type AuthContextValue } from '@/app/auth/auth-provider';
+import type { AuthContextValue } from '@/app/auth/auth-provider';
 import { TooltipProvider } from '@/design-system/primitives/tooltip';
 import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
+import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
 
 type AuditLog = components['schemas']['AuditLog'];
 type AuditLogDetail = components['schemas']['AuditLogDetail'];
@@ -62,9 +63,7 @@ function success<T>(data: T) {
 }
 
 function renderAudit() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  if (!auth.user || !auth.csrfToken) throw new Error('系统审计测试必须提供登录会话');
-  queryClient.setQueryData(authSessionQueryKey, { user: auth.user, csrfToken: auth.csrfToken });
+  const queryClient = createAuthenticatedTestQueryClient(auth);
   const router = createRouter({
     routeTree,
     history: createMemoryHistory({ initialEntries: ['/system/audit?createdFrom=2026-08-13T00%3A00%3A00.000Z&createdTo=2026-08-16T00%3A00%3A00.000Z&page=1&pageSize=20'] }),

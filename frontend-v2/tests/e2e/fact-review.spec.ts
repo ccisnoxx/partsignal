@@ -116,6 +116,10 @@ test('409 不重放命令，展示 request ID 并刷新最新 revision', async (
   productsApi.setFactReviewWorkspace(initial);
   productsApi.setFactApproveMode('revision-conflict');
   await page.goto(reviewPath);
+
+  await page.getByRole('button', { name: '批准事实' }).click();
+  const dialog = page.getByRole('dialog', { name: '批准事实版本 v2？' });
+  await expect(dialog).toBeVisible();
   productsApi.setFactReviewWorkspace({
     ...initial,
     review: {
@@ -123,9 +127,7 @@ test('409 不重放命令，展示 request ID 并刷新最新 revision', async (
       fact_version: { ...initial.review.fact_version, revision: 1 },
     },
   });
-
-  await page.getByRole('button', { name: '批准事实' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: '确认批准' }).click();
+  await dialog.getByRole('button', { name: '确认批准' }).click();
   await expect(page.getByText('请求 ID：req-fact-review-conflict')).toBeVisible();
   expect(productsApi.factApproveRequests).toEqual([{
     body: { expected_revision: 0, comment: '' },

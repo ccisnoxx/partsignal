@@ -11,6 +11,7 @@ PostgreSQL、Redis、API、Worker、对象存储和浏览器，每次运行必�
 ```text
 make e2e
 deploy/scripts/e2e-local.sh [playwright arguments...]
+PARTSIGNAL_E2E_V2_SPEC=tests/e2e/<name>-real-stack.spec.ts deploy/scripts/e2e-local.sh
 deploy/scripts/e2e-database.py create partsignal_e2e_YYYYMMDD_PID
 deploy/scripts/e2e-database.py drop   partsignal_e2e_YYYYMMDD_PID
 npm --prefix frontend-v2 run e2e -- [playwright arguments...]
@@ -19,6 +20,7 @@ npm --prefix frontend-v2 run e2e -- [playwright arguments...]
 ## 3. Contracts
 
 - `DATABASE_URL`、`REDIS_URL` 必填；`PARTSIGNAL_E2E_STORAGE_PORT` 可选，默认 `19009`。
+- `PARTSIGNAL_E2E_V2_SPEC` 未设置时保留完整 V2 real-stack → V1 顺序；设置时复用同一隔离数据库、Redis、存储、进程与 cleanup，只构建/启动 V2 production preview 并运行指定 V2 spec，不构建、启动或运行 V1，也不运行其他 V2 spec。定向模式只用于独立诊断，不能替代完整 `make e2e` 或 Phase Exit Gate。
 - `REDIS_URL` 必须指向启动前为空且本次运行独占的非 0 logical DB；DB 0、同库外部客户端或未知残留键直接失败。CI E2E 固定使用 DB 14，backend integration 继续使用 DB 15。
 - 数据库名必须匹配 `^partsignal_e2e_\d{8}_\d+$`；创建和删除都拒绝其他名称。
 - 业务服务、Alembic 和种子命令只使用本次创建的数据库。
@@ -47,6 +49,7 @@ npm --prefix frontend-v2 run e2e -- [playwright arguments...]
 | 固定端口或对象存储端口已占用/重复 | preflight 或 cleanup 失败并报告确切端口 |
 | 数据库名不满足 allowlist | 拒绝创建或删除 |
 | 迁移、构建、种子、服务就绪或 Playwright 失败 | 保留原失败码并执行清理 |
+| `PARTSIGNAL_E2E_V2_SPEC` 指向不存在的测试文件 | Playwright 非零退出并执行同一精确清理 |
 | 删除数据库或临时目录失败 | 输出失败目标并以非零状态退出 |
 | 临时目录不在本次前缀下 | 拒绝递归删除 |
 | 共享开发库中存在历史 E2E 数据 | 不做广泛清扫，另行按所有权调查 |
@@ -64,6 +67,7 @@ npm --prefix frontend-v2 run e2e -- [playwright arguments...]
 ## 6. Tests Required
 
 - `bash -n deploy/scripts/e2e-local.sh`。
+- `PARTSIGNAL_E2E_V2_SPEC=tests/e2e/<目标>-real-stack.spec.ts deploy/scripts/e2e-local.sh` 只运行目标 V2 spec，仍输出 database `status=dropped`、storage `status=removed`、Redis `status=deleted` 与 port `status=released`；完整门禁仍由未设置变量的 `make e2e` 验证。
 - `python -m py_compile deploy/scripts/e2e-database.py`。
 - 至少运行一个真实 Playwright 用例，确认生产/开发壳层按需就绪。
 - 分别验证成功和测试失败路径都输出数据库 `status=dropped`、存储 `status=removed`、Redis `status=deleted` 与端口 `status=released`，且对应资源已不存在。

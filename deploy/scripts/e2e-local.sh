@@ -6,6 +6,7 @@ set -eu
 : "${PARTSIGNAL_SEED_ADMIN_PASSWORD:=partsignal-admin-dev}"
 : "${PARTSIGNAL_SEED_ENGINEER_PASSWORD:=partsignal-engineer-dev}"
 : "${PARTSIGNAL_E2E_STORAGE_PORT:=19009}"
+: "${PARTSIGNAL_E2E_V2_SPEC:=}"
 
 # E2E 明确使用本机协议替身，不继承操作者可能存在的生产 AI 配置。
 export APP_ENV=test
@@ -89,7 +90,9 @@ e2e_database_created=1
 IFS= read -r DATABASE_URL <"$storage_dir/database-url"
 export DATABASE_URL
 backend/.venv/bin/alembic -c backend/alembic.ini upgrade head
-npm --prefix frontend run build
+if test -z "$PARTSIGNAL_E2E_V2_SPEC"; then
+  npm --prefix frontend run build
+fi
 VITE_API_BASE_URL=http://127.0.0.1:8000 npm --prefix frontend-v2 run build
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
 PARTSIGNAL_SEED_ENGINEER_PASSWORD=$PARTSIGNAL_SEED_ENGINEER_PASSWORD \
@@ -110,19 +113,31 @@ worker_pid=$!
 backend/.venv/bin/celery -A app.worker:celery_app beat \
   --loglevel=WARNING --schedule "$storage_dir/celerybeat" &
 scheduler_pid=$!
-(cd "$root/frontend" && exec ./node_modules/.bin/vite --host 127.0.0.1 --config vite.config.ts) &
-frontend_pid=$!
-(cd "$root/frontend" && exec ./node_modules/.bin/vite preview --host 127.0.0.1 --port 4173 --strictPort) &
-preview_pid=$!
+if test -z "$PARTSIGNAL_E2E_V2_SPEC"; then
+  (cd "$root/frontend" && exec ./node_modules/.bin/vite --host 127.0.0.1 --config vite.config.ts) &
+  frontend_pid=$!
+  (cd "$root/frontend" && exec ./node_modules/.bin/vite preview --host 127.0.0.1 --port 4173 --strictPort) &
+  preview_pid=$!
+fi
 (cd "$root/frontend-v2" && exec ./node_modules/.bin/vite preview --host 127.0.0.1 --port 4174 --strictPort) &
 v2_preview_pid=$!
 
+services_ready() {
+  if test -n "$PARTSIGNAL_E2E_V2_SPEC"; then
+    curl --fail --silent http://127.0.0.1:8000/api/health/ready >/dev/null \
+      && curl --fail --silent http://127.0.0.1:9001/v1/models >/dev/null \
+      && curl --fail --silent http://127.0.0.1:4174 >/dev/null
+  else
+    curl --fail --silent http://127.0.0.1:8000/api/health/ready >/dev/null \
+      && curl --fail --silent http://127.0.0.1:9001/v1/models >/dev/null \
+      && curl --fail --silent http://127.0.0.1:5173 >/dev/null \
+      && curl --fail --silent http://127.0.0.1:4173 >/dev/null \
+      && curl --fail --silent http://127.0.0.1:4174 >/dev/null
+  fi
+}
+
 attempt=0
-until curl --fail --silent http://127.0.0.1:8000/api/health/ready >/dev/null \
-  && curl --fail --silent http://127.0.0.1:9001/v1/models >/dev/null \
-  && curl --fail --silent http://127.0.0.1:5173 >/dev/null \
-  && curl --fail --silent http://127.0.0.1:4173 >/dev/null \
-  && curl --fail --silent http://127.0.0.1:4174 >/dev/null; do
+until services_ready; do
   attempt=$((attempt + 1))
   if test "$attempt" -ge 60; then
     printf '%s\n' "PartSignal E2E 服务在 60 秒内未就绪" >&2
@@ -131,24 +146,36 @@ until curl --fail --silent http://127.0.0.1:8000/api/health/ready >/dev/null \
   sleep 1
 done
 
-PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
-PARTSIGNAL_SEED_ENGINEER_PASSWORD=$PARTSIGNAL_SEED_ENGINEER_PASSWORD \
-PARTSIGNAL_E2E_API_BASE_URL=http://127.0.0.1:8000 \
-PARTSIGNAL_E2E_FAKE_AI_BASE_URL=http://127.0.0.1:9001 \
-PARTSIGNAL_E2E_REAL_STACK=1 \
-PARTSIGNAL_E2E_V2_BASE_URL=http://127.0.0.1:4174 \
-  npm --prefix frontend-v2 run e2e -- \
-  tests/e2e/ai-channel-configuration-real-stack.spec.ts \
-  tests/e2e/product-facts-real-stack.spec.ts \
-  tests/e2e/content-ai-real-stack.spec.ts \
-  tests/e2e/content-review-real-stack.spec.ts \
-  tests/e2e/content-version-detail-real-stack.spec.ts \
-  tests/e2e/publication-workspace-real-stack.spec.ts \
-  tests/e2e/geo-real-stack.spec.ts \
-  tests/e2e/auth-session-real-stack.spec.ts \
-  tests/e2e/system-admin-real-stack.spec.ts \
-  --project=foundation-desktop
-PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
-PARTSIGNAL_E2E_REAL_STACK=1 \
-PARTSIGNAL_E2E_PRODUCTION_BASE_URL=http://127.0.0.1:4173 \
-  npm --prefix frontend run e2e -- "$@"
+if test -n "$PARTSIGNAL_E2E_V2_SPEC"; then
+  PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
+  PARTSIGNAL_SEED_ENGINEER_PASSWORD=$PARTSIGNAL_SEED_ENGINEER_PASSWORD \
+  PARTSIGNAL_E2E_API_BASE_URL=http://127.0.0.1:8000 \
+  PARTSIGNAL_E2E_FAKE_AI_BASE_URL=http://127.0.0.1:9001 \
+  PARTSIGNAL_E2E_REAL_STACK=1 \
+  PARTSIGNAL_E2E_V2_BASE_URL=http://127.0.0.1:4174 \
+    npm --prefix frontend-v2 run e2e -- \
+    "$PARTSIGNAL_E2E_V2_SPEC" \
+    --project=foundation-desktop
+else
+  PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
+  PARTSIGNAL_SEED_ENGINEER_PASSWORD=$PARTSIGNAL_SEED_ENGINEER_PASSWORD \
+  PARTSIGNAL_E2E_API_BASE_URL=http://127.0.0.1:8000 \
+  PARTSIGNAL_E2E_FAKE_AI_BASE_URL=http://127.0.0.1:9001 \
+  PARTSIGNAL_E2E_REAL_STACK=1 \
+  PARTSIGNAL_E2E_V2_BASE_URL=http://127.0.0.1:4174 \
+    npm --prefix frontend-v2 run e2e -- \
+    tests/e2e/ai-channel-configuration-real-stack.spec.ts \
+    tests/e2e/product-facts-real-stack.spec.ts \
+    tests/e2e/content-ai-real-stack.spec.ts \
+    tests/e2e/content-review-real-stack.spec.ts \
+    tests/e2e/content-version-detail-real-stack.spec.ts \
+    tests/e2e/publication-workspace-real-stack.spec.ts \
+    tests/e2e/geo-real-stack.spec.ts \
+    tests/e2e/auth-session-real-stack.spec.ts \
+    tests/e2e/system-admin-real-stack.spec.ts \
+    --project=foundation-desktop
+  PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
+  PARTSIGNAL_E2E_REAL_STACK=1 \
+  PARTSIGNAL_E2E_PRODUCTION_BASE_URL=http://127.0.0.1:4173 \
+    npm --prefix frontend run e2e -- "$@"
+fi

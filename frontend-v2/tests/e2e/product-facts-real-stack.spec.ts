@@ -10,7 +10,10 @@ import {
 import type { components } from '../../src/shared/api/generated/schema';
 
 type AuthSession = components['schemas']['AuthSession'];
+type CommandRequest = components['schemas']['CommandRequest'];
 type ContentEditorContext = components['schemas']['ContentEditorContext'];
+type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
+type FactVersion = components['schemas']['FactVersion'];
 type PlatformProfile = components['schemas']['PlatformProfile'];
 type PlatformType = components['schemas']['PlatformType'];
 type ProductDetail = components['schemas']['ProductDetail'];
@@ -292,6 +295,87 @@ test('Flow B：退回后修订产生新版本，审核历史严格归属当前 F
   expect(finalTarget.review_history.every((record) => record.target_id === secondVersionId)).toBe(true);
   expect(finalTarget.review_history.map((record) => record.comment)).not.toContain(firstSummary);
   expect(finalTarget.review_history.map((record) => record.comment)).not.toContain(returnComment);
+});
+
+test('Flow D：过期 revision 真实返回 409，不重放并保留服务端最新状态', async ({ page }) => {
+  const session = await login(page);
+  const product = await createProduct(page, 'PF-D');
+  const marker = `flow-d-${product.suffix}`;
+  const markdown = `# Flow D ${marker}\n\n- 参数：冲突前快照`;
+  const concurrentComment = `并发退回-${marker}`;
+
+  await enterFactsAndSubmit(page, markdown, `提交 ${marker} 审核`);
+  await openProductsList(page);
+  const reviewRow = await productRow(page, product.partNumber);
+  await reviewRow.getByRole('link', { name: '审核', exact: true }).click();
+  await expect(page.getByLabel(/事实版本 v\d+ Markdown 快照/)).toContainText(marker);
+
+  const initialTarget = await reviewContext(page, product.productId);
+  expect(initialTarget.fact_version).toMatchObject({
+    status: 'PENDING_REVIEW',
+    revision: 0,
+    body_markdown: markdown,
+  });
+  const approvePath = `/api/v1/fact-versions/${initialTarget.fact_version.id}/approve`;
+  const approveRequests: Array<{ body: CommandRequest; csrfPresent: boolean }> = [];
+  page.on('request', (request) => {
+    if (request.method() !== 'POST' || new URL(request.url()).pathname !== approvePath) return;
+    approveRequests.push({
+      body: request.postDataJSON() as CommandRequest,
+      csrfPresent: Boolean(request.headers()['x-csrf-token']),
+    });
+  });
+
+  const concurrentVersion = await responseBody<FactVersion>(await page.request.post(
+    `${apiBaseUrl}/api/v1/fact-versions/${initialTarget.fact_version.id}/request-changes`,
+    {
+      data: { expected_revision: 0, comment: concurrentComment },
+      headers: { 'X-CSRF-Token': session.csrf_token },
+    },
+  ));
+  expect(concurrentVersion).toMatchObject({
+    id: initialTarget.fact_version.id,
+    status: 'CHANGES_REQUESTED',
+    revision: 1,
+    body_markdown: markdown,
+  });
+
+  await page.getByRole('button', { name: '批准事实' }).click();
+  const dialog = page.getByRole('dialog', { name: /批准事实版本 v\d+？/ });
+  const conflictResponsePromise = page.waitForResponse((response) => (
+    response.request().method() === 'POST'
+    && new URL(response.url()).pathname === approvePath
+  ));
+  await dialog.getByRole('button', { name: '确认批准' }).click();
+  const conflictResponse = await conflictResponsePromise;
+  expect(conflictResponse.status()).toBe(409);
+  const conflict = await conflictResponse.json() as ErrorEnvelope;
+  expect(conflict.error.code).toBe('REVISION_CONFLICT');
+  expect(conflict.error.request_id).toBeTruthy();
+  await expect(page.getByText(`请求 ID：${conflict.error.request_id}`)).toBeVisible();
+  expect(approveRequests).toEqual([{
+    body: { expected_revision: 0, comment: '' },
+    csrfPresent: true,
+  }]);
+
+  await expect(page.getByText('待修订', { exact: true }).first()).toBeVisible();
+  const context = page.getByRole('region', { name: '审核上下文' });
+  await expect(context.getByText('Revision', { exact: true }).locator('xpath=following-sibling::dd'))
+    .toHaveText('1');
+  await expect(page.getByRole('button', { name: /批准事实|退回修改/ })).toHaveCount(0);
+
+  const finalTarget = await reviewContext(page, product.productId);
+  expect(finalTarget.fact_version).toMatchObject({
+    id: initialTarget.fact_version.id,
+    status: 'CHANGES_REQUESTED',
+    revision: 1,
+    body_markdown: markdown,
+  });
+  expect(finalTarget.review_history.at(-1)).toMatchObject({
+    action: 'request-changes',
+    comment: concurrentComment,
+  });
+  expect(finalTarget.review_history.some((record) => record.action === 'approve')).toBe(false);
 });
 
 test('Flow C：独立 ContentTask 经人工首稿、保存后提交审核', async ({ page }) => {

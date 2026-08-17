@@ -1,0 +1,36 @@
+{
+  "id": "frontend-v2-fact-review-409-revision-e2e",
+  "name": "frontend-v2-fact-review-409-revision-e2e",
+  "title": "Frontend V2 Fact Review 409 Revision E2E",
+  "description": "补齐 Fact Review stale revision 的 real-stack 409 E2E 证据，证明前端不自动重放且保留服务端最新状态；不改产品合同。",
+  "status": "in_progress",
+  "dev_type": "testing",
+  "scope": "Fact Review fixture and isolated real-stack revision conflict E2E",
+  "package": "frontend-v2",
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-17",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-17-frontend-v2-system-abstraction-review",
+  "relatedFiles": [
+    "frontend-v2/tests/e2e/fact-review.spec.ts",
+    "frontend-v2/tests/e2e/product-facts-real-stack.spec.ts",
+    "deploy/scripts/e2e-local.sh",
+    ".trellis/spec/infra/e2e-isolation.md"
+  ],
+  "notes": "独立 Phase 7 blocker 已按批准计划实施并通过全部定向验证；等待 commit plan 批准。完整 E2E 与 make verify 留给 Exit Gate Recheck。",
+  "meta": {
+    "runtime_behavior_change": false,
+    "fixture_projects": 2,
+    "real_stack_owner": "deploy/scripts/e2e-local.sh",
+    "full_gate_deferred": true
+  }
+}

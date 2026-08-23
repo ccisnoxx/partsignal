@@ -136,9 +136,24 @@ test('Flow A：批准事实后展示不可变版本并交接 CREATE_CONTENT_TASK
   const summary = `提交 ${marker} 审核`;
 
   await enterFactsAndSubmit(page, markdown, summary);
-  await openProductsList(page);
-  const reviewRow = await productRow(page, product.partNumber);
-  await reviewRow.getByRole('link', { name: '审核', exact: true }).click();
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+  const factReviewCard = page.locator('[data-workbench-count="fact_reviews"]');
+  await expect(factReviewCard.locator('p').nth(1)).toHaveText(/^[1-9]\d*$/);
+  await expect(factReviewCard.getByRole('link', { name: '查看事实审核' })).toHaveAttribute(
+    'href',
+    '/products?page=1&factStatus=PENDING_REVIEW&workflowStage=FACT_REVIEW_PENDING',
+  );
+  const factAttention = page.locator('.workbench-attention-link').filter({
+    hasText: `PartSignal E2E ${product.partNumber}`,
+  });
+  await expect(factAttention).toHaveCount(1);
+  await expect(factAttention).toHaveAttribute(
+    'href',
+    `/products/${product.productId}/facts/review`,
+  );
+  await factAttention.click();
+  await expect(page).toHaveURL(`/products/${product.productId}/facts/review`);
   await expect(page.getByLabel(/事实版本 v\d+ Markdown 快照/)).toContainText(marker);
   await expect(page.getByRole('heading', { name: '审核历史' }).locator('xpath=ancestor::section[1]'))
     .toContainText(summary);

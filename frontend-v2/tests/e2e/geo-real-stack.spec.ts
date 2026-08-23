@@ -363,6 +363,34 @@ test('Flow A：新建 Observation 后追加 Correction，原记录保持不可�
   await expect(page.getByText(root.recorder.display_name).first()).toBeVisible();
   await expect(page.locator(`time[datetime="${root.tested_at}"]`).first()).toBeVisible();
 
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+  const geoIssueCard = page.locator('[data-workbench-count="geo_accuracy_issues"]');
+  const rootIssueCount = Number(await geoIssueCard.locator('p').nth(1).textContent());
+  expect(rootIssueCount).toBeGreaterThan(0);
+  await expect(geoIssueCard.getByRole('link', { name: '部分准确' })).toHaveAttribute(
+    'href',
+    '/geo/observations?accuracy=PARTIAL&page=1&pageSize=20',
+  );
+  await expect(geoIssueCard.getByRole('link', { name: '不准确' })).toHaveAttribute(
+    'href',
+    '/geo/observations?accuracy=INCORRECT&page=1&pageSize=20',
+  );
+  const rootAttention = page.locator('.workbench-attention-link').filter({ hasText: rootQuery });
+  await expect(rootAttention).toHaveCount(1);
+  await expect(rootAttention).toHaveAttribute('href', `/geo/observations/${root.id}`);
+  const discoveryRate = page.getByText('发现率', { exact: true }).locator('..');
+  const mentionRate = page.getByText('提及率', { exact: true }).locator('..');
+  const accuracyRate = page.getByText('准确率', { exact: true }).locator('..');
+  await expect(discoveryRate).toContainText('100%');
+  await expect(discoveryRate).toContainText('1 / 1');
+  await expect(mentionRate).toContainText('0%');
+  await expect(mentionRate).toContainText('0 / 1');
+  await expect(accuracyRate).toContainText('0%');
+  await expect(accuracyRate).toContainText('0 / 1');
+  await rootAttention.click();
+  await expect(page).toHaveURL(`/geo/observations/${root.id}`);
+  await expect(page.getByRole('heading', { level: 1, name: rootQuery })).toBeVisible();
   await page.getByRole('button', { name: /更多操作/ }).click();
   await page.getByRole('menuitem', { name: '更正' }).click();
   await expect(page).toHaveURL(`/geo/observations/${root.id}/correct`);
@@ -412,6 +440,23 @@ test('Flow A：新建 Observation 后追加 Correction，原记录保持不可�
   await expect(page.getByText(rootNotes).first()).toBeVisible();
   await expect(page.getByText(correctionNotes).first()).toBeVisible();
 
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+  const correctedGeoIssueCard = page.locator('[data-workbench-count="geo_accuracy_issues"]');
+  expect(Number(await correctedGeoIssueCard.locator('p').nth(1).textContent()))
+    .toBe(rootIssueCount - 1);
+  await expect(page.locator('.workbench-attention-link').filter({ hasText: rootQuery }))
+    .toHaveCount(0);
+  const correctedDiscoveryRate = page.getByText('发现率', { exact: true }).locator('..');
+  const correctedMentionRate = page.getByText('提及率', { exact: true }).locator('..');
+  const correctedAccuracyRate = page.getByText('准确率', { exact: true }).locator('..');
+  await expect(correctedDiscoveryRate).toContainText('0%');
+  await expect(correctedDiscoveryRate).toContainText('0 / 1');
+  await expect(correctedMentionRate).toContainText('0%');
+  await expect(correctedMentionRate).toContainText('0 / 1');
+  await expect(correctedAccuracyRate.getByText('暂无数据', { exact: true })).toBeVisible();
+  await expect(correctedAccuracyRate).toContainText('0 / 0');
+  await expect(correctedAccuracyRate.getByText('0%', { exact: true })).toHaveCount(0);
   await page.goto(`/geo/observations?productId=${setup.product.id}&page=1&pageSize=20`);
   const tailLink = page.getByRole('link', { name: setup.topic.canonical_question });
   await expect(tailLink).toHaveCount(1);

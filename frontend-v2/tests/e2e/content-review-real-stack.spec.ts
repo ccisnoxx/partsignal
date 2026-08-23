@@ -199,6 +199,22 @@ test('Flow A：人工内容批准后进入只读版本并出现发布交接', as
   const platform = await createActivePlatform(page, session.csrf_token, suffix);
   const product = await createApprovedProduct(page, suffix);
   const taskId = await createReviewReadyTask(page, product, platform.name, suffix);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+  const contentReviewCard = page.locator('[data-workbench-count="content_reviews"]');
+  await expect(contentReviewCard.locator('p').nth(1)).toHaveText(/^[1-9]\d*$/);
+  await expect(contentReviewCard.getByRole('link', { name: '查看内容审核' })).toHaveAttribute(
+    'href',
+    '/content/tasks?workflowStage=REVIEW_PENDING&archiveStatus=ACTIVE&page=1&pageSize=20',
+  );
+  const contentAttention = page.locator('.workbench-attention-link').filter({
+    hasText: `${product.partNumber} 审核内容`,
+  });
+  await expect(contentAttention).toHaveCount(1);
+  await expect(contentAttention).toHaveAttribute('href', `/content/tasks/${taskId}/review`);
+  await contentAttention.click();
+  await expect(page).toHaveURL(`/content/tasks/${taskId}/review`);
+  await expect(page.locator('#content-review-title')).toHaveText(`${product.partNumber} 审核内容`);
   const before = await reviewContext(page, taskId);
 
   await page.getByRole('button', { name: '批准内容' }).click();

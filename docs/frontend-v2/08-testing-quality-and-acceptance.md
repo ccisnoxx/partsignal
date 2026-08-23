@@ -383,6 +383,14 @@ production artifact 在两个 Playwright project 中覆盖 375/768/1024/1440 根
 
 在上述候选合理预期通过后，只运行一次最终 fail-fast `make verify`；退出码 `0`、总耗时 `19:23.64`，各 suite 计数与独立阶段一致，三套 production build 和双 Compose config 通过。八项 System shared invariant 无新反证，open P0/P1/P2=`0/0/0`，Phase 7 Exit Gate=`MET`；此结论不授权开始 Phase 8。
 
+### 13.31 Workbench 真实栈复用验收
+
+Workbench 不新增独立 real-stack spec，而是在四个既有 owner 的自然状态检查点复用同一套服务、PostgreSQL、Redis、storage、进程、端口和退出清理：`product-facts-real-stack.spec.ts` 的待审核事实、`content-review-real-stack.spec.ts` 的待审核内容、`publication-workspace-real-stack.spec.ts` 的准备中/待核验/开放内容问题，以及 `geo-real-stack.spec.ts` 的当前更正链尾准确性问题。每个检查点都从 `/` 读取唯一 `/api/v1/workbench` aggregate，验证场景唯一资源的关注项、服务端 canonical href 与目标 Workspace/Observation Detail 导航；不复制业务 mutation，也不在浏览器拼接多个业务 endpoint。
+
+共享环境中的普通 count 只断言非零并与本场景唯一关注项配对，不依赖绝对总数；GEO 同一 workflow 内保存问题数并在 `PARTIAL` 根记录被 `UNJUDGEABLE` correction 取代后断言精确减少 `1`。GEO 30 日摘要同时验证 current correction-chain tail、发现/提及分母，以及未知准确率显示 `暂无数据` 和 `0 / 0`，不得渲染为 `0%`。独立 `workbench.spec.ts` fixture 继续负责 aggregate-only 请求约束、nullable/zero、fatal/retry、键盘顺序与四档响应式覆盖。
+
+四个 owner 必须分别通过 `PARTSIGNAL_E2E_V2_SPEC=<owner> deploy/scripts/e2e-local.sh` 独立运行；单项失败不阻止其他安全独立诊断，代码和环境未改变时不重复失败命令。失败输出只报告资源标识、状态、canonical href 和脱敏错误，不输出 password、Cookie、CSRF、header、request body、storage state 或敏感正文；保持 trace/video/report 的既有安全设置。每次运行均须保留数据库 drop、Redis 本次 key 删除、storage 移除、进程停止及端口释放证据。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

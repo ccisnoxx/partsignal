@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/index.md","reason":"确认 Frontend V2 测试修改的开发前检查与质量边界。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"遵守真实栈 Playwright、secret artifact、production preview 与断言强度约束。"}
+{"file":".trellis/spec/infra/index.md","reason":"确认 infra E2E isolation 是本任务运行和清理的权威 owner。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复用独立数据库、Redis、storage、进程、端口和定向 spec cleanup 合同。"}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-e2e/research/audit.md","reason":"提供四个精确自然检查点、canonical href、count 策略与敏感输出边界。"}

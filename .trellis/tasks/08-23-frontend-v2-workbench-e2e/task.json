@@ -1,0 +1,50 @@
+{
+  "id": "frontend-v2-workbench-e2e",
+  "name": "frontend-v2-workbench-e2e",
+  "title": "Frontend V2 Workbench E2E",
+  "description": "在四个既有真实栈 workflow 的自然状态检查点验证 Workbench count、attention item、canonical href、GEO current-tail 与 nullable rate。",
+  "status": "in_progress",
+  "dev_type": "test",
+  "scope": "frontend-v2,docs,trellis",
+  "package": "frontend-v2",
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-23",
+  "completedAt": null,
+  "branch": "codex/frontend-v2-workbench-e2e",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-23-frontend-v2-phase-8-workbench-planning",
+  "relatedFiles": [
+    "frontend-v2/tests/e2e/product-facts-real-stack.spec.ts",
+    "frontend-v2/tests/e2e/content-review-real-stack.spec.ts",
+    "frontend-v2/tests/e2e/publication-workspace-real-stack.spec.ts",
+    "frontend-v2/tests/e2e/geo-real-stack.spec.ts",
+    "docs/frontend-v2/08-testing-quality-and-acceptance.md"
+  ],
+  "notes": "当前仅完成规划；等待用户批准后再 start、创建唯一临时分支并实施。",
+  "meta": {
+    "phase": "Frontend V2 Phase 8",
+    "planned_branch": "codex/frontend-v2-workbench-e2e",
+    "planning_approved": true,
+    "dependencies": [
+      {
+        "task": "frontend-v2-workbench-aggregate-read-model",
+        "implementation_commit": "545ecde2",
+        "archive_commit": "13f2449b",
+        "status": "completed_and_archived"
+      },
+      {
+        "task": "frontend-v2-workbench-ui",
+        "implementation_commit": "59e9e76b",
+        "archive_commit": "d3603678",
+        "status": "completed_and_archived"
+      }
+    ]
+  }
+}

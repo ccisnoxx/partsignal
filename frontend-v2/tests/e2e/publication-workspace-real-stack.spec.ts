@@ -162,7 +162,23 @@ test('Flow A：V2 UI 从开始发布连续完成成果、修复任务与问题�
   await expect(page.locator('[role="status"]').filter({
     hasText: `已创建发布工作：${workId}`,
   })).toBeVisible();
-  await continuePreparation.click();
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+  const publicationActionCard = page.locator('[data-workbench-count="publication_actions"]');
+  await expect(publicationActionCard.locator('p').nth(1)).toHaveText(/^[1-9]\d*$/);
+  await expect(publicationActionCard.getByRole('link', { name: '继续准备' })).toHaveAttribute(
+    'href',
+    '/publishing/work?status=PREPARING&page=1&pageSize=20',
+  );
+  const preparationAttention = page.locator('.workbench-attention-link').filter({
+    hasText: setup.approvedContent.title,
+  });
+  await expect(preparationAttention).toHaveCount(1);
+  await expect(preparationAttention).toHaveAttribute(
+    'href',
+    `/publishing/work/${workId}#preparation`,
+  );
+  await preparationAttention.click();
   await expect(page).toHaveURL(`/publishing/work/${workId}#preparation`);
   await expect(page.locator('#publication-workspace-title')).toHaveText(setup.approvedContent.title);
 
@@ -198,6 +214,25 @@ test('Flow A：V2 UI 从开始发布连续完成成果、修复任务与问题�
   await expect(dialog).toBeHidden();
   await expect(page.getByText('发布结果已登记，可以开始人工核验。')).toBeVisible();
 
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+  const verificationCard = page.locator('[data-workbench-count="publication_verifications"]');
+  await expect(verificationCard.locator('p').nth(1)).toHaveText(/^[1-9]\d*$/);
+  await expect(verificationCard.getByRole('link', { name: '查看待核验发布' })).toHaveAttribute(
+    'href',
+    '/publishing/work?status=AWAITING_VERIFICATION&page=1&pageSize=20',
+  );
+  const verificationAttention = page.locator('.workbench-attention-link').filter({
+    hasText: setup.approvedContent.title,
+  });
+  await expect(verificationAttention).toHaveCount(1);
+  await expect(verificationAttention).toHaveAttribute(
+    'href',
+    `/publishing/work/${workId}#verification`,
+  );
+  await verificationAttention.click();
+  await expect(page).toHaveURL(`/publishing/work/${workId}#verification`);
+  await expect(page.locator('#publication-workspace-title')).toHaveText(setup.approvedContent.title);
   await page.getByRole('button', { name: '核验发布结果' }).click();
   dialog = page.getByRole('dialog', { name: '核验发布结果' });
   const verificationComment = `直接核验通过 ${suffix}`;
@@ -230,6 +265,24 @@ test('Flow A：V2 UI 从开始发布连续完成成果、修复任务与问题�
   const issueId = page.url().match(/\/publishing\/issues\/([^#]+)#issue$/)?.[1];
   if (!issueId) throw new Error('UI 登记问题后未进入合法的 Issue Workspace');
 
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+  const contentIssueCard = page.locator('[data-workbench-count="content_issues"]');
+  await expect(contentIssueCard.locator('p').nth(1)).toHaveText(/^[1-9]\d*$/);
+  await expect(contentIssueCard.getByRole('link', { name: '查看内容问题' })).toHaveAttribute(
+    'href',
+    '/publishing/issues?status=OPEN&page=1&pageSize=20',
+  );
+  const issueAttention = page.locator('.workbench-attention-link').filter({
+    hasText: setup.approvedContent.title,
+  });
+  await expect(issueAttention).toHaveCount(1);
+  await expect(issueAttention).toHaveAttribute(
+    'href',
+    `/publishing/issues/${issueId}#repair`,
+  );
+  await issueAttention.click();
+  await expect(page).toHaveURL(`/publishing/issues/${issueId}#repair`);
   await expect(page.getByRole('button', { name: '创建修复任务' })).toBeVisible();
   await expect(page.getByRole('button', { name: '解决内容问题' })).toBeVisible();
   await page.getByRole('button', { name: '创建修复任务' }).click();

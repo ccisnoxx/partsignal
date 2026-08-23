@@ -1,0 +1,5 @@
+{"file":".trellis/spec/frontend/index.md","reason":"按 frontend Quality Check 复核四个既有 spec 与测试文档变更。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"检查真实栈断言未放宽、trace/secret 边界与 Playwright owner 一致。"}
+{"file":".trellis/spec/infra/index.md","reason":"按 infra Quality Check 复核隔离与 cleanup evidence。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"检查每个独立 owner 的 database、Redis、storage、process、port 清理合同。"}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-e2e/research/audit.md","reason":"核对实现没有偏离已审计自然状态、相对计数和精确 href。"}

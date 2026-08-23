@@ -1748,3 +1748,24 @@ Configuration 自身未解决 P0/P1/P2 为 0；当前候选 make verify 因范�
 ### Status
 
 [OK] **Completed**
+
+
+## Session 167: 关闭 Workbench 根路由 fixture 收敛 blocker
+
+**Date**: 2026-08-24
+**Task**: 关闭 Workbench 根路由 fixture 收敛 blocker
+**Branch**: `codex/frontend-v2-workbench-root-fixture-convergence-blocker`
+
+### Summary
+
+关闭 A25：App Shell unit 按精确 endpoint 返回响应，Auth 与 Platforms strict fixture 显式声明 Workbench aggregate；定向及完整相关验证通过。A26 保持开放，Phase 8 Exit Gate 仍为 NOT_MET。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c7d0a2ed` | (see git log) |
+
+### Status
+
+[OK] **Completed**

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 166
+- **Total Sessions**: 167
 - **Last Active**: 2026-08-24
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1750 | Active |
+| `journal-3.md` | ~1771 | Active |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 167 | 2026-08-24 | 关闭 Workbench 根路由 fixture 收敛 blocker | `c7d0a2ed` | `codex/frontend-v2-workbench-root-fixture-convergence-blocker` |
 | 166 | 2026-08-24 | Frontend V2 Workbench abstraction review | `63c4e197` | `codex/frontend-v2-workbench-abstraction-review` |
 | 165 | 2026-08-23 | 完成 Frontend V2 Workbench E2E | `07c4a431` | `codex/frontend-v2-workbench-e2e` |
 | 164 | 2026-08-23 | Frontend V2 Workbench UI | `59e9e76b` | `main` |

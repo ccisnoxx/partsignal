@@ -109,5 +109,4 @@ export {
   healthDomainLabels,
   healthStatusPresentations,
   resolveWorkbenchCounts,
-  workbenchCountLabels,
 };

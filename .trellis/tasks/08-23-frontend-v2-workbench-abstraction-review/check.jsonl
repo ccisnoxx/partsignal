@@ -1,0 +1,11 @@
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"检查是否新增薄 wrapper、错误共享或无消费者 framework。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"检查跨层数据流、authoritative owner 与重复 glue。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"检查 backend 变更、集成证据与错误边界。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"检查组件、strict fixture、real-stack 与产物安全。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"检查 generated contract 消费与联合类型穷尽性。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"核对独立阶段、根 make verify 与失败归因。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"核对真实栈资源、cleanup 与日志边界。"}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-abstraction-review/research/audit.md","reason":"按完整矩阵复核所有 invariant、finding 分类与 Gate。"}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-abstraction-review/research/backend-audit.md","reason":"复核 backend owner、GEO/current-tail、href、合同和 V1 证据。"}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-abstraction-review/research/frontend-audit.md","reason":"复核依赖方向、单 query owner、shared 边界与前端 P2。"}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-abstraction-review/research/e2e-infra-audit.md","reason":"复核测试分层、签名 URL 风险、final gate 与 NOT_MET 规则。"}

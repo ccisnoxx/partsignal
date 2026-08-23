@@ -1,0 +1,67 @@
+{
+  "id": "frontend-v2-workbench-abstraction-review",
+  "name": "frontend-v2-workbench-abstraction-review",
+  "title": "Frontend V2 Workbench Abstraction Review",
+  "description": "完整审计 Workbench vertical slice 的业务 owner、依赖方向、状态所有权、测试分层与抽象边界，并给出 Phase 8 Exit Gate 的 MET/NOT_MET 判定。",
+  "status": "in_progress",
+  "dev_type": "refactor",
+  "scope": "backend,frontend-v2,deploy,docs,trellis",
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-23",
+  "completedAt": null,
+  "branch": "codex/frontend-v2-workbench-abstraction-review",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-23-frontend-v2-phase-8-workbench-planning",
+  "relatedFiles": [
+    "backend/app/schemas/workbench.py",
+    "backend/app/services/workbench.py",
+    "backend/tests/integration/test_workbench.py",
+    "frontend-v2/src/domains/workbench/workbench.api.ts",
+    "frontend-v2/src/domains/workbench/workbench.model.ts",
+    "frontend-v2/src/domains/workbench/workbench-page.tsx",
+    "frontend-v2/src/routes/_app/index.tsx",
+    "frontend-v2/src/domains/workbench/workbench.model.test.ts",
+    "frontend-v2/src/domains/workbench/workbench-page.test.tsx",
+    "frontend-v2/tests/e2e/fixtures/workbench.fixture.ts",
+    "frontend-v2/tests/e2e/workbench.spec.ts",
+    "frontend-v2/tests/e2e/geo-real-stack.spec.ts",
+    "deploy/scripts/e2e-local.sh",
+    ".trellis/spec/infra/e2e-isolation.md",
+    "contracts/openapi.yaml",
+    "docs/frontend-v2/07-migration-plan.md",
+    "docs/frontend-v2/08-testing-quality-and-acceptance.md"
+  ],
+  "notes": "已完成计划内最小实施与独立诊断；A19 已关闭，但 A25/A26 两个独立 P1 blocker 使 Phase 8 Exit Gate 保持 NOT_MET。未运行 make verify，未更新 07/08 完成状态。",
+  "meta": {
+    "phase": "Frontend V2 Phase 8",
+    "planning_only": false,
+    "planning_approved": true,
+    "planned_branch": "codex/frontend-v2-workbench-abstraction-review",
+    "baseline_gate": "NOT_MET",
+    "current_gate": "NOT_MET",
+    "initial_open_findings": {
+      "P0": 0,
+      "P1": 1,
+      "P2": 6
+    },
+    "final_open_findings": {
+      "P0": 0,
+      "P1": 2,
+      "P2": 4
+    },
+    "independent_blocker_count": 2,
+    "dependencies": {
+      "aggregate_read_model": "545ecde2",
+      "workbench_ui": "59e9e76b",
+      "workbench_e2e": "07c4a431"
+    }
+  }
+}

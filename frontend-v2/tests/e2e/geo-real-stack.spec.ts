@@ -49,7 +49,7 @@ test.beforeEach(async ({ page }) => {
   page.on('pageerror', (error) => errors.push(`pageerror: ${error.message}`));
   page.on('requestfailed', (request) => {
     if (request.failure()?.errorText === 'net::ERR_ABORTED') return;
-    errors.push(`requestfailed: ${request.method()} ${request.url()}`);
+    errors.push(`requestfailed: ${request.method()} ${new URL(request.url()).pathname}`);
   });
 });
 
@@ -277,7 +277,10 @@ async function uploadEvidence(page: Page, filename: string) {
   const intent = await responseBody<UploadIntent>(intentResponse);
   const file = await responseBody<FileRecord>(completeResponse);
   expect(intent.upload.method).toBe('PUT');
-  expect(transferRequest.url()).toBe(intent.upload.url);
+  expect(
+    transferRequest.url() === intent.upload.url,
+    '上传请求必须使用 upload intent 提供的签名 URL',
+  ).toBe(true);
   expect(file).toMatchObject({
     id: intent.file.id,
     original_filename: filename,

@@ -5,6 +5,7 @@
 本地或 CI 运行根 `make e2e` 时适用。V1 与 V2 AI Channel Configuration/Product Facts/Content Editor/AI Production/Content Review/Content Version Detail/Publishing/GEO/Auth 真实栈 Playwright 使用真实
 PostgreSQL、Redis、API、Worker、对象存储和浏览器，每次运行必须拥有独立数据库与临时
 存储；V2 fixture-based 页面测试继续只验证 production build artifact，不冒充真实业务闭环。
+对象存储 upload intent 的签名 query 属于临时 capability；运行真实文件流时还必须保证服务 access log、Playwright failure message 和保留产物不回显该 query。
 
 ## 2. Signatures
 
@@ -15,6 +16,7 @@ PARTSIGNAL_E2E_V2_SPEC=tests/e2e/<name>-real-stack.spec.ts deploy/scripts/e2e-lo
 deploy/scripts/e2e-database.py create partsignal_e2e_YYYYMMDD_PID
 deploy/scripts/e2e-database.py drop   partsignal_e2e_YYYYMMDD_PID
 npm --prefix frontend-v2 run e2e -- [playwright arguments...]
+backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGNAL_E2E_STORAGE_PORT" --no-access-log
 ```
 
 ## 3. Contracts
@@ -38,6 +40,7 @@ npm --prefix frontend-v2 run e2e -- [playwright arguments...]
 - V2 Foundation smoke 不创建数据库、不启动 backend、不读取 Products 业务数据，也不替代 Auth 或 V1 真实 E2E。
 - V1 运行前必须确认 `127.0.0.1:5173` 未被外部 listener 占用。当前 Vite 会在端口冲突时自动换端口，但 readiness 与 Playwright 仍固定访问 5173；遇到外部 listener 必须停止并报告所有者，不得连接外部服务或擅自终止未知进程。
 - V1 的 `REDIS_URL` 必须指向本次运行独占的 broker 逻辑库，或确认没有其他 Worker/Scheduler 连接同一 broker 逻辑库；共享队列会让外部 Worker 抢占任务并访问错误数据库，不能作为有效 E2E 环境。
+- dev-storage 必须关闭 Uvicorn access log，避免完整签名 URL 进入终端或 CI 日志；Playwright `requestfailed` 只记录 method 与 pathname。浏览器上传仍必须严格使用 upload intent 返回的完整 URL，但 assertion 只能比较 boolean 或其他不展开 operands 的值，不能在失败报告中回显 capability。
 
 ## 4. Validation & Error Matrix
 
@@ -57,12 +60,16 @@ npm --prefix frontend-v2 run e2e -- [playwright arguments...]
 | V2 发起未声明业务 API | fixture 显式记录并使测试失败，不补固定成功响应 |
 | `127.0.0.1:5173` 已被外部 listener 占用 | 运行前停止并报告 PID/命令；不得让 Vite 自动换端口后继续测试外部 5173 |
 | 其他 Worker/Scheduler 连接相同 Redis broker 逻辑库 | 改用已确认空闲的独占逻辑库，或停止明确归属的干扰进程；不得在共享队列上继续运行 |
+| 日志、错误、trace、video 或测试产物出现对象存储签名 query | Gate 失败；在 access-log 或 failure-output owner 关闭回显，不修改签名协议、不增加静默成功路径 |
 
 ## 5. Good / Base / Bad Cases
 
 - Good：V2 AI Channel Configuration、Product Facts、AI Production、Content Review/Revision、Content Version Detail、Publishing、GEO 与 Auth 在同一独立数据库栈完成真实 flow，再运行 V1 并精确清理；随后 V2 fixture suite 对 production artifact 完成页面矩阵。
 - Base：V1 产品缺陷或 V2 artifact 缺陷使根入口失败；隔离栈已创建资源仍完整清理并保留真实失败。
 - Bad：V1/V2 真实 flow 对共享开发库运行，或 V2 fixture suite 连接未受控后端、运行时加入 mock fallback、过滤失败请求。
+- Good：真实上传仍精确比较完整 intent URL，同时终端日志和失败产物只含 pathname，不含 `signature`、`expires` 或 `operation` query。
+- Base：非签名请求失败时保留 method、pathname 与浏览器错误文本，诊断能力不依赖完整 URL。
+- Bad：为方便断言直接打印 request URL，或用全局日志脱敏层掩盖 dev-storage access log 的 capability 泄漏。
 
 ## 6. Tests Required
 
@@ -76,10 +83,14 @@ npm --prefix frontend-v2 run e2e -- [playwright arguments...]
 - V1 E2E 前运行 `lsof -nP -iTCP:5173 -sTCP:LISTEN`；存在非本次 listener 时记录 PID/命令并阻塞，不运行误指向外部服务的门禁。
 - V1 E2E 前确认 `REDIS_URL` 对应逻辑库未被其他 Worker/Scheduler 使用；复用本机 Redis 时，先只读确认目标逻辑库为空，再把该独占 URL 传给本次 API、Worker 和 Scheduler。
 - 最后运行 `make e2e`；完整 Phase 1 门禁运行 `make verify`。
+- 真实 GEO 上传成功后检查 dev-storage 输出和 Playwright 保留产物不含 `signature=`；同时断言浏览器 PUT 的完整 URL 与 upload intent 完全相等，确保脱敏没有放宽传输合同。
 
 ## 7. Wrong vs Correct
 
 ```text
 Wrong: 外部进程占用 5173 或共享 Redis 队列仍继续 V1 E2E → V2 dev server/运行时 mock fallback → 忽略清理或浏览器失败
 Correct: 先确认固定端口与非 0 Redis broker 逻辑库由本次 E2E 独占 → allowlist 数据库与 mktemp 精确清理 → V2 AI Channel Configuration/Product Facts/AI Production/Publishing/GEO/Auth gate → V1 suite → 清理后运行 V2 fixture suite → 任一失败使根入口失败
+
+Wrong: dev-storage 默认 access log 或 Playwright matcher 打印完整签名 URL → capability 进入日志/失败产物
+Correct: dev-storage 使用 --no-access-log，失败只记录 method + pathname，完整 URL 只做不展开 operands 的严格 equality
 ```

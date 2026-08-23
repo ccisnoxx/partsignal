@@ -1,0 +1,11 @@
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"实施时约束删除优先、真实消费者与共享抽象门槛。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"核对 backend read model、frontend query 与测试层的单一 owner。"}
+{"file":".trellis/spec/backend/index.md","reason":"加载 backend 包规范入口与质量门禁。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"禁止 Workbench 或前端复制领域状态机和动作资格。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"保持统一 ErrorEnvelope 与显式失败边界。"}
+{"file":".trellis/spec/frontend/index.md","reason":"加载 frontend-v2 包规范入口。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"保持单 TanStack Query owner，禁止第二 cache/source。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"约束 production artifact、real-stack 与敏感产物。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"保持唯一真实栈编排、定向模式与 cleanup owner。"}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-abstraction-review/research/audit.md","reason":"实施所需的完整 finding、精确文件范围、停止条件与 owner 结论。"}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-abstraction-review/research/e2e-infra-audit.md","reason":"P1 签名 URL 泄漏路径与两处最小修正的精确证据。"}

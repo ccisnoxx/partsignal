@@ -103,7 +103,7 @@ OBJECT_STORAGE_PUBLIC_ENDPOINT="$storage_endpoint" OBJECT_STORAGE_PATH="$storage
   backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 &
 api_pid=$!
 OBJECT_STORAGE_PATH="$storage_dir" backend/.venv/bin/uvicorn app.dev_storage:app \
-  --host 127.0.0.1 --port "$PARTSIGNAL_E2E_STORAGE_PORT" &
+  --host 127.0.0.1 --port "$PARTSIGNAL_E2E_STORAGE_PORT" --no-access-log &
 storage_pid=$!
 backend/.venv/bin/uvicorn app.ai_fake_server:app --host 127.0.0.1 --port 9001 &
 ai_pid=$!

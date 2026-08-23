@@ -3,27 +3,11 @@ import { queryOptions } from '@tanstack/react-query';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 
-type ErrorDetail = components['schemas']['ErrorDetail'];
 type ErrorEnvelope = components['schemas']['ErrorEnvelope'];
-
-class WorkbenchRequestError extends Error {
-  constructor(
-    message: string,
-    readonly status?: number,
-    readonly detail?: ErrorDetail,
-  ) {
-    super(message);
-    this.name = 'WorkbenchRequestError';
-  }
-}
-
-const workbenchKeys = {
-  aggregate: () => ['workbench', 'aggregate'] as const,
-};
 
 function workbenchQueryOptions() {
   return queryOptions({
-    queryKey: workbenchKeys.aggregate(),
+    queryKey: ['workbench', 'aggregate'] as const,
     queryFn: async () => {
       const result = await api.GET('/api/v1/workbench');
       if (!result.data) throw workbenchRequestError(result);
@@ -38,16 +22,9 @@ function workbenchQueryOptions() {
 function workbenchRequestError(result: { error?: unknown; response: Response }) {
   if (isErrorEnvelope(result.error)) {
     const detail = result.error.error;
-    return new WorkbenchRequestError(
-      `${detail.message}（请求 ID：${detail.request_id}）`,
-      result.response.status,
-      detail,
-    );
+    return new Error(`${detail.message}（请求 ID：${detail.request_id}）`);
   }
-  return new WorkbenchRequestError(
-    `读取工作台失败（HTTP ${result.response.status}）`,
-    result.response.status,
-  );
+  return new Error(`读取工作台失败（HTTP ${result.response.status}）`);
 }
 
 function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
@@ -65,4 +42,4 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
   );
 }
 
-export { WorkbenchRequestError, workbenchKeys, workbenchQueryOptions };
+export { workbenchQueryOptions };

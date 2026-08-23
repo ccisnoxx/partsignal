@@ -21,7 +21,8 @@
   "children": [
     "08-23-frontend-v2-workbench-aggregate-read-model",
     "08-23-frontend-v2-workbench-ui",
-    "08-23-frontend-v2-workbench-e2e"
+    "08-23-frontend-v2-workbench-e2e",
+    "08-23-frontend-v2-workbench-abstraction-review"
   ],
   "parent": null,
   "relatedFiles": [
@@ -50,14 +51,15 @@
     "docs/frontend-v2/08-testing-quality-and-acceptance.md",
     "docs/frontend-v2/09-architecture-decisions.md"
   ],
-  "notes": "四项顺序任务图已获用户批准；父 Task 只保留规划证据，下一步创建并实施 aggregate read model 子 Task。",
+  "notes": "前三个 child Task 已提交并归档；第四个 abstraction review 已完成计划内实施与独立诊断，但存在两个独立 P1 blocker，Phase 8 Exit Gate 为 NOT_MET。",
   "meta": {
     "phase": "Frontend V2 Phase 8",
     "planning_only": true,
     "planning_approved": true,
     "phase_7_gate": "MET",
-    "current_gate": "NOT_RUN",
-    "blocker_count": 0,
+    "current_gate": "NOT_MET",
+    "blocker_count": 2,
+    "current_child": "frontend-v2-workbench-abstraction-review",
     "planned_children": [
       "frontend-v2-workbench-aggregate-read-model",
       "frontend-v2-workbench-ui",

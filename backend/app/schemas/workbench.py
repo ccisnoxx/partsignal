@@ -115,18 +115,3 @@ class WorkbenchAggregate(ContractModel):
     recent_attention_items: Annotated[
         list[WorkbenchAttentionItem], Field(max_length=10)
     ]
-
-    @model_validator(mode="after")
-    def validate_attention_order(self) -> Self:
-        """最近事项使用服务端唯一稳定顺序，客户端无需再次整理。"""
-        expected = sorted(
-            self.recent_attention_items,
-            key=lambda item: (
-                -item.occurred_at.timestamp(),
-                item.category,
-                str(item.resource_id),
-            ),
-        )
-        if self.recent_attention_items != expected:
-            raise ValueError("Workbench attention items 排序不稳定")
-        return self

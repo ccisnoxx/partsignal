@@ -1,0 +1,8 @@
+{"file":".trellis/spec/frontend/index.md","reason":"确认 Frontend V2 分层入口与适用指南。"}
+{"file":".trellis/spec/frontend/visual-system.md","reason":"复用现有 semantic token、responsive utilities 与 Design System 边界。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"约束 route、domain page 与 primitive 的组件 ownership。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"保持单一 TanStack Query server-state owner，不引入全局 store 或第二状态机。"}
+{"file":".trellis/spec/frontend/hook-guidelines.md","reason":"遵循 query hook、错误、retry 与副作用边界。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"以 generated schema 和穷尽 union 映射为类型权威。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行定向测试、typecheck、lint、build 与可访问验收。"}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-ui/research/audit.md","reason":"实施时保留聚合合同、Foundation smoke 边界和文档审计结论。"}

@@ -17,10 +17,10 @@ test('production artifact 支持 App Shell 与响应式导航', async ({ page },
     }
   });
 
-  const rootResponse = await page.goto('/');
+  const rootResponse = await page.goto('/publishing');
   expect(rootResponse?.ok()).toBe(true);
   await expect(page.getByRole('main')).toBeVisible();
-  await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '面包屑' })).toContainText('发布管理');
 
   if (testInfo.project.name === 'foundation-mobile') {
     await page.getByRole('button', { name: '打开主导航' }).click();
@@ -35,7 +35,7 @@ test('production artifact 支持 App Shell 与响应式导航', async ({ page },
     await expect(sidebar.getByRole('link', { name: '产品' })).toBeVisible();
   }
   await page.reload();
-  await expect(page.getByRole('heading', { level: 1, name: '工作台' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: '面包屑' })).toContainText('发布管理');
 
   expect(runtimeErrors, '页面不得出现未捕获异常或失败静态资源').toEqual([]);
 });

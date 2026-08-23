@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/index.md","reason":"核对最终 diff 仍符合 Frontend V2 分层。"}
+{"file":".trellis/spec/frontend/visual-system.md","reason":"核对响应式、semantic token 和 one-consumer DS 边界。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"核对 route/query/model/page ownership 和组件职责。"}
+{"file":".trellis/spec/frontend/state-management.md","reason":"核对单 aggregate query、无客户端 join、无轮询和无全局 store。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"核对 generated contract 的穷尽映射与 nullable rate。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"核对 Required Validation、键盘与四档布局验收。"}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-ui/research/audit.md","reason":"核对实现未越过审计确认的范围和停止条件。"}

@@ -16,29 +16,38 @@ V2 只定义五种主要页面 Pattern：
 
 Pattern：Operations Inbox / Workspace。
 
-首页只回答“现在最需要我处理什么”。推荐结构：
+首页只回答“现在最需要我处理什么”。页面只消费一次 `GET /api/v1/workbench` 聚合读模型；浏览器不得请求
+Product、Content、Publication 或 GEO 业务端点后自行 join。推荐结构：
 
 ```text
-早上好，<User>
+工作台
 
-需要你处理                         12
+需要你处理
 事实审核            3
 内容审核            4
 待核验发布          2
-发布异常            1
+发布处理            1
+内容问题            1
 GEO 准确性问题      2
 
 ──────────────────────────
-重点流程
-事实 / 内容 / 发布
+关注队列
+标题 / 摘要 / 分类 / 发生时间
 
 ──────────────────────────
-GEO
+流程健康
+产品事实 / 内容生产 / 发布管理 / GEO
+
+──────────────────────────
+30 日 GEO 摘要
 发现率       提及率       准确率
-最近异常
+分子/分母    分子/分母    分子/分母
 ```
 
-每项待办直接深链接到具体 Workspace。不做“快捷入口”宫格；Sidebar 已承担导航。
+六类 actionable count、attention queue、四域 workflow health、GEO 周期与 rate 均直接来自聚合响应；页面不求和
+生成不存在于合同中的总数，也不根据 count、role、status 或原始 DTO 推导资格。rate 的 `value=null` 显示“暂无数据”，
+合法 `0` 显示为 0%。每项 count link 和 attention item 原样使用服务端 canonical `href` 深链接到具体 Workspace，
+多链接 count 同时保留服务端 `links[].label/href`。不做“快捷入口”宫格；Sidebar 已承担导航。
 
 ---
 

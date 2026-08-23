@@ -1,15 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+import { WorkbenchPage } from '@/domains/workbench/workbench-page';
+import { workbenchQueryOptions } from '@/domains/workbench/workbench.api';
+
 export const Route = createFileRoute('/_app/')({
   staticData: { navId: 'workbench', breadcrumb: '工作台' },
-  component: WorkbenchFoundation,
+  loader: ({ context }) => {
+    const options = workbenchQueryOptions();
+    if (!context.queryClient.getQueryState(options.queryKey)) {
+      void context.queryClient.prefetchQuery(options);
+    }
+  },
+  component: WorkbenchPage,
 });
-
-function WorkbenchFoundation() {
-  return (
-    <section className="space-y-2">
-      <h1 className="type-page-title">工作台</h1>
-      <p className="text-text-secondary">App Shell 与路由元数据基础已就绪。</p>
-    </section>
-  );
-}

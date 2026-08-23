@@ -30,6 +30,7 @@ from app.routers.planning import router as planning_router
 from app.routers.product_facts import router as product_facts_router
 from app.routers.production import router as production_router
 from app.routers.publication import router as publication_router
+from app.routers.workbench import router as workbench_router
 from app.schemas.common import HealthResponse
 
 logger = logging.getLogger("partsignal.api")
@@ -122,4 +123,5 @@ app.include_router(planning_router)
 app.include_router(production_router)
 app.include_router(publication_router)
 app.include_router(observation_router)
+app.include_router(workbench_router)
 app.include_router(files_router)

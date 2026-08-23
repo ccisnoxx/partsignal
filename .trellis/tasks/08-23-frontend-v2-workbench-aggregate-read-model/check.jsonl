@@ -1,0 +1,8 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend Quality Check routing."}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"Verify no client eligibility copy, N+1 or untyped action projection."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Verify contract/error consistency."}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"Verify publication state and aggregation ownership."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Backend lint/type/test and forbidden-pattern review."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"Verify OpenAPI/runtime/generated types/docs stay synchronized."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Verify reuse is proven and no speculative abstraction was added."}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-aggregate-read-model/research/audit.md","reason":"Check implementation against audited owners and explicit exclusions."}

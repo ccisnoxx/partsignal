@@ -3185,6 +3185,17 @@ paths:
           content:
             application/json:
               schema: {$ref: '#/components/schemas/DashboardSummary'}
+  /api/v1/workbench:
+    get:
+      tags: [workbench]
+      operationId: getWorkbench
+      responses:
+        '200':
+          description: Frontend V2 可直接绘制的 Workbench 聚合读模型
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/WorkbenchAggregate'}
+        '401': {$ref: '#/components/responses/ErrorResponse'}
   /api/v1/geo-insights/optimization-content-tasks:
     post:
       tags: [observation]
@@ -7840,6 +7851,107 @@ components:
         pending_publications: {type: integer, minimum: 0}
         open_publication_issues: {type: integer, minimum: 0}
         recent_accuracy_errors: {type: integer, minimum: 0}
+    WorkbenchLink:
+      type: object
+      additionalProperties: false
+      required: [label, href]
+      properties:
+        label: {type: string, minLength: 1}
+        href: {type: string, minLength: 1, pattern: '^/'}
+    WorkbenchCount:
+      type: object
+      additionalProperties: false
+      required: [value, href]
+      properties:
+        value: {type: integer, minimum: 0}
+        href: {type: string, minLength: 1, pattern: '^/'}
+    WorkbenchMultiLinkCount:
+      type: object
+      additionalProperties: false
+      required: [value, links]
+      properties:
+        value: {type: integer, minimum: 0}
+        links:
+          type: array
+          minItems: 1
+          items: {$ref: '#/components/schemas/WorkbenchLink'}
+    WorkbenchActionableCounts:
+      type: object
+      additionalProperties: false
+      required: [fact_reviews, content_reviews, publication_verifications, publication_actions, content_issues, geo_accuracy_issues]
+      properties:
+        fact_reviews: {$ref: '#/components/schemas/WorkbenchCount'}
+        content_reviews: {$ref: '#/components/schemas/WorkbenchCount'}
+        publication_verifications: {$ref: '#/components/schemas/WorkbenchCount'}
+        publication_actions: {$ref: '#/components/schemas/WorkbenchMultiLinkCount'}
+        content_issues: {$ref: '#/components/schemas/WorkbenchCount'}
+        geo_accuracy_issues: {$ref: '#/components/schemas/WorkbenchMultiLinkCount'}
+    WorkbenchWorkflowHealthItem:
+      type: object
+      additionalProperties: false
+      required: [status, summary]
+      properties:
+        status: {type: string, enum: [CLEAR, ATTENTION]}
+        summary: {type: string, minLength: 1}
+    WorkbenchWorkflowHealth:
+      type: object
+      additionalProperties: false
+      required: [product_facts, content, publication, geo]
+      properties:
+        product_facts: {$ref: '#/components/schemas/WorkbenchWorkflowHealthItem'}
+        content: {$ref: '#/components/schemas/WorkbenchWorkflowHealthItem'}
+        publication: {$ref: '#/components/schemas/WorkbenchWorkflowHealthItem'}
+        geo: {$ref: '#/components/schemas/WorkbenchWorkflowHealthItem'}
+    WorkbenchRate:
+      type: object
+      additionalProperties: false
+      required: [numerator, denominator, value]
+      properties:
+        numerator: {type: integer, minimum: 0}
+        denominator: {type: integer, minimum: 0}
+        value: {type: [number, 'null'], minimum: 0, maximum: 1}
+    WorkbenchWindow:
+      type: object
+      additionalProperties: false
+      required: [date_from, date_to]
+      properties:
+        date_from: {type: string, format: date}
+        date_to: {type: string, format: date}
+    WorkbenchGeoSummary:
+      type: object
+      additionalProperties: false
+      required: [window, discovery_rate, mention_rate, accuracy_rate]
+      properties:
+        window: {$ref: '#/components/schemas/WorkbenchWindow'}
+        discovery_rate: {$ref: '#/components/schemas/WorkbenchRate'}
+        mention_rate: {$ref: '#/components/schemas/WorkbenchRate'}
+        accuracy_rate: {$ref: '#/components/schemas/WorkbenchRate'}
+    WorkbenchAttentionItem:
+      type: object
+      additionalProperties: false
+      required: [category, resource_id, title, summary, occurred_at, href]
+      properties:
+        category:
+          type: string
+          enum: [FACT_REVIEW, CONTENT_REVIEW, PUBLICATION_VERIFICATION, PUBLICATION_ACTION, CONTENT_ISSUE, GEO_ACCURACY_ISSUE]
+        resource_id: {type: string, format: uuid}
+        title: {type: string, minLength: 1}
+        summary: {type: string, minLength: 1}
+        occurred_at: {type: string, format: date-time}
+        href: {type: string, minLength: 1, pattern: '^/'}
+    WorkbenchAggregate:
+      type: object
+      additionalProperties: false
+      required: [generated_at, actionable_counts, workflow_health, geo_summary, recent_attention_items]
+      properties:
+        generated_at: {type: string, format: date-time}
+        actionable_counts: {$ref: '#/components/schemas/WorkbenchActionableCounts'}
+        workflow_health: {$ref: '#/components/schemas/WorkbenchWorkflowHealth'}
+        geo_summary: {$ref: '#/components/schemas/WorkbenchGeoSummary'}
+        recent_attention_items:
+          type: array
+          maxItems: 10
+          items: {$ref: '#/components/schemas/WorkbenchAttentionItem'}
     FileCategory: {type: string, enum: [EVIDENCE, OPERATION_SCREENSHOT, PUBLICATION_ASSET, PLATFORM_LOGO]}
     UploadIntentCreate:
       type: object

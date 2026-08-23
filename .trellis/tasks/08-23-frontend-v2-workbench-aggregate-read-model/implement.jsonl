@@ -1,0 +1,9 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend spec index and pre-development routing."}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"Server-authoritative action and fixed-query projection rules."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"FastAPI/AppError and response boundary conventions."}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"Publication aggregate, action, snapshot and data-boundary ownership."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Backend forbidden patterns and quality requirements."}
+{"file":".trellis/spec/guides/index.md","reason":"Shared thinking guide index."}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"OpenAPI to backend to generated-types consistency."}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"Reuse stable predicates without speculative framework extraction."}
+{"file":".trellis/tasks/08-23-frontend-v2-workbench-aggregate-read-model/research/audit.md","reason":"Audited current owners, canonical links and scope boundary."}

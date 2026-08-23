@@ -298,6 +298,25 @@ Design System Pattern 必须有 Storybook/component coverage；关键 domain wor
 
 **Interaction and query boundary**：固定七列没有操作列或详情按钮，整行支持 pointer/Enter/Space，关闭/history 恢复焦点。List、filter options、detail key 分离；首屏无逐行 detail、Users/业务详情 join、mutation、polling或自动刷新。越界页由 canonical replace 回到最后有效页。
 
+## ADR-046：Workbench 使用独立跨领域聚合读模型
+
+**Decision**：Frontend V2 `/` 只消费 additive `GET /api/v1/workbench`。新
+Workbench router/schema/service 是六类 actionable count、四域 health、30 日 GEO
+summary 与最近十项 attention 的唯一 owner；浏览器不读取 Product、Content、
+Publication 或 GEO 分页接口拼装首页。旧 `/api/v1/dashboard/summary` 与 V1 Dashboard
+保持原样到 Phase 9，不成为 V2 的兼容 fallback 或第二数据源。
+
+**Snapshot and authority boundary**：聚合在一个 PostgreSQL `REPEATABLE READ` 请求内
+执行固定次数批量查询。状态、current version、Publication action、Issue repair 阶段与
+GEO correction tail 均读取现有服务端权威事实；count/link/item href 由服务端直接投影。
+GEO rate 只使用窗口内 current-tail manual article result，legacy 只参与 accuracy issue；
+分母为零返回 `null`。前端不得按 role/status/count 重建资格、状态机或链接。
+
+**Safety and scope boundary**：attention 只输出稳定 identity、时间、安全 metadata 与现有
+Workspace/Detail href，不返回正文、notes、prompt、secret、请求载荷、审计 raw details
+或外部页面内容。不新增数据库、缓存、mutation、通用 Dashboard/Workflow/ReadModel
+framework，也不修改 V1；UI、strict fixture 与 real-stack 证据由后续独立 Task 交付。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

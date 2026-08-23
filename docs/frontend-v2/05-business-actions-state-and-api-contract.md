@@ -260,9 +260,29 @@ Correction 继续复用 `POST /api/v1/geo-observations`，不增加专用写入�
 
 ## 15. Workbench Aggregate
 
-首页应有专用 aggregate read model，返回 fact_reviews/content_reviews/publication_verifications/publication_actions/content_issues/geo_accuracy_issues，以及 workflow health、geo summary、recent attention items。
+Frontend V2 首页只读取 `GET /api/v1/workbench`。该 endpoint 在一个 PostgreSQL
+`REPEATABLE READ` 请求内返回六类固定 actionable count：`fact_reviews`、
+`content_reviews`、`publication_verifications`、`publication_actions`、
+`content_issues`、`geo_accuracy_issues`。单状态 count 直接携带 canonical filter
+`href`；Publication Action 与 GEO Accuracy 各自携带现有列表合同支持的多条精确
+filter link。浏览器不得请求多个分页 list 后重算数量、流程健康或资格。
 
-不要在浏览器通过多个分页 list endpoint 计算 dashboard。
+`workflow_health` 只对 Product Fact、Content、Publication、GEO 投影
+`CLEAR|ATTENTION` 与服务端摘要，不建立第二套业务状态机或严重度阈值。
+`geo_summary` 固定使用生成时点所在 UTC 自然日及前 29 日，只统计 correction chain
+当前尾的 manual article result：发现率与提及率以逐篇结果为分母，准确率排除
+`null/UNJUDGEABLE`；任何分母为零时 `value=null`，不得用 `0` 伪造样本。
+Legacy 观测不进入 rate，但其当前尾在窗口内为 `PARTIAL/INCORRECT` 时仍进入 GEO
+accuracy issue 与 attention。
+
+`recent_attention_items` 最多 10 条，按 `occurred_at DESC, category ASC,
+resource_id ASC` 由服务端稳定排序。每项只返回 typed category、稳定资源 ID、安全标题/
+摘要和直接 Workspace/Detail href；不得包含 Markdown 正文、notes、prompt、外部页面正文、
+secret/token、请求载荷或审计 raw details。所有候选查询次数固定，禁止 item loop 查询、
+内部 HTTP join、Redis/cache 或通用 Dashboard/Workflow framework。
+
+旧 `GET /api/v1/dashboard/summary` 与 V1 Dashboard 原样保留到 Phase 9；它不是 V2
+Workbench 的数据来源，也不得与新 aggregate 在浏览器合并。
 
 ## 16. Status Registry
 

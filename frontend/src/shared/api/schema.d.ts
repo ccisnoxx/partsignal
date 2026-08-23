@@ -1980,6 +1980,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/workbench": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWorkbench"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/geo-insights/optimization-content-tasks": {
         parameters: {
             query?: never;
@@ -5198,6 +5214,73 @@ export interface components {
             pending_publications: number;
             open_publication_issues: number;
             recent_accuracy_errors: number;
+        };
+        WorkbenchLink: {
+            label: string;
+            href: string;
+        };
+        WorkbenchCount: {
+            value: number;
+            href: string;
+        };
+        WorkbenchMultiLinkCount: {
+            value: number;
+            links: components["schemas"]["WorkbenchLink"][];
+        };
+        WorkbenchActionableCounts: {
+            fact_reviews: components["schemas"]["WorkbenchCount"];
+            content_reviews: components["schemas"]["WorkbenchCount"];
+            publication_verifications: components["schemas"]["WorkbenchCount"];
+            publication_actions: components["schemas"]["WorkbenchMultiLinkCount"];
+            content_issues: components["schemas"]["WorkbenchCount"];
+            geo_accuracy_issues: components["schemas"]["WorkbenchMultiLinkCount"];
+        };
+        WorkbenchWorkflowHealthItem: {
+            /** @enum {string} */
+            status: "CLEAR" | "ATTENTION";
+            summary: string;
+        };
+        WorkbenchWorkflowHealth: {
+            product_facts: components["schemas"]["WorkbenchWorkflowHealthItem"];
+            content: components["schemas"]["WorkbenchWorkflowHealthItem"];
+            publication: components["schemas"]["WorkbenchWorkflowHealthItem"];
+            geo: components["schemas"]["WorkbenchWorkflowHealthItem"];
+        };
+        WorkbenchRate: {
+            numerator: number;
+            denominator: number;
+            value: number | null;
+        };
+        WorkbenchWindow: {
+            /** Format: date */
+            date_from: string;
+            /** Format: date */
+            date_to: string;
+        };
+        WorkbenchGeoSummary: {
+            window: components["schemas"]["WorkbenchWindow"];
+            discovery_rate: components["schemas"]["WorkbenchRate"];
+            mention_rate: components["schemas"]["WorkbenchRate"];
+            accuracy_rate: components["schemas"]["WorkbenchRate"];
+        };
+        WorkbenchAttentionItem: {
+            /** @enum {string} */
+            category: "FACT_REVIEW" | "CONTENT_REVIEW" | "PUBLICATION_VERIFICATION" | "PUBLICATION_ACTION" | "CONTENT_ISSUE" | "GEO_ACCURACY_ISSUE";
+            /** Format: uuid */
+            resource_id: string;
+            title: string;
+            summary: string;
+            /** Format: date-time */
+            occurred_at: string;
+            href: string;
+        };
+        WorkbenchAggregate: {
+            /** Format: date-time */
+            generated_at: string;
+            actionable_counts: components["schemas"]["WorkbenchActionableCounts"];
+            workflow_health: components["schemas"]["WorkbenchWorkflowHealth"];
+            geo_summary: components["schemas"]["WorkbenchGeoSummary"];
+            recent_attention_items: components["schemas"]["WorkbenchAttentionItem"][];
         };
         /** @enum {string} */
         FileCategory: "EVIDENCE" | "OPERATION_SCREENSHOT" | "PUBLICATION_ASSET" | "PLATFORM_LOGO";
@@ -9615,6 +9698,27 @@ export interface operations {
                     "application/json": components["schemas"]["DashboardSummary"];
                 };
             };
+        };
+    };
+    getWorkbench: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Frontend V2 可直接绘制的 Workbench 聚合读模型 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkbenchAggregate"];
+                };
+            };
+            401: components["responses"]["ErrorResponse"];
         };
     };
     createGeoOptimizationContentTask: {

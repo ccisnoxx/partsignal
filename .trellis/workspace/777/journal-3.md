@@ -1664,3 +1664,24 @@ Configuration 自身未解决 P0/P1/P2 为 0；当前候选 make verify 因范�
 ### Next Steps
 
 - None - task complete
+
+
+## Session 163: Frontend V2 Workbench aggregate read model
+
+**Date**: 2026-08-23
+**Task**: Frontend V2 Workbench aggregate read model
+**Branch**: `main`
+
+### Summary
+
+新增 GET /api/v1/workbench 聚合读模型，冻结六类 actionable counts、四域 health、30 日 GEO rates、recent attention 与 canonical href；完成合同、生成类型、文档、PostgreSQL 定向验证和独立自审。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `545ecde2` | (see git log) |
+
+### Status
+
+[OK] **Completed**

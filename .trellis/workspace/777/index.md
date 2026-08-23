@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 162
+- **Total Sessions**: 163
 - **Last Active**: 2026-08-23
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1666 | Active |
+| `journal-3.md` | ~1687 | Active |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 163 | 2026-08-23 | Frontend V2 Workbench aggregate read model | `545ecde2` | `main` |
 | 162 | 2026-08-23 | Frontend V2 Phase 7 Exit Gate 收口 | `db25f90f8c4ed1086991e933d952f195cd38970d` | `main` |
 | 161 | 2026-08-17 | Frontend V2 System Admin E2E 收尾 | `21bcde1e` | `codex/frontend-v2-system-admin-e2e` |
 | 160 | 2026-08-17 | Frontend V2 Auth Session UI | `c6ce237b`, `10a26476` | `main` |

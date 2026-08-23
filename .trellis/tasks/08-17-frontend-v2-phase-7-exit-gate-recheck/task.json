@@ -1,0 +1,46 @@
+{
+  "id": "frontend-v2-phase-7-exit-gate-recheck",
+  "name": "frontend-v2-phase-7-exit-gate-recheck",
+  "title": "Frontend V2 Phase 7 Exit Gate Recheck",
+  "description": "在四个独立 blocker 合入 main 后，先独立运行完整门禁阶段，再以唯一一次 make verify 重判 Phase 7 Exit Gate。",
+  "status": "in_progress",
+  "dev_type": "validation",
+  "scope": "repository-wide Phase 7 gate recheck and documentation closeout",
+  "package": "frontend-v2",
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-17",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-17-frontend-v2-system-abstraction-review",
+  "relatedFiles": [
+    "Makefile",
+    "deploy/scripts/e2e-local.sh",
+    "docs/frontend-v2/07-migration-plan.md",
+    "docs/frontend-v2/08-testing-quality-and-acceptance.md",
+    ".trellis/tasks/08-17-frontend-v2-system-abstraction-review/"
+  ],
+  "notes": "纯验证 Task 已完成候选冻结、独立诊断和唯一一次最终 make verify；全部退出 0，Phase 7 Exit Gate=MET。等待用户批准提交与后续归档，不开始 Phase 8。",
+  "meta": {
+    "candidate_head": "24cc8f81e12247705b59eb3ade4a2cbbdb049d2c",
+    "current_gate": "MET",
+    "blocker_commits": [
+      "9feffdc59d2f7c86f848940bb3ebe298306eca05",
+      "b4c02fb03607ec5d5f59e05d33d054afe43f71a7",
+      "79cce8cef681bfaeabc1047b3c004b269b5edbe2",
+      "24cc8f81e12247705b59eb3ade4a2cbbdb049d2c"
+    ],
+    "final_make_verify_limit": 1,
+    "final_make_verify_count": 1,
+    "final_make_verify_exit_code": 0,
+    "open_p0_p1_p2": "0/0/0",
+    "runtime_behavior_change": false
+  }
+}

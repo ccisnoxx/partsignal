@@ -192,3 +192,11 @@ Phase 7 Exit Gate 最终判定为 `NOT_MET`。仓库级独立诊断发现 backen
 ## 7. Phase 7 Exit Gate
 
 **判定：`NOT_MET`。** System vertical slice 本身的任务内缺口已关闭，依赖方向、服务端权威、单一状态 owner、敏感路径和测试编排的定向证据均成立；但 Required Validation 仍存在 F13 四个独立 blocker。按批准规则，不更新 07/08 的 Phase 7 完成状态，不开始 Phase 8，也不以本任务跨 owner 修复。
+
+## 8. Recheck 后续证据
+
+上述 `NOT_MET` 是首次审计时点的历史结论，保留不改写。四个 F13 blocker 后续由独立 owner Task 关闭并合入 `main`：backend reset-password fixture `9feffdc5`、跨 domain Auth route harness `b4c02fb0`、Fact Review 真实 409 revision E2E `79cce8ce`、Platform Types 非管理员 E2E `24cc8f81`。
+
+纯验证子任务 `frontend-v2-phase-7-exit-gate-recheck` 固定候选 `24cc8f81e12247705b59eb3ade4a2cbbdb049d2c`，先独立通过 contract/lint/typecheck/unit/integration/build/E2E/dev-prod Compose config，再运行唯一一次实际 `make verify`。最终 gate 退出 `0`、耗时 `19:23.64`：backend unit 201、V1 unit 205、visual contract 24、V2 unit 457、integration 117、V2 real-stack 16、V1 E2E 52、V2 fixture 379 passed / 33 skipped，三套 build 与双 Compose config 全绿；Redis、临时数据库、storage 和固定端口完成精确 cleanup。
+
+八项 invariant 无新反证，没有新增 P0/P1/P2 或独立 blocker。**Phase 7 Exit Gate 最终判定更新为 `MET`，open P0/P1/P2=`0/0/0`。** 此后续判定不擦除首次 `NOT_MET` 过程，也不授权开始 Phase 8。

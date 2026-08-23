@@ -63,8 +63,8 @@
 - [x] 删除仅转发 `Outlet` 的 wrapper 和无消费者 query-key glue，不新增替代抽象。
 - [x] 静态依赖检查证明 Design System/shared 没有反向导入 System/Auth domain 或业务 DTO。
 - [x] Users、Audit、Auth、403、strict fixture 与 real-stack E2E 的职责边界保持互补，没有新增重复编排。
-- [ ] 所有 Required Validation 通过；仓库级 unit/E2E 存在独立 blocker，因此按停止条件未运行最终 `make verify`。
-- [x] Gate `NOT_MET` 已记录在当前 Task evidence；按批准条件保持 07/08 不变，且无新 ADR/合同事实，不改 01/04/05/06/09、OpenAPI 或 database contract。
+- [x] 本任务首次诊断的四个范围外 blocker 已由独立 Task 关闭；Recheck 的全部独立阶段和唯一一次最终 `make verify` 均通过。
+- [x] 首次 `NOT_MET` 历史保留；最终 Recheck 已同步 07/08 与父/子 Task evidence 为 `MET`，且无新 ADR/合同事实，不改 01/04/05/06/09、OpenAPI 或 database contract。
 - [x] 完整 diff 无新 framework、silent fallback、权限推导、第二来源、敏感产物、无关修改或旧 `frontend/` 修改。
 
 ## 8. Phase 7 Exit Gate
@@ -84,6 +84,6 @@
 
 ## 9. 当前实施状态
 
-- Task 状态为 `in_progress`，当前分支为 `codex/frontend-v2-system-abstraction-review`。
-- 已完成任务内最小修正、独立诊断、自审和 `NOT_MET` 证据记录。
-- 因独立 blocker 未运行完整 `make verify`，未更新 07/08；尚未 push、创建 PR、归档或开始 Phase 8。
+- Task 状态保持 `in_progress`，原临时分支已合入本地 `main` 并删除，任务内修正提交为 `ab748d02`。
+- 首次诊断的四个独立 blocker 已分别关闭并合入 `main`；其后纯验证 Recheck 在同一候选完成全部独立阶段和唯一最终 `make verify`。
+- 最终 Phase 7 Exit Gate=`MET`，open P0/P1/P2=`0/0/0`，07/08 已同步；尚未提交本次 Recheck evidence、归档、push、创建 PR 或开始 Phase 8。

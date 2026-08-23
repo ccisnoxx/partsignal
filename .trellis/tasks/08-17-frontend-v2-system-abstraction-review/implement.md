@@ -232,3 +232,9 @@ refactor(frontend-v2): tighten system ownership boundaries
 - `.trellis/tasks/08-17-frontend-v2-system-abstraction-review/**`
 
 07/08 不在当前 commit 范围：Gate 未全绿，按 Phase C 保持权威文档不变。提交前必须向用户展示实际 diff、validation 和 residual risk 并再次获得确认；不自动归档或 push。
+
+## 11. Recheck 最终结果
+
+第 9、10 节记录的是本任务首次诊断与当时提交边界，作为历史保留。任务内修正已以 `ab748d02` 合入本地 `main`；四个范围外 blocker 随后分别由独立 Task 关闭。
+
+子任务 `frontend-v2-phase-7-exit-gate-recheck` 在固定候选 `24cc8f81e12247705b59eb3ade4a2cbbdb049d2c` 上先完成全部独立阶段，再只运行一次实际 `make verify`。最终退出 `0`、耗时 `19:23.64`，所有 unit/integration/build/E2E/Compose 阶段通过且 cleanup 完整。Phase 7 Exit Gate 最终为 `MET`，open P0/P1/P2=`0/0/0`；07/08 已按成功路径同步，未开始 Phase 8。

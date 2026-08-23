@@ -12,16 +12,17 @@
   "assignee": "777",
   "createdAt": "2026-08-17",
   "completedAt": null,
-  "branch": "codex/frontend-v2-system-abstraction-review",
+  "branch": null,
   "base_branch": "main",
   "worktree_path": null,
-  "commit": null,
+  "commit": "ab748d02",
   "pr_url": null,
   "subtasks": [],
   "children": [
     "08-17-frontend-v2-auth-route-test-harness",
     "08-17-frontend-v2-fact-review-409-revision-e2e",
-    "08-17-frontend-v2-platform-types-non-admin-e2e"
+    "08-17-frontend-v2-platform-types-non-admin-e2e",
+    "08-17-frontend-v2-phase-7-exit-gate-recheck"
   ],
   "parent": null,
   "relatedFiles": [
@@ -40,12 +41,14 @@
     "docs/frontend-v2/07-migration-plan.md",
     "docs/frontend-v2/08-testing-quality-and-acceptance.md"
   ],
-  "notes": "计划已批准并完成任务内最小修正与独立诊断。System/Auth 定向验证通过；仓库级 unit 与 frontend-v2 E2E 存在独立 owner 阻塞，故未运行最终 make verify，Phase 7 Exit Gate 判定为 NOT_MET。未提交、推送、创建 PR 或归档。",
+  "notes": "任务内修正已以 ab748d02 合入 main；首次 NOT_MET 的四个独立 blocker 已关闭，Recheck 的独立阶段和唯一一次 make verify 全绿，Phase 7 Exit Gate 最终为 MET。等待 Recheck evidence 提交与后续归档确认，不开始 Phase 8。",
   "meta": {
     "phase": "Frontend V2 Phase 7 Exit Gate",
     "planned_branch": "codex/frontend-v2-system-abstraction-review",
     "planning_approved": true,
-    "current_gate": "NOT_MET",
-    "blocker_count": 4
+    "current_gate": "MET",
+    "blocker_count": 0,
+    "open_p0_p1_p2": "0/0/0",
+    "recheck_candidate": "24cc8f81e12247705b59eb3ade4a2cbbdb049d2c"
   }
 }

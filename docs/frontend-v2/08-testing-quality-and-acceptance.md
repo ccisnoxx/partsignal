@@ -375,6 +375,14 @@ production artifact 在两个 Playwright project 中覆盖 375/768/1024/1440 根
 
 唯一最终 fail-fast 入口实际为 V2 real-stack `15 passed (1.2m)`、V1 E2E `52 passed (5.5m)`、退出码 `0`、总耗时 `417s`。password、Cookie value、CSRF token 与 request body 未进入测试产物或失败输出；real-stack trace 关闭，未生成 video/screenshot/storage state/attachment。EXIT trap 删除 Redis DB 14 的本次 key、drop `partsignal_e2e_20260817_20828`、移除临时 storage 并释放 `8000/9001/5173/4173/4174/19009`；事后只读核验为 Redis DB 14 `0` key、临时数据库 `0`、storage 不存在且六端口空闲。
 
+### 13.30 System 抽象回顾与 Phase 7 Exit Gate
+
+`frontend-v2-system-abstraction-review` 复核了 route → domain → design-system/shared 依赖、Auth session/CSRF/`must_change_password`/query cache 单一 owner、Users revision/selection/bulk/invalidation、Audit URL selection/lazy detail/immutable history、服务端权限权威及三层测试职责。任务内最小修正只统一 System component harness 的 canonical Auth session、补齐 Audit 空时间校验，并删除薄 route/query-key glue；Design System/shared 未引入 User、Audit、role、permission 或业务 DTO，也未新增通用管理框架。首次诊断的四个范围外测试 owner blocker 保留为历史 `NOT_MET`，随后由四个独立 Task 分别关闭。
+
+最终 Recheck 候选为 `24cc8f81e12247705b59eb3ade4a2cbbdb049d2c`。独立阶段依次通过 contract-check、lint、typecheck、unit、integration、build、完整 E2E 和 dev/prod Compose config：backend unit `201 passed`，V1 unit `205 passed`，visual contract `24 passed`，V2 unit `457 passed`，PostgreSQL integration `117 passed`，V2 real-stack `16 passed`，V1 E2E `52 passed`，V2 fixture E2E `379 passed / 33 skipped`。System/Auth 敏感路径的既有 secret artifact 断言通过，真实栈未生成失败 trace/video/report；cleanup 显示 Redis DB 14 本次 key 已删除、临时数据库已 drop、临时 storage 已移除，`8000/9001/5173/4173/4174/19009` 均释放。
+
+在上述候选合理预期通过后，只运行一次最终 fail-fast `make verify`；退出码 `0`、总耗时 `19:23.64`，各 suite 计数与独立阶段一致，三套 production build 和双 Compose config 通过。八项 System shared invariant 无新反证，open P0/P1/P2=`0/0/0`，Phase 7 Exit Gate=`MET`；此结论不授权开始 Phase 8。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

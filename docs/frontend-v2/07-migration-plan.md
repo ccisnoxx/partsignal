@@ -491,6 +491,10 @@ Phase 3.4 Editor 退出条件：人工首稿、保存、修订、提交、readon
 
 `frontend-v2-system-admin-e2e` 已复用唯一 `e2e-local.sh` 隔离生命周期补齐管理员权限闭环：ADMIN 通过 V2 UI 创建 ENGINEER，ENGINEER 首次登录并强制改密；System 导航隐藏、两个直接路由 403 与六个 ADMIN-only API 403 均由真实服务证明。ADMIN reset 后旧会话返回 `401/AUTH_REQUIRED`；bulk 同时得到 ENGINEER 成功与 seed ADMIN `LAST_ADMIN_REQUIRED`；create/reset/bulk Request ID 可在 Audit List 与 lazy Detail 追踪，用户删除后改密审计仍保留。最终入口为 V2 real-stack `15 passed`、V1 E2E `52 passed`、退出码 `0`、耗时 `417s`，且 secret scan 与数据库、Redis、storage、进程和端口清理均通过。Phase 7 下一项仅剩 System 抽象回顾。
 
+`frontend-v2-system-abstraction-review` 已完成 System/Auth vertical slice 的依赖、状态 owner、权限、revision、缓存、敏感字段与测试编排审计。任务内以最小修正统一 System component harness 到 canonical Auth session query、拒绝 Audit 空时间输入，并删除薄 admin route wrapper 与无消费者 Audit query-key glue；未新增 Admin/CRUD/Permission/Audit/workflow framework。首次仓库级诊断发现四个范围外测试 owner blocker，因此当时保留 `NOT_MET`；其后 backend reset-password fixture、跨 domain Auth route harness、Fact Review 真实 409 revision flow 与 Platform Types 非管理员 E2E 已分别由独立 Task 关闭。
+
+`frontend-v2-phase-7-exit-gate-recheck` 在同一 `main` 候选 `24cc8f81e12247705b59eb3ade4a2cbbdb049d2c` 上先独立执行全部门禁阶段：contract、lint、typecheck、backend/V1/V2 unit、PostgreSQL integration `117 passed`、三套 production build、V2 real-stack `16 passed`、V1 E2E `52 passed`、V2 fixture E2E `379 passed / 33 skipped` 及 Compose dev/prod config 全部通过；real-stack cleanup 精确删除 Redis DB 14 本次 key、drop 临时数据库、移除临时 storage 并释放六个固定端口。随后唯一一次最终 `make verify` 退出 `0`、总耗时 `19:23.64`：backend unit `201 passed`、V1 unit `205 passed`、visual contract `24 passed`、V2 unit `457 passed`、integration `117 passed`、V2 real-stack `16 passed`、V1 E2E `52 passed`、V2 fixture E2E `379 passed / 33 skipped`，三套 build 与双 Compose config 同样通过。八项 System shared invariant 无新反证，open P0/P1/P2=`0/0/0`；Phase 7 Exit Gate 最终改判为 `MET`，但本检查点不开始 Phase 8。
+
 退出条件：admin 权限由服务端最终验证；bulk partial failure 有明确反馈；mobile audit 使用 Sheet；Audit 无 action column。
 
 ## 13. Phase 8 — Workbench

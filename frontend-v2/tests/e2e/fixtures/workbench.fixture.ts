@@ -127,4 +127,4 @@ const test = base.extend<{ workbenchApi: WorkbenchController }>({
   }, { auto: true }],
 });
 
-export { aggregate, expect, test };
+export { aggregate, emptyAggregate, expect, test };

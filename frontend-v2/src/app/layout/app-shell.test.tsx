@@ -12,6 +12,37 @@ import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 
 type ProductDetail = components['schemas']['ProductDetail'];
+type ProductList = components['schemas']['ProductList'];
+type WorkbenchAggregate = components['schemas']['WorkbenchAggregate'];
+
+const emptyWorkbenchAggregate = {
+  generated_at: '2026-08-23T08:00:00Z',
+  actionable_counts: {
+    fact_reviews: { value: 0, href: '/products?workbench=fact-review' },
+    content_reviews: { value: 0, href: '/content/tasks?workbench=content-review' },
+    publication_verifications: { value: 0, href: '/publishing/work?workbench=verification' },
+    publication_actions: { value: 0, links: [{ label: '处理待开始发布', href: '/publishing/work?workbench=ready' }] },
+    content_issues: { value: 0, href: '/publishing/issues?workbench=open' },
+    geo_accuracy_issues: { value: 0, links: [{ label: '检查准确性异常', href: '/geo/observations?workbench=accuracy' }] },
+  },
+  workflow_health: {
+    product_facts: { status: 'CLEAR', summary: '产品事实流程正常' },
+    content: { status: 'CLEAR', summary: '内容流程正常' },
+    publication: { status: 'CLEAR', summary: '发布流程正常' },
+    geo: { status: 'CLEAR', summary: 'GEO 流程正常' },
+  },
+  geo_summary: {
+    window: { date_from: '2026-07-25', date_to: '2026-08-23' },
+    discovery_rate: { numerator: 0, denominator: 0, value: null },
+    mention_rate: { numerator: 0, denominator: 0, value: null },
+    accuracy_rate: { numerator: 0, denominator: 0, value: null },
+  },
+  recent_attention_items: [],
+} satisfies WorkbenchAggregate;
+
+const emptyProductList = {
+  items: [], page: 1, page_size: 20, total: 0,
+} satisfies ProductList;
 
 const productId = '00000000-0000-4000-8000-000000000001';
 const productDetail = {
@@ -158,19 +189,24 @@ describe('AppShell', () => {
   });
 
   it('pathname 导航聚焦主内容，search-only 更新不抢焦点', async () => {
-    vi.spyOn(api, 'GET').mockImplementation(async () => {
-      const data = { items: [], page: 1, page_size: 20, total: 0 };
-      return { data, response: Response.json(data) } as never;
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/workbench') {
+        return { data: emptyWorkbenchAggregate, response: Response.json(emptyWorkbenchAggregate) } as never;
+      }
+      if (path === '/api/v1/products') {
+        return { data: emptyProductList, response: Response.json(emptyProductList) } as never;
+      }
+      throw new Error(`App Shell 测试收到未声明的 GET ${path}`);
     });
     const router = renderRoute('/');
     const user = userEvent.setup();
     const productLink = await screen.findByRole('link', { name: '产品' });
     await user.click(productLink);
     await screen.findByRole('heading', { name: '产品事实' });
+    const tableRegion = await screen.findByRole('region', { name: '产品事实列表' });
 
     const main = screen.getByRole('main');
     await waitFor(() => expect(main).toHaveFocus());
-    const tableRegion = screen.getByRole('region', { name: '产品事实列表' });
     tableRegion.focus();
 
     await router.navigate({ to: '/products', search: { q: 'router', page: 2 } });

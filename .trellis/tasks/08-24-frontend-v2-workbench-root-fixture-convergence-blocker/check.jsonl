@@ -1,0 +1,3 @@
+{"file":".trellis/spec/frontend/index.md","reason":"检查 Frontend V2 变更是否遵循适用规范与范围边界。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"验证 strict fixture、完整 V2 unit、mobile/desktop Playwright 和未声明 API 审计保持。"}
+{"file":".trellis/tasks/08-24-frontend-v2-workbench-root-fixture-convergence-blocker/research/audit.md","reason":"按 A25 实际失败证据复核 root cause、文件范围、fixture 复用与 A26 非范围。"}

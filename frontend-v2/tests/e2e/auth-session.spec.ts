@@ -3,6 +3,7 @@ import { URL } from 'node:url';
 
 import type { components } from '../../src/shared/api/generated/schema';
 import { expectSecretsAbsent } from './secret-artifact';
+import { emptyAggregate } from './fixtures/workbench.fixture';
 
 type AuthUser = components['schemas']['User'];
 type AuthFixture = {
@@ -48,6 +49,10 @@ const test = base.extend<AuthFixture>({
       }
       if (method === 'GET' && pathname === '/api/v1/auth/csrf' && currentUser) {
         await route.fulfill({ status: 200, json: { csrf_token: csrfToken } });
+        return;
+      }
+      if (method === 'GET' && pathname === '/api/v1/workbench') {
+        await route.fulfill({ status: 200, json: emptyAggregate });
         return;
       }
       if (method === 'POST' && pathname === '/api/v1/auth/login') {

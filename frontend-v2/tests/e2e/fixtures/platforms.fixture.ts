@@ -3,6 +3,7 @@ import { expect, test as base } from '@playwright/test';
 import { URL } from 'node:url';
 
 import type { components } from '../../../src/shared/api/generated/schema';
+import { emptyAggregate } from './workbench.fixture';
 
 type PlatformProfile = components['schemas']['PlatformProfile'];
 type PlatformProfileList = components['schemas']['PlatformProfileList'];
@@ -174,6 +175,10 @@ const test = base.extend<PlatformFixtures>({
           status: 200,
           json: { csrf_token: 'platforms-e2e-csrf' } satisfies components['schemas']['CsrfToken'],
         });
+        return;
+      }
+      if (request.method() === 'GET' && url.pathname === '/api/v1/workbench') {
+        await route.fulfill({ status: 200, json: emptyAggregate });
         return;
       }
       if (request.method() === 'GET' && url.pathname === '/api/v1/platform-profiles') {

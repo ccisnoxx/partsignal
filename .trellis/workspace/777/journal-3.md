@@ -1834,3 +1834,24 @@ A26 child 归档后同步父 Task：六个 child 均已归档，开放 blocker �
 ### Status
 
 [OK] **Completed**
+
+
+## Session 171: Frontend V2 Phase 8 Exit Gate MET 收口
+
+**Date**: 2026-08-24
+**Task**: Frontend V2 Phase 8 Exit Gate MET 收口
+**Branch**: `main`
+
+### Summary
+
+在固定候选 3c93e8b2 上完成九个独立阶段和唯一一次 make verify，Phase 8 Exit Gate 判定 MET，更新 07/08 与父任务 metadata，并归档 post-blocker recheck。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8c4b88e` | (see git log) |
+
+### Status
+
+[OK] **Completed**

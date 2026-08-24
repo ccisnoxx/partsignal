@@ -391,6 +391,20 @@ Workbench 不新增独立 real-stack spec，而是在四个既有 owner 的自�
 
 四个 owner 必须分别通过 `PARTSIGNAL_E2E_V2_SPEC=<owner> deploy/scripts/e2e-local.sh` 独立运行；单项失败不阻止其他安全独立诊断，代码和环境未改变时不重复失败命令。失败输出只报告资源标识、状态、canonical href 和脱敏错误，不输出 password、Cookie、CSRF、header、request body、storage state 或敏感正文；保持 trace/video/report 的既有安全设置。每次运行均须保留数据库 drop、Redis 本次 key 删除、storage 移除、进程停止及端口释放证据。
 
+### 13.32 Phase 8 Exit Gate
+
+最终固定候选为 `3c93e8b2d164f57b2ef253bad010bb9e0e1d7403`。A25 root fixture convergence、A26 Auth/Workbench navigation cancellation、A27 最终 Gate 两键环境、A28 Settings failure-output、A29 V1 MVP 删除菜单 locator 与 A30 Celery lifecycle output 六个 blocker 均已关闭，父任务 `blocker_count=0`，open P0/P1/P2=`0/0/0`。
+
+九个独立阶段严格串行、各一次且全部退出 `0`：contract-check `2.275s`、lint `9.234s`、typecheck `7.915s`、unit `260.219s`、integration `120 passed / 150.100s`、build `19.440s`、完整 E2E `740.577s`、dev/prod Compose config `0.089s / 0.037s`。独立 unit 实际保留 V1 Vitest `205 passed` 与 V2 Vitest `463 passed`；backend pytest 和 V1 visual contract 均通过，但受控内存摘要未保留数字，故标记 unavailable 而不复制旧计数。独立 E2E 为 V2 real-stack `16 passed`、V1 `52 passed`、V2 fixture `383 passed / 33 skipped / 0 failed`。
+
+独立阶段全绿后只运行一次最终 `make verify`：`2026-08-24 15:33:30`–`15:53:11 +08:00`，exit `0`，总耗时 `1180.905s`。现场计数为 backend unit `204 passed`、V1 Vitest `205 passed`、V2 Vitest `463 passed`、backend integration `120 passed`、V2 real-stack `16 passed`、V1 E2E `52 passed`、V2 fixture `383 passed / 33 skipped / 0 failed`；V1 visual contract 通过但计数同样未被内存摘要保留。backend/frontend/V2 production build 与 dev/prod Compose config 全部通过。
+
+独立 E2E 与最终 Gate 分别实时选择非 0、空闲、无外部客户端且彼此不同的 Redis DB `7`、`14`，两次现有 preflight 均通过。两轮 cleanup 都证明临时 database dropped、Redis allowlist cleanup 后 empty/external clients `0`、storage removed、服务进程 stop/wait 完成，`8000/9001/5173/4173/4174/19009` 全部 released。
+
+敏感保证严格限定到实际 owner：A27 只向 Gate 子进程传递宿主机化 `DATABASE_URL`/`REDIS_URL` 两键；A28 覆盖 Settings repr 与 Pydantic `ValidationError`；A30 用 Celery 顶层 quiet 关闭 broker lifecycle 回显；dev-storage/Playwright 继续关闭签名 URL access log 与 real-stack trace。两轮受控内存输出审查的精确敏感值、Redis URI、Redis connection/broker lifecycle 与签名 query 类别均为 `0`。这不是全局 secret scanner，也不扩大为对所有日志 sink 的保证。
+
+所有历史 `NOT_MET` evidence 保持原结论；本轮判定 Phase 8 Exit Gate=`MET`。Phase 8 父任务未归档，Phase 9 未开始。
+
 ## 14. Deployment Smoke
 
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。

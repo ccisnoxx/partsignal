@@ -30,7 +30,8 @@
     "08-24-frontend-v2-phase-8-settings-failure-output-safety-blocker",
     "08-24-frontend-v2-phase-8-exit-gate-final-recheck",
     "08-24-frontend-v2-phase-8-v1-mvp-flow-delete-selector-blocker",
-    "08-24-frontend-v2-phase-8-celery-lifecycle-output-safety-blocker"
+    "08-24-frontend-v2-phase-8-celery-lifecycle-output-safety-blocker",
+    "08-24-frontend-v2-phase-8-exit-gate-post-blocker-recheck"
   ],
   "parent": null,
   "relatedFiles": [
@@ -59,15 +60,15 @@
     "docs/frontend-v2/08-testing-quality-and-acceptance.md",
     "docs/frontend-v2/09-architecture-decisions.md"
   ],
-  "notes": "A25/A26/A27/A28/A29/A30 已关闭。A30 以 Celery 原生 quiet 关闭 lifecycle 连接值回显并通过真实 Worker 定向 E2E；当前 blocker_count=0，Phase 8 保持 NOT_MET，等待新的独立 Exit Gate recheck。",
+  "notes": "A25–A30 已关闭，blocker_count=0。post-blocker recheck 的九个独立阶段与唯一一次 make verify 全部退出 0、cleanup 完整；Phase 8 Exit Gate=MET。等待用户批准提交，不归档父任务或开始 Phase 9。",
   "meta": {
     "phase": "Frontend V2 Phase 8",
     "planning_only": true,
     "planning_approved": true,
     "phase_7_gate": "MET",
-    "current_gate": "NOT_MET",
+    "current_gate": "MET",
     "blocker_count": 0,
-    "current_child": null,
+    "current_child": "frontend-v2-phase-8-exit-gate-post-blocker-recheck",
     "active_blocker": null,
     "active_blockers": [],
     "recheck_status": "completed",
@@ -81,7 +82,7 @@
     "a28_candidate": "ec1effb4d787556a71ee3e5e16b3b29d95aa88b5",
     "a28_result": "CLOSED",
     "recheck_remaining_owner_count": 0,
-    "next_action": "commit A30 implementation and evidence, then wait for user approval of a new independent Phase 8 Exit Gate recheck",
+    "next_action": "await user approval for docs/frontend-v2 Phase 8 gate closeout commit; do not archive parent or start Phase 9",
     "recheck_open_p0_p1_p2": "0/0/0",
     "final_recheck_status": "completed",
     "final_recheck_candidate": "306f70f9ab6c84a2732d7d5aa69001982e2d39ce",
@@ -102,6 +103,16 @@
     "a30_candidate": "71e1e8bb2b7d4a27ebb7f048eede8af1f7a7f79a",
     "a30_result": "CLOSED",
     "a30_validation": "shell/static exit 0; content-ai real-stack 1 passed; Redis lifecycle connection categories 0; cleanup complete",
+    "post_blocker_recheck_status": "completed",
+    "post_blocker_recheck_candidate": "3c93e8b2d164f57b2ef253bad010bb9e0e1d7403",
+    "post_blocker_recheck_make_verify_limit": 1,
+    "post_blocker_recheck_make_verify_runs": 1,
+    "post_blocker_recheck_make_verify_exit_code": 0,
+    "post_blocker_recheck_make_verify_duration_seconds": 1180.905,
+    "post_blocker_recheck_result": "MET",
+    "post_blocker_recheck_cleanup": "complete",
+    "post_blocker_recheck_open_p0_p1_p2": "0/0/0",
+    "phase_8_status": "completed",
     "blocker_execution_order": [
       "frontend-v2-phase-8-v1-mvp-flow-delete-selector-blocker",
       "frontend-v2-phase-8-celery-lifecycle-output-safety-blocker"
@@ -118,7 +129,8 @@
       "frontend-v2-phase-8-settings-failure-output-safety-blocker",
       "frontend-v2-phase-8-exit-gate-final-recheck",
       "frontend-v2-phase-8-v1-mvp-flow-delete-selector-blocker",
-      "frontend-v2-phase-8-celery-lifecycle-output-safety-blocker"
+      "frontend-v2-phase-8-celery-lifecycle-output-safety-blocker",
+      "frontend-v2-phase-8-exit-gate-post-blocker-recheck"
     ]
   }
 }

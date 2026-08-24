@@ -1,0 +1,7 @@
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"执行真实栈的 Redis 独占、Celery quiet、database/storage/process/ports cleanup 与敏感输出边界。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"核对 backend 根质量阶段与测试输出的项目约束。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"核对 V1/V2 根门禁、Playwright artifact 与完整前端验收边界。"}
+{"file":".trellis/tasks/08-24-frontend-v2-phase-8-exit-gate-post-blocker-recheck/research/audit.md","reason":"提供本轮固定候选、历史 owner closure、Gate 与文档分流基线。"}
+{"file":".trellis/tasks/08-24-frontend-v2-phase-8-exit-gate-final-recheck/research/audit.md","reason":"保留上一轮失败、九阶段组织和不复制旧运行值的历史证据。"}
+{"file":".trellis/tasks/08-24-frontend-v2-phase-8-v1-mvp-flow-delete-selector-blocker/research/audit.md","reason":"确认 A29 selector owner 已关闭但 targeted 结果不替代完整 Gate。"}
+{"file":".trellis/tasks/08-24-frontend-v2-phase-8-celery-lifecycle-output-safety-blocker/research/audit.md","reason":"确认 A30 Celery output owner 已关闭及实际保证范围。"}

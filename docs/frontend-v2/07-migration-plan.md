@@ -505,6 +505,12 @@ Workbench 最后实现，因为它聚合 Product、Content、Publishing 和 GEO�
 
 退出条件：聚合 API 独立；不复制 domain state machine；所有待办可操作；首页不以 vanity metrics 为核心。
 
+`frontend-v2-phase-8-exit-gate-post-blocker-recheck` 在 A25–A30 全部关闭后冻结 `main` 候选 `3c93e8b2d164f57b2ef253bad010bb9e0e1d7403`。九个独立阶段均只运行一次并退出 `0`：contract-check `2.275s`、lint `9.234s`、typecheck `7.915s`、unit `260.219s`、integration `120 passed / 150.100s`、三套 production build `19.440s`、完整 E2E `740.577s`、dev Compose config `0.089s`、prod Compose config `0.037s`。独立 unit 现场保留 V1 Vitest `205 passed`、V2 Vitest `463 passed`；backend pytest 与 V1 visual contract 均通过，但受控内存摘要未保留这两个数字，因此不从历史结果推断。独立 E2E 为 V2 real-stack `16 passed`、V1 `52 passed`、V2 fixture `383 passed / 33 skipped / 0 failed`。
+
+独立阶段全绿后，最终 `make verify` 于 `2026-08-24 15:33:30` 至 `15:53:11 +08:00` 恰好运行一次，退出 `0`、总耗时 `1180.905s`：backend unit `204 passed`、V1 unit `205 passed`、V2 unit `463 passed`、backend integration `120 passed`、V2 real-stack `16 passed`、V1 E2E `52 passed`、V2 fixture `383 passed / 33 skipped / 0 failed`，三套 build 与双 Compose config 同样通过；V1 visual contract 通过，但本次内存摘要未保留数字，未沿用旧计数。两轮 E2E 分别使用现场动态选择、互不相同的非 0 独占 Redis DB `7` 与 `14`，preflight 均通过；database drop、Redis allowlist cleanup/empty/external clients `0`、storage removal、服务 stop/wait 和 `8000/9001/5173/4173/4174/19009` 释放均完整。
+
+A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、既有 dev-storage/Playwright artifact owner 与本轮受控内存审查共同证明本候选的实际敏感输出边界；精确敏感值、Redis URI、Redis connection/broker lifecycle 与签名 query 类别命中均为 `0`，但不宣称存在全局 secret scanner。A25–A30 均为 closed，open P0/P1/P2=`0/0/0`，历史 abstraction review 与旧 recheck 的 `NOT_MET` 结论保持只读；Phase 8 Exit Gate=`MET`。本结论不归档 Phase 8 父任务，也不开始 Phase 9。
+
 ## 14. Phase 9 — Cutover
 
 按独立 Task 执行：

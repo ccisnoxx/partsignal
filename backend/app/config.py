@@ -16,7 +16,9 @@ DEVELOPMENT_AI_CREDENTIAL_KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
 class Settings(BaseSettings):
     """仅从环境变量读取可部署配置，避免代码内保存凭据。"""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", extra="ignore", hide_input_in_errors=True
+    )
 
     environment: str = Field(
         "development", validation_alias=AliasChoices("APP_ENV", "PARTSIGNAL_ENVIRONMENT")
@@ -24,15 +26,18 @@ class Settings(BaseSettings):
     database_url: str = Field(
         "postgresql+psycopg://partsignal:partsignal@localhost:5432/partsignal",
         validation_alias=AliasChoices("DATABASE_URL", "PARTSIGNAL_DATABASE_URL"),
+        repr=False,
     )
     redis_url: str = Field(
         "redis://localhost:6379/0",
         validation_alias=AliasChoices("REDIS_URL", "PARTSIGNAL_REDIS_URL"),
+        repr=False,
     )
     session_secret: str = Field(
         DEVELOPMENT_SESSION_SECRET,
         validation_alias=AliasChoices("SESSION_SECRET", "PARTSIGNAL_SESSION_SECRET"),
         min_length=32,
+        repr=False,
     )
     session_cookie_name: str = "partsignal_session"
     csrf_cookie_name: str = "partsignal_csrf"
@@ -66,15 +71,18 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices(
             "UPLOAD_SIGNING_SECRET", "PARTSIGNAL_DEVELOPMENT_STORAGE_SIGNING_KEY"
         ),
+        repr=False,
     )
     object_storage_backend: str = Field(
         "development", validation_alias=AliasChoices("OBJECT_STORAGE_BACKEND")
     )
     oss_endpoint: str = Field("", validation_alias=AliasChoices("OSS_ENDPOINT"))
     oss_bucket: str = Field("", validation_alias=AliasChoices("OSS_BUCKET"))
-    oss_access_key_id: str = Field("", validation_alias=AliasChoices("OSS_ACCESS_KEY_ID"))
+    oss_access_key_id: str = Field(
+        "", validation_alias=AliasChoices("OSS_ACCESS_KEY_ID"), repr=False
+    )
     oss_access_key_secret: str = Field(
-        "", validation_alias=AliasChoices("OSS_ACCESS_KEY_SECRET")
+        "", validation_alias=AliasChoices("OSS_ACCESS_KEY_SECRET"), repr=False
     )
     upload_intent_ttl_seconds: int = 600
     download_url_ttl_seconds: int = 300
@@ -109,6 +117,7 @@ class Settings(BaseSettings):
     ai_credential_encryption_key: str = Field(
         DEVELOPMENT_AI_CREDENTIAL_KEY,
         validation_alias=AliasChoices("AI_CREDENTIAL_ENCRYPTION_KEY"),
+        repr=False,
     )
     ai_allow_local_http: bool = Field(
         False, validation_alias=AliasChoices("AI_ALLOW_LOCAL_HTTP")

@@ -1,6 +1,10 @@
 """认证原语、请求边界与发布安全规则的行为特征测试。"""
 
+import base64
+import subprocess
+import sys
 import uuid
+from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock
 
@@ -177,6 +181,79 @@ def test_production_rejects_development_session_secret() -> None:
             OSS_ACCESS_KEY_ID="test-key",
             OSS_ACCESS_KEY_SECRET="test-secret",
         )
+
+
+def test_settings_repr_hides_sensitive_values() -> None:
+    marker = f"a28-{uuid.uuid4().hex}"
+    sensitive_values = {
+        "DATABASE_URL": f"postgresql://{marker}@localhost/test",
+        "REDIS_URL": f"redis://{marker}@localhost/1",
+        "SESSION_SECRET": marker,
+        "UPLOAD_SIGNING_SECRET": f"{marker}-storage",
+        "OSS_ACCESS_KEY_ID": f"{marker}-id",
+        "OSS_ACCESS_KEY_SECRET": f"{marker}-secret",
+        "AI_CREDENTIAL_ENCRYPTION_KEY": base64.b64encode(
+            marker.encode()[:32]
+        ).decode(),
+    }
+
+    rendered = repr(Settings(_env_file=None, APP_ENV="test", **sensitive_values))
+
+    assert "environment=" in rendered
+    assert all(value not in rendered for value in sensitive_values.values())
+
+
+def test_settings_validation_error_hides_sensitive_input() -> None:
+    marker = f"a28-{uuid.uuid4().hex}"
+    with pytest.raises(ValidationError) as captured:
+        Settings(
+            _env_file=None,
+            APP_ENV="production",
+            DATABASE_URL=f"postgresql://{marker}@localhost/test",
+            REDIS_URL=f"redis://{marker}@localhost/1",
+            SESSION_SECRET=marker,
+            AI_ALLOW_LOCAL_HTTP=True,
+        )
+
+    rendered = str(captured.value)
+    assert "AI_ALLOW_LOCAL_HTTP 仅允许" in rendered
+    assert marker not in rendered
+    assert "postgresql://" not in rendered
+    assert "redis://" not in rendered
+    assert "input_value=" not in rendered
+
+
+def test_settings_failure_output_hides_sensitive_input() -> None:
+    marker = f"a28-{uuid.uuid4().hex}"
+    child_code = """
+import os
+from app.config import Settings
+
+marker = os.environ["A28_PROBE"]
+Settings(
+    _env_file=None,
+    APP_ENV="production",
+    DATABASE_URL=f"postgresql://{marker}@localhost/test",
+    REDIS_URL=f"redis://{marker}@localhost/1",
+    SESSION_SECRET=marker,
+    AI_ALLOW_LOCAL_HTTP=True,
+)
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-c", child_code],
+        check=False,
+        capture_output=True,
+        text=True,
+        env={"A28_PROBE": marker},
+        cwd=Path(__file__).resolve().parents[2],
+    )
+    output = completed.stdout + completed.stderr
+
+    assert completed.returncode != 0
+    assert "AI_ALLOW_LOCAL_HTTP 仅允许" in output
+    assert marker not in output
+    assert "input_value=" not in output
 
 
 @pytest.mark.parametrize(

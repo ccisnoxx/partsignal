@@ -58,3 +58,14 @@ UV_CACHE_DIR=.cache/uv uv run --project backend mypy \
 - 当前 A28 Task artifacts
 - Phase 8 父 Task A28 metadata
 - 不含 A27、E2E/Makefile/pytest 全局配置或 `07/08`
+
+## 执行结果（2026-08-24）
+
+- 固定候选：`deed51ddfc7430db93b4ff7035117c812335a604`。
+- 实现：`SettingsConfigDict(hide_input_in_errors=True)`，七个既有敏感 `str` 字段增加 `repr=False`；alias、default、validator 与 caller 合同未变。
+- 目标测试：18 passed，最终 exit 0。首次 pytest 已通过后外层 zsh 记录包装误用了只读变量名；仅在随后把子进程 cwd 改为与调用目录无关后，按相关变化重新验证一次。
+- 完整 backend unit：204 passed，exit 0，6 秒。
+- Ruff：exit 0；mypy：80 source files、0 issues、exit 0。
+- 受控 failure output：预期非零退出，marker 命中 0，`input_value=` 不可见，具体中文原因可见。
+- 未运行可选根 `make test-unit`、E2E 或 `make verify`；未修改 pytest 全局配置、Makefile、runner 或依赖。
+- A28=`CLOSED`；父任务已无开放 blocker，但 Phase 8 Exit Gate 继续为 `NOT_MET`，等待用户批准新的独立 recheck。

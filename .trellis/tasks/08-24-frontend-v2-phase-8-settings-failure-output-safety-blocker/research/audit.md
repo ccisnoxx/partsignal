@@ -23,3 +23,21 @@
 ## 实际安全声明边界
 
 该方案只保护 backend Settings 自有 representation/error input，不等于全局日志脱敏或 secret scanner，也不替代 A27 的环境 allowlist。
+
+## 实施证据（2026-08-24）
+
+固定候选：`deed51ddfc7430db93b4ff7035117c812335a604`。
+
+受控基线只输出布尔和命中数：
+
+- Pydantic `2.13.4`、pydantic-settings `2.14.2`。
+- `Settings` repr 命中 7 个敏感字段值，公开字段仍可见。
+- ValidationError 保留具体中文原因且仍显示 `input_value=`；随机 marker 因 Pydantic 截断恰好未命中，因此不能替代输入隐藏保证。
+- 受控失败子进程为非零退出；随机 marker 基线恰好未命中。
+
+模型 owner 收口后：
+
+- 七个敏感字段仍为 `str` 且 `repr=False`。
+- ValidationError 不再显示 `input_value=`，具体中文原因保持可见。
+- 受控失败子进程 marker 命中数为 0，`input_value=` 不可见。
+- 该结论只覆盖 Settings 自有 repr、ValidationError 与受控 Python failure output；未引入或声称存在全局日志脱敏、pytest traceback 过滤或仓库级 secret scanner。

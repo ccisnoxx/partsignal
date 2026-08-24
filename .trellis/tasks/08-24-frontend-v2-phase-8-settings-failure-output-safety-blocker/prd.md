@@ -44,15 +44,15 @@
 
 ## 4. Acceptance Criteria
 
-- [ ] clean `main` 冻结候选，A27/recheck 前置状态明确且无未识别 dirty 文件。
-- [ ] Settings 的敏感字段不出现在 model repr，非敏感诊断仍保留。
-- [ ] ValidationError 不包含 input value 或受控敏感 marker，具体 validator message 保留。
-- [ ] 受控真实 failure output 不包含 marker；若仍包含则准确记录残余 owner并保持 blocker open。
-- [ ] Settings 字段仍为现有 `str` 合同，alias/default/validator 和消费者无需迁移。
-- [ ] 目标 regression、完整 backend unit、Ruff、mypy 通过；没有为了通过修改既有业务断言。
-- [ ] 未修改 API/DB/前端/E2E/Makefile/全局 pytest runner，未新增 scanner、依赖或 fallback。
-- [ ] 父任务只更新 A28 状态；Phase 8 不标记完成，不运行最终 Gate或 Phase 9。
-- [ ] 展示 diff/commit plan 并等待批准；不自动 commit、push、PR 或 archive。
+- [x] clean `main` 冻结候选，A27/recheck 前置状态明确且无未识别 dirty 文件。
+- [x] Settings 的敏感字段不出现在 model repr，非敏感诊断仍保留。
+- [x] ValidationError 不包含 input value 或受控敏感 marker，具体 validator message 保留。
+- [x] 受控真实 failure output 不包含 marker。
+- [x] Settings 字段仍为现有 `str` 合同，alias/default/validator 和消费者无需迁移。
+- [x] 目标 regression、完整 backend unit、Ruff、mypy 通过；没有为了通过修改既有业务断言。
+- [x] 未修改 API/DB/前端/E2E/Makefile/全局 pytest runner，未新增 scanner、依赖或 fallback。
+- [x] 父任务只更新 A28 状态；Phase 8 不标记完成，不运行最终 Gate或 Phase 9。
+- [x] 展示 diff/commit plan并等待批准；不自动 commit、push、PR 或 archive。
 
 ## 5. Out of Scope
 

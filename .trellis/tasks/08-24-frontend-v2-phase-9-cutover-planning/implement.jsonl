@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "启动后保持 V1/V2 production-artifact、路由历史和根质量门禁边界。"}
+{"file": ".trellis/spec/infra/domain-security-operations.md", "reason": "启动后遵守 staging/production 外部写授权、Nginx 验证与回滚合同。"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "启动后保持 rehearsal 与真实栈的数据库、Redis、存储、进程和清理隔离。"}
+{"file": ".trellis/tasks/08-24-frontend-v2-phase-9-cutover-planning/research/audit.md", "reason": "注入已批准的部署 owner、外部未知、Cutover gap 与子任务边界。"}

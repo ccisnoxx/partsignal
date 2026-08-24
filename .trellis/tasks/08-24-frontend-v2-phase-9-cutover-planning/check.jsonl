@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "复核 production artifact、direct/refresh/history 与前端质量证据。"}
+{"file": ".trellis/spec/infra/ci-execution.md", "reason": "复核手动 CI、根 gate 与部署脚本测试的职责边界。"}
+{"file": ".trellis/spec/infra/domain-security-operations.md", "reason": "复核环境授权、Nginx、安全头和回滚停止条件。"}
+{"file": ".trellis/tasks/08-24-frontend-v2-phase-9-cutover-planning/research/audit.md", "reason": "按批准后的事实、未知项和 Cutover Gate 复核规划一致性。"}

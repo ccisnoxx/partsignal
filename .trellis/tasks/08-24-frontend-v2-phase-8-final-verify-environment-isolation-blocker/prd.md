@@ -12,7 +12,7 @@
 - 同一候选上的唯一最终 `make verify` 因 recheck shell 批量导出 `.env`，使 production Settings 测试先命中 `AI_ALLOW_LOCAL_HTTP` validator，backend unit 为 `200 passed / 1 failed`。
 - 根 `make verify` 自身没有加载整个 `.env`：Compose targets 已显式使用 `--env-file .env`；只有 `deploy/scripts/e2e-local.sh` 要求调用环境提供 `DATABASE_URL` 与 `REDIS_URL`。
 - 仓库已安装 `python-dotenv`。归档的 Phase 4 environment-corrected Task 已证明：使用 `dotenv_values()` 只读取两键、清除其余 `.env` 键后执行门禁，可以避免同类污染；不需要新增 wrapper 或 runner。
-- 当前 recheck artifacts 尚未提交；本 Task 在这些 evidence 提交并回到 clean `main` 前不得启动。
+- recheck evidence 已提交；本 Task 在 clean `main` 的 `9514775eea6f916bfc4d3c04512c241b72ca30fd` 上冻结并执行。
 
 ## 3. Requirements
 
@@ -44,14 +44,14 @@
 
 ## 4. Acceptance Criteria
 
-- [ ] clean `main` 上冻结实施候选，recheck evidence 已先行提交且无未识别 dirty 文件。
-- [ ] 门禁子进程与 `.env` 的键交集精确为 `DATABASE_URL`、`REDIS_URL`；未批量导出其他键。
-- [ ] Redis logical DB 动态选择为非 0、空且独占，现有 preflight 通过；没有创建或清理外部资源。
-- [ ] 定向 Settings unit 与根 `make test-unit` 在同一两键环境中各运行一次并退出 `0`，计数完整。
-- [ ] evidence 不包含连接 URL、credential、Cookie、CSRF、headers/body、storage state 或敏感正文。
-- [ ] 未修改产品、测试、合同、配置、Makefile、runner、依赖或 `07/08`，未运行 E2E/最终 Gate。
-- [ ] 父任务只更新 A27 状态；Phase 8 保持 `NOT_MET`，等待 A28 和新的独立 recheck。
-- [ ] 展示 commit plan 并等待批准；不自动 commit、push、PR 或 archive。
+- [x] clean `main` 上冻结实施候选，recheck evidence 已先行提交且无未识别 dirty 文件。
+- [x] 门禁子进程与 `.env` 的键交集精确为 `DATABASE_URL`、`REDIS_URL`；未批量导出其他键。
+- [x] Redis logical DB 动态选择为非 0、空且独占，现有 preflight 通过；没有创建或清理外部资源。
+- [x] 定向 Settings unit 与根 `make test-unit` 在同一两键环境中各运行一次并退出 `0`，计数完整。
+- [x] evidence 不包含连接 URL、credential、Cookie、CSRF、headers/body、storage state 或敏感正文。
+- [x] 未修改产品、测试、合同、配置、Makefile、runner、依赖或 `07/08`，未运行 E2E/最终 Gate。
+- [x] 父任务只更新 A27 状态；Phase 8 保持 `NOT_MET`，等待 A28 和新的独立 recheck。
+- [x] 展示 commit plan 并等待批准；不自动 commit、push、PR 或 archive。
 
 ## 5. Out of Scope
 

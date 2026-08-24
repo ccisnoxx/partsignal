@@ -2,16 +2,16 @@
 
 ## Phase 0 — 批准与冻结
 
-- 等待 recheck evidence 提交/合入，回到 clean `main`。
-- 冻结 `HEAD`，确认父 `blocker_count=2`、A27/A28 open。
-- 用户批准后才运行 `task.py start`；分支策略另按用户授权执行。
+- [x] recheck evidence 已提交，工作区回到 clean `main`。
+- [x] 冻结 `HEAD=9514775eea6f916bfc4d3c04512c241b72ca30fd`，确认父 `blocker_count=2`、A27/A28 open。
+- [x] 用户批准后启动 Task；未创建分支。
 
 ## Phase 1 — 构造最小环境
 
-- 用 backend 已安装的 `dotenv_values()` 只读取 `.env` 两条连接值。
-- 在内存中映射宿主地址；动态选择空闲、非 0、独占 Redis DB。
-- 子进程环境删除其他 `.env` 键，只保留 `DATABASE_URL`/`REDIS_URL`。
-- 只记录键名交集、DB 编号和 `PASS/FAIL`，不得打印值。
+- [x] 用 backend 已安装的 `dotenv_values()` 读取 `.env`，只传递两条连接值。
+- [x] 在内存中映射宿主地址；动态选择空闲、非 0、独占 Redis DB 7。
+- [x] 子进程环境删除其他 `.env` 键，只保留 `DATABASE_URL`/`REDIS_URL`。
+- [x] 只记录键名交集、DB 编号和结果，未打印 URL 或 credential。
 
 ## Phase 2 — Preflight
 
@@ -25,6 +25,8 @@ backend/.venv/bin/python deploy/scripts/e2e-environment.py preflight \
 
 失败即停止；不选择已占用 DB、不终止外部进程、不创建资源。
 
+- [x] `2026-08-24 11:47:05 +08:00` 运行一次，耗时 `<1s`，exit `0`。
+
 ## Phase 3 — Required validation
 
 在同一显式两键子进程环境中各运行一次：
@@ -37,12 +39,25 @@ make test-unit
 
 记录起止、耗时、exit 和实际 suite 计数。不得运行 `make e2e` 或 `make verify`。
 
+- [x] 定向 Settings unit：`11:47:05`—`11:47:06 +08:00`，耗时 `1s`，`1 passed`，exit `0`。
+- [x] 根 `make test-unit`：`11:47:06`—`11:51:29 +08:00`，耗时 `262s`，exit `0`。
+  - backend：`201 passed`。
+  - V1 Vitest：`28 files / 205 tests passed`。
+  - V1 visual contract：`24 passed`。
+  - V2 Vitest：`81 files / 463 tests passed`。
+  - 合计：`893 passed`。V1 的 jsdom CSS/navigation 诊断未导致失败。
+
 ## Phase 4 — Cleanup 与关闭
 
-- 确认 Redis 仍为空、六个固定端口 released；本 Task 不应创建 database/storage/services。
-- 更新当前 Task result 和父 A27 metadata；A28 保持 open、Phase 8 保持 `NOT_MET`。
-- 运行 `git diff --check`、Task validate、`git status --short --branch`。
-- 报告 commit plan，等待用户批准；不自动 commit/push/PR/archive。
+- [x] Redis DB 7 仍为 `dbsize=0` 且无外部客户端；六个固定端口 released。
+- [x] 未创建 database/storage/services，未删除其他 owner 的资源。
+- [x] 更新当前 Task result 和父 A27 metadata；A28 保持 open、Phase 8 保持 `NOT_MET`。
+- [x] 运行 `git diff --check`、Task validate、`git status --short --branch`。
+- [x] 报告 commit plan，等待用户批准；不自动 commit/push/PR/archive。
+
+## 执行结论
+
+A27=`CLOSED`。两键环境消除了 recheck shell 的 `.env` 批量导出污染；本结论只关闭环境 owner，不代表 Phase 8 Exit Gate 已重跑或满足。
 
 ## Stop Conditions
 

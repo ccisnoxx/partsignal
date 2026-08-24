@@ -56,25 +56,26 @@
     "docs/frontend-v2/08-testing-quality-and-acceptance.md",
     "docs/frontend-v2/09-architecture-decisions.md"
   ],
-  "notes": "A25/A26 已关闭；Phase 8 recheck 的九个独立阶段通过，但唯一最终 make verify 因环境污染在 backend unit 失败，并触发 Settings traceback 敏感输出边界。已创建 A27 环境隔离与 A28 输出安全两个独立 planning blocker；Phase 8 保持 NOT_MET。",
+  "notes": "A25/A26/A27 已关闭；A27 已证明两键 allowlist 可消除最终 Gate 环境污染。A28 输出安全 blocker 仍待执行；Phase 8 保持 NOT_MET。",
   "meta": {
     "phase": "Frontend V2 Phase 8",
     "planning_only": true,
     "planning_approved": true,
     "phase_7_gate": "MET",
     "current_gate": "NOT_MET",
-    "blocker_count": 2,
-    "current_child": "frontend-v2-phase-8-final-verify-environment-isolation-blocker",
-    "active_blocker": "frontend-v2-phase-8-final-verify-environment-isolation-blocker",
+    "blocker_count": 1,
+    "current_child": "frontend-v2-phase-8-settings-failure-output-safety-blocker",
+    "active_blocker": "frontend-v2-phase-8-settings-failure-output-safety-blocker",
     "active_blockers": [
-      "frontend-v2-phase-8-final-verify-environment-isolation-blocker",
       "frontend-v2-phase-8-settings-failure-output-safety-blocker"
     ],
     "recheck_status": "completed",
     "recheck_result": "NOT_MET",
     "recheck_failure_stage": "backend unit",
     "recheck_failure_owner_count": 2,
-    "a27_status": "planning",
+    "a27_status": "closed",
+    "a27_candidate": "9514775eea6f916bfc4d3c04512c241b72ca30fd",
+    "a27_result": "CLOSED",
     "a28_status": "planning",
     "recheck_open_p0_p1_p2": "0/0/0",
     "planned_children": [

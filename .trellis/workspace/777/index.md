@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 169
+- **Total Sessions**: 170
 - **Last Active**: 2026-08-24
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1813 | Active |
+| `journal-3.md` | ~1836 | Active |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 170 | 2026-08-24 | Frontend V2 Phase 8 Exit Gate Recheck Blockers | `9514775eea6f916bfc4d3c04512c241b72ca30fd`, `deed51ddfc7430db93b4ff7035117c812335a604`, `ec1effb4d787556a71ee3e5e16b3b29d95aa88b5` | `main` |
 | 169 | 2026-08-24 | Frontend V2 Phase 8 blocker 状态同步 | `2d2eccf4` | `codex/frontend-v2-auth-workbench-request-cancellation-blocker` |
 | 168 | 2026-08-24 | Frontend V2 Auth Workbench 请求取消收尾 | `73f5807a` | `codex/frontend-v2-auth-workbench-request-cancellation-blocker` |
 | 167 | 2026-08-24 | 关闭 Workbench 根路由 fixture 收敛 blocker | `c7d0a2ed` | `codex/frontend-v2-workbench-root-fixture-convergence-blocker` |

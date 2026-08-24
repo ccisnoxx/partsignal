@@ -1811,3 +1811,26 @@ A26 child 归档后同步父 Task：六个 child 均已归档，开放 blocker �
 ### Status
 
 [OK] **Completed**
+
+
+## Session 170: Frontend V2 Phase 8 Exit Gate Recheck Blockers
+
+**Date**: 2026-08-24
+**Task**: Frontend V2 Phase 8 Exit Gate Recheck Blockers
+**Branch**: `main`
+
+### Summary
+
+归档 Phase 8 Exit Gate recheck；A27 验证两键环境隔离并关闭，A28 隐藏 Settings 敏感 repr/ValidationError input 并关闭。父 blocker_count=0，Gate 保持 NOT_MET，等待独立 recheck。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `9514775eea6f916bfc4d3c04512c241b72ca30fd` | (see git log) |
+| `deed51ddfc7430db93b4ff7035117c812335a604` | (see git log) |
+| `ec1effb4d787556a71ee3e5e16b3b29d95aa88b5` | (see git log) |
+
+### Status
+
+[OK] **Completed**

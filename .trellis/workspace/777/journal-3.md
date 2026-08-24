@@ -1855,3 +1855,22 @@ A26 child 归档后同步父 Task：六个 child 均已归档，开放 blocker �
 ### Status
 
 [OK] **Completed**
+
+
+## Session 172: Frontend V2 Phase 8 任务树归档收尾
+
+**Date**: 2026-08-24
+**Task**: Frontend V2 Phase 8 任务树归档收尾
+**Branch**: `main`
+
+### Summary
+
+归档 A29、A30、Phase 8 final recheck 与 planning-only 父任务；Phase 8 任务树已全部进入 archive，未开始 Phase 9。
+
+### Git Commits
+
+(No commits - planning session)
+
+### Status
+
+[OK] **Completed**

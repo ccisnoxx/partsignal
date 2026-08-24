@@ -27,7 +27,10 @@
     "08-24-frontend-v2-auth-workbench-request-cancellation-blocker",
     "08-24-frontend-v2-phase-8-exit-gate-recheck",
     "08-24-frontend-v2-phase-8-final-verify-environment-isolation-blocker",
-    "08-24-frontend-v2-phase-8-settings-failure-output-safety-blocker"
+    "08-24-frontend-v2-phase-8-settings-failure-output-safety-blocker",
+    "08-24-frontend-v2-phase-8-exit-gate-final-recheck",
+    "08-24-frontend-v2-phase-8-v1-mvp-flow-delete-selector-blocker",
+    "08-24-frontend-v2-phase-8-celery-lifecycle-output-safety-blocker"
   ],
   "parent": null,
   "relatedFiles": [
@@ -56,17 +59,20 @@
     "docs/frontend-v2/08-testing-quality-and-acceptance.md",
     "docs/frontend-v2/09-architecture-decisions.md"
   ],
-  "notes": "A25/A26/A27/A28 均已关闭；当前已无开放 blocker。Phase 8 保持 NOT_MET，等待用户批准新的独立 Exit Gate recheck。",
+  "notes": "A25/A26/A27/A28 均已关闭。final Exit Gate recheck 的 make e2e 暴露 A29 V1 selector 与 A30 Celery lifecycle output 两个独立 blocker；两者已创建并完成规划，Phase 8 保持 NOT_MET。",
   "meta": {
     "phase": "Frontend V2 Phase 8",
     "planning_only": true,
     "planning_approved": true,
     "phase_7_gate": "MET",
     "current_gate": "NOT_MET",
-    "blocker_count": 0,
-    "current_child": "frontend-v2-phase-8-settings-failure-output-safety-blocker",
-    "active_blocker": null,
-    "active_blockers": [],
+    "blocker_count": 2,
+    "current_child": "frontend-v2-phase-8-v1-mvp-flow-delete-selector-blocker",
+    "active_blocker": "frontend-v2-phase-8-v1-mvp-flow-delete-selector-blocker",
+    "active_blockers": [
+      "frontend-v2-phase-8-v1-mvp-flow-delete-selector-blocker",
+      "frontend-v2-phase-8-celery-lifecycle-output-safety-blocker"
+    ],
     "recheck_status": "completed",
     "recheck_result": "NOT_MET",
     "recheck_failure_stage": "backend unit",
@@ -75,11 +81,28 @@
     "a27_candidate": "9514775eea6f916bfc4d3c04512c241b72ca30fd",
     "a27_result": "CLOSED",
     "a28_status": "closed",
-    "a28_candidate": "deed51ddfc7430db93b4ff7035117c812335a604",
+    "a28_candidate": "ec1effb4d787556a71ee3e5e16b3b29d95aa88b5",
     "a28_result": "CLOSED",
     "recheck_remaining_owner_count": 0,
-    "next_action": "new independent exit gate recheck requires user approval",
+    "next_action": "commit approved Trellis evidence, then start A29 on clean main before A30",
     "recheck_open_p0_p1_p2": "0/0/0",
+    "final_recheck_status": "completed",
+    "final_recheck_candidate": "306f70f9ab6c84a2732d7d5aa69001982e2d39ce",
+    "final_recheck_make_verify_limit": 1,
+    "final_recheck_make_verify_runs": 0,
+    "final_recheck_result": "NOT_MET",
+    "final_recheck_failure_stage": "make e2e",
+    "final_recheck_failure_owner_count": 2,
+    "final_recheck_open_p0_p1_p2": "0/0/0",
+    "final_recheck_cleanup": "complete",
+    "a29_status": "approved",
+    "a29_owner": "V1 Playwright mvp-flow delete menu locator",
+    "a30_status": "approved",
+    "a30_owner": "E2E Celery lifecycle sensitive-output boundary",
+    "blocker_execution_order": [
+      "frontend-v2-phase-8-v1-mvp-flow-delete-selector-blocker",
+      "frontend-v2-phase-8-celery-lifecycle-output-safety-blocker"
+    ],
     "planned_children": [
       "frontend-v2-workbench-aggregate-read-model",
       "frontend-v2-workbench-ui",
@@ -89,7 +112,10 @@
       "frontend-v2-auth-workbench-request-cancellation-blocker",
       "frontend-v2-phase-8-exit-gate-recheck",
       "frontend-v2-phase-8-final-verify-environment-isolation-blocker",
-      "frontend-v2-phase-8-settings-failure-output-safety-blocker"
+      "frontend-v2-phase-8-settings-failure-output-safety-blocker",
+      "frontend-v2-phase-8-exit-gate-final-recheck",
+      "frontend-v2-phase-8-v1-mvp-flow-delete-selector-blocker",
+      "frontend-v2-phase-8-celery-lifecycle-output-safety-blocker"
     ]
   }
 }

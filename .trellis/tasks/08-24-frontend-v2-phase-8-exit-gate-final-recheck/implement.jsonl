@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"核对 backend unit、敏感配置与失败归因规则。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"核对 V1/V2 root quality gate、Playwright artifact 与计数要求。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"执行动态 Redis DB、preflight、资源 ownership 与 cleanup。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"核对根 Make stages、fail-fast gate 与 Compose config owner。"}
+{"file":".trellis/tasks/08-24-frontend-v2-phase-8-exit-gate-final-recheck/research/audit.md","reason":"复用已审计的候选、A27/A28、历史 gate 与文档边界。"}

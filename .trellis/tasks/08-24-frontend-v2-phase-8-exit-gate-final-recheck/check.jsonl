@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"检查失败归因、backend suite 与敏感输出结论没有越界。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"检查 suite 计数、E2E artifact 和根质量入口证据。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"检查 database、Redis、storage、process、port cleanup 完整。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"检查九阶段与唯一最终 make verify 判定。"}
+{"file":".trellis/tasks/08-24-frontend-v2-phase-8-exit-gate-final-recheck/research/audit.md","reason":"检查最终证据与冻结规划事实一致。"}

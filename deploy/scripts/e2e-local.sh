@@ -107,10 +107,10 @@ OBJECT_STORAGE_PATH="$storage_dir" backend/.venv/bin/uvicorn app.dev_storage:app
 storage_pid=$!
 backend/.venv/bin/uvicorn app.ai_fake_server:app --host 127.0.0.1 --port 9001 &
 ai_pid=$!
-backend/.venv/bin/celery -A app.worker:celery_app worker \
+backend/.venv/bin/celery --quiet -A app.worker:celery_app worker \
   --loglevel=WARNING --concurrency=1 --pool=solo &
 worker_pid=$!
-backend/.venv/bin/celery -A app.worker:celery_app beat \
+backend/.venv/bin/celery --quiet -A app.worker:celery_app beat \
   --loglevel=WARNING --schedule "$storage_dir/celerybeat" &
 scheduler_pid=$!
 if test -z "$PARTSIGNAL_E2E_V2_SPEC"; then

@@ -2,16 +2,16 @@
 
 ## Phase A — A29 后启动
 
-1. 等待 final recheck evidence 与 A29 获准提交；回到 clean `main` 后运行 `task.py start`，不创建分支，除非用户另行授权。
-2. 运行 `trellis-before-dev`，读取 infra E2E isolation、frontend quality 与本 Task research。
-3. 冻结启动时 HEAD，确认 A29 closed、A30 planning/active、Phase 8=`NOT_MET`。
+1. [x] final recheck evidence 与 A29 已获准提交；从 clean `main` 运行 `task.py start`，未创建分支。
+2. [x] 已读取 infra E2E isolation、frontend/backend quality 与本 Task research。
+3. [x] 冻结启动时 `HEAD=71e1e8bb2b7d4a27ebb7f048eede8af1f7a7f79a`，A29 closed、A30 active、Phase 8=`NOT_MET`。
 
 ## Phase B — 最小实现
 
-1. 在 `deploy/scripts/e2e-local.sh` 的 worker 与 beat 命令上使用 Celery 顶层 `--quiet`。
-2. 保留 `--loglevel=WARNING`、worker concurrency/pool、beat schedule、PID capture 与 cleanup 顺序。
-3. 不新增 logfile、redirect、filter、helper、依赖或 Settings/Celery app 变更。
-4. 若 installed CLI 或真实运行证明 quiet 不足，停止并更新 planning evidence；不尝试第二方案。
+1. [x] 在 `deploy/scripts/e2e-local.sh` 的 worker 与 beat 命令上使用 Celery 顶层 `--quiet`。
+2. [x] 保留 `--loglevel=WARNING`、worker concurrency/pool、beat schedule、PID capture 与 cleanup 顺序。
+3. [x] 未新增 logfile、redirect、filter、helper、依赖或 Settings/Celery app 变更。
+4. [x] installed CLI 与真实运行证明原生 quiet 足够，未进入第二方案。
 
 ## Required Validation
 
@@ -32,6 +32,14 @@ PARTSIGNAL_E2E_V2_SPEC=tests/e2e/<existing-worker-owner>-real-stack.spec.ts \
 
 若失败且代码/环境未相关变化，不重跑。
 
+### 实际结果
+
+- `bash -n` 与静态检查：exit `0`；worker/beat 均为顶层 `--quiet`，没有 logfile、redirect 或 filter。
+- 两键 allowlist：交集精确为 `DATABASE_URL,REDIS_URL`；本轮动态选择非 0 Redis DB `7`，preflight exit `0`，`0.062s`。
+- `PARTSIGNAL_E2E_V2_SPEC=tests/e2e/content-ai-real-stack.spec.ts deploy/scripts/e2e-local.sh`：只运行一次，exit `0`，`35.156s`；`1 passed / 0 failed / 0 skipped`。
+- 输出审查：Redis URI `0`、Redis connection/broker category `0`、精确 Redis 值 `0`、精确 database 值 `0`；原始输出只在验证进程内存中检查，未保存或写入 evidence。
+- Cleanup：database dropped；Redis allowlist cleanup 后 empty、外部客户端 `0`；storage removed；Celery 进程 `0`；`8000/9001/5173/4173/4174/19009` released。
+
 ## 收尾
 
 ```bash
@@ -50,6 +58,10 @@ git status --short --branch
 - 不创建全局 scanner、filter、logfile、临时 playwright-cli 流程或 Phase 9 工作。
 - 不自动 commit、push、PR、archive 或归档父任务。
 
+## 执行结论
+
+A30=`CLOSED`。原生 `--quiet` 在第三方 CLI 输出 owner 关闭了本次观察到的 Redis lifecycle 连接值回显，同时真实 Worker 用例、退出码和精确 cleanup 均保留。A29/A30 均关闭，open P0/P1/P2=`0/0/0`；Phase 8 仍为 `NOT_MET`，新的独立 Exit Gate recheck 需另行批准。
+
 ## Commit 停止点
 
-建议 commit：`fix(e2e): silence Celery broker lifecycle output`。范围仅 runner、经确认需要的 infra spec、A30 artifacts 与父 metadata；展示 diff 后等待批准。
+已批准 commit：`fix(e2e): silence Celery broker lifecycle output`。范围仅 runner、经确认需要的 infra spec、A30 artifacts 与父 metadata；不 push、PR 或 archive。

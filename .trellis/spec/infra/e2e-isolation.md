@@ -27,6 +27,7 @@ backend/.venv/bin/uvicorn app.dev_storage:app --host 127.0.0.1 --port "$PARTSIGN
 - 数据库名必须匹配 `^partsignal_e2e_\d{8}_\d+$`；创建和删除都拒绝其他名称。
 - 业务服务、Alembic 和种子命令只使用本次创建的数据库。
 - 对象存储和 Celery beat 文件只写入本次 `mktemp -d` 创建的目录。
+- E2E runner 启动 Celery worker/beat 时使用顶层 `--quiet` 关闭会回显 broker 连接值的 lifecycle banner/关闭诊断；业务 `WARNING` 日志、进程退出码、PID stop/wait 与 cleanup 输出仍须保留。不得用 logfile、输出重定向、事后过滤或全局 scanner 替代该 owner 修复。
 - 退出时无论测试成功、失败或收到信号，都停止并 `wait` 本次进程；只删除枚举后符合 allowlist 的精确 Celery/Kombu 键，并证明 Redis 为空和固定端口释放，再 drop 本次数据库和删除临时目录。
 - 清理输出分别使用数据库 `status=dropped`、存储 `status=removed`、Redis `status=deleted` 与端口 `status=released`；测试成功但任一清理失败时，脚本仍以非零状态退出。禁止 `FLUSHDB`、通配删除、broad kill 或候选路径清理。
 - 根 `make e2e` 先通过 `e2e-local.sh` 在同一隔离栈运行 V2 AI Channel Configuration、Product Facts、Content Editor、AI Production、Content Review、Content Version Detail、Publishing、GEO 与 Auth 真实 flow，再运行 V1 suite；成功并清理后运行 V2 fixture-based 页面 suite，任一阶段失败时根 target 非零。

@@ -25,13 +25,13 @@ A30：在 E2E runner 的 Celery worker/beat lifecycle owner 关闭 Redis 连接�
 
 ## Acceptance Criteria
 
-- [ ] Celery worker/beat 使用已验证的原生 quiet 机制，runner 不再向父 stdout/stderr 回显 Redis 连接值。
-- [ ] 没有新增 logfile、输出过滤器、scanner、依赖或第二 runner。
-- [ ] shell syntax 与静态命令检查通过。
-- [ ] 定向真实栈用例证明 Celery worker 实际处理任务，命令 exit `0`，连接值命中 `0`；只记录脱敏计数。
-- [ ] database、Redis、storage、services 和固定端口 cleanup 完整，失败仍可见且退出码未被吞掉。
-- [ ] diff 仅包含获准 runner/spec/evidence；Settings、产品、测试、合同、Makefile 与 07/08 不变。
-- [ ] 提交计划单独报告并等待批准；不自动 commit、push、PR、归档父任务或运行 Phase 8 gate。
+- [x] Celery worker/beat 使用已验证的原生 quiet 机制，runner 不再向父 stdout/stderr 回显 Redis 连接值。
+- [x] 没有新增 logfile、输出过滤器、scanner、依赖或第二 runner。
+- [x] shell syntax 与静态命令检查通过。
+- [x] 定向真实栈用例证明 Celery worker 实际处理任务，命令 exit `0`，连接值命中 `0`；只记录脱敏计数。
+- [x] database、Redis、storage、services 和固定端口 cleanup 完整，失败仍可见且退出码未被吞掉。
+- [x] diff 仅包含获准 runner/spec/evidence；Settings、产品、测试、合同、Makefile 与 07/08 不变。
+- [x] 提交计划已获用户批准；未自动 push、PR、归档父任务或运行 Phase 8 gate。
 
 ## Out of Scope
 

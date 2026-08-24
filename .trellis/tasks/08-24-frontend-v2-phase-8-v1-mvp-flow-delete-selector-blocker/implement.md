@@ -50,3 +50,14 @@ git status --short --branch
 ## Commit 停止点
 
 建议 commit：`test(frontend): scope MVP delete menu locator`。范围仅目标 V1 spec、A29 artifacts 与父 metadata；展示 diff 后等待批准。
+
+## 执行结果
+
+- [x] 在 `38402dd4377378f85293209de10365087be37713` 上启动，确认原 Phase 8 候选为祖先，A30 仍为 planning。
+- [x] 只收紧目标 locator，保留 Dialog、取消、焦点恢复和后续流程断言。
+- [x] lint exit `0` (`4.55s`)；typecheck exit `0` (`3.46s`)。
+- [x] 两键 allowlist 与动态 Redis DB `7` 通过现有 preflight；未沿用历史 DB 编号。
+- [x] 定向 E2E 唯一运行一次：V2 real-stack `16 passed`，V1 目标 spec `3 passed`，exit `0`，耗时 `162.208s`。
+- [x] database、Redis、storage、services 与固定端口 cleanup 完整；未将连接值或其他敏感正文写入 evidence。
+- [x] 跳过根 `make e2e`、`make verify`、V2 fixture 全集、07/08、A30 实施与 Phase 9。
+- [x] A29 关闭；Phase 8 保持 `NOT_MET`，A30 为唯一开放 blocker。

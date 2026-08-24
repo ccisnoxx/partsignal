@@ -449,7 +449,7 @@ test('批准事实到人工发布、GEO 观测及删除与归档生命周期保�
   const headerMore = page.getByRole('button', { name: '更多操作：Header X-E2E-Region' });
   await headerMore.focus();
   await headerMore.click();
-  await page.getByRole('menuitem', { name: '删除' }).click();
+  await page.locator('.ant-dropdown-menu:visible').getByRole('menuitem', { name: '删除', exact: true }).click();
   const headerDeleteDialog = page.getByRole('dialog', { name: '删除 Header“X-E2E-Region”？' });
   await expect(headerDeleteDialog).toBeVisible();
   await headerDeleteDialog.getByRole('button', { name: /取\s*消/ }).click();

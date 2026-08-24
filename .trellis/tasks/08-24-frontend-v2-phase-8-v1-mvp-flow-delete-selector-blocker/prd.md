@@ -24,13 +24,13 @@ A29：在旧 `frontend/` 的 `mvp-flow` Playwright owner 中，将 Header 删除
 
 ## Acceptance Criteria
 
-- [ ] 失败根因由页面级重复 menuitem 定位收敛到当前可见菜单 owner，没有产品缺陷推断或产品修改。
-- [ ] `mvp-flow.spec.ts` 不再使用该页面级歧义 locator，且没有 `.first()`、force、sleep、retry 或弱化断言。
-- [ ] 相关 frontend lint/typecheck 通过。
-- [ ] 现有隔离 runner 中目标 V1 `mvp-flow` 通过，实际 pass/fail/skip、耗时和退出码已记录。
-- [ ] database、Redis、storage、services 和固定端口 cleanup 完整，证据无敏感值。
-- [ ] diff 仅包含获准测试/evidence，未运行完整 gate、未更新 07/08、未开始 A30 或 Phase 9。
-- [ ] 提交计划单独报告并等待批准；不自动 commit、push、PR 或归档父任务。
+- [x] 失败根因由页面级重复 menuitem 定位收敛到当前可见菜单 owner，没有产品缺陷推断或产品修改。
+- [x] `mvp-flow.spec.ts` 不再使用该页面级歧义 locator，且没有 `.first()`、force、sleep、retry 或弱化断言。
+- [x] 相关 frontend lint/typecheck 通过。
+- [x] 现有隔离 runner 中目标 V1 `mvp-flow` 通过，实际 pass/fail/skip、耗时和退出码已记录。
+- [x] database、Redis、storage、services 和固定端口 cleanup 完整，证据无敏感值。
+- [x] diff 仅包含获准测试/evidence，未运行完整 gate、未更新 07/08、未开始 A30 或 Phase 9。
+- [x] 提交计划单独报告并等待批准；不自动 commit、push、PR 或归档父任务。
 
 ## Out of Scope
 

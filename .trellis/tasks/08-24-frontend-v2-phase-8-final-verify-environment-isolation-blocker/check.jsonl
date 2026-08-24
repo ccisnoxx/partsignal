@@ -1,0 +1,2 @@
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核环境独占、敏感输出和 cleanup。"}
+{"file":".trellis/tasks/08-24-frontend-v2-phase-8-final-verify-environment-isolation-blocker/research/audit.md","reason":"复核关闭证据没有被误写为最终 Gate。"}

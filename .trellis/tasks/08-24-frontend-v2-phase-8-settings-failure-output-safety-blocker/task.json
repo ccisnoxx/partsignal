@@ -1,0 +1,42 @@
+{
+  "id": "frontend-v2-phase-8-settings-failure-output-safety-blocker",
+  "name": "frontend-v2-phase-8-settings-failure-output-safety-blocker",
+  "title": "Frontend V2 Phase 8 Settings Failure Output Safety Blocker",
+  "description": "A28：阻止 Settings 验证失败 traceback 展开连接配置或 credential，同时保留可归因的校验错误。",
+  "status": "planning",
+  "dev_type": "backend",
+  "scope": "backend Settings representation, validation errors, unit tests, trellis",
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-24",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-23-frontend-v2-phase-8-workbench-planning",
+  "relatedFiles": [
+    "backend/app/config.py",
+    "backend/tests/unit/test_security_and_publication.py",
+    "backend/pyproject.toml",
+    ".trellis/tasks/08-24-frontend-v2-phase-8-exit-gate-recheck/"
+  ],
+  "notes": "A28 规划完成：优先使用 Pydantic 原生 hide_input_in_errors 与敏感 Field repr=False，保持 str 合同；受控 pytest output 仍命中时停止，不擅自改全局 runner。",
+  "meta": {
+    "phase": "Frontend V2 Phase 8",
+    "finding": "A28",
+    "blocker_owner": "Settings failure traceback sensitive-output boundary",
+    "source_recheck": "frontend-v2-phase-8-exit-gate-recheck",
+    "planning_only": true,
+    "planning_approved": false,
+    "blocker_status": "open",
+    "execution_order": 2,
+    "runtime_behavior_change": true,
+    "final_make_verify_allowed": false
+  }
+}

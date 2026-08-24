@@ -1,0 +1,3 @@
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"实施 backend config/test 的最小质量边界。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"保护 AI credential 与错误摘要，不改变配置合同。"}
+{"file":".trellis/tasks/08-24-frontend-v2-phase-8-settings-failure-output-safety-blocker/research/audit.md","reason":"注入本地 Pydantic 能力、敏感字段和停止条件。"}

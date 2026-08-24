@@ -1,0 +1,43 @@
+{
+  "id": "frontend-v2-phase-8-final-verify-environment-isolation-blocker",
+  "name": "frontend-v2-phase-8-final-verify-environment-isolation-blocker",
+  "title": "Frontend V2 Phase 8 Final Verify Environment Isolation Blocker",
+  "description": "A27：纠正 Phase 8 最终 make verify 的进程环境，只加载 E2E 必需连接键，隔离 .env 其余变量，不修改产品或 runner。",
+  "status": "planning",
+  "dev_type": "validation",
+  "scope": "local verification environment and trellis evidence",
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-24",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-23-frontend-v2-phase-8-workbench-planning",
+  "relatedFiles": [
+    "Makefile",
+    "deploy/scripts/e2e-local.sh",
+    "deploy/scripts/e2e-environment.py",
+    ".trellis/tasks/08-24-frontend-v2-phase-8-exit-gate-recheck/",
+    ".trellis/tasks/archive/2026-08/08-12-frontend-v2-phase-4-exit-gate-environment-corrected/"
+  ],
+  "notes": "A27 规划完成：复用现有 python-dotenv 两键 allowlist，只验证环境 owner，不修改 runner 或运行最终 Gate；等待 recheck evidence 提交和用户批准后启动。",
+  "meta": {
+    "phase": "Frontend V2 Phase 8",
+    "finding": "A27",
+    "blocker_owner": "final-gate environment wrapper",
+    "source_recheck": "frontend-v2-phase-8-exit-gate-recheck",
+    "planning_only": true,
+    "planning_approved": false,
+    "blocker_status": "open",
+    "execution_order": 1,
+    "runtime_behavior_change": false,
+    "final_make_verify_allowed": false
+  }
+}

@@ -1,0 +1,5 @@
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"执行时核对 backend unit/integration 的项目质量 owner。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行时核对 V1/V2 根质量入口、requestfailed 与 production-artifact 边界。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"执行时遵守 Redis、database、storage、process、port 与敏感 capability 隔离契约。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"执行时核对根 make e2e/make verify 的质量门禁职责。"}
+{"file":".trellis/tasks/08-24-frontend-v2-phase-8-exit-gate-recheck/research/audit.md","reason":"注入固定候选、A19/A20/A25/A26、文档现状与失败归因基线。"}

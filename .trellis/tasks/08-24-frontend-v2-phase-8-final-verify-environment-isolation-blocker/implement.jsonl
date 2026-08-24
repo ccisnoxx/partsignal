@@ -1,0 +1,3 @@
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"执行两键环境、Redis/端口 preflight 与 cleanup 合同。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"区分本地最终 gate 与 CI 已有环境 owner，不修改 workflow。"}
+{"file":".trellis/tasks/08-24-frontend-v2-phase-8-final-verify-environment-isolation-blocker/research/audit.md","reason":"注入 Phase 8 失败归因和既有两键纠正证据。"}

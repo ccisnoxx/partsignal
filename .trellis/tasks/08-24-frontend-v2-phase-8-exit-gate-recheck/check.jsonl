@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核实际 suite 责任、未知请求失败与敏感产物边界。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核 preflight、精确 cleanup、trace 与签名 capability 输出。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"复核独立阶段与最终根 gate 结论。"}
+{"file":".trellis/tasks/08-24-frontend-v2-phase-8-exit-gate-recheck/research/audit.md","reason":"按冻结候选和历史 finding 基线检查 Gate 判定与文档一致性。"}

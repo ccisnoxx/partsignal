@@ -23,7 +23,8 @@
     "08-23-frontend-v2-workbench-ui",
     "08-23-frontend-v2-workbench-e2e",
     "08-23-frontend-v2-workbench-abstraction-review",
-    "08-24-frontend-v2-workbench-root-fixture-convergence-blocker"
+    "08-24-frontend-v2-workbench-root-fixture-convergence-blocker",
+    "08-24-frontend-v2-auth-workbench-request-cancellation-blocker"
   ],
   "parent": null,
   "relatedFiles": [
@@ -52,22 +53,23 @@
     "docs/frontend-v2/08-testing-quality-and-acceptance.md",
     "docs/frontend-v2/09-architecture-decisions.md"
   ],
-  "notes": "前三个交付 child Task、abstraction review 与 A25 fixture convergence blocker 均已完成并归档。A26 仍待独立授权；Phase 8 Exit Gate 保持 NOT_MET。",
+  "notes": "六个 child Task 均已完成并归档，A25/A26 blocker 已关闭；Phase 8 Exit Gate 尚未独立 recheck，保持 NOT_MET。",
   "meta": {
     "phase": "Frontend V2 Phase 8",
     "planning_only": true,
     "planning_approved": true,
     "phase_7_gate": "MET",
     "current_gate": "NOT_MET",
-    "blocker_count": 1,
+    "blocker_count": 0,
     "current_child": null,
-    "active_blocker": "A26",
+    "active_blocker": null,
     "planned_children": [
       "frontend-v2-workbench-aggregate-read-model",
       "frontend-v2-workbench-ui",
       "frontend-v2-workbench-e2e",
       "frontend-v2-workbench-abstraction-review",
-      "frontend-v2-workbench-root-fixture-convergence-blocker"
+      "frontend-v2-workbench-root-fixture-convergence-blocker",
+      "frontend-v2-auth-workbench-request-cancellation-blocker"
     ]
   }
 }

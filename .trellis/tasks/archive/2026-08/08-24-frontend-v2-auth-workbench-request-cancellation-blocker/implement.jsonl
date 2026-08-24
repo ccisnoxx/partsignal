@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"约束 requestfailed 审计、Auth production artifact 与前端验证边界"}
+{"file":".trellis/spec/frontend/index.md","reason":"注入前端状态 owner 与质量规范索引；具体 Auth/Query 证据由 research/query-lifecycle.md 提供"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"约束定向真实栈、敏感输出与 database/Redis/storage/port cleanup"}
+{"file":".trellis/tasks/08-24-frontend-v2-auth-workbench-request-cancellation-blocker/research/audit.md","reason":"注入 A26 静态证据、TanStack 语义与诊断缺口"}
+{"file":".trellis/tasks/08-24-frontend-v2-auth-workbench-request-cancellation-blocker/research/archive-evidence.md","reason":"注入 A26/A25 归档边界与 Phase 8 gate 约束"}
+{"file":".trellis/tasks/08-24-frontend-v2-auth-workbench-request-cancellation-blocker/research/query-lifecycle.md","reason":"注入 TanStack 5.101.4 与 Auth/Workbench 静态调用链证据"}
+{"file":".trellis/tasks/08-24-frontend-v2-auth-workbench-request-cancellation-blocker/research/e2e-observation.md","reason":"注入 Playwright collector、phase/errorText 与安全定向 runner 证据"}

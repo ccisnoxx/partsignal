@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"检查窄 requestfailed 识别与前端质量门禁"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"检查 secret scan、真实栈隔离与精确 cleanup 证据"}
+{"file":".trellis/tasks/08-24-frontend-v2-auth-workbench-request-cancellation-blocker/research/audit.md","reason":"核对运行证据是否足以唯一归因 owner"}
+{"file":".trellis/tasks/08-24-frontend-v2-auth-workbench-request-cancellation-blocker/research/archive-evidence.md","reason":"核对 A26 关闭条件与 Phase 8 blocker 边界"}
+{"file":".trellis/tasks/08-24-frontend-v2-auth-workbench-request-cancellation-blocker/research/query-lifecycle.md","reason":"核对 production query/session owner 与本地取消语义"}
+{"file":".trellis/tasks/08-24-frontend-v2-auth-workbench-request-cancellation-blocker/research/e2e-observation.md","reason":"核对精确 collector、secret 与 cleanup 证据"}

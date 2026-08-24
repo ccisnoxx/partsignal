@@ -1874,3 +1874,24 @@ A26 child 归档后同步父 Task：六个 child 均已归档，开放 blocker �
 ### Status
 
 [OK] **Completed**
+
+
+## Session 173: Frontend V2 Phase 9 Cutover 总体规划
+
+**Date**: 2026-08-24
+**Task**: Frontend V2 Phase 9 Cutover 总体规划
+**Branch**: `main`
+
+### Summary
+
+完成 Phase 9 Cutover 仓库审计、七项最小子任务图、授权边界、Cutover Gate 与回滚策略；未实施部署或删除 V1。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `34b0f9db` | (see git log) |
+
+### Status
+
+[OK] **Completed**

@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "",
+  "notes": "固定 release Phase B、HTTP Gate、blocker-specific、完整 Browser Gate 与 protected-state 检查均已通过，open P0/P1/P2=0/0/0。content_editor 已通过现有 UI 完成首次改密，权威 env 已原子同步；current 未更新，未执行 fallback/restore，等待独立 current 授权后最终判定 Staging Gate。",
   "meta": {}
 }

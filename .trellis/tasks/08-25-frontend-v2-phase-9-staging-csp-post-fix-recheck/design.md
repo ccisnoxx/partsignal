@@ -96,6 +96,31 @@ HTTP 任一失败时不创建浏览器 session。
 
 只允许浏览器主动 refresh/Back/Forward 导致且已归因的 `net::ERR_ABORTED`；未知失败不得忽略。
 
+### 6.1 ENGINEER blocker 修复
+
+本方案已经单独授权并按以下边界执行。
+
+后端当前允许新旧密码相同，但利用该行为只清除 `must_change_password` 会违背首次改密的安全意图，因此禁止。最小安全方案复用现有 UI、`/api/v1/auth/change-password`、共享 env 与原生 shell，不新增脚本或 credential manager：
+
+1. 在本地任务 shell 内用 `openssl rand -hex 18` 生成新的 ENGINEER 密码；旧密码只从共享 env 的精确 key 读入内存。
+2. 通过 SSH stdin 把新密码送入 Hostdzire root shell；在 `/root/partsignal/shared/` 创建权限 `0600` 的同文件系统 staged env。只替换唯一 `PARTSIGNAL_SEED_ENGINEER_PASSWORD` 行，并通过脱敏后 checksum 证明其他内容未变。
+3. 使用专属 `playwright-cli` session 以旧密码登录，在 `/account/security` 提交新密码。只有 `POST /api/v1/auth/change-password=204` 且 canonical session 返回 `must_change_password=false` 才视为数据库写成功。
+4. 数据库写成功后，用 `mv -T` 把 staged env 原子替换为权威 `.env.staging`；校验 mode=`0600`、唯一 key、所有 release symlink target 未变。seed env 值不会修改数据库，也不要求重启当前容器。
+5. logout 后重新从权威 env 读取 ENGINEER 密码到自动化内存，用 fresh session 登录，证明数据库与 env 已同步；随后清空所有本地/远端 shell 密码变量。
+
+失败边界：
+
+- staged env 创建或脱敏一致性检查失败：数据库尚未变化，删除精确 staged 文件并停止。
+- change-password 未返回 204：不得激活 staged env；确认旧 session/旧密码仍有效后删除精确 staged 文件并停止。
+- change-password 已成功但 env 原子替换失败：不得退出持有新 session 的任务 shell；staged 文件保留新凭据，只允许重试同一个精确原子替换或请求用户处置，不自动改回数据库密码。
+- fresh login 失败：保留新 env 与现场，停止；不猜密码、不自动 restore。
+
+### 6.2 无数据路径验收口径
+
+不为验收创建业务数据。当前不存在的 Workbench attention 与 Publishing workspace link 采用条件矩阵：有现有 link 时进入详情；没有时必须证明对应 API 成功、canonical empty state 可见且没有失败请求。1024 workspace 响应式覆盖改用当前已有的 Content workspace，不用 Publishing list 冒充 workspace。
+
+账户菜单焦点恢复使用最长 500ms 的浏览器条件等待复核；超时仍未恢复才判 Accessibility Required 失败。上述两项验收口径调整已与 auth-write 一起单独批准并执行。
+
 ## 7. fallback/restore
 
 失败不自动 fallback。若用户后续针对实际新 release、三个 image ID 和命令授权，fallback target 只能是：

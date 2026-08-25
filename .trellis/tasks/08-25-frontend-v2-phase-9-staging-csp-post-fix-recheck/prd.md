@@ -4,12 +4,12 @@
 
 将包含 Zod `jitless` 修复的固定 candidate 安全部署到 Staging，先证明匿名 `/login` 的 TrustedScript P1 已关闭，再完成此前因 fail-fast 未执行的完整 Browser Gate，最终把 Staging Gate 明确判定为 `MET` 或 `NOT_MET`。
 
-## 已确认事实
+## 规划时已确认事实
 
 - 新 candidate 固定为 `2a6fd940b84890d269bf1196a8c6e16b4cd9a9f9`；Task 分支从该 clean `main` 创建。
-- live `origin/main` 仍为活动 Staging candidate `0e472399bc09a82ffba7e16ca4f245b01267d475`；本地 `main` 单向超前 7 个提交，分叉计数为 `0/7`。
+- 规划时 live `origin/main` 为活动 Staging candidate `0e472399bc09a82ffba7e16ca4f245b01267d475`；本地 `main` 单向超前 7 个提交，分叉计数为 `0/7`。
 - 相对 `0e472399...`，产品代码只修改 `frontend-v2/src/main.tsx` 与 `frontend-v2/tests/e2e/auth-session.spec.ts`：入口先启用 Zod `jitless` 再加载 providers，并增加严格 CSP 的 Auth production-artifact 回归；backend、contracts、deploy 与 V1 产品代码无差异。
-- 当前 Hostdzire 活动 release 为 `mvp-20260825-160838-0e472399bc09`：V2 frontend 与 candidate backend 正常运行，DB revision=`0043_geo_platform_identity`，HTTP baseline 仍为 `MET`。
+- 规划时 Hostdzire 活动 release 为 `mvp-20260825-160838-0e472399bc09`：V2 frontend 与 candidate backend 正常运行，DB revision=`0043_geo_platform_identity`，HTTP baseline 为 `MET`。
 - `/root/partsignal/current` 仍指向 `releases/mvp-20260806-195740-afb1b8c82f40`；它只是上一完成验收的记录，不是流量开关。
 - 当前活动 candidate 的 backend/V1/V2 image、fresh backup、activation audit 和 protected snapshot 均存在；未执行 fallback/restore。
 - 上一 Browser Gate 的唯一 P1 是匿名 `/login` 加载 Zod schemas chunk 时触发 TrustedScript CSP error；仓库内修复及 production artifact 回归已通过。
@@ -34,39 +34,40 @@
 
 ### Source 与 artifact
 
-- [ ] `main=origin/main=2a6fd940b84890d269bf1196a8c6e16b4cd9a9f9`，且工作树干净。
-- [ ] release 精确为 `mvp-20260825-172239-2a6fd940b848`，归档 checksum 已记录且归档不含禁止条目。
-- [ ] `partsignal-backend:<release>`、`partsignal-frontend-v1:<release>`、`partsignal-frontend:<release>` 的 image ID 已冻结。
-- [ ] fresh backup 非空；preflight、full deploy、migration/seed 和健康检查均按 Runbook 完成。
+- [x] `main=origin/main=2a6fd940b84890d269bf1196a8c6e16b4cd9a9f9`，且发布工作树干净。
+- [x] release 精确为 `mvp-20260825-172239-2a6fd940b848`，归档 checksum 已记录且归档不含禁止条目。
+- [x] `partsignal-backend:<release>`、`partsignal-frontend-v1:<release>`、`partsignal-frontend:<release>` 的 image ID 已冻结。
+- [x] fresh backup 非空；preflight、full deploy、migration/seed 和健康检查均按 Runbook 完成。
 
 ### HTTP Gate
 
-- [ ] 公网与回环 live/ready 正常，匿名 `/api/v1/auth/me=204`。
-- [ ] `/`、`/index.html`、`/login` 与代表 deep link 为 V2 SPA artifact，标题为 `PartSignal Frontend V2`。
-- [ ] 所有实际 hashed JS/CSS 加载成功；HTML/client fallback=`no-cache`，hashed assets=`immutable` 且 `Vary: Accept-Encoding`。
-- [ ] missing asset=`404`、主 JS `.map=404`、容器内无 `.map`、全部 JS 无 `sourceMappingURL`。
-- [ ] CSP、Trusted Types、HSTS、COOP、frame、nosniff、Referrer-Policy 正确且唯一；CSP 不含 `unsafe-eval`，Trusted Types 未放宽。
-- [ ] 6 次公网/回环稳定性探针通过，时间窗内无新的 Nginx premature-close 记录。
+- [x] 公网与回环 live/ready 正常，匿名 `/api/v1/auth/me=204`。
+- [x] `/`、`/index.html`、`/login` 与代表 deep link 为 V2 SPA artifact，标题为 `PartSignal Frontend V2`。
+- [x] 所有实际 hashed JS/CSS 加载成功；HTML/client fallback=`no-cache`，hashed assets=`immutable` 且 `Vary: Accept-Encoding`。
+- [x] missing asset=`404`、主 JS `.map=404`、容器内无 `.map`、全部 JS 无 `sourceMappingURL`。
+- [x] CSP、Trusted Types、HSTS、COOP、frame、nosniff、Referrer-Policy 正确且唯一；CSP 不含 `unsafe-eval`，Trusted Types 未放宽。
+- [x] 6 次公网/回环稳定性探针通过，时间窗内无新的 Nginx premature-close 记录。
 
 ### blocker-specific Browser Gate
 
-- [ ] 匿名 `/login` 标题为 `PartSignal Frontend V2`，登录表单可见、可编辑、提交按钮可用。
-- [ ] `securitypolicyviolation=0`、TrustedScript error=`0`、`console.error=0`、`pageerror=0`。
-- [ ] 非预期 `requestfailed=0`；匿名 `/api/v1/auth/me=204` 被视为正常。
+- [x] 匿名 `/login` 标题为 `PartSignal Frontend V2`，登录表单可见、可编辑、提交按钮可用。
+- [x] `securitypolicyviolation=0`、TrustedScript error=`0`、`console.error=0`、`pageerror=0`。
+- [x] 非预期 `requestfailed=0`；匿名 `/api/v1/auth/me=204` 被视为正常。
 
 ### 完整 Browser Gate
 
-- [ ] ADMIN 登录、session restore、logout 通过；ENGINEER 登录和服务端权限边界通过。
-- [ ] Workbench、Products、Content、Publishing、GEO、Configuration/System 的代表只读路径通过。
-- [ ] direct、refresh、Back、Forward 与 URL/canonical 页面状态一致。
-- [ ] 375、768、1024、1440 代表布局无根溢出或不可达关键内容。
-- [ ] keyboard/focus 基础行为通过；console/pageerror/securitypolicyviolation/TrustedScript/非预期 requestfailed/失败静态资源均为零。
+- [x] ADMIN 登录、session restore、logout 通过；ENGINEER 首次改密后 fresh 登录通过，URL-preserving ADMIN 403 与服务端 `PERMISSION_DENIED` 权限矩阵通过。
+- [x] Workbench、Products detail/fact、Content workspace、Publishing list、GEO detail、Configuration/System 通过；Workbench 与 Publishing 无现有详情 link 时，canonical empty state 与对应成功 API 均通过。
+- [x] direct、refresh、Back、Forward 与 URL/canonical 页面状态一致。
+- [x] 375、768、1024、1440 均无根溢出或不可达关键内容；1024 使用当前已有 Content workspace 完成真实 workspace 覆盖。
+- [x] 导航、菜单与键盘焦点可达，账户菜单关闭后在 500ms 条件等待内恢复焦点，runtime 全零。
 
 ### Protected state 与结论
 
-- [ ] activation 前后仅出现 full deployment 允许的 candidate 变更；最终 backend services 同一 image、DB=`0043`、Nginx owner 未漂移。
-- [ ] Browser Gate 前后 protected snapshot、migrate container 集合、Nginx 与 `current` 未发生未授权变化。
-- [ ] `current` 只在全部 Gate 通过并取得单独授权后更新。
+- [x] activation 前后仅出现 full deployment 允许的 candidate 变更；最终 backend services 同一 image、DB=`0043`、Nginx owner 未漂移。
+- [x] Browser Gate 前后 protected snapshot、migrate container 集合、Nginx 与 `current` 未发生未授权变化。
+- [x] HTTP、blocker-specific、完整 Browser 与 protected-state Gate 已通过，open P0/P1/P2=`0/0/0`。
+- [ ] `current` 等待对固定 release 的单独授权，当前保持旧值。
 - [ ] 最终报告包含 actual release/image ID/远程动作、HTTP/Browser/protected-state 证据、fallback/restore 状态、open P0/P1/P2 和明确 `MET`/`NOT_MET`。
 
 ## 不在范围
@@ -78,4 +79,4 @@
 
 ## 阻塞问题
 
-无产品或方案问题。实施前仍需用户审核本规划，并分别授权 commit、push、Staging 部署、真实凭据登录与成功后的 `current` 更新。
+无产品或方案问题。HTTP、Browser 与 protected-state Gate 均已通过；本 Task 证据提交与归档已授权，`current` 更新仍需对固定 release 的单独授权。

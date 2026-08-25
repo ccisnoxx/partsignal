@@ -6,12 +6,17 @@
 - [x] 创建已授权 Trellis Task 与唯一临时分支。
 - [x] 完成本地 Git、Hostdzire runtime/artifact/protected state 与公网 HTTP 只读盘点。
 - [x] 形成可 review 的 PRD、design、implement 与 inventory。
-- [ ] 用户审核最新规划并明确批准进入实施。
-- [ ] 取得 commit、push、Staging 部署、真实凭据登录和成功后更新 `current` 的分阶段授权。
+- [x] 用户审核最新规划并明确批准进入实施。
+- [x] 取得规划 commit、`main` push 与固定 release Staging Phase B 的分阶段授权并完成执行。
+- [x] HTTP Gate 全绿；取得单独授权并完成真实凭据只读 Browser Gate。
+- [x] blocker-specific Gate 全绿，原 TrustedScript P1 已关闭。
+- [x] 取得 auth-write 与 empty-state 验收调整授权，完成 ENGINEER 首次改密、权威 env 原子同步与 fresh login。
+- [x] 完整 Browser Gate 与 protected-state 检查全绿，open P0/P1/P2=`0/0/0`。
+- [ ] `current` 等待对固定 release 的独立授权；当前保持旧验收记录，未执行 fallback/restore。
 
 ## 阶段 0：规划与来源门禁
 
-本轮停在 planning，不运行 `task.py start`。批准后先按 Trellis 进入实施，再在任何远端写操作前满足：
+规划阶段停在 planning，不运行 `task.py start`。批准后先按 Trellis 进入实施，再在任何远端写操作前满足：
 
 ```sh
 test "$(git branch --show-current)" = main
@@ -22,7 +27,7 @@ test "$(git ls-remote origin refs/heads/main | cut -f1)" = \
   2a6fd940b84890d269bf1196a8c6e16b4cd9a9f9
 ```
 
-当前 live origin 仍为 `0e472399...`。唯一计划 push 是非强制：
+规划时 live origin 为 `0e472399...`；后续经单独授权以非强制方式推送到 fixed candidate：
 
 ```sh
 git push origin main:main
@@ -269,6 +274,19 @@ frontend-v2-p9-staging-csp-post-fix-recheck
 
 任一 Required 项失败立即停止剩余矩阵并记录 `NOT_MET`。结束前 logout、关闭专属 session，并用 session list 证明无遗留 browser/server。
 
+### 5.3 ENGINEER blocker 修复与复验
+
+本阶段已经单独授权并完成以下操作：
+
+1. 生成新的随机 ENGINEER 密码并创建 `0600` staged env；脱敏核对除目标 key 外内容完全一致。
+2. 用当前 seed password 登录 `content_editor`，经现有首次改密 UI 把密码改为新值；Required=`change-password 204`、`must_change_password=false`。
+3. 只有第 2 步成功后才原子激活 staged env；fresh login 必须从更新后的权威 key 重新读取凭据。
+4. 从匿名 blocker-specific 开始重新执行完整 Browser Gate，不复用上一 session 或上一 runtime 计数。
+5. Workbench/Publishing 没有现有 link 时验证真实 empty state 与成功 API；1024 workspace 使用已有 Content workspace。账户菜单焦点恢复最多等待 500ms 后判定。
+6. 复验结束后 logout、关闭 session、删除自动 snapshot/helper/FIFO，并重做 protected-state 检查。
+
+本阶段未创建业务 fixture，未修改产品代码、contract、DB schema、Nginx、release、容器或 `current`。
+
 ## 阶段 6：protected state 与 `current`
 
 Browser Gate 后重新拍 protected snapshot，确认没有未授权变化。只有全部 Gate 通过、open P0/P1/P2=`0/0/0` 且用户针对精确 release 单独授权后，才运行：
@@ -313,4 +331,4 @@ python3 ./.trellis/scripts/task.py validate \
 
 ## 提交边界
 
-本 Task 当前只产生 planning/inventory 文件。提交前展示精确 commit plan 并等待确认；不自动 commit、push、merge、archive 或开始后续 Task。
+本轮提交限于 `prd.md`、`design.md`、`implement.md`、`task.json` 与两份 Staging 证据；精确 commit plan 与归档已获用户授权。不自动 push、merge、更新 `current` 或开始后续 Task。

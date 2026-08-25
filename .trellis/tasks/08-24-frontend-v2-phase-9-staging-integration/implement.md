@@ -95,7 +95,9 @@ feat(deploy): 接入 frontend v2 staging artifact
 
 该 commit 只包含本任务列出的 artifact、staging owner、门禁、runbook、Phase 9 文档和任务产物；不包含 V1 删除、production、backend/contracts 或无关文件。
 
-## 外部操作（提交后另行授权）
+## 后续独立任务的外部操作
+
+用户于 2026-08-25 确认以下操作全部延后到 `frontend-v2-phase-9-staging-activation-validation`；P9.1 不执行，也不以其 `PENDING` 状态阻塞归档。
 
 ### A. push
 
@@ -123,6 +125,6 @@ push `main` 是独立授权点；未授权不得执行。
 ## 完成条件
 
 - 本地 Required Validation 全绿并提交。
-- 经单独授权的 staging Gate 全绿，或若尚未授权则任务不得标记 completed。
-- observed evidence、回滚结果（若触发）和 remaining external unknowns 已写入任务/runbook。
+- Repository Gate=`MET`，精确验证证据已写入 07/08 与任务记录。
+- 外部 Staging Gate 保持 `PENDING`，由 `frontend-v2-phase-9-staging-activation-validation` 独立规划、批准、实施、验证、提交和回滚。
 - 未删除或提前弃用任何 V1 owner，且未开始 P9.2 及后续任务。

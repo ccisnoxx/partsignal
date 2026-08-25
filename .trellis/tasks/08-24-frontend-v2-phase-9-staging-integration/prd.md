@@ -2,7 +2,7 @@
 
 ## 目标
 
-把现有 staging Compose 中名为 `frontend` 的静态站点 owner 从 `frontend/` 切换为 `frontend-v2/`，保留 V1 源码、镜像标签能力和旧 release 回滚路径，并以本地门禁和一次单独授权的 staging 发布验证证明接入可用。
+把仓库中 staging Compose 名为 `frontend` 的静态站点 owner 从 `frontend/` 切换为 `frontend-v2/`，保留 V1 源码、镜像标签能力和旧 release 回滚路径，并以本地门禁证明 artifact 与配置合同。
 
 ## 范围
 
@@ -11,7 +11,6 @@
 - 明确禁用 V2 production source map，并验证浏览器不可获取 `.map`。
 - 复用现有外层 staging Nginx、安全头和完整发布脚本；补充必要的静态/容器回归检查。
 - 更新 staging runbook 及 Phase 9 验收记录，使 V2 owner、验证步骤、授权点和 V1 回滚命令可审计。
-- 在仓库实现和本地验证完成、提交并另获授权后，才允许 push、只读远程盘点、完整 staging 发布和浏览器验证。
 
 ## 不在范围
 
@@ -22,6 +21,7 @@
 - 不删除 `frontend/`、V1 镜像、旧 release 或任何 V1 pipeline。
 - 不创建并行 V1/V2 service、通用 deployment framework、feature flag 或新的外部资源。
 - 不使用 fast redeploy 激活本次变更：`deploy/compose.staging.yaml` 属于其关键路径，必须走完整 staging runbook。
+- 不执行外部 Staging Gate。用户于 2026-08-25 确认将只读盘点、发布、浏览器验收和必要回滚延后到独立任务 `frontend-v2-phase-9-staging-activation-validation`。
 
 ## 需求
 
@@ -32,8 +32,6 @@
 5. API 继续使用同源 `/api` 合同，不引入 staging 专用 API 默认值或 CORS 兼容层。
 6. CSP 与其他安全头继续由现有外层 staging Nginx 唯一拥有；容器 Nginx 不复制这些头。
 7. `make build` 必须实际构建 V2 production 镜像；部署脚本门禁必须冻结 staging build context 和现有发布命令序列。
-8. staging 外部验证不得写入业务数据；仅允许登录、导航、读取页面/API 和检查响应头/静态资源。
-9. 激活前必须确认实际 staging URL/主机、目标 commit、上一 V1 release/tag 和可执行回滚命令；仓库证据不足时停止，不猜测。
 
 ## 验收标准
 
@@ -47,7 +45,7 @@
 - [ ] `make build`、部署脚本门禁及相关前端质量门禁通过。
 - [ ] V1 源码、镜像构建能力、旧 release 和 production 配置未删除或改写。
 
-### 外部 staging Gate（单独授权后）
+### 后续独立任务合同（不计入 P9.1 验收）
 
 - [ ] 只读盘点确认 `https://geo.962850.xyz`（或用户确认的实际 URL）确为 staging，且上一 V1 release/tag 可回滚。
 - [ ] 目标 staging 运行的仓库 commit 与已批准提交完全一致，并通过完整 staging runbook 激活。
@@ -63,6 +61,8 @@
 2. 提交后，push 是独立外部 Git 写操作，必须另获授权。
 3. staging 只读盘点、发布激活和回滚分别属于远程操作；必须在执行前确认目标、凭据边界和上一 V1 release。
 4. staging 验证只允许读操作。任何需写业务数据、改 DNS/外层代理、改 schema/backend 或接触 production 的情况立即停止并拆分任务。
+
+以上外部授权点由 `frontend-v2-phase-9-staging-activation-validation` 持有；P9.1 不执行这些操作，也不以其 `PENDING` 状态阻塞归档。
 
 ## 停止条件
 

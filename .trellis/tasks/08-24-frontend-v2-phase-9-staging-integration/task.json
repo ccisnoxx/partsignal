@@ -2,7 +2,7 @@
   "id": "frontend-v2-phase-9-staging-integration",
   "name": "frontend-v2-phase-9-staging-integration",
   "title": "Frontend V2 Phase 9 Staging 接入",
-  "description": "将现有 staging frontend service 的静态 artifact owner 从 V1 切换到 V2，并以本地门禁和单独授权的真实 staging 验证证明可用；保留完整 V1 回滚路径。",
+  "description": "将仓库中 staging frontend service 的静态 artifact owner 从 V1 切换到 V2，并以本地门禁证明 artifact 与配置合同；保留完整 V1 回滚路径。",
   "status": "in_progress",
   "dev_type": "infra",
   "scope": "frontend-v2,deploy,docs,trellis",
@@ -36,13 +36,15 @@
     "docs/frontend-v2/07-migration-plan.md",
     "docs/frontend-v2/08-testing-quality-and-acceptance.md"
   ],
-  "notes": "用户已批准把 frontend-v2/tests/e2e/geo-observations.spec.ts 的 GEO mobile fixture 等待竞态纳入最小验证支持范围；只允许把同步 sort 请求断言改为同文件既有的 expect.poll 模式，不得修改页面、fixture、超时、重试或产品行为。定向 foundation-mobile 用例与完整 make verify 已通过，本地 Repository Gate=MET；外部 Staging Gate=PENDING。提交、push、staging 盘点、发布和回滚继续按文档中的独立授权点执行。",
+  "notes": "用户已批准最小 GEO mobile fixture 等待修复，定向用例与完整 make verify 已通过，Repository Gate=MET。用户于 2026-08-25 确认把外部 Staging Gate 延后到独立任务 frontend-v2-phase-9-staging-activation-validation，并允许当前 P9.1 以仓库接入目标 completed 后归档；未执行 push 或任何远程操作。",
   "meta": {
     "phase": "Frontend V2 Phase 9",
     "sequence": "P9.1",
     "planning_only": false,
     "repository_gate": "MET",
-    "staging_gate": "PENDING",
+    "staging_gate": "DEFERRED",
+    "deferred_staging_task": "frontend-v2-phase-9-staging-activation-validation",
+    "scope_change_approved_at": "2026-08-25",
     "external_operations_authorized": false,
     "preserve_v1": true
   }

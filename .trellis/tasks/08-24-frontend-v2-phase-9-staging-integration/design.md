@@ -45,9 +45,9 @@ P9.1 只替换 staging `frontend` service 的静态 artifact owner，不改变�
 - `.github/workflows/ci.yml`：现有 `make build` 会继承 Makefile 的 V2 镜像门禁。
 - production 配置、backend、contracts、数据库、V1 文件：全部保持不变。
 
-## staging 激活与验证
+## 后续独立任务：staging 激活与验证
 
-仓库提交和 push 不自动触发远程操作。另获授权后按以下顺序：
+本节合同已由用户于 2026-08-25 延后到 `frontend-v2-phase-9-staging-activation-validation`，不属于 P9.1 完成条件。后续另获授权后按以下顺序：
 
 1. 只读确认目标为 staging、远程 commit、当前 release、上一 V1 release/tag、备份/迁移前置条件和回滚命令。
 2. 使用完整 staging runbook 发布目标 commit；禁止 fast redeploy。
@@ -61,4 +61,3 @@ P9.1 只替换 staging `frontend` service 的静态 artifact owner，不改变�
 以下任一项触发立即停止并回滚：关键页面不可达、API/session 失效、权限行为错误、deep link/refresh/history 失败、关键 chunk/asset 失败、CSP violation、错误率异常、公开 source map、缓存策略错误或无法确认目标/上一 V1 release。
 
 回滚使用发布前确认的上一 V1 release 目录和 tag，执行该旧 release 自身的 Compose `frontend` build/up，再复验 loopback 与公开入口。`current` 仅是 release 记录，不作为流量切换；不回退数据库、不删除 V2 release、不修改 production。
-

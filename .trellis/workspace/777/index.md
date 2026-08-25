@@ -7,8 +7,8 @@
 ## Current Status
 
 <!-- @@@auto:current-status -->
-- **Active File**: `journal-3.md`
-- **Total Sessions**: 177
+- **Active File**: `journal-4.md`
+- **Total Sessions**: 178
 - **Last Active**: 2026-08-25
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,8 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1983 | Active |
+| `journal-4.md` | ~28 | Active |
+| `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 178 | 2026-08-25 | Frontend V2 Zod jitless CSP blocker | `de9eed6c` | `codex/frontend-v2-phase-9-zod-jitless-csp-blocker` |
 | 177 | 2026-08-25 | Frontend V2 Phase 9 Staging Activation Recheck | `a33f99a` | `codex/frontend-v2-phase-9-staging-activation-recheck` |
 | 176 | 2026-08-25 | Frontend V2 Phase 9 Staging V1 UI 安全回退合同 | `b718e5cb1bb9c171d4a53a40f6579562a6ba6581` | `codex/frontend-v2-phase-9-staging-v1-rollback-compatibility-blocker` |
 | 175 | 2026-08-25 | Frontend V2 P9 外部 Staging Gate 验收 | `c35d55f9`, `e60b8bec` | `codex/frontend-v2-phase-9-staging-activation-validation` |

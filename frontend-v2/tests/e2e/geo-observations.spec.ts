@@ -59,7 +59,7 @@ test('URL 参数逐项映射 API，支持排序、分页和 canonical replace', 
     await page.getByRole('button', { name: '观测时间' }).click();
   }
   await expect(page).toHaveURL(/sort=OBSERVED_ASC/);
-  expect(geoApi.listRequests.at(-1)?.searchParams.get('sort')).toBe('OBSERVED_ASC');
+  await expect.poll(() => geoApi.listRequests.at(-1)?.searchParams.get('sort')).toBe('OBSERVED_ASC');
 
   await page.goto('/geo/observations?page=2&pageSize=10');
   await expect.poll(() => geoApi.listRequests.at(-1)?.searchParams.get('page')).toBe('2');

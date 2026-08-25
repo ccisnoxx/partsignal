@@ -19,6 +19,11 @@ grep -Fqx "    command: [uvicorn, 'app.main:app', --host, 0.0.0.0, --port, '8000
   "$root/deploy/compose.prod.yaml"
 grep -Fqx "    command: [uvicorn, 'app.main:app', --host, 0.0.0.0, --port, '8000', --timeout-keep-alive, '35', --workers, '1']" \
   "$root/deploy/compose.staging.yaml"
+grep -Fqx '    image: ${PARTSIGNAL_FRONTEND_IMAGE:-partsignal-frontend}:${PARTSIGNAL_VERSION}' \
+  "$root/deploy/compose.staging.yaml"
+grep -Fqx '      context: ../frontend-v2' "$root/deploy/compose.staging.yaml"
+! grep -Fqx '      context: ../frontend' "$root/deploy/compose.staging.yaml"
+grep -Fqx '      - 127.0.0.1:19080:80' "$root/deploy/compose.staging.yaml"
 
 mkdir "$test_dir/bin"
 printf '%s\n' \

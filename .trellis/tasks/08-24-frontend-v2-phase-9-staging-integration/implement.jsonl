@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "实施 V2 production artifact 与根质量门禁时遵守前端验证合同。"}
+{"file": ".trellis/spec/infra/domain-security-operations.md", "reason": "实施 staging Nginx、安全头、外部授权和回滚边界时遵守基础设施合同。"}
+{"file": ".trellis/spec/infra/ci-execution.md", "reason": "修改 Makefile 与复用现有 CI 入口时保持执行环境和门禁一致。"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "编写一次性容器检查和 staging 只读验收时保持进程、端口、数据与清理隔离。"}
+{"file": ".trellis/tasks/08-24-frontend-v2-phase-9-staging-integration/research/audit.md", "reason": "注入已核验的 staging owner、gap、最小设计边界和外部未知事实。"}

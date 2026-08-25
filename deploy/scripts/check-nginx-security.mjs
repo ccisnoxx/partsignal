@@ -1,4 +1,4 @@
-/** 校验主题脚本、DOM sink、CSP 和外层 Nginx 模板保持同一安全契约。 */
+/** 校验 V1/V2 HTML、DOM sink、CSP 和 Nginx owner 保持同一安全契约。 */
 import assert from 'node:assert/strict';
 import { readdir, readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -216,24 +216,40 @@ function assertMarkdownSinkOwnership(path, source, owner) {
   }
 }
 
-const [html, themeScript, snippet, productionTemplate, stagingTemplate, containerConfig] = await Promise.all([
+const [
+  v1Html,
+  v2Html,
+  themeScript,
+  snippet,
+  productionTemplate,
+  stagingTemplate,
+  v1ContainerConfig,
+  v2ContainerConfig,
+] = await Promise.all([
   read('frontend/index.html'),
+  read('frontend-v2/index.html'),
   read('frontend/public/theme-init.js'),
   read('deploy/nginx/partsignal-security-headers.conf'),
   read('deploy/nginx/partsignal.conf.template'),
   read('deploy/nginx/partsignal.staging.conf.template'),
   read('frontend/nginx.conf'),
+  read('frontend-v2/nginx.conf'),
 ]);
 const templates = [productionTemplate, stagingTemplate];
 
-const inlineScripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
-  .filter(([, attributes]) => !/(?:^|\s)src\s*=/.test(attributes));
-if (inlineScripts.length !== 0) {
-  throw new Error(`frontend/index.html 不得包含内联脚本，当前为 ${inlineScripts.length} 个`);
+for (const [path, html] of [
+  ['frontend/index.html', v1Html],
+  ['frontend-v2/index.html', v2Html],
+]) {
+  const inlineScripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)]
+    .filter(([, attributes]) => !/(?:^|\s)src\s*=/.test(attributes));
+  if (inlineScripts.length !== 0) {
+    throw new Error(`${path} 不得包含内联脚本，当前为 ${inlineScripts.length} 个`);
+  }
 }
 
 const themeScriptTag = '<script src="/theme-init.js"></script>';
-if (!html.includes(themeScriptTag) || html.indexOf(themeScriptTag) > html.indexOf('<script type="module" src="/src/main.tsx"></script>')) {
+if (!v1Html.includes(themeScriptTag) || v1Html.indexOf(themeScriptTag) > v1Html.indexOf('<script type="module" src="/src/main.tsx"></script>')) {
   throw new Error('frontend/index.html 必须在 React 入口前同步加载 /theme-init.js');
 }
 if (!themeScript.includes("'partsignal.theme-mode'")) {
@@ -283,13 +299,19 @@ for (const [index, template] of templates.entries()) {
     throw new Error(`${path} 重复定义了项目安全头`);
   }
 }
-if (/add_header\s+(?:Content-Security-Policy|Strict-Transport-Security|Cross-Origin-Opener-Policy|X-Frame-Options|X-Content-Type-Options|Referrer-Policy)\b/.test(containerConfig)) {
-  throw new Error('frontend/nginx.conf 不得重复定义由外层站点持有的安全头');
+for (const [path, config] of [
+  ['frontend/nginx.conf', v1ContainerConfig],
+  ['frontend-v2/nginx.conf', v2ContainerConfig],
+]) {
+  if (/add_header\s+(?:Content-Security-Policy|Strict-Transport-Security|Cross-Origin-Opener-Policy|X-Frame-Options|X-Content-Type-Options|Referrer-Policy)\b/.test(config)) {
+    throw new Error(`${path} 不得重复定义由外层站点持有的安全头`);
+  }
 }
 
 const sources = [
   ...await sourceFiles('frontend/src'),
   ...await sourceFiles('frontend/public'),
+  ...await sourceFiles('frontend-v2/src'),
 ];
 for (const path of sources) {
   const source = await read(path);
@@ -354,4 +376,4 @@ assert.throws(
   /DOM HTML sink/,
 );
 
-console.log('Nginx 安全头、外置主题脚本与 DOM sink 所有权校验通过');
+console.log('V1/V2 Nginx 安全头、HTML 与 DOM sink 所有权校验通过');

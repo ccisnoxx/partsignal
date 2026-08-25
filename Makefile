@@ -3,7 +3,7 @@ COMPOSE := docker compose --env-file .env -f deploy/compose.dev.yaml
 UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 UV := UV_CACHE_DIR=$(UV_CACHE_DIR) uv
 
-.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate seed-demo lint typecheck test-unit test-integration e2e build verify test-deploy-scripts staging-redeploy-fast down
+.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate seed-demo lint typecheck test-unit test-integration e2e build build-frontend-v2 verify test-deploy-scripts test-frontend-v2-container staging-redeploy-fast down
 
 bootstrap:
 	@test -f .env || cp .env.example .env
@@ -60,14 +60,20 @@ e2e:
 build:
 	docker build -f backend/Dockerfile -t partsignal-backend:test backend
 	docker build -f frontend/Dockerfile -t partsignal-frontend:test frontend
-	npm --prefix frontend-v2 run build
+	$(MAKE) build-frontend-v2
+
+build-frontend-v2:
+	docker build -f frontend-v2/Dockerfile -t partsignal-frontend-v2:test frontend-v2
 
 verify: contract-check lint typecheck test-unit test-integration build e2e
 	$(COMPOSE) config --quiet
 	PARTSIGNAL_BACKEND_IMAGE=partsignal-backend PARTSIGNAL_VERSION=test docker compose --env-file .env -f deploy/compose.prod.yaml config --quiet
 
-test-deploy-scripts:
+test-deploy-scripts: test-frontend-v2-container
 	deploy/scripts/test-deploy-staging.sh
+
+test-frontend-v2-container: build-frontend-v2
+	deploy/scripts/test-frontend-v2-container.sh
 
 staging-redeploy-fast:
 	deploy/scripts/redeploy-staging-fast.sh

@@ -542,6 +542,15 @@ A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、�
 
 不长期保留 `/v1` 与 `/v2` 两套路由语义。
 
+### 14.2 P9.1 Staging 接入状态
+
+- 仓库实现将现有 staging `frontend` service 的 build context 切换为 `frontend-v2/`，service 名、镜像变量、端口、外层 Nginx、安全头和发布脚本保持不变。
+- V2 production artifact 由 `frontend-v2/Dockerfile` 与 `frontend-v2/nginx.conf` 持有，production source map 显式关闭；本地容器门禁覆盖 SPA fallback、asset 404、缓存与 `.map`。
+- V1 `frontend/`、V1 image owner 和旧 release 均保留；失败时只允许通过上一已验证 V1 release 自身的 Compose/tag 回滚。
+- P9.1 定向门禁、V2 容器检查、部署脚本检查和完整 `make verify` 已通过：修复后的 foundation-mobile 定向用例 1 passed，最终门禁 backend unit 204 项、V1 unit 205 项、V1 visual 24 项、V2 unit 463 项、backend integration 120 项、V1 E2E 52 项、V2 real-stack 16 项、V2 fixture E2E 383 passed/33 skipped，三套镜像构建及 dev/prod Compose config 同时通过；本地 Repository Gate=`MET`。
+- 外部 Staging Gate=`PENDING`，未执行 push、远程盘点、发布或浏览器验收，不计入 Cutover Gate 已满足项。
+- 后续 legacy redirect、production-like rehearsal、production artifact、回滚演练、正式切换和 V1 删除仍为独立 Task。
+
 ## 15. V1 → V2 路由矩阵
 
 | V1 | V2 | 动作 |

@@ -18,6 +18,8 @@
 - `deploy/scripts/backup.sh`
 - `deploy/scripts/restore-verify.sh`
 - `deploy/scripts/smoke.sh`
+- `frontend-v2/Dockerfile`
+- `frontend-v2/nginx.conf`
 
 不得从旧 release、临时 worktree、其他分支或本文复制脚本内容替代仓库事实源。
 
@@ -309,7 +311,7 @@ VERIFY_DATABASE_URL="$VERIFY_DATABASE_URL" ./scripts/restore-verify.sh "$BACKUP"
 PARTSIGNAL_VERSION="$RELEASE_ID" ./scripts/deploy-staging.sh
 ```
 
-脚本依次校验 Compose，构建 API 和前端镜像，启动 PostgreSQL、Redis、`fake-oss`，运行只读 `preflight-integrity`，执行 `alembic upgrade head`，等待 Worker、Scheduler、API、前端健康，幂等创建开发种子账号，输出容器状态，并检查回环 API ready 和前端首页。
+脚本依次校验 Compose，构建 API 和前端镜像，启动 PostgreSQL、Redis、`fake-oss`，运行只读 `preflight-integrity`，执行 `alembic upgrade head`，等待 Worker、Scheduler、API、前端健康，幂等创建开发种子账号，输出容器状态，并检查回环 API ready 和前端首页。当前仓库的 staging `frontend` service 构建 `frontend-v2/`；该 context 属于快速发布关键路径，因此首次激活必须走本节完整发布。
 
 任一步失败都停止，不手工跳过，也不设置 `PARTSIGNAL_DEPLOY_MODE=fast`。需要复核容器和迁移版本时执行：
 
@@ -385,10 +387,16 @@ curl --fail --silent --show-error --compressed -D - -o /dev/null \
 curl --fail --silent --show-error --compressed -D - -o /dev/null \
   https://geo.962850.xyz/index.html
 curl --fail --silent --show-error --compressed -D - -o /dev/null \
-  https://geo.962850.xyz/products/route-fallback-check
+  https://geo.962850.xyz/login
+test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+  https://geo.962850.xyz/assets/partsignal-missing.js)" = 404
+test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
+  "https://geo.962850.xyz${ASSET_PATH}.map")" = 404
+! curl --fail --silent --show-error "https://geo.962850.xyz${ASSET_PATH}" |
+  grep -q 'sourceMappingURL'
 ```
 
-带哈希的 `/assets/` 必须返回 `Cache-Control: public, max-age=31536000, immutable` 和 `Vary: Accept-Encoding`；`index.html` 与 SPA fallback 必须返回 `Cache-Control: no-cache`。WOFF2 不应返回 `Content-Encoding: gzip`。`/object-storage/` 出现 `502` 时停止验收，检查 `fake-oss` 的 internal 与 edge 网络。
+带哈希的 `/assets/` 必须返回 `Cache-Control: public, max-age=31536000, immutable` 和 `Vary: Accept-Encoding`；`index.html` 与 `/login` SPA fallback 必须返回 `Cache-Control: no-cache`。缺失 asset 和对应公开 `.map` 必须为 `404`，实际 JS 不得包含 `sourceMappingURL`。WOFF2 不应返回 `Content-Encoding: gzip`。`/object-storage/` 出现 `502` 时停止验收，检查 `fake-oss` 的 internal 与 edge 网络。
 
 上述 `/`、`/index.html` 和 `/assets/*` 三类响应还必须同时返回：
 
@@ -405,9 +413,10 @@ curl --fail --silent --show-error --compressed -D - -o /dev/null \
 
 1. 未登录访问最终进入 `/login`，标题和正文正常渲染，不停留在加载态或空白页。
 2. 只把 Hostdzire 共享环境文件中的 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 读入浏览器自动化内存；不得输出、记录、写入临时文件或读取整个环境文件。
-3. 密码提交前不抓取可能包含密码值的 DOM 快照或截图；登录后检查工作台和 `/configuration/ai` 的导航、页面和已有渠道列表。
-4. 登录前后控制台无应用级 `error` 或 `warning`；静态资源、认证、脚本或路由失败均视为验收失败。
-5. 只做只读检查，不创建业务数据、不修改线上配置；结束后退出登录、关闭标签页并清除运行时凭据引用。
+3. 密码提交前不抓取可能包含密码值的 DOM 快照或截图；登录后只读检查 `/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/ai` 与 `/system/audit`。
+4. 对代表性 client route 验证 direct link、refresh、Back/Forward，并确认非 ADMIN 访问管理路由时保留 URL 且显示服务端权限拒绝。
+5. 登录前后控制台无应用级 `error` 或 `warning`、CSP violation 或失败 chunk/request；静态资源、认证、脚本或路由失败均视为验收失败。
+6. 只做只读检查，不创建业务数据、不修改线上配置；结束后退出登录、关闭标签页并清除运行时凭据引用。
 
 不得在服务器或容器安装浏览器环境，也不运行视觉基线截图。浏览器能力不可用时记录“UI 未验证”并停止完整发布，不能用 `curl` 代替真实渲染。
 
@@ -457,7 +466,7 @@ test "$(readlink /root/partsignal/current)" = "releases/${RELEASE_ID}"
 ssh -F /Users/sc/.ssh/config hostdzire
 ```
 
-在 Hostdzire 选择已验证旧 release，并用旧镜像标签重启固定 Compose 栈：
+在 Hostdzire 选择已验证旧 release，并用旧镜像标签重启固定 Compose 栈。Frontend V2 首次 staging 激活前必须先确认该 release 自身的 Compose 仍以 `frontend/` 构建 V1；若无法确认或旧镜像不可用则停止，不得继续激活：
 
 ```sh
 set -eu
@@ -468,6 +477,7 @@ printf '%s\n' "$PREVIOUS_RELEASE" |
 
 PREVIOUS_DIR="/root/partsignal/releases/${PREVIOUS_RELEASE}"
 test -d "$PREVIOUS_DIR"
+grep -Fqx '      context: ../frontend' "$PREVIOUS_DIR/deploy/compose.staging.yaml"
 cd "$PREVIOUS_DIR/deploy"
 
 PARTSIGNAL_VERSION="$PREVIOUS_RELEASE" \

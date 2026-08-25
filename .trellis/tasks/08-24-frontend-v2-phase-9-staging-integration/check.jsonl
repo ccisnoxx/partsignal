@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "复核 V2 artifact、前端质量门禁与 V1 保留边界。"}
+{"file": ".trellis/spec/infra/domain-security-operations.md", "reason": "复核 CSP、安全头、staging 授权、停止和回滚合同。"}
+{"file": ".trellis/spec/infra/ci-execution.md", "reason": "复核 Makefile/CI owner 与 release validation 一致性。"}
+{"file": ".trellis/spec/infra/e2e-isolation.md", "reason": "复核容器测试和 staging 验收无数据写入且清理完整。"}
+{"file": ".trellis/tasks/08-24-frontend-v2-phase-9-staging-integration/research/audit.md", "reason": "对照审计证据检查范围漂移、未知事实与未修改 owner。"}

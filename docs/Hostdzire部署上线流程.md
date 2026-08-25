@@ -11,6 +11,7 @@
 | 其他底层部署、备份或恢复脚本变化 | 完整发布 | 第 5 节，并验证对应运维能力 |
 | 首次启用当前部署机制，或 Hostdzire 缺少共享环境文件、有效 `current` | 首次初始化 + 完整发布 | 附录第 3、4 节 |
 | 认证、权限、路由、全局壳层等高风险 UI 变化 | 完整发布 + 登录后浏览器验收 | 第 5、6 节 |
+| staging `frontend` build context 或静态 artifact owner 变化 | 完整发布 + V2 artifact 验收 | 第 5、6 节；禁止 fast redeploy |
 | 快速脚本主动拒绝 | 停止 | 不绕过门禁；排除现场异常后走完整发布 |
 
 快速脚本比较且只比较以下 6 个门禁路径：
@@ -35,6 +36,7 @@
 | 持久数据 | `/root/partsignal-data`，不得放入 release |
 | Compose 项目 | `partsignal-staging` |
 | 回环端口 | API `19000`、开发对象存储 `19001`、前端 `19080` |
+| 仓库 staging 前端 owner | `deploy/compose.staging.yaml` 的 `frontend` service 构建 `frontend-v2/`；旧 release 的 V1 Compose/tag 保留用于回滚 |
 | 外层 Nginx | `1.29.3` 或更高；Hostdzire 当前已确认 `1.29.8` |
 | 公网安全头权威 | 仓库 `deploy/nginx/partsignal-security-headers.conf`；宿主机运行副本 `/etc/nginx/snippets/partsignal-security-headers.conf` |
 | Docker 回连宿主机 HTTPS | `/etc/iptables/rules.v4` 只允许 `docker0` 与 `br-*` 到宿主机自身公网 IP 的 TCP 443；不开放其他宿主机端口 |
@@ -115,7 +117,9 @@ make staging-redeploy-fast
 | 登录后浏览器只读验收 | 非高风险变更不要求 | 必须执行 |
 | `current` 更新 | 脚本在自动验收后更新 | 操作者在全部验收后更新 |
 
-完整浏览器验收必须通过真实公网域名在本机执行，不在服务器或容器安装浏览器，不用 `curl` 代替真实渲染。只读检查 `/login`、工作台和 `/configuration/ai`；不得输出或持久化密码，不创建业务数据或修改线上配置。详细安全步骤见[附录第 4.6 节](./Hostdzire部署附录.md#46-完整验收与更新-current)。
+完整浏览器验收必须通过真实公网域名在本机执行，不在服务器或容器安装浏览器，不用 `curl` 代替真实渲染。只读检查 `/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/ai` 与 `/system/audit`，并覆盖 direct link、refresh、Back/Forward 和权限拒绝；不得输出或持久化密码，不创建业务数据或修改线上配置。详细安全步骤见[附录第 4.6 节](./Hostdzire部署附录.md#46-完整验收与更新-current)。
+
+涉及 Frontend V2 artifact 时还必须确认实际 hashed JS chunks 全部成功加载、`/assets/*` 保持 immutable、HTML/client-route fallback 保持 `no-cache`、缺失 asset 与公开 `.map` 均为 `404`，且 JS 不含 `sourceMappingURL`。CSP 仍由外层 staging Nginx 唯一持有，容器层不得复制安全头。
 
 公网环境固定 `AI_ALLOW_LOCAL_HTTP=false`。依赖回环 Mock Provider 的纵向 E2E 只在本地或 CI 隔离环境运行，不得为测试放宽公网安全策略。
 
@@ -124,13 +128,13 @@ bridge 进入宿主机 INPUT 链；`/etc/iptables/rules.v4` 必须保留附录�
 精确规则，使所有 Docker bridge 只能回连宿主机公网 TCP 443。不得按单个 Compose
 网段临时放行，也不得开放 22、80 或其他宿主机端口。
 
-项目安全头必须包含 CSP、`Strict-Transport-Security: max-age=31536000`、`Cross-Origin-Opener-Policy: same-origin`、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff` 和 `Referrer-Policy: strict-origin-when-cross-origin`。CSP 的 `script-src` 只允许 `'self'`，并强制 `trusted-types dompurify; require-trusted-types-for 'script'`；`node deploy/scripts/check-nginx-security.mjs` 必须确认外置主题脚本先于 React 且 HTML 零内联脚本。不得改用 `script-src 'unsafe-inline'`、宽松 default policy 或依赖宿主机共享安全 snippet。
+项目安全头必须包含 CSP、`Strict-Transport-Security: max-age=31536000`、`Cross-Origin-Opener-Policy: same-origin`、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff` 和 `Referrer-Policy: strict-origin-when-cross-origin`。CSP 的 `script-src` 只允许 `'self'`，并强制 `trusted-types dompurify; require-trusted-types-for 'script'`；`node deploy/scripts/check-nginx-security.mjs` 必须确认 V1 外置主题脚本先于 React、V1/V2 HTML 零内联脚本、两套容器 Nginx 都不重复持有安全头。不得改用 `script-src 'unsafe-inline'`、宽松 default policy 或依赖宿主机共享安全 snippet。
 
 ## 7. 回滚摘要
 
 `current` 是最后完成相应验收的 release 记录，不是流量开关。固定 Compose 项目和回环端口上的容器在记录更新前已被替换；只切换 `current` 不能回滚运行容器。
 
-应用回滚只在旧应用与当前数据库契约兼容时进行：进入已验证旧 release，用旧镜像标签重启固定 Compose 栈，重做完整验收后再更新 `current`。状态机或数据库契约不兼容时，先停止相关写流量与 Scheduler，由负责人确认数据处置。
+应用回滚只在旧应用与当前数据库契约兼容时进行：进入已验证旧 release，用该 release 自身的 Compose 和旧镜像标签重启固定 Compose 栈，重做完整验收后再更新 `current`。Frontend V2 staging 接入失败时必须选择仍以 `frontend/` 构建 V1 的已验证 release；不得在新 release 内临时改回 context。状态机或数据库契约不兼容时，先停止相关写流量与 Scheduler，由负责人确认数据处置。
 
 数据库默认不执行 Alembic downgrade。有损迁移需要保留故障现场，确认恢复窗口和数据取舍，再恢复迁移前完整备份并启动兼容旧 release；备份必须与对应 `AI_CREDENTIAL_ENCRYPTION_KEY` 成对保护。具体命令和故障入口见[附录第 5、6 节](./Hostdzire部署附录.md#5-回滚与恢复)。
 

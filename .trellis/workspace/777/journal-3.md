@@ -1939,3 +1939,24 @@ A26 child 归档后同步父 Task：六个 child 均已归档，开放 blocker �
 ### Status
 
 [OK] **Completed**
+
+
+## Session 176: Frontend V2 Phase 9 Staging V1 UI 安全回退合同
+
+**Date**: 2026-08-25
+**Task**: Frontend V2 Phase 9 Staging V1 UI 安全回退合同
+**Branch**: `codex/frontend-v2-phase-9-staging-v1-rollback-compatibility-blocker`
+
+### Summary
+
+排除不兼容的历史 V1 frontend/backend，固定 candidate-aligned V1 UI frontend-only 回退与 V2 恢复合同，补充定向部署测试、Runbook、Frontend V2 文档和 infra spec；仓库门禁通过，未执行外部 staging 操作。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `b718e5cb1bb9c171d4a53a40f6579562a6ba6581` | (see git log) |
+
+### Status
+
+[OK] **Completed**

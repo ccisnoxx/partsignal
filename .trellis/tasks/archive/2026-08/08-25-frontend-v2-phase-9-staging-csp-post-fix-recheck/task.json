@@ -3,7 +3,7 @@
   "name": "frontend-v2-phase-9-staging-csp-post-fix-recheck",
   "title": "Frontend V2 Phase 9 Staging CSP post-fix recheck",
   "description": "部署包含 Zod jitless 修复的固定 candidate，完成 Staging HTTP、blocker-specific 与完整 Browser Gate。",
-  "status": "in_progress",
+  "status": "completed",
   "dev_type": "infra",
   "scope": "frontend-v2-staging-validation",
   "package": null,
@@ -11,7 +11,7 @@
   "creator": "777",
   "assignee": "777",
   "createdAt": "2026-08-25",
-  "completedAt": null,
+  "completedAt": "2026-08-25",
   "branch": "codex/frontend-v2-phase-9-staging-csp-post-fix-recheck",
   "base_branch": "main",
   "worktree_path": null,
@@ -21,6 +21,6 @@
   "children": [],
   "parent": null,
   "relatedFiles": [],
-  "notes": "固定 release Phase B、HTTP Gate、blocker-specific、完整 Browser Gate 与 protected-state 检查均已通过，open P0/P1/P2=0/0/0。content_editor 已通过现有 UI 完成首次改密，权威 env 已原子同步；current 未更新，未执行 fallback/restore，等待独立 current 授权后最终判定 Staging Gate。",
+  "notes": "固定 release Phase B、HTTP Gate、blocker-specific、完整 Browser Gate 与 protected-state 检查均已通过，open P0/P1/P2=0/0/0。content_editor 已通过现有 UI 完成首次改密，权威 env 已原子同步；用户选择不更新 current 并按现状归档，未执行 fallback/restore，最终 Staging Gate=NOT_MET。",
   "meta": {}
 }

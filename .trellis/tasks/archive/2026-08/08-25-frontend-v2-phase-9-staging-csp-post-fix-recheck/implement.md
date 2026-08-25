@@ -12,7 +12,7 @@
 - [x] blocker-specific Gate 全绿，原 TrustedScript P1 已关闭。
 - [x] 取得 auth-write 与 empty-state 验收调整授权，完成 ENGINEER 首次改密、权威 env 原子同步与 fresh login。
 - [x] 完整 Browser Gate 与 protected-state 检查全绿，open P0/P1/P2=`0/0/0`。
-- [ ] `current` 等待对固定 release 的独立授权；当前保持旧验收记录，未执行 fallback/restore。
+- [x] 用户选择不授权 `current` 更新并按现状归档；最终 Staging Gate=`NOT_MET`，未执行 fallback/restore。
 
 ## 阶段 0：规划与来源门禁
 

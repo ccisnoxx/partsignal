@@ -67,8 +67,8 @@
 - [x] activation 前后仅出现 full deployment 允许的 candidate 变更；最终 backend services 同一 image、DB=`0043`、Nginx owner 未漂移。
 - [x] Browser Gate 前后 protected snapshot、migrate container 集合、Nginx 与 `current` 未发生未授权变化。
 - [x] HTTP、blocker-specific、完整 Browser 与 protected-state Gate 已通过，open P0/P1/P2=`0/0/0`。
-- [ ] `current` 等待对固定 release 的单独授权，当前保持旧值。
-- [ ] 最终报告包含 actual release/image ID/远程动作、HTTP/Browser/protected-state 证据、fallback/restore 状态、open P0/P1/P2 和明确 `MET`/`NOT_MET`。
+- [x] 用户选择不授权 `current` 更新并按现状归档；`current` 保持旧值。
+- [x] 最终报告已包含 actual release/image ID/远程动作、HTTP/Browser/protected-state 证据、fallback/restore 状态与 open P0/P1/P2；因 `current` 未更新，最终 Staging Gate=`NOT_MET`。
 
 ## 不在范围
 
@@ -79,4 +79,4 @@
 
 ## 阻塞问题
 
-无产品或方案问题。HTTP、Browser 与 protected-state Gate 均已通过；本 Task 证据提交与归档已授权，`current` 更新仍需对固定 release 的单独授权。
+无产品或方案问题。HTTP、Browser 与 protected-state Gate 均已通过；用户选择不更新 `current` 并按现状归档，因此最终 Staging Gate=`NOT_MET`。

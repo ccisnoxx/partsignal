@@ -39,4 +39,4 @@
 - 未创建 trace、video、screenshot 或 storage state。专属 session 已关闭；`playwright-cli list --all --json` 确认 browsers=`[]`、servers=`[]`。
 - Browser Gate 后生成 `after-browser.txt` 并与 `candidate-protected.txt` 逐字节一致：容器身份、健康状态、restart、DB=`0043_geo_platform_identity`、migrate 集合、Nginx target/checksum 与 `current` 均未漂移。
 - `current` 仍为 `releases/mvp-20260806-195740-afb1b8c82f40`；未执行 fallback、restore、Nginx 写入/reload、容器/release 变更或 production 操作。
-- HTTP Gate、blocker-specific、完整 Browser Gate 与 protected-state 检查均已通过；Staging Gate 等待对固定 release 的独立 `current` 更新授权后才能最终判定。
+- HTTP Gate、blocker-specific、完整 Browser Gate 与 protected-state 检查均已通过；用户选择不更新 `current` 并按现状归档，因此最终 Staging Gate=`NOT_MET`。

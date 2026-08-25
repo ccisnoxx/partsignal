@@ -26,3 +26,25 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 179: Frontend V2 Phase 9 Staging CSP 修复后复验
+
+**Date**: 2026-08-25
+**Task**: Frontend V2 Phase 9 Staging CSP 修复后复验
+**Branch**: `codex/frontend-v2-phase-9-staging-csp-post-fix-recheck`
+
+### Summary
+
+固定 release 完成 Phase B、HTTP、blocker-specific、完整 Browser 与 protected-state Gate；完成 ENGINEER 首次改密及权威 env 原子同步。用户选择不更新 current 并按现状归档，最终 Staging Gate=NOT_MET，open P0/P1/P2=0/0/0，未执行 fallback/restore。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `cf4321c5` | (see git log) |
+| `4cedb30` | (see git log) |
+
+### Status
+
+[OK] **Completed**

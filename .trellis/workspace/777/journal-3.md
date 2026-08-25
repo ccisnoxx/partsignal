@@ -1895,3 +1895,25 @@ A26 child 归档后同步父 Task：六个 child 均已归档，开放 blocker �
 ### Status
 
 [OK] **Completed**
+
+
+## Session 174: Frontend V2 Phase 9 Staging 仓库接入
+
+**Date**: 2026-08-25
+**Task**: Frontend V2 Phase 9 Staging 仓库接入
+**Branch**: `main`
+
+### Summary
+
+完成 Frontend V2 staging artifact、Compose owner、容器与部署门禁及文档；本地 Repository Gate=MET。按用户确认将外部 Staging Gate 延后到独立任务 frontend-v2-phase-9-staging-activation-validation，当前任务完成归档；未 push 或执行远程操作。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `87639ffb` | (see git log) |
+| `f8d72aaa` | (see git log) |
+
+### Status
+
+[OK] **Completed**

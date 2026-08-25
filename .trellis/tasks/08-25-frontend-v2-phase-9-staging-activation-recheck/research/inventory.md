@@ -64,3 +64,14 @@
 - Source Gate=`MET`：`main=origin/main=candidate`。
 - Activation precondition=`PENDING`：Task 文件尚未提交，staging 写操作尚未授权，fresh backup 和 candidate images 尚未创建。
 - Staging Gate=`PENDING`：本轮未获真实 staging 写授权，也未执行 activation 或 Browser Gate；不得提前判 `MET` 或复用第一次 `NOT_MET` 代替本次 recheck 结果。
+
+## 9. Phase B 更新
+
+用户随后单独授权 Phase B；固定 release、artifact、backup、full activation、protected baseline 与 HTTP Gate 已执行。精确证据见 [activation-evidence.md](./activation-evidence.md)。当前 V2 保持活动，DB=`0043_geo_platform_identity`，HTTP Gate=`MET`；Browser Gate 与 `current` 更新仍为 `PENDING`。
+
+## 10. Browser Gate 更新
+
+用户随后单独授权 Browser Gate。专属 Chrome session 首次加载真实公网匿名 `/login` 时，
+`/assets/schemas-C9kTthWC.js` 触发 TrustedScript assignment CSP error。按 fail-fast 合同停止，
+未输入凭据或继续剩余矩阵；session 与临时浏览器文件已清理。Browser Gate=`NOT_MET`，
+open P0/P1/P2=`0/1/0`，Staging Gate=`NOT_MET`；V2 保持活动且 `current` 未更新。

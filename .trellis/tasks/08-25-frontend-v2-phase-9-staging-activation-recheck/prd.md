@@ -65,7 +65,7 @@
 
 ## 当前阻塞前置
 
-- Task 规划文件尚未按确认的 commit plan 提交，当前工作树不满足 Runbook clean source 前置。
-- 尚未取得 package/upload、V1 build、fresh backup、full deploy、migration/seed 和 Compose 替换的 staging 写授权。
-- candidate release、三类 candidate image ID 与 fresh backup 尚不存在，只能在后续精确授权的 activation 窗口中创建。
-- 浏览器账号的实际有效性和安全内存注入路径尚未验证；HTTP Gate 全绿前不创建浏览器 session。
+- Phase B 已完成，HTTP Gate=`MET`；V2 保持活动，`current` 仍是切换前旧验收记录。
+- Browser Gate 已获授权，但匿名 `/login` 加载时 `schemas-C9kTthWC.js` 触发 TrustedScript assignment CSP error；按 fail-fast 合同停止，Browser Gate=`NOT_MET`。
+- 凭据尚未输入或使用；专属 Playwright session 已关闭，自动生成的临时 snapshot/console 文件已删除，未留下浏览器产物。
+- 当前 open P0/P1/P2=`0/1/0`，Staging Gate=`NOT_MET`；不得更新 `current`，也不得自动 fallback/restore。

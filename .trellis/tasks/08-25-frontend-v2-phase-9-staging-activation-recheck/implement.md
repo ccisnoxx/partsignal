@@ -8,10 +8,12 @@
 - [x] 形成可 review 的 PRD、design、implement 与 evidence inventory。
 - [x] 用户批准最新规划，Task 已进入 `in_progress`。
 - [x] 用户单独授权非强制 push；固定 candidate 已存在于 origin，且 `main=origin/main=candidate`。
-- [ ] 用户精确授权 staging 写操作。
-- [ ] 执行 activation、HTTP Gate 与 Browser Gate。
+- [x] 用户精确授权 Phase B staging 写操作。
+- [x] 完成 fixed release、V1 artifact、fresh backup、full activation 与 HTTP Gate。
+- [x] 用户单独授权并执行 Browser Gate；匿名登录页出现 TrustedScript CSP error，按 fail-fast 停止并关闭专属 session。
+- [x] Browser Gate=`NOT_MET`、open P0/P1/P2=`0/1/0`；`current` 不更新，Staging Gate=`NOT_MET`。
 
-当前硬停止点：Task 规划文件尚未提交，且未获得 staging 写操作授权；不得执行以下任何远端写阶段。
+当前硬停止点：Browser Gate 已确认 P1 blocker；不得继续输入凭据、扩大浏览器矩阵、更新 `current` 或执行 fallback/restore。产品修复需要独立授权与后续 Task。
 
 ## 阶段 0：来源与授权门禁
 
@@ -111,11 +113,22 @@ frontend-v2-p9-staging-activation-recheck
 
 结束前 logout、关闭该 session，并确认 Task session 不再 open；不得使用 `close-all`/`kill-all`。
 
+实际结果：Chrome 通过真实公网域名首次加载匿名 `/login` 时，console 记录
+`This document requires 'TrustedScript' assignment. The action has been blocked.`，来源为
+`/assets/schemas-C9kTthWC.js`。匿名 `/api/v1/auth/me=204` 正常，故该错误不是认证失败噪声。
+按 Required fail-fast 合同立即停止，未输入或使用 ADMIN/ENGINEER 凭据，未继续登录、路由、
+响应式或 history 矩阵。专属 session 已关闭并确认不再 open；自动生成的 snapshot/console
+临时文件已删除，未创建 screenshot、trace、video 或 storage state。Browser Gate=`NOT_MET`。
+
 ## 阶段 6：结论与 `current`
 
 只有阶段 3–5 全绿且 open P0/P1/P2=`0/0/0`，才按 Runbook 原子更新 `current` 到 `releases/$ps_candidate_release`，复核 symlink 与实际 container/image 后判 `Staging Gate=MET`。
 
 任一 Required 失败判 `NOT_MET`。fallback/restore 不在 activation 授权中；只有后续单独授权才执行 design 中的精确 frontend-only 命令与 protected snapshot `cmp`。
+
+实际结论：Browser Gate=`NOT_MET`，open P0/P1/P2=`0/1/0`，因此 Staging Gate=`NOT_MET`。
+V2 与 DB `0043_geo_platform_identity` 保持活动，`current` 保持
+`releases/mvp-20260806-195740-afb1b8c82f40`；未执行 fallback/restore。
 
 ## Required Validation
 

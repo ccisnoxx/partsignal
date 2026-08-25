@@ -36,7 +36,7 @@
 | 持久数据 | `/root/partsignal-data`，不得放入 release |
 | Compose 项目 | `partsignal-staging` |
 | 回环端口 | API `19000`、开发对象存储 `19001`、前端 `19080` |
-| 仓库 staging 前端 owner | `deploy/compose.staging.yaml` 的 `frontend` service 构建 `frontend-v2/`；旧 release 的 V1 Compose/tag 保留用于回滚 |
+| 仓库 staging 前端 owner | `deploy/compose.staging.yaml` 的 `frontend` service；正常发布构建 `frontend-v2/`，迁移后仅允许切换同一 candidate 预置的 V1/V2 UI 镜像 |
 | 外层 Nginx | `1.29.3` 或更高；Hostdzire 当前已确认 `1.29.8` |
 | 公网安全头权威 | 仓库 `deploy/nginx/partsignal-security-headers.conf`；宿主机运行副本 `/etc/nginx/snippets/partsignal-security-headers.conf` |
 | Docker 回连宿主机 HTTPS | `/etc/iptables/rules.v4` 只允许 `docker0` 与 `br-*` 到宿主机自身公网 IP 的 TCP 443；不开放其他宿主机端口 |
@@ -134,8 +134,10 @@ bridge 进入宿主机 INPUT 链；`/etc/iptables/rules.v4` 必须保留附录�
 
 `current` 是最后完成相应验收的 release 记录，不是流量开关。固定 Compose 项目和回环端口上的容器在记录更新前已被替换；只切换 `current` 不能回滚运行容器。
 
-应用回滚只在旧应用与当前数据库契约兼容时进行：进入已验证旧 release，用该 release 自身的 Compose 和旧镜像标签重启固定 Compose 栈，重做完整验收后再更新 `current`。Frontend V2 staging 接入失败时必须选择仍以 `frontend/` 构建 V1 的已验证 release；不得在新 release 内临时改回 context。状态机或数据库契约不兼容时，先停止相关写流量与 Scheduler，由负责人确认数据处置。
+数据库进入 `0043_geo_platform_identity` 后，禁止把历史 V1 backend 接回当前数据库：旧 backend 不写 `publication_works.platform_profile_id_snapshot`，其运行健康不代表写入兼容。历史 `mvp-20260806-195740-afb1b8c82f40` frontend 也缺少当前 API 必需的 revision 参数，不是安全 UI 回退目标。
+
+Staging 的 V1 UI 回退只使用同一 candidate release 中预先构建并冻结的 `partsignal-frontend-v1:<candidate-release>`；API、Worker、Scheduler、`fake-oss`、PostgreSQL 和 Redis 全部保持 candidate 运行态。回退和恢复均只对 Compose `frontend` 执行 `up --no-deps --no-build --pull never --force-recreate`，不调用整栈发布脚本，不运行 migration/seed，不修改数据库、Nginx 或 `current`。切换前后必须比较六个非 frontend service、migrate container 集合、DB revision、Nginx 校验和 `current`；只允许 frontend container/image 变化。精确 artifact 冻结、命令、验证和停止条件见[附录第 5.1 节](./Hostdzire部署附录.md#51-staging-v1-ui-回退与-v2-ui-恢复)。
 
 数据库默认不执行 Alembic downgrade。有损迁移需要保留故障现场，确认恢复窗口和数据取舍，再恢复迁移前完整备份并启动兼容旧 release；备份必须与对应 `AI_CREDENTIAL_ENCRYPTION_KEY` 成对保护。具体命令和故障入口见[附录第 5、6 节](./Hostdzire部署附录.md#5-回滚与恢复)。
 
-Nginx 回滚必须同时恢复同一个已验证 release 的 staging 模板和项目安全 snippet，`nginx -t` 通过后才能 reload；客户端已缓存的 HSTS 在一年有效期内不会被配置回滚立即撤销。任何回滚都不删除 release、镜像、备份或 `/root/partsignal-data`。
+Nginx 配置回滚是与 frontend-only 切换分离的授权边界：必须同时恢复同一个已验证配置版本的 staging 模板和项目安全 snippet，`nginx -t` 通过后才能 reload；这不授权替换 candidate backend 或修改数据库。客户端已缓存的 HSTS 在一年有效期内不会被配置回滚立即撤销。任何回滚都不删除 release、镜像、备份或 `/root/partsignal-data`。

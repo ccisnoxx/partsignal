@@ -417,6 +417,19 @@ P9.1 定向门禁、V2 容器检查、部署脚本检查和完整 `make verify` 
 
 2026-08-25 外部 staging HTTP Gate 的状态、headers、代表 SPA fallback、health、hashed JS/CSS immutable 和 missing asset 404 均通过；但页面标题为候选 V1 固定标题 `PartSignal · GEO 内容运营`，不是候选 V2 的 `PartSignal Frontend V2`，且 `/assets/index-B12Mu6hl.js.map` 返回 `200 application/json`、`Content-Length: 1640946`、immutable，主 JS 含 `sourceMappingURL=index-B12Mu6hl.js.map`。公网未观察到固定候选 V2 artifact，B 也没有可核验完成证据，并违反 P9.1 source map Required 合同。外部 Staging Gate=`NOT_MET`，按计划在浏览器前置处停止；已授权的 Playwright session 未创建，没有登录、业务写入、trace、video、storage state 或自动回滚。公网行为与候选 V1 source marker 一致；未经 SSH 复核不能断言 current/container、入口缓存或其他远程根因。Cutover Gate 仍未满足，V1 源码、旧 release 与回滚路径继续保留。
 
+### 14.1 Staging V1 UI 回退合同门禁
+
+迁移后的安全目标不是历史整栈 release。历史 backend 不写 `0043` 必需的 Publication Work 平台 snapshot；历史 frontend 也缺少多个当前 mutation 必需的 revision 参数。因此定向门禁固定的是 candidate-aligned V1 UI：从同一 candidate 中的当前 `frontend/` 构建 `partsignal-frontend-v1:<candidate-release>`，始终连接 candidate backend 和 `0043` DB。
+
+`deploy/scripts/test-deploy-staging.sh` 必须同时证明：
+
+- `docker compose ... config --no-env-resolution --format json frontend` 的 service key 精确只有 `frontend`，解析 image 精确等于注入的 V1 repo/tag，且 frontend 无 `depends_on`/`links`；
+- Runbook 的 V1 fallback 和 V2 restore 命令均只有一个 `docker compose` 调用，唯一 service 是 `frontend`，同时持有 `--no-deps --no-build --pull never --force-recreate --wait --wait-timeout 60`；
+- 两条命令不包含 backend/base/migrate service、build/run、Alembic、seed、down/stop/restart/rm、`--remove-orphans`、`--always-recreate-deps` 或 `current` 写入；
+- Runbook 同时要求 V1/V2/backend image ID、六个 protected service、migrate container 集合、`alembic_version`、Nginx 配置校验与 `current` 的前后证据，并保留既有 full/fast 发布命令序列。
+
+仓库门禁只证明 Compose 命令和文档合同，不冒充真实 Staging 运行结果。后续 activation 必须在 migration 前构建/冻结 candidate-aligned V1 image，在任何 fallback 前冻结 V2/backend image ID，通过 dry-run 后再保留 protected-state 前后完全一致的证据。V1 只读验收使用 V1 路由和 marker；V2 restore 后必须重新满足 hashed assets、cache、`.map=404`、无 `sourceMappingURL`、CSP/安全头和浏览器合同。
+
 ## 15. Visual Regression
 
 优先抓 Pattern，而不是机械截全站：Table default/action、Workspace 3-pane、Review、Dialog、Sheet、mobile list、Analytics KPI。

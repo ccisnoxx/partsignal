@@ -546,10 +546,22 @@ A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、�
 
 - 仓库实现将现有 staging `frontend` service 的 build context 切换为 `frontend-v2/`，service 名、镜像变量、端口、外层 Nginx、安全头和发布脚本保持不变。
 - V2 production artifact 由 `frontend-v2/Dockerfile` 与 `frontend-v2/nginx.conf` 持有，production source map 显式关闭；本地容器门禁覆盖 SPA fallback、asset 404、缓存与 `.map`。
-- V1 `frontend/`、V1 image owner 和旧 release 均保留；失败时只允许通过上一已验证 V1 release 自身的 Compose/tag 回滚。
+- V1 `frontend/`、V1 image owner 和旧 release 均保留；但数据库进入 `0043_geo_platform_identity` 后，历史 release 的 backend 不写 Publication Work 平台 snapshot，历史 frontend 也缺少当前 API 必需的 revision 参数，两者都不再是安全回退 target。
 - P9.1 定向门禁、V2 容器检查、部署脚本检查和完整 `make verify` 已通过：修复后的 foundation-mobile 定向用例 1 passed，最终门禁 backend unit 204 项、V1 unit 205 项、V1 visual 24 项、V2 unit 463 项、backend integration 120 项、V1 E2E 52 项、V2 real-stack 16 项、V2 fixture E2E 383 passed/33 skipped，三套镜像构建及 dev/prod Compose config 同时通过；本地 Repository Gate=`MET`。
 - 用户于 2026-08-25 确认 P9.1 以 Repository Gate=`MET` 收口并归档；外部 Gate 随后由独立任务 `frontend-v2-phase-9-staging-activation-validation` 检查。公网状态、headers、代表 SPA 路径、health、hashed JS/CSS immutable 与 missing asset 404 均通过，但页面标题为候选 V1 固定标题而非 V2 标题，`/assets/index-B12Mu6hl.js.map` 返回 200 且主 JS 含 `sourceMappingURL`。公网未观察到固定候选 V2 artifact，B 也没有可核验完成证据，并违反 source map Required 合同；故外部 Staging Gate=`NOT_MET`，在浏览器前置处停止，没有创建 Playwright session、登录、业务写入或自动回滚。公网行为与候选 V1 source marker 一致；未通过 SSH 复核，不能断言 current/container、入口缓存或其他远程根因。Cutover Gate 仍未满足，V1 源码、旧 release 与回滚边界继续保留。
 - 后续 legacy redirect、production-like rehearsal、production artifact、回滚演练、正式切换和 V1 删除仍为独立 Task。
+
+### 14.3 Staging V1 UI 回退兼容合同
+
+`frontend-v2-phase-9-staging-v1-rollback-compatibility-blocker` 将迁移后回退边界收紧为同一 candidate release 内的 frontend-only 切换：
+
+- migration 只前进；API、Worker、Scheduler 和 `fake-oss` 始终使用同一个与 `0043` 兼容的 candidate backend；
+- migration 前从 candidate 保留的当前 `frontend/` 构建并冻结 `partsignal-frontend-v1:<candidate-release>`，不重用历史 V1 artifact；
+- V1 fallback 只把 `PARTSIGNAL_FRONTEND_IMAGE` 切到 `partsignal-frontend-v1`，V2 restore 只切回 `partsignal-frontend`；两者的 `PARTSIGNAL_VERSION` 始终是同一 candidate release；
+- 两条命令都只选 `frontend`，并固定 `--no-deps --no-build --pull never --force-recreate --wait`；不调用整栈发布脚本、不使用 `--remove-orphans`、不执行 migration/seed、不修改 Nginx 或 `current`；
+- 切换前后必须证明 `postgres redis fake-oss api worker scheduler`、migrate container 集合、DB revision、Nginx 校验与 `current` 完全不变，只允许 frontend container/image 变化。
+
+当前 V1 产品树与 Phase 8 固定候选的 frontend/backend/contracts/E2E runner 无差异，可继承 V1 E2E `52 passed`、unit `205 passed`、visual `24 passed` 和 production build 证据；若这些 owner 在新 candidate 固定前变化，必须重跑相关 V1 真实栈门禁，不得继承过期结果。本合同的仓库门禁不代表 Staging artifact 已构建或远程切换已验证；实际 tag/image ID、Compose dry-run 与 protected-state 前后证据仍属后续独立 staging activation Task。
 
 ## 15. V1 → V2 路由矩阵
 

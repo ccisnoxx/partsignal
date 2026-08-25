@@ -303,6 +303,39 @@ VERIFY_DATABASE_URL="$VERIFY_DATABASE_URL" ./scripts/restore-verify.sh "$BACKUP"
 
 恢复验证会导入备份，并确认 `alembic_version` 与 `users` 可查询。备份为空、隔离数据库不明确或恢复验证失败都必须停止完整发布。
 
+#### 4.3.1 迁移前预置 V1 UI 回退 artifact
+
+首次把 Frontend V2 candidate 激活到 Staging 前，必须先从**同一 candidate release**
+中保留的 `frontend/` 构建 V1 UI 回退镜像。不使用历史
+`mvp-20260806-195740-afb1b8c82f40` 镜像：其 frontend 已缺少当前 API 必需的
+revision 参数，其 backend 也不兼容 `0043_geo_platform_identity`。
+
+在 `deploy-staging.sh` 执行任何 migration 前运行：
+
+```sh
+set -eu
+: "${RELEASE_ID:?必须先固定 candidate release ID}"
+: "${RELEASE_DIR:?必须先固定 candidate release 目录}"
+test "$RELEASE_DIR" = "/root/partsignal/releases/${RELEASE_ID}"
+test -f "$RELEASE_DIR/frontend/Dockerfile"
+
+ps_v1_image="partsignal-frontend-v1:${RELEASE_ID}"
+cd "$RELEASE_DIR"
+docker build --file frontend/Dockerfile --tag "$ps_v1_image" frontend
+ps_v1_image_id=$(docker image inspect --format '{{.Id}}' "$ps_v1_image")
+case "$ps_v1_image_id" in
+  sha256:*) ;;
+  *) printf '%s\n' "V1 UI 镜像 ID 无效：$ps_v1_image_id" >&2; exit 1 ;;
+esac
+printf 'V1_UI_IMAGE=%s\nV1_UI_IMAGE_ID=%s\n' \
+  "$ps_v1_image" "$ps_v1_image_id"
+cd "$RELEASE_DIR/deploy"
+```
+
+把两行非敏感镜像身份写入本次 activation 证据；不写入 `.env.staging`、
+`current` 或第二份部署配置。构建失败、tag 不匹配或 image ID 无法冻结时，不得
+进入第 4.4 节，更不得先迁移再补回退镜像。
+
 ### 4.4 构建、迁移与启动
 
 继续在 Hostdzire 的 `"$RELEASE_DIR/deploy"` 执行默认 `full` 模式：
@@ -358,8 +391,9 @@ upstream。
 header from upstream`，先只读核对故障时间窗内的 Nginx 日志、API 容器
 `RestartCount`、OOM 状态和前后健康请求。容器无重启、无 OOM，且相邻请求正常时，
 重点核对生效 Nginx 配置和 API 进程参数是否仍为 `30s < 35s`。修复必须随完整
-release 发布，并在 reload 前执行 `nginx -t`；回滚时从同一个已验证旧 release
-恢复 Nginx 模板和 API 镜像，不改写业务数据。
+release 发布，并在 reload 前执行 `nginx -t`；Nginx 配置回滚只恢复同一个已验证
+配置版本的模板和安全 snippet，不替换应用镜像。应用回退仍须满足第 5 节的当前
+数据库合同，`0043` 后不得接回历史 backend。
 
 ### 4.6 完整验收与更新 `current`
 
@@ -456,38 +490,255 @@ test "$(readlink /root/partsignal/current)" = "releases/${RELEASE_ID}"
 
 ## 5. 回滚与恢复
 
-### 5.1 应用回滚
+### 5.1 Staging V1 UI 回退与 V2 UI 恢复
 
-只在旧应用与当前数据库契约兼容时回滚。若生成、认证、发布状态机或数据库契约不兼容，先停止相关写流量与 Scheduler，再由负责人确认数据处置。
+本节只用于数据库已进入 `0043_geo_platform_identity` 后的 Staging frontend-only
+切换，不是整栈应用回滚。API、Worker、Scheduler 和 `fake-oss` 必须已是同一个
+candidate backend 且在切换全程不变；PostgreSQL 只前进，不执行 migration、downgrade、
+restore、seed 或 SQL 写入。历史 V1 release 的 frontend/backend 都不得用于本节。
 
-从本机进入 Hostdzire：
-
-```sh
-ssh -F /Users/sc/.ssh/config hostdzire
-```
-
-在 Hostdzire 选择已验证旧 release，并用旧镜像标签重启固定 Compose 栈。Frontend V2 首次 staging 激活前必须先确认该 release 自身的 Compose 仍以 `frontend/` 构建 V1；若无法确认或旧镜像不可用则停止，不得继续激活：
+从本机进入 Hostdzire 后，仅在已授权的 staging 窗口执行以下步骤。首先输入已记录在
+activation 证据中的唯一 candidate release 和三个 Docker image ID：
 
 ```sh
 set -eu
-printf '输入已验证且兼容的旧 release ID：' >&2
-IFS= read -r PREVIOUS_RELEASE
-printf '%s\n' "$PREVIOUS_RELEASE" |
+printf '输入 candidate release ID：' >&2
+IFS= read -r ps_candidate_release
+printf '%s\n' "$ps_candidate_release" |
   grep -Eq '^mvp-[0-9]{8}-[0-9]{6}-[0-9a-f]{12}$'
 
-PREVIOUS_DIR="/root/partsignal/releases/${PREVIOUS_RELEASE}"
-test -d "$PREVIOUS_DIR"
-grep -Fqx '      context: ../frontend' "$PREVIOUS_DIR/deploy/compose.staging.yaml"
-cd "$PREVIOUS_DIR/deploy"
+printf '输入 candidate backend image ID：' >&2
+IFS= read -r ps_backend_image_id
+printf '输入 candidate-aligned V1 UI image ID：' >&2
+IFS= read -r ps_v1_image_id
+printf '输入 candidate V2 UI image ID：' >&2
+IFS= read -r ps_v2_image_id
+for ps_image_id in \
+  "$ps_backend_image_id" "$ps_v1_image_id" "$ps_v2_image_id"
+do
+  case "$ps_image_id" in
+    sha256:*) ;;
+    *) printf '%s\n' "镜像 ID 无效：$ps_image_id" >&2; exit 1 ;;
+  esac
+done
 
-PARTSIGNAL_VERSION="$PREVIOUS_RELEASE" \
-  docker compose --env-file ../.env.staging -f compose.staging.yaml \
-  up -d --wait worker scheduler api frontend fake-oss
+ps_release_dir="/root/partsignal/releases/${ps_candidate_release}"
+ps_backend_image="partsignal-backend:${ps_candidate_release}"
+ps_v1_repo=partsignal-frontend-v1
+ps_v2_repo=partsignal-frontend
+ps_v1_image="${ps_v1_repo}:${ps_candidate_release}"
+ps_v2_image="${ps_v2_repo}:${ps_candidate_release}"
+test -d "$ps_release_dir/deploy"
+cd "$ps_release_dir/deploy"
+
+test "$(docker image inspect --format '{{.Id}}' "$ps_backend_image")" = \
+  "$ps_backend_image_id"
+test "$(docker image inspect --format '{{.Id}}' "$ps_v1_image")" = \
+  "$ps_v1_image_id"
+test "$(docker image inspect --format '{{.Id}}' "$ps_v2_image")" = \
+  "$ps_v2_image_id"
+
+ps_up_help=$(docker compose up --help)
+for ps_flag in \
+  --no-deps --no-build --pull --force-recreate --wait --wait-timeout
+do
+  printf '%s\n' "$ps_up_help" | grep -F -- "$ps_flag" >/dev/null
+done
 ```
 
-重新执行第 4.6 节的公网、浏览器与主机验收，通过后再按同节原子更新 `current`。只切换 `current` 不会改变运行容器，不能作为应用回滚。
+镜像缺失、tag 与已批准 image ID 不匹配、Compose 不支持任一 flag 时立即停止。
+`--no-build` 不禁止 pull，因此不得省略 `--pull never`。
 
-若回滚包含 Nginx，必须从同一个已验证旧 release 同时恢复 `partsignal.staging.conf.template` 和 `partsignal-security-headers.conf`，按第 4.5 节渲染、执行 `nginx -t` 后再 reload。HSTS 一旦被客户端接收，在 `max-age=31536000` 有效期内不能通过服务器回滚立即撤销。
+用原生 Docker/Compose/PostgreSQL 命令记录非敏感 protected state。该快照不读取或输出容器
+environment；审计目录保留到本次窗口证据归档：
+
+```sh
+ps_audit_dir=$(mktemp -d /root/partsignal/frontend-switch.XXXXXX)
+chmod 0700 "$ps_audit_dir"
+
+ps_snapshot_protected_state() {
+  ps_snapshot_path=$1
+  {
+    for ps_service in postgres redis fake-oss api worker scheduler
+    do
+      ps_container_id=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
+        docker compose --env-file ../.env.staging -f compose.staging.yaml \
+        ps -q "$ps_service")
+      test -n "$ps_container_id"
+      printf '%s|' "$ps_service"
+      docker inspect --format \
+        '{{.Id}}|{{.Config.Image}}|{{.Image}}|{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \
+        "$ps_container_id"
+    done
+
+    docker ps -aq \
+      --filter label=com.docker.compose.project=partsignal-staging \
+      --filter label=com.docker.compose.service=migrate |
+      sort |
+      while IFS= read -r ps_migrate_id
+      do
+        test -z "$ps_migrate_id" || docker inspect --format \
+          'migrate|{{.Id}}|{{.Config.Image}}|{{.Image}}|{{.State.Status}}' \
+          "$ps_migrate_id"
+      done
+
+    ps_revision=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
+      docker compose --env-file ../.env.staging -f compose.staging.yaml \
+      exec -T postgres psql -U partsignal -d partsignal -Atc \
+      'select version_num from alembic_version')
+    test "$ps_revision" = 0043_geo_platform_identity
+    printf 'alembic_version|%s\n' "$ps_revision"
+
+    ps_current=$(readlink /root/partsignal/current)
+    ps_nginx_target=$(
+      readlink -f /etc/nginx/sites-enabled/partsignal-staging.conf
+    )
+    printf 'current|%s\n' "$ps_current"
+    printf 'nginx_target|%s\n' "$ps_nginx_target"
+    sha256sum \
+      /etc/nginx/sites-enabled/partsignal-staging.conf \
+      /etc/nginx/snippets/partsignal-security-headers.conf
+  } >"$ps_snapshot_path"
+}
+
+for ps_service in fake-oss api worker scheduler
+do
+  ps_container_id=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
+    docker compose --env-file ../.env.staging -f compose.staging.yaml \
+    ps -q "$ps_service")
+  test -n "$ps_container_id"
+  test "$(docker inspect --format '{{.Config.Image}}' "$ps_container_id")" = \
+    "$ps_backend_image"
+  test "$(docker inspect --format '{{.Image}}' "$ps_container_id")" = \
+    "$ps_backend_image_id"
+  test "$(docker inspect --format '{{.State.Status}}' "$ps_container_id")" = \
+    running
+done
+
+for ps_service in postgres redis api worker scheduler
+do
+  ps_container_id=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
+    docker compose --env-file ../.env.staging -f compose.staging.yaml \
+    ps -q "$ps_service")
+  test -n "$ps_container_id"
+  test "$(docker inspect --format '{{.State.Health.Status}}' \
+    "$ps_container_id")" = healthy
+done
+
+ps_snapshot_protected_state "$ps_audit_dir/before.txt"
+```
+
+若四个 backend service 不是同一固定 candidate image、任一 protected service 未运行、DB revision
+不是 `0043_geo_platform_identity`、Nginx/current 无法快照，或 PostgreSQL、Redis、API、Worker、
+Scheduler 任一 health 不是 `healthy`，不执行后续 `up`；`fake-oss` 必须为 `running`。
+
+先渲染并 dry-run 对称命令；输出中出现任一 protected service 容器名称时停止：
+
+```sh
+test "$(PARTSIGNAL_FRONTEND_IMAGE="$ps_v1_repo" \
+  PARTSIGNAL_VERSION="$ps_candidate_release" \
+  docker compose --env-file ../.env.staging -f compose.staging.yaml \
+  config --images frontend)" = "$ps_v1_image"
+test "$(PARTSIGNAL_FRONTEND_IMAGE="$ps_v2_repo" \
+  PARTSIGNAL_VERSION="$ps_candidate_release" \
+  docker compose --env-file ../.env.staging -f compose.staging.yaml \
+  config --images frontend)" = "$ps_v2_image"
+
+PARTSIGNAL_FRONTEND_IMAGE="$ps_v1_repo" \
+PARTSIGNAL_VERSION="$ps_candidate_release" \
+docker compose --env-file ../.env.staging -f compose.staging.yaml \
+  --dry-run up -d --wait --wait-timeout 60 --no-deps --no-build \
+  --pull never --force-recreate frontend \
+  >"$ps_audit_dir/v1-dry-run.txt" 2>&1
+PARTSIGNAL_FRONTEND_IMAGE="$ps_v2_repo" \
+PARTSIGNAL_VERSION="$ps_candidate_release" \
+docker compose --env-file ../.env.staging -f compose.staging.yaml \
+  --dry-run up -d --wait --wait-timeout 60 --no-deps --no-build \
+  --pull never --force-recreate frontend \
+  >"$ps_audit_dir/v2-dry-run.txt" 2>&1
+
+grep -F frontend "$ps_audit_dir/v1-dry-run.txt" >/dev/null
+grep -F frontend "$ps_audit_dir/v2-dry-run.txt" >/dev/null
+! grep -E 'partsignal-staging-(postgres|redis|fake-oss|api|worker|scheduler|migrate)(-|[[:space:]])' \
+  "$ps_audit_dir/v1-dry-run.txt" "$ps_audit_dir/v2-dry-run.txt"
+```
+
+V1 UI 回退只执行下列一条 Compose 命令：
+
+<!-- frontend-v1-fallback-command:start -->
+```sh
+PARTSIGNAL_FRONTEND_IMAGE="$ps_v1_repo" \
+PARTSIGNAL_VERSION="$ps_candidate_release" \
+docker compose --env-file ../.env.staging -f compose.staging.yaml \
+  up -d --wait --wait-timeout 60 --no-deps --no-build --pull never \
+  --force-recreate frontend
+```
+<!-- frontend-v1-fallback-command:end -->
+
+立即验证 protected state 未变、frontend 精确使用 V1 image ID，再做回环和公网检查：
+
+```sh
+ps_snapshot_protected_state "$ps_audit_dir/after-v1.txt"
+cmp "$ps_audit_dir/before.txt" "$ps_audit_dir/after-v1.txt"
+ps_frontend_id=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
+  docker compose --env-file ../.env.staging -f compose.staging.yaml \
+  ps -q frontend)
+test -n "$ps_frontend_id"
+test "$(docker inspect --format '{{.Image}}' "$ps_frontend_id")" = \
+  "$ps_v1_image_id"
+curl --fail --silent --show-error \
+  http://127.0.0.1:19000/api/health/ready >/dev/null
+curl --fail --silent --show-error http://127.0.0.1:19080/ |
+  grep -F 'PartSignal · GEO 内容运营' >/dev/null
+curl --fail --silent --show-error https://geo.962850.xyz/ |
+  grep -F 'PartSignal · GEO 内容运营' >/dev/null
+```
+
+使用真实公网域名只读检查 V1 `/`、`/products`、`/tasks`、`/publications`、
+`/observations`、`/configuration/ai`、`/users` 和 `/audit`，覆盖登录、direct link、refresh、
+Back/Forward、权限拒绝、console/request/CSP 失败。本节只读验收，不从 UI 发起写操作。
+V1 的既有 production build 会包含 source map；这是临时 V1 回退 marker，不得冒充第 4.6 节的
+V2 `.map=404` 验收通过。
+
+恢复 V2 UI 同样只执行一条 Compose 命令：
+
+<!-- frontend-v2-restore-command:start -->
+```sh
+PARTSIGNAL_FRONTEND_IMAGE="$ps_v2_repo" \
+PARTSIGNAL_VERSION="$ps_candidate_release" \
+docker compose --env-file ../.env.staging -f compose.staging.yaml \
+  up -d --wait --wait-timeout 60 --no-deps --no-build --pull never \
+  --force-recreate frontend
+```
+<!-- frontend-v2-restore-command:end -->
+
+恢复后必须再次证明 protected state 未变，并恢复 V2 marker 与完整第 4.6 节合同：
+
+```sh
+ps_snapshot_protected_state "$ps_audit_dir/after-v2.txt"
+cmp "$ps_audit_dir/before.txt" "$ps_audit_dir/after-v2.txt"
+ps_frontend_id=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
+  docker compose --env-file ../.env.staging -f compose.staging.yaml \
+  ps -q frontend)
+test -n "$ps_frontend_id"
+test "$(docker inspect --format '{{.Image}}' "$ps_frontend_id")" = \
+  "$ps_v2_image_id"
+curl --fail --silent --show-error \
+  http://127.0.0.1:19000/api/health/ready >/dev/null
+curl --fail --silent --show-error http://127.0.0.1:19080/ |
+  grep -F 'PartSignal Frontend V2' >/dev/null
+curl --fail --silent --show-error https://geo.962850.xyz/ |
+  grep -F 'PartSignal Frontend V2' >/dev/null
+```
+
+重新执行第 4.6 节的 V2 hashed asset、cache、公开 `.map=404`、无 `sourceMappingURL`、
+安全头与浏览器验收。两次切换都不更新 `/root/partsignal/current`：它保留切换前的
+最后验收记录，在首次 activation 失败时仍可能指向上一 release，不能当作实际容器身份。
+
+任一 `up` 非零、frontend image ID/marker 不匹配、protected snapshot 变化、API/UI 验证失败
+或 V2 无法恢复时，立即停止新操作并保留审计目录。不启动旧 backend，不执行 downgrade/
+restore，不改 `0043`，不添加兼容字段/fallback，不用 `--remove-orphans`、整栈重启或 Nginx 变更
+掩盖失败。
 
 ### 5.2 数据库恢复边界
 
@@ -504,7 +755,7 @@ PARTSIGNAL_VERSION="$PREVIOUS_RELEASE" \
 | 现象 | 判断与处理 |
 | --- | --- |
 | 快速脚本报告关键路径变化 | 不绕过，改走主 Runbook 的完整发布 |
-| 快速失败且 `current` 仍是旧值 | 容器可能已更新；检查固定 Compose 栈，必要时按第 5.1 节重启旧镜像 |
+| 发布失败且 `current` 仍是旧值 | `current` 不是流量开关；先核对实际 container/image/DB revision。`0043` 后只能在第 5.1 节全部前置满足时切换 candidate-aligned V1 UI，不重启历史整栈 |
 | Alembic 报源码含空字节，或发布包出现 `._*` | AppleDouble 文件进入提交；清理后形成新的已推送提交，不改用未提交打包 |
 | 发布包含环境文件或密钥 | 立即停止，清理仓库敏感文件并形成新的已推送提交 |
 | `/object-storage/` 返回 `502` | 确认 `fake-oss` 同时位于 `partsignal-staging-internal` 与 `partsignal-staging-edge` |

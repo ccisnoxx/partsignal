@@ -115,9 +115,9 @@ Uvicorn API command: --timeout-keep-alive 35
 | 条件 | 处理 |
 | --- | --- |
 | 任一环境缺少精确的 `30s` 或 `35` | 部署自检失败，不发布 |
-| `nginx -t` 失败 | 不 reload，恢复同一已验证旧 release |
+| `nginx -t` 失败 | 不 reload，恢复同一已验证版本的 Nginx 配置与安全 snippet，不替换应用镜像 |
 | 出现 premature close 且容器无重启/OOM | 核对生效配置和 API 进程参数，不先增加重试 |
-| 发布后健康探针或浏览器请求失败 | 停止更新 `current`，按完整 release 回滚 |
+| 发布后健康探针或浏览器请求失败 | 停止更新 `current`；应用回退必须先满足当前数据库合同，Staging 进入 `0043_geo_platform_identity` 后不得接回历史 backend |
 
 ### 8.5 Good / Base / Bad Cases
 

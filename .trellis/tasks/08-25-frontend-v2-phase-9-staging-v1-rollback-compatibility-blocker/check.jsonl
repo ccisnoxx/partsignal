@@ -1,0 +1,8 @@
+{"file":".trellis/spec/infra/index.md","reason":"检查不变量、可审计命令、前后验证和停止条件。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"检查 shell 门禁、命令失败传播和既有 full/fast 流程未漂移。"}
+{"file":".trellis/spec/infra/domain-security-operations.md","reason":"检查禁止 SSH/production/数据库写、不输出 secrets 与运行边界。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"检查历史验证的证据继承条件与未执行外部验证的报告边界。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"检查是否复用现有 Compose 和 shell test，未引入第二套脚本或 deployment framework。"}
+{"file":".trellis/tasks/08-25-frontend-v2-phase-9-staging-v1-rollback-compatibility-blocker/research/deploy-frontend-switch.md","reason":"核对精确 Compose flags、服务 selector、image ID 和 protected snapshots。"}
+{"file":".trellis/tasks/08-25-frontend-v2-phase-9-staging-v1-rollback-compatibility-blocker/research/v1-frontend-api-compatibility.md","reason":"核对历史 artifact 已排除、当前 V1 证据连续性和不得误报边界。"}
+{"file":".trellis/tasks/08-25-frontend-v2-phase-9-staging-v1-rollback-compatibility-blocker/research/database-backend-boundary.md","reason":"核对 0043、Publication Work 写入 owner、旧 backend 硬禁止和 DB 只前进。"}

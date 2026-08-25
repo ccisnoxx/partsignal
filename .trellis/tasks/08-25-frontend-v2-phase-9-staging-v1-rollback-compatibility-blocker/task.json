@@ -1,0 +1,41 @@
+{
+  "id": "frontend-v2-phase-9-staging-v1-rollback-compatibility-blocker",
+  "name": "frontend-v2-phase-9-staging-v1-rollback-compatibility-blocker",
+  "title": "Frontend V2 Phase 9 Staging V1 rollback compatibility blocker",
+  "description": "建立数据库只前进、candidate backend 长驻、只切 Compose frontend service 的 Staging V1 UI 安全回退合同。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "full-stack",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-25",
+  "completedAt": null,
+  "branch": "codex/frontend-v2-phase-9-staging-v1-rollback-compatibility-blocker",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "deploy/scripts/test-deploy-staging.sh",
+    ".trellis/spec/infra/domain-security-operations.md",
+    "docs/Hostdzire部署上线流程.md",
+    "docs/Hostdzire部署附录.md",
+    "docs/frontend-v2/07-migration-plan.md",
+    "docs/frontend-v2/08-testing-quality-and-acceptance.md"
+  ],
+  "notes": "历史 V1 release 的 backend 与 frontend 都不是 0043 后的安全回退 target；采用从最终 candidate 保留的 frontend/ 构建的 candidate-aligned V1 artifact。最小实现与仓库验证已完成，用户已确认 commit plan 并要求提交后归档；未执行任何外部 staging 操作。",
+  "meta": {
+    "baseline_head": "e1ab8774aa804433d839a5f6e87c6266363ea7f8",
+    "phase8_verified_candidate": "3c93e8b2d164f57b2ef253bad010bb9e0e1d7403",
+    "historical_v1_release": "mvp-20260806-195740-afb1b8c82f40",
+    "historical_v1_commit": "afb1b8c82f408f18cf16c5bde094d5eb59768899",
+    "planning_gate": "APPROVED",
+    "repository_gate": "MET",
+    "staging_execution_gate": "NOT_EXECUTED"
+  }
+}

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 179
+- **Total Sessions**: 180
 - **Last Active**: 2026-08-25
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~50 | Active |
+| `journal-4.md` | ~71 | Active |
 | `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 180 | 2026-08-25 | Frontend V2 Staging current 收口 | `dc431347878dd9aae213504c73fdcf05384bdca6` | `codex/frontend-v2-phase-9-staging-current-finalization` |
 | 179 | 2026-08-25 | Frontend V2 Phase 9 Staging CSP 修复后复验 | `cf4321c5`, `4cedb30` | `codex/frontend-v2-phase-9-staging-csp-post-fix-recheck` |
 | 178 | 2026-08-25 | Frontend V2 Zod jitless CSP blocker | `de9eed6c` | `codex/frontend-v2-phase-9-zod-jitless-csp-blocker` |
 | 177 | 2026-08-25 | Frontend V2 Phase 9 Staging Activation Recheck | `a33f99a` | `codex/frontend-v2-phase-9-staging-activation-recheck` |

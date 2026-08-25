@@ -48,3 +48,24 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 180: Frontend V2 Staging current 收口
+
+**Date**: 2026-08-25
+**Task**: Frontend V2 Staging current 收口
+**Branch**: `codex/frontend-v2-phase-9-staging-current-finalization`
+
+### Summary
+
+确认 fixed release 运行态无漂移，原子更新 Staging current，protected diff 仅记录行变化，HTTP 与继承 Browser Gate 均通过，Staging Gate=MET。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `dc431347878dd9aae213504c73fdcf05384bdca6` | (see git log) |
+
+### Status
+
+[OK] **Completed**

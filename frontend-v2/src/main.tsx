@@ -1,11 +1,15 @@
-/** V2 浏览器入口，只负责装配全局样式与应用 Provider。 */
+/** V2 浏览器入口，先配置全局校验运行时，再装配应用 Provider。 */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AppProviders } from './app/providers';
+import { z } from 'zod';
 import './styles/global.css';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <AppProviders />
-  </StrictMode>,
-);
+z.config({ jitless: true });
+
+void import('./app/providers').then(({ AppProviders }) => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <AppProviders />
+    </StrictMode>,
+  );
+});

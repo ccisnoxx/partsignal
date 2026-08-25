@@ -1,0 +1,3 @@
+{"file":".trellis/spec/frontend/index.md","reason":"核对前端变更范围与对应质量规范入口。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"检查 production artifact、Playwright runtime error、CSP 与 Trusted Types 回归未被弱化。"}
+{"file":".trellis/tasks/08-25-frontend-v2-phase-9-zod-jitless-csp-blocker/research/root-cause.md","reason":"复核根因、Zod 公共配置、入口执行顺序和 CSP 保持原样。"}

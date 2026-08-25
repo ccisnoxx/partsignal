@@ -1,5 +1,6 @@
 import { expect, test as base, type TestInfo } from '@playwright/test';
-import { URL } from 'node:url';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath, URL } from 'node:url';
 
 import type { components } from '../../src/shared/api/generated/schema';
 import { expectSecretsAbsent } from './secret-artifact';
@@ -14,6 +15,14 @@ const initialPassword = 'auth-fixture-old-password';
 const firstNewPassword = 'auth-fixture-new-password';
 const secondNewPassword = 'auth-fixture-next-password';
 const csrfToken = 'auth-fixture-csrf';
+const securityHeaders = readFileSync(
+  fileURLToPath(new URL('../../../deploy/nginx/partsignal-security-headers.conf', import.meta.url)),
+  'utf8',
+);
+const productionCsp = securityHeaders.match(
+  /^add_header Content-Security-Policy "([^"]+)" always;$/m,
+)?.[1];
+if (!productionCsp) throw new Error('无法从权威 Nginx snippet 读取生产 CSP');
 
 const engineer: AuthUser = {
   id: '00000000-0000-4000-8000-000000000002',
@@ -106,6 +115,54 @@ const test = base.extend<AuthFixture>({
 });
 
 test.use({ trace: 'off' });
+
+test('匿名登录在权威生产 CSP 下无违规与运行时错误', async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') runtimeErrors.push(`console.error: ${message.text()}`);
+  });
+  page.on('pageerror', (error) => runtimeErrors.push(`pageerror: ${error.message}`));
+
+  await page.addInitScript(() => {
+    const violations: string[] = [];
+    Object.defineProperty(globalThis, '__partsignalCspViolations', {
+      configurable: true,
+      value: violations,
+    });
+    document.addEventListener('securitypolicyviolation', (event) => {
+      violations.push(`${event.effectiveDirective}: ${event.blockedURI}`);
+    });
+  });
+  await page.route('**/*', async (route) => {
+    if (route.request().resourceType() !== 'document') {
+      await route.fallback();
+      return;
+    }
+    const response = await route.fetch();
+    await route.fulfill({
+      response,
+      headers: {
+        ...response.headers(),
+        'content-security-policy': productionCsp,
+      },
+    });
+  });
+
+  await page.goto('/login');
+  const username = page.getByRole('textbox', { name: '用户名' });
+  const password = page.getByLabel(/^密码/);
+  await expect(page.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+  await expect(username).toBeEditable();
+  await expect(password).toBeEditable();
+  await username.fill(engineer.username);
+  await password.fill(initialPassword);
+  await expect(page.getByRole('button', { name: '登录' })).toBeEnabled();
+
+  expect(await page.evaluate(() => (
+    globalThis as typeof globalThis & { __partsignalCspViolations: string[] }
+  ).__partsignalCspViolations)).toEqual([]);
+  expect(runtimeErrors, '匿名登录不得出现 CSP 或运行时错误').toEqual([]);
+});
 
 test('Auth production artifact 完成强制改密、自助改密、ENGINEER 403 与退出', async ({ page }, testInfo: TestInfo) => {
   const runtimeErrors: string[] = [];

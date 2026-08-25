@@ -1,0 +1,6 @@
+{"file":".trellis/spec/infra/index.md","reason":"外部 staging、Nginx 与逐阶段授权的基础设施入口。"}
+{"file":".trellis/spec/infra/domain-security-operations.md","reason":"SSH/Nginx 只读核验、配置边界、失败停止和回滚约束。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"真实浏览器凭据、trace、requestfailed 与敏感产物边界。"}
+{"file":".trellis/spec/frontend/index.md","reason":"Frontend V2 浏览器验收相关规范入口。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"production artifact、Auth/ADMIN、direct/refresh/history 与运行时错误门禁。"}
+{"file":".trellis/tasks/08-25-frontend-v2-phase-9-staging-activation-validation/research/audit.md","reason":"候选 commit、仓库 owner、外部未知、V1 rollback 与 credential 研究结论。"}

@@ -1,0 +1,5 @@
+{"file":".trellis/spec/infra/index.md","reason":"复核分阶段授权、staging identity、Nginx 与回滚证据。"}
+{"file":".trellis/spec/infra/domain-security-operations.md","reason":"复核 host-key、只读/写边界、配置验证和精确 rollback。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核 browser credential、trace、日志与 session 清理。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核 Auth/权限、production artifact、chunks 和 runtime error matrix。"}
+{"file":".trellis/tasks/08-25-frontend-v2-phase-9-staging-activation-validation/research/audit.md","reason":"以本地审计结论检查 observed evidence 是否越界或把未知写成通过。"}

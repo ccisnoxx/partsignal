@@ -1960,3 +1960,24 @@ A26 child 归档后同步父 Task：六个 child 均已归档，开放 blocker �
 ### Status
 
 [OK] **Completed**
+
+
+## Session 177: Frontend V2 Phase 9 Staging Activation Recheck
+
+**Date**: 2026-08-25
+**Task**: Frontend V2 Phase 9 Staging Activation Recheck
+**Branch**: `codex/frontend-v2-phase-9-staging-activation-recheck`
+
+### Summary
+
+固定 candidate 0e472399 完成 Phase B full activation，HTTP Gate=MET；Browser Gate 在匿名登录页发现 TrustedScript CSP error 后 fail-fast，Browser/Staging Gate=NOT_MET，open P0/P1/P2=0/1/0。V2 与 DB 0043 保持活动，current 未更新，未执行 fallback/restore；证据提交并归档。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `a33f99a` | (see git log) |
+
+### Status
+
+[OK] **Completed**

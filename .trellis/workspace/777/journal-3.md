@@ -1917,3 +1917,25 @@ A26 child 归档后同步父 Task：六个 child 均已归档，开放 blocker �
 ### Status
 
 [OK] **Completed**
+
+
+## Session 175: Frontend V2 P9 外部 Staging Gate 验收
+
+**Date**: 2026-08-25
+**Task**: Frontend V2 P9 外部 Staging Gate 验收
+**Branch**: `codex/frontend-v2-phase-9-staging-activation-validation`
+
+### Summary
+
+完成 staging 只读盘点与公网 HTTP Gate；公网仍提供 V1 标题和公开 source map，外部 Staging Gate 判为 NOT_MET，按 fail-fast 在浏览器前停止，未登录、写业务数据、回滚或进入 legacy routing。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c35d55f9` | (see git log) |
+| `e60b8bec` | (see git log) |
+
+### Status
+
+[OK] **Completed**

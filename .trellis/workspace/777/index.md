@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-3.md`
-- **Total Sessions**: 174
+- **Total Sessions**: 175
 - **Last Active**: 2026-08-25
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-3.md` | ~1919 | Active |
+| `journal-3.md` | ~1941 | Active |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
 <!-- @@@/auto:active-documents -->
@@ -31,6 +31,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 175 | 2026-08-25 | Frontend V2 P9 外部 Staging Gate 验收 | `c35d55f9`, `e60b8bec` | `codex/frontend-v2-phase-9-staging-activation-validation` |
 | 174 | 2026-08-25 | Frontend V2 Phase 9 Staging 仓库接入 | `87639ffb`, `f8d72aaa` | `main` |
 | 173 | 2026-08-24 | Frontend V2 Phase 9 Cutover 总体规划 | `34b0f9db` | `main` |
 | 172 | 2026-08-24 | Frontend V2 Phase 8 任务树归档收尾 | - | `main` |

@@ -430,6 +430,12 @@ P9.1 定向门禁、V2 容器检查、部署脚本检查和完整 `make verify` 
 
 仓库门禁只证明 Compose 命令和文档合同，不冒充真实 Staging 运行结果。后续 activation 必须在 migration 前构建/冻结 candidate-aligned V1 image，在任何 fallback 前冻结 V2/backend image ID，通过 dry-run 后再保留 protected-state 前后完全一致的证据。V1 只读验收使用 V1 路由和 marker；V2 restore 后必须重新满足 hashed assets、cache、`.map=404`、无 `sourceMappingURL`、CSP/安全头和浏览器合同。
 
+### 14.2 Staging current finalization 验收
+
+fixed candidate `2a6fd940b84890d269bf1196a8c6e16b4cd9a9f9`、release `mvp-20260825-172239-2a6fd940b848` 的 backend/fake-oss、candidate-aligned V1、V2 image ID 已分别冻结为 `sha256:2af343ae4b4bce37accfb192ee46c239788874f865a0450edaed76e95859720f`、`sha256:dfadfd534b11d80bdf993566c4b46cf9c6f87ef1283e303902d5b2130eca4fa4`、`sha256:72b206963f479d0dd75132708dac3c37e4d9243fcb75e380d80f8e12fe721111`。此前同一 release 的 HTTP、blocker-specific Browser、完整 Browser 与 protected-state Gate 均已通过，open P0/P1/P2=`0/0/0`；历史任务因未更新 `current` 得出的 `NOT_MET` 保持原结论。
+
+最终收口任务在写入前重新生成 protected snapshot，并与 `candidate-protected`、`after-browser` 逐字节比较；三者 SHA-256 均为 `b1cc9bce632d88bfecf03828d751a255280226f12a6eaef7e882b13c6e26b5a5`。公网 live/ready、V2 `/login` 与代表 deep link、实际 2 个 JS/1 个 CSS、HTML no-cache、hashed immutable、missing/map 404、无 `sourceMappingURL`、CSP/Trusted Types 与其他安全头全部通过。`current` 从旧验收记录原子更新到 `releases/mvp-20260825-172239-2a6fd940b848` 后，post-current snapshot 仅该行变化；container ID/image ID/health/restart、DB=`0043_geo_platform_identity`、空 migrate 集合与 Nginx 均未漂移，相同 HTTP smoke 再次通过。`current` 不是流量开关，因此继承同一 artifact 已完成的完整 Browser Gate，不机械重跑也不使用账号凭据。未执行 fallback/restore，V2 保持活动，open P0/P1/P2=`0/0/0`，外部 Staging Gate=`MET`。
+
 ## 15. Visual Regression
 
 优先抓 Pattern，而不是机械截全站：Table default/action、Workspace 3-pane、Review、Dialog、Sheet、mobile list、Analytics KPI。

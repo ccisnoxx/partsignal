@@ -563,6 +563,12 @@ A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、�
 
 当前 V1 产品树与 Phase 8 固定候选的 frontend/backend/contracts/E2E runner 无差异，可继承 V1 E2E `52 passed`、unit `205 passed`、visual `24 passed` 和 production build 证据；若这些 owner 在新 candidate 固定前变化，必须重跑相关 V1 真实栈门禁，不得继承过期结果。本合同的仓库门禁不代表 Staging artifact 已构建或远程切换已验证；实际 tag/image ID、Compose dry-run 与 protected-state 前后证据仍属后续独立 staging activation Task。
 
+### 14.4 Staging current finalization
+
+`frontend-v2-phase-9-staging-csp-post-fix-recheck` 已将 fixed candidate `2a6fd940b84890d269bf1196a8c6e16b4cd9a9f9` 的 release `mvp-20260825-172239-2a6fd940b848` 完整部署到 Staging：backend/fake-oss image ID=`sha256:2af343ae4b4bce37accfb192ee46c239788874f865a0450edaed76e95859720f`，candidate-aligned V1 image ID=`sha256:dfadfd534b11d80bdf993566c4b46cf9c6f87ef1283e303902d5b2130eca4fa4`，V2 image ID=`sha256:72b206963f479d0dd75132708dac3c37e4d9243fcb75e380d80f8e12fe721111`。该任务的 HTTP、blocker-specific Browser、完整 Browser 与 protected-state Gate 均已通过，open P0/P1/P2=`0/0/0`；其历史 `NOT_MET` 仅因当时 `current` 未获授权更新，原结论保持不变。
+
+`frontend-v2-phase-9-staging-current-finalization` 随后重新证明运行态未漂移：pre-current snapshot 与上述任务的 `candidate-protected`、`after-browser` 逐字节一致，SHA-256 均为 `b1cc9bce632d88bfecf03828d751a255280226f12a6eaef7e882b13c6e26b5a5`；七个容器的 ID/image/state/restart、五项 health、DB=`0043_geo_platform_identity`、空 migrate 集合、Nginx target/checksum/`nginx -t` 和最小公网 HTTP 合同全部保持。`/root/partsignal/current` 已通过相对临时 symlink 与同文件系统 `mv -Tf`，从 `releases/mvp-20260806-195740-afb1b8c82f40` 原子更新到 `releases/mvp-20260825-172239-2a6fd940b848`；post-current protected diff 仅有该记录行变化，更新后 HTTP smoke 再次通过。由于 `current` 不是流量开关且 artifact/runtime 零漂移，继承上一任务的完整 Browser Gate，不重跑浏览器矩阵。V2 保持活动，未执行 fallback/restore，open P0/P1/P2=`0/0/0`，外部 Staging Gate 最终判定为 `MET`。本结论不开始后续 Phase 9 Task。
+
 ## 15. V1 → V2 路由矩阵
 
 | V1 | V2 | 动作 |

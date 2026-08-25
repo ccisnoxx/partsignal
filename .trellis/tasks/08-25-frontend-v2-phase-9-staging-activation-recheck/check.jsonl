@@ -1,0 +1,4 @@
+{"file":".trellis/spec/infra/index.md","reason":"复核 activation 目标、Runbook 前置、状态证据和授权边界。"}
+{"file":".trellis/spec/infra/domain-security-operations.md","reason":"复核 host-key、Nginx、敏感信息、停止条件和回退边界。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核 HTTP/Browser Gate、source map、缓存、安全头、响应式与 session 清理。"}
+{"file":".trellis/tasks/08-25-frontend-v2-phase-9-staging-activation-recheck/research/inventory.md","reason":"核对 observed evidence，不把未知或未执行阶段误报为通过。"}

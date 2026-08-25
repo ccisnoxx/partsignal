@@ -186,3 +186,17 @@ D 不修代码、不调配置。B 失败后先停止并报告；只有用户另�
 - 必改：task `research/audit.md`、`prd.md`/`design.md`/`implement.md`/`task.json`；`docs/frontend-v2/07-migration-plan.md`、`08-testing-quality-and-acceptance.md` 写实际 Gate 与 evidence。
 - 条件改：`docs/Hostdzire部署上线流程.md`、`Hostdzire部署附录.md` 仅在观察事实证明现行 Runbook stale 时修改。
 - 不改：产品、backend、contracts、database docs、permission docs、production docs；本任务不改变其权威合同。
+
+### 2026-08-25 执行判定
+
+公网 HTTP Gate 的状态、headers、代表 SPA 路径、health、hashed JS/CSS cache 和
+missing asset 404 均通过；但页面标题为候选中 V1 的固定标题
+`PartSignal · GEO 内容运营`，不是候选 V2 的 `PartSignal Frontend V2`；实际主 JS
+`/assets/index-B12Mu6hl.js` 还含
+`sourceMappingURL=index-B12Mu6hl.js.map`，对应 `.map` 返回 `200
+application/json`、`Content-Length: 1640946` 和 immutable cache。该 Required
+证据说明公网未提供固定候选 V2 artifact，且 source map policy 失败；B 也没有可核验
+完成证据。故 Staging Gate=`NOT_MET`，并按第 10 节在浏览器 C 前停止。用户已授权
+浏览器验收，但没有创建 Playwright session、登录、写业务数据或保存浏览器产物；
+也没有自动回滚。公网行为与候选 V1 source marker 一致；未执行 SSH 复核，不能
+进一步断言是 current/container 未切换、入口缓存还是其他远程原因。

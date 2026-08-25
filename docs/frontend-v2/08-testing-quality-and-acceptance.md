@@ -413,7 +413,9 @@ Workbench 不新增独立 real-stack spec，而是在四个既有 owner 的自�
 
 P9.1 在仓库内增加 V2 production container owner 和 `deploy/scripts/test-frontend-v2-container.sh`：本地门禁必须证明 `/login` fallback 与 `index.html` 一致且 `no-cache`、实际 hashed JS 为 immutable、缺失 asset 和 `.map` 为 `404`、镜像内无 `.map` 且 JS 无 `sourceMappingURL`。`test-deploy-staging.sh` 同时冻结 staging `frontend` 的 V2 context、既有镜像变量/端口与 full/fast 命令序列；安全检查同时覆盖 V1/V2 HTML、容器 Nginx 和源码 DOM sink owner。
 
-P9.1 定向门禁、V2 容器检查、部署脚本检查和完整 `make verify` 已通过：修复后的 foundation-mobile 定向用例 1 passed，最终门禁 backend unit 204 项、V1 unit 205 项、V1 visual 24 项、V2 unit 463 项、backend integration 120 项、V1 E2E 52 项、V2 real-stack 16 项、V2 fixture E2E 383 passed/33 skipped，三套镜像构建及 dev/prod Compose config 同时通过；本地 Repository Gate=`MET`。用户于 2026-08-25 确认 P9.1 以仓库接入目标收口并归档；外部 Staging Gate=`PENDING`，延后到独立任务 `frontend-v2-phase-9-staging-activation-validation`。真实 staging 的 URL/主机、运行 commit、上一 V1 release/tag、边缘缓存/CSP 与浏览器权限行为仍须在该任务另行授权后确认，Cutover Gate 仍未满足。
+P9.1 定向门禁、V2 容器检查、部署脚本检查和完整 `make verify` 已通过：修复后的 foundation-mobile 定向用例 1 passed，最终门禁 backend unit 204 项、V1 unit 205 项、V1 visual 24 项、V2 unit 463 项、backend integration 120 项、V1 E2E 52 项、V2 real-stack 16 项、V2 fixture E2E 383 passed/33 skipped，三套镜像构建及 dev/prod Compose config 同时通过；本地 Repository Gate=`MET`。
+
+2026-08-25 外部 staging HTTP Gate 的状态、headers、代表 SPA fallback、health、hashed JS/CSS immutable 和 missing asset 404 均通过；但页面标题为候选 V1 固定标题 `PartSignal · GEO 内容运营`，不是候选 V2 的 `PartSignal Frontend V2`，且 `/assets/index-B12Mu6hl.js.map` 返回 `200 application/json`、`Content-Length: 1640946`、immutable，主 JS 含 `sourceMappingURL=index-B12Mu6hl.js.map`。公网未观察到固定候选 V2 artifact，B 也没有可核验完成证据，并违反 P9.1 source map Required 合同。外部 Staging Gate=`NOT_MET`，按计划在浏览器前置处停止；已授权的 Playwright session 未创建，没有登录、业务写入、trace、video、storage state 或自动回滚。公网行为与候选 V1 source marker 一致；未经 SSH 复核不能断言 current/container、入口缓存或其他远程根因。Cutover Gate 仍未满足，V1 源码、旧 release 与回滚路径继续保留。
 
 ## 15. Visual Regression
 

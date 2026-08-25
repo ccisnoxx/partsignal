@@ -125,3 +125,32 @@
 
 - 用户已授权按 `implement.md` 执行 B，但该授权不放宽既有前置门禁：本地 `origin/main` 仍未对齐固定 candidate，且 `0043` 后不存在已确认安全的 V1 整栈 rollback 命令，所以 B 仍为 `BLOCKED`，未执行任何激活动作。
 - 失败策略已明确为“停止并报告，不自动回滚”。D 仍未授权；只有失败后用户另行明确授权且安全精确命令已经确认，才可执行回滚。
+
+## 9. 公网 HTTP Gate 结果（2026-08-25）
+
+### 9.1 通过项
+
+- 根页面标题为 `PartSignal · GEO 内容运营`。
+- 固定候选中 V1 `frontend/index.html` 使用上述标题且 `frontend/vite.config.ts`
+  为 `sourcemap:true`；V2 `frontend-v2/index.html` 的标题是
+  `PartSignal Frontend V2` 且 `frontend-v2/vite.config.ts` 为 `sourcemap:false`。
+- 实际 hashed assets `/assets/index-B12Mu6hl.js` 与
+  `/assets/index-DR1898Ft.css` 均返回 200，并带 immutable cache。
+- 全部代表 SPA 路径、health endpoints、计划内安全/cache headers 与 missing asset
+  404 均通过。
+
+### 9.2 Required 失败与停止点
+
+- `/assets/index-B12Mu6hl.js.map` 返回 HTTP 200、`application/json`、
+  `Content-Length: 1640946`、immutable，`Last-Modified` 为 2026-08-06。
+- map JSON 含 `file`、`ignoreList`、`mappings`、`names`、`sources`、
+  `sourcesContent`、`version`；主 JS 含
+  `sourceMappingURL=index-B12Mu6hl.js.map`。
+- 页面标题与 source map 行为均未匹配固定候选 V2 artifact；同时该结果违反 design
+  第 7 节“map 404、JS 无 sourceMappingURL”的 Required 条件。结合第 8.6 节仍无
+  B 完成证据，故 Staging Gate=`NOT_MET`。
+- 用户已授权浏览器 C，但依 `implement.md` 必须在 HTTP Required 失败后停止；没有
+  创建 `frontend-v2-p9-staging-activation-validation` session，没有登录、业务写入、
+  trace、video、storage state 或其他浏览器产物。
+- 未自动回滚，D 仍未授权。公网行为与候选 V1 source marker 一致；本阶段没有执行
+  SSH 复核，不能进一步断言是 current/container 未切换、入口缓存还是其他远程原因。

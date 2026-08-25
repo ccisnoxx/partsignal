@@ -9,10 +9,11 @@
 - [x] 用户批准最终规划和 A 只读盘点。
 - [x] 已运行 `task.py start` 并创建唯一 branch `codex/frontend-v2-phase-9-staging-activation-validation`。
 - [x] A 只读盘点完成；证据见 `research/audit.md` 第 8 节。
+- [x] 用户已授权公网与浏览器 C；公网 HTTP Required 在 source map policy 失败。
 
-当前只完成 A；用户已授权按本计划执行 B，但 B 仍被迁移后的 V1 rollback
-不兼容和 `origin/main` 未对齐阻塞，不能执行。C/D 未授权；B 失败时只停止并报告，
-不自动回滚。
+当前 Staging Gate=`NOT_MET`。公网未观察到固定候选 V2 artifact，source map policy
+失败，且 B 仍无可核验完成证据；已按计划在浏览器 C 前停止。浏览器虽获授权但未
+创建 session，D 未授权且未执行，不自动回滚。
 
 ## 1. 规划批准后的本地启动
 
@@ -436,9 +437,24 @@ test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
 
 此处停止，等待 C 授权与 credential 准备。
 
+Observed（2026-08-25）：`/` 标题为候选中 V1 的固定标题
+`PartSignal · GEO 内容运营`，不是候选 V2 的 `PartSignal Frontend V2`；实际
+`/assets/index-B12Mu6hl.js` 与 `/assets/index-DR1898Ft.css` 返回 200、immutable，
+代表 SPA 路径、health、headers 与 missing asset 404 均通过。Required source map
+policy 失败：`/assets/index-B12Mu6hl.js.map` 返回 `200 application/json`、
+`Content-Length: 1640946`、immutable，`Last-Modified` 为 2026-08-06，JSON 含
+`file/ignoreList/mappings/names/sources/sourcesContent/version`，主 JS 含
+`sourceMappingURL=index-B12Mu6hl.js.map`。公网未观察到固定候选 V2 artifact，且
+B 仍无可核验完成证据；因此停止，不进入 C，不自动回滚。该公网行为与候选 V1
+source marker 一致；未执行 SSH 复核，不能进一步断言是 current/container 未切换、
+入口缓存还是其他远程原因。
+
 ## 5. C — 浏览器验收
 
 ### 5.1 前置
+
+执行状态：`ABORTED_AT_HTTP_PREREQUISITE`。用户已授权 C，但第 4.4 节 Required
+失败；没有创建 `frontend-v2-p9-staging-activation-validation` session。
 
 - 用户明确批准 C，并说明是否包含专用 must-change account 的一次密码变更。
 - 用户批准仓库外 `0600` credential file path；文件由用户创建，agent 只验证 path/mode，不读取或输出内容。

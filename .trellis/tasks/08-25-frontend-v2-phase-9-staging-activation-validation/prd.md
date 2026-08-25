@@ -65,10 +65,19 @@
 - [ ] console error、pageerror、非预期 requestfailed、失败 script/style/image/font 和未解释 4xx/5xx 均为零。
 - [ ] 指定 `playwright-cli` session 已关闭，`list --all --json` 不再显示其为 open；未保存 trace、video、截图或 storage state。
 
+Observed（2026-08-25）：公网状态、headers、代表 SPA fallback、health、hashed
+JS/CSS cache 与 missing asset 404 均通过；但页面标题为 V1 固定标题
+`PartSignal · GEO 内容运营`，而候选 V2 标题为 `PartSignal Frontend V2`；同时
+`/assets/index-B12Mu6hl.js.map` 返回 `200 application/json`，主 JS 含
+`sourceMappingURL=index-B12Mu6hl.js.map`。公网未观察到固定候选 V2 artifact，且
+source map policy 失败；B 激活仍无可核验完成证据。因此按 C 前置停止；浏览器虽获
+授权但未创建 session，也未执行登录或业务写入。未经 SSH 复核，不能断言远程
+container、release 或缓存层的精确根因。
+
 ### Gate 结论
 
 - [ ] `MET`：以上所有 Required 条件通过，新 `current` 精确指向已验收 V2 release，V1 source/image/release 仍完整可用。
-- [ ] `NOT_MET`：任一 Required 条件失败/未执行、外部事实或凭据缺失、触发回滚、V2 未保持激活、或 V1 回滚基线被破坏。
+- [x] `NOT_MET`：任一 Required 条件失败/未执行、外部事实或凭据缺失、触发回滚、V2 未保持激活、或 V1 回滚基线被破坏。当前由公网未观察到固定候选 V2 artifact、B 无可核验完成证据及 source map policy 失败触发。
 - [ ] `PENDING`：仍在等待后续授权或尚未执行；不得等同于 `MET` 或 `NOT_MET`。
 
 ## 不在范围

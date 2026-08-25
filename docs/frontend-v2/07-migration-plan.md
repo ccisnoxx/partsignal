@@ -548,7 +548,7 @@ A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、�
 - V2 production artifact 由 `frontend-v2/Dockerfile` 与 `frontend-v2/nginx.conf` 持有，production source map 显式关闭；本地容器门禁覆盖 SPA fallback、asset 404、缓存与 `.map`。
 - V1 `frontend/`、V1 image owner 和旧 release 均保留；失败时只允许通过上一已验证 V1 release 自身的 Compose/tag 回滚。
 - P9.1 定向门禁、V2 容器检查、部署脚本检查和完整 `make verify` 已通过：修复后的 foundation-mobile 定向用例 1 passed，最终门禁 backend unit 204 项、V1 unit 205 项、V1 visual 24 项、V2 unit 463 项、backend integration 120 项、V1 E2E 52 项、V2 real-stack 16 项、V2 fixture E2E 383 passed/33 skipped，三套镜像构建及 dev/prod Compose config 同时通过；本地 Repository Gate=`MET`。
-- 用户于 2026-08-25 确认 P9.1 以 Repository Gate=`MET` 收口并归档；外部 Staging Gate=`PENDING`，延后到独立任务 `frontend-v2-phase-9-staging-activation-validation`。未执行 push、远程盘点、发布或浏览器验收，Cutover Gate 仍未满足。
+- 用户于 2026-08-25 确认 P9.1 以 Repository Gate=`MET` 收口并归档；外部 Gate 随后由独立任务 `frontend-v2-phase-9-staging-activation-validation` 检查。公网状态、headers、代表 SPA 路径、health、hashed JS/CSS immutable 与 missing asset 404 均通过，但页面标题为候选 V1 固定标题而非 V2 标题，`/assets/index-B12Mu6hl.js.map` 返回 200 且主 JS 含 `sourceMappingURL`。公网未观察到固定候选 V2 artifact，B 也没有可核验完成证据，并违反 source map Required 合同；故外部 Staging Gate=`NOT_MET`，在浏览器前置处停止，没有创建 Playwright session、登录、业务写入或自动回滚。公网行为与候选 V1 source marker 一致；未通过 SSH 复核，不能断言 current/container、入口缓存或其他远程根因。Cutover Gate 仍未满足，V1 源码、旧 release 与回滚边界继续保留。
 - 后续 legacy redirect、production-like rehearsal、production artifact、回滚演练、正式切换和 V1 删除仍为独立 Task。
 
 ## 15. V1 → V2 路由矩阵

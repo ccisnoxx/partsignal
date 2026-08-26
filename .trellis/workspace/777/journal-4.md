@@ -69,3 +69,24 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 181: Frontend V2 Phase 9 Legacy Routing
+
+**Date**: 2026-08-26
+**Task**: Frontend V2 Phase 9 Legacy Routing
+**Branch**: `codex/frontend-v2-phase-9-legacy-routing`
+
+### Summary
+
+完成 V1 到 V2 legacy 路由、query 白名单、安全 return-to、显式 404、权限行为与 CLOSED 发布工作筛选，并通过 unit、双视口 Playwright、typecheck、lint 和 production build。未推送、合并、部署或验证 Staging。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5afaed09` | (see git log) |
+
+### Status
+
+[OK] **Completed**

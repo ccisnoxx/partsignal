@@ -1,0 +1,43 @@
+{
+  "id": "frontend-v2-phase-9-production-like-rehearsal",
+  "name": "frontend-v2-phase-9-production-like-rehearsal",
+  "title": "Frontend V2 Phase 9 Production-like Rehearsal",
+  "description": "规划并执行隔离、脱敏、禁用真实外部副作用的 Frontend V2 production-like 数据演练，形成 source 零写入与 cleanup/隔离证据。",
+  "status": "planning",
+  "dev_type": "infra",
+  "scope": "docs,frontend-v2,deploy,trellis",
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-26",
+  "completedAt": null,
+  "branch": "main",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-26-frontend-v2-phase-9-production-snapshot-sanitization"
+  ],
+  "parent": null,
+  "relatedFiles": [
+    "deploy/compose.staging.yaml",
+    "deploy/scripts/restore-verify.sh",
+    "deploy/scripts/test-frontend-v2-container.sh",
+    "frontend-v2/tests/e2e",
+    "docs/frontend-v2/07-migration-plan.md",
+    "docs/frontend-v2/08-testing-quality-and-acceptance.md"
+  ],
+  "notes": "规划已收敛；先完成 sanitizer 子 Task，父 Task 在子 Task Gate=MET 前保持 planning。所有外部读取、资源创建、写入和删除均需逐阶段授权。",
+  "meta": {
+    "phase": "Frontend V2 Phase 9",
+    "planning_only": "true",
+    "planning_approved": "true",
+    "data_source": "approved-production-read-only-snapshot",
+    "isolation": "dedicated-temporary-private-environment",
+    "object_payload_policy": "production-payload-zero-copy",
+    "sanitization_child": "frontend-v2-phase-9-production-snapshot-sanitization"
+  }
+}

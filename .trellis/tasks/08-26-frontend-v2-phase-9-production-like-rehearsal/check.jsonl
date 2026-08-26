@@ -1,0 +1,6 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核 clone 独占资源、写入归属与 cleanup 证据"}
+{"file":".trellis/spec/infra/development-object-storage.md","reason":"复核 production payload 零复制、fixture 对象与缺失对象行为"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核自动/浏览器 gate、runtime 错误和 build artifact"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-like-rehearsal/design.md","reason":"逐项核对依赖、side-effect、Gate、停止与 cleanup owner"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization/implement.md","reason":"确认父 Task未越过子 Task输出和授权边界"}

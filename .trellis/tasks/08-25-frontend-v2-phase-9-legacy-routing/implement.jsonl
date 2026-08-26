@@ -1,0 +1,3 @@
+{"file":".trellis/spec/frontend/index.md","reason":"实现前按 frontend 规范索引定位并读取 URL、Auth、System、Publication 相关稳定合同"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"实现与测试遵循前端质量门禁和错误处理规则"}
+{"file":".trellis/tasks/08-25-frontend-v2-phase-9-legacy-routing/research/audit.md","reason":"按已核验的 V1/V2 路径、query 与 owner 审计结果实施"}

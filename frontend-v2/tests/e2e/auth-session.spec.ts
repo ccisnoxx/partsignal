@@ -180,7 +180,7 @@ test('Auth production artifact 完成强制改密、自助改密、ENGINEER 403 
 
   try {
     await page.goto('/system/users');
-    await expect(page).toHaveURL('/login');
+    await expect(page).toHaveURL('/login?redirect=%2Fsystem%2Fusers%3Fstatus%3DENABLED%26page%3D1%26pageSize%3D20');
     await expect(page.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
     await expect(page.getByRole('navigation', { name: '主导航' })).toHaveCount(0);
 
@@ -212,8 +212,15 @@ test('Auth production artifact 完成强制改密、自助改密、ENGINEER 403 
 
     await page.getByRole('button', { name: /内容工程师/ }).click();
     await page.getByRole('menuitem', { name: '退出登录' }).click();
-    await expect(page).toHaveURL('/login');
+    await expect(page).toHaveURL('/login?redirect=%2Fsystem%2Fusers%3Fstatus%3DENABLED%26page%3D1%26pageSize%3D20');
     await expect(page.getByRole('heading', { level: 1, name: '登录' })).toBeVisible();
+
+    await page.goto('/change-password');
+    await expect(page).toHaveURL('/login?redirect=%2Fchange-password');
+    await page.getByRole('textbox', { name: '用户名' }).fill(engineer.username);
+    await page.getByLabel(/^密码/).fill(secondNewPassword);
+    await page.getByRole('button', { name: '登录' }).click();
+    await expect(page).toHaveURL('/account/security');
     expect(runtimeErrors, 'Auth 页面不得出现未捕获异常或失败资源').toEqual([]);
   } finally {
     await expectSecretsAbsent(testInfo.outputDir, [initialPassword, firstNewPassword, secondNewPassword]);

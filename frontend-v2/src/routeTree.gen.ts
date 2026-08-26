@@ -13,27 +13,42 @@ import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAdminRouteRouteImport } from './routes/_app/_admin/route'
+import { Route as AppAuditRouteImport } from './routes/_app/audit'
+import { Route as AppChangePasswordRouteImport } from './routes/_app/change-password'
 import { Route as AppContentRouteRouteImport } from './routes/_app/content/route'
 import { Route as AppGeoRouteRouteImport } from './routes/_app/geo/route'
 import { Route as AppProductsRouteRouteImport } from './routes/_app/products/route'
+import { Route as AppPublicationsRouteImport } from './routes/_app/publications'
 import { Route as AppPublishingRouteRouteImport } from './routes/_app/publishing/route'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
+import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AccountSecurityRouteImport } from './routes/account/security'
+import { Route as AppConfigurationIndexRouteImport } from './routes/_app/configuration/index'
+import { Route as AppConfigurationPlatformTypesRouteImport } from './routes/_app/configuration/platform-types'
+import { Route as AppConfigurationPlatformsRouteImport } from './routes/_app/configuration/platforms'
+import { Route as AppConfigurationPromptsRouteImport } from './routes/_app/configuration/prompts'
+import { Route as AppContentVersionIdRouteImport } from './routes/_app/content/$versionId'
 import { Route as AppContentTasksRouteRouteImport } from './routes/_app/content/tasks/route'
 import { Route as AppGeoInsightsRouteRouteImport } from './routes/_app/geo/insights/route'
 import { Route as AppGeoObservationsRouteRouteImport } from './routes/_app/geo/observations/route'
 import { Route as AppGeoTopicsRouteRouteImport } from './routes/_app/geo/topics/route'
+import { Route as AppObservationsIndexRouteImport } from './routes/_app/observations/index'
+import { Route as AppObservationsTopicsRouteImport } from './routes/_app/observations/topics'
 import { Route as AppProductsIndexRouteImport } from './routes/_app/products/index'
 import { Route as AppProductsProductIdRouteImport } from './routes/_app/products/$productId'
 import { Route as AppProductsNewRouteImport } from './routes/_app/products/new'
 import { Route as AppPublishingArticlesRouteRouteImport } from './routes/_app/publishing/articles/route'
 import { Route as AppPublishingIssuesRouteRouteImport } from './routes/_app/publishing/issues/route'
 import { Route as AppPublishingWorkRouteRouteImport } from './routes/_app/publishing/work/route'
+import { Route as AppSettingsIndexRouteImport } from './routes/_app/settings/index'
 import { Route as AppSettingsPlatformsRouteRouteImport } from './routes/_app/settings/platforms/route'
+import { Route as AppTasksIndexRouteImport } from './routes/_app/tasks/index'
+import { Route as AppTasksTaskIdRouteImport } from './routes/_app/tasks/$taskId'
 import { Route as AppAdminSettingsAiRouteImport } from './routes/_app/_admin/settings.ai'
 import { Route as AppAdminSettingsPromptsRouteImport } from './routes/_app/_admin/settings.prompts'
 import { Route as AppAdminSystemAuditRouteImport } from './routes/_app/_admin/system.audit'
 import { Route as AppAdminSystemUsersRouteImport } from './routes/_app/_admin/system.users'
+import { Route as AppConfigurationAiIndexRouteImport } from './routes/_app/configuration/ai/index'
 import { Route as AppContentTasksIndexRouteImport } from './routes/_app/content/tasks/index'
 import { Route as AppContentTasksTaskIdRouteImport } from './routes/_app/content/tasks/$taskId'
 import { Route as AppContentTasksNewRouteImport } from './routes/_app/content/tasks/new'
@@ -44,6 +59,9 @@ import { Route as AppGeoObservationsIndexRouteImport } from './routes/_app/geo/o
 import { Route as AppGeoObservationsObservationIdRouteImport } from './routes/_app/geo/observations/$observationId'
 import { Route as AppGeoObservationsNewRouteImport } from './routes/_app/geo/observations/new'
 import { Route as AppGeoTopicsIndexRouteImport } from './routes/_app/geo/topics/index'
+import { Route as AppObservationsObservationIdCorrectRouteImport } from './routes/_app/observations/$observationId/correct'
+import { Route as AppObservationsInsightsIndexRouteImport } from './routes/_app/observations/insights/index'
+import { Route as AppObservationsInsightsPrintRouteImport } from './routes/_app/observations/insights/print'
 import { Route as AppProductsProductIdFactsRouteImport } from './routes/_app/products/$productId_.facts'
 import { Route as AppPublishingArticlesIndexRouteImport } from './routes/_app/publishing/articles/index'
 import { Route as AppPublishingArticlesArticleIdRouteImport } from './routes/_app/publishing/articles/$articleId'
@@ -55,6 +73,7 @@ import { Route as AppSettingsPlatformsIndexRouteImport } from './routes/_app/set
 import { Route as AppSettingsPlatformsPlatformIdRouteImport } from './routes/_app/settings/platforms/$platformId'
 import { Route as AppAdminSettingsAiChannelIdRouteImport } from './routes/_app/_admin/settings.ai_.$channelId'
 import { Route as AppAdminSettingsPlatformsTypesRouteImport } from './routes/_app/_admin/settings.platforms.types'
+import { Route as AppConfigurationAiChannelsChannelIdRouteImport } from './routes/_app/configuration/ai/channels/$channelId'
 import { Route as AppContentTasksTaskIdEditorRouteImport } from './routes/_app/content/tasks/$taskId_.editor'
 import { Route as AppContentTasksTaskIdReviewRouteImport } from './routes/_app/content/tasks/$taskId_.review'
 import { Route as AppGeoObservationsObservationIdCorrectRouteImport } from './routes/_app/geo/observations/$observationId_.correct'
@@ -80,6 +99,16 @@ const AppAdminRouteRoute = AppAdminRouteRouteImport.update({
   id: '/_admin',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppAuditRoute = AppAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppChangePasswordRoute = AppChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppContentRouteRoute = AppContentRouteRouteImport.update({
   id: '/content',
   path: '/content',
@@ -95,6 +124,11 @@ const AppProductsRouteRoute = AppProductsRouteRouteImport.update({
   path: '/products',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppPublicationsRoute = AppPublicationsRouteImport.update({
+  id: '/publications',
+  path: '/publications',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppPublishingRouteRoute = AppPublishingRouteRouteImport.update({
   id: '/publishing',
   path: '/publishing',
@@ -105,10 +139,42 @@ const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRouteRoute,
 } as any)
+const AppUsersRoute = AppUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AccountSecurityRoute = AccountSecurityRouteImport.update({
   id: '/account/security',
   path: '/account/security',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppConfigurationIndexRoute = AppConfigurationIndexRouteImport.update({
+  id: '/configuration/',
+  path: '/configuration/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppConfigurationPlatformTypesRoute =
+  AppConfigurationPlatformTypesRouteImport.update({
+    id: '/configuration/platform-types',
+    path: '/configuration/platform-types',
+    getParentRoute: () => AppRouteRoute,
+  } as any)
+const AppConfigurationPlatformsRoute =
+  AppConfigurationPlatformsRouteImport.update({
+    id: '/configuration/platforms',
+    path: '/configuration/platforms',
+    getParentRoute: () => AppRouteRoute,
+  } as any)
+const AppConfigurationPromptsRoute = AppConfigurationPromptsRouteImport.update({
+  id: '/configuration/prompts',
+  path: '/configuration/prompts',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppContentVersionIdRoute = AppContentVersionIdRouteImport.update({
+  id: '/$versionId',
+  path: '/$versionId',
+  getParentRoute: () => AppContentRouteRoute,
 } as any)
 const AppContentTasksRouteRoute = AppContentTasksRouteRouteImport.update({
   id: '/tasks',
@@ -129,6 +195,16 @@ const AppGeoTopicsRouteRoute = AppGeoTopicsRouteRouteImport.update({
   id: '/topics',
   path: '/topics',
   getParentRoute: () => AppGeoRouteRoute,
+} as any)
+const AppObservationsIndexRoute = AppObservationsIndexRouteImport.update({
+  id: '/observations/',
+  path: '/observations/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppObservationsTopicsRoute = AppObservationsTopicsRouteImport.update({
+  id: '/observations/topics',
+  path: '/observations/topics',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppProductsIndexRoute = AppProductsIndexRouteImport.update({
   id: '/',
@@ -162,12 +238,27 @@ const AppPublishingWorkRouteRoute = AppPublishingWorkRouteRouteImport.update({
   path: '/work',
   getParentRoute: () => AppPublishingRouteRoute,
 } as any)
+const AppSettingsIndexRoute = AppSettingsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppSettingsRouteRoute,
+} as any)
 const AppSettingsPlatformsRouteRoute =
   AppSettingsPlatformsRouteRouteImport.update({
     id: '/platforms',
     path: '/platforms',
     getParentRoute: () => AppSettingsRouteRoute,
   } as any)
+const AppTasksIndexRoute = AppTasksIndexRouteImport.update({
+  id: '/tasks/',
+  path: '/tasks/',
+  getParentRoute: () => AppRouteRoute,
+} as any)
+const AppTasksTaskIdRoute = AppTasksTaskIdRouteImport.update({
+  id: '/tasks/$taskId',
+  path: '/tasks/$taskId',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppAdminSettingsAiRoute = AppAdminSettingsAiRouteImport.update({
   id: '/settings/ai',
   path: '/settings/ai',
@@ -187,6 +278,11 @@ const AppAdminSystemUsersRoute = AppAdminSystemUsersRouteImport.update({
   id: '/system/users',
   path: '/system/users',
   getParentRoute: () => AppAdminRouteRoute,
+} as any)
+const AppConfigurationAiIndexRoute = AppConfigurationAiIndexRouteImport.update({
+  id: '/configuration/ai/',
+  path: '/configuration/ai/',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppContentTasksIndexRoute = AppContentTasksIndexRouteImport.update({
   id: '/',
@@ -240,6 +336,24 @@ const AppGeoTopicsIndexRoute = AppGeoTopicsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppGeoTopicsRouteRoute,
 } as any)
+const AppObservationsObservationIdCorrectRoute =
+  AppObservationsObservationIdCorrectRouteImport.update({
+    id: '/observations/$observationId/correct',
+    path: '/observations/$observationId/correct',
+    getParentRoute: () => AppRouteRoute,
+  } as any)
+const AppObservationsInsightsIndexRoute =
+  AppObservationsInsightsIndexRouteImport.update({
+    id: '/observations/insights/',
+    path: '/observations/insights/',
+    getParentRoute: () => AppRouteRoute,
+  } as any)
+const AppObservationsInsightsPrintRoute =
+  AppObservationsInsightsPrintRouteImport.update({
+    id: '/observations/insights/print',
+    path: '/observations/insights/print',
+    getParentRoute: () => AppRouteRoute,
+  } as any)
 const AppProductsProductIdFactsRoute =
   AppProductsProductIdFactsRouteImport.update({
     id: '/$productId_/facts',
@@ -304,6 +418,12 @@ const AppAdminSettingsPlatformsTypesRoute =
     path: '/settings/platforms/types',
     getParentRoute: () => AppAdminRouteRoute,
   } as any)
+const AppConfigurationAiChannelsChannelIdRoute =
+  AppConfigurationAiChannelsChannelIdRouteImport.update({
+    id: '/configuration/ai/channels/$channelId',
+    path: '/configuration/ai/channels/$channelId',
+    getParentRoute: () => AppRouteRoute,
+  } as any)
 const AppContentTasksTaskIdEditorRoute =
   AppContentTasksTaskIdEditorRouteImport.update({
     id: '/$taskId_/editor',
@@ -349,6 +469,10 @@ export interface FileRoutesByFullPath {
   '/products': typeof AppProductsRouteRouteWithChildren
   '/publishing': typeof AppPublishingRouteRouteWithChildren
   '/settings': typeof AppSettingsRouteRouteWithChildren
+  '/audit': typeof AppAuditRoute
+  '/change-password': typeof AppChangePasswordRoute
+  '/publications': typeof AppPublicationsRoute
+  '/users': typeof AppUsersRoute
   '/account/security': typeof AccountSecurityRoute
   '/content/tasks': typeof AppContentTasksRouteRouteWithChildren
   '/geo/insights': typeof AppGeoInsightsRouteRouteWithChildren
@@ -358,9 +482,19 @@ export interface FileRoutesByFullPath {
   '/publishing/issues': typeof AppPublishingIssuesRouteRouteWithChildren
   '/publishing/work': typeof AppPublishingWorkRouteRouteWithChildren
   '/settings/platforms': typeof AppSettingsPlatformsRouteRouteWithChildren
+  '/configuration/platform-types': typeof AppConfigurationPlatformTypesRoute
+  '/configuration/platforms': typeof AppConfigurationPlatformsRoute
+  '/configuration/prompts': typeof AppConfigurationPromptsRoute
+  '/content/$versionId': typeof AppContentVersionIdRoute
+  '/observations/topics': typeof AppObservationsTopicsRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
+  '/tasks/$taskId': typeof AppTasksTaskIdRoute
+  '/configuration/': typeof AppConfigurationIndexRoute
+  '/observations/': typeof AppObservationsIndexRoute
   '/products/': typeof AppProductsIndexRoute
+  '/settings/': typeof AppSettingsIndexRoute
+  '/tasks/': typeof AppTasksIndexRoute
   '/settings/ai': typeof AppAdminSettingsAiRoute
   '/settings/prompts': typeof AppAdminSettingsPromptsRoute
   '/system/audit': typeof AppAdminSystemAuditRoute
@@ -371,21 +505,26 @@ export interface FileRoutesByFullPath {
   '/geo/insights/print': typeof AppGeoInsightsPrintRoute
   '/geo/observations/$observationId': typeof AppGeoObservationsObservationIdRoute
   '/geo/observations/new': typeof AppGeoObservationsNewRoute
+  '/observations/$observationId/correct': typeof AppObservationsObservationIdCorrectRoute
+  '/observations/insights/print': typeof AppObservationsInsightsPrintRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/publishing/articles/$articleId': typeof AppPublishingArticlesArticleIdRoute
   '/publishing/issues/$issueId': typeof AppPublishingIssuesIssueIdRoute
   '/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
   '/settings/platforms/$platformId': typeof AppSettingsPlatformsPlatformIdRoute
+  '/configuration/ai/': typeof AppConfigurationAiIndexRoute
   '/content/tasks/': typeof AppContentTasksIndexRoute
   '/geo/insights/': typeof AppGeoInsightsIndexRoute
   '/geo/observations/': typeof AppGeoObservationsIndexRoute
   '/geo/topics/': typeof AppGeoTopicsIndexRoute
+  '/observations/insights/': typeof AppObservationsInsightsIndexRoute
   '/publishing/articles/': typeof AppPublishingArticlesIndexRoute
   '/publishing/issues/': typeof AppPublishingIssuesIndexRoute
   '/publishing/work/': typeof AppPublishingWorkIndexRoute
   '/settings/platforms/': typeof AppSettingsPlatformsIndexRoute
   '/settings/ai/$channelId': typeof AppAdminSettingsAiChannelIdRoute
   '/settings/platforms/types': typeof AppAdminSettingsPlatformsTypesRoute
+  '/configuration/ai/channels/$channelId': typeof AppConfigurationAiChannelsChannelIdRoute
   '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
   '/content/tasks/$taskId/review': typeof AppContentTasksTaskIdReviewRoute
   '/geo/observations/$observationId/correct': typeof AppGeoObservationsObservationIdCorrectRoute
@@ -399,11 +538,24 @@ export interface FileRoutesByTo {
   '/content': typeof AppContentRouteRouteWithChildren
   '/geo': typeof AppGeoRouteRouteWithChildren
   '/publishing': typeof AppPublishingRouteRouteWithChildren
-  '/settings': typeof AppSettingsRouteRouteWithChildren
+  '/audit': typeof AppAuditRoute
+  '/change-password': typeof AppChangePasswordRoute
+  '/publications': typeof AppPublicationsRoute
+  '/users': typeof AppUsersRoute
   '/account/security': typeof AccountSecurityRoute
+  '/configuration/platform-types': typeof AppConfigurationPlatformTypesRoute
+  '/configuration/platforms': typeof AppConfigurationPlatformsRoute
+  '/configuration/prompts': typeof AppConfigurationPromptsRoute
+  '/content/$versionId': typeof AppContentVersionIdRoute
+  '/observations/topics': typeof AppObservationsTopicsRoute
   '/products/$productId': typeof AppProductsProductIdRoute
   '/products/new': typeof AppProductsNewRoute
+  '/tasks/$taskId': typeof AppTasksTaskIdRoute
+  '/configuration': typeof AppConfigurationIndexRoute
+  '/observations': typeof AppObservationsIndexRoute
   '/products': typeof AppProductsIndexRoute
+  '/settings': typeof AppSettingsIndexRoute
+  '/tasks': typeof AppTasksIndexRoute
   '/settings/ai': typeof AppAdminSettingsAiRoute
   '/settings/prompts': typeof AppAdminSettingsPromptsRoute
   '/system/audit': typeof AppAdminSystemAuditRoute
@@ -414,21 +566,26 @@ export interface FileRoutesByTo {
   '/geo/insights/print': typeof AppGeoInsightsPrintRoute
   '/geo/observations/$observationId': typeof AppGeoObservationsObservationIdRoute
   '/geo/observations/new': typeof AppGeoObservationsNewRoute
+  '/observations/$observationId/correct': typeof AppObservationsObservationIdCorrectRoute
+  '/observations/insights/print': typeof AppObservationsInsightsPrintRoute
   '/products/$productId/facts': typeof AppProductsProductIdFactsRoute
   '/publishing/articles/$articleId': typeof AppPublishingArticlesArticleIdRoute
   '/publishing/issues/$issueId': typeof AppPublishingIssuesIssueIdRoute
   '/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
   '/settings/platforms/$platformId': typeof AppSettingsPlatformsPlatformIdRoute
+  '/configuration/ai': typeof AppConfigurationAiIndexRoute
   '/content/tasks': typeof AppContentTasksIndexRoute
   '/geo/insights': typeof AppGeoInsightsIndexRoute
   '/geo/observations': typeof AppGeoObservationsIndexRoute
   '/geo/topics': typeof AppGeoTopicsIndexRoute
+  '/observations/insights': typeof AppObservationsInsightsIndexRoute
   '/publishing/articles': typeof AppPublishingArticlesIndexRoute
   '/publishing/issues': typeof AppPublishingIssuesIndexRoute
   '/publishing/work': typeof AppPublishingWorkIndexRoute
   '/settings/platforms': typeof AppSettingsPlatformsIndexRoute
   '/settings/ai/$channelId': typeof AppAdminSettingsAiChannelIdRoute
   '/settings/platforms/types': typeof AppAdminSettingsPlatformsTypesRoute
+  '/configuration/ai/channels/$channelId': typeof AppConfigurationAiChannelsChannelIdRoute
   '/content/tasks/$taskId/editor': typeof AppContentTasksTaskIdEditorRoute
   '/content/tasks/$taskId/review': typeof AppContentTasksTaskIdReviewRoute
   '/geo/observations/$observationId/correct': typeof AppGeoObservationsObservationIdCorrectRoute
@@ -446,6 +603,10 @@ export interface FileRoutesById {
   '/_app/products': typeof AppProductsRouteRouteWithChildren
   '/_app/publishing': typeof AppPublishingRouteRouteWithChildren
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
+  '/_app/audit': typeof AppAuditRoute
+  '/_app/change-password': typeof AppChangePasswordRoute
+  '/_app/publications': typeof AppPublicationsRoute
+  '/_app/users': typeof AppUsersRoute
   '/account/security': typeof AccountSecurityRoute
   '/_app/': typeof AppIndexRoute
   '/_app/content/tasks': typeof AppContentTasksRouteRouteWithChildren
@@ -456,9 +617,19 @@ export interface FileRoutesById {
   '/_app/publishing/issues': typeof AppPublishingIssuesRouteRouteWithChildren
   '/_app/publishing/work': typeof AppPublishingWorkRouteRouteWithChildren
   '/_app/settings/platforms': typeof AppSettingsPlatformsRouteRouteWithChildren
+  '/_app/configuration/platform-types': typeof AppConfigurationPlatformTypesRoute
+  '/_app/configuration/platforms': typeof AppConfigurationPlatformsRoute
+  '/_app/configuration/prompts': typeof AppConfigurationPromptsRoute
+  '/_app/content/$versionId': typeof AppContentVersionIdRoute
+  '/_app/observations/topics': typeof AppObservationsTopicsRoute
   '/_app/products/$productId': typeof AppProductsProductIdRoute
   '/_app/products/new': typeof AppProductsNewRoute
+  '/_app/tasks/$taskId': typeof AppTasksTaskIdRoute
+  '/_app/configuration/': typeof AppConfigurationIndexRoute
+  '/_app/observations/': typeof AppObservationsIndexRoute
   '/_app/products/': typeof AppProductsIndexRoute
+  '/_app/settings/': typeof AppSettingsIndexRoute
+  '/_app/tasks/': typeof AppTasksIndexRoute
   '/_app/_admin/settings/ai': typeof AppAdminSettingsAiRoute
   '/_app/_admin/settings/prompts': typeof AppAdminSettingsPromptsRoute
   '/_app/_admin/system/audit': typeof AppAdminSystemAuditRoute
@@ -469,21 +640,26 @@ export interface FileRoutesById {
   '/_app/geo/insights/print': typeof AppGeoInsightsPrintRoute
   '/_app/geo/observations/$observationId': typeof AppGeoObservationsObservationIdRoute
   '/_app/geo/observations/new': typeof AppGeoObservationsNewRoute
+  '/_app/observations/$observationId/correct': typeof AppObservationsObservationIdCorrectRoute
+  '/_app/observations/insights/print': typeof AppObservationsInsightsPrintRoute
   '/_app/products/$productId_/facts': typeof AppProductsProductIdFactsRoute
   '/_app/publishing/articles/$articleId': typeof AppPublishingArticlesArticleIdRoute
   '/_app/publishing/issues/$issueId': typeof AppPublishingIssuesIssueIdRoute
   '/_app/publishing/work/$workId': typeof AppPublishingWorkWorkIdRoute
   '/_app/settings/platforms/$platformId': typeof AppSettingsPlatformsPlatformIdRoute
+  '/_app/configuration/ai/': typeof AppConfigurationAiIndexRoute
   '/_app/content/tasks/': typeof AppContentTasksIndexRoute
   '/_app/geo/insights/': typeof AppGeoInsightsIndexRoute
   '/_app/geo/observations/': typeof AppGeoObservationsIndexRoute
   '/_app/geo/topics/': typeof AppGeoTopicsIndexRoute
+  '/_app/observations/insights/': typeof AppObservationsInsightsIndexRoute
   '/_app/publishing/articles/': typeof AppPublishingArticlesIndexRoute
   '/_app/publishing/issues/': typeof AppPublishingIssuesIndexRoute
   '/_app/publishing/work/': typeof AppPublishingWorkIndexRoute
   '/_app/settings/platforms/': typeof AppSettingsPlatformsIndexRoute
   '/_app/_admin/settings/ai_/$channelId': typeof AppAdminSettingsAiChannelIdRoute
   '/_app/_admin/settings/platforms/types': typeof AppAdminSettingsPlatformsTypesRoute
+  '/_app/configuration/ai/channels/$channelId': typeof AppConfigurationAiChannelsChannelIdRoute
   '/_app/content/tasks/$taskId_/editor': typeof AppContentTasksTaskIdEditorRoute
   '/_app/content/tasks/$taskId_/review': typeof AppContentTasksTaskIdReviewRoute
   '/_app/geo/observations/$observationId_/correct': typeof AppGeoObservationsObservationIdCorrectRoute
@@ -501,6 +677,10 @@ export interface FileRouteTypes {
     | '/products'
     | '/publishing'
     | '/settings'
+    | '/audit'
+    | '/change-password'
+    | '/publications'
+    | '/users'
     | '/account/security'
     | '/content/tasks'
     | '/geo/insights'
@@ -510,9 +690,19 @@ export interface FileRouteTypes {
     | '/publishing/issues'
     | '/publishing/work'
     | '/settings/platforms'
+    | '/configuration/platform-types'
+    | '/configuration/platforms'
+    | '/configuration/prompts'
+    | '/content/$versionId'
+    | '/observations/topics'
     | '/products/$productId'
     | '/products/new'
+    | '/tasks/$taskId'
+    | '/configuration/'
+    | '/observations/'
     | '/products/'
+    | '/settings/'
+    | '/tasks/'
     | '/settings/ai'
     | '/settings/prompts'
     | '/system/audit'
@@ -523,21 +713,26 @@ export interface FileRouteTypes {
     | '/geo/insights/print'
     | '/geo/observations/$observationId'
     | '/geo/observations/new'
+    | '/observations/$observationId/correct'
+    | '/observations/insights/print'
     | '/products/$productId/facts'
     | '/publishing/articles/$articleId'
     | '/publishing/issues/$issueId'
     | '/publishing/work/$workId'
     | '/settings/platforms/$platformId'
+    | '/configuration/ai/'
     | '/content/tasks/'
     | '/geo/insights/'
     | '/geo/observations/'
     | '/geo/topics/'
+    | '/observations/insights/'
     | '/publishing/articles/'
     | '/publishing/issues/'
     | '/publishing/work/'
     | '/settings/platforms/'
     | '/settings/ai/$channelId'
     | '/settings/platforms/types'
+    | '/configuration/ai/channels/$channelId'
     | '/content/tasks/$taskId/editor'
     | '/content/tasks/$taskId/review'
     | '/geo/observations/$observationId/correct'
@@ -551,11 +746,24 @@ export interface FileRouteTypes {
     | '/content'
     | '/geo'
     | '/publishing'
-    | '/settings'
+    | '/audit'
+    | '/change-password'
+    | '/publications'
+    | '/users'
     | '/account/security'
+    | '/configuration/platform-types'
+    | '/configuration/platforms'
+    | '/configuration/prompts'
+    | '/content/$versionId'
+    | '/observations/topics'
     | '/products/$productId'
     | '/products/new'
+    | '/tasks/$taskId'
+    | '/configuration'
+    | '/observations'
     | '/products'
+    | '/settings'
+    | '/tasks'
     | '/settings/ai'
     | '/settings/prompts'
     | '/system/audit'
@@ -566,21 +774,26 @@ export interface FileRouteTypes {
     | '/geo/insights/print'
     | '/geo/observations/$observationId'
     | '/geo/observations/new'
+    | '/observations/$observationId/correct'
+    | '/observations/insights/print'
     | '/products/$productId/facts'
     | '/publishing/articles/$articleId'
     | '/publishing/issues/$issueId'
     | '/publishing/work/$workId'
     | '/settings/platforms/$platformId'
+    | '/configuration/ai'
     | '/content/tasks'
     | '/geo/insights'
     | '/geo/observations'
     | '/geo/topics'
+    | '/observations/insights'
     | '/publishing/articles'
     | '/publishing/issues'
     | '/publishing/work'
     | '/settings/platforms'
     | '/settings/ai/$channelId'
     | '/settings/platforms/types'
+    | '/configuration/ai/channels/$channelId'
     | '/content/tasks/$taskId/editor'
     | '/content/tasks/$taskId/review'
     | '/geo/observations/$observationId/correct'
@@ -597,6 +810,10 @@ export interface FileRouteTypes {
     | '/_app/products'
     | '/_app/publishing'
     | '/_app/settings'
+    | '/_app/audit'
+    | '/_app/change-password'
+    | '/_app/publications'
+    | '/_app/users'
     | '/account/security'
     | '/_app/'
     | '/_app/content/tasks'
@@ -607,9 +824,19 @@ export interface FileRouteTypes {
     | '/_app/publishing/issues'
     | '/_app/publishing/work'
     | '/_app/settings/platforms'
+    | '/_app/configuration/platform-types'
+    | '/_app/configuration/platforms'
+    | '/_app/configuration/prompts'
+    | '/_app/content/$versionId'
+    | '/_app/observations/topics'
     | '/_app/products/$productId'
     | '/_app/products/new'
+    | '/_app/tasks/$taskId'
+    | '/_app/configuration/'
+    | '/_app/observations/'
     | '/_app/products/'
+    | '/_app/settings/'
+    | '/_app/tasks/'
     | '/_app/_admin/settings/ai'
     | '/_app/_admin/settings/prompts'
     | '/_app/_admin/system/audit'
@@ -620,21 +847,26 @@ export interface FileRouteTypes {
     | '/_app/geo/insights/print'
     | '/_app/geo/observations/$observationId'
     | '/_app/geo/observations/new'
+    | '/_app/observations/$observationId/correct'
+    | '/_app/observations/insights/print'
     | '/_app/products/$productId_/facts'
     | '/_app/publishing/articles/$articleId'
     | '/_app/publishing/issues/$issueId'
     | '/_app/publishing/work/$workId'
     | '/_app/settings/platforms/$platformId'
+    | '/_app/configuration/ai/'
     | '/_app/content/tasks/'
     | '/_app/geo/insights/'
     | '/_app/geo/observations/'
     | '/_app/geo/topics/'
+    | '/_app/observations/insights/'
     | '/_app/publishing/articles/'
     | '/_app/publishing/issues/'
     | '/_app/publishing/work/'
     | '/_app/settings/platforms/'
     | '/_app/_admin/settings/ai_/$channelId'
     | '/_app/_admin/settings/platforms/types'
+    | '/_app/configuration/ai/channels/$channelId'
     | '/_app/content/tasks/$taskId_/editor'
     | '/_app/content/tasks/$taskId_/review'
     | '/_app/geo/observations/$observationId_/correct'
@@ -679,6 +911,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/audit': {
+      id: '/_app/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AppAuditRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/change-password': {
+      id: '/_app/change-password'
+      path: '/change-password'
+      fullPath: '/change-password'
+      preLoaderRoute: typeof AppChangePasswordRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/content': {
       id: '/_app/content'
       path: '/content'
@@ -700,6 +946,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProductsRouteRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/publications': {
+      id: '/_app/publications'
+      path: '/publications'
+      fullPath: '/publications'
+      preLoaderRoute: typeof AppPublicationsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/publishing': {
       id: '/_app/publishing'
       path: '/publishing'
@@ -714,12 +967,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteRouteImport
       parentRoute: typeof AppRouteRoute
     }
+    '/_app/users': {
+      id: '/_app/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/account/security': {
       id: '/account/security'
       path: '/account/security'
       fullPath: '/account/security'
       preLoaderRoute: typeof AccountSecurityRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/configuration/': {
+      id: '/_app/configuration/'
+      path: '/configuration'
+      fullPath: '/configuration/'
+      preLoaderRoute: typeof AppConfigurationIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/configuration/platform-types': {
+      id: '/_app/configuration/platform-types'
+      path: '/configuration/platform-types'
+      fullPath: '/configuration/platform-types'
+      preLoaderRoute: typeof AppConfigurationPlatformTypesRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/configuration/platforms': {
+      id: '/_app/configuration/platforms'
+      path: '/configuration/platforms'
+      fullPath: '/configuration/platforms'
+      preLoaderRoute: typeof AppConfigurationPlatformsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/configuration/prompts': {
+      id: '/_app/configuration/prompts'
+      path: '/configuration/prompts'
+      fullPath: '/configuration/prompts'
+      preLoaderRoute: typeof AppConfigurationPromptsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/content/$versionId': {
+      id: '/_app/content/$versionId'
+      path: '/$versionId'
+      fullPath: '/content/$versionId'
+      preLoaderRoute: typeof AppContentVersionIdRouteImport
+      parentRoute: typeof AppContentRouteRoute
     }
     '/_app/content/tasks': {
       id: '/_app/content/tasks'
@@ -748,6 +1043,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/geo/topics'
       preLoaderRoute: typeof AppGeoTopicsRouteRouteImport
       parentRoute: typeof AppGeoRouteRoute
+    }
+    '/_app/observations/': {
+      id: '/_app/observations/'
+      path: '/observations'
+      fullPath: '/observations/'
+      preLoaderRoute: typeof AppObservationsIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/observations/topics': {
+      id: '/_app/observations/topics'
+      path: '/observations/topics'
+      fullPath: '/observations/topics'
+      preLoaderRoute: typeof AppObservationsTopicsRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/products/': {
       id: '/_app/products/'
@@ -791,12 +1100,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPublishingWorkRouteRouteImport
       parentRoute: typeof AppPublishingRouteRoute
     }
+    '/_app/settings/': {
+      id: '/_app/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AppSettingsIndexRouteImport
+      parentRoute: typeof AppSettingsRouteRoute
+    }
     '/_app/settings/platforms': {
       id: '/_app/settings/platforms'
       path: '/platforms'
       fullPath: '/settings/platforms'
       preLoaderRoute: typeof AppSettingsPlatformsRouteRouteImport
       parentRoute: typeof AppSettingsRouteRoute
+    }
+    '/_app/tasks/': {
+      id: '/_app/tasks/'
+      path: '/tasks'
+      fullPath: '/tasks/'
+      preLoaderRoute: typeof AppTasksIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/tasks/$taskId': {
+      id: '/_app/tasks/$taskId'
+      path: '/tasks/$taskId'
+      fullPath: '/tasks/$taskId'
+      preLoaderRoute: typeof AppTasksTaskIdRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/_admin/settings/ai': {
       id: '/_app/_admin/settings/ai'
@@ -825,6 +1155,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/system/users'
       preLoaderRoute: typeof AppAdminSystemUsersRouteImport
       parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/configuration/ai/': {
+      id: '/_app/configuration/ai/'
+      path: '/configuration/ai'
+      fullPath: '/configuration/ai/'
+      preLoaderRoute: typeof AppConfigurationAiIndexRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/content/tasks/': {
       id: '/_app/content/tasks/'
@@ -895,6 +1232,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/geo/topics/'
       preLoaderRoute: typeof AppGeoTopicsIndexRouteImport
       parentRoute: typeof AppGeoTopicsRouteRoute
+    }
+    '/_app/observations/$observationId/correct': {
+      id: '/_app/observations/$observationId/correct'
+      path: '/observations/$observationId/correct'
+      fullPath: '/observations/$observationId/correct'
+      preLoaderRoute: typeof AppObservationsObservationIdCorrectRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/observations/insights/': {
+      id: '/_app/observations/insights/'
+      path: '/observations/insights'
+      fullPath: '/observations/insights/'
+      preLoaderRoute: typeof AppObservationsInsightsIndexRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
+    '/_app/observations/insights/print': {
+      id: '/_app/observations/insights/print'
+      path: '/observations/insights/print'
+      fullPath: '/observations/insights/print'
+      preLoaderRoute: typeof AppObservationsInsightsPrintRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/products/$productId_/facts': {
       id: '/_app/products/$productId_/facts'
@@ -972,6 +1330,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/platforms/types'
       preLoaderRoute: typeof AppAdminSettingsPlatformsTypesRouteImport
       parentRoute: typeof AppAdminRouteRoute
+    }
+    '/_app/configuration/ai/channels/$channelId': {
+      id: '/_app/configuration/ai/channels/$channelId'
+      path: '/configuration/ai/channels/$channelId'
+      fullPath: '/configuration/ai/channels/$channelId'
+      preLoaderRoute: typeof AppConfigurationAiChannelsChannelIdRouteImport
+      parentRoute: typeof AppRouteRoute
     }
     '/_app/content/tasks/$taskId_/editor': {
       id: '/_app/content/tasks/$taskId_/editor'
@@ -1061,11 +1426,13 @@ const AppContentTasksRouteRouteWithChildren =
 
 interface AppContentRouteRouteChildren {
   AppContentTasksRouteRoute: typeof AppContentTasksRouteRouteWithChildren
+  AppContentVersionIdRoute: typeof AppContentVersionIdRoute
   AppContentVersionsVersionIdRoute: typeof AppContentVersionsVersionIdRoute
 }
 
 const AppContentRouteRouteChildren: AppContentRouteRouteChildren = {
   AppContentTasksRouteRoute: AppContentTasksRouteRouteWithChildren,
+  AppContentVersionIdRoute: AppContentVersionIdRoute,
   AppContentVersionsVersionIdRoute: AppContentVersionsVersionIdRoute,
 }
 
@@ -1240,10 +1607,12 @@ const AppSettingsPlatformsRouteRouteWithChildren =
 
 interface AppSettingsRouteRouteChildren {
   AppSettingsPlatformsRouteRoute: typeof AppSettingsPlatformsRouteRouteWithChildren
+  AppSettingsIndexRoute: typeof AppSettingsIndexRoute
 }
 
 const AppSettingsRouteRouteChildren: AppSettingsRouteRouteChildren = {
   AppSettingsPlatformsRouteRoute: AppSettingsPlatformsRouteRouteWithChildren,
+  AppSettingsIndexRoute: AppSettingsIndexRoute,
 }
 
 const AppSettingsRouteRouteWithChildren =
@@ -1256,7 +1625,24 @@ interface AppRouteRouteChildren {
   AppProductsRouteRoute: typeof AppProductsRouteRouteWithChildren
   AppPublishingRouteRoute: typeof AppPublishingRouteRouteWithChildren
   AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
+  AppAuditRoute: typeof AppAuditRoute
+  AppChangePasswordRoute: typeof AppChangePasswordRoute
+  AppPublicationsRoute: typeof AppPublicationsRoute
+  AppUsersRoute: typeof AppUsersRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppConfigurationPlatformTypesRoute: typeof AppConfigurationPlatformTypesRoute
+  AppConfigurationPlatformsRoute: typeof AppConfigurationPlatformsRoute
+  AppConfigurationPromptsRoute: typeof AppConfigurationPromptsRoute
+  AppObservationsTopicsRoute: typeof AppObservationsTopicsRoute
+  AppTasksTaskIdRoute: typeof AppTasksTaskIdRoute
+  AppConfigurationIndexRoute: typeof AppConfigurationIndexRoute
+  AppObservationsIndexRoute: typeof AppObservationsIndexRoute
+  AppTasksIndexRoute: typeof AppTasksIndexRoute
+  AppObservationsObservationIdCorrectRoute: typeof AppObservationsObservationIdCorrectRoute
+  AppObservationsInsightsPrintRoute: typeof AppObservationsInsightsPrintRoute
+  AppConfigurationAiIndexRoute: typeof AppConfigurationAiIndexRoute
+  AppObservationsInsightsIndexRoute: typeof AppObservationsInsightsIndexRoute
+  AppConfigurationAiChannelsChannelIdRoute: typeof AppConfigurationAiChannelsChannelIdRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
@@ -1266,7 +1652,26 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppProductsRouteRoute: AppProductsRouteRouteWithChildren,
   AppPublishingRouteRoute: AppPublishingRouteRouteWithChildren,
   AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,
+  AppAuditRoute: AppAuditRoute,
+  AppChangePasswordRoute: AppChangePasswordRoute,
+  AppPublicationsRoute: AppPublicationsRoute,
+  AppUsersRoute: AppUsersRoute,
   AppIndexRoute: AppIndexRoute,
+  AppConfigurationPlatformTypesRoute: AppConfigurationPlatformTypesRoute,
+  AppConfigurationPlatformsRoute: AppConfigurationPlatformsRoute,
+  AppConfigurationPromptsRoute: AppConfigurationPromptsRoute,
+  AppObservationsTopicsRoute: AppObservationsTopicsRoute,
+  AppTasksTaskIdRoute: AppTasksTaskIdRoute,
+  AppConfigurationIndexRoute: AppConfigurationIndexRoute,
+  AppObservationsIndexRoute: AppObservationsIndexRoute,
+  AppTasksIndexRoute: AppTasksIndexRoute,
+  AppObservationsObservationIdCorrectRoute:
+    AppObservationsObservationIdCorrectRoute,
+  AppObservationsInsightsPrintRoute: AppObservationsInsightsPrintRoute,
+  AppConfigurationAiIndexRoute: AppConfigurationAiIndexRoute,
+  AppObservationsInsightsIndexRoute: AppObservationsInsightsIndexRoute,
+  AppConfigurationAiChannelsChannelIdRoute:
+    AppConfigurationAiChannelsChannelIdRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(

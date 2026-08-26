@@ -17,11 +17,12 @@ type PublicationWorkListApiParams = NonNullable<
 >;
 type StatusTone = 'outline' | 'secondary' | 'success' | 'warning' | 'info' | 'destructive';
 
-const activeStatusValues = [
+const publicationWorkStatusValues = [
   'PREPARING',
   'PLATFORM_REVIEW',
   'AWAITING_VERIFICATION',
   'ACTION_REQUIRED',
+  'CLOSED',
 ] as const satisfies readonly PublicationWorkStatus[];
 
 const publicationStageRegistry = {
@@ -45,13 +46,13 @@ const publicationEventRegistry = {
 } satisfies Record<PublicationWorkEventAction, string>;
 
 function normalizeStatus(value: unknown) {
-  return typeof value === 'string' && activeStatusValues.some((status) => status === value)
+  return typeof value === 'string' && publicationWorkStatusValues.some((status) => status === value)
     ? value
     : undefined;
 }
 
 const publicationWorkSearchSchema = z.object({
-  status: z.preprocess(normalizeStatus, z.enum(activeStatusValues).optional()),
+  status: z.preprocess(normalizeStatus, z.enum(publicationWorkStatusValues).optional()),
   page: z.coerce.number().int().positive().catch(1).default(1),
   pageSize: z.coerce.number()
     .pipe(z.union([z.literal(10), z.literal(20), z.literal(50)]))
@@ -182,7 +183,7 @@ function resolvePublicationOverflowActions(
 }
 
 export {
-  activeStatusValues,
+  publicationWorkStatusValues,
   canonicalPublicationWorkSearchRecord,
   formatPublicationTime,
   formatRelativePublicationTime,

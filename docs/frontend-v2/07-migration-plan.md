@@ -569,28 +569,17 @@ A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、�
 
 `frontend-v2-phase-9-staging-current-finalization` 随后重新证明运行态未漂移：pre-current snapshot 与上述任务的 `candidate-protected`、`after-browser` 逐字节一致，SHA-256 均为 `b1cc9bce632d88bfecf03828d751a255280226f12a6eaef7e882b13c6e26b5a5`；七个容器的 ID/image/state/restart、五项 health、DB=`0043_geo_platform_identity`、空 migrate 集合、Nginx target/checksum/`nginx -t` 和最小公网 HTTP 合同全部保持。`/root/partsignal/current` 已通过相对临时 symlink 与同文件系统 `mv -Tf`，从 `releases/mvp-20260806-195740-afb1b8c82f40` 原子更新到 `releases/mvp-20260825-172239-2a6fd940b848`；post-current protected diff 仅有该记录行变化，更新后 HTTP smoke 再次通过。由于 `current` 不是流量开关且 artifact/runtime 零漂移，继承上一任务的完整 Browser Gate，不重跑浏览器矩阵。V2 保持活动，未执行 fallback/restore，open P0/P1/P2=`0/0/0`，外部 Staging Gate 最终判定为 `MET`。本结论不开始后续 Phase 9 Task。
 
+### 14.5 V1 → V2 Legacy Routing 仓库状态
+
+`frontend-v2-phase-9-legacy-routing` 在 V2 TanStack Router 中加入显式、可删除的 legacy 入口：Auth、Content、GEO、Configuration、System 与 Publishing 的已登记路径均使用 `replace` 进入 canonical route，未知路径由根 route 显式 404。Query 只转换实际 V1 与 V2 schema 中语义等价的白名单字段；`/content/:versionId` 直接按 ContentVersion identity 进入不可变详情，不查询 task/current relation；Publishing 按详情、articles、resolved issues、closed work、active work 的固定优先级转换，V2 Work list 最小支持 backend 已有的 `CLOSED` 筛选。
+
+匿名 protected deep link 由单一 return-to owner 保存安全站内 URL，登录后先恢复 legacy href 再 canonical replace；must-change 完成后仍回 `/`。ADMIN/ENGINEER 继续由 canonical `_admin` boundary 与服务端权限裁决。实现没有修改 backend、OpenAPI、数据库、Nginx、部署或 V1 源码，也没有新增 resolver、数据 lookup 或通用 redirect engine。
+
+本 Task 的证据仅来自仓库 unit、production-artifact Playwright、typecheck、lint 与 production build；没有部署或复核 Staging legacy URL，因此既有外部 Staging Gate=`MET` 不自动覆盖本轮新增路由。下一步仍必须作为独立 Task 执行 production-like rehearsal、回滚演练、正式切换观察与最后的 V1 删除。
+
 ## 15. V1 → V2 路由矩阵
 
-| V1 | V2 | 动作 |
-|---|---|---|
-| `/` | `/` | 重做 Workbench |
-| `/products` | `/products` | 重做 Table |
-| `/products/:id` | Detail + Facts Workspace | 拆分 |
-| `/tasks` | `/content/tasks` | 重做 |
-| `/tasks/:id` | `/content/tasks/:id` | 从 list component 拆出 |
-| `/content/:versionId` | Task Editor + Version Detail | 彻底拆分 |
-| `/publications` | `/publishing/work|articles|issues` | 一拆三 |
-| `/observations` | `/geo/observations` | 重做 |
-| `/observations/:id/correct` | Correction Workspace | 拆出 |
-| `/observations/insights` | `/geo/insights` | 保留业务，重做 UI |
-| `/observations/topics` | `/geo/topics` | 重做 |
-| `/settings` | Platform Workspace | 合并 |
-| `/configuration/platforms` | Platform Workspace | 合并 |
-| `/configuration/platform-types` | Platform subsettings | 降级 |
-| `/configuration/prompts` | Prompt Workspace | 保留核心交互 |
-| `/configuration/ai` | AI Channels | 重做列表 |
-| `/users` | `/system/users` | 重做 |
-| `/audit` | `/system/audit` | 优化 |
+精确路径矩阵、Publishing 优先级、query 白名单、return-to、权限和 404 owner 由 `02-information-architecture-and-routing.md` 的“旧路由迁移”维护。本文只记录迁移阶段、门禁状态和剩余操作，不复制第二份 redirect 表。
 
 ## 16. 验证策略
 

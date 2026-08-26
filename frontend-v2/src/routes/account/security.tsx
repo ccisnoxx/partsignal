@@ -24,7 +24,7 @@ function AccountSecurityRoute() {
 
   if (auth.isLoading) return <AuthLoadingPage />;
   if (auth.error) return <AuthErrorPage onRetry={() => void auth.refresh()} />;
-  if (!auth.user) return <Navigate replace to="/login" />;
+  if (!auth.user) return <Navigate replace search={{ redirect: undefined }} to="/login" />;
 
   return (
     <AccountSecurityPage

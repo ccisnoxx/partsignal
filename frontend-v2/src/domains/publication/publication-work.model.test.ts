@@ -33,11 +33,16 @@ describe('Publication Work list model', () => {
     });
   });
 
-  it('非法或终态筛选回到显式 canonical 默认值', () => {
+  it('已关闭筛选进入 canonical URL 并传给服务端', () => {
     const search = publicationWorkSearchSchema.parse({ page: 0, pageSize: 99, status: 'CLOSED' });
-    expect(search).toEqual({ page: 1, pageSize: 20 });
+    expect(search).toEqual({ page: 1, pageSize: 20, status: 'CLOSED' });
+    expect(publicationWorkSearchToApiParams(search)).toEqual({
+      page: 1,
+      page_size: 20,
+      status: 'CLOSED',
+    });
     expect(isCanonicalPublicationWorkSearch({}, search)).toBe(false);
-    expect(isCanonicalPublicationWorkSearch({ page: 1, pageSize: 20 }, search)).toBe(true);
+    expect(isCanonicalPublicationWorkSearch({ page: 1, pageSize: 20, status: 'CLOSED' }, search)).toBe(true);
   });
 
   it('服务端 primary_task 和 available_actions 只映射到未来 canonical href', () => {

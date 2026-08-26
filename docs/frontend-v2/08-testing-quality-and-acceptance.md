@@ -436,6 +436,14 @@ fixed candidate `2a6fd940b84890d269bf1196a8c6e16b4cd9a9f9`、release `mvp-202608
 
 最终收口任务在写入前重新生成 protected snapshot，并与 `candidate-protected`、`after-browser` 逐字节比较；三者 SHA-256 均为 `b1cc9bce632d88bfecf03828d751a255280226f12a6eaef7e882b13c6e26b5a5`。公网 live/ready、V2 `/login` 与代表 deep link、实际 2 个 JS/1 个 CSS、HTML no-cache、hashed immutable、missing/map 404、无 `sourceMappingURL`、CSP/Trusted Types 与其他安全头全部通过。`current` 从旧验收记录原子更新到 `releases/mvp-20260825-172239-2a6fd940b848` 后，post-current snapshot 仅该行变化；container ID/image ID/health/restart、DB=`0043_geo_platform_identity`、空 migrate 集合与 Nginx 均未漂移，相同 HTTP smoke 再次通过。`current` 不是流量开关，因此继承同一 artifact 已完成的完整 Browser Gate，不机械重跑也不使用账号凭据。未执行 fallback/restore，V2 保持活动，open P0/P1/P2=`0/0/0`，外部 Staging Gate=`MET`。
 
+### 14.3 Legacy Routing 本地验收
+
+`frontend-v2-phase-9-legacy-routing` 新增 route-local unit、Auth return-to unit 与 production-artifact `tests/e2e/legacy-routing.spec.ts`。Unit 精确覆盖逐领域 query 白名单、未知字段丢弃、Publishing 详情/articles/resolved issues/closed/active 优先级、`CLOSED` API 映射，以及 return-to 的同源路径、scheme/host、反斜杠、控制字符、畸形/重复编码和 `/login` 自循环。
+
+Legacy Playwright 使用独立 strict fixture，只允许 Auth、Product Detail 和用于证明 canonical resource 404 的最小 GET；其他领域 GET 返回明确结构化错误，任何写请求失败。移动端与桌面端共同覆盖全部登记 pathname、代表 query、ID、direct/refresh/Back/Forward、replace/no-loop、匿名登录恢复、恶意 redirect、must-change、ADMIN/ENGINEER、根 404、Content Task 不存在、Product Detail → Facts 入口，以及 `console.error`、`pageerror`、`requestfailed`、`securitypolicyviolation` 监听。它证明 production build/preview 上的路由合同，不复制 backend 业务逻辑，也不冒充真实业务或 Staging E2E。
+
+本地 Required Validation 结果为：Vitest `83 files / 489 passed`；指定 `legacy-routing.spec.ts + auth-session.spec.ts` 在两个 project 共 `16 passed`；typecheck、ESLint `--max-warnings 0` 与 production build 均通过。Build 仍有既有 `markdown-editor` chunk 超过 500 kB 的非阻断警告，本 Task 未修改该 owner。没有运行 backend suite、`make e2e`、`make verify`、SSH 或 Staging；因此此前 external Staging Gate 的通过证据不能替代本轮 legacy route 的远程验证。
+
 ## 15. Visual Regression
 
 优先抓 Pattern，而不是机械截全站：Table default/action、Workspace 3-pane、Review、Dialog、Sheet、mobile list、Analytics KPI。

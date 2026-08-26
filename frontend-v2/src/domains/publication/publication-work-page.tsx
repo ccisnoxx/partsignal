@@ -26,7 +26,7 @@ import {
   publicationWorkListQueryOptions,
 } from './publication.api';
 import {
-  activeStatusValues,
+  publicationWorkStatusValues,
   formatPublicationTime,
   formatRelativePublicationTime,
   normalizePublicationWorkPageSize,
@@ -108,7 +108,7 @@ function PublicationWorkPage({
       <header className="space-y-1">
         <h1 className="type-page-title" id="publication-work-title">发布工作</h1>
         <p className="max-w-3xl text-text-secondary">
-          从已批准内容开始发布，并查看进行中的发布工作与下一项服务端任务。
+          从已批准内容开始发布，并查看进行中或已关闭的发布工作与服务端任务。
         </p>
       </header>
 
@@ -130,8 +130,8 @@ function PublicationWorkPage({
       />
       <section className="space-y-4" aria-labelledby="active-publication-work-title">
         <div className="space-y-1">
-          <h2 className="type-section-title" id="active-publication-work-title">Active Publication Work</h2>
-          <p className="text-sm text-text-secondary">只显示非终态工作，阶段和动作均来自服务端投影。</p>
+          <h2 className="type-section-title" id="active-publication-work-title">发布工作列表</h2>
+          <p className="text-sm text-text-secondary">默认显示非终态工作，也可按阶段查看已关闭工作。</p>
         </div>
         <PublicationWorkFilters onChange={(status) => changeSearch({ status })} search={search} />
         <PublicationWorkTable
@@ -309,7 +309,7 @@ function PublicationWorkFilters({
 }) {
   const items = [
     { value: 'ALL', label: '全部活动阶段' },
-    ...activeStatusValues.map((value) => ({
+    ...publicationWorkStatusValues.map((value) => ({
       value,
       label: publicationStageRegistry[value].label,
     })),
@@ -357,7 +357,7 @@ function PublicationWorkTable({
 }) {
   const rows = query.data?.items ?? [];
   return (
-    <TableShell regionLabel="Active Publication Work 列表">
+    <TableShell regionLabel="发布工作列表">
       <thead>
         <tr>
           <th data-column-role="primary" scope="col">内容</th>
@@ -382,7 +382,7 @@ function PublicationWorkTable({
         <EmptyTable
           action={search.status ? <Button onClick={onClearFilter} variant="outline">清除筛选</Button> : undefined}
           colSpan={6}
-          description={search.status ? '没有符合当前阶段筛选的活动发布工作。' : '当前没有活动发布工作。'}
+          description={search.status ? '没有符合当前阶段筛选的发布工作。' : '当前没有活动发布工作。'}
           kind={search.status ? 'filtered-empty' : 'empty'}
           title={search.status ? '未找到匹配工作' : '暂无活动发布工作'}
         />

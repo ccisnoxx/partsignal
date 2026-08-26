@@ -221,24 +221,32 @@ Content Task List 固定使用 `q/workflowStage/archiveStatus/platformId/page/pa
 
 ## 13. 旧路由迁移
 
-| V1 | V2 |
-|---|---|
-| `/tasks` | `/content/tasks` |
-| `/tasks/:id` | `/content/tasks/:id` |
-| `/content/:versionId` | 根据 task/current relation 跳转 editor 或 version detail |
-| `/publications` | `/publishing/work` |
-| `/observations` | `/geo/observations` |
-| `/observations/insights` | `/geo/insights` |
-| `/observations/topics` | `/geo/topics` |
-| `/settings` | `/settings/platforms` |
-| `/configuration/platforms` | `/settings/platforms` |
-| `/configuration/platform-types` | `/settings/platforms/types` |
-| `/configuration/prompts` | `/settings/prompts` |
-| `/configuration/ai` | `/settings/ai` |
-| `/users` | `/system/users` |
-| `/audit` | `/system/audit` |
+V1 URL 只作为迁移入口，由 V2 TanStack Router 的显式 file routes 通过 `replace` 进入唯一 canonical URL。Nginx 只负责 SPA fallback；backend、Nginx 和 V1 不维护平行 redirect 表，也不存在接管未知路径的通用 redirect engine。
 
-迁移期可短期 redirect，但不要长期保留两套路由语义。
+| V1 | Canonical V2 |
+|---|---|
+| `/login`、`/`、`/products`、`/products/:productId` | 原路径保持；Product Detail 继续从页面进入 `/products/:productId/facts` |
+| `/change-password` | `/account/security` |
+| `/tasks`、`/tasks/:taskId` | `/content/tasks`、`/content/tasks/:taskId` |
+| `/content/:versionId` | `/content/versions/:versionId`，ID 直接作为 ContentVersion identity |
+| `/observations` | `/geo/observations` |
+| `/observations/insights`、`/observations/insights/print` | `/geo/insights`、`/geo/insights/print` |
+| `/observations/topics` | `/geo/topics` |
+| `/observations/:observationId/correct` | `/geo/observations/:observationId/correct`；静态 insights/topics routes 优先于动态 ID |
+| `/settings` | `/settings/platforms`；有效 `platform_profile_id` 进入对应 `?tab=accounts` Workspace |
+| `/configuration`、`/configuration/ai` | `/settings/ai` |
+| `/configuration/ai/channels/:channelId` | `/settings/ai/:channelId?tab=basic` |
+| `/configuration/platform-types` | `/settings/platforms/types` |
+| `/configuration/platforms` | `/settings/platforms`；有效 `platform` 进入对应 `?tab=accounts` Workspace |
+| `/configuration/prompts` | `/settings/prompts` |
+| `/users`、`/audit` | `/system/users`、`/system/audit` |
+| `/publications` | 依 `kind+selected`、articles、resolved issues、closed work、active work 的固定优先级进入 `/publishing/work|articles|issues` |
+
+Legacy query 只按已审计白名单转换，并立即交给目标 domain 的现有 search schema 规范化。snake_case 只在存在语义等价字段时转换为 canonical camelCase；未知、淘汰或语义不等价字段不透传。ID 不触发数据查询或资源类型猜测。V1 `tab=history&status=RESOLVED` 进入 Issues；其他 `tab=history` 精确进入 `/publishing/work?status=CLOSED`，canonical Work list 直接复用 backend 已支持的 `CLOSED` 枚举。
+
+匿名访问受保护 deep link 时，`/_app` 只把经过单一 return-to owner 批准的原始站内 URL 写入 `/login?redirect=`；登录成功后先 replace 回 legacy URL，再由显式 route replace 到 canonical URL。校验拒绝双斜杠、scheme/host、反斜杠、控制字符、畸形或重复编码绕过和 `/login` 自循环；无效输入回安全默认 `/`。must-change-password 仍优先进入 `/account/security`，完成后保持回 `/`，不增加 pending redirect 状态。
+
+管理 legacy URL 先转换为 canonical 管理地址，再由既有 ADMIN boundary 裁决：ADMIN 正常进入，ENGINEER 保持地址并显示 403，服务端仍是权限最终权威。根 route 的 `notFoundComponent` 持有未知 SPA path 的显式 404；不存在资源继续由 canonical 页面呈现既有 404/403/error，asset 404 仍归 Nginx/static owner。
 
 ## 14. 当前路由基线参考
 

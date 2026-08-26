@@ -1,0 +1,7 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/backend/index.md","reason":"从 backend 规范索引定位 PostgreSQL、身份、AI、发布与文件稳定合同"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"清除渠道凭据、敏感 Header、外部调用与生成快照风险"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"建立 disposable self-check、quarantine/verify database 和精确 cleanup"}
+{"file":".trellis/spec/infra/development-object-storage.md","reason":"冻结 production payload 零复制与 file metadata/缺失对象边界"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-like-rehearsal/research/audit.md","reason":"沿用已确认的 source、脱敏、对象和副作用缺口"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization/design.md","reason":"按 task-scoped sanitizer、字段矩阵、fresh verify 与父输出合同实施"}

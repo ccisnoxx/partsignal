@@ -1,0 +1,6 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file":".trellis/spec/backend/index.md","reason":"复核实现读取了相关 PostgreSQL、身份、AI、发布与文件规范"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"复核 credential/ciphertext/header 清零与真实调用不可达"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核数据库/路径/role owner 与 cleanup 只命中本轮资源"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization/design.md","reason":"复核 source read-only、fail-closed matrix、fresh verify 和 manifest 合同"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-like-rehearsal/research/audit.md","reason":"复核所有已知 credential、正文、对象和副作用类别均有 owner"}

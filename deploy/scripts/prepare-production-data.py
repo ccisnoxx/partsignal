@@ -25,6 +25,9 @@ LEAVES = ("postgres", "redis", "objects")
 RUNTIME_LEAVES = ("postgres", "redis")
 RUN_ID_PATTERN = re.compile(r"prr_[0-9]{8}_[0-9]{6}")
 REPO_DIGEST_PATTERN = re.compile(r"[^@\s]+@sha256:[0-9a-f]{64}")
+V1_REPOSITORY_PATTERN = re.compile(
+    r"(?:^|/)[^/:@]*(?:backend|frontend)-v1(?=[:@]|$)"
+)
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_TRACKED_FILES = {
     "deploy/compose.prod.yaml",
@@ -209,6 +212,12 @@ def candidate_from_manifest(value: str) -> dict[str, Any]:
     if not all(isinstance(candidate[name], str) and candidate[name] for name in scalar_fields):
         raise DataStateError("Production 候选清单身份字段格式无效")
     for role in ("backend", "frontend", "rollback_frontend"):
+        reference = candidate[f"{role}_reference"]
+        if V1_REPOSITORY_PATTERN.search(reference):
+            raise DataStateError(
+                f"Production 候选清单不允许使用 V1 {role} 镜像仓库：{reference}"
+            )
+    for role in ("backend", "frontend", "rollback_frontend"):
         digests = candidate[f"{role}_repo_digests"]
         if not isinstance(digests, list) or not digests or not all(
             isinstance(digest, str) and REPO_DIGEST_PATTERN.fullmatch(digest)
@@ -254,7 +263,7 @@ def require_candidate(state: dict[str, Any], candidate: dict[str, Any]) -> None:
 
 
 def verify_candidate_images(candidate: dict[str, Any]) -> None:
-    """确认 pull 后的本地镜像 ID 与候选清单一致。"""
+    """确认本地镜像 ID 与候选清单一致。"""
     for role in ("backend", "frontend"):
         verify_image(candidate, role)
     print("Production 候选镜像身份校验通过。")

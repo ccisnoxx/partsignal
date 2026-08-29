@@ -33,6 +33,8 @@ python3 deploy/scripts/create-release-manifest.py \
 
 生成器会机器验证当前分支、clean working tree、`HEAD == origin/main == --commit`，并重新生成该 commit 的 `git archive` 比较 SHA-256；测试逃生开关不得出现在候选环境。输出目标采用排他创建，存在即失败。三个镜像都必须具有合法且非空的 `repo_digests`；tracked file 必须与脚本固定 allowlist 完全一致。部署和激活会重新计算这些文件的 SHA-256，并同时核对 `PARTSIGNAL_VERSION == release_id`、本地 image ID 与 RepoDigest；任何漂移都拒绝继续。不得手工修改清单。
 
+镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 控制，未设置时为 `registry`；registry 模式保留 pull 后校验。Hostdzire 从本地构建候选时必须显式使用 `local`，此模式跳过 pull、要求候选 image 已存在，并在任何 `docker compose run`/`up` 前校验 manifest image ID 与 RepoDigest，相关命令均固定 `--pull never`。空值或未知模式、以及 V1 镜像仓库都会 fail closed。
+
 ## 3. Production env 预检
 
 共享文件固定为 `/root/partsignal/shared/.env.production`，权限 `0600`。转换前只输出键名或状态，不能输出值：
@@ -91,6 +93,7 @@ PARTSIGNAL_QUARANTINE_ROOT=/root/partsignal-data-quarantine \
 PARTSIGNAL_VERSION="$release_id" \
 PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
 PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
+PARTSIGNAL_IMAGE_DELIVERY_MODE=local \
 PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
 PARTSIGNAL_RELEASE_MANIFEST="$manifest_path" \
 PARTSIGNAL_DEPLOY_MODE=clean-init \
@@ -100,7 +103,7 @@ COMPOSE_FILE=deploy/compose.prod.yaml \
   ./deploy/scripts/deploy.sh
 ```
 
-`clean-init` 先验证状态为 `QUARANTINED`、run ID/固定根/隔离目标匹配、两个活动目录为空且没有 `objects`，并把状态绑定到 manifest 摘要、release/commit/schema、backend/frontend 镜像引用、image ID 与 RepoDigest；脚本同时复算固定 tracked files，且只接受 `deploy/compose.prod.yaml`。镜像 pull 后再次核对本地 image ID 与 RepoDigest。随后才执行 PostgreSQL/Redis、Production config preflight、migration、空库 integrity、`initialize-accounts`、API/Frontend 与回环探针。成功后状态为 `PRODUCTION_PREPARED`，Worker/Scheduler 仍保持停止。
+`clean-init` 先验证状态为 `QUARANTINED`、run ID/固定根/隔离目标匹配、两个活动目录为空且没有 `objects`，并把状态绑定到 manifest 摘要、release/commit/schema、backend/frontend 镜像引用、image ID 与 RepoDigest；脚本同时复算固定 tracked files，且只接受 `deploy/compose.prod.yaml`。local 模式不 pull，在任何 create/run/up 前再次核对本地 image ID 与 RepoDigest；registry 模式则保留 pull 后核对。随后才执行 PostgreSQL/Redis、Production config preflight、migration、空库 integrity、`initialize-accounts`、API/Frontend 与回环探针。成功后状态为 `PRODUCTION_PREPARED`，Worker/Scheduler 仍保持停止。
 
 使用 API/Frontend 完成真实 AI/OSS Gate。只有 Gate=`MET` 后才运行：
 
@@ -108,6 +111,7 @@ COMPOSE_FILE=deploy/compose.prod.yaml \
 PARTSIGNAL_VERSION="$release_id" \
 PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
 PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
+PARTSIGNAL_IMAGE_DELIVERY_MODE=local \
 PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
 PARTSIGNAL_RELEASE_MANIFEST="$manifest_path" \
 PARTSIGNAL_DEPLOY_MODE=clean-init \

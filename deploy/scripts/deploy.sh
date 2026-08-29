@@ -35,6 +35,22 @@ test "$compose_file" = "$expected_compose_file" || {
 }
 env_file=${ENV_FILE:?必须通过 ENV_FILE 指定 Production 环境文件}
 deploy_mode=${PARTSIGNAL_DEPLOY_MODE:-upgrade}
+image_delivery_mode=${PARTSIGNAL_IMAGE_DELIVERY_MODE-registry}
+
+case "$image_delivery_mode" in
+  registry | local) ;;
+  *)
+    printf '%s\n' "无效的 Production 镜像交付模式：${image_delivery_mode}（仅支持 registry 或 local）" >&2
+    exit 2
+    ;;
+esac
+
+case "$PARTSIGNAL_BACKEND_IMAGE:$PARTSIGNAL_FRONTEND_IMAGE" in
+  *backend-v1:* | *frontend-v1)
+    printf '%s\n' "Production 不允许使用 V1 镜像仓库：${PARTSIGNAL_BACKEND_IMAGE}:${PARTSIGNAL_VERSION} / ${PARTSIGNAL_FRONTEND_IMAGE}:${PARTSIGNAL_VERSION}" >&2
+    exit 2
+    ;;
+esac
 
 case "$deploy_mode" in
   clean-init | upgrade) ;;
@@ -52,6 +68,22 @@ test -f "$env_file" || {
 PARTSIGNAL_RUNTIME_ENV_FILE=$env_file
 export PARTSIGNAL_RUNTIME_ENV_FILE
 
+compose_run() {
+  if test "$image_delivery_mode" = local; then
+    docker compose --env-file "$env_file" -f "$compose_file" run --pull never "$@"
+  else
+    docker compose --env-file "$env_file" -f "$compose_file" run "$@"
+  fi
+}
+
+compose_up() {
+  if test "$image_delivery_mode" = local; then
+    docker compose --env-file "$env_file" -f "$compose_file" up --pull never "$@"
+  else
+    docker compose --env-file "$env_file" -f "$compose_file" up "$@"
+  fi
+}
+
 if test "$deploy_mode" = clean-init; then
   : "${PARTSIGNAL_CUTOVER_RUN_ID:?clean-init 必须指定 PARTSIGNAL_CUTOVER_RUN_ID}"
   python3 "$script_dir/prepare-production-data.py" \
@@ -62,29 +94,31 @@ else
 fi
 
 docker compose --env-file "$env_file" -f "$compose_file" config --quiet
-docker compose --env-file "$env_file" -f "$compose_file" pull api worker scheduler frontend
+if test "$image_delivery_mode" = registry; then
+  docker compose --env-file "$env_file" -f "$compose_file" pull api worker scheduler frontend
+fi
 python3 "$script_dir/prepare-production-data.py" \
   verify-candidate-images "$PARTSIGNAL_RELEASE_MANIFEST"
-docker compose --env-file "$env_file" -f "$compose_file" up -d --wait postgres redis
-docker compose --env-file "$env_file" -f "$compose_file" run --rm api \
+compose_up -d --wait postgres redis
+compose_run --rm api \
   python -m app.cli preflight-production-config
 
 if test "$deploy_mode" = upgrade; then
-  docker compose --env-file "$env_file" -f "$compose_file" run --rm api \
+  compose_run --rm api \
     python -m app.cli preflight-integrity
   docker compose --env-file "$env_file" -f "$compose_file" stop api worker scheduler
 fi
 
-docker compose --env-file "$env_file" -f "$compose_file" run --rm migrate
+compose_run --rm migrate
 
 if test "$deploy_mode" = clean-init; then
-  docker compose --env-file "$env_file" -f "$compose_file" run --rm api \
+  compose_run --rm api \
     python -m app.cli preflight-integrity
 fi
 
-docker compose --env-file "$env_file" -f "$compose_file" run --rm api \
+compose_run --rm api \
   python -m app.cli initialize-accounts
-docker compose --env-file "$env_file" -f "$compose_file" up -d --wait api frontend
+compose_up -d --wait api frontend
 docker compose --env-file "$env_file" -f "$compose_file" ps
 
 curl --fail --silent --show-error --retry 12 --retry-delay 2 \

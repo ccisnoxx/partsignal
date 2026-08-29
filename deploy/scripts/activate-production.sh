@@ -42,6 +42,22 @@ test "$compose_file" = "$expected_compose_file" || {
 }
 env_file=${ENV_FILE:?必须通过 ENV_FILE 指定 Production 环境文件}
 deploy_mode=${PARTSIGNAL_DEPLOY_MODE:-upgrade}
+image_delivery_mode=${PARTSIGNAL_IMAGE_DELIVERY_MODE-registry}
+
+case "$image_delivery_mode" in
+  registry | local) ;;
+  *)
+    printf '%s\n' "无效的 Production 镜像交付模式：${image_delivery_mode}（仅支持 registry 或 local）" >&2
+    exit 2
+    ;;
+esac
+
+case "$PARTSIGNAL_BACKEND_IMAGE:$PARTSIGNAL_FRONTEND_IMAGE" in
+  *backend-v1:* | *frontend-v1)
+    printf '%s\n' "Production 不允许使用 V1 镜像仓库：${PARTSIGNAL_BACKEND_IMAGE}:${PARTSIGNAL_VERSION} / ${PARTSIGNAL_FRONTEND_IMAGE}:${PARTSIGNAL_VERSION}" >&2
+    exit 2
+    ;;
+esac
 
 case "$deploy_mode" in
   clean-init)
@@ -66,13 +82,22 @@ test -f "$env_file" || {
 PARTSIGNAL_RUNTIME_ENV_FILE=$env_file
 export PARTSIGNAL_RUNTIME_ENV_FILE
 
+compose_up_async() {
+  if test "$image_delivery_mode" = local; then
+    docker compose --profile production-async --env-file "$env_file" \
+      -f "$compose_file" up --pull never "$@"
+  else
+    docker compose --profile production-async --env-file "$env_file" \
+      -f "$compose_file" up "$@"
+  fi
+}
+
 docker compose --env-file "$env_file" -f "$compose_file" config --quiet
 python3 "$script_dir/prepare-production-data.py" \
   verify-candidate-images "$PARTSIGNAL_RELEASE_MANIFEST"
 curl --fail --silent --show-error http://127.0.0.1:19000/api/health/ready >/dev/null
 curl --fail --silent --show-error http://127.0.0.1:19080/ >/dev/null
-docker compose --profile production-async --env-file "$env_file" \
-  -f "$compose_file" up -d --wait worker scheduler
+compose_up_async -d --wait worker scheduler
 docker compose --profile production-async --env-file "$env_file" \
   -f "$compose_file" ps
 

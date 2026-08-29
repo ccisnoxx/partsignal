@@ -23,6 +23,9 @@ REQUIRED_TRACKED_FILES = {
     "deploy/scripts/rollback-production-frontend.sh",
 }
 REPO_DIGEST_PATTERN = re.compile(r"[^@\s]+@sha256:[0-9a-f]{64}")
+V1_REPOSITORY_PATTERN = re.compile(
+    r"(?:^|/)[^/:@]*(?:backend|frontend)-v1(?=[:@]|$)"
+)
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -37,6 +40,8 @@ def sha256(path: Path) -> str:
 
 def inspect_image(reference: str) -> dict[str, Any]:
     """读取本地镜像不可变标识，不构建、不拉取也不修改镜像。"""
+    if V1_REPOSITORY_PATTERN.search(reference):
+        raise ValueError(f"Production 候选不允许使用 V1 镜像仓库：{reference}")
     completed = subprocess.run(
         ["docker", "image", "inspect", reference],
         check=True,

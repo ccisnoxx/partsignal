@@ -1,0 +1,4 @@
+{"file":".trellis/spec/infra/index.md","reason":"检查远端授权、精确 target、Nginx test/reload 和恢复。"}
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"检查 registry/local 顺序、no-pull、identity verification 与 V1 拒绝。"}
+{"file":".trellis/tasks/08-29-hostdzire-v2-clean-deployment/research/repository-contract-audit.md","reason":"核对 local image mode 不绕过 manifest/state 且不削弱 registry default。"}
+{"file":".trellis/tasks/08-29-hostdzire-v2-clean-deployment/research/hostdzire-read-only-inventory.md","reason":"实施后与基线 container/image/data/env/Nginx/capacity 比较。"}

@@ -1,0 +1,6 @@
+{"file":".trellis/spec/infra/index.md","reason":"Production/Nginx 的授权边界、备份、原子替换与回滚规范。"}
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"registry/local 候选交付、manifest 身份与 V1 fail-closed 的可执行合同。"}
+{"file":".trellis/spec/backend/index.md","reason":"migration、PostgreSQL 状态权威与账号初始化涉及 backend 稳定合同。"}
+{"file":".trellis/spec/frontend/index.md","reason":"canonical frontend/ 是唯一前端源码 owner，V1 和 frontend-v2/ 不是入口。"}
+{"file":".trellis/tasks/08-29-hostdzire-v2-clean-deployment/research/repository-contract-audit.md","reason":"现有部署状态机、Host build/pull 冲突及补偿控制。"}
+{"file":".trellis/tasks/08-29-hostdzire-v2-clean-deployment/research/hostdzire-read-only-inventory.md","reason":"已观察的 project、container、path、image、Nginx、env 与 capacity owner。"}

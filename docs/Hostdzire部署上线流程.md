@@ -50,6 +50,8 @@ git diff --check
 
 候选必须来自 clean、已推送的 `main`。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/current V2/previous V2 image ID 与非空 RepoDigest、schema head，以及固定 allowlist 中的 Production Compose、状态/部署/激活脚本、Nginx 和安全 snippet 校验和。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
 
+Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制；未设置时默认为 `registry`，按既有顺序 pull 后校验 manifest 中的 image ID 与 RepoDigest。Hostdzire 本地构建候选必须明确设置为 `local`：脚本跳过 pull，但要求候选镜像已存在，并在任何 `docker compose run`/`up` 前完成同一 manifest 的身份校验，同时为相关路径传入 `--pull never`。空值或其他模式，以及任何 V1 镜像仓库，均立即拒绝；不得用手工 Compose 命令绕过该合同。
+
 ## 4. Production 配置
 
 `/root/partsignal/shared/.env.production` 只能在 Hostdzire 受控创建或更新，权限必须为 `0600`。至少满足 `APP_ENV=production`、安全 Cookie、`CONTENT_GENERATOR=openai-compatible`、`AI_ALLOW_LOCAL_HTTP=false`、`OBJECT_STORAGE_BACKEND=aliyun_oss`，并使用独立 session/encryption/database/account secrets 和完整低权限 OSS 配置。
@@ -63,7 +65,7 @@ git diff --check
 1. 重新只读 inventory，冻结当前 V2 image、Compose/Nginx checksum、容器集合、DB revision 和三个数据目录元数据。
 2. 宣布维护窗口，停止 `api`、`worker`、`scheduler`、`frontend`、`fake-oss`、`postgres`、`redis`；不得使用 `--remove-orphans`。
 3. 运行 `prepare-production-data.py quarantine <run-id>`。脚本在固定排他锁内验证 canonical 路径、停止的 Compose project、活动 mount、同一 device 和持久阶段，再逐目录原子 rename；失败后以相同 run ID 续跑，不删除数据。
-4. 以 `PARTSIGNAL_RELEASE_MANIFEST`、`PARTSIGNAL_DEPLOY_MODE=clean-init` 和同一 `PARTSIGNAL_CUTOVER_RUN_ID` 运行 Production deploy script。它只在状态为 `QUARANTINED` 且 PostgreSQL/Redis 活动目录为空时，把 manifest 摘要、release/commit/schema 和镜像 ID 绑定到状态；pull 后核对实际 image ID，再执行配置预检、migration、完整性检查、`initialize-accounts`，随后只启动 API/Frontend V2 并把阶段推进到 `PRODUCTION_PREPARED`。
+4. 以 `PARTSIGNAL_RELEASE_MANIFEST`、`PARTSIGNAL_DEPLOY_MODE=clean-init`、`PARTSIGNAL_IMAGE_DELIVERY_MODE=local` 和同一 `PARTSIGNAL_CUTOVER_RUN_ID` 运行 Production deploy script。它只在状态为 `QUARANTINED` 且 PostgreSQL/Redis 活动目录为空时，把 manifest 摘要、release/commit/schema 和镜像 ID 绑定到状态；local 模式不 pull，在任何 create/run/up 前核对实际 image ID 与 RepoDigest，再执行配置预检、migration、完整性检查、`initialize-accounts`，随后只启动 API/Frontend V2 并把阶段推进到 `PRODUCTION_PREPARED`。
 5. 通过 API/Frontend 完成真实 AI/OSS 权限、失败、空 namespace、零旧对象引用和受控上传/读取 Gate；`fake-oss` 保持停止且不属于 Production service 集合。Gate=`MET` 后，只有同一 manifest 才能运行 `activate-production.sh`，显式启用非默认 `production-async` profile 并把阶段推进到 `PRODUCTION_INITIALIZED`。
 6. 对 Nginx 做权限保留备份和原子替换，`nginx -t` 通过后另取 reload 授权。
 7. 完成回环、公网、浏览器、权限、AI/OSS 与受控写验收，进入观察期。

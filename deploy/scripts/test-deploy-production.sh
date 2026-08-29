@@ -87,6 +87,8 @@ printf '%s\n' \
   '#!/bin/sh' \
   'case "$*" in' \
   '  "image inspect "*)' \
+  '    printf "docker %s\n" "$*" >>"${COMMAND_LOG:-/dev/null}"' \
+  '    case "$*" in *"${MISSING_IMAGE_REFERENCE:-__never__}"*) exit 1 ;; esac' \
   '    printf '\''[{"Id":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","RepoDigests":["example@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"]}]\n'\''' \
   '    ;;' \
   '  "ps -q --filter label=com.docker.compose.project="*) printf "%s\n" "${DOCKER_PROJECT_IDS:-}" ;;' \
@@ -117,6 +119,31 @@ unverified_source_status=$?
 set -e
 test "$unverified_source_status" -ne 0
 test ! -e "$test_dir/unverified-manifest.json"
+
+set +e
+PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
+  PARTSIGNAL_ALLOW_UNVERIFIED_RELEASE_SOURCE_FOR_TESTS=1 \
+  python3 "$root/deploy/scripts/create-release-manifest.py" \
+  --release-id production-20260829-110001-unverified \
+  --commit 0123456789abcdef0123456789abcdef01234567 \
+  --source-archive "$test_dir/source.tar.gz" \
+  --backend-image partsignal-backend:unverified \
+  --frontend-image partsignal-frontend-v2:unverified \
+  --rollback-frontend-image partsignal-frontend-v1:previous \
+  --schema-head 0043_geo_platform_identity \
+  --tracked-file "$root/deploy/compose.prod.yaml" \
+  --tracked-file "$root/deploy/nginx/partsignal-security-headers.conf" \
+  --tracked-file "$root/deploy/nginx/partsignal.conf.template" \
+  --tracked-file "$root/deploy/scripts/activate-production.sh" \
+  --tracked-file "$root/deploy/scripts/deploy.sh" \
+  --tracked-file "$root/deploy/scripts/prepare-production-data.py" \
+  --tracked-file "$root/deploy/scripts/rollback-production-frontend.sh" \
+  --output "$test_dir/v1-manifest.json" >/dev/null 2>"$test_dir/v1-manifest.err"
+v1_manifest_status=$?
+set -e
+test "$v1_manifest_status" -ne 0
+test ! -e "$test_dir/v1-manifest.json"
+grep -q 'V1 镜像仓库' "$test_dir/v1-manifest.err"
 
 PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   PARTSIGNAL_ALLOW_UNVERIFIED_RELEASE_SOURCE_FOR_TESTS=1 \
@@ -156,7 +183,8 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --output "$test_dir/release-manifest-next.json" >/dev/null
 
 python3 - "$test_dir/release-manifest.json" "$test_dir/release-manifest-drift.json" \
-  "$test_dir/release-manifest-digest-mismatch.json" <<'PY'
+  "$test_dir/release-manifest-digest-mismatch.json" \
+  "$test_dir/release-manifest-v1-rollback.json" <<'PY'
 import json
 import sys
 
@@ -172,6 +200,13 @@ digest_mismatch = json.loads(json.dumps(manifest))
 digest_mismatch["images"]["backend"]["repo_digests"] = ["example@sha256:" + "c" * 64]
 with open(sys.argv[3], "w", encoding="utf-8") as output:
     json.dump(digest_mismatch, output)
+
+v1_rollback = json.loads(json.dumps(manifest))
+v1_rollback["images"]["rollback_frontend"]["reference"] = (
+    "partsignal-frontend-v1:previous"
+)
+with open(sys.argv[4], "w", encoding="utf-8") as output:
+    json.dump(v1_rollback, output)
 PY
 for invalid_manifest in "$test_dir/release-manifest-drift.json" \
   "$test_dir/release-manifest-digest-mismatch.json"; do
@@ -189,6 +224,22 @@ for invalid_manifest in "$test_dir/release-manifest-drift.json" \
   set -e
   test "$invalid_manifest_status" -eq 2
 done
+
+set +e
+PATH="$test_dir/bin:$PATH" PARTSIGNAL_VERSION="$candidate_release" \
+  PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+  PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+  PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
+  PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/v1-consumer.lock" \
+  PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+  python3 "$root/deploy/scripts/prepare-production-data.py" \
+  verify-candidate-images "$test_dir/release-manifest-v1-rollback.json" \
+  >/dev/null 2>"$test_dir/v1-consumer.err"
+v1_consumer_status=$?
+set -e
+test "$v1_consumer_status" -eq 2
+grep -q 'V1 rollback_frontend 镜像仓库' "$test_dir/v1-consumer.err"
 
 data_env() {
   PATH="$test_dir/bin:$PATH" \
@@ -252,6 +303,123 @@ set -e
 test "$wrong_project_status" -eq 2
 test ! -s "$test_dir/wrong-project.log"
 
+: >"$test_dir/invalid-image-delivery-mode.log"
+set +e
+PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/invalid-image-delivery-mode.log" \
+  PARTSIGNAL_VERSION="$candidate_release" \
+  PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+  PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+  PARTSIGNAL_IMAGE_DELIVERY_MODE=invalid \
+  PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
+  PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/invalid-image-delivery-mode.lock" \
+  PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+  PARTSIGNAL_DEPLOY_MODE=clean-init \
+  PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+  PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  "$root/deploy/scripts/deploy.sh" >"$test_dir/invalid-image-delivery-mode.out" \
+  2>"$test_dir/invalid-image-delivery-mode.err"
+invalid_image_delivery_mode_status=$?
+set -e
+test "$invalid_image_delivery_mode_status" -eq 2
+test ! -s "$test_dir/invalid-image-delivery-mode.log"
+grep -q '无效的 Production 镜像交付模式：invalid' \
+  "$test_dir/invalid-image-delivery-mode.err"
+
+: >"$test_dir/empty-image-delivery-mode.log"
+set +e
+PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/empty-image-delivery-mode.log" \
+  PARTSIGNAL_VERSION="$candidate_release" \
+  PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+  PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+  PARTSIGNAL_IMAGE_DELIVERY_MODE= \
+  PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
+  PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/empty-image-delivery-mode.lock" \
+  PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+  PARTSIGNAL_DEPLOY_MODE=clean-init \
+  PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+  PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  "$root/deploy/scripts/deploy.sh" >"$test_dir/empty-image-delivery-mode.out" \
+  2>"$test_dir/empty-image-delivery-mode.err"
+empty_image_delivery_mode_status=$?
+set -e
+test "$empty_image_delivery_mode_status" -eq 2
+test ! -s "$test_dir/empty-image-delivery-mode.log"
+grep -q '无效的 Production 镜像交付模式：' \
+  "$test_dir/empty-image-delivery-mode.err"
+
+: >"$test_dir/v1-deploy.log"
+set +e
+PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/v1-deploy.log" \
+  PARTSIGNAL_VERSION="$candidate_release" \
+  PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+  PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v1 \
+  PARTSIGNAL_IMAGE_DELIVERY_MODE=local \
+  PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
+  PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/v1-deploy.lock" \
+  PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+  PARTSIGNAL_DEPLOY_MODE=clean-init \
+  PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+  PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  "$root/deploy/scripts/deploy.sh" >/dev/null 2>"$test_dir/v1-deploy.err"
+v1_deploy_status=$?
+set -e
+test "$v1_deploy_status" -eq 2
+test ! -s "$test_dir/v1-deploy.log"
+grep -q 'V1 镜像仓库' "$test_dir/v1-deploy.err"
+
+: >"$test_dir/v1-backend-deploy.log"
+set +e
+PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/v1-backend-deploy.log" \
+  PARTSIGNAL_VERSION="$candidate_release" \
+  PARTSIGNAL_BACKEND_IMAGE=partsignal-backend-v1 \
+  PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+  PARTSIGNAL_IMAGE_DELIVERY_MODE=local \
+  PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
+  PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/v1-backend-deploy.lock" \
+  PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+  PARTSIGNAL_DEPLOY_MODE=clean-init \
+  PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+  PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  "$root/deploy/scripts/deploy.sh" >"$test_dir/v1-backend-deploy.out" \
+  2>"$test_dir/v1-backend-deploy.err"
+v1_backend_deploy_status=$?
+set -e
+test "$v1_backend_deploy_status" -eq 2
+test ! -s "$test_dir/v1-backend-deploy.log"
+grep -q 'V1 镜像仓库' "$test_dir/v1-backend-deploy.err"
+
+: >"$test_dir/missing-image.log"
+set +e
+PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/missing-image.log" \
+  MISSING_IMAGE_REFERENCE="partsignal-backend:$candidate_release" \
+  PARTSIGNAL_VERSION="$candidate_release" \
+  PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+  PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+  PARTSIGNAL_IMAGE_DELIVERY_MODE=local \
+  PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
+  PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/missing-image.lock" \
+  PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+  PARTSIGNAL_DEPLOY_MODE=clean-init \
+  PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+  PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  "$root/deploy/scripts/deploy.sh" >"$test_dir/missing-image.out" \
+  2>"$test_dir/missing-image.err"
+missing_image_status=$?
+set -e
+test "$missing_image_status" -eq 2
+grep -q "partsignal-backend:$candidate_release" "$test_dir/missing-image.err"
+! grep -q ' compose .*\(run\|up\) ' "$test_dir/missing-image.log"
+
 : >"$test_dir/clean.log"
 PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/clean.log" \
   PARTSIGNAL_VERSION="$candidate_release" \
@@ -270,6 +438,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/clean.log" \
 awk '
   /config --quiet/ { config = NR }
   /pull api worker scheduler frontend/ { pull = NR }
+  /image inspect/ { verify = NR }
   /up -d --wait postgres redis/ { data = NR }
   /preflight-production-config/ { production = NR }
   /run --rm migrate/ { migrate = NR }
@@ -280,13 +449,40 @@ awk '
   /api\/health\/ready/ { ready = NR }
   /127\.0\.0\.1:19080/ { frontend = NR }
   END {
-    exit !(config < pull && pull < data && data < production &&
+    exit !(config < pull && pull < verify && verify < data && data < production &&
            production < migrate && migrate < integrity && integrity < accounts &&
            accounts < application && application < status && status < ready &&
            ready < frontend)
   }
 ' "$test_dir/clean.log"
 ! grep -q 'up -d --wait worker scheduler' "$test_dir/clean.log"
+! grep -q -- '--pull never' "$test_dir/clean.log"
+
+: >"$test_dir/local.log"
+PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/local.log" \
+  PARTSIGNAL_VERSION="$candidate_release" \
+  PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+  PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+  PARTSIGNAL_IMAGE_DELIVERY_MODE=local \
+  PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
+  PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/local.lock" \
+  PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+  PARTSIGNAL_DEPLOY_MODE=clean-init \
+  PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+  PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  "$root/deploy/scripts/deploy.sh" >/dev/null
+! grep -q ' pull ' "$test_dir/local.log"
+grep -q 'up --pull never -d --wait postgres redis' "$test_dir/local.log"
+grep -q 'run --pull never --rm api' "$test_dir/local.log"
+grep -q 'run --pull never --rm migrate' "$test_dir/local.log"
+grep -q 'up --pull never -d --wait api frontend' "$test_dir/local.log"
+awk '
+  /image inspect/ { verify = NR }
+  /up --pull never -d --wait postgres redis/ { first_up = NR }
+  END { exit !(verify && first_up && verify < first_up) }
+' "$test_dir/local.log"
 
 : >"$test_dir/blocked-activation.log"
 set +e
@@ -307,10 +503,79 @@ set -e
 test "$blocked_status" -eq 2
 test ! -s "$test_dir/blocked-activation.log"
 
+: >"$test_dir/invalid-activation-mode.log"
+set +e
+PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/invalid-activation-mode.log" \
+  PARTSIGNAL_VERSION="$candidate_release" PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+  PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+  PARTSIGNAL_IMAGE_DELIVERY_MODE=invalid \
+  PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
+  PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/invalid-activation-mode.lock" \
+  PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+  PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+  PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+  PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  "$root/deploy/scripts/activate-production.sh" >"$test_dir/invalid-activation-mode.out" \
+  2>"$test_dir/invalid-activation-mode.err"
+invalid_activation_mode_status=$?
+set -e
+test "$invalid_activation_mode_status" -eq 2
+test ! -s "$test_dir/invalid-activation-mode.log"
+grep -q '无效的 Production 镜像交付模式：invalid' \
+  "$test_dir/invalid-activation-mode.err"
+
+: >"$test_dir/empty-activation-mode.log"
+set +e
+PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/empty-activation-mode.log" \
+  PARTSIGNAL_VERSION="$candidate_release" \
+  PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+  PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+  PARTSIGNAL_IMAGE_DELIVERY_MODE= \
+  PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
+  PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/empty-activation-mode.lock" \
+  PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+  PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+  PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+  PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  "$root/deploy/scripts/activate-production.sh" >"$test_dir/empty-activation-mode.out" \
+  2>"$test_dir/empty-activation-mode.err"
+empty_activation_mode_status=$?
+set -e
+test "$empty_activation_mode_status" -eq 2
+test ! -s "$test_dir/empty-activation-mode.log"
+grep -q '无效的 Production 镜像交付模式：' \
+  "$test_dir/empty-activation-mode.err"
+
+: >"$test_dir/v1-activation.log"
+set +e
+PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/v1-activation.log" \
+  PARTSIGNAL_VERSION="$candidate_release" PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
+  PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v1 \
+  PARTSIGNAL_IMAGE_DELIVERY_MODE=local \
+  PARTSIGNAL_DATA_ROOT="$test_dir/live" \
+  PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
+  PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/v1-activation.lock" \
+  PARTSIGNAL_ALLOW_NONSTANDARD_DATA_ROOT_FOR_TESTS=1 \
+  PARTSIGNAL_DEPLOY_MODE=clean-init PARTSIGNAL_CUTOVER_RUN_ID=prr_20260829_120000 \
+  PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+  PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
+  ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
+  "$root/deploy/scripts/activate-production.sh" >/dev/null 2>"$test_dir/v1-activation.err"
+v1_activation_status=$?
+set -e
+test "$v1_activation_status" -eq 2
+test ! -s "$test_dir/v1-activation.log"
+grep -q 'V1 镜像仓库' "$test_dir/v1-activation.err"
+
 : >"$test_dir/activate.log"
 PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/activate.log" \
   PARTSIGNAL_VERSION="$candidate_release" PARTSIGNAL_BACKEND_IMAGE=partsignal-backend \
   PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 \
+  PARTSIGNAL_IMAGE_DELIVERY_MODE=local \
   PARTSIGNAL_DATA_ROOT="$test_dir/live" \
   PARTSIGNAL_QUARANTINE_ROOT="$test_dir/quarantine" \
   PARTSIGNAL_MAINTENANCE_LOCK_FILE="$test_dir/maintenance.lock" \
@@ -320,7 +585,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/activate.log" \
   PARTSIGNAL_RELEASE_MANIFEST="$test_dir/release-manifest.json" \
   ENV_FILE="$root/.env.example" COMPOSE_FILE="$root/deploy/compose.prod.yaml" \
   "$root/deploy/scripts/activate-production.sh" >/dev/null
-grep -q -- '--profile production-async.*up -d --wait worker scheduler' "$test_dir/activate.log"
+grep -q -- '--profile production-async.*up --pull never -d --wait worker scheduler' "$test_dir/activate.log"
 
 : >"$test_dir/rollback-mismatch.log"
 set +e

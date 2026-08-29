@@ -517,17 +517,17 @@ A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、�
 
 production snapshot sanitization execution 与 production-like rehearsal 因范围决策终止，outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`。run `pss_20260828_08` 的实际结论仍是 production write=`0`、object payload copied=`0`、retained artifact=`0`；run09 未创建且不再创建。这不是 production rehearsal 成功，也不是 Cutover Gate=`MET`。
 
-以下工作推迟到未来真正的生产发布准备阶段，不再作为当前开发交付的必过 Gate：
+2026-08-29 已启动独立 Trellis Task `frontend-v2-production-release-readiness`，以下工作从 Development Closeout 的延期项转入新的 Production Gate，不回写为 Phase 9 历史必过项：
 
 1. production-like data rehearsal 与回滚演练；
 2. 正式 production cutover 与错误率/API 观察；
 3. 最后删除 V1 build/deploy pipeline 和 `frontend/`。
 
-未来启动 Production Release Readiness 时，必须根据届时的数据敏感度、规模、备份恢复目标和部署架构重新制定计划，不从已取消 Task 恢复执行，也不机械继承当前 snapshot 协议。
+新 Task 已基于当次只读 inventory 采用“原地 Production 转换 + V2-only + 丢弃 Staging 数据”的独立方案：旧 PostgreSQL、Redis 与 fake OSS objects 先同文件系统 quarantine，Production 从空 PostgreSQL/Redis 与真实 OSS 初始化；不从已取消 Task 恢复执行，也不机械继承旧 snapshot 协议。
 
-### 14.1 Future Cutover Gate（当前 DEFERRED）
+### 14.1 Production Release Readiness（当前 REPOSITORY_IMPLEMENTATION）
 
-当前开发交付的 Cutover Gate=`NOT_APPLICABLE/DEFERRED`。未来删除或停用 V1 前，新的 Release Readiness 计划至少需要重新评估下列条件：
+当前已批准仓库实施，但尚未授权 hostdzire 写入、数据移动、容器替换、Nginx reload 或正式切换。Production Compose 正式拥有 Frontend V2，外层 Nginx 代理 `19080`，候选 manifest 冻结上一份已验证 V2 image；Production 不构建或回滚到 V1。远端 Cutover Gate 仍为 `NOT_MET`，至少需要完成：
 
 - V2 目标路由全部完成；
 - Product、Content、Publishing、GEO、Configuration、System 核心 E2E 通过；
@@ -539,10 +539,10 @@ production snapshot sanitization execution 与 production-like rehearsal 因范�
 - JS chunk、API base URL、client routing fallback、asset caching、CSP/source map 策略已验证；
 - redirect map 已验证；
 - `contract-check` 和必要部署脚本测试通过；
-- staging production-like rehearsal 与回滚演练完成；
-- V1 删除是单独、可回滚的最后一个 Task。
+- Production clean-init rehearsal 与上一份 V2 回滚演练完成；
+- Observation Gate=`MET` 后，V1 删除才作为单独、可回滚的最后一个仓库 Task。
 
-不长期保留 `/v1` 与 `/v2` 两套路由语义；当前只保留 V1 实现与 pipeline 作为回退边界，不执行删除。
+不长期保留 `/v1` 与 `/v2` 两套路由语义；当前仅为切换前验证和 Observation Gate 保留 V1 source/test/pipeline，不把 V1 作为 Production runtime fallback，也不提前删除。
 
 ### 14.2 P9.1 Staging 接入状态
 

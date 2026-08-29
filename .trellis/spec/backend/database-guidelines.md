@@ -8,18 +8,19 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 ### 1. 范围与触发条件
 
-- 适用于按已确认身份清理历史初始化数据、同时必须保留业务归属和审计历史的迁移。
+- 适用于按已确认身份清理历史初始化数据、同时必须保留业务归属和审计历史的迁移，以及迁移后在开发、预发布或 Production 空库幂等初始化固定账号。
 - 账号日常生命周期仍使用启用和停用；一次性迁移不得演变为通用删除 API 或管理界面删除入口。
 
 ### 2. 签名
 
 - 数据库 revision：`0010_user_cleanup`，`down_revision = "0009_config_center"`。
-- 初始化函数：`seed_demo(admin_password: str, engineer_password: str) -> None`。
-- CLI：`python -m app.cli seed-demo --password <admin> --engineer-password <engineer>`。
+- 初始化函数：`initialize_accounts(admin_password: str, engineer_password: str) -> None`。
+- CLI：`python -m app.cli initialize-accounts --password <admin> --engineer-password <engineer>`。
 
 ### 3. 契约
 
 - `PARTSIGNAL_SEED_ADMIN_PASSWORD` 与 `PARTSIGNAL_SEED_ENGINEER_PASSWORD` 均为必需且相互独立，最少 12 个字符。
+- 变量名因既有环境合同保留 `SEED`，但命令与输出不得把账号描述为 demo、虚构或仅限开发；Production 仍从受保护环境文件读取这两个变量，禁止把值写入日志或发布清单。
 - 初始化只补充不存在的 `admin` 和 `content_editor`，不得覆盖既有密码、账号类型、启停状态、姓名或其他资料。
 - 数据清理必须先锁定目标 `users` 行，再显式预检迁移时点全部非会话用户外键；引用清单写入迁移文件，不能运行时猜测未来 Schema。
 - `sessions` 可随已确认的目标账号删除；业务表和审计表不得级联删除、清空演员或迁移归属。
@@ -43,16 +44,17 @@ PostgreSQL 是业务状态唯一来源，Alembic 是唯一迁移入口。历史�
 
 ### 6. 必需测试
 
-- PostgreSQL 集成测试验证空库迁移、独立密码、初始化幂等和旧权限表移除。
+- PostgreSQL 集成测试验证空库迁移、`initialize-accounts` 的独立密码、初始化幂等和旧权限表移除。
+- CLI 单元测试冻结 `initialize-accounts` 命令名及两个密码参数只传给唯一初始化函数，不保留 `seed-demo` 兼容别名或第二套账号创建逻辑。
 - 从旧角色 Schema 构造六账号及会话，验证准确清理集合、密码哈希保留和 `revision` 变化。
 - 同时构造业务与审计引用，断言失败输出包含全部引用位置，`alembic_version` 未前进且无部分删除。
 - E2E 验证自助改密、其他会话撤销、自身管理重置被拒绝，以及审计响应不包含任何密码。
 
 ### 7. 错误与正确示例
 
-错误做法：直接删除用户并依赖首个外键错误，或把历史归属转移给管理员。这会产生不完整诊断，甚至破坏历史责任链。
+错误做法：直接删除用户并依赖首个外键错误、把历史归属转移给管理员，或为 Production 复制第二套账号创建函数。这会产生不完整诊断、破坏历史责任链或形成两个初始化 owner。
 
-正确做法：在同一事务中锁定全部目标用户，按冻结引用清单收集所有阻断位置；只有预检结果为空时才删除会话和用户，任何异常由 Alembic 事务整体回滚。
+正确做法：在同一事务中锁定全部目标用户，按冻结引用清单收集所有阻断位置；只有预检结果为空时才删除会话和用户，任何异常由 Alembic 事务整体回滚。所有环境统一调用 `initialize_accounts(...)`，它只补充缺失账号且不输出密码。
 
 ## 场景：用户工作台实时查询与批量状态
 

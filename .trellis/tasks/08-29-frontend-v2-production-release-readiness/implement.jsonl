@@ -1,0 +1,2 @@
+{"file":".trellis/spec/infra/domain-security-operations.md","reason":"约束 Production Nginx、TLS、iptables、快照、原子变更、验证与逐层授权。"}
+{"file":".trellis/tasks/08-29-frontend-v2-production-release-readiness/research/hostdzire-inventory-2026-08-29.md","reason":"提供实施前必须重验的脱敏远端拓扑、容量、运行态和 Production 缺口基线。"}

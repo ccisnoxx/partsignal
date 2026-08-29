@@ -1,9 +1,10 @@
-name: partsignal
+# 当前 Production 原地接管既有运行时；历史项目标识保留到独立迁移窗口。
+name: partsignal-staging
 
 x-backend: &backend
-  image: ${PARTSIGNAL_BACKEND_IMAGE}:${PARTSIGNAL_VERSION}
+  image: ${PARTSIGNAL_BACKEND_IMAGE:?必须指定 PARTSIGNAL_BACKEND_IMAGE}:${PARTSIGNAL_VERSION:?必须指定 PARTSIGNAL_VERSION}
   env_file:
-    - ../.env
+    - ${PARTSIGNAL_RUNTIME_ENV_FILE:?必须指定 PARTSIGNAL_RUNTIME_ENV_FILE}
   depends_on:
     postgres:
       condition: service_healthy
@@ -41,6 +42,7 @@ services:
 
   worker:
     <<: *backend
+    profiles: [production-async]
     command: [celery, -A, 'app.worker:celery_app', worker, --loglevel=INFO, --concurrency=1, --pidfile=/tmp/partsignal-worker.pid]
     restart: unless-stopped
     mem_limit: 1g
@@ -53,6 +55,7 @@ services:
 
   scheduler:
     <<: *backend
+    profiles: [production-async]
     command: [celery, -A, 'app.worker:celery_app', beat, --loglevel=INFO, --schedule, /tmp/partsignal-celerybeat, --pidfile=/tmp/partsignal-beat.pid]
     restart: unless-stopped
     mem_limit: 192m
@@ -63,11 +66,26 @@ services:
       timeout: 3s
       retries: 12
 
+  frontend:
+    image: ${PARTSIGNAL_FRONTEND_IMAGE:?必须指定 PARTSIGNAL_FRONTEND_IMAGE}:${PARTSIGNAL_FRONTEND_VERSION:-${PARTSIGNAL_VERSION}}
+    ports:
+      - 127.0.0.1:19080:80
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=16m,noexec,nosuid
+      - /var/run:size=4m,noexec,nosuid
+    mem_limit: 96m
+    cpus: 0.25
+    networks: [partsignal-edge]
+    logging: *logging
+
   postgres:
     image: postgres:16-alpine
-    env_file: [../.env]
+    env_file:
+      - ${PARTSIGNAL_RUNTIME_ENV_FILE}
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - ${PARTSIGNAL_DATA_ROOT:?必须指定 PARTSIGNAL_DATA_ROOT}/postgres:/var/lib/postgresql/data
     restart: unless-stopped
     mem_limit: 768m
     cpus: 1.0
@@ -83,7 +101,7 @@ services:
     image: redis:7.4-alpine
     command: [redis-server, --appendonly, 'yes', --maxmemory, 96mb, --maxmemory-policy, noeviction]
     volumes:
-      - ./data/redis:/data
+      - ${PARTSIGNAL_DATA_ROOT:?必须指定 PARTSIGNAL_DATA_ROOT}/redis:/data
     restart: unless-stopped
     mem_limit: 128m
     cpus: 0.25
@@ -97,7 +115,9 @@ services:
 
 networks:
   partsignal-internal:
-    name: partsignal-internal
+    name: partsignal-staging-internal
     internal: true
   partsignal-egress:
-    name: partsignal-egress
+    name: partsignal-staging-egress
+  partsignal-edge:
+    name: partsignal-staging-edge

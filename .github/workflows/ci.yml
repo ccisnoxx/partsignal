@@ -73,7 +73,12 @@ jobs:
       - run: docker compose --env-file .env.example -f deploy/compose.prod.yaml config --quiet
         env:
           PARTSIGNAL_BACKEND_IMAGE: partsignal-backend
+          PARTSIGNAL_FRONTEND_IMAGE: partsignal-frontend-v2
           PARTSIGNAL_VERSION: test
+          PARTSIGNAL_RUNTIME_ENV_FILE: ${{ github.workspace }}/.env.example
+          PARTSIGNAL_DATA_ROOT: ${{ runner.temp }}/partsignal-data
+      - run: deploy/scripts/test-deploy-staging.sh
+      - run: deploy/scripts/test-deploy-production.sh
 
   frontend-test:
     runs-on: ubuntu-latest

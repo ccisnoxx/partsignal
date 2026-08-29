@@ -32,7 +32,7 @@ docker compose --env-file "$env_file" -f "$compose_file" up -d --wait worker sch
 docker compose --env-file "$env_file" -f "$compose_file" up -d --wait api frontend
 if test "$deploy_mode" = full; then
   docker compose --env-file "$env_file" -f "$compose_file" run --rm api \
-    python -m app.cli seed-demo
+    python -m app.cli initialize-accounts
 fi
 docker compose --env-file "$env_file" -f "$compose_file" ps
 

@@ -73,10 +73,10 @@ grep -q 'up -d --wait worker scheduler' "$test_dir/fast.log"
 grep -q '/api/health/ready' "$test_dir/fast.log"
 grep -q 'http://127.0.0.1:19080/' "$test_dir/fast.log"
 ! grep -q 'run --rm migrate' "$test_dir/fast.log"
-! grep -q 'seed-demo' "$test_dir/fast.log"
+! grep -q 'initialize-accounts' "$test_dir/fast.log"
 grep -q 'build api frontend' "$test_dir/full.log"
 grep -q 'run --rm migrate' "$test_dir/full.log"
-grep -q 'seed-demo' "$test_dir/full.log"
+grep -q 'initialize-accounts' "$test_dir/full.log"
 ! grep -q 'build api fake-oss frontend' "$test_dir/full.log"
 
 awk '
@@ -106,7 +106,7 @@ awk '
   /run --rm migrate/ { migrate = NR }
   /up -d --wait worker scheduler/ { workers = NR }
   /up -d --wait api frontend/ { application = NR }
-  /seed-demo/ { seed = NR }
+  /initialize-accounts/ { seed = NR }
   END {
     exit !(preflight < migrate &&
            migrate < workers &&
@@ -148,77 +148,8 @@ awk '
 grep -q 'deploy/nginx/partsignal-security-headers.conf' \
   "$root/deploy/scripts/redeploy-staging-fast.sh"
 
-python3 - "$root/docs/Hostdzire部署附录.md" <<'PY'
-from pathlib import Path
-import shlex
-import sys
+grep -q 'V1 不属于 Production 回滚目标' "$root/docs/Hostdzire部署附录.md"
+grep -q '上一份已验证 V2' "$root/docs/Hostdzire部署附录.md"
+! grep -q 'frontend-v1-fallback-command' "$root/docs/Hostdzire部署附录.md"
 
-appendix = Path(sys.argv[1]).read_text(encoding="utf-8")
-
-
-def command_tokens(marker: str) -> list[str]:
-    start = f"<!-- {marker}:start -->"
-    end = f"<!-- {marker}:end -->"
-    assert appendix.count(start) == 1
-    assert appendix.count(end) == 1
-    block = appendix.split(start, 1)[1].split(end, 1)[0]
-    assert block.count("```sh") == 1
-    command = block.split("```sh", 1)[1].split("```", 1)[0]
-    normalized = " ".join(
-        line.removesuffix("\\").strip()
-        for line in command.splitlines()
-        if line.strip()
-    )
-    return shlex.split(normalized)
-
-
-def assert_frontend_only(tokens: list[str], image_assignment: str) -> None:
-    assert tokens[:2] == [image_assignment, "PARTSIGNAL_VERSION=$ps_candidate_release"]
-    assert tokens.count("docker") == 1
-    compose = tokens[tokens.index("docker"):]
-    assert compose[:7] == [
-        "docker", "compose", "--env-file", "../.env.staging", "-f",
-        "compose.staging.yaml", "up",
-    ]
-    assert compose.count("up") == 1
-    assert compose.count("-d") == 1
-    assert compose[-1] == "frontend"
-    assert compose.count("frontend") == 1
-    for flag in ("--no-deps", "--no-build", "--force-recreate", "--wait"):
-        assert flag in compose
-    assert compose[compose.index("--pull") + 1] == "never"
-    assert compose[compose.index("--wait-timeout") + 1] == "60"
-    for forbidden in (
-        "postgres", "redis", "fake-oss", "api", "worker", "scheduler",
-        "migrate", "build", "run", "alembic", "seed", "down", "stop",
-        "restart", "rm", "--remove-orphans", "--always-recreate-deps", "current",
-    ):
-        assert forbidden not in compose
-
-
-assert_frontend_only(
-    command_tokens("frontend-v1-fallback-command"),
-    "PARTSIGNAL_FRONTEND_IMAGE=$ps_v1_repo",
-)
-assert_frontend_only(
-    command_tokens("frontend-v2-restore-command"),
-    "PARTSIGNAL_FRONTEND_IMAGE=$ps_v2_repo",
-)
-
-for required in (
-    "docker build --file frontend/Dockerfile --tag \"$ps_v1_image\" frontend",
-    "postgres redis fake-oss api worker scheduler",
-    "label=com.docker.compose.service=migrate",
-    "select version_num from alembic_version",
-    "readlink /root/partsignal/current",
-    "/etc/nginx/snippets/partsignal-security-headers.conf",
-    "cmp \"$ps_audit_dir/before.txt\" \"$ps_audit_dir/after-v1.txt\"",
-    "cmp \"$ps_audit_dir/before.txt\" \"$ps_audit_dir/after-v2.txt\"",
-):
-    assert required in appendix
-
-assert "up -d --wait worker scheduler api frontend fake-oss" not in appendix
-assert "恢复 Nginx 模板和 API 镜像" not in appendix
-PY
-
-printf '%s\n' "预发布 full/fast 与 frontend-only 回退合同自检通过"
+printf '%s\n' "预发布 full/fast 与 Production V2-only 边界自检通过"

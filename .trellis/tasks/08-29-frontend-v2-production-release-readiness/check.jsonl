@@ -1,0 +1,2 @@
+{"file":".trellis/spec/infra/domain-security-operations.md","reason":"质量检查必须核对精确目标、备份、nginx -t、reload 边界、回滚与敏感信息保护。"}
+{"file":".trellis/tasks/08-29-frontend-v2-production-release-readiness/research/hostdzire-inventory-2026-08-29.md","reason":"检查实现和发布规划是否覆盖已观测的环境漂移、容量、端口、静态 Frontend owner 与证据缺口。"}

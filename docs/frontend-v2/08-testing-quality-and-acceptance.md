@@ -446,11 +446,17 @@ Legacy Playwright 使用独立 strict fixture，只允许 Auth、Product Detail 
 
 ### 14.4 Development Closeout 质量门禁
 
-当前开发阶段以可重建环境为质量边界：fresh/rebuilt PostgreSQL、migration、`seed-demo`、isolated real-stack E2E、`make verify` 与 Staging smoke 共同构成有效门禁。既有 Repository Gate、real-stack E2E、`make verify`、production artifact、legacy routing 和外部 Staging Gate=`MET` 证据全部保留，继续证明其各自已经实际覆盖的仓库、隔离真实栈与 Staging 行为。
+当前开发阶段以可重建环境为质量边界：fresh/rebuilt PostgreSQL、migration、`initialize-accounts`、isolated real-stack E2E、`make verify` 与 Staging smoke 共同构成有效门禁。既有 Repository Gate、real-stack E2E、`make verify`、production artifact、legacy routing 和外部 Staging Gate=`MET` 证据全部保留，继续证明其各自已经实际覆盖的仓库、隔离真实栈与 Staging 行为。
 
 这些开发门禁不等价于未来 production cutover 验收，也不证明 production snapshot、备份恢复目标、生产数据规模、正式回滚或生产观察已经通过。production snapshot sanitization execution 和 production-like rehearsal 因当前数据可重建的开发阶段范围决策终止，outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`；这既不是 Gate=`MET`，也不是执行失败的重新判定。run `pss_20260828_08` 的零写入、零 object payload、零 retained artifact 事实保持不变，run09 未创建且不再创建。
 
 未来进入真实生产发布准备时，应基于届时的数据敏感度、规模、备份恢复目标和部署架构另行制定 Release Readiness 验收；届时才重新定义 production snapshot/rehearsal、正式 cutover、生产观察与 V1 删除门禁，不从当前已取消 Task 恢复执行。
+
+### 14.5 Production Release Readiness 当前门禁
+
+2026-08-29 已启动独立 `frontend-v2-production-release-readiness` Task。Repository Gate 新增 `deploy/scripts/test-deploy-production.sh`，冻结 Production Compose 的 V2-only frontend image、历史 runtime project ID、显式 Production env/data root、无 fake OSS、Nginx `19080` proxy、`clean-init|upgrade` 顺序、脱敏配置预检、`initialize-accounts`、可恢复 quarantine，以及部署/激活必须精确匹配 manifest 摘要和镜像 ID 的候选合同。Worker/Scheduler 位于非默认 `production-async` profile，只能在真实外部 Gate=`MET` 后由激活脚本启动。
+
+Production frontend 回滚只允许切换 manifest 中上一份已验证 V2 image；本节不继承 14.1 的 Staging candidate-aligned V1 fallback。V1 source/test/pipeline 暂时保留到正式切换后的 Observation Gate=`MET`，其存在不代表 Production 可构建、部署或回滚到 V1。当前只批准仓库实施，hostdzire env、数据、Compose、Nginx、切换和清理均未授权，因此 Remote Preparation/Cutover/Observation Gate 仍不得判为 `MET`。
 
 ## 15. Visual Regression
 

@@ -199,3 +199,75 @@ Docker bridge 进入宿主机 INPUT 链。所有 Docker 项目需要复用宿主
 Wrong: 只放行 172.24.0.0/16，或允许 172.16.0.0/12 访问宿主机全部端口
 Correct: docker0 + br+ → 仅宿主机公网 IP:443 → 持久/运行时一致并验证其他端口仍关闭
 ```
+
+## 10. Scenario: Production 原地 clean-init 数据所有权
+
+### 10.1 Scope / Trigger
+
+把既有 `partsignal-staging` runtime identity 原地转换为 Production、隔离旧 PostgreSQL/Redis/fake OSS objects、执行空库初始化或恢复旧运行态时，必须使用本契约。普通开发/E2E 数据清理不使用 Production 状态文件。
+
+### 10.2 Signatures
+
+```text
+python3 deploy/scripts/prepare-production-data.py quarantine <prr_run_id>
+python3 deploy/scripts/prepare-production-data.py begin-clean-init <prr_run_id> <manifest>
+python3 deploy/scripts/prepare-production-data.py mark-prepared <prr_run_id> <manifest>
+python3 deploy/scripts/prepare-production-data.py verify-prepared <prr_run_id> <manifest>
+python3 deploy/scripts/prepare-production-data.py mark-initialized <prr_run_id> <manifest>
+python3 deploy/scripts/prepare-production-data.py begin-upgrade <manifest>
+python3 deploy/scripts/prepare-production-data.py mark-upgrade-prepared <manifest>
+python3 deploy/scripts/prepare-production-data.py verify-upgrade-prepared <manifest>
+python3 deploy/scripts/prepare-production-data.py mark-upgrade-initialized <manifest>
+python3 deploy/scripts/prepare-production-data.py verify-rollback-frontend <manifest>
+python3 deploy/scripts/prepare-production-data.py mark-frontend-rollback <manifest>
+python3 deploy/scripts/prepare-production-data.py restore <prr_run_id>
+
+PARTSIGNAL_RELEASE_MANIFEST=<absolute_manifest> PARTSIGNAL_DEPLOY_MODE=clean-init|upgrade deploy/scripts/deploy.sh
+PARTSIGNAL_RELEASE_MANIFEST=<absolute_manifest> PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET deploy/scripts/activate-production.sh
+PARTSIGNAL_RELEASE_MANIFEST=<absolute_manifest> deploy/scripts/rollback-production-frontend.sh
+```
+
+### 10.3 Contracts
+
+- Production 只允许 `/root/partsignal-data`、`/root/partsignal-data-quarantine` 和 `/run/lock/partsignal-production-maintenance.lock`；非标准路径只在显式 test-only 开关下可用。
+- canonical root、任一祖先符号链接、嵌套 root、mountpoint、device、运行 Compose project，以及与活动数据根存在祖先/后代重叠的运行容器 mount 必须在首次 rename 前校验。
+- `postgres`、`redis`、`objects` 每次只做同文件系统精确 rename；rename/mkdir 的父目录必须先 fsync，再原子持久化位置。失败后同 action/run ID 幂等续跑，不执行补偿式覆盖、`rm` 或跨设备 copy/delete。
+- `deploy.sh`、`activate-production.sh` 与直接数据操作必须在完整操作周期持有同一固定维护锁；子状态命令只复用经 inode/device 校验的继承锁 FD。
+- clean-init 必须绑定同一 run ID、绝对 manifest 摘要、release/commit/schema head、backend/frontend 镜像引用、image ID 与非空 RepoDigest、固定根和空活动目录；`PARTSIGNAL_VERSION` 必须等于 manifest release ID。manifest 必须完整包含并在部署/激活时复算固定 tracked-file allowlist，Production 只执行仓库权威 `deploy/compose.prod.yaml`。upgrade 必须从 `PRODUCTION_INITIALIZED` 进入候选级 `UPGRADE_DEPLOYING → UPGRADE_PREPARED → PRODUCTION_INITIALIZED`，不得直接激活未准备候选。
+- deploy 准备阶段只启动 API/Frontend。Worker/Scheduler 必须处于非默认 `production-async` profile；真实 AI/OSS Gate 未达到 `MET` 时，`activate-production.sh` 必须拒绝启动该 profile。
+- Compose project 固定为历史 runtime identity `partsignal-staging`；`COMPOSE_PROJECT_NAME` 或 Production 数据脚本 project override 不得改变它。Frontend rollback 只能使用当前 manifest 冻结的 `rollback_frontend` reference、image ID 与 RepoDigest，通过受控脚本执行 frontend-only recreate 并记录活动身份。
+- restore 先保留失败 Production 数据，再逐叶恢复旧数据；中断后继续 `RESTORING`，默认不 Alembic downgrade。
+
+### 10.4 Validation & Error Matrix
+
+| 条件 | 处理 |
+| --- | --- |
+| run ID、canonical root、state target 或 phase 不匹配 | 状态码 `2`，不启动数据服务、不移动目录 |
+| 历史 project 仍有运行 container，或任一运行 container mount 与活动数据根重叠 | 状态码 `2`，保持 source 不变 |
+| 叶目录为 symlink/mountpoint、跨 device，或 source/destination 同时存在/消失 | 状态码 `2`，保留持久阶段供人工核验 |
+| rename 后进程中断 | 下次同命令根据唯一实际位置推进状态，不重复移动或覆盖 |
+| clean-init 活动目录非空或包含 `objects` | 拒绝 Compose data service 启动 |
+| manifest 摘要、tracked file、release ID、候选身份、部署变量、image ID 或 RepoDigest 不匹配 | 拒绝 pull 后部署或异步激活 |
+| 外部 Gate 不是精确 `MET` | API/Frontend 可保持准备态；Worker/Scheduler 不启动 |
+| restore 中断 | 保持 `RESTORING` 和每叶位置；同 run ID 继续，不创建第二个恢复目标 |
+
+### 10.5 Good / Base / Bad Cases
+
+- Good：旧 service 全停，三个叶目录同 device，quarantine 完成后空库迁移；API/Frontend 验证真实 AI/OSS，最后激活异步服务并标记 `PRODUCTION_INITIALIZED`。
+- Base：某次 rename 后进程退出；状态文件尚未更新，但 source/target 恰好一处存在，同命令识别实际位置后继续。
+- Bad：把 quarantine target 作为 `PARTSIGNAL_DATA_ROOT`、在旧 Redis 上启动 Worker，或用多条无状态 `mv`/`--remove-orphans` 模糊恢复。
+
+### 10.6 Tests Required
+
+- Compose 解析断言 Production frontend image-only、固定历史 project/network identity、活动 data root 只挂载 `postgres`/`redis`，无 fake OSS。
+- deploy script 测试断言 clean-init 先验证状态，只启动 API/Frontend；外部 Gate 非 `MET` 时异步激活零写，`MET` 后才启动 Worker/Scheduler。
+- 数据状态机测试覆盖 happy quarantine/restore、rename 后故障注入与续跑、祖先 symlink、运行 project、错误 root/run/phase、已存在 target 和 manifest 不可覆盖。
+- 维护窗口另做只读 container/mount/device/checksum snapshot；测试环境开关不得出现在 Production env。
+
+### 10.7 Wrong vs Correct
+
+```text
+Wrong: stop（未核验）→ mv 三个目录（无状态）→ 直接启动 Worker → 失败后人工猜目录
+Correct: 固定锁/路径/container/mount/device → 持久逐叶 rename → 空库 API/Frontend
+         → 真实 AI/OSS Gate=MET → Worker/Scheduler → 可续跑 restore
+```

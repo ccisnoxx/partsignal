@@ -4,6 +4,11 @@ upstream partsignal_api_backend {
     keepalive_timeout 30s;
 }
 
+upstream partsignal_frontend {
+    server 127.0.0.1:19080;
+    keepalive 8;
+}
+
 server {
     listen <HOSTDZIRE_WG_ADDRESS>:80 proxy_protocol;
     server_name geo.962850.xyz;
@@ -25,14 +30,13 @@ server {
     include /etc/nginx/snippets/partsignal-security-headers.conf;
     add_header_inherit merge;
 
-    root /var/www/partsignal-frontend/current;
-    index index.html;
     client_max_body_size 10m;
 
     gzip on;
     gzip_vary on;
     gzip_min_length 1024;
     gzip_comp_level 6;
+    gzip_proxied any;
     gzip_types text/css application/javascript application/json image/svg+xml;
 
     location ^~ /api/ {
@@ -43,18 +47,18 @@ server {
     }
 
     location /assets/ {
-        try_files $uri =404;
-        access_log off;
+        include /etc/nginx/snippets/proxy-common.conf;
+        proxy_set_header Connection "";
+        proxy_hide_header Cache-Control;
         add_header Cache-Control "public, max-age=31536000, immutable" always;
-    }
-
-    location = /index.html {
-        try_files $uri =404;
-        add_header Cache-Control "no-cache" always;
+        proxy_pass http://partsignal_frontend;
     }
 
     location / {
-        try_files $uri $uri/ /index.html;
+        include /etc/nginx/snippets/proxy-common.conf;
+        proxy_set_header Connection "";
+        proxy_hide_header Cache-Control;
         add_header Cache-Control "no-cache" always;
+        proxy_pass http://partsignal_frontend;
     }
 }

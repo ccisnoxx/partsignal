@@ -1,143 +1,92 @@
-# PartSignal Hostdzire 部署上线 Runbook
+# PartSignal Hostdzire Production 发布 Runbook
 
-本文档是 `https://geo.962850.xyz` 预发布环境的主 Runbook。日常发布直接走快速重部署；首次初始化、完整手工发布、恢复和详细排障见[部署附录](./Hostdzire部署附录.md)，跨环境原则见[部署与运维](./operations.md)。
+本文档是 `https://geo.962850.xyz` 的 Production 发布权威入口。当前目标是在一次获批维护窗口中原地转换既有运行边界，容器化 Frontend V2 是唯一前端 owner。详细命令和恢复检查见[部署附录](./Hostdzire部署附录.md)，稳定安全边界见[部署与运维](./operations.md)。
 
-## 1. 部署决策
+仓库就绪不等于已经获准修改服务器。上传 release、写入环境文件、停止容器、移动数据、替换 Nginx、reload、受控业务写入和物理清理都需要针对精确目标的远端授权。
 
-| 变更或现场条件 | 路径 | 入口 |
-| --- | --- | --- |
-| 普通前后端代码；快速门禁路径均未变化；无高风险认证、权限、路由或全局壳层变化 | 快速重部署（默认） | 第 4 节 |
-| 任一快速门禁路径变化 | 完整发布 | 第 5 节 |
-| 其他底层部署、备份或恢复脚本变化 | 完整发布 | 第 5 节，并验证对应运维能力 |
-| 首次启用当前部署机制，或 Hostdzire 缺少共享环境文件、有效 `current` | 首次初始化 + 完整发布 | 附录第 3、4 节 |
-| 认证、权限、路由、全局壳层等高风险 UI 变化 | 完整发布 + 登录后浏览器验收 | 第 5、6 节 |
-| staging `frontend` build context 或静态 artifact owner 变化 | 完整发布 + V2 artifact 验收 | 第 5、6 节；禁止 fast redeploy |
-| 快速脚本主动拒绝 | 停止 | 不绕过门禁；排除现场异常后走完整发布 |
+## 1. 固定运行边界
 
-快速脚本比较且只比较以下 6 个门禁路径：
-
-- `backend/alembic/versions/`
-- `.env.example`
-- `deploy/compose.staging.yaml`
-- `deploy/nginx/partsignal-security-headers.conf`
-- `deploy/nginx/partsignal.staging.conf.template`
-- `deploy/scripts/deploy-staging.sh`
-
-## 2. 固定边界
-
-| 项目 | 值或约束 |
+| 项目 | Production 合同 |
 | --- | --- |
-| 公网入口 | DMIT，只做四层 SNI/端口转发和 `proxy_protocol` |
-| 应用主机 | Hostdzire，运行固定 Compose 项目和宿主机 Nginx |
-| WireGuard 地址 | DMIT `10.0.0.1`，Hostdzire `10.0.0.2` |
-| release | `/root/partsignal/releases/<release-id>`，不可覆盖 |
-| 最后验收记录 | `/root/partsignal/current` |
-| 唯一真实 staging 配置 | `/root/partsignal/shared/.env.staging`，权限 `0600` |
-| 持久数据 | `/root/partsignal-data`，不得放入 release |
-| Compose 项目 | `partsignal-staging` |
-| 回环端口 | API `19000`、开发对象存储 `19001`、前端 `19080` |
-| 仓库 staging 前端 owner | `deploy/compose.staging.yaml` 的 `frontend` service；正常发布构建 `frontend-v2/`，迁移后仅允许切换同一 candidate 预置的 V1/V2 UI 镜像 |
-| 外层 Nginx | `1.29.3` 或更高；Hostdzire 当前已确认 `1.29.8` |
-| 公网安全头权威 | 仓库 `deploy/nginx/partsignal-security-headers.conf`；宿主机运行副本 `/etc/nginx/snippets/partsignal-security-headers.conf` |
-| Docker 回连宿主机 HTTPS | `/etc/iptables/rules.v4` 只允许 `docker0` 与 `br-*` 到宿主机自身公网 IP 的 TCP 443；不开放其他宿主机端口 |
+| 公网入口 | DMIT 只做四层 SNI/端口转发和 `proxy_protocol` |
+| 应用主机 | Hostdzire，TLS 终止、站点 Nginx 与全部应用容器的唯一写入目标 |
+| Compose project | `partsignal-staging`；仅为原地转换保留的历史 runtime identifier，不代表环境语义 |
+| Production env | `/root/partsignal/shared/.env.production`，权限 `0600`，不与 `.env.staging` 共享 |
+| 活动数据 | `/root/partsignal-data/postgres`、`/root/partsignal-data/redis` |
+| 旧环境隔离 | `/root/partsignal-data-quarantine/<run-id>`，不得被 Production mount |
+| 回环端口 | API `127.0.0.1:19000`；Frontend V2 `127.0.0.1:19080` |
+| Production services | `postgres`、`redis`、`migrate`、`api`、`worker`、`scheduler`、`frontend` |
+| Frontend owner | `deploy/compose.prod.yaml` 的 `frontend` service，镜像只来自 `frontend-v2/` |
+| Nginx owner | `deploy/nginx/partsignal.conf.template` 代理 API 与 Frontend V2 回环端口 |
+| 对象存储 | 真实 `aliyun_oss`；Production 不运行或代理 `fake-oss` |
+| 业务状态 | PostgreSQL 是唯一来源；Redis 只承担 Celery Broker |
 
-服务器连接只使用 `/Users/sc/.ssh/config`：`hostdzire` 是部署、上传、配置和常规运维的唯一写入目标；`dmit` 仅用于公网入口异常时的只读诊断。不得向 `dmit` 上传文件、修改配置或重启服务。
+Production 不使用 `/var/www/partsignal-frontend/current`，`/root/partsignal/current` 也只可作为验收记录，不能充当容器或流量回滚开关。
 
-OpenSSH 配置负责主机、端口、身份文件、主机密钥验证和连接复用。不得读取、复制或输出私钥；主机密钥冲突时立即停止，未经可信渠道核对指纹不得删除旧记录或接受新密钥。
+## 2. Gate 与停止条件
 
-正常升级只复用 Hostdzire 的共享环境文件，不在仓库创建、复制或下载真实 `.env.staging`，也不重新生成数据库密码、会话密钥或 `AI_CREDENTIAL_ENCRYPTION_KEY`。staging 使用真实 PostgreSQL、Redis 和 Celery；Redis 只承担 Celery Broker，业务状态以 PostgreSQL 为准。对象存储是 `fake-oss` 开发适配器，不得注入生产 OSS 或生产模型凭据。
+发布按 Repository、Artifact、Configuration/Capacity、Rehearsal、Remote Preparation、Cutover、Observation 顺序推进。前一 Gate 未通过时不得进入后一 Gate。
 
-## 3. 发布前提与停止条件
+出现以下任一情况立即停止：
 
-开发阶段发布不依赖 GitHub Actions 打包，也不等待 GitHub CI 完成。`push` 只同步远端备份与发布来源；GitHub Actions 仅由操作者按需手动运行并提供完整质量反馈，不是预发布上线门禁。快速和完整发布都从干净、已推送且与 `origin/main` 一致的本地主工作目录直接制作发布包。发布前只运行与本次改动相称的本地最小检查，上线后由操作者通过真实页面和业务流程继续人工验收。
+- 本地不是干净的 `main`，候选提交与 `origin/main` 不一致，或 release/image/manifest 可覆盖。
+- SSH 主机密钥冲突、目标身份或只读 inventory 与授权包不一致。
+- Production env 引用 `.env.staging`，或配置为 `deterministic`、development storage、fake OSS、非安全 Cookie、`AI_ALLOW_LOCAL_HTTP=true`。
+- 三个旧数据目录、同文件系统 quarantine、恢复命令或上一份已验证 V2 镜像不明确。
+- migration、完整性、账号初始化、Compose health、`nginx -t`、live/ready、缓存/CSP/source-map 或浏览器验收失败。
+- 真实 AI/OSS 只能通过放宽安全策略、固定成功适配器或输出凭据才能验证。
 
-任一路径出现以下情况时停止：
+## 3. Repository 与 Candidate
 
-- 本地不是干净的 `main`，或 `HEAD` 与 `origin/main` 不一致。
-- SSH 主机密钥冲突，或 `hostdzire` 指向的主机身份不符合预期。
-- 发布包为空、缺少 `.env.example`，或包含环境文件、密钥、AppleDouble 文件。
-- `preflight-integrity` 报告问题，Compose 配置无效、容器不健康或相应探针失败。
-- `node deploy/scripts/check-nginx-security.mjs` 失败，Nginx 低于 `1.29.3`，或 `nginx -t` 失败。
-
-快速发布还会在共享环境文件缺失或权限不是 `0600`、`current` 无效、任一快速门禁路径缺失或变化时停止。它不以数据库备份、迁移或登录后浏览器验收为前提。
-
-完整发布中，正常升级若共享环境文件缺失或权限错误应停止；首次初始化按附录创建。已有数据的备份为空、有损迁移未通过隔离恢复验证、迁移或 Nginx 校验失败，以及登录页、认证路由、工作台、配置页或控制台验收失败时均停止。不得设置 `PARTSIGNAL_DEPLOY_MODE=fast` 绕过这些步骤。
-
-## 4. 日常快速重部署
-
-在本地主工作目录直接执行：
+本地至少运行：
 
 ```sh
-git pull --ff-only origin main
-make staging-redeploy-fast
+node deploy/scripts/check-nginx-security.mjs
+deploy/scripts/test-deploy-staging.sh
+deploy/scripts/test-deploy-production.sh
+uv run --project backend pytest backend/tests/unit/test_cli.py
+git diff --check
 ```
 
-该入口不下载或使用 GitHub Actions 构建产物，也不查询 CI 状态。
+候选必须来自 clean、已推送的 `main`。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/current V2/previous V2 image ID 与非空 RepoDigest、schema head，以及固定 allowlist 中的 Production Compose、状态/部署/激活脚本、Nginx 和安全 snippet 校验和。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
 
-不要重复手工打包、上传、构建或探测。`deploy/scripts/redeploy-staging-fast.sh` 会依次：
+## 4. Production 配置
 
-1. 校验本地命令、SSH 配置、干净的 `main`，获取并确认 `origin/main`。
-2. 确认 Hostdzire 的 release 根目录、共享环境文件和有效 `current`。
-3. 生成含秒级时间戳与 12 位 commit 的 release，从目标提交制作并检查安全归档。
-4. 上传到 `hostdzire`，创建不可覆盖的 release，链接权限为 `0600` 的共享环境文件。
-5. 在构建或替换容器前比较第 1 节的 6 个门禁路径，缺失或变化即拒绝。
-6. 校验 Compose，构建镜像，启动 PostgreSQL、Redis、`fake-oss`，运行只读 `preflight-integrity`。
-7. 等待 Worker、Scheduler、API、前端健康，并检查回环 API ready 和前端首页。
-8. 执行 `nginx -t`，检查公网 `live`、`ready` 与首页标题；全部通过后原子更新 `current`。
+`/root/partsignal/shared/.env.production` 只能在 Hostdzire 受控创建或更新，权限必须为 `0600`。至少满足 `APP_ENV=production`、安全 Cookie、`CONTENT_GENERATOR=openai-compatible`、`AI_ALLOW_LOCAL_HTTP=false`、`OBJECT_STORAGE_BACKEND=aliyun_oss`，并使用独立 session/encryption/database/account secrets 和完整低权限 OSS 配置。
 
-快速模式不备份、不迁移、不创建种子账号，也不替代高风险变更的登录后浏览器验收。
+只允许通过 `python -m app.cli preflight-production-config` 输出固定枚举与 `*_configured` 状态；不得输出 URL、bucket、AccessKey 或 secret 值。结构预检不能替代真实 AI/OSS 的权限、连通性、超时、CORS、上传/HEAD/读取验证。
 
-任一步失败都会非零退出。公网检查通过前不会更新 `current`，但镜像构建或容器替换可能已经发生；旧 `current` 只表示最后验收记录。不要只切换软链接，按第 7 节处理应用回滚。新 release 可保留排障；清理 release、镜像、备份或持久数据是独立破坏性操作。
+## 5. 原地转换
 
-## 5. 完整发布入口
+转换必须获得包含 release ID、镜像、目录、Nginx target 和命令顺序的远端写授权：
 
-完整发布适用于第 1 节列出的迁移、关键部署配置、首次启用和高风险变更。远端写操作全部只在 `hostdzire` 执行。
+1. 重新只读 inventory，冻结当前 V2 image、Compose/Nginx checksum、容器集合、DB revision 和三个数据目录元数据。
+2. 宣布维护窗口，停止 `api`、`worker`、`scheduler`、`frontend`、`fake-oss`、`postgres`、`redis`；不得使用 `--remove-orphans`。
+3. 运行 `prepare-production-data.py quarantine <run-id>`。脚本在固定排他锁内验证 canonical 路径、停止的 Compose project、活动 mount、同一 device 和持久阶段，再逐目录原子 rename；失败后以相同 run ID 续跑，不删除数据。
+4. 以 `PARTSIGNAL_RELEASE_MANIFEST`、`PARTSIGNAL_DEPLOY_MODE=clean-init` 和同一 `PARTSIGNAL_CUTOVER_RUN_ID` 运行 Production deploy script。它只在状态为 `QUARANTINED` 且 PostgreSQL/Redis 活动目录为空时，把 manifest 摘要、release/commit/schema 和镜像 ID 绑定到状态；pull 后核对实际 image ID，再执行配置预检、migration、完整性检查、`initialize-accounts`，随后只启动 API/Frontend V2 并把阶段推进到 `PRODUCTION_PREPARED`。
+5. 通过 API/Frontend 完成真实 AI/OSS 权限、失败、空 namespace、零旧对象引用和受控上传/读取 Gate；`fake-oss` 保持停止且不属于 Production service 集合。Gate=`MET` 后，只有同一 manifest 才能运行 `activate-production.sh`，显式启用非默认 `production-async` profile 并把阶段推进到 `PRODUCTION_INITIALIZED`。
+6. 对 Nginx 做权限保留备份和原子替换，`nginx -t` 通过后另取 reload 授权。
+7. 完成回环、公网、浏览器、权限、AI/OSS 与受控写验收，进入观察期。
 
-按[附录第 4 节](./Hostdzire部署附录.md#4-完整手工发布)从头执行，不跳步：
-
-1. 校验本地来源，制作并检查不可覆盖的 release 归档。
-2. 上传并准备 release；正常升级只链接既有共享环境文件。
-3. 已有数据先备份；有损迁移还要在隔离 PostgreSQL 验证恢复。
-4. 运行默认 `full` 部署，完成只读门禁、迁移、健康检查和幂等种子账号。
-5. 仅在首次安装或 staging Nginx 模板、项目安全 snippet 变化时更新独立站点与项目 snippet。
-6. 完成公网、缓存、对象存储代理、登录后浏览器和主机验收，再更新 `current`。
-
-首次空库可以跳过备份；已有数据时备份为空必须停止。有损迁移未通过隔离恢复验证、浏览器能力不可用或任一验收失败时，完整发布不得标记成功。
+物理删除 quarantine、`.env.staging`、fake-oss container/image、旧 release/image 或 V1 源码不属于上述转换授权。
 
 ## 6. 验收
 
-| 验收项 | 快速重部署 | 完整发布 |
-| --- | --- | --- |
-| Compose、镜像、容器、本机 ready/首页 | 脚本自动 | 部署脚本自动 |
-| 公网 `live`、`ready`、首页标题 | 脚本自动 | 操作者执行 |
-| 数据库备份与迁移 | 不执行 | 已有数据先备份，部署脚本迁移 |
-| Nginx | 脚本自动 `nginx -t` | 模板或项目安全 snippet 变化时校验并 reload |
-| 缓存头与项目安全头共存 | 安全配置无变化时沿用上次完整验收 | `/`、`/index.html`、`/assets/*` 必须逐项验证 |
-| 缓存与对象存储代理 | 不单独扩展 | 操作者验证 |
-| 登录后浏览器只读验收 | 非高风险变更不要求 | 必须执行 |
-| `current` 更新 | 脚本在自动验收后更新 | 操作者在全部验收后更新 |
+必须验证回环与公网 live/ready、V2 首页和 canonical deep links；`/assets/*` immutable、HTML/SPA `no-cache`、缺失 asset 与 `.map` 为 `404`、JS 无 `sourceMappingURL`；CSP/安全头只由外层 Nginx 持有，Production 不暴露 `/object-storage/`。
 
-完整浏览器验收必须通过真实公网域名在本机执行，不在服务器或容器安装浏览器，不用 `curl` 代替真实渲染。只读检查 `/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/ai` 与 `/system/audit`，并覆盖 direct link、refresh、Back/Forward 和权限拒绝；不得输出或持久化密码，不创建业务数据或修改线上配置。详细安全步骤见[附录第 4.6 节](./Hostdzire部署附录.md#46-完整验收与更新-current)。
+浏览器覆盖 `/login`、首页、Product、Content、Publishing、GEO、Configuration、System 与 legacy redirect，以及 direct link、refresh、Back/Forward、登录 return-to、权限拒绝、revision conflict、375/768/1024/1440 和键盘/焦点基线。浏览器运行在本机独立 Playwright session 或既有测试中，不在服务器安装浏览器，不输出或持久化密码。
 
-涉及 Frontend V2 artifact 时还必须确认实际 hashed JS chunks 全部成功加载、`/assets/*` 保持 immutable、HTML/client-route fallback 保持 `no-cache`、缺失 asset 与公开 `.map` 均为 `404`，且 JS 不含 `sourceMappingURL`。CSP 仍由外层 staging Nginx 唯一持有，容器层不得复制安全头。
+## 7. 分层恢复
 
-公网环境固定 `AI_ALLOW_LOCAL_HTTP=false`。依赖回环 Mock Provider 的纵向 E2E 只在本地或 CI 隔离环境运行，不得为测试放宽公网安全策略。
+- Frontend：只切回 manifest 冻结的上一份已验证 V2 image，frontend-only recreate；其他 service、DB 和 Nginx 不变。
+- Nginx：恢复同一已验证版本的站点和安全 snippet，先 `nginx -t`，再单独授权 reload。
+- Application：只有上一份 V2 backend 与当前 schema 合同时才可切回。
+- Data：停止新 Production 写入和全部新 service，把失败数据保留到 `failed-production/`，运行 `prepare-production-data.py restore <run-id>` 按持久阶段续跑并恢复旧三个目录，再按旧 Staging 配置恢复运行态。
 
-外部 AI FQDN 可能因 GeoDNS 解析为 Hostdzire 自身公网 IP。此时容器请求会从 Docker
-bridge 进入宿主机 INPUT 链；`/etc/iptables/rules.v4` 必须保留附录第 3.1.1 节的两条
-精确规则，使所有 Docker bridge 只能回连宿主机公网 TCP 443。不得按单个 Compose
-网段临时放行，也不得开放 22、80 或其他宿主机端口。
+默认不执行 Alembic downgrade。恢复保留失败现场，不删除 release、镜像、manifest、quarantine 或日志。
 
-项目安全头必须包含 CSP、`Strict-Transport-Security: max-age=31536000`、`Cross-Origin-Opener-Policy: same-origin`、`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff` 和 `Referrer-Policy: strict-origin-when-cross-origin`。CSP 的 `script-src` 只允许 `'self'`，并强制 `trusted-types dompurify; require-trusted-types-for 'script'`；`node deploy/scripts/check-nginx-security.mjs` 必须确认 V1 外置主题脚本先于 React、V1/V2 HTML 零内联脚本、两套容器 Nginx 都不重复持有安全头。不得改用 `script-src 'unsafe-inline'`、宽松 default policy 或依赖宿主机共享安全 snippet。
+## 8. Observation 与 V1 退役
 
-## 7. 回滚摘要
+观察期跟踪 Nginx 5xx/upstream、API 错误、container restart/OOM、Worker/Scheduler、DB/Redis health、AI/OSS 和核心业务结果。达到批准阈值前不得删除 V1。
 
-`current` 是最后完成相应验收的 release 记录，不是流量开关。固定 Compose 项目和回环端口上的容器在记录更新前已被替换；只切换 `current` 不能回滚运行容器。
-
-数据库进入 `0043_geo_platform_identity` 后，禁止把历史 V1 backend 接回当前数据库：旧 backend 不写 `publication_works.platform_profile_id_snapshot`，其运行健康不代表写入兼容。历史 `mvp-20260806-195740-afb1b8c82f40` frontend 也缺少当前 API 必需的 revision 参数，不是安全 UI 回退目标。
-
-Staging 的 V1 UI 回退只使用同一 candidate release 中预先构建并冻结的 `partsignal-frontend-v1:<candidate-release>`；API、Worker、Scheduler、`fake-oss`、PostgreSQL 和 Redis 全部保持 candidate 运行态。回退和恢复均只对 Compose `frontend` 执行 `up --no-deps --no-build --pull never --force-recreate`，不调用整栈发布脚本，不运行 migration/seed，不修改数据库、Nginx 或 `current`。切换前后必须比较六个非 frontend service、migrate container 集合、DB revision、Nginx 校验和 `current`；只允许 frontend container/image 变化。精确 artifact 冻结、命令、验证和停止条件见[附录第 5.1 节](./Hostdzire部署附录.md#51-staging-v1-ui-回退与-v2-ui-恢复)。
-
-数据库默认不执行 Alembic downgrade。有损迁移需要保留故障现场，确认恢复窗口和数据取舍，再恢复迁移前完整备份并启动兼容旧 release；备份必须与对应 `AI_CREDENTIAL_ENCRYPTION_KEY` 成对保护。具体命令和故障入口见[附录第 5、6 节](./Hostdzire部署附录.md#5-回滚与恢复)。
-
-Nginx 配置回滚是与 frontend-only 切换分离的授权边界：必须同时恢复同一个已验证配置版本的 staging 模板和项目安全 snippet，`nginx -t` 通过后才能 reload；这不授权替换 candidate backend 或修改数据库。客户端已缓存的 HSTS 在一年有效期内不会被配置回滚立即撤销。任何回滚都不删除 release、镜像、备份或 `/root/partsignal-data`。
+只有 Observation Gate=`MET` 后，才可在新的仓库变更中删除 `frontend/`、V1 build/test/deploy pipeline 和 V1 fallback 文档，并执行 V2-only 全量验证。quarantine、旧镜像和旧环境文件的物理清理仍需另一份破坏性授权。

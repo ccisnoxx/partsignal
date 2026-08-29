@@ -80,7 +80,7 @@ flowchart TB
     HOST_NGINX[Hostdzire 宿主机 Nginx]
 
     subgraph HOST[Hostdzire VPS]
-        STATIC[React 静态文件]
+        FRONTEND[Frontend V2 Nginx 容器]
         API[FastAPI API]
         WORKER[Celery Worker]
         PG[(PostgreSQL)]
@@ -93,7 +93,7 @@ flowchart TB
     USER -->|HTTPS| EDGE
     EDGE --> WG
     WG --> HOST_NGINX
-    HOST_NGINX -->|/| STATIC
+    HOST_NGINX -->|/| FRONTEND
     HOST_NGINX -->|/api/| API
     API --> PG
     API --> REDIS
@@ -112,11 +112,11 @@ flowchart TB
 → DMIT 公网入口
 → WireGuard
 → Hostdzire 宿主机 Nginx
-├── /          React SPA 静态文件
+├── /          Frontend V2 容器的宿主机回环端口
 └── /api/      FastAPI 容器的宿主机回环端口
 ```
 
-DMIT 继续只承担公网入口、SNI 分流、PROXY Protocol 和线路优化，不部署应用容器。Hostdzire 负责 TLS 终止、静态前端、API 反向代理和全部业务容器。
+DMIT 继续只承担公网入口、SNI 分流、PROXY Protocol 和线路优化，不部署应用容器。Hostdzire 负责 TLS 终止、Frontend V2/API 回环代理和全部业务容器。
 
 ### 5.2 当前基础设施结论
 
@@ -141,7 +141,7 @@ DMIT 继续只承担公网入口、SNI 分流、PROXY Protocol 和线路优化�
 | 能力 | 选型 | 说明 |
 |---|---|---|
 | 框架 | React + TypeScript | 适合复杂表单、审核和内容工作台 |
-| 构建 | Vite | 输出静态文件，由宿主机 Nginx 提供 |
+| 构建 | Vite | 输出 production artifact，由 Frontend V2 Nginx 镜像提供 |
 | 路由 | React Router | 内部 SPA 不需要 SSR |
 | 服务端状态 | TanStack Query | 请求缓存、失效、轮询和错误状态 |
 | UI 组件 | Ant Design | 表格、表单、抽屉、对话框和审核控件 |
@@ -600,13 +600,15 @@ geo-worker    Celery Worker
 geo-postgres  PostgreSQL
 geo-redis     Redis Broker
 geo-migrate   一次性 Alembic 迁移任务
+geo-frontend  Frontend V2 Nginx 镜像
 ```
 
-宿主机 Nginx 和 React 静态文件不放入 Compose，避免重复入口层。
+宿主机 Nginx 只持有 TLS、公网安全头和回环代理；React artifact 只由 Compose `frontend` service 持有，避免宿主静态目录与容器形成双 owner。
 
 ### 11.2 端口与网络
 
 - `geo-api` 只绑定宿主机回环地址的固定端口，例如 `127.0.0.1:19000`。
+- `geo-frontend` 只绑定宿主机回环地址 `127.0.0.1:19080`。
 - PostgreSQL 和 Redis 不设置宿主机端口映射。
 - Worker 不设置端口映射。
 - 所有业务容器加入独立 `geo-internal` 网络。
@@ -638,6 +640,7 @@ geo-migrate   一次性 Alembic 迁移任务
 | `geo-worker` | 1 GB | 1.5 |
 | `geo-postgres` | 768 MB | 1.0 |
 | `geo-redis` | 128 MB | 0.25 |
+| `geo-frontend` | 96 MB | 0.25 |
 
 限制用于防止单个项目挤压现有服务，不代表服务需要长期占满该资源。运行一段时间后根据峰值调整。
 
@@ -655,6 +658,13 @@ geo-migrate   一次性 Alembic 迁移任务
 
 ```yaml
 services:
+  frontend:
+    image: geo-frontend-v2:${GEO_VERSION}
+    ports:
+      - "127.0.0.1:19080:80"
+    read_only: true
+    restart: unless-stopped
+
   api:
     image: geo-backend:${GEO_VERSION}
     env_file: .env
@@ -725,8 +735,8 @@ networks:
 - 接收 DMIT 发送的 PROXY Protocol。
 - 使用现有通配符证书片段和 SSL 安全片段。
 - `/api/` 代理到 `127.0.0.1:19000`。
-- `/` 从 `/var/www/geo-frontend/current` 提供 React 静态文件。
-- SPA 未命中路径回退到 `index.html`。
+- `/` 与 `/assets/` 代理到 `127.0.0.1:19080`。
+- SPA fallback、asset 404 与容器内缓存由 Frontend V2 镜像持有；外层 Nginx 覆盖公网缓存和安全头。
 
 ### 12.2 站点配置示意
 
@@ -737,6 +747,11 @@ networks:
 upstream geo_api_backend {
     server 127.0.0.1:19000;
     keepalive 16;
+}
+
+upstream geo_frontend {
+    server 127.0.0.1:19080;
+    keepalive 8;
 }
 
 server {
@@ -760,8 +775,6 @@ server {
     include /etc/nginx/snippets/partsignal-security-headers.conf;
     add_header_inherit merge;
 
-    root /var/www/geo-frontend/current;
-    index index.html;
     client_max_body_size 10m;
 
     location ^~ /api/ {
@@ -772,13 +785,19 @@ server {
     }
 
     location /assets/ {
-        try_files $uri =404;
-        access_log off;
-        expires 7d;
+        include /etc/nginx/snippets/proxy-common.conf;
+        proxy_set_header Connection "";
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        proxy_pass http://geo_frontend;
     }
 
     location / {
-        try_files $uri $uri/ /index.html;
+        include /etc/nginx/snippets/proxy-common.conf;
+        proxy_set_header Connection "";
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control "no-cache" always;
+        proxy_pass http://geo_frontend;
     }
 }
 ```
@@ -800,22 +819,13 @@ DMIT 当前默认已将普通 Web 域名转发到 Hostdzire，因此首次部署
 
 ## 13. 前端发布
 
-### 13.1 发布目录
+### 13.1 镜像发布
 
-```text
-/root/geo-releases/<release-id>/frontend
-/var/www/geo-frontend/current -> <release frontend directory>
-```
+Frontend V2 只发布不可覆盖的 production image，并由 `deploy/compose.prod.yaml` 的 `frontend` service 接管 `127.0.0.1:19080`。候选 manifest 冻结当前 image ID/digest 与上一份已验证 V2 image；宿主静态目录和 `current` 软链接不参与流量切换。
 
-### 13.2 原子切换
+### 13.2 Frontend-only 回滚
 
-1. 构建前端静态文件。
-2. 上传或提取到新的版本目录。
-3. 检查 `index.html` 和静态资源完整性。
-4. 原子更新 `current` 软链接。
-5. 访问静态资源和 SPA 路由进行冒烟测试。
-
-旧版本目录暂时保留，前端回滚只需将软链接切回上一版本。
+仅在故障被证明局限于 frontend artifact 时，以 `--no-deps --no-build --pull never --force-recreate` 切换 manifest 中上一份 V2 image。API、Worker、Scheduler、PostgreSQL、Redis、DB revision 与 Nginx checksum 必须保持不变；V1 不是 Production 回滚目标。
 
 ## 14. 后端发布
 
@@ -826,9 +836,9 @@ DMIT 当前默认已将普通 Web 域名转发到 Hostdzire，因此首次部署
 → 上传或拉取到 Hostdzire
 → 备份数据库
 → 运行一次性 Alembic 迁移
-→ 启动 API 和 Worker
+→ 幂等初始化固定账号
+→ 启动 Worker、Scheduler、API 和 Frontend V2
 → 检查健康状态
-→ 切换前端版本
 → 验证 Nginx 和完整业务链路
 ```
 

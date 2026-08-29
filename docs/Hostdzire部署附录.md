@@ -1,799 +1,169 @@
-# PartSignal Hostdzire 部署附录
+# Hostdzire Production 部署附录
 
-本文档是 Hostdzire 预发布低频操作的唯一事实源，承接首次初始化、共享环境文件生成、完整手工发布、备份恢复验证、Nginx 更新、完整浏览器验收、回滚和详细排障。日常普通代码发布请直接使用[主 Runbook](./Hostdzire部署上线流程.md)，跨环境原则见[部署与运维](./operations.md)。
+本附录给出 `geo.962850.xyz` 原地转换的命令合同和恢复检查。所有示例都必须先替换为当次已核验的 release、镜像、路径和 checksum，并作为精确授权包交由用户批准；不要直接把示例视为线上写授权。
 
-本附录描述现有仓库脚本和 Compose，不创建第二套部署机制，也不授权连接服务器。执行任何真实远端操作前仍需获得相应授权。
+## 1. SSH 与敏感信息
 
-## 1. 权威来源与边界
+只使用本机 OpenSSH alias：`ssh hostdzire '<已批准的精确命令>'` 与 `scp <source> hostdzire:<approved-target>`。`hostdzire` 是应用主机唯一写入目标；`dmit` 仅在公网入口异常时只读诊断。主机密钥冲突必须停止，不能自动接受新 key 或执行 `ssh-keygen -R`。
 
-低频操作以当前已推送 `origin/main` 中的以下文件为准：
+禁止读取或输出私钥。Production env、数据库密码、会话密钥、账号密码、OSS/AI 凭据不得进入仓库、发布包、manifest、普通日志、对话或临时文件。
 
-- `.env.example`
-- `backend/alembic/versions/`
-- `deploy/compose.staging.yaml`
-- `deploy/nginx/partsignal-security-headers.conf`
-- `deploy/nginx/partsignal.staging.conf.template`
-- `deploy/scripts/check-nginx-security.mjs`
-- `deploy/scripts/deploy-staging.sh`
-- `deploy/scripts/backup.sh`
-- `deploy/scripts/restore-verify.sh`
-- `deploy/scripts/smoke.sh`
-- `frontend-v2/Dockerfile`
-- `frontend-v2/nginx.conf`
+## 2. Candidate manifest
 
-不得从旧 release、临时 worktree、其他分支或本文复制脚本内容替代仓库事实源。
-
-固定目录和运行边界：
-
-| 项目 | 值或约束 |
-| --- | --- |
-| release 根目录 | `/root/partsignal/releases`，每个 release 不可覆盖 |
-| 共享环境文件 | `/root/partsignal/shared/.env.staging`，权限 `0600` |
-| 备份目录 | `/root/partsignal/backups` |
-| 持久数据 | `/root/partsignal-data`，不得随 release 切换或删除 |
-| Compose 项目 | `partsignal-staging` |
-| 宿主机回环端口 | API `19000`、开发对象存储 `19001`、前端 `19080` |
-
-PostgreSQL 和 Redis 不发布宿主机端口。`fake-oss` 必须同时连接 internal 与 edge 网络；staging 不注入生产 OSS 或生产模型凭据。Redis 只承担 Celery Broker，PostgreSQL 是业务状态唯一来源。
-
-## 2. SSH 与凭据安全
-
-所有 SSH 示例显式使用 `/Users/sc/.ssh/config`。`hostdzire` 是上传、目录、Compose、Nginx、环境文件和 `current` 的唯一写入目标；`dmit` 只允许第 6.3 节的公网入口只读诊断。
-
-首次连接先只读确认目标身份：
+先确认本地已更新远端引用；在 clean `main`、`HEAD == origin/main` 的状态下，把 `git archive --format=tar.gz <commit>` 输出到仓库外，再运行：
 
 ```sh
-ssh -F /Users/sc/.ssh/config hostdzire 'hostname; id; pwd'
+python3 deploy/scripts/create-release-manifest.py \
+  --release-id "$release_id" \
+  --commit "$commit_sha" \
+  --source-archive "$source_archive" \
+  --backend-image "$backend_image" \
+  --frontend-image "$frontend_v2_image" \
+  --rollback-frontend-image "$previous_verified_v2_image" \
+  --schema-head 0043_geo_platform_identity \
+  --tracked-file deploy/compose.prod.yaml \
+  --tracked-file deploy/scripts/deploy.sh \
+  --tracked-file deploy/scripts/activate-production.sh \
+  --tracked-file deploy/scripts/prepare-production-data.py \
+  --tracked-file deploy/scripts/rollback-production-frontend.sh \
+  --tracked-file deploy/nginx/partsignal.conf.template \
+  --tracked-file deploy/nginx/partsignal-security-headers.conf \
+  --output "$manifest_path"
 ```
 
-OpenSSH 配置管理主机、端口、身份文件、主机密钥验证和连接复用。不得读取、复制或输出私钥。出现主机密钥冲突必须停止；只有通过 VPS 控制台等可信渠道核对指纹且获得明确指示后，才能处理旧记录，不能自动接受新密钥。
+生成器会机器验证当前分支、clean working tree、`HEAD == origin/main == --commit`，并重新生成该 commit 的 `git archive` 比较 SHA-256；测试逃生开关不得出现在候选环境。输出目标采用排他创建，存在即失败。三个镜像都必须具有合法且非空的 `repo_digests`；tracked file 必须与脚本固定 allowlist 完全一致。部署和激活会重新计算这些文件的 SHA-256，并同时核对 `PARTSIGNAL_VERSION == release_id`、本地 image ID 与 RepoDigest；任何漂移都拒绝继续。不得手工修改清单。
 
-真实环境文件、数据库密码、会话密钥、上传密钥、账号密码和 `AI_CREDENTIAL_ENCRYPTION_KEY` 不得进入仓库、发布包、普通日志、对话或临时文件。正常升级只链接既有共享环境文件，不复制、下载或重新生成其中的密钥。
+## 3. Production env 预检
 
-## 3. 首次初始化
-
-本节只在 Hostdzire 首次启用当前部署机制时执行；正常升级不得重复执行。
-
-### 3.1 基础设施与目录
-
-通过操作系统和供应商维护的渠道安装 Docker Engine、Docker Compose 插件、Nginx、OpenSSL、PostgreSQL 客户端、gzip 和 curl，不使用来源不明的管道安装脚本。
-
-进入 Hostdzire 后确认基础能力、证书片段和资源：
-
-```sh
-docker version
-docker compose version
-nginx -v
-openssl version
-psql --version
-gzip --version
-curl --version
-systemctl is-active nginx
-df -h /
-free -h
-
-test -f /etc/nginx/snippets/acme-challenge.conf
-test -f /etc/nginx/snippets/cert-962850.xyz.conf
-test -f /etc/nginx/snippets/ssl-common.conf
-```
-
-PartSignal 项目安全头不再依赖会影响其他站点的共享 snippet。确认 `nginx -v` 为 `1.29.3` 或更高版本；当前 Hostdzire 已确认 `1.29.8`，低于版本下限时停止，不能复制安全头到每个 location 规避 `add_header_inherit merge`。
-
-确认没有端口冲突后，在 Hostdzire 创建受保护目录：
+共享文件固定为 `/root/partsignal/shared/.env.production`，权限 `0600`。转换前只输出键名或状态，不能输出值：
 
 ```sh
 set -eu
-mkdir -p /root/partsignal/releases /root/partsignal/shared \
-  /root/partsignal/backups /root/partsignal-data
-chmod 700 /root/partsignal/shared /root/partsignal/backups
+ps_env=/root/partsignal/shared/.env.production
+test -f "$ps_env"
+test ! -L "$ps_env"
+test "$(stat -c '%a' "$ps_env")" = 600
+
+COMPOSE_PROJECT_NAME=partsignal-staging \
+PARTSIGNAL_VERSION="$release_id" \
+PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
+PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
+PARTSIGNAL_RUNTIME_ENV_FILE=$ps_env \
+PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
+docker compose --env-file "$ps_env" -f deploy/compose.prod.yaml config --quiet
+
+COMPOSE_PROJECT_NAME=partsignal-staging \
+PARTSIGNAL_VERSION="$release_id" \
+PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
+PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
+PARTSIGNAL_RUNTIME_ENV_FILE=$ps_env \
+PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
+docker compose --env-file "$ps_env" -f deploy/compose.prod.yaml run --rm api \
+  python -m app.cli preflight-production-config
 ```
 
-不得占用其他服务端口；PartSignal 只使用主 Runbook 记录的三个回环端口。
+结构预检成功不代表真实 AI/OSS Gate 已通过；仍需受控验证权限、连通性、超时、CORS、预签名上传、HEAD 和短期下载。
 
-#### 3.1.1 Docker bridge 回连宿主机公网 HTTPS
+## 4. 只读 drift inventory
 
-外部服务域名可能因 GeoDNS 或同机部署解析为 Hostdzire 自身公网 IP。容器访问这类
-HTTPS 地址时，流量从 Docker bridge 进入宿主机 INPUT 链；默认 `DROP` 策略必须保留，
-只增加以下两条持久规则：
+远端写授权前重新核验 hostname/时间/资源，精确 Compose project/service/container/image/health/restart，`19000/19001/19080` listener，DB revision、migrate container 集合、Nginx enabled target/checksum/`nginx -t`，TLS 有效期与续期 owner，current/release/manifest，以及三个数据目录的类型、device、owner、mode 和 size。
 
-```text
--A INPUT -d <HOSTDZIRE_PUBLIC_IP>/32 -i docker0 -p tcp -m tcp --dport 443 -j ACCEPT
--A INPUT -d <HOSTDZIRE_PUBLIC_IP>/32 -i br+ -p tcp -m tcp --dport 443 -j ACCEPT
-```
+任何值与授权包不一致都停止并重新评审。只读 inventory 不查看表内容、对象内容、环境变量值或 container secret。
 
-`br+` 是 iptables 的接口前缀匹配，覆盖所有 Docker 用户自定义 bridge；`docker0`
-覆盖默认 bridge。规则不绑定某个 Compose 网段或易变的 `br-<network-id>`，但目标仍
-严格限定为宿主机自身公网 IP 的 TCP 443。不得改成无接口约束的 RFC1918 来源放行，
-不得同步开放 22、80 或其他宿主机端口；Docker `internal: true` 网络仍保持自己的
-路由隔离。
+## 5. 数据隔离合同
 
-修改前为 `/etc/iptables/rules.v4` 创建带时间戳的权限保留备份。先在临时副本或最终
-文件执行 `iptables-restore --test`，再用等价的 `iptables -C` / `iptables -I` 更新
-运行时；任一步失败都恢复持久文件并删除本次新增规则。完成后至少验证：
+执行前必须停止旧 `api`、`worker`、`scheduler`、`frontend`、`fake-oss`、`postgres` 和 `redis`，并确认没有活动业务写入。然后运行：
 
 ```sh
-iptables -S INPUT | grep -E 'docker0|br\+'
-iptables-restore --test < /etc/iptables/rules.v4
-nginx -t
+PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
+PARTSIGNAL_QUARANTINE_ROOT=/root/partsignal-data-quarantine \
+  python3 ./deploy/scripts/prepare-production-data.py \
+  quarantine prr_YYYYMMDD_HHMMSS
 ```
 
-从两个不同项目 bridge 无凭据访问目标 HTTPS，应在 5 秒内得到明确 401/403；从容器
-连接宿主机公网 IP 的 22/80 仍应失败，443 应成功。最后重新运行公网 smoke、API
-ready 和容器健康检查。不得使用已公开的真实 AI 密钥完成网络验证。
+脚本只允许固定 Production 根目录；测试路径必须通过显式 test-only 开关。它拒绝路径别名、任一祖先符号链接、嵌套根、独立 mountpoint、跨 device、运行中的历史 Compose project，以及任一运行容器与活动数据根存在祖先/后代重叠的挂载。每个 rename/mkdir 的目录项先同步到磁盘，再原子更新权限为 `0600` 的状态文件；中断后使用同一命令和 run ID 续跑。脚本不执行 `rm`、不创建新 `objects`、不把 quarantine 挂载给 Production。
 
-### 3.2 首次生成共享环境文件
+## 6. Clean init
 
-先以待部署 `origin/main` 的 `.env.example` 只读核对必填项，不在本地仓库创建 `.env.staging`。以下命令只在 Hostdzire 执行，且只允许创建不存在的目标文件：
+在候选 release 目录运行，变量必须与 manifest 和 Production env 对应：
 
 ```sh
-set -eu
-ENV_FILE=/root/partsignal/shared/.env.staging
-test ! -e "$ENV_FILE"
-umask 077
-
-DB_PASSWORD=$(openssl rand -hex 24)
-SESSION_SECRET=$(openssl rand -hex 48)
-UPLOAD_SECRET=$(openssl rand -hex 48)
-ADMIN_PASSWORD=$(openssl rand -hex 18)
-ENGINEER_PASSWORD=$(openssl rand -hex 18)
-AI_KEY=$(openssl rand 32 | openssl base64 -A)
-
-printf '%s\n' \
-  'APP_ENV=staging' \
-  'APP_BASE_URL=https://geo.962850.xyz' \
-  'API_BASE_URL=http://api:8000' \
-  'LOG_LEVEL=INFO' \
-  "DATABASE_URL=postgresql+psycopg://partsignal:${DB_PASSWORD}@postgres:5432/partsignal" \
-  'POSTGRES_DB=partsignal' \
-  'POSTGRES_USER=partsignal' \
-  "POSTGRES_PASSWORD=${DB_PASSWORD}" \
-  'REDIS_URL=redis://redis:6379/0' \
-  "SESSION_SECRET=${SESSION_SECRET}" \
-  'SESSION_COOKIE_SECURE=true' \
-  "PARTSIGNAL_SEED_ADMIN_PASSWORD=${ADMIN_PASSWORD}" \
-  "PARTSIGNAL_SEED_ENGINEER_PASSWORD=${ENGINEER_PASSWORD}" \
-  'CELERY_CONCURRENCY=1' \
-  'CONTENT_GENERATOR=deterministic' \
-  "AI_CREDENTIAL_ENCRYPTION_KEY=${AI_KEY}" \
-  'AI_ALLOW_LOCAL_HTTP=false' \
-  'GENERATION_PENDING_REDISPATCH_SECONDS=120' \
-  'GENERATION_FINALIZE_GRACE_SECONDS=120' \
-  'GENERATION_RECOVERY_BATCH_SIZE=100' \
-  'GENERATION_RECOVERY_SCAN_SECONDS=60' \
-  'OBJECT_STORAGE_BACKEND=development' \
-  'OBJECT_STORAGE_ENDPOINT=http://fake-oss:9000' \
-  'OBJECT_STORAGE_PUBLIC_ENDPOINT=https://geo.962850.xyz/object-storage' \
-  'OBJECT_STORAGE_PATH=/data' \
-  'OSS_BUCKET=partsignal-staging' \
-  'OSS_ACCESS_KEY_ID=' \
-  'OSS_ACCESS_KEY_SECRET=' \
-  "UPLOAD_SIGNING_SECRET=${UPLOAD_SECRET}" \
-  'CORS_ALLOWED_ORIGINS=https://geo.962850.xyz' \
-  'VITE_API_BASE_URL=' \
-  'PARTSIGNAL_DATA_ROOT=/root/partsignal-data' \
-  'PARTSIGNAL_BACKEND_IMAGE=partsignal-backend' \
-  'PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend' \
-  >"$ENV_FILE"
-
-chmod 600 "$ENV_FILE"
-test "$(stat -c '%a' "$ENV_FILE")" = 600
-unset DB_PASSWORD SESSION_SECRET UPLOAD_SECRET ADMIN_PASSWORD ENGINEER_PASSWORD AI_KEY
+PARTSIGNAL_VERSION="$release_id" \
+PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
+PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
+PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
+PARTSIGNAL_RELEASE_MANIFEST="$manifest_path" \
+PARTSIGNAL_DEPLOY_MODE=clean-init \
+PARTSIGNAL_CUTOVER_RUN_ID=prr_YYYYMMDD_HHMMSS \
+ENV_FILE=/root/partsignal/shared/.env.production \
+COMPOSE_FILE=deploy/compose.prod.yaml \
+  ./deploy/scripts/deploy.sh
 ```
 
-账号种子只在账号不存在时生效；现有账号密码以 PostgreSQL 哈希为准，修改种子变量不会修改登录密码。为支持登录后验收，运维人员可以把 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 同步为当前 admin 密码，但必须继续把它视为现用凭据。
+`clean-init` 先验证状态为 `QUARANTINED`、run ID/固定根/隔离目标匹配、两个活动目录为空且没有 `objects`，并把状态绑定到 manifest 摘要、release/commit/schema、backend/frontend 镜像引用、image ID 与 RepoDigest；脚本同时复算固定 tracked files，且只接受 `deploy/compose.prod.yaml`。镜像 pull 后再次核对本地 image ID 与 RepoDigest。随后才执行 PostgreSQL/Redis、Production config preflight、migration、空库 integrity、`initialize-accounts`、API/Frontend 与回环探针。成功后状态为 `PRODUCTION_PREPARED`，Worker/Scheduler 仍保持停止。
 
-`AI_CREDENTIAL_ENCRYPTION_KEY` 用于解密数据库中的 AI 渠道凭据，丢失或误换不可恢复。预发布保持确定性生成器，除非已明确批准并在配置中心录入专用低权限测试渠道；真实调用失败不得静默回退。
-
-## 4. 完整手工发布
-
-### 4.1 校验来源并制作发布包
-
-在本地主工作目录执行。先完成与本次改动相称的本地最小检查；开发阶段不等待 GitHub Actions，也不使用其构建产物。以下任一断言失败都停止：
+使用 API/Frontend 完成真实 AI/OSS Gate。只有 Gate=`MET` 后才运行：
 
 ```sh
-set -eu
-test "$(git branch --show-current)" = main
-test -z "$(git status --porcelain)"
-git pull --ff-only origin main
-test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
-node deploy/scripts/check-nginx-security.mjs
-
-DEPLOY_COMMIT=$(git rev-parse origin/main)
-RELEASE_ID="mvp-$(date +%Y%m%d-%H%M%S)-$(git rev-parse --short=12 "$DEPLOY_COMMIT")"
-ARCHIVE=$(mktemp "${TMPDIR:-/tmp}/partsignal-full.XXXXXX")
-
-git archive --format=tar.gz --output="$ARCHIVE" "$DEPLOY_COMMIT"
-test -s "$ARCHIVE"
-tar -tzf "$ARCHIVE" | grep -qx '.env.example'
-if tar -tzf "$ARCHIVE" | grep -Eq '^(\.agents|\.codex|\.playwright-cli|\.trellis)/'; then
-  printf '%s\n' "发布包包含开发代理、Trellis 或浏览器临时文件" >&2
-  exit 1
-fi
-
-BAD_ENTRIES=$(
-  tar -tzf "$ARCHIVE" |
-    awk '
-      {
-        lower = tolower($0)
-        if ($0 ~ /(^|\/)\._/ ||
-            ($0 ~ /(^|\/)\.env($|\.)/ && $0 !~ /(^|\/)\.env\.example$/) ||
-            lower ~ /(^|\/)(id_rsa|id_ed25519)(\.pub)?$/ ||
-            lower ~ /(^|\/)[^\/]*(private[^\/]*key|\.pem|\.key)$/) {
-          print
-        }
-      }
-    '
-)
-test -z "$BAD_ENTRIES" || { printf '%s\n' "$BAD_ENTRIES" >&2; exit 1; }
-shasum -a 256 "$ARCHIVE"
-printf '%s\n' "$RELEASE_ID"
+PARTSIGNAL_VERSION="$release_id" \
+PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
+PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
+PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
+PARTSIGNAL_RELEASE_MANIFEST="$manifest_path" \
+PARTSIGNAL_DEPLOY_MODE=clean-init \
+PARTSIGNAL_CUTOVER_RUN_ID=prr_YYYYMMDD_HHMMSS \
+PARTSIGNAL_EXTERNAL_SERVICES_GATE=MET \
+ENV_FILE=/root/partsignal/shared/.env.production \
+COMPOSE_FILE=deploy/compose.prod.yaml \
+  ./deploy/scripts/activate-production.sh
 ```
 
-release ID 必须是秒级时间戳加 12 位 commit，且不得复用。只允许 `git archive` 打包已推送提交；不存在未提交工作树部署路径。
+激活脚本必须在同一维护锁内精确匹配部署阶段绑定的 manifest 和实际 image ID，再验证 `PRODUCTION_PREPARED` 与 API/Frontend，显式启用非默认 `production-async` profile，最后推进到 `PRODUCTION_INITIALIZED`。不得用 `upgrade` 绕过空库顺序，也不得加入 `--remove-orphans`。正常 upgrade 从既有 `PRODUCTION_INITIALIZED` 进入候选级 `UPGRADE_DEPLOYING`，部署成功后成为 `UPGRADE_PREPARED`；只有同一 manifest 通过外部 Gate 才能激活并返回 `PRODUCTION_INITIALIZED`。普通 `docker compose up -d` 不得启动 Worker/Scheduler。
 
-### 4.2 上传并准备 release
+## 7. fake OSS 退出
 
-保持上一节 shell 中的 `ARCHIVE` 和 `RELEASE_ID`，从本机只上传到 `hostdzire`：
+`fake-oss` 必须在移动 objects 前停止。Production Compose 不声明该 service、端口 `19001` 或 `/object-storage/` 代理。真实 OSS Gate 未通过前保留已停止的 container/image 证据；通过并另获授权后才按完整 container ID 和 service label 删除，禁止 `down --remove-orphans` 或宽泛 prune。
+
+## 8. Nginx 原子更新
+
+Nginx 写与 reload 是独立授权。授权包包含 enabled symlink target、旧/新 SHA-256 和备份路径。顺序固定为 `cp -a` 精确备份、同目录临时文件、owner/mode 与 checksum 校验、同文件系统原子替换、`nginx -t`，最后另取 reload 授权。失败立即恢复备份并再次 `nginx -t`。
+
+Production 模板必须代理 `19000` 和 `19080`，不包含静态 root、`19001` 或 `/object-storage/`。API upstream `keepalive_timeout 30s`，Uvicorn `--timeout-keep-alive 35`。
+
+## 9. Frontend V2-only 回滚
+
+仅当故障被证明局限于 frontend artifact 时，切换 manifest 中上一份已验证 V2：
 
 ```sh
-set -eu
-scp -F /Users/sc/.ssh/config "$ARCHIVE" \
-  "hostdzire:/root/partsignal/.incoming-${RELEASE_ID}.tar.gz"
-rm -f "$ARCHIVE"
-ssh -F /Users/sc/.ssh/config hostdzire
+PARTSIGNAL_VERSION="$release_id" \
+PARTSIGNAL_BACKEND_IMAGE="$backend_repository" \
+PARTSIGNAL_FRONTEND_IMAGE="$frontend_v2_repository" \
+PARTSIGNAL_ROLLBACK_FRONTEND_IMAGE="$previous_v2_repository" \
+PARTSIGNAL_ROLLBACK_FRONTEND_VERSION="$previous_v2_tag" \
+PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
+PARTSIGNAL_RELEASE_MANIFEST="$manifest_path" \
+ENV_FILE=/root/partsignal/shared/.env.production \
+COMPOSE_FILE=deploy/compose.prod.yaml \
+  ./deploy/scripts/rollback-production-frontend.sh
 ```
 
-以下命令只在刚进入的 Hostdzire 会话执行：
+脚本只接受当前 Production 状态绑定 manifest 中的 `rollback_frontend` reference、image ID 与 RepoDigest，并在同一维护锁内执行 `--no-deps --no-build --pull never` frontend-only recreate；成功后记录活动 frontend 身份。前后比较 API、Worker、Scheduler、PostgreSQL、Redis container/image、DB revision、Nginx checksum 和 release record；只允许 frontend container/image 变化。V1 不属于 Production 回滚目标。
+
+## 10. 数据恢复
+
+如果 clean-init 或验收失败且决定恢复旧 Staging 数据，先停止新 service 并确认无新写入，保留日志/manifest/container evidence，再运行：
 
 ```sh
-set -eu
-printf '输入第 4.1 节输出的 release ID：' >&2
-IFS= read -r RELEASE_ID
-printf '%s\n' "$RELEASE_ID" |
-  grep -Eq '^mvp-[0-9]{8}-[0-9]{6}-[0-9a-f]{12}$'
-
-RELEASE_DIR="/root/partsignal/releases/${RELEASE_ID}"
-REMOTE_ARCHIVE="/root/partsignal/.incoming-${RELEASE_ID}.tar.gz"
-ENV_FILE=/root/partsignal/shared/.env.staging
-
-test "$(id -u)" -eq 0
-test -f "$REMOTE_ARCHIVE"
-test -f "$ENV_FILE"
-test "$(stat -c '%a' "$ENV_FILE")" = 600
-test ! -e "$RELEASE_DIR" && test ! -L "$RELEASE_DIR"
-
-mkdir -p /root/partsignal/releases
-mkdir "$RELEASE_DIR"
-tar -xzf "$REMOTE_ARCHIVE" -C "$RELEASE_DIR"
-rm "$REMOTE_ARCHIVE"
-
-test -f "$RELEASE_DIR/.env.example"
-! find "$RELEASE_DIR" -name '._*' -print -quit | grep -q .
-ln -s "$ENV_FILE" "$RELEASE_DIR/.env.staging"
+PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
+PARTSIGNAL_QUARANTINE_ROOT=/root/partsignal-data-quarantine \
+  python3 ./deploy/scripts/prepare-production-data.py \
+  restore prr_YYYYMMDD_HHMMSS
 ```
 
-正常升级不得修改共享环境文件。若共享环境文件缺失或权限不是 `0600`，停止；只有首次初始化才执行第 3.2 节。
+脚本在同一固定锁内先验证所有路径、device、container/mount 静默和状态，再把失败 Production 数据保留到 `<run-id>/failed-production/`，逐叶恢复旧 `postgres`、`redis`、`objects`。每个 rename 都记录位置，进程中断后同一 restore 命令可继续；不删除任一版本。随后恢复旧 `.env.staging`、Staging Compose/Nginx 和当前 V2 image。Nginx 恢复仍须 `nginx -t` 与单独 reload 授权。默认不运行 Alembic downgrade。
 
-### 4.3 备份与恢复验证
+## 11. 验收与观察
 
-首次空库可以跳过备份。已有数据时，在 Hostdzire 的同一会话、迁移之前执行：
+切换后检查回环、公网 HTTP、V2 artifact、登录后核心只读流、受控写、真实 AI/OSS、容器健康和资源。HTML/SPA 必须 `no-cache`，hashed assets 必须 immutable，missing asset/`.map` 必须 `404`，JS 无 `sourceMappingURL`，CSP/安全头只由外层 Nginx 持有，且 `/object-storage/` 不存在 Production 代理。
 
-```sh
-cd "$RELEASE_DIR/deploy"
-set -a
-. ../.env.staging
-set +a
-
-export PARTSIGNAL_VERSION="$RELEASE_ID"
-export BACKUP_DIR=/root/partsignal/backups
-export COMPOSE_FILE=compose.staging.yaml
-BACKUP=$(./scripts/backup.sh)
-test -s "$BACKUP"
-printf '%s\n' "$BACKUP"
-```
-
-`backup.sh` 生成权限受限的 `pg_dump --clean --if-exists --no-owner` gzip 文件，但不等于已完成异地、加密和保留策略。备份与对应的 `AI_CREDENTIAL_ENCRYPTION_KEY` 必须成对保护。
-
-涉及删除列、数据重写或其他有损迁移时，必须在隔离的一次性 PostgreSQL 验证恢复。`VERIFY_DATABASE_URL` 绝不能指向 staging 主库：
-
-```sh
-: "${VERIFY_DATABASE_URL:?请先设置隔离验证数据库 URL}"
-VERIFY_DATABASE_URL="$VERIFY_DATABASE_URL" ./scripts/restore-verify.sh "$BACKUP"
-```
-
-恢复验证会导入备份，并确认 `alembic_version` 与 `users` 可查询。备份为空、隔离数据库不明确或恢复验证失败都必须停止完整发布。
-
-#### 4.3.1 迁移前预置 V1 UI 回退 artifact
-
-首次把 Frontend V2 candidate 激活到 Staging 前，必须先从**同一 candidate release**
-中保留的 `frontend/` 构建 V1 UI 回退镜像。不使用历史
-`mvp-20260806-195740-afb1b8c82f40` 镜像：其 frontend 已缺少当前 API 必需的
-revision 参数，其 backend 也不兼容 `0043_geo_platform_identity`。
-
-在 `deploy-staging.sh` 执行任何 migration 前运行：
-
-```sh
-set -eu
-: "${RELEASE_ID:?必须先固定 candidate release ID}"
-: "${RELEASE_DIR:?必须先固定 candidate release 目录}"
-test "$RELEASE_DIR" = "/root/partsignal/releases/${RELEASE_ID}"
-test -f "$RELEASE_DIR/frontend/Dockerfile"
-
-ps_v1_image="partsignal-frontend-v1:${RELEASE_ID}"
-cd "$RELEASE_DIR"
-docker build --file frontend/Dockerfile --tag "$ps_v1_image" frontend
-ps_v1_image_id=$(docker image inspect --format '{{.Id}}' "$ps_v1_image")
-case "$ps_v1_image_id" in
-  sha256:*) ;;
-  *) printf '%s\n' "V1 UI 镜像 ID 无效：$ps_v1_image_id" >&2; exit 1 ;;
-esac
-printf 'V1_UI_IMAGE=%s\nV1_UI_IMAGE_ID=%s\n' \
-  "$ps_v1_image" "$ps_v1_image_id"
-cd "$RELEASE_DIR/deploy"
-```
-
-把两行非敏感镜像身份写入本次 activation 证据；不写入 `.env.staging`、
-`current` 或第二份部署配置。构建失败、tag 不匹配或 image ID 无法冻结时，不得
-进入第 4.4 节，更不得先迁移再补回退镜像。
-
-### 4.4 构建、迁移与启动
-
-继续在 Hostdzire 的 `"$RELEASE_DIR/deploy"` 执行默认 `full` 模式：
-
-```sh
-PARTSIGNAL_VERSION="$RELEASE_ID" ./scripts/deploy-staging.sh
-```
-
-脚本依次校验 Compose，构建 API 和前端镜像，启动 PostgreSQL、Redis、`fake-oss`，运行只读 `preflight-integrity`，执行 `alembic upgrade head`，等待 Worker、Scheduler、API、前端健康，幂等创建开发种子账号，输出容器状态，并检查回环 API ready 和前端首页。当前仓库的 staging `frontend` service 构建 `frontend-v2/`；该 context 属于快速发布关键路径，因此首次激活必须走本节完整发布。
-
-任一步失败都停止，不手工跳过，也不设置 `PARTSIGNAL_DEPLOY_MODE=fast`。需要复核容器和迁移版本时执行：
-
-```sh
-PARTSIGNAL_VERSION="$RELEASE_ID" \
-  docker compose --env-file ../.env.staging -f compose.staging.yaml ps
-PARTSIGNAL_VERSION="$RELEASE_ID" \
-  docker compose --env-file ../.env.staging -f compose.staging.yaml \
-  exec -T postgres psql -U partsignal -d partsignal -Atc \
-  'select version_num from alembic_version'
-```
-
-### 4.5 首次安装或更新 Nginx
-
-只有首次启用或 `deploy/nginx/partsignal.staging.conf.template`、`deploy/nginx/partsignal-security-headers.conf` 变化时执行；站点与项目安全 snippet 必须来自同一个 release，只修改 PartSignal 自己的运行配置：
-
-```sh
-set -eu
-TEMPLATE="$RELEASE_DIR/deploy/nginx/partsignal.staging.conf.template"
-TARGET=/etc/nginx/sites-available/partsignal-staging.conf
-SECURITY_SOURCE="$RELEASE_DIR/deploy/nginx/partsignal-security-headers.conf"
-SECURITY_TARGET=/etc/nginx/snippets/partsignal-security-headers.conf
-
-install -m 0644 "$SECURITY_SOURCE" "$SECURITY_TARGET"
-sed 's/<HOSTDZIRE_WG_ADDRESS>/10.0.0.2/g' "$TEMPLATE" >"$TARGET"
-ln -sfn "$TARGET" /etc/nginx/sites-enabled/partsignal-staging.conf
-nginx -t
-systemctl reload nginx
-```
-
-不得修改或依赖 `/etc/nginx/snippets/security-headers-web.conf`。项目 snippet 通过 server 级 `add_header_inherit merge` 与 location 的 `Cache-Control` 合并；要求 Nginx `1.29.3` 或更高版本。
-
-Hostdzire WireGuard 的 `80/443` 监听要求 `proxy_protocol`。不要用普通 `curl` 直连 `10.0.0.2:443`；缺少 PROXY Header 会被重置，所有外部验收都走公网域名。
-
-#### 4.5.1 API upstream 空闲连接不变量
-
-PartSignal 的 API upstream 必须保持 Nginx `keepalive_timeout 30s` 小于
-Uvicorn `--timeout-keep-alive 35`。代理提前 5 秒淘汰空闲连接，避免复用正在被
-Uvicorn 关闭的连接；不得用 `proxy_next_upstream`、客户端重试或业务 fallback
-掩盖配置漂移。该约束只适用于 API upstream，不得同步修改前端或对象存储
-upstream。
-
-若 Nginx 出现 `upstream prematurely closed connection while reading response
-header from upstream`，先只读核对故障时间窗内的 Nginx 日志、API 容器
-`RestartCount`、OOM 状态和前后健康请求。容器无重启、无 OOM，且相邻请求正常时，
-重点核对生效 Nginx 配置和 API 进程参数是否仍为 `30s < 35s`。修复必须随完整
-release 发布，并在 reload 前执行 `nginx -t`；Nginx 配置回滚只恢复同一个已验证
-配置版本的模板和安全 snippet，不替换应用镜像。应用回退仍须满足第 5 节的当前
-数据库合同，`0043` 后不得接回历史 backend。
-
-### 4.6 完整验收与更新 `current`
-
-退出 Hostdzire，在本地主工作目录检查公共 DNS、健康端点和首页：
-
-```sh
-set -eu
-dig +short @8.8.8.8 geo.962850.xyz A
-deploy/scripts/smoke.sh https://geo.962850.xyz
-curl --fail --silent --show-error https://geo.962850.xyz/ |
-  grep -o '<title>[^<]*'
-```
-
-公共 DNS 必须指向既有入口，首页标题必须是 PartSignal，ready 响应中的 PostgreSQL 与 Redis 均应为 `ok`。API 刚替换时可以使用有上限的重试；持续失败不能忽略为成功。
-
-涉及前端或 Nginx 缓存策略时，检查真实构建产物：
-
-```sh
-set -eu
-ASSET_PATH=$(curl --fail --silent https://geo.962850.xyz/ |
-  sed -n 's#.*src="\(/assets/[^"]*\.js\)".*#\1#p')
-test -n "$ASSET_PATH"
-curl --fail --silent --show-error --compressed -D - -o /dev/null \
-  "https://geo.962850.xyz${ASSET_PATH}"
-curl --fail --silent --show-error --compressed -D - -o /dev/null \
-  https://geo.962850.xyz/index.html
-curl --fail --silent --show-error --compressed -D - -o /dev/null \
-  https://geo.962850.xyz/login
-test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
-  https://geo.962850.xyz/assets/partsignal-missing.js)" = 404
-test "$(curl --silent --output /dev/null --write-out '%{http_code}' \
-  "https://geo.962850.xyz${ASSET_PATH}.map")" = 404
-! curl --fail --silent --show-error "https://geo.962850.xyz${ASSET_PATH}" |
-  grep -q 'sourceMappingURL'
-```
-
-带哈希的 `/assets/` 必须返回 `Cache-Control: public, max-age=31536000, immutable` 和 `Vary: Accept-Encoding`；`index.html` 与 `/login` SPA fallback 必须返回 `Cache-Control: no-cache`。缺失 asset 和对应公开 `.map` 必须为 `404`，实际 JS 不得包含 `sourceMappingURL`。WOFF2 不应返回 `Content-Encoding: gzip`。`/object-storage/` 出现 `502` 时停止验收，检查 `fake-oss` 的 internal 与 edge 网络。
-
-上述 `/`、`/index.html` 和 `/assets/*` 三类响应还必须同时返回：
-
-- `Content-Security-Policy`，其中 `script-src` 仅含 `'self'`，并包含 `trusted-types dompurify; require-trusted-types-for 'script'`；
-- `Strict-Transport-Security: max-age=31536000`；
-- `Cross-Origin-Opener-Policy: same-origin`；
-- `X-Frame-Options: DENY`；
-- `X-Content-Type-Options: nosniff`；
-- `Referrer-Policy: strict-origin-when-cross-origin`。
-
-任一缓存头或项目安全头缺失、重复或漂移都停止验收。`style-src 'unsafe-inline'` 只为现有 Ant Design CSS-in-JS 保留；`connect-src` 与 `img-src` 的 `https:` 只覆盖已确认的对象存储直传和图片 URL，不得放宽 `script-src`。
-
-命令行检查通过后，用本机浏览器通过真实公网域名完成登录后只读验收：
-
-1. 未登录访问最终进入 `/login`，标题和正文正常渲染，不停留在加载态或空白页。
-2. 只把 Hostdzire 共享环境文件中的 `PARTSIGNAL_SEED_ADMIN_PASSWORD` 读入浏览器自动化内存；不得输出、记录、写入临时文件或读取整个环境文件。
-3. 密码提交前不抓取可能包含密码值的 DOM 快照或截图；登录后只读检查 `/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/ai` 与 `/system/audit`。
-4. 对代表性 client route 验证 direct link、refresh、Back/Forward，并确认非 ADMIN 访问管理路由时保留 URL 且显示服务端权限拒绝。
-5. 登录前后控制台无应用级 `error` 或 `warning`、CSP violation 或失败 chunk/request；静态资源、认证、脚本或路由失败均视为验收失败。
-6. 只做只读检查，不创建业务数据、不修改线上配置；结束后退出登录、关闭标签页并清除运行时凭据引用。
-
-不得在服务器或容器安装浏览器环境，也不运行视觉基线截图。浏览器能力不可用时记录“UI 未验证”并停止完整发布，不能用 `curl` 代替真实渲染。
-
-公网固定 `AI_ALLOW_LOCAL_HTTP=false`，不得运行依赖 `http://127.0.0.1:9001` Mock Provider 的纵向 E2E，也不得为测试放宽策略。完整纵向 E2E 只在本地或 CI 隔离环境使用真实 PostgreSQL、Redis、Celery 和显式 Mock Provider。
-
-通过 SSH 对 Hostdzire 做最后只读复核：
-
-```sh
-ssh -F /Users/sc/.ssh/config hostdzire \
-  "docker ps --format '{{.Names}}|{{.Status}}'; nginx -t; free -h; df -h /"
-```
-
-全部验收通过后，从本机进入 Hostdzire：
-
-```sh
-ssh -F /Users/sc/.ssh/config hostdzire
-```
-
-在 Hostdzire 原子更新最后验收记录：
-
-```sh
-set -eu
-printf '输入已验收的 release ID：' >&2
-IFS= read -r RELEASE_ID
-printf '%s\n' "$RELEASE_ID" |
-  grep -Eq '^mvp-[0-9]{8}-[0-9]{6}-[0-9a-f]{12}$'
-
-NEXT_LINK="/root/partsignal/.current-${RELEASE_ID}"
-test -d "/root/partsignal/releases/${RELEASE_ID}"
-test ! -e "$NEXT_LINK" && test ! -L "$NEXT_LINK"
-ln -s "releases/${RELEASE_ID}" "$NEXT_LINK"
-mv -Tf "$NEXT_LINK" /root/partsignal/current
-test "$(readlink /root/partsignal/current)" = "releases/${RELEASE_ID}"
-```
-
-`current` 只记录最后完成相应验收范围的 release，不是流量开关。固定 Compose 项目和端口上的容器在记录更新前已经替换。至少保留一个已验证旧 release 及其镜像；清理操作不属于发布。
-
-## 5. 回滚与恢复
-
-### 5.1 Staging V1 UI 回退与 V2 UI 恢复
-
-本节只用于数据库已进入 `0043_geo_platform_identity` 后的 Staging frontend-only
-切换，不是整栈应用回滚。API、Worker、Scheduler 和 `fake-oss` 必须已是同一个
-candidate backend 且在切换全程不变；PostgreSQL 只前进，不执行 migration、downgrade、
-restore、seed 或 SQL 写入。历史 V1 release 的 frontend/backend 都不得用于本节。
-
-从本机进入 Hostdzire 后，仅在已授权的 staging 窗口执行以下步骤。首先输入已记录在
-activation 证据中的唯一 candidate release 和三个 Docker image ID：
-
-```sh
-set -eu
-printf '输入 candidate release ID：' >&2
-IFS= read -r ps_candidate_release
-printf '%s\n' "$ps_candidate_release" |
-  grep -Eq '^mvp-[0-9]{8}-[0-9]{6}-[0-9a-f]{12}$'
-
-printf '输入 candidate backend image ID：' >&2
-IFS= read -r ps_backend_image_id
-printf '输入 candidate-aligned V1 UI image ID：' >&2
-IFS= read -r ps_v1_image_id
-printf '输入 candidate V2 UI image ID：' >&2
-IFS= read -r ps_v2_image_id
-for ps_image_id in \
-  "$ps_backend_image_id" "$ps_v1_image_id" "$ps_v2_image_id"
-do
-  case "$ps_image_id" in
-    sha256:*) ;;
-    *) printf '%s\n' "镜像 ID 无效：$ps_image_id" >&2; exit 1 ;;
-  esac
-done
-
-ps_release_dir="/root/partsignal/releases/${ps_candidate_release}"
-ps_backend_image="partsignal-backend:${ps_candidate_release}"
-ps_v1_repo=partsignal-frontend-v1
-ps_v2_repo=partsignal-frontend
-ps_v1_image="${ps_v1_repo}:${ps_candidate_release}"
-ps_v2_image="${ps_v2_repo}:${ps_candidate_release}"
-test -d "$ps_release_dir/deploy"
-cd "$ps_release_dir/deploy"
-
-test "$(docker image inspect --format '{{.Id}}' "$ps_backend_image")" = \
-  "$ps_backend_image_id"
-test "$(docker image inspect --format '{{.Id}}' "$ps_v1_image")" = \
-  "$ps_v1_image_id"
-test "$(docker image inspect --format '{{.Id}}' "$ps_v2_image")" = \
-  "$ps_v2_image_id"
-
-ps_up_help=$(docker compose up --help)
-for ps_flag in \
-  --no-deps --no-build --pull --force-recreate --wait --wait-timeout
-do
-  printf '%s\n' "$ps_up_help" | grep -F -- "$ps_flag" >/dev/null
-done
-```
-
-镜像缺失、tag 与已批准 image ID 不匹配、Compose 不支持任一 flag 时立即停止。
-`--no-build` 不禁止 pull，因此不得省略 `--pull never`。
-
-用原生 Docker/Compose/PostgreSQL 命令记录非敏感 protected state。该快照不读取或输出容器
-environment；审计目录保留到本次窗口证据归档：
-
-```sh
-ps_audit_dir=$(mktemp -d /root/partsignal/frontend-switch.XXXXXX)
-chmod 0700 "$ps_audit_dir"
-
-ps_snapshot_protected_state() {
-  ps_snapshot_path=$1
-  {
-    for ps_service in postgres redis fake-oss api worker scheduler
-    do
-      ps_container_id=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
-        docker compose --env-file ../.env.staging -f compose.staging.yaml \
-        ps -q "$ps_service")
-      test -n "$ps_container_id"
-      printf '%s|' "$ps_service"
-      docker inspect --format \
-        '{{.Id}}|{{.Config.Image}}|{{.Image}}|{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \
-        "$ps_container_id"
-    done
-
-    docker ps -aq \
-      --filter label=com.docker.compose.project=partsignal-staging \
-      --filter label=com.docker.compose.service=migrate |
-      sort |
-      while IFS= read -r ps_migrate_id
-      do
-        test -z "$ps_migrate_id" || docker inspect --format \
-          'migrate|{{.Id}}|{{.Config.Image}}|{{.Image}}|{{.State.Status}}' \
-          "$ps_migrate_id"
-      done
-
-    ps_revision=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
-      docker compose --env-file ../.env.staging -f compose.staging.yaml \
-      exec -T postgres psql -U partsignal -d partsignal -Atc \
-      'select version_num from alembic_version')
-    test "$ps_revision" = 0043_geo_platform_identity
-    printf 'alembic_version|%s\n' "$ps_revision"
-
-    ps_current=$(readlink /root/partsignal/current)
-    ps_nginx_target=$(
-      readlink -f /etc/nginx/sites-enabled/partsignal-staging.conf
-    )
-    printf 'current|%s\n' "$ps_current"
-    printf 'nginx_target|%s\n' "$ps_nginx_target"
-    sha256sum \
-      /etc/nginx/sites-enabled/partsignal-staging.conf \
-      /etc/nginx/snippets/partsignal-security-headers.conf
-  } >"$ps_snapshot_path"
-}
-
-for ps_service in fake-oss api worker scheduler
-do
-  ps_container_id=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
-    docker compose --env-file ../.env.staging -f compose.staging.yaml \
-    ps -q "$ps_service")
-  test -n "$ps_container_id"
-  test "$(docker inspect --format '{{.Config.Image}}' "$ps_container_id")" = \
-    "$ps_backend_image"
-  test "$(docker inspect --format '{{.Image}}' "$ps_container_id")" = \
-    "$ps_backend_image_id"
-  test "$(docker inspect --format '{{.State.Status}}' "$ps_container_id")" = \
-    running
-done
-
-for ps_service in postgres redis api worker scheduler
-do
-  ps_container_id=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
-    docker compose --env-file ../.env.staging -f compose.staging.yaml \
-    ps -q "$ps_service")
-  test -n "$ps_container_id"
-  test "$(docker inspect --format '{{.State.Health.Status}}' \
-    "$ps_container_id")" = healthy
-done
-
-ps_snapshot_protected_state "$ps_audit_dir/before.txt"
-```
-
-若四个 backend service 不是同一固定 candidate image、任一 protected service 未运行、DB revision
-不是 `0043_geo_platform_identity`、Nginx/current 无法快照，或 PostgreSQL、Redis、API、Worker、
-Scheduler 任一 health 不是 `healthy`，不执行后续 `up`；`fake-oss` 必须为 `running`。
-
-先渲染并 dry-run 对称命令；输出中出现任一 protected service 容器名称时停止：
-
-```sh
-test "$(PARTSIGNAL_FRONTEND_IMAGE="$ps_v1_repo" \
-  PARTSIGNAL_VERSION="$ps_candidate_release" \
-  docker compose --env-file ../.env.staging -f compose.staging.yaml \
-  config --images frontend)" = "$ps_v1_image"
-test "$(PARTSIGNAL_FRONTEND_IMAGE="$ps_v2_repo" \
-  PARTSIGNAL_VERSION="$ps_candidate_release" \
-  docker compose --env-file ../.env.staging -f compose.staging.yaml \
-  config --images frontend)" = "$ps_v2_image"
-
-PARTSIGNAL_FRONTEND_IMAGE="$ps_v1_repo" \
-PARTSIGNAL_VERSION="$ps_candidate_release" \
-docker compose --env-file ../.env.staging -f compose.staging.yaml \
-  --dry-run up -d --wait --wait-timeout 60 --no-deps --no-build \
-  --pull never --force-recreate frontend \
-  >"$ps_audit_dir/v1-dry-run.txt" 2>&1
-PARTSIGNAL_FRONTEND_IMAGE="$ps_v2_repo" \
-PARTSIGNAL_VERSION="$ps_candidate_release" \
-docker compose --env-file ../.env.staging -f compose.staging.yaml \
-  --dry-run up -d --wait --wait-timeout 60 --no-deps --no-build \
-  --pull never --force-recreate frontend \
-  >"$ps_audit_dir/v2-dry-run.txt" 2>&1
-
-grep -F frontend "$ps_audit_dir/v1-dry-run.txt" >/dev/null
-grep -F frontend "$ps_audit_dir/v2-dry-run.txt" >/dev/null
-! grep -E 'partsignal-staging-(postgres|redis|fake-oss|api|worker|scheduler|migrate)(-|[[:space:]])' \
-  "$ps_audit_dir/v1-dry-run.txt" "$ps_audit_dir/v2-dry-run.txt"
-```
-
-V1 UI 回退只执行下列一条 Compose 命令：
-
-<!-- frontend-v1-fallback-command:start -->
-```sh
-PARTSIGNAL_FRONTEND_IMAGE="$ps_v1_repo" \
-PARTSIGNAL_VERSION="$ps_candidate_release" \
-docker compose --env-file ../.env.staging -f compose.staging.yaml \
-  up -d --wait --wait-timeout 60 --no-deps --no-build --pull never \
-  --force-recreate frontend
-```
-<!-- frontend-v1-fallback-command:end -->
-
-立即验证 protected state 未变、frontend 精确使用 V1 image ID，再做回环和公网检查：
-
-```sh
-ps_snapshot_protected_state "$ps_audit_dir/after-v1.txt"
-cmp "$ps_audit_dir/before.txt" "$ps_audit_dir/after-v1.txt"
-ps_frontend_id=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
-  docker compose --env-file ../.env.staging -f compose.staging.yaml \
-  ps -q frontend)
-test -n "$ps_frontend_id"
-test "$(docker inspect --format '{{.Image}}' "$ps_frontend_id")" = \
-  "$ps_v1_image_id"
-curl --fail --silent --show-error \
-  http://127.0.0.1:19000/api/health/ready >/dev/null
-curl --fail --silent --show-error http://127.0.0.1:19080/ |
-  grep -F 'PartSignal · GEO 内容运营' >/dev/null
-curl --fail --silent --show-error https://geo.962850.xyz/ |
-  grep -F 'PartSignal · GEO 内容运营' >/dev/null
-```
-
-使用真实公网域名只读检查 V1 `/`、`/products`、`/tasks`、`/publications`、
-`/observations`、`/configuration/ai`、`/users` 和 `/audit`，覆盖登录、direct link、refresh、
-Back/Forward、权限拒绝、console/request/CSP 失败。本节只读验收，不从 UI 发起写操作。
-V1 的既有 production build 会包含 source map；这是临时 V1 回退 marker，不得冒充第 4.6 节的
-V2 `.map=404` 验收通过。
-
-恢复 V2 UI 同样只执行一条 Compose 命令：
-
-<!-- frontend-v2-restore-command:start -->
-```sh
-PARTSIGNAL_FRONTEND_IMAGE="$ps_v2_repo" \
-PARTSIGNAL_VERSION="$ps_candidate_release" \
-docker compose --env-file ../.env.staging -f compose.staging.yaml \
-  up -d --wait --wait-timeout 60 --no-deps --no-build --pull never \
-  --force-recreate frontend
-```
-<!-- frontend-v2-restore-command:end -->
-
-恢复后必须再次证明 protected state 未变，并恢复 V2 marker 与完整第 4.6 节合同：
-
-```sh
-ps_snapshot_protected_state "$ps_audit_dir/after-v2.txt"
-cmp "$ps_audit_dir/before.txt" "$ps_audit_dir/after-v2.txt"
-ps_frontend_id=$(PARTSIGNAL_VERSION="$ps_candidate_release" \
-  docker compose --env-file ../.env.staging -f compose.staging.yaml \
-  ps -q frontend)
-test -n "$ps_frontend_id"
-test "$(docker inspect --format '{{.Image}}' "$ps_frontend_id")" = \
-  "$ps_v2_image_id"
-curl --fail --silent --show-error \
-  http://127.0.0.1:19000/api/health/ready >/dev/null
-curl --fail --silent --show-error http://127.0.0.1:19080/ |
-  grep -F 'PartSignal Frontend V2' >/dev/null
-curl --fail --silent --show-error https://geo.962850.xyz/ |
-  grep -F 'PartSignal Frontend V2' >/dev/null
-```
-
-重新执行第 4.6 节的 V2 hashed asset、cache、公开 `.map=404`、无 `sourceMappingURL`、
-安全头与浏览器验收。两次切换都不更新 `/root/partsignal/current`：它保留切换前的
-最后验收记录，在首次 activation 失败时仍可能指向上一 release，不能当作实际容器身份。
-
-任一 `up` 非零、frontend image ID/marker 不匹配、protected snapshot 变化、API/UI 验证失败
-或 V2 无法恢复时，立即停止新操作并保留审计目录。不启动旧 backend，不执行 downgrade/
-restore，不改 `0043`，不添加兼容字段/fallback，不用 `--remove-orphans`、整栈重启或 Nginx 变更
-掩盖失败。
-
-### 5.2 数据库恢复边界
-
-默认不执行 Alembic downgrade。新迁移涉及删除列、数据重写或其他不可逆行为时，停止应用写入并保留故障现场备份；负责人确认恢复窗口和数据取舍后，才可恢复迁移前完整备份并启动兼容旧 release。
-
-恢复前必须按第 4.3 节在隔离数据库通过 `restore-verify.sh`。仓库当前只提供备份生成和隔离恢复验证脚本，不提供可推测执行的 staging 主库覆盖脚本；真实主库恢复必须使用经审核的维护方案，不能把 `VERIFY_DATABASE_URL` 指向 staging 主库。
-
-数据库备份与当时的 `AI_CREDENTIAL_ENCRYPTION_KEY` 必须成对保留。恢复数据库但使用另一主密钥，会使已有 AI 渠道凭据无法解密。任何恢复都不删除 `/root/partsignal-data`、旧 release、镜像或其他备份。
-
-## 6. 详细排障
-
-### 6.1 常见故障
-
-| 现象 | 判断与处理 |
-| --- | --- |
-| 快速脚本报告关键路径变化 | 不绕过，改走主 Runbook 的完整发布 |
-| 发布失败且 `current` 仍是旧值 | `current` 不是流量开关；先核对实际 container/image/DB revision。`0043` 后只能在第 5.1 节全部前置满足时切换 candidate-aligned V1 UI，不重启历史整栈 |
-| Alembic 报源码含空字节，或发布包出现 `._*` | AppleDouble 文件进入提交；清理后形成新的已推送提交，不改用未提交打包 |
-| 发布包含环境文件或密钥 | 立即停止，清理仓库敏感文件并形成新的已推送提交 |
-| `/object-storage/` 返回 `502` | 确认 `fake-oss` 同时位于 `partsignal-staging-internal` 与 `partsignal-staging-edge` |
-| 直接访问 WireGuard HTTPS 被重置 | Hostdzire Nginx 要求 `proxy_protocol`；通过公网域名验证 |
-| HTML、JS 或 CSS 只有缓存头、缺少安全头 | 检查 Nginx 版本、项目 snippet include 与 `add_header_inherit merge`，不得在 location 复制安全头 |
-| CSP 或 Trusted Types 阻断启动/交互 | 运行 `node deploy/scripts/check-nginx-security.mjs` 和 Trusted Types 跨浏览器用例，修复未迁移 sink 或依赖补丁后走完整发布；不得启用 `script-src 'unsafe-inline'` 或宽松 default policy |
-| API 偶发 `upstream prematurely closed connection` 502 | 只读核对 Nginx 故障时间窗、API `RestartCount`、OOM 与相邻健康请求，再确认 API upstream 为 `30s < 35s`；不得增加代理或业务重试 |
-| API 重建后短暂 reset | 使用有上限的重试；持续失败时检查 API 日志，不忽略为成功 |
-| 生成作业不推进 | 检查 Worker、Scheduler、Redis Broker 和 PostgreSQL 作业状态；Redis 不是业务状态源 |
-| 宿主机访问外部 AI 正常、容器访问同一域名 TCP 超时 | 比较宿主机与容器 DNS；若域名解析为宿主机自身公网 IP，核对第 3.1.1 节 Docker bridge → 公网 443 精确规则，不放宽其他端口 |
-| AI 凭据无法解密 | 恢复匹配主密钥或显式重新录入；不得静默回退 |
-| SSH `Permission denied (publickey)` | 用指定 OpenSSH 配置对 `hostdzire` 做只读身份探测，不手工拼接主机、端口或身份文件 |
-| 公网 E2E 返回 `AI_URL_FORBIDDEN` | 安全策略正常；纵向 E2E 只在隔离的本地或 CI 环境执行 |
-
-### 6.2 Hostdzire 只读诊断
-
-进入 Hostdzire 后先观察，不先清理或重启：
-
-```sh
-readlink -f /root/partsignal/current
-docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-nginx -t
-ss -lnt
-free -h
-df -h /
-```
-
-排查生成积压时同时检查 Worker、Scheduler、Redis Broker 和 PostgreSQL 作业状态。诊断输出只允许包含数量、年龄、错误码和供应商耗时，不包含 Prompt、响应正文或凭据。消息风暴时先停止 Scheduler；不得批量改写 PostgreSQL 作业状态或自动重放已经进入 `RUNNING`、`FAILED` 的作业。
-
-`preflight-integrity` 的任何记录都必须通过明确业务处置修复，不得自动改绑、删除、回退或维护隐藏 allowlist。应用、迁移、Nginx 或探针失败应保留非敏感日志和现场，不用固定成功响应、静默回退或放宽安全配置掩盖。
-
-### 6.3 DMIT 入口只读诊断
-
-只有 Hostdzire 本机服务正常、但公网入口异常时，才通过 `/Users/sc/.ssh/config` 在 DMIT 执行只读探测：
-
-```sh
-ssh -F /Users/sc/.ssh/config dmit \
-  'systemctl is-active nginx; ss -lnt; wg show'
-```
-
-不得通过 `dmit` 上传 release、修改 Nginx、重启服务或更新任何 PartSignal 状态。
+观察期记录 Nginx 5xx/upstream、API error、restart/OOM、Worker/Scheduler、DB/Redis、AI/OSS 与核心业务结果。只有 Observation Gate=`MET` 后才能单独实施 V1 源码/pipeline 删除；quarantine、旧 release/image、fake-oss 和 `.env.staging` 清理仍需破坏性授权。

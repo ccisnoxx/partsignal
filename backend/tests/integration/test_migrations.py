@@ -84,7 +84,7 @@ def run_alembic(
     )
 
 
-def seed_accounts(
+def initialize_accounts(
     env: dict[str, str],
     backend_dir: Path,
     admin_password: str = ADMIN_PASSWORD,
@@ -96,7 +96,7 @@ def seed_accounts(
             sys.executable,
             "-m",
             "app.cli",
-            "seed-demo",
+            "initialize-accounts",
             "--password",
             admin_password,
             "--engineer-password",
@@ -278,7 +278,7 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
     """空库初始化两个独立账号，重复部署不得覆盖既有账号。"""
     with temporary_database("partsignal_test") as (test_url, env, backend_dir):
         run_alembic(env, backend_dir, "head")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
 
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT version_num FROM alembic_version")
@@ -403,7 +403,12 @@ def test_fresh_postgresql_migrates_to_head_and_seed_is_idempotent() -> None:
             )
             connection.commit()
 
-        seed_accounts(env, backend_dir, "different-admin-password", "different-engineer-password")
+        initialize_accounts(
+            env,
+            backend_dir,
+            "different-admin-password",
+            "different-engineer-password",
+        )
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute(
                 "SELECT username, display_name, password_hash, is_active, revision "
@@ -886,7 +891,7 @@ def test_platform_prompts_move_from_type_to_each_profile() -> None:
     """0014 为每个具体平台复制当前 Prompt，并丢弃没有平台的孤立 Prompt。"""
     with temporary_database("partsignal_prompt_ownership") as (test_url, env, backend_dir):
         run_alembic(env, backend_dir, "0013_publication_closure")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
         owner_type, orphan_type = uuid.uuid4(), uuid.uuid4()
         first_profile, second_profile = uuid.uuid4(), uuid.uuid4()
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
@@ -949,7 +954,7 @@ def test_platform_rule_draft_editing_guard() -> None:
     """0015 仅允许 DRAFT 原地更新规则，并可恢复旧触发器。"""
     with temporary_database("partsignal_rule_draft") as (test_url, env, backend_dir):
         run_alembic(env, backend_dir, "0014_platform_prompt_ownership")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
         platform_type_id = uuid.uuid4()
         profile_id, other_profile_id = uuid.uuid4(), uuid.uuid4()
         draft_id, active_id, retired_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
@@ -1065,7 +1070,7 @@ def test_fact_review_cleanup_guard() -> None:
         backend_dir,
     ):
         run_alembic(env, backend_dir, "0015_platform_rule_draft_editing")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
         product_id = uuid.uuid4()
         first_fact_id, second_fact_id = uuid.uuid4(), uuid.uuid4()
         first_review_id, second_review_id = uuid.uuid4(), uuid.uuid4()
@@ -1683,7 +1688,7 @@ def test_audit_outcome_migration_backfills_exact_results_and_blocks_lossy_downgr
     """0024 精确分类历史结果，并在空对象标识存在时拒绝有损降级。"""
     with temporary_database("partsignal_audit_outcome") as (test_url, env, backend_dir):
         run_alembic(env, backend_dir, "0023_platform_management")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
         audit_ids = [uuid.uuid4() for _ in range(6)]
         target_ids = [uuid.uuid4() for _ in range(6)]
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
@@ -1821,7 +1826,7 @@ def test_audit_outcome_migration_rejects_unknown_history_atomically() -> None:
     """未分类 action/target 组合必须阻断 0024，不能写 OTHER 或留下半迁移列。"""
     with temporary_database("partsignal_audit_unknown") as (test_url, env, backend_dir):
         run_alembic(env, backend_dir, "0023_platform_management")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
         unknown_id = uuid.uuid4()
         with psycopg.connect(test_url) as connection, connection.cursor() as cursor:
             cursor.execute("SELECT id FROM users WHERE username = 'admin'")
@@ -2373,7 +2378,7 @@ def test_publication_account_dedup_migration_adds_constraints_and_downgrades() -
     """0026 去除两侧空白，增加 revision 与同平台规范化唯一约束。"""
     with temporary_database("partsignal_account_dedup") as (test_url, env, backend_dir):
         run_alembic(env, backend_dir, "0025_markdown_facts")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
         platform_profile_id, account_ids = seed_platform_accounts_for_0026(
             test_url,
             ["  Operator-A  ", "+86 13800000000 + 张三"],
@@ -2454,7 +2459,7 @@ def test_publication_account_dedup_migration_rejects_existing_duplicates_atomica
         backend_dir,
     ):
         run_alembic(env, backend_dir, "0025_markdown_facts")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
         seed_platform_accounts_for_0026(
             test_url,
             [" Operator-A ", "operator-a"],
@@ -2487,7 +2492,7 @@ def test_audit_user_delete_guard_is_targeted_and_reversible() -> None:
         backend_dir,
     ):
         run_alembic(env, backend_dir, "0026_publication_account_dedup")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
         target_id, replacement_target_id = uuid.uuid4(), uuid.uuid4()
         target_audit_id, other_audit_id = uuid.uuid4(), uuid.uuid4()
 
@@ -2647,7 +2652,7 @@ def test_platform_logo_lifecycle_migration_initializes_retention_and_guards_link
         backend_dir,
     ):
         run_alembic(env, backend_dir, "0027_audit_user_delete_guard")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
         platform_type_id = uuid.uuid4()
         platform_profile_id = uuid.uuid4()
         linked_logo_id = uuid.uuid4()
@@ -2759,7 +2764,7 @@ def test_geo_evidence_migration_removes_stages_and_guards_manual_delete() -> Non
     """0029 删除累计字段，只按事务声明放行人工观测删除。"""
     with temporary_database("partsignal_geo_evidence") as (test_url, env, backend_dir):
         run_alembic(env, backend_dir, "0028_platform_logo_lifecycle")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
         product_id = uuid.uuid4()
         topic_id = uuid.uuid4()
         manual_id = uuid.uuid4()
@@ -2869,7 +2874,7 @@ def test_publication_record_delete_migration_guards_target_and_public_history() 
         backend_dir,
     ):
         run_alembic(env, backend_dir, "0029_geo_evidence_management")
-        seed_accounts(env, backend_dir)
+        initialize_accounts(env, backend_dir)
         ids = {
             name: uuid.uuid4()
             for name in (

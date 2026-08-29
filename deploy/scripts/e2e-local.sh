@@ -96,7 +96,7 @@ fi
 VITE_API_BASE_URL=http://127.0.0.1:8000 npm --prefix frontend-v2 run build
 PARTSIGNAL_SEED_ADMIN_PASSWORD=$PARTSIGNAL_SEED_ADMIN_PASSWORD \
 PARTSIGNAL_SEED_ENGINEER_PASSWORD=$PARTSIGNAL_SEED_ENGINEER_PASSWORD \
-  backend/.venv/bin/python -m app.cli seed-demo
+  backend/.venv/bin/python -m app.cli initialize-accounts
 
 OBJECT_STORAGE_ENDPOINT="$storage_endpoint" \
 OBJECT_STORAGE_PUBLIC_ENDPOINT="$storage_endpoint" OBJECT_STORAGE_PATH="$storage_dir" \

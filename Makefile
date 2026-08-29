@@ -3,7 +3,7 @@ COMPOSE := docker compose --env-file .env -f deploy/compose.dev.yaml
 UV_CACHE_DIR ?= $(CURDIR)/.cache/uv
 UV := UV_CACHE_DIR=$(UV_CACHE_DIR) uv
 
-.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate seed-demo lint typecheck test-unit test-integration e2e build build-frontend-v2 verify test-deploy-scripts test-frontend-v2-container staging-redeploy-fast down
+.PHONY: bootstrap contract-generate contract-check dev dev-infra migrate initialize-accounts lint typecheck test-unit test-integration e2e build build-frontend-v2 verify test-deploy-scripts test-frontend-v2-container staging-redeploy-fast down
 
 bootstrap:
 	@test -f .env || cp .env.example .env
@@ -32,8 +32,8 @@ dev-infra:
 migrate:
 	$(COMPOSE) run --rm migrate
 
-seed-demo:
-	$(COMPOSE) run --rm api python -m app.cli seed-demo
+initialize-accounts:
+	$(COMPOSE) run --rm api python -m app.cli initialize-accounts
 
 lint:
 	$(UV) run --project backend ruff check backend
@@ -65,12 +65,13 @@ build:
 build-frontend-v2:
 	docker build -f frontend-v2/Dockerfile -t partsignal-frontend-v2:test frontend-v2
 
-verify: contract-check lint typecheck test-unit test-integration build e2e
+verify: contract-check lint typecheck test-unit test-integration build e2e test-deploy-scripts
 	$(COMPOSE) config --quiet
-	PARTSIGNAL_BACKEND_IMAGE=partsignal-backend PARTSIGNAL_VERSION=test docker compose --env-file .env -f deploy/compose.prod.yaml config --quiet
+	PARTSIGNAL_BACKEND_IMAGE=partsignal-backend PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v2 PARTSIGNAL_VERSION=test PARTSIGNAL_RUNTIME_ENV_FILE=$(CURDIR)/.env PARTSIGNAL_DATA_ROOT=$(CURDIR)/data docker compose --env-file .env -f deploy/compose.prod.yaml config --quiet
 
 test-deploy-scripts: test-frontend-v2-container
 	deploy/scripts/test-deploy-staging.sh
+	deploy/scripts/test-deploy-production.sh
 
 test-frontend-v2-container: build-frontend-v2
 	deploy/scripts/test-frontend-v2-container.sh

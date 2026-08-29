@@ -154,3 +154,24 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 185: Hostdzire V2 clean deployment planning and repository contract
+
+**Date**: 2026-08-30
+**Task**: Hostdzire V2 clean deployment planning and repository contract
+**Branch**: `main`
+
+### Summary
+
+完成 Hostdzire 只读 inventory 与部署规划；实现 Production registry/local 镜像交付、manifest V1 fail-closed、测试与运维文档，远端部署按范围决定未执行并归档。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `111a2b2b` | (see git log) |
+
+### Status
+
+[OK] **Completed**

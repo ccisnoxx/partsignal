@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 184
-- **Last Active**: 2026-08-29
+- **Total Sessions**: 185
+- **Last Active**: 2026-08-30
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~156 | Active |
+| `journal-4.md` | ~177 | Active |
 | `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 185 | 2026-08-30 | Hostdzire V2 clean deployment planning and repository contract | `111a2b2b` | `main` |
 | 184 | 2026-08-29 | Frontend V2 开发切换与 V1 退役 | `4bf881ac` | `codex/frontend-v2-development-cutover-v1-retirement` |
 | 183 | 2026-08-29 | Frontend V2 Production 发布准备收口 | `592ebe5f` | `main` |
 | 182 | 2026-08-26 | 完成 production snapshot sanitizer 本地实现 | `03d4813e`, `217d011c` | `main` |

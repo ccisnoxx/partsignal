@@ -1,5 +1,11 @@
 # Frontend V2 Phase 9 Production-like Rehearsal
 
+## 0. Development Closeout（2026-08-29）
+
+本 Task 因当前开发阶段范围决策终止：outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`。sanitized production snapshot 依赖不再执行，rehearsal 从未启动；没有创建 clone、访问 production/staging、启动浏览器或执行本 Task 规划中的任何外部步骤。
+
+`NOT_APPLICABLE` 不表示 rehearsal 成功或安全验证完成。以下原始规划作为历史决策记录保留，但不得继续执行。未来进入真实生产发布准备时，必须基于届时的数据敏感度、规模、备份恢复目标与部署架构重新创建 Release Readiness Task，不从本 Task 恢复。
+
 ## 1. 目标与价值
 
 消费已独立验收的 sanitized production snapshot，在专用临时私有环境中恢复隔离 clone，使用包含 legacy routing 的固定 Frontend V2 candidate 执行 production-like 数据与核心业务演练。最终证据必须能证明：production source 未被本 Task 连接或写入、clone 身份与数据规模可追溯、真实外部副作用为零、production object payload 为零、核心 V2/legacy 路径可用，以及 clone 已按单独授权清理或隔离保留。
@@ -66,6 +72,10 @@
 - D4 任务边界（2026-08-26）：独立子 Task frontend-v2-phase-9-production-snapshot-sanitization 先交付 sanitized snapshot；本 Task 只消费其已验收产物。
 
 ## 6. 验收标准
+
+- [x] 当前开发阶段范围决策已记录为 outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`。
+- [x] sanitized snapshot 依赖已终止，rehearsal 未启动且没有外部资源需要处理。
+- [x] 未来 production Release Readiness 必须重新规划，不从本 Task 恢复。
 
 - [x] D1–D4 已确认，无阻塞性的用户决策。
 - [x] design.md 冻结依赖、clone、artifact、副作用、对象、验证、停止与 cleanup owner。

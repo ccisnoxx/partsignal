@@ -3,4 +3,4 @@
 {"file":".trellis/spec/infra/development-object-storage.md","reason":"按 fake object storage 的真实文件流、端口 owner 与缺失对象显式失败合同执行"}
 {"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行 V2 production artifact、浏览器错误监听与质量门禁"}
 {"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-like-rehearsal/research/audit.md","reason":"按已核验的 restore、Compose、数据、副作用与 candidate 缺口实施"}
-{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization/prd.md","reason":"父 Task只消费子 Task Gate=MET 的 sanitized snapshot 合同"}
+{"file":".trellis/tasks/archive/2026-08/08-26-frontend-v2-phase-9-production-snapshot-sanitization/prd.md","reason":"保留已归档 sanitizer Task 的历史合同；Development Closeout 不把本地 self-check 冒充 sanitized production artifact"}

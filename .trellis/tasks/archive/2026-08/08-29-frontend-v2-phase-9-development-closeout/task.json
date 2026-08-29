@@ -1,0 +1,39 @@
+{
+  "id": "frontend-v2-phase-9-development-closeout",
+  "name": "frontend-v2-phase-9-development-closeout",
+  "title": "Frontend V2 Phase 9 Development Closeout",
+  "description": "收口 Frontend V2 Phase 9 当前开发阶段，终止 production-grade snapshot/rehearsal 路线并同步路线、质量与 Trellis Task 状态。",
+  "status": "completed",
+  "dev_type": "docs",
+  "scope": "docs,trellis",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-29",
+  "completedAt": "2026-08-29",
+  "branch": "codex/frontend-v2-phase-9-development-closeout",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "docs/frontend-v2/07-migration-plan.md",
+    "docs/frontend-v2/08-testing-quality-and-acceptance.md",
+    ".trellis/tasks/08-26-frontend-v2-phase-9-production-like-rehearsal",
+    ".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution"
+  ],
+  "notes": "PRD-only 轻量收口；不执行产品、合同、数据库、部署或远端变更。归档与提交均等待 exact commit plan 确认。",
+  "meta": {
+    "phase": "Frontend V2 Phase 9",
+    "closeout_mode": "DEVELOPMENT_CLOSEOUT",
+    "production_release_readiness": "DEFERRED",
+    "validation": "PASSED_DOCUMENT_AND_TASK_CONSISTENCY",
+    "spec_update": "NOT_REQUIRED_NO_IMPLEMENTATION_CONTRACT_CHANGE",
+    "external_access_authorized": false,
+    "remote_mutation_authorized": false
+  }
+}

@@ -1,0 +1,15 @@
+{"file":".trellis/spec/backend/index.md","reason":"按 backend Quality Check 入口复核数据库与 credential 边界。"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"复核 schema/revision、不可变历史与 cleanup 未越权。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"应用当前 backend review/validation 要求并识别不相关 full-suite。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"复核任何 evidence/manifest 均未暴露 AI credential、header 或正文。"}
+{"file":".trellis/spec/infra/index.md","reason":"执行 full-scope infra quality check 与外部写授权复核。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核 exact resource ownership、allowlist cleanup 和敏感输出边界。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/local-preflight.md","reason":"比对最终证据与本地基线，禁止把未执行事项标为通过。"}
+{"file":".trellis/tasks/archive/2026-08/08-26-frontend-v2-phase-9-production-snapshot-sanitization/research/evidence.md","reason":"复核 artifact/checksum/self-check lineage。"}
+{"file":".trellis/tasks/archive/2026-08/08-26-frontend-v2-phase-9-production-snapshot-sanitization/research/sanitization-matrix.md","reason":"复核 sanitizer/profile 允许变化与 fail-closed 条件。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/phase-2-coordinated-export-authorization-plan.md","reason":"复核本地协调没有冒充 production 授权，且 client/encryption/cleanup 边界完整。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/phase-2-same-window-execution-packet.md","reason":"复核 accepted design 未冒充 execution authorization，且 exact targets/stop/rollback 完整。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/phase-3-same-window-execution-attempt-pss-20260828-08-database-preflight-command-stop.md","reason":"复核 run08 原始 stderr、准确 quote boundary、pre-database stop 与零远端资源结论均有观察依据。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/phase-3-pss-20260828-09-pre-authorization-execution-packet.md","reason":"复核 run09 identity 唯一、窗口未授权、approval scope 完整且 Gate 保持 NOT_MET。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/database_preflight_invocation.sh","reason":"复核 remote argv round-trip、无 sh -lc、window token 与 invalid argv fail-closed 均在 SSH 前成立。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/acl_fingerprint_v1.sql","reason":"复核 ACL query checksum 与 SQL stream 复用冻结 source of truth。"}

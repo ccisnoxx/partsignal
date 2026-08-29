@@ -403,7 +403,7 @@ Workbench 不新增独立 real-stack spec，而是在四个既有 owner 的自�
 
 敏感保证严格限定到实际 owner：A27 只向 Gate 子进程传递宿主机化 `DATABASE_URL`/`REDIS_URL` 两键；A28 覆盖 Settings repr 与 Pydantic `ValidationError`；A30 用 Celery 顶层 quiet 关闭 broker lifecycle 回显；dev-storage/Playwright 继续关闭签名 URL access log 与 real-stack trace。两轮受控内存输出审查的精确敏感值、Redis URI、Redis connection/broker lifecycle 与签名 query 类别均为 `0`。这不是全局 secret scanner，也不扩大为对所有日志 sink 的保证。
 
-所有历史 `NOT_MET` evidence 保持原结论；本轮判定 Phase 8 Exit Gate=`MET`。Phase 8 父任务未归档，Phase 9 未开始。
+所有历史 `NOT_MET` evidence 保持原结论；本轮判定 Phase 8 Exit Gate=`MET`。这是 Phase 8 的历史结论；Phase 9 当前开发状态见 14.4。
 
 ## 14. Deployment Smoke
 
@@ -443,6 +443,14 @@ fixed candidate `2a6fd940b84890d269bf1196a8c6e16b4cd9a9f9`、release `mvp-202608
 Legacy Playwright 使用独立 strict fixture，只允许 Auth、Product Detail 和用于证明 canonical resource 404 的最小 GET；其他领域 GET 返回明确结构化错误，任何写请求失败。移动端与桌面端共同覆盖全部登记 pathname、代表 query、ID、direct/refresh/Back/Forward、replace/no-loop、匿名登录恢复、恶意 redirect、must-change、ADMIN/ENGINEER、根 404、Content Task 不存在、Product Detail → Facts 入口，以及 `console.error`、`pageerror`、`requestfailed`、`securitypolicyviolation` 监听。它证明 production build/preview 上的路由合同，不复制 backend 业务逻辑，也不冒充真实业务或 Staging E2E。
 
 本地 Required Validation 结果为：Vitest `83 files / 489 passed`；指定 `legacy-routing.spec.ts + auth-session.spec.ts` 在两个 project 共 `16 passed`；typecheck、ESLint `--max-warnings 0` 与 production build 均通过。Build 仍有既有 `markdown-editor` chunk 超过 500 kB 的非阻断警告，本 Task 未修改该 owner。没有运行 backend suite、`make e2e`、`make verify`、SSH 或 Staging；因此此前 external Staging Gate 的通过证据不能替代本轮 legacy route 的远程验证。
+
+### 14.4 Development Closeout 质量门禁
+
+当前开发阶段以可重建环境为质量边界：fresh/rebuilt PostgreSQL、migration、`seed-demo`、isolated real-stack E2E、`make verify` 与 Staging smoke 共同构成有效门禁。既有 Repository Gate、real-stack E2E、`make verify`、production artifact、legacy routing 和外部 Staging Gate=`MET` 证据全部保留，继续证明其各自已经实际覆盖的仓库、隔离真实栈与 Staging 行为。
+
+这些开发门禁不等价于未来 production cutover 验收，也不证明 production snapshot、备份恢复目标、生产数据规模、正式回滚或生产观察已经通过。production snapshot sanitization execution 和 production-like rehearsal 因当前数据可重建的开发阶段范围决策终止，outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`；这既不是 Gate=`MET`，也不是执行失败的重新判定。run `pss_20260828_08` 的零写入、零 object payload、零 retained artifact 事实保持不变，run09 未创建且不再创建。
+
+未来进入真实生产发布准备时，应基于届时的数据敏感度、规模、备份恢复目标和部署架构另行制定 Release Readiness 验收；届时才重新定义 production snapshot/rehearsal、正式 cutover、生产观察与 V1 删除门禁，不从当前已取消 Task 恢复执行。
 
 ## 15. Visual Regression
 

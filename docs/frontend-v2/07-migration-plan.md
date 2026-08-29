@@ -511,21 +511,23 @@ Workbench 最后实现，因为它聚合 Product、Content、Publishing 和 GEO�
 
 A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、既有 dev-storage/Playwright artifact owner 与本轮受控内存审查共同证明本候选的实际敏感输出边界；精确敏感值、Redis URI、Redis connection/broker lifecycle 与签名 query 类别命中均为 `0`，但不宣称存在全局 secret scanner。A25–A30 均为 closed，open P0/P1/P2=`0/0/0`，历史 abstraction review 与旧 recheck 的 `NOT_MET` 结论保持只读；Phase 8 Exit Gate=`MET`。本结论不归档 Phase 8 父任务，也不开始 Phase 9。
 
-## 14. Phase 9 — Cutover
+## 14. Phase 9 — Development Closeout
 
-按独立 Task 执行：
+2026-08-29 起，PartSignal 仍处于业务数据可由 migration 与 seed 重建的开发阶段。当前阶段保留已经完成的 V2 staging 接入、Staging current finalization、外部 Staging Gate=`MET`、candidate-aligned V1 UI fallback compatibility、V1 → V2 legacy routing，以及 production artifact、CSP、source-map 和 deep-link 验证证据；`frontend/`、V1 build/deploy pipeline、当前 Staging V2 与已归档 sanitizer artifact 同样保留。
 
-1. V2 staging 接入；
-2. production-like data rehearsal；
-3. V1 → V2 redirect map 与 direct deep link 验证；
-4. V2 production artifact 与静态资源发布；
-5. 回滚演练；
-6. 正式切换与错误率/API 观察；
-7. 最后删除 V1 build/deploy pipeline 和 `frontend/`。
+production snapshot sanitization execution 与 production-like rehearsal 因范围决策终止，outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`。run `pss_20260828_08` 的实际结论仍是 production write=`0`、object payload copied=`0`、retained artifact=`0`；run09 未创建且不再创建。这不是 production rehearsal 成功，也不是 Cutover Gate=`MET`。
 
-### 14.1 Cutover Gate
+以下工作推迟到未来真正的生产发布准备阶段，不再作为当前开发交付的必过 Gate：
 
-删除或停用 V1 前必须全部满足：
+1. production-like data rehearsal 与回滚演练；
+2. 正式 production cutover 与错误率/API 观察；
+3. 最后删除 V1 build/deploy pipeline 和 `frontend/`。
+
+未来启动 Production Release Readiness 时，必须根据届时的数据敏感度、规模、备份恢复目标和部署架构重新制定计划，不从已取消 Task 恢复执行，也不机械继承当前 snapshot 协议。
+
+### 14.1 Future Cutover Gate（当前 DEFERRED）
+
+当前开发交付的 Cutover Gate=`NOT_APPLICABLE/DEFERRED`。未来删除或停用 V1 前，新的 Release Readiness 计划至少需要重新评估下列条件：
 
 - V2 目标路由全部完成；
 - Product、Content、Publishing、GEO、Configuration、System 核心 E2E 通过；
@@ -540,7 +542,7 @@ A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、�
 - staging production-like rehearsal 与回滚演练完成；
 - V1 删除是单独、可回滚的最后一个 Task。
 
-不长期保留 `/v1` 与 `/v2` 两套路由语义。
+不长期保留 `/v1` 与 `/v2` 两套路由语义；当前只保留 V1 实现与 pipeline 作为回退边界，不执行删除。
 
 ### 14.2 P9.1 Staging 接入状态
 
@@ -549,7 +551,7 @@ A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、�
 - V1 `frontend/`、V1 image owner 和旧 release 均保留；但数据库进入 `0043_geo_platform_identity` 后，历史 release 的 backend 不写 Publication Work 平台 snapshot，历史 frontend 也缺少当前 API 必需的 revision 参数，两者都不再是安全回退 target。
 - P9.1 定向门禁、V2 容器检查、部署脚本检查和完整 `make verify` 已通过：修复后的 foundation-mobile 定向用例 1 passed，最终门禁 backend unit 204 项、V1 unit 205 项、V1 visual 24 项、V2 unit 463 项、backend integration 120 项、V1 E2E 52 项、V2 real-stack 16 项、V2 fixture E2E 383 passed/33 skipped，三套镜像构建及 dev/prod Compose config 同时通过；本地 Repository Gate=`MET`。
 - 用户于 2026-08-25 确认 P9.1 以 Repository Gate=`MET` 收口并归档；外部 Gate 随后由独立任务 `frontend-v2-phase-9-staging-activation-validation` 检查。公网状态、headers、代表 SPA 路径、health、hashed JS/CSS immutable 与 missing asset 404 均通过，但页面标题为候选 V1 固定标题而非 V2 标题，`/assets/index-B12Mu6hl.js.map` 返回 200 且主 JS 含 `sourceMappingURL`。公网未观察到固定候选 V2 artifact，B 也没有可核验完成证据，并违反 source map Required 合同；故外部 Staging Gate=`NOT_MET`，在浏览器前置处停止，没有创建 Playwright session、登录、业务写入或自动回滚。公网行为与候选 V1 source marker 一致；未通过 SSH 复核，不能断言 current/container、入口缓存或其他远程根因。Cutover Gate 仍未满足，V1 源码、旧 release 与回滚边界继续保留。
-- 后续 legacy redirect、production-like rehearsal、production artifact、回滚演练、正式切换和 V1 删除仍为独立 Task。
+- 此后 legacy routing、production artifact 与 Staging current 已分别形成独立证据；production-like rehearsal、回滚演练、正式切换和 V1 删除现已按 Development Closeout 决策延期。
 
 ### 14.3 Staging V1 UI 回退兼容合同
 
@@ -575,7 +577,7 @@ A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、�
 
 匿名 protected deep link 由单一 return-to owner 保存安全站内 URL，登录后先恢复 legacy href 再 canonical replace；must-change 完成后仍回 `/`。ADMIN/ENGINEER 继续由 canonical `_admin` boundary 与服务端权限裁决。实现没有修改 backend、OpenAPI、数据库、Nginx、部署或 V1 源码，也没有新增 resolver、数据 lookup 或通用 redirect engine。
 
-本 Task 的证据仅来自仓库 unit、production-artifact Playwright、typecheck、lint 与 production build；没有部署或复核 Staging legacy URL，因此既有外部 Staging Gate=`MET` 不自动覆盖本轮新增路由。下一步仍必须作为独立 Task 执行 production-like rehearsal、回滚演练、正式切换观察与最后的 V1 删除。
+本 Task 的证据仅来自仓库 unit、production-artifact Playwright、typecheck、lint 与 production build；没有部署或复核 Staging legacy URL，因此既有外部 Staging Gate=`MET` 不自动覆盖本轮新增路由。该远程验证缺口与 production-like rehearsal、回滚演练、正式切换观察、V1 删除一并延期到未来 Production Release Readiness，不再是当前开发阶段的继续项。
 
 ## 15. V1 → V2 路由矩阵
 
@@ -674,4 +676,4 @@ Branch / Commit / Merge Status
 - Playwright 从第一张业务页开始；
 - Frontend V2 正式采用一个 Task 一个 `codex/frontend-v2-*` 临时分支；
 - 固定协作节奏为先阅读、说明计划、修改、自测、自审、报告；
-- 当前只归档总体计划，不创建 Trellis 任务、分支或实现文件。
+- Phase 9 当前以 Development Closeout 收口；production Release Readiness、正式 cutover、生产观察与 V1 删除延期并需未来重新规划。

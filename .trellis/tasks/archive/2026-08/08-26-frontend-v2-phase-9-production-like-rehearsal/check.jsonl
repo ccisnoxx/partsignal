@@ -3,4 +3,4 @@
 {"file":".trellis/spec/infra/development-object-storage.md","reason":"复核 production payload 零复制、fixture 对象与缺失对象行为"}
 {"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核自动/浏览器 gate、runtime 错误和 build artifact"}
 {"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-like-rehearsal/design.md","reason":"逐项核对依赖、side-effect、Gate、停止与 cleanup owner"}
-{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization/implement.md","reason":"确认父 Task未越过子 Task输出和授权边界"}
+{"file":".trellis/tasks/archive/2026-08/08-26-frontend-v2-phase-9-production-snapshot-sanitization/implement.md","reason":"确认归档历史仍为 Gate=NOT_MET，父 Task未把未执行输出写成通过"}

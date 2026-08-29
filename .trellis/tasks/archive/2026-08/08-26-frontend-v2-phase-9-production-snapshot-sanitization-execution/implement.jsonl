@@ -1,0 +1,16 @@
+{"file":".trellis/spec/backend/index.md","reason":"确认 backend 相关规范入口与 pre-development owner。"}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"遵守 PostgreSQL 唯一状态源、迁移冻结、不可变历史和精确删除边界。"}
+{"file":".trellis/spec/backend/ai-configuration-guidelines.md","reason":"确认 AI credential/header/snapshot 不得泄漏且脱敏后必须禁用真实调用。"}
+{"file":".trellis/spec/infra/index.md","reason":"确认外部运维任务的分阶段授权、受控快照与精确 cleanup 约束。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复用 exact owner/run ID/allowlist cleanup 与敏感输出边界，不运行 E2E。"}
+{"file":".trellis/spec/infra/development-object-storage.md","reason":"确认 production object payload 零复制及缺失对象不得伪造。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/local-preflight.md","reason":"加载已核验的 artifact、schema、工具缺口与当前授权边界。"}
+{"file":".trellis/tasks/archive/2026-08/08-26-frontend-v2-phase-9-production-snapshot-sanitization/research/evidence.md","reason":"复用已验收 sanitizer/self-check 证据，避免把历史结果冒充 production execution。"}
+{"file":".trellis/tasks/archive/2026-08/08-26-frontend-v2-phase-9-production-snapshot-sanitization/research/sanitization-matrix.md","reason":"执行和 profile 比较必须服从 0043 完整字段矩阵。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/phase-2-coordinated-export-authorization-plan.md","reason":"加载 same-window source profile/export、one-shot client 与 raw encryption 协调合同。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/phase-2-same-window-execution-packet.md","reason":"加载最终 same-window change/profile/export/failure rollback packet。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/profile_wrapper.py","reason":"修正并冻结 container-side exact tmpfs artifact handoff owner，拒绝 symlink/非普通文件/错误 owner-mode-size/非 canonical JSON 或 run identity。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/phase-3-same-window-execution-attempt-pss-20260828-08-database-preflight-command-stop.md","reason":"加载 run08 host preflight PASS、远端 shell quoting 停止边界与零 mutation/resource/export 的原始补录证据。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/phase-3-pss-20260828-09-pre-authorization-execution-packet.md","reason":"加载 run09 exact identities、未授权状态、database preflight owner 与下一 production 授权范围。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/database_preflight_invocation.sh","reason":"加载 run09 database preflight 的 shell syntax、argv encoding、window authorization 与 fail-closed owner。"}
+{"file":".trellis/tasks/08-26-frontend-v2-phase-9-production-snapshot-sanitization-execution/research/acl_fingerprint_v1.sql","reason":"复用冻结 ACL fingerprint 序列化 source of truth，禁止 inline 重写。"}

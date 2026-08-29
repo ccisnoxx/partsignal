@@ -2,7 +2,9 @@
 
 ## 当前状态
 
-规划完成，等待用户审阅。父 Task 与子 Task 均未执行 task.py start；没有 production、SSH、部署、浏览器或清理操作。
+本 Task 因 2026-08-29 的开发阶段范围决策终止，outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`。sanitized snapshot 依赖不再执行，rehearsal 未启动；没有 production/staging 访问、SSH、部署、浏览器、clone、artifact 传输或清理操作，也没有远端资源需要处理。
+
+以下 Phase 0–7 仅作为历史规划保留，不得继续执行。未来 Production Release Readiness 必须重新创建 Task 和执行计划，不从本文恢复。
 
 ## Phase 0：依赖闸门
 
@@ -138,6 +140,7 @@
 
 ## Commit 与停止点
 
+- Development Closeout 已取代原执行路径；本 Task 只等待与 execution/closeout Task 一起归档。
 - 子 Task 先独立完成、验证和提交；父 Task 后续单独提交 rehearsal evidence/docs。
 - 每次提交前展示 exact commit plan 并等待确认；不自动 push/merge/archive。
 - 当前停止在最终规划审阅；下一步若获批准，先启动子 Task，不启动父 Task。

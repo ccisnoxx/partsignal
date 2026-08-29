@@ -1,5 +1,9 @@
 # Frontend V2 Phase 9 Production-like Rehearsal 设计
 
+## 0. Development Closeout
+
+本设计因 2026-08-29 的开发阶段范围决策停止实施，outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`。下文仅保留历史规划，不构成当前或未来执行授权；未来 Production Release Readiness 必须按届时实际边界重新设计。
+
 ## 1. 设计结论
 
 本 Task 是 sanitized snapshot 的消费端，不是数据脱敏 owner。最小结构是：子 Task 先独立交付可校验的 sanitized SQL dump；随后在一台专用临时私有主机上恢复 clone，复用现有 Staging Compose 形态和 V2 production image，只启动必要服务，执行现有 real-stack E2E 加一次带人工判断的 production-like 浏览器 walkthrough，最后按单独授权清理。

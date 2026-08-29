@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 182
-- **Last Active**: 2026-08-26
+- **Total Sessions**: 183
+- **Last Active**: 2026-08-29
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~114 | Active |
+| `journal-4.md` | ~135 | Active |
 | `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 183 | 2026-08-29 | Frontend V2 Production 发布准备收口 | `592ebe5f` | `main` |
 | 182 | 2026-08-26 | 完成 production snapshot sanitizer 本地实现 | `03d4813e`, `217d011c` | `main` |
 | 181 | 2026-08-26 | Frontend V2 Phase 9 Legacy Routing | `5afaed09` | `codex/frontend-v2-phase-9-legacy-routing` |
 | 180 | 2026-08-25 | Frontend V2 Staging current 收口 | `dc431347878dd9aae213504c73fdcf05384bdca6` | `codex/frontend-v2-phase-9-staging-current-finalization` |

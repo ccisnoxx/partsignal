@@ -112,3 +112,24 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 183: Frontend V2 Production 发布准备收口
+
+**Date**: 2026-08-29
+**Task**: Frontend V2 Production 发布准备收口
+**Branch**: `main`
+
+### Summary
+
+完成 Production V2-only Compose/Nginx owner、候选清单与镜像/源码证明、clean-init/upgrade 数据状态机、两阶段异步激活、previous-V2 前端回滚、账号初始化与发布门禁；本地定向验证通过，Docker/远端候选与切换留待后续授权环境。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `592ebe5f` | (see git log) |
+
+### Status
+
+[OK] **Completed**

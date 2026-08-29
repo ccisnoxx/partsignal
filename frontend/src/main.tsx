@@ -1,11 +1,15 @@
-/** PartSignal 前端入口，集中装配路由、查询缓存和设计主题。 */
+/** V2 浏览器入口，先配置全局校验运行时，再装配应用 Provider。 */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './app/App';
+import { z } from 'zod';
 import './styles/global.css';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+z.config({ jitless: true });
+
+void import('./app/providers').then(({ AppProviders }) => {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <AppProviders />
+    </StrictMode>,
+  );
+});

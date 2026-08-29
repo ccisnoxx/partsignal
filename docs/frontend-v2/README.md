@@ -1,13 +1,13 @@
 # PartSignal Frontend V2 文档索引
 
-> 状态：Draft / V2 重构基线  
+> 状态：已实现 / canonical frontend 设计基线
 > 基线日期：2026-08-07  
 > 适用仓库：`ccisnoxx/partsignal`  
 > 建议落盘位置：`docs/frontend-v2/`
 
 ## 1. 文档目的
 
-这组文档用于指导 PartSignal Frontend V2 的产品与工程重构。V2 的目标不是把现有 Ant Design 页面“换皮”，而是围绕 PartSignal 的真实业务生命周期，重新建立信息架构、路由、页面模式、Design System、服务端驱动业务动作模型、代码边界、迁移计划以及测试验收体系。
+这组文档记录 PartSignal canonical frontend 的产品与工程设计。原 Frontend V2 已于 2026-08-29 在开发阶段提升为唯一 `frontend/` 源码 owner；目录名 `docs/frontend-v2/` 作为设计与决策历史入口保留。其目标不是把旧 Ant Design 页面“换皮”，而是围绕 PartSignal 的真实业务生命周期建立信息架构、路由、页面模式、Design System、服务端驱动业务动作模型、代码边界、迁移记录以及测试验收体系。
 
 ## 2. 核心结论
 
@@ -64,17 +64,17 @@ PartSignal 应从“后台管理系统”升级为“电子元器件内容生产
 
 ## 5. 当前项目基线
 
-截至 2026-08-07，仓库 README 将系统定义为“面向电子元器件国产替代业务的多平台 GEO 内容运营系统”，当前 MVP 已实现产品事实、不可变事实版本、内容生成与版本管理、人工发布登记、发布验证、GEO 观测等纵向闭环。
+仓库 README 将系统定义为“面向电子元器件国产替代业务的多平台 GEO 内容运营系统”，当前 MVP 已实现产品事实、不可变事实版本、内容生成与版本管理、人工发布登记、发布验证、GEO 观测等纵向闭环。
 
-当前前端基线包含 React、TypeScript、Vite、Ant Design、TanStack Query、React Router、openapi-typescript 和 openapi-fetch。V2 文档不以兼容现有 Ant Design 页面为约束。
+当前 canonical `frontend/` 基线包含 React、TypeScript、Vite、TanStack Router、TanStack Query、TanStack Table、Tailwind CSS、shadcn/ui、Base UI、openapi-typescript 和 openapi-fetch。旧 Ant Design/React Router 前端源码与双前端 pipeline 已退役。
 
-当前主要路由包括：`/`、`/products`、`/tasks`、`/content/:contentVersionId`、`/publications`、`/observations`、`/settings`、`/users`、`/audit`、`/configuration/*`。V2 会重新定义页面边界，而不是机械迁移。
+当前 canonical 路由按 Workbench、Product、Content、Publishing、GEO、Configuration 和 System 组织；旧入口只通过显式 legacy redirect 进入 canonical route，不保留第二套 V1 页面。
 
 ## 6. 开发使用方式
 
-后续每个 V2 新会话先读取 `07-migration-plan.md`，再按其中的最小上下文矩阵加载当前 Task 直接相关的蓝图。不要在单个会话中连续实现多个 Task，也不要仅为熟悉项目重复加载全部文档。
+后续 frontend 新会话先读取 `07-migration-plan.md`，再按其中的最小上下文矩阵加载当前 Task 直接相关的蓝图。不要在单个会话中连续实现多个 Task，也不要仅为熟悉项目重复加载全部文档。
 
-每一个 V2 PR 都应回答：
+每一个 frontend PR 都应回答：
 
 - 它属于哪个 domain？
 - 它对应哪一种页面 Pattern？

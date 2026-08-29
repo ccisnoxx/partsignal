@@ -126,7 +126,7 @@ services:
   frontend:
     image: ${PARTSIGNAL_FRONTEND_IMAGE:-partsignal-frontend}:${PARTSIGNAL_VERSION}
     build:
-      context: ../frontend-v2
+      context: ../frontend
     ports:
       - 127.0.0.1:19080:80
     restart: unless-stopped

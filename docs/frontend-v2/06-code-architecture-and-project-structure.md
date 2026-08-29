@@ -9,7 +9,7 @@
 ## 2. 推荐目录
 
 ```text
-frontend-v2/
+frontend/
 ├── src/
 │   ├── app/
 │   │   ├── bootstrap/
@@ -176,9 +176,9 @@ PublishedArticle 如果要展示 Content summary，不要 import content domain 
 
 Auth 层只暴露 user、capabilities、isAuthenticated、signOut 等基础能力，不承载用户管理 domain。
 
-## 20. V2 初始化原则
+## 20. Canonical frontend 状态
 
-推荐独立 `frontend-v2/`：新 lockfile、新 Storybook、新 lint boundary、复用 OpenAPI，不复制 Ant Design theme，不先复制旧页面，从 Design System + Product Facts 第一条 vertical slice 开始。
+V2 曾以独立 `frontend-v2/` 完成新 lockfile、Storybook、lint boundary、OpenAPI 复用与全部 vertical slice。2026-08-29 的开发阶段 cutover 已将它提升为唯一 canonical `frontend/`；旧 V1 源码、测试与双前端 pipeline 不再是活动实现或兼容 owner。
 
 ## 21. Code Review Checklist
 

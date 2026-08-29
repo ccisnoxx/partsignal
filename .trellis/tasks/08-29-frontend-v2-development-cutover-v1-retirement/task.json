@@ -1,0 +1,31 @@
+{
+  "id": "frontend-v2-development-cutover-v1-retirement",
+  "name": "frontend-v2-development-cutover-v1-retirement",
+  "title": "Frontend V2 Development Cutover 与 V1 Retirement",
+  "description": "开发阶段将 frontend-v2/ 提升为唯一 canonical frontend/，退役 V1 与双前端流水线；Production Gates 按范围决策取消。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "cross-module",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-29",
+  "completedAt": null,
+  "branch": "codex/frontend-v2-development-cutover-v1-retirement",
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "仓库切换与范围内验证已完成；未操作 Hostdzire、Production 远端资源，未 push、合并或删除候选分支。本机 container/real-stack/make verify 按用户范围决策为 NOT_APPLICABLE。",
+  "meta": {
+    "planning_only": false,
+    "scope_decision": "DEVELOPMENT_CUTOVER",
+    "production_gate_outcome": "CANCELLED_BY_SCOPE_DECISION",
+    "production_gate": "NOT_APPLICABLE"
+  }
+}

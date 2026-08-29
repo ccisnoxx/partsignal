@@ -15,7 +15,7 @@ PartSignal（元件信号）是面向电子元器件国产替代业务的多平�
 
 ## 技术基线
 
-- 前端：React、TypeScript、Vite。
+- 前端：`frontend/` 是唯一源码 owner，使用 React、TypeScript、Vite、TanStack Router、TanStack Query、Tailwind CSS、shadcn/ui 与 Base UI。
 - 后端：Python、FastAPI、Pydantic、SQLAlchemy、Alembic。
 - 数据：PostgreSQL、Celery、Redis。
 - 文件：阿里云 OSS。
@@ -58,3 +58,5 @@ make verify
 ```
 
 HTTP 契约位于 `contracts/openapi.yaml`，数据库和状态机契约位于 `contracts/database.md`。生产内容生成固定使用管理员配置的 OpenAI-compatible Chat Completions 渠道；API Key 与敏感 Header 由 `AI_CREDENTIAL_ENCRYPTION_KEY` 加密，作业只保存非敏感快照。本地和自动化测试可以显式使用确定性生成器，但不会在真实调用失败时自动回退。生产 OSS 仍只有在显式配置 `OBJECT_STORAGE_BACKEND=aliyun_oss` 时启用。
+
+当前仍处于开发阶段。2026-08-29 起，原 Frontend V2 已提升为 canonical `frontend/`，旧 V1 源码与双前端构建/测试入口已退役；Production 发布、Hostdzire 流量切换和生产观察不由这次仓库切换触发。

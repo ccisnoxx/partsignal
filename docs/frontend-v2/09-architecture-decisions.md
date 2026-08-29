@@ -317,6 +317,16 @@ Workspace/Detail href，不返回正文、notes、prompt、secret、请求载荷
 或外部页面内容。不新增数据库、缓存、mutation、通用 Dashboard/Workflow/ReadModel
 framework，也不修改 V1；UI、strict fixture 与 real-stack 证据由后续独立 Task 交付。
 
+## ADR-047：开发阶段提升 V2 为唯一 canonical frontend
+
+**Decision**：PartSignal 仍处于业务数据可由 migration 与 seed 重建的开发阶段，因此不再以真实 Production Observation 作为仓库源码退役前置条件。原 `frontend-v2/` 整体提升为唯一 canonical `frontend/`；旧 V1 源码、测试、构建与双前端 CI/Makefile/deploy pipeline 删除。`docs/frontend-v2/` 作为设计与 ADR 历史目录保留，旧 Phase 证据不改写。
+
+**Runtime and release boundary**：该决策只改变仓库源码 owner 和本地/CI 构建路径。Compose service 名、Production frontend image identity、tag/env/manifest 字段、上一份已验证 V2 image 回滚合同和外层 Nginx 运行边界保持不变；不增加 V1 runtime fallback，也不通过目录名迁移触发远端部署。
+
+**Production scope boundary**：五个尚未实施的 `frontend-v2-production-*` planning Task 以 outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`、execution=`NOT_STARTED`、remote mutation=`NONE` 终止并归档。本决策不执行 candidate freeze、clean-init、隔离环境全流程 rehearsal、Hostdzire 变更、生产流量切换或 Production Observation，也不删除远端数据、镜像、release、quarantine 或环境文件。所有未执行 Production Gate 必须记录为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`，不能写成 `MET`。
+
+**Validation and recovery boundary**：切换以单一 canonical source、Makefile/CI/Compose/部署/安全/E2E 引用收敛，以及无需本机隔离容器的结构、静态、合同、单元、构建和 fixture E2E 为本任务 required validation。用户明确不要求本机隔离容器测试，因此 container smoke、隔离 real-stack 与最终聚合 `make verify` 对本任务均为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`，不是 `MET`；相应仓库入口继续保留供未来 CI 或独立任务使用。范围内验证完成后，旧 V1 临时工作树移入 macOS 废纸篓，tracked 历史仍可由 Git 恢复。
+
 ## 后续建议 ADR
 
 未来以下问题单独建 ADR：是否引入 AG Grid、server-side user preferences、Command Palette、多租户、实时协作、WebSocket/SSE、错误监控平台、自动发布、i18n。

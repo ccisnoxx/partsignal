@@ -35,7 +35,7 @@ class DeletionProjection(ContractModel):
 - `workflow_stage` 是领域内可解释的当前阶段；`primary_task` 是该资源当前唯一高频主入口。两者都是读模型投影，不是写入授权凭证。
 - `available_actions` 表示响应生成时可尝试的命令，不是授权凭证；命令入口必须重新执行服务端校验并保留既有错误合同。
 - 同一资源的列表、详情和返回资源的 mutation 响应使用同一领域资格规则。
-- OpenAPI 中上述适用字段必须为 required；`frontend/src/shared/api/schema.d.ts` 只能从合同生成。
+- OpenAPI 中上述适用字段必须为 required；`frontend/src/shared/api/generated/schema.d.ts` 只能从合同生成。
 - 前端主入口只按资源自己的 `primary_task` 穷尽映射，低频命令只按 `available_actions.includes("TOKEN")` 渲染或启用；不得用 `status`、`is_active`、账号类型、权限 Hook 或关联集合推断单个资源的流程。
 - 认证自服务复用 `UserOut` 时显式返回 `available_actions: []`；管理接口使用 actor-aware 投影，不另建平行 DTO。
 - mutation 成功后使用响应或失效既有 query 取得重新投影的动作；竞态拒绝后刷新资源，不加兼容分支。
@@ -147,13 +147,13 @@ DELETE /api/v1/query-topics/{query_topic_id}?expected_revision=...
 
 ### 8.5 Good / Base / Bad
 
-- Good：V2 list-items 批量返回三类引用，ADMIN deletion 复用同一 counts map，命令再在锁内复核。
+- Good：canonical frontend 使用的 list-items 批量返回三类引用，ADMIN deletion 复用同一 counts map，命令再在锁内复核。
 - Base：旧完整 GET 继续给 New Observation 和 Correction Workspace 提供全部 Topic options。
 - Bad：浏览器逐行查询引用、从本地 count 推导 DELETE/UPDATE/开始观测，或 409 后自动重放 PATCH/DELETE。
 
 ### 8.6 必需测试
 
-- OpenAPI/runtime contract：旧 `QueryTopicList` 保持完整，新 `QueryTopicListPage` 的 query、分页和引用字段精确生成到 V1/V2 types。
+- OpenAPI/runtime contract：旧 `QueryTopicList` 保持完整，新 `QueryTopicListPage` 的 query、分页和引用字段精确生成到 canonical frontend types。
 - PostgreSQL integration：覆盖 canonical/variant search、稳定 sort/page、三类引用、所有角色摘要、ADMIN deletion、固定查询次数、revision conflict 和审计。
 - 目标列表 integration：Content Task 两类引用和 GEO Observation 引用 URL 精确映射服务端筛选。
 - generated-type strict fixture：拒绝未声明 API，覆盖 URL 恢复、五列、handoff、create/edit/delete、409 不 replay、引用竞态、焦点和 375/768/1024/1440 根无溢出。
@@ -277,7 +277,7 @@ DB     uq_platform_accounts_profile_identifier_normalized
 
 ### 10.6 Tests Required
 
-- Contract/runtime/generated：DELETE query required、minimum 0，V1/V2 schema 同步。
+- Contract/runtime/generated：DELETE query required、minimum 0，canonical frontend schema 同步。
 - PostgreSQL integration：ADMIN/ENGINEER CRUD、停用平台 create、normalized precheck/constraint、stale delete、live blocker、terminal history、固定 query count。
 - Frontend model/component：token 穷尽 mapping、字段错误、409 保留与显式 reload、精确 cache invalidation、焦点恢复。
 - Production artifact：创建/编辑/启停/删除、375px actions、desktop table、runtime/console audit。

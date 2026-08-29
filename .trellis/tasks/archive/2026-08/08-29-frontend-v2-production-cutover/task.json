@@ -1,0 +1,31 @@
+{
+  "id": "frontend-v2-production-cutover",
+  "name": "frontend-v2-production-cutover",
+  "title": "Production Cutover Gate",
+  "description": "因开发阶段范围决策改变而安全终止，Production Cutover Gate 未执行。",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-29",
+  "completedAt": "2026-08-29",
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-29-frontend-v2-production-migration",
+  "relatedFiles": [],
+  "notes": "Trellis completed/archived 仅表示规划终止，不代表 Gate MET；未执行数据、服务、Nginx 或流量切换。",
+  "meta": {
+    "outcome": "CANCELLED_BY_SCOPE_DECISION",
+    "gate": "NOT_APPLICABLE",
+    "execution": "NOT_STARTED",
+    "remote_mutation": "NONE"
+  }
+}

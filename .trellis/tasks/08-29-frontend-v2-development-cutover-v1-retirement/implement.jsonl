@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/index.md","reason":"canonical 前端目录、生成合同与前端边界的权威索引。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"单前端 lint、typecheck、unit、build 与质量门槛。"}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"迁移后的 frontend/ 目录职责与文件组织约束。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"Makefile、CI、容器检查与最终 verify 的执行合同。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"E2E 端口、数据库、Redis、对象存储和进程清理不变量。"}
+{"file":".trellis/spec/infra/development-object-storage.md","reason":"开发与测试对象存储隔离约束。"}

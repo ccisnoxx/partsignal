@@ -1,30 +1,8 @@
-/** Vitest 浏览器替身与 DOM 断言初始化。 */
 import '@testing-library/jest-dom/vitest';
-import { configure } from '@testing-library/react';
-import { afterEach } from 'vitest';
-import { queryClient } from '../app/queryClient';
+import { cleanup } from '@testing-library/react';
+import { afterEach, vi } from 'vitest';
 
-configure({ asyncUtilTimeout: 10_000 });
+// TanStack Router 挂载时恢复滚动位置，jsdom 尚未实现该浏览器能力。
+Object.defineProperty(window, 'scrollTo', { writable: true, value: vi.fn() });
 
-class ResizeObserverStub {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: (query: string) => ({ matches: true, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false }),
-});
-Object.defineProperty(globalThis, 'ResizeObserver', { value: ResizeObserverStub });
-
-const jsdomGetComputedStyle = window.getComputedStyle.bind(window);
-Object.defineProperty(window, 'getComputedStyle', {
-  writable: true,
-  value: (element: Element, pseudoElement?: string | null) => (
-    // rc-component 查询滚动条伪元素时，jsdom 会告警后返回宿主元素样式；这里直接执行同一回退。
-    jsdomGetComputedStyle(element, pseudoElement === '::-webkit-scrollbar' ? undefined : pseudoElement)
-  ),
-});
-
-afterEach(() => { vi.restoreAllMocks(); queryClient.clear(); });
+afterEach(cleanup);

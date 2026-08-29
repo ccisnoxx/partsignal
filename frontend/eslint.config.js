@@ -1,29 +1,38 @@
-/** 前端静态检查规则，重点禁止不安全类型和错误 Hook 依赖。 */
+/** V2 静态检查规则；生成文件由各自生成器负责。 */
 import js from '@eslint/js';
 import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
-import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'src/shared/api/schema.d.ts'] },
+  {
+    ignores: [
+      'dist',
+      'node_modules',
+      'src/routeTree.gen.ts',
+      'src/shared/api/generated/schema.d.ts',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['**/*.{js,mjs}'],
+    files: ['scripts/**/*.{js,mjs}'],
     languageOptions: { globals: globals.node },
   },
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['vite.config.ts'],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2022,
-      globals: { ...globals.browser, ...globals.node, ...globals.vitest },
+      globals: globals.browser,
     },
-    plugins: { 'react-hooks': reactHooks, 'react-refresh': reactRefresh },
+    plugins: { 'react-hooks': reactHooks },
     rules: {
       ...reactHooks.configs.recommended.rules,
       '@typescript-eslint/no-explicit-any': 'error',
-      'react-refresh/only-export-components': 'off',
     },
   },
 );

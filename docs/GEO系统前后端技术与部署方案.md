@@ -141,16 +141,16 @@ DMIT 继续只承担公网入口、SNI 分流、PROXY Protocol 和线路优化�
 | 能力 | 选型 | 说明 |
 |---|---|---|
 | 框架 | React + TypeScript | 适合复杂表单、审核和内容工作台 |
-| 构建 | Vite | 输出 production artifact，由 Frontend V2 Nginx 镜像提供 |
-| 路由 | React Router | 内部 SPA 不需要 SSR |
+| 构建 | Vite | 输出 production artifact，由 canonical frontend Nginx 镜像提供 |
+| 路由 | TanStack Router | typed route、search state 与 legacy redirect |
 | 服务端状态 | TanStack Query | 请求缓存、失效、轮询和错误状态 |
-| UI 组件 | Ant Design | 表格、表单、抽屉、对话框和审核控件 |
-| 表单 | Ant Design Form | MVP 足够；复杂动态表单出现后再评估其他方案 |
+| UI 组件 | shadcn/ui + Base UI + Tailwind CSS | 可访问 primitives、表格、表单、Dialog、Sheet 与工作台 |
+| 表单 | React Hook Form + Zod | 表单状态、契约校验和服务端字段错误映射 |
 | 内容编辑 | Markdown 原文 + 预览 | 保持单一正文源和可移植性 |
 | 单元测试 | Vitest + Testing Library | 组件和业务交互测试 |
 | 端到端测试 | Playwright | 覆盖核心内部工作流 |
 
-Ant Design 只提供基础交互组件。页面视觉应通过设计 Token、排版、色彩和布局形成统一系统，不直接使用无调整的默认后台模板。
+页面视觉由 token、排版、色彩、布局和 canonical Design System 共同约束，不在 domain 内复制通用组件或依赖默认后台模板。
 
 ### 6.2 状态管理
 
@@ -213,23 +213,19 @@ HTML、纯文本和平台发布格式均由 Markdown 派生，不作为第二份
 
 ```text
 frontend/src/
-├── app/                 路由、应用入口和全局 Provider
-├── features/
-│   ├── product-facts/
-│   ├── content-tasks/
-│   ├── content-editor/
-│   ├── reviews/
-│   ├── publications/
-│   └── geo-observations/
+├── app/                 启动、Provider、Router、Auth 与 App Shell
+├── routes/              薄 route、typed search 与页面组合
+├── domains/             Product、Content、Publication、GEO、Configuration 等纵向切片
+├── design-system/       primitives、Table、Workspace、表单、反馈与状态
 ├── shared/
 │   ├── api/             OpenAPI 生成客户端
-│   ├── components/      真正跨业务复用的组件
-│   ├── formatting/
-│   └── validation/
-└── styles/              设计 Token 和全局样式
+│   ├── auth/
+│   ├── lib/
+│   └── test/
+└── styles/              token 与全局样式
 ```
 
-不要按 `pages/components/hooks/services` 建立大量全局目录后让业务代码互相穿插。共享组件只有在确实跨业务复用时才进入 `shared`。
+依赖方向固定为 `routes → domains → design-system/shared`。不要按 `pages/components/hooks/services` 建立大量全局目录后让业务代码互相穿插；跨业务 UI 进入 `design-system`，非 UI 基础能力进入 `shared`。
 
 ### 6.7 API 客户端
 

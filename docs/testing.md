@@ -47,7 +47,7 @@ REDIS_URL=redis://127.0.0.1:56379/14 make e2e
 
 真实栈必须独占启动前为空的非 0 Redis logical DB；DB 0、未知残留键、同库外部客户端或固定端口占用都会在创建测试数据库前失败。脚本退出时先停止并等待本次进程，只删除枚举后确认属于 Celery/Kombu 的精确键，再证明 Redis 为空、端口释放、数据库已 drop、临时存储已移除。
 
-V1/V2 real-stack 运行统一关闭 Playwright trace，避免 API Key、密码或敏感 Header 进入失败产物；普通 fixture-based production-artifact suite 继续保留 `retain-on-failure`。HTML report、附件、console 与运行日志同样不得包含 credential 明文。
+canonical frontend real-stack 运行统一关闭 Playwright trace，避免 API Key、密码或敏感 Header 进入失败产物；fixture-based production-artifact suite 继续保留 `retain-on-failure`。HTML report、附件、console 与运行日志同样不得包含 credential 明文。
 
 真实 OSS、真实模型和生产网络不属于普通测试门禁。可选真实模型 smoke test 必须使用专用低权限 Key，缺少 Key 时明确跳过，不能把固定成功替身表述为真实云端成功。
 

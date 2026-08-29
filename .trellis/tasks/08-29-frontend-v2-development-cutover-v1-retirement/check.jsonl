@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/index.md","reason":"验证完成后只有 canonical frontend/ 且兼容合同未被误删。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"验证 canonical 前端 required checks 与可观测行为覆盖。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"验证单前端 CI、容器、部署脚本和最终 make verify 门槛。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"验证 real-stack/fixture E2E 隔离、清理和失败证据。"}

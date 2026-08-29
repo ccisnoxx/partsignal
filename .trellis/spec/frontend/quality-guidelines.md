@@ -97,7 +97,7 @@ vite --config vite.config.ts [vite arguments...]
 - 从仓库根目录运行 Playwright 时使用 `npm --prefix frontend run e2e -- <测试文件> --project=e2e`，让 npm 脚本以 `frontend/` 为工作目录并加载 `frontend/playwright.config.ts`。不得使用 `npm --prefix frontend exec -- playwright test`；当前 npm 会保留仓库根工作目录，表现为只发现空项目而不是应用测试失败。
 - 单元测试覆盖更多菜单确认链、章节 `aria-current`、dirty/error/save 状态、次级查询局部失败、URL 恢复与历史同步、pathname 焦点和工作台语义 tone；jsdom 不断言 sticky 坐标或具体颜色。
 - E2E 复用现有数据流程，断言代表性产品搜索 URL、事实章节和对象标题、内容任务/审核章节、AI 更多菜单键盘焦点及人工发布 Tab URL。
-- 含 API Key、密码或敏感 Header 的 real-stack Playwright 必须由 V1/V2 config owner 在 `PARTSIGNAL_E2E_REAL_STACK=1` 时统一关闭 trace；fixture suite 继续 `retain-on-failure`。不得依赖测试文件逐个覆盖策略，也不得事后编辑 trace、report 或日志掩盖泄漏。
+- 含 API Key、密码或敏感 Header 的 real-stack Playwright 必须由 canonical Playwright config owner 在 `PARTSIGNAL_E2E_REAL_STACK=1` 时统一关闭 trace；fixture suite 继续 `retain-on-failure`。不得依赖测试文件逐个覆盖策略，也不得事后编辑 trace、report 或日志掩盖泄漏。
 - real-stack 必须使用启动前为空的独占非 0 Redis logical DB；preflight 拒绝同库外部客户端和固定端口占用，cleanup 只删除枚举后确认属于本套件的精确 Celery/Kombu 键，并在进程 `wait` 后证明 Redis 为空和端口释放。禁止 `FLUSHDB`、通配删除或共享 DB 静默清理。
 - 长文本表格回归必须用实际触发 `scrollWidth > clientWidth` 的压力值，扫描 `td` 和动态矩阵 `th` 内登记的 `.table-cell-ellipsis`，并断言内容矩形位于所属单元格内、行高有界、交互文本可由键盘到达；代表用例还必须验证鼠标悬停和键盘聚焦都能读取完整值。复合身份的代表用例必须分别从根容器、固定图形和文本叶子触发 Tooltip，并确认焦点停靠在根容器，不能只精确 hover 内部文本。只检查 `overflow:hidden` 计算样式或页面外框不溢出不能证明列边界正确。
 - Tooltip 回归不能只断言 `role`、文本内容和 DOM 可见；代表性真实浏览器用例必须读取最终计算后的前景色与背景色，并验证普通文字对比度至少为 4.5:1，防止浮层存在但白底白字或同色不可读。
@@ -105,55 +105,55 @@ vite --config vite.config.ts [vite arguments...]
 - `emulateMedia`、主题或响应式状态切换可能重挂载布局。切换后的几何断言必须重新查询当前已连接节点，并先轮询关键尺寸稳定；跨 breakpoint 后的焦点或键盘断言必须先等待互斥的可访问性分支出现，再重新查询当前交互节点。不得把旧节点的零尺寸或失焦误判为 production CSS/可访问性缺陷，也不得用 sleep 或重试掩盖分支提交时序。
 - 固定日期 fixture 覆盖依赖当前时间的默认值、Reset 或历史恢复时，必须在首次导航前用 Playwright Clock 将浏览器时间固定为 fixture 的权威 timestamp；不得改用 wall clock 动态期望或宽松 URL 匹配掩盖漂移。
 
-## 场景：V1/V2 根质量入口与 V2 Foundation Smoke
+## 场景：canonical Frontend 根质量入口与 Foundation Smoke
 
 ### 1. 适用范围
 
-- 修改根 `Makefile`、Frontend V2 测试脚本或 Foundation Playwright smoke 时适用。
+- 修改根 `Makefile`、canonical Frontend 测试脚本或 Foundation Playwright smoke 时适用。
 
 ### 2. 命令签名
 
 ```bash
 make bootstrap contract-check lint typecheck test-unit build e2e verify
-npm --prefix frontend-v2 run e2e -- [Playwright arguments...]
+npm --prefix frontend run e2e -- [Playwright arguments...]
 ```
 
 ### 3. 合同
 
-- 根 `bootstrap`、`contract-check`、`lint`、`typecheck`、`test-unit`、`build` 和 `e2e` 必须顺序保留 V1 命令并运行对应 V2 script；任一命令非零时 target 失败。
-- V2 Playwright 由 `frontend-v2/playwright.config.ts` 管理，`webServer` 必须先执行 `npm run build` 再运行 `vite preview`；不得以 Vite dev server 代替 production artifact。
+- 根 `bootstrap`、`contract-check`、`lint`、`typecheck`、`test-unit`、`build` 和 `e2e` 只运行 canonical `frontend/`；任一命令非零时 target 失败，不得恢复 V1 或第二套前端入口。
+- Playwright 由 `frontend/playwright.config.ts` 管理，`webServer` 必须先执行 `npm run build` 再运行 `vite preview`；不得以 Vite dev server 代替 production artifact。
 - Foundation smoke 通过显式 `foundationApi` fixture 提供 active ADMIN 的 `GET /api/v1/auth/me` 与 `GET /api/v1/auth/csrf`，只负责 `/` 的 App Shell 与导航入口；匿名、首次改密、自助改密和退出由独立 `auth-session.spec.ts` 负责。其他 API、页面异常、失败请求或失败静态资源均使测试失败。
 - 已落地的业务 route 从 Foundation smoke 迁移到独立 production-artifact spec。Products 使用 `products.fixture.ts` 中 generated `ProductListItem`/`ProductCreate`/`Product`/`ProductDetail`/`ProductUpdate` 约束的显式 API projection 与 mutation；未声明 API 必须失败，fixture 不得进入运行时代码，也不得宣称为完整后端业务 E2E。
 - Product Detail 只允许 `GET /api/v1/products/{id}/detail` 获取页面 server state。fixture 返回已经定义的 read-model 数据，不复制 backend 选择、join 或 Activity 排序逻辑；浏览器发起 Facts/Content/Publication/GEO/Audit 请求必须作为未声明 API 失败。
-- `frontend-v2/vite.config.ts` 必须在保留 Vitest 默认 exclude 的基础上排除 `tests/e2e/**`，避免 Playwright spec 被 Vitest 当成 unit suite。
+- `frontend/vite.config.ts` 必须在保留 Vitest 默认 exclude 的基础上排除 `tests/e2e/**`，避免 Playwright spec 被 Vitest 当成 unit suite。
 
 ### 4. 验证与错误矩阵
 
 | 条件 | 预期结果 |
 | --- | --- |
-| V1 或 V2 npm script 失败 | 对应 Make target 与 `make verify` 非零退出 |
-| V2 production build/preview 未就绪 | Playwright webServer 启动失败，不执行固定成功测试 |
+| canonical Frontend npm script 失败 | 对应 Make target 与 `make verify` 非零退出 |
+| canonical production build/preview 未就绪 | Playwright webServer 启动失败，不执行固定成功测试 |
 | 未声明 `/api/v1/**` 请求 | `foundationApi` 记录请求并使 smoke 失败 |
 | Products 页面请求 Facts/Versions/Actions join | `productsApi` 记录为未声明请求并使业务 spec 失败 |
 | Product Detail fixture 收到第二条跨域 summary 请求 | 测试失败；修复页面 query 边界，不扩展 fixture 模拟客户端 join |
 | 预期 404/403/409/503 响应 | 页面必须显示已定义 UX；fixture 只忽略 Chromium 对这些已处理响应的资源 console 文案 |
 | route chunk 或普通 API 真实失败 | `requestfailed` 使测试失败；只有测试主动 refresh/Back/Forward 或成功删除导航产生的 `net::ERR_ABORTED` 可排除 |
-| Playwright spec 被 Vitest 导入 | V2 unit 门禁失败，修复测试发现边界而非跳过 suite |
+| Playwright spec 被 Vitest 导入 | canonical unit 门禁失败，修复测试发现边界而非跳过 suite |
 
 ### 5. Good / Base / Bad
 
-- Good：`make verify` 同时覆盖 V1/V2；Foundation 验证 App Shell，Products spec 在同一真实 build artifact 上验证业务 route、URL/API mapping 和 375/768/1024/1440。
+- Good：`make verify` 覆盖唯一 canonical Frontend；Foundation 验证 App Shell，Products spec 在同一真实 build artifact 上验证业务 route、URL/API mapping 和 375/768/1024/1440。
 - Base：Foundation 使用明确 fixture 且不请求业务数据；业务 spec 使用 generated type fixture 并明确前端测试边界。
 - Bad：继续让 Foundation 假装验证已落地业务页、在运行时代码加入 mock fallback、客户端 join、过滤未知 console/request failure，或把 fixture 测试宣称为真实业务闭环。
 
 ### 6. 必需测试
 
-- `npm --prefix frontend-v2 run e2e -- tests/e2e/foundation-smoke.spec.ts`：两个 project 均通过。
-- `npm --prefix frontend-v2 run e2e -- tests/e2e/auth-session.spec.ts`：两个 project 均通过，并确认密码不进入 trace 或测试产物。
-- `npm --prefix frontend-v2 run e2e -- tests/e2e/products-list.spec.ts`：Products route 的 typed fixture、URL 恢复、业务动作、状态、键盘和四档宽度均通过。
-- `npm --prefix frontend-v2 run e2e -- tests/e2e/new-product.spec.ts`：新建产品 production artifact 的结构化错误、CSRF/body、pending、DirtyGuard、canonical navigation、列表失效、375/1440 与运行时错误审计均通过。
-- `npm --prefix frontend-v2 run e2e -- tests/e2e/product-detail.spec.ts`：单 detail API、summary 有/无、服务端 Activity/action、UPDATE/DELETE、404/403/retry、375/768/1024/1440、keyboard/focus 与运行时错误审计均通过。
-- V1/V2 `api:check`、lint、typecheck、test 和 build 分别通过。
+- `npm --prefix frontend run e2e -- tests/e2e/foundation-smoke.spec.ts`：两个 project 均通过。
+- `npm --prefix frontend run e2e -- tests/e2e/auth-session.spec.ts`：两个 project 均通过，并确认密码不进入 trace 或测试产物。
+- `npm --prefix frontend run e2e -- tests/e2e/products-list.spec.ts`：Products route 的 typed fixture、URL 恢复、业务动作、状态、键盘和四档宽度均通过。
+- `npm --prefix frontend run e2e -- tests/e2e/new-product.spec.ts`：新建产品 production artifact 的结构化错误、CSRF/body、pending、DirtyGuard、canonical navigation、列表失效、375/1440 与运行时错误审计均通过。
+- `npm --prefix frontend run e2e -- tests/e2e/product-detail.spec.ts`：单 detail API、summary 有/无、服务端 Activity/action、UPDATE/DELETE、404/403/retry、375/768/1024/1440、keyboard/focus 与运行时错误审计均通过。
+- canonical Frontend 的 `api:check`、lint、typecheck、test 和 build 分别通过。
 - 修改后的根 targets 通过，最后运行 `make verify`。
 
 ### 7. Wrong vs Correct
@@ -196,7 +196,7 @@ expect(await page.evaluate(() => document.documentElement.scrollWidth))
 getComputedStyle(element, pseudoElement === '::-webkit-scrollbar' ? undefined : pseudoElement);
 ```
 
-修改测试环境替身后，至少运行一个会渲染 Ant Design 表格或弹窗的测试文件，并确认进程输出中没有对应的 `Not implemented` 提示。
+修改测试环境替身后，至少运行一个会渲染 canonical Table Kit 或 Base UI 弹窗的测试文件，并确认进程输出中没有对应的 `Not implemented` 提示。
 
 ---
 

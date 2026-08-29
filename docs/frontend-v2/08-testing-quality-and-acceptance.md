@@ -157,7 +157,7 @@ insight anomaly → server revalidate → create optimization task。
 
 ### 13.1 Foundation Production Artifact Smoke
 
-Phase 1 Foundation 使用 `frontend-v2/playwright.config.ts`，由 Playwright `webServer` 先执行 production build，再通过 `vite preview` 服务当前 `dist`。同一 smoke 分别在 375×900 和 1440×1000 验证：
+Phase 1 Foundation 使用现 canonical `frontend/playwright.config.ts`，由 Playwright `webServer` 先执行 production build，再通过 `vite preview` 服务当前 `dist`。同一 smoke 分别在 375×900 和 1440×1000 验证：
 
 - `/` direct URL 与 refresh；
 - App Shell、desktop Sidebar、mobile navigation 与业务导航入口；
@@ -201,7 +201,7 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 - Flow B：create → submit → request changes → revise/save → resubmit → approve，并通过页面断言目标从 `FactVersion v1` 前进到 `v2`，最终 review history 的每条 `target_id` 都只属于新版本；随后从 Product Detail 打开真实 Fact History，断言服务端顺序为 v2、v1，并从列表进入 v2 readonly Detail。
 - Flow C：使用独立 ContentTask 从 Task Detail 进入 Editor，完成 manual first draft → save → submit review；每步重新读取 Editor Context，验证 canonical version/revision/action 与 `current_content_version_id` 主线，不创建 GenerationJob，也不复用 Flow A/B 的互斥状态数据。
 
-默认 `npm --prefix frontend-v2 run e2e` 继续运行 fixture-based 页面矩阵，真实栈 spec 在没有显式开关时 skip；完整根 E2E 先在隔离栈运行 V1 与 V2 真实闭环，再运行 V2 fixture suite。真实闭环不重复 loading、404、四档响应式和键盘矩阵。
+默认 `npm --prefix frontend run e2e` 运行 fixture-based 页面矩阵，真实栈 spec 在没有显式开关时 skip；开发 cutover 后的完整根 E2E 先在单一隔离栈运行 canonical frontend 真实闭环，再运行 canonical fixture suite。真实闭环不重复 loading、404、四档响应式和键盘矩阵。
 
 ### 13.3 Content AI Production 真实栈闭环
 
@@ -407,6 +407,8 @@ Workbench 不新增独立 real-stack spec，而是在四个既有 owner 的自�
 
 ## 14. Deployment Smoke
 
+14.1–14.3 保存 Development Closeout 之前的 staging、V1 fallback 与 legacy-routing 验收证据，其中的旧脚本名、环境变量和双前端计数只描述当时已执行事实，不是当前活动入口。当前仓库切换的有效门禁与范围状态以 14.4–14.6 为准。
+
 部署后至少验证：`/login`、`/`、`/products`、`/content/tasks`、`/publishing/work`、`/geo/observations`、管理员 `/settings/*`、`/system/audit`。
 
 检查 JS chunks、API base URL、client routing fallback、direct deep link、asset caching、CSP/source map 策略。
@@ -446,17 +448,25 @@ Legacy Playwright 使用独立 strict fixture，只允许 Auth、Product Detail 
 
 ### 14.4 Development Closeout 质量门禁
 
-当前开发阶段以可重建环境为质量边界：fresh/rebuilt PostgreSQL、migration、`initialize-accounts`、isolated real-stack E2E、`make verify` 与 Staging smoke 共同构成有效门禁。既有 Repository Gate、real-stack E2E、`make verify`、production artifact、legacy routing 和外部 Staging Gate=`MET` 证据全部保留，继续证明其各自已经实际覆盖的仓库、隔离真实栈与 Staging 行为。
+一般开发阶段仍可按任务风险选用 fresh/rebuilt PostgreSQL、migration、`initialize-accounts`、isolated real-stack E2E、`make verify` 与 Staging smoke。对于本次纯仓库 cutover，用户明确不要求本机隔离容器测试，因此 container smoke、isolated real-stack E2E 与最终聚合 `make verify` 均为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`，不是 `MET`；既有历史证据只证明其当时实际覆盖的候选，不替代或冒充本轮执行。
 
 这些开发门禁不等价于未来 production cutover 验收，也不证明 production snapshot、备份恢复目标、生产数据规模、正式回滚或生产观察已经通过。production snapshot sanitization execution 和 production-like rehearsal 因当前数据可重建的开发阶段范围决策终止，outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`；这既不是 Gate=`MET`，也不是执行失败的重新判定。run `pss_20260828_08` 的零写入、零 object payload、零 retained artifact 事实保持不变，run09 未创建且不再创建。
 
 未来进入真实生产发布准备时，应基于届时的数据敏感度、规模、备份恢复目标和部署架构另行制定 Release Readiness 验收；届时才重新定义 production snapshot/rehearsal、正式 cutover、生产观察与 V1 删除门禁，不从当前已取消 Task 恢复执行。
 
-### 14.5 Production Release Readiness 当前门禁
+### 14.5 Production planning 终止状态
 
-2026-08-29 已启动独立 `frontend-v2-production-release-readiness` Task。Repository Gate 新增 `deploy/scripts/test-deploy-production.sh`，冻结 Production Compose 的 V2-only frontend image、历史 runtime project ID、显式 Production env/data root、无 fake OSS、Nginx `19080` proxy、`clean-init|upgrade` 顺序、脱敏配置预检、`initialize-accounts`、可恢复 quarantine，以及部署/激活必须精确匹配 manifest 摘要和镜像 ID 的候选合同。Worker/Scheduler 位于非默认 `production-async` profile，只能在真实外部 Gate=`MET` 后由激活脚本启动。
+2026-08-29 创建的五个 `frontend-v2-production-*` Task 只完成 planning，均未进入实施。随后开发阶段范围决策终止该链：outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`、execution=`NOT_STARTED`、remote mutation=`NONE`。既有 Production Compose、manifest、回滚和安全合同继续留在仓库，但本次任务不冻结 candidate、不执行 clean-init/rehearsal、不连接 Hostdzire，也不验证正式流量或 Production Observation。
 
-Production frontend 回滚只允许切换 manifest 中上一份已验证 V2 image；本节不继承 14.1 的 Staging candidate-aligned V1 fallback。V1 source/test/pipeline 暂时保留到正式切换后的 Observation Gate=`MET`，其存在不代表 Production 可构建、部署或回滚到 V1。当前只批准仓库实施，hostdzire env、数据、Compose、Nginx、切换和清理均未授权，因此 Remote Preparation/Cutover/Observation Gate 仍不得判为 `MET`。
+Production frontend 回滚仍只允许切换 manifest 中上一份已验证 V2 image，V1 不是 Production runtime fallback。未执行的 Repository Candidate、Artifact、Configuration/Capacity、Rehearsal、Remote Preparation、Cutover、Observation Gate 对本轮均只能写成 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`，不能写成 `MET`。
+
+### 14.6 Development cutover required validation
+
+仓库切换必须证明：只有 canonical `frontend/` 被跟踪；根 Makefile 与 CI 不再执行 V1/双前端阶段；dev/staging/prod Compose 静态解析且 Production image identity 不变；部署脚本测试、安全检查、OpenAPI generated check、lint、typecheck、unit、production build和 fixture Playwright 通过。验证不操作远端环境。
+
+本机 frontend container smoke、隔离 real-stack E2E 与最终聚合 `make verify` 经用户明确取消，统一记录为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`，不能写成 `MET`。这不删除对应仓库入口，也不把历史门禁结果继承为当前结果。
+
+任一 canonical source-path、Compose context、脚本引用、E2E 端口/清理、安全扫描或完整门禁失败即停止收口；必须先归因并修复本任务引入的问题。与本任务无关且已有证据的环境/历史失败要明确报告，不能通过恢复双前端、放宽安全规则或跳过 required check 掩盖。
 
 ## 15. Visual Regression
 
@@ -476,7 +486,7 @@ Production frontend 回滚只允许切换 manifest 中上一份已验证 V2 imag
 
 ## 19. Definition of Done
 
-一个页面只有同时满足 Product + Architecture + Contract + Test + Responsive + Accessibility + Production Build，才算 V2 可迁移页面。
+一个页面只有同时满足 Product + Architecture + Contract + Test + Responsive + Accessibility + Production Build，才算 canonical frontend 可交付页面。
 ## 20. GEO Insights 验收边界
 
 `tests/e2e/geo-insights.spec.ts` 使用 generated-type strict fixture 验证 canonical 七参数映射、direct/refresh/Back/Forward/reset、loading/error/retry/empty/partial/unavailable、三项趋势精确表格、服务端 drill-down、Recommendation 无伪链接、按需 creation-options、优化 POST header/body、409 不自动重放、响应 ID 导航和四档根无溢出。fixture 未声明 API、page error 与非预期 console error 均失败。

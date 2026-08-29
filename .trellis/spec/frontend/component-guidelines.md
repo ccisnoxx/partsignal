@@ -16,7 +16,7 @@ Questions to answer:
 - What accessibility standards apply?
 -->
 
-前端沿用 React 与 Ant Design 组件，不建立第二套基础组件或通知系统。共享组件只承载稳定的展示边界，例如 `TableRegion`、`QueryFailure`、`NoData` 和 `MetricTile`；业务权限、恢复路径和状态转换由对应路由或 feature 所有者决定。
+canonical 前端使用 React、Tailwind CSS 4、shadcn/ui 结构与 Base UI primitives，不建立第二套基础组件或通知系统。共享组件只承载稳定展示与交互边界，例如 `TableShell`、`RowActions`、`QueryFailure`、`NoData` 和 Workspace Kit；业务权限、恢复路径和状态转换由对应 route 或 domain owner 决定。
 
 ---
 
@@ -106,7 +106,7 @@ await createGeoObservation(toGeoObservationCorrectionCreate(context.data!, value
 
 - 可恢复错误使用 `QueryFailure({ error, onRetry?, actions? })`。`actions` 只传入页面已经存在且上下文明确的返回或配置入口，共享组件不得识别业务错误码。
 - 空结果使用 `NoData({ description?: ReactNode, action?: ReactNode })`。同屏已有等价主操作时不重复传 `action`。
-- 表格宽列必须位于 `TableRegion` 内，通过 Table 自身 `scroll.x` 局部滚动，不允许制造页面级横向滚动。
+- 表格宽列必须位于带命名 region 的 `TableShell` 内，通过 `.ps-table-region` 局部滚动，不允许制造页面级横向滚动。
 
 ### 业务表格主操作边界
 
@@ -130,7 +130,7 @@ type DeletionLinkResolver = (blocker: DeletionBlocker) =>
   | undefined;
 ```
 
-只从 `frontend/src/shared/api/schema.d.ts` 导入字段类型，不手写字符串并集或通用 action 类型。
+只从 `frontend/src/shared/api/generated/schema.d.ts` 导入字段类型，不手写字符串并集或通用 action 类型。
 
 #### 3. 合同
 
@@ -195,24 +195,11 @@ const items = row.deletion?.blockers.length
 
 ### 表格列宽约定
 
-按字段内容角色分配宽度：状态、版本、数量和操作等有明确上限的字段使用紧凑 `width`；名称、标题等长文本列可以作为弹性列，也可以在宽表中声明与 `scroll.x` 一致的有界宽度。横向滚动的关键宽表将操作列设为 `fixed: 'right'`，保证移动端仍可直接操作。
+按字段内容角色分配宽度：状态、版本、数量和操作等有明确上限的字段使用紧凑列；名称、标题等长文本列保留弹性宽度。`TableShell` 提供命名、可聚焦的局部滚动 region，原生 `<table>` 或 TanStack Table 只负责表格语义和状态，不得制造页面级横向滚动。
 
-全站表格的可变长文本列都必须登记并遵守同一合同：普通文本使用 `TableCellText` 保持单行省略，并通过悬停或键盘聚焦查看完整值；链接、按钮和复合身份中的交互文本叶子复用现有 Tooltip，并统一添加 `.table-cell-ellipsis`，使长文本压力探针能够覆盖。固定短枚举、状态、数字、时间、布尔值和操作列不纳入长文本合同。“名称 + 次要标识”最多保持固定两行，每一行独立省略。承载文本的 `a`、`strong`、`span` 和双行容器必须允许 `min-width: 0`，不得依赖 `<td>` 自身的 `ellipsis` 掩盖子元素溢出。带图标、头像或两行身份的复合单元格必须让外层容器和文本槽同时具备 `width: 100%; min-width: 0`，固定图形使用 `flex: none`；当完整值属于整个复合身份时，Tooltip 和键盘焦点必须由根容器持有，叶子文本只保留 `.table-cell-ellipsis`，不能把可触发区域缩成文字自身。不得用默认不可收缩的 `Space` 包裹长文本。`TableRegion` 只负责语义焦点和外层宽度边界，横向滚动继续由 Ant Table 持有。
+可变长文本的容器与文本槽必须允许 `min-width: 0`，使用 `.table-cell-ellipsis` 或等价的单一行截断，并通过可聚焦 Tooltip 或明确详情入口读取完整值。固定短枚举、状态、数字、时间、布尔值和操作列不纳入长文本合同。“名称 + 次要标识”最多固定两行，每行独立省略。带图标或两行身份的复合单元格必须让外层容器和文本槽同时可收缩，固定图形使用 `flex: none`。
 
-```tsx
-<Table
-  scroll={{ x: 760 }}
-  columns={[
-    { title: '型号', dataIndex: 'part_number' },
-    { title: '状态', dataIndex: 'status', width: 110 },
-    { title: '操作', key: 'actions', width: 110, fixed: 'right' },
-  ]}
-/>
-```
-
-不要给所有列分配相同或近似固定宽度；Ant Table 会把桌面剩余空间机械摊到这些列，造成短字段和操作列异常放大。表格内的 Select 等控件必须受单元格宽度约束，使用明确宽度配合 `maxWidth: '100%'`，不得用大于单元格的 `minWidth` 撑破页面。表格操作区若要统一图标按钮尺寸，选择器必须限定 `.ant-btn-icon-only`；不得把 `.ant-btn` 整体固定为方形，否则文字主操作会被裁切或失去可读宽度。
-
-> **Ant Design 6 固定列注意事项**：右侧固定列使用逻辑类 `.ant-table-cell-fix-end`，阴影使用 `.ant-table-cell-fix-end-shadow::after`。修改局部覆盖前必须核对锁定版本的真实 DOM；不得沿用旧版 `.ant-table-cell-fix-right`，也不得用提高层级、遮罩或隐藏相邻字段掩盖列宽错误。
+操作列使用 `RowActions`：最多直出一个 Primary，其余动作进入 Base UI `DropdownMenu`；移动端必须仍可到达，不通过 sticky/fixed 技巧遮挡其他字段。不得给所有列分配相同固定宽度，也不得用控件 `min-width` 撑破单元格。
 
 ---
 
@@ -220,19 +207,11 @@ const items = row.deletion?.blockers.length
 
 <!-- How styles are applied (CSS modules, styled-components, Tailwind, etc.) -->
 
-- 组件状态只消费 `src/app/theme.ts` 和 `global.css` 已定义的语义变量，不在业务 TSX/CSS 中硬编码浅色或深色颜色。
-- 映射 Ant Design 的组合语义 Token 时，前景与背景必须成对覆盖；例如自定义 Tooltip 的 `colorBgSpotlight` 时必须同时指定兼容的 `colorTextLightSolid`，不得让组件库默认前景色与项目表面色混用。
-
-```tsx
-token: {
-  colorBgSpotlight: tokens.bgRaised,
-  colorTextLightSolid: tokens.textPrimary,
-}
-```
-
-- 长集合表使用 Ant Table `sticky={{ offsetHeader: 72 }}`；短子表不为统一外观强制 sticky。
+- 组件状态只消费 `src/styles/global.css` 定义的语义变量及其 Tailwind 角色，不在业务 TSX/CSS 中硬编码浅色或深色颜色。
+- shadcn/Base UI primitive 只包装可复用的交互语义；业务 Domain 不复制 primitive，也不得绕开 Token 自建第二套表面、焦点或状态颜色。
+- 长集合表只有在真实浏览器证明确有需要时才实现 sticky；短子表不为统一外观强制 sticky。
 - 行焦点使用 `tr:focus-within` 表达，不给 `tr` 增加 `tabIndex`，避免整行成为第二个交互入口。
-- `MetricTile` 的图标槽由共享样式持有；任何后置移动断点若重写卡片 body padding，必须同时保留 `.metric-with-icon` 的图标净空，并在 320px、375px 真实浏览器中断言图标不与标题或数值相交。
+- 指标图形与文字净空由共享 pattern 持有；移动断点修改 padding 时必须在 320px、375px 真实浏览器中断言图标不与标题或数值相交。
 
 ---
 
@@ -240,7 +219,7 @@ token: {
 
 <!-- A11y requirements and patterns -->
 
-- 高密度行只保留一个高频主入口；低频和危险操作放入 Ant `Dropdown`，触发器名称使用 `更多操作：<业务标识>`。危险菜单项必须进入原有确认流程，不得直接执行删除或停用。
+- 高密度行只保留一个高频主入口；低频和危险操作放入 `RowActions` 的 Base UI `DropdownMenu`，触发器名称使用 `更多操作：<业务标识>`。危险菜单项必须进入原有确认流程，不得直接执行删除或停用。
 - 危险操作使用用户能理解的业务语言命名，不把“物理删除”等存储实现术语写进菜单、按钮或弹窗标题。服务端动作键仍保持原合同；例如 `DELETE` 在内容任务页显示为“删除任务”，确认按钮显示“确认删除”，关联清理范围与不可恢复后果写在确认正文。
 
 ```tsx
@@ -253,9 +232,9 @@ token: {
 
 - 长页面章节导航使用原生锚点；当前章节设置 `aria-current="location"`。条件章节的链接与区块必须使用同一个渲染条件。
 - 路由 pathname 变化后由 `AppLayout` 将焦点移到 `Layout.Content`，并调用 `focus({ preventScroll: true })`；查询参数变化不得抢焦点。
-- `/users`、`/audit` 和 `/configuration/*` 必须共用 `AdminRoute`，在受限页面挂载前判断管理员权限。未获权访问保留原 URL，展示带恢复操作的 403，并在 `AppLayout` 路由焦点完成后把焦点移入提示区域；页面内部不得再维护查询开关或重定向。
-- 弹窗、下拉菜单和表格滚动区继续使用 Ant Design 与 `TableRegion` 的键盘和可访问语义，不手写第二套焦点圈定。
-- 工作台侧栏只在 URL 中存在真实选中对象时渲染 Ant Drawer；移动端使用全宽 Drawer。关闭后清理对象查询参数并恢复原触发器焦点，不保留无对象的永久占位面板。
+- `/system/users`、`/system/audit` 和受限配置路由必须在 route 边界判断管理员权限。未获权访问保留原 URL，展示带恢复操作的 403，并在 `AppShell` 路由焦点完成后把焦点移入提示区域；页面内部不得再维护平行权限开关或重定向。
+- 弹窗、下拉菜单、Sheet 和表格滚动区继续使用 Base UI primitives 与 `TableShell` 的键盘和可访问语义，不手写第二套焦点圈定。
+- 工作台侧栏只在 URL 中存在真实选中对象时渲染 `Sheet`；移动端使用适合视口的宽度。关闭后清理对象查询参数并恢复原触发器焦点，不保留无对象的永久占位面板。
 
 ---
 

@@ -8,7 +8,7 @@ import socket
 from redis import Redis
 
 
-FIXED_PORTS = (8000, 9001, 5173, 4173, 4174)
+FIXED_PORTS = (8000, 9001, 4174)
 EXACT_REDIS_KEYS = {b"celery", b"unacked", b"unacked_index", b"unacked_mutex"}
 KOMBU_BINDING_PREFIX = b"_kombu.binding."
 CLIENT_NAME = "partsignal-e2e-environment"

@@ -21,11 +21,11 @@ grep -Fqx "    command: [uvicorn, 'app.main:app', --host, 0.0.0.0, --port, '8000
   "$root/deploy/compose.staging.yaml"
 grep -Fqx '    image: ${PARTSIGNAL_FRONTEND_IMAGE:-partsignal-frontend}:${PARTSIGNAL_VERSION}' \
   "$root/deploy/compose.staging.yaml"
-grep -Fqx '      context: ../frontend-v2' "$root/deploy/compose.staging.yaml"
-! grep -Fqx '      context: ../frontend' "$root/deploy/compose.staging.yaml"
+grep -Fqx '      context: ../frontend' "$root/deploy/compose.staging.yaml"
+! grep -Fqx '      context: ../frontend-v2' "$root/deploy/compose.staging.yaml"
 grep -Fqx '      - 127.0.0.1:19080:80' "$root/deploy/compose.staging.yaml"
 
-PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend-v1 PARTSIGNAL_VERSION=test \
+PARTSIGNAL_FRONTEND_IMAGE=partsignal-frontend PARTSIGNAL_VERSION=test \
   docker compose --env-file /dev/null -f "$root/deploy/compose.staging.yaml" \
   config --no-env-resolution --format json frontend \
   >"$test_dir/frontend-only-config.json"
@@ -38,7 +38,7 @@ with open(sys.argv[1], encoding="utf-8") as config_file:
 
 assert list(config["services"]) == ["frontend"]
 frontend = config["services"]["frontend"]
-assert frontend["image"] == "partsignal-frontend-v1:test"
+assert frontend["image"] == "partsignal-frontend:test"
 assert "depends_on" not in frontend
 assert "links" not in frontend
 PY
@@ -152,4 +152,4 @@ grep -q 'V1 不属于 Production 回滚目标' "$root/docs/Hostdzire部署附录
 grep -q '上一份已验证 V2' "$root/docs/Hostdzire部署附录.md"
 ! grep -q 'frontend-v1-fallback-command' "$root/docs/Hostdzire部署附录.md"
 
-printf '%s\n' "预发布 full/fast 与 Production V2-only 边界自检通过"
+printf '%s\n' "预发布 full/fast 与 Production canonical Frontend 边界自检通过"

@@ -166,4 +166,4 @@ PARTSIGNAL_QUARANTINE_ROOT=/root/partsignal-data-quarantine \
 
 切换后检查回环、公网 HTTP、V2 artifact、登录后核心只读流、受控写、真实 AI/OSS、容器健康和资源。HTML/SPA 必须 `no-cache`，hashed assets 必须 immutable，missing asset/`.map` 必须 `404`，JS 无 `sourceMappingURL`，CSP/安全头只由外层 Nginx 持有，且 `/object-storage/` 不存在 Production 代理。
 
-观察期记录 Nginx 5xx/upstream、API error、restart/OOM、Worker/Scheduler、DB/Redis、AI/OSS 与核心业务结果。只有 Observation Gate=`MET` 后才能单独实施 V1 源码/pipeline 删除；quarantine、旧 release/image、fake-oss 和 `.env.staging` 清理仍需破坏性授权。
+观察期记录 Nginx 5xx/upstream、API error、restart/OOM、Worker/Scheduler、DB/Redis、AI/OSS 与核心业务结果。V1 源码/pipeline 已按 2026-08-29 开发阶段范围决策在仓库内退役，不代表 Observation Gate 已执行或为 `MET`；本次任务的 Production Gate 均为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`。quarantine、旧 release/image、fake-oss 和 `.env.staging` 清理仍需破坏性授权。

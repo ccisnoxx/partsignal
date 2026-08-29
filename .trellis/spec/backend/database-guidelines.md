@@ -250,7 +250,7 @@ DB revision: 0041_content_task_list
 
 ### 6. Tests Required
 
-- Contract：OpenAPI、运行时 schema、V1/V2 generated types 一致，冻结双模式分页与必填列表字段。
+- Contract：OpenAPI、运行时 schema、canonical frontend generated types 一致，冻结双模式分页与必填列表字段。
 - PostgreSQL integration：搜索、阶段/平台/归档筛选、10/20/50 分页、稳定排序、current pointer 与 fixed statement count。
 - Frontend component：固定六列、typed action registry、URL normalization、loading/empty/filtered-empty/error 和 lifecycle error mapping。
 - Production-artifact Playwright：direct/refresh/Back/Forward、搜索/筛选/分页、归档、409 单次请求、375/768/1024/1440、键盘/焦点和未声明 API 失败。
@@ -353,7 +353,7 @@ result = cleanup_platform_logo_files(storage=storage)
 
 ### 1. 范围与触发条件
 
-- 修改平台列表、Workspace Detail、配置完整性/readiness 投影、筛选分页、汇总选项、启停或删除命令，以及 V1/V2 平台管理消费者时适用。
+- 修改平台列表、Workspace Detail、配置完整性/readiness 投影、筛选分页、汇总选项、启停或删除命令，以及 canonical frontend 平台管理消费者时适用。
 - 本场景只扩展实时读模型和 revision 命令，不新增数据库列、快照或迁移，也不引入第二套权限或状态来源。
 
 ### 2. 签名

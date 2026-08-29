@@ -3,20 +3,23 @@
     "target": "ES2022",
     "useDefineForClassFields": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "allowJs": false,
     "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
     "isolatedModules": true,
+    "moduleDetection": "force",
     "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "jsx": "react-jsx",
+    "strict": true,
     "noUncheckedIndexedAccess": true,
-    "types": ["vitest/globals", "@testing-library/jest-dom", "@types/trusted-types"]
+    "noUncheckedSideEffectImports": true,
+    "types": ["vite/client"]
   },
-  "include": ["src"]
+  "include": ["src", ".storybook"]
 }

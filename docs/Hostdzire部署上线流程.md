@@ -16,7 +16,7 @@
 | 旧环境隔离 | `/root/partsignal-data-quarantine/<run-id>`，不得被 Production mount |
 | 回环端口 | API `127.0.0.1:19000`；Frontend V2 `127.0.0.1:19080` |
 | Production services | `postgres`、`redis`、`migrate`、`api`、`worker`、`scheduler`、`frontend` |
-| Frontend owner | `deploy/compose.prod.yaml` 的 `frontend` service，镜像只来自 `frontend-v2/` |
+| Frontend owner | `deploy/compose.prod.yaml` 的 `frontend` service，源码只来自 canonical `frontend/`；现有 Production image identity 保持 V2 命名 |
 | Nginx owner | `deploy/nginx/partsignal.conf.template` 代理 API 与 Frontend V2 回环端口 |
 | 对象存储 | 真实 `aliyun_oss`；Production 不运行或代理 `fake-oss` |
 | 业务状态 | PostgreSQL 是唯一来源；Redis 只承担 Celery Broker |
@@ -68,7 +68,7 @@ git diff --check
 6. 对 Nginx 做权限保留备份和原子替换，`nginx -t` 通过后另取 reload 授权。
 7. 完成回环、公网、浏览器、权限、AI/OSS 与受控写验收，进入观察期。
 
-物理删除 quarantine、`.env.staging`、fake-oss container/image、旧 release/image 或 V1 源码不属于上述转换授权。
+物理删除 quarantine、`.env.staging`、fake-oss container/image 或旧 release/image 不属于上述转换授权。V1 仓库源码已在独立的开发阶段 cutover 中退役，该事实不扩大任何远端删除或 Production 转换授权。
 
 ## 6. 验收
 
@@ -85,8 +85,8 @@ git diff --check
 
 默认不执行 Alembic downgrade。恢复保留失败现场，不删除 release、镜像、manifest、quarantine 或日志。
 
-## 8. Observation 与 V1 退役
+## 8. Observation 与仓库退役状态
 
-观察期跟踪 Nginx 5xx/upstream、API 错误、container restart/OOM、Worker/Scheduler、DB/Redis health、AI/OSS 和核心业务结果。达到批准阈值前不得删除 V1。
+观察期跟踪 Nginx 5xx/upstream、API 错误、container restart/OOM、Worker/Scheduler、DB/Redis health、AI/OSS 和核心业务结果。该观察期仍是未来真实 Production 发布的独立 Gate。
 
-只有 Observation Gate=`MET` 后，才可在新的仓库变更中删除 `frontend/`、V1 build/test/deploy pipeline 和 V1 fallback 文档，并执行 V2-only 全量验证。quarantine、旧镜像和旧环境文件的物理清理仍需另一份破坏性授权。
+2026-08-29 的开发阶段范围决策已允许在仓库内删除 V1 并把原 V2 提升为 canonical `frontend/`，不以 Observation Gate 为前置条件；这不是 Production 发布，也不能把未执行的 Remote Preparation、Cutover 或 Observation Gate 写成 `MET`。这些 Gate 对本次任务均为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`。quarantine、旧镜像、release 和旧环境文件的物理清理仍需另一份破坏性授权。

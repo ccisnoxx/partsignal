@@ -27,4 +27,4 @@ make dev
 
 新增或调整写路径时，先定位拥有业务不变量的应用服务。Router 不直接提交事务、获取行锁、追加审计或修改 ORM 实体；它只处理 HTTP 输入输出、认证依赖和错误映射。不要为简单查询或单行调用增加只转发参数的 Service、Repository、Helper，也不要在模块间直接写入对方实体。
 
-Schema 从 `app.schemas.<domain>` 直接导入，ORM 类从 `app.models.<domain>` 直接导入。新增模型仍使用 `app.db.Base` 和字符串外键，并在 `app.models.__init__` 注册所属模块；修改映射后必须检查 mapper 配置、metadata 表集合和 Alembic head，不能为了拆文件生成迁移。前端只从 `shared/api/types` 使用 OpenAPI 生成类型，查询缓存键必须复用 `shared/api/queryKeys.ts`，不得复制接口类型或页面本地状态机。
+Schema 从 `app.schemas.<domain>` 直接导入，ORM 类从 `app.models.<domain>` 直接导入。新增模型仍使用 `app.db.Base` 和字符串外键，并在 `app.models.__init__` 注册所属模块；修改映射后必须检查 mapper 配置、metadata 表集合和 Alembic head，不能为了拆文件生成迁移。canonical `frontend/` 只从 `src/shared/api/generated/schema.d.ts` 使用 OpenAPI 生成类型；query key 由对应 domain/API owner 统一持有，不得复制接口类型、页面内 query key 或客户端业务状态机。

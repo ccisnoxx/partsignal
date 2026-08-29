@@ -4,7 +4,7 @@
 >
 > 基线日期：2026-08-07
 >
-> 适用范围：`frontend-v2/` 从初始化到替换 V1 的全部工作
+> 适用范围：Frontend V2 从独立初始化到提升为 canonical `frontend/` 的完整历史，以及后续 frontend 开发规则
 >
 > 本文职责：统一保存阶段路线、任务边界、交付规则、Git 例外、质量门禁与新会话接续方式
 
@@ -27,7 +27,7 @@
 
 ## 2. 总体目标与边界
 
-V2 使用独立 `frontend-v2/` 开发，不在现有 `frontend/` 中原地重写。
+V2 在 Phase 0–8 使用独立 `frontend-v2/` 开发，避免在旧 `frontend/` 中原地重写。2026-08-29 的开发阶段 cutover 已将该实现提升为唯一 canonical `frontend/`；以下独立目录与双前端规则在历史 Phase 中仍有效，但不再是当前仓库结构。
 
 复用：
 
@@ -43,7 +43,7 @@ V2 使用独立 `frontend-v2/` 开发，不在现有 `frontend/` 中原地重写
 - feature 内部被当作通用组件的 UI；
 - 页面根据 status、role 或多接口结果推导出的业务资格。
 
-V1 在 Cutover Gate 通过前必须保持可运行。V2 是新实现，V1 是业务行为、API、字段与回归场景的参考，不是新页面结构或组件代码的模板。
+V1 曾在 Phase 0–8 作为业务行为、API、字段与回归场景的参考，而不是新页面结构或组件代码的模板。当前业务数据可重建，V1 已按明确范围决策退役；该仓库切换不代表 Production Cutover 或 Observation 已执行。
 
 ## 3. 十条交付规则
 
@@ -107,11 +107,11 @@ Workspace、Form、Editor、Analytics 等 Pattern 在第一个真实消费者之
 → contract-check 和相关验证
 ```
 
-主代理维护根级 contracts、backend 与 frontend-v2 的一致性。新增 Workspace context endpoint 必须有真实 waterfall 或 snapshot 一致性问题，不为未来页面预建。
+主代理维护根级 contracts、backend 与 canonical frontend 的一致性。新增 Workspace context endpoint 必须有真实 waterfall 或 snapshot 一致性问题，不为未来页面预建。
 
-### 3.5 第一项 V2 准备任务创建 `frontend-v2/AGENTS.md`
+### 3.5 Canonical frontend 使用 `frontend/AGENTS.md`
 
-该文件只保存 V2 特有且需要目录级自动生效的规则，不复制根 `AGENTS.md`。至少包含：
+该文件由原 `frontend-v2/AGENTS.md` 随 canonical 目录迁移而来，只保存 frontend 特有且需要目录级自动生效的规则，不复制根 `AGENTS.md`。至少包含：
 
 - 必读蓝图与本文入口；
 - 技术栈、依赖方向和状态所有权；
@@ -140,7 +140,7 @@ Read
 
 各步骤含义：
 
-1. **Read**：读取根与 V2 `AGENTS.md`、本文、相关专项蓝图和 contract；
+1. **Read**：读取根与 `frontend/AGENTS.md`、本文、相关专项蓝图和 contract；
 2. **Audit**：确认现有 API、read model、权限、动作和可复用 Pattern；
 3. **Plan**：列出单一目标、明确不做什么、预计文件、组件层级和验证命令；
 4. **Implement**：按 contract/model → query/action → components → route 的顺序实现；
@@ -191,9 +191,9 @@ codex/frontend-v2-products-list
 - 父级路线只保存在本文，不创建长期 `frontend-v2-rewrite` 分支；
 - 此例外只适用于 Frontend V2，其他工作继续遵循根规则。
 
-### 3.9 Cutover Gate 通过前不删除旧前端
+### 3.9 历史双前端保护规则与当前范围决策
 
-Phase 0–8 不删除 `frontend/`，不把生产入口直接切向 V2，也不让 V1/V2 共用同一套可变 UI 源码。V1 pipeline 的删除必须是 Phase 9 的最后一个独立 Task。
+Phase 0–8 不删除旧 `frontend/`，不把生产入口直接切向 V2，也不让 V1/V2 共用同一套可变 UI 源码；这条规则已完成其隔离职责。2026-08-29 的开发阶段决策允许在独立 Task 中退役 V1 并提升 canonical `frontend/`，同时明确禁止 Hostdzire、生产流量、远端数据/镜像/release/quarantine/环境文件变更。未执行的 Production Gate 只能记为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`，不能写成 `MET`。
 
 ### 3.10 Codex 固定协作节奏
 
@@ -230,7 +230,7 @@ Phase 0–8 不删除 `frontend/`，不把生产入口直接切向 V2，也不�
 所有 Task 必读：
 
 - 根 `AGENTS.md`；
-- `frontend-v2/AGENTS.md`（创建后）；
+- `frontend/AGENTS.md`；
 - 本文；
 - 当前 Task 的 `prd.md`、`design.md`、`implement.md`（创建后）。
 
@@ -270,7 +270,7 @@ Rollback Point
 
 ### 5.1 V2 Agent Rules
 
-先创建最小 `frontend-v2/AGENTS.md`，固化本文第 3 节的目录级规则。该准备任务只改规则文件，不初始化应用、不修改 contract，也不实现业务能力；完成后再进入 Contract Readiness。
+历史第一项任务创建了最小 `frontend-v2/AGENTS.md`；它现已随 canonical 目录迁移为 `frontend/AGENTS.md`，继续固化本文第 3 节的目录级规则。
 
 ### 5.2 执行方式
 
@@ -513,38 +513,27 @@ A27 两键 allowlist、A28 Settings repr/ValidationError、A30 Celery quiet、�
 
 ## 14. Phase 9 — Development Closeout
 
-2026-08-29 起，PartSignal 仍处于业务数据可由 migration 与 seed 重建的开发阶段。当前阶段保留已经完成的 V2 staging 接入、Staging current finalization、外部 Staging Gate=`MET`、candidate-aligned V1 UI fallback compatibility、V1 → V2 legacy routing，以及 production artifact、CSP、source-map 和 deep-link 验证证据；`frontend/`、V1 build/deploy pipeline、当前 Staging V2 与已归档 sanitizer artifact 同样保留。
+2026-08-29 起，PartSignal 仍处于业务数据可由 migration 与 seed 重建的开发阶段。已经完成的 V2 staging 接入、Staging current finalization、外部 Staging Gate=`MET`、candidate-aligned V1 UI fallback compatibility、legacy routing，以及 production artifact、CSP、source-map 和 deep-link 验证证据作为历史记录保留；它们不要求仓库继续维持双前端。
 
 production snapshot sanitization execution 与 production-like rehearsal 因范围决策终止，outcome=`CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`。run `pss_20260828_08` 的实际结论仍是 production write=`0`、object payload copied=`0`、retained artifact=`0`；run09 未创建且不再创建。这不是 production rehearsal 成功，也不是 Cutover Gate=`MET`。
 
-2026-08-29 已启动独立 Trellis Task `frontend-v2-production-release-readiness`，以下工作从 Development Closeout 的延期项转入新的 Production Gate，不回写为 Phase 9 历史必过项：
+同日最初创建的五个 `frontend-v2-production-*` planning Task 均未进入实施。开发阶段范围决策随后取消该 Production planning 链，不回写为 Phase 9 历史必过项：
 
 1. production-like data rehearsal 与回滚演练；
 2. 正式 production cutover 与错误率/API 观察；
-3. 最后删除 V1 build/deploy pipeline 和 `frontend/`。
+3. 正式 Production Observation。
 
-新 Task 已基于当次只读 inventory 采用“原地 Production 转换 + V2-only + 丢弃 Staging 数据”的独立方案：旧 PostgreSQL、Redis 与 fake OSS objects 先同文件系统 quarantine，Production 从空 PostgreSQL/Redis 与真实 OSS 初始化；不从已取消 Task 恢复执行，也不机械继承旧 snapshot 协议。
+五个 planning Task 的 outcome 均为 `CANCELLED_BY_SCOPE_DECISION`、Gate=`NOT_APPLICABLE`、execution=`NOT_STARTED`、remote mutation=`NONE`，并已归档。未来如进入真实 Production 发布，应根据届时状态重新规划，不从这些已取消 Task 恢复执行。
 
-### 14.1 Production Release Readiness（当前 REPOSITORY_IMPLEMENTATION）
+### 14.1 Development Cutover 与 V1 退役（当前仓库状态）
 
-当前已批准仓库实施，但尚未授权 hostdzire 写入、数据移动、容器替换、Nginx reload 或正式切换。Production Compose 正式拥有 Frontend V2，外层 Nginx 代理 `19080`，候选 manifest 冻结上一份已验证 V2 image；Production 不构建或回滚到 V1。远端 Cutover Gate 仍为 `NOT_MET`，至少需要完成：
+`frontend-v2-development-cutover-v1-retirement` 在开发阶段执行纯仓库切换：删除 V1 源码、测试、构建和双前端 pipeline，把原 `frontend-v2/` 提升为唯一 canonical `frontend/`，并保留既有 Production image identity、Compose service、环境变量、tag、manifest 与回滚 image 合同。该任务不操作 Hostdzire，不执行 clean-init、隔离环境全流程演练、生产流量切换或 Production Observation，也不删除任何远端数据、镜像、release、quarantine 或环境文件。
 
-- V2 目标路由全部完成；
-- Product、Content、Publishing、GEO、Configuration、System 核心 E2E 通过；
-- 375/768/1024/1440 响应式验收完成；
-- keyboard、focus、dialog/menu、status redundancy 等可访问性验收完成；
-- 权限、server action revalidation 和 revision conflict 验证完成；
-- production build artifact smoke 通过；
-- `/login`、`/`、核心列表、Workspace 和管理员 deep link 可直接访问；
-- JS chunk、API base URL、client routing fallback、asset caching、CSP/source map 策略已验证；
-- redirect map 已验证；
-- `contract-check` 和必要部署脚本测试通过；
-- Production clean-init rehearsal 与上一份 V2 回滚演练完成；
-- Observation Gate=`MET` 后，V1 删除才作为单独、可回滚的最后一个仓库 Task。
+本任务只以 Repository/Development validation 判断仓库切换是否正确。此前或未来的 Repository、Artifact、Configuration/Capacity、Rehearsal、Remote Preparation、Cutover、Observation 等 Production Gate 都不能由本任务推断为通过；本轮未执行项统一记录为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`。
 
-不长期保留 `/v1` 与 `/v2` 两套路由语义；当前仅为切换前验证和 Observation Gate 保留 V1 source/test/pipeline，不把 V1 作为 Production runtime fallback，也不提前删除。
+### 14.2 P9.1 Staging 接入状态（历史证据）
 
-### 14.2 P9.1 Staging 接入状态
+本节记录 Development Closeout 之前的 P9.1 执行语境，不是当前仓库结构或回退合同。当前 canonical 路径与 V1 退役状态以 14.1 为准。
 
 - 仓库实现将现有 staging `frontend` service 的 build context 切换为 `frontend-v2/`，service 名、镜像变量、端口、外层 Nginx、安全头和发布脚本保持不变。
 - V2 production artifact 由 `frontend-v2/Dockerfile` 与 `frontend-v2/nginx.conf` 持有，production source map 显式关闭；本地容器门禁覆盖 SPA fallback、asset 404、缓存与 `.map`。
@@ -553,7 +542,7 @@ production snapshot sanitization execution 与 production-like rehearsal 因范�
 - 用户于 2026-08-25 确认 P9.1 以 Repository Gate=`MET` 收口并归档；外部 Gate 随后由独立任务 `frontend-v2-phase-9-staging-activation-validation` 检查。公网状态、headers、代表 SPA 路径、health、hashed JS/CSS immutable 与 missing asset 404 均通过，但页面标题为候选 V1 固定标题而非 V2 标题，`/assets/index-B12Mu6hl.js.map` 返回 200 且主 JS 含 `sourceMappingURL`。公网未观察到固定候选 V2 artifact，B 也没有可核验完成证据，并违反 source map Required 合同；故外部 Staging Gate=`NOT_MET`，在浏览器前置处停止，没有创建 Playwright session、登录、业务写入或自动回滚。公网行为与候选 V1 source marker 一致；未通过 SSH 复核，不能断言 current/container、入口缓存或其他远程根因。Cutover Gate 仍未满足，V1 源码、旧 release 与回滚边界继续保留。
 - 此后 legacy routing、production artifact 与 Staging current 已分别形成独立证据；production-like rehearsal、回滚演练、正式切换和 V1 删除现已按 Development Closeout 决策延期。
 
-### 14.3 Staging V1 UI 回退兼容合同
+### 14.3 Staging V1 UI 回退兼容合同（历史证据）
 
 `frontend-v2-phase-9-staging-v1-rollback-compatibility-blocker` 将迁移后回退边界收紧为同一 candidate release 内的 frontend-only 切换：
 
@@ -565,7 +554,7 @@ production snapshot sanitization execution 与 production-like rehearsal 因范�
 
 当前 V1 产品树与 Phase 8 固定候选的 frontend/backend/contracts/E2E runner 无差异，可继承 V1 E2E `52 passed`、unit `205 passed`、visual `24 passed` 和 production build 证据；若这些 owner 在新 candidate 固定前变化，必须重跑相关 V1 真实栈门禁，不得继承过期结果。本合同的仓库门禁不代表 Staging artifact 已构建或远程切换已验证；实际 tag/image ID、Compose dry-run 与 protected-state 前后证据仍属后续独立 staging activation Task。
 
-### 14.4 Staging current finalization
+### 14.4 Staging current finalization（历史证据）
 
 `frontend-v2-phase-9-staging-csp-post-fix-recheck` 已将 fixed candidate `2a6fd940b84890d269bf1196a8c6e16b4cd9a9f9` 的 release `mvp-20260825-172239-2a6fd940b848` 完整部署到 Staging：backend/fake-oss image ID=`sha256:2af343ae4b4bce37accfb192ee46c239788874f865a0450edaed76e95859720f`，candidate-aligned V1 image ID=`sha256:dfadfd534b11d80bdf993566c4b46cf9c6f87ef1283e303902d5b2130eca4fa4`，V2 image ID=`sha256:72b206963f479d0dd75132708dac3c37e4d9243fcb75e380d80f8e12fe721111`。该任务的 HTTP、blocker-specific Browser、完整 Browser 与 protected-state Gate 均已通过，open P0/P1/P2=`0/0/0`；其历史 `NOT_MET` 仅因当时 `current` 未获授权更新，原结论保持不变。
 
@@ -598,10 +587,10 @@ production snapshot sanitization execution 与 production-like rehearsal 因范�
 Foundation 独立期间使用：
 
 ```bash
-npm --prefix frontend-v2 run lint
-npm --prefix frontend-v2 run typecheck
-npm --prefix frontend-v2 run test
-npm --prefix frontend-v2 run build
+npm --prefix frontend run lint
+npm --prefix frontend run typecheck
+npm --prefix frontend run test
+npm --prefix frontend run build
 ```
 
 涉及 OpenAPI/backend 时至少增加：
@@ -611,7 +600,7 @@ make contract-check
 uv run --project backend pytest <相关测试路径>
 ```
 
-Phase 1 Quality Integration 完成后，根质量入口必须同时覆盖 V1/V2。`make verify` 用于共享 contract、Phase 退出、release/cutover 或用户明确要求的全量验证，不要求每个低风险 UI Task 都运行后端完整集成套件。
+开发阶段 cutover 后，根质量入口只覆盖 canonical frontend。`make verify` 用于共享 contract、结构切换、release/cutover 或用户明确要求的全量验证，不要求每个低风险 UI Task 都运行后端完整集成套件。
 
 部署脚本测试当前不包含在 `make verify` 中；Cutover 与部署修改还需显式运行：
 
@@ -637,13 +626,13 @@ make test-deploy-scripts
 
 先读取：
 - 根 AGENTS.md
-- frontend-v2/AGENTS.md（若已存在）
+- frontend/AGENTS.md
 - docs/frontend-v2/07-migration-plan.md
 - 07 中该 Task 的最小上下文读取矩阵所列文档
 
 本会话只处理该 Task，不自动继续下一项。
 先审计现有实现和 contract，再创建本 Task 的 Trellis 规划；
-规划经确认后，从最新 main 创建 codex/frontend-v2-<task> 临时分支实施。
+规划经确认后，按根 Git 规则或用户明确批准的分支实施。
 遵循：先阅读 → 说明计划 → 修改 → 自测 → 自审 → 报告。
 ```
 
@@ -666,14 +655,14 @@ Branch / Commit / Merge Status
 
 ## 19. 已确认的执行决定
 
-- 独立 `frontend-v2/`，V1 保留到 Cutover；
+- Phase 0–8 以独立 `frontend-v2/` 隔离开发；2026-08-29 已提升为 canonical `frontend/` 并退役 V1；
 - 文档驱动、contract-first、vertical slice；
 - 一个 Task 一个新会话、一个可 review 目标；
 - Design System 先于首个业务消费者并按需扩展；
 - 每个 vertical slice 后进行抽象回顾；
-- 必要时同一 slice 同步调整 OpenAPI、backend 与 frontend-v2；
-- 第一项实施任务创建精简 `frontend-v2/AGENTS.md`；
+- 必要时同一 slice 同步调整 OpenAPI、backend 与 canonical frontend；
+- canonical 目录使用精简 `frontend/AGENTS.md`；
 - Playwright 从第一张业务页开始；
 - Frontend V2 正式采用一个 Task 一个 `codex/frontend-v2-*` 临时分支；
 - 固定协作节奏为先阅读、说明计划、修改、自测、自审、报告；
-- Phase 9 当前以 Development Closeout 收口；production Release Readiness、正式 cutover、生产观察与 V1 删除延期并需未来重新规划。
+- Phase 9 以 Development Closeout 和仓库 cutover 收口；Production Release Readiness、正式 cutover 与生产观察均已按范围决策取消，未来需要时重新规划，不能继承为 `MET`。

@@ -133,3 +133,24 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 184: Frontend V2 开发切换与 V1 退役
+
+**Date**: 2026-08-29
+**Task**: Frontend V2 开发切换与 V1 退役
+**Branch**: `codex/frontend-v2-development-cutover-v1-retirement`
+
+### Summary
+
+将原 frontend-v2 提升为唯一 canonical frontend，退役 V1 与双前端流水线；五个未实施 Production planning task 按范围决策取消并归档。完成结构、合同、静态、单元、构建、安全与 fixture E2E 验证；本机 container、real-stack 与 make verify 按用户决定为 NOT_APPLICABLE，未操作 Hostdzire 或 Production 远端资源。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4bf881ac` | (see git log) |
+
+### Status
+
+[OK] **Completed**

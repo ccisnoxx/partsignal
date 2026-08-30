@@ -175,3 +175,35 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 186: Hostdzire 开发环境 V2 全量重建
+
+**Date**: 2026-08-30
+**Task**: Hostdzire 开发环境 V2 全量重建
+**Branch**: `main`
+
+### Summary
+
+按用户批准的破坏性开发环境范围，永久重置 Hostdzire PartSignal 数据与旧运行态，从 clean origin/main 完成 Staging full rebuild、真实验收和 current 切换，并保留范围外服务与 Nginx。
+
+### Main Changes
+
+- 删除并重建七个 PartSignal 容器、三个业务数据叶目录和两个旧运行应用镜像。
+- 部署 release mvp-20260830-133651-a663bcce，迁移空库并初始化开发账号。
+- 记录精确执行身份、验收证据和未变化边界。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `420dfa2` | (see git log) |
+
+### Testing
+
+- [OK] Staging 部署脚本自检与 Compose 配置解析通过。
+- [OK] 七服务、Alembic head、fake-oss 文件闭环和四个公网入口验收通过。
+
+### Status
+
+[OK] **Completed**

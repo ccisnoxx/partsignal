@@ -12,6 +12,7 @@ from app.db import get_db
 from app.deps import get_current_session
 from app.main import app
 from app.routers import observation as observation_router
+from app.routers import planning as planning_router
 from app.routers.planning import _content_task_read_snapshot
 from app.security import hash_token
 from app.tools.contract_check import check
@@ -179,6 +180,99 @@ def test_geo_observation_list_accepts_page_size_from_query_string(
     assert response.status_code == 200
     assert response.json()["page_size"] == 20
     assert received_page_sizes == [20]
+
+
+@pytest.mark.parametrize("page_size", [10, 20, 50])
+def test_query_topic_list_accepts_page_size_from_query_string(
+    page_size: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Query Topic 合法分页值必须经真实 HTTP 边界解析为整数。"""
+    received_page_sizes: list[int] = []
+
+    def list_items(*, db: object, **kwargs: object) -> dict[str, object]:
+        assert db is not None
+        value = kwargs["page_size"]
+        assert isinstance(value, int)
+        received_page_sizes.append(value)
+        return {"items": [], "page": 1, "page_size": value, "total": 0}
+
+    monkeypatch.setattr(planning_router, "list_query_topic_items_query", list_items)
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(
+        user=SimpleNamespace(account_type="ADMIN")
+    )
+    try:
+        response = TestClient(app).get(
+            "/api/v1/query-topics/list-items",
+            params={"page_size": page_size},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["page_size"] == page_size
+    assert received_page_sizes == [page_size]
+
+
+def test_query_topic_list_uses_integer_default_page_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """省略分页值时必须继续向服务传递整数默认值 20。"""
+    received_page_sizes: list[int] = []
+
+    def list_items(*, db: object, **kwargs: object) -> dict[str, object]:
+        assert db is not None
+        value = kwargs["page_size"]
+        assert isinstance(value, int)
+        received_page_sizes.append(value)
+        return {"items": [], "page": 1, "page_size": value, "total": 0}
+
+    monkeypatch.setattr(planning_router, "list_query_topic_items_query", list_items)
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(
+        user=SimpleNamespace(account_type="ADMIN")
+    )
+    try:
+        response = TestClient(app).get("/api/v1/query-topics/list-items")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["page_size"] == 20
+    assert received_page_sizes == [20]
+
+
+def test_query_topic_list_rejects_non_enum_page_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """非枚举分页值必须在进入服务前返回统一校验错误。"""
+    collaborator_calls: list[object] = []
+
+    def list_items(*, db: object, **kwargs: object) -> dict[str, object]:
+        collaborator_calls.append((db, kwargs))
+        return {"items": [], "page": 1, "page_size": 30, "total": 0}
+
+    monkeypatch.setattr(planning_router, "list_query_topic_items_query", list_items)
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(
+        user=SimpleNamespace(account_type="ADMIN")
+    )
+    try:
+        response = TestClient(app).get(
+            "/api/v1/query-topics/list-items",
+            params={"page_size": 30},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    payload = response.json()["error"]
+    assert payload["code"] == "VALIDATION_ERROR"
+    assert any(
+        issue["loc"] == ["query", "page_size"] for issue in payload["details"]["errors"]
+    )
+    assert collaborator_calls == []
 
 
 def test_query_topic_list_contract_preserves_full_list_and_adds_v2_read_model() -> None:

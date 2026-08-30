@@ -108,7 +108,7 @@ def list_query_topic_items(
     q: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
     sort: QueryTopicListSort = QueryTopicListSort.QUESTION_ASC,
     page: Annotated[int, Query(ge=1)] = 1,
-    page_size: Annotated[QueryTopicPageSize, Query()] = 20,
+    page_size: Annotated[QueryTopicPageSize, BeforeValidator(int), Query()] = 20,
 ) -> QueryTopicListPage:
     """返回 Frontend V2 使用的 Query Topic 紧凑列表。"""
     return list_query_topic_items_query(

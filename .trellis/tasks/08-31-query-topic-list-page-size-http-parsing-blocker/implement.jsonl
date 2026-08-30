@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/index.md","reason":"加载 backend 规范入口与预开发边界。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"保持 422 VALIDATION_ERROR 与冻结 ErrorEnvelope 边界。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"遵循真实 Starlette TestClient 请求与测试依赖要求。"}
+{"file":".trellis/tasks/08-31-query-topic-list-page-size-http-parsing-blocker/research/http-binding-evidence.md","reason":"提供根因、既有 BeforeValidator 模式、测试缺口和合同检查证据。"}

@@ -1,7 +1,4 @@
-{"file":".trellis/spec/frontend/index.md","reason":"检查最终方案和后续实现未恢复 V1 runtime fallback，也未产生第二个前端源码 owner。"}
-{"file":".trellis/spec/backend/index.md","reason":"检查 clean-init、数据库 revision、真实 AI/OSS Gate 和失败显式化符合后端合同。"}
-{"file":".trellis/spec/infra/index.md","reason":"检查原子写入、nginx -t、独立 reload 授权、60 分钟窗口和分层恢复符合基础设施合同。"}
-{"file":".trellis/spec/infra/production-image-delivery.md","reason":"检查 manifest、archive、tracked files、tag/image ID 和 local candidate identity 全链路一致。"}
-{"file":".trellis/tasks/08-30-hostdzire-v2-production-execution/research/repository-contract-audit.md","reason":"逐项复核当前合同缺口已经由计划、测试或明确执行控制覆盖。"}
-{"file":".trellis/tasks/08-30-hostdzire-v2-production-execution/research/hostdzire-read-only-inventory.md","reason":"用最新只读基线检查执行前漂移、exact targets、容量和远端状态证据。"}
-{"file":".trellis/tasks/08-30-hostdzire-v2-production-execution/research/authorization-packages.md","reason":"检查每个远端写入或 reload 仅发生在对应 exact package 获得独立授权之后。"}
+{"file":".trellis/spec/infra/index.md","reason":"检查远端执行未越过其他 Compose project、Nginx、DNS/TLS 或 secret 边界。"}
+{"file":".trellis/spec/infra/development-object-storage.md","reason":"检查 fake-oss 端口、运行依赖和 PUT/HEAD/GET/DELETE 文件流真实通过。"}
+{"file":".trellis/tasks/08-30-hostdzire-v2-production-execution/research/development-rebuild-inventory.md","reason":"按最新基线检查 exact target、永久数据删除和范围外资源未变化。"}
+{"file":".trellis/tasks/08-30-hostdzire-v2-production-execution/research/development-rebuild-execution.md","reason":"检查实际 identity、数据库 head、fake-oss、公共入口、current 和范围外资源证据完整。"}

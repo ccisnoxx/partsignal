@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/frontend/visual-system.md", "reason": "执行 UI/UX、响应式和可访问性只读验收"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "确认 canonical 前端与适用规范索引"}
-{"file": ".trellis/spec/frontend/component-guidelines.md", "reason": "核对登录表单、焦点和交互组件合同"}
-{"file": ".trellis/tasks/08-30-v2-live-readonly-acceptance/research/current-environment-baseline.md", "reason": "固定当前公网环境身份、历史部署边界和工作区保护范围"}
-{"file": ".trellis/tasks/08-30-v2-live-readonly-acceptance/research/authenticated-readonly-scope.md", "reason": "执行波次 2 的 ADMIN canonical 路由、只读交互和强制停止边界"}
-{"file": ".trellis/tasks/08-30-v2-live-readonly-acceptance/research/wave3-reversible-business-scope.md", "reason": "执行波次 3 的 TEST 聚合、状态前置、精确清理和波次 4 隔离边界"}

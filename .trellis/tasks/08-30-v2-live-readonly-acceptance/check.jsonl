@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/quality-guidelines.md", "reason": "核验浏览器证据、响应式、会话和禁止模式"}
+{"file": ".trellis/spec/frontend/visual-system.md", "reason": "复核视觉、响应式和可访问性发现"}
+{"file": ".trellis/tasks/08-30-v2-live-readonly-acceptance/research/current-environment-baseline.md", "reason": "复核环境身份、结论口径与未覆盖项"}
+{"file": ".trellis/tasks/08-30-v2-live-readonly-acceptance/research/authenticated-readonly-scope.md", "reason": "复核已认证页面的只读边界、敏感信息与停止条件"}
+{"file": ".trellis/tasks/08-30-v2-live-readonly-acceptance/research/wave3-reversible-business-scope.md", "reason": "复核波次 3 写入归属、引用阻塞、清理结果与波次 4 未执行边界"}

@@ -241,3 +241,24 @@
 ### Next Steps
 
 - 按功能一致性基线顺序规划 query-topic-list-page-size-http-parsing-blocker。
+
+
+## Session 188: 修复 Query Topic page_size HTTP 解析阻塞
+
+**Date**: 2026-08-31
+**Task**: 修复 Query Topic page_size HTTP 解析阻塞
+**Branch**: `main`
+
+### Summary
+
+在 FastAPI router 复用 BeforeValidator(int)，补充真实 TestClient 对 10/20/50、默认 20 和非法枚举 422 的回归；定向 pytest、Ruff、mypy、runtime OpenAPI 与 generated contract check 全部通过。未部署生产。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `5add828a` | (see git log) |
+
+### Status
+
+[OK] **Completed**

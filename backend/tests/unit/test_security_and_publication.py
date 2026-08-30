@@ -87,6 +87,14 @@ def test_publication_domain_requires_http_and_real_domain_boundary() -> None:
 
 
 def test_publication_actions_have_one_server_projected_primary_task() -> None:
+    assert publication_work_actions("AWAITING_VERIFICATION", "RESULT_REGISTERED") == (
+        ["VERIFY", "REGISTER_RESULT", "SWITCH_CONTENT_VERSION", "CLOSE"],
+        "RUN_FIRST_VERIFICATION",
+    )
+    assert publication_work_actions("AWAITING_VERIFICATION", "CONTENT_VERSION_CHANGED") == (
+        ["REGISTER_RESULT", "SWITCH_CONTENT_VERSION", "CLOSE"],
+        "REGISTER_RESULT",
+    )
     assert publication_work_actions("ACTION_REQUIRED", "VERIFICATION_FAILED") == (
         ["VERIFY", "REGISTER_RESULT", "SWITCH_CONTENT_VERSION", "CLOSE"],
         "FIX_AND_REVERIFY",

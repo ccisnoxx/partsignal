@@ -118,7 +118,11 @@ def publication_work_actions(
         ],
     }
     actions = actions_by_status.get(status, [])
-    if status == "ACTION_REQUIRED" and latest_event_action == "CONTENT_VERSION_CHANGED":
+    requires_result_registration = (
+        status in {"AWAITING_VERIFICATION", "ACTION_REQUIRED"}
+        and latest_event_action == "CONTENT_VERSION_CHANGED"
+    )
+    if requires_result_registration:
         actions = ["REGISTER_RESULT", "SWITCH_CONTENT_VERSION", "CLOSE"]
     primary_task = {
         "PREPARING": "CONTINUE_PREPARATION",
@@ -128,7 +132,7 @@ def publication_work_actions(
         "COMPLETED": "VIEW_COMPLETION",
         "CLOSED": "VIEW_CLOSURE",
     }[status]
-    if status == "ACTION_REQUIRED" and latest_event_action == "CONTENT_VERSION_CHANGED":
+    if requires_result_registration:
         primary_task = "REGISTER_RESULT"
     return actions, primary_task
 

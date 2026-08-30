@@ -73,6 +73,7 @@ from app.schemas.publication import (
     PublishedContentIssueResolveRequest,
     PublishedContentRepairTaskCreate,
 )
+from app.security import hash_token
 from app.services.content_planning import delete_query_topic, query_topics_out
 from app.services.content_production import create_content_revision, update_content_draft
 from app.services.geo_observation import geo_publication_candidates
@@ -310,6 +311,54 @@ def _complete_publication(
     completed = db.get(PublicationWork, work.id)
     assert completed is not None
     return completed
+
+
+def _publication_verification_snapshot(
+    db: Session,
+    work_id: uuid.UUID,
+) -> dict[str, object]:
+    """冻结核验拒绝路径不得改变的发布聚合业务状态。"""
+    db.expire_all()
+    work = db.get(PublicationWork, work_id)
+    assert work is not None
+    task = db.get(ContentTask, work.content_task_id)
+    assert task is not None
+    return {
+        "verification_count": db.scalar(
+            select(func.count(PublicationVerification.id)).where(
+                PublicationVerification.publication_work_id == work_id
+            )
+        ),
+        "event_count": db.scalar(
+            select(func.count(PublicationWorkEvent.id)).where(
+                PublicationWorkEvent.publication_work_id == work_id
+            )
+        ),
+        "article_count": db.scalar(
+            select(func.count(PublishedArticle.id)).where(PublishedArticle.id == work_id)
+        ),
+        "audit_count": db.scalar(
+            select(func.count(AuditLog.id)).where(
+                AuditLog.target_type == "PublicationWork",
+                AuditLog.target_id == str(work_id),
+            )
+        ),
+        "work": (
+            work.status,
+            work.revision,
+            work.content_task_id,
+            work.content_version_id,
+            work.content_hash,
+            work.actual_title,
+            work.final_url,
+            work.published_at,
+        ),
+        "task": (
+            task.status,
+            task.revision,
+            task.current_content_version_id,
+        ),
+    }
 
 
 @pytest.mark.integration
@@ -1496,6 +1545,27 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                 content.id,
                 content.id,
             ]
+            before_rejected_verification = _publication_verification_snapshot(db, work.id)
+            with pytest.raises(AppError) as stale_result_verification:
+                verify_publication_work(
+                    db=db,
+                    work_id=work.id,
+                    payload=PublicationVerificationCreate(
+                        outcome="PASSED",
+                        content_matches=True,
+                        expected_revision=switched.revision,
+                        comment="",
+                    ),
+                    actor=user,
+                    request_id="publication-verification-stale-result",
+                )
+            assert stale_result_verification.value.code == "INVALID_STATE_TRANSITION"
+            assert stale_result_verification.value.message == (
+                "当前发布工作不能核验，请先重新登记发布结果"
+            )
+            assert _publication_verification_snapshot(db, work.id) == (
+                before_rejected_verification
+            )
             reregistered = register_publication_result(
                 db=db,
                 work_id=work.id,
@@ -1625,6 +1695,242 @@ def test_failed_verification_remains_pending_then_completes_and_opens_issue() ->
                     .values(status="ACTION_REQUIRED")
                 )
             db.rollback()
+
+
+@pytest.mark.integration
+def test_publication_verification_final_authority_rejects_awaiting_switch_over_http() -> None:
+    """AWAITING 换版后真实 HTTP 核验被拒绝，缺事件同样显式失败。"""
+    with temporary_database() as database_url:
+        engine = create_engine(database_url)
+        with Session(engine, expire_on_commit=False) as db:
+            graph = _seed_graph(db, content_hash="6" * 64)
+            actor = graph["user"]
+            content = graph["content"]
+            account = graph["account"]
+            assert isinstance(actor, User)
+            assert isinstance(content, ContentVersion)
+            assert isinstance(account, PlatformAccount)
+
+            work = create_publication_work(
+                db=db,
+                payload=PublicationWorkCreate(
+                    content_version_id=content.id,
+                    platform_account_id=account.id,
+                ),
+                actor=actor,
+                request_id="verification-authority-create",
+                idempotency_key="verification-authority-create-key",
+            )
+            registered = register_publication_result(
+                db=db,
+                work_id=work.id,
+                payload=PublicationResultUpdate(
+                    actual_title="换版前公开标题",
+                    final_url="https://community.example.invalid/articles/authority-old",
+                    published_at="2026-08-03T10:00:00Z",
+                    expected_revision=work.revision,
+                    comment="登记换版前结果",
+                ),
+                actor=actor,
+                request_id="verification-authority-result",
+            )
+            failed = verify_publication_work(
+                db=db,
+                work_id=work.id,
+                payload=PublicationVerificationCreate(
+                    outcome="FAILED",
+                    content_matches=False,
+                    expected_revision=registered.revision,
+                    comment="页面正文需要修订",
+                ),
+                actor=actor,
+                request_id="verification-authority-failed",
+            )
+            revision = create_content_revision(
+                db=db,
+                content_version_id=content.id,
+                payload=ContentRevisionCreate(
+                    title="换版后的批准标题",
+                    summary="换版后的批准摘要",
+                    body_markdown="# 换版正文\n\n这是重新批准的公开正文。",
+                    tags=["PS"],
+                    change_summary="根据核验失败修订正文",
+                ),
+                actor=actor,
+                request_id="verification-authority-revision",
+            )
+            submitted = transition_content_version(
+                db=db,
+                content_version_id=revision.id,
+                expected_revision=revision.revision,
+                comment="提交换版正文审核",
+                actor=actor,
+                request_id="verification-authority-submit",
+                action="submit-review",
+            )
+            replacement = transition_content_version(
+                db=db,
+                content_version_id=submitted.id,
+                expected_revision=submitted.revision,
+                comment="批准换版正文",
+                actor=actor,
+                request_id="verification-authority-approve",
+                action="approve",
+            )
+            actor_id = actor.id
+            work_id = work.id
+            failed_revision = failed.revision
+            replacement_id = replacement.id
+
+        with Session(engine, expire_on_commit=False) as switch_db:
+            switch_actor = switch_db.get(User, actor_id)
+            assert switch_actor is not None
+            switch_transaction_started_at = switch_db.scalar(select(func.now()))
+            assert switch_transaction_started_at is not None
+            switch_db.execute(select(func.pg_sleep(0.001)))
+            with Session(engine, expire_on_commit=False) as register_db:
+                register_actor = register_db.get(User, actor_id)
+                assert register_actor is not None
+                awaiting = register_publication_result(
+                    db=register_db,
+                    work_id=work_id,
+                    payload=PublicationResultUpdate(
+                        actual_title="仍属于旧内容的公开标题",
+                        final_url=(
+                            "https://community.example.invalid/articles/authority-old-result"
+                        ),
+                        published_at="2026-08-03T10:30:00Z",
+                        expected_revision=failed_revision,
+                        comment="换版前修正旧内容结果",
+                    ),
+                    actor=register_actor,
+                    request_id="verification-authority-reregister-old",
+                )
+                result_registered_event = register_db.scalar(
+                    select(PublicationWorkEvent)
+                    .where(
+                        PublicationWorkEvent.publication_work_id == work_id,
+                        PublicationWorkEvent.action == "RESULT_REGISTERED",
+                    )
+                    .order_by(
+                        PublicationWorkEvent.created_at.desc(),
+                        PublicationWorkEvent.id.desc(),
+                    )
+                    .limit(1)
+                )
+                assert result_registered_event is not None
+                assert switch_transaction_started_at < result_registered_event.created_at
+            assert awaiting.status == "AWAITING_VERIFICATION"
+            switched = switch_publication_content_version(
+                db=switch_db,
+                work_id=work_id,
+                payload=PublicationContentVersionSwitchRequest(
+                    content_version_id=replacement_id,
+                    expected_revision=awaiting.revision,
+                    comment="等待核验阶段切换到新批准版本",
+                ),
+                actor=switch_actor,
+                request_id="verification-authority-switch",
+            )
+            assert switched.status == "AWAITING_VERIFICATION"
+            assert switched.content_version_id == replacement_id
+            assert "VERIFY" not in switched.available_actions
+            assert switched.primary_task == "REGISTER_RESULT"
+            latest_event = switch_db.scalar(
+                select(PublicationWorkEvent)
+                .where(PublicationWorkEvent.publication_work_id == work_id)
+                .order_by(
+                    PublicationWorkEvent.created_at.desc(),
+                    PublicationWorkEvent.id.desc(),
+                )
+                .limit(1)
+            )
+            assert latest_event is not None
+            assert latest_event.action == "CONTENT_VERSION_CHANGED"
+            before_http_rejection = _publication_verification_snapshot(switch_db, work_id)
+            switched_revision = switched.revision
+
+        csrf_token = "publication-verification-authority-csrf-token"
+
+        def database_session() -> Iterator[Session]:
+            with Session(engine, expire_on_commit=False) as request_db:
+                yield request_db
+
+        with Session(engine, expire_on_commit=False) as db:
+            current_actor = db.get(User, actor_id)
+            assert current_actor is not None
+        app.dependency_overrides[get_db] = database_session
+        app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(
+            user=current_actor,
+            csrf_hash=hash_token(csrf_token),
+        )
+        try:
+            response = TestClient(app).post(
+                f"/api/v1/publication-works/{work_id}/verifications",
+                headers={"X-CSRF-Token": csrf_token},
+                json={
+                    "outcome": "PASSED",
+                    "content_matches": True,
+                    "expected_revision": switched_revision,
+                    "comment": "",
+                },
+            )
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 409
+        error = response.json()["error"]
+        assert error["code"] == "INVALID_STATE_TRANSITION"
+        assert error["message"] == "当前发布工作不能核验，请先重新登记发布结果"
+        assert error["request_id"]
+        with Session(engine, expire_on_commit=False) as db:
+            assert _publication_verification_snapshot(db, work_id) == before_http_rejection
+
+            malformed_graph = _seed_graph(db, content_hash="7" * 64)
+            malformed_actor = malformed_graph["user"]
+            malformed_task = malformed_graph["task"]
+            malformed_content = malformed_graph["content"]
+            malformed_profile = malformed_graph["profile"]
+            malformed_account = malformed_graph["account"]
+            assert isinstance(malformed_actor, User)
+            assert isinstance(malformed_task, ContentTask)
+            assert isinstance(malformed_content, ContentVersion)
+            assert isinstance(malformed_profile, PlatformProfile)
+            assert isinstance(malformed_account, PlatformAccount)
+            malformed_work = PublicationWork(
+                idempotency_key="verification-authority-missing-event",
+                content_task_id=malformed_task.id,
+                content_version_id=malformed_content.id,
+                platform_profile_id=malformed_profile.id,
+                platform_profile_id_snapshot=malformed_profile.id,
+                platform_profile_name_snapshot=malformed_profile.name,
+                platform_account_id=malformed_account.id,
+                platform_account_label_snapshot=malformed_account.label,
+                account_identifier_snapshot=malformed_account.account_identifier,
+                content_hash=malformed_content.content_hash,
+                created_by=malformed_actor.id,
+            )
+            db.add(malformed_work)
+            db.commit()
+            before_missing_event = _publication_verification_snapshot(db, malformed_work.id)
+            with pytest.raises(AppError) as missing_event:
+                verify_publication_work(
+                    db=db,
+                    work_id=malformed_work.id,
+                    payload=PublicationVerificationCreate(
+                        outcome="PASSED",
+                        content_matches=True,
+                        expected_revision=malformed_work.revision,
+                        comment="",
+                    ),
+                    actor=malformed_actor,
+                    request_id="verification-authority-missing-event",
+                )
+            assert missing_event.value.code == "PUBLICATION_CONTEXT_INCOMPLETE"
+            assert missing_event.value.message == "发布工作缺少状态事件"
+            assert _publication_verification_snapshot(db, malformed_work.id) == (
+                before_missing_event
+            )
 
 
 @pytest.mark.integration

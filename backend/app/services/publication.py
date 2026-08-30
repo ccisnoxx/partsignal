@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import urlparse
 
@@ -74,6 +74,7 @@ from app.services.platform_configuration import lock_active_platform
 from app.services.projections import IN_FLIGHT_PUBLICATION_STATUSES
 from app.services.publication_queries import (
     NONTERMINAL_WORK_STATUSES,
+    publication_work_actions,
     publication_work_out,
     published_article_deletion_blockers,
     published_content_issue_out,
@@ -428,6 +429,16 @@ def _work_event(
     from_content_version_id: uuid.UUID | None = None,
     to_content_version_id: uuid.UUID | None = None,
 ) -> None:
+    """在 Work 锁序列内追加严格单调的状态事件。"""
+    latest_created_at = db.scalar(
+        select(func.max(PublicationWorkEvent.created_at)).where(
+            PublicationWorkEvent.publication_work_id == work.id
+        )
+    )
+    created_at = datetime.now(UTC)
+    # PostgreSQL now() 是事务起始时间，不能表达等待 Work 锁后的真实命令顺序。
+    if latest_created_at is not None and created_at <= latest_created_at:
+        created_at = latest_created_at + timedelta(microseconds=1)
     db.add(
         PublicationWorkEvent(
             publication_work_id=work.id,
@@ -438,6 +449,7 @@ def _work_event(
             to_content_version_id=to_content_version_id,
             comment=comment,
             actor_id=actor.id,
+            created_at=created_at,
         )
     )
 
@@ -709,8 +721,25 @@ def verify_publication_work(
 ) -> PublicationWorkOut:
     """追加首次核验快照；失败继续待处理，成功形成只读成果。"""
     work = _lock_work(db, work_id, payload.expected_revision)
-    if work.status not in {"AWAITING_VERIFICATION", "ACTION_REQUIRED"}:
-        raise AppError("INVALID_STATE_TRANSITION", "当前发布工作不能核验", 409)
+    latest_event = db.scalar(
+        select(PublicationWorkEvent)
+        .where(PublicationWorkEvent.publication_work_id == work.id)
+        .order_by(PublicationWorkEvent.created_at.desc(), PublicationWorkEvent.id.desc())
+        .limit(1)
+    )
+    if latest_event is None:
+        raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作缺少状态事件", 409)
+    available_actions, primary_task = publication_work_actions(
+        work.status,
+        latest_event.action,
+    )
+    if "VERIFY" not in available_actions:
+        message = (
+            "当前发布工作不能核验，请先重新登记发布结果"
+            if primary_task == "REGISTER_RESULT"
+            else "当前发布工作不能核验"
+        )
+        raise AppError("INVALID_STATE_TRANSITION", message, 409)
     if work.actual_title is None or work.final_url is None or work.published_at is None:
         raise AppError("PUBLICATION_CONTEXT_INCOMPLETE", "发布工作缺少可核验结果", 409)
     task = db.scalar(

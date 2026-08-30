@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend实施入口与稳定规范路由。"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"发布换版、再登记、核验、事件与不可变历史的权威不变量。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"409 AppError与冻结ErrorEnvelope边界。"}
+{"file":".trellis/tasks/08-30-publication-verification-final-authority/research/root-cause-and-boundary.md","reason":"P0根因、最小owner、测试漏口与明确排除范围。"}

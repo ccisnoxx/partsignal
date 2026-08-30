@@ -323,7 +323,7 @@ context = get_publication_workspace_context(db=db, work_id=work_id, actor=actor)
 ### 1. 范围 / 触发条件
 
 - 修改核验、换版、结果再登记、Workspace 动作投影或 `switch_candidate` 时适用。
-- `ACTION_REQUIRED` 不是单一动作阶段；最近事件决定当前应先修正内容、重新登记结果还是再次核验。
+- `AWAITING_VERIFICATION` 与 `ACTION_REQUIRED` 的核验资格都不只由状态决定；最近事件决定当前应重新登记结果还是可以核验。
 
 ### 2. 签名
 
@@ -335,7 +335,8 @@ context = get_publication_workspace_context(db=db, work_id=work_id, actor=actor)
 
 - `FAILED` 追加绑定当前 `content_version_id` 的不可变核验快照并进入 `ACTION_REQUIRED`；重复失败继续追加，不覆盖历史。
 - `switch_candidate` 必须同时满足同一任务、任务当前版本、不同于工作绑定版本、内容和事实均为 `APPROVED`；Context 与 switch command 使用同一资格规则。
-- `CONTENT_VERSION_CHANGED` 后工作仍为 `ACTION_REQUIRED`，但服务端必须撤回 `VERIFY`，将 `REGISTER_RESULT` 作为 `primary_action`；只有新的 `RESULT_REGISTERED` 把工作带回 `AWAITING_VERIFICATION` 后才重新开放 `VERIFY`。
+- 无论换版前工作处于 `AWAITING_VERIFICATION` 还是 `ACTION_REQUIRED`，最新事件为 `CONTENT_VERSION_CHANGED` 时，服务端都必须撤回 `VERIFY` 并将 `REGISTER_RESULT` 作为 `primary_action`；只有新的 `RESULT_REGISTERED` 才能重新开放 `VERIFY`。
+- 同一 Work 的事件时间必须按 Work 锁内命令顺序严格单调；不得让 PostgreSQL 事务起始时间 `now()` 把后执行的 `CONTENT_VERSION_CHANGED` 排到先提交的 `RESULT_REGISTERED` 之前。
 - 换版只更新工作绑定的版本与 hash，并追加含 old/new version IDs 的事件；不得沿用旧页面结果伪造新内容已登记。
 - Content Task 的共享投影只在当前批准版本既是 work 绑定版本、又存在同版本 `FAILED PublicationVerification` 时返回 `PUBLISHING / REVISE_CONTENT`；换版会更新 `work.content_version_id`，因此不能仅比较 current/work ID。切到尚无失败快照的新版本后必须返回 `PUBLISHING / CONTINUE_PUBLICATION`，旧版本失败快照不得污染新版本入口。
 
@@ -352,11 +353,11 @@ context = get_publication_workspace_context(db=db, work_id=work_id, actor=actor)
 
 - Good：失败 → 批准候选 → 换版 → 重新登记真实结果 → 通过；旧核验仍指向旧版本，新核验指向新版本。
 - Base：失败后无候选，Context 返回 `switch_candidate=null`，页面只交接 Content Task 修正入口。
-- Bad：仅因 `status=ACTION_REQUIRED` 在换版后继续返回 `VERIFY`，让旧结果直接核验新正文。
+- Bad：仅按 `status` 在换版后继续返回或接受 `VERIFY`，让旧结果直接核验新正文。
 
 ### 6. 必需测试
 
-- PostgreSQL 集成测试覆盖重复失败 append-only、Content Task 修订/审核投影、candidate/command 对称、换版 old/new lineage、换版后 Content Task 继续发布且 Work 无 `VERIFY`、再登记后恢复 `VERIFY`、通过后 Work/Task/PublishedArticle 原子终态。
+- PostgreSQL 集成测试覆盖重复失败 append-only、Content Task 修订/审核投影、candidate/command 对称、换版 old/new lineage、换版后 Content Task 继续发布且 Work 无 `VERIFY`、先开始事务后取得锁的事件排序、再登记后恢复 `VERIFY`、通过后 Work/Task/PublishedArticle 原子终态。
 - 前端组件与 production E2E 精确断言 PASS/FAIL payload、CSRF/revision、无候选交接、409 保留输入且不重放、换版后再登记和通过后只读。
 - Contract 检查保证 FastAPI、OpenAPI 与两套生成 TypeScript 类型的 `401/403/404/409/422` 错误响应一致。
 

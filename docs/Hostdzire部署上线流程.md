@@ -17,7 +17,7 @@
 | 回环端口 | API `127.0.0.1:19000`；Frontend V2 `127.0.0.1:19080` |
 | Production services | `postgres`、`redis`、`migrate`、`api`、`worker`、`scheduler`、`frontend` |
 | Frontend owner | `deploy/compose.prod.yaml` 的 `frontend` service，源码只来自 canonical `frontend/`；现有 Production image identity 保持 V2 命名 |
-| Nginx owner | `deploy/nginx/partsignal.conf.template` 代理 API 与 Frontend V2 回环端口 |
+| Nginx owner | `deploy/nginx/partsignal-maintenance.conf.template` 在维护阶段阻断全部应用 upstream；`deploy/nginx/partsignal.conf.template` 在 Gate 通过后代理 API 与 Frontend V2 回环端口 |
 | 对象存储 | 真实 `aliyun_oss`；Production 不运行或代理 `fake-oss` |
 | 业务状态 | PostgreSQL 是唯一来源；Redis 只承担 Celery Broker |
 
@@ -48,7 +48,7 @@ uv run --project backend pytest backend/tests/unit/test_cli.py
 git diff --check
 ```
 
-候选必须来自 clean、已推送的 `main`。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/current V2/previous V2 image ID 与非空 RepoDigest、schema head，以及固定 allowlist 中的 Production Compose、状态/部署/激活脚本、Nginx 和安全 snippet 校验和。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
+候选必须来自 clean、已推送的 `main`。使用 `git archive` 生成不可覆盖源归档，构建 backend 和 Frontend V2 镜像后，通过 `deploy/scripts/create-release-manifest.py` 冻结完整 commit、源归档 SHA-256、backend/current V2/previous V2 image ID 与非空 RepoDigest、schema head，以及固定 allowlist 中的 Production Compose、状态/部署/激活脚本、Production/maintenance Nginx 模板和安全 snippet 校验和。manifest 采用排他创建；部署和激活会复算 tracked files，并要求 `PARTSIGNAL_VERSION` 精确等于 release ID。不得复用 tag、覆盖文件或从 release 目录名推断 Git 状态。
 
 Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制；未设置时默认为 `registry`，按既有顺序 pull 后校验 manifest 中的 image ID 与 RepoDigest。Hostdzire 本地构建候选必须明确设置为 `local`：脚本跳过 pull，但要求候选镜像已存在，并在任何 `docker compose run`/`up` 前完成同一 manifest 的身份校验，同时为相关路径传入 `--pull never`。空值或其他模式，以及任何 V1 镜像仓库，均立即拒绝；不得用手工 Compose 命令绕过该合同。
 
@@ -63,12 +63,13 @@ Production 镜像交付模式由 `PARTSIGNAL_IMAGE_DELIVERY_MODE` 显式控制�
 转换必须获得包含 release ID、镜像、目录、Nginx target 和命令顺序的远端写授权：
 
 1. 重新只读 inventory，冻结当前 V2 image、Compose/Nginx checksum、容器集合、DB revision 和三个数据目录元数据。
-2. 宣布维护窗口，停止 `api`、`worker`、`scheduler`、`frontend`、`fake-oss`、`postgres`、`redis`；不得使用 `--remove-orphans`。
-3. 运行 `prepare-production-data.py quarantine <run-id>`。脚本在固定排他锁内验证 canonical 路径、停止的 Compose project、活动 mount、同一 device 和持久阶段，再逐目录原子 rename；失败后以相同 run ID 续跑，不删除数据。
-4. 以 `PARTSIGNAL_RELEASE_MANIFEST`、`PARTSIGNAL_DEPLOY_MODE=clean-init`、`PARTSIGNAL_IMAGE_DELIVERY_MODE=local` 和同一 `PARTSIGNAL_CUTOVER_RUN_ID` 运行 Production deploy script。它只在状态为 `QUARANTINED` 且 PostgreSQL/Redis 活动目录为空时，把 manifest 摘要、release/commit/schema 和镜像 ID 绑定到状态；local 模式不 pull，在任何 create/run/up 前核对实际 image ID 与 RepoDigest，再执行配置预检、migration、完整性检查、`initialize-accounts`，随后只启动 API/Frontend V2 并把阶段推进到 `PRODUCTION_PREPARED`。
-5. 通过 API/Frontend 完成真实 AI/OSS 权限、失败、空 namespace、零旧对象引用和受控上传/读取 Gate；`fake-oss` 保持停止且不属于 Production service 集合。Gate=`MET` 后，只有同一 manifest 才能运行 `activate-production.sh`，显式启用非默认 `production-async` profile 并把阶段推进到 `PRODUCTION_INITIALIZED`。
-6. 对 Nginx 做权限保留备份和原子替换，`nginx -t` 通过后另取 reload 授权。
-7. 完成回环、公网、浏览器、权限、AI/OSS 与受控写验收，进入观察期。
+2. 从同一 manifest 固定的 `partsignal-maintenance.conf.template` 渲染维护配置；在 N1 写授权内完成排他备份、同目录临时文件、checksum/owner/mode、原子替换和 `nginx -t`。N2 reload 必须独立授权；公网首次稳定返回 `503 PartSignal maintenance` 后记录 T0，维护配置不得包含应用、静态或对象存储 upstream。
+3. T+10 前只按重新读取的 full container ID 和 project/service label，依次停止 `scheduler`、`worker`、`api`、`frontend`、`fake-oss`、`postgres`、`redis`；必须先停止调度和写入生产者，再停止状态存储，不得使用 `--remove-orphans`。
+4. 运行 `prepare-production-data.py quarantine <run-id>`。脚本在固定排他锁内验证 canonical 路径、停止的 Compose project、活动 mount、同一 device 和持久阶段，再逐目录原子 rename；失败后以相同 run ID 续跑，不删除数据。
+5. 以 `PARTSIGNAL_RELEASE_MANIFEST`、`PARTSIGNAL_DEPLOY_MODE=clean-init`、`PARTSIGNAL_IMAGE_DELIVERY_MODE=local` 和同一 `PARTSIGNAL_CUTOVER_RUN_ID` 运行 Production deploy script。它只在状态为 `QUARANTINED` 且 PostgreSQL/Redis 活动目录为空时，把 manifest 摘要、release/commit/schema 和镜像 ID 绑定到状态；local 模式不 pull，在任何 create/run/up 前核对实际 image ID 与 RepoDigest，再执行配置预检、migration、完整性检查、`initialize-accounts`，随后只启动 API/Frontend V2 并把阶段推进到 `PRODUCTION_PREPARED`。
+6. 通过 API/Frontend 完成真实 AI/OSS 权限、失败、空 namespace、零旧对象引用和受控上传/读取 Gate；`fake-oss` 保持停止且不属于 Production service 集合。Gate=`MET` 后，只有同一 manifest 才能运行 `activate-production.sh`，显式启用非默认 `production-async` profile 并把阶段推进到 `PRODUCTION_INITIALIZED`。
+7. 从同一 manifest 固定的 Production 模板生成最终站点；N3 写授权仍要求原子替换和 `nginx -t`，N4 reload 再单独授权。此前运行中的 Nginx 必须持续返回维护响应。
+8. 完成回环、公网、浏览器、权限、AI/OSS 与受控写验收，进入观察期。T+60 前必须得到经验证的新 Production 或经验证恢复的旧运行态，不能延长窗口继续排障。
 
 物理删除 quarantine、`.env.staging`、fake-oss container/image 或旧 release/image 不属于上述转换授权。V1 仓库源码已在独立的开发阶段 cutover 中退役，该事实不扩大任何远端删除或 Production 转换授权。
 

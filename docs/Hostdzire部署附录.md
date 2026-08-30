@@ -22,6 +22,7 @@ python3 deploy/scripts/create-release-manifest.py \
   --rollback-frontend-image "$previous_verified_v2_image" \
   --schema-head 0043_geo_platform_identity \
   --tracked-file deploy/compose.prod.yaml \
+  --tracked-file deploy/nginx/partsignal-maintenance.conf.template \
   --tracked-file deploy/scripts/deploy.sh \
   --tracked-file deploy/scripts/activate-production.sh \
   --tracked-file deploy/scripts/prepare-production-data.py \
@@ -74,7 +75,7 @@ docker compose --env-file "$ps_env" -f deploy/compose.prod.yaml run --rm api \
 
 ## 5. 数据隔离合同
 
-执行前必须停止旧 `api`、`worker`、`scheduler`、`frontend`、`fake-oss`、`postgres` 和 `redis`，并确认没有活动业务写入。然后运行：
+执行前必须先按第 8 节把 manifest 固定的 maintenance 模板原子安装、通过 `nginx -t`，再取得独立 reload 授权；公网首次稳定返回该模板的 `503 PartSignal maintenance` 后记录 T0。只有维护状态已生效，才能按 `scheduler`、`worker`、`api`、`frontend`、`fake-oss`、`postgres`、`redis` 的顺序停止旧容器；必须先停止调度和写入生产者，再停止状态存储，并确认没有活动业务写入。然后运行：
 
 ```sh
 PARTSIGNAL_DATA_ROOT=/root/partsignal-data \
@@ -130,9 +131,11 @@ COMPOSE_FILE=deploy/compose.prod.yaml \
 
 ## 8. Nginx 原子更新
 
-Nginx 写与 reload 是独立授权。授权包包含 enabled symlink target、旧/新 SHA-256 和备份路径。顺序固定为 `cp -a` 精确备份、同目录临时文件、owner/mode 与 checksum 校验、同文件系统原子替换、`nginx -t`，最后另取 reload 授权。失败立即恢复备份并再次 `nginx -t`。
+Nginx 写与 reload 是独立授权。每个授权包都包含 enabled symlink target、旧/新 SHA-256 和不可覆盖的备份路径。顺序固定为排他精确备份、同目录临时文件、owner/mode 与 checksum 校验、同文件系统原子替换、`nginx -t`，最后另取 reload 授权。失败立即恢复备份并再次 `nginx -t`。
 
-Production 模板必须代理 `19000` 和 `19080`，不包含静态 root、`19001` 或 `/object-storage/`。API upstream `keepalive_timeout 30s`，Uvicorn `--timeout-keep-alive 35`。
+停止任何容器前，先从 manifest 固定的 `deploy/nginx/partsignal-maintenance.conf.template` 渲染维护站点。它保留现有 host、HTTP 到 HTTPS、ACME、TLS 和 PartSignal security snippet，HTTPS 业务路径固定返回 `503`、`Content-Type: text/plain`、`Cache-Control: no-store`、`Retry-After: 3600` 和正文 `PartSignal maintenance`；不得声明 upstream、`proxy_pass`、静态 root、`19000`、`19001`、`19080` 或 `/object-storage/`。maintenance write 与 maintenance reload 分别授权，公网首次验证维护响应时记录 T0。
+
+真实 AI/OSS Gate、activation 和候选 identity/health 全部通过后，才从 manifest 固定的 Production 模板执行第二次原子写入；final write 与 final reload 仍分别授权。Production 模板必须代理 `19000` 和 `19080`，不包含静态 root、`19001` 或 `/object-storage/`。API upstream `keepalive_timeout 30s`，Uvicorn `--timeout-keep-alive 35`。
 
 ## 9. Frontend V2-only 回滚
 
@@ -170,4 +173,4 @@ PARTSIGNAL_QUARANTINE_ROOT=/root/partsignal-data-quarantine \
 
 切换后检查回环、公网 HTTP、V2 artifact、登录后核心只读流、受控写、真实 AI/OSS、容器健康和资源。HTML/SPA 必须 `no-cache`，hashed assets 必须 immutable，missing asset/`.map` 必须 `404`，JS 无 `sourceMappingURL`，CSP/安全头只由外层 Nginx 持有，且 `/object-storage/` 不存在 Production 代理。
 
-观察期记录 Nginx 5xx/upstream、API error、restart/OOM、Worker/Scheduler、DB/Redis、AI/OSS 与核心业务结果。V1 源码/pipeline 已按 2026-08-29 开发阶段范围决策在仓库内退役，不代表 Observation Gate 已执行或为 `MET`；本次任务的 Production Gate 均为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`。quarantine、旧 release/image、fake-oss 和 `.env.staging` 清理仍需破坏性授权。
+观察期记录 Nginx 5xx/upstream、API error、restart/OOM、Worker/Scheduler、DB/Redis、AI/OSS 与核心业务结果。V1 源码/pipeline 已按 2026-08-29 开发阶段范围决策在仓库内退役，不代表 Observation Gate 已执行或为 `MET`；2026-08-29 开发任务的 Production Gate 均为 `CANCELLED_BY_SCOPE_DECISION / NOT_APPLICABLE`，不能由本轮继承。quarantine、旧 release/image、fake-oss 和 `.env.staging` 清理仍需破坏性授权。

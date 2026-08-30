@@ -11,7 +11,7 @@
 
 ## 公网安全头
 
-- `deploy/nginx/partsignal-security-headers.conf` 是 PartSignal 公网安全头的唯一仓库权威；外层 production/staging 站点引用它，容器内 `frontend/nginx.conf` 不重复定义。
+- `deploy/nginx/partsignal-security-headers.conf` 是 PartSignal 公网安全头的唯一仓库权威；外层 production/staging/maintenance 站点引用它，容器内 `frontend/nginx.conf` 不重复定义。
 - 外层 Nginx 必须为 `1.29.3` 或更高版本，并通过 `add_header_inherit merge` 让 location 缓存头与项目安全头同时返回。升级或回滚前运行 `node deploy/scripts/check-nginx-security.mjs` 和 `nginx -t`。
 - CSP `script-src` 只允许同源脚本，HTML 不得保留内联脚本。Markdown 只通过 canonical `MarkdownContent` 边界渲染，必须同时使用 `react-markdown`、`rehype-sanitize`、`skipHtml` 和显式禁用 raw HTML 元素；DOM HTML sink、依赖补丁或 CSP 任一侧变化都必须通过自动检查，不得改用 `unsafe-inline`、`unsafe-eval` 或宽松 default policy。
 - 当前样式运行时保留 `style-src 'unsafe-inline'`；对象存储直传和图片只保留已确认的 HTTPS scheme 边界。全域 HTTPS 台账和分阶段观察获得明确授权前，HSTS 现状保持 `max-age=31536000`，不提前添加 `includeSubDomains` 或 preload；后续只按 `07-28-pagespeed-p0-security-domain` 的域级单一 snippet、观察期和回滚门禁推进。

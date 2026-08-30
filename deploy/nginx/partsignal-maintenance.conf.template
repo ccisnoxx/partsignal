@@ -1,0 +1,26 @@
+server {
+    listen <HOSTDZIRE_WG_ADDRESS>:80 proxy_protocol;
+    server_name geo.962850.xyz;
+
+    include /etc/nginx/snippets/acme-challenge.conf;
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen <HOSTDZIRE_WG_ADDRESS>:443 ssl proxy_protocol;
+    http2 on;
+    server_name geo.962850.xyz;
+
+    include /etc/nginx/snippets/cert-962850.xyz.conf;
+    include /etc/nginx/snippets/ssl-common.conf;
+    include /etc/nginx/snippets/partsignal-security-headers.conf;
+    add_header_inherit merge;
+
+    default_type text/plain;
+    add_header Cache-Control "no-store" always;
+    add_header Retry-After "3600" always;
+    return 503 "PartSignal maintenance\n";
+}

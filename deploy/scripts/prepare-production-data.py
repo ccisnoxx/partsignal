@@ -31,6 +31,7 @@ V1_REPOSITORY_PATTERN = re.compile(
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_TRACKED_FILES = {
     "deploy/compose.prod.yaml",
+    "deploy/nginx/partsignal-maintenance.conf.template",
     "deploy/nginx/partsignal-security-headers.conf",
     "deploy/nginx/partsignal.conf.template",
     "deploy/scripts/activate-production.sh",

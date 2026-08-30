@@ -130,6 +130,7 @@ const [
   html,
   markdownEditor,
   snippet,
+  maintenanceTemplate,
   productionTemplate,
   stagingTemplate,
   containerConfig,
@@ -137,6 +138,7 @@ const [
   read('frontend/index.html'),
   read('frontend/src/design-system/editor/markdown-editor.tsx'),
   read('deploy/nginx/partsignal-security-headers.conf'),
+  read('deploy/nginx/partsignal-maintenance.conf.template'),
   read('deploy/nginx/partsignal.conf.template'),
   read('deploy/nginx/partsignal.staging.conf.template'),
   read('frontend/nginx.conf'),
@@ -187,6 +189,7 @@ if (/script-src[^;]*'sha256-/.test(snippet)) {
 }
 
 for (const [path, template] of [
+  ['deploy/nginx/partsignal-maintenance.conf.template', maintenanceTemplate],
   ['deploy/nginx/partsignal.conf.template', productionTemplate],
   ['deploy/nginx/partsignal.staging.conf.template', stagingTemplate],
 ]) {

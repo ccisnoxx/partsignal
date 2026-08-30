@@ -82,6 +82,26 @@ grep -q 'proxy_pass http://partsignal_frontend;' "$root/deploy/nginx/partsignal.
 ! grep -q '/var/www/partsignal-frontend/current' "$root/deploy/nginx/partsignal.conf.template"
 ! grep -q '/object-storage/' "$root/deploy/nginx/partsignal.conf.template"
 
+maintenance_template="$root/deploy/nginx/partsignal-maintenance.conf.template"
+grep -q 'listen <HOSTDZIRE_WG_ADDRESS>:80 proxy_protocol;' "$maintenance_template"
+grep -q 'listen <HOSTDZIRE_WG_ADDRESS>:443 ssl proxy_protocol;' "$maintenance_template"
+grep -q 'include /etc/nginx/snippets/acme-challenge.conf;' "$maintenance_template"
+grep -q 'include /etc/nginx/snippets/cert-962850.xyz.conf;' "$maintenance_template"
+grep -q 'include /etc/nginx/snippets/ssl-common.conf;' "$maintenance_template"
+grep -q 'include /etc/nginx/snippets/partsignal-security-headers.conf;' "$maintenance_template"
+grep -q 'add_header_inherit merge;' "$maintenance_template"
+grep -q 'default_type text/plain;' "$maintenance_template"
+grep -q 'add_header Cache-Control "no-store" always;' "$maintenance_template"
+grep -q 'add_header Retry-After "3600" always;' "$maintenance_template"
+grep -q 'return 503 "PartSignal maintenance\\n";' "$maintenance_template"
+! grep -Eq '^[[:space:]]*upstream[[:space:]]' "$maintenance_template"
+! grep -q 'proxy_pass' "$maintenance_template"
+! grep -Eq '^[[:space:]]*root[[:space:]]' "$maintenance_template"
+! grep -Eq '(^|[^0-9])19000([^0-9]|$)' "$maintenance_template"
+! grep -Eq '(^|[^0-9])19001([^0-9]|$)' "$maintenance_template"
+! grep -Eq '(^|[^0-9])19080([^0-9]|$)' "$maintenance_template"
+! grep -q '/object-storage/' "$maintenance_template"
+
 mkdir "$test_dir/bin"
 printf '%s\n' \
   '#!/bin/sh' \
@@ -132,6 +152,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --rollback-frontend-image partsignal-frontend-v1:previous \
   --schema-head 0043_geo_platform_identity \
   --tracked-file "$root/deploy/compose.prod.yaml" \
+  --tracked-file "$root/deploy/nginx/partsignal-maintenance.conf.template" \
   --tracked-file "$root/deploy/nginx/partsignal-security-headers.conf" \
   --tracked-file "$root/deploy/nginx/partsignal.conf.template" \
   --tracked-file "$root/deploy/scripts/activate-production.sh" \
@@ -156,6 +177,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --rollback-frontend-image partsignal-frontend-v2:previous \
   --schema-head 0043_geo_platform_identity \
   --tracked-file "$root/deploy/compose.prod.yaml" \
+  --tracked-file "$root/deploy/nginx/partsignal-maintenance.conf.template" \
   --tracked-file "$root/deploy/nginx/partsignal-security-headers.conf" \
   --tracked-file "$root/deploy/nginx/partsignal.conf.template" \
   --tracked-file "$root/deploy/scripts/activate-production.sh" \
@@ -174,6 +196,7 @@ PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \
   --rollback-frontend-image "partsignal-frontend-v2:$candidate_release" \
   --schema-head 0043_geo_platform_identity \
   --tracked-file "$root/deploy/compose.prod.yaml" \
+  --tracked-file "$root/deploy/nginx/partsignal-maintenance.conf.template" \
   --tracked-file "$root/deploy/nginx/partsignal-security-headers.conf" \
   --tracked-file "$root/deploy/nginx/partsignal.conf.template" \
   --tracked-file "$root/deploy/scripts/activate-production.sh" \
@@ -886,7 +909,16 @@ with open(sys.argv[1], encoding="utf-8") as manifest_file:
 
 assert manifest["release_id"] == "production-20260829-120000-0123456789ab"
 assert manifest["images"]["frontend"]["image_id"].startswith("sha256:")
-assert len(manifest["tracked_files"]) == 7
+assert set(manifest["tracked_files"]) == {
+    "deploy/compose.prod.yaml",
+    "deploy/nginx/partsignal-maintenance.conf.template",
+    "deploy/nginx/partsignal-security-headers.conf",
+    "deploy/nginx/partsignal.conf.template",
+    "deploy/scripts/activate-production.sh",
+    "deploy/scripts/deploy.sh",
+    "deploy/scripts/prepare-production-data.py",
+    "deploy/scripts/rollback-production-frontend.sh",
+}
 PY
 set +e
 PATH="$test_dir/bin:$PATH" COMMAND_LOG="$test_dir/manifest.log" \

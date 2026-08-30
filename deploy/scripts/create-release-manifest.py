@@ -15,6 +15,7 @@ from typing import Any
 
 REQUIRED_TRACKED_FILES = {
     "deploy/compose.prod.yaml",
+    "deploy/nginx/partsignal-maintenance.conf.template",
     "deploy/nginx/partsignal-security-headers.conf",
     "deploy/nginx/partsignal.conf.template",
     "deploy/scripts/activate-production.sh",

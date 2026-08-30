@@ -1,0 +1,7 @@
+{"file":".trellis/spec/frontend/index.md","reason":"约束 canonical frontend/ 为唯一 V2 前端源码 owner，并保持 V2-only Production 边界。"}
+{"file":".trellis/spec/backend/index.md","reason":"约束后端配置、数据准备、状态转换、真实外部服务与显式失败边界。"}
+{"file":".trellis/spec/infra/index.md","reason":"约束 Production 部署、Nginx 原子替换、校验、独立 reload 授权和恢复责任。"}
+{"file":".trellis/spec/infra/production-image-delivery.md","reason":"约束 local candidate、manifest identity、镜像归档校验和 V1 hard reject。"}
+{"file":".trellis/tasks/08-30-hostdzire-v2-production-execution/research/repository-contract-audit.md","reason":"提供最新 Production 仓库合同、已确认缺口和本任务必须补齐的维护隔离合同。"}
+{"file":".trellis/tasks/08-30-hostdzire-v2-production-execution/research/hostdzire-read-only-inventory.md","reason":"提供 2026-08-30 Hostdzire 只读基线、2026-08-29 漂移对比和 secret-safe 配置状态。"}
+{"file":".trellis/tasks/08-30-hostdzire-v2-production-execution/research/authorization-packages.md","reason":"提供 Artifact/Configuration、Maintenance/Data、Nginx Write 与 Nginx Reload 的 exact 授权边界。"}

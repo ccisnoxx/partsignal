@@ -207,3 +207,37 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 187: 发布核验最终权威
+
+**Date**: 2026-08-31
+**Task**: 发布核验最终权威
+**Branch**: `main`
+
+### Summary
+
+修复发布工作换版后旧结果核验新内容的最终权威缺口，统一动作投影与命令守卫，并补齐事件顺序并发保障及 PostgreSQL/HTTP 回归。
+
+### Main Changes
+
+- 发布工作换版后必须重新登记结果，read model 与核验命令共享服务端动作资格。
+- 发布事件在 Work 锁序列内维持严格单调时间，阻止事务起始时间倒置最新事件。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4a7979e8` | (see git log) |
+
+### Testing
+
+- [OK] Unit、完整 Publication PostgreSQL integration、ruff、mypy 与 contract check 通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 按功能一致性基线顺序规划 query-topic-list-page-size-http-parsing-blocker。

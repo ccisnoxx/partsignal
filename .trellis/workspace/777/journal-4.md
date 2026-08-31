@@ -292,3 +292,24 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 190: 完成 Content Editor 提交审核冲突恢复
+
+**Date**: 2026-08-31
+**Task**: 完成 Content Editor 提交审核冲突恢复
+**Branch**: `main`
+
+### Summary
+
+统一 SUBMIT_REVIEW 与其他编辑命令的 409 冲突 owner，保留本地输入与 Dialog 备注，仅在显式 reload 成功后采用 canonical editor context；完成组件、E2E 与前端质量门禁。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `56f92699` | (see git log) |
+
+### Status
+
+[OK] **Completed**

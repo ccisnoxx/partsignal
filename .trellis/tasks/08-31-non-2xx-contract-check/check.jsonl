@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核 response metadata 未改变统一错误信封、status 或 error code 行为。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"复核 mutation tests、定向门禁、失败归因与检查范围。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"复核 generated client 由冻结合同生成且 api:check 无漂移。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"复核最终 checker 仍由 Makefile 和 CI 的既有单一入口执行。"}
+{"file":".trellis/tasks/08-31-non-2xx-contract-check/research/response-drift-classification.md","reason":"以全量 baseline 检查遗漏分类、零漂移结论和诊断方向。"}
+{"file":".trellis/tasks/08-31-non-2xx-contract-check/research/route-response-authority-audit.md","reason":"按真实调用链审查 status 声明，防止批量猜测或 metadata 改变行为。"}

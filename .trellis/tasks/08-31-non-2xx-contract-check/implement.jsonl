@@ -1,0 +1,8 @@
+{"file":".trellis/spec/backend/index.md","reason":"加载 backend 包入口、合同权威与适用质量门禁。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"保持 AppError、ErrorEnvelope、HTTP status 与验证错误的唯一运行时语义。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"约束定向测试、类型检查、真实外部服务边界与失败可见性。"}
+{"file":".trellis/spec/frontend/index.md","reason":"约束 OpenAPI generated client 的唯一来源及禁止手改生成物。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"提供 api:generate、api:check 与前端合同一致性质量门禁。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"确认 make contract-check 与 CI 的单一执行入口和阶段顺序。"}
+{"file":".trellis/tasks/08-31-non-2xx-contract-check/research/response-drift-classification.md","reason":"提供 162 operation 全量 status/shape 差异分类、计数与逐 operation 清单。"}
+{"file":".trellis/tasks/08-31-non-2xx-contract-check/research/route-response-authority-audit.md","reason":"提供 route、dependency、command/service 与实际 HTTP 状态的权威归属证据。"}

@@ -1,0 +1,32 @@
+{
+  "id": "response-comparator-core",
+  "name": "response-comparator-core",
+  "title": "完整 Response Comparator 核心",
+  "description": "实现纯完整 response comparator、mutation-style 回归与只读全量 drift report；暂不接入默认 live gate。",
+  "status": "in_progress",
+  "dev_type": "backend",
+  "scope": "backend-contract-tooling",
+  "package": null,
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-31",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-31-non-2xx-contract-check",
+  "relatedFiles": [
+    "backend/app/tools/contract_check.py",
+    "backend/tests/unit/test_contract_check.py"
+  ],
+  "notes": "Phase A 只建立 comparator、mutation tests 与只读 report；不得接入默认 live gate 或同步 OpenAPI/runtime metadata。",
+  "meta": {
+    "phase": "A",
+    "review_goal": "用独立可测试的完整 response comparator 证明每类 status/shape 漂移都可被可靠发现。"
+  }
+}

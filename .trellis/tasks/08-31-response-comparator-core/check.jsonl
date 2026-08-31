@@ -1,0 +1,4 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核非 2xx ErrorEnvelope 比较不引入第二错误语义或静默默认。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"复核 mutation tests、类型检查、失败归因和授权文件范围。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"复核默认 make contract-check 未在 Phase A 提前切换。"}
+{"file":".trellis/tasks/08-31-non-2xx-contract-check/research/response-drift-classification.md","reason":"用已知 drift 类别检查 comparator 是否存在假绿盲点。"}

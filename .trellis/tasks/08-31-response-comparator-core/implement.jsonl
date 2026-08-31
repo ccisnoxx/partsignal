@@ -1,0 +1,7 @@
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"新增 comparator helper 前先复用现有 resolver、operation map 与诊断机制，避免平行实现。"}
+{"file":".trellis/spec/backend/index.md","reason":"加载 backend 包规范入口与适用质量边界。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"保持 ErrorEnvelope、显式失败和非 2xx 合同门禁的项目约束。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"约束纯单元测试、真实 FastAPI adapter 区分、类型检查与失败可见性。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"保持 make contract-check 与 CI 单一入口的现有执行合同。"}
+{"file":".trellis/tasks/08-31-non-2xx-contract-check/research/response-drift-classification.md","reason":"提供当前 162 operation、156 status drift、shape 差异与可复现 baseline。"}
+{"file":".trellis/tasks/08-31-non-2xx-contract-check/research/route-response-authority-audit.md","reason":"限制 Phase A 只检测 metadata 漂移，不把声明差异解释为业务行为错误。"}

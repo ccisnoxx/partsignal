@@ -254,21 +254,103 @@ test('CHANGES_REQUESTED 不原地编辑，创建 based_on 人工 revision', asyn
 });
 
 test('409 保留本地输入和请求 ID，只在显式 reload 后采用服务端版本', async ({ page, contentApi }) => {
-  contentApi.setEditorMutationMode('revision-conflict');
+  contentApi.setEditorMutationMode('save-revision-conflict');
   await page.goto(editorPath);
   const title = page.getByRole('textbox', { name: '标题' });
   await title.fill('本地未保存标题');
   await page.getByRole('button', { name: '保存草稿' }).click();
 
-  await expect(page.getByRole('alert').filter({ hasText: '检测到 revision 冲突' })).toBeVisible();
-  await expect(page.getByText('请求 ID：req-content-editor-conflict')).toBeVisible();
+  const conflict = page.locator('#content-editor-conflict');
+  await expect(conflict).toBeVisible();
+  await expect(conflict).toContainText('请求 ID：req-content-editor-conflict');
   await expect(title).toHaveValue('本地未保存标题');
   expect(contentApi.editorSaveRequests).toHaveLength(1);
 
-  await page.getByRole('button', { name: '重新加载最新版本' }).click();
+  await conflict.getByRole('button', { name: '重新加载最新版本' }).click();
   await expect(title).toHaveValue('服务端最新标题');
   expect(contentApi.editorContextRequests).toHaveLength(2);
   expect(contentApi.editorSaveRequests).toHaveLength(1);
+});
+
+test('SUBMIT_REVIEW 409 保留 Dialog 与本地输入，失败 reload 不采用旧 cache，成功后采用 canonical context', async ({ page, contentApi }, testInfo) => {
+  contentApi.setEditorMutationMode('submit-review-revision-conflict');
+  await page.goto(editorPath);
+  const title = page.locator('#content-editor-title-input');
+  const markdown = page.locator('#content-editor-body');
+  await page.getByRole('button', { name: '提交审核' }).click();
+  const dialog = page.getByRole('dialog', { name: '提交内容审核' });
+  const comment = dialog.getByRole('textbox', { name: '备注（可选）' });
+  await expect(comment).toBeFocused();
+  await comment.fill('请保留这条审核备注');
+  await dialog.getByRole('button', { name: '确认提交审核' }).click();
+
+  const conflict = dialog.locator('#content-submit-conflict');
+  await expect(conflict).toBeVisible();
+  await expect(conflict).toContainText('错误代码：REVISION_CONFLICT');
+  await expect(conflict).toContainText('内容版本已被其他请求修改');
+  await expect(conflict).toContainText('请求 ID：req-content-editor-submit-conflict');
+  await expect(comment).toHaveValue('请保留这条审核备注');
+  await expect(title).toHaveValue('当前人工草稿');
+  await expect(markdown).toContainText('# 当前正文');
+  await expect(dialog.getByRole('button', { name: '确认提交审核' })).toBeDisabled();
+  expect(contentApi.editorContextRequests).toHaveLength(1);
+  expect(contentApi.editorCommandRequests).toHaveLength(1);
+
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await page.waitForTimeout(100);
+  expect(contentApi.editorContextRequests).toHaveLength(1);
+  expect(contentApi.editorCommandRequests).toHaveLength(1);
+
+  contentApi.failNextEditorContextRequest();
+  await conflict.getByRole('button', { name: '重新加载最新版本' }).click();
+  await expect.poll(() => contentApi.editorContextRequests.length).toBe(2);
+  await expect(conflict).toContainText('重新加载失败');
+  await expect(conflict).toContainText('错误代码：CONTENT_EDITOR_CONTEXT_UNAVAILABLE');
+  await expect(conflict).toContainText('内容编辑器上下文暂不可用');
+  await expect(conflict).toContainText('请求 ID：req-content-editor-reload');
+  await expect(comment).toHaveValue('请保留这条审核备注');
+  await expect(title).toHaveValue('当前人工草稿');
+  await expect(markdown).toContainText('# 当前正文');
+  expect(contentApi.editorCommandRequests).toHaveLength(1);
+
+  await conflict.getByRole('button', { name: '重新加载最新版本' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(title).toHaveValue('服务端冲突后标题');
+  await expect(markdown).toContainText('# 服务端 canonical 正文');
+  if (testInfo.project.name === 'foundation-mobile') {
+    await page.getByRole('tab', { name: '上下文' }).click();
+  }
+  await expect(page.getByText('REVISE_CONTENT')).toBeVisible();
+  await expect(page.getByRole('button', { name: '创建人工修订' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '提交审核' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '保存草稿' })).toHaveCount(0);
+  await expect(page.locator('#content-editor-conflict')).toHaveCount(0);
+  expect(contentApi.editorContextRequests).toHaveLength(3);
+  expect(contentApi.editorCommandRequests).toHaveLength(1);
+});
+
+test('SUBMIT_REVIEW 冲突后取消只关闭 Dialog，不读不写并保留页面冲突', async ({ page, contentApi }) => {
+  contentApi.setEditorMutationMode('submit-review-revision-conflict');
+  await page.goto(editorPath);
+  const title = page.locator('#content-editor-title-input');
+  const markdown = page.locator('#content-editor-body');
+  await page.getByRole('button', { name: '提交审核' }).click();
+  const dialog = page.getByRole('dialog', { name: '提交内容审核' });
+  await dialog.getByRole('textbox', { name: '备注（可选）' }).fill('取消时放弃这条备注');
+  await dialog.getByRole('button', { name: '确认提交审核' }).click();
+  await expect(dialog.locator('#content-submit-conflict')).toBeVisible();
+  await dialog.getByRole('button', { name: '取消' }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole('heading', { level: 1, name: 'CT-00000002' })).toBeFocused();
+  await expect(page.locator('#content-editor-conflict')).toBeVisible();
+  await expect(page.locator('#content-editor-conflict')).toContainText('请求 ID：req-content-editor-submit-conflict');
+  await expect(title).toHaveValue('当前人工草稿');
+  await expect(markdown).toContainText('# 当前正文');
+  await expect(page.getByRole('button', { name: '提交审核' })).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByRole('button', { name: '重新加载最新版本' })).toBeVisible();
+  expect(contentApi.editorContextRequests).toHaveLength(1);
+  expect(contentApi.editorCommandRequests).toHaveLength(1);
 });
 
 test('dirty 必须先保存再提交审核，提交后停留 Editor 且不暴露 Review actions', async ({ page, contentApi }) => {

@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 
 import { MarkdownEditor, MarkdownPreview } from '@/design-system/editor/markdown-editor';
@@ -59,6 +59,12 @@ type ContentEditorPageProps = {
   taskId: string;
 };
 
+type ContentEditorConflict = {
+  code: string;
+  message: string;
+  requestId?: string;
+};
+
 const fieldIds: Record<ContentEditorField, string> = {
   title: 'content-editor-title-input',
   summary: 'content-editor-summary',
@@ -70,7 +76,31 @@ const fieldIds: Record<ContentEditorField, string> = {
 const textareaClass = 'min-h-24 w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm text-text-primary outline-none focus-visible:border-ring focus-visible:ring-[length:var(--focus-ring-width)] focus-visible:ring-ring/50 read-only:bg-muted read-only:text-text-secondary disabled:cursor-not-allowed disabled:bg-muted';
 
 function ContentEditorPage({ csrfToken, taskId }: ContentEditorPageProps) {
-  const context = useQuery(contentEditorContextQueryOptions(taskId));
+  const queryClient = useQueryClient();
+  const [conflict, setConflict] = useState<ContentEditorConflict>();
+  const query = contentEditorContextQueryOptions(taskId);
+  const context = useQuery({
+    ...query,
+    enabled: !conflict,
+    refetchOnWindowFocus: conflict ? false : query.refetchOnWindowFocus,
+  });
+
+  function enterConflict(next: ContentEditorConflict) {
+    setConflict(next);
+    void queryClient.cancelQueries({
+      exact: true,
+      queryKey: contentKeys.editorContext(taskId),
+    });
+  }
+
+  async function reloadContext() {
+    const result = await context.refetch();
+    if (result.isError || !result.data) {
+      throw result.error ?? new Error('重新加载内容编辑器失败');
+    }
+    return result.data;
+  }
+
   if (!context.data && context.isPending) return <ContentEditorSkeleton taskId={taskId} />;
   if (!context.data && context.error) {
     return <ContentEditorFailure error={context.error} onRetry={() => void context.refetch()} />;
@@ -78,17 +108,22 @@ function ContentEditorPage({ csrfToken, taskId }: ContentEditorPageProps) {
   if (!context.data) return <ContentEditorSkeleton taskId={taskId} />;
   return (
     <div className="space-y-4">
-      {context.error && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm" role="alert">
-          <span>后台刷新失败，当前表单和已加载快照保持不变。</span>
-          <Button onClick={() => void context.refetch()} size="sm" type="button" variant="outline">重试</Button>
-        </div>
+      {context.error && !conflict && (
+        <ContentEditorRefreshFailure
+          error={context.error}
+          onRetry={() => void context.refetch()}
+        />
       )}
       <ContentEditorWorkspace
+        conflict={conflict}
         context={context.data}
         csrfToken={csrfToken}
         key={context.data.current_content?.id ?? 'no-current-content'}
-        onReload={async () => (await context.refetch()).data}
+        onClearConflict={() => setConflict(undefined)}
+        onConflict={enterConflict}
+        onReload={reloadContext}
+        refreshError={context.error}
+        reloading={context.isFetching}
         taskId={taskId}
       />
     </div>
@@ -96,24 +131,35 @@ function ContentEditorPage({ csrfToken, taskId }: ContentEditorPageProps) {
 }
 
 function ContentEditorWorkspace({
+  conflict,
   context,
   csrfToken,
+  onClearConflict,
+  onConflict,
   onReload,
+  refreshError,
+  reloading,
   taskId,
 }: ContentEditorPageProps & {
+  conflict?: ContentEditorConflict;
   context: ContentEditorContext;
-  onReload: () => Promise<ContentEditorContext | undefined>;
+  onClearConflict: () => void;
+  onConflict: (conflict: ContentEditorConflict) => void;
+  onReload: () => Promise<ContentEditorContext>;
+  refreshError: unknown;
+  reloading: boolean;
 }) {
   const queryClient = useQueryClient();
   const initialMode = editorMode(context);
   const [mode, setMode] = useState<EditorFormMode>(initialMode);
   const [baseRevision, setBaseRevision] = useState(context.current_content?.revision ?? 0);
-  const [conflict, setConflict] = useState<string>();
   const [requestId, setRequestId] = useState<string>();
   const [announcement, setAnnouncement] = useState('');
   const [saved, setSaved] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitTrigger, setSubmitTrigger] = useState<HTMLElement | null>(null);
   const [documentView, setDocumentView] = useState<'document' | 'diff'>('document');
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const form = useForm<ContentEditorFormValues>({
     defaultValues: editorFormValues(context.current_content),
     resolver: zodResolver(mode === 'edit' ? contentDraftFormSchema : contentEditorFormSchema),
@@ -172,16 +218,15 @@ function ContentEditorWorkspace({
 
   useEffect(() => {
     const revision = context.current_content?.revision ?? 0;
-    if (isDirty || revision <= baseRevision) return;
+    if (conflict || isDirty || revision <= baseRevision) return;
     form.reset(editorFormValues(context.current_content));
     // 只在没有本地修改时接收更高 canonical revision。
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setBaseRevision(revision);
     setMode(editorMode(context));
-    setConflict(undefined);
     setRequestId(undefined);
     setSaved(false);
-  }, [baseRevision, context, form, isDirty]);
+  }, [baseRevision, conflict, context, form, isDirty]);
 
   async function refreshRelated() {
     await Promise.all([
@@ -193,13 +238,21 @@ function ContentEditorWorkspace({
 
   function resetErrors() {
     form.clearErrors();
-    setConflict(undefined);
+    onClearConflict();
     setRequestId(undefined);
     setSaved(false);
   }
 
-  function applyMutationError(error: unknown) {
-    const mapped = mapContentEditorError(error);
+  function applyMappedMutationError(mapped: ReturnType<typeof mapContentEditorError>) {
+    if (mapped.code === 'REVISION_CONFLICT') {
+      setRequestId(undefined);
+      onConflict({
+        code: mapped.code,
+        message: mapped.formMessage ?? '服务端已有更新，请显式重新加载。',
+        requestId: mapped.requestId,
+      });
+      return;
+    }
     for (const [field, message] of Object.entries(mapped.fields)) {
       form.setError(field as ContentEditorField, { type: 'server', message });
     }
@@ -207,9 +260,10 @@ function ContentEditorWorkspace({
       form.setError('root.server', { type: 'server', message: mapped.formMessage });
     }
     setRequestId(mapped.requestId);
-    if (mapped.code === 'REVISION_CONFLICT') {
-      setConflict(mapped.formMessage ?? '服务端已有更新，请显式重新加载。');
-    }
+  }
+
+  function applyMutationError(error: unknown) {
+    applyMappedMutationError(mapContentEditorError(error));
   }
 
   async function createVersion(values: ContentEditorFormValues) {
@@ -241,10 +295,16 @@ function ContentEditorWorkspace({
   }
 
   async function submitReview(comment: string) {
-    const canonical = await submit.mutateAsync(comment);
-    setSubmitOpen(false);
-    setAnnouncement(`内容版本 v${canonical.version} 已提交审核`);
-    await refreshRelated();
+    try {
+      const canonical = await submit.mutateAsync(comment);
+      setSubmitOpen(false);
+      setAnnouncement(`内容版本 v${canonical.version} 已提交审核`);
+      await refreshRelated();
+    } catch (error) {
+      const mapped = mapContentEditorError(error);
+      if (mapped.code !== 'REVISION_CONFLICT') throw error;
+      applyMappedMutationError(mapped);
+    }
   }
 
   async function runDestructive(action: 'DELETE' | 'ABANDON') {
@@ -260,21 +320,33 @@ function ContentEditorWorkspace({
   }
 
   async function reloadCanonical() {
-    const canonical = await onReload();
-    if (!canonical) return;
+    let canonical: ContentEditorContext;
+    try {
+      canonical = await onReload();
+    } catch {
+      setAnnouncement('重新加载失败，当前冲突与本地输入保持不变');
+      return;
+    }
     form.reset(editorFormValues(canonical.current_content));
     setBaseRevision(canonical.current_content?.revision ?? 0);
     setMode(editorMode(canonical));
-    setConflict(undefined);
+    setSubmitOpen(false);
     setRequestId(undefined);
     setSaved(false);
     setAnnouncement(`已重新加载 Revision ${canonical.current_content?.revision ?? 0}`);
+    onClearConflict();
   }
 
   useEffect(() => {
     function saveShortcut(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 's') return;
-      if (mode !== 'edit' || !isDirty || pending || !current?.available_actions.includes('SAVE')) {
+      if (
+        conflict
+        || mode !== 'edit'
+        || !isDirty
+        || pending
+        || !current?.available_actions.includes('SAVE')
+      ) {
         return;
       }
       event.preventDefault();
@@ -284,12 +356,20 @@ function ContentEditorWorkspace({
     return () => document.removeEventListener('keydown', saveShortcut);
   });
 
-  const summaryErrors = editorSummaryErrors(form.formState.errors, requestId, mode);
+  function openSubmitDialog() {
+    setSubmitTrigger(document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null);
+    setSubmitOpen(true);
+  }
+
+  const summaryErrors = editorSummaryErrors(form.formState.errors, requestId, mode, conflict);
   const readOnly = mode === 'readonly';
   const actions = resolveStickyActions(
     editorActionKeys(context, mode),
     {
       dirty: isDirty,
+      conflicted: Boolean(conflict),
       mode,
       pending,
       pendingLabel,
@@ -302,7 +382,7 @@ function ContentEditorWorkspace({
         form.reset(editorFormValues(current));
         setDocumentView('document');
       },
-      onSubmit: () => setSubmitOpen(true),
+      onSubmit: openSubmitDialog,
     },
   );
   const saveStatus = pending
@@ -325,7 +405,12 @@ function ContentEditorWorkspace({
             {mode === 'revision' && <Badge variant="warning">新人工修订</Badge>}
             {mode === 'manual' && <Badge variant="info">人工首稿</Badge>}
           </div>
-          <h1 className="break-all font-mono type-page-title" id="content-editor-title">
+          <h1
+            className="break-all font-mono type-page-title"
+            id="content-editor-title"
+            ref={headingRef}
+            tabIndex={-1}
+          >
             {context.task.identifier}
           </h1>
           <p className="break-words text-text-secondary">
@@ -350,10 +435,13 @@ function ContentEditorWorkspace({
               content: (
                 <ContentDocumentForm
                   bodyValue={bodyValue}
-                  conflict={conflict ? { message: conflict, onReload: () => void reloadCanonical() } : undefined}
+                  conflict={conflict}
                   documentView={documentView}
                   mode={mode}
                   onDocumentViewChange={setDocumentView}
+                  onReload={() => void reloadCanonical()}
+                  refreshError={refreshError}
+                  reloading={reloading}
                   revision={baseRevision}
                   serverDiff={<ContentDiffView context={context} />}
                 />
@@ -369,8 +457,22 @@ function ContentEditorWorkspace({
       <DirtyGuard when={isDirty && !readOnly} />
       {submitOpen && current && (
         <SubmitContentDialog
+          conflict={conflict}
+          finalFocus={() => {
+            const trigger = submitTrigger;
+            if (
+              trigger?.isConnected
+              && !trigger.matches(':disabled, [aria-disabled="true"]')
+            ) {
+              return trigger;
+            }
+            return headingRef.current;
+          }}
           onClose={() => setSubmitOpen(false)}
+          onReload={() => void reloadCanonical()}
           onSubmit={submitReview}
+          refreshError={refreshError}
+          reloading={reloading}
           submitting={submit.isPending}
         />
       )}
@@ -384,20 +486,35 @@ function ContentDocumentForm({
   documentView,
   mode,
   onDocumentViewChange,
+  onReload,
+  refreshError,
+  reloading,
   revision,
   serverDiff,
 }: {
   bodyValue: string;
-  conflict?: { message: string; onReload: () => void };
+  conflict?: ContentEditorConflict;
   documentView: 'document' | 'diff';
   mode: EditorFormMode;
   onDocumentViewChange: (value: 'document' | 'diff') => void;
+  onReload: () => void;
+  refreshError: unknown;
+  reloading: boolean;
   revision: number;
   serverDiff: ReactNode;
 }) {
   const readOnly = mode === 'readonly';
   return (
     <div className="space-y-4 p-4">
+      {conflict && (
+        <ContentEditorConflictNotice
+          conflict={conflict}
+          id="content-editor-conflict"
+          onReload={onReload}
+          refreshError={refreshError}
+          reloading={reloading}
+        />
+      )}
       <Tabs onValueChange={(value) => {
         if (value === 'document' || value === 'diff') onDocumentViewChange(value);
       }} value={documentView}>
@@ -461,7 +578,6 @@ function ContentDocumentForm({
                   aria-describedby={field['aria-describedby']}
                   aria-invalid={field['aria-invalid']}
                   ariaLabel="内容 Markdown"
-                  conflict={conflict}
                   dirty={field.fieldState.isDirty}
                   id={field.inputId}
                   onChange={field.field.onChange}
@@ -568,6 +684,7 @@ function ContentDiffView({ compact = false, context }: { compact?: boolean; cont
 function resolveStickyActions(
   keys: EditorMutationAction[],
   options: {
+    conflicted: boolean;
     dirty: boolean;
     mode: EditorFormMode;
     pending: boolean;
@@ -580,16 +697,28 @@ function resolveStickyActions(
     onSubmit: () => void;
   },
 ): StickyAction[] {
+  const blocked = options.pending || options.conflicted;
+  const blockedReason = options.conflicted
+    ? '请先重新加载服务端最新版本'
+    : '内容请求正在处理';
   return keys.map((key): StickyAction => {
     switch (key) {
       case 'CREATE_MANUAL_VERSION':
-        return { key, label: options.pending ? options.pendingLabel : '创建人工首稿', intent: 'primary', enabled: !options.pending, onSelect: options.onCreate };
+        return {
+          key,
+          label: options.pending ? options.pendingLabel : '创建人工首稿',
+          intent: 'primary',
+          enabled: !blocked,
+          disabledReason: blockedReason,
+          onSelect: options.onCreate,
+        };
       case 'CREATE_REVISION':
         return {
           key,
           label: options.mode === 'revision' ? (options.pending ? options.pendingLabel : '创建人工修订') : '创建人工修订',
           intent: 'primary',
-          enabled: !options.pending,
+          enabled: !blocked,
+          disabledReason: blockedReason,
           onSelect: options.mode === 'revision' ? options.onCreate : options.onStartRevision,
         };
       case 'SAVE':
@@ -597,8 +726,10 @@ function resolveStickyActions(
           key,
           label: options.pending ? options.pendingLabel : '保存草稿',
           intent: 'secondary',
-          enabled: options.dirty && !options.pending,
-          disabledReason: options.pending ? '内容请求正在处理' : '当前没有未保存修改',
+          enabled: options.dirty && !blocked,
+          disabledReason: blocked
+            ? blockedReason
+            : '当前没有未保存修改',
           onSelect: options.onSave,
         };
       case 'SUBMIT_REVIEW':
@@ -606,8 +737,8 @@ function resolveStickyActions(
           key,
           label: options.pending ? options.pendingLabel : '提交审核',
           intent: 'primary',
-          enabled: !options.dirty && !options.pending,
-          disabledReason: options.pending ? '内容请求正在处理' : '请先保存修改',
+          enabled: !options.dirty && !blocked,
+          disabledReason: blocked ? blockedReason : '请先保存修改',
           onSelect: options.onSubmit,
         };
       case 'DELETE':
@@ -615,7 +746,8 @@ function resolveStickyActions(
           key,
           label: '删除草稿',
           intent: 'danger',
-          enabled: !options.pending,
+          enabled: !blocked,
+          disabledReason: blockedReason,
           confirmation: {
             title: '删除当前人工草稿？',
             description: '这是符合服务端资格的物理删除。删除后的主线由服务端决定，且无法撤销。',
@@ -629,7 +761,8 @@ function resolveStickyActions(
           key,
           label: '放弃当前版本',
           intent: 'danger',
-          enabled: !options.pending,
+          enabled: !blocked,
+          disabledReason: blockedReason,
           confirmation: {
             title: '放弃当前内容版本？',
             description: '放弃不会物理删除历史；新的当前主线只采用服务端返回结果。',
@@ -645,12 +778,22 @@ function resolveStickyActions(
 }
 
 function SubmitContentDialog({
+  conflict,
+  finalFocus,
   onClose,
+  onReload,
   onSubmit,
+  refreshError,
+  reloading,
   submitting,
 }: {
+  conflict?: ContentEditorConflict;
+  finalFocus: () => HTMLElement | null;
   onClose: () => void;
+  onReload: () => void;
   onSubmit: (comment: string) => Promise<void>;
+  refreshError: unknown;
+  reloading: boolean;
   submitting: boolean;
 }) {
   const [comment, setComment] = useState('');
@@ -665,19 +808,36 @@ function SubmitContentDialog({
   }
   return (
     <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg" finalFocus={finalFocus}>
         <DialogHeader>
           <DialogTitle>提交内容审核</DialogTitle>
           <DialogDescription>只提交已保存的 canonical revision；提交后当前版本变为只读。</DialogDescription>
         </DialogHeader>
+        {conflict && (
+          <ContentEditorConflictNotice
+            conflict={conflict}
+            id="content-submit-conflict"
+            onReload={onReload}
+            refreshError={refreshError}
+            reloading={reloading}
+          />
+        )}
         {error && <p className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm text-danger" role="alert">{error}</p>}
         <label className="space-y-1.5 text-sm" htmlFor="content-submit-comment">
           <span className="type-label block">备注（可选）</span>
-          <textarea className={textareaClass} disabled={submitting} id="content-submit-comment" onChange={(event) => setComment(event.target.value)} value={comment} />
+          <textarea
+            aria-describedby={conflict ? 'content-submit-conflict' : undefined}
+            autoFocus
+            className={textareaClass}
+            disabled={submitting}
+            id="content-submit-comment"
+            onChange={(event) => setComment(event.target.value)}
+            value={comment}
+          />
         </label>
         <DialogFooter>
           <DialogClose render={<Button disabled={submitting} variant="outline" />}>取消</DialogClose>
-          <Button disabled={submitting} onClick={() => void submit()} type="button">{submitting ? '提交中…' : '确认提交审核'}</Button>
+          <Button disabled={submitting || Boolean(conflict)} onClick={() => void submit()} type="button">{submitting ? '提交中…' : '确认提交审核'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -688,6 +848,7 @@ function editorSummaryErrors(
   errors: ReturnType<typeof useForm<ContentEditorFormValues>>['formState']['errors'],
   requestId: string | undefined,
   mode: EditorFormMode,
+  conflict?: ContentEditorConflict,
 ): ErrorSummaryItem[] {
   const fields = (Object.keys(fieldIds) as ContentEditorField[]).filter(
     (field) => field !== 'change_summary' || mode === 'manual' || mode === 'revision',
@@ -700,8 +861,91 @@ function editorSummaryErrors(
   });
   const formMessage = errors.root?.server?.message;
   if (formMessage) items.push({ id: 'form', message: String(formMessage) });
+  if (conflict) {
+    items.push({ id: 'conflict-code', message: `错误代码：${conflict.code}` });
+    items.push({ id: 'conflict-message', message: conflict.message });
+    if (conflict.requestId) {
+      items.push({ id: 'conflict-request-id', message: `请求 ID：${conflict.requestId}` });
+    }
+  }
   if (requestId) items.push({ id: 'request-id', message: `请求 ID：${requestId}` });
   return items;
+}
+
+function ContentEditorConflictNotice({
+  conflict,
+  id,
+  onReload,
+  refreshError,
+  reloading,
+}: {
+  conflict: ContentEditorConflict;
+  id: string;
+  onReload: () => void;
+  refreshError: unknown;
+  reloading: boolean;
+}) {
+  const reloadFailure = refreshError ? contentEditorRequestFailure(refreshError) : undefined;
+  return (
+    <section
+      aria-atomic="true"
+      className="space-y-3 rounded-lg border border-danger/30 bg-danger/5 p-3 text-sm"
+      id={id}
+      role="alert"
+    >
+      <div className="space-y-1">
+        <p className="font-medium text-danger">检测到 revision 冲突</p>
+        <p className="font-mono text-xs text-text-secondary">错误代码：{conflict.code}</p>
+        <p className="text-text-secondary">{conflict.message}</p>
+        {conflict.requestId && (
+          <p className="font-mono text-xs text-text-muted">请求 ID：{conflict.requestId}</p>
+        )}
+      </div>
+      {reloadFailure && (
+        <div className="space-y-1 border-t border-danger/20 pt-2">
+          <p className="font-medium text-danger">重新加载失败</p>
+          {reloadFailure.code && (
+            <p className="font-mono text-xs text-text-secondary">错误代码：{reloadFailure.code}</p>
+          )}
+          <p className="text-text-secondary">{reloadFailure.message}</p>
+          {reloadFailure.requestId && (
+            <p className="font-mono text-xs text-text-muted">请求 ID：{reloadFailure.requestId}</p>
+          )}
+        </div>
+      )}
+      <Button disabled={reloading} onClick={onReload} size="sm" type="button" variant="outline">
+        {reloading ? '重新加载中…' : '重新加载最新版本'}
+      </Button>
+    </section>
+  );
+}
+
+function ContentEditorRefreshFailure({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const failure = contentEditorRequestFailure(error);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm" role="alert">
+      <div className="space-y-1">
+        <p>后台刷新失败，当前表单和已加载快照保持不变。</p>
+        {failure.code && <p className="font-mono text-xs">错误代码：{failure.code}</p>}
+        <p className="text-text-secondary">{failure.message}</p>
+        {failure.requestId && <p className="font-mono text-xs text-text-muted">请求 ID：{failure.requestId}</p>}
+      </div>
+      <Button onClick={onRetry} size="sm" type="button" variant="outline">重试</Button>
+    </div>
+  );
+}
+
+function contentEditorRequestFailure(error: unknown) {
+  if (error instanceof ContentRequestError && error.detail) {
+    return {
+      code: error.detail.code,
+      message: error.detail.message,
+      requestId: error.detail.request_id,
+    };
+  }
+  return {
+    message: error instanceof Error ? error.message : '重新加载内容编辑器失败',
+  };
 }
 
 function PanelSection({ children, title }: { children: ReactNode; title: string }) {

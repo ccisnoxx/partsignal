@@ -1,0 +1,5 @@
+{"file":".trellis/tasks/08-31-content-editor-command-conflict-recovery/research/content-editor-command-conflict-audit.md","reason":"复核实现是否关闭已确认的 Dialog 分叉、自动采用和 stale cache reload 风险。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"复核 Dialog 生命周期、结构化错误和焦点恢复。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行并核对定向与前端质量门禁。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核 code/message/request_id 未被泛化覆盖且无错误兼容分支。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核 fixture 模式、请求次数断言和 Playwright 隔离。"}

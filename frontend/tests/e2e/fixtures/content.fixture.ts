@@ -37,7 +37,10 @@ type CreateMode =
   | 'forbidden';
 type DetailMode = 'success' | 'empty' | 'cancelled' | 'error' | 'loading' | 'not-found' | 'forbidden';
 type EditorMode = 'no-current' | 'human-draft' | 'ai-draft' | 'changes-requested' | 'review-pending';
-type EditorMutationMode = 'success' | 'revision-conflict';
+type EditorMutationMode =
+  | 'success'
+  | 'save-revision-conflict'
+  | 'submit-review-revision-conflict';
 type ReviewMode = 'review-pending' | 'blocking' | 'approved' | 'changes-requested' | 'readonly' | 'loading' | 'error';
 type ReviewMutationMode = 'success' | 'revision-conflict' | 'validation';
 type VersionDetailMode = 'success' | 'loading' | 'not-found' | 'forbidden' | 'error';
@@ -113,6 +116,7 @@ type ContentApiController = {
   editorDeleteRequests: EditorDeleteRequest[];
   editorRevisionRequests: EditorRevisionRequest[];
   editorSaveRequests: EditorSaveRequest[];
+  failNextEditorContextRequest: () => void;
   generationJobDetailRequests: URL[];
   generationJobListRequests: URL[];
   generationOptionsRequests: URL[];
@@ -971,6 +975,7 @@ const test = base.extend<ContentFixtures>({
     let detailMode: DetailMode = 'success';
     let editorMode: EditorMode = 'human-draft';
     let editorMutationMode: EditorMutationMode = 'success';
+    let failNextEditorContextRequest = false;
     let reviewMode: ReviewMode = 'review-pending';
     let reviewMutationMode: ReviewMutationMode = 'success';
     let versionDetailMode: VersionDetailMode = 'success';
@@ -1478,6 +1483,18 @@ const test = base.extend<ContentFixtures>({
       const editorContextMatch = url.pathname.match(/^\/api\/v1\/content-tasks\/([^/]+)\/editor-context$/);
       if (method === 'GET' && editorContextMatch) {
         editorContextRequests.push(url);
+        if (failNextEditorContextRequest) {
+          failNextEditorContextRequest = false;
+          await route.fulfill({
+            status: 503,
+            json: errorEnvelope(
+              'CONTENT_EDITOR_CONTEXT_UNAVAILABLE',
+              '内容编辑器上下文暂不可用',
+              'req-content-editor-reload',
+            ),
+          });
+          return;
+        }
         if (editorContextMatch[1] !== editorContextState.task.id) {
           const item = items.find((candidate) => candidate.id === editorContextMatch[1]);
           if (!item) {
@@ -1594,7 +1611,7 @@ const test = base.extend<ContentFixtures>({
           await route.fulfill({ status: 409, json: errorEnvelope('NO_CURRENT_CONTENT', '当前没有可保存的内容', 'req-content-editor-empty') });
           return;
         }
-        if (editorMutationMode === 'revision-conflict') {
+        if (editorMutationMode === 'save-revision-conflict') {
           editorContextState = {
             ...editorContextState,
             current_content: { ...current, title: '服务端最新标题', revision: current.revision + 1 },
@@ -1627,6 +1644,38 @@ const test = base.extend<ContentFixtures>({
         const current = editorContextState.current_content;
         if (!current) {
           await route.fulfill({ status: 409, json: errorEnvelope('NO_CURRENT_CONTENT', '当前没有内容版本', 'req-content-editor-empty') });
+          return;
+        }
+        if (
+          command === 'submit-review'
+          && editorMutationMode === 'submit-review-revision-conflict'
+        ) {
+          editorContextState = {
+            ...editorContextState,
+            task: {
+              ...editorContextState.task,
+              workflow_stage: 'CHANGES_REQUESTED',
+              primary_task: 'REVISE_CONTENT',
+            },
+            current_content: {
+              ...current,
+              title: '服务端冲突后标题',
+              body_markdown: '# 服务端 canonical 正文\n\n冲突后最新版本。',
+              status: 'CHANGES_REQUESTED',
+              workflow_stage: 'CURRENT_CHANGES_REQUESTED',
+              primary_task: 'CREATE_REVISION',
+              available_actions: ['CREATE_REVISION', 'ABANDON'],
+              revision: current.revision + 1,
+            },
+          };
+          await route.fulfill({
+            status: 409,
+            json: errorEnvelope(
+              'REVISION_CONFLICT',
+              '内容版本已被其他请求修改',
+              'req-content-editor-submit-conflict',
+            ),
+          });
           return;
         }
         const canonical: ContentVersion = command === 'submit-review'
@@ -1827,6 +1876,7 @@ const test = base.extend<ContentFixtures>({
       editorDeleteRequests,
       editorRevisionRequests,
       editorSaveRequests,
+      failNextEditorContextRequest: () => { failNextEditorContextRequest = true; },
       generationJobDetailRequests,
       generationJobListRequests,
       generationOptionsRequests,

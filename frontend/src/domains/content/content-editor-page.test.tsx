@@ -1,4 +1,4 @@
-import { QueryClientProvider } from '@tanstack/react-query';
+import { focusManager, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
 import { EditorView } from '@codemirror/view';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
@@ -187,7 +187,10 @@ function apiError(code: string, message: string, requestId: string, status: numb
   } as never;
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  focusManager.setFocused(undefined);
+  vi.restoreAllMocks();
+});
 
 describe('ContentEditorPage', () => {
   it('显示首屏 loading', async () => {
@@ -342,11 +345,162 @@ describe('ContentEditorPage', () => {
     await user.type(title, '本地未保存标题');
     await user.click(screen.getByRole('button', { name: '保存草稿' }));
 
-    expect(await screen.findByText('请求 ID：req-editor-409')).toBeInTheDocument();
+    expect((await screen.findAllByText('请求 ID：req-editor-409')).length).toBeGreaterThanOrEqual(2);
     expect(title).toHaveValue('本地未保存标题');
     await user.click(screen.getByRole('button', { name: '重新加载最新版本' }));
     await waitFor(() => expect(title).toHaveValue('服务端新标题'));
     expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('submit-review 409 保留 Dialog 备注并进入页面统一冲突恢复', async () => {
+    const current = version({ available_actions: ['SUBMIT_REVIEW', 'SAVE'] });
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(response(editorContext(current)));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(
+      apiError('REVISION_CONFLICT', '内容版本已被其他请求修改', 'req-submit-409', 409),
+    );
+    const user = userEvent.setup();
+    renderEditor();
+
+    const title = await screen.findByRole('textbox', { name: '标题' });
+    expect(title).toHaveValue('当前人工草稿');
+    await user.click(screen.getByRole('button', { name: '提交审核' }));
+    const dialog = await screen.findByRole('dialog', { name: '提交内容审核' });
+    const comment = within(dialog).getByRole('textbox', { name: '备注（可选）' });
+    expect(comment).toHaveFocus();
+    await user.type(comment, '请保留这条审核备注');
+    await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
+
+    expect(await within(dialog).findByText('错误代码：REVISION_CONFLICT')).toBeInTheDocument();
+    expect(within(dialog).getByText('内容版本已被其他请求修改')).toBeInTheDocument();
+    expect(within(dialog).getByText('请求 ID：req-submit-409')).toBeInTheDocument();
+    expect(comment).toHaveValue('请保留这条审核备注');
+    expect(title).toHaveValue('当前人工草稿');
+    expect(within(dialog).getByRole('button', { name: '重新加载最新版本' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '确认提交审核' })).toBeDisabled();
+    expect(get).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it('submit-review 冲突禁止背景采用，reload 失败保留状态并只在成功后采用 canonical context', async () => {
+    const current = version({ available_actions: ['SUBMIT_REVIEW', 'SAVE'] });
+    const staleContext = editorContext(current);
+    const canonicalVersion = version({
+      available_actions: ['CREATE_REVISION', 'ABANDON'],
+      body_markdown: '# 服务端 canonical 正文',
+      primary_task: 'CREATE_REVISION',
+      revision: 3,
+      status: 'CHANGES_REQUESTED',
+      title: '服务端 canonical 标题',
+      workflow_stage: 'CURRENT_CHANGES_REQUESTED',
+    });
+    const canonicalContext = editorContext(canonicalVersion, {
+      task: {
+        ...staleContext.task,
+        primary_task: 'REVISE_CONTENT',
+        workflow_stage: 'CHANGES_REQUESTED',
+      },
+    });
+    const get = vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(response(staleContext))
+      .mockResolvedValueOnce(apiError('EDITOR_CONTEXT_UNAVAILABLE', '内容编辑器暂不可用', 'req-reload-503', 503))
+      .mockResolvedValue(response(canonicalContext));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(
+      apiError('REVISION_CONFLICT', '内容版本已被其他请求修改', 'req-submit-reload-409', 409),
+    );
+    const user = userEvent.setup();
+    renderEditor();
+
+    const title = await screen.findByRole('textbox', { name: '标题' });
+    const markdown = screen.getByRole('textbox', { name: '内容 Markdown' });
+    await user.click(screen.getByRole('button', { name: '提交审核' }));
+    const dialog = await screen.findByRole('dialog', { name: '提交内容审核' });
+    const comment = within(dialog).getByRole('textbox', { name: '备注（可选）' });
+    await user.type(comment, '冲突后必须保留的备注');
+    await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
+    await within(dialog).findByText('错误代码：REVISION_CONFLICT');
+
+    act(() => {
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await waitFor(() => expect(get).toHaveBeenCalledOnce());
+    expect(post).toHaveBeenCalledOnce();
+
+    await user.click(within(dialog).getByRole('button', { name: '重新加载最新版本' }));
+    expect(await within(dialog).findByText('重新加载失败')).toBeInTheDocument();
+    expect(within(dialog).getByText('内容编辑器暂不可用')).toBeInTheDocument();
+    expect(within(dialog).getByText('请求 ID：req-reload-503')).toBeInTheDocument();
+    expect(comment).toHaveValue('冲突后必须保留的备注');
+    expect(title).toHaveValue('当前人工草稿');
+    expect(EditorView.findFromDOM(markdown)?.state.doc.toString()).toBe('# 当前正文');
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenCalledOnce();
+
+    await user.click(within(dialog).getByRole('button', { name: '重新加载最新版本' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '提交内容审核' })).not.toBeInTheDocument());
+    expect(title).toHaveValue('服务端 canonical 标题');
+    expect(EditorView.findFromDOM(markdown)?.state.doc.toString()).toBe('# 服务端 canonical 正文');
+    expect(screen.getByText('REVISE_CONTENT')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '创建人工修订' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: '提交审核' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '保存草稿' })).not.toBeInTheDocument();
+    expect(screen.queryByText('检测到 revision 冲突')).not.toBeInTheDocument();
+    expect(get).toHaveBeenCalledTimes(3);
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it('submit-review 冲突后取消只关闭 Dialog，保留页面冲突且将焦点返回稳定标题', async () => {
+    const current = version({ available_actions: ['SUBMIT_REVIEW', 'SAVE'] });
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(response(editorContext(current)));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(
+      apiError('REVISION_CONFLICT', '内容版本已被其他请求修改', 'req-submit-cancel-409', 409),
+    );
+    const user = userEvent.setup();
+    renderEditor();
+
+    await screen.findByRole('textbox', { name: '标题' });
+    await user.click(screen.getByRole('button', { name: '提交审核' }));
+    const dialog = await screen.findByRole('dialog', { name: '提交内容审核' });
+    await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
+    await within(dialog).findByText('错误代码：REVISION_CONFLICT');
+    await user.click(within(dialog).getByRole('button', { name: '取消' }));
+
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { level: 1, name: 'CT-ABCD1234' })).toHaveFocus();
+    expect(document.getElementById('content-editor-conflict')).toHaveAttribute('role', 'alert');
+    expect(screen.getByRole('button', { name: '重新加载最新版本' })).toBeInTheDocument();
+    expect(get).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    [401, 'AUTHENTICATION_REQUIRED', '当前会话已失效'],
+    [403, 'PERMISSION_DENIED', '没有提交内容的权限'],
+    [404, 'NOT_FOUND', '内容版本不存在'],
+    [422, 'VALIDATION_ERROR', '提交参数不符合合同'],
+    [500, 'CONTENT_SUBMIT_FAILED', '内容提交服务失败'],
+  ])('submit-review HTTP %i 保持 Dialog 普通错误路径', async (status, code, message) => {
+    const current = version({ available_actions: ['SUBMIT_REVIEW', 'SAVE'] });
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(response(editorContext(current)));
+    const post = vi.spyOn(api, 'POST').mockResolvedValue(
+      apiError(code, message, `req-submit-${status}`, status),
+    );
+    const user = userEvent.setup();
+    renderEditor();
+
+    await screen.findByRole('textbox', { name: '标题' });
+    await user.click(screen.getByRole('button', { name: '提交审核' }));
+    const dialog = await screen.findByRole('dialog', { name: '提交内容审核' });
+    await user.click(within(dialog).getByRole('button', { name: '确认提交审核' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      `${message}（请求 ID：req-submit-${status}）`,
+    );
+    expect(within(dialog).queryByText('检测到 revision 冲突')).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: '重新加载最新版本' })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '确认提交审核' })).toBeEnabled();
+    expect(get).toHaveBeenCalledOnce();
+    expect(post).toHaveBeenCalledOnce();
   });
 
   it('dirty 时禁止提交；clean 时按 canonical revision 提交可选备注', async () => {

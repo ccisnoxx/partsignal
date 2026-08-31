@@ -313,3 +313,24 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 191: Frontend V2 删除 Dialog 最新投影一致性
+
+**Date**: 2026-08-31
+**Task**: Frontend V2 删除 Dialog 最新投影一致性
+**Branch**: `main`
+
+### Summary
+
+统一 Platform Profile、Platform Type、Platform Account 和 User 删除 Dialog 的状态所有权；本地只保存稳定 ID、命令与焦点返回点，展示、资格和 DELETE revision 从当前 exact TanStack Query projection 派生。完成 62 个定向 Vitest、54 个双 viewport Playwright、typecheck、lint、build、api:check 与 Trellis/diff 门禁。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `abd41e1c` | (see git log) |
+
+### Status
+
+[OK] **Completed**

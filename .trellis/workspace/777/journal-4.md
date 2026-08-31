@@ -355,3 +355,25 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 193: 完成非 2xx 合同检查 Phase A
+
+**Date**: 2026-09-01
+**Task**: 完成非 2xx 合同检查 Phase A
+**Branch**: `main`
+
+### Summary
+
+完成集成父规划提交；实现纯完整 Response Comparator、只读 response report、递归图与组合 schema 比较及 mutation tests；默认 contract-check 保持旧路径，相关验证全部通过。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `32684177` | (see git log) |
+| `4ccd6ea7` | (see git log) |
+
+### Status
+
+[OK] **Completed**

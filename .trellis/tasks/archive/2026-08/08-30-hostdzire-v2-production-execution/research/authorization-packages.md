@@ -4,55 +4,84 @@
 
 - 基线 ID：`INV-20260830T005302+0800`
 - 主机：SSH alias `hostdzire` / hostname `scrapy`
-- 当前状态：`DRAFT_NOT_AUTHORIZED`
+- 当前状态：A1=`EXECUTED_MET`；A2 及后续 package=`DRAFT_NOT_AUTHORIZED`
 - 本文件不是远端写授权，也不允许以变量占位符直接执行命令。
 - 规划批准和 `task.py start` 只允许进入实施准备；每个包必须在执行当时重新渲染为全字面量 package，展示给用户并取得单独批准。
-- 任一 hostname、commit、release/run ID、container full ID/label、image ID/RepoDigest、path metadata/device/size、env metadata、Nginx target/checksum、listener、capacity 或 state 漂移都会使对应 package 失效，必须重新生成。
+- 任一 hostname、commit、release/run ID、container full ID/label、image ID/RepoDigest、path identity/device/owner/mode、env metadata、Nginx target/checksum、listener、capacity 或 state 漂移都会使对应 package 失效，必须重新生成。运行态数据 byte size 只在 A1 作为观测值；Package M 停机/quarantine 前仍要求 exact size freeze。
 - 任一 package 的授权不自动授权下一 package、恢复 package、reload 或永久清理。
 
-## Package A：Artifact / Configuration
+## Package A1：Artifact Build
 
 ### 当前 readiness
 
-- `main == origin/main == d78b299069b222adb78507067334751737f679da`，但当前 planning task 尚未提交，因此该 commit 不是最终 candidate。
-- Host 当前可用内存 2,301,513,728 bytes，无 swap；根盘可用 46,581,321,728 bytes。
-- `/root/partsignal/shared/.env.production` missing，所有配置 allowlist `*_configured=false`。
-- 当前 V2 rollback baseline 是 `partsignal-frontend:mvp-20260825-172239-2a6fd940b848` / `sha256:72b206963f479d0dd75132708dac3c37e4d9243fcb75e380d80f8e12fe721111`。
-- 状态：`BLOCKED_PENDING_PLANNING_APPROVAL_CANDIDATE_FREEZE_ENV_PROVISION`。
+- fresh fetch 后本地 `main == origin/main == git ls-remote origin/main == a663bcce9fd49da9c5aea7f257372fc318447234`，working tree clean。
+- proposed release ID=`production-20260830-101614-a663bcce`；Host 上对应 release directory、archive、manifest、backend/frontend tag 全部 absent。
+- Host=`linux/amd64`；A1 exact baseline 于 `2026-08-30T10:53:57+08:00` 观察 available memory=`2,280,304,640` bytes、root/Docker/containerd filesystem available=`46,525,460,480` bytes。执行前必须重读并满足 package 的 literal/threshold Gate。
+- 当前 V2 rollback baseline 是 `partsignal-frontend:mvp-20260825-172239-2a6fd940b848` / `sha256:72b206963f479d0dd75132708dac3c37e4d9243fcb75e380d80f8e12fe721111` / RepoDigest=`partsignal-frontend@sha256:72b206963f479d0dd75132708dac3c37e4d9243fcb75e380d80f8e12fe721111` / `linux/amd64`。
+- 状态：`EXECUTED_MET`；用户已独立批准并完成 exact command，actual evidence=`research/package-a1-execution.md`。
+- 全字面量命令与 mutation/timeout/failure 边界：`research/package-a1-exact.md`。
+- actual archive SHA-256=`38666f7a799aee8cd6966ec69e021a6d427c11a89a5fecff1345c84665021fa8`；backend full ID=`sha256:3a2b4618099644c81dc660d9dbe37fd7f8be5eaa37129dbfbeca447fa6f44380`；frontend full ID=`sha256:2a4fabe9eb4071e499b039484c900a434d75922c71f66af807d629a2d67761bb`；均为 `linux/amd64` 且 RepoDigest 非空。
 
 ### 最终 package 必填字面量
 
-1. full 40-char candidate commit，且 fresh fetch 后本地和 Host clean checkout 都证明 `main == origin/main == commit`。
-2. 不可复用 release ID、source archive path/SHA-256、manifest path/SHA-256、唯一 Alembic head。
-3. 新且不存在的精确目标：
-   - `/root/partsignal/releases/<literal-release-id>`
-   - `/root/partsignal/releases/<literal-release-id>.tar.gz`
-   - `/root/partsignal/releases/<literal-release-id>.manifest.json`
-   - `partsignal-backend:<literal-release-id>`
-   - `partsignal-frontend:<literal-release-id>`
-4. backend/frontend/rollback frontend 的 full image ID 与全部 RepoDigest；repository 末段不得为 V1。
-5. 固定 candidate 中 Production/maintenance Nginx 模板和全部 manifest tracked files 的 checksum。
-6. `/root/partsignal/shared/.env.production` 的普通非 symlink、`root:root 0600` metadata，以及仅含 `*_configured`/固定枚举的 preflight 结果。
-7. 每条 create/build/manifest/config 命令、预计最长耗时、停止条件和“当前 Staging 不受影响”的退出证据。
+1. full commit=`a663bcce9fd49da9c5aea7f257372fc318447234`、schema head=`0043_geo_platform_identity`、release ID=`production-20260830-101614-a663bcce`。
+2. 新且不存在的精确目标：
+   - `/root/partsignal/releases/production-20260830-101614-a663bcce`
+   - `/root/partsignal/releases/production-20260830-101614-a663bcce.tar.gz`
+   - `partsignal-backend:production-20260830-101614-a663bcce`
+   - `partsignal-frontend:production-20260830-101614-a663bcce`
+3. fixed origin、clean checkout、`HEAD == origin/main == commit` 与 deterministic `git archive` 命令。
+4. backend 只从 fixed checkout `backend/`、frontend 只从 canonical `frontend/` 顺序 build；每次 build 前重读 available memory/root capacity。
+5. build 后 backend/frontend full image ID、全部非空 RepoDigest、`linux/amd64` 和 tag identity；rollback V2 identity 只读复核。
+6. 每条 create/build/inspect 命令、预计最长耗时、硬停止条件和“当前 7-service Staging/Nginx/data/env 未变”的退出证据。
 
-### mutation allowlist
+### 已发现冲突的旧 planning baseline（当前 blocker）
 
-- 只创建上述新 release/archive/manifest/image；存在即停止，不覆盖。
-- env 文件只由用户或运维 owner 经安全渠道 provision；代理不接收、复制、显示或记录值。
+- 只创建上述新 release checkout、source archive 和两个新 image tag；存在即停止，不覆盖。
 - backend 仅从 fixed checkout `backend/` 顺序构建；frontend 仅从 fixed checkout canonical `frontend/` 顺序构建。
 - 每次 build 前 available memory ≥2 GiB、root available ≥10 GiB；不满足立即停止。
-- 禁止任何 prune、旧 image/release/env/manifest 删除或 tag 覆盖。
+- 禁止 manifest/env/Compose/Nginx/container/data mutation；禁止 cross-build、`docker save/load`、pull fallback、任何 prune、旧 image/release/env/manifest 删除或 tag 覆盖。
 
 ### required evidence before package closes
 
-- clean source、archive checksum、image identity、frontend container artifact check、Production deploy script tests。
-- manifest 排他创建且 producer/consumer allowlist 一致；archive checksum 在生成后重新比较。
+- clean source、archive path/size/SHA-256，以及 backend/frontend/rollback V2 reference、full image ID、全部 RepoDigest、platform。
+- 新 backend/frontend 都是 `linux/amd64` 且 RepoDigest 非空；任何失败保留现场并停止，不进入 A2。
+- 当前 7-service runtime、Nginx、data path、env metadata 和 public HTTP 保持 package 前状态。
+
+## Package A2：Manifest / Configuration
+
+### 前置
+
+- A1 已独立获批并完成；A1 的 archive 与三类 image identity 已成为本包字面量输入。
+- `/root/partsignal/releases/production-20260830-101614-a663bcce.manifest.json` 必须仍不存在。
+- `/root/partsignal/shared/.env.production` 仍由用户或运维 owner 经安全渠道 provision；代理不接收、复制、显示或记录值。
+
+### 最终 package 必填字面量
+
+1. commit/release/schema、source archive path/size/SHA-256。
+2. backend/current frontend/rollback frontend 的 exact reference、full image ID、全部 RepoDigest 和 `linux/amd64` platform。
+3. manifest producer 全字面量命令、8 个 tracked file path/SHA-256、output path 与排他 `0600` 创建合同。
+4. manifest 生成后的 SHA-256，以及 archive/tracked/image identity 独立复算命令；禁止重新 build 或 retag。
+5. `/root/partsignal/shared/.env.production` 的 regular/non-symlink、`root:root 0600` metadata，以及只含固定枚举和 `*_configured` 的 status-only evidence。
+6. Compose `config --quiet`、Production preflight、frontend container artifact 和 deploy-script validation；任何输出不得包含 secret。
+
+### mutation allowlist
+
+- 旧 baseline 写成“只允许排他创建 manifest，并执行只读 identity/metadata/configuration 验证”；审计已证明这不足以描述 mandatory validation，不能作为当前授权 allowlist。
+- 不创建或替换 env；不重建/retag image，不修改 checkout/archive、运行容器、Nginx 或数据的持久边界继续有效。
+
+Step 3B 审计已证明 mandatory validation 实际会创建并清理精确 one-off container/temp file；这与“其余只读”存在 material conflict。用户已批准 `research/package-a2-exact.md` 记录的 correction，包括 network precheck、full-image frontend wrapper 与 owned cleanup，但这不授权执行 A2；env missing 时仍不得运行。
+- manifest producer、frontend artifact 或 configuration 任一失败即停止并保留现场。
+
+### required evidence before package closes
+
+- manifest SHA-256、schema head、archive identity、8 个 tracked digest 和三类 image identity 全部一致。
 - Production env metadata、Compose `config --quiet` 与 status-only preflight 通过；输出审计无 secret。
 - 当前 7-service runtime、Nginx、data path 和 public HTTP 保持 package 前状态。
 
 ## Package N1：Nginx Maintenance Write
 
-这个包必须在 Package A 完成后、Maintenance/Data 前执行。它只写站点文件，不 reload。
+这个包必须在 Package A2 完成后、Maintenance/Data 前执行。它只写站点文件，不 reload。
 
 ### 当前 exact baseline
 

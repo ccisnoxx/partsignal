@@ -1,0 +1,8 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"七列表格、行交互、TableShell、可访问性与详情焦点边界。"}
+{"file":".trellis/spec/frontend/index.md","reason":"定位前端组件、状态、质量与类型规范的权威索引；System Audit 专项合同已摘录进本 Task research。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"component/Playwright 运行时错误审计、响应式和验证命令。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"Audit domain 判别式 projection result 的类型边界。"}
+{"file":".trellis/spec/frontend/visual-system.md","reason":"表格、局部错误反馈、响应式与可访问性不得退化。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"production artifact fixture 与 Playwright 隔离、失败审计要求。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"开放 API 字符串到严格 UI allowlist 的投影边界核验。"}
+{"file":".trellis/tasks/08-31-audit-list-projection-failure-isolation/research/audit-projection-boundary.md","reason":"当前调用链、异常逃逸点、共享 owner 与测试缺口的事实基线。"}

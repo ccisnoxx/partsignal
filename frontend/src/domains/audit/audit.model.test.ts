@@ -7,6 +7,7 @@ import {
   canonicalAuditSearchRecord,
   fromBeijingDateTimeInput,
   isCanonicalAuditSearch,
+  projectAuditActionLabel,
   projectAuditChanges,
   projectAuditFacts,
   toBeijingDateTimeInput,
@@ -59,6 +60,7 @@ describe('系统审计 model', () => {
 
   it('安全详情投影只接受登记字段和值合同', () => {
     expect(auditActionLabel('ai_channel.updated')).toBe('更新 AI 渠道');
+    expect(projectAuditActionLabel('ai_channel.updated')).toEqual({ status: 'projected', label: '更新 AI 渠道' });
     expect(projectAuditFacts({ revision: 5, configured: true, reason: ['manual', 2] })).toEqual([
       { field: 'revision', label: '修订号', value: '5' },
       { field: 'configured', label: '配置状态', value: '是' },
@@ -67,7 +69,11 @@ describe('系统审计 model', () => {
     expect(projectAuditChanges([{ field: 'revision', before: 4, after: 5 }])).toEqual([
       { field: 'revision', label: '修订号', before: '4', after: '5' },
     ]);
-    expect(() => auditActionLabel('ai_channel.secret_dumped')).toThrow('未知动作');
+    const unknownAction = 'audit.action.unknown.sentinel';
+    const projection = projectAuditActionLabel(unknownAction);
+    expect(projection).toEqual({ status: 'failed' });
+    expect(JSON.stringify(projection)).not.toContain(unknownAction);
+    expect(() => auditActionLabel(unknownAction)).toThrow('未知动作');
     expect(() => projectAuditFacts({ secret: 'hidden' })).toThrow('未登记事实字段');
   });
 

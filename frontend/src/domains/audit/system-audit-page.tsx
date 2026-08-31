@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { FilterBar } from '@/design-system/data-table/filter-bar';
@@ -31,7 +32,6 @@ import {
   auditListQueryOptions,
 } from './audit.api';
 import {
-  auditActionLabel,
   auditModuleLabels,
   auditModuleValues,
   auditOutcomeLabels,
@@ -39,6 +39,7 @@ import {
   auditResetSearch,
   fromBeijingDateTimeInput,
   normalizeAuditPageSize,
+  projectAuditActionLabel,
   toBeijingDateTimeInput,
   type AuditLog,
   type AuditSearch,
@@ -46,6 +47,7 @@ import {
 
 const columnRoles = ['date', 'metadata', 'metadata', 'primary', 'metadata', 'status', 'metadata'] as const satisfies readonly ColumnRole[];
 const desktopQuery = '(min-width: 1280px)';
+const unavailableAuditActionValue = '__audit_action_unavailable__';
 
 type SystemAuditPageProps = {
   onSearchChange: (search: AuditSearch, replace?: boolean) => Promise<void> | void;
@@ -189,24 +191,30 @@ function SystemAuditPage({ onSearchChange, search }: SystemAuditPageProps) {
 }
 
 function AuditRow({ log, onOpen, selected }: { log: AuditLog; onOpen: (log: AuditLog, trigger: HTMLElement) => void; selected: boolean }) {
-  const action = auditActionLabel(log.action);
+  const action = projectAuditActionLabel(log.action);
+  const isProjected = action.status === 'projected';
   return (
     <tr
-      aria-label={`查看审计详情：${action}`}
-      aria-selected={selected}
-      className="cursor-pointer outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50"
-      onClick={(event) => onOpen(log, event.currentTarget)}
-      onKeyDown={(event) => {
-        if (event.key !== 'Enter' && event.key !== ' ') return;
-        event.preventDefault();
-        onOpen(log, event.currentTarget);
-      }}
-      tabIndex={0}
+      {...(isProjected ? {
+        'aria-label': `查看审计详情：${action.label}`,
+        'aria-selected': selected,
+        className: 'cursor-pointer outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50',
+        onClick: (event: MouseEvent<HTMLTableRowElement>) => onOpen(log, event.currentTarget),
+        onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          onOpen(log, event.currentTarget);
+        },
+        tabIndex: 0,
+      } : {
+        'aria-label': '审计记录动作无法安全投影',
+        className: 'outline-none',
+      })}
     >
       <td className="whitespace-nowrap" data-column-role="date"><time dateTime={log.created_at}>{formatTime(log.created_at)}</time></td>
       <td className="min-w-40" data-column-role="metadata">{actorLabel(log)}</td>
       <td className="whitespace-nowrap" data-column-role="metadata">{auditModuleLabels[log.business_module]}</td>
-      <td className="min-w-44" data-column-role="primary"><strong>{action}</strong></td>
+      <td className="min-w-44" data-column-role="primary">{isProjected ? <strong>{action.label}</strong> : <span role="status">无法安全投影</span>}</td>
       <td className="min-w-52" data-column-role="metadata"><span className="block">{log.target_type}</span><code className="block break-all text-xs text-text-muted">{log.target_id ?? '未记录'}</code></td>
       <td data-column-role="status"><OutcomeBadge outcome={log.outcome} /></td>
       <td className="min-w-48" data-column-role="metadata"><code className="break-all text-xs">{log.request_id}</code></td>
@@ -220,11 +228,25 @@ function AuditFilters({ actions, onChange, search, targetTypes }: {
   search: AuditSearch;
   targetTypes: readonly string[];
 }) {
-  const actionOptions = search.action && !actions.includes(search.action) ? [search.action, ...actions] : actions;
+  const actionValues = search.action && !actions.includes(search.action) ? [search.action, ...actions] : actions;
+  const projectedActionItems = actionValues.flatMap((value) => {
+    const projection = projectAuditActionLabel(value);
+    return projection.status === 'projected' ? [{ value, label: projection.label }] : [];
+  });
+  const unknownActionOptionCount = actions.filter((value) => projectAuditActionLabel(value).status === 'failed').length;
+  const hasUnavailableCurrentAction = Boolean(
+    search.action && projectAuditActionLabel(search.action).status === 'failed',
+  );
+  const actionItems = [
+    { value: 'ALL', label: '全部动作' },
+    ...(hasUnavailableCurrentAction ? [{ value: unavailableAuditActionValue, label: '当前动作无法安全投影', disabled: true }] : []),
+    ...projectedActionItems,
+  ];
   const targetTypeOptions = search.targetType && !targetTypes.includes(search.targetType) ? [search.targetType, ...targetTypes] : targetTypes;
   const [draft, setDraft] = useState({
     keyword: search.keyword ?? '', actorId: search.actorId ?? '', module: search.module ?? 'ALL',
-    action: search.action ?? 'ALL', targetType: search.targetType ?? 'ALL', targetId: search.targetId ?? '',
+    action: hasUnavailableCurrentAction ? unavailableAuditActionValue : search.action ?? 'ALL',
+    targetType: search.targetType ?? 'ALL', targetId: search.targetId ?? '',
     outcome: search.outcome ?? 'ALL', requestId: search.requestId ?? '',
     createdFrom: toBeijingDateTimeInput(search.createdFrom), createdTo: toBeijingDateTimeInput(search.createdTo),
   });
@@ -246,7 +268,9 @@ function AuditFilters({ actions, onChange, search, targetTypes }: {
       keyword: draft.keyword.trim() || undefined,
       actorId: draft.actorId.trim().toLowerCase() || undefined,
       module: draft.module === 'ALL' ? undefined : draft.module,
-      action: draft.action === 'ALL' ? undefined : draft.action,
+      action: draft.action === unavailableAuditActionValue
+        ? search.action
+        : draft.action === 'ALL' ? undefined : draft.action,
       targetType: draft.targetType === 'ALL' ? undefined : draft.targetType,
       targetId: draft.targetId.trim() || undefined,
       outcome: draft.outcome === 'ALL' ? undefined : draft.outcome,
@@ -272,7 +296,7 @@ function AuditFilters({ actions, onChange, search, targetTypes }: {
             <summary className="cursor-pointer text-sm font-medium">更多筛选</summary>
             <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <AuditInput label="操作者 ID" onChange={(actorId) => setDraft((current) => ({ ...current, actorId }))} value={draft.actorId} />
-              <AuditSelect ariaLabel="动作" items={[{ value: 'ALL', label: '全部动作' }, ...actionOptions.map((value) => ({ value, label: auditActionLabel(value) }))]} onChange={(action) => setDraft((current) => ({ ...current, action }))} value={draft.action} />
+              <AuditSelect ariaLabel="动作" items={actionItems} onChange={(action) => setDraft((current) => ({ ...current, action }))} value={draft.action} />
               <AuditSelect ariaLabel="对象类型" items={[{ value: 'ALL', label: '全部对象类型' }, ...targetTypeOptions.map((value) => ({ value, label: value }))]} onChange={(targetType) => setDraft((current) => ({ ...current, targetType }))} value={draft.targetType} />
               <AuditInput label="对象 ID" onChange={(targetId) => setDraft((current) => ({ ...current, targetId }))} value={draft.targetId} />
               <AuditInput label="Request ID" onChange={(requestId) => setDraft((current) => ({ ...current, requestId }))} value={draft.requestId} />
@@ -286,16 +310,18 @@ function AuditFilters({ actions, onChange, search, targetTypes }: {
         query={draft.keyword}
         searchLabel="搜索审计日志"
       />
+      {unknownActionOptionCount > 0 && <p className="text-sm text-destructive" role="alert">部分动作筛选项无法安全投影，已从可选项中隐藏。</p>}
+      {hasUnavailableCurrentAction && <p className="text-sm text-destructive" role="alert">当前动作无法安全投影，请清除或改选。</p>}
       {rangeError && <p className="text-sm text-destructive" role="alert">{rangeError}</p>}
     </div>
   );
 }
 
-function AuditSelect({ ariaLabel, items, onChange, value }: { ariaLabel: string; items: readonly { value: string; label: string }[]; onChange: (value: string) => void; value: string }) {
+function AuditSelect({ ariaLabel, items, onChange, value }: { ariaLabel: string; items: readonly { value: string; label: string; disabled?: boolean }[]; onChange: (value: string) => void; value: string }) {
   return (
     <Select items={items} onValueChange={(next) => next && onChange(next)} value={value}>
       <SelectTrigger aria-label={ariaLabel} className="w-full md:w-44"><SelectValue /></SelectTrigger>
-      <SelectContent>{items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
+      <SelectContent>{items.map((item) => <SelectItem disabled={item.disabled} key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
     </Select>
   );
 }

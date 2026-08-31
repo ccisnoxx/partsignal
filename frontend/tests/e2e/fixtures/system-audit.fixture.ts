@@ -13,7 +13,6 @@ type AuditApiController = {
   allowHttpError: (status: number) => void;
   failNextList: () => void;
   requests: AuditRequest[];
-  responsePayloads: string[];
   setAccountType: (value: AccountType) => void;
   setProjectionFailure: (value: boolean) => void;
 };
@@ -23,21 +22,26 @@ type AuditFixtures = { systemAuditApi: AuditApiController };
 const actorId = '10000000-0000-4000-8000-000000000001';
 const channelId = '30000000-0000-4000-8000-000000000001';
 const secretSentinel = 'system-audit-secret-sentinel';
+const unknownAction = 'audit.action.unknown.sentinel';
 
 function auditLogs(): AuditLog[] {
-  return Array.from({ length: 23 }, (_, index) => ({
-    id: `20000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
-    actor_id: index === 1 ? null : actorId,
-    actor: index === 1 ? null : { id: actorId, display_name: '系统管理员', account_type: 'ADMIN' },
-    business_module: index % 3 === 0 ? 'CONFIGURATION' : index % 3 === 1 ? 'IDENTITY' : 'PUBLICATION',
-    action: index % 3 === 0 ? 'ai_channel.updated' : index % 3 === 1 ? 'user.updated' : 'publication_work.completed',
-    target_type: index % 3 === 0 ? 'AIChannel' : index % 3 === 1 ? 'User' : 'PublicationWork',
-    target_id: index % 3 === 0 ? channelId : `40000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
-    outcome: index % 3 === 0 ? 'SUCCESS' : index % 3 === 1 ? 'FAILED' : 'DENIED',
-    primary_task: 'VIEW_LOG_DETAIL',
-    request_id: `req-system-audit-${index + 1}`,
-    created_at: new Date(Date.UTC(2026, 7, 15, 12) - index * 60_000).toISOString(),
-  }));
+  return Array.from({ length: 23 }, (_, index) => {
+    const log = {
+      id: `20000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+      actor_id: index === 1 ? null : actorId,
+      actor: index === 1 ? null : { id: actorId, display_name: '系统管理员', account_type: 'ADMIN' },
+      business_module: index % 3 === 0 ? 'CONFIGURATION' : index % 3 === 1 ? 'IDENTITY' : 'PUBLICATION',
+      action: index === 2 ? unknownAction : index % 3 === 0 ? 'ai_channel.updated' : index % 3 === 1 ? 'user.updated' : 'publication_work.completed',
+      target_type: index % 3 === 0 ? 'AIChannel' : index % 3 === 1 ? 'User' : 'PublicationWork',
+      target_id: index % 3 === 0 ? channelId : `40000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+      outcome: index % 3 === 0 ? 'SUCCESS' : index % 3 === 1 ? 'FAILED' : 'DENIED',
+      primary_task: 'VIEW_LOG_DETAIL',
+      request_id: `req-system-audit-${index + 1}`,
+      created_at: new Date(Date.UTC(2026, 7, 15, 12) - index * 60_000).toISOString(),
+    } satisfies AuditLog;
+    if (index === 2) Object.assign(log, { change_summary: secretSentinel, raw_json: secretSentinel });
+    return log;
+  });
 }
 
 function detailFor(log: AuditLog): AuditLogDetail {
@@ -67,7 +71,6 @@ const test = base.extend<AuditFixtures>({
     let projectionFailure = false;
     const logs = auditLogs();
     const requests: AuditRequest[] = [];
-    const responsePayloads: string[] = [];
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
     const allowedHttpErrors: number[] = [];
@@ -114,9 +117,8 @@ const test = base.extend<AuditFixtures>({
         return;
       }
       if (url.pathname === '/api/v1/audit-logs/filter-options') {
-        const body = { actions: ['ai_channel.updated', 'publication_work.completed', 'user.updated'], target_types: ['AIChannel', 'PublicationWork', 'User'] };
+        const body = { actions: ['ai_channel.updated', unknownAction, 'publication_work.completed', 'user.updated'], target_types: ['AIChannel', 'PublicationWork', 'User'] };
         requests.push({ path: url.pathname, query: {}, status: 200 });
-        responsePayloads.push(JSON.stringify(body));
         await route.fulfill({ status: 200, json: body });
         return;
       }
@@ -141,7 +143,6 @@ const test = base.extend<AuditFixtures>({
         ));
         const body = { items: filtered.slice((pageNumber - 1) * pageSize, pageNumber * pageSize), page: pageNumber, page_size: pageSize, total: filtered.length } satisfies components['schemas']['AuditLogList'];
         requests.push({ path: url.pathname, query: Object.fromEntries(url.searchParams), status: 200 });
-        responsePayloads.push(JSON.stringify(body));
         await route.fulfill({ status: 200, json: body });
         return;
       }
@@ -159,7 +160,6 @@ const test = base.extend<AuditFixtures>({
       }
       const body = detailFor(log);
       requests.push({ path: url.pathname, query: {}, status: 200 });
-      responsePayloads.push(JSON.stringify(body));
       await route.fulfill({ status: 200, json: body });
     });
 
@@ -167,14 +167,12 @@ const test = base.extend<AuditFixtures>({
       allowHttpError: (status) => allowedHttpErrors.push(status),
       failNextList: () => { listFailure = true; },
       requests,
-      responsePayloads,
       setAccountType: (value) => { accountType = value; },
       setProjectionFailure: (value) => { projectionFailure = value; },
     });
     expect(unexpectedRequests, 'System Audit 不得请求 Users 或业务详情 API').toEqual([]);
     expect(runtimeErrors, 'System Audit 不得产生未批准的浏览器错误').toEqual([]);
-    expect(responsePayloads.join('\n')).not.toContain(secretSentinel);
   }, { auto: true }],
 });
 
-export { actorId, channelId, expect, secretSentinel, test };
+export { actorId, channelId, expect, secretSentinel, test, unknownAction };

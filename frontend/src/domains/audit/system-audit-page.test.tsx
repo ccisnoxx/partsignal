@@ -1,6 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, createRouter, RouterProvider } from '@tanstack/react-router';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,6 +13,8 @@ import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
 
 type AuditLog = components['schemas']['AuditLog'];
 type AuditLogDetail = components['schemas']['AuditLogDetail'];
+const unknownAction = 'audit.action.unknown.sentinel';
+const secretSentinel = 'system-audit-secret-sentinel';
 
 const log: AuditLog = {
   id: '20000000-0000-4000-8000-000000000001',
@@ -35,6 +37,24 @@ const detail: AuditLogDetail = {
   result_message: '渠道配置已更新',
   error_code: null,
   related_entry: { status: 'AVAILABLE', kind: 'AIChannel', parent_id: null },
+};
+
+const unknownLog: AuditLog = {
+  ...log,
+  id: '20000000-0000-4000-8000-000000000002',
+  action: unknownAction,
+  target_id: '30000000-0000-4000-8000-000000000002',
+  request_id: 'req-audit-unknown',
+};
+
+const secondLog: AuditLog = {
+  ...log,
+  id: '20000000-0000-4000-8000-000000000003',
+  action: 'user.updated',
+  business_module: 'IDENTITY',
+  target_type: 'User',
+  target_id: '30000000-0000-4000-8000-000000000003',
+  request_id: 'req-audit-second',
 };
 
 const auth: AuthContextValue = {
@@ -62,11 +82,11 @@ function success<T>(data: T) {
   return { data, response: Response.json(data) } as never;
 }
 
-function renderAudit() {
+function renderAudit(initialEntry = '/system/audit?createdFrom=2026-08-13T00%3A00%3A00.000Z&createdTo=2026-08-16T00%3A00%3A00.000Z&page=1&pageSize=20') {
   const queryClient = createAuthenticatedTestQueryClient(auth);
   const router = createRouter({
     routeTree,
-    history: createMemoryHistory({ initialEntries: ['/system/audit?createdFrom=2026-08-13T00%3A00%3A00.000Z&createdTo=2026-08-16T00%3A00%3A00.000Z&page=1&pageSize=20'] }),
+    history: createMemoryHistory({ initialEntries: [initialEntry] }),
     context: { queryClient, auth },
   });
   render(
@@ -106,6 +126,101 @@ describe('SystemAuditPage', () => {
     await userEvent.keyboard('{Escape}');
     await waitFor(() => expect(router.state.location.search).not.toHaveProperty('logId'));
     await waitFor(() => expect(row).toHaveFocus());
+  });
+
+  it('混合动作逐行隔离投影失败，坏行保留元数据但不打开详情', async () => {
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/audit-logs/filter-options') {
+        return success({ actions: ['ai_channel.updated', unknownAction, 'user.updated'], target_types: ['AIChannel', 'User'] });
+      }
+      if (path === '/api/v1/audit-logs/{audit_log_id}') return success(detail);
+      if (path === '/api/v1/audit-logs') {
+        return success({
+          items: [log, { ...unknownLog, change_summary: secretSentinel, raw_json: secretSentinel }, secondLog],
+          page: 1,
+          page_size: 20,
+          total: 3,
+        });
+      }
+      throw new Error(`意外请求：${path}`);
+    });
+    renderAudit();
+
+    const unknownRow = await screen.findByRole('row', { name: '审计记录动作无法安全投影' });
+    expect(unknownRow).toHaveTextContent('无法安全投影');
+    expect(unknownRow).toHaveTextContent('系统管理员');
+    expect(unknownRow).toHaveTextContent('系统配置');
+    expect(unknownRow).not.toHaveAttribute('tabindex');
+    expect(unknownRow).not.toHaveTextContent(unknownAction);
+    expect(document.body.innerHTML).not.toContain(unknownAction);
+    expect(document.body.innerHTML).not.toContain(secretSentinel);
+
+    const detailCalls = get.mock.calls as unknown as Array<[string]>;
+    const detailRequestCount = detailCalls.filter(([path]) => path === '/api/v1/audit-logs/{audit_log_id}').length;
+    await userEvent.click(unknownRow);
+    fireEvent.keyDown(unknownRow, { key: 'Enter', code: 'Enter' });
+    fireEvent.keyDown(unknownRow, { key: ' ', code: 'Space' });
+    expect((get.mock.calls as unknown as Array<[string]>).filter(([path]) => path === '/api/v1/audit-logs/{audit_log_id}')).toHaveLength(detailRequestCount);
+
+    const firstRow = screen.getByRole('row', { name: /查看审计详情：更新 AI 渠道/ });
+    await userEvent.click(firstRow);
+    expect(await screen.findByText('渠道配置已更新')).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    const secondRow = screen.getByRole('row', { name: /查看审计详情：更新用户/ });
+    secondRow.focus();
+    await userEvent.keyboard(' ');
+    expect(await screen.findByText('渠道配置已更新')).toBeInTheDocument();
+    expect(get).toHaveBeenCalledWith('/api/v1/audit-logs/{audit_log_id}', {
+      params: { path: { audit_log_id: secondLog.id } },
+    });
+  });
+
+  it('未知动作筛选项只显示局部反馈，未知当前 URL 保留服务端筛选直到明确清除', async () => {
+    const get = vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/audit-logs/filter-options') {
+        return success({ actions: ['ai_channel.updated', unknownAction], target_types: [] });
+      }
+      if (path === '/api/v1/audit-logs') {
+        return success({ items: [], page: 1, page_size: 20, total: 0 });
+      }
+      throw new Error(`意外请求：${path}`);
+    });
+    const router = renderAudit(`/system/audit?createdFrom=2026-08-13T00%3A00%3A00.000Z&createdTo=2026-08-16T00%3A00%3A00.000Z&page=1&pageSize=20&action=${unknownAction}`);
+
+    expect(await screen.findByRole('heading', { name: '系统审计' })).toBeInTheDocument();
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts.some((alert) => alert.textContent?.includes('当前动作无法安全投影'))).toBe(true);
+    expect(alerts.every((alert) => !alert.textContent?.includes(unknownAction))).toBe(true);
+    expect(router.state.location.search.action).toBe(unknownAction);
+    expect(get).toHaveBeenCalledWith('/api/v1/audit-logs', expect.objectContaining({
+      params: expect.objectContaining({ query: expect.objectContaining({ action: unknownAction }) }),
+    }));
+
+    await userEvent.click(screen.getByText('更多筛选'));
+    const actionSelect = screen.getByRole('combobox', { name: '动作' });
+    expect(actionSelect).toHaveTextContent('当前动作无法安全投影');
+    await userEvent.click(actionSelect);
+    expect(screen.getAllByText('当前动作无法安全投影')).not.toHaveLength(0);
+    expect(screen.getByText('更新 AI 渠道')).toBeInTheDocument();
+    await userEvent.click(screen.getByText('全部动作'));
+    await userEvent.click(screen.getByRole('button', { name: '搜索' }));
+    await waitFor(() => expect(router.state.location.search).not.toHaveProperty('action'));
+  });
+
+  it('更多筛选折叠时仍显示未知动作选项的局部反馈', async () => {
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/audit-logs/filter-options') {
+        return success({ actions: [unknownAction, 'ai_channel.updated'], target_types: [] });
+      }
+      if (path === '/api/v1/audit-logs') return success({ items: [], page: 1, page_size: 20, total: 0 });
+      throw new Error(`意外请求：${path}`);
+    });
+    renderAudit();
+
+    expect(await screen.findByRole('heading', { name: '系统审计' })).toBeInTheDocument();
+    expect(await screen.findByText('部分动作筛选项无法安全投影，已从可选项中隐藏。')).toBeVisible();
+    expect(document.body.innerHTML).not.toContain(unknownAction);
+    expect(screen.queryByRole('combobox', { name: '动作' })).not.toBeVisible();
   });
 
   it('时间范围为空时保留当前 URL 并显示校验错误', async () => {

@@ -191,10 +191,19 @@ const auditFieldLabels: Record<string, string> = {
   access_level: '访问级别', category: '分类', size: '大小', is_configured: '配置状态', logo_configured: 'Logo 配置状态', name: '名称', website_configured: '网站配置状态',
 };
 
+type AuditActionLabelProjection =
+  | { status: 'projected'; label: string }
+  | { status: 'failed' };
+
+function projectAuditActionLabel(action: string): AuditActionLabelProjection {
+  const label = Object.hasOwn(auditActionLabels, action) ? auditActionLabels[action] : undefined;
+  return label ? { status: 'projected', label } : { status: 'failed' };
+}
+
 function auditActionLabel(action: string) {
-  const label = auditActionLabels[action];
-  if (!label) throw new Error(`审计返回未知动作：${action}`);
-  return label;
+  const projection = projectAuditActionLabel(action);
+  if (projection.status === 'failed') throw new Error(`审计返回未知动作：${action}`);
+  return projection.label;
 }
 
 function formatAuditValue(value: AuditSafeValue): string {
@@ -261,12 +270,14 @@ export {
   initialAuditRange,
   isCanonicalAuditSearch,
   normalizeAuditPageSize,
+  projectAuditActionLabel,
   projectAuditChanges,
   projectAuditFacts,
   resolveAuditRelatedLink,
   toBeijingDateTimeInput,
 };
 export type {
+  AuditActionLabelProjection,
   AuditDisplayChange,
   AuditDisplayItem,
   AuditLog,

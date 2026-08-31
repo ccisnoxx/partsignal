@@ -1,4 +1,4 @@
-import { actorId, channelId, expect, secretSentinel, test } from './fixtures/system-audit.fixture';
+import { actorId, channelId, expect, secretSentinel, test, unknownAction } from './fixtures/system-audit.fixture';
 
 test.use({ trace: 'off' });
 
@@ -66,6 +66,14 @@ test('详情严格 lazy，并由 row click/Enter/Space 驱动自适应容器与�
 
 test('deleted actor、三态结果、相关对象三态与安全投影错误均不泄漏', async ({ page, systemAuditApi }) => {
   await page.goto('/system/audit');
+  const unknownRow = page.getByRole('row', { name: '审计记录动作无法安全投影' });
+  await expect(unknownRow).toBeVisible();
+  await expect(unknownRow).toContainText('无法安全投影');
+  await expect(unknownRow).not.toContainText(unknownAction);
+  await expect(unknownRow).not.toHaveAttribute('tabindex');
+  await unknownRow.press('Enter');
+  await unknownRow.press('Space');
+  expect(systemAuditApi.requests.filter((request) => /^\/api\/v1\/audit-logs\/[0-9a-f-]{36}$/.test(request.path))).toHaveLength(0);
   await expect(page.getByRole('row', { name: /更新用户/ }).first()).toContainText('用户已删除/未记录');
   await expect(page.getByRole('row', { name: /更新 AI 渠道/ }).first()).toContainText('成功');
   await expect(page.getByRole('row', { name: /更新用户/ }).first()).toContainText('失败');
@@ -79,13 +87,47 @@ test('deleted actor、三态结果、相关对象三态与安全投影错误均�
   await expect(container.getByText('关联对象已不存在，历史审计记录保持不变。')).toBeVisible();
   await page.keyboard.press('Escape');
 
+  if (page.viewportSize()!.width >= 1280) {
+    await page.getByRole('row', { name: /更新 AI 渠道/ }).first().click();
+    await expect(container.getByText('审计操作已完成')).toBeVisible();
+    await page.getByRole('button', { name: '刷新当前页' }).click();
+    await expect(page.locator('tbody tr').filter({ hasText: '无法安全投影' })).toHaveCount(1);
+    await expect(container.getByText('审计操作已完成')).toBeVisible();
+    systemAuditApi.failNextList();
+    systemAuditApi.allowHttpError(503);
+    await page.getByRole('button', { name: '刷新当前页' }).click();
+    await expect(page.getByText('刷新失败，已保留当前列表')).toHaveCount(1);
+    await expect(container.getByText('审计操作已完成')).toBeVisible();
+  }
+
   systemAuditApi.setProjectionFailure(true);
   systemAuditApi.allowHttpError(409);
   await page.getByRole('row', { name: /完成发布工作/ }).first().click();
   await expect(container.getByRole('alert')).toContainText('该审计详情当前无法安全展示');
-  const safeOutput = `${systemAuditApi.responsePayloads.join('\n')}\n${await page.locator('body').innerText()}\n${page.url()}\n${JSON.stringify(systemAuditApi.requests)}`;
+  const safeOutput = `${await page.locator('body').innerText()}\n${page.url()}\n${JSON.stringify(systemAuditApi.requests)}`;
   expect(safeOutput).not.toContain(secretSentinel);
+  expect(safeOutput).not.toContain(unknownAction);
   expect(safeOutput).not.toContain('change_summary');
+});
+
+test('未知动作筛选项与当前 URL 筛选保持局部且可明确清除', async ({ page, systemAuditApi }) => {
+  await page.goto(`/system/audit?action=${encodeURIComponent(unknownAction)}&createdFrom=2026-08-13T00%3A00%3A00.000Z&createdTo=2026-08-16T00%3A00%3A00.000Z&page=1&pageSize=20`);
+  const currentActionAlert = page.getByText('当前动作无法安全投影，请清除或改选。');
+  await expect(page.getByText('部分动作筛选项无法安全投影，已从可选项中隐藏。')).toBeVisible();
+  await expect(currentActionAlert).toBeVisible();
+  await expect(currentActionAlert).not.toContainText(unknownAction);
+  await expect(page).toHaveURL(new RegExp(`action=${encodeURIComponent(unknownAction)}`));
+  expect(systemAuditApi.requests.filter((request) => request.path === '/api/v1/audit-logs').at(-1)?.query.action).toBe(unknownAction);
+
+  await page.getByText('更多筛选').click();
+  const actionSelect = page.getByRole('combobox', { name: '动作' });
+  await expect(actionSelect).toContainText('当前动作无法安全投影');
+  await actionSelect.click();
+  await expect(page.getByRole('option', { name: unknownAction })).toHaveCount(0);
+  await page.getByRole('option', { name: '全部动作' }).click();
+  await page.getByRole('button', { name: '搜索' }).click();
+  await expect(page).not.toHaveURL(new RegExp(`action=${encodeURIComponent(unknownAction)}`));
+  expect(systemAuditApi.requests.filter((request) => request.path === '/api/v1/audit-logs').at(-1)?.query.action).toBeUndefined();
 });
 
 test('列表失败可重试、越界自动规范、四档无页面根溢出且 ENGINEER 被拒绝', async ({ page, systemAuditApi }, testInfo) => {

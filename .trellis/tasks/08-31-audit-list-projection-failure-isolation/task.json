@@ -1,0 +1,34 @@
+{
+  "id": "audit-list-projection-failure-isolation",
+  "name": "audit-list-projection-failure-isolation",
+  "title": "Audit 列表投影失败隔离",
+  "description": "未知 Audit action 的失败不得逃出其最小列表投影边界。",
+  "status": "in_progress",
+  "dev_type": "frontend",
+  "scope": "frontend",
+  "package": "frontend-v2",
+  "priority": "P1",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-31",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-30-frontend-v2-functional-contract-conformance-baseline",
+  "relatedFiles": [
+    "frontend/src/domains/audit/audit.model.ts",
+    "frontend/src/domains/audit/system-audit-page.tsx",
+    "frontend/tests/e2e/system-audit.spec.ts"
+  ],
+  "notes": "规划批准前不得运行 task.py start；现有 strict Audit Detail owner 与 AI Channel Runtime 不在修改范围。",
+  "meta": {
+    "planning_only": false,
+    "implementation_validated": true,
+    "review_goal": "未知 Audit action 的失败不得逃出其最小列表投影边界。"
+  }
+}

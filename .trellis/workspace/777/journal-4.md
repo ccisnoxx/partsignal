@@ -334,3 +334,24 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 192: Audit 列表投影失败隔离
+
+**Date**: 2026-08-31
+**Task**: Audit 列表投影失败隔离
+**Branch**: `main`
+
+### Summary
+
+为未知 Audit action 建立行与筛选项局部严格投影边界，并完成定向单元、类型、lint、OpenAPI 与双项目 Playwright 验证。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `180d0ad3547cc498134da7cd0193daa0b6ab2abb` | (see git log) |
+
+### Status
+
+[OK] **Completed**

@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-4.md`
-- **Total Sessions**: 191
+- **Total Sessions**: 192
 - **Last Active**: 2026-08-31
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-4.md` | ~336 | Active |
+| `journal-4.md` | ~357 | Active |
 | `journal-3.md` | ~1983 | Archived |
 | `journal-2.md` | ~1986 | Archived |
 | `journal-1.md` | ~1990 | Archived |
@@ -32,6 +32,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 192 | 2026-08-31 | Audit 列表投影失败隔离 | `180d0ad3547cc498134da7cd0193daa0b6ab2abb` | `main` |
 | 191 | 2026-08-31 | Frontend V2 删除 Dialog 最新投影一致性 | `abd41e1c` | `main` |
 | 190 | 2026-08-31 | 完成 Content Editor 提交审核冲突恢复 | `56f92699` | `main` |
 | 189 | 2026-08-31 | GEO 优化来源串行化 | `15250902e5e2a8dd2d8eefea3e59da0ce719d006` | `main` |

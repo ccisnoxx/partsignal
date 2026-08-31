@@ -207,12 +207,7 @@ function resolveAvailableAction(
         enabled: !pending,
         command: 'delete-platform',
         disabledReason: pending ? '请求正在处理' : undefined,
-        confirmation: {
-          title: `确认删除平台“${platform.name}”`,
-          description: `将删除平台配置及 ${platform.platform_account_count} 个平台账号；开放内容任务或非终态发布工作存在时服务端会拒绝。`,
-          confirmLabel: '确认删除',
-          intent: 'destructive',
-        },
+        confirmation: 'custom',
       };
     default:
       return assertNever(action);

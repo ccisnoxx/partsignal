@@ -158,6 +158,27 @@ test('Users export、启用、停用和删除传递 CSRF 与当前 revision', as
   });
 });
 
+test('User 删除 Dialog 重新聚焦后采用当前列表 projection 的最新 revision', async ({ page, usersApi }) => {
+  const userId = '00000000-0000-4000-8000-000000000018';
+  await page.goto('/system/users?status=DISABLED&page=1&pageSize=20');
+  const row = page.getByRole('row', { name: /operator-18/ });
+  await row.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '删除用户' }).click();
+
+  usersApi.setProjection(userId, { username: 'operator-18-latest', revision: 28 });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  const dialog = page.getByRole('dialog', { name: '删除用户“operator-18-latest”？' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: '删除用户' }).click();
+  await expect.poll(() => usersApi.requestRecords.filter((record) => record.operation === 'delete').at(-1)?.expectedRevision)
+    .toBe(28);
+});
+
 test('Users bulk 使用选择时 revision、custom 停用确认和 200 partial 反馈', async ({ page, usersApi }) => {
   await page.goto('/system/users?status=ENABLED&page=1&pageSize=20');
   await page.getByRole('checkbox', { name: '选择用户 operator-long-account-name' }).check();

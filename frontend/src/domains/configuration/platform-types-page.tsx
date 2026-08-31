@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FormProvider, useForm, type FieldPath } from 'react-hook-form';
 
 import { EmptyTable } from '@/design-system/data-table/empty-table';
@@ -21,11 +21,13 @@ import {
 } from '@/design-system/primitives/dialog';
 import { Input } from '@/design-system/primitives/input';
 import { Skeleton } from '@/design-system/primitives/skeleton';
+import type { components } from '@/shared/api/generated/schema';
 import {
   createPlatformType,
   deletePlatformType,
   invalidatePlatformTypeConsumers,
   PlatformRequestError,
+  platformKeys,
   platformTypeListQueryOptions,
   updatePlatformType,
 } from './platform.api';
@@ -44,7 +46,12 @@ import {
 } from './platform-types.model';
 
 type EditorTarget = { platformType?: PlatformType; focusReturn: HTMLElement | null };
-type DialogTarget = { platformType: PlatformType; focusReturn: HTMLElement | null };
+type DeletionIntent = {
+  id: string;
+  command: 'delete-platform-type' | 'view-platform-type-delete-conditions';
+  focusReturn: HTMLElement | null;
+};
+type PlatformTypeList = components['schemas']['PlatformTypeList'];
 
 type PlatformTypesPageProps = {
   csrfToken: string | null;
@@ -55,8 +62,7 @@ function PlatformTypesPage({ csrfToken }: PlatformTypesPageProps) {
   const createButtonRef = useRef<HTMLButtonElement>(null);
   const types = useQuery(platformTypeListQueryOptions());
   const [editor, setEditor] = useState<EditorTarget>();
-  const [conditions, setConditions] = useState<DialogTarget>();
-  const [deleteTarget, setDeleteTarget] = useState<DialogTarget>();
+  const [deletionIntent, setDeletionIntent] = useState<DeletionIntent>();
   const rows = types.data?.items ?? [];
 
   function handleCommand(
@@ -70,11 +76,11 @@ function PlatformTypesPage({ csrfToken }: PlatformTypesPageProps) {
       return;
     }
     if (command === 'view-platform-type-delete-conditions') {
-      setConditions(target);
+      setDeletionIntent({ id: platformType.id, command, focusReturn: target.focusReturn });
       return;
     }
     if (command === 'delete-platform-type') {
-      setDeleteTarget(target);
+      setDeletionIntent({ id: platformType.id, command, focusReturn: target.focusReturn });
       return;
     }
     throw new Error(`Platform Type Settings 收到未知页面命令：${command}`);
@@ -91,6 +97,14 @@ function PlatformTypesPage({ csrfToken }: PlatformTypesPageProps) {
   async function saved() {
     await invalidatePlatformTypeConsumers(queryClient);
   }
+
+  useEffect(() => {
+    if (deletionIntent && types.data && !types.data.items.some((item) => item.id === deletionIntent.id)) {
+      // 当前活动列表已确认目标消失，删除意图不能跨缓存复活。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDeletionIntent(undefined);
+    }
+  }, [deletionIntent, types.data]);
 
   return (
     <section aria-labelledby="platform-types-title" className="min-w-0 space-y-4">
@@ -221,22 +235,24 @@ function PlatformTypesPage({ csrfToken }: PlatformTypesPageProps) {
           target={editor}
         />
       )}
-      <PlatformTypeConditionsDialog
-        onClose={() => setConditions(undefined)}
-        target={conditions}
+      <PlatformTypeDeletionDialog
+        csrfToken={csrfToken}
+        key={deletionIntent?.id ?? 'none'}
+        intent={deletionIntent}
+        onClose={() => setDeletionIntent(undefined)}
+        onDeleted={async () => {
+          await saved();
+          setDeletionIntent(undefined);
+        }}
+        onReload={async () => {
+          if (!deletionIntent) throw new Error('未找到待删除的平台类型');
+          return reloadCanonical(deletionIntent.id);
+        }}
+        queryClient={queryClient}
+        queryError={types.error}
+        queryFetching={types.isFetching}
+        types={types.data}
       />
-      {deleteTarget && (
-        <PlatformTypeDeleteDialog
-          csrfToken={csrfToken}
-          onClose={() => setDeleteTarget(undefined)}
-          onDeleted={async () => {
-            await saved();
-            setDeleteTarget(undefined);
-          }}
-          onReload={reloadCanonical}
-          target={deleteTarget}
-        />
-      )}
     </section>
   );
 }
@@ -398,59 +414,58 @@ function PlatformTypeEditorDialog({
   );
 }
 
-function PlatformTypeConditionsDialog({
-  onClose,
-  target,
-}: {
-  onClose: () => void;
-  target?: DialogTarget;
-}) {
-  const blocker = target?.platformType.deletion?.blockers[0];
-  return (
-    <Dialog onOpenChange={(open) => { if (!open) onClose(); }} open={Boolean(target)}>
-      <DialogContent finalFocus={() => target?.focusReturn ?? null}>
-        <DialogHeader>
-          <DialogTitle>平台类型暂时不能删除</DialogTitle>
-          <DialogDescription>
-            “{target?.platformType.name}”仍被具体平台引用；删除时服务端会再次校验。
-          </DialogDescription>
-        </DialogHeader>
-        {target && blocker && (
-          <a
-            className={buttonVariants({ variant: 'outline' })}
-            href={platformTypeBlockerHref(target.platformType.id)}
-          >
-            查看引用平台（{blocker.count}）
-          </a>
-        )}
-        <DialogFooter><DialogClose render={<Button variant="outline" />}>关闭</DialogClose></DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function PlatformTypeDeleteDialog({
+function PlatformTypeDeletionDialog({
   csrfToken,
+  intent,
   onClose,
   onDeleted,
   onReload,
-  target,
+  queryClient,
+  queryError,
+  queryFetching,
+  types,
 }: {
   csrfToken: string | null;
+  intent?: DeletionIntent;
   onClose: () => void;
   onDeleted: () => Promise<void>;
-  onReload: (platformTypeId: string) => Promise<PlatformType>;
-  target: DialogTarget;
+  onReload: () => Promise<PlatformType>;
+  queryClient: ReturnType<typeof useQueryClient>;
+  queryError: unknown;
+  queryFetching: boolean;
+  types?: PlatformTypeList;
 }) {
-  const [canonical, setCanonical] = useState(target.platformType);
   const [reloadMessage, setReloadMessage] = useState<string>();
   const remove = useMutation({
-    mutationFn: () => deletePlatformType(canonical, csrfToken),
+    mutationFn: (variables: { id: string; expectedRevision: number }) => deletePlatformType(variables, csrfToken),
   });
+  if (!intent) return null;
+  const activeIntent = intent;
+  const current = types?.items.find((item) => item.id === activeIntent.id);
+  if (!current) return null;
+  const blockers = current.deletion?.blockers ?? [];
+  const hasDeleteProjection = current.deletion !== null && current.available_actions.includes('DELETE');
+  const errorBlockerCount = platformTypeDeleteBlockerCount(remove.error);
+  const conflict = remove.error instanceof PlatformRequestError && remove.error.status === 409;
+  const stale = Boolean(queryError);
+  const canDelete = !queryFetching
+    && !stale
+    && !conflict
+    && hasDeleteProjection
+    && blockers.length === 0;
 
   async function confirm() {
+    if (!canDelete) return;
+    const exactKey = platformKeys.types();
+    const queryState = queryClient.getQueryState(exactKey);
+    if (!queryState || queryState.fetchStatus === 'fetching' || queryState.error) return;
+    const latest = queryClient.getQueryData<PlatformTypeList>(exactKey)
+      ?.items.find((item) => item.id === activeIntent.id);
+    if (!latest || queryFetching || queryError) return;
+    platformTypeOverflowActions(latest);
+    if (latest.deletion === null || !latest.available_actions.includes('DELETE') || latest.deletion.blockers.length > 0) return;
     try {
-      await remove.mutateAsync();
+      await remove.mutateAsync({ id: latest.id, expectedRevision: latest.revision });
       await onDeleted();
     } catch {
       // mutation.error 负责展示结构化错误，Dialog 保持打开。
@@ -460,40 +475,44 @@ function PlatformTypeDeleteDialog({
   async function reloadCanonical() {
     setReloadMessage(undefined);
     try {
-      const current = await onReload(target.platformType.id);
-      platformTypeOverflowActions(current);
-      if (!current.available_actions.includes('DELETE')) {
-        setReloadMessage('服务端当前不再允许删除；请关闭后查看最新删除条件。');
-        return;
-      }
-      setCanonical(current);
+      const fresh = await onReload();
       remove.reset();
-      setReloadMessage(`已读取 revision ${current.revision}，请重新确认。`);
+      setReloadMessage(`已读取 revision ${fresh.revision}，请重新确认。`);
     } catch (error) {
       setReloadMessage(errorMessage(error));
     }
   }
 
-  const conflict = isPlatformTypeRevisionConflict(remove.error);
-  const blockerCount = platformTypeDeleteBlockerCount(remove.error);
   return (
     <Dialog onOpenChange={(open) => { if (!open && !remove.isPending) onClose(); }} open>
-      <DialogContent finalFocus={() => target.focusReturn} showCloseButton={!remove.isPending}>
+      <DialogContent
+        finalFocus={() => activeIntent.focusReturn?.isConnected ? activeIntent.focusReturn : null}
+        showCloseButton={!remove.isPending}
+      >
         <DialogHeader>
-          <DialogTitle>删除平台类型？</DialogTitle>
+          <DialogTitle>
+            {blockers.length
+              ? '平台类型暂时不能删除'
+              : hasDeleteProjection
+                ? '删除平台类型？'
+                : `“${current.name}”当前不可删除`}
+          </DialogTitle>
           <DialogDescription>
-            将删除“{target.platformType.name}”。服务端会校验当前 revision 与平台引用。
+            {blockers.length
+              ? `“${current.name}”仍被具体平台引用；删除时服务端会再次校验。`
+              : hasDeleteProjection
+                ? `将删除“${current.name}”。服务端会校验当前 revision 与平台引用。`
+                : '服务端当前未提供删除资格，请刷新列表后再试。'}
           </DialogDescription>
         </DialogHeader>
-        {remove.error && <p className="text-sm text-destructive" role="alert">{errorMessage(remove.error)}</p>}
-        {blockerCount !== undefined && (
-          <a
-            className={buttonVariants({ variant: 'outline' })}
-            href={platformTypeBlockerHref(target.platformType.id)}
-          >
-            查看引用平台（{blockerCount}）
+        {(blockers.length > 0 || errorBlockerCount !== undefined) && (
+          <a className={buttonVariants({ variant: 'outline' })} href={platformTypeBlockerHref(current.id)}>
+            查看引用平台（{blockers[0]?.count ?? errorBlockerCount ?? 0}）
           </a>
         )}
+        {queryFetching && <p className="text-sm text-text-secondary" role="status">正在同步平台类型投影…</p>}
+        {stale && <p className="text-sm text-destructive" role="alert">当前列表刷新失败，无法确认最新删除资格。</p>}
+        {remove.error && <p className="text-sm text-destructive" role="alert">{errorMessage(remove.error)}</p>}
         {conflict && (
           <Button onClick={() => void reloadCanonical()} type="button" variant="outline">
             重新读取服务端版本
@@ -502,9 +521,9 @@ function PlatformTypeDeleteDialog({
         {reloadMessage && <p className="text-sm text-text-secondary" role="status">{reloadMessage}</p>}
         <DialogFooter>
           <DialogClose disabled={remove.isPending} render={<Button variant="outline" />}>取消</DialogClose>
-          <Button disabled={remove.isPending || conflict} onClick={() => void confirm()} type="button" variant="destructive">
+          {hasDeleteProjection && blockers.length === 0 && <Button disabled={remove.isPending || !canDelete} onClick={() => void confirm()} type="button" variant="destructive">
             {remove.isPending ? '删除中…' : '确认删除'}
-          </Button>
+          </Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -520,9 +539,7 @@ function platformTypeDeleteBlockerCount(error: unknown) {
     throw new Error('PLATFORM_TYPE_IN_USE 未返回唯一 PlatformProfile 引用');
   }
   const reference = references[0];
-  if (!reference || typeof reference !== 'object') {
-    throw new Error('PLATFORM_TYPE_IN_USE 返回了无效引用');
-  }
+  if (!reference || typeof reference !== 'object') throw new Error('PLATFORM_TYPE_IN_USE 返回了无效引用');
   const type = 'type' in reference ? reference.type : undefined;
   const count = 'count' in reference ? reference.count : undefined;
   if (type !== 'PLATFORM_PROFILE' || !Number.isInteger(count) || Number(count) <= 0) {

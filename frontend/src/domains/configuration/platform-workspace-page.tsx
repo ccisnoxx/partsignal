@@ -39,7 +39,9 @@ import {
   createPlatformAccount,
   createPlatformLogoCandidate,
   createPlatformLogoUploadIntent,
+  deletePlatformProfile,
   deletePlatformAccount,
+  PlatformRequestError,
   platformAccountsQueryOptions,
   platformDetailQueryOptions,
   platformKeys,
@@ -153,9 +155,13 @@ function PlatformWorkspacePage({
   }
 
   const lifecycle = useMutation({
-    mutationFn: ({ command, platform }: { command: PlatformCommand; platform: PlatformProfile }) => (
-      runPlatformCommand(command, platform, csrfToken)
-    ),
+    mutationFn: async ({ command, platform }: { command: PlatformCommand; platform: PlatformProfile }) => {
+      if (command === 'delete-platform') {
+        await deletePlatformProfile({ id: platform.id, expectedRevision: platform.revision }, csrfToken);
+        return undefined;
+      }
+      return runPlatformCommand(command, platform, csrfToken);
+    },
     onSuccess: async (profile, variables) => {
       if (variables.command === 'delete-platform') {
         await invalidatePlatform('delete');
@@ -331,13 +337,32 @@ function PlatformWorkspaceHeader({
             <RowActions
               objectLabel={profile.name}
               onCommand={onCommand}
-              overflow={resolvePlatformOverflowActions(profile, pending)}
+              overflow={resolveWorkspacePlatformOverflowActions(profile, pending)}
               primary={resolvePlatformPrimaryAction(profile)}
             />
           )}
       </div>
     </header>
   );
+}
+
+function resolveWorkspacePlatformOverflowActions(
+  profile: PlatformProfile,
+  pending: boolean,
+) {
+  return resolvePlatformOverflowActions(profile, pending).map((action) => (
+    action.command === 'delete-platform'
+      ? {
+          ...action,
+          confirmation: {
+            title: `确认删除平台“${profile.name}”`,
+            description: `将删除平台配置及 ${profile.platform_account_count} 个平台账号；开放内容任务或非终态发布工作存在时服务端会拒绝。`,
+            confirmLabel: '确认删除',
+            intent: 'destructive' as const,
+          },
+        }
+      : action
+  ));
 }
 
 function PlatformOverviewSection({
@@ -647,12 +672,13 @@ type AccountEditorTarget = {
 
 type AccountCommandTarget = {
   account: PlatformAccount;
-  command: Exclude<PlatformAccountCommand, 'edit-account' | 'view-account-delete-conditions'>;
+  command: Exclude<PlatformAccountCommand, 'edit-account' | 'delete-account' | 'view-account-delete-conditions'>;
   focusReturn: HTMLElement | null;
 };
 
-type AccountBlockerTarget = {
-  account: PlatformAccount;
+type AccountDeletionIntent = {
+  id: string;
+  command: 'delete-account' | 'view-account-delete-conditions';
   focusReturn: HTMLElement | null;
 };
 
@@ -672,7 +698,7 @@ function PlatformAccountsSection({
   const createTrigger = useRef<HTMLButtonElement>(null);
   const [editor, setEditor] = useState<AccountEditorTarget>();
   const [commandTarget, setCommandTarget] = useState<AccountCommandTarget>();
-  const [blockerTarget, setBlockerTarget] = useState<AccountBlockerTarget>();
+  const [deletionIntent, setDeletionIntent] = useState<AccountDeletionIntent>();
 
   async function invalidateAccount(kind: PlatformAccountMutationKind) {
     await Promise.all([
@@ -686,6 +712,7 @@ function PlatformAccountsSection({
   async function reloadAccount(accountId: string) {
     await queryClient.invalidateQueries({ queryKey: platformKeys.detail(platformId) });
     const fresh = await accounts.refetch();
+    if (fresh.error) throw fresh.error;
     return fresh.data?.items.find((account) => account.id === accountId);
   }
 
@@ -700,14 +727,18 @@ function PlatformAccountsSection({
       return;
     }
     if (command === 'view-account-delete-conditions') {
-      setBlockerTarget({ account, focusReturn: target });
+      setDeletionIntent({ id: account.id, command, focusReturn: target });
       return;
     }
-    if (command === 'enable-account' || command === 'disable-account' || command === 'delete-account') {
+    if (command === 'delete-account') {
+      setDeletionIntent({ id: account.id, command, focusReturn: target });
+      return;
+    }
+    if (command === 'enable-account' || command === 'disable-account') {
       setCommandTarget({
         account,
         command,
-        focusReturn: command === 'delete-account' ? createTrigger.current : target,
+        focusReturn: target,
       });
       return;
     }
@@ -715,6 +746,20 @@ function PlatformAccountsSection({
   }
 
   const items = accounts.data?.items ?? [];
+  useEffect(() => {
+    if (!active) {
+      // Accounts Tab 卸载/隐藏后不保留删除意图，避免回到旧 query 时自动重开。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDeletionIntent(undefined);
+    }
+  }, [active]);
+  useEffect(() => {
+    if (deletionIntent && accounts.data && !accounts.data.items.some((item) => item.id === deletionIntent.id)) {
+      // Accounts 当前活动 query 已确认目标消失，删除意图必须随 scope 清理。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDeletionIntent(undefined);
+    }
+  }, [accounts.data, deletionIntent]);
   return (
     <section aria-labelledby="platform-accounts-title" className="rounded-xl border border-border-subtle bg-surface-panel p-4">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -807,9 +852,29 @@ function PlatformAccountsSection({
           target={commandTarget}
         />
       )}
-      <PlatformAccountBlockersDialog
-        onClose={() => setBlockerTarget(undefined)}
-        target={blockerTarget}
+      <PlatformAccountDeletionDialog
+        csrfToken={csrfToken}
+        intent={deletionIntent}
+        key={deletionIntent?.id ?? 'none'}
+        onClose={() => setDeletionIntent(undefined)}
+        onDeleted={async () => {
+          await invalidateAccount('delete');
+          setDeletionIntent(undefined);
+        }}
+        onReload={async () => {
+          if (!deletionIntent) return;
+          const fresh = await reloadAccount(deletionIntent.id);
+          if (!fresh) {
+            setDeletionIntent(undefined);
+            return;
+          }
+          return fresh;
+        }}
+        platformId={platformId}
+        queryError={accounts.error}
+        queryFetching={accounts.isFetching}
+        queryClient={queryClient}
+        accounts={accounts.data}
       />
     </section>
   );
@@ -985,7 +1050,6 @@ function PlatformAccountCommandDialog({
     mutationFn: async () => {
       if (target.command === 'enable-account') return setPlatformAccountEnabled(account, true, csrfToken);
       if (target.command === 'disable-account') return setPlatformAccountEnabled(account, false, csrfToken);
-      if (target.command === 'delete-account') return deletePlatformAccount(account, csrfToken);
       throw new Error(`Platform Account Dialog 收到未知命令：${target.command}`);
     },
   });
@@ -993,7 +1057,7 @@ function PlatformAccountCommandDialog({
   async function confirm() {
     try {
       await mutation.mutateAsync();
-      await onSaved(target.command === 'delete-account' ? 'delete' : 'status');
+      await onSaved('status');
     } catch {
       // mutation.error 统一展示；409 保持 Dialog 和本次确认上下文。
     }
@@ -1016,20 +1080,17 @@ function PlatformAccountCommandDialog({
   }
 
   const conflict = isPlatformRevisionConflict(mutation.error);
-  const deleting = target.command === 'delete-account';
   const enabling = target.command === 'enable-account';
-  const title = deleting ? `删除发布账号“${account.label}”？` : `${enabling ? '启用' : '停用'}发布账号“${account.label}”？`;
+  const title = `${enabling ? '启用' : '停用'}发布账号“${account.label}”？`;
   return (
     <Dialog onOpenChange={(open) => { if (!open && !mutation.isPending) onClose(); }} open>
       <DialogContent finalFocus={() => target.focusReturn} showCloseButton={!mutation.isPending}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            {deleting
-              ? '服务端会使用当前 revision 重新校验非终态 PublicationWork；删除后不可恢复。'
-              : enabling
-                ? '启用后仍需平台本身可用，账号才可用于新发布。'
-                : '停用后该账号不能用于新发布，既有历史记录保持不变。'}
+            {enabling
+              ? '启用后仍需平台本身可用，账号才可用于新发布。'
+              : '停用后该账号不能用于新发布，既有历史记录保持不变。'}
           </DialogDescription>
         </DialogHeader>
         {mutation.error && <p className="text-sm text-destructive" role="alert">{errorMessage(mutation.error)}</p>}
@@ -1043,9 +1104,9 @@ function PlatformAccountCommandDialog({
             disabled={mutation.isPending || conflict}
             onClick={() => void confirm()}
             type="button"
-            variant={deleting ? 'destructive' : 'default'}
+            variant="default"
           >
-            {mutation.isPending ? '处理中…' : deleting ? '确认删除' : enabling ? '确认启用' : '确认停用'}
+            {mutation.isPending ? '处理中…' : enabling ? '确认启用' : '确认停用'}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1053,26 +1114,113 @@ function PlatformAccountCommandDialog({
   );
 }
 
-function PlatformAccountBlockersDialog({
+function PlatformAccountDeletionDialog({
+  accounts,
+  csrfToken,
+  intent,
   onClose,
-  target,
+  onDeleted,
+  onReload,
+  platformId,
+  queryClient,
+  queryError,
+  queryFetching,
 }: {
+  accounts?: components['schemas']['PlatformAccountList'];
+  csrfToken: string | null;
+  intent?: AccountDeletionIntent;
   onClose: () => void;
-  target?: AccountBlockerTarget;
+  onDeleted: () => Promise<void>;
+  onReload: () => Promise<PlatformAccount | undefined>;
+  platformId: string;
+  queryClient: ReturnType<typeof useQueryClient>;
+  queryError: unknown;
+  queryFetching: boolean;
 }) {
+  const [reloadMessage, setReloadMessage] = useState<string>();
+  const remove = useMutation({
+    mutationFn: (variables: { id: string; expectedRevision: number }) => deletePlatformAccount(variables, csrfToken),
+  });
+  if (!intent) return null;
+  const activeIntent = intent;
+  const current = accounts?.items.find((item) => item.id === activeIntent.id);
+  if (!current) return null;
+  const blockers = current.deletion?.blockers ?? [];
+  const hasDeleteProjection = current.deletion !== null && current.available_actions.includes('DELETE');
+  const conflict = remove.error instanceof PlatformRequestError && remove.error.status === 409;
+  const stale = Boolean(queryError);
+  const canDelete = !queryFetching
+    && !stale
+    && !conflict
+    && hasDeleteProjection
+    && blockers.length === 0;
+
+  async function confirm() {
+    if (!canDelete) return;
+    const exactKey = platformKeys.accounts(platformId);
+    const queryState = queryClient.getQueryState(exactKey);
+    if (!queryState || queryState.fetchStatus === 'fetching' || queryState.error) return;
+    const latest = queryClient.getQueryData<components['schemas']['PlatformAccountList']>(exactKey)
+      ?.items.find((item) => item.id === activeIntent.id);
+    if (!latest || queryFetching || queryError) return;
+    resolvePlatformAccountOverflowActions(latest);
+    if (latest.deletion === null || !latest.available_actions.includes('DELETE') || latest.deletion.blockers.length > 0) return;
+    try {
+      await remove.mutateAsync({ id: latest.id, expectedRevision: latest.revision });
+      await onDeleted();
+    } catch {
+      // 删除冲突保留在当前 Dialog，必须由用户显式重新加载后才能再次确认。
+    }
+  }
+
+  async function reload() {
+    setReloadMessage(undefined);
+    try {
+      const fresh = await onReload();
+      if (!fresh) return;
+      remove.reset();
+      setReloadMessage(`已读取 revision ${fresh.revision}，请重新确认。`);
+    } catch (error) {
+      setReloadMessage(errorMessage(error));
+    }
+  }
+
   return (
-    <Dialog onOpenChange={(open) => !open && onClose()} open={Boolean(target)}>
-      <DialogContent finalFocus={() => target?.focusReturn ?? null}>
+    <Dialog onOpenChange={(open) => { if (!open && !remove.isPending) onClose(); }} open>
+      <DialogContent
+        finalFocus={() => activeIntent.focusReturn?.isConnected ? activeIntent.focusReturn : null}
+        showCloseButton={!remove.isPending}
+      >
         <DialogHeader>
-          <DialogTitle>发布账号暂时不能删除</DialogTitle>
-          <DialogDescription>“{target?.account.label}”存在服务端投影的直接阻断；删除时仍会实时复核。</DialogDescription>
+          <DialogTitle>
+            {blockers.length
+              ? '发布账号暂时不能删除'
+              : hasDeleteProjection ? `删除发布账号“${current.label}”？` : `发布账号“${current.label}”当前不可删除`}
+          </DialogTitle>
+          <DialogDescription>
+            {blockers.length
+              ? `“${current.label}”存在服务端投影的直接阻断；删除时仍会实时复核。`
+              : hasDeleteProjection
+                ? '服务端会使用当前 revision 重新校验非终态 PublicationWork；删除后不可恢复。'
+                : '服务端当前未提供删除资格，请刷新账号列表后再试。'}
+          </DialogDescription>
         </DialogHeader>
-        <ul className="list-disc space-y-1 pl-5">
-          {target?.account.deletion?.blockers.map((blocker) => (
-            <li key={blocker.type}>{deletionBlockerLabel(blocker)}：{blocker.count}</li>
-          ))}
-        </ul>
-        <DialogFooter><DialogClose render={<Button variant="outline" />}>关闭</DialogClose></DialogFooter>
+        {blockers.length > 0 && (
+          <ul className="list-disc space-y-1 pl-5">
+            {blockers.map((blocker) => <li key={blocker.type}>{deletionBlockerLabel(blocker)}：{blocker.count}</li>)}
+          </ul>
+        )}
+        {queryFetching && <p className="text-sm text-text-secondary" role="status">正在同步发布账号投影…</p>}
+        {Boolean(queryError) && <p className="text-sm text-destructive" role="alert">当前账号列表刷新失败，无法确认最新删除资格。</p>}
+        {remove.error && <p className="text-sm text-destructive" role="alert">{errorMessage(remove.error)}</p>}
+        {hasDeleteProjection && conflict && <Button onClick={() => void reload()} type="button" variant="outline">重新加载当前账号列表</Button>}
+        {reloadMessage && <p className="text-sm text-text-secondary" role="status">{reloadMessage}</p>}
+        <DialogFooter>
+          <DialogClose disabled={remove.isPending} render={<Button variant="outline" />}>关闭</DialogClose>
+          {hasDeleteProjection && blockers.length === 0 && <Button disabled={!canDelete || remove.isPending} onClick={() => void confirm()} type="button" variant="destructive">
+            {remove.isPending ? '删除中…' : '确认删除'}
+          </Button>}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

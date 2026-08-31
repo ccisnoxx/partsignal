@@ -1,0 +1,6 @@
+{"file":".trellis/tasks/08-31-fresh-deletion-projection-dialogs/research/deletion-dialog-live-projection-audit.md","reason":"复核完整对象快照已移除、四个query owner与目标消失/409/revision风险均被关闭。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"复核删除条件/确认转换、错误surface、focus return与可访问性。"}
+{"file":".trellis/spec/frontend/hook-guidelines.md","reason":"复核effect清理、focusManager测试隔离与断连节点处理。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"执行并核对四页面定向测试、双project E2E和前端质量门禁。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"复核客户端未推导资格、DELETE revision来自当前projection且409仍不自动重放。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"复核fixture受控projection更新、request capture和未声明API失败。"}

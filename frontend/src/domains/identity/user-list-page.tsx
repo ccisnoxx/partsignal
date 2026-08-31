@@ -63,6 +63,7 @@ import {
   userEditFormSchema,
   userSelectionScope,
   userStatusRegistry,
+  userSearchToApiParams,
   type ResetPasswordFormValues,
   type User,
   type UserCommand,
@@ -91,7 +92,8 @@ type UserListPageProps = {
 
 type SelectedUser = Pick<User, 'id' | 'revision' | 'username'>;
 type Selection = { scope: string; items: Record<string, SelectedUser> };
-type CommandTarget = { command: UserCommand; user: User; focusReturn: HTMLElement | null };
+type CommandTarget = { command: Exclude<UserCommand, 'delete-user' | 'show-deletion-blockers'>; user: User; focusReturn: HTMLElement | null };
+type DeletionIntent = { id: string; command: 'delete-user' | 'show-deletion-blockers'; focusReturn: HTMLElement | null };
 type BulkFeedback = {
   succeeded: number;
   failures: Array<components['schemas']['UserBulkStatusFailure'] & { username: string }>;
@@ -106,11 +108,14 @@ function UserListPage({
 }: UserListPageProps) {
   const queryClient = useQueryClient();
   const users = useQuery(userListQueryOptions(search));
+  const activeListKey = JSON.stringify(userSearchToApiParams(search));
+  const previousListKey = useRef(activeListKey);
   const createTrigger = useRef<HTMLButtonElement>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<CommandTarget>();
   const [resetTarget, setResetTarget] = useState<CommandTarget>();
   const [commandTarget, setCommandTarget] = useState<CommandTarget>();
+  const [deletionIntent, setDeletionIntent] = useState<DeletionIntent>();
   const [bulkDisableTarget, setBulkDisableTarget] = useState<SelectedUser[]>();
   const scope = userSelectionScope(search);
   const [selection, setSelection] = useState<Selection>({ scope, items: {} });
@@ -123,7 +128,24 @@ function UserListPage({
   const selectedIds = new Set(selectedItems.map((item) => item.id));
   const filtered = hasUserFilters(search);
 
+  useEffect(() => {
+    if (previousListKey.current !== activeListKey) {
+      previousListKey.current = activeListKey;
+      // 搜索、筛选或分页改变后，旧删除意图不得在新 query key 中复活。
+      setDeletionIntent(undefined);
+    }
+  }, [activeListKey]);
+
+  useEffect(() => {
+    if (deletionIntent && users.data && !users.data.items.some((user) => user.id === deletionIntent.id)) {
+      // 当前用户 query 已确认目标消失，不能从其他筛选或分页 cache 恢复。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDeletionIntent(undefined);
+    }
+  }, [deletionIntent, users.data]);
+
   function changeSearch(changes: Partial<UserSearch>, resetPage = true) {
+    setDeletionIntent(undefined);
     void onSearchChange({
       ...search,
       ...changes,
@@ -159,17 +181,13 @@ function UserListPage({
       switch (target.command) {
         case 'enable-user': return setUserEnabled(target.user, true, csrfToken);
         case 'disable-user': return setUserEnabled(target.user, false, csrfToken);
-        case 'delete-user': return deleteUser(target.user, csrfToken);
         default: throw new Error(`用户列表收到无法执行的确认命令：${target.command}`);
       }
     },
-    onSuccess: async (saved, target) => {
+    onSuccess: async (saved) => {
       setCommandTarget(undefined);
       command.reset();
       await refreshUsers(saved ? [saved] : []);
-      if (target.command === 'delete-user' && rows.length === 1 && search.page > 1) {
-        changeSearch({ page: search.page - 1 }, false);
-      }
     },
   });
 
@@ -219,15 +237,27 @@ function UserListPage({
     ) {
       throw new Error(`用户列表收到未知页面命令：${commandName}`);
     }
-    const target: CommandTarget = {
-      command: commandName,
-      user,
-      focusReturn: focusReturn
-        ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null),
-    };
-    if (target.command === 'edit-user') setEditTarget(target);
-    else if (target.command === 'reset-password') setResetTarget(target);
-    else setCommandTarget(target);
+    const targetFocus = focusReturn
+      ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    if (commandName === 'delete-user' || commandName === 'show-deletion-blockers') {
+      setDeletionIntent({ id: user.id, command: commandName, focusReturn: targetFocus });
+    } else {
+      const target: CommandTarget = {
+        command: commandName as Exclude<UserCommand, 'delete-user' | 'show-deletion-blockers'>,
+        user,
+        focusReturn: targetFocus,
+      };
+      if (target.command === 'edit-user') setEditTarget(target);
+      else if (target.command === 'reset-password') setResetTarget(target);
+      else setCommandTarget(target);
+    }
+  }
+
+  async function handleUserDeleted() {
+    const deletedId = deletionIntent?.id;
+    setDeletionIntent(undefined);
+    await refreshUsers();
+    if (deletedId && rows.length === 1 && search.page > 1) changeSearch({ page: search.page - 1 }, false);
   }
 
   function toggleSelected(user: User, checked: boolean) {
@@ -431,6 +461,25 @@ function UserListPage({
         onReload={async () => { setCommandTarget(undefined); command.reset(); await users.refetch(); }}
         pending={command.isPending}
         target={commandTarget}
+      />
+      <UserDeletionDialog
+        csrfToken={csrfToken}
+        intent={deletionIntent}
+        key={deletionIntent?.id ?? 'none'}
+        onClose={() => setDeletionIntent(undefined)}
+        onDeleted={handleUserDeleted}
+        onReload={async () => {
+          const result = await users.refetch();
+          if (result.error) throw result.error;
+          if (deletionIntent && !result.data?.items.some((user) => user.id === deletionIntent.id)) {
+            setDeletionIntent(undefined);
+          }
+        }}
+        queryClient={queryClient}
+        queryError={users.error}
+        queryFetching={users.isFetching}
+        search={search}
+        users={users.data}
       />
       <BulkDisableDialog
         error={bulk.error}
@@ -810,26 +859,6 @@ function UserCommandDialog({
   target?: CommandTarget;
 }) {
   if (!target) return null;
-  if (target.command === 'show-deletion-blockers') {
-    return (
-      <Dialog onOpenChange={(open) => !open && onClose()} open>
-        <DialogContent finalFocus={{ current: target.focusReturn }}>
-          <DialogHeader>
-            <DialogTitle>用户 {target.user.username} 暂不可删除</DialogTitle>
-            <DialogDescription>当前存在业务历史引用；可按该用户精确筛选系统审计。</DialogDescription>
-          </DialogHeader>
-          <ul className="list-disc space-y-1 pl-5 text-sm">
-            {target.user.deletion?.blockers.map((blocker) => <li key={blocker.type}>{blocker.type}：{blocker.count}</li>)}
-          </ul>
-          <DialogFooter>
-            <a className={buttonVariants({ variant: 'outline' })} href={`/system/audit?actorId=${encodeURIComponent(target.user.id)}`}>查看审计历史</a>
-            <Button onClick={() => void onReload()} type="button" variant="outline">刷新列表</Button>
-            <Button onClick={onClose} type="button">关闭</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  }
   const presentation = commandPresentation(target);
   const conflict = isRevisionConflict(error);
   return (
@@ -852,11 +881,124 @@ function UserCommandDialog({
   );
 }
 
+function UserDeletionDialog({
+  csrfToken,
+  intent,
+  onClose,
+  onDeleted,
+  onReload,
+  queryClient,
+  queryError,
+  queryFetching,
+  search,
+  users,
+}: {
+  csrfToken: string | null;
+  intent?: DeletionIntent;
+  onClose: () => void;
+  onDeleted: () => Promise<void>;
+  onReload: () => Promise<void>;
+  queryClient: ReturnType<typeof useQueryClient>;
+  queryError: unknown;
+  queryFetching: boolean;
+  search: UserSearch;
+  users?: components['schemas']['UserList'];
+}) {
+  const [reloadMessage, setReloadMessage] = useState<string>();
+  const remove = useMutation({
+    mutationFn: (variables: { id: string; expectedRevision: number }) => deleteUser(variables, csrfToken),
+  });
+  if (!intent) return null;
+  const activeIntent = intent;
+  const current = users?.items.find((user) => user.id === activeIntent.id);
+  if (!current) return null;
+  const blockers = current.deletion?.blockers ?? [];
+  const hasDeleteProjection = current.deletion !== null && current.available_actions.includes('DELETE');
+  const conflict = remove.error instanceof UserRequestError && remove.error.status === 409;
+  const stale = Boolean(queryError);
+  const canDelete = !queryFetching
+    && !stale
+    && !conflict
+    && hasDeleteProjection
+    && blockers.length === 0;
+
+  async function confirm() {
+    if (!canDelete) return;
+    const exactKey = userKeys.list(userSearchToApiParams(search));
+    const queryState = queryClient.getQueryState(exactKey);
+    if (!queryState || queryState.fetchStatus === 'fetching' || queryState.error) return;
+    const latest = queryClient.getQueryData<components['schemas']['UserList']>(exactKey)
+      ?.items.find((user) => user.id === activeIntent.id);
+    if (!latest || queryFetching || queryError) return;
+    resolveUserActions(latest, false);
+    if (latest.deletion === null || !latest.available_actions.includes('DELETE') || latest.deletion.blockers.length > 0) return;
+    try {
+      await remove.mutateAsync({ id: latest.id, expectedRevision: latest.revision });
+      await onDeleted();
+    } catch {
+      // 删除冲突保留当前确认上下文，只有显式重新加载才解除冻结。
+    }
+  }
+
+  async function reload() {
+    setReloadMessage(undefined);
+    try {
+      await onReload();
+      remove.reset();
+      setReloadMessage('已读取当前用户投影，请重新确认。');
+    } catch (error) {
+      setReloadMessage(errorMessage(error));
+    }
+  }
+
+  return (
+    <Dialog onOpenChange={(open) => { if (!open && !remove.isPending) onClose(); }} open>
+      <DialogContent
+        finalFocus={() => activeIntent.focusReturn?.isConnected ? activeIntent.focusReturn : null}
+        showCloseButton={!remove.isPending}
+      >
+        <DialogHeader>
+          <DialogTitle>
+            {blockers.length
+              ? `用户 ${current.username} 暂不可删除`
+              : hasDeleteProjection ? `删除用户“${current.username}”？` : `用户“${current.username}”当前不可删除`}
+          </DialogTitle>
+          <DialogDescription>
+            {blockers.length
+              ? '当前存在业务历史引用；可按该用户精确筛选系统审计。'
+              : hasDeleteProjection
+                ? '删除不可恢复；服务端会校验当前 revision 与业务历史引用。'
+                : '服务端当前未提供删除资格，请刷新列表后再试。'}
+          </DialogDescription>
+        </DialogHeader>
+        {blockers.length > 0 && (
+          <>
+            <ul className="list-disc space-y-1 pl-5 text-sm">
+              {blockers.map((blocker) => <li key={blocker.type}>{blocker.type}：{blocker.count}</li>)}
+            </ul>
+            <a className={buttonVariants({ variant: 'outline' })} href={`/system/audit?actorId=${encodeURIComponent(current.id)}`}>查看审计历史</a>
+          </>
+        )}
+        {queryFetching && <p className="text-sm text-text-secondary" role="status">正在同步用户投影…</p>}
+        {Boolean(queryError) && <p className="text-sm text-destructive" role="alert">当前用户列表刷新失败，无法确认最新删除资格。</p>}
+        {remove.error && <p className="text-sm text-destructive" role="alert">{errorMessage(remove.error)}</p>}
+        {hasDeleteProjection && conflict && <Button onClick={() => void reload()} type="button" variant="outline">重新加载当前用户列表</Button>}
+        {reloadMessage && <p className="text-sm text-text-secondary" role="status">{reloadMessage}</p>}
+        <DialogFooter>
+          <DialogClose disabled={remove.isPending} render={<Button variant="outline" />}>关闭</DialogClose>
+          {hasDeleteProjection && blockers.length === 0 && <Button disabled={!canDelete || remove.isPending} onClick={() => void confirm()} type="button" variant="destructive">
+            {remove.isPending ? '删除中…' : '删除用户'}
+          </Button>}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function commandPresentation(target: CommandTarget) {
   switch (target.command) {
     case 'enable-user': return { title: `启用用户“${target.user.username}”？`, description: '启用会恢复登录资格，不会改写历史业务记录。', confirmLabel: '启用用户', danger: false };
     case 'disable-user': return { title: `停用用户“${target.user.username}”？`, description: '停用后会撤销该用户全部活动会话，历史业务归属保持不变。', confirmLabel: '停用用户', danger: true };
-    case 'delete-user': return { title: `删除用户“${target.user.username}”？`, description: '删除不可恢复；存在业务历史引用时服务端会拒绝。', confirmLabel: '删除用户', danger: true };
     default: throw new Error(`用户列表收到无法展示的确认命令：${target.command}`);
   }
 }

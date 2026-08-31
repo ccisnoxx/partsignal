@@ -10,6 +10,8 @@ import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
+import { userKeys } from './user.api';
+import { userSearchToApiParams } from './user-list.model';
 
 type User = components['schemas']['User'];
 type UserList = components['schemas']['UserList'];
@@ -263,5 +265,148 @@ describe('UserListPage', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: '取消' }));
     expect(screen.getByRole('toolbar', { name: '批量操作' })).toHaveTextContent('已选择 1 项');
     expect(post).toHaveBeenCalledOnce();
+  });
+
+  it('删除用户 Dialog 从 exact users projection 读取最新用户名与 revision', async () => {
+    const initial = managedUser({
+      username: 'initial-user',
+      is_active: false,
+      workflow_stage: 'DISABLED',
+      primary_task: 'ENABLE_USER',
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+      deletion: { blockers: [] },
+    });
+    const get = vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([initial]),
+      response: Response.json(result([initial])),
+    } as never);
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    const { queryClient } = renderUsers();
+    await userEvent.click(await screen.findByRole('button', { name: '更多操作：initial-user' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除用户' }));
+
+    const blocked = managedUser({
+      ...initial,
+      username: 'latest-blocked-user',
+      available_actions: ['UPDATE', 'ENABLE'],
+      deletion: { blockers: [{ type: 'USER_BUSINESS_HISTORY', count: 3 }] },
+    });
+    queryClient.setQueryData(
+      userKeys.list(userSearchToApiParams({ status: 'ENABLED', page: 1, pageSize: 20 })),
+      result([blocked]),
+    );
+    expect(await screen.findByRole('dialog', { name: '用户 latest-blocked-user 暂不可删除' }))
+      .toHaveTextContent('USER_BUSINESS_HISTORY：3');
+    expect(screen.queryByRole('button', { name: '删除用户' })).not.toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
+
+    const latest = managedUser({
+      ...initial,
+      username: 'latest-user',
+      revision: 10,
+    });
+    queryClient.setQueryData(
+      userKeys.list(userSearchToApiParams({ status: 'ENABLED', page: 1, pageSize: 20 })),
+      result([latest]),
+    );
+    const dialog = await screen.findByRole('dialog', { name: '删除用户“latest-user”？' });
+    expect(get).toHaveBeenCalledOnce();
+    await userEvent.click(within(dialog).getByRole('button', { name: '删除用户' }));
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(
+      '/api/v1/users/{user_id}',
+      expect.objectContaining({ params: expect.objectContaining({ query: { expected_revision: 10 } }) }),
+    ));
+  });
+
+  it('用户删除 409 在被动更新和 403 reload 失败后保持冻结，仅成功 reload 后采用最新 revision', async () => {
+    const initial = managedUser({
+      username: 'conflicted-user',
+      is_active: false,
+      workflow_stage: 'DISABLED',
+      primary_task: 'ENABLE_USER',
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+      deletion: { blockers: [] },
+      revision: 8,
+    });
+    let current = result([initial]);
+    let failNextReload = false;
+    vi.spyOn(api, 'GET').mockImplementation(async () => {
+      if (failNextReload) {
+        failNextReload = false;
+        return {
+          error: { error: { code: 'FORBIDDEN', message: '用户列表权限已变化', details: {}, request_id: 'req-users-reload-forbidden' } },
+          response: Response.json({}, { status: 403 }),
+        } as never;
+      }
+      return { data: current, response: Response.json(current) } as never;
+    });
+    const remove = vi.spyOn(api, 'DELETE')
+      .mockResolvedValueOnce({
+        error: { error: { code: 'USER_IN_USE', message: '用户仍有业务历史引用', details: {}, request_id: 'req-user-delete-conflict' } },
+        response: Response.json({}, { status: 409 }),
+      } as never)
+      .mockResolvedValueOnce({ response: new Response(null, { status: 204 }) } as never);
+    const { queryClient } = renderUsers();
+    await userEvent.click(await screen.findByRole('button', { name: '更多操作：conflicted-user' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除用户' }));
+    const dialog = await screen.findByRole('dialog', { name: '删除用户“conflicted-user”？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '删除用户' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('请求 ID：req-user-delete-conflict');
+    expect(remove).toHaveBeenCalledOnce();
+    const latest = managedUser({ ...initial, username: 'passive-latest-user', revision: 21 });
+    current = result([latest]);
+    queryClient.setQueryData(
+      userKeys.list(userSearchToApiParams({ status: 'ENABLED', page: 1, pageSize: 20 })),
+      current,
+    );
+    expect(await screen.findByRole('dialog', { name: '删除用户“passive-latest-user”？' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '删除用户' })).toBeDisabled();
+
+    failNextReload = true;
+    await userEvent.click(within(dialog).getByRole('button', { name: '重新加载当前用户列表' }));
+    expect(await within(dialog).findByText(/请求 ID：req-users-reload-forbidden/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '删除用户' })).toBeDisabled();
+    expect(remove).toHaveBeenCalledOnce();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '重新加载当前用户列表' }));
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '删除用户' })).toBeEnabled());
+    await userEvent.click(within(dialog).getByRole('button', { name: '删除用户' }));
+    await waitFor(() => expect(remove).toHaveBeenLastCalledWith(
+      '/api/v1/users/{user_id}',
+      expect.objectContaining({ params: expect.objectContaining({ query: { expected_revision: 21 } }) }),
+    ));
+  });
+
+  it('最新 users query 移除目标后关闭删除 Dialog 且不提交', async () => {
+    const target = managedUser({
+      username: 'vanishing-user',
+      is_active: false,
+      workflow_stage: 'DISABLED',
+      primary_task: 'ENABLE_USER',
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+      deletion: { blockers: [] },
+    });
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([target]),
+      response: Response.json(result([target])),
+    } as never);
+    const remove = vi.spyOn(api, 'DELETE');
+    const { queryClient } = renderUsers();
+    const trigger = await screen.findByRole('button', { name: '更多操作：vanishing-user' });
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除用户' }));
+    expect(await screen.findByRole('dialog', { name: '删除用户“vanishing-user”？' })).toBeInTheDocument();
+
+    queryClient.setQueryData(
+      userKeys.list(userSearchToApiParams({ status: 'ENABLED', page: 1, pageSize: 20 })),
+      result([]),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(trigger).not.toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
   });
 });

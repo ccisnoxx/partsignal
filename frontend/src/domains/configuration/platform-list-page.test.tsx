@@ -10,6 +10,8 @@ import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
+import { platformKeys } from './platform.api';
+import { platformSearchToApiParams } from './platform-list.model';
 
 type PlatformProfile = components['schemas']['PlatformProfile'];
 type PlatformProfileList = components['schemas']['PlatformProfileList'];
@@ -325,5 +327,124 @@ describe('PlatformListPage', () => {
       },
     });
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    expect(within(confirm).getByRole('button', { name: '确认删除' })).toBeDisabled();
+    await userEvent.click(within(confirm).getByRole('button', { name: '重新加载当前列表' }));
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(3));
+    expect(within(confirm).getByRole('button', { name: '确认删除' })).toBeEnabled();
+    expect(remove).toHaveBeenCalledOnce();
+  });
+
+  it('非删除命令的 409 不会冻结后续删除 Dialog', async () => {
+    const target = platform({
+      name: '命令隔离平台',
+      is_active: false,
+      workflow_stage: 'DISABLED',
+      primary_task: 'ENABLE_PLATFORM',
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+      deletion: { blockers: [] },
+    });
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([target]),
+      response: Response.json(result([target])),
+    } as never);
+    vi.spyOn(api, 'POST').mockResolvedValue({
+      error: { error: { code: 'REVISION_CONFLICT', message: '停用命令已过期', details: {}, request_id: 'req-status-conflict' } },
+      response: Response.json({}, { status: 409 }),
+    } as never);
+    renderPlatforms();
+
+    await userEvent.click(await screen.findByRole('button', { name: '重新启用' }));
+    await userEvent.click(await screen.findByRole('button', { name: '启用平台' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('停用命令已过期');
+
+    await userEvent.click(screen.getByRole('button', { name: '更多操作：命令隔离平台' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除平台' }));
+    const dialog = await screen.findByRole('dialog', { name: '确认删除平台“命令隔离平台”' });
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeEnabled();
+    expect(within(dialog).queryByRole('button', { name: '重新加载当前列表' })).not.toBeInTheDocument();
+  });
+
+  it('删除确认始终读取 exact list projection 的最新名称与 revision', async () => {
+    const initial = platform({
+      name: '初始平台',
+      is_active: false,
+      workflow_stage: 'DISABLED',
+      primary_task: 'ENABLE_PLATFORM',
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+      deletion: { blockers: [] },
+    });
+    const get = vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([initial]),
+      response: Response.json(result([initial])),
+    } as never);
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    const { queryClient } = renderPlatforms();
+    const trigger = await screen.findByRole('button', { name: '更多操作：初始平台' });
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除平台' }));
+
+    const blocked = platform({
+      ...initial,
+      name: '最新阻断平台',
+      available_actions: ['UPDATE', 'ENABLE'],
+      deletion: { blockers: [{ type: 'CONTENT_TASK', count: 1 }] },
+    });
+    queryClient.setQueryData(
+      platformKeys.list(platformSearchToApiParams({ page: 1, pageSize: 20 })),
+      result([blocked]),
+    );
+    expect(await screen.findByRole('dialog', { name: '“最新阻断平台”当前不能删除' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '确认删除' })).not.toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
+
+    const latest = platform({
+      ...initial,
+      name: '最新平台',
+      revision: 11,
+    });
+    queryClient.setQueryData(
+      platformKeys.list(platformSearchToApiParams({ page: 1, pageSize: 20 })),
+      result([latest]),
+    );
+    expect(await screen.findByRole('dialog', { name: '确认删除平台“最新平台”' })).toBeInTheDocument();
+    expect(get).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole('button', { name: '确认删除' }));
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(
+      '/api/v1/platform-profiles/{platform_profile_id}',
+      expect.objectContaining({ params: expect.objectContaining({ query: { expected_revision: 11 } }) }),
+    ));
+  });
+
+  it('最新列表移除目标后关闭删除 Dialog 且不提交陈旧命令', async () => {
+    const target = platform({
+      name: '即将消失的平台',
+      is_active: false,
+      workflow_stage: 'DISABLED',
+      primary_task: 'ENABLE_PLATFORM',
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+      deletion: { blockers: [] },
+    });
+    vi.spyOn(api, 'GET').mockResolvedValue({
+      data: result([target]),
+      response: Response.json(result([target])),
+    } as never);
+    const remove = vi.spyOn(api, 'DELETE');
+    const { queryClient } = renderPlatforms();
+    const trigger = await screen.findByRole('button', { name: '更多操作：即将消失的平台' });
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除平台' }));
+    expect(await screen.findByRole('dialog', { name: '确认删除平台“即将消失的平台”' })).toBeInTheDocument();
+
+    queryClient.setQueryData(
+      platformKeys.list(platformSearchToApiParams({ page: 1, pageSize: 20 })),
+      result([]),
+    );
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(trigger).not.toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
   });
 });

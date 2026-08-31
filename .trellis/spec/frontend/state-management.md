@@ -66,25 +66,74 @@ await Promise.all([
 
 回归测试必须同时断言：成功删除后不再请求该详情；列表刷新不会重新选中该 ID；失败时原详情和错误保留；普通直接访问不存在 ID 仍展示明确 `NOT_FOUND`。
 
-### 跨标签页刷新删除投影
+## 删除 Dialog 的当前 query projection
 
-“查看引用”在新标签页打开时，各标签页拥有独立的 QueryClient。新标签页删除引用对象后，原标签页不会收到 mutation 的缓存失效通知，因此承载删除投影的集合查询必须在窗口重新获得焦点时重新读取服务端状态：
+### 1. Scope / Trigger
 
-```tsx
-const resources = useQuery({
-  ...resourceQueryOptions(query),
-  refetchOnWindowFocus: 'always',
-});
+- 修改 Platform List 的 Profile、Platform Type Settings、Platform Workspace Accounts 或 System Users 的删除条件/删除确认时适用。
+- “查看引用”可在新标签页处理 blocker；各标签页拥有独立 QueryClient，因此原标签页必须在重新聚焦后采用新的服务端 projection。
 
-const currentTarget = target
-  ? resources.data?.items.find((item) => item.id === target.id)
-  : undefined;
+### 2. Signatures
+
+```text
+intent: { id, command, focusReturn }
+keys:   platformKeys.list(exactApiParams)
+        platformKeys.types()
+        platformKeys.accounts(platformId)
+        userKeys.list(exactApiParams)
+DELETE variables: { id, expectedRevision }
 ```
 
-- 删除条件弹窗的本地目标只用于提供 ID；当前阻断条件必须按该 ID 从最新 query data 派生，不能继续用点击时的完整行快照渲染。
-- 引用清除后，原页应关闭已失效的条件弹窗，并根据新的 `available_actions/deletion` 展示删除动作。
-- 不要为此新增轮询、全局 store 或 `BroadcastChannel`；窗口焦点刷新已经覆盖当前人工跨标签页操作流程。
-- 回归测试应模拟失焦、服务端投影变化、重新聚焦，并断言发生重新请求、条件弹窗关闭且删除动作出现。
+### 3. Contracts
+
+- 删除 intent 只保存稳定对象 ID、删除/查看条件命令和焦点返回点。名称、revision、`primary_task`、`available_actions`、`deletion` 与 blockers 不得进入 Dialog state、`canonical` 副本或完整 row target。
+- 四个活动集合 query 都使用 `refetchOnWindowFocus: 'always'`。Dialog 每次 render 只在当前 exact query 的 items 中按 ID 解析目标；不得扫描其他筛选/分页 cache、请求 Detail、建立全局 store、轮询或第二份业务缓存。
+- Dialog surface 只按最新 `available_actions + deletion` 转换：DELETE 且 blockers 为空时确认；无 DELETE 且 blockers 非空时展示条件；`deletion=null` 或当前 projection 不再提供删除资格时展示不可执行状态或关闭。不得按角色、status 或旧 blocker count 补算。
+- 确认事件必须同步读取 exact query 的当前 `getQueryState/getQueryData`，拒绝 fetching、error、目标缺失和矛盾 projection，并把当次当前 revision 固化为 `{ id, expectedRevision }` mutation variables。确认前不得自动 GET 再 DELETE。
+- 任意删除 HTTP 409 冻结确认并保留 ErrorEnvelope/request ID。被动 focus refetch、invalidation 或 cache update继续更新名称和 blocker surface，但不得清除 mutation error；只有当前 query 的显式 `refetch()` 成功后才能 reset freeze，失败且保留 stale data 时仍不可执行，禁止 replay。
+- 当前 query key、Accounts Tab 或目标存在性变化时清 intent。`focusReturn` 与业务对象分离，`finalFocus` 执行时才检查原节点 `isConnected`；目标行消失时不猜相邻行或 `document.body`。
+
+### 4. Validation & Error Matrix
+
+| 条件 | Dialog 行为 |
+| --- | --- |
+| focus/invalidation 返回同 ID 新名称或 revision | 立即重绘，并在下一次确认使用新 revision |
+| DELETE → blockers | 转为删除条件，移除确认按钮，不提交旧命令 |
+| blockers → DELETE | 转为确认，只按当前 action/deletion 提交 |
+| `deletion=null`、query fetching/error 或 401/403 stale data | 不可执行；不得沿用旧 ADMIN/可删投影 |
+| 当前成功 query 不含 ID、scope/Tab 变化 | 关闭并清 intent；断开 trigger 不聚焦 |
+| 删除返回任意 409 | 一次请求、显示 request ID、冻结；被动更新不解冻 |
+| 显式 reload 失败且 cache 仍有旧 data | 保留 409 与禁用状态 |
+| 显式 reload 成功 | reset freeze，按新 projection 转换或关闭；不自动重放 |
+
+### 5. Good / Base / Bad Cases
+
+- Good：Dialog 打开后窗口重新聚焦，账号从可删变为 `PUBLICATION_WORK` blocker；确认入口立即消失，旧 revision 不发送。
+- Base：同一 User revision 下新增业务历史引用，Dialog 仍按新的 actions/deletion 转为 blocker；资格不依赖 revision 漂移。
+- Bad：把完整 row 放入 state、从 status/角色/count 推断 DELETE，或在 409 后因 focus refetch 得到新 revision 就自动解冻/重放。
+
+### 6. Tests Required
+
+- 四个 page component 分别用 exact query key 更新名称、actions、deletion 与 revision，覆盖 ALLOWED↔BLOCKED、目标消失、最新 `expected_revision`、任意删除 409、reload failure/success 和焦点。
+- 至少一个 component 用相同 revision 只改变 blockers/actions，证明浏览器不以 revision 推导资格。
+- 四个 production-artifact fixture 可按 ID 更新/移除 projection、注入一次 409并捕获 DELETE revision；代表 E2E 模拟 hidden→visible，断言新 GET、禁止陈旧提交、最新请求参数、request ID/no replay 与焦点。
+
+### 7. Wrong vs Correct
+
+```tsx
+// Wrong：打开时保存完整对象，确认前自动 GET 最新 revision。
+setDeleteTarget(row);
+const latest = await refetch();
+await deleteResource(latest.id, latest.revision);
+
+// Correct：state 只保存 intent；render 与确认都消费当前 exact query cache。
+setDeleteIntent({ id: row.id, command: 'delete', focusReturn });
+const state = queryClient.getQueryState(exactKey);
+const current = queryClient.getQueryData<List>(exactKey)?.items.find((item) => item.id === intent.id);
+if (state?.fetchStatus !== 'fetching' && !state?.error && current && canDelete(current)) {
+  await deleteResource({ id: current.id, expectedRevision: current.revision });
+}
+```
 
 ## 可编辑 Workspace 的服务端状态与本地草稿合同
 
@@ -854,7 +903,7 @@ const canEdit = detail.data?.profile.available_actions.includes('UPDATE') ?? fal
 
 - Accounts 只在 `tab=accounts` 时读取 `platformKeys.accounts(platformId)`；RHF 只持有 create/edit Dialog 的 `label/accountIdentifier`，edit baseline 额外使用服务端 row revision。不得复制 Account DTO 或按 `isAdmin` 推导 row action。
 - 集合创建是页面动作。Primary/overflow 必须穷尽消费 `primary_task/available_actions/deletion`：`HANDLE_PLATFORM` 返回 Overview，UPDATE/ENABLE/DISABLE/DELETE 只映射现有 token；未知 token 显式失败。
-- update/status/delete 始终提交打开 Dialog 时的 canonical row revision。`REVISION_CONFLICT` 保留输入或确认上下文并禁用旧 baseline 重试，显式 reload 当前 Accounts/Detail 后才允许再次确认；normalized identifier error 只按 `details.errors[].loc` 定位字段。
+- update/status 继续提交打开 Dialog 时的 canonical row revision；删除 Dialog 只保存账号 ID/命令/focus，并在确认时从当前 `platformKeys.accounts(platformId)` 读取 action、deletion 与 revision。任意删除 409 保留确认上下文并冻结，被动刷新不解冻；显式 reload 当前 Accounts/Detail 成功后才允许再次确认。normalized identifier error 只按 `details.errors[].loc` 定位字段。
 - mutation 后由 Configuration domain 失效 Platform lists/current detail/current accounts；route composition 失效 Publication ready items/work lists/workspace contexts。不得清空 QueryClient、失效 Content queries 或刷新冻结 PublishedArticle snapshot。
 - 响应式只切换同一数据的 TableShell 与 375px 卡片呈现；label、identifier、status、primary/overflow actions 在两个 surface 都必须可达，Dialog 关闭后焦点返回真实触发器。
 
@@ -862,7 +911,7 @@ const canEdit = detail.data?.profile.available_actions.includes('UPDATE') ?? fal
 
 - `/settings/platforms/types` 位于既有 pathless ADMIN boundary；Platform List/Workspace 只用 `isAdmin` 控制 subsettings 导航可见性，API 权限仍由服务端最终拒绝。页面不占 Sidebar、不创建 Detail route。
 - TanStack Query 持有 `platformKeys.types()`；RHF+Zod 只持有 Name/Slug Dialog，Dialog target 与 focus return 使用本地 state。每行穷尽消费 `primary_task/available_actions/deletion/revision`，全部动作进入 overflow；未知 token、primary 或 blocker 显式失败。
-- update/delete `REVISION_CONFLICT` 保留输入或确认上下文，禁用旧 baseline 重试；只有显式 reload 类型列表后才采用新 revision，禁止自动重放。blocker 链接固定进入 `/settings/platforms?platformTypeId={id}&page=1&pageSize=20`。
+- update `REVISION_CONFLICT` 保留输入 baseline；删除 intent 只保存类型 ID/命令/focus，展示与确认从当前 `platformKeys.types()` 读取。任意删除 409 冻结确认，只有显式 reload 类型列表成功后才 reset 并采用新 projection，禁止自动重放。blocker 链接固定进入 `/settings/platforms?platformTypeId={id}&page=1&pageSize=20`。
 - create/update/delete 成功只失效 Type settings、全部 Platform lists、全部 Platform details；这三类查询分别承载 settings、列表 options/名称和 Workspace options/header。不得失效 Account/Prompt/Content/Publication 或清空 QueryClient。
 - 宽屏使用固定四列 TableShell；375px 使用局部 card-row，Name、Slug、platform_count 和 overflow 在两个 surface 都必须可达，不修改全局 Table Kit。
 
@@ -1010,7 +1059,7 @@ const actor = log.actor;
 
 - canonical URL 固定由 `q/accountType/status/page/pageSize` 持有，默认显式 `status=ENABLED&page=1&pageSize=20`；`ALL` 调用 API 时省略 status。首屏只读取 UserList，不做逐行请求或客户端 summary/action 推导。
 - selection 是页面本地状态，绑定 canonical scope 和 `{id,username,revision}`。换筛选/页码/页大小立即整体清空；refetch 后已选项消失或 revision 变化也整体清空并提示，revision 未变才保留。
-- create/edit/reset 与确认 Dialog 拥有各自草稿。409 不 invalidate、不 replay；显式 reload 才卸载草稿并采用服务端 baseline。create/reset 的 password owner 随 Dialog 卸载，mutation `gcTime=0`，关闭/成功/reload 后不得留在 cache 或 DOM。
+- create/edit/reset 与非删除确认 Dialog 拥有各自草稿；删除 intent 只保存 User ID/命令/focus，名称、资格与 DELETE revision 从当前 exact UserList query 派生。任意删除 409 即使被动 query 更新也保持冻结，只有显式 reload 成功才解除；create/edit/reset 继续沿用各自既有冲突 baseline。create/reset 的 password owner 随 Dialog 卸载，mutation `gcTime=0`，关闭/成功/reload 后不得留在 cache 或 DOM。
 - bulk disable 使用业务页 custom confirmation；200 partial 清空 selection 并保留脱敏 username/code/message 反馈，顶层失败保留 selection/confirm。成功只失效 Users lists，成功项包含当前 actor 时等待 auth refresh。
 - blocker 只展示服务端 count 并允许刷新列表；`USER_BUSINESS_HISTORY` 精确链接到 `/system/audit?actorId=<user-id>`，Users 页面不读取 Audit。
 

@@ -29,6 +29,9 @@ type UsersApiController = {
   requestRecords: UserRequestRecord[];
   responsePayloads: string[];
   setAccountType: (accountType: AccountType) => void;
+  setProjection: (userId: string, changes: Partial<User>) => void;
+  removeUser: (userId: string) => void;
+  conflictNextDelete: () => void;
 };
 
 type UserFixtures = { usersApi: UsersApiController };
@@ -303,6 +306,11 @@ const test = base.extend<UserFixtures>({
           await route.fulfill({ status: 409, json: errorBody('REVISION_CONFLICT', '用户修订冲突', 'req-users-stale') });
           return;
         }
+        if (nextConflict === 'delete') {
+          nextConflict = undefined;
+          await route.fulfill({ status: 409, json: errorBody('USER_IN_USE', '用户仍有业务历史引用', 'req-users-delete-conflict') });
+          return;
+        }
         items.splice(index, 1);
         await route.fulfill({ status: 204 });
         return;
@@ -322,6 +330,16 @@ const test = base.extend<UserFixtures>({
       requestRecords,
       responsePayloads,
       setAccountType: (next) => { accountType = next; },
+      setProjection: (userId, changes) => {
+        const index = items.findIndex((item) => item.id === userId);
+        if (index < 0) throw new Error(`未知用户：${userId}`);
+        items[index] = { ...items[index]!, ...changes };
+      },
+      removeUser: (userId) => { items = items.filter((item) => item.id !== userId); },
+      conflictNextDelete: () => {
+        nextConflict = 'delete';
+        allowedHttpErrors.push(409);
+      },
     });
     expect(unexpectedRequests, 'Users 页面不得依赖未声明的 API').toEqual([]);
     expect(runtimeErrors, 'Users 页面不得出现未处理浏览器错误').toEqual([]);

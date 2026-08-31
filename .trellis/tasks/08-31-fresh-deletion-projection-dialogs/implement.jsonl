@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"受约束删除、Dialog 生命周期、结构化错误与可访问性要求。"}
+{"file":".trellis/spec/frontend/hook-guidelines.md","reason":"focusReturn、断连 DOM 节点与 React/TanStack lifecycle 边界。"}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"定向 Vitest、双 Playwright project、typecheck、lint、build 与 api:check 门禁。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"服务端 available_actions/deletion 最终权威、expected_revision 与 409 禁止自动重放合同。"}
+{"file":".trellis/spec/infra/e2e-isolation.md","reason":"Playwright fixture 失败注入、请求计数、未声明 API 与隔离要求。"}
+{"file":".trellis/tasks/08-31-fresh-deletion-projection-dialogs/research/deletion-dialog-live-projection-audit.md","reason":"四页面快照 owner、query keys、409/focus路径、fixture缺口和规范冲突的审计证据。"}

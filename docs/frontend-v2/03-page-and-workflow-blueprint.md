@@ -362,6 +362,8 @@ Pattern：Table。
 
 官网 URL、allowed domains 等细节进入 Workspace。
 
+Platform Profile 的删除条件与删除确认共用本地 `{id, command, focusReturn}` intent；名称、账号影响数、revision、`available_actions` 与 `deletion` 每次都从当前筛选/分页的 Platform List query 派生。重新聚焦或 cache 更新可在确认与 blocker 间即时转换；任意删除 409 保持冻结，只有显式 reload 成功后才能再次确认。
+
 ## 7.2 `/settings/platforms/$platformId`
 
 Pattern：Workspace。canonical URL 使用 `?tab=overview|accounts|generation`，顶部固定 `[概览] [发布账号] [生成配置]`，刷新与前进/后退都恢复同一区域。
@@ -370,7 +372,7 @@ Pattern：Workspace。canonical URL 使用 `?tab=overview|accounts|generation`�
 
 Logo 只接受经 `PLATFORM_LOGO` 上传意图或用户显式导入并确认的官网候选，不接受 SVG，不直接引用外部候选。Generation 只选择或解除现有 Prompt，不编辑 Markdown；409 保留选择并要求显式 reload。
 
-账号区进入时按平台按需读取，且不重复“平台”列。Core 先交付业务标签、内部账号标识与状态的响应式只读清单；创建、编辑、启停、删除和 blocker 由独立 `frontend-v2-platform-workspace-accounts` Task 交付。
+账号区进入时按平台按需读取，且不重复“平台”列。创建、编辑与启停保留各自既有 baseline；删除条件/确认只保存账号 ID、命令与焦点返回点，并从当前平台独立 Accounts query 实时读取 label、actions、deletion 与 revision。Accounts query 重新聚焦必定刷新，删除 409 不因被动更新解冻或重放。
 
 ## 7.3 `/settings/platforms/types`
 
@@ -448,7 +450,7 @@ Pattern：Server Table + compact global summary。canonical URL 固定显式保�
 
 选择保存当前 canonical 查询范围及每项 `{id, username, revision}`；查询范围变化或后台刷新发现已选项消失/revision 漂移时整体清空。批量启停提交用户看到的 revision，200 partial 后清空选择并逐项显示 username/code/message；顶层失败保留选择，批量停用保留自有确认上下文。
 
-创建、编辑、reset、单项启停和删除均使用短 Dialog。reset/delete/update 提交当前 revision；409 不自动重放或失效列表，只允许显式 reload。创建/reset 的临时密码只存在于已打开的私有 form 与当前请求；Dialog 卸载后不留在 URL、Query key、mutation cache、响应、DOM、日志或 fixture artifact。`USER_BUSINESS_HISTORY` blocker 提供精确 `/system/audit?actorId=<user-id>` 链接；Users 页面本身不读取 Audit。
+创建、编辑、reset、单项启停和删除均使用短 Dialog。edit/reset/status 保留各自既有 revision baseline；删除 Dialog 只保存 User ID、命令与 focus，并从当前 exact UserList query 派生名称、actions、deletion 与 revision。409 不自动重放；删除冲突即使被动刷新得到新投影也继续冻结，只有显式 reload 成功才解除。创建/reset 的临时密码只存在于已打开的私有 form 与当前请求；Dialog 卸载后不留在 URL、Query key、mutation cache、响应、DOM、日志或 fixture artifact。`USER_BUSINESS_HISTORY` blocker 提供精确 `/system/audit?actorId=<user-id>` 链接；Users 页面本身不读取 Audit。
 
 ## 8.2 `/system/audit`
 

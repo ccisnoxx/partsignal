@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { EmptyTable } from '@/design-system/data-table/empty-table';
 import { FilterBar } from '@/design-system/data-table/filter-bar';
@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/design-system/primitives/select';
-import { platformKeys, platformListQueryOptions, runPlatformCommand } from './platform.api';
+import { deletePlatformProfile, platformKeys, platformListQueryOptions, runPlatformCommand } from './platform.api';
 import {
   deletionBlockerLabel,
   hasPlatformFilters,
@@ -37,6 +37,7 @@ import {
   readinessRegistry,
   resolvePlatformOverflowActions,
   resolvePlatformPrimaryAction,
+  platformSearchToApiParams,
   type PlatformCommand,
   type PlatformProfile,
   type PlatformProfileList,
@@ -61,8 +62,14 @@ type PlatformListPageProps = {
   search: PlatformSearch;
 };
 
-type CommandVariables = { command: PlatformCommand; platform: PlatformProfile };
-type BlockerTarget = { platform: PlatformProfile; focusReturn: HTMLElement | null };
+type CommandVariables =
+  | { command: 'delete-platform'; id: string; expectedRevision: number }
+  | { command: Exclude<PlatformCommand, 'delete-platform'>; platform: PlatformProfile };
+type DeletionIntent = {
+  id: string;
+  command: Extract<PlatformCommand, 'delete-platform'> | 'view-delete-conditions';
+  focusReturn: HTMLElement | null;
+};
 type EnableTarget = { platform: PlatformProfile; focusReturn: HTMLElement | null };
 
 function PlatformListPage({
@@ -74,14 +81,33 @@ function PlatformListPage({
 }: PlatformListPageProps) {
   const queryClient = useQueryClient();
   const platforms = useQuery(platformListQueryOptions(search));
-  const [blockerTarget, setBlockerTarget] = useState<BlockerTarget>();
+  const activeListKey = JSON.stringify(platformSearchToApiParams(search));
+  const previousListKey = useRef(activeListKey);
+  const [deletionIntent, setDeletionIntent] = useState<DeletionIntent>();
   const [enableTarget, setEnableTarget] = useState<EnableTarget>();
   const rows = platforms.data?.items ?? [];
   const total = platforms.data?.total ?? 0;
   const pageCount = Math.ceil(total / search.pageSize);
   const filtered = hasPlatformFilters(search);
 
+  useEffect(() => {
+    if (previousListKey.current !== activeListKey) {
+      previousListKey.current = activeListKey;
+      // 搜索、分页或分页大小改变后，旧删除意图不得在新 query key 中复活。
+      setDeletionIntent(undefined);
+    }
+  }, [activeListKey]);
+
+  useEffect(() => {
+    if (deletionIntent && platforms.data && !platforms.data.items.some((item) => item.id === deletionIntent.id)) {
+      // 当前活动列表已确认目标消失，删除意图不能跨筛选/分页缓存复活。
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setDeletionIntent(undefined);
+    }
+  }, [deletionIntent, platforms.data]);
+
   function changeSearch(changes: Partial<PlatformSearch>, resetPage = true) {
+    setDeletionIntent(undefined);
     void onSearchChange({
       ...search,
       ...changes,
@@ -90,26 +116,31 @@ function PlatformListPage({
   }
 
   const mutation = useMutation({
-    mutationFn: ({ command, platform }: CommandVariables) => (
-      runPlatformCommand(command, platform, csrfToken)
-    ),
+    mutationFn: async (variables: CommandVariables) => {
+      if (variables.command === 'delete-platform') {
+        await deletePlatformProfile(variables, csrfToken);
+        return;
+      }
+      await runPlatformCommand(variables.command, variables.platform, csrfToken);
+    },
     onSuccess: async (_result, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: platformKeys.lists() }),
-        queryClient.invalidateQueries({ queryKey: platformKeys.detail(variables.platform.id) }),
-        queryClient.invalidateQueries({ queryKey: platformKeys.accounts(variables.platform.id) }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.detail('platform' in variables ? variables.platform.id : variables.id) }),
+        queryClient.invalidateQueries({ queryKey: platformKeys.accounts('platform' in variables ? variables.platform.id : variables.id) }),
         onPlatformChanged(
           variables.command === 'delete-platform' ? 'delete' : 'status',
-          variables.platform.id,
+          'platform' in variables ? variables.platform.id : variables.id,
         ),
       ]);
       if (variables.command === 'delete-platform') {
-        queryClient.removeQueries({ queryKey: platformKeys.detail(variables.platform.id) });
-        queryClient.removeQueries({ queryKey: platformKeys.accounts(variables.platform.id) });
+        queryClient.removeQueries({ queryKey: platformKeys.detail(variables.id) });
+        queryClient.removeQueries({ queryKey: platformKeys.accounts(variables.id) });
       }
       if (variables.command === 'delete-platform' && rows.length === 1 && search.page > 1) {
         changeSearch({ page: search.page - 1 }, false);
       }
+      if (variables.command === 'delete-platform') setDeletionIntent(undefined);
     },
     onError: async () => {
       await queryClient.invalidateQueries({ queryKey: platformKeys.lists() });
@@ -122,7 +153,7 @@ function PlatformListPage({
     focusReturn?: HTMLElement | null,
   ) {
     if (command === 'view-delete-conditions') {
-      setBlockerTarget({ platform, focusReturn: focusReturn ?? null });
+      setDeletionIntent({ id: platform.id, command: 'view-delete-conditions', focusReturn: focusReturn ?? null });
       return;
     }
     if (command === 'enable-platform') {
@@ -133,14 +164,32 @@ function PlatformListPage({
       });
       return;
     }
-    if (
-      command === 'disable-platform'
-      || command === 'delete-platform'
-    ) {
-      mutation.mutate({ command, platform });
+    if (command === 'disable-platform') {
+      mutation.mutate({ command: 'disable-platform', platform });
+      return;
+    }
+    if (command === 'delete-platform') {
+      setDeletionIntent({
+        id: platform.id,
+        command,
+        focusReturn: focusReturn ?? null,
+      });
       return;
     }
     throw new Error(`平台列表收到未知页面命令：${command}`);
+  }
+
+  function confirmDelete() {
+    if (!deletionIntent || platforms.isFetching || platforms.error) return;
+    const exactKey = platformKeys.list(platformSearchToApiParams(search));
+    const queryState = queryClient.getQueryState(exactKey);
+    if (!queryState || queryState.fetchStatus === 'fetching' || queryState.error) return;
+    const current = queryClient.getQueryData<PlatformProfileList>(exactKey)
+      ?.items.find((item) => item.id === deletionIntent.id);
+    if (!current) return;
+    resolvePlatformOverflowActions(current, false);
+    if (current.deletion === null || !current.available_actions.includes('DELETE') || current.deletion.blockers.length > 0) return;
+    mutation.mutate({ command: 'delete-platform', id: current.id, expectedRevision: current.revision });
   }
 
   return (
@@ -168,7 +217,7 @@ function PlatformListPage({
           onAction={() => void platforms.refetch()}
         />
       )}
-      {mutation.error && (
+      {mutation.error && mutation.variables?.command !== 'delete-platform' && (
         <Notice
           actionLabel="关闭"
           message={errorMessage(mutation.error)}
@@ -242,7 +291,10 @@ function PlatformListPage({
         ) : (
           <tbody>
             {rows.map((platform) => {
-              const pending = mutation.isPending && mutation.variables?.platform.id === platform.id;
+              const pendingTargetId = mutation.variables?.command === 'delete-platform'
+                ? mutation.variables.id
+                : mutation.variables?.platform.id;
+              const pending = mutation.isPending && pendingTargetId === platform.id;
               return (
                 <tr key={platform.id}>
                   <td data-column-role="primary"><PlatformIdentity platform={platform} /></td>
@@ -287,9 +339,23 @@ function PlatformListPage({
         />
       )}
 
-      <DeletionBlockersDialog
-        onClose={() => setBlockerTarget(undefined)}
-        target={blockerTarget}
+      <PlatformDeletionDialog
+        key={deletionIntent?.id ?? 'none'}
+        intent={deletionIntent}
+        mutation={mutation}
+        onConfirm={confirmDelete}
+        onClose={() => { if (!mutation.isPending) { setDeletionIntent(undefined); mutation.reset(); } }}
+        onReload={async () => {
+          const result = await platforms.refetch();
+          if (result.error) throw result.error;
+          if (deletionIntent && !result.data?.items.some((item) => item.id === deletionIntent.id)) {
+            setDeletionIntent(undefined);
+          }
+          mutation.reset();
+        }}
+        platforms={platforms.data}
+        queryError={platforms.error}
+        queryFetching={platforms.isFetching}
       />
       <EnablePlatformDialog
         onClose={() => setEnableTarget(undefined)}
@@ -509,30 +575,98 @@ function Notice({
   );
 }
 
-function DeletionBlockersDialog({
+function PlatformDeletionDialog({
+  intent,
+  mutation,
   onClose,
-  target,
+  onConfirm,
+  onReload,
+  platforms,
+  queryError,
+  queryFetching,
 }: {
+  intent?: DeletionIntent;
+  mutation: { error: unknown; isPending: boolean; variables?: CommandVariables };
   onClose: () => void;
-  target?: BlockerTarget;
+  onConfirm: () => void;
+  onReload: () => Promise<void>;
+  platforms?: PlatformProfileList;
+  queryError: unknown;
+  queryFetching: boolean;
 }) {
+  const [reloadMessage, setReloadMessage] = useState<string>();
+  if (!intent) return null;
+  const current = platforms?.items.find((item) => item.id === intent.id);
+  if (!current) return null;
+  const blockers = current.deletion?.blockers ?? [];
+  const hasDeleteProjection = current.deletion !== null && current.available_actions.includes('DELETE');
+  const deletionError = mutation.variables?.command === 'delete-platform' ? mutation.error : null;
+  const conflict = deletionError instanceof Error
+    && 'status' in deletionError
+    && deletionError.status === 409;
+  const stale = Boolean(queryError);
+  const canDelete = !queryFetching
+    && !stale
+    && !conflict
+    && hasDeleteProjection
+    && blockers.length === 0;
+
+  async function reload() {
+    setReloadMessage(undefined);
+    try {
+      await onReload();
+      setReloadMessage('已读取当前平台投影，请重新确认。');
+    } catch (error) {
+      setReloadMessage(errorMessage(error));
+    }
+  }
+
   return (
-    <Dialog onOpenChange={(open) => !open && onClose()} open={Boolean(target)}>
-      <DialogContent finalFocus={{ current: target?.focusReturn ?? null }}>
+    <Dialog onOpenChange={(open) => !open && !mutation.isPending && onClose()} open>
+      <DialogContent
+        finalFocus={() => intent.focusReturn?.isConnected ? intent.focusReturn : null}
+        showCloseButton={!mutation.isPending}
+      >
         <DialogHeader>
-          <DialogTitle>“{target?.platform.name}”当前不能删除</DialogTitle>
-          <DialogDescription>以下活动业务必须先处理，服务端会在删除时重新核实。</DialogDescription>
+          <DialogTitle>
+            {blockers.length > 0
+              ? `“${current.name}”当前不能删除`
+              : hasDeleteProjection ? `确认删除平台“${current.name}”` : `“${current.name}”当前不可删除`}
+          </DialogTitle>
+          <DialogDescription>
+            {blockers.length > 0
+              ? '以下活动业务必须先处理，服务端会在删除时重新核实。'
+              : hasDeleteProjection
+                ? `将删除平台配置及 ${current.platform_account_count} 个平台账号；服务端会校验当前 revision。`
+                : '服务端当前未提供删除资格，请刷新列表后再试。'}
+          </DialogDescription>
         </DialogHeader>
-        <ul className="space-y-2 text-sm">
-          {target?.platform.deletion?.blockers.map((blocker) => (
-            <li className="flex justify-between gap-4" key={blocker.type}>
-              <span>{deletionBlockerLabel(blocker)}</span>
-              <strong>{blocker.count}</strong>
-            </li>
-          ))}
-        </ul>
+        {blockers.length > 0 ? (
+          <ul className="space-y-2 text-sm">
+            {blockers.map((blocker) => (
+              <li className="flex justify-between gap-4" key={blocker.type}>
+                <span>{deletionBlockerLabel(blocker)}</span>
+                <strong>{blocker.count}</strong>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          hasDeleteProjection && <p className="text-sm text-text-secondary">当前 revision：{current.revision}</p>
+        )}
+        {queryFetching && <p className="text-sm text-text-secondary" role="status">正在同步当前平台投影…</p>}
+        {stale && <p className="text-sm text-destructive" role="alert">当前列表刷新失败，无法确认最新删除资格。</p>}
+        {Boolean(deletionError) && <p className="text-sm text-destructive" role="alert">{errorMessage(deletionError)}</p>}
+        {hasDeleteProjection && blockers.length === 0 && conflict && (
+          <Button onClick={() => void reload()} type="button" variant="outline">重新加载当前列表</Button>
+        )}
+        {reloadMessage && <p className="text-sm text-text-secondary" role="status">{reloadMessage}</p>}
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>关闭</DialogClose>
+          <DialogClose disabled={mutation.isPending} render={<Button variant="outline" />}>关闭</DialogClose>
+          {hasDeleteProjection && blockers.length === 0 && (
+            <Button disabled={!canDelete || mutation.isPending} onClick={onConfirm} type="button" variant="destructive">
+              {mutation.isPending ? '删除中…' : '确认删除'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

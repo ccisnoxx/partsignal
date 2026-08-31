@@ -102,11 +102,14 @@ async function setUserEnabled(user: User, enabled: boolean, csrfToken: string | 
   );
 }
 
-async function deleteUser(user: User, csrfToken: string | null) {
+async function deleteUser(
+  { id, expectedRevision }: { id: string; expectedRevision: number },
+  csrfToken: string | null,
+) {
   const result = await api.DELETE('/api/v1/users/{user_id}', {
     params: {
-      path: { user_id: user.id },
-      query: { expected_revision: user.revision },
+      path: { user_id: id },
+      query: { expected_revision: expectedRevision },
       header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
     },
   });

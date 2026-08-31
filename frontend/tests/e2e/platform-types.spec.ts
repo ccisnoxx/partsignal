@@ -136,6 +136,30 @@ test('blocker、编辑冲突和删除冲突均保留服务端权威与显式 rel
   );
 });
 
+test('Platform Type 删除 Dialog 重新聚焦后采用最新 projection 与 revision', async ({ page, platformTypesApi }) => {
+  const platformTypeId = '10000000-0000-4000-8000-000000000002';
+  await page.goto('/settings/platforms/types');
+  const row = page.locator('tr:visible, li:visible').filter({ hasText: '行业媒体' }).first();
+  await row.getByRole('button', { name: '更多操作：行业媒体' }).click();
+  await page.getByRole('menuitem', { name: '删除' }).click();
+
+  platformTypesApi.setProjection(platformTypeId, {
+    name: '行业媒体（最新）',
+    revision: 12,
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  const dialog = page.getByRole('dialog', { name: '删除平台类型？' });
+  await expect(dialog).toContainText('行业媒体（最新）');
+  await dialog.getByRole('button', { name: '确认删除' }).click();
+  await expect.poll(() => platformTypesApi.requests.filter((request) => request.method === 'DELETE').at(-1)?.expectedRevision)
+    .toBe(12);
+});
+
 test('非管理员由 route 在业务请求前拒绝', async ({ page, platformTypesApi }) => {
   platformTypesApi.setEngineer();
   await page.goto('/settings/platforms/types');

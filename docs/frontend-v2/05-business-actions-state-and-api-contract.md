@@ -348,7 +348,7 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - `/settings/platforms` 继续使用 `GET /api/v1/platform-profiles`。显式 `page/page_size` 启用服务端搜索、类型/启停/readiness 筛选和分页；两者都省略时保留既有完整参考集合语义。
 - `configuration_complete` 与 `configuration_status` 只表达是否绑定 Prompt。独立 `readiness_status` 按“缺 Prompt优先；否则零启用账号为缺账号；其余完整”投影；`enabled_platform_account_count` 才是“N 个可用”的权威数量，`platform_account_count` 继续表示全部账号。
 - 同一响应返回不受当前筛选影响的 readiness summary 和按名称、ID 稳定排序的 `platform_type_options`。普通已认证用户获得 `primary_task=null`、空 actions 与 `deletion=null`；浏览器不得通过管理员 Platform Type endpoint 或当前页反推选项与权限。
-- ENABLE、DISABLE 与 DELETE 都提交当前行 revision；DELETE 使用 required `expected_revision` query。409 只提示并刷新 canonical list，不自动重放。服务端在行锁内重新校验 revision、目标状态、权限与实时 blocker。
+- ENABLE、DISABLE 继续提交各自命令 baseline；Platform Profile 删除 Dialog 只保存 ID/命令/focus，并在确认时从当前 exact Platform List query读取名称、actions、deletion 与 revision。DELETE 使用 required `expected_revision` query；确认前不自动 GET。任意删除 409 冻结旧确认，被动刷新只更新显示，显式 reload 成功后才允许再次确认且不自动重放。服务端仍在行锁内重新校验 revision、目标状态、权限与实时 blocker。
 
 ## 23. Platform Workspace Core read model 与 revision 编辑
 
@@ -364,7 +364,7 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 
 - Accounts Tab 按 `platform_profile_id` 延迟读取既有 `PlatformAccountList`，不重复平台列。集合级创建是页面动作，不新增 `CREATE` row token；当前 ADMIN/ENGINEER 均可尝试创建，停用平台仍由 POST 锁内返回 `PLATFORM_DISABLED`。
 - 行级 Primary/overflow 只穷尽映射 `primary_task/available_actions/deletion/revision`。ADMIN 与 ENGINEER 均获得 UPDATE 和启停动作，仅 ADMIN 获得 deletion/DELETE；平台停用投影 `HANDLE_PLATFORM`，但既有账号编辑与启停仍由服务端动作决定。
-- UPDATE、ENABLE、DISABLE 和 DELETE 都提交当前账号 revision。DELETE 使用 required `expected_revision` query；服务端按 Platform → Account 固定顺序锁定后先拒绝 stale revision，再实时复核非终态 PublicationWork。409 保留 Dialog/表单上下文，只有显式 reload 才采用新 baseline，禁止自动重放。
+- UPDATE、ENABLE、DISABLE 继续提交各自 Dialog baseline；DELETE intent 只保存账号 ID/命令/focus，展示与确认从当前 `platformKeys.accounts(platformId)` 读取。DELETE 使用该 projection 当前 revision 形成 required `expected_revision` query，确认前不自动 GET；服务端按 Platform → Account 固定顺序锁定后先拒绝 stale revision，再实时复核非终态 PublicationWork。任意删除 409 保留并冻结 Dialog，即使被动 query 更新也只有显式 reload 成功后才可再次确认，禁止自动重放。
 - 同平台账号标识以数据库 `lower(btrim(account_identifier))` 唯一约束为权威。预检与约束竞态统一返回 `PLATFORM_ACCOUNT_IDENTIFIER_EXISTS`，并用 `details.errors[].loc=["body","account_identifier"]` 定位字段；浏览器不解析错误 message 判断冲突。
 - Account mutation 只失效 Platform lists/current detail/current accounts，以及 Publication ready items/work lists/workspace contexts 中的实际消费者；不失效冻结的 PublishedArticle snapshot，也不触碰 Content queries。
 
@@ -374,7 +374,7 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 - 列表固定展示 Name、Slug、`platform_count`、overflow。`platform_count` 是全部 Enabled/Disabled PlatformProfile 的直接引用总数，由服务端与 deletion blocker 同一 grouped query 投影；列表按 `lower(name), id` 稳定排序，客户端不得另取 Platform List 计数或排序。
 - `primary_task=EDIT_CATEGORY` 是服务端任务语义，不产生独立 Primary button。UPDATE、DELETE 与查看非空 blocker 全部进入 overflow；未知 action/primary/blocker 必须显式失败。只有包含 DELETE 且 blocker 为空时才进入确认删除。
 - create/update Dialog 只提交 Name 与 Slug；name 由服务端 trim 且不唯一，slug 不自动规范化、数据库唯一并可修改。PATCH body 与 DELETE query 都提交 canonical revision；服务端锁行后先校验 revision，DELETE 再复核 PlatformProfile 引用，分别返回 `REVISION_CONFLICT` 与 `PLATFORM_TYPE_IN_USE`。
-- 409 保留表单或删除上下文，不自动 GET/replay；显式 reload 才采用服务端 baseline。成功 mutation 精确失效 Type settings、全部 Platform lists 与全部 Platform details，覆盖 options 和名称消费者，不触碰 Account/Prompt/Content/Publication cache。
+- 409 保留表单或删除上下文，不自动 GET/replay。删除 intent 只保存 Type ID/命令/focus，名称、blocker、actions 与 revision 从当前 Types query 派生；被动更新可在 blocker/确认间转换但不解除 409 freeze，显式 reload 成功后才采用当前 projection。成功 mutation 精确失效 Type settings、全部 Platform lists 与全部 Platform details，覆盖 options 和名称消费者，不触碰 Account/Prompt/Content/Publication cache。
 
 ## 26. Platform Prompt Preview Options 与真实首稿命令
 
@@ -421,6 +421,6 @@ https://github.com/ccisnoxx/partsignal/blob/main/docs/GEO%E5%A4%9A%E5%B9%B3%E5%8
 
 - `/system/users` 只消费 ADMIN-only `GET /api/v1/users` 的 `UserList`；服务端一次返回当前分页、全局 summary、actor-aware `primary_task/available_actions/deletion` 与 canonical revision。查询次数不随当前页行数增长，浏览器不逐行请求、不重算 summary 或动作资格。
 - canonical URL 使用 `q/accountType/status/page/pageSize`，默认显式写入 `status=ENABLED&page=1&pageSize=20`；`status=ALL` 映射为省略 API status。列表 query key 只包含规范化 API 参数。
-- PATCH、reset body 与 DELETE query 都提交用户看到的 revision。reset 成功返回安全 `User` 投影并撤销目标用户会话；响应不得包含临时密码、密码哈希或 session。stale 命令在锁内返回 `REVISION_CONFLICT`，不改状态、revision、session 或 audit。
+- PATCH 与 reset body 继续提交各自 Dialog baseline；DELETE intent 只保存 User ID/命令/focus，并在确认时从当前 exact UserList query取得 actions、deletion 与 revision形成 query。确认前不得自动 GET。reset 成功返回安全 `User` 投影并撤销目标用户会话；响应不得包含临时密码、密码哈希或 session。stale 命令在锁内返回 `REVISION_CONFLICT`，不改状态、revision、session 或 audit。
 - bulk 每项提交 `{user_id, expected_revision}`，同状态项返回 `INVALID_STATE_TRANSITION`，并与 `NOT_FOUND/REVISION_CONFLICT/LAST_ADMIN_REQUIRED` 组成固定 code union。预期逐项失败返回 200 partial；意外事务错误仍整体失败，不伪装 partial success。
-- 成功命令只失效 Users list；成功项包含当前 actor 时等待 auth refresh。409 不失效、不 replay，并保留当前表单/确认上下文直到显式 reload。临时密码不进入 query key、错误文本、反馈、日志或 fixture 记录。
+- 成功命令只失效 Users list；成功项包含当前 actor 时等待 auth refresh。非删除 409 保留既有表单 baseline；任意删除 409 冻结确认，被动 focus/invalidation 更新只改变当前 surface，只有显式 UserList reload 成功后才解除且不 replay。临时密码不进入 query key、错误文本、反馈、日志或 fixture 记录。

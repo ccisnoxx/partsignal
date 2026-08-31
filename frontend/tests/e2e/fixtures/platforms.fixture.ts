@@ -20,6 +20,9 @@ type PlatformsApiController = {
   allowHttpError: (status: number) => void;
   commandRequests: PlatformCommandRequest[];
   listRequests: URL[];
+  removePlatform: (platformId: string) => void;
+  setProjection: (platformId: string, changes: Partial<PlatformProfile>) => void;
+  conflictNextDelete: () => void;
 };
 
 type PlatformFixtures = { platformsApi: PlatformsApiController };
@@ -144,6 +147,7 @@ const test = base.extend<PlatformFixtures>({
     const unexpectedRequests: string[] = [];
     const runtimeErrors: string[] = [];
     const allowedHttpErrors: number[] = [];
+    let nextDeleteConflict = false;
 
     page.on('console', (message) => {
       if (message.type() !== 'error') return;
@@ -209,6 +213,11 @@ const test = base.extend<PlatformFixtures>({
           return;
         }
         if (command === 'delete') {
+          if (nextDeleteConflict) {
+            nextDeleteConflict = false;
+            await route.fulfill({ status: 409, json: { error: { code: 'REVISION_CONFLICT', message: '平台已被其他请求修改', details: {}, request_id: 'req-platform-delete-conflict' } } });
+            return;
+          }
           items = items.filter((item) => item.id !== platformId);
           await route.fulfill({ status: 204 });
           return;
@@ -238,6 +247,16 @@ const test = base.extend<PlatformFixtures>({
       allowHttpError: (status) => allowedHttpErrors.push(status),
       commandRequests,
       listRequests,
+      removePlatform: (platformId) => { items = items.filter((item) => item.id !== platformId); },
+      setProjection: (platformId, changes) => {
+        const index = items.findIndex((item) => item.id === platformId);
+        if (index < 0) throw new Error(`未知平台：${platformId}`);
+        items[index] = { ...items[index]!, ...changes };
+      },
+      conflictNextDelete: () => {
+        nextDeleteConflict = true;
+        allowedHttpErrors.push(409);
+      },
     });
     expect(unexpectedRequests, '平台列表不得依赖未声明的 API').toEqual([]);
     expect(runtimeErrors, '平台列表不得出现未处理浏览器错误').toEqual([]);

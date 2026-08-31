@@ -82,6 +82,45 @@ test('Platform List 呈现服务端 Primary、overflow、删除条件与 revisio
   });
 });
 
+test('Platform Profile 删除 Dialog 在 focus projection 更新后禁止陈旧提交并使用最新 revision', async ({ page, platformsApi }) => {
+  const platformId = '00000000-0000-4000-8000-000000000003';
+  await page.goto('/settings/platforms?page=1&pageSize=20');
+  const row = page.getByRole('row', { name: /工程师社区 003/ });
+  await row.getByRole('button', { name: /更多操作/ }).click();
+  await page.getByRole('menuitem', { name: '删除平台' }).click();
+
+  platformsApi.setProjection(platformId, {
+    name: '工程师社区 003（已阻断）',
+    available_actions: ['UPDATE', 'ENABLE'],
+    deletion: { blockers: [{ type: 'CONTENT_TASK', count: 1 }] },
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  await expect(page.getByRole('dialog', { name: '“工程师社区 003（已阻断）”当前不能删除' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '确认删除' })).toHaveCount(0);
+
+  platformsApi.setProjection(platformId, {
+    name: '工程师社区 003（最新）',
+    available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+    deletion: { blockers: [] },
+    revision: 33,
+  });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  const latest = page.getByRole('dialog', { name: '确认删除平台“工程师社区 003（最新）”' });
+  await expect(latest).toBeVisible();
+  await latest.getByRole('button', { name: '确认删除' }).click();
+  await expect.poll(() => platformsApi.commandRequests.at(-1)?.expectedRevision).toBe(33);
+});
+
 test('Platform List 在 375/768/1024/1440 无页面级横向溢出且移动端动作可达', async ({ page }, testInfo) => {
   const widths = testInfo.project.name === 'foundation-mobile' ? [375, 768] : [1024, 1440];
   await page.goto('/settings/platforms?page=1&pageSize=20');

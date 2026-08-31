@@ -5,7 +5,6 @@ import type { components } from '@/shared/api/generated/schema';
 import {
   platformSearchToApiParams,
   type PlatformCommand,
-  type PlatformProfile,
   type PlatformSearch,
 } from './platform-list.model';
 
@@ -16,7 +15,6 @@ type PlatformAccountCreate = components['schemas']['PlatformAccountCreate'];
 type PlatformAccountUpdate = components['schemas']['PlatformAccountUpdate'];
 type PlatformProfileDetail = components['schemas']['PlatformProfileDetail'];
 type PlatformProfileUpdate = components['schemas']['PlatformProfileUpdate'];
-type PlatformType = components['schemas']['PlatformType'];
 type PlatformTypeCreate = components['schemas']['PlatformTypeCreate'];
 type PlatformTypeUpdate = components['schemas']['PlatformTypeUpdate'];
 type UploadIntentCreate = components['schemas']['UploadIntentCreate'];
@@ -108,6 +106,7 @@ function platformAccountsQueryOptions(platformId: string, enabled: boolean) {
       if (!result.data) throw platformRequestError('读取平台发布账号', result);
       return result.data;
     },
+    refetchOnWindowFocus: 'always',
     retry: false,
     staleTime: 30_000,
   });
@@ -154,11 +153,14 @@ async function updatePlatformType(
   throw platformRequestError('更新平台类型', result);
 }
 
-async function deletePlatformType(platformType: PlatformType, csrfToken: string | null) {
+async function deletePlatformType(
+  { id, expectedRevision }: { id: string; expectedRevision: number },
+  csrfToken: string | null,
+) {
   const result = await api.DELETE('/api/v1/platform-types/{platform_type_id}', {
     params: {
-      path: { platform_type_id: platformType.id },
-      query: { expected_revision: platformType.revision },
+      path: { platform_type_id: id },
+      query: { expected_revision: expectedRevision },
       header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
     },
   });
@@ -222,18 +224,33 @@ async function setPlatformAccountEnabled(
 }
 
 async function deletePlatformAccount(
-  account: PlatformAccount,
+  { id, expectedRevision }: { id: string; expectedRevision: number },
   csrfToken: string | null,
 ) {
   const result = await api.DELETE('/api/v1/platform-accounts/{platform_account_id}', {
     params: {
-      path: { platform_account_id: account.id },
-      query: { expected_revision: account.revision },
+      path: { platform_account_id: id },
+      query: { expected_revision: expectedRevision },
       header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
     },
   });
   if (result.response.ok) return;
   throw platformRequestError('删除发布账号', result);
+}
+
+async function deletePlatformProfile(
+  { id, expectedRevision }: { id: string; expectedRevision: number },
+  csrfToken: string | null,
+) {
+  const result = await api.DELETE('/api/v1/platform-profiles/{platform_profile_id}', {
+    params: {
+      path: { platform_profile_id: id },
+      query: { expected_revision: expectedRevision },
+      header: { 'X-CSRF-Token': requireCsrfToken(csrfToken) },
+    },
+  });
+  if (result.response.ok) return;
+  throw platformRequestError('删除平台', result);
 }
 
 async function createPlatformLogoCandidate(
@@ -283,22 +300,11 @@ async function abortPlatformLogoUpload(fileId: string, csrfToken: string | null)
 }
 
 async function runPlatformCommand(
-  command: PlatformCommand,
-  platform: PlatformProfile,
+  command: Exclude<PlatformCommand, 'delete-platform'>,
+  platform: { id: string; revision: number },
   csrfToken: string | null,
 ) {
   const token = requireCsrfToken(csrfToken);
-  if (command === 'delete-platform') {
-    const result = await api.DELETE('/api/v1/platform-profiles/{platform_profile_id}', {
-      params: {
-        path: { platform_profile_id: platform.id },
-        query: { expected_revision: platform.revision },
-        header: { 'X-CSRF-Token': token },
-      },
-    });
-    if (result.response.ok) return;
-    throw platformRequestError('删除平台', result);
-  }
   const path = command === 'enable-platform'
     ? '/api/v1/platform-profiles/{platform_profile_id}/enable' as const
     : '/api/v1/platform-profiles/{platform_profile_id}/disable' as const;
@@ -355,6 +361,7 @@ export {
   createPlatformAccount,
   createPlatformLogoCandidate,
   createPlatformLogoUploadIntent,
+  deletePlatformProfile,
   createPlatformType,
   deletePlatformAccount,
   deletePlatformType,

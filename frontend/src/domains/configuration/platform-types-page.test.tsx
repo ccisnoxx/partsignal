@@ -10,6 +10,7 @@ import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
+import { platformKeys } from './platform.api';
 
 type PlatformType = components['schemas']['PlatformType'];
 type PlatformTypeList = components['schemas']['PlatformTypeList'];
@@ -215,7 +216,13 @@ describe('PlatformTypesPage', () => {
 
   it('删除只从 DELETE token 进入，提交 revision 并在竞态 blocker 时给出精确链接', async () => {
     let current = platformType();
-    vi.spyOn(api, 'GET').mockImplementation(async () => response(list([current])));
+    vi.spyOn(api, 'GET')
+      .mockResolvedValueOnce(response(list([current])))
+      .mockResolvedValueOnce({
+        error: { error: { code: 'LIST_REFRESH_FAILED', message: '平台类型刷新失败', details: {}, request_id: 'req-type-reload-failed' } },
+        response: Response.json({}, { status: 500 }),
+      } as never)
+      .mockImplementation(async () => response(list([current])));
     const remove = vi.spyOn(api, 'DELETE')
       .mockResolvedValueOnce(errorResponse('REVISION_CONFLICT', '平台类型已被其他请求修改'))
       .mockResolvedValueOnce(errorResponse('PLATFORM_TYPE_IN_USE', '平台类型仍被引用', {
@@ -237,6 +244,11 @@ describe('PlatformTypesPage', () => {
         params: expect.objectContaining({ query: { expected_revision: 2 } }),
       }),
     );
+    await user.click(screen.getByRole('button', { name: '重新读取服务端版本' }));
+    expect(await within(screen.getByRole('dialog')).findByText(/平台类型刷新失败/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '确认删除' })).toBeDisabled();
+    expect(remove).toHaveBeenCalledTimes(1);
+
     current = platformType({ revision: 3 });
     await user.click(screen.getByRole('button', { name: '重新读取服务端版本' }));
     expect(await screen.findByText('已读取 revision 3，请重新确认。')).toBeInTheDocument();
@@ -267,6 +279,62 @@ describe('PlatformTypesPage', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it('删除 Dialog 随 exact types projection 在可删与 blocker 间切换并提交最新 revision', async () => {
+    const initial = platformType({ name: '初始类型' });
+    const get = vi.spyOn(api, 'GET').mockResolvedValue(response(list([initial])));
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    const { queryClient } = renderPlatformTypes();
+    const trigger = (await screen.findAllByRole('button', { name: '更多操作：初始类型' }))[0]!;
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+
+    const blocked = platformType({
+      ...initial,
+      name: '最新阻断类型',
+      platform_count: 1,
+      available_actions: ['UPDATE'],
+      deletion: { blockers: [{ type: 'PLATFORM_PROFILE', count: 1 }] },
+      revision: 8,
+    });
+    queryClient.setQueryData(platformKeys.types(), list([blocked]));
+    expect(await screen.findByRole('dialog', { name: '平台类型暂时不能删除' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '确认删除' })).not.toBeInTheDocument();
+
+    const latest = platformType({
+      ...initial,
+      name: '最新可删类型',
+      revision: 9,
+    });
+    queryClient.setQueryData(platformKeys.types(), list([latest]));
+    expect(await screen.findByText('将删除“最新可删类型”。服务端会校验当前 revision 与平台引用。'))
+      .toBeInTheDocument();
+    expect(get).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole('button', { name: '确认删除' }));
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(
+      '/api/v1/platform-types/{platform_type_id}',
+      expect.objectContaining({ params: expect.objectContaining({ query: { expected_revision: 9 } }) }),
+    ));
+  });
+
+  it('最新 types query 移除目标后关闭删除 Dialog 且不提交', async () => {
+    const target = platformType({ name: '即将消失的类型' });
+    vi.spyOn(api, 'GET').mockResolvedValue(response(list([target])));
+    const remove = vi.spyOn(api, 'DELETE');
+    const { queryClient } = renderPlatformTypes();
+    const trigger = (await screen.findAllByRole('button', { name: '更多操作：即将消失的类型' }))[0]!;
+    await userEvent.click(trigger);
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除' }));
+    expect(await screen.findByRole('dialog', { name: '删除平台类型？' })).toBeInTheDocument();
+
+    queryClient.setQueryData(platformKeys.types(), list([]));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(trigger).not.toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
   });
 
   it('非管理员由既有 admin boundary 明确拒绝', async () => {

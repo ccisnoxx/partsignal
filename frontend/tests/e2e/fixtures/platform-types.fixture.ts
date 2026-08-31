@@ -18,6 +18,8 @@ type PlatformTypesApiController = {
   failNextList: () => void;
   requests: PlatformTypeRequest[];
   setEngineer: () => void;
+  removeType: (platformTypeId: string) => void;
+  setProjection: (platformTypeId: string, changes: Partial<PlatformType>) => void;
 };
 
 type PlatformTypeFixtures = { platformTypesApi: PlatformTypesApiController };
@@ -248,6 +250,12 @@ const test = base.extend<PlatformTypeFixtures>({
       },
       setEngineer: () => {
         engineer = true;
+      },
+      removeType: (platformTypeId) => { items = items.filter((item) => item.id !== platformTypeId); },
+      setProjection: (platformTypeId, changes) => {
+        const index = items.findIndex((item) => item.id === platformTypeId);
+        if (index < 0) throw new Error(`未知平台类型：${platformTypeId}`);
+        items[index] = { ...items[index]!, ...changes };
       },
     });
   }, { auto: true }],

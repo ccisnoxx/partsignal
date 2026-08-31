@@ -18,6 +18,7 @@ type PlatformWorkspaceApiController = {
     method: string;
     path: string;
   }>;
+  accountListRequests: string[];
   candidateRequests: string[];
   detailRequests: string[];
   uploadRequests: components['schemas']['UploadIntentCreate'][];
@@ -25,6 +26,9 @@ type PlatformWorkspaceApiController = {
   conflictNextUpdate: () => void;
   failNextDetail: (status: 403 | 404 | 500) => void;
   setReadOnly: (readOnly: boolean) => void;
+  setAccountProjection: (accountId: string, changes: Partial<components['schemas']['PlatformAccount']>) => void;
+  removeAccount: (accountId: string) => void;
+  conflictNextDelete: () => void;
 };
 
 type WorkspaceFixtures = { platformWorkspaceApi: PlatformWorkspaceApiController };
@@ -78,6 +82,8 @@ const test = base.extend<WorkspaceFixtures>({
     const uploadRequests: components['schemas']['UploadIntentCreate'][] = [];
     const updateRequests: WorkspaceUpdateRequest[] = [];
     const accountRequests: PlatformWorkspaceApiController['accountRequests'] = [];
+    const accountListRequests: string[] = [];
+    let nextDeleteConflict = false;
     const platformAccounts: components['schemas']['PlatformAccount'][] = [
       {
         platform_profile_id: profiles[0]!.id,
@@ -158,6 +164,7 @@ const test = base.extend<WorkspaceFixtures>({
 
       if (request.method() === 'GET' && url.pathname === '/api/v1/platform-accounts') {
         const platformId = url.searchParams.get('platform_profile_id')!;
+        accountListRequests.push(platformId);
         await route.fulfill({
           status: 200,
           json: {
@@ -227,6 +234,11 @@ const test = base.extend<WorkspaceFixtures>({
         if (request.method() === 'DELETE' && !accountMatch[2]) {
           const expectedRevision = Number(url.searchParams.get('expected_revision'));
           accountRequests.push({ method: 'DELETE', path: url.pathname, expectedRevision });
+          if (nextDeleteConflict) {
+            nextDeleteConflict = false;
+            await route.fulfill({ status: 409, json: { error: { code: 'REVISION_CONFLICT', message: '发布账号已被其他请求修改', details: {}, request_id: 'req-account-delete-conflict' } } });
+            return;
+          }
           platformAccounts.splice(index, 1);
           await route.fulfill({ status: 204, body: '' });
           return;
@@ -356,6 +368,7 @@ const test = base.extend<WorkspaceFixtures>({
 
     await use({
       accountRequests,
+      accountListRequests,
       candidateRequests,
       detailRequests,
       uploadRequests,
@@ -369,6 +382,19 @@ const test = base.extend<WorkspaceFixtures>({
         platformsApi.allowHttpError(status);
       },
       setReadOnly: (value) => { readOnly = value; },
+      setAccountProjection: (accountId, changes) => {
+        const index = platformAccounts.findIndex((account) => account.id === accountId);
+        if (index < 0) throw new Error(`未知发布账号：${accountId}`);
+        platformAccounts[index] = { ...platformAccounts[index]!, ...changes };
+      },
+      removeAccount: (accountId) => {
+        const index = platformAccounts.findIndex((account) => account.id === accountId);
+        if (index >= 0) platformAccounts.splice(index, 1);
+      },
+      conflictNextDelete: () => {
+        nextDeleteConflict = true;
+        platformsApi.allowHttpError(409);
+      },
     });
   }, { auto: true }],
 });

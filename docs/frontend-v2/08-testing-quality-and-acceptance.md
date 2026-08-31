@@ -259,17 +259,17 @@ Phase 2.8 的 `tests/e2e/product-facts-real-stack.spec.ts` 由 `deploy/scripts/e
 
 ### 13.12 Platform List 页面验收
 
-`tests/e2e/platform-list.spec.ts` 使用独立 generated-type `platforms.fixture.ts`，只允许认证、CSRF、PlatformProfile list 和服务端投影允许的 enable/disable/delete；未声明 API 与浏览器运行时错误在 teardown 失败。contract/backend tests 覆盖 readiness 优先级、可用账号聚合、筛选/分页/稳定排序、全局 summary/type options、ADMIN/ENGINEER 投影、固定查询次数、同态状态拒绝与 DELETE stale revision。model/component/production-artifact tests 覆盖 canonical URL、七列、三态与缺失值、loading/empty/error/stale/越界页、Primary/overflow/blocker/焦点/409、refresh/Back/Forward、canonical Workspace handoff，以及 375/768/1024/1440 页面根无横向溢出。该 fixture 不替代 Phase 6 后续完整真实栈 E2E。
+`tests/e2e/platform-list.spec.ts` 使用独立 generated-type `platforms.fixture.ts`，只允许认证、CSRF、PlatformProfile list 和服务端投影允许的 enable/disable/delete；未声明 API 与浏览器运行时错误在 teardown 失败。contract/backend tests 覆盖 readiness 优先级、可用账号聚合、筛选/分页/稳定排序、全局 summary/type options、ADMIN/ENGINEER 投影、固定查询次数、同态状态拒绝与 DELETE stale revision。model/component/production-artifact tests 覆盖 canonical URL、七列、三态与缺失值、loading/empty/error/stale/越界页、Primary/overflow、删除 Dialog 打开后的 focus projection ALLOWED↔BLOCKED、最新名称/revision、目标消失、409 freeze/reload/no replay、焦点、refresh/Back/Forward、canonical Workspace handoff，以及 375/768/1024/1440 页面根无横向溢出。该 fixture 不替代 Phase 6 后续完整真实栈 E2E。
 
 ### 13.13 Platform Workspace Core 验收
 
 `tests/e2e/platform-workspace.spec.ts` 在 Platform fixture 上叠加 generated-type Workspace fixture，只允许 actor-aware Detail、当前平台 Accounts、Prompt references、单次 Platform PATCH 和显式 Logo candidate；未声明 API、未声明非 2xx、page error 与 request failure 均在 teardown 失败。backend integration 固定 ADMIN/ENGINEER action 差异、404、同一 `REPEATABLE READ` 快照和 sparse/dense 查询次数；contract check 固定 Detail type options。
 
-model/component/production-artifact tests 覆盖 UUID 与唯一 Tab canonicalization、List handoff、direct/refresh/Back/Forward、Overview dirty/cancel/save、Slug 只读、Logo SVG 拒绝与 candidate 二次确认、Accounts 按需读取与创建/编辑/启停/删除/blocker、账号字段冲突与 revision reload、Prompt options/bind/unbind、403/404/error/retry、DirtyGuard、read-only projection、精确 cache invalidation，以及 375/768/1024/1440 页面根无横向溢出。后端 contract/integration 另证明角色投影、normalized unique 竞态、stale DELETE、PublicationWork blocker 与固定 query count；该 fixture 不替代 Phase 6 完整真实栈 E2E。
+model/component/production-artifact tests 覆盖 UUID 与唯一 Tab canonicalization、List handoff、direct/refresh/Back/Forward、Overview dirty/cancel/save、Slug 只读、Logo SVG 拒绝与 candidate 二次确认、Accounts 按需读取及 focus-always、创建/编辑/启停、删除 Dialog live projection、最新 revision request、目标消失、删除 409/request ID/no replay、reload error保持冻结、blocker、账号字段冲突、Prompt options/bind/unbind、403/404/error/retry、DirtyGuard、read-only projection、精确 cache invalidation，以及 375/768/1024/1440 页面根无横向溢出。后端 contract/integration 另证明角色投影、normalized unique 竞态、stale DELETE、PublicationWork blocker 与固定 query count；该 fixture 不替代 Phase 6 完整真实栈 E2E。
 
 ### 13.14 Platform Type Settings 验收
 
-`tests/e2e/platform-types.spec.ts` 在 Platform Workspace fixture 上叠加 generated-type Platform Type fixture，只新增 ADMIN/ENGINEER auth override 与 Platform Type CRUD 合同；未声明 API、未声明非 2xx、console error、page error 和 request failure 继续由基础 fixture teardown 失败。mobile/desktop 两个 project 覆盖从 Platform List/Workspace 进入、direct/refresh/Back/Forward、固定四列与权威数量、create/edit/delete、update/delete revision conflict、本地输入保留与显式 reload、PlatformProfile blocker 链接、ENGINEER route/server 403、error retry、焦点和 375/768/1024/1440 无根级横向溢出。
+`tests/e2e/platform-types.spec.ts` 在 Platform Workspace fixture 上叠加 generated-type Platform Type fixture，只新增 ADMIN/ENGINEER auth override 与 Platform Type CRUD 合同；未声明 API、未声明非 2xx、console error、page error 和 request failure 继续由基础 fixture teardown 失败。mobile/desktop 两个 project 覆盖从 Platform List/Workspace 进入、direct/refresh/Back/Forward、固定四列与权威数量、create/edit/delete、删除 Dialog focus projection与最新 revision、ALLOWED↔BLOCKED、目标消失、update/delete revision conflict、本地输入保留、reload failure/success、PlatformProfile blocker 链接、ENGINEER route/server 403、error retry、焦点和 375/768/1024/1440 无根级横向溢出。
 
 model/component tests 另覆盖 loading/empty/stale refresh、未知 action/primary/blocker、slug 字段错误、Dialog 焦点和只失效 Type list/Platform lists/Platform details；backend contract/PostgreSQL integration 覆盖 name/slug 边界、真实唯一约束、Enabled/Disabled count/blocker、稳定排序、stale DELETE 优先级、ADMIN 403 与 sparse/dense 固定两查询。本 fixture 不替代 Phase 6 完整 real-stack E2E。
 
@@ -351,9 +351,9 @@ model/component tests 另覆盖 loading/empty/stale refresh、未知 action/prim
 
 ### 13.26 System Users 页面验收
 
-`user-list.model.test.ts` 冻结显式 canonical URL、snake_case API 映射、Primary/overflow 去重及重复/未知/矛盾 projection 拒绝；`user-list-page.test.tsx` 覆盖单 GET UserList、统计、创建、reset 409、secret mutation 清理和 bulk partial。`system-users.spec.ts` 显式关闭 trace，并使用 generated-type `users.fixture.ts`；fixture 只记录 operation、CSRF、revision、状态与密码长度，不保留请求密码正文，未声明 API 返回 501，teardown 汇总未知 API、console、page 与 request failure。
+`user-list.model.test.ts` 冻结显式 canonical URL、snake_case API 映射、Primary/overflow 去重及重复/未知/矛盾 projection 拒绝；`user-list-page.test.tsx` 覆盖单 GET UserList、统计、创建、reset 409、secret mutation 清理、bulk partial，以及删除 Dialog 同 revision blocker/action更新、最新 revision、目标消失、任意删除 409、403 stale-data、reload failure/success与 no replay。`system-users.spec.ts` 显式关闭 trace，并使用 generated-type `users.fixture.ts`；fixture 只记录 operation、CSRF、revision、状态与密码长度，不保留请求密码正文，未声明 API 返回 501，teardown 汇总未知 API、console、page 与 request failure。
 
-production artifact 在两个 Playwright project 中覆盖 375/768/1024/1440 根无溢出、canonical direct/refresh/Back/Forward、筛选分页、固定列、summary、Primary/overflow/blocker、create/edit/reset 409、bulk revision/partial/selection scope、键盘菜单和 ENGINEER route boundary。后端 PostgreSQL integration 另冻结全部 Users endpoint 的 ADMIN/ENGINEER 权限、锁内 stale/no-op/session/audit 和稀疏/密集固定查询次数；fixture 不代替这些服务端合同。
+production artifact 在两个 Playwright project 中覆盖 375/768/1024/1440 根无溢出、canonical direct/refresh/Back/Forward、筛选分页、固定列、summary、Primary/overflow/blocker、create/edit/reset 409、删除 Dialog focus projection与最新 `expected_revision`、bulk revision/partial/selection scope、键盘菜单和 ENGINEER route boundary。后端 PostgreSQL integration 另冻结全部 Users endpoint 的 ADMIN/ENGINEER 权限、锁内 stale/no-op/session/audit 和稀疏/密集固定查询次数；fixture 不代替这些服务端合同。
 
 ### 13.27 System Audit 页面验收
 

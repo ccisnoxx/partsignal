@@ -182,6 +182,51 @@ test('Accounts 创建、编辑、停用与删除在响应式产物中保持 revi
   ]);
 });
 
+test('Accounts 删除 Dialog 只使用独立 accounts query 的 focus 最新 projection', async ({ page, platformWorkspaceApi }) => {
+  const accountId = '30000000-0000-4000-8000-000000000001';
+  await page.goto(`/settings/platforms/${platformId}?tab=accounts`);
+  await expect(page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 运营账号' })).toBeVisible();
+  const initialGets = platformWorkspaceApi.accountListRequests.length;
+  const row = page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 运营账号' }).first();
+  await row.getByRole('button', { name: '更多操作：Workspace 运营账号' }).click();
+  await page.getByRole('menuitem', { name: '删除账号' }).click();
+
+  platformWorkspaceApi.setAccountProjection(accountId, { label: 'Workspace 最新账号', revision: 19 });
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+  const dialog = page.getByRole('dialog', { name: '删除发布账号“Workspace 最新账号”？' });
+  await expect(dialog).toBeVisible();
+  await expect.poll(() => platformWorkspaceApi.accountListRequests.length).toBeGreaterThan(initialGets);
+  await dialog.getByRole('button', { name: '确认删除' }).click();
+  await expect.poll(() => platformWorkspaceApi.accountRequests.at(-1)?.expectedRevision).toBe(19);
+});
+
+test('Accounts 最新 query 移除目标后关闭删除 Dialog 且不提交陈旧请求', async ({ page, platformWorkspaceApi }) => {
+  const accountId = '30000000-0000-4000-8000-000000000001';
+  await page.goto(`/settings/platforms/${platformId}?tab=accounts`);
+  const row = page.locator('tr:visible, li:visible').filter({ hasText: 'Workspace 运营账号' }).first();
+  await row.getByRole('button', { name: '更多操作：Workspace 运营账号' }).click();
+  await page.getByRole('menuitem', { name: '删除账号' }).click();
+  await expect(page.getByRole('dialog', { name: '删除发布账号“Workspace 运营账号”？' })).toBeVisible();
+  const deleteCount = platformWorkspaceApi.accountRequests.filter((request) => request.method === 'DELETE').length;
+
+  platformWorkspaceApi.removeAccount(accountId);
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    window.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    window.dispatchEvent(new Event('visibilitychange'));
+  });
+
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(row).toHaveCount(0);
+  expect(platformWorkspaceApi.accountRequests.filter((request) => request.method === 'DELETE')).toHaveLength(deleteCount);
+});
+
 test('DirtyGuard 覆盖 Tab 离开；404/403/error retry 分别呈现', async ({
   page,
   platformWorkspaceApi,

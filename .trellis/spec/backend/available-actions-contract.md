@@ -272,6 +272,7 @@ DB     uq_platform_accounts_profile_identifier_normalized
 - 集合创建是页面动作，不新增 `CREATE` row token。ADMIN/ENGINEER 均可尝试创建；POST 锁定 Platform 后最终拒绝停用平台。
 - 两类角色均获得 UPDATE 与 ENABLE/DISABLE；仅 ADMIN 获得 `deletion` 与 DELETE。平台停用时 row 使用 `PLATFORM_DISABLED/HANDLE_PLATFORM`，既有账号编辑与启停仍按 actor 投影。
 - DELETE 按 Platform → Account 固定顺序持锁，先比较 revision，再统计非终态 PublicationWork；PublicationWork 创建使用同一锁序。终态历史只保留账号 snapshot，不阻断删除。
+- 前端删除 Dialog 只保存账号 ID；首次确认可直接使用当前活动 Accounts query cache 的最新 action/deletion/revision，但不得为确认自动 GET 再 DELETE。任意删除 409 后只有显式 reload 成功才能再次确认，被动 query 更新不得解冻或 replay。
 - normalized identifier 由 `lower(btrim(account_identifier))` 数据库约束权威保证；预检与约束竞态共用 `PLATFORM_ACCOUNT_IDENTIFIER_EXISTS`，`details.errors[].loc=["body","account_identifier"]`。
 
 ### 10.4 Validation & Error Matrix
@@ -287,7 +288,7 @@ DB     uq_platform_accounts_profile_identifier_normalized
 
 ### 10.5 Good / Base / Bad Cases
 
-- Good：ADMIN 使用 row revision 删除无非终态工作的账号；服务锁内复核后返回 204。
+- Good：ADMIN 打开删除 Dialog 后 Accounts query 被动更新，确认使用当前 cache projection revision；服务锁内复核后返回 204。
 - Base：ENGINEER 读取相同行并获得编辑/启停动作，但 `deletion=null` 且无 DELETE。
 - Bad：浏览器按 `isAdmin` 拼动作、先 GET 最新 revision 再 DELETE、把 revision 设为 optional，或解析数据库英文错误文本。
 
@@ -305,8 +306,10 @@ DB     uq_platform_accounts_profile_identifier_normalized
 await refetchAccount(account.id);
 await deleteAccount(account.id, latest.revision);
 
-// Correct：提交用户看到并确认的 canonical row revision；冲突后显式 reload。
-await deleteAccount(account.id, account.revision);
+// Correct：不发前置 GET；从当前 exact Accounts cache 解析，并在 409 后显式 reload。
+const current = queryClient.getQueryData<AccountList>(accountsKey)
+  ?.items.find((item) => item.id === intent.id);
+await deleteAccount({ id: current.id, expectedRevision: current.revision });
 ```
 
 ## 11. User 管理 revision、bulk 与安全投影
@@ -329,6 +332,7 @@ POST   /api/v1/users/bulk-status UserBulkStatusRequest(items[{user_id, expected_
 
 - UserList 是页面唯一 read model；summary 是不受筛选影响的全局计数，动作投影按当前 actor 生成。不得逐行查询或让前端按角色/状态补动作。
 - UPDATE 与 reset body、DELETE query 都必须携带当前 revision；服务端在既有锁内先拒绝 stale，再执行状态、引用、last-admin、session 与 audit 规则。
+- 前端 edit/reset/status/bulk 保留各自既有 revision baseline；删除 Dialog 只保存 User ID，并在首次确认从当前 exact UserList cache 读取 action/deletion/revision。确认前不得自动 GET；任意删除 409 后必须显式 reload 成功才解冻，focus/invalidation 更新只更新展示且不得 replay。
 - reset 成功返回安全 User projection，只保存密码哈希并撤销目标用户会话；stale reset 不改 hash/revision/session/audit。
 - bulk 只接受唯一 user_id，逐项锁定并要求真实状态变化；预期失败 code 固定为 `NOT_FOUND/REVISION_CONFLICT/LAST_ADMIN_REQUIRED/INVALID_STATE_TRANSITION`，意外错误回滚整个事务。
 - ADMIN 是所有用户管理 endpoint 的最终权限权威；ENGINEER 对 list/create/bulk/export/update/delete/reset 均为 403。
@@ -346,7 +350,7 @@ POST   /api/v1/users/bulk-status UserBulkStatusRequest(items[{user_id, expected_
 
 ### 11.5 Good / Base / Bad Cases
 
-- Good：前端提交用户确认时观测的 row revision；409 保留上下文并等待显式 reload。
+- Good：前端删除确认读取当前活动 UserList cache 的最新 projection revision；409 保留上下文并等待显式 reload。
 - Base：UserList 一次返回当前页、全局 summary、动作与 deletion projection，页面不请求 User Detail/Audit。
 - Bad：提交前自动拉最新 revision、按 `is_active/account_type` 补动作、把 bulk 同态项当成成功。
 
@@ -364,6 +368,9 @@ POST   /api/v1/users/bulk-status UserBulkStatusRequest(items[{user_id, expected_
 await refetchUsers();
 await resetPassword(user.id, password, latest.revision);
 
-// Correct：提交当前投影 revision，冲突后由用户显式 reload。
+// Correct：非删除草稿继续用自身 baseline；删除从 exact list cache 解析且不自动 GET。
 await resetPassword(user.id, password, user.revision);
+const current = queryClient.getQueryData<UserList>(usersKey)
+  ?.items.find((item) => item.id === deleteIntent.id);
+await deleteUser({ id: current.id, expectedRevision: current.revision });
 ```

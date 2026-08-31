@@ -10,6 +10,7 @@ import { routeTree } from '@/routeTree.gen';
 import { api } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/schema';
 import { createAuthenticatedTestQueryClient } from '@/test/auth-session';
+import { platformKeys } from './platform.api';
 
 type PlatformProfile = components['schemas']['PlatformProfile'];
 type PlatformProfileDetail = components['schemas']['PlatformProfileDetail'];
@@ -525,6 +526,154 @@ describe('PlatformWorkspacePage', () => {
     dialog = await screen.findByRole('dialog', { name: '删除发布账号“运营主账号”？' });
     await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
     await waitFor(() => expect(remove).toHaveBeenCalled());
+  });
+
+  it('Workspace Header 的平台删除仍先展示既有确认而不直接提交', async () => {
+    const deletable = profile({
+      is_active: false,
+      workflow_stage: 'DISABLED',
+      primary_task: 'ENABLE_PLATFORM',
+      available_actions: ['UPDATE', 'ENABLE', 'DELETE'],
+      deletion: { blockers: [] },
+      revision: 15,
+    });
+    vi.spyOn(api, 'GET').mockResolvedValue(response(workspaceDetail(deletable)));
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    renderWorkspace();
+
+    await userEvent.click(await screen.findByRole('button', { name: '更多操作：工程师社区' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: '删除平台' }));
+    const dialog = await screen.findByRole('dialog', { name: '确认删除平台“工程师社区”' });
+    expect(remove).not.toHaveBeenCalled();
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(
+      '/api/v1/platform-profiles/{platform_profile_id}',
+      expect.objectContaining({ params: expect.objectContaining({ query: { expected_revision: 15 } }) }),
+    ));
+  });
+
+  it('删除账号 Dialog 只从 exact accounts projection 读取最新标签与 revision', async () => {
+    const currentAccounts: components['schemas']['PlatformAccountList'] = structuredClone(accounts);
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/platform-profiles/{platform_profile_id}') return response(workspaceDetail());
+      if (path === '/api/v1/platform-accounts') return response(currentAccounts);
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    const remove = vi.spyOn(api, 'DELETE').mockResolvedValue({
+      response: new Response(null, { status: 204 }),
+    } as never);
+    const { queryClient } = renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`);
+    await screen.findAllByText('运营主账号');
+    await userEvent.click(screen.getAllByRole('button', { name: '更多操作：运营主账号' })[0]!);
+    await userEvent.click(within(await screen.findByRole('menu', { name: '更多操作：运营主账号' }))
+      .getByRole('menuitem', { name: '删除账号' }));
+
+    const blocked = {
+      ...currentAccounts.items[0]!,
+      label: '最新阻断账号',
+      available_actions: ['UPDATE', 'DISABLE'] as PlatformAccount['available_actions'],
+      deletion: { blockers: [{ type: 'PUBLICATION_WORK' as const, count: 1 }] },
+    };
+    queryClient.setQueryData(platformKeys.accounts(platformId), { items: [blocked] });
+    expect(await screen.findByRole('dialog', { name: '发布账号暂时不能删除' })).toHaveTextContent('最新阻断账号');
+    expect(screen.queryByRole('button', { name: '确认删除' })).not.toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
+
+    const latest = {
+      ...currentAccounts.items[0]!,
+      label: '最新运营账号',
+      revision: 12,
+    };
+    queryClient.setQueryData(platformKeys.accounts(platformId), { items: [latest] });
+    const dialog = await screen.findByRole('dialog', { name: '删除发布账号“最新运营账号”？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(
+      '/api/v1/platform-accounts/{platform_account_id}',
+      expect.objectContaining({ params: expect.objectContaining({ query: { expected_revision: 12 } }) }),
+    ));
+  });
+
+  it('账号删除 409 在被动投影更新和 reload 失败后保持冻结，仅成功 reload 后采用最新 revision', async () => {
+    let currentAccounts: components['schemas']['PlatformAccountList'] = structuredClone(accounts);
+    let failNextAccountsReload = false;
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/platform-profiles/{platform_profile_id}') return response(workspaceDetail());
+      if (path === '/api/v1/platform-accounts') {
+        if (failNextAccountsReload) {
+          failNextAccountsReload = false;
+          return {
+            error: { error: { code: 'ACCOUNTS_REFRESH_FAILED', message: '账号列表刷新失败', details: {}, request_id: 'req-accounts-reload-failed' } },
+            response: Response.json({}, { status: 500 }),
+          } as never;
+        }
+        return response(currentAccounts);
+      }
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    const remove = vi.spyOn(api, 'DELETE')
+      .mockResolvedValueOnce({
+        error: { error: { code: 'PLATFORM_ACCOUNT_IN_USE', message: '发布账号仍被使用', details: {}, request_id: 'req-account-delete-conflict' } },
+        response: Response.json({}, { status: 409 }),
+      } as never)
+      .mockResolvedValueOnce({ response: new Response(null, { status: 204 }) } as never);
+    const { queryClient } = renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`);
+    await screen.findAllByText('运营主账号');
+    await userEvent.click(screen.getAllByRole('button', { name: '更多操作：运营主账号' })[0]!);
+    await userEvent.click(within(await screen.findByRole('menu', { name: '更多操作：运营主账号' }))
+      .getByRole('menuitem', { name: '删除账号' }));
+    const dialog = await screen.findByRole('dialog', { name: '删除发布账号“运营主账号”？' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('请求 ID：req-account-delete-conflict');
+    expect(remove).toHaveBeenCalledOnce();
+    currentAccounts = {
+      items: [
+        { ...currentAccounts.items[0]!, label: '被动更新账号', revision: 20 },
+        ...currentAccounts.items.slice(1),
+      ],
+    };
+    queryClient.setQueryData(platformKeys.accounts(platformId), currentAccounts);
+    expect(await screen.findByRole('dialog', { name: '删除发布账号“被动更新账号”？' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeDisabled();
+
+    failNextAccountsReload = true;
+    await userEvent.click(within(dialog).getByRole('button', { name: '重新加载当前账号列表' }));
+    expect(await within(dialog).findByText(/请求 ID：req-accounts-reload-failed/)).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeDisabled();
+    expect(remove).toHaveBeenCalledOnce();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: '重新加载当前账号列表' }));
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: '确认删除' })).toBeEnabled());
+    await userEvent.click(within(dialog).getByRole('button', { name: '确认删除' }));
+    await waitFor(() => expect(remove).toHaveBeenLastCalledWith(
+      '/api/v1/platform-accounts/{platform_account_id}',
+      expect.objectContaining({ params: expect.objectContaining({ query: { expected_revision: 20 } }) }),
+    ));
+  });
+
+  it('最新 accounts query 移除目标后关闭删除 Dialog 且不提交', async () => {
+    const currentAccounts: components['schemas']['PlatformAccountList'] = structuredClone(accounts);
+    vi.spyOn(api, 'GET').mockImplementation(async (path) => {
+      if (path === '/api/v1/platform-profiles/{platform_profile_id}') return response(workspaceDetail());
+      if (path === '/api/v1/platform-accounts') return response(currentAccounts);
+      throw new Error(`测试收到未声明 GET：${path}`);
+    });
+    const remove = vi.spyOn(api, 'DELETE');
+    const { queryClient } = renderWorkspace(`/settings/platforms/${platformId}?tab=accounts`);
+    await screen.findAllByText('运营主账号');
+    const trigger = screen.getAllByRole('button', { name: '更多操作：运营主账号' })[0]!;
+    await userEvent.click(trigger);
+    await userEvent.click(within(await screen.findByRole('menu', { name: '更多操作：运营主账号' }))
+      .getByRole('menuitem', { name: '删除账号' }));
+    expect(await screen.findByRole('dialog', { name: '删除发布账号“运营主账号”？' })).toBeInTheDocument();
+
+    queryClient.setQueryData(platformKeys.accounts(platformId), { items: [] });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(trigger).not.toBeInTheDocument();
+    expect(remove).not.toHaveBeenCalled();
   });
 
   it('账号字段冲突与 revision conflict 保留输入，显式 reload 后才接受 canonical', async () => {

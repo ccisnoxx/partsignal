@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/available-actions-contract.md", "reason": "复核命令重算、幂等和无副作用合同"}
+{"file": ".trellis/spec/backend/quality-guidelines.md", "reason": "复核测试与质量门禁"}
+{"file": ".trellis/spec/backend/error-handling.md", "reason": "复核错误码和失败路径保持"}
+{"file": ".trellis/tasks/08-31-geo-optimization-source-serialization/research/concurrency-and-lock-audit.md", "reason": "对照根因证据审查实现是否真正关闭窗口"}

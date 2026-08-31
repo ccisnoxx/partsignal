@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 from app.errors import AppError
 from app.models.content import ContentTask, ContentTaskGeoSource
 from app.models.identity import User
-from app.models.product_facts import FactVersion
 from app.models.publication import PublicationWork, PublishedArticle
 from app.schemas.geo_files import (
     GeoInsightCoverageCounts,
@@ -255,19 +254,25 @@ def test_geo_optimization_recomputes_and_freezes_authoritative_source(
                 platform_profile_id_snapshot=platform_id,
             ),
             ContentTask: source_task,
-            FactVersion: SimpleNamespace(
-                id=fact_id,
-                product_id=product_id,
-                status="APPROVED",
-            ),
         }
     )
     created_task = SimpleNamespace(id=task_id)
-    monkeypatch.setattr(geo_observation, "get_geo_insights", lambda *_args, **_kwargs: insights)
+    call_order: list[str] = []
+
+    def lock_resources(*_args: object, **_kwargs: object) -> object:
+        call_order.append("lock")
+        return SimpleNamespace(id=platform_id)
+
+    def current_insights(*_args: object, **_kwargs: object) -> object:
+        call_order.append("insights")
+        return insights
+
+    monkeypatch.setattr(geo_observation, "lock_content_task_creation_resources", lock_resources)
+    monkeypatch.setattr(geo_observation, "get_geo_insights", current_insights)
     monkeypatch.setattr(
         geo_observation,
-        "create_content_task",
-        lambda **_kwargs: created_task,
+        "add_locked_content_task",
+        lambda **_kwargs: call_order.append("add") or created_task,
     )
 
     result = create_geo_optimization_content_task(
@@ -291,6 +296,7 @@ def test_geo_optimization_recomputes_and_freezes_authoritative_source(
     assert source.content_task_id == task_id
     assert source.basis_snapshot["rule_code"] == "CONTENT_DECLINE"
     assert source.basis_snapshot["item"]["published_article_id"] == str(article_id)
+    assert call_order == ["lock", "insights", "add"]
     assert session.executed
     assert session.committed
 
@@ -299,13 +305,25 @@ def test_geo_optimization_rejects_stale_client_anomaly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """复算后不再可见的异常必须显式失败，不接受客户端指标兜底。"""
+    call_order: list[str] = []
+    monkeypatch.setattr(
+        geo_observation,
+        "lock_content_task_creation_resources",
+        lambda *_args, **_kwargs: call_order.append("lock") or SimpleNamespace(),
+    )
     monkeypatch.setattr(
         geo_observation,
         "get_geo_insights",
-        lambda *_args, **_kwargs: SimpleNamespace(
+        lambda *_args, **_kwargs: call_order.append("insights")
+        or SimpleNamespace(
             content_rankings=SimpleNamespace(declining=[], long_unmentioned=[]),
             question_coverage=SimpleNamespace(matrix=[]),
         ),
+    )
+    monkeypatch.setattr(
+        geo_observation,
+        "add_locked_content_task",
+        lambda **_kwargs: pytest.fail("stale 异常不得创建内容任务"),
     )
     session = _GeoCommandSession({})
     with pytest.raises(AppError) as captured:
@@ -329,9 +347,57 @@ def test_geo_optimization_rejects_stale_client_anomaly(
         )
 
     assert captured.value.code == "GEO_INSIGHT_STALE"
+    assert call_order == ["lock", "insights"]
+    assert session.added == []
+    assert not session.committed
 
 
-def test_geo_optimization_idempotency_compares_target_and_source() -> None:
+def test_geo_optimization_preserves_fact_product_mismatch_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """共享锁 owner 不得改变 GEO 端点既有的事实归属错误合同。"""
+
+    def reject_mismatched_fact(*_args: object, **_kwargs: object) -> object:
+        raise geo_observation.ContentTaskFactProductMismatch
+
+    monkeypatch.setattr(
+        geo_observation,
+        "lock_content_task_creation_resources",
+        reject_mismatched_fact,
+    )
+    monkeypatch.setattr(
+        geo_observation,
+        "get_geo_insights",
+        lambda *_args, **_kwargs: pytest.fail("目标资格失败后不得复算 GEO 洞察"),
+    )
+    session = _GeoCommandSession({})
+
+    with pytest.raises(AppError) as captured:
+        create_geo_optimization_content_task(
+            db=cast(Session, session),
+            payload=GeoOptimizationContentTaskCreate(
+                rule_code="CONTENT_DECLINE",
+                date_from=date(2026, 7, 1),
+                date_to=date(2026, 7, 31),
+                published_article_id=uuid.uuid4(),
+                product_id=uuid.uuid4(),
+                platform_profile_id=uuid.uuid4(),
+                fact_version_id=uuid.uuid4(),
+            ),
+            actor=cast(User, SimpleNamespace(id=uuid.uuid4(), account_type="ENGINEER")),
+            request_id="geo-fact-product-mismatch",
+            idempotency_key="geo-fact-product-mismatch-key",
+        )
+
+    assert captured.value.code == "FACT_NOT_APPROVED"
+    assert captured.value.status_code == 409
+    assert session.added == []
+    assert not session.committed
+
+
+def test_geo_optimization_idempotency_compares_target_and_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """同一键只有完整目标与不可变来源都一致时才允许重放。"""
     product_id, platform_id, fact_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     article_id = uuid.uuid4()
@@ -362,27 +428,101 @@ def test_geo_optimization_idempotency_compares_target_and_source() -> None:
         "platform_profile_id": platform_id,
         "fact_version_id": fact_id,
     }
+    monkeypatch.setattr(
+        geo_observation,
+        "lock_content_task_creation_resources",
+        lambda *_args, **_kwargs: pytest.fail("重放与冲突不得进入目标资源锁域"),
+    )
+    monkeypatch.setattr(
+        geo_observation,
+        "get_geo_insights",
+        lambda *_args, **_kwargs: pytest.fail("重放与冲突不得重新计算 GEO 洞察"),
+    )
 
+    content_payload = GeoOptimizationContentTaskCreate(**base)
     replay = create_geo_optimization_content_task(
         db=cast(Session, session),
-        payload=GeoOptimizationContentTaskCreate(**base),
+        payload=content_payload,
         actor=cast(User, SimpleNamespace(id=uuid.uuid4(), account_type="ENGINEER")),
         request_id="geo-replay",
         idempotency_key="geo-replay-key",
     )
     assert replay is existing
 
-    with pytest.raises(AppError) as captured:
-        create_geo_optimization_content_task(
-            db=cast(Session, session),
-            payload=GeoOptimizationContentTaskCreate(
-                **{**base, "fact_version_id": uuid.uuid4()}
-            ),
-            actor=cast(User, SimpleNamespace(id=uuid.uuid4(), account_type="ENGINEER")),
-            request_id="geo-replay-conflict",
-            idempotency_key="geo-replay-key",
-        )
-    assert captured.value.code == "IDEMPOTENCY_CONFLICT"
+    topic_id = uuid.uuid4()
+    coverage_source = SimpleNamespace(
+        rule_code="QUESTION_COVERAGE_GAP",
+        date_from=date(2026, 7, 1),
+        date_to=date(2026, 7, 31),
+        published_article_id=None,
+        query_topic_id=topic_id,
+        geo_platform="Perplexity",
+    )
+    coverage_payload = GeoOptimizationContentTaskCreate(
+        rule_code="QUESTION_COVERAGE_GAP",
+        date_from=date(2026, 7, 1),
+        date_to=date(2026, 7, 31),
+        query_topic_id=topic_id,
+        geo_platform="Perplexity",
+        product_id=product_id,
+        platform_profile_id=platform_id,
+        fact_version_id=fact_id,
+    )
+    conflicts = [
+        ("product_id", source, content_payload.model_copy(update={"product_id": uuid.uuid4()})),
+        (
+            "platform_profile_id",
+            source,
+            content_payload.model_copy(update={"platform_profile_id": uuid.uuid4()}),
+        ),
+        (
+            "fact_version_id",
+            source,
+            content_payload.model_copy(update={"fact_version_id": uuid.uuid4()}),
+        ),
+        (
+            "rule_code",
+            source,
+            content_payload.model_copy(update={"rule_code": "LONG_UNMENTIONED"}),
+        ),
+        (
+            "date_from",
+            source,
+            content_payload.model_copy(update={"date_from": date(2026, 7, 2)}),
+        ),
+        (
+            "date_to",
+            source,
+            content_payload.model_copy(update={"date_to": date(2026, 7, 30)}),
+        ),
+        (
+            "published_article_id",
+            source,
+            content_payload.model_copy(update={"published_article_id": uuid.uuid4()}),
+        ),
+        (
+            "query_topic_id",
+            coverage_source,
+            coverage_payload.model_copy(update={"query_topic_id": uuid.uuid4()}),
+        ),
+        (
+            "geo_platform",
+            coverage_source,
+            coverage_payload.model_copy(update={"geo_platform": "DeepSeek"}),
+        ),
+    ]
+
+    for field, current_source, conflicting_payload in conflicts:
+        session.rows[ContentTaskGeoSource] = current_source
+        with pytest.raises(AppError) as captured:
+            create_geo_optimization_content_task(
+                db=cast(Session, session),
+                payload=conflicting_payload,
+                actor=cast(User, SimpleNamespace(id=uuid.uuid4(), account_type="ENGINEER")),
+                request_id=f"geo-replay-conflict-{field}",
+                idempotency_key="geo-replay-key",
+            )
+        assert captured.value.code == "IDEMPOTENCY_CONFLICT", field
 
 
 def test_coverage_optimization_recomputes_with_selected_target(
@@ -423,6 +563,7 @@ def test_coverage_optimization_recomputes_with_selected_target(
         filters: GeoInsightFilters,
         actor: User,
     ) -> object:
+        call_order.append("insights")
         captured_filters.append(filters)
         assert actor is not None
         return SimpleNamespace(
@@ -431,17 +572,20 @@ def test_coverage_optimization_recomputes_with_selected_target(
         )
 
     created = SimpleNamespace(id=uuid.uuid4())
-    monkeypatch.setattr(geo_observation, "get_geo_insights", current_insights)
-    monkeypatch.setattr(geo_observation, "create_content_task", lambda **_kwargs: created)
-    session = _GeoCommandSession(
-        {
-            FactVersion: SimpleNamespace(
-                id=fact_id,
-                product_id=product_id,
-                status="APPROVED",
-            )
-        }
+    call_order: list[str] = []
+    monkeypatch.setattr(
+        geo_observation,
+        "lock_content_task_creation_resources",
+        lambda *_args, **_kwargs: call_order.append("lock")
+        or SimpleNamespace(id=platform_id),
     )
+    monkeypatch.setattr(geo_observation, "get_geo_insights", current_insights)
+    monkeypatch.setattr(
+        geo_observation,
+        "add_locked_content_task",
+        lambda **_kwargs: call_order.append("add") or created,
+    )
+    session = _GeoCommandSession({})
 
     result = create_geo_optimization_content_task(
         db=cast(Session, session),
@@ -461,6 +605,7 @@ def test_coverage_optimization_recomputes_with_selected_target(
     )
 
     assert result is created
+    assert call_order == ["lock", "insights", "add"]
     assert captured_filters == [
         GeoInsightFilters(
             date_from=date(2026, 7, 1),

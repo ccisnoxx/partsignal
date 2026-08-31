@@ -38,6 +38,10 @@ _QUERY_TOPIC_BLOCKERS = (
 )
 
 
+class ContentTaskFactProductMismatch(Exception):
+    """目标事实版本不属于内容任务产品。"""
+
+
 def _query_topic_reference_counts(
     db: Session, topic_ids: list[uuid.UUID]
 ) -> dict[tuple[uuid.UUID, str], int]:
@@ -342,6 +346,61 @@ def create_platform_profile(
     return profile
 
 
+def lock_content_task_creation_resources(
+    db: Session,
+    payload: ContentTaskCreate,
+) -> PlatformProfile:
+    """按统一顺序锁定并校验内容任务的三个权威目标资源。"""
+    profile = lock_active_platform(db, payload.platform_profile_id)
+    product = db.scalar(
+        select(Product)
+        .where(Product.id == payload.product_id)
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+    if product is None or product.status != "ACTIVE":
+        raise AppError("FACT_NOT_APPROVED", "已停用产品不能创建新任务", 409)
+    fact_version = db.scalar(
+        select(FactVersion)
+        .where(FactVersion.id == payload.fact_version_id)
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+    if (
+        fact_version is None
+        or fact_version.status != "APPROVED"
+        or not fact_version.body_markdown.strip()
+    ):
+        raise AppError("FACT_NOT_APPROVED", "内容任务只能绑定非空的已批准事实版本", 409)
+    if fact_version.product_id != payload.product_id:
+        raise ContentTaskFactProductMismatch
+    return profile
+
+
+def add_locked_content_task(
+    *,
+    db: Session,
+    payload: ContentTaskCreate,
+    profile: PlatformProfile,
+    actor: User,
+    idempotency_key: str,
+) -> ContentTask:
+    """在调用方持有目标资源锁时构造并 flush 内容任务。"""
+    task = ContentTask(
+        product_id=payload.product_id,
+        fact_version_id=payload.fact_version_id,
+        platform_profile_id=profile.id,
+        platform_profile_name_snapshot=profile.name,
+        platform_website_url_snapshot=profile.website_url,
+        query_topic_id=None,
+        idempotency_key=idempotency_key,
+        created_by=actor.id,
+    )
+    db.add(task)
+    db.flush()
+    return task
+
+
 def create_content_task(
     *,
     db: Session,
@@ -368,33 +427,17 @@ def create_content_task(
             raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一内容任务创建请求", 409)
         return existing
 
-    profile = lock_active_platform(db, payload.platform_profile_id)
-    product = db.scalar(select(Product).where(Product.id == payload.product_id).with_for_update())
-    if product is None or product.status != "ACTIVE":
-        raise AppError("FACT_NOT_APPROVED", "已停用产品不能创建新任务", 409)
-    fact_version = db.scalar(
-        select(FactVersion).where(FactVersion.id == payload.fact_version_id).with_for_update()
-    )
-    if (
-        fact_version is None
-        or fact_version.status != "APPROVED"
-        or not fact_version.body_markdown.strip()
-    ):
-        raise AppError("FACT_NOT_APPROVED", "内容任务只能绑定非空的已批准事实版本", 409)
-    if fact_version.product_id != payload.product_id:
-        raise AppError("VALIDATION_ERROR", "事实版本不属于所选产品", 422)
-    task = ContentTask(
-        product_id=payload.product_id,
-        fact_version_id=payload.fact_version_id,
-        platform_profile_id=profile.id,
-        platform_profile_name_snapshot=profile.name,
-        platform_website_url_snapshot=profile.website_url,
-        query_topic_id=None,
+    try:
+        profile = lock_content_task_creation_resources(db, payload)
+    except ContentTaskFactProductMismatch as error:
+        raise AppError("VALIDATION_ERROR", "事实版本不属于所选产品", 422) from error
+    task = add_locked_content_task(
+        db=db,
+        payload=payload,
+        profile=profile,
+        actor=actor,
         idempotency_key=idempotency_key,
-        created_by=actor.id,
     )
-    db.add(task)
-    db.flush()
     if commit:
         db.commit()
     return task

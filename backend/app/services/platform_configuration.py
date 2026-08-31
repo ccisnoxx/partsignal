@@ -328,7 +328,10 @@ def get_platform_profile_detail(
 def lock_active_platform(db: Session, platform_profile_id: uuid.UUID) -> PlatformProfile:
     """锁定新建业务使用的平台，并以稳定错误拒绝停用状态。"""
     profile = db.scalar(
-        select(PlatformProfile).where(PlatformProfile.id == platform_profile_id).with_for_update()
+        select(PlatformProfile)
+        .where(PlatformProfile.id == platform_profile_id)
+        .execution_options(populate_existing=True)
+        .with_for_update()
     )
     if profile is None:
         raise not_found("平台配置")

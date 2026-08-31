@@ -196,6 +196,7 @@ DB: publication_works.platform_profile_id_snapshot UUID NULL, no foreign key
 - action 只携带 rule、period 和互斥来源身份：内容规则只带 Article；Coverage 规则只带 Topic+GEO Platform。前端不得按数组、status、rate 或 Recommendation 重构。
 - GET 使用一次 `REPEATABLE READ`；Published Article 的 Content Platform ID/name 读取 PublicationWork 冻结快照，不依赖可删除实时平台。
 - 相同 key 必须先取得 `content-task-create:{key}` advisory transaction lock，再比较完整 target 与 immutable source；相同 payload 返回原任务，不同 payload 冲突。Coverage 复算必须包含所选 Product 与 Content Platform。
+- replay miss 必须复用 Content Task 唯一的 `PlatformProfile → Product → FactVersion` 行锁 owner，锁查询强制刷新 identity map；取得 Product 锁后才可调用 `get_geo_insights`，并持锁到 ContentTask、`ContentTaskGeoSource` 与 typed basis 一次提交或回滚。人工 GEO 观测变更复用同一 Product 串行化点；不得先复算后加锁、单独增加 Product-first 锁协议或用提高 endpoint 隔离级别代替正确锁时点。
 
 ### 9.4 Validation & Error Matrix
 
@@ -205,6 +206,8 @@ DB: publication_works.platform_profile_id_snapshot UUID NULL, no foreign key
 | Coverage action 缺 Topic/平台或携带 Article | response schema 或请求 schema 拒绝 |
 | actor 不是 ADMIN/ENGINEER | action 为 `null`，保留查看/补样本任务 |
 | 读后异常、Article 或 Coverage 变化 | `409 GEO_INSIGHT_STALE`，不创建、不自动 replay |
+| 并发观测更正在 Product 锁内改变异常 | 优化命令先等待；锁后按已提交链尾复算，异常消失则 `409 GEO_INSIGHT_STALE`，task/source/audit 零新增 |
+| 并发停用 Platform/Product 或退役 FactVersion | 等待对应行锁并强制刷新，按既有资源错误失败，task/source/audit 零新增 |
 | 同 key、完整 source+target 相同 | 返回原 Content Task |
 | 同 key、任一 source/target 不同 | `409 IDEMPOTENCY_CONFLICT` |
 | PublishedArticle 无法回填平台 UUID | 0043 upgrade 以 PostgreSQL `55000` 原子失败 |
@@ -212,14 +215,14 @@ DB: publication_works.platform_profile_id_snapshot UUID NULL, no foreign key
 
 ### 9.5 Good / Base / Bad Cases
 
-- Good：ADMIN 读取 Declining row 得到可直接合并三项 target 的 action；命令按同一周期、Article、Product/Platform 复算后原子创建任务与 GEO source。
+- Good：ADMIN 读取 Declining row 得到可直接合并三项 target 的 action；命令先按统一锁序锁定目标，再按同一周期、Article、Product/Platform 复算并原子创建任务与 GEO source。
 - Base：Viewer 读取相同行只得到 `VIEW_CONTENT_PERFORMANCE`；Coverage 样本不足只得到 `ADD_OBSERVATION`。
-- Bad：前端按 `status === "UNCOVERED"` 构造 rule，或命令只比较 GEO source、不比较 Product/Platform/Fact。
+- Bad：前端按 `status === "UNCOVERED"` 构造 rule，命令只比较 GEO source、不比较 Product/Platform/Fact，或在默认 `READ COMMITTED` 下先复算 basis、后等待 Product 锁。
 
 ### 9.6 Tests Required
 
 - Contract/unit：required nullable action、primary/action 一致性、互斥来源、401/403/409/422。
-- PostgreSQL integration：repeatable-read、平台删除后 frozen UUID 精确筛选、Coverage target 复算、同 key 两线程唯一和异 payload 冲突。
+- PostgreSQL integration：repeatable-read、平台删除后 frozen UUID 精确筛选、Coverage target 复算、同 key 两线程唯一和异 payload 冲突；用两个真实 Session 与 `pg_blocking_pids` 确认优化事务正在等待指定 Product/目标资源锁后才释放变更事务，不得用 sleep 猜时序，并断言 stale/invalid/source 写失败后 task、source、audit 零新增。
 - Migration：backfill、insert/update guard、删除实时平台后保留、预检回滚与 downgrade 拒绝。
 - Frontend generated-type fixture：只对 non-null action 开 Dialog，精确 body/header、409 不 replay、响应 ID 导航。
 
@@ -232,6 +235,19 @@ const canOptimize = row.status === 'UNCOVERED' && user.account_type === 'ADMIN';
 // Correct：只消费服务端 source；POST 仍会最终复算。
 const action = row.optimization_action;
 const canOptimize = row.primary_task === 'CREATE_OPTIMIZATION_TASK' && action !== null;
+```
+
+```python
+# Wrong：READ COMMITTED 下先复算、后加锁，会冻结已过期 basis。
+insights = get_geo_insights(db, filters=filters, actor=actor)
+profile = lock_content_task_creation_resources(db, target)
+
+# Correct：统一锁 owner 先取得 Platform → Product → Fact，再在 Product 锁内复算和提交。
+profile = lock_content_task_creation_resources(db, target)
+insights = get_geo_insights(db, filters=filters, actor=actor)
+task = add_locked_content_task(db=db, payload=target, profile=profile, actor=actor, ...)
+db.add(ContentTaskGeoSource(content_task_id=task.id, basis_snapshot=...))
+db.commit()
 ```
 
 ## 10. Platform Account actor projection 与 revision 删除

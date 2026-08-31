@@ -26,7 +26,7 @@ from app.models.geo_files import (
     GeoObservationPublication,
 )
 from app.models.identity import User
-from app.models.product_facts import FactVersion, Product
+from app.models.product_facts import Product
 from app.models.publication import PublicationWork, PublishedArticle, PublishedContentIssue
 from app.schemas import geo_files as geo_schema
 from app.schemas.common import SignedUrl
@@ -67,7 +67,11 @@ from app.schemas.geo_files import (
     ManualGeoObservationOut,
 )
 from app.schemas.publication import FileRecordOut
-from app.services.content_planning import create_content_task
+from app.services.content_planning import (
+    ContentTaskFactProductMismatch,
+    add_locked_content_task,
+    lock_content_task_creation_resources,
+)
 from app.services.file_records import schedule_unreferenced_file, verified_files
 from app.services.storage import get_evidence_storage
 
@@ -2227,6 +2231,19 @@ def create_geo_optimization_content_task(
             raise AppError("IDEMPOTENCY_CONFLICT", "幂等键已用于另一内容任务创建请求", 409)
         return existing
 
+    target = ContentTaskCreate(
+        product_id=payload.product_id,
+        fact_version_id=payload.fact_version_id,
+        platform_profile_id=payload.platform_profile_id,
+    )
+    try:
+        profile = lock_content_task_creation_resources(db, target)
+    except ContentTaskFactProductMismatch as error:
+        raise AppError(
+            "FACT_NOT_APPROVED",
+            "优化任务必须选择该产品的已批准事实版本",
+            409,
+        ) from error
     filters = GeoInsightFilters(
         date_from=payload.date_from,
         date_to=payload.date_to,
@@ -2293,21 +2310,12 @@ def create_geo_optimization_content_task(
         ):
             raise AppError("VALIDATION_ERROR", "优化任务的产品或内容平台与来源成果不一致", 422)
 
-    fact = db.get(FactVersion, payload.fact_version_id)
-    if fact is None or fact.product_id != payload.product_id or fact.status != "APPROVED":
-        raise AppError("FACT_NOT_APPROVED", "优化任务必须选择该产品的已批准事实版本", 409)
-
-    task = create_content_task(
+    task = add_locked_content_task(
         db=db,
-        payload=ContentTaskCreate(
-            product_id=payload.product_id,
-            fact_version_id=payload.fact_version_id,
-            platform_profile_id=payload.platform_profile_id,
-        ),
+        payload=target,
+        profile=profile,
         actor=actor,
-        request_id=request_id,
         idempotency_key=idempotency_key,
-        commit=False,
     )
     db.add(
         ContentTaskGeoSource(

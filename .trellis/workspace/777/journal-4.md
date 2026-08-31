@@ -262,3 +262,33 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 189: GEO 优化来源串行化
+
+**Date**: 2026-08-31
+**Task**: GEO 优化来源串行化
+**Branch**: `main`
+
+### Summary
+
+在统一 PlatformProfile → Product → FactVersion 锁域内复算并原子冻结 GEO source/basis，消除默认 READ COMMITTED 下的 stale basis 并发窗口。
+
+### Main Changes
+
+- 提取 ContentTask 唯一目标资源锁 owner，并保留普通与 GEO endpoint 的既有错误合同。
+- GEO replay miss 改为先锁、后复算、再原子写入 task/source；同步稳定 Trellis 规范。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `15250902e5e2a8dd2d8eefea3e59da0ce719d006` | (see git log) |
+
+### Testing
+
+- [OK] GEO unit 8 passed；真实 PostgreSQL integration 10 passed；Ruff、Mypy、contract-check、Trellis validate 与 diff check 通过。
+
+### Status
+
+[OK] **Completed**

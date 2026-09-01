@@ -1,0 +1,4 @@
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Frontend 定向测试、类型、production artifact 与验收门禁。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Backend 定向质量门禁与PostgreSQL集成要求。"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"复核首个P0 Task的换版后核验不变量。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"复核错误码、request_id与非2xx合同。"}

@@ -1,0 +1,6 @@
+{"file":".trellis/spec/frontend/index.md","reason":"Frontend V2 实施入口与稳定规范索引。"}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"删除阻断、readonly surface、错误态与焦点行为。"}
+{"file":".trellis/spec/backend/index.md","reason":"后端实施入口与稳定规范索引。"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"发布换版、重新登记、核验与不可变历史不变量。"}
+{"file":".trellis/spec/backend/available-actions-contract.md","reason":"服务端 action projection、GEO optimization 和权限最终权威。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"稳定业务错误、IntegrityError 与非2xx合同要求。"}

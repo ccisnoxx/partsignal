@@ -1,0 +1,7 @@
+- main [ref=f8e3]:
+  - generic [ref=f8e4]:
+    - generic [ref=f8e5]:
+      - paragraph [ref=f8e6]: PartSignal
+      - heading "正在验证登录状态" [level=1] [ref=f8e7]
+      - paragraph [ref=f8e8]: 正在确认当前浏览器会话。
+    - generic "正在验证登录状态" [ref=f8e9]

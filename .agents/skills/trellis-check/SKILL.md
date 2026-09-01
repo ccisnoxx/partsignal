@@ -38,7 +38,7 @@ Read the specific guideline files referenced — the index is a pointer, not the
 
 ## Step 3: Run Project Checks
 
-Run the project's lint, type-check, and test commands. Fix any failures before proceeding.
+Run the smallest changed-scope lint, type-check, and test commands that can prove the requested behavior. Use a full-scope command only for the final gate or when the verified risk requires it. A failure enters the bounded repair budget in Step 6; it does not authorize repeated reruns.
 
 ## Step 4: Review Against Checklist
 
@@ -105,7 +105,9 @@ Skip this step if your change is confined to a single layer.
 
 Report every violation you find. Then:
 
-- Mechanical and local (lint nit, missing type, wrong import, dead branch, failing assertion) → fix in place, then re-run project checks.
+- Mechanical and local (lint nit, missing type, wrong import, dead branch, failing assertion) → make at most one repair pass, then run one targeted re-check of affected paths.
 - Design or judgment (naming a shared concept, moving a module boundary, changing a public interface, reassigning where behavior lives) → record the evidence and your recommendation, and stop. Do not rewrite it silently.
 
 If a fix would touch files outside the current task's scope, say so and stop instead of widening the change.
+
+If the targeted re-check still fails, the same root cause recurs, or a new material issue class appears, report the evidence, attempted fix, and current state, then stop. Do not start a second repair pass or loop until green. Run a final full-scope gate once only after targeted checks pass; after a full-scope failure, do not rerun that gate in the same turn without user direction.

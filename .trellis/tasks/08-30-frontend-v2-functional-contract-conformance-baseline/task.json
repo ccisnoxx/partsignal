@@ -1,0 +1,33 @@
+{
+  "id": "frontend-v2-functional-contract-conformance-baseline",
+  "name": "frontend-v2-functional-contract-conformance-baseline",
+  "title": "Frontend V2 功能合同一致性基线",
+  "description": "只读审计 Frontend V2 37 条 canonical 路由、业务流程、状态模型、服务端最终权威、OpenAPI/generated client 与测试覆盖，输出 conformance matrix 和独立后续 Task 依赖，不实施修复。",
+  "status": "planning",
+  "dev_type": null,
+  "scope": "cross-stack-audit",
+  "package": "frontend-v2",
+  "priority": "P0",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-08-30",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "08-31-query-topic-list-page-size-http-parsing-blocker",
+    "08-31-geo-optimization-source-serialization",
+    "08-31-content-editor-command-conflict-recovery",
+    "08-31-fresh-deletion-projection-dialogs",
+    "08-31-audit-list-projection-failure-isolation",
+    "08-31-non-2xx-contract-check"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

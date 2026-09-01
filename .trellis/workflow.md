@@ -227,6 +227,7 @@ Tools: `trellis-implement` / `trellis-research` are sub-agent types only (Task/A
 Flow: `trellis-implement` -> `trellis-check` -> `trellis-update-spec` -> commit (Phase 3.4) -> `/trellis:finish-work`.
 Main-session default: dispatch implement/check sub-agents. Sub-agent self-exemption: if already running as `trellis-implement`, do NOT spawn another `trellis-implement` or `trellis-check`; if already running as `trellis-check`, do NOT spawn another `trellis-check` or `trellis-implement`. Dispatch is main session only.
 Dispatch prompt starts with `Active task: <task path from task.py current>`. Read context: jsonl entries -> `prd.md` -> `design.md if present` -> `implement.md if present`.
+Convergence: one 2.2 invocation gets one full review, at most one mechanical repair pass, and one targeted re-check. If that re-check still fails, the same root cause recurs, or a new material issue class appears, stop and report; never loop until green. Run the final full-scope gate once, only after targeted checks pass.
 [/workflow-state:in_progress]
 
 <!-- Per-turn breadcrumb: shown while status='in_progress' when
@@ -238,6 +239,7 @@ Dispatch prompt starts with `Active task: <task path from task.py current>`. Rea
 Flow: `trellis-before-dev` -> edit -> `trellis-check` -> validation -> `trellis-update-spec` -> commit (Phase 3.4) -> `/trellis:finish-work`.
 Do not dispatch implement/check sub-agents in inline mode.
 Read context: `prd.md` -> `design.md if present` -> `implement.md if present`, plus relevant spec/research loaded by skills.
+Convergence: one 2.2 invocation gets one full review, at most one mechanical repair pass, and one targeted re-check. If that re-check still fails, the same root cause recurs, or a new material issue class appears, stop and report; never loop until green. Run the final full-scope gate once, only after targeted checks pass.
 [/workflow-state:in_progress-inline]
 
 ### Phase 3: Finish
@@ -470,6 +472,8 @@ If `task.py start` errors with a session-identity message (no context key from h
 
 Goal: turn reviewed planning artifacts into code that passes quality checks.
 
+`[repeatable]` means a later bounded pass after a material code/requirement change or explicit user continuation. It never authorizes an automatic fix/test loop.
+
 #### 2.1 Implement `[required · repeatable]`
 
 [Claude Code, Cursor, OpenCode, codex-sub-agent, CodeBuddy, Droid, Pi, ZCode, Snow, Oh My Pi]
@@ -477,7 +481,7 @@ Goal: turn reviewed planning artifacts into code that passes quality checks.
 Spawn the implement sub-agent:
 
 - **Agent type**: `trellis-implement`
-- **Task description**: Implement the reviewed task artifacts, consulting materials under `{TASK_DIR}/research/`; finish by running project lint and type-check
+- **Task description**: Implement the reviewed task artifacts, consulting materials under `{TASK_DIR}/research/`; finish with the smallest targeted check that proves the changed behavior, deferring the full-scope gate to 2.2
 - **Dispatch prompt guard**: The prompt MUST start with `Active task: <task path>`, then tell the spawned agent it is already the `trellis-implement` sub-agent and must implement directly, not spawn another `trellis-implement` / `trellis-check`.
 
 The platform hook/plugin auto-handles:
@@ -492,7 +496,7 @@ The platform hook/plugin auto-handles:
 Spawn the implement sub-agent:
 
 - **Agent type**: `trellis-implement`
-- **Task description**: Implement the reviewed task artifacts, consulting materials under `{TASK_DIR}/research/`; finish by running project lint and type-check
+- **Task description**: Implement the reviewed task artifacts, consulting materials under `{TASK_DIR}/research/`; finish with the smallest targeted check that proves the changed behavior, deferring the full-scope gate to 2.2
 - **Dispatch prompt guard**: The prompt MUST start with `Active task: <task path>`, then explicitly say the spawned agent is already `trellis-implement` and must implement directly without spawning another `trellis-implement` / `trellis-check`.
 
 The pull-based sub-agent definition auto-handles the context load requirement:
@@ -506,7 +510,7 @@ The pull-based sub-agent definition auto-handles the context load requirement:
 Spawn the implement sub-agent:
 
 - **Agent type**: `trellis-implement`
-- **Task description**: Implement the reviewed task artifacts, consulting materials under `{TASK_DIR}/research/`; finish by running project lint and type-check
+- **Task description**: Implement the reviewed task artifacts, consulting materials under `{TASK_DIR}/research/`; finish with the smallest targeted check that proves the changed behavior, deferring the full-scope gate to 2.2
 - **Dispatch prompt guard**: Tell the spawned agent it is already the `trellis-implement` sub-agent and must implement directly, not spawn another `trellis-implement` / `trellis-check`.
 
 The platform prelude auto-handles the context load requirement:
@@ -521,7 +525,7 @@ The platform prelude auto-handles the context load requirement:
 2. Read `{TASK_DIR}/prd.md`, then `design.md` if present, then `implement.md` if present
 3. Consult materials under `{TASK_DIR}/research/`
 4. Implement the code per reviewed artifacts
-5. Run project lint and type-check
+5. Run the smallest targeted check that proves the changed behavior; defer the full-scope gate to 2.2
 
 [/codex-inline, Kilo, Antigravity, Devin, DeepSeek Harness]
 
@@ -532,14 +536,15 @@ The platform prelude auto-handles the context load requirement:
 Spawn the check sub-agent:
 
 - **Agent type**: `trellis-check`
-- **Task description**: Review all code changes against specs and task artifacts; fix any findings directly; ensure lint and type-check pass
+- **Task description**: Review all code changes against specs and task artifacts; apply at most one pass of clear, in-scope mechanical fixes and one targeted re-check; report any remaining failure instead of looping
 - **Dispatch prompt guard**: The prompt MUST start with `Active task: <task path>`, then tell the spawned agent it is already the `trellis-check` sub-agent and must review/fix directly, not spawn another `trellis-check` / `trellis-implement`.
 
 The check agent's job:
 - Review code changes against specs
 - Review code changes against `prd.md`, `design.md` if present, and `implement.md` if present
-- Auto-fix issues it finds
-- Run lint and typecheck to verify
+- Apply at most one repair pass for clear, in-scope mechanical issues
+- Run one targeted lint/type-check/test re-check for the affected paths
+- Stop and report if the re-check still fails, the same root cause recurs, or a new material issue class appears
 
 [/Claude Code, Cursor, OpenCode, codex-sub-agent, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi, Oh My Pi, ZCode, Snow, Reasonix, Trae, Grok, Kimi Code]
 
@@ -550,17 +555,19 @@ Load the `trellis-check` skill and verify the code per its guidance:
 - lint / type-check / tests
 - Cross-layer consistency (when changes span layers)
 
-If issues are found → fix → re-check, until green.
+If issues are found, perform one bounded repair pass and one targeted re-check. If the gate still fails, the same root cause recurs, or a new material issue class appears, stop and report.
 
 [/codex-inline, Kilo, Antigravity, Devin, DeepSeek Harness]
 
-**Final pass (before Phase 3.4 commit)**: the last 2.2 of a task must run full-scope, not just on the latest implement chunk. List all affected packages with `python3 ./.trellis/scripts/get_context.py --mode packages`, then load each package's spec index Quality Check section. This catches cross-layer / multi-package issues a mid-iteration local 2.2 cannot.
+**Final pass (before Phase 3.4 commit)**: after targeted checks pass, the last 2.2 of a task runs full-scope once, not just on the latest implement chunk. List all affected packages with `python3 ./.trellis/scripts/get_context.py --mode packages`, then load each package's spec index Quality Check section. If this formal gate fails, make at most one causal repair and one targeted re-check, then stop and report; do not rerun the full-scope gate in the same turn without user direction.
 
 #### 2.3 Rollback `[on demand]`
 
 - `check` reveals a prd defect → return to Phase 1, fix `prd.md`, then redo 2.1
 - Implementation went wrong → revert code, redo 2.1
 - Need more research → research (same as Phase 1.2), write findings into `research/`
+
+Any re-entry is a new bounded pass. If the same root cause recurs, stop and ask for direction instead of rolling back and re-entering again automatically.
 
 ---
 
@@ -576,6 +583,7 @@ If this task involved repeated debugging (the same issue was fixed multiple time
 - Propose prevention
 
 The goal is to capture debugging lessons so the same class of issue doesn't recur.
+This retrospective is diagnosis/documentation only; it does not authorize another repair/test loop.
 
 #### 3.3 Spec update `[required · once]`
 

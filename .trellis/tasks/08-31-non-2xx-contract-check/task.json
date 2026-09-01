@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "08-31-response-comparator-core"
+    "08-31-response-comparator-core",
+    "09-01-frozen-contract-authority-reconciliation"
   ],
   "parent": "08-30-frontend-v2-functional-contract-conformance-baseline",
   "relatedFiles": [],

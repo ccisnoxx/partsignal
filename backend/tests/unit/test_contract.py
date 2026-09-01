@@ -1,20 +1,31 @@
 """冻结 OpenAPI 与运行时路由的契约测试。"""
 
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from app.config import settings
 from app.db import get_db
 from app.deps import get_current_session
+from app.errors import AppError
 from app.main import app
+from app.routers import configuration as configuration_router
+from app.routers import identity as identity_router
 from app.routers import observation as observation_router
 from app.routers import planning as planning_router
 from app.routers.planning import _content_task_read_snapshot
+from app.schemas.common import RevisionRequest
 from app.security import hash_token
+from app.services import ai_configuration, file_records
+from app.services.credentials import CredentialCipher
+from app.services.openai_client import OpenAICompatibleClient
+from app.services.storage import StorageUnavailable
 from app.tools.contract_check import check
 
 
@@ -38,7 +49,7 @@ def test_audit_contract_separates_list_metadata_from_safe_detail() -> None:
         "type": "object",
         "additionalProperties": {"$ref": "#/components/schemas/AuditSafeValue"},
     }
-    assert set(detail_operation["responses"]) == {"200", "401", "403", "404", "409"}
+    assert set(detail_operation["responses"]) == {"200", "401", "403", "404", "422"}
 
 
 def test_user_management_contract_is_revisioned_and_typed() -> None:
@@ -431,8 +442,6 @@ def test_ai_channel_list_contract_is_safe_and_revisioned() -> None:
         "404",
         "409",
         "422",
-        "502",
-        "504",
     }
     model_delete = paths["/api/v1/ai-models/{model_id}"]["delete"]
     assert model_delete["parameters"][1] == {
@@ -583,12 +592,14 @@ def test_geo_insight_contract_projects_actor_aware_optimization_source() -> None
     assert set(paths["/api/v1/geo-insights"]["get"]["responses"]) == {
         "200",
         "401",
+        "403",
         "404",
+        "409",
         "422",
     }
     assert set(
         paths["/api/v1/geo-insights/optimization-content-tasks"]["post"]["responses"]
-    ) == {"201", "401", "403", "409", "422"}
+    ) == {"201", "401", "403", "404", "409", "422"}
     assert set(schemas["GeoInsightOptimizationAction"]["required"]) == {
         "rule_code",
         "date_from",
@@ -790,7 +801,7 @@ def test_product_detail_contract_is_compact_and_update_has_matching_limits() -> 
     detail = document["components"]["schemas"]["ProductDetail"]
     update = document["components"]["schemas"]["ProductUpdate"]
 
-    assert set(operation["responses"]) == {"200", "401", "403", "404"}
+    assert set(operation["responses"]) == {"200", "401", "403", "404", "422"}
     assert set(detail["required"]) == {
         "product",
         "approved_fact",
@@ -815,7 +826,7 @@ def test_fact_workspace_contract_is_a_complete_single_read_model() -> None:
     draft = document["components"]["schemas"]["ProductFactsDraft"]
     context = document["components"]["schemas"]["ProductFactsProductContext"]
 
-    assert set(path["get"]["responses"]) == {"200", "401", "403", "404"}
+    assert set(path["get"]["responses"]) == {"200", "401", "403", "404", "422"}
     assert set(path["put"]["responses"]) == {"200", "401", "403", "404", "409", "422"}
     assert set(submission["responses"]) == {"201", "401", "403", "404", "409", "422"}
     assert set(draft["required"]) == {
@@ -851,7 +862,7 @@ def test_fact_review_contract_locates_target_and_declares_command_errors() -> No
     approve = paths["/api/v1/fact-versions/{fact_version_id}/approve"]["post"]
     request_changes = paths["/api/v1/fact-versions/{fact_version_id}/request-changes"]["post"]
 
-    assert set(product_context["responses"]) == {"200", "401", "403", "404"}
+    assert set(product_context["responses"]) == {"200", "401", "403", "404", "422"}
     assert set(version_detail["responses"]) == {"200", "401", "403", "404", "422"}
     assert {
         "id",
@@ -865,7 +876,7 @@ def test_fact_review_contract_locates_target_and_declares_command_errors() -> No
         "created_by",
         "created_at",
     } <= set(schemas["FactVersion"]["required"])
-    assert set(exact_context["responses"]) == {"200", "401", "403", "404"}
+    assert set(exact_context["responses"]) == {"200", "401", "403", "404", "422"}
     assert set(approve["responses"]) == {"200", "401", "403", "404", "409", "422"}
     assert set(request_changes["responses"]) == {
         "200",
@@ -992,6 +1003,249 @@ def test_live_health_does_not_require_external_dependencies() -> None:
     response = TestClient(app).get("/api/health/live")
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "checks": None}
+
+
+def test_error_envelope_without_details_keeps_empty_wire_object() -> None:
+    """统一错误信封在未提供业务详情时仍输出四个稳定字段。"""
+    response = TestClient(app).get(
+        "/api/health/live",
+        headers={"X-Request-ID": "r" * 101},
+    )
+
+    assert response.status_code == 400
+    error = response.json()["error"]
+    assert set(error) == {"code", "message", "details", "request_id"}
+    assert error["details"] == {}
+
+
+def test_phase_b_shared_contract_shapes_are_explicit() -> None:
+    """共享错误、健康、GEO、生成联合和 CSV 响应必须与冻结语义一致。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    schemas = document["components"]["schemas"]
+
+    assert schemas["ErrorDetail"]["required"] == [
+        "code",
+        "message",
+        "details",
+        "request_id",
+    ]
+    assert "checks" not in schemas["HealthResponse"]["required"]
+    assert schemas["HealthResponse"]["properties"]["checks"]["type"] == [
+        "object",
+        "null",
+    ]
+    basis = schemas["ContentTaskDetailGeoOptimization"]["properties"]["basis"]
+    assert basis["discriminator"] == {
+        "propertyName": "rule_code",
+        "mapping": {
+            "CONTENT_DECLINE": (
+                "#/components/schemas/ContentTaskDetailGeoContentDeclineBasis"
+            ),
+            "LONG_UNMENTIONED": (
+                "#/components/schemas/ContentTaskDetailGeoLongUnmentionedBasis"
+            ),
+            "QUESTION_COVERAGE_GAP": (
+                "#/components/schemas/ContentTaskDetailGeoQuestionCoverageBasis"
+            ),
+        },
+    }
+    generation_union = schemas["GenerationInputSnapshot"]["anyOf"]
+    assert [branch["$ref"] for branch in generation_union] == [
+        "#/components/schemas/LegacyGenerationSnapshot",
+        "#/components/schemas/MarkdownGenerationSnapshotV2",
+        "#/components/schemas/GenerationSnapshot",
+    ]
+    for schema_name in (
+        "LegacyGenerationSnapshot",
+        "MarkdownGenerationSnapshotV2",
+        "GenerationSnapshot",
+    ):
+        assert "contract_version" in schemas[schema_name]["required"]
+    for operation_id in ("exportUsers", "exportPlatformProfiles"):
+        operation = next(
+            operation
+            for path in document["paths"].values()
+            for operation in path.values()
+            if isinstance(operation, dict) and operation.get("operationId") == operation_id
+        )
+        response = operation["responses"]["200"]
+        assert response["content"] == {"text/csv": {"schema": {"type": "string"}}}
+        assert response["headers"] == {
+            "Content-Disposition": {"required": True, "schema": {"type": "string"}}
+        }
+
+
+@pytest.mark.parametrize("provider_status", [502, 504])
+def test_ai_model_provider_failure_is_projected_to_failed_200(
+    provider_status: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """真实模型测试捕获 provider 502 并回写 FAILED，而非向 API 泄漏 502。"""
+    model_id = uuid.uuid4()
+    channel_id = uuid.uuid4()
+    actor = SimpleNamespace(id=uuid.uuid4())
+    channel = SimpleNamespace(
+        id=channel_id,
+        revision=4,
+        protocol_type="openai-compatible-chat-completions",
+        base_url="https://provider.example.com/v1",
+        timeout_seconds=5,
+        api_key_ciphertext=CredentialCipher(settings.ai_credential_encryption_key).encrypt(
+            "test-key", associated_data=f"ai_channel:{channel_id}:api_key"
+        ),
+    )
+    model = SimpleNamespace(
+        id=model_id,
+        channel_id=channel_id,
+        revision=7,
+        model_id="test-model",
+        request_parameters={},
+        test_status="UNTESTED",
+        last_test_error_summary=None,
+        last_tested_at=None,
+        is_enabled=True,
+    )
+    db = Mock()
+    db.scalar.side_effect = [channel_id, channel, model, channel_id, channel, model]
+    db.scalars.return_value = []
+
+    def provider_failure(self: OpenAICompatibleClient, **kwargs: object) -> None:
+        del self, kwargs
+        raise AppError("AI_PROVIDER_ERROR", f"模拟 provider {provider_status}", provider_status)
+
+    monkeypatch.setattr(OpenAICompatibleClient, "test_connection", provider_failure)
+
+    result = ai_configuration.test_ai_model(
+        db=db,
+        model_id=model_id,
+        payload=RevisionRequest(expected_revision=7),
+        actor=actor,
+        request_id="contract-ai-model",
+    )
+
+    assert result is model
+    assert model.test_status == "FAILED"
+    assert model.last_test_error_summary == f"模拟 provider {provider_status}"
+    assert model.is_enabled is False
+    assert model.revision == 8
+    assert db.commit.call_count == 2
+
+
+def test_ai_model_route_projects_failed_test_as_http_200(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """模型测试路由将已持久化的 FAILED 投影为正常的 200 响应。"""
+    model_id = uuid.uuid4()
+    now = datetime.now(UTC)
+    model = SimpleNamespace(
+        id=model_id,
+        channel_id=uuid.uuid4(),
+        display_name="测试模型",
+        model_id="test-model",
+        request_parameters={},
+        is_enabled=False,
+        test_status="FAILED",
+        last_tested_at=now,
+        last_test_error_summary="provider unavailable",
+        revision=8,
+        created_by=uuid.uuid4(),
+        created_at=now,
+        updated_at=now,
+    )
+    monkeypatch.setattr(
+        configuration_router,
+        "test_ai_model_command",
+        lambda **kwargs: model,
+    )
+    app.dependency_overrides[get_db] = lambda: Mock(get=lambda *_args: None)
+    app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(
+        user=SimpleNamespace(account_type="ADMIN"),
+        csrf_hash=hash_token("contract-test-csrf-token-more-than-32-characters"),
+    )
+    try:
+        response = TestClient(app).post(
+            f"/api/v1/ai-models/{model_id}/test",
+            headers={"X-CSRF-Token": "contract-test-csrf-token-more-than-32-characters"},
+            json={"expected_revision": 7},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()["test_status"] == "FAILED"
+
+
+def test_complete_file_upload_storage_failure_keeps_pending_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """对象存储不可用时，真实完成服务返回 503 且不推进文件状态。"""
+    file_id = uuid.uuid4()
+    actor = SimpleNamespace(id=uuid.uuid4())
+    file = SimpleNamespace(
+        id=file_id,
+        uploader_id=actor.id,
+        status="PENDING",
+        object_key="evidence/test.bin",
+        size=4,
+        sha256="a" * 64,
+        content_type="application/octet-stream",
+        category="PUBLICATION_ASSET",
+    )
+    db = Mock()
+    db.get.return_value = file
+    storage = Mock()
+    storage.head.side_effect = StorageUnavailable("模拟对象存储不可用")
+    monkeypatch.setattr(file_records, "get_evidence_storage", lambda: storage)
+
+    with pytest.raises(AppError) as raised:
+        file_records.complete_file_upload(
+            db=db,
+            file_id=file_id,
+            actor=actor,
+            request_id="contract-file-upload",
+        )
+
+    assert raised.value.status_code == 503
+    assert raised.value.code == "DEPENDENCY_UNAVAILABLE"
+    assert file.status == "PENDING"
+    db.commit.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("path", "query_module", "query_name", "csv_content"),
+    [
+        ("/api/v1/users/export", identity_router, "export_users_query", "id\n"),
+        (
+            "/api/v1/platform-profiles/export",
+            configuration_router,
+            "export_platform_profiles_query",
+            "id\n",
+        ),
+    ],
+)
+def test_csv_export_routes_return_downloadable_csv(
+    monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    query_module: object,
+    query_name: str,
+    csv_content: str,
+) -> None:
+    """两个导出路由都直接返回 CSV 与非空下载文件名。"""
+    monkeypatch.setattr(query_module, query_name, lambda **kwargs: csv_content)
+    app.dependency_overrides[get_db] = lambda: object()
+    app.dependency_overrides[get_current_session] = lambda: SimpleNamespace(
+        user=SimpleNamespace(account_type="ADMIN")
+    )
+    try:
+        response = TestClient(app).get(path)
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/csv")
+    assert response.headers["content-disposition"].startswith("attachment; filename=")
+    assert response.text == csv_content
 
 
 @pytest.mark.parametrize(

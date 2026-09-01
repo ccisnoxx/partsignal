@@ -1,0 +1,6 @@
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"核对公共合同、生成物和测试没有形成第二来源或反向依赖。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"核对错误 status、ErrorEnvelope required 字段与显式失败合同。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"核对修改范围、测试质量、异常边界与无猜测 fallback。"}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"核对 generated client 由根 OpenAPI 唯一生成且类型影响可解释。"}
+{"file":".trellis/tasks/08-31-non-2xx-contract-check/research/response-drift-classification.md","reason":"对照完整 operation/schema 漂移基线，防止遗漏或把 runtime 声明误当行为。"}
+{"file":".trellis/tasks/08-31-non-2xx-contract-check/research/route-response-authority-audit.md","reason":"独立复核特殊 status、Header 与 handler wire authority。"}

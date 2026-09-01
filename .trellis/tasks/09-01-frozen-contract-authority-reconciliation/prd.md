@@ -8,9 +8,10 @@
 
 ## Confirmed Facts
 
+- 本轮实施开始前，外部进程将当时整个工作树提交为 `e898c061`（提交信息 `1`）并使 `origin/main` 指向该提交；其中混合包含当时的 Phase B 产品候选 diff、1697 行 task-only verifier 和大量用户要求保持不动的 artifacts。本轮没有执行 commit/push，也不回退该外部变更；实施仅审计和修正批准范围。
 - 冻结 OpenAPI 与 `app.openapi()` 的 operation identity 均为 162/162。final matrix 以提交快照 `4dd7441aaae17fad9e16dc17f3fe5283448abac9` 为实施前基线；该快照与 Phase A 工作提交在本 Phase 权威产品路径上无差异。
-- `research/final-response-authority-matrix.jsonl` 稳定按 path、method、operationId 排序，包含 1 条 metadata 和 162 条 operation 记录。结构性核对已证明矩阵、基线合同、当前候选合同与 runtime inventory 身份集合一致；这是规划证据，不表示已批准产品改动。
-- Phase B 最终 status 出现次数为：`200=120`、`201=21`、`202=3`、`204=20`、`401=160`、`403=158`、`404=119`、`409=105`、`422=149`、`502=1`、`503=3`、`504=1`。与基线相比，新增 `401×35`、`403×43`、`404×31`、`409×9`、`422×69`、`503×1`；删除 `getAuditLog` 的 409 和 `testAIModel` 的 502/504。
+- `research/final-response-authority-matrix.jsonl` 稳定按 path、method、operationId 排序，包含 1 条 metadata 和 162 条 operation 记录。结构性核对已证明矩阵、基线合同、当前候选合同与 runtime inventory 身份集合一致；它是实施审计证据，不作为 runtime、generator 或产品测试的第二来源。
+- Phase B 最终 status 出现次数为：`200=120`、`201=21`、`202=3`、`204=20`、`401=160`、`403=158`、`404=119`、`409=106`、`422=149`、`502=1`、`503=3`、`504=1`。与基线相比，新增 `401×35`、`403×43`、`404×31`、`409×9`、`422×69`、`503×1`；保留 `getAuditLog` 的 409，删除 `testAIModel` 的 502/504。
 - 149 个 operation 存在 path/query/header/cookie/body 解析校验或明确业务 422；其余 13 个不存在 422 入口。FastAPI 自动 `HTTPValidationError` 只证明校验入口；实际 wire shape 由 `validation_error_handler` 编码为项目 `ErrorEnvelope`。
 - `error_response()` 总是输出 `code`、`message`、`details`、`request_id`；即使未提供 details，`AppError` 也将其归一为 `{}`。
 - `testAIModel` 捕获 provider `AppError`，在 revision 复核后回写 `FAILED` 并以 HTTP 200 返回；provider 502/504 不会逃逸。`discoverAIChannelModels` 仍可逃逸 502/504。
@@ -65,4 +66,4 @@
 
 ## Review Gate
 
-本轮只交付可评审规划与 final authority matrix。用户明确批准前，子 Task 保持 `planning`；不运行 `task.py start`，不派发实施，不把本轮开始前已存在的候选产品 diff 视为已批准实施结果。
+本 Task 已获用户批准并进入实施；`e898c061` 的混合提交事实继续保留，Phase B 产品变更以本 Task 的批准范围和 final authority matrix 为准，不自行改写历史或扩大文件边界。

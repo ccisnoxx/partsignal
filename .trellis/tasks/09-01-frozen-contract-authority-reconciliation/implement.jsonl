@@ -1,5 +1,8 @@
 {"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"冻结 OpenAPI、backend 静态测试与 frontend generated client 必须保持单向派生和跨层一致。"}
 {"file":".trellis/spec/backend/error-handling.md","reason":"约束 AppError、ErrorEnvelope、稳定错误码与 non-2xx 公共合同。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"约束逐 operation 证据、最小充分测试与禁止猜测 fallback。"}
 {"file":".trellis/spec/frontend/type-safety.md","reason":"约束 generated API 类型作为 frontend 公共类型来源，禁止手工补丁。"}
+{"file":".trellis/spec/infra/ci-execution.md","reason":"约束现有 contract-check/api:check 执行入口与不提前启用完整 response gate。"}
 {"file":".trellis/tasks/08-31-non-2xx-contract-check/research/response-drift-classification.md","reason":"提供 162 operation 漂移基线、成功 schema 差异与复现口径。"}
 {"file":".trellis/tasks/08-31-non-2xx-contract-check/research/route-response-authority-audit.md","reason":"提供 status、ErrorEnvelope、CSV、request-ID 与 Set-Cookie 的权威调用链。"}
+{"file":".trellis/tasks/archive/2026-09/08-31-response-comparator-core/design.md","reason":"保持 Phase A comparator 语义与 report-only 中间态，不反向注入合同。"}

@@ -34,6 +34,264 @@ def test_runtime_openapi_matches_frozen_operations() -> None:
     assert check(contract) == []
 
 
+def test_frozen_response_status_signatures_cover_every_operation() -> None:
+    """逐 operation 冻结精确 response 集合，避免合同回退到宽泛状态模板。"""
+    contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
+    document = yaml.safe_load(contract.read_text(encoding="utf-8"))
+    expected_by_signature = {
+        ("200",): ("getLiveHealth",),
+        ("200", "503"): ("getReadyHealth",),
+        ("200", "204", "401"): ("getCurrentUser",),
+        ("200", "401", "403"): (
+            "getCsrfToken",
+            "getAuditLogFilterOptions",
+            "listQueryTopics",
+            "listPlatformPrompts",
+            "listPlatformTypes",
+            "listPublicationReadyItems",
+            "getPublicationWorkbenchSummary",
+            "getDashboardSummary",
+        ),
+        ("200", "401", "422"): ("login",),
+        ("200", "204", "401", "403"): ("getContentHumanizationPrompt",),
+        ("200", "401", "403", "409"): ("getWorkbench",),
+        ("200", "401", "403", "422"): (
+            "listUsers",
+            "bulkUpdateUserStatus",
+            "exportUsers",
+            "listAuditLogs",
+            "listProducts",
+            "listQueryTopicItems",
+            "listPlatformProfiles",
+            "exportPlatformProfiles",
+            "listAIChannels",
+            "listContentTasks",
+            "getContentTaskCreationOptions",
+            "listPlatformAccounts",
+            "getGeoMetrics",
+        ),
+        ("201", "401", "403", "422"): (
+            "createQueryTopic",
+            "createAIChannel",
+            "createFileUploadIntent",
+        ),
+        ("204", "401", "403", "422"): ("logout", "changePassword"),
+        ("200", "401", "403", "404", "422"): (
+            "getProduct",
+            "getProductDetail",
+            "getProductFactsDraft",
+            "listFactVersions",
+            "listProductFactHistory",
+            "getProductFactReviewContext",
+            "getFactVersion",
+            "getFactReviewContext",
+            "getPlatformProfile",
+            "getPlatformPrompt",
+            "getPlatformPromptPreviewOptions",
+            "getAIChannel",
+            "getAIChannelUsageSummary",
+            "listAIChannelAuditLogs",
+            "listAIModels",
+            "getContentTask",
+            "getContentTaskDetail",
+            "listGenerationJobs",
+            "listContentTaskVersions",
+            "getGenerationJob",
+            "getContentVersion",
+            "compareContentVersions",
+            "listGeoObservationPublications",
+            "getFileRecord",
+        ),
+        ("200", "401", "403", "409", "422"): (
+            "putContentHumanizationPrompt",
+            "listPublicationWorks",
+            "listPublishedArticles",
+            "listPublishedContentIssues",
+            "listGeoObservations",
+            "listGeoObservationItems",
+        ),
+        ("201", "401", "403", "404", "422"): ("createAIModel",),
+        ("201", "401", "403", "409", "422"): (
+            "createUser",
+            "createProduct",
+            "createPlatformPrompt",
+            "createPlatformType",
+        ),
+        ("200", "401", "403", "404", "409", "422"): (
+            "updateUser",
+            "resetUserPassword",
+            "getAuditLog",
+            "updateProduct",
+            "replaceProductFactsDraft",
+            "approveFactVersion",
+            "requestFactVersionChanges",
+            "retireFactVersion",
+            "updateQueryTopic",
+            "updatePlatformProfile",
+            "enablePlatformProfile",
+            "disablePlatformProfile",
+            "updatePlatformPrompt",
+            "updatePlatformType",
+            "updateAIChannel",
+            "replaceAIChannelApiKey",
+            "enableAIChannel",
+            "disableAIChannel",
+            "updateAIChannelHeader",
+            "updateAIModel",
+            "testAIModel",
+            "enableAIModel",
+            "disableAIModel",
+            "getContentEditorContext",
+            "getContentTaskReviewContext",
+            "getContentTaskGenerationOptions",
+            "cancelContentTask",
+            "archiveContentTask",
+            "restoreContentTask",
+            "getContentTaskPermanentDeletionPreview",
+            "updateContentDraft",
+            "getContentReviewContext",
+            "getContentVersionDetail",
+            "submitContentVersion",
+            "abandonContentVersion",
+            "approveContentVersion",
+            "requestContentVersionChanges",
+            "getPublicationPackage",
+            "updatePlatformAccount",
+            "enablePlatformAccount",
+            "disablePlatformAccount",
+            "getPublicationWork",
+            "getPublicationWorkspaceContext",
+            "updatePublicationPreparation",
+            "markPublicationPlatformReview",
+            "registerPublicationResult",
+            "verifyPublicationWork",
+            "switchPublicationContentVersion",
+            "closePublicationWork",
+            "getPublishedArticle",
+            "previewPublishedArticlePermanentDeletion",
+            "getPublishedContentIssue",
+            "getPublishedContentIssueWorkspaceContext",
+            "getPublishedContentRepairContext",
+            "resolvePublishedContentIssue",
+            "getGeoObservation",
+            "getGeoObservationDetail",
+            "getGeoObservationCorrectionContext",
+            "getGeoInsights",
+            "abortFileUpload",
+            "getFileDownloadUrl",
+        ),
+        ("201", "401", "403", "404", "409", "422"): (
+            "submitProductFactReview",
+            "createPlatformProfile",
+            "createAIChannelHeader",
+            "createContentTask",
+            "createManualContentVersion",
+            "createContentRevision",
+            "createPlatformAccount",
+            "createPublicationWork",
+            "openPublishedContentIssue",
+            "createPublishedContentRepairTask",
+            "createGeoObservation",
+            "createGeoOptimizationContentTask",
+        ),
+        ("201", "401", "403", "409", "422", "503"): (
+            "createPlatformLogoCandidate",
+        ),
+        ("202", "401", "403", "404", "409", "422"): (
+            "createGenerationJob",
+            "createHumanizationJob",
+            "retryGenerationJob",
+        ),
+        ("204", "401", "403", "404", "409", "422"): (
+            "deleteUser",
+            "deleteProduct",
+            "deleteFactVersion",
+            "deleteQueryTopic",
+            "deletePlatformProfile",
+            "deletePlatformPrompt",
+            "deletePlatformType",
+            "deleteAIChannel",
+            "deleteAIChannelHeader",
+            "deleteAIModel",
+            "deleteContentTask",
+            "permanentlyDeleteContentTask",
+            "deleteContentDraft",
+            "deletePlatformAccount",
+            "permanentlyDeletePublishedArticle",
+            "deleteGeoObservation",
+        ),
+        ("200", "401", "403", "404", "409", "422", "503"): (
+            "completeFileUpload",
+        ),
+        ("200", "401", "403", "404", "409", "422", "502", "504"): (
+            "discoverAIChannelModels",
+        ),
+    }
+    expected = {
+        operation_id: set(statuses)
+        for statuses, operation_ids in expected_by_signature.items()
+        for operation_id in operation_ids
+    }
+    operations = {
+        operation["operationId"]: operation
+        for path in document["paths"].values()
+        for operation in path.values()
+        if isinstance(operation, dict) and "operationId" in operation
+    }
+
+    assert len(expected) == 162
+    assert set(operations) == set(expected)
+    for operation_id, operation in operations.items():
+        responses = operation["responses"]
+        assert set(responses) == expected[operation_id]
+        assert "500" not in responses
+        assert "default" not in responses
+        for status, response in responses.items():
+            if status not in {"200", "201", "202", "204"}:
+                assert response == {"$ref": "#/components/responses/ErrorResponse"}
+
+    validation_free = {
+        "getLiveHealth",
+        "getReadyHealth",
+        "getAuditLogFilterOptions",
+        "getCsrfToken",
+        "getCurrentUser",
+        "getContentHumanizationPrompt",
+        "getDashboardSummary",
+        "listPlatformPrompts",
+        "listPlatformTypes",
+        "listPublicationReadyItems",
+        "getPublicationWorkbenchSummary",
+        "listQueryTopics",
+        "getWorkbench",
+    }
+    assert len(validation_free) == 13
+    assert sum("422" in statuses for statuses in expected.values()) == 149
+    assert {
+        operation_id for operation_id, statuses in expected.items() if "422" not in statuses
+    } == validation_free
+    assert expected["testAIModel"] == {"200", "401", "403", "404", "409", "422"}
+    assert expected["discoverAIChannelModels"] == {
+        "200",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+        "502",
+        "504",
+    }
+    assert expected["completeFileUpload"] == {
+        "200",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+        "503",
+    }
+
+
 def test_audit_contract_separates_list_metadata_from_safe_detail() -> None:
     """列表不携带详情副本，单条详情只允许登记后的安全值。"""
     contract = Path(__file__).resolve().parents[3] / "contracts" / "openapi.yaml"
@@ -49,7 +307,7 @@ def test_audit_contract_separates_list_metadata_from_safe_detail() -> None:
         "type": "object",
         "additionalProperties": {"$ref": "#/components/schemas/AuditSafeValue"},
     }
-    assert set(detail_operation["responses"]) == {"200", "401", "403", "404", "422"}
+    assert set(detail_operation["responses"]) == {"200", "401", "403", "404", "409", "422"}
 
 
 def test_user_management_contract_is_revisioned_and_typed() -> None:
@@ -1051,11 +1309,30 @@ def test_phase_b_shared_contract_shapes_are_explicit() -> None:
         },
     }
     generation_union = schemas["GenerationInputSnapshot"]["anyOf"]
-    assert [branch["$ref"] for branch in generation_union] == [
+    generation_refs = [
         "#/components/schemas/LegacyGenerationSnapshot",
         "#/components/schemas/MarkdownGenerationSnapshotV2",
         "#/components/schemas/GenerationSnapshot",
     ]
+    humanization_refs = [
+        "#/components/schemas/LegacyHumanizationSnapshot",
+        "#/components/schemas/HumanizationSnapshot",
+    ]
+    assert [branch["$ref"] for branch in generation_union] == generation_refs
+    assert [
+        branch["$ref"]
+        for branch in schemas["GenerationJobDetail"]["allOf"][1]["properties"][
+            "input_snapshot"
+        ]["anyOf"]
+    ] == generation_refs + humanization_refs
+    assert [
+        branch["$ref"]
+        for branch in schemas["GenerationTrace"]["properties"]["input_snapshot"]["anyOf"]
+    ] == generation_refs
+    assert [
+        branch["$ref"]
+        for branch in schemas["HumanizationTrace"]["properties"]["input_snapshot"]["anyOf"]
+    ] == humanization_refs
     for schema_name in (
         "LegacyGenerationSnapshot",
         "MarkdownGenerationSnapshotV2",
@@ -1081,7 +1358,7 @@ def test_ai_model_provider_failure_is_projected_to_failed_200(
     provider_status: int,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """真实模型测试捕获 provider 502 并回写 FAILED，而非向 API 泄漏 502。"""
+    """真实模型测试捕获 provider 502/504 并回写 FAILED，而非向 API 泄漏。"""
     model_id = uuid.uuid4()
     channel_id = uuid.uuid4()
     actor = SimpleNamespace(id=uuid.uuid4())

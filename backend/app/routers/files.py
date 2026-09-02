@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request, status
 
 from app.config import settings
 from app.deps import CsrfProtected, CurrentUser, DbSession, EngineerUser
-from app.errors import AppError, not_found
+from app.errors import AppError, error_responses, not_found
 from app.models.geo_files import FileRecord
 from app.schemas.common import SignedUrl
 from app.schemas.geo_files import UploadIntent, UploadIntentCreate
@@ -36,6 +36,7 @@ def file_out(file: FileRecord) -> FileRecordOut:
     "/files/upload-intents",
     response_model=UploadIntent,
     status_code=status.HTTP_201_CREATED,
+    responses=error_responses(401, 403, 422),
     operation_id="createFileUploadIntent",
 )
 def create_upload_intent(
@@ -51,7 +52,10 @@ def create_upload_intent(
 
 
 @router.post(
-    "/files/{file_id}/complete", response_model=FileRecordOut, operation_id="completeFileUpload"
+    "/files/{file_id}/complete",
+    response_model=FileRecordOut,
+    responses=error_responses(401, 403, 404, 409, 422, 503),
+    operation_id="completeFileUpload",
 )
 def complete_file_upload(
     file_id: uuid.UUID,
@@ -66,7 +70,12 @@ def complete_file_upload(
     return file_out(file)
 
 
-@router.get("/files/{file_id}", response_model=FileRecordOut, operation_id="getFileRecord")
+@router.get(
+    "/files/{file_id}",
+    response_model=FileRecordOut,
+    responses=error_responses(401, 403, 404, 422),
+    operation_id="getFileRecord",
+)
 def get_file_record(file_id: uuid.UUID, db: DbSession, _user: CurrentUser) -> FileRecordOut:
     file = db.get(FileRecord, file_id)
     if file is None:
@@ -74,7 +83,12 @@ def get_file_record(file_id: uuid.UUID, db: DbSession, _user: CurrentUser) -> Fi
     return file_out(file)
 
 
-@router.post("/files/{file_id}/abort", response_model=FileRecordOut, operation_id="abortFileUpload")
+@router.post(
+    "/files/{file_id}/abort",
+    response_model=FileRecordOut,
+    responses=error_responses(401, 403, 404, 409, 422),
+    operation_id="abortFileUpload",
+)
 def abort_file_upload(
     file_id: uuid.UUID,
     request: Request,
@@ -89,7 +103,10 @@ def abort_file_upload(
 
 
 @router.get(
-    "/files/{file_id}/download-url", response_model=SignedUrl, operation_id="getFileDownloadUrl"
+    "/files/{file_id}/download-url",
+    response_model=SignedUrl,
+    responses=error_responses(401, 403, 404, 409, 422),
+    operation_id="getFileDownloadUrl",
 )
 def get_file_download_url(file_id: uuid.UUID, db: DbSession, _user: CurrentUser) -> SignedUrl:
     file = db.get(FileRecord, file_id)

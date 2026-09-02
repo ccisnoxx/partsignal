@@ -1,0 +1,6 @@
+{"file":".trellis/spec/backend/index.md","reason":"定位 Backend 前置清单与相关规范。"}
+{"file":".trellis/spec/backend/error-handling.md","reason":"保持 AppError 与唯一 ErrorEnvelope wire 契约，不创建第二错误映射。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"遵守 TestClient 与 Backend 定向测试要求。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"约束 response metadata helper 只复用真实重复结构，避免第二来源。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"核对冻结合同、runtime metadata 与 handler wire 的跨层一致性。"}
+{"file":".trellis/tasks/09-01-runtime-response-metadata-wave-1/research/wave-1-operation-ownership.md","reason":"Wave 1 的 61-operation 精确范围、状态、422 分界、特殊项与 owner 清单。"}

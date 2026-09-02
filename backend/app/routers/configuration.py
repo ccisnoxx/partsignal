@@ -17,7 +17,7 @@ from app.deps import (
     DbSession,
     assert_account_types,
 )
-from app.errors import not_found
+from app.errors import error_responses, not_found
 from app.models.ai_generation import (
     AIChannel,
     AIModel,
@@ -303,6 +303,7 @@ def content_humanization_prompt_out(
     "/content-humanization-prompt",
     response_model=ContentHumanizationPromptOut,
     responses={
+        **error_responses(401, 403),
         status.HTTP_204_NO_CONTENT: {"description": "全局自然化 Prompt 尚未配置"}
     },
     operation_id="getContentHumanizationPrompt",
@@ -320,6 +321,7 @@ def get_content_humanization_prompt(
 @router.put(
     "/content-humanization-prompt",
     response_model=ContentHumanizationPromptOut,
+    responses=error_responses(401, 403, 409, 422),
     operation_id="putContentHumanizationPrompt",
 )
 def put_content_humanization_prompt(
@@ -338,7 +340,12 @@ def put_content_humanization_prompt(
     return content_humanization_prompt_out(prompt)
 
 
-@router.get("/platform-types", response_model=PlatformTypeList, operation_id="listPlatformTypes")
+@router.get(
+    "/platform-types",
+    response_model=PlatformTypeList,
+    responses=error_responses(401, 403),
+    operation_id="listPlatformTypes",
+)
 def list_platform_types(db: DbSession, _admin: AdminUser) -> PlatformTypeList:
     items = list(
         db.scalars(select(PlatformType).order_by(func.lower(PlatformType.name), PlatformType.id))
@@ -350,6 +357,7 @@ def list_platform_types(db: DbSession, _admin: AdminUser) -> PlatformTypeList:
     "/platform-types",
     response_model=PlatformTypeOut,
     status_code=status.HTTP_201_CREATED,
+    responses=error_responses(401, 403, 409, 422),
     operation_id="createPlatformType",
 )
 def create_platform_type(
@@ -371,6 +379,7 @@ def create_platform_type(
 @router.patch(
     "/platform-types/{platform_type_id}",
     response_model=PlatformTypeOut,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="updatePlatformType",
 )
 def update_platform_type(
@@ -394,6 +403,7 @@ def update_platform_type(
 @router.delete(
     "/platform-types/{platform_type_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="deletePlatformType",
 )
 def delete_platform_type(
@@ -413,7 +423,23 @@ def delete_platform_type(
     )
 
 
-@router.get("/platform-profiles/export", operation_id="exportPlatformProfiles")
+@router.get(
+    "/platform-profiles/export",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {"text/csv": {"schema": {"type": "string"}}},
+            "headers": {
+                "Content-Disposition": {
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            },
+        },
+        **error_responses(401, 403, 422),
+    },
+    operation_id="exportPlatformProfiles",
+)
 def export_platform_profiles(
     db: DbSession,
     _admin: AdminUser,
@@ -443,6 +469,7 @@ def export_platform_profiles(
 @router.get(
     "/platform-profiles/{platform_profile_id}",
     response_model=PlatformProfileDetail,
+    responses=error_responses(401, 403, 404, 422),
     operation_id="getPlatformProfile",
     dependencies=[Depends(_platform_profile_read_snapshot)],
 )
@@ -461,6 +488,7 @@ def get_platform_profile(
 @router.get(
     "/platform-prompts",
     response_model=PlatformPromptList,
+    responses=error_responses(401, 403),
     operation_id="listPlatformPrompts",
 )
 def list_platform_prompts(db: DbSession, _admin: AdminUser) -> PlatformPromptList:
@@ -471,6 +499,7 @@ def list_platform_prompts(db: DbSession, _admin: AdminUser) -> PlatformPromptLis
     "/platform-prompts",
     response_model=PlatformPromptDetail,
     status_code=status.HTTP_201_CREATED,
+    responses=error_responses(401, 403, 409, 422),
     operation_id="createPlatformPrompt",
 )
 def create_platform_prompt(
@@ -492,6 +521,7 @@ def create_platform_prompt(
 @router.get(
     "/platform-prompts/{platform_prompt_id}",
     response_model=PlatformPromptDetail,
+    responses=error_responses(401, 403, 404, 422),
     operation_id="getPlatformPrompt",
 )
 def get_platform_prompt(
@@ -505,6 +535,7 @@ def get_platform_prompt(
 @router.put(
     "/platform-prompts/{platform_prompt_id}",
     response_model=PlatformPromptDetail,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="updatePlatformPrompt",
 )
 def update_platform_prompt(
@@ -528,6 +559,7 @@ def update_platform_prompt(
 @router.delete(
     "/platform-prompts/{platform_prompt_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="deletePlatformPrompt",
 )
 def delete_platform_prompt(
@@ -552,6 +584,7 @@ def delete_platform_prompt(
     "/platform-logo-candidates",
     response_model=PlatformLogoCandidate,
     status_code=status.HTTP_201_CREATED,
+    responses=error_responses(401, 403, 409, 422, 503),
     operation_id="createPlatformLogoCandidate",
 )
 def create_platform_logo_candidate(
@@ -573,6 +606,7 @@ def create_platform_logo_candidate(
 @router.patch(
     "/platform-profiles/{platform_profile_id}",
     response_model=PlatformProfileOut,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="updatePlatformProfile",
 )
 def update_platform_profile(
@@ -618,6 +652,7 @@ def set_platform_profile_status(
 @router.post(
     "/platform-profiles/{platform_profile_id}/enable",
     response_model=PlatformProfileOut,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="enablePlatformProfile",
 )
 def enable_platform_profile(
@@ -634,6 +669,7 @@ def enable_platform_profile(
 @router.post(
     "/platform-profiles/{platform_profile_id}/disable",
     response_model=PlatformProfileOut,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="disablePlatformProfile",
 )
 def disable_platform_profile(
@@ -650,6 +686,7 @@ def disable_platform_profile(
 @router.delete(
     "/platform-profiles/{platform_profile_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="deletePlatformProfile",
 )
 def delete_platform_profile(
@@ -669,7 +706,12 @@ def delete_platform_profile(
     )
 
 
-@router.get("/ai-channels", response_model=AIChannelList, operation_id="listAIChannels")
+@router.get(
+    "/ai-channels",
+    response_model=AIChannelList,
+    responses=error_responses(401, 403, 422),
+    operation_id="listAIChannels",
+)
 def list_ai_channels(
     db: DbSession,
     _admin: AdminUser,
@@ -695,6 +737,7 @@ def list_ai_channels(
     "/ai-channels",
     response_model=AIChannelOut,
     status_code=status.HTTP_201_CREATED,
+    responses=error_responses(401, 403, 422),
     operation_id="createAIChannel",
 )
 def create_ai_channel(
@@ -710,7 +753,12 @@ def create_ai_channel(
     return channel_out(channel)
 
 
-@router.get("/ai-channels/{channel_id}", response_model=AIChannelOut, operation_id="getAIChannel")
+@router.get(
+    "/ai-channels/{channel_id}",
+    response_model=AIChannelOut,
+    responses=error_responses(401, 403, 404, 422),
+    operation_id="getAIChannel",
+)
 def get_ai_channel(channel_id: uuid.UUID, db: DbSession, _admin: AdminUser) -> AIChannelOut:
     channel = db.get(AIChannel, channel_id)
     if channel is None:
@@ -721,6 +769,7 @@ def get_ai_channel(channel_id: uuid.UUID, db: DbSession, _admin: AdminUser) -> A
 @router.get(
     "/ai-channels/{channel_id}/usage-summary",
     response_model=AIChannelUsageSummary,
+    responses=error_responses(401, 403, 404, 422),
     operation_id="getAIChannelUsageSummary",
 )
 def get_ai_channel_usage_summary(
@@ -735,6 +784,7 @@ def get_ai_channel_usage_summary(
 @router.get(
     "/ai-channels/{channel_id}/audit-logs",
     response_model=AuditLogList,
+    responses=error_responses(401, 403, 404, 422),
     operation_id="listAIChannelAuditLogs",
 )
 def list_ai_channel_audit_logs(
@@ -750,7 +800,10 @@ def list_ai_channel_audit_logs(
 
 
 @router.patch(
-    "/ai-channels/{channel_id}", response_model=AIChannelOut, operation_id="updateAIChannel"
+    "/ai-channels/{channel_id}",
+    response_model=AIChannelOut,
+    responses=error_responses(401, 403, 404, 409, 422),
+    operation_id="updateAIChannel",
 )
 def update_ai_channel(
     channel_id: uuid.UUID,
@@ -773,6 +826,7 @@ def update_ai_channel(
 @router.put(
     "/ai-channels/{channel_id}/api-key",
     response_model=AIChannelOut,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="replaceAIChannelApiKey",
 )
 def replace_ai_channel_api_key(
@@ -815,6 +869,7 @@ def set_channel_enabled(
 @router.post(
     "/ai-channels/{channel_id}/enable",
     response_model=AIChannelSummary,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="enableAIChannel",
 )
 def enable_ai_channel(
@@ -831,6 +886,7 @@ def enable_ai_channel(
 @router.post(
     "/ai-channels/{channel_id}/disable",
     response_model=AIChannelSummary,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="disableAIChannel",
 )
 def disable_ai_channel(
@@ -847,6 +903,7 @@ def disable_ai_channel(
 @router.delete(
     "/ai-channels/{channel_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="deleteAIChannel",
 )
 def delete_ai_channel(
@@ -869,6 +926,7 @@ def delete_ai_channel(
 @router.post(
     "/ai-channels/{channel_id}/discover-models",
     response_model=DiscoveredModelList,
+    responses=error_responses(401, 403, 404, 409, 422, 502, 504),
     operation_id="discoverAIChannelModels",
 )
 def discover_ai_channel_models(
@@ -910,6 +968,7 @@ def discover_ai_channel_models(
     "/ai-channels/{channel_id}/headers",
     response_model=AIChannelOut,
     status_code=status.HTTP_201_CREATED,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="createAIChannelHeader",
 )
 def create_ai_channel_header(
@@ -933,6 +992,7 @@ def create_ai_channel_header(
 @router.patch(
     "/ai-channel-headers/{header_id}",
     response_model=AIChannelOut,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="updateAIChannelHeader",
 )
 def update_ai_channel_header(
@@ -956,6 +1016,7 @@ def update_ai_channel_header(
 @router.delete(
     "/ai-channel-headers/{header_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="deleteAIChannelHeader",
 )
 def delete_ai_channel_header(
@@ -976,7 +1037,10 @@ def delete_ai_channel_header(
 
 
 @router.get(
-    "/ai-channels/{channel_id}/models", response_model=AIModelList, operation_id="listAIModels"
+    "/ai-channels/{channel_id}/models",
+    response_model=AIModelList,
+    responses=error_responses(401, 403, 404, 422),
+    operation_id="listAIModels",
 )
 def list_ai_models(channel_id: uuid.UUID, db: DbSession, _admin: AdminUser) -> AIModelList:
     channel = db.get(AIChannel, channel_id)
@@ -996,6 +1060,7 @@ def list_ai_models(channel_id: uuid.UUID, db: DbSession, _admin: AdminUser) -> A
     "/ai-channels/{channel_id}/models",
     response_model=AIModelOut,
     status_code=status.HTTP_201_CREATED,
+    responses=error_responses(401, 403, 404, 422),
     operation_id="createAIModel",
 )
 def create_ai_model(
@@ -1017,7 +1082,12 @@ def create_ai_model(
     return model_out(model, channel_enabled=bool(channel and channel.is_enabled))
 
 
-@router.patch("/ai-models/{model_id}", response_model=AIModelOut, operation_id="updateAIModel")
+@router.patch(
+    "/ai-models/{model_id}",
+    response_model=AIModelOut,
+    responses=error_responses(401, 403, 404, 409, 422),
+    operation_id="updateAIModel",
+)
 def update_ai_model(
     model_id: uuid.UUID,
     payload: AIModelUpdate,
@@ -1037,7 +1107,12 @@ def update_ai_model(
     return model_out(model, channel_enabled=bool(channel and channel.is_enabled))
 
 
-@router.post("/ai-models/{model_id}/test", response_model=AIModelOut, operation_id="testAIModel")
+@router.post(
+    "/ai-models/{model_id}/test",
+    response_model=AIModelOut,
+    responses=error_responses(401, 403, 404, 409, 422),
+    operation_id="testAIModel",
+)
 def test_ai_model(
     model_id: uuid.UUID,
     payload: RevisionRequest,
@@ -1078,7 +1153,10 @@ def set_model_enabled(
 
 
 @router.post(
-    "/ai-models/{model_id}/enable", response_model=AIModelOut, operation_id="enableAIModel"
+    "/ai-models/{model_id}/enable",
+    response_model=AIModelOut,
+    responses=error_responses(401, 403, 404, 409, 422),
+    operation_id="enableAIModel",
 )
 def enable_ai_model(
     model_id: uuid.UUID,
@@ -1092,7 +1170,10 @@ def enable_ai_model(
 
 
 @router.post(
-    "/ai-models/{model_id}/disable", response_model=AIModelOut, operation_id="disableAIModel"
+    "/ai-models/{model_id}/disable",
+    response_model=AIModelOut,
+    responses=error_responses(401, 403, 404, 409, 422),
+    operation_id="disableAIModel",
 )
 def disable_ai_model(
     model_id: uuid.UUID,
@@ -1108,6 +1189,7 @@ def disable_ai_model(
 @router.delete(
     "/ai-models/{model_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="deleteAIModel",
 )
 def delete_ai_model(

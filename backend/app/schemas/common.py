@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, HttpUrl, field_validator
 
@@ -164,6 +164,21 @@ class UserBulkStatusFailure(ContractModel):
 class UserBulkStatusResult(ContractModel):
     succeeded: list[UserOut]
     failures: list[UserBulkStatusFailure]
+
+
+class ErrorDetail(ContractModel):
+    """统一 API 错误信封中的错误字段。"""
+
+    code: str
+    message: str
+    details: dict[str, Any] = Field(..., json_schema_extra={"default": {}})
+    request_id: str
+
+
+class ErrorEnvelope(ContractModel):
+    """统一 API 错误响应的唯一 wire schema。"""
+
+    error: ErrorDetail
 
 
 class AuditActor(ContractModel):

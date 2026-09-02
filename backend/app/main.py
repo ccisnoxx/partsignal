@@ -19,6 +19,7 @@ from app.errors import (
     AppError,
     app_error_handler,
     error_response,
+    error_responses,
     integrity_error_handler,
     validation_error_handler,
 )
@@ -99,6 +100,7 @@ def live_health() -> HealthResponse:
 @app.get(
     "/api/health/ready",
     response_model=HealthResponse,
+    responses=error_responses(503),
     tags=["health"],
     operation_id="getReadyHealth",
 )

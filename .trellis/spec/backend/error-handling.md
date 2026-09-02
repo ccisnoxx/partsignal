@@ -114,3 +114,62 @@ except IntegrityError as error:
     db.rollback()
     raise AppError("PRODUCT_ALREADY_EXISTS", message, 409, details) from error
 ```
+
+## Scenario：同步运行时 OpenAPI 错误响应 metadata
+
+### 1. Scope / Trigger
+
+- 当冻结 OpenAPI 已按逐 operation 证据确定错误状态，而 FastAPI runtime document 仍缺少状态、错误 schema、media type、Header 或准确的 schema composition 时触发。
+- 这一工作只同步声明层；不得借 metadata 修改权限、校验入口、service、事务、状态转换或 error-domain mapping。
+
+### 2. Signatures
+
+- 唯一 wire model：`ErrorEnvelope(error: ErrorDetail)`。
+- `ErrorDetail` 必须要求 `code: str`、`message: str`、`details: dict[str, Any]`、`request_id: str`。
+- metadata helper：`error_responses(*status_codes: int) -> dict[int | str, dict[str, Any]]`；调用方必须显式传入本 operation 的全部状态。
+- response schema composition 遵循前述 authority 场景；本节只定义 operation metadata 的复用边界。
+
+### 3. Contracts
+
+- `error_response()` 与 runtime OpenAPI 必须复用同一个 `ErrorEnvelope` owner；不得维护第二套错误层级、code registry 或 status mapping。
+- 显式 422 metadata 必须引用项目 `ErrorEnvelope`，但 `RequestValidationError` 的产生、Pydantic 校验和 handler 实际 422 行为保持不变。
+- helper 只能复用 schema/description 等声明结构，不得按 router、method、dependency 或“常见错误”自动附加 401/403/404/409/422/5xx。
+- route 不得粘贴完整 response schema、运行时读取冻结合同做 overlay，或在 comparator 中增加 baseline、allowlist、filter。
+
+### 4. Validation & Error Matrix
+
+| 条件 | Runtime metadata | 实际 HTTP 行为 |
+|---|---|---|
+| operation 有真实 path/query/header/cookie/body 校验 | 显式声明 `422 ErrorEnvelope` | 继续由 FastAPI/Pydantic 产生 `RequestValidationError` |
+| operation 没有真实校验入口 | 不声明猜测的 422、`4XX` 或 `default` | 保持原 handler 与依赖行为 |
+| service/dependency 有已证明可逃逸的业务错误 | route 显式传入对应状态 | 继续由既有 `AppError` owner 决定 status/code |
+| 成功响应是 CSV 等非 JSON media | 精确声明 media schema 和必要 Header | 实际 `Response` bytes、media type、文件名不变 |
+| Pydantic schema 与冻结 composition 不同 | 按前述 authority 场景修订，再复用模型 owner | `model_validate()` / `model_dump()` 与 response serialization 不变 |
+
+### 5. Good / Base / Bad Cases
+
+- Good：逐 operation 对照权威矩阵调用 `error_responses(401, 403, 404, 422)`；完整 domain projection comparator 返回空列表，同时真实非法输入和错误 handler sentinel 通过。
+- Base：只需单个 503 的 readiness route 显式调用 `error_responses(503)`；无校验入口的 route 保持无 422。
+- Bad：共享 `COMMON_ERRORS` 给所有 operation 套同一状态集合；用 `HTTPValidationError` 代替项目错误信封；只过滤 `schema_drift` 让测试变绿；在 route 复制完整冻结 response schema。
+
+### 6. Tests Required
+
+- Inventory：冻结当前 Task 拥有的完整 operationId 集合和分组数量，不得只抽样代表路由。
+- Contract：分别投影冻结 document 与 `app.openapi()`，保留各自 components，调用生产 `compare_response_contracts()` 并直接断言 failures 为空。
+- Error metadata：逐 operation 断言精确 status set；有 422 时引用 `ErrorEnvelope`，无 422 时不得出现自动 `HTTPValidationError` 替代。
+- Behavior：保留 handler wire、非法输入、权限/业务错误、health 和非 JSON response 的真实 HTTP sentinel。
+- Schema authority：执行前述 composition 场景的 contract、instance、operation 与 generated 门禁。
+
+### 7. Wrong vs Correct
+
+```python
+# Wrong：helper 猜测所有 operation 都有同一错误集合
+COMMON_ERRORS = error_responses(401, 403, 404, 409, 422)
+
+@router.get("/items", responses=COMMON_ERRORS)
+def list_items() -> ItemList: ...
+
+# Correct：状态由 operation 的已审计调用链显式拥有
+@router.get("/items", responses=error_responses(401, 403))
+def list_items() -> ItemList: ...
+```

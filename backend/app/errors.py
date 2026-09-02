@@ -10,6 +10,16 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError
 
+from app.schemas.common import ErrorEnvelope
+
+
+def error_responses(*status_codes: int) -> dict[int | str, dict[str, Any]]:
+    """为调用方明确列出的状态绑定统一错误 schema，不推断额外状态。"""
+    return {
+        status_code: {"description": "业务或校验错误", "model": ErrorEnvelope}
+        for status_code in status_codes
+    }
+
 
 class AppError(Exception):
     """携带稳定错误码和 HTTP 状态的可预期业务错误。"""
@@ -30,16 +40,17 @@ class AppError(Exception):
 
 def error_response(request: Request, error: AppError) -> JSONResponse:
     """将业务错误转换为冻结契约规定的统一信封。"""
+    payload = ErrorEnvelope(
+        error={
+            "code": error.code,
+            "message": error.message,
+            "details": error.details,
+            "request_id": getattr(request.state, "request_id", "unknown"),
+        }
+    )
     return JSONResponse(
         status_code=error.status_code,
-        content={
-            "error": {
-                "code": error.code,
-                "message": error.message,
-                "details": error.details,
-                "request_id": getattr(request.state, "request_id", "unknown"),
-            }
-        },
+        content=payload.model_dump(mode="json"),
     )
 
 

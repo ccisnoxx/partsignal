@@ -20,7 +20,7 @@ from app.deps import (
     OptionalCurrentSession,
     assert_account_types,
 )
-from app.errors import AppError
+from app.errors import AppError, error_responses
 from app.models.identity import User
 from app.schemas.common import (
     AccountType,
@@ -100,7 +100,12 @@ def present_user(user: User) -> UserOut:
     )
 
 
-@router.post("/auth/login", response_model=AuthSession, operation_id="login")
+@router.post(
+    "/auth/login",
+    response_model=AuthSession,
+    responses=error_responses(401, 422),
+    operation_id="login",
+)
 def login(payload: LoginRequest, response: Response, db: DbSession) -> AuthSession:
     user, session_token, csrf_token = login_command(db, payload)
     response.set_cookie(
@@ -124,7 +129,12 @@ def login(payload: LoginRequest, response: Response, db: DbSession) -> AuthSessi
     return AuthSession(user=present_user(user), csrf_token=csrf_token)
 
 
-@router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT, operation_id="logout")
+@router.post(
+    "/auth/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses(401, 403, 422),
+    operation_id="logout",
+)
 def logout(
     response: Response,
     db: DbSession,
@@ -139,7 +149,10 @@ def logout(
 @router.get(
     "/auth/me",
     response_model=UserOut,
-    responses={status.HTTP_204_NO_CONTENT: {"description": "当前无会话"}},
+    responses={
+        **error_responses(401),
+        status.HTTP_204_NO_CONTENT: {"description": "当前无会话"},
+    },
     operation_id="getCurrentUser",
 )
 def get_current_user(current: OptionalCurrentSession) -> UserOut | Response:
@@ -149,7 +162,12 @@ def get_current_user(current: OptionalCurrentSession) -> UserOut | Response:
     return present_user(current.user)
 
 
-@router.get("/auth/csrf", response_model=CsrfToken, operation_id="getCsrfToken")
+@router.get(
+    "/auth/csrf",
+    response_model=CsrfToken,
+    responses=error_responses(401, 403),
+    operation_id="getCsrfToken",
+)
 def get_csrf_token(current: CurrentSession, request: Request) -> CsrfToken:
     """返回 Strict Cookie 中与当前会话绑定的稳定 CSRF 令牌。"""
     csrf_token = request.cookies.get(settings.csrf_cookie_name)
@@ -161,6 +179,7 @@ def get_csrf_token(current: CurrentSession, request: Request) -> CsrfToken:
 @router.post(
     "/auth/change-password",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses(401, 403, 422),
     operation_id="changePassword",
 )
 def change_password(
@@ -175,7 +194,12 @@ def change_password(
     )
 
 
-@router.get("/users", response_model=UserList, operation_id="listUsers")
+@router.get(
+    "/users",
+    response_model=UserList,
+    responses=error_responses(401, 403, 422),
+    operation_id="listUsers",
+)
 def list_users(
     db: DbSession,
     admin: AdminUser,
@@ -198,7 +222,11 @@ def list_users(
 
 
 @router.post(
-    "/users", response_model=UserOut, status_code=status.HTTP_201_CREATED, operation_id="createUser"
+    "/users",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    responses=error_responses(401, 403, 409, 422),
+    operation_id="createUser",
 )
 def create_user(
     payload: UserCreate,
@@ -216,6 +244,7 @@ def create_user(
 @router.post(
     "/users/bulk-status",
     response_model=UserBulkStatusResult,
+    responses=error_responses(401, 403, 422),
     operation_id="bulkUpdateUserStatus",
 )
 def bulk_update_user_status(
@@ -239,7 +268,23 @@ def bulk_update_user_status(
     )
 
 
-@router.get("/users/export", operation_id="exportUsers")
+@router.get(
+    "/users/export",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {"text/csv": {"schema": {"type": "string"}}},
+            "headers": {
+                "Content-Disposition": {
+                    "required": True,
+                    "schema": {"type": "string"},
+                }
+            },
+        },
+        **error_responses(401, 403, 422),
+    },
+    operation_id="exportUsers",
+)
 def export_users(
     request: Request,
     db: DbSession,
@@ -265,7 +310,12 @@ def export_users(
     )
 
 
-@router.patch("/users/{user_id}", response_model=UserOut, operation_id="updateUser")
+@router.patch(
+    "/users/{user_id}",
+    response_model=UserOut,
+    responses=error_responses(401, 403, 404, 409, 422),
+    operation_id="updateUser",
+)
 def update_user(
     user_id: uuid.UUID,
     payload: UserUpdate,
@@ -288,6 +338,7 @@ def update_user(
 @router.delete(
     "/users/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="deleteUser",
 )
 def delete_user(
@@ -311,6 +362,7 @@ def delete_user(
 @router.post(
     "/users/{user_id}/reset-password",
     response_model=UserOut,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="resetUserPassword",
 )
 def reset_user_password(
@@ -331,7 +383,12 @@ def reset_user_password(
     return present_managed_user(db, user, actor=admin)
 
 
-@router.get("/audit-logs", response_model=AuditLogList, operation_id="listAuditLogs")
+@router.get(
+    "/audit-logs",
+    response_model=AuditLogList,
+    responses=error_responses(401, 403, 422),
+    operation_id="listAuditLogs",
+)
 def list_audit_logs(
     db: DbSession,
     _admin: AdminUser,
@@ -369,6 +426,7 @@ def list_audit_logs(
 @router.get(
     "/audit-logs/filter-options",
     response_model=AuditLogFilterOptions,
+    responses=error_responses(401, 403),
     operation_id="getAuditLogFilterOptions",
 )
 def get_audit_log_filter_options(
@@ -383,6 +441,7 @@ def get_audit_log_filter_options(
     "/audit-logs/{audit_log_id}",
     response_model=AuditLogDetail,
     response_model_exclude_unset=True,
+    responses=error_responses(401, 403, 404, 409, 422),
     operation_id="getAuditLog",
 )
 def get_audit_log(

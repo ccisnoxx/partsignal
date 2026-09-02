@@ -1,0 +1,39 @@
+{
+  "id": "runtime-response-metadata-wave-1",
+  "name": "runtime-response-metadata-wave-1",
+  "title": "运行时响应元数据 Wave 1",
+  "description": "同步 foundation、configuration、identity、files 的 runtime OpenAPI response metadata，不改变实际 HTTP 行为。",
+  "status": "in_progress",
+  "dev_type": null,
+  "scope": "backend",
+  "package": null,
+  "priority": "P2",
+  "creator": "777",
+  "assignee": "777",
+  "createdAt": "2026-09-01",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "main",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "08-31-non-2xx-contract-check",
+  "relatedFiles": [
+    "backend/app/schemas/common.py",
+    "backend/app/errors.py",
+    "backend/app/main.py",
+    "backend/app/routers/configuration.py",
+    "backend/app/routers/identity.py",
+    "backend/app/routers/files.py",
+    "backend/tests/unit/test_runtime_response_metadata.py"
+  ],
+  "notes": "2026-09-01 用户授权实施期补充范围：configuration schema 仅限 JSON Schema metadata，不改变 validation、serialization 或 HTTP 行为。2026-09-02 前置 authority repair 已完成并归档；其工作提交 7be5b979 已接管并推翻旧 success-schema composition workaround。本 Task 从修正后的展平 schema authority 恢复，只继续 Response Metadata Wave 1，不再修改 schema composition owner。",
+  "meta": {
+    "resumed_after": "09-02-response-schema-composition-authority-repair",
+    "authority_repair_work_commit": "7be5b979",
+    "authority_repair_archive_commit": "7f3b789b",
+    "authority_repair_session_journal": "038801c6"
+  }
+}

@@ -398,3 +398,37 @@
 ### Status
 
 [OK] **Completed**
+
+
+## Session 195: Response Schema Composition 权威修订
+
+**Date**: 2026-09-02
+**Task**: Response Schema Composition 权威修订
+**Branch**: `main`
+
+### Summary
+
+修正 15 个不可满足的 response schema composition，更新 generated/runtime schema，并以真实实例和 37-operation comparator 完成验证。
+
+### Main Changes
+
+- 展平 15 个 closed-base allOf response component，并同步 runtime schema identity 与 generated client。
+- 新增真实 Pydantic instance 双端 Draft 2020-12 验证和 37-operation comparator 完整矩阵。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7be5b97983f34518cc3ef612b8c43401ea2a0447` | (see git log) |
+
+### Testing
+
+- [OK] Required gate：238 个 backend targeted tests、Ruff、mypy、frontend api:check/typecheck、21 个 consumer tests、Trellis validate 与 scoped diff check 均通过。
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- 恢复 09-01-runtime-response-metadata-wave-1，在已修复 authority 上继续 Phase C metadata 对齐。

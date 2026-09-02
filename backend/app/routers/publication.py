@@ -17,7 +17,7 @@ from app.deps import (
     EngineerUser,
     assert_account_types,
 )
-from app.errors import not_found
+from app.errors import error_responses, not_found
 from app.models.identity import User
 from app.models.publication import (
     PlatformAccount,
@@ -134,6 +134,7 @@ def _run_publication_command[CommandResult](
     "/content-versions/{content_version_id}/publication-package",
     response_model=PublicationPackage,
     operation_id="getPublicationPackage",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def get_publication_package(
     content_version_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -156,6 +157,7 @@ def get_publication_package(
     "/publication-ready-items",
     response_model=PublicationReadyItemList,
     operation_id="listPublicationReadyItems",
+    responses=error_responses(401, 403),
 )
 def list_publication_ready_items(db: DbSession, user: CurrentUser) -> PublicationReadyItemList:
     return list_publication_ready_items_service(
@@ -168,6 +170,7 @@ def list_publication_ready_items(db: DbSession, user: CurrentUser) -> Publicatio
     "/publication-workbench-summary",
     response_model=PublicationWorkbenchSummary,
     operation_id="getPublicationWorkbenchSummary",
+    responses=error_responses(401, 403),
 )
 def get_publication_workbench_summary(
     db: DbSession, _user: CurrentUser
@@ -176,7 +179,8 @@ def get_publication_workbench_summary(
 
 
 @router.get(
-    "/platform-accounts", response_model=PlatformAccountList, operation_id="listPlatformAccounts"
+    "/platform-accounts", response_model=PlatformAccountList, operation_id="listPlatformAccounts",
+    responses=error_responses(401, 403, 422),
 )
 def list_platform_accounts(
     db: DbSession,
@@ -201,6 +205,7 @@ def list_platform_accounts(
     response_model=PlatformAccountOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="createPlatformAccount",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def create_platform_account(
     payload: PlatformAccountCreate,
@@ -224,6 +229,7 @@ def create_platform_account(
     "/platform-accounts/{platform_account_id}",
     response_model=PlatformAccountOut,
     operation_id="updatePlatformAccount",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def update_platform_account(
     platform_account_id: uuid.UUID,
@@ -271,6 +277,7 @@ def _set_platform_account_status(
     "/platform-accounts/{platform_account_id}/enable",
     response_model=PlatformAccountOut,
     operation_id="enablePlatformAccount",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def enable_platform_account(
     platform_account_id: uuid.UUID,
@@ -294,6 +301,7 @@ def enable_platform_account(
     "/platform-accounts/{platform_account_id}/disable",
     response_model=PlatformAccountOut,
     operation_id="disablePlatformAccount",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def disable_platform_account(
     platform_account_id: uuid.UUID,
@@ -317,6 +325,7 @@ def disable_platform_account(
     "/platform-accounts/{platform_account_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     operation_id="deletePlatformAccount",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def delete_platform_account(
     platform_account_id: uuid.UUID,
@@ -341,6 +350,7 @@ def delete_platform_account(
     response_model=PublicationWorkOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="createPublicationWork",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def create_work(
     payload: PublicationWorkCreate,
@@ -364,6 +374,7 @@ def create_work(
     "/publication-works",
     response_model=PublicationWorkList,
     operation_id="listPublicationWorks",
+    responses=error_responses(401, 403, 409, 422),
 )
 def list_publication_works(
     db: DbSession,
@@ -388,6 +399,7 @@ def list_publication_works(
     "/publication-works/{work_id}",
     response_model=PublicationWorkOut,
     operation_id="getPublicationWork",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def get_publication_work(
     work_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -402,6 +414,7 @@ def get_publication_work(
     "/publication-works/{work_id}/workspace-context",
     response_model=PublicationWorkspaceContext,
     operation_id="getPublicationWorkspaceContext",
+    responses=error_responses(401, 403, 404, 409, 422),
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_publication_workspace_context(
@@ -414,6 +427,7 @@ def get_publication_workspace_context(
     "/publication-works/{work_id}/preparation",
     response_model=PublicationWorkOut,
     operation_id="updatePublicationPreparation",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def update_preparation(
     work_id: uuid.UUID,
@@ -439,6 +453,7 @@ def update_preparation(
     "/publication-works/{work_id}/platform-review",
     response_model=PublicationWorkOut,
     operation_id="markPublicationPlatformReview",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def mark_platform_review(
     work_id: uuid.UUID,
@@ -464,6 +479,7 @@ def mark_platform_review(
     "/publication-works/{work_id}/result",
     response_model=PublicationWorkOut,
     operation_id="registerPublicationResult",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def register_result(
     work_id: uuid.UUID,
@@ -489,6 +505,7 @@ def register_result(
     "/publication-works/{work_id}/content-version",
     response_model=PublicationWorkOut,
     operation_id="switchPublicationContentVersion",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def switch_content_version(
     work_id: uuid.UUID,
@@ -514,6 +531,7 @@ def switch_content_version(
     "/publication-works/{work_id}/verifications",
     response_model=PublicationWorkOut,
     operation_id="verifyPublicationWork",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def verify_work(
     work_id: uuid.UUID,
@@ -539,6 +557,7 @@ def verify_work(
     "/publication-works/{work_id}/close",
     response_model=PublicationWorkOut,
     operation_id="closePublicationWork",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def close_work(
     work_id: uuid.UUID,
@@ -564,6 +583,7 @@ def close_work(
     "/published-articles",
     response_model=PublishedArticleList,
     operation_id="listPublishedArticles",
+    responses=error_responses(401, 403, 409, 422),
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def list_published_articles(
@@ -588,6 +608,7 @@ def list_published_articles(
     "/published-articles/{article_id}",
     response_model=PublishedArticleOut,
     operation_id="getPublishedArticle",
+    responses=error_responses(401, 403, 404, 409, 422),
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_published_article(
@@ -607,6 +628,7 @@ def get_published_article(
     "/published-articles/{article_id}/permanent-deletion-preview",
     response_model=PublishedArticlePermanentDeletionPreview,
     operation_id="previewPublishedArticlePermanentDeletion",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def preview_article_permanent_deletion(
     article_id: uuid.UUID, db: DbSession, _admin: AdminUser
@@ -618,6 +640,7 @@ def preview_article_permanent_deletion(
     "/published-articles/{article_id}/permanent-delete",
     status_code=status.HTTP_204_NO_CONTENT,
     operation_id="permanentlyDeletePublishedArticle",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def permanently_delete_article(
     article_id: uuid.UUID,
@@ -641,6 +664,7 @@ def permanently_delete_article(
     response_model=PublishedContentIssueOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="openPublishedContentIssue",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def open_content_issue(
     article_id: uuid.UUID,
@@ -666,6 +690,7 @@ def open_content_issue(
     "/published-content-issues",
     response_model=PublishedContentIssueList,
     operation_id="listPublishedContentIssues",
+    responses=error_responses(401, 403, 409, 422),
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def list_published_content_issues(
@@ -687,6 +712,7 @@ def list_published_content_issues(
     "/published-content-issues/{issue_id}",
     response_model=PublishedContentIssueOut,
     operation_id="getPublishedContentIssue",
+    responses=error_responses(401, 403, 404, 409, 422),
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_published_content_issue(
@@ -702,6 +728,7 @@ def get_published_content_issue(
     "/published-content-issues/{issue_id}/workspace-context",
     response_model=PublishedContentIssueWorkspaceContext,
     operation_id="getPublishedContentIssueWorkspaceContext",
+    responses=error_responses(401, 403, 404, 409, 422),
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_published_content_issue_workspace_context(
@@ -714,6 +741,7 @@ def get_published_content_issue_workspace_context(
     "/published-content-issues/{issue_id}/repair-context",
     response_model=PublishedContentRepairContext,
     operation_id="getPublishedContentRepairContext",
+    responses=error_responses(401, 403, 404, 409, 422),
     dependencies=[Depends(_publication_read_snapshot)],
 )
 def get_repair_context(
@@ -731,6 +759,7 @@ def get_repair_context(
     response_model=ContentTaskOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="createPublishedContentRepairTask",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def create_published_content_repair_task(
     issue_id: uuid.UUID,
@@ -757,6 +786,7 @@ def create_published_content_repair_task(
     "/published-content-issues/{issue_id}/resolve",
     response_model=PublishedContentIssueOut,
     operation_id="resolvePublishedContentIssue",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def resolve_content_issue(
     issue_id: uuid.UUID,

@@ -16,7 +16,7 @@ from app.deps import (
     DbSession,
     assert_account_types,
 )
-from app.errors import AppError, not_found
+from app.errors import AppError, error_responses, not_found
 from app.models.content import ContentVersion
 from app.models.geo_files import GeoObservation
 from app.models.product_facts import FactVersion, Product
@@ -195,7 +195,8 @@ def geo_observation_list_filters(
 
 
 @router.get(
-    "/geo-observations", response_model=GeoObservationList, operation_id="listGeoObservations"
+    "/geo-observations", response_model=GeoObservationList, operation_id="listGeoObservations",
+    responses=error_responses(401, 403, 409, 422),
 )
 def list_geo_observations(
     db: DbSession,
@@ -220,6 +221,7 @@ def list_geo_observations(
     "/geo-observations/list-items",
     response_model=GeoObservationListPage,
     operation_id="listGeoObservationItems",
+    responses=error_responses(401, 403, 409, 422),
 )
 def list_geo_observation_items(
     db: DbSession,
@@ -244,6 +246,7 @@ def list_geo_observation_items(
     "/geo-observations/{observation_id}",
     response_model=GeoObservationOut,
     operation_id="getGeoObservation",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def get_geo_observation(
     observation_id: uuid.UUID, db: DbSession, user: CurrentUser
@@ -256,6 +259,7 @@ def get_geo_observation(
     "/geo-observations/{observation_id}/detail",
     response_model=GeoObservationDetail,
     operation_id="getGeoObservationDetail",
+    responses=error_responses(401, 403, 404, 409, 422),
     dependencies=[Depends(_geo_observation_read_snapshot)],
 )
 def get_geo_observation_detail(
@@ -271,6 +275,7 @@ def get_geo_observation_detail(
     "/geo-observations/{observation_id}/correction-context",
     response_model=GeoObservationCorrectionContext,
     operation_id="getGeoObservationCorrectionContext",
+    responses=error_responses(401, 403, 404, 409, 422),
     dependencies=[Depends(_geo_observation_read_snapshot)],
 )
 def get_geo_observation_correction_context(
@@ -287,6 +292,7 @@ def get_geo_observation_correction_context(
     "/geo-observations/{observation_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     operation_id="deleteGeoObservation",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def delete_geo_observation(
     observation_id: uuid.UUID,
@@ -309,6 +315,7 @@ def delete_geo_observation(
     "/geo-observation-publications",
     response_model=GeoPublicationCandidateList,
     operation_id="listGeoObservationPublications",
+    responses=error_responses(401, 403, 404, 422),
 )
 def list_geo_observation_publications(
     product_id: uuid.UUID, db: DbSession, _user: CurrentUser
@@ -324,6 +331,7 @@ def list_geo_observation_publications(
     response_model=GeoObservationOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="createGeoObservation",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def create_geo_observation(
     payload: GeoObservationCreate,
@@ -339,7 +347,12 @@ def create_geo_observation(
     return get_geo_observation_service(db, observation.id, actor=analyst)
 
 
-@router.get("/geo-metrics", response_model=GeoMetrics, operation_id="getGeoMetrics")
+@router.get(
+    "/geo-metrics",
+    response_model=GeoMetrics,
+    operation_id="getGeoMetrics",
+    responses=error_responses(401, 403, 422),
+)
 def get_geo_metrics(
     db: DbSession,
     user: CurrentUser,
@@ -353,6 +366,7 @@ def get_geo_metrics(
     "/geo-insights",
     response_model=GeoInsights,
     operation_id="getGeoInsights",
+    responses=error_responses(401, 403, 404, 409, 422),
     dependencies=[Depends(_geo_observation_read_snapshot)],
 )
 def get_geo_insights(
@@ -369,6 +383,7 @@ def get_geo_insights(
     response_model=ContentTaskOut,
     status_code=status.HTTP_201_CREATED,
     operation_id="createGeoOptimizationContentTask",
+    responses=error_responses(401, 403, 404, 409, 422),
 )
 def create_geo_optimization_task(
     payload: GeoOptimizationContentTaskCreate,
@@ -392,7 +407,8 @@ def create_geo_optimization_task(
 
 
 @router.get(
-    "/dashboard/summary", response_model=DashboardSummary, operation_id="getDashboardSummary"
+    "/dashboard/summary", response_model=DashboardSummary, operation_id="getDashboardSummary",
+    responses=error_responses(401, 403),
 )
 def get_dashboard_summary(db: DbSession, _user: CurrentUser) -> DashboardSummary:
     since = datetime.now(UTC) - timedelta(days=30)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.deps import CurrentUser, DbSession
+from app.errors import error_responses
 from app.schemas.workbench import WorkbenchAggregate
 from app.services.workbench import get_workbench_aggregate
 
@@ -20,6 +21,7 @@ def _workbench_read_snapshot(db: DbSession) -> None:
     "/workbench",
     response_model=WorkbenchAggregate,
     operation_id="getWorkbench",
+    responses=error_responses(401, 403, 409),
     dependencies=[Depends(_workbench_read_snapshot)],
 )
 def get_workbench(db: DbSession, _user: CurrentUser) -> WorkbenchAggregate:

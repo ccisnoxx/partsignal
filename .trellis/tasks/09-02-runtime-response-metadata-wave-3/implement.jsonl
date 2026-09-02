@@ -1,0 +1,10 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"复用唯一 ErrorEnvelope、AppError handler 与只绑定调用方显式 status 的 error_responses helper。"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"保持 publication/GEO/workbench 的权限、状态转换、快照读取与服务端 read-model authority。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"确定 metadata、HTTP sentinel、PostgreSQL integration 与失败归因的验证边界。"}
+{"file":".trellis/spec/guides/code-reuse-thinking-guide.md","reason":"禁止第二套 schema/helper、route-local overlay 与重复 status authority。"}
+{"file":".trellis/spec/guides/cross-layer-thinking-guide.md","reason":"检查 runtime metadata、冻结合同、generated client 与 Phase X/F 的跨层依赖顺序。"}
+{"file":".trellis/tasks/09-02-runtime-response-metadata-wave-3/research/wave-3-operation-ownership.md","reason":"实施 43 个 operation 的逐 route status/success/422/owner 精确清单。"}
+{"file":".trellis/tasks/09-02-runtime-response-metadata-wave-3/research/baseline-touch-set.md","reason":"保护 545 项既有脏状态并限制实施及提交 scope。"}
+{"file":".trellis/tasks/archive/2026-09/09-01-frozen-contract-authority-reconciliation/research/final-response-authority-matrix.jsonl","reason":"Phase B 逐 operation status 与 Phase X 分界的最终 authority。"}
+{"file":".trellis/tasks/archive/2026-09/09-01-runtime-response-metadata-wave-1/research/wave-1-operation-ownership.md","reason":"复用 ErrorEnvelope/helper/test-only projection，并回归 61 个 operation。"}
+{"file":".trellis/tasks/archive/2026-09/09-02-runtime-response-metadata-wave-2/research/wave-2-operation-ownership.md","reason":"复用逐 decorator/status 测试模式，并回归 58 个 operation。"}

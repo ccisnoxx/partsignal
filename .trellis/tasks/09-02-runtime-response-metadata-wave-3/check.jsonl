@@ -1,0 +1,7 @@
+{"file":".trellis/spec/backend/error-handling.md","reason":"Review ErrorEnvelope 唯一性、422 handler wire 与无默认 status 推断。"}
+{"file":".trellis/spec/backend/publication-workbench-guidelines.md","reason":"Review publication/GEO/workbench 的行为 owner 未被 metadata 改动。"}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Review required validation、HTTP/integration sentinels 与失败停止条件。"}
+{"file":".trellis/tasks/09-02-runtime-response-metadata-wave-3/research/wave-3-operation-ownership.md","reason":"逐项复核 43 行 inventory、status、422、success 与特殊 owner。"}
+{"file":".trellis/tasks/09-02-runtime-response-metadata-wave-3/research/baseline-touch-set.md","reason":"复核 diff、index 与既有脏文件保持边界。"}
+{"file":".trellis/tasks/archive/2026-09/09-01-frozen-contract-authority-reconciliation/research/final-response-authority-matrix.jsonl","reason":"独立验证每个 status 与 Phase X release 字段均回指最终 authority。"}
+{"file":".trellis/tasks/archive/2026-09/09-02-runtime-response-metadata-wave-2/research/validation-results.md","reason":"复核上一波的三波回归模式、全局 report 记录方式和 review 停止条件。"}

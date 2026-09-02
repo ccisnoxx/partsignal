@@ -1,4 +1,4 @@
-"""Wave 1/2 路由运行时 response metadata 与冻结合同的逐操作校验。"""
+"""Wave 1/2/3 路由运行时 response metadata 与冻结合同的逐操作校验。"""
 
 from __future__ import annotations
 
@@ -334,6 +334,162 @@ WAVE_2_EXPECTED_STATUSES = {
     "compareContentVersions": {"200", "401", "403", "404", "422"},
 }
 
+WAVE_3_OPERATION_IDS = (
+    "getPublicationPackage",
+    "listPublicationReadyItems",
+    "getPublicationWorkbenchSummary",
+    "listPlatformAccounts",
+    "createPlatformAccount",
+    "updatePlatformAccount",
+    "enablePlatformAccount",
+    "disablePlatformAccount",
+    "deletePlatformAccount",
+    "createPublicationWork",
+    "listPublicationWorks",
+    "getPublicationWork",
+    "getPublicationWorkspaceContext",
+    "updatePublicationPreparation",
+    "markPublicationPlatformReview",
+    "registerPublicationResult",
+    "switchPublicationContentVersion",
+    "verifyPublicationWork",
+    "closePublicationWork",
+    "listPublishedArticles",
+    "getPublishedArticle",
+    "previewPublishedArticlePermanentDeletion",
+    "permanentlyDeletePublishedArticle",
+    "openPublishedContentIssue",
+    "listPublishedContentIssues",
+    "getPublishedContentIssue",
+    "getPublishedContentIssueWorkspaceContext",
+    "getPublishedContentRepairContext",
+    "createPublishedContentRepairTask",
+    "resolvePublishedContentIssue",
+    "listGeoObservations",
+    "listGeoObservationItems",
+    "getGeoObservation",
+    "getGeoObservationDetail",
+    "getGeoObservationCorrectionContext",
+    "deleteGeoObservation",
+    "listGeoObservationPublications",
+    "createGeoObservation",
+    "getGeoMetrics",
+    "getGeoInsights",
+    "createGeoOptimizationContentTask",
+    "getDashboardSummary",
+    "getWorkbench",
+)
+
+WAVE_3_GROUPS = {
+    "publication": {
+        "getPublicationPackage",
+        "listPublicationReadyItems",
+        "getPublicationWorkbenchSummary",
+        "listPlatformAccounts",
+        "createPlatformAccount",
+        "updatePlatformAccount",
+        "enablePlatformAccount",
+        "disablePlatformAccount",
+        "deletePlatformAccount",
+        "createPublicationWork",
+        "listPublicationWorks",
+        "getPublicationWork",
+        "getPublicationWorkspaceContext",
+        "updatePublicationPreparation",
+        "markPublicationPlatformReview",
+        "registerPublicationResult",
+        "switchPublicationContentVersion",
+        "verifyPublicationWork",
+        "closePublicationWork",
+        "listPublishedArticles",
+        "getPublishedArticle",
+        "previewPublishedArticlePermanentDeletion",
+        "permanentlyDeletePublishedArticle",
+        "openPublishedContentIssue",
+        "listPublishedContentIssues",
+        "getPublishedContentIssue",
+        "getPublishedContentIssueWorkspaceContext",
+        "getPublishedContentRepairContext",
+        "createPublishedContentRepairTask",
+        "resolvePublishedContentIssue",
+    },
+    "observation": {
+        "listGeoObservations",
+        "listGeoObservationItems",
+        "getGeoObservation",
+        "getGeoObservationDetail",
+        "getGeoObservationCorrectionContext",
+        "deleteGeoObservation",
+        "listGeoObservationPublications",
+        "createGeoObservation",
+        "getGeoMetrics",
+        "getGeoInsights",
+        "createGeoOptimizationContentTask",
+        "getDashboardSummary",
+    },
+    "workbench": {"getWorkbench"},
+}
+
+WAVE_3_EXPECTED_STATUSES = {
+    "getPublicationPackage": {"200", "401", "403", "404", "409", "422"},
+    "listPublicationReadyItems": {"200", "401", "403"},
+    "getPublicationWorkbenchSummary": {"200", "401", "403"},
+    "listPlatformAccounts": {"200", "401", "403", "422"},
+    "createPlatformAccount": {"201", "401", "403", "404", "409", "422"},
+    "updatePlatformAccount": {"200", "401", "403", "404", "409", "422"},
+    "enablePlatformAccount": {"200", "401", "403", "404", "409", "422"},
+    "disablePlatformAccount": {"200", "401", "403", "404", "409", "422"},
+    "deletePlatformAccount": {"204", "401", "403", "404", "409", "422"},
+    "createPublicationWork": {"201", "401", "403", "404", "409", "422"},
+    "listPublicationWorks": {"200", "401", "403", "409", "422"},
+    "getPublicationWork": {"200", "401", "403", "404", "409", "422"},
+    "getPublicationWorkspaceContext": {"200", "401", "403", "404", "409", "422"},
+    "updatePublicationPreparation": {"200", "401", "403", "404", "409", "422"},
+    "markPublicationPlatformReview": {"200", "401", "403", "404", "409", "422"},
+    "registerPublicationResult": {"200", "401", "403", "404", "409", "422"},
+    "switchPublicationContentVersion": {"200", "401", "403", "404", "409", "422"},
+    "verifyPublicationWork": {"200", "401", "403", "404", "409", "422"},
+    "closePublicationWork": {"200", "401", "403", "404", "409", "422"},
+    "listPublishedArticles": {"200", "401", "403", "409", "422"},
+    "getPublishedArticle": {"200", "401", "403", "404", "409", "422"},
+    "previewPublishedArticlePermanentDeletion": {
+        "200",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+    },
+    "permanentlyDeletePublishedArticle": {"204", "401", "403", "404", "409", "422"},
+    "openPublishedContentIssue": {"201", "401", "403", "404", "409", "422"},
+    "listPublishedContentIssues": {"200", "401", "403", "409", "422"},
+    "getPublishedContentIssue": {"200", "401", "403", "404", "409", "422"},
+    "getPublishedContentIssueWorkspaceContext": {
+        "200",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+    },
+    "getPublishedContentRepairContext": {"200", "401", "403", "404", "409", "422"},
+    "createPublishedContentRepairTask": {"201", "401", "403", "404", "409", "422"},
+    "resolvePublishedContentIssue": {"200", "401", "403", "404", "409", "422"},
+    "listGeoObservations": {"200", "401", "403", "409", "422"},
+    "listGeoObservationItems": {"200", "401", "403", "409", "422"},
+    "getGeoObservation": {"200", "401", "403", "404", "409", "422"},
+    "getGeoObservationDetail": {"200", "401", "403", "404", "409", "422"},
+    "getGeoObservationCorrectionContext": {"200", "401", "403", "404", "409", "422"},
+    "deleteGeoObservation": {"204", "401", "403", "404", "409", "422"},
+    "listGeoObservationPublications": {"200", "401", "403", "404", "422"},
+    "createGeoObservation": {"201", "401", "403", "404", "409", "422"},
+    "getGeoMetrics": {"200", "401", "403", "422"},
+    "getGeoInsights": {"200", "401", "403", "404", "409", "422"},
+    "createGeoOptimizationContentTask": {"201", "401", "403", "404", "409", "422"},
+    "getDashboardSummary": {"200", "401", "403"},
+    "getWorkbench": {"200", "401", "403", "409"},
+}
+
 GEO_SUCCESS_OPERATION_IDS = (
     "listGeoObservations",
     "createGeoObservation",
@@ -433,6 +589,107 @@ def test_wave_2_inventory_is_complete(
     assert set(WAVE_2_EXPECTED_STATUSES) == set(WAVE_2_OPERATION_IDS)
     assert set(WAVE_2_OPERATION_IDS) <= set(contract)
     assert set(WAVE_2_OPERATION_IDS) <= set(runtime)
+
+
+def test_wave_3_inventory_is_complete_and_disjoint(
+    wave_operations: tuple[dict[str, Any], dict[str, Any]]
+) -> None:
+    contract, runtime = wave_operations
+    assert len(WAVE_3_OPERATION_IDS) == 43
+    assert len(set(WAVE_3_OPERATION_IDS)) == 43
+    assert {name: len(ids) for name, ids in WAVE_3_GROUPS.items()} == {
+        "publication": 30,
+        "observation": 12,
+        "workbench": 1,
+    }
+    assert set().union(*WAVE_3_GROUPS.values()) == set(WAVE_3_OPERATION_IDS)
+    assert set(WAVE_3_EXPECTED_STATUSES) == set(WAVE_3_OPERATION_IDS)
+    all_wave_ids = (
+        set(WAVE_1_OPERATION_IDS) | set(WAVE_2_OPERATION_IDS) | set(WAVE_3_OPERATION_IDS)
+    )
+    assert len(all_wave_ids) == 162
+    assert not set(WAVE_1_OPERATION_IDS) & set(WAVE_2_OPERATION_IDS)
+    assert not set(WAVE_1_OPERATION_IDS) & set(WAVE_3_OPERATION_IDS)
+    assert not set(WAVE_2_OPERATION_IDS) & set(WAVE_3_OPERATION_IDS)
+    assert set(WAVE_3_OPERATION_IDS) <= set(contract)
+    assert set(WAVE_3_OPERATION_IDS) <= set(runtime)
+
+
+@pytest.mark.parametrize("operation_id", WAVE_3_OPERATION_IDS)
+def test_each_wave_3_operation_has_explicit_expected_response_statuses(
+    operation_id: str, wave_operations: tuple[dict[str, Any], dict[str, Any]]
+) -> None:
+    contract, runtime = wave_operations
+    expected = WAVE_3_EXPECTED_STATUSES[operation_id]
+    assert set(contract[operation_id]["responses"]) == expected
+    assert set(runtime[operation_id]["responses"]) == expected
+
+
+def test_wave_3_response_comparator_has_no_differences() -> None:
+    failures = compare_response_contracts(
+        _wave_projection(_contract_document(), WAVE_3_OPERATION_IDS),
+        _wave_projection(app.openapi(), WAVE_3_OPERATION_IDS),
+    )
+    assert failures == []
+
+
+@pytest.mark.parametrize("operation_id", WAVE_3_OPERATION_IDS)
+def test_wave_3_error_responses_use_project_error_envelope(
+    operation_id: str, wave_operations: tuple[dict[str, Any], dict[str, Any]]
+) -> None:
+    _, runtime = wave_operations
+    expected_statuses = WAVE_3_EXPECTED_STATUSES[operation_id]
+    responses = runtime[operation_id]["responses"]
+    error_statuses = expected_statuses - {"200", "201", "202", "204"}
+    for status_code in error_statuses:
+        assert responses[status_code]["content"]["application/json"]["schema"] == {
+            "$ref": "#/components/schemas/ErrorEnvelope"
+        }
+    assert not {code for code in responses if code.startswith("5")}
+    assert "4XX" not in responses
+    assert "default" not in responses
+    if "422" not in expected_statuses:
+        assert "422" not in responses
+
+
+def test_wave_3_success_occurrences_and_response_boundaries(
+    wave_operations: tuple[dict[str, Any], dict[str, Any]]
+) -> None:
+    _, runtime = wave_operations
+    assert {
+        operation_id
+        for operation_id in WAVE_3_OPERATION_IDS
+        if "422" not in WAVE_3_EXPECTED_STATUSES[operation_id]
+    } == {
+        "listPublicationReadyItems",
+        "getPublicationWorkbenchSummary",
+        "getDashboardSummary",
+        "getWorkbench",
+    }
+    success_occurrences = {
+        status_code: sum(
+            status_code in WAVE_3_EXPECTED_STATUSES[operation_id]
+            for operation_id in WAVE_3_OPERATION_IDS
+        )
+        for status_code in ("200", "201", "204")
+    }
+    assert success_occurrences == {"200": 34, "201": 6, "204": 3}
+    error_occurrences = {
+        status_code: sum(
+            status_code in WAVE_3_EXPECTED_STATUSES[operation_id]
+            for operation_id in WAVE_3_OPERATION_IDS
+        )
+        for status_code in ("401", "403", "404", "409", "422")
+    }
+    assert error_occurrences == {"401": 43, "403": 43, "404": 32, "409": 37, "422": 39}
+    for operation_id in WAVE_3_OPERATION_IDS:
+        responses = runtime[operation_id]["responses"]
+        assert all("headers" not in response for response in responses.values())
+        for status_code in ("200", "201"):
+            if status_code in responses:
+                assert set(responses[status_code]["content"]) == {"application/json"}
+        if "204" in responses:
+            assert "content" not in responses["204"]
 
 
 @pytest.mark.parametrize("operation_id", WAVE_1_OPERATION_IDS)
